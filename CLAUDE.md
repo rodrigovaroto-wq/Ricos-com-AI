@@ -13,18 +13,23 @@
 
 ## Stack
 
-[A PREENCHER: linguagens, frameworks e gerenciador de pacotes — ex. "TypeScript · Next.js + React · pnpm"]
+Next.js (App Router) · React · TypeScript `strict` · Tailwind · SQLite · Drizzle ORM com migrações · Node.js 24 LTS · pnpm · Playwright (CDP) · SDK oficial da OpenAI.
+
+Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada. Roda como app Node.js local — SQLite não vai para serverless com disco efêmero.
 
 ## Canonical commands
 
 Always use the exact commands here — don't guess.
 
-- **Install:** `[A PREENCHER]`
-- **Lint:** `[A PREENCHER]`
-- **Typecheck:** `[A PREENCHER]`
-- **Test:** `[A PREENCHER]`
-- **Build:** `[A PREENCHER]`
-- **Run/Dev:** `[A PREENCHER]`
+- **Install:** `pnpm install`
+- **Lint:** `pnpm lint`
+- **Typecheck:** `pnpm typecheck`
+- **Test:** `pnpm test`
+- **Build:** `pnpm build`
+- **Run/Dev:** `pnpm dev`
+
+> Os scripts acima ainda não existem no `package.json` — o projeto não foi
+> gerado. Ao criar o `package.json`, use exatamente estes nomes.
 
 ## Specialist agent routing table
 
@@ -43,10 +48,33 @@ When work is delegable, dispatch the specialist that matches the task instead of
 
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
 
+## Memória entre sessões
+
+@.claude/memory/INSTRUCTIONS.md
+
+Leia o índice [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md) antes de
+começar qualquer trabalho.
+
 ## Guia de execução do produto
 
 O que este repositório constrói está descrito em [`docs/PROMPT.md`](docs/PROMPT.md) — o prompt único que gera o sistema comercial autônomo. O bloco `CONFIGURAÇÃO` no topo dele ainda tem `{{PLACEHOLDERS}}` a preencher.
 
 ## Conventions
 
-[A PREENCHER: estilo de import, convenções de teste, regras de formatação/lint, padrões de tratamento de erro, etc.]
+**Idioma.** Interface em PT-BR: menus, botões, títulos, formulários, validações,
+alertas, notificações, estados vazios, status, datas, números, textos de
+acessibilidade e mensagens de erro do operador. Código em inglês: diretórios,
+arquivos, variáveis, funções, componentes, hooks, tipos, tabelas, colunas, status
+internos, rotas, payloads, logs, testes, comentários, documentação técnica e
+commits. Doc de dev em inglês; manual do operador em português.
+
+**Configuração de negócio.** Nenhum valor real de negócio fica espalhado pelo
+código — tudo vem de `config/business.json`, espelhado por
+`config/business.example.json` com `{{PLACEHOLDERS}}`.
+
+**Segredos.** Nunca commitar `.env`, `config/business.json`, `.chrome-profile/`
+ou qualquer banco local. Já cobertos pelo `.gitignore`.
+
+As demais convenções (estrutura de pastas, camadas, tratamento de erro, testes)
+estão detalhadas nas seções *Arquitetura de software*, *Clean Code*, *Segurança e
+confiabilidade* e *Testes* de [`docs/PROMPT.md`](docs/PROMPT.md).
