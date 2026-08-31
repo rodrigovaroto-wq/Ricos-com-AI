@@ -1,0 +1,42 @@
+# Dependências
+node_modules/
+.pnp/
+.pnp.js
+
+# Build
+dist/
+build/
+.next/
+out/
+
+# Ambiente — nunca commitar segredos
+.env
+.env.*
+!.env.example
+
+# Sessão de navegador (cookies do Instagram)
+.chrome-profile/
+
+# Banco local
+*.db
+*.sqlite
+*.sqlite3
+
+# Logs e artefatos de teste
+*.log
+npm-debug.log*
+coverage/
+playwright-report/
+test-results/
+
+# Configuração local de negócio (o .example é versionado)
+config/business.json
+
+# Claude Code — settings local do desenvolvedor
+.claude/settings.local.json
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
