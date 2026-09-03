@@ -459,6 +459,33 @@ ponto de partida, não palavra final".
 
 ### 6. Separar o script rápido do script consciente de tipo
 
+Seguindo o passo 4, as regras conscientes de tipo ficam no
+`eslint.config.js` principal e um script basta:
+
+```json
+{
+  "scripts": {
+    "lint": "eslint ."
+  }
+}
+```
+
+O custo é que todo `npm run lint` paga o preço da análise de tipo. Pra
+separar, crie um segundo arquivo — o tutorial não cria esse arquivo por
+você — estendendo o principal:
+
+```js
+// eslint.type-aware.config.js
+import base from "./eslint.config.js";
+
+export default [
+  ...base,
+  // aqui entram as regras que precisam de informação de tipo
+];
+```
+
+E aí, sim, dois scripts:
+
 ```json
 {
   "scripts": {
@@ -468,9 +495,7 @@ ponto de partida, não palavra final".
 }
 ```
 
-Se você colocou as regras conscientes de tipo direto no `eslint.config.js`
-principal (passo 4), pode manter só um script — mas aí todo
-`npm run lint` paga o custo pesado. Pra times que sentem esse custo, o
+Se você preferiu manter tudo num arquivo só, Pra times que sentem esse custo, o
 padrão mais comum é separar num segundo arquivo de configuração
 (`eslint.type-aware.config.js`, estendendo o principal) e só rodar
 `lint:types` na CI ou por comando manual. Veja "Lint consciente de tipos,

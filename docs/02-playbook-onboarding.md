@@ -253,13 +253,14 @@ sessão do Claude Code, não num terminal separado. Depois do
 `/aia-harness:init`, use o resto deste playbook pra entender o que foi
 gerado e por quê, em vez de montar cada arquivo do zero.
 
-### 1. Copie e preencha o `CLAUDE.md`
+### 1. Escreva o `CLAUDE.md`
 
-```bash
-cp templates/CLAUDE.md.template CLAUDE.md
-```
+Não existe arquivo de template para copiar: o modelo é o
+[`CLAUDE.md`](../CLAUDE.md) da raiz deste repositório, já preenchido para o
+ricos-com-ai. Use-o como referência de estrutura e substitua o conteúdo pelo
+do seu projeto.
 
-Abra o arquivo e substitua cada placeholder — `[PROJECT NAME]`, a seção de
+Substitua cada valor — `[PROJECT NAME]`, a seção de
 Stack, os seis comandos canônicos (install, lint, typecheck, test, build,
 run/dev) e a seção de Conventions — pelo que é real no seu projeto. As
 "Behavioral guidelines" no topo (pensar antes de codar, simplicidade
@@ -302,7 +303,7 @@ subagentes](tools/02-subagent-orchestration.md).
 
 ```bash
 mkdir -p .claude
-cp templates/settings.json.example .claude/settings.json
+cp .claude/settings.json.example .claude/settings.json
 ```
 
 O exemplo já vem com dois **hooks** — scripts que rodam automaticamente em
@@ -321,7 +322,7 @@ rodar, o padrão que este toolkit chama de RTK — a explicação completa,
 incluindo o leitor de stdin JSON que evita o bug clássico do
 `JSON.parse("null")`, está em [Token proxy
 pattern](tools/03-rtk-token-proxy.md), com o helper pronto pra copiar em
-[`templates/hooks/hook-io.mjs.example`](../templates/hooks/hook-io.mjs.example).
+[`.claude/hooks/hook-io.mjs`](../.claude/hooks/hook-io.mjs).
 
 Nunca hardcode uma chave de API dentro do `settings.json` — use a
 substituição de variável de ambiente (`${EXEMPLO_API_KEY}`) e mantenha o
@@ -334,7 +335,7 @@ Se você pretende usar o padrão de execução em ondas paralelas da Parte
 ficar arriscado — copie também a regra pronta pro seu diretório de regras:
 
 ```bash
-cp templates/rules/parallel-subagent-driven-development.md .claude/rules/
+# as regras já vivem em .claude/rules/ — nada a copiar
 ```
 
 E referencie esse arquivo a partir do seu `CLAUDE.md` (uma linha basta,
@@ -740,7 +741,7 @@ de fechar) realmente acontece em vez de ser pulado sob pressão de tempo.
 
 **Funciona com Codex também?**
 Boa parte sim. Os prompts em `docs/prompts/` e as regras em
-`templates/rules/` não dependem de ferramenta nenhuma — funcionam com
+`.claude/rules/` não dependem de ferramenta nenhuma — funcionam com
 qualquer agente que leia um arquivo de instruções e execute comandos,
 Codex incluso. O que não porta direto são os plugins, hooks e skills
 específicos do Claude Code (Superpowers, Ponytail, Caveman, os hooks da

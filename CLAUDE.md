@@ -9,7 +9,7 @@
 2. **Simplicity first** — minimum code that solves the problem. No speculative features, no abstractions for single-use code, no unrequested configurability, no error handling for impossible scenarios.
 3. **Surgical changes** — touch only what the request requires. Match existing style. Don't refactor, reformat, or "improve" adjacent code that wasn't part of the request.
 4. **Goal-driven execution** — turn tasks into verifiable goals (e.g. "fix the bug" becomes "write a test that reproduces it, then make it pass"). For multi-step work, state a brief plan with a verify check per step, then loop until every step is verified.
-5. **Orchestrator, not implementer** — the main session plans, decides, and coordinates; it does not implement. Delegable implementation and analysis goes to a specialist subagent, dispatched in parallel when task scopes don't conflict.
+5. **Orchestrator when there is someone to orchestrate** — when the specialists in the routing table below are actually installed, the main session plans, decides and coordinates instead of implementing, dispatching them in parallel when task scopes don't conflict. While they are not installed, the main session implements directly: there is nowhere to delegate to, and refusing to implement would stop the work entirely.
 
 ## Stack
 
@@ -31,9 +31,18 @@ Always use the exact commands here — don't guess.
 > Os scripts acima ainda não existem no `package.json` — o projeto não foi
 > gerado. Ao criar o `package.json`, use exatamente estes nomes.
 
+> Os tutoriais em `docs/tools/` citam `npm` porque reproduzem a documentação de
+> cada ferramenta. Neste projeto, o gerenciador é `pnpm` — as linhas acima são
+> as que valem.
+
 ## Specialist agent routing table
 
-When work is delegable, dispatch the specialist that matches the task instead of a generic agent.
+> **Estes agentes ainda não existem neste repositório.** Não há `.claude/agents/`
+> nem plugin declarado que os forneça. A tabela é o destino pretendido: enquanto
+> ela não for satisfeita, a sessão principal implementa direto, e nada aqui
+> autoriza despachar um agente que não está instalado.
+
+Once they exist, dispatch the specialist that matches the task instead of a generic agent.
 
 | Agent | When to use |
 |---|---|

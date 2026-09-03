@@ -30,7 +30,7 @@ mensagem enviada pelo usuário), `Stop` (quando o agente conclui e a sessão
 vai parar), entre outros. Cada entrada associa um **matcher** (um filtro —
 por exemplo, "só dispare para a ferramenta Bash") a um comando a ser
 executado. Veja
-[`templates/settings.json.example`](../../templates/settings.json.example)
+[`.claude/settings.json.example`](../../.claude/settings.json.example)
 para um exemplo concreto dessa configuração.
 
 ## Por que usar
@@ -153,7 +153,7 @@ if (evento === null) {
 // ...segue o hook — `evento` aqui é garantidamente um objeto de verdade
 ```
 
-Veja [`templates/hooks/hook-io.mjs.example`](../../templates/hooks/hook-io.mjs.example)
+Veja [`.claude/hooks/hook-io.mjs`](../../.claude/hooks/hook-io.mjs)
 para uma versão pronta pra copiar dessas duas funções.
 
 ### Dívida de migração é real — documente, não presuma
@@ -200,7 +200,7 @@ import { readStdinRaw, parseHookEvent } from "./hook-io.mjs";
 ```
 
 Se você ainda não tem esse arquivo, copie
-[`templates/hooks/hook-io.mjs.example`](../../templates/hooks/hook-io.mjs.example)
+[`.claude/hooks/hook-io.mjs`](../../.claude/hooks/hook-io.mjs)
 para `.claude/hooks/hook-io.mjs` — é o par de funções da seção anterior,
 prontas pra usar.
 
@@ -342,10 +342,19 @@ try {
                     // pra travar a sessão, só significa "sem modo ativo agora"
 }
 
-console.log(JSON.stringify({
-  hookSpecificOutput: { additionalContext: `Modo ativo: ${estado.nome}` },
-}));
-process.exit(0);
+// hookEventName é obrigatório dentro de hookSpecificOutput: sem ele o
+// additionalContext é descartado em silêncio e o hook não reforça nada.
+// E process.exit logo depois de console.log pode truncar stdout quando ele
+// está num pipe — por isso a saída só termina depois do flush.
+process.stdout.write(
+  JSON.stringify({
+    hookSpecificOutput: {
+      hookEventName: "UserPromptSubmit",
+      additionalContext: `Modo ativo: ${estado.nome}`,
+    },
+  }) + "\n",
+  () => process.exit(0),
+);
 ```
 
 Se o arquivo de estado não existir ou vier corrompido, o hook simplesmente

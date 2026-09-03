@@ -19,7 +19,11 @@ export function parseHookEvent(raw) {
   } catch {
     return null;
   }
-  if (parsed === null) {
+  // JSON.parse aceita null, números, strings, booleanos e arrays. O contrato
+  // desta função é devolver um objeto de evento ou null — quem chama testa
+  // `=== null` e depois acessa campos, então qualquer outro tipo passaria pelo
+  // teste e quebraria adiante.
+  if (parsed === null || typeof parsed !== "object" || Array.isArray(parsed)) {
     return null;
   }
   return parsed;
