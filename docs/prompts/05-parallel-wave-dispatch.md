@@ -10,7 +10,7 @@ vez de um agente único mastigando tarefa por tarefa em série. É a versão
 "preencha os espaços" do mesmo padrão descrito em [orquestração de
 subagentes](../tools/02-subagent-orchestration.md) e no [template de
 regra de dispatch
-paralelo](../../templates/rules/parallel-subagent-driven-development.md).
+paralelo](../../.claude/rules/parallel-subagent-driven-development.md).
 
 ## Por que funciona
 

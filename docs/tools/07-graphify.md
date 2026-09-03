@@ -214,7 +214,10 @@ Escreva o arquivo do hook sem extensão, usando só `import()` dinâmico (nunca 
 // .git/hooks/post-commit e .git/hooks/post-checkout — o mesmo arquivo.
 (async () => {
   const { existsSync } = await import("node:fs");
-  const { execFile } = await import("node:child_process");
+  // spawn, não execFile: execFile ignora `detached`/`stdio` e mantém os pipes
+  // referenciados, então o processo pai espera o filho terminar mesmo com
+  // unref(). Com execFile o commit trava o tempo inteiro do `graphify update`.
+  const { spawn } = await import("node:child_process");
 
   // Pula enquanto um rebase/merge/cherry-pick estiver em andamento.
   const midOperation = [
@@ -225,7 +228,7 @@ Escreva o arquivo do hook sem extensão, usando só `import()` dinâmico (nunca 
   ].some(existsSync);
   if (midOperation) process.exit(0);
 
-  const child = execFile("graphify", ["update", "."], {
+  const child = spawn("graphify", ["update", "."], {
     detached: true,
     stdio: "ignore",
   });
@@ -245,10 +248,11 @@ Um padrão complementar aos hooks de git acima, mas independente deles: um hook 
 // Hook PreToolUse — só consultivo (advisory), nunca bloqueia.
 (async () => {
   const fs = await import("node:fs");
-  const { execFile } = await import("node:child_process");
+  const { spawn } = await import("node:child_process"); // ver nota sobre execFile acima
 
-  const GRAPH = "graphify-out/graph.json";
-  const LOCK = "graphify-out/.building";
+  const OUT = "graphify-out";
+  const GRAPH = `${OUT}/graph.json`;
+  const LOCK = `${OUT}/.building`;
 
   if (fs.existsSync(GRAPH)) {
     console.error(
@@ -258,13 +262,19 @@ Um padrão complementar aos hooks de git acima, mas independente deles: um hook 
     process.exit(0);
   }
 
+  // A pasta pai precisa existir antes: na primeira execução ela não existe, e
+  // sem isso o mkdirSync abaixo estoura ENOENT — que o catch leria como "outra
+  // build já reservou", e a extração nunca aconteceria.
+  fs.mkdirSync(OUT, { recursive: true });
+
   try {
     fs.mkdirSync(LOCK); // atômico: uma segunda chamada concorrente falha aqui
-  } catch {
+  } catch (erro) {
+    if (erro.code !== "EEXIST") process.exit(0); // falha real — sai em silêncio
     process.exit(0); // outra chamada já reservou a build
   }
 
-  execFile("graphify", ["extract", "."], { detached: true, stdio: "ignore" }).unref();
+  spawn("graphify", ["extract", "."], { detached: true, stdio: "ignore" }).unref();
   process.exit(0);
 })();
 ```

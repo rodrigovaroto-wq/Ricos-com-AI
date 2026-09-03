@@ -187,7 +187,7 @@ Cinco problemas de uma vez, todos coisas que uma edição manual direto no arqui
 
 Uma regra escrita — "sempre use as ferramentas MCP" — é fácil de esquecer no meio de uma sessão, sob pressão de contexto. Em vez de confiar só na convenção, reforce mecanicamente com um hook: um `PreToolUse` (roda antes de a ferramenta ser executada) que nega qualquer chamada direta de `Read`, `Grep`, `Glob`, `Write` ou `Edit` cujo caminho toque a pasta do cofre. Uma exceção estreita, só leitura, pra pasta do registro diário é aceitável se for útil — o resto do cofre continua exclusivamente MCP.
 
-Mesmo leitor de stdin (entrada padrão) JSON do hook do proxy de tokens: [`hook-io.mjs.example`](../../templates/hooks/hook-io.mjs.example), que expõe `readStdinRaw()` (lê o stdin sem nunca lançar exceção) e `parseHookEvent()` (tenta fazer o parse, devolvendo `null` tanto pra JSON inválido quanto pro valor literal `null` — os dois casos que costumam derrubar um hook escrito às pressas):
+Mesmo leitor de stdin (entrada padrão) JSON do hook do proxy de tokens: [`hook-io.mjs`](../../.claude/hooks/hook-io.mjs), que expõe `readStdinRaw()` (lê o stdin sem nunca lançar exceção) e `parseHookEvent()` (tenta fazer o parse, devolvendo `null` tanto pra JSON inválido quanto pro valor literal `null` — os dois casos que costumam derrubar um hook escrito às pressas):
 
 ```js
 #!/usr/bin/env node
@@ -197,16 +197,19 @@ Mesmo leitor de stdin (entrada padrão) JSON do hook do proxy de tokens: [`hook-
   const event = parseHookEvent(readStdinRaw());
   if (event === null) process.exit(0); // nada pra analisar — falha aberta
 
-  const path =
-    event?.tool_input?.file_path ??
-    event?.tool_input?.path ??
-    event?.tool_input?.pattern ??
-    "";
+  const entrada = event?.tool_input ?? {};
+  // Só campos que são mesmo caminho. `pattern` é o texto procurado: usá-lo aqui
+  // bloqueia quem procura a string "vault/" fora do cofre e, pior, deixa passar
+  // qualquer busca cujo padrão não contenha essa palavra.
+  const caminho = entrada.file_path ?? entrada.path ?? "";
 
-  if (!path.includes("vault/")) process.exit(0); // não é o cofre — permite
+  const eBusca = ["Grep", "Glob"].includes(event.tool_name);
+  // Busca sem caminho varre o repositório inteiro — o cofre está dentro dele.
+  const tocaOCofre = caminho.includes("vault/") || (eBusca && caminho === "");
+  if (!tocaOCofre) process.exit(0); // não é o cofre — permite
 
   const isDailyRead =
-    path.includes("vault/daily/") && ["Read", "Grep", "Glob"].includes(event.tool_name);
+    caminho.includes("vault/daily/") && ["Read", "Grep", "Glob"].includes(event.tool_name);
   if (isDailyRead) process.exit(0); // exceção estreita: só leitura da pasta diária
 
   console.error("vault/ é MCP-only — use as ferramentas MCP do cofre, não acesso direto a arquivo.");

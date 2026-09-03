@@ -22,6 +22,13 @@ out/
 *.sqlite
 *.sqlite3
 
+# Dados e artefatos de execução — o PROMPT.md exige todos aqui. Os screenshots
+# e traces são de uma sessão logada do Instagram: nunca podem ir para o Git.
+data/
+backups/
+screenshots/
+traces/
+
 # Logs e artefatos de teste
 *.log
 npm-debug.log*
@@ -32,7 +39,9 @@ test-results/
 # Configuração local de negócio (o .example é versionado)
 config/business.json
 
-# Claude Code — settings local do desenvolvedor
+# Claude Code — settings do desenvolvedor. O settings.json carrega um bloco
+# `env` e é criado a partir do .example, que é o versionado.
+.claude/settings.json
 .claude/settings.local.json
 
 # OS / editor

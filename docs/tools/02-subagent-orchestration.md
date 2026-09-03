@@ -244,7 +244,7 @@ permitem rodar várias instâncias dele ao mesmo tempo, quando é
 comprovadamente seguro fazer isso.
 
 Veja
-[`templates/rules/parallel-subagent-driven-development.md`](../../templates/rules/parallel-subagent-driven-development.md)
+[`.claude/rules/parallel-subagent-driven-development.md`](../../.claude/rules/parallel-subagent-driven-development.md)
 pra uma versão desse mesmo raciocínio já escrita como regra literal, pronta
 pra colar nas instruções de um projeto. E veja [Parallel wave
 dispatch](../prompts/05-parallel-wave-dispatch.md) pra um modelo de *prompt*

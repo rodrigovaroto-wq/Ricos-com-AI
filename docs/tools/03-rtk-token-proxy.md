@@ -163,8 +163,12 @@ execFile(PROXY_BIN, ["run", comando], (erro, saida) => {
 
   // Bloqueia o comando original (caro) e devolve o resultado compacto
   // diretamente — o agente recebe uma resposta, não um pedido de nova tentativa.
-  console.log(JSON.stringify({ decision: "block", reason: saida }));
-  process.exit(0);
+  // process.exit logo depois de console.log pode cortar stdout no meio quando
+  // ele é um pipe — e a saída do proxy pode ser grande. Sair só após o flush.
+  process.stdout.write(
+    JSON.stringify({ decision: "block", reason: saida }) + "\n",
+    () => process.exit(0),
+  );
 });
 ```
 
@@ -208,8 +212,12 @@ execFile(PROXY_BIN, ["run", comando], (erro, saida) => {
     process.exit(0); // proxy deu erro — falha aberta
     return;
   }
-  console.log(JSON.stringify({ decision: "block", reason: saida }));
-  process.exit(0);
+  // process.exit logo depois de console.log pode cortar stdout no meio quando
+  // ele é um pipe — e a saída do proxy pode ser grande. Sair só após o flush.
+  process.stdout.write(
+    JSON.stringify({ decision: "block", reason: saida }) + "\n",
+    () => process.exit(0),
+  );
 });
 ```
 
