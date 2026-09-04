@@ -62,7 +62,7 @@ Registrados em `docs/funil-e-jornada.md`, todos ainda abertos:
 | Quem não paga não é cobrado | reconhecido pelo operador |
 | Pedido criado contado como pago | pendente na Coinzz |
 | PIX imediato contra promessa de COD | pendente na Coinzz |
-| Sem lista de exclusão geográfica | não feito |
+| ~~Sem lista de exclusão geográfica~~ | **resolvido fora do escopo** — Coinzz/Logzz bloqueiam pedido COD sem cobertura |
 | Sem fluxo de pós-venda | não existe |
 | Sem depoimento com rosto | não há canal pedindo um |
 

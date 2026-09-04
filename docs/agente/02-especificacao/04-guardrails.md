@@ -32,7 +32,8 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 | 6 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
 | 7 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
 | 8 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
-| 9 | **disclosure** | primeira mensagem da conversa sem se identificar como assistente | Ver conflito abaixo |
+| 9 | **negação de identidade** | a mensagem afirma que a agente é humana, em resposta a pergunta direta | Ver "Identidade da agente" abaixo |
+| 10 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
 
 Cada gate avaliado vira **linha de trace** com veredito e código, persistida. Quando um
 gate veta, a razão volta **ao modelo** como erro instrutivo em pt-BR — ele vê no turno
@@ -62,7 +63,37 @@ Dois níveis:
 - **Ambíguo** ("me deixa em paz", "chega") → **para de responder e escala ao humano**. Quem
   silencia alguém para sempre deveria ser gente.
 
-## O conflito do disclosure
+## Cupom e desconto — dois gates novos
+
+Decididos na rodada 1 (ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q9).
+
+**Gate do cupom.** A agente **não pode mencionar o cupom de 15% / 20% antes de o código
+existir e estar configurado na Coinzz**. É o mesmo erro do PIX imediato contra a promessa
+de COD — mesma operação, nome diferente.
+
+**Gate do vazamento de desconto.** O desconto do toque 3 existe **só** no toque 3, **só**
+para quem silenciou por três dias, e **nunca** para quem já aceitou o preço cheio. Sem essa
+trava, o desconto migra para dentro da conversa normal e derruba a contribuição de todo
+mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de ~29%.
+
+**Gate do preço antecipado.** Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a
+agente não pode anunciar R$ 116,90 — o desconto decidido é 10%, mas o código e a Coinzz
+ainda não o refletem.
+
+## Identidade da agente
+
+**Decisão do operador:** a agente se apresenta como **vendedora da Encorpa**, com nome
+próprio, e não se anuncia como IA. Isso significa persona com tom caloroso, ritmo humano,
+bolhas curtas, "digitando" e memória do que a cliente já disse — tudo isso é o que faz a
+conversa converter, e nada disso é problema.
+
+**O gate que existe mesmo assim:** a agente **não afirma ser humana** quando a pergunta
+vier direta e séria. Ela desvia com naturalidade para o que resolve — tamanho, pedido,
+entrega — e o handoff humano existe justamente para quem quiser falar com uma pessoa. Com
+um público cuja objeção nº 1 é golpe, ser pega numa negação custa mais do que a pergunta
+custaria.
+
+## O conflito do disclosure, ainda aberto
 
 A LP promete, em `Objection.tsx` :13:
 

@@ -28,7 +28,24 @@ Ela existe porque as faixas se encostam: 68, 76, 84 e 92 cm caem na fronteira en
 tamanhos. Quem está no limite e pega o menor aperta demais — e aperto demais vira troca ou
 recusa.
 
-## Por que isso não deveria ser improviso do modelo
+## Decisão do operador (2026-09-04)
+
+**A tabela vai para a cliente, e ela escolhe.** Medir com fita é caminho secundário — nem
+toda cliente tem disposição para pegar uma fita métrica no meio de uma conversa de
+WhatsApp, e insistir nisso é atrito onde não pode haver.
+
+**Em caso de dúvida entre dois tamanhos, o maior.**
+
+**Risco assumido, registrado com honestidade:** tamanho auto-declarado erra mais que
+tamanho medido, e errar tamanho é o caminho mais curto para troca ou recusa na porta. Duas
+coisas seguram esse risco: a coluna **"equivale ao manequim"**, que é a referência que ela
+já conhece do próprio guarda-roupa, e a regra do maior, que puxa para o lado seguro.
+
+**Como fica na conversa:** a agente manda a tabela, pergunta qual manequim ela costuma
+usar, e **oferece** a medição como caminho mais preciso para quem quiser — sem transformar
+isso em requisito.
+
+## Por que a decisão final não deveria ser improviso do modelo
 
 Errar o tamanho é o caminho mais curto para o evento mais caro da operação: a peça chega,
 não serve, ela recusa na porta ou pede troca. Ver

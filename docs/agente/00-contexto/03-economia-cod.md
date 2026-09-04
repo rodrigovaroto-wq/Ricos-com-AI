@@ -5,6 +5,9 @@ Fonte: `colet-cinta-modeladora/docs/contexto-do-projeto.md` §1.
 **Este arquivo é o mais importante do diretório.** Toda decisão sobre o agente — custo
 por conversa, quando escalar para humano, quanto insistir num follow-up — se mede aqui.
 
+Este arquivo traz a **unidade econômica medida da operação**. A projeção de volume, CPL e
+metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
+
 ## Unidade econômica
 
 | Evento | Resultado |

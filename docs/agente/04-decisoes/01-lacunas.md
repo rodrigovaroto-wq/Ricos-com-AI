@@ -4,6 +4,22 @@ Tudo que o agente descrito em [`../02-especificacao/`](../02-especificacao/) pre
 hoje **não existe** no projeto. Formato:
 **o que falta → por que é necessário → como os repositórios resolvem → alternativas.**
 
+> **Atualizado após a rodada 1 de decisões** (2026-09-04). Estas continuam sendo lacunas —
+> nada foi implementado — mas várias deixaram de ser escolha em aberto e viraram tarefa com
+> rota definida. As decisões estão em [`03-decisoes-tomadas.md`](03-decisoes-tomadas.md).
+>
+> | Lacuna | O que a rodada 1 resolveu |
+> |---|---|
+> | 1. Transporte | Rota definida: **WAHA** |
+> | 2. Nono dígito | Vem junto com o WAHA, via app `brazilian-phone-numbers` |
+> | 6. Identificador nos links da LP | Continua em aberto |
+> | 9/10. Persistência e fila | **SQLite numa VPS 24/7** — a proibição de serverless segue valendo |
+> | 17. Recomendação de tamanho | **Tabela enviada à cliente; o maior em caso de dúvida** |
+> | 26. Criação de pedido | **COD sem checkout; antecipado por link pré-preenchido.** Pendente: a Coinzz tem API? |
+> | 28. Agendador de follow-up | Cadência definida: **30 min · dia seguinte · 3 dias com cupom** |
+> | 25. Handoff | **Para e notifica; operador assume, exceto de madrugada** |
+> | Exclusão geográfica | **Resolvida fora do escopo** — Coinzz/Logzz bloqueiam pedido COD sem cobertura |
+
 Estado do código hoje, medido: `ricos-com-ai` não tem **nenhum** arquivo de código
 (`find` por `*.ts`, `*.tsx`, `package.json` retorna vazio). `colet-cinta-modeladora` é uma
 SPA Vite + React sem backend, sem banco e sem CI.

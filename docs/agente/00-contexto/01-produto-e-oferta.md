@@ -37,13 +37,18 @@ A frase que mantém desejo e honestidade compatíveis, e que vale como orientaç
 
 > **O colete não muda o seu corpo. Muda como a roupa cai nele.**
 
-## Desconto de pagamento antecipado — desligado
+## Desconto de pagamento antecipado — 10%, ainda não configurado
 
-`src/lib/checkout.ts` :42–49 tem `PREPAY_DISCOUNT` com `enabled: false`, 5% sobre
-R$ 129,90. O comentário no próprio código explica: ligar antes de a Coinzz configurar o
-desconto repetiria o erro da promessa que a operação não cumpre.
+**Decidido pelo operador em 2026-09-04: o desconto é de 10%**, levando o preço antecipado
+a **R$ 116,90** — o mesmo valor usado no [modelo econômico](06-modelo-economico.md).
 
-**O agente não pode oferecer esse desconto enquanto a flag estiver desligada.**
+**O código diverge.** `colet/src/lib/checkout.ts` :42–49 tem `PREPAY_DISCOUNT` com
+`percent: 5` e `enabled: false`. Precisa virar 10% e ser ligado **só depois** de o desconto
+existir na Coinzz — o comentário no próprio código explica por quê: ligar antes repetiria o
+erro da promessa que a operação não cumpre.
+
+**Enquanto a flag estiver desligada, o agente não pode oferecer o desconto.**
+Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §D2.
 
 ## O que chega na casa dela
 

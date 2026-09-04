@@ -78,10 +78,15 @@ Momentos que a sequência precisa cobrir:
 
 ## Pendências do operador que travam decisões técnicas
 
-- [ ] Ativar **`Físico na entrega`** na Coinzz — a alavanca de R$ 14,98 vs R$ 54,98
-- [ ] Configurar o desconto de 5% no pagamento antecipado antes de ligar `PREPAY_DISCOUNT`
+Estado em 2026-09-04. Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md).
+
+- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98
+- [x] **Número decidido:** número novo, separado do site — a criar
+- [x] **Handoff decidido:** a agente para e notifica; o operador assume, exceto de madrugada
+- [ ] Configurar o **desconto de 10%** no pagamento antecipado, e só então ligar `PREPAY_DISCOUNT` (hoje em 5% e desligado)
+- [ ] Criar o **cupom do toque 3** do follow-up: 15% no COD, 20% no antecipado
 - [ ] Separar pedido criado de pedido pago no pixel
 - [ ] Configurar `/obrigado.html` como destino pós-compra na Coinzz
 - [ ] Definir o gatilho de entrada do agente: webhook da Coinzz (Integrações → Webhooks)
-- [ ] Decidir o número: o mesmo do site (`5511916616348`) ou outro
-- [ ] Definir quem assume quando o agente não dá conta
+- [ ] Confirmar se a Coinzz tem **API de criação de pedido** (sabe-se que há checkout pré-preenchido)
+- [ ] Definir a faixa horária da madrugada em que não há humano disponível

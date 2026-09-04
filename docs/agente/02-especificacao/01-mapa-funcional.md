@@ -89,9 +89,10 @@ Taxonomia pronta: os três momentos em
 mensagem → claims verificados → *agente + guardrail*.
 Restrição dura: não emagrece; o efeito acaba ao tirar.
 
-**C3. Recomendação de tamanho.** Medida, manequim ou descrição → mapear para P–XGG, com
-"na dúvida, o maior" → tamanho recomendado → tabela de medidas → *função determinística*,
-não o modelo chutando.
+**C3. Recomendação de tamanho.** Manequim declarado (caminho principal) ou medida em cm
+(caminho opcional) → **enviar a tabela e deixar a cliente escolher**, com "na dúvida, o
+maior" → tamanho definido → tabela de medidas → *agente conduz, função valida*.
+Decidido na rodada 1: medir com fita não é requisito.
 Ver [`../01-conhecimento/02-tabela-de-medidas.md`](../01-conhecimento/02-tabela-de-medidas.md).
 
 **C4. Objeções.** Objeção → responder com o argumento já validado → mensagem → as 4
@@ -116,14 +117,24 @@ validar CEP; **confirmar repetindo de volta** → endereço estruturado → áre
 Logzz → *tool + validação*.
 Referência de mecanismo: n8n → `InformationExtractor` e `OutputParserAutofixing` (quando o
 JSON vem quebrado, o modelo conserta em vez de o fluxo morrer).
-A lista de exclusão geográfica, hoje inexistente, entra aqui.
+A lista de exclusão geográfica **não precisa ser construída**: Coinzz/Logzz recusam a
+criação de pedido COD fora da área coberta. O que falta é o agente tratar essa recusa como
+caminho de conversa — ver §D3.
 
-**D3. Modalidade de pagamento.** Escolha → **enquanto `Físico na entrega` não estiver
-ativo na Coinzz, o agente não pode afirmar que não haverá cobrança antes da entrega** →
-modalidade → *guardrail executável, não instrução no prompt*.
+**D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
+com 10% de desconto (R$ 116,90) é oferecido antes de finalizar**, como economia e nunca
+como condição → modalidade → *agente + guardrail de preço*.
 
-**D4. Pagamento.** Modalidade → COD: nada agora; dinheiro, cartão ou maquininha na porta →
-expectativa correta → R$ 129,90 → *agente*.
+**Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
+pedido COD fora da área coberta. Quando isso acontecer: tratar como **caminho de conversa,
+não como erro**, e oferecer o antecipado **com o máximo de reforço de segurança** — é
+exatamente o momento em que a oferta perde o argumento que dissolve o medo de golpe, e a
+cliente precisa de mais prova, não de menos. Ver
+[`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
+
+**D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 em dinheiro, cartão ou
+maquininha na porta. Antecipado: R$ 116,90 por link de checkout pré-preenchido →
+expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 
 **D5. Confirmação.** Dados completos → repetir tamanho, endereço, valor e forma, e pedir
@@ -134,13 +145,25 @@ Referência de mecanismo: escolha por botão em vez de texto livre — WAHA →
 
 ## E. Pedido
 
-**E1. Criação.** Dados confirmados → criar o pedido no sistema da operação (Coinzz/Logzz)
-→ `order_id` → *integração*.
-**Maior lacuna do projeto.** Nenhuma das 8 referências cria pedido; DeskcommCRM só lê
+**E1. Criação — dois caminhos, decididos na rodada 1.**
+
+| Forma de pagamento | Como o pedido nasce |
+|---|---|
+| **COD** (padrão) | A cliente **não preenche checkout nenhum**. Manda os dados pelo WhatsApp e a agente finaliza o pedido. Confirmação pela API da Coinzz |
+| **Antecipado** | A agente preenche contato e endereço e envia um **link de checkout pré-preenchido**; a cliente só conclui o pagamento. O link carrega dados de contato e entrega — **nunca dados de pagamento** |
+
+ENTRADA: dados confirmados → PROCESSAMENTO: criar ou pré-preencher conforme a modalidade →
+SAÍDA: `order_id` → *integração Coinzz*.
+
+**Primeira verificação técnica do projeto:** a Coinzz tem API de criação de pedido? Sabe-se
+que **dá para gerar checkout personalizado com dados pré-preenchidos**; a existência da API
+decide se o caminho COD é chamada de API ou automação de navegador.
+
+**Contexto da pesquisa:** nenhuma das 8 referências cria pedido; DeskcommCRM só lê
 (`lib/mcp/tools/comercio.ts` :27). Existe um objeto de pedido **nativo do WhatsApp**
-(Baileys → `src/Socket/business.ts` :254 `getOrderDetails`, `Types/Product.ts` :55–73), e
-o Evolution monta um pedido nativo dentro do botão de PIX
-(`whatsapp.baileys.service.ts` :3258–3295). **[HIPÓTESE]** serve para COD — a validar.
+(Baileys → `src/Socket/business.ts` :254; `Types/Product.ts` :55–73) e o Evolution monta um
+pedido nativo dentro do botão de PIX (`whatsapp.baileys.service.ts` :3258–3295) —
+**[HIPÓTESE]** serve para COD, não validado, e fora do primeiro corte.
 
 **E2. Registro local.** `order_id` → gravar vínculo lead↔pedido com idempotência → linha
 durável → *banco*.
@@ -165,11 +188,25 @@ Referência: DeskcommCRM → `lib/followup/agent-followup-gate.ts` (gatilho `sil
 
 **F3. Abandono na coleta.** Dados incompletos → pedir só o que falta → *estado + agente*.
 
-**F4. Cadência.** Enrollment → N tentativas espaçadas, respeitando opt-out e janela de
-horário → mensagens → *agendador + gates*.
+**F4. Cadência — três toques, decididos na rodada 1.**
+
+| Toque | Quando | O quê |
+|---|---|---|
+| 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
+| 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
+| 3 | 3 dias depois | **Cupom: 15% no COD, 20% no antecipado.** Último toque, com saída digna |
+
+ENTRADA: enrollment por silêncio → PROCESSAMENTO: três toques espaçados, respeitando
+opt-out e janela de horário → SAÍDA: mensagens → *agendador + gates*.
+
+**Guardrail obrigatório:** o cupom não pode ser mencionado antes de existir na Coinzz, e o
+desconto **não vaza** para quem compraria a preço cheio — ver
+[`04-guardrails.md`](04-guardrails.md).
+
 Referência de custo zero: DeskcommCRM → `reentry-template.ts` :2–11 — N variantes em
 pt-BR por versão, escolha determinística por `hash(lead_id) % n`. Mesma cliente, mesma
-variante; clientes diferentes, variantes diferentes, **sem chamar modelo**.
+variante; clientes diferentes, variantes diferentes, **sem chamar modelo**. É o que impede
+a mesma mensagem literal de sair para centenas de números.
 
 ## G. Pós-venda
 
