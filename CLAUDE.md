@@ -68,6 +68,14 @@ começar qualquer trabalho.
 
 O que este repositório constrói está descrito em [`docs/PROMPT.md`](docs/PROMPT.md) — o prompt único que gera o sistema comercial autônomo. O bloco `CONFIGURAÇÃO` no topo dele ainda tem `{{PLACEHOLDERS}}` a preencher.
 
+**Frente ativa — agente de vendas no WhatsApp.** [`docs/agente/`](docs/agente/) reúne o
+contexto completo de um agente **inbound** alimentado por Meta Ads: negócio e economia do
+pagamento na entrega, base de conhecimento, especificação funcional, pesquisa em 8
+repositórios open source com evidência por arquivo e linha, lacunas e decisões em aberto.
+Leia [`docs/agente/README.md`](docs/agente/README.md) antes de trabalhar no agente. O
+`PROMPT.md` trata de outro canal (prospecção ativa no Instagram); onde os dois divergirem
+sobre canal e funil, vale `docs/agente/`.
+
 ## Conventions
 
 **Idioma.** Interface em PT-BR: menus, botões, títulos, formulários, validações,
