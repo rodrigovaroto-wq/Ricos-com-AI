@@ -122,8 +122,13 @@ criação de pedido COD fora da área coberta. O que falta é o agente tratar es
 caminho de conversa — ver §D3.
 
 **D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
-com 10% de desconto (R$ 116,90) é oferecido antes de finalizar**, como economia e nunca
-como condição → modalidade → *agente + guardrail de preço*.
+com 10% de desconto (R$ 116,90) é oferecido antes de finalizar**, nunca como condição →
+modalidade → *agente + guardrail de preço*.
+
+**Diferença entre os dois caminhos, que a cliente precisa entender sem esforço:** no COD o
+frete está embutido nos R$ 129,90; no antecipado ela paga R$ 116,90 **mais o frete**.
+Enquanto o valor do frete não estiver definido, a agente **não pode apresentar o antecipado
+como economia** — ver [`04-guardrails.md`](04-guardrails.md).
 
 **Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
 pedido COD fora da área coberta. Quando isso acontecer: tratar como **caminho de conversa,
@@ -132,9 +137,9 @@ exatamente o momento em que a oferta perde o argumento que dissolve o medo de go
 cliente precisa de mais prova, não de menos. Ver
 [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
 
-**D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 em dinheiro, cartão ou
-maquininha na porta. Antecipado: R$ 116,90 por link de checkout pré-preenchido →
-expectativa correta → *agente*.
+**D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 com frete embutido, em dinheiro,
+cartão ou maquininha na porta. Antecipado: R$ 116,90 mais frete, por link de checkout
+pré-preenchido → expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 
 **D5. Confirmação.** Dados completos → repetir tamanho, endereço, valor e forma, e pedir

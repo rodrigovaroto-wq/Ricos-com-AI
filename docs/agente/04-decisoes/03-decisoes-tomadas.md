@@ -16,7 +16,8 @@ isso implica no projeto e o que ficou pendente dentro dela.
 | D1 | `Físico na entrega` na Coinzz | **Ativo.** A recusa custa −R$ 14,98, não −R$ 54,98. A pendência mais cara da operação está resolvida |
 | D2 | Desconto do pagamento antecipado | **10%** → R$ 116,90. `PREPAY_DISCOUNT` em `colet/src/lib/checkout.ts` :42–49 está em 5% e desligado — **diverge e precisa ser corrigido** quando o desconto for configurado |
 | D3 | Definição de "venda" | **Pedido criado.** A meta de 10% é conversa → pedido criado; os 15% de recusa entram depois |
-| D4 | Contribuição do antecipado | **R$ 76,24**, não os R$ 68,34 do estudo. A média com mix 70/30 sobe de R$ 56,62 para **R$ 58,99**. Fica aberta a dúvida de se o frete de R$ 19,99 incide também no antecipado — ver [modelo](../00-contexto/06-modelo-economico.md) |
+| D4 | Contribuição do antecipado | **R$ 76,24**, não os R$ 68,34 do estudo. A média com mix 70/30 sobe de R$ 56,62 para **R$ 58,99** |
+| D5 | Frete no caminho antecipado | **Por conta da cliente.** Confirma os R$ 76,24 — e levanta a pergunta de quanto ela paga no total, ver [modelo](../00-contexto/06-modelo-economico.md) |
 
 ---
 
@@ -124,10 +125,14 @@ Ver [`../01-conhecimento/02-tabela-de-medidas.md`](../01-conhecimento/02-tabela-
 oferece o antecipado com desconto **antes de a cliente finalizar a compra**, como economia,
 nunca como condição.
 
-**E vale mais do que parecia.** Com a contribuição corrigida, o antecipado rende R$ 76,24
-contra R$ 51,60 do COD já descontada a recusa — **R$ 24,64 a mais por pedido**, mesmo dando
-10% de desconto. Cada pedido que migra de COD para antecipado também sai da exposição aos
-15% de recusa.
+**E vale mais do que parecia — para nós.** Com a contribuição corrigida, o antecipado rende
+R$ 76,24 contra R$ 51,60 do COD já descontada a recusa: **R$ 24,64 a mais por pedido**,
+mesmo dando 10% de desconto, e sem exposição aos 15% de recusa.
+
+**A ressalva, que é do lado dela.** No antecipado o frete fica por conta da cliente. Se
+R$ 116,90 mais frete passar de R$ 129,90, o desconto não é desconto para ela — e a agente
+**não pode chamar de economia algo que sai mais caro**. Pendência nº 9 abaixo: precisa ser
+respondida antes de a oferta entrar no ar.
 
 **E o caso que precisa de cuidado especial:** quando o **COD não estiver disponível para a
 região dela**, o agente oferece o antecipado com **a maior segurança possível** — é o
@@ -168,13 +173,18 @@ para que a diferença não apareça.
 curtas, "digitando", memória do que a cliente já disse. Nada disso é problema — é o que
 faz a conversa converter.
 
-**O único comportamento que fica de fora, e por quê:** a negação ativa. A agente não é
-projetada para afirmar que é humana quando alguém perguntar diretamente e a sério. Com um
-público cuja objeção número um é golpe, ser pega numa negação custa mais do que a pergunta
-custaria. Ela desvia com naturalidade para o que resolve — o pedido, o tamanho, a entrega —
-e o handoff humano existe justamente para quando a pessoa quiser falar com gente.
+**Regra final, refinada pelo operador em 2026-09-04 — três linhas, nesta ordem:**
 
-**Confirmado pelo operador:** seguir com este modelo — persona completa, sem negação ativa.
+1. **Não afirma ser humana.** Nunca.
+2. **Não anuncia que não é.** Não abre conversa se apresentando como IA, não emenda aviso
+   no rodapé, não levanta o assunto por conta própria.
+3. **Se for perguntada, responde.** Direta e sem drama, e segue a conversa.
+
+É a regra do "não mente, não anuncia". Ela resolve o conflito que estava aberto: a agente
+soa como a vendedora que é para a cliente — com nome, tom e ritmo de gente — e a verdade
+fica disponível para quem for atrás dela, que é justamente quem se importa.
+
+O handoff humano continua existindo para quem quiser falar com uma pessoa.
 
 **Conflito ainda aberto:** a landing page promete, em `Objection.tsx` :13, *"WhatsApp com
 gente de verdade. **Não é robô.**"* Essa frase fica falsa com a agente atendendo. Mexer
@@ -230,4 +240,5 @@ antecipado com reforço de segurança da Q8.
 | 5 | Copy do site: *"Não é robô"* (Q10) | Operador |
 | 6 | `PREPAY_DISCOUNT` de 5% → 10% e ligar (D2) | Depende da configuração na Coinzz |
 | 7 | Regra de cobrança de inadimplente (Q13) | Adiada por decisão |
-| 8 | O frete de R$ 19,99 incide também no antecipado? Se sim, a contribuição cai de R$ 76,24 para R$ 56,25 e a estratégia de antecipado se inverte | Operador |
+| 8 | ~~O frete incide no antecipado?~~ **Resolvido: o frete é por conta da cliente**, a contribuição de R$ 76,24 está correta | ✅ |
+| 9 | **O antecipado leva frete embutido ou não?** Pesquisa de 2026-09-04 indica que R$ 116,90 + frete provavelmente passa de R$ 129,90 — o "desconto" sairia mais caro para a cliente. Três saídas e a recomendação estão no [modelo](../00-contexto/06-modelo-economico.md) | Operador — **antes de a agente oferecer o antecipado** |

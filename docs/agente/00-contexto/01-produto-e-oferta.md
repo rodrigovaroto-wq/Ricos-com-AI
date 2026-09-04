@@ -50,6 +50,12 @@ erro da promessa que a operação não cumpre.
 **Enquanto a flag estiver desligada, o agente não pode oferecer o desconto.**
 Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §D2.
 
+**Frete no antecipado: por conta da cliente** (decisão do operador, 2026-09-04). É o que
+diferencia os dois caminhos: no COD o frete está embutido nos R$ 129,90; no antecipado ela
+paga R$ 116,90 mais o frete. **Quanto isso dá no total dela ainda não está definido** — e
+até estar, a agente não pode apresentar o antecipado como economia. Ver
+[`06-modelo-economico.md`](06-modelo-economico.md).
+
 ## O que chega na casa dela
 
 Fonte: `src/components/landing/WhatsInBox.tsx` :5–8.

@@ -32,7 +32,7 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 | 6 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
 | 7 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
 | 8 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
-| 9 | **negação de identidade** | a mensagem afirma que a agente é humana, em resposta a pergunta direta | Ver "Identidade da agente" abaixo |
+| 9 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
 | 10 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
 
 Cada gate avaliado vira **linha de trace** com veredito e código, persistida. Quando um
@@ -76,9 +76,16 @@ para quem silenciou por três dias, e **nunca** para quem já aceitou o preço c
 trava, o desconto migra para dentro da conversa normal e derruba a contribuição de todo
 mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de ~29%.
 
-**Gate do preço antecipado.** Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a
-agente não pode anunciar R$ 116,90 — o desconto decidido é 10%, mas o código e a Coinzz
-ainda não o refletem.
+**Gate do preço antecipado.** Duas travas, e as duas precisam cair antes de a oferta ir ao ar:
+
+1. Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a agente não pode anunciar
+   R$ 116,90 — o desconto decidido é 10%, mas o código e a Coinzz ainda não o refletem.
+2. **A agente não pode chamar o antecipado de economia sem o total fechado.** Hoje o frete
+   do antecipado é por conta da cliente, e a pesquisa indica que R$ 116,90 mais frete
+   provavelmente passa dos R$ 129,90 do COD — o "desconto" sairia mais caro para ela.
+   Enquanto isso não for resolvido, a agente pode *mencionar* a opção de antecipar, mas
+   **não pode afirmar que ela economiza**. Ver
+   [`../00-contexto/06-modelo-economico.md`](../00-contexto/06-modelo-economico.md).
 
 ## Identidade da agente
 
@@ -87,11 +94,18 @@ próprio, e não se anuncia como IA. Isso significa persona com tom caloroso, ri
 bolhas curtas, "digitando" e memória do que a cliente já disse — tudo isso é o que faz a
 conversa converter, e nada disso é problema.
 
-**O gate que existe mesmo assim:** a agente **não afirma ser humana** quando a pergunta
-vier direta e séria. Ela desvia com naturalidade para o que resolve — tamanho, pedido,
-entrega — e o handoff humano existe justamente para quem quiser falar com uma pessoa. Com
-um público cuja objeção nº 1 é golpe, ser pega numa negação custa mais do que a pergunta
-custaria.
+**A regra, em três linhas** (refinada pelo operador em 2026-09-04):
+
+1. **Não afirma ser humana.** Nunca. É o gate nº 9 da cadeia.
+2. **Não anuncia que não é.** Não há gate de disclosure: a agente não abre conversa se
+   apresentando como IA nem levanta o assunto sozinha.
+3. **Se for perguntada, responde** — direta, sem drama, e segue a conversa.
+
+"Não mente, não anuncia." O handoff humano existe para quem quiser falar com uma pessoa.
+
+**Consequência de implementação:** o gate nº 9 é o único dos dois lados que precisa de
+código. O "não anunciar" é ausência de gate, não presença — e por isso precisa estar escrito
+aqui, senão alguém adiciona um disclosure achando que está consertando algo.
 
 ## O conflito do disclosure, ainda aberto
 

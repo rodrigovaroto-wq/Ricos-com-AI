@@ -66,14 +66,52 @@ E, com ela, os cenários:
 | Base | R$ 1.206,60 | **R$ 1.277,70** | R$ 38.331,00 |
 | Pessimista | R$ 672,40 | **R$ 719,80** | R$ 21.594,00 |
 
-> ⚠️ **Uma dúvida que continua aberta, e que é material.** Não está claro se a contribuição
-> do antecipado desconta o **frete de R$ 19,99** que aparece no COD entregue. O produto é
-> enviado de qualquer forma. Se o frete também incidir no antecipado, a contribuição cai
-> para **R$ 56,25** — e aí o antecipado passa a valer *menos* que o COD entregue, o que
-> inverteria a lógica de oferecer desconto para antecipar. O estudo lista uma premissa de
-> "logística adicional sem COD: R$ 5,00", o que sugere estrutura de frete diferente, mas
-> não fecha em nenhuma combinação testada. **Confirmar antes de calibrar a oferta de
-> antecipado.**
+**Dúvida resolvida pelo operador (2026-09-04):** no caminho antecipado, **o frete fica por
+conta da cliente**. Por isso os R$ 19,99 não entram como custo nosso, e a contribuição de
+**R$ 76,24 está correta**.
+
+### O desconto de 10% provavelmente não é desconto para a cliente
+
+Pesquisa feita em 2026-09-04 sobre as taxas públicas de Logzz e Coinzz.
+
+**Confirmado por fonte externa:**
+
+| Achado | Fonte |
+|---|---|
+| Logzz cobra **R$ 4,99 fixos de handling** por remessa, e o custo total por remessa "raramente passa de R$ 25" | Central de ajuda da Logzz |
+| Taxa de frustração (entrega não concluída) da Logzz: **13% a 16%** | Central de ajuda da Logzz — corrobora a premissa de 15% de recusa |
+| O que a Coinzz chama de **"frete antecipado" é outra coisa**: configuração de venda **pós-paga** em que o checkout cobra só o frete e o produto fica para depois | Blog da Coinzz |
+
+**Não foi possível confirmar:** o valor do frete que a cliente veria no checkout.
+`app.coinzz.com.br` e o blog da Coinzz respondem 403 a leitura automatizada, e a tabela de
+frete da Logzz fica atrás de login. **Esse número só sai da conta do operador.**
+
+**A conta do lado dela**, usando o custo de entrega da nossa própria modelagem (R$ 19,99):
+
+| Caminho | O que a cliente paga |
+|---|---|
+| COD | **R$ 129,90**, frete embutido |
+| Antecipado | R$ 116,90 + frete (~R$ 15 a R$ 25) = **R$ 131,90 a R$ 141,90** |
+
+**O desconto de 10% sai de R$ 2 a R$ 12 mais caro para ela.** Só vira economia de verdade
+se o frete no antecipado ficar **abaixo de R$ 13,00**.
+
+É a mesma família de erro que a operação já cometeu — anunciar vantagem que o checkout não
+entrega — e com um público que chegou desconfiado, é conta que ela faz em dez segundos.
+
+### As três saídas
+
+| Opção | Nossa contribuição | O que ela paga | Avaliação |
+|---|---|---|---|
+| **(a) Antecipado com frete embutido, R$ 116,90 fechados** | R$ 56,25 | R$ 116,90 | Ainda **melhor que os R$ 51,60 do COD médio**, e sem risco de recusa. A economia de R$ 13,00 é verdadeira e verificável. **Recomendada** |
+| (b) Frete com ela, preço menor para fechar em ≤ R$ 129,90 | variável | ≤ R$ 129,90 | Funciona, mas o preço vira variável por região |
+| (c) Manter como está e vender o antecipado por outro argumento | R$ 76,24 | R$ 131,90+ | Honesto se não chamar de economia, mas argumento mais fraco |
+
+**Custo da opção (a):** R$ 19,99 por pedido antecipado — no cenário base, com 30% de 30
+pedidos, ~R$ 180/dia. É o preço de a oferta ser verdadeira.
+
+**Decisão pendente do operador.** Enquanto não houver resposta, a agente pode *mencionar* a
+opção de antecipar, mas **não pode afirmar que ela economiza**.
 
 ## WhatsApp + COD — os três cenários
 
@@ -167,8 +205,10 @@ fechado, nunca como condição — o "não paga nada agora" é o que dissolve o 
 esse medo é a objeção nº 1 do público. Ver
 [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8.
 
-**Sujeito à dúvida do frete registrada acima.** Se o antecipado também pagar os R$ 19,99 de
-entrega, a contribuição cai para R$ 56,25 e essa seção se inverte.
+**A ressalva é do lado da cliente, não do nosso.** O frete no antecipado é por conta dela.
+Se o total que ela paga passar de R$ 129,90, a vantagem existe só para nós — e uma vantagem
+que só existe de um lado não sobrevive a uma pergunta na conversa. Ver a caixa de aviso
+acima.
 
 ## Confirmações do operador sobre as premissas
 
