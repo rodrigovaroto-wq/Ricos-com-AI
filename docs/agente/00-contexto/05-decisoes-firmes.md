@@ -87,7 +87,6 @@ Estado em 2026-09-04. Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-deciso
 - [ ] Criar o **cupom de 20%** do toque 3 do follow-up
 - [ ] Separar pedido criado de pedido pago no pixel
 - [ ] Configurar `/obrigado.html` como destino pós-compra na Coinzz
-- [ ] Definir o gatilho de entrada do agente: webhook da Coinzz (Integrações → Webhooks)
-- [ ] Confirmar se a Coinzz tem **API de criação de pedido** (sabe-se que há checkout pré-preenchido)
-- [x] **Horário do agente definido:** 06:00 às 00:00
-- [ ] Confirmar o **Frete Personalizado** da Logzz e fixar o teto (recomendado R$ 20)
+- [x] **Confirmado: a Coinzz tem API própria, além do webhook.** A API gera o checkout personalizado pré-preenchido; o webhook cobre o status do pedido para o acompanhamento pós-venda
+- [x] **Horário do agente definido:** mensagem automática 24/7 + agente real das 06:00 às 00:00 (3 min depois, ou às 06:00 se chegou de madrugada)
+- [x] **Frete Personalizado da Logzz confirmado que existe — decidido não usar.** Mantém 15% de desconto no antecipado, frete por conta da cliente, sem programa de subsídio

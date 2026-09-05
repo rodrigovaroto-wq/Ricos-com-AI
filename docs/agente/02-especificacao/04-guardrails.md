@@ -28,13 +28,13 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 | 2 | **promessa de cobrança** | a mensagem afirma que não haverá cobrança antes da entrega **e** `Físico na entrega` não está ativo | [`../00-contexto/05-decisoes-firmes.md`](../00-contexto/05-decisoes-firmes.md) §2 |
 | 3 | **promessa de preço e desconto** | valor divergente de R$ 129,90, ou desconto de 5% com `PREPAY_DISCOUNT.enabled = false` | `colet/src/lib/checkout.ts` :42–49 |
 | 4 | **claim de emagrecimento** | a mensagem sugere que o produto emagrece ou que o efeito é permanente | `FAQ.tsx` :26; decisão firme §3 |
-| 5 | **janela de atendimento** | fora de **06:00–00:00** — decidido na rodada 2 | R2.5 |
+| 5 | **janela de atendimento** | fora de **06:00–00:00**, para a resposta real da agente (camada 2). A mensagem automática de recebimento (camada 1) roda 24/7 e não passa por este gate | R2.5 + R4.4 |
 | 6 | **pacing / anti-banimento** | acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
-| 6 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
-| 7 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
-| 8 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
-| 9 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
-| 10 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
+| 7 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
+| 8 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
+| 9 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
+| 10 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
+| 11 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
 
 Cada gate avaliado vira **linha de trace** com veredito e código, persistida. Quando um
 gate veta, a razão volta **ao modelo** como erro instrutivo em pt-BR — ele vê no turno
@@ -85,7 +85,8 @@ mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de 
 **Gate do preço antecipado.** Duas travas, e as duas precisam cair antes de a oferta ir ao ar:
 
 1. Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a agente não pode anunciar
-   R$ 116,90 — o desconto decidido é 10%, mas o código e a Coinzz ainda não o refletem.
+   R$ 110,42 — o desconto vigente é **15%** (rodada 2), mas o código e a Coinzz ainda não
+   o refletem.
 2. **A economia é sobre o produto, e o frete tem que ser dito junto.** Decidido na rodada
    2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,48 no
    pagamento antecipado — a economia é real e é sobre o produto, que é o que a Encorpa

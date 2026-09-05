@@ -72,17 +72,31 @@ Referências: Mastra → `memory/memory.ts` :82–100; DeskcommCRM → `compacti
 **Regra estrutural:** texto só sai por tool `send_message`; nada que o modelo escreva fora
 dela chega à cliente. Referência: DeskcommCRM → `inbound-turn.ts` :154–161.
 
-**B7. Ritmo humano — números decididos na rodada 2.**
+**B7. Ritmo humano — duas camadas na primeira resposta (revisado na rodada 4).**
+
+**Camada 1 — mensagem automática, instantânea, 24h, todo lead:**
+
+> *"Oii, tudo bem? Recebemos sua mensagem, assim que possível uma de nossas atendentes fará
+> seu atendimento, aproveite para entender melhor sobre nosso produto acessando nosso site:
+> encorpa-fashion.com.br"*
+
+Envio imediato, **independente do horário**. Não usa o ritmo humano da camada 2 — é o texto
+padrão de confirmação de recebimento. Não contradiz o guardrail de identidade: fala em
+"atendentes", não afirma nem nega automação.
+
+**Camada 2 — a resposta real da agente, com personalidade:**
 
 | Regra | Valor |
 |---|---|
-| Atraso da **primeira** resposta da conversa | **15 segundos** |
-| Atraso das demais | **0,2 s por palavra da mensagem** |
+| Atraso da primeira resposta real, dentro do horário (06:00–00:00) | **3 minutos** |
+| Se a mensagem chegou fora do horário (00:00–06:00) | **a partir das 06:00** |
+| Atraso das demais respostas | **0,2 s por palavra da mensagem** |
 | "Digitando" | **visível enquanto a agente prepara a resposta** |
-| Janela de atendimento | **06:00 às 00:00** |
 
 ENTRADA: resposta pronta → PROCESSAMENTO: quebrar em bolhas, calcular o atraso, manter a
 presença durante a espera → SAÍDA: 1 a 3 mensagens no ritmo de gente → *adapter de canal*.
+
+**A janela de atendimento (06:00–00:00) vale só para a camada 2.** A camada 1 roda 24/7.
 
 **Duas notas técnicas que a implementação precisa respeitar:**
 
@@ -190,24 +204,25 @@ pedido.**
 | **COD** (padrão) | A agente monta o **checkout personalizado pré-preenchido** (nome, telefone, endereço, tamanho, COD selecionado) e envia o link. A cliente **confirma**, sem preencher nada e sem informar pagamento |
 | **Antecipado** | Mesmo mecanismo, com pagamento antecipado selecionado. A cliente **nunca envia dado de pagamento pelo chat** — só confirma no ambiente da Coinzz |
 
-ENTRADA: dados confirmados → PROCESSAMENTO: gerar link de checkout com os campos
-pré-preenchidos → SAÍDA: link enviado à cliente → *integração Coinzz (webhook de saída para
-status; sem chamada de criação de pedido)*.
+ENTRADA: dados confirmados → PROCESSAMENTO: **chamar a API da Coinzz para gerar o checkout
+personalizado** com os campos pré-preenchidos → SAÍDA: link enviado à cliente → *API da
+Coinzz para gerar o checkout; webhook da Coinzz para status do pedido depois*.
 
-**Por que este caminho, e não a API de criação de pedido — decisão explícita do operador:**
-confirmar no checkout é **mais seguro**, não uma alternativa inferior. No COD, a cliente vê
-o resumo antes de confirmar — reduz erro de tamanho/endereço e dá sensação de controle a uma
-audiência desconfiada de golpe. No antecipado, o argumento é mais forte ainda: dado de
-pagamento nunca trafega em texto de WhatsApp, o que evita uma exposição de segurança que
-qualquer auditoria reprovaria.
+**Confirmado pelo operador (rodada 4): a Coinzz tem integração via API, além do webhook.**
+O mecanismo deixa de ser hipótese: a API gera o checkout com os dados da cliente já
+embutidos, o link volta para o agente, o agente envia, a cliente confirma.
 
-**Verificação técnica pendente:** a Coinzz permite gerar esse link **programaticamente**
-(chamada automatizada), não só criar manualmente pelo painel? Isso é diferente de "ter API
-de pedido" — é ter API de **checkout pré-preenchido**. Enquanto não confirmado, o caminho
-alternativo é preencher o link à mão a partir de um template de URL com parâmetros.
+**Por que este caminho, e não pular direto para "API cria o pedido" — decisão explícita do
+operador, mantida mesmo com a API disponível:** confirmar no checkout é **mais seguro**, não
+uma alternativa inferior por falta de mecanismo melhor. No COD, a cliente vê o resumo antes
+de confirmar — reduz erro de tamanho/endereço e dá sensação de controle a uma audiência
+desconfiada de golpe. No antecipado, o argumento é mais forte ainda: dado de pagamento nunca
+trafega em texto de WhatsApp, o que evita uma exposição de segurança que qualquer auditoria
+reprovaria. A API é usada para **gerar o link**, não para pular a confirmação da cliente.
 
-**Contexto da pesquisa, mantido por referência:** nenhuma das 8 referências cria pedido
-via API própria; DeskcommCRM só lê pedidos existentes (`lib/mcp/tools/comercio.ts` :27).
+**Contexto da pesquisa, mantido por referência:** nenhuma das 8 referências cria pedido via
+API própria; DeskcommCRM só lê pedidos existentes (`lib/mcp/tools/comercio.ts` :27) — o
+mecanismo de checkout-com-confirmação é decisão nossa, não copiado de nenhuma referência.
 
 **E2. Registro local.** `order_id` → gravar vínculo lead↔pedido com idempotência → linha
 durável → *banco*.
@@ -238,7 +253,7 @@ Referência: DeskcommCRM → `lib/followup/agent-followup-gate.ts` (gatilho `sil
 |---|---|---|
 | 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
 | 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
-| 3 | 3 dias depois | **Cupom de 20%** (rodada 2). Último toque, com saída digna |
+| 3 | 3 dias depois | **Cupom de 20%, moldura "Super + dia da semana"** (rodada 4) — ex.: "Super Quinta! Você ganhou um cupom de 20%...". Último toque, com saída digna |
 
 ENTRADA: enrollment por silêncio → PROCESSAMENTO: três toques espaçados, respeitando
 opt-out e janela de horário → SAÍDA: mensagens → *agendador + gates*.

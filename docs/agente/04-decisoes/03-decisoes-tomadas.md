@@ -512,19 +512,115 @@ rodada.
 
 **A landing page não muda.** Ver [`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) §"A copy da landing page".
 
+---
+
+# Decisões tomadas — rodada 4
+
+Respostas do operador em 2026-09-05/06.
+
+## R4.1 — Coinzz tem API E webhook: pendência mais crítica do projeto, resolvida
+
+**Confirmado pelo operador, verificado no próprio painel:** a Coinzz tem **integração via
+API**, além do webhook já sabido. Isso fecha a pendência nº 1 da rodada 3 — e fecha melhor
+do que o cenário mínimo esperado.
+
+**O que isso muda, e o que não muda:** a decisão de segurança da rodada 3 (R3.1) — **a
+cliente nunca envia dado de pagamento pelo chat, sempre confirma num checkout** — continua
+de pé, e continua sendo a decisão certa por aquele motivo. O que muda é *como* o link
+pré-preenchido é gerado: em vez de depender de preenchimento manual ou de um formato de URL
+adivinhado, a **API gera o checkout personalizado programaticamente**, com os dados da
+cliente (nome, telefone, endereço, tamanho, modalidade de pagamento) já embutidos. O webhook
+continua sendo o canal de status (pedido criado, pagamento confirmado) para o acompanhamento
+pós-venda.
+
+`build_prefilled_checkout_link` deixa de ser tool com implementação em aberto e passa a ter
+mecanismo real e confirmado: **chamada à API da Coinzz para gerar o checkout → link
+devolvido → agente envia → cliente confirma.**
+
+## R4.2 — Frete Personalizado da Logzz: existe, mas não será usado
+
+**Confirmado:** a opção "Frete Personalizado" existe na Logzz (2a confirmado).
+
+**Mas a decisão final é não usá-la.** O operador levantou duas variantes de subsídio de
+frete (10% ou 5% de desconto + frete grátis até R$20) e, ao comparar com dado real de custo
+de frete por região, decidiu **manter os 15% de desconto sem programa de frete grátis**:
+para as principais metrópoles o frete fica entre R$15 e R$35, e para regiões mais afastadas
+passa de R$40 — faixas em que um teto de R$20 exigiria subsídio frequente e alto, tornando o
+programa mais caro que simplesmente manter o desconto atual.
+
+**Isto fecha as pendências nº 2, 3 e 6 da rodada 3 numa só resposta**, e mantém os números
+da rodada 2 sem alteração: produto a R$ 110,42, economia declarável de R$ 19,48, contribuição
+do antecipado de R$ 70,21. Nada no modelo econômico muda.
+
+**Registro do caminho considerado e descartado:** frete grátis com teto (R$20, financiado
+por baixar o desconto para 10% ou 5%) foi avaliado e rejeitado por dado real de custo de
+frete regional, não por falta de mecanismo — a Logzz oferece a opção, o operador optou por
+não usá-la agora. Fica arquivado, não como pendência.
+
+## R4.3 — Cupom do follow-up: moldura "Super + dia da semana"
+
+**Decisão:** o argumento do cupom de 20% no terceiro toque usa o formato **"Super
+[dia da semana]"** — ex.: se o terceiro toque cai numa quinta-feira, a mensagem abre com
+*"Super Quinta! Você ganhou um cupom de 20% de desconto no Colete Cinta Modeladora..."*.
+
+Isso substitui a ideia de calendário de datas comerciais fixas (rodada 3, pendência nº 4) por
+um formato **sempre disponível e determinístico**: qualquer dia da semana vira "Super
+[dia]", sem depender de calendário externo, sem lacuna de "não há data próxima". Mais simples
+de implementar — é uma função pura de `dia_da_semana → nome do texto`, sem tabela para
+manter.
+
+## R4.4 — Duas camadas na primeira resposta: mensagem automática instantânea + agente real depois
+
+**Decisão, e ela reformula R2.6 (rodada 2):** a primeira resposta de qualquer conversa deixa
+de ser "15 segundos de atraso" e passa a ter **duas camadas**.
+
+**Camada 1 — mensagem automática, instantânea, 24 horas por dia, todo lead:**
+
+> *"Oii, tudo bem? Recebemos sua mensagem, assim que possível uma de nossas atendentes fará
+> seu atendimento, aproveite para entender melhor sobre nosso produto acessando nosso site:
+> encorpa-fashion.com.br"*
+
+Enviada **imediatamente**, **independente do horário** — inclusive de madrugada. É o texto
+que "toda loja usa" (palavras do operador): não finge ser a agente conversando, não usa o
+ritmo humano da camada 2, e sua função é só confirmar recebimento e reduzir ansiedade
+enquanto a resposta de verdade não chega. Não contradiz o guardrail de identidade: a
+mensagem fala em "atendentes", não afirma nem nega automação.
+
+**Camada 2 — a resposta real da agente, com personalidade:**
+
+| Situação | Quando chega |
+|---|---|
+| Dentro do horário de atendimento (06:00–00:00) | **3 minutos** depois da mensagem da cliente |
+| Fora do horário (00:00–06:00) | **A partir das 06:00** |
+
+O atraso de "3 minutos" **substitui os 15 segundos** definidos na rodada 2 para a primeira
+resposta. O ritmo de 0,2 s por palavra para as respostas seguintes **continua valendo, sem
+mudança** — a mudança é só na primeira.
+
+**Por que isso resolve melhor a pendência nº 5 da rodada 3 (lead de madrugada) do que
+qualquer uma das três opções que a sessão tinha proposto:** o lead da madrugada recebe
+confirmação de recebimento na hora — não fica no escuro por 4 horas — mas a conversa de
+verdade, com o ritmo cuidadosamente desenhado para não parecer automação, só começa quando
+há gente de fato disponível (a partir das 06:00). É a opção (a) da pendência anterior, mas
+com o texto e o timing exatos definidos pelo operador em vez de deixados em aberto.
+
+**Consequência para o guardrail de janela de atendimento:** ele passa a valer só para a
+camada 2. A camada 1 roda 24/7, sempre.
+
 ## O que ficou pendente
 
-| # | Pendência | Quem resolve |
+| # | Pendência original | Status |
 |---|---|---|
-| 1 | **A Coinzz permite gerar checkout personalizado pré-preenchido via chamada automatizada** (não só manual pelo painel)? Isso é diferente de "API de pedido" — ver R3.1 | Verificação técnica — primeira tarefa |
-| 2 | Confirmar o **Frete Personalizado** da Logzz no painel — mas a decisão de usá-lo depende da R3.3 (desconto vs. frete grátis) primeiro | Operador |
-| 3 | **Desconto de 15% vs. frete grátis com teto no antecipado** — decidir juntos, e replicar a escolha no site e no WhatsApp (R3.3) | Operador + sessão |
-| 4 | Calendário de datas comerciais para o argumento do cupom de 20% (semana do consumidor etc.) — lista a manter | Operador |
-| 5 | Copy do site *"Não é robô"* — **não será alterada.** Mantido como está, por decisão do operador (R3.5) | ✅ resolvida (sem mudança) |
-| 6 | Leads que chegam entre 00:00 e 06:00: mídia continua rodando, mas ainda não está definido se a agente responde ao acordar às 06:00 ou se a conversa é tratada como perdida | Operador |
-| 7 | Medir o custo real de frete por região antes de fixar qualquer teto | Operador |
-| 8 | ~~Biblioteca de áudios~~ **Resolvido: escopo inicial é boas-vindas + explicação inicial do produto**, com o operador já tendo o material gravado. Ampliar para outros pontos do funil fica para depois — ver R3.6 | ✅ (parcial) |
+| 1 | A Coinzz permite gerar checkout pré-preenchido via chamada automatizada? | ✅ **Resolvida (R4.1) — confirmado: API + webhook** |
+| 2 | Confirmar o Frete Personalizado da Logzz no painel | ✅ **Resolvida (R4.2) — existe, decidido não usar** |
+| 3 | Desconto de 15% vs. frete grátis com teto no antecipado | ✅ **Resolvida (R4.2) — mantém 15%, sem subsídio de frete** |
+| 4 | Calendário de datas comerciais para o cupom de 20% | ✅ **Resolvida (R4.3) — moldura "Super + dia da semana", sem calendário a manter** |
+| 5 | Copy do site *"Não é robô"* | ✅ Resolvida na rodada 3 — mantida sem alteração |
+| 6 | Lead que chega entre 00:00 e 06:00 | ✅ **Resolvida (R4.4) — mensagem automática 24/7 + agente real às 06:00 ou 3 min depois** |
+| 7 | Medir custo real de frete por região | ✅ **Resolvida (R4.2) — operador já tem o dado: R$15–35 em metrópoles, R$40+ em regiões afastadas** |
+| 8 | Biblioteca de áudios | ✅ Resolvida — escopo inicial é boas-vindas + explicação do produto |
 
-**Resolvidas na rodada 3:** mecanismo de criação de pedido (webhook + checkout
-personalizado, sem API de pedido) · cupom vale nos dois caminhos · identidade mantida sem
-mudança de comportamento.
+**Todas as 8 pendências abertas ao fim da rodada 3 estão resolvidas.** Não há pendência
+bloqueante de decisão de negócio no momento. Restam apenas verificações técnicas de
+implementação (formato exato da chamada de API da Coinzz, nome dos campos do checkout
+pré-preenchido) — essas são trabalho de construção, não decisão a tomar.
