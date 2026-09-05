@@ -28,7 +28,8 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 | 2 | **promessa de cobrança** | a mensagem afirma que não haverá cobrança antes da entrega **e** `Físico na entrega` não está ativo | [`../00-contexto/05-decisoes-firmes.md`](../00-contexto/05-decisoes-firmes.md) §2 |
 | 3 | **promessa de preço e desconto** | valor divergente de R$ 129,90, ou desconto de 5% com `PREPAY_DISCOUNT.enabled = false` | `colet/src/lib/checkout.ts` :42–49 |
 | 4 | **claim de emagrecimento** | a mensagem sugere que o produto emagrece ou que o efeito é permanente | `FAQ.tsx` :26; decisão firme §3 |
-| 5 | **pacing / anti-banimento** | fora da janela de horário, acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
+| 5 | **janela de atendimento** | fora de **06:00–00:00** — decidido na rodada 2 | R2.5 |
+| 6 | **pacing / anti-banimento** | acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
 | 6 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
 | 7 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
 | 8 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
@@ -80,12 +81,13 @@ mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de 
 
 1. Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a agente não pode anunciar
    R$ 116,90 — o desconto decidido é 10%, mas o código e a Coinzz ainda não o refletem.
-2. **A agente não pode chamar o antecipado de economia sem o total fechado.** Hoje o frete
-   do antecipado é por conta da cliente, e a pesquisa indica que R$ 116,90 mais frete
-   provavelmente passa dos R$ 129,90 do COD — o "desconto" sairia mais caro para ela.
-   Enquanto isso não for resolvido, a agente pode *mencionar* a opção de antecipar, mas
-   **não pode afirmar que ela economiza**. Ver
-   [`../00-contexto/06-modelo-economico.md`](../00-contexto/06-modelo-economico.md).
+2. **A economia é sobre o produto, e o frete tem que ser dito junto.** Decidido na rodada
+   2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,48 no
+   pagamento antecipado — a economia é real e é sobre o produto, que é o que a Encorpa
+   vende. O gate é o outro lado da frase: **na mesma mensagem**, ela diz que no caminho
+   antecipado o frete é calculado à parte no checkout. Mensagem que anuncia a economia sem
+   mencionar o frete é vetada — não por moral, mas porque surpresa no checkout, com esta
+   audiência, traz o medo de golpe de volta.
 
 ## Identidade da agente
 
@@ -99,9 +101,32 @@ conversa converter, e nada disso é problema.
 1. **Não afirma ser humana.** Nunca. É o gate nº 9 da cadeia.
 2. **Não anuncia que não é.** Não há gate de disclosure: a agente não abre conversa se
    apresentando como IA nem levanta o assunto sozinha.
-3. **Se for perguntada, responde** — direta, sem drama, e segue a conversa.
+3. **Se for perguntada, responde** — e a resposta é decidida (rodada 2):
+
+   > *"Sou a assistente vendedora oficial da Encorpa — estou aqui para tirar suas dúvidas e
+   > te ajudar com o pedido."*
+
+   Direta, sem drama, sem pedir desculpa, e a conversa segue.
 
 "Não mente, não anuncia." O handoff humano existe para quem quiser falar com uma pessoa.
+
+### A copy da landing page que precisa mudar por causa disso
+
+A seção de objeções do site diz hoje, em `colet/src/components/landing/Objection.tsx` :13:
+
+> **WhatsApp com gente de verdade** — *"Não é robô. Se der qualquer problema, tem alguém do
+> outro lado."*
+
+Com a agente atendendo, a frase **"Não é robô"** deixa de ser verdade — e é uma frase que a
+cliente lê no site **antes** de abrir a conversa. Se ela chega no WhatsApp, pergunta, e ouve
+"sou a assistente oficial", a contradição é com o próprio site, não com a agente.
+
+**A promessa que importa naquele bloco é a segunda parte** — *"tem alguém do outro lado"* —
+e essa continua verdadeira, porque o handoff humano existe. A sugestão é trocar só o título
+e a primeira frase, por algo como *"Atendimento de verdade"* / *"Tem gente acompanhando cada
+pedido. Deu problema, você fala com uma pessoa."*
+
+**É mudança no repositório da landing page, não neste. Decisão do operador.**
 
 **Consequência de implementação:** o gate nº 9 é o único dos dois lados que precisa de
 código. O "não anunciar" é ausência de gate, não presença — e por isso precisa estar escrito

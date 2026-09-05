@@ -37,10 +37,12 @@ A frase que mantém desejo e honestidade compatíveis, e que vale como orientaç
 
 > **O colete não muda o seu corpo. Muda como a roupa cai nele.**
 
-## Desconto de pagamento antecipado — 10%, ainda não configurado
+## Desconto de pagamento antecipado — 15%, ainda não configurado
 
-**Decidido pelo operador em 2026-09-04: o desconto é de 10%**, levando o preço antecipado
-a **R$ 116,90** — o mesmo valor usado no [modelo econômico](06-modelo-economico.md).
+**Decidido em 2026-09-05: o desconto é de 15%**, levando o preço do produto a **R$ 110,42**
+e a economia declarável a **R$ 19,48**. Subiu de 10% para 15% porque **o frete no caminho
+antecipado fica por conta da cliente** — ver
+[`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §R2.1.
 
 **O código diverge.** `colet/src/lib/checkout.ts` :42–49 tem `PREPAY_DISCOUNT` com
 `percent: 5` e `enabled: false`. Precisa virar 10% e ser ligado **só depois** de o desconto
@@ -50,10 +52,10 @@ erro da promessa que a operação não cumpre.
 **Enquanto a flag estiver desligada, o agente não pode oferecer o desconto.**
 Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §D2.
 
-**Frete no antecipado: por conta da cliente** (decisão do operador, 2026-09-04). É o que
-diferencia os dois caminhos: no COD o frete está embutido nos R$ 129,90; no antecipado ela
-paga R$ 116,90 mais o frete. **Quanto isso dá no total dela ainda não está definido** — e
-até estar, a agente não pode apresentar o antecipado como economia. Ver
+**Frete no antecipado: por conta da cliente.** É o que diferencia os dois caminhos: no COD
+o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 110,42 mais o frete**,
+calculado no checkout. A agente **pode** dizer que ela economiza R$ 19,48 no produto, desde
+que diga na mesma mensagem que o frete vem à parte. Ver
 [`06-modelo-economico.md`](06-modelo-economico.md).
 
 ## O que chega na casa dela

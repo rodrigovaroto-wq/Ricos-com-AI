@@ -72,11 +72,30 @@ Referências: Mastra → `memory/memory.ts` :82–100; DeskcommCRM → `compacti
 **Regra estrutural:** texto só sai por tool `send_message`; nada que o modelo escreva fora
 dela chega à cliente. Referência: DeskcommCRM → `inbound-turn.ts` :154–161.
 
-**B7. Ritmo humano.** Resposta longa → quebrar em bolhas, mostrar "digitando", espaçar →
-1 a 3 mensagens → *adapter de canal*.
-Referências: DeskcommCRM → `split-message.ts` :7, :99; Evolution →
-`whatsapp.baileys.service.ts` :2306–2330, que fatia a digitação em blocos de 20 s porque a
-presença expira; e valida se o número existe no WhatsApp antes de enviar (:2295).
+**B7. Ritmo humano — números decididos na rodada 2.**
+
+| Regra | Valor |
+|---|---|
+| Atraso da **primeira** resposta da conversa | **15 segundos** |
+| Atraso das demais | **0,2 s por palavra da mensagem** |
+| "Digitando" | **visível enquanto a agente prepara a resposta** |
+| Janela de atendimento | **06:00 às 00:00** |
+
+ENTRADA: resposta pronta → PROCESSAMENTO: quebrar em bolhas, calcular o atraso, manter a
+presença durante a espera → SAÍDA: 1 a 3 mensagens no ritmo de gente → *adapter de canal*.
+
+**Duas notas técnicas que a implementação precisa respeitar:**
+
+1. **A presença de "digitando" expira em ~20 s.** Espera maior tem que reenviar a presença
+   em blocos (`presenceSubscribe → composing → espera → paused`, em laço). A 0,2 s por
+   palavra, uma mensagem de 100 palavras já chega no limite. Evidência: Evolution →
+   `whatsapp.baileys.service.ts` :2306–2330.
+2. **O atraso é por bolha, não pela resposta inteira.** Senão uma resposta de três bolhas
+   fica 20 s em silêncio e depois despeja tudo de uma vez — que é o oposto do efeito
+   desejado. Cada bolha espera pelo seu próprio tamanho.
+
+Referências: DeskcommCRM → `split-message.ts` :7, :99. Evolution também valida se o número
+existe no WhatsApp antes de enviar (:2295).
 
 ## C. Venda
 
@@ -122,13 +141,13 @@ criação de pedido COD fora da área coberta. O que falta é o agente tratar es
 caminho de conversa — ver §D3.
 
 **D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
-com 10% de desconto (R$ 116,90) é oferecido antes de finalizar**, nunca como condição →
+com 15% de desconto (R$ 110,42) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
-**Diferença entre os dois caminhos, que a cliente precisa entender sem esforço:** no COD o
-frete está embutido nos R$ 129,90; no antecipado ela paga R$ 116,90 **mais o frete**.
-Enquanto o valor do frete não estiver definido, a agente **não pode apresentar o antecipado
-como economia** — ver [`04-guardrails.md`](04-guardrails.md).
+**A frase tem duas metades, e as duas são obrigatórias:** a economia de **R$ 19,48 no
+produto** é real e pode ser dita; e **o frete no antecipado é calculado à parte no
+checkout** — isso vai na mesma mensagem. No COD o frete está embutido nos R$ 129,90. Ver
+[`04-guardrails.md`](04-guardrails.md).
 
 **Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
 pedido COD fora da área coberta. Quando isso acontecer: tratar como **caminho de conversa,
@@ -138,7 +157,7 @@ cliente precisa de mais prova, não de menos. Ver
 [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
 
 **D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 com frete embutido, em dinheiro,
-cartão ou maquininha na porta. Antecipado: R$ 116,90 mais frete, por link de checkout
+cartão ou maquininha na porta. Antecipado: R$ 110,42 mais frete, por link de checkout
 pré-preenchido → expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 
@@ -199,7 +218,7 @@ Referência: DeskcommCRM → `lib/followup/agent-followup-gate.ts` (gatilho `sil
 |---|---|---|
 | 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
 | 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
-| 3 | 3 dias depois | **Cupom: 15% no COD, 20% no antecipado.** Último toque, com saída digna |
+| 3 | 3 dias depois | **Cupom de 20%** (rodada 2). Último toque, com saída digna |
 
 ENTRADA: enrollment por silêncio → PROCESSAMENTO: três toques espaçados, respeitando
 opt-out e janela de horário → SAÍDA: mensagens → *agendador + gates*.

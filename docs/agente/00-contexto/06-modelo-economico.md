@@ -17,7 +17,7 @@ entregue pelo operador em 2026-09-03.
 |---|---|
 | Mídia | R$ 300/dia |
 | Preço COD | R$ 129,90 |
-| Preço antecipado/Pix | R$ 116,90 (**10% de desconto**) |
+| Preço antecipado/Pix | R$ 116,90 no estudo (10% off) — **revisado para R$ 110,42 (15% off)** na rodada 2 |
 | Custo do produto | R$ 30,00 |
 | Mix | 70% COD / 30% antecipado |
 | Recusa COD | 15% |
@@ -70,134 +70,68 @@ E, com ela, os cenários:
 conta da cliente**. Por isso os R$ 19,99 não entram como custo nosso, e a contribuição de
 **R$ 76,24 está correta**.
 
-### O desconto de 10% provavelmente não é desconto para a cliente
+### O frete do antecipado — decidido na rodada 2
 
-Pesquisa feita em 2026-09-04 sobre as taxas públicas de Logzz e Coinzz.
+**O frete fica por conta da cliente, e o desconto sobe para 15%.**
 
-**Confirmado por fonte externa:**
+Razão: o frete do antecipado é muito variável — pode passar de R$ 30, R$ 40 e até R$ 50
+conforme a região. Embutir isso no preço obrigaria a precificar pelo pior caso.
 
-| Achado | Fonte |
-|---|---|
-| Logzz cobra **R$ 4,99 fixos de handling** por remessa, e o custo total por remessa "raramente passa de R$ 25" | Central de ajuda da Logzz |
-| Taxa de frustração (entrega não concluída) da Logzz: **13% a 16%** | Central de ajuda da Logzz — corrobora a premissa de 15% de recusa |
-| O que a Coinzz chama de **"frete antecipado" é outra coisa**: configuração de venda **pós-paga** em que o checkout cobra só o frete e o produto fica para depois | Blog da Coinzz |
+| | Com 10% | **Com 15% (vigente)** |
+|---|---|---|
+| Preço do produto | R$ 116,90 | **R$ 110,42** |
+| Economia declarável | R$ 13,00 | **R$ 19,48** |
+| Contribuição do antecipado | R$ 76,24 | **R$ 70,21** |
+| Média com mix 70/30 | R$ 58,99 | **R$ 57,18** |
+| Equilíbrio (CPL R$ 1,25) | 3,47% | **3,58%** |
 
-**Não foi possível confirmar:** o valor do frete que a cliente veria no checkout.
-`app.coinzz.com.br` e o blog da Coinzz respondem 403 a leitura automatizada, e a tabela de
-frete da Logzz fica atrás de login. **Esse número só sai da conta do operador.**
+Cenários com R$ 57,18: otimista **R$ 2.033/dia** (R$ 60.997/30d), base **R$ 1.223/dia**
+(R$ 36.705/30d), pessimista **R$ 684/dia** (R$ 20.510/30d).
 
-**A conta do lado dela**, usando o custo de entrega da nossa própria modelagem (R$ 19,99):
+**O que a agente pode dizer.** A economia de R$ 19,48 é real e é sobre o produto — que é o
+que a Encorpa vende. O frete é linha separada, variável e fora do controle do operador. A
+única exigência é que a agente diga, **na mesma mensagem**, que o frete do antecipado é
+calculado à parte no checkout. Não é ressalva moral: é proteção de conversão, porque
+surpresa no checkout com esta audiência traz o medo de golpe de volta.
 
-| Caminho | O que a cliente paga |
-|---|---|
-| COD | **R$ 129,90**, frete embutido |
-| Antecipado | R$ 116,90 + frete (~R$ 15 a R$ 25) = **R$ 131,90 a R$ 141,90** |
+### Teto de frete — mecanismo encontrado, confirmação pendente
 
-**O desconto de 10% sai de R$ 2 a R$ 12 mais caro para ela.** Só vira economia de verdade
-se o frete no antecipado ficar **abaixo de R$ 13,00**.
+**[FATO — DOC, fonte secundária]** A Logzz tem a opção **Frete Personalizado**: o produtor
+define um valor fixo de frete na criação do produto, ou oferece frete grátis. É exatamente o
+teto pedido.
 
-É a mesma família de erro que a operação já cometeu — anunciar vantagem que o checkout não
-entrega — e com um público que chegou desconfiado, é conta que ela faz em dez segundos.
+**Ressalva de evidência:** a citação veio de resumo de busca, não de leitura direta — a
+central de ajuda da Logzz responde 404 ou redireciona e o checkout da Coinzz responde 403.
+**Confirmar no painel antes de virar decisão.**
 
-### As três saídas
+**[INFERÊNCIA]** A diferença entre o valor fixo cobrado e o custo real sai do saldo do
+produtor. Não há documentação pública dizendo isso com todas as letras.
 
-| Opção | Nossa contribuição | O que ela paga | Avaliação |
+**A régua do teto.** O antecipado rende R$ 70,21 e o COD médio R$ 51,60 — podemos absorver
+até **R$ 18,61 por pedido** antes de o antecipado ficar pior que o COD.
+
+| Teto para a cliente | Custo real R$ 25 | Custo real R$ 40 | Custo real R$ 50 |
 |---|---|---|---|
-| **(a) Antecipado com frete embutido, R$ 116,90 fechados** | R$ 56,25 | R$ 116,90 | Ainda **melhor que os R$ 51,60 do COD médio**, e sem risco de recusa. A economia de R$ 13,00 é verdadeira e verificável. **Recomendada** |
-| (b) Frete com ela, preço menor para fechar em ≤ R$ 129,90 | variável | ≤ R$ 129,90 | Funciona, mas o preço vira variável por região |
-| (c) Manter como está e vender o antecipado por outro argumento | R$ 76,24 | R$ 131,90+ | Honesto se não chamar de economia, mas argumento mais fraco |
+| R$ 20 | absorve R$ 5 → R$ 65,21 ✅ | absorve R$ 20 → R$ 50,21 ⚠️ | absorve R$ 30 → R$ 40,21 ❌ |
+| R$ 15 | absorve R$ 10 → R$ 60,21 ✅ | absorve R$ 25 → R$ 45,21 ❌ | absorve R$ 35 → R$ 35,21 ❌ |
 
-**Custo da opção (a):** R$ 19,99 por pedido antecipado — no cenário base, com 30% de 30
-pedidos, ~R$ 180/dia. É o preço de a oferta ser verdadeira.
+**Recomendação: teto de R$ 20** e medir. R$ 15 só se o custo real ficar concentrado abaixo
+de R$ 30.
 
-**Decisão pendente do operador.** Enquanto não houver resposta, a agente pode *mencionar* a
-opção de antecipar, mas **não pode afirmar que ela economiza**.
+**Divergência a medir:** o operador observa frete de R$ 30 a R$ 50; a Logzz declara que o
+custo total por remessa "raramente passa de R$ 25". Pode ser diferença entre o preço cobrado
+da cliente e o custo para nós, ou regiões específicas.
 
-## WhatsApp + COD — os três cenários
-
-| Cenário | CPL | Conv. | Leads/dia | Vendas/dia | IA/dia | CAC | Lucro/dia | 30 dias |
-|---|---|---|---|---|---|---|---|---|
-| Otimista | R$ 1,00 | 15,0% | 300 | 45 | R$ 240 | R$ 12,00 | R$ 2.007,90 | R$ 60.237,00 |
-| Base | R$ 1,25 | 12,5% | 240 | 30 | R$ 192 | R$ 16,40 | R$ 1.206,60 | R$ 36.198,00 |
-| Pessimista | R$ 1,50 | 10,0% | 200 | 20 | R$ 160 | R$ 23,00 | R$ 672,40 | R$ 20.172,00 |
-
-Para comparação, o **Site + COD** no cenário base (CPC R$ 0,75, conversão 2,8%) dá
-R$ 322,82/dia — **R$ 9.684,60 em 30 dias**. O WhatsApp base é ~3,7× isso.
-
-Fórmulas do estudo: `leads = 300 ÷ CPL` · `vendas = leads × conversão` ·
-`custo de IA = leads × 0,80` · `CAC = (mídia + IA) ÷ vendas` ·
-`lucro = vendas × contribuição − mídia − IA`.
-
-## O que isso impõe ao agente
-
-### 1. A meta de 10% é o piso, não o teto
-
-10% é o **cenário pessimista** do estudo. Mesmo lá, o WhatsApp entrega R$ 20.172/30d
-contra R$ 9.684 do site no cenário base. A meta declarada do operador é atingir 10% de
-conversão de conversa para pedido criado — é o mínimo para o canal se justificar, não uma
-ambição.
-
-### 2. O ponto de morte fica em ~3,6% de conversão
-
-Com CPL de R$ 1,25, o custo diário é R$ 300 de mídia + R$ 192 de IA = R$ 492. Dividido
-pela contribuição corrigida de R$ 58,99, são **8,34 vendas/dia**, ou **3,47% de conversão**.
-
-| CPL | Leads | Custo total/dia | Equilíbrio (R$ 56,62) | Equilíbrio (R$ 58,99) |
-|---|---|---|---|---|
-| R$ 1,00 | 300 | R$ 540 | 3,18% | 3,05% |
-| R$ 1,25 | 240 | R$ 492 | 3,62% | 3,47% |
-| R$ 1,50 | 200 | R$ 460 | 4,06% | 3,90% |
-
-Entre 3,6% e 10% é a faixa onde o agente precisa viver. Abaixo, ele custa dinheiro.
-
-### 3. O agente é a segunda maior linha de custo, e ela é por lead
-
-No cenário base: **R$ 192/dia de IA para R$ 300 de mídia** — 64% do valor da mídia, 39%
-do custo total.
-
-E o detalhe que decide a arquitetura: **dos R$ 192, cerca de R$ 168 são gastos com os 210
-leads que não compram** (87,5% do custo de IA). Por venda fechada, a IA custa R$ 6,40 —
-10,8% da contribuição de R$ 58,99.
-
-**Consequência de projeto, não de otimização:** caminho barato primeiro (opt-out,
-saudação e pedido de humano resolvidos por regra determinística, sem chamar modelo),
-classificação com modelo barato, redação com modelo bom, e prefixo de prompt estável e
-cacheável. Ver [`../02-especificacao/01-mapa-funcional.md`](../02-especificacao/01-mapa-funcional.md) §H8.
-
-### 4. Sensibilidade — o que mais dói
-
-| Se mudar | Efeito no cenário base |
-|---|---|
-| Recusa 15% → 20% | contribuição cai ~R$ 2,74; lucro cai ~7% |
-| `Físico na entrega` desligado (recusa a −R$ 54,98) | contribuição cai ~R$ 4,20; lucro cai ~10%. **Não é o caso: está ativo** |
-| Custo de IA R$ 0,80 → R$ 1,50 | −R$ 168/dia direto no lucro |
-| Conversão 12,5% → 10% | −6 vendas/dia = **−R$ 354/dia** |
-| Mix antecipado 30% → 50% | +R$ 2,58 por pedido = **+R$ 77/dia**, e menos pedidos expostos à recusa |
-
-**A conversão é o item mais sensível dos quatro.** Por isso o primeiro corte do agente
-ataca a pré-venda, e não o pós-pedido — ver
-[`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q5.
-
-### 5. Conversão vale ~4× mais que redução de recusa, nestes volumes
-
-| Melhoria | Ganho/dia |
-|---|---|
-| Conversão de 10% → 12,5% (240 leads) | +6 vendas × R$ 58,99 = **+R$ 354** |
-| Recusa de 15% → 10% (30 pedidos) | +R$ 2,74 por pedido = **+R$ 82** |
-
-Isso **não** diminui a função de confirmação pós-pedido: ela protege o que a pré-venda
-ganha, e a recusa na porta continua sendo o evento mais caro por unidade. Mas, no volume
-projetado, a ordem de ataque é conversão primeiro.
+**Outras taxas confirmadas por fonte externa:** handling fixo de **R$ 4,99** por remessa ·
+Entrega Express **+R$ 5,00** por entrega concluída, cobrada só do produtor · taxa de
+frustração declarada de **13% a 16%**, o que corrobora a premissa de 15% de recusa.
 
 ### 6. Cada pedido que migra de COD para antecipado vale ~R$ 12,89 a mais
 
-Com a contribuição corrigida, o antecipado (R$ 76,24) rende **R$ 12,89 a mais** que o COD
-entregue (R$ 63,35) — mesmo dando 10% de desconto no preço. E rende mais ainda na prática,
-porque **não corre risco de recusa**: o COD só entrega R$ 63,35 em 85% das vezes, e nos
-outros 15% tira R$ 14,98.
-
-Comparando pedido a pedido, já com a recusa embutida: **R$ 51,60 (COD) contra R$ 76,24
-(antecipado)** — uma diferença de R$ 24,64.
+Com 15% de desconto, o antecipado rende **R$ 70,21** contra **R$ 51,60** do COD já
+descontada a recusa — **R$ 18,61 a mais por pedido**. E rende mais ainda na prática, porque
+não corre risco de recusa: o COD só entrega R$ 63,35 em 85% das vezes, e nos outros 15%
+tira R$ 14,98.
 
 Isso sustenta a decisão da rodada 1 de oferecer o antecipado com desconto **antes** de a
 cliente finalizar. Com a ressalva que não muda: a oferta vem **depois** de o COD já estar
@@ -205,16 +139,14 @@ fechado, nunca como condição — o "não paga nada agora" é o que dissolve o 
 esse medo é a objeção nº 1 do público. Ver
 [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8.
 
-**A ressalva é do lado da cliente, não do nosso.** O frete no antecipado é por conta dela.
-Se o total que ela paga passar de R$ 129,90, a vantagem existe só para nós — e uma vantagem
-que só existe de um lado não sobrevive a uma pergunta na conversa. Ver a caixa de aviso
-acima.
+**Esses R$ 18,61 são exatamente o teto de subsídio de frete** que podemos absorver antes de
+o antecipado ficar pior que o COD — é o número que decide o Frete Personalizado.
 
 ## Confirmações do operador sobre as premissas
 
 | # | Ponto | Resposta |
 |---|---|---|
 | D1 | `Físico na entrega` ativo na Coinzz? | **Sim, ativo.** A recusa custa −R$ 14,98, e o modelo está correto neste ponto |
-| D2 | Desconto do pagamento antecipado | **10%** — R$ 116,90. O código (`checkout.ts` :42) ainda tem 5% e desligado; diverge e precisa ser corrigido quando o desconto for configurado |
+| D2 | Desconto do pagamento antecipado | **15%** — R$ 110,42 (era 10% na rodada 1; subiu porque o frete ficou com a cliente). O código (`checkout.ts` :42) ainda tem 5% e desligado, e precisa ser corrigido quando o desconto for configurado |
 | D3 | "Venda" no modelo é o quê? | **Pedido criado.** A meta de 10% é conversa → pedido criado, com os 15% de recusa aplicados depois |
 | D4 | Contribuição do antecipado | **R$ 76,24**, não R$ 68,34 — confirmado pelo operador. A média com mix 70/30 sobe para R$ 58,99 |

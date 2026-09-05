@@ -19,7 +19,7 @@ descarte silencioso.
 | Tool | Faz | Notas |
 |---|---|---|
 | `send_message` | Envia UMA mensagem à cliente | Único caminho de saída. Passa pela cadeia de verificações antes de sair — ver [`04-guardrails.md`](04-guardrails.md) |
-| `send_options` | Envia uma escolha estruturada (tamanho, forma de pagamento, confirmação) | Referências: WAHA → `sendButtons` :209 / `sendList` :222. **[HIPÓTESE]** suporte irregular em transporte não oficial — validar antes de depender |
+| ~~`send_options`~~ | ~~Escolha estruturada por botão~~ | **Removida na rodada 2.** O operador decidiu texto livre sempre: botão entrega que é uma IA e tira a pessoalidade da conversa. A escolha de tamanho, endereço e confirmação é conduzida em texto |
 | `get_lead_context` | Relê contato, estado e últimas mensagens | Deixa o modelo se recuperar de contexto truncado |
 
 ## Venda

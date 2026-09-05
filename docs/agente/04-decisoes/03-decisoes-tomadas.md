@@ -229,16 +229,199 @@ antecipado com reforço de segurança da Q8.
 
 ---
 
-## O que ficou pendente desta rodada
+---
+
+# Decisões tomadas — rodada 2
+
+Respostas do operador em 2026-09-05.
+
+## R2.1 — Frete do antecipado: fica com a cliente, e o desconto sobe para 15%
+
+**Decisão:** o frete continua por conta da cliente. O desconto do pagamento antecipado sobe
+de 10% para **15%** — preço do produto a **R$ 110,42**.
+
+**Razão:** o frete no caminho antecipado é muito variável, podendo passar de R$ 30, R$ 40 e
+até R$ 50 conforme a região. Embutir isso no preço obrigaria a precificar pelo pior caso.
+
+**O que a agente pode dizer, decidido pelo operador:**
+
+> Ela **pode** afirmar que a cliente tem X% de desconto no pagamento antecipado e que
+> economiza R$ Y **na compra do produto**. A economia é real e é sobre o produto, que é o
+> que a Encorpa vende. O frete é outra questão, variável e fora do controle do operador.
+
+**Requisito que acompanha essa permissão:** a agente diz, **na mesma mensagem**, que no
+caminho antecipado o frete é calculado à parte no checkout. Não é ressalva moral — é
+proteção de conversão: numa audiência cuja objeção nº 1 é golpe, surpresa no checkout traz
+o medo de volta e derruba o pedido que a conversa já tinha ganho.
+
+**Números atualizados:**
+
+| | Com 10% (rodada 1) | **Com 15% (vigente)** |
+|---|---|---|
+| Preço do produto | R$ 116,90 | **R$ 110,42** |
+| Economia declarável | R$ 13,00 | **R$ 19,48** |
+| Contribuição do antecipado | R$ 76,24 | **R$ 70,21** |
+| Média com mix 70/30 | R$ 58,99 | **R$ 57,18** |
+| Equilíbrio (CPL R$ 1,25) | 3,47% | **3,58%** |
+
+Cenários com R$ 57,18: otimista **R$ 2.033/dia**, base **R$ 1.223/dia**, pessimista
+**R$ 684/dia** (R$ 60.997, R$ 36.705 e R$ 20.510 em 30 dias).
+
+Mesmo com 15% de desconto, o antecipado rende R$ 70,21 contra R$ 51,60 do COD já descontada
+a recusa — **R$ 18,61 a mais por pedido**, e sem exposição aos 15% de recusa.
+
+## R2.2 — Teto de frete: existe mecanismo, precisa de confirmação no painel
+
+**Pesquisa feita em 2026-09-05, a pedido do operador.**
+
+**[FATO — DOC, fonte secundária]** A Logzz tem uma opção chamada **Frete Personalizado**:
+
+> "Se deseja realizar envios apenas com valor fixo de frete definidos por você na criação do
+> produto, você deve habilitar a opção de Frete Personalizado. Essa opção de frete
+> funcionará com um preço fixo ou você pode utilizar essa opção se desejar oferecer frete
+> grátis."
+
+É exatamente o mecanismo de teto pedido: o produtor fixa o valor que a cliente vê, em vez de
+repassar a cotação por região.
+
+**Ressalva de evidência, importante:** essa citação veio de resumo de busca, **não** de
+leitura direta da página. A central de ajuda da Logzz responde 404 ou redireciona, e o
+checkout da Coinzz responde 403 a leitura automatizada. **Precisa ser confirmado no painel
+do operador antes de virar decisão.**
+
+**[INFERÊNCIA, não documentada]** Quem paga a diferença entre o valor fixo cobrado e o custo
+real da entrega é o produtor — sai do saldo dele. Não achei documentação pública dizendo
+isso com todas as letras.
+
+**O número que decide o teto:** o antecipado rende R$ 70,21 e o COD médio rende R$ 51,60.
+Logo, **podemos absorver até R$ 18,61 por pedido** antes de o antecipado ficar pior que o
+COD. Isso dá a régua:
+
+| Teto para a cliente | Custo real R$ 25 | Custo real R$ 40 | Custo real R$ 50 |
+|---|---|---|---|
+| R$ 20 | absorvemos R$ 5 → contrib. R$ 65,21 ✅ | absorvemos R$ 20 → R$ 50,21 ⚠️ | absorvemos R$ 30 → R$ 40,21 ❌ |
+| R$ 15 | absorvemos R$ 10 → R$ 60,21 ✅ | absorvemos R$ 25 → R$ 45,21 ❌ | absorvemos R$ 35 → R$ 35,21 ❌ |
+
+**Recomendação:** se o Frete Personalizado existir mesmo, começar com teto de **R$ 20** e
+medir. R$ 15 só se a distribuição de custo real ficar concentrada abaixo de R$ 30.
+
+**Anotação de divergência:** o operador fala em frete de R$ 30 a R$ 50; a Logzz declara
+publicamente que o custo total por remessa "raramente passa de R$ 25". Pode ser diferença
+entre o que é cobrado da cliente e o que custa para nós, ou regiões específicas. Vale medir
+antes de fixar o teto.
+
+## R2.3 — Identidade: a resposta é "assistente vendedora oficial da Encorpa"
+
+**Decisão, adaptando a regra da rodada 1:** quando perguntada, a agente responde que é a
+**assistente vendedora oficial da Encorpa**, e que está ali para ajudar, tirar todas as
+dúvidas e guiar no processo de compra.
+
+A regra completa fica assim:
+
+1. **Não afirma ser humana.** Nunca.
+2. **Não anuncia que não é.** Não abre conversa com disclosure nem levanta o assunto.
+3. **Se for perguntada, responde:** *"Sou a assistente vendedora oficial da Encorpa — estou
+   aqui para tirar suas dúvidas e te ajudar com o pedido."* Direta, sem drama, e segue a
+   conversa.
+
+É uma resposta honesta e comercialmente boa: não nega, não se desculpa, e reposiciona na
+utilidade.
+
+## R2.4 — Sem botões automáticos
+
+**Decisão: texto livre, sempre.** Nada de botões ou listas.
+
+**Razão do operador:** botão entrega que é uma IA conversando, e tira a intimidade e a
+pessoalidade da conversa.
+
+Isso encerra a pendência da rodada 1 (Q6) e **remove `send_options` do conjunto de tools**
+previsto em [`../02-especificacao/02-tools-do-agente.md`](../02-especificacao/02-tools-do-agente.md).
+
+**Consequência assumida:** tamanho, endereço e confirmação passam a ser coletados em texto
+livre, o que exige extração estruturada boa e confirmação repetindo de volta. O ganho é o
+que a rodada 1 já tinha registrado como custo do botão: cada objeção digitada é sinal que a
+agente usa para conduzir.
+
+## R2.5 — Horário de operação: 06:00 às 00:00
+
+**Decisão:** a agente opera das **06:00 à meia-noite**.
+
+**Razão do operador:** responder de madrugada entrega que é uma IA — ninguém trabalha nesse
+horário.
+
+Isso substitui a pendência da rodada 1 sobre a faixa da madrugada, e vira o gate de janela
+de atendimento na cadeia de verificações.
+
+## R2.6 — Ritmo de resposta
+
+**Decisão, três regras:**
+
+| Regra | Valor |
+|---|---|
+| Atraso da **primeira** resposta da conversa | **15 segundos** |
+| Atraso das demais | **0,2 segundo por palavra da mensagem** |
+| Indicador de "digitando" | **visível enquanto a agente prepara a resposta** |
+
+**Razão:** resposta instantânea entrega que é uma IA.
+
+**Nota técnica que a implementação precisa respeitar** (evidência: Evolution API,
+`whatsapp.baileys.service.ts` :2306–2330): a presença de "digitando" **expira em cerca de 20
+segundos** no WhatsApp. Qualquer espera acima disso precisa reenviar a presença em blocos —
+`presenceSubscribe → composing → espera → paused`, em laço. A 0,2 s por palavra, uma
+mensagem de 100 palavras já chega no limite.
+
+## R2.7 — Cupom do follow-up: 20%
+
+**Decisão:** o operador vai criar um cupom de **20% de desconto** para o terceiro toque do
+follow-up. Isso substitui a formulação da rodada 1 (15% no COD e 20% no antecipado).
+
+O guardrail continua valendo: **a agente não pode mencionar o cupom antes de o código existir
+na Coinzz**, e o desconto **não vaza** para quem compraria a preço cheio.
+
+## R2.8 — A função de cobrança de inadimplente deixa de existir
+
+**Decisão:** não há mais o que cobrar. O risco de inadimplência existia no modelo
+**pós-pago** (entrega primeiro, cobra depois). Com o `Físico na entrega` ativo, o entregador
+cobra na porta: ou ela paga e recebe, ou recusa e não recebe. **Não existe estado de
+"entregue e não pago".**
+
+**Consequência:** as quatro funções do agente viram **três**:
+
+1. Atender quem chega com dúvida antes de comprar
+2. Recuperar carrinho abandonado
+3. Confirmar o pedido depois da compra e acompanhar até a entrega
+
+## R2.9 — Criação de pedido: o operador informa que a Coinzz tem webhook
+
+**Registrado, com uma ressalva técnica que precisa ser resolvida antes de virar plano:**
+
+Webhook e API são coisas diferentes. Um **webhook** é a Coinzz **avisando a gente** quando
+algo acontece — pedido criado, pagamento confirmado, status mudou. Ele resolve a etapa E3
+(status do pedido) e o gatilho de entrada do pós-venda, que já estavam mapeados.
+
+O que a decisão da rodada 1 exige é o caminho inverso: **a gente criar o pedido na Coinzz**.
+Isso precisa de um endpoint que possamos chamar. Se a Coinzz oferecer só webhooks de saída,
+o caminho COD "a agente finaliza o pedido" não tem mecanismo.
+
+**Alternativa que preserva a decisão sem depender de API** — a mesma que já existe para o
+antecipado: a agente monta o **checkout pré-preenchido com todos os dados e a forma COD já
+selecionada**, e a cliente só confirma. Ela não preenche nada nem informa pagamento; dá um
+toque. Perde-se menos conversão do que parece, e não depende de API nenhuma.
+
+**Pendente:** confirmar na documentação da Coinzz se existe endpoint de criação de pedido.
+
+## O que ficou pendente
 
 | # | Pendência | Quem resolve |
 |---|---|---|
-| 1 | A Coinzz tem API de criação de pedido? | Verificação técnica — primeira tarefa |
-| 2 | Botões vs. texto livre (Q6) | Operador + sessão, juntos |
-| 3 | Faixa horária da madrugada (Q12) | Operador |
-| 4 | Código do cupom de 15% / 20% (Q9) | Operador cria na Coinzz |
-| 5 | Copy do site: *"Não é robô"* (Q10) | Operador |
-| 6 | `PREPAY_DISCOUNT` de 5% → 10% e ligar (D2) | Depende da configuração na Coinzz |
-| 7 | Regra de cobrança de inadimplente (Q13) | Adiada por decisão |
-| 8 | ~~O frete incide no antecipado?~~ **Resolvido: o frete é por conta da cliente**, a contribuição de R$ 76,24 está correta | ✅ |
-| 9 | **O antecipado leva frete embutido ou não?** Pesquisa de 2026-09-04 indica que R$ 116,90 + frete provavelmente passa de R$ 129,90 — o "desconto" sairia mais caro para a cliente. Três saídas e a recomendação estão no [modelo](../00-contexto/06-modelo-economico.md) | Operador — **antes de a agente oferecer o antecipado** |
+| 1 | **A Coinzz tem endpoint de criação de pedido, ou só webhook de saída?** Ver R2.9 | Verificação técnica — primeira tarefa |
+| 2 | **Confirmar o Frete Personalizado da Logzz no painel** e definir o teto (recomendado: R$ 20) | Operador |
+| 3 | Código do cupom de 20% do terceiro toque | Operador cria na Coinzz |
+| 4 | Copy do site: *"Não é robô"* — ver explicação em [`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) | Operador |
+| 5 | `PREPAY_DISCOUNT` de 5% → **15%** e ligar, depois de a Coinzz configurar | Operador |
+| 6 | O desconto de 15% vale também no site, ou só no WhatsApp? | Operador |
+| 7 | Leads que chegam entre 00:00 e 06:00: responder às 06:00, ou pausar mídia na madrugada? | Operador |
+| 8 | Medir o custo real de frete por região antes de fixar o teto — a Logzz declara "raramente passa de R$ 25", o operador observa R$ 30 a R$ 50 | Operador |
+
+**Resolvidas na rodada 2:** botões vs. texto livre (R2.4) · faixa da madrugada (R2.5) ·
+frete do antecipado (R2.1) · cobrança de inadimplente, que deixou de existir (R2.8).
