@@ -56,13 +56,31 @@ operador.
 
 ---
 
+## A pilha, fixada na rodada 5
+
+| Peça | Papel |
+|---|---|
+| **Supabase (Postgres)** | Todo o estado. Substitui o SQLite. A org atual (`Oria Data-Base`) já está no limite de 2 projetos do plano free — o projeto do agente vai numa **org nova**, também gratuita |
+| **n8n** | Cano e relógio: entrada, filas, crons, webhooks, notificação. Instância que o operador já usa, separada por projeto/tags |
+| **WAHA** | Transporte do WhatsApp. Desde a imagem `2026.6.1` os recursos do antigo Plus são gratuitos — mídia e áudio inclusos |
+| **PikaPods** | Só o que precisa ficar de pé 24/7 (~US$ 1–4/mês por pod) |
+| **Hermes Agent** | Otimizador periódico. Lê conversas, **propõe** mudanças; nunca publica sozinho |
+
+**Duas restrições de execução:** ainda não existe número de WhatsApp, e não se gasta nada
+antes de esgotar o gratuito. Por isso o plano foi reordenado em duas fases: a fase A inteira
+roda contra um **canal simulado** e não depende do número; a fase B pluga o canal real. Ver
+[`docs/agente/05-plano/README.md`](docs/agente/05-plano/README.md) §3 e a estimativa em §7
+(13–18 sessões até o agente rodar sem canal; 5–9 depois disso até o fim do piloto).
+
+---
+
 ## O que já foi decidido (não reabrir)
 
 Registro cronológico completo em
 [`docs/agente/04-decisoes/03-decisoes-tomadas.md`](docs/agente/04-decisoes/03-decisoes-tomadas.md).
 Pontos que mais importam para quem retoma o trabalho:
 
-- **Onde roda:** VPS 24/7 — o canal exige sessão viva e o follow-up exige relógio; SQLite não vai para serverless com disco efêmero.
+- **Onde roda:** pod 24/7 para o WAHA — o canal exige sessão viva. O argumento do SQLite em disco caiu com a Supabase (rodada 5), mas o do canal continua de pé.
 - **Transporte WhatsApp:** WAHA, número novo.
 - **Fila de trabalho:** tabela SQL, sem Redis.
 - **Ordem de prioridade das funções:** 1) Pré-venda 2) Pós-pedido 3) Recuperação de carrinho do site 4) Follow-up de longo prazo. A régua de 3 toques para quem silencia (Q9) é **intrínseca à pré-venda**, não uma função à parte — decisão explícita, já causou um erro de plano que foi corrigido antes do PR #4 (ver seção "Uma correção" no corpo do PR).
@@ -78,9 +96,9 @@ Pontos que mais importam para quem retoma o trabalho:
 
 Em ordem, seguindo o plano (`05-plano/README.md`):
 
-1. **Responder as perguntas da onda 0** — runtime do agente (SDK direto vs. Vercel AI SDK vs. Mastra vs. n8n), se o provedor de modelo "OpenAI" do `CLAUDE.md` vale também para este agente, acesso à VPS.
-2. Depois de decidido: provisionar a VPS, subir o WAHA, montar o schema inicial do SQLite, implementar a fila SQL — critério de saída da onda 0 é uma mensagem de teste completando o ciclo banco → WhatsApp.
-3. Seguir para a onda 1 (pré-venda), respondendo as perguntas 4–8 conforme a construção chegar nelas (credenciais da Coinzz, cupom de 20% criado, canal de notificação do handoff, valor do teto de custo por conversa).
+1. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** É a única coisa da lista com prazo de calendário: número novo precisa de semanas de uso normal antes de receber tráfego. Não bloqueia nada da fase A, mas atrasa a fase B se ficar para depois.
+2. **Onda A0** — org e projeto novos na Supabase, schema e migrações, fila em tabela, seam de chamada de modelo com teto de custo, contrato de canal com adapter simulado.
+3. Seguir pelas ondas A1 → A4 (determinístico com teste → conversa → pedido e réguas → n8n, métricas e Hermes), respondendo as perguntas da seção 4 do plano conforme cada onda chegar nelas.
 4. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o agente (novo checkout, nova página, etc.) — a relação é de mão dupla: o site também referencia este repositório para o contexto do agente.
 
 ---

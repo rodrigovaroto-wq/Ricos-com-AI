@@ -624,3 +624,127 @@ camada 2. A camada 1 roda 24/7, sempre.
 bloqueante de decisão de negócio no momento. Restam apenas verificações técnicas de
 implementação (formato exato da chamada de API da Coinzz, nome dos campos do checkout
 pré-preenchido) — essas são trabalho de construção, não decisão a tomar.
+
+---
+
+# Decisões tomadas — rodada 5
+
+> Rodada de infraestrutura. O operador fixou a pilha e duas restrições de execução; o
+> resto desta rodada é consequência dessas escolhas, verificada contra a documentação de
+> cada fornecedor (as verificações estão marcadas com a data em que foram feitas).
+
+## R5.1 — Duas restrições que definem a ordem do trabalho
+
+| Restrição | O que significa na prática |
+|---|---|
+| **Ainda não existe número de WhatsApp** | Nada que dependa do canal vivo pode ser feito agora — nem pareamento, nem teste com número real, nem aquecimento |
+| **Gasto zero até esgotar o que é gratuito** | Só se contrata infraestrutura quando o que dá para construir de graça estiver construído e testado |
+
+**Consequência de projeto, e é a decisão mais importante desta rodada:** o WhatsApp deixa
+de ser pré-requisito da construção. O canal vira um **adapter** com contrato explícito, e a
+construção roda contra um **canal simulado** que fala esse mesmo contrato — o mesmo formato
+de webhook de entrada, o mesmo endpoint de envio. É o que já foi feito no site com as
+personas do navegador: o teste não espera cliente real para existir.
+
+Isso inverte a ordem original do plano, que abria com "provisionar VPS e parear o número".
+A onda 0 antiga não pode nem começar hoje; a nova pode começar agora e vai até o ponto em
+que só falta plugar o canal.
+
+## R5.2 — Banco: Supabase (Postgres) no lugar do SQLite
+
+Substitui o SQLite fixado no `CLAUDE.md`. O motivo original do SQLite era não depender de
+serviço externo; o motivo original da VPS 24/7 era *"SQLite não vai para serverless com
+disco efêmero"* (§Q2). Com Postgres gerenciado, **esse argumento deixa de valer para o
+estado** — mas continua valendo para o canal: a sessão do WhatsApp exige processo vivo. Ou
+seja, a VPS continua necessária, por outro motivo, e o banco deixa de ser a razão.
+
+**Verificado em 2026-09-05, na documentação da Supabase:** plano gratuito tem 500 MB de
+banco por projeto, **2 projetos ativos por organização**, e projeto ocioso é **pausado após
+1 semana sem atividade**.
+
+Duas consequências práticas:
+
+1. A organização que o operador já tem (`Oria Data-Base`, plano free) **já está nos dois
+   projetos**. O projeto do agente vai numa **organização nova**, também gratuita — não é
+   contorno de regra, é como a Supabase organiza cota por organização.
+2. Enquanto o agente não tiver tráfego, o projeto pausa sozinho em uma semana. Um cron
+   barato de ping resolve, e ele já vai existir de qualquer forma para as varreduras.
+
+## R5.3 — n8n: orquestração e integrações, não o cérebro do turno
+
+O operador já tem uma instância de n8n em produção para outro produto. O agente entra nela,
+separado por projeto/pasta e tags próprias.
+
+**O que o n8n faz:** webhook de entrada do canal, gravação e enfileiramento, crons de
+varredura (régua de silêncio, régua de pós-pedido, ping do banco), webhook de status da
+Coinzz, notificação de handoff, disparo periódico do otimizador.
+
+**O que o n8n não faz:** a cadeia de 11 guardrails, a máquina de estados, o teto de custo
+por conversa e a montagem de contexto. Isso é código versionado, com teste automatizado,
+chamado por HTTP.
+
+**Por quê:** a regra que a própria pesquisa já registrou (`03-pesquisa/03-extracao-por-necessidade.md`
+§N3, §N4) é que o que pode ser determinístico não deve custar chamada de modelo — e o
+corolário é que o que precisa de teste automatizado não pode morar dentro de nós de um
+editor visual. Guardrail que ninguém consegue testar em CI é guardrail que ninguém sabe se
+funciona. Um fluxo de n8n é ótimo como cano e como relógio; é ruim como suíte de regras.
+
+## R5.4 — Hospedagem: PikaPods, e só para o que exige processo vivo
+
+**Verificado em 2026-09-05:** pods a partir de ~US$ 1/mês; n8n com recursos padrão fica em
+~US$ 3,80/mês.
+
+Roda em pod **o que precisa estar de pé 24/7**: o WAHA (sessão do WhatsApp) e o n8n, se o
+operador decidir separar do que ele já usa. O cérebro do turno não precisa de pod próprio no
+começo — ver R5.6.
+
+## R5.5 — WAHA continua sendo o transporte, e agora é inteiramente gratuito
+
+**Verificado em 2026-09-05, no site do WAHA:** o que era WAHA Plus foi incorporado ao Core a
+partir da imagem `2026.6.1`; mídia, múltiplas sessões e os demais recursos pagos passaram a
+ser gratuitos, sem limite de mensagens nem expiração de licença. Existe um apoio comunitário
+opcional de US$ 5/mês, que não desbloqueia nada.
+
+Isso remove um custo que o plano antigo assumia e, mais importante, remove o risco de a
+transcrição de áudio (§B3 do mapa funcional) esbarrar em recurso pago — o público manda
+áudio, e isso não é opcional.
+
+## R5.6 — Onde o cérebro do turno roda
+
+Código TypeScript versionado neste repositório, exposto por HTTP. Dois lugares possíveis, e
+a escolha não precisa ser feita agora porque o contrato é o mesmo nos dois:
+
+| Opção | A favor | Contra |
+|---|---|---|
+| **Supabase Edge Functions** (recomendada para começar) | Gratuita, sem servidor para manter, mora junto do banco | Deno, tempo de execução limitado por chamada |
+| **Container Node no mesmo pod do WAHA** | Sem limite de execução, mesma linguagem do resto | Mais uma coisa para manter de pé |
+
+Recomendação: começar em Edge Functions e migrar para o pod se o limite de execução
+incomodar. A migração é troca de host, não reescrita, desde que o cérebro não dependa de
+nada específico do ambiente.
+
+## R5.7 — Hermes Agent: otimizador que propõe, nunca que publica
+
+O operador escolheu o [Hermes Agent](https://github.com/NousResearch/hermes-agent) (Nous
+Research, open source) como o agente que lê as conversas e otimiza o sistema periodicamente.
+
+**Guardrail de governança, decidido aqui:** o Hermes lê o banco e **abre proposta de
+mudança** — pull request no repositório, ou linha numa tabela de experimentos com estado
+`proposto`. Ele **não** escreve prompt, preço, cupom ou guardrail direto em produção.
+
+O motivo é o mesmo que fez a cadeia de guardrails existir: um sistema que se reescreve
+sozinho sem revisão pode "otimizar" prometendo o que a operação não cumpre — desconto que
+não existe, prazo que a Logzz não pratica, garantia que ninguém honra. Otimização de
+conversão sem revisão humana é exatamente o caminho para a promessa quebrada que este
+projeto já decidiu não cometer.
+
+## R5.8 — Provedor de modelo: continua em aberto, com um caminho de custo zero para o desenvolvimento
+
+Segue sendo a pergunta 1 e 2 da seção 4 do plano. O que muda: com a restrição de gasto zero,
+**o desenvolvimento não espera essa decisão**. Toda chamada de modelo passa por uma função
+só (o *seam* de §H6), então o provedor é configuração, não arquitetura.
+
+Para desenvolver sem gastar, a camada gratuita de algum provedor resolve — o operador já tem
+conta Google/Gemini ligada ao n8n. A decisão de qual modelo redige a conversa em produção
+fica para o momento do piloto, quando o custo por conversa vira número medido em vez de
+estimativa.
