@@ -97,6 +97,19 @@ presença durante a espera → SAÍDA: 1 a 3 mensagens no ritmo de gente → *ad
 Referências: DeskcommCRM → `split-message.ts` :7, :99. Evolution também valida se o número
 existe no WhatsApp antes de enviar (:2295).
 
+**Novo na rodada 3 — áudios gravados por pessoas reais.** Além de texto, o agente pode
+enviar áudios pré-gravados por humanos em pontos do funil (boas-vindas, confirmação de
+pedido, véspera de entrega). Isso é mídia **estática e versionada**, não texto-para-fala
+gerado na hora — o mesmo padrão de "conteúdo imutável, seleção determinística" das variantes
+de re-entrada (rodada 1). Consequências de projeto:
+
+- O áudio não pode conter dado variável (nome, valor, endereço) — precisa ser genérico ou
+  existir em poucas variantes por situação.
+- A seleção de qual áudio toca em qual momento é decisão do agente; o conteúdo do áudio em
+  si não é.
+- Ainda em definição: quais mensagens recebem áudio, quantas variantes cada uma, e quem
+  grava — ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §R3.5.
+
 ## C. Venda
 
 **C1. Descoberta.** Primeiras mensagens → identificar o momento dela → necessidade nomeada
@@ -169,25 +182,32 @@ Referência de mecanismo: escolha por botão em vez de texto livre — WAHA →
 
 ## E. Pedido
 
-**E1. Criação — dois caminhos, decididos na rodada 1.**
+**E1. Criação — confirmado na rodada 3: sempre por checkout personalizado, nunca por API de
+pedido.**
 
 | Forma de pagamento | Como o pedido nasce |
 |---|---|
-| **COD** (padrão) | A cliente **não preenche checkout nenhum**. Manda os dados pelo WhatsApp e a agente finaliza o pedido. Confirmação pela API da Coinzz |
-| **Antecipado** | A agente preenche contato e endereço e envia um **link de checkout pré-preenchido**; a cliente só conclui o pagamento. O link carrega dados de contato e entrega — **nunca dados de pagamento** |
+| **COD** (padrão) | A agente monta o **checkout personalizado pré-preenchido** (nome, telefone, endereço, tamanho, COD selecionado) e envia o link. A cliente **confirma**, sem preencher nada e sem informar pagamento |
+| **Antecipado** | Mesmo mecanismo, com pagamento antecipado selecionado. A cliente **nunca envia dado de pagamento pelo chat** — só confirma no ambiente da Coinzz |
 
-ENTRADA: dados confirmados → PROCESSAMENTO: criar ou pré-preencher conforme a modalidade →
-SAÍDA: `order_id` → *integração Coinzz*.
+ENTRADA: dados confirmados → PROCESSAMENTO: gerar link de checkout com os campos
+pré-preenchidos → SAÍDA: link enviado à cliente → *integração Coinzz (webhook de saída para
+status; sem chamada de criação de pedido)*.
 
-**Primeira verificação técnica do projeto:** a Coinzz tem API de criação de pedido? Sabe-se
-que **dá para gerar checkout personalizado com dados pré-preenchidos**; a existência da API
-decide se o caminho COD é chamada de API ou automação de navegador.
+**Por que este caminho, e não a API de criação de pedido — decisão explícita do operador:**
+confirmar no checkout é **mais seguro**, não uma alternativa inferior. No COD, a cliente vê
+o resumo antes de confirmar — reduz erro de tamanho/endereço e dá sensação de controle a uma
+audiência desconfiada de golpe. No antecipado, o argumento é mais forte ainda: dado de
+pagamento nunca trafega em texto de WhatsApp, o que evita uma exposição de segurança que
+qualquer auditoria reprovaria.
 
-**Contexto da pesquisa:** nenhuma das 8 referências cria pedido; DeskcommCRM só lê
-(`lib/mcp/tools/comercio.ts` :27). Existe um objeto de pedido **nativo do WhatsApp**
-(Baileys → `src/Socket/business.ts` :254; `Types/Product.ts` :55–73) e o Evolution monta um
-pedido nativo dentro do botão de PIX (`whatsapp.baileys.service.ts` :3258–3295) —
-**[HIPÓTESE]** serve para COD, não validado, e fora do primeiro corte.
+**Verificação técnica pendente:** a Coinzz permite gerar esse link **programaticamente**
+(chamada automatizada), não só criar manualmente pelo painel? Isso é diferente de "ter API
+de pedido" — é ter API de **checkout pré-preenchido**. Enquanto não confirmado, o caminho
+alternativo é preencher o link à mão a partir de um template de URL com parâmetros.
+
+**Contexto da pesquisa, mantido por referência:** nenhuma das 8 referências cria pedido
+via API própria; DeskcommCRM só lê pedidos existentes (`lib/mcp/tools/comercio.ts` :27).
 
 **E2. Registro local.** `order_id` → gravar vínculo lead↔pedido com idempotência → linha
 durável → *banco*.

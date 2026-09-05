@@ -410,18 +410,119 @@ toque. Perde-se menos conversão do que parece, e não depende de API nenhuma.
 
 **Pendente:** confirmar na documentação da Coinzz se existe endpoint de criação de pedido.
 
+---
+
+# Decisões tomadas — rodada 3
+
+Respostas do operador em 2026-09-05.
+
+## R3.1 — Criação de pedido: confirmado, webhook apenas, checkout personalizado
+
+**Decisão mantida e reforçada:** a agente não cria pedido por API. Para os dois caminhos, o
+mecanismo é o mesmo — **checkout personalizado da Coinzz, pré-preenchido com os dados da
+cliente**, com o link enviado para ela confirmar.
+
+**Razão do operador — e ela é melhor do que a alternativa que eu tinha em mente:** confirmar
+no checkout é **mais seguro**, não um substituto inferior à API. No COD, a cliente vê o
+resumo do pedido antes de confirmar, o que reduz erro de tamanho/endereço e dá a ela a
+sensação de controle que uma audiência desconfiada de golpe precisa. No antecipado, o
+argumento é ainda mais forte: **ela nunca envia dado de pagamento pelo chat** — só confirma
+no ambiente seguro da Coinzz. Isso fecha uma exposição que eu não tinha nomeado antes:
+cartão ou chave PIX trafegando em texto de WhatsApp é o tipo de coisa que uma auditoria de
+segurança reprovaria de cara, e a decisão evita o problema por completo.
+
+**Como isso muda o mapa funcional (E1):** o fluxo deixa de ser "a agente cria o pedido" e
+passa a ser "a agente monta o checkout pré-preenchido e envia o link; a cliente confirma".
+`create_order` como tool desaparece; entra `build_prefilled_checkout_link`.
+
+**O que falta:** confirmar que a Coinzz oferece checkout personalizado programável (não só
+manual pelo painel) — ou seja, que dá para gerar o link com nome, telefone, endereço e
+tamanho já preenchidos via chamada automatizada, e não só copiando e colando à mão. Isso é
+diferente de "ter API de pedido": é ter API de **checkout pré-preenchido**. Ver pendência
+nº 1 revisada abaixo.
+
+## R3.2 — Cupom de 20%: vale nos dois caminhos, com um argumento sazonal como capa
+
+**Decisão:** o cupom de 20% do terceiro toque vale tanto para COD quanto para antecipado.
+
+**Refinamento pedido pelo operador:** em vez de apresentar o cupom como "prêmio por ter
+sumido três dias" (que é o que ele é, mecanicamente), a agente o encaixa num motivo externo
+— **semana do consumidor, data comemorativa, ou "condição especial por tempo limitado"** —
+sempre que uma dessas datas existir perto do envio. **Se não houver nenhuma no calendário no
+momento, mantém a formulação anterior (retomada de follow-up) e aceita o risco descrito na
+rodada 2** (quem espera ganha mais que quem paga na hora).
+
+**Consequência de projeto:** a régua de follow-up passa a consultar um calendário de datas
+comerciais antes de escolher o texto do terceiro toque. Isso é conteúdo, não código — uma
+lista mantida pelo operador, não uma integração com feriados.
+
+## R3.3 — O desconto de 15% vs. frete grátis: fica registrado como lacuna conjunta
+
+**Decisão:** não decidir agora. O operador quer analisar junto se é melhor **manter os 15%
+de desconto** ou **oferecer frete grátis até um teto** no caminho antecipado — e, se
+qualquer coisa mudar, vale **tanto no site quanto no WhatsApp**.
+
+Isso confirma o que já estava registrado (R2.3, pendência nº 6) e adiciona a
+opção de comparar desconto-no-preço vs. frete-grátis-com-teto como **estratégias
+concorrentes**, não complementares — dar as duas ao mesmo tempo dobra o subsídio sem dobrar
+a conversão.
+
+## R3.4 — Mídia 24/7, atendimento 06:00–00:00: mantido, sem mudança
+
+Confirma R2.5. A lacuna R2's pendência sobre "o que fazer com quem chega às 02:00" **segue
+sem resposta explícita** — o operador confirmou o horário do agente, não o que acontece com
+o lead da madrugada. Ver pendência revisada abaixo.
+
+## R3.5 — Identidade: mantém "não mente, não anuncia"; ganha um ativo novo
+
+**O operador não pediu mudança de comportamento.** O ponto conceitual que ele levanta — que
+a agente não é "um robô" no sentido de script fixo sem autonomia, e sim um sistema de
+linguagem generativa com decisão adaptativa — está registrado em
+[`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) §"Nota de
+vocabulário". A regra das três linhas não muda.
+
+**O que muda de fato no projeto — e isso é uma peça nova, não uma reafirmação:**
+
+> **O agente vai enviar áudios gravados por pessoas reais.**
+
+Isso não estava em nenhuma decisão anterior e muda o desenho da função de envio de
+mensagem. Hoje o mapa fala só de texto (B5/B6/B7). Um áudio gravado por humano, tocado pelo
+agente, é uma peça de mídia pré-gravada, não um TTS gerado na hora — o que tem implicações
+de guardrail que texto não tem:
+
+- **Não pode ser gerado dinamicamente por variável.** Se o áudio é gravação fixa, ele não
+  pode dizer "Bruna, seu pedido de R$ 129,90..." com valores que mudam — precisa ser
+  genérico o bastante para servir a qualquer conversa, ou existir em poucas variantes
+  pré-gravadas por situação (confirmação, véspera de entrega, boas-vindas).
+- **Precisa de biblioteca e critério de seleção.** Qual áudio toca em qual momento da
+  conversa é decisão do agente (ou do sistema de skills), mas o conteúdo do áudio em si é
+  imutável — o mesmo padrão de "conteúdo versionado, seleção determinística" que já vale
+  para os templates de re-entrada (rodada 1, referência DeskcommCRM `reentry-template.ts`).
+- **Reforça a identidade sem contradizer o guardrail.** Uma voz humana real não é uma
+  mentira sobre ser humano — é uma característica de qualidade de atendimento, do mesmo
+  jeito que um nome próprio e um tom caloroso já eram. Mas grava-la como se fosse a agente
+  falando ao vivo, numa situação em que fica claro que é play de arquivo (ex.: a voz não
+  responde ao que a cliente acabou de perguntar), teria o efeito oposto do pretendido.
+
+**Isso entra como pendência de especificação, não decisão fechada:** quais mensagens do
+funil recebem áudio, quantas variantes por mensagem, e quem grava. Ver pendência nova
+abaixo.
+
+**A landing page não muda.** Ver [`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) §"A copy da landing page".
+
 ## O que ficou pendente
 
 | # | Pendência | Quem resolve |
 |---|---|---|
-| 1 | **A Coinzz tem endpoint de criação de pedido, ou só webhook de saída?** Ver R2.9 | Verificação técnica — primeira tarefa |
-| 2 | **Confirmar o Frete Personalizado da Logzz no painel** e definir o teto (recomendado: R$ 20) | Operador |
-| 3 | Código do cupom de 20% do terceiro toque | Operador cria na Coinzz |
-| 4 | Copy do site: *"Não é robô"* — ver explicação em [`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) | Operador |
-| 5 | `PREPAY_DISCOUNT` de 5% → **15%** e ligar, depois de a Coinzz configurar | Operador |
-| 6 | O desconto de 15% vale também no site, ou só no WhatsApp? | Operador |
-| 7 | Leads que chegam entre 00:00 e 06:00: responder às 06:00, ou pausar mídia na madrugada? | Operador |
-| 8 | Medir o custo real de frete por região antes de fixar o teto — a Logzz declara "raramente passa de R$ 25", o operador observa R$ 30 a R$ 50 | Operador |
+| 1 | **A Coinzz permite gerar checkout personalizado pré-preenchido via chamada automatizada** (não só manual pelo painel)? Isso é diferente de "API de pedido" — ver R3.1 | Verificação técnica — primeira tarefa |
+| 2 | Confirmar o **Frete Personalizado** da Logzz no painel — mas a decisão de usá-lo depende da R3.3 (desconto vs. frete grátis) primeiro | Operador |
+| 3 | **Desconto de 15% vs. frete grátis com teto no antecipado** — decidir juntos, e replicar a escolha no site e no WhatsApp (R3.3) | Operador + sessão |
+| 4 | Calendário de datas comerciais para o argumento do cupom de 20% (semana do consumidor etc.) — lista a manter | Operador |
+| 5 | Copy do site *"Não é robô"* — **não será alterada.** Mantido como está, por decisão do operador (R3.5) | ✅ resolvida (sem mudança) |
+| 6 | Leads que chegam entre 00:00 e 06:00: mídia continua rodando, mas ainda não está definido se a agente responde ao acordar às 06:00 ou se a conversa é tratada como perdida | Operador |
+| 7 | Medir o custo real de frete por região antes de fixar qualquer teto | Operador |
+| 8 | **Nova: biblioteca de áudios gravados por pessoas reais** — quais mensagens do funil recebem áudio, quantas variantes por mensagem, quem grava, e como o sistema escolhe qual tocar (R3.5) | Operador + sessão |
 
-**Resolvidas na rodada 2:** botões vs. texto livre (R2.4) · faixa da madrugada (R2.5) ·
-frete do antecipado (R2.1) · cobrança de inadimplente, que deixou de existir (R2.8).
+**Resolvidas na rodada 3:** mecanismo de criação de pedido (webhook + checkout
+personalizado, sem API de pedido) · cupom vale nos dois caminhos · identidade mantida sem
+mudança de comportamento.

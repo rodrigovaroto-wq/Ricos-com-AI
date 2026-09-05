@@ -68,9 +68,14 @@ Dois níveis:
 
 Decididos na rodada 1 (ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q9).
 
-**Gate do cupom.** A agente **não pode mencionar o cupom de 15% / 20% antes de o código
-existir e estar configurado na Coinzz**. É o mesmo erro do PIX imediato contra a promessa
-de COD — mesma operação, nome diferente.
+**Gate do cupom.** A agente **não pode mencionar o cupom de 20% antes de o código existir e
+estar configurado na Coinzz**. É o mesmo erro do PIX imediato contra a promessa de COD —
+mesma operação, nome diferente. Vale para os dois caminhos de pagamento (rodada 3).
+
+**Moldura do cupom, decidida na rodada 3:** o argumento apresentado à cliente é uma data
+comercial (semana do consumidor, condição especial por tempo limitado) quando houver uma no
+calendário próxima ao envio; na ausência de data, usa a formulação de retomada padrão. A
+lista de datas é conteúdo mantido pelo operador, não lógica de código.
 
 **Gate do vazamento de desconto.** O desconto do toque 3 existe **só** no toque 3, **só**
 para quem silenciou por três dias, e **nunca** para quem já aceitou o preço cheio. Sem essa
@@ -110,23 +115,27 @@ conversa converter, e nada disso é problema.
 
 "Não mente, não anuncia." O handoff humano existe para quem quiser falar com uma pessoa.
 
-### A copy da landing page que precisa mudar por causa disso
+### Nota de vocabulário, sem mudança de comportamento
+
+O operador observa, com razão, que a agente não é "um robô" no sentido que a pergunta da
+cliente normalmente pressupõe (script fixo, sem autonomia) — é um sistema de linguagem
+generativa com decisão adaptativa. É uma distinção correta entre "robô" e "IA", e o
+documento passa a registrá-la. **Ela não muda a regra das três linhas acima**: a agente
+continua não afirmando ser humana e não anunciando que não é. O argumento do operador é que,
+bem executado — voz com nome próprio, ritmo humano, áudios gravados por pessoas reais
+(rodada 3) — a situação em que alguém precisa perguntar tende a ser rara, não que a pergunta
+deixe de fazer sentido.
+
+### A copy da landing page — mantida sem alteração
 
 A seção de objeções do site diz hoje, em `colet/src/components/landing/Objection.tsx` :13:
 
 > **WhatsApp com gente de verdade** — *"Não é robô. Se der qualquer problema, tem alguém do
 > outro lado."*
 
-Com a agente atendendo, a frase **"Não é robô"** deixa de ser verdade — e é uma frase que a
-cliente lê no site **antes** de abrir a conversa. Se ela chega no WhatsApp, pergunta, e ouve
-"sou a assistente oficial", a contradição é com o próprio site, não com a agente.
-
-**A promessa que importa naquele bloco é a segunda parte** — *"tem alguém do outro lado"* —
-e essa continua verdadeira, porque o handoff humano existe. A sugestão é trocar só o título
-e a primeira frase, por algo como *"Atendimento de verdade"* / *"Tem gente acompanhando cada
-pedido. Deu problema, você fala com uma pessoa."*
-
-**É mudança no repositório da landing page, não neste. Decisão do operador.**
+Uma troca de copy foi sugerida na rodada 2 e **não foi adotada** — o operador não pediu
+mudança no site, e o card continua como está. Fica arquivada como opção considerada e
+descartada, não como pendência.
 
 **Consequência de implementação:** o gate nº 9 é o único dos dois lados que precisa de
 código. O "não anunciar" é ausência de gate, não presença — e por isso precisa estar escrito

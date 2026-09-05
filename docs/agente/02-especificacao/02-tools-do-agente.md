@@ -34,7 +34,7 @@ descarte silencioso.
 
 | Tool | Faz | Notas |
 |---|---|---|
-| `create_order` | Cria o pedido na operação | **Depende da decisão de rota E1** — hoje não existe caminho definido |
+| `build_prefilled_checkout_link` | Monta o link de checkout personalizado da Coinzz com os dados da cliente e a modalidade já selecionada | **Substitui `create_order`, decidido na rodada 3.** Não cria pedido por API — a cliente confirma no link. Pendente: confirmar se a Coinzz gera esse link programaticamente |
 | `get_order_status` | Status do pedido da cliente | Referência de forma: DeskcommCRM → `crm_list_contact_orders` (`lib/mcp/tools/comercio.ts` :27) |
 
 ## Memória e tempo
