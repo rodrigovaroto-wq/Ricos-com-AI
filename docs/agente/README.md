@@ -12,11 +12,12 @@ reconstruir a pesquisa nem adivinhar o negócio.
 
 | # | Pasta | O que tem |
 |---|---|---|
-| 1 | [`00-contexto/`](00-contexto/) | O negócio: produto, oferta, público, economia do COD, campanha e o que já foi decidido e não se reabre |
+| 1 | [`00-contexto/`](00-contexto/) | O negócio: produto, oferta, público, economia do COD, **modelo econômico projetado**, campanha e o que já foi decidido e não se reabre |
 | 2 | [`01-conhecimento/`](01-conhecimento/) | O que o agente pode dizer: objeções, FAQ, medidas, o que vai na caixa — copy validada em tráfego pago |
 | 3 | [`02-especificacao/`](02-especificacao/) | O que o agente faz: mapa funcional, tools, máquina de estados, guardrails |
 | 4 | [`03-pesquisa/`](03-pesquisa/) | 8 repositórios open source lidos em código, com arquivo e linha |
-| 5 | [`04-decisoes/`](04-decisoes/) | O que falta e o que precisa de escolha |
+| 5 | [`04-decisoes/`](04-decisoes/) | O que falta, o que já foi decidido e o que ainda precisa de escolha |
+| 6 | [`05-plano/`](05-plano/) | O plano de construção: onde estamos, o que falta, em que ordem, e as perguntas ainda abertas antes do MVP |
 
 ## Atalho por pergunta
 
@@ -25,7 +26,10 @@ reconstruir a pesquisa nem adivinhar o negócio.
 - *"Como responder a uma objeção?"* → [`01-conhecimento/01-base-de-conhecimento.md`](01-conhecimento/01-base-de-conhecimento.md)
 - *"Que tamanho recomendar?"* → [`01-conhecimento/02-tabela-de-medidas.md`](01-conhecimento/02-tabela-de-medidas.md)
 - *"Onde alguém já resolveu isso?"* → [`03-pesquisa/03-extracao-por-necessidade.md`](03-pesquisa/03-extracao-por-necessidade.md)
+- *"Qual a meta e quanto o canal precisa render?"* → [`00-contexto/06-modelo-economico.md`](00-contexto/06-modelo-economico.md)
+- *"O que já foi decidido?"* → [`04-decisoes/03-decisoes-tomadas.md`](04-decisoes/03-decisoes-tomadas.md)
 - *"O que ainda não decidimos?"* → [`04-decisoes/02-decisoes-em-aberto.md`](04-decisoes/02-decisoes-em-aberto.md)
+- *"Por onde começar a construir, e o que falta perguntar?"* → [`05-plano/README.md`](05-plano/README.md)
 
 ## Relação com o resto do repositório
 

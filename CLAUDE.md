@@ -15,7 +15,9 @@
 
 Next.js (App Router) · React · TypeScript `strict` · Tailwind · SQLite · Drizzle ORM com migrações · Node.js 24 LTS · pnpm · Playwright (CDP) · SDK oficial da OpenAI.
 
-Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada. Roda como app Node.js local — SQLite não vai para serverless com disco efêmero.
+Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada.
+
+**Onde roda.** App Node.js num processo próprio, com SQLite em disco persistente. Para o agente de WhatsApp, o operador decidiu **VPS 24/7** (o canal exige sessão viva e o follow-up exige relógio) — ver [`docs/agente/04-decisoes/03-decisoes-tomadas.md`](docs/agente/04-decisoes/03-decisoes-tomadas.md) §Q2. **SQLite não vai para serverless com disco efêmero** — isso continua valendo.
 
 ## Canonical commands
 

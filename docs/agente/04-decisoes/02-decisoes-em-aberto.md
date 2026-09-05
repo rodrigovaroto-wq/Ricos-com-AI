@@ -1,13 +1,40 @@
-# Decisões em aberto
+# Decisões de rota — pauta e status
 
-Escolhas de rota que dependem do operador. **Nenhuma está tomada.** Este arquivo é a pauta
-da rodada de perguntas.
+Este arquivo é a **pauta original** da rodada de perguntas, com as opções levantadas e seus
+trade-offs. As respostas do operador estão em
+[`03-decisoes-tomadas.md`](03-decisoes-tomadas.md) — é lá que vale a decisão.
 
-Formato: **decisão → opções encontradas → vantagens → desvantagens → impacto.**
+Mantemos a pauta inteira porque as alternativas descartadas explicam por que a escolhida
+faz sentido, e porque algumas voltarão à mesa quando houver dado real.
+
+## Status em 2026-09-04
+
+| # | Decisão | Status |
+|---|---|---|
+| 1 | Transporte de WhatsApp | ✅ **WAHA** |
+| 2 | Onde o sistema roda | ✅ **VPS 24/7** |
+| 3 | Runtime do agente | ⏳ em aberto |
+| 4 | Memória | ⏳ em aberto |
+| 5 | Onde o pedido nasce | ✅ **COD sem checkout; antecipado por link pré-preenchido** |
+| 6 | PIX na conversa e desconto | ✅ **antecipado com 10%, ofertado antes de finalizar** |
+| 7 | Número de telefone | ✅ **número novo** |
+| 8 | Handoff humano | ✅ **para e notifica; operador assume** |
+| 9 | Disclosure | ✅ **vendedora da Encorpa** — copy do site ainda pendente |
+| 10 | Base de conhecimento | ⏳ em aberto |
+| 11 | Orquestração de follow-up | ⏳ em aberto |
+| 12 | Escopo do primeiro corte | ✅ **pré-venda → pós-pedido → carrinho → follow-up** |
+| 13 | Tamanho com medidas divergentes | ✅ **o maior dos dois** |
+| 14 | Cobrança de inadimplente | ⏳ adiada por decisão |
+
+Duas decisões novas nasceram da rodada e estão só em
+[`03-decisoes-tomadas.md`](03-decisoes-tomadas.md): **botões vs. texto livre** (Q6) e a
+**faixa horária da madrugada** (Q12).
+
+Formato dos itens abaixo: **decisão → opções encontradas → vantagens → desvantagens → impacto.**
 
 ---
 
-## 1. Transporte de WhatsApp
+## 1. Transporte de WhatsApp ✅
 
 **Opções:** (a) WAHA · (b) Baileys embutido no nosso processo · (c) Evolution ·
 (d) Cloud API oficial da Meta.
@@ -23,7 +50,7 @@ Formato: **decisão → opções encontradas → vantagens → desvantagens → 
 **[HIPÓTESE] a ausência de CNPJ (decisão firme §1) provavelmente elimina (d)** — a validar
 contra as exigências atuais da Meta antes de descartar.
 
-## 2. Onde o sistema roda
+## 2. Onde o sistema roda ✅
 
 **Opções:** (a) app Node local com SQLite, como `CLAUDE.md` declara · (b) VPS 24/7 ·
 (c) serverless com Postgres gerenciado.
@@ -56,7 +83,7 @@ Nosso "fato" é majoritariamente estruturado — tamanho, endereço, status do p
 declarado. **[INFERÊNCIA]** um vector store para lembrar oito campos é infra que não se
 paga, e a extração custa uma chamada de LLM por evento.
 
-## 5. Onde o pedido nasce
+## 5. Onde o pedido nasce ✅
 
 **Opções:** (a) API da Coinzz · (b) automação de navegador com Playwright · (c) **pedido
 nativo do WhatsApp** · (d) link de checkout pré-preenchido · (e) direto na Logzz.
@@ -68,7 +95,7 @@ monta um pedido dentro do botão de PIX (`whatsapp.baileys.service.ts` :3258–3
 
 **Impacto:** define se o agente **vende** ou apenas **encaminha**.
 
-## 6. PIX na conversa e o desconto de 5%
+## 6. PIX na conversa e o desconto ✅
 
 `PREPAY_DISCOUNT` está desligado esperando a Coinzz. Existe uma rota alternativa: **botão
 de PIX nativo dentro da conversa** (Evolution → `sendMessage.dto.ts` :98,
@@ -81,7 +108,7 @@ de ser "não paga nada agora") e **[HIPÓTESE]** pode reintroduzir o medo de gol
 objeção dominante.
 **Impacto:** mexe na promessa central da oferta. Decisão de negócio, não técnica.
 
-## 7. Número de telefone
+## 7. Número de telefone ✅
 
 **Opções:** (a) o mesmo do site (`5511916616348`) · (b) número novo.
 
@@ -90,7 +117,7 @@ objeção dominante.
 | Mesmo número | Já está no ar, já tem contatos salvos | Banimento derruba o atendimento da LP junto |
 | Número novo | Isola o risco, permite aquecer | Começa do zero, com teto de aquecimento |
 
-## 8. Handoff humano
+## 8. Handoff humano ✅
 
 **Opções:** (a) estado `pausado` próprio + notificação · (b) Chatwoot como caixa de
 entrada · (c) detectar que o operador respondeu pelo celular.
@@ -98,7 +125,7 @@ entrada · (c) detectar que o operador respondeu pelo celular.
 **Impacto:** define se o operador vive dentro ou fora do sistema. Sem decisão, agente e
 operador falam por cima um do outro com a mesma cliente.
 
-## 9. Disclosure — o conflito com a promessa publicada
+## 9. Disclosure — o conflito com a promessa publicada ✅ (parcial)
 
 A LP promete, em `Objection.tsx` :13: *"WhatsApp com gente de verdade. **Não é robô.** Se
 der qualquer problema, tem alguém do outro lado."*
@@ -127,7 +154,7 @@ manter o prefixo do prompt cacheável.
 **Impacto:** define onde mora a regra mais valiosa da operação — a confirmação pós-pedido,
 função nº 3.
 
-## 12. Escopo do primeiro corte
+## 12. Escopo do primeiro corte ✅
 
 **Opções:** (a) só a função 3 (confirmação e acompanhamento pós-pedido) · (b) só a função 1
 (atendimento inbound da campanha nova) · (c) as duas.
@@ -138,12 +165,12 @@ função nº 3.
 | (b) | É o que a campanha exige | Deixa o dinheiro maior na mesa |
 | (c) | Completo | Dobra o escopo e o risco do primeiro corte |
 
-## 13. Recomendação de tamanho quando as medidas divergem
+## 13. Recomendação de tamanho quando as medidas divergem ✅
 
 Cintura aponta M, quadril aponta G. A LP não trata esse caso e ele vai acontecer.
 NÃO IDENTIFICADO em qualquer referência.
 
-## 14. Cobrança de quem não pagou (função 4)
+## 14. Cobrança de quem não pagou (função 4) ⏳ adiada
 
 Definida pelo operador como uma das quatro funções, mas sem nenhuma regra escrita: quantas
 tentativas, em que tom, e até quando antes de virar prejuízo aceito. Nenhuma das 8

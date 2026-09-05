@@ -1,0 +1,140 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1400 1060" width="1400" height="1060" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1400" height="1060" fill="#FFFFFF"/>
+
+  <text x="700" y="46" text-anchor="middle" font-size="26" font-weight="700" fill="#1F2937">O que o agente faz, em ramos</text>
+  <text x="700" y="74" text-anchor="middle" font-size="14" fill="#6B7280">Um orquestrador, as funções que ele cobre, e as peças que ele aciona</text>
+
+  <!-- ============ RAIZ ============ -->
+  <rect x="520" y="100" width="360" height="76" rx="12" fill="#7A1330"/>
+  <text x="700" y="132" text-anchor="middle" font-size="18" font-weight="700" fill="#FFFFFF">AGENTE ORQUESTRADOR</text>
+  <text x="700" y="156" text-anchor="middle" font-size="12" fill="#F6C9D6">decide o turno e chama as peças</text>
+
+  <!-- conectores raiz -> funções -->
+  <line x1="700" y1="176" x2="700" y2="208" stroke="#9CA3AF" stroke-width="2"/>
+  <line x1="240" y1="208" x2="1160" y2="208" stroke="#9CA3AF" stroke-width="2"/>
+  <line x1="240" y1="208" x2="240" y2="240" stroke="#9CA3AF" stroke-width="2"/>
+  <line x1="700" y1="208" x2="700" y2="240" stroke="#9CA3AF" stroke-width="2"/>
+  <line x1="1160" y1="208" x2="1160" y2="240" stroke="#9CA3AF" stroke-width="2"/>
+
+  <!-- ============ PRÉ-VENDA (MVP) ============ -->
+  <rect x="40" y="240" width="400" height="76" rx="10" fill="#FBE4EC" stroke="#7A1330" stroke-width="2"/>
+  <text x="240" y="266" text-anchor="middle" font-size="16" font-weight="700" fill="#7A1330">PRÉ-VENDA</text>
+  <text x="240" y="286" text-anchor="middle" font-size="11.5" fill="#9B4A65">do anúncio até o pedido criado</text>
+  <text x="240" y="303" text-anchor="middle" font-size="11.5" fill="#9B4A65">inclui a retomada se a cliente silenciar</text>
+  <rect x="60" y="322" width="80" height="18" rx="9" fill="#7A1330"/>
+  <text x="100" y="335" text-anchor="middle" font-size="10.5" font-weight="700" fill="#FFFFFF">NO MVP</text>
+
+  <line x1="70" y1="352" x2="70" y2="710" stroke="#D8A3B5" stroke-width="2"/>
+
+  <line x1="70" y1="378" x2="100" y2="378" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="354" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="384" text-anchor="middle" font-size="13" fill="#1F2937">Recebe, entende e responde</text>
+
+  <line x1="70" y1="438" x2="100" y2="438" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="414" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="444" text-anchor="middle" font-size="13" fill="#1F2937">Trata dúvida e objeção</text>
+
+  <line x1="70" y1="498" x2="100" y2="498" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="474" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="504" text-anchor="middle" font-size="13" fill="#1F2937">Recomenda o tamanho</text>
+
+  <line x1="70" y1="558" x2="100" y2="558" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="534" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="564" text-anchor="middle" font-size="13" fill="#1F2937">Coleta e confirma os dados</text>
+
+  <line x1="70" y1="618" x2="100" y2="618" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="594" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="624" text-anchor="middle" font-size="13" fill="#1F2937">Envia o link do checkout</text>
+
+  <line x1="70" y1="710" x2="100" y2="710" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="100" y="654" width="340" height="112" rx="8" fill="#FFF7ED" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="270" y="678" text-anchor="middle" font-size="13" font-weight="700" fill="#1F2937">Se ela silenciar: 3 toques</text>
+  <text x="270" y="698" text-anchor="middle" font-size="12" fill="#374151">30 min · manhã seguinte · cupom em 3 dias</text>
+  <text x="270" y="720" text-anchor="middle" font-size="12" fill="#374151">cupom de 20%, só se já existir na Coinzz</text>
+  <text x="270" y="742" text-anchor="middle" font-size="11" fill="#9CA3AF">moldura "Super + dia da semana"</text>
+
+  <!-- ============ PÓS-PEDIDO (MVP) ============ -->
+  <rect x="500" y="240" width="400" height="76" rx="10" fill="#FBE4EC" stroke="#7A1330" stroke-width="2"/>
+  <text x="700" y="266" text-anchor="middle" font-size="16" font-weight="700" fill="#7A1330">PÓS-PEDIDO</text>
+  <text x="700" y="286" text-anchor="middle" font-size="11.5" fill="#9B4A65">do pedido até a entrega paga</text>
+  <text x="700" y="303" text-anchor="middle" font-size="11.5" fill="#9B4A65">ataca o evento mais caro: a recusa na porta</text>
+  <rect x="520" y="322" width="80" height="18" rx="9" fill="#7A1330"/>
+  <text x="560" y="335" text-anchor="middle" font-size="10.5" font-weight="700" fill="#FFFFFF">NO MVP</text>
+
+  <line x1="530" y1="352" x2="530" y2="590" stroke="#D8A3B5" stroke-width="2"/>
+
+  <line x1="530" y1="378" x2="560" y2="378" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="560" y="354" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="730" y="384" text-anchor="middle" font-size="13" fill="#1F2937">Confirma no mesmo dia</text>
+
+  <line x1="530" y1="438" x2="560" y2="438" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="560" y="414" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="730" y="444" text-anchor="middle" font-size="13" fill="#1F2937">Dá sinal de vida na rota</text>
+
+  <line x1="530" y1="498" x2="560" y2="498" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="560" y="474" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="730" y="504" text-anchor="middle" font-size="13" fill="#1F2937">Avisa na véspera da entrega</text>
+
+  <line x1="530" y1="558" x2="560" y2="558" stroke="#D8A3B5" stroke-width="2"/>
+  <rect x="560" y="534" width="340" height="48" rx="8" fill="#FFFFFF" stroke="#E5C3CF" stroke-width="1.5"/>
+  <text x="730" y="564" text-anchor="middle" font-size="13" fill="#1F2937">Pergunta se serviu</text>
+
+  <!-- ============ RECUPERAÇÃO DE CARRINHO (pós-MVP) ============ -->
+  <rect x="960" y="240" width="400" height="76" rx="10" fill="#F3F4F6" stroke="#9CA3AF" stroke-width="2" stroke-dasharray="5 4"/>
+  <text x="1160" y="266" text-anchor="middle" font-size="16" font-weight="700" fill="#4B5563">RECUPERAÇÃO DE CARRINHO</text>
+  <text x="1160" y="286" text-anchor="middle" font-size="11.5" fill="#6B7280">abandono no checkout do site</text>
+  <text x="1160" y="303" text-anchor="middle" font-size="11.5" fill="#6B7280">gatilho diferente: pixel do site, não silêncio no chat</text>
+  <rect x="980" y="322" width="128" height="18" rx="9" fill="#6B7280"/>
+  <text x="1044" y="335" text-anchor="middle" font-size="10.5" font-weight="700" fill="#FFFFFF">FORA DO MVP</text>
+
+  <line x1="990" y1="352" x2="990" y2="440" stroke="#D1D5DB" stroke-width="2"/>
+  <line x1="990" y1="396" x2="1020" y2="396" stroke="#D1D5DB" stroke-width="2"/>
+  <rect x="1020" y="360" width="340" height="72" rx="8" fill="#FAFAFA" stroke="#D1D5DB" stroke-width="1.5" stroke-dasharray="4 4"/>
+  <text x="1190" y="388" text-anchor="middle" font-size="13" fill="#4B5563">Ainda sem especificação</text>
+  <text x="1190" y="408" text-anchor="middle" font-size="11.5" fill="#9CA3AF">depende do site avisar o abandono</text>
+
+  <!-- ============ CAMADA COMPARTILHADA ============ -->
+  <rect x="40" y="792" width="1320" height="248" rx="14" fill="#F9FAFB" stroke="#D1D5DB" stroke-width="1.5"/>
+  <text x="64" y="824" font-size="14" font-weight="700" fill="#374151" letter-spacing="1">CAMADA COMPARTILHADA — todas as funções acionam estas peças</text>
+
+  <!-- grupo A: sub-agentes com modelo, 2x2 -->
+  <rect x="64" y="842" width="628" height="178" rx="10" fill="#FFFBEB" stroke="#D97706" stroke-width="1.5"/>
+  <text x="88" y="870" font-size="13.5" font-weight="700" fill="#92400E">Sub-agentes que usam modelo</text>
+  <text x="88" y="890" font-size="11.5" fill="#B45309">cada chamada custa — por isso só entram quando precisam</text>
+
+  <rect x="88" y="904" width="286" height="46" rx="8" fill="#FEF3C7" stroke="#F0C270" stroke-width="1.2"/>
+  <text x="231" y="932" text-anchor="middle" font-size="12.5" fill="#78350F">Classificador de intenção</text>
+
+  <rect x="382" y="904" width="286" height="46" rx="8" fill="#FEF3C7" stroke="#F0C270" stroke-width="1.2"/>
+  <text x="525" y="932" text-anchor="middle" font-size="12.5" fill="#78350F">Classificador de estágio</text>
+
+  <rect x="88" y="960" width="286" height="46" rx="8" fill="#FEF3C7" stroke="#F0C270" stroke-width="1.2"/>
+  <text x="231" y="988" text-anchor="middle" font-size="12.5" fill="#78350F">Extrator de endereço</text>
+
+  <rect x="382" y="960" width="286" height="46" rx="8" fill="#FEF3C7" stroke="#F0C270" stroke-width="1.2"/>
+  <text x="525" y="988" text-anchor="middle" font-size="12.5" fill="#78350F">Transcrição de áudio</text>
+
+  <!-- grupo B: peças determinísticas, 3x2 -->
+  <rect x="708" y="842" width="628" height="178" rx="10" fill="#F0FDF4" stroke="#16A34A" stroke-width="1.5"/>
+  <text x="732" y="870" font-size="13.5" font-weight="700" fill="#14532D">Peças determinísticas, sem modelo</text>
+  <text x="732" y="890" font-size="11.5" fill="#15803D">custo zero e resultado sempre igual — rodam em toda mensagem</text>
+
+  <rect x="732" y="904" width="186" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="825" y="931" text-anchor="middle" font-size="11.5" fill="#14532D">Sentinela de opt-out</text>
+
+  <rect x="930" y="904" width="186" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="1023" y="931" text-anchor="middle" font-size="11.5" fill="#14532D">Sentinela de handoff</text>
+
+  <rect x="1128" y="904" width="184" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="1220" y="931" text-anchor="middle" font-size="11.5" fill="#14532D">Recomendador de tamanho</text>
+
+  <rect x="732" y="960" width="186" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="825" y="987" text-anchor="middle" font-size="11.5" fill="#14532D">Cadeia de guardrails</text>
+
+  <rect x="930" y="960" width="186" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="1023" y="987" text-anchor="middle" font-size="11.5" fill="#14532D">Pacing anti-banimento</text>
+
+  <rect x="1128" y="960" width="184" height="44" rx="7" fill="#DCFCE7" stroke="#86D5A0" stroke-width="1.2"/>
+  <text x="1220" y="987" text-anchor="middle" font-size="11.5" fill="#14532D">Agendador de follow-up</text>
+</svg>

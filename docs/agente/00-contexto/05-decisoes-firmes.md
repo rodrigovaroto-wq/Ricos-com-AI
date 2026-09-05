@@ -51,17 +51,17 @@ Houve clientes reais, mas o contato foi perdido. O aviso legal do rodapé descre
 corretamente e **não** afirma que são reproduções autorizadas. O agente não deve
 apresentá-los como depoimentos verificados nem inventar novos.
 
-## 8. As quatro funções do agente
+## 8. As três funções do agente
 
-Definidas pelo operador, em ordem de valor:
+Definidas pelo operador. Eram quatro; a de **cobrar quem não pagou deixou de existir** na
+rodada 2, porque com o `Físico na entrega` ativo o entregador cobra na porta — ou ela paga e
+recebe, ou recusa e não recebe. Não há estado de "entregue e não pago".
 
 1. Atender quem chega com dúvida antes de comprar
 2. Recuperar carrinho abandonado
-3. **Confirmar o pedido depois da compra e acompanhar até a entrega** — a mais valiosa
-4. Cobrar quem não pagou
+3. **Confirmar o pedido depois da compra e acompanhar até a entrega**
 
-A função 3 é a mais valiosa porque ataca o evento mais caro da operação. O que ela
-precisa produzir na cliente:
+O que a função 3 precisa produzir na cliente:
 
 - Que ela se sinta **bem por ter comprado com a gente** — não arrependida
 - Que ela se sinta **segura de que o pedido vai chegar**, porque tem alguém em contato
@@ -78,10 +78,15 @@ Momentos que a sequência precisa cobrir:
 
 ## Pendências do operador que travam decisões técnicas
 
-- [ ] Ativar **`Físico na entrega`** na Coinzz — a alavanca de R$ 14,98 vs R$ 54,98
-- [ ] Configurar o desconto de 5% no pagamento antecipado antes de ligar `PREPAY_DISCOUNT`
+Estado em 2026-09-04. Ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md).
+
+- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98
+- [x] **Número decidido:** número novo, separado do site — a criar
+- [x] **Handoff decidido:** a agente para e notifica; o operador assume, exceto de madrugada
+- [ ] Configurar o **desconto de 15%** no pagamento antecipado, e só então ligar `PREPAY_DISCOUNT` (hoje em 5% e desligado)
+- [ ] Criar o **cupom de 20%** do toque 3 do follow-up
 - [ ] Separar pedido criado de pedido pago no pixel
 - [ ] Configurar `/obrigado.html` como destino pós-compra na Coinzz
-- [ ] Definir o gatilho de entrada do agente: webhook da Coinzz (Integrações → Webhooks)
-- [ ] Decidir o número: o mesmo do site (`5511916616348`) ou outro
-- [ ] Definir quem assume quando o agente não dá conta
+- [x] **Confirmado: a Coinzz tem API própria, além do webhook.** A API gera o checkout personalizado pré-preenchido; o webhook cobre o status do pedido para o acompanhamento pós-venda
+- [x] **Horário do agente definido:** mensagem automática 24/7 + agente real das 06:00 às 00:00 (3 min depois, ou às 06:00 se chegou de madrugada)
+- [x] **Frete Personalizado da Logzz confirmado que existe — decidido não usar.** Mantém 15% de desconto no antecipado, frete por conta da cliente, sem programa de subsídio

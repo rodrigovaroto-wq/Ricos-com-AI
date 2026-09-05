@@ -19,7 +19,7 @@ descarte silencioso.
 | Tool | Faz | Notas |
 |---|---|---|
 | `send_message` | Envia UMA mensagem à cliente | Único caminho de saída. Passa pela cadeia de verificações antes de sair — ver [`04-guardrails.md`](04-guardrails.md) |
-| `send_options` | Envia uma escolha estruturada (tamanho, forma de pagamento, confirmação) | Referências: WAHA → `sendButtons` :209 / `sendList` :222. **[HIPÓTESE]** suporte irregular em transporte não oficial — validar antes de depender |
+| ~~`send_options`~~ | ~~Escolha estruturada por botão~~ | **Removida na rodada 2.** O operador decidiu texto livre sempre: botão entrega que é uma IA e tira a pessoalidade da conversa. A escolha de tamanho, endereço e confirmação é conduzida em texto |
 | `get_lead_context` | Relê contato, estado e últimas mensagens | Deixa o modelo se recuperar de contexto truncado |
 
 ## Venda
@@ -34,7 +34,7 @@ descarte silencioso.
 
 | Tool | Faz | Notas |
 |---|---|---|
-| `create_order` | Cria o pedido na operação | **Depende da decisão de rota E1** — hoje não existe caminho definido |
+| `build_prefilled_checkout_link` | Chama a API da Coinzz para gerar o checkout personalizado com os dados da cliente e a modalidade já selecionada | **Mecanismo confirmado na rodada 4:** a Coinzz tem API própria para isso, além do webhook de status. A cliente sempre confirma no link — nunca envia dado de pagamento pelo chat |
 | `get_order_status` | Status do pedido da cliente | Referência de forma: DeskcommCRM → `crm_list_contact_orders` (`lib/mcp/tools/comercio.ts` :27) |
 
 ## Memória e tempo

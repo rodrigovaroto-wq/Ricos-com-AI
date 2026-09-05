@@ -72,11 +72,57 @@ Referências: Mastra → `memory/memory.ts` :82–100; DeskcommCRM → `compacti
 **Regra estrutural:** texto só sai por tool `send_message`; nada que o modelo escreva fora
 dela chega à cliente. Referência: DeskcommCRM → `inbound-turn.ts` :154–161.
 
-**B7. Ritmo humano.** Resposta longa → quebrar em bolhas, mostrar "digitando", espaçar →
-1 a 3 mensagens → *adapter de canal*.
-Referências: DeskcommCRM → `split-message.ts` :7, :99; Evolution →
-`whatsapp.baileys.service.ts` :2306–2330, que fatia a digitação em blocos de 20 s porque a
-presença expira; e valida se o número existe no WhatsApp antes de enviar (:2295).
+**B7. Ritmo humano — duas camadas na primeira resposta (revisado na rodada 4).**
+
+**Camada 1 — mensagem automática, instantânea, 24h, todo lead:**
+
+> *"Oii, tudo bem? Recebemos sua mensagem, assim que possível uma de nossas atendentes fará
+> seu atendimento, aproveite para entender melhor sobre nosso produto acessando nosso site:
+> encorpa-fashion.com.br"*
+
+Envio imediato, **independente do horário**. Não usa o ritmo humano da camada 2 — é o texto
+padrão de confirmação de recebimento. Não contradiz o guardrail de identidade: fala em
+"atendentes", não afirma nem nega automação.
+
+**Camada 2 — a resposta real da agente, com personalidade:**
+
+| Regra | Valor |
+|---|---|
+| Atraso da primeira resposta real, dentro do horário (06:00–00:00) | **3 minutos** |
+| Se a mensagem chegou fora do horário (00:00–06:00) | **a partir das 06:00** |
+| Atraso das demais respostas | **0,2 s por palavra da mensagem** |
+| "Digitando" | **visível enquanto a agente prepara a resposta** |
+
+ENTRADA: resposta pronta → PROCESSAMENTO: quebrar em bolhas, calcular o atraso, manter a
+presença durante a espera → SAÍDA: 1 a 3 mensagens no ritmo de gente → *adapter de canal*.
+
+**A janela de atendimento (06:00–00:00) vale só para a camada 2.** A camada 1 roda 24/7.
+
+**Duas notas técnicas que a implementação precisa respeitar:**
+
+1. **A presença de "digitando" expira em ~20 s.** Espera maior tem que reenviar a presença
+   em blocos (`presenceSubscribe → composing → espera → paused`, em laço). A 0,2 s por
+   palavra, uma mensagem de 100 palavras já chega no limite. Evidência: Evolution →
+   `whatsapp.baileys.service.ts` :2306–2330.
+2. **O atraso é por bolha, não pela resposta inteira.** Senão uma resposta de três bolhas
+   fica 20 s em silêncio e depois despeja tudo de uma vez — que é o oposto do efeito
+   desejado. Cada bolha espera pelo seu próprio tamanho.
+
+Referências: DeskcommCRM → `split-message.ts` :7, :99. Evolution também valida se o número
+existe no WhatsApp antes de enviar (:2295).
+
+**Novo na rodada 3 — áudios gravados por pessoas reais.** Além de texto, o agente pode
+enviar áudios pré-gravados por humanos em pontos do funil (boas-vindas, confirmação de
+pedido, véspera de entrega). Isso é mídia **estática e versionada**, não texto-para-fala
+gerado na hora — o mesmo padrão de "conteúdo imutável, seleção determinística" das variantes
+de re-entrada (rodada 1). Consequências de projeto:
+
+- O áudio não pode conter dado variável (nome, valor, endereço) — precisa ser genérico ou
+  existir em poucas variantes por situação.
+- A seleção de qual áudio toca em qual momento é decisão do agente; o conteúdo do áudio em
+  si não é.
+- Ainda em definição: quais mensagens recebem áudio, quantas variantes cada uma, e quem
+  grava — ver [`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §R3.5.
 
 ## C. Venda
 
@@ -89,9 +135,10 @@ Taxonomia pronta: os três momentos em
 mensagem → claims verificados → *agente + guardrail*.
 Restrição dura: não emagrece; o efeito acaba ao tirar.
 
-**C3. Recomendação de tamanho.** Medida, manequim ou descrição → mapear para P–XGG, com
-"na dúvida, o maior" → tamanho recomendado → tabela de medidas → *função determinística*,
-não o modelo chutando.
+**C3. Recomendação de tamanho.** Manequim declarado (caminho principal) ou medida em cm
+(caminho opcional) → **enviar a tabela e deixar a cliente escolher**, com "na dúvida, o
+maior" → tamanho definido → tabela de medidas → *agente conduz, função valida*.
+Decidido na rodada 1: medir com fita não é requisito.
 Ver [`../01-conhecimento/02-tabela-de-medidas.md`](../01-conhecimento/02-tabela-de-medidas.md).
 
 **C4. Objeções.** Objeção → responder com o argumento já validado → mensagem → as 4
@@ -116,14 +163,29 @@ validar CEP; **confirmar repetindo de volta** → endereço estruturado → áre
 Logzz → *tool + validação*.
 Referência de mecanismo: n8n → `InformationExtractor` e `OutputParserAutofixing` (quando o
 JSON vem quebrado, o modelo conserta em vez de o fluxo morrer).
-A lista de exclusão geográfica, hoje inexistente, entra aqui.
+A lista de exclusão geográfica **não precisa ser construída**: Coinzz/Logzz recusam a
+criação de pedido COD fora da área coberta. O que falta é o agente tratar essa recusa como
+caminho de conversa — ver §D3.
 
-**D3. Modalidade de pagamento.** Escolha → **enquanto `Físico na entrega` não estiver
-ativo na Coinzz, o agente não pode afirmar que não haverá cobrança antes da entrega** →
-modalidade → *guardrail executável, não instrução no prompt*.
+**D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
+com 15% de desconto (R$ 110,42) é oferecido antes de finalizar**, nunca como condição →
+modalidade → *agente + guardrail de preço*.
 
-**D4. Pagamento.** Modalidade → COD: nada agora; dinheiro, cartão ou maquininha na porta →
-expectativa correta → R$ 129,90 → *agente*.
+**A frase tem duas metades, e as duas são obrigatórias:** a economia de **R$ 19,48 no
+produto** é real e pode ser dita; e **o frete no antecipado é calculado à parte no
+checkout** — isso vai na mesma mensagem. No COD o frete está embutido nos R$ 129,90. Ver
+[`04-guardrails.md`](04-guardrails.md).
+
+**Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
+pedido COD fora da área coberta. Quando isso acontecer: tratar como **caminho de conversa,
+não como erro**, e oferecer o antecipado **com o máximo de reforço de segurança** — é
+exatamente o momento em que a oferta perde o argumento que dissolve o medo de golpe, e a
+cliente precisa de mais prova, não de menos. Ver
+[`../04-decisoes/03-decisoes-tomadas.md`](../04-decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
+
+**D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 com frete embutido, em dinheiro,
+cartão ou maquininha na porta. Antecipado: R$ 110,42 mais frete, por link de checkout
+pré-preenchido → expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 
 **D5. Confirmação.** Dados completos → repetir tamanho, endereço, valor e forma, e pedir
@@ -134,13 +196,33 @@ Referência de mecanismo: escolha por botão em vez de texto livre — WAHA →
 
 ## E. Pedido
 
-**E1. Criação.** Dados confirmados → criar o pedido no sistema da operação (Coinzz/Logzz)
-→ `order_id` → *integração*.
-**Maior lacuna do projeto.** Nenhuma das 8 referências cria pedido; DeskcommCRM só lê
-(`lib/mcp/tools/comercio.ts` :27). Existe um objeto de pedido **nativo do WhatsApp**
-(Baileys → `src/Socket/business.ts` :254 `getOrderDetails`, `Types/Product.ts` :55–73), e
-o Evolution monta um pedido nativo dentro do botão de PIX
-(`whatsapp.baileys.service.ts` :3258–3295). **[HIPÓTESE]** serve para COD — a validar.
+**E1. Criação — confirmado na rodada 3: sempre por checkout personalizado, nunca por API de
+pedido.**
+
+| Forma de pagamento | Como o pedido nasce |
+|---|---|
+| **COD** (padrão) | A agente monta o **checkout personalizado pré-preenchido** (nome, telefone, endereço, tamanho, COD selecionado) e envia o link. A cliente **confirma**, sem preencher nada e sem informar pagamento |
+| **Antecipado** | Mesmo mecanismo, com pagamento antecipado selecionado. A cliente **nunca envia dado de pagamento pelo chat** — só confirma no ambiente da Coinzz |
+
+ENTRADA: dados confirmados → PROCESSAMENTO: **chamar a API da Coinzz para gerar o checkout
+personalizado** com os campos pré-preenchidos → SAÍDA: link enviado à cliente → *API da
+Coinzz para gerar o checkout; webhook da Coinzz para status do pedido depois*.
+
+**Confirmado pelo operador (rodada 4): a Coinzz tem integração via API, além do webhook.**
+O mecanismo deixa de ser hipótese: a API gera o checkout com os dados da cliente já
+embutidos, o link volta para o agente, o agente envia, a cliente confirma.
+
+**Por que este caminho, e não pular direto para "API cria o pedido" — decisão explícita do
+operador, mantida mesmo com a API disponível:** confirmar no checkout é **mais seguro**, não
+uma alternativa inferior por falta de mecanismo melhor. No COD, a cliente vê o resumo antes
+de confirmar — reduz erro de tamanho/endereço e dá sensação de controle a uma audiência
+desconfiada de golpe. No antecipado, o argumento é mais forte ainda: dado de pagamento nunca
+trafega em texto de WhatsApp, o que evita uma exposição de segurança que qualquer auditoria
+reprovaria. A API é usada para **gerar o link**, não para pular a confirmação da cliente.
+
+**Contexto da pesquisa, mantido por referência:** nenhuma das 8 referências cria pedido via
+API própria; DeskcommCRM só lê pedidos existentes (`lib/mcp/tools/comercio.ts` :27) — o
+mecanismo de checkout-com-confirmação é decisão nossa, não copiado de nenhuma referência.
 
 **E2. Registro local.** `order_id` → gravar vínculo lead↔pedido com idempotência → linha
 durável → *banco*.
@@ -165,11 +247,25 @@ Referência: DeskcommCRM → `lib/followup/agent-followup-gate.ts` (gatilho `sil
 
 **F3. Abandono na coleta.** Dados incompletos → pedir só o que falta → *estado + agente*.
 
-**F4. Cadência.** Enrollment → N tentativas espaçadas, respeitando opt-out e janela de
-horário → mensagens → *agendador + gates*.
+**F4. Cadência — três toques, decididos na rodada 1.**
+
+| Toque | Quando | O quê |
+|---|---|---|
+| 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
+| 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
+| 3 | 3 dias depois | **Cupom de 20%, moldura "Super + dia da semana"** (rodada 4) — ex.: "Super Quinta! Você ganhou um cupom de 20%...". Último toque, com saída digna |
+
+ENTRADA: enrollment por silêncio → PROCESSAMENTO: três toques espaçados, respeitando
+opt-out e janela de horário → SAÍDA: mensagens → *agendador + gates*.
+
+**Guardrail obrigatório:** o cupom não pode ser mencionado antes de existir na Coinzz, e o
+desconto **não vaza** para quem compraria a preço cheio — ver
+[`04-guardrails.md`](04-guardrails.md).
+
 Referência de custo zero: DeskcommCRM → `reentry-template.ts` :2–11 — N variantes em
 pt-BR por versão, escolha determinística por `hash(lead_id) % n`. Mesma cliente, mesma
-variante; clientes diferentes, variantes diferentes, **sem chamar modelo**.
+variante; clientes diferentes, variantes diferentes, **sem chamar modelo**. É o que impede
+a mesma mensagem literal de sair para centenas de números.
 
 ## G. Pós-venda
 
