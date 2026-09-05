@@ -17,6 +17,7 @@ reconstruir a pesquisa nem adivinhar o negócio.
 | 3 | [`02-especificacao/`](02-especificacao/) | O que o agente faz: mapa funcional, tools, máquina de estados, guardrails |
 | 4 | [`03-pesquisa/`](03-pesquisa/) | 8 repositórios open source lidos em código, com arquivo e linha |
 | 5 | [`04-decisoes/`](04-decisoes/) | O que falta, o que já foi decidido e o que ainda precisa de escolha |
+| 6 | [`05-plano/`](05-plano/) | O plano de construção: onde estamos, o que falta, em que ordem, e as perguntas ainda abertas antes do MVP |
 
 ## Atalho por pergunta
 
@@ -28,6 +29,7 @@ reconstruir a pesquisa nem adivinhar o negócio.
 - *"Qual a meta e quanto o canal precisa render?"* → [`00-contexto/06-modelo-economico.md`](00-contexto/06-modelo-economico.md)
 - *"O que já foi decidido?"* → [`04-decisoes/03-decisoes-tomadas.md`](04-decisoes/03-decisoes-tomadas.md)
 - *"O que ainda não decidimos?"* → [`04-decisoes/02-decisoes-em-aberto.md`](04-decisoes/02-decisoes-em-aberto.md)
+- *"Por onde começar a construir, e o que falta perguntar?"* → [`05-plano/README.md`](05-plano/README.md)
 
 ## Relação com o resto do repositório
 

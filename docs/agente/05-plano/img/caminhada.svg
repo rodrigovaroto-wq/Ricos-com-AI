@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 545" width="1200" height="545" font-family="Segoe UI, Roboto, Helvetica, Arial, sans-serif">
+  <rect width="1200" height="545" fill="#FFFFFF"/>
+
+  <text x="600" y="46" text-anchor="middle" font-size="26" font-weight="700" fill="#1F2937">Do contexto ao MVP: onde estamos</text>
+  <text x="600" y="74" text-anchor="middle" font-size="14" fill="#6B7280">Agente de vendas no WhatsApp — Encorpa</text>
+
+  <!-- ============ JÁ FEITO ============ -->
+  <text x="60" y="122" font-size="13" font-weight="700" fill="#15803D" letter-spacing="1">JÁ FEITO</text>
+
+  <g>
+    <rect x="60" y="136" width="240" height="86" rx="10" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.5"/>
+    <rect x="60" y="136" width="5" height="86" rx="2" fill="#16A34A"/>
+    <text x="180" y="172" text-anchor="middle" font-size="15" font-weight="700" fill="#14532D">Contexto do negócio</text>
+    <text x="180" y="196" text-anchor="middle" font-size="12" fill="#166534">Oferta, economia COD, público</text>
+  </g>
+
+  <g>
+    <rect x="340" y="136" width="240" height="86" rx="10" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.5"/>
+    <rect x="340" y="136" width="5" height="86" rx="2" fill="#16A34A"/>
+    <text x="460" y="172" text-anchor="middle" font-size="15" font-weight="700" fill="#14532D">Pesquisa técnica</text>
+    <text x="460" y="196" text-anchor="middle" font-size="12" fill="#166534">8 repositórios lidos em código</text>
+  </g>
+
+  <g>
+    <rect x="620" y="136" width="240" height="86" rx="10" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.5"/>
+    <rect x="620" y="136" width="5" height="86" rx="2" fill="#16A34A"/>
+    <text x="740" y="172" text-anchor="middle" font-size="15" font-weight="700" fill="#14532D">Decisões travadas</text>
+    <text x="740" y="196" text-anchor="middle" font-size="12" fill="#166534">4 rodadas com o operador</text>
+  </g>
+
+  <g>
+    <rect x="900" y="136" width="240" height="86" rx="10" fill="#DCFCE7" stroke="#16A34A" stroke-width="1.5"/>
+    <rect x="900" y="136" width="5" height="86" rx="2" fill="#16A34A"/>
+    <text x="1020" y="172" text-anchor="middle" font-size="15" font-weight="700" fill="#14532D">Site com 2 checkouts</text>
+    <text x="1020" y="196" text-anchor="middle" font-size="12" fill="#166534">COD e antecipado, testado</text>
+  </g>
+
+  <!-- ============ MARCADOR ============ -->
+  <line x1="60" y1="252" x2="470" y2="252" stroke="#D1D5DB" stroke-width="2" stroke-dasharray="6 6"/>
+  <line x1="730" y1="252" x2="1140" y2="252" stroke="#D1D5DB" stroke-width="2" stroke-dasharray="6 6"/>
+  <rect x="470" y="232" width="260" height="40" rx="20" fill="#FEF3C7" stroke="#D97706" stroke-width="2"/>
+  <text x="600" y="258" text-anchor="middle" font-size="14" font-weight="700" fill="#92400E">VOCÊ ESTÁ AQUI</text>
+
+  <!-- ============ A FAZER ============ -->
+  <text x="60" y="312" font-size="13" font-weight="700" fill="#1D4ED8" letter-spacing="1">A FAZER</text>
+
+  <g>
+    <rect x="60" y="326" width="192" height="86" rx="10" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+    <text x="156" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#1E3A8A">1. Fundação</text>
+    <text x="156" y="386" text-anchor="middle" font-size="12" fill="#1E40AF">VPS, WAHA, banco</text>
+  </g>
+
+  <g>
+    <rect x="282" y="326" width="192" height="86" rx="10" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+    <text x="378" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#1E3A8A">2. Pré-venda</text>
+    <text x="378" y="386" text-anchor="middle" font-size="12" fill="#1E40AF">Conversa até o pedido</text>
+  </g>
+
+  <g>
+    <rect x="504" y="326" width="192" height="86" rx="10" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+    <text x="600" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#1E3A8A">3. Pós-pedido</text>
+    <text x="600" y="386" text-anchor="middle" font-size="12" fill="#1E40AF">Confirma e acompanha</text>
+  </g>
+
+  <g>
+    <rect x="726" y="326" width="192" height="86" rx="10" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+    <text x="822" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#1E3A8A">4. Testes internos</text>
+    <text x="822" y="386" text-anchor="middle" font-size="12" fill="#1E40AF">Personas e ensaios</text>
+  </g>
+
+  <g>
+    <rect x="948" y="326" width="192" height="86" rx="10" fill="#DBEAFE" stroke="#2563EB" stroke-width="1.5"/>
+    <text x="1044" y="362" text-anchor="middle" font-size="15" font-weight="700" fill="#1E3A8A">5. Piloto pago</text>
+    <text x="1044" y="386" text-anchor="middle" font-size="12" fill="#1E40AF">Verba baixa, 1 número</text>
+  </g>
+
+  <!-- seta para o final -->
+  <line x1="600" y1="412" x2="600" y2="444" stroke="#7A1330" stroke-width="2.5"/>
+  <polygon points="600,458 593,443 607,443" fill="#7A1330"/>
+
+  <rect x="340" y="462" width="520" height="66" rx="12" fill="#7A1330"/>
+  <text x="600" y="493" text-anchor="middle" font-size="17" font-weight="700" fill="#FFFFFF">MVP no ar — início dos testes</text>
+  <text x="600" y="514" text-anchor="middle" font-size="12" fill="#F6C9D6">meta: 10% de conversa para pedido criado</text>
+</svg>
