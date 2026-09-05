@@ -504,9 +504,11 @@ de guardrail que texto não tem:
   falando ao vivo, numa situação em que fica claro que é play de arquivo (ex.: a voz não
   responde ao que a cliente acabou de perguntar), teria o efeito oposto do pretendido.
 
-**Isso entra como pendência de especificação, não decisão fechada:** quais mensagens do
-funil recebem áudio, quantas variantes por mensagem, e quem grava. Ver pendência nova
-abaixo.
+**Escopo inicial, decidido em 2026-09-05:** o operador já tem em mãos áudios gravados para
+**boas-vindas** e **explicação inicial do produto** — os dois primeiros momentos da
+conversa, antes de qualquer coleta de dado. Ampliar para outros pontos do funil (confirmação
+de pedido, véspera de entrega, pós-venda) fica para uma sessão futura, fora do escopo desta
+rodada.
 
 **A landing page não muda.** Ver [`../02-especificacao/04-guardrails.md`](../02-especificacao/04-guardrails.md) §"A copy da landing page".
 
@@ -521,7 +523,7 @@ abaixo.
 | 5 | Copy do site *"Não é robô"* — **não será alterada.** Mantido como está, por decisão do operador (R3.5) | ✅ resolvida (sem mudança) |
 | 6 | Leads que chegam entre 00:00 e 06:00: mídia continua rodando, mas ainda não está definido se a agente responde ao acordar às 06:00 ou se a conversa é tratada como perdida | Operador |
 | 7 | Medir o custo real de frete por região antes de fixar qualquer teto | Operador |
-| 8 | **Nova: biblioteca de áudios gravados por pessoas reais** — quais mensagens do funil recebem áudio, quantas variantes por mensagem, quem grava, e como o sistema escolhe qual tocar (R3.5) | Operador + sessão |
+| 8 | ~~Biblioteca de áudios~~ **Resolvido: escopo inicial é boas-vindas + explicação inicial do produto**, com o operador já tendo o material gravado. Ampliar para outros pontos do funil fica para depois — ver R3.6 | ✅ (parcial) |
 
 **Resolvidas na rodada 3:** mecanismo de criação de pedido (webhook + checkout
 personalizado, sem API de pedido) · cupom vale nos dois caminhos · identidade mantida sem
