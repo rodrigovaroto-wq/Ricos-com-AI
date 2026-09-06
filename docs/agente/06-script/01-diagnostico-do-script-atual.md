@@ -45,7 +45,7 @@ Cada linha desta tabela é uma frase do script que, dita por uma agente da Encor
 
 | # | O que o script diz | O que a operação faz | Consequência |
 |---|---|---|---|
-| 1 | *"Eu consigo agendar a entrega pra amanhã mesmo"* (Áudio 4) e *"Posso agendar a entrega para amanhã?"* (Preço TEXTO 2) | **7 a 14 dias**, com entrega agendada pela Logzz | A mais grave das sete. Cria a expectativa cuja quebra produz recusa na porta. Uma cliente que esperava amanhã e recebe em doze dias já desistiu — e o entregador leva o prejuízo |
+| 1 | *"Eu consigo agendar a entrega pra amanhã mesmo"* (Áudio 4) e *"Posso agendar a entrega para amanhã?"* (Preço TEXTO 2) | **3 a 5 dias** no COD, com entrega agendada; no antecipado o prazo varia por região (corrigido pelo operador em 2026-09-06) | A mais grave das sete. Cria a expectativa cuja quebra produz recusa na porta. Mesmo com 3 a 5 dias, quem esperava *amanhã* já desistiu no terceiro — e o entregador leva o prejuízo |
 | 2 | *"🚛 FRETE GRÁTIS"* | No COD o frete está **embutido** nos R$ 129,90; no antecipado ele é **calculado à parte no checkout** | No COD a frase é defensável ("sem custo de frete"). No antecipado é promessa quebrada dentro do próprio checkout, na frente da cliente |
 | 3 | *"🎁 PARCELE EM ATÉ 12x"* | O parcelamento depende da maquininha do entregador; a operação não controla isso e o site não promete | Prometer 12x e a maquininha não oferecer é uma discussão na porta, com o produto na mão |
 | 4 | *"VALOR APENAS R$ 119,90"* | **R$ 129,90** no COD, **R$ 110,42** no antecipado | Dez reais de diferença descobertos no checkout destroem a confiança construída até ali |
@@ -154,7 +154,7 @@ Registrado para não se perder na reescrita:
 
 | Problema | Onde o script novo resolve |
 |---|---|
-| Promessa de prazo | Estágio 5 — prazo real dito antes do fechamento, não depois |
+| Promessa de prazo | Estágio 5 — prazo real (3 a 5 dias, agendado) dito antes do fechamento |
 | Frete e 12x | Estágio 5 e a lista de frases proibidas |
 | Preço errado | Fonte única: R$ 129,90 / R$ 110,42 |
 | Claim de "3 tamanhos" | Estágio 2 — a frase que mantém desejo e honestidade |

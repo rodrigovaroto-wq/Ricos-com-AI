@@ -99,8 +99,8 @@ dúvida. Nunca em bloco.
 | Dúvida dela | O que enviar |
 |---|---|
 | "Como fica por baixo da roupa?" / "marca?" | **Vídeo de 6s** (nativo, nunca link) + *"Olha o caimento. Ninguém vê que tem alguma coisa ali."* |
-| "É confortável?" / "aperta muito?" / "e o material?" | **Áudio 2** (o único que se aproveita inteiro) |
-| "Como funciona? é tipo cinta?" | **Áudio 3, versão nova** (colete, postura, costas e axila, cinco tamanhos ajustáveis — sem a parte da fita métrica) |
+| "É confortável?" / "aperta muito?" / "e o material?" | **Áudio C** (conforto e material) |
+| "Como funciona? é tipo cinta?" | **Áudio A** (apresentação) e, se ela seguir para tamanho, o **Áudio B** |
 | "Tem foto?" | Foto do produto vestido + foto do produto sozinho |
 | Nada perguntado, conversa avançando | Não envia nada. Segue para o tamanho |
 
@@ -160,11 +160,16 @@ dias exatamente onde ela vale mais.
 
 **O prazo entra aqui, antes do fechamento, nunca depois:**
 
-> A entrega leva de **7 a 14 dias**, dependendo da sua cidade — e é agendada, você fica sabendo
-> o dia. Não é aquele "chega amanhã" que some no meio do caminho.
+> A entrega chega em **3 a 5 dias** e é **agendada** — você fica sabendo o dia e eu te aviso na
+> véspera. Não é aquele "chega amanhã" que some no meio do caminho.
 
 Prazo dito na hora certa não derruba venda; prazo descoberto depois derruba entrega. E entrega
 recusada é o evento mais caro que essa operação tem.
+
+**No caminho antecipado o prazo não é dito em números.** Ali o frete é contratado à parte e
+varia por região — qualquer janela firme vira promessa que a operação não controla. A frase é
+*"a transportadora te dá o prazo no checkout, junto com o frete"*, e o guardrail de prazo veta
+qualquer número nesse caminho.
 
 ---
 
@@ -352,7 +357,7 @@ Cada linha aqui já esteve no script antigo, e cada uma custa dinheiro em COD.
 
 | Nunca dizer | Por quê |
 |---|---|
-| "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 7 a 14 dias. É a promessa que produz recusa na porta |
+| "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 3 a 5 dias, agendado. Prometer amanhã é o que produz recusa na porta |
 | "Frete grátis" no caminho antecipado | Lá o frete é calculado à parte, no checkout |
 | "Parcele em até 12x" | Depende da maquininha do entregador; a operação não controla |
 | Qualquer preço que não seja R$ 129,90 (COD) ou R$ 110,42 (antecipado) | Fonte única de preço |
@@ -384,15 +389,24 @@ atual — o que muda é o conteúdo.
 > você usa de calça, que eu te ajudo. E na dúvida entre dois, sempre o maior — aperta igual e
 > é bem mais confortável.
 
-**Áudio C — pagamento e prazo (substitui o áudio 4), ~30s**
-> Então, o colete sai por cento e vinte e nove e noventa, com o frete já incluído. E você não
-> paga nada agora: eu envio pra sua casa e você paga pro entregador quando ele chegar, em
-> dinheiro ou no cartão. A entrega leva de sete a quatorze dias, dependendo da sua cidade, e é
-> agendada — você vai saber o dia certinho, e eu te aviso na véspera. Se não servir, você tem
-> sete dias pra trocar ou devolver.
+**Áudio C — conforto e material (substitui o áudio 2), ~30s**
+> Deixa eu te falar do material, que é onde a diferença aparece. Ele é todo forrado em algodão
+> macio, então não gruda e não irrita a pele. A alça e o zíper são ajustáveis, e os colchetes
+> têm três fileiras, pra você apertar do jeito que preferir. E o mais importante: ele não
+> enrola e não dobra quando você senta. Sabe aquela cinta baratinha que vira uma rosquinha na
+> cintura depois de duas horas? Essa não faz isso.
 
-**Aproveitado sem regravar:** o áudio 2 (conforto e material) — cortando apenas a frase "eu
-sempre recebo mensagens de clientes super satisfeitas", que é prova sem prova.
+**Áudio D — pagamento e prazo (substitui o áudio 4), ~30s**
+> Então, o colete sai por cento e vinte e nove e noventa, com o frete já incluído — não tem
+> custo nenhum a mais. E você não paga nada agora: eu envio pra sua casa e você só paga quando
+> ele chegar na sua mão, direto pro entregador, em dinheiro ou no cartão. A entrega chega em
+> três a cinco dias e é agendada, então você vai saber o dia certinho, e eu te aviso na
+> véspera. E se não servir, você tem sete dias pra trocar ou devolver.
+
+**Os quatro serão regravados**, com outra voz — a locutora dos áudios originais não está mais
+disponível. Isso é oportunidade, não perda: nenhum áudio novo carrega frase de outra operação,
+e a voz nova pode gravar o áudio C, que o material antigo não tinha em versão utilizável sem
+corte.
 
 ---
 

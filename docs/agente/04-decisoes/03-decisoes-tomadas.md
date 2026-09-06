@@ -810,3 +810,68 @@ e o script reescrito em
 
 **Três dos quatro áudios precisam ser regravados** — o roteiro dos novos está no script. O
 áudio 2 (conforto e material) é aproveitável quase inteiro.
+
+---
+
+# Decisões tomadas — rodada 7
+
+## R7.1 — Os três modelos, por papel
+
+| Papel | Modelo | Por quê |
+|---|---|---|
+| Desenvolvimento e testes | **Gemini 3.5 Flash-Lite** | Camada gratuita cobre a fase A inteira |
+| A conversa que converte | **gpt-5.6-luna** (OpenAI) | O turno que vende; R$ 0,048 por conversa com cache |
+| Trabalho barato em produção | **Gemini 3.5 Flash-Lite** | Classificar intenção, extrair endereço, decidir estágio — 20 chamadas por conversa que não precisam de talento |
+
+Preço fica em `src/llm/pricing.ts`, num lugar só. Trocar de modelo é editar uma linha da
+tabela e uma variável de ambiente.
+
+## R7.2 — Prazo de entrega: 3 a 5 dias no COD, sem número no antecipado
+
+Correção do operador. **No COD são 3 a 5 dias, com agendamento.** No **antecipado o prazo
+varia por região e frete**, então a agente não diz número nenhum ali — a transportadora
+informa no checkout.
+
+O guardrail de prazo passa a vetar os dois erros: prazo fora da janela no COD, e qualquer
+janela em números no antecipado.
+
+**Divergência a resolver:** o FAQ do site ainda diz *"costuma chegar entre 7 e 14 dias"*
+(`FAQ.tsx` :22). Agente e site precisam falar a mesma coisa — a cliente que lê os dois é
+exatamente o perfil que o projeto descreve como caçadora de contradição. Decisão do operador:
+corrigir o site para 3 a 5, ou manter a promessa conservadora e alinhar a agente por cima.
+
+## R7.3 — Teto de custo: R$ 0,80 com 25% de folga
+
+Conversa que se estende pode passar em **25%** do teto antes de virar handoff — teto efetivo
+de **R$ 1,00**. Continua desprezível contra a margem de R$ 63,35, e agora está no código
+(`costCeilingBrl`), com teste que prova que a chamada é barrada **antes** de sair byte para o
+provedor.
+
+## R7.4 — Onde o guardrail roda: Supabase Edge Function, chamada por HTTP do n8n
+
+O operador perguntou se dá para chamar por HTTP no n8n. Dá — e é assim que fica:
+
+```
+WAHA → webhook n8n → HTTP → Edge Function (cérebro + 11 guardrails) → Supabase
+```
+
+O n8n é o cano e o relógio; o turno inteiro — montagem de contexto, chamada de modelo, cadeia
+de guardrails, teto de custo, trace — roda numa Edge Function versionada neste repositório.
+
+**Por que Edge Function e não um nó de código no n8n:** os guardrails têm 49 testes rodando em
+menos de um segundo, de graça, a cada mudança. Dentro do n8n, a única forma de testar é
+disparar o fluxo e olhar. E ela mora junto do banco: as ~20 leituras por turno não atravessam
+a internet.
+
+## R7.5 — Contas separadas por projeto
+
+n8n, APIs de modelo e PikaPods em contas próprias da operação Encorpa, sem misturar com os
+outros projetos do operador. Já valendo: a organização **OFERTA ENCORPA** na Supabase, com o
+projeto **Ricos com AI** (`hbmkgakzrqmdlsvszjeo`, região sa-east-1), e a instância nova do n8n,
+ainda vazia.
+
+## R7.6 — Todos os áudios serão regravados
+
+A locutora dos áudios originais não está mais disponível. Some a questão de reaproveitar
+trechos: os quatro roteiros novos estão no script, escritos para uma voz nova, e nenhum deles
+carrega frase de outra operação.

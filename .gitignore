@@ -49,3 +49,6 @@ config/business.json
 Thumbs.db
 .idea/
 .vscode/
+
+# Configuração de negócio com valores reais
+config/business.json
