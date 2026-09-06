@@ -183,3 +183,26 @@ describe("identidade e ritmo", () => {
     expect(blocked(r)).toContain("pacing");
   });
 });
+
+describe("prazo: promessa na pré-venda vs. fato na logística", () => {
+  const eve = "Sua entrega está marcada pra amanhã 💛 Deixa R$ 129,90 separado.";
+
+  it("veta a mesma frase na pré-venda, onde ela é promessa", () => {
+    const r = runGates(eve, ctx({ stage: "presale" }));
+    expect(r.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
+      "delivery_promise",
+    );
+  });
+
+  it("libera na logística, onde a data foi a transportadora que marcou", () => {
+    const r = runGates(eve, ctx({ stage: "logistics" }));
+    expect(r.allowed).toBe(true);
+  });
+
+  it("mesmo na logística, não inventa janela de prazo", () => {
+    const r = runGates("Chega em 7 a 14 dias.", ctx({ stage: "logistics" }));
+    expect(r.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
+      "delivery_promise",
+    );
+  });
+});

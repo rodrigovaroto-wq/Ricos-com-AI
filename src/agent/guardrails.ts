@@ -38,6 +38,14 @@ export interface GateContext {
   optedOut: boolean;
   now: Date;
   paymentPath: "cod" | "prepay";
+  /**
+   * Pre-sale is the agent promising; logistics is the agent reporting a date the
+   * carrier already scheduled. "Chega amanhã" before the order exists is the broken
+   * promise that produces refusals at the door. The same words on the eve of a
+   * scheduled delivery are a fact — and that message is the one that PREVENTS the
+   * refusal. Same string, opposite effect, so the gate has to know which is which.
+   */
+  stage?: "presale" | "logistics";
   /** Literal texts sent recently, to catch the same message going out en masse. */
   recentOutbound?: readonly string[];
   /** Testimonials the knowledge base actually holds. Anything else is invented. */
@@ -175,7 +183,10 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
 
-      if (/(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/.test(t))
+      if (
+        ctx.stage !== "logistics" &&
+        /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/.test(t)
+      )
         return "promises same-day or next-day delivery";
 
       // Any "N a M dias" claim has to sit inside the configured window.

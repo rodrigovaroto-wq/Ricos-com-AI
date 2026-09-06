@@ -9,6 +9,12 @@
  * n8n holds in its credential.
  */
 import { classifyOptOut, runGates, type GateConfig } from "./guardrails.ts";
+import {
+  renderFollowup,
+  scheduleSilence,
+  type FollowupKind,
+  type StopPoint,
+} from "./followups.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -153,6 +159,125 @@ const systemPrompt = (): string => {
   ].join(" ");
 };
 
+/** She answered — every pending touch for this conversation is moot. */
+const cancelScheduled = (conversationId: string) =>
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled`, {
+    method: "PATCH",
+    body: JSON.stringify({ status: "canceled" }),
+  }).catch(() => undefined);
+
+/** Where she stopped decides what the first touch says. */
+const stopPointOf = (replyText: string): StopPoint => {
+  const t = replyText.toLowerCase();
+  if (t.includes("checkout") || t.includes("link")) return "link_sent";
+  if (t.includes("129,90") || t.includes("110,42")) return "after_price";
+  return "before_size";
+};
+
+const scheduleSilenceTouches = async (conversationId: string, stopPoint: StopPoint) => {
+  await cancelScheduled(conversationId);
+  const rows = scheduleSilence(new Date()).map((f) => ({
+    conversation_id: conversationId,
+    kind: f.kind,
+    run_at: f.runAt.toISOString(),
+    status: "scheduled",
+    stop_point: stopPoint,
+  }));
+  await db("followups?on_conflict=conversation_id,kind", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify(rows),
+  }).catch(() => undefined);
+};
+
+/**
+ * The clock half of the agent. n8n calls this on a cron; everything it decides is
+ * deterministic — no model call, so a sweep costs nothing however often it runs.
+ */
+const runFollowupSweep = async () => {
+  const due = await db(
+    "followups?status=eq.scheduled&run_at=lte." +
+      encodeURIComponent(new Date().toISOString()) +
+      "&select=id,kind,stop_point,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at))&limit=50",
+  );
+
+  const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
+  const skipped: Array<{ followupId: string; reason: string }> = [];
+
+  for (const row of due ?? []) {
+    const lead = row.conversations?.leads;
+    const mark = (status: string) =>
+      db(`followups?id=eq.${row.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ status, sent_at: new Date().toISOString() }),
+      });
+
+    if (!lead || lead.opted_out_at || lead.handoff_at) {
+      await mark("canceled");
+      skipped.push({ followupId: row.id, reason: "opt-out ou handoff" });
+      continue;
+    }
+
+    const kind = row.kind as FollowupKind;
+    const text = renderFollowup(kind, {
+      leadId: lead.id,
+      config: CONFIG,
+      stopPoint: (row.stop_point ?? "before_size") as StopPoint,
+      size: lead.size ?? undefined,
+    });
+
+    // The coupon touch stays silent until the coupon exists in Coinzz.
+    if (text === null) {
+      await mark("canceled");
+      skipped.push({ followupId: row.id, reason: "cupom ainda não existe" });
+      continue;
+    }
+
+    const gates = runGates(text, {
+      config: CONFIG,
+      layer: "agent",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: "cod",
+      stage: kind.startsWith("order_") ? "logistics" : "presale",
+    });
+
+    await db("gate_traces", {
+      method: "POST",
+      body: JSON.stringify(
+        gates.traces.map((t) => ({
+          conversation_id: row.conversation_id,
+          gate: t.gate,
+          verdict: t.verdict,
+          detail: t.detail ?? null,
+        })),
+      ),
+    }).catch(() => undefined);
+
+    if (!gates.allowed) {
+      await mark("canceled");
+      skipped.push({
+        followupId: row.id,
+        reason: gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail",
+      });
+      continue;
+    }
+
+    await db("messages", {
+      method: "POST",
+      body: JSON.stringify({
+        conversation_id: row.conversation_id,
+        direction: "outbound",
+        body: text,
+      }),
+    });
+    await mark("sent");
+    toSend.push({ to: lead.phone, body: text, kind, followupId: row.id });
+  }
+
+  return { status: "swept", due: (due ?? []).length, send: toSend, skipped };
+};
+
 Deno.serve(async (request: Request): Promise<Response> => {
   const json = (status: number, payload: unknown) =>
     new Response(JSON.stringify(payload), {
@@ -162,12 +287,17 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   if (request.method !== "POST") return json(405, { error: "use POST" });
 
-  let inbound: { externalId: string; from: string; body: string };
+  let payload: { job?: string; externalId?: string; from?: string; body?: string };
   try {
-    inbound = await request.json();
+    payload = await request.json();
   } catch {
     return json(400, { error: "corpo não é JSON" });
   }
+
+  // The cron half: sweep the follow-up rulers. Deterministic, no model call.
+  if (payload.job === "followups") return json(200, await runFollowupSweep());
+
+  const inbound = payload as { externalId: string; from: string; body: string };
   if (!inbound.externalId || !inbound.from) {
     return json(400, { error: "externalId e from são obrigatórios" });
   }
@@ -198,6 +328,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       external_id: inbound.externalId,
     }),
   });
+  // She answered: every touch waiting on her silence is moot.
+  await cancelScheduled(conversation.id);
+
   // Retention counts from the last contact, not the first.
   await db("rpc/touch_retention", {
     method: "POST",
@@ -322,6 +455,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
     method: "PATCH",
     body: JSON.stringify({ last_outbound_at: new Date().toISOString() }),
   });
+
+  // The silence ruler starts the moment the agent finishes speaking.
+  await scheduleSilenceTouches(conversation.id, stopPointOf(reply.text));
 
   return json(200, {
     status: "ok",

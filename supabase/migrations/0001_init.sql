@@ -77,7 +77,8 @@ create index if not exists jobs_claimable_idx on public.jobs(run_at) where statu
 create table if not exists public.followups (
   id uuid primary key default gen_random_uuid(),
   conversation_id uuid not null references public.conversations(id) on delete cascade,
-  kind text not null,                             -- silence_1..3 · order_confirmed/rota/vespera/pos
+  kind text not null,                             -- silence_1..3 · order_confirmed/shipped/eve/delivered
+  stop_point text,                                -- before_size | after_price | link_sent (copy do toque 1)
   run_at timestamptz not null,
   status text not null default 'scheduled' check (status in ('scheduled','sent','canceled')),
   sent_at timestamptz,

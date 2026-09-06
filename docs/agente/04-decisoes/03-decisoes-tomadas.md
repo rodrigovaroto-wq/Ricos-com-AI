@@ -894,3 +894,42 @@ veio vazia. O adapter fixa um piso de 600.
 **Custo medido de uma troca completa** (classificação + resposta, com os guardrails julgando o
 que voltou): **R$ 0,00087** — 0,09% do teto da conversa. A estimativa da comparação de APIs
 era conservadora por uma ordem de grandeza.
+
+---
+
+# Decisões tomadas — rodada 8
+
+## R8.1 — O prazo é fato ou promessa, e o guardrail passou a saber a diferença
+
+A mensagem de véspera — *"sua entrega está marcada pra amanhã"* — era vetada pelo guardrail de
+prazo, que existe justamente para impedir promessa de entrega para o dia seguinte.
+
+As duas coisas são a mesma frase e o oposto uma da outra: **prometer "amanhã" antes do pedido**
+é o que produz recusa na porta; **avisar "amanhã" na véspera de uma entrega que a transportadora
+já agendou** é o que a **evita**. O gate ganhou um campo `stage`: `presale` (padrão) veta,
+`logistics` libera — e mesmo em `logistics` continua vetando janela de prazo inventada.
+
+## R8.2 — A retenção de 90 dias virou cron do banco, não do n8n
+
+`pg_cron` chamando `purge_expired()` todo dia às 04:00, dentro do Postgres. Tirar isso do n8n
+remove um ponto de falha: se o n8n cair, o dado pessoal continua expirando na hora certa.
+
+## R8.3 — A régua roda por varredura, e a varredura custa zero
+
+Um cron de 5 minutos no n8n chama a mesma Edge Function com `{"job":"followups"}`. Tudo o que
+ela decide é determinístico — copy por variante `hash(lead_id) % n`, sem chamada de modelo — então
+a frequência da varredura não tem custo. Só o envio depende do canal.
+
+**Três comportamentos ficaram provados em produção:** o relógio reinicia a cada fala da agente
+(quem responde não recebe toque), o toque do cupom fica em silêncio enquanto o cupom não existe
+na Coinzz, e opt-out ou handoff cancelam o que estava agendado.
+
+## R8.4 — Lacuna aberta: o modelo ainda decide tamanho sozinho
+
+O recomendador de tamanho existe em `src/agent/sizing.ts`, com testes e a regra "na dúvida, o
+maior" — mas a Edge Function **não o chama**. Hoje o modelo deduz o tamanho a partir da tabela
+em centímetros do prompt, e numa conversa de teste indicou **G para manequim 42**, enquanto a
+tabela determinística indica **M**.
+
+Isso não é detalhe de estilo: tamanho errado vira devolução, e devolução em COD é prejuízo, não
+neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.
