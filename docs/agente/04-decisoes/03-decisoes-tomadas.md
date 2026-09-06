@@ -748,3 +748,65 @@ Para desenvolver sem gastar, a camada gratuita de algum provedor resolve — o o
 conta Google/Gemini ligada ao n8n. A decisão de qual modelo redige a conversa em produção
 fica para o momento do piloto, quando o custo por conversa vira número medido em vez de
 estimativa.
+
+---
+
+# Decisões tomadas — rodada 6
+
+> Respostas do operador às perguntas 15 a 20 do plano, mais o material de funil que ele
+> entregou em 2026-09-06.
+
+## R6.1 — WhatsApp fica para depois; notificação de handoff vai por e-mail
+
+O operador confirmou que **não vamos usar WhatsApp nesta fase**. A notificação de handoff
+(§Q12) sai por **Gmail** enquanto o canal não existir. Não muda a decisão de destino final —
+muda só o transporte do alerta durante a fase A, e o destino é configuração.
+
+## R6.2 — Hermes roda a cada 50 leads atendidos, não por calendário
+
+Cadência **por volume, não por relógio**: a cada 50 leads registrados e atendidos. É a escolha
+certa para quem ainda não tem tráfego constante — um cron semanal rodaria sobre 3 conversas na
+primeira semana e sobre 300 na quinta, e as duas análises seriam inúteis por motivos opostos.
+
+Continua valendo o guardrail de governança da §R5.7: o Hermes **propõe**, não publica.
+
+## R6.3 — Retenção de dado pessoal: 90 dias
+
+Telefone, nome, endereço e o que mais for coletado da cliente expiram em **90 dias**. Vale
+para o banco inteiro, inclusive histórico de conversa que contenha endereço.
+
+Consequência de construção: a expiração é **rotina automática**, não faxina manual — uma tarefa
+agendada que apaga o que passou de 90 dias. Sem isso, "retenção de 90 dias" é intenção, não
+política.
+
+## R6.4 — Provedor de modelo: conta separada, e a escolha não é por preço
+
+O operador decidiu usar uma **API em conta separada**, ainda a definir. A comparação de doze
+modelos contra uma conversa real do funil está publicada como página à parte; o número que
+decide está registrado aqui:
+
+**A conversa inteira custa entre R$ 0,01 e R$ 0,45**, dependendo do modelo, contra uma margem
+de R$ 63,35 por pedido. Mesmo o modelo mais caro da comparação consome **0,7% da margem** e
+fica abaixo do teto de R$ 0,80 por conversa (§Q11). A diferença entre o mais caro e o mais
+barato é de R$ 0,44 por conversa.
+
+**Portanto: escolher a API pelo preço otimiza a variável errada.** Um ponto percentual de
+conversão vale mais do que toda a economia possível na troca de modelo. O critério é qualidade
+em português, confiabilidade de chamada de ferramenta, cache de prompt e latência.
+
+Camada gratuita do Gemini cobre o desenvolvimento inteiro da fase A sem cartão.
+
+## R6.5 — O script do funil recebido não é fonte sobre o produto
+
+O operador entregou um script de WhatsApp de outra operação (preço R$ 119,90, entrega para o
+dia seguinte, frete grátis, 12x, tamanhos M–3XL, medida com fita métrica). **Nada disso
+descreve a operação da Encorpa**, e o próprio operador registrou que o material não deve ser
+tratado como verdade sobre o produto.
+
+O diagnóstico item a item está em
+[`../06-script/01-diagnostico-do-script-atual.md`](../06-script/01-diagnostico-do-script-atual.md)
+e o script reescrito em
+[`../06-script/02-script-do-agente.md`](../06-script/02-script-do-agente.md).
+
+**Três dos quatro áudios precisam ser regravados** — o roteiro dos novos está no script. O
+áudio 2 (conforto e material) é aproveitável quase inteiro.

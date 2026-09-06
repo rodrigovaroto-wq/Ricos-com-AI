@@ -18,6 +18,7 @@ reconstruir a pesquisa nem adivinhar o negócio.
 | 4 | [`03-pesquisa/`](03-pesquisa/) | 8 repositórios open source lidos em código, com arquivo e linha |
 | 5 | [`04-decisoes/`](04-decisoes/) | O que falta, o que já foi decidido e o que ainda precisa de escolha |
 | 6 | [`05-plano/`](05-plano/) | O plano de construção: onde estamos, o que falta, em que ordem, e as perguntas ainda abertas antes do MVP |
+| 7 | [`06-script/`](06-script/) | O que a agente fala: diagnóstico do funil recebido do operador e o script reescrito para a operação da Encorpa |
 
 ## Atalho por pergunta
 
@@ -30,6 +31,7 @@ reconstruir a pesquisa nem adivinhar o negócio.
 - *"O que já foi decidido?"* → [`04-decisoes/03-decisoes-tomadas.md`](04-decisoes/03-decisoes-tomadas.md)
 - *"O que ainda não decidimos?"* → [`04-decisoes/02-decisoes-em-aberto.md`](04-decisoes/02-decisoes-em-aberto.md)
 - *"Por onde começar a construir, e o que falta perguntar?"* → [`05-plano/README.md`](05-plano/README.md)
+- *"O que a agente fala, exatamente?"* → [`06-script/02-script-do-agente.md`](06-script/02-script-do-agente.md)
 
 ## Relação com o resto do repositório
 
