@@ -5,8 +5,8 @@
 > áudio e um vídeo, entregues pelo operador em 2026-09-06.
 >
 > **O que este documento é:** a leitura crítica do material recebido, item por item, contra o
-> que já está decidido em [`../00-contexto/`](../00-contexto/) e
-> [`../04-decisoes/`](../04-decisoes/). O script novo, adaptado, está em
+> que já está decidido em [`../../documentacao/contexto-negocio/`](../../documentacao/contexto-negocio/) e
+> [`../../documentacao/decisoes/`](../../documentacao/decisoes/). O script novo, adaptado, está em
 > [`02-script-do-agente.md`](02-script-do-agente.md).
 >
 > **O que este documento não é:** julgamento do trabalho de quem escreveu. O script recebido é
@@ -25,7 +25,7 @@ Encorpa sem reescrita:
 1. **Promete o que a operação não cumpre.** Entrega para o dia seguinte, frete grátis, 12x,
    R$ 119,90 — nenhum dos quatro corresponde à operação da Encorpa. Em COD, promessa quebrada
    não vira reclamação: vira **recusa na porta**, o evento que custa R$ 14,98 a R$ 54,98 por
-   pedido ([`03-economia-cod.md`](../00-contexto/03-economia-cod.md)).
+   pedido ([`03-economia-cod.md`](../../documentacao/contexto-negocio/03-economia-cod.md)).
 2. **Nunca nomeia o medo de golpe.** A objeção dominante deste público não é preço — é medo de
    ser enganada. O script tem o melhor antídoto que existe (pagar na entrega) e o usa como
    *item de bullet do preço*, não como resposta ao medo.
@@ -104,7 +104,7 @@ entrega — e é a régua que ataca o evento mais caro da operação.
 
 **2.6. Não existe caminho para região sem cobertura.** Quando Coinzz/Logzz recusam o COD, o
 script não tem o que dizer. Hoje isso vira conversa morta; deveria virar a oferta antecipada
-com reforço de segurança ([§Q8 e §Q14](../04-decisoes/03-decisoes-tomadas.md)).
+com reforço de segurança ([§Q8 e §Q14](../../documentacao/decisoes/03-decisoes-tomadas.md)).
 
 **2.7. Não existe handoff nem opt-out.** Nenhuma frase para "quero falar com uma pessoa" e
 nenhuma para "para de me mandar mensagem". O segundo não é cortesia: é obrigação.
