@@ -1,9 +1,11 @@
 /**
- * One conversation turn, end to end.
+ * One conversation turn, end to end — plus the cron sweep of the follow-up rulers.
  *
  * The n8n webhook posts an inbound message here; this function owns everything that
  * decides what goes back: dedupe, persistence, the cost ceiling, the two model calls
- * and the eleven guardrails. n8n stays the pipe and the clock.
+ * and the eleven guardrails. A second entry point, { job: "followups" }, is the clock
+ * half: it sweeps due touches, renders them deterministically and gates them the same
+ * way. n8n stays the pipe and the clock.
  *
  * Auth is the project's service_role JWT in the Authorization header — the same key
  * n8n holds in its credential.
@@ -349,6 +351,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       external_id: inbound.externalId,
     }),
   });
+
   // She answered: every touch waiting on her silence is moot.
   await cancelScheduled(conversation.id);
 

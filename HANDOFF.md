@@ -26,12 +26,13 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
-### Trabalho em andamento (esta sessão)
+### Trabalho desta sessão
 
-Branch `claude/handoff-continuacao-gs6x7x`, sem PR aberto ainda: correção do
-R8.4 (recomendador de tamanho plugado na Edge Function — ver a seção
-dedicada mais abaixo). Falta o redeploy da Edge Function e a verificação
-contra o Supabase real antes de considerar isto fechado.
+Branch `claude/handoff-continuacao-gs6x7x`: correção do R8.4 — o recomendador
+de tamanho determinístico agora é chamado pela Edge Function, que foi
+redeployada (versão 6) e verificada contra o Supabase real. Ver a seção
+dedicada mais abaixo. Com isso não sobra bloqueante de código antes de
+tráfego real; o que resta é o número de WhatsApp.
 
 ### Merges recentes no `main`
 
@@ -64,23 +65,23 @@ nesta sessão — não é só teoria de repositório.
 |---|---|---|
 | Onze guardrails determinísticos | `src/agent/guardrails.ts` (espelhado em `supabase/functions/turn/guardrails.ts`) | ✅ 31 testes, rodando em produção |
 | Máquina de estados da conversa | `src/agent/state-machine.ts` | ✅ 6 testes |
-| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 9 testes, plugado na Edge Function — ver R8.4 abaixo |
+| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 9 testes, chamado pela Edge Function e verificado em produção — ver R8.4 abaixo |
 | Ritmo humano (atraso por bolha, "digitando") | `src/agent/pacing.ts` | ✅ 6 testes |
 | Réguas de silêncio (3 toques) e pós-pedido (4 mensagens) | `src/agent/followups.ts` (espelhado em `supabase/functions/turn/followups.ts`) | ✅ 15 testes, rodando por cron em produção |
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn`, testado ponta a ponta com conversas reais |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 6), testado ponta a ponta com conversas reais |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
 
 **Cópias que precisam ficar idênticas.** A Supabase sobe conteúdo de arquivo,
-não resolve o repositório — então `guardrails.ts` e `followups.ts` existem
-duas vezes (uma vez para teste local, uma vez para a Edge Function). O teste
-`tests/function-drift.test.ts` falha se as duas cópias de qualquer um dos
-dois divergirem — sempre editar os dois lados juntos.
+não resolve o repositório — então `guardrails.ts`, `followups.ts` e agora
+`sizing.ts` existem duas vezes (uma vez para teste local, uma vez para a Edge
+Function). O teste `tests/function-drift.test.ts` falha se as duas cópias de
+qualquer um dos três divergirem — sempre editar os dois lados juntos.
 
 ### R8.4 — corrigida nesta sessão
 
@@ -101,13 +102,36 @@ ser espelhado em `supabase/functions/turn/sizing.ts` (mesmo tratamento que
 `guardrails.ts` e `followups.ts` já tinham), com o `function-drift.test.ts`
 cobrindo as três cópias agora. 75 testes e o typecheck passam.
 
+**Verificado em produção.** A Edge Function foi redeployada (versão 6) e três
+sondas rodaram contra o Supabase real, com os dados de teste apagados depois:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "uso manequim 42, qual tamanho eu peço?" | M | ✅ "Para o manequim 42, o tamanho indicado é M" |
+| "meu manequim é 46, qual serve?" | G | ✅ "Para o manequim 46, o tamanho indicado é G" |
+| "não quero mais receber nada" | `opted_out` | ✅ `{"status":"opted_out"}` |
+
+A terceira sonda não é sobre tamanho: ela prova que a normalização de acentos
+do `guardrails.ts` (`normalize("NFD")` + faixa de diacríticos) sobreviveu ao
+deploy — se ela tivesse quebrado, "não" não viraria "nao" e o opt-out passaria
+batido. Custo medido: **R$ 0,00095 por troca**, contra o teto de R$ 1,00.
+
 **Ainda não feito:** isto cobre a recomendação dita na conversa. `leads.size`
 (usado pela régua de pós-pedido) continua sem ser preenchido em lugar nenhum
 do código — isso é parte da onda A3 (checkout da Coinzz), não desta correção.
-Também não há redeploy da Edge Function nem verificação contra uma conversa
-real ainda — só teste local (`vitest run` + `tsc --noEmit`); falta rodar
-`supabase functions deploy turn` e repetir o teste de manequim 42 em
-produção antes de dar isto por fechado de verdade.
+
+### O deploy vinha atrasado em relação ao repositório
+
+Ao comparar produção com o `main` antes do redeploy, a versão 5 (a que estava
+no ar) divergia do repositório nos dois sentidos. O `followups.ts` em produção
+ainda apontava para o caminho antigo `docs/agente/...`: a correção de caminho
+do PR #8 nunca chegou a ser deployada. E o `index.ts` em produção tinha um
+docblock melhor, que documenta as duas portas de entrada e que nunca chegou a
+ser commitado. **Deploy aqui é
+manual e nada compara os dois lados** — não há `.github/workflows/`, e o
+`function-drift.test.ts` só compara `src/` com `supabase/functions/`, nunca com
+o que está no ar. O docblock foi recuperado para o repositório e a versão 6
+saiu do `main`; da próxima vez, comparar antes de deployar.
 
 ---
 
@@ -166,20 +190,16 @@ Pontos que mais importam para quem retoma o trabalho:
 
 Em ordem:
 
-1. **Fazer o redeploy da Edge Function `turn`** (`supabase functions deploy turn`) com a
-   correção do R8.4 e repetir o teste real de manequim 42 para confirmar **M** em produção
-   — a correção está no código e nos testes locais, mas ainda não foi verificada contra o
-   Supabase real. Bloqueante antes de qualquer tráfego real.
-2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+1. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.
-3. **Alinhar o FAQ do site ao prazo real** (3 a 5 dias) — divergência aberta hoje.
-4. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
+2. **Alinhar o FAQ do site ao prazo real** (3 a 5 dias) — divergência aberta hoje.
+3. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
    credencial) e seguir para A4 (Hermes, conversão de volta para o Meta).
-5. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento desta
-   sessão (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em histórico de
-   chat, o que é motivo suficiente para trocar antes do lançamento.
-6. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
+4. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento das
+   sessões anteriores (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em
+   histórico de chat, o que é motivo suficiente para trocar antes do lançamento.
+5. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
    agente — a relação é de mão dupla.
 
 ---
