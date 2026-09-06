@@ -1,0 +1,935 @@
+# Decisões tomadas — rodada 1
+
+Respostas do operador em 2026-09-04, sobre a pauta de
+[`02-decisoes-em-aberto.md`](02-decisoes-em-aberto.md), já cruzada com o
+[modelo econômico](../contexto-negocio/06-modelo-economico.md).
+
+**Estas decisões não se reabrem sem o operador.** Cada uma traz o que foi decidido, o que
+isso implica no projeto e o que ficou pendente dentro dela.
+
+---
+
+## Premissas confirmadas
+
+| # | Ponto | Decisão |
+|---|---|---|
+| D1 | `Físico na entrega` na Coinzz | **Ativo.** A recusa custa −R$ 14,98, não −R$ 54,98. A pendência mais cara da operação está resolvida |
+| D2 | Desconto do pagamento antecipado | **10%** → R$ 116,90. `PREPAY_DISCOUNT` em `colet/src/lib/checkout.ts` :42–49 está em 5% e desligado — **diverge e precisa ser corrigido** quando o desconto for configurado |
+| D3 | Definição de "venda" | **Pedido criado.** A meta de 10% é conversa → pedido criado; os 15% de recusa entram depois |
+| D4 | Contribuição do antecipado | **R$ 76,24**, não os R$ 68,34 do estudo. A média com mix 70/30 sobe de R$ 56,62 para **R$ 58,99** |
+| D5 | Frete no caminho antecipado | **Por conta da cliente.** Confirma os R$ 76,24 — e levanta a pergunta de quanto ela paga no total, ver [modelo](../contexto-negocio/06-modelo-economico.md) |
+
+---
+
+## Q1 — Onde o pedido nasce
+
+**Decisão: dois caminhos, conforme a forma de pagamento.**
+
+- **COD (padrão):** a cliente **não preenche checkout nenhum**. Ela manda os dados pelo
+  WhatsApp e o agente finaliza o pedido.
+- **Antecipado:** o agente preenche contato e endereço e envia um **link de checkout
+  pré-preenchido** para ela concluir o pagamento — o link carrega só dados de contato e
+  entrega, **nunca dados de pagamento**.
+
+Confirmação do pedido pela API da Coinzz.
+
+**Pendente:** o operador não tem certeza de que existe API de criação de pedido; sabe que
+**dá para gerar checkout personalizado com dados pré-preenchidos**. Verificar a
+documentação da Coinzz é a primeira tarefa técnica do projeto — ela decide se o caminho COD
+é API ou automação.
+
+**Por que importa:** é a decisão que mais mexe na conversão. No caminho COD não existe
+salto de contexto — a cliente fecha sem sair da conversa.
+
+## Q2 — Onde o sistema roda
+
+**Decisão: VPS 24/7.**
+
+O `CLAUDE.md` dizia "roda como app Node.js local". Foi atualizado: o processo vive numa VPS
+ligada o tempo todo. **SQLite continua valendo** — a proibição do `CLAUDE.md` é serverless
+com disco efêmero, e isso segue de pé.
+
+**Por que:** 240 leads/dia chegando no ritmo do Instagram (noite e fim de semana) e sessão
+de WhatsApp que precisa ficar viva. Máquina desligada é lead pago e perdido.
+
+## Q3 — Transporte de WhatsApp
+
+**Decisão: WAHA** (`devlikeapro/waha`).
+
+Leva junto três coisas que já estão prontas nele: o app de **números brasileiros**
+(resolve o nono dígito, sem o qual a mesma cliente vira dois leads), **retry e HMAC de
+webhook**, e **quatro engines intercambiáveis** — se uma quebrar com mudança de protocolo,
+troca-se configuração em vez de código.
+
+## Q4 — Número de telefone
+
+**Decisão: número novo**, a ser criado.
+
+O número do site (`5511916616348`) continua como está, atendido por gente. Isola o risco:
+banimento do número do agente não derruba o atendimento da landing page.
+
+**Implicação operacional:** número novo tem teto de aquecimento. Não dá para ir de zero a
+300 conversas/dia na primeira semana — o volume sobe junto com a verba, e o pacing precisa
+respeitar isso desde o primeiro dia.
+
+## Q5 — Escopo e ordem de entrega
+
+**Decisão, nesta ordem:**
+
+1. **Pré-venda** — atender quem chega do anúncio (função 1)
+2. **Pós-pedido** — confirmação e acompanhamento até a entrega (função 3)
+3. **Recuperação de carrinho** — abandono no checkout do site (função 2)
+4. **Follow-up**
+
+**Ambiguidade a resolver na hora de planejar a onda 1:** a régua de 3 toques da Q9 é para
+quem **silencia no meio da conversa** — isso é intrínseco à pré-venda e não dá para
+separar dela. Já "recuperação de carrinho" é o abandono no **checkout do site**, outro
+gatilho e outra fonte de dado. São coisas diferentes com nomes parecidos.
+
+**Justificativa econômica** (ver [modelo](../contexto-negocio/06-modelo-economico.md) §5): nos
+volumes projetados, subir a conversão de 10% para 12,5% vale +R$ 354/dia, enquanto baixar
+a recusa de 15% para 10% vale +R$ 82/dia. A pré-venda primeiro.
+
+## Q6 — Botões ou texto livre
+
+**Sem decisão. Fica em aberto, com o raciocínio do operador registrado:**
+
+> Botão traz agilidade e praticidade, mas não computa as objeções que aparecem mais fácil
+> em texto livre, e também não computa a identificação e conexão da cliente com a marca e
+> com a vendedora.
+
+É uma tensão real: o botão reduz atrito de digitação **e** apaga sinal. Cada objeção
+digitada é informação que o agente usa para conduzir; um toque em "M" não diz nada sobre o
+que ela está sentindo.
+
+**A definir juntos.** Uma direção possível a discutir: texto livre por padrão, e botão só
+nos pontos onde não há objeção a colher — confirmação final de endereço, escolha entre COD
+e antecipado. Nunca no momento da dúvida sobre tamanho, que é onde a objeção mora.
+
+## Q7 — Recomendação de tamanho
+
+**Decisão: enviar a tabela de medidas para a cliente decidir.** Medir com fita é caminho
+secundário — nem toda cliente vai ter disposição para isso. **Em caso de dúvida entre dois
+tamanhos, o maior** (política já publicada no FAQ).
+
+**Risco assumido, registrado:** tamanho auto-declarado erra mais que tamanho medido, e
+erro de tamanho vira troca ou recusa na porta. A mitigação é a tabela ter a coluna de
+manequim equivalente, que é a referência que a cliente já conhece, e a regra do maior
+puxar para o lado seguro.
+
+Ver [`../../agente-ia/01-conhecimento/02-tabela-de-medidas.md`](../../agente-ia/01-conhecimento/02-tabela-de-medidas.md).
+
+## Q8 — Pagamento antecipado na conversa
+
+**Decisão: sim.** O agente fecha em COD — que é a promessa que derruba o medo de golpe — e
+oferece o antecipado com desconto **antes de a cliente finalizar a compra**, como economia,
+nunca como condição.
+
+**E vale mais do que parecia — para nós.** Com a contribuição corrigida, o antecipado rende
+R$ 76,24 contra R$ 51,60 do COD já descontada a recusa: **R$ 24,64 a mais por pedido**,
+mesmo dando 10% de desconto, e sem exposição aos 15% de recusa.
+
+**A ressalva, que é do lado dela.** No antecipado o frete fica por conta da cliente. Se
+R$ 116,90 mais frete passar de R$ 129,90, o desconto não é desconto para ela — e a agente
+**não pode chamar de economia algo que sai mais caro**. Pendência nº 9 abaixo: precisa ser
+respondida antes de a oferta entrar no ar.
+
+**E o caso que precisa de cuidado especial:** quando o **COD não estiver disponível para a
+região dela**, o agente oferece o antecipado com **a maior segurança possível** — é o
+momento em que a oferta perde justamente o argumento que dissolve o medo, e a cliente
+precisa de mais prova, não de menos.
+
+Ver [`../../agente-ia/02-especificacao/01-mapa-funcional.md`](../../agente-ia/02-especificacao/01-mapa-funcional.md) §D3.
+
+## Q9 — Régua de follow-up de quem não respondeu
+
+**Decisão: três toques, com desconto no terceiro.**
+
+| Toque | Quando | O quê |
+|---|---|---|
+| 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
+| 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
+| 3 | 3 dias depois | **Cupom: 15% de desconto no COD, e mais 5% se pagar antecipado.** Último toque, com saída digna |
+
+O cupom será criado pelo operador na Coinzz.
+
+**Guardrail obrigatório:** o agente **não pode mencionar o cupom antes de o código existir
+e estar configurado**. É exatamente o erro do PIX imediato contra a promessa de COD, na
+mesma operação, com outro nome.
+
+**Impacto econômico do toque 3** (nossa conta, não do estudo): com 15% de desconto, o preço
+COD cai para R$ 110,42 e a contribuição do COD entregue cai de R$ 63,35 para ~R$ 45,23 —
+uma queda de ~29%. Ainda assim é ganho: são leads que já custaram R$ 1,25 e que valeriam
+zero. **A trava é não deixar o desconto vazar para quem compraria a preço cheio** — ele
+existe só no toque 3, só para quem silenciou, e nunca para quem já disse sim.
+
+## Q10 — Identidade da agente
+
+**Decisão do operador: a agente se apresenta como vendedora da Encorpa**, com nome próprio,
+sem se anunciar como IA. O objetivo declarado é qualidade de conversa alta o suficiente
+para que a diferença não apareça.
+
+**O que isso significa em projeto:** persona com nome, tom caloroso, ritmo humano, bolhas
+curtas, "digitando", memória do que a cliente já disse. Nada disso é problema — é o que
+faz a conversa converter.
+
+**Regra final, refinada pelo operador em 2026-09-04 — três linhas, nesta ordem:**
+
+1. **Não afirma ser humana.** Nunca.
+2. **Não anuncia que não é.** Não abre conversa se apresentando como IA, não emenda aviso
+   no rodapé, não levanta o assunto por conta própria.
+3. **Se for perguntada, responde.** Direta e sem drama, e segue a conversa.
+
+É a regra do "não mente, não anuncia". Ela resolve o conflito que estava aberto: a agente
+soa como a vendedora que é para a cliente — com nome, tom e ritmo de gente — e a verdade
+fica disponível para quem for atrás dela, que é justamente quem se importa.
+
+O handoff humano continua existindo para quem quiser falar com uma pessoa.
+
+**Conflito ainda aberto:** a landing page promete, em `Objection.tsx` :13, *"WhatsApp com
+gente de verdade. **Não é robô.**"* Essa frase fica falsa com a agente atendendo. Mexer
+nela é decisão de site, não de agente, e continua pendente.
+
+## Q11 — Custo de IA
+
+**Decisão: teto de R$ 0,80 por conversa**, com as três camadas propostas:
+
+1. Caminho barato primeiro — opt-out, pedido de humano e saudação por regra determinística,
+   sem chamar modelo
+2. Modelo barato para classificar e extrair; modelo bom só para redigir
+3. Prefixo de prompt estável e cacheável — identidade, oferta e objeções num bloco que não
+   muda entre mensagens
+
+**Ao estourar o teto: vira handoff humano**, não degrada em silêncio nem segue gastando.
+
+## Q12 — Handoff humano
+
+**Decisão: (a) + (b).** A agente **para de responder e notifica**; o operador assume.
+
+**Disponibilidade declarada:** ativo o dia todo, **exceto de madrugada**.
+
+**Pendente:** a faixa exata da madrugada. Sugestão a confirmar: **00h–07h**. Dentro dela a
+agente não promete atendimento humano imediato — ela acolhe e diz honestamente que a
+pessoa responde de manhã. Prometer alguém que não vem é a mesma família de erro do PIX.
+
+## Q13 — Cobrança de quem não pagou
+
+**Decisão: registrar a pendência, não resolver agora.** Continua sem regra definida —
+quantas tentativas, em que tom, e até quando antes de virar prejuízo aceito. Fica fora das
+quatro ondas de entrega.
+
+## Q14 — Regiões sem cobertura
+
+**Resolvido fora do nosso escopo:** Coinzz/Logzz **impedem a criação de pedido COD para
+região não coberta**. Não precisamos construir lista de exclusão geográfica.
+
+**O que sobra para o agente:** tratar a recusa da plataforma como um caminho de conversa,
+não como erro. Quando o COD não estiver disponível para o CEP dela, é o gatilho do fluxo de
+antecipado com reforço de segurança da Q8.
+
+---
+
+---
+
+# Decisões tomadas — rodada 2
+
+Respostas do operador em 2026-09-05.
+
+## R2.1 — Frete do antecipado: fica com a cliente, e o desconto sobe para 15%
+
+**Decisão:** o frete continua por conta da cliente. O desconto do pagamento antecipado sobe
+de 10% para **15%** — preço do produto a **R$ 110,42**.
+
+**Razão:** o frete no caminho antecipado é muito variável, podendo passar de R$ 30, R$ 40 e
+até R$ 50 conforme a região. Embutir isso no preço obrigaria a precificar pelo pior caso.
+
+**O que a agente pode dizer, decidido pelo operador:**
+
+> Ela **pode** afirmar que a cliente tem X% de desconto no pagamento antecipado e que
+> economiza R$ Y **na compra do produto**. A economia é real e é sobre o produto, que é o
+> que a Encorpa vende. O frete é outra questão, variável e fora do controle do operador.
+
+**Requisito que acompanha essa permissão:** a agente diz, **na mesma mensagem**, que no
+caminho antecipado o frete é calculado à parte no checkout. Não é ressalva moral — é
+proteção de conversão: numa audiência cuja objeção nº 1 é golpe, surpresa no checkout traz
+o medo de volta e derruba o pedido que a conversa já tinha ganho.
+
+**Números atualizados:**
+
+| | Com 10% (rodada 1) | **Com 15% (vigente)** |
+|---|---|---|
+| Preço do produto | R$ 116,90 | **R$ 110,42** |
+| Economia declarável | R$ 13,00 | **R$ 19,48** |
+| Contribuição do antecipado | R$ 76,24 | **R$ 70,21** |
+| Média com mix 70/30 | R$ 58,99 | **R$ 57,18** |
+| Equilíbrio (CPL R$ 1,25) | 3,47% | **3,58%** |
+
+Cenários com R$ 57,18: otimista **R$ 2.033/dia**, base **R$ 1.223/dia**, pessimista
+**R$ 684/dia** (R$ 60.997, R$ 36.705 e R$ 20.510 em 30 dias).
+
+Mesmo com 15% de desconto, o antecipado rende R$ 70,21 contra R$ 51,60 do COD já descontada
+a recusa — **R$ 18,61 a mais por pedido**, e sem exposição aos 15% de recusa.
+
+## R2.2 — Teto de frete: existe mecanismo, precisa de confirmação no painel
+
+**Pesquisa feita em 2026-09-05, a pedido do operador.**
+
+**[FATO — DOC, fonte secundária]** A Logzz tem uma opção chamada **Frete Personalizado**:
+
+> "Se deseja realizar envios apenas com valor fixo de frete definidos por você na criação do
+> produto, você deve habilitar a opção de Frete Personalizado. Essa opção de frete
+> funcionará com um preço fixo ou você pode utilizar essa opção se desejar oferecer frete
+> grátis."
+
+É exatamente o mecanismo de teto pedido: o produtor fixa o valor que a cliente vê, em vez de
+repassar a cotação por região.
+
+**Ressalva de evidência, importante:** essa citação veio de resumo de busca, **não** de
+leitura direta da página. A central de ajuda da Logzz responde 404 ou redireciona, e o
+checkout da Coinzz responde 403 a leitura automatizada. **Precisa ser confirmado no painel
+do operador antes de virar decisão.**
+
+**[INFERÊNCIA, não documentada]** Quem paga a diferença entre o valor fixo cobrado e o custo
+real da entrega é o produtor — sai do saldo dele. Não achei documentação pública dizendo
+isso com todas as letras.
+
+**O número que decide o teto:** o antecipado rende R$ 70,21 e o COD médio rende R$ 51,60.
+Logo, **podemos absorver até R$ 18,61 por pedido** antes de o antecipado ficar pior que o
+COD. Isso dá a régua:
+
+| Teto para a cliente | Custo real R$ 25 | Custo real R$ 40 | Custo real R$ 50 |
+|---|---|---|---|
+| R$ 20 | absorvemos R$ 5 → contrib. R$ 65,21 ✅ | absorvemos R$ 20 → R$ 50,21 ⚠️ | absorvemos R$ 30 → R$ 40,21 ❌ |
+| R$ 15 | absorvemos R$ 10 → R$ 60,21 ✅ | absorvemos R$ 25 → R$ 45,21 ❌ | absorvemos R$ 35 → R$ 35,21 ❌ |
+
+**Recomendação:** se o Frete Personalizado existir mesmo, começar com teto de **R$ 20** e
+medir. R$ 15 só se a distribuição de custo real ficar concentrada abaixo de R$ 30.
+
+**Anotação de divergência:** o operador fala em frete de R$ 30 a R$ 50; a Logzz declara
+publicamente que o custo total por remessa "raramente passa de R$ 25". Pode ser diferença
+entre o que é cobrado da cliente e o que custa para nós, ou regiões específicas. Vale medir
+antes de fixar o teto.
+
+## R2.3 — Identidade: a resposta é "assistente vendedora oficial da Encorpa"
+
+**Decisão, adaptando a regra da rodada 1:** quando perguntada, a agente responde que é a
+**assistente vendedora oficial da Encorpa**, e que está ali para ajudar, tirar todas as
+dúvidas e guiar no processo de compra.
+
+A regra completa fica assim:
+
+1. **Não afirma ser humana.** Nunca.
+2. **Não anuncia que não é.** Não abre conversa com disclosure nem levanta o assunto.
+3. **Se for perguntada, responde:** *"Sou a assistente vendedora oficial da Encorpa — estou
+   aqui para tirar suas dúvidas e te ajudar com o pedido."* Direta, sem drama, e segue a
+   conversa.
+
+É uma resposta honesta e comercialmente boa: não nega, não se desculpa, e reposiciona na
+utilidade.
+
+## R2.4 — Sem botões automáticos
+
+**Decisão: texto livre, sempre.** Nada de botões ou listas.
+
+**Razão do operador:** botão entrega que é uma IA conversando, e tira a intimidade e a
+pessoalidade da conversa.
+
+Isso encerra a pendência da rodada 1 (Q6) e **remove `send_options` do conjunto de tools**
+previsto em [`../../agente-ia/02-especificacao/02-tools-do-agente.md`](../../agente-ia/02-especificacao/02-tools-do-agente.md).
+
+**Consequência assumida:** tamanho, endereço e confirmação passam a ser coletados em texto
+livre, o que exige extração estruturada boa e confirmação repetindo de volta. O ganho é o
+que a rodada 1 já tinha registrado como custo do botão: cada objeção digitada é sinal que a
+agente usa para conduzir.
+
+## R2.5 — Horário de operação: 06:00 às 00:00
+
+**Decisão:** a agente opera das **06:00 à meia-noite**.
+
+**Razão do operador:** responder de madrugada entrega que é uma IA — ninguém trabalha nesse
+horário.
+
+Isso substitui a pendência da rodada 1 sobre a faixa da madrugada, e vira o gate de janela
+de atendimento na cadeia de verificações.
+
+## R2.6 — Ritmo de resposta
+
+**Decisão, três regras:**
+
+| Regra | Valor |
+|---|---|
+| Atraso da **primeira** resposta da conversa | **15 segundos** |
+| Atraso das demais | **0,2 segundo por palavra da mensagem** |
+| Indicador de "digitando" | **visível enquanto a agente prepara a resposta** |
+
+**Razão:** resposta instantânea entrega que é uma IA.
+
+**Nota técnica que a implementação precisa respeitar** (evidência: Evolution API,
+`whatsapp.baileys.service.ts` :2306–2330): a presença de "digitando" **expira em cerca de 20
+segundos** no WhatsApp. Qualquer espera acima disso precisa reenviar a presença em blocos —
+`presenceSubscribe → composing → espera → paused`, em laço. A 0,2 s por palavra, uma
+mensagem de 100 palavras já chega no limite.
+
+## R2.7 — Cupom do follow-up: 20%
+
+**Decisão:** o operador vai criar um cupom de **20% de desconto** para o terceiro toque do
+follow-up. Isso substitui a formulação da rodada 1 (15% no COD e 20% no antecipado).
+
+O guardrail continua valendo: **a agente não pode mencionar o cupom antes de o código existir
+na Coinzz**, e o desconto **não vaza** para quem compraria a preço cheio.
+
+## R2.8 — A função de cobrança de inadimplente deixa de existir
+
+**Decisão:** não há mais o que cobrar. O risco de inadimplência existia no modelo
+**pós-pago** (entrega primeiro, cobra depois). Com o `Físico na entrega` ativo, o entregador
+cobra na porta: ou ela paga e recebe, ou recusa e não recebe. **Não existe estado de
+"entregue e não pago".**
+
+**Consequência:** as quatro funções do agente viram **três**:
+
+1. Atender quem chega com dúvida antes de comprar
+2. Recuperar carrinho abandonado
+3. Confirmar o pedido depois da compra e acompanhar até a entrega
+
+## R2.9 — Criação de pedido: o operador informa que a Coinzz tem webhook
+
+**Registrado, com uma ressalva técnica que precisa ser resolvida antes de virar plano:**
+
+Webhook e API são coisas diferentes. Um **webhook** é a Coinzz **avisando a gente** quando
+algo acontece — pedido criado, pagamento confirmado, status mudou. Ele resolve a etapa E3
+(status do pedido) e o gatilho de entrada do pós-venda, que já estavam mapeados.
+
+O que a decisão da rodada 1 exige é o caminho inverso: **a gente criar o pedido na Coinzz**.
+Isso precisa de um endpoint que possamos chamar. Se a Coinzz oferecer só webhooks de saída,
+o caminho COD "a agente finaliza o pedido" não tem mecanismo.
+
+**Alternativa que preserva a decisão sem depender de API** — a mesma que já existe para o
+antecipado: a agente monta o **checkout pré-preenchido com todos os dados e a forma COD já
+selecionada**, e a cliente só confirma. Ela não preenche nada nem informa pagamento; dá um
+toque. Perde-se menos conversão do que parece, e não depende de API nenhuma.
+
+**Pendente:** confirmar na documentação da Coinzz se existe endpoint de criação de pedido.
+
+---
+
+# Decisões tomadas — rodada 3
+
+Respostas do operador em 2026-09-05.
+
+## R3.1 — Criação de pedido: confirmado, webhook apenas, checkout personalizado
+
+**Decisão mantida e reforçada:** a agente não cria pedido por API. Para os dois caminhos, o
+mecanismo é o mesmo — **checkout personalizado da Coinzz, pré-preenchido com os dados da
+cliente**, com o link enviado para ela confirmar.
+
+**Razão do operador — e ela é melhor do que a alternativa que eu tinha em mente:** confirmar
+no checkout é **mais seguro**, não um substituto inferior à API. No COD, a cliente vê o
+resumo do pedido antes de confirmar, o que reduz erro de tamanho/endereço e dá a ela a
+sensação de controle que uma audiência desconfiada de golpe precisa. No antecipado, o
+argumento é ainda mais forte: **ela nunca envia dado de pagamento pelo chat** — só confirma
+no ambiente seguro da Coinzz. Isso fecha uma exposição que eu não tinha nomeado antes:
+cartão ou chave PIX trafegando em texto de WhatsApp é o tipo de coisa que uma auditoria de
+segurança reprovaria de cara, e a decisão evita o problema por completo.
+
+**Como isso muda o mapa funcional (E1):** o fluxo deixa de ser "a agente cria o pedido" e
+passa a ser "a agente monta o checkout pré-preenchido e envia o link; a cliente confirma".
+`create_order` como tool desaparece; entra `build_prefilled_checkout_link`.
+
+**O que falta:** confirmar que a Coinzz oferece checkout personalizado programável (não só
+manual pelo painel) — ou seja, que dá para gerar o link com nome, telefone, endereço e
+tamanho já preenchidos via chamada automatizada, e não só copiando e colando à mão. Isso é
+diferente de "ter API de pedido": é ter API de **checkout pré-preenchido**. Ver pendência
+nº 1 revisada abaixo.
+
+## R3.2 — Cupom de 20%: vale nos dois caminhos, com um argumento sazonal como capa
+
+**Decisão:** o cupom de 20% do terceiro toque vale tanto para COD quanto para antecipado.
+
+**Refinamento pedido pelo operador:** em vez de apresentar o cupom como "prêmio por ter
+sumido três dias" (que é o que ele é, mecanicamente), a agente o encaixa num motivo externo
+— **semana do consumidor, data comemorativa, ou "condição especial por tempo limitado"** —
+sempre que uma dessas datas existir perto do envio. **Se não houver nenhuma no calendário no
+momento, mantém a formulação anterior (retomada de follow-up) e aceita o risco descrito na
+rodada 2** (quem espera ganha mais que quem paga na hora).
+
+**Consequência de projeto:** a régua de follow-up passa a consultar um calendário de datas
+comerciais antes de escolher o texto do terceiro toque. Isso é conteúdo, não código — uma
+lista mantida pelo operador, não uma integração com feriados.
+
+## R3.3 — O desconto de 15% vs. frete grátis: fica registrado como lacuna conjunta
+
+**Decisão:** não decidir agora. O operador quer analisar junto se é melhor **manter os 15%
+de desconto** ou **oferecer frete grátis até um teto** no caminho antecipado — e, se
+qualquer coisa mudar, vale **tanto no site quanto no WhatsApp**.
+
+Isso confirma o que já estava registrado (R2.3, pendência nº 6) e adiciona a
+opção de comparar desconto-no-preço vs. frete-grátis-com-teto como **estratégias
+concorrentes**, não complementares — dar as duas ao mesmo tempo dobra o subsídio sem dobrar
+a conversão.
+
+## R3.4 — Mídia 24/7, atendimento 06:00–00:00: mantido, sem mudança
+
+Confirma R2.5. A lacuna R2's pendência sobre "o que fazer com quem chega às 02:00" **segue
+sem resposta explícita** — o operador confirmou o horário do agente, não o que acontece com
+o lead da madrugada. Ver pendência revisada abaixo.
+
+## R3.5 — Identidade: mantém "não mente, não anuncia"; ganha um ativo novo
+
+**O operador não pediu mudança de comportamento.** O ponto conceitual que ele levanta — que
+a agente não é "um robô" no sentido de script fixo sem autonomia, e sim um sistema de
+linguagem generativa com decisão adaptativa — está registrado em
+[`../../agente-ia/02-especificacao/04-guardrails.md`](../../agente-ia/02-especificacao/04-guardrails.md) §"Nota de
+vocabulário". A regra das três linhas não muda.
+
+**O que muda de fato no projeto — e isso é uma peça nova, não uma reafirmação:**
+
+> **O agente vai enviar áudios gravados por pessoas reais.**
+
+Isso não estava em nenhuma decisão anterior e muda o desenho da função de envio de
+mensagem. Hoje o mapa fala só de texto (B5/B6/B7). Um áudio gravado por humano, tocado pelo
+agente, é uma peça de mídia pré-gravada, não um TTS gerado na hora — o que tem implicações
+de guardrail que texto não tem:
+
+- **Não pode ser gerado dinamicamente por variável.** Se o áudio é gravação fixa, ele não
+  pode dizer "Bruna, seu pedido de R$ 129,90..." com valores que mudam — precisa ser
+  genérico o bastante para servir a qualquer conversa, ou existir em poucas variantes
+  pré-gravadas por situação (confirmação, véspera de entrega, boas-vindas).
+- **Precisa de biblioteca e critério de seleção.** Qual áudio toca em qual momento da
+  conversa é decisão do agente (ou do sistema de skills), mas o conteúdo do áudio em si é
+  imutável — o mesmo padrão de "conteúdo versionado, seleção determinística" que já vale
+  para os templates de re-entrada (rodada 1, referência DeskcommCRM `reentry-template.ts`).
+- **Reforça a identidade sem contradizer o guardrail.** Uma voz humana real não é uma
+  mentira sobre ser humano — é uma característica de qualidade de atendimento, do mesmo
+  jeito que um nome próprio e um tom caloroso já eram. Mas grava-la como se fosse a agente
+  falando ao vivo, numa situação em que fica claro que é play de arquivo (ex.: a voz não
+  responde ao que a cliente acabou de perguntar), teria o efeito oposto do pretendido.
+
+**Escopo inicial, decidido em 2026-09-05:** o operador já tem em mãos áudios gravados para
+**boas-vindas** e **explicação inicial do produto** — os dois primeiros momentos da
+conversa, antes de qualquer coleta de dado. Ampliar para outros pontos do funil (confirmação
+de pedido, véspera de entrega, pós-venda) fica para uma sessão futura, fora do escopo desta
+rodada.
+
+**A landing page não muda.** Ver [`../../agente-ia/02-especificacao/04-guardrails.md`](../../agente-ia/02-especificacao/04-guardrails.md) §"A copy da landing page".
+
+---
+
+# Decisões tomadas — rodada 4
+
+Respostas do operador em 2026-09-05/06.
+
+## R4.1 — Coinzz tem API E webhook: pendência mais crítica do projeto, resolvida
+
+**Confirmado pelo operador, verificado no próprio painel:** a Coinzz tem **integração via
+API**, além do webhook já sabido. Isso fecha a pendência nº 1 da rodada 3 — e fecha melhor
+do que o cenário mínimo esperado.
+
+**O que isso muda, e o que não muda:** a decisão de segurança da rodada 3 (R3.1) — **a
+cliente nunca envia dado de pagamento pelo chat, sempre confirma num checkout** — continua
+de pé, e continua sendo a decisão certa por aquele motivo. O que muda é *como* o link
+pré-preenchido é gerado: em vez de depender de preenchimento manual ou de um formato de URL
+adivinhado, a **API gera o checkout personalizado programaticamente**, com os dados da
+cliente (nome, telefone, endereço, tamanho, modalidade de pagamento) já embutidos. O webhook
+continua sendo o canal de status (pedido criado, pagamento confirmado) para o acompanhamento
+pós-venda.
+
+`build_prefilled_checkout_link` deixa de ser tool com implementação em aberto e passa a ter
+mecanismo real e confirmado: **chamada à API da Coinzz para gerar o checkout → link
+devolvido → agente envia → cliente confirma.**
+
+## R4.2 — Frete Personalizado da Logzz: existe, mas não será usado
+
+**Confirmado:** a opção "Frete Personalizado" existe na Logzz (2a confirmado).
+
+**Mas a decisão final é não usá-la.** O operador levantou duas variantes de subsídio de
+frete (10% ou 5% de desconto + frete grátis até R$20) e, ao comparar com dado real de custo
+de frete por região, decidiu **manter os 15% de desconto sem programa de frete grátis**:
+para as principais metrópoles o frete fica entre R$15 e R$35, e para regiões mais afastadas
+passa de R$40 — faixas em que um teto de R$20 exigiria subsídio frequente e alto, tornando o
+programa mais caro que simplesmente manter o desconto atual.
+
+**Isto fecha as pendências nº 2, 3 e 6 da rodada 3 numa só resposta**, e mantém os números
+da rodada 2 sem alteração: produto a R$ 110,42, economia declarável de R$ 19,48, contribuição
+do antecipado de R$ 70,21. Nada no modelo econômico muda.
+
+**Registro do caminho considerado e descartado:** frete grátis com teto (R$20, financiado
+por baixar o desconto para 10% ou 5%) foi avaliado e rejeitado por dado real de custo de
+frete regional, não por falta de mecanismo — a Logzz oferece a opção, o operador optou por
+não usá-la agora. Fica arquivado, não como pendência.
+
+## R4.3 — Cupom do follow-up: moldura "Super + dia da semana"
+
+**Decisão:** o argumento do cupom de 20% no terceiro toque usa o formato **"Super
+[dia da semana]"** — ex.: se o terceiro toque cai numa quinta-feira, a mensagem abre com
+*"Super Quinta! Você ganhou um cupom de 20% de desconto no Colete Cinta Modeladora..."*.
+
+Isso substitui a ideia de calendário de datas comerciais fixas (rodada 3, pendência nº 4) por
+um formato **sempre disponível e determinístico**: qualquer dia da semana vira "Super
+[dia]", sem depender de calendário externo, sem lacuna de "não há data próxima". Mais simples
+de implementar — é uma função pura de `dia_da_semana → nome do texto`, sem tabela para
+manter.
+
+## R4.4 — Duas camadas na primeira resposta: mensagem automática instantânea + agente real depois
+
+**Decisão, e ela reformula R2.6 (rodada 2):** a primeira resposta de qualquer conversa deixa
+de ser "15 segundos de atraso" e passa a ter **duas camadas**.
+
+**Camada 1 — mensagem automática, instantânea, 24 horas por dia, todo lead:**
+
+> *"Oii, tudo bem? Recebemos sua mensagem, assim que possível uma de nossas atendentes fará
+> seu atendimento, aproveite para entender melhor sobre nosso produto acessando nosso site:
+> encorpa-fashion.com.br"*
+
+Enviada **imediatamente**, **independente do horário** — inclusive de madrugada. É o texto
+que "toda loja usa" (palavras do operador): não finge ser a agente conversando, não usa o
+ritmo humano da camada 2, e sua função é só confirmar recebimento e reduzir ansiedade
+enquanto a resposta de verdade não chega. Não contradiz o guardrail de identidade: a
+mensagem fala em "atendentes", não afirma nem nega automação.
+
+**Camada 2 — a resposta real da agente, com personalidade:**
+
+| Situação | Quando chega |
+|---|---|
+| Dentro do horário de atendimento (06:00–00:00) | **3 minutos** depois da mensagem da cliente |
+| Fora do horário (00:00–06:00) | **A partir das 06:00** |
+
+O atraso de "3 minutos" **substitui os 15 segundos** definidos na rodada 2 para a primeira
+resposta. O ritmo de 0,2 s por palavra para as respostas seguintes **continua valendo, sem
+mudança** — a mudança é só na primeira.
+
+**Por que isso resolve melhor a pendência nº 5 da rodada 3 (lead de madrugada) do que
+qualquer uma das três opções que a sessão tinha proposto:** o lead da madrugada recebe
+confirmação de recebimento na hora — não fica no escuro por 4 horas — mas a conversa de
+verdade, com o ritmo cuidadosamente desenhado para não parecer automação, só começa quando
+há gente de fato disponível (a partir das 06:00). É a opção (a) da pendência anterior, mas
+com o texto e o timing exatos definidos pelo operador em vez de deixados em aberto.
+
+**Consequência para o guardrail de janela de atendimento:** ele passa a valer só para a
+camada 2. A camada 1 roda 24/7, sempre.
+
+## O que ficou pendente
+
+| # | Pendência original | Status |
+|---|---|---|
+| 1 | A Coinzz permite gerar checkout pré-preenchido via chamada automatizada? | ✅ **Resolvida (R4.1) — confirmado: API + webhook** |
+| 2 | Confirmar o Frete Personalizado da Logzz no painel | ✅ **Resolvida (R4.2) — existe, decidido não usar** |
+| 3 | Desconto de 15% vs. frete grátis com teto no antecipado | ✅ **Resolvida (R4.2) — mantém 15%, sem subsídio de frete** |
+| 4 | Calendário de datas comerciais para o cupom de 20% | ✅ **Resolvida (R4.3) — moldura "Super + dia da semana", sem calendário a manter** |
+| 5 | Copy do site *"Não é robô"* | ✅ Resolvida na rodada 3 — mantida sem alteração |
+| 6 | Lead que chega entre 00:00 e 06:00 | ✅ **Resolvida (R4.4) — mensagem automática 24/7 + agente real às 06:00 ou 3 min depois** |
+| 7 | Medir custo real de frete por região | ✅ **Resolvida (R4.2) — operador já tem o dado: R$15–35 em metrópoles, R$40+ em regiões afastadas** |
+| 8 | Biblioteca de áudios | ✅ Resolvida — escopo inicial é boas-vindas + explicação do produto |
+
+**Todas as 8 pendências abertas ao fim da rodada 3 estão resolvidas.** Não há pendência
+bloqueante de decisão de negócio no momento. Restam apenas verificações técnicas de
+implementação (formato exato da chamada de API da Coinzz, nome dos campos do checkout
+pré-preenchido) — essas são trabalho de construção, não decisão a tomar.
+
+---
+
+# Decisões tomadas — rodada 5
+
+> Rodada de infraestrutura. O operador fixou a pilha e duas restrições de execução; o
+> resto desta rodada é consequência dessas escolhas, verificada contra a documentação de
+> cada fornecedor (as verificações estão marcadas com a data em que foram feitas).
+
+## R5.1 — Duas restrições que definem a ordem do trabalho
+
+| Restrição | O que significa na prática |
+|---|---|
+| **Ainda não existe número de WhatsApp** | Nada que dependa do canal vivo pode ser feito agora — nem pareamento, nem teste com número real, nem aquecimento |
+| **Gasto zero até esgotar o que é gratuito** | Só se contrata infraestrutura quando o que dá para construir de graça estiver construído e testado |
+
+**Consequência de projeto, e é a decisão mais importante desta rodada:** o WhatsApp deixa
+de ser pré-requisito da construção. O canal vira um **adapter** com contrato explícito, e a
+construção roda contra um **canal simulado** que fala esse mesmo contrato — o mesmo formato
+de webhook de entrada, o mesmo endpoint de envio. É o que já foi feito no site com as
+personas do navegador: o teste não espera cliente real para existir.
+
+Isso inverte a ordem original do plano, que abria com "provisionar VPS e parear o número".
+A onda 0 antiga não pode nem começar hoje; a nova pode começar agora e vai até o ponto em
+que só falta plugar o canal.
+
+## R5.2 — Banco: Supabase (Postgres) no lugar do SQLite
+
+Substitui o SQLite fixado no `CLAUDE.md`. O motivo original do SQLite era não depender de
+serviço externo; o motivo original da VPS 24/7 era *"SQLite não vai para serverless com
+disco efêmero"* (§Q2). Com Postgres gerenciado, **esse argumento deixa de valer para o
+estado** — mas continua valendo para o canal: a sessão do WhatsApp exige processo vivo. Ou
+seja, a VPS continua necessária, por outro motivo, e o banco deixa de ser a razão.
+
+**Verificado em 2026-09-05, na documentação da Supabase:** plano gratuito tem 500 MB de
+banco por projeto, **2 projetos ativos por organização**, e projeto ocioso é **pausado após
+1 semana sem atividade**.
+
+Duas consequências práticas:
+
+1. A organização que o operador já tem (`Oria Data-Base`, plano free) **já está nos dois
+   projetos**. O projeto do agente vai numa **organização nova**, também gratuita — não é
+   contorno de regra, é como a Supabase organiza cota por organização.
+2. Enquanto o agente não tiver tráfego, o projeto pausa sozinho em uma semana. Um cron
+   barato de ping resolve, e ele já vai existir de qualquer forma para as varreduras.
+
+## R5.3 — n8n: orquestração e integrações, não o cérebro do turno
+
+O operador já tem uma instância de n8n em produção para outro produto. O agente entra nela,
+separado por projeto/pasta e tags próprias.
+
+**O que o n8n faz:** webhook de entrada do canal, gravação e enfileiramento, crons de
+varredura (régua de silêncio, régua de pós-pedido, ping do banco), webhook de status da
+Coinzz, notificação de handoff, disparo periódico do otimizador.
+
+**O que o n8n não faz:** a cadeia de 11 guardrails, a máquina de estados, o teto de custo
+por conversa e a montagem de contexto. Isso é código versionado, com teste automatizado,
+chamado por HTTP.
+
+**Por quê:** a regra que a própria pesquisa já registrou (`03-pesquisa/03-extracao-por-necessidade.md`
+§N3, §N4) é que o que pode ser determinístico não deve custar chamada de modelo — e o
+corolário é que o que precisa de teste automatizado não pode morar dentro de nós de um
+editor visual. Guardrail que ninguém consegue testar em CI é guardrail que ninguém sabe se
+funciona. Um fluxo de n8n é ótimo como cano e como relógio; é ruim como suíte de regras.
+
+## R5.4 — Hospedagem: PikaPods, e só para o que exige processo vivo
+
+**Verificado em 2026-09-05:** pods a partir de ~US$ 1/mês; n8n com recursos padrão fica em
+~US$ 3,80/mês.
+
+Roda em pod **o que precisa estar de pé 24/7**: o WAHA (sessão do WhatsApp) e o n8n, se o
+operador decidir separar do que ele já usa. O cérebro do turno não precisa de pod próprio no
+começo — ver R5.6.
+
+## R5.5 — WAHA continua sendo o transporte, e agora é inteiramente gratuito
+
+**Verificado em 2026-09-05, no site do WAHA:** o que era WAHA Plus foi incorporado ao Core a
+partir da imagem `2026.6.1`; mídia, múltiplas sessões e os demais recursos pagos passaram a
+ser gratuitos, sem limite de mensagens nem expiração de licença. Existe um apoio comunitário
+opcional de US$ 5/mês, que não desbloqueia nada.
+
+Isso remove um custo que o plano antigo assumia e, mais importante, remove o risco de a
+transcrição de áudio (§B3 do mapa funcional) esbarrar em recurso pago — o público manda
+áudio, e isso não é opcional.
+
+## R5.6 — Onde o cérebro do turno roda
+
+Código TypeScript versionado neste repositório, exposto por HTTP. Dois lugares possíveis, e
+a escolha não precisa ser feita agora porque o contrato é o mesmo nos dois:
+
+| Opção | A favor | Contra |
+|---|---|---|
+| **Supabase Edge Functions** (recomendada para começar) | Gratuita, sem servidor para manter, mora junto do banco | Deno, tempo de execução limitado por chamada |
+| **Container Node no mesmo pod do WAHA** | Sem limite de execução, mesma linguagem do resto | Mais uma coisa para manter de pé |
+
+Recomendação: começar em Edge Functions e migrar para o pod se o limite de execução
+incomodar. A migração é troca de host, não reescrita, desde que o cérebro não dependa de
+nada específico do ambiente.
+
+## R5.7 — Hermes Agent: otimizador que propõe, nunca que publica
+
+O operador escolheu o [Hermes Agent](https://github.com/NousResearch/hermes-agent) (Nous
+Research, open source) como o agente que lê as conversas e otimiza o sistema periodicamente.
+
+**Guardrail de governança, decidido aqui:** o Hermes lê o banco e **abre proposta de
+mudança** — pull request no repositório, ou linha numa tabela de experimentos com estado
+`proposto`. Ele **não** escreve prompt, preço, cupom ou guardrail direto em produção.
+
+O motivo é o mesmo que fez a cadeia de guardrails existir: um sistema que se reescreve
+sozinho sem revisão pode "otimizar" prometendo o que a operação não cumpre — desconto que
+não existe, prazo que a Logzz não pratica, garantia que ninguém honra. Otimização de
+conversão sem revisão humana é exatamente o caminho para a promessa quebrada que este
+projeto já decidiu não cometer.
+
+## R5.8 — Provedor de modelo: continua em aberto, com um caminho de custo zero para o desenvolvimento
+
+Segue sendo a pergunta 1 e 2 da seção 4 do plano. O que muda: com a restrição de gasto zero,
+**o desenvolvimento não espera essa decisão**. Toda chamada de modelo passa por uma função
+só (o *seam* de §H6), então o provedor é configuração, não arquitetura.
+
+Para desenvolver sem gastar, a camada gratuita de algum provedor resolve — o operador já tem
+conta Google/Gemini ligada ao n8n. A decisão de qual modelo redige a conversa em produção
+fica para o momento do piloto, quando o custo por conversa vira número medido em vez de
+estimativa.
+
+---
+
+# Decisões tomadas — rodada 6
+
+> Respostas do operador às perguntas 15 a 20 do plano, mais o material de funil que ele
+> entregou em 2026-09-06.
+
+## R6.1 — WhatsApp fica para depois; notificação de handoff vai por e-mail
+
+O operador confirmou que **não vamos usar WhatsApp nesta fase**. A notificação de handoff
+(§Q12) sai por **Gmail** enquanto o canal não existir. Não muda a decisão de destino final —
+muda só o transporte do alerta durante a fase A, e o destino é configuração.
+
+## R6.2 — Hermes roda a cada 50 leads atendidos, não por calendário
+
+Cadência **por volume, não por relógio**: a cada 50 leads registrados e atendidos. É a escolha
+certa para quem ainda não tem tráfego constante — um cron semanal rodaria sobre 3 conversas na
+primeira semana e sobre 300 na quinta, e as duas análises seriam inúteis por motivos opostos.
+
+Continua valendo o guardrail de governança da §R5.7: o Hermes **propõe**, não publica.
+
+## R6.3 — Retenção de dado pessoal: 90 dias
+
+Telefone, nome, endereço e o que mais for coletado da cliente expiram em **90 dias**. Vale
+para o banco inteiro, inclusive histórico de conversa que contenha endereço.
+
+Consequência de construção: a expiração é **rotina automática**, não faxina manual — uma tarefa
+agendada que apaga o que passou de 90 dias. Sem isso, "retenção de 90 dias" é intenção, não
+política.
+
+## R6.4 — Provedor de modelo: conta separada, e a escolha não é por preço
+
+O operador decidiu usar uma **API em conta separada**, ainda a definir. A comparação de doze
+modelos contra uma conversa real do funil está publicada como página à parte; o número que
+decide está registrado aqui:
+
+**A conversa inteira custa entre R$ 0,01 e R$ 0,45**, dependendo do modelo, contra uma margem
+de R$ 63,35 por pedido. Mesmo o modelo mais caro da comparação consome **0,7% da margem** e
+fica abaixo do teto de R$ 0,80 por conversa (§Q11). A diferença entre o mais caro e o mais
+barato é de R$ 0,44 por conversa.
+
+**Portanto: escolher a API pelo preço otimiza a variável errada.** Um ponto percentual de
+conversão vale mais do que toda a economia possível na troca de modelo. O critério é qualidade
+em português, confiabilidade de chamada de ferramenta, cache de prompt e latência.
+
+Camada gratuita do Gemini cobre o desenvolvimento inteiro da fase A sem cartão.
+
+## R6.5 — O script do funil recebido não é fonte sobre o produto
+
+O operador entregou um script de WhatsApp de outra operação (preço R$ 119,90, entrega para o
+dia seguinte, frete grátis, 12x, tamanhos M–3XL, medida com fita métrica). **Nada disso
+descreve a operação da Encorpa**, e o próprio operador registrou que o material não deve ser
+tratado como verdade sobre o produto.
+
+O diagnóstico item a item está em
+[`../06-script/01-diagnostico-do-script-atual.md`](../06-script/01-diagnostico-do-script-atual.md)
+e o script reescrito em
+[`../06-script/02-script-do-agente.md`](../06-script/02-script-do-agente.md).
+
+**Três dos quatro áudios precisam ser regravados** — o roteiro dos novos está no script. O
+áudio 2 (conforto e material) é aproveitável quase inteiro.
+
+---
+
+# Decisões tomadas — rodada 7
+
+## R7.1 — Os três modelos, por papel
+
+| Papel | Modelo | Por quê |
+|---|---|---|
+| Desenvolvimento e testes | **Gemini 3.5 Flash-Lite** | Camada gratuita cobre a fase A inteira |
+| A conversa que converte | **gpt-5.6-luna** (OpenAI) | O turno que vende; R$ 0,048 por conversa com cache |
+| Trabalho barato em produção | **Gemini 3.5 Flash-Lite** | Classificar intenção, extrair endereço, decidir estágio — 20 chamadas por conversa que não precisam de talento |
+
+Preço fica em `src/llm/pricing.ts`, num lugar só. Trocar de modelo é editar uma linha da
+tabela e uma variável de ambiente.
+
+## R7.2 — Prazo de entrega: 3 a 5 dias no COD, sem número no antecipado
+
+Correção do operador. **No COD são 3 a 5 dias, com agendamento.** No **antecipado o prazo
+varia por região e frete**, então a agente não diz número nenhum ali — a transportadora
+informa no checkout.
+
+O guardrail de prazo passa a vetar os dois erros: prazo fora da janela no COD, e qualquer
+janela em números no antecipado.
+
+**Divergência a resolver:** o FAQ do site ainda diz *"costuma chegar entre 7 e 14 dias"*
+(`FAQ.tsx` :22). Agente e site precisam falar a mesma coisa — a cliente que lê os dois é
+exatamente o perfil que o projeto descreve como caçadora de contradição. Decisão do operador:
+corrigir o site para 3 a 5, ou manter a promessa conservadora e alinhar a agente por cima.
+
+## R7.3 — Teto de custo: R$ 0,80 com 25% de folga
+
+Conversa que se estende pode passar em **25%** do teto antes de virar handoff — teto efetivo
+de **R$ 1,00**. Continua desprezível contra a margem de R$ 63,35, e agora está no código
+(`costCeilingBrl`), com teste que prova que a chamada é barrada **antes** de sair byte para o
+provedor.
+
+## R7.4 — Onde o guardrail roda: Supabase Edge Function, chamada por HTTP do n8n
+
+O operador perguntou se dá para chamar por HTTP no n8n. Dá — e é assim que fica:
+
+```
+WAHA → webhook n8n → HTTP → Edge Function (cérebro + 11 guardrails) → Supabase
+```
+
+O n8n é o cano e o relógio; o turno inteiro — montagem de contexto, chamada de modelo, cadeia
+de guardrails, teto de custo, trace — roda numa Edge Function versionada neste repositório.
+
+**Por que Edge Function e não um nó de código no n8n:** os guardrails têm 49 testes rodando em
+menos de um segundo, de graça, a cada mudança. Dentro do n8n, a única forma de testar é
+disparar o fluxo e olhar. E ela mora junto do banco: as ~20 leituras por turno não atravessam
+a internet.
+
+## R7.5 — Contas separadas por projeto
+
+n8n, APIs de modelo e PikaPods em contas próprias da operação Encorpa, sem misturar com os
+outros projetos do operador. Já valendo: a organização **OFERTA ENCORPA** na Supabase, com o
+projeto **Ricos com AI** (`hbmkgakzrqmdlsvszjeo`, região sa-east-1), e a instância nova do n8n,
+ainda vazia.
+
+## R7.6 — Todos os áudios serão regravados
+
+A locutora dos áudios originais não está mais disponível. Some a questão de reaproveitar
+trechos: os quatro roteiros novos estão no script, escritos para uma voz nova, e nenhum deles
+carrega frase de outra operação.
+
+## R7.7 — Provedores verificados em 2026-09-06, com uma armadilha registrada
+
+As três credenciais foram testadas de verdade, não assumidas:
+
+| Item | Resultado |
+|---|---|
+| Supabase `service_role` | 200 na REST API do projeto |
+| `gpt-5.6-luna` | disponível na conta e respondendo |
+| `gemini-3.5-flash-lite` | disponível na chave e respondendo |
+
+**A armadilha:** `gpt-5.6-luna` é modelo de raciocínio. Parte do orçamento de saída é gasta
+em tokens de raciocínio que ninguém vê — e um `max_completion_tokens` apertado **não trunca a
+resposta: devolve erro sem conteúdo nenhum**. Na primeira chamada com 80 tokens, a resposta
+veio vazia. O adapter fixa um piso de 600.
+
+**Custo medido de uma troca completa** (classificação + resposta, com os guardrails julgando o
+que voltou): **R$ 0,00087** — 0,09% do teto da conversa. A estimativa da comparação de APIs
+era conservadora por uma ordem de grandeza.
+
+---
+
+# Decisões tomadas — rodada 8
+
+## R8.1 — O prazo é fato ou promessa, e o guardrail passou a saber a diferença
+
+A mensagem de véspera — *"sua entrega está marcada pra amanhã"* — era vetada pelo guardrail de
+prazo, que existe justamente para impedir promessa de entrega para o dia seguinte.
+
+As duas coisas são a mesma frase e o oposto uma da outra: **prometer "amanhã" antes do pedido**
+é o que produz recusa na porta; **avisar "amanhã" na véspera de uma entrega que a transportadora
+já agendou** é o que a **evita**. O gate ganhou um campo `stage`: `presale` (padrão) veta,
+`logistics` libera — e mesmo em `logistics` continua vetando janela de prazo inventada.
+
+## R8.2 — A retenção de 90 dias virou cron do banco, não do n8n
+
+`pg_cron` chamando `purge_expired()` todo dia às 04:00, dentro do Postgres. Tirar isso do n8n
+remove um ponto de falha: se o n8n cair, o dado pessoal continua expirando na hora certa.
+
+## R8.3 — A régua roda por varredura, e a varredura custa zero
+
+Um cron de 5 minutos no n8n chama a mesma Edge Function com `{"job":"followups"}`. Tudo o que
+ela decide é determinístico — copy por variante `hash(lead_id) % n`, sem chamada de modelo — então
+a frequência da varredura não tem custo. Só o envio depende do canal.
+
+**Três comportamentos ficaram provados em produção:** o relógio reinicia a cada fala da agente
+(quem responde não recebe toque), o toque do cupom fica em silêncio enquanto o cupom não existe
+na Coinzz, e opt-out ou handoff cancelam o que estava agendado.
+
+## R8.4 — Lacuna aberta: o modelo ainda decide tamanho sozinho
+
+O recomendador de tamanho existe em `src/agent/sizing.ts`, com testes e a regra "na dúvida, o
+maior" — mas a Edge Function **não o chama**. Hoje o modelo deduz o tamanho a partir da tabela
+em centímetros do prompt, e numa conversa de teste indicou **G para manequim 42**, enquanto a
+tabela determinística indica **M**.
+
+Isso não é detalhe de estilo: tamanho errado vira devolução, e devolução em COD é prejuízo, não
+neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.

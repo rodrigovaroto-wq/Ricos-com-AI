@@ -7,7 +7,7 @@
  * attacks the most expensive event in the operation, the refusal on delivery.
  *
  * Everything here is deterministic: no model call, no cost. The copy comes from
- * docs/agente/06-script/02-script-do-agente.md.
+ * docs/agente-ia/06-script/02-script-do-agente.md.
  */
 
 export type SilenceKind = "silence_1" | "silence_2" | "silence_3";

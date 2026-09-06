@@ -17,7 +17,7 @@ TypeScript `strict` · Node.js 24 LTS · pnpm · Playwright (CDP) · **Supabase 
 
 Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada.
 
-**Quem faz o quê** (rodada 5 — ver [`docs/agente/04-decisoes/03-decisoes-tomadas.md`](docs/agente/04-decisoes/03-decisoes-tomadas.md) §R5.2–§R5.7):
+**Quem faz o quê** (rodada 5 — ver [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) §R5.2–§R5.7):
 
 - **Supabase** — todo o estado: leads, conversas, mensagens, pedidos, follow-ups, custo por chamada de modelo, trace de guardrail. Substitui o SQLite que este arquivo fixava antes.
 - **n8n** — cano e relógio: webhook de entrada, enfileiramento, crons de varredura, webhook da Coinzz, notificação de handoff. **Não** guarda regra de negócio: guardrails, máquina de estados e teto de custo são código versionado com teste.
@@ -25,7 +25,7 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
 - **PikaPods** — hospeda só o que precisa ficar de pé.
 - **Hermes Agent** — otimizador periódico que lê as conversas e **propõe** mudanças; nunca publica em produção sozinho.
 
-**Provedor de modelo ainda em aberto** (§R5.8). Toda chamada passa por um seam único, com teto de custo e trace — o provedor é configuração, não arquitetura.
+**Provedor de modelo** (rodada 7 — §R7.1): `gpt-5.6-luna` para a conversa que converte, `gemini-3.5-flash-lite` para o trabalho barato e para todo o desenvolvimento. Toda chamada passa por um seam único, com teto de custo e trace — o provedor é configuração, não arquitetura.
 
 ## Canonical commands
 
@@ -41,7 +41,7 @@ Always use the exact commands here — don't guess.
 > Os scripts acima ainda não existem no `package.json` — o projeto não foi
 > gerado. Ao criar o `package.json`, use exatamente estes nomes.
 
-> Os tutoriais em `docs/tools/` citam `npm` porque reproduzem a documentação de
+> Os tutoriais em `docs/documentacao/tools/` citam `npm` porque reproduzem a documentação de
 > cada ferramenta. Neste projeto, o gerenciador é `pnpm` — as linhas acima são
 > as que valem.
 
@@ -76,15 +76,17 @@ começar qualquer trabalho.
 
 ## Guia de execução do produto
 
-O que este repositório constrói está descrito em [`docs/PROMPT.md`](docs/PROMPT.md) — o prompt único que gera o sistema comercial autônomo. O bloco `CONFIGURAÇÃO` no topo dele ainda tem `{{PLACEHOLDERS}}` a preencher.
+`docs/` tem três compartimentos, para não confundir arquivo de um front com o de
+outro:
 
-**Frente ativa — agente de vendas no WhatsApp.** [`docs/agente/`](docs/agente/) reúne o
-contexto completo de um agente **inbound** alimentado por Meta Ads: negócio e economia do
-pagamento na entrega, base de conhecimento, especificação funcional, pesquisa em 8
-repositórios open source com evidência por arquivo e linha, lacunas e decisões em aberto.
-Leia [`docs/agente/README.md`](docs/agente/README.md) antes de trabalhar no agente. O
-`PROMPT.md` trata de outro canal (prospecção ativa no Instagram); onde os dois divergirem
-sobre canal e funil, vale `docs/agente/`.
+| Pasta | Trata de |
+|---|---|
+| [`docs/documentacao/`](docs/documentacao/) | Contexto de negócio, decisões, padrões de engenharia, tutorial das ferramentas do fluxo |
+| [`docs/agente-ia/`](docs/agente-ia/) | **Frente ativa.** O agente de vendas no WhatsApp: negócio e economia do pagamento na entrega, base de conhecimento, especificação funcional, pesquisa em repositórios open source com evidência por arquivo e linha, lacunas e decisões em aberto |
+| [`docs/campanhas-e-anuncios/`](docs/campanhas-e-anuncios/) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API |
+
+Leia [`docs/agente-ia/README.md`](docs/agente-ia/README.md) antes de trabalhar no
+agente.
 
 ## Conventions
 
@@ -102,6 +104,5 @@ código — tudo vem de `config/business.json`, espelhado por
 **Segredos.** Nunca commitar `.env`, `config/business.json`, `.chrome-profile/`
 ou qualquer banco local. Já cobertos pelo `.gitignore`.
 
-As demais convenções (estrutura de pastas, camadas, tratamento de erro, testes)
-estão detalhadas nas seções *Arquitetura de software*, *Clean Code*, *Segurança e
-confiabilidade* e *Testes* de [`docs/PROMPT.md`](docs/PROMPT.md).
+As demais convenções (Clean Code, segurança e confiabilidade, testes) estão em
+[`docs/documentacao/03-padroes-de-engenharia.md`](docs/documentacao/03-padroes-de-engenharia.md).

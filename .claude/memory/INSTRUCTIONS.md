@@ -76,5 +76,5 @@ uma entrada ainda merece o lugar dela, deixe lá — migrar depois não custa na
 Enquanto isso, opere só com a camada 1 e não invente um destino de migração.
 
 Quando o índice se aproximar do teto, isso vira uma decisão a tomar com o
-operador — ver [`docs/tools/08-obsidian-memory.md`](../../docs/tools/08-obsidian-memory.md)
+operador — ver [`docs/documentacao/tools/08-obsidian-memory.md`](../../docs/documentacao/tools/08-obsidian-memory.md)
 para montar um do zero.
