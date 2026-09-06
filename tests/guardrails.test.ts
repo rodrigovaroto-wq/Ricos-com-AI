@@ -117,6 +117,21 @@ describe("claims sobre o produto", () => {
     }
   });
 
+  it("não veta a negação — a frase honesta que a spec exige", () => {
+    for (const t of [
+      "Ele não emagrece, viu? Modela enquanto você usa.",
+      "O colete não emagrece e nem elimina gordura — ele muda o caimento.",
+      "Sem promessa de emagrecimento: o efeito acaba quando você tira.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("weight_loss_claim");
+    }
+  });
+
+  it("continua vetando a afirmação, mesmo perto de uma negação", () => {
+    const r = runGates("Não precisa de academia: ele emagrece você em uma semana.", ctx());
+    expect(blocked(r)).toContain("weight_loss_claim");
+  });
+
   it("aceita a frase honesta que vende", () => {
     const r = runGates(
       "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",

@@ -140,16 +140,33 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       // Verb endings vary ("queima", "queimar", "queimando"), so match the stem.
       const claims = [
-        /emagrec/,
-        /perd\w*\s+peso/,
-        /queim\w*\s+(a\s+)?gordura/,
-        /elimin\w*\s+(a\s+)?gordura/,
-        /afin\w*.*(para\s+sempre|permanente)/,
-        /resultado\s+permanente/,
+        /emagrec\w*/g,
+        /perd\w*\s+peso/g,
+        /queim\w*\s+(?:a\s+)?gordura/g,
+        /elimin\w*\s+(?:a\s+)?gordura/g,
+        /afin\w*[^.!?]*(?:para\s+sempre|permanente)/g,
+        /resultado\s+permanente/g,
       ];
-      return claims.some((r) => r.test(t))
-        ? "claims the product changes the body, not the fit"
-        : null;
+
+      // The honest sentence the spec REQUIRES — "ele não emagrece" — contains the
+      // same stem as the claim it forbids. Blocking the negation would veto the
+      // agent for telling the truth, so a claim only counts when it is not negated.
+      // The negation has to be in the same clause: "não emagrece" is honest, while
+      // "não precisa de academia: ele emagrece" is the claim wearing a disguise.
+      const negated = (at: number): boolean => {
+        const before = t.slice(Math.max(0, at - 20), at);
+        const clause = before.split(/[:;.!?]/).pop() ?? "";
+        return /\b(nao|nunca|jamais|sem|nem)\b/.test(clause);
+      };
+
+      for (const pattern of claims) {
+        for (const match of t.matchAll(pattern)) {
+          if (match.index !== undefined && !negated(match.index)) {
+            return "claims the product changes the body, not the fit";
+          }
+        }
+      }
+      return null;
     },
   },
   {

@@ -292,7 +292,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
   });
 
   if (!gates.allowed) {
-    // A blocked reply is a handoff, not a silent degradation.
+    // A blocked reply is a handoff, not a silent degradation. The text is returned
+    // so the operator can see what was vetoed instead of guessing.
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -300,6 +301,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, {
       status: "blocked",
       intent: intent.text,
+      blockedText: reply.text,
       blocked: gates.traces.filter((t) => t.verdict === "block"),
       costBrl: spent,
     });
