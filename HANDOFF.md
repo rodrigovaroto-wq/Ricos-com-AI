@@ -39,8 +39,11 @@ Branch `claude/handoff-continuacao-gs6x7x`, Edge Function na **versão 8**:
 4. **Contrato de checkout da Coinzz** (`src/order/checkout.ts`, §E1/§E2) —
    formato escrito, mock no lugar da credencial, idempotência testada.
 
-100 testes e o typecheck passam. O que resta de bloqueante não é código: é o
-número de WhatsApp.
+5. **Autocorreção no lugar de handoff** (tópicos 1 e 2 do plano de remediação)
+   — seção dedicada mais abaixo. **Ainda não deployado.**
+
+122 testes, `tsc --noEmit` e `deno check` passam. O que resta de bloqueante não
+é código: é o número de WhatsApp.
 
 ### Merges recentes no `main`
 
@@ -88,10 +91,12 @@ nesta sessão — não é só teoria de repositório.
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
 
 **Cópias que precisam ficar idênticas.** A Supabase sobe conteúdo de arquivo,
-não resolve o repositório — então `guardrails.ts`, `followups.ts` e agora
-`sizing.ts` existem duas vezes (uma vez para teste local, uma vez para a Edge
-Function). O teste `tests/function-drift.test.ts` falha se as duas cópias de
-qualquer um dos três divergirem — sempre editar os dois lados juntos.
+não resolve o repositório — então `guardrails.ts`, `followups.ts`,
+`sizing.ts` e `retry.ts` existem duas vezes (uma vez para teste local, uma vez
+para a Edge Function). O teste `tests/function-drift.test.ts` falha se as duas
+cópias de qualquer um dos quatro divergirem — sempre editar os dois lados
+juntos. É por isso que `retry.ts` declara `Remedy` localmente em vez de
+importar: zero imports é o que permite a cópia byte a byte.
 
 ### R8.4 — corrigida nesta sessão
 
@@ -206,6 +211,39 @@ Pontos que mais importam para quem retoma o trabalho:
   implementa isso.
 - **Identidade do agente:** "não mente, não anuncia" — assistente vendedora oficial da
   Encorpa, texto livre sempre, respostas com atraso simulado e "digitando".
+
+---
+
+## Autocorreção no lugar de handoff (tópicos 1 e 2)
+
+Um guardrail que barra deixou de ser silêncio ou tarefa do operador. Os onze
+gates declaram a própria classe de remediação — **reescrever** (8), **adiar**
+(2: horário e pacing), **parar** (1: opt-out) — e `remedyFor` devolve a mais
+estrita quando mais de um barra, que é o que impede uma reescrita de preço de
+atropelar um opt-out.
+
+O handler agora roda um laço: veto → motivo e texto vetado voltam ao modelo
+pelo **system prompt** (nunca pelo histórico, para não sujar o próximo turno)
+→ nova tentativa → cadeia de novo. No máximo **2 reescritas**, e o teto de
+custo vale para cada uma. Toda tentativa é gravada em `gate_traces`, porque
+gate que insiste entre reescritas é problema de prompt — matéria-prima do
+Hermes, não deste laço.
+
+Esgotadas as tentativas (ou fora da janela, até o tópico 3), a cliente recebe
+`HOLDING_REPLY` — uma resposta de espera que **passa na cadeia por
+construção**, com teste — e só então o operador é notificado. Opt-out é o
+único caminho que não responde nada.
+
+**Ainda não deployado.** 122 testes, `tsc --noEmit` e `deno check` passam, mas
+o laço nunca rodou contra o modelo real. **Primeiro passo da próxima sessão:**
+deployar e sondar com "tem cupom de desconto?" — o gate `coupon_exists` barra
+qualquer mensagem com a palavra "cupom" enquanto o cupom não existe na Coinzz,
+então é o jeito mais barato de forçar uma reescrita de verdade. Esperado:
+`rewrites: 1` e uma resposta final sem a palavra.
+
+**O `tsconfig` não cobre a Edge Function** (`include: ["src", "tests"]`) — nada
+verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
+`deno check` nele. Rodar antes de todo deploy.
 
 ---
 

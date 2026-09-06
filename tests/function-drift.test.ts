@@ -11,6 +11,7 @@ const mirrored = [
   ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
   ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
   ["src/agent/sizing.ts", "supabase/functions/turn/sizing.ts"],
+  ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {

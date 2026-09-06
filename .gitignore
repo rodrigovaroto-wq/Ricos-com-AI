@@ -52,3 +52,6 @@ Thumbs.db
 
 # Configuração de negócio com valores reais
 config/business.json
+
+# Resíduo do instalador do Deno, usado só por typecheck:function
+deno.lock
