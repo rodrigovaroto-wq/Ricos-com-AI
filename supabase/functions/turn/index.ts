@@ -171,16 +171,17 @@ const systemPrompt = (sizeDirective: string | null): string => {
  * names a plausible manequim, resolve it here and hand the model the answer as a
  * fact to state, not a number to reason about.
  */
-const sizeDirectiveFor = (message: string): string | null => {
+const statedSize = (message: string): { manequim: number; size: string } | null => {
   const manequim = extractDressSize(message);
-  if (manequim === null) return null;
-  const size = sizeFromDressSize(manequim);
-  return (
-    `A cliente informou manequim ${manequim}. O tamanho correto é ${size} — isto já foi` +
-    ` calculado pela tabela determinística da loja, não recalcule nem escolha outro.` +
-    ` Diga esse tamanho.`
-  );
+  return manequim === null ? null : { manequim, size: sizeFromDressSize(manequim) };
 };
+
+const sizeDirectiveFor = (stated: { manequim: number; size: string } | null): string | null =>
+  stated === null
+    ? null
+    : `A cliente informou manequim ${stated.manequim}. O tamanho correto é ${stated.size} —` +
+      ` isto já foi calculado pela tabela determinística da loja, não recalcule nem escolha` +
+      ` outro. Diga esse tamanho.`;
 
 /** She answered — every pending touch for this conversation is moot. */
 const cancelScheduled = (conversationId: string) =>
@@ -399,12 +400,24 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }),
   });
 
+  // 5b. A size she stated is worth keeping: the post-order ruler reads it back,
+  // and an empty column becomes a dash in a message a customer sees. What counts as
+  // "stated" is decided by the text itself, not by the intent classifier — it called
+  // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
+  const stated = statedSize(inbound.body ?? "");
+  if (stated && stated.size !== lead.size) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ size: stated.size, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+
   // 6. History, then the turn that sells.
   const history = await db(
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
   );
   const reply = await callLuna(
-    systemPrompt(sizeDirectiveFor(inbound.body ?? "")),
+    systemPrompt(sizeDirectiveFor(stated)),
     (history ?? []).map((m: { direction: string; body: string }) => ({
       role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
       content: m.body ?? "",

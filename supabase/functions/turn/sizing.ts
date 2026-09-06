@@ -46,17 +46,42 @@ export const sizeFromDressSize = (n: number): Size => {
 };
 
 /** Plausible Brazilian dress sizes (manequim) a customer would actually quote. */
-const DRESS_SIZE_RE = /\b(3[4-9]|4[0-9]|5[0-6])\b/;
+const DRESS_SIZE_RE = /\b(3[4-9]|4[0-9]|5[0-6])\b/g;
+
+/**
+ * Units that make a number something other than a dress size. "Tenho 44 anos" is
+ * the one that actually happened: the intent classifier called it a sizing turn —
+ * correctly, she was asking whether the product suited her — and the number was
+ * read as a manequim. The unit is the signal, not the intent.
+ */
+const NOT_A_SIZE = /^\s*(anos?|kg|quilos?|kilos?|cm|m|metros?|reais?|%|horas?|dias?|minutos?|semanas?|meses)\b/i;
+
+/** What a customer says right before naming her manequim. */
+const SIZE_CUE = /(manequim|tamanho|veste|visto|vestia|uso|usava|calc[oa]|numero|número)\D{0,12}$/i;
 
 /**
  * Pulls a dress size out of free text, so it can be resolved through
- * `sizeFromDressSize` instead of left for the model to eyeball. Returns null when
- * no plausible manequim number is present — callers should only look for one when
- * the turn's intent is already about sizing.
+ * `sizeFromDressSize` instead of left for the model to eyeball.
+ *
+ * A number alone is not a size. It counts only when the message frames it as one —
+ * a cue word before it, or a message that is just the number, which is what an
+ * answer to "qual seu manequim?" looks like — and never when a unit right after it
+ * says otherwise. Guessing here is expensive in both directions: a wrong size
+ * becomes a return, and a size invented from someone's age becomes a wrong size
+ * that outlives the conversation.
  */
 export const extractDressSize = (text: string): number | null => {
-  const match = text.match(DRESS_SIZE_RE);
-  return match ? Number(match[1]) : null;
+  if (/^\s*\d{2}\s*$/.test(text)) {
+    const bare = Number(text.trim());
+    return bare >= 34 && bare <= 56 ? bare : null;
+  }
+
+  for (const match of text.matchAll(DRESS_SIZE_RE)) {
+    const at = match.index ?? 0;
+    if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
+    if (SIZE_CUE.test(text.slice(0, at))) return Number(match[1]);
+  }
+  return null;
 };
 
 export const sizeTable = (): string =>

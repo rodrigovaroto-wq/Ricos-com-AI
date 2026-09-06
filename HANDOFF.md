@@ -28,11 +28,19 @@ vai preencher quando o número existir.
 
 ### Trabalho desta sessão
 
-Branch `claude/handoff-continuacao-gs6x7x`: correção do R8.4 — o recomendador
-de tamanho determinístico agora é chamado pela Edge Function, que foi
-redeployada (versão 6) e verificada contra o Supabase real. Ver a seção
-dedicada mais abaixo. Com isso não sobra bloqueante de código antes de
-tráfego real; o que resta é o número de WhatsApp.
+Branch `claude/handoff-continuacao-gs6x7x`, Edge Function na **versão 8**:
+
+1. **R8.4 corrigido** — o recomendador de tamanho determinístico é chamado
+   pela Edge Function, verificado em produção. Seção dedicada mais abaixo.
+2. **`leads.size` passou a ser gravado** — nada escrevia nele, e a régua de
+   pós-pedido saía com "Colete tamanho **—**" para a cliente ler.
+3. **Extrator de endereço** (`src/agent/address.ts`, §D2) — pronto e testado,
+   ainda não ligado à conversa. Ver "o que falta para fechar a A3".
+4. **Contrato de checkout da Coinzz** (`src/order/checkout.ts`, §E1/§E2) —
+   formato escrito, mock no lugar da credencial, idempotência testada.
+
+100 testes e o typecheck passam. O que resta de bloqueante não é código: é o
+número de WhatsApp.
 
 ### Merges recentes no `main`
 
@@ -65,14 +73,16 @@ nesta sessão — não é só teoria de repositório.
 |---|---|---|
 | Onze guardrails determinísticos | `src/agent/guardrails.ts` (espelhado em `supabase/functions/turn/guardrails.ts`) | ✅ 31 testes, rodando em produção |
 | Máquina de estados da conversa | `src/agent/state-machine.ts` | ✅ 6 testes |
-| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 9 testes, chamado pela Edge Function e verificado em produção — ver R8.4 abaixo |
+| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 12 testes, chamado pela Edge Function e verificado em produção — ver R8.4 abaixo |
+| Extrator de endereço (§D2) | `src/agent/address.ts` | ⚠️ 12 testes, **não ligado à conversa ainda** — falta o laço de confirmação |
+| Contrato de checkout + mock (§E1/§E2) | `src/order/checkout.ts` | ⚠️ 10 testes, **mock** até a credencial da Coinzz existir |
 | Ritmo humano (atraso por bolha, "digitando") | `src/agent/pacing.ts` | ✅ 6 testes |
 | Réguas de silêncio (3 toques) e pós-pedido (4 mensagens) | `src/agent/followups.ts` (espelhado em `supabase/functions/turn/followups.ts`) | ✅ 15 testes, rodando por cron em produção |
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 6), testado ponta a ponta com conversas reais |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 8), testado ponta a ponta com conversas reais |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -100,7 +110,7 @@ handler do turno (`supabase/functions/turn/index.ts`) resolve o tamanho por
 teste `sizeFromDressSize(42) === "M"` trava a regressão. `sizing.ts` passou a
 ser espelhado em `supabase/functions/turn/sizing.ts` (mesmo tratamento que
 `guardrails.ts` e `followups.ts` já tinham), com o `function-drift.test.ts`
-cobrindo as três cópias agora. 75 testes e o typecheck passam.
+cobrindo as três cópias agora.
 
 **Verificado em produção.** A Edge Function foi redeployada (versão 6) e três
 sondas rodaram contra o Supabase real, com os dados de teste apagados depois:
@@ -116,9 +126,22 @@ do `guardrails.ts` (`normalize("NFD")` + faixa de diacríticos) sobreviveu ao
 deploy — se ela tivesse quebrado, "não" não viraria "nao" e o opt-out passaria
 batido. Custo medido: **R$ 0,00095 por troca**, contra o teto de R$ 1,00.
 
-**Ainda não feito:** isto cobre a recomendação dita na conversa. `leads.size`
-(usado pela régua de pós-pedido) continua sem ser preenchido em lugar nenhum
-do código — isso é parte da onda A3 (checkout da Coinzz), não desta correção.
+### O classificador de intenção não serve de guarda-corpo
+
+Ao ligar a gravação do `leads.size`, a primeira versão só gravava quando o
+classificador barato dizia `TAMANHO`. Parecia suficiente e **não era**: em
+produção, "tenho 44 anos, esse colete serve pra mim?" foi classificado como
+`TAMANHO` — e com razão, ela está perguntando sobre tamanho — e o banco gravou
+**G** para uma cliente de 44 anos. O modelo de conversa por sorte ignorou a
+diretiva e perguntou o manequim, mas a linha errada já estava no banco.
+
+A correção tirou o classificador do caminho. Quem decide se um número é
+manequim agora é o texto: `extractDressSize` exige uma pista antes do número
+("manequim", "visto", "uso", "tamanho"…) ou uma mensagem que seja só o número
+— que é como se responde "qual seu manequim?" — e recusa quando vem uma
+unidade depois ("anos", "kg", "cm", "reais"). Cinco testes travam os dois
+lados. **A lição vale para além deste caso: o classificador é bom para rotear
+conversa, e ruim como condição de escrita no banco.**
 
 ### O deploy vinha atrasado em relação ao repositório
 
@@ -183,6 +206,25 @@ Pontos que mais importam para quem retoma o trabalho:
   implementa isso.
 - **Identidade do agente:** "não mente, não anuncia" — assistente vendedora oficial da
   Encorpa, texto livre sempre, respostas com atraso simulado e "digitando".
+
+---
+
+## O que falta para fechar a onda A3
+
+Nada disto depende do número de WhatsApp. As duas peças novas existem e estão
+testadas, mas **não estão ligadas à conversa** — é o próximo bloco de trabalho:
+
+1. **Ligar a coleta de endereço ao turno.** `address.ts` extrai e sabe o que
+   falta; o que não existe é o laço de conversa do §D2/§D5 — perguntar o que
+   falta, repetir o endereço de volta e **só então** gravar. Não liguei pela
+   metade de propósito: gravar endereço sem a confirmação explícita põe no
+   banco um endereço que ninguém conferiu, e em COD isso vira entrega perdida.
+2. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
+   da Coinzz (pergunta 4 do plano) e o registro do pedido na tabela `orders`,
+   usando `idempotencyKey` como `external_id`.
+3. **Destino da notificação de handoff** (perguntas 7 e 16 do plano). A decisão
+   é "por e-mail enquanto não há WhatsApp", mas o endereço nunca foi dado —
+   hoje `handoff_at` é gravado e ninguém é avisado.
 
 ---
 
