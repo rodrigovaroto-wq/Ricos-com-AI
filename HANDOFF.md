@@ -222,9 +222,10 @@ testadas, mas **não estão ligadas à conversa** — é o próximo bloco de tra
 2. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
    da Coinzz (pergunta 4 do plano) e o registro do pedido na tabela `orders`,
    usando `idempotencyKey` como `external_id`.
-3. **Destino da notificação de handoff** (perguntas 7 e 16 do plano). A decisão
-   é "por e-mail enquanto não há WhatsApp", mas o endereço nunca foi dado —
-   hoje `handoff_at` é gravado e ninguém é avisado.
+3. **Enviar a notificação de handoff.** O destino foi definido (R9.2): e-mail
+   pessoal do operador, em `config/business.json` → `handoff.email`, que é
+   gitignored por ser dado pessoal. Falta o envio em si — hoje o handler grava
+   `handoff_at` e para; quem manda o e-mail é o n8n, e esse fluxo não existe.
 
 ---
 

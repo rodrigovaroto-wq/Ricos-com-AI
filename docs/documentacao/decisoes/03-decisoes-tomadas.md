@@ -926,6 +926,8 @@ na Coinzz, e opt-out ou handoff cancelam o que estava agendado.
 
 ## R8.4 — Lacuna aberta: o modelo ainda decide tamanho sozinho
 
+> **Resolvida na rodada 9** — ver R9.1.
+
 O recomendador de tamanho existe em `src/agent/sizing.ts`, com testes e a regra "na dúvida, o
 maior" — mas a Edge Function **não o chama**. Hoje o modelo deduz o tamanho a partir da tabela
 em centímetros do prompt, e numa conversa de teste indicou **G para manequim 42**, enquanto a
@@ -933,3 +935,32 @@ tabela determinística indica **M**.
 
 Isso não é detalhe de estilo: tamanho errado vira devolução, e devolução em COD é prejuízo, não
 neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.
+
+---
+
+# Rodada 9 — execução
+
+## R9.1 — R8.4 resolvida: o tamanho não é mais decidido pelo modelo
+
+`extractDressSize` lê o manequim da mensagem e `sizeFromDressSize` resolve o tamanho; o handler
+entrega o resultado ao modelo como fato a declarar, não como número a calcular. Verificado em
+produção: manequim 42 → **M**, 46 → **G**.
+
+**E um guarda-corpo que não funcionou.** A gravação do `leads.size` foi protegida, na primeira
+versão, pelo classificador de intenção — só gravava se ele dissesse `TAMANHO`. Em produção,
+"tenho 44 anos, esse colete serve pra mim?" foi classificado como `TAMANHO`, corretamente, e a
+idade virou manequim: **G para uma cliente de 44 anos**. Quem decide agora é o texto (pista antes
+do número, ou mensagem só com o número; recusa quando vem unidade depois). **O classificador
+roteia conversa e não serve como condição de escrita no banco** — vale para tudo que vier.
+
+## R9.2 — Destino da notificação de handoff: e-mail pessoal do operador
+
+Responde as perguntas 7 e 16 do plano. Enquanto não existe número de WhatsApp, o alerta de
+handoff vai por e-mail para o endereço pessoal do operador.
+
+**O endereço não fica versionado.** Ele mora em `config/business.json`, campo `handoff.email`,
+que é gitignored — o `config/business.example.json` guarda só o `{{EMAIL}}`. É dado pessoal, e a
+mesma regra que mantém chave de API fora do repositório vale para ele.
+
+**Ainda não existe envio.** O handler grava `handoff_at` e para; quem manda o e-mail é o n8n, e
+esse fluxo é o próximo passo desta frente.
