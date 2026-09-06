@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { sizeFromDressSize, sizeFromLabel, sizeFromWaist, sizeTable } from "@/agent/sizing.js";
+import {
+  extractDressSize,
+  sizeFromDressSize,
+  sizeFromLabel,
+  sizeFromWaist,
+  sizeTable,
+} from "@/agent/sizing.js";
 
 describe("recomendação de tamanho", () => {
   it("traduz o sistema de fora para o nosso", () => {
@@ -32,5 +38,23 @@ describe("recomendação de tamanho", () => {
 
   it("a tabela lista os cinco tamanhos", () => {
     expect(sizeTable().split("\n")).toHaveLength(5);
+  });
+
+  it("extrai o manequim de frases naturais", () => {
+    expect(extractDressSize("uso manequim 42")).toBe(42);
+    expect(extractDressSize("acho que sou 44, mas não tenho certeza")).toBe(44);
+    expect(extractDressSize("visto 38 normalmente")).toBe(38);
+  });
+
+  it("não extrai número fora da faixa plausível de manequim", () => {
+    expect(extractDressSize("chega em 3 dias")).toBeNull();
+    expect(extractDressSize("paguei 129,90 na entrega")).toBeNull();
+    expect(extractDressSize("sem número nenhum aqui")).toBeNull();
+  });
+
+  it("a lacuna real (R8.4): manequim 42 é M, não G", () => {
+    const manequim = extractDressSize("eu sou manequim 42");
+    expect(manequim).toBe(42);
+    expect(sizeFromDressSize(manequim!)).toBe("M");
   });
 });

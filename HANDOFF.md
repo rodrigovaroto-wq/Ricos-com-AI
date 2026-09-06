@@ -26,25 +26,24 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
-### PR aberto
+### Trabalho em andamento (esta sessão)
 
-**[#8](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/8)** — núcleo do
-agente: guardrails, máquina de estados, seam de custo de modelo, handler de
-turno, réguas de follow-up. Teve conflito de merge contra o `main` (que havia
-reorganizado `docs/` em `docs/documentacao/` + `docs/agente-ia/` +
-`docs/campanhas-e-anuncios/` nos PRs #6/#7) — **resolvido**: os caminhos
-deste PR foram todos atualizados para a nova estrutura, sem alterar
-conteúdo. 71 testes e o typecheck passam depois do merge. Sem CI configurado
-neste repositório (`.github/workflows/` não existe), então "verde" aqui
-significa `tsc --noEmit` e `vitest run` locais.
+Branch `claude/handoff-continuacao-gs6x7x`, sem PR aberto ainda: correção do
+R8.4 (recomendador de tamanho plugado na Edge Function — ver a seção
+dedicada mais abaixo). Falta o redeploy da Edge Function e a verificação
+contra o Supabase real antes de considerar isto fechado.
 
 ### Merges recentes no `main`
 
 | PR | O que entrou |
 |---|---|
+| [#8](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/8) | Núcleo do agente: guardrails, máquina de estados, seam de custo de modelo, handler de turno, réguas de follow-up. Teve conflito de merge contra o `main` (que havia reorganizado `docs/` nos PRs #6/#7) — resolvido, caminhos atualizados sem alterar conteúdo. **Mergeado.** |
 | #6/#7 | Reorganização de `docs/` em três compartimentos (`documentacao/`, `agente-ia/`, `campanhas-e-anuncios/`) + pesquisa de Meta Ads Conversions API |
 | [#4](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/4) | Quatro rodadas de decisão com o operador + o plano de construção ponta a ponta |
 | [#3](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/3) | Contexto inicial: produto, oferta, economia do COD, pesquisa em 8 repositórios open source, especificação funcional, guardrails |
+
+Sem CI configurado neste repositório (`.github/workflows/` não existe),
+então "verde" aqui significa `tsc --noEmit` e `vitest run` locais.
 
 ### O documento mais importante para começar
 
@@ -65,7 +64,7 @@ nesta sessão — não é só teoria de repositório.
 |---|---|---|
 | Onze guardrails determinísticos | `src/agent/guardrails.ts` (espelhado em `supabase/functions/turn/guardrails.ts`) | ✅ 31 testes, rodando em produção |
 | Máquina de estados da conversa | `src/agent/state-machine.ts` | ✅ 6 testes |
-| Recomendador de tamanho | `src/agent/sizing.ts` | ✅ 6 testes, **mas a Edge Function ainda não o chama** — ver R8.4 abaixo |
+| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 9 testes, plugado na Edge Function — ver R8.4 abaixo |
 | Ritmo humano (atraso por bolha, "digitando") | `src/agent/pacing.ts` | ✅ 6 testes |
 | Réguas de silêncio (3 toques) e pós-pedido (4 mensagens) | `src/agent/followups.ts` (espelhado em `supabase/functions/turn/followups.ts`) | ✅ 15 testes, rodando por cron em produção |
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
@@ -83,16 +82,32 @@ duas vezes (uma vez para teste local, uma vez para a Edge Function). O teste
 `tests/function-drift.test.ts` falha se as duas cópias de qualquer um dos
 dois divergirem — sempre editar os dois lados juntos.
 
-### Lacuna aberta, registrada como R8.4
+### R8.4 — corrigida nesta sessão
 
-O recomendador de tamanho (`sizing.ts`) existe com testes e a regra "na
-dúvida, o maior", mas **a Edge Function não o chama** — o modelo ainda deduz
-o tamanho sozinho a partir da tabela em cm que está no prompt. Numa conversa
-de teste real, o modelo indicou **G** para manequim 42, quando a tabela
+O recomendador de tamanho (`sizing.ts`) existia com testes e a regra "na
+dúvida, o maior", mas a Edge Function não o chamava — o modelo deduzia o
+tamanho sozinho a partir da tabela em cm que está no prompt. Numa conversa de
+teste real, o modelo indicou **G** para manequim 42, quando a tabela
 determinística indica **M**. Tamanho errado vira devolução, e devolução em
-COD é prejuízo, não neutro. **Isto precisa ser corrigido antes de qualquer
-tráfego real** — é meia hora de trabalho: plugar `sizeFromDressSize` como
-tool que a Edge Function chama, em vez de deixar o modelo decidir.
+COD é prejuízo, não neutro.
+
+**Correção:** `sizing.ts` agora tem `extractDressSize`, que lê o manequim
+(faixa plausível 34–56) da própria mensagem da cliente. Quando presente, o
+handler do turno (`supabase/functions/turn/index.ts`) resolve o tamanho por
+`sizeFromDressSize` e injeta o resultado no prompt como fato a declarar —
+"não recalcule, diga esse tamanho" — em vez de deixar o modelo calcular. O
+teste `sizeFromDressSize(42) === "M"` trava a regressão. `sizing.ts` passou a
+ser espelhado em `supabase/functions/turn/sizing.ts` (mesmo tratamento que
+`guardrails.ts` e `followups.ts` já tinham), com o `function-drift.test.ts`
+cobrindo as três cópias agora. 75 testes e o typecheck passam.
+
+**Ainda não feito:** isto cobre a recomendação dita na conversa. `leads.size`
+(usado pela régua de pós-pedido) continua sem ser preenchido em lugar nenhum
+do código — isso é parte da onda A3 (checkout da Coinzz), não desta correção.
+Também não há redeploy da Edge Function nem verificação contra uma conversa
+real ainda — só teste local (`vitest run` + `tsc --noEmit`); falta rodar
+`supabase functions deploy turn` e repetir o teste de manequim 42 em
+produção antes de dar isto por fechado de verdade.
 
 ---
 
@@ -151,8 +166,10 @@ Pontos que mais importam para quem retoma o trabalho:
 
 Em ordem:
 
-1. **Corrigir R8.4** — plugar o recomendador de tamanho determinístico na Edge Function.
-   Bloqueante antes de qualquer tráfego real.
+1. **Fazer o redeploy da Edge Function `turn`** (`supabase functions deploy turn`) com a
+   correção do R8.4 e repetir o teste real de manequim 42 para confirmar **M** em produção
+   — a correção está no código e nos testes locais, mas ainda não foi verificada contra o
+   Supabase real. Bloqueante antes de qualquer tráfego real.
 2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.

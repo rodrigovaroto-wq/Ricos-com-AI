@@ -15,6 +15,7 @@ import {
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
+import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -135,7 +136,7 @@ const callLuna = async (
   };
 };
 
-const systemPrompt = (): string => {
+const systemPrompt = (sizeDirective: string | null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
@@ -153,10 +154,30 @@ const systemPrompt = (): string => {
     `metades saem na mesma frase.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não exija fita`,
-    `métrica: pergunte o manequim. Na dúvida entre dois, o maior.`,
+    `métrica: pergunte o manequim. Nunca calcule o tamanho por conta própria a partir do`,
+    `manequim — isso é decidido por uma tabela determinística fora do seu controle.`,
     ``,
     `Responda em no máximo 45 palavras, uma pergunta por vez.`,
+    ...(sizeDirective ? ["", sizeDirective] : []),
   ].join(" ");
+};
+
+/**
+ * R8.4: the model must never compute size from a dress size on its own — a real
+ * conversation had it say G for manequim 42, when the deterministic table says M,
+ * and a wrong size becomes a COD return (pure loss). When the customer's message
+ * names a plausible manequim, resolve it here and hand the model the answer as a
+ * fact to state, not a number to reason about.
+ */
+const sizeDirectiveFor = (message: string): string | null => {
+  const manequim = extractDressSize(message);
+  if (manequim === null) return null;
+  const size = sizeFromDressSize(manequim);
+  return (
+    `A cliente informou manequim ${manequim}. O tamanho correto é ${size} — isto já foi` +
+    ` calculado pela tabela determinística da loja, não recalcule nem escolha outro.` +
+    ` Diga esse tamanho.`
+  );
 };
 
 /** She answered — every pending touch for this conversation is moot. */
@@ -380,7 +401,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
   );
   const reply = await callLuna(
-    systemPrompt(),
+    systemPrompt(sizeDirectiveFor(inbound.body ?? "")),
     (history ?? []).map((m: { direction: string; body: string }) => ({
       role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
       content: m.body ?? "",
