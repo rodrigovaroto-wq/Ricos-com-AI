@@ -90,8 +90,22 @@ export const classifyOptOut = (text: string): OptOutLevel => {
   return "none";
 };
 
+/**
+ * What the system does with a block, so that a vetoed message never becomes silence
+ * and never becomes the operator's problem by default.
+ *
+ * - `rewrite` — the reply said something the operation cannot back. The veto and its
+ *   reason go back into the context and the agent writes it again. Most gates.
+ * - `defer` — the reply is fine and the clock is not. Rewriting produces the same
+ *   block forever, so the message is scheduled instead of reworded.
+ * - `stop` — she asked not to be contacted. Rewriting here means continuing to talk
+ *   to someone who said stop; this one is never retried, at any cost.
+ */
+export type Remedy = "rewrite" | "defer" | "stop";
+
 interface Gate {
   name: string;
+  remedy: Remedy;
   /** Returns a reason to block, or null to pass. */
   check: (text: string, ctx: GateContext) => string | null;
 }
@@ -99,10 +113,12 @@ interface Gate {
 const gates: readonly Gate[] = [
   {
     name: "opt_out",
+    remedy: "stop",
     check: (_t, ctx) => (ctx.optedOut ? "lead asked to stop receiving messages" : null),
   },
   {
     name: "charge_promise",
+    remedy: "rewrite",
     check: (text, ctx) => {
       const t = norm(text);
       const promisesDoorPayment =
@@ -118,6 +134,7 @@ const gates: readonly Gate[] = [
     // Price and discount are one gate, as in the spec: both answer "does this number
     // exist in the operation?", and a message that gets one wrong usually gets both.
     name: "price_promise",
+    remedy: "rewrite",
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, +(codBrl - prepayBrl).toFixed(2)]);
@@ -137,6 +154,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "coupon_exists",
+    remedy: "rewrite",
     check: (text, ctx) =>
       /cupom/i.test(text) && !ctx.config.coupon.active
         ? "mentions a coupon that is not active in Coinzz yet"
@@ -144,6 +162,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "weight_loss_claim",
+    remedy: "rewrite",
     check: (text) => {
       const t = norm(text);
       // Verb endings vary ("queima", "queimar", "queimando"), so match the stem.
@@ -179,6 +198,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "delivery_promise",
+    remedy: "rewrite",
     check: (text, ctx) => {
       const t = norm(text);
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
@@ -204,6 +224,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "invented_testimonial",
+    remedy: "rewrite",
     check: (text, ctx) => {
       const quoted = [...text.matchAll(/[\u201c\u201d"]([^\u201c\u201d"]{12,})[\u201c\u201d"]/g)].map((m) => m[1]!);
       if (quoted.length === 0) return null;
@@ -214,6 +235,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "humanity_claim",
+    remedy: "rewrite",
     check: (text) => {
       const t = norm(text);
       const claims = [
@@ -226,6 +248,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "business_hours",
+    remedy: "defer",
     check: (_t, ctx) => {
       if (ctx.layer === "auto") return null; // layer 1 runs 24/7 by decision R4.4
       const h = ctx.now.getHours();
@@ -237,6 +260,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "pacing",
+    remedy: "defer",
     check: (_t, ctx) => {
       const p = ctx.pacing;
       if (!p) return null;
@@ -247,6 +271,7 @@ const gates: readonly Gate[] = [
   },
   {
     name: "identical_template",
+    remedy: "rewrite",
     check: (text, ctx) =>
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
@@ -280,3 +305,31 @@ export const runGates = (text: string, ctx: GateContext): GateResult => {
 };
 
 export const gateNames = gates.map((g) => g.name);
+
+/** The remedy each gate carries, by name. */
+export const gateRemedies: Readonly<Record<string, Remedy>> = Object.freeze(
+  Object.fromEntries(gates.map((g) => [g.name, g.remedy])),
+);
+
+/**
+ * Ranked so that the strictest answer wins when more than one gate blocks: a reply
+ * that both quotes a wrong price and goes to someone who opted out is a `stop`, not
+ * a rewrite. Rewriting the price would produce a correct message sent to a person
+ * who asked never to hear from us again.
+ */
+const SEVERITY: Record<Remedy, number> = { rewrite: 0, defer: 1, stop: 2 };
+
+/**
+ * What to do about a gate result: null when nothing blocked, otherwise the strictest
+ * remedy among the gates that did. This is the whole decision — the caller rewrites,
+ * schedules or stops, and never has to know which gate fired to choose.
+ */
+export const remedyFor = (result: GateResult): Remedy | null =>
+  result.traces
+    .filter((t) => t.verdict === "block")
+    .map((t) => gateRemedies[t.gate])
+    .filter((r): r is Remedy => r !== undefined)
+    .reduce<Remedy | null>(
+      (worst, r) => (worst === null || SEVERITY[r] > SEVERITY[worst] ? r : worst),
+      null,
+    );
