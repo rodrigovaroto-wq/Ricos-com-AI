@@ -26,12 +26,12 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 |---|---|---|---|
 | 1 | **stop / opt-out** | a cliente pediu para parar | Irrevogável. Ver seção abaixo |
 | 2 | **promessa de cobrança** | a mensagem afirma que não haverá cobrança antes da entrega **e** `Físico na entrega` não está ativo | [`../../documentacao/contexto-negocio/05-decisoes-firmes.md`](../../documentacao/contexto-negocio/05-decisoes-firmes.md) §2 |
-| 3 | **promessa de preço e desconto** | valor divergente de R$ 129,90, ou desconto de 5% com `PREPAY_DISCOUNT.enabled = false` | `colet/src/lib/checkout.ts` :42–49 |
+| 3 | **promessa de preço e desconto** | valor fora de R$ 216,50 / R$ 129,90 / R$ 110,42 / R$ 19,48, ou percentual fora de 40% e 15% (20% só com o cupom ativo) | `Encorpa-Website/src/lib/checkout.ts`; R2.1 |
 | 4 | **claim de emagrecimento** | a mensagem sugere que o produto emagrece ou que o efeito é permanente | `FAQ.tsx` :26; decisão firme §3 |
 | 5 | **janela de atendimento** | fora de **06:00–00:00**, para a resposta real da agente (camada 2). A mensagem automática de recebimento (camada 1) roda 24/7 e não passa por este gate | R2.5 + R4.4 |
 | 6 | **pacing / anti-banimento** | acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
 | 7 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
-| 8 | **prazo e logística** | promete data de entrega mais firme do que "7 a 14 dias, agendada" | `FAQ.tsx` :21 |
+| 8 | **prazo e logística** | no COD, promete prazo fora de "3 a 5 dias, agendada"; no antecipado, promete qualquer prazo em número (o frete é contratado à parte e varia por região) | Corrigido pelo operador em 2026-09-06 (R7.2). **Divergência aberta:** o FAQ do site ainda diz "entre 7 e 14 dias" (`FAQ.tsx` :22) |
 | 9 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
 | 10 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
 | 11 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |

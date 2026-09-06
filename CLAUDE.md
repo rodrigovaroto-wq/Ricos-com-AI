@@ -13,11 +13,19 @@
 
 ## Stack
 
-Next.js (App Router) · React · TypeScript `strict` · Tailwind · SQLite · Drizzle ORM com migrações · Node.js 24 LTS · pnpm · Playwright (CDP) · SDK oficial da OpenAI.
+TypeScript `strict` · Node.js 24 LTS · pnpm · Playwright (CDP) · **Supabase (Postgres)** · **n8n** · **WAHA** · **PikaPods** · **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
 
 Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada.
 
-**Onde roda.** App Node.js num processo próprio, com SQLite em disco persistente. Para o agente de WhatsApp, o operador decidiu **VPS 24/7** (o canal exige sessão viva e o follow-up exige relógio) — ver [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) §Q2. **SQLite não vai para serverless com disco efêmero** — isso continua valendo.
+**Quem faz o quê** (rodada 5 — ver [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) §R5.2–§R5.7):
+
+- **Supabase** — todo o estado: leads, conversas, mensagens, pedidos, follow-ups, custo por chamada de modelo, trace de guardrail. Substitui o SQLite que este arquivo fixava antes.
+- **n8n** — cano e relógio: webhook de entrada, enfileiramento, crons de varredura, webhook da Coinzz, notificação de handoff. **Não** guarda regra de negócio: guardrails, máquina de estados e teto de custo são código versionado com teste.
+- **WAHA** — transporte do WhatsApp, em pod 24/7 (a sessão exige processo vivo; o banco não é mais o motivo da VPS).
+- **PikaPods** — hospeda só o que precisa ficar de pé.
+- **Hermes Agent** — otimizador periódico que lê as conversas e **propõe** mudanças; nunca publica em produção sozinho.
+
+**Provedor de modelo** (rodada 7 — §R7.1): `gpt-5.6-luna` para a conversa que converte, `gemini-3.5-flash-lite` para o trabalho barato e para todo o desenvolvimento. Toda chamada passa por um seam único, com teto de custo e trace — o provedor é configuração, não arquitetura.
 
 ## Canonical commands
 

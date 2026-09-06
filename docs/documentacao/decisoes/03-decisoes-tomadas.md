@@ -624,3 +624,312 @@ camada 2. A camada 1 roda 24/7, sempre.
 bloqueante de decisão de negócio no momento. Restam apenas verificações técnicas de
 implementação (formato exato da chamada de API da Coinzz, nome dos campos do checkout
 pré-preenchido) — essas são trabalho de construção, não decisão a tomar.
+
+---
+
+# Decisões tomadas — rodada 5
+
+> Rodada de infraestrutura. O operador fixou a pilha e duas restrições de execução; o
+> resto desta rodada é consequência dessas escolhas, verificada contra a documentação de
+> cada fornecedor (as verificações estão marcadas com a data em que foram feitas).
+
+## R5.1 — Duas restrições que definem a ordem do trabalho
+
+| Restrição | O que significa na prática |
+|---|---|
+| **Ainda não existe número de WhatsApp** | Nada que dependa do canal vivo pode ser feito agora — nem pareamento, nem teste com número real, nem aquecimento |
+| **Gasto zero até esgotar o que é gratuito** | Só se contrata infraestrutura quando o que dá para construir de graça estiver construído e testado |
+
+**Consequência de projeto, e é a decisão mais importante desta rodada:** o WhatsApp deixa
+de ser pré-requisito da construção. O canal vira um **adapter** com contrato explícito, e a
+construção roda contra um **canal simulado** que fala esse mesmo contrato — o mesmo formato
+de webhook de entrada, o mesmo endpoint de envio. É o que já foi feito no site com as
+personas do navegador: o teste não espera cliente real para existir.
+
+Isso inverte a ordem original do plano, que abria com "provisionar VPS e parear o número".
+A onda 0 antiga não pode nem começar hoje; a nova pode começar agora e vai até o ponto em
+que só falta plugar o canal.
+
+## R5.2 — Banco: Supabase (Postgres) no lugar do SQLite
+
+Substitui o SQLite fixado no `CLAUDE.md`. O motivo original do SQLite era não depender de
+serviço externo; o motivo original da VPS 24/7 era *"SQLite não vai para serverless com
+disco efêmero"* (§Q2). Com Postgres gerenciado, **esse argumento deixa de valer para o
+estado** — mas continua valendo para o canal: a sessão do WhatsApp exige processo vivo. Ou
+seja, a VPS continua necessária, por outro motivo, e o banco deixa de ser a razão.
+
+**Verificado em 2026-09-05, na documentação da Supabase:** plano gratuito tem 500 MB de
+banco por projeto, **2 projetos ativos por organização**, e projeto ocioso é **pausado após
+1 semana sem atividade**.
+
+Duas consequências práticas:
+
+1. A organização que o operador já tem (`Oria Data-Base`, plano free) **já está nos dois
+   projetos**. O projeto do agente vai numa **organização nova**, também gratuita — não é
+   contorno de regra, é como a Supabase organiza cota por organização.
+2. Enquanto o agente não tiver tráfego, o projeto pausa sozinho em uma semana. Um cron
+   barato de ping resolve, e ele já vai existir de qualquer forma para as varreduras.
+
+## R5.3 — n8n: orquestração e integrações, não o cérebro do turno
+
+O operador já tem uma instância de n8n em produção para outro produto. O agente entra nela,
+separado por projeto/pasta e tags próprias.
+
+**O que o n8n faz:** webhook de entrada do canal, gravação e enfileiramento, crons de
+varredura (régua de silêncio, régua de pós-pedido, ping do banco), webhook de status da
+Coinzz, notificação de handoff, disparo periódico do otimizador.
+
+**O que o n8n não faz:** a cadeia de 11 guardrails, a máquina de estados, o teto de custo
+por conversa e a montagem de contexto. Isso é código versionado, com teste automatizado,
+chamado por HTTP.
+
+**Por quê:** a regra que a própria pesquisa já registrou (`03-pesquisa/03-extracao-por-necessidade.md`
+§N3, §N4) é que o que pode ser determinístico não deve custar chamada de modelo — e o
+corolário é que o que precisa de teste automatizado não pode morar dentro de nós de um
+editor visual. Guardrail que ninguém consegue testar em CI é guardrail que ninguém sabe se
+funciona. Um fluxo de n8n é ótimo como cano e como relógio; é ruim como suíte de regras.
+
+## R5.4 — Hospedagem: PikaPods, e só para o que exige processo vivo
+
+**Verificado em 2026-09-05:** pods a partir de ~US$ 1/mês; n8n com recursos padrão fica em
+~US$ 3,80/mês.
+
+Roda em pod **o que precisa estar de pé 24/7**: o WAHA (sessão do WhatsApp) e o n8n, se o
+operador decidir separar do que ele já usa. O cérebro do turno não precisa de pod próprio no
+começo — ver R5.6.
+
+## R5.5 — WAHA continua sendo o transporte, e agora é inteiramente gratuito
+
+**Verificado em 2026-09-05, no site do WAHA:** o que era WAHA Plus foi incorporado ao Core a
+partir da imagem `2026.6.1`; mídia, múltiplas sessões e os demais recursos pagos passaram a
+ser gratuitos, sem limite de mensagens nem expiração de licença. Existe um apoio comunitário
+opcional de US$ 5/mês, que não desbloqueia nada.
+
+Isso remove um custo que o plano antigo assumia e, mais importante, remove o risco de a
+transcrição de áudio (§B3 do mapa funcional) esbarrar em recurso pago — o público manda
+áudio, e isso não é opcional.
+
+## R5.6 — Onde o cérebro do turno roda
+
+Código TypeScript versionado neste repositório, exposto por HTTP. Dois lugares possíveis, e
+a escolha não precisa ser feita agora porque o contrato é o mesmo nos dois:
+
+| Opção | A favor | Contra |
+|---|---|---|
+| **Supabase Edge Functions** (recomendada para começar) | Gratuita, sem servidor para manter, mora junto do banco | Deno, tempo de execução limitado por chamada |
+| **Container Node no mesmo pod do WAHA** | Sem limite de execução, mesma linguagem do resto | Mais uma coisa para manter de pé |
+
+Recomendação: começar em Edge Functions e migrar para o pod se o limite de execução
+incomodar. A migração é troca de host, não reescrita, desde que o cérebro não dependa de
+nada específico do ambiente.
+
+## R5.7 — Hermes Agent: otimizador que propõe, nunca que publica
+
+O operador escolheu o [Hermes Agent](https://github.com/NousResearch/hermes-agent) (Nous
+Research, open source) como o agente que lê as conversas e otimiza o sistema periodicamente.
+
+**Guardrail de governança, decidido aqui:** o Hermes lê o banco e **abre proposta de
+mudança** — pull request no repositório, ou linha numa tabela de experimentos com estado
+`proposto`. Ele **não** escreve prompt, preço, cupom ou guardrail direto em produção.
+
+O motivo é o mesmo que fez a cadeia de guardrails existir: um sistema que se reescreve
+sozinho sem revisão pode "otimizar" prometendo o que a operação não cumpre — desconto que
+não existe, prazo que a Logzz não pratica, garantia que ninguém honra. Otimização de
+conversão sem revisão humana é exatamente o caminho para a promessa quebrada que este
+projeto já decidiu não cometer.
+
+## R5.8 — Provedor de modelo: continua em aberto, com um caminho de custo zero para o desenvolvimento
+
+Segue sendo a pergunta 1 e 2 da seção 4 do plano. O que muda: com a restrição de gasto zero,
+**o desenvolvimento não espera essa decisão**. Toda chamada de modelo passa por uma função
+só (o *seam* de §H6), então o provedor é configuração, não arquitetura.
+
+Para desenvolver sem gastar, a camada gratuita de algum provedor resolve — o operador já tem
+conta Google/Gemini ligada ao n8n. A decisão de qual modelo redige a conversa em produção
+fica para o momento do piloto, quando o custo por conversa vira número medido em vez de
+estimativa.
+
+---
+
+# Decisões tomadas — rodada 6
+
+> Respostas do operador às perguntas 15 a 20 do plano, mais o material de funil que ele
+> entregou em 2026-09-06.
+
+## R6.1 — WhatsApp fica para depois; notificação de handoff vai por e-mail
+
+O operador confirmou que **não vamos usar WhatsApp nesta fase**. A notificação de handoff
+(§Q12) sai por **Gmail** enquanto o canal não existir. Não muda a decisão de destino final —
+muda só o transporte do alerta durante a fase A, e o destino é configuração.
+
+## R6.2 — Hermes roda a cada 50 leads atendidos, não por calendário
+
+Cadência **por volume, não por relógio**: a cada 50 leads registrados e atendidos. É a escolha
+certa para quem ainda não tem tráfego constante — um cron semanal rodaria sobre 3 conversas na
+primeira semana e sobre 300 na quinta, e as duas análises seriam inúteis por motivos opostos.
+
+Continua valendo o guardrail de governança da §R5.7: o Hermes **propõe**, não publica.
+
+## R6.3 — Retenção de dado pessoal: 90 dias
+
+Telefone, nome, endereço e o que mais for coletado da cliente expiram em **90 dias**. Vale
+para o banco inteiro, inclusive histórico de conversa que contenha endereço.
+
+Consequência de construção: a expiração é **rotina automática**, não faxina manual — uma tarefa
+agendada que apaga o que passou de 90 dias. Sem isso, "retenção de 90 dias" é intenção, não
+política.
+
+## R6.4 — Provedor de modelo: conta separada, e a escolha não é por preço
+
+O operador decidiu usar uma **API em conta separada**, ainda a definir. A comparação de doze
+modelos contra uma conversa real do funil está publicada como página à parte; o número que
+decide está registrado aqui:
+
+**A conversa inteira custa entre R$ 0,01 e R$ 0,45**, dependendo do modelo, contra uma margem
+de R$ 63,35 por pedido. Mesmo o modelo mais caro da comparação consome **0,7% da margem** e
+fica abaixo do teto de R$ 0,80 por conversa (§Q11). A diferença entre o mais caro e o mais
+barato é de R$ 0,44 por conversa.
+
+**Portanto: escolher a API pelo preço otimiza a variável errada.** Um ponto percentual de
+conversão vale mais do que toda a economia possível na troca de modelo. O critério é qualidade
+em português, confiabilidade de chamada de ferramenta, cache de prompt e latência.
+
+Camada gratuita do Gemini cobre o desenvolvimento inteiro da fase A sem cartão.
+
+## R6.5 — O script do funil recebido não é fonte sobre o produto
+
+O operador entregou um script de WhatsApp de outra operação (preço R$ 119,90, entrega para o
+dia seguinte, frete grátis, 12x, tamanhos M–3XL, medida com fita métrica). **Nada disso
+descreve a operação da Encorpa**, e o próprio operador registrou que o material não deve ser
+tratado como verdade sobre o produto.
+
+O diagnóstico item a item está em
+[`../06-script/01-diagnostico-do-script-atual.md`](../06-script/01-diagnostico-do-script-atual.md)
+e o script reescrito em
+[`../06-script/02-script-do-agente.md`](../06-script/02-script-do-agente.md).
+
+**Três dos quatro áudios precisam ser regravados** — o roteiro dos novos está no script. O
+áudio 2 (conforto e material) é aproveitável quase inteiro.
+
+---
+
+# Decisões tomadas — rodada 7
+
+## R7.1 — Os três modelos, por papel
+
+| Papel | Modelo | Por quê |
+|---|---|---|
+| Desenvolvimento e testes | **Gemini 3.5 Flash-Lite** | Camada gratuita cobre a fase A inteira |
+| A conversa que converte | **gpt-5.6-luna** (OpenAI) | O turno que vende; R$ 0,048 por conversa com cache |
+| Trabalho barato em produção | **Gemini 3.5 Flash-Lite** | Classificar intenção, extrair endereço, decidir estágio — 20 chamadas por conversa que não precisam de talento |
+
+Preço fica em `src/llm/pricing.ts`, num lugar só. Trocar de modelo é editar uma linha da
+tabela e uma variável de ambiente.
+
+## R7.2 — Prazo de entrega: 3 a 5 dias no COD, sem número no antecipado
+
+Correção do operador. **No COD são 3 a 5 dias, com agendamento.** No **antecipado o prazo
+varia por região e frete**, então a agente não diz número nenhum ali — a transportadora
+informa no checkout.
+
+O guardrail de prazo passa a vetar os dois erros: prazo fora da janela no COD, e qualquer
+janela em números no antecipado.
+
+**Divergência a resolver:** o FAQ do site ainda diz *"costuma chegar entre 7 e 14 dias"*
+(`FAQ.tsx` :22). Agente e site precisam falar a mesma coisa — a cliente que lê os dois é
+exatamente o perfil que o projeto descreve como caçadora de contradição. Decisão do operador:
+corrigir o site para 3 a 5, ou manter a promessa conservadora e alinhar a agente por cima.
+
+## R7.3 — Teto de custo: R$ 0,80 com 25% de folga
+
+Conversa que se estende pode passar em **25%** do teto antes de virar handoff — teto efetivo
+de **R$ 1,00**. Continua desprezível contra a margem de R$ 63,35, e agora está no código
+(`costCeilingBrl`), com teste que prova que a chamada é barrada **antes** de sair byte para o
+provedor.
+
+## R7.4 — Onde o guardrail roda: Supabase Edge Function, chamada por HTTP do n8n
+
+O operador perguntou se dá para chamar por HTTP no n8n. Dá — e é assim que fica:
+
+```
+WAHA → webhook n8n → HTTP → Edge Function (cérebro + 11 guardrails) → Supabase
+```
+
+O n8n é o cano e o relógio; o turno inteiro — montagem de contexto, chamada de modelo, cadeia
+de guardrails, teto de custo, trace — roda numa Edge Function versionada neste repositório.
+
+**Por que Edge Function e não um nó de código no n8n:** os guardrails têm 49 testes rodando em
+menos de um segundo, de graça, a cada mudança. Dentro do n8n, a única forma de testar é
+disparar o fluxo e olhar. E ela mora junto do banco: as ~20 leituras por turno não atravessam
+a internet.
+
+## R7.5 — Contas separadas por projeto
+
+n8n, APIs de modelo e PikaPods em contas próprias da operação Encorpa, sem misturar com os
+outros projetos do operador. Já valendo: a organização **OFERTA ENCORPA** na Supabase, com o
+projeto **Ricos com AI** (`hbmkgakzrqmdlsvszjeo`, região sa-east-1), e a instância nova do n8n,
+ainda vazia.
+
+## R7.6 — Todos os áudios serão regravados
+
+A locutora dos áudios originais não está mais disponível. Some a questão de reaproveitar
+trechos: os quatro roteiros novos estão no script, escritos para uma voz nova, e nenhum deles
+carrega frase de outra operação.
+
+## R7.7 — Provedores verificados em 2026-09-06, com uma armadilha registrada
+
+As três credenciais foram testadas de verdade, não assumidas:
+
+| Item | Resultado |
+|---|---|
+| Supabase `service_role` | 200 na REST API do projeto |
+| `gpt-5.6-luna` | disponível na conta e respondendo |
+| `gemini-3.5-flash-lite` | disponível na chave e respondendo |
+
+**A armadilha:** `gpt-5.6-luna` é modelo de raciocínio. Parte do orçamento de saída é gasta
+em tokens de raciocínio que ninguém vê — e um `max_completion_tokens` apertado **não trunca a
+resposta: devolve erro sem conteúdo nenhum**. Na primeira chamada com 80 tokens, a resposta
+veio vazia. O adapter fixa um piso de 600.
+
+**Custo medido de uma troca completa** (classificação + resposta, com os guardrails julgando o
+que voltou): **R$ 0,00087** — 0,09% do teto da conversa. A estimativa da comparação de APIs
+era conservadora por uma ordem de grandeza.
+
+---
+
+# Decisões tomadas — rodada 8
+
+## R8.1 — O prazo é fato ou promessa, e o guardrail passou a saber a diferença
+
+A mensagem de véspera — *"sua entrega está marcada pra amanhã"* — era vetada pelo guardrail de
+prazo, que existe justamente para impedir promessa de entrega para o dia seguinte.
+
+As duas coisas são a mesma frase e o oposto uma da outra: **prometer "amanhã" antes do pedido**
+é o que produz recusa na porta; **avisar "amanhã" na véspera de uma entrega que a transportadora
+já agendou** é o que a **evita**. O gate ganhou um campo `stage`: `presale` (padrão) veta,
+`logistics` libera — e mesmo em `logistics` continua vetando janela de prazo inventada.
+
+## R8.2 — A retenção de 90 dias virou cron do banco, não do n8n
+
+`pg_cron` chamando `purge_expired()` todo dia às 04:00, dentro do Postgres. Tirar isso do n8n
+remove um ponto de falha: se o n8n cair, o dado pessoal continua expirando na hora certa.
+
+## R8.3 — A régua roda por varredura, e a varredura custa zero
+
+Um cron de 5 minutos no n8n chama a mesma Edge Function com `{"job":"followups"}`. Tudo o que
+ela decide é determinístico — copy por variante `hash(lead_id) % n`, sem chamada de modelo — então
+a frequência da varredura não tem custo. Só o envio depende do canal.
+
+**Três comportamentos ficaram provados em produção:** o relógio reinicia a cada fala da agente
+(quem responde não recebe toque), o toque do cupom fica em silêncio enquanto o cupom não existe
+na Coinzz, e opt-out ou handoff cancelam o que estava agendado.
+
+## R8.4 — Lacuna aberta: o modelo ainda decide tamanho sozinho
+
+O recomendador de tamanho existe em `src/agent/sizing.ts`, com testes e a regra "na dúvida, o
+maior" — mas a Edge Function **não o chama**. Hoje o modelo deduz o tamanho a partir da tabela
+em centímetros do prompt, e numa conversa de teste indicou **G para manequim 42**, enquanto a
+tabela determinística indica **M**.
+
+Isso não é detalhe de estilo: tamanho errado vira devolução, e devolução em COD é prejuízo, não
+neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.
