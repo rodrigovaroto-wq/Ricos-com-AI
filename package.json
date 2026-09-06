@@ -2,14 +2,17 @@
   "name": "encorpa-agent",
   "private": true,
   "type": "module",
-  "engines": { "node": ">=24" },
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
     "lint": "eslint src tests --ext .ts",
     "typecheck": "tsc --noEmit",
     "test": "vitest run",
     "test:watch": "vitest",
     "build": "tsc -p tsconfig.build.json",
-    "dev": "tsx src/dev/simulate.ts"
+    "dev": "tsx src/dev/simulate.ts",
+    "typecheck:function": "deno check supabase/functions/turn/index.ts"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

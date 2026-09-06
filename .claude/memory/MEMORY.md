@@ -6,4 +6,4 @@ salvamento e a política de crescimento.
 
 <!-- Formato: - [Título](arquivo.md) — descrição de uma linha -->
 
-_Nenhuma memória registrada ainda._
+- [Drift entre a Edge Function e o repositório](edge-function-drift.md) — A Edge Function no ar pode divergir do repositório nos dois sentidos; nada compara os dois lados; sempre ler o que está deployado antes de deployar.

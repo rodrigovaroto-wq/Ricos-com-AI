@@ -1,20 +1,24 @@
 /**
- * One conversation turn, end to end.
+ * One conversation turn, end to end — plus the cron sweep of the follow-up rulers.
  *
  * The n8n webhook posts an inbound message here; this function owns everything that
  * decides what goes back: dedupe, persistence, the cost ceiling, the two model calls
- * and the eleven guardrails. n8n stays the pipe and the clock.
+ * and the eleven guardrails. A second entry point, { job: "followups" }, is the clock
+ * half: it sweeps due touches, renders them deterministically and gates them the same
+ * way. n8n stays the pipe and the clock.
  *
  * Auth is the project's service_role JWT in the Authorization header — the same key
  * n8n holds in its credential.
  */
-import { classifyOptOut, runGates, type GateConfig } from "./guardrails.ts";
+import { classifyOptOut, remedyFor, runGates, type GateConfig } from "./guardrails.ts";
 import {
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
+import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { decideNext, HOLDING_REPLY, type NextAction } from "./retry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -35,6 +39,8 @@ interface BusinessConfig extends GateConfig {
   agentName: string;
   delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
   cost: { conversationCapBrl: number; overrunTolerance: number };
+  /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
+  handoff?: { email: string };
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -135,7 +141,7 @@ const callLuna = async (
   };
 };
 
-const systemPrompt = (): string => {
+const systemPrompt = (sizeDirective: string | null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
@@ -153,11 +159,32 @@ const systemPrompt = (): string => {
     `metades saem na mesma frase.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não exija fita`,
-    `métrica: pergunte o manequim. Na dúvida entre dois, o maior.`,
+    `métrica: pergunte o manequim. Nunca calcule o tamanho por conta própria a partir do`,
+    `manequim — isso é decidido por uma tabela determinística fora do seu controle.`,
     ``,
     `Responda em no máximo 45 palavras, uma pergunta por vez.`,
+    ...(sizeDirective ? ["", sizeDirective] : []),
   ].join(" ");
 };
+
+/**
+ * R8.4: the model must never compute size from a dress size on its own — a real
+ * conversation had it say G for manequim 42, when the deterministic table says M,
+ * and a wrong size becomes a COD return (pure loss). When the customer's message
+ * names a plausible manequim, resolve it here and hand the model the answer as a
+ * fact to state, not a number to reason about.
+ */
+const statedSize = (message: string): { manequim: number; size: string } | null => {
+  const manequim = extractDressSize(message);
+  return manequim === null ? null : { manequim, size: sizeFromDressSize(manequim) };
+};
+
+const sizeDirectiveFor = (stated: { manequim: number; size: string } | null): string | null =>
+  stated === null
+    ? null
+    : `A cliente informou manequim ${stated.manequim}. O tamanho correto é ${stated.size} —` +
+      ` isto já foi calculado pela tabela determinística da loja, não recalcule nem escolha` +
+      ` outro. Diga esse tamanho.`;
 
 /** She answered — every pending touch for this conversation is moot. */
 const cancelScheduled = (conversationId: string) =>
@@ -328,6 +355,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       external_id: inbound.externalId,
     }),
   });
+
   // She answered: every touch waiting on her silence is moot.
   await cancelScheduled(conversation.id);
 
@@ -375,45 +403,93 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }),
   });
 
+  // 5b. A size she stated is worth keeping: the post-order ruler reads it back,
+  // and an empty column becomes a dash in a message a customer sees. What counts as
+  // "stated" is decided by the text itself, not by the intent classifier — it called
+  // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
+  const stated = statedSize(inbound.body ?? "");
+  if (stated && stated.size !== lead.size) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ size: stated.size, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+
   // 6. History, then the turn that sells.
   const history = await db(
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
   );
-  const reply = await callLuna(
-    systemPrompt(),
-    (history ?? []).map((m: { direction: string; body: string }) => ({
-      role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
-      content: m.body ?? "",
-    })),
-  );
-  spent += reply.costBrl;
-  await db("llm_calls", {
-    method: "POST",
-    body: JSON.stringify({
-      conversation_id: conversation.id,
-      purpose: "reply",
-      provider: "openai",
-      model: CONVERSATION_MODEL,
-      cost_brl: reply.costBrl,
-    }),
-  });
-
-  // 7. Nothing reaches the customer without the chain.
-  const gates = runGates(reply.text, {
-    config: CONFIG,
-    layer: "agent",
-    optedOut: false,
-    now: new Date(),
-    paymentPath: "cod",
-  });
-
-  const traces = gates.traces.map((t) => ({
-    conversation_id: conversation.id,
-    gate: t.gate,
-    verdict: t.verdict,
-    detail: t.detail ?? null,
+  const turns = (history ?? []).map((m: { direction: string; body: string }) => ({
+    role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+    content: m.body ?? "",
   }));
-  await db("gate_traces", { method: "POST", body: JSON.stringify(traces) });
+
+  // 7. Nothing reaches the customer without the chain — but a veto is not the end of
+  // the turn. The chain knows exactly what was wrong, so the reason goes back to the
+  // model and it writes the message again. Silence and "the operator will handle it"
+  // are what this loop exists to avoid; both are last resorts, not first answers.
+  let attempt: { text: string; costBrl: number } | null = null;
+  let gates: ReturnType<typeof runGates> | null = null;
+  let rewritesUsed = 0;
+  let correction: string | null = null;
+  let outcome: NextAction = { kind: "send" };
+
+  while (true) {
+    attempt = await callLuna(
+      // The correction rides in the system prompt, so the vetoed text never enters
+      // the conversation history the customer's next turn is built from.
+      correction === null
+        ? systemPrompt(sizeDirectiveFor(stated))
+        : `${systemPrompt(sizeDirectiveFor(stated))} ${correction}`,
+      turns,
+    );
+    spent += attempt.costBrl;
+    await db("llm_calls", {
+      method: "POST",
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        purpose: rewritesUsed === 0 ? "reply" : "rewrite",
+        provider: "openai",
+        model: CONVERSATION_MODEL,
+        cost_brl: attempt.costBrl,
+      }),
+    });
+
+    gates = runGates(attempt.text, {
+      config: CONFIG,
+      layer: "agent",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: "cod",
+    });
+
+    // Every attempt is traced, not just the last: a gate that keeps firing across
+    // rewrites is a prompt problem, and the trace is what lets Hermes see it.
+    await db("gate_traces", {
+      method: "POST",
+      body: JSON.stringify(
+        gates.traces.map((t) => ({
+          conversation_id: conversation.id,
+          gate: t.gate,
+          verdict: t.verdict,
+          detail: t.detail ?? null,
+        })),
+      ),
+    }).catch(() => undefined);
+
+    outcome = decideNext({
+      remedy: remedyFor(gates),
+      rewritesUsed,
+      spentBrl: spent,
+      ceilingBrl,
+      reasons: gates.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
+      vetoedText: attempt.text,
+    });
+
+    if (outcome.kind !== "rewrite") break;
+    correction = outcome.instruction;
+    rewritesUsed += 1;
+  }
 
   await db(`conversations?id=eq.${conversation.id}`, {
     method: "PATCH",
@@ -424,21 +500,49 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }),
   });
 
-  if (!gates.allowed) {
-    // A blocked reply is a handoff, not a silent degradation. The text is returned
-    // so the operator can see what was vetoed instead of guessing.
+  // Opt-out: the one veto that is never rewritten and never answered.
+  if (outcome.kind === "stop") {
+    return json(200, { status: "stopped", intent: intent.text, costBrl: spent });
+  }
+
+  // Defer belongs to the next step (scheduling a written reply needs a place to keep
+  // its text, which the followups table has no column for). Until then it takes the
+  // same exit as an exhausted rewrite, so it is never silent.
+  if (outcome.kind === "handoff" || outcome.kind === "defer") {
+    const reason = outcome.kind === "defer" ? "fora da janela de envio" : outcome.reason;
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
     });
+
+    // She hears something either way. The holding reply passes the chain by
+    // construction and promises only a reply, so it cannot trip what it stands in for.
+    const holding = (
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          direction: "outbound",
+          body: HOLDING_REPLY,
+        }),
+      })
+    )[0];
+
     return json(200, {
-      status: "blocked",
+      status: "handoff",
+      reason,
       intent: intent.text,
-      blockedText: reply.text,
+      reply: HOLDING_REPLY,
+      messageId: holding.id,
+      rewrites: rewritesUsed,
+      blockedText: attempt.text,
       blocked: gates.traces.filter((t) => t.verdict === "block"),
+      notify: CONFIG.handoff?.email ?? null,
       costBrl: spent,
     });
   }
+
+  const reply = attempt;
 
   const outbound = (
     await db("messages", {
@@ -464,6 +568,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     intent: intent.text,
     reply: reply.text,
     messageId: outbound.id,
+    rewrites: rewritesUsed,
     costBrl: spent,
     ceilingBrl,
   });

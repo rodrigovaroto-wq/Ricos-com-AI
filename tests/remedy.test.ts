@@ -1,0 +1,85 @@
+import { describe, expect, it } from "vitest";
+import { gateNames, gateRemedies, remedyFor, runGates, type Remedy } from "@/agent/guardrails.js";
+import { ctx } from "./fixtures.js";
+
+/**
+ * A block must never become silence, and never become the operator's inbox by
+ * default. Each gate says what to do about it: rewrite the reply, schedule it for
+ * later, or stop. These tests fix that mapping — a gate that changes class changes
+ * how a real conversation ends, so it should not change quietly.
+ */
+
+const byClass = (remedy: Remedy) =>
+  gateNames.filter((name) => gateRemedies[name] === remedy).sort();
+
+describe("classificação dos onze gates", () => {
+  it("todo gate tem uma classe, e só existem três", () => {
+    expect(Object.keys(gateRemedies)).toHaveLength(11);
+    expect(new Set(Object.values(gateRemedies))).toEqual(
+      new Set<Remedy>(["rewrite", "defer", "stop"]),
+    );
+  });
+
+  it("reescrever: o que a operação não sustenta, a agente escreve de novo", () => {
+    expect(byClass("rewrite")).toEqual([
+      "charge_promise",
+      "coupon_exists",
+      "delivery_promise",
+      "humanity_claim",
+      "identical_template",
+      "invented_testimonial",
+      "price_promise",
+      "weight_loss_claim",
+    ]);
+  });
+
+  it("adiar: a resposta está certa, o relógio é que não", () => {
+    expect(byClass("defer")).toEqual(["business_hours", "pacing"]);
+  });
+
+  it("parar: opt-out é o único que nunca é reescrito", () => {
+    expect(byClass("stop")).toEqual(["opt_out"]);
+  });
+});
+
+describe("qual remediação um bloqueio pede", () => {
+  it("mensagem aprovada não pede remediação nenhuma", () => {
+    const result = runGates("Chega em 3 a 5 dias, com entrega agendada.", ctx());
+    expect(result.allowed).toBe(true);
+    expect(remedyFor(result)).toBeNull();
+  });
+
+  it("preço inventado pede reescrita", () => {
+    const result = runGates("Sai por R$ 99,90 hoje!", ctx());
+    expect(remedyFor(result)).toBe("rewrite");
+  });
+
+  it("fora do horário pede adiamento, não reescrita", () => {
+    const result = runGates(
+      "Chega em 3 a 5 dias, com entrega agendada.",
+      ctx({ now: new Date("2026-09-06T03:00:00") }),
+    );
+    expect(remedyFor(result)).toBe("defer");
+  });
+
+  it("opt-out pede parada", () => {
+    const result = runGates("Oi! Tudo bem?", ctx({ optedOut: true }));
+    expect(remedyFor(result)).toBe("stop");
+  });
+
+  // A regra que protege a cliente que pediu para sair: reescrever o preço
+  // produziria uma mensagem correta — enviada a quem não quer receber nada.
+  it("quando dois gates barram, vence o mais estrito", () => {
+    const result = runGates("Sai por R$ 99,90 hoje!", ctx({ optedOut: true }));
+    expect(result.traces.filter((t) => t.verdict === "block").length).toBeGreaterThan(1);
+    expect(remedyFor(result)).toBe("stop");
+  });
+
+  it("limite de envio junto com preço errado adia, em vez de só reescrever", () => {
+    const result = runGates(
+      "Sai por R$ 99,90 hoje!",
+      ctx({ pacing: { sentLastHour: 60, hourlyLimit: 60, sentToday: 100, dailyLimit: 400 } }),
+    );
+    expect(remedyFor(result)).toBe("defer");
+  });
+});

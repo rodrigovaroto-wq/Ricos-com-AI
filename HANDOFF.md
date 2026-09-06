@@ -26,25 +26,36 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
-### PR aberto
+### Trabalho desta sessão
 
-**[#8](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/8)** — núcleo do
-agente: guardrails, máquina de estados, seam de custo de modelo, handler de
-turno, réguas de follow-up. Teve conflito de merge contra o `main` (que havia
-reorganizado `docs/` em `docs/documentacao/` + `docs/agente-ia/` +
-`docs/campanhas-e-anuncios/` nos PRs #6/#7) — **resolvido**: os caminhos
-deste PR foram todos atualizados para a nova estrutura, sem alterar
-conteúdo. 71 testes e o typecheck passam depois do merge. Sem CI configurado
-neste repositório (`.github/workflows/` não existe), então "verde" aqui
-significa `tsc --noEmit` e `vitest run` locais.
+Branch `claude/handoff-continuacao-gs6x7x`, Edge Function na **versão 8**:
+
+1. **R8.4 corrigido** — o recomendador de tamanho determinístico é chamado
+   pela Edge Function, verificado em produção. Seção dedicada mais abaixo.
+2. **`leads.size` passou a ser gravado** — nada escrevia nele, e a régua de
+   pós-pedido saía com "Colete tamanho **—**" para a cliente ler.
+3. **Extrator de endereço** (`src/agent/address.ts`, §D2) — pronto e testado,
+   ainda não ligado à conversa. Ver "o que falta para fechar a A3".
+4. **Contrato de checkout da Coinzz** (`src/order/checkout.ts`, §E1/§E2) —
+   formato escrito, mock no lugar da credencial, idempotência testada.
+
+5. **Autocorreção no lugar de handoff** (tópicos 1 e 2 do plano de remediação)
+   — seção dedicada mais abaixo. **Ainda não deployado.**
+
+122 testes, `tsc --noEmit` e `deno check` passam. O que resta de bloqueante não
+é código: é o número de WhatsApp.
 
 ### Merges recentes no `main`
 
 | PR | O que entrou |
 |---|---|
+| [#8](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/8) | Núcleo do agente: guardrails, máquina de estados, seam de custo de modelo, handler de turno, réguas de follow-up. Teve conflito de merge contra o `main` (que havia reorganizado `docs/` nos PRs #6/#7) — resolvido, caminhos atualizados sem alterar conteúdo. **Mergeado.** |
 | #6/#7 | Reorganização de `docs/` em três compartimentos (`documentacao/`, `agente-ia/`, `campanhas-e-anuncios/`) + pesquisa de Meta Ads Conversions API |
 | [#4](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/4) | Quatro rodadas de decisão com o operador + o plano de construção ponta a ponta |
 | [#3](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/3) | Contexto inicial: produto, oferta, economia do COD, pesquisa em 8 repositórios open source, especificação funcional, guardrails |
+
+Sem CI configurado neste repositório (`.github/workflows/` não existe),
+então "verde" aqui significa `tsc --noEmit` e `vitest run` locais.
 
 ### O documento mais importante para começar
 
@@ -65,34 +76,90 @@ nesta sessão — não é só teoria de repositório.
 |---|---|---|
 | Onze guardrails determinísticos | `src/agent/guardrails.ts` (espelhado em `supabase/functions/turn/guardrails.ts`) | ✅ 31 testes, rodando em produção |
 | Máquina de estados da conversa | `src/agent/state-machine.ts` | ✅ 6 testes |
-| Recomendador de tamanho | `src/agent/sizing.ts` | ✅ 6 testes, **mas a Edge Function ainda não o chama** — ver R8.4 abaixo |
+| Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 12 testes, chamado pela Edge Function e verificado em produção — ver R8.4 abaixo |
+| Extrator de endereço (§D2) | `src/agent/address.ts` | ⚠️ 12 testes, **não ligado à conversa ainda** — falta o laço de confirmação |
+| Contrato de checkout + mock (§E1/§E2) | `src/order/checkout.ts` | ⚠️ 10 testes, **mock** até a credencial da Coinzz existir |
 | Ritmo humano (atraso por bolha, "digitando") | `src/agent/pacing.ts` | ✅ 6 testes |
 | Réguas de silêncio (3 toques) e pós-pedido (4 mensagens) | `src/agent/followups.ts` (espelhado em `supabase/functions/turn/followups.ts`) | ✅ 15 testes, rodando por cron em produção |
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn`, testado ponta a ponta com conversas reais |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 8), testado ponta a ponta com conversas reais |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
 
 **Cópias que precisam ficar idênticas.** A Supabase sobe conteúdo de arquivo,
-não resolve o repositório — então `guardrails.ts` e `followups.ts` existem
-duas vezes (uma vez para teste local, uma vez para a Edge Function). O teste
-`tests/function-drift.test.ts` falha se as duas cópias de qualquer um dos
-dois divergirem — sempre editar os dois lados juntos.
+não resolve o repositório — então `guardrails.ts`, `followups.ts`,
+`sizing.ts` e `retry.ts` existem duas vezes (uma vez para teste local, uma vez
+para a Edge Function). O teste `tests/function-drift.test.ts` falha se as duas
+cópias de qualquer um dos quatro divergirem — sempre editar os dois lados
+juntos. É por isso que `retry.ts` declara `Remedy` localmente em vez de
+importar: zero imports é o que permite a cópia byte a byte.
 
-### Lacuna aberta, registrada como R8.4
+### R8.4 — corrigida nesta sessão
 
-O recomendador de tamanho (`sizing.ts`) existe com testes e a regra "na
-dúvida, o maior", mas **a Edge Function não o chama** — o modelo ainda deduz
-o tamanho sozinho a partir da tabela em cm que está no prompt. Numa conversa
-de teste real, o modelo indicou **G** para manequim 42, quando a tabela
+O recomendador de tamanho (`sizing.ts`) existia com testes e a regra "na
+dúvida, o maior", mas a Edge Function não o chamava — o modelo deduzia o
+tamanho sozinho a partir da tabela em cm que está no prompt. Numa conversa de
+teste real, o modelo indicou **G** para manequim 42, quando a tabela
 determinística indica **M**. Tamanho errado vira devolução, e devolução em
-COD é prejuízo, não neutro. **Isto precisa ser corrigido antes de qualquer
-tráfego real** — é meia hora de trabalho: plugar `sizeFromDressSize` como
-tool que a Edge Function chama, em vez de deixar o modelo decidir.
+COD é prejuízo, não neutro.
+
+**Correção:** `sizing.ts` agora tem `extractDressSize`, que lê o manequim
+(faixa plausível 34–56) da própria mensagem da cliente. Quando presente, o
+handler do turno (`supabase/functions/turn/index.ts`) resolve o tamanho por
+`sizeFromDressSize` e injeta o resultado no prompt como fato a declarar —
+"não recalcule, diga esse tamanho" — em vez de deixar o modelo calcular. O
+teste `sizeFromDressSize(42) === "M"` trava a regressão. `sizing.ts` passou a
+ser espelhado em `supabase/functions/turn/sizing.ts` (mesmo tratamento que
+`guardrails.ts` e `followups.ts` já tinham), com o `function-drift.test.ts`
+cobrindo as três cópias agora.
+
+**Verificado em produção.** A Edge Function foi redeployada (versão 6) e três
+sondas rodaram contra o Supabase real, com os dados de teste apagados depois:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "uso manequim 42, qual tamanho eu peço?" | M | ✅ "Para o manequim 42, o tamanho indicado é M" |
+| "meu manequim é 46, qual serve?" | G | ✅ "Para o manequim 46, o tamanho indicado é G" |
+| "não quero mais receber nada" | `opted_out` | ✅ `{"status":"opted_out"}` |
+
+A terceira sonda não é sobre tamanho: ela prova que a normalização de acentos
+do `guardrails.ts` (`normalize("NFD")` + faixa de diacríticos) sobreviveu ao
+deploy — se ela tivesse quebrado, "não" não viraria "nao" e o opt-out passaria
+batido. Custo medido: **R$ 0,00095 por troca**, contra o teto de R$ 1,00.
+
+### O classificador de intenção não serve de guarda-corpo
+
+Ao ligar a gravação do `leads.size`, a primeira versão só gravava quando o
+classificador barato dizia `TAMANHO`. Parecia suficiente e **não era**: em
+produção, "tenho 44 anos, esse colete serve pra mim?" foi classificado como
+`TAMANHO` — e com razão, ela está perguntando sobre tamanho — e o banco gravou
+**G** para uma cliente de 44 anos. O modelo de conversa por sorte ignorou a
+diretiva e perguntou o manequim, mas a linha errada já estava no banco.
+
+A correção tirou o classificador do caminho. Quem decide se um número é
+manequim agora é o texto: `extractDressSize` exige uma pista antes do número
+("manequim", "visto", "uso", "tamanho"…) ou uma mensagem que seja só o número
+— que é como se responde "qual seu manequim?" — e recusa quando vem uma
+unidade depois ("anos", "kg", "cm", "reais"). Cinco testes travam os dois
+lados. **A lição vale para além deste caso: o classificador é bom para rotear
+conversa, e ruim como condição de escrita no banco.**
+
+### O deploy vinha atrasado em relação ao repositório
+
+Ao comparar produção com o `main` antes do redeploy, a versão 5 (a que estava
+no ar) divergia do repositório nos dois sentidos. O `followups.ts` em produção
+ainda apontava para o caminho antigo `docs/agente/...`: a correção de caminho
+do PR #8 nunca chegou a ser deployada. E o `index.ts` em produção tinha um
+docblock melhor, que documenta as duas portas de entrada e que nunca chegou a
+ser commitado. **Deploy aqui é
+manual e nada compara os dois lados** — não há `.github/workflows/`, e o
+`function-drift.test.ts` só compara `src/` com `supabase/functions/`, nunca com
+o que está no ar. O docblock foi recuperado para o repositório e a versão 6
+saiu do `main`; da próxima vez, comparar antes de deployar.
 
 ---
 
@@ -147,22 +214,73 @@ Pontos que mais importam para quem retoma o trabalho:
 
 ---
 
+## Autocorreção no lugar de handoff (tópicos 1 e 2)
+
+Um guardrail que barra deixou de ser silêncio ou tarefa do operador. Os onze
+gates declaram a própria classe de remediação — **reescrever** (8), **adiar**
+(2: horário e pacing), **parar** (1: opt-out) — e `remedyFor` devolve a mais
+estrita quando mais de um barra, que é o que impede uma reescrita de preço de
+atropelar um opt-out.
+
+O handler agora roda um laço: veto → motivo e texto vetado voltam ao modelo
+pelo **system prompt** (nunca pelo histórico, para não sujar o próximo turno)
+→ nova tentativa → cadeia de novo. No máximo **2 reescritas**, e o teto de
+custo vale para cada uma. Toda tentativa é gravada em `gate_traces`, porque
+gate que insiste entre reescritas é problema de prompt — matéria-prima do
+Hermes, não deste laço.
+
+Esgotadas as tentativas (ou fora da janela, até o tópico 3), a cliente recebe
+`HOLDING_REPLY` — uma resposta de espera que **passa na cadeia por
+construção**, com teste — e só então o operador é notificado. Opt-out é o
+único caminho que não responde nada.
+
+**Ainda não deployado.** 122 testes, `tsc --noEmit` e `deno check` passam, mas
+o laço nunca rodou contra o modelo real. **Primeiro passo da próxima sessão:**
+deployar e sondar com "tem cupom de desconto?" — o gate `coupon_exists` barra
+qualquer mensagem com a palavra "cupom" enquanto o cupom não existe na Coinzz,
+então é o jeito mais barato de forçar uma reescrita de verdade. Esperado:
+`rewrites: 1` e uma resposta final sem a palavra.
+
+**O `tsconfig` não cobre a Edge Function** (`include: ["src", "tests"]`) — nada
+verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
+`deno check` nele. Rodar antes de todo deploy.
+
+---
+
+## O que falta para fechar a onda A3
+
+Nada disto depende do número de WhatsApp. As duas peças novas existem e estão
+testadas, mas **não estão ligadas à conversa** — é o próximo bloco de trabalho:
+
+1. **Ligar a coleta de endereço ao turno.** `address.ts` extrai e sabe o que
+   falta; o que não existe é o laço de conversa do §D2/§D5 — perguntar o que
+   falta, repetir o endereço de volta e **só então** gravar. Não liguei pela
+   metade de propósito: gravar endereço sem a confirmação explícita põe no
+   banco um endereço que ninguém conferiu, e em COD isso vira entrega perdida.
+2. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
+   da Coinzz (pergunta 4 do plano) e o registro do pedido na tabela `orders`,
+   usando `idempotencyKey` como `external_id`.
+3. **Enviar a notificação de handoff.** O destino foi definido (R9.2): e-mail
+   pessoal do operador, em `config/business.json` → `handoff.email`, que é
+   gitignored por ser dado pessoal. Falta o envio em si — hoje o handler grava
+   `handoff_at` e para; quem manda o e-mail é o n8n, e esse fluxo não existe.
+
+---
+
 ## O que fazer em seguida
 
 Em ordem:
 
-1. **Corrigir R8.4** — plugar o recomendador de tamanho determinístico na Edge Function.
-   Bloqueante antes de qualquer tráfego real.
-2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+1. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.
-3. **Alinhar o FAQ do site ao prazo real** (3 a 5 dias) — divergência aberta hoje.
-4. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
+2. **Alinhar o FAQ do site ao prazo real** (3 a 5 dias) — divergência aberta hoje.
+3. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
    credencial) e seguir para A4 (Hermes, conversão de volta para o Meta).
-5. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento desta
-   sessão (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em histórico de
-   chat, o que é motivo suficiente para trocar antes do lançamento.
-6. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
+4. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento das
+   sessões anteriores (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em
+   histórico de chat, o que é motivo suficiente para trocar antes do lançamento.
+5. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
    agente — a relação é de mão dupla.
 
 ---
