@@ -875,3 +875,22 @@ ainda vazia.
 A locutora dos áudios originais não está mais disponível. Some a questão de reaproveitar
 trechos: os quatro roteiros novos estão no script, escritos para uma voz nova, e nenhum deles
 carrega frase de outra operação.
+
+## R7.7 — Provedores verificados em 2026-09-06, com uma armadilha registrada
+
+As três credenciais foram testadas de verdade, não assumidas:
+
+| Item | Resultado |
+|---|---|
+| Supabase `service_role` | 200 na REST API do projeto |
+| `gpt-5.6-luna` | disponível na conta e respondendo |
+| `gemini-3.5-flash-lite` | disponível na chave e respondendo |
+
+**A armadilha:** `gpt-5.6-luna` é modelo de raciocínio. Parte do orçamento de saída é gasta
+em tokens de raciocínio que ninguém vê — e um `max_completion_tokens` apertado **não trunca a
+resposta: devolve erro sem conteúdo nenhum**. Na primeira chamada com 80 tokens, a resposta
+veio vazia. O adapter fixa um piso de 600.
+
+**Custo medido de uma troca completa** (classificação + resposta, com os guardrails julgando o
+que voltou): **R$ 0,00087** — 0,09% do teto da conversa. A estimativa da comparação de APIs
+era conservadora por uma ordem de grandeza.
