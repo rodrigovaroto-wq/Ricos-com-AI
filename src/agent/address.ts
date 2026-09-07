@@ -109,12 +109,18 @@ const parseStreet = (text: string): string | null => {
 const parseNumber = (text: string): string | null => {
   if (/\bs\/?\s?n\b/i.test(text)) return "s/n";
 
-  const labelled = text.match(/\b(?:n[oº°.]?|numero|número)\s*[:.]?\s*(\d{1,6})\b/i);
+  // The CEP is removed first, and this is not a nicety. "Rua das Flores, 13010-100"
+  // fed the fallback below a number that sits right after a street line and reads as
+  // a house number: the customer's address went out with 13010 as the door. Under
+  // cash on delivery that is a package that travels, fails and comes back.
+  const clipped = text.replace(/\b\d{5}-?\s?\d{3}\b/g, " ");
+
+  const labelled = clipped.match(/\b(?:n[oº°.]?|numero|número)\s*[:.]?\s*(\d{1,6})\b/i);
   if (labelled) return labelled[1]!;
 
   // Otherwise: the number that follows a street line, e.g. "Rua das Flores, 123".
   const re = new RegExp(`\\b(?:${STREET_TYPES})\\s+[^,;\\n]*?[,\\s]\\s*(\\d{1,6})\\b`, "i");
-  const afterStreet = text.match(re);
+  const afterStreet = clipped.match(re);
   return afterStreet ? afterStreet[1]! : null;
 };
 

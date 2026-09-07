@@ -60,6 +60,16 @@ const NOT_A_SIZE = /^\s*(anos?|kg|quilos?|kilos?|cm|m|metros?|reais?|%|horas?|di
 const SIZE_CUE = /(manequim|tamanho|veste|visto|vestia|uso|usava|calc[oa]|numero|número)\D{0,12}$/i;
 
 /**
+ * The cue is denied in its own clause: "não uso 40, uso 46" states one size and
+ * rejects another, and reading the first one writes G's customer down as an M. Same
+ * blindness the guardrail chain had, in the one module whose output outlives the
+ * conversation — `leads.size` is what the post-order ruler reads back to her, and a
+ * wrong size under cash on delivery is a return. The clause boundary is what lets the
+ * second half of the same sentence still count.
+ */
+const NEGATED_CUE = /\b(nao|não|nunca|jamais)\b[^,;.!?]*$/i;
+
+/**
  * Pulls a dress size out of free text, so it can be resolved through
  * `sizeFromDressSize` instead of left for the model to eyeball.
  *
@@ -79,7 +89,9 @@ export const extractDressSize = (text: string): number | null => {
   for (const match of text.matchAll(DRESS_SIZE_RE)) {
     const at = match.index ?? 0;
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
-    if (SIZE_CUE.test(text.slice(0, at))) return Number(match[1]);
+    const before = text.slice(0, at);
+    if (NEGATED_CUE.test(before)) continue;
+    if (SIZE_CUE.test(before)) return Number(match[1]);
   }
   return null;
 };

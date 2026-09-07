@@ -354,3 +354,11 @@ describe("depoimento é a aspa que alguém assina", () => {
     ).toContain("invented_testimonial");
   });
 });
+
+describe("porcentagem escrita por extenso conta igual", () => {
+  it('"30 por cento" é a mesma oferta que "30%"', () => {
+    expect(blocked(runGates("Te dou 30 por cento de desconto agora.", ctx()))).toContain(
+      "price_promise",
+    );
+  });
+});

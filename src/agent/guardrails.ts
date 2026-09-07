@@ -250,7 +250,8 @@ const gates: readonly Gate[] = [
         40, // anchor discount already published on the site
         ...(ctx.config.coupon.active ? [ctx.config.coupon.percent] : []),
       ]);
-      for (const m of t.matchAll(/(\d{1,3})\s*%/g)) {
+      // "30 por cento" is the same offer as "30%", and only the symbol was read.
+      for (const m of t.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
         const value = Number(m[1]);
         const at = m.index ?? 0;
         if (!looksLikeDiscount(t, at)) continue;
