@@ -12,6 +12,7 @@
  * is the prompt behind it, which is Hermes' job to spot in the gate traces, not
  * something a third attempt will fix.
  */
+
 /**
  * Structurally the same as the guardrail chain's `Remedy`, declared here instead of
  * imported so this file has zero imports and runs byte-identical in Deno and in
@@ -92,3 +93,12 @@ export const decideNext = (state: TurnState): NextAction => {
  */
 export const HOLDING_REPLY =
   "Deixa eu confirmar isso certinho pra você e já te respondo por aqui 💛";
+
+/**
+ * When she asks for a person (§Q12). It confirms without pretending: nobody is on the
+ * line yet, so it promises a callback rather than a transfer that has no one at the
+ * other end. Same constraint as the holding reply — no price, deadline or coupon — so
+ * the one message the agent must always be able to send can never be vetoed.
+ */
+export const HUMAN_HANDOFF_REPLY =
+  "Claro! Já estou chamando alguém do time pra falar com você por aqui 💛";

@@ -10,15 +10,27 @@
  * Auth is the project's service_role JWT in the Authorization header — the same key
  * n8n holds in its credential.
  */
-import { classifyOptOut, remedyFor, runGates, type GateConfig } from "./guardrails.ts";
 import {
+  classifyOptOut,
+  remedyFor,
+  runGates,
+  wantsHuman,
+  type GateConfig,
+} from "./guardrails.ts";
+import {
+  nextOpening,
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
-import { decideNext, HOLDING_REPLY, type NextAction } from "./retry.ts";
+import {
+  decideNext,
+  HOLDING_REPLY,
+  HUMAN_HANDOFF_REPLY,
+  type NextAction,
+} from "./retry.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -186,6 +198,22 @@ const sizeDirectiveFor = (stated: { manequim: number; size: string } | null): st
       ` isto já foi calculado pela tabela determinística da loja, não recalcule nem escolha` +
       ` outro. Diga esse tamanho.`;
 
+/**
+ * Everything the notifier needs to reach a person without querying the database
+ * again — n8n sends the mail, this decides what it says. The destination comes from
+ * the business config (R9.2); null there means nothing is configured yet, which the
+ * flow should surface rather than swallow.
+ */
+const notification = (
+  lead: { id: string; phone: string },
+  conversation: { id: string },
+) => ({
+  notify: CONFIG.handoff?.email ?? null,
+  leadId: lead.id,
+  phone: lead.phone,
+  conversationId: conversation.id,
+});
+
 /** She answered — every pending touch for this conversation is moot. */
 const cancelScheduled = (conversationId: string) =>
   db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled`, {
@@ -225,7 +253,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at))&limit=50",
   );
 
   const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
@@ -251,6 +279,7 @@ const runFollowupSweep = async () => {
       config: CONFIG,
       stopPoint: (row.stop_point ?? "before_size") as StopPoint,
       size: lead.size ?? undefined,
+      body: row.body ?? undefined,
     });
 
     // The coupon touch stays silent until the coupon exists in Coinzz.
@@ -375,6 +404,35 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, { status: "opted_out" });
   }
   if (lead.opted_out_at) return json(200, { status: "already_opted_out" });
+
+  // 3b. She asked for a person (§Q12). Deterministic, so it costs nothing and never
+  // depends on the model noticing — and it runs before any model call, because there
+  // is no point paying to generate a reply she already said she does not want.
+  if (wantsHuman(inbound.body ?? "")) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+    });
+    await cancelScheduled(conversation.id);
+    const asked = (
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          direction: "outbound",
+          body: HUMAN_HANDOFF_REPLY,
+        }),
+      })
+    )[0];
+    return json(200, {
+      status: "handoff",
+      reason: "a cliente pediu para falar com uma pessoa",
+      reply: HUMAN_HANDOFF_REPLY,
+      messageId: asked.id,
+      ...notification(lead, conversation),
+      costBrl: Number(conversation.cost_brl ?? 0),
+    });
+  }
 
   // 4. The ceiling is checked before a byte leaves for any provider.
   let spent = Number(conversation.cost_brl ?? 0);
@@ -505,11 +563,37 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, { status: "stopped", intent: intent.text, costBrl: spent });
   }
 
-  // Defer belongs to the next step (scheduling a written reply needs a place to keep
-  // its text, which the followups table has no column for). Until then it takes the
-  // same exit as an exhausted rewrite, so it is never silent.
-  if (outcome.kind === "handoff" || outcome.kind === "defer") {
-    const reason = outcome.kind === "defer" ? "fora da janela de envio" : outcome.reason;
+  // Deferred: the reply is right, the clock is not. It is stored as written and the
+  // same cron that runs the rulers sends it when the window opens — the chain runs
+  // again then, so a message held overnight is still gated before it goes out.
+  if (outcome.kind === "defer") {
+    const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
+    // Upsert, and for the same reason the rulers use one: a second reply written in
+    // the same closed window replaces the first. What she asked last is the live
+    // question when the window opens.
+    await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        kind: "deferred_reply",
+        run_at: runAt.toISOString(),
+        status: "scheduled",
+        body: attempt.text,
+      }),
+    });
+    return json(200, {
+      status: "deferred",
+      reason: "fora da janela de envio",
+      intent: intent.text,
+      runAt: runAt.toISOString(),
+      rewrites: rewritesUsed,
+      costBrl: spent,
+    });
+  }
+
+  if (outcome.kind === "handoff") {
+    const reason = outcome.reason;
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -537,7 +621,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       rewrites: rewritesUsed,
       blockedText: attempt.text,
       blocked: gates.traces.filter((t) => t.verdict === "block"),
-      notify: CONFIG.handoff?.email ?? null,
+      ...notification(lead, conversation),
       costBrl: spent,
     });
   }

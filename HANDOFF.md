@@ -10,7 +10,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > `HANDOFF.md` resumido específico dele. Se um dia os dois divergirem sobre
 > negócio, **este repositório é a fonte**.
 
-> Atualizado em: 2026-09-06
+> Atualizado em: 2026-09-07
 
 ---
 
@@ -26,7 +26,46 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
-### Trabalho desta sessão
+### Trabalho da sessão de 2026-09-07
+
+Os cinco tópicos do plano de autocorreção estão **fechados em código**, com 133
+testes, `tsc --noEmit` e `deno check` verdes:
+
+1. **Classificação dos gates** — cada um declara `rewrite` / `defer` / `stop`;
+   `remedyFor` devolve a mais estrita quando mais de um barra.
+2. **Laço de reescrita** — veto → motivo e texto vetado voltam pelo system
+   prompt → nova tentativa → cadeia de novo. Máximo 2, teto de custo valendo.
+3. **Adiamento real** — `followups.body` guarda a resposta já escrita e
+   `nextOpening` marca a reabertura da janela; o cron existente reenvia, e a
+   cadeia roda de novo na hora do envio.
+4. **Resposta de espera + notificação** — `HOLDING_REPLY` e
+   `HUMAN_HANDOFF_REPLY` passam na cadeia inteira, com teste; o payload de
+   handoff leva e-mail, `leadId`, telefone e `conversationId`.
+5. **Sentinela de pedido de humano (§Q12)** — determinística, roda **antes** de
+   qualquer chamada de modelo.
+
+**Ainda não deployado (Edge Function na versão 8).** Primeiro passo da próxima
+sessão, com as sondas já escolhidas: `"quero falar com um atendente"` →
+`status: handoff` sem gastar modelo; `"tem cupom de desconto?"` → `rewrites: 1`
+e resposta final sem a palavra "cupom".
+
+### O erro que a verificação em produção pegou
+
+A migração da resposta adiada trocou a `unique (conversation_id, kind)` de
+`followups` por um índice único **parcial**, para permitir várias respostas
+adiadas por conversa. Isso **quebrou o agendamento em produção**: o handler faz
+upsert com `on_conflict=conversation_id,kind`, e o Postgres recusa `ON CONFLICT`
+contra índice parcial. Pior, a chamada é `.catch(() => undefined)` — o turno
+seguiria respondendo e a régua de silêncio simplesmente pararia de agendar, sem
+erro visível, por dias.
+
+Revertido em minutos e verificado. A decisão final é manter a unicidade total: a
+resposta adiada mais nova substitui a anterior, que é a pergunta viva quando a
+janela reabre. Está registrado em
+[`.claude/memory/on-conflict-partial-index.md`](.claude/memory/on-conflict-partial-index.md)
+e como aviso dentro da própria migração.
+
+### Trabalho da sessão anterior
 
 Branch `claude/handoff-continuacao-gs6x7x`, Edge Function na **versão 8**:
 
@@ -84,7 +123,7 @@ nesta sessão — não é só teoria de repositório.
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
-| Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
+| Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql`, `0003_deferred_reply.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
 | Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 8), testado ponta a ponta com conversas reais |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
