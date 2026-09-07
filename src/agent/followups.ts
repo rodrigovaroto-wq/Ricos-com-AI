@@ -28,25 +28,46 @@ const MINUTE = 60_000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
-/** Next morning at 09:00 — a touch at 03:00 is how a number gets reported. */
-const nextMorning = (from: Date, hour = 9): Date => {
-  const at = new Date(from);
-  at.setDate(at.getDate() + 1);
-  at.setHours(hour, 0, 0, 0);
-  return at;
+/**
+ * Every hour here is a Brazilian wall-clock hour, and the runtime's is not: Supabase
+ * Edge Functions run in UTC, so `setHours(9)` meant 06:00 in São Paulo and `openHour`
+ * 6 meant 03:00 — the very hour the next line warns about. Declared locally, like the
+ * config types, so this file keeps zero imports and mirrors byte-for-byte.
+ */
+const BUSINESS_TZ = "America/Sao_Paulo";
+
+/** How far `timeZone` sits from UTC at that instant, in minutes. Survives DST. */
+const offsetMinutes = (at: Date, timeZone: string): number => {
+  const asUtc = new Date(at.toLocaleString("en-US", { timeZone: "UTC" }));
+  const asLocal = new Date(at.toLocaleString("en-US", { timeZone }));
+  return (asLocal.getTime() - asUtc.getTime()) / 60000;
 };
 
 /**
- * When the send window opens again. The business-hours gate is the only remedy that
- * defers today, and it always resolves to the next `openHour`: before it, later the
- * same day; after it, tomorrow morning.
+ * The next time the clock in São Paulo reads `hour`, as a real instant. The date is
+ * shifted into local wall-clock terms, moved there, and shifted back — which is why
+ * the body reads in UTC methods while meaning Brazilian hours.
  */
-export const nextOpening = (now: Date, openHour: number): Date => {
-  const at = new Date(now);
-  if (now.getHours() >= openHour) at.setDate(at.getDate() + 1);
-  at.setHours(openHour, 0, 0, 0);
-  return at;
+const nextLocalHour = (from: Date, hour: number, sameDayIfEarlier: boolean): Date => {
+  const offset = offsetMinutes(from, BUSINESS_TZ);
+  const local = new Date(from.getTime() + offset * 60_000);
+  const target = new Date(local);
+  if (!sameDayIfEarlier || local.getUTCHours() >= hour) {
+    target.setUTCDate(target.getUTCDate() + 1);
+  }
+  target.setUTCHours(hour, 0, 0, 0);
+  return new Date(target.getTime() - offset * 60_000);
 };
+
+/** Next morning at 09:00 — a touch at 03:00 is how a number gets reported. */
+const nextMorning = (from: Date, hour = 9): Date => nextLocalHour(from, hour, false);
+
+/**
+ * When the send window opens again: the next `openHour` in Brazilian time — later the
+ * same day if it has not passed, tomorrow morning if it has.
+ */
+export const nextOpening = (now: Date, openHour: number): Date =>
+  nextLocalHour(now, openHour, true);
 
 export const scheduleSilence = (now: Date): ScheduledFollowup[] => [
   { kind: "silence_1", runAt: new Date(now.getTime() + 30 * MINUTE) },

@@ -282,10 +282,17 @@ const runFollowupSweep = async () => {
       body: row.body ?? undefined,
     });
 
-    // The coupon touch stays silent until the coupon exists in Coinzz.
+    // Two touches can render to nothing, and calling both "coupon" hides the one that
+    // matters: a deferred reply with no body is a paid-for answer that got lost.
     if (text === null) {
       await mark("canceled");
-      skipped.push({ followupId: row.id, reason: "cupom ainda não existe" });
+      skipped.push({
+        followupId: row.id,
+        reason:
+          kind === "deferred_reply"
+            ? "resposta adiada sem corpo guardado"
+            : "cupom ainda não existe",
+      });
       continue;
     }
 
@@ -328,6 +335,14 @@ const runFollowupSweep = async () => {
       }),
     });
     await mark("sent");
+
+    // The silence ruler starts when the agent finishes speaking, and for a deferred
+    // reply that moment is now, not when the turn was written. The turn cancelled every
+    // pending touch on the way in and returned before scheduling, so without this the
+    // conversation loses follow-up recovery entirely.
+    if (kind === "deferred_reply") {
+      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text));
+    }
     toSend.push({ to: lead.phone, body: text, kind, followupId: row.id });
   }
 
@@ -405,6 +420,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
   }
   if (lead.opted_out_at) return json(200, { status: "already_opted_out" });
 
+  // A conversation handed to a person stays with that person. The sweep already
+  // honours `handoff_at`; without the same check here the agent answered the next
+  // message as if nothing had happened, talking over whoever took it over.
+  if (lead.handoff_at) {
+    return json(200, { status: "already_handed_off", ...notification(lead, conversation) });
+  }
+
   // 3b. She asked for a person (§Q12). Deterministic, so it costs nothing and never
   // depends on the model noticing — and it runs before any model call, because there
   // is no point paying to generate a reply she already said she does not want.
@@ -414,21 +436,52 @@ Deno.serve(async (request: Request): Promise<Response> => {
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
     });
     await cancelScheduled(conversation.id);
-    const asked = (
-      await db("messages", {
-        method: "POST",
-        body: JSON.stringify({
+
+    // The one outbound that used to skip the chain. It runs as `layer: "auto"` — the
+    // 24/7 receipt tier of R4.4 — so every content gate still applies while the hours
+    // gate does not: someone who asks for a person at 2am deserves the confirmation
+    // then, not at dawn.
+    const receipt = runGates(HUMAN_HANDOFF_REPLY, {
+      config: CONFIG,
+      layer: "auto",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: "cod",
+    });
+    await db("gate_traces", {
+      method: "POST",
+      body: JSON.stringify(
+        receipt.traces.map((t) => ({
           conversation_id: conversation.id,
-          direction: "outbound",
-          body: HUMAN_HANDOFF_REPLY,
-        }),
-      })
-    )[0];
+          gate: t.gate,
+          verdict: t.verdict,
+          detail: t.detail ?? null,
+        })),
+      ),
+    }).catch(() => undefined);
+
+    // The handoff itself is already recorded above; only the receipt is gated. If the
+    // chain ever vetoes it, the operator is still called — silently dropping the alert
+    // would be the worse half of the two.
+    const asked = receipt.allowed
+      ? (
+          await db("messages", {
+            method: "POST",
+            body: JSON.stringify({
+              conversation_id: conversation.id,
+              direction: "outbound",
+              body: HUMAN_HANDOFF_REPLY,
+            }),
+          })
+        )[0]
+      : null;
+
     return json(200, {
       status: "handoff",
       reason: "a cliente pediu para falar com uma pessoa",
-      reply: HUMAN_HANDOFF_REPLY,
-      messageId: asked.id,
+      reply: receipt.allowed ? HUMAN_HANDOFF_REPLY : null,
+      blocked: receipt.traces.filter((t) => t.verdict === "block"),
+      messageId: asked?.id ?? null,
       ...notification(lead, conversation),
       costBrl: Number(conversation.cost_brl ?? 0),
     });
@@ -441,7 +494,27 @@ Deno.serve(async (request: Request): Promise<Response> => {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
     });
-    return json(200, { status: "handoff", reason: "teto de custo da conversa" });
+    // The third handoff door, and it used to be the silent one: no reply to her, no
+    // address for the operator. A conversation that hit the ceiling is exactly the
+    // one worth a person's attention.
+    const ceilingHold = (
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          direction: "outbound",
+          body: HOLDING_REPLY,
+        }),
+      })
+    )[0];
+    return json(200, {
+      status: "handoff",
+      reason: "teto de custo da conversa",
+      reply: HOLDING_REPLY,
+      messageId: ceilingHold.id,
+      ...notification(lead, conversation),
+      costBrl: spent,
+    });
   }
 
   // 5. Cheap model first: intent is 20 calls a conversation and needs no talent.
