@@ -71,15 +71,25 @@ export const hourIn = (at: Date, timeZone: string): number =>
     new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hour12: false }).format(at),
   );
 
-/** Every "R$ 12,34" or "R$ 12.34" in the text, as numbers. */
-const moneyIn = (text: string): number[] =>
-  [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)/gi)].map((m) =>
-    Number(m[1]!.replace(/\./g, "").replace(",", ".")),
-  );
+/**
+ * Whether the token at `at` is denied in its own clause. The agent has to be able to
+ * say the honest sentence that contains the very thing the gate looks for: "ele não
+ * emagrece" and "não consigo oferecer 30% de desconto" are both required answers, and
+ * both read as violations to a regex that only sees the token. The clause boundary is
+ * what stops "não precisa de academia: ele emagrece" from hiding behind an earlier no.
+ */
+const negatedAt = (t: string, at: number): boolean => {
+  const before = t.slice(Math.max(0, at - 30), at);
+  const clause = before.split(/[:;.!?]/).pop() ?? "";
+  return /\b(nao|nunca|jamais|sem|nem)\b/.test(clause);
+};
 
-/** Every "15%" in the text, as numbers. */
-const percentsIn = (text: string): number[] =>
-  [...text.matchAll(/(\d{1,3})\s*%/g)].map((m) => Number(m[1]));
+/** Every "R$ 12,34" or "R$ 12.34" in the text, with where it sits. */
+const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
+  [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)/gi)].map((m) => ({
+    value: Number(m[1]!.replace(/\./g, "").replace(",", ".")),
+    at: m.index ?? 0,
+  }));
 
 /**
  * Opt-out has two levels, and the difference is the whole point: a naive regex on
@@ -188,27 +198,47 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, +(codBrl - prepayBrl).toFixed(2)]);
-      const strayPrice = moneyIn(text).find((v) => !allowedPrices.has(v));
-      if (strayPrice !== undefined) return `price ${strayPrice} is not one of the configured values`;
-
       const t = norm(text);
+
+      // Saying a number the operation does not have is a promise; refusing it is the
+      // job. "Me dá 30% que eu fecho agora" is the most ordinary message in a COD
+      // funnel, and the answer to it — "não consigo oferecer 30% de desconto" — used
+      // to be vetoed, burning two rewrites and ending in a handoff for a turn the
+      // agent had already got right.
+      for (const m of moneyMatches(t)) {
+        if (allowedPrices.has(m.value) || negatedAt(t, m.at)) continue;
+        return `price ${m.value} is not one of the configured values`;
+      }
+
       if (!/desconto|off|economi/.test(t)) return null;
       const allowedPercents = new Set([
         prepayDiscountPercent,
         40, // anchor discount already published on the site
         ...(ctx.config.coupon.active ? [ctx.config.coupon.percent] : []),
       ]);
-      const strayPercent = percentsIn(text).find((p) => !allowedPercents.has(p));
-      return strayPercent === undefined ? null : `discount of ${strayPercent}% is not configured`;
+      for (const m of t.matchAll(/(\d{1,3})\s*%/g)) {
+        const value = Number(m[1]);
+        if (allowedPercents.has(value) || negatedAt(t, m.index ?? 0)) continue;
+        return `discount of ${value}% is not configured`;
+      }
+      return null;
     },
   },
   {
     name: "coupon_exists",
     remedy: "rewrite",
-    check: (text, ctx) =>
-      /cupom/i.test(text) && !ctx.config.coupon.active
-        ? "mentions a coupon that is not active in Coinzz yet"
-        : null,
+    // The gate exists so the agent never announces a coupon with no destination in
+    // Coinzz. Saying "não temos cupom no momento" announces nothing — it is the honest
+    // answer to a question customers ask constantly, and vetoing it left the agent
+    // unable to reply at all.
+    check: (text, ctx) => {
+      if (ctx.config.coupon.active) return null;
+      const t = norm(text);
+      for (const m of t.matchAll(/cupom/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "mentions a coupon that is not active in Coinzz yet";
+      }
+      return null;
+    },
   },
   {
     name: "weight_loss_claim",
@@ -225,20 +255,9 @@ const gates: readonly Gate[] = [
         /resultado\s+permanente/g,
       ];
 
-      // The honest sentence the spec REQUIRES — "ele não emagrece" — contains the
-      // same stem as the claim it forbids. Blocking the negation would veto the
-      // agent for telling the truth, so a claim only counts when it is not negated.
-      // The negation has to be in the same clause: "não emagrece" is honest, while
-      // "não precisa de academia: ele emagrece" is the claim wearing a disguise.
-      const negated = (at: number): boolean => {
-        const before = t.slice(Math.max(0, at - 20), at);
-        const clause = before.split(/[:;.!?]/).pop() ?? "";
-        return /\b(nao|nunca|jamais|sem|nem)\b/.test(clause);
-      };
-
       for (const pattern of claims) {
         for (const match of t.matchAll(pattern)) {
-          if (match.index !== undefined && !negated(match.index)) {
+          if (match.index !== undefined && !negatedAt(t, match.index)) {
             return "claims the product changes the body, not the fit";
           }
         }
@@ -253,11 +272,16 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
 
-      if (
-        ctx.stage !== "logistics" &&
-        /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/.test(t)
-      )
-        return "promises same-day or next-day delivery";
+      // Refusing the impossible date is the job: "não consigo entregar amanhã, a
+      // entrega leva de 3 a 5 dias" is the right answer to the most common question
+      // in this funnel, and it used to be vetoed for containing the words it denies.
+      if (ctx.stage !== "logistics") {
+        for (const m of t.matchAll(
+          /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
+        )) {
+          if (!negatedAt(t, m.index ?? 0)) return "promises same-day or next-day delivery";
+        }
+      }
 
       // Any "N a M dias" claim has to sit inside the configured window.
       for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
@@ -288,12 +312,26 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     check: (text) => {
       const t = norm(text);
+
+      // Denying being a bot is itself the violation, so this one is read as written:
+      // the negation is the offence, not an exemption.
+      if (/\bnao\s+sou\s+(um\s+|uma\s+)?(rob[oa]|bot|ia|maquina)\b/.test(t))
+        return "claims to be a human being";
+
+      // The rest claim to BE a person — and "não sou uma pessoa, sou a assistente
+      // virtual da marca" is the exact sentence the prompt requires when she asks.
+      // Vetoing it left the agent unable to answer "você é um robô?", which is the
+      // most predictable question it will ever get.
       const claims = [
-        /\bsou\s+(uma\s+)?(pessoa|humana|gente\s+de\s+verdade)\b/,
-        /\bnao\s+sou\s+(um\s+|uma\s+)?(rob[oa]|bot|ia|maquina)\b/,
-        /\bpode\s+ficar\s+tranquila,?\s+sou\s+de\s+verdade\b/,
+        /\bsou\s+(uma\s+)?(pessoa|humana|gente\s+de\s+verdade)\b/g,
+        /\bpode\s+ficar\s+tranquila,?\s+sou\s+de\s+verdade\b/g,
       ];
-      return claims.some((r) => r.test(t)) ? "claims to be a human being" : null;
+      for (const pattern of claims) {
+        for (const m of t.matchAll(pattern)) {
+          if (!negatedAt(t, m.index ?? 0)) return "claims to be a human being";
+        }
+      }
+      return null;
     },
   },
   {

@@ -44,10 +44,49 @@ testes, `tsc --noEmit` e `deno check` verdes:
 5. **Sentinela de pedido de humano (§Q12)** — determinística, roda **antes** de
    qualquer chamada de modelo.
 
-**Ainda não deployado (Edge Function na versão 8).** Primeiro passo da próxima
-sessão, com as sondas já escolhidas: `"quero falar com um atendente"` →
-`status: handoff` sem gastar modelo; `"tem cupom de desconto?"` → `rewrites: 1`
-e resposta final sem a palavra "cupom".
+**Deployado e verificado em produção — Edge Function na versão 12.** As sondas
+confirmaram, contra o Supabase real: pedido de humano vira handoff sem gastar
+uma chamada de modelo; a cliente já em handoff não é respondida por cima do
+humano; o falso positivo da sentinela sumiu; o adiamento agenda para 06:00 de
+**Brasília** (`runAt` 09:00Z), provando a correção de fuso; e o laço de
+reescrita foi exercitado de ponta a ponta com `rewrites: 2` → resposta de
+espera → payload de notificação.
+
+### A cegueira a negação, varrida em toda a cadeia
+
+Rodando as sondas contra produção, o laço de reescrita apareceu funcionando — e
+expôs por que ele estava sendo acionado. A cliente pediu 30% de desconto, a
+agente respondeu **"Não consigo oferecer 30% de desconto"** — a resposta certa —
+e o `price_promise` vetou, porque o texto contém "30%" perto de "desconto".
+Duas reescritas queimadas e handoff, para um turno que a agente já tinha
+acertado de primeira. Custo: R$ 0,0045 em vez de R$ 0,0015.
+
+Isso é a mesma falha que o `weight_loss_claim` já tinha tido e corrigido em 2026-09-06.
+A varredura achou mais três gates com ela, todos confirmados barrando ao vivo:
+
+| Gate | Frase honesta que era vetada |
+|---|---|
+| `price_promise` | "Não consigo oferecer 30% de desconto" |
+| `delivery_promise` | "Não consigo entregar amanhã, a entrega leva de 3 a 5 dias" |
+| `humanity_claim` | "**Não sou uma pessoa, sou a assistente virtual**" — a frase que o próprio system prompt exige |
+| `coupon_exists` | "Não temos cupom no momento" |
+
+O `humanity_claim` era o pior: a agente não conseguia responder **"você é um
+robô?"**, a pergunta mais previsível que ela vai receber.
+
+A correção extraiu o `negatedAt` que já existia dentro do `weight_loss_claim` e
+o aplicou aos quatro. Duas exceções ficam de fora de propósito: negar ser robô
+(`"não sou um robô"`) **continua barrado**, porque ali a negação é a própria
+infração; e a negação não atravessa fronteira de frase, então
+`"Não temos frete grátis: hoje sai por R$ 99,90"` continua barrado.
+
+**Uma decisão de produto embutida:** liberar `"não temos cupom"` muda o que a
+agente pode dizer sobre promoção. O gate existe para ela nunca anunciar cupom
+que não existe na Coinzz, e recusar não anuncia nada — mas isso é chamada do
+operador, e fica sinalizado aqui para ser vetado se ele discordar.
+
+**Verificado na v12**, três sondas, todas `rewrites: 0`: identidade, cupom e
+prazo respondidos corretamente de primeira.
 
 ### O erro que a verificação em produção pegou
 
@@ -67,7 +106,7 @@ e como aviso dentro da própria migração.
 
 ### Trabalho da sessão anterior
 
-Branch `claude/handoff-continuacao-gs6x7x`, Edge Function na **versão 8**:
+Branch `claude/handoff-continuacao-gs6x7x`:
 
 1. **R8.4 corrigido** — o recomendador de tamanho determinístico é chamado
    pela Edge Function, verificado em produção. Seção dedicada mais abaixo.
