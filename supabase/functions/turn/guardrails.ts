@@ -335,12 +335,23 @@ const gates: readonly Gate[] = [
   {
     name: "invented_testimonial",
     remedy: "rewrite",
+    // A quote is only a testimonial when someone is credited with saying it. Reading
+    // every quoted string as one made the gate veto ordinary writing \u2014 repeating the
+    // customer's own question back to her, naming the product the way the page does \u2014
+    // and each veto is a paid rewrite for a sentence that was already correct.
     check: (text, ctx) => {
-      const quoted = [...text.matchAll(/[\u201c\u201d"]([^\u201c\u201d"]{12,})[\u201c\u201d"]/g)].map((m) => m[1]!);
-      if (quoted.length === 0) return null;
       const known = (ctx.knownTestimonials ?? []).map(norm);
-      const invented = quoted.find((q) => !known.some((k) => k.includes(norm(q))));
-      return invented === undefined ? null : "quotes a testimonial that is not in the knowledge base";
+      for (const m of text.matchAll(/[\u201c\u201d"]([^\u201c\u201d"]{12,})[\u201c\u201d"]/g)) {
+        const before = norm(text.slice(Math.max(0, (m.index ?? 0) - 60), m.index ?? 0));
+        const attributed =
+          /\b(cliente|compradora|menina|moca|ela|disse|falou|contou|comentou|relatou|escreveu|mandou|depoimento|avaliacao)\b/.test(
+            before,
+          );
+        if (!attributed) continue;
+        if (!known.some((k) => k.includes(norm(m[1]!))))
+          return "quotes a testimonial that is not in the knowledge base";
+      }
+      return null;
     },
   },
   {

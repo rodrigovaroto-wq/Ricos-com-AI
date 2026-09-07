@@ -337,3 +337,20 @@ describe("preço escrito por extenso conta como preço", () => {
     expect(runGates("Fica 129,90 reais, com frete incluído.", ctx()).allowed).toBe(true);
   });
 });
+
+/**
+ * O gate de depoimento lia toda aspa como depoimento. Repetir a pergunta da própria
+ * cliente de volta é escrita normal, e era vetada — reescrita paga por uma frase certa.
+ */
+describe("depoimento é a aspa que alguém assina", () => {
+  it("repetir a pergunta da cliente de volta não é depoimento", () => {
+    const r = runGates('Você perguntou "qual tamanho eu peço?" — me diz seu manequim 💛', ctx());
+    expect(r.allowed).toBe(true);
+  });
+
+  it("mas a aspa atribuída a alguém continua vetada", () => {
+    expect(
+      blocked(runGates('Uma cliente me disse: "mudou minha vida, perdi 10 cm"', ctx())),
+    ).toContain("invented_testimonial");
+  });
+});
