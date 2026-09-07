@@ -30,6 +30,26 @@ describe("sentinela de pedido de humano (§Q12)", () => {
     expect(wantsHuman("quero falar com alguem")).toBe(true);
   });
 
+  // Confirmados ao vivo antes da correção: os três disparavam um handoff irreversível.
+  it("não lê como pedido o que é assunto, e não lê recusa como pedido", () => {
+    for (const frase of [
+      "quero falar com uma pessoa que ja comprou pra saber se funciona",
+      "queria falar com alguem que ja usou o produto",
+      "queria conversar com uma cliente que ja recebeu",
+      "nao quero falar com uma pessoa agora, prefiro resolver aqui",
+      "nao queria falar com um atendente, so tirar uma duvida",
+    ]) {
+      expect(wantsHuman(frase), frase).toBe(false);
+    }
+  });
+
+  // Recusar robô É pedir gente, e começa com "não" — a guarda de negação não pode
+  // engolir justamente o caso que ela mais parece.
+  it("recusar robô continua sendo pedido de humano", () => {
+    expect(wantsHuman("não quero falar com robô")).toBe(true);
+    expect(wantsHuman("nao quero falar com bot, quero gente")).toBe(true);
+  });
+
   it("não confunde conversa normal com pedido de humano", () => {
     for (const frase of [
       "tem uma pessoa que usa e amou",

@@ -75,11 +75,48 @@ describe("qual remediação um bloqueio pede", () => {
     expect(remedyFor(result)).toBe("stop");
   });
 
-  it("limite de envio junto com preço errado adia, em vez de só reescrever", () => {
+  // A ordem que faltava: `defer` não é um veredito mais duro, é um mais tarde. Quando
+  // os dois barram, o conteúdo é corrigido primeiro e o texto já certo é que espera a
+  // janela. Ranquear ao contrário guardava a resposta errada e a descartava no dia
+  // seguinte, sem mensagem, sem handoff e sem ninguém saber.
+  it("conteúdo errado fora da janela: reescreve primeiro, adia depois", () => {
     const result = runGates(
       "Sai por R$ 99,90 hoje!",
       ctx({ pacing: { sentLastHour: 60, hourlyLimit: 60, sentToday: 100, dailyLimit: 400 } }),
     );
+    expect(remedyFor(result)).toBe("rewrite");
+  });
+
+  it("e opt-out continua vencendo os dois", () => {
+    const result = runGates(
+      "Sai por R$ 99,90 hoje!",
+      ctx({
+        optedOut: true,
+        pacing: { sentLastHour: 60, hourlyLimit: 60, sentToday: 100, dailyLimit: 400 },
+      }),
+    );
+    expect(remedyFor(result)).toBe("stop");
+  });
+});
+
+/**
+ * O achado nº 1 dos reviews, travado como teste: de madrugada, um gate de conteúdo
+ * era engolido pelo `defer`, o texto errado ia guardado, e a varredura o descartava
+ * na manhã seguinte — sem mensagem, sem handoff, sem ninguém avisado.
+ */
+describe("madrugada com conteúdo errado", () => {
+  const madrugada = ctx({ now: new Date("2026-09-07T03:00:00Z") });
+
+  it("o horário e o cupom barram juntos, e o conteúdo vence", () => {
+    const result = runGates("Temos um cupom de desconto pra você!", madrugada);
+    const bloqueados = result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+    expect(bloqueados).toContain("coupon_exists");
+    expect(bloqueados).toContain("business_hours");
+    expect(remedyFor(result)).toBe("rewrite");
+  });
+
+  it("com o conteúdo já limpo, sobra só o relógio", () => {
+    const result = runGates("Chega em 3 a 5 dias, com entrega agendada.", madrugada);
     expect(remedyFor(result)).toBe("defer");
   });
 });

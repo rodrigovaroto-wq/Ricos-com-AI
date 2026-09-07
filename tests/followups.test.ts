@@ -9,6 +9,16 @@ import {
 import { runGates } from "@/agent/guardrails.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
+/** O que o relógio de São Paulo marca naquele instante. */
+const horaEmSP = (d: Date) =>
+  Number(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "America/Sao_Paulo",
+      hour: "numeric",
+      hour12: false,
+    }).format(d),
+  );
+
 const render = (over: Partial<RenderContext> = {}): RenderContext => ({
   leadId: "lead-abc",
   config,
@@ -22,14 +32,18 @@ describe("régua de silêncio", () => {
   it("são três toques, espaçados como decidido", () => {
     const [t1, t2, t3] = scheduleSilence(now);
     expect(t1!.runAt.getTime() - now.getTime()).toBe(30 * 60_000);
-    expect(t2!.runAt.getHours()).toBe(9);
-    expect(t2!.runAt.getDate()).toBe(now.getDate() + 1);
+    expect(horaEmSP(t2!.runAt)).toBe(9);
+    expect(t2!.runAt.getTime()).toBeGreaterThan(now.getTime());
     expect(t3!.runAt.getTime() - now.getTime()).toBe(3 * 24 * 60 * 60_000);
   });
 
-  it("o segundo toque nunca cai de madrugada", () => {
-    const tarde = scheduleSilence(new Date("2026-09-06T23:40:00"));
-    expect(tarde[1]!.runAt.getHours()).toBe(9);
+  // O horário é o do negócio, não o do servidor: a Edge Function roda em UTC, onde
+  // "9h" virava 6h da manhã em Brasília.
+  it("o segundo toque cai às 9h de Brasília, venha o instante de onde vier", () => {
+    for (let h = 0; h < 24; h++) {
+      const at = scheduleSilence(new Date(`2026-09-06T${String(h).padStart(2, "0")}:40:00Z`));
+      expect(horaEmSP(at[1]!.runAt), `entrada ${h}:40Z`).toBe(9);
+    }
   });
 
   it("o primeiro toque retoma do ponto exato onde ela parou", () => {

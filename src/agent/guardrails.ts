@@ -7,7 +7,7 @@
 export interface GateConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number; prepayDiscountPercent: number };
   delivery: { codDaysMin: number; codDaysMax: number };
-  hours: { openHour: number; closeHour: number };
+  hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
   cod: { physicalOnDeliveryActive: boolean };
 }
@@ -56,6 +56,20 @@ export interface GateContext {
 
 const norm = (s: string): string =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+
+/**
+ * The window is a business decision in Brazilian hours, and the runtime clock is not:
+ * Supabase Edge Functions run in UTC, where `getHours()` turned "6h to midnight" into
+ * 03:00-21:00 in São Paulo. That silenced the agent through the evening — peak WhatsApp
+ * hours for this audience — and scheduled held replies for 3am, the exact hour the
+ * follow-up code calls "how a number gets reported".
+ */
+export const BUSINESS_TZ = "America/Sao_Paulo";
+
+export const hourIn = (at: Date, timeZone: string): number =>
+  Number(
+    new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hour12: false }).format(at),
+  );
 
 /** Every "R$ 12,34" or "R$ 12.34" in the text, as numbers. */
 const moneyIn = (text: string): number[] =>
@@ -112,15 +126,28 @@ export type Remedy = "rewrite" | "defer" | "stop";
  */
 export const wantsHuman = (text: string): boolean => {
   const t = norm(text);
-  // "para o suporte", "com a atendente": o artigo varia e a ausência dele também.
   const art = "(?:(?:o|a|os|as|um|uma)\\s+)?";
-  const who = "(?:pessoa|humano|humana|atendente|gerente|vendedor[ae]?|suporte|alguem)";
+  // The trailing guard is the whole difference between a request and a topic:
+  // "falar com uma pessoa QUE já comprou" is another customer she wants to hear
+  // about, not an attendant she wants to reach.
+  const who =
+    "(?:pessoa|humano|humana|atendente|gerente|vendedor[ae]?|suporte|alguem)(?!\\s+que\\b)";
+
+  // Refusing a bot IS asking for a person, and it starts with "nao" — so it is
+  // settled before the negation guard below, which would otherwise swallow it.
+  if (/\bnao\s+quero\s+falar\s+com\s+(rob[oa]|bot|ia|maquina)\b/.test(t)) return true;
+
+  // "não quero falar com uma pessoa agora, prefiro resolver aqui" is a refusal, and
+  // handoff is irreversible: reading it backwards ends the conversation she wanted.
+  if (new RegExp(`\\bnao\\s+(quero|queria|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}`).test(t)) {
+    return false;
+  }
+
   const asks = [
     new RegExp(`\\b(quero|queria|posso|pode|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}\\b`),
     new RegExp(`\\bfalar\\s+com\\s+${art}${who}\\s+(de\\s+verdade|real)\\b`),
     new RegExp(`\\bme\\s+(passa|passe|transfere|transfira)\\s+(pra|para)\\s+${art}${who}\\b`),
     /\b(tem|existe|ha)\s+(algum\s+)?(atendente|humano|pessoa)\s+(ai|disponivel|pra\s+falar)\b/,
-    /\bnao\s+quero\s+falar\s+com\s+(rob[oa]|bot|ia|maquina)\b/,
     /\b(atendimento|suporte)\s+humano\b/,
   ];
   return asks.some((r) => r.test(t));
@@ -274,8 +301,8 @@ const gates: readonly Gate[] = [
     remedy: "defer",
     check: (_t, ctx) => {
       if (ctx.layer === "auto") return null; // layer 1 runs 24/7 by decision R4.4
-      const h = ctx.now.getHours();
       const { openHour, closeHour } = ctx.config.hours;
+      const h = hourIn(ctx.now, ctx.config.hours.timeZone ?? BUSINESS_TZ);
       return h >= openHour && h < closeHour
         ? null
         : `agent reply outside the ${openHour}:00-${closeHour}:00 window`;
@@ -335,12 +362,18 @@ export const gateRemedies: Readonly<Record<string, Remedy>> = Object.freeze(
 );
 
 /**
- * Ranked so that the strictest answer wins when more than one gate blocks: a reply
- * that both quotes a wrong price and goes to someone who opted out is a `stop`, not
- * a rewrite. Rewriting the price would produce a correct message sent to a person
- * who asked never to hear from us again.
+ * Precedence when more than one gate blocks. `stop` wins over everything: rewriting a
+ * price would produce a correct message sent to someone who asked never to hear from
+ * us again.
+ *
+ * Between the other two, **`rewrite` outranks `defer`**, and the order matters more
+ * than it looks. `defer` is not a harsher verdict, it is a later one — the message is
+ * fine, the clock is not. Ranking it above `rewrite` meant a reply written at 3am with
+ * a wrong price got stored unfixed, re-gated at dawn, blocked again by the same price
+ * and silently canceled: no message, no handoff, nobody told. Fixing the content first
+ * and deferring the corrected text is the only order that ends with something sendable.
  */
-const SEVERITY: Record<Remedy, number> = { rewrite: 0, defer: 1, stop: 2 };
+const SEVERITY: Record<Remedy, number> = { defer: 0, rewrite: 1, stop: 2 };
 
 /**
  * What to do about a gate result: null when nothing blocked, otherwise the strictest
