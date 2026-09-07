@@ -77,19 +77,54 @@ export const hourIn = (at: Date, timeZone: string): number =>
  * emagrece" and "não consigo oferecer 30% de desconto" are both required answers, and
  * both read as violations to a regex that only sees the token. The clause boundary is
  * what stops "não precisa de academia: ele emagrece" from hiding behind an earlier no.
+ *
+ * `sem` is the exception, and it used to be treated like the rest. It denies only the
+ * noun it is attached to, not everything after it: "sem promessa de emagrecimento" is
+ * an honest sentence, while "sem juros e sem burocracia, sai por R$ 59,90" and "sem
+ * esperar muito, chega amanhã" are a made-up price and a same-day promise that the
+ * chain let through, exempted by a word that denied neither. So it only counts within
+ * its own comma-bounded phrase and a couple of words of the token. `nem` needs no such
+ * guard: it only ever carries an earlier negation forward ("não emagrece nem afina").
  */
 const negatedAt = (t: string, at: number): boolean => {
   const before = t.slice(Math.max(0, at - 30), at);
   const clause = before.split(/[:;.!?]/).pop() ?? "";
-  return /\b(nao|nunca|jamais|sem|nem)\b/.test(clause);
+  if (/\b(nao|nunca|jamais|nem)\b/.test(clause)) return true;
+  return /\bsem\b(?:\s+\S+){0,2}\s*$/.test(clause.split(",").pop() ?? "");
 };
 
-/** Every "R$ 12,34" or "R$ 12.34" in the text, with where it sits. */
+/**
+ * Every amount in the text, with where it sits. Two shapes, because customers and the
+ * agent use both: "R$ 129,90" and the bare "129,90 reais". The second used to be
+ * invisible, so "custa 200 reais" — a number the operation does not have — passed the
+ * price gate untouched.
+ */
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
-  [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)/gi)].map((m) => ({
-    value: Number(m[1]!.replace(/\./g, "").replace(",", ".")),
-    at: m.index ?? 0,
-  }));
+  [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
+    (m) => ({
+      value: Number((m[1] ?? m[2]!).replace(/\./g, "").replace(",", ".")),
+      at: m.index ?? 0,
+    }),
+  );
+
+/**
+ * A percentage is only a discount claim when something around it says so. Reading the
+ * whole message for the word "desconto" got this wrong in both directions: "te dou 30%
+ * agora" is an offer with no such word and used to pass, while "o tecido é 92%
+ * poliamida" is a spec sheet and used to be vetoed the moment any discount was also
+ * mentioned. So the decision is made in a window around each number, and composition
+ * wins over the discount reading — a fabric percentage promises nothing.
+ */
+const COMPOSITION_NEAR =
+  /(algodao|poliamida|elastano|poliester|nylon|spandex|lycra|composicao|tecido|malha)/;
+const DISCOUNT_NEAR = /(desconto|\boff\b|abatiment|promo|cupom|economi|\bmenos\b)/;
+const GIVING_BEFORE = /\b(dou|damos|dar|darei|libero|liberamos|tiro|abato|consigo|faco|fazemos)\b(?:\s+\S+){0,3}\s*$/;
+
+const looksLikeDiscount = (t: string, at: number): boolean => {
+  const window = t.slice(Math.max(0, at - 40), at + 40);
+  if (COMPOSITION_NEAR.test(window)) return false;
+  return DISCOUNT_NEAR.test(window) || GIVING_BEFORE.test(t.slice(Math.max(0, at - 30), at));
+};
 
 /**
  * Opt-out has two levels, and the difference is the whole point: a naive regex on
@@ -210,7 +245,6 @@ const gates: readonly Gate[] = [
         return `price ${m.value} is not one of the configured values`;
       }
 
-      if (!/desconto|off|economi/.test(t)) return null;
       const allowedPercents = new Set([
         prepayDiscountPercent,
         40, // anchor discount already published on the site
@@ -218,7 +252,9 @@ const gates: readonly Gate[] = [
       ]);
       for (const m of t.matchAll(/(\d{1,3})\s*%/g)) {
         const value = Number(m[1]);
-        if (allowedPercents.has(value) || negatedAt(t, m.index ?? 0)) continue;
+        const at = m.index ?? 0;
+        if (!looksLikeDiscount(t, at)) continue;
+        if (allowedPercents.has(value) || negatedAt(t, at)) continue;
         return `discount of ${value}% is not configured`;
       }
       return null;

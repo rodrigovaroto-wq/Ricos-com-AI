@@ -276,3 +276,64 @@ describe("negar não é prometer, em toda a cadeia", () => {
     );
   });
 });
+
+/**
+ * A cegueira oposta à do bloco acima: um gate que confunde qualquer negativa com uma
+ * negação da própria alegação deixa passar o que existe para barrar. Cada caso aqui
+ * foi confirmado **passando** contra a versão anterior da cadeia, com a configuração
+ * real de produção — não é hipótese.
+ */
+describe("uma negativa qualquer não é uma negação da alegação", () => {
+  it('"sem juros" não libera um preço inventado', () => {
+    expect(blocked(runGates("Sem juros e sem burocracia, sai por R$ 59,90 hoje.", ctx()))).toContain(
+      "price_promise",
+    );
+  });
+
+  it('"sem esperar" não libera a promessa de entrega para amanhã', () => {
+    expect(blocked(runGates("Sem esperar muito, chega amanhã na sua casa!", ctx()))).toContain(
+      "delivery_promise",
+    );
+  });
+
+  it('mas "nem", que carrega a negação da frase, continua liberando', () => {
+    expect(runGates("Ele não emagrece nem elimina gordura — ele modela.", ctx()).allowed).toBe(true);
+  });
+});
+
+/**
+ * O gate de preço lia a mensagem inteira para decidir se um "%" era desconto. Isso
+ * errava nos dois sentidos, e os dois custam: uma oferta sem a palavra "desconto"
+ * passava, e a ficha técnica do tecido era vetada — reescrita paga por uma frase
+ * correta.
+ */
+describe("porcentagem: desconto é decidido pela vizinhança do número", () => {
+  it("uma oferta sem a palavra desconto continua sendo uma oferta", () => {
+    expect(blocked(runGates("Te dou 30% agora se você fechar comigo.", ctx()))).toContain(
+      "price_promise",
+    );
+  });
+
+  it("composição de tecido não é desconto", () => {
+    expect(runGates("O tecido é 92% poliamida e 8% elastano.", ctx()).allowed).toBe(true);
+  });
+
+  it("e a composição continua liberada mesmo quando a mensagem fala de desconto", () => {
+    const texto =
+      "No antecipado são 15% de desconto, e o tecido é 92% poliamida com 8% elastano.";
+    expect(runGates(texto, ctx()).allowed).toBe(true);
+  });
+});
+
+/**
+ * "Custa 200 reais" é a mesma promessa que "custa R$ 200,00", e só a segunda era vista.
+ */
+describe("preço escrito por extenso conta como preço", () => {
+  it("barra um valor em reais que a operação não pratica", () => {
+    expect(blocked(runGates("Fica só 200 reais, fechado?", ctx()))).toContain("price_promise");
+  });
+
+  it("e deixa passar o valor configurado escrito do mesmo jeito", () => {
+    expect(runGates("Fica 129,90 reais, com frete incluído.", ctx()).allowed).toBe(true);
+  });
+});
