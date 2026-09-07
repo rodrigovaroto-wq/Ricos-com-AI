@@ -138,7 +138,7 @@ const parseNeighborhood = (text: string): string | null => {
  * "Campinas - SP" are the two shapes people actually write.
  */
 const parseCityAndState = (text: string): { city?: string; state?: State } => {
-  const re = /([A-Za-zÀ-ſ][A-Za-zÀ-ſ'\s]{1,40}?)\s*[\/\-–,]\s*([A-Za-z]{2})\b/;
+  const re = /([A-Za-zÀ-ſ][A-Za-zÀ-ſ'\s]{1,40}?)\s*[/\-–,]\s*([A-Za-z]{2})\b/;
   const match = text.match(re);
   if (match) {
     const candidate = match[2]!.toUpperCase() as State;
