@@ -206,3 +206,73 @@ describe("prazo: promessa na pré-venda vs. fato na logística", () => {
     );
   });
 });
+
+/**
+ * Pechinchar é a mensagem mais comum de um funil COD, e recusar é a resposta certa.
+ * Confirmado em produção antes da correção: "Não consigo oferecer 30% de desconto"
+ * era vetado, queimava duas reescritas e terminava em handoff — para um turno que a
+ * agente já tinha acertado de primeira.
+ */
+describe("recusar um número não é prometê-lo", () => {
+  it("deixa a agente negar desconto que não existe", () => {
+    const texto =
+      "Não consigo oferecer 30% de desconto. Você pode pagar R$ 129,90 na entrega, " +
+      "ou antecipado com 15% de desconto por R$ 110,42.";
+    expect(runGates(texto, ctx()).allowed).toBe(true);
+  });
+
+  it("deixa a agente negar um preço que não pratica", () => {
+    expect(runGates("Não é R$ 99,90, o valor é R$ 129,90 com frete incluído.", ctx()).allowed).toBe(
+      true,
+    );
+  });
+
+  it("mas prometer o mesmo número continua barrado", () => {
+    expect(blocked(runGates("Consigo 30% de desconto pra você!", ctx()))).toContain(
+      "price_promise",
+    );
+    expect(blocked(runGates("Hoje sai por R$ 99,90.", ctx()))).toContain("price_promise");
+  });
+
+  it("e a negação não atravessa a fronteira da frase", () => {
+    expect(
+      blocked(runGates("Não temos frete grátis: hoje sai por R$ 99,90.", ctx())),
+    ).toContain("price_promise");
+  });
+});
+
+/**
+ * A mesma cegueira, varrida em toda a cadeia: um gate que só enxerga o token barra a
+ * frase honesta que o contém. Cada caso abaixo foi confirmado barrando antes da
+ * correção, e cada um é a resposta certa para uma pergunta que a cliente faz sempre.
+ */
+describe("negar não é prometer, em toda a cadeia", () => {
+  it("a agente pode dizer que não é gente — que é o que o prompt exige", () => {
+    const texto = "Não sou uma pessoa, sou a assistente virtual da Encorpa. Quer que eu chame alguém do time?";
+    expect(runGates(texto, ctx()).allowed).toBe(true);
+  });
+
+  it("mas negar ser robô continua barrado, porque a negação é a própria infração", () => {
+    expect(blocked(runGates("Não sou um robô, pode confiar.", ctx()))).toContain("humanity_claim");
+    expect(blocked(runGates("Sou uma pessoa de verdade!", ctx()))).toContain("humanity_claim");
+  });
+
+  it("a agente pode recusar o prazo impossível", () => {
+    const texto = "Não consigo entregar amanhã. A entrega é agendada e leva de 3 a 5 dias.";
+    expect(runGates(texto, ctx()).allowed).toBe(true);
+  });
+
+  it("mas prometer amanhã continua barrado", () => {
+    expect(blocked(runGates("Chega amanhã na sua casa!", ctx()))).toContain("delivery_promise");
+  });
+
+  it("a agente pode dizer que não há cupom", () => {
+    expect(runGates("Não temos cupom de desconto no momento.", ctx()).allowed).toBe(true);
+  });
+
+  it("mas anunciar cupom inexistente continua barrado", () => {
+    expect(blocked(runGates("Tenho um cupom especial pra você!", ctx()))).toContain(
+      "coupon_exists",
+    );
+  });
+});
