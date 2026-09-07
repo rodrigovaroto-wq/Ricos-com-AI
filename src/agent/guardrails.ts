@@ -103,6 +103,29 @@ export const classifyOptOut = (text: string): OptOutLevel => {
  */
 export type Remedy = "rewrite" | "defer" | "stop";
 
+/**
+ * She asked for a person (§Q12). This is the third door into handoff, and the only
+ * one she opens herself — the other two (a veto the rewrites could not fix, and the
+ * cost ceiling) are the system giving up. It is deliberately narrower than a search
+ * for "pessoa" or "atendente": "tem uma pessoa que usa e amou" is not a request, and
+ * a false positive here silences a sale the agent was closing.
+ */
+export const wantsHuman = (text: string): boolean => {
+  const t = norm(text);
+  // "para o suporte", "com a atendente": o artigo varia e a ausência dele também.
+  const art = "(?:(?:o|a|os|as|um|uma)\\s+)?";
+  const who = "(?:pessoa|humano|humana|atendente|gerente|vendedor[ae]?|suporte|alguem)";
+  const asks = [
+    new RegExp(`\\b(quero|queria|posso|pode|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}\\b`),
+    new RegExp(`\\bfalar\\s+com\\s+${art}${who}\\s+(de\\s+verdade|real)\\b`),
+    new RegExp(`\\bme\\s+(passa|passe|transfere|transfira)\\s+(pra|para)\\s+${art}${who}\\b`),
+    /\b(tem|existe|ha)\s+(algum\s+)?(atendente|humano|pessoa)\s+(ai|disponivel|pra\s+falar)\b/,
+    /\bnao\s+quero\s+falar\s+com\s+(rob[oa]|bot|ia|maquina)\b/,
+    /\b(atendimento|suporte)\s+humano\b/,
+  ];
+  return asks.some((r) => r.test(t));
+};
+
 interface Gate {
   name: string;
   remedy: Remedy;

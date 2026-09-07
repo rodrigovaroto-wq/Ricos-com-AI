@@ -12,7 +12,9 @@
 
 export type SilenceKind = "silence_1" | "silence_2" | "silence_3";
 export type OrderKind = "order_confirmed" | "order_shipped" | "order_eve" | "order_delivered";
-export type FollowupKind = SilenceKind | OrderKind;
+/** A reply the model already wrote, held back by the clock rather than reworded. */
+export type DeferredKind = "deferred_reply";
+export type FollowupKind = SilenceKind | OrderKind | DeferredKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -31,6 +33,18 @@ const nextMorning = (from: Date, hour = 9): Date => {
   const at = new Date(from);
   at.setDate(at.getDate() + 1);
   at.setHours(hour, 0, 0, 0);
+  return at;
+};
+
+/**
+ * When the send window opens again. The business-hours gate is the only remedy that
+ * defers today, and it always resolves to the next `openHour`: before it, later the
+ * same day; after it, tomorrow morning.
+ */
+export const nextOpening = (now: Date, openHour: number): Date => {
+  const at = new Date(now);
+  if (now.getHours() >= openHour) at.setDate(at.getDate() + 1);
+  at.setHours(openHour, 0, 0, 0);
   return at;
 };
 
@@ -100,6 +114,8 @@ export interface RenderContext {
   now?: Date;
   size?: string;
   address?: string;
+  /** The already-written text, for a deferred reply. */
+  body?: string;
 }
 
 /**
@@ -113,6 +129,12 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
   const price = brl(ctx.config.prices.codBrl);
 
   switch (kind) {
+    // Nothing to render: the text was written when the turn happened. A missing body
+    // means the row is unusable, and returning null cancels the touch rather than
+    // sending an empty message.
+    case "deferred_reply":
+      return ctx.body?.trim() ? ctx.body : null;
+
     case "silence_1":
       return pickVariant(ctx.leadId, SILENCE_1[ctx.stopPoint ?? "before_size"]);
 
