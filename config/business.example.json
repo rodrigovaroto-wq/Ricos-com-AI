@@ -47,12 +47,20 @@
   },
   "scarcity": {
     "_comment": "Urgência. unitsLeft/offerEndsAt: números reais, e a agente repete só eles. allowUnverified: decisão do operador — libera a agente a criar urgência sem número contado por trás. Com ele ligado, prefira ainda assim preencher unitsLeft: número igual o dia inteiro parece real, número diferente a cada conversa é o que a cliente com o print percebe.",
-    "unitsLeft": null,
+    "unitsLeft": 12,
     "offerEndsAt": null,
-    "allowUnverified": false
+    "allowUnverified": true
   },
   "testimonials": [
     "{{DEPOIMENTO_REAL_1}}",
     "{{DEPOIMENTO_REAL_2}}"
-  ]
+  ],
+  "coinzz": {
+    "_comment": "API da Coinzz. O token NUNCA entra aqui nem no repositório: ele mora numa credencial do n8n, que é quem faz a chamada HTTP. offerHash vem do painel. codPaymentMethod = 'afterpay', confirmado pelo operador em 2026-09-08 como o método da Coinzz que corresponde a pagar depois — o primeiro pedido real deve ser conferido ponta a ponta antes de rodar tráfego, porque método errado cria cobrança que a cliente não combinou. São DUAS ofertas: offerHash é a do checkout encorpa-pagamento-na-entrega-0, prepayOfferHash é a do encorpa-pagamento-antecipado-0. Onde achar: aba Network do navegador no próprio checkout, painel da Coinzz, ou o payload de um webhook de venda antiga. O formato do exemplo deles é offxxxxxxxx.",
+    "offerHash": "{{OFFER_HASH_PAGAMENTO_NA_ENTREGA}}",
+    "prepayOfferHash": "{{OFFER_HASH_PAGAMENTO_ANTECIPADO}}",
+    "codPaymentMethod": "afterpay",
+    "prepayPaymentMethod": "pix",
+    "shippingValueCents": 0
+  }
 }
