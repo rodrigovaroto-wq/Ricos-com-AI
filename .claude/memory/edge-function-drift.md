@@ -35,3 +35,16 @@ silencioso. Duas sondas baratas cobrem o essencial — uma do que mudou, e uma
 mensagem com acento que precisa cair no opt-out (`"não quero mais receber
 nada"` → `{"status":"opted_out"}`), que prova que o `normalize("NFD")` +
 faixa de diacríticos do `guardrails.ts` sobreviveu à viagem.
+
+## O `diff` cru mente desde 2026-09-08
+
+O `deploy_edge_function` recebe o conteúdo dentro de JSON, então todo escape unicode do
+fonte (`\u2014`, `\u0300`, `\u201c`) chega em produção como o **caractere literal**.
+Depois disso, produção e repositório ficam semanticamente idênticos e byte a byte
+diferentes nessas linhas. Comparar sempre pelo sentido — um `diff` que acusa só
+escape-vs-literal não é drift.
+
+A conferência da v13 achou o inverso na mesma passada: duas linhas de comentário do
+`guardrails.ts` tinham o texto literal `\u2014` em vez do travessão, escrito assim por
+uma edição anterior. Se um `diff` mostrar escape do lado do repositório num **comentário**,
+é o repositório que está errado.

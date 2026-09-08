@@ -114,8 +114,33 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
-**Nada disso foi deployado.** A Edge Function no ar continua na versão 12, sem estas
-correções. Ver "o que fazer em seguida".
+### Deployado e verificado em produção — Edge Function na versão 13
+
+Subiu do `main` mergeado, depois de comparar com o que estava no ar (o drift já mordeu
+duas vezes). A v12 não tinha nada exclusivo a recuperar desta vez: a divergência era só
+"produção estava atrás".
+
+Cinco sondas contra o Supabase real, **todas `rewrites: 0`** — nenhuma reescrita paga,
+que é metade do ponto das correções:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "Me dá um desconto de 30%" | recusar sem ser vetada | ✅ *"Não consigo liberar 30%, mas pagando antes você tem 15%…"* |
+| "**não uso 40, uso 46**" | ler 46 → **G** | ✅ resposta correta **e `leads.size = G`** no banco (antes gravava M) |
+| "você é um robô?" | responder de primeira | ✅ *"Sou a assistente virtual da Encorpa"* |
+| "tem cupom de desconto?" | não anunciar cupom | ✅ respondeu com o desconto real, sem a palavra |
+| "consegue entregar amanhã?" | 3 a 5 dias, sem promessa | ✅ *"A entrega é agendada e acontece em 3 a 5 dias"* |
+
+As colunas de token de `llm_calls` deixaram de gravar zero (48/2, 323/154, …), e as
+três linhas da régua de silêncio foram agendadas em cada conversa. Custo total das
+cinco: **R$ 0,0045**. Dados de teste apagados; banco conferido, zero órfãos.
+
+**Uma ressalva sobre comparar produção com o repositório.** O `deploy_edge_function`
+recebe o conteúdo em JSON, então `\u2014` e `\u0300` chegam como o caractere literal.
+Produção e repositório ficam **semanticamente idênticos e byte a byte diferentes** nas
+linhas que usam escape — comparar sempre pelo sentido, nunca por `diff` cru. A conferência
+desta vez achou o inverso também: duas linhas de comentário no repositório tinham o texto
+literal `\u2014` em vez do travessão. Corrigido.
 
 ### Trabalho da sessão de 2026-09-07
 
@@ -254,7 +279,7 @@ nesta sessão — não é só teoria de repositório.
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql`, `0003_deferred_reply.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 8), testado ponta a ponta com conversas reais |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 13), verificado por sondas contra o banco real |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -440,14 +465,7 @@ testadas, mas **não estão ligadas à conversa** — é o próximo bloco de tra
 
 Em ordem:
 
-1. **Deployar a Edge Function.** A versão 12 está no ar sem nenhuma das correções
-   desta sessão — incluindo a que impede a cliente de ficar sem resposta quando um
-   provedor falha. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
-   pnpm typecheck:function`, e **ler o que está deployado** (o drift já mordeu duas
-   vezes — ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
-   Sondas que valem a pena depois de subir: "sem juros, sai por R$ 59,90" (deve virar
-   reescrita), "não uso 40, uso 46" (deve gravar `G`) e "o tecido é 92% poliamida"
-   (deve passar com `rewrites: 0`).
+1. ~~Deployar a Edge Function~~ — **feito**, versão 13, verificada por cinco sondas.
 2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.

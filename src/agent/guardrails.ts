@@ -337,8 +337,8 @@ const gates: readonly Gate[] = [
     name: "invented_testimonial",
     remedy: "rewrite",
     // A quote is only a testimonial when someone is credited with saying it. Reading
-    // every quoted string as one made the gate veto ordinary writing \u2014 repeating the
-    // customer's own question back to her, naming the product the way the page does \u2014
+    // every quoted string as one made the gate veto ordinary writing — repeating the
+    // customer's own question back to her, naming the product the way the page does —
     // and each veto is a paid rewrite for a sentence that was already correct.
     check: (text, ctx) => {
       const known = (ctx.knownTestimonials ?? []).map(norm);
