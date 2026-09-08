@@ -85,6 +85,9 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
 const SIZE_CUE =
   /(manequim|tamanho|veste|visto|vestia|uso|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
 
+/** She named two sizes because she sits between them, not because she named two things. */
+const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
+
 /**
  * The cue is denied in its own clause: "não uso 40, uso 46" states one size and
  * rejects another, and reading the first one writes G's customer down as an M. Same
@@ -93,9 +96,6 @@ const SIZE_CUE =
  * wrong size under cash on delivery is a return. The clause boundary is what lets the
  * second half of the same sentence still count.
  */
-/** She named two sizes because she sits between them, not because she named two things. */
-const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
-
 const NEGATED_CUE = /\b(nao|não|nunca|jamais)\b[^,;.!?]*$/i;
 
 /**
