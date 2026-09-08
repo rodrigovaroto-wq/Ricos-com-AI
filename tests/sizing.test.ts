@@ -78,3 +78,19 @@ describe("recomendação de tamanho", () => {
     expect(sizeFromDressSize(manequim!)).toBe("M");
   });
 });
+
+/**
+ * A mesma cegueira a negação que a cadeia de guardrails já pagou duas vezes, aqui no
+ * módulo cuja saída sobrevive à conversa: `leads.size` é o que a régua de pós-pedido
+ * lê de volta, e tamanho errado em COD é devolução.
+ */
+describe("a pista de tamanho negada não conta", () => {
+  it("lê o manequim que ela usa, não o que ela nega", () => {
+    expect(extractDressSize("não uso 40, uso 46")).toBe(46);
+    expect(extractDressSize("não visto 38, visto 44")).toBe(44);
+  });
+
+  it("e uma negação sozinha não vira tamanho nenhum", () => {
+    expect(extractDressSize("não uso 40")).toBeNull();
+  });
+});

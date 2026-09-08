@@ -10,7 +10,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > `HANDOFF.md` resumido específico dele. Se um dia os dois divergirem sobre
 > negócio, **este repositório é a fonte**.
 
-> Atualizado em: 2026-09-07
+> Atualizado em: 2026-09-08
 
 ---
 
@@ -25,6 +25,97 @@ vai preencher quando o número existir.
 ---
 
 ## Onde o trabalho parou
+
+### Trabalho da sessão de 2026-09-08 — a varredura por falhas
+
+A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava
+errado. Sondas contra a cadeia real, com a configuração de produção, acharam sete
+defeitos confirmados, mais um oitavo achado na última varredura. Todos corrigidos,
+com teste que trava cada um. **175 testes**,
+`pnpm lint`, `pnpm typecheck`, `pnpm test` e `deno check` verdes.
+
+**A cegueira a negação tinha um lado que ninguém tinha olhado.** O PR #12 varreu os
+gates que vetavam a frase honesta. O espelho disso — a negativa qualquer que libera a
+promessa — estava intacto e é o lado caro:
+
+| Frase | Devia | Fazia |
+|---|---|---|
+| "**Sem juros** e sem burocracia, sai por **R$ 59,90**" | barrar | passava |
+| "**Sem esperar** muito, **chega amanhã**" | barrar | passava |
+| "**Te dou 30%** agora" | barrar | passava (o gate só olhava % se a palavra "desconto" existisse) |
+| "O tecido é **92%** poliamida" | passar | barrava — reescrita paga por frase correta |
+| "Custa **200 reais**" | barrar | passava (só `R$` era preço) |
+| "**não uso 40**, uso 46" | ler 46 | lia **40** — gravava M para uma cliente G |
+| "Rua das Flores, **13010-100**" | sem número | lia **13010** como número da casa |
+
+Os dois últimos são os caros de verdade: tamanho errado e endereço errado, em COD,
+são o pacote que viaja, falha e volta. O `negatedAt` agora trata `sem` como o que ele
+é — nega o substantivo ao lado, não tudo o que vem depois —, o gate de porcentagem
+decide pela vizinhança do número (e composição de tecido vence desconto), e
+`sizing.ts` ganhou a mesma fronteira de cláusula. Registrado em
+[`.claude/memory/negation-blindness.md`](.claude/memory/negation-blindness.md), porque
+os quatro módulos que leem português com regex já erraram nisso.
+
+**Falha de provedor sumia com a cliente, para sempre.** Um throw da OpenAI ou da
+Gemini escapava do handler. A mensagem de entrada já estava gravada, então a
+retentativa do n8n recebia `duplicate` — e a cliente ficava esperando uma resposta que
+ninguém estava escrevendo. Silencioso, permanente, invisível no log; e o custo até a
+falha também se perdia. Agora sai pela mesma porta de todo beco sem saída: resposta de
+espera, handoff, custo gravado.
+
+**Dois gates estavam mortos e um cobrava caro.** `identical_template` nunca recebeu
+`recentOutbound` — passava por construção em toda mensagem que a agente já mandou;
+agora recebe o histórico, que já era buscado. `invented_testimonial` lia qualquer aspa
+como depoimento, então repetir a pergunta da própria cliente virava reescrita paga;
+agora só conta a aspa que alguém assina. `pacing` continua sem contexto **de
+propósito**: os contadores são da camada de canal, que não existe sem o WhatsApp.
+
+**A régua de silêncio se destruía de madrugada.** Quem para de responder às 23:30 tem
+o `silence_1` vencendo à meia-noite — fora da janela 6-24. A varredura tratava **todo**
+bloqueio como cancelamento, então o toque mais valioso da régua (o de 30 minutos
+depois, quando ela ainda lembra da conversa) era jogado fora em vez de sair ao
+amanhecer. O handler do turno distingue `defer` de `stop` desde o laço de reescrita; a
+metade do relógio nunca aprendeu a diferença.
+
+A decisão mora em `followups.decideTouch` — em `followups.ts`, e não dentro da Edge
+Function, porque ali nenhum teste alcança: a primeira versão desta correção podia ser
+apagada inteira sem que um único teste falhasse. Ela também resolve o efeito colateral
+de arrastar um toque só: adiar o `silence_1` para as 06:00 e deixar o `silence_2` às
+09:00 comprime a régua de nove horas para três, que é como um número é denunciado. A
+régua de silêncio é **reancorada** na reabertura; o pós-pedido e a resposta adiada só
+se movem, porque a hora deles é a própria mensagem.
+
+**Ressalva registrada:** `pacing` também é `defer`, e adiar para a reabertura é certo
+para um teto diário e longo demais para um horário. Latente hoje — a varredura não
+passa contador nenhum, porque eles são da camada de canal.
+
+**Três buracos de processo, fechados:**
+
+1. **`pnpm lint` nunca rodou.** O script chamava eslint, que não estava instalado nem
+   configurado. Um comando que sempre falha é pior que comando nenhum. Pegou um erro
+   real na primeira execução.
+2. **Existe CI.** [`.github/workflows/ci.yml`](.github/workflows/ci.yml) roda os quatro
+   comandos canônicos mais `typecheck:function` — a única coisa que olha o arquivo que
+   a produção executa de verdade. "Verde" deixa de significar "alguém lembrou".
+3. **A quinta cópia, que não é arquivo.** A Edge Function declara o próprio `PRICES`
+   inline. Nenhuma das duas tabelas sabia da outra: mudar `src/llm/pricing.ts` deixava
+   a produção cobrando o preço velho e todo custo gravado dali em diante
+   incomparável. O `function-drift.test.ts` agora lê o literal de dentro do
+   `index.ts` — verificado mudando um lado e vendo falhar.
+
+Também: `llm_calls` tem colunas de token e gravava zero em todas, o que deixa o custo
+armazenado sem detalhe para conferir contra a fatura. Agora grava.
+
+**A divergência do prazo, fechada.** O site prometia "entre 7 e 14 dias" no FAQ e na
+página de obrigado, contra os 3 a 5 decididos na rodada 7 — e o guardrail da agente
+**recusa** responder fora dessa janela. A mesma cliente lia um número no site e ouvia
+outro da agente. Corrigido no `Encorpa-Website` (branch
+`claude/ricos-handoff-analysis-n0bi4z`) e nos cinco lugares onde ainda aparecia nos
+docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
+que a agente não diz nenhum ali.
+
+**Nada disso foi deployado.** A Edge Function no ar continua na versão 12, sem estas
+correções. Ver "o que fazer em seguida".
 
 ### Trabalho da sessão de 2026-09-07
 
@@ -132,8 +223,8 @@ Branch `claude/handoff-continuacao-gs6x7x`:
 | [#4](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/4) | Quatro rodadas de decisão com o operador + o plano de construção ponta a ponta |
 | [#3](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/3) | Contexto inicial: produto, oferta, economia do COD, pesquisa em 8 repositórios open source, especificação funcional, guardrails |
 
-Sem CI configurado neste repositório (`.github/workflows/` não existe),
-então "verde" aqui significa `tsc --noEmit` e `vitest run` locais.
+O CI existe desde 2026-09-08 ([`.github/workflows/ci.yml`](.github/workflows/ci.yml))
+e roda `lint`, `typecheck`, `test` e `typecheck:function` em todo push e PR.
 
 ### O documento mais importante para começar
 
@@ -349,16 +440,24 @@ testadas, mas **não estão ligadas à conversa** — é o próximo bloco de tra
 
 Em ordem:
 
-1. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+1. **Deployar a Edge Function.** A versão 12 está no ar sem nenhuma das correções
+   desta sessão — incluindo a que impede a cliente de ficar sem resposta quando um
+   provedor falha. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
+   pnpm typecheck:function`, e **ler o que está deployado** (o drift já mordeu duas
+   vezes — ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
+   Sondas que valem a pena depois de subir: "sem juros, sai por R$ 59,90" (deve virar
+   reescrita), "não uso 40, uso 46" (deve gravar `G`) e "o tecido é 92% poliamida"
+   (deve passar com `rewrites: 0`).
+2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.
-2. **Alinhar o FAQ do site ao prazo real** (3 a 5 dias) — divergência aberta hoje.
-3. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
+3. ~~Alinhar o FAQ do site ao prazo real~~ — **feito nesta sessão**, ver acima.
+4. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
    credencial) e seguir para A4 (Hermes, conversão de volta para o Meta).
-4. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento das
+5. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento das
    sessões anteriores (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em
    histórico de chat, o que é motivo suficiente para trocar antes do lançamento.
-5. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
+6. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
    agente — a relação é de mão dupla.
 
 ---

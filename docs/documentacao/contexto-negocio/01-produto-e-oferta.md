@@ -12,7 +12,7 @@ Fonte: `colet-cinta-modeladora` — `docs/contexto-do-projeto.md` §1 e §2,
 | Tamanhos | P, M, G, GG, XGG (`SizeSelector.tsx` :5) |
 | Preço | **R$ 129,90**, frete embutido |
 | Pagamento | Na entrega (COD) — dinheiro, cartão ou maquininha, direto com o entregador |
-| Prazo | 7 a 14 dias, dependendo da cidade; **entrega agendada** |
+| Prazo | **3 a 5 dias** no COD; **entrega agendada**. No antecipado nenhum número é dito — o frete varia por região e a transportadora informa no checkout (R7.2) |
 | Garantia | 7 dias contando do recebimento |
 | Fornecedor / logística | Logzz |
 | Checkout | Coinzz (com Omnicash) |

@@ -114,3 +114,19 @@ describe("confirmação repetida de volta (§D2)", () => {
     expect(isComplete(semCep)).toBe(false);
   });
 });
+
+/**
+ * O CEP mora numa linha que parece a linha da rua, e o número da casa era lido de
+ * dentro dele. Número errado em COD é o pacote que viaja, falha e volta.
+ */
+describe("o CEP não é o número da casa", () => {
+  it("não inventa número quando só o CEP acompanha a rua", () => {
+    expect(extractAddress("Rua das Flores, 13010-100").fields.number).toBeUndefined();
+  });
+
+  it("e continua lendo o número real quando ele existe", () => {
+    const f = extractAddress("Rua das Flores 123, Campinas/SP, CEP 13010-100").fields;
+    expect(f.number).toBe("123");
+    expect(f.cep).toBe("13010-100");
+  });
+});

@@ -18,6 +18,7 @@ import {
   type GateConfig,
 } from "./guardrails.ts";
 import {
+  decideTouch,
   nextOpening,
   renderFollowup,
   scheduleSilence,
@@ -116,9 +117,14 @@ const callGemini = async (system: string, user: string) => {
     .join("")
     .trim();
   const usage = body.usageMetadata ?? {};
+  const inTok = usage.promptTokenCount ?? 0;
+  const outTok = usage.candidatesTokenCount ?? 0;
   return {
     text,
-    costBrl: costOf(CHEAP_MODEL, usage.promptTokenCount ?? 0, usage.candidatesTokenCount ?? 0),
+    inTok,
+    outTok,
+    cachedTok: 0,
+    costBrl: costOf(CHEAP_MODEL, inTok, outTok),
   };
 };
 
@@ -142,16 +148,45 @@ const callLuna = async (
   const text = body.choices?.[0]?.message?.content;
   if (!text) throw new Error("openai: resposta sem conteúdo");
   const usage = body.usage ?? {};
+  const inTok = usage.prompt_tokens ?? 0;
+  const outTok = usage.completion_tokens ?? 0;
+  const cachedTok = usage.prompt_tokens_details?.cached_tokens ?? 0;
   return {
     text: text as string,
-    costBrl: costOf(
-      CONVERSATION_MODEL,
-      usage.prompt_tokens ?? 0,
-      usage.completion_tokens ?? 0,
-      usage.prompt_tokens_details?.cached_tokens ?? 0,
-    ),
+    inTok,
+    outTok,
+    cachedTok,
+    costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
   };
 };
+
+/**
+ * One model call, recorded. The token columns exist in `llm_calls` and were being
+ * written as zero on every row, which makes the stored cost impossible to audit
+ * afterwards: a bill that disagrees with the sum has no breakdown to check it against.
+ */
+type ModelCall = { text: string; inTok: number; outTok: number; cachedTok: number; costBrl: number };
+
+const recordCall = (
+  conversationId: string,
+  purpose: string,
+  provider: string,
+  model: string,
+  call: ModelCall,
+) =>
+  db("llm_calls", {
+    method: "POST",
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      purpose,
+      provider,
+      model,
+      input_tokens: call.inTok,
+      output_tokens: call.outTok,
+      cached_tokens: call.cachedTok,
+      cost_brl: call.costBrl,
+    }),
+  }).catch(() => undefined);
 
 const systemPrompt = (sizeDirective: string | null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
@@ -229,9 +264,19 @@ const stopPointOf = (replyText: string): StopPoint => {
   return "before_size";
 };
 
-const scheduleSilenceTouches = async (conversationId: string, stopPoint: StopPoint) => {
+/**
+ * `from` is the moment the ruler is anchored on: normally now, the instant the agent
+ * finished speaking, and the next opening when a touch was postponed by the clock —
+ * re-anchoring keeps the 30min / next morning / 3 days spacing instead of dragging one
+ * touch forward into the next.
+ */
+const scheduleSilenceTouches = async (
+  conversationId: string,
+  stopPoint: StopPoint,
+  from: Date = new Date(),
+) => {
   await cancelScheduled(conversationId);
-  const rows = scheduleSilence(new Date()).map((f) => ({
+  const rows = scheduleSilence(from).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
@@ -318,11 +363,36 @@ const runFollowupSweep = async () => {
     }).catch(() => undefined);
 
     if (!gates.allowed) {
+      const reason = gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail";
+      const action = decideTouch(kind, remedyFor(gates));
+
+      // A touch blocked by the clock is postponed, not destroyed — and the silence
+      // ruler is re-anchored on the reopening rather than having one touch dragged
+      // forward into the next. `decideTouch` owns both halves of that decision, in
+      // `followups.ts`, where a test can reach it.
+      if (action.do === "postpone") {
+        const opening = nextOpening(new Date(), CONFIG.hours.openHour);
+        if (action.restartRuler) {
+          await scheduleSilenceTouches(
+            row.conversation_id,
+            (row.stop_point ?? "before_size") as StopPoint,
+            opening,
+          );
+        } else {
+          await db(`followups?id=eq.${row.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ run_at: opening.toISOString() }),
+          });
+        }
+        skipped.push({
+          followupId: row.id,
+          reason: `adiado para ${opening.toISOString()}: ${reason}`,
+        });
+        continue;
+      }
+
       await mark("canceled");
-      skipped.push({
-        followupId: row.id,
-        reason: gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail",
-      });
+      skipped.push({ followupId: row.id, reason });
       continue;
     }
 
@@ -517,22 +587,54 @@ Deno.serve(async (request: Request): Promise<Response> => {
     });
   }
 
+  /**
+   * A provider that fails is the one failure mode this turn cannot let stand. The
+   * inbound message is already persisted, so the retry n8n sends next is answered
+   * `duplicate` and the customer waits forever for a reply nobody is writing — silent,
+   * permanent, and invisible in the logs. So the same rule as every other dead end
+   * applies: she hears the holding reply, a person is called, and the spend up to the
+   * failure is written down instead of lost.
+   */
+  const modelFailure = async (error: unknown) => {
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    const held = await db("messages", {
+      method: "POST",
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        direction: "outbound",
+        body: HOLDING_REPLY,
+      }),
+    }).catch(() => null);
+    return json(200, {
+      status: "handoff",
+      reason: "falha ao chamar o modelo",
+      detail: error instanceof Error ? error.message : String(error),
+      reply: HOLDING_REPLY,
+      messageId: held?.[0]?.id ?? null,
+      ...notification(lead, conversation),
+      costBrl: spent,
+    });
+  };
+
   // 5. Cheap model first: intent is 20 calls a conversation and needs no talent.
-  const intent = await callGemini(
-    "Classifique a intenção da cliente em uma palavra: PRECO, TAMANHO, DUVIDA, COMPRA, OBJECAO, OUTRO.",
-    inbound.body ?? "",
-  );
+  let intent: ModelCall;
+  try {
+    intent = await callGemini(
+      "Classifique a intenção da cliente em uma palavra: PRECO, TAMANHO, DUVIDA, COMPRA, OBJECAO, OUTRO.",
+      inbound.body ?? "",
+    );
+  } catch (error) {
+    return await modelFailure(error);
+  }
   spent += intent.costBrl;
-  await db("llm_calls", {
-    method: "POST",
-    body: JSON.stringify({
-      conversation_id: conversation.id,
-      purpose: "intent",
-      provider: "google",
-      model: CHEAP_MODEL,
-      cost_brl: intent.costBrl,
-    }),
-  });
+  await recordCall(conversation.id, "intent", "google", CHEAP_MODEL, intent);
 
   // 5b. A size she stated is worth keeping: the post-order ruler reads it back,
   // and an empty column becomes a dash in a message a customer sees. What counts as
@@ -555,36 +657,44 @@ Deno.serve(async (request: Request): Promise<Response> => {
     content: m.body ?? "",
   }));
 
+  // The `identical_template` gate was in the chain and had nothing to compare against:
+  // nobody ever passed `recentOutbound`, so it passed by construction on every message
+  // the agent ever sent. The history is already here, so the check costs one map.
+  const recentOutbound = (history ?? [])
+    .filter((m: { direction: string }) => m.direction === "outbound")
+    .map((m: { body: string }) => (m.body ?? "").trim());
+
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
   // model and it writes the message again. Silence and "the operator will handle it"
   // are what this loop exists to avoid; both are last resorts, not first answers.
-  let attempt: { text: string; costBrl: number } | null = null;
-  let gates: ReturnType<typeof runGates> | null = null;
+  let attempt: ModelCall;
+  let gates: ReturnType<typeof runGates>;
   let rewritesUsed = 0;
   let correction: string | null = null;
   let outcome: NextAction = { kind: "send" };
 
   while (true) {
-    attempt = await callLuna(
-      // The correction rides in the system prompt, so the vetoed text never enters
-      // the conversation history the customer's next turn is built from.
-      correction === null
-        ? systemPrompt(sizeDirectiveFor(stated))
-        : `${systemPrompt(sizeDirectiveFor(stated))} ${correction}`,
-      turns,
-    );
+    try {
+      attempt = await callLuna(
+        // The correction rides in the system prompt, so the vetoed text never enters
+        // the conversation history the customer's next turn is built from.
+        correction === null
+          ? systemPrompt(sizeDirectiveFor(stated))
+          : `${systemPrompt(sizeDirectiveFor(stated))} ${correction}`,
+        turns,
+      );
+    } catch (error) {
+      return await modelFailure(error);
+    }
     spent += attempt.costBrl;
-    await db("llm_calls", {
-      method: "POST",
-      body: JSON.stringify({
-        conversation_id: conversation.id,
-        purpose: rewritesUsed === 0 ? "reply" : "rewrite",
-        provider: "openai",
-        model: CONVERSATION_MODEL,
-        cost_brl: attempt.costBrl,
-      }),
-    });
+    await recordCall(
+      conversation.id,
+      rewritesUsed === 0 ? "reply" : "rewrite",
+      "openai",
+      CONVERSATION_MODEL,
+      attempt,
+    );
 
     gates = runGates(attempt.text, {
       config: CONFIG,
@@ -592,6 +702,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       optedOut: false,
       now: new Date(),
       paymentPath: "cod",
+      recentOutbound,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across
