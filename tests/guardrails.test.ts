@@ -13,7 +13,7 @@ describe("a cadeia inteira", () => {
   it("deixa passar a mensagem correta do funil", () => {
     const text =
       "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. " +
-      "Chega em 3 a 5 dias e a entrega é agendada.";
+      "Chega em 1 a 3 dias e a entrega é agendada.";
     const result = runGates(text, ctx());
     expect(result.allowed).toBe(true);
   });
@@ -60,13 +60,21 @@ describe("promessas que a operação não cumpre", () => {
   });
 
   it("aceita o prazo real do COD", () => {
-    const r = runGates("Chega em 3 a 5 dias, e a entrega é agendada.", ctx());
+    const r = runGates("Chega em 1 a 3 dias, e a entrega é agendada.", ctx());
     expect(blocked(r)).not.toContain("delivery_promise");
   });
 
-  it("veta prazo firme no antecipado, onde o frete varia por região", () => {
-    const r = runGates("No antecipado chega em 3 a 5 dias.", ctx({ paymentPath: "prepay" }));
-    expect(blocked(r)).toContain("delivery_promise");
+  /**
+   * As duas janelas são diferentes, e a do COD dita no antecipado é uma promessa que a
+   * operação não cumpre — 1 a 3 dias lá é o prazo de outro caminho de pagamento.
+   */
+  it("aceita o prazo real do antecipado, e recusa o prazo do COD dito lá", () => {
+    expect(
+      blocked(runGates("No antecipado chega em 5 a 10 dias.", ctx({ paymentPath: "prepay" }))),
+    ).not.toContain("delivery_promise");
+    expect(
+      blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx({ paymentPath: "prepay" }))),
+    ).toContain("delivery_promise");
   });
 
   it("veta preço que não é o configurado", () => {
@@ -258,7 +266,7 @@ describe("negar não é prometer, em toda a cadeia", () => {
   });
 
   it("a agente pode recusar o prazo impossível", () => {
-    const texto = "Não consigo entregar amanhã. A entrega é agendada e leva de 3 a 5 dias.";
+    const texto = "Não consigo entregar amanhã. A entrega é agendada e leva de 1 a 3 dias.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 
@@ -367,7 +375,7 @@ describe("porcentagem escrita por extenso conta igual", () => {
  * O defeito que a produção pegou na v15, no turno mais caro do funil.
  *
  * O prompt manda a agente dizer as duas metades na mesma frase — prazo de entrega e
- * garantia. O `5` de "3 a 5 dias" cai a menos de quarenta caracteres de "trocar", e o
+ * garantia. O `3` de "1 a 3 dias" cai a menos de quarenta caracteres de "trocar", e o
  * gate de garantia lia isso como uma garantia de cinco dias: veto, reescrita, e a
  * cliente que tinha acabado de dizer "quero comprar" recebeu uma resposta de desvio.
  *
@@ -381,16 +389,16 @@ describe("garantia não confunde prazo de entrega com prazo de troca", () => {
   it("a frase que a produção vetou passa", () => {
     expect(
       garantia(
-        "Entrega em 3 a 5 dias e você tem 7 dias para trocar ou devolver.",
+        "Entrega em 1 a 3 dias e você tem 7 dias para trocar ou devolver.",
       ).verdict,
     ).toBe("pass");
   });
 
   it("passa nas duas ordens, e com a faixa colada na palavra troca", () => {
     for (const frase of [
-      "Você tem 7 dias pra devolver, e a entrega leva de 3 a 5 dias.",
-      "São 3 a 5 dias pra chegar; se não servir, troca em 7 dias.",
-      "Chega em 3 a 5 dias, dá pra trocar depois.",
+      "Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias.",
+      "São 1 a 3 dias pra chegar; se não servir, troca em 7 dias.",
+      "Chega em 1 a 3 dias, dá pra trocar depois.",
     ]) {
       expect(garantia(frase).verdict, frase).toBe("pass");
     }
@@ -400,7 +408,7 @@ describe("garantia não confunde prazo de entrega com prazo de troca", () => {
     for (const frase of [
       "Você tem 30 dias para devolver.",
       "A troca vale por 15 dias.",
-      "Entrega em 3 a 5 dias e você tem 30 dias pra trocar.",
+      "Entrega em 1 a 3 dias e você tem 30 dias pra trocar.",
     ]) {
       expect(garantia(frase).verdict, frase).toBe("block");
     }

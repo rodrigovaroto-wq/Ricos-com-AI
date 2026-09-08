@@ -160,16 +160,17 @@ dias exatamente onde ela vale mais.
 
 **O prazo entra aqui, antes do fechamento, nunca depois:**
 
-> A entrega chega em **3 a 5 dias** e é **agendada** — você fica sabendo o dia e eu te aviso na
-> véspera. Não é aquele "chega amanhã" que some no meio do caminho.
+> A entrega chega em **1 a 3 dias** e **quem escolhe o dia é você**, no checkout — eu te aviso
+> na véspera. Não é aquele "chega amanhã" que some no meio do caminho.
 
 Prazo dito na hora certa não derruba venda; prazo descoberto depois derruba entrega. E entrega
 recusada é o evento mais caro que essa operação tem.
 
-**No caminho antecipado o prazo não é dito em números.** Ali o frete é contratado à parte e
-varia por região — qualquer janela firme vira promessa que a operação não controla. A frase é
-*"a transportadora te dá o prazo no checkout, junto com o frete"*, e o guardrail de prazo veta
-qualquer número nesse caminho.
+**No caminho antecipado a janela é outra: 5 a 10 dias úteis** (conferida no checkout em
+2026-09-08). O frete continua sendo contratado à parte e variando por região, então o valor
+dele sai no checkout — mas o prazo tem número, e esconder o número na frente do caminho que
+já pede o dinheiro adiantado é perder a venda por silêncio. O guardrail de prazo veta a
+janela de um caminho dita no outro.
 
 ---
 
@@ -357,7 +358,7 @@ Cada linha aqui já esteve no script antigo, e cada uma custa dinheiro em COD.
 
 | Nunca dizer | Por quê |
 |---|---|
-| "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 3 a 5 dias, agendado. Prometer amanhã é o que produz recusa na porta |
+| "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 1 a 3 dias, e o dia quem escolhe é ela no checkout. Prometer amanhã é o que produz recusa na porta |
 | "Frete grátis" no caminho antecipado | Lá o frete é calculado à parte, no checkout |
 | "Parcele em até 12x" | Depende da maquininha do entregador; a operação não controla |
 | Qualquer preço que não seja R$ 129,90 (COD) ou R$ 110,41 (antecipado) | Fonte única de preço |

@@ -30,7 +30,7 @@ import { CHATS } from "./chats.js";
 
 const config = {
   prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-  delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
+  delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
@@ -160,16 +160,17 @@ for (const [angle, reply] of [
 // E. Prazo de entrega (37-46)
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply, ctx, esperado] of [
-  ["janela correta", "Chega em 3 a 5 dias, com entrega agendada.", {}, "envia"],
-  ["recusa amanhã", "Não consigo entregar amanhã: a entrega leva de 3 a 5 dias.", {}, "envia"],
+  ["janela correta", "Chega em 1 a 3 dias, com entrega agendada.", {}, "envia"],
+  ["recusa amanhã", "Não consigo entregar amanhã: a entrega leva de 1 a 3 dias.", {}, "envia"],
   ["promete amanhã", "Você recebe amanhã!", {}, "barra(delivery_promise)"],
   ["promete hoje", "Chega hoje mesmo.", {}, "barra(delivery_promise)"],
   ["'sem esperar' não é negação", "Sem esperar muito, chega amanhã.", {}, "barra(delivery_promise)"],
   ["janela larga demais", "Chega em 7 a 14 dias.", {}, "barra(delivery_promise)"],
-  ["janela curta demais", "Chega em 1 a 2 dias.", {}, "barra(delivery_promise)"],
+  ["entrega com a janela do antecipado", "Chega em 5 a 10 dias.", {}, "barra(delivery_promise)"],
   ["véspera na logística", "Sua entrega está marcada pra amanhã 💛", { stage: "logistics" as const }, "envia"],
   ["véspera na pré-venda", "Sua entrega está marcada pra amanhã 💛", { stage: "presale" as const }, "barra(delivery_promise)"],
-  ["prazo firme no antecipado", "No antecipado chega em 3 a 5 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
+  ["antecipado dentro da janela dele", "No antecipado chega em 5 a 10 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
+  ["antecipado com a janela da entrega", "No antecipado chega em 1 a 3 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
 ] as Array<[string, string, Partial<GateContext>, string]>) {
   check("prazo", angle, reply, esperado, outcome(reply, ctx));
 }

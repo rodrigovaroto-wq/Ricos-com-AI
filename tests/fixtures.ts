@@ -8,8 +8,10 @@ export const config: BusinessConfig = {
   agentName: "Malu",
   prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
   delivery: {
-    codDaysMin: 3,
-    codDaysMax: 5,
+    codDaysMin: 1,
+    codDaysMax: 3,
+    prepayDaysMin: 5,
+    prepayDaysMax: 10,
     codScheduled: true,
     prepayVariesByRegion: true,
     warrantyDays: 7,

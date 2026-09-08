@@ -140,7 +140,8 @@ describe("o briefing que vai no prompt", () => {
     expect(texto).toContain("R$ 110,41");
     expect(texto).toContain("R$ 216,50");
     expect(texto).toContain("15%");
-    expect(texto).toContain("3 a 5 dias");
+    expect(texto).toContain("1 a 3 dias");
+    expect(texto).toContain("5 a 10 dias úteis");
     expect(texto).toContain("7 dias");
   });
 

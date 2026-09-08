@@ -114,7 +114,7 @@ const R = {
   price:
     "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,41, e aí o frete é calculado à parte no checkout.",
   askSize: "Que tamanho de calça você usa? Pode ser o número ou a letra, como preferir.",
-  delivery: "Chega em 3 a 5 dias e a entrega é agendada, então você fica sabendo o dia.",
+  delivery: "Chega em 1 a 3 dias e você escolhe o dia no checkout, então não tem surpresa.",
   noSlim: "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",
   identity:
     "Não sou uma pessoa, sou a assistente virtual da Encorpa. Se preferir, chamo alguém do time agora.",
@@ -256,7 +256,7 @@ export const ARCS: Arc[] = [
   {
     name: "quer para amanhã",
     turns: (p) => [
-      { from: p.style("chega amanhã?"), vetoedFirst: BAD.tomorrow, reply: "Não consigo entregar amanhã: a entrega leva de 3 a 5 dias, e é agendada." },
+      { from: p.style("chega amanhã?"), vetoedFirst: BAD.tomorrow, reply: "Não consigo prometer amanhã: a entrega leva de 1 a 3 dias, e o dia quem escolhe é você." },
     ],
     expect: () => ({ sent: 1, minRewrites: 1 }),
   },

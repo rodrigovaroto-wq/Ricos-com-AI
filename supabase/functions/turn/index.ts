@@ -75,7 +75,14 @@ const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
 interface BusinessConfig extends GateConfig {
   brand: string;
   agentName: string;
-  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
+  delivery: {
+    codDaysMin: number;
+    codDaysMax: number;
+    /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
+    prepayDaysMin?: number;
+    prepayDaysMax?: number;
+    warrantyDays: number;
+  };
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
@@ -106,7 +113,7 @@ const CONFIG: BusinessConfig = JSON.parse(
       brand: "Encorpa",
       agentName: "Malu",
       prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-      delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
+      delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
@@ -242,6 +249,18 @@ const recordCall = (
   }).catch(() => undefined);
 
 /**
+ * The prepaid window, or nothing. It was nothing until 2026-09-08: the freight is quoted
+ * per region there, so no one knew the deadline and the rule was to promise none. The
+ * operator checked the checkout and it exists — 5 to 10 business days. With the fields
+ * empty the prompt says nothing, which is what `delivery_promise` still enforces.
+ */
+const prepayWindowLine = (): string => {
+  const { prepayDaysMin, prepayDaysMax } = CONFIG.delivery;
+  if (prepayDaysMin == null || prepayDaysMax == null) return "";
+  return `entrega em ${prepayDaysMin} a ${prepayDaysMax} dias úteis,`;
+};
+
+/**
  * What the agent is allowed to say about urgency, decided by config rather than by the
  * model's instincts. Three settings, and the difference between them is who is
  * accountable for the number:
@@ -323,10 +342,11 @@ const systemPrompt = (
     ``,
     `Preço: ${money(CONFIG.prices.codBrl)} com frete incluído, pago na entrega ao entregador,`,
     `em dinheiro ou cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax}`,
-    `dias, agendada. Nunca prometa prazo menor. ${CONFIG.delivery.warrantyDays} dias para trocar`,
-    `ou devolver. Quem prefere pagar antes leva ${CONFIG.prices.prepayDiscountPercent}% de desconto`,
-    `(${money(CONFIG.prices.prepayBrl)}), e aí o frete é calculado à parte no checkout — as duas`,
-    `metades saem na mesma frase.`,
+    `dias, agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
+    `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
+    `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
+    `${prepayWindowLine()} e aí o frete é calculado à parte no checkout — as duas metades saem na`,
+    `mesma frase.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
     `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,

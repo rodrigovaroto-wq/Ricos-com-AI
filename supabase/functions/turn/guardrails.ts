@@ -6,7 +6,20 @@
  */
 export interface GateConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number; prepayDiscountPercent: number };
-  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
+  delivery: {
+    codDaysMin: number;
+    codDaysMax: number;
+    /**
+     * A janela do antecipado, em dias úteis. Ela não existia: até 2026-09-08 a regra era
+     * "no antecipado não se diz prazo nenhum", porque o frete varia por região e ninguém
+     * sabia o prazo. O operador conferiu no checkout e ele existe — 5 a 10 dias úteis. Sem
+     * estes campos o gate volta a barrar qualquer janela no antecipado, que é o certo
+     * enquanto não houver número.
+     */
+    prepayDaysMin?: number;
+    prepayDaysMax?: number;
+    warrantyDays: number;
+  };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
   cod: { physicalOnDeliveryActive: boolean };
@@ -406,16 +419,20 @@ const gates: readonly Gate[] = [
     name: "delivery_promise",
     remedy: "rewrite",
     briefing: (c) =>
-      `Prazo: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, e nunca ` +
-      `"chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir. No caminho antecipado ` +
-      `não diga prazo nenhum: o frete é calculado por região dentro do checkout. Recusar a data ` +
-      `impossível é permitido.`,
+      `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
+      `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
+      `o dia é ela, no checkout. No antecipado` +
+      `${
+        c.delivery.prepayDaysMin != null && c.delivery.prepayDaysMax != null
+          ? `, ${c.delivery.prepayDaysMin} a ${c.delivery.prepayDaysMax} dias úteis`
+          : ` não diga prazo nenhum`
+      }. Recusar a data impossível é permitido.`,
     check: (text, ctx) => {
       const t = norm(text);
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
 
       // Refusing the impossible date is the job: "não consigo entregar amanhã, a
-      // entrega leva de 3 a 5 dias" is the right answer to the most common question
+      // entrega leva de 1 a 3 dias" is the right answer to the most common question
       // in this funnel, and it used to be vetoed for containing the words it denies.
       if (ctx.stage !== "logistics") {
         for (const m of t.matchAll(
@@ -425,16 +442,28 @@ const gates: readonly Gate[] = [
         }
       }
 
-      // Any "N a M dias" claim has to sit inside the configured window.
+      /**
+       * Each path has its own window, and the prepaid one only exists because someone
+       * looked. Until 2026-09-08 the rule here was "say no window on the prepaid path",
+       * on the reasoning that freight varies by region — true, and about price, not about
+       * time. The operator walked the checkout and found the carrier does state a window.
+       *
+       * A path with no configured window still refuses every claim, which is the right
+       * default: better mute than inventing a date the carrier never agreed to.
+       */
+      const [min_, max_] =
+        ctx.paymentPath === "cod"
+          ? [codDaysMin, codDaysMax]
+          : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
+
       for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
         const min = Number(m[1]);
         const max = Number(m[2]);
-        if (ctx.paymentPath === "cod" && (min < codDaysMin || max > codDaysMax))
-          return `delivery window ${min}-${max} days contradicts the configured ${codDaysMin}-${codDaysMax}`;
+        if (min_ == null || max_ == null)
+          return `states a delivery window on the ${ctx.paymentPath} path, which has none configured`;
+        if (min < min_ || max > max_)
+          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_}`;
       }
-      // Prepaid freight varies by region: a firm window there is a promise we cannot keep.
-      if (ctx.paymentPath === "prepay" && /\d{1,2}\s*(?:a|e|ate)\s*\d{1,2}\s*dias/.test(t))
-        return "states a firm delivery window on the prepaid path, where freight varies by region";
       return null;
     },
   },
@@ -592,7 +621,7 @@ const gates: readonly Gate[] = [
       /**
        * The delivery window's own numbers, and where they sit.
        *
-       * "Entrega em 3 a 5 dias e você tem 7 dias para trocar" is the sentence the prompt
+       * "Entrega em 1 a 3 dias e você tem 7 dias para trocar" is the sentence the prompt
        * asks for — both halves in one breath — and it was vetoed in production: the `5`
        * of the delivery range sits inside forty characters of "trocar", so the warranty
        * gate read it as a five-day warranty and refused the agent's own script. It cost a

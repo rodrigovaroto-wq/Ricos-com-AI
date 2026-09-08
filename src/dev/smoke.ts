@@ -18,7 +18,7 @@ const config: BusinessConfig = JSON.parse(
       site: "encorpa-fashion.com.br",
       agentName: "Malu",
       prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-      delivery: { codDaysMin: 3, codDaysMax: 5, codScheduled: true, prepayVariesByRegion: true, warrantyDays: 7 },
+      delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, codScheduled: true, prepayVariesByRegion: true, warrantyDays: 7 },
       sizes: ["P", "M", "G", "GG", "XGG"],
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },

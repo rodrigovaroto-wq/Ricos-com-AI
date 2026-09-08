@@ -13,6 +13,9 @@ export interface BusinessConfig {
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
+    /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
+    prepayDaysMin: number;
+    prepayDaysMax: number;
     codScheduled: boolean;
     prepayVariesByRegion: boolean;
     warrantyDays: number;

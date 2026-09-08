@@ -50,7 +50,7 @@ describe("classificação dos onze gates", () => {
 
 describe("qual remediação um bloqueio pede", () => {
   it("mensagem aprovada não pede remediação nenhuma", () => {
-    const result = runGates("Chega em 3 a 5 dias, com entrega agendada.", ctx());
+    const result = runGates("Chega em 1 a 3 dias, com entrega agendada.", ctx());
     expect(result.allowed).toBe(true);
     expect(remedyFor(result)).toBeNull();
   });
@@ -62,7 +62,7 @@ describe("qual remediação um bloqueio pede", () => {
 
   it("fora do horário pede adiamento, não reescrita", () => {
     const result = runGates(
-      "Chega em 3 a 5 dias, com entrega agendada.",
+      "Chega em 1 a 3 dias, com entrega agendada.",
       ctx({ now: new Date("2026-09-06T03:00:00") }),
     );
     expect(remedyFor(result)).toBe("defer");
@@ -122,7 +122,7 @@ describe("madrugada com conteúdo errado", () => {
   });
 
   it("com o conteúdo já limpo, sobra só o relógio", () => {
-    const result = runGates("Chega em 3 a 5 dias, com entrega agendada.", madrugada);
+    const result = runGates("Chega em 1 a 3 dias, com entrega agendada.", madrugada);
     expect(remedyFor(result)).toBe("defer");
   });
 });
