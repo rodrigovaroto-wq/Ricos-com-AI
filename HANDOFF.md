@@ -757,16 +757,28 @@ Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e 
 
 ---
 
+## v18 no ar (2026-09-08)
+
+`turn` v18, com as duas janelas de entrega de R9.3 e o gate escolhendo a janela pelo caminho
+de pagamento. Rota de deploy: a mesma Management API multipart de v15-v17. **O que a v18
+ainda não corrige é o frete** — o prompt continua dizendo "R$ 129,90 com frete incluído",
+que o checkout desmente. Isso espera decisão registrada abaixo.
+
+---
+
 ## Estoque por tamanho e por região — a preocupação aberta (2026-09-08)
 
 O operador levantou o risco que mais ameaça a escala, e ele é de operação, não de código:
 o fornecedor tem **poucas peças por região e por tamanho**, repõe o tempo todo, e o plano é
 vender muito. Três perguntas em cima disso, e o estado honesto de cada uma:
 
-1. **O que acontece se ela escolher M e não houver M para a região dela?** *Não sabemos.*
-   Ninguém testou. O único fato próximo é o Q14: Coinzz/Logzz **impedem a criação de pedido
-   COD para região sem cobertura** — mas isso é cobertura de rota, não estoque por variação,
-   e é outra coisa. É um teste de dez minutos no checkout, com um CEP de região pequena.
+1. **O que acontece se ela escolher M e não houver M para a região dela?** **Testado pelo
+   operador em 2026-09-08.** O checkout deixa selecionar o tamanho e só então abre um pop-up
+   dizendo que aquela variação está indisponível para a região. **No endereço dele, M está
+   indisponível no pagamento na entrega e disponível no antecipado** — e o antecipado ainda
+   apareceu com frete zero. Ou seja: existe uma consulta de disponibilidade por variação e
+   por região atrás daquele pop-up, e achá-la é o que permite a agente **checar antes de
+   indicar**, em vez de indicar e a cliente bater na parede.
 2. **A agente consegue checar antes de indicar o tamanho?** *Hoje, não.* Ela indica pela
    tabela determinística de cintura e mais nada; não existe fonte de estoque ligada a ela.
    Para existir, a Logzz precisa expor estoque por variação e por região — e isso não está
