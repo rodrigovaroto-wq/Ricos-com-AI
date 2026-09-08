@@ -588,9 +588,30 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
         return "promises a warranty with no limit";
+
+      /**
+       * The delivery window's own numbers, and where they sit.
+       *
+       * "Entrega em 3 a 5 dias e você tem 7 dias para trocar" is the sentence the prompt
+       * asks for — both halves in one breath — and it was vetoed in production: the `5`
+       * of the delivery range sits inside forty characters of "trocar", so the warranty
+       * gate read it as a five-day warranty and refused the agent's own script. It cost a
+       * rewrite and the fallback on the turn where the customer said "quero comprar",
+       * which is the most expensive turn there is.
+       *
+       * A warranty is never a range in this operation — it is one number — so any digit
+       * that belongs to an "N a M dias" span belongs to logistics, not to this gate.
+       */
+      const deliverySpans = [...t.matchAll(/\d{1,2}\s*(?:a|e|ate)\s*\d{1,2}\s*dias/g)].map(
+        (m) => [m.index ?? 0, (m.index ?? 0) + m[0].length] as const,
+      );
+      const insideDeliveryWindow = (at: number): boolean =>
+        deliverySpans.some(([from, to]) => at >= from && at < to);
+
       const window = /(troc|devolv|garanti|arrepend)/;
       for (const m of t.matchAll(/(\d{1,3})\s*dias?/g)) {
         const at = m.index ?? 0;
+        if (insideDeliveryWindow(at)) continue;
         const around = t.slice(Math.max(0, at - 40), at + 40);
         if (!window.test(around)) continue;
         if (Number(m[1]) !== ctx.config.delivery.warrantyDays)

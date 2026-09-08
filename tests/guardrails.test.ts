@@ -362,3 +362,47 @@ describe("porcentagem escrita por extenso conta igual", () => {
     );
   });
 });
+
+/**
+ * O defeito que a produção pegou na v15, no turno mais caro do funil.
+ *
+ * O prompt manda a agente dizer as duas metades na mesma frase — prazo de entrega e
+ * garantia. O `5` de "3 a 5 dias" cai a menos de quarenta caracteres de "trocar", e o
+ * gate de garantia lia isso como uma garantia de cinco dias: veto, reescrita, e a
+ * cliente que tinha acabado de dizer "quero comprar" recebeu uma resposta de desvio.
+ *
+ * Garantia nesta operação nunca é faixa, é um número só — então dígito que pertence a
+ * um "N a M dias" é logística, e não é deste gate.
+ */
+describe("garantia não confunde prazo de entrega com prazo de troca", () => {
+  const garantia = (texto: string) =>
+    runGates(texto, ctx()).traces.find((t) => t.gate === "warranty_promise")!;
+
+  it("a frase que a produção vetou passa", () => {
+    expect(
+      garantia(
+        "Entrega em 3 a 5 dias e você tem 7 dias para trocar ou devolver.",
+      ).verdict,
+    ).toBe("pass");
+  });
+
+  it("passa nas duas ordens, e com a faixa colada na palavra troca", () => {
+    for (const frase of [
+      "Você tem 7 dias pra devolver, e a entrega leva de 3 a 5 dias.",
+      "São 3 a 5 dias pra chegar; se não servir, troca em 7 dias.",
+      "Chega em 3 a 5 dias, dá pra trocar depois.",
+    ]) {
+      expect(garantia(frase).verdict, frase).toBe("pass");
+    }
+  });
+
+  it("e continua barrando a garantia que ninguém prometeu", () => {
+    for (const frase of [
+      "Você tem 30 dias para devolver.",
+      "A troca vale por 15 dias.",
+      "Entrega em 3 a 5 dias e você tem 30 dias pra trocar.",
+    ]) {
+      expect(garantia(frase).verdict, frase).toBe("block");
+    }
+  });
+});
