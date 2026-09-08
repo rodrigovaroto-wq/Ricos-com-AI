@@ -1,13 +1,14 @@
 import { describe, expect, it } from "vitest";
 import {
   buildCoinzzRequest,
+  COINZZ_PAYMENT_METHODS,
   CoinzzIncompleteError,
   missingCoinzzConfig,
   readCoinzzResponse,
   toCents,
   toCoinzzAddress,
   type CoinzzConfig,
-} from "@/order/coinzz.js";
+} from "@/agent/coinzz.js";
 import type { Address } from "@/agent/address.js";
 
 const address: Address = {
@@ -150,5 +151,24 @@ describe("resposta da Coinzz", () => {
       /oferta inválida/,
     );
     expect(() => readCoinzzResponse({ success: true, data: [] })).toThrow(/sem order_hash/);
+  });
+});
+
+/**
+ * `afterpay` foi a escolha do operador em 2026-09-08: dos quatro métodos que a Coinzz
+ * aceita, é o único que significa pagar depois, e pagar depois é o funil inteiro. Fica
+ * travado em teste porque trocar isso sem querer cria um pedido que a cliente não
+ * combinou pagar daquele jeito — e ela descobre na porta, que é a recusa mais cara
+ * que esta operação tem.
+ */
+describe("o método de pagamento do COD", () => {
+  it("é afterpay, e o corpo sai com ele", () => {
+    const { body } = buildCoinzzRequest(request, { ...config, codPaymentMethod: "afterpay" }, "k");
+    expect(body.payment_method).toBe("afterpay");
+  });
+
+  it("e a Coinzz não tem nenhum método chamado 'cod'", () => {
+    expect(COINZZ_PAYMENT_METHODS).toEqual(["afterpay", "bank_slip", "credit_card", "pix"]);
+    expect(COINZZ_PAYMENT_METHODS).not.toContain("cod");
   });
 });

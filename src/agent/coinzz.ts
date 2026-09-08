@@ -17,8 +17,21 @@
  * never agreed to pay that way and she finds out at the door. So it is configuration
  * the operator confirms in the Coinzz dashboard, never an inference made here.
  */
-import type { Address } from "../agent/address.js";
-import type { CheckoutRequest } from "./checkout.js";
+import type { Address } from "./address.ts";
+
+/**
+ * The slice of the checkout request this module reads. Declared here rather than
+ * imported so the Edge Function copy stays byte-identical to `src/order/coinzz.ts`,
+ * the rule every mirrored file follows.
+ */
+export interface CheckoutRequest {
+  leadId: string;
+  name: string;
+  phone: string;
+  address: Address;
+  size: string;
+  paymentMethod: "cod" | "prepay";
+}
 
 /** The four values their `payment_method` accepts. */
 export const COINZZ_PAYMENT_METHODS = ["afterpay", "bank_slip", "credit_card", "pix"] as const;

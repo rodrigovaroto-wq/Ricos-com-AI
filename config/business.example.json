@@ -56,10 +56,9 @@
     "{{DEPOIMENTO_REAL_2}}"
   ],
   "coinzz": {
-    "_comment": "API da Coinzz. O token NUNCA entra aqui nem no repositório: ele mora em config/business.json (gitignored) e no secret COINZZ_TOKEN da Supabase. baseUrl, offerHash e codPaymentMethod vêm do painel da Coinzz — sem eles o cliente recusa criar pedido em vez de adivinhar.",
-    "baseUrl": "{{URL_BASE_API_COINZZ}}",
+    "_comment": "API da Coinzz. O token NUNCA entra aqui nem no repositório: ele mora numa credencial do n8n, que é quem faz a chamada HTTP. offerHash vem do painel. codPaymentMethod = 'afterpay', confirmado pelo operador em 2026-09-08 como o método da Coinzz que corresponde a pagar depois — o primeiro pedido real deve ser conferido ponta a ponta antes de rodar tráfego, porque método errado cria cobrança que a cliente não combinou.",
     "offerHash": "{{OFFER_HASH}}",
-    "codPaymentMethod": "{{afterpay_OU_O_QUE_A_COINZZ_USAR_PARA_PAGAMENTO_NA_ENTREGA}}",
+    "codPaymentMethod": "afterpay",
     "shippingValueCents": 0
   }
 }

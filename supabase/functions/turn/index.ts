@@ -43,6 +43,13 @@ import {
   type Identity,
 } from "./identity.ts";
 import {
+  buildCoinzzRequest,
+  CoinzzIncompleteError,
+  missingCoinzzConfig,
+  type CoinzzConfig,
+  type CoinzzRequest,
+} from "./coinzz.ts";
+import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
@@ -71,6 +78,12 @@ interface BusinessConfig extends GateConfig {
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
   /**
+   * The Coinzz order, minus the credential — that one lives in an n8n credential, and
+   * the HTTP call with it. What belongs here is the part that is a business rule:
+   * which offer, and which of their four payment methods means paying at the door.
+   */
+  coinzz?: Partial<CoinzzConfig>;
+  /**
    * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
    * attributed to a customer that is not in this list — which, while the list was
    * empty, meant the agent could never use social proof at all. Fill it and quoting
@@ -94,6 +107,11 @@ const CONFIG: BusinessConfig = JSON.parse(
       // estável para repetir; `allowUnverified` deixa ela criar urgência sobre o lote
       // mesmo sem contagem por trás. Trocar aqui, ou sobrescrever por BUSINESS_CONFIG.
       scarcity: { unitsLeft: 12, allowUnverified: true },
+      // `afterpay` é o método da Coinzz que corresponde a pagar depois, confirmado
+      // pelo operador em 2026-09-08. `offerHash` ainda vem do painel — sem ele o
+      // corpo não é montado, e o turno diz exatamente o que falta em vez de mandar
+      // um pedido pela metade.
+      coinzz: { codPaymentMethod: "afterpay" },
     }),
 );
 
@@ -1060,12 +1078,44 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // The silence ruler starts the moment the agent finishes speaking.
   await scheduleSilenceTouches(conversation.id, stopPointOf(reply.text));
 
+  // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
+  // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
+  // ou dado da cliente — vem `orderBlocked` com o nome exato do que falta, em vez de
+  // um corpo pela metade que vira pacote na porta errada.
+  let order: CoinzzRequest | null = null;
+  let orderBlocked: string[] = missingCoinzzConfig(CONFIG.coinzz ?? {});
+  const size = stated?.size ?? lead.size ?? null;
+  if (addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) && size) {
+    try {
+      order = buildCoinzzRequest(
+        {
+          leadId: lead.id,
+          name: identityDraft.name,
+          email: identityDraft.email,
+          document: identityDraft.document,
+          phone: lead.phone,
+          address: addressDraft,
+          size,
+          paymentMethod: "cod",
+        },
+        CONFIG.coinzz as CoinzzConfig,
+        `${lead.id}:${size}:${addressDraft.cep}:${addressDraft.number}`,
+      );
+      orderBlocked = [];
+    } catch (error) {
+      orderBlocked =
+        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
+    }
+  }
+
   return json(200, {
     status: "ok",
     intent: intent.text,
     reply: reply.text,
     messageId: outbound.id,
     rewrites: rewritesUsed,
+    order,
+    orderBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.
     size: stated?.size ?? lead.size ?? null,
