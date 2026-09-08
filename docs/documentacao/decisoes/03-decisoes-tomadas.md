@@ -237,6 +237,19 @@ Respostas do operador em 2026-09-05.
 
 ## R2.1 — Frete do antecipado: fica com a cliente, e o desconto sobe para 15%
 
+> ### ⚠️ Correção de 2026-09-08 — o preço antecipado é R$ 110,41
+>
+> A oferta foi lida direto no painel da Coinzz (`offkw47x`, id 69452) e ela cobra
+> **R$ 110,41**, não R$ 110,42. Os 15% sobre R$ 129,90 dão 110,415, e a Coinzz
+> truncou para baixo — nós arredondávamos para cima. A economia declarável é
+> **R$ 19,49**.
+>
+> O centavo importa por um motivo que não é o centavo: o guardrail de preço da
+> agente só admite os valores configurados, então com 110,42 gravado ela seria
+> **vetada ao dizer o preço real do checkout**. Números corrigidos no código, no
+> site e nesta pasta; os valores antigos abaixo ficam onde estão, porque as
+> contas de rodada foram feitas com eles.
+
 **Decisão:** o frete continua por conta da cliente. O desconto do pagamento antecipado sobe
 de 10% para **15%** — preço do produto a **R$ 110,42**.
 

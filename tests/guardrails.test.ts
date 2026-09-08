@@ -77,7 +77,7 @@ describe("promessas que a operação não cumpre", () => {
   it("aceita os dois preços da operação e a economia entre eles", () => {
     const r = runGates(
       `No antecipado sai por R$ ${config.prices.prepayBrl.toFixed(2).replace(".", ",")} ` +
-        "em vez de R$ 129,90 — economia de R$ 19,48.",
+        "em vez de R$ 129,90 — economia de R$ 19,49.",
       ctx(),
     );
     expect(blocked(r)).not.toContain("price_promise");
@@ -217,7 +217,7 @@ describe("recusar um número não é prometê-lo", () => {
   it("deixa a agente negar desconto que não existe", () => {
     const texto =
       "Não consigo oferecer 30% de desconto. Você pode pagar R$ 129,90 na entrega, " +
-      "ou antecipado com 15% de desconto por R$ 110,42.";
+      "ou antecipado com 15% de desconto por R$ 110,41.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 

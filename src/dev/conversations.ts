@@ -110,7 +110,7 @@ export interface Arc {
 const R = {
   greet: "Oi! Que bom te ver por aqui 💛 Posso te ajudar com o colete?",
   price:
-    "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,42, e aí o frete é calculado à parte no checkout.",
+    "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,41, e aí o frete é calculado à parte no checkout.",
   askSize: "Que tamanho de calça você usa? Pode ser o número ou a letra, como preferir.",
   delivery: "Chega em 3 a 5 dias e a entrega é agendada, então você fica sabendo o dia.",
   noSlim: "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",

@@ -29,7 +29,7 @@ import { decideTouch, renderFollowup, scheduleSilence, type FollowupKind } from 
 import { CHATS } from "./chats.js";
 
 const config = {
-  prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+  prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
   delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
@@ -131,9 +131,9 @@ for (const [angle, reply, esperado] of [
   ["recusa honesta de %", "Não consigo oferecer 30% de desconto.", "envia"],
   ["recusa honesta de valor", "Não é R$ 99,90, o valor é R$ 129,90.", "envia"],
   ["preço do COD", "Fica R$ 129,90 com frete incluído.", "envia"],
-  ["preço antecipado", "No antecipado sai R$ 110,42, com 15% de desconto.", "envia"],
+  ["preço antecipado", "No antecipado sai R$ 110,41, com 15% de desconto.", "envia"],
   ["âncora publicada", "De R$ 216,50 por R$ 129,90 — 40% off.", "envia"],
-  ["economia", "A economia é de R$ 19,48.", "envia"],
+  ["economia", "A economia é de R$ 19,49.", "envia"],
   ["promete % inexistente", "Consigo 30% de desconto pra você!", "barra(price_promise)"],
   ["promete valor inexistente", "Hoje sai por R$ 99,90.", "barra(price_promise)"],
   ["oferta sem a palavra desconto", "Te dou 30% agora se fechar.", "barra(price_promise)"],

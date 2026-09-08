@@ -99,7 +99,7 @@ const CONFIG: BusinessConfig = JSON.parse(
     JSON.stringify({
       brand: "Encorpa",
       agentName: "Malu",
-      prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+      prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
       delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
@@ -462,7 +462,7 @@ const cancelScheduled = (conversationId: string) =>
 const stopPointOf = (replyText: string): StopPoint => {
   const t = replyText.toLowerCase();
   if (t.includes("checkout") || t.includes("link")) return "link_sent";
-  if (t.includes("129,90") || t.includes("110,42")) return "after_price";
+  if (t.includes("129,90") || t.includes("110,41")) return "after_price";
   return "before_size";
 };
 

@@ -5,7 +5,7 @@
   "agentName": "{{NOME_DA_ATENDENTE}}",
   "prices": {
     "codBrl": 129.9,
-    "prepayBrl": 110.42,
+    "prepayBrl": 110.41,
     "prepayDiscountPercent": 15,
     "anchorBrl": 216.5
   },

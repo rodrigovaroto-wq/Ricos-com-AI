@@ -83,7 +83,7 @@ describe("corpo do pedido da Coinzz", () => {
 
   it("converte reais em centavos arredondando", () => {
     expect(toCents(129.9)).toBe(12990);
-    expect(toCents(110.42)).toBe(11042);
+    expect(toCents(110.41)).toBe(11041);
   });
 });
 
@@ -177,7 +177,7 @@ describe("o método de pagamento do COD", () => {
 /**
  * A loja vende duas ofertas — pagamento na entrega e antecipado com 15% —, com preços
  * diferentes e, portanto, hashes diferentes. Cair no hash do COD no caminho antecipado
- * cobra R$ 129,90 por uma oferta de R$ 110,42.
+ * cobra R$ 129,90 por uma oferta de R$ 110,41.
  */
 describe("as duas ofertas", () => {
   const comAntecipado = { ...config, prepayOfferHash: "offPREPAY1" };

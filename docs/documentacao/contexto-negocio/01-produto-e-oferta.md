@@ -39,8 +39,8 @@ A frase que mantém desejo e honestidade compatíveis, e que vale como orientaç
 
 ## Desconto de pagamento antecipado — 15%, ainda não configurado
 
-**Decidido em 2026-09-05: o desconto é de 15%**, levando o preço do produto a **R$ 110,42**
-e a economia declarável a **R$ 19,48**. Subiu de 10% para 15% porque **o frete no caminho
+**Decidido em 2026-09-05: o desconto é de 15%**, levando o preço do produto a **R$ 110,41**
+e a economia declarável a **R$ 19,49**. Subiu de 10% para 15% porque **o frete no caminho
 antecipado fica por conta da cliente** — ver
 [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) §R2.1.
 
@@ -53,8 +53,8 @@ erro da promessa que a operação não cumpre.
 Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) §D2.
 
 **Frete no antecipado: por conta da cliente.** É o que diferencia os dois caminhos: no COD
-o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 110,42 mais o frete**,
-calculado no checkout. A agente **pode** dizer que ela economiza R$ 19,48 no produto, desde
+o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 110,41 mais o frete**,
+calculado no checkout. A agente **pode** dizer que ela economiza R$ 19,49 no produto, desde
 que diga na mesma mensagem que o frete vem à parte. Ver
 [`06-modelo-economico.md`](06-modelo-economico.md).
 

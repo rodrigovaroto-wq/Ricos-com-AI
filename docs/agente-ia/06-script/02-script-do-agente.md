@@ -213,7 +213,7 @@ com o toque 1 falando do link, não do produto.
 **7.1 — Ela pergunta se pode pagar antes, ou demonstra pressa.**
 
 > Pode sim! Quem prefere pagar antecipado leva **15% de desconto**: o colete sai por
-> **R$ 110,42** em vez de R$ 129,90, uma economia de R$ 19,48. Só um detalhe pra você decidir
+> **R$ 110,41** em vez de R$ 129,90, uma economia de R$ 19,49. Só um detalhe pra você decidir
 > com tudo na mesa: **nesse caminho o frete é calculado à parte, no checkout** — no pagamento
 > na entrega ele já vem embutido.
 
@@ -230,7 +230,7 @@ que dissolvia o medo — então recebe **mais** prova, não menos.
 
 > Olha, fui montar seu pedido e a transportadora não faz pagamento na entrega na sua região
 > ainda 😕 Mas dá pra resolver: nesse caso o pedido sai como pagamento antecipado, e aí você
-> leva **15% de desconto** — R$ 110,42 em vez de R$ 129,90 (o frete é calculado à parte no
+> leva **15% de desconto** — R$ 110,41 em vez de R$ 129,90 (o frete é calculado à parte no
 > checkout).
 >
 > Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita
@@ -360,7 +360,7 @@ Cada linha aqui já esteve no script antigo, e cada uma custa dinheiro em COD.
 | "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 3 a 5 dias, agendado. Prometer amanhã é o que produz recusa na porta |
 | "Frete grátis" no caminho antecipado | Lá o frete é calculado à parte, no checkout |
 | "Parcele em até 12x" | Depende da maquininha do entregador; a operação não controla |
-| Qualquer preço que não seja R$ 129,90 (COD) ou R$ 110,42 (antecipado) | Fonte única de preço |
+| Qualquer preço que não seja R$ 129,90 (COD) ou R$ 110,41 (antecipado) | Fonte única de preço |
 | "Reduz 3 tamanhos", "emagrece", "queima gordura", "afina a cintura permanentemente" | O colete não muda o corpo, muda o caimento — e o efeito acaba ao tirar |
 | "Sou uma pessoa", "não sou robô" | Não mente. Não anuncia, mas não nega |
 | Mencionar cupom que ainda não existe na Coinzz | Gate automático: bloqueia a mensagem |

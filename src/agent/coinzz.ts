@@ -169,7 +169,7 @@ export const buildCoinzzRequest = (
       : (config.prepayPaymentMethod ?? "pix");
 
   // Two offers, two hashes. Falling back to the cash-on-delivery one on the prepaid
-  // path would charge her R$ 129,90 for the R$ 110,42 offer she chose.
+  // path would charge her R$ 129,90 for the R$ 110,41 offer she chose.
   const offer_hash = request.paymentMethod === "cod" ? config.offerHash : config.prepayOfferHash;
   if (!filled(offer_hash)) throw new CoinzzIncompleteError(["coinzz.prepayOfferHash"]);
 

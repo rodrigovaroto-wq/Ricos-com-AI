@@ -137,7 +137,7 @@ describe("o briefing que vai no prompt", () => {
   it("carrega os números da configuração, não números escritos à mão", () => {
     const texto = gateBriefing(config).join(" ");
     expect(texto).toContain("R$ 129,90");
-    expect(texto).toContain("R$ 110,42");
+    expect(texto).toContain("R$ 110,41");
     expect(texto).toContain("R$ 216,50");
     expect(texto).toContain("15%");
     expect(texto).toContain("3 a 5 dias");

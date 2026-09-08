@@ -27,7 +27,7 @@ const pedido: CheckoutRequest = {
   paymentMethod: "cod",
 };
 
-const precos = { codBrl: 129.9, prepayBrl: 110.42 };
+const precos = { codBrl: 129.9, prepayBrl: 110.41 };
 const provider = mockCheckoutProvider("https://checkout.exemplo.com", precos);
 
 describe("contrato do checkout pré-preenchido (§E1)", () => {
@@ -65,7 +65,7 @@ describe("contrato do checkout pré-preenchido (§E1)", () => {
 
   it("no COD cobra o valor com frete embutido; no antecipado, só o produto", () => {
     expect(amountFor("cod", precos)).toBe(129.9);
-    expect(amountFor("prepay", precos)).toBe(110.42);
+    expect(amountFor("prepay", precos)).toBe(110.41);
   });
 
   it("carrega a forma de pagamento escolhida para o link", async () => {
@@ -74,7 +74,7 @@ describe("contrato do checkout pré-preenchido (§E1)", () => {
       paymentMethod: "prepay",
     });
     expect(antecipado.paymentMethod).toBe("prepay");
-    expect(antecipado.amountBrl).toBe(110.42);
+    expect(antecipado.amountBrl).toBe(110.41);
     expect(new URL(antecipado.url).searchParams.get("pagamento")).toBe("prepay");
   });
 });
