@@ -36,6 +36,20 @@ import {
   type Address,
 } from "./address.ts";
 import {
+  extractIdentity,
+  isIdentityComplete,
+  mergeIdentity,
+  nextIdentityQuestion,
+  type Identity,
+} from "./identity.ts";
+import {
+  buildCoinzzRequest,
+  CoinzzIncompleteError,
+  missingCoinzzConfig,
+  type CoinzzConfig,
+  type CoinzzRequest,
+} from "./coinzz.ts";
+import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
@@ -64,6 +78,12 @@ interface BusinessConfig extends GateConfig {
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
   /**
+   * The Coinzz order, minus the credential — that one lives in an n8n credential, and
+   * the HTTP call with it. What belongs here is the part that is a business rule:
+   * which offer, and which of their four payment methods means paying at the door.
+   */
+  coinzz?: Partial<CoinzzConfig>;
+  /**
    * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
    * attributed to a customer that is not in this list — which, while the list was
    * empty, meant the agent could never use social proof at all. Fill it and quoting
@@ -83,6 +103,15 @@ const CONFIG: BusinessConfig = JSON.parse(
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
+      // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
+      // estável para repetir; `allowUnverified` deixa ela criar urgência sobre o lote
+      // mesmo sem contagem por trás. Trocar aqui, ou sobrescrever por BUSINESS_CONFIG.
+      scarcity: { unitsLeft: 12, allowUnverified: true },
+      // `afterpay` é o método da Coinzz que corresponde a pagar depois, confirmado
+      // pelo operador em 2026-09-08. `offerHash` ainda vem do painel — sem ele o
+      // corpo não é montado, e o turno diz exatamente o que falta em vez de mandar
+      // um pedido pela metade.
+      coinzz: { codPaymentMethod: "afterpay" },
     }),
 );
 
@@ -240,7 +269,11 @@ const scarcityBriefing = (): string[] => {
   return ["", ...lines];
 };
 
-const systemPrompt = (sizeDirective: string | null, addressDirective: string | null = null): string => {
+const systemPrompt = (
+  sizeDirective: string | null,
+  addressDirective: string | null = null,
+  identityDirective: string | null = null,
+): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
@@ -315,6 +348,7 @@ const systemPrompt = (sizeDirective: string | null, addressDirective: string | n
     `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
     ...(addressDirective ? ["", addressDirective] : []),
+    ...(identityDirective ? ["", identityDirective] : []),
   ].join(" ");
 };
 
@@ -370,6 +404,25 @@ const addressDirectiveFor = (
     ? null
     : `Você já anotou parte do endereço dela. Falta: ${missing.join(", ")}. Pergunte SÓ a` +
       ` próxima coisa que falta, com esta pergunta: "${ask}" — uma de cada vez, nunca a lista toda.`;
+};
+
+/**
+ * Name, e-mail and CPF — what the Coinzz order requires and the conversation never
+ * asked for. Same loop as the address, and one question at a time for the same reason:
+ * a form in a WhatsApp message is where a sale stops.
+ *
+ * The order matters. Name first, because she gives it without thinking. CPF last,
+ * because it is the one that makes people hesitate — and by then she has already put
+ * her address in, which is the moment she is least likely to walk away.
+ */
+const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
+  if (isIdentityComplete(draft)) return null;
+  const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
+  const ask = nextIdentityQuestion(missing);
+  return ask === null
+    ? null
+    : `Para fechar o pedido ainda falta: ${missing.join(", ")}. Pergunte SÓ isto agora,` +
+      ` com naturalidade: "${ask}". Uma coisa de cada vez — nunca peça a lista inteira.`;
 };
 
 /**
@@ -821,6 +874,17 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }).catch(() => undefined);
   }
 
+  // 5e. Identity accumulates the same way, and for the same reason.
+  const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
+  const foundIdentity = extractIdentity(inbound.body ?? "");
+  const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
+  if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity)) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+
   // 6. History, then the turn that sells.
   const history = await db(
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
@@ -839,6 +903,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   const addressDirective = addressDirectiveFor(addressDraft, addressConfirmed);
 
+  // Identity is only asked for once the address is confirmed. Asking for a CPF before
+  // she has decided to buy is the fastest way to end a conversation.
+  const identityDirective =
+    addressConfirmed && isComplete(addressDraft) ? identityDirectiveFor(identityDraft) : null;
+
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
   // model and it writes the message again. Silence and "the operator will handle it"
@@ -855,8 +924,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated), addressDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -1009,16 +1078,54 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // The silence ruler starts the moment the agent finishes speaking.
   await scheduleSilenceTouches(conversation.id, stopPointOf(reply.text));
 
+  // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
+  // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
+  // ou dado da cliente — vem `orderBlocked` com o nome exato do que falta, em vez de
+  // um corpo pela metade que vira pacote na porta errada.
+  let order: CoinzzRequest | null = null;
+  let orderBlocked: string[] = missingCoinzzConfig(CONFIG.coinzz ?? {});
+  const size = stated?.size ?? lead.size ?? null;
+  if (addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) && size) {
+    try {
+      order = buildCoinzzRequest(
+        {
+          leadId: lead.id,
+          name: identityDraft.name,
+          email: identityDraft.email,
+          document: identityDraft.document,
+          phone: lead.phone,
+          address: addressDraft,
+          size,
+          paymentMethod: "cod",
+        },
+        CONFIG.coinzz as CoinzzConfig,
+        `${lead.id}:${size}:${addressDraft.cep}:${addressDraft.number}`,
+      );
+      orderBlocked = [];
+    } catch (error) {
+      orderBlocked =
+        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
+    }
+  }
+
   return json(200, {
     status: "ok",
     intent: intent.text,
     reply: reply.text,
     messageId: outbound.id,
     rewrites: rewritesUsed,
+    order,
+    orderBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.
     size: stated?.size ?? lead.size ?? null,
     addressReady: addressConfirmed && isComplete(addressDraft),
+    // O sinal que o n8n espera para chamar a Coinzz: endereço confirmado por ela,
+    // identidade completa e tamanho resolvido. Faltando um, o pedido não nasce.
+    orderReady:
+      addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) &&
+      Boolean(stated?.size ?? lead.size),
+    identityMissing: (["name", "email", "document"] as const).filter((f) => !identityDraft[f]),
     addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,
     ceilingBrl,
