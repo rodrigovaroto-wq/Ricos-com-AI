@@ -94,6 +94,7 @@ export interface Arc {
     handoff?: boolean;
     optedOut?: boolean;
     addressComplete?: boolean;
+    addressConfirmed?: boolean;
     stage?: Stage;
     /** Outbound messages that actually reached her. */
     sent?: number;
@@ -150,9 +151,10 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style(p.saysSize), reply: R.sized(p) },
       { from: p.style("quero comprar"), reply: R.askAddress },
-      { from: p.address, reply: R.confirmAddress },
+      { from: p.address, reply: "Só pra conferir antes de fechar: está certo assim?" },
+      { from: "isso mesmo", reply: R.confirmAddress },
     ],
-    expect: (p) => ({ size: p.size, addressComplete: true, stage: "endereco_coletado", sent: 5, touches: 3 }),
+    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: true, stage: "endereco_coletado", sent: 6, touches: 3 }),
   },
   {
     name: "venda com o endereço em duas partes",
@@ -160,9 +162,10 @@ export const ARCS: Arc[] = [
       { from: p.style(p.saysSize), reply: R.sized(p) },
       { from: p.style("quero sim"), reply: R.askAddress },
       { from: p.addressParts[0], reply: "Anotei o CEP! Me passa a rua, o número e o bairro." },
-      { from: p.addressParts[1], reply: R.confirmAddress },
+      { from: p.addressParts[1], reply: "Confere pra mim: está certo assim?" },
+      { from: "pode mandar", reply: R.confirmAddress },
     ],
-    expect: (p) => ({ size: p.size, addressComplete: true, stage: "endereco_coletado", sent: 4 }),
+    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: true, stage: "endereco_coletado", sent: 5 }),
   },
   {
     name: "pergunta o preço antes de tudo",
@@ -463,12 +466,12 @@ export const ARCS: Arc[] = [
   {
     name: "manda o endereço sem o tamanho",
     turns: (p) => [{ from: p.address, reply: R.askSize }],
-    expect: () => ({ addressComplete: true, size: null, sent: 1 }),
+    expect: () => ({ addressComplete: true, addressConfirmed: false, size: null, sent: 1 }),
   },
   {
     name: "endereço e tamanho na mesma mensagem",
     turns: (p) => [{ from: `${p.saysSize}. ${p.address}`, reply: R.confirmAddress }],
-    expect: (p) => ({ size: p.size, addressComplete: true, stage: "endereco_coletado", sent: 1 }),
+    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: false, sent: 1 }),
   },
 
   // ── Objeção ────────────────────────────────────────────────────────────────
@@ -597,7 +600,7 @@ export const ARCS: Arc[] = [
   {
     name: "compra rápida de uma mensagem só",
     turns: (p) => [{ from: `${p.saysSize}, quero comprar. ${p.address}`, reply: R.confirmAddress }],
-    expect: (p) => ({ size: p.size, addressComplete: true, sent: 1 }),
+    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: false, sent: 1 }),
   },
   {
     name: "pergunta tudo de uma vez",
@@ -609,5 +612,54 @@ export const ARCS: Arc[] = [
       { from: p.style(p.saysSize), reply: R.sized(p) },
     ],
     expect: (p) => ({ size: p.size, sent: 2 }),
+  },
+  // ── O fechamento: onde a venda de fato termina ─────────────────────────────
+  {
+    /**
+     * A peça que faltava. Endereço completo não é endereço confirmado — e mandar o
+     * pacote sem ela ter visto a leitura de volta é a entrega que falha e volta.
+     */
+    name: "corrige o endereço depois de ouvir a leitura",
+    turns: (p) => [
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "não, o número mudou, é 125", reply: "Corrigi! Está certo agora?" },
+      { from: "isso", reply: R.confirmAddress },
+    ],
+    expect: () => ({ addressComplete: true, addressConfirmed: true, sent: 3 }),
+  },
+  {
+    name: "diz sim antes de ter endereço nenhum",
+    turns: () => [{ from: "sim, pode mandar", reply: R.askAddress }],
+    expect: () => ({ addressComplete: false, addressConfirmed: false, sent: 1 }),
+  },
+  {
+    name: "manda endereço novo depois de já ter confirmado",
+    turns: (p) => [
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "isso mesmo", reply: R.confirmAddress },
+      { from: "na verdade manda pro trabalho: Rua Nova 50, bairro Centro, Campinas/SP, 13010-100", reply: "Anotei o novo! Confere: está certo assim?" },
+      { from: "correto", reply: R.confirmAddress },
+    ],
+    expect: () => ({ addressComplete: true, addressConfirmed: true, sent: 4 }),
+  },
+  {
+    name: "venda completa do oi ao endereço confirmado",
+    turns: (p) => [
+      { from: p.style("oi"), reply: R.greet },
+      { from: p.style("quanto custa?"), reply: R.price },
+      { from: p.style("e se não servir?"), reply: R.warranty },
+      { from: p.style(p.saysSize), reply: R.sized(p) },
+      { from: p.style("quero"), reply: R.askAddress },
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "perfeito", reply: R.confirmAddress },
+    ],
+    expect: (p) => ({
+      size: p.size,
+      addressComplete: true,
+      addressConfirmed: true,
+      stage: "endereco_coletado",
+      sent: 7,
+      touches: 3,
+    }),
   },
 ];

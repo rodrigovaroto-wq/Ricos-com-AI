@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  confirmsAddress,
   extractAddress,
   isComplete,
   mergeAddress,
@@ -128,5 +129,28 @@ describe("o CEP não é o número da casa", () => {
     const f = extractAddress("Rua das Flores 123, Campinas/SP, CEP 13010-100").fields;
     expect(f.number).toBe("123");
     expect(f.cep).toBe("13010-100");
+  });
+});
+
+/**
+ * O endereço lido de volta só vale se alguém conferir a resposta. Ler uma correção
+ * como "sim" é como o pacote vai para o endereço antigo.
+ */
+describe("confirmação do endereço", () => {
+  it("aceita o sim curto que vem depois da leitura", () => {
+    for (const t of ["sim", "isso mesmo", "correto", "pode mandar", "ok", "perfeito", "é isso"]) {
+      expect(confirmsAddress(t)).toBe(true);
+    }
+  });
+
+  it("recusa qualquer coisa que carregue correção", () => {
+    for (const t of ["não", "isso está errado", "mudou o número", "na verdade é 125", "trocar o bairro"]) {
+      expect(confirmsAddress(t)).toBe(false);
+    }
+  });
+
+  it("e recusa uma mensagem que não é resposta à pergunta", () => {
+    expect(confirmsAddress("quanto custa?")).toBe(false);
+    expect(confirmsAddress("uso 42 de calça")).toBe(false);
   });
 });

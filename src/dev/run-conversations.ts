@@ -53,6 +53,7 @@ export const runAllConversations = (): ConversationCase[] => {
       if (want.handoff !== undefined) compare("handoff", want.handoff, got.handoff);
       if (want.optedOut !== undefined) compare("opt-out", want.optedOut, got.optedOut);
       if (want.addressComplete !== undefined) compare("endereço completo", want.addressComplete, got.addressComplete);
+      if (want.addressConfirmed !== undefined) compare("endereço confirmado", want.addressConfirmed, got.addressConfirmed);
       if (want.stage !== undefined) compare("estágio", want.stage, got.stage);
       if (want.sent !== undefined) compare("mensagens enviadas", want.sent, got.sent.length);
       if (want.touches !== undefined) compare("toques armados", want.touches, got.scheduledTouches);

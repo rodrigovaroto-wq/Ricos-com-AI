@@ -27,6 +27,15 @@ import {
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
 import {
+  confirmsAddress,
+  extractAddress,
+  isComplete,
+  mergeAddress,
+  nextQuestion,
+  renderConfirmation,
+  type Address,
+} from "./address.ts";
+import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
@@ -219,11 +228,10 @@ const scarcityBriefing = (): string[] => {
   }
   if (lines.length === 0 && s?.allowUnverified) {
     lines.push(
-      `URGÊNCIA: você pode criar senso de urgência sobre o lote acabando. Escolha UMA frase e`,
-      `mantenha ela: a mesma cliente conversando de novo, e duas clientes comparando, têm de`,
-      `ouvir a mesma coisa. Não invente número diferente a cada conversa, não prometa contagem`,
-      `regressiva em minutos, e nunca use urgência para empurrar tamanho errado — devolução`,
-      `custa mais que a venda.`,
+      `URGÊNCIA: use senso de urgência sobre o lote acabando quando ela estiver em cima do`,
+      `muro — é uma das suas ferramentas mais fortes e você tem liberdade com ela. Duas`,
+      `bordas: não prometa contagem regressiva em minutos, e nunca use urgência para empurrar`,
+      `tamanho errado. Peça que não serve volta, e devolução custa mais que a venda vale.`,
     );
   }
   if (lines.length === 0) {
@@ -232,7 +240,7 @@ const scarcityBriefing = (): string[] => {
   return ["", ...lines];
 };
 
-const systemPrompt = (sizeDirective: string | null): string => {
+const systemPrompt = (sizeDirective: string | null, addressDirective: string | null = null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
@@ -306,6 +314,7 @@ const systemPrompt = (sizeDirective: string | null): string => {
     `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
     `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
+    ...(addressDirective ? ["", addressDirective] : []),
   ].join(" ");
 };
 
@@ -326,6 +335,42 @@ const sizeDirectiveFor = (stated: { stated: number; size: string } | null): stri
     : `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
       ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.` +
       ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
+
+/**
+ * The address loop (§D2/§D5), which is the half of the sale that was missing.
+ *
+ * She rarely says the whole address at once, so it accumulates across turns. What is
+ * still unknown becomes one question — one, not a form. When nothing is missing, the
+ * address is read back to her and nothing is ordered until she says it is right: a
+ * package sent to an address nobody checked is the failed delivery this whole module
+ * exists to avoid, and under cash on delivery that is the freight, lost both ways.
+ *
+ * The directive is handed to the model as a fact plus an instruction, the same shape
+ * the size directive uses — the model writes the sentence, the code decides what it says.
+ */
+const addressDirectiveFor = (
+  draft: Partial<Address>,
+  confirmed: boolean,
+): string | null => {
+  if (confirmed) {
+    return `O endereço dela já está confirmado. Não peça de novo, não repita de volta: siga` +
+      ` para fechar o pedido.`;
+  }
+  if (isComplete(draft)) {
+    return `O endereço dela está completo mas AINDA NÃO foi confirmado. Antes de qualquer` +
+      ` pedido, repita exatamente isto de volta para ela, em linhas separadas, e pergunte se` +
+      ` está certo:\n${renderConfirmation(draft)}`;
+  }
+  const missing = (["cep", "street", "number", "neighborhood", "city", "state"] as const).filter(
+    (f) => !draft[f],
+  );
+  if (missing.length === 0 || Object.keys(draft).length === 0) return null;
+  const ask = nextQuestion(missing);
+  return ask === null
+    ? null
+    : `Você já anotou parte do endereço dela. Falta: ${missing.join(", ")}. Pergunte SÓ a` +
+      ` próxima coisa que falta, com esta pergunta: "${ask}" — uma de cada vez, nunca a lista toda.`;
+};
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -742,6 +787,40 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }).catch(() => undefined);
   }
 
+  // 5d. The address loop. It accumulates across turns because she says it in pieces,
+  // and it is only ever *confirmed* by her saying so — a package sent to an address
+  // nobody read back is the failed delivery this costs the most to fix.
+  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string };
+  let addressConfirmed = Boolean(storedAddress.confirmedAt);
+  let addressDraft: Partial<Address> = { ...storedAddress };
+  delete (addressDraft as { confirmedAt?: string }).confirmedAt;
+
+  const foundAddress = extractAddress(inbound.body ?? "");
+  if (Object.keys(foundAddress.fields).length > 0) {
+    // What she stated wins over what a previous pass inferred, and a new piece never
+    // silently re-confirms an address she has not seen read back.
+    addressDraft = mergeAddress(addressDraft, foundAddress.fields).fields;
+    addressConfirmed = false;
+  } else if (!addressConfirmed && isComplete(addressDraft) && confirmsAddress(inbound.body ?? "")) {
+    addressConfirmed = true;
+  }
+
+  const addressChanged =
+    JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
+    JSON.stringify({ ...storedAddress, confirmedAt: Boolean(storedAddress.confirmedAt) });
+  if (addressChanged) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        address: {
+          ...addressDraft,
+          ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
+        },
+        updated_at: new Date().toISOString(),
+      }),
+    }).catch(() => undefined);
+  }
+
   // 6. History, then the turn that sells.
   const history = await db(
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
@@ -757,6 +836,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const recentOutbound = (history ?? [])
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
+
+  const addressDirective = addressDirectiveFor(addressDraft, addressConfirmed);
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
@@ -774,8 +855,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated))
-          : `${systemPrompt(sizeDirectiveFor(stated))} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated), addressDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -934,6 +1015,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
     reply: reply.text,
     messageId: outbound.id,
     rewrites: rewritesUsed,
+    // Where the sale actually stands. `addressReady` is the gate on creating an order:
+    // complete is not enough, she has to have confirmed the read-back.
+    size: stated?.size ?? lead.size ?? null,
+    addressReady: addressConfirmed && isComplete(addressDraft),
+    addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,
     ceilingBrl,
   });

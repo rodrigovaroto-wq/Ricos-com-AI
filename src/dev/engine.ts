@@ -24,7 +24,7 @@ import {
   type GateConfig,
 } from "../agent/guardrails.js";
 import { extractDressSize, sizeFromDressSize } from "../agent/sizing.js";
-import { extractAddress, isComplete, mergeAddress, type Address } from "../agent/address.js";
+import { confirmsAddress, extractAddress, isComplete, mergeAddress, type Address } from "../agent/address.js";
 import { decideNext, HOLDING_REPLY, HUMAN_HANDOFF_REPLY } from "../agent/retry.js";
 import { scheduleSilence } from "../agent/followups.js";
 import { canTransition, type Stage } from "../agent/state-machine.js";
@@ -56,6 +56,8 @@ export interface ConversationState {
   size: string | null;
   address: Partial<Address>;
   addressComplete: boolean;
+  /** Complete is not enough: she has to have said the read-back is right. */
+  addressConfirmed: boolean;
   optedOut: boolean;
   handoff: boolean;
   handoffReason: string | null;
@@ -90,6 +92,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
     size: null,
     address: {},
     addressComplete: false,
+    addressConfirmed: false,
     optedOut: false,
     handoff: false,
     handoffReason: null,
@@ -184,17 +187,20 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       advance("tamanho_definido");
     }
 
-    // 5c. Address accumulates across turns: she rarely says all of it at once.
+    // 5c. Address accumulates across turns: she rarely says all of it at once, and a
+    // new piece un-confirms whatever she had confirmed before — she has not seen the
+    // corrected version read back yet.
     const found = extractAddress(turn.from);
     if (Object.keys(found.fields).length > 0) {
       const merged = mergeAddress(state.address, found.fields);
       state.address = merged.fields;
       state.addressComplete = isComplete(merged.fields);
-      if (state.addressComplete) {
-        advance("conversando");
-        advance("tamanho_definido");
-        advance("endereco_coletado");
-      }
+      state.addressConfirmed = false;
+    } else if (!state.addressConfirmed && state.addressComplete && confirmsAddress(turn.from)) {
+      state.addressConfirmed = true;
+      advance("conversando");
+      advance("tamanho_definido");
+      advance("endereco_coletado");
     }
     advance("conversando");
 

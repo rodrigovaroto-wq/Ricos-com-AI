@@ -493,15 +493,16 @@ verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
 Nada disto depende do número de WhatsApp. As duas peças novas existem e estão
 testadas, mas **não estão ligadas à conversa** — é o próximo bloco de trabalho:
 
-1. **Ligar a coleta de endereço ao turno.** `address.ts` extrai e sabe o que
-   falta; o que não existe é o laço de conversa do §D2/§D5 — perguntar o que
-   falta, repetir o endereço de volta e **só então** gravar. Não liguei pela
-   metade de propósito: gravar endereço sem a confirmação explícita põe no
-   banco um endereço que ninguém conferiu, e em COD isso vira entrega perdida.
-2. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
+1. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
    da Coinzz (pergunta 4 do plano) e o registro do pedido na tabela `orders`,
    usando `idempotencyKey` como `external_id`.
-3. **Enviar a notificação de handoff.** O destino foi definido (R9.2): e-mail
+3. ~~**Ligar a coleta de endereço ao turno.**~~ — **feito**. O laço do §D2/§D5 existe:
+   o endereço acumula ao longo dos turnos, a agente pergunta **uma** coisa que falta por
+   vez, lê o endereço de volta e só então grava a confirmação. Endereço completo **não é**
+   endereço confirmado — a resposta do turno devolve `addressReady`, e é ela que autoriza
+   criar pedido. Uma peça nova de endereço desconfirma o que já estava confirmado, porque
+   ela ainda não viu a versão corrigida lida de volta.
+4. **Enviar a notificação de handoff.** O destino foi definido (R9.2): e-mail
    pessoal do operador, em `config/business.json` → `handoff.email`, que é
    gitignored por ser dado pessoal. Falta o envio em si — hoje o handler grava
    `handoff_at` e para; quem manda o e-mail é o n8n, e esse fluxo não existe.
