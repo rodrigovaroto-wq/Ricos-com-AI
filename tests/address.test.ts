@@ -154,3 +154,27 @@ describe("confirmação do endereço", () => {
     expect(confirmsAddress("uso 42 de calça")).toBe(false);
   });
 });
+
+/**
+ * O que a produção da v16 gravou num lead real: `{"complement": "Ap arecida"}`, tirado do
+ * nome "Maria Aparecida Souza". O `\b` abria a palavra e nada fechava, então toda
+ * abreviação curta casava dentro de uma palavra maior.
+ */
+describe("complemento não se esconde dentro de outra palavra", () => {
+  const complemento = (texto: string) => extractAddress(texto).fields.complement;
+
+  it("nome próprio não vira complemento", () => {
+    expect(complemento("meu nome é Maria Aparecida Souza")).toBeUndefined();
+    expect(complemento("sou o Aparecido")).toBeUndefined();
+    expect(complemento("foi no casamento da minha irmã")).toBeUndefined();
+    expect(complemento("blusa tamanho 40")).toBeUndefined();
+  });
+
+  it("e o complemento de verdade continua sendo lido", () => {
+    expect(complemento("Rua das Flores 123, apto 32")).toBe("apto 32");
+    expect(complemento("Rua das Flores 123, ap 12")).toBe("ap 12");
+    expect(complemento("Rua das Flores 123, bloco B")).toBe("bloco B");
+    expect(complemento("Rua das Flores 123, casa")).toBe("casa");
+    expect(complemento("Rua das Flores 123, fundos")).toBe("fundos");
+  });
+});
