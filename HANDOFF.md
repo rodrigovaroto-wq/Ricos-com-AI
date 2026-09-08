@@ -749,11 +749,74 @@ de duas coisas que só um pedido real responde:
   (tipo `logzz`)**, não uma flag da oferta. `afterpay` continua sendo dedução, não fato.
 - **O dia da entrega e o tamanho.** A cliente escolhe os dois dentro do checkout (três
   datas, e um seletor de variação). Um pedido criado por API não tem quem escolha, e o
-  tamanho tem hash próprio por variação (`pro4gpo2` = P … `proe50v0` = XGG) que
-  `buildCoinzzRequest` ainda não manda.
+  tamanho tem hash próprio por variação, e agora os cinco estão conferidos (tabela na
+  seção da disponibilidade, abaixo) — `buildCoinzzRequest` ainda não os manda.
 
 Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e `offkw47x`
 (antecipado).
+
+---
+
+## A consulta de disponibilidade existe, e chama `stock-and-delivery` (2026-09-08)
+
+Achada pelo operador no DevTools do próprio checkout. Três chamadas importam, todas XHR:
+
+| Chamada | Devolve |
+|---|---|
+| `get-variations?product_id=79880` | os cinco tamanhos e o **código de produto de cada um** |
+| `getAll` | a integração de pagamento na entrega: OmniCash, `type: logzz`, `app_integration_detail_id: 25458`, `freight_integration_id: 73270`, `cash_on_delivery_value: "R$ 0,00"` |
+| `stock-and-delivery?…` | **estoque e datas de entrega para aquele CEP e aquele tamanho** |
+
+**Os cinco códigos, conferidos.** O produto-pai é `79880`; cada tamanho é um produto próprio:
+
+| Tamanho | `product_id` | `code` | `variation_id` |
+|---|---|---|---|
+| P | 79886 | `pro4gpo2` | 61777 |
+| M | 79887 | `proqvqmj` | 61778 |
+| G | 79888 | `pro7ml00` | 61779 |
+| GG | 79889 | `pro66jdm` | 61780 |
+| XGG | 79890 | `proe50v0` | 61781 |
+
+**O payload do `stock-and-delivery`**, do jeito que o checkout manda: `customer_phone_ddi`,
+`customer_phone`, `customer_document`, `products[0][product_id]` (o pai, 79880),
+`products[0][code]` (o do tamanho), `products[0][quantity]`, `zip_code`, `city`, `state`,
+`neighbourhood`, `number`, `app_integration_detail_id`, `freight_value`, `sale_type`,
+`billing_moments[]`, `check_to_finish`.
+
+**A resposta do "não", capturada num CEP de São Paulo com M indisponível no COD:**
+
+```json
+{"type":"success","status":200,"data":{
+  "products":[{"code":"proqvqmj","stock":"1","delivery_date":null}],
+  "has_local_operation_cash_on_delivery": false,
+  "has_pending_cash_on_delivery": true,
+  "delivery_date": null,
+  "local_operation_cash_on_delivery": {"bumps":[]}
+},"show":false}
+```
+
+**Leia com cuidado, porque a leitura ingênua está errada.** O `stock` diz `"1"` — não é ali
+que mora o "não". Quem recusa é **`has_local_operation_cash_on_delivery: false`**, com
+`delivery_date: null` e `local_operation_cash_on_delivery` vazio. Ou seja: a peça existe, o
+que não existe é operação de pagamento na entrega para aquele CEP.
+
+**O que ainda falta, e nada deve ser codificado antes:**
+
+1. **A URL completa.** O print corta o caminho antes de `stock-and-delivery?`. Sem ela não
+   dá para chamar.
+2. **Uma resposta de "sim".** Uma amostra de recusa não é contrato. Precisamos ver o mesmo
+   corpo num CEP onde o COD funciona, para saber que forma têm `delivery_date` e
+   `local_operation_cash_on_delivery` quando existem — são elas que dão **as três datas** que
+   o checkout oferece.
+3. **Se o frete sai daqui.** O `getAll` diz `R$ 0,00` e o payload manda `freight_value=0`, mas
+   o checkout cobrou R$ 24,98. A hipótese é que o valor venha da operação local da Logzz,
+   dentro do `stock-and-delivery`. **Se for isso, o problema do frete acaba:** a agente
+   consulta e diz o total exato antes de mandar o link, sem perder margem e sem surpresa na
+   porta. É a resposta de "sim" que confirma ou derruba.
+4. **Quais campos são realmente obrigatórios.** O checkout manda telefone, CPF e endereço
+   completo. Se CPF for exigido, a consulta só pode acontecer depois de a cliente dar o CPF —
+   tarde demais para indicar tamanho. Se `zip_code` bastar, a agente pede **só o CEP**, uma
+   pergunta, antes de indicar.
 
 ---
 
