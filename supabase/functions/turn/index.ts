@@ -18,6 +18,7 @@ import {
   type GateConfig,
 } from "./guardrails.ts";
 import {
+  decideTouch,
   nextOpening,
   renderFollowup,
   scheduleSilence,
@@ -263,9 +264,19 @@ const stopPointOf = (replyText: string): StopPoint => {
   return "before_size";
 };
 
-const scheduleSilenceTouches = async (conversationId: string, stopPoint: StopPoint) => {
+/**
+ * `from` is the moment the ruler is anchored on: normally now, the instant the agent
+ * finished speaking, and the next opening when a touch was postponed by the clock —
+ * re-anchoring keeps the 30min / next morning / 3 days spacing instead of dragging one
+ * touch forward into the next.
+ */
+const scheduleSilenceTouches = async (
+  conversationId: string,
+  stopPoint: StopPoint,
+  from: Date = new Date(),
+) => {
   await cancelScheduled(conversationId);
-  const rows = scheduleSilence(new Date()).map((f) => ({
+  const rows = scheduleSilence(from).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
@@ -353,21 +364,30 @@ const runFollowupSweep = async () => {
 
     if (!gates.allowed) {
       const reason = gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail";
+      const action = decideTouch(kind, remedyFor(gates));
 
-      // A touch blocked by the clock is postponed, not destroyed. The sweep used to
-      // cancel every block alike, and the hours gate is the one that fires most: a
-      // customer who goes quiet at 23:30 has her `silence_1` due at midnight, outside
-      // the 6-24 window — so the most valuable touch in the ruler, the one 30 minutes
-      // after she stopped answering, was thrown away instead of sent at dawn. The turn
-      // handler has treated `defer` as its own outcome since the rewrite loop landed;
-      // the clock half never learned the difference.
-      if (remedyFor(gates) === "defer") {
-        const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
-        await db(`followups?id=eq.${row.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ run_at: runAt.toISOString() }),
+      // A touch blocked by the clock is postponed, not destroyed — and the silence
+      // ruler is re-anchored on the reopening rather than having one touch dragged
+      // forward into the next. `decideTouch` owns both halves of that decision, in
+      // `followups.ts`, where a test can reach it.
+      if (action.do === "postpone") {
+        const opening = nextOpening(new Date(), CONFIG.hours.openHour);
+        if (action.restartRuler) {
+          await scheduleSilenceTouches(
+            row.conversation_id,
+            (row.stop_point ?? "before_size") as StopPoint,
+            opening,
+          );
+        } else {
+          await db(`followups?id=eq.${row.id}`, {
+            method: "PATCH",
+            body: JSON.stringify({ run_at: opening.toISOString() }),
+          });
+        }
+        skipped.push({
+          followupId: row.id,
+          reason: `adiado para ${opening.toISOString()}: ${reason}`,
         });
-        skipped.push({ followupId: row.id, reason: `adiado para ${runAt.toISOString()}: ${reason}` });
         continue;
       }
 

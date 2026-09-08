@@ -4,10 +4,12 @@ import {
   renderFollowup,
   scheduleOrder,
   scheduleSilence,
+  decideTouch,
   nextOpening,
   type RenderContext,
+  type Remedy as FollowupRemedy,
 } from "@/agent/followups.js";
-import { hourIn, remedyFor, runGates } from "@/agent/guardrails.js";
+import { remedyFor, runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
 /** O que o relógio de São Paulo marca naquele instante. */
@@ -162,39 +164,77 @@ describe("toda mensagem da régua passa pelos onze guardrails", () => {
  * responder às 23:30 tem o `silence_1` vencendo à meia-noite, fora da janela 6-24.
  * A varredura tratava todo bloqueio como cancelamento, então o toque mais valioso da
  * régua — o de 30 minutos depois — era jogado fora em vez de sair ao amanhecer.
- *
- * O teste trava a decisão que a varredura consulta: o veto do horário é `defer`.
  */
 describe("o relógio adia o toque, não o destrói", () => {
-  const cfg = {
-    prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-    delivery: { codDaysMin: 3, codDaysMax: 5 },
-    hours: { openHour: 6, closeHour: 24 },
-    coupon: { percent: 20, active: false },
-    cod: { physicalOnDeliveryActive: true },
-  };
-
   it("o silence_1 de quem sumiu às 23:30 vence à meia-noite, fora da janela", () => {
     const [first] = scheduleSilence(new Date("2026-09-08T02:30:00Z")); // 23:30 BRT
-    expect(hourIn(first!.runAt, "America/Sao_Paulo")).toBe(0);
+    expect(horaEmSP(first!.runAt)).toBe(0);
   });
 
   it("e o veto que ele leva ali é de adiar, não de cancelar", () => {
-    const text = renderFollowup("silence_1", { leadId: "l1", config: cfg, stopPoint: "before_size" })!;
-    const gates = runGates(text, {
-      config: cfg,
-      layer: "agent",
-      optedOut: false,
-      now: new Date("2026-09-08T03:00:00Z"), // 00:00 BRT
-      paymentPath: "cod",
-      stage: "presale",
-    });
+    const text = renderFollowup("silence_1", {
+      leadId: "l1",
+      config,
+      stopPoint: "before_size",
+    })!;
+    const gates = runGates(
+      text,
+      gateCtx({ now: new Date("2026-09-08T03:00:00Z"), stage: "presale" }), // 00:00 BRT
+    );
     expect(gates.allowed).toBe(false);
     expect(remedyFor(gates)).toBe("defer");
   });
 
-  it("e a reabertura que a varredura agenda cai dentro da janela", () => {
-    const runAt = nextOpening(new Date("2026-09-08T03:00:00Z"), 6);
-    expect(hourIn(runAt, "America/Sao_Paulo")).toBe(6);
+  it("a reabertura cai dentro da janela configurada", () => {
+    const runAt = nextOpening(new Date("2026-09-08T03:00:00Z"), config.hours.openHour);
+    expect(horaEmSP(runAt)).toBe(config.hours.openHour);
+  });
+});
+
+/**
+ * A decisão que a varredura consulta. Ela vive aqui, e não dentro da Edge Function,
+ * porque ali nenhum teste alcança: a versão anterior desta correção podia ser apagada
+ * inteira sem que um único teste falhasse.
+ */
+describe("decideTouch — o que a varredura faz com um toque barrado", () => {
+  it("sem veto, manda", () => {
+    expect(decideTouch("silence_1", null)).toEqual({ do: "send" });
+  });
+
+  it("veto de conteúdo cancela: reescrever copy determinística não faz sentido", () => {
+    expect(decideTouch("silence_1", "rewrite")).toEqual({ do: "cancel" });
+    expect(decideTouch("order_eve", "stop")).toEqual({ do: "cancel" });
+  });
+
+  it("veto de relógio adia, e a régua de silêncio é reancorada na reabertura", () => {
+    expect(decideTouch("silence_1", "defer")).toEqual({ do: "postpone", restartRuler: true });
+    expect(decideTouch("silence_3", "defer")).toEqual({ do: "postpone", restartRuler: true });
+  });
+
+  it("mas o pós-pedido e a resposta adiada só se movem — a hora deles é a própria mensagem", () => {
+    expect(decideTouch("order_eve", "defer")).toEqual({ do: "postpone", restartRuler: false });
+    expect(decideTouch("deferred_reply", "defer")).toEqual({ do: "postpone", restartRuler: false });
+  });
+
+  it("reancorar preserva o espaçamento que arrastar um toque só destruiria", () => {
+    // Sumiu às 23:30; a janela reabre às 06:00. Arrastar só o silence_1 deixaria ele
+    // às 06:00 e o silence_2 às 09:00 — três horas, não nove.
+    const opening = nextOpening(new Date("2026-09-08T03:00:00Z"), config.hours.openHour);
+    const [um, dois] = scheduleSilence(opening);
+    const horas = (dois!.runAt.getTime() - um!.runAt.getTime()) / 3_600_000;
+    expect(horas).toBeGreaterThan(6);
+  });
+});
+
+/**
+ * `Remedy` é declarado três vezes de propósito — `guardrails.ts`, `retry.ts` e
+ * `followups.ts` têm zero imports para espelhar byte a byte na Edge Function. Isto
+ * falha se alguém acrescentar uma classe em um lado só.
+ */
+describe("as três declarações de Remedy continuam a mesma coisa", () => {
+  it("uma é atribuível à outra", () => {
+    const daCadeia: GateRemedy = "defer";
+    const daRegua: FollowupRemedy = daCadeia;
+    expect(daRegua).toBe("defer");
   });
 });

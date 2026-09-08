@@ -31,7 +31,7 @@ vai preencher quando o número existir.
 A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava
 errado. Sondas contra a cadeia real, com a configuração de produção, acharam sete
 defeitos confirmados, mais um oitavo achado na última varredura. Todos corrigidos,
-com teste que trava cada um. **169 testes**,
+com teste que trava cada um. **175 testes**,
 `pnpm lint`, `pnpm typecheck`, `pnpm test` e `deno check` verdes.
 
 **A cegueira a negação tinha um lado que ninguém tinha olhado.** O PR #12 varreu os
@@ -75,8 +75,19 @@ o `silence_1` vencendo à meia-noite — fora da janela 6-24. A varredura tratav
 bloqueio como cancelamento, então o toque mais valioso da régua (o de 30 minutos
 depois, quando ela ainda lembra da conversa) era jogado fora em vez de sair ao
 amanhecer. O handler do turno distingue `defer` de `stop` desde o laço de reescrita; a
-metade do relógio nunca aprendeu a diferença. Agora, bloqueio com remédio `defer`
-reagenda a linha para `nextOpening` e mantém `status = scheduled`.
+metade do relógio nunca aprendeu a diferença.
+
+A decisão mora em `followups.decideTouch` — em `followups.ts`, e não dentro da Edge
+Function, porque ali nenhum teste alcança: a primeira versão desta correção podia ser
+apagada inteira sem que um único teste falhasse. Ela também resolve o efeito colateral
+de arrastar um toque só: adiar o `silence_1` para as 06:00 e deixar o `silence_2` às
+09:00 comprime a régua de nove horas para três, que é como um número é denunciado. A
+régua de silêncio é **reancorada** na reabertura; o pós-pedido e a resposta adiada só
+se movem, porque a hora deles é a própria mensagem.
+
+**Ressalva registrada:** `pacing` também é `defer`, e adiar para a reabertura é certo
+para um teto diário e longo demais para um horário. Latente hoje — a varredura não
+passa contador nenhum, porque eles são da camada de canal.
 
 **Três buracos de processo, fechados:**
 

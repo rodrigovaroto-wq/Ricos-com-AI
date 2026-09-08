@@ -69,6 +69,48 @@ const nextMorning = (from: Date, hour = 9): Date => nextLocalHour(from, hour, fa
 export const nextOpening = (now: Date, openHour: number): Date =>
   nextLocalHour(now, openHour, true);
 
+/**
+ * Structurally the same as the guardrail chain's `Remedy`, declared here instead of
+ * imported so this file keeps zero imports and mirrors byte-for-byte into the Edge
+ * Function — the rule `guardrails.ts` and `retry.ts` already follow. A test asserts
+ * the three stay assignable.
+ */
+export type Remedy = "rewrite" | "defer" | "stop";
+
+/**
+ * What the cron sweep does with a touch the chain refused.
+ *
+ * The sweep used to cancel every block alike, and the hours gate is the one that
+ * fires most: a customer quiet at 23:30 has her `silence_1` due at midnight, outside
+ * the 6-24 window, so the ruler's most valuable touch was destroyed rather than sent
+ * at dawn. A clock veto is a later verdict, not a harsher one — the same distinction
+ * the turn handler has drawn since the rewrite loop landed.
+ *
+ * `restartRuler` is the second half of that fix. Moving one touch to the reopening
+ * and leaving its siblings where they were compresses the ruler: deferred to 06:00,
+ * `silence_2` still lands at 09:00 — three hours later instead of nine, which is how
+ * a number gets reported. So the silence ruler is re-anchored on the reopening
+ * instead, keeping the 30min / next morning / 3 days shape it was designed with. The
+ * post-order touches and a deferred reply carry their own meaning at their own time
+ * and are only moved.
+ *
+ * One caveat for whoever wires the channel layer: `pacing` carries `defer` too, and
+ * the caller sends a postponed touch to the next opening — right for a daily limit,
+ * far too long for an hourly one. It is latent today because the sweep passes no
+ * pacing counters (they belong to the channel, which does not exist without the
+ * number). Wiring them means giving the caller an hourly retry, not reusing this.
+ */
+export type TouchAction =
+  | { do: "send" }
+  | { do: "postpone"; restartRuler: boolean }
+  | { do: "cancel" };
+
+export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
+  if (remedy === null) return { do: "send" };
+  if (remedy !== "defer") return { do: "cancel" };
+  return { do: "postpone", restartRuler: kind.startsWith("silence_") };
+};
+
 export const scheduleSilence = (now: Date): ScheduledFollowup[] => [
   { kind: "silence_1", runAt: new Date(now.getTime() + 30 * MINUTE) },
   { kind: "silence_2", runAt: nextMorning(now) },
