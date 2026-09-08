@@ -41,9 +41,15 @@ tamanho medido, e errar tamanho é o caminho mais curto para troca ou recusa na 
 coisas seguram esse risco: a coluna **"equivale ao manequim"**, que é a referência que ela
 já conhece do próprio guarda-roupa, e a regra do maior, que puxa para o lado seguro.
 
-**Como fica na conversa:** a agente manda a tabela, pergunta qual manequim ela costuma
-usar, e **oferece** a medição como caminho mais preciso para quem quiser — sem transformar
+**Como fica na conversa:** a agente manda a tabela, pergunta **que tamanho de calça ela
+usa**, e **oferece** a medição como caminho mais preciso para quem quiser — sem transformar
 isso em requisito.
+
+> **A palavra importa.** Este documento usa "manequim" porque é o termo técnico da tabela,
+> mas a agente **nunca** pergunta com ele: quase ninguém o usa, e a cliente que não entende
+> a pergunta simplesmente não responde. O que ela diz é *"uso 42 de calça"*. O extrator
+> continua entendendo "manequim" — quem usa a palavra não é punido por isso — e também
+> aceita letra (P, M, G) e faixa ("entre 42 e 44", onde o maior vence).
 
 ## Por que a decisão final não deveria ser improviso do modelo
 
