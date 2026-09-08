@@ -7,13 +7,23 @@
 export const SIZES = ["P", "M", "G", "GG", "XGG"] as const;
 export type Size = (typeof SIZES)[number];
 
-/** Waist in cm, measured over the underwear, without pulling the tape. */
-const RANGES: ReadonlyArray<{ size: Size; min: number; max: number }> = [
-  { size: "P", min: 60, max: 68 },
-  { size: "M", min: 68, max: 76 },
-  { size: "G", min: 76, max: 84 },
-  { size: "GG", min: 84, max: 92 },
-  { size: "XGG", min: 92, max: 100 },
+/**
+ * The published size table, and the only one. Waist in cm, plus the clothing size the
+ * customer actually knows — the column the site prints as "equivale ao manequim"
+ * (`Offer.tsx` :16-20) and the knowledge base repeats. Both lookups read this array, so
+ * they cannot disagree with each other; a test asserts the array still matches the site.
+ *
+ * It used to be two hardcoded ladders, and they DID disagree. `sizeFromDressSize` said
+ * 42 was M and 46 was G, while the site told the same customer 42 is G and 46 is GG —
+ * one size smaller than she was promised, on every even step. A size too small comes
+ * back, and under cash on delivery a return is the whole freight, lost.
+ */
+const RANGES: ReadonlyArray<{ size: Size; min: number; max: number; dressMax: number }> = [
+  { size: "P", min: 60, max: 68, dressMax: 36 },
+  { size: "M", min: 68, max: 76, dressMax: 40 },
+  { size: "G", min: 76, max: 84, dressMax: 44 },
+  { size: "GG", min: 84, max: 92, dressMax: 48 },
+  { size: "XGG", min: 92, max: 100, dressMax: 52 },
 ];
 
 /** Foreign size charts the customer may quote instead of ours. */
@@ -36,28 +46,44 @@ export const sizeFromWaist = (cm: number): Size => {
   return hit?.size ?? "XGG";
 };
 
-/** Brazilian dress size (manequim) is what she actually knows. */
-export const sizeFromDressSize = (n: number): Size => {
-  if (n <= 38) return "P";
-  if (n <= 42) return "M";
-  if (n <= 46) return "G";
-  if (n <= 50) return "GG";
-  return "XGG";
-};
+/**
+ * The clothing size she actually knows, resolved through the published table. Between
+ * two rows the larger wins, the same rule the waist lookup follows and for the same
+ * reason: a piece that is slightly loose is worn, a piece that is tight comes back.
+ */
+export const sizeFromDressSize = (n: number): Size =>
+  RANGES.find((r) => n <= r.dressMax)?.size ?? "XGG";
 
-/** Plausible Brazilian dress sizes (manequim) a customer would actually quote. */
+/** Plausible clothing sizes a customer would actually quote. */
 const DRESS_SIZE_RE = /\b(3[4-9]|4[0-9]|5[0-6])\b/g;
 
 /**
  * Units that make a number something other than a dress size. "Tenho 44 anos" is
  * the one that actually happened: the intent classifier called it a sizing turn —
  * correctly, she was asking whether the product suited her — and the number was
- * read as a manequim. The unit is the signal, not the intent.
+ * read as a clothing size. The unit is the signal, not the intent.
+ *
+ * Shoes are the other trap, and a worse one, because the numbers overlap exactly:
+ * "calço 38" and "uso 38 de sapato" are a foot, not a waist, and 38 would have been
+ * written down as an M. Nothing about the number itself says which — only the words
+ * around it do.
  */
-const NOT_A_SIZE = /^\s*(anos?|kg|quilos?|kilos?|cm|m|metros?|reais?|%|horas?|dias?|minutos?|semanas?|meses)\b/i;
+const NOT_A_SIZE =
+  /^\s*(anos?|kg|quilos?|kilos?|cm|m|metros?|reais?|%|horas?|dias?|minutos?|semanas?|meses|de\s+(sapato|tenis|t\u00eanis|sandalia|sand\u00e1lia|chinelo|bota|p[e\u00e9]))\b/i;
 
-/** What a customer says right before naming her manequim. */
-const SIZE_CUE = /(manequim|tamanho|veste|visto|vestia|uso|usava|calc[oa]|numero|número)\D{0,12}$/i;
+/**
+ * A foot named before the number. `calço` is the giveaway and it is one letter from
+ * `calça`, which is the most natural way to state a clothing size in Brazil.
+ */
+const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo|bota|p[e\u00e9])\b[^.!?]{0,12}$/i;
+
+/**
+ * What a customer says right before naming her size. "Manequim" is in here because some
+ * people do say it — but the agent never asks with that word, because most do not know
+ * it. What they say is "uso 42 de calça", and every shape of that is a cue.
+ */
+const SIZE_CUE =
+  /(manequim|tamanho|veste|visto|vestia|uso|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
 
 /**
  * The cue is denied in its own clause: "não uso 40, uso 46" states one size and
@@ -67,6 +93,9 @@ const SIZE_CUE = /(manequim|tamanho|veste|visto|vestia|uso|usava|calc[oa]|numero
  * wrong size under cash on delivery is a return. The clause boundary is what lets the
  * second half of the same sentence still count.
  */
+/** She named two sizes because she sits between them, not because she named two things. */
+const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
+
 const NEGATED_CUE = /\b(nao|não|nunca|jamais)\b[^,;.!?]*$/i;
 
 /**
@@ -75,8 +104,8 @@ const NEGATED_CUE = /\b(nao|não|nunca|jamais)\b[^,;.!?]*$/i;
  *
  * A number alone is not a size. It counts only when the message frames it as one —
  * a cue word before it, or a message that is just the number, which is what an
- * answer to "qual seu manequim?" looks like — and never when a unit right after it
- * says otherwise. Guessing here is expensive in both directions: a wrong size
+ * answer to "que tamanho de calça você usa?" looks like — and never when a unit or a
+ * shoe right after it says otherwise. Guessing here is expensive in both directions: a wrong size
  * becomes a return, and a size invented from someone's age becomes a wrong size
  * that outlives the conversation.
  */
@@ -86,14 +115,26 @@ export const extractDressSize = (text: string): number | null => {
     return bare >= 34 && bare <= 56 ? bare : null;
   }
 
+  // Two passes over the same numbers: `cued` is what a cue word actually introduces,
+  // `plausible` is every number the units and the shoe guard did not rule out. The
+  // second pass only matters for a range, where the cue sits before the first number
+  // and the second one has nothing in front of it but "e".
+  const cued: number[] = [];
+  const plausible: number[] = [];
   for (const match of text.matchAll(DRESS_SIZE_RE)) {
     const at = match.index ?? 0;
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
     const before = text.slice(0, at);
-    if (NEGATED_CUE.test(before)) continue;
-    if (SIZE_CUE.test(before)) return Number(match[1]);
+    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before)) continue;
+    plausible.push(Number(match[1]));
+    if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
   }
-  return null;
+  if (cued.length === 0) return null;
+
+  // "entre 42 e 44" and "42 ou 44" are one answer, not two: she is between sizes and
+  // does not know which. The larger wins, the same rule the table itself follows —
+  // loose is worn, tight comes back.
+  return RANGE_ANSWER.test(text) ? Math.max(...plausible) : cued[0]!;
 };
 
 export const sizeTable = (): string =>

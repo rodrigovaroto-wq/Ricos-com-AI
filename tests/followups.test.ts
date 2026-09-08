@@ -50,7 +50,7 @@ describe("régua de silêncio", () => {
   });
 
   it("o primeiro toque retoma do ponto exato onde ela parou", () => {
-    expect(renderFollowup("silence_1", render({ stopPoint: "before_size" }))).toMatch(/manequim/i);
+    expect(renderFollowup("silence_1", render({ stopPoint: "before_size" }))).toMatch(/tamanho de calça/i);
     expect(renderFollowup("silence_1", render({ stopPoint: "after_price" }))).toMatch(/não paga nada agora|não sai nada do seu bolso/i);
     expect(renderFollowup("silence_1", render({ stopPoint: "link_sent" }))).toMatch(/pedido/i);
   });

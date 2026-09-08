@@ -142,8 +142,8 @@ const brl = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
 const SILENCE_1: Record<StopPoint, readonly string[]> = {
   before_size: [
-    "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me fala só o seu manequim que eu já te digo o tamanho certinho 💛",
-    "Oi! Qualquer dúvida que tenha ficado, é só me chamar. Me diz o manequim que você usa e eu te falo o tamanho ideal 💛",
+    "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛",
+    "Oi! Qualquer dúvida que tenha ficado, é só me chamar. Me fala o tamanho de calça que você usa e eu te digo qual colete serve 💛",
   ],
   after_price: [
     "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.",

@@ -6,8 +6,8 @@ const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os onze gates", () => {
-    expect(gateNames).toHaveLength(11);
+  it("tem os dezessete gates", () => {
+    expect(gateNames).toHaveLength(17);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -20,7 +20,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(11);
+    expect(result.traces).toHaveLength(17);
   });
 });
 

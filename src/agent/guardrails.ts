@@ -6,14 +6,14 @@
  */
 export interface GateConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number; prepayDiscountPercent: number };
-  delivery: { codDaysMin: number; codDaysMax: number };
+  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
   cod: { physicalOnDeliveryActive: boolean };
 }
 
 /**
- * The eleven gates every outbound message passes before it reaches the customer.
+ * The seventeen gates every outbound message passes before it reaches the customer.
  *
  * These are deterministic on purpose: they cost nothing to run, they run on every
  * message, and — the reason they are code and not prompt text — they can be proven
@@ -138,7 +138,7 @@ export const classifyOptOut = (text: string): OptOutLevel => {
     /nao\s+(quero|desejo)\s+mais\s+(receber|nada|mensage)/,
     /(para|pare|parem|pode\s+parar)\s+de\s+(me\s+)?(mandar|enviar|encher)/,
     /nao\s+me\s+(mande|manda|envie|envia)\s+mais/,
-    /me\s+(tira|tire|remove|remova)\s+da\s+lista/,
+    /me\s+(tira|tire|remove|remova|exclui|exclua|apaga|apague)\s+d\w{0,4}\s+lista/,
     /(descadastrar|desinscrever|sair\s+da\s+lista)/,
     /\bnao\s+tenho\s+interesse\b.*\bnao\s+me\s+(chame|procure)\b/,
   ];
@@ -180,7 +180,13 @@ export const wantsHuman = (text: string): boolean => {
 
   // Refusing a bot IS asking for a person, and it starts with "nao" — so it is
   // settled before the negation guard below, which would otherwise swallow it.
-  if (/\bnao\s+quero\s+falar\s+com\s+(rob[oa]|bot|ia|maquina)\b/.test(t)) return true;
+  if (
+    new RegExp(
+      `\\bnao\\s+(quero|queria)\\s+(falar|conversar)\\s+com\\s+${art}(rob[oa]|bot|ia|maquina|atendimento\\s+automatico)\\b`,
+    ).test(t)
+  ) {
+    return true;
+  }
 
   // "não quero falar com uma pessoa agora, prefiro resolver aqui" is a refusal, and
   // handoff is irreversible: reading it backwards ends the conversation she wanted.
@@ -192,7 +198,7 @@ export const wantsHuman = (text: string): boolean => {
     new RegExp(`\\b(quero|queria|posso|pode|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}\\b`),
     new RegExp(`\\bfalar\\s+com\\s+${art}${who}\\s+(de\\s+verdade|real)\\b`),
     new RegExp(`\\bme\\s+(passa|passe|transfere|transfira)\\s+(pra|para)\\s+${art}${who}\\b`),
-    /\b(tem|existe|ha)\s+(algum\s+)?(atendente|humano|pessoa)\s+(ai|disponivel|pra\s+falar)\b/,
+    new RegExp(`\\b(tem|existe|ha)\\s+(algum\\s+|alguma\\s+)?${who}\\s+(ai|disponivel|dispon[ií]vel|pra\\s+falar|para\\s+falar)\\b`),
     /\b(atendimento|suporte)\s+humano\b/,
   ];
   return asks.some((r) => r.test(t));
@@ -250,6 +256,15 @@ const gates: readonly Gate[] = [
         40, // anchor discount already published on the site
         ...(ctx.config.coupon.active ? [ctx.config.coupon.percent] : []),
       ]);
+      // A concession with no number is still a concession. "Eu tiro um pouquinho",
+      // "faço um precinho", "dou um jeito no valor" commit the shop to a price nobody
+      // set, and the number gate never sees them because there is no number to see.
+      for (const m of t.matchAll(
+        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pouc\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
+      )) {
+        if (!negatedAt(t, m.index ?? 0)) return "promises a discount with no number behind it";
+      }
+
       // "30 por cento" is the same offer as "30%", and only the symbol was read.
       for (const m of t.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
         const value = Number(m[1]);
@@ -380,6 +395,131 @@ const gates: readonly Gate[] = [
         }
       }
       return null;
+    },
+  },
+  {
+    /**
+     * The shop sells a garment, not a treatment. "Corrige a postura", "trata hérnia",
+     * "indicado para pós-operatório" are medical claims about a product that has no
+     * medical registration — the kind of sentence a sales model writes without being
+     * asked, and the kind that turns a return into a complaint. Reporting what the
+     * customer feels is still allowed; promising what the product does to her body is
+     * not, which is the same line `weight_loss_claim` draws.
+     */
+    name: "health_claim",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      const claims = [
+        /\b(cura|curar|trata|tratar|corrige|corrigir|resolve|resolver|elimina)\s+(?:a\s+|o\s+|as\s+|os\s+|sua\s+|seu\s+|de\s+)?(dor|dores|postura|hernia|coluna|circulacao|lordose|escoliose|varizes|celulite)/g,
+        /\b(pos[\s-]?operatorio|pos[\s-]?cirurgic\w*|cirurgia\s+plastica|fisioterap\w*|ortopedic\w*|medicinal|terapeutic\w*|uso\s+medico)\b/g,
+        /\bmelhora\s+(?:a\s+|sua\s+)?(circulacao|postura|coluna|respiracao)\b/g,
+      ];
+      for (const pattern of claims) {
+        for (const m of t.matchAll(pattern)) {
+          if (!negatedAt(t, m.index ?? 0)) return "makes a medical claim about a garment";
+        }
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * Invented stock and invented deadlines. This is the single thing a sales model
+     * reaches for unprompted — nobody taught it, it just knows the genre — and it is
+     * the one claim the operation can never back, because nothing here counts units or
+     * runs a countdown. Under Brazilian consumer law an urgency that does not exist is
+     * misleading advertising, and it costs the trust the COD funnel runs on.
+     */
+    name: "scarcity_claim",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      const claims = [
+        /\bso\s+(resta|restam|sobrou|sobraram|tem)\s+\d/,
+        /\bultim[ao]s?\s+(unidades?|pecas?|dias?|horas?)\b/,
+        /\bestoque\s+(acabando|limitado|quase|baixo)\b/,
+        /\b(promocao|oferta|desconto|condicao)\s+(acaba|termina|expira|vence)\b/,
+        /\bacaba\s+em\s+\d/,
+        /\bcorre\s+que\s+(acaba|vai\s+acabar)\b/,
+        /\bvagas?\s+limitad[ao]s?\b/,
+      ];
+      return claims.some((r) => r.test(t)) ? "invents stock or a deadline nothing tracks" : null;
+    },
+  },
+  {
+    /**
+     * The warranty is a number the operation committed to, and any other number is a
+     * commitment nobody made. "30 dias para devolver" and "troca quantas vezes quiser"
+     * both create an obligation the shop has to honour or refuse in front of a customer
+     * who was told otherwise.
+     */
+    name: "warranty_promise",
+    remedy: "rewrite",
+    check: (text, ctx) => {
+      const t = norm(text);
+      if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
+        return "promises a warranty with no limit";
+      const window = /(troc|devolv|garanti|arrepend)/;
+      for (const m of t.matchAll(/(\d{1,3})\s*dias?/g)) {
+        const at = m.index ?? 0;
+        const around = t.slice(Math.max(0, at - 40), at + 40);
+        if (!window.test(around)) continue;
+        if (Number(m[1]) !== ctx.config.delivery.warrantyDays)
+          return `warranty of ${m[1]} days is not the configured ${ctx.config.delivery.warrantyDays}`;
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * Freight is the difference between the two offers, and blurring it breaks whichever
+     * one the customer picks. Cash on delivery has it included in the price; prepaid has
+     * it calculated by region inside the checkout. "Frete grátis" is true in neither, and
+     * on the prepaid path it is a number the carrier has not agreed to.
+     */
+    name: "shipping_promise",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      return /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
+        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t)
+        ? "promises free shipping, which neither offer has"
+        : null;
+    },
+  },
+  {
+    /**
+     * One product, one channel. There is no second item to sell and no counter to pick
+     * it up from — an order for either is an order nobody can fill, and the customer
+     * finds out at the door.
+     */
+    name: "unavailable_offer",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      if (/\b(calcinha|sutia|legging|body\b|macacao|camisola|pijama|meia\b|short\s+modelador|modelador\s+de\s+perna|cinta\s+de\s+bra[cç]o)\b/.test(t))
+        return "offers a product the shop does not sell";
+      if (/\b(loja\s+fisica|nossa\s+loja|nossas\s+lojas)\b/.test(t) ||
+        /\b(retirar|retirada|buscar)\b[^.!?]{0,24}\b(loja|balcao|endereco|local)\b/.test(t))
+        return "offers pickup at a store that does not exist";
+      return null;
+    },
+  },
+  {
+    /**
+     * At the door she pays once, to the courier. Installments belong to the prepaid
+     * checkout, and only the checkout knows which it offers — so on the cash-on-delivery
+     * path the agent has nothing to promise.
+     */
+    name: "installment_promise",
+    remedy: "rewrite",
+    check: (text, ctx) => {
+      if (ctx.paymentPath !== "cod") return null;
+      const t = norm(text);
+      return /\b(\d{1,2}\s*x\b|parcel\w*|dividir\s+em\s+\d|em\s+ate\s+\d{1,2}\s*vezes)/.test(t)
+        ? "promises installments on the cash-on-delivery path"
+        : null;
     },
   },
   {
