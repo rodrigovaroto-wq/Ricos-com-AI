@@ -250,6 +250,27 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
+### A venda inteira, pelo webhook de produção
+
+Sete turnos, do "oi" ao link, entrando pela mesma porta que a cliente usará. **`rewrites: 0`
+em todos**, **zero vetos** na conversa inteira, custo total **R$ 0,0197**.
+
+| Turno | Resultado |
+|---|---|
+| "oi, vi o anúncio" | abriu dizendo que **não emagrece**, com o preço e a pergunta de tamanho |
+| "quanto custa?" | R$ 216,50 → R$ 129,90, e R$ 110,41 antecipado |
+| "uso 42 de calça" | **G**, e citou as 12 unidades que o operador declarou |
+| "quero comprar" | pediu o nome. **Nenhum pedido de endereço em turno nenhum** |
+| nome → e-mail → CPF | um de cada vez, CPF por último |
+| CPF | **o link**, e a mensagem dizendo que o pedido só nasce no checkout |
+
+Estado final do lead: `size: G`, identidade completa e correta, `address: null`,
+`handoff_at: null`, 14 mensagens, 3 toques armados, **0 blocos de guardrail**. O link
+respondeu HTTP 200 com os quatro parâmetros. Dados de teste apagados.
+
+Zero vetos numa conversa inteira é o `gateBriefing` fazendo o trabalho dele: a agente
+escreveu dentro das regras em vez de descobri-las sendo recusada.
+
 ### A porta de produção estava fechada, e ninguém sabia
 
 Descoberto ao testar o e-mail de handoff pelo webhook real, em 2026-09-08. **Toda
@@ -725,17 +746,14 @@ Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e 
 Em ordem:
 
 1. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego.
-2. **Rodar a conversa inteira pelo webhook**, não contra a Edge Function. O caminho de
-   produção só foi exercitado com o pedido de humano; a venda completa nunca passou por
-   ele.
-3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    O número já escolhido é **(11) 98859-0594**; nada o consome até o WAHA existir.
-4. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
+3. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
    Supabase, chaves OpenAI/Gemini, os dois tokens de acesso do Facebook que apareceram no
    painel da Coinzz, e o Personal Access Token da Supabase usado para deployar a v15-v17.
    O token da Coinzz o operador já revogou.
-5. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
+4. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
    `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
 
 ---
