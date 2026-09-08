@@ -140,14 +140,27 @@ export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {
 
 const brl = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
+/**
+ * The copy is warm on purpose, and specific on purpose.
+ *
+ * The woman on the other side usually stopped wearing something she likes because she
+ * did not feel good in it. The touch that works names that piece — the dress, the white
+ * shirt, the photo — instead of praising her in the abstract, and it never suggests
+ * there is something wrong with her. What changes is how the clothes fall, and saying
+ * exactly that is both the honest line and the one that sells: she has been promised
+ * weight loss before and recognises someone who is not lying to her.
+ *
+ * Every variant here passes the guardrail chain, and the range asserts it — copy the
+ * cron generates and then refuses is a touch the customer never gets.
+ */
 const SILENCE_1: Record<StopPoint, readonly string[]> = {
   before_size: [
     "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛",
-    "Oi! Qualquer dúvida que tenha ficado, é só me chamar. Me fala o tamanho de calça que você usa e eu te digo qual colete serve 💛",
+    "Oi! Pensa naquela roupa que está parada no armário esperando um dia bom. Me fala o tamanho de calça que você usa e eu te digo qual colete deixa ela caindo do jeito que você gosta 💛",
   ],
   after_price: [
     "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.",
-    "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora, você paga quando receber o colete.",
+    "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.",
   ],
   link_sent: [
     "Vi que o pedido ficou aberto! Precisa de ajuda pra confirmar? Se preferir, eu monto de novo pra você 😊",
@@ -157,7 +170,7 @@ const SILENCE_1: Record<StopPoint, readonly string[]> = {
 
 const SILENCE_2 = [
   "Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e só paga se estiver tudo certo. Se não servir, tem 7 dias pra devolver. Se ainda fizer sentido pra você, é só me chamar.",
-  "Bom dia! 💛 Uma coisa que talvez tenha te segurado ontem: aqui você não arrisca nada. O colete chega, você veste, e só paga se gostar. E ainda tem 7 dias pra trocar ou devolver. Se quiser retomar, é só falar comigo.",
+  "Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga se, ao se olhar no espelho, achar que valeu — e ainda tem 7 dias pra devolver se não achar. É só me chamar.",
 ] as const;
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
@@ -235,7 +248,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
 
     case "order_delivered":
       return (
-        "Chegou?! 😍 Me conta: serviu direitinho?\n" +
+        "Chegou?! 😍 Me conta: já vestiu com aquela roupa que você tinha em mente?\n" +
         "Dica de primeira vez: feche os colchetes na fileira mais folgada e vá apertando com o uso — é bem mais confortável assim.\n" +
         "E se quiser mandar uma foto do antes e depois com a roupa, eu adoro ver (e ninguém publica nada sem sua autorização)."
       );

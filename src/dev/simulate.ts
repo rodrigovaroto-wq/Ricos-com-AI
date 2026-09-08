@@ -414,6 +414,48 @@ for (const chat of CHATS) {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// R. A copy persuasiva passa na própria cadeia
+//
+// A régua fala de espelho, de vestido parado no armário e de promessa que já quebraram
+// com ela. É a copy que converte, e é também a que chega mais perto dos gates de
+// emagrecimento e de saúde — se o cron gerar uma frase que ele mesmo recusa, a cliente
+// simplesmente não recebe o toque.
+// ─────────────────────────────────────────────────────────────────────────────
+for (const [angle, reply, esperado] of [
+  ["espelho, sem prometer corpo", "Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.", "envia"],
+  ["a roupa parada no armário", "Pensa naquela roupa que está parada no armário esperando um dia bom.", "envia"],
+  ["honestidade como argumento", "O colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa.", "envia"],
+  ["a cena concreta", "É o vestido que você já tem, caindo do jeito que você queria.", "envia"],
+  ["urgência verdadeira do COD", "Adiar não protege o seu bolso: você só paga quando receber.", "envia"],
+  ["mas prometer corpo continua barrado", "Você vai emagrecer e finalmente se amar no espelho.", "barra(weight_loss_claim)"],
+  ["e apontar defeito com promessa de cura", "Ele corrige a sua postura e resolve a sua barriga.", "barra(health_claim)"],
+] as Array<[string, string, string]>) {
+  check("copy persuasiva", angle, reply, esperado, outcome(reply));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S. Escassez: verdadeira passa, inventada não
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const semEscassez = config;
+  const comEstoque = { ...config, scarcity: { unitsLeft: 3 } };
+  const comPrazo = { ...config, scarcity: { offerEndsAt: "2026-09-30T00:00:00Z" } };
+  const prazoVencido = { ...config, scarcity: { offerEndsAt: "2026-01-01T00:00:00Z" } };
+
+  for (const [angle, reply, cfg, esperado] of [
+    ["sem nada declarado, estoque é invenção", "Só restam 3 unidades!", semEscassez, "barra(scarcity_claim)"],
+    ["com o estoque declarado, é fato", "Só restam 3 unidades!", comEstoque, "envia"],
+    ["mas não um número diferente do declarado", "Só restam 2 unidades!", comEstoque, "barra(scarcity_claim)"],
+    ["sem prazo declarado, contagem é invenção", "A promoção acaba hoje!", semEscassez, "barra(scarcity_claim)"],
+    ["com prazo declarado e aberto, é fato", "A promoção acaba em breve, viu?", comPrazo, "envia"],
+    ["com prazo já vencido, volta a ser invenção", "A promoção acaba em breve, viu?", prazoVencido, "barra(scarcity_claim)"],
+    ["contagem regressiva nunca passa", "Corre que acaba em 10 minutos!", comPrazo, "barra(scarcity_claim)"],
+  ] as Array<[string, string, typeof config, string]>) {
+    check("escassez", angle, reply, esperado, outcome(reply, { config: cfg }));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Relatório
 // ─────────────────────────────────────────────────────────────────────────────
 const verbose = process.argv.includes("--verbose");

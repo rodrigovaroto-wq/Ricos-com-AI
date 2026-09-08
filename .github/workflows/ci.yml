@@ -31,9 +31,10 @@ jobs:
 
       - run: pnpm typecheck
 
-      # Includes function-drift.test.ts: the guardrail chain, the rulers, the size
-      # table and the price table each exist twice, and this is what proves the two
-      # copies still agree before anything is deployed.
+      # Includes function-drift.test.ts (the mirrored copies still agree), the 794-case
+      # chain range, and the 300 complete conversations. The last one is the only thing
+      # that exercises the fourth turn: a gate proves a sentence is refused, a
+      # conversation proves the size she gave in turn two survives to turn five.
       - run: pnpm test
 
       # The Edge Function is Deno, and `tsc` does not cover it (`include: ["src",
