@@ -26,6 +26,53 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
+### A bateria de conversas, e o defeito mais caro do projeto
+
+780 casos: 100 roteiros de conversa em três escritas reais de WhatsApp cada
+([`src/dev/chats.ts`](src/dev/chats.ts)), mais a cadeia inteira contra as frases que a
+agente pode escrever ([`src/dev/simulate.ts`](src/dev/simulate.ts)). Roda por
+`pnpm dev` **e** dentro do `pnpm test` — script que ninguém roda foi exatamente como o
+`pnpm lint` ficou quebrado por meses.
+
+**A tabela de tamanho do código discordava da que a cliente lê.** `sizeFromDressSize`
+dizia que 42 é **M** e 46 é **G**. O site publica **42–44 = G** e **46–48 = GG**
+(`Offer.tsx` :16-20), e a base de conhecimento repete. A agente estava indicando um
+tamanho **menor** que a página onde a cliente leu a tabela, em todo degrau par — e
+tamanho pequeno volta, o que em COD é o frete inteiro perdido. Pior: as sondas das
+sessões anteriores ("42 → M", "46 → G") cimentaram o erro, e um teste o travava.
+
+As duas escadas viraram um array só, então não podem mais divergir, e um teste percorre
+a tabela publicada degrau a degrau.
+
+**"Manequim" é jargão.** O operador apontou: quase ninguém usa a palavra, as clientes
+dizem *"uso 42 de calça"*. A agente agora pergunta assim e aceita número ou letra. O
+extrator continua entendendo "manequim" — quem usa a palavra não é punido por isso.
+
+**Sapato virava cintura.** "Calço 38" está a uma letra de "calça 38", e o 38 ia para
+`leads.size` como M.
+
+**Seis promessas não tinham gate nenhum** — 13 de 16 frases fora do escopo passavam
+inteiras. A cadeia foi de 11 para 17 gates:
+
+| Gate novo | A frase que passava |
+|---|---|
+| `health_claim` | "corrige a sua postura e cura a dor nas costas" |
+| `scarcity_claim` | "só restam 3 unidades", "a promoção acaba em 10 minutos" |
+| `warranty_promise` | "você tem 30 dias", "troca quantas vezes quiser" |
+| `shipping_promise` | "no antecipado o frete é grátis também" |
+| `unavailable_offer` | "também temos calcinha modeladora", "pode retirar na nossa loja" |
+| `installment_promise` | "dá pra parcelar em 3x" (na porta ela paga uma vez) |
+
+O `price_promise` também passou a pegar a concessão sem número — *"eu tiro mais um
+pouquinho"* compromete a loja com um preço que ninguém definiu.
+
+**Três jeitos de ser ignorada, todos corrigidos.** *"Me tire **dessa** lista"* não era
+opt-out (só *"da lista"* era), então quem pediu para parar continuava recebendo — o
+único erro irreversível da lista. *"Tem alguém disponível pra falar?"* e *"não quero
+falar com uma máquina"* deixavam quem pediu gente conversando com robô.
+
+**960 testes** no total, contra 148 no começo da sessão.
+
 ### Trabalho da sessão de 2026-09-08 — a varredura por falhas
 
 A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava
