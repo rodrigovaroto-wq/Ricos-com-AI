@@ -40,7 +40,9 @@
     "physicalOnDeliveryActive": false
   },
   "checkout": {
-    "baseUrl": "{{URL_CHECKOUT_COINZZ}}"
+    "_comment": "Os dois checkouts da Coinzz, URL completa. A agente monta o link com os QUATRO parâmetros que a página lê da query string (name, email, phone, document, conferidos em /assets/js/checkout/new-checkout-two.js em 2026-09-08) — com os quatro juntos o checkout pula direto para a etapa de endereço. Endereço e tamanho NÃO têm parâmetro: ela digita o endereço e escolhe o tamanho lá dentro, junto com o dia da entrega.",
+    "codUrl": "{{URL_CHECKOUT_PAGAMENTO_NA_ENTREGA}}",
+    "prepayUrl": "{{URL_CHECKOUT_PAGAMENTO_ANTECIPADO}}"
   },
   "handoff": {
     "email": "{{EMAIL}}"

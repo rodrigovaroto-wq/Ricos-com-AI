@@ -195,6 +195,68 @@ export const buildCoinzzRequest = (
 };
 
 /**
+ * The checkout link, with what the checkout can actually receive.
+ *
+ * Verified against the page itself on 2026-09-08, not assumed: the served bundle
+ * `/assets/js/checkout/new-checkout-two.js` reads exactly four values off the query
+ * string — `name`, `email`, `phone`, `document` — in `getQueryParams`, writes them into
+ * `#customer-name`, `#customer-email`, `#customer-phone` and `#customer-cpf`, and, when
+ * **all four** are present and valid, calls `changeAccordion(0)` and moves her straight
+ * to the address step. Three out of four fill the fields and skip nothing.
+ *
+ * What it does NOT accept is as important. There is no query parameter for the address:
+ * CEP, rua, número, bairro, cidade and UF are typed in the checkout, whatever the
+ * conversation collected. And the size cannot be sent either — `prePopulatedVariations`
+ * is rendered server-side into the page (`data-payload`), never read from the URL, so
+ * she picks the size in the checkout and the agent's job is to tell her which one.
+ *
+ * That is the honest shape of this path, and it is why the message that carries the link
+ * has to say what is left for her to do instead of implying the order is done.
+ */
+export interface CheckoutLinkConfig {
+  /** Full checkout URL of the cash-on-delivery offer. */
+  codUrl: string;
+  /** Full checkout URL of the prepaid offer. */
+  prepayUrl?: string;
+}
+
+/** The four the checkout reads, in the order it reads them. */
+export const CHECKOUT_QUERY_FIELDS = ["name", "email", "phone", "document"] as const;
+
+/**
+ * Builds the link, or says what is missing. Partial is refused on purpose: the whole
+ * gain of this path is the checkout skipping the first step, and it only skips with all
+ * four. A link that fills three fields and still asks her to start at the top is the
+ * same friction with extra steps.
+ */
+export const buildCheckoutLink = (
+  customer: OrderIdentity & { phone: string },
+  paymentMethod: "cod" | "prepay",
+  config: Partial<CheckoutLinkConfig>,
+): string => {
+  const base = paymentMethod === "cod" ? config.codUrl : config.prepayUrl;
+  const missing = [
+    ...(filled(base) ? [] : [`checkout.${paymentMethod === "cod" ? "codUrl" : "prepayUrl"}`]),
+    ...(filled(customer.name) ? [] : ["customer.name"]),
+    ...(filled(customer.email) ? [] : ["customer.email"]),
+    ...(digitsOnly(customer.phone ?? "").length >= 10 ? [] : ["customer.phone"]),
+    ...(digitsOnly(customer.document ?? "").length >= 11 ? [] : ["customer.document"]),
+  ];
+  if (missing.length > 0) throw new CoinzzIncompleteError(missing);
+
+  const query = new URLSearchParams({
+    name: customer.name.trim(),
+    email: customer.email.trim().toLowerCase(),
+    // The checkout strips non-digits itself, but sending them clean keeps the link
+    // short and readable — it goes into a WhatsApp message, where a wall of %2D reads
+    // like a scam.
+    phone: digitsOnly(customer.phone),
+    document: digitsOnly(customer.document),
+  });
+  return `${base}${base!.includes("?") ? "&" : "?"}${query.toString()}`;
+};
+
+/**
  * What their API answers with. n8n posts the body and writes this back to the webhook,
  * so the shape is declared here rather than in a workflow nobody can test.
  */

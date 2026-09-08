@@ -44,9 +44,11 @@ import {
   type Identity,
 } from "./identity.ts";
 import {
+  buildCheckoutLink,
   buildCoinzzRequest,
   CoinzzIncompleteError,
   missingCoinzzConfig,
+  type CheckoutLinkConfig,
   type CoinzzConfig,
   type CoinzzRequest,
 } from "./coinzz.ts";
@@ -85,6 +87,12 @@ interface BusinessConfig extends GateConfig {
    * which offer, and which of their four payment methods means paying at the door.
    */
   coinzz?: Partial<CoinzzConfig>;
+  /**
+   * The two checkout URLs. This is the path the operator chose (2026-09-08): the agent
+   * fills what the checkout accepts and she finishes there, because the delivery day is
+   * a choice only she can make and it lives inside the checkout.
+   */
+  checkout?: Partial<CheckoutLinkConfig>;
   /**
    * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
    * attributed to a customer that is not in this list — which, while the list was
@@ -1100,6 +1108,30 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
   // ou dado da cliente — vem `orderBlocked` com o nome exato do que falta, em vez de
   // um corpo pela metade que vira pacote na porta errada.
+  /**
+   * The link she finishes in. It carries the four fields the checkout reads from the
+   * query string, and all four together are what makes it skip the first step — so it
+   * is built only once identity is complete, and never half-built.
+   */
+  let checkoutUrl: string | null = null;
+  let checkoutBlocked: string[] = [];
+  if (isIdentityComplete(identityDraft)) {
+    try {
+      checkoutUrl = buildCheckoutLink(
+        { ...identityDraft, phone: lead.phone },
+        "cod",
+        CONFIG.checkout ?? {},
+      );
+    } catch (error) {
+      checkoutBlocked =
+        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
+    }
+  } else {
+    checkoutBlocked = (["name", "email", "document"] as const)
+      .filter((f) => !identityDraft[f])
+      .map((f) => `customer.${f}`);
+  }
+
   let order: CoinzzRequest | null = null;
   let orderBlocked: string[] = missingCoinzzConfig(CONFIG.coinzz ?? {});
   const size = stated?.size ?? lead.size ?? null;
@@ -1141,6 +1173,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
     rewrites: rewritesUsed,
     order,
     orderBlocked,
+    // O caminho vigente: a agente manda este link e a cliente termina no checkout, onde
+    // ela escolhe o dia da entrega. `order` continua aqui para quando o pedido passar a
+    // nascer por API — mas hoje quem cria o pedido é ela, clicando.
+    checkoutUrl,
+    checkoutBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.
     size: stated?.size ?? lead.size ?? null,
