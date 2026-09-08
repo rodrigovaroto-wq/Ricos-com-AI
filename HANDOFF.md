@@ -250,6 +250,38 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
+### A porta de produção estava fechada, e ninguém sabia
+
+Descoberto ao testar o e-mail de handoff pelo webhook real, em 2026-09-08. **Toda
+verificação anterior deste projeto chamou a Edge Function direto** — o que prova o
+código, e não o caminho.
+
+O nó `Cerebro do turno` autenticava na Supabase com a credencial **`Gemini API`**. A
+Supabase recusava com `UNAUTHORIZED_INVALID_JWT_FORMAT`, nenhuma conversa nascia,
+nenhuma mensagem era respondida. A credencial já tinha se chamado "Header Auth account":
+foi renomeada e teve o valor trocado quando as APIs de modelo foram cadastradas, e levou
+o turno junto.
+
+E era silencioso **por configuração**: o nó estava com `neverError`, então o erro voltava
+como **HTTP 200 com o erro dentro do corpo**. Webhook verde, execução verde, banco vazio.
+
+Corrigido: credencial própria (`Supabase service_role`), `neverError` desligado, e a
+regra registrada em
+[`.claude/memory/verificar-pela-porta-de-producao.md`](.claude/memory/verificar-pela-porta-de-producao.md).
+Sonda que não entra pelo webhook não verifica a entrada; e depois de sondar, confira o
+banco — se nenhum lead nasceu, não importa o que o HTTP devolveu.
+
+### O aviso de handoff, funcionando
+
+`Encorpa — Turno da agente` ganhou um ramo paralelo: `É handoff?` (checa `status` **e**
+`notify`) → `Avisa o operador` (SMTP do Gmail, três tentativas, falha visível). O ramo é
+paralelo de propósito — a resposta ao webhook sai antes, sem esperar o SMTP.
+
+Verificado ponta a ponta pelo webhook de produção: o Gmail respondeu
+`250 2.0.0 OK`, `accepted: ["rdvaroto@gmail.com"]`, remetente `rodrigo.varoto@gmail.com`
+(tem de ser a conta que autentica no SMTP, senão o Gmail recusa). O e-mail leva motivo,
+telefone, **link `wa.me`**, o que a agente disse a ela, os ids e o custo.
+
 ### Deployado e verificado em produção — Edge Function na versão 17
 
 A venda fecha, do "oi" ao link, verificada contra o modelo real. **`rewrites: 0` em todos
@@ -666,10 +698,8 @@ de código de conversa falta.** O que resta é operação:
 1. **Conferir o primeiro pedido real ponta a ponta.** A cliente termina no checkout, então
    o pedido nasce como sempre nasceu — mas ninguém ainda viu um nascer a partir de uma
    conversa. Enquanto isso não acontecer, a onda não está fechada.
-2. **O fluxo de n8n que manda o e-mail de handoff.** O destino existe (`handoff.email` no
-   `BUSINESS_CONFIG`) e o handler devolve o payload com e-mail, `leadId`, telefone e
-   `conversationId`. Falta uma credencial de SMTP no n8n — nenhuma das que estão lá manda
-   e-mail — e o fluxo. Hoje a agente promete chamar alguém e **ninguém é chamado**.
+2. ~~O fluxo de n8n que manda o e-mail de handoff.~~ **Feito e verificado** — ver a seção
+   acima. A agente promete chamar alguém e agora alguém é chamado.
 
 ### O caminho por API, que fica para depois
 
@@ -695,7 +725,9 @@ Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e 
 Em ordem:
 
 1. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego.
-2. **Montar o fluxo de n8n do e-mail de handoff** — falta a credencial de SMTP.
+2. **Rodar a conversa inteira pelo webhook**, não contra a Edge Function. O caminho de
+   produção só foi exercitado com o pedido de humano; a venda completa nunca passou por
+   ele.
 3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    O número já escolhido é **(11) 98859-0594**; nada o consome até o WAHA existir.
