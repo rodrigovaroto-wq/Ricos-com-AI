@@ -251,7 +251,10 @@ for (const [angle, input, esperado] of [
   ["cancelar pedido não é opt-out", "quero cancelar meu pedido", "responde"],
   ["quer pessoa", "quero falar com uma pessoa", "handoff"],
   ["quer atendente", "tem atendente aí?", "handoff"],
-  ["atendimento humano", "vocês têm atendimento humano?", "handoff"],
+  // A frase exata "atendimento humano" está na lista; embutida numa pergunta, não está —
+  // e é aí que a regra de frase exata cobra o preço dela, de propósito.
+  ["atendimento humano exato", "atendimento humano", "handoff"],
+  ["atendimento humano dentro de uma frase", "vocês têm atendimento humano?", "responde"],
   ["recusa o robô", "não quero falar com robô", "handoff"],
   ["transfere", "me passa pra um humano", "handoff"],
   ["recusa a pessoa", "não quero falar com uma pessoa agora", "responde"],
@@ -317,8 +320,10 @@ const turn = (remedy: "rewrite" | "defer" | "stop" | null, used: number, spent: 
 for (const [angle, got, esperado] of [
   ["nada barrou", turn(null, 0, 0), "send"],
   ["primeira reescrita", turn("rewrite", 0, 0), "rewrite"],
-  ["segunda reescrita", turn("rewrite", 1, 0), "rewrite"],
-  ["esgotou as reescritas", turn("rewrite", 2, 0), "handoff"],
+  // Uma reescrita só, e o fim dela não é handoff: a cliente recebe a resposta de saída e
+  // a conversa continua com a agente. Handoff ficou para o que não é questão de redação.
+  ["esgotou a reescrita", turn("rewrite", 1, 0), "fallback"],
+  ["esgotou de novo", turn("rewrite", 2, 0), "fallback"],
   ["sem orçamento pra reescrever", turn("rewrite", 0, 1.5), "handoff"],
   ["opt-out nunca reescreve", turn("stop", 0, 0), "stop"],
   ["hora errada adia", turn("defer", 0, 0), "defer"],

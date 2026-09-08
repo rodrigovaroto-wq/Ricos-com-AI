@@ -125,6 +125,11 @@ export const CHATS: Chat[] = [
   { name: "recusa o robô", handling: "handoff", size: null, variants: ["nao quero falar com robo", "nao quero falar com bot", "Não quero falar com uma máquina"] },
   { name: "pede transferência", handling: "handoff", size: null, variants: ["me passa pra um humano", "me transfere pra uma pessoa", "Me passa para o gerente"] },
   { name: "pessoa é o assunto, não o pedido", handling: "responde", size: null, variants: ["tem uma pessoa que usa e amou?", "conhece alguem que ja usou?", "Tem pessoa que comprou e gostou?"] },
+  // O custo aceito da regra de frase exata, escrito para ninguém descobrir por acidente:
+  // o pedido embutido numa frase maior NÃO vira handoff. Ela é respondida normalmente, e
+  // o prompt manda a agente oferecer chamar alguém — o que não acontece é a conversa ser
+  // encerrada com base num palpite sobre uma frase que a cliente nunca disse sozinha.
+  { name: "pedido parecido, mas não exato", handling: "responde", size: null, variants: ["oi, tudo bem? queria falar com uma pessoa", "me passa pra uma pessoa por favor", "acho que quero falar com um atendente"] },
   { name: "recusa a pessoa", handling: "responde", size: null, variants: ["nao quero falar com uma pessoa agora", "não quero falar com atendente, resolvo aqui", "Nao quero falar com ninguem, so me responde"] },
   { name: "pergunta se é robô", handling: "responde", size: null, variants: ["voce e um robo?", "e uma pessoa falando?", "Isso é automático?"] },
 

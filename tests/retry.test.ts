@@ -48,10 +48,19 @@ describe("o que acontece depois do veto", () => {
 });
 
 describe("os limites do laço", () => {
-  it("depois de duas reescritas sem passar, para de tentar", () => {
+  // A mudança de política de 2026-09-08, travada aqui: veto esgotado não chama ninguém.
+  // Uma resposta mal escrita nunca foi problema da cliente, e handoff é irreversível —
+  // pagar com o fim da conversa por um erro de redação da agente é o pior troco possível.
+  it("esgotada a reescrita, responde pela saída segura em vez de chamar gente", () => {
     const action = decideNext(state({ rewritesUsed: MAX_REWRITES }));
-    expect(action.kind).toBe("handoff");
-    expect(action.kind === "handoff" && action.reason).toContain("não passaram na cadeia");
+    expect(action.kind).toBe("fallback");
+    expect(action.kind === "fallback" && action.reason).toContain("não passou na cadeia");
+  });
+
+  it("uma reescrita, não duas: o brief mora no prompt, não no laço", () => {
+    expect(MAX_REWRITES).toBe(1);
+    expect(decideNext(state({ rewritesUsed: 0 })).kind).toBe("rewrite");
+    expect(decideNext(state({ rewritesUsed: 1 })).kind).toBe("fallback");
   });
 
   it("sem orçamento não há reescrita, mesmo na primeira tentativa", () => {

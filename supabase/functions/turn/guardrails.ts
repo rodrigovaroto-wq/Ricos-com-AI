@@ -187,52 +187,115 @@ export const classifyOptOut = (text: string): OptOutLevel => {
 export type Remedy = "rewrite" | "defer" | "stop";
 
 /**
- * She asked for a person (§Q12). This is the third door into handoff, and the only
- * one she opens herself — the other two (a veto the rewrites could not fix, and the
- * cost ceiling) are the system giving up. It is deliberately narrower than a search
- * for "pessoa" or "atendente": "tem uma pessoa que usa e amou" is not a request, and
- * a false positive here silences a sale the agent was closing.
+ * She asked for a person (§Q12), and the bar is deliberately absolute: the whole
+ * message has to **be** one of these phrases. Not contain one, not resemble one.
+ *
+ * That is the operator's call (2026-09-08), and the reason is which direction is
+ * expensive to be wrong in. Handoff is irreversible — the agent never answers that
+ * conversation again — so a pattern that fires inside a longer sentence ends a sale
+ * the agent was closing, silently, for a customer who never asked for anything. The
+ * regex version did exactly that three times before it was narrowed, and narrowing a
+ * regex is endless: each fix invents the next sentence it swallows. A phrase list
+ * cannot swallow anything, because it matches nothing it does not literally say.
+ *
+ * The price is real and accepted: "oi, tudo bem? queria falar com uma pessoa" is not
+ * routed. She is not ignored — she gets a normal answer, and the prompt tells the agent
+ * to offer calling someone. This sentinel is the deterministic shortcut that costs
+ * nothing and never guesses; it was never the only way to reach a person.
+ *
+ * Adding a line here is cheap and safe. Loosening the match is not.
  */
-export const wantsHuman = (text: string): boolean => {
-  const t = norm(text);
-  const art = "(?:(?:o|a|os|as|um|uma)\\s+)?";
-  // The trailing guard is the whole difference between a request and a topic:
-  // "falar com uma pessoa QUE já comprou" is another customer she wants to hear
-  // about, not an attendant she wants to reach.
-  const who =
-    "(?:pessoa|humano|humana|atendente|gerente|vendedor[ae]?|suporte|alguem)(?!\\s+que\\b)";
+export const HUMAN_REQUEST_PHRASES: readonly string[] = [
+  // Pedido direto.
+  "quero falar com uma pessoa",
+  "quero falar com um atendente",
+  "quero falar com uma atendente",
+  "quero falar com alguem",
+  "quero falar com um humano",
+  "quero falar com um gerente",
+  "quero falar com um vendedor",
+  "quero falar com uma pessoa de verdade",
+  "queria falar com uma pessoa",
+  "queria falar com um atendente",
+  "queria falar com alguem",
+  "queria conversar com uma pessoa",
+  "queria conversar com um atendente",
+  "posso falar com uma pessoa",
+  "posso falar com um atendente",
+  "posso falar com alguem",
+  // Ela nomeia o atendimento em vez da pessoa.
+  "atendimento humano",
+  "quero atendimento humano",
+  "preciso de atendimento humano",
+  "quero suporte humano",
+  // Transferência.
+  "me passa para uma pessoa",
+  "me passa pra uma pessoa",
+  "me passa para um atendente",
+  "me passa pra um atendente",
+  "me passa para um humano",
+  "me passa pra um humano",
+  "me passa para o gerente",
+  "me passa pro gerente",
+  "me transfere para uma pessoa",
+  "me transfere pra uma pessoa",
+  "me transfere para o suporte",
+  "me transfere pro suporte",
+  // Recusar o robô é pedir gente.
+  "nao quero falar com robo",
+  "nao quero falar com um robo",
+  "nao quero falar com bot",
+  "nao quero falar com um bot",
+  "nao quero falar com maquina",
+  "nao quero falar com uma maquina",
+  // Ela pergunta se existe alguém antes de pedir.
+  "tem atendente ai",
+  "tem alguem ai",
+  "tem humano ai",
+  "tem alguem disponivel",
+  "tem alguem disponivel pra falar",
+  "tem alguem disponivel para falar",
+];
+/**
+ * Accents, case, punctuation and stray spaces are noise around the words; the words are
+ * the message. "Quero falar com uma pessoa!!" and "quero  falar com uma pessoa" are the
+ * same sentence, and treating them as different would be a bug, not rigour.
+ */
+export const asPhrase = (text: string): string =>
+  norm(text)
+    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
-  // Refusing a bot IS asking for a person, and it starts with "nao" — so it is
-  // settled before the negation guard below, which would otherwise swallow it.
-  if (
-    new RegExp(
-      `\\bnao\\s+(quero|queria)\\s+(falar|conversar)\\s+com\\s+${art}(rob[oa]|bot|ia|maquina|atendimento\\s+automatico)\\b`,
-    ).test(t)
-  ) {
-    return true;
-  }
+export const wantsHuman = (text: string): boolean =>
+  HUMAN_REQUEST_PHRASES.includes(asPhrase(text));
 
-  // "não quero falar com uma pessoa agora, prefiro resolver aqui" is a refusal, and
-  // handoff is irreversible: reading it backwards ends the conversation she wanted.
-  if (new RegExp(`\\bnao\\s+(quero|queria|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}`).test(t)) {
-    return false;
-  }
-
-  const asks = [
-    new RegExp(`\\b(quero|queria|posso|pode|gostaria\\s+de)\\s+(falar|conversar)\\s+com\\s+${art}${who}\\b`),
-    new RegExp(`\\bfalar\\s+com\\s+${art}${who}\\s+(de\\s+verdade|real)\\b`),
-    new RegExp(`\\bme\\s+(passa|passe|transfere|transfira)\\s+(pra|para)\\s+${art}${who}\\b`),
-    new RegExp(`\\b(tem|existe|ha)\\s+(algum\\s+|alguma\\s+)?${who}\\s+(ai|disponivel|dispon[ií]vel|pra\\s+falar|para\\s+falar)\\b`),
-    /\b(atendimento|suporte)\s+humano\b/,
-  ];
-  return asks.some((r) => r.test(t));
-};
+/** The one place money is written for a human to read inside this file. */
+const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
 interface Gate {
   name: string;
   remedy: Remedy;
   /** Returns a reason to block, or null to pass. */
   check: (text: string, ctx: GateContext) => string | null;
+  /**
+   * The same rule, written for the agent to read **before** it writes.
+   *
+   * A gate that only ever speaks by vetoing teaches nothing until it has already cost a
+   * rewrite, and a rewrite is a second model call for a turn the agent could have got
+   * right the first time. So every content gate states its rule here, and the turn hands
+   * the whole set to the model inside the system prompt: the agent calibrates against
+   * the rule instead of discovering it by being refused.
+   *
+   * It lives on the gate and not in the prompt for the reason this repository keeps
+   * relearning: two copies of one rule drift, and the copy that drifts is the one nobody
+   * tests. A test asserts every `rewrite` gate carries a line.
+   *
+   * Only content gates have one. `business_hours`, `pacing` and `opt_out` are not things
+   * better wording avoids — the clock and her opt-out are facts about the world, not
+   * about the sentence.
+   */
+  briefing?: (config: GateConfig) => string;
 }
 
 const gates: readonly Gate[] = [
@@ -244,6 +307,10 @@ const gates: readonly Gate[] = [
   {
     name: "charge_promise",
     remedy: "rewrite",
+    briefing: (c) =>
+      c.cod.physicalOnDeliveryActive
+        ? `Ela paga só quando o colete chegar na mão dela, ao entregador — isso está ligado na loja e você pode dizer.`
+        : `NÃO diga que ela paga na entrega: o pagamento na entrega está DESLIGADO na loja agora.`,
     check: (text, ctx) => {
       const t = norm(text);
       const promisesDoorPayment =
@@ -260,6 +327,15 @@ const gates: readonly Gate[] = [
     // exist in the operation?", and a message that gets one wrong usually gets both.
     name: "price_promise",
     remedy: "rewrite",
+    briefing: (c) =>
+      `Os únicos valores que existem são ${money(c.prices.codBrl)} na entrega, ` +
+      `${money(c.prices.prepayBrl)} antecipado, ${money(c.prices.anchorBrl)} de preço cheio, e a ` +
+      `diferença entre eles. Nenhum outro número em reais. Os únicos descontos são ` +
+      `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
+      `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
+      `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
+      `comprometem a loja com um preço que ninguém definiu. Recusar um número que ela pediu é ` +
+      `permitido, e é o seu trabalho.`,
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, +(codBrl - prepayBrl).toFixed(2)]);
@@ -303,6 +379,11 @@ const gates: readonly Gate[] = [
   {
     name: "coupon_exists",
     remedy: "rewrite",
+    briefing: (c) =>
+      c.coupon.active
+        ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo.`
+        : `Não existe cupom. Você pode dizer que não temos cupom no momento — o que não pode é ` +
+          `anunciar um, porque ele não existiria no checkout.`,
     // The gate exists so the agent never announces a coupon with no destination in
     // Coinzz. Saying "não temos cupom no momento" announces nothing — it is the honest
     // answer to a question customers ask constantly, and vetoing it left the agent
@@ -319,6 +400,10 @@ const gates: readonly Gate[] = [
   {
     name: "weight_loss_claim",
     remedy: "rewrite",
+    briefing: () =>
+      `Nunca diga que o produto emagrece, queima ou elimina gordura, nem que o resultado é ` +
+      `permanente. Ele modela enquanto está vestido. Dizer isso em voz alta é permitido e vende: ` +
+      `ela já ouviu promessa de emagrecimento antes e reconhece quem não mente.`,
     check: (text) => {
       const t = norm(text);
       // Verb endings vary ("queima", "queimar", "queimando"), so match the stem.
@@ -344,6 +429,11 @@ const gates: readonly Gate[] = [
   {
     name: "delivery_promise",
     remedy: "rewrite",
+    briefing: (c) =>
+      `Prazo: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, e nunca ` +
+      `"chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir. No caminho antecipado ` +
+      `não diga prazo nenhum: o frete é calculado por região dentro do checkout. Recusar a data ` +
+      `impossível é permitido.`,
     check: (text, ctx) => {
       const t = norm(text);
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
@@ -375,6 +465,9 @@ const gates: readonly Gate[] = [
   {
     name: "invented_testimonial",
     remedy: "rewrite",
+    briefing: () =>
+      `Só cite depoimento entre aspas se ele estiver na lista de depoimentos reais que você ` +
+      `recebeu. Sem essa lista, não atribua fala nenhuma a cliente nenhuma.`,
     // A quote is only a testimonial when someone is credited with saying it. Reading
     // every quoted string as one made the gate veto ordinary writing — repeating the
     // customer's own question back to her, naming the product the way the page does —
@@ -397,6 +490,9 @@ const gates: readonly Gate[] = [
   {
     name: "humanity_claim",
     remedy: "rewrite",
+    briefing: () =>
+      `Nunca afirme ser uma pessoa. Dizer "não sou uma pessoa, sou a assistente virtual da marca" ` +
+      `é a resposta certa; o proibido é o contrário — negar ser robô.`,
     check: (text) => {
       const t = norm(text);
 
@@ -432,6 +528,10 @@ const gates: readonly Gate[] = [
      */
     name: "health_claim",
     remedy: "rewrite",
+    briefing: () =>
+      `O produto é uma peça de roupa, não um tratamento. Não diga que cura, trata, corrige ou ` +
+      `melhora dor, postura, coluna, hérnia, circulação, varizes ou celulite, e não o indique ` +
+      `para pós-operatório nem uso médico.`,
     check: (text) => {
       const t = norm(text);
       const claims = [
@@ -457,6 +557,12 @@ const gates: readonly Gate[] = [
      */
     name: "scarcity_claim",
     remedy: "rewrite",
+    briefing: (c) =>
+      c.scarcity?.allowUnverified || c.scarcity?.unitsLeft != null || c.scarcity?.offerEndsAt
+        ? `Urgência: use só o que a loja te deu, no bloco de urgência acima. Não invente contagem ` +
+          `regressiva em minutos nem número de unidades diferente do declarado.`
+        : `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
+          `urgência inventada é publicidade enganosa.`,
     check: (text, ctx) => {
       const t = norm(text);
 
@@ -499,6 +605,9 @@ const gates: readonly Gate[] = [
      */
     name: "warranty_promise",
     remedy: "rewrite",
+    briefing: (c) =>
+      `A garantia é de ${c.delivery.warrantyDays} dias para trocar ou devolver. Nenhum outro ` +
+      `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.`,
     check: (text, ctx) => {
       const t = norm(text);
       if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
@@ -523,6 +632,9 @@ const gates: readonly Gate[] = [
      */
     name: "shipping_promise",
     remedy: "rewrite",
+    briefing: () =>
+      `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; no ` +
+      `antecipado ele é calculado por região dentro do checkout.`,
     check: (text) => {
       const t = norm(text);
       return /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
@@ -539,6 +651,10 @@ const gates: readonly Gate[] = [
      */
     name: "unavailable_offer",
     remedy: "rewrite",
+    briefing: () =>
+      `A loja vende um produto só, o Colete Cinta Modeladora, e só por aqui. Não ofereça ` +
+      `calcinha, sutiã, legging, short nem qualquer outro item, e não existe loja física nem ` +
+      `retirada no balcão.`,
     check: (text) => {
       const t = norm(text);
       if (/\b(calcinha|sutia|legging|body\b|macacao|camisola|pijama|meia\b|short\s+modelador|modelador\s+de\s+perna|cinta\s+de\s+bra[cç]o)\b/.test(t))
@@ -557,6 +673,9 @@ const gates: readonly Gate[] = [
      */
     name: "installment_promise",
     remedy: "rewrite",
+    briefing: () =>
+      `No pagamento na entrega ela paga uma vez só, ao entregador. Não fale em parcelar, em "3x" ` +
+      `nem em dividir o valor.`,
     check: (text, ctx) => {
       if (ctx.paymentPath !== "cod") return null;
       const t = norm(text);
@@ -591,6 +710,8 @@ const gates: readonly Gate[] = [
   {
     name: "identical_template",
     remedy: "rewrite",
+    briefing: () =>
+      `Não repita ao pé da letra uma mensagem que você já mandou nesta conversa.`,
     check: (text, ctx) =>
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
@@ -624,6 +745,21 @@ export const runGates = (text: string, ctx: GateContext): GateResult => {
 };
 
 export const gateNames = gates.map((g) => g.name);
+
+/**
+ * Every content rule, in the agent's own language, ready to go into the system prompt.
+ * This is the whole point of `briefing`: the chain stops being a wall the agent finds by
+ * walking into it, and becomes the brief it writes against.
+ *
+ * Order follows the chain, so the rules that cost money when broken — what the shop
+ * charges, what it promises — arrive first, where a model reading a long prompt still
+ * weighs them.
+ */
+export const gateBriefing = (config: GateConfig): string[] =>
+  gates
+    .filter((g) => g.remedy === "rewrite")
+    .map((g) => g.briefing?.(config))
+    .filter((line): line is string => Boolean(line));
 
 /** The remedy each gate carries, by name. */
 export const gateRemedies: Readonly<Record<string, Remedy>> = Object.freeze(

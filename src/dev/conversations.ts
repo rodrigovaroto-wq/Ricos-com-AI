@@ -563,15 +563,24 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style("quanto custa?"), reply: R.price },
     ],
-    expect: () => ({ sent: 2, handoff: true, minRewrites: 2, touches: 0 }),
+    // O `identical_template` barra a repetição a partir do segundo turno, a reescrita
+    // devolve o mesmo texto e não passa — e é exatamente aqui que a política mudou. Antes
+    // isso virava handoff: a conversa acabava, e um humano herdava o problema de uma
+    // agente que se repetiu. Agora ela manda a resposta de saída, que é uma resposta de
+    // verdade com uma pergunta viva, e a conversa continua com ela.
+    expect: () => ({ sent: 3, handoff: false, minRewrites: 2 }),
   },
   {
-    name: "conversa longa que atravessa o teto de custo",
+    // Este cenário se chamava "conversa longa que atravessa o teto de custo" e nunca
+    // atravessou teto nenhum: a R$ 0,001 por chamada, o teto de R$ 1,00 exigiria mil
+    // chamadas. O que ele sempre exercitou foi a agente repetindo a mesma saudação até
+    // o `identical_template` barrar. O nome mentia; agora ele descreve o que faz.
+    name: "conversa longa em que a agente repete a mesma saudação",
     turns: (p) => Array.from({ length: 16 }, (_, i) => ({
       from: p.style(`pergunta número ${i + 1}, me explica melhor`),
       reply: R.greet,
     })),
-    expect: () => ({ handoff: true }),
+    expect: () => ({ handoff: false }),
   },
   {
     name: "volta depois do handoff",

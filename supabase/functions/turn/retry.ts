@@ -1,16 +1,28 @@
 /**
  * What the turn does after the guardrail chain says no.
  *
- * A veto is information, not a dead end: the chain knows exactly what was wrong,
- * and that reason plus the conversation is enough for the agent to write the message
- * again, correctly, without anyone being told to step in. So a block becomes a
- * rewrite by default — never silence, and never the operator's inbox by default.
+ * A veto is information, not a dead end: the chain knows exactly what was wrong, and
+ * that reason plus the conversation is enough for the agent to write the message again,
+ * correctly, without anyone being told to step in. So a block becomes a rewrite — never
+ * silence, and never the operator's inbox.
  *
- * The limits exist because a loop that never gives up is worse than one that does.
- * Each rewrite is another model call, so the conversation's cost ceiling applies to
- * it, and after a couple of failed attempts the problem is no longer this reply — it
- * is the prompt behind it, which is Hermes' job to spot in the gate traces, not
- * something a third attempt will fix.
+ * **A veto never ends in handoff any more** (operator, 2026-09-08). Two things were
+ * wrong with that. It spent model calls guessing its way past a rule the agent was
+ * never told — the rules now travel in the system prompt, as `gateBriefing`, so the
+ * agent writes inside them instead of discovering them by refusal. And it handed a
+ * person a conversation for a reason that was never the customer's problem: she asked
+ * something ordinary and the agent phrased its answer badly. She gets an answer either
+ * way, so the exhausted case sends `SAFE_FALLBACK_REPLY` — a real reply that keeps the
+ * conversation alive — and the conversation stays with the agent.
+ *
+ * One rewrite remains, and only one. With the brief in the prompt a veto is the rare
+ * case, not the loop, and a second correction attempt buys far less than it costs. The
+ * gates that keep firing across attempts are a prompt problem — Hermes' material, read
+ * from `gate_traces` — and never something a third try fixes.
+ *
+ * Handoff still exists, for the three reasons that are not about wording: she asked for
+ * a person in so many words, the conversation hit its cost ceiling, or the provider
+ * failed.
  */
 
 /**
@@ -21,14 +33,21 @@
  */
 export type Remedy = "rewrite" | "defer" | "stop";
 
-/** Two shots at correcting itself. Measured cost per attempt is ~R$ 0,001. */
-export const MAX_REWRITES = 2;
+/**
+ * One shot at correcting itself, down from two. The brief is in the prompt now: a gate
+ * that still blocks after the agent was told the rule is not a wording accident a third
+ * draft resolves, and each attempt is a paid model call (~R$ 0,001) spent on a reply
+ * the customer never sees.
+ */
+export const MAX_REWRITES = 1;
 
 export type NextAction =
   | { kind: "send" }
   | { kind: "rewrite"; instruction: string }
   | { kind: "defer" }
   | { kind: "stop" }
+  /** The rewrite did not pass. She still gets answered, and nobody is called. */
+  | { kind: "fallback"; reason: string }
   | { kind: "handoff"; reason: string };
 
 export interface TurnState {
@@ -77,19 +96,34 @@ export const decideNext = (state: TurnState): NextAction => {
     return { kind: "handoff", reason: "teto de custo da conversa antes da reescrita" };
   }
   if (rewritesUsed >= maxRewrites) {
+    // Not a handoff: a badly phrased answer is the agent's problem to route around, not
+    // a person's to inherit. The trace carries the gate, which is what Hermes reads.
     return {
-      kind: "handoff",
-      reason: `${maxRewrites} reescritas não passaram na cadeia: ${reasons.join("; ")}`,
+      kind: "fallback",
+      reason: `${maxRewrites} reescrita não passou na cadeia: ${reasons.join("; ")}`,
     };
   }
   return { kind: "rewrite", instruction: rewriteInstruction(reasons, vetoedText) };
 };
 
 /**
- * What the customer hears when the agent runs out of attempts. She gets an answer —
- * that is the point — and it promises only what a human can actually deliver: a reply,
- * not a deadline. Deliberately free of price, delivery window and coupon, so it cannot
- * itself trip the chain it is standing in for.
+ * What she hears when the rewrite did not pass — and it is a real reply, not a stall.
+ *
+ * The conversation stays with the agent, so this has to move it forward: it hands the
+ * turn back to her with a live question, which is the one thing that keeps a WhatsApp
+ * thread alive. It names no price, no deadline, no warranty and no number, so it cannot
+ * trip the chain it is standing in for — a fallback that can itself be vetoed is not a
+ * fallback. A test asserts it passes every gate.
+ */
+export const SAFE_FALLBACK_REPLY =
+  "Deixa eu te ajudar do jeito certo: me conta o que é mais importante pra você agora — " +
+  "acertar o tamanho, ou entender como o colete funciona no dia a dia? 💛";
+
+/**
+ * What the customer hears when the turn hits a wall that is not about wording: the cost
+ * ceiling, or a provider that failed. She gets an answer — that is the point — and it
+ * promises only what a human can actually deliver: a reply, not a deadline. Deliberately
+ * free of price, delivery window and coupon, so it cannot itself trip the chain.
  */
 export const HOLDING_REPLY =
   "Deixa eu confirmar isso certinho pra você e já te respondo por aqui 💛";

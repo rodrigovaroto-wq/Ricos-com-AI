@@ -12,6 +12,7 @@
  */
 import {
   classifyOptOut,
+  gateBriefing,
   remedyFor,
   runGates,
   wantsHuman,
@@ -53,6 +54,7 @@ import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
+  SAFE_FALLBACK_REPLY,
   type NextAction,
 } from "./retry.ts";
 
@@ -341,6 +343,14 @@ const systemPrompt = (
           `outros: ${CONFIG.testimonials.map((t) => `"${t}"`).join(" ")}`,
         ]
       : []),
+    ``,
+    `A VERIFICAÇÃO DA LOJA. Toda resposta sua passa por uma checagem automática antes de chegar`,
+    `na cliente. Ela não é um obstáculo pra driblar — é a lista exata do que a operação consegue`,
+    `cumprir, e cada linha dela custa dinheiro de verdade quando é quebrada. Escreva já dentro`,
+    `dela: é assim que você acerta de primeira, em vez de ter a resposta recusada e ter que`,
+    `escrever de novo. Recusar o que a cliente pediu, quando a loja não tem, é permitido e é`,
+    `parte do trabalho — o proibido é prometer.`,
+    ...gateBriefing(CONFIG).map((rule) => `— ${rule}`),
     ``,
     `TAMANHO DA RESPOSTA. Curta por padrão — duas ou três frases resolvem quase tudo no`,
     `WhatsApp. Quando o momento pedir (a objeção grande, a hora de fechar, a mulher que`,
@@ -1057,7 +1067,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
     });
   }
 
-  const reply = attempt;
+  /**
+   * The rewrite did not pass, so the agent answers with the safe reply instead of the
+   * draft — and the conversation stays with it. No `handoff_at`, nobody called: a reply
+   * the agent phrased badly was never the customer's problem, and she still gets an
+   * answer with a live question in it. The blocked traces are already in `gate_traces`,
+   * which is where a gate that keeps firing becomes Hermes' material.
+   */
+  const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
+  const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
 
   const outbound = (
     await db("messages", {
@@ -1065,7 +1083,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       body: JSON.stringify({
         conversation_id: conversation.id,
         direction: "outbound",
-        body: reply.text,
+        body: replyText,
       }),
     })
   )[0];
@@ -1076,7 +1094,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   });
 
   // The silence ruler starts the moment the agent finishes speaking.
-  await scheduleSilenceTouches(conversation.id, stopPointOf(reply.text));
+  await scheduleSilenceTouches(conversation.id, stopPointOf(replyText));
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
   // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
@@ -1109,9 +1127,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
   }
 
   return json(200, {
-    status: "ok",
+    status: fallbackReason === null ? "ok" : "fallback",
+    ...(fallbackReason === null
+      ? {}
+      : {
+          reason: fallbackReason,
+          blockedText: attempt.text,
+          blocked: gates.traces.filter((t) => t.verdict === "block"),
+        }),
     intent: intent.text,
-    reply: reply.text,
+    reply: replyText,
     messageId: outbound.id,
     rewrites: rewritesUsed,
     order,
