@@ -13,7 +13,8 @@
     "build": "tsc -p tsconfig.build.json",
     "dev": "tsx src/dev/simulate.ts",
     "dev:conversas": "tsx src/dev/run-conversations.ts",
-    "typecheck:function": "deno check supabase/functions/turn/index.ts"
+    "typecheck:function": "deno check supabase/functions/turn/index.ts",
+    "dev:estoque": "tsx src/dev/availability.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

@@ -757,6 +757,48 @@ Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e 
 
 ---
 
+## O QUE A CONSULTA REVELOU — leia antes de qualquer decisão de tráfego (2026-09-08)
+
+`pnpm dev:estoque` roda a consulta de fora do navegador e reproduz tudo abaixo em vinte
+segundos. Dezesseis CEPs, cinco tamanhos cada. Três achados, e os três mudam o negócio, não
+o código.
+
+### 1. O pagamento na entrega não existe fora de seis regiões metropolitanas
+
+| CEP testado | Pagamento na entrega |
+|---|---|
+| São Paulo, Campinas, Santo André, Rio, Niterói, Belo Horizonte | **existe**, em alguns tamanhos |
+| Curitiba, Florianópolis, Vitória, Rio Branco | não |
+| Altamira/PA, Jacobina/BA, Barra do Garças/MT, Manhuaçu/MG, Vacaria/RS | não, em nenhum tamanho |
+
+O funil inteiro foi desenhado em cima do pagamento na entrega — a promessa que vence a
+desconfiança de tráfego frio. Ele cobre uma fatia do país muito menor do que qualquer
+documento daqui assumia. **Fora dessas praças, a única venda possível é a antecipada.**
+
+### 2. O tamanho M está indisponível em todos os dezesseis CEPs
+
+Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele. M é o
+tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma boa
+fatia das clientes e **nenhuma delas consegue comprar**. Isto não espera onda nenhuma.
+
+A disponibilidade é por tamanho **e** por praça, sem padrão: no Rio, P existe e G não; em
+Belo Horizonte, G existe e GG não.
+
+### 3. O frete do pagamento na entrega é constante: R$ 24,98
+
+Onde existe, é sempre R$ 24,98 — nunca variou nos dezesseis CEPs. Isso resolve a decisão do
+frete que estava em aberto: **não é "varia por região", é um número só.** O total do
+pagamento na entrega é **R$ 154,88**, sempre. Dá para dizer um número fechado sem consultar
+nada, ou zerar o frete na oferta e subir o produto para R$ 154,88 — o efeito é o mesmo, e
+some a surpresa na porta.
+
+O frete do antecipado é outra história: o `local_operation` cota de R$ 17,78 (São Paulo) a
+R$ 84,05 (Altamira). **Isso é custo, não preço** — o checkout antecipado cobrou R$ 110,41
+limpos do operador. Ou seja, em praça distante o frete come mais da metade da venda
+antecipada. Confirmar no painel da oferta antes de empurrar o antecipado como padrão.
+
+---
+
 ## A consulta de disponibilidade existe, e chama `stock-and-delivery` (2026-09-08)
 
 Achada pelo operador no DevTools do próprio checkout. Três chamadas importam, todas XHR:
@@ -795,28 +837,26 @@ Achada pelo operador no DevTools do próprio checkout. Três chamadas importam, 
 },"show":false}
 ```
 
-**Leia com cuidado, porque a leitura ingênua está errada.** O `stock` diz `"1"` — não é ali
-que mora o "não". Quem recusa é **`has_local_operation_cash_on_delivery: false`**, com
-`delivery_date: null` e `local_operation_cash_on_delivery` vazio. Ou seja: a peça existe, o
-que não existe é operação de pagamento na entrega para aquele CEP.
+**Leia com cuidado, porque as duas leituras óbvias estão erradas.** O `stock` diz `"1"`
+sempre, inclusive para tamanho indisponível. E `has_local_operation_cash_on_delivery` diz
+`false` **inclusive quando o pagamento na entrega está disponível** — foi a primeira leitura
+registrada aqui, e ela não se sustentou contra dezesseis CEPs. Quem responde é
+**`local_operation_cash_on_delivery.delivery_days_available`**: vazio é não; preenchido traz
+`deliveryPrice` (o frete) e `dates` (as três datas que o checkout vai oferecer).
 
-**O que ainda falta, e nada deve ser codificado antes:**
+**As quatro perguntas em aberto, todas respondidas em 2026-09-08:**
 
-1. **A URL completa.** O print corta o caminho antes de `stock-and-delivery?`. Sem ela não
-   dá para chamar.
-2. **Uma resposta de "sim".** Uma amostra de recusa não é contrato. Precisamos ver o mesmo
-   corpo num CEP onde o COD funciona, para saber que forma têm `delivery_date` e
-   `local_operation_cash_on_delivery` quando existem — são elas que dão **as três datas** que
-   o checkout oferece.
-3. **Se o frete sai daqui.** O `getAll` diz `R$ 0,00` e o payload manda `freight_value=0`, mas
-   o checkout cobrou R$ 24,98. A hipótese é que o valor venha da operação local da Logzz,
-   dentro do `stock-and-delivery`. **Se for isso, o problema do frete acaba:** a agente
-   consulta e diz o total exato antes de mandar o link, sem perder margem e sem surpresa na
-   porta. É a resposta de "sim" que confirma ou derruba.
-4. **Quais campos são realmente obrigatórios.** O checkout manda telefone, CPF e endereço
-   completo. Se CPF for exigido, a consulta só pode acontecer depois de a cliente dar o CPF —
-   tarde demais para indicar tamanho. Se `zip_code` bastar, a agente pede **só o CEP**, uma
-   pergunta, antes de indicar.
+1. **A URL.** `GET https://app.coinzz.com.br/checkout/stock-and-delivery-day`.
+2. **A resposta de "sim".** Traz `deliveryPrice` e três `dates` — exatamente as que o checkout
+   oferece. Confirmado em seis praças.
+3. **O frete sai daqui**, sim: `deliveryPrice`, constante em R$ 24,98.
+4. **Só o CEP importa.** Telefone, CPF, bairro e número podem ser sintéticos e não mudam a
+   resposta; cidade e UF saem do próprio CEP pelo ViaCEP. **Nenhum cookie, nenhum CSRF,
+   nenhum token** — o endpoint é público. Logo a agente pode consultar pedindo **uma coisa
+   só: o CEP**, antes de indicar tamanho.
+
+`src/dev/availability.ts` (`pnpm dev:estoque`) roda tudo isso de fora do navegador, com os
+três erros de leitura documentados no cabeçalho.
 
 ---
 
