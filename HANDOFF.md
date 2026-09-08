@@ -30,7 +30,8 @@ vai preencher quando o número existir.
 
 A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava
 errado. Sondas contra a cadeia real, com a configuração de produção, acharam sete
-defeitos confirmados. Todos corrigidos, com teste que trava cada um. **166 testes**,
+defeitos confirmados, mais um oitavo achado na última varredura. Todos corrigidos,
+com teste que trava cada um. **169 testes**,
 `pnpm lint`, `pnpm typecheck`, `pnpm test` e `deno check` verdes.
 
 **A cegueira a negação tinha um lado que ninguém tinha olhado.** O PR #12 varreu os
@@ -68,6 +69,14 @@ agora recebe o histórico, que já era buscado. `invented_testimonial` lia qualq
 como depoimento, então repetir a pergunta da própria cliente virava reescrita paga;
 agora só conta a aspa que alguém assina. `pacing` continua sem contexto **de
 propósito**: os contadores são da camada de canal, que não existe sem o WhatsApp.
+
+**A régua de silêncio se destruía de madrugada.** Quem para de responder às 23:30 tem
+o `silence_1` vencendo à meia-noite — fora da janela 6-24. A varredura tratava **todo**
+bloqueio como cancelamento, então o toque mais valioso da régua (o de 30 minutos
+depois, quando ela ainda lembra da conversa) era jogado fora em vez de sair ao
+amanhecer. O handler do turno distingue `defer` de `stop` desde o laço de reescrita; a
+metade do relógio nunca aprendeu a diferença. Agora, bloqueio com remédio `defer`
+reagenda a linha para `nextOpening` e mantém `status = scheduled`.
 
 **Três buracos de processo, fechados:**
 

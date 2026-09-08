@@ -4,9 +4,10 @@ import {
   renderFollowup,
   scheduleOrder,
   scheduleSilence,
+  nextOpening,
   type RenderContext,
 } from "@/agent/followups.js";
-import { runGates } from "@/agent/guardrails.js";
+import { hourIn, remedyFor, runGates } from "@/agent/guardrails.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
 /** O que o relógio de São Paulo marca naquele instante. */
@@ -153,5 +154,47 @@ describe("toda mensagem da régua passa pelos onze guardrails", () => {
     expect(veredito.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
       "coupon_exists",
     );
+  });
+});
+
+/**
+ * A régua de silêncio se destruía de madrugada, e este é o motivo: quem para de
+ * responder às 23:30 tem o `silence_1` vencendo à meia-noite, fora da janela 6-24.
+ * A varredura tratava todo bloqueio como cancelamento, então o toque mais valioso da
+ * régua — o de 30 minutos depois — era jogado fora em vez de sair ao amanhecer.
+ *
+ * O teste trava a decisão que a varredura consulta: o veto do horário é `defer`.
+ */
+describe("o relógio adia o toque, não o destrói", () => {
+  const cfg = {
+    prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+    delivery: { codDaysMin: 3, codDaysMax: 5 },
+    hours: { openHour: 6, closeHour: 24 },
+    coupon: { percent: 20, active: false },
+    cod: { physicalOnDeliveryActive: true },
+  };
+
+  it("o silence_1 de quem sumiu às 23:30 vence à meia-noite, fora da janela", () => {
+    const [first] = scheduleSilence(new Date("2026-09-08T02:30:00Z")); // 23:30 BRT
+    expect(hourIn(first!.runAt, "America/Sao_Paulo")).toBe(0);
+  });
+
+  it("e o veto que ele leva ali é de adiar, não de cancelar", () => {
+    const text = renderFollowup("silence_1", { leadId: "l1", config: cfg, stopPoint: "before_size" })!;
+    const gates = runGates(text, {
+      config: cfg,
+      layer: "agent",
+      optedOut: false,
+      now: new Date("2026-09-08T03:00:00Z"), // 00:00 BRT
+      paymentPath: "cod",
+      stage: "presale",
+    });
+    expect(gates.allowed).toBe(false);
+    expect(remedyFor(gates)).toBe("defer");
+  });
+
+  it("e a reabertura que a varredura agenda cai dentro da janela", () => {
+    const runAt = nextOpening(new Date("2026-09-08T03:00:00Z"), 6);
+    expect(hourIn(runAt, "America/Sao_Paulo")).toBe(6);
   });
 });

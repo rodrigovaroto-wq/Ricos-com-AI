@@ -352,11 +352,27 @@ const runFollowupSweep = async () => {
     }).catch(() => undefined);
 
     if (!gates.allowed) {
+      const reason = gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail";
+
+      // A touch blocked by the clock is postponed, not destroyed. The sweep used to
+      // cancel every block alike, and the hours gate is the one that fires most: a
+      // customer who goes quiet at 23:30 has her `silence_1` due at midnight, outside
+      // the 6-24 window — so the most valuable touch in the ruler, the one 30 minutes
+      // after she stopped answering, was thrown away instead of sent at dawn. The turn
+      // handler has treated `defer` as its own outcome since the rewrite loop landed;
+      // the clock half never learned the difference.
+      if (remedyFor(gates) === "defer") {
+        const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
+        await db(`followups?id=eq.${row.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ run_at: runAt.toISOString() }),
+        });
+        skipped.push({ followupId: row.id, reason: `adiado para ${runAt.toISOString()}: ${reason}` });
+        continue;
+      }
+
       await mark("canceled");
-      skipped.push({
-        followupId: row.id,
-        reason: gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail",
-      });
+      skipped.push({ followupId: row.id, reason });
       continue;
     }
 
