@@ -67,8 +67,9 @@ describe("corpo do pedido da Coinzz", () => {
   it("só manda frete no antecipado, onde ele é cobrado à parte", () => {
     expect(buildCoinzzRequest(request, config, "k").body.shipping_value).toBeUndefined();
     const prepaid = { ...request, paymentMethod: "prepay" as const };
-    expect(buildCoinzzRequest(prepaid, config, "k").body.shipping_value).toBe(1000);
-    expect(buildCoinzzRequest(prepaid, config, "k").body.payment_method).toBe("pix");
+    const comAntecipado = { ...config, prepayOfferHash: "offPREPAY1" };
+    expect(buildCoinzzRequest(prepaid, comAntecipado, "k").body.shipping_value).toBe(1000);
+    expect(buildCoinzzRequest(prepaid, comAntecipado, "k").body.payment_method).toBe("pix");
   });
 
   it("leva a chave de idempotência, porque um pedido confirmado nunca vira dois", () => {
@@ -170,5 +171,28 @@ describe("o método de pagamento do COD", () => {
   it("e a Coinzz não tem nenhum método chamado 'cod'", () => {
     expect(COINZZ_PAYMENT_METHODS).toEqual(["afterpay", "bank_slip", "credit_card", "pix"]);
     expect(COINZZ_PAYMENT_METHODS).not.toContain("cod");
+  });
+});
+
+/**
+ * A loja vende duas ofertas — pagamento na entrega e antecipado com 15% —, com preços
+ * diferentes e, portanto, hashes diferentes. Cair no hash do COD no caminho antecipado
+ * cobra R$ 129,90 por uma oferta de R$ 110,42.
+ */
+describe("as duas ofertas", () => {
+  const comAntecipado = { ...config, prepayOfferHash: "offPREPAY1" };
+
+  it("usa o hash do COD no pagamento na entrega", () => {
+    expect(buildCoinzzRequest(request, comAntecipado, "k").body.offer_hash).toBe("off123abc");
+  });
+
+  it("e o hash do antecipado no antecipado", () => {
+    const prepaid = { ...request, paymentMethod: "prepay" as const };
+    expect(buildCoinzzRequest(prepaid, comAntecipado, "k").body.offer_hash).toBe("offPREPAY1");
+  });
+
+  it("recusa o pedido antecipado enquanto o hash dele não existir", () => {
+    const prepaid = { ...request, paymentMethod: "prepay" as const };
+    expect(() => buildCoinzzRequest(prepaid, config, "k")).toThrow(/prepayOfferHash/);
   });
 });

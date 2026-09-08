@@ -38,8 +38,19 @@ export const COINZZ_PAYMENT_METHODS = ["afterpay", "bank_slip", "credit_card", "
 export type CoinzzPaymentMethod = (typeof COINZZ_PAYMENT_METHODS)[number];
 
 export interface CoinzzConfig {
-  /** Hash of the main offer, from their dashboard. */
+  /**
+   * Hash of the cash-on-delivery offer — the one the site links as
+   * `checkout/encorpa-pagamento-na-entrega-0`.
+   */
   offerHash: string;
+  /**
+   * Hash of the prepaid offer (`checkout/encorpa-pagamento-antecipado-0`). It is a
+   * different offer, with a different price, so it is a different hash: the shop sells
+   * two, and sending the cash-on-delivery hash on the prepaid path charges her the
+   * wrong amount. Absent means the prepaid path cannot create an order yet, which is
+   * better than creating the wrong one.
+   */
+  prepayOfferHash?: string;
   /** Which of their four methods means "pays the courier at the door". */
   codPaymentMethod: CoinzzPaymentMethod;
   /** Which one the prepaid path uses. Pix unless the operator says otherwise. */
@@ -157,10 +168,15 @@ export const buildCoinzzRequest = (
       ? config.codPaymentMethod
       : (config.prepayPaymentMethod ?? "pix");
 
+  // Two offers, two hashes. Falling back to the cash-on-delivery one on the prepaid
+  // path would charge her R$ 129,90 for the R$ 110,42 offer she chose.
+  const offer_hash = request.paymentMethod === "cod" ? config.offerHash : config.prepayOfferHash;
+  if (!filled(offer_hash)) throw new CoinzzIncompleteError(["coinzz.prepayOfferHash"]);
+
   return {
     idempotencyKey,
     body: {
-      offer_hash: config.offerHash,
+      offer_hash: offer_hash!,
       payment_method,
       customer: {
         name: request.name.trim(),
