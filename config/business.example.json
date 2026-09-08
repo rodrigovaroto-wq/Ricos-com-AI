@@ -47,12 +47,19 @@
   },
   "scarcity": {
     "_comment": "Urgência. unitsLeft/offerEndsAt: números reais, e a agente repete só eles. allowUnverified: decisão do operador — libera a agente a criar urgência sem número contado por trás. Com ele ligado, prefira ainda assim preencher unitsLeft: número igual o dia inteiro parece real, número diferente a cada conversa é o que a cliente com o print percebe.",
-    "unitsLeft": null,
+    "unitsLeft": 12,
     "offerEndsAt": null,
-    "allowUnverified": false
+    "allowUnverified": true
   },
   "testimonials": [
     "{{DEPOIMENTO_REAL_1}}",
     "{{DEPOIMENTO_REAL_2}}"
-  ]
+  ],
+  "coinzz": {
+    "_comment": "API da Coinzz. O token NUNCA entra aqui nem no repositório: ele mora em config/business.json (gitignored) e no secret COINZZ_TOKEN da Supabase. baseUrl, offerHash e codPaymentMethod vêm do painel da Coinzz — sem eles o cliente recusa criar pedido em vez de adivinhar.",
+    "baseUrl": "{{URL_BASE_API_COINZZ}}",
+    "offerHash": "{{OFFER_HASH}}",
+    "codPaymentMethod": "{{afterpay_OU_O_QUE_A_COINZZ_USAR_PARA_PAGAMENTO_NA_ENTREGA}}",
+    "shippingValueCents": 0
+  }
 }

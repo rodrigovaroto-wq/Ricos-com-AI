@@ -25,6 +25,7 @@ import {
 } from "../agent/guardrails.js";
 import { extractDressSize, sizeFromDressSize } from "../agent/sizing.js";
 import { confirmsAddress, extractAddress, isComplete, mergeAddress, type Address } from "../agent/address.js";
+import { extractIdentity, isIdentityComplete, mergeIdentity, type Identity } from "../agent/identity.js";
 import { decideNext, HOLDING_REPLY, HUMAN_HANDOFF_REPLY } from "../agent/retry.js";
 import { scheduleSilence } from "../agent/followups.js";
 import { canTransition, type Stage } from "../agent/state-machine.js";
@@ -58,6 +59,10 @@ export interface ConversationState {
   addressComplete: boolean;
   /** Complete is not enough: she has to have said the read-back is right. */
   addressConfirmed: boolean;
+  identity: Partial<Identity>;
+  identityComplete: boolean;
+  /** Everything the order needs is in hand: size, confirmed address, identity. */
+  orderReady: boolean;
   optedOut: boolean;
   handoff: boolean;
   handoffReason: string | null;
@@ -93,6 +98,9 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
     address: {},
     addressComplete: false,
     addressConfirmed: false,
+    identity: {},
+    identityComplete: false,
+    orderReady: false,
     optedOut: false,
     handoff: false,
     handoffReason: null,
@@ -203,6 +211,15 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       advance("endereco_coletado");
     }
     advance("conversando");
+
+    // 5d. Identity accumulates the same way the address does.
+    const foundIdentity = extractIdentity(turn.from);
+    if (Object.keys(foundIdentity.fields).length > 0) {
+      state.identity = mergeIdentity(state.identity, foundIdentity.fields).fields;
+      state.identityComplete = isIdentityComplete(state.identity);
+    }
+    state.orderReady =
+      state.addressConfirmed && state.addressComplete && state.identityComplete && state.size !== null;
 
     // 6. The reply, and the chain around it.
     let candidate = turn.vetoedFirst ?? turn.reply ?? SAFE_REPLY;
