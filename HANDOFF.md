@@ -73,6 +73,13 @@ falar com uma máquina"* deixavam quem pediu gente conversando com robô.
 
 **960 testes** no total, contra 148 no começo da sessão.
 
+**O log de decisões estava ensinando o erro.** A R9.1 registrava *"verificado em produção:
+manequim 42 → M, 46 → G"* — e as sondas realmente devolveram isso. O que elas verificaram
+foi **o código, não a tabela**. Uma sonda de produção confirma que o código faz o que o
+código diz; ela não confirma que o código concorda com o que a loja publicou. As duas
+entradas ganharam nota de correção, porque uma sessão futura leria os números antigos como
+verdade.
+
 ### Trabalho da sessão de 2026-09-08 — a varredura por falhas
 
 A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava

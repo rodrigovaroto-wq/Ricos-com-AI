@@ -121,8 +121,8 @@ Primeiro a tabela, sem exigir fita. Este é o passo em que o script antigo perdi
 > **GG** — 84 a 92
 > **XGG** — 92 a 100
 >
-> Você não precisa medir com fita, não. Pensa no seu manequim: qual você costuma usar de
-> calça ou vestido?
+> Você não precisa medir com fita, não. Que tamanho de calça você usa? Se souber de
+> vestido também vale, e se preferir letra (P, M, G) também dá.
 
 **Se ela ficar entre dois:**
 
@@ -248,7 +248,7 @@ frase é o que faz a cliente bloquear.
 
 | Onde ela parou | Mensagem |
 |---|---|
-| Antes do tamanho | *"Oi! Ficou alguma dúvida sobre o colete? Se quiser, me fala só o seu manequim que eu já te digo o tamanho certinho 💛"* |
+| Antes do tamanho | *"Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛"* |
 | Depois do preço | *"Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão."* |
 | Com o link enviado | *"Vi que o pedido ficou aberto! Precisa de ajuda pra confirmar? Se preferir, eu monto de novo pra você 😊"* |
 
@@ -385,7 +385,7 @@ atual — o que muda é o conteúdo.
 **Áudio B — tamanhos (substitui o áudio 3), ~20s**
 > São cinco tamanhos, do P ao XGG, todos pretos. E tudo nele é ajustável: a alça, o zíper e os
 > colchetes, que têm três fileiras. Então dá pra deixar mais justo ou mais soltinho, do jeito
-> que você preferir. Pra escolher o seu, nem precisa de fita métrica: pensa no manequim que
+> que você preferir. Pra escolher o seu, nem precisa de fita métrica: pensa no tamanho que
 > você usa de calça, que eu te ajudo. E na dúvida entre dois, sempre o maior — aperta igual e
 > é bem mais confortável.
 

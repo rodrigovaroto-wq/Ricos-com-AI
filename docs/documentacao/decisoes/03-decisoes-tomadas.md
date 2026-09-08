@@ -933,6 +933,11 @@ maior" — mas a Edge Function **não o chama**. Hoje o modelo deduz o tamanho a
 em centímetros do prompt, e numa conversa de teste indicou **G para manequim 42**, enquanto a
 tabela determinística indica **M**.
 
+> **Nota de 2026-09-08:** o modelo estava certo e a tabela determinística estava errada — G
+> é o que a tabela publicada diz para 42. O problema apontado aqui continua real (a decisão
+> não pode ser improviso do modelo), mas o número usado como prova estava invertido. Ver a
+> correção em R9.1.
+
 Isso não é detalhe de estilo: tamanho errado vira devolução, e devolução em COD é prejuízo, não
 neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.
 
@@ -942,9 +947,27 @@ neutro. **Próxima correção da onda A3**, antes de qualquer tráfego.
 
 ## R9.1 — R8.4 resolvida: o tamanho não é mais decidido pelo modelo
 
-`extractDressSize` lê o manequim da mensagem e `sizeFromDressSize` resolve o tamanho; o handler
-entrega o resultado ao modelo como fato a declarar, não como número a calcular. Verificado em
-produção: manequim 42 → **M**, 46 → **G**.
+`extractDressSize` lê o tamanho da mensagem e `sizeFromDressSize` resolve o colete; o handler
+entrega o resultado ao modelo como fato a declarar, não como número a calcular.
+
+> ### ⚠️ Correção de 2026-09-08 — os números desta seção estavam errados
+>
+> Esta rodada registrou "verificado em produção: manequim 42 → **M**, 46 → **G**", e as
+> sondas realmente devolveram isso. **O que elas verificaram foi o código, não a tabela.**
+>
+> A tabela publicada — `Offer.tsx` :16-20 e
+> [`../../agente-ia/01-conhecimento/02-tabela-de-medidas.md`](../../agente-ia/01-conhecimento/02-tabela-de-medidas.md)
+> — diz **42–44 = G** e **46–48 = GG**. O `sizeFromDressSize` tinha uma segunda escada,
+> escrita à mão, deslocada um degrau para baixo. A agente indicava um tamanho **menor** que
+> a página onde a cliente acabou de ler a tabela, em todo degrau par.
+>
+> Tamanho pequeno volta, e devolução em COD é o frete inteiro perdido — exatamente o
+> prejuízo que a R8.4 existia para evitar. A correção transformou as duas escadas num array
+> só, então elas não podem mais divergir, e um teste percorre a tabela publicada degrau a
+> degrau. **O correto é 42 → G e 46 → GG.**
+>
+> A lição não é sobre tamanho: uma sonda de produção confirma que o código faz o que o
+> código diz. Ela não confirma que o código concorda com o que a loja publicou.
 
 **E um guarda-corpo que não funcionou.** A gravação do `leads.size` foi protegida, na primeira
 versão, pelo classificador de intenção — só gravava se ele dissesse `TAMANHO`. Em produção,
