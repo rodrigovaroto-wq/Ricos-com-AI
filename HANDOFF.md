@@ -651,12 +651,14 @@ Registro cronológico completo em
 [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md).
 Pontos que mais importam para quem retoma o trabalho:
 
-- **Prazo de entrega real: 3 a 5 dias no COD** (corrigido na rodada 7 — não é 7 a 14). No
-  antecipado, nenhum número é dito: o frete varia por região e a transportadora informa no
-  checkout. O guardrail de prazo sabe distinguir promessa (pré-venda, veta) de fato já
-  agendado (logística, libera) — mesma frase, efeito oposto, ver R8.1.
-- **Divergência aberta com o site:** o FAQ do Encorpa-Website ainda promete "7 a 14 dias" —
-  precisa ser alinhado ao prazo real antes do lançamento.
+- **Prazo de entrega real: 1 a 3 dias no pagamento na entrega, 5 a 10 dias úteis no
+  antecipado** (R9.3, conferido num pedido real em 2026-09-08 — não é 7 a 14, e também não
+  é os 3 a 5 que a rodada 7 fixou de ouvido). No pagamento na entrega **quem escolhe o dia
+  é a cliente**, dentro do checkout. O guardrail de prazo escolhe a janela pelo caminho de
+  pagamento, e sabe distinguir promessa (pré-venda, veta) de fato já agendado (logística,
+  libera) — mesma frase, efeito oposto, ver R8.1.
+- **Divergência com o site: fechada.** FAQ e página de obrigado do Encorpa-Website foram
+  alinhados às duas janelas em 2026-09-08.
 - **Teto de custo:** R$ 0,80 por conversa, +25% de tolerância antes do handoff (R7.3) —
   na prática nunca chega perto: uma troca completa custa ~R$ 0,001.
 - **Guardrail roda em Edge Function**, chamada por HTTP do n8n — não em nó de n8n, porque
@@ -716,11 +718,25 @@ A conversa inteira está ligada e verificada contra o modelo real: ela vende, in
 tamanho, coleta nome/e-mail/CPF e manda o link com os dados preenchidos. **Nenhuma linha
 de código de conversa falta.** O que resta é operação:
 
-1. **Conferir o primeiro pedido real ponta a ponta.** A cliente termina no checkout, então
-   o pedido nasce como sempre nasceu — mas ninguém ainda viu um nascer a partir de uma
-   conversa. Enquanto isso não acontecer, a onda não está fechada.
+1. ~~Conferir o primeiro pedido real ponta a ponta.~~ **Feito em 2026-09-08.** O operador
+   fez um pedido de verdade pelo checkout e depois o cancelou. Foi o que devolveu as duas
+   janelas de entrega (R9.3) — e o que expôs o frete, abaixo.
 2. ~~O fluxo de n8n que manda o e-mail de handoff.~~ **Feito e verificado** — ver a seção
    acima. A agente promete chamar alguém e agora alguém é chamado.
+3. **O frete do pagamento na entrega. Decisão do operador, e a mais cara em aberto.** O
+   checkout do pedido real somou **Pedido R$ 129,90 + Frete R$ 24,98 = R$ 154,88**. Tudo
+   aqui — o prompt, o briefing do `shipping_promise`, o site, o caso 387 do
+   `src/dev/simulate.ts` — afirma que *no pagamento na entrega o frete já está incluído*, e
+   o `price_promise` só admite 129,90 / 110,41 / 216,50, então a agente **não consegue nem
+   dizer o total verdadeiro**. Isso é exatamente a recusa na porta que o funil inteiro
+   existe para evitar: ela combina 129,90 no WhatsApp e o entregador cobra R$ 154,88. Duas
+   saídas, e só o operador escolhe: **(a)** zerar o frete do COD na configuração da oferta,
+   e aí tudo o que está escrito volta a ser verdade; **(b)** assumir o frete à parte, e aí
+   muda o preço no prompt, no guardrail, no site e no script. Nada de tráfego antes disso.
+4. **Disponibilidade por tamanho e por região — não sabemos o que acontece.** Ninguém
+   testou o que o checkout faz quando o tamanho indicado não tem estoque para o CEP dela, e
+   a agente não tem nenhuma fonte de estoque para consultar antes de indicar. Ver a seção
+   abaixo.
 
 ### O caminho por API, que fica para depois
 
@@ -738,6 +754,36 @@ de duas coisas que só um pedido real responde:
 
 Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e `offkw47x`
 (antecipado).
+
+---
+
+## Estoque por tamanho e por região — a preocupação aberta (2026-09-08)
+
+O operador levantou o risco que mais ameaça a escala, e ele é de operação, não de código:
+o fornecedor tem **poucas peças por região e por tamanho**, repõe o tempo todo, e o plano é
+vender muito. Três perguntas em cima disso, e o estado honesto de cada uma:
+
+1. **O que acontece se ela escolher M e não houver M para a região dela?** *Não sabemos.*
+   Ninguém testou. O único fato próximo é o Q14: Coinzz/Logzz **impedem a criação de pedido
+   COD para região sem cobertura** — mas isso é cobertura de rota, não estoque por variação,
+   e é outra coisa. É um teste de dez minutos no checkout, com um CEP de região pequena.
+2. **A agente consegue checar antes de indicar o tamanho?** *Hoje, não.* Ela indica pela
+   tabela determinística de cintura e mais nada; não existe fonte de estoque ligada a ela.
+   Para existir, a Logzz precisa expor estoque por variação e por região — e isso não está
+   verificado. Enquanto não estiver, a única defesa é tratar a recusa como caminho de
+   conversa, do jeito que Q14 já decidiu para cobertura.
+3. **Dá para ter mais de um fornecedor?** Dá, e é decisão de operação: um segundo
+   fornecedor de pagamento na entrega significa uma segunda operação logística e, na
+   prática, uma segunda oferta e um segundo checkout. O código não atrapalha — os dois
+   links já vêm de `config/business.json`. O que ninguém deve fazer é montar isso antes de
+   responder a pergunta 1, porque a resposta pode ser que o próprio checkout já esconde o
+   tamanho indisponível, e aí o problema é outro: a agente indica um tamanho que a página
+   não oferece.
+
+**A ponte barata, se a pergunta 1 confirmar o pior.** O caminho antecipado já está montado,
+com link próprio. Se o estoque que falta for só o do pagamento na entrega naquela região, a
+venda não está perdida: ela vira antecipado com 15% de desconto. Isso depende de o
+antecipado sair de um estoque diferente — **a confirmar com a Logzz antes de virar regra.**
 
 ---
 
