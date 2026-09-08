@@ -54,6 +54,13 @@ interface BusinessConfig extends GateConfig {
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
+  /**
+   * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
+   * attributed to a customer that is not in this list — which, while the list was
+   * empty, meant the agent could never use social proof at all. Fill it and quoting
+   * becomes a tool she can reach for.
+   */
+  testimonials?: string[];
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -188,6 +195,43 @@ const recordCall = (
     }),
   }).catch(() => undefined);
 
+/**
+ * What the agent is allowed to say about urgency, decided by config rather than by the
+ * model's instincts. Three settings, and the difference between them is who is
+ * accountable for the number:
+ *
+ * - a declared count or deadline: the shop's number, and she repeats it;
+ * - `allowUnverified`: the operator has decided she may create urgency without one;
+ * - neither: she says nothing about stock or deadlines at all.
+ *
+ * Even in the middle case she is pushed toward one stable line rather than a fresh
+ * number per conversation — the same claim all day reads as real, and a different one
+ * every time is what the customer with the screenshot notices.
+ */
+const scarcityBriefing = (): string[] => {
+  const s = CONFIG.scarcity;
+  const lines: string[] = [];
+  if (s?.unitsLeft !== undefined && s?.unitsLeft !== null) {
+    lines.push(`URGÊNCIA REAL: restam ${s.unitsLeft} unidades. Use esse número, e nenhum outro.`);
+  }
+  if (s?.offerEndsAt) {
+    lines.push(`PRAZO REAL: a condição atual termina em ${s.offerEndsAt}. Pode dizer que acaba.`);
+  }
+  if (lines.length === 0 && s?.allowUnverified) {
+    lines.push(
+      `URGÊNCIA: você pode criar senso de urgência sobre o lote acabando. Escolha UMA frase e`,
+      `mantenha ela: a mesma cliente conversando de novo, e duas clientes comparando, têm de`,
+      `ouvir a mesma coisa. Não invente número diferente a cada conversa, não prometa contagem`,
+      `regressiva em minutos, e nunca use urgência para empurrar tamanho errado — devolução`,
+      `custa mais que a venda.`,
+    );
+  }
+  if (lines.length === 0) {
+    lines.push(`URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`);
+  }
+  return ["", ...lines];
+};
+
 const systemPrompt = (sizeDirective: string | null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
@@ -205,6 +249,23 @@ const systemPrompt = (sizeDirective: string | null): string => {
     `COMO ISSO VIRA FRASE. Prefira a cena concreta ao adjetivo: o vestido que voltou a fechar`,
     `bonito, a foto da festa em que ela gostou de se ver, a camisa branca sem marcar. Uma`,
     `imagem específica vende mais que "fique linda", e é verdade — a peça faz exatamente isso.`,
+    ``,
+    `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
+    `— **Ancoragem:** o preço cheio publicado é ${money(CONFIG.prices.anchorBrl)}. Diga de onde`,
+    `  ela está saindo antes de dizer onde chega.`,
+    `— **Reversão de risco:** ela não paga nada agora e tem ${CONFIG.delivery.warrantyDays} dias`,
+    `  pra devolver. É o seu argumento mais forte — repita com palavras novas, nunca iguais.`,
+    `— **Antecipe a objeção:** diga "você deve estar pensando que..." antes que ela pense.`,
+    `  Objeção nomeada por você perde metade da força.`,
+    `— **Feche por escolha, não por sim ou não:** "prefere pagar na entrega ou antecipado?"`,
+    `  converte mais que "quer comprar?".`,
+    `— **Espelhe:** use as palavras dela. Se ela disse "barriguinha", não corrija para`,
+    `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
+    `— **Uma pergunta viva no fim:** conversa que termina em ponto final morre.`,
+    ``,
+    `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
+    `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,
+    `primeiro não pegou.`,
     ``,
     `O produto é o Colete Cinta Modeladora. Ele modela enquanto está vestido e muda como a roupa`,
     `cai — NÃO emagrece, e o efeito acaba ao tirar. Diga isso quando o assunto chegar perto.`,
@@ -224,13 +285,26 @@ const systemPrompt = (sizeDirective: string | null): string => {
     `letra (P, M, G). Nunca converta esse tamanho por conta própria — quem faz isso é uma`,
     `tabela determinística fora do seu controle, e ela te entrega o resultado pronto.`,
     ``,
-    `URGÊNCIA. Só diga que algo está acabando se ${CONFIG.brand} tiver te dado o número ou a`,
-    `data — nunca invente estoque nem contagem regressiva. A urgência que você sempre tem é`,
-    `verdadeira e basta: ela não paga nada agora, então adiar não protege o bolso dela, só`,
-    `adia o dia em que ela se olha no espelho e gosta.`,
+    `AS TRÊS COISAS QUE VOCÊ NUNCA INVENTA — e o motivo é dinheiro, não formalidade. Cada uma`,
+    `delas vira recusa na porta, e no pagamento na entrega a recusa custa o frete inteiro:`,
+    `1. **Emagrecimento.** A peça modela vestida; não muda o corpo. Prometer isso traz uma`,
+    `   cliente que devolve — e, pior, que conta pra todo mundo que foi enganada.`,
+    `2. **Preço, desconto ou cupom que não existem.** Os números são os daqui, e só.`,
+    `3. **Estoque ou prazo**, do jeito que a loja mandar — ver o bloco de urgência abaixo.`,
     ``,
-    `Responda em no máximo 45 palavras, uma pergunta por vez, e termine com pergunta sempre`,
-    `que a conversa ainda puder avançar.`,
+    `Fora dessas, o campo é seu.`,
+    ...scarcityBriefing(),
+    ...(CONFIG.testimonials?.length
+      ? [
+          `DEPOIMENTOS REAIS que você pode citar entre aspas, palavra por palavra, sem inventar`,
+          `outros: ${CONFIG.testimonials.map((t) => `"${t}"`).join(" ")}`,
+        ]
+      : []),
+    ``,
+    `TAMANHO DA RESPOSTA. Curta por padrão — duas ou três frases resolvem quase tudo no`,
+    `WhatsApp. Quando o momento pedir (a objeção grande, a hora de fechar, a mulher que`,
+    `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
+    `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
   ].join(" ");
 };
@@ -723,6 +797,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       now: new Date(),
       paymentPath: "cod",
       recentOutbound,
+      // Social proof is a tool, and it was locked: nobody ever passed this list, so
+      // every quote she attributed to a customer was read as invented and rewritten.
+      knownTestimonials: CONFIG.testimonials,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

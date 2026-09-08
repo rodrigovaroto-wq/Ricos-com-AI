@@ -18,9 +18,21 @@ export interface GateConfig {
    */
   scarcity?: {
     /** Units really left, from whoever owns the stock. */
-    unitsLeft?: number;
+    unitsLeft?: number | null;
     /** ISO instant the current offer really ends. */
-    offerEndsAt?: string;
+    offerEndsAt?: string | null;
+    /**
+     * The operator's switch. With it on, the chain stops refusing urgency it cannot
+     * verify — the agent may say a batch is running out without a counted number
+     * behind it. Off by default, and it is a decision the operator owns, not the
+     * agent: the exposure is CDC art. 37 §1º (quantity is information capable of
+     * inducing error) and it lands on the WhatsApp number, which has no backup.
+     *
+     * Even with it on, prefer `unitsLeft`: a number that is the same for everyone all
+     * day reads as real, and one improvised per conversation is what gets noticed —
+     * the customer who kept the screenshot is the one who complains.
+     */
+    allowUnverified?: boolean;
   };
 }
 
@@ -452,7 +464,8 @@ const gates: readonly Gate[] = [
       // number, and a declared end date lets her say the offer ends — the gate exists
       // to stop the model inventing either, not to stop the shop selling.
       const declared = ctx.config.scarcity;
-      const unitsLeft = declared?.unitsLeft;
+      if (declared?.allowUnverified) return null;
+      const unitsLeft = declared?.unitsLeft ?? undefined;
       const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
       const offerStillOpen = endsAt !== null && endsAt.getTime() > ctx.now.getTime();
 

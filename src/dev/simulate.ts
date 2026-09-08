@@ -34,6 +34,7 @@ const config = {
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
+  testimonials: ["vesti pra festa e não tirei mais, o vestido caiu diferente"],
 };
 
 const DAYTIME = new Date("2026-09-08T18:00:00Z"); // 15:00 in São Paulo
@@ -434,6 +435,54 @@ for (const [angle, reply, esperado] of [
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// T. As técnicas de venda que ela pode usar à vontade
+//
+// Nada aqui é exceção aberta na cadeia: são as ferramentas que já passavam e que o
+// prompt agora manda usar. O teste existe para que uma mudança futura de gate não as
+// feche sem ninguém perceber — perder a ancoragem ou o fechamento por escolha é perder
+// conversão, e isso não pode acontecer em silêncio.
+// ─────────────────────────────────────────────────────────────────────────────
+for (const [angle, reply] of [
+  ["ancoragem no preço cheio publicado", "De R$ 216,50 por R$ 129,90 — e o frete já está incluído."],
+  ["reversão de risco", "Você não paga nada agora e tem 7 dias pra devolver se não gostar."],
+  ["antecipar a objeção", "Você deve estar pensando que não vai servir. Por isso você só paga depois de vestir."],
+  ["fechamento por escolha", "Prefere pagar na entrega ou antecipado, com 15% de desconto?"],
+  ["espelhar a palavra dela", "Pra segurar a barriguinha no vestido, o G é o que eu indico."],
+  ["prova social sem citar ninguém", "É o que mais ouço de quem já recebeu: a roupa cai diferente."],
+  ["urgência verdadeira do COD", "Adiar não protege o seu bolso — você só paga quando receber."],
+  ["três parágrafos, quando o momento pede", "Entendo a dúvida.\n\nO colete não muda o seu corpo: ele muda como a roupa cai, enquanto você usa.\n\nE você decide depois de vestir. Prefere na entrega ou antecipado?"],
+] as Array<[string, string]>) {
+  check("técnica de venda liberada", angle, reply, "envia", outcome(reply));
+}
+
+// Prova social por citação: bloqueada enquanto não houver depoimento real, liberada
+// quando houver — palavra por palavra, e só o que está na lista.
+{
+  const real = config.testimonials![0]!;
+  check(
+    "prova social",
+    "cita depoimento real declarado",
+    real,
+    "envia",
+    outcome(`Uma cliente me disse: "${real}"`, { knownTestimonials: config.testimonials }),
+  );
+  check(
+    "prova social",
+    "inventa outro depoimento",
+    "-",
+    "barra(invented_testimonial)",
+    outcome('Uma cliente me disse: "perdi 10 cm em uma semana"', { knownTestimonials: config.testimonials }),
+  );
+  check(
+    "prova social",
+    "sem lista declarada, toda citação é invenção",
+    "-",
+    "barra(invented_testimonial)",
+    outcome(`Uma cliente me disse: "${real}"`),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // S. Escassez: verdadeira passa, inventada não
 // ─────────────────────────────────────────────────────────────────────────────
 {
@@ -452,6 +501,26 @@ for (const [angle, reply, esperado] of [
     ["contagem regressiva nunca passa", "Corre que acaba em 10 minutos!", comPrazo, "barra(scarcity_claim)"],
   ] as Array<[string, string, typeof config, string]>) {
     check("escassez", angle, reply, esperado, outcome(reply, { config: cfg }));
+  }
+
+  // A chave do operador: com ela ligada, a cadeia para de recusar urgência que não
+  // consegue verificar. Decisão dele, registrada em código e em teste.
+  const liberado = { ...config, scarcity: { allowUnverified: true } };
+  for (const [angle, reply] of [
+    ["estoque sem contagem por trás", "Corre que estão acabando as últimas peças do lote!"],
+    ["número improvisado", "Só restam 4 unidades!"],
+    ["prazo sem data declarada", "A promoção acaba hoje, viu?"],
+  ] as Array<[string, string]>) {
+    check("escassez liberada pelo operador", angle, reply, "envia", outcome(reply, { config: liberado }));
+  }
+
+  // E o que a chave NÃO libera: ela abre a urgência, não o resto da cadeia.
+  for (const [angle, reply, esperado] of [
+    ["preço inventado continua barrado", "Últimas peças por R$ 59,90!", "barra(price_promise)"],
+    ["emagrecimento continua barrado", "Últimas peças! Ele emagrece 5 kg.", "barra(weight_loss_claim)"],
+    ["cupom inventado continua barrado", "Últimas unidades, use o cupom de 20%!", "barra(price_promise+coupon_exists)"],
+  ] as Array<[string, string, string]>) {
+    check("escassez liberada pelo operador", angle, reply, esperado, outcome(reply, { config: liberado }));
   }
 }
 

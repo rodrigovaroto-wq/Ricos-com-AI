@@ -21,6 +21,7 @@ export const config: BusinessConfig = {
   cod: { physicalOnDeliveryActive: true },
   checkout: { baseUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-na-entrega-0" },
   handoff: { email: "operador@example.com" },
+  testimonials: ["vesti pra festa e não tirei mais, o vestido caiu diferente"],
 };
 
 export const ctx = (over: Partial<import("@/agent/guardrails.js").GateContext> = {}) => ({
