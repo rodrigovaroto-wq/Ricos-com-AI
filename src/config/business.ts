@@ -26,6 +26,19 @@ export interface BusinessConfig {
   cod: { physicalOnDeliveryActive: boolean };
   checkout: { baseUrl: string };
   handoff: { email: string };
+  /**
+   * Urgency the operation can actually back. Absent means the agent may not cite stock
+   * or a deadline at all — invented urgency is a promise nobody can keep and, under
+   * CDC art. 37, misleading advertising. Filled in, it becomes a tool she can use.
+   */
+  scarcity?: {
+    unitsLeft?: number | null;
+    offerEndsAt?: string | null;
+    /** Operator's switch: urgency without a counted number behind it. Off by default. */
+    allowUnverified?: boolean;
+  };
+  /** Real reviews, word for word. Anything she quotes has to be in here. */
+  testimonials?: readonly string[];
 }
 
 export const loadBusinessConfig = (path = "config/business.json"): BusinessConfig =>

@@ -10,6 +10,30 @@ export interface GateConfig {
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
   cod: { physicalOnDeliveryActive: boolean };
+  /**
+   * Urgency the operation can actually back. Scarcity sells, and invented scarcity is
+   * misleading advertising (CDC art. 37) plus a promise nobody can keep — so the agent
+   * may only use what is declared here. Leave it out and every urgency claim is vetoed,
+   * which is the right default while nothing counts units or runs a clock.
+   */
+  scarcity?: {
+    /** Units really left, from whoever owns the stock. */
+    unitsLeft?: number | null;
+    /** ISO instant the current offer really ends. */
+    offerEndsAt?: string | null;
+    /**
+     * The operator's switch. With it on, the chain stops refusing urgency it cannot
+     * verify — the agent may say a batch is running out without a counted number
+     * behind it. Off by default, and it is a decision the operator owns, not the
+     * agent: the exposure is CDC art. 37 §1º (quantity is information capable of
+     * inducing error) and it lands on the WhatsApp number, which has no backup.
+     *
+     * Even with it on, prefer `unitsLeft`: a number that is the same for everyone all
+     * day reads as real, and one improvised per conversation is what gets noticed —
+     * the customer who kept the screenshot is the one who complains.
+     */
+    allowUnverified?: boolean;
+  };
 }
 
 /**
@@ -411,7 +435,7 @@ const gates: readonly Gate[] = [
     check: (text) => {
       const t = norm(text);
       const claims = [
-        /\b(cura|curar|trata|tratar|corrige|corrigir|resolve|resolver|elimina)\s+(?:a\s+|o\s+|as\s+|os\s+|sua\s+|seu\s+|de\s+)?(dor|dores|postura|hernia|coluna|circulacao|lordose|escoliose|varizes|celulite)/g,
+        /\b(cura|curar|trata|tratar|corrige|corrigir|resolve|resolver|elimina)\s+(?:(?:a|o|as|os|sua|seu|suas|seus|de|da|do)\s+){0,3}(dor|dores|postura|hernia|coluna|circulacao|lordose|escoliose|varizes|celulite|barriga|flacidez)/g,
         /\b(pos[\s-]?operatorio|pos[\s-]?cirurgic\w*|cirurgia\s+plastica|fisioterap\w*|ortopedic\w*|medicinal|terapeutic\w*|uso\s+medico)\b/g,
         /\bmelhora\s+(?:a\s+|sua\s+)?(circulacao|postura|coluna|respiracao)\b/g,
       ];
@@ -433,8 +457,27 @@ const gates: readonly Gate[] = [
      */
     name: "scarcity_claim",
     remedy: "rewrite",
-    check: (text) => {
+    check: (text, ctx) => {
       const t = norm(text);
+
+      // Real urgency is allowed to be said. A declared unit count lets her name that
+      // number, and a declared end date lets her say the offer ends — the gate exists
+      // to stop the model inventing either, not to stop the shop selling.
+      const declared = ctx.config.scarcity;
+      if (declared?.allowUnverified) return null;
+      const unitsLeft = declared?.unitsLeft ?? undefined;
+      const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
+      const offerStillOpen = endsAt !== null && endsAt.getTime() > ctx.now.getTime();
+
+      if (unitsLeft !== undefined) {
+        // Only the true number, and only downward: "restam 3" when 3 is the count.
+        const said = [...t.matchAll(/\b(?:so\s+)?(?:resta|restam|sobrou|sobraram|tem)\s+(\d{1,4})\b/g)];
+        if (said.length > 0 && said.every((m) => Number(m[1]) === unitsLeft)) return null;
+      }
+      if (offerStillOpen && /\b(promocao|oferta|condicao|desconto)\s+(acaba|termina|expira|vence)\b/.test(t)) {
+        return null;
+      }
+
       const claims = [
         /\bso\s+(resta|restam|sobrou|sobraram|tem)\s+\d/,
         /\bultim[ao]s?\s+(unidades?|pecas?|dias?|horas?)\b/,

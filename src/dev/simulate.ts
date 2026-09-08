@@ -34,6 +34,7 @@ const config = {
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
+  testimonials: ["vesti pra festa e não tirei mais, o vestido caiu diferente"],
 };
 
 const DAYTIME = new Date("2026-09-08T18:00:00Z"); // 15:00 in São Paulo
@@ -410,6 +411,116 @@ for (const chat of CHATS) {
         String(n === null ? null : sizeFromDressSize(n)),
       );
     }
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// R. A copy persuasiva passa na própria cadeia
+//
+// A régua fala de espelho, de vestido parado no armário e de promessa que já quebraram
+// com ela. É a copy que converte, e é também a que chega mais perto dos gates de
+// emagrecimento e de saúde — se o cron gerar uma frase que ele mesmo recusa, a cliente
+// simplesmente não recebe o toque.
+// ─────────────────────────────────────────────────────────────────────────────
+for (const [angle, reply, esperado] of [
+  ["espelho, sem prometer corpo", "Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.", "envia"],
+  ["a roupa parada no armário", "Pensa naquela roupa que está parada no armário esperando um dia bom.", "envia"],
+  ["honestidade como argumento", "O colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa.", "envia"],
+  ["a cena concreta", "É o vestido que você já tem, caindo do jeito que você queria.", "envia"],
+  ["urgência verdadeira do COD", "Adiar não protege o seu bolso: você só paga quando receber.", "envia"],
+  ["mas prometer corpo continua barrado", "Você vai emagrecer e finalmente se amar no espelho.", "barra(weight_loss_claim)"],
+  ["e apontar defeito com promessa de cura", "Ele corrige a sua postura e resolve a sua barriga.", "barra(health_claim)"],
+] as Array<[string, string, string]>) {
+  check("copy persuasiva", angle, reply, esperado, outcome(reply));
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// T. As técnicas de venda que ela pode usar à vontade
+//
+// Nada aqui é exceção aberta na cadeia: são as ferramentas que já passavam e que o
+// prompt agora manda usar. O teste existe para que uma mudança futura de gate não as
+// feche sem ninguém perceber — perder a ancoragem ou o fechamento por escolha é perder
+// conversão, e isso não pode acontecer em silêncio.
+// ─────────────────────────────────────────────────────────────────────────────
+for (const [angle, reply] of [
+  ["ancoragem no preço cheio publicado", "De R$ 216,50 por R$ 129,90 — e o frete já está incluído."],
+  ["reversão de risco", "Você não paga nada agora e tem 7 dias pra devolver se não gostar."],
+  ["antecipar a objeção", "Você deve estar pensando que não vai servir. Por isso você só paga depois de vestir."],
+  ["fechamento por escolha", "Prefere pagar na entrega ou antecipado, com 15% de desconto?"],
+  ["espelhar a palavra dela", "Pra segurar a barriguinha no vestido, o G é o que eu indico."],
+  ["prova social sem citar ninguém", "É o que mais ouço de quem já recebeu: a roupa cai diferente."],
+  ["urgência verdadeira do COD", "Adiar não protege o seu bolso — você só paga quando receber."],
+  ["três parágrafos, quando o momento pede", "Entendo a dúvida.\n\nO colete não muda o seu corpo: ele muda como a roupa cai, enquanto você usa.\n\nE você decide depois de vestir. Prefere na entrega ou antecipado?"],
+] as Array<[string, string]>) {
+  check("técnica de venda liberada", angle, reply, "envia", outcome(reply));
+}
+
+// Prova social por citação: bloqueada enquanto não houver depoimento real, liberada
+// quando houver — palavra por palavra, e só o que está na lista.
+{
+  const real = config.testimonials![0]!;
+  check(
+    "prova social",
+    "cita depoimento real declarado",
+    real,
+    "envia",
+    outcome(`Uma cliente me disse: "${real}"`, { knownTestimonials: config.testimonials }),
+  );
+  check(
+    "prova social",
+    "inventa outro depoimento",
+    "-",
+    "barra(invented_testimonial)",
+    outcome('Uma cliente me disse: "perdi 10 cm em uma semana"', { knownTestimonials: config.testimonials }),
+  );
+  check(
+    "prova social",
+    "sem lista declarada, toda citação é invenção",
+    "-",
+    "barra(invented_testimonial)",
+    outcome(`Uma cliente me disse: "${real}"`),
+  );
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// S. Escassez: verdadeira passa, inventada não
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const semEscassez = config;
+  const comEstoque = { ...config, scarcity: { unitsLeft: 3 } };
+  const comPrazo = { ...config, scarcity: { offerEndsAt: "2026-09-30T00:00:00Z" } };
+  const prazoVencido = { ...config, scarcity: { offerEndsAt: "2026-01-01T00:00:00Z" } };
+
+  for (const [angle, reply, cfg, esperado] of [
+    ["sem nada declarado, estoque é invenção", "Só restam 3 unidades!", semEscassez, "barra(scarcity_claim)"],
+    ["com o estoque declarado, é fato", "Só restam 3 unidades!", comEstoque, "envia"],
+    ["mas não um número diferente do declarado", "Só restam 2 unidades!", comEstoque, "barra(scarcity_claim)"],
+    ["sem prazo declarado, contagem é invenção", "A promoção acaba hoje!", semEscassez, "barra(scarcity_claim)"],
+    ["com prazo declarado e aberto, é fato", "A promoção acaba em breve, viu?", comPrazo, "envia"],
+    ["com prazo já vencido, volta a ser invenção", "A promoção acaba em breve, viu?", prazoVencido, "barra(scarcity_claim)"],
+    ["contagem regressiva nunca passa", "Corre que acaba em 10 minutos!", comPrazo, "barra(scarcity_claim)"],
+  ] as Array<[string, string, typeof config, string]>) {
+    check("escassez", angle, reply, esperado, outcome(reply, { config: cfg }));
+  }
+
+  // A chave do operador: com ela ligada, a cadeia para de recusar urgência que não
+  // consegue verificar. Decisão dele, registrada em código e em teste.
+  const liberado = { ...config, scarcity: { allowUnverified: true } };
+  for (const [angle, reply] of [
+    ["estoque sem contagem por trás", "Corre que estão acabando as últimas peças do lote!"],
+    ["número improvisado", "Só restam 4 unidades!"],
+    ["prazo sem data declarada", "A promoção acaba hoje, viu?"],
+  ] as Array<[string, string]>) {
+    check("escassez liberada pelo operador", angle, reply, "envia", outcome(reply, { config: liberado }));
+  }
+
+  // E o que a chave NÃO libera: ela abre a urgência, não o resto da cadeia.
+  for (const [angle, reply, esperado] of [
+    ["preço inventado continua barrado", "Últimas peças por R$ 59,90!", "barra(price_promise)"],
+    ["emagrecimento continua barrado", "Últimas peças! Ele emagrece 5 kg.", "barra(weight_loss_claim)"],
+    ["cupom inventado continua barrado", "Últimas unidades, use o cupom de 20%!", "barra(price_promise+coupon_exists)"],
+  ] as Array<[string, string, string]>) {
+    check("escassez liberada pelo operador", angle, reply, esperado, outcome(reply, { config: liberado }));
   }
 }
 

@@ -27,6 +27,15 @@ import {
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
 import {
+  confirmsAddress,
+  extractAddress,
+  isComplete,
+  mergeAddress,
+  nextQuestion,
+  renderConfirmation,
+  type Address,
+} from "./address.ts";
+import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
@@ -54,6 +63,13 @@ interface BusinessConfig extends GateConfig {
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
+  /**
+   * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
+   * attributed to a customer that is not in this list — which, while the list was
+   * empty, meant the agent could never use social proof at all. Fill it and quoting
+   * becomes a tool she can reach for.
+   */
+  testimonials?: string[];
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -188,15 +204,81 @@ const recordCall = (
     }),
   }).catch(() => undefined);
 
-const systemPrompt = (sizeDirective: string | null): string => {
+/**
+ * What the agent is allowed to say about urgency, decided by config rather than by the
+ * model's instincts. Three settings, and the difference between them is who is
+ * accountable for the number:
+ *
+ * - a declared count or deadline: the shop's number, and she repeats it;
+ * - `allowUnverified`: the operator has decided she may create urgency without one;
+ * - neither: she says nothing about stock or deadlines at all.
+ *
+ * Even in the middle case she is pushed toward one stable line rather than a fresh
+ * number per conversation — the same claim all day reads as real, and a different one
+ * every time is what the customer with the screenshot notices.
+ */
+const scarcityBriefing = (): string[] => {
+  const s = CONFIG.scarcity;
+  const lines: string[] = [];
+  if (s?.unitsLeft !== undefined && s?.unitsLeft !== null) {
+    lines.push(`URGÊNCIA REAL: restam ${s.unitsLeft} unidades. Use esse número, e nenhum outro.`);
+  }
+  if (s?.offerEndsAt) {
+    lines.push(`PRAZO REAL: a condição atual termina em ${s.offerEndsAt}. Pode dizer que acaba.`);
+  }
+  if (lines.length === 0 && s?.allowUnverified) {
+    lines.push(
+      `URGÊNCIA: use senso de urgência sobre o lote acabando quando ela estiver em cima do`,
+      `muro — é uma das suas ferramentas mais fortes e você tem liberdade com ela. Duas`,
+      `bordas: não prometa contagem regressiva em minutos, e nunca use urgência para empurrar`,
+      `tamanho errado. Peça que não serve volta, e devolução custa mais que a venda vale.`,
+    );
+  }
+  if (lines.length === 0) {
+    lines.push(`URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`);
+  }
+  return ["", ...lines];
+};
+
+const systemPrompt = (sizeDirective: string | null, addressDirective: string | null = null): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
     `calor e sem jargão de marketing. Nunca afirma ser uma pessoa; se perguntarem, diz que é a`,
     `assistente virtual da marca e oferece chamar alguém do time.`,
     ``,
+    `QUEM ESTÁ DO OUTRO LADO. Na maioria das vezes é uma mulher que deixou de usar uma roupa`,
+    `que ela ama porque não se sentiu bem nela. Ela não quer virar outra pessoa: quer se olhar`,
+    `no espelho e gostar do que vê, hoje, com a roupa que já está no armário. Fale com esse`,
+    `desejo, com carinho e sem pena — nunca aponte defeito, nunca diga que ela "precisa"`,
+    `mudar, nunca sugira que ela está errada do jeito que é. O que muda é o caimento da roupa,`,
+    `não o valor dela.`,
+    ``,
+    `COMO ISSO VIRA FRASE. Prefira a cena concreta ao adjetivo: o vestido que voltou a fechar`,
+    `bonito, a foto da festa em que ela gostou de se ver, a camisa branca sem marcar. Uma`,
+    `imagem específica vende mais que "fique linda", e é verdade — a peça faz exatamente isso.`,
+    ``,
+    `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
+    `— **Ancoragem:** o preço cheio publicado é ${money(CONFIG.prices.anchorBrl)}. Diga de onde`,
+    `  ela está saindo antes de dizer onde chega.`,
+    `— **Reversão de risco:** ela não paga nada agora e tem ${CONFIG.delivery.warrantyDays} dias`,
+    `  pra devolver. É o seu argumento mais forte — repita com palavras novas, nunca iguais.`,
+    `— **Antecipe a objeção:** diga "você deve estar pensando que..." antes que ela pense.`,
+    `  Objeção nomeada por você perde metade da força.`,
+    `— **Feche por escolha, não por sim ou não:** "prefere pagar na entrega ou antecipado?"`,
+    `  converte mais que "quer comprar?".`,
+    `— **Espelhe:** use as palavras dela. Se ela disse "barriguinha", não corrija para`,
+    `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
+    `— **Uma pergunta viva no fim:** conversa que termina em ponto final morre.`,
+    ``,
+    `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
+    `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,
+    `primeiro não pegou.`,
+    ``,
     `O produto é o Colete Cinta Modeladora. Ele modela enquanto está vestido e muda como a roupa`,
     `cai — NÃO emagrece, e o efeito acaba ao tirar. Diga isso quando o assunto chegar perto.`,
+    `Essa honestidade é argumento de venda, não ressalva: ela já foi enganada por promessa de`,
+    `emagrecimento e reconhece quem não mente.`,
     ``,
     `Preço: ${money(CONFIG.prices.codBrl)} com frete incluído, pago na entrega ao entregador,`,
     `em dinheiro ou cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax}`,
@@ -211,8 +293,28 @@ const systemPrompt = (sizeDirective: string | null): string => {
     `letra (P, M, G). Nunca converta esse tamanho por conta própria — quem faz isso é uma`,
     `tabela determinística fora do seu controle, e ela te entrega o resultado pronto.`,
     ``,
-    `Responda em no máximo 45 palavras, uma pergunta por vez.`,
+    `AS TRÊS COISAS QUE VOCÊ NUNCA INVENTA — e o motivo é dinheiro, não formalidade. Cada uma`,
+    `delas vira recusa na porta, e no pagamento na entrega a recusa custa o frete inteiro:`,
+    `1. **Emagrecimento.** A peça modela vestida; não muda o corpo. Prometer isso traz uma`,
+    `   cliente que devolve — e, pior, que conta pra todo mundo que foi enganada.`,
+    `2. **Preço, desconto ou cupom que não existem.** Os números são os daqui, e só.`,
+    `3. **Estoque ou prazo**, do jeito que a loja mandar — ver o bloco de urgência abaixo.`,
+    ``,
+    `Fora dessas, o campo é seu.`,
+    ...scarcityBriefing(),
+    ...(CONFIG.testimonials?.length
+      ? [
+          `DEPOIMENTOS REAIS que você pode citar entre aspas, palavra por palavra, sem inventar`,
+          `outros: ${CONFIG.testimonials.map((t) => `"${t}"`).join(" ")}`,
+        ]
+      : []),
+    ``,
+    `TAMANHO DA RESPOSTA. Curta por padrão — duas ou três frases resolvem quase tudo no`,
+    `WhatsApp. Quando o momento pedir (a objeção grande, a hora de fechar, a mulher que`,
+    `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
+    `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
+    ...(addressDirective ? ["", addressDirective] : []),
   ].join(" ");
 };
 
@@ -233,6 +335,42 @@ const sizeDirectiveFor = (stated: { stated: number; size: string } | null): stri
     : `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
       ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.` +
       ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
+
+/**
+ * The address loop (§D2/§D5), which is the half of the sale that was missing.
+ *
+ * She rarely says the whole address at once, so it accumulates across turns. What is
+ * still unknown becomes one question — one, not a form. When nothing is missing, the
+ * address is read back to her and nothing is ordered until she says it is right: a
+ * package sent to an address nobody checked is the failed delivery this whole module
+ * exists to avoid, and under cash on delivery that is the freight, lost both ways.
+ *
+ * The directive is handed to the model as a fact plus an instruction, the same shape
+ * the size directive uses — the model writes the sentence, the code decides what it says.
+ */
+const addressDirectiveFor = (
+  draft: Partial<Address>,
+  confirmed: boolean,
+): string | null => {
+  if (confirmed) {
+    return `O endereço dela já está confirmado. Não peça de novo, não repita de volta: siga` +
+      ` para fechar o pedido.`;
+  }
+  if (isComplete(draft)) {
+    return `O endereço dela está completo mas AINDA NÃO foi confirmado. Antes de qualquer` +
+      ` pedido, repita exatamente isto de volta para ela, em linhas separadas, e pergunte se` +
+      ` está certo:\n${renderConfirmation(draft)}`;
+  }
+  const missing = (["cep", "street", "number", "neighborhood", "city", "state"] as const).filter(
+    (f) => !draft[f],
+  );
+  if (missing.length === 0 || Object.keys(draft).length === 0) return null;
+  const ask = nextQuestion(missing);
+  return ask === null
+    ? null
+    : `Você já anotou parte do endereço dela. Falta: ${missing.join(", ")}. Pergunte SÓ a` +
+      ` próxima coisa que falta, com esta pergunta: "${ask}" — uma de cada vez, nunca a lista toda.`;
+};
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -649,6 +787,40 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }).catch(() => undefined);
   }
 
+  // 5d. The address loop. It accumulates across turns because she says it in pieces,
+  // and it is only ever *confirmed* by her saying so — a package sent to an address
+  // nobody read back is the failed delivery this costs the most to fix.
+  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string };
+  let addressConfirmed = Boolean(storedAddress.confirmedAt);
+  let addressDraft: Partial<Address> = { ...storedAddress };
+  delete (addressDraft as { confirmedAt?: string }).confirmedAt;
+
+  const foundAddress = extractAddress(inbound.body ?? "");
+  if (Object.keys(foundAddress.fields).length > 0) {
+    // What she stated wins over what a previous pass inferred, and a new piece never
+    // silently re-confirms an address she has not seen read back.
+    addressDraft = mergeAddress(addressDraft, foundAddress.fields).fields;
+    addressConfirmed = false;
+  } else if (!addressConfirmed && isComplete(addressDraft) && confirmsAddress(inbound.body ?? "")) {
+    addressConfirmed = true;
+  }
+
+  const addressChanged =
+    JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
+    JSON.stringify({ ...storedAddress, confirmedAt: Boolean(storedAddress.confirmedAt) });
+  if (addressChanged) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        address: {
+          ...addressDraft,
+          ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
+        },
+        updated_at: new Date().toISOString(),
+      }),
+    }).catch(() => undefined);
+  }
+
   // 6. History, then the turn that sells.
   const history = await db(
     `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
@@ -664,6 +836,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const recentOutbound = (history ?? [])
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
+
+  const addressDirective = addressDirectiveFor(addressDraft, addressConfirmed);
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
@@ -681,8 +855,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated))
-          : `${systemPrompt(sizeDirectiveFor(stated))} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated), addressDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -704,6 +878,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       now: new Date(),
       paymentPath: "cod",
       recentOutbound,
+      // Social proof is a tool, and it was locked: nobody ever passed this list, so
+      // every quote she attributed to a customer was read as invented and rewritten.
+      knownTestimonials: CONFIG.testimonials,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across
@@ -838,6 +1015,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
     reply: reply.text,
     messageId: outbound.id,
     rewrites: rewritesUsed,
+    // Where the sale actually stands. `addressReady` is the gate on creating an order:
+    // complete is not enough, she has to have confirmed the read-back.
+    size: stated?.size ?? lead.size ?? null,
+    addressReady: addressConfirmed && isComplete(addressDraft),
+    addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,
     ceilingBrl,
   });

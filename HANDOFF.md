@@ -16,15 +16,95 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## Em uma frase
 
-O agente saiu do papel: onda A0 e metade da A3 já rodam em produção contra o
-banco real, com uma conversa completa (turno + guardrails + custo) e as duas
-réguas de acompanhamento (silêncio e pós-pedido) funcionando por cron —
-**tudo isso sem número de WhatsApp**, contra um contrato de canal que o WAHA
-vai preencher quando o número existir.
+A conversa vai do "oi" ao pedido pronto para nascer: tamanho pela tabela publicada,
+endereço confirmado por ela, nome/e-mail/CPF coletados, e o corpo da Coinzz montado
+esperando só o `offer_hash`. Tudo isso **sem número de WhatsApp**, contra um contrato
+de canal que o WAHA preenche quando o número existir — e coberto por 360 conversas
+completas que rodam a cada push.
 
 ---
 
 ## Onde o trabalho parou
+
+### O elo que faltava para a venda fechar
+
+> **Onde cada peça está, enquanto os PRs não mergeiam.** O laço de endereço, a bateria de
+> conversas e a persuasão estão no
+> [#16](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/16). A coleta de
+> nome/e-mail/CPF, o corpo do pedido da Coinzz e a escassez ligada estão no
+> [#17](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/17), que tem base no #16 —
+> mergear na ordem. Contagem de testes: 2517 no #16, **2674** com o #17.
+
+A cliente dizia "quero comprar" e a conversa **morria ali**. Nada coletava endereço,
+nada coletava os dados que a Coinzz exige, e o checkout era mock. Três buracos, os três
+fechados nesta sessão.
+
+**1. O laço de endereço (§D2/§D5).** Existia escrito e desligado de propósito — gravar
+endereço que ninguém conferiu é entrega perdida, e em COD isso é o frete duas vezes.
+Ligado com a checagem que faltava: acumula ao longo dos turnos, pergunta **uma** coisa
+por vez, lê de volta, e só o "sim" dela confirma. `confirmsAddress` recusa qualquer
+resposta com correção — ler *"na verdade é 125"* como sim é como o pacote vai para a
+porta antiga. Peça nova **desconfirma** o que já estava confirmado.
+
+**2. Nome, e-mail e CPF** ([`src/agent/identity.ts`](src/agent/identity.ts)). A API da
+Coinzz exige os três e a conversa **não pedia nenhum** — a venda não fecharia nem com a
+credencial na mão. Mesma disciplina do endereço: acumula, uma pergunta por vez, e só
+**depois** do endereço confirmado. Pedir CPF antes de ela decidir comprar é o jeito mais
+rápido de matar a conversa; por isso ele é o último. O CPF é conferido pelos próprios
+dígitos verificadores — `111.111.111-11` passa na aritmética e é exatamente o que alguém
+digita para furar formulário.
+
+**3. O pedido da Coinzz** ([`src/agent/coinzz.ts`](src/agent/coinzz.ts)). O turno devolve
+`order` com o corpo pronto e uma chave de idempotência; o **n8n posta** com a credencial
+dele. A divisão é a que o `CLAUDE.md` já fixava: regra de negócio é código versionado com
+teste, credencial e chamada HTTP são cano. Nenhum token entra neste repositório, e a
+`baseUrl` também não — ela mora no nó do n8n.
+
+Faltando qualquer coisa, vem `orderBlocked` com o nome exato (`coinzz.offerHash`,
+`customer.document`) em vez de um corpo pela metade, que vira pacote na porta de um
+estranho.
+
+**Duas coisas ficaram registradas como decisão do operador, não como inferência:**
+
+- **`afterpay` é o pagamento na entrega** (2026-09-08). Dos quatro métodos que a Coinzz
+  aceita — `afterpay`, `bank_slip`, `credit_card`, `pix` — **nenhum se chama COD**, e COD
+  é o funil inteiro. `afterpay` é o único que significa pagar depois. Travado em teste,
+  porque método errado cria cobrança que a cliente não combinou. **O primeiro pedido real
+  precisa ser conferido ponta a ponta antes de tráfego.**
+- **São duas ofertas, não uma.** O site linka dois checkouts:
+  `encorpa-pagamento-na-entrega-0` (R$ 129,90) e `encorpa-pagamento-antecipado-0`
+  (R$ 110,42). Um `offerHash` só teria cobrado **R$ 129,90 pela oferta de R$ 110,42**.
+  `prepayOfferHash` é campo próprio, e a ausência dele recusa o pedido antecipado em vez
+  de cair no hash errado.
+
+**Onde achar os dois hashes:** as páginas de checkout são apps JS que buscam os dados por
+API, então o HTML servido não os carrega. Aba Network do navegador no próprio checkout,
+painel da Coinzz, ou o payload de um webhook de venda antiga. Formato do exemplo deles:
+`offxxxxxxxx`.
+
+### Persuasão: o que a agente ganhou permissão de fazer
+
+O prompt era quase só lista de proibições, com teto de 45 palavras — handbrake de
+conversão, não guardrail. Agora ela tem técnica e liberdade de usar quando julgar:
+ancoragem nos R$ 216,50 publicados, reversão de risco, antecipar a objeção, fechamento
+por escolha em vez de sim/não, espelhar a palavra dela ("barriguinha", não "abdômen"), e
+sempre deixar uma pergunta viva. O teto virou juízo: curta por padrão, até três
+parágrafos quando a objeção ou o fechamento merecem.
+
+O prompt também diz **quem está do outro lado** — uma mulher que parou de usar uma roupa
+de que gosta porque não se sentiu bem nela. Cena concreta em vez de elogio abstrato, e
+proibido apontar defeito ou sugerir que ela precisa mudar. A honestidade entrou como
+argumento, não ressalva: ela já ouviu promessa de emagrecimento antes e reconhece quem
+não mente.
+
+**Uma trava que ninguém tinha visto:** a prova social estava a cadeado. O gate
+`invented_testimonial` recusa qualquer citação de cliente fora de `knownTestimonials`, e
+**nada nunca alimentava a lista** — toda avaliação real era reescrita fora. Agora
+`config.testimonials` chega na cadeia.
+
+**Escassez ligada pelo operador.** `scarcity.allowUnverified: true` e `unitsLeft: 12`. A
+chave abre a urgência e **nada mais**: com ela ligada, preço inventado, cupom inexistente
+e promessa de emagrecimento continuam barrados, com teste travando os três.
 
 ### A bateria de conversas, e o defeito mais caro do projeto
 
@@ -71,7 +151,9 @@ opt-out (só *"da lista"* era), então quem pediu para parar continuava recebend
 único erro irreversível da lista. *"Tem alguém disponível pra falar?"* e *"não quero
 falar com uma máquina"* deixavam quem pediu gente conversando com robô.
 
-**960 testes** no total, contra 148 no começo da sessão.
+**2674 testes** no total (com o #17), contra 148 no começo da sessão. `pnpm dev` roda a bateria
+da cadeia (811 casos); `pnpm dev:conversas` roda as 360 conversas completas (1645
+verificações); o CI roda as duas.
 
 **O log de decisões estava ensinando o erro.** A R9.1 registrava *"verificado em produção:
 manequim 42 → M, 46 → G"* — e as sondas realmente devolveram isso. O que elas verificaram
@@ -325,8 +407,11 @@ nesta sessão — não é só teoria de repositório.
 | Onze guardrails determinísticos | `src/agent/guardrails.ts` (espelhado em `supabase/functions/turn/guardrails.ts`) | ✅ 31 testes, rodando em produção |
 | Máquina de estados da conversa | `src/agent/state-machine.ts` | ✅ 6 testes |
 | Recomendador de tamanho | `src/agent/sizing.ts` (espelhado em `supabase/functions/turn/sizing.ts`) | ✅ 12 testes, chamado pela Edge Function e verificado em produção — ver R8.4 abaixo |
-| Extrator de endereço (§D2) | `src/agent/address.ts` | ⚠️ 12 testes, **não ligado à conversa ainda** — falta o laço de confirmação |
-| Contrato de checkout + mock (§E1/§E2) | `src/order/checkout.ts` | ⚠️ 10 testes, **mock** até a credencial da Coinzz existir |
+| Extrator + laço de endereço (§D2/§D5) | `src/agent/address.ts` (espelhado) | ✅ Ligado ao turno: acumula, pergunta uma coisa por vez, lê de volta, e só o "sim" dela confirma |
+| Coleta de nome, e-mail e CPF | `src/agent/identity.ts` (espelhado) | ✅ O que a API da Coinzz exige e a conversa não pedia. CPF conferido pelos dígitos verificadores |
+| Corpo do pedido da Coinzz | `src/agent/coinzz.ts` (espelhado) | ✅ Montado no turno, postado pelo n8n. Falta só o `offer_hash` das duas ofertas |
+| Contrato de checkout + mock (§E1/§E2) | `src/order/checkout.ts` | ⚠️ 10 testes, **mock** — substituído por `coinzz.ts` no caminho real |
+| Bateria da cadeia · conversas completas | `src/dev/simulate.ts`, `src/dev/run-conversations.ts` | ✅ 811 casos + 360 conversas, rodando no `pnpm test` e no CI |
 | Ritmo humano (atraso por bolha, "digitando") | `src/agent/pacing.ts` | ✅ 6 testes |
 | Réguas de silêncio (3 toques) e pós-pedido (4 mensagens) | `src/agent/followups.ts` (espelhado em `supabase/functions/turn/followups.ts`) | ✅ 15 testes, rodando por cron em produção |
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
@@ -497,21 +582,24 @@ verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
 
 ## O que falta para fechar a onda A3
 
-Nada disto depende do número de WhatsApp. As duas peças novas existem e estão
-testadas, mas **não estão ligadas à conversa** — é o próximo bloco de trabalho:
+A conversa inteira está ligada. O que falta são **dois fluxos de n8n e dois valores** —
+nada mais de código de conversa:
 
-1. **Ligar a coleta de endereço ao turno.** `address.ts` extrai e sabe o que
-   falta; o que não existe é o laço de conversa do §D2/§D5 — perguntar o que
-   falta, repetir o endereço de volta e **só então** gravar. Não liguei pela
-   metade de propósito: gravar endereço sem a confirmação explícita põe no
-   banco um endereço que ninguém conferiu, e em COD isso vira entrega perdida.
-2. **Ligar o checkout.** O contrato e o mock estão prontos; falta a credencial
-   da Coinzz (pergunta 4 do plano) e o registro do pedido na tabela `orders`,
-   usando `idempotencyKey` como `external_id`.
-3. **Enviar a notificação de handoff.** O destino foi definido (R9.2): e-mail
-   pessoal do operador, em `config/business.json` → `handoff.email`, que é
-   gitignored por ser dado pessoal. Falta o envio em si — hoje o handler grava
-   `handoff_at` e para; quem manda o e-mail é o n8n, e esse fluxo não existe.
+1. **O `offer_hash` das duas ofertas.** Sem eles o turno devolve `orderBlocked:
+   ["coinzz.offerHash"]` e o pedido não nasce. Onde achar: aba Network do navegador nos
+   checkouts `encorpa-pagamento-na-entrega-0` e `encorpa-pagamento-antecipado-0`, painel
+   da Coinzz, ou o payload de um webhook de venda antiga.
+2. **O fluxo de n8n que cria o pedido.** Quando a resposta do turno traz `order`, um nó
+   HTTP posta `order.body` com a credencial da Coinzz e grava o `order_hash` de volta em
+   `orders`, usando `order.idempotencyKey` como `external_id`. Nada para decidir no
+   workflow — o corpo já vem pronto.
+3. **O fluxo de n8n que manda o e-mail de handoff.** O destino existe (R9.2,
+   `config/business.json` → `handoff.email`, gitignored). Hoje o handler grava
+   `handoff_at`, devolve o payload com e-mail, `leadId`, telefone e `conversationId` — e
+   para. Quem envia é o n8n, e esse fluxo não existe.
+4. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego. É a
+   única forma de saber se `afterpay` se comporta como pagamento na entrega do lado
+   deles, e não como boleto ou link de pagamento.
 
 ---
 
@@ -519,18 +607,20 @@ testadas, mas **não estão ligadas à conversa** — é o próximo bloco de tra
 
 Em ordem:
 
-1. ~~Deployar a Edge Function~~ — **feito**, versão 13, verificada por cinco sondas.
-2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+1. **Deployar a Edge Function.** A v13 está no ar e é a de antes de tudo isto: sem a
+   tabela de tamanho corrigida, sem os seis gates novos, sem laço de endereço, sem coleta
+   de identidade. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
+   pnpm typecheck:function`, e **ler o que está deployado** — comparar pelo sentido, não
+   por `diff` cru (ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
+2. **Buscar os dois `offer_hash`** e montar os dois fluxos de n8n (pedido e e-mail de
+   handoff). Ver a seção acima.
+3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
-   Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.
-3. ~~Alinhar o FAQ do site ao prazo real~~ — **feito nesta sessão**, ver acima.
-4. Continuar a onda A3 (extração de endereço, checkout pré-preenchido da Coinzz — falta
-   credencial) e seguir para A4 (Hermes, conversão de volta para o Meta).
-5. **Rotacionar as credenciais** coladas em texto puro durante o desenvolvimento das
-   sessões anteriores (service_role key da Supabase, chaves OpenAI/Gemini) — ficaram em
-   histórico de chat, o que é motivo suficiente para trocar antes do lançamento.
-6. Acompanhar o `HANDOFF.md` do **Encorpa-Website** para mudanças no site que afetem o
-   agente — a relação é de mão dupla.
+4. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
+   Supabase, chaves OpenAI/Gemini, e o token da Coinzz colado em 2026-09-08. O operador já
+   disse que revoga esse último; os outros continuam pendentes.
+5. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
+   `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
 
 ---
 
