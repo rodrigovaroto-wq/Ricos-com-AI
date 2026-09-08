@@ -95,6 +95,8 @@ export interface Arc {
     optedOut?: boolean;
     addressComplete?: boolean;
     addressConfirmed?: boolean;
+    identityComplete?: boolean;
+    orderReady?: boolean;
     stage?: Stage;
     /** Outbound messages that actually reached her. */
     sent?: number;
@@ -661,5 +663,62 @@ export const ARCS: Arc[] = [
       sent: 7,
       touches: 3,
     }),
+  },
+  // ── Do endereço confirmado ao pedido que pode nascer ───────────────────────
+  {
+    /**
+     * A venda inteira, até o ponto em que o pedido pode ser criado de verdade: tamanho,
+     * endereço confirmado por ela, e os três dados que a API da Coinzz exige. Faltando
+     * um, `orderReady` é falso e nada é criado — pedido pela metade é pacote na porta
+     * errada, ou recusa do lado do pagamento depois do sim dela.
+     */
+    name: "venda até o pedido poder nascer",
+    turns: (p) => [
+      { from: p.style(p.saysSize), reply: R.sized(p) },
+      { from: p.style("quero comprar"), reply: R.askAddress },
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "isso mesmo", reply: "Anotado! Qual é o seu nome completo?" },
+      { from: "meu nome é Ana Paula Souza", reply: "Prazer, Ana! Qual é o seu e-mail?" },
+      { from: "ana.souza@gmail.com", reply: "Por último, o seu CPF." },
+      { from: "529.982.247-25", reply: R.confirmAddress },
+    ],
+    expect: (p) => ({
+      size: p.size,
+      addressConfirmed: true,
+      identityComplete: true,
+      orderReady: true,
+      sent: 7,
+    }),
+  },
+  {
+    name: "dá o CPF errado e corrige",
+    turns: (p) => [
+      { from: p.style(p.saysSize), reply: R.sized(p) },
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "correto", reply: "Qual é o seu nome completo?" },
+      { from: "meu nome é Ana Paula Souza", reply: "Qual é o seu e-mail?" },
+      { from: "ana@gmail.com", reply: "Por último, o CPF." },
+      { from: "111.111.111-11", reply: "Esse CPF não confere, pode conferir pra mim?" },
+      { from: "529.982.247-25", reply: R.confirmAddress },
+    ],
+    expect: (p) => ({ size: p.size, identityComplete: true, orderReady: true, sent: 7 }),
+  },
+  {
+    name: "endereço confirmado mas sem identidade não vira pedido",
+    turns: (p) => [
+      { from: p.style(p.saysSize), reply: R.sized(p) },
+      { from: p.address, reply: "Confere: está certo assim?" },
+      { from: "isso", reply: "Qual é o seu nome completo?" },
+    ],
+    expect: (p) => ({ size: p.size, addressConfirmed: true, identityComplete: false, orderReady: false }),
+  },
+  {
+    name: "identidade completa mas endereço não confirmado não vira pedido",
+    turns: (p) => [
+      { from: p.style(p.saysSize), reply: R.sized(p) },
+      { from: "meu nome é Ana Paula Souza, ana@gmail.com, cpf 529.982.247-25", reply: R.askAddress },
+      { from: p.address, reply: "Confere: está certo assim?" },
+    ],
+    expect: (p) => ({ size: p.size, identityComplete: true, addressConfirmed: false, orderReady: false }),
   },
 ];

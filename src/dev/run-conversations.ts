@@ -54,6 +54,8 @@ export const runAllConversations = (): ConversationCase[] => {
       if (want.optedOut !== undefined) compare("opt-out", want.optedOut, got.optedOut);
       if (want.addressComplete !== undefined) compare("endereço completo", want.addressComplete, got.addressComplete);
       if (want.addressConfirmed !== undefined) compare("endereço confirmado", want.addressConfirmed, got.addressConfirmed);
+      if (want.identityComplete !== undefined) compare("identidade completa", want.identityComplete, got.identityComplete);
+      if (want.orderReady !== undefined) compare("pedido pode nascer", want.orderReady, got.orderReady);
       if (want.stage !== undefined) compare("estágio", want.stage, got.stage);
       if (want.sent !== undefined) compare("mensagens enviadas", want.sent, got.sent.length);
       if (want.touches !== undefined) compare("toques armados", want.touches, got.scheduledTouches);
