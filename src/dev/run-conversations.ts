@@ -55,6 +55,7 @@ export const runAllConversations = (): ConversationCase[] => {
       if (want.addressComplete !== undefined) compare("endereço completo", want.addressComplete, got.addressComplete);
       if (want.addressConfirmed !== undefined) compare("endereço confirmado", want.addressConfirmed, got.addressConfirmed);
       if (want.identityComplete !== undefined) compare("identidade completa", want.identityComplete, got.identityComplete);
+      if (want.checkoutReady !== undefined) compare("link pode ser mandado", want.checkoutReady, got.checkoutReady);
       if (want.orderReady !== undefined) compare("pedido pode nascer", want.orderReady, got.orderReady);
       if (want.stage !== undefined) compare("estágio", want.stage, got.stage);
       if (want.sent !== undefined) compare("mensagens enviadas", want.sent, got.sent.length);

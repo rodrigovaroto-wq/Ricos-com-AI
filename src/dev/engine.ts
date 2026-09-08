@@ -75,6 +75,13 @@ export interface ConversationState {
   addressConfirmed: boolean;
   identity: Partial<Identity>;
   identityComplete: boolean;
+  /**
+   * O sinal do caminho vigente: com nome, e-mail e CPF a agente já pode mandar o link, e
+   * o resto — endereço, tamanho, dia — acontece dentro do checkout. `orderReady` continua
+   * ao lado dele, exigindo endereço confirmado, porque é o sinal do caminho por API, que
+   * ainda não está ligado.
+   */
+  checkoutReady: boolean;
   /** Everything the order needs is in hand: size, confirmed address, identity. */
   orderReady: boolean;
   optedOut: boolean;
@@ -114,6 +121,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
     addressConfirmed: false,
     identity: {},
     identityComplete: false,
+    checkoutReady: false,
     orderReady: false,
     optedOut: false,
     handoff: false,
@@ -232,6 +240,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       state.identity = mergeIdentity(state.identity, foundIdentity.fields).fields;
       state.identityComplete = isIdentityComplete(state.identity);
     }
+    state.checkoutReady = state.identityComplete;
     state.orderReady =
       state.addressConfirmed && state.addressComplete && state.identityComplete && state.size !== null;
 

@@ -32,8 +32,6 @@ import {
   extractAddress,
   isComplete,
   mergeAddress,
-  nextQuestion,
-  renderConfirmation,
   type Address,
 } from "./address.ts";
 import {
@@ -281,8 +279,8 @@ const scarcityBriefing = (): string[] => {
 
 const systemPrompt = (
   sizeDirective: string | null,
-  addressDirective: string | null = null,
   identityDirective: string | null = null,
+  checkoutDirective: string | null = null,
 ): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
@@ -352,6 +350,16 @@ const systemPrompt = (
         ]
       : []),
     ``,
+    `COMO A VENDA FECHA. Você NÃO pede endereço, em nenhum momento. Quem coleta endereço é o`,
+    `checkout, e pedir aqui faria a cliente digitar tudo duas vezes — é assim que se perde uma`,
+    `venda que já estava ganha. Se ela mandar o endereço por conta própria, agradeça e siga; não`,
+    `repita de volta nem peça confirmação.`,
+    ``,
+    `O que você precisa dela são três coisas, e só depois que ela decidir comprar: nome completo,`,
+    `e-mail e CPF, nessa ordem, uma de cada vez, no meio da conversa e nunca como formulário. O`,
+    `CPF é o último de propósito — é o que faz as pessoas hesitarem, e a essa altura ela já`,
+    `decidiu. Com os três você recebe o link pronto e manda para ela.`,
+    ``,
     `A VERIFICAÇÃO DA LOJA. Toda resposta sua passa por uma checagem automática antes de chegar`,
     `na cliente. Ela não é um obstáculo pra driblar — é a lista exata do que a operação consegue`,
     `cumprir, e cada linha dela custa dinheiro de verdade quando é quebrada. Escreva já dentro`,
@@ -365,8 +373,8 @@ const systemPrompt = (
     `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
     `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
-    ...(addressDirective ? ["", addressDirective] : []),
     ...(identityDirective ? ["", identityDirective] : []),
+    ...(checkoutDirective ? ["", checkoutDirective] : []),
   ].join(" ");
 };
 
@@ -389,52 +397,25 @@ const sizeDirectiveFor = (stated: { stated: number; size: string } | null): stri
       ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
 
 /**
- * The address loop (§D2/§D5), which is the half of the sale that was missing.
+ * Name, e-mail and CPF — the three the checkout link carries, and the only three the
+ * conversation collects. One question at a time, because a form in a WhatsApp message is
+ * where a sale stops.
  *
- * She rarely says the whole address at once, so it accumulates across turns. What is
- * still unknown becomes one question — one, not a form. When nothing is missing, the
- * address is read back to her and nothing is ordered until she says it is right: a
- * package sent to an address nobody checked is the failed delivery this whole module
- * exists to avoid, and under cash on delivery that is the freight, lost both ways.
+ * The order matters. Name first, because she gives it without thinking. CPF last, because
+ * it is the one that makes people hesitate, and by then she has already invested in the
+ * conversation.
  *
- * The directive is handed to the model as a fact plus an instruction, the same shape
- * the size directive uses — the model writes the sentence, the code decides what it says.
- */
-const addressDirectiveFor = (
-  draft: Partial<Address>,
-  confirmed: boolean,
-): string | null => {
-  if (confirmed) {
-    return `O endereço dela já está confirmado. Não peça de novo, não repita de volta: siga` +
-      ` para fechar o pedido.`;
-  }
-  if (isComplete(draft)) {
-    return `O endereço dela está completo mas AINDA NÃO foi confirmado. Antes de qualquer` +
-      ` pedido, repita exatamente isto de volta para ela, em linhas separadas, e pergunte se` +
-      ` está certo:\n${renderConfirmation(draft)}`;
-  }
-  const missing = (["cep", "street", "number", "neighborhood", "city", "state"] as const).filter(
-    (f) => !draft[f],
-  );
-  if (missing.length === 0 || Object.keys(draft).length === 0) return null;
-  const ask = nextQuestion(missing);
-  return ask === null
-    ? null
-    : `Você já anotou parte do endereço dela. Falta: ${missing.join(", ")}. Pergunte SÓ a` +
-      ` próxima coisa que falta, com esta pergunta: "${ask}" — uma de cada vez, nunca a lista toda.`;
-};
-
-/**
- * Name, e-mail and CPF — what the Coinzz order requires and the conversation never
- * asked for. Same loop as the address, and one question at a time for the same reason:
- * a form in a WhatsApp message is where a sale stops.
- *
- * The order matters. Name first, because she gives it without thinking. CPF last,
- * because it is the one that makes people hesitate — and by then she has already put
- * her address in, which is the moment she is least likely to walk away.
+ * The address is deliberately not here any more (operator, 2026-09-08). The checkout has
+ * no query parameter for it, so anything collected in the conversation she would type
+ * again anyway — five turns spent to make her do the work twice.
  */
 const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
   if (isIdentityComplete(draft)) return null;
+  // Nothing collected yet means the model decides *when* to start — the prompt says only
+  // after she has decided to buy. This directive drives the ORDER, not the opening: fired
+  // unconditionally it would have the agent asking a stranger for her full name in reply
+  // to "oi", which is where the conversation ends.
+  if (Object.keys(draft).length === 0) return null;
   const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
   const ask = nextIdentityQuestion(missing);
   return ask === null
@@ -442,6 +423,27 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
     : `Para fechar o pedido ainda falta: ${missing.join(", ")}. Pergunte SÓ isto agora,` +
       ` com naturalidade: "${ask}". Uma coisa de cada vez — nunca peça a lista inteira.`;
 };
+
+/**
+ * The message that carries the link, and what it must not imply.
+ *
+ * The link fills four fields and drops her at the address step; it does not create an
+ * order. So the agent says what is left — the address, the size, the day — and never that
+ * the order is done. A customer who thinks she has bought and then gets a delivery-day
+ * message she does not expect is the refusal at the door this whole funnel is built to
+ * avoid.
+ *
+ * The day is genuinely good news and is said as such: three dates, and she picks.
+ */
+const checkoutDirectiveFor = (url: string | null, size: string | null): string | null =>
+  url === null
+    ? null
+    : `Você já tem tudo. Mande este link para ela agora, exatamente como está, sem encurtar` +
+      ` e sem alterar:\n${url}\nDiga que os dados dela já vão preenchidos. Falta ela, lá` +
+      ` dentro: digitar o endereço de entrega,` +
+      `${size ? ` escolher o tamanho ${size},` : ` escolher o tamanho,`} e escolher o dia da` +
+      ` entrega — são três dias pra ela escolher, e isso é bom, fale como bom. NÃO diga que o` +
+      ` pedido já está feito: ele nasce quando ela terminar no checkout.`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -919,12 +921,35 @@ Deno.serve(async (request: Request): Promise<Response> => {
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
-  const addressDirective = addressDirectiveFor(addressDraft, addressConfirmed);
+  /**
+   * The link she finishes in, built before the model writes so the reply can carry it.
+   *
+   * It needs the three the conversation collects; with all of them plus her phone the
+   * checkout skips its first step. Nothing here is half-built — a link that fills three
+   * fields and still opens at the top is the same friction with an extra click.
+   */
+  let checkoutUrl: string | null = null;
+  let checkoutBlocked: string[] = (["name", "email", "document"] as const)
+    .filter((f) => !identityDraft[f])
+    .map((f) => `customer.${f}`);
+  if (checkoutBlocked.length === 0) {
+    try {
+      checkoutUrl = buildCheckoutLink(
+        { ...(identityDraft as Identity), phone: lead.phone },
+        "cod",
+        CONFIG.checkout ?? {},
+      );
+    } catch (error) {
+      checkoutBlocked =
+        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
+    }
+  }
 
-  // Identity is only asked for once the address is confirmed. Asking for a CPF before
-  // she has decided to buy is the fastest way to end a conversation.
-  const identityDirective =
-    addressConfirmed && isComplete(addressDraft) ? identityDirectiveFor(identityDraft) : null;
+  const identityDirective = identityDirectiveFor(identityDraft);
+  const checkoutDirective = checkoutDirectiveFor(
+    checkoutUrl,
+    stated?.size ?? lead.size ?? null,
+  );
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
@@ -942,8 +967,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -1108,30 +1133,6 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
   // ou dado da cliente — vem `orderBlocked` com o nome exato do que falta, em vez de
   // um corpo pela metade que vira pacote na porta errada.
-  /**
-   * The link she finishes in. It carries the four fields the checkout reads from the
-   * query string, and all four together are what makes it skip the first step — so it
-   * is built only once identity is complete, and never half-built.
-   */
-  let checkoutUrl: string | null = null;
-  let checkoutBlocked: string[] = [];
-  if (isIdentityComplete(identityDraft)) {
-    try {
-      checkoutUrl = buildCheckoutLink(
-        { ...identityDraft, phone: lead.phone },
-        "cod",
-        CONFIG.checkout ?? {},
-      );
-    } catch (error) {
-      checkoutBlocked =
-        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
-    }
-  } else {
-    checkoutBlocked = (["name", "email", "document"] as const)
-      .filter((f) => !identityDraft[f])
-      .map((f) => `customer.${f}`);
-  }
-
   let order: CoinzzRequest | null = null;
   let orderBlocked: string[] = missingCoinzzConfig(CONFIG.coinzz ?? {});
   const size = stated?.size ?? lead.size ?? null;
