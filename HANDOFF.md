@@ -250,6 +250,48 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
+### Deployado e verificado em produção — Edge Function na versão 14
+
+A v14 subiu do `main` mergeado (`3c94790`), depois dos quatro comandos canônicos verdes
+(2674 testes) e de ler o que estava no ar. A v13 não tinha nada exclusivo: toda linha que
+só existia lá era a versão velha do que o repositório já havia substituído. Os oito
+arquivos foram conferidos **byte a byte** contra o repositório depois do deploy —
+idênticos, uma vez desfeitos os escapes `\uXXXX` que o JSON do deploy converte em
+caractere literal.
+
+**A migração que nunca tinha sido aplicada.** `0004_order_identity.sql` existia no
+repositório e **não estava no banco**: `leads.identity` não existia. O handler grava nela
+com `.catch(() => undefined)`, então a coleta de nome, e-mail e CPF falhava **em silêncio**
+— nada acumulava entre turnos e o pedido nunca poderia nascer. Aplicada nesta sessão. O
+`list_migrations` mostrava oito migrações; o repositório tem nove. **Conferir as duas
+listas faz parte de deployar, não só o código.**
+
+Nove sondas contra o Supabase real, todas `rewrites: 0`:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "não uso 40, uso 46" | **GG** (tabela publicada) | ✅ GG, e `leads.size = GG` — a v13 dizia G |
+| "uso 42 de calça" | **G** | ✅ G — a v13 dizia M |
+| "calço 38, serve pra mim?" | não gravar tamanho | ✅ `size: null`, e ela perguntou o tamanho de calça |
+| "você é um robô?" | responder de primeira | ✅ *"Sou a assistente virtual da Encorpa"* |
+| "me dá 30% que eu fecho" | recusar sem ser vetada | ✅ ofereceu os 15% reais, sem citar 30% |
+
+E o laço inteiro da venda, que nunca tinha rodado em produção: endereço acumulado e lido
+de volta (**CEP 13010-100 não virou o número da casa** — 125), `addressReady: false` até o
+"isso mesmo" dela, identidade acumulando entre turnos (`email` no turno 5, `document` no
+turno 7, CPF só em dígitos e validado pelos verificadores), `name` gravado em outra
+conversa, e `orderBlocked: ["coinzz.offerHash"]` em todas — que é exatamente o que falta.
+Régua de silêncio agendada nas oito conversas, tokens gravados sem zero. Custo total:
+**R$ 0,0256**. Dados de teste apagados; banco conferido, zero órfãos.
+
+**Uma armadilha nova, registrada em
+[`.claude/memory/edge-function-warm-isolate.md`](.claude/memory/edge-function-warm-isolate.md):**
+por vários minutos depois do deploy, parte das requisições ainda é servida pela **versão
+anterior**. Cinco sondas voltaram no formato de resposta da v13 (sem `order`,
+`orderBlocked`, `size`) e o que elas escreveram no banco foi o comportamento velho. Não é
+defeito: é janela de rollout. Sonda logo depois de deployar precisa ser conferida pelo
+**formato da resposta**, não só pelo conteúdo.
+
 ### Deployado e verificado em produção — Edge Function na versão 13
 
 Subiu do `main` mergeado, depois de comparar com o que estava no ar (o drift já mordeu
@@ -417,8 +459,8 @@ nesta sessão — não é só teoria de repositório.
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
-| Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql`, `0003_deferred_reply.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 13), verificado por sondas contra o banco real |
+| Schema do banco | `supabase/migrations/0001_init.sql` … `0004_order_identity.sql` | ✅ As quatro aplicadas — a `0004` só nesta sessão; sem ela `leads.identity` não existia e a coleta falhava em silêncio |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 14), conferido byte a byte e verificado por nove sondas contra o banco real |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -607,19 +649,14 @@ nada mais de código de conversa:
 
 Em ordem:
 
-1. **Deployar a Edge Function.** A v13 está no ar e é a de antes de tudo isto: sem a
-   tabela de tamanho corrigida, sem os seis gates novos, sem laço de endereço, sem coleta
-   de identidade. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
-   pnpm typecheck:function`, e **ler o que está deployado** — comparar pelo sentido, não
-   por `diff` cru (ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
-2. **Buscar os dois `offer_hash`** e montar os dois fluxos de n8n (pedido e e-mail de
+1. **Buscar os dois `offer_hash`** e montar os dois fluxos de n8n (pedido e e-mail de
    handoff). Ver a seção acima.
-3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
-4. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
+3. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
    Supabase, chaves OpenAI/Gemini, e o token da Coinzz colado em 2026-09-08. O operador já
    disse que revoga esse último; os outros continuam pendentes.
-5. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
+4. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
    `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
 
 ---
