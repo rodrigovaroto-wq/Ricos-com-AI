@@ -250,6 +250,41 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
+### Deployado e verificado em produção — Edge Function na versão 17
+
+A venda fecha, do "oi" ao link, verificada contra o modelo real. **`rewrites: 0` em todos
+os turnos**, custo de uma conversa completa: **R$ 0,011**.
+
+| Turno | O que saiu |
+|---|---|
+| "quanto custa?" | R$ 129,90 na entrega e **R$ 110,41** antecipado — o preço que o checkout cobra |
+| "uso 42 de calça" | **G**, pela tabela publicada |
+| "quero comprar" | pede o nome; **não pede endereço em momento nenhum** |
+| nome → e-mail → CPF | uma coisa de cada vez, CPF por último |
+| CPF | **o link, com os quatro campos preenchidos**, e a mensagem dizendo o que falta lá dentro |
+
+O link que saiu:
+`.../encorpa-pagamento-na-entrega-0?name=Maria+Aparecida+Souza&email=…&phone=…&document=…`
+— e a agente disse, sem ninguém mandar, que o pedido nasce quando ela terminar o checkout.
+
+**Duas falhas que só a produção pegou**, as duas corrigidas com teste e redeployadas:
+
+1. **O gate de garantia lia o prazo de entrega como garantia.** *"Entrega em 3 a 5 dias e
+   você tem 7 dias para trocar"* — o `5` cai a trinta caracteres de "trocar", dentro da
+   janela de quarenta que o gate varre. Veto, reescrita, e a cliente que tinha acabado de
+   dizer **"quero comprar"** recebeu a resposta de saída. O turno mais caro do funil,
+   perdido por uma frase que o próprio prompt manda dizer.
+2. **O nome da cliente virava complemento de endereço.** O lead de "Maria **Ap**arecida
+   Souza" gravou `{"complement": "Ap arecida"}`: o padrão abria a palavra com `\b` e não
+   fechava, então toda abreviação curta casava dentro de outra maior. No caminho por API
+   isso ia impresso no pacote.
+
+**Como deployar agora.** Pela API de gerência, com os arquivos do disco — ver
+[`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+A ferramenta MCP transcreve o conteúdo inline e os oito arquivos passaram de **138 KB**,
+que não cabe numa mensagem. Ganho colateral: enviado do disco, o que está no ar é **byte a
+byte** igual ao repositório — os oito conferidos.
+
 ### Deployado e verificado em produção — Edge Function na versão 14
 
 A v14 subiu do `main` mergeado (`3c94790`), depois dos quatro comandos canônicos verdes
@@ -460,7 +495,7 @@ nesta sessão — não é só teoria de repositório.
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql` … `0004_order_identity.sql` | ✅ As quatro aplicadas — a `0004` só nesta sessão; sem ela `leads.identity` não existia e a coleta falhava em silêncio |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 14), conferido byte a byte e verificado por nove sondas contra o banco real |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 17), conferido byte a byte; a venda inteira verificada contra o modelo real |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -624,24 +659,34 @@ verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
 
 ## O que falta para fechar a onda A3
 
-A conversa inteira está ligada. O que falta são **dois fluxos de n8n e dois valores** —
-nada mais de código de conversa:
+A conversa inteira está ligada e verificada contra o modelo real: ela vende, indica o
+tamanho, coleta nome/e-mail/CPF e manda o link com os dados preenchidos. **Nenhuma linha
+de código de conversa falta.** O que resta é operação:
 
-1. **O `offer_hash` das duas ofertas.** Sem eles o turno devolve `orderBlocked:
-   ["coinzz.offerHash"]` e o pedido não nasce. Onde achar: aba Network do navegador nos
-   checkouts `encorpa-pagamento-na-entrega-0` e `encorpa-pagamento-antecipado-0`, painel
-   da Coinzz, ou o payload de um webhook de venda antiga.
-2. **O fluxo de n8n que cria o pedido.** Quando a resposta do turno traz `order`, um nó
-   HTTP posta `order.body` com a credencial da Coinzz e grava o `order_hash` de volta em
-   `orders`, usando `order.idempotencyKey` como `external_id`. Nada para decidir no
-   workflow — o corpo já vem pronto.
-3. **O fluxo de n8n que manda o e-mail de handoff.** O destino existe (R9.2,
-   `config/business.json` → `handoff.email`, gitignored). Hoje o handler grava
-   `handoff_at`, devolve o payload com e-mail, `leadId`, telefone e `conversationId` — e
-   para. Quem envia é o n8n, e esse fluxo não existe.
-4. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego. É a
-   única forma de saber se `afterpay` se comporta como pagamento na entrega do lado
-   deles, e não como boleto ou link de pagamento.
+1. **Conferir o primeiro pedido real ponta a ponta.** A cliente termina no checkout, então
+   o pedido nasce como sempre nasceu — mas ninguém ainda viu um nascer a partir de uma
+   conversa. Enquanto isso não acontecer, a onda não está fechada.
+2. **O fluxo de n8n que manda o e-mail de handoff.** O destino existe (`handoff.email` no
+   `BUSINESS_CONFIG`) e o handler devolve o payload com e-mail, `leadId`, telefone e
+   `conversationId`. Falta uma credencial de SMTP no n8n — nenhuma das que estão lá manda
+   e-mail — e o fluxo. Hoje a agente promete chamar alguém e **ninguém é chamado**.
+
+### O caminho por API, que fica para depois
+
+`order`, `orderBlocked` e `buildCoinzzRequest` continuam no código, prontos e desligados.
+Eles criam o pedido sem o clique dela, o que converte mais — e não devem ser ligados antes
+de duas coisas que só um pedido real responde:
+
+- **O `payment_method` correto.** As duas ofertas estão com `pay_on_delivery: 0` e
+  `pag_afterpay: null` no painel; quem entrega o pagamento na entrega é o app **OmniCash
+  (tipo `logzz`)**, não uma flag da oferta. `afterpay` continua sendo dedução, não fato.
+- **O dia da entrega e o tamanho.** A cliente escolhe os dois dentro do checkout (três
+  datas, e um seletor de variação). Um pedido criado por API não tem quem escolha, e o
+  tamanho tem hash próprio por variação (`pro4gpo2` = P … `proe50v0` = XGG) que
+  `buildCoinzzRequest` ainda não manda.
+
+Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e `offkw47x`
+(antecipado).
 
 ---
 
@@ -649,14 +694,16 @@ nada mais de código de conversa:
 
 Em ordem:
 
-1. **Buscar os dois `offer_hash`** e montar os dois fluxos de n8n (pedido e e-mail de
-   handoff). Ver a seção acima.
-2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
+1. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego.
+2. **Montar o fluxo de n8n do e-mail de handoff** — falta a credencial de SMTP.
+3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
-3. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
-   Supabase, chaves OpenAI/Gemini, e o token da Coinzz colado em 2026-09-08. O operador já
-   disse que revoga esse último; os outros continuam pendentes.
-4. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
+   O número já escolhido é **(11) 98859-0594**; nada o consome até o WAHA existir.
+4. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
+   Supabase, chaves OpenAI/Gemini, os dois tokens de acesso do Facebook que apareceram no
+   painel da Coinzz, e o Personal Access Token da Supabase usado para deployar a v15-v17.
+   O token da Coinzz o operador já revogou.
+5. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
    `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
 
 ---
