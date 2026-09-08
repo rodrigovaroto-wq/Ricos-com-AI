@@ -26,6 +26,53 @@ vai preencher quando o número existir.
 
 ## Onde o trabalho parou
 
+### A bateria de conversas, e o defeito mais caro do projeto
+
+780 casos: 100 roteiros de conversa em três escritas reais de WhatsApp cada
+([`src/dev/chats.ts`](src/dev/chats.ts)), mais a cadeia inteira contra as frases que a
+agente pode escrever ([`src/dev/simulate.ts`](src/dev/simulate.ts)). Roda por
+`pnpm dev` **e** dentro do `pnpm test` — script que ninguém roda foi exatamente como o
+`pnpm lint` ficou quebrado por meses.
+
+**A tabela de tamanho do código discordava da que a cliente lê.** `sizeFromDressSize`
+dizia que 42 é **M** e 46 é **G**. O site publica **42–44 = G** e **46–48 = GG**
+(`Offer.tsx` :16-20), e a base de conhecimento repete. A agente estava indicando um
+tamanho **menor** que a página onde a cliente leu a tabela, em todo degrau par — e
+tamanho pequeno volta, o que em COD é o frete inteiro perdido. Pior: as sondas das
+sessões anteriores ("42 → M", "46 → G") cimentaram o erro, e um teste o travava.
+
+As duas escadas viraram um array só, então não podem mais divergir, e um teste percorre
+a tabela publicada degrau a degrau.
+
+**"Manequim" é jargão.** O operador apontou: quase ninguém usa a palavra, as clientes
+dizem *"uso 42 de calça"*. A agente agora pergunta assim e aceita número ou letra. O
+extrator continua entendendo "manequim" — quem usa a palavra não é punido por isso.
+
+**Sapato virava cintura.** "Calço 38" está a uma letra de "calça 38", e o 38 ia para
+`leads.size` como M.
+
+**Seis promessas não tinham gate nenhum** — 13 de 16 frases fora do escopo passavam
+inteiras. A cadeia foi de 11 para 17 gates:
+
+| Gate novo | A frase que passava |
+|---|---|
+| `health_claim` | "corrige a sua postura e cura a dor nas costas" |
+| `scarcity_claim` | "só restam 3 unidades", "a promoção acaba em 10 minutos" |
+| `warranty_promise` | "você tem 30 dias", "troca quantas vezes quiser" |
+| `shipping_promise` | "no antecipado o frete é grátis também" |
+| `unavailable_offer` | "também temos calcinha modeladora", "pode retirar na nossa loja" |
+| `installment_promise` | "dá pra parcelar em 3x" (na porta ela paga uma vez) |
+
+O `price_promise` também passou a pegar a concessão sem número — *"eu tiro mais um
+pouquinho"* compromete a loja com um preço que ninguém definiu.
+
+**Três jeitos de ser ignorada, todos corrigidos.** *"Me tire **dessa** lista"* não era
+opt-out (só *"da lista"* era), então quem pediu para parar continuava recebendo — o
+único erro irreversível da lista. *"Tem alguém disponível pra falar?"* e *"não quero
+falar com uma máquina"* deixavam quem pediu gente conversando com robô.
+
+**960 testes** no total, contra 148 no começo da sessão.
+
 ### Trabalho da sessão de 2026-09-08 — a varredura por falhas
 
 A sessão não escreveu funcionalidade nova: foi atrás do que já estava lá e estava
@@ -114,8 +161,33 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
-**Nada disso foi deployado.** A Edge Function no ar continua na versão 12, sem estas
-correções. Ver "o que fazer em seguida".
+### Deployado e verificado em produção — Edge Function na versão 13
+
+Subiu do `main` mergeado, depois de comparar com o que estava no ar (o drift já mordeu
+duas vezes). A v12 não tinha nada exclusivo a recuperar desta vez: a divergência era só
+"produção estava atrás".
+
+Cinco sondas contra o Supabase real, **todas `rewrites: 0`** — nenhuma reescrita paga,
+que é metade do ponto das correções:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "Me dá um desconto de 30%" | recusar sem ser vetada | ✅ *"Não consigo liberar 30%, mas pagando antes você tem 15%…"* |
+| "**não uso 40, uso 46**" | ler 46 → **G** | ✅ resposta correta **e `leads.size = G`** no banco (antes gravava M) |
+| "você é um robô?" | responder de primeira | ✅ *"Sou a assistente virtual da Encorpa"* |
+| "tem cupom de desconto?" | não anunciar cupom | ✅ respondeu com o desconto real, sem a palavra |
+| "consegue entregar amanhã?" | 3 a 5 dias, sem promessa | ✅ *"A entrega é agendada e acontece em 3 a 5 dias"* |
+
+As colunas de token de `llm_calls` deixaram de gravar zero (48/2, 323/154, …), e as
+três linhas da régua de silêncio foram agendadas em cada conversa. Custo total das
+cinco: **R$ 0,0045**. Dados de teste apagados; banco conferido, zero órfãos.
+
+**Uma ressalva sobre comparar produção com o repositório.** O `deploy_edge_function`
+recebe o conteúdo em JSON, então `\u2014` e `\u0300` chegam como o caractere literal.
+Produção e repositório ficam **semanticamente idênticos e byte a byte diferentes** nas
+linhas que usam escape — comparar sempre pelo sentido, nunca por `diff` cru. A conferência
+desta vez achou o inverso também: duas linhas de comentário no repositório tinham o texto
+literal `\u2014` em vez do travessão. Corrigido.
 
 ### Trabalho da sessão de 2026-09-07
 
@@ -254,7 +326,7 @@ nesta sessão — não é só teoria de repositório.
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
 | Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql`, `0003_deferred_reply.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 8), testado ponta a ponta com conversas reais |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 13), verificado por sondas contra o banco real |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -440,14 +512,7 @@ testadas, mas **não estão ligadas à conversa** — é o próximo bloco de tra
 
 Em ordem:
 
-1. **Deployar a Edge Function.** A versão 12 está no ar sem nenhuma das correções
-   desta sessão — incluindo a que impede a cliente de ficar sem resposta quando um
-   provedor falha. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
-   pnpm typecheck:function`, e **ler o que está deployado** (o drift já mordeu duas
-   vezes — ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
-   Sondas que valem a pena depois de subir: "sem juros, sai por R$ 59,90" (deve virar
-   reescrita), "não uso 40, uso 46" (deve gravar `G`) e "o tecido é 92% poliamida"
-   (deve passar com `rewrites: 0`).
+1. ~~Deployar a Edge Function~~ — **feito**, versão 13, verificada por cinco sondas.
 2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
    prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
    Não bloqueia a fase A, mas atrasa a fase B se ficar para depois.

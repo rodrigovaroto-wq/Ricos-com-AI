@@ -30,10 +30,36 @@ describe("recomendação de tamanho", () => {
     expect(sizeFromWaist(130)).toBe("XGG");
   });
 
-  it("aceita o manequim, que é o que ela realmente sabe", () => {
-    expect(sizeFromDressSize(38)).toBe("P");
+  it("aceita o tamanho de roupa, que é o que ela realmente sabe", () => {
+    expect(sizeFromDressSize(36)).toBe("P");
     expect(sizeFromDressSize(44)).toBe("G");
     expect(sizeFromDressSize(52)).toBe("XGG");
+  });
+
+  /**
+   * A tabela do código discordava da tabela publicada (`Offer.tsx` :16-20, repetida na
+   * base de conhecimento): 42 virava M quando o site prometia G, e 46 virava G quando o
+   * site prometia GG. Um tamanho **menor** que o anunciado, em todo degrau par — e
+   * tamanho menor em COD é devolução, que é o frete inteiro perdido.
+   */
+  it("bate degrau a degrau com a tabela que o site publica", () => {
+    const publicada: Array<[number, string]> = [
+      [34, "P"], [36, "P"],
+      [38, "M"], [40, "M"],
+      [42, "G"], [44, "G"],
+      [46, "GG"], [48, "GG"],
+      [50, "XGG"], [52, "XGG"],
+    ];
+    for (const [numero, esperado] of publicada) {
+      expect(`${numero} → ${sizeFromDressSize(numero)}`).toBe(`${numero} → ${esperado}`);
+    }
+  });
+
+  it("entre duas linhas, o maior vence — igual à regra da cintura", () => {
+    expect(sizeFromDressSize(37)).toBe("M");
+    expect(sizeFromDressSize(41)).toBe("G");
+    expect(sizeFromDressSize(45)).toBe("GG");
+    expect(sizeFromDressSize(54)).toBe("XGG");
   });
 
   it("a tabela lista os cinco tamanhos", () => {
@@ -72,10 +98,31 @@ describe("recomendação de tamanho", () => {
     expect(extractDressSize("me chama depois das 38")).toBeNull();
   });
 
-  it("a lacuna real (R8.4): manequim 42 é M, não G", () => {
-    const manequim = extractDressSize("eu sou manequim 42");
-    expect(manequim).toBe(42);
-    expect(sizeFromDressSize(manequim!)).toBe("M");
+  it("a lacuna real (R8.4): o número vira tamanho pela tabela, não pelo modelo", () => {
+    const numero = extractDressSize("eu uso 42 de calça");
+    expect(numero).toBe(42);
+    expect(sizeFromDressSize(numero!)).toBe("G");
+  });
+
+  /**
+   * Sapato usa os mesmos números que roupa, e "calço" é uma letra de distância de
+   * "calça". Ler o pé como cintura escreve o tamanho errado no banco, e ele sobrevive
+   * à conversa.
+   */
+  it("pé não é cintura", () => {
+    expect(extractDressSize("calço 38")).toBeNull();
+    expect(extractDressSize("uso 38 de sapato")).toBeNull();
+    expect(extractDressSize("meu tênis é 37")).toBeNull();
+    expect(extractDressSize("uso 38 de calça")).toBe(38);
+  });
+
+  /** Como as clientes realmente falam — sem a palavra "manequim". */
+  it("entende as frases que as clientes de fato escrevem", () => {
+    expect(extractDressSize("eu uso 44 de calça")).toBe(44);
+    expect(extractDressSize("visto 46 de vestido")).toBe(46);
+    expect(extractDressSize("meu tamanho é 40")).toBe(40);
+    expect(extractDressSize("sou 48")).toBe(48);
+    expect(extractDressSize("uso blusa 42")).toBe(42);
   });
 });
 

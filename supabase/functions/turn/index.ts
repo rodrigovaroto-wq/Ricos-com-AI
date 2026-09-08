@@ -3,7 +3,7 @@
  *
  * The n8n webhook posts an inbound message here; this function owns everything that
  * decides what goes back: dedupe, persistence, the cost ceiling, the two model calls
- * and the eleven guardrails. A second entry point, { job: "followups" }, is the clock
+ * and the seventeen guardrails. A second entry point, { job: "followups" }, is the clock
  * half: it sweeps due touches, renders them deterministically and gates them the same
  * way. n8n stays the pipe and the clock.
  *
@@ -205,9 +205,11 @@ const systemPrompt = (sizeDirective: string | null): string => {
     `(${money(CONFIG.prices.prepayBrl)}), e aí o frete é calculado à parte no checkout — as duas`,
     `metades saem na mesma frase.`,
     ``,
-    `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não exija fita`,
-    `métrica: pergunte o manequim. Nunca calcule o tamanho por conta própria a partir do`,
-    `manequim — isso é decidido por uma tabela determinística fora do seu controle.`,
+    `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
+    `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,
+    `simples, "que tamanho de calça você usa?", e aceite tanto número (38, 42, 46) quanto`,
+    `letra (P, M, G). Nunca converta esse tamanho por conta própria — quem faz isso é uma`,
+    `tabela determinística fora do seu controle, e ela te entrega o resultado pronto.`,
     ``,
     `Responda em no máximo 45 palavras, uma pergunta por vez.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
@@ -215,23 +217,22 @@ const systemPrompt = (sizeDirective: string | null): string => {
 };
 
 /**
- * R8.4: the model must never compute size from a dress size on its own — a real
- * conversation had it say G for manequim 42, when the deterministic table says M,
- * and a wrong size becomes a COD return (pure loss). When the customer's message
- * names a plausible manequim, resolve it here and hand the model the answer as a
- * fact to state, not a number to reason about.
+ * R8.4: the model must never convert a clothing size on its own — a real conversation
+ * had it pick one size off the published table, and a wrong size becomes a COD return
+ * (pure loss). When the customer's message names a plausible size, resolve it here and
+ * hand the model the answer as a fact to state, not a number to reason about.
  */
-const statedSize = (message: string): { manequim: number; size: string } | null => {
-  const manequim = extractDressSize(message);
-  return manequim === null ? null : { manequim, size: sizeFromDressSize(manequim) };
+const statedSize = (message: string): { stated: number; size: string } | null => {
+  const stated = extractDressSize(message);
+  return stated === null ? null : { stated, size: sizeFromDressSize(stated) };
 };
 
-const sizeDirectiveFor = (stated: { manequim: number; size: string } | null): string | null =>
+const sizeDirectiveFor = (stated: { stated: number; size: string } | null): string | null =>
   stated === null
     ? null
-    : `A cliente informou manequim ${stated.manequim}. O tamanho correto é ${stated.size} —` +
-      ` isto já foi calculado pela tabela determinística da loja, não recalcule nem escolha` +
-      ` outro. Diga esse tamanho.`;
+    : `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
+      ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.` +
+      ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
