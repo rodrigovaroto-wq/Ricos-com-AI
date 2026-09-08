@@ -41,8 +41,8 @@ Fonte: `FAQ.tsx` :11–26.
 
 **3. Como funciona esse pagamento na entrega?**
 > Você faz o pedido agora sem pagar nada e sem informar cartão. O entregador leva o
-> colete até a sua casa e você paga na hora, direto para ele. Costuma chegar entre 7 e 14
-> dias, dependendo da sua cidade, e a entrega é agendada, então você fica sabendo o dia.
+> colete até a sua casa e você paga na hora, direto para ele. Costuma chegar de 3 a 5
+> dias, e a entrega é agendada, então você fica sabendo o dia.
 
 **4. O colete emagrece?**
 > Não. É melhor você saber agora do que descobrir depois de comprar. Ele modela enquanto

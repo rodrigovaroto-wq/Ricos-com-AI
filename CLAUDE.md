@@ -38,8 +38,14 @@ Always use the exact commands here — don't guess.
 - **Build:** `pnpm build`
 - **Run/Dev:** `pnpm dev`
 
-> Os scripts acima ainda não existem no `package.json` — o projeto não foi
-> gerado. Ao criar o `package.json`, use exatamente estes nomes.
+Mais um, que não é opcional: **`pnpm typecheck:function`** roda `deno check` sobre
+`supabase/functions/turn/index.ts`. O `tsconfig` não cobre aquele arquivo
+(`include: ["src", "tests"]`), então esta é a única coisa que olha o código que a
+produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
+
+> Todos existem no `package.json` e passam. O CI
+> ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os quatro mais o
+> `typecheck:function` em todo push e PR.
 
 > Os tutoriais em `docs/documentacao/tools/` citam `npm` porque reproduzem a documentação de
 > cada ferramenta. Neste projeto, o gerenciador é `pnpm` — as linhas acima são

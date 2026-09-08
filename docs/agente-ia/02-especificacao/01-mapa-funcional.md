@@ -233,7 +233,7 @@ durável → *banco*.
 **E3. Status.** Webhook ou polling da Coinzz → atualizar estado → estado do pedido →
 *worker*.
 
-**E4. Logística.** Status Logzz (7 a 14 dias, entrega agendada) → traduzir para a
+**E4. Logística.** Status Logzz (3 a 5 dias no COD, entrega agendada) → traduzir para a
 linguagem da cliente → aviso → *worker + agente*.
 
 **E5. Atualização à cliente.** Mudança de status → decidir se merece mensagem → mensagem →

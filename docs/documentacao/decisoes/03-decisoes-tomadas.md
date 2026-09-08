@@ -835,10 +835,10 @@ informa no checkout.
 O guardrail de prazo passa a vetar os dois erros: prazo fora da janela no COD, e qualquer
 janela em números no antecipado.
 
-**Divergência a resolver:** o FAQ do site ainda diz *"costuma chegar entre 7 e 14 dias"*
-(`FAQ.tsx` :22). Agente e site precisam falar a mesma coisa — a cliente que lê os dois é
-exatamente o perfil que o projeto descreve como caçadora de contradição. Decisão do operador:
-corrigir o site para 3 a 5, ou manter a promessa conservadora e alinhar a agente por cima.
+**Divergência resolvida em 2026-09-07.** O `FAQ.tsx` :22 e a página de obrigado do
+`Encorpa-Website` diziam *"entre 7 e 14 dias"*; foram corrigidos para 3 a 5. O caminho
+antecipado passou a ter um passo próprio na página de obrigado, sem número, pela mesma
+razão que a agente não diz nenhum ali.
 
 ## R7.3 — Teto de custo: R$ 0,80 com 25% de folga
 
