@@ -250,7 +250,10 @@ for (const [angle, input, esperado] of [
   ["parar não é opt-out aqui", "tem como parar a dor nas costas?", "responde"],
   ["cancelar pedido não é opt-out", "quero cancelar meu pedido", "responde"],
   ["quer pessoa", "quero falar com uma pessoa", "handoff"],
-  ["quer atendente", "tem atendente aí?", "handoff"],
+  // A agente já é atendente: pedir atendente é descrever o que a cliente está fazendo.
+  ["quer atendente não é pedir humano", "quero falar com um atendente", "responde"],
+  ["abre a conversa pedindo atendimento", "olá, gostaria de falar com um atendente", "responde"],
+  ["tem alguém aí pergunta se há alguém ouvindo", "tem alguém aí?", "responde"],
   // A frase exata "atendimento humano" está na lista; embutida numa pergunta, não está —
   // e é aí que a regra de frase exata cobra o preço dela, de propósito.
   ["atendimento humano exato", "atendimento humano", "handoff"],

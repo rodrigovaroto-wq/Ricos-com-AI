@@ -327,7 +327,7 @@ export const ARCS: Arc[] = [
     turns: (p) => [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero falar com um atendente") },
+      { from: p.style("quero falar com um humano") },
       { from: p.style("alô?") },
     ],
     expect: (p) => ({ size: p.size, handoff: true, sent: 3, touches: 0 }),
@@ -338,9 +338,12 @@ export const ARCS: Arc[] = [
     expect: () => ({ handoff: true, sent: 1 }),
   },
   {
+    // Perguntar se há alguém disponível é perguntar se há alguém ouvindo — e há. Antes
+    // isso virava handoff na primeira mensagem da conversa, que é o pior momento possível
+    // para entregar uma venda a um humano que ainda não existe.
     name: "pergunta se tem alguém disponível",
-    turns: (p) => [{ from: p.style("tem alguém disponível pra falar?") }],
-    expect: () => ({ handoff: true, sent: 1 }),
+    turns: (p) => [{ from: p.style("tem alguém disponível pra falar?"), reply: R.greet }],
+    expect: () => ({ handoff: false, sent: 1 }),
   },
   {
     name: "recusa a pessoa e continua",

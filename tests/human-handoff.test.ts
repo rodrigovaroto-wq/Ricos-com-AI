@@ -7,41 +7,62 @@ import { ctx, config } from "./fixtures.js";
  * A porta do handoff que a cliente abre — e a única que sobrou sendo sobre o que ela
  * escreve. As outras duas (teto de custo, falha do provedor) são o sistema desistindo.
  *
- * Desde 2026-09-08 a regra é frase exata, por decisão do operador: a mensagem inteira
- * tem de SER uma das frases da lista. Handoff é irreversível, e um padrão que dispara
- * dentro de uma frase maior encerra uma venda que a agente estava fechando, para uma
- * cliente que não pediu nada.
+ * Duas regras, ambas decisão do operador (2026-09-08). A mensagem inteira tem de SER uma
+ * frase da lista; e a frase tem de nomear um humano **em oposição a esta agente**. A
+ * segunda é a que corta mais: a agente já é atendente e vendedora, então pedir atendente
+ * é descrever o que a cliente está fazendo, não pedir para trocar de interlocutor.
  */
 describe("sentinela de pedido de humano (§Q12)", () => {
   it("reconhece a frase exata, em qualquer caixa, acento ou pontuação", () => {
     for (const pedido of [
       "quero falar com uma pessoa",
-      "QUERO FALAR COM UM ATENDENTE",
-      "Posso falar com alguém?",
+      "QUERO FALAR COM UM HUMANO",
+      "Quero falar com uma pessoa de verdade?",
       "me passa pra uma pessoa",
-      "Me transfere para o suporte.",
+      "Me transfere para um humano.",
       "não quero falar com robô",
       "Não quero falar com uma máquina!",
       "atendimento humano",
-      "tem alguém disponível pra falar?",
-      "quero   falar  com  alguem",
+      "quero falar com outro atendente",
+      "quero   falar  com  um   humano",
     ]) {
       expect(wantsHuman(pedido), pedido).toBe(true);
     }
   });
 
   /**
-   * O preço da regra, escrito para ninguém o descobrir por acidente numa conversa real.
-   * Estas mulheres estão pedindo gente e não são roteadas — elas continuam sendo
-   * atendidas pela agente, que o prompt manda oferecer chamar alguém.
+   * O preço da regra de frase exata, escrito para ninguém o descobrir por acidente numa
+   * conversa real. Estas mulheres podem estar pedindo gente e não são roteadas — elas
+   * continuam atendidas pela agente, que o prompt manda oferecer chamar alguém.
    */
   it("não dispara com o pedido embutido numa frase maior — este é o custo aceito", () => {
     for (const frase of [
       "oi, tudo bem? queria falar com uma pessoa",
       "me passa pra uma pessoa por favor",
-      "acho que quero falar com um atendente",
+      "acho que quero falar com um humano",
       "vocês têm atendimento humano?",
       "nao quero falar com bot, quero gente",
+    ]) {
+      expect(wantsHuman(frase), frase).toBe(false);
+    }
+  });
+
+  /**
+   * A segunda regra, e a que evita o falso positivo mais caro de todos: o da PRIMEIRA
+   * mensagem. A agente já é atendente e vendedora — pedir atendente, ou perguntar se tem
+   * alguém aí, é a cliente iniciando a conversa, não pedindo outro interlocutor. Rotear
+   * isso entrega a um humano a abertura de uma venda que ninguém estava perdendo.
+   */
+  it("pedir atendimento não é pedir outro atendente", () => {
+    for (const frase of [
+      "quero falar com um atendente",
+      "olá, gostaria de falar com um atendente",
+      "queria falar com uma atendente",
+      "tem atendente ai",
+      "tem alguem ai",
+      "tem alguem disponivel pra falar",
+      "quero falar com alguem",
+      "quero falar com um vendedor",
     ]) {
       expect(wantsHuman(frase), frase).toBe(false);
     }
@@ -53,6 +74,7 @@ describe("sentinela de pedido de humano (§Q12)", () => {
     for (const frase of [
       "quero falar com uma pessoa que ja comprou pra saber se funciona",
       "queria falar com alguem que ja usou o produto",
+      "quero falar com uma pessoa amanha",
       "nao quero falar com uma pessoa agora, prefiro resolver aqui",
       "tem uma pessoa que usa e amou",
       "sou uma pessoa muito ansiosa, chega rápido?",

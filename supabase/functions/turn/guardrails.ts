@@ -187,80 +187,56 @@ export const classifyOptOut = (text: string): OptOutLevel => {
 export type Remedy = "rewrite" | "defer" | "stop";
 
 /**
- * She asked for a person (§Q12), and the bar is deliberately absolute: the whole
- * message has to **be** one of these phrases. Not contain one, not resemble one.
+ * She asked for a person (§Q12), and the bar is absolute twice over: the whole message
+ * has to **be** one of these phrases, and the phrase has to name a human *as opposed to
+ * this agent*. Not contain one, not resemble one, not merely mention attendance.
  *
- * That is the operator's call (2026-09-08), and the reason is which direction is
- * expensive to be wrong in. Handoff is irreversible — the agent never answers that
- * conversation again — so a pattern that fires inside a longer sentence ends a sale
- * the agent was closing, silently, for a customer who never asked for anything. The
- * regex version did exactly that three times before it was narrowed, and narrowing a
- * regex is endless: each fix invents the next sentence it swallows. A phrase list
- * cannot swallow anything, because it matches nothing it does not literally say.
+ * Both halves are the operator's call (2026-09-08), and the second half is the sharper
+ * one. The agent already IS an attendant, and a saleswoman: "quero falar com um
+ * atendente" and "quero falar com um vendedor" describe what she is already doing, and
+ * "olá, gostaria de falar com um atendente" is how a conversation *opens*. Routing those
+ * hands a person the very first message of a sale nobody was failing to make. The same
+ * goes for "alguém": "tem alguém aí?" asks whether anyone is listening, and the answer
+ * is yes — the agent is. So the list keeps only the words that draw the line the request
+ * is actually about: pessoa, humano, robô, bot, máquina, and "outro atendente".
+ *
+ * The first half is why it is a list at all. Handoff is irreversible — the agent never
+ * answers that conversation again — so a pattern firing inside a longer sentence ends a
+ * sale for someone who asked for nothing. The regex version did exactly that three times
+ * before it was narrowed, and narrowing a regex is endless: each fix invents the next
+ * sentence it swallows. A phrase list swallows nothing.
  *
  * The price is real and accepted: "oi, tudo bem? queria falar com uma pessoa" is not
  * routed. She is not ignored — she gets a normal answer, and the prompt tells the agent
  * to offer calling someone. This sentinel is the deterministic shortcut that costs
  * nothing and never guesses; it was never the only way to reach a person.
- *
- * Adding a line here is cheap and safe. Loosening the match is not.
  */
 export const HUMAN_REQUEST_PHRASES: readonly string[] = [
-  // Pedido direto.
+  // Ela nomeia a pessoa, em oposição à agente.
   "quero falar com uma pessoa",
-  "quero falar com um atendente",
-  "quero falar com uma atendente",
-  "quero falar com alguem",
-  "quero falar com um humano",
-  "quero falar com um gerente",
-  "quero falar com um vendedor",
   "quero falar com uma pessoa de verdade",
-  "queria falar com uma pessoa",
-  "queria falar com um atendente",
-  "queria falar com alguem",
-  "queria conversar com uma pessoa",
-  "queria conversar com um atendente",
-  "posso falar com uma pessoa",
-  "posso falar com um atendente",
-  "posso falar com alguem",
-  // Ela nomeia o atendimento em vez da pessoa.
-  "atendimento humano",
+  "quero falar com um humano",
+  "quero falar com um atendente humano",
+  "quero falar com outro atendente",
   "quero atendimento humano",
-  "preciso de atendimento humano",
   "quero suporte humano",
-  // Transferência.
+  "atendimento humano",
+  // Transferência, e só para quem é gente.
   "me passa para uma pessoa",
   "me passa pra uma pessoa",
-  "me passa para um atendente",
-  "me passa pra um atendente",
   "me passa para um humano",
   "me passa pra um humano",
-  "me passa para o gerente",
-  "me passa pro gerente",
-  "me transfere para uma pessoa",
-  "me transfere pra uma pessoa",
-  "me transfere para o suporte",
-  "me transfere pro suporte",
-  // Recusar o robô é pedir gente.
+  "me transfere para um humano",
+  "me transfere pra um humano",
+  // Recusar o robô é pedir gente, e não tem outra leitura.
   "nao quero falar com robo",
   "nao quero falar com um robo",
   "nao quero falar com bot",
   "nao quero falar com um bot",
   "nao quero falar com maquina",
   "nao quero falar com uma maquina",
-  // Ela pergunta se existe alguém antes de pedir.
-  "tem atendente ai",
-  "tem alguem ai",
-  "tem humano ai",
-  "tem alguem disponivel",
-  "tem alguem disponivel pra falar",
-  "tem alguem disponivel para falar",
 ];
-/**
- * Accents, case, punctuation and stray spaces are noise around the words; the words are
- * the message. "Quero falar com uma pessoa!!" and "quero  falar com uma pessoa" are the
- * same sentence, and treating them as different would be a bug, not rigour.
- */
+
 export const asPhrase = (text: string): string =>
   norm(text)
     .replace(/[^a-z0-9\s]/g, " ")
