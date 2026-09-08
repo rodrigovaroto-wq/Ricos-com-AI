@@ -12,7 +12,7 @@ reconstruir a pesquisa nem adivinhar o negócio.
 
 Este é um dos três compartimentos do repositório —
 [`docs/documentacao/`](../documentacao/) guarda contexto de negócio e decisões,
-[`docs/campanhas-e-anuncios/`](../campanhas-e-anuncios/) guarda tudo de Meta
+[`docs/campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) guarda tudo de Meta
 Ads/atribuição/conversões, e este (`docs/agente-ia/`) guarda o agente de
 conversa em si.
 
@@ -38,7 +38,7 @@ conversa em si.
 - *"O que ainda não decidimos?"* → [`../documentacao/decisoes/02-decisoes-em-aberto.md`](../documentacao/decisoes/02-decisoes-em-aberto.md)
 - *"Por onde começar a construir, e o que falta perguntar?"* → [`05-plano/README.md`](05-plano/README.md)
 - *"O que a agente fala, exatamente?"* → [`06-script/02-script-do-agente.md`](06-script/02-script-do-agente.md)
-- *"Como conectar o Meta Ads / mandar a venda de volta pro Meta?"* → [`../campanhas-e-anuncios/`](../campanhas-e-anuncios/)
+- *"Como conectar o Meta Ads / mandar a venda de volta pro Meta?"* → [`../campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-)
 
 ## Relação com o resto do repositório
 
@@ -47,7 +47,7 @@ Este diretório trata de um agente **inbound** de WhatsApp, alimentado por Meta 
 (prospecção **ativa** no Instagram, canal e funil diferentes) — foi removido em
 2026-09-05 por não se aplicar a esta operação; o que era transversal nele (motor de
 conversação, opt-out, persistência, arquitetura, idioma) está preservado em
-[`../campanhas-e-anuncios/01-campanha-e-canais.md`](../campanhas-e-anuncios/01-campanha-e-canais.md)
+[`../campanhas-e-anuncios/01-campanha-e-canais.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/01-campanha-e-canais.md)
 §"Convenções herdadas" e em
 [`../documentacao/03-padroes-de-engenharia.md`](../documentacao/03-padroes-de-engenharia.md).
 

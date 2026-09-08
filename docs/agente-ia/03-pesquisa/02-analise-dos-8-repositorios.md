@@ -9,7 +9,7 @@
 > especificar prospecção ativa no Instagram (canal incompatível com esta operação).
 > O achado desta seção ("a spec que temos é do canal errado") continua correto; o
 > que era transversal nela está preservado em
-> [`../../campanhas-e-anuncios/01-campanha-e-canais.md`](../../campanhas-e-anuncios/01-campanha-e-canais.md)
+> [`../../campanhas-e-anuncios/01-campanha-e-canais.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/01-campanha-e-canais.md)
 > e em [`../../documentacao/03-padroes-de-engenharia.md`](../../documentacao/03-padroes-de-engenharia.md).
 
 ## Método e como auditar

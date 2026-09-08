@@ -12,7 +12,7 @@ Repositório com a **estrutura de execução** (como o agente de IA trabalha aqu
 | [`.claude/settings.json.example`](.claude/settings.json.example) | Exemplo de configuração de hooks e variáveis de ambiente. Copie para `.claude/settings.json` e ajuste. |
 | [`.claude/memory/`](.claude/memory/) | Sistema de memória entre sessões, camada 1: `INSTRUCTIONS.md` (critério de salvamento e política de crescimento) e `MEMORY.md` (o índice, sempre carregado). |
 | [`docs/agente-ia/`](docs/agente-ia/) | **O guia de execução.** Contexto completo do agente de vendas no WhatsApp: negócio, base de conhecimento, especificação funcional, pesquisa em repositórios open source, plano de construção. |
-| [`docs/campanhas-e-anuncios/`](docs/campanhas-e-anuncios/) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API. |
+| [`docs/campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API. |
 | [`docs/documentacao/`](docs/documentacao/) | Contexto de negócio, decisões, padrões de engenharia, e o tutorial das 14 ferramentas do fluxo de execução (Superpowers, orquestração de subagentes, quality gates, memória, hooks, MCPs). |
 
 ## 🚀 Como usar
@@ -29,7 +29,7 @@ Se é sua primeira vez com esse fluxo, comece pelo [playbook de onboarding](docs
 
 ### 2. Leia o guia de execução
 
-Comece por [`docs/agente-ia/README.md`](docs/agente-ia/README.md) — explica a ordem de leitura do contexto de negócio, da especificação do agente e das lacunas ainda em aberto. Para o lado de campanha/anúncio, [`docs/campanhas-e-anuncios/README.md`](docs/campanhas-e-anuncios/README.md).
+Comece por [`docs/agente-ia/README.md`](docs/agente-ia/README.md) — explica a ordem de leitura do contexto de negócio, da especificação do agente e das lacunas ainda em aberto. Para o lado de campanha/anúncio, ver o repositório [`encorpa-campanhas`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-).
 
 ### 3. Construa
 

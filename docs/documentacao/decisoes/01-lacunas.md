@@ -58,7 +58,7 @@ SPA Vite + React sem backend, sem banco e sem CI.
    (`server-event.js` :211–223, :462–485 — valores confirmados na doc oficial
    "Conversions API for Business Messaging") + `AttributionData` para carimbar
    ad/adset/campaign no evento (`attribution-data.js`, arquivo inteiro) — ver
-   [`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md)
+   [`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/02-analise-meta-ads-e-conversoes.md)
    → (a) instalar o SDK oficial e montar o evento a partir do `ctwa_clid` já extraído pela
    lacuna 5; (b) evento offline; (c) só métrica interna.
 8. **Métrica de desempenho do próprio agente** → saber se ele vende ou queima lead →

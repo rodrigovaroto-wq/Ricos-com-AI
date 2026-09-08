@@ -2,15 +2,33 @@
 
 Estado atual do projeto, para trocar de sessão sem perder o fio.
 
-> Este repositório (renomeado para **Ricos-com-IA**) é onde vive **todo** o
-> contexto do projeto — negócio, pesquisa, especificação, decisões — e onde o
-> agente de IA de vendas via WhatsApp está sendo construído. O outro
-> repositório, `colet-cinta-modeladora` (renomeado para **Encorpa-Website**),
-> guarda só o site oficial da Encorpa (landing page, checkout) e um
-> `HANDOFF.md` resumido específico dele. Se um dia os dois divergirem sobre
-> negócio, **este repositório é a fonte**.
+> Este repositório (renomeado para **Ricos-com-IA**) é onde vive o contexto do
+> agente — negócio, pesquisa, especificação, decisões — e onde o agente de IA
+> de vendas via WhatsApp está sendo construído. `colet-cinta-modeladora`
+> (renomeado para **Encorpa-Website**) guarda só o site oficial da Encorpa
+> (landing page, checkout). `encorpa-campanhas` guarda Meta Ads, atribuição de
+> CTWA e Conversions API — saiu deste repositório em 2026-09-08, ver
+> §Separação de repositórios. Se um dia divergirem sobre negócio, **este
+> repositório é a fonte**.
 
 > Atualizado em: 2026-09-08
+
+---
+
+## Separação de repositórios (2026-09-08)
+
+`docs/campanhas-e-anuncios/` saiu deste repositório e virou
+[`rodrigovaroto-wq/encorpa-campanhas-`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-)
+— repositório próprio pra quem cuida de campanha/anúncio, sem disputar PR e
+handoff com quem constrói o agente. Nada de código do agente mudou.
+
+`docs/documentacao/contexto-negocio/` **não saiu** — continua aqui, porque o
+script do agente (`docs/agente-ia/06-script/`) e a especificação linkam nele
+por caminho relativo. Foi feita uma **cópia espelhada** em
+`encorpa-campanhas/docs/contexto-negocio/`, com aviso no topo de cada arquivo
+apontando de volta pra cá como fonte viva. Se preço, oferta ou claim mudar,
+atualiza aqui primeiro — a cópia do outro repositório fica desatualizada até
+alguém replicar manualmente.
 
 ---
 
@@ -656,5 +674,5 @@ desliga dizendo "modo normal".
 | `docs/agente-ia/06-script/` | Diagnóstico do funil recebido do operador e o script reescrito para a Encorpa. |
 | `docs/documentacao/contexto-negocio/` | O negócio: produto, oferta, público, economia do COD, modelo econômico, decisões firmes. |
 | `docs/documentacao/decisoes/` | Lacunas, decisões em aberto e o log cronológico de decisões já tomadas (rodadas 1–8). |
-| `docs/campanhas-e-anuncios/` | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API. |
+| [`encorpa-campanhas`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) (repo separado) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API. Saiu deste repositório em 2026-09-08 — ver §Separação de repositórios abaixo. |
 | `src/`, `supabase/functions/turn/`, `tests/` | O código do agente — ver a tabela "O que já existe em código" acima. |

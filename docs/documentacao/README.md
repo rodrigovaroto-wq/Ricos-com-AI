@@ -2,7 +2,7 @@
 
 Um dos três compartimentos do repositório — os outros dois são
 [`docs/agente-ia/`](../agente-ia/) (o agente de conversa) e
-[`docs/campanhas-e-anuncios/`](../campanhas-e-anuncios/) (Meta Ads, atribuição,
+[`docs/campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) (Meta Ads, atribuição,
 Conversions API). Este guarda o que é transversal: contexto de negócio, decisões,
 padrões de engenharia e o tutorial das ferramentas do fluxo de execução.
 
