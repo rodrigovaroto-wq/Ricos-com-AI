@@ -763,23 +763,25 @@ Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e 
 segundos. Dezesseis CEPs, cinco tamanhos cada. Três achados, e os três mudam o negócio, não
 o código.
 
-### 1. O pagamento na entrega não existe fora de seis regiões metropolitanas
+### 1. O pagamento na entrega cobre 22 das 43 cidades testadas
 
-| CEP testado | Pagamento na entrega |
-|---|---|
-| São Paulo, Campinas, Santo André, Rio, Niterói, Belo Horizonte | **existe**, em alguns tamanhos |
-| Curitiba, Florianópolis, Vitória, Rio Branco | não |
-| Altamira/PA, Jacobina/BA, Barra do Garças/MT, Manhuaçu/MG, Vacaria/RS | não, em nenhum tamanho |
+A varredura completa está em
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
+**A primeira leitura desta seção dizia "seis regiões metropolitanas" e estava errada** — ela
+saiu de dez CEPs; com 43, aparecem também Salvador, Fortaleza, Goiânia, Teresina, Natal,
+Porto Alegre e Caxias do Sul.
 
-O funil inteiro foi desenhado em cima do pagamento na entrega — a promessa que vence a
-desconfiança de tráfego frio. Ele cobre uma fatia do país muito menor do que qualquer
-documento daqui assumia. **Fora dessas praças, a única venda possível é a antecipada.**
+Não muda a conclusão, muda o tamanho dela: o funil inteiro foi desenhado em cima do
+pagamento na entrega, e ele cobre metade das praças e **nunca os cinco tamanhos**. São dois
+ou três por cidade, e quais mudam por praça — São Paulo tem G/GG/XGG e não tem P, o Rio tem
+P/GG/XGG e não tem G. Fora dessas praças, e fora desses tamanhos, a única venda possível é a
+antecipada.
 
-### 2. O tamanho M está indisponível em todos os dezesseis CEPs
+### 2. O tamanho M está indisponível nas 43 cidades
 
-Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele. M é o
-tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma boa
-fatia das clientes e **nenhuma delas consegue comprar**. Isto não espera onda nenhuma.
+Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele, e só ele.
+M é o tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma
+boa fatia das clientes e **nenhuma delas consegue comprar**. Isto não espera onda nenhuma.
 
 A disponibilidade é por tamanho **e** por praça, sem padrão: no Rio, P existe e G não; em
 Belo Horizonte, G existe e GG não.
@@ -792,10 +794,39 @@ pagamento na entrega é **R$ 154,88**, sempre. Dá para dizer um número fechado
 nada, ou zerar o frete na oferta e subir o produto para R$ 154,88 — o efeito é o mesmo, e
 some a surpresa na porta.
 
-O frete do antecipado é outra história: o `local_operation` cota de R$ 17,78 (São Paulo) a
-R$ 84,05 (Altamira). **Isso é custo, não preço** — o checkout antecipado cobrou R$ 110,41
-limpos do operador. Ou seja, em praça distante o frete come mais da metade da venda
-antecipada. Confirmar no painel da oferta antes de empurrar o antecipado como padrão.
+**E o antecipado é frete grátis nacional, confirmado na fonte.**
+`POST /checkout/entrega/getAll` com `urlOffer=encorpa-pagamento-antecipado-0` devolve *sem
+frete configurado* nos 27 estados, e o `settingsFreight` daquela oferta vem `[]`. Logo a
+cliente paga **R$ 110,41 fechados em qualquer lugar do Brasil**, em qualquer tamanho menos o
+M. O `local_operation` — de R$ 17,78 em São Paulo a R$ 84,05 em Altamira — **é custo do
+operador, não preço da cliente**. Em praça distante ele come mais da metade da venda.
+
+### 4. Um bloqueio que a agente precisa saber ler: pedido pendente
+
+`has_pending_cash_on_delivery` vem por CPF, e quando é `true` o checkout do pagamento na
+entrega **trava inteiro** (é a oferta que só tem `billing_moments = on_delivery`). Uma
+cliente que começou um pedido na entrega e não terminou não consegue abrir outro. Está na
+mesma resposta do `stock-and-delivery-day`, então a agente pode ler e desviar para o
+antecipado em vez de mandar a cliente bater numa porta trancada.
+
+### 5. O que mais o checkout expõe, tudo sem autenticação
+
+| Chamada | Para quê |
+|---|---|
+| `GET /checkout/stock-and-delivery-day` | disponibilidade, frete e as três datas |
+| `GET /checkout/get-variations?product_id=79880` | os cinco tamanhos e seus códigos |
+| `POST /checkout/entrega/getAll` (`urlOffer`, `state`) | a configuração de frete da oferta, por estado |
+| a própria página do checkout | `offer_id`, `offerPrice`, `billing_moments`, `settingsFreight`, métodos de pagamento |
+| `POST /checkout/finalize` | cria o pedido — existe, e continua desligado por decisão de 2026-09-08 |
+
+Duas coisas confirmadas lendo o `new-checkout-two.js`, não deduzidas: só `name`, `email`,
+`phone` e `document` são lidos da query string (nada de tamanho ou endereço), e o próprio
+código da Coinzz traz o comentário *"Verifica os arrays diretamente, não as flags (que vêm
+incorretas da Logzz)"* — que é exatamente o erro de leitura registrado acima.
+
+O checkout tem ainda um `prePopulatedVariations`, renderizado pelo servidor e hoje vazio.
+Não vem por query string (testadas oito grafias). Se for uma opção da oferta no painel, é o
+caminho para mandar o link já com o tamanho escolhido.
 
 ---
 
