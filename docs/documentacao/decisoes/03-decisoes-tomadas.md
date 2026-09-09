@@ -1012,7 +1012,7 @@ pelo checkout da Coinzz, ponta a ponta, e viu o que a documentação vinha afirm
 
 - **Pagamento na entrega: 1 a 3 dias**, e o checkout oferece à cliente **três dias para escolher**
   antes de ela fechar. Não é "entrega agendada depois" — a data sai da mão dela, ali.
-- **Pagamento antecipado: 5 a 10 dias úteis.** R7.2 dizia que ali não se falava prazo nenhum
+- **Pagamento antecipado: 3 a 10 dias úteis** (era 5 a 10; corrigido pelo operador em 2026-09-09).** R7.2 dizia que ali não se falava prazo nenhum
   porque "o frete varia por região". As duas coisas são verdade ao mesmo tempo: o **valor** do
   frete varia por região e sai no checkout, o **prazo** é fixo e estava escrito lá o tempo todo.
 

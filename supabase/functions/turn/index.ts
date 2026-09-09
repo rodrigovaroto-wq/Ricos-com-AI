@@ -21,15 +21,18 @@ import {
 import {
   decideTouch,
   nextOpening,
+  onOrderConfirmed,
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
+  readBackAddress,
   isComplete,
   mergeAddress,
   type Address,
@@ -79,9 +82,10 @@ interface BusinessConfig extends GateConfig {
     codDaysMin: number;
     codDaysMax: number;
     /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
-    prepayDaysMin?: number;
-    prepayDaysMax?: number;
+    prepayAvgDays?: number;
+    prepayVariesByRegion?: boolean;
     warrantyDays: number;
+    freeShipping: boolean;
   };
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
@@ -112,8 +116,15 @@ const CONFIG: BusinessConfig = JSON.parse(
     JSON.stringify({
       brand: "Encorpa",
       agentName: "Malu",
-      prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-      delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
+      prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
+      delivery: {
+        codDaysMin: 1,
+        codDaysMax: 3,
+        prepayAvgDays: 5,
+        prepayVariesByRegion: true,
+        warrantyDays: 7,
+        freeShipping: true,
+      },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
@@ -254,10 +265,16 @@ const recordCall = (
  * operator checked the checkout and it exists — 5 to 10 business days. With the fields
  * empty the prompt says nothing, which is what `delivery_promise` still enforces.
  */
+/**
+ * The prepaid deadline, and the only shape it may take. Logzz varies it by region, so a
+ * range was a promise made to an average customer who does not exist — the honest
+ * sentence names the average AND says it varies. Absent from the config, the agent says
+ * no prepaid deadline at all, which is the right silence when nobody measured one.
+ */
 const prepayWindowLine = (): string => {
-  const { prepayDaysMin, prepayDaysMax } = CONFIG.delivery;
-  if (prepayDaysMin == null || prepayDaysMax == null) return "";
-  return `entrega em ${prepayDaysMin} a ${prepayDaysMax} dias úteis,`;
+  const { prepayAvgDays } = CONFIG.delivery;
+  if (prepayAvgDays == null) return "";
+  return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
 };
 
 /**
@@ -331,6 +348,30 @@ const systemPrompt = (
     `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
     `— **Uma pergunta viva no fim:** conversa que termina em ponto final morre.`,
     ``,
+    `CLAREZA VEM ANTES DE TUDO ISSO. Se ela precisa reler pra entender, você já errou —`,
+    `e se ela perguntar de novo algo que você já explicou, ou disser que não entendeu, o`,
+    `erro foi seu, não dela. Escreva pra ser entendida de primeira por uma criança de 8`,
+    `anos:`,
+    `— **Uma ideia por frase.** Frase curta, ponto final, próxima. Nada de frase que`,
+    `  emenda preço, prazo e pergunta tudo junto.`,
+    `— **Nada ambíguo, nem um pouco.** Todo número tem que dizer a que se refere. Prazo`,
+    `  sem dizer de qual pagamento é, valor sem dizer do quê — isso ela lê errado e`,
+    `  descobre na porta.`,
+    `— **Palavra do dia a dia.** "Janela de entrega" é jargão; "você recebe em até 3 dias"`,
+    `  é português. Nada de "modalidade", "adicional", "mediante", "disponibilidade".`,
+    `— **Uma oferta só, quase sempre.** O pagamento na entrega é O caminho: ela escolhe`,
+    `  um dos próximos ${CONFIG.delivery.codDaysMax} dias, recebe em casa e paga`,
+    `  ${money(CONFIG.prices.codBrl)} na mão do entregador. Não ofereça alternativa, não`,
+    `  monte comparação, não pergunte qual ela prefere — pergunta a mais é decisão a mais,`,
+    `  e decisão a mais é venda a menos.`,
+    `— **O pagamento antecipado é uma SAÍDA, não uma opção.** Ele só entra quando a`,
+    `  entrega não alcança o CEP dela ou o tamanho dela não sai naquela região. Aí ele é`,
+    `  boa notícia, e você o apresenta assim: mesmo preço de`,
+    `  ${money(CONFIG.prices.prepayBrl)}, frete grátis do mesmo jeito, chega em qualquer`,
+    `  lugar do país. ${prepayWindowLine().replace(/,$/, ".")}`,
+    `  **Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer`,
+    `  desconto é preço que a loja não tem.`,
+    ``,
     `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
     `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,
     `primeiro não pegou.`,
@@ -340,13 +381,18 @@ const systemPrompt = (
     `Essa honestidade é argumento de venda, não ressalva: ela já foi enganada por promessa de`,
     `emagrecimento e reconhece quem não mente.`,
     ``,
-    `Preço: ${money(CONFIG.prices.codBrl)} com frete incluído, pago na entrega ao entregador,`,
-    `em dinheiro ou cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax}`,
-    `dias, agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
+    `Preço: ${money(CONFIG.prices.codBrl)} pago na entrega ao entregador, em dinheiro ou`,
+    `cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax} dias,`,
+    `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
     `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
-    `${prepayWindowLine()} e aí o frete é calculado à parte no checkout — as duas metades saem na`,
-    `mesma frase.`,
+    `${prepayWindowLine()} — as duas metades saem na mesma frase.`,
+    ``,
+    `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
+    `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
+    `que você tem, e a cliente que já comprou por aí espera o contrário. O que você nunca`,
+    `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
+    `de entrega.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
     `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,
@@ -409,12 +455,51 @@ const statedSize = (message: string): { stated: number; size: string } | null =>
   return stated === null ? null : { stated, size: sizeFromDressSize(stated) };
 };
 
-const sizeDirectiveFor = (stated: { stated: number; size: string } | null): string | null =>
-  stated === null
-    ? null
-    : `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
-      ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.` +
-      ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
+/**
+ * The size, and the postcode that comes after it.
+ *
+ * This used to hold the size back until a postcode existed, and the operator caught what
+ * that produced: she says "uso 42 de calça" and gets asked for her CEP. She asked a
+ * question and received a form. Nobody talks like that, and the whole point of this agent
+ * is that she should not be able to tell.
+ *
+ * The order is the natural one now. Which size fits is the published table — ours,
+ * deterministic, and the answer she is waiting for, so it goes out immediately. Whether
+ * it reaches her is the region, which is a different question and comes second, as a
+ * reason rather than a requirement: "pra ver como fica a entrega aí".
+ *
+ * These are notes on intent, not a script. The prompt gives the agent room to improvise
+ * and a directive that dictates the sentence takes it back — which is how the last
+ * version ended up sounding like a form in the first place.
+ */
+const sizeDirectiveFor = (
+  stated: { stated: number; size: string } | null,
+  known: string | null,
+  region: Region | null,
+): string | null => {
+  // The size survives the turn it was said in. Reading only what THIS message contained
+  // left the turn where she sends her postcode with no size at all, and the agent hedged
+  // about something it had worked out two turns earlier.
+  const size = stated?.size ?? known;
+  if (size === null) return null;
+
+  const fitting = `O tamanho dela é ${size} — a tabela da loja resolve isso, não recalcule` +
+    ` nem escolha outro. Diga na hora, com naturalidade, sem a palavra "manequim".`;
+
+  if (region === null) {
+    return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
+      ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
+      ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
+  }
+  if (!region.cod) {
+    return `${fitting} A entrega agendada não cobre o CEP dela, então ofereça o pagamento` +
+      ` antecipado como a saída boa que ele é: chega em qualquer lugar do país, mesmo` +
+      ` frete grátis, e ainda sai mais barato.`;
+  }
+  return `${fitting} A entrega chega no CEP dela${
+    region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
+  }. Fale disso como boa notícia, não como confirmação de sistema.`;
+};
 
 /**
  * Name, e-mail and CPF — the three the checkout link carries, and the only three the
@@ -454,16 +539,31 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
  * avoid.
  *
  * The day is genuinely good news and is said as such: three dates, and she picks.
+ *
+ * On the cash-on-delivery path the size needs saying out loud, and this is the one
+ * instruction that cannot be dropped. That checkout is Logzz's scheduling page, where
+ * the size is NOT a selector — the supplier's own product page says it in capitals:
+ * "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types it into the complement
+ * field with the delivery day. Left blank, the warehouse picks for her, and a piece that
+ * does not fit comes back at the operator's cost.
  */
-const checkoutDirectiveFor = (url: string | null, size: string | null): string | null =>
+const checkoutDirectiveFor = (
+  url: string | null,
+  size: string | null,
+  path: "cod" | "prepay",
+): string | null =>
   url === null
     ? null
     : `Você já tem tudo. Mande este link para ela agora, exatamente como está, sem encurtar` +
       ` e sem alterar:\n${url}\nDiga que os dados dela já vão preenchidos. Falta ela, lá` +
-      ` dentro: digitar o endereço de entrega,` +
-      `${size ? ` escolher o tamanho ${size},` : ` escolher o tamanho,`} e escolher o dia da` +
-      ` entrega — são três dias pra ela escolher, e isso é bom, fale como bom. NÃO diga que o` +
-      ` pedido já está feito: ele nasce quando ela terminar no checkout.`;
+      ` dentro: digitar o endereço de entrega, escolher o dia da entrega — são três dias` +
+      ` pra ela escolher, e isso é bom, fale como bom — e${
+        path === "cod"
+          ? ` ESCREVER O TAMANHO${size ? ` (${size})` : ""} NO CAMPO DE COMPLEMENTO do` +
+            ` agendamento. Diga isso com todas as letras: é ali que o tamanho entra, e em` +
+            ` branco o depósito escolhe por ela.`
+          : `${size ? ` escolher o tamanho ${size}` : ` escolher o tamanho`}.`
+      } NÃO diga que o pedido já está feito: ele nasce quando ela terminar no checkout.`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -482,8 +582,16 @@ const notification = (
 });
 
 /** She answered — every pending touch for this conversation is moot. */
+/**
+ * She spoke, so the silence ruler has nothing left to chase. ONLY the silence ruler: this
+ * used to cancel every scheduled touch, which meant the first message a customer sent
+ * after buying killed `order_shipped`, `order_eve` and `order_delivered` — the delivery-eve
+ * message being the one the whole post-order ruler exists for, and the one that prevents
+ * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
+ * as well, and did not.
+ */
 const cancelScheduled = (conversationId: string) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled`, {
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&kind=like.silence_*`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -492,7 +600,12 @@ const cancelScheduled = (conversationId: string) =>
 const stopPointOf = (replyText: string): StopPoint => {
   const t = replyText.toLowerCase();
   if (t.includes("checkout") || t.includes("link")) return "link_sent";
-  if (t.includes("129,90") || t.includes("110,41")) return "after_price";
+  // From the config, not typed here: hardcoded prices meant a price change silently
+  // downgraded every "she already heard the price" touch to the opening one.
+  const priced = [CONFIG.prices.codBrl, CONFIG.prices.prepayBrl].map((v) =>
+    v.toFixed(2).replace(".", ","),
+  );
+  if (priced.some((v) => t.includes(v))) return "after_price";
   return "before_size";
 };
 
@@ -526,6 +639,127 @@ const scheduleSilenceTouches = async (
  * The clock half of the agent. n8n calls this on a cron; everything it decides is
  * deterministic — no model call, so a sweep costs nothing however often it runs.
  */
+/**
+ * A confirmed sale, delivered by n8n from the Logzz or Coinzz webhook.
+ *
+ * This closed the oldest hole in the system. Until 2026-09-09 nothing wrote `orders` and
+ * nothing armed the post-order ruler, so four written, rendered and tested touches never
+ * fired once — and worse, the silence ruler kept running: a customer who paid at the door
+ * still got "ainda tá pensando?" three days later.
+ *
+ * The decision of what to cancel and what to arm is `onOrderConfirmed`, in `followups.ts`,
+ * because nothing in this file is reachable by a test. Here there is only I/O.
+ *
+ * Idempotent by `external_id`: the same webhook arriving twice — a retry, a status change —
+ * writes the order once and never slides an already-scheduled touch off its date.
+ */
+interface OrderWebhook {
+  externalId: string;
+  phone: string;
+  paymentMethod: "cod" | "prepay";
+  size: string;
+  amountBrl: number;
+  status?: string;
+  checkoutUrl?: string;
+  scheduledFor?: string;
+  orderedAt?: string;
+}
+
+/** Digits only, which is how a phone survives being written six different ways. */
+const digits = (v: string): string => v.replace(/\D/g, "");
+
+const recordOrder = async (order: OrderWebhook) => {
+  // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
+  // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
+  if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
+
+  // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
+  // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
+  // match is the happy path; the suffix is what stops a sale from silently not existing.
+  const exact = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
+  const tail = digits(order.phone).slice(-8);
+  let lead = exact?.[0];
+  if (!lead && tail.length === 8) {
+    // Two rows ending the same way is not a match, it is a coin toss — and the loser
+    // gets someone else's sale filed against her, with the follow-ups to match. Asking
+    // for two is how the ambiguity becomes visible; taking [0] threw that away.
+    const bySuffix = await db(`leads?phone=like.*${tail}&select=id&limit=2`);
+    if (bySuffix?.length === 1) lead = bySuffix[0];
+    else if ((bySuffix?.length ?? 0) > 1) {
+      return { status: "ambiguous_phone", phone: order.phone, ok: false };
+    }
+  }
+  // 200 here would tell n8n the sale was filed when nothing was written and the silence
+  // ruler is still chasing her. It has to be visible.
+  if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
+
+  const conversations = await db(
+    `conversations?lead_id=eq.${lead.id}&select=id&order=created_at.desc&limit=1`,
+  );
+  const conversation = conversations?.[0] ?? null;
+
+  await db("orders?on_conflict=external_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({
+      lead_id: lead.id,
+      conversation_id: conversation?.id ?? null,
+      external_id: order.externalId,
+      checkout_url: order.checkoutUrl ?? null,
+      payment_method: order.paymentMethod,
+      size: order.size,
+      amount_brl: order.amountBrl,
+      status: order.status ?? "created",
+      scheduled_for: order.scheduledFor ?? null,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  // No conversation means no ruler to touch — the sale is recorded and that is all.
+  if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
+
+  // Every row, not just the scheduled ones: a kind already `sent` still occupies the
+  // unique key, and re-arming it throws.
+  const existing = await db(
+    `followups?conversation_id=eq.${conversation.id}&select=kind,status`,
+  );
+  const effect = onOrderConfirmed(
+    (existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled" }>,
+    order.orderedAt ? new Date(order.orderedAt) : new Date(),
+    CONFIG.delivery.codDaysMin,
+  );
+
+  for (const kind of effect.cancel) {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "canceled" }),
+    });
+  }
+  if (effect.arm.length > 0) {
+    await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      // `ignore-duplicates`, never merge: two webhooks racing must not slide a touch that
+      // already exists onto a new date. The rule already dedupes against every row; this
+      // is the half that survives the race the rule cannot see.
+      headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
+      body: JSON.stringify(
+        effect.arm.map((f) => ({
+          conversation_id: conversation.id,
+          kind: f.kind,
+          run_at: f.runAt.toISOString(),
+        })),
+      ),
+    });
+  }
+
+  return {
+    status: "recorded",
+    orderId: order.externalId,
+    canceled: effect.cancel,
+    armed: effect.arm.map((f) => f.kind),
+  };
+};
+
 const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
@@ -660,7 +894,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   if (request.method !== "POST") return json(405, { error: "use POST" });
 
-  let payload: { job?: string; externalId?: string; from?: string; body?: string };
+  let payload: {
+    job?: string;
+    externalId?: string;
+    from?: string;
+    body?: string;
+    /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
+    source?: Record<string, unknown>;
+    order?: OrderWebhook;
+  };
   try {
     payload = await request.json();
   } catch {
@@ -669,6 +911,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call.
   if (payload.job === "followups") return json(200, await runFollowupSweep());
+
+  // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
+  // what that does to the schedule lives in `followups.ts`, where a test can hold it.
+  if (payload.job === "order") {
+    if (!payload.order) return json(400, { error: "order é obrigatório" });
+    const result = await recordOrder(payload.order);
+    // A refused order must not answer 200. n8n reads the status, and a green webhook over
+    // a sale that was never filed is the silent failure this whole route exists to end.
+    return json("ok" in result && result.ok === false ? 422 : 200, result);
+  }
 
   const inbound = payload as { externalId: string; from: string; body: string };
   if (!inbound.externalId || !inbound.from) {
@@ -683,7 +935,18 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const existing = await db(`leads?phone=eq.${encodeURIComponent(inbound.from)}&select=*`);
   const lead =
     existing?.[0] ??
-    (await db("leads", { method: "POST", body: JSON.stringify({ phone: inbound.from }) }))[0];
+    (
+      await db("leads", {
+        method: "POST",
+        // Attribution belongs to the first touch and is never overwritten — this is the
+        // only moment it can be recorded, and a lead created without it stays anonymous
+        // forever. Without it there is no answer to "which ad produced this sale".
+        body: JSON.stringify({
+          phone: inbound.from,
+          ...(payload.source ? { source: payload.source } : {}),
+        }),
+      })
+    )[0];
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,
@@ -888,14 +1151,62 @@ Deno.serve(async (request: Request): Promise<Response> => {
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
 
+  // The agent's last message, fetched here rather than reused from the history window
+  // below, because the confirmation is decided before that window is read.
+  const lastOutbound: string =
+    (
+      await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          "&select=body&order=created_at.desc&limit=1",
+      ).catch(() => null)
+    )?.[0]?.body ?? "";
+
   const foundAddress = extractAddress(inbound.body ?? "");
   if (Object.keys(foundAddress.fields).length > 0) {
     // What she stated wins over what a previous pass inferred, and a new piece never
     // silently re-confirms an address she has not seen read back.
     addressDraft = mergeAddress(addressDraft, foundAddress.fields).fields;
     addressConfirmed = false;
-  } else if (!addressConfirmed && isComplete(addressDraft) && confirmsAddress(inbound.body ?? "")) {
+  } else if (
+    !addressConfirmed &&
+    isComplete(addressDraft) &&
+    confirmsAddress(inbound.body ?? "") &&
+    // Only when the agent's last message actually read the address back. A bare "sim"
+    // answering something else — "quer que eu te mande o link?" — used to set
+    // `confirmedAt` and flip the order ready, which is §D2 skipped in silence.
+    readBackAddress(lastOutbound, addressDraft)
+  ) {
     addressConfirmed = true;
+  }
+
+  /**
+   * 5d-bis. The region, the moment a postcode exists.
+   *
+   * This is the whole of wave 3 and it costs one question: the CEP. Until now the agent
+   * named a size with nothing to consult and the customer met the checkout's "não há
+   * disponibilidade" popup after she had already chosen — the most expensive moment
+   * possible to find out.
+   *
+   * The postcode rides in on the address machinery that was already accumulating it, so
+   * there is no new state and no second question. What comes back is about the REGION:
+   * whether delivery reaches her, which three days, whether Express exists, and the
+   * carrier quote. It never vetoes a size — the Coinzz mapping is wrong about the M and
+   * the Logzz checkout, where she actually buys, is not.
+   *
+   * A failed lookup is not a blocked sale. `region` stays null, the agent keeps talking,
+   * and the only thing it loses is permission to name a size — which is the correct
+   * failure: silence about the size beats a size she cannot receive.
+   */
+  let region: Region | null = null;
+  if (addressDraft.cep) {
+    try {
+      region = await checkRegion(async (url) => {
+        const r = await fetch(url);
+        return r.ok ? await r.json() : null;
+      }, addressDraft.cep);
+    } catch {
+      region = null; // The checkout being down is not a reason to stop selling.
+    }
   }
 
   const addressChanged =
@@ -927,9 +1238,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // 6. History, then the turn that sells.
   const history = await db(
-    `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
+    // The LAST twenty, not the first: ascending order meant that past ten exchanges the
+    // model was reading the opening of the conversation and never the turn it was
+    // answering — and `recentOutbound` fed the repetition gate a slice from an hour ago.
+    `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.desc&limit=20`,
   );
-  const turns = (history ?? []).map((m: { direction: string; body: string }) => ({
+  // The query returns newest first so the window is the END of the conversation; the
+  // model reads it oldest first, like a person scrolling up.
+  const recent = [...(history ?? [])].reverse();
+  const turns = recent.map((m: { direction: string; body: string }) => ({
     role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
     content: m.body ?? "",
   }));
@@ -937,7 +1254,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // The `identical_template` gate was in the chain and had nothing to compare against:
   // nobody ever passed `recentOutbound`, so it passed by construction on every message
   // the agent ever sent. The history is already here, so the check costs one map.
-  const recentOutbound = (history ?? [])
+  const recentOutbound = recent
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
@@ -969,6 +1286,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
     stated?.size ?? lead.size ?? null,
+    // Still hardcoded, like every other `paymentPath` in this handler. Routing by what
+    // the availability query answers is the next change, and it is blocked: that query
+    // belongs to the Coinzz checkout, which as of 2026-09-09 is the PREPAID path only.
+    "cod",
   );
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
@@ -987,8 +1308,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -1013,6 +1334,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.
       knownTestimonials: CONFIG.testimonials,
+      // The two the region unlocks. Without a postcode both stay undefined, and the
+      // chain refuses a size and refuses "hoje" — which is the correct silence.
+      ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
+      sameDayWindow: region?.sameDay ?? false,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

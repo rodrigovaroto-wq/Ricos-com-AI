@@ -12,13 +12,35 @@ export interface GateConfig {
     /**
      * A janela do antecipado, em dias úteis. Ela não existia: até 2026-09-08 a regra era
      * "no antecipado não se diz prazo nenhum", porque o frete varia por região e ninguém
-     * sabia o prazo. O operador conferiu no checkout e ele existe — 5 a 10 dias úteis. Sem
+     * sabia o prazo. O operador conferiu e ele existe — 3 a 10 dias úteis (2026-09-09). Sem
      * estes campos o gate volta a barrar qualquer janela no antecipado, que é o certo
      * enquanto não houver número.
      */
     prepayDaysMin?: number;
     prepayDaysMax?: number;
+    /**
+     * The prepaid deadline stopped being a range on 2026-09-09: Logzz varies it by region
+     * and the only honest number is an average. Present and `prepayVariesByRegion` on, the
+     * agent may say this one number as an average; absent, it may say no prepaid deadline
+     * at all — which is the right default whenever nobody has measured one.
+     */
+    prepayAvgDays?: number;
+    prepayVariesByRegion?: boolean;
     warrantyDays: number;
+    /**
+     * Both offers ship free as of 2026-09-09 — the operator zeroed the freight on the
+     * delivery offer and the prepaid one never had one. The flag exists so the day a
+     * freight comes back, setting it to `false` restores the old refusal instead of
+     * needing the gate rewritten under pressure.
+     *
+     * OPTIONAL, and absent means free. That is not laziness, it is the shape of this
+     * deployment: production reads the whole config from a `BUSINESS_CONFIG` secret that
+     * overrides the fallback wholesale, so a key added in code is simply missing there
+     * until someone edits the secret. Required-and-missing read as `false`, which quietly
+     * reinstated the old veto in production while every test here passed. The default has
+     * to be the truth, and today the truth is free.
+     */
+    freeShipping?: boolean;
   };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
@@ -89,6 +111,17 @@ export interface GateContext {
   knownTestimonials?: readonly string[];
   /** Anti-ban counters, owned by the channel layer. */
   pacing?: { sentLastHour: number; hourlyLimit: number; sentToday: number; dailyLimit: number };
+  /**
+   * The size the availability query has actually answered for, at her postcode.
+   * `undefined` means nothing was checked — and then no size may be recommended.
+   */
+  sizeChecked?: string;
+  /**
+   * The checkout returned a same-day modality for her postcode ("Express — receba hoje
+   * em até 4 horas"). Only then is "hoje" a fact rather than the broken promise that
+   * produces a refusal at the door.
+   */
+  sameDayWindow?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -131,6 +164,18 @@ const negatedAt = (t: string, at: number): boolean => {
 };
 
 /**
+ * Whether the message hands the same-day question back to the checkout instead of
+ * answering it. Telling her the Express modality exists is honest and converts; saying
+ * it will happen at her address is a promise only the checkout can make. The difference
+ * is one clause, and this is it.
+ */
+const defersToCheckout = (t: string): boolean =>
+  /\b(confer|verific|checar|checa|consultar?|ver\s+se)\w*\b/.test(t) ||
+  /\bdisponibilidade\b/.test(t) ||
+  /\bse\s+(estiver|tiver|houver)\b/.test(t) ||
+  /\bdepende\b/.test(t);
+
+/**
  * Every amount in the text, with where it sits. Two shapes, because customers and the
  * agent use both: "R$ 129,90" and the bare "129,90 reais". The second used to be
  * invisible, so "custa 200 reais" — a number the operation does not have — passed the
@@ -139,7 +184,15 @@ const negatedAt = (t: string, at: number): boolean => {
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
     (m) => ({
-      value: Number((m[1] ?? m[2]!).replace(/\./g, "").replace(",", ".")),
+      // "R$ 129.90" is the same price as "R$ 129,90" and used to parse as 12990 — a
+      // number the operation does not have, so the correct price was vetoed. A dot is a
+      // thousands separator only when it is not the decimal one: exactly two digits after
+      // the last dot, and no comma anywhere, means she wrote it the other way round.
+      value: Number(
+        /^\d{1,3}(?:\.\d{3})*\.\d{2}$|^\d+\.\d{2}$/.test(m[1] ?? m[2]!)
+          ? (m[1] ?? m[2]!).replace(/\.(?=\d{3})/g, "")
+          : (m[1] ?? m[2]!).replace(/\./g, "").replace(",", "."),
+      ),
       at: m.index ?? 0,
     }),
   );
@@ -327,7 +380,11 @@ const gates: readonly Gate[] = [
       `permitido, e é o seu trabalho.`,
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, +(codBrl - prepayBrl).toFixed(2)]);
+      // The saving is a citable amount only while there IS one. With the prepaid discount
+      // at zero (2026-09-09) the difference is R$ 0,00, and letting that into the set
+      // would license "sai por zero reais" — the one sentence a price gate exists for.
+      const saving = +(codBrl - prepayBrl).toFixed(2);
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...(saving > 0 ? [saving] : [])]);
       const t = norm(text);
 
       // Saying a number the operation does not have is a promise; refusing it is the
@@ -421,10 +478,14 @@ const gates: readonly Gate[] = [
     briefing: (c) =>
       `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
       `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
-      `o dia é ela, no checkout. No antecipado` +
+      `o dia é ela, no checkout. Duas exceções: se a consulta devolveu a modalidade Express ` +
+      `para o CEP dela, "hoje, em até 4 horas" é fato e é o seu melhor argumento; e você ` +
+      `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
+      `disponibilidade da região dela no checkout. No antecipado` +
       `${
-        c.delivery.prepayDaysMin != null && c.delivery.prepayDaysMax != null
-          ? `, ${c.delivery.prepayDaysMin} a ${c.delivery.prepayDaysMax} dias úteis`
+        c.delivery.prepayAvgDays != null
+          ? ` o prazo VARIA por região: diga "varia, em média ${c.delivery.prepayAvgDays} dias` +
+            ` úteis" — a média, e sempre dizendo que varia. Nunca um prazo fixo`
           : ` não diga prazo nenhum`
       }. Recusar a data impossível é permitido.`,
     check: (text, ctx) => {
@@ -434,11 +495,40 @@ const gates: readonly Gate[] = [
       // Refusing the impossible date is the job: "não consigo entregar amanhã, a
       // entrega leva de 1 a 3 dias" is the right answer to the most common question
       // in this funnel, and it used to be vetoed for containing the words it denies.
+      /**
+       * The prepaid deadline is an average, not a range (operator, 2026-09-09): Logzz
+       * varies it by region and the only honest sentence is "varia, em média N dias
+       * úteis". A single number said flatly — "chega em 5 dias úteis" — is a promise the
+       * carrier never made to HER region, and the range check above never saw it, because
+       * it only reads "N a M dias".
+       */
+      const avg = ctx.config.delivery.prepayAvgDays;
+      for (const m of t.matchAll(/(\d{1,2})\s*dias?\s*ute[il]s?/g)) {
+        const at = m.index ?? 0;
+        const sentence =
+          t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        // A number inside "N a M dias úteis" is the range, already judged above.
+        if (/\d\s*(?:a|e|ate)\s*\d{1,2}\s*dias?\s*ute/.test(sentence)) continue;
+        if (avg == null) return "states a prepaid deadline, and none is configured";
+        if (Number(m[1]) !== avg) {
+          return `prepaid average of ${m[1]} days is not the configured ${avg}`;
+        }
+        if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {
+          return "states the prepaid average as a fixed deadline, without saying it varies";
+        }
+      }
+
+      // Same-day is a promise until the checkout says otherwise. When the availability
+      // query came back with an Express window for HER postcode, it is a fact the
+      // courier already agreed to — and the strongest sentence this funnel owns.
       if (ctx.stage !== "logistics") {
         for (const m of t.matchAll(
           /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
         )) {
-          if (!negatedAt(t, m.index ?? 0)) return "promises same-day or next-day delivery";
+          if (negatedAt(t, m.index ?? 0)) continue;
+          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
+          if (sameDay && (ctx.sameDayWindow || defersToCheckout(t))) continue;
+          return "promises same-day or next-day delivery";
         }
       }
 
@@ -451,18 +541,34 @@ const gates: readonly Gate[] = [
        * A path with no configured window still refuses every claim, which is the right
        * default: better mute than inventing a date the carrier never agreed to.
        */
-      const [min_, max_] =
-        ctx.paymentPath === "cod"
-          ? [codDaysMin, codDaysMax]
-          : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
-
+      /**
+       * Each window is judged against the path ITS OWN sentence names, and only falls
+       * back to the conversation's path when it names none. The comparison message the
+       * prompt teaches carries both windows on purpose — one per option — and a gate
+       * that picked a single path from context rejected the correct half of it, which
+       * meant the message the agent is told to write could never pass.
+       */
       for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
+        const at = m.index ?? 0;
+        const sentence =
+          t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        const named: "cod" | "prepay" | null = /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
+          ? "prepay"
+          : /\bna\s+entrega\b/.test(sentence)
+            ? "cod"
+            : null;
+        const path = named ?? ctx.paymentPath;
+        const [min_, max_] =
+          path === "cod"
+            ? [codDaysMin, codDaysMax]
+            : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
+
         const min = Number(m[1]);
         const max = Number(m[2]);
         if (min_ == null || max_ == null)
-          return `states a delivery window on the ${ctx.paymentPath} path, which has none configured`;
+          return `states a range on the ${path} path, which has an average and not a range`;
         if (min < min_ || max > max_)
-          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_}`;
+          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_} on ${path}`;
       }
       return null;
     },
@@ -580,14 +686,20 @@ const gates: readonly Gate[] = [
       const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
       const offerStillOpen = endsAt !== null && endsAt.getTime() > ctx.now.getTime();
 
-      if (unitsLeft !== undefined) {
-        // Only the true number, and only downward: "restam 3" when 3 is the count.
-        const said = [...t.matchAll(/\b(?:so\s+)?(?:resta|restam|sobrou|sobraram|tem)\s+(\d{1,4})\b/g)];
-        if (said.length > 0 && said.every((m) => Number(m[1]) === unitsLeft)) return null;
-      }
-      if (offerStillOpen && /\b(promocao|oferta|condicao|desconto)\s+(acaba|termina|expira|vence)\b/.test(t)) {
-        return null;
-      }
+      // A true claim clears ITSELF, never the sentence around it. These used to `return
+      // null` for the whole gate, so "restam 12 unidades e a promoção acaba em 2 horas"
+      // passed with the countdown — a real number buying a pass for an invented one.
+      const unitsOk =
+        unitsLeft !== undefined &&
+        (() => {
+          const said = [
+            ...t.matchAll(/\b(?:so\s+)?(?:resta|restam|sobrou|sobraram|tem)\s+(\d{1,4})\b/g),
+          ];
+          return said.length > 0 && said.every((m) => Number(m[1]) === unitsLeft);
+        })();
+      const deadlineOk =
+        offerStillOpen &&
+        /\b(promocao|oferta|condicao|desconto)\s+(acaba|termina|expira|vence)\b/.test(t);
 
       const claims = [
         /\bso\s+(resta|restam|sobrou|sobraram|tem)\s+\d/,
@@ -598,7 +710,15 @@ const gates: readonly Gate[] = [
         /\bcorre\s+que\s+(acaba|vai\s+acabar)\b/,
         /\bvagas?\s+limitad[ao]s?\b/,
       ];
-      return claims.some((r) => r.test(t)) ? "invents stock or a deadline nothing tracks" : null;
+      const UNIT_CLAIMS = new Set([0, 1, 2]); // the three that a true `unitsLeft` covers
+      const DEADLINE_CLAIMS = new Set([3, 4, 5]); // and the ones a live end date covers
+      for (const [i, r] of claims.entries()) {
+        if (!r.test(t)) continue;
+        if (unitsOk && UNIT_CLAIMS.has(i)) continue;
+        if (deadlineOk && DEADLINE_CLAIMS.has(i)) continue;
+        return "invents stock or a deadline nothing tracks";
+      }
+      return null;
     },
   },
   {
@@ -656,17 +776,77 @@ const gates: readonly Gate[] = [
      * it calculated by region inside the checkout. "Frete grátis" is true in neither, and
      * on the prepaid path it is a number the carrier has not agreed to.
      */
+    /**
+     * This gate used to forbid "frete grátis" and now forbids denying it. The world
+     * changed under it, in both offers at once: the operator zeroed the freight on the
+     * delivery offer (`freight: "0.00"`) and the prepaid one always shipped free
+     * nationwide (`settingsFreight: []`, checked across the 27 states). So the sentence
+     * the gate was protecting the customer from became simply true.
+     *
+     * Which flips where the harm is. The lie is no longer "grátis" — it is any sentence
+     * that puts a shipping cost on her, because she then meets a cheaper total than she
+     * was told and doubts everything else she was told. Same gate, opposite direction,
+     * and one flag decides: set `freeShipping` false the day a freight comes back and
+     * the old refusal returns with it.
+     */
     name: "shipping_promise",
     remedy: "rewrite",
-    briefing: () =>
-      `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; no ` +
-      `antecipado ele é calculado por região dentro do checkout.`,
-    check: (text) => {
+    briefing: (c) =>
+      c.delivery.freeShipping !== false
+        ? `O frete é GRÁTIS nos dois caminhos, e isso é verdade — pode dizer, é o seu melhor ` +
+          `argumento. O que você não pode é cobrar frete dela: nada de "o frete é à parte", ` +
+          `"mais o frete" ou qualquer valor de entrega.`
+        : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
+          `no antecipado ele é calculado por região dentro do checkout.`,
+    check: (text, ctx) => {
       const t = norm(text);
-      return /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
-        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t)
-        ? "promises free shipping, which neither offer has"
-        : null;
+      // Every shape of "there is no shipping cost", because each one is now true and each
+      // one turns off the charge rules below. "Sem frete a mais: R$ 129,90" was reading as
+      // a shipping amount purely because the denial used a word this list did not know.
+      const claimsFree =
+        /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
+        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t) ||
+        /\b(sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b/.test(t) ||
+        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
+
+      if (ctx.config.delivery.freeShipping === false) {
+        return claimsFree ? "promises free shipping, which neither offer has" : null;
+      }
+      // Free shipping is the fact. Saying it is fine; charging for it is the new lie.
+      //
+      // The charge has to be about the shipping, not merely near it: "o frete é grátis,
+      // você paga só os R$ 129,90 na entrega" is the sentence this funnel most wants said,
+      // and a bare "você paga" within thirty characters was enough to veto it.
+      for (const m of t.matchAll(
+        /\bfrete\b[^.!?,]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculad\w*|depende\w*|varia\w*|conforme|por\s+regiao|por\s+(sua|tua)\s+conta|por\s+conta\s+(dela|do\s+cliente|sua)|voce\s+paga|paga\s+depois|nao\s+e\s+(gratis|gratuito))\b/g,
+      )) {
+        // The negation sits between "frete" and the charge — "o frete NÃO é cobrado à
+        // parte" is the honest answer to the question this funnel gets most. So the
+        // clause check has to look at the charge, not at the word that introduced it.
+        const chargeAt = (m.index ?? 0) + m[0].length - m[1]!.length;
+        if (!negatedAt(t, chargeAt)) return "tells her she pays shipping, which she does not";
+      }
+      for (const m of t.matchAll(/\b(paga|pagar|cobra|cobrar|custa)\b[^.!?]{0,12}?\bo?\s*frete\b/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "tells her she pays shipping, which she does not";
+      }
+      for (const m of t.matchAll(/\bmais\s+o\s+frete\b/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "adds a shipping charge that does not exist";
+      }
+      // An amount ATTRIBUTED to shipping is a charge even without those words. Proximity
+      // alone is not enough: "R$ 129,90 com frete incluído" and "por R$ 129,90 — e o frete
+      // é grátis" both put a number beside the word and both are true.
+      // `claimsFree` guards this: "Frete grátis, R$ 129,90 na entrega" is the exact
+      // sentence the prompt now instructs, and the amount beside the word is the PRODUCT
+      // price. Vetoing it would send every correct reply into the rewrite loop and out
+      // the other side as a handoff.
+      if (
+        !claimsFree &&
+        (/\bfrete\b[^.!?,]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          /\br\$\s*[\d.,]+[^.!?]{0,12}?\bde\s+frete\b/.test(t))
+      ) {
+        return "names a shipping amount, and shipping is free on both paths";
+      }
+      return null;
     },
   },
   {
@@ -742,6 +922,107 @@ const gates: readonly Gate[] = [
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
         : null,
+  },
+  {
+    /**
+     * The ambiguity that costs a sale without ever being a lie.
+     *
+     * The operator caught it in a live transcript: "para o tamanho G, a entrega fica na
+     * janela de 3 a 5 dias e o frete é grátis. Você prefere pagar R$ 129,90 na entrega ou
+     * antecipar por R$ 110,41?" Every clause there is true. Read as a whole it says the
+     * window applies to both, and it does not — the two paths have different windows.
+     *
+     * She either asks again, which is the agent's failure, or she does not and expects
+     * the wrong date, which is the refusal at the door. So when a message puts BOTH paths
+     * in front of her, any delivery window in it has to say which one it belongs to.
+     * A message about a single path needs no label; the ambiguity only exists in the
+     * comparison.
+     */
+    name: "unattributed_window",
+    remedy: "rewrite",
+    briefing: () =>
+      `Comparando as duas formas de pagamento, ou você dá o prazo DAS DUAS, cada um ` +
+      `colado na sua opção, ou não dá prazo nenhum. Prazo em uma só ela lê como valendo ` +
+      `para as duas — e os prazos são diferentes.`,
+    check: (text) => {
+      const t = norm(text);
+      const bothPaths =
+        /\b(na\s+entrega|pagamento\s+na\s+entrega)\b/.test(t) &&
+        /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(t);
+      if (!bothPaths) return null;
+
+      // A window is any way of naming when it arrives, not only "N a M dias". The block
+      // the prompt itself teaches — "você escolhe um dos próximos 3 dias" — is a deadline
+      // in every sense that matters to her, and reading only the range form meant the
+      // gate demanded a label from the prepaid side while giving the delivery side a pass.
+      const WINDOW =
+        /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias|proximos?\s+\d{1,2}\s*dias|em\s+ate\s+\d{1,2}\s*dias|media\s+(?:de\s+)?\d{1,2}\s*dias/;
+      // Sentence by sentence, and never a character past the boundary. A window read
+      // with a fixed lookahead borrows the label from the NEXT block — which is how a
+      // message with a deadline on one side only first passed this gate.
+      const sentences = t.split(/[.!?\n]+/).filter((x) => WINDOW.test(x));
+      if (sentences.length === 0) return null;
+
+      // "Agendada" is not a label: it is our word, not hers, and the message that failed
+      // in production opened with "a entrega é agendada para 3 a 5 dias" before offering
+      // both — which she reads as applying to both.
+      const labelled = { cod: false, prepay: false };
+      for (const sentence of sentences) {
+        const isCod = /\bna\s+entrega\b/.test(sentence);
+        const isPrepay = /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(sentence);
+        if (!isCod && !isPrepay) {
+          return "states a delivery window while offering both paths, without saying which";
+        }
+        if (isCod) labelled.cod = true;
+        if (isPrepay) labelled.prepay = true;
+      }
+      // And a deadline given for one path only is the same ambiguity wearing a label:
+      // she compares two blocks, one has a date and the other does not, and fills the
+      // gap with the number she just read.
+      if (!labelled.cod || !labelled.prepay) {
+        return "gives a delivery window for one path while offering both, leaving the other blank";
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * This gate had the wrong half of the problem, and the operator caught it in a
+     * transcript: it forbade NAMING a size before the region was checked, so a customer
+     * who asked "uso 42, qual o meu?" got a request for her postcode instead of an
+     * answer. That reads as a form, not as a person.
+     *
+     * Which size fits her and whether it reaches her are two different questions. The
+     * first is the published table — deterministic, ours, and the honest answer to what
+     * she just asked. The second is the region, and only the second needs checking.
+     *
+     * So the veto moved to where the risk actually is: claiming the size is AVAILABLE,
+     * in stock, or on its way to her, before anything answered that. Saying "o seu é o
+     * G" is a fitting. Saying "o G tá disponível pra você" is a promise.
+     */
+    name: "unverified_size",
+    remedy: "rewrite",
+    briefing: () =>
+      `Indicar o tamanho pela tabela é livre e é o que ela quer ouvir — responda na hora. ` +
+      `O que você não pode antes de conferir o CEP dela é dizer que TEM, que está ` +
+      `disponível, reservado ou a caminho.`,
+    check: (text, ctx) => {
+      if (ctx.sizeChecked !== undefined) return null;
+      const t = norm(text);
+      // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
+      // "já reservei o M", "o seu tamanho chega em". Never the fitting itself.
+      const CLAIMS_STOCK =
+        /\b(tem|temos|tenho|ha|disponivel|disponiveis|em\s+estoque|reserv\w+|garantid\w+|separei|separad\w+)\b[^.!?]{0,28}\b(tamanho|p|m|g|gg|xgg)\b/;
+      const STOCK_AFTER =
+        /\b(tamanho|p|m|g|gg|xgg)\b[^.!?]{0,28}\b(disponivel|em\s+estoque|reservad\w+|garantid\w+|separad\w+|ta\s+ai|chega\s+(hoje|amanha))\b/;
+      for (const re of [CLAIMS_STOCK, STOCK_AFTER]) {
+        const m = re.exec(t);
+        if (m && !negatedAt(t, m.index)) {
+          return "claims the size is in stock or on its way before any check answered";
+        }
+      }
+      return null;
+    },
   },
 ];
 

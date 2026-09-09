@@ -215,27 +215,45 @@ describe("link de checkout pré-preenchido", () => {
     phone: "5511988887777",
   };
   const config = {
-    codUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-na-entrega-0",
+    // Duas plataformas desde 2026-09-09: a entrega agendada é da Logzz, o antecipado
+    // continua na Coinzz.
+    codUrl: "https://entrega.logzz.com.br/pay/encorpa-pa",
     prepayUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0",
   };
 
-  it("leva os quatro campos que o checkout lê, e nenhum a mais", () => {
-    const url = new URL(buildCheckoutLink(cliente, "cod", config));
-    expect([...url.searchParams.keys()].sort()).toEqual([...CHECKOUT_QUERY_FIELDS].sort());
-    expect(url.origin + url.pathname).toBe(config.codUrl);
+  it.each(["cod", "prepay"] as const)(
+    "leva os quatro campos que o checkout %s lê, e nenhum a mais",
+    (path) => {
+      const url = new URL(buildCheckoutLink(cliente, path, config));
+      expect([...url.searchParams.keys()].sort()).toEqual(
+        [...CHECKOUT_QUERY_FIELDS[path]].sort(),
+      );
+      expect(url.origin + url.pathname).toBe(path === "cod" ? config.codUrl : config.prepayUrl);
+    },
+  );
+
+  it("o CPF vai no nome que cada plataforma lê — `cpf` na Logzz, `document` na Coinzz", () => {
+    // Mandar o nome errado é silencioso: a página abre, três campos vêm preenchidos, e
+    // ela redigita o CPF sem entender por quê.
+    const cod = new URL(buildCheckoutLink(cliente, "cod", config));
+    expect(cod.searchParams.get("cpf")).toBe("73116687358");
+    expect(cod.searchParams.get("document")).toBeNull();
+
+    const prepay = new URL(buildCheckoutLink(cliente, "prepay", config));
+    expect(prepay.searchParams.get("document")).toBe("73116687358");
+    expect(prepay.searchParams.get("cpf")).toBeNull();
   });
 
-  it("normaliza como o checkout espera: e-mail minúsculo, telefone e CPF só dígitos", () => {
+  it("normaliza como o checkout espera: e-mail minúsculo, telefone só dígitos", () => {
     const url = new URL(buildCheckoutLink(cliente, "cod", config));
     expect(url.searchParams.get("email")).toBe("maria.souza@gmail.com");
-    expect(url.searchParams.get("document")).toBe("73116687358");
     expect(url.searchParams.get("phone")).toBe("5511988887777");
     expect(url.searchParams.get("name")).toBe("Maria Aparecida Souza");
   });
 
   it("cada oferta tem o seu link, e o antecipado não cai no da entrega", () => {
     expect(buildCheckoutLink(cliente, "prepay", config)).toContain("pagamento-antecipado-0");
-    expect(buildCheckoutLink(cliente, "cod", config)).toContain("pagamento-na-entrega-0");
+    expect(buildCheckoutLink(cliente, "cod", config)).toContain("entrega.logzz.com.br");
   });
 
   /**

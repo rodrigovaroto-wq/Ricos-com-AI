@@ -19,8 +19,15 @@ export interface ConversationCase {
 }
 
 const config = {
-  prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-  delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
+  prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
+  delivery: {
+    codDaysMin: 1,
+    codDaysMax: 3,
+    prepayAvgDays: 5,
+    prepayVariesByRegion: true,
+    warrantyDays: 7,
+    freeShipping: true,
+  },
   hours: { openHour: 6, closeHour: 24 },
   cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
   coupon: { percent: 20, active: false },

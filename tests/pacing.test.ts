@@ -7,7 +7,7 @@ describe("ritmo humano", () => {
     const curta = bubbleDelayMs("oi tudo bem");
     const longa = bubbleDelayMs(Array(50).fill("palavra").join(" "));
     expect(longa).toBeGreaterThan(curta);
-    expect(longa).toBe(50 * 200);
+    expect(longa).toBe(50 * 800);
   });
 
   it("nunca responde instantaneamente, mesmo numa bolha de uma palavra", () => {

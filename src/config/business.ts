@@ -13,12 +13,16 @@ export interface BusinessConfig {
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
-    /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
-    prepayDaysMin: number;
-    prepayDaysMax: number;
+    /**
+     * O prazo do antecipado deixou de ser faixa em 2026-09-09: a Logzz varia por região e
+     * o único número honesto é a média. Ausente, a agente não diz prazo nenhum ali.
+     */
+    prepayAvgDays?: number;
     codScheduled: boolean;
     prepayVariesByRegion: boolean;
     warrantyDays: number;
+    /** Os dois caminhos têm frete grátis desde 2026-09-09. Ausente = grátis; só `false` desliga. */
+    freeShipping?: boolean;
   };
   sizes: readonly string[];
   hours: { openHour: number; closeHour: number };
@@ -27,7 +31,12 @@ export interface BusinessConfig {
   coupon: { code: string; percent: number; active: boolean };
   /** When `Físico na entrega` is off, the courier does not collect: no "pay on delivery" promise. */
   cod: { physicalOnDeliveryActive: boolean };
-  checkout: { baseUrl: string };
+  /**
+   * Os dois checkouts, em duas plataformas desde 2026-09-09: a entrega agendada é da
+   * Logzz, o antecipado é da Coinzz. Era `baseUrl` — um só —, o que já não descrevia a
+   * operação e divergia do tipo que a Edge Function usa de verdade.
+   */
+  checkout: { codUrl: string; prepayUrl?: string };
   handoff: { email: string };
   /**
    * Urgency the operation can actually back. Absent means the agent may not cite stock

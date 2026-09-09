@@ -1,0 +1,322 @@
+<title>Dez Lacunas Encorpa</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<style>
+  :root{
+    --paper:#fbfbf9; --surface:#f1f3f0; --sunk:#e6e9e4;
+    --ink:#15191b; --ink-2:#454d4e; --ink-3:#6d7776;
+    --rule:#d6dbd6; --rule-2:#c2c9c2;
+    --accent:#0e6157; --accent-soft:#d7e8e4;
+    --sev1:#8c2b2b; --sev1-soft:#f2d9d9;
+    --sev2:#8a6209; --sev2-soft:#f3e6c8;
+    --sev3:#3a5f7d; --sev3-soft:#dde7ef;
+    --shadow:0 1px 2px rgba(20,25,27,.06), 0 8px 24px -16px rgba(20,25,27,.28);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101413; --surface:#171d1c; --sunk:#1f2725;
+      --ink:#e8ece9; --ink-2:#b0bab7; --ink-3:#849090;
+      --rule:#2a3331; --rule-2:#3a4644;
+      --accent:#5cc4b2; --accent-soft:#153230;
+      --sev1:#e28b8b; --sev1-soft:#301b1b;
+      --sev2:#dcb35c; --sev2-soft:#2b2413;
+      --sev3:#8fb6d4; --sev3-soft:#18242e;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101413; --surface:#171d1c; --sunk:#1f2725;
+    --ink:#e8ece9; --ink-2:#b0bab7; --ink-3:#849090;
+    --rule:#2a3331; --rule-2:#3a4644;
+    --accent:#5cc4b2; --accent-soft:#153230;
+    --sev1:#e28b8b; --sev1-soft:#301b1b;
+    --sev2:#dcb35c; --sev2-soft:#2b2413;
+    --sev3:#8fb6d4; --sev3-soft:#18242e;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans",system-ui,-apple-system,Segoe UI,sans-serif;
+    font-size:15.5px; line-height:1.6; -webkit-font-smoothing:antialiased}
+  .wrap{max-width:1020px; margin:0 auto; padding:40px 24px 96px}
+
+  .masthead{border-bottom:2px solid var(--ink); padding-bottom:18px; margin-bottom:16px}
+  .kicker{font-family:"IBM Plex Mono",monospace; font-size:11.5px; letter-spacing:.13em;
+    text-transform:uppercase; color:var(--ink-3); margin:0 0 10px}
+  h1{font-family:"IBM Plex Serif",Georgia,serif; font-weight:700;
+    font-size:clamp(30px,4.6vw,46px); line-height:1.08; margin:0 0 12px;
+    letter-spacing:-.015em; text-wrap:balance}
+  .standfirst{max-width:62ch; color:var(--ink-2); margin:0; font-size:17px}
+  p{margin:0 0 12px}
+  a{color:var(--accent)}
+  code{font-family:"IBM Plex Mono",monospace; font-size:.88em; background:var(--sunk);
+    padding:1px 5px; border-radius:3px}
+
+  h2{font-family:"IBM Plex Serif",Georgia,serif; font-weight:600; font-size:23px;
+    letter-spacing:-.01em; margin:0 0 4px; text-wrap:balance}
+  section{margin-top:52px}
+  .sec-head{border-bottom:1px solid var(--rule-2); padding-bottom:10px; margin-bottom:24px}
+  .sec-head p{margin:6px 0 0; color:var(--ink-2); max-width:64ch; font-size:14.5px}
+
+  /* ---- achados ---- */
+  .find{display:grid; grid-template-columns:38px 1fr; gap:0 16px;
+    padding:20px 0; border-bottom:1px solid var(--rule)}
+  .find:last-child{border-bottom:none}
+  .idx{font-family:"IBM Plex Mono",monospace; font-size:13px; font-weight:600;
+    color:var(--paper); background:var(--ink-3); border-radius:3px;
+    height:24px; display:flex; align-items:center; justify-content:center; margin-top:2px}
+  .find.s1 .idx{background:var(--sev1)} .find.s2 .idx{background:var(--sev2)} .find.s3 .idx{background:var(--sev3)}
+  .find h3{margin:0 0 3px; font-size:17px; font-weight:600; letter-spacing:-.005em; text-wrap:balance}
+  .meta{display:flex; flex-wrap:wrap; gap:8px; margin:0 0 10px; align-items:center}
+  .tag{font-family:"IBM Plex Mono",monospace; font-size:10px; letter-spacing:.07em;
+    text-transform:uppercase; padding:2px 7px; border-radius:3px; border:1px solid transparent; white-space:nowrap}
+  .t1{background:var(--sev1-soft); color:var(--sev1); border-color:color-mix(in srgb,var(--sev1) 30%,transparent)}
+  .t2{background:var(--sev2-soft); color:var(--sev2); border-color:color-mix(in srgb,var(--sev2) 30%,transparent)}
+  .t3{background:var(--sev3-soft); color:var(--sev3); border-color:color-mix(in srgb,var(--sev3) 30%,transparent)}
+  .find p{margin:0 0 9px; max-width:70ch; font-size:14.6px}
+  .find p:last-child{margin-bottom:0}
+  .ev{font-family:"IBM Plex Mono",monospace; font-size:12.3px; color:var(--ink-2);
+    background:var(--surface); border-left:2px solid var(--rule-2);
+    padding:7px 12px; border-radius:0 3px 3px 0; overflow-x:auto; white-space:pre-wrap}
+  .fix{border-left:2px solid var(--accent); background:var(--accent-soft);
+    padding:8px 12px; border-radius:0 3px 3px 0; font-size:14px}
+  .fix strong{font-weight:600}
+
+  /* ---- ondas ---- */
+  .wave{background:var(--surface); border:1px solid var(--rule); border-radius:6px;
+    padding:18px 20px; margin-bottom:16px}
+  .wave-head{display:flex; justify-content:space-between; align-items:baseline;
+    gap:14px; flex-wrap:wrap; margin-bottom:12px; padding-bottom:10px; border-bottom:1px solid var(--rule)}
+  .wave-head h3{margin:0; font-size:17px; font-weight:600}
+  .wave-cost{font-family:"IBM Plex Mono",monospace; font-size:12px; color:var(--ink-3);
+    letter-spacing:.03em; white-space:nowrap}
+  ol.steps{margin:0; padding-left:0; list-style:none; counter-reset:s}
+  ol.steps li{counter-increment:s; display:grid; grid-template-columns:26px 1fr; gap:12px;
+    padding:7px 0; font-size:14.5px; align-items:baseline}
+  ol.steps li::before{content:counter(s); font-family:"IBM Plex Mono",monospace;
+    font-size:11.5px; color:var(--ink-3); text-align:right}
+  .who{display:inline-block; font-family:"IBM Plex Mono",monospace; font-size:10px;
+    letter-spacing:.07em; text-transform:uppercase; color:var(--ink-3);
+    border:1px solid var(--rule-2); border-radius:3px; padding:1px 5px; margin-left:6px; vertical-align:1px}
+
+  .note{border-left:3px solid var(--sev2); background:var(--sev2-soft);
+    padding:12px 16px; border-radius:0 4px 4px 0; font-size:14.5px; margin-top:18px}
+  .note.mine{border-left-color:var(--sev1); background:var(--sev1-soft)}
+  footer{margin-top:60px; padding-top:18px; border-top:1px solid var(--rule);
+    font-size:13px; color:var(--ink-3)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="kicker">Encorpa · revisão geral do código · 09 set 2026 · onda 1 e meia onda 2 executadas</p>
+    <h1>Dez Lacunas</h1>
+    <p class="standfirst">Varredura de <code>src</code>, <code>supabase</code>, <code>tests</code>, migrações e os dois workflows do n8n. Quatro destas quebram na primeira semana de tráfego pago; três você não tem como perceber sozinho, porque falham em silêncio.</p>
+    <div class="note" style="margin-top:18px; border-left-color:var(--sev3); background:var(--sev3-soft)">
+      <strong>Estado em 9 de setembro, fim do dia.</strong> Lacunas <strong>2, 3 e a metade de código da 1</strong> estão corrigidas e empurradas — 2.733 testes, lint, typecheck e <code>deno check</code> verdes. O que falta em cada uma está marcado abaixo. Nada disso está no ar: o deploy da Edge Function precisa de um Personal Access Token da Supabase, que só você cria.
+    </div>
+  </header>
+
+  <section>
+    <div class="sec-head">
+      <h2>O que quebra quando o tráfego começar</h2>
+      <p>Nada aqui é hipótese de código. Cada linha traz o grep que a produz.</p>
+    </div>
+
+    <div class="find s1">
+      <div class="idx">1</div>
+      <div>
+        <h3>A cliente que comprou continua sendo perseguida</h3>
+        <div class="meta"><span class="tag t1">Quebra no dia 1</span><span class="tag t3">Código pronto · falta o webhook</span></div>
+        <p>A régua de pós-pedido existe inteira — quatro toques escritos, renderizados e testados. E <strong>nada nunca a arma</strong>, porque nada no sistema sabe que uma venda aconteceu. A tabela <code>orders</code> está no schema e nenhuma linha de código escreve nela.</p>
+        <p>O efeito não é só a régua boa que não roda: é a régua <em>errada</em> que roda. Quem comprou continua na régua de silêncio e recebe <em>“ainda tá pensando?”</em> três dias depois de já ter pago na porta.</p>
+        <div class="ev">grep "orders" supabase/functions/turn/index.ts  → vazio
+grep -r "scheduleOrder" src supabase  → só a definição e o teste
+n8n: 2 workflows, nenhum de venda</div>
+        <div class="fix" style="margin-top:10px"><strong>Correção:</strong> webhook de venda no n8n (Logzz e Coinzz) → grava <code>orders</code> → cancela a régua de silêncio e arma <code>scheduleOrder</code>. É a peça que fecha o ciclo.</div>
+      </div>
+    </div>
+
+    <div class="find s1">
+      <div class="idx">2</div>
+      <div>
+        <h3>“Frete grátis” virou verdade, e a agente está proibida de dizer</h3>
+        <div class="meta"><span class="tag t3">Corrigido · falta deploy</span><span class="tag t2">Mentira ainda no ar</span></div>
+        <p>Você zerou o frete na oferta da Logzz — a página devolve <code>freight: "0.00"</code>. E o antecipado sempre teve frete grátis nacional: <code>settingsFreight: []</code>, medido nos 27 estados. Ou seja, <strong>nos dois caminhos o frete é zero para a cliente</strong>.</p>
+        <p>Só que o gate <code>shipping_promise</code> barra a frase nos dois, e o prompt da produção afirma o contrário: <em>“no antecipado o frete é calculado à parte no checkout”</em>. A agente está impedida de dizer o argumento mais convertivo que existe — e instruída a dizer uma coisa falsa no lugar.</p>
+        <div class="ev">supabase/functions/turn/index.ts:348 — "o frete é calculado à parte no checkout"
+guardrails: shipping_promise → "Nunca diga frete grátis"
++ 2 testes e 1 caso de conversa travam a versão antiga</div>
+        <div class="fix" style="margin-top:10px"><strong>Correção:</strong> inverter o gate — passa a barrar quem <em>negar</em> o frete grátis. Reescrever a linha do prompt, os dois testes e o caso 386/387 do <code>simulate.ts</code>. Depois, deploy.</div>
+      </div>
+    </div>
+
+    <div class="find s1">
+      <div class="idx">3</div>
+      <div>
+        <h3>Todo lead é anônimo — você vai otimizar campanha no escuro</h3>
+        <div class="meta"><span class="tag t3">Corrigido · falta deploy</span></div>
+        <p>A coluna <code>leads.source</code> está no schema desde o primeiro dia, com o comentário <em>“atribuição do primeiro toque; nunca sobrescrever”</em>. O contrato do canal já prevê o <code>ctwaClid</code> do Click-to-WhatsApp. E o handler <strong>nunca escreve nenhum dos dois</strong>.</p>
+        <p>Sem isso não existe a pergunta “qual anúncio trouxe esta venda”. Você paga o Meta sem saber qual criativo se paga, e a Conversions API não tem o que devolver.</p>
+        <div class="ev">grep -n "ctwa|source" supabase/functions/turn/index.ts  → vazio</div>
+        <div class="fix" style="margin-top:10px"><strong>Correção:</strong> gravar <code>source</code> na criação do lead, só na primeira vez. Barato agora, impossível depois — atribuição perdida não se recupera.</div>
+      </div>
+    </div>
+
+    <div class="find s1">
+      <div class="idx">4</div>
+      <div>
+        <h3>O ritmo humano não existe em produção</h3>
+        <div class="meta"><span class="tag t1">Risco de banimento</span><span class="tag t1">Correção minha</span></div>
+        <p><code>pacing.ts</code> tem tudo: atraso por bolha, quebra em até três mensagens, presença de “digitando” renovada em blocos, espera da primeira resposta. É importado por <strong>exatamente um arquivo: o próprio teste</strong>. Não está espelhado na Edge Function e nenhum handler o chama.</p>
+        <p>A produção responde instantaneamente, em bloco único, sem “digitando”. É o comportamento que mais denuncia um bot, e num número novo isso é o caminho mais rápido para o banimento.</p>
+        <div class="ev">grep -r "bubbleDelayMs|splitBubbles|firstReplyAt" src supabase
+  → só tests/pacing.test.ts</div>
+        <div class="note mine" style="margin-top:10px"><strong>Correção do que eu disse antes.</strong> Anunciei os 0,8 s por palavra como “feito e no ar”. Está feito e <em>não</em> está no ar — o valor está certo num módulo que ninguém executa. O commit é válido, a afirmação não era.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>O que está errado mas ainda não dói</h2>
+      <p>Não quebram hoje. Quebram na hora em que você mexer no que está do lado.</p>
+    </div>
+
+    <div class="find s2">
+      <div class="idx">5</div>
+      <div>
+        <h3>A criação de pedido aponta para a plataforma errada</h3>
+        <div class="meta"><span class="tag t2">Desligado, e errado</span></div>
+        <p><code>buildCoinzzRequest</code>, <code>orderBlocked</code> e <code>CoinzzRequest</code> foram desenhados para criar o pedido de pagamento na entrega <em>na Coinzz</em>. Esse caminho mudou de plataforma hoje. O código está desligado, então não faz mal — mas está pronto para ser ligado e criar o pedido no lugar errado.</p>
+        <div class="fix"><strong>Correção:</strong> marcar como “só antecipado” agora, com um comentário no topo, ou reescrever contra a API da Logzz quando o pedido por API voltar à pauta.</div>
+      </div>
+    </div>
+
+    <div class="find s2">
+      <div class="idx">6</div>
+      <div>
+        <h3>O arquivo que a produção executa não tem um único teste</h3>
+        <div class="meta"><span class="tag t2">Dívida estrutural</span></div>
+        <p>São 2.720 testes, e nenhum toca <code>supabase/functions/turn/index.ts</code> — 1.200 linhas com o dedupe, o teto de custo, o laço de reescrita, o handoff, a régua e a montagem do prompt. O que protege esse arquivo é o <code>deno check</code>, que só olha tipos, e o teste de drift, que só compara as cópias.</p>
+        <p>Não é teoria: a correção da régua de madrugada podia ser apagada inteira sem nenhum teste falhar, e isso já está registrado no próprio repositório.</p>
+        <div class="fix"><strong>Correção:</strong> extrair a orquestração para um módulo espelhado e testável, deixando no <code>index.ts</code> só o que fala HTTP e banco. Uma onda inteira, não um remendo.</div>
+      </div>
+    </div>
+
+    <div class="find s2">
+      <div class="idx">7</div>
+      <div>
+        <h3>Nada mede o funil</h3>
+        <div class="meta"><span class="tag t2">Você decide no escuro</span></div>
+        <p><code>gate_traces</code> e <code>llm_calls</code> gravam bem, e ninguém lê. Não existe resposta para: quantas conversas chegam ao tamanho, quantas ao link, quantas ao pedido; qual gate mais veta; quanto custa uma conversa que converte contra uma que morre.</p>
+        <div class="fix"><strong>Correção:</strong> uma view no Postgres e uma página. Barato, e é o que transforma “parece que está indo bem” em número.</div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>O que nem começou</h2>
+    </div>
+
+    <div class="find s3">
+      <div class="idx">8</div>
+      <div>
+        <h3>Não existe canal — o agente não tem por onde falar</h3>
+        <div class="meta"><span class="tag t3">O maior bloco</span><span class="tag t2">Prazo de calendário</span></div>
+        <p><code>Channel</code> e <code>SimulatedChannel</code> estão escritos e nenhum arquivo fora de <code>src/channel</code> os importa. Não há WAHA, não há pod, não há número. Hoje a conversa só existe entrando pelo webhook na mão.</p>
+        <p>E este é o item com relógio próprio: o chip <strong>(11) 98859-0594</strong> precisa de semanas de uso normal antes de receber tráfego pago. Cada dia parado é um dia a mais até poder anunciar.</p>
+      </div>
+    </div>
+
+    <div class="find s3">
+      <div class="idx">9</div>
+      <div>
+        <h3>A consulta de disponibilidade da Logzz, meio achada</h3>
+        <div class="meta"><span class="tag t3">Bloqueia o roteamento</span></div>
+        <p>Do seu print saiu <code>check-client?phone=…&amp;product_id=165378&amp;document=…</code> — sondei e é público, devolve <code>{"status":"success"}</code>. É o equivalente do “pedido pendente” no lado da Logzz.</p>
+        <p>Falta a chamada que devolve <strong>os dias de entrega por CEP</strong>. Ela não apareceu no seu print porque a captura parou antes da tela de agendamento. Doze caminhos plausíveis testados às cegas, nenhum respondeu.</p>
+        <div class="fix"><strong>O que destrava:</strong> repetir a captura e ir <em>até as datas aparecerem</em>. A chamada que carregar as datas é a que falta.</div>
+      </div>
+    </div>
+
+    <div class="find s3">
+      <div class="idx">10</div>
+      <div>
+        <h3>Higiene de segurança, e uma coisa nova</h3>
+        <div class="meta"><span class="tag t2">Pendente há três sessões</span></div>
+        <p>Continuam por rotacionar: <code>service_role</code> da Supabase, chaves OpenAI e Gemini, tokens do Facebook.</p>
+        <p>E uma nova: <strong>o print do DevTools que você mandou traz um telefone e um CPF que parecem de uma cliente real.</strong> Não usei nem repeti os valores — sondei tudo com dados sintéticos. Vale saber que print de aba Network carrega dado pessoal junto.</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="sec-head">
+      <h2>O plano, em quatro ondas</h2>
+      <p>A ordem importa: a onda 1 não depende de nada e conserta o que já está no ar; a onda 4 é a única com prazo de calendário, e por isso começa em paralelo hoje.</p>
+    </div>
+
+    <div class="wave">
+      <div class="wave-head">
+        <h3>Onda 1 · Parar de mentir</h3>
+        <span class="wave-cost">~2 turnos · sem dependência</span>
+      </div>
+      <ol class="steps">
+        <li>Inverter o gate <code>shipping_promise</code>: frete grátis passa a ser verdade nos dois caminhos, e negar passa a ser o veto <span class="who">código</span></li>
+        <li>Reescrever a linha 348 do prompt e os casos 386/387 do <code>simulate.ts</code> <span class="who">código</span></li>
+        <li>Alinhar o site e a base de conhecimento ao frete zero <span class="who">código</span></li>
+        <li>Deploy da Edge Function e sonda pelo webhook de produção <span class="who">código</span></li>
+      </ol>
+    </div>
+
+    <div class="wave">
+      <div class="wave-head">
+        <h3>Onda 2 · Fechar o ciclo da venda</h3>
+        <span class="wave-cost">~4 turnos · precisa do webhook da Logzz</span>
+      </div>
+      <ol class="steps">
+        <li>Descobrir o webhook de venda da Logzz e o da Coinzz, e apontar para o n8n <span class="who">operador</span></li>
+        <li>Workflow que grava <code>orders</code>, cancela a régua de silêncio e arma <code>scheduleOrder</code> <span class="who">código</span></li>
+        <li>Gravar <code>leads.source</code> com o <code>ctwaClid</code> na criação do lead <span class="who">código</span></li>
+        <li>Teste que prova: quem comprou não recebe mais toque de silêncio <span class="who">código</span></li>
+      </ol>
+    </div>
+
+    <div class="wave">
+      <div class="wave-head">
+        <h3>Onda 3 · Consultar antes de indicar</h3>
+        <span class="wave-cost">~3 turnos · precisa da captura do agendamento</span>
+      </div>
+      <ol class="steps">
+        <li>Capturar a chamada de dias de entrega no checkout da Logzz <span class="who">operador</span></li>
+        <li>Repontar <code>availability.ts</code> para a Logzz e ligar no handler: CEP, ViaCEP, consulta <span class="who">código</span></li>
+        <li>Preencher <code>sizeChecked</code> e <code>sameDayWindow</code> — os dois gates já esperam por eles <span class="who">código</span></li>
+        <li>Releitura com o CPF real via <code>check-client</code>, para desviar de checkout travado <span class="who">código</span></li>
+      </ol>
+    </div>
+
+    <div class="wave">
+      <div class="wave-head">
+        <h3>Onda 4 · Dar voz ao agente</h3>
+        <span class="wave-cost">semanas de calendário · começa hoje</span>
+      </div>
+      <ol class="steps">
+        <li>Comprar o chip e usá-lo como número comum, todo dia, sem automação <span class="who">operador</span></li>
+        <li>Subir o WAHA no PikaPods e parear a sessão <span class="who">operador</span></li>
+        <li>Adaptador WAHA implementando <code>Channel</code>, e o <code>pacing</code> finalmente no caminho <span class="who">código</span></li>
+        <li>Extrair a orquestração do <code>index.ts</code> para um módulo com teste <span class="who">código</span></li>
+      </ol>
+    </div>
+
+    <div class="note">
+      <strong>Por que a onda 1 vem antes de tudo.</strong> Ela não depende de você, não depende de descoberta nenhuma, e é a única que conserta algo que já está no ar dizendo a coisa errada para quem escrever agora. As outras três preparam o futuro; essa arruma o presente.
+    </div>
+  </section>
+
+  <footer>
+    Varredura de <code>src/</code>, <code>supabase/</code>, <code>tests/</code>, das quatro migrações e dos dois workflows do n8n, em 9 de setembro de 2026. Cada achado foi confirmado por grep ou por sonda contra a página real; nenhum é inferido de leitura.
+  </footer>
+</div>

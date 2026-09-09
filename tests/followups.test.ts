@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   pickVariant,
   renderFollowup,
+  onOrderConfirmed,
   scheduleOrder,
   scheduleSilence,
   decideTouch,
@@ -114,6 +115,14 @@ describe("régua de pós-pedido", () => {
     const [confirmado, , vespera] = scheduleOrder(ordered, 3);
     expect(confirmado!.runAt.getDate()).toBe(ordered.getDate());
     expect(vespera!.runAt.getTime()).toBeLessThan(ordered.getTime() + 3 * 24 * 60 * 60_000);
+  });
+
+  it("a véspera nunca sai antes do pedido existir, nem junto com o envio", () => {
+    // Com a janela de 1 dia, `codDaysMin - 1` dava ZERO: "sua entrega é amanhã, separe
+    // R$ 129,90" saía na hora do pedido, antes da própria confirmação.
+    const [confirmado, envio, vespera] = scheduleOrder(ordered, 1);
+    expect(vespera!.runAt.getTime()).toBeGreaterThan(confirmado!.runAt.getTime());
+    expect(vespera!.runAt.getTime()).toBeGreaterThan(envio!.runAt.getTime());
   });
 
   it("a véspera manda separar o valor certo — é a mensagem que evita a recusa", () => {
@@ -236,5 +245,68 @@ describe("as três declarações de Remedy continuam a mesma coisa", () => {
     const daCadeia: GateRemedy = "defer";
     const daRegua: FollowupRemedy = daCadeia;
     expect(daRegua).toBe("defer");
+  });
+});
+
+/**
+ * O que uma venda confirmada faz com a régua. A metade que faltava não era armar o
+ * pós-pedido — era cancelar o silêncio: até 2026-09-09 nada aqui sabia que uma venda
+ * tinha acontecido, e quem pagava na porta recebia "ainda tá pensando?" três dias depois.
+ */
+describe("venda confirmada", () => {
+  const quando = new Date("2026-09-09T15:00:00Z");
+
+  const agendado = (...kinds: string[]) =>
+    kinds.map((kind) => ({ kind, status: "scheduled" }) as never);
+
+  it("cancela todo toque de silêncio ainda agendado", () => {
+    const efeito = onOrderConfirmed(agendado("silence_1", "silence_2", "silence_3"), quando, 1);
+    expect(efeito.cancel).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+
+  it("arma a régua de pós-pedido inteira", () => {
+    const efeito = onOrderConfirmed([], quando, 1);
+    expect(efeito.arm.map((f) => f.kind)).toEqual([
+      "order_confirmed",
+      "order_shipped",
+      "order_eve",
+      "order_delivered",
+    ]);
+  });
+
+  it("um segundo webhook do mesmo pedido não mexe no que já está agendado", () => {
+    // Retry e mudança de status chegam de novo. Rearmar arrastaria a véspera da entrega
+    // para outra data, que é a mensagem que evita a recusa na porta.
+    const efeito = onOrderConfirmed(agendado("order_confirmed", "order_shipped"), quando, 1);
+    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
+    expect(efeito.cancel).toEqual([]);
+  });
+
+  it("não cancela um toque de pós-pedido junto", () => {
+    const efeito = onOrderConfirmed(agendado("silence_2", "order_confirmed"), quando, 1);
+    expect(efeito.cancel).toEqual(["silence_2"]);
+  });
+});
+
+/**
+ * O achado do code review: `arm` só olhava o que estava `scheduled`. Um segundo webhook
+ * chegando depois que o `order_confirmed` já saiu rearmava um kind que a tabela guarda
+ * como `sent` — e `unique (conversation_id, kind)` transforma isso num throw que derruba
+ * a chamada inteira, perde o status e faz o n8n bater de novo na mesma parede.
+ */
+describe("segundo webhook depois que um toque já saiu", () => {
+  it("não rearma um kind já enviado", () => {
+    const efeito = onOrderConfirmed(
+      [
+        { kind: "order_confirmed", status: "sent" },
+        { kind: "silence_1", status: "sent" },
+        { kind: "silence_2", status: "scheduled" },
+      ],
+      new Date("2026-09-09T15:00:00Z"),
+      1,
+    );
+    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+    // O toque de silêncio que já saiu não tem o que cancelar; o que ainda espera, sim.
+    expect(efeito.cancel).toEqual(["silence_2"]);
   });
 });

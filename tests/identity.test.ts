@@ -93,3 +93,36 @@ describe("a coleta acumula e vira uma pergunta por vez", () => {
     expect(nextIdentityQuestion(r.missing)).toMatch(/CPF/);
   });
 });
+
+/**
+ * O achado mais constrangedor do review: duas palavras de letras viravam o nome
+ * PERMANENTE da cliente — gravado no lead, levado no link do checkout e no corpo do
+ * pedido, endereçado a ela no pacote.
+ */
+describe("mensagem comum não é nome", () => {
+  it("cumprimento e intenção não viram nome", () => {
+    for (const t of [
+      "boa tarde",
+      "bom dia",
+      "quero comprar",
+      "muito obrigada",
+      "tudo bem",
+      "pode ser",
+      "qual o preco",
+      "vou querer",
+    ]) {
+      expect(extractName(t)).toBeNull();
+    }
+  });
+
+  it("nome de gente continua passando", () => {
+    expect(extractName("Maria Aparecida Souza")).toBe("Maria Aparecida Souza");
+    expect(extractName("Ana Beatriz")).toBe("Ana Beatriz");
+  });
+
+  it("quando ela apresenta, a frase diz que é nome — e aí vale", () => {
+    // "meu nome é Boa" é estranho, mas ela disse que é o nome dela. Duvidar disso é
+    // pior do que aceitar: quem se apresenta espera ser chamada assim.
+    expect(extractName("meu nome é Bom Jesus da Silva")).toBe("Bom Jesus da Silva");
+  });
+});

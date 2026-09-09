@@ -10,7 +10,7 @@ import type { BusinessConfig } from "@/config/business.js";
  *    in blocks instead of being set once.
  */
 export const FIRST_REPLY_DELAY_MS = 3 * 60_000;
-export const MS_PER_WORD = 200;
+export const MS_PER_WORD = 800;
 export const PRESENCE_REFRESH_MS = 15_000;
 
 export const bubbleDelayMs = (bubble: string): number =>

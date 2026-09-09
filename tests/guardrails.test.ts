@@ -6,8 +6,8 @@ const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os dezessete gates", () => {
-    expect(gateNames).toHaveLength(17);
+  it("tem os dezenove gates", () => {
+    expect(gateNames).toHaveLength(19);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -20,7 +20,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(17);
+    expect(result.traces).toHaveLength(19);
   });
 });
 
@@ -70,7 +70,7 @@ describe("promessas que a operação não cumpre", () => {
    */
   it("aceita o prazo real do antecipado, e recusa o prazo do COD dito lá", () => {
     expect(
-      blocked(runGates("No antecipado chega em 5 a 10 dias.", ctx({ paymentPath: "prepay" }))),
+      blocked(runGates("No antecipado o prazo varia, em média 5 dias úteis.", ctx({ paymentPath: "prepay" }))),
     ).not.toContain("delivery_promise");
     expect(
       blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx({ paymentPath: "prepay" }))),
@@ -82,13 +82,15 @@ describe("promessas que a operação não cumpre", () => {
     expect(blocked(r)).toContain("price_promise");
   });
 
-  it("aceita os dois preços da operação e a economia entre eles", () => {
-    const r = runGates(
-      `No antecipado sai por R$ ${config.prices.prepayBrl.toFixed(2).replace(".", ",")} ` +
-        "em vez de R$ 129,90 — economia de R$ 19,49.",
-      ctx(),
-    );
-    expect(blocked(r)).not.toContain("price_promise");
+  it("aceita os preços da operação, e a economia só enquanto ela existir", () => {
+    // Com o desconto do antecipado em zero (2026-09-09) os dois caminhos custam o mesmo,
+    // então "economia de R$ 19,49" virou um número que a loja não tem. Enquanto houvesse
+    // desconto, a diferença era citável — é por isso que ela entra na lista pelo cálculo
+    // e não escrita à mão.
+    const preco = config.prices.prepayBrl.toFixed(2).replace(".", ",");
+    expect(blocked(runGates(`No antecipado sai por R$ ${preco}, o mesmo valor.`, ctx())))
+      .not.toContain("price_promise");
+    expect(blocked(runGates("A economia é de R$ 19,49.", ctx()))).toContain("price_promise");
   });
 
   it("veta desconto que não existe", () => {
@@ -225,7 +227,7 @@ describe("recusar um número não é prometê-lo", () => {
   it("deixa a agente negar desconto que não existe", () => {
     const texto =
       "Não consigo oferecer 30% de desconto. Você pode pagar R$ 129,90 na entrega, " +
-      "ou antecipado com 15% de desconto por R$ 110,41.";
+      "ou antecipado, pelo mesmo R$ 129,90.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 
@@ -328,7 +330,7 @@ describe("porcentagem: desconto é decidido pela vizinhança do número", () => 
 
   it("e a composição continua liberada mesmo quando a mensagem fala de desconto", () => {
     const texto =
-      "No antecipado são 15% de desconto, e o tecido é 92% poliamida com 8% elastano.";
+      "O tecido é 92% poliamida com 8% elastano.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 });
@@ -412,5 +414,314 @@ describe("garantia não confunde prazo de entrega com prazo de troca", () => {
     ]) {
       expect(garantia(frase).verdict, frase).toBe("block");
     }
+  });
+});
+
+/**
+ * O gate mudou de metade em 2026-09-09, depois que o operador leu a transcrição: ele
+ * proibia DIZER o tamanho antes de checar a região, então quem perguntava "uso 42, qual
+ * o meu?" recebia um pedido de CEP no lugar da resposta. Qual tamanho serve e se ele
+ * chega são perguntas diferentes; só a segunda precisa de consulta.
+ */
+describe("dizer o tamanho é livre; dizer que TEM não é", () => {
+  it("indicar pela tabela passa, mesmo sem nenhuma consulta", () => {
+    for (const t of [
+      "Pelo que você me disse, o seu é o G.",
+      "No seu caso é GG mesmo.",
+      "Indico o G — e me manda seu CEP que eu vejo a entrega aí?",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("unverified_size");
+    }
+  });
+
+  it("prometer estoque antes da consulta é o veto", () => {
+    for (const t of [
+      "Tem no seu tamanho, pode ficar tranquila.",
+      "O G está disponível pra sua região.",
+      "Já reservei o GG pra você.",
+      "Temos o M em estoque.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("unverified_size");
+    }
+  });
+
+  it("com a região consultada, a promessa é liberada", () => {
+    const checked = { ...ctx(), sizeChecked: "G" };
+    expect(blocked(runGates("O G está disponível pra sua região.", checked)))
+      .not.toContain("unverified_size");
+  });
+
+  it("negar a disponibilidade continua liberado", () => {
+    // Dizer que NÃO tem é a resposta honesta, e barrá-la deixaria a agente muda.
+    expect(blocked(runGates("Não tem entrega agendada no seu CEP, mas o antecipado chega.", ctx())))
+      .not.toContain("unverified_size");
+  });
+
+  it("perguntar e mostrar a tabela seguem livres", () => {
+    for (const t of [
+      "Você usa que número de calça?",
+      "A tabela vai de P a XGG — me diz o seu número que eu vejo qual é.",
+      "Me manda seu CEP que eu confirmo a entrega na sua região.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("unverified_size");
+    }
+  });
+});
+
+/**
+ * "Hoje" é promessa quebrada até o checkout dizer o contrário. Quando a consulta
+ * devolve a modalidade Express para o CEP dela, vira fato — e é o melhor argumento
+ * que este funil tem.
+ */
+describe("Express, e só quando ele existe", () => {
+  const frase = "Se você fechar agora, chega hoje mesmo, em até 4 horas.";
+
+  it("sem Express na consulta, continua barrado", () => {
+    expect(blocked(runGates(frase, ctx()))).toContain("delivery_promise");
+  });
+
+  it("com Express confirmado para o CEP dela, passa", () => {
+    expect(blocked(runGates(frase, { ...ctx(), sameDayWindow: true })))
+      .not.toContain("delivery_promise");
+  });
+
+  it("Express não libera prometer amanhã", () => {
+    // A modalidade é do mesmo dia. "Amanhã" continua sendo uma data que ninguém agendou.
+    expect(blocked(runGates("Chega amanhã sem falta.", { ...ctx(), sameDayWindow: true })))
+      .toContain("delivery_promise");
+  });
+});
+
+/**
+ * Contar que o Express existe é honesto e converte; dizer que vai acontecer no
+ * endereço dela é promessa que só o checkout pode fazer. A diferença é uma cláusula.
+ */
+describe("contar que o Express existe, sem prometer", () => {
+  it("passa quando devolve a pergunta para o checkout", () => {
+    for (const t of [
+      "Tem uma opção Express que entrega hoje mesmo — dá pra conferir a disponibilidade da sua região no checkout.",
+      "Se estiver disponível aí, você recebe hoje em até 4 horas.",
+      "A entrega no mesmo dia depende da sua região; o checkout mostra.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("delivery_promise");
+    }
+  });
+
+  it("continua barrando a promessa seca", () => {
+    expect(blocked(runGates("Você recebe hoje mesmo, garantido.", ctx())))
+      .toContain("delivery_promise");
+  });
+});
+
+/**
+ * O gate do frete mudou de direção em 2026-09-09. O operador zerou o frete na oferta da
+ * entrega (`freight: "0.00"`) e o antecipado sempre foi grátis nacional — a frase que o
+ * gate barrava virou verdade, e a mentira passou a ser cobrar frete dela.
+ */
+describe("frete grátis é verdade nos dois caminhos", () => {
+  it("dizer que é grátis passa", () => {
+    for (const t of [
+      "O frete é grátis, você paga só os R$ 129,90 na entrega.",
+      "Frete por nossa conta, em qualquer forma de pagamento.",
+      "No antecipado o frete é grátis também.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+
+  it("cobrar frete dela é o veto novo", () => {
+    for (const t of [
+      "São R$ 129,90 mais o frete.",
+      "O frete é calculado à parte no checkout.",
+      "O frete fica R$ 24,98, pago na entrega.",
+      "O frete não está incluído.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+
+  it("negar a cobrança continua liberado", () => {
+    // "o frete NÃO é à parte" é a resposta honesta à pergunta mais comum do funil.
+    expect(blocked(runGates("O frete não é cobrado à parte, já está tudo incluso.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("com freeShipping desligado, a regra antiga volta inteira", () => {
+    const antes = { ...ctx(), config: { ...config, delivery: { ...config.delivery, freeShipping: false } } };
+    expect(blocked(runGates("O frete é grátis!", antes))).toContain("shipping_promise");
+    expect(blocked(runGates("São R$ 129,90 mais o frete.", antes))).not.toContain("shipping_promise");
+  });
+});
+
+/**
+ * A brecha que a sonda adversarial pegou depois da inversão: "o frete depende da sua
+ * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
+ * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.
+ */
+describe("frete que varia também é cobrança", () => {
+  it("barra dizer que o frete depende ou varia", () => {
+    for (const t of ["O frete vai depender da sua região.", "O frete varia conforme o CEP."]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+
+  it("negar a variação continua liberado, e o PRAZO pode variar", () => {
+    // O prazo varia de verdade; só o frete é que não. Um gate que confunde os dois
+    // proíbe a agente de responder a pergunta mais comum depois do preço.
+    for (const t of [
+      "O frete não depende da região, é grátis em qualquer lugar.",
+      "O prazo de entrega depende da sua região.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+});
+
+/**
+ * Os quatro achados do code review sobre o gate do frete, cada um com a frase que
+ * produzia o erro. Três eram falso positivo — e um falso positivo aqui é pior que um
+ * falso negativo: a frase que o prompt manda escrever entrava no laço de reescrita e
+ * saía do outro lado como handoff.
+ */
+describe("o gate do frete depois do review", () => {
+  it("um valor ao lado de 'frete' numa frase que afirma o grátis é o PREÇO", () => {
+    for (const t of ["Frete grátis, R$ 129,90 na entrega.", "Sem frete a mais: R$ 129,90."]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+
+  it("a janela não atravessa a vírgula para a cláusula do prazo", () => {
+    expect(blocked(runGates("O frete é grátis, mas o prazo depende da região.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("'mais o frete' negado também passa", () => {
+    expect(blocked(runGates("Não é R$ 129,90 mais o frete, o frete é grátis.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("cobrança sem verbo antes e sem valor continua barrada", () => {
+    for (const t of [
+      "O frete fica por sua conta.",
+      "Tem um frete de entrega que você paga depois.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+});
+
+/**
+ * A produção lê o config inteiro de um secret que sobrescreve o fallback do código. Uma
+ * chave nova nasce ausente lá até alguém editar o secret — e `freeShipping` ausente,
+ * quando era obrigatória, lia como `false` e reinstalava o veto antigo em produção com
+ * todos os testes daqui passando. O padrão tem que ser a verdade.
+ */
+describe("config de produção sem a chave nova", () => {
+  // A chave é OMITIDA, não posta como undefined: é assim que ela chega da produção,
+  // onde o `BUSINESS_CONFIG` foi escrito antes de a chave existir no código.
+  const { freeShipping: _omitida, ...deliverySemAChave } = config.delivery;
+  const semAChave = { ...ctx(), config: { ...config, delivery: deliverySemAChave } };
+
+  it("frete grátis continua liberado quando a chave não existe", () => {
+    expect(blocked(runGates("O frete é grátis nos dois casos.", semAChave)))
+      .not.toContain("shipping_promise");
+  });
+
+  it("só `false` explícito volta a regra antiga", () => {
+    const desligado = {
+      ...ctx(),
+      config: { ...config, delivery: { ...config.delivery, freeShipping: false } },
+    };
+    expect(blocked(runGates("O frete é grátis nos dois casos.", desligado)))
+      .toContain("shipping_promise");
+  });
+});
+
+/**
+ * A ambiguidade que não é mentira e custa a venda. O operador achou numa transcrição
+ * real: cada oração é verdadeira, e lidas juntas dizem que o prazo vale para os dois
+ * caminhos — e não vale. Ela pergunta de novo, o que já é falha da agente, ou não
+ * pergunta e espera a data errada, que é a recusa na porta.
+ */
+describe("prazo com as duas opções na mesa", () => {
+  it("barra o prazo solto quando as duas formas estão lado a lado", () => {
+    const frase =
+      "Para o tamanho G, a entrega fica na janela de 1 a 3 dias e o frete é grátis. " +
+      "Você prefere pagar R$ 129,90 na entrega ou antecipar, pelo mesmo valor?";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+
+  it("passa quando cada prazo diz de quem é", () => {
+    const frase =
+      "No pagamento na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do " +
+      "entregador. No antecipado o prazo varia, em média 5 dias úteis.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("mensagem de um caminho só não precisa de rótulo", () => {
+    expect(blocked(runGates("A entrega leva de 1 a 3 dias e você escolhe o dia.", ctx())))
+      .not.toContain("unattributed_window");
+  });
+});
+
+/**
+ * A segunda metade do mesmo defeito, achada na sonda de produção depois da primeira
+ * correção: a agente comparou as duas formas e deu prazo só na entrega. Ela lê os dois
+ * blocos lado a lado, um tem data e o outro não, e preenche o buraco com o número que
+ * acabou de ler.
+ */
+describe("prazo em uma opção só", () => {
+  it("barra a comparação com prazo só num dos lados", () => {
+    const frase =
+      "Na entrega você paga R$ 129,90 quando o colete chegar, em 1 a 3 dias. " +
+      "Antecipado você paga R$ 129,90 agora, com frete grátis.";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+
+  it("passa com o prazo dos dois lados", () => {
+    const frase =
+      "Na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do entregador. " +
+      "No antecipado o prazo varia por região, em média 5 dias úteis.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("passa sem prazo nenhum — comparar só preço é legítimo", () => {
+    const frase = "Na entrega são R$ 129,90 na mão do entregador; antecipado, o mesmo valor.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("'agendada' não é rótulo: é a nossa palavra, não a dela", () => {
+    const frase =
+      "A entrega é agendada para 1 a 3 dias. Você prefere pagar na entrega ou antecipado?";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+});
+
+/**
+ * O gate do prazo escolhia UM caminho pelo contexto, e a mensagem de comparação carrega
+ * os dois de propósito — um por opção. O resultado é que a frase que o prompt ensina
+ * nunca podia passar: metade certa dela era lida como contradição.
+ */
+describe("cada prazo julgado pelo caminho que a frase dele nomeia", () => {
+  const exemplar =
+    "Na entrega: você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 " +
+    "na mão do entregador, só quando o pacote chegar.\n\n" +
+    "Antecipado: você paga R$ 129,90 agora, e o prazo varia por região, em média 5 dias úteis.\n\n" +
+    "Nos dois o frete é grátis. Qual você prefere?";
+
+  it("o exemplar do próprio prompt passa a cadeia inteira", () => {
+    expect(runGates(exemplar, ctx()).allowed).toBe(true);
+  });
+
+  it("trocar as janelas de lugar continua sendo veto", () => {
+    expect(blocked(runGates("Na entrega chega em 3 a 10 dias.", ctx())))
+      .toContain("delivery_promise");
+    expect(blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx())))
+      .toContain("delivery_promise");
+  });
+
+  it("prazo que não é de nenhum dos dois continua barrado", () => {
+    expect(blocked(runGates("No antecipado chega em 1 a 20 dias.", ctx())))
+      .toContain("delivery_promise");
   });
 });

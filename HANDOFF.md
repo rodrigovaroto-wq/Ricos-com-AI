@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09
+> Atualizado em: 2026-09-09 (fim do dia — v27 no ar, [PR #21](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/21))
 
 ---
 
@@ -34,83 +34,155 @@ alguém replicar manualmente.
 
 ## Em uma frase
 
-A conversa vai do "oi" ao link de checkout preenchido, com guardrail, custo por chamada e
-handoff por e-mail — tudo verificado em produção. **O que trava não é mais código: é
-estoque.** O tamanho M não existe em nenhuma cidade do Brasil, o pagamento na entrega cobre
-metade das praças e nunca os cinco tamanhos, e a agente ainda indica tamanho sem consultar
-nada.
+A conversa vai do "oi" ao link de checkout, com guardrail, custo por chamada e handoff por
+e-mail — tudo verificado pela porta de produção. **O que trava agora é operação, e são
+duas coisas concretas:** a cota da OpenAI está estourada (toda conversa vira handoff) e o
+canal do WhatsApp não existe — a decisão de 2026-09-09 é **Cloud API**, não WAHA.
 
 ---
 
-## COMECE POR AQUI — estado em 2026-09-09
+## COMECE POR AQUI — estado em 2026-09-09, fim do dia
 
-Quem pega esta sessão do zero: leia esta seção inteira, depois
-[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md),
-e só então o resto do arquivo (que é histórico, do mais recente para o mais antigo).
+Quem pega esta sessão do zero: leia esta seção, depois
+[`docs/operacao/plano-lacunas.html`](docs/operacao/plano-lacunas.html) (as dez lacunas e o
+plano em quatro ondas) e [`docs/operacao/mapa-financeiro.html`](docs/operacao/mapa-financeiro.html)
+(margem, taxas e ciclo de caixa). O resto deste arquivo é histórico, do mais recente para
+o mais antigo, **e as seções antigas contêm afirmações que foram corrigidas depois** — nos
+prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
-### O que está no ar e funcionando
+### O que está no ar
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v18**, byte a byte igual ao repositório |
-| Guardrails | 17 gates, briefing no prompt, `fallback` no lugar de handoff por veto |
-| Venda ponta a ponta | verificada pelo webhook de produção, com zero veto |
-| E-mail de handoff | verificado (Gmail `250 2.0.0 OK`) |
-| Página de obrigado | pronta, e agora alcançável pelas três URLs de redirecionamento da Coinzz |
-| Testes | 2694 + 821 casos de faixa, lint, typecheck e `deno check` verdes |
-| Consulta de estoque | `pnpm dev:estoque` — funciona, **ainda fora da agente** |
+| Edge Function `turn` | **v27**, byte a byte igual ao repositório |
+| Guardrails | **19 gates**, briefing no prompt |
+| Testes | **2763**, lint, typecheck e `deno check` verdes |
+| Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
+| Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
+| Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
+| Rota de pedido | `job: "order"` no ar, verificada: cancela o silêncio e arma o pós-pedido |
+| Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
+| Cota da OpenAI | **estourada** — 100k TPM, sem cota; toda conversa cai no handoff |
 
-### Os três fatos que mudaram o projeto em 2026-09-08/09
+### As quatro coisas que mudaram de verdade em 2026-09-09
 
-1. **O tamanho M está zerado nas 43 cidades varridas**, nos dois caminhos de pagamento. A
-   agente indica M pela tabela de cintura — é a faixa mais comum — e a cliente bate na
-   parede. Nada disso é código: é o fornecedor.
-2. **O pagamento na entrega cobre 22 das 43 cidades, e nunca os cinco tamanhos.** São dois
-   ou três por praça, e quais muda: São Paulo tem G/GG/XGG sem P, o Rio tem P/GG/XGG sem G.
-3. **Os dois preços verdadeiros.** Entrega: **R$ 154,88** (R$ 129,90 + R$ 24,98 de frete,
-   constante em todo lugar). Antecipado: **R$ 110,41 fechados, frete grátis nacional**,
-   todos os tamanhos menos o M. O antecipado é mais barato para a cliente **e** cobre o
-   país inteiro — o script hoje empurra o caminho mais caro e menos disponível como padrão.
+1. **Os dois caminhos mudaram de plataforma.** Pagamento na entrega é o agendamento da
+   **Logzz** (`entrega.logzz.com.br/pay/encorpa-pa`); antecipado continua na **Coinzz**.
+   Cada checkout lê quatro parâmetros da query string, e o CPF tem nome diferente em cada
+   um: `cpf` na Logzz, `document` na Coinzz. Nenhum dos dois aceita endereço.
+2. **O tamanho vai no COMPLEMENTO do agendamento.** A página da Logzz não tem seletor de
+   tamanho — a instrução é do próprio fornecedor, em maiúsculas, na descrição do produto.
+   Em branco, o depósito escolhe.
+3. **"Frete grátis" virou verdade e o gate inverteu.** Ele barrava a frase; agora barra
+   quem cobra frete dela. Atrás da flag `delivery.freeShipping`, que é **opcional e
+   ausente significa grátis** — ver a armadilha do `BUSINESS_CONFIG` abaixo.
+4. **O M não é problema de estoque.** É a parametrização de produtos da integração Logzz
+   na Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e
+   por isso ela é feita com o G e nunca veta um tamanho.
+5. **O frete virou custo fixo** (suporte da Logzz, fim do dia): **R$ 15,00 pagos pela
+   operação**, iguais em qualquer praça, e a cliente não paga nada em nenhum dos dois
+   caminhos. O antecipado tem **os mesmos custos** do pagamento na entrega. O que varia
+   por região agora é **só o prazo**. O teto de R$ 20 com repasse do excedente durou um
+   dia — `routeFor` não faz mais aritmética nenhuma.
 
-### As quatro decisões travadas com o operador
+### Preço único: o antecipado deixou de ser opção
 
-Nenhuma delas é técnica. Enquanto não vierem, não dá para escrever a regra certa.
+**As decisões do operador (2026-09-09, fim do dia), todas já tomadas e nenhuma em aberto:**
 
-1. **O M volta quando?** Se for dias, a agente segura e avisa. Se for indefinido, precisa de
-   outra regra.
-2. **Qual caminho é o padrão do script**, agora que o antecipado é mais barato e mais
-   disponível? Depende do custo real do operador nos dois caminhos, que ainda não temos.
-3. **O que a agente faz quando o tamanho certo não tem entrega?** (a) oferece o antecipado
-   do mesmo tamanho; (b) oferece o tamanho vizinho que tem entrega; (c) diz que avisa
-   quando chegar. **Recomendação registrada: (a)** — tamanho errado volta, e devolução
-   custa mais que a venda vale.
-4. **Como dizer o preço da entrega.** Como o frete é constante, a recomendação é a agente
-   dizer **"R$ 154,88, o colete mais o frete, pago na entrega"** — um número, sem surpresa
-   na porta. Falta o "sim".
+1. **Desconto do antecipado: ZERO.** Os dois caminhos custam **R$ 129,90**. A análise que
+   levou a isso: o antecipado paga R$ 15,00 de frete que o COD não paga, então ao mesmo
+   preço ele rende R$ 48,35 contra R$ 63,35 do COD (R$ 52,35 esperados com 15% de
+   frustração). **Nenhum desconto salvava** — mesmo a zero ele perde R$ 4,00 para o COD, e
+   só empataria se a frustração passasse de 20,5%, contra os 13–16% que a própria Coinzz
+   documenta. Com os 15% antigos a perda era de R$ 22,12 por venda.
+2. **O antecipado deixa de ser opção e vira saída.** A agente **só o apresenta quando o
+   COD não alcança** — praça sem cobertura ou tamanho sem entrega naquela região. Onde o
+   COD chega, existe um preço só e nenhuma escolha a fazer.
+3. **Prazo do antecipado: não é mais faixa.** Em vez de "3 a 10 dias úteis", a frase é
+   **"varia por região, em média 5 dias úteis"** — sempre dizendo que varia.
+4. **Frete:** fixo em R$ 15,00 pagos pela operação **só no antecipado**; o COD não paga
+   frete nenhum. A cliente não paga nada nos dois.
 
-### O que o operador precisa buscar, e onde
+**Feito, verificado e no ar:**
 
-1. **Custo real por venda**, nos dois caminhos: peça, taxa da Logzz no COD, envio do
-   antecipado. Painel da Logzz + fatura da Coinzz. Sem isso a decisão 2 não fecha.
-2. **Print da tela de estoque da Logzz** — queremos ver se ela dá estoque por tamanho e por
-   cidade de operação. É a fonte de verdade; o checkout é o reflexo.
-3. **Aba "Checkout" da oferta na Coinzz** — procurar "variação pré-selecionada". Existe um
-   `prePopulatedVariations` renderizado pelo servidor, hoje vazio, e ele **não** vem por
-   query string (oito grafias testadas). Se for opção de painel, é o caminho para mandar o
-   link com o tamanho já escolhido.
-4. **Se o token da API da Coinzz existe** na credencial do n8n — para testar se a API
-   oficial expõe estoque melhor que o endpoint de checkout. **Não colar token no chat.**
+- `prices.prepayBrl` → 129.9 e `prepayDiscountPercent` → 0, no fixture, nos runners de
+  dev, no fallback da Edge Function e no `config/business.example.json`.
+- `delivery.prepayDaysMin/Max` trocados por `prepayAvgDays: 5` + `prepayVariesByRegion`.
+- `price_promise`: a economia entre os dois preços só entra na lista de valores citáveis
+  **enquanto ela for maior que zero** — senão "sai por zero reais" passaria.
+- `delivery_promise`: regra nova da média. Sondada e funcionando —
+  `"varia por região, em média 5 dias úteis"` passa; `"chega em 5 dias úteis"` (sem dizer
+  que varia), `"7 dias úteis em média"` (número errado) e qualquer faixa são barrados.
 
-### Higiene de segurança pendente
+**A única coisa que falta é sua:** colar o `BUSINESS_CONFIG` novo, com
+`prepayBrl: 129.9`, `prepayDiscountPercent: 0`, **sem** `prepayDaysMin/Max` e com
+`prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
+e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
 
-O operador colou, em texto puro, ao longo destas sessões: cookies de sessão da Coinzz,
-`x-csrf-token`, `cf_clearance`, o próprio CPF, dois tokens de acesso do Facebook e dois
-Personal Access Tokens da Supabase. Nada disso foi usado nem gravado no repositório. Ainda
-assim: **rotacionar** o `service_role` da Supabase, as chaves OpenAI/Gemini e os tokens do
-Facebook; os dois PAT da Supabase e o token da Coinzz o operador já revogou; sair da conta
-da Coinzz invalida a sessão colada.
+### A varredura de código do fim do dia
+
+Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
+mais custariam eram silenciosos: `cancelScheduled` cancelava **toda** a régua, então a
+primeira mensagem da cliente depois de comprar matava a véspera da entrega; e
+`extractName` aceitava qualquer mensagem de duas palavras, então **"boa tarde" virava o
+nome permanente dela** — no lead, no link do checkout, no corpo do pedido e no pacote.
+
+Dois gates recusavam a própria saída correta: o do prazo escolhia um caminho pelo contexto
+enquanto a mensagem de comparação carrega os dois de propósito, e o da escassez absolvia a
+frase inteira quando um número era verdadeiro. Há um teste agora que passa **o exemplar
+do próprio prompt** pela cadeia inteira — era a lacuna de método por trás dos dois.
+
+### A armadilha que custou meio dia, e vai custar de novo
+
+A produção monta o config com `Deno.env.get("BUSINESS_CONFIG") ?? fallback`. **O `??` é
+sobre a variável inteira**, não campo a campo: com o secret setado — e está — o objeto do
+código nunca é lido, e uma chave nova nasce ausente lá. O `freeShipping` foi criado
+obrigatório, leu como `false` em produção e reinstalou o veto que a onda 1 tinha acabado
+de inverter, com 2.738 testes verdes e o deploy dado como concluído.
+
+**Campo novo em `BusinessConfig` nasce opcional, com o padrão certo para ausente.** O
+valor do secret **não é legível** pela API de gerência (vem hasheado); só o operador vê no
+painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/business-config-sobrescreve.md).
+
+### O que falta, em ordem
+
+0. **Colar o `BUSINESS_CONFIG` novo** — o preço único só vale quando o secret mudar.
+1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
+   decidiu não subir o limite por enquanto (2026-09-09).
+2. **Sonda de produção da v26.** Nada da v25 para cá foi confirmado pela porta de
+   produção — a cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho →
+   CEP → "qual a diferença?", conferindo que sai **1 a 3** na entrega e **3 a 10 dias
+   úteis** no antecipado, cada um colado na sua opção.
+3. **Webhook de venda da Logzz e da Coinzz** apontando para `job: "order"`. A rota está
+   pronta e verificada; falta quem a chame. Sem isso a régua de pós-pedido nunca arma.
+4. **Ramo de erro no n8n.** A recusa da Edge Function (422) volta como **200 vazio** pela
+   porta de produção — o status não é canal de erro neste desenho. Ver
+   [`.claude/memory/n8n-achata-o-status.md`](.claude/memory/n8n-achata-o-status.md).
+5. **Canal: WhatsApp Cloud API** (decisão de 2026-09-09, substitui o WAHA). Frente do
+   sócio do operador. **Consequência para o código:** a régua de silêncio manda toques na
+   manhã seguinte e 3 dias depois — os dois caem fora da janela de 24h e só saem como
+   **template aprovado**, o que muda `followups.ts` de texto livre para template com
+   variáveis.
+6. **`pacing.ts` não está ligado em nada.** O ritmo humano (0,8 s por palavra, bolhas,
+   "digitando") existe, tem teste e nenhum importador fora do próprio teste. Entra junto
+   com o canal.
+
+### Higiene de segurança
+
+Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. O PAT
+da Supabase usado nos deploys de 2026-09-09 foi colado no chat — **revogar**. E um print
+de DevTools enviado nesta sessão trazia telefone e CPF de uma cliente real; nada foi usado
+nem gravado, mas print de aba Network carrega dado pessoal junto.
 
 ---
+
+## Histórico — o que veio antes de 2026-09-09 à noite
+
+> **Aviso.** Daqui para baixo é registro, não estado. Três coisas foram corrigidas depois
+> e aparecem erradas nas seções antigas: o prazo do antecipado (era 5 a 10, é 3 a 10 dias
+> úteis), o frete do pagamento na entrega (era R$ 24,98 cobrado da cliente, hoje é zero) e
+> a leitura do M (era "estoque zerado no país", é parametrização da integração). Onde
+> divergirem do COMECE POR AQUI, o topo vence.
 
 ## Onde o trabalho parou
 
