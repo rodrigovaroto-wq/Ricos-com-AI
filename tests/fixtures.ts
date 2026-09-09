@@ -22,7 +22,10 @@ export const config: BusinessConfig = {
   cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
   coupon: { code: "SUPER20", percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
-  checkout: { baseUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-na-entrega-0" },
+  checkout: {
+    codUrl: "https://entrega.logzz.com.br/pay/encorpa-pa",
+    prepayUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0",
+  },
   handoff: { email: "operador@example.com" },
   testimonials: ["vesti pra festa e não tirei mais, o vestido caiu diferente"],
 };

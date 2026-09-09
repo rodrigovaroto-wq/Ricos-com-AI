@@ -29,7 +29,12 @@ export interface BusinessConfig {
   coupon: { code: string; percent: number; active: boolean };
   /** When `Físico na entrega` is off, the courier does not collect: no "pay on delivery" promise. */
   cod: { physicalOnDeliveryActive: boolean };
-  checkout: { baseUrl: string };
+  /**
+   * Os dois checkouts, em duas plataformas desde 2026-09-09: a entrega agendada é da
+   * Logzz, o antecipado é da Coinzz. Era `baseUrl` — um só —, o que já não descrevia a
+   * operação e divergia do tipo que a Edge Function usa de verdade.
+   */
+  checkout: { codUrl: string; prepayUrl?: string };
   handoff: { email: string };
   /**
    * Urgency the operation can actually back. Absent means the agent may not cite stock

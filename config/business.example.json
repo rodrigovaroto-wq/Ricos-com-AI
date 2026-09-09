@@ -10,13 +10,12 @@
     "anchorBrl": 216.5
   },
   "delivery": {
-    "_comment": "Janelas conferidas no checkout da Coinzz em 2026-09-08. Na entrega, a cliente escolhe o dia entre as opções que o checkout oferece, de 1 a 3 dias. No antecipado são 5 a 10 dias ÚTEIS. Apagar prepayDaysMin/prepayDaysMax faz o guardrail voltar a barrar qualquer prazo no antecipado, que é o certo se o número deixar de valer.",
     "codDaysMin": 1,
     "codDaysMax": 3,
     "prepayDaysMin": 3,
     "prepayDaysMax": 10,
     "codScheduled": true,
-    "prepayVariesByRegion": true,
+    "prepayVariesByRegion": false,
     "warrantyDays": 7,
     "freeShipping": true
   },
@@ -41,18 +40,16 @@
     "active": false
   },
   "cod": {
-    "physicalOnDeliveryActive": false
+    "physicalOnDeliveryActive": true
   },
   "checkout": {
-    "_comment": "Dois checkouts, em DUAS plataformas desde 2026-09-09: pagamento na entrega é o agendamento da Logzz (entrega.logzz.com.br/pay/...), antecipado continua na Coinzz. Cada um lê QUATRO parâmetros da query string e aí pula direto para a etapa de endereço — name, email, phone e o CPF, que a Logzz chama de `cpf` e a Coinzz de `document` (sondados campo a campo nas duas páginas). Endereço NÃO tem parâmetro em nenhuma das duas. Tamanho também não: no antecipado ela escolhe no seletor; na entrega ela ESCREVE o tamanho no complemento do agendamento, conforme a instrução do próprio fornecedor na página do produto.",
-    "codUrl": "{{URL_CHECKOUT_PAGAMENTO_NA_ENTREGA}}",
-    "prepayUrl": "{{URL_CHECKOUT_PAGAMENTO_ANTECIPADO}}"
+    "codUrl": "https://entrega.logzz.com.br/pay/encorpa-pa",
+    "prepayUrl": "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0"
   },
   "handoff": {
     "email": "{{EMAIL}}"
   },
   "scarcity": {
-    "_comment": "Urgência. unitsLeft/offerEndsAt: números reais, e a agente repete só eles. allowUnverified: decisão do operador — libera a agente a criar urgência sem número contado por trás. Com ele ligado, prefira ainda assim preencher unitsLeft: número igual o dia inteiro parece real, número diferente a cada conversa é o que a cliente com o print percebe.",
     "unitsLeft": 12,
     "offerEndsAt": null,
     "allowUnverified": true
@@ -62,11 +59,10 @@
     "{{DEPOIMENTO_REAL_2}}"
   ],
   "coinzz": {
-    "_comment": "API da Coinzz. O token NUNCA entra aqui nem no repositório: ele mora numa credencial do n8n, que é quem faz a chamada HTTP. offerHash vem do painel. codPaymentMethod = 'afterpay', confirmado pelo operador em 2026-09-08 como o método da Coinzz que corresponde a pagar depois — o primeiro pedido real deve ser conferido ponta a ponta antes de rodar tráfego, porque método errado cria cobrança que a cliente não combinou. São DUAS ofertas: offerHash é a do checkout encorpa-pagamento-na-entrega-0, prepayOfferHash é a do encorpa-pagamento-antecipado-0. Onde achar: aba Network do navegador no próprio checkout, painel da Coinzz, ou o payload de um webhook de venda antiga. O formato do exemplo deles é offxxxxxxxx.",
-    "offerHash": "{{OFFER_HASH_PAGAMENTO_NA_ENTREGA}}",
-    "prepayOfferHash": "{{OFFER_HASH_PAGAMENTO_ANTECIPADO}}",
+    "offerHash": "{{OFFER_HASH_ENTREGA}}",
+    "prepayOfferHash": "{{OFFER_HASH_ANTECIPADO}}",
     "codPaymentMethod": "afterpay",
-    "prepayPaymentMethod": "pix",
-    "shippingValueCents": 0
-  }
+    "prepayPaymentMethod": "pix"
+  },
+  "_comment": "Espelho do BUSINESS_CONFIG que a producao le. A Edge Function monta o CONFIG com `Deno.env.get(\"BUSINESS_CONFIG\") ?? fallback` — o ?? e sobre a variavel INTEIRA, entao com o secret setado o fallback do codigo nunca e lido e uma chave nova nasce ausente la. Campo novo entra opcional, com o padrao correto para ausente. Ver .claude/memory/business-config-sobrescreve.md."
 }
