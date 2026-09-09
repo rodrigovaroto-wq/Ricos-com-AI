@@ -10,17 +10,87 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > `HANDOFF.md` resumido específico dele. Se um dia os dois divergirem sobre
 > negócio, **este repositório é a fonte**.
 
-> Atualizado em: 2026-09-08
+> Atualizado em: 2026-09-09
 
 ---
 
 ## Em uma frase
 
-A conversa vai do "oi" ao pedido pronto para nascer: tamanho pela tabela publicada,
-endereço confirmado por ela, nome/e-mail/CPF coletados, e o corpo da Coinzz montado
-esperando só o `offer_hash`. Tudo isso **sem número de WhatsApp**, contra um contrato
-de canal que o WAHA preenche quando o número existir — e coberto por 360 conversas
-completas que rodam a cada push.
+A conversa vai do "oi" ao link de checkout preenchido, com guardrail, custo por chamada e
+handoff por e-mail — tudo verificado em produção. **O que trava não é mais código: é
+estoque.** O tamanho M não existe em nenhuma cidade do Brasil, o pagamento na entrega cobre
+metade das praças e nunca os cinco tamanhos, e a agente ainda indica tamanho sem consultar
+nada.
+
+---
+
+## COMECE POR AQUI — estado em 2026-09-09
+
+Quem pega esta sessão do zero: leia esta seção inteira, depois
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md),
+e só então o resto do arquivo (que é histórico, do mais recente para o mais antigo).
+
+### O que está no ar e funcionando
+
+| | Estado |
+|---|---|
+| Edge Function `turn` | **v18**, byte a byte igual ao repositório |
+| Guardrails | 17 gates, briefing no prompt, `fallback` no lugar de handoff por veto |
+| Venda ponta a ponta | verificada pelo webhook de produção, com zero veto |
+| E-mail de handoff | verificado (Gmail `250 2.0.0 OK`) |
+| Página de obrigado | pronta, e agora alcançável pelas três URLs de redirecionamento da Coinzz |
+| Testes | 2694 + 821 casos de faixa, lint, typecheck e `deno check` verdes |
+| Consulta de estoque | `pnpm dev:estoque` — funciona, **ainda fora da agente** |
+
+### Os três fatos que mudaram o projeto em 2026-09-08/09
+
+1. **O tamanho M está zerado nas 43 cidades varridas**, nos dois caminhos de pagamento. A
+   agente indica M pela tabela de cintura — é a faixa mais comum — e a cliente bate na
+   parede. Nada disso é código: é o fornecedor.
+2. **O pagamento na entrega cobre 22 das 43 cidades, e nunca os cinco tamanhos.** São dois
+   ou três por praça, e quais muda: São Paulo tem G/GG/XGG sem P, o Rio tem P/GG/XGG sem G.
+3. **Os dois preços verdadeiros.** Entrega: **R$ 154,88** (R$ 129,90 + R$ 24,98 de frete,
+   constante em todo lugar). Antecipado: **R$ 110,41 fechados, frete grátis nacional**,
+   todos os tamanhos menos o M. O antecipado é mais barato para a cliente **e** cobre o
+   país inteiro — o script hoje empurra o caminho mais caro e menos disponível como padrão.
+
+### As quatro decisões travadas com o operador
+
+Nenhuma delas é técnica. Enquanto não vierem, não dá para escrever a regra certa.
+
+1. **O M volta quando?** Se for dias, a agente segura e avisa. Se for indefinido, precisa de
+   outra regra.
+2. **Qual caminho é o padrão do script**, agora que o antecipado é mais barato e mais
+   disponível? Depende do custo real do operador nos dois caminhos, que ainda não temos.
+3. **O que a agente faz quando o tamanho certo não tem entrega?** (a) oferece o antecipado
+   do mesmo tamanho; (b) oferece o tamanho vizinho que tem entrega; (c) diz que avisa
+   quando chegar. **Recomendação registrada: (a)** — tamanho errado volta, e devolução
+   custa mais que a venda vale.
+4. **Como dizer o preço da entrega.** Como o frete é constante, a recomendação é a agente
+   dizer **"R$ 154,88, o colete mais o frete, pago na entrega"** — um número, sem surpresa
+   na porta. Falta o "sim".
+
+### O que o operador precisa buscar, e onde
+
+1. **Custo real por venda**, nos dois caminhos: peça, taxa da Logzz no COD, envio do
+   antecipado. Painel da Logzz + fatura da Coinzz. Sem isso a decisão 2 não fecha.
+2. **Print da tela de estoque da Logzz** — queremos ver se ela dá estoque por tamanho e por
+   cidade de operação. É a fonte de verdade; o checkout é o reflexo.
+3. **Aba "Checkout" da oferta na Coinzz** — procurar "variação pré-selecionada". Existe um
+   `prePopulatedVariations` renderizado pelo servidor, hoje vazio, e ele **não** vem por
+   query string (oito grafias testadas). Se for opção de painel, é o caminho para mandar o
+   link com o tamanho já escolhido.
+4. **Se o token da API da Coinzz existe** na credencial do n8n — para testar se a API
+   oficial expõe estoque melhor que o endpoint de checkout. **Não colar token no chat.**
+
+### Higiene de segurança pendente
+
+O operador colou, em texto puro, ao longo destas sessões: cookies de sessão da Coinzz,
+`x-csrf-token`, `cf_clearance`, o próprio CPF, dois tokens de acesso do Facebook e dois
+Personal Access Tokens da Supabase. Nada disso foi usado nem gravado no repositório. Ainda
+assim: **rotacionar** o `service_role` da Supabase, as chaves OpenAI/Gemini e os tokens do
+Facebook; os dois PAT da Supabase e o token da Coinzz o operador já revogou; sair da conta
+da Coinzz invalida a sessão colada.
 
 ---
 
@@ -672,8 +742,14 @@ Pontos que mais importam para quem retoma o trabalho:
 - **Todos os áudios do funil serão regravados** — a locutora original não está mais
   disponível; os quatro roteiros novos estão em
   [`docs/agente-ia/06-script/02-script-do-agente.md`](docs/agente-ia/06-script/02-script-do-agente.md).
-- **Desconto antecipado:** 15% — o frete do antecipado fica com a cliente; o site já
-  implementa isso.
+- **Desconto antecipado:** 15%, ou seja **R$ 110,41**. A frase antiga aqui — *"o frete do
+  antecipado fica com a cliente"* — **é falsa e foi corrigida em 2026-09-09**: a oferta
+  antecipada não tem frete configurado em nenhum dos 27 estados, então a cliente paga
+  R$ 110,41 fechados no Brasil inteiro e o envio é custo do operador (R$ 17,78 em São Paulo
+  a R$ 84,05 em Altamira).
+- **Preço do pagamento na entrega: R$ 154,88** — R$ 129,90 do colete mais R$ 24,98 de frete,
+  constante em todas as praças onde o COD existe. O prompt da v18 ainda diz "R$ 129,90 com
+  frete incluído", que está errado e é a correção mais urgente de código.
 - **Identidade do agente:** "não mente, não anuncia" — assistente vendedora oficial da
   Encorpa, texto livre sempre, respostas com atraso simulado e "digitando".
 
@@ -900,53 +976,66 @@ que o checkout desmente. Isso espera decisão registrada abaixo.
 
 ---
 
-## Estoque por tamanho e por região — a preocupação aberta (2026-09-08)
+## Estoque por tamanho e por região — as três perguntas, respondidas (2026-09-09)
 
-O operador levantou o risco que mais ameaça a escala, e ele é de operação, não de código:
-o fornecedor tem **poucas peças por região e por tamanho**, repõe o tempo todo, e o plano é
-vender muito. Três perguntas em cima disso, e o estado honesto de cada uma:
+O operador levantou o risco que mais ameaça a escala. As três perguntas dele já têm resposta
+medida, não deduzida:
 
-1. **O que acontece se ela escolher M e não houver M para a região dela?** **Testado pelo
-   operador em 2026-09-08.** O checkout deixa selecionar o tamanho e só então abre um pop-up
-   dizendo que aquela variação está indisponível para a região. **No endereço dele, M está
-   indisponível no pagamento na entrega e disponível no antecipado** — e o antecipado ainda
-   apareceu com frete zero. Ou seja: existe uma consulta de disponibilidade por variação e
-   por região atrás daquele pop-up, e achá-la é o que permite a agente **checar antes de
-   indicar**, em vez de indicar e a cliente bater na parede.
-2. **A agente consegue checar antes de indicar o tamanho?** *Hoje, não.* Ela indica pela
-   tabela determinística de cintura e mais nada; não existe fonte de estoque ligada a ela.
-   Para existir, a Logzz precisa expor estoque por variação e por região — e isso não está
-   verificado. Enquanto não estiver, a única defesa é tratar a recusa como caminho de
-   conversa, do jeito que Q14 já decidiu para cobertura.
-3. **Dá para ter mais de um fornecedor?** Dá, e é decisão de operação: um segundo
-   fornecedor de pagamento na entrega significa uma segunda operação logística e, na
-   prática, uma segunda oferta e um segundo checkout. O código não atrapalha — os dois
-   links já vêm de `config/business.json`. O que ninguém deve fazer é montar isso antes de
-   responder a pergunta 1, porque a resposta pode ser que o próprio checkout já esconde o
-   tamanho indisponível, e aí o problema é outro: a agente indica um tamanho que a página
-   não oferece.
+1. **O que acontece se ela escolher um tamanho sem estoque na região?** O checkout deixa
+   selecionar e só então abre o pop-up *"Não há disponibilidade do produto para o CEP
+   solicitado"*. Atrás dele há uma consulta pública — ver a seção do `stock-and-delivery-day`.
+2. **A agente consegue checar antes de indicar?** **Sim, e barato.** A consulta é pública e
+   só o CEP muda a resposta. Falta escrevê-la dentro da agente: hoje ela só existe em
+   `src/dev/availability.ts`.
+3. **Dá para ter mais de um fornecedor?** Continua sendo decisão de operação, e ficou menos
+   urgente: o gargalo medido não é "poucas peças por região", é **um tamanho zerado no país
+   inteiro** e uma cobertura de COD que é metade do mapa. Um segundo fornecedor não resolve
+   nenhum dos dois sozinho.
 
-**A ponte barata, se a pergunta 1 confirmar o pior.** O caminho antecipado já está montado,
-com link próprio. Se o estoque que falta for só o do pagamento na entrega naquela região, a
-venda não está perdida: ela vira antecipado com 15% de desconto. Isso depende de o
-antecipado sair de um estoque diferente — **a confirmar com a Logzz antes de virar regra.**
+**A ponte barata está confirmada.** Quando o pagamento na entrega não existe — por praça ou
+por tamanho — o antecipado existe: todas as 43 cidades, todos os tamanhos menos o M, R$
+110,41 com frete grátis. A venda não está perdida, ela muda de caminho. Falta só a agente
+saber disso na hora certa.
 
 ---
 
 ## O que fazer em seguida
 
-Em ordem:
+Em ordem, e a ordem importa: os itens 1 e 2 mudam o que os outros devem fazer.
 
-1. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego.
-2. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
-   prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
-   O número já escolhido é **(11) 98859-0594**; nada o consome até o WAHA existir.
-3. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
-   Supabase, chaves OpenAI/Gemini, os dois tokens de acesso do Facebook que apareceram no
-   painel da Coinzz, e o Personal Access Token da Supabase usado para deployar a v15-v17.
-   O token da Coinzz o operador já revogou.
-4. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
-   `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
+1. **Destravar as quatro decisões do topo com o operador.** Nenhuma é técnica, todas
+   bloqueiam código. A mais urgente é o M.
+2. **Resolver o estoque com a Logzz** — o M em todo o país, e o mapa de cobertura do
+   pagamento na entrega. Rodar `pnpm dev:estoque` de novo depois de qualquer reposição:
+   a varredura commitada é fotografia, não tabela fixa.
+3. **Levar a consulta de disponibilidade para dentro da agente.** Escopo já definido, e não
+   depende de mais nenhuma descoberta:
+   - a agente pergunta **o CEP** antes de indicar tamanho (uma pergunta, não o endereço);
+   - cidade e UF saem do CEP pelo ViaCEP; telefone, CPF, bairro e número podem ser
+     sintéticos na consulta;
+   - lê `local_operation_cash_on_delivery.delivery_days_available` (vazio = sem entrega) e
+     `local_operation` (vazio = sem antecipado), **nunca** `stock` nem as flags `has_*`;
+   - relê a consulta com o CPF real depois de coletá-lo, para pegar
+     `has_pending_cash_on_delivery` e desviar para o antecipado em vez de mandar a cliente
+     para um checkout travado;
+   - guardrail novo: a agente não pode indicar tamanho sem disponibilidade confirmada;
+   - espelhar em `supabase/functions/turn/`, com teste de drift, e redeployar.
+4. **Alinhar preço e caminho padrão ao que a decisão 2 e 4 disserem** — prompt, briefing do
+   `shipping_promise` e do `price_promise`, site e o caso 387 do `src/dev/simulate.ts`, que
+   hoje afirma que no pagamento na entrega o frete já está incluído. **Isso é falso e ainda
+   está no ar na v18.**
+5. **Configurar as três URLs de obrigado** no painel da Coinzz (aba Redirecionamento da
+   oferta): AfterPay → `https://encorpa-fashion.com.br/obrigado`; PIX e Cartão →
+   `.../obrigado?pago=antecipado`.
+
+Sem prazo de código, mas com prazo de calendário:
+
+6. **Comprar o chip do WhatsApp e usá-lo como número comum.** Número novo precisa de semanas
+   de uso normal antes de tráfego pago. O escolhido é **(11) 98859-0594**; nada o consome
+   até o WAHA existir.
+7. **Rotacionar as credenciais** listadas na higiene de segurança, no topo.
+8. **Onda A4** (Hermes, conversão de volta para o Meta) e o `HANDOFF.md` do
+   **Encorpa-Website** — a relação é de mão dupla.
 
 ---
 
