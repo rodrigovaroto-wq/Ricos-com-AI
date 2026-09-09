@@ -110,9 +110,12 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="kicker">Encorpa · revisão geral do código · 09 set 2026</p>
+    <p class="kicker">Encorpa · revisão geral do código · 09 set 2026 · onda 1 e meia onda 2 executadas</p>
     <h1>Dez Lacunas</h1>
     <p class="standfirst">Varredura de <code>src</code>, <code>supabase</code>, <code>tests</code>, migrações e os dois workflows do n8n. Quatro destas quebram na primeira semana de tráfego pago; três você não tem como perceber sozinho, porque falham em silêncio.</p>
+    <div class="note" style="margin-top:18px; border-left-color:var(--sev3); background:var(--sev3-soft)">
+      <strong>Estado em 9 de setembro, fim do dia.</strong> Lacunas <strong>2, 3 e a metade de código da 1</strong> estão corrigidas e empurradas — 2.733 testes, lint, typecheck e <code>deno check</code> verdes. O que falta em cada uma está marcado abaixo. Nada disso está no ar: o deploy da Edge Function precisa de um Personal Access Token da Supabase, que só você cria.
+    </div>
   </header>
 
   <section>
@@ -125,7 +128,7 @@
       <div class="idx">1</div>
       <div>
         <h3>A cliente que comprou continua sendo perseguida</h3>
-        <div class="meta"><span class="tag t1">Quebra no dia 1</span><span class="tag t1">Visível para a cliente</span></div>
+        <div class="meta"><span class="tag t1">Quebra no dia 1</span><span class="tag t3">Código pronto · falta o webhook</span></div>
         <p>A régua de pós-pedido existe inteira — quatro toques escritos, renderizados e testados. E <strong>nada nunca a arma</strong>, porque nada no sistema sabe que uma venda aconteceu. A tabela <code>orders</code> está no schema e nenhuma linha de código escreve nela.</p>
         <p>O efeito não é só a régua boa que não roda: é a régua <em>errada</em> que roda. Quem comprou continua na régua de silêncio e recebe <em>“ainda tá pensando?”</em> três dias depois de já ter pago na porta.</p>
         <div class="ev">grep "orders" supabase/functions/turn/index.ts  → vazio
@@ -139,7 +142,7 @@ n8n: 2 workflows, nenhum de venda</div>
       <div class="idx">2</div>
       <div>
         <h3>“Frete grátis” virou verdade, e a agente está proibida de dizer</h3>
-        <div class="meta"><span class="tag t1">Custa conversão agora</span><span class="tag t2">Mentira no ar</span></div>
+        <div class="meta"><span class="tag t3">Corrigido · falta deploy</span><span class="tag t2">Mentira ainda no ar</span></div>
         <p>Você zerou o frete na oferta da Logzz — a página devolve <code>freight: "0.00"</code>. E o antecipado sempre teve frete grátis nacional: <code>settingsFreight: []</code>, medido nos 27 estados. Ou seja, <strong>nos dois caminhos o frete é zero para a cliente</strong>.</p>
         <p>Só que o gate <code>shipping_promise</code> barra a frase nos dois, e o prompt da produção afirma o contrário: <em>“no antecipado o frete é calculado à parte no checkout”</em>. A agente está impedida de dizer o argumento mais convertivo que existe — e instruída a dizer uma coisa falsa no lugar.</p>
         <div class="ev">supabase/functions/turn/index.ts:348 — "o frete é calculado à parte no checkout"
@@ -153,7 +156,7 @@ guardrails: shipping_promise → "Nunca diga frete grátis"
       <div class="idx">3</div>
       <div>
         <h3>Todo lead é anônimo — você vai otimizar campanha no escuro</h3>
-        <div class="meta"><span class="tag t1">Quebra no dia 1</span><span class="tag t3">Invisível</span></div>
+        <div class="meta"><span class="tag t3">Corrigido · falta deploy</span></div>
         <p>A coluna <code>leads.source</code> está no schema desde o primeiro dia, com o comentário <em>“atribuição do primeiro toque; nunca sobrescrever”</em>. O contrato do canal já prevê o <code>ctwaClid</code> do Click-to-WhatsApp. E o handler <strong>nunca escreve nenhum dos dois</strong>.</p>
         <p>Sem isso não existe a pergunta “qual anúncio trouxe esta venda”. Você paga o Meta sem saber qual criativo se paga, e a Conversions API não tem o que devolver.</p>
         <div class="ev">grep -n "ctwa|source" supabase/functions/turn/index.ts  → vazio</div>
