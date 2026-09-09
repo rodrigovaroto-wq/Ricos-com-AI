@@ -28,6 +28,7 @@ import {
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -423,12 +424,39 @@ const statedSize = (message: string): { stated: number; size: string } | null =>
   return stated === null ? null : { stated, size: sizeFromDressSize(stated) };
 };
 
-const sizeDirectiveFor = (stated: { stated: number; size: string } | null): string | null =>
-  stated === null
-    ? null
-    : `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
-      ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.` +
-      ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
+/**
+ * The size, and the one thing that has to happen before it is said out loud.
+ *
+ * Knowing which size she wears is not the same as knowing she can receive it. Until the
+ * postcode is on the table there is nothing to consult, and the agent naming a size is a
+ * commitment the checkout may refuse — after she has already chosen, which is the most
+ * expensive moment to find out. So the directive splits: the table resolves the size,
+ * and the CEP unlocks saying it.
+ *
+ * One question, not the address. Asking for a street before she has decided to buy is
+ * five turns spent making her type what the checkout will ask again anyway.
+ */
+const sizeDirectiveFor = (
+  stated: { stated: number; size: string } | null,
+  region: Region | null,
+): string | null => {
+  if (stated === null) return null;
+  const resolved =
+    `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
+    ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.`;
+  if (region === null) {
+    return `${resolved} MAS NÃO DIGA O TAMANHO AINDA: peça o CEP dela primeiro, só o CEP,` +
+      ` explicando que é para conferir a entrega na região. Assim que ela mandar, você` +
+      ` confirma o tamanho na mesma mensagem.`;
+  }
+  const delivery = region.cod
+    ? `A entrega chega no CEP dela${
+        region.sameDay ? `, inclusive no MESMO DIA — isso é o seu argumento mais forte` : ""
+      }.`
+    : `A entrega agendada NÃO cobre o CEP dela: ofereça o pagamento antecipado, que chega` +
+      ` em qualquer lugar do país, com o mesmo frete grátis.`;
+  return `${resolved} Diga esse tamanho com palavra simples, sem usar "manequim". ${delivery}`;
+};
 
 /**
  * Name, e-mail and CPF — the three the checkout link carries, and the only three the
@@ -1071,6 +1099,36 @@ Deno.serve(async (request: Request): Promise<Response> => {
     addressConfirmed = true;
   }
 
+  /**
+   * 5d-bis. The region, the moment a postcode exists.
+   *
+   * This is the whole of wave 3 and it costs one question: the CEP. Until now the agent
+   * named a size with nothing to consult and the customer met the checkout's "não há
+   * disponibilidade" popup after she had already chosen — the most expensive moment
+   * possible to find out.
+   *
+   * The postcode rides in on the address machinery that was already accumulating it, so
+   * there is no new state and no second question. What comes back is about the REGION:
+   * whether delivery reaches her, which three days, whether Express exists, and the
+   * carrier quote. It never vetoes a size — the Coinzz mapping is wrong about the M and
+   * the Logzz checkout, where she actually buys, is not.
+   *
+   * A failed lookup is not a blocked sale. `region` stays null, the agent keeps talking,
+   * and the only thing it loses is permission to name a size — which is the correct
+   * failure: silence about the size beats a size she cannot receive.
+   */
+  let region: Region | null = null;
+  if (addressDraft.cep) {
+    try {
+      region = await checkRegion(async (url) => {
+        const r = await fetch(url);
+        return r.ok ? await r.json() : null;
+      }, addressDraft.cep);
+    } catch {
+      region = null; // The checkout being down is not a reason to stop selling.
+    }
+  }
+
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
     JSON.stringify({ ...storedAddress, confirmedAt: Boolean(storedAddress.confirmedAt) });
@@ -1164,8 +1222,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated, region), identityDirective, checkoutDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated, region), identityDirective, checkoutDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -1190,6 +1248,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.
       knownTestimonials: CONFIG.testimonials,
+      // The two the region unlocks. Without a postcode both stay undefined, and the
+      // chain refuses a size and refuses "hoje" — which is the correct silence.
+      ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
+      sameDayWindow: region?.sameDay ?? false,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

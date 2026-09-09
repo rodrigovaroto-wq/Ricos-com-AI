@@ -23,15 +23,16 @@
  * available for this size at this postcode — plus the operator's own shipping cost
  * on the prepaid path. It says nothing about stock. Treat it that way.
  *
- * AND AS OF 2026-09-09 IT NO LONGER DESCRIBES THE CASH-ON-DELIVERY PATH AT ALL.
- * That path moved to the Logzz scheduling checkout; Coinzz now serves the prepaid
- * offer only. The M is the proof: this query reports no delivery for it anywhere,
- * including a warehouse holding 196 units, and the operator confirmed that is a
- * Coinzz integration fault rather than the warehouse's answer. So routing a real
- * conversation on what this returns per size would push every M customer away from a
- * path that works for her. Nothing here is wired into the handler until the Logzz
- * checkout's own availability call is found — the same way this one was, in the
- * network tab of the page the customer actually opens.
+ * AND IT IS TRUSTWORTHY BY REGION, NOT BY SIZE. Cash on delivery moved to the Logzz
+ * scheduling checkout on 2026-09-09, and this query still reads the same Logzz local
+ * operation behind it — the same coverage, the same three dates, the same Express. What
+ * it gets wrong is the per-size answer: it reports no delivery for the M anywhere,
+ * including a warehouse holding 196 units, and the operator identified that as a fault
+ * in the Coinzz product mapping rather than the warehouse's answer.
+ *
+ * So the agent asks it one question — does delivery reach this postcode, on which days —
+ * using a size known to be mapped correctly, and never lets the per-size answer veto a
+ * size. Which size she gets is the Logzz checkout's call, where the M works.
  */
 
 /**
@@ -186,6 +187,58 @@ export const checkSize = async (
     size,
     await fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip, place, SIZE_CODES[size])}`),
   );
+
+/**
+ * The size the region query is asked with. Not a business choice — a diagnostic one: G is
+ * mapped correctly on the Coinzz side, so it answers for the region instead of answering
+ * for the mapping. Asking with the M would report every praça as closed.
+ */
+export const REFERENCE_SIZE: Size = "G";
+
+/** What the region actually offers her, with no claim about which size she gets. */
+export interface Region {
+  readonly zip: string;
+  readonly place: Place;
+  /** Cash on delivery reaches this postcode at all. */
+  readonly cod: boolean;
+  /** The days the checkout will offer, in ISO form. */
+  readonly dates: readonly string[];
+  /** Same-day delivery exists here. The only thing that lets the agent say "hoje". */
+  readonly sameDay: boolean;
+  /** The carrier quote on the prepaid path — the OPERATOR's cost, never her price. */
+  readonly labelBrl: number | null;
+}
+
+/**
+ * The postcode a Brazilian address lookup answers with. Kept here rather than imported so
+ * this file stays mirrorable byte for byte; a failure reads as "unknown region", which
+ * makes the agent ask again instead of guessing a city.
+ */
+export const VIACEP_ENDPOINT = "https://viacep.com.br/ws";
+
+export const readPlace = (body: unknown): Place | null => {
+  const j = body as { localidade?: string; uf?: string; bairro?: string; erro?: unknown } | null;
+  if (!j || j.erro || !j.localidade || !j.uf) return null;
+  return { city: j.localidade, state: j.uf, district: j.bairro || "Centro" };
+};
+
+export const toRegion = (zip: string, place: Place, a: Availability): Region => ({
+  zip,
+  place,
+  cod: a.cod,
+  dates: a.dates,
+  sameDay: a.express !== null,
+  labelBrl: a.labelBrl,
+});
+
+export const checkRegion = async (
+  fetcher: Fetcher,
+  zip: string,
+): Promise<Region | null> => {
+  const place = readPlace(await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`));
+  if (!place) return null;
+  return toRegion(zip, place, await checkSize(fetcher, zip, place, REFERENCE_SIZE));
+};
 
 /** The carrier cost the operator absorbs. Past it, the customer pays the excess. */
 export const LABEL_CAP_BRL = 20;

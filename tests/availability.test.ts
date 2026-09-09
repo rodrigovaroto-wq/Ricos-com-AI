@@ -1,6 +1,9 @@
 import { describe, expect, it } from "vitest";
 import {
   availabilityQuery,
+  checkRegion,
+  REFERENCE_SIZE,
+  toRegion,
   hasPendingCod,
   readAvailability,
   routeFor,
@@ -163,5 +166,48 @@ describe("Express", () => {
     const a = readAvailability("G", comExpress);
     expect(a.codFreightBrl).toBe(24.98);
     expect(a.dates).toEqual(["2026-09-10"]);
+  });
+});
+
+/**
+ * A consulta por região. É o que a onda 3 liga na conversa: uma pergunta só — o CEP —
+ * e a agente sabe se a entrega chega ali, em que dias, e se tem Express. O tamanho não
+ * é vetado por ela: quem decide isso é o checkout da Logzz, onde o M funciona.
+ */
+describe("região", () => {
+  const place = { city: "São Paulo", state: "SP", district: "Centro" };
+
+  it("pergunta com o tamanho que está mapeado certo", async () => {
+    let asked = "";
+    await checkRegion(async (url) => {
+      asked = url;
+      return url.includes("viacep")
+        ? { localidade: "São Paulo", uf: "SP", bairro: "Centro" }
+        : yes;
+    }, "04710-090");
+    expect(asked).toContain(SIZE_CODES[REFERENCE_SIZE]);
+    // O M é justamente o que não pode ser usado: a Coinzz responde por ele como se a
+    // praça inteira estivesse fechada.
+    expect(asked).not.toContain(SIZE_CODES.M);
+  });
+
+  it("traz cobertura, datas e Express, e o custo da etiqueta", () => {
+    const r = toRegion("04710-090", place, readAvailability("G", yes));
+    expect(r).toMatchObject({ cod: true, sameDay: false, labelBrl: 19.345 });
+    expect(r.dates).toEqual(["2026-09-10", "2026-09-11"]);
+  });
+
+  it("CEP que o ViaCEP não conhece devolve nada, e não um palpite de cidade", async () => {
+    const r = await checkRegion(async () => ({ erro: true }), "00000-000");
+    expect(r).toBeNull();
+  });
+
+  it("o CEP vai só com dígitos para o ViaCEP", async () => {
+    let asked = "";
+    await checkRegion(async (url) => {
+      if (url.includes("viacep")) { asked = url; return { localidade: "X", uf: "SP" }; }
+      return yes;
+    }, "04710-090");
+    expect(asked).toContain("/04710090/");
   });
 });
