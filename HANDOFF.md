@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (fim do dia — v26 no ar)
+> Atualizado em: 2026-09-09 (fim do dia — v26 no ar, **branch com trabalho pela metade**)
 
 ---
 
@@ -42,6 +42,18 @@ canal do WhatsApp não existe — a decisão de 2026-09-09 é **Cloud API**, nã
 ---
 
 ## COMECE POR AQUI — estado em 2026-09-09, fim do dia
+
+> ## ⚠ A BRANCH ESTÁ QUEBRADA. LEIA ISTO ANTES DE QUALQUER COISA.
+>
+> A sessão foi interrompida no meio de uma mudança de preço. O último commit
+> (`wip:`) tem **10 testes falhando e o typecheck quebrado** — de propósito, para não
+> perder o trabalho: em sessão remota o que não é commitado some com o container.
+>
+> **Não deploye nada até isto fechar.** A produção está na v26, que é o último estado
+> verificado e coerente; o repositório não está mais igual a ela.
+>
+> O que está pela metade e como terminar está em **§Mudança de preço, interrompida**,
+> logo abaixo dos fatos do dia.
 
 Quem pega esta sessão do zero: leia esta seção, depois
 [`docs/operacao/plano-lacunas.html`](docs/operacao/plano-lacunas.html) (as dez lacunas e o
@@ -85,6 +97,57 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
    por região agora é **só o prazo**. O teto de R$ 20 com repasse do excedente durou um
    dia — `routeFor` não faz mais aritmética nenhuma.
 
+### Mudança de preço, interrompida — o trabalho pela metade
+
+**As decisões do operador (2026-09-09, fim do dia), todas já tomadas e nenhuma em aberto:**
+
+1. **Desconto do antecipado: ZERO.** Os dois caminhos custam **R$ 129,90**. A análise que
+   levou a isso: o antecipado paga R$ 15,00 de frete que o COD não paga, então ao mesmo
+   preço ele rende R$ 48,35 contra R$ 63,35 do COD (R$ 52,35 esperados com 15% de
+   frustração). **Nenhum desconto salvava** — mesmo a zero ele perde R$ 4,00 para o COD, e
+   só empataria se a frustração passasse de 20,5%, contra os 13–16% que a própria Coinzz
+   documenta. Com os 15% antigos a perda era de R$ 22,12 por venda.
+2. **O antecipado deixa de ser opção e vira saída.** A agente **só o apresenta quando o
+   COD não alcança** — praça sem cobertura ou tamanho sem entrega naquela região. Onde o
+   COD chega, existe um preço só e nenhuma escolha a fazer.
+3. **Prazo do antecipado: não é mais faixa.** Em vez de "3 a 10 dias úteis", a frase é
+   **"varia por região, em média 5 dias úteis"** — sempre dizendo que varia.
+4. **Frete:** fixo em R$ 15,00 pagos pela operação **só no antecipado**; o COD não paga
+   frete nenhum. A cliente não paga nada nos dois.
+
+**O que já foi feito (está no commit `wip:`):**
+
+- `prices.prepayBrl` → 129.9 e `prepayDiscountPercent` → 0, no fixture, nos runners de
+  dev, no fallback da Edge Function e no `config/business.example.json`.
+- `delivery.prepayDaysMin/Max` trocados por `prepayAvgDays: 5` + `prepayVariesByRegion`.
+- `price_promise`: a economia entre os dois preços só entra na lista de valores citáveis
+  **enquanto ela for maior que zero** — senão "sai por zero reais" passaria.
+- `delivery_promise`: regra nova da média. Sondada e funcionando —
+  `"varia por região, em média 5 dias úteis"` passa; `"chega em 5 dias úteis"` (sem dizer
+  que varia), `"7 dias úteis em média"` (número errado) e qualquer faixa são barrados.
+
+**O que falta, e é exatamente o que quebrou (10 testes + typecheck):**
+
+1. **`src/dev/smoke.ts` tem chave duplicada** no literal de config — o typecheck para aí.
+   Foi o `sed` que inseriu `prepayAvgDays` sem remover o par antigo. Um minuto.
+2. **`prepayWindowLine()` no `index.ts` ainda lê `prepayDaysMin/Max`** (linhas ~269-271) e
+   devolve a faixa antiga. Tem de virar a frase da média.
+3. **O bloco de comparação no prompt** ainda ensina "ganha 15% de desconto" e mostra as
+   duas opções por padrão. Precisa virar: COD é a oferta; o antecipado só entra quando o
+   COD não alcança, e ali sem desconto, com frete grátis e a média de 5 dias úteis.
+4. **Textos e casos com os números velhos:** `src/dev/simulate.ts` (caso "preço
+   antecipado" e "economia"), `src/dev/conversations.ts:115`, `tests/guardrails.test.ts`
+   (três casos com 110,41 / 15%) e `tests/human-handoff.test.ts:140`.
+5. **`sizeDirectiveFor`** já desvia para o antecipado quando `!region.cod` — conferir que
+   a frase dele não promete desconto.
+6. Depois: `pnpm test && pnpm lint && pnpm typecheck && deno check`, espelhar os oito
+   arquivos, deploy, e **sonda de produção**.
+
+**E um `BUSINESS_CONFIG` novo para o operador colar**, com `prepayBrl: 129.9`,
+`prepayDiscountPercent: 0`, sem `prepayDaysMin/Max` e com `prepayAvgDays: 5` e
+`prepayVariesByRegion: true`. O secret atual ainda tem os valores velhos — e ele
+sobrescreve o código inteiro, ver a armadilha acima.
+
 ### A varredura de código do fim do dia
 
 Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
@@ -112,6 +175,9 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
 
 ### O que falta, em ordem
 
+0. **Fechar a mudança de preço** — é a única coisa que precede tudo, porque a branch não
+   compila. Seis passos, todos listados em §Mudança de preço, interrompida. Estimativa:
+   1 a 2 turnos.
 1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
    decidiu não subir o limite por enquanto (2026-09-09).
 2. **Sonda de produção da v26.** Nada da v25 para cá foi confirmado pela porta de

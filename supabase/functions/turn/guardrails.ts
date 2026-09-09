@@ -18,6 +18,14 @@ export interface GateConfig {
      */
     prepayDaysMin?: number;
     prepayDaysMax?: number;
+    /**
+     * The prepaid deadline stopped being a range on 2026-09-09: Logzz varies it by region
+     * and the only honest number is an average. Present and `prepayVariesByRegion` on, the
+     * agent may say this one number as an average; absent, it may say no prepaid deadline
+     * at all — which is the right default whenever nobody has measured one.
+     */
+    prepayAvgDays?: number;
+    prepayVariesByRegion?: boolean;
     warrantyDays: number;
     /**
      * Both offers ship free as of 2026-09-09 — the operator zeroed the freight on the
@@ -372,7 +380,11 @@ const gates: readonly Gate[] = [
       `permitido, e é o seu trabalho.`,
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, +(codBrl - prepayBrl).toFixed(2)]);
+      // The saving is a citable amount only while there IS one. With the prepaid discount
+      // at zero (2026-09-09) the difference is R$ 0,00, and letting that into the set
+      // would license "sai por zero reais" — the one sentence a price gate exists for.
+      const saving = +(codBrl - prepayBrl).toFixed(2);
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...(saving > 0 ? [saving] : [])]);
       const t = norm(text);
 
       // Saying a number the operation does not have is a promise; refusing it is the
@@ -471,8 +483,9 @@ const gates: readonly Gate[] = [
       `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
       `disponibilidade da região dela no checkout. No antecipado` +
       `${
-        c.delivery.prepayDaysMin != null && c.delivery.prepayDaysMax != null
-          ? `, ${c.delivery.prepayDaysMin} a ${c.delivery.prepayDaysMax} dias úteis`
+        c.delivery.prepayAvgDays != null
+          ? ` o prazo VARIA por região: diga "varia, em média ${c.delivery.prepayAvgDays} dias` +
+            ` úteis" — a média, e sempre dizendo que varia. Nunca um prazo fixo`
           : ` não diga prazo nenhum`
       }. Recusar a data impossível é permitido.`,
     check: (text, ctx) => {
@@ -482,6 +495,29 @@ const gates: readonly Gate[] = [
       // Refusing the impossible date is the job: "não consigo entregar amanhã, a
       // entrega leva de 1 a 3 dias" is the right answer to the most common question
       // in this funnel, and it used to be vetoed for containing the words it denies.
+      /**
+       * The prepaid deadline is an average, not a range (operator, 2026-09-09): Logzz
+       * varies it by region and the only honest sentence is "varia, em média N dias
+       * úteis". A single number said flatly — "chega em 5 dias úteis" — is a promise the
+       * carrier never made to HER region, and the range check above never saw it, because
+       * it only reads "N a M dias".
+       */
+      const avg = ctx.config.delivery.prepayAvgDays;
+      for (const m of t.matchAll(/(\d{1,2})\s*dias?\s*ute[il]s?/g)) {
+        const at = m.index ?? 0;
+        const sentence =
+          t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        // A number inside "N a M dias úteis" is the range, already judged above.
+        if (/\d\s*(?:a|e|ate)\s*\d{1,2}\s*dias?\s*ute/.test(sentence)) continue;
+        if (avg == null) return "states a prepaid deadline, and none is configured";
+        if (Number(m[1]) !== avg) {
+          return `prepaid average of ${m[1]} days is not the configured ${avg}`;
+        }
+        if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {
+          return "states the prepaid average as a fixed deadline, without saying it varies";
+        }
+      }
+
       // Same-day is a promise until the checkout says otherwise. When the availability
       // query came back with an Express window for HER postcode, it is a fact the
       // courier already agreed to — and the strongest sentence this funnel owns.
@@ -530,7 +566,7 @@ const gates: readonly Gate[] = [
         const min = Number(m[1]);
         const max = Number(m[2]);
         if (min_ == null || max_ == null)
-          return `states a delivery window on the ${path} path, which has none configured`;
+          return `states a range on the ${path} path, which has an average and not a range`;
         if (min < min_ || max > max_)
           return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_} on ${path}`;
       }

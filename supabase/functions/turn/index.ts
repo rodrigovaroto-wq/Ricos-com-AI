@@ -116,12 +116,12 @@ const CONFIG: BusinessConfig = JSON.parse(
     JSON.stringify({
       brand: "Encorpa",
       agentName: "Malu",
-      prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+      prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
       delivery: {
         codDaysMin: 1,
         codDaysMax: 3,
-        prepayDaysMin: 3,
-        prepayDaysMax: 10,
+        prepayAvgDays: 5,
+        prepayVariesByRegion: true,
         warrantyDays: 7,
         freeShipping: true,
       },

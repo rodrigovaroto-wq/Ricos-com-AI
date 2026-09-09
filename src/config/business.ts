@@ -13,9 +13,11 @@ export interface BusinessConfig {
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
-    /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
-    prepayDaysMin: number;
-    prepayDaysMax: number;
+    /**
+     * O prazo do antecipado deixou de ser faixa em 2026-09-09: a Logzz varia por região e
+     * o único número honesto é a média. Ausente, a agente não diz prazo nenhum ali.
+     */
+    prepayAvgDays?: number;
     codScheduled: boolean;
     prepayVariesByRegion: boolean;
     warrantyDays: number;
