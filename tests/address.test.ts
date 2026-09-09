@@ -6,6 +6,7 @@ import {
   mergeAddress,
   nextQuestion,
   parseCep,
+  readBackAddress,
   renderConfirmation,
   type Address,
 } from "@/agent/address.js";
@@ -75,10 +76,14 @@ describe("endereço reunido em várias mensagens", () => {
     expect(juntos.fields.cep).toBe("30160-011");
   });
 
-  it("o que a cliente já disse vence o que a segunda leitura acha", () => {
-    const juntos = mergeAddress({ number: "123" }, { number: "456", city: "Recife" });
-    expect(juntos.fields.number).toBe("123");
-    expect(juntos.fields.city).toBe("Recife");
+  it("a correção da vez vence o que estava guardado", () => {
+    // Era o contrário, e era caro: ela dizia "na verdade é 125" e a leitura antiga
+    // sobrescrevia de volta — ela reconfirmava o número errado para sempre, e o pacote
+    // ia para a porta velha. Campo que ela não mencionou neste turno não vem em `found`
+    // e sobrevive intacto.
+    const juntos = mergeAddress({ number: "123", city: "Olinda" }, { number: "456" });
+    expect(juntos.fields.number).toBe("456");
+    expect(juntos.fields.city).toBe("Olinda");
   });
 
   it("pergunta uma coisa por vez, na ordem em que se fala", () => {
@@ -176,5 +181,37 @@ describe("complemento não se esconde dentro de outra palavra", () => {
     expect(complemento("Rua das Flores 123, bloco B")).toBe("bloco B");
     expect(complemento("Rua das Flores 123, casa")).toBe("casa");
     expect(complemento("Rua das Flores 123, fundos")).toBe("fundos");
+  });
+});
+
+/**
+ * `confirmsAddress` só sabe que ela disse sim. Não sabe a QUÊ — e um "sim" respondendo
+ * "quer que eu te mande o link?" estava marcando o endereço como confirmado, que é a
+ * leitura de volta do §D2 pulada em silêncio.
+ */
+describe("o sim precisa de uma leitura de volta", () => {
+  const endereco = {
+    street: "Rua das Flores",
+    number: "125",
+    neighborhood: "Centro",
+    city: "Recife",
+    state: "PE",
+    cep: "50000-000",
+  } as const;
+
+  it("reconhece a leitura de volta pela rua e pelo número", () => {
+    expect(readBackAddress("Confirma pra mim: Rua das Flores, 125, Centro?", endereco)).toBe(true);
+  });
+
+  it("outra pergunta não vale como leitura de volta", () => {
+    expect(readBackAddress("Quer que eu te mande o link agora?", endereco)).toBe(false);
+  });
+
+  it("rua certa e número errado não é leitura de volta", () => {
+    expect(readBackAddress("Rua das Flores, 127?", endereco)).toBe(false);
+  });
+
+  it("sem rua ou sem número não há o que ler de volta", () => {
+    expect(readBackAddress("Rua das Flores, 125", { street: "Rua das Flores" })).toBe(false);
   });
 });

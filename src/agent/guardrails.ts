@@ -176,7 +176,15 @@ const defersToCheckout = (t: string): boolean =>
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
     (m) => ({
-      value: Number((m[1] ?? m[2]!).replace(/\./g, "").replace(",", ".")),
+      // "R$ 129.90" is the same price as "R$ 129,90" and used to parse as 12990 — a
+      // number the operation does not have, so the correct price was vetoed. A dot is a
+      // thousands separator only when it is not the decimal one: exactly two digits after
+      // the last dot, and no comma anywhere, means she wrote it the other way round.
+      value: Number(
+        /^\d{1,3}(?:\.\d{3})*\.\d{2}$|^\d+\.\d{2}$/.test(m[1] ?? m[2]!)
+          ? (m[1] ?? m[2]!).replace(/\.(?=\d{3})/g, "")
+          : (m[1] ?? m[2]!).replace(/\./g, "").replace(",", "."),
+      ),
       at: m.index ?? 0,
     }),
   );
@@ -497,18 +505,34 @@ const gates: readonly Gate[] = [
        * A path with no configured window still refuses every claim, which is the right
        * default: better mute than inventing a date the carrier never agreed to.
        */
-      const [min_, max_] =
-        ctx.paymentPath === "cod"
-          ? [codDaysMin, codDaysMax]
-          : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
-
+      /**
+       * Each window is judged against the path ITS OWN sentence names, and only falls
+       * back to the conversation's path when it names none. The comparison message the
+       * prompt teaches carries both windows on purpose — one per option — and a gate
+       * that picked a single path from context rejected the correct half of it, which
+       * meant the message the agent is told to write could never pass.
+       */
       for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
+        const at = m.index ?? 0;
+        const sentence =
+          t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        const named: "cod" | "prepay" | null = /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
+          ? "prepay"
+          : /\bna\s+entrega\b/.test(sentence)
+            ? "cod"
+            : null;
+        const path = named ?? ctx.paymentPath;
+        const [min_, max_] =
+          path === "cod"
+            ? [codDaysMin, codDaysMax]
+            : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
+
         const min = Number(m[1]);
         const max = Number(m[2]);
         if (min_ == null || max_ == null)
-          return `states a delivery window on the ${ctx.paymentPath} path, which has none configured`;
+          return `states a delivery window on the ${path} path, which has none configured`;
         if (min < min_ || max > max_)
-          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_}`;
+          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_} on ${path}`;
       }
       return null;
     },
@@ -626,14 +650,20 @@ const gates: readonly Gate[] = [
       const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
       const offerStillOpen = endsAt !== null && endsAt.getTime() > ctx.now.getTime();
 
-      if (unitsLeft !== undefined) {
-        // Only the true number, and only downward: "restam 3" when 3 is the count.
-        const said = [...t.matchAll(/\b(?:so\s+)?(?:resta|restam|sobrou|sobraram|tem)\s+(\d{1,4})\b/g)];
-        if (said.length > 0 && said.every((m) => Number(m[1]) === unitsLeft)) return null;
-      }
-      if (offerStillOpen && /\b(promocao|oferta|condicao|desconto)\s+(acaba|termina|expira|vence)\b/.test(t)) {
-        return null;
-      }
+      // A true claim clears ITSELF, never the sentence around it. These used to `return
+      // null` for the whole gate, so "restam 12 unidades e a promoção acaba em 2 horas"
+      // passed with the countdown — a real number buying a pass for an invented one.
+      const unitsOk =
+        unitsLeft !== undefined &&
+        (() => {
+          const said = [
+            ...t.matchAll(/\b(?:so\s+)?(?:resta|restam|sobrou|sobraram|tem)\s+(\d{1,4})\b/g),
+          ];
+          return said.length > 0 && said.every((m) => Number(m[1]) === unitsLeft);
+        })();
+      const deadlineOk =
+        offerStillOpen &&
+        /\b(promocao|oferta|condicao|desconto)\s+(acaba|termina|expira|vence)\b/.test(t);
 
       const claims = [
         /\bso\s+(resta|restam|sobrou|sobraram|tem)\s+\d/,
@@ -644,7 +674,15 @@ const gates: readonly Gate[] = [
         /\bcorre\s+que\s+(acaba|vai\s+acabar)\b/,
         /\bvagas?\s+limitad[ao]s?\b/,
       ];
-      return claims.some((r) => r.test(t)) ? "invents stock or a deadline nothing tracks" : null;
+      const UNIT_CLAIMS = new Set([0, 1, 2]); // the three that a true `unitsLeft` covers
+      const DEADLINE_CLAIMS = new Set([3, 4, 5]); // and the ones a live end date covers
+      for (const [i, r] of claims.entries()) {
+        if (!r.test(t)) continue;
+        if (unitsOk && UNIT_CLAIMS.has(i)) continue;
+        if (deadlineOk && DEADLINE_CLAIMS.has(i)) continue;
+        return "invents stock or a deadline nothing tracks";
+      }
+      return null;
     },
   },
   {
@@ -877,7 +915,12 @@ const gates: readonly Gate[] = [
         /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(t);
       if (!bothPaths) return null;
 
-      const WINDOW = /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/;
+      // A window is any way of naming when it arrives, not only "N a M dias". The block
+      // the prompt itself teaches — "você escolhe um dos próximos 3 dias" — is a deadline
+      // in every sense that matters to her, and reading only the range form meant the
+      // gate demanded a label from the prepaid side while giving the delivery side a pass.
+      const WINDOW =
+        /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias|proximos?\s+\d{1,2}\s*dias|em\s+ate\s+\d{1,2}\s*dias/;
       // Sentence by sentence, and never a character past the boundary. A window read
       // with a fixed lookahead borrows the label from the NEXT block — which is how a
       // message with a deadline on one side only first passed this gate.

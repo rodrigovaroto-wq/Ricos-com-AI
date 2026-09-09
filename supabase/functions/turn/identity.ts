@@ -69,6 +69,19 @@ const NOT_A_NAME =
   /\b(rua|avenida|av|travessa|bairro|cep|numero|apto|cpf|email|colete|tamanho|obrigad|quanto|preco|pre[çc]o)\b/i;
 
 /**
+ * Two words of letters is not a name, and treating it as one was the most embarrassing
+ * bug in this file: "boa tarde", "bom dia", "quero comprar", "muito obrigada" all became
+ * the customer's PERMANENT name — written to the lead, carried into the checkout link and
+ * into the order body, addressed to her on the parcel.
+ *
+ * The rule now: a bare message becomes a name only if nothing in it is a common word.
+ * A name she actually introduces ("meu nome é...") is trusted as before, because there
+ * the sentence itself says what follows is a name.
+ */
+const COMMON_WORDS =
+  /\b(oi|ola|opa|eae|bom|boa|dia|tarde|noite|tudo|bem|beleza|blz|certo|claro|sim|nao|ok|okay|obrigada?|obg|valeu|vlw|por|favor|pfv|quero|queria|posso|pode|vou|vamos|comprar|compro|fechar|fechado|gostei|adorei|amei|show|legal|otimo|otima|perfeito|perfeita|entao|agora|ainda|so|ja|mais|menos|muito|muita|aqui|ali|isso|esse|essa|qual|quais|como|onde|quando|quem|que|voce|vc|eu|meu|minha|seu|sua|com|sem|para|pra|de|do|da|em|no|na|e|ou|mas|se|tem|ter|vai|ver|fica|ficou|sai|custa|chega|manda|mande|envia|entrega|frete|pagamento|pagar|desconto|link|checkout|cinta|modeladora|espera|espere|calma|deixa|deixe|certeza|duvida|entendi|entendo|acho|acha)\b/i;
+
+/**
  * Her name, from the message where she gives it. Only two shapes are read: an explicit
  * introduction, and a short message that is nothing but a name. Anything else — a
  * sentence, an address line, a question — stays missing, because a name written into
@@ -92,8 +105,13 @@ export const extractName = (text: string): string | null => {
     .join(" ");
 
   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
-  // A single word is a name only when she introduced it. "Oi" on its own is not.
-  if (introduced === null && name.split(" ").length < 2) return null;
+  if (introduced === null) {
+    // A single word is a name only when she introduced it. "Oi" on its own is not.
+    if (name.split(" ").length < 2) return null;
+    // And neither is any message built out of ordinary words. Without this, the first
+    // "boa tarde" of the conversation was filed as who she is.
+    if (COMMON_WORDS.test(name)) return null;
+  }
   return name;
 };
 
@@ -116,7 +134,11 @@ export const mergeIdentity = (
   known: Partial<Identity>,
   found: Partial<Identity>,
 ): IdentityResult => {
-  const fields: Partial<Identity> = { ...found, ...known };
+  // What she just said wins. The order used to be the other way round, so a
+  // correction — "na verdade é 125", "meu e-mail é o outro" — was merged and then
+  // thrown away by the stale value, and she confirmed the wrong one forever. A
+  // field she did not mention this turn is absent from `found` and survives.
+  const fields: Partial<Identity> = { ...known, ...found };
   return { fields, missing: IDENTITY_FIELDS.filter((f) => !fields[f]) };
 };
 

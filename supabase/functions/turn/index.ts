@@ -32,6 +32,7 @@ import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
+  readBackAddress,
   isComplete,
   mergeAddress,
   type Address,
@@ -360,8 +361,7 @@ const systemPrompt = (
     `    ${money(CONFIG.prices.codBrl)} na mão do entregador, só quando o pacote chegar.`,
     ``,
     `    Antecipado: você paga ${money(CONFIG.prices.prepayBrl)} agora, ganha`,
-    `    ${CONFIG.prices.prepayDiscountPercent}% de desconto, e chega em`,
-    `    ${CONFIG.delivery.prepayDaysMin} a ${CONFIG.delivery.prepayDaysMax} dias úteis.`,
+    `    ${CONFIG.prices.prepayDiscountPercent}% de desconto${prepayWindowLine()}.`,
     ``,
     `    Nos dois o frete é grátis. Qual você prefere?`,
     ``,
@@ -579,8 +579,16 @@ const notification = (
 });
 
 /** She answered — every pending touch for this conversation is moot. */
+/**
+ * She spoke, so the silence ruler has nothing left to chase. ONLY the silence ruler: this
+ * used to cancel every scheduled touch, which meant the first message a customer sent
+ * after buying killed `order_shipped`, `order_eve` and `order_delivered` — the delivery-eve
+ * message being the one the whole post-order ruler exists for, and the one that prevents
+ * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
+ * as well, and did not.
+ */
 const cancelScheduled = (conversationId: string) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled`, {
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&kind=like.silence_*`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -589,7 +597,12 @@ const cancelScheduled = (conversationId: string) =>
 const stopPointOf = (replyText: string): StopPoint => {
   const t = replyText.toLowerCase();
   if (t.includes("checkout") || t.includes("link")) return "link_sent";
-  if (t.includes("129,90") || t.includes("110,41")) return "after_price";
+  // From the config, not typed here: hardcoded prices meant a price change silently
+  // downgraded every "she already heard the price" touch to the opening one.
+  const priced = [CONFIG.prices.codBrl, CONFIG.prices.prepayBrl].map((v) =>
+    v.toFixed(2).replace(".", ","),
+  );
+  if (priced.some((v) => t.includes(v))) return "after_price";
   return "before_size";
 };
 
@@ -662,11 +675,17 @@ const recordOrder = async (order: OrderWebhook) => {
   // match is the happy path; the suffix is what stops a sale from silently not existing.
   const exact = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
   const tail = digits(order.phone).slice(-8);
-  const lead =
-    exact?.[0] ??
-    (tail.length === 8
-      ? (await db(`leads?phone=like.*${tail}&select=id&limit=2`))?.[0]
-      : undefined);
+  let lead = exact?.[0];
+  if (!lead && tail.length === 8) {
+    // Two rows ending the same way is not a match, it is a coin toss — and the loser
+    // gets someone else's sale filed against her, with the follow-ups to match. Asking
+    // for two is how the ambiguity becomes visible; taking [0] threw that away.
+    const bySuffix = await db(`leads?phone=like.*${tail}&select=id&limit=2`);
+    if (bySuffix?.length === 1) lead = bySuffix[0];
+    else if ((bySuffix?.length ?? 0) > 1) {
+      return { status: "ambiguous_phone", phone: order.phone, ok: false };
+    }
+  }
   // 200 here would tell n8n the sale was filed when nothing was written and the silence
   // ruler is still chasing her. It has to be visible.
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
@@ -1129,13 +1148,31 @@ Deno.serve(async (request: Request): Promise<Response> => {
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
 
+  // The agent's last message, fetched here rather than reused from the history window
+  // below, because the confirmation is decided before that window is read.
+  const lastOutbound: string =
+    (
+      await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          "&select=body&order=created_at.desc&limit=1",
+      ).catch(() => null)
+    )?.[0]?.body ?? "";
+
   const foundAddress = extractAddress(inbound.body ?? "");
   if (Object.keys(foundAddress.fields).length > 0) {
     // What she stated wins over what a previous pass inferred, and a new piece never
     // silently re-confirms an address she has not seen read back.
     addressDraft = mergeAddress(addressDraft, foundAddress.fields).fields;
     addressConfirmed = false;
-  } else if (!addressConfirmed && isComplete(addressDraft) && confirmsAddress(inbound.body ?? "")) {
+  } else if (
+    !addressConfirmed &&
+    isComplete(addressDraft) &&
+    confirmsAddress(inbound.body ?? "") &&
+    // Only when the agent's last message actually read the address back. A bare "sim"
+    // answering something else — "quer que eu te mande o link?" — used to set
+    // `confirmedAt` and flip the order ready, which is §D2 skipped in silence.
+    readBackAddress(lastOutbound, addressDraft)
+  ) {
     addressConfirmed = true;
   }
 
@@ -1198,9 +1235,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // 6. History, then the turn that sells.
   const history = await db(
-    `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.asc&limit=20`,
+    // The LAST twenty, not the first: ascending order meant that past ten exchanges the
+    // model was reading the opening of the conversation and never the turn it was
+    // answering — and `recentOutbound` fed the repetition gate a slice from an hour ago.
+    `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.desc&limit=20`,
   );
-  const turns = (history ?? []).map((m: { direction: string; body: string }) => ({
+  // The query returns newest first so the window is the END of the conversation; the
+  // model reads it oldest first, like a person scrolling up.
+  const recent = [...(history ?? [])].reverse();
+  const turns = recent.map((m: { direction: string; body: string }) => ({
     role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
     content: m.body ?? "",
   }));
@@ -1208,7 +1251,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // The `identical_template` gate was in the chain and had nothing to compare against:
   // nobody ever passed `recentOutbound`, so it passed by construction on every message
   // the agent ever sent. The history is already here, so the check costs one map.
-  const recentOutbound = (history ?? [])
+  const recentOutbound = recent
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 

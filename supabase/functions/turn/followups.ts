@@ -124,7 +124,19 @@ export const scheduleSilence = (now: Date): ScheduledFollowup[] => [
 export const scheduleOrder = (orderedAt: Date, codDaysMin: number): ScheduledFollowup[] => [
   { kind: "order_confirmed", runAt: new Date(orderedAt.getTime() + 5 * MINUTE) },
   { kind: "order_shipped", runAt: new Date(orderedAt.getTime() + DAY) },
-  { kind: "order_eve", runAt: new Date(orderedAt.getTime() + (codDaysMin - 1) * DAY) },
+  /**
+   * The eve of the delivery, and never before the order exists. It used to be
+   * `(codDaysMin - 1)` days out, and `codDaysMin` is 1 — so "sua entrega é amanhã, separe
+   * R$ 129,90" fired at order time, ahead of the confirmation itself.
+   *
+   * Counted in hours because the floor and the shipping touch collide otherwise: with a
+   * one-day window both would land at +24h, and two messages arriving together is how a
+   * number gets reported. Thirty hours puts it the following day, after the parcel left.
+   */
+  {
+    kind: "order_eve",
+    runAt: new Date(orderedAt.getTime() + Math.max(30, (codDaysMin - 1) * 24) * HOUR),
+  },
   { kind: "order_delivered", runAt: new Date(orderedAt.getTime() + (codDaysMin + 1) * DAY) },
 ];
 
@@ -210,10 +222,17 @@ const SILENCE_1: Record<StopPoint, readonly string[]> = {
   ],
 };
 
-const SILENCE_2 = [
-  "Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e só paga se estiver tudo certo. Se não servir, tem 7 dias pra devolver. Se ainda fizer sentido pra você, é só me chamar.",
-  "Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga se, ao se olhar no espelho, achar que valeu — e ainda tem 7 dias pra devolver se não achar. É só me chamar.",
-] as const;
+/**
+ * The warranty is written from the config, not typed into the sentence. It used to be
+ * "7 dias" in the string while `warranty_promise` read `warrantyDays` — so changing the
+ * config turned the ruler's own copy into a veto, and the sweep, which treats a rewrite
+ * remedy as a cancel, would have thrown the touch away without a word.
+ */
+const SILENCE_2 = (days: number) =>
+  [
+    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e só paga se estiver tudo certo. Se não servir, tem ${days} dias pra devolver. Se ainda fizer sentido pra você, é só me chamar.`,
+    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga se, ao se olhar no espelho, achar que valeu — e ainda tem ${days} dias pra devolver se não achar. É só me chamar.`,
+  ] as const;
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
 
@@ -222,7 +241,7 @@ const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sába
 export interface FollowupConfig {
   prices: { codBrl: number };
   coupon: { percent: number; active: boolean };
-  delivery: { codDaysMin: number; codDaysMax: number };
+  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
 }
 
 export interface RenderContext {
@@ -257,7 +276,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       return pickVariant(ctx.leadId, SILENCE_1[ctx.stopPoint ?? "before_size"]);
 
     case "silence_2":
-      return pickVariant(ctx.leadId, SILENCE_2);
+      return pickVariant(ctx.leadId, SILENCE_2(ctx.config.delivery.warrantyDays));
 
     case "silence_3": {
       if (!ctx.config.coupon.active) return null;

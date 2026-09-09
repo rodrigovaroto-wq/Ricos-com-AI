@@ -81,7 +81,7 @@ describe("qual caminho oferecer", () => {
   const base = { size: "G", dates: [], codFreightBrl: null, windows: [], express: null } as const;
 
   it("entrega existindo, é a entrega", () => {
-    expect(routeFor(readAvailability("G", yes), 40).path).toBe("cod");
+    expect(routeFor(readAvailability("G", yes)).path).toBe("cod");
   });
 
   it("sem entrega, o antecipado é sempre a resposta", () => {
@@ -90,17 +90,20 @@ describe("qual caminho oferecer", () => {
     expect(routeFor({ ...base, cod: false, labelBrl: 84.05 }).path).toBe("prepay");
   });
 
-  it("o operador absorve até R$ 20; o que passa disso é da cliente", () => {
-    expect(routeFor({ ...base, cod: false, labelBrl: 13.79 })).toMatchObject({ excessBrl: 0 });
-    expect(routeFor({ ...base, cod: false, labelBrl: 20 })).toMatchObject({ excessBrl: 0 });
-    expect(routeFor({ ...base, cod: false, labelBrl: 84.05 })).toMatchObject({ excessBrl: 64.05 });
+  it("a cliente não paga frete em praça nenhuma", () => {
+    // O teto com repasse durou um dia. A Logzz fixou o frete em R$ 15,00 pagos pelo
+    // operador (suporte, 2026-09-09), então a cotação da transportadora deixou de
+    // decidir qualquer coisa — o que varia entre regiões é o prazo, não o preço.
+    for (const labelBrl of [13.79, 20, 84.05, null]) {
+      expect(routeFor({ ...base, cod: false, labelBrl })).toEqual({ path: "prepay", labelBrl });
+    }
   });
 
   it("etiqueta ausente não custa nada à cliente", () => {
     // O M em SP: sem cotação nenhuma, e o checkout antecipado abre mesmo assim. Cobrar
     // dela por uma cotação que ninguém deu é pior do que absorver.
     const r = routeFor(readAvailability("M", no));
-    expect(r).toMatchObject({ path: "prepay", excessBrl: 0 });
+    expect(r).toMatchObject({ path: "prepay" });
   });
 });
 

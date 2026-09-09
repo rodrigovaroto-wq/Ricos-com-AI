@@ -240,33 +240,38 @@ export const checkRegion = async (
   return toRegion(zip, place, await checkSize(fetcher, zip, place, REFERENCE_SIZE));
 };
 
-/** The carrier cost the operator absorbs. Past it, the customer pays the excess. */
-export const LABEL_CAP_BRL = 20;
+/**
+ * The label the operator pays, fixed by Logzz at R$ 15,00 (support, 2026-09-09). It was
+ * R$ 20,00 with the excess passed on to the customer; both changed at once — the freight
+ * is now a single value everywhere and **she pays nothing for it on either path**. What
+ * varies between regions is the deadline, not the price.
+ *
+ * Kept as a constant because the margin sheet reads it, not because anything routes on
+ * it: with a fixed cost and nothing charged to her, there is no longer a postcode where
+ * a sale is worth refusing.
+ */
+export const LABEL_COST_BRL = 15;
 
 /**
  * Which path to offer, given what the query found.
  *
  * Cash on delivery first — the operator's decision, and the one that converts with a
- * cold audience. When it is closed for her size at her postcode, the prepaid path is
- * always the answer: it ships free nationwide and its checkout opens everywhere.
+ * cold audience. When delivery does not reach her postcode, the prepaid path is always
+ * the answer: it ships free nationwide and its checkout opens everywhere.
  *
- * There is no third branch. An earlier version sent her to a waitlist when the carrier
- * quote passed the cap, on the reasoning that a distant postcode sold at a loss. The
- * cap removed that: the operator absorbs up to R$ 20,00 and the excess is charged to
- * the customer, so margin is flat wherever she lives and a sale is never worth refusing.
+ * There is no third branch, and since 2026-09-09 there is no arithmetic either. An early
+ * version sent her to a waitlist when the carrier quote passed a cap, on the reasoning
+ * that a distant postcode sold at a loss; then the cap moved the excess onto her. Logzz
+ * fixed the freight instead — one value, paid by the operator, everywhere — so margin is
+ * flat wherever she lives and no postcode is worth refusing.
  */
 export type Route =
   | { readonly path: "cod"; readonly freightBrl: number | null; readonly dates: readonly string[] }
-  | { readonly path: "prepay"; readonly labelBrl: number | null; readonly excessBrl: number };
+  | { readonly path: "prepay"; readonly labelBrl: number | null };
 
-export const routeFor = (a: Availability, maxLabelBrl: number = LABEL_CAP_BRL): Route =>
+export const routeFor = (a: Availability): Route =>
   a.cod
     ? { path: "cod", freightBrl: a.codFreightBrl, dates: a.dates }
-    : {
-        path: "prepay",
-        labelBrl: a.labelBrl,
-        // An absent quote is not a high one: the carrier simply did not answer, and the
-        // prepaid checkout opens regardless. Charging her for a quote nobody gave is worse
-        // than absorbing it, so a missing label costs the customer nothing.
-        excessBrl: Math.max(0, (a.labelBrl ?? 0) - maxLabelBrl),
-      };
+    // `labelBrl` is the carrier's quote, kept for the margin sheet. It is not her price
+    // and no longer decides anything: the freight is fixed and she pays none of it.
+    : { path: "prepay", labelBrl: a.labelBrl };

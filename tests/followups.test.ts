@@ -117,6 +117,14 @@ describe("régua de pós-pedido", () => {
     expect(vespera!.runAt.getTime()).toBeLessThan(ordered.getTime() + 3 * 24 * 60 * 60_000);
   });
 
+  it("a véspera nunca sai antes do pedido existir, nem junto com o envio", () => {
+    // Com a janela de 1 dia, `codDaysMin - 1` dava ZERO: "sua entrega é amanhã, separe
+    // R$ 129,90" saía na hora do pedido, antes da própria confirmação.
+    const [confirmado, envio, vespera] = scheduleOrder(ordered, 1);
+    expect(vespera!.runAt.getTime()).toBeGreaterThan(confirmado!.runAt.getTime());
+    expect(vespera!.runAt.getTime()).toBeGreaterThan(envio!.runAt.getTime());
+  });
+
   it("a véspera manda separar o valor certo — é a mensagem que evita a recusa", () => {
     const texto = renderFollowup("order_eve", render())!;
     expect(texto).toContain("R$ 129,90");

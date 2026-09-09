@@ -694,3 +694,32 @@ describe("prazo em uma opção só", () => {
     expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 });
+
+/**
+ * O gate do prazo escolhia UM caminho pelo contexto, e a mensagem de comparação carrega
+ * os dois de propósito — um por opção. O resultado é que a frase que o prompt ensina
+ * nunca podia passar: metade certa dela era lida como contradição.
+ */
+describe("cada prazo julgado pelo caminho que a frase dele nomeia", () => {
+  const exemplar =
+    "Na entrega: você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 " +
+    "na mão do entregador, só quando o pacote chegar.\n\n" +
+    "Antecipado: você paga R$ 110,41 agora, ganha 15% de desconto, e chega em 3 a 10 dias úteis.\n\n" +
+    "Nos dois o frete é grátis. Qual você prefere?";
+
+  it("o exemplar do próprio prompt passa a cadeia inteira", () => {
+    expect(runGates(exemplar, ctx()).allowed).toBe(true);
+  });
+
+  it("trocar as janelas de lugar continua sendo veto", () => {
+    expect(blocked(runGates("Na entrega chega em 3 a 10 dias.", ctx())))
+      .toContain("delivery_promise");
+    expect(blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx())))
+      .toContain("delivery_promise");
+  });
+
+  it("prazo que não é de nenhum dos dois continua barrado", () => {
+    expect(blocked(runGates("No antecipado chega em 1 a 20 dias.", ctx())))
+      .toContain("delivery_promise");
+  });
+});

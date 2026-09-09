@@ -211,7 +211,11 @@ export const mergeAddress = (
   known: Partial<Address>,
   found: Partial<Address>,
 ): ExtractionResult => {
-  const fields: Partial<Address> = { ...found, ...known };
+  // What she just said wins. The order used to be the other way round, so a
+  // correction — "na verdade é 125", "meu e-mail é o outro" — was merged and then
+  // thrown away by the stale value, and she confirmed the wrong one forever. A
+  // field she did not mention this turn is absent from `found` and survives.
+  const fields: Partial<Address> = { ...known, ...found };
   return { fields, missing: REQUIRED_FIELDS.filter((f) => !fields[f]) };
 };
 
@@ -238,6 +242,23 @@ export const renderConfirmation = (address: Address): string =>
  * ("não", "mudou", "na verdade") is not — reading a correction as a yes is how a
  * package goes to the old address.
  */
+/**
+ * Whether the agent's last message actually read this address back to her.
+ *
+ * `confirmsAddress` only knows that she said yes. It cannot know what she said yes TO —
+ * and a bare "sim" answering "quer que eu te mande o link?" was setting `confirmedAt`,
+ * which is §D2 skipped in silence: the read-back is the whole point, because an address
+ * nobody repeated is the failed delivery this operation pays for twice.
+ *
+ * Street and number are enough to recognise the read-back; asking for every field would
+ * fail on a message that abbreviates the state or drops the district.
+ */
+export const readBackAddress = (outbound: string, address: Partial<Address>): boolean => {
+  if (!address.street || !address.number) return false;
+  const t = clean(outbound).toLowerCase();
+  return t.includes(clean(address.street).toLowerCase()) && t.includes(address.number);
+};
+
 export const confirmsAddress = (text: string): boolean => {
   const t = text
     .normalize("NFD")
