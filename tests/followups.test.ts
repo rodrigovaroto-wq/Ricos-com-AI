@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   pickVariant,
   renderFollowup,
+  onOrderConfirmed,
   scheduleOrder,
   scheduleSilence,
   decideTouch,
@@ -236,5 +237,42 @@ describe("as três declarações de Remedy continuam a mesma coisa", () => {
     const daCadeia: GateRemedy = "defer";
     const daRegua: FollowupRemedy = daCadeia;
     expect(daRegua).toBe("defer");
+  });
+});
+
+/**
+ * O que uma venda confirmada faz com a régua. A metade que faltava não era armar o
+ * pós-pedido — era cancelar o silêncio: até 2026-09-09 nada aqui sabia que uma venda
+ * tinha acontecido, e quem pagava na porta recebia "ainda tá pensando?" três dias depois.
+ */
+describe("venda confirmada", () => {
+  const quando = new Date("2026-09-09T15:00:00Z");
+
+  it("cancela todo toque de silêncio ainda agendado", () => {
+    const efeito = onOrderConfirmed(["silence_1", "silence_2", "silence_3"], quando, 1);
+    expect(efeito.cancel).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+
+  it("arma a régua de pós-pedido inteira", () => {
+    const efeito = onOrderConfirmed([], quando, 1);
+    expect(efeito.arm.map((f) => f.kind)).toEqual([
+      "order_confirmed",
+      "order_shipped",
+      "order_eve",
+      "order_delivered",
+    ]);
+  });
+
+  it("um segundo webhook do mesmo pedido não mexe no que já está agendado", () => {
+    // Retry e mudança de status chegam de novo. Rearmar arrastaria a véspera da entrega
+    // para outra data, que é a mensagem que evita a recusa na porta.
+    const efeito = onOrderConfirmed(["order_confirmed", "order_shipped"], quando, 1);
+    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
+    expect(efeito.cancel).toEqual([]);
+  });
+
+  it("não cancela um toque de pós-pedido junto", () => {
+    const efeito = onOrderConfirmed(["silence_2", "order_confirmed"], quando, 1);
+    expect(efeito.cancel).toEqual(["silence_2"]);
   });
 });

@@ -19,6 +19,8 @@ export interface BusinessConfig {
     codScheduled: boolean;
     prepayVariesByRegion: boolean;
     warrantyDays: number;
+    /** Os dois caminhos têm frete grátis desde 2026-09-09. Ver o gate `shipping_promise`. */
+    freeShipping: boolean;
   };
   sizes: readonly string[];
   hours: { openHour: number; closeHour: number };

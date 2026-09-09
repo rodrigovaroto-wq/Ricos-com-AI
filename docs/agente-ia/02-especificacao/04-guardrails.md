@@ -91,7 +91,7 @@ mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de 
    2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,49 no
    pagamento antecipado — a economia é real e é sobre o produto, que é o que a Encorpa
    vende. O gate é o outro lado da frase: **na mesma mensagem**, ela diz que no caminho
-   antecipado o frete é calculado à parte no checkout. Mensagem que anuncia a economia sem
+   os dois caminhos têm frete grátis desde 2026-09-09. Mensagem que anuncia a economia sem
    mencionar o frete é vetada — não por moral, mas porque surpresa no checkout, com esta
    audiência, traz o medo de golpe de volta.
 

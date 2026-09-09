@@ -21,6 +21,7 @@ import {
 import {
   decideTouch,
   nextOpening,
+  onOrderConfirmed,
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
@@ -82,6 +83,7 @@ interface BusinessConfig extends GateConfig {
     prepayDaysMin?: number;
     prepayDaysMax?: number;
     warrantyDays: number;
+    freeShipping: boolean;
   };
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
@@ -113,7 +115,14 @@ const CONFIG: BusinessConfig = JSON.parse(
       brand: "Encorpa",
       agentName: "Malu",
       prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-      delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
+      delivery: {
+        codDaysMin: 1,
+        codDaysMax: 3,
+        prepayDaysMin: 5,
+        prepayDaysMax: 10,
+        warrantyDays: 7,
+        freeShipping: true,
+      },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
@@ -340,13 +349,18 @@ const systemPrompt = (
     `Essa honestidade é argumento de venda, não ressalva: ela já foi enganada por promessa de`,
     `emagrecimento e reconhece quem não mente.`,
     ``,
-    `Preço: ${money(CONFIG.prices.codBrl)} com frete incluído, pago na entrega ao entregador,`,
-    `em dinheiro ou cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax}`,
-    `dias, agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
+    `Preço: ${money(CONFIG.prices.codBrl)} pago na entrega ao entregador, em dinheiro ou`,
+    `cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax} dias,`,
+    `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
     `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
-    `${prepayWindowLine()} e aí o frete é calculado à parte no checkout — as duas metades saem na`,
-    `mesma frase.`,
+    `${prepayWindowLine()} — as duas metades saem na mesma frase.`,
+    ``,
+    `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
+    `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
+    `que você tem, e a cliente que já comprou por aí espera o contrário. O que você nunca`,
+    `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
+    `de entrega.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
     `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,
@@ -541,6 +555,98 @@ const scheduleSilenceTouches = async (
  * The clock half of the agent. n8n calls this on a cron; everything it decides is
  * deterministic — no model call, so a sweep costs nothing however often it runs.
  */
+/**
+ * A confirmed sale, delivered by n8n from the Logzz or Coinzz webhook.
+ *
+ * This closed the oldest hole in the system. Until 2026-09-09 nothing wrote `orders` and
+ * nothing armed the post-order ruler, so four written, rendered and tested touches never
+ * fired once — and worse, the silence ruler kept running: a customer who paid at the door
+ * still got "ainda tá pensando?" three days later.
+ *
+ * The decision of what to cancel and what to arm is `onOrderConfirmed`, in `followups.ts`,
+ * because nothing in this file is reachable by a test. Here there is only I/O.
+ *
+ * Idempotent by `external_id`: the same webhook arriving twice — a retry, a status change —
+ * writes the order once and never slides an already-scheduled touch off its date.
+ */
+interface OrderWebhook {
+  externalId: string;
+  phone: string;
+  paymentMethod: "cod" | "prepay";
+  size: string;
+  amountBrl: number;
+  status?: string;
+  checkoutUrl?: string;
+  scheduledFor?: string;
+  orderedAt?: string;
+}
+
+const recordOrder = async (order: OrderWebhook) => {
+  const leads = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
+  const lead = leads?.[0];
+  if (!lead) return { status: "unknown_lead", phone: order.phone };
+
+  const conversations = await db(
+    `conversations?lead_id=eq.${lead.id}&select=id&order=created_at.desc&limit=1`,
+  );
+  const conversation = conversations?.[0] ?? null;
+
+  await db("orders?on_conflict=external_id", {
+    method: "POST",
+    headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+    body: JSON.stringify({
+      lead_id: lead.id,
+      conversation_id: conversation?.id ?? null,
+      external_id: order.externalId,
+      checkout_url: order.checkoutUrl ?? null,
+      payment_method: order.paymentMethod,
+      size: order.size,
+      amount_brl: order.amountBrl,
+      status: order.status ?? "created",
+      scheduled_for: order.scheduledFor ?? null,
+      updated_at: new Date().toISOString(),
+    }),
+  });
+
+  // No conversation means no ruler to touch — the sale is recorded and that is all.
+  if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
+
+  const pending = await db(
+    `followups?conversation_id=eq.${conversation.id}&status=eq.scheduled&select=kind`,
+  );
+  const effect = onOrderConfirmed(
+    (pending ?? []).map((f: { kind: string }) => f.kind as FollowupKind),
+    order.orderedAt ? new Date(order.orderedAt) : new Date(),
+    CONFIG.delivery.codDaysMin,
+  );
+
+  for (const kind of effect.cancel) {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "canceled" }),
+    });
+  }
+  if (effect.arm.length > 0) {
+    await db("followups", {
+      method: "POST",
+      body: JSON.stringify(
+        effect.arm.map((f) => ({
+          conversation_id: conversation.id,
+          kind: f.kind,
+          run_at: f.runAt.toISOString(),
+        })),
+      ),
+    });
+  }
+
+  return {
+    status: "recorded",
+    orderId: order.externalId,
+    canceled: effect.cancel,
+    armed: effect.arm.map((f) => f.kind),
+  };
+};
+
 const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
@@ -675,7 +781,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   if (request.method !== "POST") return json(405, { error: "use POST" });
 
-  let payload: { job?: string; externalId?: string; from?: string; body?: string };
+  let payload: {
+    job?: string;
+    externalId?: string;
+    from?: string;
+    body?: string;
+    /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
+    source?: Record<string, unknown>;
+    order?: OrderWebhook;
+  };
   try {
     payload = await request.json();
   } catch {
@@ -684,6 +798,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call.
   if (payload.job === "followups") return json(200, await runFollowupSweep());
+
+  // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
+  // what that does to the schedule lives in `followups.ts`, where a test can hold it.
+  if (payload.job === "order") {
+    if (!payload.order) return json(400, { error: "order é obrigatório" });
+    return json(200, await recordOrder(payload.order));
+  }
 
   const inbound = payload as { externalId: string; from: string; body: string };
   if (!inbound.externalId || !inbound.from) {
@@ -698,7 +819,18 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const existing = await db(`leads?phone=eq.${encodeURIComponent(inbound.from)}&select=*`);
   const lead =
     existing?.[0] ??
-    (await db("leads", { method: "POST", body: JSON.stringify({ phone: inbound.from }) }))[0];
+    (
+      await db("leads", {
+        method: "POST",
+        // Attribution belongs to the first touch and is never overwritten — this is the
+        // only moment it can be recorded, and a lead created without it stays anonymous
+        // forever. Without it there is no answer to "which ad produced this sale".
+        body: JSON.stringify({
+          phone: inbound.from,
+          ...(payload.source ? { source: payload.source } : {}),
+        }),
+      })
+    )[0];
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,

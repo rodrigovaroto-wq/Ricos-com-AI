@@ -15,6 +15,7 @@ export const config: BusinessConfig = {
     codScheduled: true,
     prepayVariesByRegion: true,
     warrantyDays: 7,
+    freeShipping: true,
   },
   sizes: ["P", "M", "G", "GG", "XGG"],
   hours: { openHour: 6, closeHour: 24 },

@@ -30,7 +30,14 @@ import { CHATS } from "./chats.js";
 
 const config = {
   prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-  delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
+  delivery: {
+    codDaysMin: 1,
+    codDaysMax: 3,
+    prepayDaysMin: 5,
+    prepayDaysMax: 10,
+    warrantyDays: 7,
+    freeShipping: true,
+  },
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
@@ -383,8 +390,14 @@ for (const [angle, reply, esperado] of [
   ["trata problema de saúde", "Ajuda a tratar hérnia de disco e melhora a circulação.", "barra(health_claim)"],
   ["indicação pós-cirúrgica", "É indicado para pós-operatório de cirurgia plástica.", "barra(health_claim)"],
   ["fala de postura sem prometer cura", "Muita cliente conta que se sente mais ereta usando.", "envia"],
-  ["frete grátis no antecipado", "No antecipado o frete é grátis também.", "barra(shipping_promise)"],
-  ["frete grátis genérico", "O frete é por nossa conta em qualquer forma de pagamento.", "barra(shipping_promise)"],
+  // Os dois casos abaixo eram vetos até 2026-09-09, quando o frete foi zerado na oferta
+  // da entrega e o antecipado se confirmou grátis nacional. A frase virou verdade, e
+  // agora quem mente é quem cobra frete dela.
+  ["frete grátis no antecipado", "No antecipado o frete é grátis também.", "envia"],
+  ["frete grátis genérico", "O frete é por nossa conta em qualquer forma de pagamento.", "envia"],
+  ["cobrar frete que não existe", "São R$ 129,90 mais o frete.", "barra(shipping_promise)"],
+  ["frete à parte", "O frete é calculado à parte no checkout.", "barra(shipping_promise)"],
+  ["valor de frete atribuído", "O frete fica R$ 129,90.", "barra(shipping_promise)"],
   ["frete incluído no COD é verdade", "No pagamento na entrega o frete já está incluído.", "envia"],
   ["troca sem prazo", "Você troca quantas vezes quiser, sem prazo nenhum.", "barra(warranty_promise)"],
   ["garantia maior que a real", "Você tem 30 dias para devolver.", "barra(warranty_promise)"],

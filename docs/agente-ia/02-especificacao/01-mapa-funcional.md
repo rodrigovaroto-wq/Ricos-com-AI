@@ -175,9 +175,10 @@ caminho de conversa — ver §D3.
 com 15% de desconto (R$ 110,41) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
-**A frase tem duas metades, e as duas são obrigatórias:** a economia de **R$ 19,49 no
-produto** é real e pode ser dita; e **o frete no antecipado é calculado à parte no
-checkout** — isso vai na mesma mensagem. No COD o frete está embutido nos R$ 129,90. Ver
+**Desde 2026-09-09 as duas metades viraram uma só e são boas notícias:** a economia de
+**R$ 19,49 no produto** é real, e **o frete é grátis nos dois caminhos** — o operador
+zerou o frete na oferta da entrega e o antecipado sempre foi grátis nacional. O valor
+dito é o valor final, sem soma na porta nem no checkout. Ver
 [`04-guardrails.md`](04-guardrails.md).
 
 **Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de

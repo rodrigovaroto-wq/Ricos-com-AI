@@ -132,6 +132,33 @@ export const scheduleOrder = (orderedAt: Date, codDaysMin: number): ScheduledFol
  * Same customer, same variant; different customers, different variants — without a
  * model call. It is what stops one literal message going out to hundreds of numbers.
  */
+/**
+ * What a confirmed sale does to the schedule, decided here instead of in the handler so
+ * a test can hold it. Two halves, and the second is the one that was missing entirely.
+ *
+ * Arming the post-order ruler is the obvious half. Cancelling the silence ruler is the
+ * half that matters: until 2026-09-09 nothing in this system knew a sale had happened,
+ * so a customer who paid at the door still got "ainda tá pensando?" three days later.
+ * The touches are per conversation and the sale closes that conversation's question, so
+ * every scheduled silence touch dies with it — the post-order ruler takes over.
+ *
+ * `order_*` touches already scheduled are left alone: a second webhook for the same sale
+ * (retry, status change) must not slide the delivery-eve message off its date.
+ */
+export interface OrderEffect {
+  readonly cancel: readonly FollowupKind[];
+  readonly arm: readonly ScheduledFollowup[];
+}
+
+export const onOrderConfirmed = (
+  scheduled: readonly FollowupKind[],
+  orderedAt: Date,
+  codDaysMin: number,
+): OrderEffect => ({
+  cancel: scheduled.filter((k) => k.startsWith("silence_")),
+  arm: scheduleOrder(orderedAt, codDaysMin).filter((f) => !scheduled.includes(f.kind)),
+});
+
 export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {
   let hash = 0;
   for (const char of leadId) hash = (hash * 31 + char.charCodeAt(0)) >>> 0;

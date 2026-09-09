@@ -19,6 +19,13 @@ export interface GateConfig {
     prepayDaysMin?: number;
     prepayDaysMax?: number;
     warrantyDays: number;
+    /**
+     * Both offers ship free as of 2026-09-09 — the operator zeroed the freight on the
+     * delivery offer and the prepaid one never had one. The flag exists so the day a
+     * freight comes back, flipping it here restores the old refusal instead of needing
+     * the gate rewritten under pressure.
+     */
+    freeShipping: boolean;
   };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
@@ -688,17 +695,65 @@ const gates: readonly Gate[] = [
      * it calculated by region inside the checkout. "Frete grátis" is true in neither, and
      * on the prepaid path it is a number the carrier has not agreed to.
      */
+    /**
+     * This gate used to forbid "frete grátis" and now forbids denying it. The world
+     * changed under it, in both offers at once: the operator zeroed the freight on the
+     * delivery offer (`freight: "0.00"`) and the prepaid one always shipped free
+     * nationwide (`settingsFreight: []`, checked across the 27 states). So the sentence
+     * the gate was protecting the customer from became simply true.
+     *
+     * Which flips where the harm is. The lie is no longer "grátis" — it is any sentence
+     * that puts a shipping cost on her, because she then meets a cheaper total than she
+     * was told and doubts everything else she was told. Same gate, opposite direction,
+     * and one flag decides: set `freeShipping` false the day a freight comes back and
+     * the old refusal returns with it.
+     */
     name: "shipping_promise",
     remedy: "rewrite",
-    briefing: () =>
-      `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; no ` +
-      `antecipado ele é calculado por região dentro do checkout.`,
-    check: (text) => {
+    briefing: (c) =>
+      c.delivery.freeShipping
+        ? `O frete é GRÁTIS nos dois caminhos, e isso é verdade — pode dizer, é o seu melhor ` +
+          `argumento. O que você não pode é cobrar frete dela: nada de "o frete é à parte", ` +
+          `"mais o frete" ou qualquer valor de entrega.`
+        : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
+          `no antecipado ele é calculado por região dentro do checkout.`,
+    check: (text, ctx) => {
       const t = norm(text);
-      return /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
-        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t)
-        ? "promises free shipping, which neither offer has"
-        : null;
+      const claimsFree =
+        /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
+        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t);
+
+      if (!ctx.config.delivery.freeShipping) {
+        return claimsFree ? "promises free shipping, which neither offer has" : null;
+      }
+      // Free shipping is the fact. Saying it is fine; charging for it is the new lie.
+      //
+      // The charge has to be about the shipping, not merely near it: "o frete é grátis,
+      // você paga só os R$ 129,90 na entrega" is the sentence this funnel most wants said,
+      // and a bare "você paga" within thirty characters was enough to veto it.
+      for (const m of t.matchAll(
+        /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculado|nao\s+e\s+(gratis|gratuito))\b/g,
+      )) {
+        // The negation sits between "frete" and the charge — "o frete NÃO é cobrado à
+        // parte" is the honest answer to the question this funnel gets most. So the
+        // clause check has to look at the charge, not at the word that introduced it.
+        const chargeAt = (m.index ?? 0) + m[0].length - m[1]!.length;
+        if (!negatedAt(t, chargeAt)) return "tells her she pays shipping, which she does not";
+      }
+      for (const m of t.matchAll(/\b(paga|pagar|cobra|cobrar|custa)\b[^.!?]{0,12}?\bo?\s*frete\b/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "tells her she pays shipping, which she does not";
+      }
+      if (/\bmais\s+o\s+frete\b/.test(t)) return "adds a shipping charge that does not exist";
+      // An amount ATTRIBUTED to shipping is a charge even without those words. Proximity
+      // alone is not enough: "R$ 129,90 com frete incluído" and "por R$ 129,90 — e o frete
+      // é grátis" both put a number beside the word and both are true.
+      if (
+        /\bfrete\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+        /\br\$\s*[\d.,]+[^.!?]{0,12}?\bde\s+frete\b/.test(t)
+      ) {
+        return "names a shipping amount, and shipping is free on both paths";
+      }
+      return null;
     },
   },
   {

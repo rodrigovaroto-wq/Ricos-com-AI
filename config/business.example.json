@@ -17,7 +17,8 @@
     "prepayDaysMax": 10,
     "codScheduled": true,
     "prepayVariesByRegion": true,
-    "warrantyDays": 7
+    "warrantyDays": 7,
+    "freeShipping": true
   },
   "sizes": [
     "P",

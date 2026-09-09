@@ -496,3 +496,43 @@ describe("contar que o Express existe, sem prometer", () => {
       .toContain("delivery_promise");
   });
 });
+
+/**
+ * O gate do frete mudou de direção em 2026-09-09. O operador zerou o frete na oferta da
+ * entrega (`freight: "0.00"`) e o antecipado sempre foi grátis nacional — a frase que o
+ * gate barrava virou verdade, e a mentira passou a ser cobrar frete dela.
+ */
+describe("frete grátis é verdade nos dois caminhos", () => {
+  it("dizer que é grátis passa", () => {
+    for (const t of [
+      "O frete é grátis, você paga só os R$ 129,90 na entrega.",
+      "Frete por nossa conta, em qualquer forma de pagamento.",
+      "No antecipado o frete é grátis também.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+
+  it("cobrar frete dela é o veto novo", () => {
+    for (const t of [
+      "São R$ 129,90 mais o frete.",
+      "O frete é calculado à parte no checkout.",
+      "O frete fica R$ 24,98, pago na entrega.",
+      "O frete não está incluído.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+
+  it("negar a cobrança continua liberado", () => {
+    // "o frete NÃO é à parte" é a resposta honesta à pergunta mais comum do funil.
+    expect(blocked(runGates("O frete não é cobrado à parte, já está tudo incluso.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("com freeShipping desligado, a regra antiga volta inteira", () => {
+    const antes = { ...ctx(), config: { ...config, delivery: { ...config.delivery, freeShipping: false } } };
+    expect(blocked(runGates("O frete é grátis!", antes))).toContain("shipping_promise");
+    expect(blocked(runGates("São R$ 129,90 mais o frete.", antes))).not.toContain("shipping_promise");
+  });
+});
