@@ -956,7 +956,7 @@ const gates: readonly Gate[] = [
       // in every sense that matters to her, and reading only the range form meant the
       // gate demanded a label from the prepaid side while giving the delivery side a pass.
       const WINDOW =
-        /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias|proximos?\s+\d{1,2}\s*dias|em\s+ate\s+\d{1,2}\s*dias/;
+        /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias|proximos?\s+\d{1,2}\s*dias|em\s+ate\s+\d{1,2}\s*dias|media\s+(?:de\s+)?\d{1,2}\s*dias/;
       // Sentence by sentence, and never a character past the boundary. A window read
       // with a fixed lookahead borrows the label from the NEXT block — which is how a
       // message with a deadline on one side only first passed this gate.

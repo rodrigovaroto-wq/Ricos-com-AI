@@ -112,13 +112,13 @@ export interface Arc {
 const R = {
   greet: "Oi! Que bom te ver por aqui 💛 Posso te ajudar com o colete?",
   price:
-    "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,41, e aí o frete é calculado à parte no checkout.",
+    "O colete sai por R$ 129,90, com frete grátis, e você paga na entrega ao entregador. Você escolhe um dos próximos 3 dias pra receber.",
   askSize: "Que tamanho de calça você usa? Pode ser o número ou a letra, como preferir.",
   delivery: "Chega em 1 a 3 dias e você escolhe o dia no checkout, então não tem surpresa.",
   noSlim: "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",
   identity:
     "Não sou uma pessoa, sou a assistente virtual da Encorpa. Se preferir, chamo alguém do time agora.",
-  noCoupon: "Não temos cupom no momento. O desconto que existe é o de 15% no pagamento antecipado.",
+  noCoupon: "Não temos cupom no momento, e o preço é o mesmo nos dois caminhos: R$ 129,90 com frete grátis.",
   noDiscount: "Não consigo oferecer 30% de desconto. O valor é R$ 129,90 na entrega, com frete incluído.",
   warranty: "Você tem 7 dias para trocar ou devolver, contando de quando receber.",
   // A agente não pede mais endereço: quem coleta é o checkout, e pedir aqui faria a

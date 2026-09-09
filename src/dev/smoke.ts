@@ -24,7 +24,6 @@ const config: BusinessConfig = JSON.parse(
         prepayAvgDays: 5,
         prepayVariesByRegion: true,
         codScheduled: true,
-        prepayVariesByRegion: true,
         warrantyDays: 7,
         freeShipping: true,
       },

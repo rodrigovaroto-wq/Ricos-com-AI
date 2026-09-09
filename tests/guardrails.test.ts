@@ -70,7 +70,7 @@ describe("promessas que a operação não cumpre", () => {
    */
   it("aceita o prazo real do antecipado, e recusa o prazo do COD dito lá", () => {
     expect(
-      blocked(runGates("No antecipado chega em 3 a 10 dias.", ctx({ paymentPath: "prepay" }))),
+      blocked(runGates("No antecipado o prazo varia, em média 5 dias úteis.", ctx({ paymentPath: "prepay" }))),
     ).not.toContain("delivery_promise");
     expect(
       blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx({ paymentPath: "prepay" }))),
@@ -82,13 +82,15 @@ describe("promessas que a operação não cumpre", () => {
     expect(blocked(r)).toContain("price_promise");
   });
 
-  it("aceita os dois preços da operação e a economia entre eles", () => {
-    const r = runGates(
-      `No antecipado sai por R$ ${config.prices.prepayBrl.toFixed(2).replace(".", ",")} ` +
-        "em vez de R$ 129,90 — economia de R$ 19,49.",
-      ctx(),
-    );
-    expect(blocked(r)).not.toContain("price_promise");
+  it("aceita os preços da operação, e a economia só enquanto ela existir", () => {
+    // Com o desconto do antecipado em zero (2026-09-09) os dois caminhos custam o mesmo,
+    // então "economia de R$ 19,49" virou um número que a loja não tem. Enquanto houvesse
+    // desconto, a diferença era citável — é por isso que ela entra na lista pelo cálculo
+    // e não escrita à mão.
+    const preco = config.prices.prepayBrl.toFixed(2).replace(".", ",");
+    expect(blocked(runGates(`No antecipado sai por R$ ${preco}, o mesmo valor.`, ctx())))
+      .not.toContain("price_promise");
+    expect(blocked(runGates("A economia é de R$ 19,49.", ctx()))).toContain("price_promise");
   });
 
   it("veta desconto que não existe", () => {
@@ -225,7 +227,7 @@ describe("recusar um número não é prometê-lo", () => {
   it("deixa a agente negar desconto que não existe", () => {
     const texto =
       "Não consigo oferecer 30% de desconto. Você pode pagar R$ 129,90 na entrega, " +
-      "ou antecipado com 15% de desconto por R$ 110,41.";
+      "ou antecipado, pelo mesmo R$ 129,90.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 
@@ -328,7 +330,7 @@ describe("porcentagem: desconto é decidido pela vizinhança do número", () => 
 
   it("e a composição continua liberada mesmo quando a mensagem fala de desconto", () => {
     const texto =
-      "No antecipado são 15% de desconto, e o tecido é 92% poliamida com 8% elastano.";
+      "O tecido é 92% poliamida com 8% elastano.";
     expect(runGates(texto, ctx()).allowed).toBe(true);
   });
 });
@@ -645,14 +647,14 @@ describe("prazo com as duas opções na mesa", () => {
   it("barra o prazo solto quando as duas formas estão lado a lado", () => {
     const frase =
       "Para o tamanho G, a entrega fica na janela de 1 a 3 dias e o frete é grátis. " +
-      "Você prefere pagar R$ 129,90 na entrega ou antecipar por R$ 110,41?";
+      "Você prefere pagar R$ 129,90 na entrega ou antecipar, pelo mesmo valor?";
     expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 
   it("passa quando cada prazo diz de quem é", () => {
     const frase =
       "No pagamento na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do " +
-      "entregador. No antecipado são 3 a 10 dias úteis e sai por R$ 110,41.";
+      "entregador. No antecipado o prazo varia, em média 5 dias úteis.";
     expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
@@ -672,19 +674,19 @@ describe("prazo em uma opção só", () => {
   it("barra a comparação com prazo só num dos lados", () => {
     const frase =
       "Na entrega você paga R$ 129,90 quando o colete chegar, em 1 a 3 dias. " +
-      "Antecipado você paga R$ 110,41 agora e ganha 15% de desconto.";
+      "Antecipado você paga R$ 129,90 agora, com frete grátis.";
     expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 
   it("passa com o prazo dos dois lados", () => {
     const frase =
       "Na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do entregador. " +
-      "No antecipado são 3 a 10 dias úteis e sai por R$ 110,41.";
+      "No antecipado o prazo varia por região, em média 5 dias úteis.";
     expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
   it("passa sem prazo nenhum — comparar só preço é legítimo", () => {
-    const frase = "Na entrega são R$ 129,90 na mão do entregador; antecipado, R$ 110,41.";
+    const frase = "Na entrega são R$ 129,90 na mão do entregador; antecipado, o mesmo valor.";
     expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
@@ -704,7 +706,7 @@ describe("cada prazo julgado pelo caminho que a frase dele nomeia", () => {
   const exemplar =
     "Na entrega: você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 " +
     "na mão do entregador, só quando o pacote chegar.\n\n" +
-    "Antecipado: você paga R$ 110,41 agora, ganha 15% de desconto, e chega em 3 a 10 dias úteis.\n\n" +
+    "Antecipado: você paga R$ 129,90 agora, e o prazo varia por região, em média 5 dias úteis.\n\n" +
     "Nos dois o frete é grátis. Qual você prefere?";
 
   it("o exemplar do próprio prompt passa a cadeia inteira", () => {

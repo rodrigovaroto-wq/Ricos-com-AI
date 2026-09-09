@@ -137,11 +137,11 @@ describe("o briefing que vai no prompt", () => {
   it("carrega os números da configuração, não números escritos à mão", () => {
     const texto = gateBriefing(config).join(" ");
     expect(texto).toContain("R$ 129,90");
-    expect(texto).toContain("R$ 110,41");
     expect(texto).toContain("R$ 216,50");
-    expect(texto).toContain("15%");
     expect(texto).toContain("1 a 3 dias");
-    expect(texto).toContain("3 a 10 dias úteis");
+    // O antecipado deixou de ter faixa e desconto em 2026-09-09: mesmo preço, e o prazo
+    // é uma média que varia por região.
+    expect(texto).toContain("em média 5 dias úteis");
     expect(texto).toContain("7 dias");
   });
 

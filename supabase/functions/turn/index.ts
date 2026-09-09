@@ -82,8 +82,8 @@ interface BusinessConfig extends GateConfig {
     codDaysMin: number;
     codDaysMax: number;
     /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
-    prepayDaysMin?: number;
-    prepayDaysMax?: number;
+    prepayAvgDays?: number;
+    prepayVariesByRegion?: boolean;
     warrantyDays: number;
     freeShipping: boolean;
   };
@@ -265,10 +265,16 @@ const recordCall = (
  * operator checked the checkout and it exists — 5 to 10 business days. With the fields
  * empty the prompt says nothing, which is what `delivery_promise` still enforces.
  */
+/**
+ * The prepaid deadline, and the only shape it may take. Logzz varies it by region, so a
+ * range was a promise made to an average customer who does not exist — the honest
+ * sentence names the average AND says it varies. Absent from the config, the agent says
+ * no prepaid deadline at all, which is the right silence when nobody measured one.
+ */
 const prepayWindowLine = (): string => {
-  const { prepayDaysMin, prepayDaysMax } = CONFIG.delivery;
-  if (prepayDaysMin == null || prepayDaysMax == null) return "";
-  return `entrega em ${prepayDaysMin} a ${prepayDaysMax} dias úteis,`;
+  const { prepayAvgDays } = CONFIG.delivery;
+  if (prepayAvgDays == null) return "";
+  return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
 };
 
 /**
@@ -353,21 +359,18 @@ const systemPrompt = (
     `  descobre na porta.`,
     `— **Palavra do dia a dia.** "Janela de entrega" é jargão; "você recebe em até 3 dias"`,
     `  é português. Nada de "modalidade", "adicional", "mediante", "disponibilidade".`,
-    `— **Quando ela escolhe, mostre as duas em bloco separado**, uma embaixo da outra,`,
-    `  cada uma com prazo, preço e o que acontece — nunca as duas espremidas na mesma`,
-    `  frase. O modelo que funciona:`,
-    ``,
-    `    Na entrega: você escolhe um dos próximos 3 dias, recebe em casa e paga`,
-    `    ${money(CONFIG.prices.codBrl)} na mão do entregador, só quando o pacote chegar.`,
-    ``,
-    `    Antecipado: você paga ${money(CONFIG.prices.prepayBrl)} agora, ganha`,
-    `    ${CONFIG.prices.prepayDiscountPercent}% de desconto${prepayWindowLine()}.`,
-    ``,
-    `    Nos dois o frete é grátis. Qual você prefere?`,
-    ``,
-    `  Escreva com as suas palavras, mas mantenha a separação: **um bloco por opção, com`,
-    `  o prazo de cada uma dentro do bloco dela**. Os prazos são diferentes e misturar`,
-    `  os dois é o erro que ela leva pra porta.`,
+    `— **Uma oferta só, quase sempre.** O pagamento na entrega é O caminho: ela escolhe`,
+    `  um dos próximos ${CONFIG.delivery.codDaysMax} dias, recebe em casa e paga`,
+    `  ${money(CONFIG.prices.codBrl)} na mão do entregador. Não ofereça alternativa, não`,
+    `  monte comparação, não pergunte qual ela prefere — pergunta a mais é decisão a mais,`,
+    `  e decisão a mais é venda a menos.`,
+    `— **O pagamento antecipado é uma SAÍDA, não uma opção.** Ele só entra quando a`,
+    `  entrega não alcança o CEP dela ou o tamanho dela não sai naquela região. Aí ele é`,
+    `  boa notícia, e você o apresenta assim: mesmo preço de`,
+    `  ${money(CONFIG.prices.prepayBrl)}, frete grátis do mesmo jeito, chega em qualquer`,
+    `  lugar do país. ${prepayWindowLine().replace(/,$/, ".")}`,
+    `  **Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer`,
+    `  desconto é preço que a loja não tem.`,
     ``,
     `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
     `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,

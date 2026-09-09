@@ -138,9 +138,9 @@ for (const [angle, reply, esperado] of [
   ["recusa honesta de %", "Não consigo oferecer 30% de desconto.", "envia"],
   ["recusa honesta de valor", "Não é R$ 99,90, o valor é R$ 129,90.", "envia"],
   ["preço do COD", "Fica R$ 129,90 com frete incluído.", "envia"],
-  ["preço antecipado", "No antecipado sai R$ 110,41, com 15% de desconto.", "envia"],
+  ["preço antecipado é o mesmo", "No antecipado também sai R$ 129,90, com frete grátis.", "envia"],
   ["âncora publicada", "De R$ 216,50 por R$ 129,90 — 40% off.", "envia"],
-  ["economia", "A economia é de R$ 19,49.", "envia"],
+  ["economia que não existe mais", "A economia é de R$ 19,49.", "barra(price_promise)"],
   ["promete % inexistente", "Consigo 30% de desconto pra você!", "barra(price_promise)"],
   ["promete valor inexistente", "Hoje sai por R$ 99,90.", "barra(price_promise)"],
   ["oferta sem a palavra desconto", "Te dou 30% agora se fechar.", "barra(price_promise)"],
@@ -156,7 +156,7 @@ for (const [angle, reply, esperado] of [
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply] of [
   ["tecido", "O tecido é 92% poliamida e 8% elastano."],
-  ["tecido junto de desconto real", "No antecipado são 15% de desconto, e o tecido é 92% poliamida."],
+  ["tecido junto de percentual", "O tecido é 92% poliamida e 8% elastano.", "envia"],
   ["garantia em %", "100% de garantia: 7 dias pra trocar."],
   ["algodão", "A faixa interna é 100% algodão."],
 ] as Array<[string, string]>) {
@@ -173,10 +173,10 @@ for (const [angle, reply, ctx, esperado] of [
   ["promete hoje", "Chega hoje mesmo.", {}, "barra(delivery_promise)"],
   ["'sem esperar' não é negação", "Sem esperar muito, chega amanhã.", {}, "barra(delivery_promise)"],
   ["janela larga demais", "Chega em 7 a 14 dias.", {}, "barra(delivery_promise)"],
-  ["entrega com a janela do antecipado", "Chega em 3 a 10 dias.", {}, "barra(delivery_promise)"],
+  ["antecipado com prazo fixo, sem dizer que varia", "No antecipado chega em 5 dias úteis.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
   ["véspera na logística", "Sua entrega está marcada pra amanhã 💛", { stage: "logistics" as const }, "envia"],
   ["véspera na pré-venda", "Sua entrega está marcada pra amanhã 💛", { stage: "presale" as const }, "barra(delivery_promise)"],
-  ["antecipado dentro da janela dele", "No antecipado chega em 3 a 10 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
+  ["antecipado com a média, dizendo que varia", "No antecipado o prazo varia por região, em média 5 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
   ["antecipado com a janela da entrega", "No antecipado chega em 1 a 3 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
 ] as Array<[string, string, Partial<GateContext>, string]>) {
   check("prazo", angle, reply, esperado, outcome(reply, ctx));
@@ -215,7 +215,7 @@ for (const [angle, reply, esperado] of [
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply, esperado] of [
   ["recusa honesta", "Não temos cupom no momento.", "envia"],
-  ["não tem cupom, mas tem desconto", "Não temos cupom, o desconto do antecipado é 15%.", "envia"],
+  ["não tem cupom nem desconto", "Não temos cupom, e o preço é o mesmo nos dois caminhos: R$ 129,90.", "envia"],
   ["anuncia cupom", "Tenho um cupom de 20% pra você.", "barra(price_promise+coupon_exists)"],
   ["cupom sem número", "Vou te mandar um cupom especial.", "barra(coupon_exists)"],
 ] as Array<[string, string, string]>) {
@@ -468,7 +468,7 @@ for (const [angle, reply] of [
   ["ancoragem no preço cheio publicado", "De R$ 216,50 por R$ 129,90 — e o frete já está incluído."],
   ["reversão de risco", "Você não paga nada agora e tem 7 dias pra devolver se não gostar."],
   ["antecipar a objeção", "Você deve estar pensando que não vai servir. Por isso você só paga depois de vestir."],
-  ["fechamento por escolha", "Prefere pagar na entrega ou antecipado, com 15% de desconto?"],
+  ["fechamento por escolha", "Prefere um dos próximos 3 dias ou prefere que eu veja outro?"],
   ["espelhar a palavra dela", "Pra segurar a barriguinha no vestido, o G é o que eu indico."],
   ["prova social sem citar ninguém", "É o que mais ouço de quem já recebeu: a roupa cai diferente."],
   ["urgência verdadeira do COD", "Adiar não protege o seu bolso — você só paga quando receber."],
