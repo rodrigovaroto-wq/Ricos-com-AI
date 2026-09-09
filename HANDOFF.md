@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (noite — **v28 no ar**, byte a byte igual ao repositório)
+> Atualizado em: 2026-09-09 (noite — **v29 no ar**, byte a byte igual ao repositório)
 
 ---
 
@@ -54,9 +54,9 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v28**, byte a byte igual ao repositório (deploy pela API, do disco) |
+| Edge Function `turn` | **v29**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2776**, lint e typecheck verdes |
+| Testes | **2779**, lint e typecheck verdes |
 | Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
 | Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
@@ -118,6 +118,18 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 `prepayBrl: 129.9`, `prepayDiscountPercent: 0`, **sem** `prepayDaysMin/Max` e com
 `prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
 e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
+
+### O interruptor que não fazia nada (2026-09-09, noite)
+
+Lendo o `BUSINESS_CONFIG` de produção — que o operador colou nesta sessão — apareceu
+`prepayVariesByRegion: false` junto de um prazo médio que a agente deveria dizer. E o
+gate **nunca lia essa chave**: só `prepayAvgDays`. Desligar a bandeira devia levar a
+agente de volta a não dizer prazo nenhum no antecipado, e não mudava coisa nenhuma.
+
+Corrigido: os dois leitores — o gate e o briefing — passam por `prepayAverage`, então o
+prompt para de ensinar um número que o gate recusaria. **No config novo a bandeira vai
+`true`**, então o comportamento é o mesmo de antes; o que muda é que agora desligá-la
+funciona.
 
 ### Auditoria de preço e frete (2026-09-09, noite)
 
@@ -225,7 +237,7 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
    de quem envia, não da resposta.
 
-### Deploy da v28
+### Deploy da v28 e da v29
 
 Feito em 2026-09-09 à noite, pela API de gerência com os arquivos do disco — **nove**
 arquivos, não os oito da receita antiga: `availability.ts` entrou depois e ficaria de fora
