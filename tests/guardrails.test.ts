@@ -661,3 +661,36 @@ describe("prazo com as duas opções na mesa", () => {
       .not.toContain("unattributed_window");
   });
 });
+
+/**
+ * A segunda metade do mesmo defeito, achada na sonda de produção depois da primeira
+ * correção: a agente comparou as duas formas e deu prazo só na entrega. Ela lê os dois
+ * blocos lado a lado, um tem data e o outro não, e preenche o buraco com o número que
+ * acabou de ler.
+ */
+describe("prazo em uma opção só", () => {
+  it("barra a comparação com prazo só num dos lados", () => {
+    const frase =
+      "Na entrega você paga R$ 129,90 quando o colete chegar, em 1 a 3 dias. " +
+      "Antecipado você paga R$ 110,41 agora e ganha 15% de desconto.";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+
+  it("passa com o prazo dos dois lados", () => {
+    const frase =
+      "Na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do entregador. " +
+      "No antecipado são 3 a 10 dias úteis e sai por R$ 110,41.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("passa sem prazo nenhum — comparar só preço é legítimo", () => {
+    const frase = "Na entrega são R$ 129,90 na mão do entregador; antecipado, R$ 110,41.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("'agendada' não é rótulo: é a nossa palavra, não a dela", () => {
+    const frase =
+      "A entrega é agendada para 1 a 3 dias. Você prefere pagar na entrega ou antecipado?";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+});

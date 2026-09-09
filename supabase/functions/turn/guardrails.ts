@@ -867,23 +867,41 @@ const gates: readonly Gate[] = [
     name: "unattributed_window",
     remedy: "rewrite",
     briefing: () =>
-      `Quando você colocar as duas formas de pagamento lado a lado, todo prazo tem que ` +
-      `dizer de qual delas é. Os prazos são diferentes, e a cliente não tem como adivinhar ` +
-      `qual você quis dizer.`,
+      `Comparando as duas formas de pagamento, ou você dá o prazo DAS DUAS, cada um ` +
+      `colado na sua opção, ou não dá prazo nenhum. Prazo em uma só ela lê como valendo ` +
+      `para as duas — e os prazos são diferentes.`,
     check: (text) => {
       const t = norm(text);
       const bothPaths =
         /\b(na\s+entrega|pagamento\s+na\s+entrega)\b/.test(t) &&
         /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(t);
       if (!bothPaths) return null;
-      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
-        // The label has to sit in the same clause as the window — a path named two
-        // sentences away is exactly the reading the customer got wrong.
-        const at = m.index ?? 0;
-        const clause = t.slice(Math.max(0, at - 60), at + (m[0]?.length ?? 0) + 40);
-        if (!/\b(na\s+entrega|antecipa\w*|adianta\w*|agendad\w*)\b/.test(clause)) {
+
+      const WINDOW = /(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/;
+      // Sentence by sentence, and never a character past the boundary. A window read
+      // with a fixed lookahead borrows the label from the NEXT block — which is how a
+      // message with a deadline on one side only first passed this gate.
+      const sentences = t.split(/[.!?\n]+/).filter((x) => WINDOW.test(x));
+      if (sentences.length === 0) return null;
+
+      // "Agendada" is not a label: it is our word, not hers, and the message that failed
+      // in production opened with "a entrega é agendada para 3 a 5 dias" before offering
+      // both — which she reads as applying to both.
+      const labelled = { cod: false, prepay: false };
+      for (const sentence of sentences) {
+        const isCod = /\bna\s+entrega\b/.test(sentence);
+        const isPrepay = /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(sentence);
+        if (!isCod && !isPrepay) {
           return "states a delivery window while offering both paths, without saying which";
         }
+        if (isCod) labelled.cod = true;
+        if (isPrepay) labelled.prepay = true;
+      }
+      // And a deadline given for one path only is the same ambiguity wearing a label:
+      // she compares two blocks, one has a date and the other does not, and fills the
+      // gap with the number she just read.
+      if (!labelled.cod || !labelled.prepay) {
+        return "gives a delivery window for one path while offering both, leaving the other blank";
       }
       return null;
     },
