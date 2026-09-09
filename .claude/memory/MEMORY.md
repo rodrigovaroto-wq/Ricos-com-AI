@@ -12,5 +12,5 @@ salvamento e a política de crescimento.
 - [Verificar pela porta de produção](verificar-pela-porta-de-producao.md) — Sonda contra a Edge Function prova o código, não o caminho; o webhook do n8n devolvia 200 sem criar conversa nenhuma.
 - [Isolate quente depois do deploy](edge-function-warm-isolate.md) — Por minutos depois de um deploy, parte das requisições ainda cai na versão anterior; confira a sonda pelo formato da resposta, não pelo conteúdo.
 - [Cegueira a negação, nos dois sentidos](negation-blindness.md) — Toda heurística de texto deste repositório já errou em negação; antes de mexer numa, sonde a frase negada **e** a negativa que não nega.
-- [O n8n achata o status HTTP](n8n-achata-o-status.md) — recusa da Edge Function volta 200 vazio pela porta de produção; o status não é canal de erro neste desenho.
+- [O n8n achata o status HTTP](n8n-achata-o-status.md) — a recusa da Edge Function viaja no corpo (`status: "error"`) e num e-mail; o status HTTP é 200 em qualquer desfecho, de propósito.
 - [`BUSINESS_CONFIG` sobrescreve o fallback inteiro](business-config-sobrescreve.md) — chave nova nasce ausente em produção; todo campo novo tem de ser opcional com o padrão certo.

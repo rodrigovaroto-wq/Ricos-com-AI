@@ -7,7 +7,10 @@ import {
   scheduleSilence,
   decideTouch,
   nextOpening,
+  windowIsOpen,
+  deliveryFor,
   type RenderContext,
+  type ExistingFollowup,
   type Remedy as FollowupRemedy,
 } from "@/agent/followups.js";
 import { remedyFor, runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
@@ -308,5 +311,153 @@ describe("segundo webhook depois que um toque já saiu", () => {
     expect(efeito.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
     // O toque de silêncio que já saiu não tem o que cancelar; o que ainda espera, sim.
     expect(efeito.cancel).toEqual(["silence_2"]);
+  });
+});
+
+describe("janela de 24h da Cloud API", () => {
+  const seteDaManha = new Date("2026-09-10T10:00:00Z");
+
+  it("dentro de 24h desde a última mensagem dela, texto livre", () => {
+    const ontem = new Date(seteDaManha.getTime() - 23 * 60 * 60 * 1000);
+    expect(windowIsOpen(seteDaManha, ontem)).toBe(true);
+  });
+
+  it("24h cravadas já está fora — o limite é o toque que a Meta recusa", () => {
+    const exatas = new Date(seteDaManha.getTime() - 24 * 60 * 60 * 1000);
+    expect(windowIsOpen(seteDaManha, exatas)).toBe(false);
+  });
+
+  it("sem nenhuma mensagem dela, a janela nunca abriu", () => {
+    expect(windowIsOpen(seteDaManha, null)).toBe(false);
+  });
+});
+
+describe("entrega do toque — texto livre ou template aprovado", () => {
+  const agora = new Date("2026-09-10T10:00:00Z");
+  const dentro = new Date(agora.getTime() - 60 * 60 * 1000);
+  const fora = new Date(agora.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+  const comTemplate = (over: Partial<RenderContext> = {}): RenderContext =>
+    render({
+      now: agora,
+      config: {
+        ...config,
+        channel: {
+          templates: {
+            silence_2: {
+              name: "encorpa_silencio_2",
+              language: "pt_BR",
+              variables: ["warrantyDays"],
+            },
+            order_eve: {
+              name: "encorpa_vespera",
+              language: "pt_BR",
+              variables: ["price", "size"],
+            },
+          },
+        },
+      },
+      ...over,
+    });
+
+  it("dentro da janela vai como texto, e o texto é o mesmo de sempre", () => {
+    const entrega = deliveryFor("silence_2", comTemplate(), dentro);
+    expect(entrega).toEqual({
+      via: "text",
+      body: renderFollowup("silence_2", comTemplate()),
+    });
+  });
+
+  it("fora da janela vira template, com as variáveis na ordem aprovada", () => {
+    const entrega = deliveryFor("order_eve", comTemplate({ size: "GG" }), fora);
+    expect(entrega).toMatchObject({
+      via: "template",
+      name: "encorpa_vespera",
+      language: "pt_BR",
+      variables: ["R$ 129,90", "GG"],
+    });
+  });
+
+  it("o corpo renderizado viaja junto com o template — é o que os gates leem e o que ela lê", () => {
+    const entrega = deliveryFor("order_eve", comTemplate({ size: "GG" }), fora);
+    expect(entrega).toMatchObject({
+      body: renderFollowup("order_eve", comTemplate({ size: "GG" })),
+    });
+  });
+
+  it("fora da janela sem template aprovado, o toque não sai", () => {
+    const entrega = deliveryFor("silence_3", comTemplate({ config: { ...config, coupon: { ...config.coupon, active: true } } }), fora);
+    expect(entrega).toEqual({ via: "blocked", reason: "no_template" });
+  });
+
+  it("variável vazia é template recusado pela Meta — barra antes de tentar", () => {
+    const entrega = deliveryFor("order_eve", comTemplate(), fora);
+    expect(entrega).toEqual({ via: "blocked", reason: "empty_variable" });
+  });
+
+  it("nada a dizer continua sendo nada a dizer, dentro ou fora da janela", () => {
+    expect(deliveryFor("silence_3", comTemplate(), dentro)).toBeNull();
+    expect(deliveryFor("silence_3", comTemplate(), fora)).toBeNull();
+  });
+
+  it("config sem a chave `channel` bloqueia todo toque fora da janela, e nenhum dentro", () => {
+    expect(deliveryFor("silence_2", render({ now: agora }), fora)).toEqual({
+      via: "blocked",
+      reason: "no_template",
+    });
+    expect(deliveryFor("silence_2", render({ now: agora }), dentro)).toMatchObject({ via: "text" });
+  });
+});
+
+describe("pedido morto — cancelado, recusado, devolvido", () => {
+  const orderedAt = new Date("2026-09-09T12:00:00Z");
+  const armada: ExistingFollowup[] = [
+    { kind: "order_confirmed", status: "sent" },
+    { kind: "order_shipped", status: "scheduled" },
+    { kind: "order_eve", status: "scheduled" },
+    { kind: "order_delivered", status: "scheduled" },
+    { kind: "silence_3", status: "scheduled" },
+  ];
+
+  it.each([
+    "Cancelado",
+    "cancelado pelo cliente",
+    "Recusado na entrega",
+    "Devolvido",
+    "Estornado",
+    "Reembolsado",
+    "refunded",
+  ])("«%s» desarma a régua inteira e não arma nada", (status) => {
+    const efeito = onOrderConfirmed(armada, orderedAt, 1, status);
+    expect(efeito.arm).toEqual([]);
+    expect(efeito.cancel).toEqual(
+      expect.arrayContaining(["order_shipped", "order_eve", "order_delivered", "silence_3"]),
+    );
+  });
+
+  it("o que já saiu não é cancelado — não dá para desfazer uma mensagem entregue", () => {
+    expect(onOrderConfirmed(armada, orderedAt, 1, "Cancelado").cancel).not.toContain(
+      "order_confirmed",
+    );
+  });
+
+  it.each(["Agendado", "Em separação", "Enviado", "Entregue", "Pago", undefined])(
+    "«%s» não é morte: a régua segue de pé",
+    (status) => {
+      const efeito = onOrderConfirmed([], orderedAt, 1, status);
+      expect(efeito.arm.map((f) => f.kind)).toEqual([
+        "order_confirmed",
+        "order_shipped",
+        "order_eve",
+        "order_delivered",
+      ]);
+    },
+  );
+
+  it("a véspera é o toque que isso existe para não mandar", () => {
+    // "Sua entrega está marcada pra amanhã, deixa R$ 129,90 separado" para quem cancelou
+    // é a mensagem que queima o número e a marca de uma vez.
+    const efeito = onOrderConfirmed(armada, orderedAt, 1, "Cancelado");
+    expect(efeito.cancel).toContain("order_eve");
   });
 });

@@ -581,6 +581,38 @@ const notification = (
   conversationId: conversation.id,
 });
 
+/**
+ * Human rhythm, for whoever sends. Mirrors `src/agent/pacing.ts` — the bubble half of
+ * it, which is the half a sender needs; `firstReplyAt` and `presenceRefreshes` stay
+ * there because they belong to the sender's own clock, not to this response. Declared
+ * inline like `PRICES`, because Supabase uploads file contents rather than resolving
+ * the repo, and held to the source by a test in `tests/function-drift.test.ts`.
+ *
+ * Two rules that are easy to get wrong, both already paid for once:
+ * 1. The delay is per bubble, not per reply. A three-bubble answer that waits twenty
+ *    seconds and then dumps everything at once is the opposite of the intended effect.
+ * 2. Never instant. A one-word bubble still waits a second.
+ */
+const MS_PER_WORD = 800;
+
+const bubbleDelayMs = (bubble: string): number =>
+  Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
+
+const splitBubbles = (text: string, max = 3): string[] => {
+  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
+  if (paragraphs.length <= max) return paragraphs;
+  const head = paragraphs.slice(0, max - 1);
+  return [...head, paragraphs.slice(max - 1).join("\n\n")];
+};
+
+/**
+ * The reply as the channel should play it. `reply` stays exactly as it was — it is what
+ * the database holds and what a person reads in a handoff mail — and `bubbles` is the
+ * same text, split and timed, so the sender never has to reimplement the rhythm.
+ */
+const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
+  text === null ? [] : splitBubbles(text).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }));
+
 /** She answered — every pending touch for this conversation is moot. */
 /**
  * She spoke, so the silence ruler has nothing left to chase. ONLY the silence ruler: this
@@ -727,6 +759,7 @@ const recordOrder = async (order: OrderWebhook) => {
     (existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled" }>,
     order.orderedAt ? new Date(order.orderedAt) : new Date(),
     CONFIG.delivery.codDaysMin,
+    order.status,
   );
 
   for (const kind of effect.cancel) {
@@ -1045,6 +1078,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       status: "handoff",
       reason: "a cliente pediu para falar com uma pessoa",
       reply: receipt.allowed ? HUMAN_HANDOFF_REPLY : null,
+      bubbles: paced(receipt.allowed ? HUMAN_HANDOFF_REPLY : null),
       blocked: receipt.traces.filter((t) => t.verdict === "block"),
       messageId: asked?.id ?? null,
       ...notification(lead, conversation),
@@ -1076,6 +1110,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       status: "handoff",
       reason: "teto de custo da conversa",
       reply: HOLDING_REPLY,
+      bubbles: paced(HOLDING_REPLY),
       messageId: ceilingHold.id,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -1112,6 +1147,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       reason: "falha ao chamar o modelo",
       detail: error instanceof Error ? error.message : String(error),
       reply: HOLDING_REPLY,
+      bubbles: paced(HOLDING_REPLY),
       messageId: held?.[0]?.id ?? null,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -1436,6 +1472,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       reason,
       intent: intent.text,
       reply: HOLDING_REPLY,
+      bubbles: paced(HOLDING_REPLY),
       messageId: holding.id,
       rewrites: rewritesUsed,
       blockedText: attempt.text,
@@ -1515,6 +1552,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         }),
     intent: intent.text,
     reply: replyText,
+    bubbles: paced(replyText),
     messageId: outbound.id,
     rewrites: rewritesUsed,
     order,

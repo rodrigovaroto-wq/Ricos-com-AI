@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { PRICES } from "@/llm/pricing.js";
+import { MS_PER_WORD, bubbleDelayMs, splitBubbles } from "@/agent/pacing.js";
 
 /**
  * The Edge Function ships its own copy of certain modules, because Supabase
@@ -66,5 +67,44 @@ describe("tabela de preços da Edge Function", () => {
   it("não cobra por um modelo que a fonte não conhece", () => {
     const declared = [...source.matchAll(/\[(CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g)];
     expect(declared).toHaveLength(Object.keys(PRICES).length);
+  });
+});
+
+/**
+ * A sexta cópia, também inline: o ritmo humano. A Edge Function declara o próprio
+ * `MS_PER_WORD` e as duas funções de bolha porque é ela quem monta a resposta que o
+ * canal vai tocar — `src/agent/pacing.ts` é a fonte, e sem este teste as duas
+ * poderiam divergir do mesmo jeito que a tabela de preços divergiu.
+ */
+describe("ritmo humano da Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("MS_PER_WORD é o mesmo de src/agent/pacing.ts", () => {
+    expect(source).toContain(`const MS_PER_WORD = ${MS_PER_WORD};`);
+  });
+
+  it("as bolhas saem iguais às de splitBubbles, com o atraso de bubbleDelayMs", () => {
+    const texto = ["um dois três", "quatro cinco", "seis"].join("\n\n");
+    expect(splitBubbles(texto).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }))).toEqual([
+      { text: "um dois três", delayMs: 2400 },
+      { text: "quatro cinco", delayMs: 1600 },
+      { text: "seis", delayMs: 1000 },
+    ]);
+  });
+
+  /**
+   * Uma resposta que carrega `reply` e não carrega `bubbles` é uma resposta que o canal
+   * vai mandar de uma vez só, sem ritmo nenhum — e ninguém percebe, porque o texto está
+   * lá. Por isso a checagem é sobre TODA ocorrência, uma por uma, e não sobre a primeira.
+   */
+  it("toda resposta com texto devolve bolhas na linha seguinte", () => {
+    const linhas = source.split("\n");
+    const comReply = linhas
+      .map((linha, i) => ({ linha, i }))
+      .filter(({ linha }) => /^\s+reply: /.test(linha));
+    expect(comReply.length).toBeGreaterThan(0);
+    for (const { linha, i } of comReply) {
+      expect(`${linha} -> ${linhas[i + 1]}`).toContain("bubbles: paced(");
+    }
   });
 });

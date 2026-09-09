@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (fim do dia — v27 no ar, [PR #21](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/21))
+> Atualizado em: 2026-09-09 (noite — **v30 no ar**, byte a byte igual ao repositório)
 
 ---
 
@@ -54,15 +54,15 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v27**, byte a byte igual ao repositório |
+| Edge Function `turn` | **v30**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2763**, lint, typecheck e `deno check` verdes |
+| Testes | **2794**, lint e typecheck verdes |
 | Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
 | Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
 | Rota de pedido | `job: "order"` no ar, verificada: cancela o silêncio e arma o pós-pedido |
 | Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
-| Cota da OpenAI | **estourada** — 100k TPM, sem cota; toda conversa cai no handoff |
+| Cota da OpenAI | **estourada até 2026-09-10 ~16:45 UTC** — 100k TPM esgotados; toda conversa cai no handoff |
 
 ### As quatro coisas que mudaram de verdade em 2026-09-09
 
@@ -119,6 +119,50 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 `prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
 e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
 
+### O toque que ia para quem cancelou (2026-09-09, noite)
+
+A régua de pós-pedido era armada pelo **primeiro** webhook, quando o pedido nasce. Todo
+webhook seguinte carrega um status, e até agora nenhum deles significava nada. Uma
+cliente que **cancelasse** continuava com `order_eve` agendado — e na véspera ouviria
+*"sua entrega está marcada pra amanhã, deixa R$ 129,90 separado"*. É a mensagem que
+queima o número e a marca de uma vez, e nada no sistema estava impedindo.
+
+`isOrderDead` lê o status por raiz — `cancel`, `recus`, `devolv`, `estorn`, `reembols`,
+`refund`, `refus`, `return` — porque nenhuma das duas plataformas publica o vocabulário
+de status delas. Morto: cancela tudo que ainda está agendado, pós-pedido **e** silêncio
+(perseguir quem acabou de cancelar é pior que ficar quieto), e não arma nada.
+
+Verificado contra a v30 pela porta de produção: `Agendado` armou os quatro toques e matou
+o `silence_2`; `Cancelado` no mesmo pedido deixou os cinco em `canceled`. Sonda apagada.
+
+### O interruptor que não fazia nada (2026-09-09, noite)
+
+Lendo o `BUSINESS_CONFIG` de produção — que o operador colou nesta sessão — apareceu
+`prepayVariesByRegion: false` junto de um prazo médio que a agente deveria dizer. E o
+gate **nunca lia essa chave**: só `prepayAvgDays`. Desligar a bandeira devia levar a
+agente de volta a não dizer prazo nenhum no antecipado, e não mudava coisa nenhuma.
+
+Corrigido: os dois leitores — o gate e o briefing — passam por `prepayAverage`, então o
+prompt para de ensinar um número que o gate recusaria. **No config novo a bandeira vai
+`true`**, então o comportamento é o mesmo de antes; o que muda é que agora desligá-la
+funciona.
+
+### Auditoria de preço e frete (2026-09-09, noite)
+
+Conferido linha a linha depois do PR #21, a pedido do operador. **O código está
+inteiro e coerente:** `codBrl` e `prepayBrl` são 129.9, `prepayDiscountPercent` é 0,
+`freeShipping` é opcional com ausente = grátis, `prepayDaysMin/Max` estão **ausentes de
+propósito** (e o gate barra qualquer faixa no antecipado por causa disso), `prepayAvgDays`
+é 5 com `prepayVariesByRegion`. As duas cópias — `src/agent/` e
+`supabase/functions/turn/` — estão byte a byte iguais nos oito arquivos espelhados. Os
+únicos "110,41" e "3 a 10" que sobraram no repositório são comentários de histórico; o que
+contradizia a regra em vigor foi reescrito.
+
+**O que a auditoria NÃO consegue provar, e ninguém consegue daqui:** o valor do secret
+`BUSINESS_CONFIG`. Ele vem hasheado pela API de gerência e sobrescreve o objeto inteiro do
+código. Enquanto ele tiver 110,41 e 15%, a produção segue no preço velho com 2.776 testes
+verdes. É o item 0 abaixo, e é só seu.
+
 ### A varredura de código do fim do dia
 
 Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
@@ -147,30 +191,121 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
 ### O que falta, em ordem
 
 0. **Colar o `BUSINESS_CONFIG` novo** — o preço único só vale quando o secret mudar.
-1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
-   decidiu não subir o limite por enquanto (2026-09-09).
-2. **Sonda de produção da v26.** Nada da v25 para cá foi confirmado pela porta de
-   produção — a cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho →
-   CEP → "qual a diferença?", conferindo que sai **1 a 3** na entrega e **3 a 10 dias
-   úteis** no antecipado, cada um colado na sua opção.
-3. **Webhook de venda da Logzz e da Coinzz** apontando para `job: "order"`. A rota está
-   pronta e verificada; falta quem a chame. Sem isso a régua de pós-pedido nunca arma.
-4. **Ramo de erro no n8n.** A recusa da Edge Function (422) volta como **200 vazio** pela
-   porta de produção — o status não é canal de erro neste desenho. Ver
+1. **Cota da OpenAI — o muro tem data.** Sondado na porta de produção em 2026-09-09
+   21:08 UTC. O erro não é "por minuto", é teto esgotado:
+
+   > `Rate limit reached for gpt-5.6-luna ... on tokens per min (TPM): Limit 100000,
+   > Used 100000, Requested 2723. Please try again in 19h36m20.16s.`
+
+   Ou seja: volta sozinha por volta de **2026-09-10 16:45 UTC**. Até lá **toda** cliente
+   recebe `"Deixa eu confirmar isso certinho pra você"` e a conversa vira handoff — se
+   houver tráfego de anúncio rodando, cada lead que chegar cai no e-mail do operador em
+   vez de ser vendido.
+
+   **O Gemini está de pé**: a classificação de intenção rodou e custou R$ 0,000128. Quem
+   morre é só a chamada da conversa.
+
+   **Decisão do operador (2026-09-09, noite): esperar.** Não subir o limite, não trocar o
+   modelo. As alternativas foram postas e recusadas — pôr cartão na OpenAI, ou tornar
+   `CONVERSATION_MODEL` uma variável de ambiente e apontar pro Gemini.
+
+   **Uma dívida que isso deixou à mostra:** o `CLAUDE.md` diz que "o provedor é
+   configuração, não arquitetura", e na Edge Function ele não é —
+   `CONVERSATION_MODEL = "gpt-5.6-luna"` é constante no código (`index.ts:70`). Enquanto
+   for constante, não existe plano B para uma queda da OpenAI sem deploy.
+2. **Sonda de produção — agendada, não esquecida.** Nada da v25 para cá foi confirmado
+   pela porta de produção; a cota estourou antes. **Há um check-in agendado para
+   2026-09-10 17:15 UTC** (`trig_019zftJ8Zx3bLqWCky8HQter`), meia hora depois de a cota
+   voltar, com o roteiro inteiro: "oi" → tamanho → CEP → "qual a diferença?".
+
+   O que ela precisa provar: os **dois** preços saem **R$ 129,90** (é isto que confirma
+   que o `BUSINESS_CONFIG` novo pegou — o velho tinha 110,41 e 15%), o prazo na entrega é
+   **1 a 3 dias**, o do antecipado sai como **"varia por região, em média 5 dias úteis"**
+   e nunca como faixa, e a resposta traz `bubbles` junto do `reply`.
+
+   **O `BUSINESS_CONFIG` novo foi salvo pelo operador em 2026-09-09 à noite, e nada
+   confirmou que pegou.** Todo campo que mudou só aparece no prompt e nos gates, e os dois
+   só existem depois da chamada do modelo que está barrada. Salvo ≠ verificado.
+3. **Webhook de venda: o workflow existe, falta você colar a URL nos dois painéis.**
+   `Encorpa — Venda confirmada` está publicado e ativo no n8n. Uma URL para as duas
+   plataformas, e a query diz qual:
+   - Logzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=logzz`
+   - Coinzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=coinzz`
+
+   Verificado de ponta a ponta com um lead de sonda: a Edge Function respondeu
+   `canceled: ["silence_2"]` e `armed: ["order_confirmed","order_shipped","order_eve",
+   "order_delivered"]` — a régua de silêncio morre e a de pós-pedido arma. A sonda foi
+   apagada do banco.
+
+   **A Logzz está mapeada de payload real** (botão Testar do painel, 2026-09-09):
+   `external_id` / `order_number`, `client_phone`, `order_final_price` (o **total**, não o
+   preço unitário — a quantidade pode ser maior que 1), `client_address_comp`,
+   `order_status`, `date_order` e `date_delivery`. As datas vêm com espaço no lugar do
+   `T`, e `scheduled_for` é coluna `date`, então vai só o dia.
+
+   **A Coinzz ainda não.** Os nomes dela são os esperados; o primeiro webhook real que
+   falhar vira e-mail com o JSON cru, e é ele que fecha essa metade.
+
+   **O tamanho é a parte delicada.** A página da Logzz não tem seletor, então a instrução
+   do fornecedor manda a cliente escrever no complemento. Passa quando há **exatamente um**
+   tamanho ali. `"P ou M"` não passa — moeda ao ar, e quem perde recebe a peça errada.
+   `"Bloco B, apto G"` não passa: uma letra sozinha depois de apto/bloco/casa é número de
+   porta, não tamanho. Esse era um falso positivo real, pego por sonda antes de ir ao ar.
+   Tudo que não passa vira e-mail.
+4. ~~**Ramo de erro no n8n.**~~ **Feito em 2026-09-09 e publicado.** O `Cerebro do turno`
+   tem `onError: continueErrorOutput`; a saída de erro alimenta `Devolve a recusa`
+   (responde `{ status: "error", error }` no corpo) e `Avisa a recusa` (e-mail com
+   telefone, `externalId` e o que a cliente escreveu). O status HTTP segue 200 **de
+   propósito** — não-2xx faz o canal reentregar a mensagem. Ver
    [`.claude/memory/n8n-achata-o-status.md`](.claude/memory/n8n-achata-o-status.md).
+   **Falta o operador confirmar** que o e-mail da sonda chegou — se o SMTP recusar, a
+   recusa volta a existir só no log.
 5. **Canal: WhatsApp Cloud API** (decisão de 2026-09-09, substitui o WAHA). Frente do
-   sócio do operador. **Consequência para o código:** a régua de silêncio manda toques na
-   manhã seguinte e 3 dias depois — os dois caem fora da janela de 24h e só saem como
-   **template aprovado**, o que muda `followups.ts` de texto livre para template com
-   variáveis.
-6. **`pacing.ts` não está ligado em nada.** O ritmo humano (0,8 s por palavra, bolhas,
-   "digitando") existe, tem teste e nenhum importador fora do próprio teste. Entra junto
-   com o canal.
+   sócio do operador. **O lado do código está feito:** `deliveryFor` em `followups.ts`
+   decide, pelo relógio e não pelo tipo do toque, se ele sai como texto livre ou como
+   template. O tipo do toque não responde essa pergunta — `silence_2` é a manhã seguinte
+   às 09:00, o que cai *dentro* da janela se ela sumiu à tarde e *fora* se ela sumiu de
+   madrugada.
+
+   **O que falta é seu, e é em duas partes:** aprovar os templates na Meta, e declarar
+   cada um em `BUSINESS_CONFIG` sob `channel.templates`, com o nome, o idioma e a **ordem
+   dos placeholders** — a aprovação fixa a ordem e o código não tem como adivinhá-la:
+
+   ```json
+   "channel": { "templates": {
+     "silence_2":  { "name": "...", "language": "pt_BR", "variables": ["warrantyDays"] },
+     "silence_3":  { "name": "...", "language": "pt_BR", "variables": ["weekday", "couponPercent"] },
+     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price", "size"] }
+   } }
+   ```
+
+   Os valores possíveis são `price`, `warrantyDays`, `size`, `address`, `couponPercent` e
+   `weekday`. A chave é **opcional e ausente bloqueia** todo toque fora da janela — texto
+   livre lá a Meta recusaria de qualquer jeito, então o certo é barrar e dizer, não mandar
+   no escuro.
+6. ~~**`pacing.ts` não está ligado em nada.**~~ **Ligado e confirmado em produção** — a
+   sonda de 2026-09-09 voltou com `bubbles: [{ text: "...", delayMs: 11200 }]`. Toda resposta do turno agora
+   devolve `bubbles` junto do `reply`: o mesmo texto, quebrado em até três bolhas com o
+   atraso de cada uma (0,8 s por palavra, mínimo 1 s), pra quem envia não reimplementar o
+   ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
+   de quem envia, não da resposta.
+
+### Deploys da noite (v28, v29, v30)
+
+Feito em 2026-09-09 à noite, pela API de gerência com os arquivos do disco — **nove**
+arquivos, não os oito da receita antiga: `availability.ts` entrou depois e ficaria de fora
+de quem copiasse o comando sem olhar. Ver
+[`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+
+O PAT usado nesse deploy foi colado no chat e **entra na lista de rotação junto com o
+anterior**.
 
 ### Higiene de segurança
 
-Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. O PAT
-da Supabase usado nos deploys de 2026-09-09 foi colado no chat — **revogar**. E um print
+Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. Dois
+PATs da Supabase foram colados no chat em 2026-09-09 e **os dois já foram revogados pelo
+operador** — o segundo depois dos deploys v28, v29 e v30. Um deploy novo precisa de um
+token novo. E um print
 de DevTools enviado nesta sessão trazia telefone e CPF de uma cliente real; nada foi usado
 nem gravado, mas print de aba Network carrega dado pessoal junto.
 
