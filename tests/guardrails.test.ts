@@ -451,3 +451,27 @@ describe("não indicar tamanho sem consultar", () => {
     }
   });
 });
+
+/**
+ * "Hoje" é promessa quebrada até o checkout dizer o contrário. Quando a consulta
+ * devolve a modalidade Express para o CEP dela, vira fato — e é o melhor argumento
+ * que este funil tem.
+ */
+describe("Express, e só quando ele existe", () => {
+  const frase = "Se você fechar agora, chega hoje mesmo, em até 4 horas.";
+
+  it("sem Express na consulta, continua barrado", () => {
+    expect(blocked(runGates(frase, ctx()))).toContain("delivery_promise");
+  });
+
+  it("com Express confirmado para o CEP dela, passa", () => {
+    expect(blocked(runGates(frase, { ...ctx(), sameDayWindow: true })))
+      .not.toContain("delivery_promise");
+  });
+
+  it("Express não libera prometer amanhã", () => {
+    // A modalidade é do mesmo dia. "Amanhã" continua sendo uma data que ninguém agendou.
+    expect(blocked(runGates("Chega amanhã sem falta.", { ...ctx(), sameDayWindow: true })))
+      .toContain("delivery_promise");
+  });
+});

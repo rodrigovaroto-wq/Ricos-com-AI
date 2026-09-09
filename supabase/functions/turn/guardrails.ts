@@ -94,6 +94,12 @@ export interface GateContext {
    * `undefined` means nothing was checked — and then no size may be recommended.
    */
   sizeChecked?: string;
+  /**
+   * The checkout returned a same-day modality for her postcode ("Express — receba hoje
+   * em até 4 horas"). Only then is "hoje" a fact rather than the broken promise that
+   * produces a refusal at the door.
+   */
+  sameDayWindow?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -426,7 +432,9 @@ const gates: readonly Gate[] = [
     briefing: (c) =>
       `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
       `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
-      `o dia é ela, no checkout. No antecipado` +
+      `o dia é ela, no checkout — a não ser que a consulta tenha devolvido a modalidade ` +
+      `Express para o CEP dela, e aí "hoje, em até 4 horas" é fato e é o seu melhor ` +
+      `argumento. No antecipado` +
       `${
         c.delivery.prepayDaysMin != null && c.delivery.prepayDaysMax != null
           ? `, ${c.delivery.prepayDaysMin} a ${c.delivery.prepayDaysMax} dias úteis`
@@ -439,11 +447,17 @@ const gates: readonly Gate[] = [
       // Refusing the impossible date is the job: "não consigo entregar amanhã, a
       // entrega leva de 1 a 3 dias" is the right answer to the most common question
       // in this funnel, and it used to be vetoed for containing the words it denies.
+      // Same-day is a promise until the checkout says otherwise. When the availability
+      // query came back with an Express window for HER postcode, it is a fact the
+      // courier already agreed to — and the strongest sentence this funnel owns.
       if (ctx.stage !== "logistics") {
         for (const m of t.matchAll(
           /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
         )) {
-          if (!negatedAt(t, m.index ?? 0)) return "promises same-day or next-day delivery";
+          if (negatedAt(t, m.index ?? 0)) continue;
+          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
+          if (sameDay && ctx.sameDayWindow) continue;
+          return "promises same-day or next-day delivery";
         }
       }
 

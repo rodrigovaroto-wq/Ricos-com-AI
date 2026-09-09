@@ -60,14 +60,34 @@ export interface Place {
   readonly district: string;
 }
 
+/**
+ * One delivery modality the checkout will offer her. There is more than one: the offer
+ * carries a "Padrão" that she schedules across three days, and an "Express — receba hoje
+ * em até 4 horas" that Logzz reports as roughly 30% more efficient and charges R$ 5,00
+ * more for. Reading only the first window threw Express away, and Express is the single
+ * strongest thing this funnel can say.
+ */
+export interface DeliveryWindow {
+  readonly code: string;
+  readonly name: string;
+  readonly priceBrl: number | null;
+  /** Today, in hours — not a scheduled day. The claim the agent may only make from here. */
+  readonly sameDay: boolean;
+  readonly dates: readonly string[];
+}
+
 export interface Availability {
   readonly size: Size;
   /** Cash on delivery works for this size at this postcode. The only thing this query knows. */
   readonly cod: boolean;
+  /** Every modality offered, in the order the checkout returns them. */
+  readonly windows: readonly DeliveryWindow[];
   /** What the customer would be charged for delivery, when cash on delivery exists. */
   readonly codFreightBrl: number | null;
   /** The days the checkout will offer her, in ISO form. */
   readonly dates: readonly string[];
+  /** Same-day delivery, when this postcode has it. Absent means she may not be promised it. */
+  readonly express: DeliveryWindow | null;
   /** The carrier quote on the prepaid path — the OPERATOR's cost, never her price. */
   readonly labelBrl: number | null;
 }
@@ -94,7 +114,10 @@ export const availabilityQuery = (zip: string, place: Place, code: string): URLS
   });
 
 interface RawWindow {
+  deliveryTypeCode?: string;
+  deliveryTypeName?: string;
   deliveryPrice?: number;
+  deliverySameDay?: number | boolean;
   dates?: Array<{ date?: string }>;
 }
 interface RawData {
@@ -111,12 +134,23 @@ interface RawData {
  */
 export const readAvailability = (size: Size, body: unknown): Availability => {
   const data = (body as { data?: RawData } | null)?.data;
-  const window = data?.local_operation_cash_on_delivery?.delivery_days_available?.[0];
+  const windows: DeliveryWindow[] = (
+    data?.local_operation_cash_on_delivery?.delivery_days_available ?? []
+  ).map((w) => ({
+    code: w.deliveryTypeCode ?? "",
+    name: w.deliveryTypeName ?? "",
+    priceBrl: w.deliveryPrice ?? null,
+    sameDay: Boolean(w.deliverySameDay),
+    dates: (w.dates ?? []).flatMap((d) => (d.date ? [d.date] : [])),
+  }));
+  const first = windows[0];
   return {
     size,
-    cod: Boolean(window),
-    codFreightBrl: window?.deliveryPrice ?? null,
-    dates: (window?.dates ?? []).flatMap((d) => (d.date ? [d.date] : [])),
+    cod: windows.length > 0,
+    windows,
+    codFreightBrl: first?.priceBrl ?? null,
+    dates: first?.dates ?? [],
+    express: windows.find((w) => w.sameDay) ?? null,
     labelBrl: data?.local_operation?.[0]?.price ?? null,
   };
 };

@@ -16,7 +16,13 @@ const yes = {
     local_operation: [{ price: 19.345 }],
     local_operation_cash_on_delivery: {
       delivery_days_available: [
-        { deliveryPrice: 24.98, dates: [{ date: "2026-09-10" }, { date: "2026-09-11" }] },
+        {
+          deliveryTypeCode: "det1pgz5",
+          deliveryTypeName: "Padrão",
+          deliveryPrice: 24.98,
+          deliverySameDay: 0,
+          dates: [{ date: "2026-09-10" }, { date: "2026-09-11" }],
+        },
       ],
     },
   },
@@ -69,7 +75,7 @@ describe("disponibilidade", () => {
 });
 
 describe("qual caminho oferecer", () => {
-  const base = { size: "G", dates: [], codFreightBrl: null } as const;
+  const base = { size: "G", dates: [], codFreightBrl: null, windows: [], express: null } as const;
 
   it("entrega existindo, é a entrega", () => {
     expect(routeFor(readAvailability("G", yes), 40).path).toBe("cod");
@@ -97,5 +103,59 @@ describe("a escada de tamanhos não pode divergir", () => {
   it("as chaves de SIZE_CODES são exatamente SIZES", async () => {
     const { SIZES } = await import("@/agent/sizing.js");
     expect(Object.keys(SIZE_CODES)).toEqual([...SIZES]);
+  });
+});
+
+/**
+ * A oferta tem duas modalidades — "Padrão", agendada em três datas, e "Express — receba
+ * hoje em até 4 horas". O leitor pegava só a primeira janela e jogava a Express fora,
+ * que é justamente a frase mais forte que este funil tem para dizer.
+ */
+describe("Express", () => {
+  const comExpress = {
+    data: {
+      local_operation: [{ price: 19.345 }],
+      local_operation_cash_on_delivery: {
+        delivery_days_available: [
+          {
+            deliveryTypeCode: "det1pgz5",
+            deliveryTypeName: "Padrão",
+            deliveryPrice: 24.98,
+            deliverySameDay: 0,
+            dates: [{ date: "2026-09-10" }],
+          },
+          {
+            deliveryTypeCode: "detexp01",
+            deliveryTypeName: "Express",
+            deliveryPrice: 29.98,
+            deliverySameDay: 1,
+            dates: [{ date: "2026-09-09" }],
+          },
+        ],
+      },
+    },
+  };
+
+  it("lê as duas modalidades, não só a primeira", () => {
+    const a = readAvailability("G", comExpress);
+    expect(a.windows.map((w) => w.name)).toEqual(["Padrão", "Express"]);
+  });
+
+  it("a Express é a janela do mesmo dia, e custa mais", () => {
+    const a = readAvailability("G", comExpress);
+    expect(a.express?.name).toBe("Express");
+    expect(a.express?.sameDay).toBe(true);
+    expect(a.express?.priceBrl).toBe(29.98);
+  });
+
+  it("sem Express na resposta, não há Express para prometer", () => {
+    expect(readAvailability("G", yes).express).toBeNull();
+    expect(readAvailability("M", no).express).toBeNull();
+  });
+
+  it("o frete e as datas continuam sendo os da modalidade padrão", () => {
+    const a = readAvailability("G", comExpress);
+    expect(a.codFreightBrl).toBe(24.98);
+    expect(a.dates).toEqual(["2026-09-10"]);
   });
 });
