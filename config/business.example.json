@@ -43,7 +43,7 @@
     "physicalOnDeliveryActive": false
   },
   "checkout": {
-    "_comment": "Os dois checkouts da Coinzz, URL completa. A agente monta o link com os QUATRO parâmetros que a página lê da query string (name, email, phone, document, conferidos em /assets/js/checkout/new-checkout-two.js em 2026-09-08) — com os quatro juntos o checkout pula direto para a etapa de endereço. Endereço e tamanho NÃO têm parâmetro: ela digita o endereço e escolhe o tamanho lá dentro, junto com o dia da entrega.",
+    "_comment": "Dois checkouts, em DUAS plataformas desde 2026-09-09: pagamento na entrega é o agendamento da Logzz (entrega.logzz.com.br/pay/...), antecipado continua na Coinzz. Cada um lê QUATRO parâmetros da query string e aí pula direto para a etapa de endereço — name, email, phone e o CPF, que a Logzz chama de `cpf` e a Coinzz de `document` (sondados campo a campo nas duas páginas). Endereço NÃO tem parâmetro em nenhuma das duas. Tamanho também não: no antecipado ela escolhe no seletor; na entrega ela ESCREVE o tamanho no complemento do agendamento, conforme a instrução do próprio fornecedor na página do produto.",
     "codUrl": "{{URL_CHECKOUT_PAGAMENTO_NA_ENTREGA}}",
     "prepayUrl": "{{URL_CHECKOUT_PAGAMENTO_ANTECIPADO}}"
   },

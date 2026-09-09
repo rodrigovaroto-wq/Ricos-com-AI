@@ -204,11 +204,15 @@ export const buildCoinzzRequest = (
  * **all four** are present and valid, calls `changeAccordion(0)` and moves her straight
  * to the address step. Three out of four fill the fields and skip nothing.
  *
- * What it does NOT accept is as important. There is no query parameter for the address:
- * CEP, rua, número, bairro, cidade and UF are typed in the checkout, whatever the
- * conversation collected. And the size cannot be sent either — `prePopulatedVariations`
- * is rendered server-side into the page (`data-payload`), never read from the URL, so
- * she picks the size in the checkout and the agent's job is to tell her which one.
+ * What it does NOT accept is as important, and it is the same on both platforms. There
+ * is no query parameter for the address: CEP, rua, número, bairro, cidade and UF are
+ * typed in the checkout, whatever the conversation collected — which is why the agent
+ * does not ask for them. The size cannot be sent either.
+ *
+ * And on the Logzz path the size is not even a selector. The supplier's own product
+ * page says it in capitals: "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types
+ * it into the complement field when she picks the delivery day, so the agent has to tell
+ * her that in words — a customer who leaves it blank gets whatever the warehouse picks.
  *
  * That is the honest shape of this path, and it is why the message that carries the link
  * has to say what is left for her to do instead of implying the order is done.
@@ -220,8 +224,19 @@ export interface CheckoutLinkConfig {
   prepayUrl?: string;
 }
 
-/** The four the checkout reads, in the order it reads them. */
-export const CHECKOUT_QUERY_FIELDS = ["name", "email", "phone", "document"] as const;
+/**
+ * The four fields each checkout reads, and they are not the same four.
+ *
+ * The two paths now live on two platforms (operator, 2026-09-09): cash on delivery runs
+ * on the Logzz scheduling checkout, prepaid on Coinzz. Both fill name, e-mail and phone
+ * from the query string and both skip straight past the first step — but Logzz names the
+ * document field `cpf` and Coinzz names it `document`. Probed field by field against
+ * both live pages; every other spelling, address and size included, is ignored by both.
+ */
+export const CHECKOUT_QUERY_FIELDS = {
+  cod: ["name", "email", "phone", "cpf"],
+  prepay: ["name", "email", "phone", "document"],
+} as const;
 
 /**
  * Builds the link, or says what is missing. Partial is refused on purpose: the whole
@@ -251,7 +266,9 @@ export const buildCheckoutLink = (
     // short and readable — it goes into a WhatsApp message, where a wall of %2D reads
     // like a scam.
     phone: digitsOnly(customer.phone),
-    document: digitsOnly(customer.document),
+    // Logzz reads `cpf`, Coinzz reads `document`. Sending the wrong one is silent: the
+    // page loads, three fields are filled, and she retypes the CPF wondering why.
+    [paymentMethod === "cod" ? "cpf" : "document"]: digitsOnly(customer.document),
   });
   return `${base}${base!.includes("?") ? "&" : "?"}${query.toString()}`;
 };

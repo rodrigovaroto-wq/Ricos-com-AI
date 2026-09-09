@@ -454,16 +454,31 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
  * avoid.
  *
  * The day is genuinely good news and is said as such: three dates, and she picks.
+ *
+ * On the cash-on-delivery path the size needs saying out loud, and this is the one
+ * instruction that cannot be dropped. That checkout is Logzz's scheduling page, where
+ * the size is NOT a selector — the supplier's own product page says it in capitals:
+ * "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types it into the complement
+ * field with the delivery day. Left blank, the warehouse picks for her, and a piece that
+ * does not fit comes back at the operator's cost.
  */
-const checkoutDirectiveFor = (url: string | null, size: string | null): string | null =>
+const checkoutDirectiveFor = (
+  url: string | null,
+  size: string | null,
+  path: "cod" | "prepay",
+): string | null =>
   url === null
     ? null
     : `Você já tem tudo. Mande este link para ela agora, exatamente como está, sem encurtar` +
       ` e sem alterar:\n${url}\nDiga que os dados dela já vão preenchidos. Falta ela, lá` +
-      ` dentro: digitar o endereço de entrega,` +
-      `${size ? ` escolher o tamanho ${size},` : ` escolher o tamanho,`} e escolher o dia da` +
-      ` entrega — são três dias pra ela escolher, e isso é bom, fale como bom. NÃO diga que o` +
-      ` pedido já está feito: ele nasce quando ela terminar no checkout.`;
+      ` dentro: digitar o endereço de entrega, escolher o dia da entrega — são três dias` +
+      ` pra ela escolher, e isso é bom, fale como bom — e${
+        path === "cod"
+          ? ` ESCREVER O TAMANHO${size ? ` (${size})` : ""} NO CAMPO DE COMPLEMENTO do` +
+            ` agendamento. Diga isso com todas as letras: é ali que o tamanho entra, e em` +
+            ` branco o depósito escolhe por ela.`
+          : `${size ? ` escolher o tamanho ${size}` : ` escolher o tamanho`}.`
+      } NÃO diga que o pedido já está feito: ele nasce quando ela terminar no checkout.`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -969,6 +984,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
     stated?.size ?? lead.size ?? null,
+    // Still hardcoded, like every other `paymentPath` in this handler. Routing by what
+    // the availability query answers is the next change, and it is blocked: that query
+    // belongs to the Coinzz checkout, which as of 2026-09-09 is the PREPAID path only.
+    "cod",
   );
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of

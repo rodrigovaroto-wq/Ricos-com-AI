@@ -22,6 +22,16 @@
  * What the query therefore answers is exactly one question — is cash on delivery
  * available for this size at this postcode — plus the operator's own shipping cost
  * on the prepaid path. It says nothing about stock. Treat it that way.
+ *
+ * AND AS OF 2026-09-09 IT NO LONGER DESCRIBES THE CASH-ON-DELIVERY PATH AT ALL.
+ * That path moved to the Logzz scheduling checkout; Coinzz now serves the prepaid
+ * offer only. The M is the proof: this query reports no delivery for it anywhere,
+ * including a warehouse holding 196 units, and the operator confirmed that is a
+ * Coinzz integration fault rather than the warehouse's answer. So routing a real
+ * conversation on what this returns per size would push every M customer away from a
+ * path that works for her. Nothing here is wired into the handler until the Logzz
+ * checkout's own availability call is found — the same way this one was, in the
+ * network tab of the page the customer actually opens.
  */
 
 /**
