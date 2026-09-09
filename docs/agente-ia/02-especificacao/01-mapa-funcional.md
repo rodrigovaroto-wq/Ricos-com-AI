@@ -93,7 +93,7 @@ padrão de confirmação de recebimento. Não contradiz o guardrail de identidad
 |---|---|
 | Atraso da primeira resposta real, dentro do horário (06:00–00:00) | **3 minutos** |
 | Se a mensagem chegou fora do horário (00:00–06:00) | **a partir das 06:00** |
-| Atraso das demais respostas | **0,2 s por palavra da mensagem** |
+| Atraso das demais respostas | **0,8 s por palavra da mensagem** |
 | "Digitando" | **visível enquanto a agente prepara a resposta** |
 
 ENTRADA: resposta pronta → PROCESSAMENTO: quebrar em bolhas, calcular o atraso, manter a
@@ -104,8 +104,9 @@ presença durante a espera → SAÍDA: 1 a 3 mensagens no ritmo de gente → *ad
 **Duas notas técnicas que a implementação precisa respeitar:**
 
 1. **A presença de "digitando" expira em ~20 s.** Espera maior tem que reenviar a presença
-   em blocos (`presenceSubscribe → composing → espera → paused`, em laço). A 0,2 s por
-   palavra, uma mensagem de 100 palavras já chega no limite. Evidência: Evolution →
+   em blocos (`presenceSubscribe → composing → espera → paused`, em laço). A 0,8 s por
+   palavra, uma bolha de 25 palavras já passa do limite — o reenvio em blocos
+   deixou de ser detalhe e virou obrigatório. Evidência: Evolution →
    `whatsapp.baileys.service.ts` :2306–2330.
 2. **O atraso é por bolha, não pela resposta inteira.** Senão uma resposta de três bolhas
    fica 20 s em silêncio e depois despeja tudo de uma vez — que é o oposto do efeito
