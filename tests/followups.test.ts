@@ -10,6 +10,7 @@ import {
   windowIsOpen,
   deliveryFor,
   type RenderContext,
+  type ExistingFollowup,
   type Remedy as FollowupRemedy,
 } from "@/agent/followups.js";
 import { remedyFor, runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
@@ -405,5 +406,58 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
       reason: "no_template",
     });
     expect(deliveryFor("silence_2", render({ now: agora }), dentro)).toMatchObject({ via: "text" });
+  });
+});
+
+describe("pedido morto — cancelado, recusado, devolvido", () => {
+  const orderedAt = new Date("2026-09-09T12:00:00Z");
+  const armada: ExistingFollowup[] = [
+    { kind: "order_confirmed", status: "sent" },
+    { kind: "order_shipped", status: "scheduled" },
+    { kind: "order_eve", status: "scheduled" },
+    { kind: "order_delivered", status: "scheduled" },
+    { kind: "silence_3", status: "scheduled" },
+  ];
+
+  it.each([
+    "Cancelado",
+    "cancelado pelo cliente",
+    "Recusado na entrega",
+    "Devolvido",
+    "Estornado",
+    "Reembolsado",
+    "refunded",
+  ])("«%s» desarma a régua inteira e não arma nada", (status) => {
+    const efeito = onOrderConfirmed(armada, orderedAt, 1, status);
+    expect(efeito.arm).toEqual([]);
+    expect(efeito.cancel).toEqual(
+      expect.arrayContaining(["order_shipped", "order_eve", "order_delivered", "silence_3"]),
+    );
+  });
+
+  it("o que já saiu não é cancelado — não dá para desfazer uma mensagem entregue", () => {
+    expect(onOrderConfirmed(armada, orderedAt, 1, "Cancelado").cancel).not.toContain(
+      "order_confirmed",
+    );
+  });
+
+  it.each(["Agendado", "Em separação", "Enviado", "Entregue", "Pago", undefined])(
+    "«%s» não é morte: a régua segue de pé",
+    (status) => {
+      const efeito = onOrderConfirmed([], orderedAt, 1, status);
+      expect(efeito.arm.map((f) => f.kind)).toEqual([
+        "order_confirmed",
+        "order_shipped",
+        "order_eve",
+        "order_delivered",
+      ]);
+    },
+  );
+
+  it("a véspera é o toque que isso existe para não mandar", () => {
+    // "Sua entrega está marcada pra amanhã, deixa R$ 129,90 separado" para quem cancelou
+    // é a mensagem que queima o número e a marca de uma vez.
+    const efeito = onOrderConfirmed(armada, orderedAt, 1, "Cancelado");
+    expect(efeito.cancel).toContain("order_eve");
   });
 });

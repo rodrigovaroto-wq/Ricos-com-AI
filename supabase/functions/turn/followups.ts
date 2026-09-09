@@ -168,23 +168,49 @@ export interface ExistingFollowup {
   readonly status: "scheduled" | "sent" | "canceled";
 }
 
+/**
+ * A status that means the sale is off.
+ *
+ * The post-order ruler is armed by the first webhook, when the order is created. Every
+ * later webhook for the same sale carries a status, and until this existed none of them
+ * meant anything: a woman who cancelled still had `order_eve` scheduled, so the day
+ * before the delivery she would have been told "sua entrega está marcada pra amanhã,
+ * deixa R$ 129,90 separado". That is the message that burns the number and the brand at
+ * once, and nothing in the system was stopping it.
+ *
+ * Matched by root rather than by an exact list, because neither platform publishes its
+ * status vocabulary and both write in Portuguese with their own wording — "Cancelado",
+ * "cancelado pelo cliente", "Recusado na entrega". A root missed here fails the way it
+ * failed before, which is the floor, not a new risk.
+ */
+export const isOrderDead = (status: string | undefined): boolean =>
+  /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
   codDaysMin: number,
-): OrderEffect => ({
-  // Only what is still waiting can be cancelled; a touch already sent is history.
-  cancel: existing
-    .filter((f) => f.status === "scheduled" && f.kind.startsWith("silence_"))
-    .map((f) => f.kind),
-  // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
-  // after `order_confirmed` already went out would otherwise re-arm a kind the table
-  // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
-  // — the whole call 500s, the status update is lost, and n8n retries into the same wall.
-  arm: scheduleOrder(orderedAt, codDaysMin).filter(
-    (f) => !existing.some((e) => e.kind === f.kind),
-  ),
-});
+  status?: string,
+): OrderEffect => {
+  const scheduled = existing.filter((f) => f.status === "scheduled");
+
+  // The sale is off. Everything still waiting dies with it — the post-order touches
+  // because there is no delivery to talk about, and the silence ones because chasing
+  // someone who just cancelled is worse than saying nothing. Nothing is armed.
+  if (isOrderDead(status)) return { cancel: scheduled.map((f) => f.kind), arm: [] };
+
+  return {
+    // Only what is still waiting can be cancelled; a touch already sent is history.
+    cancel: scheduled.filter((f) => f.kind.startsWith("silence_")).map((f) => f.kind),
+    // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
+    // after `order_confirmed` already went out would otherwise re-arm a kind the table
+    // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
+    // — the whole call 500s, the status update is lost, and n8n retries into the same wall.
+    arm: scheduleOrder(orderedAt, codDaysMin).filter(
+      (f) => !existing.some((e) => e.kind === f.kind),
+    ),
+  };
+};
 
 export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {
   let hash = 0;

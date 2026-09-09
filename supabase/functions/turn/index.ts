@@ -759,6 +759,7 @@ const recordOrder = async (order: OrderWebhook) => {
     (existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled" }>,
     order.orderedAt ? new Date(order.orderedAt) : new Date(),
     CONFIG.delivery.codDaysMin,
+    order.status,
   );
 
   for (const kind of effect.cancel) {

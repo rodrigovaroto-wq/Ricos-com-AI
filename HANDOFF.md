@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (noite — **v29 no ar**, byte a byte igual ao repositório)
+> Atualizado em: 2026-09-09 (noite — **v30 no ar**, byte a byte igual ao repositório)
 
 ---
 
@@ -54,9 +54,9 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v29**, byte a byte igual ao repositório (deploy pela API, do disco) |
+| Edge Function `turn` | **v30**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2779**, lint e typecheck verdes |
+| Testes | **2794**, lint e typecheck verdes |
 | Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
 | Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
@@ -118,6 +118,22 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 `prepayBrl: 129.9`, `prepayDiscountPercent: 0`, **sem** `prepayDaysMin/Max` e com
 `prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
 e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
+
+### O toque que ia para quem cancelou (2026-09-09, noite)
+
+A régua de pós-pedido era armada pelo **primeiro** webhook, quando o pedido nasce. Todo
+webhook seguinte carrega um status, e até agora nenhum deles significava nada. Uma
+cliente que **cancelasse** continuava com `order_eve` agendado — e na véspera ouviria
+*"sua entrega está marcada pra amanhã, deixa R$ 129,90 separado"*. É a mensagem que
+queima o número e a marca de uma vez, e nada no sistema estava impedindo.
+
+`isOrderDead` lê o status por raiz — `cancel`, `recus`, `devolv`, `estorn`, `reembols`,
+`refund`, `refus`, `return` — porque nenhuma das duas plataformas publica o vocabulário
+de status delas. Morto: cancela tudo que ainda está agendado, pós-pedido **e** silêncio
+(perseguir quem acabou de cancelar é pior que ficar quieto), e não arma nada.
+
+Verificado contra a v30 pela porta de produção: `Agendado` armou os quatro toques e matou
+o `silence_2`; `Cancelado` no mesmo pedido deixou os cinco em `canceled`. Sonda apagada.
 
 ### O interruptor que não fazia nada (2026-09-09, noite)
 
@@ -194,12 +210,21 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    "order_delivered"]` — a régua de silêncio morre e a de pós-pedido arma. A sonda foi
    apagada do banco.
 
-   **O mapeamento de campos ainda não viu um payload real de nenhuma das duas.** Todo
-   webhook que ele não souber ler vira e-mail pra você com o JSON cru, em vez de um
-   pedido pela metade — e é esse e-mail que fecha o mapeamento. Dois riscos conhecidos,
-   anotados no próprio workflow: o valor pode vir em centavos, e o tamanho só é aceito
-   quando o campo é exatamente P/M/G/GG/XGG (na Logzz ele vem no complemento do
-   agendamento).
+   **A Logzz está mapeada de payload real** (botão Testar do painel, 2026-09-09):
+   `external_id` / `order_number`, `client_phone`, `order_final_price` (o **total**, não o
+   preço unitário — a quantidade pode ser maior que 1), `client_address_comp`,
+   `order_status`, `date_order` e `date_delivery`. As datas vêm com espaço no lugar do
+   `T`, e `scheduled_for` é coluna `date`, então vai só o dia.
+
+   **A Coinzz ainda não.** Os nomes dela são os esperados; o primeiro webhook real que
+   falhar vira e-mail com o JSON cru, e é ele que fecha essa metade.
+
+   **O tamanho é a parte delicada.** A página da Logzz não tem seletor, então a instrução
+   do fornecedor manda a cliente escrever no complemento. Passa quando há **exatamente um**
+   tamanho ali. `"P ou M"` não passa — moeda ao ar, e quem perde recebe a peça errada.
+   `"Bloco B, apto G"` não passa: uma letra sozinha depois de apto/bloco/casa é número de
+   porta, não tamanho. Esse era um falso positivo real, pego por sonda antes de ir ao ar.
+   Tudo que não passa vira e-mail.
 4. ~~**Ramo de erro no n8n.**~~ **Feito em 2026-09-09 e publicado.** O `Cerebro do turno`
    tem `onError: continueErrorOutput`; a saída de erro alimenta `Devolve a recusa`
    (responde `{ status: "error", error }` no corpo) e `Avisa a recusa` (e-mail com
@@ -237,7 +262,7 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
    de quem envia, não da resposta.
 
-### Deploy da v28 e da v29
+### Deploys da noite (v28, v29, v30)
 
 Feito em 2026-09-09 à noite, pela API de gerência com os arquivos do disco — **nove**
 arquivos, não os oito da receita antiga: `availability.ts` entrou depois e ficaria de fora
