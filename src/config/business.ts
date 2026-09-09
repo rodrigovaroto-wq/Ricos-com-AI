@@ -51,6 +51,17 @@ export interface BusinessConfig {
   };
   /** Real reviews, word for word. Anything she quotes has to be in here. */
   testimonials?: readonly string[];
+  /**
+   * Os templates que a Meta já aprovou, um por toque da régua. OPCIONAL, e ausente
+   * significa que nenhum foi aprovado ainda — o que barra todo toque que caia fora da
+   * janela de 24h em vez de mandar texto livre que a Cloud API recusaria. Ver
+   * `deliveryFor` em `src/agent/followups.ts`.
+   */
+  channel?: {
+    templates?: Partial<
+      Record<import("../agent/followups.js").FollowupKind, import("../agent/followups.js").TemplateBinding>
+    >;
+  };
 }
 
 export const loadBusinessConfig = (path = "config/business.json"): BusinessConfig =>

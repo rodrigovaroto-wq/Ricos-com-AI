@@ -236,12 +236,42 @@ const SILENCE_2 = (days: number) =>
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
 
+/**
+ * A value this file can put into a template placeholder. Small on purpose: every entry
+ * is something the copy already says, so a template can only ever be filled with what
+ * the free-text version would have said in the same sentence.
+ */
+export type TemplateVariable =
+  | "price"
+  | "warrantyDays"
+  | "size"
+  | "address"
+  | "couponPercent"
+  | "weekday";
+
+/** One template already approved by Meta, as the config declares it. */
+export interface TemplateBinding {
+  readonly name: string;
+  readonly language: string;
+  /** The placeholder order as approved — {{1}} is the first entry. Approval fixes it. */
+  readonly variables: readonly TemplateVariable[];
+}
+
 /** Only what the copy reads. Declared locally so this file has zero imports and
  * runs byte-identical in Deno and in vitest, like the guardrail chain. */
 export interface FollowupConfig {
   prices: { codBrl: number };
   coupon: { percent: number; active: boolean };
   delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
+  /**
+   * OPTIONAL, and absent means no template is approved yet. That is not laziness: in
+   * production the whole config comes from a `BUSINESS_CONFIG` secret that overrides the
+   * fallback wholesale, so a key added in code is simply missing there until the operator
+   * edits the secret. Absent has to be the safe reading, and here safe is blocking the
+   * out-of-window touch — free text outside the window is rejected by Meta anyway, so
+   * the alternative is a touch that silently never arrives.
+   */
+  channel?: { templates?: Partial<Record<FollowupKind, TemplateBinding>> };
 }
 
 export interface RenderContext {
@@ -314,4 +344,89 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         "E se quiser mandar uma foto do antes e depois com a roupa, eu adoro ver (e ninguém publica nada sem sua autorização)."
       );
   }
+};
+
+/**
+ * WhatsApp Cloud API's customer service window: free text is only accepted within 24
+ * hours of HER last inbound message. Outside it, the only thing that goes out is a
+ * template Meta approved in advance.
+ *
+ * This is what forces the ruler's shape into the channel. `silence_3` is three days
+ * out and always outside. `silence_2` is the next morning at 09:00, which is inside
+ * when she went quiet in the afternoon and outside when she went quiet at dawn — so
+ * the kind alone never answers the question, only the clock does. And the post-order
+ * touches are anchored on the sale, not on her: an order that arrives by webhook from
+ * a woman who never messaged has no open window at all.
+ */
+export const SERVICE_WINDOW_MS = 24 * HOUR;
+
+/** Exactly 24 hours is already closed — the boundary send is the one Meta rejects. */
+export const windowIsOpen = (now: Date, lastInboundAt: Date | null): boolean =>
+  lastInboundAt !== null && now.getTime() - lastInboundAt.getTime() < SERVICE_WINDOW_MS;
+
+/** How a touch leaves, once the clock has been consulted. */
+export type Delivery =
+  | { readonly via: "text"; readonly body: string }
+  | {
+      readonly via: "template";
+      readonly name: string;
+      readonly language: string;
+      readonly variables: readonly string[];
+      readonly body: string;
+    }
+  | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" };
+
+const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string => {
+  switch (variable) {
+    case "price":
+      return brl(ctx.config.prices.codBrl);
+    case "warrantyDays":
+      return String(ctx.config.delivery.warrantyDays);
+    case "size":
+      return ctx.size ?? "";
+    case "address":
+      return ctx.address ?? "";
+    case "couponPercent":
+      return String(ctx.config.coupon.percent);
+    case "weekday":
+      return SILENCE_3_DAYS[((ctx.now ?? new Date()).getDay() + 6) % 7]!;
+  }
+};
+
+/**
+ * The touch, decided end to end: what it says, and how it is allowed to leave.
+ *
+ * `null` keeps the meaning it already had — nothing to say, cancel the row — so the
+ * sweep's existing handling of a silent touch is unchanged. What is new is the third
+ * outcome: a touch with real copy that still cannot go out, because the window closed
+ * and nobody has approved a template for it. That is a blocked touch, not a cancelled
+ * one, and it says so, because the fix is the operator registering the template.
+ *
+ * A template parameter may not be empty — Meta refuses the send — so a placeholder that
+ * resolves to nothing blocks the touch here instead of failing at the channel, where
+ * the only trace would be an API error nobody reads.
+ */
+export const deliveryFor = (
+  kind: FollowupKind,
+  ctx: RenderContext,
+  lastInboundAt: Date | null,
+): Delivery | null => {
+  const body = renderFollowup(kind, ctx);
+  if (body === null) return null;
+
+  if (windowIsOpen(ctx.now ?? new Date(), lastInboundAt)) return { via: "text", body };
+
+  const template = ctx.config.channel?.templates?.[kind];
+  if (!template) return { via: "blocked", reason: "no_template" };
+
+  const variables = template.variables.map((v) => resolveVariable(v, ctx));
+  if (variables.some((v) => v.trim() === "")) return { via: "blocked", reason: "empty_variable" };
+
+  return {
+    via: "template",
+    name: template.name,
+    language: template.language,
+    variables,
+    body,
+  };
 };

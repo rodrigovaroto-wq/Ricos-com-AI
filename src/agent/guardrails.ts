@@ -10,11 +10,11 @@ export interface GateConfig {
     codDaysMin: number;
     codDaysMax: number;
     /**
-     * A janela do antecipado, em dias úteis. Ela não existia: até 2026-09-08 a regra era
-     * "no antecipado não se diz prazo nenhum", porque o frete varia por região e ninguém
-     * sabia o prazo. O operador conferiu e ele existe — 3 a 10 dias úteis (2026-09-09). Sem
-     * estes campos o gate volta a barrar qualquer janela no antecipado, que é o certo
-     * enquanto não houver número.
+     * The prepaid window in working days, kept only so the gate can still refuse a range
+     * against a configured one. It is **absent everywhere as of 2026-09-09** and meant to
+     * stay that way: the deadline briefly was 3 to 10 working days, then Logzz confirmed it
+     * varies by region, so the honest shape is the average below and not a range. Absent,
+     * the gate refuses every window on the prepaid path — which is the right default.
      */
     prepayDaysMin?: number;
     prepayDaysMax?: number;
