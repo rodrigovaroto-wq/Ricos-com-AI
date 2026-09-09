@@ -6,8 +6,8 @@ const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os dezessete gates", () => {
-    expect(gateNames).toHaveLength(17);
+  it("tem os dezoito gates", () => {
+    expect(gateNames).toHaveLength(18);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -20,7 +20,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(17);
+    expect(result.traces).toHaveLength(18);
   });
 });
 
@@ -411,6 +411,43 @@ describe("garantia não confunde prazo de entrega com prazo de troca", () => {
       "Entrega em 1 a 3 dias e você tem 30 dias pra trocar.",
     ]) {
       expect(garantia(frase).verdict, frase).toBe("block");
+    }
+  });
+});
+
+/**
+ * O gate que fecha o buraco mais caro do funil: a agente indicava tamanho sem nada
+ * para consultar, e a cliente descobria o "não há disponibilidade" no checkout, depois
+ * de já ter escolhido. Indicar é compromisso; perguntar não é.
+ */
+describe("não indicar tamanho sem consultar", () => {
+  it("barra a indicação quando nada foi consultado", () => {
+    expect(blocked(runGates("Pelo que você me disse, indico o G.", ctx())))
+      .toContain("unverified_size");
+    expect(blocked(runGates("No seu caso é GG mesmo.", ctx())))
+      .toContain("unverified_size");
+  });
+
+  it("deixa passar quando a consulta confirmou aquele tamanho", () => {
+    const checked = { ...ctx(), sizeChecked: "G" };
+    expect(blocked(runGates("Pelo que você me disse, indico o G.", checked)))
+      .not.toContain("unverified_size");
+  });
+
+  it("barra quando a consulta foi de outro tamanho", () => {
+    const checked = { ...ctx(), sizeChecked: "G" };
+    expect(blocked(runGates("Pelo que você me disse, indico o GG.", checked)))
+      .toContain("unverified_size");
+  });
+
+  it("perguntar e mostrar a tabela continua liberado", () => {
+    // Se o gate barrasse isto, a agente não conseguiria fazer a pergunta que o abre.
+    for (const t of [
+      "Você usa que número de calça?",
+      "A tabela vai de P a XGG — me diz o seu número que eu vejo qual é.",
+      "Me manda seu CEP que eu confirmo o tamanho certo pra sua região.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("unverified_size");
     }
   });
 });

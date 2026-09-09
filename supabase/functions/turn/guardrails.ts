@@ -89,6 +89,11 @@ export interface GateContext {
   knownTestimonials?: readonly string[];
   /** Anti-ban counters, owned by the channel layer. */
   pacing?: { sentLastHour: number; hourlyLimit: number; sentToday: number; dailyLimit: number };
+  /**
+   * The size the availability query has actually answered for, at her postcode.
+   * `undefined` means nothing was checked — and then no size may be recommended.
+   */
+  sizeChecked?: string;
 }
 
 const norm = (s: string): string =>
@@ -742,6 +747,37 @@ const gates: readonly Gate[] = [
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
         : null,
+  },
+  {
+    /**
+     * The agent used to name a size with nothing to consult, and the customer met the
+     * "não há disponibilidade" popup after she had already chosen. Naming a size is a
+     * commitment; it is allowed only once the availability query has answered for that
+     * size at her postcode.
+     *
+     * The gate fires on the COMMITMENT, not on the letter. Showing the table, asking
+     * what she wears, quoting her own words back — none of those pick a size for her,
+     * and blocking them would make the agent unable to ask the question that unlocks
+     * the gate. So it looks for a size preceded by a recommending verb.
+     */
+    name: "unverified_size",
+    remedy: "rewrite",
+    briefing: () =>
+      `Só indique um tamanho depois de consultar a disponibilidade para o CEP dela. Antes disso ` +
+      `você pode mostrar a tabela e perguntar o que ela veste — mas não escolha por ela.`,
+    check: (text, ctx) => {
+      const t = norm(text);
+      // "indico o G", "vai ser o GG", "seu tamanho é M", "recomendo P".
+      const RECOMMENDS =
+        /\b(indico|indicaria|recomendo|recomendaria|seria|vai\s+ser|e\s+o|fica\s+com|pega\s+o|seu\s+tamanho\s+e|no\s+seu\s+caso\s+e)\b[^.!?]{0,20}\b(p|m|g|gg|xgg)\b/;
+      const m = RECOMMENDS.exec(t);
+      if (!m) return null;
+      const named = m[2]!.toUpperCase();
+      if (ctx.sizeChecked === undefined) return "recommends a size with no availability check";
+      if (ctx.sizeChecked !== named)
+        return `recommends ${named}, but availability was checked for ${ctx.sizeChecked}`;
+      return null;
+    },
   },
 ];
 
