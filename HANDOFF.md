@@ -62,7 +62,7 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
 | Rota de pedido | `job: "order"` no ar, verificada: cancela o silêncio e arma o pós-pedido |
 | Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
-| Cota da OpenAI | **estourada** — 100k TPM, sem cota; toda conversa cai no handoff |
+| Cota da OpenAI | **estourada até 2026-09-10 ~16:45 UTC** — 100k TPM esgotados; toda conversa cai no handoff |
 
 ### As quatro coisas que mudaram de verdade em 2026-09-09
 
@@ -191,14 +191,41 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
 ### O que falta, em ordem
 
 0. **Colar o `BUSINESS_CONFIG` novo** — o preço único só vale quando o secret mudar.
-1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
-   decidiu não subir o limite por enquanto (2026-09-09).
-2. **Sonda de produção.** Nada da v25 para cá foi confirmado pela porta de produção — a
-   cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho → CEP → "qual
-   a diferença?", conferindo que sai **1 a 3 dias** na entrega e **"varia por região, em
-   média 5 dias úteis"** no antecipado, cada um colado na sua opção, e que os dois preços
-   saem **R$ 129,90**. (A linha "3 a 10 dias úteis" que estava aqui era do prazo antigo;
-   ele deixou de ser faixa no fim do mesmo dia.)
+1. **Cota da OpenAI — o muro tem data.** Sondado na porta de produção em 2026-09-09
+   21:08 UTC. O erro não é "por minuto", é teto esgotado:
+
+   > `Rate limit reached for gpt-5.6-luna ... on tokens per min (TPM): Limit 100000,
+   > Used 100000, Requested 2723. Please try again in 19h36m20.16s.`
+
+   Ou seja: volta sozinha por volta de **2026-09-10 16:45 UTC**. Até lá **toda** cliente
+   recebe `"Deixa eu confirmar isso certinho pra você"` e a conversa vira handoff — se
+   houver tráfego de anúncio rodando, cada lead que chegar cai no e-mail do operador em
+   vez de ser vendido.
+
+   **O Gemini está de pé**: a classificação de intenção rodou e custou R$ 0,000128. Quem
+   morre é só a chamada da conversa.
+
+   **Decisão do operador (2026-09-09, noite): esperar.** Não subir o limite, não trocar o
+   modelo. As alternativas foram postas e recusadas — pôr cartão na OpenAI, ou tornar
+   `CONVERSATION_MODEL` uma variável de ambiente e apontar pro Gemini.
+
+   **Uma dívida que isso deixou à mostra:** o `CLAUDE.md` diz que "o provedor é
+   configuração, não arquitetura", e na Edge Function ele não é —
+   `CONVERSATION_MODEL = "gpt-5.6-luna"` é constante no código (`index.ts:70`). Enquanto
+   for constante, não existe plano B para uma queda da OpenAI sem deploy.
+2. **Sonda de produção — agendada, não esquecida.** Nada da v25 para cá foi confirmado
+   pela porta de produção; a cota estourou antes. **Há um check-in agendado para
+   2026-09-10 17:15 UTC** (`trig_019zftJ8Zx3bLqWCky8HQter`), meia hora depois de a cota
+   voltar, com o roteiro inteiro: "oi" → tamanho → CEP → "qual a diferença?".
+
+   O que ela precisa provar: os **dois** preços saem **R$ 129,90** (é isto que confirma
+   que o `BUSINESS_CONFIG` novo pegou — o velho tinha 110,41 e 15%), o prazo na entrega é
+   **1 a 3 dias**, o do antecipado sai como **"varia por região, em média 5 dias úteis"**
+   e nunca como faixa, e a resposta traz `bubbles` junto do `reply`.
+
+   **O `BUSINESS_CONFIG` novo foi salvo pelo operador em 2026-09-09 à noite, e nada
+   confirmou que pegou.** Todo campo que mudou só aparece no prompt e nos gates, e os dois
+   só existem depois da chamada do modelo que está barrada. Salvo ≠ verificado.
 3. **Webhook de venda: o workflow existe, falta você colar a URL nos dois painéis.**
    `Encorpa — Venda confirmada` está publicado e ativo no n8n. Uma URL para as duas
    plataformas, e a query diz qual:
@@ -256,7 +283,8 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    `weekday`. A chave é **opcional e ausente bloqueia** todo toque fora da janela — texto
    livre lá a Meta recusaria de qualquer jeito, então o certo é barrar e dizer, não mandar
    no escuro.
-6. ~~**`pacing.ts` não está ligado em nada.**~~ **Ligado.** Toda resposta do turno agora
+6. ~~**`pacing.ts` não está ligado em nada.**~~ **Ligado e confirmado em produção** — a
+   sonda de 2026-09-09 voltou com `bubbles: [{ text: "...", delayMs: 11200 }]`. Toda resposta do turno agora
    devolve `bubbles` junto do `reply`: o mesmo texto, quebrado em até três bolhas com o
    atraso de cada uma (0,8 s por palavra, mínimo 1 s), pra quem envia não reimplementar o
    ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
@@ -274,8 +302,10 @@ anterior**.
 
 ### Higiene de segurança
 
-Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. O PAT
-da Supabase usado nos deploys de 2026-09-09 foi colado no chat — **revogar**. E um print
+Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. Dois
+PATs da Supabase foram colados no chat em 2026-09-09 e **os dois já foram revogados pelo
+operador** — o segundo depois dos deploys v28, v29 e v30. Um deploy novo precisa de um
+token novo. E um print
 de DevTools enviado nesta sessão trazia telefone e CPF de uma cliente real; nada foi usado
 nem gravado, mas print de aba Network carrega dado pessoal junto.
 
