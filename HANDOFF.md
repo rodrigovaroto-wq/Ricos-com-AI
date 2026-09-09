@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (fim do dia — v27 no ar, [PR #21](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/21))
+> Atualizado em: 2026-09-09 (noite — v27 no ar, **e o repositório já está à frente dela**: ver §Deploy pendente)
 
 ---
 
@@ -54,9 +54,9 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v27**, byte a byte igual ao repositório |
+| Edge Function `turn` | **v27** — o repositório tem `bubbles` na resposta e a v27 não. **Deploy pendente** |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2763**, lint, typecheck e `deno check` verdes |
+| Testes | **2776**, lint e typecheck verdes |
 | Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
 | Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
@@ -119,6 +119,22 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 `prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
 e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
 
+### Auditoria de preço e frete (2026-09-09, noite)
+
+Conferido linha a linha depois do PR #21, a pedido do operador. **O código está
+inteiro e coerente:** `codBrl` e `prepayBrl` são 129.9, `prepayDiscountPercent` é 0,
+`freeShipping` é opcional com ausente = grátis, `prepayDaysMin/Max` estão **ausentes de
+propósito** (e o gate barra qualquer faixa no antecipado por causa disso), `prepayAvgDays`
+é 5 com `prepayVariesByRegion`. As duas cópias — `src/agent/` e
+`supabase/functions/turn/` — estão byte a byte iguais nos oito arquivos espelhados. Os
+únicos "110,41" e "3 a 10" que sobraram no repositório são comentários de histórico; o que
+contradizia a regra em vigor foi reescrito.
+
+**O que a auditoria NÃO consegue provar, e ninguém consegue daqui:** o valor do secret
+`BUSINESS_CONFIG`. Ele vem hasheado pela API de gerência e sobrescreve o objeto inteiro do
+código. Enquanto ele tiver 110,41 e 15%, a produção segue no preço velho com 2.776 testes
+verdes. É o item 0 abaixo, e é só seu.
+
 ### A varredura de código do fim do dia
 
 Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
@@ -149,12 +165,29 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
 0. **Colar o `BUSINESS_CONFIG` novo** — o preço único só vale quando o secret mudar.
 1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
    decidiu não subir o limite por enquanto (2026-09-09).
-2. **Sonda de produção da v26.** Nada da v25 para cá foi confirmado pela porta de
-   produção — a cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho →
-   CEP → "qual a diferença?", conferindo que sai **1 a 3** na entrega e **3 a 10 dias
-   úteis** no antecipado, cada um colado na sua opção.
-3. **Webhook de venda da Logzz e da Coinzz** apontando para `job: "order"`. A rota está
-   pronta e verificada; falta quem a chame. Sem isso a régua de pós-pedido nunca arma.
+2. **Sonda de produção.** Nada da v25 para cá foi confirmado pela porta de produção — a
+   cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho → CEP → "qual
+   a diferença?", conferindo que sai **1 a 3 dias** na entrega e **"varia por região, em
+   média 5 dias úteis"** no antecipado, cada um colado na sua opção, e que os dois preços
+   saem **R$ 129,90**. (A linha "3 a 10 dias úteis" que estava aqui era do prazo antigo;
+   ele deixou de ser faixa no fim do mesmo dia.)
+3. **Webhook de venda: o workflow existe, falta você colar a URL nos dois painéis.**
+   `Encorpa — Venda confirmada` está publicado e ativo no n8n. Uma URL para as duas
+   plataformas, e a query diz qual:
+   - Logzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=logzz`
+   - Coinzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=coinzz`
+
+   Verificado de ponta a ponta com um lead de sonda: a Edge Function respondeu
+   `canceled: ["silence_2"]` e `armed: ["order_confirmed","order_shipped","order_eve",
+   "order_delivered"]` — a régua de silêncio morre e a de pós-pedido arma. A sonda foi
+   apagada do banco.
+
+   **O mapeamento de campos ainda não viu um payload real de nenhuma das duas.** Todo
+   webhook que ele não souber ler vira e-mail pra você com o JSON cru, em vez de um
+   pedido pela metade — e é esse e-mail que fecha o mapeamento. Dois riscos conhecidos,
+   anotados no próprio workflow: o valor pode vir em centavos, e o tamanho só é aceito
+   quando o campo é exatamente P/M/G/GG/XGG (na Logzz ele vem no complemento do
+   agendamento).
 4. ~~**Ramo de erro no n8n.**~~ **Feito em 2026-09-09 e publicado.** O `Cerebro do turno`
    tem `onError: continueErrorOutput`; a saída de erro alimenta `Devolve a recusa`
    (responde `{ status: "error", error }` no corpo) e `Avisa a recusa` (e-mail com
@@ -164,13 +197,41 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    **Falta o operador confirmar** que o e-mail da sonda chegou — se o SMTP recusar, a
    recusa volta a existir só no log.
 5. **Canal: WhatsApp Cloud API** (decisão de 2026-09-09, substitui o WAHA). Frente do
-   sócio do operador. **Consequência para o código:** a régua de silêncio manda toques na
-   manhã seguinte e 3 dias depois — os dois caem fora da janela de 24h e só saem como
-   **template aprovado**, o que muda `followups.ts` de texto livre para template com
-   variáveis.
-6. **`pacing.ts` não está ligado em nada.** O ritmo humano (0,8 s por palavra, bolhas,
-   "digitando") existe, tem teste e nenhum importador fora do próprio teste. Entra junto
-   com o canal.
+   sócio do operador. **O lado do código está feito:** `deliveryFor` em `followups.ts`
+   decide, pelo relógio e não pelo tipo do toque, se ele sai como texto livre ou como
+   template. O tipo do toque não responde essa pergunta — `silence_2` é a manhã seguinte
+   às 09:00, o que cai *dentro* da janela se ela sumiu à tarde e *fora* se ela sumiu de
+   madrugada.
+
+   **O que falta é seu, e é em duas partes:** aprovar os templates na Meta, e declarar
+   cada um em `BUSINESS_CONFIG` sob `channel.templates`, com o nome, o idioma e a **ordem
+   dos placeholders** — a aprovação fixa a ordem e o código não tem como adivinhá-la:
+
+   ```json
+   "channel": { "templates": {
+     "silence_2":  { "name": "...", "language": "pt_BR", "variables": ["warrantyDays"] },
+     "silence_3":  { "name": "...", "language": "pt_BR", "variables": ["weekday", "couponPercent"] },
+     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price", "size"] }
+   } }
+   ```
+
+   Os valores possíveis são `price`, `warrantyDays`, `size`, `address`, `couponPercent` e
+   `weekday`. A chave é **opcional e ausente bloqueia** todo toque fora da janela — texto
+   livre lá a Meta recusaria de qualquer jeito, então o certo é barrar e dizer, não mandar
+   no escuro.
+6. ~~**`pacing.ts` não está ligado em nada.**~~ **Ligado.** Toda resposta do turno agora
+   devolve `bubbles` junto do `reply`: o mesmo texto, quebrado em até três bolhas com o
+   atraso de cada uma (0,8 s por palavra, mínimo 1 s), pra quem envia não reimplementar o
+   ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
+   de quem envia, não da resposta.
+
+### Deploy pendente
+
+A v27 no ar **não tem** o `bubbles`. O pacote da função tem 199 KB e não passa pela
+ferramenta MCP (ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md)) —
+o deploy pela API de gerência precisa de um PAT, e o antigo está na lista de rotação.
+Nada quebra enquanto não subir: `bubbles` é campo novo e ninguém lê ainda. Sobe junto com
+o canal.
 
 ### Higiene de segurança
 
