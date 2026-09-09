@@ -12,7 +12,7 @@ export interface GateConfig {
     /**
      * A janela do antecipado, em dias úteis. Ela não existia: até 2026-09-08 a regra era
      * "no antecipado não se diz prazo nenhum", porque o frete varia por região e ninguém
-     * sabia o prazo. O operador conferiu no checkout e ele existe — 5 a 10 dias úteis. Sem
+     * sabia o prazo. O operador conferiu e ele existe — 3 a 10 dias úteis (2026-09-09). Sem
      * estes campos o gate volta a barrar qualquer janela no antecipado, que é o certo
      * enquanto não houver número.
      */
@@ -848,6 +848,45 @@ const gates: readonly Gate[] = [
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
         : null,
+  },
+  {
+    /**
+     * The ambiguity that costs a sale without ever being a lie.
+     *
+     * The operator caught it in a live transcript: "para o tamanho G, a entrega fica na
+     * janela de 3 a 5 dias e o frete é grátis. Você prefere pagar R$ 129,90 na entrega ou
+     * antecipar por R$ 110,41?" Every clause there is true. Read as a whole it says the
+     * window applies to both, and it does not — the two paths have different windows.
+     *
+     * She either asks again, which is the agent's failure, or she does not and expects
+     * the wrong date, which is the refusal at the door. So when a message puts BOTH paths
+     * in front of her, any delivery window in it has to say which one it belongs to.
+     * A message about a single path needs no label; the ambiguity only exists in the
+     * comparison.
+     */
+    name: "unattributed_window",
+    remedy: "rewrite",
+    briefing: () =>
+      `Quando você colocar as duas formas de pagamento lado a lado, todo prazo tem que ` +
+      `dizer de qual delas é. Os prazos são diferentes, e a cliente não tem como adivinhar ` +
+      `qual você quis dizer.`,
+    check: (text) => {
+      const t = norm(text);
+      const bothPaths =
+        /\b(na\s+entrega|pagamento\s+na\s+entrega)\b/.test(t) &&
+        /\b(antecipa\w*|adianta\w*|pagar\s+antes)\b/.test(t);
+      if (!bothPaths) return null;
+      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
+        // The label has to sit in the same clause as the window — a path named two
+        // sentences away is exactly the reading the customer got wrong.
+        const at = m.index ?? 0;
+        const clause = t.slice(Math.max(0, at - 60), at + (m[0]?.length ?? 0) + 40);
+        if (!/\b(na\s+entrega|antecipa\w*|adianta\w*|agendad\w*)\b/.test(clause)) {
+          return "states a delivery window while offering both paths, without saying which";
+        }
+      }
+      return null;
+    },
   },
   {
     /**

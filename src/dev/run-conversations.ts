@@ -23,7 +23,7 @@ const config = {
   delivery: {
     codDaysMin: 1,
     codDaysMax: 3,
-    prepayDaysMin: 5,
+    prepayDaysMin: 3,
     prepayDaysMax: 10,
     warrantyDays: 7,
     freeShipping: true,

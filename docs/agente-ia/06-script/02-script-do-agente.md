@@ -166,7 +166,7 @@ dias exatamente onde ela vale mais.
 Prazo dito na hora certa não derruba venda; prazo descoberto depois derruba entrega. E entrega
 recusada é o evento mais caro que essa operação tem.
 
-**No caminho antecipado a janela é outra: 5 a 10 dias úteis** (conferida no checkout em
+**No caminho antecipado a janela é outra: 3 a 10 dias úteis** (conferida no checkout em
 2026-09-08). O frete continua sendo contratado à parte e variando por região, então o valor
 dele sai no checkout — mas o prazo tem número, e esconder o número na frente do caminho que
 já pede o dinheiro adiantado é perder a venda por silêncio. O guardrail de prazo veta a

@@ -33,7 +33,7 @@ const config = {
   delivery: {
     codDaysMin: 1,
     codDaysMax: 3,
-    prepayDaysMin: 5,
+    prepayDaysMin: 3,
     prepayDaysMax: 10,
     warrantyDays: 7,
     freeShipping: true,
@@ -173,10 +173,10 @@ for (const [angle, reply, ctx, esperado] of [
   ["promete hoje", "Chega hoje mesmo.", {}, "barra(delivery_promise)"],
   ["'sem esperar' não é negação", "Sem esperar muito, chega amanhã.", {}, "barra(delivery_promise)"],
   ["janela larga demais", "Chega em 7 a 14 dias.", {}, "barra(delivery_promise)"],
-  ["entrega com a janela do antecipado", "Chega em 5 a 10 dias.", {}, "barra(delivery_promise)"],
+  ["entrega com a janela do antecipado", "Chega em 3 a 10 dias.", {}, "barra(delivery_promise)"],
   ["véspera na logística", "Sua entrega está marcada pra amanhã 💛", { stage: "logistics" as const }, "envia"],
   ["véspera na pré-venda", "Sua entrega está marcada pra amanhã 💛", { stage: "presale" as const }, "barra(delivery_promise)"],
-  ["antecipado dentro da janela dele", "No antecipado chega em 5 a 10 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
+  ["antecipado dentro da janela dele", "No antecipado chega em 3 a 10 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
   ["antecipado com a janela da entrega", "No antecipado chega em 1 a 3 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
 ] as Array<[string, string, Partial<GateContext>, string]>) {
   check("prazo", angle, reply, esperado, outcome(reply, ctx));

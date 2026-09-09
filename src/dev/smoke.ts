@@ -21,7 +21,7 @@ const config: BusinessConfig = JSON.parse(
       delivery: {
         codDaysMin: 1,
         codDaysMax: 3,
-        prepayDaysMin: 5,
+        prepayDaysMin: 3,
         prepayDaysMax: 10,
         codScheduled: true,
         prepayVariesByRegion: true,

@@ -6,8 +6,8 @@ const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os dezoito gates", () => {
-    expect(gateNames).toHaveLength(18);
+  it("tem os dezenove gates", () => {
+    expect(gateNames).toHaveLength(19);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -20,7 +20,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(18);
+    expect(result.traces).toHaveLength(19);
   });
 });
 
@@ -70,7 +70,7 @@ describe("promessas que a operação não cumpre", () => {
    */
   it("aceita o prazo real do antecipado, e recusa o prazo do COD dito lá", () => {
     expect(
-      blocked(runGates("No antecipado chega em 5 a 10 dias.", ctx({ paymentPath: "prepay" }))),
+      blocked(runGates("No antecipado chega em 3 a 10 dias.", ctx({ paymentPath: "prepay" }))),
     ).not.toContain("delivery_promise");
     expect(
       blocked(runGates("No antecipado chega em 1 a 3 dias.", ctx({ paymentPath: "prepay" }))),
@@ -632,5 +632,32 @@ describe("config de produção sem a chave nova", () => {
     };
     expect(blocked(runGates("O frete é grátis nos dois casos.", desligado)))
       .toContain("shipping_promise");
+  });
+});
+
+/**
+ * A ambiguidade que não é mentira e custa a venda. O operador achou numa transcrição
+ * real: cada oração é verdadeira, e lidas juntas dizem que o prazo vale para os dois
+ * caminhos — e não vale. Ela pergunta de novo, o que já é falha da agente, ou não
+ * pergunta e espera a data errada, que é a recusa na porta.
+ */
+describe("prazo com as duas opções na mesa", () => {
+  it("barra o prazo solto quando as duas formas estão lado a lado", () => {
+    const frase =
+      "Para o tamanho G, a entrega fica na janela de 1 a 3 dias e o frete é grátis. " +
+      "Você prefere pagar R$ 129,90 na entrega ou antecipar por R$ 110,41?";
+    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+  });
+
+  it("passa quando cada prazo diz de quem é", () => {
+    const frase =
+      "No pagamento na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do " +
+      "entregador. No antecipado são 3 a 10 dias úteis e sai por R$ 110,41.";
+    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+  });
+
+  it("mensagem de um caminho só não precisa de rótulo", () => {
+    expect(blocked(runGates("A entrega leva de 1 a 3 dias e você escolhe o dia.", ctx())))
+      .not.toContain("unattributed_window");
   });
 });

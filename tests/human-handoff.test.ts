@@ -130,7 +130,7 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
 describe("o briefing que vai no prompt", () => {
   it("todo gate de reescrita tem uma linha, e nenhuma vem vazia", () => {
     const linhas = gateBriefing(config);
-    expect(linhas.length).toBe(15);
+    expect(linhas.length).toBe(16);
     for (const linha of linhas) expect(linha.trim().length).toBeGreaterThan(20);
   });
 
@@ -141,7 +141,7 @@ describe("o briefing que vai no prompt", () => {
     expect(texto).toContain("R$ 216,50");
     expect(texto).toContain("15%");
     expect(texto).toContain("1 a 3 dias");
-    expect(texto).toContain("5 a 10 dias úteis");
+    expect(texto).toContain("3 a 10 dias úteis");
     expect(texto).toContain("7 dias");
   });
 
