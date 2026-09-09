@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { classifyOptOut, gateNames, runGates } from "@/agent/guardrails.js";
+import { classifyOptOut, gateBriefing, gateNames, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 
 const blocked = (result: ReturnType<typeof runGates>) =>
@@ -723,5 +723,35 @@ describe("cada prazo julgado pelo caminho que a frase dele nomeia", () => {
   it("prazo que não é de nenhum dos dois continua barrado", () => {
     expect(blocked(runGates("No antecipado chega em 1 a 20 dias.", ctx())))
       .toContain("delivery_promise");
+  });
+});
+
+describe("`prepayVariesByRegion` desligado apaga a média, não só a palavra", () => {
+  const semVariacao = {
+    ...config,
+    delivery: { ...config.delivery, prepayAvgDays: 5, prepayVariesByRegion: false },
+  };
+
+  it("com a chave desligada, nenhum prazo do antecipado passa — nem o número certo", () => {
+    const r = runGates(
+      "No antecipado varia por região, em média 5 dias úteis.",
+      ctx({ config: semVariacao, paymentPath: "prepay" }),
+    );
+    expect(blocked(r)).toContain("delivery_promise");
+  });
+
+  it("o briefing manda não dizer prazo nenhum, em vez de ensinar a média", () => {
+    const linha = gateBriefing(semVariacao).find((b) => b.includes("Prazo na entrega"))!;
+    expect(linha).toContain("não diga prazo nenhum");
+    expect(linha).not.toContain("em média 5");
+  });
+
+  it("ligada, a média volta a valer", () => {
+    const comVariacao = { ...semVariacao, delivery: { ...semVariacao.delivery, prepayVariesByRegion: true } };
+    const r = runGates(
+      "No antecipado varia por região, em média 5 dias úteis.",
+      ctx({ config: comVariacao, paymentPath: "prepay" }),
+    );
+    expect(blocked(r)).not.toContain("delivery_promise");
   });
 });

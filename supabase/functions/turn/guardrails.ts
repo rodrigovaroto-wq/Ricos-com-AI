@@ -134,6 +134,21 @@ const norm = (s: string): string =>
  * hours for this audience — and scheduled held replies for 3am, the exact hour the
  * follow-up code calls "how a number gets reported".
  */
+/**
+ * The prepaid average, but only when the config also says the deadline varies by region.
+ *
+ * The two keys were written to mean one thing together and read as one thing alone: the
+ * gate looked at `prepayAvgDays` and never at `prepayVariesByRegion`, so the flag was
+ * decorative. Turning it off was supposed to take the agent back to saying no prepaid
+ * deadline at all — the right default whenever nobody has measured one — and instead it
+ * changed nothing, which is the worst kind of switch: the operator flips it, the panel
+ * says off, and the agent keeps quoting the average.
+ */
+const prepayAverage = (d: {
+  prepayAvgDays?: number;
+  prepayVariesByRegion?: boolean;
+}): number | undefined => (d.prepayVariesByRegion ? d.prepayAvgDays : undefined);
+
 export const BUSINESS_TZ = "America/Sao_Paulo";
 
 export const hourIn = (at: Date, timeZone: string): number =>
@@ -483,8 +498,8 @@ const gates: readonly Gate[] = [
       `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
       `disponibilidade da região dela no checkout. No antecipado` +
       `${
-        c.delivery.prepayAvgDays != null
-          ? ` o prazo VARIA por região: diga "varia, em média ${c.delivery.prepayAvgDays} dias` +
+        prepayAverage(c.delivery) != null
+          ? ` o prazo VARIA por região: diga "varia, em média ${prepayAverage(c.delivery)} dias` +
             ` úteis" — a média, e sempre dizendo que varia. Nunca um prazo fixo`
           : ` não diga prazo nenhum`
       }. Recusar a data impossível é permitido.`,
@@ -502,7 +517,7 @@ const gates: readonly Gate[] = [
        * carrier never made to HER region, and the range check above never saw it, because
        * it only reads "N a M dias".
        */
-      const avg = ctx.config.delivery.prepayAvgDays;
+      const avg = prepayAverage(ctx.config.delivery);
       for (const m of t.matchAll(/(\d{1,2})\s*dias?\s*ute[il]s?/g)) {
         const at = m.index ?? 0;
         const sentence =
