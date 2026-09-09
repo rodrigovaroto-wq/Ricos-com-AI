@@ -1,0 +1,471 @@
+<title>Caixa e Margem Encorpa</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Serif:wght@600;700&display=swap">
+<style>
+  :root{
+    --paper:#fbfbf9; --surface:#f1f3f0; --sunk:#e6e9e4;
+    --ink:#15191b; --ink-2:#454d4e; --ink-3:#6d7776;
+    --rule:#d6dbd6; --rule-2:#c2c9c2;
+    --accent:#0e6157;            /* verde-petróleo: dinheiro que entra */
+    --accent-soft:#d7e8e4;
+    --out:#9d3f22;               /* ferrugem: dinheiro que sai */
+    --out-soft:#f2ddd4;
+    --ok:#1c6b41; --ok-soft:#d8ebdf;
+    --warn:#8a6209; --warn-soft:#f3e6c8;
+    --gap:#8c2b2b; --gap-soft:#f2d9d9;
+    --shadow:0 1px 2px rgba(20,25,27,.06), 0 8px 24px -16px rgba(20,25,27,.28);
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --paper:#101413; --surface:#171d1c; --sunk:#1f2725;
+      --ink:#e8ece9; --ink-2:#b0bab7; --ink-3:#849090;
+      --rule:#2a3331; --rule-2:#3a4644;
+      --accent:#5cc4b2; --accent-soft:#153230;
+      --out:#e08f6c; --out-soft:#33201a;
+      --ok:#6cc48d; --ok-soft:#14291d;
+      --warn:#dcb35c; --warn-soft:#2b2413;
+      --gap:#e28b8b; --gap-soft:#301b1b;
+      --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+    }
+  }
+  :root[data-theme="dark"]{
+    --paper:#101413; --surface:#171d1c; --sunk:#1f2725;
+    --ink:#e8ece9; --ink-2:#b0bab7; --ink-3:#849090;
+    --rule:#2a3331; --rule-2:#3a4644;
+    --accent:#5cc4b2; --accent-soft:#153230;
+    --out:#e08f6c; --out-soft:#33201a;
+    --ok:#6cc48d; --ok-soft:#14291d;
+    --warn:#dcb35c; --warn-soft:#2b2413;
+    --gap:#e28b8b; --gap-soft:#301b1b;
+    --shadow:0 1px 2px rgba(0,0,0,.4), 0 8px 24px -16px rgba(0,0,0,.8);
+  }
+
+  *{box-sizing:border-box}
+  body{
+    background:var(--paper); color:var(--ink);
+    font-family:"IBM Plex Sans", system-ui, -apple-system, Segoe UI, sans-serif;
+    font-size:15.5px; line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  .wrap{max-width:1080px; margin:0 auto; padding:40px 24px 96px}
+
+  /* ---- cabeçalho ---- */
+  .masthead{border-bottom:2px solid var(--ink); padding-bottom:18px; margin-bottom:34px}
+  .kicker{
+    font-family:"IBM Plex Mono", ui-monospace, monospace; font-size:11.5px;
+    letter-spacing:.13em; text-transform:uppercase; color:var(--ink-3); margin:0 0 10px
+  }
+  h1{
+    font-family:"IBM Plex Serif", Georgia, serif; font-weight:700;
+    font-size:clamp(30px,4.6vw,46px); line-height:1.08; margin:0 0 12px;
+    letter-spacing:-.015em; text-wrap:balance;
+  }
+  .standfirst{max-width:62ch; color:var(--ink-2); margin:0; font-size:17px}
+
+  h2{
+    font-family:"IBM Plex Serif", Georgia, serif; font-weight:600;
+    font-size:24px; letter-spacing:-.01em; margin:0 0 4px; text-wrap:balance;
+  }
+  h3{font-size:15px; font-weight:600; margin:0 0 8px; letter-spacing:.005em}
+  section{margin-top:56px}
+  .sec-head{border-bottom:1px solid var(--rule-2); padding-bottom:10px; margin-bottom:22px}
+  .sec-head p{margin:6px 0 0; color:var(--ink-2); max-width:64ch; font-size:14.5px}
+  p{margin:0 0 12px}
+  a{color:var(--accent)}
+
+  /* ---- selos de confiança ---- */
+  .chip{
+    display:inline-flex; align-items:center; gap:5px; white-space:nowrap;
+    font-family:"IBM Plex Mono", monospace; font-size:10.5px; font-weight:500;
+    letter-spacing:.06em; text-transform:uppercase;
+    padding:2px 7px; border-radius:3px; border:1px solid transparent;
+  }
+  .c-ok{background:var(--ok-soft); color:var(--ok); border-color:color-mix(in srgb, var(--ok) 30%, transparent)}
+  .c-warn{background:var(--warn-soft); color:var(--warn); border-color:color-mix(in srgb, var(--warn) 30%, transparent)}
+  .c-gap{background:var(--gap-soft); color:var(--gap); border-color:color-mix(in srgb, var(--gap) 30%, transparent)}
+
+  .legend{display:flex; flex-wrap:wrap; gap:14px; margin-top:16px; font-size:13px; color:var(--ink-2)}
+  .legend div{display:flex; align-items:center; gap:7px}
+
+  /* ---- tabelas ---- */
+  .scroll{overflow-x:auto; margin:0 -4px; padding:0 4px}
+  table{border-collapse:collapse; width:100%; font-size:14px; min-width:520px}
+  th{
+    text-align:left; font-family:"IBM Plex Mono", monospace; font-weight:500;
+    font-size:10.5px; letter-spacing:.09em; text-transform:uppercase; color:var(--ink-3);
+    padding:0 12px 8px 0; border-bottom:1px solid var(--rule-2); vertical-align:bottom;
+  }
+  td{padding:9px 12px 9px 0; border-bottom:1px solid var(--rule); vertical-align:top}
+  tr:last-child td{border-bottom:none}
+  .num{font-family:"IBM Plex Mono", monospace; font-variant-numeric:tabular-nums; text-align:right; white-space:nowrap}
+  th.num{text-align:right}
+  .strong{font-weight:600}
+
+  /* ---- razão: entra / sai ---- */
+  .ledger{display:grid; grid-template-columns:repeat(auto-fit,minmax(300px,1fr)); gap:20px}
+  .col{background:var(--surface); border:1px solid var(--rule); border-radius:6px; padding:18px 20px}
+  .col.in{border-top:3px solid var(--accent)}
+  .col.out{border-top:3px solid var(--out)}
+  .col h3{display:flex; justify-content:space-between; align-items:baseline; gap:10px;
+    font-family:"IBM Plex Mono",monospace; font-size:11px; letter-spacing:.1em; text-transform:uppercase}
+  .col.in h3{color:var(--accent)}
+  .col.out h3{color:var(--out)}
+  .line{display:flex; justify-content:space-between; gap:12px; padding:7px 0; border-bottom:1px solid var(--rule)}
+  .line:last-child{border-bottom:none}
+  .line span:first-child{color:var(--ink-2); font-size:14px}
+  .line .num{font-size:14px}
+  .line.total{border-top:1.5px solid var(--rule-2); border-bottom:none; margin-top:4px; padding-top:10px; font-weight:600}
+  .line.total span:first-child{color:var(--ink)}
+
+  /* ---- simulador ---- */
+  .sim{background:var(--surface); border:1px solid var(--rule-2); border-radius:8px; overflow:hidden; box-shadow:var(--shadow)}
+  .sim-controls{display:grid; grid-template-columns:repeat(auto-fit,minmax(230px,1fr)); gap:18px 26px; padding:22px 24px; background:var(--sunk)}
+  .field label{display:flex; justify-content:space-between; align-items:baseline; gap:10px; font-size:13px; color:var(--ink-2); margin-bottom:6px}
+  .field output{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-weight:600; color:var(--ink); font-size:14px}
+  input[type=range]{width:100%; accent-color:var(--accent); height:22px; margin:0}
+  input[type=range]:focus-visible{outline:2px solid var(--accent); outline-offset:3px; border-radius:3px}
+  .sim-out{padding:22px 24px}
+  .tiles{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:1px; background:var(--rule); border:1px solid var(--rule); border-radius:6px; overflow:hidden; margin-bottom:20px}
+  .tile{background:var(--paper); padding:14px 16px}
+  .tile .lab{font-family:"IBM Plex Mono",monospace; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-3); margin-bottom:5px}
+  .tile .val{font-family:"IBM Plex Mono",monospace; font-variant-numeric:tabular-nums; font-size:23px; font-weight:600; letter-spacing:-.02em; line-height:1.15}
+  .tile .sub{font-size:12.5px; color:var(--ink-3); margin-top:3px}
+  .val.pos{color:var(--accent)} .val.neg{color:var(--gap)}
+
+  /* ---- linha do tempo do caixa ---- */
+  .timeline{display:grid; gap:2px; margin-top:6px}
+  .tl-row{display:grid; grid-template-columns:64px 1fr; align-items:center; gap:12px}
+  .tl-day{font-family:"IBM Plex Mono",monospace; font-size:11.5px; color:var(--ink-3); text-align:right}
+  .tl-bar{height:26px; border-radius:3px; display:flex; align-items:center; padding:0 9px; font-size:12.5px; color:var(--paper); font-weight:500}
+  .tl-bar.out{background:var(--out)} .tl-bar.in{background:var(--accent)}
+  .tl-bar.wait{background:var(--sunk); color:var(--ink-3); border:1px dashed var(--rule-2)}
+
+  .note{
+    border-left:3px solid var(--warn); background:var(--warn-soft);
+    padding:12px 16px; border-radius:0 4px 4px 0; font-size:14px; color:var(--ink);
+  }
+  .note.gap{border-left-color:var(--gap); background:var(--gap-soft)}
+  .note strong{font-weight:600}
+  .stack{display:grid; gap:14px}
+  ul{margin:0 0 12px; padding-left:20px} li{margin-bottom:6px}
+  code{font-family:"IBM Plex Mono",monospace; font-size:.9em; background:var(--sunk); padding:1px 5px; border-radius:3px}
+  footer{margin-top:64px; padding-top:18px; border-top:1px solid var(--rule); font-size:13px; color:var(--ink-3)}
+  @media (prefers-reduced-motion:reduce){*{animation:none!important; transition:none!important}}
+</style>
+
+<div class="wrap">
+
+  <header class="masthead">
+    <p class="kicker">Encorpa · Colete Cinta Modeladora · 09 set 2026</p>
+    <h1>Caixa e Margem</h1>
+    <p class="standfirst">Tudo que está medido, tudo que ainda é suposição, e quanto de caixa a operação exige antes do primeiro real de retorno. Cada número traz de onde veio.</p>
+    <div class="legend">
+      <div><span class="chip c-ok">Medido</span> lido de painel ou da API, hoje</div>
+      <div><span class="chip c-warn">Suposto</span> plausível, não confirmado</div>
+      <div><span class="chip c-gap">Em aberto</span> muda a conta e ninguém sabe</div>
+    </div>
+  </header>
+
+  <!-- ============ 1. PREÇOS ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Os preços que a cliente vê</h2>
+      <p>Dois caminhos, dois checkouts, duas plataformas. O pagamento na entrega roda na Logzz; o antecipado, na Coinzz.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Item</th><th class="num">Valor</th><th>Origem</th><th>Confiança</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Âncora publicada no site</td><td class="num">R$ 216,50</td><td>site Encorpa</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td class="strong">Pagamento na entrega — produto</td><td class="num strong">R$ 129,90</td><td>oferta Logzz 75567</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Pagamento na entrega — frete cobrado hoje</td><td class="num">R$ 24,98</td><td><code>stock-and-delivery-day</code>, hoje</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Total na porta, enquanto o frete não for zerado</td><td class="num">R$ 154,88</td><td>soma das duas linhas</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td class="strong">Pagamento antecipado</td><td class="num strong">R$ 110,41</td><td>oferta Coinzz, frete grátis nacional</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Desconto do antecipado sobre o COD</td><td class="num">15,0%</td><td><code>129,90 × 0,85 = 110,41</code></td><td><span class="chip c-ok">Medido</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note gap" style="margin-top:18px">
+      <strong>Pendência que trava a agente.</strong> O prompt e o guardrail no ar dizem que no pagamento na entrega o frete já está incluso. Enquanto o <code>deliveryPrice</code> não voltar zero na consulta, a cliente combina R$ 129,90 no WhatsApp e o entregador cobra R$ 154,88. O campo é <em>“Deseja cobrar pelo frete nesta oferta?”</em>, na oferta da Logzz.
+    </div>
+  </section>
+
+  <!-- ============ 2. TAXAS ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Toda taxa, e em qual caminho ela incide</h2>
+      <p>Os dois regimes da Logzz são excludentes: <em>pagamento na entrega</em> usa a frota própria e cobra entrega concluída; <em>expedição</em> é onde não há pagamento à frota, e aí só existe etiqueta.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Taxa</th><th class="num">Valor</th><th>Na entrega</th><th>Antecipado</th><th>Confiança</th>
+        </tr></thead>
+        <tbody>
+          <tr><td>Transação (Coinzz / Logzz)</td><td class="num">6,99%</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Antifraude</td><td class="num">R$ 2,49</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Taxa de manuseio</td><td class="num">R$ 4,99</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Taxa de entrega concluída (Padrão)</td><td class="num">R$ 19,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Taxa de entrega frustrada</td><td class="num">R$ 4,99</td><td>sim</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Taxa de entrega garantida (opcional)</td><td class="num">R$ 24,99</td><td>opcional</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Etiqueta — Logzz expedição, São Paulo</td><td class="num">R$ 13,79</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Etiqueta — Melhor Envio via Coinzz, São Paulo</td><td class="num">R$ 17,78 – 28,67</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Etiqueta — praça distante (Altamira/PA)</td><td class="num">R$ 84,05</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Taxa de antecipação de recebível</td><td class="num">R$ 4,99</td><td>opcional</td><td>opcional</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Custo do produto</td><td class="num">R$ 30,00</td><td>sim</td><td>sim</td><td><span class="chip c-gap">Em aberto</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="stack" style="margin-top:18px">
+      <div class="note">
+        <strong>Os R$ 13,79 já incluem o manuseio?</strong> A tela de taxas define a etiqueta como <em>taxa de envio + taxa de manuseio</em>, mas o seletor da expedição mostra uma cotação de transportadora. Se o manuseio ainda entrar por fora, a etiqueta real em SP é R$ 18,78. Uma expedição real e o extrato da Logzz resolvem — a diferença é R$ 4,99 por venda.
+      </div>
+      <div class="note gap">
+        <strong>O custo do produto é a maior incógnita da planilha.</strong> A oferta da Logzz declara <code>cost: 38,25</code> e <code>product_shipping_tax: 26,90</code>, com <code>product_price: 0,00</code>, <code>origin: dropexpress</code> e <code>supplier_product_id: 2077</code> — o desenho de um produto de fornecedor, não de estoque próprio. Se os R$ 30 estiverem errados para mais, toda margem abaixo cai junto, e a necessidade de caixa muda de natureza: comprar estoque é desembolso; vender de fornecedor não é.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3. MARGEM POR CAMINHO ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>A margem, linha a linha</h2>
+      <p>Cenário base: frete do COD zerado, cliente paga R$ 129,90 na porta; antecipado roteado pela expedição da Logzz em São Paulo.</p>
+    </div>
+    <div class="ledger">
+      <div class="col in">
+        <h3><span>Pagamento na entrega</span><span>Logzz</span></h3>
+        <div class="line"><span>Recebido da cliente</span><span class="num">R$ 129,90</span></div>
+        <div class="line"><span>Transação 6,99%</span><span class="num">− 9,08</span></div>
+        <div class="line"><span>Antifraude</span><span class="num">− 2,49</span></div>
+        <div class="line"><span>Produto</span><span class="num">− 30,00</span></div>
+        <div class="line"><span>Entrega concluída</span><span class="num">− 19,99</span></div>
+        <div class="line"><span>Manuseio</span><span class="num">− 4,99</span></div>
+        <div class="line total"><span>Margem na entrega concluída</span><span class="num">R$ 63,35</span></div>
+        <div class="line"><span>Custo de uma entrega frustrada</span><span class="num">− 9,98</span></div>
+        <div class="line total"><span>Esperado com 15% de frustração</span><span class="num">R$ 52,35</span></div>
+      </div>
+      <div class="col out">
+        <h3><span>Pagamento antecipado</span><span>Coinzz</span></h3>
+        <div class="line"><span>Recebido da cliente</span><span class="num">R$ 110,41</span></div>
+        <div class="line"><span>Transação 6,99%</span><span class="num">− 7,72</span></div>
+        <div class="line"><span>Antifraude</span><span class="num">− 2,49</span></div>
+        <div class="line"><span>Produto</span><span class="num">− 30,00</span></div>
+        <div class="line"><span>Etiqueta (Logzz SP)</span><span class="num">− 13,79</span></div>
+        <div class="line"><span>Manuseio</span><span class="num">− 4,99</span></div>
+        <div class="line total"><span>Margem, e não há frustração</span><span class="num">R$ 51,42</span></div>
+        <div class="line"><span>Com teto de etiqueta em R$ 20</span><span class="num">R$ 45,21</span></div>
+        <div class="line"><span>Etiqueta a R$ 40, sem teto</span><span class="num">R$ 25,21</span></div>
+      </div>
+    </div>
+    <p style="margin-top:18px; color:var(--ink-2); max-width:64ch">
+      Os dois caminhos rendem quase o mesmo depois da frustração — R$ 52,35 contra R$ 51,42. A escolha entre eles é de conversão e de cobertura, não de margem: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43 e não frustra.
+    </p>
+    <div class="note" style="margin-top:16px">
+      <strong>Onde o corte de R$ 40 na etiqueta vem de.</strong> Sem teto, uma etiqueta de R$ 40 deixa exatamente R$ 25,21 de margem. É o piso de R$ 25 traduzido em cotação de transportadora — e o número que a agente usa para decidir se oferece o antecipado ou a fila de espera.
+    </div>
+  </section>
+
+  <!-- ============ 4. CICLO DE CAIXA ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Quando o dinheiro sai e quando ele volta</h2>
+      <p>A margem é boa. O problema não é margem — é o intervalo entre o desembolso e o crédito, e é ele que define quanto de caixa a operação exige.</p>
+    </div>
+    <div class="timeline">
+      <div class="tl-row"><span class="tl-day">D0</span><div class="tl-bar out">Anúncio pago ao Meta · saldo de expedição debitado quando o pedido entra em separação</div></div>
+      <div class="tl-row"><span class="tl-day">D+1 a 3</span><div class="tl-bar wait">Entrega agendada acontece — ou frustra</div></div>
+      <div class="tl-row"><span class="tl-day">D+15 a 17</span><div class="tl-bar in">Comissão liberada: 14 dias após a entrega concluída</div></div>
+    </div>
+    <div class="stack" style="margin-top:20px">
+      <div class="note gap">
+        <strong>O saldo de expedição é pré-pago, e trava a venda quando acaba.</strong> Quando o gerente do armazém muda o pedido para “em separação”, a Logzz debita automaticamente o saldo de expedição do produtor. Sem saldo, o pedido fica <em>“saldo insuficiente”</em> — a venda existe e não anda. Recarga por Pix, cartão ou saldo do painel. Se a entrega não acontece, o valor da entrega é estornado.
+      </div>
+      <div class="note">
+        <strong>No antecipado o intervalo é outro.</strong> Pix e boleto liberam em 1 dia; cartão de crédito em 14. Antecipar recebível custa R$ 4,99 e o teto antecipável é 60%. Vender no Pix é a forma mais barata de encurtar o ciclo — não tem taxa extra e o dinheiro volta no dia seguinte.
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5. SIMULADOR ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Quanto de caixa a operação exige</h2>
+      <p>Mexa nos controles. O caixa necessário é tudo que sai antes do primeiro crédito voltar: anúncio, expedição e produto, multiplicados pelos dias de ciclo.</p>
+    </div>
+    <div class="sim">
+      <div class="sim-controls">
+        <div class="field">
+          <label for="ads">Anúncio por dia <output id="adsO">R$ 300</output></label>
+          <input type="range" id="ads" min="50" max="3000" step="50" value="300">
+        </div>
+        <div class="field">
+          <label for="cpa">Custo por venda (CPA) <output id="cpaO">R$ 35</output></label>
+          <input type="range" id="cpa" min="10" max="90" step="1" value="35">
+        </div>
+        <div class="field">
+          <label for="mix">Mix pagamento na entrega <output id="mixO">80%</output></label>
+          <input type="range" id="mix" min="0" max="100" step="5" value="80">
+        </div>
+        <div class="field">
+          <label for="frus">Frustração no COD <output id="frusO">15%</output></label>
+          <input type="range" id="frus" min="0" max="35" step="1" value="15">
+        </div>
+        <div class="field">
+          <label for="prod">Custo do produto <output id="prodO">R$ 30,00</output></label>
+          <input type="range" id="prod" min="20" max="50" step="0.25" value="30">
+        </div>
+        <div class="field">
+          <label for="ciclo">Dias até o crédito voltar <output id="cicloO">17 dias</output></label>
+          <input type="range" id="ciclo" min="1" max="30" step="1" value="17">
+        </div>
+      </div>
+      <div class="sim-out">
+        <div class="tiles">
+          <div class="tile"><div class="lab">Vendas por dia</div><div class="val" id="oVendas">—</div><div class="sub" id="oVendasSub">&nbsp;</div></div>
+          <div class="tile"><div class="lab">Margem média</div><div class="val" id="oMargem">—</div><div class="sub">por venda, após taxas</div></div>
+          <div class="tile"><div class="lab">Lucro por dia</div><div class="val" id="oLucro">—</div><div class="sub" id="oLucroSub">&nbsp;</div></div>
+          <div class="tile"><div class="lab">Caixa necessário</div><div class="val" id="oCaixa">—</div><div class="sub" id="oCaixaSub">&nbsp;</div></div>
+        </div>
+        <div class="scroll">
+          <table>
+            <thead><tr><th>Saída diária</th><th class="num">Valor</th><th>Quando</th></tr></thead>
+            <tbody>
+              <tr><td>Anúncios</td><td class="num" id="sAds">—</td><td>no dia</td></tr>
+              <tr><td>Saldo de expedição (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
+              <tr><td>Etiquetas (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
+              <tr><td>Produto</td><td class="num" id="sProd">—</td><td>na reposição de estoque</td></tr>
+              <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,0197 por conversa medida</td></tr>
+              <tr><td class="strong">Total que sai por dia</td><td class="num strong" id="sTot">—</td><td>—</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+    <div class="note" style="margin-top:18px">
+      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: tudo que sai por dia, multiplicado pelos dias até o primeiro crédito voltar. Depois desse ponto a operação se paga sozinha, desde que a margem por venda continue positiva. O número não inclui reserva para devolução, imposto nem o chip do WhatsApp.
+    </div>
+  </section>
+
+  <!-- ============ 6. LOGÍSTICA ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>O que a logística permite hoje</h2>
+      <p>Medido contra a consulta pública do checkout e o painel de estoque da Logzz, em 9 de setembro.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Fato</th><th>Situação</th><th>Confiança</th></tr></thead>
+        <tbody>
+          <tr><td>Cobertura do pagamento na entrega</td><td>22 de 43 cidades varridas, e nunca os cinco tamanhos na mesma praça</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Cobertura do antecipado</td><td>43 de 43, frete grátis nacional</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Frete do COD</td><td>R$ 24,98, constante em toda praça onde existe</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Estoque do M</td><td>196 em SP, 7 em BH, 2 em Goiânia; zero em Rio, Salvador, Natal e Recife</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>O M no checkout</td><td><strong>Não aparece em nenhuma praça</strong>, nem onde há 196 unidades</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Armazéns Logzz</td><td>19 no país; o pedido sai do estoque mais próximo</td><td><span class="chip c-warn">Suposto</span></td></tr>
+          <tr><td>Frustração de entrega</td><td>13% a 16% na venda pós-paga, segundo a própria Coinzz</td><td><span class="chip c-warn">Suposto</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note gap" style="margin-top:18px">
+      <strong>O M é a maior perda em aberto, e não é estoque.</strong> São 196 peças em São Paulo que o checkout se comporta como se não existissem — nenhuma janela de entrega, nenhuma cotação de transportadora, em três cidades testadas. O M é a faixa de cintura mais comum do funil. O lugar de olhar é a parametrização de produtos da integração Logzz na Coinzz (menu <em>Frete</em> → editar integração), onde cada tamanho da Coinzz é vinculado ao da Logzz.
+    </div>
+  </section>
+
+  <!-- ============ 7. O QUE NÃO SE SABE ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>O que ainda não se sabe</h2>
+      <p>Cada linha aqui é um número da planilha acima que pode mudar. Estão em ordem de quanto custam.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Pergunta</th><th>O que resolve</th><th>Impacto</th></tr></thead>
+        <tbody>
+          <tr><td>Qual o custo real do produto, e o estoque é seu ou do fornecedor?</td><td>Extrato da Logzz e o cadastro do produto</td><td class="num">toda a margem</td></tr>
+          <tr><td>Por que o M não aparece no checkout?</td><td>Parametrização da integração Logzz na Coinzz</td><td class="num">a faixa mais vendida</td></tr>
+          <tr><td>Os 6,99% incidem sobre o total ou só sobre o produto?</td><td>Primeiro pedido real, no extrato</td><td class="num">≈ R$ 1,75/venda</td></tr>
+          <tr><td>A etiqueta de R$ 13,79 já inclui o manuseio?</td><td>Uma expedição real</td><td class="num">R$ 4,99/venda</td></tr>
+          <tr><td>O Frete Fixo aceita teto com repasse, ou só preço fixo?</td><td>Tela do app na Coinzz</td><td class="num">quem paga o excedente</td></tr>
+          <tr><td>O checkout aceita endereço por parâmetro?</td><td>Suporte da Coinzz</td><td class="num">atrito no fechamento</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <footer>
+    Valores lidos em 9 de setembro de 2026, dos painéis Logzz e Coinzz e da consulta pública <code>stock-and-delivery-day</code>. Cotações de transportadora e estoque mudam — a varredura é fotografia, não tabela fixa. Rode <code>pnpm dev:estoque</code> para refazer.
+  </footer>
+</div>
+
+<script>
+(function(){
+  const brl = n => "R$ " + n.toLocaleString("pt-BR", {minimumFractionDigits:2, maximumFractionDigits:2});
+  const brl0 = n => "R$ " + n.toLocaleString("pt-BR", {maximumFractionDigits:0});
+
+  const el = id => document.getElementById(id);
+  const inputs = ["ads","cpa","mix","frus","prod","ciclo"].map(el);
+
+  // Taxas medidas. Ver a tabela "Toda taxa" acima.
+  const COD_PRECO = 129.90, PRE_PRECO = 110.41;
+  const TRANSACAO = 0.0699, ANTIFRAUDE = 2.49, MANUSEIO = 4.99;
+  const ENTREGA_CONCLUIDA = 19.99, ENTREGA_FRUSTRADA = 4.99;
+  const ETIQUETA = 13.79;          // Logzz expedição, São Paulo
+  const IA_POR_CONVERSA = 0.0197;  // custo medido de uma venda completa de sete turnos
+  const CONVERSAS_POR_VENDA = 12;  // nem toda conversa fecha
+
+  function render(){
+    const ads = +el("ads").value, cpa = +el("cpa").value;
+    const mix = +el("mix").value / 100, frus = +el("frus").value / 100;
+    const prod = +el("prod").value, ciclo = +el("ciclo").value;
+
+    el("adsO").textContent = brl0(ads);
+    el("cpaO").textContent = brl0(cpa);
+    el("mixO").textContent = Math.round(mix*100) + "%";
+    el("frusO").textContent = Math.round(frus*100) + "%";
+    el("prodO").textContent = brl(prod);
+    el("cicloO").textContent = ciclo + (ciclo === 1 ? " dia" : " dias");
+
+    const vendas = ads / cpa;
+    const vCod = vendas * mix, vPre = vendas * (1 - mix);
+
+    const margemCod = COD_PRECO - COD_PRECO*TRANSACAO - ANTIFRAUDE - prod - ENTREGA_CONCLUIDA - MANUSEIO;
+    const custoFrustrada = MANUSEIO + ENTREGA_FRUSTRADA;
+    const espCod = (1 - frus) * margemCod - frus * custoFrustrada;
+    const margemPre = PRE_PRECO - PRE_PRECO*TRANSACAO - ANTIFRAUDE - prod - ETIQUETA - MANUSEIO;
+
+    const margemMedia = vendas > 0 ? (vCod*espCod + vPre*margemPre) / vendas : 0;
+    const receitaDia = vCod*espCod + vPre*margemPre;
+    const lucroDia = receitaDia - ads;
+
+    // Saídas diárias, na ordem em que o dinheiro deixa a conta.
+    const sExp = vCod * (1 - frus) * (ENTREGA_CONCLUIDA + MANUSEIO) + vCod * frus * custoFrustrada;
+    const sEti = vPre * (ETIQUETA + MANUSEIO);
+    const sProd = vendas * prod;
+    const sIa = vendas * CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
+    const saidaDia = ads + sExp + sEti + sProd + sIa;
+
+    el("oVendas").textContent = vendas.toFixed(1);
+    el("oVendasSub").textContent = vCod.toFixed(1) + " na entrega · " + vPre.toFixed(1) + " antecipado";
+    el("oMargem").textContent = brl(margemMedia);
+    el("oLucro").textContent = brl0(lucroDia);
+    el("oLucro").className = "val " + (lucroDia >= 0 ? "pos" : "neg");
+    el("oLucroSub").textContent = lucroDia >= 0
+      ? "CPA máximo viável: " + brl0(margemMedia)
+      : "CPA acima da margem — cada venda perde dinheiro";
+    el("oCaixa").textContent = brl0(saidaDia * ciclo);
+    el("oCaixaSub").textContent = brl0(saidaDia) + " por dia × " + ciclo + " dias";
+
+    el("sAds").textContent = brl(ads);
+    el("sExp").textContent = brl(sExp);
+    el("sEti").textContent = brl(sEti);
+    el("sProd").textContent = brl(sProd);
+    el("sIa").textContent = brl(sIa);
+    el("sTot").textContent = brl(saidaDia);
+  }
+
+  inputs.forEach(i => i.addEventListener("input", render));
+  render();
+})();
+</script>
