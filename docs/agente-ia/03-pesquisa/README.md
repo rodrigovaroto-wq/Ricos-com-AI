@@ -11,7 +11,7 @@ Cada afirmação aponta arquivo e, quando aplicável, linha — para abrir no Gi
 | [`04-varredura-profunda.md`](04-varredura-profunda.md) | Varredura mecânica sobre o corpus inteiro; 11 peças novas |
 
 O lado "campanha" (Meta Ads, Conversions API, atribuição) não fica aqui — ver
-[`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md).
+[`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/02-analise-meta-ads-e-conversoes.md).
 
 ## Os 8 repositórios
 

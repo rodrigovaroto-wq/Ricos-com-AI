@@ -89,7 +89,7 @@ outro:
 |---|---|
 | [`docs/documentacao/`](docs/documentacao/) | Contexto de negócio, decisões, padrões de engenharia, tutorial das ferramentas do fluxo |
 | [`docs/agente-ia/`](docs/agente-ia/) | **Frente ativa.** O agente de vendas no WhatsApp: negócio e economia do pagamento na entrega, base de conhecimento, especificação funcional, pesquisa em repositórios open source com evidência por arquivo e linha, lacunas e decisões em aberto |
-| [`docs/campanhas-e-anuncios/`](docs/campanhas-e-anuncios/) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API |
+| [`docs/campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) | Meta Ads: os dois caminhos de venda, atribuição de CTWA, Conversions API |
 
 Leia [`docs/agente-ia/README.md`](docs/agente-ia/README.md) antes de trabalhar no
 agente.
