@@ -45,10 +45,10 @@ Cada linha desta tabela é uma frase do script que, dita por uma agente da Encor
 
 | # | O que o script diz | O que a operação faz | Consequência |
 |---|---|---|---|
-| 1 | *"Eu consigo agendar a entrega pra amanhã mesmo"* (Áudio 4) e *"Posso agendar a entrega para amanhã?"* (Preço TEXTO 2) | **3 a 5 dias** no COD, com entrega agendada; no antecipado o prazo varia por região (corrigido pelo operador em 2026-09-06) | A mais grave das sete. Cria a expectativa cuja quebra produz recusa na porta. Mesmo com 3 a 5 dias, quem esperava *amanhã* já desistiu no terceiro — e o entregador leva o prejuízo |
+| 1 | *"Eu consigo agendar a entrega pra amanhã mesmo"* (Áudio 4) e *"Posso agendar a entrega para amanhã?"* (Preço TEXTO 2) | **1 a 3 dias** no COD, com o dia escolhido pela cliente no checkout; **5 a 10 dias úteis** no antecipado (conferido no checkout em 2026-09-08) | A mais grave das sete. Cria a expectativa cuja quebra produz recusa na porta. Mesmo com 1 a 3 dias, quem esperava *amanhã* já desistiu no segundo — e o entregador leva o prejuízo |
 | 2 | *"🚛 FRETE GRÁTIS"* | No COD o frete está **embutido** nos R$ 129,90; no antecipado ele é **calculado à parte no checkout** | No COD a frase é defensável ("sem custo de frete"). No antecipado é promessa quebrada dentro do próprio checkout, na frente da cliente |
 | 3 | *"🎁 PARCELE EM ATÉ 12x"* | O parcelamento depende da maquininha do entregador; a operação não controla isso e o site não promete | Prometer 12x e a maquininha não oferecer é uma discussão na porta, com o produto na mão |
-| 4 | *"VALOR APENAS R$ 119,90"* | **R$ 129,90** no COD, **R$ 110,42** no antecipado | Dez reais de diferença descobertos no checkout destroem a confiança construída até ali |
+| 4 | *"VALOR APENAS R$ 119,90"* | **R$ 129,90** no COD, **R$ 110,41** no antecipado | Dez reais de diferença descobertos no checkout destroem a confiança construída até ali |
 | 5 | *"reduz até três tamanhos de cintura imediatamente"* (Áudio 1) | O colete modela enquanto vestido; **não emagrece**, e o efeito acaba ao tirar | Vende resultado que o produto não entrega. Alimenta devolução dentro dos 7 dias — e devolução em COD é prejuízo, não neutro |
 | 6 | *"Só pegar uma fita métrica e medir a sua cintura... na altura do umbigo"* (Áudio 3) | Decisão da rodada 1: **não exigir fita**; mandar a tabela e deixar a cliente escolher, com "na dúvida, o maior". A tabela mede cintura **por cima da roupa de baixo** | Exigir fita métrica é a barreira mais cara do funil: quem não tem fita não responde e some. E medir no umbigo dá número diferente do da nossa tabela |
 | 7 | *"Escolha o seu tamanho: M, L, XL, 2XL ou 3XL"* | **P, M, G, GG, XGG** | Cliente que pede "XL" não tem tamanho correspondente no nosso estoque sem tradução |
@@ -154,9 +154,9 @@ Registrado para não se perder na reescrita:
 
 | Problema | Onde o script novo resolve |
 |---|---|
-| Promessa de prazo | Estágio 5 — prazo real (3 a 5 dias, agendado) dito antes do fechamento |
+| Promessa de prazo | Estágio 5 — prazo real (1 a 3 dias, dia escolhido no checkout) dito antes do fechamento |
 | Frete e 12x | Estágio 5 e a lista de frases proibidas |
-| Preço errado | Fonte única: R$ 129,90 / R$ 110,42 |
+| Preço errado | Fonte única: R$ 129,90 / R$ 110,41 |
 | Claim de "3 tamanhos" | Estágio 2 — a frase que mantém desejo e honestidade |
 | Fita métrica | Estágio 4 — tabela primeiro, medida só se ela pedir |
 | Monólogo | Estágios 1 a 3 — pergunta na primeira mensagem, mídia sob demanda |

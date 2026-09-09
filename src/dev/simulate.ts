@@ -29,8 +29,8 @@ import { decideTouch, renderFollowup, scheduleSilence, type FollowupKind } from 
 import { CHATS } from "./chats.js";
 
 const config = {
-  prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-  delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
+  prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+  delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
@@ -131,9 +131,9 @@ for (const [angle, reply, esperado] of [
   ["recusa honesta de %", "Não consigo oferecer 30% de desconto.", "envia"],
   ["recusa honesta de valor", "Não é R$ 99,90, o valor é R$ 129,90.", "envia"],
   ["preço do COD", "Fica R$ 129,90 com frete incluído.", "envia"],
-  ["preço antecipado", "No antecipado sai R$ 110,42, com 15% de desconto.", "envia"],
+  ["preço antecipado", "No antecipado sai R$ 110,41, com 15% de desconto.", "envia"],
   ["âncora publicada", "De R$ 216,50 por R$ 129,90 — 40% off.", "envia"],
-  ["economia", "A economia é de R$ 19,48.", "envia"],
+  ["economia", "A economia é de R$ 19,49.", "envia"],
   ["promete % inexistente", "Consigo 30% de desconto pra você!", "barra(price_promise)"],
   ["promete valor inexistente", "Hoje sai por R$ 99,90.", "barra(price_promise)"],
   ["oferta sem a palavra desconto", "Te dou 30% agora se fechar.", "barra(price_promise)"],
@@ -160,16 +160,17 @@ for (const [angle, reply] of [
 // E. Prazo de entrega (37-46)
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply, ctx, esperado] of [
-  ["janela correta", "Chega em 3 a 5 dias, com entrega agendada.", {}, "envia"],
-  ["recusa amanhã", "Não consigo entregar amanhã: a entrega leva de 3 a 5 dias.", {}, "envia"],
+  ["janela correta", "Chega em 1 a 3 dias, com entrega agendada.", {}, "envia"],
+  ["recusa amanhã", "Não consigo entregar amanhã: a entrega leva de 1 a 3 dias.", {}, "envia"],
   ["promete amanhã", "Você recebe amanhã!", {}, "barra(delivery_promise)"],
   ["promete hoje", "Chega hoje mesmo.", {}, "barra(delivery_promise)"],
   ["'sem esperar' não é negação", "Sem esperar muito, chega amanhã.", {}, "barra(delivery_promise)"],
   ["janela larga demais", "Chega em 7 a 14 dias.", {}, "barra(delivery_promise)"],
-  ["janela curta demais", "Chega em 1 a 2 dias.", {}, "barra(delivery_promise)"],
+  ["entrega com a janela do antecipado", "Chega em 5 a 10 dias.", {}, "barra(delivery_promise)"],
   ["véspera na logística", "Sua entrega está marcada pra amanhã 💛", { stage: "logistics" as const }, "envia"],
   ["véspera na pré-venda", "Sua entrega está marcada pra amanhã 💛", { stage: "presale" as const }, "barra(delivery_promise)"],
-  ["prazo firme no antecipado", "No antecipado chega em 3 a 5 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
+  ["antecipado dentro da janela dele", "No antecipado chega em 5 a 10 dias úteis.", { paymentPath: "prepay" as const }, "envia"],
+  ["antecipado com a janela da entrega", "No antecipado chega em 1 a 3 dias.", { paymentPath: "prepay" as const }, "barra(delivery_promise)"],
 ] as Array<[string, string, Partial<GateContext>, string]>) {
   check("prazo", angle, reply, esperado, outcome(reply, ctx));
 }
@@ -250,8 +251,14 @@ for (const [angle, input, esperado] of [
   ["parar não é opt-out aqui", "tem como parar a dor nas costas?", "responde"],
   ["cancelar pedido não é opt-out", "quero cancelar meu pedido", "responde"],
   ["quer pessoa", "quero falar com uma pessoa", "handoff"],
-  ["quer atendente", "tem atendente aí?", "handoff"],
-  ["atendimento humano", "vocês têm atendimento humano?", "handoff"],
+  // A agente já é atendente: pedir atendente é descrever o que a cliente está fazendo.
+  ["quer atendente não é pedir humano", "quero falar com um atendente", "responde"],
+  ["abre a conversa pedindo atendimento", "olá, gostaria de falar com um atendente", "responde"],
+  ["tem alguém aí pergunta se há alguém ouvindo", "tem alguém aí?", "responde"],
+  // A frase exata "atendimento humano" está na lista; embutida numa pergunta, não está —
+  // e é aí que a regra de frase exata cobra o preço dela, de propósito.
+  ["atendimento humano exato", "atendimento humano", "handoff"],
+  ["atendimento humano dentro de uma frase", "vocês têm atendimento humano?", "responde"],
   ["recusa o robô", "não quero falar com robô", "handoff"],
   ["transfere", "me passa pra um humano", "handoff"],
   ["recusa a pessoa", "não quero falar com uma pessoa agora", "responde"],
@@ -317,8 +324,10 @@ const turn = (remedy: "rewrite" | "defer" | "stop" | null, used: number, spent: 
 for (const [angle, got, esperado] of [
   ["nada barrou", turn(null, 0, 0), "send"],
   ["primeira reescrita", turn("rewrite", 0, 0), "rewrite"],
-  ["segunda reescrita", turn("rewrite", 1, 0), "rewrite"],
-  ["esgotou as reescritas", turn("rewrite", 2, 0), "handoff"],
+  // Uma reescrita só, e o fim dela não é handoff: a cliente recebe a resposta de saída e
+  // a conversa continua com a agente. Handoff ficou para o que não é questão de redação.
+  ["esgotou a reescrita", turn("rewrite", 1, 0), "fallback"],
+  ["esgotou de novo", turn("rewrite", 2, 0), "fallback"],
   ["sem orçamento pra reescrever", turn("rewrite", 0, 1.5), "handoff"],
   ["opt-out nunca reescreve", turn("stop", 0, 0), "stop"],
   ["hora errada adia", turn("defer", 0, 0), "defer"],

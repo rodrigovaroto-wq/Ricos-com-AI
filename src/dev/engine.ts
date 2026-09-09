@@ -26,7 +26,12 @@ import {
 import { extractDressSize, sizeFromDressSize } from "../agent/sizing.js";
 import { confirmsAddress, extractAddress, isComplete, mergeAddress, type Address } from "../agent/address.js";
 import { extractIdentity, isIdentityComplete, mergeIdentity, type Identity } from "../agent/identity.js";
-import { decideNext, HOLDING_REPLY, HUMAN_HANDOFF_REPLY } from "../agent/retry.js";
+import {
+  decideNext,
+  HOLDING_REPLY,
+  HUMAN_HANDOFF_REPLY,
+  SAFE_FALLBACK_REPLY,
+} from "../agent/retry.js";
 import { scheduleSilence } from "../agent/followups.js";
 import { canTransition, type Stage } from "../agent/state-machine.js";
 
@@ -47,7 +52,16 @@ export interface TurnScript {
 }
 
 export interface TurnOutcome {
-  status: "ok" | "deferred" | "handoff" | "stopped" | "opted_out" | "already_opted_out" | "already_handed_off";
+  status:
+    | "ok"
+    /** The rewrite did not pass; she got the safe reply and the agent kept the conversation. */
+    | "fallback"
+    | "deferred"
+    | "handoff"
+    | "stopped"
+    | "opted_out"
+    | "already_opted_out"
+    | "already_handed_off";
   reply: string | null;
   rewrites: number;
   blocked: string[];
@@ -61,6 +75,13 @@ export interface ConversationState {
   addressConfirmed: boolean;
   identity: Partial<Identity>;
   identityComplete: boolean;
+  /**
+   * O sinal do caminho vigente: com nome, e-mail e CPF a agente já pode mandar o link, e
+   * o resto — endereço, tamanho, dia — acontece dentro do checkout. `orderReady` continua
+   * ao lado dele, exigindo endereço confirmado, porque é o sinal do caminho por API, que
+   * ainda não está ligado.
+   */
+  checkoutReady: boolean;
   /** Everything the order needs is in hand: size, confirmed address, identity. */
   orderReady: boolean;
   optedOut: boolean;
@@ -100,6 +121,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
     addressConfirmed: false,
     identity: {},
     identityComplete: false,
+    checkoutReady: false,
     orderReady: false,
     optedOut: false,
     handoff: false,
@@ -218,6 +240,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       state.identity = mergeIdentity(state.identity, foundIdentity.fields).fields;
       state.identityComplete = isIdentityComplete(state.identity);
     }
+    state.checkoutReady = state.identityComplete;
     state.orderReady =
       state.addressConfirmed && state.addressComplete && state.identityComplete && state.size !== null;
 
@@ -284,6 +307,15 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       send(HOLDING_REPLY);
       state.scheduledTouches = 0;
       record({ status: "handoff", reply: HOLDING_REPLY, rewrites, blocked });
+      continue;
+    }
+
+    // The rewrite did not pass. She still gets a real answer with a live question in it,
+    // and nobody is called: a reply the agent phrased badly was never her problem. The
+    // rulers are armed as on any other turn, because the conversation is still running.
+    if (action.kind === "fallback") {
+      send(SAFE_FALLBACK_REPLY);
+      record({ status: "fallback", reply: SAFE_FALLBACK_REPLY, rewrites, blocked });
       continue;
     }
 

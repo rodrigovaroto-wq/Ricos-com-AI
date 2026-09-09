@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-08
+> Atualizado em: 2026-09-09
 
 ---
 
@@ -34,11 +34,81 @@ alguém replicar manualmente.
 
 ## Em uma frase
 
-A conversa vai do "oi" ao pedido pronto para nascer: tamanho pela tabela publicada,
-endereço confirmado por ela, nome/e-mail/CPF coletados, e o corpo da Coinzz montado
-esperando só o `offer_hash`. Tudo isso **sem número de WhatsApp**, contra um contrato
-de canal que o WAHA preenche quando o número existir — e coberto por 360 conversas
-completas que rodam a cada push.
+A conversa vai do "oi" ao link de checkout preenchido, com guardrail, custo por chamada e
+handoff por e-mail — tudo verificado em produção. **O que trava não é mais código: é
+estoque.** O tamanho M não existe em nenhuma cidade do Brasil, o pagamento na entrega cobre
+metade das praças e nunca os cinco tamanhos, e a agente ainda indica tamanho sem consultar
+nada.
+
+---
+
+## COMECE POR AQUI — estado em 2026-09-09
+
+Quem pega esta sessão do zero: leia esta seção inteira, depois
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md),
+e só então o resto do arquivo (que é histórico, do mais recente para o mais antigo).
+
+### O que está no ar e funcionando
+
+| | Estado |
+|---|---|
+| Edge Function `turn` | **v18**, byte a byte igual ao repositório |
+| Guardrails | 17 gates, briefing no prompt, `fallback` no lugar de handoff por veto |
+| Venda ponta a ponta | verificada pelo webhook de produção, com zero veto |
+| E-mail de handoff | verificado (Gmail `250 2.0.0 OK`) |
+| Página de obrigado | pronta, e agora alcançável pelas três URLs de redirecionamento da Coinzz |
+| Testes | 2694 + 821 casos de faixa, lint, typecheck e `deno check` verdes |
+| Consulta de estoque | `pnpm dev:estoque` — funciona, **ainda fora da agente** |
+
+### Os três fatos que mudaram o projeto em 2026-09-08/09
+
+1. **O tamanho M está zerado nas 43 cidades varridas**, nos dois caminhos de pagamento. A
+   agente indica M pela tabela de cintura — é a faixa mais comum — e a cliente bate na
+   parede. Nada disso é código: é o fornecedor.
+2. **O pagamento na entrega cobre 22 das 43 cidades, e nunca os cinco tamanhos.** São dois
+   ou três por praça, e quais muda: São Paulo tem G/GG/XGG sem P, o Rio tem P/GG/XGG sem G.
+3. **Os dois preços verdadeiros.** Entrega: **R$ 154,88** (R$ 129,90 + R$ 24,98 de frete,
+   constante em todo lugar). Antecipado: **R$ 110,41 fechados, frete grátis nacional**,
+   todos os tamanhos menos o M. O antecipado é mais barato para a cliente **e** cobre o
+   país inteiro — o script hoje empurra o caminho mais caro e menos disponível como padrão.
+
+### As quatro decisões travadas com o operador
+
+Nenhuma delas é técnica. Enquanto não vierem, não dá para escrever a regra certa.
+
+1. **O M volta quando?** Se for dias, a agente segura e avisa. Se for indefinido, precisa de
+   outra regra.
+2. **Qual caminho é o padrão do script**, agora que o antecipado é mais barato e mais
+   disponível? Depende do custo real do operador nos dois caminhos, que ainda não temos.
+3. **O que a agente faz quando o tamanho certo não tem entrega?** (a) oferece o antecipado
+   do mesmo tamanho; (b) oferece o tamanho vizinho que tem entrega; (c) diz que avisa
+   quando chegar. **Recomendação registrada: (a)** — tamanho errado volta, e devolução
+   custa mais que a venda vale.
+4. **Como dizer o preço da entrega.** Como o frete é constante, a recomendação é a agente
+   dizer **"R$ 154,88, o colete mais o frete, pago na entrega"** — um número, sem surpresa
+   na porta. Falta o "sim".
+
+### O que o operador precisa buscar, e onde
+
+1. **Custo real por venda**, nos dois caminhos: peça, taxa da Logzz no COD, envio do
+   antecipado. Painel da Logzz + fatura da Coinzz. Sem isso a decisão 2 não fecha.
+2. **Print da tela de estoque da Logzz** — queremos ver se ela dá estoque por tamanho e por
+   cidade de operação. É a fonte de verdade; o checkout é o reflexo.
+3. **Aba "Checkout" da oferta na Coinzz** — procurar "variação pré-selecionada". Existe um
+   `prePopulatedVariations` renderizado pelo servidor, hoje vazio, e ele **não** vem por
+   query string (oito grafias testadas). Se for opção de painel, é o caminho para mandar o
+   link com o tamanho já escolhido.
+4. **Se o token da API da Coinzz existe** na credencial do n8n — para testar se a API
+   oficial expõe estoque melhor que o endpoint de checkout. **Não colar token no chat.**
+
+### Higiene de segurança pendente
+
+O operador colou, em texto puro, ao longo destas sessões: cookies de sessão da Coinzz,
+`x-csrf-token`, `cf_clearance`, o próprio CPF, dois tokens de acesso do Facebook e dois
+Personal Access Tokens da Supabase. Nada disso foi usado nem gravado no repositório. Ainda
+assim: **rotacionar** o `service_role` da Supabase, as chaves OpenAI/Gemini e os tokens do
+Facebook; os dois PAT da Supabase e o token da Coinzz o operador já revogou; sair da conta
+da Coinzz invalida a sessão colada.
 
 ---
 
@@ -268,6 +338,136 @@ outro da agente. Corrigido no `Encorpa-Website` (branch
 docs daqui. O caminho antecipado ganhou passo próprio, sem número, pela mesma razão
 que a agente não diz nenhum ali.
 
+### A venda inteira, pelo webhook de produção
+
+Sete turnos, do "oi" ao link, entrando pela mesma porta que a cliente usará. **`rewrites: 0`
+em todos**, **zero vetos** na conversa inteira, custo total **R$ 0,0197**.
+
+| Turno | Resultado |
+|---|---|
+| "oi, vi o anúncio" | abriu dizendo que **não emagrece**, com o preço e a pergunta de tamanho |
+| "quanto custa?" | R$ 216,50 → R$ 129,90, e R$ 110,41 antecipado |
+| "uso 42 de calça" | **G**, e citou as 12 unidades que o operador declarou |
+| "quero comprar" | pediu o nome. **Nenhum pedido de endereço em turno nenhum** |
+| nome → e-mail → CPF | um de cada vez, CPF por último |
+| CPF | **o link**, e a mensagem dizendo que o pedido só nasce no checkout |
+
+Estado final do lead: `size: G`, identidade completa e correta, `address: null`,
+`handoff_at: null`, 14 mensagens, 3 toques armados, **0 blocos de guardrail**. O link
+respondeu HTTP 200 com os quatro parâmetros. Dados de teste apagados.
+
+Zero vetos numa conversa inteira é o `gateBriefing` fazendo o trabalho dele: a agente
+escreveu dentro das regras em vez de descobri-las sendo recusada.
+
+### A porta de produção estava fechada, e ninguém sabia
+
+Descoberto ao testar o e-mail de handoff pelo webhook real, em 2026-09-08. **Toda
+verificação anterior deste projeto chamou a Edge Function direto** — o que prova o
+código, e não o caminho.
+
+O nó `Cerebro do turno` autenticava na Supabase com a credencial **`Gemini API`**. A
+Supabase recusava com `UNAUTHORIZED_INVALID_JWT_FORMAT`, nenhuma conversa nascia,
+nenhuma mensagem era respondida. A credencial já tinha se chamado "Header Auth account":
+foi renomeada e teve o valor trocado quando as APIs de modelo foram cadastradas, e levou
+o turno junto.
+
+E era silencioso **por configuração**: o nó estava com `neverError`, então o erro voltava
+como **HTTP 200 com o erro dentro do corpo**. Webhook verde, execução verde, banco vazio.
+
+Corrigido: credencial própria (`Supabase service_role`), `neverError` desligado, e a
+regra registrada em
+[`.claude/memory/verificar-pela-porta-de-producao.md`](.claude/memory/verificar-pela-porta-de-producao.md).
+Sonda que não entra pelo webhook não verifica a entrada; e depois de sondar, confira o
+banco — se nenhum lead nasceu, não importa o que o HTTP devolveu.
+
+### O aviso de handoff, funcionando
+
+`Encorpa — Turno da agente` ganhou um ramo paralelo: `É handoff?` (checa `status` **e**
+`notify`) → `Avisa o operador` (SMTP do Gmail, três tentativas, falha visível). O ramo é
+paralelo de propósito — a resposta ao webhook sai antes, sem esperar o SMTP.
+
+Verificado ponta a ponta pelo webhook de produção: o Gmail respondeu
+`250 2.0.0 OK`, `accepted: ["rdvaroto@gmail.com"]`, remetente `rodrigo.varoto@gmail.com`
+(tem de ser a conta que autentica no SMTP, senão o Gmail recusa). O e-mail leva motivo,
+telefone, **link `wa.me`**, o que a agente disse a ela, os ids e o custo.
+
+### Deployado e verificado em produção — Edge Function na versão 17
+
+A venda fecha, do "oi" ao link, verificada contra o modelo real. **`rewrites: 0` em todos
+os turnos**, custo de uma conversa completa: **R$ 0,011**.
+
+| Turno | O que saiu |
+|---|---|
+| "quanto custa?" | R$ 129,90 na entrega e **R$ 110,41** antecipado — o preço que o checkout cobra |
+| "uso 42 de calça" | **G**, pela tabela publicada |
+| "quero comprar" | pede o nome; **não pede endereço em momento nenhum** |
+| nome → e-mail → CPF | uma coisa de cada vez, CPF por último |
+| CPF | **o link, com os quatro campos preenchidos**, e a mensagem dizendo o que falta lá dentro |
+
+O link que saiu:
+`.../encorpa-pagamento-na-entrega-0?name=Maria+Aparecida+Souza&email=…&phone=…&document=…`
+— e a agente disse, sem ninguém mandar, que o pedido nasce quando ela terminar o checkout.
+
+**Duas falhas que só a produção pegou**, as duas corrigidas com teste e redeployadas:
+
+1. **O gate de garantia lia o prazo de entrega como garantia.** *"Entrega em 3 a 5 dias e
+   você tem 7 dias para trocar"* — o `5` cai a trinta caracteres de "trocar", dentro da
+   janela de quarenta que o gate varre. Veto, reescrita, e a cliente que tinha acabado de
+   dizer **"quero comprar"** recebeu a resposta de saída. O turno mais caro do funil,
+   perdido por uma frase que o próprio prompt manda dizer.
+2. **O nome da cliente virava complemento de endereço.** O lead de "Maria **Ap**arecida
+   Souza" gravou `{"complement": "Ap arecida"}`: o padrão abria a palavra com `\b` e não
+   fechava, então toda abreviação curta casava dentro de outra maior. No caminho por API
+   isso ia impresso no pacote.
+
+**Como deployar agora.** Pela API de gerência, com os arquivos do disco — ver
+[`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+A ferramenta MCP transcreve o conteúdo inline e os oito arquivos passaram de **138 KB**,
+que não cabe numa mensagem. Ganho colateral: enviado do disco, o que está no ar é **byte a
+byte** igual ao repositório — os oito conferidos.
+
+### Deployado e verificado em produção — Edge Function na versão 14
+
+A v14 subiu do `main` mergeado (`3c94790`), depois dos quatro comandos canônicos verdes
+(2674 testes) e de ler o que estava no ar. A v13 não tinha nada exclusivo: toda linha que
+só existia lá era a versão velha do que o repositório já havia substituído. Os oito
+arquivos foram conferidos **byte a byte** contra o repositório depois do deploy —
+idênticos, uma vez desfeitos os escapes `\uXXXX` que o JSON do deploy converte em
+caractere literal.
+
+**A migração que nunca tinha sido aplicada.** `0004_order_identity.sql` existia no
+repositório e **não estava no banco**: `leads.identity` não existia. O handler grava nela
+com `.catch(() => undefined)`, então a coleta de nome, e-mail e CPF falhava **em silêncio**
+— nada acumulava entre turnos e o pedido nunca poderia nascer. Aplicada nesta sessão. O
+`list_migrations` mostrava oito migrações; o repositório tem nove. **Conferir as duas
+listas faz parte de deployar, não só o código.**
+
+Nove sondas contra o Supabase real, todas `rewrites: 0`:
+
+| Sonda | Esperado | Obtido |
+|---|---|---|
+| "não uso 40, uso 46" | **GG** (tabela publicada) | ✅ GG, e `leads.size = GG` — a v13 dizia G |
+| "uso 42 de calça" | **G** | ✅ G — a v13 dizia M |
+| "calço 38, serve pra mim?" | não gravar tamanho | ✅ `size: null`, e ela perguntou o tamanho de calça |
+| "você é um robô?" | responder de primeira | ✅ *"Sou a assistente virtual da Encorpa"* |
+| "me dá 30% que eu fecho" | recusar sem ser vetada | ✅ ofereceu os 15% reais, sem citar 30% |
+
+E o laço inteiro da venda, que nunca tinha rodado em produção: endereço acumulado e lido
+de volta (**CEP 13010-100 não virou o número da casa** — 125), `addressReady: false` até o
+"isso mesmo" dela, identidade acumulando entre turnos (`email` no turno 5, `document` no
+turno 7, CPF só em dígitos e validado pelos verificadores), `name` gravado em outra
+conversa, e `orderBlocked: ["coinzz.offerHash"]` em todas — que é exatamente o que falta.
+Régua de silêncio agendada nas oito conversas, tokens gravados sem zero. Custo total:
+**R$ 0,0256**. Dados de teste apagados; banco conferido, zero órfãos.
+
+**Uma armadilha nova, registrada em
+[`.claude/memory/edge-function-warm-isolate.md`](.claude/memory/edge-function-warm-isolate.md):**
+por vários minutos depois do deploy, parte das requisições ainda é servida pela **versão
+anterior**. Cinco sondas voltaram no formato de resposta da v13 (sem `order`,
+`orderBlocked`, `size`) e o que elas escreveram no banco foi o comportamento velho. Não é
+defeito: é janela de rollout. Sonda logo depois de deployar precisa ser conferida pelo
+**formato da resposta**, não só pelo conteúdo.
+
 ### Deployado e verificado em produção — Edge Function na versão 13
 
 Subiu do `main` mergeado, depois de comparar com o que estava no ar (o drift já mordeu
@@ -435,8 +635,8 @@ nesta sessão — não é só teoria de repositório.
 | Seam de chamada de modelo (teto de custo, custo por chamada) | `src/llm/seam.ts`, `src/llm/pricing.ts` | ✅ 5 testes |
 | Adapters de modelo | `src/llm/providers/{openai,gemini}.ts` | ✅ Verificados contra as contas reais |
 | Contrato de canal + adapter simulado | `src/channel/contract.ts`, `src/channel/simulated.ts` | ✅ É o que permite tudo acima rodar sem WhatsApp |
-| Schema do banco | `supabase/migrations/0001_init.sql`, `0002_retention_cron.sql`, `0003_deferred_reply.sql` | ✅ Aplicado no projeto `Ricos com AI` (Supabase) |
-| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 13), verificado por sondas contra o banco real |
+| Schema do banco | `supabase/migrations/0001_init.sql` … `0004_order_identity.sql` | ✅ As quatro aplicadas — a `0004` só nesta sessão; sem ela `leads.identity` não existia e a coleta falhava em silêncio |
+| Handler do turno (o cérebro) | `supabase/functions/turn/index.ts` | ✅ **Deployado** como Edge Function `turn` (versão 17), conferido byte a byte; a venda inteira verificada contra o modelo real |
 | Fluxo de entrada | n8n, workflow `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) | ✅ Publicado, webhook `POST /encorpa-inbound` |
 | Cron da régua | n8n, workflow `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) | ✅ Publicado, varre a cada 5 min |
 | Retenção de 90 dias | `pg_cron` dentro do próprio banco | ✅ Todo dia às 04:00, roda mesmo se o n8n cair |
@@ -539,12 +739,14 @@ Registro cronológico completo em
 [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md).
 Pontos que mais importam para quem retoma o trabalho:
 
-- **Prazo de entrega real: 3 a 5 dias no COD** (corrigido na rodada 7 — não é 7 a 14). No
-  antecipado, nenhum número é dito: o frete varia por região e a transportadora informa no
-  checkout. O guardrail de prazo sabe distinguir promessa (pré-venda, veta) de fato já
-  agendado (logística, libera) — mesma frase, efeito oposto, ver R8.1.
-- **Divergência aberta com o site:** o FAQ do Encorpa-Website ainda promete "7 a 14 dias" —
-  precisa ser alinhado ao prazo real antes do lançamento.
+- **Prazo de entrega real: 1 a 3 dias no pagamento na entrega, 5 a 10 dias úteis no
+  antecipado** (R9.3, conferido num pedido real em 2026-09-08 — não é 7 a 14, e também não
+  é os 3 a 5 que a rodada 7 fixou de ouvido). No pagamento na entrega **quem escolhe o dia
+  é a cliente**, dentro do checkout. O guardrail de prazo escolhe a janela pelo caminho de
+  pagamento, e sabe distinguir promessa (pré-venda, veta) de fato já agendado (logística,
+  libera) — mesma frase, efeito oposto, ver R8.1.
+- **Divergência com o site: fechada.** FAQ e página de obrigado do Encorpa-Website foram
+  alinhados às duas janelas em 2026-09-08.
 - **Teto de custo:** R$ 0,80 por conversa, +25% de tolerância antes do handoff (R7.3) —
   na prática nunca chega perto: uma troca completa custa ~R$ 0,001.
 - **Guardrail roda em Edge Function**, chamada por HTTP do n8n — não em nó de n8n, porque
@@ -558,8 +760,14 @@ Pontos que mais importam para quem retoma o trabalho:
 - **Todos os áudios do funil serão regravados** — a locutora original não está mais
   disponível; os quatro roteiros novos estão em
   [`docs/agente-ia/06-script/02-script-do-agente.md`](docs/agente-ia/06-script/02-script-do-agente.md).
-- **Desconto antecipado:** 15% — o frete do antecipado fica com a cliente; o site já
-  implementa isso.
+- **Desconto antecipado:** 15%, ou seja **R$ 110,41**. A frase antiga aqui — *"o frete do
+  antecipado fica com a cliente"* — **é falsa e foi corrigida em 2026-09-09**: a oferta
+  antecipada não tem frete configurado em nenhum dos 27 estados, então a cliente paga
+  R$ 110,41 fechados no Brasil inteiro e o envio é custo do operador (R$ 17,78 em São Paulo
+  a R$ 84,05 em Altamira).
+- **Preço do pagamento na entrega: R$ 154,88** — R$ 129,90 do colete mais R$ 24,98 de frete,
+  constante em todas as praças onde o COD existe. O prompt da v18 ainda diz "R$ 129,90 com
+  frete incluído", que está errado e é a correção mais urgente de código.
 - **Identidade do agente:** "não mente, não anuncia" — assistente vendedora oficial da
   Encorpa, texto livre sempre, respostas com atraso simulado e "digitando".
 
@@ -600,45 +808,252 @@ verificava aquele arquivo. Agora existe `pnpm typecheck:function`, que roda
 
 ## O que falta para fechar a onda A3
 
-A conversa inteira está ligada. O que falta são **dois fluxos de n8n e dois valores** —
-nada mais de código de conversa:
+A conversa inteira está ligada e verificada contra o modelo real: ela vende, indica o
+tamanho, coleta nome/e-mail/CPF e manda o link com os dados preenchidos. **Nenhuma linha
+de código de conversa falta.** O que resta é operação:
 
-1. **O `offer_hash` das duas ofertas.** Sem eles o turno devolve `orderBlocked:
-   ["coinzz.offerHash"]` e o pedido não nasce. Onde achar: aba Network do navegador nos
-   checkouts `encorpa-pagamento-na-entrega-0` e `encorpa-pagamento-antecipado-0`, painel
-   da Coinzz, ou o payload de um webhook de venda antiga.
-2. **O fluxo de n8n que cria o pedido.** Quando a resposta do turno traz `order`, um nó
-   HTTP posta `order.body` com a credencial da Coinzz e grava o `order_hash` de volta em
-   `orders`, usando `order.idempotencyKey` como `external_id`. Nada para decidir no
-   workflow — o corpo já vem pronto.
-3. **O fluxo de n8n que manda o e-mail de handoff.** O destino existe (R9.2,
-   `config/business.json` → `handoff.email`, gitignored). Hoje o handler grava
-   `handoff_at`, devolve o payload com e-mail, `leadId`, telefone e `conversationId` — e
-   para. Quem envia é o n8n, e esse fluxo não existe.
-4. **Conferir o primeiro pedido real ponta a ponta**, antes de qualquer tráfego. É a
-   única forma de saber se `afterpay` se comporta como pagamento na entrega do lado
-   deles, e não como boleto ou link de pagamento.
+1. ~~Conferir o primeiro pedido real ponta a ponta.~~ **Feito em 2026-09-08.** O operador
+   fez um pedido de verdade pelo checkout e depois o cancelou. Foi o que devolveu as duas
+   janelas de entrega (R9.3) — e o que expôs o frete, abaixo.
+2. ~~O fluxo de n8n que manda o e-mail de handoff.~~ **Feito e verificado** — ver a seção
+   acima. A agente promete chamar alguém e agora alguém é chamado.
+3. **O frete do pagamento na entrega. Decisão do operador, e a mais cara em aberto.** O
+   checkout do pedido real somou **Pedido R$ 129,90 + Frete R$ 24,98 = R$ 154,88**. Tudo
+   aqui — o prompt, o briefing do `shipping_promise`, o site, o caso 387 do
+   `src/dev/simulate.ts` — afirma que *no pagamento na entrega o frete já está incluído*, e
+   o `price_promise` só admite 129,90 / 110,41 / 216,50, então a agente **não consegue nem
+   dizer o total verdadeiro**. Isso é exatamente a recusa na porta que o funil inteiro
+   existe para evitar: ela combina 129,90 no WhatsApp e o entregador cobra R$ 154,88. Duas
+   saídas, e só o operador escolhe: **(a)** zerar o frete do COD na configuração da oferta,
+   e aí tudo o que está escrito volta a ser verdade; **(b)** assumir o frete à parte, e aí
+   muda o preço no prompt, no guardrail, no site e no script. Nada de tráfego antes disso.
+4. **Disponibilidade por tamanho e por região — não sabemos o que acontece.** Ninguém
+   testou o que o checkout faz quando o tamanho indicado não tem estoque para o CEP dela, e
+   a agente não tem nenhuma fonte de estoque para consultar antes de indicar. Ver a seção
+   abaixo.
+
+### O caminho por API, que fica para depois
+
+`order`, `orderBlocked` e `buildCoinzzRequest` continuam no código, prontos e desligados.
+Eles criam o pedido sem o clique dela, o que converte mais — e não devem ser ligados antes
+de duas coisas que só um pedido real responde:
+
+- **O `payment_method` correto.** As duas ofertas estão com `pay_on_delivery: 0` e
+  `pag_afterpay: null` no painel; quem entrega o pagamento na entrega é o app **OmniCash
+  (tipo `logzz`)**, não uma flag da oferta. `afterpay` continua sendo dedução, não fato.
+- **O dia da entrega e o tamanho.** A cliente escolhe os dois dentro do checkout (três
+  datas, e um seletor de variação). Um pedido criado por API não tem quem escolha, e o
+  tamanho tem hash próprio por variação, e agora os cinco estão conferidos (tabela na
+  seção da disponibilidade, abaixo) — `buildCoinzzRequest` ainda não os manda.
+
+Os dois `offer_hash` já estão no `BUSINESS_CONFIG`: `offp16pv` (na entrega) e `offkw47x`
+(antecipado).
+
+---
+
+## O QUE A CONSULTA REVELOU — leia antes de qualquer decisão de tráfego (2026-09-08)
+
+`pnpm dev:estoque` roda a consulta de fora do navegador e reproduz tudo abaixo em vinte
+segundos. Dezesseis CEPs, cinco tamanhos cada. Três achados, e os três mudam o negócio, não
+o código.
+
+### 1. O pagamento na entrega cobre 22 das 43 cidades testadas
+
+A varredura completa está em
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
+**A primeira leitura desta seção dizia "seis regiões metropolitanas" e estava errada** — ela
+saiu de dez CEPs; com 43, aparecem também Salvador, Fortaleza, Goiânia, Teresina, Natal,
+Porto Alegre e Caxias do Sul.
+
+Não muda a conclusão, muda o tamanho dela: o funil inteiro foi desenhado em cima do
+pagamento na entrega, e ele cobre metade das praças e **nunca os cinco tamanhos**. São dois
+ou três por cidade, e quais mudam por praça — São Paulo tem G/GG/XGG e não tem P, o Rio tem
+P/GG/XGG e não tem G. Fora dessas praças, e fora desses tamanhos, a única venda possível é a
+antecipada.
+
+### 2. O tamanho M está indisponível nas 43 cidades
+
+Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele, e só ele.
+M é o tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma
+boa fatia das clientes e **nenhuma delas consegue comprar**. Isto não espera onda nenhuma.
+
+A disponibilidade é por tamanho **e** por praça, sem padrão: no Rio, P existe e G não; em
+Belo Horizonte, G existe e GG não.
+
+### 3. O frete do pagamento na entrega é constante: R$ 24,98
+
+Onde existe, é sempre R$ 24,98 — nunca variou nos dezesseis CEPs. Isso resolve a decisão do
+frete que estava em aberto: **não é "varia por região", é um número só.** O total do
+pagamento na entrega é **R$ 154,88**, sempre. Dá para dizer um número fechado sem consultar
+nada, ou zerar o frete na oferta e subir o produto para R$ 154,88 — o efeito é o mesmo, e
+some a surpresa na porta.
+
+**E o antecipado é frete grátis nacional, confirmado na fonte.**
+`POST /checkout/entrega/getAll` com `urlOffer=encorpa-pagamento-antecipado-0` devolve *sem
+frete configurado* nos 27 estados, e o `settingsFreight` daquela oferta vem `[]`. Logo a
+cliente paga **R$ 110,41 fechados em qualquer lugar do Brasil**, em qualquer tamanho menos o
+M. O `local_operation` — de R$ 17,78 em São Paulo a R$ 84,05 em Altamira — **é custo do
+operador, não preço da cliente**. Em praça distante ele come mais da metade da venda.
+
+### 4. Um bloqueio que a agente precisa saber ler: pedido pendente
+
+`has_pending_cash_on_delivery` vem por CPF, e quando é `true` o checkout do pagamento na
+entrega **trava inteiro** (é a oferta que só tem `billing_moments = on_delivery`). Uma
+cliente que começou um pedido na entrega e não terminou não consegue abrir outro. Está na
+mesma resposta do `stock-and-delivery-day`, então a agente pode ler e desviar para o
+antecipado em vez de mandar a cliente bater numa porta trancada.
+
+### 5. O que mais o checkout expõe, tudo sem autenticação
+
+| Chamada | Para quê |
+|---|---|
+| `GET /checkout/stock-and-delivery-day` | disponibilidade, frete e as três datas |
+| `GET /checkout/get-variations?product_id=79880` | os cinco tamanhos e seus códigos |
+| `POST /checkout/entrega/getAll` (`urlOffer`, `state`) | a configuração de frete da oferta, por estado |
+| a própria página do checkout | `offer_id`, `offerPrice`, `billing_moments`, `settingsFreight`, métodos de pagamento |
+| `POST /checkout/finalize` | cria o pedido — existe, e continua desligado por decisão de 2026-09-08 |
+
+Duas coisas confirmadas lendo o `new-checkout-two.js`, não deduzidas: só `name`, `email`,
+`phone` e `document` são lidos da query string (nada de tamanho ou endereço), e o próprio
+código da Coinzz traz o comentário *"Verifica os arrays diretamente, não as flags (que vêm
+incorretas da Logzz)"* — que é exatamente o erro de leitura registrado acima.
+
+O checkout tem ainda um `prePopulatedVariations`, renderizado pelo servidor e hoje vazio.
+Não vem por query string (testadas oito grafias). Se for uma opção da oferta no painel, é o
+caminho para mandar o link já com o tamanho escolhido.
+
+---
+
+## A consulta de disponibilidade existe, e chama `stock-and-delivery` (2026-09-08)
+
+Achada pelo operador no DevTools do próprio checkout. Três chamadas importam, todas XHR:
+
+| Chamada | Devolve |
+|---|---|
+| `get-variations?product_id=79880` | os cinco tamanhos e o **código de produto de cada um** |
+| `getAll` | a integração de pagamento na entrega: OmniCash, `type: logzz`, `app_integration_detail_id: 25458`, `freight_integration_id: 73270`, `cash_on_delivery_value: "R$ 0,00"` |
+| `stock-and-delivery?…` | **estoque e datas de entrega para aquele CEP e aquele tamanho** |
+
+**Os cinco códigos, conferidos.** O produto-pai é `79880`; cada tamanho é um produto próprio:
+
+| Tamanho | `product_id` | `code` | `variation_id` |
+|---|---|---|---|
+| P | 79886 | `pro4gpo2` | 61777 |
+| M | 79887 | `proqvqmj` | 61778 |
+| G | 79888 | `pro7ml00` | 61779 |
+| GG | 79889 | `pro66jdm` | 61780 |
+| XGG | 79890 | `proe50v0` | 61781 |
+
+**O payload do `stock-and-delivery`**, do jeito que o checkout manda: `customer_phone_ddi`,
+`customer_phone`, `customer_document`, `products[0][product_id]` (o pai, 79880),
+`products[0][code]` (o do tamanho), `products[0][quantity]`, `zip_code`, `city`, `state`,
+`neighbourhood`, `number`, `app_integration_detail_id`, `freight_value`, `sale_type`,
+`billing_moments[]`, `check_to_finish`.
+
+**A resposta do "não", capturada num CEP de São Paulo com M indisponível no COD:**
+
+```json
+{"type":"success","status":200,"data":{
+  "products":[{"code":"proqvqmj","stock":"1","delivery_date":null}],
+  "has_local_operation_cash_on_delivery": false,
+  "has_pending_cash_on_delivery": true,
+  "delivery_date": null,
+  "local_operation_cash_on_delivery": {"bumps":[]}
+},"show":false}
+```
+
+**Leia com cuidado, porque as duas leituras óbvias estão erradas.** O `stock` diz `"1"`
+sempre, inclusive para tamanho indisponível. E `has_local_operation_cash_on_delivery` diz
+`false` **inclusive quando o pagamento na entrega está disponível** — foi a primeira leitura
+registrada aqui, e ela não se sustentou contra dezesseis CEPs. Quem responde é
+**`local_operation_cash_on_delivery.delivery_days_available`**: vazio é não; preenchido traz
+`deliveryPrice` (o frete) e `dates` (as três datas que o checkout vai oferecer).
+
+**As quatro perguntas em aberto, todas respondidas em 2026-09-08:**
+
+1. **A URL.** `GET https://app.coinzz.com.br/checkout/stock-and-delivery-day`.
+2. **A resposta de "sim".** Traz `deliveryPrice` e três `dates` — exatamente as que o checkout
+   oferece. Confirmado em seis praças.
+3. **O frete sai daqui**, sim: `deliveryPrice`, constante em R$ 24,98.
+4. **Só o CEP importa.** Telefone, CPF, bairro e número podem ser sintéticos e não mudam a
+   resposta; cidade e UF saem do próprio CEP pelo ViaCEP. **Nenhum cookie, nenhum CSRF,
+   nenhum token** — o endpoint é público. Logo a agente pode consultar pedindo **uma coisa
+   só: o CEP**, antes de indicar tamanho.
+
+`src/dev/availability.ts` (`pnpm dev:estoque`) roda tudo isso de fora do navegador, com os
+três erros de leitura documentados no cabeçalho.
+
+---
+
+## v18 no ar (2026-09-08)
+
+`turn` v18, com as duas janelas de entrega de R9.3 e o gate escolhendo a janela pelo caminho
+de pagamento. Rota de deploy: a mesma Management API multipart de v15-v17. **O que a v18
+ainda não corrige é o frete** — o prompt continua dizendo "R$ 129,90 com frete incluído",
+que o checkout desmente. Isso espera decisão registrada abaixo.
+
+---
+
+## Estoque por tamanho e por região — as três perguntas, respondidas (2026-09-09)
+
+O operador levantou o risco que mais ameaça a escala. As três perguntas dele já têm resposta
+medida, não deduzida:
+
+1. **O que acontece se ela escolher um tamanho sem estoque na região?** O checkout deixa
+   selecionar e só então abre o pop-up *"Não há disponibilidade do produto para o CEP
+   solicitado"*. Atrás dele há uma consulta pública — ver a seção do `stock-and-delivery-day`.
+2. **A agente consegue checar antes de indicar?** **Sim, e barato.** A consulta é pública e
+   só o CEP muda a resposta. Falta escrevê-la dentro da agente: hoje ela só existe em
+   `src/dev/availability.ts`.
+3. **Dá para ter mais de um fornecedor?** Continua sendo decisão de operação, e ficou menos
+   urgente: o gargalo medido não é "poucas peças por região", é **um tamanho zerado no país
+   inteiro** e uma cobertura de COD que é metade do mapa. Um segundo fornecedor não resolve
+   nenhum dos dois sozinho.
+
+**A ponte barata está confirmada.** Quando o pagamento na entrega não existe — por praça ou
+por tamanho — o antecipado existe: todas as 43 cidades, todos os tamanhos menos o M, R$
+110,41 com frete grátis. A venda não está perdida, ela muda de caminho. Falta só a agente
+saber disso na hora certa.
 
 ---
 
 ## O que fazer em seguida
 
-Em ordem:
+Em ordem, e a ordem importa: os itens 1 e 2 mudam o que os outros devem fazer.
 
-1. **Deployar a Edge Function.** A v13 está no ar e é a de antes de tudo isto: sem a
-   tabela de tamanho corrigida, sem os seis gates novos, sem laço de endereço, sem coleta
-   de identidade. Antes de subir: `pnpm lint && pnpm typecheck && pnpm test &&
-   pnpm typecheck:function`, e **ler o que está deployado** — comparar pelo sentido, não
-   por `diff` cru (ver [`.claude/memory/edge-function-drift.md`](.claude/memory/edge-function-drift.md)).
-2. **Buscar os dois `offer_hash`** e montar os dois fluxos de n8n (pedido e e-mail de
-   handoff). Ver a seção acima.
-3. **Comprar o chip do WhatsApp e começar a usá-lo como número comum.** Única coisa com
-   prazo de calendário: número novo precisa de semanas de uso normal antes de tráfego pago.
-4. **Rotacionar as credenciais** que passaram por chat em texto puro — service_role da
-   Supabase, chaves OpenAI/Gemini, e o token da Coinzz colado em 2026-09-08. O operador já
-   disse que revoga esse último; os outros continuam pendentes.
-5. Seguir para a onda A4 (Hermes, conversão de volta para o Meta) e acompanhar o
-   `HANDOFF.md` do **Encorpa-Website** — a relação é de mão dupla.
+1. **Destravar as quatro decisões do topo com o operador.** Nenhuma é técnica, todas
+   bloqueiam código. A mais urgente é o M.
+2. **Resolver o estoque com a Logzz** — o M em todo o país, e o mapa de cobertura do
+   pagamento na entrega. Rodar `pnpm dev:estoque` de novo depois de qualquer reposição:
+   a varredura commitada é fotografia, não tabela fixa.
+3. **Levar a consulta de disponibilidade para dentro da agente.** Escopo já definido, e não
+   depende de mais nenhuma descoberta:
+   - a agente pergunta **o CEP** antes de indicar tamanho (uma pergunta, não o endereço);
+   - cidade e UF saem do CEP pelo ViaCEP; telefone, CPF, bairro e número podem ser
+     sintéticos na consulta;
+   - lê `local_operation_cash_on_delivery.delivery_days_available` (vazio = sem entrega) e
+     `local_operation` (vazio = sem antecipado), **nunca** `stock` nem as flags `has_*`;
+   - relê a consulta com o CPF real depois de coletá-lo, para pegar
+     `has_pending_cash_on_delivery` e desviar para o antecipado em vez de mandar a cliente
+     para um checkout travado;
+   - guardrail novo: a agente não pode indicar tamanho sem disponibilidade confirmada;
+   - espelhar em `supabase/functions/turn/`, com teste de drift, e redeployar.
+4. **Alinhar preço e caminho padrão ao que a decisão 2 e 4 disserem** — prompt, briefing do
+   `shipping_promise` e do `price_promise`, site e o caso 387 do `src/dev/simulate.ts`, que
+   hoje afirma que no pagamento na entrega o frete já está incluído. **Isso é falso e ainda
+   está no ar na v18.**
+5. **Configurar as três URLs de obrigado** no painel da Coinzz (aba Redirecionamento da
+   oferta): AfterPay → `https://encorpa-fashion.com.br/obrigado`; PIX e Cartão →
+   `.../obrigado?pago=antecipado`.
+
+Sem prazo de código, mas com prazo de calendário:
+
+6. **Comprar o chip do WhatsApp e usá-lo como número comum.** Número novo precisa de semanas
+   de uso normal antes de tráfego pago. O escolhido é **(11) 98859-0594**; nada o consome
+   até o WAHA existir.
+7. **Rotacionar as credenciais** listadas na higiene de segurança, no topo.
+8. **Onda A4** (Hermes, conversão de volta para o Meta) e o `HANDOFF.md` do
+   **Encorpa-Website** — a relação é de mão dupla.
 
 ---
 

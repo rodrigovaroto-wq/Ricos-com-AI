@@ -17,7 +17,7 @@ entregue pelo operador em 2026-09-03.
 |---|---|
 | Mídia | R$ 300/dia |
 | Preço COD | R$ 129,90 |
-| Preço antecipado/Pix | R$ 116,90 no estudo (10% off) — **revisado para R$ 110,42 (15% off)** na rodada 2 |
+| Preço antecipado/Pix | R$ 116,90 no estudo (10% off) — **revisado para R$ 110,41 (15% off)** na rodada 2 |
 | Custo do produto | R$ 30,00 |
 | Mix | 70% COD / 30% antecipado |
 | Recusa COD | 15% |
@@ -79,8 +79,8 @@ conforme a região. Embutir isso no preço obrigaria a precificar pelo pior caso
 
 | | Com 10% | **Com 15% (vigente)** |
 |---|---|---|
-| Preço do produto | R$ 116,90 | **R$ 110,42** |
-| Economia declarável | R$ 13,00 | **R$ 19,48** |
+| Preço do produto | R$ 116,90 | **R$ 110,41** |
+| Economia declarável | R$ 13,00 | **R$ 19,49** |
 | Contribuição do antecipado | R$ 76,24 | **R$ 70,21** |
 | Média com mix 70/30 | R$ 58,99 | **R$ 57,18** |
 | Equilíbrio (CPL R$ 1,25) | 3,47% | **3,58%** |
@@ -88,7 +88,7 @@ conforme a região. Embutir isso no preço obrigaria a precificar pelo pior caso
 Cenários com R$ 57,18: otimista **R$ 2.033/dia** (R$ 60.997/30d), base **R$ 1.223/dia**
 (R$ 36.705/30d), pessimista **R$ 684/dia** (R$ 20.510/30d).
 
-**O que a agente pode dizer.** A economia de R$ 19,48 é real e é sobre o produto — que é o
+**O que a agente pode dizer.** A economia de R$ 19,49 é real e é sobre o produto — que é o
 que a Encorpa vende. O frete é linha separada, variável e fora do controle do operador. A
 única exigência é que a agente diga, **na mesma mensagem**, que o frete do antecipado é
 calculado à parte no checkout. Não é ressalva moral: é proteção de conversão, porque
@@ -147,6 +147,6 @@ o antecipado ficar pior que o COD — é o número que decide o Frete Personaliz
 | # | Ponto | Resposta |
 |---|---|---|
 | D1 | `Físico na entrega` ativo na Coinzz? | **Sim, ativo.** A recusa custa −R$ 14,98, e o modelo está correto neste ponto |
-| D2 | Desconto do pagamento antecipado | **15%** — R$ 110,42 (era 10% na rodada 1; subiu porque o frete ficou com a cliente). O código (`checkout.ts` :42) ainda tem 5% e desligado, e precisa ser corrigido quando o desconto for configurado |
+| D2 | Desconto do pagamento antecipado | **15%** — R$ 110,41 (era 10% na rodada 1; subiu porque o frete ficou com a cliente). O código (`checkout.ts` :42) ainda tem 5% e desligado, e precisa ser corrigido quando o desconto for configurado |
 | D3 | "Venda" no modelo é o quê? | **Pedido criado.** A meta de 10% é conversa → pedido criado, com os 15% de recusa aplicados depois |
 | D4 | Contribuição do antecipado | **R$ 76,24**, não R$ 68,34 — confirmado pelo operador. A média com mix 70/30 sobe para R$ 58,99 |

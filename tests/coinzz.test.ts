@@ -1,6 +1,8 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildCheckoutLink,
   buildCoinzzRequest,
+  CHECKOUT_QUERY_FIELDS,
   COINZZ_PAYMENT_METHODS,
   CoinzzIncompleteError,
   missingCoinzzConfig,
@@ -83,7 +85,7 @@ describe("corpo do pedido da Coinzz", () => {
 
   it("converte reais em centavos arredondando", () => {
     expect(toCents(129.9)).toBe(12990);
-    expect(toCents(110.42)).toBe(11042);
+    expect(toCents(110.41)).toBe(11041);
   });
 });
 
@@ -177,7 +179,7 @@ describe("o método de pagamento do COD", () => {
 /**
  * A loja vende duas ofertas — pagamento na entrega e antecipado com 15% —, com preços
  * diferentes e, portanto, hashes diferentes. Cair no hash do COD no caminho antecipado
- * cobra R$ 129,90 por uma oferta de R$ 110,42.
+ * cobra R$ 129,90 por uma oferta de R$ 110,41.
  */
 describe("as duas ofertas", () => {
   const comAntecipado = { ...config, prepayOfferHash: "offPREPAY1" };
@@ -194,5 +196,64 @@ describe("as duas ofertas", () => {
   it("recusa o pedido antecipado enquanto o hash dele não existir", () => {
     const prepaid = { ...request, paymentMethod: "prepay" as const };
     expect(() => buildCoinzzRequest(prepaid, config, "k")).toThrow(/prepayOfferHash/);
+  });
+});
+
+/**
+ * O link do checkout, conferido contra a página real e não contra a suposição.
+ *
+ * O bundle `/assets/js/checkout/new-checkout-two.js` lê exatamente quatro valores da
+ * query string em `getQueryParams` — name, email, phone, document — e só avança a
+ * cliente para a etapa de endereço quando os **quatro** chegam válidos. Endereço e
+ * tamanho não têm parâmetro nenhum: ela digita o endereço e escolhe o tamanho lá.
+ */
+describe("link de checkout pré-preenchido", () => {
+  const cliente = {
+    name: "Maria Aparecida Souza",
+    email: "Maria.Souza@Gmail.com",
+    document: "731.166.873-58",
+    phone: "5511988887777",
+  };
+  const config = {
+    codUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-na-entrega-0",
+    prepayUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0",
+  };
+
+  it("leva os quatro campos que o checkout lê, e nenhum a mais", () => {
+    const url = new URL(buildCheckoutLink(cliente, "cod", config));
+    expect([...url.searchParams.keys()].sort()).toEqual([...CHECKOUT_QUERY_FIELDS].sort());
+    expect(url.origin + url.pathname).toBe(config.codUrl);
+  });
+
+  it("normaliza como o checkout espera: e-mail minúsculo, telefone e CPF só dígitos", () => {
+    const url = new URL(buildCheckoutLink(cliente, "cod", config));
+    expect(url.searchParams.get("email")).toBe("maria.souza@gmail.com");
+    expect(url.searchParams.get("document")).toBe("73116687358");
+    expect(url.searchParams.get("phone")).toBe("5511988887777");
+    expect(url.searchParams.get("name")).toBe("Maria Aparecida Souza");
+  });
+
+  it("cada oferta tem o seu link, e o antecipado não cai no da entrega", () => {
+    expect(buildCheckoutLink(cliente, "prepay", config)).toContain("pagamento-antecipado-0");
+    expect(buildCheckoutLink(cliente, "cod", config)).toContain("pagamento-na-entrega-0");
+  });
+
+  /**
+   * Meio link é pior que link nenhum: com três campos o checkout preenche e **não** pula
+   * a primeira etapa, então a cliente reencontra o formulário inteiro — o mesmo atrito,
+   * com um clique a mais.
+   */
+  it("recusa em vez de mandar link pela metade", () => {
+    for (const faltando of ["name", "email", "document", "phone"] as const) {
+      expect(() => buildCheckoutLink({ ...cliente, [faltando]: "" }, "cod", config)).toThrow(
+        CoinzzIncompleteError,
+      );
+    }
+  });
+
+  it("sem URL configurada, diz qual falta em vez de montar um link quebrado", () => {
+    expect(() => buildCheckoutLink(cliente, "prepay", { codUrl: config.codUrl })).toThrow(
+      /checkout\.prepayUrl/,
+    );
   });
 });

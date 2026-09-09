@@ -5,13 +5,16 @@
   "agentName": "{{NOME_DA_ATENDENTE}}",
   "prices": {
     "codBrl": 129.9,
-    "prepayBrl": 110.42,
+    "prepayBrl": 110.41,
     "prepayDiscountPercent": 15,
     "anchorBrl": 216.5
   },
   "delivery": {
-    "codDaysMin": 3,
-    "codDaysMax": 5,
+    "_comment": "Janelas conferidas no checkout da Coinzz em 2026-09-08. Na entrega, a cliente escolhe o dia entre as opções que o checkout oferece, de 1 a 3 dias. No antecipado são 5 a 10 dias ÚTEIS. Apagar prepayDaysMin/prepayDaysMax faz o guardrail voltar a barrar qualquer prazo no antecipado, que é o certo se o número deixar de valer.",
+    "codDaysMin": 1,
+    "codDaysMax": 3,
+    "prepayDaysMin": 5,
+    "prepayDaysMax": 10,
     "codScheduled": true,
     "prepayVariesByRegion": true,
     "warrantyDays": 7
@@ -40,7 +43,9 @@
     "physicalOnDeliveryActive": false
   },
   "checkout": {
-    "baseUrl": "{{URL_CHECKOUT_COINZZ}}"
+    "_comment": "Os dois checkouts da Coinzz, URL completa. A agente monta o link com os QUATRO parâmetros que a página lê da query string (name, email, phone, document, conferidos em /assets/js/checkout/new-checkout-two.js em 2026-09-08) — com os quatro juntos o checkout pula direto para a etapa de endereço. Endereço e tamanho NÃO têm parâmetro: ela digita o endereço e escolhe o tamanho lá dentro, junto com o dia da entrega.",
+    "codUrl": "{{URL_CHECKOUT_PAGAMENTO_NA_ENTREGA}}",
+    "prepayUrl": "{{URL_CHECKOUT_PAGAMENTO_ANTECIPADO}}"
   },
   "handoff": {
     "email": "{{EMAIL}}"

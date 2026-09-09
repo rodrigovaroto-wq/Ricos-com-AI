@@ -26,12 +26,12 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 |---|---|---|---|
 | 1 | **stop / opt-out** | a cliente pediu para parar | Irrevogável. Ver seção abaixo |
 | 2 | **promessa de cobrança** | a mensagem afirma que não haverá cobrança antes da entrega **e** `Físico na entrega` não está ativo | [`../../documentacao/contexto-negocio/05-decisoes-firmes.md`](../../documentacao/contexto-negocio/05-decisoes-firmes.md) §2 |
-| 3 | **promessa de preço e desconto** | valor fora de R$ 216,50 / R$ 129,90 / R$ 110,42 / R$ 19,48, ou percentual fora de 40% e 15% (20% só com o cupom ativo) | `Encorpa-Website/src/lib/checkout.ts`; R2.1 |
+| 3 | **promessa de preço e desconto** | valor fora de R$ 216,50 / R$ 129,90 / R$ 110,41 / R$ 19,49, ou percentual fora de 40% e 15% (20% só com o cupom ativo) | `Encorpa-Website/src/lib/checkout.ts`; R2.1 |
 | 4 | **claim de emagrecimento** | a mensagem sugere que o produto emagrece ou que o efeito é permanente | `FAQ.tsx` :26; decisão firme §3 |
 | 5 | **janela de atendimento** | fora de **06:00–00:00**, para a resposta real da agente (camada 2). A mensagem automática de recebimento (camada 1) roda 24/7 e não passa por este gate | R2.5 + R4.4 |
 | 6 | **pacing / anti-banimento** | acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
 | 7 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
-| 8 | **prazo e logística** | no COD, promete prazo fora de "3 a 5 dias, agendada"; no antecipado, promete qualquer prazo em número (o frete é contratado à parte e varia por região) | Corrigido pelo operador em 2026-09-06 (R7.2). Divergência com o site **fechada em 2026-09-07**: o `FAQ.tsx` e a página de obrigado agora dizem 3 a 5 |
+| 8 | **prazo e logística** | promete uma janela fora da do caminho de pagamento em questão — 1 a 3 dias no COD, 5 a 10 dias úteis no antecipado | Reescrito em **2026-09-08** (R9.3), depois de o operador fazer um pedido real e ver as duas janelas no checkout. O gate agora escolhe a janela pelo `paymentPath`: a do COD dita no antecipado é veto, e vice-versa. Site alinhado no mesmo dia |
 | 9 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
 | 10 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
 | 11 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
@@ -85,10 +85,10 @@ mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de 
 **Gate do preço antecipado.** Duas travas, e as duas precisam cair antes de a oferta ir ao ar:
 
 1. Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a agente não pode anunciar
-   R$ 110,42 — o desconto vigente é **15%** (rodada 2), mas o código e a Coinzz ainda não
+   R$ 110,41 — o desconto vigente é **15%** (rodada 2), mas o código e a Coinzz ainda não
    o refletem.
 2. **A economia é sobre o produto, e o frete tem que ser dito junto.** Decidido na rodada
-   2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,48 no
+   2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,49 no
    pagamento antecipado — a economia é real e é sobre o produto, que é o que a Encorpa
    vende. O gate é o outro lado da frase: **na mesma mensagem**, ela diz que no caminho
    antecipado o frete é calculado à parte no checkout. Mensagem que anuncia a economia sem

@@ -19,8 +19,8 @@ export interface ConversationCase {
 }
 
 const config = {
-  prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-  delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
+  prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+  delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
   hours: { openHour: 6, closeHour: 24 },
   cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
   coupon: { percent: 20, active: false },
@@ -55,6 +55,7 @@ export const runAllConversations = (): ConversationCase[] => {
       if (want.addressComplete !== undefined) compare("endereço completo", want.addressComplete, got.addressComplete);
       if (want.addressConfirmed !== undefined) compare("endereço confirmado", want.addressConfirmed, got.addressConfirmed);
       if (want.identityComplete !== undefined) compare("identidade completa", want.identityComplete, got.identityComplete);
+      if (want.checkoutReady !== undefined) compare("link pode ser mandado", want.checkoutReady, got.checkoutReady);
       if (want.orderReady !== undefined) compare("pedido pode nascer", want.orderReady, got.orderReady);
       if (want.stage !== undefined) compare("estágio", want.stage, got.stage);
       if (want.sent !== undefined) compare("mensagens enviadas", want.sent, got.sent.length);

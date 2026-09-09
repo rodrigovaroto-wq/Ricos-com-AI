@@ -96,6 +96,8 @@ export interface Arc {
     addressComplete?: boolean;
     addressConfirmed?: boolean;
     identityComplete?: boolean;
+    /** Nome, e-mail e CPF na mão: o link já pode ser mandado. */
+    checkoutReady?: boolean;
     orderReady?: boolean;
     stage?: Stage;
     /** Outbound messages that actually reached her. */
@@ -110,17 +112,23 @@ export interface Arc {
 const R = {
   greet: "Oi! Que bom te ver por aqui 💛 Posso te ajudar com o colete?",
   price:
-    "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,42, e aí o frete é calculado à parte no checkout.",
+    "O colete sai por R$ 129,90 com o frete já incluído, e você paga na entrega. Quem prefere pagar antes leva 15% de desconto, R$ 110,41, e aí o frete é calculado à parte no checkout.",
   askSize: "Que tamanho de calça você usa? Pode ser o número ou a letra, como preferir.",
-  delivery: "Chega em 3 a 5 dias e a entrega é agendada, então você fica sabendo o dia.",
+  delivery: "Chega em 1 a 3 dias e você escolhe o dia no checkout, então não tem surpresa.",
   noSlim: "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",
   identity:
     "Não sou uma pessoa, sou a assistente virtual da Encorpa. Se preferir, chamo alguém do time agora.",
   noCoupon: "Não temos cupom no momento. O desconto que existe é o de 15% no pagamento antecipado.",
   noDiscount: "Não consigo oferecer 30% de desconto. O valor é R$ 129,90 na entrega, com frete incluído.",
   warranty: "Você tem 7 dias para trocar ou devolver, contando de quando receber.",
-  askAddress: "Perfeito! Me passa o endereço completo com CEP que eu já deixo tudo pronto.",
-  confirmAddress: "Anotado! Vou deixar o pedido separado pra você 💛",
+  // A agente não pede mais endereço: quem coleta é o checkout, e pedir aqui faria a
+  // cliente digitar tudo duas vezes. O que ela pede são as três coisas que vão no link.
+  askName: "Que bom! Pra eu já deixar tudo pronto: qual é o seu nome completo?",
+  askEmail: "Perfeito! E qual é o seu e-mail? É pra onde vai a confirmação do pedido.",
+  askCpf: "Por último, o seu CPF — a transportadora precisa dele pra entregar.",
+  sendLink:
+    "Prontinho! Te mandei o link com os seus dados já preenchidos. Lá você confere o endereço, escolhe o tamanho e escolhe o dia da entrega — são três dias pra você escolher 💛",
+  gotAddress: "Anotado, obrigada! 💛",
   fabric: "O tecido é 92% poliamida e 8% elastano — liso e fininho, não marca por baixo da roupa.",
   bye: "Fico por aqui se precisar! Qualquer dúvida é só me chamar 💛",
   sized: (p: Persona) => `Para o tamanho ${p.number}, o colete indicado é o ${p.size}.`,
@@ -147,27 +155,33 @@ const BAD = {
 export const ARCS: Arc[] = [
   // ── A venda que acontece ────────────────────────────────────────────────────
   {
+    // O fechamento vigente, ponta a ponta: tamanho, decisão, as três coisas que o link
+    // carrega, e o link. Nenhum turno gasto com endereço — ela digita no checkout, uma
+    // vez só, junto com o tamanho e o dia.
     name: "venda completa",
     turns: (p) => [
       { from: p.style("oi, vi o anúncio"), reply: R.greet },
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero comprar"), reply: R.askAddress },
-      { from: p.address, reply: "Só pra conferir antes de fechar: está certo assim?" },
-      { from: "isso mesmo", reply: R.confirmAddress },
+      { from: p.style("quero comprar"), reply: R.askName },
+      { from: "Maria Aparecida Souza", reply: R.askEmail },
+      { from: "maria.souza@gmail.com", reply: R.askCpf },
+      { from: "731.166.873-58", reply: R.sendLink },
     ],
-    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: true, stage: "endereco_coletado", sent: 6, touches: 3 }),
+    expect: (p) => ({ size: p.size, identityComplete: true, checkoutReady: true, sent: 7, touches: 3 }),
   },
   {
-    name: "venda com o endereço em duas partes",
+    // Ela manda o endereço sem ninguém pedir. A agente agradece e segue — o extrator
+    // continua guardando o que ela escreveu, mas isso não é mais um passo da venda.
+    name: "ela manda o endereço por conta própria",
     turns: (p) => [
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero sim"), reply: R.askAddress },
-      { from: p.addressParts[0], reply: "Anotei o CEP! Me passa a rua, o número e o bairro." },
-      { from: p.addressParts[1], reply: "Confere pra mim: está certo assim?" },
-      { from: "pode mandar", reply: R.confirmAddress },
+      { from: p.style("quero sim"), reply: R.askName },
+      { from: p.address, reply: R.gotAddress },
+      { from: "Maria Aparecida Souza", reply: R.askEmail },
+      { from: "maria.souza@gmail.com e meu cpf é 731.166.873-58", reply: R.sendLink },
     ],
-    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: true, stage: "endereco_coletado", sent: 5 }),
+    expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: false, identityComplete: true, checkoutReady: true, sent: 5 }),
   },
   {
     name: "pergunta o preço antes de tudo",
@@ -242,7 +256,7 @@ export const ARCS: Arc[] = [
   {
     name: "quer para amanhã",
     turns: (p) => [
-      { from: p.style("chega amanhã?"), vetoedFirst: BAD.tomorrow, reply: "Não consigo entregar amanhã: a entrega leva de 3 a 5 dias, e é agendada." },
+      { from: p.style("chega amanhã?"), vetoedFirst: BAD.tomorrow, reply: "Não consigo prometer amanhã: a entrega leva de 1 a 3 dias, e o dia quem escolhe é você." },
     ],
     expect: () => ({ sent: 1, minRewrites: 1 }),
   },
@@ -327,7 +341,7 @@ export const ARCS: Arc[] = [
     turns: (p) => [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero falar com um atendente") },
+      { from: p.style("quero falar com um humano") },
       { from: p.style("alô?") },
     ],
     expect: (p) => ({ size: p.size, handoff: true, sent: 3, touches: 0 }),
@@ -338,9 +352,12 @@ export const ARCS: Arc[] = [
     expect: () => ({ handoff: true, sent: 1 }),
   },
   {
+    // Perguntar se há alguém disponível é perguntar se há alguém ouvindo — e há. Antes
+    // isso virava handoff na primeira mensagem da conversa, que é o pior momento possível
+    // para entregar uma venda a um humano que ainda não existe.
     name: "pergunta se tem alguém disponível",
-    turns: (p) => [{ from: p.style("tem alguém disponível pra falar?") }],
-    expect: () => ({ handoff: true, sent: 1 }),
+    turns: (p) => [{ from: p.style("tem alguém disponível pra falar?"), reply: R.greet }],
+    expect: () => ({ handoff: false, sent: 1 }),
   },
   {
     name: "recusa a pessoa e continua",
@@ -472,7 +489,7 @@ export const ARCS: Arc[] = [
   },
   {
     name: "endereço e tamanho na mesma mensagem",
-    turns: (p) => [{ from: `${p.saysSize}. ${p.address}`, reply: R.confirmAddress }],
+    turns: (p) => [{ from: `${p.saysSize}. ${p.address}`, reply: R.gotAddress }],
     expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: false, sent: 1 }),
   },
 
@@ -563,15 +580,24 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style("quanto custa?"), reply: R.price },
     ],
-    expect: () => ({ sent: 2, handoff: true, minRewrites: 2, touches: 0 }),
+    // O `identical_template` barra a repetição a partir do segundo turno, a reescrita
+    // devolve o mesmo texto e não passa — e é exatamente aqui que a política mudou. Antes
+    // isso virava handoff: a conversa acabava, e um humano herdava o problema de uma
+    // agente que se repetiu. Agora ela manda a resposta de saída, que é uma resposta de
+    // verdade com uma pergunta viva, e a conversa continua com ela.
+    expect: () => ({ sent: 3, handoff: false, minRewrites: 2 }),
   },
   {
-    name: "conversa longa que atravessa o teto de custo",
+    // Este cenário se chamava "conversa longa que atravessa o teto de custo" e nunca
+    // atravessou teto nenhum: a R$ 0,001 por chamada, o teto de R$ 1,00 exigiria mil
+    // chamadas. O que ele sempre exercitou foi a agente repetindo a mesma saudação até
+    // o `identical_template` barrar. O nome mentia; agora ele descreve o que faz.
+    name: "conversa longa em que a agente repete a mesma saudação",
     turns: (p) => Array.from({ length: 16 }, (_, i) => ({
       from: p.style(`pergunta número ${i + 1}, me explica melhor`),
       reply: R.greet,
     })),
-    expect: () => ({ handoff: true }),
+    expect: () => ({ handoff: false }),
   },
   {
     name: "volta depois do handoff",
@@ -601,7 +627,7 @@ export const ARCS: Arc[] = [
   },
   {
     name: "compra rápida de uma mensagem só",
-    turns: (p) => [{ from: `${p.saysSize}, quero comprar. ${p.address}`, reply: R.confirmAddress }],
+    turns: (p) => [{ from: `${p.saysSize}, quero comprar. ${p.address}`, reply: R.gotAddress }],
     expect: (p) => ({ size: p.size, addressComplete: true, addressConfirmed: false, sent: 1 }),
   },
   {
@@ -625,22 +651,22 @@ export const ARCS: Arc[] = [
     turns: (p) => [
       { from: p.address, reply: "Confere: está certo assim?" },
       { from: "não, o número mudou, é 125", reply: "Corrigi! Está certo agora?" },
-      { from: "isso", reply: R.confirmAddress },
+      { from: "isso", reply: R.gotAddress },
     ],
     expect: () => ({ addressComplete: true, addressConfirmed: true, sent: 3 }),
   },
   {
     name: "diz sim antes de ter endereço nenhum",
-    turns: () => [{ from: "sim, pode mandar", reply: R.askAddress }],
+    turns: () => [{ from: "sim, pode mandar", reply: R.askName }],
     expect: () => ({ addressComplete: false, addressConfirmed: false, sent: 1 }),
   },
   {
     name: "manda endereço novo depois de já ter confirmado",
     turns: (p) => [
       { from: p.address, reply: "Confere: está certo assim?" },
-      { from: "isso mesmo", reply: R.confirmAddress },
+      { from: "isso mesmo", reply: R.gotAddress },
       { from: "na verdade manda pro trabalho: Rua Nova 50, bairro Centro, Campinas/SP, 13010-100", reply: "Anotei o novo! Confere: está certo assim?" },
-      { from: "correto", reply: R.confirmAddress },
+      { from: "correto", reply: R.gotAddress },
     ],
     expect: () => ({ addressComplete: true, addressConfirmed: true, sent: 4 }),
   },
@@ -651,9 +677,9 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style("e se não servir?"), reply: R.warranty },
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero"), reply: R.askAddress },
+      { from: p.style("quero"), reply: R.askName },
       { from: p.address, reply: "Confere: está certo assim?" },
-      { from: "perfeito", reply: R.confirmAddress },
+      { from: "perfeito", reply: R.gotAddress },
     ],
     expect: (p) => ({
       size: p.size,
@@ -675,12 +701,12 @@ export const ARCS: Arc[] = [
     name: "venda até o pedido poder nascer",
     turns: (p) => [
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: p.style("quero comprar"), reply: R.askAddress },
+      { from: p.style("quero comprar"), reply: R.askName },
       { from: p.address, reply: "Confere: está certo assim?" },
       { from: "isso mesmo", reply: "Anotado! Qual é o seu nome completo?" },
       { from: "meu nome é Ana Paula Souza", reply: "Prazer, Ana! Qual é o seu e-mail?" },
       { from: "ana.souza@gmail.com", reply: "Por último, o seu CPF." },
-      { from: "529.982.247-25", reply: R.confirmAddress },
+      { from: "529.982.247-25", reply: R.gotAddress },
     ],
     expect: (p) => ({
       size: p.size,
@@ -699,7 +725,7 @@ export const ARCS: Arc[] = [
       { from: "meu nome é Ana Paula Souza", reply: "Qual é o seu e-mail?" },
       { from: "ana@gmail.com", reply: "Por último, o CPF." },
       { from: "111.111.111-11", reply: "Esse CPF não confere, pode conferir pra mim?" },
-      { from: "529.982.247-25", reply: R.confirmAddress },
+      { from: "529.982.247-25", reply: R.gotAddress },
     ],
     expect: (p) => ({ size: p.size, identityComplete: true, orderReady: true, sent: 7 }),
   },
@@ -716,7 +742,7 @@ export const ARCS: Arc[] = [
     name: "identidade completa mas endereço não confirmado não vira pedido",
     turns: (p) => [
       { from: p.style(p.saysSize), reply: R.sized(p) },
-      { from: "meu nome é Ana Paula Souza, ana@gmail.com, cpf 529.982.247-25", reply: R.askAddress },
+      { from: "meu nome é Ana Paula Souza, ana@gmail.com, cpf 529.982.247-25", reply: R.sendLink },
       { from: p.address, reply: "Confere: está certo assim?" },
     ],
     expect: (p) => ({ size: p.size, identityComplete: true, addressConfirmed: false, orderReady: false }),

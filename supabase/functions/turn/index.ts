@@ -12,6 +12,7 @@
  */
 import {
   classifyOptOut,
+  gateBriefing,
   remedyFor,
   runGates,
   wantsHuman,
@@ -31,8 +32,6 @@ import {
   extractAddress,
   isComplete,
   mergeAddress,
-  nextQuestion,
-  renderConfirmation,
   type Address,
 } from "./address.ts";
 import {
@@ -43,9 +42,11 @@ import {
   type Identity,
 } from "./identity.ts";
 import {
+  buildCheckoutLink,
   buildCoinzzRequest,
   CoinzzIncompleteError,
   missingCoinzzConfig,
+  type CheckoutLinkConfig,
   type CoinzzConfig,
   type CoinzzRequest,
 } from "./coinzz.ts";
@@ -53,6 +54,7 @@ import {
   decideNext,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
+  SAFE_FALLBACK_REPLY,
   type NextAction,
 } from "./retry.ts";
 
@@ -73,7 +75,14 @@ const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
 interface BusinessConfig extends GateConfig {
   brand: string;
   agentName: string;
-  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
+  delivery: {
+    codDaysMin: number;
+    codDaysMax: number;
+    /** A janela do antecipado, em dias úteis — conferida no checkout em 2026-09-08. */
+    prepayDaysMin?: number;
+    prepayDaysMax?: number;
+    warrantyDays: number;
+  };
   cost: { conversationCapBrl: number; overrunTolerance: number };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
@@ -83,6 +92,12 @@ interface BusinessConfig extends GateConfig {
    * which offer, and which of their four payment methods means paying at the door.
    */
   coinzz?: Partial<CoinzzConfig>;
+  /**
+   * The two checkout URLs. This is the path the operator chose (2026-09-08): the agent
+   * fills what the checkout accepts and she finishes there, because the delivery day is
+   * a choice only she can make and it lives inside the checkout.
+   */
+  checkout?: Partial<CheckoutLinkConfig>;
   /**
    * Real reviews, word for word. The `invented_testimonial` gate refuses any quote
    * attributed to a customer that is not in this list — which, while the list was
@@ -97,8 +112,8 @@ const CONFIG: BusinessConfig = JSON.parse(
     JSON.stringify({
       brand: "Encorpa",
       agentName: "Malu",
-      prices: { codBrl: 129.9, prepayBrl: 110.42, prepayDiscountPercent: 15, anchorBrl: 216.5 },
-      delivery: { codDaysMin: 3, codDaysMax: 5, warrantyDays: 7 },
+      prices: { codBrl: 129.9, prepayBrl: 110.41, prepayDiscountPercent: 15, anchorBrl: 216.5 },
+      delivery: { codDaysMin: 1, codDaysMax: 3, prepayDaysMin: 5, prepayDaysMax: 10, warrantyDays: 7 },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
@@ -234,6 +249,18 @@ const recordCall = (
   }).catch(() => undefined);
 
 /**
+ * The prepaid window, or nothing. It was nothing until 2026-09-08: the freight is quoted
+ * per region there, so no one knew the deadline and the rule was to promise none. The
+ * operator checked the checkout and it exists — 5 to 10 business days. With the fields
+ * empty the prompt says nothing, which is what `delivery_promise` still enforces.
+ */
+const prepayWindowLine = (): string => {
+  const { prepayDaysMin, prepayDaysMax } = CONFIG.delivery;
+  if (prepayDaysMin == null || prepayDaysMax == null) return "";
+  return `entrega em ${prepayDaysMin} a ${prepayDaysMax} dias úteis,`;
+};
+
+/**
  * What the agent is allowed to say about urgency, decided by config rather than by the
  * model's instincts. Three settings, and the difference between them is who is
  * accountable for the number:
@@ -271,8 +298,8 @@ const scarcityBriefing = (): string[] => {
 
 const systemPrompt = (
   sizeDirective: string | null,
-  addressDirective: string | null = null,
   identityDirective: string | null = null,
+  checkoutDirective: string | null = null,
 ): string => {
   const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
@@ -315,10 +342,11 @@ const systemPrompt = (
     ``,
     `Preço: ${money(CONFIG.prices.codBrl)} com frete incluído, pago na entrega ao entregador,`,
     `em dinheiro ou cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax}`,
-    `dias, agendada. Nunca prometa prazo menor. ${CONFIG.delivery.warrantyDays} dias para trocar`,
-    `ou devolver. Quem prefere pagar antes leva ${CONFIG.prices.prepayDiscountPercent}% de desconto`,
-    `(${money(CONFIG.prices.prepayBrl)}), e aí o frete é calculado à parte no checkout — as duas`,
-    `metades saem na mesma frase.`,
+    `dias, agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
+    `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
+    `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
+    `${prepayWindowLine()} e aí o frete é calculado à parte no checkout — as duas metades saem na`,
+    `mesma frase.`,
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
     `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,
@@ -342,13 +370,31 @@ const systemPrompt = (
         ]
       : []),
     ``,
+    `COMO A VENDA FECHA. Você NÃO pede endereço, em nenhum momento. Quem coleta endereço é o`,
+    `checkout, e pedir aqui faria a cliente digitar tudo duas vezes — é assim que se perde uma`,
+    `venda que já estava ganha. Se ela mandar o endereço por conta própria, agradeça e siga; não`,
+    `repita de volta nem peça confirmação.`,
+    ``,
+    `O que você precisa dela são três coisas, e só depois que ela decidir comprar: nome completo,`,
+    `e-mail e CPF, nessa ordem, uma de cada vez, no meio da conversa e nunca como formulário. O`,
+    `CPF é o último de propósito — é o que faz as pessoas hesitarem, e a essa altura ela já`,
+    `decidiu. Com os três você recebe o link pronto e manda para ela.`,
+    ``,
+    `A VERIFICAÇÃO DA LOJA. Toda resposta sua passa por uma checagem automática antes de chegar`,
+    `na cliente. Ela não é um obstáculo pra driblar — é a lista exata do que a operação consegue`,
+    `cumprir, e cada linha dela custa dinheiro de verdade quando é quebrada. Escreva já dentro`,
+    `dela: é assim que você acerta de primeira, em vez de ter a resposta recusada e ter que`,
+    `escrever de novo. Recusar o que a cliente pediu, quando a loja não tem, é permitido e é`,
+    `parte do trabalho — o proibido é prometer.`,
+    ...gateBriefing(CONFIG).map((rule) => `— ${rule}`),
+    ``,
     `TAMANHO DA RESPOSTA. Curta por padrão — duas ou três frases resolvem quase tudo no`,
     `WhatsApp. Quando o momento pedir (a objeção grande, a hora de fechar, a mulher que`,
     `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
     `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
     ...(sizeDirective ? ["", sizeDirective] : []),
-    ...(addressDirective ? ["", addressDirective] : []),
     ...(identityDirective ? ["", identityDirective] : []),
+    ...(checkoutDirective ? ["", checkoutDirective] : []),
   ].join(" ");
 };
 
@@ -371,52 +417,25 @@ const sizeDirectiveFor = (stated: { stated: number; size: string } | null): stri
       ` Diga esse tamanho com palavra simples, sem usar "manequim".`;
 
 /**
- * The address loop (§D2/§D5), which is the half of the sale that was missing.
+ * Name, e-mail and CPF — the three the checkout link carries, and the only three the
+ * conversation collects. One question at a time, because a form in a WhatsApp message is
+ * where a sale stops.
  *
- * She rarely says the whole address at once, so it accumulates across turns. What is
- * still unknown becomes one question — one, not a form. When nothing is missing, the
- * address is read back to her and nothing is ordered until she says it is right: a
- * package sent to an address nobody checked is the failed delivery this whole module
- * exists to avoid, and under cash on delivery that is the freight, lost both ways.
+ * The order matters. Name first, because she gives it without thinking. CPF last, because
+ * it is the one that makes people hesitate, and by then she has already invested in the
+ * conversation.
  *
- * The directive is handed to the model as a fact plus an instruction, the same shape
- * the size directive uses — the model writes the sentence, the code decides what it says.
- */
-const addressDirectiveFor = (
-  draft: Partial<Address>,
-  confirmed: boolean,
-): string | null => {
-  if (confirmed) {
-    return `O endereço dela já está confirmado. Não peça de novo, não repita de volta: siga` +
-      ` para fechar o pedido.`;
-  }
-  if (isComplete(draft)) {
-    return `O endereço dela está completo mas AINDA NÃO foi confirmado. Antes de qualquer` +
-      ` pedido, repita exatamente isto de volta para ela, em linhas separadas, e pergunte se` +
-      ` está certo:\n${renderConfirmation(draft)}`;
-  }
-  const missing = (["cep", "street", "number", "neighborhood", "city", "state"] as const).filter(
-    (f) => !draft[f],
-  );
-  if (missing.length === 0 || Object.keys(draft).length === 0) return null;
-  const ask = nextQuestion(missing);
-  return ask === null
-    ? null
-    : `Você já anotou parte do endereço dela. Falta: ${missing.join(", ")}. Pergunte SÓ a` +
-      ` próxima coisa que falta, com esta pergunta: "${ask}" — uma de cada vez, nunca a lista toda.`;
-};
-
-/**
- * Name, e-mail and CPF — what the Coinzz order requires and the conversation never
- * asked for. Same loop as the address, and one question at a time for the same reason:
- * a form in a WhatsApp message is where a sale stops.
- *
- * The order matters. Name first, because she gives it without thinking. CPF last,
- * because it is the one that makes people hesitate — and by then she has already put
- * her address in, which is the moment she is least likely to walk away.
+ * The address is deliberately not here any more (operator, 2026-09-08). The checkout has
+ * no query parameter for it, so anything collected in the conversation she would type
+ * again anyway — five turns spent to make her do the work twice.
  */
 const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
   if (isIdentityComplete(draft)) return null;
+  // Nothing collected yet means the model decides *when* to start — the prompt says only
+  // after she has decided to buy. This directive drives the ORDER, not the opening: fired
+  // unconditionally it would have the agent asking a stranger for her full name in reply
+  // to "oi", which is where the conversation ends.
+  if (Object.keys(draft).length === 0) return null;
   const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
   const ask = nextIdentityQuestion(missing);
   return ask === null
@@ -424,6 +443,27 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
     : `Para fechar o pedido ainda falta: ${missing.join(", ")}. Pergunte SÓ isto agora,` +
       ` com naturalidade: "${ask}". Uma coisa de cada vez — nunca peça a lista inteira.`;
 };
+
+/**
+ * The message that carries the link, and what it must not imply.
+ *
+ * The link fills four fields and drops her at the address step; it does not create an
+ * order. So the agent says what is left — the address, the size, the day — and never that
+ * the order is done. A customer who thinks she has bought and then gets a delivery-day
+ * message she does not expect is the refusal at the door this whole funnel is built to
+ * avoid.
+ *
+ * The day is genuinely good news and is said as such: three dates, and she picks.
+ */
+const checkoutDirectiveFor = (url: string | null, size: string | null): string | null =>
+  url === null
+    ? null
+    : `Você já tem tudo. Mande este link para ela agora, exatamente como está, sem encurtar` +
+      ` e sem alterar:\n${url}\nDiga que os dados dela já vão preenchidos. Falta ela, lá` +
+      ` dentro: digitar o endereço de entrega,` +
+      `${size ? ` escolher o tamanho ${size},` : ` escolher o tamanho,`} e escolher o dia da` +
+      ` entrega — são três dias pra ela escolher, e isso é bom, fale como bom. NÃO diga que o` +
+      ` pedido já está feito: ele nasce quando ela terminar no checkout.`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -452,7 +492,7 @@ const cancelScheduled = (conversationId: string) =>
 const stopPointOf = (replyText: string): StopPoint => {
   const t = replyText.toLowerCase();
   if (t.includes("checkout") || t.includes("link")) return "link_sent";
-  if (t.includes("129,90") || t.includes("110,42")) return "after_price";
+  if (t.includes("129,90") || t.includes("110,41")) return "after_price";
   return "before_size";
 };
 
@@ -901,12 +941,35 @@ Deno.serve(async (request: Request): Promise<Response> => {
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
-  const addressDirective = addressDirectiveFor(addressDraft, addressConfirmed);
+  /**
+   * The link she finishes in, built before the model writes so the reply can carry it.
+   *
+   * It needs the three the conversation collects; with all of them plus her phone the
+   * checkout skips its first step. Nothing here is half-built — a link that fills three
+   * fields and still opens at the top is the same friction with an extra click.
+   */
+  let checkoutUrl: string | null = null;
+  let checkoutBlocked: string[] = (["name", "email", "document"] as const)
+    .filter((f) => !identityDraft[f])
+    .map((f) => `customer.${f}`);
+  if (checkoutBlocked.length === 0) {
+    try {
+      checkoutUrl = buildCheckoutLink(
+        { ...(identityDraft as Identity), phone: lead.phone },
+        "cod",
+        CONFIG.checkout ?? {},
+      );
+    } catch (error) {
+      checkoutBlocked =
+        error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
+    }
+  }
 
-  // Identity is only asked for once the address is confirmed. Asking for a CPF before
-  // she has decided to buy is the fastest way to end a conversation.
-  const identityDirective =
-    addressConfirmed && isComplete(addressDraft) ? identityDirectiveFor(identityDraft) : null;
+  const identityDirective = identityDirectiveFor(identityDraft);
+  const checkoutDirective = checkoutDirectiveFor(
+    checkoutUrl,
+    stated?.size ?? lead.size ?? null,
+  );
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
@@ -924,8 +987,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated), addressDirective, identityDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated), identityDirective, checkoutDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
@@ -1057,7 +1120,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
     });
   }
 
-  const reply = attempt;
+  /**
+   * The rewrite did not pass, so the agent answers with the safe reply instead of the
+   * draft — and the conversation stays with it. No `handoff_at`, nobody called: a reply
+   * the agent phrased badly was never the customer's problem, and she still gets an
+   * answer with a live question in it. The blocked traces are already in `gate_traces`,
+   * which is where a gate that keeps firing becomes Hermes' material.
+   */
+  const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
+  const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
 
   const outbound = (
     await db("messages", {
@@ -1065,7 +1136,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       body: JSON.stringify({
         conversation_id: conversation.id,
         direction: "outbound",
-        body: reply.text,
+        body: replyText,
       }),
     })
   )[0];
@@ -1076,7 +1147,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   });
 
   // The silence ruler starts the moment the agent finishes speaking.
-  await scheduleSilenceTouches(conversation.id, stopPointOf(reply.text));
+  await scheduleSilenceTouches(conversation.id, stopPointOf(replyText));
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
   // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração
@@ -1109,13 +1180,25 @@ Deno.serve(async (request: Request): Promise<Response> => {
   }
 
   return json(200, {
-    status: "ok",
+    status: fallbackReason === null ? "ok" : "fallback",
+    ...(fallbackReason === null
+      ? {}
+      : {
+          reason: fallbackReason,
+          blockedText: attempt.text,
+          blocked: gates.traces.filter((t) => t.verdict === "block"),
+        }),
     intent: intent.text,
-    reply: reply.text,
+    reply: replyText,
     messageId: outbound.id,
     rewrites: rewritesUsed,
     order,
     orderBlocked,
+    // O caminho vigente: a agente manda este link e a cliente termina no checkout, onde
+    // ela escolhe o dia da entrega. `order` continua aqui para quando o pedido passar a
+    // nascer por API — mas hoje quem cria o pedido é ela, clicando.
+    checkoutUrl,
+    checkoutBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.
     size: stated?.size ?? lead.size ?? null,

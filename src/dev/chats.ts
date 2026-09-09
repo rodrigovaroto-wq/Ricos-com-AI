@@ -119,12 +119,17 @@ export const CHATS: Chat[] = [
   { name: "desistiu no fim", handling: "responde", size: null, variants: ["desisti", "deixa pra depois", "Mudei de ideia, obrigada"] },
 
   // ── Pedido de humano ───────────────────────────────────────────────────────
-  { name: "quer falar com pessoa", handling: "handoff", size: null, variants: ["quero falar com uma pessoa", "queria falar com alguem", "Posso falar com uma pessoa?"] },
-  { name: "quer atendente", handling: "handoff", size: null, variants: ["tem atendente ai?", "tem alguem disponivel pra falar?", "Tem humano aí?"] },
-  { name: "atendimento humano", handling: "handoff", size: null, variants: ["atendimento humano", "quero suporte humano", "Preciso de atendimento humano"] },
+  { name: "quer falar com pessoa", handling: "handoff", size: null, variants: ["quero falar com uma pessoa", "Quero falar com uma pessoa de verdade", "quero falar com um humano"] },
+  { name: "quer atendimento humano", handling: "handoff", size: null, variants: ["atendimento humano", "quero suporte humano", "Quero atendimento humano"] },
   { name: "recusa o robô", handling: "handoff", size: null, variants: ["nao quero falar com robo", "nao quero falar com bot", "Não quero falar com uma máquina"] },
-  { name: "pede transferência", handling: "handoff", size: null, variants: ["me passa pra um humano", "me transfere pra uma pessoa", "Me passa para o gerente"] },
+  { name: "pede transferência", handling: "handoff", size: null, variants: ["me passa pra um humano", "me transfere pra um humano", "Me passa para uma pessoa"] },
   { name: "pessoa é o assunto, não o pedido", handling: "responde", size: null, variants: ["tem uma pessoa que usa e amou?", "conhece alguem que ja usou?", "Tem pessoa que comprou e gostou?"] },
+  // A agente JÁ é atendente e vendedora: pedir atendimento é o que a cliente está fazendo,
+  // não um pedido de trocar de interlocutor. "Tem alguém aí?" pergunta se há alguém
+  // ouvindo, e há. Rotear isso entrega a um humano a primeira mensagem de uma venda que
+  // ninguém estava deixando de fazer.
+  { name: "pede atendimento, não outra pessoa", handling: "responde", size: null, variants: ["quero falar com um atendente", "olá, gostaria de falar com um atendente", "tem alguem ai?"] },
+  { name: "pedido embutido numa frase maior", handling: "responde", size: null, variants: ["oi, tudo bem? queria falar com uma pessoa", "me passa pra uma pessoa por favor", "acho que quero falar com um humano"] },
   { name: "recusa a pessoa", handling: "responde", size: null, variants: ["nao quero falar com uma pessoa agora", "não quero falar com atendente, resolvo aqui", "Nao quero falar com ninguem, so me responde"] },
   { name: "pergunta se é robô", handling: "responde", size: null, variants: ["voce e um robo?", "e uma pessoa falando?", "Isso é automático?"] },
 

@@ -171,10 +171,10 @@ criação de pedido COD fora da área coberta. O que falta é o agente tratar es
 caminho de conversa — ver §D3.
 
 **D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
-com 15% de desconto (R$ 110,42) é oferecido antes de finalizar**, nunca como condição →
+com 15% de desconto (R$ 110,41) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
-**A frase tem duas metades, e as duas são obrigatórias:** a economia de **R$ 19,48 no
+**A frase tem duas metades, e as duas são obrigatórias:** a economia de **R$ 19,49 no
 produto** é real e pode ser dita; e **o frete no antecipado é calculado à parte no
 checkout** — isso vai na mesma mensagem. No COD o frete está embutido nos R$ 129,90. Ver
 [`04-guardrails.md`](04-guardrails.md).
@@ -187,7 +187,7 @@ cliente precisa de mais prova, não de menos. Ver
 [`../../documentacao/decisoes/03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
 
 **D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 com frete embutido, em dinheiro,
-cartão ou maquininha na porta. Antecipado: R$ 110,42 mais frete, por link de checkout
+cartão ou maquininha na porta. Antecipado: R$ 110,41 mais frete, por link de checkout
 pré-preenchido → expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 
@@ -233,7 +233,7 @@ durável → *banco*.
 **E3. Status.** Webhook ou polling da Coinzz → atualizar estado → estado do pedido →
 *worker*.
 
-**E4. Logística.** Status Logzz (3 a 5 dias no COD, entrega agendada) → traduzir para a
+**E4. Logística.** Status Logzz (1 a 3 dias no COD, dia escolhido pela cliente) → traduzir para a
 linguagem da cliente → aviso → *worker + agente*.
 
 **E5. Atualização à cliente.** Mudança de status → decidir se merece mensagem → mensagem →

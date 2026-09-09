@@ -124,13 +124,32 @@ const parseNumber = (text: string): string | null => {
   return afterStreet ? afterStreet[1]! : null;
 };
 
+/**
+ * The complement, and the guard that took a production row to find.
+ *
+ * `\b` opens the word but nothing closed it, so every short abbreviation matched inside
+ * a longer one: "Maria **Ap**arecida Souza" was written down as complement "Ap arecida",
+ * and "**casa**mento" would have been a house. The lookahead requires the type to end
+ * where a letter does not follow — "apto 32" and "apto32" still match, "Aparecida" and
+ * "casamento" no longer do.
+ *
+ * Under the current funnel the address is not what the order is built from, so this row
+ * only misled whoever read the lead. Under the API path it would have been printed on
+ * the package.
+ */
 const parseComplement = (text: string): string | null => {
-  const re = new RegExp(`\\b(${COMPLEMENT_TYPES})\\s*[:.]?\\s*([\\w\\u00c0-\\u017f]{1,20})`, "i");
+  const re = new RegExp(
+    `\\b(${COMPLEMENT_TYPES})(?![a-z\\u00c0-\\u017f])(?:\\s*[:.]?\\s*([\\w\\u00c0-\\u017f]{1,20}))?`,
+    "i",
+  );
   const match = text.match(re);
   if (!match) return null;
-  // "casa" and "fundos" stand alone; the others carry an identifier.
+  // "casa" and "fundos" stand alone; the others carry an identifier. The value used to be
+  // required, so the standalone case only worked when some other word happened to follow
+  // — "Rua das Flores 123, casa" at the end of a message lost its complement entirely.
   const standalone = /^(casa|cs|fundos|frente|sobrado)$/i.test(match[1]!);
-  return clean(standalone ? match[1]! : `${match[1]} ${match[2]}`);
+  if (standalone) return clean(match[1]!);
+  return match[2] ? clean(`${match[1]} ${match[2]}`) : null;
 };
 
 /** Only an explicitly labelled neighbourhood. The unlabelled slot is too ambiguous. */

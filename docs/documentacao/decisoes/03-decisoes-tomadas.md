@@ -237,6 +237,19 @@ Respostas do operador em 2026-09-05.
 
 ## R2.1 — Frete do antecipado: fica com a cliente, e o desconto sobe para 15%
 
+> ### ⚠️ Correção de 2026-09-08 — o preço antecipado é R$ 110,41
+>
+> A oferta foi lida direto no painel da Coinzz (`offkw47x`, id 69452) e ela cobra
+> **R$ 110,41**, não R$ 110,42. Os 15% sobre R$ 129,90 dão 110,415, e a Coinzz
+> truncou para baixo — nós arredondávamos para cima. A economia declarável é
+> **R$ 19,49**.
+>
+> O centavo importa por um motivo que não é o centavo: o guardrail de preço da
+> agente só admite os valores configurados, então com 110,42 gravado ela seria
+> **vetada ao dizer o preço real do checkout**. Números corrigidos no código, no
+> site e nesta pasta; os valores antigos abaixo ficam onde estão, porque as
+> contas de rodada foram feitas com eles.
+
 **Decisão:** o frete continua por conta da cliente. O desconto do pagamento antecipado sobe
 de 10% para **15%** — preço do produto a **R$ 110,42**.
 
@@ -828,6 +841,10 @@ tabela e uma variável de ambiente.
 
 ## R7.2 — Prazo de entrega: 3 a 5 dias no COD, sem número no antecipado
 
+> **Superada por R9.3 em 2026-09-08.** Os dois números aqui estavam errados. Fica registrada
+> porque o raciocínio de por que o antecipado não tinha prazo continua valendo — o que mudou
+> é que o prazo existia e ninguém tinha ido olhar.
+
 Correção do operador. **No COD são 3 a 5 dias, com agendamento.** No **antecipado o prazo
 varia por região e frete**, então a agente não diz número nenhum ali — a transportadora
 informa no checkout.
@@ -987,3 +1004,29 @@ mesma regra que mantém chave de API fora do repositório vale para ele.
 
 **Ainda não existe envio.** O handler grava `handoff_at` e para; quem manda o e-mail é o n8n, e
 esse fluxo é o próximo passo desta frente.
+
+## R9.3 — As duas janelas de entrega, conferidas num pedido real
+
+Substitui R7.2, que errou os dois lados. Em **2026-09-08** o operador fez um pedido de verdade
+pelo checkout da Coinzz, ponta a ponta, e viu o que a documentação vinha afirmando sem ter olhado:
+
+- **Pagamento na entrega: 1 a 3 dias**, e o checkout oferece à cliente **três dias para escolher**
+  antes de ela fechar. Não é "entrega agendada depois" — a data sai da mão dela, ali.
+- **Pagamento antecipado: 5 a 10 dias úteis.** R7.2 dizia que ali não se falava prazo nenhum
+  porque "o frete varia por região". As duas coisas são verdade ao mesmo tempo: o **valor** do
+  frete varia por região e sai no checkout, o **prazo** é fixo e estava escrito lá o tempo todo.
+
+Os dois erros custam dinheiro em direções opostas. Dizer 3 a 5 quando ela pode receber no dia
+seguinte é parecer mais lento do que se é, contra concorrente que promete rápido. E calar o prazo
+justo no caminho que pede o dinheiro adiantado deixa sem resposta a única pergunta que decide
+aquela venda.
+
+**No código.** `GateConfig.delivery` ganhou `prepayDaysMin`/`prepayDaysMax`, opcionais de
+propósito: sem eles o gate volta ao comportamento de R7.2 e barra qualquer janela no antecipado,
+que continua sendo o certo se o número deixar de valer. O `delivery_promise` escolhe a janela
+pelo `paymentPath`, então a janela de um caminho dita no outro é veto — inclusive a do COD dita
+no antecipado, que antes passava.
+
+**No site.** `FAQ.tsx` e a página de obrigado do `Encorpa-Website` foram alinhados no mesmo dia,
+e o passo de separação deixou de dizer "até 2 dias úteis" no caminho da entrega: numa janela de
+1 a 3 dias esse passo comia o dia que a cliente acabou de escolher.
