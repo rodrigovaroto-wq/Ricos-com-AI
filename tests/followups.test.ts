@@ -248,8 +248,11 @@ describe("as três declarações de Remedy continuam a mesma coisa", () => {
 describe("venda confirmada", () => {
   const quando = new Date("2026-09-09T15:00:00Z");
 
+  const agendado = (...kinds: string[]) =>
+    kinds.map((kind) => ({ kind, status: "scheduled" }) as never);
+
   it("cancela todo toque de silêncio ainda agendado", () => {
-    const efeito = onOrderConfirmed(["silence_1", "silence_2", "silence_3"], quando, 1);
+    const efeito = onOrderConfirmed(agendado("silence_1", "silence_2", "silence_3"), quando, 1);
     expect(efeito.cancel).toEqual(["silence_1", "silence_2", "silence_3"]);
   });
 
@@ -266,13 +269,36 @@ describe("venda confirmada", () => {
   it("um segundo webhook do mesmo pedido não mexe no que já está agendado", () => {
     // Retry e mudança de status chegam de novo. Rearmar arrastaria a véspera da entrega
     // para outra data, que é a mensagem que evita a recusa na porta.
-    const efeito = onOrderConfirmed(["order_confirmed", "order_shipped"], quando, 1);
+    const efeito = onOrderConfirmed(agendado("order_confirmed", "order_shipped"), quando, 1);
     expect(efeito.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
     expect(efeito.cancel).toEqual([]);
   });
 
   it("não cancela um toque de pós-pedido junto", () => {
-    const efeito = onOrderConfirmed(["silence_2", "order_confirmed"], quando, 1);
+    const efeito = onOrderConfirmed(agendado("silence_2", "order_confirmed"), quando, 1);
+    expect(efeito.cancel).toEqual(["silence_2"]);
+  });
+});
+
+/**
+ * O achado do code review: `arm` só olhava o que estava `scheduled`. Um segundo webhook
+ * chegando depois que o `order_confirmed` já saiu rearmava um kind que a tabela guarda
+ * como `sent` — e `unique (conversation_id, kind)` transforma isso num throw que derruba
+ * a chamada inteira, perde o status e faz o n8n bater de novo na mesma parede.
+ */
+describe("segundo webhook depois que um toque já saiu", () => {
+  it("não rearma um kind já enviado", () => {
+    const efeito = onOrderConfirmed(
+      [
+        { kind: "order_confirmed", status: "sent" },
+        { kind: "silence_1", status: "sent" },
+        { kind: "silence_2", status: "scheduled" },
+      ],
+      new Date("2026-09-09T15:00:00Z"),
+      1,
+    );
+    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+    // O toque de silêncio que já saiu não tem o que cancelar; o que ainda espera, sim.
     expect(efeito.cancel).toEqual(["silence_2"]);
   });
 });

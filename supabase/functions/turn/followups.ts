@@ -150,13 +150,28 @@ export interface OrderEffect {
   readonly arm: readonly ScheduledFollowup[];
 }
 
+/** A row as the table holds it: the kind, and whether it is still waiting to go out. */
+export interface ExistingFollowup {
+  readonly kind: FollowupKind;
+  readonly status: "scheduled" | "sent" | "canceled";
+}
+
 export const onOrderConfirmed = (
-  scheduled: readonly FollowupKind[],
+  existing: readonly ExistingFollowup[],
   orderedAt: Date,
   codDaysMin: number,
 ): OrderEffect => ({
-  cancel: scheduled.filter((k) => k.startsWith("silence_")),
-  arm: scheduleOrder(orderedAt, codDaysMin).filter((f) => !scheduled.includes(f.kind)),
+  // Only what is still waiting can be cancelled; a touch already sent is history.
+  cancel: existing
+    .filter((f) => f.status === "scheduled" && f.kind.startsWith("silence_"))
+    .map((f) => f.kind),
+  // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
+  // after `order_confirmed` already went out would otherwise re-arm a kind the table
+  // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
+  // — the whole call 500s, the status update is lost, and n8n retries into the same wall.
+  arm: scheduleOrder(orderedAt, codDaysMin).filter(
+    (f) => !existing.some((e) => e.kind === f.kind),
+  ),
 });
 
 export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {

@@ -581,10 +581,27 @@ interface OrderWebhook {
   orderedAt?: string;
 }
 
+/** Digits only, which is how a phone survives being written six different ways. */
+const digits = (v: string): string => v.replace(/\D/g, "");
+
 const recordOrder = async (order: OrderWebhook) => {
-  const leads = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
-  const lead = leads?.[0];
-  if (!lead) return { status: "unknown_lead", phone: order.phone };
+  // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
+  // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
+  if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
+
+  // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
+  // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
+  // match is the happy path; the suffix is what stops a sale from silently not existing.
+  const exact = await db(`leads?phone=eq.${encodeURIComponent(order.phone)}&select=id`);
+  const tail = digits(order.phone).slice(-8);
+  const lead =
+    exact?.[0] ??
+    (tail.length === 8
+      ? (await db(`leads?phone=like.*${tail}&select=id&limit=2`))?.[0]
+      : undefined);
+  // 200 here would tell n8n the sale was filed when nothing was written and the silence
+  // ruler is still chasing her. It has to be visible.
+  if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
   const conversations = await db(
     `conversations?lead_id=eq.${lead.id}&select=id&order=created_at.desc&limit=1`,
@@ -611,11 +628,13 @@ const recordOrder = async (order: OrderWebhook) => {
   // No conversation means no ruler to touch — the sale is recorded and that is all.
   if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
 
-  const pending = await db(
-    `followups?conversation_id=eq.${conversation.id}&status=eq.scheduled&select=kind`,
+  // Every row, not just the scheduled ones: a kind already `sent` still occupies the
+  // unique key, and re-arming it throws.
+  const existing = await db(
+    `followups?conversation_id=eq.${conversation.id}&select=kind,status`,
   );
   const effect = onOrderConfirmed(
-    (pending ?? []).map((f: { kind: string }) => f.kind as FollowupKind),
+    (existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled" }>,
     order.orderedAt ? new Date(order.orderedAt) : new Date(),
     CONFIG.delivery.codDaysMin,
   );
@@ -627,8 +646,12 @@ const recordOrder = async (order: OrderWebhook) => {
     });
   }
   if (effect.arm.length > 0) {
-    await db("followups", {
+    await db("followups?on_conflict=conversation_id,kind", {
       method: "POST",
+      // `ignore-duplicates`, never merge: two webhooks racing must not slide a touch that
+      // already exists onto a new date. The rule already dedupes against every row; this
+      // is the half that survives the race the rule cannot see.
+      headers: { Prefer: "resolution=ignore-duplicates,return=representation" },
       body: JSON.stringify(
         effect.arm.map((f) => ({
           conversation_id: conversation.id,
@@ -803,7 +826,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // what that does to the schedule lives in `followups.ts`, where a test can hold it.
   if (payload.job === "order") {
     if (!payload.order) return json(400, { error: "order é obrigatório" });
-    return json(200, await recordOrder(payload.order));
+    const result = await recordOrder(payload.order);
+    // A refused order must not answer 200. n8n reads the status, and a green webhook over
+    // a sale that was never filed is the silent failure this whole route exists to end.
+    return json("ok" in result && result.ok === false ? 422 : 200, result);
   }
 
   const inbound = payload as { externalId: string; from: string; body: string };

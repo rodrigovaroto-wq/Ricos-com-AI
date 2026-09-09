@@ -560,3 +560,36 @@ describe("frete que varia também é cobrança", () => {
     }
   });
 });
+
+/**
+ * Os quatro achados do code review sobre o gate do frete, cada um com a frase que
+ * produzia o erro. Três eram falso positivo — e um falso positivo aqui é pior que um
+ * falso negativo: a frase que o prompt manda escrever entrava no laço de reescrita e
+ * saía do outro lado como handoff.
+ */
+describe("o gate do frete depois do review", () => {
+  it("um valor ao lado de 'frete' numa frase que afirma o grátis é o PREÇO", () => {
+    for (const t of ["Frete grátis, R$ 129,90 na entrega.", "Sem frete a mais: R$ 129,90."]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+
+  it("a janela não atravessa a vírgula para a cláusula do prazo", () => {
+    expect(blocked(runGates("O frete é grátis, mas o prazo depende da região.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("'mais o frete' negado também passa", () => {
+    expect(blocked(runGates("Não é R$ 129,90 mais o frete, o frete é grátis.", ctx())))
+      .not.toContain("shipping_promise");
+  });
+
+  it("cobrança sem verbo antes e sem valor continua barrada", () => {
+    for (const t of [
+      "O frete fica por sua conta.",
+      "Tem um frete de entrega que você paga depois.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+});

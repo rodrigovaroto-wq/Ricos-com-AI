@@ -719,9 +719,14 @@ const gates: readonly Gate[] = [
           `no antecipado ele é calculado por região dentro do checkout.`,
     check: (text, ctx) => {
       const t = norm(text);
+      // Every shape of "there is no shipping cost", because each one is now true and each
+      // one turns off the charge rules below. "Sem frete a mais: R$ 129,90" was reading as
+      // a shipping amount purely because the denial used a word this list did not know.
       const claimsFree =
         /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
-        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t);
+        /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t) ||
+        /\b(sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b/.test(t) ||
+        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
 
       if (!ctx.config.delivery.freeShipping) {
         return claimsFree ? "promises free shipping, which neither offer has" : null;
@@ -732,7 +737,7 @@ const gates: readonly Gate[] = [
       // você paga só os R$ 129,90 na entrega" is the sentence this funnel most wants said,
       // and a bare "você paga" within thirty characters was enough to veto it.
       for (const m of t.matchAll(
-        /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculad\w*|depende\w*|varia\w*|conforme|por\s+regiao|nao\s+e\s+(gratis|gratuito))\b/g,
+        /\bfrete\b[^.!?,]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculad\w*|depende\w*|varia\w*|conforme|por\s+regiao|por\s+(sua|tua)\s+conta|por\s+conta\s+(dela|do\s+cliente|sua)|voce\s+paga|paga\s+depois|nao\s+e\s+(gratis|gratuito))\b/g,
       )) {
         // The negation sits between "frete" and the charge — "o frete NÃO é cobrado à
         // parte" is the honest answer to the question this funnel gets most. So the
@@ -743,13 +748,20 @@ const gates: readonly Gate[] = [
       for (const m of t.matchAll(/\b(paga|pagar|cobra|cobrar|custa)\b[^.!?]{0,12}?\bo?\s*frete\b/g)) {
         if (!negatedAt(t, m.index ?? 0)) return "tells her she pays shipping, which she does not";
       }
-      if (/\bmais\s+o\s+frete\b/.test(t)) return "adds a shipping charge that does not exist";
+      for (const m of t.matchAll(/\bmais\s+o\s+frete\b/g)) {
+        if (!negatedAt(t, m.index ?? 0)) return "adds a shipping charge that does not exist";
+      }
       // An amount ATTRIBUTED to shipping is a charge even without those words. Proximity
       // alone is not enough: "R$ 129,90 com frete incluído" and "por R$ 129,90 — e o frete
       // é grátis" both put a number beside the word and both are true.
+      // `claimsFree` guards this: "Frete grátis, R$ 129,90 na entrega" is the exact
+      // sentence the prompt now instructs, and the amount beside the word is the PRODUCT
+      // price. Vetoing it would send every correct reply into the rewrite loop and out
+      // the other side as a handoff.
       if (
-        /\bfrete\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
-        /\br\$\s*[\d.,]+[^.!?]{0,12}?\bde\s+frete\b/.test(t)
+        !claimsFree &&
+        (/\bfrete\b[^.!?,]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          /\br\$\s*[\d.,]+[^.!?]{0,12}?\bde\s+frete\b/.test(t))
       ) {
         return "names a shipping amount, and shipping is free on both paths";
       }
