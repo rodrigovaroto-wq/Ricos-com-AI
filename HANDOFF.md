@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (fim do dia — v24 no ar)
+> Atualizado em: 2026-09-09 (fim do dia — v26 no ar)
 
 ---
 
@@ -54,10 +54,10 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v24**, byte a byte igual ao repositório |
+| Edge Function `turn` | **v26**, byte a byte igual ao repositório |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2752**, lint, typecheck e `deno check` verdes |
-| Frete | **grátis nos dois caminhos** — o operador zerou a oferta da Logzz |
+| Testes | **2763**, lint, typecheck e `deno check` verdes |
+| Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
 | Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
 | Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
 | Rota de pedido | `job: "order"` no ar, verificada: cancela o silêncio e arma o pós-pedido |
@@ -79,6 +79,24 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 4. **O M não é problema de estoque.** É a parametrização de produtos da integração Logzz
    na Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e
    por isso ela é feita com o G e nunca veta um tamanho.
+5. **O frete virou custo fixo** (suporte da Logzz, fim do dia): **R$ 15,00 pagos pela
+   operação**, iguais em qualquer praça, e a cliente não paga nada em nenhum dos dois
+   caminhos. O antecipado tem **os mesmos custos** do pagamento na entrega. O que varia
+   por região agora é **só o prazo**. O teto de R$ 20 com repasse do excedente durou um
+   dia — `routeFor` não faz mais aritmética nenhuma.
+
+### A varredura de código do fim do dia
+
+Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
+mais custariam eram silenciosos: `cancelScheduled` cancelava **toda** a régua, então a
+primeira mensagem da cliente depois de comprar matava a véspera da entrega; e
+`extractName` aceitava qualquer mensagem de duas palavras, então **"boa tarde" virava o
+nome permanente dela** — no lead, no link do checkout, no corpo do pedido e no pacote.
+
+Dois gates recusavam a própria saída correta: o do prazo escolhia um caminho pelo contexto
+enquanto a mensagem de comparação carrega os dois de propósito, e o da escassez absolvia a
+frase inteira quando um número era verdadeiro. Há um teste agora que passa **o exemplar
+do próprio prompt** pela cadeia inteira — era a lacuna de método por trás dos dois.
 
 ### A armadilha que custou meio dia, e vai custar de novo
 
@@ -96,9 +114,10 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
 
 1. **Cota da OpenAI.** Sem ela nada é testável e nenhuma cliente é respondida. O operador
    decidiu não subir o limite por enquanto (2026-09-09).
-2. **Sonda de produção da v24.** O comportamento novo — prazo dos dois lados na comparação
-   — está travado por teste e **não** confirmado pela porta de produção. Refazer assim que
-   a cota voltar: "oi" → tamanho → CEP → "qual a diferença?".
+2. **Sonda de produção da v26.** Nada da v25 para cá foi confirmado pela porta de
+   produção — a cota da OpenAI estourou antes. Refazer assim que voltar: "oi" → tamanho →
+   CEP → "qual a diferença?", conferindo que sai **1 a 3** na entrega e **3 a 10 dias
+   úteis** no antecipado, cada um colado na sua opção.
 3. **Webhook de venda da Logzz e da Coinzz** apontando para `job: "order"`. A rota está
    pronta e verificada; falta quem a chame. Sem isso a régua de pós-pedido nunca arma.
 4. **Ramo de erro no n8n.** A recusa da Edge Function (422) volta como **200 vazio** pela
