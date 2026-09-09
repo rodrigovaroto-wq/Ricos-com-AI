@@ -155,9 +155,14 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    úteis** no antecipado, cada um colado na sua opção.
 3. **Webhook de venda da Logzz e da Coinzz** apontando para `job: "order"`. A rota está
    pronta e verificada; falta quem a chame. Sem isso a régua de pós-pedido nunca arma.
-4. **Ramo de erro no n8n.** A recusa da Edge Function (422) volta como **200 vazio** pela
-   porta de produção — o status não é canal de erro neste desenho. Ver
+4. ~~**Ramo de erro no n8n.**~~ **Feito em 2026-09-09 e publicado.** O `Cerebro do turno`
+   tem `onError: continueErrorOutput`; a saída de erro alimenta `Devolve a recusa`
+   (responde `{ status: "error", error }` no corpo) e `Avisa a recusa` (e-mail com
+   telefone, `externalId` e o que a cliente escreveu). O status HTTP segue 200 **de
+   propósito** — não-2xx faz o canal reentregar a mensagem. Ver
    [`.claude/memory/n8n-achata-o-status.md`](.claude/memory/n8n-achata-o-status.md).
+   **Falta o operador confirmar** que o e-mail da sonda chegou — se o SMTP recusar, a
+   recusa volta a existir só no log.
 5. **Canal: WhatsApp Cloud API** (decisão de 2026-09-09, substitui o WAHA). Frente do
    sócio do operador. **Consequência para o código:** a régua de silêncio manda toques na
    manhã seguinte e 3 dias depois — os dois caem fora da janela de 24h e só saem como
