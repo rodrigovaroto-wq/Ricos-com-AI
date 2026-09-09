@@ -851,32 +851,40 @@ const gates: readonly Gate[] = [
   },
   {
     /**
-     * The agent used to name a size with nothing to consult, and the customer met the
-     * "não há disponibilidade" popup after she had already chosen. Naming a size is a
-     * commitment; it is allowed only once the availability query has answered for that
-     * size at her postcode.
+     * This gate had the wrong half of the problem, and the operator caught it in a
+     * transcript: it forbade NAMING a size before the region was checked, so a customer
+     * who asked "uso 42, qual o meu?" got a request for her postcode instead of an
+     * answer. That reads as a form, not as a person.
      *
-     * The gate fires on the COMMITMENT, not on the letter. Showing the table, asking
-     * what she wears, quoting her own words back — none of those pick a size for her,
-     * and blocking them would make the agent unable to ask the question that unlocks
-     * the gate. So it looks for a size preceded by a recommending verb.
+     * Which size fits her and whether it reaches her are two different questions. The
+     * first is the published table — deterministic, ours, and the honest answer to what
+     * she just asked. The second is the region, and only the second needs checking.
+     *
+     * So the veto moved to where the risk actually is: claiming the size is AVAILABLE,
+     * in stock, or on its way to her, before anything answered that. Saying "o seu é o
+     * G" is a fitting. Saying "o G tá disponível pra você" is a promise.
      */
     name: "unverified_size",
     remedy: "rewrite",
     briefing: () =>
-      `Só indique um tamanho depois de consultar a disponibilidade para o CEP dela. Antes disso ` +
-      `você pode mostrar a tabela e perguntar o que ela veste — mas não escolha por ela.`,
+      `Indicar o tamanho pela tabela é livre e é o que ela quer ouvir — responda na hora. ` +
+      `O que você não pode antes de conferir o CEP dela é dizer que TEM, que está ` +
+      `disponível, reservado ou a caminho.`,
     check: (text, ctx) => {
+      if (ctx.sizeChecked !== undefined) return null;
       const t = norm(text);
-      // "indico o G", "vai ser o GG", "seu tamanho é M", "recomendo P".
-      const RECOMMENDS =
-        /\b(indico|indicaria|recomendo|recomendaria|seria|vai\s+ser|e\s+o|fica\s+com|pega\s+o|seu\s+tamanho\s+e|no\s+seu\s+caso\s+e)\b[^.!?]{0,20}\b(p|m|g|gg|xgg)\b/;
-      const m = RECOMMENDS.exec(t);
-      if (!m) return null;
-      const named = m[2]!.toUpperCase();
-      if (ctx.sizeChecked === undefined) return "recommends a size with no availability check";
-      if (ctx.sizeChecked !== named)
-        return `recommends ${named}, but availability was checked for ${ctx.sizeChecked}`;
+      // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
+      // "já reservei o M", "o seu tamanho chega em". Never the fitting itself.
+      const CLAIMS_STOCK =
+        /\b(tem|temos|tenho|ha|disponivel|disponiveis|em\s+estoque|reserv\w+|garantid\w+|separei|separad\w+)\b[^.!?]{0,28}\b(tamanho|p|m|g|gg|xgg)\b/;
+      const STOCK_AFTER =
+        /\b(tamanho|p|m|g|gg|xgg)\b[^.!?]{0,28}\b(disponivel|em\s+estoque|reservad\w+|garantid\w+|separad\w+|ta\s+ai|chega\s+(hoje|amanha))\b/;
+      for (const re of [CLAIMS_STOCK, STOCK_AFTER]) {
+        const m = re.exec(t);
+        if (m && !negatedAt(t, m.index)) {
+          return "claims the size is in stock or on its way before any check answered";
+        }
+      }
       return null;
     },
   },

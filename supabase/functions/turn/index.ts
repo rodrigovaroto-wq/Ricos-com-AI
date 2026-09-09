@@ -425,47 +425,49 @@ const statedSize = (message: string): { stated: number; size: string } | null =>
 };
 
 /**
- * The size, and the one thing that has to happen before it is said out loud.
+ * The size, and the postcode that comes after it.
  *
- * Knowing which size she wears is not the same as knowing she can receive it. Until the
- * postcode is on the table there is nothing to consult, and the agent naming a size is a
- * commitment the checkout may refuse — after she has already chosen, which is the most
- * expensive moment to find out. So the directive splits: the table resolves the size,
- * and the CEP unlocks saying it.
+ * This used to hold the size back until a postcode existed, and the operator caught what
+ * that produced: she says "uso 42 de calça" and gets asked for her CEP. She asked a
+ * question and received a form. Nobody talks like that, and the whole point of this agent
+ * is that she should not be able to tell.
  *
- * One question, not the address. Asking for a street before she has decided to buy is
- * five turns spent making her type what the checkout will ask again anyway.
+ * The order is the natural one now. Which size fits is the published table — ours,
+ * deterministic, and the answer she is waiting for, so it goes out immediately. Whether
+ * it reaches her is the region, which is a different question and comes second, as a
+ * reason rather than a requirement: "pra ver como fica a entrega aí".
+ *
+ * These are notes on intent, not a script. The prompt gives the agent room to improvise
+ * and a directive that dictates the sentence takes it back — which is how the last
+ * version ended up sounding like a form in the first place.
  */
 const sizeDirectiveFor = (
   stated: { stated: number; size: string } | null,
   known: string | null,
   region: Region | null,
 ): string | null => {
-  // The size survives the turn it was said in. It used to be read only from `stated`,
-  // which is what THIS message contained — so the turn where she finally sends her CEP
-  // arrived with no size directive at all, and the agent hedged about a size it had
-  // already worked out two turns earlier. The lead row remembers; the prompt has to too.
+  // The size survives the turn it was said in. Reading only what THIS message contained
+  // left the turn where she sends her postcode with no size at all, and the agent hedged
+  // about something it had worked out two turns earlier.
   const size = stated?.size ?? known;
   if (size === null) return null;
-  const resolved = stated
-    ? `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
-      ` ${size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.`
-    : `O tamanho dela já está resolvido pela tabela da loja: ${size}. Não recalcule, não` +
-      ` peça de novo e não mande ela conferir no checkout — você já sabe.`;
+
+  const fitting = `O tamanho dela é ${size} — a tabela da loja resolve isso, não recalcule` +
+    ` nem escolha outro. Diga na hora, com naturalidade, sem a palavra "manequim".`;
+
   if (region === null) {
-    return `${resolved} MAS NÃO DIGA O TAMANHO AINDA: peça o CEP dela primeiro, só o CEP,` +
-      ` explicando que é para conferir a entrega na região. Assim que ela mandar, você` +
-      ` confirma o tamanho na mesma mensagem.`;
+    return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
+      ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
+      ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
   }
-  const confirm = `Agora diga o tamanho ${size} com todas as letras — ela está esperando` +
-    ` essa confirmação, e hesitar aqui custa a venda.`;
-  const delivery = region.cod
-    ? `A entrega chega no CEP dela${
-        region.sameDay ? `, inclusive no MESMO DIA — isso é o seu argumento mais forte` : ""
-      }.`
-    : `A entrega agendada NÃO cobre o CEP dela: ofereça o pagamento antecipado, que chega` +
-      ` em qualquer lugar do país, com o mesmo frete grátis.`;
-  return `${resolved} ${confirm} Use palavra simples, sem "manequim". ${delivery}`;
+  if (!region.cod) {
+    return `${fitting} A entrega agendada não cobre o CEP dela, então ofereça o pagamento` +
+      ` antecipado como a saída boa que ele é: chega em qualquer lugar do país, mesmo` +
+      ` frete grátis, e ainda sai mais barato.`;
+  }
+  return `${fitting} A entrega chega no CEP dela${
+    region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
+  }. Fale disso como boa notícia, não como confirmação de sistema.`;
 };
 
 /**

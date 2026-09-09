@@ -416,36 +416,50 @@ describe("garantia não confunde prazo de entrega com prazo de troca", () => {
 });
 
 /**
- * O gate que fecha o buraco mais caro do funil: a agente indicava tamanho sem nada
- * para consultar, e a cliente descobria o "não há disponibilidade" no checkout, depois
- * de já ter escolhido. Indicar é compromisso; perguntar não é.
+ * O gate mudou de metade em 2026-09-09, depois que o operador leu a transcrição: ele
+ * proibia DIZER o tamanho antes de checar a região, então quem perguntava "uso 42, qual
+ * o meu?" recebia um pedido de CEP no lugar da resposta. Qual tamanho serve e se ele
+ * chega são perguntas diferentes; só a segunda precisa de consulta.
  */
-describe("não indicar tamanho sem consultar", () => {
-  it("barra a indicação quando nada foi consultado", () => {
-    expect(blocked(runGates("Pelo que você me disse, indico o G.", ctx())))
-      .toContain("unverified_size");
-    expect(blocked(runGates("No seu caso é GG mesmo.", ctx())))
-      .toContain("unverified_size");
+describe("dizer o tamanho é livre; dizer que TEM não é", () => {
+  it("indicar pela tabela passa, mesmo sem nenhuma consulta", () => {
+    for (const t of [
+      "Pelo que você me disse, o seu é o G.",
+      "No seu caso é GG mesmo.",
+      "Indico o G — e me manda seu CEP que eu vejo a entrega aí?",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("unverified_size");
+    }
   });
 
-  it("deixa passar quando a consulta confirmou aquele tamanho", () => {
+  it("prometer estoque antes da consulta é o veto", () => {
+    for (const t of [
+      "Tem no seu tamanho, pode ficar tranquila.",
+      "O G está disponível pra sua região.",
+      "Já reservei o GG pra você.",
+      "Temos o M em estoque.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("unverified_size");
+    }
+  });
+
+  it("com a região consultada, a promessa é liberada", () => {
     const checked = { ...ctx(), sizeChecked: "G" };
-    expect(blocked(runGates("Pelo que você me disse, indico o G.", checked)))
+    expect(blocked(runGates("O G está disponível pra sua região.", checked)))
       .not.toContain("unverified_size");
   });
 
-  it("barra quando a consulta foi de outro tamanho", () => {
-    const checked = { ...ctx(), sizeChecked: "G" };
-    expect(blocked(runGates("Pelo que você me disse, indico o GG.", checked)))
-      .toContain("unverified_size");
+  it("negar a disponibilidade continua liberado", () => {
+    // Dizer que NÃO tem é a resposta honesta, e barrá-la deixaria a agente muda.
+    expect(blocked(runGates("Não tem entrega agendada no seu CEP, mas o antecipado chega.", ctx())))
+      .not.toContain("unverified_size");
   });
 
-  it("perguntar e mostrar a tabela continua liberado", () => {
-    // Se o gate barrasse isto, a agente não conseguiria fazer a pergunta que o abre.
+  it("perguntar e mostrar a tabela seguem livres", () => {
     for (const t of [
       "Você usa que número de calça?",
       "A tabela vai de P a XGG — me diz o seu número que eu vejo qual é.",
-      "Me manda seu CEP que eu confirmo o tamanho certo pra sua região.",
+      "Me manda seu CEP que eu confirmo a entrega na sua região.",
     ]) {
       expect(blocked(runGates(t, ctx()))).not.toContain("unverified_size");
     }
