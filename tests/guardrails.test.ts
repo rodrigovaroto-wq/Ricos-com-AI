@@ -593,3 +593,30 @@ describe("o gate do frete depois do review", () => {
     }
   });
 });
+
+/**
+ * A produção lê o config inteiro de um secret que sobrescreve o fallback do código. Uma
+ * chave nova nasce ausente lá até alguém editar o secret — e `freeShipping` ausente,
+ * quando era obrigatória, lia como `false` e reinstalava o veto antigo em produção com
+ * todos os testes daqui passando. O padrão tem que ser a verdade.
+ */
+describe("config de produção sem a chave nova", () => {
+  // A chave é OMITIDA, não posta como undefined: é assim que ela chega da produção,
+  // onde o `BUSINESS_CONFIG` foi escrito antes de a chave existir no código.
+  const { freeShipping: _omitida, ...deliverySemAChave } = config.delivery;
+  const semAChave = { ...ctx(), config: { ...config, delivery: deliverySemAChave } };
+
+  it("frete grátis continua liberado quando a chave não existe", () => {
+    expect(blocked(runGates("O frete é grátis nos dois casos.", semAChave)))
+      .not.toContain("shipping_promise");
+  });
+
+  it("só `false` explícito volta a regra antiga", () => {
+    const desligado = {
+      ...ctx(),
+      config: { ...config, delivery: { ...config.delivery, freeShipping: false } },
+    };
+    expect(blocked(runGates("O frete é grátis nos dois casos.", desligado)))
+      .toContain("shipping_promise");
+  });
+});

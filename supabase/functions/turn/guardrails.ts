@@ -22,10 +22,17 @@ export interface GateConfig {
     /**
      * Both offers ship free as of 2026-09-09 — the operator zeroed the freight on the
      * delivery offer and the prepaid one never had one. The flag exists so the day a
-     * freight comes back, flipping it here restores the old refusal instead of needing
-     * the gate rewritten under pressure.
+     * freight comes back, setting it to `false` restores the old refusal instead of
+     * needing the gate rewritten under pressure.
+     *
+     * OPTIONAL, and absent means free. That is not laziness, it is the shape of this
+     * deployment: production reads the whole config from a `BUSINESS_CONFIG` secret that
+     * overrides the fallback wholesale, so a key added in code is simply missing there
+     * until someone edits the secret. Required-and-missing read as `false`, which quietly
+     * reinstated the old veto in production while every test here passed. The default has
+     * to be the truth, and today the truth is free.
      */
-    freeShipping: boolean;
+    freeShipping?: boolean;
   };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
@@ -711,7 +718,7 @@ const gates: readonly Gate[] = [
     name: "shipping_promise",
     remedy: "rewrite",
     briefing: (c) =>
-      c.delivery.freeShipping
+      c.delivery.freeShipping !== false
         ? `O frete é GRÁTIS nos dois caminhos, e isso é verdade — pode dizer, é o seu melhor ` +
           `argumento. O que você não pode é cobrar frete dela: nada de "o frete é à parte", ` +
           `"mais o frete" ou qualquer valor de entrega.`
@@ -728,7 +735,7 @@ const gates: readonly Gate[] = [
         /\b(sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b/.test(t) ||
         /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
 
-      if (!ctx.config.delivery.freeShipping) {
+      if (ctx.config.delivery.freeShipping === false) {
         return claimsFree ? "promises free shipping, which neither offer has" : null;
       }
       // Free shipping is the fact. Saying it is fine; charging for it is the new lie.

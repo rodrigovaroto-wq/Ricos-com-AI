@@ -13,3 +13,4 @@ salvamento e a política de crescimento.
 - [Isolate quente depois do deploy](edge-function-warm-isolate.md) — Por minutos depois de um deploy, parte das requisições ainda cai na versão anterior; confira a sonda pelo formato da resposta, não pelo conteúdo.
 - [Cegueira a negação, nos dois sentidos](negation-blindness.md) — Toda heurística de texto deste repositório já errou em negação; antes de mexer numa, sonde a frase negada **e** a negativa que não nega.
 - [O n8n achata o status HTTP](n8n-achata-o-status.md) — recusa da Edge Function volta 200 vazio pela porta de produção; o status não é canal de erro neste desenho.
+- [`BUSINESS_CONFIG` sobrescreve o fallback inteiro](business-config-sobrescreve.md) — chave nova nasce ausente em produção; todo campo novo tem de ser opcional com o padrão certo.

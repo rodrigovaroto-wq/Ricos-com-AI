@@ -438,24 +438,34 @@ const statedSize = (message: string): { stated: number; size: string } | null =>
  */
 const sizeDirectiveFor = (
   stated: { stated: number; size: string } | null,
+  known: string | null,
   region: Region | null,
 ): string | null => {
-  if (stated === null) return null;
-  const resolved =
-    `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
-    ` ${stated.size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.`;
+  // The size survives the turn it was said in. It used to be read only from `stated`,
+  // which is what THIS message contained — so the turn where she finally sends her CEP
+  // arrived with no size directive at all, and the agent hedged about a size it had
+  // already worked out two turns earlier. The lead row remembers; the prompt has to too.
+  const size = stated?.size ?? known;
+  if (size === null) return null;
+  const resolved = stated
+    ? `A cliente disse que usa tamanho ${stated.stated} de roupa. O colete dela é o` +
+      ` ${size} — a tabela da loja já resolveu isso, não recalcule nem escolha outro.`
+    : `O tamanho dela já está resolvido pela tabela da loja: ${size}. Não recalcule, não` +
+      ` peça de novo e não mande ela conferir no checkout — você já sabe.`;
   if (region === null) {
     return `${resolved} MAS NÃO DIGA O TAMANHO AINDA: peça o CEP dela primeiro, só o CEP,` +
       ` explicando que é para conferir a entrega na região. Assim que ela mandar, você` +
       ` confirma o tamanho na mesma mensagem.`;
   }
+  const confirm = `Agora diga o tamanho ${size} com todas as letras — ela está esperando` +
+    ` essa confirmação, e hesitar aqui custa a venda.`;
   const delivery = region.cod
     ? `A entrega chega no CEP dela${
         region.sameDay ? `, inclusive no MESMO DIA — isso é o seu argumento mais forte` : ""
       }.`
     : `A entrega agendada NÃO cobre o CEP dela: ofereça o pagamento antecipado, que chega` +
       ` em qualquer lugar do país, com o mesmo frete grátis.`;
-  return `${resolved} Diga esse tamanho com palavra simples, sem usar "manequim". ${delivery}`;
+  return `${resolved} ${confirm} Use palavra simples, sem "manequim". ${delivery}`;
 };
 
 /**
@@ -1222,8 +1232,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
-          ? systemPrompt(sizeDirectiveFor(stated, region), identityDirective, checkoutDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated, region), identityDirective, checkoutDirective)} ${correction}`,
+          ? systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)
+          : `${systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)} ${correction}`,
         turns,
       );
     } catch (error) {
