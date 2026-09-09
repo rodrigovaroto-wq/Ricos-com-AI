@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (noite — v27 no ar, **e o repositório já está à frente dela**: ver §Deploy pendente)
+> Atualizado em: 2026-09-09 (noite — **v28 no ar**, byte a byte igual ao repositório)
 
 ---
 
@@ -54,7 +54,7 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v27** — o repositório tem `bubbles` na resposta e a v27 não. **Deploy pendente** |
+| Edge Function `turn` | **v28**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
 | Testes | **2776**, lint e typecheck verdes |
 | Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
@@ -225,13 +225,15 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
    de quem envia, não da resposta.
 
-### Deploy pendente
+### Deploy da v28
 
-A v27 no ar **não tem** o `bubbles`. O pacote da função tem 199 KB e não passa pela
-ferramenta MCP (ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md)) —
-o deploy pela API de gerência precisa de um PAT, e o antigo está na lista de rotação.
-Nada quebra enquanto não subir: `bubbles` é campo novo e ninguém lê ainda. Sobe junto com
-o canal.
+Feito em 2026-09-09 à noite, pela API de gerência com os arquivos do disco — **nove**
+arquivos, não os oito da receita antiga: `availability.ts` entrou depois e ficaria de fora
+de quem copiasse o comando sem olhar. Ver
+[`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+
+O PAT usado nesse deploy foi colado no chat e **entra na lista de rotação junto com o
+anterior**.
 
 ### Higiene de segurança
 

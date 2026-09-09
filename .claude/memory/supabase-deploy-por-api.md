@@ -20,8 +20,16 @@ curl -X POST "https://api.supabase.com/v1/projects/<ref>/functions/deploy?slug=t
   -F 'metadata={"entrypoint_path":"index.ts","name":"turn","verify_jwt":true};type=application/json' \
   -F "file=@index.ts" -F "file=@guardrails.ts" -F "file=@followups.ts" \
   -F "file=@sizing.ts" -F "file=@retry.ts" -F "file=@address.ts" \
-  -F "file=@identity.ts" -F "file=@coinzz.ts"
+  -F "file=@identity.ts" -F "file=@coinzz.ts" -F "file=@availability.ts"
 ```
+
+**São nove arquivos, não oito.** `availability.ts` entrou depois da primeira versão desta
+receita; quem copiar o comando sem conferir `ls *.ts` deploya uma função sem ele. Confira
+a lista contra o diretório antes de rodar.
+
+Um detalhe do shell que custa uma tentativa: `SB_TOKEN=... curl -H "Bearer $SB_TOKEN"`
+numa linha só manda o header vazio — a variável é expandida antes da atribuição valer.
+`export` primeiro, `curl` depois.
 
 O token é um Personal Access Token (`sbp_...`), criado em
 https://supabase.com/dashboard/account/tokens. **Ele é do operador e some com a
