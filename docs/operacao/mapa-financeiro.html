@@ -155,13 +155,13 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="kicker">Encorpa · Colete Cinta Modeladora · 09 set 2026</p>
+    <p class="kicker">Encorpa · Colete Cinta Modeladora · 09 set 2026 · revisão 2</p>
     <h1>Caixa e Margem</h1>
     <p class="standfirst">Tudo que está medido, tudo que ainda é suposição, e quanto de caixa a operação exige antes do primeiro real de retorno. Cada número traz de onde veio.</p>
     <div class="legend">
       <div><span class="chip c-ok">Medido</span> lido de painel ou da API, hoje</div>
       <div><span class="chip c-warn">Suposto</span> plausível, não confirmado</div>
-      <div><span class="chip c-gap">Em aberto</span> muda a conta e ninguém sabe</div>
+      <div><span class="chip c-gap">Em aberto</span> ainda muda a conta</div>
     </div>
   </header>
 
@@ -210,11 +210,12 @@
           <tr><td>Taxa de entrega concluída (<strong>Express</strong>)</td><td class="num">R$ 24,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega frustrada</td><td class="num">R$ 4,99</td><td>sim</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega garantida (opcional)</td><td class="num">R$ 24,99</td><td>opcional</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td>Etiqueta — Logzz expedição, São Paulo</td><td class="num">R$ 13,79</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Etiqueta — Logzz expedição, São Paulo (manuseio incluso)</td><td class="num">R$ 13,79</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td><strong>Teto de etiqueta absorvido pela operação</strong></td><td class="num strong">R$ 20,00</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Etiqueta — Melhor Envio via Coinzz, São Paulo</td><td class="num">R$ 17,78 – 28,67</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Etiqueta — praça distante (Altamira/PA)</td><td class="num">R$ 84,05</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de antecipação de recebível</td><td class="num">R$ 4,99</td><td>opcional</td><td>opcional</td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td>Custo do produto</td><td class="num">R$ 30,00</td><td>sim</td><td>sim</td><td><span class="chip c-gap">Em aberto</span></td></tr>
+          <tr><td>Custo do produto</td><td class="num">R$ 30,00</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -223,10 +224,10 @@
         <strong>Express: R$ 5,00 a mais, e a Logzz diz que compensa.</strong> A oferta tem duas modalidades — <em>Padrão</em>, que ela agenda entre três datas, e <em>Express — receba hoje em até 4 horas</em>. A diferença é só a entrega concluída: R$ 24,99 contra R$ 19,99. A própria Logzz avisa na tela que a eficiência do Express tende a ser <strong>30% superior</strong> à normal — ou seja, menos frustração, que a R$ 9,98 por tentativa perdida paga os R$ 5,00 de sobra com folga se a diferença for real. Sondado hoje, São Paulo devolve só a Padrão; o Express existe na plataforma e ainda não apareceu na consulta.
       </div>
       <div class="note">
-        <strong>Os R$ 13,79 já incluem o manuseio?</strong> A tela de taxas define a etiqueta como <em>taxa de envio + taxa de manuseio</em>, mas o seletor da expedição mostra uma cotação de transportadora. Se o manuseio ainda entrar por fora, a etiqueta real em SP é R$ 18,78. Uma expedição real e o extrato da Logzz resolvem — a diferença é R$ 4,99 por venda.
+        <strong>O que a cliente paga de frete no antecipado.</strong> A operação absorve a etiqueta até R$ 20,00 e cobra dela só o que passar disso. Em São Paulo a etiqueta é R$ 13,79 com manuseio incluso, então ela não paga nada; em Altamira, onde a cotação foi R$ 84,05, ela pagaria R$ 64,05. A margem da operação fica igual em qualquer praça — e nenhuma venda precisa ser recusada por causa de distância.
       </div>
-      <div class="note gap">
-        <strong>O custo do produto é a maior incógnita da planilha.</strong> A oferta da Logzz declara <code>cost: 38,25</code> e <code>product_shipping_tax: 26,90</code>, com <code>product_price: 0,00</code>, <code>origin: dropexpress</code> e <code>supplier_product_id: 2077</code> — o desenho de um produto de fornecedor, não de estoque próprio. Se os R$ 30 estiverem errados para mais, toda margem abaixo cai junto, e a necessidade de caixa muda de natureza: comprar estoque é desembolso; vender de fornecedor não é.
+      <div class="note">
+        <strong>O estoque é do fornecedor.</strong> Os R$ 30,00 saem do valor da venda, não do seu caixa antes dela. Por isso o produto entra na margem abaixo e <em>não</em> entra na conta de capital de giro — é a diferença entre precisar de dezenas de milhares e precisar de alguns milhares.
       </div>
     </div>
   </section>
@@ -256,18 +257,17 @@
         <div class="line"><span>Transação 6,99%</span><span class="num">− 7,72</span></div>
         <div class="line"><span>Antifraude</span><span class="num">− 2,49</span></div>
         <div class="line"><span>Produto</span><span class="num">− 30,00</span></div>
-        <div class="line"><span>Etiqueta (Logzz SP)</span><span class="num">− 13,79</span></div>
-        <div class="line"><span>Manuseio</span><span class="num">− 4,99</span></div>
-        <div class="line total"><span>Margem, e não há frustração</span><span class="num">R$ 51,42</span></div>
-        <div class="line"><span>Com teto de etiqueta em R$ 20</span><span class="num">R$ 45,21</span></div>
-        <div class="line"><span>Etiqueta a R$ 40, sem teto</span><span class="num">R$ 25,21</span></div>
+        <div class="line"><span>Etiqueta, no teto (manuseio incluso)</span><span class="num">− 20,00</span></div>
+        <div class="line total"><span>Margem no pior caso, e não há frustração</span><span class="num">R$ 50,20</span></div>
+        <div class="line"><span>Em São Paulo, etiqueta de R$ 13,79</span><span class="num">R$ 56,41</span></div>
+        <div class="line"><span>Excedente do teto, pago pela cliente</span><span class="num">R$ 0,00</span></div>
       </div>
     </div>
     <p style="margin-top:18px; color:var(--ink-2); max-width:64ch">
-      Os dois caminhos rendem quase o mesmo depois da frustração — R$ 52,35 contra R$ 51,42. A escolha entre eles é de conversão e de cobertura, não de margem: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43 e não frustra.
+      O antecipado rende <strong>menos risco pelo mesmo dinheiro</strong>: R$ 50,20 garantidos no pior caso contra R$ 52,35 esperados no COD, que só chegam lá se a frustração ficar em 15%. A escolha entre eles é de conversão e de cobertura: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43, não frustra, e o teto de etiqueta deixa a margem igual em qualquer CEP.
     </p>
     <div class="note" style="margin-top:16px">
-      <strong>Onde o corte de R$ 40 na etiqueta vem de.</strong> Sem teto, uma etiqueta de R$ 40 deixa exatamente R$ 25,21 de margem. É o piso de R$ 25 traduzido em cotação de transportadora — e o número que a agente usa para decidir se oferece o antecipado ou a fila de espera.
+      <strong>A agente não tem mais como recusar uma venda por praça.</strong> Sem entrega no tamanho dela, ela oferece o antecipado — sempre, em qualquer CEP. A fila de espera por etiqueta cara deixou de existir quando o teto entrou: não há mais praça em que a venda dê prejuízo.
     </div>
   </section>
 
@@ -339,7 +339,7 @@
               <tr><td>Anúncios</td><td class="num" id="sAds">—</td><td>no dia</td></tr>
               <tr><td>Saldo de expedição (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
               <tr><td>Etiquetas (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
-              <tr><td>Produto</td><td class="num" id="sProd">—</td><td>na reposição de estoque</td></tr>
+              <tr><td>Produto</td><td class="num" id="sProd">—</td><td>descontado na venda — estoque do fornecedor, não do seu caixa</td></tr>
               <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,0197 por conversa medida</td></tr>
               <tr><td class="strong">Total que sai por dia</td><td class="num strong" id="sTot">—</td><td>—</td></tr>
             </tbody>
@@ -348,7 +348,7 @@
       </div>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: tudo que sai por dia, multiplicado pelos dias até o primeiro crédito voltar. Depois desse ponto a operação se paga sozinha, desde que a margem por venda continue positiva. O número não inclui reserva para devolução, imposto nem o chip do WhatsApp.
+      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: o que <em>sai da sua conta</em> por dia, multiplicado pelos dias até o primeiro crédito voltar. O produto aparece na tabela para você ver o custo, mas fica de fora dessa multiplicação — o estoque é do fornecedor e os R$ 30,00 são descontados da venda, não pagos antes dela. O número não inclui reserva para devolução, imposto nem o chip do WhatsApp.
     </div>
   </section>
 
@@ -382,19 +382,15 @@
   <section>
     <div class="sec-head">
       <h2>O que ainda não se sabe</h2>
-      <p>Cada linha aqui é um número da planilha acima que pode mudar. Estão em ordem de quanto custam.</p>
+      <p>Encolheu. Custo do produto, base dos 6,99%, composição da etiqueta e a ausência do M foram todos respondidos pelo operador em 9 de setembro. Sobrou isto.</p>
     </div>
     <div class="scroll">
       <table>
         <thead><tr><th>Pergunta</th><th>O que resolve</th><th>Impacto</th></tr></thead>
         <tbody>
-          <tr><td>Qual o custo real do produto, e o estoque é seu ou do fornecedor?</td><td>Extrato da Logzz e o cadastro do produto</td><td class="num">toda a margem</td></tr>
-          <tr><td>Por que o M não aparece no checkout?</td><td>Parametrização da integração Logzz na Coinzz</td><td class="num">a faixa mais vendida</td></tr>
-          <tr><td>Os 6,99% incidem sobre o total ou só sobre o produto?</td><td>Primeiro pedido real, no extrato</td><td class="num">≈ R$ 1,75/venda</td></tr>
-          <tr><td>A etiqueta de R$ 13,79 já inclui o manuseio?</td><td>Uma expedição real</td><td class="num">R$ 4,99/venda</td></tr>
-          <tr><td>O Frete Fixo aceita teto com repasse, ou só preço fixo?</td><td>Tela do app na Coinzz</td><td class="num">quem paga o excedente</td></tr>
-          <tr><td>Em quais praças o Express aparece de verdade?</td><td>Rodar a consulta por CEP; Áreas de Operação na Logzz</td><td class="num">30% menos frustração</td></tr>
-          <tr><td>O checkout aceita endereço por parâmetro?</td><td>Suporte da Coinzz</td><td class="num">atrito no fechamento</td></tr>
+          <tr><td>O Frete Fixo aceita teto com repasse, ou só preço fixo?</td><td>Suporte da Coinzz, perguntado</td><td class="num">quem paga o excedente</td></tr>
+          <tr><td>Em quais praças o Express aparece?</td><td>Não precisa saber: a agente conta que existe e manda conferir no checkout</td><td class="num">nenhum</td></tr>
+          <tr><td>O checkout aceita endereço por parâmetro?</td><td>Suporte da Coinzz — assumido que não, por ora</td><td class="num">atrito no fechamento</td></tr>
         </tbody>
       </table>
     </div>
@@ -417,7 +413,8 @@
   const COD_PRECO = 129.90, PRE_PRECO = 110.41;
   const TRANSACAO = 0.0699, ANTIFRAUDE = 2.49, MANUSEIO = 4.99;
   const ENTREGA_CONCLUIDA = 19.99, ENTREGA_FRUSTRADA = 4.99;
-  const ETIQUETA = 13.79;          // Logzz expedição, São Paulo
+  const ETIQUETA_TETO = 20.00;     // o que a operação absorve; o excedente é da cliente
+  const ETIQUETA = ETIQUETA_TETO;  // manuseio já incluso, confirmado pelo operador
   const IA_POR_CONVERSA = 0.0197;  // custo medido de uma venda completa de sete turnos
   const CONVERSAS_POR_VENDA = 12;  // nem toda conversa fecha
 
@@ -439,7 +436,7 @@
     const margemCod = COD_PRECO - COD_PRECO*TRANSACAO - ANTIFRAUDE - prod - ENTREGA_CONCLUIDA - MANUSEIO;
     const custoFrustrada = MANUSEIO + ENTREGA_FRUSTRADA;
     const espCod = (1 - frus) * margemCod - frus * custoFrustrada;
-    const margemPre = PRE_PRECO - PRE_PRECO*TRANSACAO - ANTIFRAUDE - prod - ETIQUETA - MANUSEIO;
+    const margemPre = PRE_PRECO - PRE_PRECO*TRANSACAO - ANTIFRAUDE - prod - ETIQUETA;
 
     const margemMedia = vendas > 0 ? (vCod*espCod + vPre*margemPre) / vendas : 0;
     const receitaDia = vCod*espCod + vPre*margemPre;
@@ -447,10 +444,12 @@
 
     // Saídas diárias, na ordem em que o dinheiro deixa a conta.
     const sExp = vCod * (1 - frus) * (ENTREGA_CONCLUIDA + MANUSEIO) + vCod * frus * custoFrustrada;
-    const sEti = vPre * (ETIQUETA + MANUSEIO);
+    const sEti = vPre * ETIQUETA;
     const sProd = vendas * prod;
     const sIa = vendas * CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
-    const saidaDia = ads + sExp + sEti + sProd + sIa;
+    // O produto NÃO entra: o estoque é do fornecedor e os R$ 30,00 são descontados da
+    // venda, não pagos antes dela. Ele aparece na tabela só para o custo ficar visível.
+    const saidaDia = ads + sExp + sEti + sIa;
 
     el("oVendas").textContent = vendas.toFixed(1);
     el("oVendasSub").textContent = vCod.toFixed(1) + " na entrega · " + vPre.toFixed(1) + " antecipado";
