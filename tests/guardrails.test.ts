@@ -475,3 +475,24 @@ describe("Express, e só quando ele existe", () => {
       .toContain("delivery_promise");
   });
 });
+
+/**
+ * Contar que o Express existe é honesto e converte; dizer que vai acontecer no
+ * endereço dela é promessa que só o checkout pode fazer. A diferença é uma cláusula.
+ */
+describe("contar que o Express existe, sem prometer", () => {
+  it("passa quando devolve a pergunta para o checkout", () => {
+    for (const t of [
+      "Tem uma opção Express que entrega hoje mesmo — dá pra conferir a disponibilidade da sua região no checkout.",
+      "Se estiver disponível aí, você recebe hoje em até 4 horas.",
+      "A entrega no mesmo dia depende da sua região; o checkout mostra.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("delivery_promise");
+    }
+  });
+
+  it("continua barrando a promessa seca", () => {
+    expect(blocked(runGates("Você recebe hoje mesmo, garantido.", ctx())))
+      .toContain("delivery_promise");
+  });
+});

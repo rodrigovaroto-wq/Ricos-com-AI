@@ -177,26 +177,33 @@ export const checkSize = async (
     await fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip, place, SIZE_CODES[size])}`),
   );
 
+/** The carrier cost the operator absorbs. Past it, the customer pays the excess. */
+export const LABEL_CAP_BRL = 20;
+
 /**
  * Which path to offer, given what the query found.
  *
  * Cash on delivery first — the operator's decision, and the one that converts with a
- * cold audience. When it is closed for her size, the prepaid path is the bridge, but
- * only while the carrier quote stays sane: past the cap the operator is either eating
- * the difference or asking her to, and both kill the sale in different ways. Beyond
- * that the honest answer is a follow-up when stock returns, not a worse offer.
+ * cold audience. When it is closed for her size at her postcode, the prepaid path is
+ * always the answer: it ships free nationwide and its checkout opens everywhere.
+ *
+ * There is no third branch. An earlier version sent her to a waitlist when the carrier
+ * quote passed the cap, on the reasoning that a distant postcode sold at a loss. The
+ * cap removed that: the operator absorbs up to R$ 20,00 and the excess is charged to
+ * the customer, so margin is flat wherever she lives and a sale is never worth refusing.
  */
 export type Route =
   | { readonly path: "cod"; readonly freightBrl: number | null; readonly dates: readonly string[] }
-  | { readonly path: "prepay"; readonly labelBrl: number | null }
-  | { readonly path: "waitlist"; readonly reason: "label_too_high" };
+  | { readonly path: "prepay"; readonly labelBrl: number | null; readonly excessBrl: number };
 
-export const routeFor = (a: Availability, maxLabelBrl: number): Route => {
-  if (a.cod) return { path: "cod", freightBrl: a.codFreightBrl, dates: a.dates };
-  // An absent quote is not a high one. The prepaid offer ships free nationwide, so a
-  // missing `local_operation` says the carrier did not answer, not that it is expensive.
-  if (a.labelBrl !== null && a.labelBrl > maxLabelBrl) {
-    return { path: "waitlist", reason: "label_too_high" };
-  }
-  return { path: "prepay", labelBrl: a.labelBrl };
-};
+export const routeFor = (a: Availability, maxLabelBrl: number = LABEL_CAP_BRL): Route =>
+  a.cod
+    ? { path: "cod", freightBrl: a.codFreightBrl, dates: a.dates }
+    : {
+        path: "prepay",
+        labelBrl: a.labelBrl,
+        // An absent quote is not a high one: the carrier simply did not answer, and the
+        // prepaid checkout opens regardless. Charging her for a quote nobody gave is worse
+        // than absorbing it, so a missing label costs the customer nothing.
+        excessBrl: Math.max(0, (a.labelBrl ?? 0) - maxLabelBrl),
+      };

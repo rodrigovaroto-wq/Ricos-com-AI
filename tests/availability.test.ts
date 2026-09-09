@@ -81,17 +81,23 @@ describe("qual caminho oferecer", () => {
     expect(routeFor(readAvailability("G", yes), 40).path).toBe("cod");
   });
 
-  it("sem entrega, o antecipado é a ponte enquanto a etiqueta couber", () => {
-    expect(routeFor({ ...base, cod: false, labelBrl: 19.35 }, 40).path).toBe("prepay");
-    expect(routeFor({ ...base, cod: false, labelBrl: 84.05 }, 40)).toEqual({
-      path: "waitlist",
-      reason: "label_too_high",
-    });
+  it("sem entrega, o antecipado é sempre a resposta", () => {
+    // Não existe recusar venda por praça cara: o excedente do teto vai para a cliente.
+    expect(routeFor({ ...base, cod: false, labelBrl: 19.35 }).path).toBe("prepay");
+    expect(routeFor({ ...base, cod: false, labelBrl: 84.05 }).path).toBe("prepay");
   });
 
-  it("etiqueta ausente não é etiqueta cara", () => {
-    // O M em SP: sem cotação nenhuma, e o checkout antecipado abre mesmo assim.
-    expect(routeFor(readAvailability("M", no), 40).path).toBe("prepay");
+  it("o operador absorve até R$ 20; o que passa disso é da cliente", () => {
+    expect(routeFor({ ...base, cod: false, labelBrl: 13.79 })).toMatchObject({ excessBrl: 0 });
+    expect(routeFor({ ...base, cod: false, labelBrl: 20 })).toMatchObject({ excessBrl: 0 });
+    expect(routeFor({ ...base, cod: false, labelBrl: 84.05 })).toMatchObject({ excessBrl: 64.05 });
+  });
+
+  it("etiqueta ausente não custa nada à cliente", () => {
+    // O M em SP: sem cotação nenhuma, e o checkout antecipado abre mesmo assim. Cobrar
+    // dela por uma cotação que ninguém deu é pior do que absorver.
+    const r = routeFor(readAvailability("M", no));
+    expect(r).toMatchObject({ path: "prepay", excessBrl: 0 });
   });
 });
 

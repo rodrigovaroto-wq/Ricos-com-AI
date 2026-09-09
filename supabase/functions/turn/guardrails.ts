@@ -142,6 +142,18 @@ const negatedAt = (t: string, at: number): boolean => {
 };
 
 /**
+ * Whether the message hands the same-day question back to the checkout instead of
+ * answering it. Telling her the Express modality exists is honest and converts; saying
+ * it will happen at her address is a promise only the checkout can make. The difference
+ * is one clause, and this is it.
+ */
+const defersToCheckout = (t: string): boolean =>
+  /\b(confer|verific|checar|checa|consultar?|ver\s+se)\w*\b/.test(t) ||
+  /\bdisponibilidade\b/.test(t) ||
+  /\bse\s+(estiver|tiver|houver)\b/.test(t) ||
+  /\bdepende\b/.test(t);
+
+/**
  * Every amount in the text, with where it sits. Two shapes, because customers and the
  * agent use both: "R$ 129,90" and the bare "129,90 reais". The second used to be
  * invisible, so "custa 200 reais" — a number the operation does not have — passed the
@@ -432,9 +444,10 @@ const gates: readonly Gate[] = [
     briefing: (c) =>
       `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
       `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
-      `o dia é ela, no checkout — a não ser que a consulta tenha devolvido a modalidade ` +
-      `Express para o CEP dela, e aí "hoje, em até 4 horas" é fato e é o seu melhor ` +
-      `argumento. No antecipado` +
+      `o dia é ela, no checkout. Duas exceções: se a consulta devolveu a modalidade Express ` +
+      `para o CEP dela, "hoje, em até 4 horas" é fato e é o seu melhor argumento; e você ` +
+      `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
+      `disponibilidade da região dela no checkout. No antecipado` +
       `${
         c.delivery.prepayDaysMin != null && c.delivery.prepayDaysMax != null
           ? `, ${c.delivery.prepayDaysMin} a ${c.delivery.prepayDaysMax} dias úteis`
@@ -456,7 +469,7 @@ const gates: readonly Gate[] = [
         )) {
           if (negatedAt(t, m.index ?? 0)) continue;
           const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
-          if (sameDay && ctx.sameDayWindow) continue;
+          if (sameDay && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
         }
       }
