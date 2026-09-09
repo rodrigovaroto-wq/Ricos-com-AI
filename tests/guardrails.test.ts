@@ -536,3 +536,27 @@ describe("frete grátis é verdade nos dois caminhos", () => {
     expect(blocked(runGates("São R$ 129,90 mais o frete.", antes))).not.toContain("shipping_promise");
   });
 });
+
+/**
+ * A brecha que a sonda adversarial pegou depois da inversão: "o frete depende da sua
+ * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
+ * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.
+ */
+describe("frete que varia também é cobrança", () => {
+  it("barra dizer que o frete depende ou varia", () => {
+    for (const t of ["O frete vai depender da sua região.", "O frete varia conforme o CEP."]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+
+  it("negar a variação continua liberado, e o PRAZO pode variar", () => {
+    // O prazo varia de verdade; só o frete é que não. Um gate que confunde os dois
+    // proíbe a agente de responder a pergunta mais comum depois do preço.
+    for (const t of [
+      "O frete não depende da região, é grátis em qualquer lugar.",
+      "O prazo de entrega depende da sua região.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+});

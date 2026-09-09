@@ -732,7 +732,7 @@ const gates: readonly Gate[] = [
       // você paga só os R$ 129,90 na entrega" is the sentence this funnel most wants said,
       // and a bare "você paga" within thirty characters was enough to veto it.
       for (const m of t.matchAll(
-        /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculado|nao\s+e\s+(gratis|gratuito))\b/g,
+        /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separado|por\s+fora|nao\s+(esta\s+)?inclu\w*|calculad\w*|depende\w*|varia\w*|conforme|por\s+regiao|nao\s+e\s+(gratis|gratuito))\b/g,
       )) {
         // The negation sits between "frete" and the charge — "o frete NÃO é cobrado à
         // parte" is the honest answer to the question this funnel gets most. So the
