@@ -49,8 +49,11 @@ describe("tabela de preços da Edge Function", () => {
   };
 
   // Os nomes das constantes na função, resolvidos aqui para o modelo que representam.
+  // `CONVERSATION_MODEL` deixou de ser literal em 2026-09-10 — lê do ambiente, com o
+  // padrão em `DEFAULT_CONVERSATION_MODEL`. É o padrão que a tabela precifica, e é ele
+  // que este teste prende à fonte.
   const alias: Record<string, string> = {
-    CONVERSATION_MODEL: "gpt-5.6-luna",
+    DEFAULT_CONVERSATION_MODEL: "gpt-5.6-luna",
     CHEAP_MODEL: "gemini-3.5-flash-lite",
   };
 
@@ -64,8 +67,29 @@ describe("tabela de preços da Edge Function", () => {
     });
   });
 
+  /**
+   * O modelo da conversa é configuração, não arquitetura (`CLAUDE.md`). Enquanto foi
+   * constante no código não existiu plano B para a queda da OpenAI sem deploy — e em
+   * 2026-09-09 a cota esgotou por 20 horas com tráfego pago rodando. Este teste prende
+   * as três metades do conserto: lê do ambiente, cai no padrão quando ausente, e recusa
+   * um modelo novo que venha sem preço.
+   */
+  it("lê o modelo da conversa do ambiente, com o padrão de sempre", () => {
+    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL") ?? DEFAULT_CONVERSATION_MODEL');
+  });
+
+  it("recusa um modelo novo sem preço, no boot e não no meio da conversa", () => {
+    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL_PRICE")');
+    // O `throw` mora fora de qualquer handler: falha de boot, antes de servir requisição.
+    const guard = source.indexOf("if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL)");
+    expect(guard).toBeGreaterThan(-1);
+    expect(source.slice(guard, guard + 600)).toContain("sem CONVERSATION_MODEL_PRICE");
+  });
+
   it("não cobra por um modelo que a fonte não conhece", () => {
-    const declared = [...source.matchAll(/\[(CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g)];
+    const declared = [
+      ...source.matchAll(/\[(DEFAULT_CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g),
+    ];
     expect(declared).toHaveLength(Object.keys(PRICES).length);
   });
 });

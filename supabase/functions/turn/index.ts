@@ -67,13 +67,53 @@ const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const USD_TO_BRL = Number(Deno.env.get("USD_TO_BRL") ?? "5.4");
 
-const CONVERSATION_MODEL = "gpt-5.6-luna";
+/**
+ * The conversation model. It reads from the environment because the day the OpenAI
+ * quota ran out (2026-09-09, 20 hours, every customer turned into a handoff) this was
+ * a constant, and a constant means there is no plan B without a deploy. `CLAUDE.md`
+ * says it in one line: the provider is configuration, not architecture.
+ *
+ * The default stays `gpt-5.6-luna`, so an unset variable behaves exactly as before.
+ */
+const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-luna";
+const CONVERSATION_MODEL = Deno.env.get("CONVERSATION_MODEL") ?? DEFAULT_CONVERSATION_MODEL;
 const CHEAP_MODEL = "gemini-3.5-flash-lite";
 /** USD per 1M tokens. Mirrors src/llm/pricing.ts. */
 const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
-  [CONVERSATION_MODEL]: { in: 0.2, out: 1.2, cached: 0.02 },
+  [DEFAULT_CONVERSATION_MODEL]: { in: 0.2, out: 1.2, cached: 0.02 },
   [CHEAP_MODEL]: { in: 0.3, out: 2.5 },
 };
+
+/**
+ * A model swap has to carry its own price. `costOf` throws on an unknown model, so
+ * pointing `CONVERSATION_MODEL` at something new without a price would fail one turn
+ * at a time, mid-conversation, after the tokens were already spent. Failing here
+ * instead — at module load, before a single request is served — is the difference
+ * between "the swap did not take" and "the swap silently burned money we cannot
+ * account for". Set `CONVERSATION_MODEL_PRICE` to `{"in":1.25,"out":4.25}` (USD per
+ * 1M tokens, `cached` optional) alongside the model, and unset both to roll back.
+ */
+if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
+  const raw = Deno.env.get("CONVERSATION_MODEL_PRICE");
+  if (!raw) {
+    throw new Error(
+      `CONVERSATION_MODEL=${CONVERSATION_MODEL} sem CONVERSATION_MODEL_PRICE: ` +
+        `um modelo novo precisa do preço junto, senão o custo por chamada fica incomparável`,
+    );
+  }
+  const parsed = JSON.parse(raw) as { in?: unknown; out?: unknown; cached?: unknown };
+  const num = (v: unknown, name: string): number => {
+    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+      throw new Error(`CONVERSATION_MODEL_PRICE.${name} inválido: ${JSON.stringify(v)}`);
+    }
+    return v;
+  };
+  PRICES[CONVERSATION_MODEL] = {
+    in: num(parsed.in, "in"),
+    out: num(parsed.out, "out"),
+    ...(parsed.cached === undefined ? {} : { cached: num(parsed.cached, "cached") }),
+  };
+}
 
 interface BusinessConfig extends GateConfig {
   brand: string;
