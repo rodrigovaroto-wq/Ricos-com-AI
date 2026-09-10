@@ -75,15 +75,23 @@ describe("tabela de preços da Edge Function", () => {
    * um modelo novo que venha sem preço.
    */
   it("lê o modelo da conversa do ambiente, com o padrão de sempre", () => {
-    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL") ?? DEFAULT_CONVERSATION_MODEL');
+    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL")');
+    expect(source).toContain("const DEFAULT_CONVERSATION_MODEL");
   });
 
-  it("recusa um modelo novo sem preço, no boot e não no meio da conversa", () => {
+  it("recusa um modelo novo sem preço, antes de gastar token", () => {
     expect(source).toContain('Deno.env.get("CONVERSATION_MODEL_PRICE")');
-    // O `throw` mora fora de qualquer handler: falha de boot, antes de servir requisição.
     const guard = source.indexOf("if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL)");
     expect(guard).toBeGreaterThan(-1);
-    expect(source.slice(guard, guard + 600)).toContain("sem CONVERSATION_MODEL_PRICE");
+    expect(source).toContain("sem CONVERSATION_MODEL_PRICE");
+    // A recusa é levantada dentro de `callLuna`, antes do `fetch` — não no boot, que
+    // levaria o webhook de venda e o sweep do cron junto, e não depois da chamada, que
+    // já teria gasto o token.
+    const luna = source.indexOf("const callLuna = async (");
+    const fetchAt = source.indexOf('fetch("https://api.openai.com', luna);
+    const throwAt = source.indexOf("throw new ModelConfigError(MODEL_CONFIG_ERROR)", luna);
+    expect(throwAt).toBeGreaterThan(luna);
+    expect(throwAt).toBeLessThan(fetchAt);
   });
 
   /**
@@ -100,7 +108,41 @@ describe("tabela de preços da Edge Function", () => {
   });
 
   it("nomeia a variável quando o JSON do preço vem malformado", () => {
-    expect(source).toContain("CONVERSATION_MODEL_PRICE não é JSON válido");
+    expect(source).toContain("CONVERSATION_MODEL_PRICE inválido");
+    // `CONVERSATION_MODEL_PRICE=null` é JSON válido e o `as` não protege dele.
+    expect(source).toContain("esperado um objeto, veio");
+  });
+
+  /**
+   * `handoff_at` é escrito e nunca limpo: o lead que o recebe sai da mão da agente para
+   * sempre. Um erro de configuração do operador não é sobre a cliente, e marcá-la torna
+   * a troca de modelo **irreversível** — desfazer a variável não desfaz o dano. Era o
+   * que acontecia com todo lead que escreveu durante as 20 horas de cota esgotada.
+   */
+  it("erro de configuração não tranca o lead fora da agente", () => {
+    expect(source).toContain("class ModelConfigError extends Error");
+    expect(source).toContain("if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR)");
+    expect(source).toContain("if (!(error instanceof ModelConfigError))");
+  });
+
+  /**
+   * O knob troca de modelo **dentro** da API compatível com OpenAI, e não de provedor —
+   * `callLuna` só fala essa. Apontá-lo para um nome do Gemini mandaria aquele nome para
+   * `api.openai.com`, e a descoberta seria uma cliente por vez.
+   */
+  it("recusa nome de modelo de provedor que esta função não fala", () => {
+    expect(source).toContain("não é servido pela API que esta função fala");
+    expect(source).toContain("^(gemini|claude|grok|qwen|muse|llama|mistral|command|deepseek)");
+  });
+
+  /**
+   * Um erro de configuração não pode derrubar o webhook de venda nem o sweep do cron —
+   * os três caminhos vivem no mesmo isolate, e o sweep não tem corte de obsolescência.
+   */
+  it("não derruba a função inteira por causa da conversa", () => {
+    expect(source).toContain("let MODEL_CONFIG_ERROR: string | null = null");
+    // A variável vazia ou com espaço sobrando cai no padrão em vez de virar modelo novo.
+    expect(source).toContain('(Deno.env.get("CONVERSATION_MODEL") ?? "").trim() || DEFAULT_CONVERSATION_MODEL');
   });
 
   it("não deixa credencial sair em texto de erro", () => {

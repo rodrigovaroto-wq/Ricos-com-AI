@@ -77,15 +77,26 @@ const redactKeys = (text: string): string => {
 };
 
 /**
- * The conversation model. It reads from the environment because the day the OpenAI
- * quota ran out (2026-09-09, 20 hours, every customer turned into a handoff) this was
- * a constant, and a constant means there is no plan B without a deploy. `CLAUDE.md`
- * says it in one line: the provider is configuration, not architecture.
+ * The conversation model, read from the environment. On 2026-09-09 the OpenAI quota ran
+ * out for 20 hours and every customer turned into a handoff, while Gemini was up the
+ * whole time — and this was a constant, so there was no way out without a deploy.
+ * `CLAUDE.md` says it in one line: the provider is configuration, not architecture.
  *
- * The default stays `gpt-5.6-luna`, so an unset variable behaves exactly as before.
+ * What this knob does and does NOT do, because the difference is expensive:
+ * it selects a model **on the OpenAI-compatible endpoint**, which is the only API
+ * `callLuna` speaks. It is not a provider switch. Pointing it at `gemini-3.5-flash-lite`
+ * sends that name to `api.openai.com`, which answers "the model does not exist" — so the
+ * name is checked here, at load, against the providers whose API this function does not
+ * implement, instead of being discovered one customer at a time.
+ *
+ * The default stays `gpt-5.6-luna`, so an unset — or blank — variable behaves exactly as
+ * v30 does.
  */
 const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-luna";
-const CONVERSATION_MODEL = Deno.env.get("CONVERSATION_MODEL") ?? DEFAULT_CONVERSATION_MODEL;
+// `Deno.env.get` returns "" for a variable saved blank, and `??` only falls through on
+// `undefined`. A trailing space from a panel copy-paste is the same class of accident.
+const CONVERSATION_MODEL =
+  (Deno.env.get("CONVERSATION_MODEL") ?? "").trim() || DEFAULT_CONVERSATION_MODEL;
 const CHEAP_MODEL = "gemini-3.5-flash-lite";
 /** USD per 1M tokens. Mirrors src/llm/pricing.ts. */
 const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
@@ -94,59 +105,81 @@ const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
 };
 
 /**
- * A model swap has to carry its own price. `costOf` throws on an unknown model, so
- * pointing `CONVERSATION_MODEL` at something new without a price would fail one turn
- * at a time, mid-conversation, after the tokens were already spent. Failing here
- * instead — at module load, before a single request is served — is the difference
- * between "the swap did not take" and "the swap silently burned money we cannot
- * account for". Set `CONVERSATION_MODEL_PRICE` to `{"in":1.25,"out":4.25}` (USD per
- * 1M tokens, `cached` optional) alongside the model, and unset both to roll back.
+ * A misconfigured model must not take the function down. The same isolate serves all
+ * three paths from one `Deno.serve`: the conversation turn, the **order webhook** and
+ * the **cron sweep**. A `throw` at module scope would take all three — a confirmed sale
+ * would never be filed, and the sweep would stop and then fire up to 50 overdue touches
+ * at once when it came back, because it has no staleness cutoff. Only the conversation
+ * depends on this model, so only the conversation fails: the error is held here and
+ * thrown inside `callLuna`.
  */
+let MODEL_CONFIG_ERROR: string | null = null;
+
 if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
-  const raw = Deno.env.get("CONVERSATION_MODEL_PRICE");
-  if (!raw) {
-    throw new Error(
-      `CONVERSATION_MODEL=${CONVERSATION_MODEL} sem CONVERSATION_MODEL_PRICE: ` +
-        `um modelo novo precisa do preço junto, senão o custo por chamada fica incomparável`,
-    );
-  }
-  let parsed: { in?: unknown; out?: unknown; cached?: unknown };
-  try {
-    parsed = JSON.parse(raw) as typeof parsed;
-  } catch (error) {
-    // A raw SyntaxError here says nothing about which variable broke, and this throw
-    // takes the whole function down: at 3am, with production cold, the message is the
-    // only thing the operator has. Name the variable and the shape.
-    throw new Error(
-      `CONVERSATION_MODEL_PRICE não é JSON válido — esperado {"in":number,"out":number} ` +
-        `(USD por 1M tokens, "cached" opcional): ${error instanceof Error ? error.message : String(error)}`,
-    );
-  }
-  const num = (v: unknown, name: string): number => {
-    if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
-      throw new Error(`CONVERSATION_MODEL_PRICE.${name} inválido: ${JSON.stringify(v)}`);
+  // Names this function cannot serve, whatever price comes with them. Checking the name
+  // is a heuristic, but it catches the exact misuse the comment above used to invite,
+  // and the cost of missing it is not a failed turn — see `modelFailure`.
+  const foreign = /^(gemini|claude|grok|qwen|muse|llama|mistral|command|deepseek)/i;
+  const rawPrice = (Deno.env.get("CONVERSATION_MODEL_PRICE") ?? "").trim();
+
+  if (foreign.test(CONVERSATION_MODEL)) {
+    MODEL_CONFIG_ERROR =
+      `CONVERSATION_MODEL=${CONVERSATION_MODEL} não é servido pela API que esta função fala. ` +
+      `A conversa chama o endpoint compatível com OpenAI; trocar de provedor é código, não ` +
+      `variável de ambiente`;
+  } else if (!rawPrice) {
+    MODEL_CONFIG_ERROR =
+      `CONVERSATION_MODEL=${CONVERSATION_MODEL} sem CONVERSATION_MODEL_PRICE: um modelo novo ` +
+      `precisa do preço junto, senão o custo por chamada fica incomparável com o anterior`;
+  } else {
+    /**
+     * A model swap has to carry its own price. `costOf` throws on an unknown model, so a
+     * new model with no price would fail one turn at a time, mid-conversation, after the
+     * tokens were already spent — and every cost row from there on would be incomparable.
+     * Set `CONVERSATION_MODEL_PRICE` to `{"in":1.25,"out":4.25}` (USD per 1M tokens,
+     * `cached` optional) alongside the model, and unset both to roll back.
+     */
+    const num = (v: unknown, name: string): number => {
+      if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
+        throw new Error(`CONVERSATION_MODEL_PRICE.${name} inválido: ${JSON.stringify(v)}`);
+      }
+      // A ceiling, because the failure mode of an absurd price is the opposite of the
+      // intuitive one. `Number.MAX_VALUE` is finite and passes the check above, but the
+      // cost it produces overflows to Infinity, `JSON.stringify` writes it as `null`,
+      // Postgres stores NULL, and the next turn reads `Number(null ?? 0)` — zero. The
+      // conversation cap is then rearmed at zero and never fires again: unlimited spend,
+      // one model call per turn, forever, with `llm_calls.cost_brl` NULL so the audit
+      // trail is gone too. R$ 1.000 per 1M tokens is three orders of magnitude above any
+      // real price, so a typo of 1000x still lands inside and fails loudly at the cap.
+      if (v > 1_000) {
+        throw new Error(
+          `CONVERSATION_MODEL_PRICE.${name}=${v} está acima do teto de 1000 USD por 1M tokens: ` +
+            `preço absurdo zera o teto de custo por conversa em vez de acioná-lo`,
+        );
+      }
+      return v;
+    };
+    try {
+      const value = JSON.parse(rawPrice) as unknown;
+      // `as` does not protect against `null`: `CONVERSATION_MODEL_PRICE=null` is valid
+      // JSON, and reading `.in` off it would be a bare TypeError naming no variable.
+      if (typeof value !== "object" || value === null || Array.isArray(value)) {
+        throw new Error(`esperado um objeto, veio ${JSON.stringify(value)}`);
+      }
+      const parsed = value as { in?: unknown; out?: unknown; cached?: unknown };
+      PRICES[CONVERSATION_MODEL] = {
+        in: num(parsed.in, "in"),
+        out: num(parsed.out, "out"),
+        ...(parsed.cached === undefined ? {} : { cached: num(parsed.cached, "cached") }),
+      };
+    } catch (error) {
+      // A bare SyntaxError names no variable, and it is the only thing the operator has
+      // in the log. Name the variable and the expected shape.
+      MODEL_CONFIG_ERROR = `CONVERSATION_MODEL_PRICE inválido — esperado ` +
+        `{"in":number,"out":number} (USD por 1M tokens, "cached" opcional): ` +
+        `${error instanceof Error ? error.message : String(error)}`;
     }
-    // A ceiling, because the failure mode of an absurd price is the opposite of the
-    // intuitive one. `Number.MAX_VALUE` is finite and passes the check above, but the
-    // cost it produces overflows to Infinity, `JSON.stringify` writes it as `null`,
-    // Postgres stores NULL, and the next turn reads `Number(null ?? 0)` — zero. The
-    // conversation cap is then rearmed at zero and never fires again: unlimited spend,
-    // one model call per turn, forever, with `llm_calls.cost_brl` NULL so the audit
-    // trail is gone too. R$ 1.000 per 1M tokens is three orders of magnitude above any
-    // real price, so a typo of 1000x still lands inside and fails loudly at the cap.
-    if (v > 1_000) {
-      throw new Error(
-        `CONVERSATION_MODEL_PRICE.${name}=${v} está acima do teto de 1000 USD por 1M tokens: ` +
-          `preço absurdo zera o teto de custo por conversa em vez de acioná-lo`,
-      );
-    }
-    return v;
-  };
-  PRICES[CONVERSATION_MODEL] = {
-    in: num(parsed.in, "in"),
-    out: num(parsed.out, "out"),
-    ...(parsed.cached === undefined ? {} : { cached: num(parsed.cached, "cached") }),
-  };
+  }
 }
 
 interface BusinessConfig extends GateConfig {
@@ -280,10 +313,17 @@ const callGemini = async (system: string, user: string) => {
   };
 };
 
+/**
+ * Marca um erro que é da CONFIGURAÇÃO, não desta cliente. A diferença decide se o lead
+ * fica permanentemente fora da agente — ver `modelFailure`.
+ */
+class ModelConfigError extends Error {}
+
 const callLuna = async (
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>,
 ) => {
+  if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
@@ -1211,10 +1251,25 @@ Deno.serve(async (request: Request): Promise<Response> => {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-    }).catch(() => undefined);
+    /**
+     * `handoff_at` is written and never cleared: a lead that gets it is out of the
+     * agent's hands for good (the turn skips her, and the sweep cancels her follow-ups).
+     * That is right for a conversation the agent genuinely cannot carry — and wrong for
+     * an operator-side misconfiguration, which is not about her at all.
+     *
+     * It is the difference between reversible and not. Point `CONVERSATION_MODEL` at a
+     * model the endpoint does not serve, or let a key rotate, or run the quota out as on
+     * 2026-09-09, and every customer who wrote during the window used to be locked out
+     * permanently — undoing the variable did not undo the damage. So a configuration
+     * failure gets the holding reply and the operator's email, and leaves her reachable:
+     * fix the variable and the next message is answered normally.
+     */
+    if (!(error instanceof ModelConfigError)) {
+      await db(`leads?id=eq.${lead.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+      }).catch(() => undefined);
+    }
     const held = await db("messages", {
       method: "POST",
       body: JSON.stringify({
