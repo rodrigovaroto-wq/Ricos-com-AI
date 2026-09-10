@@ -119,6 +119,25 @@ Cinco coisas. Nenhuma está em produção, e nenhuma pode ir sem o operador.
    escritos contra este repositório: carregam o espelho byte a byte, o `??` do
    `BUSINESS_CONFIG`, a cegueira a negação e o default "NEEDS WORK". A tabela do
    `CLAUDE.md` deixou de ser aspiracional.
+6. **Dois furos consertados, achados pelos revisores e não por teste.** Ambos com entrada
+   concreta, e o primeiro é o mais grave que esta sessão produziu:
+   - **`handoff_at` tornava a troca de modelo irreversível.** Apontar
+     `CONVERSATION_MODEL` para um modelo que o endpoint não serve — inclusive por typo —
+     fazia toda cliente virar `modelFailure`, que escreve `leads.handoff_at`. Esse campo
+     **é escrito e nunca limpo**: desfazer a variável não desfazia o dano, e todo lead da
+     janela ficava fora da agente para sempre, com os follow-ups cancelados pelo sweep.
+     Agora erro de configuração é `ModelConfigError`, **não** marca o lead, e o nome do
+     modelo é checado no carregamento contra provedores cuja API esta função não fala. E
+     o erro deixou de derrubar o boot: o mesmo isolate serve o webhook de venda e o cron.
+     **Isso também cobre a cota esgotada de 09/09** — os leads daquelas 20 horas foram
+     trancados por esse mesmo caminho, e vale conferir no banco quantos estão assim.
+   - **`freeShipping: false` desligava o veto de valor de frete.** A branch fazia `return`
+     cedo e levava embora a regra de valor, então "o frete do antecipado é R$ 12,99"
+     passava em todos os gates — porque o `price_promise` só verifica se o número é um dos
+     preços configurados, e preço configurado lido como frete continua sendo mentira.
+     Agora o veto é sobre valor **atribuído** ao frete, mais estreito que valor perto da
+     palavra: "São R$ 129,90 mais o frete" e "o frete já está dentro do preço: são
+     R$ 129,90" continuam passando, porque são as frases honestas.
 
 ### O desenho — quem faz o quê, e por quê
 
