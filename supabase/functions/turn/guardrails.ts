@@ -803,6 +803,13 @@ const gates: readonly Gate[] = [
      * was told and doubts everything else she was told. Same gate, opposite direction,
      * and one flag decides: set `freeShipping` false the day a freight comes back and
      * the old refusal returns with it.
+     *
+     * That day came: on 2026-09-10 the operator flipped the flag back. The prepaid
+     * freight is the customer's again, calculated by region inside the checkout rather
+     * than quoted here, which is why the prepaid path can name no freight number at all.
+     * Cash on delivery did not change — the freight stays inside the R$ 129,90 collected
+     * at the door. So "frete grátis" is false on both paths once more, and the gate is
+     * back to forbidding it.
      */
     name: "shipping_promise",
     remedy: "rewrite",

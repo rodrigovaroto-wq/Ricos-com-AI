@@ -554,6 +554,47 @@ describe("frete grátis é verdade nos dois caminhos", () => {
 });
 
 /**
+ * A configuração que a produção passa a rodar em 2026-09-10, com os três campos juntos:
+ * frete da cliente no antecipado, 10% de desconto e R$ 116,91. Os testes acima cobrem
+ * cada campo isolado — nunca a combinação, que é a única que existe de verdade.
+ */
+describe("preço, desconto e frete depois de 2026-09-10", () => {
+  const config0910: typeof config = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+    delivery: { ...config.delivery, freeShipping: false },
+  };
+  const cod = ctx({ config: config0910 });
+  const prepay = ctx({ config: config0910, paymentPath: "prepay" as const });
+
+  it("os 10% do antecipado são citáveis", () => {
+    expect(blocked(runGates("No antecipado você tem 10% de desconto.", prepay)))
+      .not.toContain("price_promise");
+  });
+
+  it("a economia de R$ 12,99 é citável", () => {
+    // codBrl − prepayBrl = 129,90 − 116,91. O gate admite a diferença entre os dois
+    // preços como valor citável; se ela deveria ser citada sem descontar o frete real
+    // é decisão comercial em aberto, e este teste documenta o comportamento de hoje.
+    expect(blocked(runGates("Você economiza R$ 12,99 pagando antecipado.", prepay)))
+      .not.toContain("price_promise");
+  });
+
+  it("frete grátis não passa em nenhum dos dois caminhos", () => {
+    expect(blocked(runGates("O frete é grátis!", cod))).toContain("shipping_promise");
+    expect(blocked(runGates("No antecipado o frete é grátis também.", prepay)))
+      .toContain("shipping_promise");
+  });
+
+  it("o briefing manda dizer frete embutido no COD e calculado no checkout", () => {
+    const linha = gateBriefing(config0910).find((b) => b.includes("frete"))!;
+    expect(linha).toContain('Nunca diga "frete grátis"');
+    expect(linha).toContain("já está dentro do preço");
+    expect(linha).toContain("calculado por região dentro do checkout");
+  });
+});
+
+/**
  * A brecha que a sonda adversarial pegou depois da inversão: "o frete depende da sua
  * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
  * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.

@@ -5,8 +5,8 @@
   "agentName": "{{NOME_DA_ATENDENTE}}",
   "prices": {
     "codBrl": 129.9,
-    "prepayBrl": 129.9,
-    "prepayDiscountPercent": 0,
+    "prepayBrl": 116.91,
+    "prepayDiscountPercent": 10,
     "anchorBrl": 216.5
   },
   "delivery": {
@@ -15,7 +15,7 @@
     "codScheduled": true,
     "prepayVariesByRegion": true,
     "warrantyDays": 7,
-    "freeShipping": true,
+    "freeShipping": false,
     "prepayAvgDays": 5
   },
   "sizes": [
@@ -63,5 +63,5 @@
     "codPaymentMethod": "afterpay",
     "prepayPaymentMethod": "pix"
   },
-  "_comment": "Espelho do BUSINESS_CONFIG que a producao le. A Edge Function monta o CONFIG com `Deno.env.get(\"BUSINESS_CONFIG\") ?? fallback` — o ?? e sobre a variavel INTEIRA, entao com o secret setado o fallback do codigo nunca e lido e uma chave nova nasce ausente la. Campo novo entra opcional, com o padrao correto para ausente. Ver .claude/memory/business-config-sobrescreve.md."
+  "_comment": "Espelho do BUSINESS_CONFIG que a producao le. A Edge Function monta o CONFIG com `Deno.env.get(\"BUSINESS_CONFIG\") ?? fallback` — o ?? e sobre a variavel INTEIRA, entao com o secret setado o fallback do codigo nunca e lido e uma chave nova nasce ausente la. Campo novo entra opcional, com o padrao correto para ausente. Ver .claude/memory/business-config-sobrescreve.md. ATENCAO 2026-09-10: prepayBrl 116.91 e prepayDiscountPercent 10 sao a decisao do operador de 10/09. Mas freeShipping false so e verdade DEPOIS que a oferta encorpa-pagamento-antecipado-0 tiver frete parametrizado na Coinzz — hoje settingsFreight dela vem [] nos 27 estados e o checkout cobra zero. Subir freeShipping false antes disso faz a agente cobrar frete que a operacao nao cobra. Ver docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md."
 }
