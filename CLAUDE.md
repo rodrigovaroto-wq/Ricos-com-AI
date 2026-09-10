@@ -25,7 +25,12 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
 - **PikaPods** — hospeda só o que precisa ficar de pé.
 - **Hermes Agent** — otimizador periódico que lê as conversas e **propõe** mudanças; nunca publica em produção sozinho.
 
-**Provedor de modelo** (rodada 7 — §R7.1): `gpt-5.6-luna` para a conversa que converte, `gemini-3.5-flash-lite` para o trabalho barato e para todo o desenvolvimento. Toda chamada passa por um seam único, com teto de custo e trace — o provedor é configuração, não arquitetura.
+**Provedor de modelo** (rodada 7 — §R7.1; conversa trocada em 2026-09-10, ver `HANDOFF.md`
+§Frente 5): `muse-spark-1.3` (Meta) para a conversa que converte — era `gpt-5.6-luna`
+(OpenAI) — `gemini-3.5-flash-lite` para o trabalho barato e para todo o desenvolvimento.
+Toda chamada passa por um seam único, com teto de custo e trace — o provedor é
+configuração, não arquitetura. **O eval de conversão/recusa de gate contra o modelo
+antigo não foi rodado** — a troca subiu o mecanismo, não a prova.
 
 ## Canonical commands
 
@@ -54,10 +59,13 @@ produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 ## Specialist agent routing table
 
 > **Os agentes existem desde 2026-09-10**, em [`.claude/agents/`](.claude/agents/) —
-> dez arquivos, escritos contra este repositório e não genéricos: cada um carrega as
+> doze arquivos, escritos contra este repositório e não genéricos: cada um carrega as
 > armadilhas que já custaram deploy aqui (o espelho byte a byte, o `??` do
 > `BUSINESS_CONFIG`, a cegueira a negação). A triagem que os originou está em
-> [`docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md`](docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md).
+> [`docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md`](docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md),
+> reavaliada no mesmo dia em
+> [`docs/agente-ia/03-pesquisa/06-reavaliacao-do-time.md`](docs/agente-ia/03-pesquisa/06-reavaliacao-do-time.md) —
+> leia antes de propor um décimo terceiro.
 >
 > Despache o especialista que casa com a tarefa em vez de um agente genérico. **Só o
 > `orchestrator` commita** — ver a regra de ondas paralelas.
@@ -74,6 +82,8 @@ produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 | `test-engineer` | Teste com TDD, cobertura de negação, prova pela porta de produção. Default é NEEDS WORK. |
 | `code-reviewer` | Revisa por correção, erro, cobertura e diff mínimo — não por estilo. Use depois de editar qualquer fonte. |
 | `security-reviewer` | Varre segredo e dado de cliente **antes** de tudo, depois webhook, entrada não confiável e injeção de prompt. |
+| `technical-writer` | Mantém `HANDOFF.md`, `CLAUDE.md` e `docs/` corrigidos e datados. Use depois de deploy, decisão do operador, ou qualquer mudança que torne uma linha de documentação falsa. |
+| `compliance-reviewer` | LGPD (retenção, dado de cliente), CDC (arrependimento, pagamento na entrega) e regra de anúncio com apelo de corpo/saúde. Use ao mexer em retenção, troca/reembolso, ou claim de produto. |
 
 **Não existe `frontend-specialist`, de propósito.** Este repositório não tem UI: os dois
 `.html` em `docs/operacao/` são relatório estático do operador, não produto. Agente sem
