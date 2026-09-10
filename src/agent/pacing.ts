@@ -1,4 +1,5 @@
 import type { BusinessConfig } from "@/config/business.js";
+import { BUSINESS_TZ, nextOpening, offsetMinutes } from "@/agent/followups.js";
 
 /**
  * Human rhythm (spec §B7). Two rules that are easy to get wrong:
@@ -23,16 +24,25 @@ export const presenceRefreshes = (delayMs: number): number =>
 /**
  * When the real (layer 2) reply may go out. Inside business hours it is now plus the
  * first-reply delay; a message that lands overnight waits for opening time.
+ *
+ * `openHour` and `closeHour` are Brazilian wall-clock hours, and the runtime's are not:
+ * Supabase Edge Functions run in UTC, where `getHours()` read three hours ahead of São
+ * Paulo and `openHour` 6 meant 03:00. So the window is decided on the local hour, and
+ * the reopening comes from `nextOpening` — the same clock the follow-up ruler uses,
+ * borrowed instead of reimplemented.
  */
 export const firstReplyAt = (arrivedAt: Date, c: BusinessConfig): Date => {
   const { openHour, closeHour } = c.hours;
-  const hour = arrivedAt.getHours();
-  if (hour >= openHour && hour < closeHour) return new Date(arrivedAt.getTime() + FIRST_REPLY_DELAY_MS);
+  const localHour = new Date(
+    arrivedAt.getTime() + offsetMinutes(arrivedAt, BUSINESS_TZ) * 60_000,
+  ).getUTCHours();
+  if (localHour >= openHour && localHour < closeHour) {
+    return new Date(arrivedAt.getTime() + FIRST_REPLY_DELAY_MS);
+  }
 
-  const opening = new Date(arrivedAt);
-  if (hour >= closeHour) opening.setDate(opening.getDate() + 1);
-  opening.setHours(openHour, 0, 0, 0);
-  return opening;
+  // Later today when the local clock has not reached `openHour` yet, tomorrow when the
+  // day is already over — which is exactly `nextOpening`'s same-day-if-earlier rule.
+  return nextOpening(arrivedAt, openHour);
 };
 
 /** Splits a reply into WhatsApp-sized bubbles, at most three, never mid-sentence. */
