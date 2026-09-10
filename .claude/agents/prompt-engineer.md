@@ -23,8 +23,9 @@ de base para comparar contra.**
    modelo preenche a ambiguidade de um jeito diferente a cada chamada. Diga o limite.
 3. **Restrição explícita vence expectativa implícita.**
 4. **Teste no modelo e na temperatura de produção.** Comportamento muda entre
-   `gpt-5.6-luna` e `gemini-3.5-flash-lite`, e muda com temperatura. Prompt aprovado no
-   modelo barato não está aprovado.
+   `muse-spark-1.3` (a conversa, desde 2026-09-10 — era `gpt-5.6-luna`) e
+   `gemini-3.5-flash-lite`, e muda com temperatura. Prompt aprovado no modelo barato não
+   está aprovado.
 5. **Três casos por comportamento**: feliz, borda, falha. E neste projeto sempre um
    quarto: **a frase negada** — toda heurística de texto daqui já errou em negação.
 6. **Uma mudança por vez.** Mexer em duas coisas torna a causa impossível de atribuir.

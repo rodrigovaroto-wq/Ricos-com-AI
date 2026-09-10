@@ -4,7 +4,7 @@
  * edit and every stored cost stays comparable.
  */
 export interface ModelPrice {
-  provider: "google" | "openai";
+  provider: "google" | "openai" | "meta";
   inputUsdPerM: number;
   outputUsdPerM: number;
   cachedInputUsdPerM?: number;
@@ -15,8 +15,11 @@ export interface ModelPrice {
 export const PRICES: Readonly<Record<string, ModelPrice>> = {
   // Round 7: the cheap work, and everything during development.
   "gemini-3.5-flash-lite": { provider: "google", inputUsdPerM: 0.3, outputUsdPerM: 2.5 },
-  // Round 7: the conversation that converts.
-  "gpt-5.6-luna": { provider: "openai", inputUsdPerM: 0.2, outputUsdPerM: 1.2, cachedInputUsdPerM: 0.02 },
+  // Round 7 priced gpt-5.6-luna here for the conversation that converts. Replaced
+  // 2026-09-10 by muse-spark-1.3 — see HANDOFF.md §Frente 5. The old entry is gone, not
+  // kept alongside: this table mirrors what the dev tooling (`src/dev/smoke.ts`) and the
+  // Edge Function actually call today, not what either used to call.
+  "muse-spark-1.3": { provider: "meta", inputUsdPerM: 1.25, outputUsdPerM: 4.25 },
 };
 
 export interface Usage {

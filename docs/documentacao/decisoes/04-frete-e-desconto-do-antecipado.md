@@ -1,9 +1,14 @@
 # Frente 4 item 6 — a economia citável, e a premissa que não se sustenta
 
-> **Status: decisão do operador, em aberto.** Este documento não escolhe. Ele mostra a
-> conta e corrige um número, para a escolha ser informada. O deploy da Frente 4
-> continua bloqueado até a decisão existir — ver
-> [`HANDOFF.md` §Frente 4](../../../HANDOFF.md).
+> **Status: decisão tomada em 2026-09-10 (tarde), código ainda não escrito.** O operador
+> respondeu a pergunta que §Recomendação deixou em aberto: **sim, o frete do antecipado
+> vai ser parametrizado na Coinzz, inteiramente pago pela cliente, custo zero para a
+> operação.** Palavras do operador: "a diferença entre pagamento na entrega e pagamento
+> antecipado é só o tempo de recebimento e a taxa de frustração, os demais custos são
+> exatamente iguais." Isso resolve a pergunta em aberto e aponta a **saída C** como a
+> escolhida — mas o trabalho de código que a saída C exige no gate `price_promise` (exigir
+> a ressalva de frete junto do número de economia) **não foi feito nesta sessão**: a
+> sessão foi redirecionada para a Frente 5 antes de chegar aqui. Fica para a próxima.
 
 ## A pergunta original
 
@@ -97,18 +102,19 @@ sem subir o frete é a pior das quatro combinações possíveis:
 
 ## Recomendação
 
-**Nenhuma das três, ainda — porque a pergunta anterior a elas está aberta.** A ordem
-correta é:
+> **Decidido em 2026-09-10 (tarde): o caminho é o item 2 abaixo, saída C.** O texto
+> original desta seção fica como registro do raciocínio que levou lá — a decisão não
+> inventou a resposta, escolheu entre as que já estavam aqui.
 
-1. **O operador decide se vai parametrizar frete na oferta do antecipado na Coinzz.**
-   É essa decisão que determina qual das três está certa. Sem ela, qualquer uma das três
-   descreve um mundo hipotético.
-2. **Se sim:** a saída é **C**, e o gate `price_promise` precisa aprender a exigir a
-   ressalva junto do número — trabalho de código, não de config.
-3. **Se não:** a Frente 4 fica **incompleta de propósito** — aplique o desconto de 10%
-   (`prepayBrl`, `prepayDiscountPercent`) e **deixe `freeShipping` em `true`**, porque
-   frete grátis continua sendo a verdade. Nesse caminho a saída é **B**, e é honesta.
-   Mas aceite o número de margem da tabela acima com os olhos abertos.
+1. ~~**O operador decide se vai parametrizar frete na oferta do antecipado na Coinzz.**~~
+   **Decidido: sim.** Frete inteiramente da cliente, calculado por região no checkout,
+   custo zero para a operação.
+2. **Saída C, ainda não implementada.** O gate `price_promise` precisa aprender a exigir
+   a ressalva de frete junto do número de economia — hoje ele admite "você economiza
+   R$ 12,99" sem exigir nenhuma menção a frete. Trabalho de código, não de config:
+   próxima tarefa desta frente, depois da Frente 5.
+3. ~~**Se não:** a Frente 4 fica incompleta de propósito...~~ Não se aplica — a decisão
+   foi "sim".
 
 **O que não fazer em nenhum dos dois casos:** subir `freeShipping: false` antes de
 existir frete configurado na Coinzz. É a única combinação que faz a agente mentir hoje,

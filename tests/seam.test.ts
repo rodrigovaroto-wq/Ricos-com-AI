@@ -11,7 +11,7 @@ const provider = (model: string): Provider => ({
 
 const seamWith = (record = vi.fn()) =>
   createSeam({
-    providers: { conversation: provider("gpt-5.6-luna"), cheap: provider("gemini-3.5-flash-lite") },
+    providers: { conversation: provider("muse-spark-1.3"), cheap: provider("gemini-3.5-flash-lite") },
     usdToBrl: 5.4,
     ceilingBrl: costCeilingBrl(config),
     record,
@@ -32,7 +32,7 @@ describe("seam de chamada de modelo", () => {
     expect(text).toBe("ok");
     expect(cost).toBeGreaterThan(0);
     expect(record).toHaveBeenCalledOnce();
-    expect(record.mock.calls[0]![0]).toMatchObject({ purpose: "reply", model: "gpt-5.6-luna" });
+    expect(record.mock.calls[0]![0]).toMatchObject({ purpose: "reply", model: "muse-spark-1.3" });
   });
 
   it("barra antes de sair byte para o provedor quando o teto já foi atingido", async () => {
@@ -44,12 +44,15 @@ describe("seam de chamada de modelo", () => {
     expect(record).not.toHaveBeenCalled();
   });
 
-  it("cobra a leitura de cache mais barato que o token novo", () => {
-    const usage = { inputTokens: 10_000, outputTokens: 0 };
-    const semCache = costBrl("gpt-5.6-luna", usage, 5.4);
-    const comCache = costBrl("gpt-5.6-luna", { ...usage, cachedTokens: 10_000 }, 5.4);
-    expect(comCache).toBeLessThan(semCache / 5);
-  });
+  /**
+   * Removido em 2026-09-10: testava o desconto de cache de gpt-5.6-luna
+   * (`cachedInputUsdPerM: 0.02` contra `inputUsdPerM: 0.2`, 10x mais barato). O modelo
+   * que o substituiu, muse-spark-1.3, não tem taxa de cache confirmada — inventar uma
+   * entraria em `llm_calls.cost_brl` como se fosse dado real. Sem número confirmado, sem
+   * teste; `cached ?? in` em `costBrl` já cobre o caso sem desconto (usado pelo teste
+   * "grava custo e latência" acima, via `cachedTokens: 1_500` no fixture). Volta a existir
+   * quando muse-spark-1.3 (ou o modelo vigente) tiver uma taxa de cache publicada.
+   */
 
   it("recusa modelo sem preço configurado, em vez de gravar custo zero em silêncio", () => {
     expect(() => costBrl("modelo-inventado", { inputTokens: 1, outputTokens: 1 }, 5.4)).toThrow(/sem preço/);
@@ -64,14 +67,15 @@ describe("seam de chamada de modelo", () => {
    */
   it("recusa custo não finito em vez de gravar null", () => {
     const usage = { inputTokens: 1_000, outputTokens: 500 };
-    expect(() => costBrl("gpt-5.6-luna", usage, Number.NaN)).toThrow(/não finito/);
-    expect(() => costBrl("gpt-5.6-luna", usage, Number.POSITIVE_INFINITY)).toThrow(/não finito/);
+    expect(() => costBrl("muse-spark-1.3", usage, Number.NaN)).toThrow(/não finito/);
+    expect(() => costBrl("muse-spark-1.3", usage, Number.POSITIVE_INFINITY)).toThrow(/não finito/);
     // `Number.MAX_VALUE` de propósito NÃO está aqui: multiplicado por um custo pequeno
-    // (1.000 tokens a US$ 0,20 por 1M) o resultado é 3,6e304 — absurdo, e ainda finito.
-    // Câmbio grande não transborda sozinho; quem transborda é preço grande, e o teto do
-    // preço é da Edge Function (`CONVERSATION_MODEL_PRICE`, teto de 1000 no `index.ts`).
+    // (1.000 tokens a US$ 1,25 por 1M, o preço de muse-spark-1.3) o resultado é ~2,2e305 —
+    // absurdo, e ainda finito. Câmbio grande não transborda sozinho; quem transborda é
+    // preço grande, e o teto do preço é da Edge Function (`CONVERSATION_MODEL_PRICE`,
+    // teto de 100 no `index.ts`, apertado de 1000 em 2026-09-10).
     // Este cinto cobre o que chega aqui: NaN e Infinity vindos do câmbio.
     // E o caminho normal continua normal: um câmbio plausível não é afetado.
-    expect(costBrl("gpt-5.6-luna", usage, 5.4)).toBeGreaterThan(0);
+    expect(costBrl("muse-spark-1.3", usage, 5.4)).toBeGreaterThan(0);
   });
 });
