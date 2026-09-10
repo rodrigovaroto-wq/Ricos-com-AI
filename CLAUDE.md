@@ -53,21 +53,31 @@ produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 
 ## Specialist agent routing table
 
-> **Estes agentes ainda não existem neste repositório.** Não há `.claude/agents/`
-> nem plugin declarado que os forneça. A tabela é o destino pretendido: enquanto
-> ela não for satisfeita, a sessão principal implementa direto, e nada aqui
-> autoriza despachar um agente que não está instalado.
-
-Once they exist, dispatch the specialist that matches the task instead of a generic agent.
+> **Os agentes existem desde 2026-09-10**, em [`.claude/agents/`](.claude/agents/) —
+> dez arquivos, escritos contra este repositório e não genéricos: cada um carrega as
+> armadilhas que já custaram deploy aqui (o espelho byte a byte, o `??` do
+> `BUSINESS_CONFIG`, a cegueira a negação). A triagem que os originou está em
+> [`docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md`](docs/agente-ia/03-pesquisa/05-corpus-de-agentes-agency.md).
+>
+> Despache o especialista que casa com a tarefa em vez de um agente genérico. **Só o
+> `orchestrator` commita** — ver a regra de ondas paralelas.
 
 | Agent | When to use |
 |---|---|
-| `orchestrator` | Coordinates multi-agent or cross-domain tasks by delegating to specialized agents. Use when a task spans multiple domains or needs parallel subagent execution. |
-| `code-reviewer` | Reviews code changes for bugs, security, error handling, and test coverage. Use after editing any source file. |
-| `security-reviewer` | Reviews code for OWASP Top 10 vulnerabilities, hardcoded secrets, broken auth, and dependency CVEs. Use before any merge that touches auth, input handling, or secrets. |
-| `test-engineer` | Writes unit and integration tests with TDD discipline and edge-case coverage. Use after implementing new logic. |
-| `backend-specialist` | Implements API endpoints, server-side logic, and persistence. Use when building or modifying backend services. |
-| `frontend-specialist` | Designs and implements UI components, layouts, and frontend performance. Use when building or refactoring UI. |
+| `orchestrator` | Coordena tarefa multi-domínio, forma as ondas paralelas e é o único que commita. Use quando a tarefa cruza domínios ou tem passos independentes. |
+| `backend-specialist` | Edge Function (Deno), Supabase/Postgres, máquina de estados, régua, `BusinessConfig`. Conhece as duas armadilhas de deploy. |
+| `prompt-engineer` | Prompt da agente e briefing de gate: versionamento, changelog, três casos por comportamento, eval entre modelos. |
+| `conversation-designer` | O que a agente fala em PT-BR: script, objeção (AECR), régua, escalação em três níveis, handoff com briefing. |
+| `pricing-guardian` | Preço, frete, desconto, margem. Recusa promessa que a conta não sustenta, com análise de sensibilidade. |
+| `workflow-architect` | Contrato de handoff, estado observável, governança dos três workflows n8n. |
+| `model-cost-governor` | Teto de custo por lead, fallback de provedor, circuit breaker, troca de modelo com eval. |
+| `test-engineer` | Teste com TDD, cobertura de negação, prova pela porta de produção. Default é NEEDS WORK. |
+| `code-reviewer` | Revisa por correção, erro, cobertura e diff mínimo — não por estilo. Use depois de editar qualquer fonte. |
+| `security-reviewer` | Varre segredo e dado de cliente **antes** de tudo, depois webhook, entrada não confiável e injeção de prompt. |
+
+**Não existe `frontend-specialist`, de propósito.** Este repositório não tem UI: os dois
+`.html` em `docs/operacao/` são relatório estático do operador, não produto. Agente sem
+território é agente que inventa trabalho.
 
 ## Regras adicionais
 
