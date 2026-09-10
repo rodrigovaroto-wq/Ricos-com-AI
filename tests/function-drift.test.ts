@@ -53,7 +53,7 @@ describe("tabela de preços da Edge Function", () => {
   // padrão em `DEFAULT_CONVERSATION_MODEL`. É o padrão que a tabela precifica, e é ele
   // que este teste prende à fonte.
   const alias: Record<string, string> = {
-    DEFAULT_CONVERSATION_MODEL: "gpt-5.6-luna",
+    DEFAULT_CONVERSATION_MODEL: "muse-spark-1.3",
     CHEAP_MODEL: "gemini-3.5-flash-lite",
   };
 
@@ -129,13 +129,44 @@ describe("tabela de preços da Edge Function", () => {
   });
 
   /**
-   * O knob troca de modelo **dentro** da API compatível com OpenAI, e não de provedor —
-   * `callLuna` só fala essa. Apontá-lo para um nome do Gemini mandaria aquele nome para
-   * `api.openai.com`, e a descoberta seria uma cliente por vez.
+   * O knob troca de modelo **dentro** de uma das duas APIs que esta função implementa —
+   * `callLuna` (OpenAI-compatível) e, desde 2026-09-10, `callMuse` (Meta Llama API) — e
+   * não de provedor livre. Apontá-lo para um nome do Gemini mandaria aquele nome para um
+   * host que não o serve, e a descoberta seria uma cliente por vez.
    */
   it("recusa nome de modelo de provedor que esta função não fala", () => {
-    expect(source).toContain("não é servido pela API que esta função fala");
-    expect(source).toContain("^(gemini|claude|grok|qwen|muse|llama|mistral|command|deepseek)");
+    expect(source).toContain("não é servido por nenhuma das duas APIs");
+    expect(source).toContain("que esta função fala (OpenAI-compatível para Luna, Meta Llama API para Muse)");
+    expect(source).toContain("^(gemini|claude|grok|qwen|llama|mistral|command|deepseek)");
+    // `muse` saiu da lista de recusados — é o família que ganhou implementação.
+    expect(source).not.toMatch(/\^\([^)]*\bmuse\b[^)]*\)/);
+  });
+
+  /**
+   * O prefixo `muse` passou a ser servido em 2026-09-10 — `callMuse` fala Meta Llama API.
+   * Este teste prova as duas metades: o nome é aceito (não cai no `foreign`), e a chamada
+   * de rede vai para o host certo, com a chave certa.
+   */
+  it("aceita modelos muse e chama o host da Meta, não o da OpenAI", () => {
+    expect(source).toContain("const MUSE_FAMILY = /^muse/i;");
+    expect(source).toContain("const callMuse = async (");
+    expect(source).toContain('fetch("https://api.llama.com/v1/chat/completions"');
+    expect(source).toContain("META_KEY");
+  });
+
+  /**
+   * A recusa por falta de preço, e a proteção contra gastar token antes dela, valem para
+   * `callMuse` tanto quanto para `callLuna` — a guarda foi escrita uma vez e teria sido
+   * fácil esquecer de repetir na segunda função.
+   */
+  it("recusa Muse sem preço, antes de gastar token — mesma guarda de callLuna", () => {
+    const muse = source.indexOf("const callMuse = async (");
+    expect(muse).toBeGreaterThan(-1);
+    const fetchAt = source.indexOf('fetch("https://api.llama.com', muse);
+    const throwAt = source.indexOf("throw new ModelConfigError(MODEL_CONFIG_ERROR)", muse);
+    expect(fetchAt).toBeGreaterThan(-1);
+    expect(throwAt).toBeGreaterThan(muse);
+    expect(throwAt).toBeLessThan(fetchAt);
   });
 
   /**
@@ -151,6 +182,9 @@ describe("tabela de preços da Edge Function", () => {
   it("não deixa credencial sair em texto de erro", () => {
     expect(source).toContain("const redactKeys =");
     expect(source).toContain("detail: redactKeys(");
+    // META_KEY entrou com callMuse em 2026-09-10 — a chave da Meta viajaria em texto de
+    // erro do mesmo jeito que a do Gemini já viajou antes deste cinto existir.
+    expect(source).toContain("[GEMINI_KEY, OPENAI_KEY, META_KEY, SERVICE_KEY]");
   });
 
   it("não cobra por um modelo que a fonte não conhece", () => {

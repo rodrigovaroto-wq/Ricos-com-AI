@@ -15,3 +15,4 @@ salvamento e a política de crescimento.
 - [O n8n achata o status HTTP](n8n-achata-o-status.md) — a recusa da Edge Function viaja no corpo (`status: "error"`) e num e-mail; o status HTTP é 200 em qualquer desfecho, de propósito.
 - [`BUSINESS_CONFIG` sobrescreve o fallback inteiro](business-config-sobrescreve.md) — chave nova nasce ausente em produção; todo campo novo tem de ser opcional com o padrão certo.
 - [O frete do antecipado não existe](frete-do-antecipado-nao-existe.md) — a oferta da Coinzz vem com `settingsFreight: []` nos 27 estados: o checkout cobra R$ 0,00 dela, e os R$ 15 a R$ 84 documentados são custo do operador, não preço da cliente.
+- [Mensagem de erro quebrada em teste](mensagem-de-erro-quebrada-em-teste.md) — `function-drift.test.ts` faz `.toContain` no texto bruto do arquivo; uma frase escrita em duas linhas de template literal quebra o teste na quebra de linha, mesmo com a string certa em runtime.

@@ -65,12 +65,15 @@ const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
+// Meta's Llama API — OpenAI-compatible request/response shape, different host and
+// key. `callMuse` is the only function that reads this.
+const META_KEY = Deno.env.get("META_API_KEY") ?? "";
 const USD_TO_BRL = Number(Deno.env.get("USD_TO_BRL") ?? "5.4");
 
 /** Nenhuma credencial sai desta função em texto de erro. Ver `modelFailure`. */
 const redactKeys = (text: string): string => {
   let out = text;
-  for (const secret of [GEMINI_KEY, OPENAI_KEY, SERVICE_KEY]) {
+  for (const secret of [GEMINI_KEY, OPENAI_KEY, META_KEY, SERVICE_KEY]) {
     if (secret) out = out.replaceAll(secret, "[redacted]");
   }
   return out;
@@ -82,25 +85,38 @@ const redactKeys = (text: string): string => {
  * whole time — and this was a constant, so there was no way out without a deploy.
  * `CLAUDE.md` says it in one line: the provider is configuration, not architecture.
  *
- * What this knob does and does NOT do, because the difference is expensive:
- * it selects a model **on the OpenAI-compatible endpoint**, which is the only API
- * `callLuna` speaks. It is not a provider switch. Pointing it at `gemini-3.5-flash-lite`
- * sends that name to `api.openai.com`, which answers "the model does not exist" — so the
- * name is checked here, at load, against the providers whose API this function does not
- * implement, instead of being discovered one customer at a time.
+ * The default was `gpt-5.6-luna` through v32. **Decided 2026-09-10: Muse Spark 1.3**,
+ * inside the R$ 0,50/lead ceiling with the most Intelligence Index headroom of any
+ * candidate that fit it — see `HANDOFF.md` §Frente 5. Gemini is untouched; this is the
+ * conversation model only, and the eval that section calls for (real conversations,
+ * measuring conversion and gate refusal, not benchmark score) has not been run — this
+ * swap ships the mechanism, not the proof.
  *
- * The default stays `gpt-5.6-luna`, so an unset — or blank — variable behaves exactly as
- * v30 does.
+ * What this knob does and does NOT do, because the difference is expensive: it selects a
+ * model on **one of two specific APIs**, and only two — `callLuna` speaks the
+ * OpenAI-compatible endpoint, `callMuse` speaks Meta's Llama API endpoint (also
+ * OpenAI-request-shaped, different host and key). It is not an open provider switch.
+ * Pointing it at `gemini-3.5-flash-lite` would send that name to whichever of those two
+ * hosts the prefix resolves to, which answers "the model does not exist" — so the name
+ * is checked here, at load, against every provider this function does not implement,
+ * instead of being discovered one customer at a time.
+ *
+ * The default stays the model above, so an unset — or blank — variable behaves exactly
+ * as intended: no environment variable, no drift between what the operator believes is
+ * running and what is.
  */
-const DEFAULT_CONVERSATION_MODEL = "gpt-5.6-luna";
+const DEFAULT_CONVERSATION_MODEL = "muse-spark-1.3";
 // `Deno.env.get` returns "" for a variable saved blank, and `??` only falls through on
 // `undefined`. A trailing space from a panel copy-paste is the same class of accident.
 const CONVERSATION_MODEL =
   (Deno.env.get("CONVERSATION_MODEL") ?? "").trim() || DEFAULT_CONVERSATION_MODEL;
 const CHEAP_MODEL = "gemini-3.5-flash-lite";
+// Which host and key `CONVERSATION_MODEL` resolves to — the one place that decides it,
+// so `callLuna`/`callMuse` and the provider label recorded in `llm_calls` never disagree.
+const MUSE_FAMILY = /^muse/i;
 /** USD per 1M tokens. Mirrors src/llm/pricing.ts. */
 const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
-  [DEFAULT_CONVERSATION_MODEL]: { in: 0.2, out: 1.2, cached: 0.02 },
+  [DEFAULT_CONVERSATION_MODEL]: { in: 1.25, out: 4.25 },
   [CHEAP_MODEL]: { in: 0.3, out: 2.5 },
 };
 
@@ -111,22 +127,24 @@ const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
  * would never be filed, and the sweep would stop and then fire up to 50 overdue touches
  * at once when it came back, because it has no staleness cutoff. Only the conversation
  * depends on this model, so only the conversation fails: the error is held here and
- * thrown inside `callLuna`.
+ * thrown inside `callLuna`/`callMuse`.
  */
 let MODEL_CONFIG_ERROR: string | null = null;
 
 if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
-  // Names this function cannot serve, whatever price comes with them. Checking the name
-  // is a heuristic, but it catches the exact misuse the comment above used to invite,
-  // and the cost of missing it is not a failed turn — see `modelFailure`.
-  const foreign = /^(gemini|claude|grok|qwen|muse|llama|mistral|command|deepseek)/i;
+  // Names this function cannot serve, whatever price comes with them. `muse` came off
+  // this list on 2026-09-10, when `callMuse` started speaking Meta's Llama API — every
+  // other prefix here is still refused because no provider for it exists yet. Checking
+  // the name is a heuristic, but it catches the exact misuse the comment above used to
+  // invite, and the cost of missing it is not a failed turn — see `modelFailure`.
+  const foreign = /^(gemini|claude|grok|qwen|llama|mistral|command|deepseek)/i;
   const rawPrice = (Deno.env.get("CONVERSATION_MODEL_PRICE") ?? "").trim();
 
   if (foreign.test(CONVERSATION_MODEL)) {
     MODEL_CONFIG_ERROR =
-      `CONVERSATION_MODEL=${CONVERSATION_MODEL} não é servido pela API que esta função fala. ` +
-      `A conversa chama o endpoint compatível com OpenAI; trocar de provedor é código, não ` +
-      `variável de ambiente`;
+      `CONVERSATION_MODEL=${CONVERSATION_MODEL} não é servido por nenhuma das duas APIs ` +
+      `que esta função fala (OpenAI-compatível para Luna, Meta Llama API para Muse). ` +
+      `Trocar de provedor é código, não variável de ambiente`;
   } else if (!rawPrice) {
     MODEL_CONFIG_ERROR =
       `CONVERSATION_MODEL=${CONVERSATION_MODEL} sem CONVERSATION_MODEL_PRICE: um modelo novo ` +
@@ -347,6 +365,43 @@ const callLuna = async (
   if (body.error) throw new Error(`openai: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
   if (!text) throw new Error("openai: resposta sem conteúdo");
+  const usage = body.usage ?? {};
+  const inTok = usage.prompt_tokens ?? 0;
+  const outTok = usage.completion_tokens ?? 0;
+  const cachedTok = usage.prompt_tokens_details?.cached_tokens ?? 0;
+  return {
+    text: text as string,
+    inTok,
+    outTok,
+    cachedTok,
+    costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
+  };
+};
+
+/**
+ * Meta's Llama API — OpenAI-request-shaped, different host and key. Added 2026-09-10
+ * alongside the swap to Muse Spark 1.3 (`MUSE_FAMILY`). Unlike `callLuna`, Muse Spark is
+ * not documented as a reasoning model, so there is no completion-token floor here —
+ * `max_tokens` is the plain output budget, not a reasoning-plus-output one.
+ */
+const callMuse = async (
+  system: string,
+  history: Array<{ role: "user" | "assistant"; content: string }>,
+) => {
+  if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
+  const response = await fetch("https://api.llama.com/v1/chat/completions", {
+    method: "POST",
+    headers: { Authorization: `Bearer ${META_KEY}`, "Content-Type": "application/json" },
+    body: JSON.stringify({
+      model: CONVERSATION_MODEL,
+      messages: [{ role: "system", content: system }, ...history],
+      max_tokens: 900,
+    }),
+  });
+  const body = await response.json();
+  if (body.error) throw new Error(`meta: ${body.error.message}`);
+  const text = body.choices?.[0]?.message?.content;
+  if (!text) throw new Error("meta: resposta sem conteúdo");
   const usage = body.usage ?? {};
   const inTok = usage.prompt_tokens ?? 0;
   const outTok = usage.completion_tokens ?? 0;
@@ -1481,6 +1536,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
   // model and it writes the message again. Silence and "the operator will handle it"
   // are what this loop exists to avoid; both are last resorts, not first answers.
+  // Which host serves CONVERSATION_MODEL, resolved once — used for both the call and
+  // the provider label written to `llm_calls`, so the two never disagree.
+  const conversationProvider = MUSE_FAMILY.test(CONVERSATION_MODEL) ? "meta" : "openai";
+  const callConversationModel = conversationProvider === "meta" ? callMuse : callLuna;
   let attempt: ModelCall;
   let gates: ReturnType<typeof runGates>;
   let rewritesUsed = 0;
@@ -1489,7 +1548,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   while (true) {
     try {
-      attempt = await callLuna(
+      attempt = await callConversationModel(
         // The correction rides in the system prompt, so the vetoed text never enters
         // the conversation history the customer's next turn is built from.
         correction === null
@@ -1504,7 +1563,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     await recordCall(
       conversation.id,
       rewritesUsed === 0 ? "reply" : "rewrite",
-      "openai",
+      conversationProvider,
       CONVERSATION_MODEL,
       attempt,
     );

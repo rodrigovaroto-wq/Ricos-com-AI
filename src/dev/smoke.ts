@@ -6,7 +6,7 @@
  */
 import { createSeam, type CallRecord } from "@/llm/seam.js";
 import { geminiProvider } from "@/llm/providers/gemini.js";
-import { openAiProvider } from "@/llm/providers/openai.js";
+import { metaProvider } from "@/llm/providers/meta.js";
 import { runGates } from "@/agent/guardrails.js";
 import { costCeilingBrl, type BusinessConfig } from "@/config/business.js";
 
@@ -40,7 +40,7 @@ const config: BusinessConfig = JSON.parse(
 const records: CallRecord[] = [];
 const seam = createSeam({
   providers: {
-    conversation: openAiProvider({ apiKey: process.env["OPENAI_API_KEY"]!, model: "gpt-5.6-luna" }),
+    conversation: metaProvider({ apiKey: process.env["META_API_KEY"]!, model: "muse-spark-1.3" }),
     cheap: geminiProvider({ apiKey: process.env["GEMINI_API_KEY"]!, model: "gemini-3.5-flash-lite" }),
   },
   usdToBrl: 5.4,

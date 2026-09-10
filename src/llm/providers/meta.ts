@@ -1,20 +1,14 @@
 import type { LlmRequest, Provider, ProviderResult } from "../seam.js";
 
 /**
- * OpenAI chat completions. Verified against the account on 2026-09-06, when
- * gpt-5.6-luna was the conversation model — replaced 2026-09-10 by muse-spark-1.3
- * (`src/llm/providers/meta.ts`, called from `src/dev/smoke.ts`), so nothing calls this
- * file on the live dev path today. Kept because it is a working, generic
- * OpenAI-compatible provider, not because anything still uses it.
- *
- * gpt-5.6-luna — and any other reasoning model plugged in here — spends part of the
- * completion budget on reasoning tokens the caller never sees. A tight
- * `max_completion_tokens` does not truncate the answer — it returns an error with no
- * content at all, which is why the floor below exists.
+ * Meta's Llama API — the endpoint that serves Muse Spark 1.3, decided 2026-09-10 to
+ * replace gpt-5.6-luna as the conversation model (see HANDOFF.md §Frente 5). The
+ * request and response shape is OpenAI-compatible, so this file mirrors
+ * `providers/openai.ts` closely; what differs is the host, the credential, and that
+ * Muse Spark is not documented as a reasoning model, so it carries none of
+ * `openai.ts`'s completion-token floor.
  */
-const MIN_COMPLETION_TOKENS = 600;
-
-export const openAiProvider = (options: {
+export const metaProvider = (options: {
   apiKey: string;
   model: string;
   fetchImpl?: typeof fetch;
@@ -22,7 +16,7 @@ export const openAiProvider = (options: {
   model: options.model,
   async complete(request: LlmRequest): Promise<ProviderResult> {
     const doFetch = options.fetchImpl ?? fetch;
-    const response = await doFetch("https://api.openai.com/v1/chat/completions", {
+    const response = await doFetch("https://api.llama.com/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${options.apiKey}`,
@@ -34,7 +28,7 @@ export const openAiProvider = (options: {
           { role: "system", content: request.system },
           ...request.messages.map((m) => ({ role: m.role, content: m.content })),
         ],
-        max_completion_tokens: Math.max(request.maxOutputTokens ?? 0, MIN_COMPLETION_TOKENS),
+        max_tokens: request.maxOutputTokens ?? 900,
       }),
     });
 
@@ -48,16 +42,15 @@ export const openAiProvider = (options: {
       };
     };
 
-    if (body.error) throw new Error(`openai: ${body.error.message}`);
+    if (body.error) throw new Error(`meta: ${body.error.message}`);
     const text = body.choices?.[0]?.message.content;
-    if (!text) throw new Error("openai: resposta sem conteúdo");
+    if (!text) throw new Error("meta: resposta sem conteúdo");
 
     return {
       text,
       usage: {
         inputTokens: body.usage?.prompt_tokens ?? 0,
         outputTokens: body.usage?.completion_tokens ?? 0,
-        // Reasoning tokens are billed as output and are already inside completion_tokens.
         cachedTokens: body.usage?.prompt_tokens_details?.cached_tokens ?? 0,
       },
     };
