@@ -12,7 +12,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > repositório é a fonte**.
 
 > Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
-> [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado.
+> [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado. **Três
+> decisões novas na mesma tarde ainda não estão no código nem no secret** — preço e frete
+> do antecipado mudam de novo, e o modelo de conversa tem candidato de troca. Ver
+> [§Decisões de 2026-09-10](#decisões-de-2026-09-10-preço-frete-e-modelo-de-conversa) e
+> [§Frente 4](#frente-4--preço-frete-e-desconto-do-antecipado-decisão-de-2026-09-10).
 
 ---
 
@@ -60,8 +64,8 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 | Edge Function `turn` | **v30**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
 | Testes | **2794**, lint e typecheck verdes; CI roda os quatro mais `deno check` |
-| Preço | **R$ 129,90 nos dois caminhos** — desconto do antecipado é zero |
-| Frete | **grátis para a cliente nos dois**. O antecipado custa R$ 15,00 à operação; o COD, zero |
+| Preço | R$ 129,90 nos dois caminhos, desconto zero — **⚠ decidido mudar em 10/09, ver Frente 4, nada implementado ainda** |
+| Frete | Grátis pra cliente nos dois, R$ 15,00 fixo pago pela operação no antecipado — **⚠ idem** |
 | Prazos | **1 a 3 dias** na entrega · **"varia por região, em média 5 dias úteis"** no antecipado |
 | Consulta de região | dentro da agente — ela pede o CEP e sabe a cobertura antes de falar |
 | Webhook de venda | **no ar**: Logzz e Coinzz → `job: "order"` → mata o silêncio, arma o pós-pedido |
@@ -102,15 +106,25 @@ teste. Mexeu num, copia no outro **antes** de rodar o teste.
 
 ### As decisões de negócio que não se reabrem
 
-1. **Um preço só: R$ 129,90 nos dois caminhos.** O antecipado paga R$ 15,00 de frete que o
-   COD não paga, então ao mesmo preço rende R$ 48,35 contra R$ 63,35 do COD. **Nenhum
-   desconto salvava** — mesmo a zero perde R$ 4,00, e só empataria com frustração de entrega
-   acima de 20,5%, contra os 13–16% que a própria Coinzz documenta.
+> **Os itens 1 e 3 foram reabertos em 2026-09-10** — ver
+> [§Decisões de 2026-09-10](#decisões-de-2026-09-10-preço-frete-e-modelo-de-conversa).
+> Ficam aqui porque o raciocínio por trás deles continua verdadeiro e é exatamente a tensão
+> que a decisão nova reabre de olhos abertos — não é engano, é escolha consciente do
+> operador. Onde os dois divergirem, a seção de 10/09 vence.
+
+1. ~~**Um preço só: R$ 129,90 nos dois caminhos.**~~ **Reaberto em 2026-09-10 — volta a
+   existir desconto no antecipado.** O raciocínio que zerou o desconto em 09-09 continua de
+   pé e não foi refutado, só aceito como custo consciente: o antecipado paga frete que o COD
+   não paga, então ao mesmo preço rende R$ 48,35 contra R$ 63,35 do COD, e mesmo desconto
+   zero perdia R$ 4,00 contra o COD. A diferença agora é que **quem paga o frete extra é a
+   cliente, não mais a operação** — o que muda a conta original. Ver Frente 4.
 2. **O antecipado não é opção, é saída.** A agente só o apresenta quando o COD não alcança:
    praça sem cobertura, ou tamanho sem entrega naquela região. Onde o COD chega, existe um
    preço só e nenhuma escolha a fazer — uma pergunta a mais é uma decisão a mais, e uma
    decisão a mais é uma venda a menos.
-3. **A cliente não paga frete em nenhum dos dois.**
+3. ~~**A cliente não paga frete em nenhum dos dois.**~~ **Reaberto em 2026-09-10 — ela
+   volta a pagar frete no antecipado**, calculado por região dentro do checkout da Coinzz.
+   No COD continua embutido no preço, como sempre foi. Ver Frente 4.
 4. **O prazo do antecipado não é faixa.** "Varia por região, em média 5 dias úteis",
    **sempre** dizendo que varia. O gate recusa a faixa, o número errado e o número certo
    dito como prazo fixo.
@@ -164,12 +178,42 @@ Seis coisas, todas verificadas pela porta de produção e não por teste:
 6. **Verificar pela porta de produção.** Sonda contra a Edge Function prova o código, não o
    caminho. O webhook do n8n já devolveu 200 sem criar conversa nenhuma por um dia inteiro.
 
+### Decisões de 2026-09-10: preço, frete e modelo de conversa
+
+Quatro decisões do operador na mesma tarde, tomadas fora do código — **nada abaixo está
+implementado.** `config/business.example.json`, o secret `BUSINESS_CONFIG` e
+`supabase/functions/turn/index.ts` continuam exatamente como a v30 descreve. O roteiro
+exato de implementação está na [Frente 4](#frente-4--preço-frete-e-desconto-do-antecipado-decisão-de-2026-09-10)
+(preço e frete) e no item 1 da [Frente 3](#frente-3--dívidas-técnicas-nomeadas) (modelo).
+
+1. **Remover o frete fixo de R$ 15,00.** Deixa de existir um valor único que a operação
+   paga por venda no antecipado. `LABEL_COST_BRL` em `availability.ts` fica obsoleto como
+   número de custo — só continua existindo como registro histórico do que a margem sheet
+   lia até aqui.
+2. **O frete do antecipado passa a ser da cliente, calculado no checkout.** Não é um número
+   novo fixo — é a Coinzz/Logzz calculando o frete real por região na hora do checkout, do
+   jeito que `CheckoutPrices.prepayBrl` (`src/order/checkout.ts:47`) **já está documentado
+   para funcionar**: "Product only. Freight is calculated separately inside the checkout."
+   O COD não muda — frete continua embutido no preço, como desde sempre.
+3. **Desconto do antecipado volta a 10%**, sobre os R$ 129,90 publicados:
+   `prepayBrl = 129.90 × 0.90 = R$ 116,91`, `prepayDiscountPercent = 10`. Não é o 15% de
+   antes de 09-09 (R$ 110,41) — é um número novo, mais conservador, porque agora ela paga
+   frete à parte e o desconto de produto sozinho não pode fingir que cobre isso.
+4. **Modelo de conversa: candidato a trocar de `gpt-5.6-luna` para Meta Muse Spark 1.3**
+   (`$1,25/$4,25` por milhão de tokens). Dentro do teto de **R$ 0,50 por lead / 20
+   mensagens** definido nesta sessão, é o modelo de maior Intelligence Index (53,0) com
+   folga real de margem (R$ 0,32 de custo estimado, 36% abaixo do teto) — Grok 4.6 e Qwen3.8
+   Max empatam em score mas encostam no teto (R$ 0,49, 3% de folga), risco demais pra uma
+   estimativa que já é aproximada. **Não é decisão fechada de troca — é o candidato a
+   testar.** Ver ressalva no item 1 da Frente 3.
+
 ---
 
 ## O PLANO DAQUI PRA FRENTE
 
-Quatro frentes, na ordem em que destravam dinheiro. **Nada na frente 2 vale a pena antes da
-frente 1 estar de pé**, e a frente 0 bloqueia as duas.
+Cinco frentes, na ordem em que destravam dinheiro. **Nada na frente 2 vale a pena antes da
+frente 1 estar de pé**, e a frente 0 bloqueia as duas. A frente 4 é independente das outras
+quatro — pode andar em paralelo, não trava nem é travada por elas.
 
 ### Frente 0 — o que trava hoje (operador, não código)
 
@@ -252,6 +296,15 @@ Nenhuma trava venda hoje. Todas mordem depois.
    **não existe plano B para uma queda da OpenAI sem deploy** — foi exatamente o que
    aconteceu em 09/09. Virar variável de ambiente é pequeno; a decisão de *qual* modelo
    conversa com a cliente é do operador.
+
+   **Candidato decidido nesta sessão: Meta Muse Spark 1.3**, dentro do teto de R$ 0,50 por
+   lead / 20 mensagens (ver §Decisões de 2026-09-10). **Não troque direto em produção.**
+   Ordem: (a) virar `CONVERSATION_MODEL` variável de ambiente, com `gpt-5.6-luna` como
+   padrão — reversível sem deploy; (b) rodar eval com conversas reais do projeto
+   comparando Luna × Muse Spark 1.3, medindo taxa de conversão e quantos gates recusam,
+   não Intelligence Index; (c) só então trocar o padrão. O ponto fraco da recomendação é
+   o alinhamento de segurança da Meta em atendimento comercial — é exatamente o que o
+   eval do passo (b) testa.
 2. **`firstReplyAt` usa a hora local do runtime**, e o runtime da Edge Function é UTC.
    `openHour: 6` viraria 03:00 em São Paulo. Está latente porque a função não é chamada em
    produção — **deixa de ser latente no dia em que o canal a chamar**. O conserto já existe
@@ -264,6 +317,67 @@ Nenhuma trava venda hoje. Todas mordem depois.
 4. **`prepayDaysMin`/`prepayDaysMax` continuam no tipo, ausentes de propósito.** Existem só
    para o gate poder recusar uma faixa contra uma configurada. Não preencha.
 
+### Frente 4 — preço, frete e desconto do antecipado (decisão de 2026-09-10)
+
+O código já foi escrito pensando nesse cenário — a maior parte é **trocar valor de
+config, não escrever lógica nova**. Ordem exata:
+
+1. **`config/business.example.json`** — três campos:
+   - `prices.prepayBrl`: `129.9` → `116.91`
+   - `prices.prepayDiscountPercent`: `0` → `10`
+   - `delivery.freeShipping`: `true` → `false`
+2. **`BUSINESS_CONFIG` no Supabase** — os mesmos três campos, **só o operador consegue
+   editar** (o secret não é legível pela API de gerência). Sem isso a produção não muda —
+   ver a armadilha do `??` sobre a variável inteira.
+3. **Nada muda em `src/order/checkout.ts`.** `amountFor` já lê `prepayBrl` como "produto
+   só, frete calculado à parte no checkout" — é a assinatura do tipo `CheckoutPrices`
+   desde que foi escrito. O `freeShipping: false` também não é comportamento novo: o gate
+   `shipping_promise` em `src/agent/guardrails.ts:809-829` já tem a branch pronta e **já
+   testada** (`tests/guardrails.test.ts:549` — "com freeShipping desligado, a regra antiga
+   volta inteira") para exatamente essa combinação: COD com frete embutido no preço,
+   antecipado com frete calculado por região dentro do checkout, nunca "frete grátis" nos
+   dois. O `price_promise` gate (`guardrails.ts:385-431`) também já lê `prepayBrl` e
+   `prepayDiscountPercent` direto do config para decidir o que é citável — nenhum dos dois
+   precisa de código novo, só do valor certo entrando.
+4. **Comentários que ficam mentindo se não forem atualizados** (não têm efeito em teste,
+   mas confundem a próxima sessão):
+   - `src/agent/guardrails.ts:791-808` — o bloco de comentário explica a troca de 09-09
+     ("this gate used to forbid... now forbids denying"). Precisa de um terceiro parágrafo
+     contando que a bandeira voltou a virar, e por quê.
+   - `src/agent/availability.ts:244-252` — `LABEL_COST_BRL` está documentado como "she
+     pays nothing for it on either path", que deixa de ser verdade no antecipado.
+   - Espelhar as duas mudanças em `supabase/functions/turn/guardrails.ts` e
+     `supabase/functions/turn/availability.ts` — são cópias byte a byte, `pnpm test`
+     quebra sozinho se esquecer (`tests/function-drift.test.ts`).
+5. **Teste novo que hoje não existe:** a combinação `freeShipping: false` **junto com**
+   `prepayDiscountPercent: 10` (os testes atuais cobrem cada campo separado, nunca os dois
+   como a produção vai rodar). Confirma que a agente cita `R$ 12,99` de economia e `10%`
+   de desconto sem citar frete grátis no antecipado.
+6. **O item que precisa da sua decisão antes do deploy, não depois:** o gate
+   `price_promise` vai liberar **"você economiza R$ 12,99 no antecipado"** — é a
+   diferença aritmética entre `codBrl` e `prepayBrl` (129,90 − 116,91), **sem descontar o
+   frete que ela paga a mais**. Se o frete real cobrado no checkout for maior que R$ 12,99
+   (o que é o caso normal — R$ 15 a R$ 40 conforme a região, pela própria tabela da Logzz
+   documentada neste arquivo), **a cliente paga mais no antecipado apesar de ouvir que
+   está economizando.** É exatamente o tipo de meia-verdade que os gates deste projeto
+   existem para impedir, e é a mesma armadilha econômica que motivou zerar o desconto em
+   09-09 — só que agora do lado da promessa, não do lado da margem. Três saídas, nenhuma
+   escolhida ainda:
+   - **A.** Tirar a economia de R$ 12,99 da lista de valores citáveis no `price_promise`
+     (deixar só o desconto de 10% como número, nunca "economiza R$X").
+   - **B.** Manter a citação, mas só o operador decide isso porque é uma opção comercial:
+     aceitar que a frase é otimista sabendo que nem sempre é verdade.
+   - **C.** Citar a economia só combinada com uma ressalva ("mais frete, calculado no
+     checkout") — mais fiel, mais difícil de fazer o guardrail aceitar sem soar burocrático.
+7. **Verificar antes de deployar:** `pnpm test && pnpm typecheck && pnpm typecheck:function`,
+   depois sonda de produção nos dois caminhos confirmando R$ 116,91 + 10% no antecipado,
+   R$ 129,90 sem menção a frete grátis no COD, e frete calculado no checkout (nunca um
+   valor fixo) no antecipado.
+8. **Documentos de negócio que citam "frete grátis nos dois" ou "preço único" como fato
+   consolidado** — `docs/documentacao/contexto-negocio/`, `docs/agente-ia/06-script/` —
+   não foram varridos nesta sessão. Buscar por "frete grátis", "R\$ 129,90" e "desconto"
+   antes de considerar essa frente fechada.
+
 ### O que NÃO fazer
 
 - **Não pular, desabilitar ou isolar teste** para ficar verde.
@@ -272,6 +386,9 @@ Nenhuma trava venda hoje. Todas mordem depois.
 - **Não editar um dos espelhos sem editar o outro.**
 - **Não criar campo obrigatório em `BusinessConfig`.** Ver armadilha 1.
 - **Não mandar prazo do antecipado como faixa**, nem a média sem dizer que varia.
+- **Não deployar a Frente 4 sem decidir o item 6** (a economia de R$ 12,99 citável sem
+  descontar o frete real) — é meia-verdade de preço, exatamente o que os gates existem
+  pra impedir.
 - **Não reaproveitar o [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22)** —
   merjado em 2026-09-09. Trabalho novo recomeça a branch a partir da `main`.
 
