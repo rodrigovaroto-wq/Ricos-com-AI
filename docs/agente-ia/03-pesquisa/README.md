@@ -1,4 +1,4 @@
-# Pesquisa — 8 referências open source, lidas em código
+# Pesquisa — 8 referências open source lidas em código, mais um corpus de agentes
 
 Todos os repositórios foram **clonados e lidos em disco** (1,0 GB, 7,4 milhões de linhas).
 Cada afirmação aponta arquivo e, quando aplicável, linha — para abrir no GitHub e conferir.
@@ -9,6 +9,7 @@ Cada afirmação aponta arquivo e, quando aplicável, linha — para abrir no Gi
 | [`02-analise-dos-8-repositorios.md`](02-analise-dos-8-repositorios.md) | Ficha técnica de cada um, 40 características, fluxo de venda reconstruído, tabela comparativa, matriz contra o nosso projeto |
 | [`03-extracao-por-necessidade.md`](03-extracao-por-necessidade.md) | Reorganização por necessidade nossa (N1–N8) e correções à primeira passagem |
 | [`04-varredura-profunda.md`](04-varredura-profunda.md) | Varredura mecânica sobre o corpus inteiro; 11 peças novas |
+| [`05-corpus-de-agentes-agency.md`](05-corpus-de-agentes-agency.md) | Nona referência, de outra natureza: os 209 agentes de prompt do `agency-agents-app`, triados em quatro tiers de utilidade e com as regras críticas a enxertar |
 
 O lado "campanha" (Meta Ads, Conversions API, atribuição) não fica aqui — ver
 [`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/02-analise-meta-ads-e-conversoes.md).
@@ -44,3 +45,4 @@ dinheiro é ganho ou perdido é território sem mapa.
 | Mastra | Apache-2.0, **exceto `ee/`** | `ee/` é licença comercial |
 | n8n | Sustainable Use License (fair-code) | self-host permitido; revender como serviço não |
 | Chatwoot | MIT no núcleo, **exceto `enterprise/`** | Captain e auditoria são comerciais — ler não é copiar |
+| agency-agents-app | MIT | livre, com atribuição — e o reaproveitamento é textual: são arquivos de prompt, não código |

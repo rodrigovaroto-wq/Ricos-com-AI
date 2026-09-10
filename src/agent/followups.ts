@@ -34,10 +34,10 @@ const DAY = 24 * HOUR;
  * 6 meant 03:00 — the very hour the next line warns about. Declared locally, like the
  * config types, so this file keeps zero imports and mirrors byte-for-byte.
  */
-const BUSINESS_TZ = "America/Sao_Paulo";
+export const BUSINESS_TZ = "America/Sao_Paulo";
 
 /** How far `timeZone` sits from UTC at that instant, in minutes. Survives DST. */
-const offsetMinutes = (at: Date, timeZone: string): number => {
+export const offsetMinutes = (at: Date, timeZone: string): number => {
   const asUtc = new Date(at.toLocaleString("en-US", { timeZone: "UTC" }));
   const asLocal = new Date(at.toLocaleString("en-US", { timeZone }));
   return (asLocal.getTime() - asUtc.getTime()) / 60000;

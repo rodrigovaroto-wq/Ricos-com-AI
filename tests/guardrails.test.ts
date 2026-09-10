@@ -554,6 +554,85 @@ describe("frete grátis é verdade nos dois caminhos", () => {
 });
 
 /**
+ * A configuração que a produção passa a rodar em 2026-09-10, com os três campos juntos:
+ * frete da cliente no antecipado, 10% de desconto e R$ 116,91. Os testes acima cobrem
+ * cada campo isolado — nunca a combinação, que é a única que existe de verdade.
+ */
+describe("preço, desconto e frete depois de 2026-09-10", () => {
+  const config0910: typeof config = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+    delivery: { ...config.delivery, freeShipping: false },
+  };
+  const cod = ctx({ config: config0910 });
+  const prepay = ctx({ config: config0910, paymentPath: "prepay" as const });
+
+  it("os 10% do antecipado são citáveis", () => {
+    expect(blocked(runGates("No antecipado você tem 10% de desconto.", prepay)))
+      .not.toContain("price_promise");
+  });
+
+  it("a economia de R$ 12,99 é citável", () => {
+    // codBrl − prepayBrl = 129,90 − 116,91. O gate admite a diferença entre os dois
+    // preços como valor citável; se ela deveria ser citada sem descontar o frete real
+    // é decisão comercial em aberto, e este teste documenta o comportamento de hoje.
+    expect(blocked(runGates("Você economiza R$ 12,99 pagando antecipado.", prepay)))
+      .not.toContain("price_promise");
+  });
+
+  it("frete grátis não passa em nenhum dos dois caminhos", () => {
+    expect(blocked(runGates("O frete é grátis!", cod))).toContain("shipping_promise");
+    expect(blocked(runGates("No antecipado o frete é grátis também.", prepay)))
+      .toContain("shipping_promise");
+  });
+
+  /**
+   * O furo que a revisão pegou: a branch de `freeShipping: false` fazia `return` cedo e
+   * levava embora TODA a regra de valor de frete. Sobrava o `price_promise` travando
+   * número — e ele só verifica se o valor é um dos preços configurados, então R$ 129,90,
+   * R$ 116,91 e a própria economia de R$ 12,99 passavam **como se fossem frete**. Um
+   * preço configurado lido como frete continua sendo mentira: nenhuma das duas ofertas
+   * tem valor de frete citável (no COD está dentro do preço, no antecipado é calculado
+   * por região dentro do checkout).
+   */
+  it("nenhum valor pode ser atribuído a frete, nem um preço configurado", () => {
+    for (const frase of [
+      "O frete do antecipado é R$ 12,99.",
+      "O frete fica R$ 116,91.",
+      "O frete varia por região, fica em torno de R$ 12,99.",
+      "O frete é R$ 19,90.",
+      "São R$ 24,98 de frete.",
+    ]) {
+      expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+    }
+  });
+
+  it("mas a moldura que o briefing pede continua liberada", () => {
+    // Estas são as frases que a agente TEM de poder dizer neste mundo. Vetá-las manda
+    // toda resposta correta para o laço de reescrita e de lá para o handoff.
+    for (const frase of [
+      "O frete já está dentro do preço: são R$ 129,90 na entrega.",
+      "Na entrega o frete vem embutido, você paga R$ 129,90 na porta.",
+      "No antecipado o frete é calculado por região dentro do checkout.",
+      "O valor é R$ 116,91 e o frete é calculado no checkout conforme a sua região.",
+      // Preço do produto com o frete à parte, valor do frete não dito: é exatamente a
+      // frase honesta do antecipado neste mundo, e o teste vizinho já a exigia.
+      "São R$ 129,90 mais o frete.",
+    ]) {
+      expect(blocked(runGates(frase, frase.includes("antecipado") || frase.includes("116") ? prepay : cod)), frase)
+        .not.toContain("shipping_promise");
+    }
+  });
+
+  it("o briefing manda dizer frete embutido no COD e calculado no checkout", () => {
+    const linha = gateBriefing(config0910).find((b) => b.includes("frete"))!;
+    expect(linha).toContain('Nunca diga "frete grátis"');
+    expect(linha).toContain("já está dentro do preço");
+    expect(linha).toContain("calculado por região dentro do checkout");
+  });
+});
+
+/**
  * A brecha que a sonda adversarial pegou depois da inversão: "o frete depende da sua
  * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
  * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.

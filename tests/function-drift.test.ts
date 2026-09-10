@@ -49,8 +49,11 @@ describe("tabela de preços da Edge Function", () => {
   };
 
   // Os nomes das constantes na função, resolvidos aqui para o modelo que representam.
+  // `CONVERSATION_MODEL` deixou de ser literal em 2026-09-10 — lê do ambiente, com o
+  // padrão em `DEFAULT_CONVERSATION_MODEL`. É o padrão que a tabela precifica, e é ele
+  // que este teste prende à fonte.
   const alias: Record<string, string> = {
-    CONVERSATION_MODEL: "gpt-5.6-luna",
+    DEFAULT_CONVERSATION_MODEL: "gpt-5.6-luna",
     CHEAP_MODEL: "gemini-3.5-flash-lite",
   };
 
@@ -64,8 +67,93 @@ describe("tabela de preços da Edge Function", () => {
     });
   });
 
+  /**
+   * O modelo da conversa é configuração, não arquitetura (`CLAUDE.md`). Enquanto foi
+   * constante no código não existiu plano B para a queda da OpenAI sem deploy — e em
+   * 2026-09-09 a cota esgotou por 20 horas com tráfego pago rodando. Este teste prende
+   * as três metades do conserto: lê do ambiente, cai no padrão quando ausente, e recusa
+   * um modelo novo que venha sem preço.
+   */
+  it("lê o modelo da conversa do ambiente, com o padrão de sempre", () => {
+    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL")');
+    expect(source).toContain("const DEFAULT_CONVERSATION_MODEL");
+  });
+
+  it("recusa um modelo novo sem preço, antes de gastar token", () => {
+    expect(source).toContain('Deno.env.get("CONVERSATION_MODEL_PRICE")');
+    const guard = source.indexOf("if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL)");
+    expect(guard).toBeGreaterThan(-1);
+    expect(source).toContain("sem CONVERSATION_MODEL_PRICE");
+    // A recusa é levantada dentro de `callLuna`, antes do `fetch` — não no boot, que
+    // levaria o webhook de venda e o sweep do cron junto, e não depois da chamada, que
+    // já teria gasto o token.
+    const luna = source.indexOf("const callLuna = async (");
+    const fetchAt = source.indexOf('fetch("https://api.openai.com', luna);
+    const throwAt = source.indexOf("throw new ModelConfigError(MODEL_CONFIG_ERROR)", luna);
+    expect(throwAt).toBeGreaterThan(luna);
+    expect(throwAt).toBeLessThan(fetchAt);
+  });
+
+  /**
+   * Os dois cintos que a revisão de segurança pediu, e que existem por um caminho de
+   * falha invertido: preço absurdo (`Number.MAX_VALUE` é finito e passa na checagem de
+   * tipo) transborda para Infinity, `JSON.stringify` grava `null`, a virada seguinte lê
+   * zero, e o teto de custo por conversa é rearmado em zero — gasto ilimitado em vez de
+   * conversa travada, e `llm_calls.cost_brl` NULL, sem rastro de auditoria.
+   */
+  it("põe teto no preço vindo do ambiente e cinto no cálculo de custo", () => {
+    expect(source).toContain("acima do teto de 1000 USD por 1M tokens");
+    expect(source).toContain("if (v > 1_000)");
+    expect(source).toContain("if (!Number.isFinite(brl))");
+  });
+
+  it("nomeia a variável quando o JSON do preço vem malformado", () => {
+    expect(source).toContain("CONVERSATION_MODEL_PRICE inválido");
+    // `CONVERSATION_MODEL_PRICE=null` é JSON válido e o `as` não protege dele.
+    expect(source).toContain("esperado um objeto, veio");
+  });
+
+  /**
+   * `handoff_at` é escrito e nunca limpo: o lead que o recebe sai da mão da agente para
+   * sempre. Um erro de configuração do operador não é sobre a cliente, e marcá-la torna
+   * a troca de modelo **irreversível** — desfazer a variável não desfaz o dano. Era o
+   * que acontecia com todo lead que escreveu durante as 20 horas de cota esgotada.
+   */
+  it("erro de configuração não tranca o lead fora da agente", () => {
+    expect(source).toContain("class ModelConfigError extends Error");
+    expect(source).toContain("if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR)");
+    expect(source).toContain("if (!(error instanceof ModelConfigError))");
+  });
+
+  /**
+   * O knob troca de modelo **dentro** da API compatível com OpenAI, e não de provedor —
+   * `callLuna` só fala essa. Apontá-lo para um nome do Gemini mandaria aquele nome para
+   * `api.openai.com`, e a descoberta seria uma cliente por vez.
+   */
+  it("recusa nome de modelo de provedor que esta função não fala", () => {
+    expect(source).toContain("não é servido pela API que esta função fala");
+    expect(source).toContain("^(gemini|claude|grok|qwen|muse|llama|mistral|command|deepseek)");
+  });
+
+  /**
+   * Um erro de configuração não pode derrubar o webhook de venda nem o sweep do cron —
+   * os três caminhos vivem no mesmo isolate, e o sweep não tem corte de obsolescência.
+   */
+  it("não derruba a função inteira por causa da conversa", () => {
+    expect(source).toContain("let MODEL_CONFIG_ERROR: string | null = null");
+    // A variável vazia ou com espaço sobrando cai no padrão em vez de virar modelo novo.
+    expect(source).toContain('(Deno.env.get("CONVERSATION_MODEL") ?? "").trim() || DEFAULT_CONVERSATION_MODEL');
+  });
+
+  it("não deixa credencial sair em texto de erro", () => {
+    expect(source).toContain("const redactKeys =");
+    expect(source).toContain("detail: redactKeys(");
+  });
+
   it("não cobra por um modelo que a fonte não conhece", () => {
-    const declared = [...source.matchAll(/\[(CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g)];
+    const declared = [
+      ...source.matchAll(/\[(DEFAULT_CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g),
+    ];
     expect(declared).toHaveLength(Object.keys(PRICES).length);
   });
 });

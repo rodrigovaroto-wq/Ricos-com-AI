@@ -803,6 +803,13 @@ const gates: readonly Gate[] = [
      * was told and doubts everything else she was told. Same gate, opposite direction,
      * and one flag decides: set `freeShipping` false the day a freight comes back and
      * the old refusal returns with it.
+     *
+     * That day came: on 2026-09-10 the operator flipped the flag back. The prepaid
+     * freight is the customer's again, calculated by region inside the checkout rather
+     * than quoted here, which is why the prepaid path can name no freight number at all.
+     * Cash on delivery did not change — the freight stays inside the R$ 129,90 collected
+     * at the door. So "frete grátis" is false on both paths once more, and the gate is
+     * back to forbidding it.
      */
     name: "shipping_promise",
     remedy: "rewrite",
@@ -825,7 +832,27 @@ const gates: readonly Gate[] = [
         /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
 
       if (ctx.config.delivery.freeShipping === false) {
-        return claimsFree ? "promises free shipping, which neither offer has" : null;
+        if (claimsFree) return "promises free shipping, which neither offer has";
+        // The branch used to stop here, and stopping here dropped every charge rule
+        // below with it — including the one about naming an amount. Which handed the
+        // prepaid path the worst sentence available: neither offer has a citable freight
+        // number (cash on delivery has it inside the price, prepaid has it computed by
+        // region inside the checkout), and yet "o frete do antecipado é R$ 12,99" passed
+        // every gate, because `price_promise` only checks whether a number is one of the
+        // configured prices — and a configured price read as freight is still a lie.
+        //
+        // What is forbidden is an amount ATTRIBUTED to the freight, which is narrower
+        // than an amount near the word. "São R$ 129,90 mais o frete" is the honest
+        // prepaid sentence — product price, freight extra, value unnamed — and so is
+        // "o frete já está dentro do preço: são R$ 129,90 na entrega". Both put a number
+        // in the same clause as `frete`; neither says what the freight costs.
+        const attributedToShipping =
+          /\bfrete\b[^.!?]{0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
+        if (attributedToShipping) {
+          return "names a shipping amount, and neither offer has a citable one";
+        }
+        return null;
       }
       // Free shipping is the fact. Saying it is fine; charging for it is the new lie.
       //

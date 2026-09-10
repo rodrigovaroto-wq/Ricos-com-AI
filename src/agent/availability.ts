@@ -241,14 +241,16 @@ export const checkRegion = async (
 };
 
 /**
- * The label the operator pays, fixed by Logzz at R$ 15,00 (support, 2026-09-09). It was
+ * The label the operator paid, fixed by Logzz at R$ 15,00 (support, 2026-09-09). It was
  * R$ 20,00 with the excess passed on to the customer; both changed at once — the freight
- * is now a single value everywhere and **she pays nothing for it on either path**. What
- * varies between regions is the deadline, not the price.
+ * became a single value everywhere, paid by the operator on either path.
  *
- * Kept as a constant because the margin sheet reads it, not because anything routes on
- * it: with a fixed cost and nothing charged to her, there is no longer a postcode where
- * a sale is worth refusing.
+ * On 2026-09-10 that arrangement ended: the prepaid freight is the customer's again,
+ * calculated by region inside the checkout, and cash on delivery carries it inside the
+ * price. So this number is **no longer the current cost of freight** — it is the
+ * historical record of what the margin sheet read up to here, kept because that sheet
+ * still cites it. Nothing routes on it: there is no postcode where a sale is worth
+ * refusing over freight.
  */
 export const LABEL_COST_BRL = 15;
 
