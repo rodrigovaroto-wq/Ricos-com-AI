@@ -12,11 +12,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > repositório é a fonte**.
 
 > Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
-> [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado. **Três
-> decisões novas na mesma tarde ainda não estão no código nem no secret** — preço e frete
-> do antecipado mudam de novo, e o modelo de conversa tem candidato de troca. Ver
-> [§Decisões de 2026-09-10](#decisões-de-2026-09-10-preço-frete-e-modelo-de-conversa) e
-> [§Frente 4](#frente-4--preço-frete-e-desconto-do-antecipado-decisão-de-2026-09-10).
+> [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado.
+>
+> **⚠ O repositório deixou de ser byte a byte igual ao deploy.** A v30 continua no ar e
+> continua correta, mas o `main` desta branch carrega três mudanças **não deployadas**:
+> `CONVERSATION_MODEL` virou variável de ambiente, `firstReplyAt` passou a respeitar o
+> fuso de São Paulo, e os três valores de preço/frete da Frente 4 entraram no
+> `business.example.json`. Enquanto não houver deploy novo, **o código do repositório é
+> a intenção e a v30 é o fato.** Ver [§O que mudou em 2026-09-10 à tarde](#o-que-mudou-em-2026-09-10-à-tarde-código-não-deployado).
+>
+> **E uma premissa da Frente 4 caiu.** O frete de R$ 15 a R$ 40 que o item 6 usava como
+> "o que a cliente paga" é **custo do operador**, não preço dela: a oferta do antecipado
+> na Coinzz vem **sem frete configurado nos 27 estados**. A conta corrigida está em
+> [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md).
 
 ---
 
@@ -61,9 +69,10 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v30**, byte a byte igual ao repositório (deploy pela API, do disco) |
+| Edge Function `turn` | **v30**. **Não é mais igual ao repositório** — três mudanças no repo aguardam deploy |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2794**, lint e typecheck verdes; CI roda os quatro mais `deno check` |
+| Testes | **2802**, lint, typecheck e `deno check` verdes; CI roda os quatro mais `typecheck:function` |
+| Time de agentes | **10 especialistas** em `.claude/agents/`, com a tabela do `CLAUDE.md` satisfeita |
 | Preço | R$ 129,90 nos dois caminhos, desconto zero — **⚠ decidido mudar em 10/09, ver Frente 4, nada implementado ainda** |
 | Frete | Grátis pra cliente nos dois, R$ 15,00 fixo pago pela operação no antecipado — **⚠ idem** |
 | Prazos | **1 a 3 dias** na entrega · **"varia por região, em média 5 dias úteis"** no antecipado |
@@ -75,6 +84,41 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 | Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
 | **Canal do WhatsApp** | **não existe.** Decisão: **Cloud API**, não WAHA. Frente do sócio |
 | **Cota da OpenAI** | **esgotada até 2026-09-10 ~16:45 UTC.** Toda conversa vira handoff |
+
+### O que mudou em 2026-09-10 à tarde (código, não deployado)
+
+Cinco coisas. Nenhuma está em produção, e nenhuma pode ir sem o operador.
+
+1. **`CONVERSATION_MODEL` virou variável de ambiente** (`index.ts`), com
+   `DEFAULT_CONVERSATION_MODEL = "gpt-5.6-luna"` como padrão — variável ausente se comporta
+   exatamente como a v30. Resolve a Frente 3 item 1 na parte que era de código: **existe
+   plano B para uma queda da OpenAI sem deploy.** Um modelo novo tem que trazer o preço
+   junto (`CONVERSATION_MODEL_PRICE`, JSON `{"in":1.25,"out":4.25}`) ou a função **falha no
+   boot** — de propósito: sem isso o custo por chamada gravado em `llm_calls` ficaria
+   incomparável, e falhar antes de servir requisição é melhor que falhar no meio da
+   conversa depois de gastar o token. Trocar de modelo continua sendo decisão do operador,
+   e o eval do passo (b) continua não tendo sido rodado.
+2. **`firstReplyAt` respeita o fuso de São Paulo** (`pacing.ts`), reusando
+   `BUSINESS_TZ`/`offsetMinutes`/`nextOpening` da régua em vez de duplicar lógica de fuso.
+   Resolve a Frente 3 item 2 antes de o canal a chamar. Os testes de `pacing.test.ts`
+   codificavam a suposição errada e foram reescritos: quatro casos com instante UTC
+   explícito, incluindo o que só quebra em runtime UTC.
+3. **Frente 4, itens 1, 3, 4 e 5, feitos:** os três valores em
+   `config/business.example.json` (`prepayBrl` 116,91 · `prepayDiscountPercent` 10 ·
+   `freeShipping` false), os dois blocos de comentário que iam ficar mentindo
+   (`guardrails.ts` e `availability.ts`, espelhados), e o teste que faltava — a combinação
+   `freeShipping: false` **com** `prepayDiscountPercent: 10`, que nenhum teste cobria.
+   Confirmado no código: **nada precisou mudar em `src/order/checkout.ts`** e as duas
+   branches do `shipping_promise` já estavam prontas, como o handoff previa.
+4. **A análise do item 6, e a premissa que caiu.** Ver o aviso no topo. Resumo: hoje a
+   economia de R$ 12,99 é **verdade**, porque o checkout do antecipado cobra zero de frete.
+   A meia-verdade nasce no dia em que o operador parametrizar frete na Coinzz — e a
+   combinação que **faz a agente mentir hoje** é justamente `freeShipping: false` antes
+   disso. **Não suba esse campo no secret ainda.**
+5. **Dez agentes especialistas** em `.claude/agents/`, triados de um corpus de 209 e
+   escritos contra este repositório: carregam o espelho byte a byte, o `??` do
+   `BUSINESS_CONFIG`, a cegueira a negação e o default "NEEDS WORK". A tabela do
+   `CLAUDE.md` deixou de ser aspiracional.
 
 ### O desenho — quem faz o quê, e por quê
 
@@ -291,11 +335,11 @@ Frente do sócio do operador. **O lado do código está pronto e bloqueando de p
 
 Nenhuma trava venda hoje. Todas mordem depois.
 
-1. **`CONVERSATION_MODEL` é constante no código** (`index.ts:70`), contra o que o
-   `CLAUDE.md` fixa: "o provedor é configuração, não arquitetura". Enquanto for constante,
-   **não existe plano B para uma queda da OpenAI sem deploy** — foi exatamente o que
-   aconteceu em 09/09. Virar variável de ambiente é pequeno; a decisão de *qual* modelo
-   conversa com a cliente é do operador.
+1. ~~**`CONVERSATION_MODEL` é constante no código**~~ **✅ feito em 10/09 (não
+   deployado).** Lê de `Deno.env.get("CONVERSATION_MODEL")` com `gpt-5.6-luna` como padrão,
+   e um modelo novo tem que trazer `CONVERSATION_MODEL_PRICE` junto ou a função falha no
+   boot. O plano B sem deploy passou a existir. **O que continua aberto é a decisão de
+   trocar** — e o passo (b) abaixo, o eval, não foi rodado.
 
    **Candidato decidido nesta sessão: Meta Muse Spark 1.3**, dentro do teto de R$ 0,50 por
    lead / 20 mensagens (ver §Decisões de 2026-09-10). **Não troque direto em produção.**
@@ -305,11 +349,12 @@ Nenhuma trava venda hoje. Todas mordem depois.
    não Intelligence Index; (c) só então trocar o padrão. O ponto fraco da recomendação é
    o alinhamento de segurança da Meta em atendimento comercial — é exatamente o que o
    eval do passo (b) testa.
-2. **`firstReplyAt` usa a hora local do runtime**, e o runtime da Edge Function é UTC.
-   `openHour: 6` viraria 03:00 em São Paulo. Está latente porque a função não é chamada em
-   produção — **deixa de ser latente no dia em que o canal a chamar**. O conserto já existe
-   pronto em `followups.ts` (`BUSINESS_TZ`, `nextLocalHour`); os testes atuais de
-   `pacing.test.ts` codificam a suposição errada e mudam junto.
+2. ~~**`firstReplyAt` usa a hora local do runtime**~~ **✅ feito em 10/09 (não
+   deployado).** Decide a janela pela hora local de São Paulo, reusando
+   `BUSINESS_TZ`/`offsetMinutes`/`nextOpening` da régua. `pacing.test.ts` foi reescrito com
+   quatro casos em instante UTC explícito, incluindo o que só quebra em runtime UTC.
+   Ressalva registrada: `hours.timeZone` existe no tipo do gate mas não em
+   `src/config/business.ts`, então o fuso é fixo em `America/Sao_Paulo`, igual à régua.
 3. **Depoimentos e cupom estão vazios** no config. A agente não pode citar cliente nenhuma,
    e o toque `silence_3` (o do cupom) **não sai** — retorna `null` de propósito enquanto o
    cupom não existir na Coinzz. Anunciar cupom sem destino é a promessa quebrada que este
@@ -322,14 +367,15 @@ Nenhuma trava venda hoje. Todas mordem depois.
 O código já foi escrito pensando nesse cenário — a maior parte é **trocar valor de
 config, não escrever lógica nova**. Ordem exata:
 
-1. **`config/business.example.json`** — três campos:
+1. ✅ **feito em 10/09** — `config/business.example.json`, três campos:
    - `prices.prepayBrl`: `129.9` → `116.91`
    - `prices.prepayDiscountPercent`: `0` → `10`
-   - `delivery.freeShipping`: `true` → `false`
+   - `delivery.freeShipping`: `true` → `false` — **mas ver o item 6: este é o campo que
+     não deve subir no secret ainda**
 2. **`BUSINESS_CONFIG` no Supabase** — os mesmos três campos, **só o operador consegue
    editar** (o secret não é legível pela API de gerência). Sem isso a produção não muda —
    ver a armadilha do `??` sobre a variável inteira.
-3. **Nada muda em `src/order/checkout.ts`.** `amountFor` já lê `prepayBrl` como "produto
+3. ✅ **confirmado no código em 10/09.** **Nada muda em `src/order/checkout.ts`.** `amountFor` já lê `prepayBrl` como "produto
    só, frete calculado à parte no checkout" — é a assinatura do tipo `CheckoutPrices`
    desde que foi escrito. O `freeShipping: false` também não é comportamento novo: o gate
    `shipping_promise` em `src/agent/guardrails.ts:809-829` já tem a branch pronta e **já
@@ -339,7 +385,7 @@ config, não escrever lógica nova**. Ordem exata:
    dois. O `price_promise` gate (`guardrails.ts:385-431`) também já lê `prepayBrl` e
    `prepayDiscountPercent` direto do config para decidir o que é citável — nenhum dos dois
    precisa de código novo, só do valor certo entrando.
-4. **Comentários que ficam mentindo se não forem atualizados** (não têm efeito em teste,
+4. ✅ **feito em 10/09.** **Comentários que ficam mentindo se não forem atualizados** (não têm efeito em teste,
    mas confundem a próxima sessão):
    - `src/agent/guardrails.ts:791-808` — o bloco de comentário explica a troca de 09-09
      ("this gate used to forbid... now forbids denying"). Precisa de um terceiro parágrafo
@@ -349,17 +395,27 @@ config, não escrever lógica nova**. Ordem exata:
    - Espelhar as duas mudanças em `supabase/functions/turn/guardrails.ts` e
      `supabase/functions/turn/availability.ts` — são cópias byte a byte, `pnpm test`
      quebra sozinho se esquecer (`tests/function-drift.test.ts`).
-5. **Teste novo que hoje não existe:** a combinação `freeShipping: false` **junto com**
+5. ✅ **feito em 10/09.** **Teste novo:** a combinação `freeShipping: false` **junto com**
    `prepayDiscountPercent: 10` (os testes atuais cobrem cada campo separado, nunca os dois
    como a produção vai rodar). Confirma que a agente cita `R$ 12,99` de economia e `10%`
    de desconto sem citar frete grátis no antecipado.
-6. **O item que precisa da sua decisão antes do deploy, não depois:** o gate
-   `price_promise` vai liberar **"você economiza R$ 12,99 no antecipado"** — é a
-   diferença aritmética entre `codBrl` e `prepayBrl` (129,90 − 116,91), **sem descontar o
-   frete que ela paga a mais**. Se o frete real cobrado no checkout for maior que R$ 12,99
-   (o que é o caso normal — R$ 15 a R$ 40 conforme a região, pela própria tabela da Logzz
-   documentada neste arquivo), **a cliente paga mais no antecipado apesar de ouvir que
-   está economizando.** É exatamente o tipo de meia-verdade que os gates deste projeto
+6. **O item que precisa da sua decisão antes do deploy — e a premissa dele estava
+   errada.** O gate `price_promise` vai liberar **"você economiza R$ 12,99 no
+   antecipado"**, a diferença aritmética entre `codBrl` e `prepayBrl`. A versão anterior
+   deste item dizia que o frete real cobrado dela seria de R$ 15 a R$ 40 e que ela
+   portanto pagaria mais. **Aqueles números são custo do operador, não preço dela** — a
+   oferta `encorpa-pagamento-antecipado-0` na Coinzz vem **sem frete configurado nos 27
+   estados** (`settingsFreight: []`, medido na fonte e registrado neste próprio arquivo),
+   então hoje o checkout cobra dela **R$ 0,00** e a economia de R$ 12,99 é **verdade
+   literal**.
+   
+   A meia-verdade não existe ainda: ela nasce no minuto em que o operador parametrizar
+   frete naquela oferta. O que **existe hoje** é o inverso — `freeShipping: false` faz a
+   agente parar de dizer "frete grátis", que é verdade e é o melhor argumento dela, e
+   passar a dizer que o frete é calculado no checkout, que é falso. **A decisão que vem
+   antes das três saídas é: o operador vai configurar frete na Coinzz ou não?** A conta
+   inteira, a análise de sensibilidade e as quatro combinações de preço × frete estão em
+   [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md). É exatamente o tipo de meia-verdade que os gates deste projeto
    existem para impedir, e é a mesma armadilha econômica que motivou zerar o desconto em
    09-09 — só que agora do lado da promessa, não do lado da margem. Três saídas, nenhuma
    escolhida ainda:
@@ -386,9 +442,13 @@ config, não escrever lógica nova**. Ordem exata:
 - **Não editar um dos espelhos sem editar o outro.**
 - **Não criar campo obrigatório em `BusinessConfig`.** Ver armadilha 1.
 - **Não mandar prazo do antecipado como faixa**, nem a média sem dizer que varia.
-- **Não deployar a Frente 4 sem decidir o item 6** (a economia de R$ 12,99 citável sem
-  descontar o frete real) — é meia-verdade de preço, exatamente o que os gates existem
-  pra impedir.
+- **Não subir `freeShipping: false` no `BUSINESS_CONFIG`** antes de a oferta do
+  antecipado na Coinzz ter frete parametrizado. É a única combinação que faz a agente
+  mentir hoje — cobra frete que a operação não cobra, e empurra a cliente pro COD por um
+  motivo inventado. Ver o item 6 da Frente 4, reescrito em 10/09.
+- **Não deployar a Frente 4 sem decidir o item 6.**
+- **Não deployar o `CONVERSATION_MODEL` apontando pra modelo novo sem rodar o eval** —
+  a variável existe desde 10/09, o eval não.
 - **Não reaproveitar o [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22)** —
   merjado em 2026-09-09. Trabalho novo recomeça a branch a partir da `main`.
 

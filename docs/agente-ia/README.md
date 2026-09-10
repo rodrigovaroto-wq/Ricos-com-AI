@@ -36,6 +36,7 @@ conversa em si.
 - *"Qual a meta e quanto o canal precisa render?"* → [`../documentacao/contexto-negocio/06-modelo-economico.md`](../documentacao/contexto-negocio/06-modelo-economico.md)
 - *"O que já foi decidido?"* → [`../documentacao/decisoes/03-decisoes-tomadas.md`](../documentacao/decisoes/03-decisoes-tomadas.md)
 - *"O que ainda não decidimos?"* → [`../documentacao/decisoes/02-decisoes-em-aberto.md`](../documentacao/decisoes/02-decisoes-em-aberto.md)
+- *"Por que o frete e o desconto do antecipado estão travados?"* → [`../documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](../documentacao/decisoes/04-frete-e-desconto-do-antecipado.md)
 - *"Por onde começar a construir, e o que falta perguntar?"* → [`05-plano/README.md`](05-plano/README.md)
 - *"O que a agente fala, exatamente?"* → [`06-script/02-script-do-agente.md`](06-script/02-script-do-agente.md)
 - *"Como conectar o Meta Ads / mandar a venda de volta pro Meta?"* → [`../campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-)

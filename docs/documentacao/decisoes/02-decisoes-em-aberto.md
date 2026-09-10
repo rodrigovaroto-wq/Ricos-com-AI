@@ -4,6 +4,13 @@ Este arquivo é a **pauta original** da rodada de perguntas, com as opções lev
 trade-offs. As respostas do operador estão em
 [`03-decisoes-tomadas.md`](03-decisoes-tomadas.md) — é lá que vale a decisão.
 
+> **Aberto e urgente, 2026-09-10:** o frete e o desconto do antecipado. A decisão de
+> 10/09 tem duas metades que se sustentam mutuamente (desconto de 10% *porque* a cliente
+> passa a pagar frete), e a segunda metade **depende de o operador parametrizar frete na
+> oferta da Coinzz** — hoje ela não tem. A conta, a análise de sensibilidade e o que
+> **não** subir antes da decisão estão em
+> [`04-frete-e-desconto-do-antecipado.md`](04-frete-e-desconto-do-antecipado.md).
+
 Mantemos a pauta inteira porque as alternativas descartadas explicam por que a escolhida
 faz sentido, e porque algumas voltarão à mesa quando houver dado real.
 
