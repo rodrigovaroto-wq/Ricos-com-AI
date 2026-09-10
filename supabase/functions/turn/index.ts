@@ -149,11 +149,19 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
       // Postgres stores NULL, and the next turn reads `Number(null ?? 0)` — zero. The
       // conversation cap is then rearmed at zero and never fires again: unlimited spend,
       // one model call per turn, forever, with `llm_calls.cost_brl` NULL so the audit
-      // trail is gone too. R$ 1.000 per 1M tokens is three orders of magnitude above any
-      // real price, so a typo of 1000x still lands inside and fails loudly at the cap.
-      if (v > 1_000) {
+      // trail is gone too.
+      //
+      // 100 USD per 1M tokens is roughly two orders of magnitude above the priciest model
+      // this funnel would ever consider — Muse Spark 1.3 is 1.25 in / 4.25 out. Tightened
+      // from 1000 on 2026-09-10. The old value was chosen so a 1000x typo would still
+      // land inside the ceiling and fail loudly at the conversation cap instead; at 100 a
+      // 1000x typo is refused here, at load. That is the better failure now that a
+      // configuration error is a `ModelConfigError` and no longer locks the lead out of
+      // the agent — being refused before the first token is spent beats being caught
+      // after it.
+      if (v > 100) {
         throw new Error(
-          `CONVERSATION_MODEL_PRICE.${name}=${v} está acima do teto de 1000 USD por 1M tokens: ` +
+          `CONVERSATION_MODEL_PRICE.${name}=${v} está acima do teto de 100 USD por 1M tokens: ` +
             `preço absurdo zera o teto de custo por conversa em vez de acioná-lo`,
         );
       }

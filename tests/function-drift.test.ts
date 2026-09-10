@@ -102,8 +102,11 @@ describe("tabela de preços da Edge Function", () => {
    * conversa travada, e `llm_calls.cost_brl` NULL, sem rastro de auditoria.
    */
   it("põe teto no preço vindo do ambiente e cinto no cálculo de custo", () => {
-    expect(source).toContain("acima do teto de 1000 USD por 1M tokens");
-    expect(source).toContain("if (v > 1_000)");
+    // Apertado de 1000 para 100 em 2026-09-10: duas ordens de grandeza acima do modelo
+    // mais caro que este funil consideraria (Muse Spark 1.3 é 1,25 / 4,25).
+    expect(source).toContain("acima do teto de 100 USD por 1M tokens");
+    expect(source).toContain("if (v > 100)");
+    expect(source).not.toContain("if (v > 1_000)");
     expect(source).toContain("if (!Number.isFinite(brl))");
   });
 
