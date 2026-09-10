@@ -83,7 +83,7 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 | Janela de 24h | `deliveryFor` decide texto livre × template pelo relógio |
 | Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
 | **Canal do WhatsApp** | **não existe.** Decisão: **Cloud API**, não WAHA. Frente do sócio |
-| **Cota da OpenAI** | **esgotada até 2026-09-10 ~16:45 UTC.** Toda conversa vira handoff |
+| **Cota da OpenAI** | **ainda esgotada** — a previsão de 16:45 UTC falhou, ressondado 17:17 UTC ainda saturado. Ver Frente 0.1 |
 
 ### O que mudou em 2026-09-10 à tarde (código, não deployado)
 
@@ -131,6 +131,8 @@ Cinco coisas. Nenhuma está em produção, e nenhuma pode ir sem o operador.
      o erro deixou de derrubar o boot: o mesmo isolate serve o webhook de venda e o cron.
      **Isso também cobre a cota esgotada de 09/09** — os leads daquelas 20 horas foram
      trancados por esse mesmo caminho, e vale conferir no banco quantos estão assim.
+     **Conferido em 2026-09-10 17:17 UTC: zero.** Sem canal de WhatsApp no ar, não havia
+     tráfego real pra ficar preso — o risco era só teórico, mas valia checar antes de supor.
    - **`freeShipping: false` desligava o veto de valor de frete.** A branch fazia `return`
      cedo e levava embora a regra de valor, então "o frete do antecipado é R$ 12,99"
      passava em todos os gates — porque o `price_promise` só verifica se o número é um dos
@@ -286,17 +288,29 @@ quatro — pode andar em paralelo, não trava nem é travada por elas.
 | 0.2 | **Verificar o `BUSINESS_CONFIG`** | agendado | A agente diz R$ 129,90 nos dois caminhos |
 | 0.3 | **Webhook da Coinzz** | operador + agente | Chega o primeiro payload real e o mapeamento fecha |
 
-**0.1 — Cota da OpenAI.** Sondado em 2026-09-09 21:08 UTC. Não é limite por minuto, é teto
-esgotado:
+**0.1 — Cota da OpenAI. A previsão de "volta às 16:45 UTC" estava errada, e o motivo
+importa mais que o erro.** Ressondado em 2026-09-10 17:17 UTC, quase meia hora **depois**
+do horário em que devia ter voltado:
 
 > `Rate limit reached for gpt-5.6-luna ... on tokens per min (TPM): Limit 100000,`
-> `Used 100000, Requested 2723. Please try again in 19h36m20.16s.`
+> `Used 98800, Requested 2702. Please try again in 10h48m51.84s.`
 
-Volta sozinha por volta de **2026-09-10 16:45 UTC**. Até lá **toda** cliente recebe
-`"Deixa eu confirmar isso certinho pra você"` e vira handoff — com tráfego de anúncio
-rodando, cada lead cai no e-mail do operador em vez de virar venda. **O Gemini está de pé**;
-morre só a chamada da conversa. Decisão do operador: **esperar**, sem subir limite e sem
-trocar de modelo.
+Ontem às 21:08 UTC: `Used 100000`, "tente em 19h36m". Hoje às 17:17 UTC — **9 horas depois
+do instante em que os 19h36m acabariam** — ainda `Used 98800` de 100000, e a espera **subiu**
+para 10h48m em vez de zerar. Isso não é um teto que reseta num horário fixo: é uma **janela
+rolante** que continua saturada, o que só acontece se algo **continua consumindo** perto do
+limite inteiro — e não é este projeto: não há canal de WhatsApp no ar, e as duas sondas desta
+sessão (09/09 e 10/09) são as únicas chamadas de conversa que este código fez. **Ou a
+organização da OpenAI tem outro consumidor usando a mesma chave, ou o teto de 100k TPM está
+sub-dimensionado pra qualquer tráfego real.** Só o operador vê o painel
+(platform.openai.com/account/rate-limits) pra saber qual dos dois é.
+
+**O Gemini segue de pé**; morre só a chamada de conversa — confirmado de novo hoje
+(classificação de intenção rodou, custou R$ 0,000084). Decisão do operador em 09/09 foi
+**esperar, sem subir limite e sem trocar de modelo** — mas essa decisão foi tomada
+acreditando num horário de retorno que não se confirmou. Vale reconfirmar com esse dado
+novo. **Nenhum check-in automático foi reagendado** — a suposição de horário fixo já falhou
+uma vez; reagendar às cegas de novo seria repetir o erro. Peça uma nova sonda quando quiser.
 
 **0.2 — O `BUSINESS_CONFIG` foi salvo e ninguém confirmou que pegou.** Todo campo que mudou
 — `prepayBrl`, `prepayDiscountPercent`, `prepayAvgDays`, `prepayVariesByRegion` — só aparece
