@@ -14,12 +14,22 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
 > [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado.
 >
-> **⚠ O repositório deixou de ser byte a byte igual ao deploy.** A v30 continua no ar e
-> continua correta, mas o `main` desta branch carrega três mudanças **não deployadas**:
-> `CONVERSATION_MODEL` virou variável de ambiente, `firstReplyAt` passou a respeitar o
-> fuso de São Paulo, e os três valores de preço/frete da Frente 4 entraram no
-> `business.example.json`. Enquanto não houver deploy novo, **o código do repositório é
-> a intenção e a v30 é o fato.** Ver [§O que mudou em 2026-09-10 à tarde](#o-que-mudou-em-2026-09-10-à-tarde-código-não-deployado).
+> **A v32 está no ar**, deployada às 13:50 UTC pela API de gerência, com os nove arquivos
+> do disco a partir do `main` (`b36087d`). Ela carrega `CONVERSATION_MODEL` como variável
+> de ambiente, os cintos de custo, a redação de credencial em texto de erro e o gate de
+> frete corrigido. **E não mudou nada de comportamento**: as três só acordam com variável
+> de ambiente ou valor de config que o secret não tem — sem `CONVERSATION_MODEL` setada a
+> conversa continua no `gpt-5.6-luna`, e o ramo de `freeShipping: false` não roda porque o
+> secret tem `true`. Ver [§O que mudou em 2026-09-10 à tarde](#o-que-mudou-em-2026-09-10-à-tarde-código-não-deployado).
+>
+> **⚠ Uma divergência nova, pequena e não deployada:** o teto de
+> `CONVERSATION_MODEL_PRICE` foi apertado de **1000 para 100 USD** por 1M tokens depois da
+> v32. A v32 no ar ainda tem 1000. Nada depende disso enquanto ninguém setar a variável.
+>
+> **Sobre "byte a byte":** a receita de deploy promete isso, e **não é verificável por
+> essa rota**. O bundle que a API devolve é ESZIP2.3 com o módulo **transpilado** —
+> comparar bytes do TS original é impossível. O que foi verificado na v32 são 15
+> marcadores, um por arquivo, todos presentes. É afirmação mais fraca, e é a que cabe.
 >
 > **E uma premissa da Frente 4 caiu.** O frete de R$ 15 a R$ 40 que o item 6 usava como
 > "o que a cliente paga" é **custo do operador**, não preço dela: a oferta do antecipado
@@ -69,7 +79,7 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 
 | | Estado |
 |---|---|
-| Edge Function `turn` | **v30**. **Não é mais igual ao repositório** — três mudanças no repo aguardam deploy |
+| Edge Function `turn` | **v32**, deployada em 2026-09-10 13:50 UTC do `main` (`b36087d`). Uma divergência: o teto de preço apertado para 100 USD veio depois |
 | Guardrails | **19 gates**, briefing no prompt |
 | Testes | **2802**, lint, typecheck e `deno check` verdes; CI roda os quatro mais `typecheck:function` |
 | Time de agentes | **10 especialistas** em `.claude/agents/`, com a tabela do `CLAUDE.md` satisfeita |
@@ -85,9 +95,11 @@ Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações c
 | **Canal do WhatsApp** | **não existe.** Decisão: **Cloud API**, não WAHA. Frente do sócio |
 | **Cota da OpenAI** | **esgotada até 2026-09-10 ~16:45 UTC.** Toda conversa vira handoff |
 
-### O que mudou em 2026-09-10 à tarde (código, não deployado)
+### O que mudou em 2026-09-10 à tarde (na v32, no ar)
 
-Cinco coisas. Nenhuma está em produção, e nenhuma pode ir sem o operador.
+Seis coisas, todas na v32 desde 13:50 UTC. **Nenhuma muda comportamento hoje** — as que
+mexem em conversa dependem de variável de ambiente ou de valor de config que o secret não
+tem, e o secret continua sendo só do operador.
 
 1. **`CONVERSATION_MODEL` virou variável de ambiente** (`index.ts`), com
    `DEFAULT_CONVERSATION_MODEL = "gpt-5.6-luna"` como padrão — variável ausente se comporta
@@ -119,7 +131,14 @@ Cinco coisas. Nenhuma está em produção, e nenhuma pode ir sem o operador.
    escritos contra este repositório: carregam o espelho byte a byte, o `??` do
    `BUSINESS_CONFIG`, a cegueira a negação e o default "NEEDS WORK". A tabela do
    `CLAUDE.md` deixou de ser aspiracional.
-6. **Dois furos consertados, achados pelos revisores e não por teste.** Ambos com entrada
+6. **Teto de `CONVERSATION_MODEL_PRICE` apertado de 1000 para 100 USD** por 1M tokens —
+   **depois** da v32, então esta é a única divergência entre o repositório e o que está no
+   ar. Duas ordens de grandeza acima do modelo mais caro que este funil consideraria (Muse
+   Spark é 1,25 / 4,25). O 1000 tinha sido escolhido para um erro de 1000x ainda caber
+   dentro do teto e falhar no teto de custo da conversa; a 100, um erro de 1000x é recusado
+   no carregamento — que é a falha melhor agora que erro de configuração é
+   `ModelConfigError` e não tranca mais o lead fora da agente.
+7. **Dois furos consertados, achados pelos revisores e não por teste.** Ambos com entrada
    concreta, e o primeiro é o mais grave que esta sessão produziu:
    - **`handoff_at` tornava a troca de modelo irreversível.** Apontar
      `CONVERSATION_MODEL` para um modelo que o endpoint não serve — inclusive por typo —
@@ -262,7 +281,11 @@ exato de implementação está na [Frente 4](#frente-4--preço-frete-e-desconto-
    `prepayBrl = 129.90 × 0.90 = R$ 116,91`, `prepayDiscountPercent = 10`. Não é o 15% de
    antes de 09-09 (R$ 110,41) — é um número novo, mais conservador, porque agora ela paga
    frete à parte e o desconto de produto sozinho não pode fingir que cobre isso.
-4. **Modelo de conversa: candidato a trocar de `gpt-5.6-luna` para Meta Muse Spark 1.3**
+4. **Modelo de conversa: DECIDIDO trocar de `gpt-5.6-luna` para Meta Muse Spark 1.3** —
+   confirmado pelo operador ainda em 10/09, depois desta seção ter sido escrita. Onde o
+   texto abaixo diz "candidato", leia "decidido"; o que continua em aberto é **como**,
+   e isso é a [§Frente 5](#frente-5--trocar-gpt-56-luna-por-muse-spark-13-decisão-do-operador-2026-09-10).
+   O Gemini fica onde está. Registro do raciocínio original:
    (`$1,25/$4,25` por milhão de tokens). Dentro do teto de **R$ 0,50 por lead / 20
    mensagens** definido nesta sessão, é o modelo de maior Intelligence Index (53,0) com
    folga real de margem (R$ 0,32 de custo estimado, 36% abaixo do teto) — Grok 4.6 e Qwen3.8
@@ -274,9 +297,11 @@ exato de implementação está na [Frente 4](#frente-4--preço-frete-e-desconto-
 
 ## O PLANO DAQUI PRA FRENTE
 
-Cinco frentes, na ordem em que destravam dinheiro. **Nada na frente 2 vale a pena antes da
-frente 1 estar de pé**, e a frente 0 bloqueia as duas. A frente 4 é independente das outras
-quatro — pode andar em paralelo, não trava nem é travada por elas.
+Seis frentes, na ordem em que destravam dinheiro. **Nada na frente 2 vale a pena antes da
+frente 1 estar de pé**, e a frente 0 bloqueia as duas. As frentes 4 e 5 são independentes
+das outras — podem andar em paralelo, não travam nem são travadas por elas. A frente 5
+(trocar o modelo da conversa) é a única cuja metade de código já está pronta e cuja outra
+metade ainda não existe.
 
 ### Frente 0 — o que trava hoje (operador, não código)
 
@@ -360,8 +385,10 @@ Nenhuma trava venda hoje. Todas mordem depois.
    boot. O plano B sem deploy passou a existir. **O que continua aberto é a decisão de
    trocar** — e o passo (b) abaixo, o eval, não foi rodado.
 
-   **Candidato decidido nesta sessão: Meta Muse Spark 1.3**, dentro do teto de R$ 0,50 por
-   lead / 20 mensagens (ver §Decisões de 2026-09-10). **Não troque direto em produção.**
+   **Decidido: Meta Muse Spark 1.3** — o inventário de onde trocar, a pedra do provedor e
+   a ordem dos passos estão na
+   [§Frente 5](#frente-5--trocar-gpt-56-luna-por-muse-spark-13-decisão-do-operador-2026-09-10).
+   **Não troque direto em produção.**
    Ordem: (a) virar `CONVERSATION_MODEL` variável de ambiente, com `gpt-5.6-luna` como
    padrão — reversível sem deploy; (b) rodar eval com conversas reais do projeto
    comparando Luna × Muse Spark 1.3, medindo taxa de conversão e quantos gates recusam,
@@ -380,6 +407,61 @@ Nenhuma trava venda hoje. Todas mordem depois.
    projeto já decidiu nunca fazer.
 4. **`prepayDaysMin`/`prepayDaysMax` continuam no tipo, ausentes de propósito.** Existem só
    para o gate poder recusar uma faixa contra uma configurada. Não preencha.
+
+### Frente 5 — trocar `gpt-5.6-luna` por Muse Spark 1.3 (decisão do operador, 2026-09-10)
+
+**Status: em aberto, nada feito.** Decisão tomada: **toda ocorrência de `gpt-5.6-luna`
+vira Muse Spark 1.3. O Gemini (`gemini-3.5-flash-lite`) fica onde está** — trabalho
+barato, classificação de intenção e todo o desenvolvimento continuam nele.
+
+A metade de código que destrava isso já existe desde a v32: `CONVERSATION_MODEL` é
+variável de ambiente. O resto é o inventário abaixo, mais o eval que ninguém rodou.
+
+**Onde `gpt-5.6-luna` aparece hoje** — nove lugares, em quatro naturezas diferentes, e
+cada natureza tem um risco próprio:
+
+| Arquivo | O que é | Risco de trocar |
+|---|---|---|
+| `supabase/functions/turn/index.ts:95` | `DEFAULT_CONVERSATION_MODEL` | O padrão. Trocar aqui muda produção **sem** variável de ambiente — é o passo final, não o primeiro |
+| `src/llm/pricing.ts:19` | a tabela de preço | **Preço novo obrigatório junto.** Sem ele, `costOf` lança e o turno vira handoff. Muse Spark é 1,25 / 4,25 por 1M |
+| `supabase/functions/turn/index.ts` (inline) | a cópia de `PRICES` | Espelho preso por `tests/function-drift.test.ts`. Mexeu numa, mexe na outra |
+| `src/llm/providers/openai.ts:6` | comentário | Diz que o modelo é *reasoning* e que parte do orçamento de completion vai para raciocínio. **Se Muse Spark não for reasoning, esse comentário e a conta de token que ele justifica mudam** |
+| `src/dev/smoke.ts:43` | sonda de dev | Chama `openAiProvider`. Muse Spark não é servido pela OpenAI — este arquivo precisa de provedor novo, não de nome novo |
+| `tests/seam.test.ts` (6 usos) e `tests/function-drift.test.ts:56` | testes | Mudam junto, e o de drift prende o padrão à fonte |
+| `CLAUDE.md:28` | a pilha declarada | "gpt-5.6-luna para a conversa que converte" — a linha que fixa a decisão |
+
+**A pedra no caminho, e ela é grande:** `callLuna` só fala a **API compatível com
+OpenAI**, e a v32 **recusa no carregamento** um nome que comece com `muse` (junto de
+gemini, claude, grok, qwen, llama, mistral, command, deepseek) — exatamente para ninguém
+descobrir isso uma cliente por vez. Então trocar de provedor **é código, não variável de
+ambiente**: precisa de um `callMuse` com o endpoint, a autenticação e o formato de
+resposta da Meta, ou de um provedor compatível com OpenAI que sirva o modelo. Enquanto
+isso não existir, setar `CONVERSATION_MODEL=muse-spark-1.3` não troca nada — é recusado, e
+a conversa cai no holding reply com e-mail para o operador.
+
+**Ordem que não deve ser invertida:**
+
+1. **Escrever o caminho de chamada do Muse Spark** (`callMuse` ou provedor compatível), e
+   tirar `muse` da lista de nomes recusados **só quando ele passar a ser servido**.
+2. **Registrar o preço** — 1,25 / 4,25 por 1M — nos dois lugares (`src/llm/pricing.ts` e a
+   cópia inline). O teto de `CONVERSATION_MODEL_PRICE` é **100 USD** por 1M desde 10/09,
+   e 4,25 passa com folga.
+3. **Rodar o eval** com as conversas reais do projeto, Luna × Muse Spark, medindo **taxa
+   de conversão e quantos gates recusam** — nunca Intelligence Index. O ponto fraco
+   conhecido do candidato é alinhamento de segurança em atendimento comercial: um modelo
+   que se recusa a falar de preço ou de corpo trava a venda **sem quebrar um único teste**.
+4. **Só então** trocar o padrão e a linha do `CLAUDE.md`. Antes disso a troca vive na
+   variável de ambiente, que é reversível sem deploy.
+
+**O que a decisão compra:** dentro do teto de R$ 0,50 por lead / 20 mensagens, Muse Spark
+tem o maior Intelligence Index (53,0) com folga real — R$ 0,32 estimado, 36% abaixo do
+teto — contra R$ 0,49 de Grok 4.6 e Qwen3.8 Max, que empatam em score e encostam no teto.
+E compra saída da dependência de um provedor cuja cota esgotou por 20 horas em 09/09.
+
+**O que ela não resolve:** `conversationCapBrl` no config está em **0,80** com
+`overrunTolerance` 0,25, contra o teto de **R$ 0,50** decidido nesta sessão. Os dois
+números não conversam, e nenhum eval de modelo conserta isso — é config a reconciliar
+antes de a conta de custo por lead significar algo.
 
 ### Frente 4 — preço, frete e desconto do antecipado (decisão de 2026-09-10)
 
@@ -468,6 +550,9 @@ config, não escrever lógica nova**. Ordem exata:
 - **Não deployar a Frente 4 sem decidir o item 6.**
 - **Não deployar o `CONVERSATION_MODEL` apontando pra modelo novo sem rodar o eval** —
   a variável existe desde 10/09, o eval não.
+- **Não setar `CONVERSATION_MODEL=muse-spark-1.3` esperando que funcione.** A v32 recusa
+  esse nome no carregamento, de propósito: `callLuna` só fala a API compatível com OpenAI.
+  Trocar de provedor é código — ver Frente 5.
 - **Não reaproveitar o [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22)** —
   merjado em 2026-09-09. Trabalho novo recomeça a branch a partir da `main`.
 
