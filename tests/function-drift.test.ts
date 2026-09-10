@@ -86,6 +86,28 @@ describe("tabela de preços da Edge Function", () => {
     expect(source.slice(guard, guard + 600)).toContain("sem CONVERSATION_MODEL_PRICE");
   });
 
+  /**
+   * Os dois cintos que a revisão de segurança pediu, e que existem por um caminho de
+   * falha invertido: preço absurdo (`Number.MAX_VALUE` é finito e passa na checagem de
+   * tipo) transborda para Infinity, `JSON.stringify` grava `null`, a virada seguinte lê
+   * zero, e o teto de custo por conversa é rearmado em zero — gasto ilimitado em vez de
+   * conversa travada, e `llm_calls.cost_brl` NULL, sem rastro de auditoria.
+   */
+  it("põe teto no preço vindo do ambiente e cinto no cálculo de custo", () => {
+    expect(source).toContain("acima do teto de 1000 USD por 1M tokens");
+    expect(source).toContain("if (v > 1_000)");
+    expect(source).toContain("if (!Number.isFinite(brl))");
+  });
+
+  it("nomeia a variável quando o JSON do preço vem malformado", () => {
+    expect(source).toContain("CONVERSATION_MODEL_PRICE não é JSON válido");
+  });
+
+  it("não deixa credencial sair em texto de erro", () => {
+    expect(source).toContain("const redactKeys =");
+    expect(source).toContain("detail: redactKeys(");
+  });
+
   it("não cobra por um modelo que a fonte não conhece", () => {
     const declared = [
       ...source.matchAll(/\[(DEFAULT_CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g),

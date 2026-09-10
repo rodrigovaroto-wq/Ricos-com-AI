@@ -37,5 +37,18 @@ export const costBrl = (model: string, usage: Usage, usdToBrl: number): number =
   const usd =
     (fresh * price.inputUsdPerM + cached * cachedRate + usage.outputTokens * price.outputUsdPerM) /
     1_000_000;
-  return +(usd * usdToBrl).toFixed(6);
+  const brl = +(usd * usdToBrl).toFixed(6);
+  // A non-finite cost is worse than a wrong one, and the failure mode is the opposite of
+  // the intuitive one: `JSON.stringify` writes Infinity and NaN as `null`, the column
+  // stores NULL, the next turn reads `Number(null ?? 0)` — zero — and the conversation
+  // cap is rearmed at zero and never fires again. Unlimited spend with no audit trail.
+  // `usdToBrl` reaches here from an environment variable (`Number(Deno.env.get(...))`),
+  // so a typo is enough to produce NaN. Throw instead: the turn goes to handoff, loudly.
+  if (!Number.isFinite(brl)) {
+    throw new Error(
+      `custo não finito para ${model}: usdToBrl=${usdToBrl}, ` +
+        `entrada=${usage.inputTokens}, saída=${usage.outputTokens}`,
+    );
+  }
+  return brl;
 };

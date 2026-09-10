@@ -67,6 +67,15 @@ const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 const USD_TO_BRL = Number(Deno.env.get("USD_TO_BRL") ?? "5.4");
 
+/** Nenhuma credencial sai desta função em texto de erro. Ver `modelFailure`. */
+const redactKeys = (text: string): string => {
+  let out = text;
+  for (const secret of [GEMINI_KEY, OPENAI_KEY, SERVICE_KEY]) {
+    if (secret) out = out.replaceAll(secret, "[redacted]");
+  }
+  return out;
+};
+
 /**
  * The conversation model. It reads from the environment because the day the OpenAI
  * quota ran out (2026-09-09, 20 hours, every customer turned into a handoff) this was
@@ -101,10 +110,35 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
         `um modelo novo precisa do preço junto, senão o custo por chamada fica incomparável`,
     );
   }
-  const parsed = JSON.parse(raw) as { in?: unknown; out?: unknown; cached?: unknown };
+  let parsed: { in?: unknown; out?: unknown; cached?: unknown };
+  try {
+    parsed = JSON.parse(raw) as typeof parsed;
+  } catch (error) {
+    // A raw SyntaxError here says nothing about which variable broke, and this throw
+    // takes the whole function down: at 3am, with production cold, the message is the
+    // only thing the operator has. Name the variable and the shape.
+    throw new Error(
+      `CONVERSATION_MODEL_PRICE não é JSON válido — esperado {"in":number,"out":number} ` +
+        `(USD por 1M tokens, "cached" opcional): ${error instanceof Error ? error.message : String(error)}`,
+    );
+  }
   const num = (v: unknown, name: string): number => {
     if (typeof v !== "number" || !Number.isFinite(v) || v < 0) {
       throw new Error(`CONVERSATION_MODEL_PRICE.${name} inválido: ${JSON.stringify(v)}`);
+    }
+    // A ceiling, because the failure mode of an absurd price is the opposite of the
+    // intuitive one. `Number.MAX_VALUE` is finite and passes the check above, but the
+    // cost it produces overflows to Infinity, `JSON.stringify` writes it as `null`,
+    // Postgres stores NULL, and the next turn reads `Number(null ?? 0)` — zero. The
+    // conversation cap is then rearmed at zero and never fires again: unlimited spend,
+    // one model call per turn, forever, with `llm_calls.cost_brl` NULL so the audit
+    // trail is gone too. R$ 1.000 per 1M tokens is three orders of magnitude above any
+    // real price, so a typo of 1000x still lands inside and fails loudly at the cap.
+    if (v > 1_000) {
+      throw new Error(
+        `CONVERSATION_MODEL_PRICE.${name}=${v} está acima do teto de 1000 USD por 1M tokens: ` +
+          `preço absurdo zera o teto de custo por conversa em vez de acioná-lo`,
+      );
     }
     return v;
   };
@@ -205,7 +239,14 @@ const costOf = (model: string, inTok: number, outTok: number, cachedTok = 0): nu
   const fresh = Math.max(0, inTok - cachedTok);
   const usd =
     (fresh * p.in + cachedTok * (p.cached ?? p.in) + outTok * p.out) / 1_000_000;
-  return +(usd * USD_TO_BRL).toFixed(6);
+  const brl = +(usd * USD_TO_BRL).toFixed(6);
+  // Belt for the same overflow, independent of where the price came from: a non-finite
+  // cost serializes to `null`, comes back as 0, and disarms the conversation cap in
+  // silence. Throwing sends the turn to handoff, which is the loud failure we want.
+  if (!Number.isFinite(brl)) {
+    throw new Error(`custo não finito para ${model}: in=${inTok} out=${outTok} cached=${cachedTok}`);
+  }
+  return brl;
 };
 
 const callGemini = async (system: string, user: string) => {
@@ -1185,7 +1226,12 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, {
       status: "handoff",
       reason: "falha ao chamar o modelo",
-      detail: error instanceof Error ? error.message : String(error),
+      // A chave do Gemini viaja na query string da URL, e o erro de rede do Deno traz a
+      // URL inteira no `message` — que sai daqui no corpo JSON e vai para o log de
+      // execução do n8n. Redigir aqui é mitigação, não cura: o conserto de verdade é
+      // mandar a chave em header (`x-goog-api-key`), e uma chave que já circulou em log
+      // de terceiro tem de ser rotacionada, não mascarada.
+      detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY),
       messageId: held?.[0]?.id ?? null,
