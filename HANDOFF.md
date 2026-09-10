@@ -11,7 +11,12 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-> Atualizado em: 2026-09-09 (noite — **v30 no ar**, byte a byte igual ao repositório)
+> Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
+> [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado. **Três
+> decisões novas na mesma tarde ainda não estão no código nem no secret** — preço e frete
+> do antecipado mudam de novo, e o modelo de conversa tem candidato de troca. Ver
+> [§Decisões de 2026-09-10](#decisões-de-2026-09-10-preço-frete-e-modelo-de-conversa) e
+> [§Frente 4](#frente-4--preço-frete-e-desconto-do-antecipado-decisão-de-2026-09-10).
 
 ---
 
@@ -35,20 +40,22 @@ alguém replicar manualmente.
 ## Em uma frase
 
 A conversa vai do "oi" ao link de checkout, com guardrail, custo por chamada e handoff por
-e-mail — tudo verificado pela porta de produção. **O que trava agora é operação, e são
-duas coisas concretas:** a cota da OpenAI está estourada (toda conversa vira handoff) e o
-canal do WhatsApp não existe — a decisão de 2026-09-09 é **Cloud API**, não WAHA.
+e-mail; a venda confirmada volta pelo webhook, mata a cobrança e arma o pós-entrega — tudo
+verificado pela porta de produção, não por teste. **O que falta não é código, é operação:**
+o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
-## COMECE POR AQUI — estado em 2026-09-09, fim do dia
+## COMECE POR AQUI — estado em 2026-09-10
 
-Quem pega esta sessão do zero: leia esta seção, depois
-[`docs/operacao/plano-lacunas.html`](docs/operacao/plano-lacunas.html) (as dez lacunas e o
-plano em quatro ondas) e [`docs/operacao/mapa-financeiro.html`](docs/operacao/mapa-financeiro.html)
-(margem, taxas e ciclo de caixa). O resto deste arquivo é histórico, do mais recente para
-o mais antigo, **e as seções antigas contêm afirmações que foram corrigidas depois** — nos
-prazos, no frete e no M. Onde divergirem desta seção, esta vence.
+Quem pega esta sessão do zero lê **só esta seção** e o
+[§Plano daqui pra frente](#o-plano-daqui-pra-frente). Depois, se precisar de número:
+[`docs/operacao/plano-lacunas.html`](docs/operacao/plano-lacunas.html) (as dez lacunas em
+quatro ondas) e [`docs/operacao/mapa-financeiro.html`](docs/operacao/mapa-financeiro.html)
+(margem, taxas, ciclo de caixa).
+
+Tudo abaixo de §Histórico é registro, não estado, **e contém afirmações corrigidas depois**
+— nos prazos, no frete e no M. Onde divergir daqui, aqui vence.
 
 ### O que está no ar
 
@@ -56,220 +63,210 @@ prazos, no frete e no M. Onde divergirem desta seção, esta vence.
 |---|---|
 | Edge Function `turn` | **v30**, byte a byte igual ao repositório (deploy pela API, do disco) |
 | Guardrails | **19 gates**, briefing no prompt |
-| Testes | **2794**, lint e typecheck verdes |
-| Frete | **fixo em R$ 15,00, pago pela operação** — a cliente não paga nada, nos dois caminhos |
-| Prazos | **1 a 3 dias** na entrega · **3 a 10 dias úteis** no antecipado |
-| Consulta de região | **dentro da agente** — ela pede o CEP e sabe a cobertura antes de falar |
-| Rota de pedido | `job: "order"` no ar, verificada: cancela o silêncio e arma o pós-pedido |
+| Testes | **2794**, lint e typecheck verdes; CI roda os quatro mais `deno check` |
+| Preço | R$ 129,90 nos dois caminhos, desconto zero — **⚠ decidido mudar em 10/09, ver Frente 4, nada implementado ainda** |
+| Frete | Grátis pra cliente nos dois, R$ 15,00 fixo pago pela operação no antecipado — **⚠ idem** |
+| Prazos | **1 a 3 dias** na entrega · **"varia por região, em média 5 dias úteis"** no antecipado |
+| Consulta de região | dentro da agente — ela pede o CEP e sabe a cobertura antes de falar |
+| Webhook de venda | **no ar**: Logzz e Coinzz → `job: "order"` → mata o silêncio, arma o pós-pedido |
+| Pedido cancelado | **desarma a régua inteira** — não manda "sua entrega é amanhã" pra quem cancelou |
+| Ritmo humano | `bubbles` volta junto do `reply`, confirmado em produção |
+| Janela de 24h | `deliveryFor` decide texto livre × template pelo relógio |
 | Atribuição | `leads.source` gravado com o `ctwaClid` na criação do lead |
-| Cota da OpenAI | **estourada até 2026-09-10 ~16:45 UTC** — 100k TPM esgotados; toda conversa cai no handoff |
+| **Canal do WhatsApp** | **não existe.** Decisão: **Cloud API**, não WAHA. Frente do sócio |
+| **Cota da OpenAI** | **esgotada até 2026-09-10 ~16:45 UTC.** Toda conversa vira handoff |
 
-### As quatro coisas que mudaram de verdade em 2026-09-09
+### O desenho — quem faz o quê, e por quê
 
-1. **Os dois caminhos mudaram de plataforma.** Pagamento na entrega é o agendamento da
-   **Logzz** (`entrega.logzz.com.br/pay/encorpa-pa`); antecipado continua na **Coinzz**.
-   Cada checkout lê quatro parâmetros da query string, e o CPF tem nome diferente em cada
-   um: `cpf` na Logzz, `document` na Coinzz. Nenhum dos dois aceita endereço.
-2. **O tamanho vai no COMPLEMENTO do agendamento.** A página da Logzz não tem seletor de
-   tamanho — a instrução é do próprio fornecedor, em maiúsculas, na descrição do produto.
-   Em branco, o depósito escolhe.
-3. **"Frete grátis" virou verdade e o gate inverteu.** Ele barrava a frase; agora barra
-   quem cobra frete dela. Atrás da flag `delivery.freeShipping`, que é **opcional e
-   ausente significa grátis** — ver a armadilha do `BUSINESS_CONFIG` abaixo.
-4. **O M não é problema de estoque.** É a parametrização de produtos da integração Logzz
-   na Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e
-   por isso ela é feita com o G e nunca veta um tamanho.
-5. **O frete virou custo fixo** (suporte da Logzz, fim do dia): **R$ 15,00 pagos pela
-   operação**, iguais em qualquer praça, e a cliente não paga nada em nenhum dos dois
-   caminhos. O antecipado tem **os mesmos custos** do pagamento na entrega. O que varia
-   por região agora é **só o prazo**. O teto de R$ 20 com repasse do excedente durou um
-   dia — `routeFor` não faz mais aritmética nenhuma.
+A regra que decide tudo: **regra de negócio é código versionado com teste; credencial,
+relógio e chamada HTTP são cano.** Quando bater dúvida sobre onde algo mora, é esta frase
+que responde.
 
-### Preço único: o antecipado deixou de ser opção
+- **Edge Function `turn`** (Supabase, Deno) — o cérebro. Uma rota, três entradas:
+  - corpo com `{ externalId, from, body }` → um turno de conversa;
+  - `{ job: "followups" }` → a varredura das réguas, determinística, custo zero;
+  - `{ job: "order", order: {...} }` → uma venda confirmada.
+- **Supabase (Postgres)** — todo o estado: `leads`, `conversations`, `messages`, `orders`,
+  `followups`, `llm_calls`, `gate_traces`, `jobs`, `hermes_proposals`.
+- **n8n** (PikaPods, `encorpa-fashion.pikapod.net`) — cano e relógio, dois workflows:
+  - `Encorpa — Turno da agente` (`HnGrxquQLpfbXWLH`) — webhook `/encorpa-inbound`, chama a
+    Edge Function, devolve a resposta, e-mail de handoff, **e-mail de recusa**;
+  - `Encorpa — Venda confirmada` (`gS72LhYGOnmyALRq`) — webhook `/encorpa-venda`, normaliza
+    o payload da plataforma e posta `job: "order"`;
+  - `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) — cron de 5 em 5 minutos.
+- **Logzz** — pagamento na entrega, a plataforma que agenda. **Coinzz** — antecipado.
+- **Meta / WhatsApp Cloud API** — o canal. **Ainda não existe.**
 
-**As decisões do operador (2026-09-09, fim do dia), todas já tomadas e nenhuma em aberto:**
+**Duas cópias de cada arquivo, de propósito.** O Supabase sobe conteúdo de arquivo, não
+resolve o repositório, então `src/agent/*.ts` e `supabase/functions/turn/*.ts` são **byte a
+byte idênticos** e `tests/function-drift.test.ts` quebra no instante em que divergirem. São
+oito arquivos espelhados mais duas cópias *inline* dentro do `index.ts` — a tabela `PRICES`
+e o ritmo (`MS_PER_WORD`, `bubbleDelayMs`, `splitBubbles`) — cada uma presa à fonte por
+teste. Mexeu num, copia no outro **antes** de rodar o teste.
 
-1. **Desconto do antecipado: ZERO.** Os dois caminhos custam **R$ 129,90**. A análise que
-   levou a isso: o antecipado paga R$ 15,00 de frete que o COD não paga, então ao mesmo
-   preço ele rende R$ 48,35 contra R$ 63,35 do COD (R$ 52,35 esperados com 15% de
-   frustração). **Nenhum desconto salvava** — mesmo a zero ele perde R$ 4,00 para o COD, e
-   só empataria se a frustração passasse de 20,5%, contra os 13–16% que a própria Coinzz
-   documenta. Com os 15% antigos a perda era de R$ 22,12 por venda.
-2. **O antecipado deixa de ser opção e vira saída.** A agente **só o apresenta quando o
-   COD não alcança** — praça sem cobertura ou tamanho sem entrega naquela região. Onde o
-   COD chega, existe um preço só e nenhuma escolha a fazer.
-3. **Prazo do antecipado: não é mais faixa.** Em vez de "3 a 10 dias úteis", a frase é
-   **"varia por região, em média 5 dias úteis"** — sempre dizendo que varia.
-4. **Frete:** fixo em R$ 15,00 pagos pela operação **só no antecipado**; o COD não paga
-   frete nenhum. A cliente não paga nada nos dois.
+### As decisões de negócio que não se reabrem
 
-**Feito, verificado e no ar:**
+> **Os itens 1 e 3 foram reabertos em 2026-09-10** — ver
+> [§Decisões de 2026-09-10](#decisões-de-2026-09-10-preço-frete-e-modelo-de-conversa).
+> Ficam aqui porque o raciocínio por trás deles continua verdadeiro e é exatamente a tensão
+> que a decisão nova reabre de olhos abertos — não é engano, é escolha consciente do
+> operador. Onde os dois divergirem, a seção de 10/09 vence.
 
-- `prices.prepayBrl` → 129.9 e `prepayDiscountPercent` → 0, no fixture, nos runners de
-  dev, no fallback da Edge Function e no `config/business.example.json`.
-- `delivery.prepayDaysMin/Max` trocados por `prepayAvgDays: 5` + `prepayVariesByRegion`.
-- `price_promise`: a economia entre os dois preços só entra na lista de valores citáveis
-  **enquanto ela for maior que zero** — senão "sai por zero reais" passaria.
-- `delivery_promise`: regra nova da média. Sondada e funcionando —
-  `"varia por região, em média 5 dias úteis"` passa; `"chega em 5 dias úteis"` (sem dizer
-  que varia), `"7 dias úteis em média"` (número errado) e qualquer faixa são barrados.
+1. ~~**Um preço só: R$ 129,90 nos dois caminhos.**~~ **Reaberto em 2026-09-10 — volta a
+   existir desconto no antecipado.** O raciocínio que zerou o desconto em 09-09 continua de
+   pé e não foi refutado, só aceito como custo consciente: o antecipado paga frete que o COD
+   não paga, então ao mesmo preço rende R$ 48,35 contra R$ 63,35 do COD, e mesmo desconto
+   zero perdia R$ 4,00 contra o COD. A diferença agora é que **quem paga o frete extra é a
+   cliente, não mais a operação** — o que muda a conta original. Ver Frente 4.
+2. **O antecipado não é opção, é saída.** A agente só o apresenta quando o COD não alcança:
+   praça sem cobertura, ou tamanho sem entrega naquela região. Onde o COD chega, existe um
+   preço só e nenhuma escolha a fazer — uma pergunta a mais é uma decisão a mais, e uma
+   decisão a mais é uma venda a menos.
+3. ~~**A cliente não paga frete em nenhum dos dois.**~~ **Reaberto em 2026-09-10 — ela
+   volta a pagar frete no antecipado**, calculado por região dentro do checkout da Coinzz.
+   No COD continua embutido no preço, como sempre foi. Ver Frente 4.
+4. **O prazo do antecipado não é faixa.** "Varia por região, em média 5 dias úteis",
+   **sempre** dizendo que varia. O gate recusa a faixa, o número errado e o número certo
+   dito como prazo fixo.
+5. **`afterpay` é o pagamento na entrega** na Coinzz. Dos quatro métodos que ela aceita,
+   nenhum se chama COD, e `afterpay` é o único que significa pagar depois.
+6. **São duas ofertas, dois hashes.** `offerHash` (`offp16pv`, entrega) e `prepayOfferHash`
+   (`offkw47x`, antecipado). Um hash só cobraria R$ 129,90 pela oferta errada.
+7. **O M não é problema de estoque** — é parametrização de produtos da integração Logzz na
+   Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e por
+   isso é feita com o G e nunca veta um tamanho.
+8. **O tamanho vai no complemento do agendamento.** A página da Logzz não tem seletor; a
+   instrução é do fornecedor, em maiúsculas, na descrição do produto.
 
-**A única coisa que falta é sua:** colar o `BUSINESS_CONFIG` novo, com
-`prepayBrl: 129.9`, `prepayDiscountPercent: 0`, **sem** `prepayDaysMin/Max` e com
-`prepayAvgDays: 5` e `prepayVariesByRegion: true`. O secret atual ainda tem 110,41 e 15%,
-e ele sobrescreve o código inteiro — enquanto não trocar, a produção segue no preço velho.
+### O que foi construído em 2026-09-09 à noite
 
-### O toque que ia para quem cancelou (2026-09-09, noite)
+Seis coisas, todas verificadas pela porta de produção e não por teste:
 
-A régua de pós-pedido era armada pelo **primeiro** webhook, quando o pedido nasce. Todo
-webhook seguinte carrega um status, e até agora nenhum deles significava nada. Uma
-cliente que **cancelasse** continuava com `order_eve` agendado — e na véspera ouviria
-*"sua entrega está marcada pra amanhã, deixa R$ 129,90 separado"*. É a mensagem que
-queima o número e a marca de uma vez, e nada no sistema estava impedindo.
+1. **Ramo de erro no n8n.** O nó do turno tem `onError: continueErrorOutput`. A recusa da
+   Edge Function vira corpo `{ status: "error", error }` **e** e-mail com telefone,
+   `externalId` e o que a cliente escreveu. Antes ela existia só no log de execução.
+2. **Webhook de venda, das duas plataformas.** A rota `job: "order"` existia e verificada
+   desde 09/09 de manhã, e **nada a chamava** — a régua de pós-pedido nunca armava e a de
+   silêncio seguia cobrando quem já tinha comprado. Agora existe quem chame.
+3. **Pedido morto desarma a régua.** `isOrderDead` lê o status por raiz. Cancelado, a régua
+   inteira morre — pós-pedido e silêncio.
+4. **A janela de 24h da Cloud API.** `deliveryFor` decide pelo relógio, não pelo tipo do
+   toque. Fora da janela: template do config, ou bloqueio explícito.
+5. **`pacing.ts` ligado.** Toda resposta devolve `bubbles` junto do `reply`.
+6. **Dois defeitos silenciosos, achados por auditoria e sonda:** `prepayVariesByRegion` era
+   decorativo (o gate nunca lia a chave), e a véspera de entrega ia para quem cancelou.
 
-`isOrderDead` lê o status por raiz — `cancel`, `recus`, `devolv`, `estorn`, `reembols`,
-`refund`, `refus`, `return` — porque nenhuma das duas plataformas publica o vocabulário
-de status delas. Morto: cancela tudo que ainda está agendado, pós-pedido **e** silêncio
-(perseguir quem acabou de cancelar é pior que ficar quieto), e não arma nada.
+### As armadilhas que já custaram caro — leia antes de mexer
 
-Verificado contra a v30 pela porta de produção: `Agendado` armou os quatro toques e matou
-o `silence_2`; `Cancelado` no mesmo pedido deixou os cinco em `canceled`. Sonda apagada.
+1. **`BUSINESS_CONFIG` sobrescreve o fallback INTEIRO.** A produção monta o config com
+   `Deno.env.get("BUSINESS_CONFIG") ?? fallback`, e o `??` é sobre a variável, não campo a
+   campo. Com o secret setado — e está — o objeto do código **nunca é lido**, e uma chave
+   nova nasce **ausente** lá. `freeShipping` foi criada obrigatória, leu `false` em produção
+   e reinstalou um veto com 2.738 testes verdes e o deploy dado como concluído.
+   → **Campo novo em `BusinessConfig` nasce opcional, com o padrão certo para ausente.**
+   O valor do secret **não é legível** pela API (vem hasheado); só o operador vê no painel.
+2. **O status HTTP não é canal de erro.** O webhook do n8n responde **200 em qualquer
+   desfecho**, de propósito: não-2xx faz o canal reentregar a mensagem, e reentrega sobre
+   recusa é laço. Quem precisa reagir **lê o corpo**.
+3. **O deploy pela ferramenta MCP não cabe.** São 199 KB. Deploy pela API de gerência, com
+   os arquivos do disco, **nove** arquivos — `availability.ts` entrou depois da receita
+   antiga. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+4. **Isolate quente.** Por minutos depois de um deploy, parte das requisições ainda cai na
+   versão anterior. Confira a sonda pelo **formato** da resposta, não pelo conteúdo.
+5. **Cegueira a negação.** Toda heurística de texto deste repositório já errou em negação.
+   Antes de mexer numa, sonde a frase negada **e** a negativa que não nega.
+6. **Verificar pela porta de produção.** Sonda contra a Edge Function prova o código, não o
+   caminho. O webhook do n8n já devolveu 200 sem criar conversa nenhuma por um dia inteiro.
 
-### O interruptor que não fazia nada (2026-09-09, noite)
+### Decisões de 2026-09-10: preço, frete e modelo de conversa
 
-Lendo o `BUSINESS_CONFIG` de produção — que o operador colou nesta sessão — apareceu
-`prepayVariesByRegion: false` junto de um prazo médio que a agente deveria dizer. E o
-gate **nunca lia essa chave**: só `prepayAvgDays`. Desligar a bandeira devia levar a
-agente de volta a não dizer prazo nenhum no antecipado, e não mudava coisa nenhuma.
+Quatro decisões do operador na mesma tarde, tomadas fora do código — **nada abaixo está
+implementado.** `config/business.example.json`, o secret `BUSINESS_CONFIG` e
+`supabase/functions/turn/index.ts` continuam exatamente como a v30 descreve. O roteiro
+exato de implementação está na [Frente 4](#frente-4--preço-frete-e-desconto-do-antecipado-decisão-de-2026-09-10)
+(preço e frete) e no item 1 da [Frente 3](#frente-3--dívidas-técnicas-nomeadas) (modelo).
 
-Corrigido: os dois leitores — o gate e o briefing — passam por `prepayAverage`, então o
-prompt para de ensinar um número que o gate recusaria. **No config novo a bandeira vai
-`true`**, então o comportamento é o mesmo de antes; o que muda é que agora desligá-la
-funciona.
+1. **Remover o frete fixo de R$ 15,00.** Deixa de existir um valor único que a operação
+   paga por venda no antecipado. `LABEL_COST_BRL` em `availability.ts` fica obsoleto como
+   número de custo — só continua existindo como registro histórico do que a margem sheet
+   lia até aqui.
+2. **O frete do antecipado passa a ser da cliente, calculado no checkout.** Não é um número
+   novo fixo — é a Coinzz/Logzz calculando o frete real por região na hora do checkout, do
+   jeito que `CheckoutPrices.prepayBrl` (`src/order/checkout.ts:47`) **já está documentado
+   para funcionar**: "Product only. Freight is calculated separately inside the checkout."
+   O COD não muda — frete continua embutido no preço, como desde sempre.
+3. **Desconto do antecipado volta a 10%**, sobre os R$ 129,90 publicados:
+   `prepayBrl = 129.90 × 0.90 = R$ 116,91`, `prepayDiscountPercent = 10`. Não é o 15% de
+   antes de 09-09 (R$ 110,41) — é um número novo, mais conservador, porque agora ela paga
+   frete à parte e o desconto de produto sozinho não pode fingir que cobre isso.
+4. **Modelo de conversa: candidato a trocar de `gpt-5.6-luna` para Meta Muse Spark 1.3**
+   (`$1,25/$4,25` por milhão de tokens). Dentro do teto de **R$ 0,50 por lead / 20
+   mensagens** definido nesta sessão, é o modelo de maior Intelligence Index (53,0) com
+   folga real de margem (R$ 0,32 de custo estimado, 36% abaixo do teto) — Grok 4.6 e Qwen3.8
+   Max empatam em score mas encostam no teto (R$ 0,49, 3% de folga), risco demais pra uma
+   estimativa que já é aproximada. **Não é decisão fechada de troca — é o candidato a
+   testar.** Ver ressalva no item 1 da Frente 3.
 
-### Auditoria de preço e frete (2026-09-09, noite)
+---
 
-Conferido linha a linha depois do PR #21, a pedido do operador. **O código está
-inteiro e coerente:** `codBrl` e `prepayBrl` são 129.9, `prepayDiscountPercent` é 0,
-`freeShipping` é opcional com ausente = grátis, `prepayDaysMin/Max` estão **ausentes de
-propósito** (e o gate barra qualquer faixa no antecipado por causa disso), `prepayAvgDays`
-é 5 com `prepayVariesByRegion`. As duas cópias — `src/agent/` e
-`supabase/functions/turn/` — estão byte a byte iguais nos oito arquivos espelhados. Os
-únicos "110,41" e "3 a 10" que sobraram no repositório são comentários de histórico; o que
-contradizia a regra em vigor foi reescrito.
+## O PLANO DAQUI PRA FRENTE
 
-**O que a auditoria NÃO consegue provar, e ninguém consegue daqui:** o valor do secret
-`BUSINESS_CONFIG`. Ele vem hasheado pela API de gerência e sobrescreve o objeto inteiro do
-código. Enquanto ele tiver 110,41 e 15%, a produção segue no preço velho com 2.776 testes
-verdes. É o item 0 abaixo, e é só seu.
+Cinco frentes, na ordem em que destravam dinheiro. **Nada na frente 2 vale a pena antes da
+frente 1 estar de pé**, e a frente 0 bloqueia as duas. A frente 4 é independente das outras
+quatro — pode andar em paralelo, não trava nem é travada por elas.
 
-### A varredura de código do fim do dia
+### Frente 0 — o que trava hoje (operador, não código)
 
-Duas revisões acharam treze defeitos, todos corrigidos e travados por teste. Os dois que
-mais custariam eram silenciosos: `cancelScheduled` cancelava **toda** a régua, então a
-primeira mensagem da cliente depois de comprar matava a véspera da entrega; e
-`extractName` aceitava qualquer mensagem de duas palavras, então **"boa tarde" virava o
-nome permanente dela** — no lead, no link do checkout, no corpo do pedido e no pacote.
+| # | O quê | Quem | Como se sabe que fechou |
+|---|---|---|---|
+| 0.1 | **Cota da OpenAI** | operador | A sonda de produção responde em vez de virar handoff |
+| 0.2 | **Verificar o `BUSINESS_CONFIG`** | agendado | A agente diz R$ 129,90 nos dois caminhos |
+| 0.3 | **Webhook da Coinzz** | operador + agente | Chega o primeiro payload real e o mapeamento fecha |
 
-Dois gates recusavam a própria saída correta: o do prazo escolhia um caminho pelo contexto
-enquanto a mensagem de comparação carrega os dois de propósito, e o da escassez absolvia a
-frase inteira quando um número era verdadeiro. Há um teste agora que passa **o exemplar
-do próprio prompt** pela cadeia inteira — era a lacuna de método por trás dos dois.
+**0.1 — Cota da OpenAI.** Sondado em 2026-09-09 21:08 UTC. Não é limite por minuto, é teto
+esgotado:
 
-### A armadilha que custou meio dia, e vai custar de novo
+> `Rate limit reached for gpt-5.6-luna ... on tokens per min (TPM): Limit 100000,`
+> `Used 100000, Requested 2723. Please try again in 19h36m20.16s.`
 
-A produção monta o config com `Deno.env.get("BUSINESS_CONFIG") ?? fallback`. **O `??` é
-sobre a variável inteira**, não campo a campo: com o secret setado — e está — o objeto do
-código nunca é lido, e uma chave nova nasce ausente lá. O `freeShipping` foi criado
-obrigatório, leu como `false` em produção e reinstalou o veto que a onda 1 tinha acabado
-de inverter, com 2.738 testes verdes e o deploy dado como concluído.
+Volta sozinha por volta de **2026-09-10 16:45 UTC**. Até lá **toda** cliente recebe
+`"Deixa eu confirmar isso certinho pra você"` e vira handoff — com tráfego de anúncio
+rodando, cada lead cai no e-mail do operador em vez de virar venda. **O Gemini está de pé**;
+morre só a chamada da conversa. Decisão do operador: **esperar**, sem subir limite e sem
+trocar de modelo.
 
-**Campo novo em `BusinessConfig` nasce opcional, com o padrão certo para ausente.** O
-valor do secret **não é legível** pela API de gerência (vem hasheado); só o operador vê no
-painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/business-config-sobrescreve.md).
+**0.2 — O `BUSINESS_CONFIG` foi salvo e ninguém confirmou que pegou.** Todo campo que mudou
+— `prepayBrl`, `prepayDiscountPercent`, `prepayAvgDays`, `prepayVariesByRegion` — só aparece
+no prompt e nos gates, e os dois vêm depois da chamada barrada. **Salvo ≠ verificado.**
+Há um check-in agendado para **2026-09-10 17:15 UTC** (`trig_019zftJ8Zx3bLqWCky8HQter`) com
+o roteiro inteiro: "oi" → tamanho → CEP → "qual a diferença?". Ele prova quatro coisas: os
+dois preços em R$ 129,90, o prazo de 1 a 3 dias na entrega, a frase da média no antecipado,
+e `bubbles` na resposta.
 
-### O que falta, em ordem
+**0.3 — Coinzz.** A URL está colada no painel e **nenhum webhook real chegou ainda**. O
+mapeamento dela é o esperado, não o confirmado. O primeiro que falhar vira e-mail com o JSON
+cru — é esse e-mail que fecha a metade que falta.
 
-0. **Colar o `BUSINESS_CONFIG` novo** — o preço único só vale quando o secret mudar.
-1. **Cota da OpenAI — o muro tem data.** Sondado na porta de produção em 2026-09-09
-   21:08 UTC. O erro não é "por minuto", é teto esgotado:
+### Frente 1 — a venda fecha sozinha
 
-   > `Rate limit reached for gpt-5.6-luna ... on tokens per min (TPM): Limit 100000,
-   > Used 100000, Requested 2723. Please try again in 19h36m20.16s.`
+Tudo aqui está **em código e verificado**; o que falta é confirmar contra dado real.
 
-   Ou seja: volta sozinha por volta de **2026-09-10 16:45 UTC**. Até lá **toda** cliente
-   recebe `"Deixa eu confirmar isso certinho pra você"` e a conversa vira handoff — se
-   houver tráfego de anúncio rodando, cada lead que chegar cai no e-mail do operador em
-   vez de ser vendido.
+1. **Confirmar o mapeamento da Coinzz** (depende de 0.3). O da Logzz já saiu de payload
+   real: `external_id`, `client_phone`, `order_final_price` (o **total**, não o unitário —
+   a quantidade pode ser > 1), `client_address_comp`, `order_status`, `date_order`,
+   `date_delivery`.
+2. **Conferir o primeiro pedido real ponta a ponta antes de abrir tráfego.** Método de
+   pagamento errado cria cobrança que a cliente não combinou.
+3. **Vigiar o e-mail de "venda não mapeada".** Todo tamanho que não passar cai ali. Se
+   passar a cair muito, o texto da instrução do fornecedor precisa mudar, não o código.
 
-   **O Gemini está de pé**: a classificação de intenção rodou e custou R$ 0,000128. Quem
-   morre é só a chamada da conversa.
+### Frente 2 — o canal (WhatsApp Cloud API)
 
-   **Decisão do operador (2026-09-09, noite): esperar.** Não subir o limite, não trocar o
-   modelo. As alternativas foram postas e recusadas — pôr cartão na OpenAI, ou tornar
-   `CONVERSATION_MODEL` uma variável de ambiente e apontar pro Gemini.
+Frente do sócio do operador. **O lado do código está pronto e bloqueando de propósito.**
 
-   **Uma dívida que isso deixou à mostra:** o `CLAUDE.md` diz que "o provedor é
-   configuração, não arquitetura", e na Edge Function ele não é —
-   `CONVERSATION_MODEL = "gpt-5.6-luna"` é constante no código (`index.ts:70`). Enquanto
-   for constante, não existe plano B para uma queda da OpenAI sem deploy.
-2. **Sonda de produção — agendada, não esquecida.** Nada da v25 para cá foi confirmado
-   pela porta de produção; a cota estourou antes. **Há um check-in agendado para
-   2026-09-10 17:15 UTC** (`trig_019zftJ8Zx3bLqWCky8HQter`), meia hora depois de a cota
-   voltar, com o roteiro inteiro: "oi" → tamanho → CEP → "qual a diferença?".
-
-   O que ela precisa provar: os **dois** preços saem **R$ 129,90** (é isto que confirma
-   que o `BUSINESS_CONFIG` novo pegou — o velho tinha 110,41 e 15%), o prazo na entrega é
-   **1 a 3 dias**, o do antecipado sai como **"varia por região, em média 5 dias úteis"**
-   e nunca como faixa, e a resposta traz `bubbles` junto do `reply`.
-
-   **O `BUSINESS_CONFIG` novo foi salvo pelo operador em 2026-09-09 à noite, e nada
-   confirmou que pegou.** Todo campo que mudou só aparece no prompt e nos gates, e os dois
-   só existem depois da chamada do modelo que está barrada. Salvo ≠ verificado.
-3. **Webhook de venda: o workflow existe, falta você colar a URL nos dois painéis.**
-   `Encorpa — Venda confirmada` está publicado e ativo no n8n. Uma URL para as duas
-   plataformas, e a query diz qual:
-   - Logzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=logzz`
-   - Coinzz: `https://encorpa-fashion.pikapod.net/webhook/encorpa-venda?fonte=coinzz`
-
-   Verificado de ponta a ponta com um lead de sonda: a Edge Function respondeu
-   `canceled: ["silence_2"]` e `armed: ["order_confirmed","order_shipped","order_eve",
-   "order_delivered"]` — a régua de silêncio morre e a de pós-pedido arma. A sonda foi
-   apagada do banco.
-
-   **A Logzz está mapeada de payload real** (botão Testar do painel, 2026-09-09):
-   `external_id` / `order_number`, `client_phone`, `order_final_price` (o **total**, não o
-   preço unitário — a quantidade pode ser maior que 1), `client_address_comp`,
-   `order_status`, `date_order` e `date_delivery`. As datas vêm com espaço no lugar do
-   `T`, e `scheduled_for` é coluna `date`, então vai só o dia.
-
-   **A Coinzz ainda não.** Os nomes dela são os esperados; o primeiro webhook real que
-   falhar vira e-mail com o JSON cru, e é ele que fecha essa metade.
-
-   **O tamanho é a parte delicada.** A página da Logzz não tem seletor, então a instrução
-   do fornecedor manda a cliente escrever no complemento. Passa quando há **exatamente um**
-   tamanho ali. `"P ou M"` não passa — moeda ao ar, e quem perde recebe a peça errada.
-   `"Bloco B, apto G"` não passa: uma letra sozinha depois de apto/bloco/casa é número de
-   porta, não tamanho. Esse era um falso positivo real, pego por sonda antes de ir ao ar.
-   Tudo que não passa vira e-mail.
-4. ~~**Ramo de erro no n8n.**~~ **Feito em 2026-09-09 e publicado.** O `Cerebro do turno`
-   tem `onError: continueErrorOutput`; a saída de erro alimenta `Devolve a recusa`
-   (responde `{ status: "error", error }` no corpo) e `Avisa a recusa` (e-mail com
-   telefone, `externalId` e o que a cliente escreveu). O status HTTP segue 200 **de
-   propósito** — não-2xx faz o canal reentregar a mensagem. Ver
-   [`.claude/memory/n8n-achata-o-status.md`](.claude/memory/n8n-achata-o-status.md).
-   **Falta o operador confirmar** que o e-mail da sonda chegou — se o SMTP recusar, a
-   recusa volta a existir só no log.
-5. **Canal: WhatsApp Cloud API** (decisão de 2026-09-09, substitui o WAHA). Frente do
-   sócio do operador. **O lado do código está feito:** `deliveryFor` em `followups.ts`
-   decide, pelo relógio e não pelo tipo do toque, se ele sai como texto livre ou como
-   template. O tipo do toque não responde essa pergunta — `silence_2` é a manhã seguinte
-   às 09:00, o que cai *dentro* da janela se ela sumiu à tarde e *fora* se ela sumiu de
-   madrugada.
-
-   **O que falta é seu, e é em duas partes:** aprovar os templates na Meta, e declarar
-   cada um em `BUSINESS_CONFIG` sob `channel.templates`, com o nome, o idioma e a **ordem
-   dos placeholders** — a aprovação fixa a ordem e o código não tem como adivinhá-la:
+1. **Aprovar os templates na Meta.**
+2. **Declarar cada um em `BUSINESS_CONFIG`**, sob `channel.templates`, com nome, idioma e a
+   **ordem dos placeholders** — a aprovação fixa a ordem e o código não adivinha:
 
    ```json
    "channel": { "templates": {
@@ -279,45 +276,145 @@ painel. Ver [`.claude/memory/business-config-sobrescreve.md`](.claude/memory/bus
    } }
    ```
 
-   Os valores possíveis são `price`, `warrantyDays`, `size`, `address`, `couponPercent` e
-   `weekday`. A chave é **opcional e ausente bloqueia** todo toque fora da janela — texto
-   livre lá a Meta recusaria de qualquer jeito, então o certo é barrar e dizer, não mandar
-   no escuro.
-6. ~~**`pacing.ts` não está ligado em nada.**~~ **Ligado e confirmado em produção** — a
-   sonda de 2026-09-09 voltou com `bubbles: [{ text: "...", delayMs: 11200 }]`. Toda resposta do turno agora
-   devolve `bubbles` junto do `reply`: o mesmo texto, quebrado em até três bolhas com o
-   atraso de cada uma (0,8 s por palavra, mínimo 1 s), pra quem envia não reimplementar o
-   ritmo. `firstReplyAt` e `presenceRefreshes` continuam em `pacing.ts` — são do relógio
-   de quem envia, não da resposta.
+   Valores possíveis: `price`, `warrantyDays`, `size`, `address`, `couponPercent`,
+   `weekday`. **Ausente bloqueia** todo toque fora da janela — texto livre lá a Meta
+   recusaria de qualquer jeito, então barrar e dizer vence mandar no escuro.
+3. **Ligar o envio.** Quem enviar lê `bubbles` (texto e atraso já calculados) e chama
+   `presenceRefreshes` de `pacing.ts` pro "digitando". `firstReplyAt` é do relógio de quem
+   envia, não da resposta.
+4. **Contadores de pacing.** O gate `pacing` existe e a varredura **não passa contador
+   nenhum** — eles pertencem ao canal. Ao ligar, dê ao chamador um **retry por hora**; não
+   reuse o adiamento para a reabertura, que é certo pro limite diário e longo demais pro
+   horário.
 
-### Deploys da noite (v28, v29, v30)
+### Frente 3 — dívidas técnicas, nomeadas
 
-Feito em 2026-09-09 à noite, pela API de gerência com os arquivos do disco — **nove**
-arquivos, não os oito da receita antiga: `availability.ts` entrou depois e ficaria de fora
-de quem copiasse o comando sem olhar. Ver
-[`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+Nenhuma trava venda hoje. Todas mordem depois.
 
-O PAT usado nesse deploy foi colado no chat e **entra na lista de rotação junto com o
-anterior**.
+1. **`CONVERSATION_MODEL` é constante no código** (`index.ts:70`), contra o que o
+   `CLAUDE.md` fixa: "o provedor é configuração, não arquitetura". Enquanto for constante,
+   **não existe plano B para uma queda da OpenAI sem deploy** — foi exatamente o que
+   aconteceu em 09/09. Virar variável de ambiente é pequeno; a decisão de *qual* modelo
+   conversa com a cliente é do operador.
+
+   **Candidato decidido nesta sessão: Meta Muse Spark 1.3**, dentro do teto de R$ 0,50 por
+   lead / 20 mensagens (ver §Decisões de 2026-09-10). **Não troque direto em produção.**
+   Ordem: (a) virar `CONVERSATION_MODEL` variável de ambiente, com `gpt-5.6-luna` como
+   padrão — reversível sem deploy; (b) rodar eval com conversas reais do projeto
+   comparando Luna × Muse Spark 1.3, medindo taxa de conversão e quantos gates recusam,
+   não Intelligence Index; (c) só então trocar o padrão. O ponto fraco da recomendação é
+   o alinhamento de segurança da Meta em atendimento comercial — é exatamente o que o
+   eval do passo (b) testa.
+2. **`firstReplyAt` usa a hora local do runtime**, e o runtime da Edge Function é UTC.
+   `openHour: 6` viraria 03:00 em São Paulo. Está latente porque a função não é chamada em
+   produção — **deixa de ser latente no dia em que o canal a chamar**. O conserto já existe
+   pronto em `followups.ts` (`BUSINESS_TZ`, `nextLocalHour`); os testes atuais de
+   `pacing.test.ts` codificam a suposição errada e mudam junto.
+3. **Depoimentos e cupom estão vazios** no config. A agente não pode citar cliente nenhuma,
+   e o toque `silence_3` (o do cupom) **não sai** — retorna `null` de propósito enquanto o
+   cupom não existir na Coinzz. Anunciar cupom sem destino é a promessa quebrada que este
+   projeto já decidiu nunca fazer.
+4. **`prepayDaysMin`/`prepayDaysMax` continuam no tipo, ausentes de propósito.** Existem só
+   para o gate poder recusar uma faixa contra uma configurada. Não preencha.
+
+### Frente 4 — preço, frete e desconto do antecipado (decisão de 2026-09-10)
+
+O código já foi escrito pensando nesse cenário — a maior parte é **trocar valor de
+config, não escrever lógica nova**. Ordem exata:
+
+1. **`config/business.example.json`** — três campos:
+   - `prices.prepayBrl`: `129.9` → `116.91`
+   - `prices.prepayDiscountPercent`: `0` → `10`
+   - `delivery.freeShipping`: `true` → `false`
+2. **`BUSINESS_CONFIG` no Supabase** — os mesmos três campos, **só o operador consegue
+   editar** (o secret não é legível pela API de gerência). Sem isso a produção não muda —
+   ver a armadilha do `??` sobre a variável inteira.
+3. **Nada muda em `src/order/checkout.ts`.** `amountFor` já lê `prepayBrl` como "produto
+   só, frete calculado à parte no checkout" — é a assinatura do tipo `CheckoutPrices`
+   desde que foi escrito. O `freeShipping: false` também não é comportamento novo: o gate
+   `shipping_promise` em `src/agent/guardrails.ts:809-829` já tem a branch pronta e **já
+   testada** (`tests/guardrails.test.ts:549` — "com freeShipping desligado, a regra antiga
+   volta inteira") para exatamente essa combinação: COD com frete embutido no preço,
+   antecipado com frete calculado por região dentro do checkout, nunca "frete grátis" nos
+   dois. O `price_promise` gate (`guardrails.ts:385-431`) também já lê `prepayBrl` e
+   `prepayDiscountPercent` direto do config para decidir o que é citável — nenhum dos dois
+   precisa de código novo, só do valor certo entrando.
+4. **Comentários que ficam mentindo se não forem atualizados** (não têm efeito em teste,
+   mas confundem a próxima sessão):
+   - `src/agent/guardrails.ts:791-808` — o bloco de comentário explica a troca de 09-09
+     ("this gate used to forbid... now forbids denying"). Precisa de um terceiro parágrafo
+     contando que a bandeira voltou a virar, e por quê.
+   - `src/agent/availability.ts:244-252` — `LABEL_COST_BRL` está documentado como "she
+     pays nothing for it on either path", que deixa de ser verdade no antecipado.
+   - Espelhar as duas mudanças em `supabase/functions/turn/guardrails.ts` e
+     `supabase/functions/turn/availability.ts` — são cópias byte a byte, `pnpm test`
+     quebra sozinho se esquecer (`tests/function-drift.test.ts`).
+5. **Teste novo que hoje não existe:** a combinação `freeShipping: false` **junto com**
+   `prepayDiscountPercent: 10` (os testes atuais cobrem cada campo separado, nunca os dois
+   como a produção vai rodar). Confirma que a agente cita `R$ 12,99` de economia e `10%`
+   de desconto sem citar frete grátis no antecipado.
+6. **O item que precisa da sua decisão antes do deploy, não depois:** o gate
+   `price_promise` vai liberar **"você economiza R$ 12,99 no antecipado"** — é a
+   diferença aritmética entre `codBrl` e `prepayBrl` (129,90 − 116,91), **sem descontar o
+   frete que ela paga a mais**. Se o frete real cobrado no checkout for maior que R$ 12,99
+   (o que é o caso normal — R$ 15 a R$ 40 conforme a região, pela própria tabela da Logzz
+   documentada neste arquivo), **a cliente paga mais no antecipado apesar de ouvir que
+   está economizando.** É exatamente o tipo de meia-verdade que os gates deste projeto
+   existem para impedir, e é a mesma armadilha econômica que motivou zerar o desconto em
+   09-09 — só que agora do lado da promessa, não do lado da margem. Três saídas, nenhuma
+   escolhida ainda:
+   - **A.** Tirar a economia de R$ 12,99 da lista de valores citáveis no `price_promise`
+     (deixar só o desconto de 10% como número, nunca "economiza R$X").
+   - **B.** Manter a citação, mas só o operador decide isso porque é uma opção comercial:
+     aceitar que a frase é otimista sabendo que nem sempre é verdade.
+   - **C.** Citar a economia só combinada com uma ressalva ("mais frete, calculado no
+     checkout") — mais fiel, mais difícil de fazer o guardrail aceitar sem soar burocrático.
+7. **Verificar antes de deployar:** `pnpm test && pnpm typecheck && pnpm typecheck:function`,
+   depois sonda de produção nos dois caminhos confirmando R$ 116,91 + 10% no antecipado,
+   R$ 129,90 sem menção a frete grátis no COD, e frete calculado no checkout (nunca um
+   valor fixo) no antecipado.
+8. **Documentos de negócio que citam "frete grátis nos dois" ou "preço único" como fato
+   consolidado** — `docs/documentacao/contexto-negocio/`, `docs/agente-ia/06-script/` —
+   não foram varridos nesta sessão. Buscar por "frete grátis", "R\$ 129,90" e "desconto"
+   antes de considerar essa frente fechada.
+
+### O que NÃO fazer
+
+- **Não pular, desabilitar ou isolar teste** para ficar verde.
+- **Não deployar sem `pnpm typecheck:function`** — é a única coisa que olha o código que a
+  produção executa de verdade; o `tsconfig` não cobre aquele arquivo.
+- **Não editar um dos espelhos sem editar o outro.**
+- **Não criar campo obrigatório em `BusinessConfig`.** Ver armadilha 1.
+- **Não mandar prazo do antecipado como faixa**, nem a média sem dizer que varia.
+- **Não deployar a Frente 4 sem decidir o item 6** (a economia de R$ 12,99 citável sem
+  descontar o frete real) — é meia-verdade de preço, exatamente o que os gates existem
+  pra impedir.
+- **Não reaproveitar o [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22)** —
+  merjado em 2026-09-09. Trabalho novo recomeça a branch a partir da `main`.
 
 ### Higiene de segurança
 
 Rotacionar: `service_role` da Supabase, chaves OpenAI e Gemini, tokens do Facebook. Dois
-PATs da Supabase foram colados no chat em 2026-09-09 e **os dois já foram revogados pelo
-operador** — o segundo depois dos deploys v28, v29 e v30. Um deploy novo precisa de um
-token novo. E um print
-de DevTools enviado nesta sessão trazia telefone e CPF de uma cliente real; nada foi usado
+PATs da Supabase foram colados no chat em 2026-09-09 e **os dois já foram revogados** — o
+segundo depois dos deploys v28, v29 e v30; um deploy novo precisa de token novo. E um print
+de DevTools enviado numa sessão trazia telefone e CPF de uma cliente real: nada foi usado
 nem gravado, mas print de aba Network carrega dado pessoal junto.
 
 ---
 
 ## Histórico — o que veio antes de 2026-09-09 à noite
 
-> **Aviso.** Daqui para baixo é registro, não estado. Três coisas foram corrigidas depois
-> e aparecem erradas nas seções antigas: o prazo do antecipado (era 5 a 10, é 3 a 10 dias
-> úteis), o frete do pagamento na entrega (era R$ 24,98 cobrado da cliente, hoje é zero) e
-> a leitura do M (era "estoque zerado no país", é parametrização da integração). Onde
-> divergirem do COMECE POR AQUI, o topo vence.
+> **Aviso.** Daqui para baixo é registro, não estado, e as seções antigas erram em quatro
+> coisas que foram corrigidas depois:
+>
+> | Aparece lá | É isto hoje |
+> |---|---|
+> | prazo do antecipado "5 a 10" ou "3 a 10 dias úteis" | **não é faixa** — "varia por região, em média 5 dias úteis" |
+> | antecipado a R$ 110,41, com 15% de desconto | **R$ 129,90**, desconto **zero**, e ele não é opção, é saída |
+> | frete de R$ 24,98 cobrado da cliente | **zero** para ela nos dois caminhos |
+> | o M "com estoque zerado no país" | **parametrização** da integração Logzz na Coinzz |
+>
+> Onde divergirem do COMECE POR AQUI, o topo vence.
 
 ## Onde o trabalho parou
 
