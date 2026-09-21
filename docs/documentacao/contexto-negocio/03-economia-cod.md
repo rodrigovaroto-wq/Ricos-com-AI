@@ -8,20 +8,33 @@ por conversa, quando escalar para humano, quanto insistir num follow-up — se m
 Este arquivo traz a **unidade econômica medida da operação**. A projeção de volume, CPL e
 metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 
+> ### ⚠️ Correção de 2026-09-21 — recusa com `Físico na entrega` ativo é R$ 9,99, não R$ 14,98
+>
+> Confirmado pelo operador (§R10.2 em
+> [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md)). O valor
+> anterior, R$ 14,98, era a soma de handling (R$ 4,99) + falha COD (R$ 9,99) — o operador
+> corrigiu para o total ser **R$ 9,99**. O multiplicador entre as duas formas de recusa
+> abaixo foi recalculado; o valor pós-pago (R$ 54,98) não mudou. **Ainda pendente:**
+> recalcular o ponto de equilíbrio de inadimplência (linha abaixo) — não há registro da
+> fórmula original aqui para refazer a conta com segurança, e os R$ 63,35 de entrega paga
+> também estão em revisão pelo operador (§R10.3), então este ponto de equilíbrio muda de
+> novo assim que aquele número fechar.
+
 ## Unidade econômica
 
 | Evento | Resultado |
 |---|---|
 | Entrega concluída e paga | **+ R$ 63,35** |
-| Entrega recusada, com `Físico na entrega` ativo (o entregador cobra) | **− R$ 14,98** |
+| Entrega recusada, com `Físico na entrega` ativo (o entregador cobra) | **− R$ 9,99** |
 | Entrega recusada, pós-pago (entrega-depois-cobra) | **− R$ 54,98** |
 
-A diferença entre as duas formas de recusa é de **3,7×**. É a alavanca mais importante
+A diferença entre as duas formas de recusa é de **~5,5×**. É a alavanca mais importante
 da operação inteira e **não tem nada a ver com o site nem com o agente** — depende de o
 operador ativar `Físico na entrega` na Coinzz.
 
 **Ponto de equilíbrio:** acima de **16,5%** de inadimplência, um CPA de R$ 35 perde
-dinheiro.
+dinheiro. **Pendente de recálculo** com o novo custo de recusa (R$ 9,99) — ver a correção
+acima.
 
 ## O que isso impõe ao agente
 
