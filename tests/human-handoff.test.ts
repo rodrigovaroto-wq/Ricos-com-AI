@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { asPhrase, gateBriefing, HUMAN_REQUEST_PHRASES, runGates, wantsHuman } from "@/agent/guardrails.js";
-import { HUMAN_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY } from "@/agent/retry.js";
+import { HUMAN_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 import { ctx, config } from "./fixtures.js";
 
 /**
@@ -149,5 +149,37 @@ describe("o briefing que vai no prompt", () => {
     const ligado = gateBriefing({ ...config, coupon: { ...config.coupon, active: true } }).join(" ");
     expect(ligado).toContain("20% está ativo");
     expect(gateBriefing(config).join(" ")).toContain("Não existe cupom");
+  });
+});
+
+/**
+ * Estágio 0 — a recepção automática, aprovada pelo operador em 2026-09-21 com os
+ * espaçamentos exatos. Mesma classe do handoff acima: texto fixo, layer "auto", nunca
+ * o modelo. O timer de 2 minutos até a resposta real da Valen é decisão de arquitetura
+ * ainda em aberto (n8n vs. varredura das réguas) — ver HANDOFF.md.
+ */
+describe("recepção automática do Estágio 0", () => {
+  it("é exatamente o texto aprovado, com as quebras de linha aprovadas", () => {
+    expect(WELCOME_AUTO_REPLY).toBe(
+      "Oii, tudo bem?\n\n" +
+        "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes fará seu atendimento.\n\n" +
+        "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
+        "encorpa-fashion.com.br",
+    );
+  });
+
+  it("passa a régua de madrugada — é o ponto do layer auto (R4.4)", () => {
+    const madrugada = ctx({ layer: "auto", now: new Date("2026-09-06T05:00:00") });
+    expect(runGates(WELCOME_AUTO_REPLY, madrugada).allowed).toBe(true);
+  });
+
+  it("não promete preço, prazo nem cupom — não é a resposta real, é o aviso de recebido", () => {
+    expect(WELCOME_AUTO_REPLY).not.toMatch(/R\$|cupom|desconto/i);
+  });
+
+  it("não afirma ser gente, nem nega ser agente — só confirma o recebimento", () => {
+    expect(runGates(WELCOME_AUTO_REPLY, ctx()).traces.find((t) => t.gate === "humanity_claim")?.verdict).toBe(
+      "pass",
+    );
   });
 });

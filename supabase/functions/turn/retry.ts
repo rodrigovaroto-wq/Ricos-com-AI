@@ -136,3 +136,20 @@ export const HOLDING_REPLY =
  */
 export const HUMAN_HANDOFF_REPLY =
   "Claro! Já estou chamando alguém do time pra falar com você por aqui 💛";
+
+/**
+ * Estágio 0 — the receipt every brand-new lead gets, 24/7, before the agent has said a
+ * word. Same class as the two replies above: fixed text, never the model, layer "auto"
+ * so the hours gate does not apply (R4.4). Approved by the operator on 2026-09-21,
+ * spacing included — the paragraph breaks are the approved text, not formatting.
+ *
+ * It answers nothing about her message; it exists to be honest that a person has not
+ * replied yet, in a channel where silence reads as ignored. Sent once per lead, never
+ * repeated — a lead that already has a conversation is not new, and does not see it
+ * again on her second message.
+ */
+export const WELCOME_AUTO_REPLY =
+  "Oii, tudo bem?\n\n" +
+  "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes fará seu atendimento.\n\n" +
+  "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
+  "encorpa-fashion.com.br";

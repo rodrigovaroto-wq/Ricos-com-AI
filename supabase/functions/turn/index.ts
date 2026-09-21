@@ -248,7 +248,7 @@ const CONFIG: BusinessConfig = JSON.parse(
   Deno.env.get("BUSINESS_CONFIG") ??
     JSON.stringify({
       brand: "Encorpa",
-      agentName: "Malu",
+      agentName: "Valen",
       prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
       delivery: {
         codDaysMin: 1,
