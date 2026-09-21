@@ -75,6 +75,42 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
+## Varredura de cobertura de 2026-09-21
+
+43 cidades × 5 tamanhos, contra o `stock-and-delivery-day`, em série, sem criar pedido
+nenhum. Tabela completa em
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
+
+| | Em 08/09 | Em 21/09 |
+|---|---|---|
+| Cidades com COD | 22 de 43 | **as mesmas 22** |
+| Frete do COD | R$ 24,98 constante | **R$ 24,98 constante** |
+| Tamanho M | ausente nas 43 | **presente em BH, Contagem e Betim** |
+| Fortaleza | GG, XGG | **só XGG** |
+| Janela Express (`deliverySameDay`) | existia em 09/09 | **nenhuma, em nenhuma praça** |
+
+Três consequências, em ordem de tamanho:
+
+1. **A premissa do M caiu.** Não é parametrização de produto — ver o item 7 de §As decisões
+   de negócio que não se reabrem. O que fazer com a Logzz virou outra pergunta: não "por que
+   o M não está mapeado", e sim **"por que o M só existe no CD de Minas e quando chega aos
+   outros"**.
+2. **O Express não está de pé.** `availability.ts` já não promete "hoje" quando a janela
+   não vem, então nada quebrou. Mas qualquer texto de script que conte com entrega no mesmo
+   dia está falando de algo que o checkout não oferece hoje.
+3. **A cobertura é estável.** Treze dias sem uma praça entrar ou sair é argumento para
+   decidir tráfego pelas 22 cidades sem medo de a lista virar do avesso na semana seguinte.
+
+**Uma armadilha de varredura, aprendida caro nesta sessão.** Uma consulta que falha por
+rede e uma praça que não tem COD **são indistinguíveis na leitura** — `readAvailability`
+trata resposta ilegível como "sem COD", de propósito. Numa varredura isso produz uma tabela
+inteira de "não" silenciosos que parece um apagão de cobertura nacional. Aconteceu aqui: o
+`urllib` do Python levava 403 do proxy do ambiente e as 43 cidades vieram negativas.
+**Confira sempre São Paulo com o G antes de acreditar num negativo em massa**, e prefira
+`curl` neste ambiente.
+
+---
+
 ## COMECE POR AQUI — estado em 2026-09-10
 
 Quem pega esta sessão do zero lê **só esta seção** e o
@@ -234,9 +270,14 @@ teste. Mexeu num, copia no outro **antes** de rodar o teste.
    nenhum se chama COD, e `afterpay` é o único que significa pagar depois.
 6. **São duas ofertas, dois hashes.** `offerHash` (`offp16pv`, entrega) e `prepayOfferHash`
    (`offkw47x`, antecipado). Um hash só cobraria R$ 129,90 pela oferta errada.
-7. **O M não é problema de estoque** — é parametrização de produtos da integração Logzz na
-   Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e por
-   isso é feita com o G e nunca veta um tamanho.
+7. ~~**O M não é problema de estoque** — é parametrização de produtos da integração Logzz
+   na Coinzz.~~ **Derrubado em 2026-09-21:** o M apareceu em Belo Horizonte, Contagem e
+   Betim, e continua ausente nas outras 19 praças com COD. Parametrização de produto não
+   funcionaria em três cidades e falharia em dezenove — o recorte por CD aponta para
+   **estoque**. A conduta não muda, e agora por outro motivo: a consulta é feita com o G e
+   **nunca veta um tamanho**, porque a disponibilidade por tamanho muda de semana para
+   semana e quem decide é o checkout da Logzz. Ver
+   [`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
 8. **O tamanho vai no complemento do agendamento.** A página da Logzz não tem seletor; a
    instrução é do fornecedor, em maiúsculas, na descrição do produto.
 
@@ -1387,6 +1428,10 @@ P/GG/XGG e não tem G. Fora dessas praças, e fora desses tamanhos, a única ven
 antecipada.
 
 ### 2. O tamanho M está indisponível nas 43 cidades
+
+> **Corrigido em 2026-09-21:** o M passou a existir na entrega em **Belo Horizonte,
+> Contagem e Betim**. Continua ausente nas outras 19 praças com COD. O parágrafo abaixo é
+> o registro de 08/09.
 
 Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele, e só ele.
 M é o tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma
