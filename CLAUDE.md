@@ -13,16 +13,16 @@
 
 ## Stack
 
-TypeScript `strict` · Node.js 24 LTS · pnpm · Playwright (CDP) · **Supabase (Postgres)** · **n8n** · **WAHA** · **PikaPods** · **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
+TypeScript `strict` · Node.js 24 LTS · pnpm · Playwright (CDP) · **Supabase (Postgres)** · **n8n** · **WhatsApp Cloud API** · **[Hermes Agent](https://github.com/NousResearch/hermes-agent)**.
 
 Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem necessidade comprovada.
 
-**Quem faz o quê** (rodada 5 — ver [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) §R5.2–§R5.7):
+**Quem faz o quê** (rodada 5 — ver [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) §R5.2–§R5.7; canal atualizado em 2026-09-21, ver [`docs/documentacao/contexto-negocio/05-decisoes-firmes.md`](docs/documentacao/contexto-negocio/05-decisoes-firmes.md) §1):
 
 - **Supabase** — todo o estado: leads, conversas, mensagens, pedidos, follow-ups, custo por chamada de modelo, trace de guardrail. Substitui o SQLite que este arquivo fixava antes.
 - **n8n** — cano e relógio: webhook de entrada, enfileiramento, crons de varredura, webhook da Coinzz, notificação de handoff. **Não** guarda regra de negócio: guardrails, máquina de estados e teto de custo são código versionado com teste.
-- **WAHA** — transporte do WhatsApp, em pod 24/7 (a sessão exige processo vivo; o banco não é mais o motivo da VPS).
-- **PikaPods** — hospeda só o que precisa ficar de pé.
+- **WhatsApp Cloud API** — transporte oficial do WhatsApp (Meta), habilitado pelo CNPJ da operação. Substitui o WAHA (transporte não oficial via sessão de WhatsApp Web) decidido antes da confirmação do CNPJ — a troca elimina a necessidade de processo de sessão vivo 24/7 e de pacing anti-banimento. Mensagens fora da janela de atendimento de 24h (follow-up, recuperação de carrinho) exigem template pré-aprovado pela Meta.
+- **PikaPods** — hospeda o que ainda precisa ficar de pé (n8n, e o que mais não migrar para serverless). Deixou de existir só por causa do WAHA.
 - **Hermes Agent** — otimizador periódico que lê as conversas e **propõe** mudanças; nunca publica em produção sozinho.
 
 **Provedor de modelo** (rodada 7 — §R7.1; conversa trocada em 2026-09-10, ver `HANDOFF.md`
