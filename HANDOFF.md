@@ -75,6 +75,74 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
+## PRÓXIMA SESSÃO — montar o plano de execução até os primeiros testes
+
+Decidido pelo operador em 2026-09-21. **A próxima sessão começa por aqui**, antes de
+escrever qualquer código.
+
+O objetivo é um **plano de execução completo** do que ainda falta para o sistema ficar
+operacional e pronto para os primeiros testes de verdade. O método não é auditar o que
+está escrito neste arquivo — é **testar o fluxo inteiro, ponta a ponta**, e separar o que
+já funciona do que só está documentado como se funcionasse. Este handoff já errou nas duas
+direções, e a varredura de 21/09 é o exemplo mais recente: uma decisão fechada ("o M é
+parametrização") caiu com uma consulta de quatro minutos.
+
+Escopo do que precisa ser exercitado, sem ordem de prioridade ainda — a ordem é parte do
+plano a montar:
+
+1. **O canal.** WhatsApp Cloud API não existe. É a Frente 2 e bloqueia qualquer teste com
+   cliente real.
+2. **A conversa inteira**, do "oi" ao link de checkout, pela porta de produção (webhook do
+   n8n), não por sonda contra a Edge Function.
+3. **O pedido**, nos dois caminhos — pagamento na entrega e antecipado — incluindo o
+   `payment_method` correto, que continua sendo dedução e não fato.
+4. **O webhook de venda** das duas plataformas, com payload real, e a régua de pós-pedido
+   que ele arma.
+5. **As divergências abertas** entre repositório e produção: o
+   `DEFAULT_CONVERSATION_MODEL` (Frente 5, sem eval rodado) e preço/frete/desconto
+   (Frente 4, decidido e não implementado).
+
+Cada item do plano sai com **como se sabe que fechou** — um critério verificável, do jeito
+que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produção.
+
+---
+
+## Varredura de cobertura de 2026-09-21
+
+43 cidades × 5 tamanhos, contra o `stock-and-delivery-day`, em série, sem criar pedido
+nenhum. Tabela completa em
+[`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
+
+| | Em 08/09 | Em 21/09 |
+|---|---|---|
+| Cidades com COD | 22 de 43 | **as mesmas 22** |
+| Frete do COD | R$ 24,98 constante | **R$ 24,98 constante** |
+| Tamanho M | ausente nas 43 | **presente em BH, Contagem e Betim** |
+| Fortaleza | GG, XGG | **só XGG** |
+| Janela Express (`deliverySameDay`) | existia em 09/09 | **nenhuma, em nenhuma praça** |
+
+Três consequências, em ordem de tamanho:
+
+1. **A premissa do M caiu.** Não é parametrização de produto — ver o item 7 de §As decisões
+   de negócio que não se reabrem. O que fazer com a Logzz virou outra pergunta: não "por que
+   o M não está mapeado", e sim **"por que o M só existe no CD de Minas e quando chega aos
+   outros"**.
+2. **O Express não está de pé.** `availability.ts` já não promete "hoje" quando a janela
+   não vem, então nada quebrou. Mas qualquer texto de script que conte com entrega no mesmo
+   dia está falando de algo que o checkout não oferece hoje.
+3. **A cobertura é estável.** Treze dias sem uma praça entrar ou sair é argumento para
+   decidir tráfego pelas 22 cidades sem medo de a lista virar do avesso na semana seguinte.
+
+**Uma armadilha de varredura, aprendida caro nesta sessão.** Uma consulta que falha por
+rede e uma praça que não tem COD **são indistinguíveis na leitura** — `readAvailability`
+trata resposta ilegível como "sem COD", de propósito. Numa varredura isso produz uma tabela
+inteira de "não" silenciosos que parece um apagão de cobertura nacional. Aconteceu aqui: o
+`urllib` do Python levava 403 do proxy do ambiente e as 43 cidades vieram negativas.
+**Confira sempre São Paulo com o G antes de acreditar num negativo em massa**, e prefira
+`curl` neste ambiente.
+
+---
+
 ## COMECE POR AQUI — estado em 2026-09-10
 
 Quem pega esta sessão do zero lê **só esta seção** e o
@@ -234,9 +302,14 @@ teste. Mexeu num, copia no outro **antes** de rodar o teste.
    nenhum se chama COD, e `afterpay` é o único que significa pagar depois.
 6. **São duas ofertas, dois hashes.** `offerHash` (`offp16pv`, entrega) e `prepayOfferHash`
    (`offkw47x`, antecipado). Um hash só cobraria R$ 129,90 pela oferta errada.
-7. **O M não é problema de estoque** — é parametrização de produtos da integração Logzz na
-   Coinzz. A consulta de disponibilidade é confiável **por região, não por tamanho**, e por
-   isso é feita com o G e nunca veta um tamanho.
+7. ~~**O M não é problema de estoque** — é parametrização de produtos da integração Logzz
+   na Coinzz.~~ **Derrubado em 2026-09-21:** o M apareceu em Belo Horizonte, Contagem e
+   Betim, e continua ausente nas outras 19 praças com COD. Parametrização de produto não
+   funcionaria em três cidades e falharia em dezenove — o recorte por CD aponta para
+   **estoque**. A conduta não muda, e agora por outro motivo: a consulta é feita com o G e
+   **nunca veta um tamanho**, porque a disponibilidade por tamanho muda de semana para
+   semana e quem decide é o checkout da Logzz. Ver
+   [`docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md`](docs/agente-ia/07-cobertura/01-cobertura-pagamento-na-entrega.md).
 8. **O tamanho vai no complemento do agendamento.** A página da Logzz não tem seletor; a
    instrução é do fornecedor, em maiúsculas, na descrição do produto.
 
@@ -1387,6 +1460,10 @@ P/GG/XGG e não tem G. Fora dessas praças, e fora desses tamanhos, a única ven
 antecipada.
 
 ### 2. O tamanho M está indisponível nas 43 cidades
+
+> **Corrigido em 2026-09-21:** o M passou a existir na entrega em **Belo Horizonte,
+> Contagem e Betim**. Continua ausente nas outras 19 praças com COD. O parágrafo abaixo é
+> o registro de 08/09.
 
 Nem na entrega, nem no antecipado — o `local_operation` volta vazio só para ele, e só ele.
 M é o tamanho mais pedido de qualquer peça feminina. Hoje, agora, a agente indica M para uma

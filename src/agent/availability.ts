@@ -23,16 +23,20 @@
  * available for this size at this postcode — plus the operator's own shipping cost
  * on the prepaid path. It says nothing about stock. Treat it that way.
  *
- * AND IT IS TRUSTWORTHY BY REGION, NOT BY SIZE. Cash on delivery moved to the Logzz
- * scheduling checkout on 2026-09-09, and this query still reads the same Logzz local
- * operation behind it — the same coverage, the same three dates, the same Express. What
- * it gets wrong is the per-size answer: it reports no delivery for the M anywhere,
- * including a warehouse holding 196 units, and the operator identified that as a fault
- * in the Coinzz product mapping rather than the warehouse's answer.
+ * AND IT IS ASKED BY REGION, NOT BY SIZE. Cash on delivery moved to the Logzz scheduling
+ * checkout on 2026-09-09, and this query still reads the same Logzz local operation behind
+ * it — the same coverage, the same three dates.
  *
- * So the agent asks it one question — does delivery reach this postcode, on which days —
- * using a size known to be mapped correctly, and never lets the per-size answer veto a
- * size. Which size she gets is the Logzz checkout's call, where the M works.
+ * The per-size answer was once believed to be simply wrong: it reported no delivery for
+ * the M anywhere, including a warehouse holding 196 units, and that was read as a fault in
+ * the Coinzz product mapping. The sweep of 2026-09-21 refuted it — the M came back
+ * available in Belo Horizonte, Contagem and Betim and stayed absent in the other nineteen
+ * covered cities, which is stock in one distribution centre, not a broken mapping.
+ *
+ * The conduct is unchanged, for a different reason. The per-size answer moves week to
+ * week and the checkout makes the final call, so the agent asks one question — does
+ * delivery reach this postcode, on which days — and never lets the per-size answer veto
+ * a size she was recommended.
  */
 
 /**
