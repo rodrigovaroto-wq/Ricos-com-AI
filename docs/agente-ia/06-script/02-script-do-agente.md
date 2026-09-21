@@ -48,9 +48,10 @@ modelo:
 > Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:
 > encorpa-fashion.com.br
 
-A resposta real da Valen vem **2 minutos** depois desta mensagem — timer decidido pelo
-operador em 2026-09-21. Ver `HANDOFF.md` §Recepção automática e o timer de 2 minutos para o
-que já está implementado e o que ainda depende de uma decisão de arquitetura.
+A resposta real da Valen vem **2 minutos** depois desta mensagem. Implementado como opção
+(a): o n8n chama a função uma vez para a recepção, espera com um nó `Wait`, chama de novo
+com `resume: true` para a resposta real. Falta só ligar o nó `Wait` no workflow do n8n —
+ver `HANDOFF.md` §Recepção automática e o timer de 2 minutos.
 
 ---
 

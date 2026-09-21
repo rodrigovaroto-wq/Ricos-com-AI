@@ -153,3 +153,12 @@ export const WELCOME_AUTO_REPLY =
   "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes fará seu atendimento.\n\n" +
   "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
   "encorpa-fashion.com.br";
+
+/**
+ * The wait between the Estágio 0 receipt and Valen's real reply — the operator's call
+ * on 2026-09-21, opção (a): n8n sends `WELCOME_AUTO_REPLY`, waits this many seconds with
+ * a `Wait` node, then calls the turn endpoint again with `resume: true` for the real
+ * answer. The Edge Function does not schedule this itself — it only tells n8n how long
+ * to wait, so the number lives in one place instead of being copied into the workflow.
+ */
+export const WELCOME_RESUME_DELAY_SECONDS = 120;

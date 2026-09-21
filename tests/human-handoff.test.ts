@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import { asPhrase, gateBriefing, HUMAN_REQUEST_PHRASES, runGates, wantsHuman } from "@/agent/guardrails.js";
-import { HUMAN_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
+import {
+  HUMAN_HANDOFF_REPLY,
+  HOLDING_REPLY,
+  SAFE_FALLBACK_REPLY,
+  WELCOME_AUTO_REPLY,
+  WELCOME_RESUME_DELAY_SECONDS,
+} from "@/agent/retry.js";
 import { ctx, config } from "./fixtures.js";
 
 /**
@@ -181,5 +187,11 @@ describe("recepção automática do Estágio 0", () => {
     expect(runGates(WELCOME_AUTO_REPLY, ctx()).traces.find((t) => t.gate === "humanity_claim")?.verdict).toBe(
       "pass",
     );
+  });
+
+  // O número que o n8n lê para o nó de espera (opção a, 2026-09-21) — fixado aqui
+  // porque um valor sem teste é um valor que qualquer PR muda sem perceber o efeito.
+  it("o timer de retomada é de 2 minutos", () => {
+    expect(WELCOME_RESUME_DELAY_SECONDS).toBe(120);
   });
 });

@@ -130,21 +130,38 @@ script), e ganha uma recepção automática fixa antes da Valen falar de verdade
   Testado em `tests/human-handoff.test.ts`: o texto bate exatamente, passa a régua de
   horário de madrugada (`layer: "auto"`, R4.4) e não promete preço, prazo nem cupom.
 
-**Não feito, e por quê é uma decisão, não uma tarefa.** A função Edge devolve **uma**
-resposta por chamada HTTP — é o contrato inteiro com o n8n. Não existe hoje um jeito da
-função "falar agora e falar de novo daqui a 2 minutos" dentro da mesma chamada. Fazer o
-timer funcionar de verdade exige escolher um dos dois caminhos abaixo, e a escolha errada
-arrisca quebrar o fluxo de venda em produção:
+**Decisão do operador: opção (a)** — n8n chama a função duas vezes, com um nó `Wait` de
+2 minutos no meio. Implementado do lado da Edge Function em 2026-09-21:
 
-| | Como funciona | Precisão do timer | Custo de implementação |
-|---|---|---|---|
-| **(a) n8n com nó de espera** | n8n chama a função uma vez (ela detecta lead novo e devolve só o `WELCOME_AUTO_REPLY`), espera 2 minutos com um nó `Wait`, chama de novo para a resposta real da Valen | Exata, 2 minutos | Mexe no workflow do n8n (fora deste repositório) + a função precisa saber diferenciar "primeira chamada de um lead novo" de "chamada de retomada" |
-| **(b) reaproveitar a varredura das réguas** | a função manda o `WELCOME_AUTO_REPLY` na hora e agenda um novo tipo de `followup` (`run_at = agora + 2min`); o cron de 5 em 5 minutos que já existe (`job: "followups"`) retoma a conversa e roda o turno de verdade | Entre 2 e ~7 minutos — limitado pelo intervalo do cron atual | Não mexe no n8n, mas exige separar a lógica de "processar um turno" do handler HTTP para ser chamada também pela varredura — refatoração real em ~600 linhas de `index.ts`, arriscada de apressar |
+- Chamada normal (sem `resume`): se o lead é novo (`existing?.[0]` vazio), a função manda
+  só o `WELCOME_AUTO_REPLY`, grava `conversations.welcomed_at` e devolve
+  `{ status: "welcomed", reply, bubbles, resumeInSeconds: 120 }`. Não chama o modelo, não
+  roda o resto do pipeline.
+- Chamada de retomada (`{ ...mesmo payload, resume: true }`): pula a checagem de
+  `external_id` (não é evento de canal, é o relógio do n8n), relê a última mensagem
+  inbound da conversa no banco (em vez de confiar no que o n8n reenviar) e roda o pipeline
+  normal a partir daí — opt-out, pedido de humano, modelo, gates, tudo do jeito que já
+  era. Se a Valen já respondeu de verdade depois da recepção (`last_outbound_at` mais
+  recente que `welcomed_at` — ela escreveu de novo e foi respondida antes do timer
+  disparar), a retomada não gera resposta duplicada: devolve `{ status: "resume_moot" }`.
+- Migração nova: `supabase/migrations/0005_welcome_resume.sql` — coluna
+  `conversations.welcomed_at`.
+- `WELCOME_RESUME_DELAY_SECONDS = 120` (`src/agent/retry.ts`, espelhado) é o número que a
+  função devolve para o n8n — o `Wait` node lê `resumeInSeconds` da resposta em vez de ter
+  o valor hardcoded duas vezes.
 
-Nenhuma das duas foi implementada. Fazer isso sem essa escolha do operador é o tipo de
-decisão de arquitetura que este projeto trata como não-óbvia por natureza — ver
-`.claude/rules/` e a tabela de especialistas do `CLAUDE.md` (`workflow-architect` para o
-contrato com o n8n, `backend-specialist` para a refatoração do handler).
+**O que ainda depende do operador, fora deste repositório:** o workflow do n8n
+(`Encorpa — Turno da agente`) precisa de um nó `Wait` novo entre a chamada que devolve
+`status: "welcomed"` e uma segunda chamada HTTP à mesma função, com o mesmo `externalId`/
+`from`/`body` do payload original mais `resume: true`. Sem essa mudança no n8n, o lead
+novo recebe a recepção automática e a Valen nunca responde de verdade — a função fica
+esperando a segunda chamada que ninguém faz.
+
+**Não coberto por teste automatizado.** `index.ts` não é importável pelos testes (é
+Deno, não Node) — a cobertura aqui é `deno check` mais os testes de `WELCOME_AUTO_REPLY`/
+`WELCOME_RESUME_DELAY_SECONDS` em `tests/human-handoff.test.ts`. A lógica de `resume` só
+é provada de verdade pela porta de produção, com um lead sintético, depois que o n8n
+tiver o nó `Wait`.
 
 ---
 
