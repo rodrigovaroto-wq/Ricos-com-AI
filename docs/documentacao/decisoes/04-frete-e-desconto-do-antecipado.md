@@ -73,6 +73,21 @@ verdadeira — e a maior parte da tabela de custo real do operador está acima.
 
 ## O outro lado: a margem, que ninguém pediu para olhar mas piora
 
+> ### ⚠️ Correção de 2026-09-21
+> Os números desta seção (R$ 48,35 e R$ 35,36) foram calculados sob uma premissa desde
+> então revogada: que o frete do antecipado seria um repasse de custo zero para a
+> operação (o cenário "cliente paga frete no checkout, operação não vê esse custo"
+> discutido acima). Essa premissa **não é** a que vigora hoje. A decisão registrada em
+> [`03-decisoes-tomadas.md` §R10.3–§R10.5](03-decisoes-tomadas.md) e detalhada em
+> [`docs/documentacao/contexto-negocio/06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md)
+> estabelece que o antecipado usa **a mesma estrutura de taxas do COD** (produto R$ 30 +
+> transação 6,99%+R$ 2,49 + handling R$ 4,99 + entrega R$ 19,99), subtraindo **apenas** a
+> taxa de frustração/recusa (que só existe no COD). Com desconto de 10% (não 15%), o
+> preço fica R$ 116,91, e a contribuição final do antecipado é:
+> `116,91 − 30,00 − 10,66 − 4,99 − 19,99 = R$ 51,27`.
+> Os valores abaixo (R$ 48,35 / R$ 35,36) ficam como registro histórico do raciocínio da
+> época — não usar como referência de margem atual.
+
 O raciocínio que zerou o desconto em 09-09 continua de pé: ao mesmo preço, o antecipado
 rendia **R$ 48,35** contra **R$ 63,35** do COD, porque o antecipado paga frete que o COD
 não paga. Cortar R$ 12,99 do antecipado sem repassar frete a ela leva o rendimento para

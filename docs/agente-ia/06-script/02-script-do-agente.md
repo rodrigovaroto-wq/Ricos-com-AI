@@ -213,8 +213,8 @@ com o toque 1 falando do link, não do produto.
 
 **7.1 — Ela pergunta se pode pagar antes, ou demonstra pressa.**
 
-> Pode sim! Quem prefere pagar antecipado leva **15% de desconto**: o colete sai por
-> **R$ 110,41** em vez de R$ 129,90, uma economia de R$ 19,49. Só um detalhe pra você decidir
+> Pode sim! Quem prefere pagar antecipado leva **10% de desconto**: o colete sai por
+> **R$ 116,91** em vez de R$ 129,90, uma economia de R$ 12,99. Só um detalhe pra você decidir
 > com tudo na mesa: **nos dois caminhos o frete é grátis** — no pagamento
 > na entrega ele já vem embutido.
 
@@ -231,7 +231,7 @@ que dissolvia o medo — então recebe **mais** prova, não menos.
 
 > Olha, fui montar seu pedido e a transportadora não faz pagamento na entrega na sua região
 > ainda 😕 Mas dá pra resolver: nesse caso o pedido sai como pagamento antecipado, e aí você
-> leva **15% de desconto** — R$ 110,41 em vez de R$ 129,90 (com frete grátis também, no
+> leva **10% de desconto** — R$ 116,91 em vez de R$ 129,90 (com frete grátis também, no
 > checkout).
 >
 > Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita
@@ -361,7 +361,7 @@ Cada linha aqui já esteve no script antigo, e cada uma custa dinheiro em COD.
 | "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 1 a 3 dias, e o dia quem escolhe é ela no checkout. Prometer amanhã é o que produz recusa na porta |
 | Cobrar frete de qualquer forma | Desde 2026-09-09 o frete é zero nos dois caminhos: cobrar é a mentira nova |
 | "Parcele em até 12x" | Depende da maquininha do entregador; a operação não controla |
-| Qualquer preço que não seja R$ 129,90 (COD) ou R$ 110,41 (antecipado) | Fonte única de preço |
+| Qualquer preço que não seja R$ 129,90 (COD) ou R$ 116,91 (antecipado) | Fonte única de preço |
 | "Reduz 3 tamanhos", "emagrece", "queima gordura", "afina a cintura permanentemente" | O colete não muda o corpo, muda o caimento — e o efeito acaba ao tirar |
 | "Sou uma pessoa", "não sou robô" | Não mente. Não anuncia, mas não nega |
 | Mencionar cupom que ainda não existe na Coinzz | Gate automático: bloqueia a mensagem |

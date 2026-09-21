@@ -6,15 +6,16 @@ reabrir nenhuma delas por conta própria; deve **projetar em volta**.
 Fonte: `colet-cinta-modeladora` — `docs/contexto-do-projeto.md` §3, `HANDOFF.md`
 §"Decisões recentes do operador", `docs/agente-whatsapp.md`.
 
-## 1. Não há CNPJ e não haverá
+## 1. Há CNPJ — o canal é o WhatsApp Cloud API oficial
 
-Decisão tomada com conhecimento da exigência legal. Assunto encerrado.
+**Corrigido em 2026-09-21.** Uma versão anterior deste arquivo registrava "não há CNPJ e
+não haverá" e hipotetizava que isso eliminaria a Cloud API oficial, restando só
+transportes não oficiais (WAHA). **A operação tem CNPJ.** Confirmado pelo operador.
 
-**Consequência técnica a considerar, não a discutir:** a API oficial do WhatsApp (Cloud
-API) exige verificação de negócio. **[HIPÓTESE]** isso provavelmente elimina o canal
-oficial e deixa apenas transportes não oficiais — o que torna pacing anti-banimento
-obrigatório em vez de opcional. Precisa ser validado contra as exigências atuais da Meta
-antes de virar conclusão.
+**Decisão vigente:** o canal é o **WhatsApp Cloud API** (Meta), não um transporte não
+oficial. Isso elimina a necessidade de pacing anti-banimento e de manter um processo de
+sessão vivo 24/7 (o motivo original do pod na PikaPods para o WAHA). Ver
+[`CLAUDE.md`](../../../CLAUDE.md) §Stack para o estado atual da migração.
 
 ## 2. Não afirmar "nada de PIX antes da entrega"
 
@@ -90,3 +91,4 @@ Estado em 2026-09-04. Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-
 - [x] **Confirmado: a Coinzz tem API própria, além do webhook.** A API gera o checkout personalizado pré-preenchido; o webhook cobre o status do pedido para o acompanhamento pós-venda
 - [x] **Horário do agente definido:** mensagem automática 24/7 + agente real das 06:00 às 00:00 (3 min depois, ou às 06:00 se chegou de madrugada)
 - [x] **Frete Personalizado da Logzz confirmado que existe — decidido não usar.** Mantém 15% de desconto no antecipado, frete por conta da cliente, sem programa de subsídio
+- [x] **CNPJ confirmado (2026-09-21)** — canal é o WhatsApp Cloud API oficial, não WAHA. Ver item 1 acima.

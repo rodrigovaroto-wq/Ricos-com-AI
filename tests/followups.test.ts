@@ -79,6 +79,57 @@ describe("régua de silêncio", () => {
   });
 });
 
+/**
+ * O checkout enviado e parado não podia mais depender só do toque de silêncio
+ * genérico de 30 minutos (§R10.4): ele ganha um toque próprio, mais cedo.
+ */
+describe("régua de checkout não finalizado (§R10.4)", () => {
+  const now = new Date("2026-09-06T14:00:00");
+
+  it("sem stopPoint, o comportamento continua o de sempre — três toques", () => {
+    const touches = scheduleSilence(now);
+    expect(touches.map((t) => t.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+
+  it("com link_sent, ganha um quarto toque aos 15 minutos, antes do de 30", () => {
+    const touches = scheduleSilence(now, "link_sent");
+    expect(touches.map((t) => t.kind)).toEqual([
+      "checkout_reminder",
+      "silence_1",
+      "silence_2",
+      "silence_3",
+    ]);
+    expect(touches[0]!.runAt.getTime() - now.getTime()).toBe(15 * 60_000);
+    expect(touches[1]!.runAt.getTime() - now.getTime()).toBe(30 * 60_000);
+  });
+
+  it("o toque de 15 min pergunta por problema ou ajuda, não só lembra", () => {
+    const texto = renderFollowup("checkout_reminder", render())!;
+    expect(texto).toMatch(/ajuda|dúvida|travou/i);
+  });
+
+  it("o toque de 30 min (link_sent) pergunta se ela conseguiu finalizar", () => {
+    const texto = renderFollowup("silence_1", render({ stopPoint: "link_sent" }))!;
+    expect(texto).toMatch(/conseguiu finalizar|deu certo de fechar/i);
+  });
+
+  it("mesma cliente, mesma variante do toque de 15 min — sem chamar modelo", () => {
+    const a = renderFollowup("checkout_reminder", render({ leadId: "lead-1" }));
+    const b = renderFollowup("checkout_reminder", render({ leadId: "lead-1" }));
+    expect(a).toBe(b);
+  });
+
+  it("o toque de 15 min também reancora na reabertura, como o de silêncio", () => {
+    expect(decideTouch("checkout_reminder", "defer")).toEqual({ do: "postpone", restartRuler: true });
+  });
+
+  it("passa pelos onze guardrails, como qualquer outro toque da régua", () => {
+    const texto = renderFollowup("checkout_reminder", render())!;
+    const veredito = runGates(texto, gateCtx({ now: new Date("2026-09-10T10:00:00"), stage: "presale" }));
+    expect(veredito.traces.filter((t) => t.verdict === "block")).toEqual([]);
+  });
+});
+
 describe("variantes sem chamar modelo", () => {
   it("mesma cliente, mesma variante", () => {
     const a = renderFollowup("silence_2", render({ leadId: "lead-1" }));

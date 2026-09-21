@@ -172,11 +172,11 @@ criação de pedido COD fora da área coberta. O que falta é o agente tratar es
 caminho de conversa — ver §D3.
 
 **D3. Modalidade de pagamento.** Escolha → COD é o padrão e o fechamento; o **antecipado
-com 15% de desconto (R$ 110,41) é oferecido antes de finalizar**, nunca como condição →
+com 10% de desconto (R$ 116,91) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
 **Desde 2026-09-09 as duas metades viraram uma só e são boas notícias:** a economia de
-**R$ 19,49 no produto** é real, e **o frete é grátis nos dois caminhos** — o operador
+**R$ 12,99 no produto** é real, e **o frete é grátis nos dois caminhos** — o operador
 zerou o frete na oferta da entrega e o antecipado sempre foi grátis nacional. O valor
 dito é o valor final, sem soma na porta nem no checkout. Ver
 [`04-guardrails.md`](04-guardrails.md).
@@ -189,7 +189,7 @@ cliente precisa de mais prova, não de menos. Ver
 [`../../documentacao/decisoes/03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md) §Q8 e §Q14.
 
 **D4. Pagamento.** Modalidade → COD: nada agora, R$ 129,90 com frete embutido, em dinheiro,
-cartão ou maquininha na porta. Antecipado: R$ 110,41 mais frete, por link de checkout
+cartão ou maquininha na porta. Antecipado: R$ 116,91 mais frete, por link de checkout
 pré-preenchido → expectativa correta → *agente*.
 **Nenhuma das 8 referências implementa COD** — confirmado por varredura mecânica.
 

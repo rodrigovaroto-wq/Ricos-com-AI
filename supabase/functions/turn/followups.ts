@@ -2,7 +2,8 @@
  * The two rulers that run on a clock instead of on a reply.
  *
  * Silence: three touches for whoever stopped answering, each from a different angle —
- * repeating the same line is what gets the number blocked.
+ * repeating the same line is what gets the number blocked. A checkout link sent gets an
+ * extra, earlier touch of its own (§R10.4) — 15 minutes in, before the 30-minute one.
  * Post-order: four messages between the order and the door. This is the ruler that
  * attacks the most expensive event in the operation, the refusal on delivery.
  *
@@ -12,9 +13,11 @@
 
 export type SilenceKind = "silence_1" | "silence_2" | "silence_3";
 export type OrderKind = "order_confirmed" | "order_shipped" | "order_eve" | "order_delivered";
+/** The early touch for a checkout link sent and not finished — see scheduleSilence. */
+export type CheckoutKind = "checkout_reminder";
 /** A reply the model already wrote, held back by the clock rather than reworded. */
 export type DeferredKind = "deferred_reply";
-export type FollowupKind = SilenceKind | OrderKind | DeferredKind;
+export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -90,9 +93,10 @@ export type Remedy = "rewrite" | "defer" | "stop";
  * and leaving its siblings where they were compresses the ruler: deferred to 06:00,
  * `silence_2` still lands at 09:00 — three hours later instead of nine, which is how
  * a number gets reported. So the silence ruler is re-anchored on the reopening
- * instead, keeping the 30min / next morning / 3 days shape it was designed with. The
- * post-order touches and a deferred reply carry their own meaning at their own time
- * and are only moved.
+ * instead, keeping the 30min / next morning / 3 days shape it was designed with.
+ * `checkout_reminder` shares that reopening behavior — a checkout touch deferred by
+ * the clock re-anchors the same way a silence touch does. The post-order touches and
+ * a deferred reply carry their own meaning at their own time and are only moved.
  *
  * One caveat for whoever wires the channel layer: `pacing` carries `defer` too, and
  * the caller sends a postponed touch to the next opening — right for a daily limit,
@@ -108,14 +112,28 @@ export type TouchAction =
 export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
   if (remedy === null) return { do: "send" };
   if (remedy !== "defer") return { do: "cancel" };
-  return { do: "postpone", restartRuler: kind.startsWith("silence_") };
+  return { do: "postpone", restartRuler: kind.startsWith("silence_") || kind === "checkout_reminder" };
 };
 
-export const scheduleSilence = (now: Date): ScheduledFollowup[] => [
-  { kind: "silence_1", runAt: new Date(now.getTime() + 30 * MINUTE) },
-  { kind: "silence_2", runAt: nextMorning(now) },
-  { kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) },
-];
+/**
+ * The silence ruler. With `stopPoint` `"link_sent"` it gains an extra, earlier touch —
+ * `checkout_reminder` at 15 minutes, asking about trouble with the checkout — before
+ * `silence_1` at 30 minutes, which for that same stop point asks whether she managed to
+ * finish. Every other stop point, and the omitted-`stopPoint` call every existing caller
+ * already makes, keeps the original three-touch shape untouched (§R10.4).
+ */
+export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFollowup[] => {
+  const touches: ScheduledFollowup[] = [];
+  if (stopPoint === "link_sent") {
+    touches.push({ kind: "checkout_reminder", runAt: new Date(now.getTime() + 15 * MINUTE) });
+  }
+  touches.push(
+    { kind: "silence_1", runAt: new Date(now.getTime() + 30 * MINUTE) },
+    { kind: "silence_2", runAt: nextMorning(now) },
+    { kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) },
+  );
+  return touches;
+};
 
 /**
  * Post-order ruler. `shipped` and `eve` only get a real time once logistics says so;
@@ -243,10 +261,20 @@ const SILENCE_1: Record<StopPoint, readonly string[]> = {
     "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.",
   ],
   link_sent: [
-    "Vi que o pedido ficou aberto! Precisa de ajuda pra confirmar? Se preferir, eu monto de novo pra você 😊",
-    "Seu pedido ficou pendente de confirmação. Quer que eu monte outro link, ou ficou alguma dúvida?",
+    "Conseguiu finalizar seu pedido? Se travou em algum passo, é só me falar que eu te ajudo por aqui mesmo 😊",
+    "Passando pra ver: deu certo de fechar o pedido? Se preferir, eu monto o link de novo pra você.",
   ],
 };
+
+/**
+ * The 15-minute checkout touch (§R10.4) — earlier and narrower than `silence_1`. It
+ * only ever fires for the `link_sent` stop point, so it does not need a `StopPoint`
+ * lookup the way `SILENCE_1` does: it asks one thing, whether something is in the way.
+ */
+const CHECKOUT_REMINDER: readonly string[] = [
+  "Oi! Só passando pra lembrar de finalizar seu pedido 💛 Ficou alguma dúvida ou travou em algum passo? Me conta que eu te ajudo.",
+  "Oi! Vi que o link do pedido ainda está aberto. Precisa de alguma ajuda pra finalizar, ou ficou alguma dúvida?",
+];
 
 /**
  * The warranty is written from the config, not typed into the sentence. It used to be
@@ -327,6 +355,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     // sending an empty message.
     case "deferred_reply":
       return ctx.body?.trim() ? ctx.body : null;
+
+    case "checkout_reminder":
+      return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
     case "silence_1":
       return pickVariant(ctx.leadId, SILENCE_1[ctx.stopPoint ?? "before_size"]);
