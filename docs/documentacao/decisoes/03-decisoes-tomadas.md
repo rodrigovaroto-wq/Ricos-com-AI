@@ -130,9 +130,10 @@ R$ 76,24 contra R$ 51,60 do COD já descontada a recusa: **R$ 24,64 a mais por p
 mesmo dando 10% de desconto, e sem exposição aos 15% de recusa.
 
 > ⚠️ **Este argumento econômico foi revertido em 2026-09-21 — ver §R10.3/§R10.5.** O
-> antecipado passa a render *menos*, não mais, que o COD. A decisão em si (oferecer o
-> antecipado com desconto antes do fechamento) **não foi reaberta** — fica registrada como
-> pendência para o operador em §R10.5.
+> antecipado passou a render *menos*, não mais, que o COD (com o desconto de 15%
+> vigente na época). **No mesmo dia, o operador baixou o desconto para 10%**, o que
+> recupera quase toda a diferença — ver a correção mais recente em §R10.5. A decisão em
+> si (oferecer o antecipado com desconto antes do fechamento) **não foi reaberta**.
 
 **A ressalva, que é do lado dela.** No antecipado o frete fica por conta da cliente. Se
 R$ 116,90 mais frete passar de R$ 129,90, o desconto não é desconto para ela — e a agente
@@ -258,8 +259,12 @@ Respostas do operador em 2026-09-05.
 > ### ⚠️ Correção de 2026-09-21 — a contribuição do antecipado abaixo está superada
 >
 > Ver §R10.3. O antecipado paga as mesmas taxas do COD (inclusive handling e entrega) —
-> só não paga a taxa de entrega frustrada. Contribuição real: **R$ 45,22**, não R$ 70,21.
-> Os números desta seção ficam como registro histórico da conta daquela época.
+> só não paga a taxa de entrega frustrada. Contribuição recalculada com 15% de desconto:
+> R$ 45,22, não R$ 70,21.
+>
+> **No mesmo dia, o operador baixou o desconto de 15% para 10%** — ver §R10.5. Com 10%,
+> preço R$ 116,91 e contribuição **R$ 51,27**. Os números desta seção ficam como registro
+> histórico da conta daquela época (rodada 2, desconto de 15%).
 
 **Decisão:** o frete continua por conta da cliente. O desconto do pagamento antecipado sobe
 de 10% para **15%** — preço do produto a **R$ 110,42**.
@@ -1091,25 +1096,27 @@ lucro/dia) ficam pendentes até a R10.3 fechar, para não recalcular duas vezes.
 handling R$4,99, entrega R$19,99) — a única diferença é que **não paga a taxa de entrega
 frustrada**, porque pagamento já feito não tem recusa na porta.
 
-| Caminho | Era | **Corrigido** |
-|---|---|---|
-| COD entregue | R$ 63,35 | R$ 63,35 (não mudou) |
-| Antecipado (15% off, R$ 110,41) | R$ 70,21 | **R$ 45,22** |
-| Média COD (15% recusa) | R$ 51,60 | **R$ 52,35** (§R10.2) |
-| Média mix 70/30 | R$ 57,18 | **R$ 50,21** |
+| Caminho | Era (rodada 2, 15% off) | **Corrigido (mesmas taxas do COD)** | **Vigente (10% off, §R10.5)** |
+|---|---|---|---|
+| COD entregue | R$ 63,35 | R$ 63,35 (não mudou) | R$ 63,35 |
+| Antecipado | R$ 70,21 (R$ 110,41, 15%) | R$ 45,22 (R$ 110,41, 15%) | **R$ 51,27** (R$ 116,91, 10%) |
+| Média COD (15% recusa) | R$ 51,60 | **R$ 52,35** (§R10.2) | R$ 52,35 |
+| Média mix 70/30 | R$ 57,18 | R$ 50,21 | **R$ 52,03** |
 
-**Achado importante, não decidido por esta sessão:** com a correção, o antecipado passa a
-render **~R$ 7,13 a menos por pedido** que a média do COD — o oposto do que Q8 e R2.1
-usavam para justificar oferecê-lo como upsell antes do fechamento do COD. A régua de
-subsídio de frete (R2.2/teto de frete) também perde sentido: não há mais headroom de
-margem para financiar frete grátis ou personalizado.
+**Achado importante, não decidido por esta sessão:** com a correção do mecanismo (mesmas
+taxas do COD, sem taxa de frustração) e o desconto de 15%, o antecipado rendia
+**~R$ 7,13 a menos por pedido** que a média do COD — o oposto do que Q8 e R2.1 usavam
+para justificar oferecê-lo como upsell antes do fechamento do COD. A régua de subsídio de
+frete (R2.2/teto de frete) também perdeu sentido naquele cenário.
+
+**No mesmo dia, o operador baixou o desconto para 10%** (§R10.5), o que muda a conta de
+novo: com R$ 116,91 e a mesma fórmula, a contribuição sobe para **R$ 51,27** — quase
+empatada com a média do COD (~R$ 1,08 a menos, não R$ 7,13).
 
 **Isto não reabre Q8 nem R2.1 por conta própria** — mantém a mecânica vigente (antecipado
 continua sendo a saída para quando o COD não cobre a região, e continua sem risco de
-recusa) e registra a divergência para o operador decidir se quer manter o antecipado como
-upsell voluntário apesar de render menos, ou mudar a régua. Ver a nota completa em
-[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md) §"Correção de
-2026-09-21" e §6.
+recusa). Ver a nota completa em
+[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md) e §R10.5.
 
 **Atualizado:** [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md)
 inteiro. `03-economia-cod.md` não precisou mudar — ele só documenta a unidade econômica do
@@ -1135,25 +1142,29 @@ existente: manhã seguinte, 3 dias.
 também não tinha o toque de 15 min nem a pergunta específica sobre dificuldade no checkout.
 Os dois entram agora.
 
-## R10.5 — Pendência aberta para o operador: manter o antecipado como upsell, apesar de render menos?
+## R10.5 — Desconto do antecipado volta a 10%: quase fecha a diferença de R10.3
 
-Consequência direta de R10.3. Antes, Q8 e R2.1 recomendavam oferecer o antecipado com
-desconto **antes** do fechamento do COD porque ele rendia mais (R$ 70,21 contra R$ 51,60 do
-COD médio). Com a correção do custo real (mesmas taxas do COD, sem taxa de frustração), o
-antecipado passa a render **menos** (R$ 45,22 contra R$ 52,35).
+**Decisão do operador, no mesmo dia de R10.3:** o desconto do pagamento antecipado desce
+de **15% para 10%**. Preço: **R$ 116,91** (era R$ 110,41). Economia declarável:
+**R$ 12,99** (era R$ 19,49).
 
-**O que continua de pé, sem depender desta decisão:**
+**Efeito na contribuição:** com a mesma fórmula de R10.3 (mesmas taxas do COD, sem taxa de
+frustração), a contribuição do antecipado sobe de R$ 45,22 para **R$ 51,27** — contra
+R$ 52,35 da média do COD. A diferença cai de ~R$ 7,13 para **~R$ 1,08 por pedido**.
+
+**O que isso muda na pendência que esta seção levantava:** com a diferença tão pequena, o
+argumento econômico contra manter o antecipado como upsell voluntário praticamente
+desaparece. Isso não é uma decisão sobre Q8/R2.1 tomada por esta sessão — é o novo número
+que o operador tem para decidir com folga menor a considerar.
+
+**O que continua de pé, sem depender de nenhuma decisão:**
 - O antecipado continua sendo a **saída obrigatória** quando o COD não cobre a região da
   cliente (Q8, Q14) — aí não é escolha, é o único caminho que existe.
-- O antecipado continua **sem risco de recusa na porta** — o valor menor por pedido é
-  garantido, não uma média que inclui uma cauda negativa.
+- O antecipado continua **sem risco de recusa na porta** — o valor por pedido é garantido,
+  não uma média que inclui uma cauda negativa.
 
-**O que fica em aberto para o operador decidir:**
-- Continuar oferecendo o antecipado como upsell voluntário mesmo rendendo menos por pedido
-  (por exemplo, se o fluxo de caixa antecipado ou a redução de atrito valerem mais do que a
-  diferença de R$ 7,13)?
-- Ou tirar o antecipado da oferta voluntária e deixá-lo só como saída de região sem
-  cobertura?
-
-**Esta sessão não decide isso** — fica registrado como pendência aberta, sem tocar em Q8
-ou R2.1 até o operador se manifestar.
+**Atualizado:** [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md),
+[`01-mapa-funcional.md`](../../agente-ia/02-especificacao/01-mapa-funcional.md) (§D3/D4),
+[`02-script-do-agente.md`](../../agente-ia/06-script/02-script-do-agente.md) (copy da
+agente), `config/business.example.json` (já estava correto — `prepayBrl: 116.91`,
+`prepayDiscountPercent: 10`).
