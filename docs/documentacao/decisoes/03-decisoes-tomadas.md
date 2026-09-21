@@ -859,6 +859,14 @@ razão que a agente não diz nenhum ali.
 
 ## R7.3 — Teto de custo: R$ 0,80 com 25% de folga
 
+> ### ⚠️ Correção de 2026-09-21 — teto sobe para R$ 1,50
+>
+> O operador revisou o teto de custo por conversa: sobe de **R$ 0,80** para **R$ 1,50**,
+> mantendo os mesmos 25% de folga antes do handoff — teto efetivo de **R$ 1,875**
+> (era R$ 1,00). Segue desprezível contra a margem por pedido — ver R10.3 para a
+> revisão em aberto desse número. Atualizar `conversationCapBrl` em
+> `config/business.example.json` e `costCeilingBrl` no código.
+
 Conversa que se estende pode passar em **25%** do teto antes de virar handoff — teto efetivo
 de **R$ 1,00**. Continua desprezível contra a margem de R$ 63,35, e agora está no código
 (`costCeilingBrl`), com teste que prova que a chamada é barrada **antes** de sair byte para o
@@ -1030,3 +1038,63 @@ no antecipado, que antes passava.
 **No site.** `FAQ.tsx` e a página de obrigado do `Encorpa-Website` foram alinhados no mesmo dia,
 e o passo de separação deixou de dizer "até 2 dias úteis" no caminho da entrega: numa janela de
 1 a 3 dias esse passo comia o dia que a cliente acabou de escolher.
+
+---
+
+# Rodada 10 — em andamento (2026-09-21)
+
+## R10.1 — Teto de custo por conversa: R$ 1,50
+
+Ver correção em R7.3 acima. `overrunTolerance` (25%) não muda — o teto efetivo de handoff
+sobe de R$ 1,00 para **R$ 1,875**.
+
+## R10.2 — Custo de recusa na porta: divergência a resolver com o operador
+
+O operador apontou que o custo de um pedido recusado na porta é **R$ 9,99**, não os
+**R$ 14,98** registrados desde a rodada 1 (D1) e usados em
+[`03-economia-cod.md`](../contexto-negocio/03-economia-cod.md) e
+[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
+
+**O que o repositório tem hoje:** R$ 14,98 é a soma de dois componentes, não um valor único —
+handling fixo de **R$ 4,99** por remessa + falha COD de **R$ 9,99** (tabela de
+`06-modelo-economico.md`, linha "COD recusado"). R$ 9,99 sozinho é só a parcela de "falha",
+não o total.
+
+**Não corrigido ainda.** Pode ser que o handling deixou de se aplicar à recusa, ou que a
+conta mudou por outro motivo não documentado aqui. **Pendente: o operador confirma se o novo
+total é R$ 9,99 (e o que aconteceu com o handling de R$ 4,99), ou se R$ 9,99 é só o
+componente de falha e o total continua sendo outro número.**
+
+## R10.3 — Lucro antes de anúncios (COD e antecipado): divergência a resolver com o operador
+
+O repositório usa, desde a correção de 2026-09-04 (rodada 2):
+
+| Caminho | Contribuição antes de mídia |
+|---|---|
+| COD entregue | R$ 63,35 |
+| Antecipado (15% off) | R$ 70,21 |
+
+O operador indicou que esses valores não são os corretos. **Não corrigido ainda — pendente
+que o operador estruture a conta** (preço, custo de produto, taxa de transação, handling,
+frete, e qualquer taxa nova) para substituir os números acima em `03-economia-cod.md` e
+`06-modelo-economico.md`.
+
+## R10.4 — Checkout enviado e não finalizado: nova régua de 15 e 30 minutos
+
+**Decisão:** quando a agente envia o link de checkout e a cliente não finaliza, a régua deixa
+de depender só do toque de silêncio genérico de 30 minutos e ganha um toque específico mais
+cedo:
+
+| Toque | Quando | O quê |
+|---|---|---|
+| 1 | 15 min depois do link enviado | Lembra de finalizar e pergunta se há algum problema / se precisa de ajuda |
+| 2 | 30 min depois do link enviado | Pergunta se conseguiu finalizar o pedido |
+
+Implementado em `src/agent/followups.ts` — novo `FollowupKind` `checkout_reminder` (15 min), e
+o toque de 30 min (`silence_1`, variante `link_sent`) reescrito para perguntar
+especificamente se o pedido foi concluído. Depois dos 30 min, a régua volta ao padrão
+existente: manhã seguinte, 3 dias.
+
+**Isso corrige uma leitura errada:** o sistema nunca esperou 24h para o primeiro toque — mas
+também não tinha o toque de 15 min nem a pergunta específica sobre dificuldade no checkout.
+Os dois entram agora.
