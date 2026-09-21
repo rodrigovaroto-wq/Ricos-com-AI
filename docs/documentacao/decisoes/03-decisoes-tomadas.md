@@ -13,7 +13,7 @@ isso implica no projeto e o que ficou pendente dentro dela.
 
 | # | Ponto | Decisão |
 |---|---|---|
-| D1 | `Físico na entrega` na Coinzz | **Ativo.** A recusa custa −R$ 14,98, não −R$ 54,98. A pendência mais cara da operação está resolvida |
+| D1 | `Físico na entrega` na Coinzz | **Ativo.** A recusa custa −R$ 9,99 (corrigido em 2026-09-21, §R10.2; era −R$ 14,98), não −R$ 54,98. A pendência mais cara da operação está resolvida |
 | D2 | Desconto do pagamento antecipado | **10%** → R$ 116,90. `PREPAY_DISCOUNT` em `colet/src/lib/checkout.ts` :42–49 está em 5% e desligado — **diverge e precisa ser corrigido** quando o desconto for configurado |
 | D3 | Definição de "venda" | **Pedido criado.** A meta de 10% é conversa → pedido criado; os 15% de recusa entram depois |
 | D4 | Contribuição do antecipado | **R$ 76,24**, não os R$ 68,34 do estudo. A média com mix 70/30 sobe de R$ 56,62 para **R$ 58,99** |
@@ -1048,22 +1048,24 @@ e o passo de separação deixou de dizer "até 2 dias úteis" no caminho da entr
 Ver correção em R7.3 acima. `overrunTolerance` (25%) não muda — o teto efetivo de handoff
 sobe de R$ 1,00 para **R$ 1,875**.
 
-## R10.2 — Custo de recusa na porta: divergência a resolver com o operador
+## R10.2 — Custo de recusa na porta: R$ 9,99, confirmado
 
-O operador apontou que o custo de um pedido recusado na porta é **R$ 9,99**, não os
-**R$ 14,98** registrados desde a rodada 1 (D1) e usados em
-[`03-economia-cod.md`](../contexto-negocio/03-economia-cod.md) e
-[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
+**Resolvida em 2026-09-21.** O operador confirmou: o custo de um pedido recusado na porta
+(com `Físico na entrega` ativo) é **R$ 9,99**, substituindo os **R$ 14,98** registrados
+desde a rodada 1 (D1).
 
-**O que o repositório tem hoje:** R$ 14,98 é a soma de dois componentes, não um valor único —
-handling fixo de **R$ 4,99** por remessa + falha COD de **R$ 9,99** (tabela de
-`06-modelo-economico.md`, linha "COD recusado"). R$ 9,99 sozinho é só a parcela de "falha",
-não o total.
+**O que o repositório tinha antes:** R$ 14,98 era a soma de dois componentes — handling
+fixo de R$ 4,99 por remessa + falha COD de R$ 9,99 (tabela de `06-modelo-economico.md`,
+linha "COD recusado"). O operador confirmou que o total passa a ser R$ 9,99; a composição
+exata (se o handling deixou de entrar na conta, ou se a falha em si mudou de valor) não foi
+detalhada — o número que vale é o total.
 
-**Não corrigido ainda.** Pode ser que o handling deixou de se aplicar à recusa, ou que a
-conta mudou por outro motivo não documentado aqui. **Pendente: o operador confirma se o novo
-total é R$ 9,99 (e o que aconteceu com o handling de R$ 4,99), ou se R$ 9,99 é só o
-componente de falha e o total continua sendo outro número.**
+**Atualizado:** [`03-economia-cod.md`](../contexto-negocio/03-economia-cod.md) e
+[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md), incluindo os
+números derivados que dependem diretamente da recusa (média COD com 15% de recusa, mix
+70/30, headroom de subsídio de frete do antecipado). Os números que também dependem da
+contribuição do COD entregue e do antecipado (equilíbrio em % de CPL, cenários de
+lucro/dia) ficam pendentes até a R10.3 fechar, para não recalcular duas vezes.
 
 ## R10.3 — Lucro antes de anúncios (COD e antecipado): divergência a resolver com o operador
 
