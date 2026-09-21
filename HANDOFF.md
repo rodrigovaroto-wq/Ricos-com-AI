@@ -75,6 +75,38 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
+## PRÓXIMA SESSÃO — montar o plano de execução até os primeiros testes
+
+Decidido pelo operador em 2026-09-21. **A próxima sessão começa por aqui**, antes de
+escrever qualquer código.
+
+O objetivo é um **plano de execução completo** do que ainda falta para o sistema ficar
+operacional e pronto para os primeiros testes de verdade. O método não é auditar o que
+está escrito neste arquivo — é **testar o fluxo inteiro, ponta a ponta**, e separar o que
+já funciona do que só está documentado como se funcionasse. Este handoff já errou nas duas
+direções, e a varredura de 21/09 é o exemplo mais recente: uma decisão fechada ("o M é
+parametrização") caiu com uma consulta de quatro minutos.
+
+Escopo do que precisa ser exercitado, sem ordem de prioridade ainda — a ordem é parte do
+plano a montar:
+
+1. **O canal.** WhatsApp Cloud API não existe. É a Frente 2 e bloqueia qualquer teste com
+   cliente real.
+2. **A conversa inteira**, do "oi" ao link de checkout, pela porta de produção (webhook do
+   n8n), não por sonda contra a Edge Function.
+3. **O pedido**, nos dois caminhos — pagamento na entrega e antecipado — incluindo o
+   `payment_method` correto, que continua sendo dedução e não fato.
+4. **O webhook de venda** das duas plataformas, com payload real, e a régua de pós-pedido
+   que ele arma.
+5. **As divergências abertas** entre repositório e produção: o
+   `DEFAULT_CONVERSATION_MODEL` (Frente 5, sem eval rodado) e preço/frete/desconto
+   (Frente 4, decidido e não implementado).
+
+Cada item do plano sai com **como se sabe que fechou** — um critério verificável, do jeito
+que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produção.
+
+---
+
 ## Varredura de cobertura de 2026-09-21
 
 43 cidades × 5 tamanhos, contra o `stock-and-delivery-day`, em série, sem criar pedido
