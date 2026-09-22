@@ -39,3 +39,15 @@ os testes do implementador provam o que ele imaginou, não o que ele não imagin
 (2) negação que cancela um predicado é a que está **entre o sujeito e o predicado**
 ("frete … não … cobrado"), não a que está em qualquer lugar da frase ou só na mesma
 vírgula. E vírgula entre dígitos nunca é fronteira.
+
+**O método que converge (definido na quarta rodada, 22/09).** O custo de erro de gate é
+assimétrico: falso positivo (frase honesta vetada) custa uma reescrita — e
+`tests/prompt.test.ts` garante que as frases que o prompt ensina passam; falso negativo
+(mentira liberada) custa o frete na porta. Cada rodada que **afrouxou** um gate para liberar
+frase honesta abriu mentira nova; as que só **apertaram** não abriram. Então: (1) conserto
+de gate separa aperto de afrouxamento, e afrouxamento só entra com motivo forte e revisão
+própria; (2) o critério de aceite é mecânico — rode `runGates` sobre o corpus inteiro (toda
+frase citada nos testes e no `simulate.ts`, mais as frases das revisões), antes e depois,
+nas configs e nos dois caminhos: **nenhum veredito pode ir de barrado para liberado** sem
+que isso seja a intenção declarada daquela mudança. Isso transforma "revisei e parece
+certo" em uma tabela verificável.
