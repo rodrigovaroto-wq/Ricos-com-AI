@@ -97,6 +97,14 @@ trava mais coisa. Comece por ela.
    liga RLS sozinho em toda tabela nova; chamá-la por RPC falha. Risco baixo, drift real.
    Decisão do operador (item 1.6 do plano).
 
+**⚠ Decisão que a sessão devolve ao operador — a economia de R$ 12,99.** Os gates de frete e
+economia passaram por quatro rodadas de conserto em 22/09; cada rodada que afrouxou abriu
+mentira nova, e a última (só aperto, conferida por 5784 vereditos) fechou 8 sem abrir
+nenhuma. Mas ainda passam frases como *"Com o desconto de antecipado sai R$ 12,99"* — já
+passavam antes da sessão. O número em reais é difícil de proteger por regex. **A saída A
+da Frente 4 (citar só "10% de desconto", nunca "economiza R$ 12,99") elimina a classe
+inteira.** Hoje vale a C. Item 2.9 do plano.
+
 **⚠ Achado ALTO da revisão de segurança, anterior a esta sessão:** os webhooks do n8n
 (`/encorpa-inbound`, `/encorpa-venda`) **aceitam POST anônimo**, e a URL está versionada
 aqui. Quem tiver a URL posta com o telefone de uma cliente real e pode disparar o handoff

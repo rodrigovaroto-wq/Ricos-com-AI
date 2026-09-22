@@ -1554,16 +1554,27 @@ describe("a economia só pode ser dita como economia", () => {
     }
   });
 
-  it("a economia dita como economia, antes ou depois do valor, não veta por isso", () => {
+  it("a economia dita como economia, antes ou depois do valor, passa a cadeia inteira", () => {
+    // Asserts the whole chain, not one gate: a test that only checked price_promise here
+    // passed while shipping_promise vetoed one of these sentences, so it claimed a
+    // sentence could be sent when production would veto it (final /code-review, 2026-09-22).
     for (const frase of [
       "Você economiza R$ 12,99 no produto, e o frete é calculado no checkout.",
       "São R$ 12,99 a menos no produto, mais o frete.",
-      "Você tem um desconto de até R$ 12,99 no produto, e o frete é calculado no checkout.",
       "No antecipado sai R$ 12,99 mais barato, mais o frete da sua região.",
       "O frete é à parte; no produto você economiza R$ 12,99.",
     ]) {
-      expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+      expect(blocked(runGates(frase, prepay)), frase).toEqual([]);
     }
+  });
+
+  it("falso positivo conhecido: 'desconto de até' é honesto e ainda é vetado pelo shipping_promise", () => {
+    // price_promise accepts it; the para/pra/por/até check left in shipping_promise does
+    // not. Accepted as one rewrite rather than loosened — see plan item 2.9. If the two
+    // gates are unified, this test should flip to toEqual([]).
+    const frase = "Você tem um desconto de até R$ 12,99 no produto, e o frete é calculado no checkout.";
+    expect(blocked(runGates(frase, prepay))).not.toContain("price_promise");
+    expect(blocked(runGates(frase, prepay))).toContain("shipping_promise");
   });
 
   it("o total com 'mais o valor do frete' logo depois é frete somado, e passa", () => {
