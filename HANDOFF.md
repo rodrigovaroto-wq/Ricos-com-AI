@@ -75,7 +75,35 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
-## PRÓXIMA SESSÃO — montar o plano de execução até os primeiros testes
+## O PLANO DE EXECUÇÃO ATÉ OS TESTES REAIS — montado em 2026-09-22
+
+**Feito.** O plano que a seção abaixo pedia existe, em dois documentos:
+
+- [`docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md`](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)
+  — sete fases, cada item com dono e uma linha **Fechou quando**; o mapa de quem chama
+  quem (Cloud API → n8n → Edge Function → Supabase/Logzz/Coinzz/Hermes); as quatro ondas
+  de execução e o critério de saída.
+- [`docs/agente-ia/05-plano/03-personas-de-teste-interno.md`](docs/agente-ia/05-plano/03-personas-de-teste-interno.md)
+  — as doze clientes que não sabem que são teste, o que cada uma caça, e a rubrica de
+  falha escrita antes de rodar.
+
+**Três fatos novos confirmados pelo operador em 2026-09-22**, que mudaram a ordem do plano:
+
+1. **`META_API_KEY` existe.** O eval de Muse Spark 1.3 (Frente 5, passo (b)) sai do "não
+   tem como rodar neste ambiente" e vira pré-requisito de deploy.
+2. **O webhook real da Coinzz já chegou.** A Frente 0.3 deixa de ser espera.
+3. **O número do WhatsApp está no WA Business, sem Cloud API e sem token ainda.** A
+   Frente 2 continua bloqueada, com dono e em andamento.
+
+E uma decisão: **o operador vai parametrizar frete na oferta do antecipado da Coinzz**,
+data indefinida. Isso torna a saída C da Frente 4 item 6 obrigatória e **anterior** à
+mudança do secret.
+
+**Nada de código mudou nesta sessão.** O plano é o entregável; a execução começa pela
+onda A.
+
+<details>
+<summary>O pedido original desta seção, como foi escrito em 2026-09-21</summary>
 
 Decidido pelo operador em 2026-09-21. **A próxima sessão começa por aqui**, antes de
 escrever qualquer código.
@@ -104,6 +132,8 @@ plano a montar:
 
 Cada item do plano sai com **como se sabe que fechou** — um critério verificável, do jeito
 que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produção.
+
+</details>
 
 ---
 
