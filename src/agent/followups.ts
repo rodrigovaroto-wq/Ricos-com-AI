@@ -290,6 +290,10 @@ const SILENCE_2 = (days: number) =>
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
 
+/** The weekday on the São Paulo calendar — the runtime's is UTC, a day ahead after 21h. */
+const localWeekday = (at: Date): string =>
+  SILENCE_3_DAYS[(new Date(at.getTime() + offsetMinutes(at, BUSINESS_TZ) * 60_000).getUTCDay() + 6) % 7]!;
+
 /**
  * A value this file can put into a template placeholder. Small on purpose: every entry
  * is something the copy already says, so a template can only ever be filled with what
@@ -368,7 +372,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "silence_3": {
       if (!ctx.config.coupon.active) return null;
       // "Super + dia da semana" — a seasonal frame with no calendar to maintain.
-      const weekday = SILENCE_3_DAYS[(now.getDay() + 6) % 7]!;
+      const weekday = localWeekday(now);
       return (
         `**Super ${weekday}!** 🎉 Separei um cupom de **${ctx.config.coupon.percent}% de desconto** ` +
         `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n` +
@@ -446,7 +450,7 @@ const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string
     case "couponPercent":
       return String(ctx.config.coupon.percent);
     case "weekday":
-      return SILENCE_3_DAYS[((ctx.now ?? new Date()).getDay() + 6) % 7]!;
+      return localWeekday(ctx.now ?? new Date());
   }
 };
 

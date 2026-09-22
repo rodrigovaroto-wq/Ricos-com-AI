@@ -512,3 +512,43 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
     expect(efeito.cancel).toContain("order_eve");
   });
 });
+
+// A Edge Function roda em UTC: entre 21h e 23h59 de São Paulo o servidor já está no
+// dia seguinte. Instantes UTC explícitos, para o teste quebrar onde o bug mora.
+describe("dia da semana do terceiro toque — o de São Paulo, não o do servidor", () => {
+  const ativo = { ...config, coupon: { ...config.coupon, active: true } };
+  const quintaNoite = new Date("2026-09-25T01:00:00Z"); // quinta 22h em SP, sexta em UTC
+  const sextaManha = new Date("2026-09-25T13:00:00Z"); // sexta 10h em SP
+  const comWeekday = (now: Date): RenderContext =>
+    render({
+      now,
+      config: {
+        ...ativo,
+        channel: {
+          templates: {
+            silence_3: { name: "encorpa_silencio_3", language: "pt_BR", variables: ["weekday"] },
+          },
+        },
+      },
+    });
+  const fora = (now: Date) => new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+  it("quinta 22h em São Paulo é quinta no texto", () => {
+    expect(renderFollowup("silence_3", render({ config: ativo, now: quintaNoite }))).toContain("Super Quinta");
+  });
+
+  it("quinta 22h em São Paulo é quinta na variável do template", () => {
+    expect(deliveryFor("silence_3", comWeekday(quintaNoite), fora(quintaNoite))).toMatchObject({
+      via: "template",
+      variables: ["Quinta"],
+    });
+  });
+
+  it("sexta 10h em São Paulo é sexta, nos dois lugares", () => {
+    expect(renderFollowup("silence_3", render({ config: ativo, now: sextaManha }))).toContain("Super Sexta");
+    expect(deliveryFor("silence_3", comWeekday(sextaManha), fora(sextaManha))).toMatchObject({
+      via: "template",
+      variables: ["Sexta"],
+    });
+  });
+});
