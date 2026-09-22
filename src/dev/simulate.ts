@@ -447,6 +447,36 @@ for (const [angle, reply, esperado] of [
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
+// P2. Frete e economia com o antecipado a R$ 116,91 (decisão de 2026-09-10) e sem
+// frete grátis (decisão de 2026-09-22). Os R$ 12,99 são economia de PRODUTO: no
+// antecipado o frete é da cliente, calculado por região no checkout. Cada linha é uma
+// frase honesta que o gate vetava, ou a meia-verdade que o conserto não pode abrir.
+// ─────────────────────────────────────────────────────────────────────────────
+{
+  const cfg0922 = { ...config, prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 } };
+  const { freeShipping: _omitida, ...deliverySemAChave } = cfg0922.delivery;
+  const semAChave = { ...cfg0922, delivery: deliverySemAChave };
+  for (const [angle, reply, path, esperado, cfg] of [
+    ["sujeito novo 'valor' depois do frete", "O frete é à parte, e o valor fica R$ 116,91 no antecipado.", "prepay", "envia", cfg0922],
+    ["sujeito novo 'antecipado' depois do frete", "O frete é calculado no checkout e o antecipado sai R$ 116,91.", "prepay", "envia", cfg0922],
+    ["'total' do antecipado com o frete somado", "No antecipado o total é R$ 116,91 mais o frete.", "prepay", "envia", cfg0922],
+    ["'total' do antecipado sem o frete", "O frete é calculado no checkout e o total fica R$ 116,91.", "prepay", "barra(price_promise)", cfg0922],
+    ["frete com 'o valor de'", "O frete tem o valor de R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    ["economia dada como preço", "O frete é à parte, e o produto sai R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
+    ["nenhum frete a mais na porta (COD)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "envia", cfg0922],
+    ["nenhum frete seco", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", cfg0922],
+    ["nenhum frete a mais no antecipado", "No antecipado, nenhum frete a mais na entrega.", "cod", "barra(shipping_promise)", cfg0922],
+    ["ressalva negativa depois de outra negação", "Não precisa esperar, o frete não está incluído e você economiza R$ 12,99 no produto.", "prepay", "envia", cfg0922],
+    ["'juros zero' não nega o frete", "Você economiza R$ 12,99 no produto com juros zero e o frete calculado no checkout.", "prepay", "envia", cfg0922],
+    ["'zero frete' continua negando", "Você economiza R$ 12,99 e zero frete cobrado à parte.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    ["chave ausente: frete grátis vetado", "O frete é grátis nos dois casos.", "cod", "barra(shipping_promise)", semAChave],
+    ["chave ausente: economia sem ressalva vetada", "Você economiza R$ 12,99 pagando antecipado.", "prepay", "barra(price_promise)", semAChave],
+  ] as Array<[string, string, "cod" | "prepay", string, GateContext["config"]]>) {
+    check("frete e economia do antecipado", angle, reply, esperado, outcome(reply, { config: cfg, paymentPath: path }));
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 // Q. As conversas — 100 roteiros × 3 variações de escrita real
 //
 // Cada variação é um chat: a mensagem entra, o turno decide o que fazer com ela antes

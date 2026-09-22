@@ -55,8 +55,11 @@ deste repositório** (R11.7) — `pnpm test && pnpm dev:conversas && pnpm typech
 — e não se constrói outro.
 
 **Prompt e gate são a mesma promessa escrita duas vezes.** Toda regra de negócio citada no
-system prompt **lê o config**, com o mesmo teste que o gate correspondente usa (`!== false`,
-nunca `=== true` — chave nova nasce ausente no secret). Nenhum teste cobre o prompt; foi
+system prompt **lê o config**, com o mesmo teste que o gate correspondente usa. **A chave
+ausente lê como a verdade de hoje** — chave nova nasce ausente no secret. Para
+`freeShipping`, desde 2026-09-22 isso é `=== true` (ausente = não grátis, porque a operação
+não oferece frete grátis); antes era `!== false`, quando grátis era a verdade. A regra é
+a verdade, não o operador. Nenhum teste cobre o prompt; foi
 assim que ele passou doze dias se contradizendo sobre desconto. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 

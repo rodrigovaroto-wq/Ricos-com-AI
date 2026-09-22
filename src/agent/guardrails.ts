@@ -33,12 +33,13 @@ export interface GateConfig {
      * freight comes back, setting it to `false` restores the old refusal instead of
      * needing the gate rewritten under pressure.
      *
-     * OPTIONAL, and absent means free. That is not laziness, it is the shape of this
+     * OPTIONAL, and the absent key must read as the truth. That is the shape of this
      * deployment: production reads the whole config from a `BUSINESS_CONFIG` secret that
      * overrides the fallback wholesale, so a key added in code is simply missing there
-     * until someone edits the secret. Required-and-missing read as `false`, which quietly
-     * reinstated the old veto in production while every test here passed. The default has
-     * to be the truth, and today the truth is free.
+     * until someone edits the secret. Until 2026-09-22 the truth was free, so absent read
+     * as free (`!== false`). On 2026-09-22 the operator decided the operation does NOT
+     * offer free shipping, so absent now reads as NOT free: only an explicit `true` makes
+     * it free (`=== true`), in every gate and in the prompt alike.
      */
     freeShipping?: boolean;
   };
@@ -236,6 +237,14 @@ const sentenceAt = (t: string, at: number): string => {
 };
 
 /**
+ * A negative lookahead, as regex source: "no new subject starts here". Used by
+ * `shipping_promise` to stop an amount from being read as the freight's once the
+ * sentence has moved on to another subject. See the gate for why each word is in it.
+ */
+const NOT_NEW_SUBJECT =
+  String.raw`(?!(?<!\b(?:para|pra|com|sobre|em|por|ate|entre|contra|sob|sem|que)\s+)\b[oa]\s+(?:produto|colete|cinta|preco|pedido|antecipado|total)\b|(?<=(?:,|\be|\bmas)\s+)o\s+valor\s+(?:e|fica|sai|sera|custa|vai\s+dar)\b)`;
+
+/**
  * Whether the sentence tells her the freight is on top. Only the shapes that SAY so:
  * "frete" alone is not a caveat ("pode perguntar do frete"), and a denied one is the
  * opposite of a caveat ("o frete não é cobrado à parte"). "Não está incluído" carries
@@ -257,17 +266,38 @@ const FREIGHT_CAVEAT = [
  * denied "esquece" denies nothing.
  */
 const FREIGHT_DENIED_BEFORE =
-  /(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|nenhuma|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:\S+\s+){0,2}$/;
+  /(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|nenhuma|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:(?!(?:e|ou|mas|porem)\s)\S+\s+){0,2}$/;
 const freightDeniedAt = (t: string, freteAt: number): boolean =>
   FREIGHT_DENIED_BEFORE.test(t.slice(0, freteAt).split(/[,:;.!?]/).pop() ?? "");
 
+/**
+ * Two ways the caveat check used to throw away a caveat she had been given.
+ *
+ * "O frete não está incluído" and "não inclui o frete" ARE the caveat, and they carry
+ * their own negation — running `negatedAt` over them found that very `não` (or an
+ * unrelated one earlier: "não precisa esperar, o frete não está incluído") and read the
+ * caveat as denied. A caveat that is already a negative form is not checked for
+ * negation at all; the noun denials still are.
+ *
+ * And a positive caveat is only denied by a negation in its own comma-bounded phrase:
+ * "Não, você economiza R$ 12,99, e o frete é calculado no checkout" answers a question
+ * with "não" and then gives the caveat whole. "O frete não é cobrado à parte" keeps its
+ * `não` inside the phrase and stays a denial.
+ *
+ * The noun denials (`FREIGHT_DENIED_BEFORE`) do not cross a conjunction either: in
+ * "juros zero e o frete calculado no checkout" the `zero` belongs to the interest.
+ */
 const hasFreightCaveat = (sentence: string): boolean =>
   FREIGHT_CAVEAT.some((re) =>
-    [...sentence.matchAll(re)].some(
-      (m) =>
-        !negatedAt(sentence, (m.index ?? 0) + m[0].length - (m[1]?.length ?? m[0].length)) &&
-        !freightDeniedAt(sentence, (m.index ?? 0) + m[0].search(/\bfrete\b/)),
-    ),
+    [...sentence.matchAll(re)].some((m) => {
+      const keywordAt = (m.index ?? 0) + m[0].length - (m[1]?.length ?? m[0].length);
+      const selfNegative = /^nao\b/.test(m[1] ?? m[0]);
+      const phraseStart = sentence.lastIndexOf(",", keywordAt) + 1;
+      return (
+        (selfNegative || !negatedAt(sentence.slice(phraseStart), keywordAt - phraseStart)) &&
+        !freightDeniedAt(sentence, (m.index ?? 0) + m[0].search(/\bfrete\b/))
+      );
+    }),
   );
 
 /**
@@ -447,7 +477,7 @@ const gates: readonly Gate[] = [
       `Os únicos valores que existem são ${money(c.prices.codBrl)} na entrega, ` +
       `${money(c.prices.prepayBrl)} antecipado, ${money(c.prices.anchorBrl)} de preço cheio, e a ` +
       `diferença entre eles. Nenhum outro número em reais. ` +
-      (c.delivery.freeShipping === false && c.prices.codBrl - c.prices.prepayBrl > 0
+      (c.delivery.freeShipping !== true && c.prices.codBrl - c.prices.prepayBrl > 0
         ? `A diferença de ${savingOf(c)} é economia no PRODUTO, não no total: no antecipado o ` +
           `frete é cobrado à parte. Só cite esse valor com a ressalva do frete na mesma frase ` +
           `("${savingOf(c)} a menos no produto, e o frete é calculado no checkout"). O ` +
@@ -478,16 +508,33 @@ const gates: readonly Gate[] = [
         return `price ${m.value} is not one of the configured values`;
       }
 
-      // Exit C (operator, 2026-09-22): with the prepaid freight on her, the saving is a
+      // Exit C (operator decision 2026-09-10, enforced here since 2026-09-22): with the prepaid freight on her, the saving is a
       // PRODUCT saving — she usually pays more in total on the prepaid path, because the
       // freight is R$ 15 to R$ 40 by region. The number stays citable only with the
       // freight caveat in the same sentence. A negation does NOT exempt it: "não precisa
       // esperar, você economiza R$ 12,99" is the negative that denies nothing, and the
       // honest denial of a total saving names the freight anyway.
-      if (ctx.config.delivery.freeShipping === false && saving > 0) {
+      if (ctx.config.delivery.freeShipping !== true && saving > 0) {
         for (const m of moneyMatches(t)) {
           if (m.value !== saving || hasFreightCaveat(sentenceAt(t, m.at))) continue;
           return `cites the ${money(saving)} saving without the freight caveat in the same sentence`;
+        }
+      }
+
+      // "O total" is the one word that says the freight is in. On the prepaid path it is
+      // not — the checkout adds R$ 15 to R$ 40 by region — so calling the prepaid price
+      // "o total" is the half-truth she finds at checkout, unless the freight is added
+      // right there ("o total é R$ 116,91 mais o frete"). A `não` between `total` and the
+      // amount denies it; one before `total` ("não precisa esperar, o total fica...")
+      // denies nothing.
+      if (ctx.config.delivery.freeShipping !== true && prepayBrl !== codBrl) {
+        for (const m of moneyMatches(t)) {
+          if (m.value !== prepayBrl) continue;
+          if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
+          const amount = /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(m.at))?.[0] ?? "";
+          const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
+          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?frete\b/.test(after)) continue;
+          return `calls the prepaid ${money(prepayBrl)} a total, and the freight is added in the checkout`;
         }
       }
 
@@ -880,8 +927,8 @@ const gates: readonly Gate[] = [
      * Which flips where the harm is. The lie is no longer "grátis" — it is any sentence
      * that puts a shipping cost on her, because she then meets a cheaper total than she
      * was told and doubts everything else she was told. Same gate, opposite direction,
-     * and one flag decides: set `freeShipping` false the day a freight comes back and
-     * the old refusal returns with it.
+     * and one flag decides: the day a freight comes back, the old refusal returns with
+     * it.
      *
      * That day came: on 2026-09-10 the operator flipped the flag back. The prepaid
      * freight is the customer's again, calculated by region inside the checkout rather
@@ -889,11 +936,20 @@ const gates: readonly Gate[] = [
      * Cash on delivery did not change — the freight stays inside the R$ 129,90 collected
      * at the door. So "frete grátis" is false on both paths once more, and the gate is
      * back to forbidding it.
+     *
+     * And on 2026-09-22 the operator made it the standing decision: the operation does
+     * not offer free shipping. Which moved the default for the ABSENT key. It used to be
+     * `!== false` — absent meant free, because free was the truth when the key was born
+     * and production's `BUSINESS_CONFIG` did not have it yet. Now the truth is "not
+     * free", so the test is `=== true`: absent or `false` both forbid "frete grátis", and
+     * only an explicit `true` in the secret brings the free branch back. `price_promise`
+     * reads the flag the same way (`!== true` demands the freight caveat on the saving),
+     * and so does the prompt — the same promise written twice.
      */
     name: "shipping_promise",
     remedy: "rewrite",
     briefing: (c) =>
-      c.delivery.freeShipping !== false
+      c.delivery.freeShipping === true
         ? `O frete é GRÁTIS nos dois caminhos, e isso é verdade — pode dizer, é o seu melhor ` +
           `argumento. O que você não pode é cobrar frete dela: nada de "o frete é à parte", ` +
           `"mais o frete" ou qualquer valor de entrega.`
@@ -904,18 +960,43 @@ const gates: readonly Gate[] = [
       // Every shape of "there is no shipping cost", because each one is now true and each
       // one turns off the charge rules below. "Sem frete a mais: R$ 129,90" was reading as
       // a shipping amount purely because the denial used a word this list did not know.
-      const claimsFree =
+      const saysFree =
         /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
         /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t) ||
-        /\b(sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b/.test(t) ||
-        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t) ||
-        // "Nada de frete", "nenhum frete", "esquece o frete": the noun denied, not the
-        // verb, so the list above never saw them. "Não esqueça o frete" is the reminder
-        // that it exists, and stays out.
-        /(?<!\bnao\s+(?:se\s+)?)\b(nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b/.test(t);
+        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
+      // "Sem frete", "nada de frete", "nenhum frete", "esquece o frete": the noun denied,
+      // not the verb. "Não esqueça o frete" is the reminder that it exists, and stays out.
+      const freightDenials = [
+        ...t.matchAll(
+          /\b(?:sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b|(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b/g,
+        ),
+      ];
+      const claimsFree = saysFree || freightDenials.length > 0;
 
-      if (ctx.config.delivery.freeShipping === false) {
-        if (claimsFree) return "promises free shipping, which neither offer has";
+      if (ctx.config.delivery.freeShipping !== true) {
+        // "Nenhum frete A MAIS na porta" is the truth about cash on delivery — the freight
+        // is inside the R$ 129,90, nothing is added at the door — and the prompt tells her
+        // to say it. On the prepaid path it is the lie: the freight is added in the
+        // checkout. So a denial is released only when it is qualified ("a mais", "extra",
+        // "somado", "adicional" right after `frete`), its sentence says nothing about the
+        // prepaid offer (not its name, pix, card, checkout, link, nor its price), and it
+        // is about the door — said in so many words ("na entrega",
+        // "na porta") or implied by a conversation already on the cash-on-delivery path.
+        // A bare "nenhum frete" stays a promise of free shipping.
+        const onlyCodExtraDenied = freightDenials.every((m) => {
+          const end = (m.index ?? 0) + m[0].length;
+          if (!/^\s+(?:a\s+mais|extra|somado|adicional)\b/.test(t.slice(end))) return false;
+          const sentence = sentenceAt(t, m.index ?? 0);
+          // The prepaid offer named by its word, its means of payment, or its price.
+          if (/\b(?:antecip\w*|pix|cartao|checkout|link)\b/.test(sentence)) return false;
+          const { prepayBrl, codBrl } = ctx.config.prices;
+          if (prepayBrl !== codBrl && moneyMatches(sentence).some((x) => x.value === prepayBrl)) return false;
+          return (
+            /\b(?:na|da)\s+(?:porta|entrega)\b|\bentregador\b/.test(sentence) ||
+            ctx.paymentPath === "cod"
+          );
+        });
+        if (saysFree || !onlyCodExtraDenied) return "promises free shipping, which neither offer has";
         // The branch used to stop here, and stopping here dropped every charge rule
         // below with it — including the one about naming an amount. Which handed the
         // prepaid path the worst sentence available: neither offer has a citable freight
@@ -942,11 +1023,51 @@ const gates: readonly Gate[] = [
         // the freight as the subject of the main verb. The lookbehind is the narrowest cut
         // that tells them apart — it touches only the article, so "mas com o desconto o
         // produto sai R$ 12,99" still finds its real subject two words later.
+        //
+        // `antecipado` and `total` open a new subject the same way ("o frete é calculado
+        // no checkout e o antecipado sai R$ 116,91"); "do antecipado" is a contraction and
+        // never matches the bare article, so "o frete do antecipado custa R$ 15" stays the
+        // freight's. `valor` is narrower, because "o frete tem o valor de R$ 15" is the
+        // freight naming its own price: it is a new subject only right after a clause
+        // break (comma, "e", "mas") and with the price verb glued to it — "o valor dele é"
+        // is still the freight. No new subject may carry the saving as a price — see the
+        // check right below.
+        const saving = +(ctx.config.prices.codBrl - ctx.config.prices.prepayBrl).toFixed(2);
+        //
+        // The new subject is looked for on BOTH sides of the verb: "o frete já está
+        // dentro, e o total é R$ 129,90" reaches the conjunction `e` first, and read it as
+        // the freight's "é" with the amount ten characters later.
         const attributedToShipping =
-          /\bfrete\b(?:(?!(?<!\b(?:para|pra|com|sobre|em|por|ate|entre|contra|sob|sem|que)\s+)\b[oa]\s+(?:produto|colete|cinta|preco|pedido)\b)[^.!?]){0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          new RegExp(
+            `\\bfrete\\b(?:${NOT_NEW_SUBJECT}[^.!?]){0,40}?\\b(e|fica|custa|sai|sera|vai\\s+dar|de|em\\s+torno\\s+de|cerca\\s+de|uns|aproximadamente)\\b(?:${NOT_NEW_SUBJECT}[^.!?]){0,12}?\\br\\$\\s*[\\d.,]+`,
+          ).test(t) ||
           /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";
+        }
+        // The new-subject exception has a price of its own: once the sentence has left
+        // the freight, the amount belongs to the new subject — and the saving is nobody's
+        // price. "O frete é à parte, e o produto sai R$ 12,99" carries the caveat, so
+        // `price_promise` lets the saving through, and it says the product costs R$ 12,99.
+        // So after a freight mention, the saving under a new subject must be said as a
+        // saving: "mais barato", "a menos", "de desconto", "de economia", "de diferença",
+        // after the amount or between the subject and it.
+        if (
+          saving > 0 &&
+          [
+            ...t.matchAll(
+              /\bfrete\b[^.!?]{0,40}?\b[oa]\s+(?:produto|colete|cinta|preco|pedido|antecipado|total|valor)\b([^.!?]{0,20}?)(r\$\s*[\d.,]*\d)/g,
+            ),
+          ].some(
+            (m) =>
+              moneyMatches(m[2]!)[0]?.value === saving &&
+              !/\b(?:desconto|economi\w*|diferenca|barat\w*|menos|nao)\b/.test(m[1]!) &&
+              !/^\s*(?:reais\s+)?(?:mais\s+(?:barat\w*|em\s+conta)|a\s+menos|de\s+(?:desconto|economia|diferenca)|off)\b/.test(
+                t.slice((m.index ?? 0) + m[0].length),
+              ),
+          )
+        ) {
+          return `gives the ${money(saving)} saving as a price, and it is only the difference between the two offers`;
         }
         return null;
       }

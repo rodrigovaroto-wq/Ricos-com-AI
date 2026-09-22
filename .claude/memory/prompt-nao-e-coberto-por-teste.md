@@ -20,8 +20,11 @@ A Frente 4 atualizou config, comentários e testes — e não o prompt. Ninguém
 não havia o que quebrar.
 
 **A regra que sai disso:** toda regra de negócio citada no prompt tem que **ler o config**,
-com o mesmo teste que o gate correspondente usa (`!== false`, não `=== true`, por causa da
-chave que nasce ausente no `BUSINESS_CONFIG`). Prompt e gate discordando é o pior defeito
+com o mesmo teste que o gate correspondente usa, e com a chave ausente lida como a verdade
+de hoje (ela nasce ausente no `BUSINESS_CONFIG`). Para `freeShipping` isso foi `!== false`
+até 2026-09-22 e é `=== true` desde então — o operador decidiu que não há frete grátis.
+Desde 22/09 o prompt tem teste (`tests/prompt.test.ts`), que prova que toda frase ensinada
+passa a cadeia de gates. Prompt e gate discordando é o pior defeito
 possível: o gate veta a frase que o prompt mandou escrever, em toda conversa, queimando uma
 reescrita por turno até cair na resposta segura.
 

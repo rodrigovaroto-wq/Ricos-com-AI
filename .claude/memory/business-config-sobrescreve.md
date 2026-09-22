@@ -21,8 +21,11 @@ inverter — com 2.738 testes verdes e o deploy dado como concluído. Só a sond
 porta de produção mostrou.
 
 **Regra:** campo novo em `BusinessConfig` nasce **opcional**, e o padrão para
-ausente tem de ser o comportamento certo de hoje. `freeShipping?: boolean`, lido
-como `!== false`, é o modelo.
+ausente tem de ser o comportamento certo de hoje. `freeShipping?: boolean` é o modelo — e
+mostra que "o certo de hoje" muda: foi lido como `!== false` (ausente = grátis) enquanto o
+frete era grátis, e passou a `=== true` (ausente = não grátis) em 2026-09-22, quando o
+operador decidiu que a operação não oferece frete grátis. Quando a verdade vira, o padrão
+do ausente vira junto, no gate e no prompt ao mesmo tempo.
 
 A mesma armadilha explica divergências de valor: em 2026-09-09 a produção aceitou
 "entrega entre 3 e 5 dias" enquanto o repositório fixa 1 a 3 — o secret carrega

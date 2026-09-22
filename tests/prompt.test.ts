@@ -53,12 +53,25 @@ describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
     expect(prompt).toContain("O FRETE É GRÁTIS nos dois caminhos");
   });
 
-  // The `BUSINESS_CONFIG` trap: a key absent from the secret arrives undefined, and both
-  // the gate and the prompt read it with `!== false`, so absent means free on both sides.
-  it("com a chave ausente, lê como grátis — o mesmo `!== false` do gate", () => {
+  // The `BUSINESS_CONFIG` trap: a key absent from the secret arrives undefined. Since
+  // 2026-09-22 the operation offers no free shipping, so both the gate and the prompt read
+  // it with `=== true` — absent means NOT free on both sides.
+  it("com a chave ausente, lê como não grátis — o mesmo `=== true` do gate", () => {
     const { freeShipping: _, ...delivery } = base.delivery;
     const prompt = build({ ...base, delivery });
-    expect(prompt).toContain("O FRETE É GRÁTIS nos dois caminhos");
+    expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
+    expect(prompt).not.toContain("O FRETE É GRÁTIS nos dois caminhos");
+    expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região");
+  });
+
+  // The saving rule is about what the AGENT says: `price_promise` demands the freight
+  // caveat whenever she cites the R$ saving, not only when the customer raises it.
+  // "Se ela citar economia" read as the customer's move and invited the saving as a tactic.
+  it("a ressalva do frete vale sempre que a agente cita a economia em reais", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).not.toContain("Se ela citar economia");
+    expect(prompt).toContain("Sempre que você citar a economia em reais entre os dois caminhos");
+    expect(prompt).toContain("O percentual sozinho pode");
   });
 
   // Achado A, pinned: the paragraph was fixed text and the flag changed nothing. If it
@@ -133,7 +146,7 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
     { text: `${c.delivery.warrantyDays} dias para trocar ou devolver.`, paths: BOTH },
     { text: `Quem prefere pagar antes paga ${prepayPriceLine(c)}, ${prepayWindowLine(c)}`, paths: BOTH },
   ];
-  if (c.delivery.freeShipping !== false) {
+  if (c.delivery.freeShipping === true) {
     list.push(
       { text: `O FRETE É GRÁTIS nos dois caminhos`, paths: BOTH },
       { text: `o valor que você diz é o valor final, sem nada somado na porta nem no checkout.`, paths: BOTH },

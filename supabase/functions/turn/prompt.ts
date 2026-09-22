@@ -68,7 +68,7 @@ export const prepayDiscountRule = (config: PromptConfig): string =>
 
 /**
  * What she may say about freight — read from `delivery.freeShipping`, with the exact
- * `!== false` test the `shipping_promise` gate uses (`guardrails.ts`).
+ * `=== true` test the `shipping_promise` gate uses (`guardrails.ts`).
  *
  * The two must read the flag the same way or they disagree in the worst direction: until
  * 2026-09-22 this paragraph was fixed text asserting free shipping on both paths while
@@ -76,13 +76,14 @@ export const prepayDiscountRule = (config: PromptConfig): string =>
  * every conversation would burn a rewrite on a sentence the prompt itself demanded — and
  * a conversation that runs out of rewrites gets the safe canned reply instead of a sale.
  *
- * `!== false` and not `=== true` for the reason the `BUSINESS_CONFIG` trap teaches: a key
+ * `=== true` and not `!== false` for the reason the `BUSINESS_CONFIG` trap teaches: a key
  * absent from the secret arrives `undefined`, and the honest reading of an absent flag is
- * the world as it is today — the Coinzz prepaid offer has no freight configured in any of
- * the 27 states, so the checkout charges her zero.
+ * the world as it is today. Since the operator's decision of 2026-09-22 that world has no
+ * free shipping — the prepaid freight is charged by region at checkout — so only an
+ * explicit `true` may put "frete grátis" in her mouth.
  */
 export const freightBriefing = (config: PromptConfig): string[] =>
-  config.delivery.freeShipping !== false
+  config.delivery.freeShipping === true
     ? [
         `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
         `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
@@ -96,8 +97,9 @@ export const freightBriefing = (config: PromptConfig): string[] =>
         `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
         `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
         `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
-        `grátis, nunca prometa que é barato. Se ela citar economia entre os dois caminhos, a`,
-        `ressalva do frete sai na mesma frase — economia de produto não é economia final.`,
+        `grátis, nunca prometa que é barato. Sempre que você citar a economia em reais entre os`,
+        `dois caminhos, a ressalva do frete sai na mesma frase — economia de produto não é`,
+        `economia final. O percentual sozinho pode, sem ressalva.`,
       ];
 
 /**

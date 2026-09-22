@@ -925,6 +925,153 @@ describe("os dois furos de frete da revisão de 2026-09-22", () => {
 });
 
 /**
+ * Os quatro achados do /code-review de 2026-09-22 sobre os gates de frete e de economia.
+ * Todos são falso positivo — a frase honesta que o prompt manda escrever entrava no laço
+ * de reescrita — e cada conserto vem com os adversariais que ele não pode abrir.
+ */
+describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
+  const config0922: typeof config = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+    delivery: { ...config.delivery, freeShipping: false },
+  };
+  const prepay = ctx({ config: config0922, paymentPath: "prepay" as const });
+  const cod = ctx({ config: config0922 });
+
+  describe("3 — sujeito novo depois do frete: antecipado, total, valor", () => {
+    it("a frase honesta com outro sujeito passa", () => {
+      for (const frase of [
+        "O frete é à parte, e o valor fica R$ 116,91 no antecipado.",
+        "O frete é calculado no checkout e o antecipado sai R$ 116,91.",
+        "O frete é calculado no checkout, e o total fica R$ 116,91 mais o frete.",
+        "O frete já está dentro, e o total é R$ 129,90 na entrega.",
+        "O frete é à parte, mas o valor sai R$ 12,99 mais barato no antecipado.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, cod)), frase).not.toContain("shipping_promise");
+      }
+    });
+
+    it("valor atribuído ao frete continua vetado, com 'valor' ou 'total' por perto", () => {
+      for (const frase of [
+        // "tem o valor de" é o frete falando do próprio valor, não sujeito novo.
+        "O frete tem o valor de R$ 12,99.",
+        "O frete tem o valor de R$ 15.",
+        // Sem quebra de oração, "o valor" é do frete.
+        "O frete o valor é R$ 12,99.",
+        // "o valor dele": o verbo não está colado, e "dele" é o frete.
+        "O frete é à parte, e o valor dele é R$ 12,99.",
+        // O segundo "frete" reabre a atribuição.
+        "O frete é à parte, e o valor do frete fica R$ 12,99.",
+        // Sujeito novo com a economia como valor é o frete disfarçado: nada custa R$ 12,99.
+        "O frete é à parte, e o valor é R$ 12,99.",
+        "O frete é calculado no checkout, e o total fica R$ 12,99.",
+        // A economia dada como PREÇO de qualquer sujeito é mentira — nada custa R$ 12,99.
+        // O furo já existia com "o produto"; abrir "o antecipado" não pode alargá-lo.
+        "O frete é à parte, e o produto sai R$ 12,99.",
+        "O frete é à parte, e o antecipado fica R$ 12,99.",
+        "O frete é calculado no checkout, e o colete custa R$ 12,99.",
+        // Preposição/relativo antes do sujeito novo não abre sujeito.
+        "O frete para o antecipado fica R$ 12,99.",
+        "O frete que o antecipado paga é R$ 12,99.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+      }
+    });
+
+    it("'total' do antecipado sem o frete somado é a meia-verdade (price_promise)", () => {
+      // Liberar "o total" como sujeito abriria "o total fica R$ 116,91" — e no
+      // antecipado o total é R$ 116,91 MAIS o frete da região (R$ 15 a R$ 40).
+      for (const frase of [
+        "O frete é calculado no checkout e o total fica R$ 116,91.",
+        "No antecipado o total é R$ 116,91.",
+        "Não precisa esperar, o total fica R$ 116,91.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
+      }
+      for (const frase of [
+        "No antecipado o total é R$ 116,91 mais o frete.",
+        "O total não é R$ 116,91, o frete é somado no checkout.",
+        "Na entrega o total é R$ 129,90, com o frete dentro.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+      }
+    });
+  });
+
+  describe("4 — 'nenhum frete a mais na porta' é verdade no COD", () => {
+    it("qualificado e falando da entrega, passa", () => {
+      for (const frase of [
+        "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.",
+        "Na entrega é R$ 129,90, sem frete extra na porta.",
+        "Nada de frete somado na entrega: são R$ 129,90.",
+      ]) {
+        expect(blocked(runGates(frase, cod)), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+      }
+      // Com preço único (antecipado = entrega), o R$ 129,90 na frase não é o antecipado.
+      expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", ctx())))
+        .not.toContain("shipping_promise");
+      // No caminho COD, sem citar a porta e sem citar o antecipado.
+      expect(blocked(runGates("São R$ 129,90 e nenhum frete adicional.", cod)))
+        .not.toContain("shipping_promise");
+    });
+
+    it("seco, no antecipado, ou com 'grátis' junto, continua vetado", () => {
+      for (const frase of [
+        "Nenhum frete na entrega.",
+        "Nenhum frete a mais, pode pagar antecipado.",
+        "No antecipado, nenhum frete a mais na entrega.",
+        "Nenhum frete a mais na porta, o frete é grátis.",
+        "Sem frete: R$ 129,90 na entrega.",
+      ]) {
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+      }
+      // Caminho antecipado e sem falar da porta: ela paga frete, "nenhum a mais" é mentira.
+      expect(blocked(runGates("São R$ 116,91 e nenhum frete adicional.", prepay)))
+        .toContain("shipping_promise");
+      // Pix, cartão, checkout ou o preço do antecipado na frase: é o antecipado, sem porta.
+      for (const frase of [
+        "Nenhum frete a mais na porta: R$ 116,91 no pix.",
+        "Nenhum frete extra na entrega, é só pagar no cartão.",
+        "Nenhum frete a mais na entrega, o checkout já mostra.",
+      ]) {
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+      }
+      // A mensagem cita as duas ofertas, mas a frase que nega o frete é a do antecipado.
+      expect(
+        blocked(runGates("Na entrega são R$ 129,90. No antecipado são R$ 116,91 e nenhum frete a mais.", cod)),
+      ).toContain("shipping_promise");
+    });
+  });
+
+  describe("6 — ressalva válida não pode ser jogada fora", () => {
+    it("ressalva negativa e 'juros zero' longe do frete passam", () => {
+      for (const frase of [
+        "Não precisa esperar, o frete não está incluído e você economiza R$ 12,99 no produto.",
+        "Você economiza R$ 12,99 no produto com juros zero e o frete calculado no checkout.",
+        "Não precisa esperar: você economiza R$ 12,99 no produto, não inclui o frete.",
+        "Não, você economiza R$ 12,99 no produto, e o frete é calculado no checkout.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+      }
+    });
+
+    it("ressalva negada, ou frete zerado de verdade, continua vetando", () => {
+      for (const frase of [
+        "Você economiza R$ 12,99 e o frete não é cobrado à parte.",
+        "Você economiza R$ 12,99 e zero frete cobrado à parte.",
+        "Você economiza R$ 12,99, zero taxa de frete cobrada à parte.",
+        "Você economiza R$ 12,99 e zero de frete cobrado à parte.",
+        "Você economiza R$ 12,99, e o frete nunca é cobrado à parte.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
+      }
+    });
+  });
+});
+
+/**
  * A brecha que a sonda adversarial pegou depois da inversão: "o frete depende da sua
  * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
  * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.
@@ -989,9 +1136,10 @@ describe("o gate do frete depois do review (ramo freeShipping: true)", () => {
 
 /**
  * A produção lê o config inteiro de um secret que sobrescreve o fallback do código. Uma
- * chave nova nasce ausente lá até alguém editar o secret — e `freeShipping` ausente,
- * quando era obrigatória, lia como `false` e reinstalava o veto antigo em produção com
- * todos os testes daqui passando. O padrão tem que ser a verdade.
+ * chave nova nasce ausente lá até alguém editar o secret. O padrão para a chave ausente
+ * tem que ser a verdade — e a verdade mudou: até 2026-09-22 era "grátis" (`!== false`);
+ * desde a decisão do operador de 22/09, a operação NÃO oferece frete grátis, então a
+ * chave ausente lê como não grátis, e só `true` explícito libera o grátis.
  */
 describe("config de produção sem a chave nova", () => {
   // A chave é OMITIDA, não posta como undefined: é assim que ela chega da produção,
@@ -999,18 +1147,44 @@ describe("config de produção sem a chave nova", () => {
   const { freeShipping: _omitida, ...deliverySemAChave } = config.delivery;
   const semAChave = { ...ctx(), config: { ...config, delivery: deliverySemAChave } };
 
-  it("frete grátis continua liberado quando a chave não existe", () => {
+  it("sem a chave, frete grátis é vetado: ausente lê como não grátis", () => {
     expect(blocked(runGates("O frete é grátis nos dois casos.", semAChave)))
-      .not.toContain("shipping_promise");
+      .toContain("shipping_promise");
   });
 
-  it("só `false` explícito volta a regra antiga", () => {
+  it("sem a chave, o briefing proíbe o grátis em vez de mandá-lo dizer", () => {
+    const briefing = gateBriefing({ ...config, delivery: deliverySemAChave }).join("\n");
+    expect(briefing).toContain('Nunca diga "frete grátis"');
+    expect(briefing).not.toContain("GRÁTIS nos dois caminhos");
+  });
+
+  it("sem a chave, a economia do antecipado exige a ressalva do frete (price_promise)", () => {
+    // O pior caso da chave ausente: lida como grátis, liberava "você economiza R$ 12,99"
+    // sem ressalva — e a cliente paga R$ 15 a R$ 40 de frete no checkout.
+    const cfg = {
+      ...config,
+      prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+      delivery: deliverySemAChave,
+    };
+    const prepay = ctx({ config: cfg, paymentPath: "prepay" as const });
+    expect(blocked(runGates("Você economiza R$ 12,99 pagando antecipado.", prepay)))
+      .toContain("price_promise");
+    expect(gateBriefing(cfg).find((b) => b.includes("Os únicos valores"))!).toContain("mesma frase");
+  });
+
+  it("`false` explícito também veta, e só `true` explícito libera o grátis", () => {
     const desligado = {
       ...ctx(),
       config: { ...config, delivery: { ...config.delivery, freeShipping: false } },
     };
     expect(blocked(runGates("O frete é grátis nos dois casos.", desligado)))
       .toContain("shipping_promise");
+    const ligado = {
+      ...ctx(),
+      config: { ...config, delivery: { ...config.delivery, freeShipping: true } },
+    };
+    expect(blocked(runGates("O frete é grátis nos dois casos.", ligado)))
+      .not.toContain("shipping_promise");
   });
 });
 

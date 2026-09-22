@@ -244,9 +244,11 @@ campo é `false` em `config/business.example.json`, em `tests/fixtures.ts`, nos 
 harnesses de dev e no fallback da Edge Function.
 
 **⚠ Isso NÃO muda produção.** A produção lê o secret `BUSINESS_CONFIG`, que sobrescreve o
-fallback inteiro, e **a chave ausente do secret lê como grátis** — o gate e o prompt usam
-`!== false` de propósito. Para a decisão valer, **o operador precisa escrever
-`freeShipping` com valor `false` no secret, explicitamente.** Sem isso a agente continua
+fallback inteiro — e **o HANDOFF registra que o secret tem `freeShipping: true` escrito**.
+Para a decisão valer, **o operador precisa trocar para `false` no secret.** (Atualização
+da tarde de 22/09: a chave **ausente** passou a ler como **não grátis** — `=== true` no gate
+e no prompt, achado 5 do `/code-review` — então apagar a chave também serve. O que não
+serve é deixar o `true` que está lá.) Sem isso a agente continua
 prometendo frete grátis em produção, com o repositório inteiro dizendo o contrário.
 
 **18 testes inverteram**, e nenhum foi só "atualizado para passar": prometer grátis virou
@@ -260,9 +262,9 @@ com segurança.
 
 Três funções novas em `index.ts`, ao lado de `prepayWindowLine`: `prepayPriceLine()`,
 `prepayDiscountRule()` e `freightBriefing()`. O prompt passa a ler
-`prices.prepayDiscountPercent` e `delivery.freeShipping`, este último com **o mesmo teste
-`!== false`** que o gate usa — de propósito, porque chave ausente no secret precisa
-significar "grátis", que é a verdade de hoje.
+`prices.prepayDiscountPercent` e `delivery.freeShipping`, este último com **o mesmo teste**
+que o gate usa. Na manhã de 22/09 esse teste era `!== false` (ausente = grátis); à tarde,
+com a decisão de que não há frete grátis, virou `=== true` nos dois (ausente = não grátis).
 
 **Nada mudou de comportamento hoje.** Com o secret como está, o prompt gerado é o anterior
 menos a contradição do desconto. O que muda é o dia do `freeShipping: false`: antes o gate

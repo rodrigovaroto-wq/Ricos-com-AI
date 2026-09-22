@@ -21,7 +21,12 @@ export interface BusinessConfig {
     codScheduled: boolean;
     prepayVariesByRegion: boolean;
     warrantyDays: number;
-    /** Os dois caminhos têm frete grátis desde 2026-09-09. Ausente = grátis; só `false` desliga. */
+    /**
+     * Free shipping on both paths only when explicitly `true`. The operator decided on
+     * 2026-09-22 that the operation does not offer free shipping, so an absent key reads
+     * as not free — the gates and the prompt test `=== true`. (From 2026-09-09 to
+     * 2026-09-22 it was the reverse: absent meant free, tested as `!== false`.)
+     */
     freeShipping?: boolean;
   };
   sizes: readonly string[];
