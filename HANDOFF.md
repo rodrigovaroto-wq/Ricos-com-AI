@@ -97,6 +97,12 @@ trava mais coisa. Comece por ela.
    liga RLS sozinho em toda tabela nova; chamá-la por RPC falha. Risco baixo, drift real.
    Decisão do operador (item 1.6 do plano).
 
+**⚠ Achado ALTO da revisão de segurança, anterior a esta sessão:** os webhooks do n8n
+(`/encorpa-inbound`, `/encorpa-venda`) **aceitam POST anônimo**, e a URL está versionada
+aqui. Quem tiver a URL posta com o telefone de uma cliente real e pode disparar o handoff
+que a tira da agente para sempre, ou forjar um pedido. Item **O10** do plano — autenticar
+por header no n8n antes de tráfego real.
+
 **⚠ Os dois bloqueios duros do deploy v33, ambos do operador:**
 
 - **O1 — `"freeShipping": false` no secret.** Chave ausente lê como grátis. Sem isto a

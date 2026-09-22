@@ -127,6 +127,7 @@ trava mais coisa.**
 | **O6** | **Colar o payload real da Coinzz** que já chegou (sem CPF/telefone reais — pode mascarar) | mapeamento (fase 5) | Ele está no e-mail ou no log de execução do n8n |
 | **O7** | **Três URLs de obrigado** no painel da Coinzz | ensaio geral | Painel |
 | **O8** | **Token da WhatsApp Cloud API** e **aprovação dos três templates** | canal (fase 8) | Meta Business, em andamento |
+| **O10** | **Autenticar os webhooks do n8n** (`/encorpa-inbound` e `/encorpa-venda`) com segredo em header, e — quando o canal existir — verificar a assinatura `X-Hub-Signature-256` da Meta no nó de entrada | **tráfego real** (fase 9) | Achado **ALTO** da revisão de segurança de 22/09, **já existia antes da sessão**. Hoje os dois webhooks aceitam POST anônimo, e a URL está versionada neste repositório. Qualquer um pode postar com o telefone de uma cliente real: escreve na conversa dela, queima o teto de custo e dispara o handoff — que a tira da agente para sempre. No `/encorpa-venda`, forja pedido: mata a cobrança e arma o pós-venda. É cano, não regra de negócio, então mora no n8n. O MCP do n8n não conectou nesta sessão |
 | **O9** | **Aquecer o número** — semanas de uso normal | tráfego pago (fase 9) | Calendário. **É o item de prazo mais longo do plano inteiro; se ainda não começou, comece hoje** |
 
 ---
@@ -140,9 +141,9 @@ trava mais coisa.**
 | 1.1 | Diff da v32 no ar contra o `main` | ✅ idêntica ao `b36087d` |
 | 1.2 | Cinco comandos canônicos | ✅ verdes |
 | 1.3 | Leads trancados por `handoff_at` | ✅ zero — o banco está vazio |
-| 1.4 | Ler o `BUSINESS_CONFIG` campo a campo | ⏳ **operador** — cola os campos sem credencial |
+| 1.4 | Ler o `BUSINESS_CONFIG` campo a campo | ⏳ **operador** — a fonte é a **cópia local do operador** ou o painel: pela API de gerência o valor volta hasheado e não é legível. Cola só os campos sem credencial |
 | 1.5 | Inventariar os três workflows n8n | ⏳ bloqueado: MCP do n8n não conectou. Alternativa: operador exporta o JSON |
-| 1.6 | **Novo:** decidir `rls_auto_enable()` — revogar `execute` de `anon`/`authenticated`, ou manter | ⏳ **operador** decide; o agente aplica e passa a função para o repositório como migração |
+| 1.6 | **Novo:** decidir `rls_auto_enable()` — revogar `execute` de `anon`/`authenticated`, ou manter | ⏳ **operador** decide. **Parecer da revisão de segurança (22/09): revogar** — `revoke execute on function public.rls_auto_enable() from public, anon, authenticated;`. Não quebra o gatilho (o `EXECUTE` só é conferido ao criar o event trigger), o risco real hoje é quase nulo (função de event trigger não roda por RPC), e revogar não custa nada. Entrar como **migração versionada**, junto com a própria função e o `ensure_rls`, que hoje só existem no banco. Validar criando uma tabela descartável e lendo `relrowsecurity` |
 
 ---
 
@@ -287,7 +288,8 @@ Dentro de uma onda, nada colide em arquivo nem em dependência.
 | Onda | Agente faz | Operador faz | Destrava |
 |---|---|---|---|
 | **A** ✅ | 2.1 · 2.2 · 2.3 · 2.4 · 2.6 · 2.7 · 3.1 · 3.2 · 3.3 · 8.1 — **toda feita em 22/09** | **O9 (aquecer o número)** · O1 · O2 · O3 · 1.4 · 1.6 | tudo |
-| **B** | 3.4 · 3.5 · 4.1 · 4.2 · 5.1 · 2.5 | O5 · O6 · 4.3 | deploy |
+| **A′** — correções da revisão | F1 gates · F2 estágio + chave do Gemini · F3 runner · F4 teste intermitente | — | B |
+| **B** | 3.4 · 3.5 · 4.1 · 4.2 · 5.1 · 2.5 | O5 · O6 · O10 · 4.3 | deploy |
 | **C** | 6.1 → 6.8 · 5.3 → 5.8 · 7.1 → 7.4 | O4 · O7 | canal |
 | **D** | 8.3 → 8.6 · 9.1 | O8 · 8.2 | tráfego |
 | **E** | 9.2 · 9.3 → fase 10 | — | — |
