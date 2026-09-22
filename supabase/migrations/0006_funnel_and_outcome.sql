@@ -57,3 +57,9 @@ create table if not exists public.turn_outcomes (
 create index if not exists turn_outcomes_conversation_idx
   on public.turn_outcomes(conversation_id, created_at);
 create index if not exists turn_outcomes_outcome_idx on public.turn_outcomes(outcome, created_at);
+
+-- O mesmo padrão das nove tabelas da `0001`: RLS ligado e nenhuma policy. Só o
+-- `service_role` — que a Edge Function usa e que ignora RLS — lê e escreve. Sem esta
+-- linha a tabela ficaria exposta à chave anon pelo PostgREST, com custo e motivo de
+-- cada turno de cada cliente.
+alter table public.turn_outcomes enable row level security;
