@@ -58,6 +58,8 @@ import {
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
   SAFE_FALLBACK_REPLY,
+  WELCOME_AUTO_REPLY,
+  WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
 
@@ -248,7 +250,7 @@ const CONFIG: BusinessConfig = JSON.parse(
   Deno.env.get("BUSINESS_CONFIG") ??
     JSON.stringify({
       brand: "Encorpa",
-      agentName: "Malu",
+      agentName: "Valen",
       prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
       delivery: {
         codDaysMin: 1,
@@ -1119,6 +1121,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
     /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
     source?: Record<string, unknown>;
     order?: OrderWebhook;
+    /**
+     * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
+     * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
+     * `external_id` idempotency check below and uses `conversations.welcomed_at`
+     * instead.
+     */
+    resume?: boolean;
   };
   try {
     payload = await request.json();
@@ -1139,14 +1148,19 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json("ok" in result && result.ok === false ? 422 : 200, result);
   }
 
-  const inbound = payload as { externalId: string; from: string; body: string };
+  let inbound = payload as { externalId: string; from: string; body: string };
   if (!inbound.externalId || !inbound.from) {
     return json(400, { error: "externalId e from são obrigatórios" });
   }
+  const isResume = payload.resume === true;
 
-  // 1. Idempotency: the same channel event never becomes two turns.
-  const seen = await db(`messages?external_id=eq.${encodeURIComponent(inbound.externalId)}&select=id`);
-  if (seen?.length) return json(200, { status: "duplicate" });
+  // 1. Idempotency: the same channel event never becomes two turns. A resume call is
+  // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
+  // against, so it gets its own guard below instead (welcomed_at vs. last_outbound_at).
+  if (!isResume) {
+    const seen = await db(`messages?external_id=eq.${encodeURIComponent(inbound.externalId)}&select=id`);
+    if (seen?.length) return json(200, { status: "duplicate" });
+  }
 
   // 2. Lead and conversation.
   const existing = await db(`leads?phone=eq.${encodeURIComponent(inbound.from)}&select=*`);
@@ -1172,15 +1186,91 @@ Deno.serve(async (request: Request): Promise<Response> => {
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
 
-  await db("messages", {
-    method: "POST",
-    body: JSON.stringify({
-      conversation_id: conversation.id,
-      direction: "inbound",
-      body: inbound.body ?? "",
-      external_id: inbound.externalId,
-    }),
-  });
+  // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
+  // triggered the welcome is already stored — so it re-reads the latest inbound text
+  // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
+  // Valen already answered for real since the welcome went out (she wrote again and got
+  // a live reply before the timer fired).
+  if (isResume) {
+    if (!conversation.welcomed_at) return json(200, { status: "resume_without_welcome" });
+    if (
+      conversation.last_outbound_at &&
+      new Date(conversation.last_outbound_at).getTime() > new Date(conversation.welcomed_at).getTime()
+    ) {
+      return json(200, { status: "resume_moot" });
+    }
+    const latest = await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=body&order=created_at.desc&limit=1`,
+    );
+    inbound = { ...inbound, body: latest?.[0]?.body ?? inbound.body ?? "" };
+  }
+
+  if (!isResume) {
+    await db("messages", {
+      method: "POST",
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        direction: "inbound",
+        body: inbound.body ?? "",
+        external_id: inbound.externalId,
+      }),
+    });
+  }
+
+  // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the
+  // model. It replaces the rest of this call entirely: n8n waits
+  // `WELCOME_RESUME_DELAY_SECONDS` and calls again with `resume: true` for Valen's real
+  // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
+  // call never re-enters here.
+  const isNewLead = !existing?.[0];
+  if (isNewLead && !isResume) {
+    const welcomedAt = new Date().toISOString();
+    const receipt = runGates(WELCOME_AUTO_REPLY, {
+      config: CONFIG,
+      layer: "auto",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: "cod",
+    });
+    await db("gate_traces", {
+      method: "POST",
+      body: JSON.stringify(
+        receipt.traces.map((t) => ({
+          conversation_id: conversation.id,
+          gate: t.gate,
+          verdict: t.verdict,
+          detail: t.detail ?? null,
+        })),
+      ),
+    }).catch(() => undefined);
+
+    if (receipt.allowed) {
+      const out = (
+        await db("messages", {
+          method: "POST",
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            direction: "outbound",
+            body: WELCOME_AUTO_REPLY,
+          }),
+        })
+      )[0];
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ welcomed_at: welcomedAt }),
+      });
+      return json(200, {
+        status: "welcomed",
+        reply: WELCOME_AUTO_REPLY,
+        bubbles: paced(WELCOME_AUTO_REPLY),
+        messageId: out.id,
+        resumeInSeconds: WELCOME_RESUME_DELAY_SECONDS,
+      });
+    }
+    // The chain vetoed the fixed receipt, which should not happen — WELCOME_AUTO_REPLY
+    // is asserted gate-clean in tests. Falling through to the normal pipeline below
+    // means she still gets an answer instead of silence.
+  }
 
   // She answered: every touch waiting on her silence is moot.
   await cancelScheduled(conversation.id);

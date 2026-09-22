@@ -107,6 +107,64 @@ que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produç
 
 ---
 
+## Recepção automática e o timer de 2 minutos (2026-09-21)
+
+Decisão do operador: a agente muda de nome, de **Malu** para **Valen** (feito — código e
+script), e ganha uma recepção automática fixa antes da Valen falar de verdade.
+
+**Feito, testado e mirrorado:**
+
+- `agentName` é "Valen" em todos os fixtures e no exemplo de config.
+- `WELCOME_AUTO_REPLY` (`src/agent/retry.ts`, espelhado em
+  `supabase/functions/turn/retry.ts`) guarda o texto exato aprovado, com os espaçamentos:
+
+  ```
+  Oii, tudo bem?
+
+  Recebemos sua mensagem, em poucos minutos uma de nossas atendentes fará seu atendimento.
+
+  Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:
+  encorpa-fashion.com.br
+  ```
+
+  Testado em `tests/human-handoff.test.ts`: o texto bate exatamente, passa a régua de
+  horário de madrugada (`layer: "auto"`, R4.4) e não promete preço, prazo nem cupom.
+
+**Decisão do operador: opção (a)** — n8n chama a função duas vezes, com um nó `Wait` de
+2 minutos no meio. Implementado do lado da Edge Function em 2026-09-21:
+
+- Chamada normal (sem `resume`): se o lead é novo (`existing?.[0]` vazio), a função manda
+  só o `WELCOME_AUTO_REPLY`, grava `conversations.welcomed_at` e devolve
+  `{ status: "welcomed", reply, bubbles, resumeInSeconds: 120 }`. Não chama o modelo, não
+  roda o resto do pipeline.
+- Chamada de retomada (`{ ...mesmo payload, resume: true }`): pula a checagem de
+  `external_id` (não é evento de canal, é o relógio do n8n), relê a última mensagem
+  inbound da conversa no banco (em vez de confiar no que o n8n reenviar) e roda o pipeline
+  normal a partir daí — opt-out, pedido de humano, modelo, gates, tudo do jeito que já
+  era. Se a Valen já respondeu de verdade depois da recepção (`last_outbound_at` mais
+  recente que `welcomed_at` — ela escreveu de novo e foi respondida antes do timer
+  disparar), a retomada não gera resposta duplicada: devolve `{ status: "resume_moot" }`.
+- Migração nova: `supabase/migrations/0005_welcome_resume.sql` — coluna
+  `conversations.welcomed_at`.
+- `WELCOME_RESUME_DELAY_SECONDS = 120` (`src/agent/retry.ts`, espelhado) é o número que a
+  função devolve para o n8n — o `Wait` node lê `resumeInSeconds` da resposta em vez de ter
+  o valor hardcoded duas vezes.
+
+**O que ainda depende do operador, fora deste repositório:** o workflow do n8n
+(`Encorpa — Turno da agente`) precisa de um nó `Wait` novo entre a chamada que devolve
+`status: "welcomed"` e uma segunda chamada HTTP à mesma função, com o mesmo `externalId`/
+`from`/`body` do payload original mais `resume: true`. Sem essa mudança no n8n, o lead
+novo recebe a recepção automática e a Valen nunca responde de verdade — a função fica
+esperando a segunda chamada que ninguém faz.
+
+**Não coberto por teste automatizado.** `index.ts` não é importável pelos testes (é
+Deno, não Node) — a cobertura aqui é `deno check` mais os testes de `WELCOME_AUTO_REPLY`/
+`WELCOME_RESUME_DELAY_SECONDS` em `tests/human-handoff.test.ts`. A lógica de `resume` só
+é provada de verdade pela porta de produção, com um lead sintético, depois que o n8n
+tiver o nó `Wait`.
+
+---
+
 ## Varredura de cobertura de 2026-09-21
 
 43 cidades × 5 tamanhos, contra o `stock-and-delivery-day`, em série, sem criar pedido
