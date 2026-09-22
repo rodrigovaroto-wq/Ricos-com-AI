@@ -164,6 +164,14 @@ export const hourIn = (at: Date, timeZone: string): number =>
     new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(at),
   );
 
+/** A comma that ends a phrase. The one in "R$ 12,99" sits between digits and ends nothing. */
+const PHRASE_COMMA = /(?<!\d),|,(?!\d)/;
+const PHRASE_COMMA_ALL = new RegExp(PHRASE_COMMA, "g");
+const phraseStartAt = (s: string, at: number): number => {
+  const last = [...s.slice(0, at).matchAll(PHRASE_COMMA_ALL)].pop();
+  return last ? (last.index ?? 0) + 1 : 0;
+};
+
 /**
  * Whether the token at `at` is denied in its own clause. The agent has to be able to
  * say the honest sentence that contains the very thing the gate looks for: "ele não
@@ -179,13 +187,6 @@ export const hourIn = (at: Date, timeZone: string): number =>
  * its own comma-bounded phrase and a couple of words of the token. `nem` needs no such
  * guard: it only ever carries an earlier negation forward ("não emagrece nem afina").
  */
-/** A comma that ends a phrase. The one in "R$ 12,99" sits between digits and ends nothing. */
-const PHRASE_COMMA = /(?<!\d),|,(?!\d)/;
-const phraseStartAt = (s: string, at: number): number => {
-  const last = [...s.slice(0, at).matchAll(new RegExp(PHRASE_COMMA, "g"))].pop();
-  return last ? (last.index ?? 0) + 1 : 0;
-};
-
 const negatedAt = (t: string, at: number): boolean => {
   const before = t.slice(Math.max(0, at - 30), at);
   const clause = before.split(/[:;.!?]/).pop() ?? "";
@@ -288,9 +289,9 @@ const freightDeniedAt = (t: string, freteAt: number): boolean =>
  * idioms count on their own, with no `não`, and also right before `frete` in its own
  * phrase ("em hipótese alguma o frete é cobrado à parte").
  */
-const FREIGHT_NEGATION =
-  /\b(?:nao|nunca|jamais|nem|nenhum\w*|(?:hipotese|jeito|forma|maneira|modo)\s+(?:alguma?|nenhum\w*))\b/;
-const EMPHATIC_NEGATION = /\b(?:hipotese|jeito|forma|maneira|modo)\s+(?:alguma?|nenhum\w*)\b/;
+const EMPHATIC_IDIOM = /(?:hipotese|jeito|forma|maneira|modo)\s+(?:alguma?|nenhum\w*)/;
+const EMPHATIC_NEGATION = new RegExp(`\\b${EMPHATIC_IDIOM.source}\\b`);
+const FREIGHT_NEGATION = new RegExp(`\\b(?:nao|nunca|jamais|nem|nenhum\\w*|${EMPHATIC_IDIOM.source})\\b`);
 
 /**
  * Two ways the caveat check used to throw away a caveat she had been given.
@@ -558,17 +559,13 @@ const gates: readonly Gate[] = [
           if (m.value !== prepayBrl) continue;
           if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
           const amount = /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(m.at))?.[0] ?? "";
-          // The caveat anywhere AFTER the amount, in the same sentence: "o total é R$ 116,91
-          // e o frete é calculado no checkout". Before it, the order says the opposite — "o
-          // frete é calculado no checkout e o total fica R$ 116,91" is the total after the
-          // freight, which is the half-truth itself.
-          if (hasFreightCaveat(sentenceAt(t.slice(m.at + amount.length), 0))) continue;
+          // Only the freight added right after the amount. A caveat anywhere later in the
+          // sentence, and "sem o frete", were accepted for a while (2026-09-22) and let
+          // through "o total é R$ 116,91, e o frete, que seria calculado no checkout, já
+          // está incluso" and "o total é R$ 116,91 sem o frete cobrado à parte". The honest
+          // sentences they freed cost a rewrite; the lies cost the freight at the door.
           const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
-          // "sem O frete" only: "R$ 116,91 sem frete" reads as a total with no freight.
-          if (
-            /^[^.!?]{0,25}?(?:(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?|\bsem\s+o\s+)frete\b/.test(after)
-          )
-            continue;
+          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?frete\b/.test(after)) continue;
           return `calls the prepaid ${money(prepayBrl)} a total, and the freight is added in the checkout`;
         }
       }
@@ -1080,8 +1077,9 @@ const gates: readonly Gate[] = [
         // `price_promise` lets the saving through, and it says the product costs R$ 12,99.
         // So after a freight mention, the saving under a new subject must be said as a
         // saving: "mais barato", "a menos", "de desconto", "de economia", "de diferença",
-        // after the amount or between the subject and it — or with a verb of falling
-        // ("cai", "reduz", "baixa") that is not falling TO the amount ("cai pra R$ 12,99").
+        // after the amount or between the subject and it. A verb of falling ("cai",
+        // "reduz", "baixa") was accepted for a while (2026-09-22) and let through "o preço
+        // cai bastante, pra R$ 12,99": the honest "cai R$ 12,99" costs a rewrite instead.
         const saving = savingOf(ctx.config);
         if (
           saving > 0 &&
@@ -1093,9 +1091,25 @@ const gates: readonly Gate[] = [
             (m) =>
               moneyMatches(m[2]!)[0]?.value === saving &&
               !/\b(?:desconto|economi\w*|diferenca|barat\w*|menos|nao)\b/.test(m[1]!) &&
-              !/\b(?:cai|reduz\w*|diminu\w*|abat\w*|baix\w*)\b(?!\s+(?:pra|para|a|ate)\b)/.test(m[1]!) &&
-              !/^\s*(?:reais\s+)?(?:mais\s+(?:barat\w*|baix\w*|em\s+conta)|menor|a\s+menos|de\s+(?:desconto|economia|diferenca)|off)\b/.test(
+              !/^\s*(?:reais\s+)?(?:mais\s+(?:barat\w*|em\s+conta)|a\s+menos|de\s+(?:desconto|economia|diferenca)|off)\b/.test(
                 t.slice((m.index ?? 0) + m[0].length),
+              ),
+          )
+        ) {
+          return `gives the ${money(saving)} saving as a price, and it is only the difference between the two offers`;
+        }
+        // The same lie with no new subject in reach: "o preço cai no antecipado PARA R$
+        // 12,99", "pagando antecipado sai POR R$ 12,99". Whatever the subject, the saving
+        // right after para/pra/por/até/a is given as a price — unless the amount is said
+        // as a saving right after it ("até R$ 12,99 a menos").
+        if (
+          saving > 0 &&
+          moneyMatches(t).some(
+            (m) =>
+              m.value === saving &&
+              /\b(?:para|pra|por|ate|a)\s+(?:r\$\s*)?$/.test(t.slice(Math.max(0, m.at - 12), m.at)) &&
+              !/^(?:r\$\s*)?[\d.,]*\d\s*(?:reais\s+)?(?:a\s+menos|mais\s+barat\w*|de\s+(?:desconto|economia|diferenca))\b/.test(
+                t.slice(m.at),
               ),
           )
         ) {

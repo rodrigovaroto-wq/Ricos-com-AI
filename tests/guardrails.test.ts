@@ -1407,48 +1407,113 @@ describe("segunda passada do /code-review de 2026-09-22", () => {
     });
   });
 
-  describe("2 — 'o total' com a ressalva em qualquer ponto da frase", () => {
-    it("passa", () => {
+  /**
+   * Os itens 2 e 3 afrouxaram, e cada afrouxamento abriu mentira nova (rodada R3-G,
+   * 2026-09-22): a ressalva "depois do valor" aceitava a ressalva que a própria frase
+   * desmente ("…que seria calculado no checkout, já está incluso"), "sem o frete" aceitava
+   * "sem o frete cobrado à parte", e o verbo de queda aceitava "cai bastante, pra R$ 12,99".
+   * Voltaram ao comportamento anterior. As frases honestas abaixo são falso positivo
+   * ACEITO: custam uma reescrita, e a mentira custa o frete na porta. As frases que o
+   * prompt ensina continuam passando — `tests/prompt.test.ts` garante.
+   */
+  describe("2 — 'o total' do antecipado só passa com o frete somado logo depois do valor", () => {
+    it("falso positivo aceito: ressalva adiante na frase, ou 'sem o frete', veta", () => {
       for (const frase of [
         "No antecipado o total é R$ 116,91 e o frete é calculado no checkout.",
         "O total fica R$ 116,91 mais o valor do frete.",
         "O total é R$ 116,91 sem o frete.",
       ]) {
-        expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+        expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
       }
     });
 
-    it("com a ressalva negada, ou 'sem frete' sem artigo, continua vetando", () => {
+    it("as mentiras que o afrouxamento abriu vetam", () => {
       for (const frase of [
+        "No antecipado o total é R$ 116,91, e o frete, que seria calculado no checkout, já está incluso.",
+        "O total é R$ 116,91 sem o frete cobrado à parte.",
+        "O total é R$ 116,91 sem o frete adicional.",
         "No antecipado o total é R$ 116,91 e o frete, de jeito nenhum, é calculado à parte.",
         "O total é R$ 116,91 sem frete.",
         "O total é R$ 116,91 e o frete não é cobrado à parte.",
       ]) {
         expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
+        expect(blocked(runGates(frase, cod)), frase).toContain("price_promise");
       }
+    });
+
+    it("o frete somado logo depois do valor continua passando", () => {
+      const frase = "No antecipado o total é R$ 116,91 mais o frete.";
+      expect(blocked(runGates(frase, prepay))).toEqual([]);
     });
   });
 
-  describe("3 — economia dita com outro verbo", () => {
-    it("passa", () => {
+  describe("3 — depois do frete, a economia sob sujeito novo só passa dita como economia", () => {
+    it("falso positivo aceito: verbo de queda, ou 'menor', veta", () => {
       for (const frase of [
         "O frete é calculado no checkout, e o preço cai R$ 12,99 no antecipado.",
         "O frete é calculado no checkout, e o valor fica R$ 12,99 menor no antecipado.",
       ]) {
-        expect(blocked(runGates(frase, prepay)), frase).toEqual([]);
-      }
-    });
-
-    it("a economia como preço continua vetada", () => {
-      for (const frase of [
-        "O frete é calculado no checkout, e o preço fica R$ 12,99.",
-        "O frete é calculado no checkout, e o valor fica R$ 12,99 no antecipado.",
-        // Cair PARA o valor é dar o valor como preço.
-        "O frete é calculado no checkout, e o preço baixa pra R$ 12,99.",
-        "O frete é calculado no checkout, e o preço cai para R$ 12,99.",
-      ]) {
         expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
       }
     });
+
+    it("a economia como preço veta", () => {
+      for (const frase of [
+        "O frete é calculado no checkout, e o preço fica R$ 12,99.",
+        "O frete é calculado no checkout, e o valor fica R$ 12,99 no antecipado.",
+        "O frete é calculado no checkout, e o preço baixa pra R$ 12,99.",
+        "O frete é calculado no checkout, e o preço cai para R$ 12,99.",
+        // As mentiras que o verbo de queda abriu.
+        "O frete é calculado no checkout, e o preço cai bastante, pra R$ 12,99.",
+        "O frete é calculado no checkout, e o preço fica baixinho, R$ 12,99.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+      }
+    });
+
+    it("a economia dita como economia continua passando", () => {
+      const frase = "O frete é calculado no checkout, e o produto sai R$ 12,99 mais barato no antecipado.";
+      expect(blocked(runGates(frase, prepay))).toEqual([]);
+    });
+  });
+});
+
+/**
+ * Mentira anterior à sessão de consertos de 2026-09-22: "o preço cai no antecipado para
+ * R$ 12,99" passava, porque a distância entre o sujeito e o valor passava do limite da
+ * checagem de sujeito novo. A economia precedida de "para/pra/por/até/a" é dada como
+ * PREÇO, qualquer que seja o sujeito. Só aperta: "a menos", "mais barato", "de desconto",
+ * "de economia" e "de diferença" logo depois do valor a devolvem a economia.
+ */
+describe("a economia precedida de 'para/pra/por/até/a' é preço, não economia", () => {
+  const config0922: typeof config = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+    delivery: { ...config.delivery, freeShipping: false },
+  };
+  const prepay = ctx({ config: config0922, paymentPath: "prepay" as const });
+  const cod = ctx({ config: config0922 });
+
+  it("veta a economia dada como preço novo", () => {
+    for (const frase of [
+      "O frete é calculado no checkout, e o preço cai no antecipado para R$ 12,99.",
+      "O frete é calculado no checkout, e pagando antecipado sai por R$ 12,99.",
+      "O frete é calculado no checkout, e o preço desce no pagamento antecipado até R$ 12,99.",
+      "O frete é calculado no checkout; no antecipado, fica a R$ 12,99.",
+      "O frete é à parte, e no pix o valor do colete vai lá embaixo, pra 12,99 reais.",
+    ]) {
+      expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+      expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+    }
+  });
+
+  it("com a economia dita como economia logo depois do valor, não veta por isso", () => {
+    for (const frase of [
+      "O frete é calculado no checkout, e no antecipado a economia chega a R$ 12,99 de desconto no produto.",
+      "O frete é calculado no checkout, e no antecipado você paga até R$ 12,99 a menos no produto.",
+    ]) {
+      expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+    }
   });
 });
