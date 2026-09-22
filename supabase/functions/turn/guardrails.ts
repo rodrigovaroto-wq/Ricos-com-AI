@@ -213,6 +213,40 @@ const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   );
 
 /**
+ * The sentence around `at`. A stop is `.`, `!` or `?` followed by a space or the end, or
+ * a line break — so the decimal dot in "R$ 12.99" does not cut the amount off from its
+ * own sentence. Commas, colons and semicolons stay inside: "você economiza R$ 12,99 no
+ * produto, e o frete é calculado no checkout" is one sentence, and it is the honest one.
+ */
+const sentenceAt = (t: string, at: number): string => {
+  const stop = (i: number): boolean =>
+    t[i] === "\n" || (/[.!?]/.test(t[i] ?? "") && (i + 1 >= t.length || /\s/.test(t[i + 1]!)));
+  let start = at;
+  while (start > 0 && !stop(start - 1)) start--;
+  let end = at;
+  while (end < t.length && !stop(end)) end++;
+  return t.slice(start, end);
+};
+
+/**
+ * Whether the sentence tells her the freight is on top. Only the shapes that SAY so:
+ * "frete" alone is not a caveat ("pode perguntar do frete"), and a denied one is the
+ * opposite of a caveat ("o frete não é cobrado à parte"). "Não está incluído" carries
+ * its own negation and is the caveat, so the negation check starts at the keyword.
+ */
+const FREIGHT_CAVEAT = [
+  /\bmais\s+(?:o\s+)?frete\b/g,
+  /\b(?:sem\s+contar|fora|alem\s+do|antes\s+do|nao\s+conta\w*|nao\s+inclui\w*|excluindo)\s+(?:o\s+)?frete\b/g,
+  /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separad\w*|por\s+fora|calculad\w*|cobrad\w*|no\s+checkout|por\s+regiao|conforme|depende\w*|varia\w*|a\s+pagar|nao\s+(?:esta\s+)?inclu\w*)/g,
+];
+const hasFreightCaveat = (sentence: string): boolean =>
+  FREIGHT_CAVEAT.some((re) =>
+    [...sentence.matchAll(re)].some(
+      (m) => !negatedAt(sentence, (m.index ?? 0) + m[0].length - (m[1]?.length ?? m[0].length)),
+    ),
+  );
+
+/**
  * A percentage is only a discount claim when something around it says so. Reading the
  * whole message for the word "desconto" got this wrong in both directions: "te dou 30%
  * agora" is an offer with no such word and used to pass, while "o tecido é 92%
@@ -329,6 +363,7 @@ export const wantsHuman = (text: string): boolean =>
 
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+const savingOf = (c: GateConfig): string => money(+(c.prices.codBrl - c.prices.prepayBrl).toFixed(2));
 
 interface Gate {
   name: string;
@@ -387,7 +422,14 @@ const gates: readonly Gate[] = [
     briefing: (c) =>
       `Os únicos valores que existem são ${money(c.prices.codBrl)} na entrega, ` +
       `${money(c.prices.prepayBrl)} antecipado, ${money(c.prices.anchorBrl)} de preço cheio, e a ` +
-      `diferença entre eles. Nenhum outro número em reais. Os únicos descontos são ` +
+      `diferença entre eles. Nenhum outro número em reais. ` +
+      (c.delivery.freeShipping === false && c.prices.codBrl - c.prices.prepayBrl > 0
+        ? `A diferença de ${savingOf(c)} é economia no PRODUTO, não no total: no antecipado o ` +
+          `frete é cobrado à parte. Só cite esse valor com a ressalva do frete na mesma frase ` +
+          `("${savingOf(c)} a menos no produto, e o frete é calculado no checkout"). O ` +
+          `percentual pode ser dito sozinho. `
+        : ``) +
+      `Os únicos descontos são ` +
       `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
       `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
       `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
@@ -410,6 +452,19 @@ const gates: readonly Gate[] = [
       for (const m of moneyMatches(t)) {
         if (allowedPrices.has(m.value) || negatedAt(t, m.at)) continue;
         return `price ${m.value} is not one of the configured values`;
+      }
+
+      // Exit C (operator, 2026-09-22): with the prepaid freight on her, the saving is a
+      // PRODUCT saving — she usually pays more in total on the prepaid path, because the
+      // freight is R$ 15 to R$ 40 by region. The number stays citable only with the
+      // freight caveat in the same sentence. A negation does NOT exempt it: "não precisa
+      // esperar, você economiza R$ 12,99" is the negative that denies nothing, and the
+      // honest denial of a total saving names the freight anyway.
+      if (ctx.config.delivery.freeShipping === false && saving > 0) {
+        for (const m of moneyMatches(t)) {
+          if (m.value !== saving || hasFreightCaveat(sentenceAt(t, m.at))) continue;
+          return `cites the ${money(saving)} saving without the freight caveat in the same sentence`;
+        }
       }
 
       const allowedPercents = new Set([

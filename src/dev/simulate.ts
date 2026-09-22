@@ -152,6 +152,25 @@ for (const [angle, reply, esperado] of [
   check("preço e desconto", angle, reply, esperado, outcome(reply));
 }
 
+// C2. A economia do antecipado (saída C): com 10% e o frete da cliente, os R$ 12,99 são
+// economia de produto — citáveis só com a ressalva do frete na mesma frase.
+{
+  const comDesconto = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+  };
+  for (const [angle, reply, esperado] of [
+    ["economia com ressalva", "Você economiza R$ 12,99 no produto, e o frete é calculado no checkout.", "envia"],
+    ["economia com 'mais o frete'", "No antecipado sai R$ 12,99 mais barato, mais o frete da sua região.", "envia"],
+    ["economia sem ressalva", "Você economiza R$ 12,99 pagando antecipado.", "barra(price_promise)"],
+    ["negativa que não nega a economia", "Não precisa esperar, você economiza R$ 12,99 no antecipado.", "barra(price_promise)"],
+    ["ressalva em outra frase", "Você economiza R$ 12,99. E tem o frete, calculado no checkout.", "barra(price_promise)"],
+    ["percentual sozinho", "No antecipado você tem 10% de desconto.", "envia"],
+  ] as Array<[string, string, string]>) {
+    check("economia do antecipado", angle, reply, esperado, outcome(reply, { config: comDesconto, paymentPath: "prepay" }));
+  }
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // D. Composição e ficha técnica (33-36) — % que não é desconto
 // ─────────────────────────────────────────────────────────────────────────────
