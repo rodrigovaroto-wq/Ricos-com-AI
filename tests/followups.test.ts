@@ -16,13 +16,18 @@ import {
 import { remedyFor, runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
-/** O que o relógio de São Paulo marca naquele instante. */
+/**
+ * O que o relógio de São Paulo marca naquele instante, de 0 a 23. `hourCycle: "h23"` e
+ * não `hour12: false`: no Node 20 (ICU 78.2) `hour12: false` resolve para `h24` e a
+ * meia-noite sai "24" — o teste da meia-noite passava ou falhava conforme qual `node`
+ * estava primeiro no PATH.
+ */
 const horaEmSP = (d: Date) =>
   Number(
     new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Sao_Paulo",
       hour: "numeric",
-      hour12: false,
+      hourCycle: "h23",
     }).format(d),
   );
 
