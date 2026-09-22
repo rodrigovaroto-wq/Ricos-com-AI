@@ -225,8 +225,8 @@ quatro `handoff` (pediu pessoa · falha de modelo · teto de custo · veto da ca
 `send`/`fallback`. Falha de escrita é engolida de propósito — contador de funil não vale
 perder a resposta que a cliente está esperando.
 
-**⚠ Dois passos de operação que faltam:** aplicar a `0006` no Supabase, e deployar a
-função. **O deploy agora são dez arquivos, não nove** — `state-machine.ts` entrou.
+**Migrações `0005` e `0006` aplicadas em 22/09** e confirmadas lendo o schema. Falta
+deployar a função — **onze arquivos** agora (`state-machine.ts` e `prompt.ts` entraram).
 
 **Verificado:** `pnpm test` (2835), `lint`, `typecheck`, `typecheck:function` — verdes.
 
@@ -563,9 +563,11 @@ Seis coisas, todas verificadas pela porta de produção e não por teste:
    desfecho**, de propósito: não-2xx faz o canal reentregar a mensagem, e reentrega sobre
    recusa é laço. Quem precisa reagir **lê o corpo**.
 3. **O deploy pela ferramenta MCP não cabe.** São 199 KB. Deploy pela API de gerência, com
-   os arquivos do disco, **dez** arquivos — `availability.ts` entrou depois da receita
-   antiga, e `state-machine.ts` em 2026-09-22 com a instrumentação do funil. Confira
-   `ls supabase/functions/turn/*.ts` antes de rodar: a conta já mudou duas vezes. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+   os arquivos do disco, **onze** arquivos — `availability.ts` entrou depois da receita
+   antiga, `state-machine.ts` em 2026-09-22 com a instrumentação do funil, e `prompt.ts`
+   no mesmo dia, quando o prompt saiu do `index.ts` para ter teste. Confira
+   `ls supabase/functions/turn/*.ts` antes de rodar: a conta já mudou três vezes, e faltar
+   um derruba a função no boot. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
 4. **Isolate quente.** Por minutos depois de um deploy, parte das requisições ainda cai na
    versão anterior. Confira a sonda pelo **formato** da resposta, não pelo conteúdo.
 5. **Cegueira a negação.** Toda heurística de texto deste repositório já errou em negação.
