@@ -901,8 +901,15 @@ const gates: readonly Gate[] = [
         // prepaid sentence — product price, freight extra, value unnamed — and so is
         // "o frete já está dentro do preço: são R$ 129,90 na entrega". Both put a number
         // in the same clause as `frete`; neither says what the freight costs.
+        //
+        // And the verb has to be the freight's. "O frete não está incluído, mas o produto
+        // sai R$ 12,99 mais barato" is the saving caveat `price_promise` demands, freight
+        // first: "sai" belongs to "o produto". So a new subject with its own article
+        // between `frete` and the verb ends the attribution. Only the article form counts
+        // — "o frete DO produto sai R$ 15" is a complement, still the freight — and a bare
+        // clause break does not either: "é à parte, mas sai R$ 15" is still the freight.
         const attributedToShipping =
-          /\bfrete\b[^.!?]{0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          /\bfrete\b(?:(?!\b[oa]\s+(?:produto|colete|cinta|preco|pedido)\b)[^.!?]){0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
           /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";

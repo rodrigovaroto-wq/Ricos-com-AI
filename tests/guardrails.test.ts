@@ -775,6 +775,37 @@ describe("economia de produto não é economia final (saída C)", () => {
       .toContain("price_promise");
   });
 
+  it("a ressalva com o frete antes do valor não é valor de frete (shipping_promise)", () => {
+    // The amount belongs to whatever the verb is about. "o produto sai R$ 12,99 mais
+    // barato" has the product as subject; the freight was named in the clause before.
+    for (const frase of [
+      "O frete não está incluído, mas o produto sai R$ 12,99 mais barato no antecipado.",
+      "O frete é à parte; no produto você economiza R$ 12,99.",
+      "O frete é calculado no checkout, e o colete fica R$ 116,91 no antecipado.",
+    ]) {
+      expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+      expect(blocked(runGates(frase, ctx())), frase).not.toContain("shipping_promise");
+    }
+  });
+
+  it("valor atribuído ao frete continua vetado, inclusive com produto como complemento", () => {
+    for (const frase of [
+      "O frete sai R$ 12,99.",
+      "O frete fica R$ 24,98.",
+      "São R$ 12,99 de frete.",
+      "O frete do antecipado custa uns R$ 15.",
+      // "do produto"/"do pedido" is a complement of freight, not a new subject.
+      "O frete do produto sai R$ 15.",
+      "O frete do pedido fica R$ 15.",
+      // A clause break alone does not change the subject: "mas sai" still means freight.
+      "O frete é à parte, mas sai R$ 15.",
+      "O frete pra você fica R$ 15.",
+    ]) {
+      expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+      expect(blocked(runGates(frase, ctx())), frase).toContain("shipping_promise");
+    }
+  });
+
   it("o briefing diz que a economia é de produto e pede a ressalva — só quando o frete é da cliente", () => {
     const linha = gateBriefing(config0910).find((b) => b.includes("Os únicos valores"))!;
     expect(linha).toContain("R$ 12,99");
