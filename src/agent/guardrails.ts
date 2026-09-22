@@ -328,6 +328,41 @@ const hasFreightCaveat = (sentence: string): boolean =>
   );
 
 /**
+ * The words that say an amount is a SAVING and not a price — the one list every check
+ * about the prepaid saving reads. Two lists in the same gate used to disagree ("mais em
+ * conta" and "off" were a saving in one and a price in the other).
+ *
+ * `before` is tested on the clause right before the amount: the saving word, an optional
+ * "até" ("desconto de até R$ 12,99" is honest), and at most two more words, none of them
+ * a conjunction — "você economiza e o colete sai R$ 12,99" is a price again. `after` is
+ * tested on the text right after the amount, the amount itself already cut off.
+ */
+const SAID_AS_SAVING = {
+  before:
+    /\b(?:economiz\w*|(?:economia|desconto|diferenca|abatimento)\s+(?:e\s+)?de|a\s+menos\s+de)(?:\s+ate)?(?:\s+(?!(?:e|ou|mas|que|porque)\b)\S+){0,2}\s*$/,
+  after: /^\s*(?:reais\b\s*)?(?:a\s+menos|mais\s+barat\w*|mais\s+em\s+conta|de\s+(?:desconto|economia|diferenca|abatimento)|off)\b/,
+};
+/** "Para", "pra", "por" right before the amount make it the price the offer lands on. */
+const PRICE_FRAMED_BEFORE = /\b(?:para|pra|por)\s+$/;
+/** The amount at `at`, as written: "r$ 12,99" or "12,99 reais". */
+const amountAt = (t: string, at: number): string =>
+  /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(at))?.[0] ?? "";
+
+/**
+ * Whether the amount at `at` is said as a saving. A saving word right before it wins;
+ * otherwise "para/pra/por" right before it makes it a price, even with "de desconto"
+ * after ("cai para R$ 12,99 de desconto"); otherwise a saving word right after it is
+ * needed. Anything else — "no antecipado o colete sai R$ 12,99" — gives the difference
+ * between the two offers as what the product costs.
+ */
+const saidAsSaving = (t: string, at: number): boolean => {
+  const clause = t.slice(Math.max(0, at - 50), at).split(/(?<!\d)[,;:]|[,;:](?!\d)|[.!?](?=\s)|\n/).pop() ?? "";
+  if (SAID_AS_SAVING.before.test(clause)) return true;
+  if (PRICE_FRAMED_BEFORE.test(clause)) return false;
+  return SAID_AS_SAVING.after.test(t.slice(at + amountAt(t, at).length));
+};
+
+/**
  * A percentage is only a discount claim when something around it says so. Reading the
  * whole message for the word "desconto" got this wrong in both directions: "te dou 30%
  * agora" is an offer with no such word and used to pass, while "o tecido é 92%
@@ -507,8 +542,12 @@ const gates: readonly Gate[] = [
       (c.delivery.freeShipping !== true && savingOf(c) > 0
         ? `A diferença de ${money(savingOf(c))} é economia no PRODUTO, não no total: no antecipado o ` +
           `frete é cobrado à parte. Só cite esse valor com a ressalva do frete na mesma frase ` +
-          `("${money(savingOf(c))} a menos no produto, e o frete é calculado no checkout"). O ` +
-          `percentual pode ser dito sozinho. `
+          `("${money(savingOf(c))} a menos no produto, e o frete é calculado no checkout"), e ` +
+          `sempre dito COMO economia, colado ao valor ("você economiza ${money(savingOf(c))} no ` +
+          `produto, e o frete é calculado no checkout") ou ("são ${money(savingOf(c))} a menos no ` +
+          `produto, mais o frete"). Nunca como preço: "sai ${money(savingOf(c))}", "fica ` +
+          `${money(savingOf(c))}", "cai para ${money(savingOf(c))}" dizem que o colete custa ` +
+          `${money(savingOf(c))}. O percentual pode ser dito sozinho. `
         : ``) +
       `Os únicos descontos são ` +
       `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
@@ -541,9 +580,19 @@ const gates: readonly Gate[] = [
       // freight caveat in the same sentence. A negation does NOT exempt it: "não precisa
       // esperar, você economiza R$ 12,99" is the negative that denies nothing, and the
       // honest denial of a total saving names the freight anyway.
+      //
+      // And every occurrence has to be SAID as a saving (2026-09-22). The amount is citable,
+      // so it passed in any wording no point check caught, and "no antecipado o colete sai
+      // R$ 12,99, e o frete é calculado no checkout" carries the caveat and says the product
+      // costs R$ 12,99. Patching verb by verb and preposition by preposition did not
+      // converge; one rule does — see `saidAsSaving`.
       if (ctx.config.delivery.freeShipping !== true && saving > 0) {
         for (const m of moneyMatches(t)) {
-          if (m.value !== saving || hasFreightCaveat(sentenceAt(t, m.at))) continue;
+          if (m.value !== saving) continue;
+          if (!saidAsSaving(t, m.at)) {
+            return `gives the ${money(saving)} saving as a price, and it is only the difference between the two offers`;
+          }
+          if (hasFreightCaveat(sentenceAt(t, m.at))) continue;
           return `cites the ${money(saving)} saving without the freight caveat in the same sentence`;
         }
       }
@@ -558,14 +607,14 @@ const gates: readonly Gate[] = [
         for (const m of moneyMatches(t)) {
           if (m.value !== prepayBrl) continue;
           if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
-          const amount = /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(m.at))?.[0] ?? "";
+          const amount = amountAt(t, m.at);
           // Only the freight added right after the amount. A caveat anywhere later in the
           // sentence, and "sem o frete", were accepted for a while (2026-09-22) and let
           // through "o total é R$ 116,91, e o frete, que seria calculado no checkout, já
           // está incluso" and "o total é R$ 116,91 sem o frete cobrado à parte". The honest
           // sentences they freed cost a rewrite; the lies cost the freight at the door.
           const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
-          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?frete\b/.test(after)) continue;
+          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
           return `calls the prepaid ${money(prepayBrl)} a total, and the freight is added in the checkout`;
         }
       }
@@ -1060,8 +1109,8 @@ const gates: readonly Gate[] = [
         // freight's. `valor` is narrower, because "o frete tem o valor de R$ 15" is the
         // freight naming its own price: it is a new subject only right after a clause
         // break (comma, "e", "mas") and with the price verb glued to it — "o valor dele é"
-        // is still the freight. No new subject may carry the saving as a price — see the
-        // check right below.
+        // is still the freight. No new subject may carry the saving as a price — that is
+        // `price_promise`'s rule (`saidAsSaving`).
         //
         // The new subject is looked for on BOTH sides of the verb: "o frete já está
         // dentro, e o total é R$ 129,90" reaches the conjunction `e` first, and read it as
@@ -1071,46 +1120,25 @@ const gates: readonly Gate[] = [
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";
         }
-        // The new-subject exception has a price of its own: once the sentence has left
-        // the freight, the amount belongs to the new subject — and the saving is nobody's
-        // price. "O frete é à parte, e o produto sai R$ 12,99" carries the caveat, so
-        // `price_promise` lets the saving through, and it says the product costs R$ 12,99.
-        // So after a freight mention, the saving under a new subject must be said as a
-        // saving: "mais barato", "a menos", "de desconto", "de economia", "de diferença",
-        // after the amount or between the subject and it. A verb of falling ("cai",
-        // "reduz", "baixa") was accepted for a while (2026-09-22) and let through "o preço
-        // cai bastante, pra R$ 12,99": the honest "cai R$ 12,99" costs a rewrite instead.
+        // The saving given as a price under a new subject after the freight ("o frete é à
+        // parte, e o produto sai R$ 12,99") used to be caught here. `price_promise` now
+        // demands every occurrence of the saving be said as a saving, which covers it in the
+        // gate the rule belongs to (2026-09-22); the verdict diff over the whole corpus showed
+        // removing this check freed no sentence.
         const saving = savingOf(ctx.config);
-        if (
-          saving > 0 &&
-          [
-            ...t.matchAll(
-              /\bfrete\b[^.!?]{0,40}?\b[oa]\s+(?:produto|colete|cinta|preco|pedido|antecipado|total|valor)\b([^.!?]{0,20}?)(r\$\s*[\d.,]*\d)/g,
-            ),
-          ].some(
-            (m) =>
-              moneyMatches(m[2]!)[0]?.value === saving &&
-              !/\b(?:desconto|economi\w*|diferenca|barat\w*|menos|nao)\b/.test(m[1]!) &&
-              !/^\s*(?:reais\s+)?(?:mais\s+(?:barat\w*|em\s+conta)|a\s+menos|de\s+(?:desconto|economia|diferenca)|off)\b/.test(
-                t.slice((m.index ?? 0) + m[0].length),
-              ),
-          )
-        ) {
-          return `gives the ${money(saving)} saving as a price, and it is only the difference between the two offers`;
-        }
         // The same lie with no new subject in reach: "o preço cai no antecipado PARA R$
         // 12,99", "pagando antecipado sai POR R$ 12,99". Whatever the subject, the saving
         // right after para/pra/por/até/a is given as a price — unless the amount is said
-        // as a saving right after it ("até R$ 12,99 a menos").
+        // as a saving right after it ("até R$ 12,99 a menos"). Mostly redundant with
+        // `saidAsSaving` now, and kept on purpose: it still vetoes "um desconto de ATÉ R$
+        // 12,99", which `saidAsSaving` passes, and removing it would free that sentence.
         if (
           saving > 0 &&
           moneyMatches(t).some(
             (m) =>
               m.value === saving &&
-              /\b(?:para|pra|por|ate|a)\s+(?:r\$\s*)?$/.test(t.slice(Math.max(0, m.at - 12), m.at)) &&
-              !/^(?:r\$\s*)?[\d.,]*\d\s*(?:reais\s+)?(?:a\s+menos|mais\s+barat\w*|de\s+(?:desconto|economia|diferenca))\b/.test(
-                t.slice(m.at),
-              ),
+              /\b(?:para|pra|por|ate|a)\s+$/.test(t.slice(Math.max(0, m.at - 12), m.at)) &&
+              !SAID_AS_SAVING.after.test(t.slice(m.at + amountAt(t, m.at).length)),
           )
         ) {
           return `gives the ${money(saving)} saving as a price, and it is only the difference between the two offers`;

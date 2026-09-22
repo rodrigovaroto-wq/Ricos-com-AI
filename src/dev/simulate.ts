@@ -168,7 +168,7 @@ for (const [angle, reply, esperado] of [
     ["percentual sozinho", "No antecipado você tem 10% de desconto.", "envia"],
     // Os dois furos da revisão de 2026-09-22: o artigo que uma preposição ou um "que"
     // governa não abre sujeito novo, e "nada de"/"nenhum"/"esquece" negam a ressalva.
-    ["frete PARA o pedido é valor de frete", "O frete para o pedido é de R$ 12,99, calculado no checkout.", "barra(shipping_promise)"],
+    ["frete PARA o pedido é valor de frete", "O frete para o pedido é de R$ 12,99, calculado no checkout.", "barra(price_promise+shipping_promise)"],
     ["frete COM o pedido é valor de frete", "No antecipado o frete com o pedido fica R$ 129,90.", "barra(shipping_promise)"],
     ["relativa não troca o sujeito", "O frete, que o produto não inclui, sai R$ 15,00.", "barra(shipping_promise)"],
     ["sujeito novo de verdade", "O frete não está incluído, mas o produto sai R$ 12,99 mais barato no antecipado.", "envia"],
@@ -462,7 +462,7 @@ for (const [angle, reply, esperado] of [
     ["'total' do antecipado com o frete somado", "No antecipado o total é R$ 116,91 mais o frete.", "prepay", "envia", cfg0922],
     ["'total' do antecipado sem o frete", "O frete é calculado no checkout e o total fica R$ 116,91.", "prepay", "barra(price_promise)", cfg0922],
     ["frete com 'o valor de'", "O frete tem o valor de R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
-    ["economia dada como preço", "O frete é à parte, e o produto sai R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
+    ["economia dada como preço", "O frete é à parte, e o produto sai R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
     ["nenhum frete a mais na porta (COD)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "envia", cfg0922],
     ["nenhum frete seco", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", cfg0922],
     ["nenhum frete a mais no antecipado", "No antecipado, nenhum frete a mais na entrega.", "cod", "barra(shipping_promise)", cfg0922],
@@ -484,13 +484,22 @@ for (const [angle, reply, esperado] of [
     ["'total' com a ressalva desmentida", "No antecipado o total é R$ 116,91, e o frete, que seria calculado no checkout, já está incluso.", "prepay", "barra(price_promise)", cfg0922],
     ["'total' sem o frete cobrado à parte", "O total é R$ 116,91 sem o frete cobrado à parte.", "prepay", "barra(price_promise)", cfg0922],
     ["'total' sem frete, sem artigo", "O total é R$ 116,91 sem frete.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
-    ["economia com 'cai' (falso positivo aceito)", "O frete é calculado no checkout, e o preço cai R$ 12,99 no antecipado.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["economia com 'menor' (falso positivo aceito)", "O frete é calculado no checkout, e o valor fica R$ 12,99 menor no antecipado.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["'cai bastante, pra' a economia é preço", "O frete é calculado no checkout, e o preço cai bastante, pra R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["'fica baixinho' a economia é preço", "O frete é calculado no checkout, e o preço fica baixinho, R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["economia depois de 'para', longe do sujeito", "O frete é calculado no checkout, e o preço cai no antecipado para R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["economia depois de 'por', sem sujeito", "O frete é calculado no checkout, e pagando antecipado sai por R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
-    ["cair PARA a economia é preço", "O frete é calculado no checkout, e o preço cai para R$ 12,99.", "prepay", "barra(shipping_promise)", cfg0922],
+    ["economia com 'cai' (falso positivo aceito)", "O frete é calculado no checkout, e o preço cai R$ 12,99 no antecipado.", "prepay", "barra(price_promise)", cfg0922],
+    ["economia com 'menor' (falso positivo aceito)", "O frete é calculado no checkout, e o valor fica R$ 12,99 menor no antecipado.", "prepay", "barra(price_promise)", cfg0922],
+    ["'cai bastante, pra' a economia é preço", "O frete é calculado no checkout, e o preço cai bastante, pra R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    ["'fica baixinho' a economia é preço", "O frete é calculado no checkout, e o preço fica baixinho, R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
+    ["economia depois de 'para', longe do sujeito", "O frete é calculado no checkout, e o preço cai no antecipado para R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    ["economia depois de 'por', sem sujeito", "O frete é calculado no checkout, e pagando antecipado sai por R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    ["cair PARA a economia é preço", "O frete é calculado no checkout, e o preço cai para R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
+    // Rodada R4-G (2026-09-22): a economia só pode ser dita como economia, colada ao
+    // valor. As quatro mentiras passavam desde antes da sessão (b688479); a única frase
+    // que vai de barrada para liberada é o frete somado com "mais o valor do frete".
+    ["economia como preço, ressalva depois", "No antecipado o colete sai R$ 12,99, e o frete é calculado no checkout.", "prepay", "barra(price_promise)", cfg0922],
+    ["economia como preço, ressalva antes", "O frete é calculado no checkout, e pagando antecipado o colete sai R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
+    ["economia como preço com 'fica'", "O frete é calculado no checkout, e o preço no pagamento antecipado fica R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
+    ["'cai para ... de desconto' é preço", "O frete é calculado no checkout, e o preço cai para R$ 12,99 de desconto.", "prepay", "barra(price_promise)", cfg0922],
+    ["economia dita como economia", "São R$ 12,99 a menos no produto, mais o frete.", "prepay", "envia", cfg0922],
+    ["'total' com 'mais o valor do frete'", "O total fica R$ 116,91 mais o valor do frete.", "prepay", "envia", cfg0922],
     ["chave ausente: frete grátis vetado", "O frete é grátis nos dois casos.", "cod", "barra(shipping_promise)", semAChave],
     ["chave ausente: economia sem ressalva vetada", "Você economiza R$ 12,99 pagando antecipado.", "prepay", "barra(price_promise)", semAChave],
   ] as Array<[string, string, "cod" | "prepay", string, GateContext["config"]]>) {
