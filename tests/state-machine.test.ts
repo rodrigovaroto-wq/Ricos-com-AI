@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { InvalidTransitionError, canTransition, furthest, isLive, rankOf, transition } from "@/agent/state-machine.js";
+import {
+  InvalidTransitionError,
+  canTransition,
+  furthest,
+  isLive,
+  rankOf,
+  reachedStage,
+  transition,
+} from "@/agent/state-machine.js";
+import { buildCoinzzRequest, type CoinzzConfig, type CoinzzRequest } from "@/agent/coinzz.js";
+import { isIdentityComplete, type Identity } from "@/agent/identity.js";
+import type { Address } from "@/agent/address.js";
 
 describe("máquina de estados", () => {
   it("não regride: quem já tem pedido não volta a conversar", () => {
@@ -77,5 +88,84 @@ describe("furthest — o estágio que fica gravado", () => {
     for (const s of ["novo", "conversando", "pedido_criado", "entregue_pago"] as const) {
       expect(rankOf(s)).toBeGreaterThanOrEqual(0);
     }
+  });
+});
+
+/**
+ * `reachedStage` é o degrau que os fatos do turno sustentam — o mesmo cálculo em todas
+ * as saídas do turno. `pedido_criado` exige o pedido MONTADO, não a vontade de comprar.
+ */
+describe("reachedStage — onde o turno chegou", () => {
+  const none = { size: null, addressConfirmed: false, addressComplete: false, orderBuilt: false };
+
+  it("sem fato nenhum, está conversando", () => {
+    expect(reachedStage(none)).toBe("conversando");
+  });
+
+  it("tamanho sozinho é tamanho_definido", () => {
+    expect(reachedStage({ ...none, size: "G" })).toBe("tamanho_definido");
+  });
+
+  it("endereço só conta completo E confirmado", () => {
+    expect(reachedStage({ ...none, size: "G", addressComplete: true })).toBe("tamanho_definido");
+    expect(reachedStage({ ...none, size: "G", addressConfirmed: true })).toBe("tamanho_definido");
+    expect(reachedStage({ ...none, size: "G", addressComplete: true, addressConfirmed: true })).toBe(
+      "endereco_coletado",
+    );
+  });
+
+  it("pedido_criado só com o pedido montado", () => {
+    const ready = { size: "G", addressConfirmed: true, addressComplete: true };
+    expect(reachedStage({ ...ready, orderBuilt: false })).toBe("endereco_coletado");
+    expect(reachedStage({ ...ready, orderBuilt: true })).toBe("pedido_criado");
+  });
+
+  /**
+   * Os dois casos do achado 3, montados como o `index.ts` monta: identidade que passa em
+   * `isIdentityComplete` e um `buildCoinzzRequest` que ainda assim recusa.
+   */
+  describe("identidade completa não é pedido montado", () => {
+    const address: Address = {
+      cep: "13010-100",
+      street: "Rua das Flores",
+      number: "123",
+      neighborhood: "Centro",
+      city: "Campinas",
+      state: "SP",
+    };
+    const build = (identity: Identity, config: Partial<CoinzzConfig>): CoinzzRequest | null => {
+      try {
+        return buildCoinzzRequest(
+          { leadId: "l", phone: "5519999998888", address, size: "G", paymentMethod: "cod", ...identity },
+          config as CoinzzConfig,
+          "k",
+        );
+      } catch {
+        return null;
+      }
+    };
+    const stageFor = (identity: Identity, config: Partial<CoinzzConfig>) => {
+      expect(isIdentityComplete(identity)).toBe(true);
+      return reachedStage({
+        size: "G",
+        addressConfirmed: true,
+        addressComplete: true,
+        orderBuilt: build(identity, config) !== null,
+      });
+    };
+    const identity: Identity = { name: "Ana Souza", email: "ana@x.com", document: "529.982.247-25" };
+    const config: CoinzzConfig = { offerHash: "off123", codPaymentMethod: "afterpay" };
+
+    it("com tudo certo, o pedido nasce", () => {
+      expect(stageFor(identity, config)).toBe("pedido_criado");
+    });
+
+    it("config sem offerHash (o fallback do index.ts) nunca é pedido_criado", () => {
+      expect(stageFor(identity, { codPaymentMethod: "afterpay" })).toBe("endereco_coletado");
+    });
+
+    it("CPF com menos de 11 dígitos nunca é pedido_criado", () => {
+      expect(stageFor({ ...identity, document: "529.982" }, config)).toBe("endereco_coletado");
+    });
   });
 });

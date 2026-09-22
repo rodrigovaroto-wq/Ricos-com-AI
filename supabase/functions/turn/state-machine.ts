@@ -100,3 +100,30 @@ export const furthest = (stored: Stage, reached: Stage): Stage => {
   if (rankOf(reached) === -1) return reached;
   return rankOf(reached) > rankOf(stored) ? reached : stored;
 };
+
+/** The facts a turn has established, as far as the funnel is concerned. */
+export interface ReachedFacts {
+  size: string | null;
+  addressConfirmed: boolean;
+  addressComplete: boolean;
+  /** The order body actually built — not identity complete, not "she wants to buy". */
+  orderBuilt: boolean;
+}
+
+/**
+ * The highest rung the facts support, in funnel order. Every exit of the turn calls
+ * this, so a conversation that got far and then handed off is counted where it got.
+ *
+ * `pedido_criado` takes the built order and nothing less: identity can pass
+ * `isIdentityComplete` with a short CPF, and the config can lack `offerHash`, and in
+ * both the order comes out null. A stage that lies about the order poisons exactly the
+ * metric that justifies having stages — and `furthest` would keep the lie forever.
+ */
+export const reachedStage = (facts: ReachedFacts): Stage =>
+  facts.orderBuilt
+    ? "pedido_criado"
+    : facts.addressConfirmed && facts.addressComplete
+      ? "endereco_coletado"
+      : facts.size
+        ? "tamanho_definido"
+        : "conversando";

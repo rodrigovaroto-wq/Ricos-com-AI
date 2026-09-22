@@ -28,7 +28,7 @@ import {
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
-import { furthest, type Stage } from "./state-machine.ts";
+import { furthest, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
@@ -368,10 +368,12 @@ const recordOutcome = async (
 
 const callGemini = async (system: string, user: string) => {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${CHEAP_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${CHEAP_MODEL}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // The key rides in the documented header, never in the URL: a network error
+      // carries the whole URL in its `message`, and that message used to reach n8n logs.
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
       body: JSON.stringify({
         system_instruction: { role: "user", parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
@@ -1078,6 +1080,20 @@ Deno.serve(async (request: Request): Promise<Response> => {
    */
   const storedStage: Stage = (conversation.stage as Stage | null) ?? "novo";
 
+  /**
+   * O degrau que os fatos sustentam até aqui — atualizado depois que o turno apura
+   * tamanho, endereço e identidade (5b–5e). Toda saída de handoff e de `deferred` grava
+   * este valor: `handoff_at` faz todo turno seguinte sair em `already_handed_off`, então
+   * uma saída que não grava congela o funil justamente na conversa que chegou longe.
+   * Antes de 5b só existe o que já está no lead; nada aqui é inventado.
+   */
+  let reachedSoFar: Stage = reachedStage({
+    size: lead.size ?? null,
+    addressConfirmed: Boolean(lead.address?.confirmedAt),
+    addressComplete: isComplete(lead.address ?? {}),
+    orderBuilt: false,
+  });
+
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
   // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
@@ -1244,6 +1260,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       : null;
 
     await recordOutcome(conversation.id, "handoff", "a cliente pediu para falar com uma pessoa");
+    await persistStage(conversation.id, storedStage, reachedSoFar);
     return json(200, {
       status: "handoff",
       reason: "a cliente pediu para falar com uma pessoa",
@@ -1277,6 +1294,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       })
     )[0];
     await recordOutcome(conversation.id, "handoff", "teto de custo da conversa", 0, spent);
+    await persistStage(conversation.id, storedStage, reachedSoFar);
     return json(200, {
       status: "handoff",
       reason: "teto de custo da conversa",
@@ -1329,14 +1347,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
       }),
     }).catch(() => null);
     await recordOutcome(conversation.id, "handoff", "falha ao chamar o modelo", 0, spent);
+    await persistStage(conversation.id, storedStage, reachedSoFar);
     return json(200, {
       status: "handoff",
       reason: "falha ao chamar o modelo",
-      // A chave do Gemini viaja na query string da URL, e o erro de rede do Deno traz a
-      // URL inteira no `message` — que sai daqui no corpo JSON e vai para o log de
-      // execução do n8n. Redigir aqui é mitigação, não cura: o conserto de verdade é
-      // mandar a chave em header (`x-goog-api-key`), e uma chave que já circulou em log
-      // de terceiro tem de ser rotacionada, não mascarada.
+      // A chave do Gemini viajava na query string da URL, e o erro de rede do Deno traz
+      // a URL inteira no `message` — que sai daqui no corpo JSON e vai para o log de
+      // execução do n8n. Desde 2026-09-22 ela vai no header `x-goog-api-key`; redigir
+      // continua aqui como defesa em profundidade. Uma chave que já circulou em log de
+      // terceiro tem de ser rotacionada, não mascarada.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY),
@@ -1463,6 +1482,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
       body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
+
+  // Tamanho, endereço e identidade deste turno já estão gravados no lead; o degrau que
+  // eles sustentam vale para toda saída daqui em diante. O pedido só nasce no fim.
+  reachedSoFar = reachedStage({
+    size: stated?.size ?? lead.size ?? null,
+    addressConfirmed,
+    addressComplete: isComplete(addressDraft),
+    orderBuilt: false,
+  });
 
   // 6. History, then the turn that sells.
   const history = await db(
@@ -1636,6 +1664,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       }),
     });
     await recordOutcome(conversation.id, "deferred", "fora da janela de envio", rewritesUsed, spent);
+    await persistStage(conversation.id, storedStage, reachedSoFar);
     return json(200, {
       status: "deferred",
       reason: "fora da janela de envio",
@@ -1667,6 +1696,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     )[0];
 
     await recordOutcome(conversation.id, "handoff", reason, rewritesUsed, spent);
+    await persistStage(conversation.id, storedStage, reachedSoFar);
     return json(200, {
       status: "handoff",
       reason,
@@ -1754,21 +1784,28 @@ Deno.serve(async (request: Request): Promise<Response> => {
    * A ordem é a do funil: o degrau mais alto que os dados sustentam é o que vale, e
    * `furthest` garante que ele nunca desce.
    *
-   * `pedido_criado` exige o pedido montado de verdade (`orderReady`), não a intenção de
-   * comprar: um estágio que mente sobre pedido contamina exatamente a métrica que
-   * justifica ter estágio.
+   * `pedido_criado` exige o pedido montado de verdade (`order !== null`), não a intenção
+   * de comprar: sem `offerHash` no config, ou com CPF curto, os dados da cliente estão
+   * completos e mesmo assim `order` sai null. Um estágio que mente sobre pedido contamina
+   * exatamente a métrica que justifica ter estágio.
+   *
+   * `orderReady` segue a mesma regra, e pelo mesmo motivo: é o sinal que o n8n lê para
+   * chamar a Coinzz. Até 2026-09-22 ele saía true com `order: null` — um "pronto para criar
+   * pedido" sem pedido nenhum para criar. O que falta continua em `orderBlocked`.
    */
   const orderReady =
     addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) &&
-    Boolean(stated?.size ?? lead.size);
-  const reached: Stage = orderReady
-    ? "pedido_criado"
-    : addressConfirmed && isComplete(addressDraft)
-      ? "endereco_coletado"
-      : (stated?.size ?? lead.size)
-        ? "tamanho_definido"
-        : "conversando";
-  await persistStage(conversation.id, storedStage, reached);
+    Boolean(stated?.size ?? lead.size) && order !== null;
+  await persistStage(
+    conversation.id,
+    storedStage,
+    reachedStage({
+      size: stated?.size ?? lead.size ?? null,
+      addressConfirmed,
+      addressComplete: isComplete(addressDraft),
+      orderBuilt: order !== null,
+    }),
+  );
 
   return json(200, {
     status: fallbackReason === null ? "ok" : "fallback",
