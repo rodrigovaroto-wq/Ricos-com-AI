@@ -19,7 +19,7 @@ const seamWith = (record = vi.fn()) =>
 
 describe("seam de chamada de modelo", () => {
   it("o teto é o valor da conversa mais a folga de 25%", () => {
-    expect(costCeilingBrl(config)).toBeCloseTo(1.0, 5);
+    expect(costCeilingBrl(config)).toBeCloseTo(1.875, 5);
   });
 
   it("grava custo e latência de cada chamada", async () => {
@@ -39,7 +39,7 @@ describe("seam de chamada de modelo", () => {
     const record = vi.fn();
     const seam = seamWith(record);
     await expect(
-      seam.call("conversation", { purpose: "reply", system: "s", messages: [] }, 1.01),
+      seam.call("conversation", { purpose: "reply", system: "s", messages: [] }, costCeilingBrl(config) + 0.01),
     ).rejects.toThrow(BudgetExceededError);
     expect(record).not.toHaveBeenCalled();
   });

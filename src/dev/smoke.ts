@@ -29,7 +29,7 @@ const config: BusinessConfig = JSON.parse(
       },
       sizes: ["P", "M", "G", "GG", "XGG"],
       hours: { openHour: 6, closeHour: 24 },
-      cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
+      cost: { conversationCapBrl: 1.5, overrunTolerance: 0.25 },
       coupon: { code: "SUPER20", percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
       checkout: { baseUrl: "" },

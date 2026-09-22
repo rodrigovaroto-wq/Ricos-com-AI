@@ -262,7 +262,7 @@ const CONFIG: BusinessConfig = JSON.parse(
         freeShipping: false,
       },
       hours: { openHour: 6, closeHour: 24 },
-      cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
+      cost: { conversationCapBrl: 1.5, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
       // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
