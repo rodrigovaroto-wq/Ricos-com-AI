@@ -151,9 +151,16 @@ const prepayAverage = (d: {
 
 export const BUSINESS_TZ = "America/Sao_Paulo";
 
+/**
+ * The hour on the clock in `timeZone`, 0 to 23. `hourCycle: "h23"`, never `hour12: false`:
+ * on Node 20 (ICU 78.2) `hour12: false` resolves to `h24` and midnight reads "24", which
+ * the business-hours gate would take as outside a 0-24 window. Deno 2.9 happens to resolve
+ * h23, so this was latent in production — and live in a test, which passed or failed
+ * depending on which `node` came first on PATH (2026-09-22).
+ */
 export const hourIn = (at: Date, timeZone: string): number =>
   Number(
-    new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hour12: false }).format(at),
+    new Intl.DateTimeFormat("en-US", { timeZone, hour: "numeric", hourCycle: "h23" }).format(at),
   );
 
 /**

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyOptOut, gateBriefing, gateNames, runGates } from "@/agent/guardrails.js";
+import { BUSINESS_TZ, hourIn } from "@/agent/guardrails.js";
 import { config, ctx, ctxGratis } from "./fixtures.js";
 
 const blocked = (result: ReturnType<typeof runGates>) =>
@@ -1133,5 +1134,32 @@ describe("`prepayVariesByRegion` desligado apaga a média, não só a palavra", 
       ctx({ config: comVariacao, paymentPath: "prepay" }),
     );
     expect(blocked(r)).not.toContain("delivery_promise");
+  });
+});
+
+/**
+ * `hourIn` lia a hora com `hour12: false`, que no Node 20 (ICU 78.2) resolve para
+ * `hourCycle: "h24"` — e aí a meia-noite sai "24", não "0". O gate de horário compara
+ * `h >= openHour && h < closeHour`: com a janela de hoje (6–24) a meia-noite é barrada
+ * das duas formas, por coincidência; numa janela 0–24 ela seria barrada sem motivo. O
+ * mesmo defeito já tinha tornado um teste de followups dependente de qual `node` estava
+ * primeiro no PATH (2026-09-22).
+ */
+describe("hourIn lê a meia-noite como 0 em qualquer runtime", () => {
+  it("03:00Z é meia-noite em São Paulo, hora 0", () => {
+    expect(hourIn(new Date("2026-09-11T03:00:00Z"), BUSINESS_TZ)).toBe(0);
+  });
+
+  it("numa janela 0–24, o gate de horário não barra a meia-noite", () => {
+    const aberto24h = { ...config, hours: { openHour: 0, closeHour: 24 } };
+    const r = runGates("Oi! Te respondo já.", {
+      ...ctx(),
+      config: aberto24h,
+      // `agent`, não `auto`: a camada automática roda 24/7 por decisão (R4.4) e nem
+      // consulta o relógio — um teste nela passaria com o defeito presente.
+      layer: "agent",
+      now: new Date("2026-09-11T03:00:00Z"),
+    });
+    expect(blocked(r)).not.toContain("business_hours");
   });
 });

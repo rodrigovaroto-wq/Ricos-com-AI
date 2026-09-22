@@ -8,7 +8,7 @@ const horaEmSP = (d: Date) =>
     new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Sao_Paulo",
       hour: "numeric",
-      hour12: false,
+      hourCycle: "h23",
     }).format(d),
   );
 
