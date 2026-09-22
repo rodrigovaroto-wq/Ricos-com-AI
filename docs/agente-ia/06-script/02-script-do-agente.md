@@ -172,11 +172,14 @@ dias exatamente onde ela vale mais.
 Prazo dito na hora certa não derruba venda; prazo descoberto depois derruba entrega. E entrega
 recusada é o evento mais caro que essa operação tem.
 
-**No caminho antecipado a janela é outra: 3 a 10 dias úteis** (conferida no checkout em
-2026-09-08). O frete continua sendo contratado à parte e variando por região, então o valor
-dele sai no checkout — mas o prazo tem número, e esconder o número na frente do caminho que
-já pede o dinheiro adiantado é perder a venda por silêncio. O guardrail de prazo veta a
-janela de um caminho dita no outro.
+**No caminho antecipado o prazo não é faixa: "varia por região, em média 5 dias úteis"** —
+sempre dizendo que varia. O checkout mostrou 3 a 10 dias úteis em 2026-09-08, e o operador
+decidiu que isso vira média declarada, não janela prometida (decisão 4 de "As decisões de
+negócio que não se reabrem", no `HANDOFF.md`): o gate recusa a faixa, o número errado e o
+número certo dito como prazo fixo. O frete também é calculado por região no checkout, e o
+valor a agente nunca sabe. O guardrail de prazo veta a janela de um caminho dita no outro.
+*Corrigido em 2026-09-22: até aqui este parágrafo pedia a faixa de 3 a 10 dias como número a
+dizer.*
 
 ---
 
@@ -221,8 +224,8 @@ com o toque 1 falando do link, não do produto.
 
 > Pode sim! Quem prefere pagar antecipado leva **10% de desconto**: o colete sai por
 > **R$ 116,91** em vez de R$ 129,90, uma economia de R$ 12,99. Só um detalhe pra você decidir
-> com tudo na mesa: **nos dois caminhos o frete é grátis** — no pagamento
-> na entrega ele já vem embutido.
+> com tudo na mesa: no antecipado o **frete é calculado pela sua região, direto no
+> checkout** — no pagamento na entrega ele já vem dentro dos R$ 129,90.
 
 As duas metades são obrigatórias e saem na mesma mensagem: a economia é real, e o frete à
 parte também. Dizer só a primeira é a promessa quebrada mais fácil de cometer.
@@ -237,8 +240,8 @@ que dissolvia o medo — então recebe **mais** prova, não menos.
 
 > Olha, fui montar seu pedido e a transportadora não faz pagamento na entrega na sua região
 > ainda 😕 Mas dá pra resolver: nesse caso o pedido sai como pagamento antecipado, e aí você
-> leva **10% de desconto** — R$ 116,91 em vez de R$ 129,90 (com frete grátis também, no
-> checkout).
+> leva **10% de desconto** — R$ 116,91 em vez de R$ 129,90. O frete é calculado pela sua
+> região, direto no checkout, antes de você confirmar.
 >
 > Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita
 > no ambiente da Coinzz, com nota; você tem **7 dias** pra trocar ou devolver contando do dia
@@ -365,7 +368,7 @@ Cada linha aqui já esteve no script antigo, e cada uma custa dinheiro em COD.
 | Nunca dizer | Por quê |
 |---|---|
 | "Chega amanhã", "entrego amanhã mesmo", "agendo pra amanhã" | O prazo é 1 a 3 dias, e o dia quem escolhe é ela no checkout. Prometer amanhã é o que produz recusa na porta |
-| Cobrar frete de qualquer forma | Desde 2026-09-09 o frete é zero nos dois caminhos: cobrar é a mentira nova |
+| "Frete grátis", "frete zero", "sem frete", ou qualquer valor de frete | A operação não oferece frete grátis: no COD o frete está dentro dos R$ 129,90; no antecipado é calculado por região no checkout e a agente nunca sabe o valor. *Corrigido em 2026-09-22: de 2026-09-09 até aqui esta linha dizia que o frete era zero nos dois caminhos.* |
 | "Parcele em até 12x" | Depende da maquininha do entregador; a operação não controla |
 | Qualquer preço que não seja R$ 129,90 (COD) ou R$ 116,91 (antecipado) | Fonte única de preço |
 | "Reduz 3 tamanhos", "emagrece", "queima gordura", "afina a cintura permanentemente" | O colete não muda o corpo, muda o caimento — e o efeito acaba ao tirar |
@@ -407,7 +410,7 @@ atual — o que muda é o conteúdo.
 > Então, o colete sai por cento e vinte e nove e noventa, com o frete já incluído — não tem
 > custo nenhum a mais. E você não paga nada agora: eu envio pra sua casa e você só paga quando
 > ele chegar na sua mão, direto pro entregador, em dinheiro ou no cartão. A entrega chega em
-> três a cinco dias e é agendada, então você vai saber o dia certinho, e eu te aviso na
+> um a três dias e é agendada, então você vai saber o dia certinho, e eu te aviso na
 > véspera. E se não servir, você tem sete dias pra trocar ou devolver.
 
 **Os quatro serão regravados**, com outra voz — a locutora dos áudios originais não está mais

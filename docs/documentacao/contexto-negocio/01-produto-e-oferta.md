@@ -12,7 +12,8 @@ Fonte: `colet-cinta-modeladora` — `docs/contexto-do-projeto.md` §1 e §2,
 | Tamanhos | P, M, G, GG, XGG (`SizeSelector.tsx` :5) |
 | Preço | **R$ 129,90**, frete embutido |
 | Pagamento | Na entrega (COD) — dinheiro, cartão ou maquininha, direto com o entregador |
-| Prazo | **1 a 3 dias** no COD, com o dia escolhido pela cliente dentro do checkout; **3 a 10 dias úteis** no antecipado, com frete grátis nos dois caminhos (prazo corrigido pelo operador em 2026-09-09; frete zerado na oferta no mesmo dia) |
+| Prazo | **1 a 3 dias** no COD, com o dia escolhido pela cliente dentro do checkout; no antecipado **varia por região, em média 5 dias úteis** (`prepayAvgDays`) |
+| Frete | **Não há frete grátis.** No COD o frete está dentro dos R$ 129,90; no antecipado ele é calculado por região dentro do checkout, e a agente não sabe nem cita o valor. *Corrigido em 2026-09-22: a operação não oferece frete grátis — de 2026-09-09 até aqui esta tabela dizia "frete grátis nos dois caminhos".* |
 | Garantia | 7 dias contando do recebimento |
 | Fornecedor / logística | Logzz |
 | Checkout | Coinzz (com Omnicash) |
@@ -37,11 +38,12 @@ A frase que mantém desejo e honestidade compatíveis, e que vale como orientaç
 
 > **O colete não muda o seu corpo. Muda como a roupa cai nele.**
 
-## Desconto de pagamento antecipado — 15%, ainda não configurado
+## Desconto de pagamento antecipado — 10%
 
-**Decidido em 2026-09-05: o desconto é de 15%**, levando o preço do produto a **R$ 110,41**
-e a economia declarável a **R$ 19,49**. Subiu de 10% para 15% porque **o frete no caminho
-antecipado fica por conta da cliente** — ver
+**Vigente desde 2026-09-21: o desconto é de 10%**, levando o preço do produto a **R$ 116,91**
+e a economia declarável a **R$ 12,99**. Passou por 15% (R$ 110,41) na rodada 2, decidido em
+2026-09-05, e voltou a 10% — ver
+[`06-modelo-economico.md`](06-modelo-economico.md) e
 [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) §R2.1.
 
 **O código diverge.** `colet/src/lib/checkout.ts` :42–49 tem `PREPAY_DISCOUNT` com
@@ -53,10 +55,10 @@ erro da promessa que a operação não cumpre.
 Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) §D2.
 
 **Frete no antecipado: por conta da cliente.** É o que diferencia os dois caminhos: no COD
-o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 110,41 mais o frete**,
-calculado no checkout. A agente **pode** dizer que ela economiza R$ 19,49 no produto, desde
-que diga na mesma mensagem que o frete vem à parte. Ver
-[`06-modelo-economico.md`](06-modelo-economico.md).
+o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 116,91 mais o frete**,
+calculado por região no checkout — a agente nunca sabe o valor e não cita número. A agente
+**pode** dizer que ela economiza R$ 12,99 no produto, desde que diga na mesma mensagem que
+o frete vem à parte. Ver [`06-modelo-economico.md`](06-modelo-economico.md).
 
 ## O que chega na casa dela
 
