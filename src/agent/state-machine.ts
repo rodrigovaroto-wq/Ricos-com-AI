@@ -91,15 +91,26 @@ export const rankOf = (stage: Stage): number => LADDER.indexOf(stage);
  * asking `canTransition` about that returns false for a advance that actually happened.
  *
  * So the rule the spec actually states — *"sem regressão: o estágio só avança"* — is
- * enforced here by rank, not by edge. Terminal stages win over everything, because
- * `bloqueado` (opt-out) is irreversible and `perdido`/`recusado` are conclusions rather
- * than positions.
+ * enforced here by rank, not by edge, on the linear part. Terminal stages follow
+ * `TRANSITIONS`: one arriving is accepted only where it is a legal edge (so
+ * `pedido_criado` never becomes `perdido`); a stored `perdido` gives way to any linear
+ * stage, because she came back; `bloqueado`, `recusado` and `entregue_pago` stay.
  */
 export const furthest = (stored: Stage, reached: Stage): Stage => {
+  if (rankOf(reached) === -1) return canTransition(stored, reached) ? reached : stored;
+  if (stored === "perdido") return reached;
   if (rankOf(stored) === -1) return stored;
-  if (rankOf(reached) === -1) return reached;
   return rankOf(reached) > rankOf(stored) ? reached : stored;
 };
+
+/**
+ * The stored stages that `next` may replace — the condition the PATCH puts on the row,
+ * so the rule holds against the database and not only against the value this turn read
+ * at its start. Two overlapping turns otherwise race: the one that read an older stage
+ * writes it over the one that advanced.
+ */
+export const overwritableBy = (next: Stage): Stage[] =>
+  STAGES.filter((s) => s !== next && furthest(s, next) === next);
 
 /** The facts a turn has established, as far as the funnel is concerned. */
 export interface ReachedFacts {

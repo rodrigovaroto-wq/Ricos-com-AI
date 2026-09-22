@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
   InvalidTransitionError,
+  STAGES,
   canTransition,
   furthest,
   isLive,
+  overwritableBy,
   rankOf,
   reachedStage,
   transition,
@@ -72,21 +74,74 @@ describe("furthest — o estágio que fica gravado", () => {
     expect(furthest("entregue_pago", "novo")).toBe("entregue_pago");
   });
 
-  it("estágio terminal vence qualquer avanço", () => {
+  it("terminal chegando só entra se TRANSITIONS permite", () => {
     expect(furthest("conversando", "bloqueado")).toBe("bloqueado");
-    expect(furthest("pedido_criado", "perdido")).toBe("perdido");
+    expect(furthest("pedido_criado", "bloqueado")).toBe("bloqueado");
+    expect(furthest("em_rota", "recusado")).toBe("recusado");
+    // pedido_criado → perdido is not an edge: an order placed is not a lost lead.
+    expect(furthest("pedido_criado", "perdido")).toBe("pedido_criado");
+    expect(furthest("entregue_pago", "bloqueado")).toBe("entregue_pago");
+    expect(furthest("recusado", "bloqueado")).toBe("recusado");
   });
 
-  it("de um terminal não se sai", () => {
+  it("perdido é reentrável: ela voltou", () => {
+    expect(furthest("perdido", "conversando")).toBe("conversando");
+    expect(furthest("perdido", "endereco_coletado")).toBe("endereco_coletado");
+    expect(furthest("perdido", "bloqueado")).toBe("bloqueado");
+  });
+
+  it("de bloqueado, recusado e entregue_pago não se sai", () => {
     // `bloqueado` é opt-out: irreversível pelo agente, só uma pessoa desfaz.
     expect(furthest("bloqueado", "conversando")).toBe("bloqueado");
     expect(furthest("bloqueado", "pedido_criado")).toBe("bloqueado");
+    expect(furthest("recusado", "conversando")).toBe("recusado");
+    expect(furthest("entregue_pago", "conversando")).toBe("entregue_pago");
   });
 
   it("todo estágio terminal tem rank -1, e todo linear tem rank >= 0", () => {
     for (const s of ["recusado", "perdido", "bloqueado"] as const) expect(rankOf(s)).toBe(-1);
     for (const s of ["novo", "conversando", "pedido_criado", "entregue_pago"] as const) {
       expect(rankOf(s)).toBeGreaterThanOrEqual(0);
+    }
+  });
+});
+
+/**
+ * `overwritableBy` is the database half of `furthest`: the PATCH only lands on a row whose
+ * CURRENT stage is in this list, so a turn that read a stale stage cannot regress one that
+ * an overlapping turn already advanced.
+ */
+describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => {
+  it("é exatamente o conjunto em que furthest escolhe o novo estágio", () => {
+    for (const next of STAGES) {
+      const expected = STAGES.filter((s) => s !== next && furthest(s, next) === next);
+      expect(overwritableBy(next)).toEqual(expected);
+    }
+  });
+
+  it("pedido_criado não é sobrescrito por endereco_coletado atrasado", () => {
+    expect(overwritableBy("endereco_coletado")).not.toContain("pedido_criado");
+    expect(overwritableBy("endereco_coletado")).toEqual(
+      expect.arrayContaining(["novo", "conversando", "tamanho_definido", "perdido"]),
+    );
+  });
+
+  it("bloqueado sobrescreve o que TRANSITIONS permite e nada terminal fechado", () => {
+    expect(overwritableBy("bloqueado")).toEqual([
+      "novo",
+      "conversando",
+      "tamanho_definido",
+      "endereco_coletado",
+      "pedido_criado",
+      "em_rota",
+      "perdido",
+    ]);
+  });
+
+  it("nunca inclui o próprio estágio nem bloqueado", () => {
+    for (const next of STAGES) {
+      expect(overwritableBy(next)).not.toContain(next);
+      expect(overwritableBy(next)).not.toContain("bloqueado");
     }
   });
 });
