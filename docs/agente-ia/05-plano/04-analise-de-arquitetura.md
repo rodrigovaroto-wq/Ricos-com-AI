@@ -10,7 +10,9 @@
 > **Uma exceção ao "nada foi implementado": o achado A foi corrigido** na mesma sessão, por
 > decisão do operador — o system prompt passou a ler o config. Ver
 > [R11.9](../../documentacao/decisoes/03-decisoes-tomadas.md#r119--o-system-prompt-passa-a-ler-o-config-corrigido-nesta-sessão).
-> Os achados B, C e D continuam abertos, como os itens 3.3, 3.7 e 3.8 do plano.
+> **Atualização da tarde de 22/09:** C e D também foram corrigidos e as migrações `0005` e `0006`
+> aplicadas em produção. Só o achado B continua aberto — é o item **2.3** do
+> [plano v2](02-plano-de-execucao-ate-os-testes-reais.md).
 >
 > Contexto de execução: [`02-plano-de-execucao-ate-os-testes-reais.md`](02-plano-de-execucao-ate-os-testes-reais.md).
 
@@ -171,7 +173,7 @@ sistema tem métricas confiáveis?"**. Hoje não tem. É o que §6 mede.
    vazou para dentro do texto do prompt.** É bug antes de ser arquitetura.
 2. **`conversationCapBrl` precisa de um número só** (achado B): 1,5 em
    `config/business.example.json` (decisão R10.1, de 21/09), 0,8 no fallback da Edge Function
-   e no harness de dev, 0,50 no raciocínio de escolha de modelo do `HANDOFF.md`. O item 3.3 do
+   e no harness de dev, 0,50 no raciocínio de escolha de modelo do `HANDOFF.md`. O item 2.3 do
    plano de execução dizia "dois números"; são três, e o de 0,50 é o mais antigo.
 3. **A spec de tools precisa de veredito.** Ou é marcada como não adotada, ou é adotada de
    propósito. Spec fantasma confunde a próxima sessão — foi o que aconteceu aqui.
@@ -449,13 +451,13 @@ são código versionado com teste. O n8n não os recebe.
 
 **Não implementado. Ordem proposta, para o operador aprovar.**
 
-### Antes do deploy v33 — entra na fase 3 do plano de execução
+### Antes do deploy v33 — fase 2 do plano v2
 
 1. **Corrigir a contradição do system prompt** (achado A). O prompt lê `freeShipping` e para de
    dizer ao mesmo tempo "nunca ofereça desconto" e "10% de desconto". É bug em produção
-   esperando o dia do `freeShipping: false`, não refatoração. Junta com o item 3.2 do plano
+   esperando o dia do `freeShipping: false`, não refatoração. Junta com o item 2.2 do plano v2
    (a saída C do `price_promise`), porque os dois mexem na mesma promessa.
-2. **Unificar `conversationCapBrl`** (achado B). Três números viram um. Substitui o item 3.3 do
+2. **Unificar `conversationCapBrl`** (achado B). Três números viram um. É o item 2.3 do
    plano, que estava sub-informado.
 3. **Instrumentar o estágio** (achado C): escrever `conversations.stage` com os valores de
    `STAGES` a cada transição, e corrigir o default `'discovery'`.

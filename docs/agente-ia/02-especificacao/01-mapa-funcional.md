@@ -320,7 +320,7 @@ onde cada ação realmente mora.
 
 **H5. Estado.** Ver [`03-maquina-de-estados.md`](03-maquina-de-estados.md).
 ⚠ **Os dez estágios existem em código e nunca são escritos no banco** — não existe funil.
-Corrigir é o item 3.7 do plano, decidido em R11.8.
+**Corrigido em 2026-09-22** (R11.8): migração `0006` aplicada, handler escreve o estágio em toda saída. Falta o deploy v33.
 
 **H6. Histórico e custo.** Toda mensagem, decisão e chamada de tool persistidas com custo.
 Referências: DeskcommCRM → `edge/llm/run-model-call.ts` :2–16 — **seam único**: toda

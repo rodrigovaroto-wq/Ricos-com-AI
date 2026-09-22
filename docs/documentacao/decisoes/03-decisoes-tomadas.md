@@ -1319,7 +1319,7 @@ fase futura de observabilidade.
 aconteceu não se instrumenta depois. As views e o Hermes leem o passado e podem esperar
 tráfego; a escrita, não.
 
-**Entrou como os itens 3.7 e 3.8 da fase 3** do
+**Feito na mesma tarde** — migração `0006` aplicada e o handler gravando; falta o deploy v33. Registro no
 [plano de execução](../../agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md).
 
 ## R11.9 — O system prompt passa a ler o config (corrigido nesta sessão)
@@ -1382,7 +1382,7 @@ do `HANDOFF.md` que trata R$ 0,50 como se fosse o teto. O valor que a produção
 o do secret, não o fallback — mas o fallback é o que uma sessão futura lê para descobrir
 o número, e hoje ele ensina o errado.
 
-**Entrou como o item 3.3 corrigido** do plano de execução.
+**É o item 2.3** do plano de execução v2.
 
 ## R11.11 — n8n continua sem regra de negócio (reafirmação)
 

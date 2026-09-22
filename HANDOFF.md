@@ -75,6 +75,37 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
+## ESTADO EM 2026-09-22 À TARDE — leia isto primeiro
+
+**O plano vivo é o [plano v2](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)**
+— dez fases, e uma tabela do que **só o operador destrava** (O1–O9), ordenada pelo que
+trava mais coisa. Comece por ela.
+
+**O que o banco de produção revelou nesta sessão** (lido pelo MCP do Supabase):
+
+1. **O banco está vazio.** Zero leads, conversas, mensagens, pedidos, `llm_calls`,
+   `gate_traces`. Houve dado — o `reltuples` estimava 2 conversas e 1 lead — e ele foi
+   apagado, muito provavelmente a limpeza das sondas sintéticas. **Toda afirmação
+   "verificado em produção" deste arquivo foi feita com sonda que já não está lá.** Não
+   existe baseline.
+2. **A `0005_welcome_resume` estava no disco desde 21/09 e nunca tinha sido aplicada.**
+   Aplicada agora, junto com a `0006`, e as duas confirmadas lendo o schema de volta.
+3. **A v32 no ar é byte a byte o `b36087d`**, nos nove arquivos. O que este arquivo diz
+   sobre ela é verdade.
+4. **O advisor de segurança acusa `public.rls_auto_enable()`**, função `SECURITY DEFINER`
+   executável por `anon` — não está no repositório. É a função do gatilho `ensure_rls`, que
+   liga RLS sozinho em toda tabela nova; chamá-la por RPC falha. Risco baixo, drift real.
+   Decisão do operador (item 1.6 do plano).
+
+**⚠ Os dois bloqueios duros do deploy v33, ambos do operador:**
+
+- **O1 — `"freeShipping": false` no secret.** Chave ausente lê como grátis. Sem isto a
+  Valen promete frete grátis com o repositório inteiro dizendo o contrário.
+- **O2 — o nó `Wait` no n8n.** Sem ele, **lead novo recebe a recepção automática e nunca
+  mais é respondido.** A v33 carrega o timer de 2 minutos; o n8n ainda não.
+
+---
+
 ## O PLANO DE EXECUÇÃO ATÉ OS TESTES REAIS — montado em 2026-09-22
 
 **Feito.** O plano que a seção abaixo pedia existe, em dois documentos:
@@ -166,7 +197,7 @@ por um motivo que não é arquitetural — **o sistema decide bem e não registr
 | | Achado | Estado |
 |---|---|---|
 | **A** | O system prompt se contradizia sobre desconto e afirmava "O FRETE É GRÁTIS nos dois caminhos" como texto fixo, **sem ler `delivery.freeShipping`** — que o gate `shipping_promise` lê desde 10/09 | ✅ **corrigido em 22/09, não deployado** |
-| **B** | `conversationCapBrl` tem **três valores** no repositório: 1,5 (config, decisão R10.1) · 0,8 (fallback da Edge Function e harness de dev) · 0,50 (raciocínio de modelo neste arquivo, anterior a R10.1 e **não é teto de conversa**) | ⏳ item 3.3 do plano |
+| **B** | `conversationCapBrl` tem **três valores** no repositório: 1,5 (config, decisão R10.1) · 0,8 (fallback da Edge Function e harness de dev) · 0,50 (raciocínio de modelo neste arquivo, anterior a R10.1 e **não é teto de conversa**) | ⏳ item 2.3 do plano v2 |
 | **C** | `conversations.stage` nascia `'discovery'` — valor fora de `STAGES` — e **nunca era escrito**. Não existia funil | ✅ **corrigido em 22/09, falta aplicar a migração e deployar** |
 | **D** | O desfecho do turno viajava no corpo HTTP e **nunca era persistido**. A taxa de fallback era irrecuperável | ✅ **corrigido em 22/09, idem** |
 
@@ -756,7 +787,7 @@ registro):
   desta frente. Este último **nunca foi teto de conversa** — era o orçamento por lead usado
   para *escolher modelo*, e é anterior a R10.1. Onde as duas coisas se confundirem neste
   arquivo, R10.1 vence. Nenhuma troca de modelo resolve isso sozinha; a ação é alinhar o
-  fallback do código, e é o item 3.3 do plano.
+  fallback do código, e é o item 2.3 do plano v2.
 
 **O que a decisão compra, quando o eval confirmar:** dentro do teto de R$ 0,50 por lead /
 20 mensagens, Muse Spark tem o maior Intelligence Index (53,0) com folga real — R$ 0,32

@@ -1,6 +1,6 @@
 ---
 name: desfecho-do-turno-nao-persistido
-description: O desfecho de cada turno (send, fallback, deferred, handoff, stopped) e o motivo do fallback viajam só no corpo HTTP e nunca chegam ao banco — a taxa de fallback é irrecuperável depois do fato.
+description: O desfecho do turno só viajava no corpo HTTP até 22/09; agora vai para `turn_outcomes` — mas qualquer conversa anterior ao deploy da v33 não tem desfecho, e não há como reconstruir.
 metadata:
   type: architecture
 ---
@@ -23,3 +23,11 @@ deixa nenhum.
 **Como ler isso numa sessão futura:** se alguém pedir "qual a taxa de fallback", a resposta
 honesta hoje é "não dá para saber", não um número estimado a partir de `gate_traces`.
 Decidido corrigir em R11.8, antes do primeiro cliente real.
+
+**Atualização de 2026-09-22 à tarde.** Tabela `turn_outcomes` criada pela migração `0006`
+(aplicada, RLS ligado, retenção por cascade) e as oito saídas do turno gravando. **Não
+deployado até a v33** — até lá, a v32 no ar continua sem gravar.
+
+**O limite que fica para sempre:** conversa anterior ao deploy da v33 não tem desfecho, e
+não há como reconstruir. Qualquer taxa de fallback calculada tem que começar na data do
+deploy — nunca antes.
