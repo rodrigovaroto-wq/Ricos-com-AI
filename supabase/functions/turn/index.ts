@@ -28,6 +28,7 @@ import {
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { furthest, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
@@ -258,7 +259,7 @@ const CONFIG: BusinessConfig = JSON.parse(
         prepayAvgDays: 5,
         prepayVariesByRegion: true,
         warrantyDays: 7,
-        freeShipping: true,
+        freeShipping: false,
       },
       hours: { openHour: 6, closeHour: 24 },
       cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
@@ -308,6 +309,60 @@ const costOf = (model: string, inTok: number, outTok: number, cachedTok = 0): nu
     throw new Error(`custo não finito para ${model}: in=${inTok} out=${outTok} cached=${cachedTok}`);
   }
   return brl;
+};
+
+/**
+ * Where the conversation stands, written down (R11.8, achado C de 2026-09-22).
+ *
+ * `conversations.stage` was born `'discovery'` — a value absent from `STAGES` — and
+ * nobody ever wrote it. The state machine ran in tests and in the simulator; production
+ * had no idea where any conversation had stopped, so there was no funnel to ask about.
+ *
+ * `furthest` decides what gets stored: a conversation never regresses, and a terminal
+ * stage wins over any advance. Failure here is swallowed on purpose — a funnel counter
+ * is not worth losing a reply the customer is waiting for.
+ */
+const persistStage = async (conversationId: string, stored: Stage, reached: Stage) => {
+  const next = furthest(stored, reached);
+  if (next === stored) return;
+  await db(`conversations?id=eq.${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ stage: next }),
+  }).catch(() => undefined);
+};
+
+/** The six ways a turn can end, as `turn_outcomes.outcome` spells them. */
+type TurnOutcome = "send" | "fallback" | "deferred" | "handoff" | "stopped" | "opted_out";
+
+/**
+ * How this turn ended, written down (R11.8, achado D de 2026-09-22).
+ *
+ * The outcome used to travel only in the HTTP body: n8n read it, sent the message, and
+ * the fact died there. `gate_traces` records which gate vetoed and `llm_calls` records
+ * what each attempt cost — what neither could answer is whether the customer received
+ * the model's reply or the canned one. That is the most important quality signal the
+ * system has, because a fallback is the agent giving up on the sale.
+ *
+ * `rewrites` and `cost_brl` ride along because `llm_calls` has no notion of a turn:
+ * without them there is no way to price a gate that keeps firing.
+ */
+const recordOutcome = async (
+  conversationId: string,
+  outcome: TurnOutcome,
+  reason: string | null = null,
+  rewrites = 0,
+  costBrl = 0,
+) => {
+  await db("turn_outcomes", {
+    method: "POST",
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      outcome,
+      reason,
+      rewrites,
+      cost_brl: costBrl,
+    }),
+  }).catch(() => undefined);
 };
 
 const callGemini = async (system: string, user: string) => {
@@ -1244,6 +1299,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
 
+  /**
+   * O estágio já gravado, lido uma vez e usado por `persistStage` em todas as saídas.
+   *
+   * O `?? "novo"` cobre dois casos reais: a conversa recém-criada acima, e as linhas
+   * antigas que a migração `0006` converteu de `'discovery'` — o valor que a tabela
+   * nascia com e que nunca esteve em `STAGES`.
+   */
+  const storedStage: Stage = (conversation.stage as Stage | null) ?? "novo";
+
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
   // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
@@ -1346,6 +1410,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       method: "PATCH",
       body: JSON.stringify({ opted_out_at: new Date().toISOString() }),
     });
+    await recordOutcome(conversation.id, "opted_out", "opt-out explícito da cliente");
+    // `bloqueado` é terminal e irreversível pelo agente — só uma pessoa desfaz.
+    await persistStage(conversation.id, storedStage, "bloqueado");
     return json(200, { status: "opted_out" });
   }
   if (lead.opted_out_at) return json(200, { status: "already_opted_out" });
@@ -1406,6 +1473,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         )[0]
       : null;
 
+    await recordOutcome(conversation.id, "handoff", "a cliente pediu para falar com uma pessoa");
     return json(200, {
       status: "handoff",
       reason: "a cliente pediu para falar com uma pessoa",
@@ -1438,6 +1506,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         }),
       })
     )[0];
+    await recordOutcome(conversation.id, "handoff", "teto de custo da conversa", 0, spent);
     return json(200, {
       status: "handoff",
       reason: "teto de custo da conversa",
@@ -1489,6 +1558,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         body: HOLDING_REPLY,
       }),
     }).catch(() => null);
+    await recordOutcome(conversation.id, "handoff", "falha ao chamar o modelo", 0, spent);
     return json(200, {
       status: "handoff",
       reason: "falha ao chamar o modelo",
@@ -1771,6 +1841,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // Opt-out: the one veto that is never rewritten and never answered.
   if (outcome.kind === "stop") {
+    await recordOutcome(conversation.id, "stopped", "opt-out detectado pela cadeia", rewritesUsed, spent);
+    await persistStage(conversation.id, storedStage, "bloqueado");
     return json(200, { status: "stopped", intent: intent.text, costBrl: spent });
   }
 
@@ -1793,6 +1865,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         body: attempt.text,
       }),
     });
+    await recordOutcome(conversation.id, "deferred", "fora da janela de envio", rewritesUsed, spent);
     return json(200, {
       status: "deferred",
       reason: "fora da janela de envio",
@@ -1823,6 +1896,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       })
     )[0];
 
+    await recordOutcome(conversation.id, "handoff", reason, rewritesUsed, spent);
     return json(200, {
       status: "handoff",
       reason,
@@ -1897,6 +1971,35 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }
   }
 
+  await recordOutcome(
+    conversation.id,
+    fallbackReason === null ? "send" : "fallback",
+    fallbackReason,
+    rewritesUsed,
+    spent,
+  );
+
+  /**
+   * Onde a conversa chegou, lido dos fatos que este turno apurou — não de um contador.
+   * A ordem é a do funil: o degrau mais alto que os dados sustentam é o que vale, e
+   * `furthest` garante que ele nunca desce.
+   *
+   * `pedido_criado` exige o pedido montado de verdade (`orderReady`), não a intenção de
+   * comprar: um estágio que mente sobre pedido contamina exatamente a métrica que
+   * justifica ter estágio.
+   */
+  const orderReady =
+    addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) &&
+    Boolean(stated?.size ?? lead.size);
+  const reached: Stage = orderReady
+    ? "pedido_criado"
+    : addressConfirmed && isComplete(addressDraft)
+      ? "endereco_coletado"
+      : (stated?.size ?? lead.size)
+        ? "tamanho_definido"
+        : "conversando";
+  await persistStage(conversation.id, storedStage, reached);
+
   return json(200, {
     status: fallbackReason === null ? "ok" : "fallback",
     ...(fallbackReason === null
@@ -1924,9 +2027,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     addressReady: addressConfirmed && isComplete(addressDraft),
     // O sinal que o n8n espera para chamar a Coinzz: endereço confirmado por ela,
     // identidade completa e tamanho resolvido. Faltando um, o pedido não nasce.
-    orderReady:
-      addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) &&
-      Boolean(stated?.size ?? lead.size),
+    orderReady,
     identityMissing: (["name", "email", "document"] as const).filter((f) => !identityDraft[f]),
     addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,

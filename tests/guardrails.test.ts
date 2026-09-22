@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { classifyOptOut, gateBriefing, gateNames, runGates } from "@/agent/guardrails.js";
-import { config, ctx } from "./fixtures.js";
+import { config, ctx, ctxGratis } from "./fixtures.js";
 
 const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
@@ -514,42 +514,75 @@ describe("contar que o Express existe, sem prometer", () => {
 });
 
 /**
- * O gate do frete mudou de direção em 2026-09-09. O operador zerou o frete na oferta da
- * entrega (`freight: "0.00"`) e o antecipado sempre foi grátis nacional — a frase que o
- * gate barrava virou verdade, e a mentira passou a ser cobrar frete dela.
+ * O gate do frete tem duas metades e já virou de lado duas vezes. Em 2026-09-09 o
+ * operador zerou o frete na oferta da entrega e a frase que o gate barrava ("frete
+ * grátis") virou verdade. Em 2026-09-22 ele decidiu que a operação **não** oferece frete
+ * grátis, e o padrão voltou a ser `freeShipping: false`.
+ *
+ * Este bloco cobre o ramo `freeShipping: true` — que não é mais o padrão e continua
+ * precisando de teste, porque um gate com metade sem cobertura é um gate que ninguém
+ * consegue reverter com segurança.
  */
-describe("frete grátis é verdade nos dois caminhos", () => {
+describe("ramo freeShipping: true — grátis é verdade, cobrar é a mentira", () => {
   it("dizer que é grátis passa", () => {
     for (const t of [
       "O frete é grátis, você paga só os R$ 129,90 na entrega.",
       "Frete por nossa conta, em qualquer forma de pagamento.",
       "No antecipado o frete é grátis também.",
     ]) {
-      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).not.toContain("shipping_promise");
     }
   });
 
-  it("cobrar frete dela é o veto novo", () => {
+  it("cobrar frete dela é o veto deste ramo", () => {
     for (const t of [
       "São R$ 129,90 mais o frete.",
       "O frete é calculado à parte no checkout.",
       "O frete fica R$ 24,98, pago na entrega.",
       "O frete não está incluído.",
     ]) {
-      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).toContain("shipping_promise");
     }
   });
 
   it("negar a cobrança continua liberado", () => {
     // "o frete NÃO é à parte" é a resposta honesta à pergunta mais comum do funil.
-    expect(blocked(runGates("O frete não é cobrado à parte, já está tudo incluso.", ctx())))
+    expect(blocked(runGates("O frete não é cobrado à parte, já está tudo incluso.", ctxGratis())))
       .not.toContain("shipping_promise");
   });
+});
 
-  it("com freeShipping desligado, a regra antiga volta inteira", () => {
-    const antes = { ...ctx(), config: { ...config, delivery: { ...config.delivery, freeShipping: false } } };
-    expect(blocked(runGates("O frete é grátis!", antes))).toContain("shipping_promise");
-    expect(blocked(runGates("São R$ 129,90 mais o frete.", antes))).not.toContain("shipping_promise");
+/**
+ * O ramo que a produção passa a rodar: `freeShipping: false`, o padrão do `config` desde
+ * 2026-09-22. Prometer grátis é a mentira; dizer que o frete existe, sem dar valor, é a
+ * frase honesta do antecipado.
+ */
+describe("ramo freeShipping: false — o padrão, e o inverso do bloco acima", () => {
+  it("prometer grátis é o veto", () => {
+    for (const t of [
+      "O frete é grátis!",
+      "Frete por nossa conta, em qualquer forma de pagamento.",
+      "Não tem frete, você paga só os R$ 129,90.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+    }
+  });
+
+  it("frete que existe e não tem valor citado passa", () => {
+    for (const t of [
+      "São R$ 129,90 mais o frete.",
+      "O frete é calculado à parte no checkout.",
+      "No pagamento na entrega o frete já está incluído no preço.",
+    ]) {
+      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+    }
+  });
+
+  it("dar um valor ao frete continua barrado nos dois ramos", () => {
+    // Nenhuma das duas ofertas tem um número de frete citável: na entrega ele está
+    // dentro do preço, no antecipado é o checkout que calcula por região.
+    expect(blocked(runGates("O frete fica R$ 24,98.", ctx()))).toContain("shipping_promise");
+    expect(blocked(runGates("São R$ 12,99 de frete.", ctx()))).toContain("shipping_promise");
   });
 });
 
@@ -637,10 +670,10 @@ describe("preço, desconto e frete depois de 2026-09-10", () => {
  * região" não cobra um valor, não usa "à parte" e mesmo assim diz que existe frete
  * variável — que é falso nos dois caminhos desde que o operador zerou a oferta.
  */
-describe("frete que varia também é cobrança", () => {
+describe("frete que varia também é cobrança (ramo freeShipping: true)", () => {
   it("barra dizer que o frete depende ou varia", () => {
     for (const t of ["O frete vai depender da sua região.", "O frete varia conforme o CEP."]) {
-      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).toContain("shipping_promise");
     }
   });
 
@@ -651,8 +684,14 @@ describe("frete que varia também é cobrança", () => {
       "O frete não depende da região, é grátis em qualquer lugar.",
       "O prazo de entrega depende da sua região.",
     ]) {
-      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).not.toContain("shipping_promise");
     }
+  });
+
+  it("no padrão (false) o frete variar por região é verdade e passa", () => {
+    // É literalmente como o checkout do antecipado funciona: calcula por região.
+    expect(blocked(runGates("O frete varia conforme o CEP.", ctx())))
+      .not.toContain("shipping_promise");
   });
 });
 
@@ -662,20 +701,20 @@ describe("frete que varia também é cobrança", () => {
  * falso negativo: a frase que o prompt manda escrever entrava no laço de reescrita e
  * saía do outro lado como handoff.
  */
-describe("o gate do frete depois do review", () => {
+describe("o gate do frete depois do review (ramo freeShipping: true)", () => {
   it("um valor ao lado de 'frete' numa frase que afirma o grátis é o PREÇO", () => {
     for (const t of ["Frete grátis, R$ 129,90 na entrega.", "Sem frete a mais: R$ 129,90."]) {
-      expect(blocked(runGates(t, ctx()))).not.toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).not.toContain("shipping_promise");
     }
   });
 
   it("a janela não atravessa a vírgula para a cláusula do prazo", () => {
-    expect(blocked(runGates("O frete é grátis, mas o prazo depende da região.", ctx())))
+    expect(blocked(runGates("O frete é grátis, mas o prazo depende da região.", ctxGratis())))
       .not.toContain("shipping_promise");
   });
 
   it("'mais o frete' negado também passa", () => {
-    expect(blocked(runGates("Não é R$ 129,90 mais o frete, o frete é grátis.", ctx())))
+    expect(blocked(runGates("Não é R$ 129,90 mais o frete, o frete é grátis.", ctxGratis())))
       .not.toContain("shipping_promise");
   });
 
@@ -684,7 +723,7 @@ describe("o gate do frete depois do review", () => {
       "O frete fica por sua conta.",
       "Tem um frete de entrega que você paga depois.",
     ]) {
-      expect(blocked(runGates(t, ctx()))).toContain("shipping_promise");
+      expect(blocked(runGates(t, ctxGratis()))).toContain("shipping_promise");
     }
   });
 });
@@ -786,7 +825,11 @@ describe("cada prazo julgado pelo caminho que a frase dele nomeia", () => {
     "Na entrega: você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 " +
     "na mão do entregador, só quando o pacote chegar.\n\n" +
     "Antecipado: você paga R$ 129,90 agora, e o prazo varia por região, em média 5 dias úteis.\n\n" +
-    "Nos dois o frete é grátis. Qual você prefere?";
+    // Era "Nos dois o frete é grátis" até 2026-09-22, quando o operador decidiu que a
+    // operação não oferece frete grátis. O exemplar acompanha o prompt: se a frase que o
+    // prompt ensina não passa a cadeia, a agente entra em laço de reescrita por desenho.
+    "Na entrega o frete já está dentro do preço; no antecipado ele é calculado no " +
+    "checkout. Qual você prefere?";
 
   it("o exemplar do próprio prompt passa a cadeia inteira", () => {
     expect(runGates(exemplar, ctx()).allowed).toBe(true);

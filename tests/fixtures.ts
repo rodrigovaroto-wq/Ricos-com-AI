@@ -14,7 +14,7 @@ export const config: BusinessConfig = {
     codScheduled: true,
     prepayVariesByRegion: true,
     warrantyDays: 7,
-    freeShipping: true,
+    freeShipping: false,
   },
   sizes: ["P", "M", "G", "GG", "XGG"],
   hours: { openHour: 6, closeHour: 24 },
@@ -29,11 +29,29 @@ export const config: BusinessConfig = {
   testimonials: ["vesti pra festa e não tirei mais, o vestido caiu diferente"],
 };
 
+/**
+ * O config acima roda com `freeShipping: false`, que é a decisão do operador de
+ * 2026-09-22: a operação não oferece frete grátis. Este aqui é o ramo oposto — mantido
+ * porque o gate tem duas metades e as duas precisam de teste. Sem ele, o dia em que o
+ * frete voltar a ser grátis chega sem nenhuma cobertura do lado que passa a valer.
+ */
+export const configGratis: BusinessConfig = {
+  ...config,
+  delivery: { ...config.delivery, freeShipping: true },
+};
+
 export const ctx = (over: Partial<import("@/agent/guardrails.js").GateContext> = {}) => ({
   config,
   layer: "agent" as const,
   optedOut: false,
   now: new Date("2026-09-06T14:00:00"),
   paymentPath: "cod" as const,
+  ...over,
+});
+
+/** O mesmo contexto, no ramo em que o frete é grátis. */
+export const ctxGratis = (over: Partial<import("@/agent/guardrails.js").GateContext> = {}) => ({
+  ...ctx(),
+  config: configGratis,
   ...over,
 });

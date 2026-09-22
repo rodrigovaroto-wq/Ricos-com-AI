@@ -30,8 +30,8 @@ qualquer diagrama:
 |---|---|---|
 | **A** ✅ | O system prompt **contradizia a si mesmo** sobre desconto, e hardcodava "O FRETE É GRÁTIS nos dois caminhos" sem ler `freeShipping` | No dia em que `freeShipping: false` subisse, o gate vetaria uma frase que o prompt **manda** escrever. **Corrigido em 22/09** — R11.9 |
 | **B** | `conversationCapBrl` tem **três valores diferentes** no repositório: 1,5 · 0,8 · 0,50 | O teto de custo que a produção aplica não é o que o operador decidiu |
-| **C** | `conversations.stage` nasce `'discovery'` — valor que **não existe** em `STAGES` — e **nunca é escrito** | Não existe funil. A máquina de estados roda em teste e em simulador, não em produção |
-| **D** | O desfecho do turno (`send` · `fallback` · `deferred` · `handoff` · `stopped`) viaja no corpo HTTP e **nunca é persistido** | A taxa de fallback — a métrica de qualidade mais importante do sistema — é irrecuperável depois do fato |
+| **C** ✅ | `conversations.stage` nascia `'discovery'` — valor que **não existe** em `STAGES` — e **nunca era escrito** | Não existia funil. **Corrigido em 22/09** (migração `0006` + `furthest` + escrita em toda saída); falta aplicar e deployar |
+| **D** ✅ | O desfecho do turno viajava no corpo HTTP e **nunca era persistido** | A taxa de fallback era irrecuperável. **Corrigido em 22/09** (tabela `turn_outcomes`); falta aplicar e deployar |
 
 Os quatro têm a mesma forma: **o sistema decide bem e não registra a decisão.** Uma Evaluation
 Layer construída sobre o schema de hoje mediria custo e gates, e seria cega a conversão, a

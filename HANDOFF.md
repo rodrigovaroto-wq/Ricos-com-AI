@@ -167,11 +167,57 @@ por um motivo que não é arquitetural — **o sistema decide bem e não registr
 |---|---|---|
 | **A** | O system prompt se contradizia sobre desconto e afirmava "O FRETE É GRÁTIS nos dois caminhos" como texto fixo, **sem ler `delivery.freeShipping`** — que o gate `shipping_promise` lê desde 10/09 | ✅ **corrigido em 22/09, não deployado** |
 | **B** | `conversationCapBrl` tem **três valores** no repositório: 1,5 (config, decisão R10.1) · 0,8 (fallback da Edge Function e harness de dev) · 0,50 (raciocínio de modelo neste arquivo, anterior a R10.1 e **não é teto de conversa**) | ⏳ item 3.3 do plano |
-| **C** | `conversations.stage` nasce `'discovery'` — valor fora de `STAGES` — e **nunca é escrito**. Não existe funil | ⏳ item 3.7, **urgente por prazo** |
-| **D** | O desfecho do turno (`send`/`fallback`/`deferred`/`handoff`/`stopped`) viaja no corpo HTTP e **nunca é persistido**. A taxa de fallback é irrecuperável | ⏳ item 3.8, **urgente por prazo** |
+| **C** | `conversations.stage` nascia `'discovery'` — valor fora de `STAGES` — e **nunca era escrito**. Não existia funil | ✅ **corrigido em 22/09, falta aplicar a migração e deployar** |
+| **D** | O desfecho do turno viajava no corpo HTTP e **nunca era persistido**. A taxa de fallback era irrecuperável | ✅ **corrigido em 22/09, idem** |
 
-**C e D são urgentes por prazo, não por gravidade:** conversa que já aconteceu não se
-instrumenta depois, e a fase 7 do plano começa a gerar conversas reais.
+### A instrumentação de C e D, feita em 22/09
+
+**Migração `0006_funnel_and_outcome.sql`**, em duas metades:
+
+- **O funil.** Converte as linhas `'discovery'` para `'novo'`, troca o default, e só então
+  adiciona a `check` contra os dez estágios de `STAGES` — nessa ordem, porque a constraint
+  recusaria as linhas antigas e a migração falharia no meio. Mais um índice por estágio.
+- **O desfecho.** Tabela `turn_outcomes` (conversa, desfecho, motivo, reescritas, custo).
+  **Tabela própria e não coluna em `messages`** porque dois dos seis desfechos não
+  produzem mensagem nenhuma: `deferred` escreve um followup e `stopped` não escreve nada.
+  Sem `expires_at`: a retenção vem do `on delete cascade`, igual a `gate_traces` e
+  `llm_calls`.
+
+**`state-machine.ts` ganhou `rankOf` e `furthest`** e virou o **nono arquivo espelhado**,
+preso por `tests/function-drift.test.ts`. `furthest` existe porque `canTransition` responde
+a pergunta errada aqui: quem abre com *"oi, uso 42, meu CEP é 13010-100"* pula três degraus
+numa mensagem só, e a regra da spec é **sem regressão**, não sem salto. Estágio terminal
+(`bloqueado`, `perdido`, `recusado`) vence qualquer avanço.
+
+**As oito saídas do turno gravam o desfecho:** `opted_out`, `stopped`, `deferred`, os
+quatro `handoff` (pediu pessoa · falha de modelo · teto de custo · veto da cadeia) e
+`send`/`fallback`. Falha de escrita é engolida de propósito — contador de funil não vale
+perder a resposta que a cliente está esperando.
+
+**⚠ Dois passos de operação que faltam:** aplicar a `0006` no Supabase, e deployar a
+função. **O deploy agora são dez arquivos, não nove** — `state-machine.ts` entrou.
+
+**Verificado:** `pnpm test` (2835), `lint`, `typecheck`, `typecheck:function` — verdes.
+
+### `freeShipping: false` em todo o repositório (decisão do operador, 22/09)
+
+**A operação não oferece frete grátis.** O aviso anterior — *"não subir `freeShipping:
+false` antes de a Coinzz ter frete parametrizado"* — **caiu por decisão do operador**. O
+campo é `false` em `config/business.example.json`, em `tests/fixtures.ts`, nos três
+harnesses de dev e no fallback da Edge Function.
+
+**⚠ Isso NÃO muda produção.** A produção lê o secret `BUSINESS_CONFIG`, que sobrescreve o
+fallback inteiro, e **a chave ausente do secret lê como grátis** — o gate e o prompt usam
+`!== false` de propósito. Para a decisão valer, **o operador precisa escrever
+`freeShipping` com valor `false` no secret, explicitamente.** Sem isso a agente continua
+prometendo frete grátis em produção, com o repositório inteiro dizendo o contrário.
+
+**18 testes inverteram**, e nenhum foi só "atualizado para passar": prometer grátis virou
+veto, e cobrar frete sem dar valor virou a frase honesta. O que **não** mudou em nenhum
+ramo: dar um número ao frete continua barrado, porque nenhuma das duas ofertas tem valor
+citável. O ramo `freeShipping: true` **continua coberto** — `ctxGratis` em
+`tests/fixtures.ts` — porque um gate com metade sem teste é um gate que ninguém reverte
+com segurança.
 
 ### O achado A, corrigido — o que mudou e o que não mudou
 
@@ -486,8 +532,9 @@ Seis coisas, todas verificadas pela porta de produção e não por teste:
    desfecho**, de propósito: não-2xx faz o canal reentregar a mensagem, e reentrega sobre
    recusa é laço. Quem precisa reagir **lê o corpo**.
 3. **O deploy pela ferramenta MCP não cabe.** São 199 KB. Deploy pela API de gerência, com
-   os arquivos do disco, **nove** arquivos — `availability.ts` entrou depois da receita
-   antiga. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+   os arquivos do disco, **dez** arquivos — `availability.ts` entrou depois da receita
+   antiga, e `state-machine.ts` em 2026-09-22 com a instrumentação do funil. Confira
+   `ls supabase/functions/turn/*.ts` antes de rodar: a conta já mudou duas vezes. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
 4. **Isolate quente.** Por minutos depois de um deploy, parte das requisições ainda cai na
    versão anterior. Confira a sonda pelo **formato** da resposta, não pelo conteúdo.
 5. **Cegueira a negação.** Toda heurística de texto deste repositório já errou em negação.

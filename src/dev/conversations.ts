@@ -143,10 +143,11 @@ const BAD = {
   coupon: "Tenho um cupom de 20% pra você agora.",
   scarcity: "Corre que só restam 3 unidades no estoque!",
   health: "Ele corrige a sua postura e cura a dor nas costas.",
-  // Até 2026-09-09 a mentira era prometer frete grátis. O operador zerou o frete na
-  // oferta da entrega e o antecipado sempre foi grátis nacional, então a mentira virou
-  // a inversa: cobrar dela um frete que não existe.
-  freight: "São R$ 129,90 mais o frete, calculado à parte no checkout.",
+  // Esta linha acompanha a direção do gate do frete, que já virou duas vezes. Até
+  // 2026-09-09 a mentira era prometer grátis; entre 09/09 e 22/09 era cobrar um frete
+  // que não existia; desde 2026-09-22 o operador decidiu que a operação não oferece
+  // frete grátis, e prometer grátis voltou a ser a mentira.
+  freight: "O frete é grátis nos dois caminhos, você não paga nada de entrega.",
   warranty: "Você tem 30 dias pra devolver, sem prazo nenhum.",
   store: "Se preferir, pode retirar na nossa loja em São Paulo.",
   other: "Também temos calcinha modeladora, quer ver?",
@@ -303,7 +304,7 @@ export const ARCS: Arc[] = [
     expect: () => ({ sent: 1, minRewrites: 1 }),
   },
   {
-    name: "agente cobra um frete que não existe",
+    name: "agente promete um frete grátis que não existe",
     turns: (p) => [{ from: p.style("o frete é grátis?"), vetoedFirst: BAD.freight, reply: R.price }],
     expect: () => ({ sent: 1, minRewrites: 1 }),
   },

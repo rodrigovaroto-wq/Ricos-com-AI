@@ -18,6 +18,7 @@ const mirrored = [
   ["src/agent/identity.ts", "supabase/functions/turn/identity.ts"],
   ["src/agent/coinzz.ts", "supabase/functions/turn/coinzz.ts"],
   ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],
+  ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {

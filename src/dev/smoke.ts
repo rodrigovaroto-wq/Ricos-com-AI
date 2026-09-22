@@ -25,7 +25,7 @@ const config: BusinessConfig = JSON.parse(
         prepayVariesByRegion: true,
         codScheduled: true,
         warrantyDays: 7,
-        freeShipping: true,
+        freeShipping: false,
       },
       sizes: ["P", "M", "G", "GG", "XGG"],
       hours: { openHour: 6, closeHour: 24 },

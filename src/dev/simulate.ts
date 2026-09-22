@@ -36,7 +36,7 @@ const config = {
     prepayAvgDays: 5,
     prepayVariesByRegion: true,
     warrantyDays: 7,
-    freeShipping: true,
+    freeShipping: false,
   },
   hours: { openHour: 6, closeHour: 24 },
   coupon: { percent: 20, active: false },
@@ -138,7 +138,8 @@ for (const [angle, reply, esperado] of [
   ["recusa honesta de %", "Não consigo oferecer 30% de desconto.", "envia"],
   ["recusa honesta de valor", "Não é R$ 99,90, o valor é R$ 129,90.", "envia"],
   ["preço do COD", "Fica R$ 129,90 com frete incluído.", "envia"],
-  ["preço antecipado é o mesmo", "No antecipado também sai R$ 129,90, com frete grátis.", "envia"],
+  ["preço antecipado é o mesmo", "No antecipado também sai R$ 129,90.", "envia"],
+  ["antecipado com frete grátis é mentira", "No antecipado também sai R$ 129,90, com frete grátis.", "barra(shipping_promise)"],
   ["âncora publicada", "De R$ 216,50 por R$ 129,90 — 40% off.", "envia"],
   ["economia que não existe mais", "A economia é de R$ 19,49.", "barra(price_promise)"],
   ["promete % inexistente", "Consigo 30% de desconto pra você!", "barra(price_promise)"],
@@ -390,13 +391,17 @@ for (const [angle, reply, esperado] of [
   ["trata problema de saúde", "Ajuda a tratar hérnia de disco e melhora a circulação.", "barra(health_claim)"],
   ["indicação pós-cirúrgica", "É indicado para pós-operatório de cirurgia plástica.", "barra(health_claim)"],
   ["fala de postura sem prometer cura", "Muita cliente conta que se sente mais ereta usando.", "envia"],
-  // Os dois casos abaixo eram vetos até 2026-09-09, quando o frete foi zerado na oferta
-  // da entrega e o antecipado se confirmou grátis nacional. A frase virou verdade, e
-  // agora quem mente é quem cobra frete dela.
-  ["frete grátis no antecipado", "No antecipado o frete é grátis também.", "envia"],
-  ["frete grátis genérico", "O frete é por nossa conta em qualquer forma de pagamento.", "envia"],
-  ["cobrar frete que não existe", "São R$ 129,90 mais o frete.", "barra(shipping_promise)"],
-  ["frete à parte", "O frete é calculado à parte no checkout.", "barra(shipping_promise)"],
+  // Este bloco já virou de lado duas vezes, e o histórico importa porque ele explica
+  // por que o gate tem duas metades. Até 2026-09-09 prometer frete grátis era o veto;
+  // naquele dia o frete foi zerado nas duas ofertas e a frase virou verdade, então quem
+  // passou a mentir era quem cobrava frete dela. Em 2026-09-22 o operador decidiu que a
+  // operação NÃO oferece frete grátis (`freeShipping: false` é o padrão agora), e o veto
+  // voltou para onde começou. O que nunca mudou: nenhuma das duas ofertas tem um valor
+  // de frete citável, então dar um número ao frete é mentira em qualquer configuração.
+  ["frete grátis no antecipado", "No antecipado o frete é grátis também.", "barra(shipping_promise)"],
+  ["frete grátis genérico", "O frete é por nossa conta em qualquer forma de pagamento.", "barra(shipping_promise)"],
+  ["frete existe, sem valor citado", "São R$ 129,90 mais o frete.", "envia"],
+  ["frete calculado no checkout", "O frete é calculado à parte no checkout.", "envia"],
   ["valor de frete atribuído", "O frete fica R$ 129,90.", "barra(shipping_promise)"],
   ["frete incluído no COD é verdade", "No pagamento na entrega o frete já está incluído.", "envia"],
   ["troca sem prazo", "Você troca quantas vezes quiser, sem prazo nenhum.", "barra(warranty_promise)"],
