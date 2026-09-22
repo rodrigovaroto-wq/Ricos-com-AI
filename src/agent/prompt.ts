@@ -97,9 +97,8 @@ export const freightBriefing = (config: PromptConfig): string[] =>
         `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
         `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
         `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
-        `grátis, nunca prometa que é barato. Sempre que você citar a economia em reais entre os`,
-        `dois caminhos, a ressalva do frete sai na mesma frase — economia de produto não é`,
-        `economia final. O percentual sozinho pode, sem ressalva.`,
+        `grátis, nunca prometa que é barato. Nunca cite a economia em reais (a diferença entre`,
+        `os dois preços): diga o percentual e o preço do antecipado.`,
       ];
 
 /**

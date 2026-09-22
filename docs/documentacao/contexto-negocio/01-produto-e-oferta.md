@@ -41,7 +41,8 @@ A frase que mantém desejo e honestidade compatíveis, e que vale como orientaç
 ## Desconto de pagamento antecipado — 10%
 
 **Vigente desde 2026-09-21: o desconto é de 10%**, levando o preço do produto a **R$ 116,91**
-e a economia declarável a **R$ 12,99**. Passou por 15% (R$ 110,41) na rodada 2, decidido em
+e a diferença entre os dois preços a **R$ 12,99** (conta do operador — a agente não diz
+esse número; ver abaixo). Passou por 15% (R$ 110,41) na rodada 2, decidido em
 2026-09-05, e voltou a 10% — ver
 [`06-modelo-economico.md`](06-modelo-economico.md) e
 [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) §R2.1.
@@ -57,8 +58,11 @@ Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md) �
 **Frete no antecipado: por conta da cliente.** É o que diferencia os dois caminhos: no COD
 o frete está embutido nos R$ 129,90; no antecipado ela paga **R$ 116,91 mais o frete**,
 calculado por região no checkout — a agente nunca sabe o valor e não cita número. A agente
-**pode** dizer que ela economiza R$ 12,99 no produto, desde que diga na mesma mensagem que
-o frete vem à parte. Ver [`06-modelo-economico.md`](06-modelo-economico.md).
+**não** diz a economia em reais (a diferença entre os dois preços): diz o percentual e o
+preço do antecipado — "10% de desconto: R$ 116,91 no antecipado" — e que o frete vem à parte.
+*Corrigido em 2026-09-22 — saída A: só o percentual.* (Até aqui valia a saída C: "pode dizer
+que ela economiza R$ 12,99 no produto, desde que diga na mesma mensagem que o frete vem à
+parte".) Ver [`06-modelo-economico.md`](06-modelo-economico.md).
 
 ## O que chega na casa dela
 

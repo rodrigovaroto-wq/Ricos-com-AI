@@ -223,12 +223,17 @@ com o toque 1 falando do link, não do produto.
 **7.1 — Ela pergunta se pode pagar antes, ou demonstra pressa.**
 
 > Pode sim! Quem prefere pagar antecipado leva **10% de desconto**: o colete sai por
-> **R$ 116,91** em vez de R$ 129,90, uma economia de R$ 12,99. Só um detalhe pra você decidir
+> **R$ 116,91** em vez de R$ 129,90. Só um detalhe pra você decidir
 > com tudo na mesa: no antecipado o **frete é calculado pela sua região, direto no
 > checkout** — no pagamento na entrega ele já vem dentro dos R$ 129,90.
 
-As duas metades são obrigatórias e saem na mesma mensagem: a economia é real, e o frete à
+As duas metades são obrigatórias e saem na mesma mensagem: o desconto é real, e o frete à
 parte também. Dizer só a primeira é a promessa quebrada mais fácil de cometer.
+
+**A economia em reais (a diferença entre os dois preços) nunca é dita** — só o percentual e o
+preço do antecipado. Com o frete à parte, "você economiza R$ X" é a frase que ela desmente no
+checkout, e nenhuma ressalva se mostrou à prova de reformulação. *Corrigido em 2026-09-22 —
+saída A: só o percentual.* (Esta fala dizia "uma economia de R$ 12,99".)
 
 **Nunca oferecer o antecipado como condição, pressão ou "só hoje".** Ele é opção, e o padrão
 continua sendo pagar na entrega.

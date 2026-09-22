@@ -64,14 +64,29 @@ describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
     expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região");
   });
 
-  // The saving rule is about what the AGENT says: `price_promise` demands the freight
-  // caveat whenever she cites the R$ saving, not only when the customer raises it.
-  // "Se ela citar economia" read as the customer's move and invited the saving as a tactic.
-  it("a ressalva do frete vale sempre que a agente cita a economia em reais", () => {
+  // Exit A (operator decision 2026-09-22): `price_promise` vetoes the saving in reais in
+  // any wording, so the prompt says never to cite it — the percentage and the prepaid
+  // price instead. Exit C's "sempre que você citar a economia em reais" taught a sentence
+  // the gate now vetoes, a rewrite loop by design.
+  it("a economia em reais nunca é citada: o prompt manda dizer o percentual e o preço", () => {
     const prompt = flat(build(variant(false, true)));
     expect(prompt).not.toContain("Se ela citar economia");
-    expect(prompt).toContain("Sempre que você citar a economia em reais entre os dois caminhos");
-    expect(prompt).toContain("O percentual sozinho pode");
+    expect(prompt).not.toContain("Sempre que você citar a economia em reais");
+    expect(prompt).toContain("Nunca cite a economia em reais");
+    expect(prompt).toContain("diga o percentual e o preço do antecipado");
+  });
+
+  // The number itself must not appear anywhere in the prompt: a prompt that shows it,
+  // even in a "never say" example, puts it in front of the model.
+  it.each(corners)("o prompt gerado não contém o valor da economia ($name)", ({ config }) => {
+    const saving = +(config.prices.codBrl - config.prices.prepayBrl).toFixed(2);
+    const prompt = build(config);
+    if (saving > 0) {
+      expect(prompt).not.toContain(money(saving));
+      expect(prompt).not.toContain(money(saving).replace("R$ ", ""));
+    }
+    // Pin the config of today, so the check is not vacuous: 129,90 − 116,91.
+    if (config.prices.prepayBrl === 116.91) expect(money(saving)).toBe("R$ 12,99");
   });
 
   // Achado A, pinned: the paragraph was fixed text and the flag changed nothing. If it
@@ -190,9 +205,11 @@ describe("toda frase-exemplo de preço e frete passa a cadeia de gates", () => {
   });
 
   // The quoted-example scan must not be vacuous where the gate does teach one.
-  it("o briefing com frete pago e desconto ensina a economia com a ressalva", () => {
-    expect(quotedPriceExamples(build(variant(false, true)))).toContain(
-      "R$ 12,99 a menos no produto, e o frete é calculado no checkout",
-    );
+  it("o briefing com desconto ensina o percentual com o preço, nos dois ramos do frete", () => {
+    for (const freeShipping of [false, true]) {
+      expect(quotedPriceExamples(build(variant(freeShipping, true)))).toContain(
+        "10% de desconto: R$ 116,91 no antecipado",
+      );
+    }
   });
 });
