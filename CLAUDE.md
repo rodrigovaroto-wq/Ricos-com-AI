@@ -120,6 +120,22 @@ produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 | `technical-writer` | Mantém `HANDOFF.md`, `CLAUDE.md` e `docs/` corrigidos e datados. Use depois de deploy, decisão do operador, ou qualquer mudança que torne uma linha de documentação falsa. |
 | `compliance-reviewer` | LGPD (retenção, dado de cliente), CDC (arrependimento, pagamento na entrega) e regra de anúncio com apelo de corpo/saúde. Use ao mexer em retenção, troca/reembolso, ou claim de produto. |
 
+**Modelo por agente** (decisão do operador, 2026-09-22), fixado no frontmatter de cada
+arquivo com `model:` — nenhum herda da sessão:
+
+- **`opus`** — `code-reviewer`, `security-reviewer`, `compliance-reviewer`, `test-engineer`,
+  `pricing-guardian`, `prompt-engineer`, `backend-specialist`, `orchestrator`. São a rede de
+  segurança e os donos de gate, prompt e banco de produção.
+- **`sonnet`** — `conversation-designer`, `technical-writer`, `model-cost-governor`,
+  `workflow-architect` e as doze `persona-*`.
+
+**A regra acima da tabela:** tarefa que mexe em **gate, heurística de texto ou banco de
+produção** vai para Opus, seja qual for o agente — despache com `model: "opus"` na chamada.
+Idem o `model-cost-governor` quando for desenhar o eval de modelo. O motivo tem data: em
+2026-09-22 dois furos de gate foram escritos pelo implementador e pegos pelo revisor — a
+revisão é onde o modelo mais forte se paga. Revertível por arquivo; o critério para reverter
+é retrabalho por tarefa, não tokens.
+
 **Não existe `frontend-specialist`, de propósito.** Este repositório não tem UI: os dois
 `.html` em `docs/operacao/` são relatório estático do operador, não produto. Agente sem
 território é agente que inventa trabalho.
