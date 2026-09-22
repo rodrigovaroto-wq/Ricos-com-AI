@@ -23,7 +23,7 @@ describe("a chave do Gemini não viaja na URL", () => {
     }) as unknown as typeof fetch;
 
     const provider = geminiProvider({ apiKey: "segredo-de-teste", model: "m", fetchImpl: fakeFetch });
-    await provider.complete({ system: "s", messages: [{ role: "user", content: "oi" }] });
+    await provider.complete({ purpose: "test", system: "s", messages: [{ role: "user", content: "oi" }] });
 
     expect(calls).toHaveLength(1);
     expect(calls[0]!.url).not.toContain("key=");
