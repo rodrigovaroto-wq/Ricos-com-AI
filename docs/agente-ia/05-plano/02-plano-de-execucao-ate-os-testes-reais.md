@@ -19,6 +19,11 @@
 6. [Critério de saída — quando os testes reais começam](#critério-de-saída)
 7. [O que este plano deliberadamente não cobre](#o-que-este-plano-não-cobre)
 
+> **Leia junto:** [`04-analise-de-arquitetura.md`](04-analise-de-arquitetura.md) (2026-09-22)
+> avalia a proposta de arquitetura em closed loop (Evaluation Layer · Hermes · Sandbox) contra
+> este código. Dela saíram os itens **3.3 corrigido, 3.6, 3.7 e 3.8** da fase 3 — quatro
+> achados de código, dois deles urgentes por prazo.
+
 ---
 
 ## As três regras do plano
@@ -175,7 +180,10 @@ subir sem o que está aqui.
 |---|---|---|---|
 | 3.1 | **Rodar o eval de Muse Spark 1.3 contra Luna** — agora possível, com a `META_API_KEY`. Métrica é **conversão e taxa de recusa de gate**, nunca Intelligence Index. Corpus: as 300 conversas do harness determinístico + as doze personas da fase 2. | agente | Uma tabela com os dois modelos lado a lado nas duas métricas, e um veredito escrito. O ponto fraco a medir com nome: alinhamento de segurança da Meta em atendimento comercial. |
 | 3.2 | **Escrever a saída C no gate `price_promise`.** A economia de R$ 12,99 só é citável junto da ressalva de frete. Decisão do operador nesta sessão: o frete **vai** ser parametrizado, então a ressalva precisa existir **antes** do secret mudar. | agente | Três casos de teste: a frase com ressalva passa, a frase sem ressalva é vetada, e a ressalva burocrática ("valor sujeito a cálculo") não vira a única saída possível. Espelhado em `supabase/functions/turn/guardrails.ts`. |
-| 3.3 | **Reconciliar `conversationCapBrl` (0,80) com o teto de R$ 0,50 por lead.** Os dois números existem, discordam, e nenhuma troca de modelo resolve isso. | agente + operador | Um número só, com a conta escrita. Se o teto real for 0,80, o documento que diz 0,50 muda; se for 0,50, o código muda. |
+| 3.3 | **Unificar `conversationCapBrl` — são três números, não dois.** 1,5 em `config/business.example.json` (decisão R10.1, de 21/09) · 0,8 no fallback da Edge Function e no harness de dev · 0,50 no raciocínio de escolha de modelo do `HANDOFF.md`, o mais antigo dos três. | agente + operador | Um número só, com a conta escrita, e o fallback do código alinhado ao que o secret carrega. |
+| 3.6 | **Corrigir a contradição do system prompt.** Ele diz, no mesmo texto, *"Nunca ofereça desconto ali: os dois caminhos custam o mesmo"* e *"10% de desconto (R$ 116,91)"*; e declara *"O FRETE É GRÁTIS nos dois caminhos"* como texto fixo, sem ler `delivery.freeShipping` — que o gate `shipping_promise` lê. | agente | O prompt lê o config nos dois pontos. No dia do `freeShipping: false`, o gate e o prompt concordam em vez de brigar. Anda junto de 3.2 — mexem na mesma promessa. |
+| 3.7 | **Instrumentar o estágio do funil.** `conversations.stage` nasce `'discovery'` (valor fora de `STAGES`) e nunca é escrito: não existe funil. | agente | Uma migração corrige o default e o handler escreve a transição. Query mostra leads distribuídos pelos estágios reais. |
+| 3.8 | **Instrumentar o desfecho do turno.** `send` · `fallback` · `deferred` · `handoff` · `stopped` e o motivo do fallback só existem no corpo HTTP — a taxa de fallback é irrecuperável depois do fato. | agente | O desfecho de cada turno está no banco. **Urgente por prazo:** conversa que já aconteceu não se instrumenta depois, e a fase 7 gera conversas reais. |
 | 3.4 | **Varrer os documentos de negócio** atrás de "frete grátis nos dois", "preço único" e "R$ 129,90" como fato consolidado — Frente 4 item 8, nunca feito. | agente | `grep` executado nos três caminhos (`contexto-negocio/`, `06-script/`, `01-conhecimento/`) com cada ocorrência resolvida ou marcada como histórica. |
 | 3.5 | **Decidir o `DEFAULT_CONVERSATION_MODEL` do deploy**, com o eval na mão. | operador | Uma frase do operador: sobe com Muse, ou sobe com `CONVERSATION_MODEL=gpt-5.6-luna` + o preço de Luna nas duas chaves. |
 
