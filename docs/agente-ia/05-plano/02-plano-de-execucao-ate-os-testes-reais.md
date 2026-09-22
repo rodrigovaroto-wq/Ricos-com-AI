@@ -153,10 +153,12 @@ Tudo aqui é código, e tudo aqui o agente faz sozinho.
 | # | O quê | Fechou quando |
 |---|---|---|
 | 2.1 | **O prompt passa a ter teste.** Raiz do achado A: nenhum teste toca o texto que mais decide o comportamento. Extrair o montador do prompt de `index.ts` para um módulo espelhado, e testar que **toda frase que o prompt ensina passa a cadeia de gates**, nos dois ramos de `freeShipping` e com e sem desconto | O teste falha se alguém reintroduzir "frete grátis" fixo no prompt com `freeShipping: false`. Espelho preso pelo drift test |
-| 2.2 | **Saída C no `price_promise`** (era 3.2). A economia de R$ 12,99 só é citável com a ressalva de frete na mesma frase. O prompt já instrui isso (`freightBriefing`); **o gate ainda não cobra** | Três casos: com ressalva passa; sem ressalva veta; a ressalva não vira a única frase possível. Espelhado |
-| 2.3 | **Unificar `conversationCapBrl`** (era 3.3, achado B). O fallback da função, `tests/fixtures.ts` e dois harnesses de dev ainda dizem 0,8; a decisão R10.1 é 1,5 | Um número só no repositório, igual ao do secret (confirmado em 1.4) |
-| 2.4 | **Varrer os documentos atrás de "frete grátis"** (era 3.4) — e agora com urgência: a decisão virou. `01-conhecimento/`, `06-script/`, `contexto-negocio/`. O "R$ 129,90 já inclui o frete" do COD continua **verdadeiro**; o "frete grátis nos dois" não | Cada ocorrência resolvida ou marcada como histórica, com a data |
+| 2.2 ✅ | **FEITO em 22/09.** **Saída C no `price_promise`** (era 3.2). A economia de R$ 12,99 só é citável com a ressalva de frete na mesma frase. O prompt já instrui isso (`freightBriefing`); **o gate ainda não cobra** | Três casos: com ressalva passa; sem ressalva veta; a ressalva não vira a única frase possível. Espelhado |
+| 2.3 ✅ | **FEITO em 22/09** — 1,5 nos quatro lugares; `seam.test.ts` passou a derivar o teto em vez de codificar R$ 1,00. **Unificar `conversationCapBrl`** (era 3.3, achado B). O fallback da função, `tests/fixtures.ts` e dois harnesses de dev ainda dizem 0,8; a decisão R10.1 é 1,5 | Um número só no repositório, igual ao do secret (confirmado em 1.4) |
+| 2.4 ✅ | **FEITO em 22/09** — e três prazos que contradiziam decisão firme corrigidos de passagem (o script pedia "3 a 10 dias úteis" no antecipado; o Áudio D prometia "três a cinco dias" no COD). **Varrer os documentos atrás de "frete grátis"** (era 3.4) — e agora com urgência: a decisão virou. `01-conhecimento/`, `06-script/`, `contexto-negocio/`. O "R$ 129,90 já inclui o frete" do COD continua **verdadeiro**; o "frete grátis nos dois" não | Cada ocorrência resolvida ou marcada como histórica, com a data |
 | 2.5 | **Registrar `rls_auto_enable` no repositório** depois da decisão de 1.6 | O banco e as migrações voltam a concordar |
+| 2.6 | **O dia da semana no fuso de São Paulo.** `followups.ts:371` e `:449` usam `now.getDay()` — fuso do runtime, UTC na Edge Function — com `BUSINESS_TZ` declarado no mesmo arquivo. Entre 21h e meia-noite em São Paulo, `silence_3` diria "Super Sexta" numa quinta. Mesma classe do bug do `firstReplyAt` (10/09). Mudo hoje só porque o cupom está inativo. Achado pela tarefa 8.1, **confirmado no código** | Teste com instante UTC explícito às 22h de São Paulo devolve o dia certo. Espelhado |
+| 2.7 | **Falso positivo no `shipping_promise`.** "O frete não está incluído, mas o produto sai R$ 12,99 mais barato no antecipado" é vetado: `attributedToShipping` lê `frete … sai … R$` como valor de frete. A ordem que o prompt ensina (economia antes, ressalva depois) não é afetada. Achado pela tarefa 2.2 | A frase passa, e "o frete sai R$ 12,99" continua vetado |
 
 ---
 
@@ -166,7 +168,7 @@ Tudo aqui é código, e tudo aqui o agente faz sozinho.
 |---|---|---|
 | 3.1 | **Doze agentes-persona** em `.claude/agents/persona-*.md`, `tools: []`, cada um com dor, objeção, gatilho, jeito de escrever e uma tentativa adversarial | Os doze arquivos passam o teste do espelho: lido sozinho, produz uma cliente reconhecível |
 | 3.2 | **Runner `src/dev/persona-run.ts` com três portas** — resolve o ovo e a galinha de testar código que ainda não está no ar: `local` (a função do **disco** servida por Deno, contra o banco de produção, com telefones sintéticos prefixados e limpeza no fim), `function` (a Edge Function no ar), `n8n` (o webhook de produção) | Uma conversa completa roda nas três portas. Na `n8n`, se o corpo voltar 200 sem criar linha em `conversations`, o runner **falha** |
-| 3.3 | **Rubrica de falha** escrita antes de rodar: mentira · perda · atrito · custo · opt-out ignorado | Em arquivo, e cada persona declara o que caça |
+| 3.3 ✅ | **Já existia** em `03-personas-de-teste-interno.md`. **Rubrica de falha** escrita antes de rodar: mentira · perda · atrito · custo · opt-out ignorado | Em arquivo, e cada persona declara o que caça |
 | 3.4 | **Rodada 1 pela porta `local`**, contra a v33 do disco | Relatório: uma linha por persona, entrada concreta, classificação. Lido também em `turn_outcomes` e `stage` — é o primeiro uso real da instrumentação |
 | 3.5 | Fechar os achados e **rodada 2** | Sem regressão; achados fechados ou aceitos pelo operador |
 
@@ -241,12 +243,14 @@ Tudo abaixo de 8.3 prepara-se **antes** do token (O8) chegar.
 
 | # | O quê | Fechou quando |
 |---|---|---|
-| 8.1 | Redigir `silence_2`, `silence_3`, `order_eve` no formato da Meta, **revisados contra os gates** — e contra `freeShipping: false`: nenhum template promete frete grátis | Três textos aprovados pelo operador |
+| 8.1 ✅ | **FEITO em 22/09** — `06-script/03-templates-meta.md`, os três passando nos 19 gates nas duas camadas. Redigir `silence_2`, `silence_3`, `order_eve` no formato da Meta, **revisados contra os gates** — e contra `freeShipping: false`: nenhum template promete frete grátis | Três textos aprovados pelo operador |
 | 8.2 | Submeter à Meta | Aprovados |
 | 8.3 | Declarar em `channel.templates` do `BUSINESS_CONFIG`, com a ordem dos placeholders | Um toque fora da janela sai como template |
 | 8.4 | Ligar o envio: `bubbles`, `presenceRefreshes`, `firstReplyAt` | Mensagem real em bolhas |
 | 8.5 | Contadores de pacing, retry por hora | O gate recusa o segundo toque do dia com contador real |
 | 8.6 | **Atribuição CTWA**: clique de anúncio → `leads.source` com `ctwaClid` | Uma linha real |
+| 8.7 | **Prender o texto aprovado na Meta ao `renderFollowup`.** Nada no código confere o template: o sweep roda `runGates` sobre o texto livre do `renderFollowup`, mas a cliente lê o texto **registrado na Meta**. A regra "mudou um, muda o outro" está só no documento. Achado pela 8.1 | Um teste falha se o corpo em `03-templates-meta.md` divergir do que `renderFollowup` escreve |
+| 8.8 | **Opt-in para template de marketing** (regra da Meta). O código não confere opt-in antes de mandar `silence_2`/`silence_3`, que são `MARKETING`. Achado pela 8.1 | O envio de template de marketing exige opt-in gravado, ou é bloqueado |
 
 `silence_3` fica mudo até o cupom existir na Coinzz — de propósito.
 
@@ -282,7 +286,7 @@ Dentro de uma onda, nada colide em arquivo nem em dependência.
 
 | Onda | Agente faz | Operador faz | Destrava |
 |---|---|---|---|
-| **A — agora** | 2.1 · 2.2 · 2.3 · 2.4 · 3.1 · 3.2 · 3.3 · 8.1 | **O9 (aquecer o número)** · O1 · O2 · O3 · 1.4 · 1.6 | tudo |
+| **A — agora** | ~~2.2 · 2.3 · 2.4 · 3.3 · 8.1~~ ✅ · 2.1 · 3.1 · 3.2 · 2.6 · 2.7 | **O9 (aquecer o número)** · O1 · O2 · O3 · 1.4 · 1.6 | tudo |
 | **B** | 3.4 · 3.5 · 4.1 · 4.2 · 5.1 · 2.5 | O5 · O6 · 4.3 | deploy |
 | **C** | 6.1 → 6.8 · 5.3 → 5.8 · 7.1 → 7.4 | O4 · O7 | canal |
 | **D** | 8.3 → 8.6 · 9.1 | O8 · 8.2 | tráfego |

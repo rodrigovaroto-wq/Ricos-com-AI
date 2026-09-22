@@ -680,9 +680,16 @@ Frente do sócio do operador. **O lado do código está pronto e bloqueando de p
    "channel": { "templates": {
      "silence_2":  { "name": "...", "language": "pt_BR", "variables": ["warrantyDays"] },
      "silence_3":  { "name": "...", "language": "pt_BR", "variables": ["weekday", "couponPercent"] },
-     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price", "size"] }
+     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price"] }
    } }
    ```
+
+   **Os três já estão redigidos** em
+   [`docs/agente-ia/06-script/03-templates-meta.md`](docs/agente-ia/06-script/03-templates-meta.md)
+   (22/09), com nome, categoria, corpo e o bloco JSON pronto — e os três passam nos 19
+   gates. **`order_eve` leva só `price`, não `size`** como este exemplo dizia antes:
+   `deliveryFor` bloqueia o envio quando um placeholder resolve vazio, e um lead sem tamanho
+   gravado perderia justamente o toque que salva a margem.
 
    Valores possíveis: `price`, `warrantyDays`, `size`, `address`, `couponPercent`,
    `weekday`. **Ausente bloqueia** todo toque fora da janela — texto livre lá a Meta
