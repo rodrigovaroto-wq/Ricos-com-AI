@@ -239,10 +239,27 @@ const FREIGHT_CAVEAT = [
   /\b(?:sem\s+contar|fora|alem\s+do|antes\s+do|nao\s+conta\w*|nao\s+inclui\w*|excluindo)\s+(?:o\s+)?frete\b/g,
   /\bfrete\b[^.!?]{0,30}?\b(a\s*parte|separad\w*|por\s+fora|calculad\w*|cobrad\w*|no\s+checkout|por\s+regiao|conforme|depende\w*|varia\w*|a\s+pagar|nao\s+(?:esta\s+)?inclu\w*)/g,
 ];
+/**
+ * The denials `negatedAt` does not know, because they deny a NOUN and not a verb: "nada
+ * de frete", "nenhum frete", "zero frete", "livre de frete", "esquece o frete". Each one
+ * turned "você economiza R$ 12,99 e nada de frete cobrado à parte" into a caveat — the
+ * opposite of one. Kept out of `negatedAt` on purpose: there, a wider word list only
+ * exempts more ("nenhum problema, sai R$ 59,90"). Like `sem`, the word only reaches the
+ * noun beside it: its own comma-bounded phrase, at most two words before `frete` ("nenhuma
+ * cobrança de frete"). "Não esqueça o frete" is the caveat said as a reminder, so a
+ * denied "esquece" denies nothing.
+ */
+const FREIGHT_DENIED_BEFORE =
+  /(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|nenhuma|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:\S+\s+){0,2}$/;
+const freightDeniedAt = (t: string, freteAt: number): boolean =>
+  FREIGHT_DENIED_BEFORE.test(t.slice(0, freteAt).split(/[,:;.!?]/).pop() ?? "");
+
 const hasFreightCaveat = (sentence: string): boolean =>
   FREIGHT_CAVEAT.some((re) =>
     [...sentence.matchAll(re)].some(
-      (m) => !negatedAt(sentence, (m.index ?? 0) + m[0].length - (m[1]?.length ?? m[0].length)),
+      (m) =>
+        !negatedAt(sentence, (m.index ?? 0) + m[0].length - (m[1]?.length ?? m[0].length)) &&
+        !freightDeniedAt(sentence, (m.index ?? 0) + m[0].search(/\bfrete\b/)),
     ),
   );
 
@@ -884,7 +901,11 @@ const gates: readonly Gate[] = [
         /\bfrete\b[^.!?]{0,24}\b(gratis|gratuito|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a)\b/.test(t) ||
         /\b(gratis|gratuito|por\s+nossa\s+conta)\b[^.!?]{0,16}\bfrete\b/.test(t) ||
         /\b(sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b/.test(t) ||
-        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t);
+        /\bfrete\b[^.!?]{0,12}\b(nao\s+)?(custa\s+nada|e\s+zero)\b/.test(t) ||
+        // "Nada de frete", "nenhum frete", "esquece o frete": the noun denied, not the
+        // verb, so the list above never saw them. "Não esqueça o frete" is the reminder
+        // that it exists, and stays out.
+        /(?<!\bnao\s+(?:se\s+)?)\b(nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b/.test(t);
 
       if (ctx.config.delivery.freeShipping === false) {
         if (claimsFree) return "promises free shipping, which neither offer has";
@@ -908,8 +929,14 @@ const gates: readonly Gate[] = [
         // between `frete` and the verb ends the attribution. Only the article form counts
         // — "o frete DO produto sai R$ 15" is a complement, still the freight — and a bare
         // clause break does not either: "é à parte, mas sai R$ 15" is still the freight.
+        //
+        // Nor does an article that a preposition or a relative `que` owns: "o frete PARA
+        // o pedido é de R$ 12,99" and "o frete, QUE o produto não inclui, sai R$ 15" keep
+        // the freight as the subject of the main verb. The lookbehind is the narrowest cut
+        // that tells them apart — it touches only the article, so "mas com o desconto o
+        // produto sai R$ 12,99" still finds its real subject two words later.
         const attributedToShipping =
-          /\bfrete\b(?:(?!\b[oa]\s+(?:produto|colete|cinta|preco|pedido)\b)[^.!?]){0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
+          /\bfrete\b(?:(?!(?<!\b(?:para|pra|com|sobre|em|por|ate|entre|contra|sob|sem|que)\s+)\b[oa]\s+(?:produto|colete|cinta|preco|pedido)\b)[^.!?]){0,40}?\b(e|fica|custa|sai|sera|vai\s+dar|de|em\s+torno\s+de|cerca\s+de|uns|aproximadamente)\b[^.!?]{0,12}?\br\$\s*[\d.,]+/.test(t) ||
           /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";

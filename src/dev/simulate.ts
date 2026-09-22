@@ -166,6 +166,16 @@ for (const [angle, reply, esperado] of [
     ["negativa que não nega a economia", "Não precisa esperar, você economiza R$ 12,99 no antecipado.", "barra(price_promise)"],
     ["ressalva em outra frase", "Você economiza R$ 12,99. E tem o frete, calculado no checkout.", "barra(price_promise)"],
     ["percentual sozinho", "No antecipado você tem 10% de desconto.", "envia"],
+    // Os dois furos da revisão de 2026-09-22: o artigo que uma preposição ou um "que"
+    // governa não abre sujeito novo, e "nada de"/"nenhum"/"esquece" negam a ressalva.
+    ["frete PARA o pedido é valor de frete", "O frete para o pedido é de R$ 12,99, calculado no checkout.", "barra(shipping_promise)"],
+    ["frete COM o pedido é valor de frete", "No antecipado o frete com o pedido fica R$ 129,90.", "barra(shipping_promise)"],
+    ["relativa não troca o sujeito", "O frete, que o produto não inclui, sai R$ 15,00.", "barra(shipping_promise)"],
+    ["sujeito novo de verdade", "O frete não está incluído, mas o produto sai R$ 12,99 mais barato no antecipado.", "envia"],
+    ["'nada de frete' não é ressalva", "Você economiza R$ 12,99 e nada de frete cobrado à parte.", "barra(price_promise+shipping_promise)"],
+    ["'nenhum frete' não é ressalva", "Você economiza R$ 12,99 e nenhum frete cobrado à parte.", "barra(price_promise+shipping_promise)"],
+    ["'esquece frete' não é ressalva", "Você economiza R$ 12,99, e esquece frete cobrado à parte.", "barra(price_promise+shipping_promise)"],
+    ["'não esqueça o frete' não promete grátis", "Não esqueça que o frete é calculado no checkout.", "envia"],
   ] as Array<[string, string, string]>) {
     check("economia do antecipado", angle, reply, esperado, outcome(reply, { config: comDesconto, paymentPath: "prepay" }));
   }
