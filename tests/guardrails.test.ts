@@ -1012,9 +1012,6 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
       // Com preço único (antecipado = entrega), o R$ 129,90 na frase não é o antecipado.
       expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", ctx())))
         .not.toContain("shipping_promise");
-      // No caminho COD, sem citar a porta e sem citar o antecipado.
-      expect(blocked(runGates("São R$ 129,90 e nenhum frete adicional.", cod)))
-        .not.toContain("shipping_promise");
     });
 
     it("seco, no antecipado, ou com 'grátis' junto, continua vetado", () => {
@@ -1335,5 +1332,123 @@ describe("hourIn lê a meia-noite como 0 em qualquer runtime", () => {
       now: new Date("2026-09-11T03:00:00Z"),
     });
     expect(blocked(r)).not.toContain("business_hours");
+  });
+});
+
+/**
+ * Segunda passada do /code-review de 2026-09-22. Duas mentiras que a rodada anterior
+ * abriu (itens 1 e 8) e dois falsos positivos (itens 2 e 3). A produção chama os gates
+ * com `paymentPath: "cod"` fixo, então os adversariais do item 8 rodam no contexto COD:
+ * é nele que a mentira do antecipado chega à cliente.
+ */
+describe("segunda passada do /code-review de 2026-09-22", () => {
+  const config0922: typeof config = {
+    ...config,
+    prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 },
+    delivery: { ...config.delivery, freeShipping: false },
+  };
+  const prepay = ctx({ config: config0922, paymentPath: "prepay" as const });
+  const cod = ctx({ config: config0922 });
+
+  describe("1 — negação entre 'frete' e a ressalva cancela a ressalva, com vírgula no meio", () => {
+    it("a ressalva negada não licencia a economia", () => {
+      for (const frase of [
+        "O frete não é, de jeito nenhum, cobrado à parte, e você economiza R$ 12,99.",
+        "Você economiza R$ 12,99, e o frete, de forma nenhuma, é cobrado à parte.",
+        "Você economiza R$ 12,99 e o frete jamais, em hipótese alguma, é calculado à parte.",
+        "Você economiza R$ 12,99, e o frete não precisa, nesse caso, ser calculado no checkout.",
+        "Você economiza R$ 12,99, o frete nunca vai ser, pode ficar tranquila, cobrado à parte.",
+        "Você economiza R$ 12,99, e o frete nem é cobrado à parte.",
+        "Você economiza R$ 12,99 sem frete cobrado à parte.",
+        "Você não paga frete à parte e economiza R$ 12,99.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
+        expect(blocked(runGates(frase, cod)), frase).toContain("price_promise");
+      }
+    });
+
+    it("negação antes de 'frete', ou vírgula decimal no meio, não cancela a ressalva", () => {
+      for (const frase of [
+        "Não precisa esperar, o frete é calculado no checkout e você economiza R$ 12,99 no produto.",
+        "Você economiza R$ 12,99 no produto, e o frete é cobrado à parte, calculado no checkout.",
+        "Não, você economiza R$ 12,99 no produto, e o frete é calculado no checkout.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+      }
+    });
+  });
+
+  describe("8 — 'nenhum frete a mais' só passa quando a frase fala da porta", () => {
+    it("sem a porta na frase, veta mesmo no contexto COD que a produção sempre passa", () => {
+      for (const frase of [
+        "Nenhum frete a mais, pode fechar.",
+        "São R$ 129,90 e nenhum frete adicional.",
+        "Sem frete extra pra você, pode fechar agora.",
+      ]) {
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+      }
+    });
+
+    it("com a porta na frase, mas apontando o antecipado, veta", () => {
+      for (const frase of [
+        "Pagando adiantado, nenhum frete a mais na entrega.",
+        "Nenhum frete extra na entrega, o pagamento já foi no boleto.",
+        "Na entrega, nenhum frete a mais: você paga R$ 116,91.",
+      ]) {
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+        expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+      }
+    });
+
+    it("a frase da porta continua passando", () => {
+      const frase = "Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.";
+      expect(blocked(runGates(frase, cod))).not.toContain("shipping_promise");
+      expect(blocked(runGates(frase, prepay))).not.toContain("shipping_promise");
+    });
+  });
+
+  describe("2 — 'o total' com a ressalva em qualquer ponto da frase", () => {
+    it("passa", () => {
+      for (const frase of [
+        "No antecipado o total é R$ 116,91 e o frete é calculado no checkout.",
+        "O total fica R$ 116,91 mais o valor do frete.",
+        "O total é R$ 116,91 sem o frete.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).not.toContain("price_promise");
+      }
+    });
+
+    it("com a ressalva negada, ou 'sem frete' sem artigo, continua vetando", () => {
+      for (const frase of [
+        "No antecipado o total é R$ 116,91 e o frete, de jeito nenhum, é calculado à parte.",
+        "O total é R$ 116,91 sem frete.",
+        "O total é R$ 116,91 e o frete não é cobrado à parte.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("price_promise");
+      }
+    });
+  });
+
+  describe("3 — economia dita com outro verbo", () => {
+    it("passa", () => {
+      for (const frase of [
+        "O frete é calculado no checkout, e o preço cai R$ 12,99 no antecipado.",
+        "O frete é calculado no checkout, e o valor fica R$ 12,99 menor no antecipado.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toEqual([]);
+      }
+    });
+
+    it("a economia como preço continua vetada", () => {
+      for (const frase of [
+        "O frete é calculado no checkout, e o preço fica R$ 12,99.",
+        "O frete é calculado no checkout, e o valor fica R$ 12,99 no antecipado.",
+        // Cair PARA o valor é dar o valor como preço.
+        "O frete é calculado no checkout, e o preço baixa pra R$ 12,99.",
+        "O frete é calculado no checkout, e o preço cai para R$ 12,99.",
+      ]) {
+        expect(blocked(runGates(frase, prepay)), frase).toContain("shipping_promise");
+      }
+    });
   });
 });
