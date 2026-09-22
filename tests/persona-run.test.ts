@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
-  cleanupPath,
+  cleanupAfter,
   deliverOver,
   doorTarget,
   parseArgs,
@@ -57,11 +57,14 @@ const fakeDb = (overrides: Partial<Db> = {}): Db => ({
   conversationFor: async () => ({ id: "conv-1", stage: "conversando", cost_brl: 0.02 }),
   outbound: async () => [],
   gateTraces: async () => [{ gate: "opt_out", verdict: "pass" }],
-  deleteLeadsByPrefix: async () => 0,
+  turnOutcomes: async () => [{ outcome: "send", reason: null }],
+  deleteLead: async () => 1,
+  cancelFollowups: async () => 0,
   ...overrides,
 });
 
 const PHONE = `${SYNTHETIC_PHONE_PREFIX}123456`;
+const CONV_ID = "0b6f3a52-6a5e-4c2e-9d0a-3f1c2b4d5e6f";
 
 const run = (
   door: Door,
@@ -295,23 +298,93 @@ describe("segurança", () => {
     expect(phone).toMatch(/^\d{13}$/);
   });
 
-  it("recusa DELETE sem prefixo ou com prefixo diferente do sintético", () => {
-    expect(() => cleanupPath("")).toThrow();
-    expect(() => cleanupPath("55")).toThrow();
-    expect(() => cleanupPath("5511")).toThrow();
-    expect(cleanupPath(SYNTHETIC_PHONE_PREFIX)).toBe(`leads?phone=like.${SYNTHETIC_PHONE_PREFIX}*`);
-  });
-
-  it("o DELETE nunca sai sem o filtro do prefixo", async () => {
+  it("recusa DELETE de telefone que não é sintético, e o DELETE sai filtrado pelo telefone exato", async () => {
     const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
     const db = postgrestDb({ url: "https://x.supabase.co", key: "k", fetchImpl });
-    await expect(db.deleteLeadsByPrefix("")).rejects.toThrow();
+    for (const bad of ["", SYNTHETIC_PHONE_PREFIX, "5511999999999", `${SYNTHETIC_PHONE_PREFIX}*`, `${PHONE}&id=gt.0`]) {
+      await expect(db.deleteLead(bad)).rejects.toThrow(/recusad/);
+    }
     expect(fetchImpl).not.toHaveBeenCalled();
 
-    await db.deleteLeadsByPrefix(SYNTHETIC_PHONE_PREFIX);
+    await db.deleteLead(PHONE);
     const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
     expect(init.method).toBe("DELETE");
-    expect(url).toBe(`https://x.supabase.co/rest/v1/leads?phone=like.${SYNTHETIC_PHONE_PREFIX}*`);
+    expect(url).toBe(`https://x.supabase.co/rest/v1/leads?phone=eq.${PHONE}`);
+  });
+
+  it("recusa PATCH de followups sem conversation_id válido; o PATCH só cancela os agendados daquela conversa", async () => {
+    const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
+    const db = postgrestDb({ url: "https://x.supabase.co", key: "k", fetchImpl });
+    for (const bad of ["", "conv-1", "*", `${CONV_ID}&status=eq.sent`]) {
+      await expect(db.cancelFollowups(bad)).rejects.toThrow(/recusad/);
+    }
+    expect(fetchImpl).not.toHaveBeenCalled();
+
+    await db.cancelFollowups(CONV_ID);
+    const [url, init] = fetchImpl.mock.calls[0] as unknown as [string, RequestInit];
+    expect(init.method).toBe("PATCH");
+    expect(url).toBe(`https://x.supabase.co/rest/v1/followups?conversation_id=eq.${CONV_ID}&status=eq.scheduled`);
+    expect(JSON.parse(String(init.body))).toEqual({ status: "canceled" });
+  });
+
+  it("nenhum caminho da limpeza escreve sem filtro: todo DELETE/PATCH leva o telefone ou a conversa", async () => {
+    for (const orderReady of [false, true]) {
+      const fetchImpl = vi.fn(async () => new Response("[]", { status: 200 }));
+      const db = postgrestDb({ url: "https://x.supabase.co", key: "k", fetchImpl });
+      const report = await run("function", scripted("oi\n[FIM]"), fakeDoor({ status: "ok", reply: "oi", orderReady }).deliver, {
+        db: fakeDb({ conversationFor: async () => ({ id: CONV_ID, stage: "fechamento", cost_brl: 0 }) }),
+      });
+      await cleanupAfter(report, db);
+      const writes = (fetchImpl.mock.calls as unknown as Array<[string, RequestInit]>).filter(
+        ([, init]) => init.method !== undefined && init.method !== "GET",
+      );
+      expect(writes).toHaveLength(1);
+      const [url] = writes[0]!;
+      expect(url).toBe(
+        orderReady
+          ? `https://x.supabase.co/rest/v1/followups?conversation_id=eq.${CONV_ID}&status=eq.scheduled`
+          : `https://x.supabase.co/rest/v1/leads?phone=eq.${PHONE}`,
+      );
+    }
+  });
+
+  it("orderReady bloqueia o DELETE: a conversa fica no banco e só os followups dela são cancelados", async () => {
+    const deleteLead = vi.fn(async () => 1);
+    const cancelFollowups = vi.fn(async () => 2);
+    const db = fakeDb({
+      conversationFor: async () => ({ id: CONV_ID, stage: "fechamento", cost_brl: 0 }),
+      deleteLead,
+      cancelFollowups,
+    });
+    const report = await run(
+      "function",
+      scripted("quero\n[FIM]"),
+      fakeDoor({ status: "ok", reply: "fechado!", orderReady: true }).deliver,
+      { db },
+    );
+    const result = await cleanupAfter(report, db);
+    expect(deleteLead).not.toHaveBeenCalled();
+    expect(cancelFollowups).toHaveBeenCalledWith(CONV_ID);
+    expect(result).toEqual({ action: "kept_order_ready", canceledFollowups: 2 });
+  });
+
+  it("sem orderReady, apaga o lead daquele telefone, e só dele", async () => {
+    const deleteLead = vi.fn(async () => 1);
+    const cancelFollowups = vi.fn(async () => 0);
+    const db = fakeDb({ deleteLead, cancelFollowups });
+    const report = await run("function", scripted("oi\n[FIM]"), fakeDoor({ status: "ok", reply: "oi" }).deliver, { db });
+    const result = await cleanupAfter(report, db);
+    expect(deleteLead).toHaveBeenCalledTimes(1);
+    expect(deleteLead).toHaveBeenCalledWith(PHONE);
+    expect(cancelFollowups).not.toHaveBeenCalled();
+    expect(result).toEqual({ action: "deleted", deletedLeads: 1 });
+  });
+
+  it("o relatório guarda stage e turn_outcomes lidos antes de qualquer limpeza", async () => {
+    const report = await run("function", scripted("oi\n[FIM]"), fakeDoor({ status: "ok", reply: "oi" }).deliver);
+    expect(report.stage).toBe("conversando");
+    expect(report.turnOutcomes).toEqual([{ outcome: "send", reason: null }]);
+    expect(report.conversationId).toBe("conv-1");
   });
 
   it("porta n8n exige --i-know-this-is-production", () => {
@@ -329,12 +402,40 @@ describe("segurança", () => {
     ).toBe("n8n");
   });
 
-  it("argumentos: padrão local, 20 turnos, sem limpeza", () => {
+  it("argumentos: padrão local, 20 turnos, limpeza ligada; --keep-data desliga", () => {
     const args = parseArgs(["--persona=jussara", "--persona=tati"]);
-    expect(args).toMatchObject({ door: "local", personas: ["jussara", "tati"], maxTurns: 20, cleanup: false });
+    expect(args).toMatchObject({ door: "local", personas: ["jussara", "tati"], maxTurns: 20, cleanup: true });
     expect(parseArgs(["--all", "--cleanup", "--max-turns=5"])).toMatchObject({ personas: "all", cleanup: true, maxTurns: 5 });
+    expect(parseArgs(["--all", "--keep-data"]).cleanup).toBe(false);
+    expect(parseArgs(["--keep-data", "--all", "--cleanup"]).cleanup).toBe(false);
     expect(() => parseArgs([])).toThrow(/persona/);
     expect(() => parseArgs(["--door=prod", "--all"])).toThrow(/porta/);
+  });
+
+  it("nome de persona fora de ^[a-z-]+$ é recusado: nada de path traversal", () => {
+    for (const bad of ["../x", "a/b", "..", "persona-x/../../etc", "Jussara", "tati.md", "x "]) {
+      expect(() => parseArgs([`--persona=${bad}`]), bad).toThrow(/persona inválid/);
+    }
+    expect(parseArgs(["--persona=persona-jussara"]).personas).toEqual(["persona-jussara"]);
+  });
+
+  it("LOCAL_FUNCTION_URL fora do loopback é recusada antes de montar a requisição (a service key iria junto)", () => {
+    const base = { GEMINI_API_KEY: "g", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" };
+    for (const url of ["http://localhost:8000", "http://127.0.0.1:8000/", "http://[::1]:8000"]) {
+      expect(doorTarget("local", requireEnv({ ...base, LOCAL_FUNCTION_URL: url }, "local")).url).toBe(url);
+    }
+    for (const url of [
+      "http://192.168.0.10:8000",
+      "https://evil.example.com",
+      "http://localhost.evil.com:8000",
+      "http://127.0.0.1.nip.io:8000",
+      "http://127.0.0.1@evil.com:8000",
+      "http://0.0.0.0:8000",
+      "file:///etc/passwd",
+      "não é url",
+    ]) {
+      expect(() => doorTarget("local", requireEnv({ ...base, LOCAL_FUNCTION_URL: url }, "local")), url).toThrow(/loopback/);
+    }
   });
 
   it("falha alta e clara sem variável de ambiente, listando todas as que faltam", () => {

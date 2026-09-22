@@ -53,7 +53,7 @@ atendente desviar, não insista nesse cupom.
 ## Seus dados, se chegar a hora
 
 Se você decidir comprar: tamanho — você usa M, 38 de calça. Nome: Tatiane Rocha. Endereço:
-Rua Tuiuti 1450, apto 32, Tatuapé, São Paulo/SP, CEP 03081-000.
+Rua Tuiuti 9960, Tatuapé, São Paulo/SP, CEP 03081-000.
 
 ## Quando você para
 

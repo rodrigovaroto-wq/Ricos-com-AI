@@ -8,10 +8,24 @@
  *
  *   # door `local` — the function from DISK, against the production database.
  *   # Terminal 1: the function reads its own env (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
- *   # META_API_KEY, GEMINI_API_KEY, BUSINESS_CONFIG, ...) and listens on :8000.
- *   deno run --allow-net --allow-env --env-file=.env supabase/functions/turn/index.ts
- *   # Terminal 2 (LOCAL_FUNCTION_URL defaults to http://localhost:8000):
- *   pnpm dev:personas --door=local --persona=jussara --cleanup
+ *   # META_API_KEY, GEMINI_API_KEY, BUSINESS_CONFIG, ...) and listens on 127.0.0.1:8000.
+ *   DENO_SERVE_ADDRESS=tcp:127.0.0.1:8000 deno run --allow-env --env-file=.env \
+ *     --allow-net=127.0.0.1:8000,<ref>.supabase.co,generativelanguage.googleapis.com,api.llama.com,api.openai.com,app.coinzz.com.br,viacep.com.br \
+ *     supabase/functions/turn/index.ts
+ *   # Terminal 2 (LOCAL_FUNCTION_URL defaults to http://localhost:8000; only localhost,
+ *   # 127.0.0.1 or ::1 are accepted — the service key rides along):
+ *   pnpm dev:personas --door=local --persona=jussara
+ *
+ * WHY THE `local` COMMAND LOOKS LIKE THAT. `Deno.serve` in index.ts takes no hostname, so
+ * a bare `--allow-net` listens on 0.0.0.0:8000 with the production keys and without the
+ * Supabase gateway's `verify_jwt`: anyone on the network could POST a forged
+ * `{"job":"order",...}` with a real lead's phone. `DENO_SERVE_ADDRESS` moves the listener
+ * to loopback, and the explicit `--allow-net` list is the lock: it grants 127.0.0.1:8000
+ * and nothing else to listen on, so forgetting the variable fails closed (`NotCapable:
+ * Requires net access to "0.0.0.0:8000"`) instead of opening the port. The outbound
+ * hosts are every `fetch` in supabase/functions/turn/: SUPABASE_URL's host (replace
+ * `<ref>`), the three model providers, and Coinzz + ViaCEP from availability.ts. A new
+ * outbound host in the function must be added here, or its call fails with NotCapable.
  *
  *   # door `function` — the deployed Edge Function (fallback: proves code, not path)
  *   pnpm dev:personas --door=function --all
@@ -39,16 +53,25 @@
  * (door `n8n`), LOCAL_FUNCTION_URL (optional), USD_TO_BRL (optional). `pnpm` does not
  * load `.env`; export the variables or prefix with `node --env-file=.env`.
  *
- * Flags: --door=local|function|n8n (default local) · --persona=<nome> (repeatable) or
- * --all · --max-turns=N (default 20) · --cleanup (deletes leads with the synthetic
- * prefix at the end — every door writes to the production database) ·
+ * Flags: --door=local|function|n8n (default local) · --persona=<nome> (repeatable, only
+ * a-z and -) or --all · --max-turns=N (default 20) · --keep-data (skip the cleanup) ·
  * --out=<dir> (default data/persona-runs, git-ignored).
+ *
+ * CLEANUP IS ON BY DEFAULT, per persona, right after her conversation ends — every door
+ * writes to production, and each turn schedules a `silence_1` the production cron would
+ * send to a number that does not exist. `stage` and `turn_outcomes` are read into the
+ * report first: after the cleanup the report is all that is left. A conversation that
+ * flagged ORDER_READY is NOT deleted (it may be the only trace of a real order); its
+ * scheduled followups are canceled instead and its phone is listed at the end.
+ * `--keep-data` leaves every synthetic conversation in the production tables that
+ * measure the real funnel — use it only when someone will inspect and delete them.
  */
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createSeam } from "../llm/seam.js";
 import { geminiProvider } from "../llm/providers/gemini.js";
 import {
+  cleanupAfter,
   deliverOver,
   doorTarget,
   parseArgs,
@@ -57,8 +80,8 @@ import {
   renderMarkdown,
   requireEnv,
   runPersona,
-  SYNTHETIC_PHONE_PREFIX,
   syntheticPhone,
+  type CleanupResult,
   type PersonaModel,
 } from "./persona-run-core.js";
 
@@ -82,6 +105,7 @@ const outDir = join(args.outDir, `${stamp}-${args.door}`);
 await mkdir(outDir, { recursive: true });
 
 let failures = 0;
+const keptOrderReady: string[] = [];
 for (const name of names) {
   const persona = parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
 
@@ -115,20 +139,37 @@ for (const name of names) {
     maxTurns: args.maxTurns,
   });
 
-  const full = { ...report, personaCostBrl: spent };
+  let cleanup: CleanupResult | { action: "kept_by_flag" } | { action: "failed"; error: string } = {
+    action: "kept_by_flag",
+  };
+  if (args.cleanup) {
+    try {
+      cleanup = await cleanupAfter(report, db);
+    } catch (error) {
+      cleanup = { action: "failed", error: error instanceof Error ? error.message : String(error) };
+      failures += 1;
+    }
+  }
+  if (report.orderReady) keptOrderReady.push(report.phone);
+
+  const full = { ...report, personaCostBrl: spent, cleanup };
   await writeFile(join(outDir, `${name}.json`), JSON.stringify(full, null, 2));
   await writeFile(join(outDir, `${name}.md`), `${renderMarkdown(report)}\nCusto da persona: R$ ${spent.toFixed(4)}\n`);
   if (report.failure) failures += 1;
   console.log(
     `${report.failure ? "FALHOU" : "ok    "} ${name} — ${report.endReason}` +
-      `${report.orderReady ? " — ORDER_READY" : ""}${report.failure ? `: ${report.failure}` : ""}`,
+      `${report.orderReady ? " — ORDER_READY" : ""}${report.failure ? `: ${report.failure}` : ""}` +
+      ` — limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}`,
   );
 }
 
-if (args.cleanup) {
-  const deleted = await db.deleteLeadsByPrefix(SYNTHETIC_PHONE_PREFIX);
-  console.log(`limpeza: ${deleted} lead(s) com prefixo ${SYNTHETIC_PHONE_PREFIX} apagado(s)`);
+if (keptOrderReady.length) {
+  console.log(
+    `ORDER_READY: ${keptOrderReady.length} conversa(s) mantida(s) no banco, sem limpeza — ` +
+      `confira que nenhum pedido real nasceu: ${keptOrderReady.join(", ")}`,
+  );
 }
+if (!args.cleanup) console.log("--keep-data: as conversas sintéticas ficaram no banco de produção");
 
 console.log(`relatórios em ${outDir}`);
 if (failures) process.exitCode = 1;

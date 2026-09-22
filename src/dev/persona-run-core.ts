@@ -11,7 +11,7 @@ export const DOORS: readonly Door[] = ["local", "function", "n8n"];
 /**
  * Every phone the runner invents starts here. `55` is Brazil and `00` is not a DDD, so
  * no real WhatsApp number can ever collide with it. The cleanup DELETE refuses any
- * other prefix.
+ * phone that is not this prefix plus six digits.
  */
 export const SYNTHETIC_PHONE_PREFIX = "5500099";
 
@@ -70,6 +70,7 @@ export interface RunnerArgs {
   door: Door;
   personas: string[] | "all";
   maxTurns: number;
+  /** On by default: every door writes to production. `--keep-data` turns it off. */
   cleanup: boolean;
   outDir: string;
 }
@@ -79,7 +80,7 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   const personas: string[] = [];
   let all = false;
   let maxTurns = 20;
-  let cleanup = false;
+  let keepData = false;
   let production = false;
   let noOrders = false;
   let outDir = "data/persona-runs";
@@ -87,10 +88,15 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   for (const arg of argv) {
     const [flag, value] = arg.split(/=(.*)/s, 2) as [string, string | undefined];
     if (flag === "--door" && value) door = value;
-    else if (flag === "--persona" && value) personas.push(value);
+    else if (flag === "--persona" && value) {
+      // The name becomes a path under .claude/agents — no `/`, no `..`.
+      if (!/^[a-z-]+$/.test(value)) throw new Error(`persona inválida: ${value} (use só a-z e -)`);
+      personas.push(value);
+    }
     else if (flag === "--all") all = true;
     else if (flag === "--max-turns" && value) maxTurns = Number(value);
-    else if (flag === "--cleanup") cleanup = true;
+    else if (flag === "--cleanup") continue; // The default now; accepted so old commands still run.
+    else if (flag === "--keep-data") keepData = true;
     else if (flag === "--i-know-this-is-production") production = true;
     else if (flag === "--n8n-does-not-create-orders") noOrders = true;
     else if (flag === "--out" && value) outDir = value;
@@ -112,7 +118,7 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   if (!all && personas.length === 0) throw new Error("diga qual persona: --persona=<nome> (repetível) ou --all");
   if (!Number.isInteger(maxTurns) || maxTurns < 1) throw new Error(`--max-turns inválido: ${maxTurns}`);
 
-  return { door: door as Door, personas: all ? "all" : personas, maxTurns, cleanup, outDir };
+  return { door: door as Door, personas: all ? "all" : personas, maxTurns, cleanup: !keepData, outDir };
 };
 
 export interface RunnerEnv {
@@ -166,10 +172,25 @@ export interface DoorTarget {
   headers: Record<string, string>;
 }
 
+/** `URL.hostname` keeps the brackets on IPv6. */
+const LOOPBACK_HOSTS = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/** The `local` door sends the service key; anything off this machine is refused. */
+const requireLoopback = (raw: string): string => {
+  const url = URL.canParse(raw) ? new URL(raw) : null;
+  if (!url || !/^https?:$/.test(url.protocol) || url.username || url.password || !LOOPBACK_HOSTS.has(url.hostname)) {
+    throw new Error(
+      `LOCAL_FUNCTION_URL recusada: "${raw}" não é loopback (localhost, 127.0.0.1 ou ::1) — ` +
+        "a service key iria junto",
+    );
+  }
+  return raw;
+};
+
 export const doorTarget = (door: Door, env: RunnerEnv): DoorTarget => {
   const auth = { "Content-Type": "application/json", Authorization: `Bearer ${env.serviceKey}` };
   if (door === "function") return { url: `${env.supabaseUrl}/functions/v1/turn`, headers: auth };
-  if (door === "local") return { url: env.localUrl, headers: auth };
+  if (door === "local") return { url: requireLoopback(env.localUrl), headers: auth };
   if (!env.n8nUrl) throw new Error("N8N_INBOUND_URL faltando para a porta n8n");
   // The service key never goes to the webhook: n8n holds its own credential.
   return { url: env.n8nUrl, headers: { "Content-Type": "application/json" } };
@@ -205,28 +226,41 @@ export interface Db {
   /** Outbound bodies of the conversation, oldest first. */
   outbound: (conversationId: string) => Promise<string[]>;
   gateTraces: (conversationId: string) => Promise<unknown[]>;
-  deleteLeadsByPrefix: (prefix: string) => Promise<number>;
+  turnOutcomes: (conversationId: string) => Promise<unknown[]>;
+  /** Deletes the one lead with this exact synthetic phone; returns how many went. */
+  deleteLead: (phone: string) => Promise<number>;
+  /** Cancels the still-scheduled followups of one conversation; returns how many. */
+  cancelFollowups: (conversationId: string) => Promise<number>;
 }
 
 /**
- * The only DELETE the runner can build. Anything but the synthetic prefix throws before
- * a request exists — there is no path to an unfiltered delete.
+ * The only DELETE the runner can build: one exact synthetic phone. Anything else throws
+ * before a request exists — there is no path to an unfiltered or wildcard delete.
  */
-export const cleanupPath = (prefix: string): string => {
-  if (prefix !== SYNTHETIC_PHONE_PREFIX || !/^\d{7,}$/.test(prefix)) {
-    throw new Error(`limpeza recusada: prefixo "${prefix}" não é o sintético ${SYNTHETIC_PHONE_PREFIX}`);
+export const leadDeletePath = (phone: string): string => {
+  if (!new RegExp(`^${SYNTHETIC_PHONE_PREFIX}\\d{6}$`).test(phone)) {
+    throw new Error(`limpeza recusada: "${phone}" não é um telefone sintético (${SYNTHETIC_PHONE_PREFIX} + 6 dígitos)`);
   }
-  return `leads?phone=like.${prefix}*`;
+  return `leads?phone=eq.${phone}`;
+};
+
+/** The only PATCH the runner can build: one conversation's scheduled followups. */
+export const followupCancelPath = (conversationId: string): string => {
+  if (!/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId)) {
+    throw new Error(`cancelamento recusado: conversation_id "${conversationId}" não é um uuid`);
+  }
+  return `followups?conversation_id=eq.${conversationId}&status=eq.scheduled`;
 };
 
 /**
- * PostgREST over the service key. Indexes: `leads.phone` unique (lookup by phone);
- * `conversations_lead_idx`; `messages_conversation_idx (conversation_id, created_at)`;
- * `gate_traces_conversation_idx (conversation_id, created_at)`. The cleanup `like` on
- * `leads.phone` does NOT use the unique btree (non-C collation) — a sequential scan
- * over `leads`, run once per invocation and only with `--cleanup`. Deleting the lead
- * cascades to conversations, messages, followups, gate_traces, llm_calls, turn_outcomes
- * and orders.
+ * PostgREST over the service key. Indexes: `leads.phone` unique (lookup and the cleanup
+ * DELETE, both `eq` on the phone); `conversations_lead_idx`;
+ * `messages_conversation_idx (conversation_id, created_at)`;
+ * `gate_traces_conversation_idx (conversation_id, created_at)`;
+ * `turn_outcomes_conversation_idx (conversation_id, created_at)`; the followups PATCH
+ * uses the `unique (conversation_id, kind)` index by its leading column. Deleting the
+ * lead cascades to conversations, messages, followups, gate_traces, llm_calls,
+ * turn_outcomes and orders.
  */
 export const postgrestDb = (options: { url: string; key: string; fetchImpl?: typeof fetch }): Db => {
   const doFetch = options.fetchImpl ?? fetch;
@@ -265,9 +299,24 @@ export const postgrestDb = (options: { url: string; key: string; fetchImpl?: typ
         `gate_traces?conversation_id=eq.${conversationId}&select=gate,verdict,detail,created_at&order=created_at.asc`,
       );
     },
-    async deleteLeadsByPrefix(prefix) {
-      const path = cleanupPath(prefix);
+    async turnOutcomes(conversationId) {
+      return rest(
+        `turn_outcomes?conversation_id=eq.${conversationId}` +
+          "&select=outcome,reason,rewrites,cost_brl,created_at&order=created_at.asc",
+      );
+    },
+    async deleteLead(phone) {
+      const path = leadDeletePath(phone);
       const rows = await rest(path, { method: "DELETE", headers: { Prefer: "return=representation" } });
+      return rows.length;
+    },
+    async cancelFollowups(conversationId) {
+      const path = followupCancelPath(conversationId);
+      const rows = await rest(path, {
+        method: "PATCH",
+        headers: { Prefer: "return=representation" },
+        body: JSON.stringify({ status: "canceled" }),
+      });
       return rows.length;
     },
   };
@@ -301,8 +350,12 @@ export interface Report {
   endReason: string;
   failure: string | null;
   costBrl: number | null;
+  /** Null when the door never created a row. */
+  conversationId: string | null;
   stage: string | null;
   gateTraces: unknown[];
+  /** Read before the cleanup deletes them: after it, the report is all that is left. */
+  turnOutcomes: unknown[];
   /** Some body carried `orderReady: true` or a non-null `order` — see the file header. */
   orderReady: boolean;
 }
@@ -437,11 +490,13 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
 
   let stage: string | null = null;
   let gateTraces: unknown[] = [];
+  let turnOutcomes: unknown[] = [];
   const conversation = await db.conversationFor(phone).catch(() => null);
   if (conversation) {
     stage = conversation.stage;
     costBrl ??= conversation.cost_brl;
     gateTraces = await db.gateTraces(conversation.id).catch(() => []);
+    turnOutcomes = await db.turnOutcomes(conversation.id).catch(() => []);
   }
 
   return {
@@ -454,10 +509,31 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
     endReason,
     failure,
     costBrl,
+    conversationId: conversation?.id ?? null,
     stage,
     gateTraces,
+    turnOutcomes,
     orderReady,
   };
+};
+
+export type CleanupResult =
+  | { action: "deleted"; deletedLeads: number }
+  | { action: "kept_order_ready"; canceledFollowups: number };
+
+/**
+ * Runs right after one persona's conversation, so no `silence_1` from this run outlives
+ * it long enough for the production cron to text a number that does not exist.
+ *
+ * ORDER_READY is never deleted: that row may be the only local trace of an order someone
+ * has to go and check. It stays, with its scheduled followups canceled.
+ */
+export const cleanupAfter = async (report: Report, db: Db): Promise<CleanupResult> => {
+  if (report.orderReady) {
+    const canceledFollowups = report.conversationId ? await db.cancelFollowups(report.conversationId) : 0;
+    return { action: "kept_order_ready", canceledFollowups };
+  }
+  return { action: "deleted", deletedLeads: await db.deleteLead(report.phone) };
 };
 
 export const renderMarkdown = (report: Report): string => {

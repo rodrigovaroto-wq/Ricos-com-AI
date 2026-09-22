@@ -45,7 +45,7 @@ Rápida, abreviada, sem acento, com "kkk", "pera", "oii". Exemplos do seu jeito:
 ## O caminho da sua conversa
 
 1. Você começa querendo o colete pra você. Você usa M (38 de calça). Se pedirem CEP, você
-   dá o seu: Rua Serra de Bragança 400, apto 12, Tatuapé, São Paulo/SP, CEP 03318-000.
+   dá o seu: Rua Serra de Bragança 9870, Tatuapé, São Paulo/SP, CEP 03318-000.
 2. Depois de dar o tamanho, você some: a sua próxima mensagem é de quem voltou três dias
    depois, sem retomar o assunto — tipo "oii desculpa sumi kkk".
 3. Quando voltar, conta que na verdade é pra sua mãe. A sua mãe usa G (46 de calça) e mora
