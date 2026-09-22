@@ -463,6 +463,72 @@ const prepayWindowLine = (): string => {
   return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
 };
 
+/** Money, the way she writes it. Hoisted so the briefings below can use it too. */
+const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
+
+/**
+ * What she may say about the prepaid price, decided by config rather than by whoever
+ * last edited the prompt.
+ *
+ * Until 2026-09-22 the prompt asserted both things at once: "never offer a discount
+ * there, the two paths cost the same" in the tactics block, and "whoever pays up front
+ * gets 10% off" nine lines below. Both were fixed text, written on either side of the
+ * 2026-09-09 decision that zeroed the discount and the 2026-09-10 one that brought it
+ * back at 10%. A model reading a self-contradicting instruction resolves it by picking
+ * one, per conversation, which is the worst of the two outcomes.
+ */
+const prepayPriceLine = (): string =>
+  CONFIG.prices.prepayDiscountPercent > 0
+    ? `${money(CONFIG.prices.prepayBrl)} — ${CONFIG.prices.prepayDiscountPercent}% abaixo do preço da entrega`
+    : `${money(CONFIG.prices.prepayBrl)}, o mesmo preço da entrega`;
+
+/**
+ * Whether she may offer a discount on the prepaid path, and what she says instead.
+ *
+ * The rule is the same in both settings and it is the one that matters: the number comes
+ * from the shop, never from her. With a configured discount she states it; with none she
+ * refuses to invent one. What she may never do is concede — "eu tiro mais um pouquinho"
+ * is a price the shop does not have, and `price_promise` vetoes it either way.
+ */
+const prepayDiscountRule = (): string =>
+  CONFIG.prices.prepayDiscountPercent > 0
+    ? `**O desconto é o que está escrito acima e nada além dele:** ${CONFIG.prices.prepayDiscountPercent}%, ${money(CONFIG.prices.prepayBrl)}. Não arredonde, não tire "mais um pouquinho", não invente cupom — preço que a loja não tem é promessa que a porta cobra.`
+    : `**Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer desconto é preço que a loja não tem.`;
+
+/**
+ * What she may say about freight — read from `delivery.freeShipping`, with the exact
+ * `!== false` test the `shipping_promise` gate uses (`guardrails.ts`).
+ *
+ * The two must read the flag the same way or they disagree in the worst direction: until
+ * 2026-09-22 this paragraph was fixed text asserting free shipping on both paths while
+ * the gate already read the flag. The day the operator flips it in `BUSINESS_CONFIG`,
+ * every conversation would burn a rewrite on a sentence the prompt itself demanded — and
+ * a conversation that runs out of rewrites gets the safe canned reply instead of a sale.
+ *
+ * `!== false` and not `=== true` for the reason the `BUSINESS_CONFIG` trap teaches: a key
+ * absent from the secret arrives `undefined`, and the honest reading of an absent flag is
+ * the world as it is today — the Coinzz prepaid offer has no freight configured in any of
+ * the 27 states, so the checkout charges her zero.
+ */
+const freightBriefing = (): string[] =>
+  CONFIG.delivery.freeShipping !== false
+    ? [
+        `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
+        `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
+        `que você tem, e a cliente que já comprou por aí espera o contrário. O que você nunca`,
+        `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
+        `de entrega.`,
+      ]
+    : [
+        `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
+        `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
+        `${money(CONFIG.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
+        `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
+        `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
+        `grátis, nunca prometa que é barato. Se ela citar economia entre os dois caminhos, a`,
+        `ressalva do frete sai na mesma frase — economia de produto não é economia final.`,
+      ];
+
 /**
  * What the agent is allowed to say about urgency, decided by config rather than by the
  * model's instincts. Three settings, and the difference between them is who is
@@ -504,7 +570,6 @@ const systemPrompt = (
   identityDirective: string | null = null,
   checkoutDirective: string | null = null,
 ): string => {
-  const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
   return [
     `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
     `calor e sem jargão de marketing. Nunca afirma ser uma pessoa; se perguntarem, diz que é a`,
@@ -552,11 +617,9 @@ const systemPrompt = (
     `  e decisão a mais é venda a menos.`,
     `— **O pagamento antecipado é uma SAÍDA, não uma opção.** Ele só entra quando a`,
     `  entrega não alcança o CEP dela ou o tamanho dela não sai naquela região. Aí ele é`,
-    `  boa notícia, e você o apresenta assim: mesmo preço de`,
-    `  ${money(CONFIG.prices.prepayBrl)}, frete grátis do mesmo jeito, chega em qualquer`,
+    `  boa notícia, e você o apresenta assim: ${prepayPriceLine()}, chega em qualquer`,
     `  lugar do país. ${prepayWindowLine().replace(/,$/, ".")}`,
-    `  **Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer`,
-    `  desconto é preço que a loja não tem.`,
+    `  ${prepayDiscountRule()}`,
     ``,
     `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
     `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,
@@ -570,15 +633,10 @@ const systemPrompt = (
     `Preço: ${money(CONFIG.prices.codBrl)} pago na entrega ao entregador, em dinheiro ou`,
     `cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax} dias,`,
     `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
-    `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
-    `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
-    `${prepayWindowLine()} — as duas metades saem na mesma frase.`,
+    `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes paga`,
+    `${prepayPriceLine()}, ${prepayWindowLine()} — as duas metades saem na mesma frase.`,
     ``,
-    `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
-    `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
-    `que você tem, e a cliente que já comprou por aí espera o contrário. O que você nunca`,
-    `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
-    `de entrega.`,
+    ...freightBriefing(),
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
     `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,

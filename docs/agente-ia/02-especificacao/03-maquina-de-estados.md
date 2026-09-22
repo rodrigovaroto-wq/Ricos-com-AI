@@ -1,5 +1,22 @@
 # Máquina de estados da conversa
 
+> **Status em 2026-09-22 — leia antes de confiar nesta página.** Os dez estágios abaixo
+> **existem em código** (`src/agent/state-machine.ts`: `STAGES`, `TRANSITIONS`,
+> `canTransition`, `transition`) e são exercitados por `tests/state-machine.test.ts` e pelo
+> simulador `src/dev/engine.ts`. **Mas o turno de produção nunca escreve o estágio.**
+>
+> `conversations.stage` nasce `'discovery'` (`0001_init.sql:22`) — valor que **não está**
+> na lista — e permanece assim para sempre. O único `stage` que o handler grava é o de
+> `gate_traces` (`"presale"` / `"logistics"`), que é outro campo com o mesmo nome.
+>
+> **Consequência: não existe funil.** Não dá para perguntar quantas conversas chegaram em
+> `tamanho_definido` e morreram antes de `endereco_coletado`.
+>
+> Corrigir isso é o item **3.7** do
+> [plano de execução](../05-plano/02-plano-de-execucao-ate-os-testes-reais.md), decidido em
+> [R11.8](../../documentacao/decisoes/03-decisoes-tomadas.md#r118--instrumentação-antes-do-tráfego-o-funil-e-o-desfecho-do-turno),
+> e é **urgente por prazo**: conversa que já aconteceu não se instrumenta depois.
+
 Precisamos saber em que ponto cada conversa parou — para retomar de onde estava, para
 medir, e para o follow-up não recomeçar do zero.
 
@@ -7,7 +24,7 @@ Referência de **forma**, não de conteúdo: DeskcommCRM → `agent/lead-state.t
 (`LEAD_STAGES`), :35 (`LEAD_STAGE_TRANSITIONS`), :45 (`isValidTransition`).
 O funil dele é B2B com BANT. O nosso é COD B2C de R$ 129,90 — **os estágios são outros.**
 
-## Proposta de estágios
+## Os estágios (em código desde 2026-09-07)
 
 ```
 novo

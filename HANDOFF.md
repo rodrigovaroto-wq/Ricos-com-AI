@@ -137,6 +137,60 @@ que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produç
 
 ---
 
+## Arquitetura decidida, e quatro achados de código (2026-09-22)
+
+O operador apresentou uma arquitetura de referência em closed loop (n8n → LLM → Supabase →
+Evaluation Layer → Hermes → Sandbox → melhoria validada) e pediu avaliação contra o
+repositório, sem tratá-la como decisão tomada. A análise inteira está em
+[`docs/agente-ia/05-plano/04-analise-de-arquitetura.md`](docs/agente-ia/05-plano/04-analise-de-arquitetura.md);
+as decisões que saíram dela são a
+[rodada 11](docs/documentacao/decisoes/03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22).
+
+**A conclusão:** a metade de cima da proposta **já é o sistema**. A metade de baixo falta
+por um motivo que não é arquitetural — **o sistema decide bem e não registra a decisão.**
+
+**Decidido (rodada 11), em uma linha cada:**
+
+- **R11.1** — o runtime é Workflow + LLM com auto-reflexão. **Não vai virar agentic**: o
+  modelo só escreve texto, toda ação é TypeScript determinístico.
+- **R11.2** — Hermes é supervisor **offline**, em lote, nunca no caminho do turno.
+- **R11.3** — a Evaluation Layer são **views SQL + um job**, não um serviço.
+- **R11.4** — **sem RAG.** A base tem 104 linhas e já cabe no prompt.
+- **R11.5** — memória é **coluna `jsonb`** em `leads`, não vector store.
+- **R11.6** — o closed loop **fecha num humano**. Nunca auto-aplicação.
+- **R11.7** — o Sandbox **não será construído**: ele é o CI deste repositório.
+- **R11.11** — **recusado**: "regras" dentro do n8n. Continua sendo cano e relógio.
+
+### Os quatro achados — um corrigido, três abertos
+
+| | Achado | Estado |
+|---|---|---|
+| **A** | O system prompt se contradizia sobre desconto e afirmava "O FRETE É GRÁTIS nos dois caminhos" como texto fixo, **sem ler `delivery.freeShipping`** — que o gate `shipping_promise` lê desde 10/09 | ✅ **corrigido em 22/09, não deployado** |
+| **B** | `conversationCapBrl` tem **três valores** no repositório: 1,5 (config, decisão R10.1) · 0,8 (fallback da Edge Function e harness de dev) · 0,50 (raciocínio de modelo neste arquivo, anterior a R10.1 e **não é teto de conversa**) | ⏳ item 3.3 do plano |
+| **C** | `conversations.stage` nasce `'discovery'` — valor fora de `STAGES` — e **nunca é escrito**. Não existe funil | ⏳ item 3.7, **urgente por prazo** |
+| **D** | O desfecho do turno (`send`/`fallback`/`deferred`/`handoff`/`stopped`) viaja no corpo HTTP e **nunca é persistido**. A taxa de fallback é irrecuperável | ⏳ item 3.8, **urgente por prazo** |
+
+**C e D são urgentes por prazo, não por gravidade:** conversa que já aconteceu não se
+instrumenta depois, e a fase 7 do plano começa a gerar conversas reais.
+
+### O achado A, corrigido — o que mudou e o que não mudou
+
+Três funções novas em `index.ts`, ao lado de `prepayWindowLine`: `prepayPriceLine()`,
+`prepayDiscountRule()` e `freightBriefing()`. O prompt passa a ler
+`prices.prepayDiscountPercent` e `delivery.freeShipping`, este último com **o mesmo teste
+`!== false`** que o gate usa — de propósito, porque chave ausente no secret precisa
+significar "grátis", que é a verdade de hoje.
+
+**Nada mudou de comportamento hoje.** Com o secret como está, o prompt gerado é o anterior
+menos a contradição do desconto. O que muda é o dia do `freeShipping: false`: antes o gate
+vetaria uma frase que o prompt mandava escrever, em toda conversa, queimando uma reescrita
+por turno até cair na resposta segura. Agora os dois concordam.
+
+**Verificado:** `pnpm test` (2824), `pnpm lint`, `pnpm typecheck`, `pnpm typecheck:function`
+— os quatro verdes. **Não deployado.**
+
+---
+
 ## Recepção automática e o timer de 2 minutos (2026-09-21)
 
 Decisão do operador: a agente muda de nome, de **Malu** para **Valen** (feito — código e
@@ -440,6 +494,13 @@ Seis coisas, todas verificadas pela porta de produção e não por teste:
    Antes de mexer numa, sonde a frase negada **e** a negativa que não nega.
 6. **Verificar pela porta de produção.** Sonda contra a Edge Function prova o código, não o
    caminho. O webhook do n8n já devolveu 200 sem criar conversa nenhuma por um dia inteiro.
+7. **O system prompt não é coberto por teste nenhum.** `systemPrompt()` vive inline no
+   `index.ts` e nenhum teste o executa ou lê — `function-drift.test.ts` prende os espelhos
+   e a tabela `PRICES`, não uma linha do prompt. Foi assim que ele passou doze dias
+   afirmando duas coisas contrárias sobre desconto e prometendo frete grátis que o gate já
+   sabia condicional. → **Toda regra de negócio citada no prompt tem que ler o config, com
+   o mesmo teste que o gate correspondente usa.** Antes de mexer em preço, frete ou prazo,
+   leia o prompt junto do gate: são a mesma promessa escrita duas vezes.
 
 ### Decisões de 2026-09-10: preço, frete e modelo de conversa
 
@@ -641,8 +702,14 @@ registro):
   quanto Luna ou recusa menos gate. **Isso continua em aberto até alguém rodar o eval com
   credencial de verdade**, de preferência antes do próximo deploy, e certamente antes de
   confiar no resultado.
-- **`conversationCapBrl` (0,80) continua sem reconciliar com o teto de R$ 0,50/lead.**
-  Nenhuma troca de modelo resolve isso sozinha.
+- **`conversationCapBrl` continua sem reconciliar — e são três números, não dois**
+  (corrigido em 2026-09-22, achado B): **1,5** em `config/business.example.json`, que é a
+  decisão R10.1 de 21/09 e a correta; **0,8** no fallback da Edge Function e no harness de
+  dev, que é o valor antigo de R7.3; e **R$ 0,50 por lead**, citado abaixo e nos itens
+  desta frente. Este último **nunca foi teto de conversa** — era o orçamento por lead usado
+  para *escolher modelo*, e é anterior a R10.1. Onde as duas coisas se confundirem neste
+  arquivo, R10.1 vence. Nenhuma troca de modelo resolve isso sozinha; a ação é alinhar o
+  fallback do código, e é o item 3.3 do plano.
 
 **O que a decisão compra, quando o eval confirmar:** dentro do teto de R$ 0,50 por lead /
 20 mensagens, Muse Spark tem o maior Intelligence Index (53,0) com folga real — R$ 0,32

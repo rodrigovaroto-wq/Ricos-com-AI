@@ -2,7 +2,15 @@
 
 > Escrita em 2026-09-22, a pedido do operador, contra a proposta de arquitetura híbrida do
 > guia *Arquiteturas de Agentes de IA* (11 arquétipos + a referência híbrida da página 3).
-> **Nada foi implementado.** Este documento avalia; a decisão é do operador.
+> **Resolvido em 2026-09-22.** O operador acolheu as recomendações deste documento, e elas
+> viraram a [**rodada 11** do log de decisões](../../documentacao/decisoes/03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22)
+> — R11.1 a R11.11. Este arquivo continua sendo o **raciocínio** por trás delas: o log
+> registra o quê, aqui está o porquê, com os contra-argumentos que foram pesados.
+>
+> **Uma exceção ao "nada foi implementado": o achado A foi corrigido** na mesma sessão, por
+> decisão do operador — o system prompt passou a ler o config. Ver
+> [R11.9](../../documentacao/decisoes/03-decisoes-tomadas.md#r119--o-system-prompt-passa-a-ler-o-config-corrigido-nesta-sessão).
+> Os achados B, C e D continuam abertos, como os itens 3.3, 3.7 e 3.8 do plano.
 >
 > Contexto de execução: [`02-plano-de-execucao-ate-os-testes-reais.md`](02-plano-de-execucao-ate-os-testes-reais.md).
 
@@ -20,7 +28,7 @@ qualquer diagrama:
 
 | # | Achado | Consequência |
 |---|---|---|
-| **A** | O system prompt **contradiz a si mesmo** sobre desconto, e hardcoda "O FRETE É GRÁTIS nos dois caminhos" sem ler `freeShipping` | No dia em que `freeShipping: false` subir, o gate veta uma frase que o prompt **manda** escrever. Loop de reescrita em toda conversa |
+| **A** ✅ | O system prompt **contradizia a si mesmo** sobre desconto, e hardcodava "O FRETE É GRÁTIS nos dois caminhos" sem ler `freeShipping` | No dia em que `freeShipping: false` subisse, o gate vetaria uma frase que o prompt **manda** escrever. **Corrigido em 22/09** — R11.9 |
 | **B** | `conversationCapBrl` tem **três valores diferentes** no repositório: 1,5 · 0,8 · 0,50 | O teto de custo que a produção aplica não é o que o operador decidiu |
 | **C** | `conversations.stage` nasce `'discovery'` — valor que **não existe** em `STAGES` — e **nunca é escrito** | Não existe funil. A máquina de estados roda em teste e em simulador, não em produção |
 | **D** | O desfecho do turno (`send` · `fallback` · `deferred` · `handoff` · `stopped`) viaja no corpo HTTP e **nunca é persistido** | A taxa de fallback — a métrica de qualidade mais importante do sistema — é irrecuperável depois do fato |

@@ -1,5 +1,34 @@
 # Ferramentas do agente
 
+> **Status em 2026-09-22: nenhuma das onze tools abaixo existe em produção, e a decisão
+> sobre adotá-las ou não está adiada.** Registrado aqui para que a próxima sessão não leia
+> esta página como descrição do sistema — três sessões já leram.
+>
+> **O que o sistema faz hoje, em vez disto:** o modelo **só escreve texto**. Não há
+> tool-calling em `supabase/functions/turn/index.ts`. Toda ação que esta página descreve
+> como tool é TypeScript determinístico chamado **pela função, não pelo modelo**:
+>
+> | Tool proposta aqui | Onde a ação realmente mora hoje |
+> |---|---|
+> | `send_message` | a resposta do modelo passa por `runGates` e sai pelo corpo HTTP; o n8n envia |
+> | `recommend_size` | `src/agent/sizing.ts` — `extractDressSize` + `sizeFromDressSize`, sobre a tabela publicada |
+> | `search_knowledge` | não existe: a base de conhecimento está inline no system prompt (R11.4) |
+> | `update_lead_state` | não existe: `conversations.stage` nunca é escrito — ver [`03-maquina-de-estados.md`](03-maquina-de-estados.md) |
+> | `build_prefilled_checkout_link` | `src/agent/coinzz.ts` — `buildCheckoutLink`, `buildCoinzzRequest` |
+> | `save_lead_fact` | **não existe** — é a lacuna real de memória, decidida em R11.5 como coluna `jsonb`, não como tool |
+> | `schedule_followup` | `src/agent/followups.ts` — a régua inteira, determinística |
+> | `request_human_handoff` | `wantsHuman` por regex no inbound, sem chamar o modelo — a "segunda via" que esta página pedia virou a via única |
+> | `get_lead_context` · `get_order_status` | não existem: o contexto é montado pela função antes da chamada |
+>
+> **Por que o desenho sem tools foi mantido** — e por que reabrir isto exige motivo novo:
+> ver [R11.1](../../documentacao/decisoes/03-decisoes-tomadas.md#r111--o-runtime-é-workflow--llm-com-auto-reflexão-e-não-vai-virar-agentic).
+> Em resumo: tool-calling trocaria código determinístico e testado por escolha do modelo,
+> num funil cuja falha típica é uma promessa que custa o frete inteiro.
+>
+> **A decisão de adotar ou arquivar esta spec fica para depois do primeiro tráfego real.**
+> O que precisaria ser verdade para reabrir: a função passar a ter caminhos demais para o
+> código decidir sozinho, ou um segundo produto no catálogo.
+
 Conjunto mínimo derivado do mapa funcional. **Proposta de escopo, não decisão de
 implementação** — a forma final depende do runtime escolhido.
 

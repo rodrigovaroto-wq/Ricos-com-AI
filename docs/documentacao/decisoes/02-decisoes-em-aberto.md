@@ -11,6 +11,14 @@ trade-offs. As respostas do operador estão em
 > **não** subir antes da decisão estão em
 > [`04-frete-e-desconto-do-antecipado.md`](04-frete-e-desconto-do-antecipado.md).
 
+> **Fechado em 2026-09-22 (rodada 11):** os quatro itens que ainda estavam em aberto —
+> **3** (runtime), **4** (memória), **10** (base de conhecimento) e **11** (orquestração de
+> follow-up). Os quatro já tinham sido respondidos **de fato pelo código** meses antes, e
+> ninguém tinha marcado. A rodada 11 tornou a escolha explícita e escreveu o porquê. Ver
+> [`03-decisoes-tomadas.md` §Rodada 11](03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22)
+> e a análise que a originou em
+> [`../../agente-ia/05-plano/04-analise-de-arquitetura.md`](../../agente-ia/05-plano/04-analise-de-arquitetura.md).
+
 Mantemos a pauta inteira porque as alternativas descartadas explicam por que a escolhida
 faz sentido, e porque algumas voltarão à mesa quando houver dado real.
 
@@ -18,17 +26,17 @@ faz sentido, e porque algumas voltarão à mesa quando houver dado real.
 
 | # | Decisão | Status |
 |---|---|---|
-| 1 | Transporte de WhatsApp | ✅ **WAHA** |
+| 1 | Transporte de WhatsApp | ✅ **WhatsApp Cloud API** — era WAHA; trocado em 2026-09-21 |
 | 2 | Onde o sistema roda | ✅ **VPS 24/7** |
-| 3 | Runtime do agente | ⏳ em aberto |
-| 4 | Memória | ⏳ em aberto |
+| 3 | Runtime do agente | ✅ **Workflow + LLM com auto-reflexão, sem tool-calling** (R11.1) |
+| 4 | Memória | ✅ **coluna estruturada, sem vector store** (R11.5) |
 | 5 | Onde o pedido nasce | ✅ **COD sem checkout; antecipado por link pré-preenchido** |
 | 6 | PIX na conversa e desconto | ✅ **antecipado com 10%, ofertado antes de finalizar** |
 | 7 | Número de telefone | ✅ **número novo** |
 | 8 | Handoff humano | ✅ **para e notifica; operador assume** |
 | 9 | Disclosure | ✅ **vendedora da Encorpa** — copy do site ainda pendente |
-| 10 | Base de conhecimento | ⏳ em aberto |
-| 11 | Orquestração de follow-up | ⏳ em aberto |
+| 10 | Base de conhecimento | ✅ **injetada no prompt, sem RAG** (R11.4) |
+| 11 | Orquestração de follow-up | ✅ **tabela própria + cron do n8n** (R11.11) |
 | 12 | Escopo do primeiro corte | ✅ **pré-venda → pós-pedido → carrinho → follow-up** |
 | 13 | Tamanho com medidas divergentes | ✅ **o maior dos dois** |
 | 14 | Cobrança de inadimplente | ⏳ adiada por decisão |
@@ -69,7 +77,19 @@ sem resposta e véspera de entrega não avisada.
 
 **Impacto:** é a primeira decisão, porque as outras dependem dela.
 
-## 3. Runtime do agente
+## 3. Runtime do agente ✅
+
+> **Resolvido em R11.1: nenhuma das quatro.** O runtime virou uma Edge Function Deno
+> chamando o endpoint do provedor por HTTP direto — mais perto de (a) que de qualquer
+> outra, mas sem SDK. E a pauta não previa o que aconteceu: **o loop que se temia
+> reimplementar veio de graça junto do gate.** A cadeia de guardrails devolve o motivo do
+> veto ao modelo e ele reescreve, o que é exatamente o "loop, tools, retry" da coluna de
+> desvantagem — construído por outro motivo, e melhor, porque o critério de parada é uma
+> regra de negócio testada e não um limite de iteração.
+>
+> **O que a pauta acertou:** (d) n8n foi recusado pelo motivo que ela já dava — *"lógica em
+> JSON: difícil versionar, testar e revisar"*. Reafirmado em R11.11.
+
 
 **Opções:** (a) SDK da OpenAI direto, como `CLAUDE.md` declara · (b) Vercel AI SDK ·
 (c) Mastra · (d) n8n.
@@ -81,7 +101,14 @@ sem resposta e véspera de entrega não avisada.
 | Mastra | Memória, workflows, `suspend/resume`, processadores e scorers prontos | Framework opinativo, churn de versão |
 | n8n | Visual, rápido de prototipar, `sendAndWait` pronto | Lógica em JSON: difícil versionar, testar e revisar — colide com `CLAUDE.md` |
 
-## 4. Memória
+## 4. Memória ✅
+
+> **Resolvido em R11.5: opção (a), colunas estruturadas.** A `[INFERÊNCIA]` abaixo estava
+> certa e virou decisão — *"um vector store para lembrar oito campos é infra que não se
+> paga"*. O fato durável do lead (medo declarado, evento, restrição) vira uma coluna
+> `jsonb` em `leads`, escrita por extrator determinístico. Sem mem0, sem working memory
+> editável pelo modelo, sem embeddings.
+
 
 **Opções:** (a) colunas estruturadas · (b) working memory (bloco editável pelo agente) ·
 (c) mem0.
@@ -146,7 +173,15 @@ recomendado]** · (c) humano atende a primeira mensagem e o agente assume depois
 **Impacto:** é regra de confiança com um público cuja objeção nº 1 é golpe. Também é a
 única decisão desta lista que **mexe no site**.
 
-## 10. Base de conhecimento
+## 10. Base de conhecimento ✅
+
+> **Resolvido em R11.4: opção (a), injetada no prompt.** A base tem 104 linhas e cabe com
+> folga. A suspeita abaixo — *"com ~8 fatos e 4 objeções, (b) é provavelmente
+> desproporcional"* — confirmou-se, e (b) RAG foi recusado por um motivo a mais: introduz
+> um modo de falha (recuperação que falha) que a arquitetura inteira existe para evitar.
+> **A (c) continua sendo o próximo passo certo** se a base crescer além de ~2000 linhas —
+> matcher determinístico, testável, com o prefixo do prompt cacheável.
+
 
 **Opções:** (a) JSON/Markdown injetado no prompt · (b) RAG com embeddings · (c) skills com
 matcher determinístico e disclosure progressivo (DeskcommCRM → `agent/skills.ts` :2–22).
@@ -154,7 +189,14 @@ matcher determinístico e disclosure progressivo (DeskcommCRM → `agent/skills.
 Com ~8 fatos e 4 objeções, (b) é provavelmente desproporcional. A (c) tem a vantagem de
 manter o prefixo do prompt cacheável.
 
-## 11. Orquestração de follow-up
+## 11. Orquestração de follow-up ✅
+
+> **Resolvido na prática, registrado em R11.11: (a) e (c) juntos.** A tabela `followups`
+> com `unique (conversation_id, kind)` guarda os toques e a régua é código testado
+> (`followups.ts`); o cron de 5 em 5 minutos do n8n é o relógio que chama
+> `{ job: "followups" }`. A regra mais valiosa da operação — a confirmação pós-pedido —
+> ficou **no código**, não no n8n, que é o ponto que esta decisão precisava garantir.
+
 
 **Opções:** (a) tabela + worker próprios · (b) n8n · (c) cron simples.
 

@@ -839,9 +839,9 @@ descreve a operação da Encorpa**, e o próprio operador registrou que o materi
 tratado como verdade sobre o produto.
 
 O diagnóstico item a item está em
-[`../06-script/01-diagnostico-do-script-atual.md`](../06-script/01-diagnostico-do-script-atual.md)
+[`../../agente-ia/06-script/01-diagnostico-do-script-atual.md`](../../agente-ia/06-script/01-diagnostico-do-script-atual.md)
 e o script reescrito em
-[`../06-script/02-script-do-agente.md`](../06-script/02-script-do-agente.md).
+[`../../agente-ia/06-script/02-script-do-agente.md`](../../agente-ia/06-script/02-script-do-agente.md).
 
 **Três dos quatro áudios precisam ser regravados** — o roteiro dos novos está no script. O
 áudio 2 (conforto e material) é aproveitável quase inteiro.
@@ -1168,3 +1168,227 @@ que o operador tem para decidir com folga menor a considerar.
 [`02-script-do-agente.md`](../../agente-ia/06-script/02-script-do-agente.md) (copy da
 agente), `config/business.example.json` (já estava correto — `prepayBrl: 116.91`,
 `prepayDiscountPercent: 10`).
+
+---
+
+# Rodada 11 — arquitetura do sistema (2026-09-22)
+
+Decisões do operador sobre a arquitetura, tomadas depois da análise da proposta de
+arquitetura em closed loop (Evaluation Layer · Hermes · Sandbox) contra este código. A
+análise inteira, com o raciocínio, os contra-argumentos e os quatro achados de código que
+a motivaram, está em
+[`../../agente-ia/05-plano/04-analise-de-arquitetura.md`](../../agente-ia/05-plano/04-analise-de-arquitetura.md).
+
+**O que originou a rodada:** o operador apresentou uma arquitetura de referência
+(n8n → LLM/Agente → Supabase → Evaluation → Hermes → Sandbox → closed loop) e pediu
+avaliação contra o repositório, explicitamente **sem tratá-la como decisão já tomada**. A
+avaliação concluiu que a metade de cima já é o sistema e a metade de baixo falta por um
+motivo que não é arquitetural: **o sistema decide bem e não registra a decisão.**
+
+## R11.1 — O runtime é Workflow + LLM com auto-reflexão, e não vai virar agentic
+
+**Decisão:** o desenho atual é o desenho escolhido, e passa a ser declarado como tal.
+O modelo **só escreve texto**; toda ação — tamanho, endereço, identidade, cobertura,
+checkout, régua — é TypeScript determinístico em volta da chamada. O loop de reescrita
+(`index.ts`, §7 do turno) é auto-reflexão: o gate veta, o motivo volta ao modelo no system
+prompt, ele reescreve, e o texto vetado nunca entra no histórico da conversa.
+
+**Por que não agentic (tool-calling):** trocaria código determinístico e testado por
+escolha do modelo, num funil cuja falha típica é uma promessa que custa o frete inteiro.
+Não há ganho mensurável a comprar com essa variância.
+
+**Fecha:** o item 3 da pauta em [`02-decisoes-em-aberto.md`](02-decisoes-em-aberto.md)
+(runtime do agente). A resposta de fato foi (a) — chamada HTTP direta, sem framework —
+e nenhuma das quatro opções originais previa que o loop viria de graça junto do gate.
+
+## R11.2 — Hermes é supervisor offline, nunca componente de turno
+
+**Decisão:** Hermes lê em lote, fora do caminho da conversa, e escreve em
+`hermes_proposals`. Nunca é chamado durante um turno.
+
+**Por quê, com número:** dentro do turno seria uma terceira chamada de modelo (já são
+duas: Gemini para intenção, Muse para a resposta) num funil com teto de R$ 1,50 por
+conversa e ritmo de resposta calculado em milissegundos por `pacing.ts`. Custo e latência,
+sem ganho — a análise do supervisor não precisa ser síncrona para ser útil.
+
+**O schema já sabia disso:** `hermes_proposals.leads_seen` só faz sentido para análise
+sobre uma amostra acumulada. A decisão estava implícita na migração `0001_init.sql` desde
+o começo; esta rodada só a torna explícita.
+
+## R11.3 — A Evaluation Layer são views SQL e um job, não um serviço
+
+**Decisão:** medição objetiva de qualidade entra como **views no Postgres do Supabase mais
+um job de cron**. Não é processo novo, não é serviço novo, não é deploy novo.
+
+**Por quê:** um serviço separado é uma credencial nova para rotacionar, um deploy novo
+para divergir do repositório — e divergência de deploy já é armadilha registrada aqui
+([`.claude/memory/edge-function-drift.md`](../../../.claude/memory/edge-function-drift.md)).
+As métricas são determinísticas e saem de SQL puro. Se um dia precisar de rosto, é uma
+página estática como as duas que já existem em `docs/operacao/`.
+
+**O que já dá para medir hoje, sem instrumentação nova:** taxa de bloqueio por gate
+(`gate_traces`), reescritas por resposta enviada (`llm_calls.purpose`), custo e latência
+por conversa (`llm_calls`), handoff (`leads.handoff_at`), opt-out (`leads.opted_out_at`),
+conversão bruta (`orders` ÷ `leads`), mix COD × antecipado (`orders.payment_method`),
+toques enviados e cancelados (`followups.status`).
+
+## R11.4 — Não haverá RAG. A base de conhecimento continua no prompt
+
+**Decisão:** sem embeddings, sem vector store, sem `pgvector`.
+
+**Três razões, em ordem de peso:**
+
+1. A base de conhecimento tem **104 linhas** e já cabe — e já está — no system prompt.
+   RAG resolve conhecimento que não cabe no contexto; este cabe com folga.
+2. RAG introduz um modo de falha que hoje não existe. Numa arquitetura cuja tese é
+   "determinístico onde der", trocar texto fixo e testado por recuperação probabilística
+   é andar para trás.
+3. Se a base crescer, a resposta não é RAG — é o **matcher determinístico** que a spec de
+   tools já propôs como alternativa barata. Ele é testável do jeito que este repositório
+   testa; RAG não é.
+
+**Quando reabrir:** base acima de ~2000 linhas, ou catálogo com mais de um produto.
+Nenhuma das duas está no horizonte.
+
+**Fecha:** o item 10 da pauta (base de conhecimento) — a opção escolhida foi (a),
+injetada no prompt, com (c) nomeada como o próximo passo se e quando crescer.
+
+## R11.5 — Memória é coluna estruturada, não camada
+
+**Decisão:** o fato durável do lead — o medo declarado, o evento pelo qual ela quer o
+produto, a restrição que ela mencionou — vira **uma coluna `jsonb` em `leads`**, escrita
+pelo mesmo tipo de extrator determinístico que já existe para tamanho e endereço.
+
+**O que isso não é:** não é vector store, não é serviço de memória, não é working memory
+editável pelo modelo. A pauta original (item 4) já suspeitava disso em
+`[INFERÊNCIA]`: *"um vector store para lembrar oito campos é infra que não se paga"*.
+A suspeita estava certa e passa a ser decisão.
+
+**Por que vale a pena mesmo assim:** hoje esses fatos vivem em `messages` e morrem quando
+a janela de contexto trunca. O sintoma é a agente perguntar duas vezes a mesma coisa —
+o atrito nº 1 da rubrica das personas de teste.
+
+**Fecha:** o item 4 da pauta (memória), na opção (a).
+
+## R11.6 — O closed loop fecha num humano. Nunca auto-aplicação
+
+**Decisão:** automatizar **executar → registrar → avaliar → detectar → propor → testar**.
+**Nunca** automatizar **validar → implementar**.
+
+A proposta vira um pull request, ou uma linha em `hermes_proposals` com
+`status='proposed'`, e o operador aceita ou recusa. Continua sendo um loop; só não é um
+loop sem ninguém dentro.
+
+**Três razões, e a terceira é estrutural:**
+
+1. **Exposição regulatória real.** O produto tem apelo de corpo e saúde; a venda é COD,
+   com direito de arrependimento do CDC; o dado é pessoal, com LGPD. Cada um dos 19 gates
+   existe por causa de uma promessa que custa dinheiro ou expõe a operação.
+2. **O histórico deste repositório.** `freeShipping` foi criado com 2.738 testes verdes e
+   o deploy dado como concluído — e reinstalou um veto em produção. Testes verdes já não
+   bastaram aqui.
+3. **A arquitetura já bloqueia isso fisicamente, e isso é uma qualidade.** O
+   `BUSINESS_CONFIG` é um secret que **só o operador consegue escrever** — não é legível
+   nem gravável pela API de gerência. **Não remova essa barreira para viabilizar o loop.**
+
+## R11.7 — O Sandbox não será construído: ele é o CI deste repositório
+
+**Decisão:** o passo de validação do loop é literalmente
+`pnpm test && pnpm dev:conversas && pnpm typecheck:function`, mais as doze personas de
+teste interno quando existirem.
+
+**Por quê:** um Sandbox que não seja o CI cria duas verdades, e uma delas fica
+desatualizada. O repositório já tem esse ferimento — a spec de onze tools que nunca foi
+implementada e que três sessões leram como se descrevesse o sistema.
+
+## R11.8 — Instrumentação antes do tráfego: o funil e o desfecho do turno
+
+**Decisão:** duas escritas novas entram **antes** do primeiro cliente real, e não numa
+fase futura de observabilidade.
+
+1. **`conversations.stage` passa a ser escrito** a cada transição, com os valores de
+   `STAGES`. Hoje ele nasce `'discovery'` — valor que **não existe** na lista — e nunca é
+   escrito: não existe funil, e a máquina de estados roda em teste e em simulador, não em
+   produção.
+2. **O desfecho do turno passa a ser persistido**: `send` · `fallback` · `deferred` ·
+   `handoff` · `stopped`, mais o motivo do fallback. Hoje ele viaja no corpo HTTP e morre
+   ali — a taxa de fallback, a métrica de qualidade mais importante do sistema, é
+   irrecuperável depois do fato.
+
+**Por que antes e não depois — é a única parte urgente por prazo:** conversa que já
+aconteceu não se instrumenta depois. As views e o Hermes leem o passado e podem esperar
+tráfego; a escrita, não.
+
+**Entrou como os itens 3.7 e 3.8 da fase 3** do
+[plano de execução](../../agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md).
+
+## R11.9 — O system prompt passa a ler o config (corrigido nesta sessão)
+
+**O defeito, encontrado ao escrever a análise:** o system prompt em
+`supabase/functions/turn/index.ts` afirmava, no mesmo texto:
+
+- *"**Nunca ofereça desconto ali:** os dois caminhos custam o mesmo"* — escrito depois de
+  R2.1 zerar o desconto em 09/09;
+- *"Quem prefere pagar antes leva 10% de desconto (R$ 116,91)"* — nove linhas abaixo,
+  lendo o config, correto por R10.5.
+
+E declarava *"O FRETE É GRÁTIS nos dois caminhos"* como **texto fixo**, sem ler
+`delivery.freeShipping` — que o gate `shipping_promise` **lê** desde 10/09
+(`guardrails.ts:817,834`).
+
+**Por que isso era grave, e não cosmético:** a Frente 4 atualizou config, comentários e
+testes, e **não atualizou o prompt**. No dia em que o operador subisse `freeShipping:
+false` no secret, o gate passaria a vetar uma frase que o prompt **manda** escrever — em
+toda conversa, queimando uma reescrita por turno, e caindo na resposta segura quando as
+reescritas acabassem. Um modelo lendo instrução autocontraditória resolve escolhendo uma
+das duas, por conversa, que é o pior dos dois desfechos.
+
+**A correção, feita em 2026-09-22:** três funções novas, ao lado de `prepayWindowLine`:
+
+- `prepayPriceLine()` — o preço do antecipado, com ou sem desconto, conforme
+  `prices.prepayDiscountPercent`;
+- `prepayDiscountRule()` — se há desconto, ela diz qual é e não arredonda; se não há, a
+  regra antiga volta inteira. A proibição de conceder ("eu tiro mais um pouquinho") vale
+  nos dois casos;
+- `freightBriefing()` — o parágrafo de frete, em dois ramos, lendo `delivery.freeShipping`
+  com **o mesmo teste `!== false`** que o gate usa. Com o campo ausente do secret — que é
+  como uma chave nova nasce lá — o ramo de frete grátis é o que roda, que é a verdade de
+  hoje: a oferta do antecipado na Coinzz vem com `settingsFreight: []` nos 27 estados.
+
+**Nada mudou de comportamento hoje.** Com o secret como está, o prompt gerado é
+equivalente ao anterior menos a contradição do desconto. O que mudou é o dia do
+`freeShipping: false`: prompt e gate passam a concordar em vez de brigar.
+
+**Verificado:** `pnpm test` (2824 testes), `pnpm lint`, `pnpm typecheck` e
+`pnpm typecheck:function` — os quatro verdes. **Ainda não deployado.**
+
+**A lição registrada em memória:** nenhum teste tocava o system prompt. Ele é o texto que
+mais decide o comportamento do sistema e era o menos verificado do repositório.
+
+## R11.10 — `conversationCapBrl`: o código não acompanhou R10.1
+
+**Não é decisão nova — é drift.** R10.1 fixou o teto por conversa em **R$ 1,50** em
+21/09, e `config/business.example.json` foi atualizado. Mas o repositório carrega **três
+números**:
+
+| Valor | Onde | O que é |
+|---|---|---|
+| **1,5** | `config/business.example.json` | a decisão R10.1, correta |
+| 0,8 | fallback da Edge Function (`index.ts`), `src/dev/smoke.ts`, `src/dev/run-conversations.ts` | o valor antigo de R7.3 |
+| 0,50 | raciocínio de escolha de modelo no `HANDOFF.md` (Frente 5) | orçamento **por lead** para escolher modelo, nunca teto de conversa — e anterior a R10.1 |
+
+**A ação:** alinhar o fallback do código e do harness de dev a R10.1, e corrigir a linha
+do `HANDOFF.md` que trata R$ 0,50 como se fosse o teto. O valor que a produção aplica é
+o do secret, não o fallback — mas o fallback é o que uma sessão futura lê para descobrir
+o número, e hoje ele ensina o errado.
+
+**Entrou como o item 3.3 corrigido** do plano de execução.
+
+## R11.11 — n8n continua sem regra de negócio (reafirmação)
+
+A arquitetura de referência apresentada pelo operador lista **"regras"** dentro da caixa
+do n8n. **Recusado, e com o motivo já escrito no `CLAUDE.md`:** guardrail, máquina de
+estados e teto de custo são código versionado com teste. O n8n é cano e relógio — webhook,
+`Wait`, cron, retry, e-mail. Nada além disso.
+
+Esta é a única parte da proposta que foi recusada.
