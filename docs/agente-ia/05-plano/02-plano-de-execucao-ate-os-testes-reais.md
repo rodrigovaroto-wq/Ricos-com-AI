@@ -233,6 +233,7 @@ suficiente para validar a forma — não para tirar conclusão.
 |---|---|---|
 | 7.1 | **Views de Evaluation** (R11.3), só as que já têm dado: bloqueio por gate, reescritas por resposta, taxa de fallback, custo por conversa, funil por estágio | As views existem como migração e devolvem números coerentes com a rodada de personas |
 | 7.2 | **Fato durável do lead** (R11.5): coluna `jsonb` em `leads` + extrator determinístico para medo declarado, evento, restrição | A persona Karol (some e volta) não é perguntada de novo sobre o que já disse |
+| 7.0 | **Duas leituras que as views precisam respeitar** (segunda passada do `/code-review`, 22/09). (a) `turn_outcomes.cost_brl` é o custo **do turno** desde a correção de 22/09 — antes gravava o acumulado da conversa. Não há linha antiga misturada: a tabela tinha **zero linhas** na data da correção (a v32 no ar nunca gravou nela). (b) O opt-out de conversa já em `entregue_pago` ou `recusado` **não** vira `bloqueado` no estágio — `TRANSITIONS` não tem essa aresta, de propósito. **Conte opt-out por `leads.opted_out_at`, nunca por `stage`** | As views de 7.1 usam essas duas regras |
 | 7.3 | **Piso de amostra** (`leads_seen`) escrito **antes** de olhar qualquer número real | Um número em documento, datado |
 | 7.4 | **`perdido` quando a régua de silêncio termina sem resposta.** O sweep manda `silence_3` e ninguém marca a conversa como perdida | Uma conversa sintética que não responde aos três toques termina em `perdido` |
 

@@ -59,8 +59,10 @@ system prompt **lê o config**, com o mesmo teste que o gate correspondente usa.
 ausente lê como a verdade de hoje** — chave nova nasce ausente no secret. Para
 `freeShipping`, desde 2026-09-22 isso é `=== true` (ausente = não grátis, porque a operação
 não oferece frete grátis); antes era `!== false`, quando grátis era a verdade. A regra é
-a verdade, não o operador. Nenhum teste cobre o prompt; foi
-assim que ele passou doze dias se contradizendo sobre desconto. Ver
+a verdade, não o operador. Até 2026-09-22 nenhum teste cobria o prompt — foi assim que ele
+passou doze dias se contradizendo sobre desconto. Desde então `tests/prompt.test.ts` prova
+que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou gate, esse
+teste roda**. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 
 **Provedor de modelo** (rodada 7 — §R7.1; conversa trocada em 2026-09-10, ver `HANDOFF.md`

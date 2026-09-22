@@ -26,3 +26,16 @@ negativa que precisa barrar. `negatedAt` (em `guardrails.ts`) e `NEGATED_CUE` (e
 `sizing.ts`) são as duas implementações; a fronteira de cláusula (`:;.!?` e a vírgula)
 é o que separa os dois casos, e `sem` só conta dentro da própria locução — ele nega o
 substantivo ao lado, não tudo o que vem depois.
+
+**2026-09-22 — três rodadas de conserto no mesmo dia, e cada uma abriu um furo novo.** Os
+gates de frete (`shipping_promise`, `price_promise`) foram consertados três vezes em
+sequência; cada conserto passou nos testes que o próprio implementador escreveu e cada um
+foi reprovado pela revisão seguinte com uma frase concreta passando. O exemplo mais caro:
+restringir a busca de negação à frase entre vírgulas fez *"O frete não é, de jeito nenhum,
+cobrado à parte"* virar ressalva válida — e a vírgula decimal de "R$ 12,99" também contava
+como fronteira. **Duas regras que saíram disso:** (1) todo conserto de heurística de
+texto passa por uma segunda revisão independente **antes** de ser dado como resolvido —
+os testes do implementador provam o que ele imaginou, não o que ele não imaginou;
+(2) negação que cancela um predicado é a que está **entre o sujeito e o predicado**
+("frete … não … cobrado"), não a que está em qualquer lugar da frase ou só na mesma
+vírgula. E vírgula entre dígitos nunca é fronteira.
