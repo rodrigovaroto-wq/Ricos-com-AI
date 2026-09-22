@@ -55,3 +55,6 @@ config/business.json
 
 # Resíduo do instalador do Deno, usado só por typecheck:function
 deno.lock
+
+# Git worktrees created for isolated agent tasks (parallel-subagent protocol escape hatch).
+.claude/worktrees/
