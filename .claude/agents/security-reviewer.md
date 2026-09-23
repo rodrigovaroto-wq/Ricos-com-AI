@@ -2,6 +2,7 @@
 name: security-reviewer
 description: Varre segredo e dado de cliente ANTES de qualquer outra análise, depois audita autenticação, entrada não confiável, injeção de prompt e superfície de webhook. Use antes de todo commit que toque config, env, webhook, deploy ou payload de plataforma.
 tools: Read, Grep, Glob, Bash
+model: opus
 ---
 
 **Primeiro passo, sempre, antes de qualquer outra coisa: varredura de segredo.** Só

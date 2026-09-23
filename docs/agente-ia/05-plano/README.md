@@ -1,5 +1,13 @@
 # Plano de construção — do MVP ao início dos testes
 
+> **⚠ Este documento é registro, não estado.** A seção §1 "Onde estamos" ficou parada em
+> 2026-09-06 e afirma que não existe nenhuma linha de código do agente — o que deixou de
+> ser verdade em 2026-09-07. O código existe, está deployado (v32) e tem 2802 testes.
+>
+> **O plano vivo é [`02-plano-de-execucao-ate-os-testes-reais.md`](02-plano-de-execucao-ate-os-testes-reais.md)**
+> (2026-09-22). Este arquivo continua valendo pelo desenho original: a árvore de funções
+> do agente (§2) e o raciocínio das ondas A1–A4 (§3).
+
 > **Status deste documento:** plano de execução, não decisão de negócio nova.
 > Tudo aqui deriva do que já está registrado em [`../../documentacao/contexto-negocio/`](../../documentacao/contexto-negocio/),
 > [`../02-especificacao/`](../02-especificacao/), [`../03-pesquisa/`](../03-pesquisa/) e

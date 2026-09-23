@@ -14,8 +14,9 @@ entregue pelo operador em 2026-09-03.
 > ### 🚨 Correção de 2026-09-21 (2ª) — desconto do antecipado volta a 10%: R$ 116,91
 >
 > O operador reduziu o desconto do antecipado de **15% para 10%** no mesmo dia da correção
-> anterior (abaixo). Preço: **R$ 116,91** (era R$ 110,41). Economia declarável:
-> **R$ 12,99** (era R$ 19,49).
+> anterior (abaixo). Preço: **R$ 116,91** (era R$ 110,41). Diferença de preço
+> entre os dois caminhos: **R$ 12,99** (era R$ 19,49) — conta do operador, não fala da agente
+> (saída A, 2026-09-22).
 >
 > **Duas coisas que continuam confirmadas, sem mudança:** a entrega (R$ 19,99) é custo
 > nosso nos dois caminhos, igual ao COD — não é repassada à cliente com custo zero para a
@@ -132,7 +133,7 @@ uma nova decisão do operador, sem justificativa registrada aqui além da decis�
 | | Com 10% (rodada 1, histórico) | Com 15% (rodada 2, histórico) | **Vigente (10%, 2026-09-21)** |
 |---|---|---|---|
 | Preço do produto | R$ 116,90 | R$ 110,41 | **R$ 116,91** |
-| Economia declarável | R$ 13,00 | R$ 19,49 | **R$ 12,99** |
+| Diferença de preço (conta do operador; a agente não diz) | R$ 13,00 | R$ 19,49 | **R$ 12,99** |
 | Contribuição do antecipado | R$ 76,24 | R$ 70,21 / R$ 45,22 (corrigido) | **R$ 51,27** |
 | Média com mix 70/30 | R$ 58,99 | R$ 57,18 / R$ 50,21 (corrigido) | **R$ 52,03** |
 | Equilíbrio (CPL R$ 1,25) | 3,47% | 3,58% | **pendente de recálculo** |
@@ -141,10 +142,14 @@ Cenários de lucro/dia e 30 dias: **pendentes de recálculo** com os números vi
 fórmula original não está registrada aqui com detalhe suficiente para refazer com
 segurança (mesma pendência já registrada acima).
 
-**O que a agente pode dizer sobre o preço.** A economia de R$ 12,99 é real e é sobre o
-produto — que é o que a Encorpa vende. O frete adicional é linha separada, variável e fora
-do controle do operador, calculado à parte no checkout — isso é sobre o que a **cliente**
-paga, e é diferente da taxa de entrega de R$ 19,99 que é custo **nosso** nos dois caminhos.
+**O que a agente pode dizer sobre o preço.** O percentual e o preço do antecipado — "10% de
+desconto: R$ 116,91 no antecipado" — e que o frete é calculado à parte no checkout. **Nunca a
+economia em reais** (a diferença de R$ 12,99): ela é sobre o produto, e o frete adicional é
+linha separada, variável e fora do controle do operador: sempre que o frete da região dela
+passar de R$ 12,99, ela paga **mais** no total pelo antecipado enquanto ouviria que economiza. Isso é sobre o que a
+**cliente** paga, e é diferente da taxa de entrega de R$ 19,99 que é custo **nosso** nos dois
+caminhos. *Corrigido em 2026-09-22 — saída A: só o percentual.* (Este parágrafo dizia "a
+economia de R$ 12,99 é real e é sobre o produto", lido como licença para a agente citá-la.)
 
 ### Teto de frete — a régua de headroom muda de novo com o desconto de 10%
 

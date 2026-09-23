@@ -23,7 +23,47 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
 - **n8n** — cano e relógio: webhook de entrada, enfileiramento, crons de varredura, webhook da Coinzz, notificação de handoff. **Não** guarda regra de negócio: guardrails, máquina de estados e teto de custo são código versionado com teste.
 - **WhatsApp Cloud API** — transporte oficial do WhatsApp (Meta), habilitado pelo CNPJ da operação. Substitui o WAHA (transporte não oficial via sessão de WhatsApp Web) decidido antes da confirmação do CNPJ — a troca elimina a necessidade de processo de sessão vivo 24/7 e de pacing anti-banimento. Mensagens fora da janela de atendimento de 24h (follow-up, recuperação de carrinho) exigem template pré-aprovado pela Meta.
 - **PikaPods** — hospeda o que ainda precisa ficar de pé (n8n, e o que mais não migrar para serverless). Deixou de existir só por causa do WAHA.
-- **Hermes Agent** — otimizador periódico que lê as conversas e **propõe** mudanças; nunca publica em produção sozinho.
+- **Hermes Agent** — supervisor **offline**: lê as conversas em lote, fora do caminho do
+  turno, e **propõe** mudanças em `hermes_proposals`; nunca publica em produção sozinho e
+  nunca é chamado durante uma conversa (R11.2).
+
+## Arquitetura — decidida na rodada 11 (2026-09-22)
+
+O desenho do runtime deixou de ser implícito. Ver
+[`docs/documentacao/decisoes/03-decisoes-tomadas.md` §Rodada 11](docs/documentacao/decisoes/03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22)
+e a análise que a originou em
+[`docs/agente-ia/05-plano/04-analise-de-arquitetura.md`](docs/agente-ia/05-plano/04-analise-de-arquitetura.md).
+
+**O que o sistema é:** *Workflow + LLM com auto-reflexão.* O modelo **só escreve texto**;
+toda ação — tamanho, endereço, identidade, cobertura, checkout, régua — é TypeScript
+determinístico em volta da chamada. Quando um gate veta, o motivo volta ao modelo e ele
+reescreve; o texto vetado nunca entra no histórico da conversa.
+
+**Cinco coisas que este projeto decidiu NÃO fazer** — reabrir exige motivo novo, não
+preferência:
+
+| Não fazer | Por quê |
+|---|---|
+| **Tool-calling na conversa** (R11.1) | Trocaria código determinístico e testado por escolha do modelo, num funil cuja falha típica é uma promessa que custa o frete inteiro |
+| **RAG** (R11.4) | A base de conhecimento tem 104 linhas e já cabe no prompt. RAG traria um modo de falha — recuperação que falha — que a arquitetura inteira existe para evitar |
+| **Vector store para memória** (R11.5) | O fato durável do lead é uma coluna `jsonb` em `leads`, escrita por extrator determinístico |
+| **Hermes dentro do turno** (R11.2) | Terceira chamada de modelo, com teto de R$ 1,50 por conversa e ritmo em milissegundos. Custo e latência sem ganho |
+| **Auto-aplicar melhoria em produção** (R11.6) | O loop fecha num humano. O `BUSINESS_CONFIG` já bloqueia isso fisicamente — **não remova essa barreira** |
+
+**A Evaluation Layer são views SQL e um job** (R11.3), não um serviço. **O Sandbox é o CI
+deste repositório** (R11.7) — `pnpm test && pnpm dev:conversas && pnpm typecheck:function`
+— e não se constrói outro.
+
+**Prompt e gate são a mesma promessa escrita duas vezes.** Toda regra de negócio citada no
+system prompt **lê o config**, com o mesmo teste que o gate correspondente usa. **A chave
+ausente lê como a verdade de hoje** — chave nova nasce ausente no secret. Para
+`freeShipping`, desde 2026-09-22 isso é `=== true` (ausente = não grátis, porque a operação
+não oferece frete grátis); antes era `!== false`, quando grátis era a verdade. A regra é
+a verdade, não o operador. Até 2026-09-22 nenhum teste cobria o prompt — foi assim que ele
+passou doze dias se contradizendo sobre desconto. Desde então `tests/prompt.test.ts` prova
+que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou gate, esse
+teste roda**. Ver
+[`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 
 **Provedor de modelo** (rodada 7 — §R7.1; conversa trocada em 2026-09-10, ver `HANDOFF.md`
 §Frente 5): `muse-spark-1.3` (Meta) para a conversa que converte — era `gpt-5.6-luna`
@@ -84,6 +124,22 @@ produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 | `security-reviewer` | Varre segredo e dado de cliente **antes** de tudo, depois webhook, entrada não confiável e injeção de prompt. |
 | `technical-writer` | Mantém `HANDOFF.md`, `CLAUDE.md` e `docs/` corrigidos e datados. Use depois de deploy, decisão do operador, ou qualquer mudança que torne uma linha de documentação falsa. |
 | `compliance-reviewer` | LGPD (retenção, dado de cliente), CDC (arrependimento, pagamento na entrega) e regra de anúncio com apelo de corpo/saúde. Use ao mexer em retenção, troca/reembolso, ou claim de produto. |
+
+**Modelo por agente** (decisão do operador, 2026-09-22), fixado no frontmatter de cada
+arquivo com `model:` — nenhum herda da sessão:
+
+- **`opus`** — `code-reviewer`, `security-reviewer`, `compliance-reviewer`, `test-engineer`,
+  `pricing-guardian`, `prompt-engineer`, `backend-specialist`, `orchestrator`. São a rede de
+  segurança e os donos de gate, prompt e banco de produção.
+- **`sonnet`** — `conversation-designer`, `technical-writer`, `model-cost-governor`,
+  `workflow-architect` e as doze `persona-*`.
+
+**A regra acima da tabela:** tarefa que mexe em **gate, heurística de texto ou banco de
+produção** vai para Opus, seja qual for o agente — despache com `model: "opus"` na chamada.
+Idem o `model-cost-governor` quando for desenhar o eval de modelo. O motivo tem data: em
+2026-09-22 dois furos de gate foram escritos pelo implementador e pegos pelo revisor — a
+revisão é onde o modelo mais forte se paga. Revertível por arquivo; o critério para reverter
+é retrabalho por tarefa, não tokens.
 
 **Não existe `frontend-specialist`, de propósito.** Este repositório não tem UI: os dois
 `.html` em `docs/operacao/` são relatório estático do operador, não produto. Agente sem

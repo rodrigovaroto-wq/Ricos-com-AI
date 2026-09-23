@@ -11,6 +11,66 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
+## ▶ COMECE AQUI — estado em 2026-09-23 (troca de chat)
+
+**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **36 commits à frente
+do `main`, sem PR aberto e sem merge.** Tudo o que esta seção descreve está nela, não no
+`main`. `pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
+`dev:conversas` (1640/1640) verdes no último commit.
+
+**O que está no ar:** a Edge Function **v32** (`b36087d`, do `main`). **Nada desta branch
+foi deployado.** O deploy v33 são **11 arquivos** pela API de gerência (receita em
+`.claude/memory/supabase-deploy-por-api.md`), precisa de um PAT do operador (O4), e o PAT
+é revogado depois. O banco de produção está **vazio**; as migrações `0005` e `0006` estão
+aplicadas.
+
+**O que esta branch fez, em uma linha cada** (detalhe nas seções abaixo e no
+[plano v2](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)):
+
+- Plano de execução v2 (10 fases), 12 personas de teste interno + runner com três portas,
+  análise de arquitetura → **Rodada 11** das decisões.
+- Prompt extraído para `prompt.ts` (décimo espelho), lê o config e **tem teste**
+  (`tests/prompt.test.ts`).
+- `freeShipping` passa a ser grátis só com `=== true` (ausente = não grátis).
+- Achados C e D: `conversations.stage` escrito pelo funil e `turn_outcomes` gravando as
+  oito saídas do turno (migração `0006`, RLS ligado).
+- Quatro rodadas de conserto dos gates de frete/economia, fechadas pelo método
+  "só aperta + comparação mecânica de vereditos" (`.claude/memory/negation-blindness.md`).
+- **Saída A** (§R10.6, `aa1c021`): a economia do antecipado nunca é citada em reais, só
+  "10% de desconto". Revisão independente em 23/09: aprovada, nenhuma frase afrouxada.
+  Resíduo aceito no item 2.9 do plano.
+- Modelo por agente fixado no frontmatter (opus nos revisores e donos de gate; sonnet no
+  resto).
+
+**O que está travado no operador — nesta ordem:**
+
+1. **Apagar a chave `freeShipping` do secret `BUSINESS_CONFIG`** (O1). Supabase → Edge
+   Functions → Secrets. Seguro agora (a v32 lê ausente como grátis, igual ao `true` de
+   hoje); **obrigatório antes da v33**, que com `true` promete frete grátis.
+2. **Recuperar o acesso ao n8n.** O "contate o admin" aparece porque o n8n self-hosted
+   só manda e-mail de reset com SMTP configurado. Caminhos, sem verificação nesta sessão:
+   o suporte do PikaPods, ou o comando `n8n user-management:reset` no container (recria o
+   owner; os workflows ficam — **exporte-os antes, se der**). Depois, gerar uma **API key
+   do n8n** (Settings → n8n API). O MCP do n8n falha ao conectar
+   (404); a API REST responde. Com a chave, o agente faz **O2** (nó `Wait` no workflow
+   `HnGrxquQLpfbXWLH`) e **O10** (autenticar `/encorpa-inbound` e `/encorpa-venda`).
+   **Pergunta aberta antes de O10:** Coinzz e Logzz conseguem mandar header customizado?
+   Se não, o segredo vai na query string.
+3. **Credenciais como variáveis do ambiente da nuvem** (O3) — menu do ambiente na barra de
+   título da sessão → Edit; **nunca no chat**. Nomes: `GEMINI_API_KEY`, `META_API_KEY`,
+   `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY`. Sessão nova
+   as recebe. Destravam as personas (fase 3) e o eval de Muse Spark (fase 4).
+4. **PAT do Supabase** para o deploy v33 (O4), revogado depois.
+
+**O que o agente faz em seguida, sem depender do operador:** item 2.8 do plano (o turno
+passa `paymentPath: "cod"` fixo para os gates — cego no antecipado) e 2.5
+(`rls_auto_enable` no repositório, depois da decisão 1.6). **Com credenciais:** personas,
+eval, O2/O10, deploy v33 com sonda de produção.
+
+---
+
+> *(Histórico — o bloco abaixo é o estado de 10/09.)*
+>
 > Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
 > [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado.
 >
@@ -42,7 +102,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > operador respondeu **sim, inteiramente pago pela cliente, custo zero para a
 > operação** — "a diferença entre pagamento na entrega e pagamento antecipado é só o
 > tempo de recebimento e a taxa de frustração, os demais custos são exatamente iguais".
-> Isso resolve a pergunta a favor da **saída C** (economia citada sempre com a ressalva de
+> *(Revertido em 22/09 para a saída A — §R10.6.)* Isso resolve a pergunta a favor da **saída C** (economia citada sempre com a ressalva de
 > frete) — **mas o gate `price_promise` ainda não foi mudado para exigir essa ressalva.**
 > Conta completa em
 > [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md).
@@ -75,7 +135,78 @@ o WhatsApp ainda não tem canal, e a cota da OpenAI está esgotada.
 
 ---
 
-## PRÓXIMA SESSÃO — montar o plano de execução até os primeiros testes
+## ESTADO EM 2026-09-22 À TARDE — leia isto primeiro
+
+**O plano vivo é o [plano v2](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)**
+— dez fases, e uma tabela do que **só o operador destrava** (O1–O9), ordenada pelo que
+trava mais coisa. Comece por ela.
+
+**O que o banco de produção revelou nesta sessão** (lido pelo MCP do Supabase):
+
+1. **O banco está vazio.** Zero leads, conversas, mensagens, pedidos, `llm_calls`,
+   `gate_traces`. Houve dado — o `reltuples` estimava 2 conversas e 1 lead — e ele foi
+   apagado, muito provavelmente a limpeza das sondas sintéticas. **Toda afirmação
+   "verificado em produção" deste arquivo foi feita com sonda que já não está lá.** Não
+   existe baseline.
+2. **A `0005_welcome_resume` estava no disco desde 21/09 e nunca tinha sido aplicada.**
+   Aplicada agora, junto com a `0006`, e as duas confirmadas lendo o schema de volta.
+3. **A v32 no ar é byte a byte o `b36087d`**, nos nove arquivos. O que este arquivo diz
+   sobre ela é verdade.
+4. **O advisor de segurança acusa `public.rls_auto_enable()`**, função `SECURITY DEFINER`
+   executável por `anon` — não está no repositório. É a função do gatilho `ensure_rls`, que
+   liga RLS sozinho em toda tabela nova; chamá-la por RPC falha. Risco baixo, drift real.
+   Decisão do operador (item 1.6 do plano).
+
+**✅ Decidido pelo operador em 22/09 — saída A (§R10.6, `aa1c021`).** A agente cita só
+"10% de desconto" e o preço do antecipado; o `price_promise` veta a economia em reais
+(R$ 12,99) em qualquer forma, nos dois ramos de `freeShipping`. Fecha a classe inteira que
+quatro rodadas de regex não fechavam — conferido por 6138 vereditos, nenhum afrouxado.
+Item 2.9 do plano, resolvido.
+
+**⚠ Achado ALTO da revisão de segurança, anterior a esta sessão:** os webhooks do n8n
+(`/encorpa-inbound`, `/encorpa-venda`) **aceitam POST anônimo**, e a URL está versionada
+aqui. Quem tiver a URL posta com o telefone de uma cliente real e pode disparar o handoff
+que a tira da agente para sempre, ou forjar um pedido. Item **O10** do plano — autenticar
+por header no n8n antes de tráfego real.
+
+**⚠ Os dois bloqueios duros do deploy v33, ambos do operador:**
+
+- **O1 — apagar a chave `freeShipping` do secret** (decisão de 22/09). Desde `3db9ba8` a
+  chave ausente lê como **não** grátis; com `true` escrito, a v33 promete frete grátis.
+- **O2 — o nó `Wait` no n8n.** Sem ele, **lead novo recebe a recepção automática e nunca
+  mais é respondido.** A v33 carrega o timer de 2 minutos; o n8n ainda não.
+
+---
+
+## O PLANO DE EXECUÇÃO ATÉ OS TESTES REAIS — montado em 2026-09-22
+
+**Feito.** O plano que a seção abaixo pedia existe, em dois documentos:
+
+- [`docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md`](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)
+  — sete fases, cada item com dono e uma linha **Fechou quando**; o mapa de quem chama
+  quem (Cloud API → n8n → Edge Function → Supabase/Logzz/Coinzz/Hermes); as quatro ondas
+  de execução e o critério de saída.
+- [`docs/agente-ia/05-plano/03-personas-de-teste-interno.md`](docs/agente-ia/05-plano/03-personas-de-teste-interno.md)
+  — as doze clientes que não sabem que são teste, o que cada uma caça, e a rubrica de
+  falha escrita antes de rodar.
+
+**Três fatos novos confirmados pelo operador em 2026-09-22**, que mudaram a ordem do plano:
+
+1. **`META_API_KEY` existe.** O eval de Muse Spark 1.3 (Frente 5, passo (b)) sai do "não
+   tem como rodar neste ambiente" e vira pré-requisito de deploy.
+2. **O webhook real da Coinzz já chegou.** A Frente 0.3 deixa de ser espera.
+3. **O número do WhatsApp está no WA Business, sem Cloud API e sem token ainda.** A
+   Frente 2 continua bloqueada, com dono e em andamento.
+
+E uma decisão: **o operador vai parametrizar frete na oferta do antecipado da Coinzz**,
+data indefinida. *(Em 22/09 a saída C deu lugar à A — §R10.6.)* Isso torna a saída C da Frente 4 item 6 obrigatória e **anterior** à
+mudança do secret.
+
+**Nada de código mudou nesta sessão.** O plano é o entregável; a execução começa pela
+onda A. *(Atualização: a onda A foi executada inteira em 22/09 — ver ▶ COMECE AQUI.)*
+
+<details>
+<summary>O pedido original desta seção, como foi escrito em 2026-09-21</summary>
 
 Decidido pelo operador em 2026-09-21. **A próxima sessão começa por aqui**, antes de
 escrever qualquer código.
@@ -104,6 +235,110 @@ plano a montar:
 
 Cada item do plano sai com **como se sabe que fechou** — um critério verificável, do jeito
 que a Frente 0 já faz. Nada entra como "pronto" sem prova pela porta de produção.
+
+</details>
+
+---
+
+## Arquitetura decidida, e quatro achados de código (2026-09-22)
+
+O operador apresentou uma arquitetura de referência em closed loop (n8n → LLM → Supabase →
+Evaluation Layer → Hermes → Sandbox → melhoria validada) e pediu avaliação contra o
+repositório, sem tratá-la como decisão tomada. A análise inteira está em
+[`docs/agente-ia/05-plano/04-analise-de-arquitetura.md`](docs/agente-ia/05-plano/04-analise-de-arquitetura.md);
+as decisões que saíram dela são a
+[rodada 11](docs/documentacao/decisoes/03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22).
+
+**A conclusão:** a metade de cima da proposta **já é o sistema**. A metade de baixo falta
+por um motivo que não é arquitetural — **o sistema decide bem e não registra a decisão.**
+
+**Decidido (rodada 11), em uma linha cada:**
+
+- **R11.1** — o runtime é Workflow + LLM com auto-reflexão. **Não vai virar agentic**: o
+  modelo só escreve texto, toda ação é TypeScript determinístico.
+- **R11.2** — Hermes é supervisor **offline**, em lote, nunca no caminho do turno.
+- **R11.3** — a Evaluation Layer são **views SQL + um job**, não um serviço.
+- **R11.4** — **sem RAG.** A base tem 104 linhas e já cabe no prompt.
+- **R11.5** — memória é **coluna `jsonb`** em `leads`, não vector store.
+- **R11.6** — o closed loop **fecha num humano**. Nunca auto-aplicação.
+- **R11.7** — o Sandbox **não será construído**: ele é o CI deste repositório.
+- **R11.11** — **recusado**: "regras" dentro do n8n. Continua sendo cano e relógio.
+
+### Os quatro achados — um corrigido, três abertos
+
+| | Achado | Estado |
+|---|---|---|
+| **A** | O system prompt se contradizia sobre desconto e afirmava "O FRETE É GRÁTIS nos dois caminhos" como texto fixo, **sem ler `delivery.freeShipping`** — que o gate `shipping_promise` lê desde 10/09 | ✅ **corrigido em 22/09, não deployado** |
+| **B** | `conversationCapBrl` tem **três valores** no repositório: 1,5 (config, decisão R10.1) · 0,8 (fallback da Edge Function e harness de dev) · 0,50 (raciocínio de modelo neste arquivo, anterior a R10.1 e **não é teto de conversa**) | ⏳ item 2.3 do plano v2 |
+| **C** | `conversations.stage` nascia `'discovery'` — valor fora de `STAGES` — e **nunca era escrito**. Não existia funil | ✅ **corrigido em 22/09, falta aplicar a migração e deployar** |
+| **D** | O desfecho do turno viajava no corpo HTTP e **nunca era persistido**. A taxa de fallback era irrecuperável | ✅ **corrigido em 22/09, idem** |
+
+### A instrumentação de C e D, feita em 22/09
+
+**Migração `0006_funnel_and_outcome.sql`**, em duas metades:
+
+- **O funil.** Converte as linhas `'discovery'` para `'novo'`, troca o default, e só então
+  adiciona a `check` contra os dez estágios de `STAGES` — nessa ordem, porque a constraint
+  recusaria as linhas antigas e a migração falharia no meio. Mais um índice por estágio.
+- **O desfecho.** Tabela `turn_outcomes` (conversa, desfecho, motivo, reescritas, custo).
+  **Tabela própria e não coluna em `messages`** porque dois dos seis desfechos não
+  produzem mensagem nenhuma: `deferred` escreve um followup e `stopped` não escreve nada.
+  Sem `expires_at`: a retenção vem do `on delete cascade`, igual a `gate_traces` e
+  `llm_calls`.
+
+**`state-machine.ts` ganhou `rankOf` e `furthest`** e virou o **nono arquivo espelhado**,
+preso por `tests/function-drift.test.ts`. `furthest` existe porque `canTransition` responde
+a pergunta errada aqui: quem abre com *"oi, uso 42, meu CEP é 13010-100"* pula três degraus
+numa mensagem só, e a regra da spec é **sem regressão**, não sem salto. Estágio terminal
+(`bloqueado`, `perdido`, `recusado`) vence qualquer avanço.
+
+**As oito saídas do turno gravam o desfecho:** `opted_out`, `stopped`, `deferred`, os
+quatro `handoff` (pediu pessoa · falha de modelo · teto de custo · veto da cadeia) e
+`send`/`fallback`. Falha de escrita é engolida de propósito — contador de funil não vale
+perder a resposta que a cliente está esperando.
+
+**Migrações `0005` e `0006` aplicadas em 22/09** e confirmadas lendo o schema. Falta
+deployar a função — **onze arquivos** agora (`state-machine.ts` e `prompt.ts` entraram).
+
+**Verificado:** `pnpm test` (2835), `lint`, `typecheck`, `typecheck:function` — verdes.
+
+### `freeShipping: false` em todo o repositório (decisão do operador, 22/09)
+
+**A operação não oferece frete grátis.** O aviso anterior — *"não subir `freeShipping:
+false` antes de a Coinzz ter frete parametrizado"* — **caiu por decisão do operador**. O
+campo é `false` em `config/business.example.json`, em `tests/fixtures.ts`, nos três
+harnesses de dev e no fallback da Edge Function.
+
+**⚠ Isso NÃO muda produção.** A produção lê o secret `BUSINESS_CONFIG`, que sobrescreve o
+fallback inteiro — e **o HANDOFF registra que o secret tem `freeShipping: true` escrito**.
+Para a decisão valer, **o operador precisa trocar para `false` no secret.** (Atualização
+da tarde de 22/09: a chave **ausente** passou a ler como **não grátis** — `=== true` no gate
+e no prompt, achado 5 do `/code-review` — então apagar a chave também serve. O que não
+serve é deixar o `true` que está lá.) Sem isso a agente continua
+prometendo frete grátis em produção, com o repositório inteiro dizendo o contrário.
+
+**18 testes inverteram**, e nenhum foi só "atualizado para passar": prometer grátis virou
+veto, e cobrar frete sem dar valor virou a frase honesta. O que **não** mudou em nenhum
+ramo: dar um número ao frete continua barrado, porque nenhuma das duas ofertas tem valor
+citável. O ramo `freeShipping: true` **continua coberto** — `ctxGratis` em
+`tests/fixtures.ts` — porque um gate com metade sem teste é um gate que ninguém reverte
+com segurança.
+
+### O achado A, corrigido — o que mudou e o que não mudou
+
+Três funções novas em `index.ts`, ao lado de `prepayWindowLine`: `prepayPriceLine()`,
+`prepayDiscountRule()` e `freightBriefing()`. O prompt passa a ler
+`prices.prepayDiscountPercent` e `delivery.freeShipping`, este último com **o mesmo teste**
+que o gate usa. Na manhã de 22/09 esse teste era `!== false` (ausente = grátis); à tarde,
+com a decisão de que não há frete grátis, virou `=== true` nos dois (ausente = não grátis).
+
+**Nada mudou de comportamento hoje.** Com o secret como está, o prompt gerado é o anterior
+menos a contradição do desconto. O que muda é o dia do `freeShipping: false`: antes o gate
+vetaria uma frase que o prompt mandava escrever, em toda conversa, queimando uma reescrita
+por turno até cair na resposta segura. Agora os dois concordam.
+
+**Verificado:** `pnpm test` (2824), `pnpm lint`, `pnpm typecheck`, `pnpm typecheck:function`
+— os quatro verdes. **Não deployado.**
 
 ---
 
@@ -402,14 +637,24 @@ Seis coisas, todas verificadas pela porta de produção e não por teste:
    desfecho**, de propósito: não-2xx faz o canal reentregar a mensagem, e reentrega sobre
    recusa é laço. Quem precisa reagir **lê o corpo**.
 3. **O deploy pela ferramenta MCP não cabe.** São 199 KB. Deploy pela API de gerência, com
-   os arquivos do disco, **nove** arquivos — `availability.ts` entrou depois da receita
-   antiga. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
+   os arquivos do disco, **onze** arquivos — `availability.ts` entrou depois da receita
+   antiga, `state-machine.ts` em 2026-09-22 com a instrumentação do funil, e `prompt.ts`
+   no mesmo dia, quando o prompt saiu do `index.ts` para ter teste. Confira
+   `ls supabase/functions/turn/*.ts` antes de rodar: a conta já mudou três vezes, e faltar
+   um derruba a função no boot. Ver [`.claude/memory/supabase-deploy-por-api.md`](.claude/memory/supabase-deploy-por-api.md).
 4. **Isolate quente.** Por minutos depois de um deploy, parte das requisições ainda cai na
    versão anterior. Confira a sonda pelo **formato** da resposta, não pelo conteúdo.
 5. **Cegueira a negação.** Toda heurística de texto deste repositório já errou em negação.
    Antes de mexer numa, sonde a frase negada **e** a negativa que não nega.
 6. **Verificar pela porta de produção.** Sonda contra a Edge Function prova o código, não o
    caminho. O webhook do n8n já devolveu 200 sem criar conversa nenhuma por um dia inteiro.
+7. **O system prompt não é coberto por teste nenhum.** `systemPrompt()` vive inline no
+   `index.ts` e nenhum teste o executa ou lê — `function-drift.test.ts` prende os espelhos
+   e a tabela `PRICES`, não uma linha do prompt. Foi assim que ele passou doze dias
+   afirmando duas coisas contrárias sobre desconto e prometendo frete grátis que o gate já
+   sabia condicional. → **Toda regra de negócio citada no prompt tem que ler o config, com
+   o mesmo teste que o gate correspondente usa.** Antes de mexer em preço, frete ou prazo,
+   leia o prompt junto do gate: são a mesma promessa escrita duas vezes.
 
 ### Decisões de 2026-09-10: preço, frete e modelo de conversa
 
@@ -511,9 +756,16 @@ Frente do sócio do operador. **O lado do código está pronto e bloqueando de p
    "channel": { "templates": {
      "silence_2":  { "name": "...", "language": "pt_BR", "variables": ["warrantyDays"] },
      "silence_3":  { "name": "...", "language": "pt_BR", "variables": ["weekday", "couponPercent"] },
-     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price", "size"] }
+     "order_eve":  { "name": "...", "language": "pt_BR", "variables": ["price"] }
    } }
    ```
+
+   **Os três já estão redigidos** em
+   [`docs/agente-ia/06-script/03-templates-meta.md`](docs/agente-ia/06-script/03-templates-meta.md)
+   (22/09), com nome, categoria, corpo e o bloco JSON pronto — e os três passam nos 19
+   gates. **`order_eve` leva só `price`, não `size`** como este exemplo dizia antes:
+   `deliveryFor` bloqueia o envio quando um placeholder resolve vazio, e um lead sem tamanho
+   gravado perderia justamente o toque que salva a margem.
 
    Valores possíveis: `price`, `warrantyDays`, `size`, `address`, `couponPercent`,
    `weekday`. **Ausente bloqueia** todo toque fora da janela — texto livre lá a Meta
@@ -611,8 +863,14 @@ registro):
   quanto Luna ou recusa menos gate. **Isso continua em aberto até alguém rodar o eval com
   credencial de verdade**, de preferência antes do próximo deploy, e certamente antes de
   confiar no resultado.
-- **`conversationCapBrl` (0,80) continua sem reconciliar com o teto de R$ 0,50/lead.**
-  Nenhuma troca de modelo resolve isso sozinha.
+- **`conversationCapBrl` continua sem reconciliar — e são três números, não dois**
+  (corrigido em 2026-09-22, achado B): **1,5** em `config/business.example.json`, que é a
+  decisão R10.1 de 21/09 e a correta; **0,8** no fallback da Edge Function e no harness de
+  dev, que é o valor antigo de R7.3; e **R$ 0,50 por lead**, citado abaixo e nos itens
+  desta frente. Este último **nunca foi teto de conversa** — era o orçamento por lead usado
+  para *escolher modelo*, e é anterior a R10.1. Onde as duas coisas se confundirem neste
+  arquivo, R10.1 vence. Nenhuma troca de modelo resolve isso sozinha; a ação é alinhar o
+  fallback do código, e é o item 2.3 do plano v2.
 
 **O que a decisão compra, quando o eval confirmar:** dentro do teto de R$ 0,50 por lead /
 20 mensagens, Muse Spark tem o maior Intelligence Index (53,0) com folga real — R$ 0,32
@@ -678,7 +936,8 @@ config, não escrever lógica nova**. Ordem exata:
    `prepayDiscountPercent: 10` (os testes atuais cobrem cada campo separado, nunca os dois
    como a produção vai rodar). Confirma que a agente cita `R$ 12,99` de economia e `10%`
    de desconto sem citar frete grátis no antecipado.
-6. **O item que precisa da sua decisão antes do deploy — e a premissa dele estava
+6. ✅ **decidido em 22/09: saída A** (§R10.6) — só o percentual, nunca a economia em
+   reais. O texto abaixo é o registro de 10/09. **O item que precisava da sua decisão antes do deploy — e a premissa dele estava
    errada.** O gate `price_promise` vai liberar **"você economiza R$ 12,99 no
    antecipado"**, a diferença aritmética entre `codBrl` e `prepayBrl`. A versão anterior
    deste item dizia que o frete real cobrado dela seria de R$ 15 a R$ 40 e que ela
@@ -721,12 +980,11 @@ config, não escrever lógica nova**. Ordem exata:
 - **Não editar um dos espelhos sem editar o outro.**
 - **Não criar campo obrigatório em `BusinessConfig`.** Ver armadilha 1.
 - **Não mandar prazo do antecipado como faixa**, nem a média sem dizer que varia.
-- **Não subir `freeShipping: false` no `BUSINESS_CONFIG`** antes de a oferta do
-  antecipado na Coinzz ter frete parametrizado. É a única combinação que faz a agente
-  mentir hoje — cobra frete que a operação não cobra, e empurra a cliente pro COD por um
-  motivo inventado. Ver o item 6 da Frente 4, reescrito em 10/09.
-- **Não deployar a Frente 4 sem escrever o código do item 6.** A decisão saiu (saída C,
-  10/09) — o gate `price_promise` ainda não aprendeu a exigir a ressalva de frete.
+- **Não citar a economia do antecipado em reais** — nem no prompt, nem em script, nem em
+  teste que espere vê-la liberada. Saída A (§R10.6): só o percentual e o preço.
+- **Não devolver `freeShipping: true` ao `BUSINESS_CONFIG`.** Desde 22/09 a operação não
+  oferece frete grátis; a chave ausente lê como não grátis (`=== true`). O operador vai
+  apagar a chave do secret.
 - **Não deployar sem rodar o eval de Muse Spark antes, se possível.** O padrão já é
   `muse-spark-1.3` no `main` — o próximo deploy troca o modelo de toda conversa sem prova
   de conversão ou taxa de recusa de gate. Se não der para rodar o eval antes do deploy,

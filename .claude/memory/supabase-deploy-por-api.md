@@ -20,12 +20,17 @@ curl -X POST "https://api.supabase.com/v1/projects/<ref>/functions/deploy?slug=t
   -F 'metadata={"entrypoint_path":"index.ts","name":"turn","verify_jwt":true};type=application/json' \
   -F "file=@index.ts" -F "file=@guardrails.ts" -F "file=@followups.ts" \
   -F "file=@sizing.ts" -F "file=@retry.ts" -F "file=@address.ts" \
-  -F "file=@identity.ts" -F "file=@coinzz.ts" -F "file=@availability.ts"
+  -F "file=@identity.ts" -F "file=@coinzz.ts" -F "file=@availability.ts" \
+  -F "file=@state-machine.ts" -F "file=@prompt.ts"
 ```
 
-**São nove arquivos, não oito.** `availability.ts` entrou depois da primeira versão desta
-receita; quem copiar o comando sem conferir `ls *.ts` deploya uma função sem ele. Confira
-a lista contra o diretório antes de rodar.
+**São onze arquivos, e a conta já mudou três vezes.** `availability.ts` entrou depois da
+primeira versão desta receita; `state-machine.ts` entrou em 2026-09-22, quando o estágio
+do funil passou a ser escrito (R11.8); `prompt.ts` entrou no mesmo dia, quando o system
+prompt saiu do `index.ts` para ter teste (R11.9). Quem copiar o comando sem conferir `ls *.ts`
+deploya uma função sem algum deles — e uma importação faltando derruba o boot inteiro,
+não só a rota que a usa. **Confira a lista contra o diretório antes de rodar, sempre:
+esta receita já ficou desatualizada três vezes e vai ficar de novo.**
 
 Um detalhe do shell que custa uma tentativa: `SB_TOKEN=... curl -H "Bearer $SB_TOKEN"`
 numa linha só manda o header vazio — a variável é expandida antes da atribuição valer.

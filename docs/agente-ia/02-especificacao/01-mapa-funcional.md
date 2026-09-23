@@ -175,10 +175,11 @@ caminho de conversa — ver §D3.
 com 10% de desconto (R$ 116,91) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
-**Desde 2026-09-09 as duas metades viraram uma só e são boas notícias:** a economia de
-**R$ 12,99 no produto** é real, e **o frete é grátis nos dois caminhos** — o operador
-zerou o frete na oferta da entrega e o antecipado sempre foi grátis nacional. O valor
-dito é o valor final, sem soma na porta nem no checkout. Ver
+**Corrigido em 2026-09-22.** A agente diz **"10% de desconto"** e o preço do antecipado —
+**nunca** a economia em reais (saída A, §R10.6 das decisões; o `price_promise` veta o
+valor em qualquer forma). E **não promete frete grátis**: a operação não oferece, e o
+frete do antecipado vai ser parametrizado por região no checkout (R$ 129,90 na entrega
+já inclui a entrega). Ver
 [`04-guardrails.md`](04-guardrails.md).
 
 **Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
@@ -297,6 +298,10 @@ NÃO IDENTIFICADO em qualquer referência com implementação madura.
 
 **H1. Memória.** Fatos ditos na conversa → gravar fato durável (tamanho, medo declarado,
 evento, endereço) → recall no turno seguinte → *tabela + tool*.
+⚠ **Parcial.** Tamanho e endereço são gravados em `leads`; **o medo declarado, o evento e a
+restrição não** — vivem em `messages` e morrem quando a janela de contexto trunca. R11.5
+decidiu a forma: uma coluna `jsonb` em `leads`, escrita por extrator determinístico, nunca
+uma tool nem um vector store.
 Referências: DeskcommCRM → `save_lead_note` / `get_lead_note`; mem0 →
 `configs/prompts.py` :15 (extração) e :176–185 (reconciliação ADD/UPDATE/DELETE/NONE).
 **[INFERÊNCIA]** no nosso caso a maioria dos fatos são campos estruturados, não texto
@@ -310,8 +315,13 @@ Referências: DeskcommCRM → `compaction.ts` :113; Mastra → `TokenLimiterProc
 [`../01-conhecimento/`](../01-conhecimento/).
 
 **H4. Ferramentas.** Ver [`02-tools-do-agente.md`](02-tools-do-agente.md).
+⚠ **Nenhuma das onze existe em produção** — o modelo só escreve texto, e toda ação é
+TypeScript determinístico chamado pela função. Decidido em R11.1; a spec tem a tabela de
+onde cada ação realmente mora.
 
 **H5. Estado.** Ver [`03-maquina-de-estados.md`](03-maquina-de-estados.md).
+⚠ **Os dez estágios existem em código e nunca são escritos no banco** — não existe funil.
+**Corrigido em 2026-09-22** (R11.8): migração `0006` aplicada, handler escreve o estágio em toda saída. Falta o deploy v33.
 
 **H6. Histórico e custo.** Toda mensagem, decisão e chamada de tool persistidas com custo.
 Referências: DeskcommCRM → `edge/llm/run-model-call.ts` :2–16 — **seam único**: toda

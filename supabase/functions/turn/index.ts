@@ -28,6 +28,7 @@ import {
   type StopPoint,
 } from "./followups.ts";
 import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
@@ -62,6 +63,7 @@ import {
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
+import { systemPrompt as buildSystemPrompt } from "./prompt.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -258,10 +260,10 @@ const CONFIG: BusinessConfig = JSON.parse(
         prepayAvgDays: 5,
         prepayVariesByRegion: true,
         warrantyDays: 7,
-        freeShipping: true,
+        freeShipping: false,
       },
       hours: { openHour: 6, closeHour: 24 },
-      cost: { conversationCapBrl: 0.8, overrunTolerance: 0.25 },
+      cost: { conversationCapBrl: 1.5, overrunTolerance: 0.25 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
       // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
@@ -310,12 +312,72 @@ const costOf = (model: string, inTok: number, outTok: number, cachedTok = 0): nu
   return brl;
 };
 
+/**
+ * Where the conversation stands, written down (R11.8, achado C de 2026-09-22).
+ *
+ * `conversations.stage` was born `'discovery'` — a value absent from `STAGES` — and
+ * nobody ever wrote it. The state machine ran in tests and in the simulator; production
+ * had no idea where any conversation had stopped, so there was no funnel to ask about.
+ *
+ * `furthest` decides what gets stored: a conversation never regresses, and a terminal
+ * stage enters only where `TRANSITIONS` allows it. The PATCH carries the same rule as a
+ * condition on the row (`overwritableBy`), because `stored` was read at the start of the
+ * turn and an overlapping turn may have advanced it since. Failure here is swallowed on
+ * purpose — a funnel counter is not worth losing a reply the customer is waiting for.
+ */
+const persistStage = async (conversationId: string, stored: Stage, reached: Stage) => {
+  const next = furthest(stored, reached);
+  if (next === stored) return;
+  await db(`conversations?id=eq.${conversationId}&stage=in.(${overwritableBy(next).join(",")})`, {
+    method: "PATCH",
+    body: JSON.stringify({ stage: next }),
+  }).catch(() => undefined);
+};
+
+/** The six ways a turn can end, as `turn_outcomes.outcome` spells them. */
+type TurnOutcome = "send" | "fallback" | "deferred" | "handoff" | "stopped" | "opted_out";
+
+/**
+ * How this turn ended, written down (R11.8, achado D de 2026-09-22).
+ *
+ * The outcome used to travel only in the HTTP body: n8n read it, sent the message, and
+ * the fact died there. `gate_traces` records which gate vetoed and `llm_calls` records
+ * what each attempt cost — what neither could answer is whether the customer received
+ * the model's reply or the canned one. That is the most important quality signal the
+ * system has, because a fallback is the agent giving up on the sale.
+ *
+ * `rewrites` and `cost_brl` ride along because `llm_calls` has no notion of a turn:
+ * without them there is no way to price a gate that keeps firing. `cost_brl` is what
+ * THIS turn spent, not the conversation's running total — summing the total per turn
+ * inflates the price of every gate by the length of the conversation.
+ */
+const recordOutcome = async (
+  conversationId: string,
+  outcome: TurnOutcome,
+  reason: string | null = null,
+  rewrites = 0,
+  costBrl = 0,
+) => {
+  await db("turn_outcomes", {
+    method: "POST",
+    body: JSON.stringify({
+      conversation_id: conversationId,
+      outcome,
+      reason,
+      rewrites,
+      cost_brl: costBrl,
+    }),
+  }).catch(() => undefined);
+};
+
 const callGemini = async (system: string, user: string) => {
   const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${CHEAP_MODEL}:generateContent?key=${GEMINI_KEY}`,
+    `https://generativelanguage.googleapis.com/v1beta/models/${CHEAP_MODEL}:generateContent`,
     {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // The key rides in the documented header, never in the URL: a network error
+      // carries the whole URL in its `message`, and that message used to reach n8n logs.
+      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
       body: JSON.stringify({
         system_instruction: { role: "user", parts: [{ text: system }] },
         contents: [{ role: "user", parts: [{ text: user }] }],
@@ -446,189 +508,16 @@ const recordCall = (
   }).catch(() => undefined);
 
 /**
- * The prepaid window, or nothing. It was nothing until 2026-09-08: the freight is quoted
- * per region there, so no one knew the deadline and the rule was to promise none. The
- * operator checked the checkout and it exists — 5 to 10 business days. With the fields
- * empty the prompt says nothing, which is what `delivery_promise` still enforces.
+ * The prompt lives in `./prompt.ts` since 2026-09-22, where `tests/prompt.test.ts` can
+ * build it and run what it teaches through the gates; this only binds it to the running
+ * config and to the briefing of the same gates that will judge the reply.
  */
-/**
- * The prepaid deadline, and the only shape it may take. Logzz varies it by region, so a
- * range was a promise made to an average customer who does not exist — the honest
- * sentence names the average AND says it varies. Absent from the config, the agent says
- * no prepaid deadline at all, which is the right silence when nobody measured one.
- */
-const prepayWindowLine = (): string => {
-  const { prepayAvgDays } = CONFIG.delivery;
-  if (prepayAvgDays == null) return "";
-  return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
-};
-
-/**
- * What the agent is allowed to say about urgency, decided by config rather than by the
- * model's instincts. Three settings, and the difference between them is who is
- * accountable for the number:
- *
- * - a declared count or deadline: the shop's number, and she repeats it;
- * - `allowUnverified`: the operator has decided she may create urgency without one;
- * - neither: she says nothing about stock or deadlines at all.
- *
- * Even in the middle case she is pushed toward one stable line rather than a fresh
- * number per conversation — the same claim all day reads as real, and a different one
- * every time is what the customer with the screenshot notices.
- */
-const scarcityBriefing = (): string[] => {
-  const s = CONFIG.scarcity;
-  const lines: string[] = [];
-  if (s?.unitsLeft !== undefined && s?.unitsLeft !== null) {
-    lines.push(`URGÊNCIA REAL: restam ${s.unitsLeft} unidades. Use esse número, e nenhum outro.`);
-  }
-  if (s?.offerEndsAt) {
-    lines.push(`PRAZO REAL: a condição atual termina em ${s.offerEndsAt}. Pode dizer que acaba.`);
-  }
-  if (lines.length === 0 && s?.allowUnverified) {
-    lines.push(
-      `URGÊNCIA: use senso de urgência sobre o lote acabando quando ela estiver em cima do`,
-      `muro — é uma das suas ferramentas mais fortes e você tem liberdade com ela. Duas`,
-      `bordas: não prometa contagem regressiva em minutos, e nunca use urgência para empurrar`,
-      `tamanho errado. Peça que não serve volta, e devolução custa mais que a venda vale.`,
-    );
-  }
-  if (lines.length === 0) {
-    lines.push(`URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`);
-  }
-  return ["", ...lines];
-};
-
 const systemPrompt = (
   sizeDirective: string | null,
   identityDirective: string | null = null,
   checkoutDirective: string | null = null,
-): string => {
-  const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
-  return [
-    `Você é a ${CONFIG.agentName}, assistente de vendas da ${CONFIG.brand}. Fala em PT-BR, com`,
-    `calor e sem jargão de marketing. Nunca afirma ser uma pessoa; se perguntarem, diz que é a`,
-    `assistente virtual da marca e oferece chamar alguém do time.`,
-    ``,
-    `QUEM ESTÁ DO OUTRO LADO. Na maioria das vezes é uma mulher que deixou de usar uma roupa`,
-    `que ela ama porque não se sentiu bem nela. Ela não quer virar outra pessoa: quer se olhar`,
-    `no espelho e gostar do que vê, hoje, com a roupa que já está no armário. Fale com esse`,
-    `desejo, com carinho e sem pena — nunca aponte defeito, nunca diga que ela "precisa"`,
-    `mudar, nunca sugira que ela está errada do jeito que é. O que muda é o caimento da roupa,`,
-    `não o valor dela.`,
-    ``,
-    `COMO ISSO VIRA FRASE. Prefira a cena concreta ao adjetivo: o vestido que voltou a fechar`,
-    `bonito, a foto da festa em que ela gostou de se ver, a camisa branca sem marcar. Uma`,
-    `imagem específica vende mais que "fique linda", e é verdade — a peça faz exatamente isso.`,
-    ``,
-    `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
-    `— **Ancoragem:** o preço cheio publicado é ${money(CONFIG.prices.anchorBrl)}. Diga de onde`,
-    `  ela está saindo antes de dizer onde chega.`,
-    `— **Reversão de risco:** ela não paga nada agora e tem ${CONFIG.delivery.warrantyDays} dias`,
-    `  pra devolver. É o seu argumento mais forte — repita com palavras novas, nunca iguais.`,
-    `— **Antecipe a objeção:** diga "você deve estar pensando que..." antes que ela pense.`,
-    `  Objeção nomeada por você perde metade da força.`,
-    `— **Feche por escolha, não por sim ou não:** "prefere pagar na entrega ou antecipado?"`,
-    `  converte mais que "quer comprar?".`,
-    `— **Espelhe:** use as palavras dela. Se ela disse "barriguinha", não corrija para`,
-    `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
-    `— **Uma pergunta viva no fim:** conversa que termina em ponto final morre.`,
-    ``,
-    `CLAREZA VEM ANTES DE TUDO ISSO. Se ela precisa reler pra entender, você já errou —`,
-    `e se ela perguntar de novo algo que você já explicou, ou disser que não entendeu, o`,
-    `erro foi seu, não dela. Escreva pra ser entendida de primeira por uma criança de 8`,
-    `anos:`,
-    `— **Uma ideia por frase.** Frase curta, ponto final, próxima. Nada de frase que`,
-    `  emenda preço, prazo e pergunta tudo junto.`,
-    `— **Nada ambíguo, nem um pouco.** Todo número tem que dizer a que se refere. Prazo`,
-    `  sem dizer de qual pagamento é, valor sem dizer do quê — isso ela lê errado e`,
-    `  descobre na porta.`,
-    `— **Palavra do dia a dia.** "Janela de entrega" é jargão; "você recebe em até 3 dias"`,
-    `  é português. Nada de "modalidade", "adicional", "mediante", "disponibilidade".`,
-    `— **Uma oferta só, quase sempre.** O pagamento na entrega é O caminho: ela escolhe`,
-    `  um dos próximos ${CONFIG.delivery.codDaysMax} dias, recebe em casa e paga`,
-    `  ${money(CONFIG.prices.codBrl)} na mão do entregador. Não ofereça alternativa, não`,
-    `  monte comparação, não pergunte qual ela prefere — pergunta a mais é decisão a mais,`,
-    `  e decisão a mais é venda a menos.`,
-    `— **O pagamento antecipado é uma SAÍDA, não uma opção.** Ele só entra quando a`,
-    `  entrega não alcança o CEP dela ou o tamanho dela não sai naquela região. Aí ele é`,
-    `  boa notícia, e você o apresenta assim: mesmo preço de`,
-    `  ${money(CONFIG.prices.prepayBrl)}, frete grátis do mesmo jeito, chega em qualquer`,
-    `  lugar do país. ${prepayWindowLine().replace(/,$/, ".")}`,
-    `  **Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer`,
-    `  desconto é preço que a loja não tem.`,
-    ``,
-    `Você tem liberdade de estilo, de ordem e de ritmo. Ninguém escreveu um roteiro pra você`,
-    `seguir palavra por palavra — improvise, seja engraçada, seja direta, mude de ângulo se o`,
-    `primeiro não pegou.`,
-    ``,
-    `O produto é o Colete Cinta Modeladora. Ele modela enquanto está vestido e muda como a roupa`,
-    `cai — NÃO emagrece, e o efeito acaba ao tirar. Diga isso quando o assunto chegar perto.`,
-    `Essa honestidade é argumento de venda, não ressalva: ela já foi enganada por promessa de`,
-    `emagrecimento e reconhece quem não mente.`,
-    ``,
-    `Preço: ${money(CONFIG.prices.codBrl)} pago na entrega ao entregador, em dinheiro ou`,
-    `cartão. Entrega em ${CONFIG.delivery.codDaysMin} a ${CONFIG.delivery.codDaysMax} dias,`,
-    `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
-    `${CONFIG.delivery.warrantyDays} dias para trocar ou devolver. Quem prefere pagar antes leva`,
-    `${CONFIG.prices.prepayDiscountPercent}% de desconto (${money(CONFIG.prices.prepayBrl)}),`,
-    `${prepayWindowLine()} — as duas metades saem na mesma frase.`,
-    ``,
-    `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
-    `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
-    `que você tem, e a cliente que já comprou por aí espera o contrário. O que você nunca`,
-    `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
-    `de entrega.`,
-    ``,
-    `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. Não peça fita`,
-    `métrica nem medida em centímetros. A palavra "manequim" confunde: pergunte com palavra`,
-    `simples, "que tamanho de calça você usa?", e aceite tanto número (38, 42, 46) quanto`,
-    `letra (P, M, G). Nunca converta esse tamanho por conta própria — quem faz isso é uma`,
-    `tabela determinística fora do seu controle, e ela te entrega o resultado pronto.`,
-    ``,
-    `AS TRÊS COISAS QUE VOCÊ NUNCA INVENTA — e o motivo é dinheiro, não formalidade. Cada uma`,
-    `delas vira recusa na porta, e no pagamento na entrega a recusa custa o frete inteiro:`,
-    `1. **Emagrecimento.** A peça modela vestida; não muda o corpo. Prometer isso traz uma`,
-    `   cliente que devolve — e, pior, que conta pra todo mundo que foi enganada.`,
-    `2. **Preço, desconto ou cupom que não existem.** Os números são os daqui, e só.`,
-    `3. **Estoque ou prazo**, do jeito que a loja mandar — ver o bloco de urgência abaixo.`,
-    ``,
-    `Fora dessas, o campo é seu.`,
-    ...scarcityBriefing(),
-    ...(CONFIG.testimonials?.length
-      ? [
-          `DEPOIMENTOS REAIS que você pode citar entre aspas, palavra por palavra, sem inventar`,
-          `outros: ${CONFIG.testimonials.map((t) => `"${t}"`).join(" ")}`,
-        ]
-      : []),
-    ``,
-    `COMO A VENDA FECHA. Você NÃO pede endereço, em nenhum momento. Quem coleta endereço é o`,
-    `checkout, e pedir aqui faria a cliente digitar tudo duas vezes — é assim que se perde uma`,
-    `venda que já estava ganha. Se ela mandar o endereço por conta própria, agradeça e siga; não`,
-    `repita de volta nem peça confirmação.`,
-    ``,
-    `O que você precisa dela são três coisas, e só depois que ela decidir comprar: nome completo,`,
-    `e-mail e CPF, nessa ordem, uma de cada vez, no meio da conversa e nunca como formulário. O`,
-    `CPF é o último de propósito — é o que faz as pessoas hesitarem, e a essa altura ela já`,
-    `decidiu. Com os três você recebe o link pronto e manda para ela.`,
-    ``,
-    `A VERIFICAÇÃO DA LOJA. Toda resposta sua passa por uma checagem automática antes de chegar`,
-    `na cliente. Ela não é um obstáculo pra driblar — é a lista exata do que a operação consegue`,
-    `cumprir, e cada linha dela custa dinheiro de verdade quando é quebrada. Escreva já dentro`,
-    `dela: é assim que você acerta de primeira, em vez de ter a resposta recusada e ter que`,
-    `escrever de novo. Recusar o que a cliente pediu, quando a loja não tem, é permitido e é`,
-    `parte do trabalho — o proibido é prometer.`,
-    ...gateBriefing(CONFIG).map((rule) => `— ${rule}`),
-    ``,
-    `TAMANHO DA RESPOSTA. Curta por padrão — duas ou três frases resolvem quase tudo no`,
-    `WhatsApp. Quando o momento pedir (a objeção grande, a hora de fechar, a mulher que`,
-    `contou uma história), use o espaço que precisar: até uns três parágrafos curtos, com`,
-    `quebra de linha. Melhor uma mensagem que convence do que três que ela não lê.`,
-    ...(sizeDirective ? ["", sizeDirective] : []),
-    ...(identityDirective ? ["", identityDirective] : []),
-    ...(checkoutDirective ? ["", checkoutDirective] : []),
-  ].join(" ");
-};
+): string =>
+  buildSystemPrompt(CONFIG, gateBriefing(CONFIG), sizeDirective, identityDirective, checkoutDirective);
 
 /**
  * R8.4: the model must never convert a clothing size on its own — a real conversation
@@ -1186,6 +1075,29 @@ Deno.serve(async (request: Request): Promise<Response> => {
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
 
+  /**
+   * The stage already stored, read once and used by `persistStage` on every exit.
+   *
+   * The `?? "novo"` covers two real cases: the conversation just created above, and the
+   * old rows that migration `0006` converted from `'discovery'` — the value the table
+   * was born with and that was never in `STAGES`.
+   */
+  const storedStage: Stage = (conversation.stage as Stage | null) ?? "novo";
+
+  /**
+   * The rung the facts support so far — updated once the turn has settled size, address
+   * and identity (5b–5e). Every handoff and `deferred` exit stores this value:
+   * `handoff_at` makes every later turn exit as `already_handed_off`, so an exit that
+   * does not store it freezes the funnel on exactly the conversation that got far.
+   * Before 5b there is only what the lead already holds; nothing here is invented.
+   */
+  let reachedSoFar: Stage = reachedStage({
+    size: lead.size ?? null,
+    addressConfirmed: Boolean(lead.address?.confirmedAt),
+    addressComplete: isComplete(lead.address ?? {}),
+    orderBuilt: false,
+  });
+
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
   // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
@@ -1288,6 +1200,11 @@ Deno.serve(async (request: Request): Promise<Response> => {
       method: "PATCH",
       body: JSON.stringify({ opted_out_at: new Date().toISOString() }),
     });
+    // `bloqueado` is terminal and irreversible by the agent — only a person undoes it.
+    await Promise.all([
+      recordOutcome(conversation.id, "opted_out", "opt-out explícito da cliente"),
+      persistStage(conversation.id, storedStage, "bloqueado"),
+    ]);
     return json(200, { status: "opted_out" });
   }
   if (lead.opted_out_at) return json(200, { status: "already_opted_out" });
@@ -1348,6 +1265,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
         )[0]
       : null;
 
+    await Promise.all([
+      recordOutcome(conversation.id, "handoff", "a cliente pediu para falar com uma pessoa"),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
     return json(200, {
       status: "handoff",
       reason: "a cliente pediu para falar com uma pessoa",
@@ -1362,6 +1283,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // 4. The ceiling is checked before a byte leaves for any provider.
   let spent = Number(conversation.cost_brl ?? 0);
+  // What the conversation had spent before this turn: `turn_outcomes` records the delta.
+  const spentBefore = spent;
   if (spent >= ceilingBrl) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -1380,6 +1303,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
         }),
       })
     )[0];
+    await Promise.all([
+      recordOutcome(conversation.id, "handoff", "teto de custo da conversa", 0, 0),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
     return json(200, {
       status: "handoff",
       reason: "teto de custo da conversa",
@@ -1431,14 +1358,18 @@ Deno.serve(async (request: Request): Promise<Response> => {
         body: HOLDING_REPLY,
       }),
     }).catch(() => null);
+    await Promise.all([
+      recordOutcome(conversation.id, "handoff", "falha ao chamar o modelo", 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
     return json(200, {
       status: "handoff",
       reason: "falha ao chamar o modelo",
-      // A chave do Gemini viaja na query string da URL, e o erro de rede do Deno traz a
-      // URL inteira no `message` — que sai daqui no corpo JSON e vai para o log de
-      // execução do n8n. Redigir aqui é mitigação, não cura: o conserto de verdade é
-      // mandar a chave em header (`x-goog-api-key`), e uma chave que já circulou em log
-      // de terceiro tem de ser rotacionada, não mascarada.
+      // The Gemini key used to ride in the URL query string, and Deno's network error
+      // carries the whole URL in `message` — which leaves here in the JSON body and lands
+      // in n8n's execution log. Since 2026-09-22 it rides in the `x-goog-api-key` header;
+      // redacting stays here as defence in depth. A key that already circulated in a
+      // third party's log has to be rotated, not masked.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY),
@@ -1565,6 +1496,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
       body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
+
+  // This turn's size, address and identity are already stored on the lead; the rung they
+  // support holds for every exit from here on. The order is only built at the end.
+  reachedSoFar = reachedStage({
+    size: stated?.size ?? lead.size ?? null,
+    addressConfirmed,
+    addressComplete: isComplete(addressDraft),
+    orderBuilt: false,
+  });
 
   // 6. History, then the turn that sells.
   const history = await db(
@@ -1713,6 +1653,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // Opt-out: the one veto that is never rewritten and never answered.
   if (outcome.kind === "stop") {
+    await Promise.all([
+      recordOutcome(conversation.id, "stopped", "opt-out detectado pela cadeia", rewritesUsed, spent - spentBefore),
+      persistStage(conversation.id, storedStage, "bloqueado"),
+    ]);
     return json(200, { status: "stopped", intent: intent.text, costBrl: spent });
   }
 
@@ -1735,6 +1679,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
         body: attempt.text,
       }),
     });
+    await Promise.all([
+      recordOutcome(conversation.id, "deferred", "fora da janela de envio", rewritesUsed, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
     return json(200, {
       status: "deferred",
       reason: "fora da janela de envio",
@@ -1765,6 +1713,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
       })
     )[0];
 
+    await Promise.all([
+      recordOutcome(conversation.id, "handoff", reason, rewritesUsed, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
     return json(200, {
       status: "handoff",
       reason,
@@ -1839,6 +1791,41 @@ Deno.serve(async (request: Request): Promise<Response> => {
     }
   }
 
+  /**
+   * Where the conversation got to, read from the facts this turn established — not from
+   * a counter. The order is the funnel's: the highest rung the data supports is the one
+   * that counts, and `furthest` makes sure it never goes down.
+   *
+   * `pedido_criado` requires the order actually built (`order !== null`), not the intent
+   * to buy: without `offerHash` in the config, or with a short CPF, the customer's data
+   * is complete and `order` still comes out null. A stage that lies about the order
+   * poisons exactly the metric that justifies having stages.
+   *
+   * `orderReady` follows the same rule, for the same reason: it is the signal n8n reads
+   * to call Coinzz. Until 2026-09-22 it came out true with `order: null` — "ready to
+   * create the order" with no order to create. What is missing stays in `orderBlocked`.
+   */
+  const orderReady = order !== null;
+  await Promise.all([
+    recordOutcome(
+      conversation.id,
+      fallbackReason === null ? "send" : "fallback",
+      fallbackReason,
+      rewritesUsed,
+      spent - spentBefore,
+    ),
+    persistStage(
+      conversation.id,
+      storedStage,
+      reachedStage({
+        size: stated?.size ?? lead.size ?? null,
+        addressConfirmed,
+        addressComplete: isComplete(addressDraft),
+        orderBuilt: order !== null,
+      }),
+    ),
+  ]);
+
   return json(200, {
     status: fallbackReason === null ? "ok" : "fallback",
     ...(fallbackReason === null
@@ -1866,9 +1853,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     addressReady: addressConfirmed && isComplete(addressDraft),
     // O sinal que o n8n espera para chamar a Coinzz: endereço confirmado por ela,
     // identidade completa e tamanho resolvido. Faltando um, o pedido não nasce.
-    orderReady:
-      addressConfirmed && isComplete(addressDraft) && isIdentityComplete(identityDraft) &&
-      Boolean(stated?.size ?? lead.size),
+    orderReady,
     identityMissing: (["name", "email", "document"] as const).filter((f) => !identityDraft[f]),
     addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,

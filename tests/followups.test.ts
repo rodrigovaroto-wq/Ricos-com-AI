@@ -16,13 +16,18 @@ import {
 import { remedyFor, runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
-/** O que o relógio de São Paulo marca naquele instante. */
+/**
+ * O que o relógio de São Paulo marca naquele instante, de 0 a 23. `hourCycle: "h23"` e
+ * não `hour12: false`: no Node 20 (ICU 78.2) `hour12: false` resolve para `h24` e a
+ * meia-noite sai "24" — o teste da meia-noite passava ou falhava conforme qual `node`
+ * estava primeiro no PATH.
+ */
 const horaEmSP = (d: Date) =>
   Number(
     new Intl.DateTimeFormat("en-US", {
       timeZone: "America/Sao_Paulo",
       hour: "numeric",
-      hour12: false,
+      hourCycle: "h23",
     }).format(d),
   );
 
@@ -510,5 +515,45 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
     // é a mensagem que queima o número e a marca de uma vez.
     const efeito = onOrderConfirmed(armada, orderedAt, 1, "Cancelado");
     expect(efeito.cancel).toContain("order_eve");
+  });
+});
+
+// A Edge Function roda em UTC: entre 21h e 23h59 de São Paulo o servidor já está no
+// dia seguinte. Instantes UTC explícitos, para o teste quebrar onde o bug mora.
+describe("dia da semana do terceiro toque — o de São Paulo, não o do servidor", () => {
+  const ativo = { ...config, coupon: { ...config.coupon, active: true } };
+  const quintaNoite = new Date("2026-09-25T01:00:00Z"); // quinta 22h em SP, sexta em UTC
+  const sextaManha = new Date("2026-09-25T13:00:00Z"); // sexta 10h em SP
+  const comWeekday = (now: Date): RenderContext =>
+    render({
+      now,
+      config: {
+        ...ativo,
+        channel: {
+          templates: {
+            silence_3: { name: "encorpa_silencio_3", language: "pt_BR", variables: ["weekday"] },
+          },
+        },
+      },
+    });
+  const fora = (now: Date) => new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
+
+  it("quinta 22h em São Paulo é quinta no texto", () => {
+    expect(renderFollowup("silence_3", render({ config: ativo, now: quintaNoite }))).toContain("Super Quinta");
+  });
+
+  it("quinta 22h em São Paulo é quinta na variável do template", () => {
+    expect(deliveryFor("silence_3", comWeekday(quintaNoite), fora(quintaNoite))).toMatchObject({
+      via: "template",
+      variables: ["Quinta"],
+    });
+  });
+
+  it("sexta 10h em São Paulo é sexta, nos dois lugares", () => {
+    expect(renderFollowup("silence_3", render({ config: ativo, now: sextaManha }))).toContain("Super Sexta");
+    expect(deliveryFor("silence_3", comWeekday(sextaManha), fora(sextaManha))).toMatchObject({
+      via: "template",
+      variables: ["Sexta"],
+    });
   });
 });

@@ -13,11 +13,12 @@ export const geminiProvider = (options: {
   model: options.model,
   async complete(request: LlmRequest): Promise<ProviderResult> {
     const doFetch = options.fetchImpl ?? fetch;
-    const url = `https://generativelanguage.googleapis.com/v1beta/models/${options.model}:generateContent?key=${options.apiKey}`;
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${options.model}:generateContent`;
 
     const response = await doFetch(url, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      // Header, not query string: a network error carries the URL in its message.
+      headers: { "Content-Type": "application/json", "x-goog-api-key": options.apiKey },
       body: JSON.stringify({
         system_instruction: { role: "user", parts: [{ text: request.system }] },
         contents: request.messages.map((m) => ({
