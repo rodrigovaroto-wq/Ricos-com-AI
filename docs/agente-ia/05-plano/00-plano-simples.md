@@ -23,7 +23,7 @@ Chegamos lá quando estas cinco coisas forem verdade ao mesmo tempo:
    pegou mentira.
 3. Um **pedido de teste fechou nos dois caminhos** (pagamento na entrega e antecipado).
 4. O **WhatsApp oficial está ligado**, com os 3 modelos de mensagem aprovados pela Meta.
-5. O **número tem semanas de uso normal** (aquecido).
+5. O **número foi aquecido** pelos dois testes de 14 dias (etapa 5).
 
 ---
 
@@ -47,11 +47,10 @@ consegue fazer.
 
 | # | O quê | Onde | Tempo | Destrava |
 |---|---|---|---|---|
-| 1 | **Começar a aquecer o número** (uso normal do WhatsApp) | celular | começa hoje, leva semanas | o tráfego pago — é o item mais demorado do plano inteiro (O9) |
-| 2 | **Apagar a chave `freeShipping`** do secret `BUSINESS_CONFIG` | Supabase → Edge Functions → Secrets | 5 min | subir a v33 sem prometer frete grátis (O1) |
-| 3 | **Recuperar o acesso ao n8n** e gerar uma **API key** | suporte do PikaPods, ou `n8n user-management:reset` no container; depois Settings → n8n API | 30–60 min | a espera de 2 min (O2) e a proteção dos webhooks (O10) — o agente faz os dois |
-| 4 | **Cadastrar as credenciais no ambiente da nuvem** — nunca no chat: `GEMINI_API_KEY`, `META_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY` | menu do ambiente na barra da sessão → Edit | 10 min | as 12 clientes de teste e a comparação de modelos (O3) |
-| 5 | **Informações da Coinzz**: qual `payment_method` é o pagamento na entrega · o payload real do webhook (pode mascarar CPF e telefone) · as 3 URLs de obrigado | painel da Coinzz / log do n8n | 20 min | o pedido de teste (O5, O6, O7) |
+| 1 | **Apagar a chave `freeShipping`** do secret `BUSINESS_CONFIG` — o painel não edita o secret, só substitui: colar o JSON inteiro, já sem a chave | Supabase → Edge Functions → Secrets | 5 min | subir a v33 sem prometer frete grátis (O1) |
+| 2 | ✅ **Acesso ao n8n recuperado** (23/09 — a API key responde e lista os 3 workflows ativos) | — | feito | a espera de 2 min (O2) e a proteção dos webhooks (O10) — o agente faz os dois |
+| 3 | **Cadastrar as credenciais no ambiente da nuvem** — nunca no chat: `GEMINI_API_KEY`, `META_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY` | menu do ambiente na barra da sessão → Edit | 10 min | as 12 clientes de teste e a comparação de modelos (O3) |
+| 4 | **Informações da Coinzz**: qual `payment_method` é o pagamento na entrega · o payload real do webhook (pode mascarar CPF e telefone) · as 3 URLs de obrigado | painel da Coinzz / log do n8n | 20 min | o pedido de teste (O5, O6, O7) |
 
 Mais adiante, e já em andamento: **token do WhatsApp Cloud API** e **aprovação dos 3
 modelos de mensagem** na Meta (O8), e um **token de acesso do Supabase** no dia do deploy,
@@ -110,13 +109,21 @@ origem do anúncio gravada no lead, e só mandar mensagem de marketing a quem au
 **Pronto quando:** uma mensagem de acompanhamento fora da janela de 24 h sai como modelo
 aprovado.
 
-### Etapa 5 — Ensaio geral e primeiros clientes
+### Etapa 5 — Ensaio geral e os dois testes de 14 dias
 
-1. As 12 clientes de teste **pelo WhatsApp de verdade**, no celular.
-2. **Um pedido real**, pago na porta, do anúncio ao pós-venda.
-3. Tráfego pequeno só nas **22 cidades** onde existe pagamento na entrega (fase 9).
+Decisão do operador (23/09): **o aquecimento do número acontece dentro destes dois testes**,
+não antes. Tráfego só nas **22 cidades** onde existe pagamento na entrega.
 
-**Pronto quando:** o primeiro pedido real foi entregue e pago.
+1. **Antes:** as 12 clientes de teste **pelo WhatsApp de verdade**, no celular (9.1).
+2. **Teste 1:** 5 criativos · oferta · funil · logística · a primeira versão da agente
+   com clientes reais. Sai dele: os 2 criativos vencedores e a lista de correções da
+   agente, lida em `turn_outcomes` e nas conversas.
+3. **Teste 2:** 1 dos 2 criativos vencedores · validar o que mudou na oferta e no funil
+   (se mudou) · validar as correções e otimizações da agente.
+
+**Pronto quando:** o primeiro pedido real foi entregue e pago, e o teste 2 confirmou as
+correções do teste 1.
+
 
 ---
 
