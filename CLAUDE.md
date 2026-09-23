@@ -65,12 +65,12 @@ que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou ga
 teste roda**. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 
-**Provedor de modelo** (rodada 7 — §R7.1; conversa trocada em 2026-09-10, ver `HANDOFF.md`
-§Frente 5): `muse-spark-1.3` (Meta) para a conversa que converte — era `gpt-5.6-luna`
-(OpenAI) — `gemini-3.5-flash-lite` para o trabalho barato e para todo o desenvolvimento.
-Toda chamada passa por um seam único, com teto de custo e trace — o provedor é
-configuração, não arquitetura. **O eval de conversão/recusa de gate contra o modelo
-antigo não foi rodado** — a troca subiu o mecanismo, não a prova.
+**Provedor de modelo — só a Meta** (§R12.1, 2026-09-23; supera §R7.1): `muse-spark-1.3`
+pela API da Meta (`api.llama.com`) é o único provedor. **OpenAI e Gemini saíram do escopo** —
+a chamada de intenção do Gemini não decidia nada e sai do turno (item 2.10 do plano v2); a
+v32 no ar ainda usa os dois até o deploy da v33. Toda chamada passa por um seam único, com
+teto de custo e trace. **O eval da Muse contra a rubrica das personas ainda não foi
+rodado** — a troca subiu o mecanismo, não a prova.
 
 ## Canonical commands
 

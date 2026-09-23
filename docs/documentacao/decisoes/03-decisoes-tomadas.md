@@ -1412,3 +1412,34 @@ estados e teto de custo são código versionado com teste. O n8n é cano e reló
 `Wait`, cron, retry, e-mail. Nada além disso.
 
 Esta é a única parte da proposta que foi recusada.
+
+---
+
+# Rodada 12 — um provedor só (2026-09-23)
+
+## R12.1 — Só a API da Meta. Gemini e OpenAI saem do escopo
+
+Decisão do operador em 23/09: **não vamos usar OpenAI nem Gemini.** Supera R7.1 na parte
+dos provedores.
+
+**Por que não custa nada relevante — conferido no código, não no documento:**
+
+| Provedor | Onde R7.1 dizia que era usado | O que o código faz de verdade |
+|---|---|---|
+| **Gemini** | intenção, endereço, estágio — "20 chamadas por conversa" | **Só classifica intenção**, e o resultado **não decide nada**: vai no corpo da resposta e nenhum dos três workflows do n8n o lê (conferido pela API do n8n em 23/09). Endereço e estágio são TypeScript determinístico. Hoje ele é custo e **um ponto de falha**: se o Gemini cai, o turno vira handoff (`modelFailure`) sem ter decidido nada |
+| **OpenAI** | a conversa (`gpt-5.6-luna`) | É a conversa **da v32 no ar**. Na v33 o padrão já é Muse Spark 1.3; a OpenAI fica só como caminho de volta (`CONVERSATION_MODEL`) e como base de comparação do eval |
+| **Gemini (dev)** | desenvolvimento e testes | O runner das personas usa Gemini para fazer o papel da cliente |
+
+**O que muda:**
+
+1. **O turno perde a chamada de intenção** (item 2.10 do plano v2). Sem substituto: ela não
+   decide nada. Um provedor a menos, uma chamada a menos por turno, um motivo de handoff a
+   menos.
+2. **O runner das personas passa a usar a Meta** para fazer a cliente.
+3. **O eval da fase 4 deixa de ser Muse contra Luna.** Vira Muse sozinha contra a rubrica
+   das personas (mentira · perda · atrito · custo · opt-out). Perde-se a comparação lado a
+   lado; o critério de aprovação continua o mesmo.
+4. **Perde-se o caminho de volta para a Luna.** Se a Muse reprovar no eval, a alternativa
+   passa a ser outro modelo da própria API da Meta, não a OpenAI.
+5. **Os secrets `OPENAI_API_KEY` e `GEMINI_API_KEY` do Supabase ficam até o deploy da v33**
+   — a v32 no ar ainda usa os dois — e saem depois dele.

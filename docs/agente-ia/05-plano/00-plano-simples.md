@@ -49,8 +49,8 @@ consegue fazer.
 |---|---|---|---|---|
 | 1 | **Apagar a chave `freeShipping`** do secret `BUSINESS_CONFIG` — o painel não edita o secret, só substitui: colar o JSON inteiro, já sem a chave | Supabase → Edge Functions → Secrets | 5 min | subir a v33 sem prometer frete grátis (O1) |
 | 2 | ✅ **Acesso ao n8n recuperado** (23/09 — a API key responde e lista os 3 workflows ativos) | — | feito | a espera de 2 min (O2) e a proteção dos webhooks (O10) — o agente faz os dois |
-| 3 | **Cadastrar as credenciais no ambiente da nuvem** — nunca no chat: `GEMINI_API_KEY`, `META_API_KEY`, `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY` | menu do ambiente na barra da sessão → Edit | 10 min | as 12 clientes de teste e a comparação de modelos (O3) |
-| 4 | **Informações da Coinzz**: qual `payment_method` é o pagamento na entrega · o payload real do webhook (pode mascarar CPF e telefone) · as 3 URLs de obrigado | painel da Coinzz / log do n8n | 20 min | o pedido de teste (O5, O6, O7) |
+| 3 | **Credenciais no ambiente da nuvem** (23/09): n8n ✅ e Supabase ✅ respondendo; **Meta ❌ devolve 401** — conferir o site `api.llama.com`, o cabeçalho `Authorization` com prefixo `Bearer`, e que a chave é a da Llama API (não o token do WhatsApp). OpenAI e Gemini **não entram** — só Meta (§R12.1) | menu do ambiente na barra da sessão → Edit | 5 min | as 12 clientes de teste e o eval (O3) |
+| 4 | **Coinzz:** ✅ forma de pagamento respondida (ver O5 no plano v2 — achado sem efeito hoje) · ✅ páginas de obrigado configuradas · ⏳ o payload real do webhook, no próximo pedido | e-mail do n8n | 10 min | o mapeamento da venda (O6) |
 
 Mais adiante, e já em andamento: **token do WhatsApp Cloud API** e **aprovação dos 3
 modelos de mensagem** na Meta (O8), e um **token de acesso do Supabase** no dia do deploy,
@@ -71,7 +71,8 @@ Cada etapa só começa quando a anterior fecha.
 Os itens da seção 3. **Pronto quando:** as credenciais aparecem numa sessão nova e o
 agente consegue abrir o n8n pela API.
 
-Enquanto isso, o agente faz sozinho o que não depende de você: o turno passa a avisar as
+Enquanto isso, o agente faz sozinho o que não depende de você: tira o Gemini do turno e
+do runner (só Meta — item 2.10), e o turno passa a avisar as
 travas quando a conversa é sobre o **antecipado** (hoje elas sempre acham que é pagamento
 na entrega — item 2.8).
 
@@ -80,12 +81,13 @@ na entrega — item 2.8).
 1. **Rodar as 12 clientes de teste** contra a v33, sem ela estar no ar. Cada uma tenta
    arrancar uma mentira diferente: frete grátis, prazo inventado, desconto sem número,
    promessa de saúde, "é golpe?". Duas rodadas: achar, consertar, conferir (3.4, 3.5).
-2. **Comparar os dois modelos** com as mesmas 12: Muse Spark contra o atual. Taxa de
-   erro, custo por conversa, turnos até o link. **Você escolhe** com a tabela na mão (fase 4).
+2. **Avaliar a Muse Spark** com as mesmas 12, contra a rubrica: taxa de erro, custo por
+   conversa, turnos até o link. Só a API da Meta — OpenAI e Gemini saíram (§R12.1). **Você
+   aprova** com a tabela na mão (fase 4).
 3. **Mapear o webhook da Coinzz** contra o payload real, e fazer o webhook de venda
    marcar a conversa como "em rota", "entregue e paga" ou "recusada" (5.1, 5.8).
 
-**Pronto quando:** as 12 passam sem mentira e você escolheu o modelo.
+**Pronto quando:** as 12 passam sem mentira e você aprovou a Muse Spark.
 
 ### Etapa 3 — Subir a v33 (agente, com você no deploy)
 
