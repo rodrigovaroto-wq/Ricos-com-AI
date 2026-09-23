@@ -49,7 +49,7 @@ consegue fazer.
 |---|---|---|---|---|
 | 1 | ✅ **Chave `freeShipping` apagada** do secret `BUSINESS_CONFIG` (operador, 23/09 — JSON inteiro substituído). O secret não é legível: a prova é a sonda 6.5 no deploy | Supabase → Edge Functions → Secrets | feito | subir a v33 sem prometer frete grátis (O1) |
 | 2 | ✅ **Acesso ao n8n recuperado** (23/09 — a API key responde e lista os 3 workflows ativos) | — | feito | a espera de 2 min (O2) e a proteção dos webhooks (O10) — o agente faz os dois |
-| 3 | **Credenciais no ambiente da nuvem** (23/09): n8n ✅ e Supabase ✅ respondendo; **Meta ❌ devolve 401** — conferir o site `api.llama.com`, o cabeçalho `Authorization` com prefixo `Bearer`, e que a chave é a da Llama API (não o token do WhatsApp). OpenAI e Gemini **não entram** — só Meta (§R12.1) | menu do ambiente na barra da sessão → Edit | 5 min | as 12 clientes de teste e o eval (O3) |
+| 3 | **Credenciais no ambiente da nuvem** (23/09): n8n ✅ e Supabase ✅. **Meta ❌** — a Muse Spark 1.3 é servida pela **Meta Model API** ([dev.meta.ai](https://dev.meta.ai/docs/protocols/chat-completions)), em **`api.meta.ai`**. A credencial precisa ter **Sites permitidos = `api.meta.ai`**, cabeçalho `Authorization`, prefixo `Bearer`, e a chave criada em dev.meta.ai. Hoje `api.meta.ai` responde `invalid_api_key` | menu do ambiente na barra da sessão → Edit | 5 min | as 12 clientes de teste e o eval (O3) |
 | 4 | **Coinzz:** ✅ forma de pagamento respondida (ver O5 no plano v2 — achado sem efeito hoje) · ✅ páginas de obrigado configuradas · ⏳ o payload real do webhook, no próximo pedido | e-mail do n8n | 10 min | o mapeamento da venda (O6) |
 
 Mais adiante, e já em andamento: **token do WhatsApp Cloud API** e **aprovação dos 3
@@ -72,7 +72,7 @@ Os itens da seção 3. **Pronto quando:** as credenciais aparecem numa sessão n
 agente consegue abrir o n8n pela API.
 
 Enquanto isso, o agente faz sozinho o que não depende de você: tira o Gemini do turno e
-do runner (só Meta — item 2.10), e o turno passa a avisar as
+do runner (só Meta — item 2.10), aponta a chamada da Muse para `api.meta.ai` (item 2.11), e o turno passa a avisar as
 travas quando a conversa é sobre o **antecipado** (hoje elas sempre acham que é pagamento
 na entrega — item 2.8).
 
@@ -143,3 +143,13 @@ Nada disto começa antes de haver conversas suficientes para uma taxa significar
 Não vamos: deixar o modelo tomar ações sozinho · buscar documentos por similaridade (RAG)
 · pôr o Hermes dentro da conversa · aplicar melhoria em produção sem você. Motivos na
 [rodada 11](../../documentacao/decisoes/03-decisoes-tomadas.md#rodada-11--arquitetura-do-sistema-2026-09-22).
+
+---
+
+## Pendências do operador — lembrar quando ele perguntar o que falta
+
+| Desde | O quê | Onde |
+|---|---|---|
+| 23/09 | **Payload real do webhook da Coinzz** (O6), com CPF, telefone e nome trocados por `XXX` — no próximo pedido | e-mail de aviso do n8n |
+| 23/09 | **Credencial da Meta** com site `api.meta.ai` (item 3 acima) | ambiente da nuvem → Edit |
+| 23/09 | **Autorizar a troca do host da Muse no código** (`api.llama.com` → `api.meta.ai`, item 2.11): o modo automático da sessão barrou a mudança por ser redirecionamento de tráfego | resposta no chat |

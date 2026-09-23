@@ -66,7 +66,8 @@ teste roda**. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 
 **Provedor de modelo — só a Meta** (§R12.1, 2026-09-23; supera §R7.1): `muse-spark-1.3`
-pela API da Meta (`api.llama.com`) é o único provedor. **OpenAI e Gemini saíram do escopo** —
+pela Meta Model API (`api.meta.ai`, [dev.meta.ai](https://dev.meta.ai/)) é o único provedor —
+o código ainda chama `api.llama.com`, que não serve a Muse (item 2.11 do plano v2). **OpenAI e Gemini saíram do escopo** —
 a chamada de intenção do Gemini não decidia nada e sai do turno (item 2.10 do plano v2); a
 v32 no ar ainda usa os dois até o deploy da v33. Toda chamada passa por um seam único, com
 teto de custo e trace. **O eval da Muse contra a rubrica das personas ainda não foi
