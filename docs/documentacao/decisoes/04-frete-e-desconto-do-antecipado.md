@@ -1,5 +1,12 @@
 # Frente 4 item 6 — a economia citável, e a premissa que não se sustenta
 
+> **Substituída em 2026-09-22 pela saída A — ver
+> [§R10.6](03-decisoes-tomadas.md#r106--saída-a-a-economia-do-antecipado-nunca-é-citada-em-reais-só-o-percentual).**
+> A agente cita só o percentual ("10% de desconto") e o preço do antecipado; a economia
+> em reais é vetada pelo `price_promise` em qualquer forma. A saída C chegou a ser
+> implementada (22/09) e foi removida no mesmo dia. O texto abaixo é o registro do
+> raciocínio anterior — não é mais instrução.
+
 > **Status: decisão tomada em 2026-09-10 (tarde), código ainda não escrito.** O operador
 > respondeu a pergunta que §Recomendação deixou em aberto: **sim, o frete do antecipado
 > vai ser parametrizado na Coinzz, inteiramente pago pela cliente, custo zero para a
@@ -117,7 +124,8 @@ sem subir o frete é a pior das quatro combinações possíveis:
 
 ## Recomendação
 
-> **Decidido em 2026-09-10 (tarde): o caminho é o item 2 abaixo, saída C.** O texto
+> **Decidido em 2026-09-10 (tarde): o caminho é o item 2 abaixo, saída C.** *(Revertido
+> em 2026-09-22 para a saída A — §R10.6.)* O texto
 > original desta seção fica como registro do raciocínio que levou lá — a decisão não
 > inventou a resposta, escolheu entre as que já estavam aqui.
 

@@ -1171,6 +1171,26 @@ agente), `config/business.example.json` (já estava correto — `prepayBrl: 116.
 
 ---
 
+## R10.6 — Saída A: a economia do antecipado nunca é citada em reais, só o percentual
+
+**Decisão do operador, 2026-09-22.** A agente diz **"10% de desconto"** e o preço do
+antecipado (R$ 116,91). **Nunca** diz a diferença em reais entre os dois preços
+("economiza R$ 12,99"), em forma nenhuma. Substitui a saída C (economia citável com
+ressalva de frete, decidida em 2026-09-10 — ver
+[`04-frete-e-desconto-do-antecipado.md`](04-frete-e-desconto-do-antecipado.md)).
+
+**Por quê.** Quatro rodadas de conserto do `price_promise` em 22/09 mostraram que o número
+em reais não se protege por regex: cada formulação nova de "economia" era uma superfície
+("Com o desconto de antecipado sai R$ 12,99" passava). E, com o frete do antecipado
+parametrizado e pago pela cliente, "economiza R$ 12,99" vira meia-verdade para quem paga
+frete maior que isso. O percentual é verdade nos dois mundos.
+
+**O que mudou no código** (`aa1c021`): o `price_promise` veta qualquer ocorrência do
+valor da economia — inclusive "12,99" solto — com `freeShipping` ligado ou desligado; a
+maquinaria da saída C (exigir a ressalva na mesma frase) saiu; o prompt instrui "diga o
+percentual e o preço do antecipado". Conferido por comparação de 6138 vereditos contra o
+commit anterior: nenhum veredito passou de vetado para liberado.
+
 # Rodada 11 — arquitetura do sistema (2026-09-22)
 
 Decisões do operador sobre a arquitetura, tomadas depois da análise da proposta de

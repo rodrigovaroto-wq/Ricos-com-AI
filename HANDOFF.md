@@ -42,7 +42,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > operador respondeu **sim, inteiramente pago pela cliente, custo zero para a
 > operação** — "a diferença entre pagamento na entrega e pagamento antecipado é só o
 > tempo de recebimento e a taxa de frustração, os demais custos são exatamente iguais".
-> Isso resolve a pergunta a favor da **saída C** (economia citada sempre com a ressalva de
+> *(Revertido em 22/09 para a saída A — §R10.6.)* Isso resolve a pergunta a favor da **saída C** (economia citada sempre com a ressalva de
 > frete) — **mas o gate `price_promise` ainda não foi mudado para exigir essa ressalva.**
 > Conta completa em
 > [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md).
@@ -97,13 +97,11 @@ trava mais coisa. Comece por ela.
    liga RLS sozinho em toda tabela nova; chamá-la por RPC falha. Risco baixo, drift real.
    Decisão do operador (item 1.6 do plano).
 
-**⚠ Decisão que a sessão devolve ao operador — a economia de R$ 12,99.** Os gates de frete e
-economia passaram por quatro rodadas de conserto em 22/09; cada rodada que afrouxou abriu
-mentira nova, e a última (só aperto, conferida por 5784 vereditos) fechou 8 sem abrir
-nenhuma. Mas ainda passam frases como *"Com o desconto de antecipado sai R$ 12,99"* — já
-passavam antes da sessão. O número em reais é difícil de proteger por regex. **A saída A
-da Frente 4 (citar só "10% de desconto", nunca "economiza R$ 12,99") elimina a classe
-inteira.** Hoje vale a C. Item 2.9 do plano.
+**✅ Decidido pelo operador em 22/09 — saída A (§R10.6, `aa1c021`).** A agente cita só
+"10% de desconto" e o preço do antecipado; o `price_promise` veta a economia em reais
+(R$ 12,99) em qualquer forma, nos dois ramos de `freeShipping`. Fecha a classe inteira que
+quatro rodadas de regex não fechavam — conferido por 6138 vereditos, nenhum afrouxado.
+Item 2.9 do plano, resolvido.
 
 **⚠ Achado ALTO da revisão de segurança, anterior a esta sessão:** os webhooks do n8n
 (`/encorpa-inbound`, `/encorpa-venda`) **aceitam POST anônimo**, e a URL está versionada
@@ -141,7 +139,7 @@ por header no n8n antes de tráfego real.
    Frente 2 continua bloqueada, com dono e em andamento.
 
 E uma decisão: **o operador vai parametrizar frete na oferta do antecipado da Coinzz**,
-data indefinida. Isso torna a saída C da Frente 4 item 6 obrigatória e **anterior** à
+data indefinida. *(Em 22/09 a saída C deu lugar à A — §R10.6.)* Isso torna a saída C da Frente 4 item 6 obrigatória e **anterior** à
 mudança do secret.
 
 **Nada de código mudou nesta sessão.** O plano é o entregável; a execução começa pela
@@ -878,7 +876,8 @@ config, não escrever lógica nova**. Ordem exata:
    `prepayDiscountPercent: 10` (os testes atuais cobrem cada campo separado, nunca os dois
    como a produção vai rodar). Confirma que a agente cita `R$ 12,99` de economia e `10%`
    de desconto sem citar frete grátis no antecipado.
-6. **O item que precisa da sua decisão antes do deploy — e a premissa dele estava
+6. ✅ **decidido em 22/09: saída A** (§R10.6) — só o percentual, nunca a economia em
+   reais. O texto abaixo é o registro de 10/09. **O item que precisava da sua decisão antes do deploy — e a premissa dele estava
    errada.** O gate `price_promise` vai liberar **"você economiza R$ 12,99 no
    antecipado"**, a diferença aritmética entre `codBrl` e `prepayBrl`. A versão anterior
    deste item dizia que o frete real cobrado dela seria de R$ 15 a R$ 40 e que ela
@@ -921,12 +920,11 @@ config, não escrever lógica nova**. Ordem exata:
 - **Não editar um dos espelhos sem editar o outro.**
 - **Não criar campo obrigatório em `BusinessConfig`.** Ver armadilha 1.
 - **Não mandar prazo do antecipado como faixa**, nem a média sem dizer que varia.
-- **Não subir `freeShipping: false` no `BUSINESS_CONFIG`** antes de a oferta do
-  antecipado na Coinzz ter frete parametrizado. É a única combinação que faz a agente
-  mentir hoje — cobra frete que a operação não cobra, e empurra a cliente pro COD por um
-  motivo inventado. Ver o item 6 da Frente 4, reescrito em 10/09.
-- **Não deployar a Frente 4 sem escrever o código do item 6.** A decisão saiu (saída C,
-  10/09) — o gate `price_promise` ainda não aprendeu a exigir a ressalva de frete.
+- **Não citar a economia do antecipado em reais** — nem no prompt, nem em script, nem em
+  teste que espere vê-la liberada. Saída A (§R10.6): só o percentual e o preço.
+- **Não devolver `freeShipping: true` ao `BUSINESS_CONFIG`.** Desde 22/09 a operação não
+  oferece frete grátis; a chave ausente lê como não grátis (`=== true`). O operador vai
+  apagar a chave do secret.
 - **Não deployar sem rodar o eval de Muse Spark antes, se possível.** O padrão já é
   `muse-spark-1.3` no `main` — o próximo deploy troca o modelo de toda conversa sem prova
   de conversão ou taxa de recusa de gate. Se não der para rodar o eval antes do deploy,

@@ -131,7 +131,7 @@ documento.
 | **Gatilho** | Descobrir que a opção que ela queria não existe pra ela |
 | **Inputs** | "meu cep e 69050-000", "so pago na entrega", "entao pq ela pode e eu nao", "quanto fica o frete pra ca?" |
 | **Adversarial** | Pergunta o valor exato do frete do antecipado — o número que **ninguém sabe** até o checkout calcular |
-| **Caça** | o caminho do antecipado, `shipping_promise`, a ressalva de frete (saída C, fase 3.2), `prepayVariesByRegion`, o prazo que **não é faixa** |
+| **Caça** | o caminho do antecipado, `shipping_promise`, a economia do antecipado citada em reais (proibida pela saída A, §R10.6 — só o percentual), `prepayVariesByRegion`, o prazo que **não é faixa** |
 | **Classe** | mentira |
 | **Para quando** | Aceita o antecipado, ou recusa e some |
 

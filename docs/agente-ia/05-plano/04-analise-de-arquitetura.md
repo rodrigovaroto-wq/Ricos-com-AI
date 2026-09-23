@@ -456,7 +456,8 @@ são código versionado com teste. O n8n não os recebe.
 1. **Corrigir a contradição do system prompt** (achado A). O prompt lê `freeShipping` e para de
    dizer ao mesmo tempo "nunca ofereça desconto" e "10% de desconto". É bug em produção
    esperando o dia do `freeShipping: false`, não refatoração. Junta com o item 2.2 do plano v2
-   (a saída C do `price_promise`), porque os dois mexem na mesma promessa.
+   (a saída C do `price_promise`), porque os dois mexem na mesma promessa. *(A saída C foi
+   substituída em 22/09 pela saída A — só o percentual, nunca a economia em reais; §R10.6.)*
 2. **Unificar `conversationCapBrl`** (achado B). Três números viram um. É o item 2.3 do
    plano, que estava sub-informado.
 3. **Instrumentar o estágio** (achado C): escrever `conversations.stage` com os valores de
