@@ -11,6 +11,66 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
+## ▶ COMECE AQUI — estado em 2026-09-23 (troca de chat)
+
+**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **36 commits à frente
+do `main`, sem PR aberto e sem merge.** Tudo o que esta seção descreve está nela, não no
+`main`. `pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
+`dev:conversas` (1640/1640) verdes no último commit.
+
+**O que está no ar:** a Edge Function **v32** (`b36087d`, do `main`). **Nada desta branch
+foi deployado.** O deploy v33 são **11 arquivos** pela API de gerência (receita em
+`.claude/memory/supabase-deploy-por-api.md`), precisa de um PAT do operador (O4), e o PAT
+é revogado depois. O banco de produção está **vazio**; as migrações `0005` e `0006` estão
+aplicadas.
+
+**O que esta branch fez, em uma linha cada** (detalhe nas seções abaixo e no
+[plano v2](docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md)):
+
+- Plano de execução v2 (10 fases), 12 personas de teste interno + runner com três portas,
+  análise de arquitetura → **Rodada 11** das decisões.
+- Prompt extraído para `prompt.ts` (décimo espelho), lê o config e **tem teste**
+  (`tests/prompt.test.ts`).
+- `freeShipping` passa a ser grátis só com `=== true` (ausente = não grátis).
+- Achados C e D: `conversations.stage` escrito pelo funil e `turn_outcomes` gravando as
+  oito saídas do turno (migração `0006`, RLS ligado).
+- Quatro rodadas de conserto dos gates de frete/economia, fechadas pelo método
+  "só aperta + comparação mecânica de vereditos" (`.claude/memory/negation-blindness.md`).
+- **Saída A** (§R10.6, `aa1c021`): a economia do antecipado nunca é citada em reais, só
+  "10% de desconto". Revisão independente em 23/09: aprovada, nenhuma frase afrouxada.
+  Resíduo aceito no item 2.9 do plano.
+- Modelo por agente fixado no frontmatter (opus nos revisores e donos de gate; sonnet no
+  resto).
+
+**O que está travado no operador — nesta ordem:**
+
+1. **Apagar a chave `freeShipping` do secret `BUSINESS_CONFIG`** (O1). Supabase → Edge
+   Functions → Secrets. Seguro agora (a v32 lê ausente como grátis, igual ao `true` de
+   hoje); **obrigatório antes da v33**, que com `true` promete frete grátis.
+2. **Recuperar o acesso ao n8n.** O "contate o admin" aparece porque o n8n self-hosted
+   só manda e-mail de reset com SMTP configurado. Caminhos, sem verificação nesta sessão:
+   o suporte do PikaPods, ou o comando `n8n user-management:reset` no container (recria o
+   owner; os workflows ficam — **exporte-os antes, se der**). Depois, gerar uma **API key
+   do n8n** (Settings → n8n API). O MCP do n8n falha ao conectar
+   (404); a API REST responde. Com a chave, o agente faz **O2** (nó `Wait` no workflow
+   `HnGrxquQLpfbXWLH`) e **O10** (autenticar `/encorpa-inbound` e `/encorpa-venda`).
+   **Pergunta aberta antes de O10:** Coinzz e Logzz conseguem mandar header customizado?
+   Se não, o segredo vai na query string.
+3. **Credenciais como variáveis do ambiente da nuvem** (O3) — menu do ambiente na barra de
+   título da sessão → Edit; **nunca no chat**. Nomes: `GEMINI_API_KEY`, `META_API_KEY`,
+   `OPENAI_API_KEY`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `N8N_API_KEY`. Sessão nova
+   as recebe. Destravam as personas (fase 3) e o eval de Muse Spark (fase 4).
+4. **PAT do Supabase** para o deploy v33 (O4), revogado depois.
+
+**O que o agente faz em seguida, sem depender do operador:** item 2.8 do plano (o turno
+passa `paymentPath: "cod"` fixo para os gates — cego no antecipado) e 2.5
+(`rls_auto_enable` no repositório, depois da decisão 1.6). **Com credenciais:** personas,
+eval, O2/O10, deploy v33 com sonda de produção.
+
+---
+
+> *(Histórico — o bloco abaixo é o estado de 10/09.)*
+>
 > Atualizado em: 2026-09-10 — **v30 no ar**, byte a byte igual ao repositório,
 > [PR #22](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/22) merjado.
 >
@@ -111,8 +171,8 @@ por header no n8n antes de tráfego real.
 
 **⚠ Os dois bloqueios duros do deploy v33, ambos do operador:**
 
-- **O1 — `"freeShipping": false` no secret.** Chave ausente lê como grátis. Sem isto a
-  Valen promete frete grátis com o repositório inteiro dizendo o contrário.
+- **O1 — apagar a chave `freeShipping` do secret** (decisão de 22/09). Desde `3db9ba8` a
+  chave ausente lê como **não** grátis; com `true` escrito, a v33 promete frete grátis.
 - **O2 — o nó `Wait` no n8n.** Sem ele, **lead novo recebe a recepção automática e nunca
   mais é respondido.** A v33 carrega o timer de 2 minutos; o n8n ainda não.
 
@@ -143,7 +203,7 @@ data indefinida. *(Em 22/09 a saída C deu lugar à A — §R10.6.)* Isso torna 
 mudança do secret.
 
 **Nada de código mudou nesta sessão.** O plano é o entregável; a execução começa pela
-onda A.
+onda A. *(Atualização: a onda A foi executada inteira em 22/09 — ver ▶ COMECE AQUI.)*
 
 <details>
 <summary>O pedido original desta seção, como foi escrito em 2026-09-21</summary>

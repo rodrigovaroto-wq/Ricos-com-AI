@@ -175,10 +175,11 @@ caminho de conversa — ver §D3.
 com 10% de desconto (R$ 116,91) é oferecido antes de finalizar**, nunca como condição →
 modalidade → *agente + guardrail de preço*.
 
-**Desde 2026-09-09 as duas metades viraram uma só e são boas notícias:** a economia de
-**R$ 12,99 no produto** é real, e **o frete é grátis nos dois caminhos** — o operador
-zerou o frete na oferta da entrega e o antecipado sempre foi grátis nacional. O valor
-dito é o valor final, sem soma na porta nem no checkout. Ver
+**Corrigido em 2026-09-22.** A agente diz **"10% de desconto"** e o preço do antecipado —
+**nunca** a economia em reais (saída A, §R10.6 das decisões; o `price_promise` veta o
+valor em qualquer forma). E **não promete frete grátis**: a operação não oferece, e o
+frete do antecipado vai ser parametrizado por região no checkout (R$ 129,90 na entrega
+já inclui a entrega). Ver
 [`04-guardrails.md`](04-guardrails.md).
 
 **Caminho de exceção — COD indisponível para a região.** Coinzz/Logzz recusam a criação de
