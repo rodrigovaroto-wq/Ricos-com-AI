@@ -13,9 +13,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — estado em 2026-09-23 (troca de chat)
 
-**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **36 commits à frente
-do `main`, sem PR aberto e sem merge.** Tudo o que esta seção descreve está nela, não no
-`main`. `pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
+**O plano em uma página:** [`docs/agente-ia/05-plano/00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
+(23/09) — onde queremos chegar, onde estamos, o que só o operador destrava e as 5 etapas.
+Leia antes do plano v2.
+
+**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **mergeada no `main`
+pelo [PR #30](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/30)** (`2a5ffa0`).
+`pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
 `dev:conversas` (1640/1640) verdes no último commit.
 
 **O que está no ar:** a Edge Function **v32** (`b36087d`, do `main`). **Nada desta branch
