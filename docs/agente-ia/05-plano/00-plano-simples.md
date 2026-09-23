@@ -47,7 +47,7 @@ consegue fazer.
 
 | # | O quê | Onde | Tempo | Destrava |
 |---|---|---|---|---|
-| 1 | **Apagar a chave `freeShipping`** do secret `BUSINESS_CONFIG` — o painel não edita o secret, só substitui: colar o JSON inteiro, já sem a chave | Supabase → Edge Functions → Secrets | 5 min | subir a v33 sem prometer frete grátis (O1) |
+| 1 | ✅ **Chave `freeShipping` apagada** do secret `BUSINESS_CONFIG` (operador, 23/09 — JSON inteiro substituído). O secret não é legível: a prova é a sonda 6.5 no deploy | Supabase → Edge Functions → Secrets | feito | subir a v33 sem prometer frete grátis (O1) |
 | 2 | ✅ **Acesso ao n8n recuperado** (23/09 — a API key responde e lista os 3 workflows ativos) | — | feito | a espera de 2 min (O2) e a proteção dos webhooks (O10) — o agente faz os dois |
 | 3 | **Credenciais no ambiente da nuvem** (23/09): n8n ✅ e Supabase ✅ respondendo; **Meta ❌ devolve 401** — conferir o site `api.llama.com`, o cabeçalho `Authorization` com prefixo `Bearer`, e que a chave é a da Llama API (não o token do WhatsApp). OpenAI e Gemini **não entram** — só Meta (§R12.1) | menu do ambiente na barra da sessão → Edit | 5 min | as 12 clientes de teste e o eval (O3) |
 | 4 | **Coinzz:** ✅ forma de pagamento respondida (ver O5 no plano v2 — achado sem efeito hoje) · ✅ páginas de obrigado configuradas · ⏳ o payload real do webhook, no próximo pedido | e-mail do n8n | 10 min | o mapeamento da venda (O6) |
