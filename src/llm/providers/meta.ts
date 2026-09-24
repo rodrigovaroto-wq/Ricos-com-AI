@@ -4,9 +4,8 @@ import type { LlmRequest, Provider, ProviderResult } from "../seam.js";
  * Meta Model API (api.meta.ai; api.llama.com until 2026-09-24) — serves Muse Spark 1.3, decided 2026-09-10 to
  * replace gpt-5.6-luna as the conversation model (see HANDOFF.md §Frente 5). The
  * request and response shape is OpenAI-compatible, so this file mirrors
- * `providers/openai.ts` closely; what differs is the host, the credential, and that
- * Muse Spark is not documented as a reasoning model, so it carries none of
- * `openai.ts`'s completion-token floor.
+ * `providers/openai.ts` closely; what differs is the host, the credential, and the
+ * reasoning controls below — Muse Spark always reasons (measured 2026-09-24).
  */
 export const metaProvider = (options: {
   apiKey: string;
@@ -28,7 +27,10 @@ export const metaProvider = (options: {
           { role: "system", content: request.system },
           ...request.messages.map((m) => ({ role: m.role, content: m.content })),
         ],
-        max_tokens: request.maxOutputTokens ?? 900,
+        // Muse always reasons inside this budget; 900 returned empty answers on
+        // 2026-09-24 (see `callMuse` in the Edge Function for the measurement).
+        max_completion_tokens: Math.max(request.maxOutputTokens ?? 0, 4000),
+        reasoning_effort: "minimal",
       }),
     });
 

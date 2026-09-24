@@ -445,9 +445,14 @@ const callLuna = async (
 /**
  * Meta Model API (dev.meta.ai) — OpenAI-request-shaped, different host and key. Added
  * 2026-09-10 alongside the swap to Muse Spark 1.3 (`MUSE_FAMILY`); the host was
- * `api.llama.com` until 2026-09-24, which does not serve Muse. Meta documents Muse Spark
- * as a model that always reasons, so whether `max_tokens: 900` leaves room for the
- * answer is unmeasured until the first real call (plan v2 item 2.11).
+ * `api.llama.com` until 2026-09-24, which does not serve Muse.
+ *
+ * Muse Spark always reasons, and the reasoning is billed inside the completion budget.
+ * Measured on 2026-09-24 against the real system prompt (~2.9k input tokens): with
+ * `max_tokens: 900` and the default effort, 4 of 4 answers came back EMPTY
+ * (`finish_reason: "length"`, 897 reasoning tokens) — every turn would have become a
+ * handoff. With effort `minimal` and a 4000 ceiling, 11 of 11 answered, spending 310–580
+ * completion tokens. The ceiling is headroom, not the expected spend.
  */
 const callMuse = async (
   system: string,
@@ -460,7 +465,8 @@ const callMuse = async (
     body: JSON.stringify({
       model: CONVERSATION_MODEL,
       messages: [{ role: "system", content: system }, ...history],
-      max_tokens: 900,
+      max_completion_tokens: 4000,
+      reasoning_effort: "minimal",
     }),
   });
   const body = await response.json();
