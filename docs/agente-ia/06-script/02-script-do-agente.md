@@ -48,7 +48,7 @@ modelo:
 > Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:
 > encorpa-fashion.com.br
 
-A resposta real da Valen vem **2 minutos** depois desta mensagem. Implementado como opção
+A resposta real da Malu vem **2 minutos** depois desta mensagem. Implementado como opção
 (a): o n8n chama a função uma vez para a recepção, espera com um nó `Wait`, chama de novo
 com `resume: true` para a resposta real. Falta só ligar o nó `Wait` no workflow do n8n —
 ver `HANDOFF.md` §Recepção automática e o timer de 2 minutos.
@@ -59,7 +59,7 @@ ver `HANDOFF.md` §Recepção automática e o timer de 2 minutos.
 
 **Uma mensagem, uma pergunta.** A agente se apresenta e devolve a palavra.
 
-> Oi! Aqui é a Valen, da Encorpa 💛
+> Oi! Aqui é a Malu, da Encorpa 💛
 > Que bom que você chamou! Me conta uma coisa rapidinho, pra eu te ajudar direito: você tá
 > procurando o colete pra alguma ocasião específica, ou pro dia a dia mesmo?
 
@@ -297,7 +297,7 @@ das quatro: cada recusa evitada vale R$ 63,35 de diferença.
 
 > Pedido confirmado! 🎉 Colete tamanho **G**, R$ 129,90 na entrega, indo pra Rua das Flores,
 > 120.
-> Eu sou a Valen e vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar
+> Eu sou a Malu e vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar
 > aqui mesmo.
 
 **9.2 — Saiu para a rota.**
@@ -390,7 +390,7 @@ Roteiro pronto para os três áudios que substituem os antigos. Mesma voz, mesmo
 atual — o que muda é o conteúdo.
 
 **Áudio A — apresentação (substitui o áudio 1), ~25s**
-> Oi, tudo bem? Aqui é a Valen, da Encorpa. Deixa eu te explicar em trinta segundos o que é o
+> Oi, tudo bem? Aqui é a Malu, da Encorpa. Deixa eu te explicar em trinta segundos o que é o
 > colete: ele é uma cinta modeladora em formato de colete, que você veste por baixo da roupa.
 > Ele deixa a barriga lisinha, dá sustentação nos seios e ainda ajuda na postura, porque pega
 > as costas também. A roupa que você já tem cai completamente diferente. E olha, ele não

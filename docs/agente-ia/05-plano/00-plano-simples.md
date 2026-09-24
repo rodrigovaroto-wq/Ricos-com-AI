@@ -9,7 +9,7 @@
 
 ## 1. Onde queremos chegar
 
-**A Valen vende o colete da Encorpa sozinha pelo WhatsApp, para clientes reais, com
+**A Malu vende o colete da Encorpa sozinha pelo WhatsApp, para clientes reais, com
 pagamento na entrega.**
 
 A cliente clica no anúncio, conversa, recebe o link, compra, recebe em casa e paga na porta.

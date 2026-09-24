@@ -128,7 +128,7 @@ describe("o loop", () => {
     expect(report.failure).toBeNull();
   });
 
-  it("só [FIM] não entrega nada à Valen", async () => {
+  it("só [FIM] não entrega nada à Malu", async () => {
     const model = scripted("oi", "[FIM]");
     const door = fakeDoor({ status: "ok", reply: "oi!" });
     const report = await run("function", model, door.deliver);
@@ -153,7 +153,7 @@ describe("o loop", () => {
     expect(door.received.every((i) => i.from === PHONE)).toBe(true);
   });
 
-  it("devolve a resposta da Valen à persona como a vez da outra pessoa", async () => {
+  it("devolve a resposta da Malu à persona como a vez da outra pessoa", async () => {
     const seen: string[][] = [];
     const model: PersonaModel = {
       async next(_system, messages) {

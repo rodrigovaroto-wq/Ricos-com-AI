@@ -220,7 +220,7 @@ de 4.3.
 | 6.1 | `pnpm test && pnpm typecheck && pnpm typecheck:function` | Verdes |
 | 6.2 | **Deploy pela API de gerência, onze arquivos** (`state-machine.ts` e `prompt.ts` entraram em 22/09) — conferir `ls supabase/functions/turn/*.ts` antes; faltar um derruba o boot | Versão nova na listagem; o diff de 1.1 volta **vazio** |
 | 6.3 | Sonda pelo **formato**, não pelo conteúdo (isolate quente por minutos) | — |
-| 6.4 | **Lead sintético novo pela porta `n8n`**: recebe a recepção, e **dois minutos depois** recebe a Valen de verdade | As duas mensagens em `messages`; `welcomed_at` preenchido; `stage` saiu de `'novo'` |
+| 6.4 | **Lead sintético novo pela porta `n8n`**: recebe a recepção, e **dois minutos depois** recebe a Malu de verdade | As duas mensagens em `messages`; `welcomed_at` preenchido; `stage` saiu de `'novo'` |
 | 6.5 | Os dois caminhos de preço | COD: R$ 129,90, 1 a 3 dias, "frete já está no preço". Antecipado: R$ 116,91, 10%, "varia por região, em média 5 dias úteis", frete calculado no checkout, **nunca "grátis"** |
 | 6.6 | `turn_outcomes` e `stage` gravando em produção | Uma linha por turno da sonda; o estágio avança |
 | 6.7 | As doze personas pela porta `n8n` | Sem regressão contra a rodada 2 |
@@ -319,7 +319,7 @@ Dentro de uma onda, nada colide em arquivo nem em dependência.
 Os primeiros clientes reais começam quando **todas** estas forem verdade ao mesmo tempo:
 
 1. A v33 está no ar e o diff contra o `main` volta vazio.
-2. O secret tem `freeShipping: false` escrito, e a sonda de 6.5 prova que a Valen não promete frete grátis.
+2. O secret tem `freeShipping: false` escrito, e a sonda de 6.5 prova que a Malu não promete frete grátis.
 3. O timer de 2 minutos funciona pela porta `n8n` com lead novo.
 4. As doze personas rodam pela porta `n8n` sem achado de "mentira" nem opt-out ignorado.
 5. `turn_outcomes` e `stage` gravam em produção.

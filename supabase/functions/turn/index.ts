@@ -252,7 +252,7 @@ const CONFIG: BusinessConfig = JSON.parse(
   Deno.env.get("BUSINESS_CONFIG") ??
     JSON.stringify({
       brand: "Encorpa",
-      agentName: "Valen",
+      agentName: "Malu",
       prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
       delivery: {
         codDaysMin: 1,
@@ -1108,7 +1108,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
   // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
-  // Valen already answered for real since the welcome went out (she wrote again and got
+  // Malu already answered for real since the welcome went out (she wrote again and got
   // a live reply before the timer fired).
   if (isResume) {
     if (!conversation.welcomed_at) return json(200, { status: "resume_without_welcome" });
@@ -1138,7 +1138,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the
   // model. It replaces the rest of this call entirely: n8n waits
-  // `WELCOME_RESUME_DELAY_SECONDS` and calls again with `resume: true` for Valen's real
+  // `WELCOME_RESUME_DELAY_SECONDS` and calls again with `resume: true` for Malu's real
   // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
   // call never re-enters here.
   const isNewLead = !existing?.[0];

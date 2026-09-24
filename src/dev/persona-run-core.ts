@@ -421,7 +421,7 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
     return said;
   };
 
-  /** One persona message in, everything Valen said back out. */
+  /** One persona message in, everything Malu said back out. */
   const exchange = async (inbound: Inbound): Promise<{ said: string[]; verdict: "continue" | "end" }> => {
     const first = await deliver(inbound);
     if (first.status !== "welcomed") {
@@ -562,7 +562,7 @@ export const renderMarkdown = (report: Report): string => {
     "",
   ];
   for (const entry of report.transcript) {
-    const who = entry.from === "persona" ? "**Cliente**" : `**Valen** (\`${entry.status ?? "?"}\`)`;
+    const who = entry.from === "persona" ? "**Cliente**" : `**Malu** (\`${entry.status ?? "?"}\`)`;
     lines.push(`${who}: ${entry.text || "_(sem texto)_"}`, "");
   }
   return lines.join("\n");

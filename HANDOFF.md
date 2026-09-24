@@ -349,11 +349,13 @@ por turno até cair na resposta segura. Agora os dois concordam.
 ## Recepção automática e o timer de 2 minutos (2026-09-21)
 
 Decisão do operador: a agente muda de nome, de **Malu** para **Valen** (feito — código e
-script), e ganha uma recepção automática fixa antes da Valen falar de verdade.
+script), e ganha uma recepção automática fixa antes da agente falar de verdade.
+**Revertido em 2026-09-24: o nome volta a ser Malu** (código, fixtures, script e o
+`agentName` do secret `BUSINESS_CONFIG`, que o operador troca no painel).
 
 **Feito, testado e mirrorado:**
 
-- `agentName` é "Valen" em todos os fixtures e no exemplo de config.
+- `agentName` é "Malu" em todos os fixtures e no exemplo de config.
 - `WELCOME_AUTO_REPLY` (`src/agent/retry.ts`, espelhado em
   `supabase/functions/turn/retry.ts`) guarda o texto exato aprovado, com os espaçamentos:
 
@@ -380,7 +382,7 @@ script), e ganha uma recepção automática fixa antes da Valen falar de verdade
   `external_id` (não é evento de canal, é o relógio do n8n), relê a última mensagem
   inbound da conversa no banco (em vez de confiar no que o n8n reenviar) e roda o pipeline
   normal a partir daí — opt-out, pedido de humano, modelo, gates, tudo do jeito que já
-  era. Se a Valen já respondeu de verdade depois da recepção (`last_outbound_at` mais
+  era. Se a Malu já respondeu de verdade depois da recepção (`last_outbound_at` mais
   recente que `welcomed_at` — ela escreveu de novo e foi respondida antes do timer
   disparar), a retomada não gera resposta duplicada: devolve `{ status: "resume_moot" }`.
 - Migração nova: `supabase/migrations/0005_welcome_resume.sql` — coluna
@@ -393,7 +395,7 @@ script), e ganha uma recepção automática fixa antes da Valen falar de verdade
 (`Encorpa — Turno da agente`) precisa de um nó `Wait` novo entre a chamada que devolve
 `status: "welcomed"` e uma segunda chamada HTTP à mesma função, com o mesmo `externalId`/
 `from`/`body` do payload original mais `resume: true`. Sem essa mudança no n8n, o lead
-novo recebe a recepção automática e a Valen nunca responde de verdade — a função fica
+novo recebe a recepção automática e a Malu nunca responde de verdade — a função fica
 esperando a segunda chamada que ninguém faz.
 
 **Não coberto por teste automatizado.** `index.ts` não é importável pelos testes (é

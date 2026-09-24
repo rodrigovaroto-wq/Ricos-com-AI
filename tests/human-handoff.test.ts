@@ -161,7 +161,7 @@ describe("o briefing que vai no prompt", () => {
 /**
  * Estágio 0 — a recepção automática, aprovada pelo operador em 2026-09-21 com os
  * espaçamentos exatos. Mesma classe do handoff acima: texto fixo, layer "auto", nunca
- * o modelo. O timer de 2 minutos até a resposta real da Valen é decisão de arquitetura
+ * o modelo. O timer de 2 minutos até a resposta real da Malu é decisão de arquitetura
  * ainda em aberto (n8n vs. varredura das réguas) — ver HANDOFF.md.
  */
 describe("recepção automática do Estágio 0", () => {

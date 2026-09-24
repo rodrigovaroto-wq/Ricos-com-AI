@@ -30,7 +30,7 @@ teste**. Persona dirigida por modelo existe para escrever essas frases.
 
 **Metade 1 — os agentes.** Doze arquivos em `.claude/agents/persona-*.md`, cada um uma
 cliente. Eles produzem as mensagens: dirigidos por modelo, improvisando dentro do
-personagem, reagindo ao que a Valen responde.
+personagem, reagindo ao que a Malu responde.
 
 **Metade 2 — o runner.** `src/dev/persona-run.ts` leva cada mensagem **pela porta de
 produção** (o webhook do n8n em `/encorpa-inbound`), lê a resposta, devolve à persona, e

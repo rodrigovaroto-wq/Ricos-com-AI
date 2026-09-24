@@ -1,6 +1,6 @@
 /**
  * The persona runner: a model-driven customer (`.claude/agents/persona-*.md`) talks to
- * Valen through one of three doors, and every conversation is written to a report.
+ * Malu through one of three doors, and every conversation is written to a report.
  * Spec: docs/agente-ia/05-plano/03-personas-de-teste-interno.md; phase 3.2 of
  * docs/agente-ia/05-plano/02-plano-de-execucao-ate-os-testes-reais.md.
  *
