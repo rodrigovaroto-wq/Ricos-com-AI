@@ -57,10 +57,19 @@ no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-
   a contar como pedido de pessoa na metade determinística (`REFUSED_BEFORE` em
   `interpret.ts`) — voltar a tratá-las como recusa; `extractIdentity("sei la")` vira nome
   (pôr em `NOT_A_NAME`); os caminhos novos de `index.ts` só têm teste por string.
-- **n8n antes do deploy (registrado pela revisão):** a varredura precisa mandar e-mail para
-  cada item de `handoffs[]`; o envio precisa aceitar `kind: "retry_turn"` como texto livre
-  dentro da janela de 24 h; o turno precisa mandar o `reply` quando o status for
-  `opted_out`.
+- **n8n antes do deploy (conferido nos workflows em 24/09 pela API):**
+  - **`Cerebro do turno` (HnGrxquQLpfbXWLH) tem `timeout: 60000`.** O turno novo leva até
+    ~120 s no pior caso (intérprete 20 s + orçamento de resposta 90 s com retry de rede).
+    Acima de 60 s o n8n cai no ramo de recusa ("Avisa a recusa") e a cliente fica sem
+    resposta, embora a função grave a resposta no banco. **Subir para 150000** (limite do
+    gateway do Supabase) no mesmo dia do deploy — com a v32 é inofensivo.
+  - **`Relógio da régua` (SVDtFUi2N9oOskkx)** só chama a função; não lê a resposta. Falta um
+    ramo que mande e-mail (mesmo texto do "Avisa o operador") para cada item de
+    `handoffs[]`. O `send[]` (inclusive `kind: "retry_turn"`) só será entregue quando o
+    canal existir (fase 8), como os demais toques.
+  - **`opted_out` com `reply`:** nada a mudar hoje — o turno devolve o JSON inteiro ao
+    chamador em qualquer status. Quando o canal existir, o envio precisa aceitar esse caso.
+  - O2 (nó `Wait` da recepção) continua pendente e depende do desenho do canal.
 - **Nada disto rodou contra o modelo real ainda** — o intérprete (JSON da Muse, custo da
   chamada extra) só se prova na rodada 3 das personas.
 - **Pendências do operador:** payload real da Coinzz (O6); confirmar que "mais de 500
