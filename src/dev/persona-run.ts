@@ -76,15 +76,16 @@
  *
  * Flags: --door=local|function|n8n (default local) · --persona=<nome> (repeatable, only
  * a-z and -) or --all · --max-turns=N (default 20) · --keep-data (skip the cleanup) ·
- * --out=<dir> (default data/persona-runs, git-ignored) · --budget-brl=N (default 5).
+ * --out=<dir> (default data/persona-runs, git-ignored) · --budget-brl=N (default 5) ·
+ * --concurrency=N (1–3, default 1: how many personas talk at the same time).
  *
  * SPEND IS CAPPED TWICE, and the operator pays for both sides. Per persona, the persona
  * model's own seam refuses to call past PERSONA_BUDGET_BRL. For the whole run,
  * --budget-brl caps persona model + what the turn reported spending (Malu), summed over
  * every persona: checked before each persona message, so it overshoots by at most one
- * exchange; crossing it ends that conversation as `budget_exceeded`, still cleans it up
- * and writes its report, and skips every persona after it. Personas run one at a time,
- * never in parallel.
+ * exchange per concurrent conversation; crossing it ends that conversation as
+ * `budget_exceeded`, still cleans it up and writes its report, and skips every persona
+ * after it. With --concurrency=N, N personas run at once, each on its own synthetic phone.
  *
  * OUTPUT: one `<persona>.md` (readable transcript: every Malu message with its bubbles,
  * status, rewrites, gate vetoes, stage and cost) and one `<persona>.json` (the same plus
@@ -144,11 +145,11 @@ const keptOrderReady: string[] = [];
 /** Persona model + Malu, over every persona already finished. */
 let runSpentBrl = 0;
 const summary: Array<{ persona: string; endReason: string; failure: string | null; personaCostBrl: number; agentCostBrl: number | null; orderReady: boolean; cleanup: string }> = [];
-for (const name of names) {
+const runOne = async (name: string): Promise<void> => {
   if (runSpentBrl >= args.budgetBrl) {
     console.log(`orçamento da execução esgotado (R$ ${runSpentBrl.toFixed(4)} de R$ ${args.budgetBrl}) — ${name} não roda`);
     summary.push({ persona: name, endReason: "skipped_budget", failure: null, personaCostBrl: 0, agentCostBrl: null, orderReady: false, cleanup: "none" });
-    continue;
+    return;
   }
   const persona = parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
 
@@ -221,7 +222,16 @@ for (const name of names) {
       ` — limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}` +
       ` — R$ ${(spent + (report.costBrl ?? 0)).toFixed(4)} (persona ${spent.toFixed(4)} + Malu ${(report.costBrl ?? 0).toFixed(4)})`,
   );
-}
+};
+
+// A small worker pool: each worker takes the next persona in file order until none is left.
+const queue = [...names];
+await Promise.all(
+  Array.from({ length: Math.min(args.concurrency, queue.length) }, async () => {
+    for (let name = queue.shift(); name !== undefined; name = queue.shift()) await runOne(name);
+  }),
+);
+summary.sort((x, y) => names.indexOf(x.persona) - names.indexOf(y.persona));
 
 await writeFile(
   join(outDir, "_resumo.json"),

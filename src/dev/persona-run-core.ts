@@ -79,6 +79,13 @@ export interface RunnerArgs {
    * crossing it ends the current conversation as `budget_exceeded` and skips the rest.
    */
   budgetBrl: number;
+  /**
+   * How many personas talk to Malu at the same time (default 1, max 3). Each
+   * conversation has its own synthetic phone, so they don't share state; the run budget
+   * is still checked before every persona message and may overshoot by one exchange per
+   * concurrent conversation.
+   */
+  concurrency: number;
 }
 
 /** Default for `--budget-brl`. The operator pays for every token on both sides. */
@@ -94,6 +101,7 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   let noOrders = false;
   let outDir = "data/persona-runs";
   let budgetBrl = DEFAULT_RUN_BUDGET_BRL;
+  let concurrency = 1;
 
   for (const arg of argv) {
     const [flag, value] = arg.split(/=(.*)/s, 2) as [string, string | undefined];
@@ -111,6 +119,7 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
     else if (flag === "--n8n-does-not-create-orders") noOrders = true;
     else if (flag === "--out" && value) outDir = value;
     else if (flag === "--budget-brl" && value) budgetBrl = Number(value);
+    else if (flag === "--concurrency" && value) concurrency = Number(value);
     else throw new Error(`argumento desconhecido: ${arg}`);
   }
 
@@ -129,8 +138,19 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   if (!all && personas.length === 0) throw new Error("diga qual persona: --persona=<nome> (repetível) ou --all");
   if (!Number.isInteger(maxTurns) || maxTurns < 1) throw new Error(`--max-turns inválido: ${maxTurns}`);
   if (!Number.isFinite(budgetBrl) || budgetBrl <= 0) throw new Error(`--budget-brl inválido: ${budgetBrl}`);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 3) {
+    throw new Error(`--concurrency inválido: ${concurrency} (use 1, 2 ou 3)`);
+  }
 
-  return { door: door as Door, personas: all ? "all" : personas, maxTurns, cleanup: !keepData, outDir, budgetBrl };
+  return {
+    door: door as Door,
+    personas: all ? "all" : personas,
+    maxTurns,
+    cleanup: !keepData,
+    outDir,
+    budgetBrl,
+    concurrency,
+  };
 };
 
 export interface RunnerEnv {

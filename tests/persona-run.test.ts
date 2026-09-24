@@ -389,6 +389,11 @@ describe("orçamento", () => {
   });
 
   it("--budget-brl: padrão R$ 5, aceita outro valor, recusa zero, negativo ou lixo", () => {
+    expect(parseArgs(["--all"]).concurrency).toBe(1);
+    expect(parseArgs(["--all", "--concurrency=2"]).concurrency).toBe(2);
+    for (const bad of ["0", "4", "1.5", "x"]) {
+      expect(() => parseArgs(["--all", `--concurrency=${bad}`]), bad).toThrow(/concurrency/);
+    }
     expect(parseArgs(["--all"]).budgetBrl).toBe(5);
     expect(parseArgs(["--all", "--budget-brl=1.5"]).budgetBrl).toBe(1.5);
     for (const bad of ["0", "-1", "x"]) {
