@@ -83,7 +83,17 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
  */
 const SIZE_CUE =
-  /(manequim|tamanho|veste|visto|vestia|uso|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+  /(tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+
+/**
+ * M-02 (operator, 2026-09-24): "manequim" never sets the size. Marcinha's "meu manequim é
+ * 40" flipped her G to M in rounds 3 and 4 — a number she used to wear, not the calça she
+ * wears now. The word right before the number (after any cue) or right after it takes the
+ * number out. Dress and blouse numbers still count: the conversation corpus and real
+ * customers state the size that way ("eu visto 42 de vestido").
+ */
+const OTHER_GARMENT = /\bmanequim\b[^\d]{0,14}$/i;
+const OTHER_GARMENT_AFTER = /^\s*(de|do|da|no|na)\s+manequim\b/i;
 
 /** She named two sizes because she sits between them, not because she named two things. */
 const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
@@ -125,7 +135,8 @@ export const extractDressSize = (text: string): number | null => {
     const at = match.index ?? 0;
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
     const before = text.slice(0, at);
-    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before)) continue;
+    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before)) continue;
+    if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
     plausible.push(Number(match[1]));
     if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
   }
@@ -135,6 +146,100 @@ export const extractDressSize = (text: string): number | null => {
   // does not know which. The larger wins, the same rule the table itself follows —
   // loose is worn, tight comes back.
   return RANGE_ANSWER.test(text) ? Math.max(...plausible) : cued[0]!;
+};
+
+/**
+ * The size as a letter, the way she says it: "uso M", "ela usa G", "tamanho GG", or a
+ * message that is only the letter — the answer to "qual tamanho?". Karol's "G" on its own
+ * line (personas, 2026-09-24) was read as nothing, and the M from two turns earlier stayed.
+ * A cue is required for anything longer than the bare letter, and the same clause
+ * negation as the numbers applies: "não uso M, uso G" is a G.
+ */
+const LETTER_RE = /\b(?:uso|usa|usava|visto|veste|vestia|tamanho)\s+(?:o\s+|um\s+)?(pp|p|m|gg|g|xgg|eg)\b/gi;
+
+export const extractSizeLetter = (text: string): Size | null => {
+  // A line that is only the letter — WhatsApp messages arrive as several lines at once.
+  for (const line of text.split("\n")) {
+    const bare = line.trim().match(/^(pp|p|m|gg|g|xgg|eg)[.!]?$/i);
+    if (bare) return sizeFromLabel(bare[1]!);
+  }
+  for (const match of text.matchAll(LETTER_RE)) {
+    if (NEGATED_CUE.test(text.slice(0, match.index ?? 0))) continue;
+    return sizeFromLabel(match[1]!);
+  }
+  return null;
+};
+
+const larger = (a: Size | null, b: Size | null): Size | null =>
+  a === null ? b : b === null ? a : SIZES.indexOf(a) >= SIZES.indexOf(b) ? a : b;
+
+/**
+ * The size the interpreter read, resolved through the same table (R13.1). The model reads;
+ * the table decides. When she gives more than one — "G, 46 de calça" — the larger wins,
+ * the rule the table itself follows between two rows: loose is worn, tight comes back.
+ */
+export const sizeFromInterpreted = (read: {
+  letter: string | null;
+  pants: number | null;
+  waist_cm: number | null;
+}): Size | null => {
+  const letter = read.letter === null ? null : sizeFromLabel(read.letter);
+  const pants = read.pants === null ? null : sizeFromDressSize(read.pants);
+  const waist = read.waist_cm === null ? null : sizeFromWaist(read.waist_cm);
+  return larger(larger(letter, pants), waist);
+};
+
+/** Words that make a clause a question about sizes rather than a statement of hers. */
+const QUESTION_CLAUSE = /\b(t[e\u00ea]m|existe|vem|serve|qual|quais|pra\s+quem|para\s+quem)\b/i;
+
+/**
+ * The size this message states, if any. The deterministic readers are the fast path and
+ * win when they find something; the interpreter is the fallback for what they cannot read.
+ * Whatever comes out REPLACES the stored size — a size she states now is the current one,
+ * including when it is for someone else ("é pra minha mãe, ela usa G, 46").
+ */
+export const statedSizeOf = (
+  message: string,
+  interpreted: { letter: string | null; pants: number | null; waist_cm: number | null } | null = null,
+): Size | null => {
+  // A question is not a stated size: "tem tamanho GG?", "o M serve em quem usa 44?" asked
+  // about a size and used to overwrite hers (code review, 2026-09-24). A clause that ends
+  // in "?" — or, since WhatsApp questions often have no "?", one that carries a question
+  // or existence word ("tem tamanho GG", "pra quem usa 50", "o M serve") — is left out of
+  // the fast path; the interpreter, told the same, is the one that reads it.
+  const statements = message
+    .split(/(?<=[,;.!?\n])/)
+    .filter((clause) => !clause.trim().endsWith("?") && !QUESTION_CLAUSE.test(clause))
+    .join("");
+  const dress = extractDressSize(statements);
+  const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));
+  return fast ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+};
+
+/**
+ * Whether the agent's message asked for her size — the condition that opens the clarify
+ * ladder. Read on the question itself, so a size merely mentioned is not a question.
+ */
+/**
+ * "Número" is a size only when it is the pants number — followed by the question mark, by
+ * "de calça", or by "que você usa/veste". "Qual o número da sua casa?", "seu número de CPF",
+ * "número de WhatsApp" are the address and identity asks (code review, 2026-09-24).
+ */
+const NUMBER = String.raw`n[u\u00fa]mero(?=\s*(?:\?|d[ea]\s+cal[c\u00e7]a|que\s+(?:voc|vc)|(?:voc|vc)\S*\s+(?:usa|veste)))`;
+
+export const asksForSize = (text: string): boolean => {
+  const questions = text.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?"));
+  // The question has to be ABOUT her size — "qual/que tamanho", "que número de calça",
+  // "você veste" — not merely mention it: "fico por aqui pra ajudar com tamanho ou pedido,
+  // quer que eu explique a troca?" restarted the ladder for Neusa (persona round 3).
+  return questions.some((q) =>
+    new RegExp(
+      String.raw`\b(qual|que|quais)\s+(?:(?:o|a|e|\u00e9)\s+)?(?:(?:o|a|seu|sua)\s+)?(tamanho|${NUMBER}|manequim|cal[c\u00e7]a|numera[c\u00e7][a\u00e3]o)` +
+        String.raw`|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))` +
+        String.raw`|\b(seu|sua)\s+(tamanho|${NUMBER}|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b`,
+      "i",
+    ).test(q),
+  );
 };
 
 export const sizeTable = (): string =>

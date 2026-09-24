@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildCheckoutLink,
+  buildPrefilledCheckoutLink,
   buildCoinzzRequest,
   CHECKOUT_QUERY_FIELDS,
   COINZZ_PAYMENT_METHODS,
@@ -224,7 +224,7 @@ describe("link de checkout pré-preenchido", () => {
   it.each(["cod", "prepay"] as const)(
     "leva os quatro campos que o checkout %s lê, e nenhum a mais",
     (path) => {
-      const url = new URL(buildCheckoutLink(cliente, path, config));
+      const url = new URL(buildPrefilledCheckoutLink(cliente, path, config));
       expect([...url.searchParams.keys()].sort()).toEqual(
         [...CHECKOUT_QUERY_FIELDS[path]].sort(),
       );
@@ -235,43 +235,73 @@ describe("link de checkout pré-preenchido", () => {
   it("o CPF vai no nome que cada plataforma lê — `cpf` na Logzz, `document` na Coinzz", () => {
     // Mandar o nome errado é silencioso: a página abre, três campos vêm preenchidos, e
     // ela redigita o CPF sem entender por quê.
-    const cod = new URL(buildCheckoutLink(cliente, "cod", config));
+    const cod = new URL(buildPrefilledCheckoutLink(cliente, "cod", config));
     expect(cod.searchParams.get("cpf")).toBe("73116687358");
     expect(cod.searchParams.get("document")).toBeNull();
 
-    const prepay = new URL(buildCheckoutLink(cliente, "prepay", config));
+    const prepay = new URL(buildPrefilledCheckoutLink(cliente, "prepay", config));
     expect(prepay.searchParams.get("document")).toBe("73116687358");
     expect(prepay.searchParams.get("cpf")).toBeNull();
   });
 
   it("normaliza como o checkout espera: e-mail minúsculo, telefone só dígitos", () => {
-    const url = new URL(buildCheckoutLink(cliente, "cod", config));
+    const url = new URL(buildPrefilledCheckoutLink(cliente, "cod", config));
     expect(url.searchParams.get("email")).toBe("maria.souza@gmail.com");
     expect(url.searchParams.get("phone")).toBe("5511988887777");
     expect(url.searchParams.get("name")).toBe("Maria Aparecida Souza");
   });
 
   it("cada oferta tem o seu link, e o antecipado não cai no da entrega", () => {
-    expect(buildCheckoutLink(cliente, "prepay", config)).toContain("pagamento-antecipado-0");
-    expect(buildCheckoutLink(cliente, "cod", config)).toContain("entrega.logzz.com.br");
-  });
-
-  /**
-   * Meio link é pior que link nenhum: com três campos o checkout preenche e **não** pula
-   * a primeira etapa, então a cliente reencontra o formulário inteiro — o mesmo atrito,
-   * com um clique a mais.
-   */
-  it("recusa em vez de mandar link pela metade", () => {
-    for (const faltando of ["name", "email", "document", "phone"] as const) {
-      expect(() => buildCheckoutLink({ ...cliente, [faltando]: "" }, "cod", config)).toThrow(
-        CoinzzIncompleteError,
-      );
-    }
+    expect(buildPrefilledCheckoutLink(cliente, "prepay", config)).toContain("pagamento-antecipado-0");
+    expect(buildPrefilledCheckoutLink(cliente, "cod", config)).toContain("entrega.logzz.com.br");
   });
 
   it("sem URL configurada, diz qual falta em vez de montar um link quebrado", () => {
-    expect(() => buildCheckoutLink(cliente, "prepay", { codUrl: config.codUrl })).toThrow(
+    expect(() => buildPrefilledCheckoutLink(cliente, "prepay", { codUrl: config.codUrl })).toThrow(
       /checkout\.prepayUrl/,
     );
+  });
+});
+
+/**
+ * O link sai com o que se sabe (R13.4, 2026-09-24): sem e-mail não havia link, e sem link
+ * não havia venda — quatro das doze personas pararam aí. O checkout pede o resto.
+ */
+describe("o link preenchido com o que se sabe", () => {
+  const checkout = {
+    codUrl: "https://entrega.logzz.com.br/pay/encorpa-pa",
+    prepayUrl: "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0",
+  };
+
+  it("sai só com o telefone, sem e-mail nem CPF", () => {
+    const url = new URL(buildPrefilledCheckoutLink({ phone: "+55 (11) 99999-8888" }, "cod", checkout));
+    expect(url.origin + url.pathname).toBe(checkout.codUrl);
+    expect(url.searchParams.get("phone")).toBe("5511999998888");
+    expect(url.searchParams.has("email")).toBe(false);
+    expect(url.searchParams.has("cpf")).toBe(false);
+  });
+
+  it("leva o que existe, com o nome do campo de cada checkout", () => {
+    const cliente = { name: "Maria José", email: "Maria@Gmail.com", document: "529.982.247-25", phone: "11999998888" };
+    const cod = new URL(buildPrefilledCheckoutLink(cliente, "cod", checkout));
+    expect(cod.searchParams.get("cpf")).toBe("52998224725");
+    expect(cod.searchParams.get("email")).toBe("maria@gmail.com");
+    const prepay = new URL(buildPrefilledCheckoutLink(cliente, "prepay", checkout));
+    expect(prepay.origin + prepay.pathname).toBe(checkout.prepayUrl);
+    expect(prepay.searchParams.get("document")).toBe("52998224725");
+    expect(prepay.searchParams.has("cpf")).toBe(false);
+  });
+
+  it("sem nada conhecido, é o link cru; sem o checkout configurado, diz o que falta", () => {
+    expect(buildPrefilledCheckoutLink({}, "cod", checkout)).toBe(checkout.codUrl);
+    expect(() => buildPrefilledCheckoutLink({ phone: "11999998888" }, "prepay", { codUrl: checkout.codUrl })).toThrow(
+      CoinzzIncompleteError,
+    );
+  });
+
+  it("campo pela metade não entra: telefone curto e CPF curto ficam de fora", () => {
+    const url = new URL(buildPrefilledCheckoutLink({ phone: "9999", document: "123" }, "cod", checkout));
+    expect(url.searchParams.has("phone")).toBe(false);
+    expect(url.searchParams.has("cpf")).toBe(false);
   });
 });

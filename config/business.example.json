@@ -7,7 +7,8 @@
     "codBrl": 129.9,
     "prepayBrl": 116.91,
     "prepayDiscountPercent": 10,
-    "anchorBrl": 216.5
+    "anchorBrl": 216.5,
+    "prepayMaxInstallments": 12
   },
   "delivery": {
     "codDaysMin": 1,
@@ -16,7 +17,8 @@
     "prepayVariesByRegion": true,
     "warrantyDays": 7,
     "freeShipping": false,
-    "prepayAvgDays": 5
+    "prepayAvgDays": 5,
+    "expressActive": false
   },
   "sizes": [
     "P",
@@ -63,5 +65,14 @@
     "codPaymentMethod": "afterpay",
     "prepayPaymentMethod": "pix"
   },
-  "_comment": "Espelho do BUSINESS_CONFIG que a producao le. A Edge Function monta o CONFIG com `Deno.env.get(\"BUSINESS_CONFIG\") ?? fallback` — o ?? e sobre a variavel INTEIRA, entao com o secret setado o fallback do codigo nunca e lido e uma chave nova nasce ausente la. Campo novo entra opcional, com o padrao correto para ausente. Ver .claude/memory/business-config-sobrescreve.md. ATENCAO 2026-09-10: prepayBrl 116.91 e prepayDiscountPercent 10 sao a decisao do operador de 10/09. DECISAO 2026-09-22: freeShipping e false e fica false — a operacao nao oferece frete grátis. O aviso anterior (nao subir false antes de a Coinzz ter frete parametrizado) caiu por decisao do operador; o repositorio inteiro roda false desde entao. IMPORTANTE: o valor que a producao aplica e o do secret BUSINESS_CONFIG, nao este arquivo. Desde a tarde de 22/09 a chave AUSENTE le como NAO gratis (o gate e o prompt usam `=== true`). O secret de producao tem freeShipping true ESCRITO — o operador precisa trocar para false (ou apagar a chave) para a decisao valer. ATENCAO 2026-09-21: conversationCapBrl subiu de 0.8 para 1.5 (rodada 10, R7.3/R10.1) — teto efetivo com a folga de 25% e R$1,875."
+  "support": {
+    "email": "contato@encorpa-fashion.com.br"
+  },
+  "socialProof": {
+    "satisfiedCustomers": 500
+  },
+  "store": {
+    "physicalStorePlanCity": "São Paulo"
+  },
+  "_comment": "Espelho do BUSINESS_CONFIG que a producao le. A Edge Function monta o CONFIG com `Deno.env.get(\"BUSINESS_CONFIG\") ?? fallback` — o ?? e sobre a variavel INTEIRA, entao com o secret setado o fallback do codigo nunca e lido e uma chave nova nasce ausente la. Campo novo entra opcional, com o padrao correto para ausente. Ver .claude/memory/business-config-sobrescreve.md. ATENCAO 2026-09-10: prepayBrl 116.91 e prepayDiscountPercent 10 sao a decisao do operador de 10/09. DECISAO 2026-09-22: freeShipping e false e fica false — a operacao nao oferece frete grátis. O aviso anterior (nao subir false antes de a Coinzz ter frete parametrizado) caiu por decisao do operador; o repositorio inteiro roda false desde entao. IMPORTANTE: o valor que a producao aplica e o do secret BUSINESS_CONFIG, nao este arquivo. Desde a tarde de 22/09 a chave AUSENTE le como NAO gratis (o gate e o prompt usam `=== true`). O secret de producao tem freeShipping true ESCRITO — o operador precisa trocar para false (ou apagar a chave) para a decisao valer. ATENCAO 2026-09-21: conversationCapBrl subiu de 0.8 para 1.5 (rodada 10, R7.3/R10.1) — teto efetivo com a folga de 25% e R$1,875. DECISAO 2026-09-24 (R13.5): support.email, socialProof.satisfiedCustomers, store.physicalStorePlanCity, prices.prepayMaxInstallments e delivery.expressActive sao opcionais e AUSENTE = desligado (nada e citado; Expressa nao e anunciada). Os valores aqui sao os declarados pelo operador; so valem em producao depois de escritos no secret BUSINESS_CONFIG, e so podem ficar la se forem verdade. O handoff.email de producao e contato@encorpa-fashion.com.br (R13.2)."
 }

@@ -11,11 +11,168 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-23 (troca de chat)
+## ▶ COMECE AQUI — estado em 2026-09-24 à noite
 
-**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **36 commits à frente
-do `main`, sem PR aberto e sem merge.** Tudo o que esta seção descreve está nela, não no
-`main`. `pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
+**Branch:** `claude/affectionate-goodall-x5ujm4` → PR para `main` aberto no fim desta sessão.
+**Nada deployado** — a v32 continua no ar. Plano em uma página:
+[`00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md) (lista **Pendências do
+operador** no fim — leia quando ele perguntar o que falta).
+
+### Onde estamos
+- **Quatro rodadas das 12 personas** contra a v33 local, com o modelo real
+  (`muse-spark-1.3-contributor`). Rodada 4: **3 vendas encaminhadas** (link com nome e tamanho
+  certos), 3 handoffs certos, 0 mentiras, mediana de 37 palavras, R$ 0,0027 por resposta.
+  Registro: [`05-rodada-personas-2026-09-24.md`](docs/agente-ia/05-plano/05-rodada-personas-2026-09-24.md);
+  relatório com as 48 conversas no artifact privado "Malu nas 12 personas" (v3).
+- **Rodada 13 de decisões** (`03-decisoes-tomadas.md` §R13): intérprete antes da resposta,
+  handoff só em pedido de pessoa / cancelamento / pós-venda, gates duros e brandos (`warn`),
+  link sem e-mail, escada de tamanho, retry de rede, respostas de objeção do operador.
+  **R13.6 recusado:** escassez e prova social inventadas.
+- Todas as mudanças de gate passaram pela segunda revisão (várias rodadas); o turno passou
+  por revisão até APPROVE (`884b6ba`).
+
+### O que esta sessão executa agora (operador aprovou em 24/09) — o MÉTODO
+Motivo: correções que o teste de frase "provava" e o modelo repetia; rodadas misturando
+mudanças; nenhuma meta escrita; muito token em ler 12 conversas e em ciclos de revisão.
+1. **Registro de mudanças** em `docs/agente-ia/08-mudancas/registro.md`: cada mudança com
+   o quê, por quê (evidência), objetivo, **como medir** (checagem automática), resultado na
+   rodada seguinte (atingido? sim/não com número) e, se não, o ajuste.
+2. **Placar automático** (`pnpm dev:placar <pasta-da-rodada>`) que roda as checagens sobre os
+   JSON das personas. Só as conversas que falham são lidas por inteiro.
+3. **Runner em paralelo** (`--concurrency=2`) e **rodadas direcionadas** (só as personas
+   afetadas; rodada completa só antes de deploy).
+4. **Workflows do n8n versionados** em `n8n/workflows/` (exportados pela API, só leitura).
+5. Os 4 achados de código da rodada 4 como primeiras entradas do registro, corrigidos e
+   medidos numa rodada 5 direcionada.
+**Feito nesta sessão:** registro, placar (`pnpm dev:placar`), runner com `--concurrency`,
+n8n versionado, M-01..M-04 (`ad46dd1`, `4cb480b`) medidas na rodada 5 direcionada: **M-02,
+M-03 e M-04 atingidas; M-01 atingida na parte de prazo**. Aberta **M-05** (falso positivo de
+`price_promise` em "tiro mais alguma dúvida"). Achado **O-04**: a varredura da régua no n8n
+recebe `Invalid JWT` a cada 5 minutos — a régua nunca rodou em produção. PR:
+https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/31.
+
+### Próximos passos para a próxima sessão (nesta ordem)
+0. **Escada de código** (`.claude/rules/code-ladder.md`, adotada em 24/09 no `main`): todo
+   código novo sobe os sete degraus antes de ser escrito. Aplicada a todo o código deste PR
+   em 24/09 à noite (quatro revisores + segunda revisão): placar usa os detectores da
+   produção, `buildCheckoutLink` morto removido, despedida do opt-out usa `decideNext`,
+   parcelamento corta frase sem partir "R$ 129.90", prompt lê parcelas com o teste do gate.
+   **Não aplicado, com motivo:** a regex de e-mail do intérprete e as três cópias de `norm`
+   ficam (o `tsc` recusa import de valor `.ts` entre módulos espelhados); `sendLinkNow`
+   fica (regra nomeada com teste próprio).
+1. Ler `docs/agente-ia/08-mudancas/registro.md`: toda entrada aberta é trabalho pendente —
+   começar pela **M-05** e pela **M-06** (prazo do antecipado por proximidade — furo anterior,
+   endurece gate, rodar cleide/rafa/lu depois), depois pedir ao operador a autorização do **O-04** (trocar a
+   credencial do nó `Varre a regua` para `Supabase service_role`). Não mexer em gate/prompt sem abrir uma entrada com objetivo e medida.
+2. **Operador:** Coinzz (a consulta `stock-and-delivery-day` redireciona para a home desde
+   24/09 — sem ela a Malu não sabe oferecer o antecipado); link de checkout no domínio da
+   marca; confirmar que "mais de 500 clientes satisfeitas" e "planos de loja em SP" são
+   verdade; payload real da Coinzz (O6).
+3. **Deploy v33** (ordem): migração `0007`; n8n (`Cerebro do turno` timeout 60000 → 150000,
+   e-mail para `handoffs[]` da varredura); secret `BUSINESS_CONFIG` com os campos novos e
+   `handoff.email = contato@encorpa-fashion.com.br`; secrets
+   `CONVERSATION_MODEL=muse-spark-1.3-contributor` + `CONVERSATION_MODEL_PRICE` (trocar para
+   o modelo normal antes de cliente real — pendência do operador); PAT (O4); 12 arquivos
+   (`ls supabase/functions/turn/*.ts`); sonda pela porta `n8n`.
+4. **Canal WhatsApp** (fase 8) e os dois testes de 14 dias do operador.
+5. **Hermes** (R11.2) só depois de tráfego real: ele opera o mesmo ciclo do registro sobre as
+   conversas reais — lê o placar, propõe entradas em `hermes_proposals`, o operador aprova.
+
+### Resíduos conhecidos (não bloqueiam)
+- `coverage_claim` não pega "Manaus a gente atende sim" / "Atendemos toda a região Norte".
+- `statesPastPurchase` não pega "fiz o pedido pelo site ontem" sem "colete"/"de vocês".
+- Nomes começando com "Tia"/"Irma" viram nulo (o checkout pede).
+
+## ▶ Estado em 2026-09-24 à tarde (histórico)
+
+
+**Branch:** `claude/affectionate-goodall-x5ujm4` (sem PR). **Nada deployado** — a v32 continua
+no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
+(com a lista **Pendências do operador** no fim — leia quando ele perguntar o que falta).
+
+**O que esta branch fez em 23–24/09:**
+- Agente volta a se chamar **Malu**. Provedor único: **Meta Model API** (`api.meta.ai`,
+  R12.1); Gemini saiu do turno. Muse sempre raciocina: `reasoning_effort: "minimal"` e teto
+  de 4000 tokens (com 900 as respostas vinham vazias).
+- Personas rodam na porta `local` com credenciais injetadas pelo proxy do ambiente
+  (runbook no topo de `src/dev/persona-run.ts`), teto de gasto por rodada.
+- Rodadas 1 e 2 das personas: 0/12 chegaram ao link — relatório em
+  [`05-rodada-personas-2026-09-24.md`](docs/agente-ia/05-plano/05-rodada-personas-2026-09-24.md)
+  e no artifact privado "Malu nas 12 personas".
+- **Rodada 13 de decisões** (`03-decisoes-tomadas.md` §R13): intérprete antes da resposta
+  (`interpret.ts`), handoff só em pedido de pessoa / cancelamento / pós-venda com pedido,
+  gates duros e brandos (`warn`), link sem depender de e-mail/CPF, escada de tamanho,
+  retry de rede, respostas de objeção do operador. **R13.6 recusado:** escassez e prova
+  social inventadas.
+
+**Em andamento quando a sessão de 24/09 fechou (retomar daqui):**
+- **Terceira revisão dos gates (`75bac92`) reprovou por vetos falsos novos** em frases
+  honestas — corrigir antes da rodada 3, cada um com a frase honesta que passa e a mentira
+  vizinha que continua barrada: "O colete é vendido por R$ 129,90." e "…vendido em 5
+  tamanhos" (`invented_testimonial`, regex de `vend…\d`); "…agendada, sendo 1 a 3 dias"
+  (`sendo \d`); negações honestas da Express inativa ("não está disponível na sua região",
+  "Express ainda não temos"); "Nosso suporte te atende todos os dias" (`humanity_claim`,
+  `suporte|atendimento` no WHO); "pode passar aqui seu CEP" (`unavailable_offer`); "em até
+  24 horas você recebe a confirmação" (`delivery_promise`). E, no mesmo ciclo, vetar prova
+  social com prazo depois de "satisfeitas" ("…só essa semana", "…compraram hoje", "98%
+  recomendam") e "Tem como retirar sim, em SP.". Sondas: `rev2/p8.txt`, `p9.txt` no
+  scratchpad da sessão (perdidas se o container foi reciclado — as frases estão aqui).
+- **Revisão final do fluxo do turno (`36387f4`): NEEDS WORK, dois bloqueios pequenos.**
+  (1) Resposta duplicada: a nova tentativa confere o ticket só no início; se ela manda "oi??"
+  durante os ~48 s da tentativa, as duas respondem. Conserto: reler a última mensagem
+  recebida logo antes de gravar a resposta da tentativa e desistir (`retry_moot`) se não for
+  `ticket.inboundId`. (2) Pergunta de tamanho **sem "?"** ainda troca `leads.size`: "tem
+  tamanho GG", "vcs tem o tamanho G", "tem pra quem usa 50", "qual tamanho pra quem usa 44",
+  "o M serve pra quem veste 44" — no caminho rápido de `sizing.ts`, pular a oração que abre
+  com `tem|têm|existe|vem|serve|qual|quais|pra quem|para quem` e deixar para o intérprete;
+  os cinco como teste negativo. Ressalvas: "não precisa chamar atendente", "nao preciso de
+  ajuda de atendente", "não quero que me passe pra atendente", "dispenso atendente" passaram
+  a contar como pedido de pessoa na metade determinística (`REFUSED_BEFORE` em
+  `interpret.ts`) — voltar a tratá-las como recusa; `extractIdentity("sei la")` vira nome
+  (pôr em `NOT_A_NAME`); os caminhos novos de `index.ts` só têm teste por string.
+- **n8n antes do deploy (conferido nos workflows em 24/09 pela API):**
+  - **`Cerebro do turno` (HnGrxquQLpfbXWLH) tem `timeout: 60000`.** O turno novo leva até
+    ~120 s no pior caso (intérprete 20 s + orçamento de resposta 90 s com retry de rede).
+    Acima de 60 s o n8n cai no ramo de recusa ("Avisa a recusa") e a cliente fica sem
+    resposta, embora a função grave a resposta no banco. **Subir para 150000** (limite do
+    gateway do Supabase) no mesmo dia do deploy — com a v32 é inofensivo.
+  - **`Relógio da régua` (SVDtFUi2N9oOskkx)** só chama a função; não lê a resposta. Falta um
+    ramo que mande e-mail (mesmo texto do "Avisa o operador") para cada item de
+    `handoffs[]`. O `send[]` (inclusive `kind: "retry_turn"`) só será entregue quando o
+    canal existir (fase 8), como os demais toques.
+  - **`opted_out` com `reply`:** nada a mudar hoje — o turno devolve o JSON inteiro ao
+    chamador em qualquer status. Quando o canal existir, o envio precisa aceitar esse caso.
+  - O2 (nó `Wait` da recepção) continua pendente e depende do desenho do canal.
+- **Nada disto rodou contra o modelo real ainda** — o intérprete (JSON da Muse, custo da
+  chamada extra) só se prova na rodada 3 das personas.
+- **Pendências do operador:** payload real da Coinzz (O6); confirmar que "mais de 500
+  clientes satisfeitas" e "planos de loja em São Paulo" são verdade (só ficam no config se forem
+  verdade); o secret com os campos novos.
+
+**Antes do deploy v33 (nesta ordem):**
+1. Aplicar a migração **`0007_gate_warn_verdict.sql`** — sem ela o `warn` derruba o lote
+   inteiro de `gate_traces` em silêncio.
+2. **n8n:** mandar o `reply` quando o status for `opted_out`; ligar o `handoffs[]` da
+   varredura ao e-mail; `stopped` e `deferred` ganharam significados novos (ver commit
+   `36387f4`).
+3. Secret `BUSINESS_CONFIG`: `handoff.email = contato@encorpa-fashion.com.br` e os campos
+   novos (`support`, `socialProof`, `prices.prepayMaxInstallments`, `store`,
+   `delivery.expressActive`) — espelho em `config/business.example.json`. Nos testes:
+   `CONVERSATION_MODEL=muse-spark-1.3-contributor` + `CONVERSATION_MODEL_PRICE`.
+4. Rodada 3 das personas contra o código atual, e só então o deploy (arquivos:
+   `ls supabase/functions/turn/*.ts`).
+
+---
+
+## ▶ Estado em 2026-09-23 (histórico)
+
+**O plano em uma página:** [`docs/agente-ia/05-plano/00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
+(23/09) — onde queremos chegar, onde estamos, o que só o operador destrava e as 5 etapas.
+Leia antes do plano v2.
+
+**Branch de trabalho:** `claude/execution-plan-internal-tests-p46efi` — **mergeada no `main`
+pelo [PR #30](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/30)** (`2a5ffa0`).
+`pnpm test` 3049/3049, `typecheck`, `typecheck:function`, `lint` e
 `dev:conversas` (1640/1640) verdes no último commit.
 
 **O que está no ar:** a Edge Function **v32** (`b36087d`, do `main`). **Nada desta branch
@@ -345,11 +502,13 @@ por turno até cair na resposta segura. Agora os dois concordam.
 ## Recepção automática e o timer de 2 minutos (2026-09-21)
 
 Decisão do operador: a agente muda de nome, de **Malu** para **Valen** (feito — código e
-script), e ganha uma recepção automática fixa antes da Valen falar de verdade.
+script), e ganha uma recepção automática fixa antes da agente falar de verdade.
+**Revertido em 2026-09-24: o nome volta a ser Malu** (código, fixtures, script e o
+`agentName` do secret `BUSINESS_CONFIG`, que o operador troca no painel).
 
 **Feito, testado e mirrorado:**
 
-- `agentName` é "Valen" em todos os fixtures e no exemplo de config.
+- `agentName` é "Malu" em todos os fixtures e no exemplo de config.
 - `WELCOME_AUTO_REPLY` (`src/agent/retry.ts`, espelhado em
   `supabase/functions/turn/retry.ts`) guarda o texto exato aprovado, com os espaçamentos:
 
@@ -376,7 +535,7 @@ script), e ganha uma recepção automática fixa antes da Valen falar de verdade
   `external_id` (não é evento de canal, é o relógio do n8n), relê a última mensagem
   inbound da conversa no banco (em vez de confiar no que o n8n reenviar) e roda o pipeline
   normal a partir daí — opt-out, pedido de humano, modelo, gates, tudo do jeito que já
-  era. Se a Valen já respondeu de verdade depois da recepção (`last_outbound_at` mais
+  era. Se a Malu já respondeu de verdade depois da recepção (`last_outbound_at` mais
   recente que `welcomed_at` — ela escreveu de novo e foi respondida antes do timer
   disparar), a retomada não gera resposta duplicada: devolve `{ status: "resume_moot" }`.
 - Migração nova: `supabase/migrations/0005_welcome_resume.sql` — coluna
@@ -389,7 +548,7 @@ script), e ganha uma recepção automática fixa antes da Valen falar de verdade
 (`Encorpa — Turno da agente`) precisa de um nó `Wait` novo entre a chamada que devolve
 `status: "welcomed"` e uma segunda chamada HTTP à mesma função, com o mesmo `externalId`/
 `from`/`body` do payload original mais `resume: true`. Sem essa mudança no n8n, o lead
-novo recebe a recepção automática e a Valen nunca responde de verdade — a função fica
+novo recebe a recepção automática e a Malu nunca responde de verdade — a função fica
 esperando a segunda chamada que ninguém faz.
 
 **Não coberto por teste automatizado.** `index.ts` não é importável pelos testes (é

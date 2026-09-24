@@ -79,7 +79,7 @@ const NOT_A_NAME =
  * the sentence itself says what follows is a name.
  */
 const COMMON_WORDS =
-  /\b(oi|ola|opa|eae|bom|boa|dia|tarde|noite|tudo|bem|beleza|blz|certo|claro|sim|nao|ok|okay|obrigada?|obg|valeu|vlw|por|favor|pfv|quero|queria|posso|pode|vou|vamos|comprar|compro|fechar|fechado|gostei|adorei|amei|show|legal|otimo|otima|perfeito|perfeita|entao|agora|ainda|so|ja|mais|menos|muito|muita|aqui|ali|isso|esse|essa|qual|quais|como|onde|quando|quem|que|voce|vc|eu|meu|minha|seu|sua|com|sem|para|pra|de|do|da|em|no|na|e|ou|mas|se|tem|ter|vai|ver|fica|ficou|sai|custa|chega|manda|mande|envia|entrega|frete|pagamento|pagar|desconto|link|checkout|cinta|modeladora|espera|espere|calma|deixa|deixe|certeza|duvida|entendi|entendo|acho|acha)\b/i;
+  /\b(oi+|ol[aá]|opa|eae|desculpa|desculpe|foi\s+mal|sumi|sumida|k{2,}|rs+|(?:ha){2,}|(?:he){2,}|mds|bom|boa|dia|tarde|noite|tudo|bem|beleza|blz|certo|claro|sim|nao|ok|okay|obrigada?|obg|valeu|vlw|por|favor|pfv|quero|queria|posso|pode|vou|vamos|comprar|compro|fechar|fechado|gostei|adorei|amei|show|legal|otimo|otima|perfeito|perfeita|entao|agora|ainda|so|ja|mais|menos|muito|muita|aqui|ali|sei|isso|esse|essa|qual|quais|como|onde|quando|quem|que|voce|vc|eu|meu|minha|seu|sua|com|sem|para|pra|de|do|da|em|no|na|e|ou|mas|se|tem|ter|vai|ver|fica|ficou|sai|custa|chega|manda|mande|envia|entrega|frete|pagamento|pagar|desconto|link|checkout|cinta|modeladora|espera|espere|calma|deixa|deixe|certeza|duvida|entendi|entendo|acho|acha)\b/i;
 
 /**
  * Her name, from the message where she gives it. Only two shapes are read: an explicit
@@ -87,17 +87,27 @@ const COMMON_WORDS =
  * sentence, an address line, a question — stays missing, because a name written into
  * the order wrong is on the package.
  */
-export const extractName = (text: string): string | null => {
-  const cleaned = text.replace(/\s+/g, " ").trim();
+/** Words a name never starts with — what follows "nome dela" when it is not a name. */
+const NOT_A_FIRST_NAME =
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra)$/;
 
+export const extractName = (text: string): string | null => {
+  // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+  // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
+  const cleaned = text.replace(/[^\S\n]+/g, " ").replace(/ *\n+ */g, "\n").trim();
+
+  // "nome dela é ..." — she is buying for someone else, and the link is prefilled with
+  // the recipient's name (persona round 3, Karol buying for her mother).
   const introduced = cleaned.match(
-    /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´`\s]{1,60})/i,
+    /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s+d[ae]l[ae](?:\s+(?:é|e|eh))?\s*:?|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60})/i,
   );
-  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´`\s]{1,60}$/.test(cleaned) ? cleaned : null);
+  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
   const name = candidate
     .replace(/[.,;!?].*$/, "")
+    // "o nome dele é João e o meu é Ana": the name ends where the next clause starts.
+    .replace(/\s+e\s+(o|a|meu|minha)\b.*$/i, "")
     .trim()
     .split(" ")
     .filter((w) => w.length > 0)
@@ -105,6 +115,12 @@ export const extractName = (text: string): string | null => {
     .join(" ");
 
   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
+  // Even after "nome dela", what follows has to start like a name (code review,
+  // 2026-09-24): "o nome dela eu te passo depois", "é igual ao meu", "tá no pedido".
+  // A narrower list than COMMON_WORDS on purpose: "meu nome é Bom Jesus da Silva" is a
+  // real name, and "bom" is a common word.
+  const first = (name.split(" ")[0] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (NOT_A_FIRST_NAME.test(first)) return null;
   if (introduced === null) {
     // A single word is a name only when she introduced it. "Oi" on its own is not.
     if (name.split(" ").length < 2) return null;
@@ -146,16 +162,46 @@ export const isIdentityComplete = (fields: Partial<Identity>): fields is Identit
   IDENTITY_FIELDS.every((f) => Boolean(fields[f]));
 
 /**
- * One question at a time, in the order that feels least like a form. The name first
+ * One thing at a time, in the order that feels least like a form. The name first
  * because it is the one she gives without thinking; the CPF last because it is the one
  * that makes people hesitate, and by then she has already invested in the conversation.
+ *
+ * What comes back is a TOPIC for the agent to phrase, not a sentence to send (R13.4,
+ * 2026-09-24). The fixed e-mail question ("…É pra onde vai a confirmação do pedido.")
+ * was quoted into the directive and the model repeated it word for word, turn after turn,
+ * to customers who had already answered something else — four of twelve personas stalled
+ * on it. Never a fixed identity question again: the agent says it her own way.
  */
 export const nextIdentityQuestion = (missing: readonly IdentityField[]): string | null => {
   const asks: Record<IdentityField, string> = {
-    name: "Qual é o seu nome completo?",
-    email: "Qual é o seu e-mail? É pra onde vai a confirmação do pedido.",
-    document: "Por último, o seu CPF — a transportadora precisa dele pra entregar.",
+    name: "o nome completo dela",
+    email: "o e-mail dela, que é pra onde vai a confirmação do pedido",
+    document: "o CPF dela",
   };
   const next = IDENTITY_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;
 };
+
+/**
+ * Whether the agent's last message ASKED for name, e-mail or CPF — in a question, so the
+ * link message saying "seu e-mail já vai preenchido" does not count. When it did and her
+ * answer brought none of them, she ignored the ask — and the link goes out anyway, with
+ * what is known, instead of asking again (R13.4).
+ */
+export const asksForIdentity = (text: string): boolean =>
+  text
+    .split(/(?<=[.!?\n])\s*/)
+    .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
+
+/**
+ * The name as the checkout should show it — applied only when the link is built, the
+ * stored value stays as she typed it. "maria jose ferreira" and "MARIA DA SILVA" both come
+ * out "Maria Jose Ferreira" / "Maria da Silva": the Portuguese particles stay lowercase.
+ */
+export const titleCaseName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w, i) => (i > 0 && /^(da|de|do|das|dos|e)$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");

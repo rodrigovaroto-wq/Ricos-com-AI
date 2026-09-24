@@ -239,38 +239,31 @@ export const CHECKOUT_QUERY_FIELDS = {
 } as const;
 
 /**
- * Builds the link, or says what is missing. Partial is refused on purpose: the whole
- * gain of this path is the checkout skipping the first step, and it only skips with all
- * four. A link that fills three fields and still asks her to start at the top is the
- * same friction with extra steps.
+ * The link with whatever is known, and nothing required but the checkout itself (R13.4,
+ * operator 2026-09-24). The link that required all four fields (skipping the checkout's
+ * first step) became the wall four personas hit — no e-mail, no link, no sale — and was
+ * removed once nothing called it (code ladder, 2026-09-24). The checkout form asks for every field the query string did
+ * not fill, so a partial link costs her some typing and a missing link costs the sale.
+ * Only the base URL is required; each field goes in only when it is really there.
  */
-export const buildCheckoutLink = (
-  customer: OrderIdentity & { phone: string },
+export const buildPrefilledCheckoutLink = (
+  customer: Partial<OrderIdentity> & { phone?: string },
   paymentMethod: "cod" | "prepay",
   config: Partial<CheckoutLinkConfig>,
 ): string => {
   const base = paymentMethod === "cod" ? config.codUrl : config.prepayUrl;
-  const missing = [
-    ...(filled(base) ? [] : [`checkout.${paymentMethod === "cod" ? "codUrl" : "prepayUrl"}`]),
-    ...(filled(customer.name) ? [] : ["customer.name"]),
-    ...(filled(customer.email) ? [] : ["customer.email"]),
-    ...(digitsOnly(customer.phone ?? "").length >= 10 ? [] : ["customer.phone"]),
-    ...(digitsOnly(customer.document ?? "").length >= 11 ? [] : ["customer.document"]),
-  ];
-  if (missing.length > 0) throw new CoinzzIncompleteError(missing);
-
-  const query = new URLSearchParams({
-    name: customer.name.trim(),
-    email: customer.email.trim().toLowerCase(),
-    // The checkout strips non-digits itself, but sending them clean keeps the link
-    // short and readable — it goes into a WhatsApp message, where a wall of %2D reads
-    // like a scam.
-    phone: digitsOnly(customer.phone),
-    // Logzz reads `cpf`, Coinzz reads `document`. Sending the wrong one is silent: the
-    // page loads, three fields are filled, and she retypes the CPF wondering why.
-    [paymentMethod === "cod" ? "cpf" : "document"]: digitsOnly(customer.document),
-  });
-  return `${base}${base!.includes("?") ? "&" : "?"}${query.toString()}`;
+  if (!filled(base)) {
+    throw new CoinzzIncompleteError([`checkout.${paymentMethod === "cod" ? "codUrl" : "prepayUrl"}`]);
+  }
+  const query = new URLSearchParams();
+  if (filled(customer.name)) query.set("name", customer.name!.trim());
+  if (filled(customer.email)) query.set("email", customer.email!.trim().toLowerCase());
+  if (digitsOnly(customer.phone ?? "").length >= 10) query.set("phone", digitsOnly(customer.phone!));
+  if (digitsOnly(customer.document ?? "").length >= 11) {
+    query.set(paymentMethod === "cod" ? "cpf" : "document", digitsOnly(customer.document!));
+  }
+  const qs = query.toString();
+  return qs === "" ? base! : `${base}${base!.includes("?") ? "&" : "?"}${qs}`;
 };
 
 /**

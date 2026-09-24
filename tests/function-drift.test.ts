@@ -20,6 +20,7 @@ const mirrored = [
   ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],
   ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
+  ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {
@@ -56,7 +57,6 @@ describe("tabela de preços da Edge Function", () => {
   // que este teste prende à fonte.
   const alias: Record<string, string> = {
     DEFAULT_CONVERSATION_MODEL: "muse-spark-1.3",
-    CHEAP_MODEL: "gemini-3.5-flash-lite",
   };
 
   it.each(Object.entries(alias))("%s cobra o mesmo que src/llm/pricing.ts", (constant, model) => {
@@ -152,7 +152,7 @@ describe("tabela de preços da Edge Function", () => {
   it("aceita modelos muse e chama o host da Meta, não o da OpenAI", () => {
     expect(source).toContain("const MUSE_FAMILY = /^muse/i;");
     expect(source).toContain("const callMuse = async (");
-    expect(source).toContain('fetch("https://api.llama.com/v1/chat/completions"');
+    expect(source).toContain('fetch("https://api.meta.ai/v1/chat/completions"');
     expect(source).toContain("META_KEY");
   });
 
@@ -164,7 +164,7 @@ describe("tabela de preços da Edge Function", () => {
   it("recusa Muse sem preço, antes de gastar token — mesma guarda de callLuna", () => {
     const muse = source.indexOf("const callMuse = async (");
     expect(muse).toBeGreaterThan(-1);
-    const fetchAt = source.indexOf('fetch("https://api.llama.com', muse);
+    const fetchAt = source.indexOf('fetch("https://api.meta.ai', muse);
     const throwAt = source.indexOf("throw new ModelConfigError(MODEL_CONFIG_ERROR)", muse);
     expect(fetchAt).toBeGreaterThan(-1);
     expect(throwAt).toBeGreaterThan(muse);
@@ -185,15 +185,27 @@ describe("tabela de preços da Edge Function", () => {
     expect(source).toContain("const redactKeys =");
     expect(source).toContain("detail: redactKeys(");
     // META_KEY entrou com callMuse em 2026-09-10 — a chave da Meta viajaria em texto de
-    // erro do mesmo jeito que a do Gemini já viajou antes deste cinto existir.
-    expect(source).toContain("[GEMINI_KEY, OPENAI_KEY, META_KEY, SERVICE_KEY]");
+    // erro do mesmo jeito que a do Gemini já viajou antes deste cinto existir. A do
+    // Gemini saiu com a chamada de intenção em 2026-09-23 (R12.1).
+    expect(source).toContain("[OPENAI_KEY, META_KEY, SERVICE_KEY]");
   });
 
+  /**
+   * Desde 2026-09-23 a tabela inline só precifica o modelo padrão da conversa: a
+   * `-contributor` entra por `CONVERSATION_MODEL_PRICE`, e `src/llm/pricing.ts` guarda
+   * também o que só o ferramental de dev chama. Toda entrada inline tem de existir lá.
+   */
   it("não cobra por um modelo que a fonte não conhece", () => {
-    const declared = [
-      ...source.matchAll(/\[(DEFAULT_CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g),
-    ];
-    expect(declared).toHaveLength(Object.keys(PRICES).length);
+    const declared = [...source.matchAll(/^\s+\[([A-Z_]+)\]:\s*\{/gm)].map((m) => m[1]);
+    expect(declared).toEqual(["DEFAULT_CONVERSATION_MODEL"]);
+    for (const constant of declared) expect(PRICES[alias[constant!]!]).toBeDefined();
+  });
+
+  it("o turno não chama mais o Gemini (R12.1, só Meta)", () => {
+    expect(source).not.toContain("generativelanguage.googleapis.com");
+    expect(source).not.toContain("callGemini");
+    expect(source).not.toContain("GEMINI_API_KEY");
+    expect(source).not.toMatch(/intent: intent/);
   });
 });
 
@@ -208,6 +220,19 @@ describe("ritmo humano da Edge Function", () => {
 
   it("MS_PER_WORD é o mesmo de src/agent/pacing.ts", () => {
     expect(source).toContain(`const MS_PER_WORD = ${MS_PER_WORD};`);
+  });
+
+  /**
+   * As bolhas de até ~30 palavras (R13.4) são código de verdade, não uma constante: a
+   * cópia inline tem de ser o mesmo texto, da declaração do limite até antes do `export`.
+   */
+  it("splitBubbles inline é byte a byte o de src/agent/pacing.ts", () => {
+    const pacing = readFileSync("src/agent/pacing.ts", "utf-8");
+    const start = pacing.indexOf("const MAX_BUBBLE_WORDS = ");
+    const end = pacing.indexOf("export { MAX_BUBBLE_WORDS");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(source).toContain(pacing.slice(start, end).trimEnd());
   });
 
   it("as bolhas saem iguais às de splitBubbles, com o atraso de bubbleDelayMs", () => {
@@ -233,5 +258,147 @@ describe("ritmo humano da Edge Function", () => {
     for (const { linha, i } of comReply) {
       expect(`${linha} -> ${linhas[i + 1]}`).toContain("bubbles: paced(");
     }
+  });
+});
+
+/**
+ * A rodada 13 (2026-09-24) no código que a produção executa. `index.ts` é Deno e não pode
+ * ser importado aqui; estas asserções leem o fonte e prendem o que nenhum teste de
+ * módulo alcança.
+ */
+describe("rodada 13 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("o intérprete é gravado em llm_calls com o próprio propósito, e roda antes da resposta", () => {
+    expect(source).toContain('recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading)');
+    expect(source).toContain("INTERPRET_MAX_COMPLETION_TOKENS");
+    expect(source.indexOf("readInterpretation(reading.text)")).toBeLessThan(source.indexOf("while (true) {"));
+  });
+
+  it("as linhas de handoff saem pela camada auto, e só pelo handOff", () => {
+    const start = source.indexOf("const handOff = async (");
+    const end = source.indexOf("const optOutFarewell = async (");
+    expect(start).toBeGreaterThan(-1);
+    expect(source.slice(start, end)).toContain('layer: "auto"');
+    expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
+    for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
+      const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===)/);
+    }
+  });
+
+  it("só \"block\" veta: nenhum caminho lê `allowed`, que um veredito brando pode não limpar", () => {
+    expect(source).toContain('const passed = (result: { traces: ReadonlyArray<{ verdict: string }> }): boolean =>');
+    expect(source).not.toMatch(/\.allowed\b/);
+  });
+
+  it("falha de rede agenda nova tentativa pela varredura antes de qualquer handoff", () => {
+    expect(source).toContain('const RETRY_TURN_KIND = "retry_turn";');
+    expect(source).toContain('if (!isRetry || afterRetryFailure(timedOut, retries) === "reschedule") {');
+    expect(source).toContain("if (row.kind === RETRY_TURN_KIND) {");
+    // A nova tentativa só é marcada pela varredura, nunca pelo corpo que o n8n posta.
+    expect(source).toContain("{ retry: ticket }");
+    expect(source).not.toMatch(/payload\.retry/);
+    expect(source).toContain("const RETRY_TURNS_PER_SWEEP = 1;");
+  });
+
+  // Code review, 2026-09-24: a nova tentativa respondia a mensagem MAIS RECENTE, que um
+  // turno novo podia já estar respondendo — resposta em dobro.
+  it("a nova tentativa responde só a mensagem que falhou, e um turno novo a cancela", () => {
+    expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
+    // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
+    const finalInsert = source.indexOf("const outbound = (");
+    const lastCheck = source.lastIndexOf("const gaveUp = await retryGaveUp(rewritesUsed);", finalInsert);
+    expect(lastCheck).toBeGreaterThan(-1);
+    expect(finalInsert - lastCheck).toBeLessThan(200);
+    expect(source).toContain("const gaveUp = await retryGaveUp(0);");
+    expect(source).toContain("body: JSON.stringify(ticket),");
+    expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
+  });
+
+  it("429 é falha passageira, não handoff", () => {
+    expect(source.match(/response\.status >= 500 \|\| response\.status === 429/g)?.length).toBe(2);
+  });
+
+  it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
+    expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
+    expect(source).toContain("isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
+    expect(source).toContain("signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+  });
+
+  // Code review, 2026-09-24: a escada silenciava "meu cep é 01310-100, Maria Souza".
+  it("a escada do tamanho decide depois dos leitores de endereço e identidade", () => {
+    const ladder = source.indexOf("const clarify = decideClarify(");
+    expect(ladder).toBeGreaterThan(source.indexOf("const foundAddress = extractAddress("));
+    expect(ladder).toBeGreaterThan(source.indexOf("const identityDraft = mergeIdentity("));
+    expect(source).toContain("factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0");
+  });
+
+  it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
+    expect(source).toContain('handoffFor(interpretation, inbound.body ?? "", orderContext)');
+  });
+
+  it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {
+    for (const file of ["supabase/functions/turn/index.ts", "supabase/functions/turn/identity.ts"]) {
+      expect(readFileSync(file, "utf-8")).not.toContain("Qual é o seu e-mail?");
+    }
+  });
+});
+
+/** Persona round 3 (2026-09-24), no código que a produção executa. */
+describe("rodada 3 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("a região sem resposta chega ao gate, e a diretiva não afirma cobertura", () => {
+    expect(source).toContain("regionKnown: region !== null,");
+    expect(source).toContain("nunca diga que chega ou que atende a cidade ou o CEP dela");
+  });
+
+  it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
+    expect(source).not.toContain("frete grátis, e ainda sai mais barato");
+    expect(source).toContain("O frete é calculado no checkout");
+    // O mesmo ramo que o prompt usa: só `true` explícito é grátis.
+    expect(source).toContain("CONFIG.delivery.freeShipping === true ? ` O frete é grátis`");
+  });
+
+  it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {
+    expect(source).toContain("name: titleCaseName(identityDraft.name)");
+    expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath/g)?.length).toBe(2);
+  });
+
+  it("depois do link, nada de pedir e-mail; e a instrução do link é uma frase só", () => {
+    expect(source).toContain("O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF");
+    expect(source).not.toContain("são três dias");
+    expect(source).toContain("UMA frase curta e natural");
+  });
+
+  it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
+    expect(source).toContain('statesPastPurchase(inbound.body ?? "") ||');
+    expect(source).toContain("statesPastPurchase(m.body ?? \"\", false)");
+    expect(source).toContain('if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
+    // A decisão é lida antes da despedida, que a consulta.
+    expect(source.indexOf("if (decidesToBuy(")).toBeLessThan(source.indexOf("if (goodbyeParks("));
+    expect(source).toContain('if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };');
+  });
+
+  it("a escada lê o histórico: não recomeça logo depois do \"vou pensar\"", () => {
+    expect(source).toContain("parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),");
+    expect(source.indexOf("const clarify = decideClarify(")).toBeGreaterThan(source.indexOf("const recentOutbound = recent"));
+  });
+});
+
+/** O registro de mudanças (docs/agente-ia/08-mudancas), no código que a produção executa. */
+describe("M-03 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
+    // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
+    expect(source).toContain('const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;');
+    expect(source).toContain(
+      '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
+    );
+    expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
+    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
   });
 });

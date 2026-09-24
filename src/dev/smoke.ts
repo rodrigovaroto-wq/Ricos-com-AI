@@ -16,7 +16,7 @@ const config: BusinessConfig = JSON.parse(
       brand: "Encorpa",
       product: "Colete Cinta Modeladora",
       site: "encorpa-fashion.com.br",
-      agentName: "Valen",
+      agentName: "Malu",
       prices: { codBrl: 129.9, prepayBrl: 129.9, prepayDiscountPercent: 0, anchorBrl: 216.5 },
       delivery: {
         codDaysMin: 1,

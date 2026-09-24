@@ -5,7 +5,18 @@
  * `BusinessConfig` satisfies it structurally.
  */
 export interface GateConfig {
-  prices: { codBrl: number; prepayBrl: number; anchorBrl: number; prepayDiscountPercent: number };
+  prices: {
+    codBrl: number;
+    prepayBrl: number;
+    anchorBrl: number;
+    prepayDiscountPercent: number;
+    /**
+     * The most installments the prepaid card checkout offers. Absent, installments are
+     * off: the agent may not offer any, on either path. Present, she may offer up to this
+     * many on the prepaid card checkout, and never at the door (2026-09-24).
+     */
+    prepayMaxInstallments?: number;
+  };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -42,10 +53,25 @@ export interface GateConfig {
      * it free (`=== true`), in every gate and in the prompt alike.
      */
     freeShipping?: boolean;
+    /**
+     * Whether a same-day modality ("Express", "hoje em até 4 horas") really exists. It is
+     * up in no region as of 2026-09-24, so absent reads as off: the briefing never
+     * mentions it and the gate refuses same-day and Express, whatever the region query said.
+     */
+    expressActive?: boolean;
   };
   hours: { openHour: number; closeHour: number; timeZone?: string };
   coupon: { percent: number; active: boolean };
   cod: { physicalOnDeliveryActive: boolean };
+  /** Where she writes to exchange or return. Absent, the briefing names no address. */
+  support?: { email?: string };
+  /**
+   * A customer count the operation can back. Absent, no customer count may be said;
+   * present, only this one ("mais de N clientes satisfeitas").
+   */
+  socialProof?: { satisfiedCustomers?: number };
+  /** There is no store. Present, the agent may say one is planned in this city. */
+  store?: { physicalStorePlanCity?: string };
   /**
    * Urgency the operation can actually back. Scarcity sells, and invented scarcity is
    * misleading advertising (CDC art. 37) plus a promise nobody can keep — so the agent
@@ -83,7 +109,13 @@ export interface GateConfig {
  * stop, no later gate may let anything through.
  */
 
-export type Verdict = "pass" | "block";
+/**
+ * `warn` is a soft gate's finding (2026-09-24): recorded in the trace, never blocks. The
+ * operator split the chain in two after persona runs lost sales to vetoes on sentences
+ * that cost nothing when wrong — a repeated line, a window missing its label, a store
+ * question. Money, law and the body stay `block`.
+ */
+export type Verdict = "pass" | "block" | "warn";
 
 export interface GateTrace {
   gate: string;
@@ -123,6 +155,13 @@ export interface GateContext {
    * produces a refusal at the door.
    */
   sameDayWindow?: boolean;
+  /**
+   * Whether the region lookup answered for her postcode this turn. `false` means it did
+   * not — no CEP yet, or the lookup failed (the Coinzz endpoint started redirecting on
+   * 2026-09-24) — and then no sentence may affirm that delivery reaches her. `undefined`
+   * (the follow-up sweep, the fixed receipts) leaves the `coverage_claim` gate idle.
+   */
+  regionKnown?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -190,6 +229,17 @@ const negatedAt = (t: string, at: number): boolean => {
 };
 
 /**
+ * Narrower than `negatedAt`: the denial has to govern the token itself, in its own
+ * comma-bounded phrase — "não dá pra parcelar", "não tem parcelamento", "sem
+ * parcelamento", "não temos entrega expressa". Any other word between them breaks it:
+ * "não tem problema parcelar em 6x" and "não se preocupe, parcela em 6x" are promises.
+ */
+const deniedJustBefore = (t: string, at: number): boolean =>
+  /\b(?:nao|nem|sem)\s+(?:(?:da|tem|temos|ha|existe|aceita\w*|consig\w*|conseguimos|posso|podemos|faz|fazemos|trabalh\w*|rola|e\s+possivel|oferec\w*|precisa)\s+)?(?:(?:ir|vir)\s+)?(?:(?:pra|como|com|de|a|o)\s+)?(?:entrega\s+)?$/.test(
+    (t.slice(Math.max(0, at - 40), at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "",
+  );
+
+/**
  * Whether the message hands the same-day question back to the checkout instead of
  * answering it. Telling her the Express modality exists is honest and converts; saying
  * it will happen at her address is a promise only the checkout can make. The difference
@@ -238,6 +288,15 @@ const sentenceAt = (t: string, at: number): string => {
   while (end < t.length && !stop(end)) end++;
   return t.slice(start, end);
 };
+
+/**
+ * Every sentence of `t`: cut after `.`, `!` or `?` unless a digit sits on BOTH sides,
+ * and at a line break — so "R$ 129.90" stays whole, as in `sentenceAt`, but "Dá pra parcelar.Quer?" is
+ * still two sentences and the promise is not hidden inside a question (second review,
+ * 2026-09-24).
+ */
+const sentencesIn = (t: string): string[] =>
+  t.split(/(?<=[.!?])(?!\d)|(?<=\D[.!?])(?=\d)|\n/).filter((s) => s.trim());
 
 /**
  * A negative lookahead, as regex source: "no new subject starts here". Used by
@@ -373,12 +432,22 @@ export const wantsHuman = (text: string): boolean =>
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
+/** The prepaid card's installment ceiling, or undefined when installments are off. */
+const maxInstallments = (c: GateConfig): number | undefined => {
+  const n = c.prices.prepayMaxInstallments;
+  return n != null && n >= 2 ? n : undefined;
+};
 
 interface Gate {
   name: string;
   remedy: Remedy;
-  /** Returns a reason to block, or null to pass. */
-  check: (text: string, ctx: GateContext) => string | null;
+  /** Returns a reason to block, or null to pass. Absent on a gate that is only soft. */
+  check?: (text: string, ctx: GateContext) => string | null;
+  /**
+   * The soft half: a reason recorded as `warn`, which never blocks. Read only when
+   * `check` passed, so one gate leaves one trace.
+   */
+  warn?: (text: string, ctx: GateContext) => string | null;
   /**
    * The same rule, written for the agent to read **before** it writes.
    *
@@ -580,11 +649,15 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
-      `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
-      `o dia é ela, no checkout. Duas exceções: se a consulta devolveu a modalidade Express ` +
-      `para o CEP dela, "hoje, em até 4 horas" é fato e é o seu melhor argumento; e você ` +
-      `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
-      `disponibilidade da região dela no checkout. No antecipado` +
+      `e nunca "chega amanhã", "hoje", "no mesmo dia", um dia da semana ("na quinta") ou uma data ` +
+      `("dia 27") antes de o pedido existir — quem escolhe ` +
+      (c.delivery.expressActive === true
+        ? `o dia é ela, no checkout. Duas exceções: se a consulta devolveu a modalidade Express ` +
+          `para o CEP dela, "hoje, em até 4 horas" é fato e é o seu melhor argumento; e você ` +
+          `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
+          `disponibilidade da região dela no checkout.`
+        : `o dia é ela, no checkout. Não existe entrega no mesmo dia nem em horas.`) +
+      ` No antecipado` +
       `${
         prepayAverage(c.delivery) != null
           ? ` o prazo VARIA por região: diga "varia, em média ${prepayAverage(c.delivery)} dias` +
@@ -625,13 +698,108 @@ const gates: readonly Gate[] = [
       // query came back with an Express window for HER postcode, it is a fact the
       // courier already agreed to — and the strongest sentence this funnel owns.
       if (ctx.stage !== "logistics") {
+        const express = ctx.config.delivery.expressActive === true;
         for (const m of t.matchAll(
           /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
         )) {
           if (negatedAt(t, m.index ?? 0)) continue;
           const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
-          if (sameDay && (ctx.sameDayWindow || defersToCheckout(t))) continue;
+          if (sameDay && express && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
+        }
+
+        // No same-day modality exists (2026-09-24) until the config says so: not the word
+        // Express, not "em até 4 horas" — whatever the region query answered. Only a denial
+        // right beside it passes: "não temos entrega expressa", "a Express não está ativa".
+        if (!express) {
+          for (const m of t.matchAll(
+            /\bexpress\w*|\b(?:em|dentro\s+de)\s+(?:ate\s+)?\d{1,2}\s*h(?:oras?)?\b|\bem\s+(?:poucas|algumas)\s+horas\b/g,
+          )) {
+            const at = m.index ?? 0;
+            if (deniedJustBefore(t, at)) continue;
+            // Hours are a delivery claim only when a delivery verb governs them, up to three
+            // words before ("chega em 4 horas") — "em até 24 horas você recebe a
+            // confirmação" is about the order, not the parcel (third review).
+            if (
+              !m[0].startsWith("express") &&
+              !/\b(?:cheg|receb|entreg)\w*(?:\s+\S+){0,3}\s*$/.test(t.slice(Math.max(0, at - 40), at)) &&
+              !/^\s+(?:voce\s+)?(?:cheg|receb|entreg)\w*\s+(?:o\s+colete|o\s+pedido|seu\s+colete|em\s+casa|ai)\b/.test(t.slice(at + m[0].length))
+            )
+              continue;
+            // Only a bare "not available/active/here yet" passes after the word. "A Express
+            // não tem custo extra" and "…não está disponível depois das 14h" say it exists.
+            const after = t.slice(at + m[0].length).split(/[,;:.!?\n]|\bmas\b/)[0]!;
+            if (/^\s*(?:ainda\s+)?nao\s+(?:esta|ta|existe|chegou|temos)(?:\s+(?:disponivel|ativa|funcionando))?(?:\s+(?:ainda|aqui|por\s+enquanto|na\s+sua\s+(?:regiao|cidade)))?\s*$/.test(after)) continue;
+            return "offers a same-day modality that is not active";
+          }
+        }
+
+        // A weekday or a date is the same promise one step further out: "pra receber na
+        // quinta-feira" before the order exists, when the customer picks the day in the
+        // checkout and the window is a range. `negatedAt` is not used here: it reads past
+        // a comma, and "não precisa se preocupar, chega na quinta" is the promise itself.
+        // The only denial is one that governs the verb — "não chega", "não consigo
+        // garantir que chega" — and the only other exemption is repeating what she said.
+        // "De segunda a sexta" is when the courier works, not a day, and goes first —
+        // only that span: "chega de quarta a sexta" is a window of days, and a promise.
+        const WEEKDAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo)`;
+        const td = t.replace(/\bde\s+segunda(?:[\s-]*feira)?\s+(?:a|ate)\s+(?:sexta(?:[\s-]*feira)?|sabado)\b/g, " ");
+        const DAY = String.raw`(?:${WEEKDAY}(?!\s+(?:vez|via|tentativa|peca|unidade|compra|opcao)\b)|dia\s+(?:[12]?\d|3[01])\b(?!\s*dias)|\b(?:[12]?\d|3[01])\/(?:0?[1-9]|1[0-2])\b(?!\s*dias))`;
+        const VERB = String.raw`\b(?:(?!(?:chegou|chegaram|recebeu|recebi|entregou|entreguei)\b)(?:cheg|entreg|receb)\w*|ta\s+(?:ai|na\s+sua|com\s+voce)|vai\s+(?:estar|ai)|na\s+sua\s+(?:mao|casa|porta)|dar?\s+tempo)`;
+        for (const m of td.matchAll(
+          new RegExp(
+            String.raw`${VERB}[^,.;:!?\n]{0,24}?\b${DAY}|\b${DAY}\s+(?:(?:voce|ja|ele|o\s+colete|a\s+entrega)\s+)*${VERB}|\b${DAY}\s*,?\s*(?:e\s+)?(?:dar?\s+tempo|cheg\w*\s+(?:a\s+tempo|sim))`,
+            "g",
+          ),
+        )) {
+          const at = m.index ?? 0;
+          const phrase = td
+            .slice(Math.max(0, at - 60), at)
+            .split(/[:;.!?\n]/)
+            .pop()!
+            .split(PHRASE_COMMA)
+            .pop()!
+            .split(/\b(?:mas|porem|so\s+que|entao)\b/)
+            .pop()!;
+          const negations = phrase.match(/\b(?:nao|nunca|jamais|nem)\b/g)?.length ?? 0;
+          const CLITIC = String.raw`(?:(?:se|te|me|lhe|vai|vou|ia)\s+)?`;
+          // She picks the day: "você escolhe no checkout, e se aparecer quinta, recebe na
+          // quinta" hands the day to the checkout instead of promising it.
+          // Not when a claim follows the choice: "você escolhe o dia e chega na quinta".
+          const choice = /\bescolh\w*|\bse\s+(?:no\s+checkout\s+)?aparecer\b/.exec(
+            td.slice(0, at).split(/[.!?\n]/).pop()!,
+          );
+          if (choice && !/\b(?:e|mas|entao|que)\b/.test(td.slice(0, at).split(/[.!?\n]/).pop()!.slice(choice.index + choice[0].length)))
+            continue;
+          if (
+            // "O entregador não trabalha domingo": the denial sits between verb and day.
+            /\b(?:nao|nunca)\b/.test(m[0]) ||
+            (negations === 1 &&
+            (new RegExp(String.raw`\b(?:nao|nunca|jamais|nem)\s+(?:${CLITIC}|(?:tem|ha|existe|faz|fazemos)\s+)$`).test(phrase) ||
+              new RegExp(
+                String.raw`\b(?:nao|nunca|jamais)\s+(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como|(?:vai\s+)?dar?\s+tempo\s+de|garanto|garantimos|prometo|prometemos|sei\s+se)\s+(?:(?:(?:te|lhe)\s+)?(?:garantir|prometer|dizer)\s+)?(?:que\s+|a\s+)?(?:(?:voce|ele|o\s+colete|a\s+entrega)\s+)?${CLITIC}(?:(?:na|no|ate|pra|para)\s+)?$`,
+              ).test(phrase)))
+          ) {
+            // "Não entrega na sexta, só na quinta" denies one day to promise another.
+            const after = td.slice(at + m[0].length).split(/[.!?\n]/)[0]!;
+            if (new RegExp(String.raw`\b(?:so|mas|apenas|somente|e\s+sim)\s+(?:(?:na|no|ate|pra|para|em)\s+)?${DAY}`).test(after))
+              return "promises a delivery day before the order exists";
+            continue;
+          }
+          // Retelling her own words: "você disse que precisa receber até sábado". Only
+          // "você" as the one who said it, and nothing after it that starts a claim.
+          const recount = /\b(?:voce|vc)\s+(?:me\s+)?(?:falou|disse|comentou|contou|mencionou|escreveu)\b/.exec(phrase);
+          if (
+            recount &&
+            !/\b(?:e|entao|mas)\b|\bque\s+(?:cheg|receb)/.test(
+              phrase.slice(recount.index + recount[0].length) + td.slice(at, at + m[0].length),
+            ) &&
+            !/\bdar?\s+(?:tempo|sim|certo)\b|\b(?:cheg|receb)\w*|\bsim\b/.test(
+              td.slice(at + m[0].length).split(/[.!?\n]/)[0]!,
+            )
+          )
+            continue;
+          return "promises a delivery day before the order exists";
         }
       }
 
@@ -655,11 +823,74 @@ const gates: readonly Gate[] = [
         const at = m.index ?? 0;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        const named: "cod" | "prepay" | null = /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
-          ? "prepay"
-          : /\bna\s+entrega\b/.test(sentence)
+        // When the sentence names BOTH paths, the range belongs to the one named closest
+        // before it (M-01, persona round 4, Cleide: "no pagamento na entrega você recebe em
+        // 1 a 3 dias, no antecipado o prazo varia…" was judged as prepay and vetoed three
+        // times → fallback) — but ONLY when the prepaid path gets its own window in the
+        // sentence (varia / média / região) and nothing equates or extends one path to the
+        // other. Second review, 2026-09-24: proximity alone let "no antecipado ou na entrega,
+        // chega em 1 a 3 dias" and "na entrega é 1 a 3 dias; no antecipado também" through —
+        // invented prepaid deadlines. Otherwise the old rule: any prepaid mention → prepaid.
+        const PREPAY = /\b(antecipa\w*|adianta\w*)\b/;
+        const prepayOwnWindow = /\b(?:antecipa\w*|adianta\w*)\b[^.!?\n]{0,40}\b(?:varia\w*|media|regiao)\b/.test(sentence);
+        // Any equating word in the sentence still counts, with one exemption (code review,
+        // 2026-09-24: "na entrega você também escolhe o dia e recebe em 1 a 3 dias, no
+        // antecipado o prazo varia por região" fell to the fallback): a "também escolhe /
+        // agenda / marca" before any mention of the prepaid path, in a clause that
+        // says "na entrega" and brings in no second option. Second review, twice: wider exemptions let "…, e pagando antes
+        // também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em 1 a 3 dias"
+        // through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
+        const EQ =
+          "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s?|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
+        // Every name for the prepaid path, for proximity: "pagando antes" or "no Pix" after
+        // "na entrega" is the prepaid range, not the delivery one (second review).
+        const PREPAY_NAME =
+          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|antes|pix|cartao|credito|debito|boleto|transferencia|online|link|a\s+vista)\b/g;
+        const firstPrepay = sentence.search(PREPAY);
+        // The exemption holds only when the sentence ends at the prepaid window — nothing
+        // but punctuation after "no antecipado o prazo varia por região, em média 5 dias
+        // úteis" (an allowlist: 6th round found "…, nada muda" past a word blocklist). Anything else there ("…e chega junto", "…e no depósito 2 a 3 dias") was
+        // blocked by the "também" alone before, and would slip through (second review, 5th
+        // round: listing more words did not converge).
+        const endsAtPrepayWindow =
+          firstPrepay !== -1 &&
+          /^[\s.,;:!?]*$/.test(
+            sentence
+              .slice(firstPrepay)
+              .replace(PREPAY, "")
+              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b/g, ""),
+          );
+        const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
+          const eAt = e.index ?? 0;
+          const clause =
+            sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
+          const exempt =
+            e[0] === "tambem" &&
+            /^tambem\s+(?:escolh|agend|marc)\w*/.test(sentence.slice(eAt)) &&
+            endsAtPrepayWindow &&
+            !/\b(?:e|ou)\b/.test(sentence.slice(0, eAt).split(/[,;:]/).pop()!) &&
+            firstPrepay !== -1 &&
+            eAt < firstPrepay &&
+            /\bna\s+entrega\b/.test(clause) &&
+            !/\b(?:e|ou)\s+(?:na|no|pagando|pelo|pela|de|a|o)\b|\boutr[oa]s?\b|\bopcao\b|\bforma\b|\bjeito\b|\bantes\b|\bpix\b|\bcartao\b|\bboleto\b|\bdois\b|\bduas\b|\bambos\b/.test(
+              clause,
+            );
+          return !exempt;
+        });
+        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
+        const prepayAt = lastAt(PREPAY_NAME);
+        const codAt = lastAt(/\bna\s+entrega\b/g);
+        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated;
+        const named: "cod" | "prepay" | null =
+          byProximity && codAt > prepayAt
             ? "cod"
-            : null;
+            : PREPAY.test(sentence)
+              ? "prepay"
+              : /\bna\s+entrega\b/.test(sentence)
+                ? "cod"
+                : null;
         const path = named ?? ctx.paymentPath;
         const [min_, max_] =
           path === "cod"
@@ -679,9 +910,14 @@ const gates: readonly Gate[] = [
   {
     name: "invented_testimonial",
     remedy: "rewrite",
-    briefing: () =>
+    briefing: (c) =>
       `Só cite depoimento entre aspas se ele estiver na lista de depoimentos reais que você ` +
-      `recebeu. Sem essa lista, não atribua fala nenhuma a cliente nenhuma.`,
+      `recebeu. Sem essa lista, não atribua fala nenhuma a cliente nenhuma. Você pode indicar ` +
+      `os depoimentos no nosso site, na seção de depoimentos. ` +
+      (c.socialProof?.satisfiedCustomers != null
+        ? `O único número de clientes que existe é "mais de ${c.socialProof.satisfiedCustomers} ` +
+          `clientes satisfeitas"; nenhum outro.`
+        : `Não cite número de clientes nem de vendas.`),
     // A quote is only a testimonial when someone is credited with saying it. Reading
     // every quoted string as one made the gate veto ordinary writing — repeating the
     // customer's own question back to her, naming the product the way the page does —
@@ -698,6 +934,49 @@ const gates: readonly Gate[] = [
         if (!known.some((k) => k.includes(norm(m[1]!))))
           return "quotes a testimonial that is not in the knowledge base";
       }
+
+      // A testimonial said without quotes is the same testimonial: "uma cliente me disse que
+      // amou o colete" credits a customer with words nobody can show (2026-09-24). One named
+      // customer and a speech verb followed by "que"; a quote right after is judged above.
+      // R13.6: no invented social proof, one customer or many ("as clientes dizem que…").
+      const SUBJ = String.raw`\b(?:uma|outra|essa|minha|minhas|as|muita|muitas|varias|a\s+ultima|a\s+maioria\s+das|tem)\s+(?:cliente|compradora|menina|moca|mulher|consumidora)s?\b`;
+      const said = new RegExp(
+        String.raw`${SUBJ}[^.!?]{0,30}?\b(?:me\s+)?(?:disse|diz|dizem|falou|fala|falam|contou|conta|contam|comentou|comenta|comentam|relatou|escreveu|mandou|elogiou|elogiam)\s+(?:\S+\s+){0,2}?que\b(?!\s*[\u201c\u201d"])|${SUBJ}\s+(?:ja\s+)?(?:amou|amaram|adorou|adoraram|adoram|aprovam|aprovaram|recomendam|recomendou|compr\w*)\b`,
+      ).exec(norm(text));
+      if (said) return "reports what a customer said, and no testimonial backs it";
+
+      // A customer count is social proof too, and an invented one is the same lie as an
+      // invented quote. Only the configured number passes (2026-09-24). A small count of
+      // people, orders or sales is not a claim ("os seus 2 pedidos"), so those need "mil".
+      const t = norm(text);
+      const allowed = ctx.config.socialProof?.satisfiedCustomers;
+      // The configured number passes only as "N clientes satisfeitas" — never as sales
+      // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
+      if (
+        /\bvend(?:emos|eu|eram)\b[^.!?]{0,20}?\d[\d.]*\s*(?:mil\b\s*)?(?:(?:pecas|unidades|coletes|vezes)\b|[.!?]|$)|\d[\d.]*\s*(?:mil\s+)?(?:(?:pecas|unidades|coletes)\s+)?vendid\w*|\b\d{1,3}\s*%\s+d[ao]s\s+(?:clientes|compradoras|mulheres|pessoas)|\b\d+\s+em\s+cada\s+\d+|\b\d[\d.]*\s+avaliac\w*|\bnota\s+\d|\d[.,]\d\s+estrelas|\b\d[\d.]*\s+(?:delas|dessas|destas)\b|\bmais\s+vendid\w*|\b(?:campea|lider)\w*\s+de\s+vendas|\b(?:zero|nenhuma)\s+(?:devoluc|reclamac)\w*|\b(?:clientes?|compradoras?|mulheres)\b[^.!?]{0,40}\bsendo\s+\d/.test(t)
+      )
+        return "states a customer count nobody configured";
+      for (const m of t.matchAll(
+        /(?:\b(\d{1,3}(?:\.\d{3})+|\d+)(?:\s*(mil|milhoes?)\b)?|\b(mil|milhares|centenas|dezenas|milhoes|quinhent\w*|trezent\w*|duzent\w*))\s+(?:de\s+)?(clientes?|compradoras?|consumidoras?|mulheres|pessoas|vendas|pedidos|coletes\s+vendidos|unidades\s+vendidas)\b/g,
+      )) {
+        if (m[3]) return "states a customer count nobody configured";
+        const scale = m[2] ? (m[2] === "mil" ? 1000 : 1_000_000) : 1;
+        const value = Number(m[1]!.replace(/\./g, "")) * scale;
+        const crowd = /^(clientes?|compradoras?|consumidoras?|mulheres)$/.test(m[4]!);
+        const after = t.slice((m.index ?? 0) + m[0].length);
+        const claim = /^\s*(?:ja\s+)?(?:compr|us|aprov|recomend|vend|amar|ador)\w*/.test(after);
+        if (!crowd && value < 1000 && !claim && !/\b(?:mais\s+de|quase|cerca\s+de)\s*$|\+\s*$/.test(t.slice(0, m.index ?? 0))) continue;
+        // …and with no clock or other number beside it: "satisfeitas só essa semana",
+        // "hoje, mais de 500…", "…, 98% recomendam" are velocity again (third review).
+        if (
+          crowd &&
+          value === allowed &&
+          /^\s*satisfeit/.test(after) &&
+          !/\b(?:hoje|ontem|agora|semana|mes|ano|compr\w*)\b|\d\s*%|\bso\s+(?:em|no|na|nesta|neste|essa|esse|esta|este)\b/.test(sentenceAt(t, m.index ?? 0))
+        )
+          continue;
+        return "states a customer count nobody configured";
+      }
       return null;
     },
   },
@@ -706,9 +985,42 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Nunca afirme ser uma pessoa. Dizer "não sou uma pessoa, sou a assistente virtual da marca" ` +
-      `é a resposta certa; o proibido é o contrário — negar ser robô.`,
-    check: (text) => {
+      `é a resposta certa; o proibido é o contrário — negar ser robô. E nunca diga que já ` +
+      `chamou, avisou ou passou a conversa para alguém do time, nem que uma pessoa vem falar ` +
+      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame.`,
+    check: (text, ctx) => {
       const t = norm(text);
+
+      // Claiming a person was called, when nobody was (prompt-specialist probes,
+      // 2026-09-24; Sandra R1: "já chamei" with no handoff). The model cannot call anyone —
+      // only the turn's code can, and its fixed line ("Já avisei o time…") runs with
+      // `layer: "auto"`, which is why that layer is exempt: there the claim is the fact.
+      // Offers stay open: "quer que eu chame alguém do time?", "posso chamar uma pessoa".
+      if (ctx.layer === "agent") {
+        const WHO = String.raw`(?:uma?\s+|o\s+|a\s+|nossa\s+|nosso\s+)?(?:atendente|pessoa|humano|time|equipe|colega|supervisor\w*|gerente|responsavel|alguem|suporte|atendimento)`;
+        const TO = String.raw`(?:(?:pra|para|pro|ao|a)\s+)?`;
+        const PERSON = String.raw`(?:uma?\s+|o\s+|a\s+|nossa\s+|nosso\s+)?(?:atendente|pessoa|humano|time|equipe|colega|supervisor\w*|gerente|responsavel|alguem)`;
+        const DESK = String.raw`(?:o\s+|nosso\s+)?(?:suporte|atendimento)`;
+        const claims = [
+          new RegExp(String.raw`\b(?:ja\s+)?(?:chamei|avisei|acionei|transferi|encaminhei|notifiquei|passei|vou\s+(?:chamar|avisar|acionar|transferir|encaminhar|passar))\s+(?:\S+\s+){0,3}?${TO}${WHO}\b`),
+          new RegExp(String.raw`\b(?:deixei|registrei)\s+(?:\S+\s+){0,3}?(?:com|pra|para|pro)\s+${WHO}\b|\b(?:elas?|eles?)\s+(?:ja\s+)?(?:te\s+(?:chamam|chama|respondem|retornam)|vao\s+te\s+(?:chamar|retornar|responder))\b`),
+          new RegExp(String.raw`\b(?:estou|to|ja\s+to|ja\s+estou)\s+(?:chamando|avisando|acionando|transferindo|passando)\s+${TO}${WHO}\b`),
+          new RegExp(String.raw`\b(?:deixei\s+avisad\w*|pedi\s+(?:pra|para)|vou\s+pedir\s+(?:pra|para))\s+${TO}${WHO}\b`),
+          new RegExp(String.raw`\b${PERSON}(?:\s+do\s+(?:time|atendimento))?\s*,?\s+(?:ja\s+)?(?:chega|vai\s+(?:te\s+)?(?:chamar|falar|responder|atender|entrar|retornar)|te\s+(?:chama|responde|atende|retorna)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
+          // The support desk exists, and "o suporte te atende todos os dias" is what the
+          // prompt teaches. Only a desk that is already on its way to her is a claim.
+          new RegExp(String.raw`\b${DESK}\s+(?:ja\s+)?(?:vai\s+(?:te\s+)?(?:chamar|entrar)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
+        ];
+        for (const r of claims) {
+          const m = r.exec(t);
+          if (!m) continue;
+          const before = t.slice(Math.max(0, m.index - 40), m.index);
+          // An offer or a condition is not a claim: "se quiser, alguém do time te chama".
+          if (/\b(?:se\s+(?:quiser|preferir|precisar)|quer\s+que|posso|prefere\s+que)\b[^.!?]*$/.test(before)) continue;
+          if (deniedJustBefore(t, m.index)) continue;
+          return "claims a person was called, and nobody was";
+        }
+      }
 
       // Denying being a bot is itself the violation, so this one is read as written:
       // the negation is the offence, not an exemption.
@@ -834,8 +1146,10 @@ const gates: readonly Gate[] = [
     name: "warranty_promise",
     remedy: "rewrite",
     briefing: (c) =>
-      `A garantia é de ${c.delivery.warrantyDays} dias para trocar ou devolver. Nenhum outro ` +
-      `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.`,
+      `A garantia é de ${c.delivery.warrantyDays} dias após o recebimento para trocar ou ` +
+      `devolver, e na devolução o dinheiro volta sem custo nenhum pra ela. Nenhum outro ` +
+      `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.` +
+      (c.support?.email ? ` Para trocar ou devolver, ela escreve para ${c.support.email}.` : ``),
     check: (text, ctx) => {
       const t = norm(text);
       if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
@@ -860,12 +1174,32 @@ const gates: readonly Gate[] = [
       const insideDeliveryWindow = (at: number): boolean =>
         deliverySpans.some(([from, to]) => at >= from && at < to);
 
-      const window = /(troc|devolv|garanti|arrepend)/;
+      const window = /(troc|devol|garanti|arrepend|reembols|estorn|dinheiro\s+de\s+volta)/;
       for (const m of t.matchAll(/(\d{1,3})\s*dias?/g)) {
         const at = m.index ?? 0;
         if (insideDeliveryWindow(at)) continue;
         const around = t.slice(Math.max(0, at - 40), at + 40);
         if (!window.test(around)) continue;
+        // "Você recebe em até 3 dias, com 7 dias pra devolver" was read as a three-day
+        // warranty (Jussara R1, Karol R2, Tati R2, 2026-09-24): the delivery deadline sat
+        // within forty characters of "devolver". A number is the delivery's when a delivery
+        // verb governs it through filler words only ("recebe o colete em casa em até",
+        // "escolhe um dos próximos") and nothing after it, up to the clause's end, is about
+        // a return or a refund — "receber em até 30 dias o seu dinheiro" stays a warranty.
+        if (
+          /\b(?:cheg|receb|entreg(?!ador)|escolh)\w*\s+(?:(?:o|a|seu|sua|colete|pedido|ele|em|casa|ate|dentro|de|dos?|um|uma|nos?|os|proximos?)\s+){0,5}$/.test(
+            t.slice(Math.max(0, at - 60), at),
+          ) &&
+          !/(troc|devol|garanti|arrepend|dinheiro|de\s+volta|reembols|estorn|valor)/.test(
+            t.slice(at + m[0].length).split(/[,;:.!?\n]|\b(?:e|mas)\b/)[0]!,
+          ) &&
+          // …nor a return window given later in the clause without the word "dias":
+          // "recebe em até 3 dias e troca em 3 também".
+          !/(troc|devol|garanti|arrepend|reembols|estorn)\w*\s+(?:(?:em|de|ate|por)\s+)*\d{1,3}\b(?!\s*dias?\b)/.test(
+            t.slice(at + m[0].length).split(/[,;:.!?\n]/)[0]!,
+          )
+        )
+          continue;
         if (Number(m[1]) !== ctx.config.delivery.warrantyDays)
           return `warranty of ${m[1]} days is not the configured ${ctx.config.delivery.warrantyDays}`;
       }
@@ -1052,17 +1386,68 @@ const gates: readonly Gate[] = [
      */
     name: "unavailable_offer",
     remedy: "rewrite",
-    briefing: () =>
-      `A loja vende um produto só, o Colete Cinta Modeladora, e só por aqui. Não ofereça ` +
-      `calcinha, sutiã, legging, short nem qualquer outro item, e não existe loja física nem ` +
-      `retirada no balcão.`,
+    briefing: (c) =>
+      `A venda é de um produto só, o Colete Cinta Modeladora, e é toda online, pelo site e ` +
+      `por esta conversa, com o colete indo direto pra casa dela. Não ofereça calcinha, ` +
+      `sutiã, legging, short nem qualquer outro item.` +
+      (c.store?.physicalStorePlanCity
+        ? ` Se ela perguntar por loja física: ainda não temos, a venda é só online, mas temos ` +
+          `planos de abrir uma loja em ${c.store.physicalStorePlanCity}.`
+        : ``),
     check: (text) => {
       const t = norm(text);
       if (/\b(calcinha|sutia|legging|body\b|macacao|camisola|pijama|meia\b|short\s+modelador|modelador\s+de\s+perna|cinta\s+de\s+bra[cç]o)\b/.test(t))
         return "offers a product the shop does not sell";
-      if (/\b(loja\s+fisica|nossa\s+loja|nossas\s+lojas)\b/.test(t) ||
-        /\b(retirar|retirada|buscar)\b[^.!?]{0,24}\b(loja|balcao|endereco|local)\b/.test(t))
-        return "offers pickup at a store that does not exist";
+      // Inviting her to pick up or visit stays hard: she would travel to a store that does
+      // not exist. Only a denial that governs the verb passes ("não tem como retirar").
+      // Second review (2026-09-24): also a store given an address ("a loja fica no Brás",
+      // "temos loja em São Paulo"), and every "vem/passa/pega aqui".
+      const PLACE = String.raw`(?:loja|balcao|endereco|local|escritorio|galpao|showroom|deposito|ponto\s+de\s+retirada|aqui|la|com\s+a\s+gente|pessoalmente)`;
+      for (const m of t.matchAll(
+        new RegExp(
+          [
+            String.raw`\b(?:retir\w*|busca\w*)\b[^.!?,;:]{0,24}\b${PLACE}\b`,
+            String.raw`\bpega\w*\s+(?:aqui|la|com\s+a\s+gente|no\s+nosso|na\s+nossa)\b`,
+            String.raw`\bretirad\w*\s+(?:em|no|na)\b`,
+            String.raw`\b(?:pode|podem|da\s+pra)\s+(?:buscar|retirar)\b`,
+            String.raw`\b(?:pode|podem|da\s+pra)\s+(?:vir|ir|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+|pra\s+|para\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
+            String.raw`\b(?:passa|passe|vem|venha)\s+(?:aqui|la)\b(?!\s+(?:seu|sua|o|a|teu|tua)\b)`,
+            String.raw`\b(?:temos|tem)\s+(?:um\s+|uma\s+|nosso\s+|nossa\s+)?(?:showroom|deposito|galpao|escritorio|ponto\s+de\s+retirada)\b`,
+            String.raw`\bcombin\w*\s+(?:a\s+)?retirad\w*`,
+            String.raw`\b(?:venha|vem|vir|passa|passe|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
+            String.raw`\bpode\s+(?:vir|passar)\s*(?:aqui|la)?\s*(?:[.!,]|$)`,
+            String.raw`\btem\s+como\s+retirar\b`,
+            String.raw`\bte\s+encontr\w*\b`,
+            String.raw`\b(?:te\s+espero|vem|venha|vir|passa|passe|passar|ir)\s+(?:\S+\s+){0,2}?(?:na|no|ate\s+a|ate\s+o)\s+(?:nossa\s+|nosso\s+)?(?:loja|showroom|escritorio|galpao)\b`,
+            String.raw`\bloja(?:\s+fisica)?\b[^.!?,;]{0,30}?\b(?:fica|esta|localizad\w*)\s+(?:na|no|em)\b(?!\s+(?:site|planejamento|breve|construcao|obras))`,
+            String.raw`\b(?:temos|tem)\s+(?:uma\s+)?loja(?:\s+fisica)?(?:\s+sim)?,?\s+(?:em|no|na)\b`,
+            String.raw`\bloja\b[^.!?]*\b(?:ja\s+)?(?:temos|tem)\s+uma\s+(?:em|no|na)\b`,
+          ].join("|"),
+          "g",
+        ),
+      )) {
+        if (!deniedJustBefore(t, m.index ?? 0)) return "offers pickup at a store that does not exist";
+      }
+      return null;
+    },
+    // Mentioning a store is soft since 2026-09-24: those vetoes were almost all the honest
+    // denial. Inviting her to come is `check` above, and still vetoes.
+    warn: (text, ctx) => {
+      const t = norm(text);
+      const city = ctx.config.store?.physicalStorePlanCity;
+      for (const m of t.matchAll(/\b(loja\s+fisica|nossa\s+loja|nossas\s+lojas)\b/g)) {
+        const at = m.index ?? 0;
+        if (deniedJustBefore(t, at)) continue;
+        // The denial after the noun: "loja física ainda não temos".
+        if (/^\s*(?:ainda\s+)?(?:nao|nem)\s+(?:temos|tem|existe)\b/.test(t.slice(at + m[0].length))) continue;
+        if (
+          city &&
+          /\b(?:planos?\s+de|vamos|pretend\w*|queremos)\s+abrir\s+$/.test(t.slice(Math.max(0, at - 30), at)) &&
+          sentenceAt(t, at).includes(norm(city))
+        )
+          continue;
+        return "mentions a store that does not exist";
+      }
       return null;
     },
   },
@@ -1074,15 +1459,109 @@ const gates: readonly Gate[] = [
      */
     name: "installment_promise",
     remedy: "rewrite",
-    briefing: () =>
-      `No pagamento na entrega ela paga uma vez só, ao entregador. Não fale em parcelar, em "3x" ` +
-      `nem em dividir o valor.`,
+    briefing: (c) =>
+      (maxInstallments(c) != null
+        ? `No pagamento na entrega ela paga uma vez só, ao entregador — ali não tem parcelamento. ` +
+          `No antecipado, no cartão pelo checkout, dá pra parcelar em até ${maxInstallments(c)}x; ` +
+          `nunca mais que isso.`
+        : `No pagamento na entrega ela paga uma vez só, ao entregador. Não fale em parcelar, em "3x" ` +
+          `nem em dividir o valor.`) + ` E nunca diga "sem juros".`,
+    /**
+     * Operator, 2026-09-24: installments exist only on the prepaid card checkout, up to
+     * `prepayMaxInstallments`, and "sem juros" is never said, in any wording.
+     *
+     * A WHITELIST, after a second review found thirteen ways a blacklist of door words let
+     * "também na entrega" through. An installment passes only when all of this holds:
+     * - nothing left in the message, once its refusal clauses are set aside ("na entrega
+     *   não dá pra parcelar", "na entrega você paga uma vez só"), is about the door;
+     * - its sentence names the prepaid path affirmatively ("no antecipado", "no cartão pelo
+     *   checkout") — not "não precisa antecipar", not "antecipar não precisa";
+     * - it joins no two paths ("ou") and extends to none ("também", "igual", "idem");
+     * - its count is within the configured one.
+     * `ctx.paymentPath` is not read: production passes "cod" on every turn.
+     */
     check: (text, ctx) => {
-      if (ctx.paymentPath !== "cod") return null;
       const t = norm(text);
-      return /\b(\d{1,2}\s*x\b|parcel\w*|dividir\s+em\s+\d|em\s+ate\s+\d{1,2}\s*vezes)/.test(t)
-        ? "promises installments on the cash-on-delivery path"
-        : null;
+      const NUM = String.raw`(\d{1,2}|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|dezoito|vinte\s+e\s+quatro|vinte)`;
+      const TOKEN = new RegExp(
+        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|\bdivid\w*`,
+        "g",
+      );
+      if (
+        /\bsem\s+(?:\S+\s+){0,2}?juros?\b|\b(?:livre|isent[oa]s?)\s+de\s+juros?\b|\bnao\s+(?:\S+\s+){0,2}?(?:pag|cobr|incid|tem|ha)\w*\s+(?:nenhum\s+)?juros?\b|\bjuros?\s+(?:(?:sao|e|fica\w*)\s+)?(?:zero|zerad\w*)\b|\b(?:zero|0\s*%?)\s+(?:de\s+)?juros?\b|\bnenhum\s+juros?\b/.test(t) ||
+        (/\bsem\s+(?:nenhum\s+)?acrescimo\b/.test(t) && TOKEN.test(t))
+      )
+        return `says "sem juros", which the operation never promises`;
+      TOKEN.lastIndex = 0;
+
+      const WORDS: Record<string, number> = {
+        duas: 2, dois: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7, oito: 8, nove: 9,
+        dez: 10, onze: 11, doze: 12, dezoito: 18, vinte: 20,
+      };
+      const countOf = (m: RegExpMatchArray): number | undefined => {
+        const raw = m[1] ?? m[2] ?? m[3] ?? m[4];
+        if (raw === undefined) return undefined;
+        return /^\d+$/.test(raw) ? Number(raw) : raw.startsWith("vinte e") ? 24 : WORDS[raw];
+      };
+      const ONCE = /\bpag\w*\s+(?:so\s+)?(?:uma\s+vez|a\s+vista)\b|\be\s+a\s+vista\b|\buma\s+vez\s+so\b/;
+      // Third review: the door is judged where the installment is, not across the whole
+      // message. "…e chega em média em 5 dias" is the parcel, not how she pays; `cheg`/
+      // `receb` count only when tied to paying ("paga quando chegar", "12x ao receber").
+      const DOOR = new RegExp(
+        String.raw`\bentreg\w*|\bmotoboy\b|\bmaquininha\b|\bpag\w*\s+depois\b|\bno\s+ato\b|\bna\s+porta\b|\bna\s+hora\b|\bpessoalmente\b|` +
+          String.raw`\b(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b(?:\s+\S+){0,3}?\s+(?:quando|ao|no|na\s+hora\s+que)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*|` +
+          String.raw`\b(?:quando|ao|no)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*(?:\s+\S+){0,3}?\s+(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b`,
+      );
+      const EXTEND = /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas|aceit\w*|credito)\b/;
+      const affirmed: Array<{ count: number | undefined; segment: string; sentence: string }> = [];
+      const extended: string[] = [];
+      // `sentencesIn`, not a split on every dot: "R$ 129.90" cut "antecipado" off from its
+      // installments and vetoed a true sentence (code ladder review, 2026-09-24).
+      for (const raw of sentencesIn(t)) {
+        // A bare question ("Quer parcelar?") promises nothing. One with a count or a door
+        // in it does: "sabia que dá pra parcelar em 12x na entrega?".
+        const question =
+          raw.trim().endsWith("?") &&
+          !DOOR.test(raw) &&
+          [...raw.matchAll(TOKEN)].every((m) => countOf(m) === undefined);
+        const sentence = question ? "" : raw;
+        if (!sentence) continue;
+        const keptSentence: string[] = [];
+        for (const segment of sentence.split(/;|\b(?:mas|porem)\b|,?\s*\be\s+(?=(?:no|na|pagando|quem)\b)/)) {
+          const kept: string[] = [];
+          const found: Array<number | undefined> = [];
+          for (const clause of segment.split(/[,:]/)) {
+            const tokens = [...clause.matchAll(TOKEN)];
+            const live = tokens.filter((m) => !deniedJustBefore(clause, m.index ?? 0));
+            if (live.length === 0 && (tokens.length > 0 || ONCE.test(clause))) continue; // a refusal
+            kept.push(clause);
+            for (const m of live) found.push(countOf(m));
+          }
+          keptSentence.push(...kept);
+          // The door is read on the whole segment, refusal clause included: "na entrega
+          // você paga uma vez só, em 12x no cartão" is one promise, not a refusal plus one.
+          for (const count of found) affirmed.push({ count, segment, sentence: "" });
+          if (EXTEND.test(kept.join(" , "))) extended.push(segment);
+        }
+        for (const a of affirmed) if (a.sentence === "") a.sentence = keptSentence.join(" , ");
+      }
+      if (affirmed.length === 0) return null;
+
+      const max = maxInstallments(ctx.config);
+      for (const { segment } of affirmed)
+        if (DOOR.test(segment)) return "promises installments on the cash-on-delivery path";
+      for (const segment of extended)
+        if (DOOR.test(segment) || /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas)\b/.test(segment))
+          return "extends installments beyond the prepaid card checkout";
+      if (max == null) return "promises installments, and none are configured";
+      const PREPAY =
+        /(?<!\b(?:nao|sem|nem)\s+(?:\S+\s+){0,2})\b(?:antecip\w*|adiantad\w*|pagar\s+antes|pagamento\s+antes)\b(?!\s+(?:nao|nem)\b)|\bcartao\b[^.!?]{0,24}\bcheckout\b|\bcheckout\b[^.!?]{0,24}\bcartao\b/;
+      for (const { count, segment, sentence } of affirmed) {
+        if (/\bou\b/.test(segment)) return "joins two payment paths around an installment";
+        if (!PREPAY.test(sentence)) return "promises installments without tying them to the prepaid checkout";
+        if (count !== undefined && count > max) return `promises ${count} installments, above the configured ${max}`;
+      }
+      return null;
     },
   },
   {
@@ -1113,7 +1592,9 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Não repita ao pé da letra uma mensagem que você já mandou nesta conversa.`,
-    check: (text, ctx) =>
+    // Soft since 2026-09-24: a repeated line costs nothing that a veto into the canned
+    // fallback does not cost more.
+    warn: (text, ctx) =>
       (ctx.recentOutbound ?? []).includes(text.trim())
         ? "identical text already sent recently"
         : null,
@@ -1139,7 +1620,9 @@ const gates: readonly Gate[] = [
       `Comparando as duas formas de pagamento, ou você dá o prazo DAS DUAS, cada um ` +
       `colado na sua opção, ou não dá prazo nenhum. Prazo em uma só ela lê como valendo ` +
       `para as duas — e os prazos são diferentes.`,
-    check: (text) => {
+    // Soft since 2026-09-24: every window in it is still judged by `delivery_promise`;
+    // this one only asks for a label, and its vetoes ended in the canned fallback.
+    warn: (text) => {
       const t = norm(text);
       const bothPaths =
         /\b(na\s+entrega|pagamento\s+na\s+entrega)\b/.test(t) &&
@@ -1219,6 +1702,80 @@ const gates: readonly Gate[] = [
       return null;
     },
   },
+  {
+    /**
+     * Persona round 3 (2026-09-24, Cleide): the region lookup had failed — the Coinzz
+     * endpoint began answering with a redirect to its home page — and the agent said
+     * "Chega sim aí em Manaus" and sent the cash-on-delivery link. Nothing had checked.
+     * With no answer for her postcode, whether delivery reaches her is unknown, and the
+     * checkout is where it gets confirmed when she types the CEP.
+     *
+     * What stays allowed is the honest shape: a condition or a check ("o checkout confirma
+     * se chega aí", "deixa eu ver se entrega no seu CEP") and a denial. The exemption is
+     * read in the claim's own comma-bounded phrase, so "não se preocupe, chega sim aí"
+     * is still the claim.
+     */
+    name: "coverage_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Enquanto a região dela não foi consultada, nunca afirme que a entrega alcança a cidade ` +
+      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP.`,
+    check: (text, ctx) => {
+      if (ctx.regionKnown !== false) return null;
+      const t = norm(text);
+      // Exempt: a condition or denial ATTACHED right before the claim ("se chega aí",
+      // "quando chega aí", "não sei se chega aí"); the checkout named BEFORE the claim in
+      // its own phrase ("o checkout confirma a entrega no seu CEP"); and "entrega" as a
+      // NOUN — after an article or a preposition ("a entrega aqui é agendada", "o dia da
+      // entrega lá mesmo"). Code review, 2026-09-24, three times: the first version vetoed
+      // six honest lines (two vetoes on the link turn send the fallback without the link);
+      // the second let "Quando você fizer o pedido chega sim aí" through; the third let
+      // "digitar o CEP no checkout e chega aí" and "Pelo checkout chega sim aí" through.
+      // So the phrase is also cut at " e " and " que " — a new clause starts there — and a
+      // claim with "sim" in it is an affirmation the checkout rule never excuses.
+      const exempt = (at: number, claim: string): boolean => {
+        const before =
+          ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
+          "";
+        if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        if (/\bsim\b/.test(claim)) return false;
+        return (
+          /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
+          /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)
+        );
+      };
+      const VERB = String.raw`(?:chega|chegam|chegamos|entrega|entregamos|entregam|atende|atendemos)`;
+      const CLAIMS = [
+        /\b(?:chega|chegam|chegamos)\s+sim\b/g,
+        /\b(?:chega|chegam|chegamos|entrega|entregamos|entregam)\s+(?:sim\s+)?(?:ai|aqui|la)(?:\s+sim)?\b/g,
+        /\b(?:atende|atendemos)\s+(?:sim\s+)?(?:ai|la)(?:\s+sim)?\b/g,
+        new RegExp(String.raw`\b${VERB}\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b`, "g"),
+        new RegExp(String.raw`\b${VERB}\s+(?:sim\s+)?(?:na|pra|para|em)\s+sua\s+(?:cidade|regiao)\b`, "g"),
+      ];
+      for (const re of CLAIMS) {
+        for (const m of t.matchAll(re)) {
+          if (!exempt(m.index ?? 0, m[0])) return "affirms delivery reaches her before the region lookup answered";
+        }
+      }
+      // "chega em Manaus": a capitalised place right after the verb, read on the original
+      // text because `norm` lowercases it. A weekday is not a place ("atende Segunda a
+      // Sábado"), and neither is "Até".
+      const NOT_A_PLACE = String.raw`(?!(?:At[eé]|Segunda|Ter[cç]a|Quarta|Quinta|Sexta|S[aá]bado|Domingo)(?:\s|$|[,.!?-]))`;
+      for (const m of text.matchAll(
+        new RegExp(
+          String.raw`\b(?:[Cc]hega|[Cc]hegam|[Cc]hegamos|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?:tod[oa]\s+(?:o\s+|a\s+)?)?${NOT_A_PLACE}[A-ZÀ-Ú][a-zà-ú]+` +
+            String.raw`|\b[Aa]tend(?:e|emos)\s+${NOT_A_PLACE}[A-ZÀ-Ú][a-zà-ú]+`,
+          "g",
+        ),
+      )) {
+        // `norm` keeps the length (it strips combining marks from NFD, and the source is
+        // NFC), so the index carries over — but read the phrase on the normalised prefix.
+        const prefix = norm(text.slice(0, m.index));
+        if (!exempt(prefix.length, norm(m[0]))) return "affirms delivery reaches her city before the region lookup answered";
+      }
+      return null;
+    },
+  },
 ];
 
 export interface GateResult {
@@ -1235,12 +1792,15 @@ export const runGates = (text: string, ctx: GateContext): GateResult => {
   let allowed = true;
 
   for (const gate of gates) {
-    const reason = gate.check(text, ctx);
-    if (reason === null) {
-      traces.push({ gate: gate.name, verdict: "pass" });
-    } else {
+    const reason = gate.check?.(text, ctx) ?? null;
+    const soft = reason === null ? (gate.warn?.(text, ctx) ?? null) : null;
+    if (reason !== null) {
       traces.push({ gate: gate.name, verdict: "block", detail: reason });
       allowed = false;
+    } else if (soft !== null) {
+      traces.push({ gate: gate.name, verdict: "warn", detail: soft });
+    } else {
+      traces.push({ gate: gate.name, verdict: "pass" });
     }
   }
   return { allowed, traces };

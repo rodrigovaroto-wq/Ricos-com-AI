@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bubbleDelayMs, firstReplyAt, presenceRefreshes, splitBubbles } from "@/agent/pacing.js";
+import { MAX_BUBBLE_WORDS, bubbleDelayMs, firstReplyAt, presenceRefreshes, splitBubbles } from "@/agent/pacing.js";
 import { config } from "./fixtures.js";
 
 /** O que o relógio de São Paulo marca naquele instante. */
@@ -84,5 +84,55 @@ describe("ritmo humano", () => {
     const bolhas = splitBubbles(texto);
     expect(bolhas).toHaveLength(3);
     expect(bolhas[2]).toContain("cinco");
+  });
+});
+
+/**
+ * Bolhas de até ~30 palavras, cortadas só em fim de frase (R13.4): as personas mediram
+ * mediana de 49 palavras por mensagem.
+ */
+describe("bolhas curtas, nunca no meio da frase", () => {
+  const palavras = (s: string) => s.trim().split(/\s+/).length;
+  const frase = (n: number, fim = ".") => `${Array(n).fill("palavra").join(" ")}${fim}`;
+
+  it("o limite é 30 palavras", () => {
+    expect(MAX_BUBBLE_WORDS).toBe(30);
+  });
+
+  it("parágrafo longo vira várias bolhas, cada uma com até 30 palavras", () => {
+    const texto = [frase(12), frase(12, "!"), frase(12, "?"), frase(12)].join(" ");
+    const bolhas = splitBubbles(texto);
+    expect(bolhas.length).toBeGreaterThan(1);
+    for (const b of bolhas) expect(palavras(b)).toBeLessThanOrEqual(30);
+    expect(bolhas.join(" ")).toBe(texto);
+  });
+
+  it("nunca corta uma frase: cada bolha termina onde uma frase termina", () => {
+    const texto =
+      "Ele tava R$ 216,50 no site e agora sai por R$ 129,90 pra pagar na entrega. " +
+      "Você recebe em casa e escolhe o dia no checkout, e paga só quando o colete chegar na sua mão. " +
+      "Tem alguma roupa que você adora e deixou de usar? Me conta qual é!";
+    const bolhas = splitBubbles(texto);
+    expect(bolhas.length).toBeGreaterThan(1);
+    for (const b of bolhas) expect(b).toMatch(/[.!?]$/);
+    // A vírgula decimal e o ponto do domínio não são fim de frase.
+    expect(bolhas[0]).toContain("R$ 129,90");
+    expect(splitBubbles("Acesse encorpa-fashion.com.br pra ver.")).toEqual(["Acesse encorpa-fashion.com.br pra ver."]);
+  });
+
+  it("uma frase sozinha acima do limite sai inteira, sem corte", () => {
+    const longa = frase(45);
+    expect(splitBubbles(longa)).toEqual([longa]);
+  });
+
+  it("quebra de linha entre duas frases que cabem juntas é mantida", () => {
+    const texto = `${frase(5)}\n${frase(5)} ${frase(25)}`;
+    const bolhas = splitBubbles(texto);
+    expect(bolhas).toEqual([`${frase(5)}\n${frase(5)}`, frase(25)]);
+  });
+
+  it("junta bolhas curtas do fim só se a junção couber no limite", () => {
+    const longas = [frase(25), frase(25), frase(25), frase(25)].join("\n\n");
+    expect(splitBubbles(longas)).toHaveLength(4);
   });
 });

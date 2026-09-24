@@ -1,9 +1,11 @@
 import { describe, expect, it } from "vitest";
 import {
+  asksForIdentity,
   extractCpf,
   extractEmail,
   extractIdentity,
   extractName,
+  titleCaseName,
   isIdentityComplete,
   isValidCpf,
   mergeIdentity,
@@ -124,5 +126,117 @@ describe("mensagem comum não é nome", () => {
     // "meu nome é Boa" é estranho, mas ela disse que é o nome dela. Duvidar disso é
     // pior do que aceitar: quem se apresenta espera ser chamada assim.
     expect(extractName("meu nome é Bom Jesus da Silva")).toBe("Bom Jesus da Silva");
+  });
+});
+
+/**
+ * Nunca mais pergunta fixa de identidade (R13.4): "Qual é o seu e-mail? É pra onde vai a
+ * confirmação do pedido." voltou palavra por palavra, turno após turno, para quatro das
+ * doze personas. O que sai daqui é o ASSUNTO; a frase é da agente.
+ */
+describe("a identidade vira assunto, não frase pronta", () => {
+  it("devolve o assunto, sem pergunta pronta para copiar", () => {
+    for (const faltando of [["name"], ["email"], ["document"]] as const) {
+      const assunto = nextIdentityQuestion(faltando);
+      expect(assunto).not.toBeNull();
+      expect(assunto).not.toContain("?");
+      expect(assunto).not.toMatch(/^Qual/);
+    }
+  });
+
+  it("a frase fixa antiga não existe mais", () => {
+    expect(nextIdentityQuestion(["email"])).not.toContain("Qual é o seu e-mail");
+    expect(nextIdentityQuestion(["email"])).toContain("e-mail");
+  });
+
+  it("reconhece quando a Malu PERGUNTOU nome, e-mail ou CPF", () => {
+    expect(asksForIdentity("Me passa seu e-mail pra eu mandar a confirmação?")).toBe(true);
+    expect(asksForIdentity("Qual o seu CPF?")).toBe(true);
+    expect(asksForIdentity("Tudo certo! Qual seu nome completo?")).toBe(true);
+  });
+
+  it("mencionar não é perguntar: o link que diz \"seu e-mail vai preenchido\" não conta", () => {
+    expect(asksForIdentity("Seu e-mail já vai preenchido no link. Qualquer dúvida me chama!")).toBe(false);
+    expect(asksForIdentity("Qual o seu tamanho?")).toBe(false);
+    expect(asksForIdentity("")).toBe(false);
+  });
+});
+
+/** Code review, 2026-09-24: "sei lá" virava o nome da cliente. */
+describe("resposta vaga não vira nome", () => {
+  it("\"sei la\" e \"sei lá\" não são nome", () => {
+    for (const vaga of ["sei la", "sei lá", "Sei lá"]) {
+      expect(extractName(vaga), vaga).toBeNull();
+      expect(extractIdentity(vaga).fields.name, vaga).toBeUndefined();
+    }
+  });
+
+  it("um nome de verdade continua sendo lido", () => {
+    expect(extractName("Maria Souza")).toBe("Maria Souza");
+    expect(extractName("meu nome é Ana Paula")).toBe("Ana Paula");
+  });
+});
+
+/** Persona round 3 (2026-09-24, Karol): "oii desculpa sumi kkk" virou o nome no link. */
+describe("rodada 3: saudação não é nome, e o nome de quem recebe é", () => {
+  it("saudação, desculpa e risada nunca viram nome", () => {
+    for (const frase of ["oii desculpa sumi kkk", "desculpa kkk", "oiii tudo bem", "foi mal sumida", "kkkk rs"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("comprando para outra pessoa, o nome dela é lido — e para na quebra de linha", () => {
+    expect(extractName("nome dela maria jose ferreira")).toBe("maria jose ferreira");
+    expect(extractName("o nome dela é Maria José Ferreira")).toBe("Maria José Ferreira");
+    expect(
+      extractName("manda pro endereco dela\nnome dela maria jose ferreira\nRua Voluntarios da Patria 2100"),
+    ).toBe("maria jose ferreira");
+  });
+
+  it("o nome dela que chega depois substitui o que havia", () => {
+    const antes = extractIdentity("meu nome é Karol Souza").fields;
+    const depois = mergeIdentity(antes, extractIdentity("nome dela maria jose ferreira").fields).fields;
+    expect(depois.name).toBe("maria jose ferreira");
+  });
+});
+
+/** Code review, 2026-09-24. */
+describe("\"nome dela\" seguido de algo que não é nome", () => {
+  it("não extrai lixo", () => {
+    for (const frase of ["o nome dela eu te passo depois", "nome dela é igual ao meu", "nome dela tá no pedido"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("corta no começo da próxima oração", () => {
+    expect(extractName("o nome dele é João e o meu é Ana")).toBe("João");
+    expect(extractName("nome dela maria jose ferreira")).toBe("maria jose ferreira");
+  });
+});
+
+describe("o nome no link, em caixa de nome", () => {
+  it("capitaliza, com as partículas em minúscula", () => {
+    expect(titleCaseName("maria jose ferreira")).toBe("Maria Jose Ferreira");
+    expect(titleCaseName("MARIA DA SILVA")).toBe("Maria da Silva");
+    expect(titleCaseName("ana e joão dos santos")).toBe("Ana e João dos Santos");
+  });
+
+  it("não mexe no que já está certo, e o primeiro nome nunca fica minúsculo", () => {
+    expect(titleCaseName("Vera Lucia Andrade")).toBe("Vera Lucia Andrade");
+    expect(titleCaseName("da silva")).toBe("Da Silva");
+  });
+});
+
+/** Code review, 2026-09-24: parentesco não é nome. */
+describe("\"sou a mãe dela\" não é nome", () => {
+  it("parentesco depois de \"sou a\" não vira nome", () => {
+    for (const frase of ["sou a mãe dela", "sou a filha dela", "sou a irmã da Ana", "sou a esposa dele"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("o nome de verdade depois de \"sou a\" continua", () => {
+    expect(extractName("sou a Mariana Costa")).toBe("Mariana Costa");
+    expect(extractName("sou a Tia Nastácia")).toBeNull();
   });
 });

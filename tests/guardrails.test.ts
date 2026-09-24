@@ -5,10 +5,14 @@ import { config, ctx, ctxGratis } from "./fixtures.js";
 
 const blocked = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+/** Soft gates (2026-09-24) record `warn` and never block. */
+const warned = (result: ReturnType<typeof runGates>) =>
+  result.traces.filter((t) => t.verdict === "warn").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os dezenove gates", () => {
-    expect(gateNames).toHaveLength(19);
+  it("tem os vinte gates", () => {
+    // O vigésimo, `coverage_claim`, entrou na rodada 3 das personas (2026-09-24).
+    expect(gateNames).toHaveLength(20);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -21,7 +25,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(19);
+    expect(result.traces).toHaveLength(20);
   });
 });
 
@@ -183,10 +187,12 @@ describe("identidade e ritmo", () => {
     expect(r.allowed).toBe(true);
   });
 
-  it("veta a mesma mensagem literal saindo de novo", () => {
+  it("a mesma mensagem literal saindo de novo fica registrada, sem vetar (gate brando)", () => {
     const text = "Oi! Ficou alguma dúvida sobre o colete?";
     const r = runGates(text, ctx({ recentOutbound: [text] }));
-    expect(blocked(r)).toContain("identical_template");
+    expect(warned(r)).toContain("identical_template");
+    expect(blocked(r)).not.toContain("identical_template");
+    expect(r.allowed).toBe(true);
   });
 
   it("veta envio acima do teto de pacing", () => {
@@ -474,21 +480,23 @@ describe("dizer o tamanho é livre; dizer que TEM não é", () => {
  * devolve a modalidade Express para o CEP dela, vira fato — e é o melhor argumento
  * que este funil tem.
  */
+const comExpress = { ...config, delivery: { ...config.delivery, expressActive: true } };
+
 describe("Express, e só quando ele existe", () => {
   const frase = "Se você fechar agora, chega hoje mesmo, em até 4 horas.";
 
   it("sem Express na consulta, continua barrado", () => {
-    expect(blocked(runGates(frase, ctx()))).toContain("delivery_promise");
+    expect(blocked(runGates(frase, ctx({ config: comExpress })))).toContain("delivery_promise");
   });
 
-  it("com Express confirmado para o CEP dela, passa", () => {
-    expect(blocked(runGates(frase, { ...ctx(), sameDayWindow: true })))
+  it("com Express ativo e confirmado para o CEP dela, passa", () => {
+    expect(blocked(runGates(frase, ctx({ config: comExpress, sameDayWindow: true }))))
       .not.toContain("delivery_promise");
   });
 
   it("Express não libera prometer amanhã", () => {
     // A modalidade é do mesmo dia. "Amanhã" continua sendo uma data que ninguém agendou.
-    expect(blocked(runGates("Chega amanhã sem falta.", { ...ctx(), sameDayWindow: true })))
+    expect(blocked(runGates("Chega amanhã sem falta.", ctx({ config: comExpress, sameDayWindow: true }))))
       .toContain("delivery_promise");
   });
 });
@@ -498,13 +506,13 @@ describe("Express, e só quando ele existe", () => {
  * endereço dela é promessa que só o checkout pode fazer. A diferença é uma cláusula.
  */
 describe("contar que o Express existe, sem prometer", () => {
-  it("passa quando devolve a pergunta para o checkout", () => {
+  it("passa quando devolve a pergunta para o checkout, com Express ativo", () => {
     for (const t of [
       "Tem uma opção Express que entrega hoje mesmo — dá pra conferir a disponibilidade da sua região no checkout.",
       "Se estiver disponível aí, você recebe hoje em até 4 horas.",
       "A entrega no mesmo dia depende da sua região; o checkout mostra.",
     ]) {
-      expect(blocked(runGates(t, ctx()))).not.toContain("delivery_promise");
+      expect(blocked(runGates(t, ctx({ config: comExpress })))).not.toContain("delivery_promise");
     }
   });
 
@@ -1185,22 +1193,22 @@ describe("config de produção sem a chave nova", () => {
  * pergunta e espera a data errada, que é a recusa na porta.
  */
 describe("prazo com as duas opções na mesa", () => {
-  it("barra o prazo solto quando as duas formas estão lado a lado", () => {
+  it("sinaliza o prazo solto quando as duas formas estão lado a lado", () => {
     const frase =
       "Para o tamanho G, a entrega fica na janela de 1 a 3 dias e o frete é grátis. " +
       "Você prefere pagar R$ 129,90 na entrega ou antecipar, pelo mesmo valor?";
-    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 
   it("passa quando cada prazo diz de quem é", () => {
     const frase =
       "No pagamento na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do " +
       "entregador. No antecipado o prazo varia, em média 5 dias úteis.";
-    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
   it("mensagem de um caminho só não precisa de rótulo", () => {
-    expect(blocked(runGates("A entrega leva de 1 a 3 dias e você escolhe o dia.", ctx())))
+    expect(warned(runGates("A entrega leva de 1 a 3 dias e você escolhe o dia.", ctx())))
       .not.toContain("unattributed_window");
   });
 });
@@ -1212,29 +1220,29 @@ describe("prazo com as duas opções na mesa", () => {
  * acabou de ler.
  */
 describe("prazo em uma opção só", () => {
-  it("barra a comparação com prazo só num dos lados", () => {
+  it("sinaliza a comparação com prazo só num dos lados", () => {
     const frase =
       "Na entrega você paga R$ 129,90 quando o colete chegar, em 1 a 3 dias. " +
       "Antecipado você paga R$ 129,90 agora, com frete grátis.";
-    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 
   it("passa com o prazo dos dois lados", () => {
     const frase =
       "Na entrega você recebe em 1 a 3 dias e paga R$ 129,90 na mão do entregador. " +
       "No antecipado o prazo varia por região, em média 5 dias úteis.";
-    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
   it("passa sem prazo nenhum — comparar só preço é legítimo", () => {
     const frase = "Na entrega são R$ 129,90 na mão do entregador; antecipado, o mesmo valor.";
-    expect(blocked(runGates(frase, ctx()))).not.toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).not.toContain("unattributed_window");
   });
 
   it("'agendada' não é rótulo: é a nossa palavra, não a dela", () => {
     const frase =
       "A entrega é agendada para 1 a 3 dias. Você prefere pagar na entrega ou antecipado?";
-    expect(blocked(runGates(frase, ctx()))).toContain("unattributed_window");
+    expect(warned(runGates(frase, ctx()))).toContain("unattributed_window");
   });
 });
 
@@ -1558,5 +1566,134 @@ describe("a economia só pode ser dita como economia", () => {
     expect(linha).toContain(exemplo);
     expect(blocked(runGates(exemplo, prepay)), exemplo).toEqual([]);
     expect(blocked(runGates(exemplo, cod)), exemplo).toEqual([]);
+  });
+});
+
+describe("unavailable_offer: a metade da loja é branda desde 2026-09-24 (persona Jussara)", () => {
+  // Quatro rodadas de revisão mostraram que afrouxar o veto para a negação honesta não
+  // convergia. O operador decidiu (2026-09-24) que a loja não veta mais: fica no trace
+  // como `warn`. A metade dos outros produtos continua vetando.
+  it("a negação honesta da loja física passa, sem nem sinalizar", () => {
+    const r = runGates(
+      "A gente não tem loja física, a venda é só por aqui e pelo site, e por isso mesmo você só paga quando o colete chega na sua mão.",
+      ctx(),
+    );
+    expect(blocked(r)).not.toContain("unavailable_offer");
+    expect(warned(r)).not.toContain("unavailable_offer");
+  });
+});
+
+describe("delivery_promise: dia da semana ou data antes do pedido é promessa (2026-09-24)", () => {
+  it("barra o dia marcado, inclusive depois de uma negativa que não nega", () => {
+    for (const t of [
+      "Posso seguir com o seu pedido pra receber na quinta-feira?",
+      "Na quinta você já recebe.",
+      "Chega até o dia 30.",
+      "Não precisa se preocupar, chega na quinta.",
+      "Não se preocupe que chega na quinta.",
+      "Não consigo prometer o dia, mas chega na quinta.",
+      "Sem demora, chega na sexta.",
+      "Não consigo garantir o dia exato mas chega na quinta.",
+      "Não tem como não chegar até sexta.",
+      "Nem demora chega na sexta.",
+      "Não entrega na sexta, só na quinta.",
+      "Chega de quarta a sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("'tá na sua casa', 'vai estar na sua mão', 'dá tempo' e o dia antes do verbo também prometem", () => {
+    for (const t of [
+      "Vai estar na sua mão na sexta.",
+      "Dá tempo sim, até sexta ele tá com você.",
+      "Fechando hoje, sexta-feira já tá na sua casa.",
+      "Dá tempo até sexta sim.",
+      "Dá tempo pra sexta, fica tranquila.",
+      "Então quinta chega.",
+      "Fechando hoje e quinta você recebe.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("deixa passar a janela, o dia escolhido no checkout e os dias de funcionamento", () => {
+    for (const t of [
+      "Você escolhe o dia no checkout.",
+      "Você recebe em até 3 dias.",
+      "O casamento é sábado e você recebe em até 3 dias.",
+      "A entrega acontece de segunda a sexta.",
+      "O entregador passa de segunda a sábado, das 8h às 18h.",
+      "Chega na segunda tentativa se você não estiver.",
+      "Você recebe a segunda peça junto.",
+      "Chega em 2/3 dias.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("recusar o dia é permitido: a negação que governa o verbo", () => {
+    for (const t of [
+      "Não consigo garantir que chega na quinta, quem escolhe o dia é você no checkout.",
+      "Não posso prometer entrega no sábado.",
+      "Ele não chega na quinta, a entrega leva de 1 a 3 dias.",
+      "Não dá tempo de chegar até sexta.",
+      "Não vai dar tempo de chegar na sexta.",
+      "Não tenho como garantir que chega sexta.",
+      "Não consigo te garantir que chega na quinta.",
+      "Não consigo prometer a entrega na sexta.",
+      "Não vai estar na sua mão na sexta, a entrega leva de 1 a 3 dias.",
+      "Não dá pra garantir que até sexta ele tá com você.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("só 'você disse/falou' recontando isenta, e nada de afirmação depois", () => {
+    for (const t of [
+      "Você disse que precisa pra sexta e chega na sexta sim.",
+      "Eu te disse que chega na quinta.",
+      "Quem pediu ontem recebe na quinta.",
+      "Você disse que precisa até sexta e dá tempo sim.",
+      "Você disse que precisa receber na sexta e dá tempo.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+    for (const t of [
+      "Você falou que o casamento é sábado.",
+      "Você disse que precisa receber até sábado, né? O dia você escolhe no checkout.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("D — sem entrega no domingo, 'não sei se', e o dia entregue ao checkout passam", () => {
+    for (const t of [
+      "Não tem entrega no domingo.",
+      "O entregador não trabalha domingo.",
+      "Não sei se chega na quinta.",
+      "Se no checkout aparecer sexta, você recebe na sexta.",
+      "Você escolhe no checkout se quer receber na quinta ou na sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("D — a promessa colada a essas isenções continua barrando", () => {
+    for (const t of [
+      "Não tem problema que chega na quinta.",
+      "Não sei, mas chega na quinta.",
+      "O entregador não trabalha domingo, só na quinta.",
+      "Você escolhe o dia no checkout e chega na quinta.",
+      "Escolhe aí que chega na sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("na logística, a data agendada pela transportadora é fato", () => {
+    expect(
+      blocked(runGates("Sua entrega está agendada: chega na quinta.", ctx({ stage: "logistics" }))),
+    ).not.toContain("delivery_promise");
   });
 });

@@ -20,6 +20,16 @@ export const PRICES: Readonly<Record<string, ModelPrice>> = {
   // kept alongside: this table mirrors what the dev tooling (`src/dev/smoke.ts`) and the
   // Edge Function actually call today, not what either used to call.
   "muse-spark-1.3": { provider: "meta", inputUsdPerM: 1.25, outputUsdPerM: 4.25 },
+  // The persona runner's customer model (R12.1, 2026-09-24). Synthetic conversations
+  // only: this variant cedes prompts and answers to Meta for training, so it never
+  // talks to a real customer. The Edge Function gets it through
+  // CONVERSATION_MODEL_PRICE, not inline — this entry is for the dev tooling.
+  "muse-spark-1.3-contributor": {
+    provider: "meta",
+    inputUsdPerM: 0.1,
+    outputUsdPerM: 0.2,
+    cachedInputUsdPerM: 0.002,
+  },
 };
 
 export interface Usage {

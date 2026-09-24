@@ -9,7 +9,14 @@ export interface BusinessConfig {
   product: string;
   site: string;
   agentName: string;
-  prices: { codBrl: number; prepayBrl: number; prepayDiscountPercent: number; anchorBrl: number };
+  prices: {
+    codBrl: number;
+    prepayBrl: number;
+    prepayDiscountPercent: number;
+    anchorBrl: number;
+    /** Up to how many card installments the prepaid checkout allows (R13.3). Absent: never cited. */
+    prepayMaxInstallments?: number;
+  };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -28,6 +35,8 @@ export interface BusinessConfig {
      * 2026-09-22 it was the reverse: absent meant free, tested as `!== false`.)
      */
     freeShipping?: boolean;
+    /** Only an explicit `true` lets her name the Express delivery (R13.5). Absent: off. */
+    expressActive?: boolean;
   };
   sizes: readonly string[];
   hours: { openHour: number; closeHour: number };
@@ -56,6 +65,15 @@ export interface BusinessConfig {
   };
   /** Real reviews, word for word. Anything she quotes has to be in here. */
   testimonials?: readonly string[];
+  /**
+   * Facts the operator declared on 2026-09-24 (R13.5). OPTIONAL, all of them: production
+   * reads the whole config from the `BUSINESS_CONFIG` secret, so a key added here is absent
+   * there until the operator writes it — and absent reads as off: no support address, no
+   * customer count, no store plan is cited. They may only be filled with what is true.
+   */
+  support?: { email?: string };
+  socialProof?: { satisfiedCustomers?: number };
+  store?: { physicalStorePlanCity?: string };
   /**
    * Os templates que a Meta já aprovou, um por toque da régua. OPCIONAL, e ausente
    * significa que nenhum foi aprovado ainda — o que barra todo toque que caia fora da

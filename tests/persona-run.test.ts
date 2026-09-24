@@ -70,7 +70,12 @@ const run = (
   door: Door,
   model: PersonaModel,
   deliver: (i: Inbound) => Promise<TurnBody>,
-  extra: { db?: Db; maxTurns?: number; sleep?: (ms: number) => Promise<void> } = {},
+  extra: {
+    db?: Db;
+    maxTurns?: number;
+    sleep?: (ms: number) => Promise<void>;
+    overBudget?: (agentCostBrl: number) => string | null;
+  } = {},
 ) =>
   runPersona({
     persona: parsePersonaFile(PERSONA_FILE),
@@ -82,6 +87,7 @@ const run = (
     runId: "run-x",
     maxTurns: extra.maxTurns ?? 20,
     sleep: extra.sleep ?? (async () => undefined),
+    ...(extra.overBudget ? { overBudget: extra.overBudget } : {}),
   });
 
 describe("arquivo de persona", () => {
@@ -128,7 +134,7 @@ describe("o loop", () => {
     expect(report.failure).toBeNull();
   });
 
-  it("só [FIM] não entrega nada à Valen", async () => {
+  it("só [FIM] não entrega nada à Malu", async () => {
     const model = scripted("oi", "[FIM]");
     const door = fakeDoor({ status: "ok", reply: "oi!" });
     const report = await run("function", model, door.deliver);
@@ -153,7 +159,7 @@ describe("o loop", () => {
     expect(door.received.every((i) => i.from === PHONE)).toBe(true);
   });
 
-  it("devolve a resposta da Valen à persona como a vez da outra pessoa", async () => {
+  it("devolve a resposta da Malu à persona como a vez da outra pessoa", async () => {
     const seen: string[][] = [];
     const model: PersonaModel = {
       async next(_system, messages) {
@@ -291,6 +297,111 @@ describe("desfechos do corpo", () => {
   });
 });
 
+describe("transcrição por mensagem da Malu", () => {
+  it("cada resposta carrega bolhas, reescritas, estágio, custo do turno e os vetos daquele turno", async () => {
+    let traces: unknown[] = [];
+    let stage = "descoberta";
+    const db = fakeDb({
+      conversationFor: async () => ({ id: "conv-1", stage, cost_brl: 0 }),
+      gateTraces: async () => traces,
+    });
+    const answers: TurnBody[] = [
+      {
+        status: "ok",
+        reply: "Oi!\n\nQual seu tamanho?",
+        bubbles: [
+          { text: "Oi!", delayMs: 1000 },
+          { text: "Qual seu tamanho?", delayMs: 1200 },
+        ],
+        rewrites: 1,
+        costBrl: 0.01,
+      },
+      { status: "fallback", reply: "Posso te ajudar?", rewrites: 2, reason: "desconto", blockedText: "50% off", costBrl: 0.025 },
+    ];
+    const deliver = async () => {
+      const body = answers.shift()!;
+      // What the turn writes to gate_traces while it runs.
+      traces =
+        body.status === "ok"
+          ? [
+              { gate: "discount", verdict: "block", detail: "desconto não autorizado" },
+              { gate: "discount", verdict: "pass" },
+            ]
+          : [...traces, { gate: "discount", verdict: "block", detail: "de novo" }, { gate: "price", verdict: "block", detail: null }];
+      stage = body.status === "ok" ? "descoberta" : "tamanho";
+      return body;
+    };
+    const report = await run("function", scripted("oi", "tchau\n[FIM]"), deliver, { db });
+    const [first, second] = report.transcript.filter((t) => t.from === "valen");
+    expect(first).toMatchObject({
+      bubbles: ["Oi!", "Qual seu tamanho?"],
+      rewrites: 1,
+      stage: "descoberta",
+      costBrl: 0.01,
+      turnCostBrl: 0.01,
+      vetoes: [{ gate: "discount", detail: "desconto não autorizado" }],
+      orderReady: false,
+    });
+    expect(second).toMatchObject({
+      rewrites: 2,
+      stage: "tamanho",
+      reason: "desconto",
+      blockedText: "50% off",
+      turnCostBrl: 0.015,
+      vetoes: [
+        { gate: "discount", detail: "de novo" },
+        { gate: "price", detail: null },
+      ],
+    });
+    const md = renderMarkdown(report);
+    expect(md).toContain("### Turno 2");
+    expect(md).toContain("> Qual seu tamanho?");
+    expect(md).toContain("2. Qual seu tamanho?");
+    expect(md).toContain("reescritas: 1");
+    expect(md).toContain("`discount` (desconto não autorizado)");
+    expect(md).toContain("Texto vetado: 50% off");
+    expect(md).toContain("estágio: `tamanho`");
+  });
+
+  it("ORDER_READY aparece na própria mensagem que o sinalizou", async () => {
+    const report = await run("function", scripted("quero\n[FIM]"), fakeDoor({ status: "ok", reply: "fechado!", orderReady: true }).deliver);
+    expect(report.transcript.at(-1)?.orderReady).toBe(true);
+    expect(renderMarkdown(report)).toMatch(/\*\*Malu\*\* \(`ok`\) — \*\*ORDER_READY\*\*/);
+  });
+});
+
+describe("orçamento", () => {
+  it("overBudget para a conversa antes da próxima mensagem da persona, sem falha", async () => {
+    const seen: number[] = [];
+    const model = scripted("oi", "e aí?", "mais");
+    const report = await run("function", model, fakeDoor({ status: "ok", reply: "a", costBrl: 0.4 }, { status: "ok", reply: "b", costBrl: 0.9 }).deliver, {
+      overBudget: (agent) => {
+        seen.push(agent);
+        return agent >= 0.9 ? "teto" : null;
+      },
+    });
+    expect(seen).toEqual([0, 0.4, 0.9]);
+    expect(model.calls).toBe(2);
+    expect(report.endReason).toBe("budget_exceeded");
+    expect(report.budgetNote).toBe("teto");
+    expect(report.failure).toBeNull();
+    expect(renderMarkdown(report)).toContain("teto");
+  });
+
+  it("--budget-brl: padrão R$ 5, aceita outro valor, recusa zero, negativo ou lixo", () => {
+    expect(parseArgs(["--all"]).concurrency).toBe(1);
+    expect(parseArgs(["--all", "--concurrency=2"]).concurrency).toBe(2);
+    for (const bad of ["0", "4", "1.5", "x"]) {
+      expect(() => parseArgs(["--all", `--concurrency=${bad}`]), bad).toThrow(/concurrency/);
+    }
+    expect(parseArgs(["--all"]).budgetBrl).toBe(5);
+    expect(parseArgs(["--all", "--budget-brl=1.5"]).budgetBrl).toBe(1.5);
+    for (const bad of ["0", "-1", "x"]) {
+      expect(() => parseArgs(["--all", `--budget-brl=${bad}`]), bad).toThrow(/budget-brl/);
+    }
+  });
+});
+
 describe("segurança", () => {
   it("telefone sintético sempre com o prefixo fixo", () => {
     const phone = syntheticPhone(() => 0.999999);
@@ -420,7 +531,7 @@ describe("segurança", () => {
   });
 
   it("LOCAL_FUNCTION_URL fora do loopback é recusada antes de montar a requisição (a service key iria junto)", () => {
-    const base = { GEMINI_API_KEY: "g", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" };
+    const base = { META_API_KEY: "g", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k" };
     for (const url of ["http://localhost:8000", "http://127.0.0.1:8000/", "http://[::1]:8000"]) {
       expect(doorTarget("local", requireEnv({ ...base, LOCAL_FUNCTION_URL: url }, "local")).url).toBe(url);
     }
@@ -439,18 +550,18 @@ describe("segurança", () => {
   });
 
   it("falha alta e clara sem variável de ambiente, listando todas as que faltam", () => {
-    expect(() => requireEnv({}, "function")).toThrow(/GEMINI_API_KEY.*SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY/);
+    expect(() => requireEnv({}, "function")).toThrow(/META_API_KEY.*SUPABASE_URL.*SUPABASE_SERVICE_ROLE_KEY/);
     expect(() =>
-      requireEnv({ GEMINI_API_KEY: "g", SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "k" }, "n8n"),
+      requireEnv({ META_API_KEY: "g", SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "k" }, "n8n"),
     ).toThrow(/N8N_INBOUND_URL/);
-    expect(() => requireEnv({ GEMINI_API_KEY: " ", SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "k" }, "local")).toThrow(
-      /GEMINI_API_KEY/,
+    expect(() => requireEnv({ META_API_KEY: " ", SUPABASE_URL: "u", SUPABASE_SERVICE_ROLE_KEY: "k" }, "local")).toThrow(
+      /META_API_KEY/,
     );
   });
 
   it("cada porta aponta para o seu destino", () => {
     const env = requireEnv(
-      { GEMINI_API_KEY: "g", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", N8N_INBOUND_URL: "https://n/webhook" },
+      { META_API_KEY: "g", SUPABASE_URL: "https://x.supabase.co", SUPABASE_SERVICE_ROLE_KEY: "k", N8N_INBOUND_URL: "https://n/webhook" },
       "n8n",
     );
     expect(doorTarget("function", env)).toEqual({

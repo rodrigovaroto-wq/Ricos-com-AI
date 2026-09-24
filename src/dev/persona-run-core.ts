@@ -73,7 +73,23 @@ export interface RunnerArgs {
   /** On by default: every door writes to production. `--keep-data` turns it off. */
   cleanup: boolean;
   outDir: string;
+  /**
+   * Hard cap for the WHOLE run, in reais: the persona model plus what the turn reported
+   * spending (Malu), summed over every persona. Checked before each persona message;
+   * crossing it ends the current conversation as `budget_exceeded` and skips the rest.
+   */
+  budgetBrl: number;
+  /**
+   * How many personas talk to Malu at the same time (default 1, max 3). Each
+   * conversation has its own synthetic phone, so they don't share state; the run budget
+   * is still checked before every persona message and may overshoot by one exchange per
+   * concurrent conversation.
+   */
+  concurrency: number;
 }
+
+/** Default for `--budget-brl`. The operator pays for every token on both sides. */
+export const DEFAULT_RUN_BUDGET_BRL = 5;
 
 export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   let door: string = "local";
@@ -84,6 +100,8 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   let production = false;
   let noOrders = false;
   let outDir = "data/persona-runs";
+  let budgetBrl = DEFAULT_RUN_BUDGET_BRL;
+  let concurrency = 1;
 
   for (const arg of argv) {
     const [flag, value] = arg.split(/=(.*)/s, 2) as [string, string | undefined];
@@ -100,6 +118,8 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
     else if (flag === "--i-know-this-is-production") production = true;
     else if (flag === "--n8n-does-not-create-orders") noOrders = true;
     else if (flag === "--out" && value) outDir = value;
+    else if (flag === "--budget-brl" && value) budgetBrl = Number(value);
+    else if (flag === "--concurrency" && value) concurrency = Number(value);
     else throw new Error(`argumento desconhecido: ${arg}`);
   }
 
@@ -117,12 +137,24 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   }
   if (!all && personas.length === 0) throw new Error("diga qual persona: --persona=<nome> (repetível) ou --all");
   if (!Number.isInteger(maxTurns) || maxTurns < 1) throw new Error(`--max-turns inválido: ${maxTurns}`);
+  if (!Number.isFinite(budgetBrl) || budgetBrl <= 0) throw new Error(`--budget-brl inválido: ${budgetBrl}`);
+  if (!Number.isInteger(concurrency) || concurrency < 1 || concurrency > 3) {
+    throw new Error(`--concurrency inválido: ${concurrency} (use 1, 2 ou 3)`);
+  }
 
-  return { door: door as Door, personas: all ? "all" : personas, maxTurns, cleanup: !keepData, outDir };
+  return {
+    door: door as Door,
+    personas: all ? "all" : personas,
+    maxTurns,
+    cleanup: !keepData,
+    outDir,
+    budgetBrl,
+    concurrency,
+  };
 };
 
 export interface RunnerEnv {
-  geminiKey: string;
+  metaKey: string;
   supabaseUrl: string;
   serviceKey: string;
   n8nUrl: string | null;
@@ -131,14 +163,14 @@ export interface RunnerEnv {
 
 /** Every missing variable at once, so a run never fails one variable at a time. */
 export const requireEnv = (env: Readonly<Record<string, string | undefined>>, door: Door): RunnerEnv => {
-  const needed = ["GEMINI_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
+  const needed = ["META_API_KEY", "SUPABASE_URL", "SUPABASE_SERVICE_ROLE_KEY"];
   if (door === "n8n") needed.push("N8N_INBOUND_URL");
   const missing = needed.filter((name) => !env[name]?.trim());
   if (missing.length) {
     throw new Error(`variáveis de ambiente faltando para a porta ${door}: ${missing.join(", ")}`);
   }
   return {
-    geminiKey: env["GEMINI_API_KEY"]!.trim(),
+    metaKey: env["META_API_KEY"]!.trim(),
     supabaseUrl: env["SUPABASE_URL"]!.trim().replace(/\/+$/, ""),
     serviceKey: env["SUPABASE_SERVICE_ROLE_KEY"]!.trim(),
     n8nUrl: env["N8N_INBOUND_URL"]?.trim() || null,
@@ -332,11 +364,30 @@ export interface PersonaModel {
   next: (system: string, messages: ReadonlyArray<{ role: "user" | "assistant"; content: string }>) => Promise<string>;
 }
 
+/** A gate that said no on the attempt behind a reply, read from `gate_traces`. */
+export interface Veto {
+  gate: string;
+  detail: string | null;
+}
+
 export interface TranscriptEntry {
   from: "persona" | "valen";
   text: string;
   status?: string;
   body?: TurnBody;
+  // Malu only. Read from the body, then — after the exchange — from the database.
+  bubbles?: string[];
+  rewrites?: number;
+  /** Why a fallback or handoff happened, and the draft the chain refused. */
+  reason?: string;
+  blockedText?: string;
+  /** The conversation's running spend after this reply, and what the exchange added. */
+  costBrl?: number;
+  turnCostBrl?: number;
+  stage?: string | null;
+  /** Every `block` written to `gate_traces` during this exchange, in order. */
+  vetoes?: Veto[];
+  orderReady?: boolean;
 }
 
 export interface Report {
@@ -358,6 +409,8 @@ export interface Report {
   turnOutcomes: unknown[];
   /** Some body carried `orderReady: true` or a non-null `order` — see the file header. */
   orderReady: boolean;
+  /** Set when `overBudget` stopped the conversation. */
+  budgetNote: string | null;
 }
 
 /** The conversation goes on after these. */
@@ -383,6 +436,12 @@ export interface RunOptions {
   sleep?: (ms: number) => Promise<void>;
   /** n8n door only: how often to look for the post-welcome reply. */
   pollMs?: number;
+  /**
+   * Asked before every persona message, with what the turn has reported spending on
+   * this conversation so far. A non-null answer ends the conversation cleanly as
+   * `budget_exceeded`, with the answer in `budgetNote` (not a failure).
+   */
+  overBudget?: (agentCostBrl: number) => string | null;
 }
 
 export const runPersona = async (options: RunOptions): Promise<Report> => {
@@ -399,6 +458,9 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
   let costBrl: number | null = null;
   let conversationId: string | null = null;
   let orderReady = false;
+  let budgetNote: string | null = null;
+  let tracesSeen = 0;
+  let costBefore = 0;
 
   const judge = (body: TurnBody): "continue" | "end" => {
     if (typeof body.costBrl === "number") costBrl = body.costBrl;
@@ -417,11 +479,53 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
 
   const valenSays = (body: TurnBody, text?: string) => {
     const said = text ?? (typeof body.reply === "string" ? body.reply : "");
-    transcript.push({ from: "valen", text: said, ...(body.status ? { status: body.status } : {}), body });
+    const bubbles = Array.isArray(body.bubbles)
+      ? body.bubbles.map((b) => (typeof b === "string" ? b : String((b as { text?: unknown }).text ?? "")))
+      : undefined;
+    transcript.push({
+      from: "valen",
+      text: said,
+      ...(body.status ? { status: body.status } : {}),
+      body,
+      ...(bubbles ? { bubbles } : {}),
+      ...(typeof body.rewrites === "number" ? { rewrites: body.rewrites } : {}),
+      ...(typeof body.reason === "string" ? { reason: body.reason } : {}),
+      ...(typeof body.blockedText === "string" ? { blockedText: body.blockedText } : {}),
+      ...(typeof body.costBrl === "number" ? { costBrl: body.costBrl } : {}),
+      orderReady: body.orderReady === true || (body.order !== undefined && body.order !== null),
+    });
     return said;
   };
 
-  /** One persona message in, everything Valen said back out. */
+  /**
+   * After each exchange: the stage the conversation reached, and which gates vetoed on
+   * the way — `gate_traces` is append-only per conversation, so what is new since the
+   * last read belongs to this exchange. Goes on the exchange's last reply. Two reads per
+   * turn, both by index: `leads.phone` unique + `conversations_lead_idx`, and
+   * `gate_traces_conversation_idx`. A failed read leaves the fields out, never the turn.
+   */
+  const annotate = async (from: number) => {
+    const last = transcript.at(-1);
+    if (!last || last.from !== "valen" || transcript.length <= from) return;
+    const conversation = await db.conversationFor(phone).catch(() => null);
+    if (!conversation) return;
+    last.stage = conversation.stage;
+    const traces = (await db.gateTraces(conversation.id).catch(() => null)) as
+      | Array<{ gate?: string; verdict?: string; detail?: string | null }>
+      | null;
+    if (traces) {
+      last.vetoes = traces
+        .slice(tracesSeen)
+        .filter((t) => t.verdict === "block")
+        .map((t) => ({ gate: String(t.gate ?? "?"), detail: t.detail ?? null }));
+      tracesSeen = traces.length;
+    }
+    const now = costBrl ?? conversation.cost_brl ?? costBefore;
+    last.turnCostBrl = +(now - costBefore).toFixed(6);
+    costBefore = now;
+  };
+
+  /** One persona message in, everything Malu said back out. */
   const exchange = async (inbound: Inbound): Promise<{ said: string[]; verdict: "continue" | "end" }> => {
     const first = await deliver(inbound);
     if (first.status !== "welcomed") {
@@ -456,6 +560,12 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
 
   try {
     for (let turn = 1; turn <= maxTurns; turn++) {
+      const over = options.overBudget?.(costBrl ?? 0) ?? null;
+      if (over) {
+        budgetNote = over;
+        endReason = "budget_exceeded";
+        break;
+      }
       const { text, ended } = parsePersonaReply(await model.next(persona.system, history));
       if (!text) {
         endReason = "persona_left";
@@ -464,7 +574,9 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
       transcript.push({ from: "persona", text });
       history.push({ role: "assistant", content: text });
 
+      const before = transcript.length;
       const { said, verdict } = await exchange({ externalId: `${runId}-${turn}`, from: phone, body: text });
+      await annotate(before);
 
       if (turn === 1 && !conversationId) {
         const conversation = await db.conversationFor(phone);
@@ -514,6 +626,7 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
     gateTraces,
     turnOutcomes,
     orderReady,
+    budgetNote,
   };
 };
 
@@ -549,7 +662,8 @@ export const renderMarkdown = (report: Report): string => {
       : []),
     `- Porta: \`${report.door}\` — ${report.doorNote}`,
     `- Telefone sintético: \`${report.phone}\` · execução \`${report.runId}\``,
-    `- Fim: \`${report.endReason}\`${report.failure ? ` — **${report.failure}**` : ""}`,
+    `- Fim: \`${report.endReason}\`${report.failure ? ` — **${report.failure}**` : ""}` +
+      `${report.budgetNote ? ` — **${report.budgetNote}**` : ""}`,
     `- Estágio: \`${report.stage ?? "—"}\` · custo: ${report.costBrl === null ? "—" : `R$ ${report.costBrl.toFixed(4)}`}`,
     `- Gates que vetaram: ${
       report.gateTraces
@@ -561,9 +675,31 @@ export const renderMarkdown = (report: Report): string => {
     "## Conversa",
     "",
   ];
+  let turn = 0;
   for (const entry of report.transcript) {
-    const who = entry.from === "persona" ? "**Cliente**" : `**Valen** (\`${entry.status ?? "?"}\`)`;
-    lines.push(`${who}: ${entry.text || "_(sem texto)_"}`, "");
+    if (entry.from === "persona") {
+      turn += 1;
+      lines.push(`### Turno ${turn}`, "", `**Cliente**: ${entry.text || "_(sem texto)_"}`, "");
+      continue;
+    }
+    lines.push(`**Malu** (\`${entry.status ?? "?"}\`)${entry.orderReady ? " — **ORDER_READY**" : ""}:`, "");
+    lines.push(...(entry.text || "_(sem texto)_").split("\n").map((l) => `> ${l}`), "");
+    if (entry.bubbles && entry.bubbles.length > 1) {
+      lines.push(`Bolhas (${entry.bubbles.length}):`, ...entry.bubbles.map((b, i) => `${i + 1}. ${b.replace(/\n+/g, " / ")}`), "");
+    }
+    const facts = [
+      entry.rewrites === undefined ? null : `reescritas: ${entry.rewrites}`,
+      entry.stage === undefined ? null : `estágio: \`${entry.stage ?? "—"}\``,
+      entry.turnCostBrl === undefined ? null : `custo do turno: R$ ${entry.turnCostBrl.toFixed(4)}`,
+      entry.costBrl === undefined ? null : `acumulado: R$ ${entry.costBrl.toFixed(4)}`,
+    ].filter(Boolean);
+    if (facts.length) lines.push(`- ${facts.join(" · ")}`);
+    if (entry.vetoes?.length) {
+      lines.push(`- Vetos: ${entry.vetoes.map((v) => `\`${v.gate}\`${v.detail ? ` (${v.detail})` : ""}`).join("; ")}`);
+    }
+    if (entry.reason) lines.push(`- Motivo: ${entry.reason}`);
+    if (entry.blockedText) lines.push(`- Texto vetado: ${entry.blockedText.replace(/\n+/g, " / ")}`);
+    if (facts.length || entry.vetoes?.length || entry.reason || entry.blockedText) lines.push("");
   }
   return lines.join("\n");
 };
