@@ -579,10 +579,12 @@ const gates: readonly Gate[] = [
       // set, and the number gate never sees them because there is no number to see.
       // "Tiro mais alguma dúvida" is the closing question, not a concession (M-05): the
       // object of "tiro" is the doubt, and only determiners may stand between them, so
-      // nothing that names a price can hide in the span removed.
+      // nothing that names a price can hide in the span removed. Not when a second object
+      // follows ("tiro sua dúvida e mais um pouco do preço" shares the verb — second
+      // review), and blanked to the same length so `negatedAt` keeps its distances.
       const concessions = t.replace(
-        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer)\s+){0,3}duvidas?\b/g,
-        " ",
+        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![\s,]*\b(?:e|mais)\b)/g,
+        (x) => " ".repeat(x.length),
       );
       for (const m of concessions.matchAll(
         /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pouc\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
@@ -889,7 +891,20 @@ const gates: readonly Gate[] = [
         const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
         const prepayAt = lastAt(PREPAY_NAME);
         const codAt = lastAt(/\bna\s+entrega\b/g);
-        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated;
+        // M-06: proximity gives the range to the delivery only when what follows it, to the
+        // end of the sentence, is at most the prepaid window. Without "também" it still let
+        // "…na entrega são 1 a 3 dias, e no depósito 2 a 3 dias" and "…, no antecipado varia
+        // por região, nada muda" through — a prepaid name off the list, or a tie at the end.
+        // Same allowlist as `endsAtPrepayWindow`, plus the connectives that open that clause.
+        const tailIsPrepayWindow = /^[\s.,;:!?]*$/.test(
+          t
+            .slice(at + m[0].length)
+            .split(/[.!?\n]/)[0]!
+            .replace(PREPAY, "")
+            .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
+            .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando)\b/g, ""),
+        );
+        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow;
         const named: "cod" | "prepay" | null =
           byProximity && codAt > prepayAt
             ? "cod"

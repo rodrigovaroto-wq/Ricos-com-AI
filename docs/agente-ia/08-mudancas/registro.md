@@ -125,7 +125,12 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   concessão sem número; entre "tiro" e "dúvida" só cabem determinantes, então nada que fale de
   preço se esconde no trecho removido. Casos em `tests/change-registry.test.ts` (4 honestas
   passam, 5 concessões vizinhas continuam vetadas). Placar ganhou `pronta-por-preco`.
-- **Estado:** feita — segunda revisão e rodada jussara, tati pendentes.
+- **Segunda revisão (2026-09-24): reprovada, corrigida.** A primeira versão soltava seis
+  concessões: o verbo servindo a um segundo objeto ("Tiro qualquer dúvida e mais um pouco do
+  preço") e uma negação distante puxada para a janela porque o trecho removido encolhia o
+  texto. Agora o trecho não sai quando vem "e"/"mais" depois da dúvida, e é trocado por
+  espaços do mesmo tamanho. Os sete casos viraram vetados no teste.
+- **Estado:** feita — rodada jussara, tati pendente (precisa das credenciais do proxy).
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
 - **Por quê:** a segunda revisão do ajuste de M-01 (2026-09-24, seis rodadas) achou frases que
@@ -138,7 +143,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   faixa só vai para a entrega quando, depois da menção ao antecipado, só resta a janela dele.
 - **Medida:** as frases acima como casos vetados em `tests/change-registry.test.ts`, e o
   placar `pronta-por-prazo` = 0 numa rodada de personas (endurecer pode trazer resposta pronta).
-- **Estado:** aberta (não iniciada). Endurece gate: rodar as personas cleide, rafa, lu depois.
+- **Feito (2026-09-24):** a proximidade só dá a faixa à entrega quando o que vem depois dela,
+  até o fim da frase, é no máximo a janela do antecipado (a mesma lista permitida de
+  `endsAtPrepayWindow`, mais "e / mas / no / pagando"). As três frases da revisão e outras
+  seis ("…, é parecido", "…e chega junto", "pelo site 2 a 3 dias"…) viraram casos vetados; as
+  frases honestas de M-01 continuam passando. Resíduo que continua: nome do antecipado fora da
+  lista em frase **sem** "antecipado" ("No depósito varia, e na entrega 1 a 3 dias") cai no
+  caminho da entrega — fora do escopo da proximidade.
+- **Estado:** feita — segunda revisão e rodada cleide, rafa, lu pendentes.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

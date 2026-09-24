@@ -166,6 +166,10 @@ describe("M-05: tirar dúvida não é desconto", () => {
       "Posso seguir com o pedido, ou tiro mais uma dúvida sua?",
       "Tiro pra você qualquer dúvida sobre o tamanho.",
       "Se quiser, tiro mais suas dúvidas antes de fechar.",
+      "Tiro mais alguma das suas dúvidas?",
+      "Tiro mais uma dúvidinha sua?",
+      "Tiro mais uma dúvida, ou fechamos?",
+      "Tiro mais alguma dúvida ou já posso seguir com o pedido?",
     ]) {
       expect(price(honest)?.verdict, honest).toBe("pass");
     }
@@ -178,8 +182,51 @@ describe("M-05: tirar dúvida não é desconto", () => {
       "Tiro mais alguma dúvida e tiro mais um pouco do valor.",
       "Tiro pra você um pouco, dúvida nenhuma.",
       "Tiro mais do preço se tirar sua dúvida.",
+      // Segunda revisão: o verbo serve a um segundo objeto, e a negação distante.
+      "Tiro qualquer dúvida e mais um pouco do preço.",
+      "Tiro suas dúvidas e mais um pouco do valor.",
+      "Tiro mais uma dúvida e um pouco do valor, fechado?",
+      "Tiro pra você a dúvida e mais um pouquinho no preço.",
+      "Tiro essa dúvida e pra você faço por menos.",
+      "Tiro sua dúvida, mais um pouco do valor.",
+      "Não se preocupe com nada, tiro qualquer dúvida e tiro mais um pouco pra você.",
     ]) {
       expect(price(lie)?.verdict, lie).toBe("block");
     }
+  });
+});
+
+/**
+ * M-06 (segunda revisão do ajuste de M-01): sem "também", a proximidade dava a faixa à
+ * entrega sempre que "na entrega" era o último caminho citado — e um nome do antecipado
+ * fora da lista, ou uma igualdade no fim da frase, escapava.
+ */
+describe("M-06: depois da faixa da entrega, só a janela do antecipado", () => {
+  const vetadas = [
+    "No antecipado varia por região; na entrega são 1 a 3 dias, e no depósito 2 a 3 dias.",
+    "No antecipado varia por região; na entrega são 1 a 3 dias, e quem paga na compra 2 a 3 dias.",
+    "No antecipado varia por região; na entrega são 1 a 3 dias, e no pré-pago 2 a 3 dias.",
+    "No antecipado varia por região; na entrega são 1 a 3 dias, e pelo site 2 a 3 dias.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região, nada muda.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região, é parecido.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região e chega junto.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região e costuma bater com esse prazo.",
+    "No antecipado o prazo varia, e na entrega é de 1 a 3 dias, dá na mesma.",
+  ];
+  const passam = [
+    "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega você recebe em 1 a 3 dias, e no antecipado o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, mas no antecipado varia por região.",
+    "No antecipado varia por região; na entrega são 1 a 3 dias.",
+  ];
+
+  it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passam)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
