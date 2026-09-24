@@ -567,3 +567,41 @@ describe("pergunta sobre parcelamento", () => {
     expect(inst("Quer parcelar em 12x?")).toBe("block");
   });
 });
+
+/** Revisão final (2026-09-24): só aperto. Cada mentira nova veta; a vizinha honesta passa. */
+describe("revisão final: R1, R2 e os apertos", () => {
+  const full = withConfig({
+    prices: { ...config.prices, prepayMaxInstallments: 12 },
+    socialProof: { satisfiedCustomers: 500 },
+  });
+  const verdict = (text: string, gate: string) =>
+    runGates(text, ctx({ config: full })).traces.find((t) => t.gate === gate)!.verdict;
+
+  it.each([
+    ["installment_promise", "Na entrega não dá pra dividir.", "No antecipado em 12x, e na entrega dá pra dividir no cartão."],
+    ["installment_promise", "Na entrega não dá pra dividir.", "No antecipado em 12x, e no pagamento na entrega você divide no cartão."],
+    ["installment_promise", "Na entrega você paga uma vez só; no antecipado parcela em até 12x.", "No antecipado em 12x; na entrega você divide."],
+    ["installment_promise", "Na entrega você paga uma vez só; no antecipado parcela em até 12x.", "No antecipado em 12x, e na entrega você pode dividir."],
+    ["installment_promise", "No antecipado, no cartão pelo checkout, o cartão pode cobrar juros, e dá em até 12x.", "No antecipado em até 12x sem pagar juros."],
+    ["installment_promise", "No antecipado, no cartão pelo checkout, o cartão pode cobrar juros, e dá em até 12x.", "No antecipado em até 12x sem precisar pagar juros."],
+    ["installment_promise", "No antecipado, no cartão pelo checkout, o cartão pode cobrar juros, e dá em até 12x.", "No antecipado em até 12x e você não vai pagar juros."],
+    ["installment_promise", "No antecipado, no cartão pelo checkout, o cartão pode cobrar juros, e dá em até 12x.", "No antecipado em até 12x, sem os juros."],
+    ["unavailable_offer", "Se quiser, pode passar aqui seu CEP que eu confiro.", "Pode passar aqui pra pegar."],
+    ["unavailable_offer", "Se quiser, me passa aqui seu CEP que eu confiro.", "Passa aqui amanhã que te entrego."],
+    ["unavailable_offer", "Não tem como retirar.", "Temos um showroom em São Paulo, se quiser conhecer."],
+    ["unavailable_offer", "A gente não tem loja física nem endereço pra retirada, a venda é só por aqui mesmo.", "Nosso estoque fica em São Paulo, dá pra combinar a retirada."],
+    ["humanity_claim", "Quer que eu chame alguém do time?", "Já encaminhei seu pedido pra equipe."],
+    ["humanity_claim", "Quer que eu chame alguém do time?", "Já chamei a Carla do time pra falar com você."],
+    ["humanity_claim", "Nosso suporte te atende todos os dias.", "A Carla, nossa atendente, vai te chamar em instantes."],
+    ["humanity_claim", "Quer que eu chame alguém do time?", "Deixei seu contato com a equipe, elas te chamam."],
+    ["humanity_claim", "Se quiser, vou pedir pra uma atendente te chamar.", "Vou pedir pra uma atendente te chamar."],
+    ["humanity_claim", "Nosso suporte te atende todos os dias.", "Já registrei aqui e o time vai te retornar."],
+    ["invented_testimonial", "Mais de 500 clientes satisfeitas.", "Somos a marca de colete mais vendida do Brasil."],
+    ["invented_testimonial", "Mais de 500 clientes satisfeitas.", "O colete é o mais vendido do site."],
+    ["invented_testimonial", "Mais de 500 clientes satisfeitas em todo o Brasil.", "Mais de 500 clientes satisfeitas e zero devoluções."],
+    ["invented_testimonial", "Mais de 500 clientes satisfeitas em todo o Brasil.", "Mais de 500 clientes satisfeitas só em São Paulo."],
+  ])("%s: passa a honesta, barra a vizinha", (gate, honest, lie) => {
+    expect(verdict(honest, gate), honest).toBe("pass");
+    expect(verdict(lie, gate), lie).toBe("block");
+  });
+});

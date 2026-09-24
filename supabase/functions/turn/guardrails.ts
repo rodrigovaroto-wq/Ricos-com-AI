@@ -874,7 +874,7 @@ const gates: readonly Gate[] = [
       // The configured number passes only as "N clientes satisfeitas" — never as sales
       // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
       if (
-        /\bvend(?:emos|eu|eram)\b[^.!?]{0,20}?\d[\d.]*\s*(?:mil\b\s*)?(?:(?:pecas|unidades|coletes|vezes)\b|[.!?]|$)|\d[\d.]*\s*(?:mil\s+)?(?:(?:pecas|unidades|coletes)\s+)?vendid\w*|\b\d{1,3}\s*%\s+d[ao]s\s+(?:clientes|compradoras|mulheres|pessoas)|\b\d+\s+em\s+cada\s+\d+|\b\d[\d.]*\s+avaliac\w*|\bnota\s+\d|\d[.,]\d\s+estrelas|\b\d[\d.]*\s+(?:delas|dessas|destas)\b|\b(?:clientes?|compradoras?|mulheres)\b[^.!?]{0,40}\bsendo\s+\d/.test(t)
+        /\bvend(?:emos|eu|eram)\b[^.!?]{0,20}?\d[\d.]*\s*(?:mil\b\s*)?(?:(?:pecas|unidades|coletes|vezes)\b|[.!?]|$)|\d[\d.]*\s*(?:mil\s+)?(?:(?:pecas|unidades|coletes)\s+)?vendid\w*|\b\d{1,3}\s*%\s+d[ao]s\s+(?:clientes|compradoras|mulheres|pessoas)|\b\d+\s+em\s+cada\s+\d+|\b\d[\d.]*\s+avaliac\w*|\bnota\s+\d|\d[.,]\d\s+estrelas|\b\d[\d.]*\s+(?:delas|dessas|destas)\b|\bmais\s+vendid\w*|\b(?:campea|lider)\w*\s+de\s+vendas|\b(?:zero|nenhuma)\s+(?:devoluc|reclamac)\w*|\b(?:clientes?|compradoras?|mulheres)\b[^.!?]{0,40}\bsendo\s+\d/.test(t)
       )
         return "states a customer count nobody configured";
       for (const m of t.matchAll(
@@ -893,7 +893,7 @@ const gates: readonly Gate[] = [
           crowd &&
           value === allowed &&
           /^\s*satisfeit/.test(after) &&
-          !/\b(?:hoje|ontem|agora|semana|mes|ano|compr\w*)\b|\d\s*%/.test(sentenceAt(t, m.index ?? 0))
+          !/\b(?:hoje|ontem|agora|semana|mes|ano|compr\w*)\b|\d\s*%|\bso\s+(?:em|no|na|nesta|neste|essa|esse|esta|este)\b/.test(sentenceAt(t, m.index ?? 0))
         )
           continue;
         return "states a customer count nobody configured";
@@ -923,10 +923,11 @@ const gates: readonly Gate[] = [
         const PERSON = String.raw`(?:uma?\s+|o\s+|a\s+|nossa\s+|nosso\s+)?(?:atendente|pessoa|humano|time|equipe|colega|supervisor\w*|gerente|responsavel|alguem)`;
         const DESK = String.raw`(?:o\s+|nosso\s+)?(?:suporte|atendimento)`;
         const claims = [
-          new RegExp(String.raw`\b(?:ja\s+)?(?:chamei|avisei|acionei|transferi|encaminhei|notifiquei|passei|vou\s+(?:chamar|avisar|acionar|transferir|encaminhar|passar))\s+${TO}${WHO}\b`),
+          new RegExp(String.raw`\b(?:ja\s+)?(?:chamei|avisei|acionei|transferi|encaminhei|notifiquei|passei|vou\s+(?:chamar|avisar|acionar|transferir|encaminhar|passar))\s+(?:\S+\s+){0,3}?${TO}${WHO}\b`),
+          new RegExp(String.raw`\b(?:deixei|registrei)\s+(?:\S+\s+){0,3}?(?:com|pra|para|pro)\s+${WHO}\b|\b(?:elas?|eles?)\s+(?:ja\s+)?(?:te\s+(?:chamam|chama|respondem|retornam)|vao\s+te\s+(?:chamar|retornar|responder))\b`),
           new RegExp(String.raw`\b(?:estou|to|ja\s+to|ja\s+estou)\s+(?:chamando|avisando|acionando|transferindo|passando)\s+${TO}${WHO}\b`),
-          new RegExp(String.raw`\b(?:deixei\s+avisad\w*|pedi\s+(?:pra|para))\s+${TO}${WHO}\b`),
-          new RegExp(String.raw`\b${PERSON}(?:\s+do\s+(?:time|atendimento))?\s+(?:ja\s+)?(?:chega|vai\s+(?:te\s+)?(?:chamar|falar|responder|atender|entrar)|te\s+(?:chama|responde|atende)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
+          new RegExp(String.raw`\b(?:deixei\s+avisad\w*|pedi\s+(?:pra|para)|vou\s+pedir\s+(?:pra|para))\s+${TO}${WHO}\b`),
+          new RegExp(String.raw`\b${PERSON}(?:\s+do\s+(?:time|atendimento))?\s*,?\s+(?:ja\s+)?(?:chega|vai\s+(?:te\s+)?(?:chamar|falar|responder|atender|entrar|retornar)|te\s+(?:chama|responde|atende|retorna)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
           // The support desk exists, and "o suporte te atende todos os dias" is what the
           // prompt teaches. Only a desk that is already on its way to her is a claim.
           new RegExp(String.raw`\b${DESK}\s+(?:ja\s+)?(?:vai\s+(?:te\s+)?(?:chamar|entrar)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
@@ -1330,7 +1331,10 @@ const gates: readonly Gate[] = [
             String.raw`\bpega\w*\s+(?:aqui|la|com\s+a\s+gente|no\s+nosso|na\s+nossa)\b`,
             String.raw`\bretirad\w*\s+(?:em|no|na)\b`,
             String.raw`\b(?:pode|podem|da\s+pra)\s+(?:buscar|retirar)\b`,
-            String.raw`\b(?:pode|podem|da\s+pra)\s+(?:vir|ir|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
+            String.raw`\b(?:pode|podem|da\s+pra)\s+(?:vir|ir|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+|pra\s+|para\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
+            String.raw`\b(?:passa|passe|vem|venha)\s+(?:aqui|la)\b(?!\s+(?:seu|sua|o|a|teu|tua)\b)`,
+            String.raw`\b(?:temos|tem)\s+(?:um\s+|uma\s+|nosso\s+|nossa\s+)?(?:showroom|deposito|galpao|escritorio|ponto\s+de\s+retirada)\b`,
+            String.raw`\bcombin\w*\s+(?:a\s+)?retirad\w*`,
             String.raw`\b(?:venha|vem|vir|passa|passe|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
             String.raw`\bpode\s+(?:vir|passar)\s*(?:aqui|la)?\s*(?:[.!,]|$)`,
             String.raw`\btem\s+como\s+retirar\b`,
@@ -1401,11 +1405,11 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       const NUM = String.raw`(\d{1,2}|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|dezoito|vinte\s+e\s+quatro|vinte)`;
       const TOKEN = new RegExp(
-        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b`,
+        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|\bdivid\w*`,
         "g",
       );
       if (
-        /\b(?:sem|livre\s+de|isent[oa]s?\s+de)\s+(?:nenhum\s+|cobrar\s+|cobranca\s+de\s+|tarifa\s+de\s+|taxa\s+de\s+)?juros?\b|\bnao\s+(?:tem|ha|cobra\w*|incide\w*|paga\w*)\s+(?:nenhum\s+)?juros?\b|\bjuros?\s+(?:(?:sao|e|fica\w*)\s+)?(?:zero|zerad\w*)\b|\b(?:zero|0\s*%?)\s+(?:de\s+)?juros?\b|\bnenhum\s+juros?\b/.test(t) ||
+        /\bsem\s+(?:\S+\s+){0,2}?juros?\b|\b(?:livre|isent[oa]s?)\s+de\s+juros?\b|\bnao\s+(?:\S+\s+){0,2}?(?:pag|cobr|incid|tem|ha)\w*\s+(?:nenhum\s+)?juros?\b|\bjuros?\s+(?:(?:sao|e|fica\w*)\s+)?(?:zero|zerad\w*)\b|\b(?:zero|0\s*%?)\s+(?:de\s+)?juros?\b|\bnenhum\s+juros?\b/.test(t) ||
         (/\bsem\s+(?:nenhum\s+)?acrescimo\b/.test(t) && TOKEN.test(t))
       )
         return `says "sem juros", which the operation never promises`;
