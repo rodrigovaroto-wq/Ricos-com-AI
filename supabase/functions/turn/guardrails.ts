@@ -832,20 +832,20 @@ const gates: readonly Gate[] = [
         // também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em 1 a 3 dias"
         // through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
         const EQ =
-          "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
+          "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s?|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
         // Every name for the prepaid path, for proximity: "pagando antes" or "no Pix" after
         // "na entrega" is the prepaid range, not the delivery one (second review).
         const PREPAY_NAME =
           /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|antes|pix|cartao|credito|debito|boleto|transferencia|online|link|a\s+vista)\b/g;
         const firstPrepay = sentence.search(PREPAY);
         // The exemption holds only when the sentence ends at the prepaid window — nothing
-        // after "no antecipado o prazo varia por região, em média 5 dias úteis" but that
-        // window. Anything else there ("…e chega junto", "…e no depósito 2 a 3 dias") was
+        // but punctuation after "no antecipado o prazo varia por região, em média 5 dias
+        // úteis" (an allowlist: 6th round found "…, nada muda" past a word blocklist). Anything else there ("…e chega junto", "…e no depósito 2 a 3 dias") was
         // blocked by the "também" alone before, and would slip through (second review, 5th
         // round: listing more words did not converge).
         const endsAtPrepayWindow =
           firstPrepay !== -1 &&
-          !/\b(?:cheg|receb|bat|prazo|dia|junto|mesm)\w*|\d/.test(
+          /^[\s.,;:!?]*$/.test(
             sentence
               .slice(firstPrepay)
               .replace(PREPAY, "")

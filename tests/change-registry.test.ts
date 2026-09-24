@@ -122,6 +122,14 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "Na entrega você também marca o dia e em 1 a 3 dias chega, no antecipado varia por região, mas chega junto.",
     "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região e chega junto.",
     "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região e costuma bater com esse prazo.",
+    // Sexta rodada: depois da janela do antecipado, só pontuação.
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, nada muda.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, é parecido.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, mas é parecido.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, mas na prática é idêntico.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, mas é praticamente isso.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região, só que não.",
+    "Na entrega você também escolhe o dia, e todo pedido chega em 1 a 3 dias, no antecipado o prazo varia por região.",
   ];
   const passam = [
     "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",

@@ -59,8 +59,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   resposta pronta. Agora a única exceção é "também escolhe / agenda / marca" — e só quando a frase termina na janela do antecipado — antes de
   qualquer menção ao antecipado, na oração da entrega que não traz segunda opção de pagamento.
   A proximidade reconhece os nomes do antecipado ("antes", "Pix", "cartão", "débito", "link"…),
-  e prazo "para todos" ("qualquer pagamento", "os dois") iguala. Segunda revisão, cinco
-  rodadas: as versões mais largas deixavam passar 42 frases com prazo inventado para o
+  e prazo "para todos" ("qualquer pagamento", "os dois") iguala. Segunda revisão, seis
+  rodadas: as versões mais largas deixavam passar 49 frases com prazo inventado para o
   antecipado; todas viraram caso vetado em `tests/change-registry.test.ts`. Sem rodada de personas nova — a medida continua
   `pronta-por-prazo`.
 - **Estado:** atingida (prazo); resposta pronta restante → M-05.
@@ -122,6 +122,19 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Rodada de verificação:** jussara, tati.
 - **Estado:** aberta (não iniciada — sessão encerrada a pedido do operador). É afrouxamento
   de gate: segunda revisão obrigatória.
+
+### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
+- **Por quê:** a segunda revisão do ajuste de M-01 (2026-09-24, seis rodadas) achou frases que
+  já passavam antes dele, com qualquer versão do gate: "No antecipado varia por região; na
+  entrega são 1 a 3 dias, e no depósito 2 a 3 dias", "…, e quem paga na compra 2 a 3 dias",
+  "…, no antecipado varia por região, nada muda". A proximidade dá a faixa à entrega sempre
+  que "na entrega" foi o último caminho citado, e nome do antecipado fora da lista escapa.
+- **Objetivo:** nenhuma faixa atribuída ao antecipado passa, com ou sem "também".
+- **Direção (da revisão):** aplicar à própria proximidade a regra que a exceção já usa — a
+  faixa só vai para a entrega quando, depois da menção ao antecipado, só resta a janela dele.
+- **Medida:** as frases acima como casos vetados em `tests/change-registry.test.ts`, e o
+  placar `pronta-por-prazo` = 0 numa rodada de personas (endurecer pode trazer resposta pronta).
+- **Estado:** aberta (não iniciada). Endurece gate: rodar as personas cleide, rafa, lu depois.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 
