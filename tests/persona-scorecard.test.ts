@@ -40,12 +40,37 @@ describe("placar: troca de tamanho (M-02)", () => {
     ]);
     expect(check([c], "troca-de-tamanho").value).toBe(0);
   });
+  it("não aceita tamanho negado ou número de sapato como dado novo", () => {
+    for (const customer of ["não uso 40", "uso sapato 38", "minha cintura é fina"]) {
+      const c = conv("karol", [
+        ["uso 44 de calça", "Pelo que você contou seu tamanho é o G."],
+        [customer, "Então o seu é o M."],
+      ]);
+      expect(check([c], "troca-de-tamanho").value, customer).toBe(1);
+    }
+  });
   it("aceita a letra sozinha numa linha como tamanho novo", () => {
     const c = conv("karol", [
       ["uso M", "O seu é o M."],
       ["G\nna verdade é pra minha mãe", "Pra sua mãe então é o G."],
     ]);
     expect(check([c], "troca-de-tamanho").value).toBe(0);
+  });
+});
+
+describe("placar: perguntas medidas com os detectores da produção (M-04)", () => {
+  it("dado já preenchido não é pedido de identidade; pedido de nome é", () => {
+    const decided = (malu: string) =>
+      conv("cleide", [
+        ["uso 44 de calça", "Seu tamanho é o G."],
+        ["quero comprar", malu],
+      ]);
+    expect(check([decided("Seu e-mail já vai preenchido. Quer que eu mande?")], "dados-depois-da-decisao").value).toBe(0);
+    expect(check([decided("Me passa seu nome completo?")], "dados-depois-da-decisao").value).toBe(1);
+  });
+  it("tamanho só mencionado não é pergunta de tamanho", () => {
+    const c = conv("tati", [["tá caro", "O tamanho vem certinho. Quer o link?"]]);
+    expect(check([c], "tamanho-na-conversa-de-preco").value).toBe(0);
   });
 });
 

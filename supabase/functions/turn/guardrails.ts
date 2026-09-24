@@ -290,6 +290,15 @@ const sentenceAt = (t: string, at: number): string => {
 };
 
 /**
+ * Every sentence of `t`: cut after `.`, `!` or `?` unless a digit sits on BOTH sides,
+ * and at a line break — so "R$ 129.90" stays whole, as in `sentenceAt`, but "Dá pra parcelar.Quer?" is
+ * still two sentences and the promise is not hidden inside a question (second review,
+ * 2026-09-24).
+ */
+const sentencesIn = (t: string): string[] =>
+  t.split(/(?<=[.!?])(?!\d)|(?<=\D[.!?])(?=\d)|\n/).filter((s) => s.trim());
+
+/**
  * A negative lookahead, as regex source: "no new subject starts here". Used by
  * `shipping_promise` to stop an amount from being read as the freight's once the
  * sentence has moved on to another subject. See the gate for why each word is in it.
@@ -1506,7 +1515,9 @@ const gates: readonly Gate[] = [
       const EXTEND = /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas|aceit\w*|credito)\b/;
       const affirmed: Array<{ count: number | undefined; segment: string; sentence: string }> = [];
       const extended: string[] = [];
-      for (const [raw] of t.matchAll(/[^.!?\n]+[.!?\n]?/g)) {
+      // `sentencesIn`, not a split on every dot: "R$ 129.90" cut "antecipado" off from its
+      // installments and vetoed a true sentence (code ladder review, 2026-09-24).
+      for (const raw of sentencesIn(t)) {
         // A bare question ("Quer parcelar?") promises nothing. One with a count or a door
         // in it does: "sabia que dá pra parcelar em 12x na entrega?".
         const question =

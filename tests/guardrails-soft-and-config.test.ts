@@ -117,6 +117,27 @@ describe("3. parcelamento: só no antecipado, até o teto, nunca 'sem juros'", (
 
   it("'sem juros' veta sempre, mesmo negado e no caminho antecipado", () => {
     expect(inst("Não é sem juros, tá?", prices6, "prepay").verdict).toBe("block");
+    // Code ladder review: the sentence cut follows `sentenceAt`, so a dotted price does not
+    // split "antecipado" from its installments — and the negated door stays vetoed.
+    expect(inst("No antecipado sai R$ 129.90 e dá pra parcelar em 6x no cartão.", prices6, "prepay").verdict).toBe("pass");
+    expect(inst("No antecipado sai R$ 129,90 e dá pra parcelar em 6x no cartão.", prices6, "prepay").verdict).toBe("pass");
+    expect(inst("Na entrega sai R$ 159.90 e dá pra parcelar em 6x.", prices6, "cod").verdict).toBe("block");
+    // Second review: a statement glued to a short question is not a bare question.
+    for (const glued of ["Dá pra parcelar.Quer?", "Parcela sim!Quer?", "Dá pra dividir no cartão.Bora?", "Dá pra parcelar...quer?"]) {
+      for (const c of [config, prices6]) {
+        for (const p of ["cod", "prepay"] as const) expect(inst(glued, c, p).verdict, `${glued} ${p}`).toBe("block");
+      }
+    }
+    expect(inst("Tem pagamento antecipado.Parcela em 6x.", prices6, "cod").verdict).toBe("block");
+    for (const glued of ["Dá pra parcelar.2 tamanhos te servem?", "Parcela sim!1 dúvida: qual tamanho?", "Dá pra dividir!7 dias de garantia, topa?"]) {
+      for (const p of ["cod", "prepay"] as const) expect(inst(glued, config, p).verdict, `${glued} ${p}`).toBe("block");
+    }
+    const cfg12 = withConfig({ prices: { ...config.prices, prepayMaxInstallments: 12 } });
+    for (const p of ["cod", "prepay"] as const) {
+      expect(inst("Tem pagamento antecipado.6x no cartão.", prices6, p).verdict, p).toBe("block");
+      expect(inst("Pague antecipado.12 parcelas no cartão.", cfg12, p).verdict, p).toBe("block");
+    }
+    expect(inst("No antecipado sai R$ 1.299,90 em 6x no cartão.", prices6, "prepay").verdict).toBe("pass");
     expect(inst("Parcela com juros zero no antecipado.", prices6, "prepay").verdict).toBe("block");
   });
 

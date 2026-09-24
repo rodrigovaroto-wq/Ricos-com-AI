@@ -754,6 +754,11 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
       expect(own(c)).not.toContain("12x");
       expect(own(c)).toContain("No pagamento na entrega não tem parcelamento.");
     });
+    it("1x não é parcelamento: o prompt lê o config com o mesmo teste do gate", () => {
+      const c = { ...FULL, prices: { ...FULL.prices, prepayMaxInstallments: 1 } };
+      expect(own(c)).not.toContain("até 1x");
+      expect(own(c)).toContain("No pagamento na entrega não tem parcelamento.");
+    });
     it("nunca \"sem juros\", e juros só se ela perguntar", () => {
       expect(own(FULL)).toContain(`Nunca diga "sem juros" e não fale de juros por conta própria; se ela perguntar, as condições aparecem no checkout.`);
     });

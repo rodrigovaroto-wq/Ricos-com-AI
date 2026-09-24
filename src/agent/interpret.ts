@@ -227,8 +227,8 @@ export type HandoffKind = "cancel" | "post_sale" | "human";
 /**
  * The three reasons that hand a conversation to a person, and the only three (R13.2):
  * an order she wants to cancel, a question about an order that exists, or a person asked
- * for in so many words. The last needs BOTH the reading and a person-word in her text,
- * or the exact phrase list (`wantsHuman`) the turn already ran. Nothing else — a vetoed
+ * for in so many words. The last needs BOTH the reading and a person-word in her text;
+ * the exact phrase list (`wantsHuman`) hands off earlier in the turn, before this runs. Nothing else — a vetoed
  * reply, a failed rewrite, a confused customer — ever returns non-null here.
  *
  * Cancel and post-sale need an order to be about (`orderContext`): an order on file for
@@ -238,12 +238,11 @@ export type HandoffKind = "cancel" | "post_sale" | "human";
 export const handoffFor = (
   i: Interpretation,
   message: string,
-  exactHumanRequest: boolean,
   orderContext: boolean,
 ): HandoffKind | null => {
   if (orderContext && i.wants_cancel) return "cancel";
   if (orderContext && i.post_sale) return "post_sale";
-  if (exactHumanRequest || (i.asks_human && namesAPerson(message))) return "human";
+  if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };
 

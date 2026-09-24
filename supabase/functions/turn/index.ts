@@ -69,7 +69,6 @@ import {
   networkRetryDelay,
   ORDER_HANDOFF_REPLY,
   retryIsMoot,
-  rewriteInstruction,
   SAFE_FALLBACK_REPLY,
   THINK_REPLY,
   WELCOME_AUTO_REPLY,
@@ -244,8 +243,6 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
 interface BusinessConfig extends GateConfig {
   brand: string;
   agentName: string;
-  /** Up to how many card installments the prepaid checkout allows. Absent: never cited. */
-  prices: GateConfig["prices"] & { prepayMaxInstallments?: number };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -1565,11 +1562,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         }).catch(() => undefined);
         return { text: attempt.text, id: out?.[0]?.id ?? null };
       }
-      if (remedyFor(gated) !== "rewrite" || spent >= ceilingBrl) break;
-      correction = ` ${rewriteInstruction(
-        gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
-        attempt.text,
-      )}`;
+      // The same rewrite policy as the main loop, not a copy of it (code ladder, 2026-09-24).
+      const next = decideNext({
+        remedy: remedyFor(gated),
+        rewritesUsed: rewrites,
+        spentBrl: spent,
+        ceilingBrl,
+        reasons: gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
+        vetoedText: attempt.text,
+      });
+      if (next.kind !== "rewrite") break;
+      correction = ` ${next.instruction}`;
     }
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
@@ -1917,7 +1920,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       orderContext = (sent?.length ?? 0) > 0;
     }
   }
-  const handoffKind = handoffFor(interpretation, inbound.body ?? "", false, orderContext);
+  const handoffKind = handoffFor(interpretation, inbound.body ?? "", orderContext);
   if (handoffKind !== null) {
     return await handOff(
       handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,
@@ -2147,7 +2150,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       ? `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
         ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : null;
-  const linkAlreadySent = recentOutbound.some((m: string) => checkoutBases.some((u) => m.includes(u)));
+  const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
     ? []

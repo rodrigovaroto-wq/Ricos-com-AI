@@ -21,9 +21,9 @@ export interface PromptConfig extends GateConfig {
   agentName: string;
   testimonials?: readonly string[];
   /** Up to how many card installments the prepaid checkout allows. Absent: never cited. */
-  prices: GateConfig["prices"] & { prepayMaxInstallments?: number };
+  prices: GateConfig["prices"];
   /** Only an explicit `true` lets her name the Express delivery; absent, she stays silent. */
-  delivery: GateConfig["delivery"] & { expressActive?: boolean };
+  delivery: GateConfig["delivery"];
   /** Where company details (CNPJ and the like) are asked. Absent: she does not point anywhere. */
   support?: { email?: string };
   /** A real count of satisfied customers. Absent: no number is cited. */
@@ -158,7 +158,10 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
   const warranty = config.delivery.warrantyDays;
   const email = config.support?.email;
   const customers = config.socialProof?.satisfiedCustomers;
-  const installments = config.prices.prepayMaxInstallments;
+  // The same test as `maxInstallments` in guardrails.ts (a value import is not legal here,
+  // see the header): below 2 is no installment plan, and "até 1x" is what the gate vetoes.
+  const n = config.prices.prepayMaxInstallments;
+  const installments = n != null && n >= 2 ? n : undefined;
   return [
     `AS PERGUNTAS QUE MAIS APARECEM. Abaixo está a verdade de cada uma e um jeito de dizer.`,
     `Diga com as suas palavras, do tamanho que a pergunta pede, e volte pra conversa dela.`,

@@ -9,13 +9,17 @@
  * exact conversation and Malu message that failed it — those are the only transcripts
  * worth reading in full.
  *
- * The checks read what the runner recorded (`<persona>.json`); they are heuristics over
- * text, deliberately simple, and each one names the registry entry it measures. A check
+ * The checks read what the runner recorded (`<persona>.json`). Where production already
+ * detects the thing (a size stated, a size or identity asked), the check calls the same
+ * function — a second copy of a heuristic is a second place for negation blindness to
+ * hide (code ladder, 2026-09-24). The rest are heuristics over text, deliberately simple, and each one names the registry entry it measures. A check
  * that turns out to count the wrong thing is itself a registry entry to fix.
  */
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
+import { asksForIdentity } from "../agent/identity.js";
 import { decidesToBuy } from "../agent/interpret.js";
+import { asksForSize, statedSizeOf } from "../agent/sizing.js";
 
 export interface Entry {
   from: string;
@@ -52,12 +56,9 @@ export interface Check {
 const LINK = /https:\/\/(?:entrega\.logzz\.com\.br\/pay|app\.coinzz\.com\.br\/checkout)\S*/;
 // `\b` never sits next to "é" in JS regex (it isn't \w), so the lead-in is whitespace.
 const SIZE_SAID = /(?:^|\s)(?:é|e|seu|dela|dele)\s+(?:o\s+)?(XGG|GG|G|M|P)(?![\wÀ-ú])/;
-/** New size data: a pants number, a waist, or a size letter — never a "manequim" number. */
-const NEW_SIZE_DATA =
-  /(?:cal[cç]a|uso|veste|visto)\D{0,12}\d{2}\b|\b\d{2,3}\s*cm\b|\bcintura\b|(?:usa|uso|veste|visto|quero|pega|pego|tamanho)\s+(?:o\s+|a\s+)?(?:XGG|GG|G|M|P)(?![\wÀ-ú])|^\s*(?:XGG|GG|G|M|P)\s*$/im;
+/** A waist in cm — the one size datum `statedSizeOf` reads only through the interpreter. */
+const WAIST_CM = /\b\d{2,3}\s*cm\b/i;
 const PRICE_TALK = /\b(?:pre[cç]o|caro|desconto|cupom|parcel\w*|valor|quanto|precinho|barato)\b/i;
-const SIZE_QUESTION = /\b(?:tamanho|cal[cç]a|n[uú]mero)\b[^?]*\?/i;
-const IDENTITY_ASK = /\b(?:e-?mail|cpf)\b[^?]*\?/i;
 
 const excerpt = (text: string): string => text.replace(/\s+/g, " ").slice(0, 110);
 
@@ -142,7 +143,7 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
 
       const said = SIZE_SAID.exec(text)?.[1] ?? null;
       if (said) {
-        if (lastSize && said !== lastSize && !NEW_SIZE_DATA.test(customer)) flips.push(hit);
+        if (lastSize && said !== lastSize && !(statedSizeOf(customer) !== null || WAIST_CM.test(customer))) flips.push(hit);
         lastSize = said;
       }
 
@@ -155,14 +156,14 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
 
       if (PRICE_TALK.test(customer)) {
         priceReplies += 1;
-        if (SIZE_QUESTION.test(text)) priceSizeNag.push(hit);
+        if (asksForSize(text)) priceSizeNag.push(hit);
       }
 
       if (decidesToBuy(customer) && decisionAt === null) {
         decisionAt = n;
         decided += 1;
       }
-      if (decisionAt !== null && n >= decisionAt && IDENTITY_ASK.test(text) && lastSize) {
+      if (decisionAt !== null && n >= decisionAt && asksForIdentity(text) && lastSize) {
         identityAfterDecision.push(hit);
       }
     }

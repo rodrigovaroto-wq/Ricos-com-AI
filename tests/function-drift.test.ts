@@ -336,7 +336,7 @@ describe("rodada 13 na Edge Function", () => {
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
-    expect(source).toContain('handoffFor(interpretation, inbound.body ?? "", false, orderContext)');
+    expect(source).toContain('handoffFor(interpretation, inbound.body ?? "", orderContext)');
   });
 
   it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {

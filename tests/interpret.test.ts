@@ -175,49 +175,47 @@ describe("palavra de pessoa na mensagem", () => {
 
 describe("quem vai para o humano, e só quem", () => {
   it("pedido de pessoa lido pelo modelo e escrito com palavra de pessoa: handoff", () => {
-    expect(handoffFor(read({ asks_human: true }), "me passa pra uma pessoa por favor", false, false)).toBe("human");
-    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false, false)).toBe("human");
-    // A frase exata da lista (`wantsHuman`) basta sozinha, mesmo com a leitura neutra.
-    expect(handoffFor(NEUTRAL_INTERPRETATION, "quero falar com uma pessoa", wantsHuman("quero falar com uma pessoa"), false)).toBe(
-      "human",
-    );
+    expect(handoffFor(read({ asks_human: true }), "me passa pra uma pessoa por favor", false)).toBe("human");
+    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false)).toBe("human");
+    // A frase exata da lista (`wantsHuman`) passa ao humano antes, no turno, mesmo com a leitura neutra.
+    expect(wantsHuman("quero falar com uma pessoa")).toBe(true);
   });
 
   it("\"não quero falar com atendente\" nunca vai para o humano — nem com o modelo errando", () => {
-    expect(handoffFor(read({ asks_human: false }), "não quero falar com atendente", false, false)).toBeNull();
-    expect(handoffFor(read({ asks_human: true }), "não quero falar com atendente", false, false)).toBeNull();
+    expect(handoffFor(read({ asks_human: false }), "não quero falar com atendente", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: true }), "não quero falar com atendente", false)).toBeNull();
     expect(wantsHuman("não quero falar com atendente")).toBe(false);
   });
 
   it("\"você é robô?\" nunca vai para o humano — nem com o modelo errando", () => {
-    expect(handoffFor(read({ asks_human: false }), "você é robô?", false, false)).toBeNull();
-    expect(handoffFor(read({ asks_human: true }), "você é robô?", false, false)).toBeNull();
-    expect(handoffFor(read({ asks_human: true }), "vc é uma pessoa?", false, false)).toBeNull();
+    expect(handoffFor(read({ asks_human: false }), "você é robô?", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: true }), "você é robô?", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: true }), "vc é uma pessoa?", false)).toBeNull();
     expect(wantsHuman("você é robô?")).toBe(false);
   });
 
   it("palavra de pessoa sem o pedido lido não basta", () => {
-    expect(handoffFor(read({ asks_human: false }), "a atendente da loja me indicou", false, false)).toBeNull();
-    expect(handoffFor(read({ asks_human: false }), "o suporte na lombar é bom?", false, false)).toBeNull();
+    expect(handoffFor(read({ asks_human: false }), "a atendente da loja me indicou", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: false }), "o suporte na lombar é bom?", false)).toBeNull();
   });
 
   it("cancelar pedido e pedido existente vão para o humano", () => {
-    expect(handoffFor(read({ wants_cancel: true }), "cancela ai por favor", false, true)).toBe("cancel");
-    expect(handoffFor(read({ post_sale: true }), "ja saiu pra entrega?", false, true)).toBe("post_sale");
+    expect(handoffFor(read({ wants_cancel: true }), "cancela ai por favor", true)).toBe("cancel");
+    expect(handoffFor(read({ post_sale: true }), "ja saiu pra entrega?", true)).toBe("post_sale");
     // Cancelar vence o pedido de pessoa: a resposta é "vou checar", que é o que ela quer.
     expect(
-      handoffFor(read({ wants_cancel: true, asks_human: true }), "quero falar com alguém pra cancelar", false, true),
+      handoffFor(read({ wants_cancel: true, asks_human: true }), "quero falar com alguém pra cancelar", true),
     ).toBe("cancel");
   });
 
   // Code review, 2026-09-24: sem pedido nem link, "cancelar" é pergunta de pré-venda.
   it("cancelar e pós-venda sem pedido nem link enviado ficam com a agente", () => {
     expect(
-      handoffFor(read({ wants_cancel: true }), "e se eu não gostar, consigo cancelar depois?", false, false),
+      handoffFor(read({ wants_cancel: true }), "e se eu não gostar, consigo cancelar depois?", false),
     ).toBeNull();
-    expect(handoffFor(read({ post_sale: true }), "quando chega?", false, false)).toBeNull();
+    expect(handoffFor(read({ post_sale: true }), "quando chega?", false)).toBeNull();
     // Com pedido ou link, a mesma leitura vai para o humano.
-    expect(handoffFor(read({ wants_cancel: true }), "cancela meu pedido", false, true)).toBe("cancel");
+    expect(handoffFor(read({ wants_cancel: true }), "cancela meu pedido", true)).toBe("cancel");
   });
 
   it("nada disso: a conversa fica com a agente", () => {
@@ -228,7 +226,7 @@ describe("quem vai para o humano, e só quem", () => {
       read({ pending_answer: "unrelated" }),
       read({ opt_out: true }),
     ]) {
-      expect(handoffFor(r, "ta", false, true)).toBeNull();
+      expect(handoffFor(r, "ta", true)).toBeNull();
     }
   });
 });
@@ -407,14 +405,14 @@ describe("recusa de atendente com palavras de ligação", () => {
       "dispenso atendente",
     ]) {
       expect(namesAPerson(frase), frase).toBe(false);
-      expect(handoffFor(read({ asks_human: true }), frase, false, false), frase).toBeNull();
+      expect(handoffFor(read({ asks_human: true }), frase, false), frase).toBeNull();
     }
   });
 
   it("a negação de outra coisa continua sendo pedido", () => {
     for (const frase of ["não quero robô quero uma pessoa", "nao quero esperar quero atendente"]) {
       expect(namesAPerson(frase), frase).toBe(true);
-      expect(handoffFor(read({ asks_human: true }), frase, false, false), frase).toBe("human");
+      expect(handoffFor(read({ asks_human: true }), frase, false), frase).toBe("human");
     }
   });
 });
@@ -448,13 +446,13 @@ describe("rodada 3: quem diz que já comprou", () => {
   it("com a compra dita, cancelar vai para o humano; sem ela, fica com a Malu", () => {
     // Lu, turno 1: a compra e a pergunta na mesma mensagem.
     const lu = "oi ja fez 3 dias que comprei\n\nquando chega?";
-    expect(handoffFor(read({ post_sale: true }), lu, false, statesPastPurchase(lu))).toBe("post_sale");
+    expect(handoffFor(read({ post_sale: true }), lu, statesPastPurchase(lu))).toBe("post_sale");
     // Vera: o pedido dito numa mensagem anterior conta pelo histórico.
     const vera = "fiz um pedido semana passada e nada";
     expect(statesPastPurchase(vera, false)).toBe(true);
-    expect(handoffFor(read({ wants_cancel: true }), "cancela ai", false, statesPastPurchase(vera, false))).toBe("cancel");
+    expect(handoffFor(read({ wants_cancel: true }), "cancela ai", statesPastPurchase(vera, false))).toBe("cancel");
     const hipotese = "e se eu não gostar, consigo cancelar depois?";
-    expect(handoffFor(read({ wants_cancel: true }), hipotese, false, statesPastPurchase(hipotese))).toBeNull();
+    expect(handoffFor(read({ wants_cancel: true }), hipotese, statesPastPurchase(hipotese))).toBeNull();
   });
 });
 
