@@ -827,16 +827,16 @@ const gates: readonly Gate[] = [
         // Any equating word in the sentence still counts, with one exemption (code review,
         // 2026-09-24: "na entrega você também escolhe o dia e recebe em 1 a 3 dias, no
         // antecipado o prazo varia por região" fell to the fallback): a "também escolhe /
-        // agenda / marca / pode" before any mention of the prepaid path, in a clause that
+        // agenda / marca" before any mention of the prepaid path, in a clause that
         // says "na entrega" and brings in no second option. Second review, twice: wider exemptions let "…, e pagando antes
         // também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em 1 a 3 dias"
         // through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
         const EQ =
-          "(?:ou(?!\\s+seja)|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
+          "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
         // Every name for the prepaid path, for proximity: "pagando antes" or "no Pix" after
         // "na entrega" is the prepaid range, not the delivery one (second review).
         const PREPAY_NAME =
-          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|pix|cartao|credito|boleto|transferencia|online|a\s+vista)\b/g;
+          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|antes|pix|cartao|credito|debito|boleto|transferencia|online|link|a\s+vista)\b/g;
         const firstPrepay = sentence.search(PREPAY);
         const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
           const eAt = e.index ?? 0;
@@ -844,7 +844,8 @@ const gates: readonly Gate[] = [
             sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
           const exempt =
             e[0] === "tambem" &&
-            /^tambem\s+(?:escolh|agend|marc|pod)\w*/.test(sentence.slice(eAt)) &&
+            /^tambem\s+(?:escolh|agend|marc)\w*/.test(sentence.slice(eAt)) &&
+            !/\b(?:e|ou)\b/.test(sentence.slice(0, eAt).split(/[,;:]/).pop()!) &&
             firstPrepay !== -1 &&
             eAt < firstPrepay &&
             /\bna\s+entrega\b/.test(clause) &&

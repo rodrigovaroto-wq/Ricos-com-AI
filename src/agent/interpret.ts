@@ -487,7 +487,7 @@ export const asksForLink = (message: string): boolean => {
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|pode|por\s+favor|eu\s+quero|quero)\s+)*(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie|mandar|enviar|passar|reenviar)\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
   )) {
     const after = t.slice((m.index ?? 0) + m[0].length).split(/[,;.!?\n]/)[0]!;
     if (/\b(?:nao|se|quando|depois)\b/.test(after)) continue;

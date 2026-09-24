@@ -103,6 +103,17 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "Na entrega também, recebendo em 1 a 3 dias qualquer pagamento, no antecipado varia por região.",
     "Na entrega você também recebe em 1 a 3 dias, independente do pagamento; no antecipado varia por região.",
     "No antecipado varia por região; na entrega são 1 a 3 dias, e no Pix 2 a 3 dias.",
+    // Quarta rodada.
+    "Na entrega você também pode receber em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega também pode chegar em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega e via débito você também pode receber em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega e via link você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega você também marca o dia, e no final é 1 a 3 dias pra todas, no antecipado varia por região.",
+    "No antecipado varia por região, ou seja, na entrega e antes chega em 1 a 3 dias.",
+    "No antecipado varia por região, ou seja, na entrega chega em 1 a 3 dias, e no débito 2 a 3 dias.",
+    "No antecipado varia por região, mas na entrega chega em 1 a 3 dias, e no débito 2 a 3 dias.",
+    "No antecipado varia por região, mas na entrega chega em 1 a 3 dias, e via link 2 a 3 dias.",
+    "No antecipado varia por região, mas na entrega chega em 1 a 3 dias e pra todas as clientes é assim.",
   ];
   const passam = [
     "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",
@@ -112,7 +123,6 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "No antecipado o prazo varia, e na entrega é de 1 a 3 dias.",
     // Code review, 2026-09-24: palavra comum longe do antecipado não iguala os caminhos.
     "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região.",
-    "Ou seja, na entrega você recebe em 1 a 3 dias, no antecipado varia por região.",
   ];
 
   it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {

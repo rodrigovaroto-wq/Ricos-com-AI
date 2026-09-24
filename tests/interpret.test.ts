@@ -664,7 +664,7 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
   });
 
   it("ela pede o link de novo: o pedido explícito passa pela janela", () => {
-    for (const m of ["manda o link de novo", "me envia o link por favor", "não achei o link", "pode reenviar o link?", "manda um link", "me passa o link por favor", "eu quero, manda o link", "ah sim, manda o link", "não sei, manda o link aí"])
+    for (const m of ["manda o link de novo", "me envia o link por favor", "não achei o link", "pode reenviar o link?", "manda um link", "me passa o link por favor", "eu quero, manda o link", "ah sim, manda o link", "não sei, manda o link aí", "Ok, pode passar o link", "manda link"])
       expect(asksForLink(m), m).toBe(true);
     for (const m of [
       "vou pensar",
@@ -700,6 +700,12 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       "só manda o link quando eu pedir",
       "ela vai passar o link pro meu marido",
       "meu marido que vai mandar o link",
+      // Quarta rodada: intenção dela de encaminhar, e a pergunta respondida com "não".
+      "quero passar o link pra minha amiga",
+      "eu quero passar o link pro meu marido",
+      "passar o link pro grupo da família",
+      "mandar o link? não precisa",
+      "Enviar link? Não, obrigada",
     ])
       expect(asksForLink(m), m).toBe(false);
   });
