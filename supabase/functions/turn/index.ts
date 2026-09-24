@@ -85,6 +85,7 @@ import {
   INTERPRET_MAX_COMPLETION_TOKENS,
   interpretRequest,
   linkPathFor,
+  linkSentRecently,
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   readyForLink,
@@ -2129,16 +2130,18 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     identityAsked: asksForIdentity(lastOutbound),
     identityGiven: Object.keys(identityFound).length > 0,
   };
-  const linkNow = sendLinkNow({ ...readiness, sizeKnown });
+  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
+    (u): u is string => typeof u === "string" && u !== "",
+  );
+  // M-03: a link that went out in the last three messages is not sent again.
+  const linkJustSent = linkSentRecently(recentOutbound, checkoutBases);
+  const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
   // Ready for the link and the size still unknown: the size comes first, asked naturally.
   const sizeBeforeLink =
     !sizeKnown && readyForLink(readiness)
       ? `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
         ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : null;
-  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
-    (u): u is string => typeof u === "string" && u !== "",
-  );
   const linkAlreadySent = recentOutbound.some((m: string) => checkoutBases.some((u) => m.includes(u)));
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
@@ -2160,7 +2163,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // Never a link without a size: without one she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = sizeKnown
+      thinkLink = sizeKnown && !linkJustSent
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {})
         : null;
     } catch {

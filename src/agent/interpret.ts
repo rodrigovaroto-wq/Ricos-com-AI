@@ -463,3 +463,13 @@ export const saysGoodbye = (message: string): boolean =>
  */
 export const goodbyeParks = (message: string, i: Interpretation): boolean =>
   saysGoodbye(message) && !decidesToBuy(message) && !i.wants_to_buy;
+
+/**
+ * M-03 (persona round 4, Jussara got the same link twice in a row): a checkout link that
+ * went out in one of the last `window` outbound messages is not sent again.
+ */
+export const linkSentRecently = (
+  recentOutbound: readonly string[],
+  checkoutBases: readonly string[],
+  window = 3,
+): boolean => recentOutbound.slice(-window).some((m) => checkoutBases.some((base) => base !== "" && m.includes(base)));

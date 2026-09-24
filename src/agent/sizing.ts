@@ -83,7 +83,17 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
  */
 const SIZE_CUE =
-  /(manequim|tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+  /(tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+
+/**
+ * M-02 (operator, 2026-09-24): "manequim" never sets the size. Marcinha's "meu manequim é
+ * 40" flipped her G to M in rounds 3 and 4 — a number she used to wear, not the calça she
+ * wears now. The word right before the number (after any cue) or right after it takes the
+ * number out. Dress and blouse numbers still count: the conversation corpus and real
+ * customers state the size that way ("eu visto 42 de vestido").
+ */
+const OTHER_GARMENT = /\bmanequim\b[^\d]{0,14}$/i;
+const OTHER_GARMENT_AFTER = /^\s*(de|do|da|no|na)\s+manequim\b/i;
 
 /** She named two sizes because she sits between them, not because she named two things. */
 const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
@@ -125,7 +135,8 @@ export const extractDressSize = (text: string): number | null => {
     const at = match.index ?? 0;
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
     const before = text.slice(0, at);
-    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before)) continue;
+    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before)) continue;
+    if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
     plausible.push(Number(match[1]));
     if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
   }
@@ -144,7 +155,7 @@ export const extractDressSize = (text: string): number | null => {
  * A cue is required for anything longer than the bare letter, and the same clause
  * negation as the numbers applies: "não uso M, uso G" is a G.
  */
-const LETTER_RE = /\b(?:uso|usa|usava|visto|veste|vestia|tamanho|manequim)\s+(?:o\s+|um\s+)?(pp|p|m|gg|g|xgg|eg)\b/gi;
+const LETTER_RE = /\b(?:uso|usa|usava|visto|veste|vestia|tamanho)\s+(?:o\s+|um\s+)?(pp|p|m|gg|g|xgg|eg)\b/gi;
 
 export const extractSizeLetter = (text: string): Size | null => {
   // A line that is only the letter — WhatsApp messages arrive as several lines at once.

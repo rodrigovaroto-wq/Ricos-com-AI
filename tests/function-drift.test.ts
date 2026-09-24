@@ -387,3 +387,14 @@ describe("rodada 3 na Edge Function", () => {
     expect(source.indexOf("const clarify = decideClarify(")).toBeGreaterThan(source.indexOf("const recentOutbound = recent"));
   });
 });
+
+/** O registro de mudanças (docs/agente-ia/08-mudancas), no código que a produção executa. */
+describe("M-03 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
+    expect(source).toContain("const linkJustSent = linkSentRecently(recentOutbound, checkoutBases);");
+    expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
+    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+  });
+});

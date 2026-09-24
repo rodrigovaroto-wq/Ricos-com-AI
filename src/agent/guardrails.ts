@@ -814,11 +814,24 @@ const gates: readonly Gate[] = [
         const at = m.index ?? 0;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        const named: "cod" | "prepay" | null = /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
-          ? "prepay"
-          : /\bna\s+entrega\b/.test(sentence)
-            ? "cod"
-            : null;
+        // When the sentence names BOTH paths, the range belongs to the one named closest
+        // before it (M-01, persona round 4, Cleide: "no pagamento na entrega você recebe em
+        // 1 a 3 dias, no antecipado o prazo varia…" was judged as prepay and vetoed three
+        // times → fallback). Nothing named before it: the first one named after it.
+        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
+        const prepayAt = lastAt(/\b(?:antecipa\w*|adianta\w*)\b/g);
+        const codAt = lastAt(/\bna\s+entrega\b/g);
+        const named: "cod" | "prepay" | null =
+          prepayAt > codAt
+            ? "prepay"
+            : codAt > prepayAt
+              ? "cod"
+              : /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
+                ? "prepay"
+                : /\bna\s+entrega\b/.test(sentence)
+                  ? "cod"
+                  : null;
         const path = named ?? ctx.paymentPath;
         const [min_, max_] =
           path === "cod"

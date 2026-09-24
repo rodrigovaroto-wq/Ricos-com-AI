@@ -12,6 +12,7 @@ import {
   namesAPerson,
   NEUTRAL_INTERPRETATION,
   readInterpretation,
+  linkSentRecently,
   readyForLink,
   saysGoodbye,
   sendLinkNow,
@@ -636,5 +637,24 @@ describe("decisão adiada para o mês ou a semana que vem", () => {
   it("a decisão de agora continua", () => {
     expect(decidesToBuy("vou levar sim")).toBe(true);
     expect(decidesToBuy("quero comprar, me manda o link")).toBe(true);
+  });
+});
+
+/** M-03 (rodada 4, Jussara recebeu o mesmo link duas vezes seguidas). */
+describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () => {
+  const bases = ["https://entrega.logzz.com.br/pay/encorpa-pa", "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0"];
+  const link = "Aqui está: https://entrega.logzz.com.br/pay/encorpa-pa?phone=5511999999999";
+
+  it("link nas últimas 3 mensagens: não reenvia", () => {
+    expect(linkSentRecently([link], bases)).toBe(true);
+    expect(linkSentRecently(["a", link, "b"], bases)).toBe(true);
+    expect(linkSentRecently(["x", link, "a", "b"], bases)).toBe(true);
+  });
+
+  it("link mais antigo que 3 mensagens, ou nenhum: pode enviar", () => {
+    expect(linkSentRecently([link, "a", "b", "c"], bases)).toBe(false);
+    expect(linkSentRecently(["a", "b"], bases)).toBe(false);
+    expect(linkSentRecently([], bases)).toBe(false);
+    expect(linkSentRecently([link], [""])).toBe(false);
   });
 });

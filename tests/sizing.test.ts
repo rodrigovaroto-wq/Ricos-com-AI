@@ -70,8 +70,9 @@ describe("recomendação de tamanho", () => {
     expect(sizeTable().split("\n")).toHaveLength(5);
   });
 
-  it("extrai o manequim quando a frase o apresenta como tamanho", () => {
-    expect(extractDressSize("uso manequim 42")).toBe(42);
+  // M-02 (operador, 2026-09-24): manequim nunca define o tamanho — Marcinha, rodadas 3 e 4.
+  it("manequim não é tamanho, mesmo com a deixa de uso", () => {
+    expect(extractDressSize("uso manequim 42")).toBeNull();
     expect(extractDressSize("visto 38 normalmente")).toBe(38);
     expect(extractDressSize("meu tamanho é 46")).toBe(46);
   });
@@ -309,5 +310,28 @@ describe("número que não é de calça", () => {
     for (const q of ["Qual número de calça você usa?", "Me fala seu número de calça?", "Qual o seu número?", "Que número você veste?"]) {
       expect(asksForSize(q), q).toBe(true);
     }
+  });
+});
+
+/** M-02 (operador, 2026-09-24): só calça, cintura ou letra mudam o tamanho; manequim não. */
+describe("M-02: manequim não muda o tamanho", () => {
+  it("manequim, em qualquer forma, não vira tamanho", () => {
+    for (const frase of [
+      "tipo meu manequim e 40 mas engordei sabe",
+      "meu manequim é 40",
+      "manequim 42",
+      "uso 40 de manequim",
+      "uso manequim M",
+    ]) {
+      expect(statedSizeOf(frase), frase).toBeNull();
+    }
+  });
+
+  it("calça, cintura e letra continuam valendo", () => {
+    expect(statedSizeOf("uso 44 de calça")).toBe("G");
+    expect(statedSizeOf("meu manequim é 40 mas uso 44 de calça")).toBe("G");
+    expect(statedSizeOf("uso G")).toBe("G");
+    expect(statedSizeOf("minha cintura dá 86", { letter: null, pants: null, waist_cm: 86 })).toBe("GG");
+    expect(statedSizeOf("eu visto 42 de vestido")).toBe("G");
   });
 });
