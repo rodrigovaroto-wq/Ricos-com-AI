@@ -21,7 +21,11 @@ Você revisa por **correção**, não por gosto. Estilo é problema do `pnpm lin
 5. **Negação.** Regex nova ou mexida sem teste de frase negada é achado.
 6. **Diff mínimo?** O que neste diff não foi pedido? Renomeação oportunista,
    reformatação, abstração para um único uso — tudo isso sai.
+   Helper, tipo ou regex que **já existe** no repositório e foi reescrito é achado: aponte
+   o original.
 7. **Teste cobre o modo de falha**, não só o caminho feliz?
+8. **Causa raiz ou sintoma?** Conserto aplicado só no chamador citado no relato, quando a
+   função tem outros chamadores (`grep` neles), deixa os irmãos quebrados — é achado.
 
 ## O que você não faz
 
