@@ -138,7 +138,13 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   só sai quando a própria janela da varredura não acha palavra de concessão depois da dúvida.
   No caminho, achado anterior: `pouc\w+` não casava "pouquinho", e "Eu tiro um pouquinho." — o
   exemplo do próprio briefing — passava. Corrigido (`pou(?:c|qu)\w+`), com caso vetado.
-- **Estado:** feita — rodada jussara, tati pendente (precisa das credenciais do proxy).
+- **Revisão final (`c48dec6`): aprovada com ressalva.** 24 concessões sondadas, nenhuma passa
+  de veto a aprovação. Ressalva registrada: "baixo" como adjetivo e "baixo / diminuo" aplicados
+  ao tamanho já eram vetados com "um pouco" e agora também com "pouquinho" ("O cós é baixo, um
+  pouquinho abaixo do umbigo", "Diminuo um pouquinho a numeração") — custa uma reescrita, não
+  é bug novo. Resíduos anteriores, sem regressão: "Tiro sua dúvida... um pouquinho a menos." e
+  "Tiro todas as suas dúvidas, e um pouquinho." (fora da janela de 20 caracteres).
+- **Estado:** feita e revisada — rodada jussara, tati pendente.
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
 - **Por quê:** a segunda revisão do ajuste de M-01 (2026-09-24, seis rodadas) achou frases que
