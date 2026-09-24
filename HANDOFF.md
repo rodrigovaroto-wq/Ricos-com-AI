@@ -11,7 +11,43 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-23 (troca de chat)
+## ▶ COMECE AQUI — estado em 2026-09-24
+
+**Branch:** `claude/affectionate-goodall-x5ujm4` (sem PR). **Nada deployado** — a v32 continua
+no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
+(com a lista **Pendências do operador** no fim — leia quando ele perguntar o que falta).
+
+**O que esta branch fez em 23–24/09:**
+- Agente volta a se chamar **Malu**. Provedor único: **Meta Model API** (`api.meta.ai`,
+  R12.1); Gemini saiu do turno. Muse sempre raciocina: `reasoning_effort: "minimal"` e teto
+  de 4000 tokens (com 900 as respostas vinham vazias).
+- Personas rodam na porta `local` com credenciais injetadas pelo proxy do ambiente
+  (runbook no topo de `src/dev/persona-run.ts`), teto de gasto por rodada.
+- Rodadas 1 e 2 das personas: 0/12 chegaram ao link — relatório em
+  [`05-rodada-personas-2026-09-24.md`](docs/agente-ia/05-plano/05-rodada-personas-2026-09-24.md)
+  e no artifact privado "Malu nas 12 personas".
+- **Rodada 13 de decisões** (`03-decisoes-tomadas.md` §R13): intérprete antes da resposta
+  (`interpret.ts`), handoff só em pedido de pessoa / cancelamento / pós-venda com pedido,
+  gates duros e brandos (`warn`), link sem depender de e-mail/CPF, escada de tamanho,
+  retry de rede, respostas de objeção do operador. **R13.6 recusado:** escassez e prova
+  social inventadas.
+
+**Antes do deploy v33 (nesta ordem):**
+1. Aplicar a migração **`0007_gate_warn_verdict.sql`** — sem ela o `warn` derruba o lote
+   inteiro de `gate_traces` em silêncio.
+2. **n8n:** mandar o `reply` quando o status for `opted_out`; ligar o `handoffs[]` da
+   varredura ao e-mail; `stopped` e `deferred` ganharam significados novos (ver commit
+   `36387f4`).
+3. Secret `BUSINESS_CONFIG`: `handoff.email = contato@encorpa-fashion.com.br` e os campos
+   novos (`support`, `socialProof`, `prices.prepayMaxInstallments`, `store`,
+   `delivery.expressActive`) — espelho em `config/business.example.json`. Nos testes:
+   `CONVERSATION_MODEL=muse-spark-1.3-contributor` + `CONVERSATION_MODEL_PRICE`.
+4. Rodada 3 das personas contra o código atual, e só então o deploy (arquivos:
+   `ls supabase/functions/turn/*.ts`).
+
+---
+
+## ▶ Estado em 2026-09-23 (histórico)
 
 **O plano em uma página:** [`docs/agente-ia/05-plano/00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
 (23/09) — onde queremos chegar, onde estamos, o que só o operador destrava e as 5 etapas.
