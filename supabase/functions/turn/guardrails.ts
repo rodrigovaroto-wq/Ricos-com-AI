@@ -826,22 +826,26 @@ const gates: readonly Gate[] = [
         const prepayOwnWindow = /\b(?:antecipa\w*|adianta\w*)\b[^.!?\n]{0,40}\b(?:varia\w*|media|regiao)\b/.test(sentence);
         // Any equating word in the sentence still counts, with one exemption (code review,
         // 2026-09-24: "na entrega você também escolhe o dia e recebe em 1 a 3 dias, no
-        // antecipado o prazo varia por região" fell to the fallback): the word sits before
-        // any mention of the prepaid path, in a clause that says "na entrega" and names no
-        // prepaid path — nor an alias for it ("pagando antes", "Pix", "os dois"). Second
-        // review: narrowing it to the prepaid clause let "…, e pagando antes também chega em
-        // 1 a 3 dias" through.
+        // antecipado o prazo varia por região" fell to the fallback): a "também" before any
+        // mention of the prepaid path, in a clause that says "na entrega" and brings in no
+        // second option. Second review, twice: wider exemptions let "…, e pagando antes
+        // também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em 1 a 3 dias"
+        // through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
         const EQ =
-          "(?:ou(?!\\s+seja)|tambem|igual|mesm[oa]|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar)";
-        const PREPAY_ALIAS =
-          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|pix|cartao|os\s+dois|as\s+duas|ambos|o\s+outro)\b/;
-        const firstPrepay = sentence.search(PREPAY_ALIAS);
+          "(?:ou(?!\\s+seja)|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar)";
+        const firstPrepay = sentence.search(PREPAY);
         const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
           const eAt = e.index ?? 0;
           const clause =
             sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
           const exempt =
-            firstPrepay !== -1 && eAt < firstPrepay && /\bna\s+entrega\b/.test(clause) && !PREPAY_ALIAS.test(clause);
+            e[0] === "tambem" &&
+            firstPrepay !== -1 &&
+            eAt < firstPrepay &&
+            /\bna\s+entrega\b/.test(clause) &&
+            !/\b(?:e|ou)\s+(?:na|no|pagando|pelo|pela|de|a|o)\b|\boutr[oa]s?\b|\bopcao\b|\bforma\b|\bjeito\b|\bantes\b|\bpix\b|\bcartao\b|\bboleto\b|\bdois\b|\bduas\b|\bambos\b/.test(
+              clause,
+            );
           return !exempt;
         });
         const head = t.slice(0, at).split(/[.!?\n]/).pop()!;

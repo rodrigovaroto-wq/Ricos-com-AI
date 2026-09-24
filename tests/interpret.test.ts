@@ -680,6 +680,16 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       "passei o link pro meu marido",
       "mandei o link pra minha irmã",
       "abri o link de novo e deu certo",
+      // Segunda revisão, segunda rodada: recusa e encaminhamento.
+      "para de mandar o link",
+      "chega de mandar link",
+      "nem manda o link",
+      "nunca mais manda esse link",
+      "sem mandar o link pra ninguém",
+      "já tenho, não, manda o link não",
+      "vou passar o link pro meu marido",
+      "minha amiga pediu pra eu passar o link pra ela",
+      "ele disse pra não mandar o link",
     ])
       expect(asksForLink(m), m).toBe(false);
   });

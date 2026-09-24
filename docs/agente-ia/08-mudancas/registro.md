@@ -56,11 +56,11 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Ajuste (code review, 2026-09-24):** a lista de palavras que igualam os caminhos ("também",
   "ou", "mesmo"…) valia na frase inteira e bloqueava comparação honesta — "Na entrega você
   também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região" caía na
-  resposta pronta. Agora a única exceção é a palavra antes de qualquer menção ao antecipado,
-  na oração da entrega que não cita o antecipado nem apelido dele ("pagando antes", "Pix", "os
-  dois"). Segunda revisão: a primeira versão (só a oração do antecipado) deixava passar 11
-  frases com prazo inventado para o antecipado; todas viraram caso vetado em
-  `tests/change-registry.test.ts`. Sem rodada de personas nova — a medida continua
+  resposta pronta. Agora a única exceção é um "também" antes de qualquer menção ao
+  antecipado, na oração da entrega que não traz segunda opção de pagamento ("ou", "outra",
+  "pagando antes", "Pix", "boleto", "os dois"…). Segunda revisão, duas rodadas: as versões
+  mais largas deixavam passar 18 frases com prazo inventado para o antecipado; todas viraram
+  caso vetado em `tests/change-registry.test.ts`. Sem rodada de personas nova — a medida continua
   `pronta-por-prazo`.
 - **Estado:** atingida (prazo); resposta pronta restante → M-05.
 
@@ -90,7 +90,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Ajuste (code review, 2026-09-24):** a janela comparava com qualquer checkout, então um link
   corrigido não saía — a troca de entrega para antecipado, ou "manda o link de novo". Agora só
   o checkout do caminho deste turno conta, e o pedido explícito dela (`asksForLink`, só a
-  forma de pedido; "já mandou o link", "não precisa mandar o link" não contam) passa.
+  forma de pedido; "já mandou o link", "para de mandar o link", "vou passar o link pro meu
+  marido" não contam) passa.
 - **Estado:** atingida.
 
 ### M-04 — Tamanho quando há interesse; link antes de e-mail e CPF

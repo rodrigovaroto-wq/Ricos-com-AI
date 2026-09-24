@@ -82,6 +82,16 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "No antecipado varia por região, só que sai no mesmo dia que na entrega, 1 a 3 dias.",
     "No antecipado varia por região; na entrega, 1 a 3 dias; pros dois vale o mesmo.",
     "Na entrega e também pagando antes chega em 1 a 3 dias, no antecipado varia por região.",
+    // Segunda revisão, segunda rodada: segunda opção de pagamento fora da lista de apelidos.
+    "Na entrega ou não, chega em 1 a 3 dias; no antecipado varia por região, mas na entrega é garantido.",
+    "Na entrega e na outra opção também chega em 1 a 3 dias, no antecipado o prazo varia por região.",
+    "Na entrega ou no boleto, chega em 1 a 3 dias; no antecipado varia por região.",
+    "Na entrega ou de qualquer outro jeito, chega em 1 a 3 dias, no antecipado varia por região.",
+    "Pagando na entrega ou antes, chega em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega ou à vista, 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega também é 1 a 3 dias, no antecipado varia por região, igualzinho.",
+    "No antecipado varia por região, na entrega chega em 1 a 3 dias, e pagando antes idem.",
+    "No antecipado varia por região, na entrega chega em 1 a 3 dias, e pagando antes é igualzinho.",
   ];
   const passam = [
     "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",
@@ -91,7 +101,6 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "No antecipado o prazo varia, e na entrega é de 1 a 3 dias.",
     // Code review, 2026-09-24: palavra comum longe do antecipado não iguala os caminhos.
     "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região.",
-    "Na entrega é o mesmo produto e chega em 1 a 3 dias, no antecipado varia, em média 5 dias.",
     "Ou seja, na entrega você recebe em 1 a 3 dias, no antecipado varia por região.",
   ];
 
