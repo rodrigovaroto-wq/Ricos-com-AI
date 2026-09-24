@@ -11,7 +11,65 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-24
+## ▶ COMECE AQUI — estado em 2026-09-24 à noite
+
+**Branch:** `claude/affectionate-goodall-x5ujm4` → PR para `main` aberto no fim desta sessão.
+**Nada deployado** — a v32 continua no ar. Plano em uma página:
+[`00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md) (lista **Pendências do
+operador** no fim — leia quando ele perguntar o que falta).
+
+### Onde estamos
+- **Quatro rodadas das 12 personas** contra a v33 local, com o modelo real
+  (`muse-spark-1.3-contributor`). Rodada 4: **3 vendas encaminhadas** (link com nome e tamanho
+  certos), 3 handoffs certos, 0 mentiras, mediana de 37 palavras, R$ 0,0027 por resposta.
+  Registro: [`05-rodada-personas-2026-09-24.md`](docs/agente-ia/05-plano/05-rodada-personas-2026-09-24.md);
+  relatório com as 48 conversas no artifact privado "Malu nas 12 personas" (v3).
+- **Rodada 13 de decisões** (`03-decisoes-tomadas.md` §R13): intérprete antes da resposta,
+  handoff só em pedido de pessoa / cancelamento / pós-venda, gates duros e brandos (`warn`),
+  link sem e-mail, escada de tamanho, retry de rede, respostas de objeção do operador.
+  **R13.6 recusado:** escassez e prova social inventadas.
+- Todas as mudanças de gate passaram pela segunda revisão (várias rodadas); o turno passou
+  por revisão até APPROVE (`884b6ba`).
+
+### O que esta sessão executa agora (operador aprovou em 24/09) — o MÉTODO
+Motivo: correções que o teste de frase "provava" e o modelo repetia; rodadas misturando
+mudanças; nenhuma meta escrita; muito token em ler 12 conversas e em ciclos de revisão.
+1. **Registro de mudanças** em `docs/agente-ia/08-mudancas/registro.md`: cada mudança com
+   o quê, por quê (evidência), objetivo, **como medir** (checagem automática), resultado na
+   rodada seguinte (atingido? sim/não com número) e, se não, o ajuste.
+2. **Placar automático** (`pnpm dev:placar <pasta-da-rodada>`) que roda as checagens sobre os
+   JSON das personas. Só as conversas que falham são lidas por inteiro.
+3. **Runner em paralelo** (`--concurrency=2`) e **rodadas direcionadas** (só as personas
+   afetadas; rodada completa só antes de deploy).
+4. **Workflows do n8n versionados** em `n8n/workflows/` (exportados pela API, só leitura).
+5. Os 4 achados de código da rodada 4 como primeiras entradas do registro, corrigidos e
+   medidos numa rodada 5 direcionada.
+O estado de cada item está no próprio registro — confira lá antes de refazer.
+
+### Próximos passos para a próxima sessão (nesta ordem)
+1. Ler `docs/agente-ia/08-mudancas/registro.md`: toda entrada com resultado "não" ou "a medir"
+   é trabalho pendente. Não mexer em gate/prompt sem abrir uma entrada com objetivo e medida.
+2. **Operador:** Coinzz (a consulta `stock-and-delivery-day` redireciona para a home desde
+   24/09 — sem ela a Malu não sabe oferecer o antecipado); link de checkout no domínio da
+   marca; confirmar que "mais de 500 clientes satisfeitas" e "planos de loja em SP" são
+   verdade; payload real da Coinzz (O6).
+3. **Deploy v33** (ordem): migração `0007`; n8n (`Cerebro do turno` timeout 60000 → 150000,
+   e-mail para `handoffs[]` da varredura); secret `BUSINESS_CONFIG` com os campos novos e
+   `handoff.email = contato@encorpa-fashion.com.br`; secrets
+   `CONVERSATION_MODEL=muse-spark-1.3-contributor` + `CONVERSATION_MODEL_PRICE` (trocar para
+   o modelo normal antes de cliente real — pendência do operador); PAT (O4); 12 arquivos
+   (`ls supabase/functions/turn/*.ts`); sonda pela porta `n8n`.
+4. **Canal WhatsApp** (fase 8) e os dois testes de 14 dias do operador.
+5. **Hermes** (R11.2) só depois de tráfego real: ele opera o mesmo ciclo do registro sobre as
+   conversas reais — lê o placar, propõe entradas em `hermes_proposals`, o operador aprova.
+
+### Resíduos conhecidos (não bloqueiam)
+- `coverage_claim` não pega "Manaus a gente atende sim" / "Atendemos toda a região Norte".
+- `statesPastPurchase` não pega "fiz o pedido pelo site ontem" sem "colete"/"de vocês".
+- Nomes começando com "Tia"/"Irma" viram nulo (o checkout pede).
+
+## ▶ Estado em 2026-09-24 à tarde (histórico)
+
 
 **Branch:** `claude/affectionate-goodall-x5ujm4` (sem PR). **Nada deployado** — a v32 continua
 no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-plano-simples.md)
