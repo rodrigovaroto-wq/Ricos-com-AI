@@ -50,8 +50,8 @@ no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-
   transitório). Rodar `code-reviewer` de novo sobre esses arquivos.
 - **Nada disto rodou contra o modelo real ainda** — o intérprete (JSON da Muse, custo da
   chamada extra) só se prova na rodada 3 das personas.
-- **Pendências do operador:** payload real da Coinzz (O6); o time real do "mais de 500
-  clientes satisfeitas" e do "planos de loja em São Paulo" (só ficam no config se forem
+- **Pendências do operador:** payload real da Coinzz (O6); confirmar que "mais de 500
+  clientes satisfeitas" e "planos de loja em São Paulo" são verdade (só ficam no config se forem
   verdade); o secret com os campos novos.
 
 **Antes do deploy v33 (nesta ordem):**
