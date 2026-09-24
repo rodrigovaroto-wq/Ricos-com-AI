@@ -190,6 +190,11 @@ describe("M-05: tirar dúvida não é desconto", () => {
       "Tiro essa dúvida e pra você faço por menos.",
       "Tiro sua dúvida, mais um pouco do valor.",
       "Não se preocupe com nada, tiro qualquer dúvida e tiro mais um pouco pra você.",
+      "Tiro a dúvida pra você e um pouco do valor.",
+      "Tiro sua dúvida pra você e um pouquinho do preço.",
+      "Tiro sua duvidinha, pra você um pouco mais barato.",
+      "Tiro sua dúvida: pra você, um pouquinho a menos.",
+      "Tiro sua dúvida, pra você sai por menos.",
     ]) {
       expect(price(lie)?.verdict, lie).toBe("block");
     }

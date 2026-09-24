@@ -130,6 +130,9 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   preço") e uma negação distante puxada para a janela porque o trecho removido encolhia o
   texto. Agora o trecho não sai quando vem "e"/"mais" depois da dúvida, e é trocado por
   espaços do mesmo tamanho. Os sete casos viraram vetados no teste.
+  Terceira rodada: mais cinco com "pra você" depois da dúvida ("Tiro sua dúvida, pra você sai
+  por menos") — o trecho também não sai antes de "pra/para", nem depois de ":" ou ";".
+  Custo aceito: "Tiro mais alguma dúvida pra você?" volta a ser vetada, como antes da M-05.
 - **Estado:** feita — rodada jussara, tati pendente (precisa das credenciais do proxy).
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)

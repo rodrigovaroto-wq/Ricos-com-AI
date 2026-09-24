@@ -580,10 +580,11 @@ const gates: readonly Gate[] = [
       // "Tiro mais alguma dúvida" is the closing question, not a concession (M-05): the
       // object of "tiro" is the doubt, and only determiners may stand between them, so
       // nothing that names a price can hide in the span removed. Not when a second object
-      // follows ("tiro sua dúvida e mais um pouco do preço" shares the verb — second
-      // review), and blanked to the same length so `negatedAt` keeps its distances.
+      // follows ("tiro sua dúvida e mais um pouco do preço", "…, pra você sai por menos"
+      // share the verb — second review), and blanked to the same length so `negatedAt`
+      // keeps its distances.
       const concessions = t.replace(
-        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![\s,]*\b(?:e|mais)\b)/g,
+        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![\s,:;]*\b(?:e|mais|pra|para)\b)/g,
         (x) => " ".repeat(x.length),
       );
       for (const m of concessions.matchAll(
