@@ -52,8 +52,17 @@ recebe `Invalid JWT` a cada 5 minutos — a régua nunca rodou em produção. PR
 https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/31.
 
 ### Próximos passos para a próxima sessão (nesta ordem)
+0. **Escada de código** (`.claude/rules/code-ladder.md`, adotada em 24/09 no `main`): todo
+   código novo sobe os sete degraus antes de ser escrito. Aplicada a todo o código deste PR
+   em 24/09 à noite (quatro revisores + segunda revisão): placar usa os detectores da
+   produção, `buildCheckoutLink` morto removido, despedida do opt-out usa `decideNext`,
+   parcelamento corta frase sem partir "R$ 129.90", prompt lê parcelas com o teste do gate.
+   **Não aplicado, com motivo:** a regex de e-mail do intérprete e as três cópias de `norm`
+   ficam (o `tsc` recusa import de valor `.ts` entre módulos espelhados); `sendLinkNow`
+   fica (regra nomeada com teste próprio).
 1. Ler `docs/agente-ia/08-mudancas/registro.md`: toda entrada aberta é trabalho pendente —
-   começar pela **M-05**, depois pedir ao operador a autorização do **O-04** (trocar a
+   começar pela **M-05** e pela **M-06** (prazo do antecipado por proximidade — furo anterior,
+   endurece gate, rodar cleide/rafa/lu depois), depois pedir ao operador a autorização do **O-04** (trocar a
    credencial do nó `Varre a regua` para `Supabase service_role`). Não mexer em gate/prompt sem abrir uma entrada com objetivo e medida.
 2. **Operador:** Coinzz (a consulta `stock-and-delivery-day` redireciona para a home desde
    24/09 — sem ela a Malu não sabe oferecer o antecipado); link de checkout no domínio da
