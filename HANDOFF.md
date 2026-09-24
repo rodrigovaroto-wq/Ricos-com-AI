@@ -44,11 +44,17 @@ mudanças; nenhuma meta escrita; muito token em ler 12 conversas e em ciclos de 
 4. **Workflows do n8n versionados** em `n8n/workflows/` (exportados pela API, só leitura).
 5. Os 4 achados de código da rodada 4 como primeiras entradas do registro, corrigidos e
    medidos numa rodada 5 direcionada.
-O estado de cada item está no próprio registro — confira lá antes de refazer.
+**Feito nesta sessão:** registro, placar (`pnpm dev:placar`), runner com `--concurrency`,
+n8n versionado, M-01..M-04 (`ad46dd1`, `4cb480b`) medidas na rodada 5 direcionada: **M-02,
+M-03 e M-04 atingidas; M-01 atingida na parte de prazo**. Aberta **M-05** (falso positivo de
+`price_promise` em "tiro mais alguma dúvida"). Achado **O-04**: a varredura da régua no n8n
+recebe `Invalid JWT` a cada 5 minutos — a régua nunca rodou em produção. PR:
+https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/31.
 
 ### Próximos passos para a próxima sessão (nesta ordem)
-1. Ler `docs/agente-ia/08-mudancas/registro.md`: toda entrada com resultado "não" ou "a medir"
-   é trabalho pendente. Não mexer em gate/prompt sem abrir uma entrada com objetivo e medida.
+1. Ler `docs/agente-ia/08-mudancas/registro.md`: toda entrada aberta é trabalho pendente —
+   começar pela **M-05**, depois pedir ao operador a autorização do **O-04** (trocar a
+   credencial do nó `Varre a regua` para `Supabase service_role`). Não mexer em gate/prompt sem abrir uma entrada com objetivo e medida.
 2. **Operador:** Coinzz (a consulta `stock-and-delivery-day` redireciona para a home desde
    24/09 — sem ela a Malu não sabe oferecer o antecipado); link de checkout no domínio da
    marca; confirmar que "mais de 500 clientes satisfeitas" e "planos de loja em SP" são

@@ -34,6 +34,7 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 | R2 | `0743bd2` | 0 | 0 | 2 | 49 | 29% | R$ 0,0018 |
 | R3 | `8814026` | 4 | 1 | 0 | 37 | 5% | R$ 0,0026 |
 | R4 | `f34e0fa` | 4 | 3 | 1 | 37 | 4% | R$ 0,0027 |
+| R5 (8 personas) | `ad46dd1` | 3 | — | 1 | 35 | 4% | R$ 0,0026 |
 
 ---
 
@@ -51,7 +52,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   desconhecida o caminho já era `cod`; o `delivery_promise` julgava qualquer frase que
   citasse "antecipado" como antecipado, mesmo com o prazo na metade "na entrega". Agora o
   prazo pertence ao caminho citado mais perto antes dele. Afrouxa → segunda revisão.
-- **Estado:** feita, a medir na R5.
+- **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `pronta-por-prazo` = 0 → **atingida**. `respostas-prontas` = 1, por outra causa (Jussara: `price_promise` leu "tiro mais alguma dúvida" como promessa de desconto) → aberta como **M-05**.
+- **Estado:** atingida (prazo); resposta pronta restante → M-05.
 
 ### M-02 — "Manequim" não define tamanho
 - **Por quê:** R3 e R4, Marcinha: "meu manequim é 40" trocou G (calça 44) por M. Na rodada
@@ -64,7 +66,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   número colado a "manequim" é descartado. Número de vestido ("visto 42 de vestido")
   continua valendo — tirá-lo quebrava 35 cenários da persona Cida; decisão pendente se a
   regra deve ser só calça, cintura e letra.
-- **Estado:** feita, a medir na R5.
+- **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `troca-de-tamanho` = 0 (Marcinha e Karol) → **atingida**.
+- **Estado:** atingida.
 
 ### M-03 — O mesmo link não é mandado duas vezes
 - **Por quê:** R4, Jussara: link na mensagem 8 e de novo na 9 ("vou olhar aqui" → "Sem
@@ -74,7 +77,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Rodada de verificação:** jussara, karol.
 - **Feito (`ad46dd1`):** `linkSentRecently` (janela de 3 respostas) bloqueia o reenvio,
   inclusive no "vou pensar".
-- **Estado:** feita, a medir na R5.
+- **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `link-repetido` = 0 → **atingida**.
+- **Estado:** atingida.
 
 ### M-04 — Tamanho quando há interesse; link antes de e-mail e CPF
 - **Por quê:** R4, Tati: pergunta de tamanho em 4 respostas seguidas sobre preço e cupom.
@@ -87,9 +91,22 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Feito (`ad46dd1`):** duas instruções no prompt — perguntar tamanho quando houver
   interesse, não em resposta de preço/cupom; com a decisão e o tamanho, link sem pedir nome,
   e-mail ou CPF antes (cliente desconfiada: link primeiro).
-- **Estado:** feita, a medir na R5.
+- **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `tamanho-na-conversa-de-preco` = 0 e `dados-depois-da-decisao` = 0 → **atingida**.
+- **Estado:** atingida.
 
 ---
+
+### M-05 — "tiro mais alguma dúvida" não é desconto
+- **Por quê:** R5, Jussara, Malu 5: "Quer que eu siga com seu pedido pra pagar na entrega ou
+  tiro mais alguma dúvida antes?" vetado 3 vezes por `price_promise` ("promises a discount
+  with no number behind it") → resposta pronta. É a pergunta de fechamento que o próprio
+  prompt ensina.
+- **Objetivo:** nenhuma resposta pronta causada por `price_promise` em frase sem preço.
+- **Medida:** placar `respostas-prontas` = 0 (acrescentar uma checagem por gate, como
+  `pronta-por-prazo`). **Linha de base R5:** 1.
+- **Rodada de verificação:** jussara, tati.
+- **Estado:** aberta (não iniciada — sessão encerrada a pedido do operador). É afrouxamento
+  de gate: segunda revisão obrigatória.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 
