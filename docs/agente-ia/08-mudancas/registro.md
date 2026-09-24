@@ -168,14 +168,19 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   a ser vetadas** — "1 a 3 dias úteis", "no pagamento antecipado", "já / enquanto no
   antecipado", "conforme / de acordo com / depende da região", parênteses. Entraram na lista
   permitida, cada uma com a mentira vizinha como caso vetado.
-- **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
+- **Revisão final (`c48dec6`): aprovada com ressalva.** 23 frases, nenhuma de veto a
+  aprovação; três mentiras que passavam agora são vetadas. Ressalva → M-07 (3).
+- **Estado:** feita e revisada — rodada cleide, rafa, lu pendente.
 
 ### M-07 — Faixa compartilhada antes da entrega, e média do antecipado sem conferência
 - **Por quê:** segunda revisão da M-06 (2026-09-24), furos anteriores a ela: (1) um nome do
   antecipado ligado à entrega por "e" antes da faixa dá a faixa só à entrega — "No antecipado
   varia por região, e no pix e na entrega, 1 a 3 dias", "…; no cartão e na entrega, 1 a 3
   dias"; (2) "em média N dias" apaga qualquer número — "…no antecipado o prazo varia em média
-  1 dias" passa sem nenhum gate disparar.
+  1 dias" passa sem nenhum gate disparar. (3) depois da faixa, "e no (pagamento) antecipado" sem
+  janela própria lê como "a mesma faixa lá" e passa — "…na entrega chega em 1 a 3 dias e no
+  pagamento antecipado." A lista permitida só confere que nada sobra; deveria exigir o nome do
+  antecipado seguido da janela dele ("varia / depende / conforme / em média").
 - **Objetivo:** nenhuma faixa ou média inventada para o antecipado passa.
 - **Medida:** as frases acima como casos vetados em `tests/change-registry.test.ts`; placar
   `pronta-por-prazo` = 0 numa rodada cleide, rafa, lu.
