@@ -443,17 +443,18 @@ const callLuna = async (
 };
 
 /**
- * Meta's Llama API — OpenAI-request-shaped, different host and key. Added 2026-09-10
- * alongside the swap to Muse Spark 1.3 (`MUSE_FAMILY`). Unlike `callLuna`, Muse Spark is
- * not documented as a reasoning model, so there is no completion-token floor here —
- * `max_tokens` is the plain output budget, not a reasoning-plus-output one.
+ * Meta Model API (dev.meta.ai) — OpenAI-request-shaped, different host and key. Added
+ * 2026-09-10 alongside the swap to Muse Spark 1.3 (`MUSE_FAMILY`); the host was
+ * `api.llama.com` until 2026-09-24, which does not serve Muse. Meta documents Muse Spark
+ * as a model that always reasons, so whether `max_tokens: 900` leaves room for the
+ * answer is unmeasured until the first real call (plan v2 item 2.11).
  */
 const callMuse = async (
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
-  const response = await fetch("https://api.llama.com/v1/chat/completions", {
+  const response = await fetch("https://api.meta.ai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${META_KEY}`, "Content-Type": "application/json" },
     body: JSON.stringify({

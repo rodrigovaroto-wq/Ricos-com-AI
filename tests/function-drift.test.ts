@@ -152,7 +152,7 @@ describe("tabela de preços da Edge Function", () => {
   it("aceita modelos muse e chama o host da Meta, não o da OpenAI", () => {
     expect(source).toContain("const MUSE_FAMILY = /^muse/i;");
     expect(source).toContain("const callMuse = async (");
-    expect(source).toContain('fetch("https://api.llama.com/v1/chat/completions"');
+    expect(source).toContain('fetch("https://api.meta.ai/v1/chat/completions"');
     expect(source).toContain("META_KEY");
   });
 
@@ -164,7 +164,7 @@ describe("tabela de preços da Edge Function", () => {
   it("recusa Muse sem preço, antes de gastar token — mesma guarda de callLuna", () => {
     const muse = source.indexOf("const callMuse = async (");
     expect(muse).toBeGreaterThan(-1);
-    const fetchAt = source.indexOf('fetch("https://api.llama.com', muse);
+    const fetchAt = source.indexOf('fetch("https://api.meta.ai', muse);
     const throwAt = source.indexOf("throw new ModelConfigError(MODEL_CONFIG_ERROR)", muse);
     expect(fetchAt).toBeGreaterThan(-1);
     expect(throwAt).toBeGreaterThan(muse);

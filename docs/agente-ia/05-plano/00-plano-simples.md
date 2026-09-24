@@ -72,7 +72,7 @@ Os itens da seção 3. **Pronto quando:** as credenciais aparecem numa sessão n
 agente consegue abrir o n8n pela API.
 
 Enquanto isso, o agente faz sozinho o que não depende de você: tira o Gemini do turno e
-do runner (só Meta — item 2.10), aponta a chamada da Muse para `api.meta.ai` (item 2.11), e o turno passa a avisar as
+do runner (só Meta — item 2.10), e o turno passa a avisar as
 travas quando a conversa é sobre o **antecipado** (hoje elas sempre acham que é pagamento
 na entrega — item 2.8).
 
@@ -152,4 +152,4 @@ Não vamos: deixar o modelo tomar ações sozinho · buscar documentos por simil
 |---|---|---|
 | 23/09 | **Payload real do webhook da Coinzz** (O6), com CPF, telefone e nome trocados por `XXX` — no próximo pedido | e-mail de aviso do n8n |
 | 23/09 | **Credencial da Meta** com site `api.meta.ai` (item 3 acima) | ambiente da nuvem → Edit |
-| 23/09 | **Autorizar a troca do host da Muse no código** (`api.llama.com` → `api.meta.ai`, item 2.11): o modo automático da sessão barrou a mudança por ser redirecionamento de tráfego | resposta no chat |
+| 24/09 | **Voltar da variante `-contributor` para `muse-spark-1.3`** antes da operação real (apagar os secrets `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE`) — a contributor cede as conversas para treino da Meta | Supabase → Edge Functions → Secrets |

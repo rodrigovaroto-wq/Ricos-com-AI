@@ -1,7 +1,7 @@
 import type { LlmRequest, Provider, ProviderResult } from "../seam.js";
 
 /**
- * Meta's Llama API — the endpoint that serves Muse Spark 1.3, decided 2026-09-10 to
+ * Meta Model API (api.meta.ai; api.llama.com until 2026-09-24) — serves Muse Spark 1.3, decided 2026-09-10 to
  * replace gpt-5.6-luna as the conversation model (see HANDOFF.md §Frente 5). The
  * request and response shape is OpenAI-compatible, so this file mirrors
  * `providers/openai.ts` closely; what differs is the host, the credential, and that
@@ -16,7 +16,7 @@ export const metaProvider = (options: {
   model: options.model,
   async complete(request: LlmRequest): Promise<ProviderResult> {
     const doFetch = options.fetchImpl ?? fetch;
-    const response = await doFetch("https://api.llama.com/v1/chat/completions", {
+    const response = await doFetch("https://api.meta.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${options.apiKey}`,

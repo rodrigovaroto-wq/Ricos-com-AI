@@ -10,7 +10,7 @@
  *   # Terminal 1: the function reads its own env (SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY,
  *   # META_API_KEY, GEMINI_API_KEY, BUSINESS_CONFIG, ...) and listens on 127.0.0.1:8000.
  *   DENO_SERVE_ADDRESS=tcp:127.0.0.1:8000 deno run --allow-env --env-file=.env \
- *     --allow-net=127.0.0.1:8000,<ref>.supabase.co,generativelanguage.googleapis.com,api.llama.com,api.openai.com,app.coinzz.com.br,viacep.com.br \
+ *     --allow-net=127.0.0.1:8000,<ref>.supabase.co,generativelanguage.googleapis.com,api.meta.ai,api.openai.com,app.coinzz.com.br,viacep.com.br \
  *     supabase/functions/turn/index.ts
  *   # Terminal 2 (LOCAL_FUNCTION_URL defaults to http://localhost:8000; only localhost,
  *   # 127.0.0.1 or ::1 are accepted — the service key rides along):
