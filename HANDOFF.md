@@ -44,10 +44,23 @@ no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-
   social com prazo depois de "satisfeitas" ("…só essa semana", "…compraram hoje", "98%
   recomendam") e "Tem como retirar sim, em SP.". Sondas: `rev2/p8.txt`, `p9.txt` no
   scratchpad da sessão (perdidas se o container foi reciclado — as frases estão aqui).
-- **Revisão final do fluxo do turno (`36387f4`)** estava rodando depois das dez correções
-  (escada depois dos extratores, ticket do retry, orçamento, "?" não troca tamanho,
-  cancelamento só com pedido, link só com tamanho, negação colada à palavra de pessoa, 429
-  transitório). Rodar `code-reviewer` de novo sobre esses arquivos.
+- **Revisão final do fluxo do turno (`36387f4`): NEEDS WORK, dois bloqueios pequenos.**
+  (1) Resposta duplicada: a nova tentativa confere o ticket só no início; se ela manda "oi??"
+  durante os ~48 s da tentativa, as duas respondem. Conserto: reler a última mensagem
+  recebida logo antes de gravar a resposta da tentativa e desistir (`retry_moot`) se não for
+  `ticket.inboundId`. (2) Pergunta de tamanho **sem "?"** ainda troca `leads.size`: "tem
+  tamanho GG", "vcs tem o tamanho G", "tem pra quem usa 50", "qual tamanho pra quem usa 44",
+  "o M serve pra quem veste 44" — no caminho rápido de `sizing.ts`, pular a oração que abre
+  com `tem|têm|existe|vem|serve|qual|quais|pra quem|para quem` e deixar para o intérprete;
+  os cinco como teste negativo. Ressalvas: "não precisa chamar atendente", "nao preciso de
+  ajuda de atendente", "não quero que me passe pra atendente", "dispenso atendente" passaram
+  a contar como pedido de pessoa na metade determinística (`REFUSED_BEFORE` em
+  `interpret.ts`) — voltar a tratá-las como recusa; `extractIdentity("sei la")` vira nome
+  (pôr em `NOT_A_NAME`); os caminhos novos de `index.ts` só têm teste por string.
+- **n8n antes do deploy (registrado pela revisão):** a varredura precisa mandar e-mail para
+  cada item de `handoffs[]`; o envio precisa aceitar `kind: "retry_turn"` como texto livre
+  dentro da janela de 24 h; o turno precisa mandar o `reply` quando o status for
+  `opted_out`.
 - **Nada disto rodou contra o modelo real ainda** — o intérprete (JSON da Muse, custo da
   chamada extra) só se prova na rodada 3 das personas.
 - **Pendências do operador:** payload real da Coinzz (O6); confirmar que "mais de 500
