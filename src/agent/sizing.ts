@@ -83,7 +83,7 @@ const SHOE_CUE = /\b(cal[c\u00e7]o|sapato|t[e\u00ea]nis|sand[a\u00e1]lia|chinelo
  * it. What they say is "uso 42 de calça", and every shape of that is a cue.
  */
 const SIZE_CUE =
-  /(manequim|tamanho|veste|visto|vestia|uso|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
+  /(manequim|tamanho|veste|visto|vestia|uso|usa|usava|cal[c\u00e7]a|blusa|vestido|saia|short|numero|n\u00famero|sou|entre)\D{0,14}$/i;
 
 /** She named two sizes because she sits between them, not because she named two things. */
 const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
@@ -135,6 +135,80 @@ export const extractDressSize = (text: string): number | null => {
   // does not know which. The larger wins, the same rule the table itself follows —
   // loose is worn, tight comes back.
   return RANGE_ANSWER.test(text) ? Math.max(...plausible) : cued[0]!;
+};
+
+/**
+ * The size as a letter, the way she says it: "uso M", "ela usa G", "tamanho GG", or a
+ * message that is only the letter — the answer to "qual tamanho?". Karol's "G" on its own
+ * line (personas, 2026-09-24) was read as nothing, and the M from two turns earlier stayed.
+ * A cue is required for anything longer than the bare letter, and the same clause
+ * negation as the numbers applies: "não uso M, uso G" is a G.
+ */
+const LETTER_RE = /\b(?:uso|usa|usava|visto|veste|vestia|tamanho|manequim)\s+(?:o\s+|um\s+)?(pp|p|m|gg|g|xgg|eg)\b/gi;
+
+export const extractSizeLetter = (text: string): Size | null => {
+  // A line that is only the letter — WhatsApp messages arrive as several lines at once.
+  for (const line of text.split("\n")) {
+    const bare = line.trim().match(/^(pp|p|m|gg|g|xgg|eg)[.!]?$/i);
+    if (bare) return sizeFromLabel(bare[1]!);
+  }
+  for (const match of text.matchAll(LETTER_RE)) {
+    if (NEGATED_CUE.test(text.slice(0, match.index ?? 0))) continue;
+    return sizeFromLabel(match[1]!);
+  }
+  return null;
+};
+
+const larger = (a: Size | null, b: Size | null): Size | null =>
+  a === null ? b : b === null ? a : SIZES.indexOf(a) >= SIZES.indexOf(b) ? a : b;
+
+/**
+ * The size the interpreter read, resolved through the same table (R13.1). The model reads;
+ * the table decides. When she gives more than one — "G, 46 de calça" — the larger wins,
+ * the rule the table itself follows between two rows: loose is worn, tight comes back.
+ */
+export const sizeFromInterpreted = (read: {
+  letter: string | null;
+  pants: number | null;
+  waist_cm: number | null;
+}): Size | null => {
+  const letter = read.letter === null ? null : sizeFromLabel(read.letter);
+  const pants = read.pants === null ? null : sizeFromDressSize(read.pants);
+  const waist = read.waist_cm === null ? null : sizeFromWaist(read.waist_cm);
+  return larger(larger(letter, pants), waist);
+};
+
+/**
+ * The size this message states, if any. The deterministic readers are the fast path and
+ * win when they find something; the interpreter is the fallback for what they cannot read.
+ * Whatever comes out REPLACES the stored size — a size she states now is the current one,
+ * including when it is for someone else ("é pra minha mãe, ela usa G, 46").
+ */
+export const statedSizeOf = (
+  message: string,
+  interpreted: { letter: string | null; pants: number | null; waist_cm: number | null } | null = null,
+): Size | null => {
+  // A question is not a stated size: "tem tamanho GG?", "o M serve em quem usa 44?" asked
+  // about a size and used to overwrite hers (code review, 2026-09-24). Sentences ending in
+  // "?" are left out of the fast path, and the interpreter is told the same.
+  const statements = message
+    .split(/(?<=[.!?\n])/)
+    .filter((piece) => !piece.trim().endsWith("?"))
+    .join("");
+  const dress = extractDressSize(statements);
+  const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));
+  return fast ?? (interpreted === null ? null : sizeFromInterpreted(interpreted));
+};
+
+/**
+ * Whether the agent's message asked for her size — the condition that opens the clarify
+ * ladder. Read on the question itself, so a size merely mentioned is not a question.
+ */
+export const asksForSize = (text: string): boolean => {
+  const questions = text.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?"));
+  return questions.some((q) =>
+    /(tamanho|manequim|cal[c\u00e7]a|cintura|numera[c\u00e7][a\u00e3]o|que\s+n[u\u00fa]mero|veste|usa\s+de)/i.test(q),
+  );
 };
 
 export const sizeTable = (): string =>

@@ -20,6 +20,7 @@ const mirrored = [
   ["src/agent/availability.ts", "supabase/functions/turn/availability.ts"],
   ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
+  ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {
@@ -221,6 +222,19 @@ describe("ritmo humano da Edge Function", () => {
     expect(source).toContain(`const MS_PER_WORD = ${MS_PER_WORD};`);
   });
 
+  /**
+   * As bolhas de até ~30 palavras (R13.4) são código de verdade, não uma constante: a
+   * cópia inline tem de ser o mesmo texto, da declaração do limite até antes do `export`.
+   */
+  it("splitBubbles inline é byte a byte o de src/agent/pacing.ts", () => {
+    const pacing = readFileSync("src/agent/pacing.ts", "utf-8");
+    const start = pacing.indexOf("const MAX_BUBBLE_WORDS = ");
+    const end = pacing.indexOf("export { MAX_BUBBLE_WORDS");
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    expect(source).toContain(pacing.slice(start, end).trimEnd());
+  });
+
   it("as bolhas saem iguais às de splitBubbles, com o atraso de bubbleDelayMs", () => {
     const texto = ["um dois três", "quatro cinco", "seis"].join("\n\n");
     expect(splitBubbles(texto).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }))).toEqual([
@@ -243,6 +257,85 @@ describe("ritmo humano da Edge Function", () => {
     expect(comReply.length).toBeGreaterThan(0);
     for (const { linha, i } of comReply) {
       expect(`${linha} -> ${linhas[i + 1]}`).toContain("bubbles: paced(");
+    }
+  });
+});
+
+/**
+ * A rodada 13 (2026-09-24) no código que a produção executa. `index.ts` é Deno e não pode
+ * ser importado aqui; estas asserções leem o fonte e prendem o que nenhum teste de
+ * módulo alcança.
+ */
+describe("rodada 13 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("o intérprete é gravado em llm_calls com o próprio propósito, e roda antes da resposta", () => {
+    expect(source).toContain('recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading)');
+    expect(source).toContain("INTERPRET_MAX_COMPLETION_TOKENS");
+    expect(source.indexOf("readInterpretation(reading.text)")).toBeLessThan(source.indexOf("while (true) {"));
+  });
+
+  it("as linhas de handoff saem pela camada auto, e só pelo handOff", () => {
+    const start = source.indexOf("const handOff = async (");
+    const end = source.indexOf("const optOutFarewell = async (");
+    expect(start).toBeGreaterThan(-1);
+    expect(source.slice(start, end)).toContain('layer: "auto"');
+    expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
+    for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
+      const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===)/);
+    }
+  });
+
+  it("só \"block\" veta: nenhum caminho lê `allowed`, que um veredito brando pode não limpar", () => {
+    expect(source).toContain('const passed = (result: { traces: ReadonlyArray<{ verdict: string }> }): boolean =>');
+    expect(source).not.toMatch(/\.allowed\b/);
+  });
+
+  it("falha de rede agenda nova tentativa pela varredura antes de qualquer handoff", () => {
+    expect(source).toContain('const RETRY_TURN_KIND = "retry_turn";');
+    expect(source).toContain('if (!isRetry || afterRetryFailure(timedOut, retries) === "reschedule") {');
+    expect(source).toContain("if (row.kind === RETRY_TURN_KIND) {");
+    // A nova tentativa só é marcada pela varredura, nunca pelo corpo que o n8n posta.
+    expect(source).toContain("{ retry: ticket }");
+    expect(source).not.toMatch(/payload\.retry/);
+    expect(source).toContain("const RETRY_TURNS_PER_SWEEP = 1;");
+  });
+
+  // Code review, 2026-09-24: a nova tentativa respondia a mensagem MAIS RECENTE, que um
+  // turno novo podia já estar respondendo — resposta em dobro.
+  it("a nova tentativa responde só a mensagem que falhou, e um turno novo a cancela", () => {
+    expect(source).toContain("latest[0].id !== internal.retry!.inboundId");
+    expect(source).toContain("body: JSON.stringify(ticket),");
+    expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
+  });
+
+  it("429 é falha passageira, não handoff", () => {
+    expect(source.match(/response\.status >= 500 \|\| response\.status === 429/g)?.length).toBe(2);
+  });
+
+  it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
+    expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
+    expect(source).toContain("isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
+    expect(source).toContain("signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+  });
+
+  // Code review, 2026-09-24: a escada silenciava "meu cep é 01310-100, Maria Souza".
+  it("a escada do tamanho decide depois dos leitores de endereço e identidade", () => {
+    const ladder = source.indexOf("const clarify = decideClarify(");
+    expect(ladder).toBeGreaterThan(source.indexOf("const foundAddress = extractAddress("));
+    expect(ladder).toBeGreaterThan(source.indexOf("const identityDraft = mergeIdentity("));
+    expect(source).toContain("factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0");
+  });
+
+  it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
+    expect(source).toContain('handoffFor(interpretation, inbound.body ?? "", false, orderContext)');
+  });
+
+  it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {
+    for (const file of ["supabase/functions/turn/index.ts", "supabase/functions/turn/identity.ts"]) {
+      expect(readFileSync(file, "utf-8")).not.toContain("Qual é o seu e-mail?");
     }
   });
 });

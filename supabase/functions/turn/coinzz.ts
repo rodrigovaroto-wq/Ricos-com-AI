@@ -274,6 +274,34 @@ export const buildCheckoutLink = (
 };
 
 /**
+ * The link with whatever is known, and nothing required but the checkout itself (R13.4,
+ * operator 2026-09-24). `buildCheckoutLink` refuses a partial link on purpose — the gain
+ * there was skipping the first step — and that refusal became the wall four personas hit:
+ * no e-mail, no link, no sale. The checkout form asks for every field the query string did
+ * not fill, so a partial link costs her some typing and a missing link costs the sale.
+ * Only the base URL is required; each field goes in only when it is really there.
+ */
+export const buildPrefilledCheckoutLink = (
+  customer: Partial<OrderIdentity> & { phone?: string },
+  paymentMethod: "cod" | "prepay",
+  config: Partial<CheckoutLinkConfig>,
+): string => {
+  const base = paymentMethod === "cod" ? config.codUrl : config.prepayUrl;
+  if (!filled(base)) {
+    throw new CoinzzIncompleteError([`checkout.${paymentMethod === "cod" ? "codUrl" : "prepayUrl"}`]);
+  }
+  const query = new URLSearchParams();
+  if (filled(customer.name)) query.set("name", customer.name!.trim());
+  if (filled(customer.email)) query.set("email", customer.email!.trim().toLowerCase());
+  if (digitsOnly(customer.phone ?? "").length >= 10) query.set("phone", digitsOnly(customer.phone!));
+  if (digitsOnly(customer.document ?? "").length >= 11) {
+    query.set(paymentMethod === "cod" ? "cpf" : "document", digitsOnly(customer.document!));
+  }
+  const qs = query.toString();
+  return qs === "" ? base! : `${base}${base!.includes("?") ? "&" : "?"}${qs}`;
+};
+
+/**
  * What their API answers with. n8n posts the body and writes this back to the webhook,
  * so the shape is declared here rather than in a workflow nobody can test.
  */

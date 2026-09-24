@@ -3,7 +3,9 @@ import { asPhrase, gateBriefing, HUMAN_REQUEST_PHRASES, runGates, wantsHuman } f
 import {
   HUMAN_HANDOFF_REPLY,
   HOLDING_REPLY,
+  ORDER_HANDOFF_REPLY,
   SAFE_FALLBACK_REPLY,
+  THINK_REPLY,
   WELCOME_AUTO_REPLY,
   WELCOME_RESUME_DELAY_SECONDS,
 } from "@/agent/retry.js";
@@ -102,19 +104,44 @@ describe("sentinela de pedido de humano (§Q12)", () => {
 describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
   // Se qualquer uma destas fosse vetada, o último recurso do agente seria silêncio.
   it("passam na cadeia inteira", () => {
-    for (const texto of [HUMAN_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY]) {
+    for (const texto of [HOLDING_REPLY, SAFE_FALLBACK_REPLY, THINK_REPLY]) {
       expect(runGates(texto, ctx()).allowed, texto).toBe(true);
     }
   });
 
+  /**
+   * As duas linhas de handoff anunciam uma pessoa — "Já avisei o time" é fato quando o
+   * código acabou de gravar o handoff, e mentira quando é o modelo quem escreve. Por isso
+   * o turno as passa com `layer: "auto"` (o `handOff` do index.ts), e é assim que o teste
+   * as passa também: o `humanity_claim` veta a mesma frase na camada "agent".
+   */
+  it("as linhas de handoff passam na cadeia pela camada auto, como o turno as manda", () => {
+    for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY]) {
+      expect(runGates(texto, ctx({ layer: "auto" })).allowed, texto).toBe(true);
+    }
+    // A mesma frase escrita pelo modelo continua vetada — o time não foi avisado por ele.
+    expect(runGates(HUMAN_HANDOFF_REPLY, ctx()).allowed).toBe(false);
+  });
+
+  it("são as frases do operador, palavra por palavra (R13.2, 2026-09-24)", () => {
+    expect(HUMAN_HANDOFF_REPLY).toBe("Claro! Já avisei o time e alguém te chama por aqui 💛");
+    expect(ORDER_HANDOFF_REPLY).toBe("Vou checar pra você e já te retorno 💛");
+    expect(THINK_REPLY).toBe("Sem problemas, estou aqui se tiver mais alguma dúvida");
+  });
+
   it("não prometem prazo, preço nem cupom", () => {
-    for (const texto of [HUMAN_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY]) {
+    for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY, HOLDING_REPLY, SAFE_FALLBACK_REPLY, THINK_REPLY]) {
       expect(texto).not.toMatch(/R\$|dias|cupom|desconto/i);
     }
   });
 
   it("não afirmam ser gente, que é o guardrail vizinho", () => {
-    expect(runGates(HUMAN_HANDOFF_REPLY, ctx()).traces.find((t) => t.gate === "humanity_claim")?.verdict).toBe("pass");
+    for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY]) {
+      expect(
+        runGates(texto, ctx({ layer: "auto" })).traces.find((t) => t.gate === "humanity_claim")?.verdict,
+        texto,
+      ).toBe("pass");
+    }
   });
 
   /**
@@ -160,7 +187,8 @@ describe("o briefing que vai no prompt", () => {
 
 /**
  * Estágio 0 — a recepção automática, aprovada pelo operador em 2026-09-21 com os
- * espaçamentos exatos. Mesma classe do handoff acima: texto fixo, layer "auto", nunca
+ * espaçamentos exatos; a segunda linha trocou "fará seu atendimento" por "esclarecerá
+ * todas as suas dúvidas" em 2026-09-24 (R13.5). Mesma classe do handoff acima: texto fixo, layer "auto", nunca
  * o modelo. O timer de 2 minutos até a resposta real da Malu é decisão de arquitetura
  * ainda em aberto (n8n vs. varredura das réguas) — ver HANDOFF.md.
  */
@@ -168,7 +196,7 @@ describe("recepção automática do Estágio 0", () => {
   it("é exatamente o texto aprovado, com as quebras de linha aprovadas", () => {
     expect(WELCOME_AUTO_REPLY).toBe(
       "Oii, tudo bem?\n\n" +
-        "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes fará seu atendimento.\n\n" +
+        "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
         "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
         "encorpa-fashion.com.br",
     );

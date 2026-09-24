@@ -3,7 +3,14 @@ import {
   decideNext,
   rewriteInstruction,
   HOLDING_REPLY,
+  afterRetryFailure,
+  IN_CALL_RETRY_BUDGET_MS,
+  MAX_DEFERRED_RETRIES,
   MAX_REWRITES,
+  MIN_ATTEMPT_MS,
+  MODEL_CALL_TIMEOUT_MS,
+  NETWORK_RETRY_DELAYS_MS,
+  networkRetryDelay,
   type TurnState,
 } from "@/agent/retry.js";
 import { runGates, type Remedy as GateRemedy } from "@/agent/guardrails.js";
@@ -54,13 +61,21 @@ describe("os limites do laço", () => {
   it("esgotada a reescrita, responde pela saída segura em vez de chamar gente", () => {
     const action = decideNext(state({ rewritesUsed: MAX_REWRITES }));
     expect(action.kind).toBe("fallback");
-    expect(action.kind === "fallback" && action.reason).toContain("não passou na cadeia");
+    expect(action.kind === "fallback" && action.reason).toContain("nenhuma passou na cadeia");
   });
 
-  it("uma reescrita, não duas: o brief mora no prompt, não no laço", () => {
-    expect(MAX_REWRITES).toBe(1);
+  // Duas desde 2026-09-24 (R13.4): um falso veto na primeira versão e outro na reescrita
+  // mandavam a resposta de saída, que ignora a pergunta dela.
+  it("duas reescritas antes da saída segura, não uma nem três", () => {
+    expect(MAX_REWRITES).toBe(2);
     expect(decideNext(state({ rewritesUsed: 0 })).kind).toBe("rewrite");
-    expect(decideNext(state({ rewritesUsed: 1 })).kind).toBe("fallback");
+    expect(decideNext(state({ rewritesUsed: 1 })).kind).toBe("rewrite");
+    expect(decideNext(state({ rewritesUsed: 2 })).kind).toBe("fallback");
+  });
+
+  it("a segunda reescrita também respeita o teto de custo", () => {
+    const action = decideNext(state({ rewritesUsed: 1, spentBrl: 2, ceilingBrl: 1 }));
+    expect(action.kind).toBe("handoff");
   });
 
   it("sem orçamento não há reescrita, mesmo na primeira tentativa", () => {
@@ -98,5 +113,60 @@ describe("a resposta de espera", () => {
 
   it("não promete prazo, preço nem cupom", () => {
     expect(HOLDING_REPLY).not.toMatch(/R\$|dias|cupom|desconto/i);
+  });
+});
+
+/**
+ * Falha de rede ao chamar o modelo (R13.4, Vera R1: `fetch failed` virou handoff
+ * definitivo). Tenta de novo dentro da invocação enquanto cabe — a Edge Function é
+ * cortada com 504 aos 150 s — e o resto vai para a varredura do cron.
+ */
+describe("novas tentativas quando a rede falha", () => {
+  it("espera cada vez mais entre as tentativas", () => {
+    expect(networkRetryDelay(1, 0)).toBe(2_000);
+    expect(networkRetryDelay(2, 5_000)).toBe(5_000);
+    expect(networkRetryDelay(3, 15_000)).toBe(10_000);
+    expect(networkRetryDelay(4, 30_000)).toBe(20_000);
+  });
+
+  it("para quando acabam as esperas previstas", () => {
+    expect(networkRetryDelay(NETWORK_RETRY_DELAYS_MS.length + 1, 0)).toBeNull();
+    expect(networkRetryDelay(0, 0)).toBeNull();
+  });
+
+  it("não começa tentativa que não cabe no orçamento da invocação", () => {
+    // Faltam 5 s: a espera de 2 s mais a tentativa mínima de 10 s não cabem.
+    expect(networkRetryDelay(1, IN_CALL_RETRY_BUDGET_MS - 5_000)).toBeNull();
+    // Exatamente no limite ainda cabe.
+    expect(networkRetryDelay(1, IN_CALL_RETRY_BUDGET_MS - 2_000 - MIN_ATTEMPT_MS)).toBe(2_000);
+    // O orçamento curto da nova tentativa pela varredura (30 s) corta mais cedo.
+    expect(networkRetryDelay(3, 20_000, 30_000)).toBeNull();
+  });
+
+  it("o orçamento inteiro cabe folgado sob o corte de 150 s da Edge Function", () => {
+    const tentativas = NETWORK_RETRY_DELAYS_MS.length + 1;
+    const pior = NETWORK_RETRY_DELAYS_MS.reduce((a, b) => a + b, 0) + tentativas * MODEL_CALL_TIMEOUT_MS;
+    // O laço não passa do orçamento, porque cada tentativa é cortada no que resta dele.
+    expect(IN_CALL_RETRY_BUDGET_MS).toBeLessThan(150_000 - 20_000 /* intérprete */ - 10_000 /* banco */);
+    expect(pior).toBeGreaterThan(IN_CALL_RETRY_BUDGET_MS);
+  });
+});
+
+/**
+ * A nova tentativa pela varredura: falha de rede de novo é handoff, MAS o corte do nosso
+ * próprio orçamento numa chamada só lenta não é falha do provedor — reagenda uma vez.
+ */
+describe("depois da nova tentativa pela varredura", () => {
+  it("chamada cortada pelo nosso tempo reagenda uma vez", () => {
+    expect(MAX_DEFERRED_RETRIES).toBe(1);
+    expect(afterRetryFailure(true, 0)).toBe("reschedule");
+  });
+
+  it("reagendada uma vez, a próxima falha é handoff", () => {
+    expect(afterRetryFailure(true, 1)).toBe("handoff");
+  });
+
+  it("conexão morta ou 5xx na nova tentativa é handoff", () => {
+    expect(afterRetryFailure(false, 0)).toBe("handoff");
   });
 });

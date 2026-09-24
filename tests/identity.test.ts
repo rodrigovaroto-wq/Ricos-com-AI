@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  asksForIdentity,
   extractCpf,
   extractEmail,
   extractIdentity,
@@ -124,5 +125,38 @@ describe("mensagem comum não é nome", () => {
     // "meu nome é Boa" é estranho, mas ela disse que é o nome dela. Duvidar disso é
     // pior do que aceitar: quem se apresenta espera ser chamada assim.
     expect(extractName("meu nome é Bom Jesus da Silva")).toBe("Bom Jesus da Silva");
+  });
+});
+
+/**
+ * Nunca mais pergunta fixa de identidade (R13.4): "Qual é o seu e-mail? É pra onde vai a
+ * confirmação do pedido." voltou palavra por palavra, turno após turno, para quatro das
+ * doze personas. O que sai daqui é o ASSUNTO; a frase é da agente.
+ */
+describe("a identidade vira assunto, não frase pronta", () => {
+  it("devolve o assunto, sem pergunta pronta para copiar", () => {
+    for (const faltando of [["name"], ["email"], ["document"]] as const) {
+      const assunto = nextIdentityQuestion(faltando);
+      expect(assunto).not.toBeNull();
+      expect(assunto).not.toContain("?");
+      expect(assunto).not.toMatch(/^Qual/);
+    }
+  });
+
+  it("a frase fixa antiga não existe mais", () => {
+    expect(nextIdentityQuestion(["email"])).not.toContain("Qual é o seu e-mail");
+    expect(nextIdentityQuestion(["email"])).toContain("e-mail");
+  });
+
+  it("reconhece quando a Malu PERGUNTOU nome, e-mail ou CPF", () => {
+    expect(asksForIdentity("Me passa seu e-mail pra eu mandar a confirmação?")).toBe(true);
+    expect(asksForIdentity("Qual o seu CPF?")).toBe(true);
+    expect(asksForIdentity("Tudo certo! Qual seu nome completo?")).toBe(true);
+  });
+
+  it("mencionar não é perguntar: o link que diz \"seu e-mail vai preenchido\" não conta", () => {
+    expect(asksForIdentity("Seu e-mail já vai preenchido no link. Qualquer dúvida me chama!")).toBe(false);
+    expect(asksForIdentity("Qual o seu tamanho?")).toBe(false);
+    expect(asksForIdentity("")).toBe(false);
   });
 });

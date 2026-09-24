@@ -2,8 +2,8 @@
  * One conversation turn, end to end — plus the cron sweep of the follow-up rulers.
  *
  * The n8n webhook posts an inbound message here; this function owns everything that
- * decides what goes back: dedupe, persistence, the cost ceiling, the two model calls
- * and the seventeen guardrails. A second entry point, { job: "followups" }, is the clock
+ * decides what goes back: dedupe, persistence, the cost ceiling, the model calls (the
+ * interpreter that reads her message, R13.1, and the reply) and the guardrails. A second entry point, { job: "followups" }, is the clock
  * half: it sweeps due touches, renders them deterministically and gates them the same
  * way. n8n stays the pipe and the clock.
  *
@@ -27,7 +27,7 @@ import {
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
-import { extractDressSize, sizeFromDressSize } from "./sizing.ts";
+import { asksForSize, statedSizeOf } from "./sizing.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
@@ -39,6 +39,7 @@ import {
   type Address,
 } from "./address.ts";
 import {
+  asksForIdentity,
   extractIdentity,
   isIdentityComplete,
   mergeIdentity,
@@ -46,8 +47,8 @@ import {
   type Identity,
 } from "./identity.ts";
 import {
-  buildCheckoutLink,
   buildCoinzzRequest,
+  buildPrefilledCheckoutLink,
   CoinzzIncompleteError,
   missingCoinzzConfig,
   type CheckoutLinkConfig,
@@ -56,13 +57,36 @@ import {
 } from "./coinzz.ts";
 import {
   decideNext,
+  DEFERRED_RETRY_DELAY_SECONDS,
   HOLDING_REPLY,
   HUMAN_HANDOFF_REPLY,
+  afterRetryFailure,
+  IN_CALL_RETRY_BUDGET_MS,
+  MAX_REWRITES,
+  MIN_ATTEMPT_MS,
+  MODEL_CALL_TIMEOUT_MS,
+  networkRetryDelay,
+  ORDER_HANDOFF_REPLY,
+  rewriteInstruction,
   SAFE_FALLBACK_REPLY,
+  THINK_REPLY,
   WELCOME_AUTO_REPLY,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
+import {
+  asksSomething,
+  decideClarify,
+  handoffFor,
+  INTERPRET_MAX_COMPLETION_TOKENS,
+  interpretRequest,
+  linkPathFor,
+  NEUTRAL_INTERPRETATION,
+  readInterpretation,
+  readyForLink,
+  sendLinkNow,
+  type Interpretation,
+} from "./interpret.ts";
 import { systemPrompt as buildSystemPrompt } from "./prompt.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
@@ -213,6 +237,8 @@ if (CONVERSATION_MODEL !== DEFAULT_CONVERSATION_MODEL) {
 interface BusinessConfig extends GateConfig {
   brand: string;
   agentName: string;
+  /** Up to how many card installments the prepaid checkout allows. Absent: never cited. */
+  prices: GateConfig["prices"] & { prepayMaxInstallments?: number };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -221,8 +247,20 @@ interface BusinessConfig extends GateConfig {
     prepayVariesByRegion?: boolean;
     warrantyDays: number;
     freeShipping: boolean;
+    /** Only an explicit `true` lets her name the Express delivery (R13.5). Absent: off. */
+    expressActive?: boolean;
   };
   cost: { conversationCapBrl: number; overrunTolerance: number };
+  /**
+   * The four facts the operator declared on 2026-09-24 (R13.5). All OPTIONAL, and absent
+   * reads as off — `BUSINESS_CONFIG` replaces this whole object in production, so a key
+   * added here does not exist there until the operator edits the secret. Absent, the
+   * agent cites no support address, no customer count and no store plan, which is
+   * today's truth until someone writes the real value down.
+   */
+  support?: { email?: string };
+  socialProof?: { satisfiedCustomers?: number };
+  store?: { physicalStorePlanCity?: string };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
   /**
@@ -374,9 +412,25 @@ const recordOutcome = async (
  */
 class ModelConfigError extends Error {}
 
+/**
+ * A failure that says nothing about the request — the server answered 5xx, or 429 (rate
+ * limit: waiting is the cure, not a person). It joins the
+ * two the runtime raises by itself (a `TypeError` when the connection dies, a
+ * `TimeoutError` from the abort signal) as the only failures worth trying again
+ * (R13.4). A 4xx is the request, and sending it again sends the same mistake.
+ */
+class TransientModelError extends Error {}
+
+const isTransient = (error: unknown): boolean =>
+  error instanceof TransientModelError ||
+  error instanceof TypeError ||
+  (error instanceof DOMException && (error.name === "TimeoutError" || error.name === "AbortError"));
+
 const callLuna = async (
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>,
+  maxTokens = 900,
+  timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
@@ -387,9 +441,13 @@ const callLuna = async (
       messages: [{ role: "system", content: system }, ...history],
       // luna is a reasoning model: a tight budget returns an error with no content,
       // not a truncated answer.
-      max_completion_tokens: 900,
+      max_completion_tokens: maxTokens,
     }),
+    signal: AbortSignal.timeout(timeoutMs),
   });
+  if (response.status >= 500 || response.status === 429) {
+    throw new TransientModelError(`openai: HTTP ${response.status}`);
+  }
   const body = await response.json();
   if (body.error) throw new Error(`openai: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
@@ -422,6 +480,8 @@ const callLuna = async (
 const callMuse = async (
   system: string,
   history: Array<{ role: "user" | "assistant"; content: string }>,
+  maxTokens = 4000,
+  timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
   const response = await fetch("https://api.meta.ai/v1/chat/completions", {
@@ -430,10 +490,14 @@ const callMuse = async (
     body: JSON.stringify({
       model: CONVERSATION_MODEL,
       messages: [{ role: "system", content: system }, ...history],
-      max_completion_tokens: 4000,
+      max_completion_tokens: maxTokens,
       reasoning_effort: "minimal",
     }),
+    signal: AbortSignal.timeout(timeoutMs),
   });
+  if (response.status >= 500 || response.status === 429) {
+    throw new TransientModelError(`meta: HTTP ${response.status}`);
+  }
   const body = await response.json();
   if (body.error) throw new Error(`meta: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
@@ -449,6 +513,27 @@ const callMuse = async (
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
   };
+};
+
+/**
+ * One model call, tried again while the failure is the network's (R13.4). The wait
+ * between tries is `networkRetryDelay` (in `retry.ts`, where a test holds it); every try
+ * is cut at whatever is left before `deadline`, so the whole loop fits inside one
+ * invocation. The last failure is rethrown for the caller to decide: defer or hand off.
+ */
+const withNetworkRetry = async <T>(call: (timeoutMs: number) => Promise<T>, deadline: number): Promise<T> => {
+  const startedAt = Date.now();
+  for (let failures = 0; ; ) {
+    try {
+      return await call(Math.max(MIN_ATTEMPT_MS, Math.min(MODEL_CALL_TIMEOUT_MS, deadline - Date.now())));
+    } catch (error) {
+      if (!isTransient(error)) throw error;
+      failures += 1;
+      const delay = networkRetryDelay(failures, Date.now() - startedAt, deadline - startedAt);
+      if (delay === null) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delay));
+    }
+  }
 };
 
 /**
@@ -480,6 +565,36 @@ const recordCall = (
   }).catch(() => undefined);
 
 /**
+ * Only "block" stops a message. Since R13.3 a gate may answer something softer ("warn")
+ * that is recorded and does not veto, so nothing here reads `allowed` — which a soft
+ * verdict may or may not clear, depending on how the chain spells it — but the verdicts.
+ */
+const passed = (result: { traces: ReadonlyArray<{ verdict: string }> }): boolean =>
+  !result.traces.some((t) => t.verdict === "block");
+
+/**
+ * Every verdict, written down as the chain spelled it. DEPLOY ORDER: `gate_traces.verdict`
+ * was checked against ('pass','block','rewrite') until migration 0007 added 'warn', and
+ * each batch is one INSERT — without 0007 applied, a single "warn" row fails the batch and
+ * every trace of that attempt is lost in silence (the `.catch` below swallows it).
+ */
+const recordTraces = (
+  conversationId: string,
+  traces: ReadonlyArray<{ gate: string; verdict: string; detail?: string }>,
+) =>
+  db("gate_traces", {
+    method: "POST",
+    body: JSON.stringify(
+      traces.map((t) => ({
+        conversation_id: conversationId,
+        gate: t.gate,
+        verdict: t.verdict,
+        detail: t.detail ?? null,
+      })),
+    ),
+  }).catch(() => undefined);
+
+/**
  * The prompt lives in `./prompt.ts` since 2026-09-22, where `tests/prompt.test.ts` can
  * build it and run what it teaches through the gates; this only binds it to the running
  * config and to the briefing of the same gates that will judge the reply.
@@ -497,9 +612,11 @@ const systemPrompt = (
  * (pure loss). When the customer's message names a plausible size, resolve it here and
  * hand the model the answer as a fact to state, not a number to reason about.
  */
-const statedSize = (message: string): { stated: number; size: string } | null => {
-  const stated = extractDressSize(message);
-  return stated === null ? null : { stated, size: sizeFromDressSize(stated) };
+const statedSize = (message: string, read: Interpretation): { size: string; forOther: boolean } | null => {
+  // The deterministic readers first, the interpreter as fallback (R13.1) — and the table
+  // decides either way. The result replaces the stored size: what she says now is current.
+  const size = statedSizeOf(message, read.size);
+  return size === null ? null : { size, forOther: read.size.for_other_person };
 };
 
 /**
@@ -520,7 +637,7 @@ const statedSize = (message: string): { stated: number; size: string } | null =>
  * version ended up sounding like a form in the first place.
  */
 const sizeDirectiveFor = (
-  stated: { stated: number; size: string } | null,
+  stated: { size: string; forOther?: boolean } | null,
   known: string | null,
   region: Region | null,
 ): string | null => {
@@ -531,7 +648,9 @@ const sizeDirectiveFor = (
   if (size === null) return null;
 
   const fitting = `O tamanho dela é ${size} — a tabela da loja resolve isso, não recalcule` +
-    ` nem escolha outro. Diga na hora, com naturalidade, sem a palavra "manequim".`;
+    ` nem escolha outro. Diga na hora, com naturalidade, sem a palavra "manequim".${
+      stated?.forOther ? ` Esse tamanho é da pessoa pra quem ela está comprando.` : ""
+    }`;
 
   if (region === null) {
     return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
@@ -569,11 +688,15 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
   // to "oi", which is where the conversation ends.
   if (Object.keys(draft).length === 0) return null;
   const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
-  const ask = nextIdentityQuestion(missing);
-  return ask === null
+  const topic = nextIdentityQuestion(missing);
+  // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
+  // for word, turn after turn. And never a condition — the link goes without it.
+  return topic === null
     ? null
-    : `Para fechar o pedido ainda falta: ${missing.join(", ")}. Pergunte SÓ isto agora,` +
-      ` com naturalidade: "${ask}". Uma coisa de cada vez — nunca peça a lista inteira.`;
+    : `Para o link do pedido já sair preenchido, falta ${topic}. Se a conversa estiver nesse` +
+      ` ponto, peça isso com as suas palavras, uma coisa só — nunca repita uma pergunta que` +
+      ` você já fez. Se ela não quiser ou não tiver, tudo bem: o link sai assim mesmo e o` +
+      ` checkout pede o resto.`;
 };
 
 /**
@@ -598,12 +721,15 @@ const checkoutDirectiveFor = (
   url: string | null,
   size: string | null,
   path: "cod" | "prepay",
+  prefilled = true,
 ): string | null =>
   url === null
     ? null
-    : `Você já tem tudo. Mande este link para ela agora, exatamente como está, sem encurtar` +
-      ` e sem alterar:\n${url}\nDiga que os dados dela já vão preenchidos. Falta ela, lá` +
-      ` dentro: digitar o endereço de entrega, escolher o dia da entrega — são três dias` +
+    : `Mande este link para ela agora, exatamente como está, sem encurtar` +
+      ` e sem alterar:\n${url}\n${
+        prefilled ? "Diga que o que ela já te passou vai preenchido." : "Diga que é só abrir e preencher lá."
+      } Falta ela, lá` +
+      ` dentro: completar os dados que faltarem, digitar o endereço de entrega, escolher o dia da entrega — são três dias` +
       ` pra ela escolher, e isso é bom, fale como bom — e${
         path === "cod"
           ? ` ESCREVER O TAMANHO${size ? ` (${size})` : ""} NO CAMPO DE COMPLEMENTO do` +
@@ -645,11 +771,45 @@ const MS_PER_WORD = 800;
 const bubbleDelayMs = (bubble: string): number =>
   Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
 
-const splitBubbles = (text: string, max = 3): string[] => {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  if (paragraphs.length <= max) return paragraphs;
-  const head = paragraphs.slice(0, max - 1);
-  return [...head, paragraphs.slice(max - 1).join("\n\n")];
+const MAX_BUBBLE_WORDS = 30;
+
+const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).length;
+
+/**
+ * Splits a reply into WhatsApp-sized bubbles. A paragraph is a bubble; a paragraph over
+ * `maxWords` is cut at sentence ends and the sentences packed back up to the limit. A
+ * sentence is NEVER cut — one longer than the limit goes out whole, because half a
+ * sentence in a bubble reads as a bug. `max` still caps the count, but only by merging
+ * trailing bubbles that fit together under `maxWords`.
+ */
+const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): string[] => {
+  const bubbles: string[] = [];
+  for (const paragraph of text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)) {
+    if (wordCount(paragraph) <= maxWords) {
+      bubbles.push(paragraph);
+      continue;
+    }
+    // [sentence, separator, sentence, ...] — the separator is kept so a line break
+    // between two sentences survives when they land in the same bubble.
+    const parts = paragraph.split(/(?<=[.!?\u2026])(\s+)(?=\S)/);
+    let current = parts[0]!;
+    for (let i = 1; i < parts.length; i += 2) {
+      const sentence = parts[i + 1]!;
+      if (wordCount(current) + wordCount(sentence) <= maxWords) {
+        current += parts[i]! + sentence;
+      } else {
+        bubbles.push(current);
+        current = sentence;
+      }
+    }
+    bubbles.push(current);
+  }
+  while (bubbles.length > max) {
+    const [a, b] = bubbles.slice(-2) as [string, string];
+    if (wordCount(a) + wordCount(b) > maxWords) break;
+    bubbles.splice(-2, 2, `${a}\n\n${b}`);
+  }
+  return bubbles;
 };
 
 /**
@@ -840,6 +1000,48 @@ const recordOrder = async (order: OrderWebhook) => {
   };
 };
 
+/**
+ * The row that carries a turn to retry (R13.4). `followups.kind` is free text and the
+ * unique (conversation_id, kind) key makes it one pending retry per conversation, which
+ * is the right number: a newer failure re-arms the same row instead of stacking another.
+ */
+const RETRY_TURN_KIND = "retry_turn";
+const RETRY_TURNS_PER_SWEEP = 1;
+/** A retried turn's own in-call budget: short, because it runs inside the sweep. */
+const RETRY_TURN_BUDGET_MS = 30_000;
+/** The interpreter gets one try: a failed reading degrades to "nothing detected". */
+const INTERPRET_TIMEOUT_MS = 20_000;
+/** On the sweep's retry the interpreter is cut much sooner — the reply is what matters. */
+const RETRY_INTERPRET_TIMEOUT_MS = 8_000;
+/** Each postcode lookup (ViaCEP, then the checkout's availability) is cut here. */
+const REGION_TIMEOUT_MS = 10_000;
+const RETRY_REGION_TIMEOUT_MS = 5_000;
+
+/**
+ * What the `retry_turn` row carries in `followups.body`: the inbound message the failed
+ * turn was answering, and how many times it was already rescheduled. The retry answers
+ * exactly that message or nothing — a newer message means a newer turn owns the reply.
+ */
+type RetryTicket = { inboundId: string; retries: number };
+
+const readTicket = (body: unknown): RetryTicket | null => {
+  try {
+    const t = JSON.parse(String(body ?? ""));
+    return typeof t?.inboundId === "string" && Number.isInteger(t?.retries)
+      ? { inboundId: t.inboundId, retries: t.retries }
+      : null;
+  } catch {
+    return null;
+  }
+};
+/** The last reply to an opt-out that also asked something — budget from turn start. */
+const OPT_OUT_FAREWELL_BUDGET_MS = 60_000;
+const OPT_OUT_FAREWELL_DIRECTIVE =
+  "Ela pediu para não receber mais mensagens, e isso já está registrado. Esta é a sua ÚLTIMA" +
+  " mensagem para ela: responda em poucas palavras só o que ela perguntou nesta mensagem e" +
+  " confirme que ela não vai receber mais mensagens nossas. Não faça pergunta, não tente" +
+  " convencer, não ofereça mais nada.";
+
 const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
@@ -849,6 +1051,9 @@ const runFollowupSweep = async () => {
 
   const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
   const skipped: Array<{ followupId: string; reason: string }> = [];
+  /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
+  const handoffs: Array<Record<string, unknown>> = [];
+  let retriedTurns = 0;
 
   for (const row of due ?? []) {
     const lead = row.conversations?.leads;
@@ -861,6 +1066,46 @@ const runFollowupSweep = async () => {
     if (!lead || lead.opted_out_at || lead.handoff_at) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "opt-out ou handoff" });
+      continue;
+    }
+
+    /**
+     * The turn that failed on the network, tried once more (R13.4). It runs the whole turn
+     * again — interpreter, gates, everything — and a failure now is the handoff. Capped
+     * per sweep because each one may spend its own retry budget, and the sweep answers
+     * inside the same 150 s as any request; the rest wait for the next sweep.
+     */
+    if (row.kind === RETRY_TURN_KIND) {
+      if (retriedTurns >= RETRY_TURNS_PER_SWEEP) {
+        skipped.push({ followupId: row.id, reason: "nova tentativa fica para a próxima varredura" });
+        continue;
+      }
+      retriedTurns += 1;
+      await mark("sent");
+      const ticket = readTicket(row.body);
+      if (ticket === null) {
+        skipped.push({ followupId: row.id, reason: "nova tentativa sem a mensagem de origem" });
+        continue;
+      }
+      // A turn that throws here must not take the rest of the sweep down with it.
+      const result = await handleTurn({ externalId: `retry:${row.id}`, from: lead.phone }, { retry: ticket })
+        .then((r) => r.json())
+        .catch((error) => ({ status: `erro: ${redactKeys(error instanceof Error ? error.message : String(error))}` }));
+      if (typeof result.reply === "string") {
+        toSend.push({ to: lead.phone, body: result.reply, kind: row.kind, followupId: row.id });
+      }
+      if (result.status === "handoff") {
+        handoffs.push({
+          followupId: row.id,
+          reason: result.reason,
+          notify: result.notify,
+          leadId: result.leadId,
+          phone: result.phone,
+          conversationId: result.conversationId,
+        });
+      } else if (typeof result.reply !== "string") {
+        skipped.push({ followupId: row.id, reason: `nova tentativa: ${result.status}` });
+      }
       continue;
     }
 
@@ -896,19 +1141,9 @@ const runFollowupSweep = async () => {
       stage: kind.startsWith("order_") ? "logistics" : "presale",
     });
 
-    await db("gate_traces", {
-      method: "POST",
-      body: JSON.stringify(
-        gates.traces.map((t) => ({
-          conversation_id: row.conversation_id,
-          gate: t.gate,
-          verdict: t.verdict,
-          detail: t.detail ?? null,
-        })),
-      ),
-    }).catch(() => undefined);
+    await recordTraces(row.conversation_id, gates.traces);
 
-    if (!gates.allowed) {
+    if (!passed(gates)) {
       const reason = gates.traces.find((t) => t.verdict === "block")?.detail ?? "guardrail";
       const action = decideTouch(kind, remedyFor(gates));
 
@@ -962,41 +1197,54 @@ const runFollowupSweep = async () => {
     toSend.push({ to: lead.phone, body: text, kind, followupId: row.id });
   }
 
-  return { status: "swept", due: (due ?? []).length, send: toSend, skipped };
+  return { status: "swept", due: (due ?? []).length, send: toSend, skipped, handoffs };
+};
+
+const json = (status: number, payload: unknown) =>
+  new Response(JSON.stringify(payload), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+
+type TurnPayload = {
+  job?: string;
+  externalId?: string;
+  from?: string;
+  body?: string;
+  /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
+  source?: Record<string, unknown>;
+  order?: OrderWebhook;
+  /**
+   * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
+   * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
+   * `external_id` idempotency check below and uses `conversations.welcomed_at`
+   * instead.
+   */
+  resume?: boolean;
 };
 
 Deno.serve(async (request: Request): Promise<Response> => {
-  const json = (status: number, payload: unknown) =>
-    new Response(JSON.stringify(payload), {
-      status,
-      headers: { "Content-Type": "application/json" },
-    });
-
   if (request.method !== "POST") return json(405, { error: "use POST" });
 
-  let payload: {
-    job?: string;
-    externalId?: string;
-    from?: string;
-    body?: string;
-    /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
-    source?: Record<string, unknown>;
-    order?: OrderWebhook;
-    /**
-     * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
-     * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
-     * `external_id` idempotency check below and uses `conversations.welcomed_at`
-     * instead.
-     */
-    resume?: boolean;
-  };
+  let payload: TurnPayload;
   try {
     payload = await request.json();
   } catch {
     return json(400, { error: "corpo não é JSON" });
   }
+  return await handleTurn(payload);
+});
 
-  // The cron half: sweep the follow-up rulers. Deterministic, no model call.
+/**
+ * Everything after the JSON is read. A function of its own since 2026-09-24 so the sweep
+ * can run a turn again after a network failure (R13.4); `internal.retry` is only ever set
+ * by the sweep, never by what n8n posts.
+ */
+const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket } = {}): Promise<Response> => {
+  const turnStartedAt = Date.now();
+
+  // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
+  // `retry_turn` rows, which run a whole turn again (R13.4).
   if (payload.job === "followups") return json(200, await runFollowupSweep());
 
   // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
@@ -1014,11 +1262,14 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(400, { error: "externalId e from são obrigatórios" });
   }
   const isResume = payload.resume === true;
+  // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
+  // carries no fresh message: it re-reads the one already stored.
+  const isRetry = internal.retry !== undefined;
 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
   // against, so it gets its own guard below instead (welcomed_at vs. last_outbound_at).
-  if (!isResume) {
+  if (!isResume && !isRetry) {
     const seen = await db(`messages?external_id=eq.${encodeURIComponent(inbound.externalId)}&select=id`);
     if (seen?.length) return json(200, { status: "duplicate" });
   }
@@ -1070,6 +1321,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
     orderBuilt: false,
   });
 
+  /** The stored inbound message this turn answers — what a `retry_turn` ticket names. */
+  let inboundId: string | null = null;
+
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
   // from the conversation instead of trusting whatever n8n resent, and it is a no-op if
@@ -1084,13 +1338,34 @@ Deno.serve(async (request: Request): Promise<Response> => {
       return json(200, { status: "resume_moot" });
     }
     const latest = await db(
-      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=body&order=created_at.desc&limit=1`,
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,body&order=created_at.desc&limit=1`,
     );
     inbound = { ...inbound, body: latest?.[0]?.body ?? inbound.body ?? "" };
+    inboundId = latest?.[0]?.id ?? null;
   }
 
-  if (!isResume) {
-    await db("messages", {
+  // 2b-bis. The retry answers exactly the message whose turn failed — and only while that
+  // is still her latest and nothing was sent after it. A newer message means a newer turn
+  // already owns the reply, and answering the old one too is the duplicate this guards.
+  // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+  if (isRetry) {
+    const latest = await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,body,created_at&order=created_at.desc&limit=1`,
+    );
+    if (
+      !latest?.[0] ||
+      latest[0].id !== internal.retry!.inboundId ||
+      (conversation.last_outbound_at &&
+        new Date(conversation.last_outbound_at).getTime() > new Date(latest[0].created_at).getTime())
+    ) {
+      return json(200, { status: "retry_moot" });
+    }
+    inbound = { ...inbound, body: latest[0].body ?? "" };
+    inboundId = latest[0].id;
+  }
+
+  if (!isResume && !isRetry) {
+    inboundId = (await db("messages", {
       method: "POST",
       body: JSON.stringify({
         conversation_id: conversation.id,
@@ -1098,7 +1373,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
         body: inbound.body ?? "",
         external_id: inbound.externalId,
       }),
-    });
+    }))?.[0]?.id ?? null;
   }
 
   // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the
@@ -1116,19 +1391,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       now: new Date(),
       paymentPath: "cod",
     });
-    await db("gate_traces", {
-      method: "POST",
-      body: JSON.stringify(
-        receipt.traces.map((t) => ({
-          conversation_id: conversation.id,
-          gate: t.gate,
-          verdict: t.verdict,
-          detail: t.detail ?? null,
-        })),
-      ),
-    }).catch(() => undefined);
+    await recordTraces(conversation.id, receipt.traces);
 
-    if (receipt.allowed) {
+    if (passed(receipt)) {
       const out = (
         await db("messages", {
           method: "POST",
@@ -1158,6 +1423,14 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   // She answered: every touch waiting on her silence is moot.
   await cancelScheduled(conversation.id);
+  // And a turn waiting to be retried is moot too: this turn answers her, with the failed
+  // message still in the history it reads. Index: unique (conversation_id, kind).
+  if (!isRetry) {
+    await db(
+      `followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`,
+      { method: "PATCH", body: JSON.stringify({ status: "canceled" }) },
+    ).catch(() => undefined);
+  }
 
   // Retention counts from the last contact, not the first.
   await db("rpc/touch_retention", {
@@ -1165,19 +1438,164 @@ Deno.serve(async (request: Request): Promise<Response> => {
     body: JSON.stringify({ p_lead_id: lead.id }),
   }).catch(() => undefined);
 
+  // The spend so far, read before any exit that may call a model. `turn_outcomes`
+  // records the delta against `spentBefore`.
+  let spent = Number(conversation.cost_brl ?? 0);
+  const spentBefore = spent;
+
+  // Which host serves CONVERSATION_MODEL, resolved once — used for every call and for
+  // the provider label written to `llm_calls`, so the two never disagree.
+  const conversationProvider = MUSE_FAMILY.test(CONVERSATION_MODEL) ? "meta" : "openai";
+  const callConversationModel = conversationProvider === "meta" ? callMuse : callLuna;
+
+  /**
+   * The conversation goes to a person (R13.2) — for the three reasons that are hers, never
+   * for a reply the agent phrased badly. The handoff is recorded first; only the receipt
+   * is gated, as `layer: "auto"` (R4.4), so every content gate still applies while the
+   * hours gate does not: someone who asks for a person at 2am deserves the confirmation
+   * then. If the chain ever vetoes the receipt, the operator is still called — silently
+   * dropping the alert would be the worse half of the two. The e-mail goes the way it
+   * always did: `notification(...)` in the body, sent by n8n.
+   */
+  const handOff = async (reply: string, reason: string): Promise<Response> => {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+    });
+    await cancelScheduled(conversation.id);
+    const receipt = runGates(reply, {
+      config: CONFIG,
+      layer: "auto",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: "cod",
+    });
+    await recordTraces(conversation.id, receipt.traces);
+    const sendable = passed(receipt);
+    const asked = sendable
+      ? (
+          await db("messages", {
+            method: "POST",
+            body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: reply }),
+          })
+        )[0]
+      : null;
+    if (spent !== spentBefore) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      }).catch(() => undefined);
+    }
+    await Promise.all([
+      recordOutcome(conversation.id, "handoff", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
+    return json(200, {
+      status: "handoff",
+      reason,
+      reply: sendable ? reply : null,
+      bubbles: paced(sendable ? reply : null),
+      blocked: receipt.traces.filter((t) => t.verdict === "block"),
+      messageId: asked?.id ?? null,
+      ...notification(lead, conversation),
+      costBrl: spent,
+    });
+  };
+
+  /**
+   * She opted out and asked something in the same message (R13.4, Rose: "não me manda
+   * mais mensagem... só me diz o preço antes"). One last reply — the answer and the
+   * confirmation — through the whole chain, with the same rewrites any reply gets. The
+   * opt-out gate is told `optedOut: false` for this one message only: it is the reply to
+   * the opt-out itself, and the opt-out is already written. Anything that goes wrong
+   * returns null, and she gets the plain opt-out — never a retry, never a handoff.
+   */
+  const optOutFarewell = async (): Promise<{ text: string; id: string | null } | null> => {
+    if (spent >= ceilingBrl) return null;
+    const history = await db(
+      `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.desc&limit=20`,
+    ).catch(() => null);
+    const turns = [...(history ?? [])].reverse().map((m: { direction: string; body: string }) => ({
+      role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
+      content: m.body ?? "",
+    }));
+    const base = `${systemPrompt(null)} ${OPT_OUT_FAREWELL_DIRECTIVE}`;
+    let correction = "";
+    const deadline = turnStartedAt + OPT_OUT_FAREWELL_BUDGET_MS;
+    for (let rewrites = 0; rewrites <= MAX_REWRITES; rewrites += 1) {
+      let attempt: ModelCall;
+      try {
+        attempt = await withNetworkRetry(
+          (timeoutMs) => callConversationModel(`${base}${correction}`, turns, undefined, timeoutMs),
+          deadline,
+        );
+      } catch {
+        break;
+      }
+      spent += attempt.costBrl;
+      await recordCall(conversation.id, "farewell", conversationProvider, CONVERSATION_MODEL, attempt);
+      const gated = runGates(attempt.text, {
+        config: CONFIG,
+        layer: "agent",
+        optedOut: false,
+        now: new Date(),
+        paymentPath: "cod",
+      });
+      await recordTraces(conversation.id, gated.traces);
+      if (passed(gated)) {
+        const out = await db("messages", {
+          method: "POST",
+          body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: attempt.text }),
+        }).catch(() => null);
+        await db(`conversations?id=eq.${conversation.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ cost_brl: spent, last_outbound_at: new Date().toISOString() }),
+        }).catch(() => undefined);
+        return { text: attempt.text, id: out?.[0]?.id ?? null };
+      }
+      if (remedyFor(gated) !== "rewrite" || spent >= ceilingBrl) break;
+      correction = ` ${rewriteInstruction(
+        gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
+        attempt.text,
+      )}`;
+    }
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent }),
+    }).catch(() => undefined);
+    return null;
+  };
+
   // 3. Opt-out is irrevocable and costs nothing to check.
   const optOut = classifyOptOut(inbound.body ?? "");
   if (optOut === "explicit") {
+    // Written first: nothing below — a model call, a failure — may delay or lose it.
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ opted_out_at: new Date().toISOString() }),
     });
+    // Only on the opt-out itself: a lead already out, or already with a person, gets none.
+    const farewell =
+      !lead.opted_out_at && !lead.handoff_at && asksSomething(inbound.body ?? "") ? await optOutFarewell() : null;
     // `bloqueado` is terminal and irreversible by the agent — only a person undoes it.
     await Promise.all([
-      recordOutcome(conversation.id, "opted_out", "opt-out explícito da cliente"),
+      recordOutcome(
+        conversation.id,
+        "opted_out",
+        farewell ? "opt-out explícito, com a última resposta ao que ela perguntou" : "opt-out explícito da cliente",
+        0,
+        spent - spentBefore,
+      ),
       persistStage(conversation.id, storedStage, "bloqueado"),
     ]);
-    return json(200, { status: "opted_out" });
+    // n8n sends `reply` when it is present; a plain opt-out still carries none.
+    return json(200, {
+      status: "opted_out",
+      reply: farewell?.text ?? null,
+      bubbles: paced(farewell?.text ?? null),
+      messageId: farewell?.id ?? null,
+      costBrl: spent,
+    });
   }
   if (lead.opted_out_at) return json(200, { status: "already_opted_out" });
 
@@ -1188,75 +1606,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, { status: "already_handed_off", ...notification(lead, conversation) });
   }
 
-  // 3b. She asked for a person (§Q12). Deterministic, so it costs nothing and never
-  // depends on the model noticing — and it runs before any model call, because there
-  // is no point paying to generate a reply she already said she does not want.
+  // 3b. She asked for a person (§Q12), in one of the exact phrases. Deterministic, so it
+  // costs nothing and never depends on the model noticing — and it runs before any model
+  // call, because there is no point paying to generate a reply she already said she does
+  // not want. The interpreter (4b) catches the request inside a longer message.
   if (wantsHuman(inbound.body ?? "")) {
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-    });
-    await cancelScheduled(conversation.id);
-
-    // The one outbound that used to skip the chain. It runs as `layer: "auto"` — the
-    // 24/7 receipt tier of R4.4 — so every content gate still applies while the hours
-    // gate does not: someone who asks for a person at 2am deserves the confirmation
-    // then, not at dawn.
-    const receipt = runGates(HUMAN_HANDOFF_REPLY, {
-      config: CONFIG,
-      layer: "auto",
-      optedOut: false,
-      now: new Date(),
-      paymentPath: "cod",
-    });
-    await db("gate_traces", {
-      method: "POST",
-      body: JSON.stringify(
-        receipt.traces.map((t) => ({
-          conversation_id: conversation.id,
-          gate: t.gate,
-          verdict: t.verdict,
-          detail: t.detail ?? null,
-        })),
-      ),
-    }).catch(() => undefined);
-
-    // The handoff itself is already recorded above; only the receipt is gated. If the
-    // chain ever vetoes it, the operator is still called — silently dropping the alert
-    // would be the worse half of the two.
-    const asked = receipt.allowed
-      ? (
-          await db("messages", {
-            method: "POST",
-            body: JSON.stringify({
-              conversation_id: conversation.id,
-              direction: "outbound",
-              body: HUMAN_HANDOFF_REPLY,
-            }),
-          })
-        )[0]
-      : null;
-
-    await Promise.all([
-      recordOutcome(conversation.id, "handoff", "a cliente pediu para falar com uma pessoa"),
-      persistStage(conversation.id, storedStage, reachedSoFar),
-    ]);
-    return json(200, {
-      status: "handoff",
-      reason: "a cliente pediu para falar com uma pessoa",
-      reply: receipt.allowed ? HUMAN_HANDOFF_REPLY : null,
-      bubbles: paced(receipt.allowed ? HUMAN_HANDOFF_REPLY : null),
-      blocked: receipt.traces.filter((t) => t.verdict === "block"),
-      messageId: asked?.id ?? null,
-      ...notification(lead, conversation),
-      costBrl: Number(conversation.cost_brl ?? 0),
-    });
+    return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
   // 4. The ceiling is checked before a byte leaves for any provider.
-  let spent = Number(conversation.cost_brl ?? 0);
-  // What the conversation had spent before this turn: `turn_outcomes` records the delta.
-  const spentBefore = spent;
   if (spent >= ceilingBrl) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -1351,6 +1709,173 @@ Deno.serve(async (request: Request): Promise<Response> => {
     });
   };
 
+  /**
+   * The network stayed down through every in-call retry (R13.4). Not a handoff yet: one
+   * more attempt is scheduled for the sweep, which runs every 5 minutes on the n8n cron.
+   * She hears nothing now — the retried turn answers her, or hands off if it fails too.
+   * Null when the row could not be written, and then the caller hands off: silence with
+   * nothing scheduled would be the one outcome worse than a handoff.
+   * Index: the unique (conversation_id, kind) of `followups`, as the rulers use.
+   */
+  const deferRetry = async (error: unknown, retries: number): Promise<Response | null> => {
+    if (inboundId === null) return null;
+    const runAt = new Date(Date.now() + DEFERRED_RETRY_DELAY_SECONDS * 1000);
+    const ticket: RetryTicket = { inboundId, retries };
+    const armed = await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      body: JSON.stringify({
+        conversation_id: conversation.id,
+        kind: RETRY_TURN_KIND,
+        run_at: runAt.toISOString(),
+        status: "scheduled",
+        body: JSON.stringify(ticket),
+      }),
+    }).then(() => true, () => false);
+    if (!armed) return null;
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    const reason = "falha de rede ao chamar o modelo — nova tentativa agendada";
+    await Promise.all([
+      recordOutcome(conversation.id, "deferred", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
+    return json(200, {
+      status: "deferred",
+      reason,
+      detail: redactKeys(error instanceof Error ? error.message : String(error)),
+      runAt: runAt.toISOString(),
+      costBrl: spent,
+    });
+  };
+
+  /**
+   * A fixed line, sent through the chain like anything else (the clarify ladder and the
+   * "vou pensar" reply, R13.4). Null when the chain refuses it — out of hours, typically —
+   * and the caller then falls through to the normal turn, which handles that case.
+   */
+  const sendFixed = async (
+    text: string,
+    reason: string,
+    path: "cod" | "prepay" = "cod",
+    extra: Record<string, unknown> = {},
+  ): Promise<Response | null> => {
+    const gated = runGates(text, {
+      config: CONFIG,
+      layer: "agent",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: path,
+    });
+    await recordTraces(conversation.id, gated.traces);
+    if (!passed(gated)) return null;
+    const out = (
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: text }),
+      })
+    )[0];
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        cost_brl: spent,
+        last_inbound_at: new Date().toISOString(),
+        last_outbound_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    });
+    // A fixed line that carries the link starts the ruler at `link_sent`: the delivery
+    // checkout's URL has neither "checkout" nor "link" in it for `stopPointOf` to see.
+    await scheduleSilenceTouches(conversation.id, extra.checkoutUrl ? "link_sent" : stopPointOf(text));
+    await Promise.all([
+      recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
+    return json(200, {
+      status: "ok",
+      reason,
+      reply: text,
+      bubbles: paced(text),
+      messageId: out.id,
+      rewrites: 0,
+      ...extra,
+      costBrl: spent,
+      ceilingBrl,
+    });
+  };
+
+  // The agent's last message: what the interpreter compares her answer with, what the
+  // clarify ladder counts from, and what the address read-back is checked against.
+  // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+  const lastOutbound: string =
+    (
+      await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          "&select=body&order=created_at.desc&limit=1",
+      ).catch(() => null)
+    )?.[0]?.body ?? "";
+
+  /**
+   * 4b. The interpreter (R13.1). One call, same model, strict JSON: what her message
+   * says, read by the model and acted on by the code below. It never fails the turn — a
+   * failed call reads as `NEUTRAL_INTERPRETATION` and the deterministic readers still run.
+   */
+  let interpretation: Interpretation = NEUTRAL_INTERPRETATION;
+  let interpreted = false;
+  try {
+    const ask = interpretRequest(lastOutbound, inbound.body ?? "");
+    const reading = await callConversationModel(
+      ask.system,
+      [{ role: "user", content: ask.user }],
+      INTERPRET_MAX_COMPLETION_TOKENS,
+      isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS,
+    );
+    spent += reading.costBrl;
+    await recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading);
+    ({ parsed: interpreted, interpretation } = readInterpretation(reading.text));
+  } catch {
+    // Neutral reading; the turn goes on.
+  }
+  // The reply's retry budget starts here, after the interpreter, so a slow reading does
+  // not eat into it; the interpreter's own timeout bounds what came before.
+  const replyBudgetFrom = Date.now();
+
+  // 4c. The only other doors to a person (R13.2): an order she wants cancelled, a
+  // question about an order that exists, or a person asked for inside a longer message
+  // — which needs the reading AND a person-word in her text. The exact phrases already
+  // returned at 3b, hence `false` here.
+  //
+  // Cancel and post-sale need an order to be about: one on file for the lead (index
+  // `orders_lead_idx`), or a checkout link already sent in this conversation (index
+  // `messages_conversation_idx`, then a filter on the body). Only queried when the reading
+  // asks — most turns never pay for it.
+  let orderContext = false;
+  if (interpretation.wants_cancel || interpretation.post_sale) {
+    const orders = await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
+    orderContext = (orders?.length ?? 0) > 0;
+    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl]) {
+      if (orderContext || !base) continue;
+      const sent = await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          `&body=like.${encodeURIComponent(`*${base}*`)}&select=id&limit=1`,
+      ).catch(() => null);
+      orderContext = (sent?.length ?? 0) > 0;
+    }
+  }
+  const handoffKind = handoffFor(interpretation, inbound.body ?? "", false, orderContext);
+  if (handoffKind !== null) {
+    return await handOff(
+      handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,
+      handoffKind === "cancel"
+        ? "a cliente quer cancelar um pedido"
+        : handoffKind === "post_sale"
+        ? "a cliente pergunta sobre um pedido existente"
+        : "a cliente pediu para falar com uma pessoa",
+    );
+  }
+
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
   // 2026-09-23, R12.1: Meta is the only model provider.)
@@ -1359,7 +1884,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // and an empty column becomes a dash in a message a customer sees. What counts as
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
-  const stated = statedSize(inbound.body ?? "");
+  const stated = statedSize(inbound.body ?? "", interpretation);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -1374,16 +1899,6 @@ Deno.serve(async (request: Request): Promise<Response> => {
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
-
-  // The agent's last message, fetched here rather than reused from the history window
-  // below, because the confirmation is decided before that window is read.
-  const lastOutbound: string =
-    (
-      await db(
-        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
-          "&select=body&order=created_at.desc&limit=1",
-      ).catch(() => null)
-    )?.[0]?.body ?? "";
 
   const foundAddress = extractAddress(inbound.body ?? "");
   if (Object.keys(foundAddress.fields).length > 0) {
@@ -1425,7 +1940,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (addressDraft.cep) {
     try {
       region = await checkRegion(async (url) => {
-        const r = await fetch(url);
+        const r = await fetch(url, {
+          signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+        });
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
     } catch {
@@ -1452,13 +1969,56 @@ Deno.serve(async (request: Request): Promise<Response> => {
   // 5e. Identity accumulates the same way, and for the same reason.
   const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
   const foundIdentity = extractIdentity(inbound.body ?? "");
-  const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
+  // The e-mail the interpreter read counts when the strict reader found none.
+  const identityFound = {
+    ...(interpretation.email ? { email: interpretation.email } : {}),
+    ...foundIdentity.fields,
+  };
+  const identityDraft = mergeIdentity(storedIdentity, identityFound).fields;
   if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
+
+  // 5f. The clarify ladder (R13.4): the agent asked her size and the answer is about
+  // nothing — three fixed lines from the operator, then silence until a message makes
+  // sense. The step is read back from the last outbound, so there is nothing to store.
+  // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
+  // message carrying data is never answered with a size line or with silence.
+  const lastAskedSize = asksForSize(lastOutbound);
+  const clarify = decideClarify({
+    interpreted,
+    interpretation,
+    lastOutbound,
+    lastAskedSize,
+    sizeFound: stated !== null,
+    factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
+  });
+  if (clarify.kind === "silent") {
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
+    await Promise.all([
+      recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
+    return json(200, { status: "stopped", reason, costBrl: spent });
+  }
+  if (clarify.kind === "reply") {
+    const sent = await sendFixed(clarify.text, "escada do tamanho");
+    if (sent) return sent;
+  }
+  // She asked her own question instead of the size: she gets the answer, and the size
+  // comes back at the end of it.
+  const backToSize =
+    lastAskedSize && stated === null && interpretation.pending_answer === "other_question"
+      ? `Ela fez outra pergunta em vez de dizer o tamanho: responda a pergunta dela primeiro` +
+        ` e, no fim, volte a perguntar o tamanho, com outras palavras.`
+      : null;
 
   // This turn's size, address and identity are already stored on the lead; the rung they
   // support holds for every exit from here on. The order is only built at the end.
@@ -1494,45 +2054,82 @@ Deno.serve(async (request: Request): Promise<Response> => {
   /**
    * The link she finishes in, built before the model writes so the reply can carry it.
    *
-   * It needs the three the conversation collects; with all of them plus her phone the
-   * checkout skips its first step. Nothing here is half-built — a link that fills three
-   * fields and still opens at the top is the same friction with an extra click.
+   * Since R13.4 (2026-09-24) it no longer waits for name, e-mail and CPF: it goes out
+   * with whatever is known as soon as she is ready — she wants to buy, she has no e-mail
+   * or will not give it, or she let an ask for it pass — and the checkout form asks for
+   * the rest. The identity ask became a directive for the agent to phrase, and it stops
+   * once the link is in the chat.
    */
+  const linkPath = linkPathFor(interpretation.payment_choice, region);
+  const identityComplete = isIdentityComplete(identityDraft);
+  const sizeKnown = (stated?.size ?? lead.size ?? null) !== null;
+  const readiness = {
+    identityComplete,
+    interpretation,
+    identityAsked: asksForIdentity(lastOutbound),
+    identityGiven: Object.keys(identityFound).length > 0,
+  };
+  const linkNow = sendLinkNow({ ...readiness, sizeKnown });
+  // Ready for the link and the size still unknown: the size comes first, asked naturally.
+  const sizeBeforeLink =
+    !sizeKnown && readyForLink(readiness)
+      ? `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
+        ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
+      : null;
+  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
+    (u): u is string => typeof u === "string" && u !== "",
+  );
+  const linkAlreadySent = recentOutbound.some((m: string) => checkoutBases.some((u) => m.includes(u)));
   let checkoutUrl: string | null = null;
-  let checkoutBlocked: string[] = (["name", "email", "document"] as const)
-    .filter((f) => !identityDraft[f])
-    .map((f) => `customer.${f}`);
-  if (checkoutBlocked.length === 0) {
+  let checkoutBlocked: string[] = linkNow
+    ? []
+    : (["name", "email", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
+  if (linkNow) {
     try {
-      checkoutUrl = buildCheckoutLink(
-        { ...(identityDraft as Identity), phone: lead.phone },
-        "cod",
-        CONFIG.checkout ?? {},
-      );
+      checkoutUrl = buildPrefilledCheckoutLink({ ...identityDraft, phone: lead.phone }, linkPath, CONFIG.checkout ?? {});
     } catch (error) {
       checkoutBlocked =
         error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
     }
   }
 
-  const identityDirective = identityDirectiveFor(identityDraft);
+  // "Vou pensar" (R13.4): the operator's line, then the link in a bubble of its own. No
+  // model call — unless she also asked something, and then the model answers with the
+  // link in its directive like any other turn.
+  if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
+    // Never a link without a size: without one she gets the line alone.
+    let thinkLink: string | null = null;
+    try {
+      thinkLink = sizeKnown
+        ? buildPrefilledCheckoutLink({ ...identityDraft, phone: lead.phone }, linkPath, CONFIG.checkout ?? {})
+        : null;
+    } catch {
+      thinkLink = null;
+    }
+    const sent = await sendFixed(
+      thinkLink ? `${THINK_REPLY}\n\n${thinkLink}` : THINK_REPLY,
+      "ela vai pensar: resposta fixa e link",
+      linkPath,
+      { checkoutUrl: thinkLink },
+    );
+    if (sent) return sent;
+  }
+
+  const identityDirective = linkNow || linkAlreadySent ? null : identityDirectiveFor(identityDraft);
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
     stated?.size ?? lead.size ?? null,
-    // Still hardcoded, like every other `paymentPath` in this handler. Routing by what
-    // the availability query answers is the next change, and it is blocked: that query
-    // belongs to the Coinzz checkout, which as of 2026-09-09 is the PREPAID path only.
-    "cod",
+    linkPath,
+    Object.keys(identityDraft).length > 0,
   );
+  const sizeDirective =
+    [sizeDirectiveFor(stated, lead.size ?? null, region), backToSize, sizeBeforeLink].filter(Boolean).join(" ") ||
+    null;
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
   // model and it writes the message again. Silence and "the operator will handle it"
   // are what this loop exists to avoid; both are last resorts, not first answers.
-  // Which host serves CONVERSATION_MODEL, resolved once — used for both the call and
-  // the provider label written to `llm_calls`, so the two never disagree.
-  const conversationProvider = MUSE_FAMILY.test(CONVERSATION_MODEL) ? "meta" : "openai";
-  const callConversationModel = conversationProvider === "meta" ? callMuse : callLuna;
   let attempt: ModelCall;
   let gates: ReturnType<typeof runGates>;
   let rewritesUsed = 0;
@@ -1541,15 +2138,27 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
   while (true) {
     try {
-      attempt = await callConversationModel(
-        // The correction rides in the system prompt, so the vetoed text never enters
-        // the conversation history the customer's next turn is built from.
-        correction === null
-          ? systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)
-          : `${systemPrompt(sizeDirectiveFor(stated, lead.size ?? null, region), identityDirective, checkoutDirective)} ${correction}`,
-        turns,
+      // The correction rides in the system prompt, so the vetoed text never enters
+      // the conversation history the customer's next turn is built from.
+      const system = correction === null
+        ? systemPrompt(sizeDirective, identityDirective, checkoutDirective)
+        : `${systemPrompt(sizeDirective, identityDirective, checkoutDirective)} ${correction}`;
+      attempt = await withNetworkRetry(
+        (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
+        replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
       );
     } catch (error) {
+      // The network, still down after the in-call retries: one more try from the sweep
+      // before anyone is called (R13.4). On that try, a call our own budget cut — slow,
+      // not dead — is rescheduled rather than handed off, up to MAX_DEFERRED_RETRIES.
+      if (isTransient(error)) {
+        const timedOut = error instanceof DOMException && error.name === "TimeoutError";
+        const retries = internal.retry?.retries ?? -1;
+        if (!isRetry || afterRetryFailure(timedOut, retries) === "reschedule") {
+          const deferred = await deferRetry(error, retries + 1);
+          if (deferred) return deferred;
+        }
+      }
       return await modelFailure(error);
     }
     spent += attempt.costBrl;
@@ -1566,7 +2175,9 @@ Deno.serve(async (request: Request): Promise<Response> => {
       layer: "agent",
       optedOut: false,
       now: new Date(),
-      paymentPath: "cod",
+      // The path the link opens (R13.4) — "cod" unless she chose prepaid or her region
+      // has no cash on delivery, and then the prepaid rules are the ones that apply.
+      paymentPath: linkPath,
       recentOutbound,
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.
@@ -1579,17 +2190,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
 
     // Every attempt is traced, not just the last: a gate that keeps firing across
     // rewrites is a prompt problem, and the trace is what lets Hermes see it.
-    await db("gate_traces", {
-      method: "POST",
-      body: JSON.stringify(
-        gates.traces.map((t) => ({
-          conversation_id: conversation.id,
-          gate: t.gate,
-          verdict: t.verdict,
-          detail: t.detail ?? null,
-        })),
-      ),
-    }).catch(() => undefined);
+    await recordTraces(conversation.id, gates.traces);
 
     outcome = decideNext({
       remedy: remedyFor(gates),
@@ -1819,4 +2420,4 @@ Deno.serve(async (request: Request): Promise<Response> => {
     costBrl: spent,
     ceilingBrl,
   });
-});
+};

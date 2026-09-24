@@ -146,16 +146,33 @@ export const isIdentityComplete = (fields: Partial<Identity>): fields is Identit
   IDENTITY_FIELDS.every((f) => Boolean(fields[f]));
 
 /**
- * One question at a time, in the order that feels least like a form. The name first
+ * One thing at a time, in the order that feels least like a form. The name first
  * because it is the one she gives without thinking; the CPF last because it is the one
  * that makes people hesitate, and by then she has already invested in the conversation.
+ *
+ * What comes back is a TOPIC for the agent to phrase, not a sentence to send (R13.4,
+ * 2026-09-24). The fixed e-mail question ("…É pra onde vai a confirmação do pedido.")
+ * was quoted into the directive and the model repeated it word for word, turn after turn,
+ * to customers who had already answered something else — four of twelve personas stalled
+ * on it. Never a fixed identity question again: the agent says it her own way.
  */
 export const nextIdentityQuestion = (missing: readonly IdentityField[]): string | null => {
   const asks: Record<IdentityField, string> = {
-    name: "Qual é o seu nome completo?",
-    email: "Qual é o seu e-mail? É pra onde vai a confirmação do pedido.",
-    document: "Por último, o seu CPF — a transportadora precisa dele pra entregar.",
+    name: "o nome completo dela",
+    email: "o e-mail dela, que é pra onde vai a confirmação do pedido",
+    document: "o CPF dela",
   };
   const next = IDENTITY_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;
 };
+
+/**
+ * Whether the agent's last message ASKED for name, e-mail or CPF — in a question, so the
+ * link message saying "seu e-mail já vai preenchido" does not count. When it did and her
+ * answer brought none of them, she ignored the ask — and the link goes out anyway, with
+ * what is known, instead of asking again (R13.4).
+ */
+export const asksForIdentity = (text: string): boolean =>
+  text
+    .split(/(?<=[.!?\n])\s*/)
+    .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));

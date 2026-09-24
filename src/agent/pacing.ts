@@ -45,10 +45,51 @@ export const firstReplyAt = (arrivedAt: Date, c: BusinessConfig): Date => {
   return nextOpening(arrivedAt, openHour);
 };
 
-/** Splits a reply into WhatsApp-sized bubbles, at most three, never mid-sentence. */
-export const splitBubbles = (text: string, max = 3): string[] => {
-  const paragraphs = text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean);
-  if (paragraphs.length <= max) return paragraphs;
-  const head = paragraphs.slice(0, max - 1);
-  return [...head, paragraphs.slice(max - 1).join("\n\n")];
+/**
+ * Bubbles of about thirty words at most (R13.4, 2026-09-24): the persona runs measured a
+ * median of 49 words per message, and a wall of text on WhatsApp reads as a form letter.
+ * Mirrored inline in `supabase/functions/turn/index.ts` — from the declaration below up to
+ * the `export` line, byte for byte, held by `tests/function-drift.test.ts`.
+ */
+const MAX_BUBBLE_WORDS = 30;
+
+const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).length;
+
+/**
+ * Splits a reply into WhatsApp-sized bubbles. A paragraph is a bubble; a paragraph over
+ * `maxWords` is cut at sentence ends and the sentences packed back up to the limit. A
+ * sentence is NEVER cut — one longer than the limit goes out whole, because half a
+ * sentence in a bubble reads as a bug. `max` still caps the count, but only by merging
+ * trailing bubbles that fit together under `maxWords`.
+ */
+const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): string[] => {
+  const bubbles: string[] = [];
+  for (const paragraph of text.split(/\n{2,}/).map((p) => p.trim()).filter(Boolean)) {
+    if (wordCount(paragraph) <= maxWords) {
+      bubbles.push(paragraph);
+      continue;
+    }
+    // [sentence, separator, sentence, ...] — the separator is kept so a line break
+    // between two sentences survives when they land in the same bubble.
+    const parts = paragraph.split(/(?<=[.!?\u2026])(\s+)(?=\S)/);
+    let current = parts[0]!;
+    for (let i = 1; i < parts.length; i += 2) {
+      const sentence = parts[i + 1]!;
+      if (wordCount(current) + wordCount(sentence) <= maxWords) {
+        current += parts[i]! + sentence;
+      } else {
+        bubbles.push(current);
+        current = sentence;
+      }
+    }
+    bubbles.push(current);
+  }
+  while (bubbles.length > max) {
+    const [a, b] = bubbles.slice(-2) as [string, string];
+    if (wordCount(a) + wordCount(b) > maxWords) break;
+    bubbles.splice(-2, 2, `${a}\n\n${b}`);
+  }
+  return bubbles;
 };
+
+export { MAX_BUBBLE_WORDS, splitBubbles };
