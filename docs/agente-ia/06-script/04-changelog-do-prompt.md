@@ -5,6 +5,72 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
+### 2026-09-24 (d) — Malu adaptável: decisões do operador depois das rodadas 1 e 2
+
+- **Mudou (muitas coisas juntas, a pedido do operador. O efeito de cada uma não é
+  atribuível):**
+  1. **Tamanho da mensagem.** "Duas ou três frases" virou "até uns 30 palavras por padrão".
+     Se precisar de mais, vai em outro parágrafo, separado por linha em branco. Cada
+     parágrafo vira um balão (no máximo três, como o `splitBubbles` corta), e nenhum balão
+     corta uma frase no meio.
+  2. **Pergunta da roupa no máximo uma vez.** Depois que ela responde, a resposta vira
+     argumento, e se não respondeu a Malu não insiste. A mesma pergunta nunca volta com as
+     mesmas palavras. Preço, pagamento na entrega e os 7 dias saem uma vez por assunto. A
+     reversão de risco deixou de mandar "repita com palavras novas" e agora diz "quando ela
+     hesitar, não em toda mensagem".
+  3. **Garantia** sempre como "N dias após o recebimento", em toda passagem do prompt que
+     cita os dias (quatro hoje).
+  4. **Handoff.** A abertura parou de "oferecer chamar alguém do time". Um bloco novo diz
+     que quem chama pessoa é o sistema, e que ela nunca diz que chamou ou avisou alguém sem
+     a instrução do sistema.
+  5. **Tamanho.** A Malu ajuda a achar o tamanho perguntando pela calça confortável e se
+     ela prefere a roupa soltinha ou justinha. Aceita a cintura em cm quando ela manda
+     (antes o prompt dizia "não peça medida em centímetros" e o modelo recusou a Marcinha).
+     Nunca recusa uma medida e nunca troca o tamanho que o sistema deu.
+  6. **Bloco novo `AS PERGUNTAS QUE MAIS APARECEM`** (`objectionBriefing`): vou pensar, medo
+     de errar o tamanho, tá caro, parcelamento/juros, data exata, depoimento/zap de cliente,
+     CNPJ, CPF e opt-out com pergunta. O e-mail, sem insistir, ficou no parágrafo dos dados.
+     O valor do frete no antecipado "aparece no checkout" e só entra no ramo de frete pago.
+  7. **Config nova, toda opcional** (`PromptConfig`). Chave ausente derruba a linha:
+     `support.email` (CNPJ), `socialProof.satisfiedCustomers` ("mais de N clientes
+     satisfeitas"), `prices.prepayMaxInstallments` ("até Nx no antecipado pelo cartão"),
+     `store.physicalStorePlanCity` (a frase do plano de loja; sem ela, volta a resposta
+     "toda online") e `delivery.expressActive` (`expressLine`: só `=== true` fala em
+     Express; ausente ou `false`, este arquivo não cita a palavra).
+- **Por quê:** rodadas 1 e 2 das personas
+  (`docs/agente-ia/05-plano/05-rodada-personas-2026-09-24.md`), achados 4, 8, 9, 12, 13 e
+  14, mais a decisão do operador de 24/09: uma Malu adaptável, com menos regra rígida e só
+  as verdades de dinheiro e de lei fixas.
+- **Medido: nada contra o modelo.** A prova que falta é a rodada 3 das personas com
+  `muse-spark-1.3-contributor`, contando palavras por mensagem (mediana hoje: 49),
+  quantas vezes a pergunta da roupa se repete, reescritas por gate e chegadas ao link
+  (hoje 0/12).
+  O que a suíte prova: toda frase nova entre aspas passa `runGates` nos dois caminhos e nos
+  dois ramos de `freeShipping`; nenhuma passa de 30 palavras; cada chave ausente derruba a
+  linha dela. `tests/prompt.test.ts` foi de 116 para 176 casos.
+- **Dependência do `guardrails.ts` (trabalho paralelo do especialista de gates):**
+  - A frase do plano de loja e `"No pagamento na entrega não tem parcelamento, mas no
+    antecipado pelo cartão dá pra parcelar em até 12x."` eram vetadas (`unavailable_offer`
+    e `installment_promise`) contra o `guardrails.ts` da HEAD. As duas passam na árvore
+    de trabalho de hoje.
+  - O teste que fixava "a negação honesta da loja é vetada" foi invertido, como o próprio
+    comentário mandava. A metade de loja do gate virou `warn`, então "Pode retirar na nossa
+    loja física" **não é mais vetada**, só deixa trace. O teste fixa isso.
+  - O bloco "sem as palavras loja, retirada e balcão, nem pra negar" continua no ramo sem
+    cidade. Ele pode sair quando a mudança do gate passar pela segunda revisão, e sai numa
+    mudança separada.
+  - O prompt inteiro, com o briefing dos gates, não cita Express quando `expressActive` não
+    é `true`. Isso só vale com o `guardrails.ts` da árvore de trabalho; o da HEAD ainda
+    anuncia a Express.
+- **Buracos que só o texto do prompt fecha (nenhum gate veta, sondado em 24/09):**
+  `"Já chamei uma atendente pra falar com você."`, `"Uma cliente me disse que amou o
+  colete."` e `"No antecipado pelo cartão dá pra parcelar em até 12x sem juros."` no caminho
+  do antecipado.
+- **Regressão:** nenhuma em `tests/prompt.test.ts` (176/176). As falhas da suíte inteira
+  estão em arquivos dos outros dois especialistas, ainda em edição: espelhos de
+  `sizing.ts` e `identity.ts`, e as conversas "agente inventa loja", que quebram porque a
+  loja virou `warn`. Nenhuma delas importa `prompt.ts`.
+
 ### 2026-09-24 (c) — achados da rodada 1 com a Muse
 
 - **Mudou (4 coisas juntas, a pedido. O efeito de cada uma não é atribuível):**
