@@ -1122,9 +1122,9 @@ const gates: readonly Gate[] = [
     name: "unavailable_offer",
     remedy: "rewrite",
     briefing: () =>
-      `A loja vende um produto só, o Colete Cinta Modeladora, e só por aqui. Não ofereça ` +
-      `calcinha, sutiã, legging, short nem qualquer outro item, e não existe loja física nem ` +
-      `retirada no balcão.`,
+      `A venda é de um produto só, o Colete Cinta Modeladora, e é toda online, pelo site e ` +
+      `por esta conversa, com o colete indo direto pra casa dela. Não ofereça calcinha, ` +
+      `sutiã, legging, short nem qualquer outro item.`,
     check: (text) => {
       const t = norm(text);
       if (/\b(calcinha|sutia|legging|body\b|macacao|camisola|pijama|meia\b|short\s+modelador|modelador\s+de\s+perna|cinta\s+de\s+bra[cç]o)\b/.test(t))
