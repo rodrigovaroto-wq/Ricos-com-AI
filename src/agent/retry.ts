@@ -188,6 +188,22 @@ export const MAX_DEFERRED_RETRIES = 1;
  * What a retried turn does when the network failed again: reschedule only when our own
  * timeout cut it and the reschedules are not used up; otherwise hand off.
  */
+/**
+ * Whether a retried turn must give up instead of answering (code review, 2026-09-24). It
+ * answers exactly the message its ticket names, and only while that is still her latest
+ * and nothing went out after it — otherwise a newer turn owns the reply and answering too
+ * is a duplicate. Checked when the retry starts AND again right before it sends, because
+ * the retry spends seconds on model calls while she may write again.
+ */
+export const retryIsMoot = (
+  ticketInboundId: string,
+  latestInbound: { id: string; created_at: string } | null,
+  lastOutboundAt: string | null,
+): boolean =>
+  latestInbound === null ||
+  latestInbound.id !== ticketInboundId ||
+  (lastOutboundAt !== null && new Date(lastOutboundAt).getTime() > new Date(latestInbound.created_at).getTime());
+
 export const afterRetryFailure = (timedOut: boolean, retriesSoFar: number): "reschedule" | "handoff" =>
   timedOut && retriesSoFar < MAX_DEFERRED_RETRIES ? "reschedule" : "handoff";
 

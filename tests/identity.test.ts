@@ -160,3 +160,18 @@ describe("a identidade vira assunto, não frase pronta", () => {
     expect(asksForIdentity("")).toBe(false);
   });
 });
+
+/** Code review, 2026-09-24: "sei lá" virava o nome da cliente. */
+describe("resposta vaga não vira nome", () => {
+  it("\"sei la\" e \"sei lá\" não são nome", () => {
+    for (const vaga of ["sei la", "sei lá", "Sei lá"]) {
+      expect(extractName(vaga), vaga).toBeNull();
+      expect(extractIdentity(vaga).fields.name, vaga).toBeUndefined();
+    }
+  });
+
+  it("um nome de verdade continua sendo lido", () => {
+    expect(extractName("Maria Souza")).toBe("Maria Souza");
+    expect(extractName("meu nome é Sei Lá Nunes")).not.toBeNull();
+  });
+});

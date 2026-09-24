@@ -305,7 +305,13 @@ describe("rodada 13 na Edge Function", () => {
   // Code review, 2026-09-24: a nova tentativa respondia a mensagem MAIS RECENTE, que um
   // turno novo podia já estar respondendo — resposta em dobro.
   it("a nova tentativa responde só a mensagem que falhou, e um turno novo a cancela", () => {
-    expect(source).toContain("latest[0].id !== internal.retry!.inboundId");
+    expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
+    // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
+    const finalInsert = source.indexOf("const outbound = (");
+    const lastCheck = source.lastIndexOf("const gaveUp = await retryGaveUp(rewritesUsed);", finalInsert);
+    expect(lastCheck).toBeGreaterThan(-1);
+    expect(finalInsert - lastCheck).toBeLessThan(200);
+    expect(source).toContain("const gaveUp = await retryGaveUp(0);");
     expect(source).toContain("body: JSON.stringify(ticket),");
     expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
   });

@@ -187,13 +187,16 @@ const PERSON_WORD =
   /\b(pessoa|atendente|humano|humana|alguem|gente de verdade|vendedora?|responsavel|gerente|suporte)\b/g;
 
 /**
- * "Não quero / não preciso" cancels the request only when it is ATTACHED to the person-word
- * — "não quero falar com atendente", "não preciso de uma pessoa". A negation of something
- * else in the same clause does not: "não quero robô quero uma pessoa", "nao quero esperar
- * quero atendente" are requests (code review, 2026-09-24). "Não tem um atendente?" neither.
+ * A refusal cancels the request only when it is ATTACHED to the person-word: between the
+ * refusal and the word there may be only the connecting words of that same refusal —
+ * "não quero falar com atendente", "não precisa chamar atendente", "nao preciso de ajuda de
+ * atendente", "não quero que me passe pra atendente", "dispenso atendente". A refusal of
+ * something else does not: in "não quero robô quero uma pessoa" and "nao quero esperar
+ * quero atendente", "robô" and "esperar" are not connecting words, so the request stands
+ * (code reviews, 2026-09-24). "Não tem um atendente?" is no refusal at all.
  */
 const REFUSED_BEFORE =
-  /\b(nao|nunca|jamais)\s+(quero|queria|preciso|precisa|precisava)\s+(?:(?:falar|conversar)\s+(?:com\s+)?|de\s+|ser\s+atendid[ao]\s+por\s+)?(?:(?:um|uma|o|a|nenhum|nenhuma)\s+)?$/;
+  /\b(?:(?:nao|nunca|jamais)\s+(?:quero|queria|preciso|precisa|precisava)|dispenso|dispensa)\s+(?:(?:falar|conversar|com|de|ajuda|chamar|chama|que|me|passe|passar|passa|transferir|transfira|pra|para|por|ser|atendida|atendido|um|uma|o|a|do|da|nenhum|nenhuma)\s+)*$/;
 
 /** "Você é uma pessoa?" asks what she is talking to — it is not a request for someone else. */
 const IDENTITY_QUESTION_BEFORE = /\b(voce|vc|ce|tu)?\s*(e|eh)\s+(um|uma)?\s*$/;

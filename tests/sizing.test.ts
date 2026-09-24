@@ -236,3 +236,25 @@ describe("pergunta sobre tamanho não é tamanho dito", () => {
     expect(statedSizeOf("tem tamanho GG?", nada)).toBeNull();
   });
 });
+
+/** Code review, 2026-09-24: no WhatsApp a pergunta muitas vezes vem sem "?". */
+describe("pergunta sobre tamanho sem ponto de interrogação", () => {
+  it("as cinco perguntas sem \"?\" não mudam o tamanho pelo caminho rápido", () => {
+    for (const pergunta of [
+      "tem tamanho GG",
+      "vcs tem o tamanho G",
+      "tem pra quem usa 50",
+      "qual tamanho pra quem usa 44",
+      "o M serve pra quem veste 44",
+    ]) {
+      expect(statedSizeOf(pergunta), pergunta).toBeNull();
+    }
+  });
+
+  it("a afirmação dela continua valendo", () => {
+    expect(statedSizeOf("uso 46 de calça")).toBe("GG");
+    expect(statedSizeOf("ela usa G, 46")).toBe("GG");
+    expect(statedSizeOf("é pra minha mãe, ela usa G")).toBe("G");
+    expect(statedSizeOf("uso 38, tem GG")).toBe("M");
+  });
+});

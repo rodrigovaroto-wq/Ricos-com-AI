@@ -4,6 +4,7 @@ import {
   rewriteInstruction,
   HOLDING_REPLY,
   afterRetryFailure,
+  retryIsMoot,
   IN_CALL_RETRY_BUDGET_MS,
   MAX_DEFERRED_RETRIES,
   MAX_REWRITES,
@@ -168,5 +169,27 @@ describe("depois da nova tentativa pela varredura", () => {
 
   it("conexão morta ou 5xx na nova tentativa é handoff", () => {
     expect(afterRetryFailure(false, 0)).toBe("handoff");
+  });
+});
+
+/**
+ * A nova tentativa responde só a mensagem que falhou (code review, 2026-09-24). A mesma
+ * função decide no começo da nova tentativa e de novo logo antes de mandar a resposta.
+ */
+describe("quando a nova tentativa desiste", () => {
+  const msg = { id: "m1", created_at: "2026-09-24T10:00:00Z" };
+
+  it("segue quando a mensagem que falhou ainda é a mais recente e nada saiu depois", () => {
+    expect(retryIsMoot("m1", msg, null)).toBe(false);
+    expect(retryIsMoot("m1", msg, "2026-09-24T09:59:00Z")).toBe(false);
+  });
+
+  it("desiste quando chegou mensagem nova — um turno novo é dono da resposta", () => {
+    expect(retryIsMoot("m1", { id: "m2", created_at: "2026-09-24T10:01:00Z" }, null)).toBe(true);
+  });
+
+  it("desiste quando já saiu resposta depois dela, ou quando não há mensagem", () => {
+    expect(retryIsMoot("m1", msg, "2026-09-24T10:00:30Z")).toBe(true);
+    expect(retryIsMoot("m1", null, null)).toBe(true);
   });
 });

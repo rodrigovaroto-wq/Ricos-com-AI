@@ -390,3 +390,25 @@ describe("opt-out que também pergunta", () => {
     expect(asksSomething("nao quero mais receber, quanto era mesmo")).toBe(true);
   });
 });
+
+/** Code review, 2026-09-24: recusas ligadas à palavra de pessoa por outras palavras de ligação. */
+describe("recusa de atendente com palavras de ligação", () => {
+  it("não conta como pedido de pessoa", () => {
+    for (const frase of [
+      "não precisa chamar atendente",
+      "nao preciso de ajuda de atendente",
+      "não quero que me passe pra atendente",
+      "dispenso atendente",
+    ]) {
+      expect(namesAPerson(frase), frase).toBe(false);
+      expect(handoffFor(read({ asks_human: true }), frase, false, false), frase).toBeNull();
+    }
+  });
+
+  it("a negação de outra coisa continua sendo pedido", () => {
+    for (const frase of ["não quero robô quero uma pessoa", "nao quero esperar quero atendente"]) {
+      expect(namesAPerson(frase), frase).toBe(true);
+      expect(handoffFor(read({ asks_human: true }), frase, false, false), frase).toBe("human");
+    }
+  });
+});

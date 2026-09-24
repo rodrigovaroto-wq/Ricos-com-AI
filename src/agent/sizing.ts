@@ -178,6 +178,9 @@ export const sizeFromInterpreted = (read: {
   return larger(larger(letter, pants), waist);
 };
 
+/** Words that make a clause a question about sizes rather than a statement of hers. */
+const QUESTION_CLAUSE = /\b(t[e\u00ea]m|existe|vem|serve|qual|quais|pra\s+quem|para\s+quem)\b/i;
+
 /**
  * The size this message states, if any. The deterministic readers are the fast path and
  * win when they find something; the interpreter is the fallback for what they cannot read.
@@ -189,11 +192,13 @@ export const statedSizeOf = (
   interpreted: { letter: string | null; pants: number | null; waist_cm: number | null } | null = null,
 ): Size | null => {
   // A question is not a stated size: "tem tamanho GG?", "o M serve em quem usa 44?" asked
-  // about a size and used to overwrite hers (code review, 2026-09-24). Sentences ending in
-  // "?" are left out of the fast path, and the interpreter is told the same.
+  // about a size and used to overwrite hers (code review, 2026-09-24). A clause that ends
+  // in "?" — or, since WhatsApp questions often have no "?", one that carries a question
+  // or existence word ("tem tamanho GG", "pra quem usa 50", "o M serve") — is left out of
+  // the fast path; the interpreter, told the same, is the one that reads it.
   const statements = message
-    .split(/(?<=[.!?\n])/)
-    .filter((piece) => !piece.trim().endsWith("?"))
+    .split(/(?<=[,;.!?\n])/)
+    .filter((clause) => !clause.trim().endsWith("?") && !QUESTION_CLAUSE.test(clause))
     .join("");
   const dress = extractDressSize(statements);
   const fast = larger(dress === null ? null : sizeFromDressSize(dress), extractSizeLetter(statements));

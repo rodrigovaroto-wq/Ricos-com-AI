@@ -67,6 +67,7 @@ import {
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
   ORDER_HANDOFF_REPLY,
+  retryIsMoot,
   rewriteInstruction,
   SAFE_FALLBACK_REPLY,
   THINK_REPLY,
@@ -1352,12 +1353,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,body,created_at&order=created_at.desc&limit=1`,
     );
-    if (
-      !latest?.[0] ||
-      latest[0].id !== internal.retry!.inboundId ||
-      (conversation.last_outbound_at &&
-        new Date(conversation.last_outbound_at).getTime() > new Date(latest[0].created_at).getTime())
-    ) {
+    if (retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)) {
       return json(200, { status: "retry_moot" });
     }
     inbound = { ...inbound, body: latest[0].body ?? "" };
@@ -1752,6 +1748,27 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   };
 
   /**
+   * The retry's second look, right before it sends (code review, 2026-09-24): its model
+   * calls take seconds, and a message she sends meanwhile starts a turn that owns the
+   * reply. Null means "go ahead"; otherwise the spend is written down and nothing is sent.
+   * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+   */
+  const retryGaveUp = async (rewrites: number): Promise<Response | null> => {
+    if (!isRetry) return null;
+    const latest = await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
+    ).catch(() => null);
+    if (!retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, null)) return null;
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
+    await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
+    return json(200, { status: "retry_moot", reason, costBrl: spent });
+  };
+
+  /**
    * A fixed line, sent through the chain like anything else (the clarify ladder and the
    * "vou pensar" reply, R13.4). Null when the chain refuses it — out of hours, typically —
    * and the caller then falls through to the normal turn, which handles that case.
@@ -1771,6 +1788,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
+    const gaveUp = await retryGaveUp(0);
+    if (gaveUp) return gaveUp;
     const out = (
       await db("messages", {
         method: "POST",
@@ -2303,6 +2322,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
   const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
+
+  const gaveUp = await retryGaveUp(rewritesUsed);
+  if (gaveUp) return gaveUp;
 
   const outbound = (
     await db("messages", {
