@@ -68,7 +68,6 @@ import { systemPrompt as buildSystemPrompt } from "./prompt.ts";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
 const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
-const GEMINI_KEY = Deno.env.get("GEMINI_API_KEY") ?? "";
 // Meta's Llama API — OpenAI-compatible request/response shape, different host and
 // key. `callMuse` is the only function that reads this.
 const META_KEY = Deno.env.get("META_API_KEY") ?? "";
@@ -77,7 +76,7 @@ const USD_TO_BRL = Number(Deno.env.get("USD_TO_BRL") ?? "5.4");
 /** Nenhuma credencial sai desta função em texto de erro. Ver `modelFailure`. */
 const redactKeys = (text: string): string => {
   let out = text;
-  for (const secret of [GEMINI_KEY, OPENAI_KEY, META_KEY, SERVICE_KEY]) {
+  for (const secret of [OPENAI_KEY, META_KEY, SERVICE_KEY]) {
     if (secret) out = out.replaceAll(secret, "[redacted]");
   }
   return out;
@@ -91,10 +90,11 @@ const redactKeys = (text: string): string => {
  *
  * The default was `gpt-5.6-luna` through v32. **Decided 2026-09-10: Muse Spark 1.3**,
  * inside the R$ 0,50/lead ceiling with the most Intelligence Index headroom of any
- * candidate that fit it — see `HANDOFF.md` §Frente 5. Gemini is untouched; this is the
- * conversation model only, and the eval that section calls for (real conversations,
- * measuring conversion and gate refusal, not benchmark score) has not been run — this
- * swap ships the mechanism, not the proof.
+ * candidate that fit it — see `HANDOFF.md` §Frente 5. The Gemini intent call left the
+ * turn on 2026-09-23 (R12.1: Meta only); `callLuna` stays as the v32 rollback, and
+ * the eval that section calls for (real conversations, measuring conversion and gate
+ * refusal, not benchmark score) has not been run — this swap ships the mechanism, not
+ * the proof.
  *
  * What this knob does and does NOT do, because the difference is expensive: it selects a
  * model on **one of two specific APIs**, and only two — `callLuna` speaks the
@@ -114,14 +114,12 @@ const DEFAULT_CONVERSATION_MODEL = "muse-spark-1.3";
 // `undefined`. A trailing space from a panel copy-paste is the same class of accident.
 const CONVERSATION_MODEL =
   (Deno.env.get("CONVERSATION_MODEL") ?? "").trim() || DEFAULT_CONVERSATION_MODEL;
-const CHEAP_MODEL = "gemini-3.5-flash-lite";
 // Which host and key `CONVERSATION_MODEL` resolves to — the one place that decides it,
 // so `callLuna`/`callMuse` and the provider label recorded in `llm_calls` never disagree.
 const MUSE_FAMILY = /^muse/i;
 /** USD per 1M tokens. Mirrors src/llm/pricing.ts. */
 const PRICES: Record<string, { in: number; out: number; cached?: number }> = {
   [DEFAULT_CONVERSATION_MODEL]: { in: 1.25, out: 4.25 },
-  [CHEAP_MODEL]: { in: 0.3, out: 2.5 },
 };
 
 /**
@@ -368,39 +366,6 @@ const recordOutcome = async (
       cost_brl: costBrl,
     }),
   }).catch(() => undefined);
-};
-
-const callGemini = async (system: string, user: string) => {
-  const response = await fetch(
-    `https://generativelanguage.googleapis.com/v1beta/models/${CHEAP_MODEL}:generateContent`,
-    {
-      method: "POST",
-      // The key rides in the documented header, never in the URL: a network error
-      // carries the whole URL in its `message`, and that message used to reach n8n logs.
-      headers: { "Content-Type": "application/json", "x-goog-api-key": GEMINI_KEY },
-      body: JSON.stringify({
-        system_instruction: { role: "user", parts: [{ text: system }] },
-        contents: [{ role: "user", parts: [{ text: user }] }],
-        generationConfig: { maxOutputTokens: 300 },
-      }),
-    },
-  );
-  const body = await response.json();
-  if (body.error) throw new Error(`gemini: ${body.error.message}`);
-  const text = (body.candidates?.[0]?.content?.parts ?? [])
-    .map((p: { text?: string }) => p.text ?? "")
-    .join("")
-    .trim();
-  const usage = body.usageMetadata ?? {};
-  const inTok = usage.promptTokenCount ?? 0;
-  const outTok = usage.candidatesTokenCount ?? 0;
-  return {
-    text,
-    inTok,
-    outTok,
-    cachedTok: 0,
-    costBrl: costOf(CHEAP_MODEL, inTok, outTok),
-  };
 };
 
 /**
@@ -1374,8 +1339,8 @@ Deno.serve(async (request: Request): Promise<Response> => {
       reason: "falha ao chamar o modelo",
       // The Gemini key used to ride in the URL query string, and Deno's network error
       // carries the whole URL in `message` — which leaves here in the JSON body and lands
-      // in n8n's execution log. Since 2026-09-22 it rides in the `x-goog-api-key` header;
-      // redacting stays here as defence in depth. A key that already circulated in a
+      // in n8n's execution log. Gemini left the turn on 2026-09-23; redacting stays here as
+      // defence in depth for the keys still in use. A key that already circulated in a
       // third party's log has to be rotated, not masked.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
@@ -1386,22 +1351,13 @@ Deno.serve(async (request: Request): Promise<Response> => {
     });
   };
 
-  // 5. Cheap model first: intent is 20 calls a conversation and needs no talent.
-  let intent: ModelCall;
-  try {
-    intent = await callGemini(
-      "Classifique a intenção da cliente em uma palavra: PRECO, TAMANHO, DUVIDA, COMPRA, OBJECAO, OUTRO.",
-      inbound.body ?? "",
-    );
-  } catch (error) {
-    return await modelFailure(error);
-  }
-  spent += intent.costBrl;
-  await recordCall(conversation.id, "intent", "google", CHEAP_MODEL, intent);
-
+  // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
+  // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
+  // 2026-09-23, R12.1: Meta is the only model provider.)
+  //
   // 5b. A size she stated is worth keeping: the post-order ruler reads it back,
   // and an empty column becomes a dash in a message a customer sees. What counts as
-  // "stated" is decided by the text itself, not by the intent classifier — it called
+  // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
   const stated = statedSize(inbound.body ?? "");
   if (stated && stated.size !== lead.size) {
@@ -1664,7 +1620,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
       recordOutcome(conversation.id, "stopped", "opt-out detectado pela cadeia", rewritesUsed, spent - spentBefore),
       persistStage(conversation.id, storedStage, "bloqueado"),
     ]);
-    return json(200, { status: "stopped", intent: intent.text, costBrl: spent });
+    return json(200, { status: "stopped", costBrl: spent });
   }
 
   // Deferred: the reply is right, the clock is not. It is stored as written and the
@@ -1693,7 +1649,6 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, {
       status: "deferred",
       reason: "fora da janela de envio",
-      intent: intent.text,
       runAt: runAt.toISOString(),
       rewrites: rewritesUsed,
       costBrl: spent,
@@ -1727,7 +1682,6 @@ Deno.serve(async (request: Request): Promise<Response> => {
     return json(200, {
       status: "handoff",
       reason,
-      intent: intent.text,
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY),
       messageId: holding.id,
@@ -1842,7 +1796,6 @@ Deno.serve(async (request: Request): Promise<Response> => {
           blockedText: attempt.text,
           blocked: gates.traces.filter((t) => t.verdict === "block"),
         }),
-    intent: intent.text,
     reply: replyText,
     bubbles: paced(replyText),
     messageId: outbound.id,

@@ -56,7 +56,6 @@ describe("tabela de preços da Edge Function", () => {
   // que este teste prende à fonte.
   const alias: Record<string, string> = {
     DEFAULT_CONVERSATION_MODEL: "muse-spark-1.3",
-    CHEAP_MODEL: "gemini-3.5-flash-lite",
   };
 
   it.each(Object.entries(alias))("%s cobra o mesmo que src/llm/pricing.ts", (constant, model) => {
@@ -185,15 +184,27 @@ describe("tabela de preços da Edge Function", () => {
     expect(source).toContain("const redactKeys =");
     expect(source).toContain("detail: redactKeys(");
     // META_KEY entrou com callMuse em 2026-09-10 — a chave da Meta viajaria em texto de
-    // erro do mesmo jeito que a do Gemini já viajou antes deste cinto existir.
-    expect(source).toContain("[GEMINI_KEY, OPENAI_KEY, META_KEY, SERVICE_KEY]");
+    // erro do mesmo jeito que a do Gemini já viajou antes deste cinto existir. A do
+    // Gemini saiu com a chamada de intenção em 2026-09-23 (R12.1).
+    expect(source).toContain("[OPENAI_KEY, META_KEY, SERVICE_KEY]");
   });
 
+  /**
+   * Desde 2026-09-23 a tabela inline só precifica o modelo padrão da conversa: a
+   * `-contributor` entra por `CONVERSATION_MODEL_PRICE`, e `src/llm/pricing.ts` guarda
+   * também o que só o ferramental de dev chama. Toda entrada inline tem de existir lá.
+   */
   it("não cobra por um modelo que a fonte não conhece", () => {
-    const declared = [
-      ...source.matchAll(/\[(DEFAULT_CONVERSATION_MODEL|CHEAP_MODEL)\]:\s*\{/g),
-    ];
-    expect(declared).toHaveLength(Object.keys(PRICES).length);
+    const declared = [...source.matchAll(/^\s+\[([A-Z_]+)\]:\s*\{/gm)].map((m) => m[1]);
+    expect(declared).toEqual(["DEFAULT_CONVERSATION_MODEL"]);
+    for (const constant of declared) expect(PRICES[alias[constant!]!]).toBeDefined();
+  });
+
+  it("o turno não chama mais o Gemini (R12.1, só Meta)", () => {
+    expect(source).not.toContain("generativelanguage.googleapis.com");
+    expect(source).not.toContain("callGemini");
+    expect(source).not.toContain("GEMINI_API_KEY");
+    expect(source).not.toMatch(/intent: intent/);
   });
 });
 

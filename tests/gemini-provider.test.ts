@@ -31,10 +31,10 @@ describe("a chave do Gemini não viaja na URL", () => {
     expect(calls[0]!.headers["x-goog-api-key"]).toBe("segredo-de-teste");
   });
 
-  it("a Edge Function não monta URL com ?key=", () => {
+  it("a Edge Function não monta URL com ?key= — nem chama mais o Gemini (R12.1, 2026-09-23)", () => {
     // index.ts is Deno and cannot be imported here; the source is the only thing to read.
     const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
     expect(source).not.toMatch(/generateContent\?key=/);
-    expect(source).toContain("x-goog-api-key");
+    expect(source).not.toContain("generativelanguage.googleapis.com");
   });
 });
