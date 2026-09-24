@@ -1560,3 +1560,134 @@ describe("a economia só pode ser dita como economia", () => {
     expect(blocked(runGates(exemplo, cod)), exemplo).toEqual([]);
   });
 });
+
+describe("unavailable_offer: falso positivo conhecido (persona Jussara, 2026-09-24)", () => {
+  // Quatro rodadas de revisão mostraram que afrouxar este gate para a negação honesta não
+  // converge — cada versão abriu uma loja nova. O gate fica como estava e o prompt é que
+  // evita a frase. Este teste documenta o custo: vira quando alguém mexer no gate.
+  it("a negação honesta da loja física ainda veta", () => {
+    expect(
+      blocked(
+        runGates(
+          "A gente não tem loja física, a venda é só por aqui e pelo site, e por isso mesmo você só paga quando o colete chega na sua mão.",
+          ctx(),
+        ),
+      ),
+    ).toContain("unavailable_offer");
+  });
+});
+
+describe("delivery_promise: dia da semana ou data antes do pedido é promessa (2026-09-24)", () => {
+  it("barra o dia marcado, inclusive depois de uma negativa que não nega", () => {
+    for (const t of [
+      "Posso seguir com o seu pedido pra receber na quinta-feira?",
+      "Na quinta você já recebe.",
+      "Chega até o dia 30.",
+      "Não precisa se preocupar, chega na quinta.",
+      "Não se preocupe que chega na quinta.",
+      "Não consigo prometer o dia, mas chega na quinta.",
+      "Sem demora, chega na sexta.",
+      "Não consigo garantir o dia exato mas chega na quinta.",
+      "Não tem como não chegar até sexta.",
+      "Nem demora chega na sexta.",
+      "Não entrega na sexta, só na quinta.",
+      "Chega de quarta a sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("'tá na sua casa', 'vai estar na sua mão', 'dá tempo' e o dia antes do verbo também prometem", () => {
+    for (const t of [
+      "Vai estar na sua mão na sexta.",
+      "Dá tempo sim, até sexta ele tá com você.",
+      "Fechando hoje, sexta-feira já tá na sua casa.",
+      "Dá tempo até sexta sim.",
+      "Dá tempo pra sexta, fica tranquila.",
+      "Então quinta chega.",
+      "Fechando hoje e quinta você recebe.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("deixa passar a janela, o dia escolhido no checkout e os dias de funcionamento", () => {
+    for (const t of [
+      "Você escolhe o dia no checkout.",
+      "Você recebe em até 3 dias.",
+      "O casamento é sábado e você recebe em até 3 dias.",
+      "A entrega acontece de segunda a sexta.",
+      "O entregador passa de segunda a sábado, das 8h às 18h.",
+      "Chega na segunda tentativa se você não estiver.",
+      "Você recebe a segunda peça junto.",
+      "Chega em 2/3 dias.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("recusar o dia é permitido: a negação que governa o verbo", () => {
+    for (const t of [
+      "Não consigo garantir que chega na quinta, quem escolhe o dia é você no checkout.",
+      "Não posso prometer entrega no sábado.",
+      "Ele não chega na quinta, a entrega leva de 1 a 3 dias.",
+      "Não dá tempo de chegar até sexta.",
+      "Não vai dar tempo de chegar na sexta.",
+      "Não tenho como garantir que chega sexta.",
+      "Não consigo te garantir que chega na quinta.",
+      "Não consigo prometer a entrega na sexta.",
+      "Não vai estar na sua mão na sexta, a entrega leva de 1 a 3 dias.",
+      "Não dá pra garantir que até sexta ele tá com você.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("só 'você disse/falou' recontando isenta, e nada de afirmação depois", () => {
+    for (const t of [
+      "Você disse que precisa pra sexta e chega na sexta sim.",
+      "Eu te disse que chega na quinta.",
+      "Quem pediu ontem recebe na quinta.",
+      "Você disse que precisa até sexta e dá tempo sim.",
+      "Você disse que precisa receber na sexta e dá tempo.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+    for (const t of [
+      "Você falou que o casamento é sábado.",
+      "Você disse que precisa receber até sábado, né? O dia você escolhe no checkout.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("D — sem entrega no domingo, 'não sei se', e o dia entregue ao checkout passam", () => {
+    for (const t of [
+      "Não tem entrega no domingo.",
+      "O entregador não trabalha domingo.",
+      "Não sei se chega na quinta.",
+      "Se no checkout aparecer sexta, você recebe na sexta.",
+      "Você escolhe no checkout se quer receber na quinta ou na sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).not.toContain("delivery_promise");
+    }
+  });
+
+  it("D — a promessa colada a essas isenções continua barrando", () => {
+    for (const t of [
+      "Não tem problema que chega na quinta.",
+      "Não sei, mas chega na quinta.",
+      "O entregador não trabalha domingo, só na quinta.",
+      "Você escolhe o dia no checkout e chega na quinta.",
+      "Escolhe aí que chega na sexta.",
+    ]) {
+      expect(blocked(runGates(t, ctx())), t).toContain("delivery_promise");
+    }
+  });
+
+  it("na logística, a data agendada pela transportadora é fato", () => {
+    expect(
+      blocked(runGates("Sua entrega está agendada: chega na quinta.", ctx({ stage: "logistics" }))),
+    ).not.toContain("delivery_promise");
+  });
+});

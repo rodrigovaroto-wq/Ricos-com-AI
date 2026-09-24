@@ -580,7 +580,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       `Prazo na entrega: só a janela de ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, ` +
-      `e nunca "chega amanhã", "hoje" ou "no mesmo dia" antes de o pedido existir — quem escolhe ` +
+      `e nunca "chega amanhã", "hoje", "no mesmo dia", um dia da semana ("na quinta") ou uma data ` +
+      `("dia 27") antes de o pedido existir — quem escolhe ` +
       `o dia é ela, no checkout. Duas exceções: se a consulta devolveu a modalidade Express ` +
       `para o CEP dela, "hoje, em até 4 horas" é fato e é o seu melhor argumento; e você ` +
       `sempre pode CONTAR que o Express existe, desde que mande ela conferir a ` +
@@ -632,6 +633,74 @@ const gates: readonly Gate[] = [
           const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
           if (sameDay && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
+        }
+
+        // A weekday or a date is the same promise one step further out: "pra receber na
+        // quinta-feira" before the order exists, when the customer picks the day in the
+        // checkout and the window is a range. `negatedAt` is not used here: it reads past
+        // a comma, and "não precisa se preocupar, chega na quinta" is the promise itself.
+        // The only denial is one that governs the verb — "não chega", "não consigo
+        // garantir que chega" — and the only other exemption is repeating what she said.
+        // "De segunda a sexta" is when the courier works, not a day, and goes first —
+        // only that span: "chega de quarta a sexta" is a window of days, and a promise.
+        const WEEKDAY = String.raw`(?:(?:segunda|terca|quarta|quinta|sexta)(?:[\s-]*feira)?|sabado|domingo)`;
+        const td = t.replace(/\bde\s+segunda(?:[\s-]*feira)?\s+(?:a|ate)\s+(?:sexta(?:[\s-]*feira)?|sabado)\b/g, " ");
+        const DAY = String.raw`(?:${WEEKDAY}(?!\s+(?:vez|via|tentativa|peca|unidade|compra|opcao)\b)|dia\s+(?:[12]?\d|3[01])\b(?!\s*dias)|\b(?:[12]?\d|3[01])\/(?:0?[1-9]|1[0-2])\b(?!\s*dias))`;
+        const VERB = String.raw`\b(?:(?!(?:chegou|chegaram|recebeu|recebi|entregou|entreguei)\b)(?:cheg|entreg|receb)\w*|ta\s+(?:ai|na\s+sua|com\s+voce)|vai\s+(?:estar|ai)|na\s+sua\s+(?:mao|casa|porta)|dar?\s+tempo)`;
+        for (const m of td.matchAll(
+          new RegExp(
+            String.raw`${VERB}[^,.;:!?\n]{0,24}?\b${DAY}|\b${DAY}\s+(?:(?:voce|ja|ele|o\s+colete|a\s+entrega)\s+)*${VERB}|\b${DAY}\s*,?\s*(?:e\s+)?(?:dar?\s+tempo|cheg\w*\s+(?:a\s+tempo|sim))`,
+            "g",
+          ),
+        )) {
+          const at = m.index ?? 0;
+          const phrase = td
+            .slice(Math.max(0, at - 60), at)
+            .split(/[:;.!?\n]/)
+            .pop()!
+            .split(PHRASE_COMMA)
+            .pop()!
+            .split(/\b(?:mas|porem|so\s+que|entao)\b/)
+            .pop()!;
+          const negations = phrase.match(/\b(?:nao|nunca|jamais|nem)\b/g)?.length ?? 0;
+          const CLITIC = String.raw`(?:(?:se|te|me|lhe|vai|vou|ia)\s+)?`;
+          // She picks the day: "você escolhe no checkout, e se aparecer quinta, recebe na
+          // quinta" hands the day to the checkout instead of promising it.
+          // Not when a claim follows the choice: "você escolhe o dia e chega na quinta".
+          const choice = /\bescolh\w*|\bse\s+(?:no\s+checkout\s+)?aparecer\b/.exec(
+            td.slice(0, at).split(/[.!?\n]/).pop()!,
+          );
+          if (choice && !/\b(?:e|mas|entao|que)\b/.test(td.slice(0, at).split(/[.!?\n]/).pop()!.slice(choice.index + choice[0].length)))
+            continue;
+          if (
+            // "O entregador não trabalha domingo": the denial sits between verb and day.
+            /\b(?:nao|nunca)\b/.test(m[0]) ||
+            (negations === 1 &&
+            (new RegExp(String.raw`\b(?:nao|nunca|jamais|nem)\s+(?:${CLITIC}|(?:tem|ha|existe|faz|fazemos)\s+)$`).test(phrase) ||
+              new RegExp(
+                String.raw`\b(?:nao|nunca|jamais)\s+(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como|(?:vai\s+)?dar?\s+tempo\s+de|garanto|garantimos|prometo|prometemos|sei\s+se)\s+(?:(?:(?:te|lhe)\s+)?(?:garantir|prometer|dizer)\s+)?(?:que\s+|a\s+)?(?:(?:voce|ele|o\s+colete|a\s+entrega)\s+)?${CLITIC}(?:(?:na|no|ate|pra|para)\s+)?$`,
+              ).test(phrase)))
+          ) {
+            // "Não entrega na sexta, só na quinta" denies one day to promise another.
+            const after = td.slice(at + m[0].length).split(/[.!?\n]/)[0]!;
+            if (new RegExp(String.raw`\b(?:so|mas|apenas|somente|e\s+sim)\s+(?:(?:na|no|ate|pra|para|em)\s+)?${DAY}`).test(after))
+              return "promises a delivery day before the order exists";
+            continue;
+          }
+          // Retelling her own words: "você disse que precisa receber até sábado". Only
+          // "você" as the one who said it, and nothing after it that starts a claim.
+          const recount = /\b(?:voce|vc)\s+(?:me\s+)?(?:falou|disse|comentou|contou|mencionou|escreveu)\b/.exec(phrase);
+          if (
+            recount &&
+            !/\b(?:e|entao|mas)\b|\bque\s+(?:cheg|receb)/.test(
+              phrase.slice(recount.index + recount[0].length) + td.slice(at, at + m[0].length),
+            ) &&
+            !/\bdar?\s+(?:tempo|sim|certo)\b|\b(?:cheg|receb)\w*|\bsim\b/.test(
+              td.slice(at + m[0].length).split(/[.!?\n]/)[0]!,
+            )
+          )
+            continue;
+          return "promises a delivery day before the order exists";
         }
       }
 
