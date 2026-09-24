@@ -817,21 +817,30 @@ const gates: readonly Gate[] = [
         // When the sentence names BOTH paths, the range belongs to the one named closest
         // before it (M-01, persona round 4, Cleide: "no pagamento na entrega você recebe em
         // 1 a 3 dias, no antecipado o prazo varia…" was judged as prepay and vetoed three
-        // times → fallback). Nothing named before it: the first one named after it.
+        // times → fallback) — but ONLY when the prepaid path gets its own window in the
+        // sentence (varia / média / região) and nothing equates or extends one path to the
+        // other. Second review, 2026-09-24: proximity alone let "no antecipado ou na entrega,
+        // chega em 1 a 3 dias" and "na entrega é 1 a 3 dias; no antecipado também" through —
+        // invented prepaid deadlines. Otherwise the old rule: any prepaid mention → prepaid.
+        const PREPAY = /\b(antecipa\w*|adianta\w*)\b/;
+        const prepayOwnWindow = /\b(?:antecipa\w*|adianta\w*)\b[^.!?\n]{0,40}\b(?:varia\w*|media|regiao)\b/.test(sentence);
+        const equated =
+          /\b(ou|tambem|igual|mesm[oa]|que\s+nem|tanto|quanto|como\s+n[ao]|mais\s+rapido|em\s+relacao|nao\s+muda|sem\s+esperar|nao\s+precisa\s+esperar)\b/.test(
+            sentence,
+          );
         const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
         const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
         const prepayAt = lastAt(/\b(?:antecipa\w*|adianta\w*)\b/g);
         const codAt = lastAt(/\bna\s+entrega\b/g);
+        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated;
         const named: "cod" | "prepay" | null =
-          prepayAt > codAt
-            ? "prepay"
-            : codAt > prepayAt
-              ? "cod"
-              : /\b(antecipa\w*|adianta\w*)\b/.test(sentence)
-                ? "prepay"
-                : /\bna\s+entrega\b/.test(sentence)
-                  ? "cod"
-                  : null;
+          byProximity && codAt > prepayAt
+            ? "cod"
+            : PREPAY.test(sentence)
+              ? "prepay"
+              : /\bna\s+entrega\b/.test(sentence)
+                ? "cod"
+                : null;
         const path = named ?? ctx.paymentPath;
         const [min_, max_] =
           path === "cod"

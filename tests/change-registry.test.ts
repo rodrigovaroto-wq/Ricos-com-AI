@@ -44,3 +44,43 @@ describe("M-04: pergunta do tamanho e link antes da identidade", () => {
     expect(prompt).toContain("Nunca repita a mesma pergunta com as mesmas palavras.");
   });
 });
+
+/**
+ * M-01, segunda revisão (2026-09-24): a proximidade só vale quando o antecipado tem a
+ * própria janela na frase e nada iguala ou estende um caminho ao outro.
+ */
+describe("M-01: antecipado igualado à entrega continua vetado", () => {
+  const vetadas = [
+    "No antecipado ou na entrega, chega em 1 a 3 dias.",
+    "Pagando antecipado, igual na entrega, chega em 1 a 3 dias.",
+    "No antecipado, que nem na entrega, 1 a 3 dias.",
+    "Antecipado chega rápido, na entrega também, 1 a 3 dias.",
+    "No antecipado é como na entrega: 1 a 3 dias.",
+    "Tanto no antecipado quanto na entrega, 1 a 3 dias.",
+    "Antecipado ou pagando na entrega, você recebe em 1 a 3 dias.",
+    "No antecipado, nesse caso, igual ao pagamento na entrega, 1 a 3 dias.",
+    "No antecipado não muda nada em relação a pagar na entrega, 1 a 3 dias.",
+    "Pagando antecipado você não precisa esperar o pagamento na entrega, chega em 1 a 3 dias.",
+    "Antecipado sem esperar pagar na entrega: 1 a 3 dias.",
+    "No antecipado ela chega mais rápido que na entrega, em 1 a 2 dias.",
+    "Na entrega é 1 a 3 dias; no antecipado também.",
+    "Na entrega é de 1 a 3 dias, e no antecipado também.",
+  ];
+  const passam = [
+    "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",
+    "Na entrega chega em 1 a 3 dias; no antecipado varia, em média 5 dias.",
+    "No antecipado varia, em média 5 dias; na entrega chega em 1 a 3 dias.",
+    "Você escolhe: na entrega, 1 a 3 dias; antecipado, varia por região.",
+    "No antecipado o prazo varia, e na entrega é de 1 a 3 dias.",
+  ];
+
+  it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passam)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
