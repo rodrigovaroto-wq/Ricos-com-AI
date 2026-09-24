@@ -393,7 +393,11 @@ describe("M-03 na Edge Function", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
 
   it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
-    expect(source).toContain("const linkJustSent = linkSentRecently(recentOutbound, checkoutBases);");
+    // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
+    expect(source).toContain('const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;');
+    expect(source).toContain(
+      '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
+    );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
     expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
   });

@@ -13,6 +13,7 @@ import {
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   linkSentRecently,
+  asksForLink,
   readyForLink,
   saysGoodbye,
   sendLinkNow,
@@ -656,5 +657,30 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
     expect(linkSentRecently(["a", "b"], bases)).toBe(false);
     expect(linkSentRecently([], bases)).toBe(false);
     expect(linkSentRecently([link], [""])).toBe(false);
+  });
+
+  it("link do outro caminho não bloqueia o link deste (troca de entrega para antecipado)", () => {
+    expect(linkSentRecently([link], [bases[1]!])).toBe(false);
+  });
+
+  it("ela pede o link de novo: o pedido explícito passa pela janela", () => {
+    for (const m of ["manda o link de novo", "me envia o link por favor", "não achei o link", "pode reenviar o link?", "manda um link"])
+      expect(asksForLink(m), m).toBe(true);
+    for (const m of [
+      "vou pensar",
+      "o link é seguro?",
+      "abri o link e vi o preço",
+      // Segunda revisão: negação e passado dizem que ela já tem o link.
+      "já recebi, não precisa mandar o link",
+      "não precisa enviar o link de novo",
+      "você já mandou o link",
+      "vc já enviou o link né",
+      "enviaram o link certinho, obrigada",
+      "ja passaram o link",
+      "passei o link pro meu marido",
+      "mandei o link pra minha irmã",
+      "abri o link de novo e deu certo",
+    ])
+      expect(asksForLink(m), m).toBe(false);
   });
 });

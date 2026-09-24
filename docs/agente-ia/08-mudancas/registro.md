@@ -53,6 +53,15 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   citasse "antecipado" como antecipado, mesmo com o prazo na metade "na entrega". Agora o
   prazo pertence ao caminho citado mais perto antes dele. Afrouxa → segunda revisão.
 - **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `pronta-por-prazo` = 0 → **atingida**. `respostas-prontas` = 1, por outra causa (Jussara: `price_promise` leu "tiro mais alguma dúvida" como promessa de desconto) → aberta como **M-05**.
+- **Ajuste (code review, 2026-09-24):** a lista de palavras que igualam os caminhos ("também",
+  "ou", "mesmo"…) valia na frase inteira e bloqueava comparação honesta — "Na entrega você
+  também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região" caía na
+  resposta pronta. Agora a única exceção é a palavra antes de qualquer menção ao antecipado,
+  na oração da entrega que não cita o antecipado nem apelido dele ("pagando antes", "Pix", "os
+  dois"). Segunda revisão: a primeira versão (só a oração do antecipado) deixava passar 11
+  frases com prazo inventado para o antecipado; todas viraram caso vetado em
+  `tests/change-registry.test.ts`. Sem rodada de personas nova — a medida continua
+  `pronta-por-prazo`.
 - **Estado:** atingida (prazo); resposta pronta restante → M-05.
 
 ### M-02 — "Manequim" não define tamanho
@@ -78,6 +87,10 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Feito (`ad46dd1`):** `linkSentRecently` (janela de 3 respostas) bloqueia o reenvio,
   inclusive no "vou pensar".
 - **Resultado R5** (`data/persona-runs/2026-09-24T21-11-51-553Z-local` (8 personas, `--concurrency=2`, R$ 0,18)): `link-repetido` = 0 → **atingida**.
+- **Ajuste (code review, 2026-09-24):** a janela comparava com qualquer checkout, então um link
+  corrigido não saía — a troca de entrega para antecipado, ou "manda o link de novo". Agora só
+  o checkout do caminho deste turno conta, e o pedido explícito dela (`asksForLink`, só a
+  forma de pedido; "já mandou o link", "não precisa mandar o link" não contam) passa.
 - **Estado:** atingida.
 
 ### M-04 — Tamanho quando há interesse; link antes de e-mail e CPF

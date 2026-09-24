@@ -824,10 +824,26 @@ const gates: readonly Gate[] = [
         // invented prepaid deadlines. Otherwise the old rule: any prepaid mention → prepaid.
         const PREPAY = /\b(antecipa\w*|adianta\w*)\b/;
         const prepayOwnWindow = /\b(?:antecipa\w*|adianta\w*)\b[^.!?\n]{0,40}\b(?:varia\w*|media|regiao)\b/.test(sentence);
-        const equated =
-          /\b(ou|tambem|igual|mesm[oa]|que\s+nem|tanto|quanto|como\s+n[ao]|mais\s+rapido|em\s+relacao|nao\s+muda|sem\s+esperar|nao\s+precisa\s+esperar)\b/.test(
-            sentence,
-          );
+        // Any equating word in the sentence still counts, with one exemption (code review,
+        // 2026-09-24: "na entrega você também escolhe o dia e recebe em 1 a 3 dias, no
+        // antecipado o prazo varia por região" fell to the fallback): the word sits before
+        // any mention of the prepaid path, in a clause that says "na entrega" and names no
+        // prepaid path — nor an alias for it ("pagando antes", "Pix", "os dois"). Second
+        // review: narrowing it to the prepaid clause let "…, e pagando antes também chega em
+        // 1 a 3 dias" through.
+        const EQ =
+          "(?:ou(?!\\s+seja)|tambem|igual|mesm[oa]|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar)";
+        const PREPAY_ALIAS =
+          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|pix|cartao|os\s+dois|as\s+duas|ambos|o\s+outro)\b/;
+        const firstPrepay = sentence.search(PREPAY_ALIAS);
+        const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
+          const eAt = e.index ?? 0;
+          const clause =
+            sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
+          const exempt =
+            firstPrepay !== -1 && eAt < firstPrepay && /\bna\s+entrega\b/.test(clause) && !PREPAY_ALIAS.test(clause);
+          return !exempt;
+        });
         const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
         const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
         const prepayAt = lastAt(/\b(?:antecipa\w*|adianta\w*)\b/g);

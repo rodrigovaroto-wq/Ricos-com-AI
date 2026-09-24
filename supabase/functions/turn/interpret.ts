@@ -473,3 +473,21 @@ export const linkSentRecently = (
   checkoutBases: readonly string[],
   window = 3,
 ): boolean => recentOutbound.slice(-window).some((m) => checkoutBases.some((base) => base !== "" && m.includes(base)));
+
+/**
+ * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
+ * window does not hold it back (code review, 2026-09-24). Only the request form counts:
+ * "você já mandou o link", "mandei o link pra minha irmã" and "não precisa mandar o link"
+ * say she has it (second review).
+ */
+export const asksForLink = (message: string): boolean => {
+  const t = norm(message);
+  if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  for (const m of t.matchAll(
+    /\b(?:manda|mande|mandar|envia|envie|enviar|passa|passe|passar|reenvia|reenvie|reenviar)\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
+  )) {
+    const before = t.slice(0, m.index ?? 0).split(/[,;.!?\n]/).pop()!;
+    if (!/\b(?:nao|precisa|ja)\b/.test(before)) return true;
+  }
+  return false;
+};

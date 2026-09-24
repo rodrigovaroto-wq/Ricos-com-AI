@@ -86,6 +86,7 @@ import {
   interpretRequest,
   linkPathFor,
   linkSentRecently,
+  asksForLink,
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   readyForLink,
@@ -2133,8 +2134,12 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
     (u): u is string => typeof u === "string" && u !== "",
   );
-  // M-03: a link that went out in the last three messages is not sent again.
-  const linkJustSent = linkSentRecently(recentOutbound, checkoutBases);
+  // M-03: the link this turn would send, if it went out in the last three messages, is
+  // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
+  // from the delivery checkout to the prepaid one is a different link and still goes out.
+  const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+  const linkJustSent =
+    !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
   const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
   // Ready for the link and the size still unknown: the size comes first, asked naturally.
   const sizeBeforeLink =
