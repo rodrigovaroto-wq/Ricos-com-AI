@@ -5,6 +5,7 @@ import {
   extractEmail,
   extractIdentity,
   extractName,
+  titleCaseName,
   isIdentityComplete,
   isValidCpf,
   mergeIdentity,
@@ -172,7 +173,7 @@ describe("resposta vaga não vira nome", () => {
 
   it("um nome de verdade continua sendo lido", () => {
     expect(extractName("Maria Souza")).toBe("Maria Souza");
-    expect(extractName("meu nome é Sei Lá Nunes")).not.toBeNull();
+    expect(extractName("meu nome é Ana Paula")).toBe("Ana Paula");
   });
 });
 
@@ -196,5 +197,32 @@ describe("rodada 3: saudação não é nome, e o nome de quem recebe é", () => 
     const antes = extractIdentity("meu nome é Karol Souza").fields;
     const depois = mergeIdentity(antes, extractIdentity("nome dela maria jose ferreira").fields).fields;
     expect(depois.name).toBe("maria jose ferreira");
+  });
+});
+
+/** Code review, 2026-09-24. */
+describe("\"nome dela\" seguido de algo que não é nome", () => {
+  it("não extrai lixo", () => {
+    for (const frase of ["o nome dela eu te passo depois", "nome dela é igual ao meu", "nome dela tá no pedido"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("corta no começo da próxima oração", () => {
+    expect(extractName("o nome dele é João e o meu é Ana")).toBe("João");
+    expect(extractName("nome dela maria jose ferreira")).toBe("maria jose ferreira");
+  });
+});
+
+describe("o nome no link, em caixa de nome", () => {
+  it("capitaliza, com as partículas em minúscula", () => {
+    expect(titleCaseName("maria jose ferreira")).toBe("Maria Jose Ferreira");
+    expect(titleCaseName("MARIA DA SILVA")).toBe("Maria da Silva");
+    expect(titleCaseName("ana e joão dos santos")).toBe("Ana e João dos Santos");
+  });
+
+  it("não mexe no que já está certo, e o primeiro nome nunca fica minúsculo", () => {
+    expect(titleCaseName("Vera Lucia Andrade")).toBe("Vera Lucia Andrade");
+    expect(titleCaseName("da silva")).toBe("Da Silva");
   });
 });

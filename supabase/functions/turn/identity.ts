@@ -87,6 +87,10 @@ const COMMON_WORDS =
  * sentence, an address line, a question — stays missing, because a name written into
  * the order wrong is on the package.
  */
+/** Words a name never starts with — what follows "nome dela" when it is not a name. */
+const NOT_A_FIRST_NAME =
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para)$/;
+
 export const extractName = (text: string): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
@@ -102,6 +106,8 @@ export const extractName = (text: string): string | null => {
 
   const name = candidate
     .replace(/[.,;!?].*$/, "")
+    // "o nome dele é João e o meu é Ana": the name ends where the next clause starts.
+    .replace(/\s+e\s+(o|a|meu|minha)\b.*$/i, "")
     .trim()
     .split(" ")
     .filter((w) => w.length > 0)
@@ -109,6 +115,12 @@ export const extractName = (text: string): string | null => {
     .join(" ");
 
   if (name.length < 2 || NOT_A_NAME.test(name)) return null;
+  // Even after "nome dela", what follows has to start like a name (code review,
+  // 2026-09-24): "o nome dela eu te passo depois", "é igual ao meu", "tá no pedido".
+  // A narrower list than COMMON_WORDS on purpose: "meu nome é Bom Jesus da Silva" is a
+  // real name, and "bom" is a common word.
+  const first = (name.split(" ")[0] ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (NOT_A_FIRST_NAME.test(first)) return null;
   if (introduced === null) {
     // A single word is a name only when she introduced it. "Oi" on its own is not.
     if (name.split(" ").length < 2) return null;
@@ -180,3 +192,16 @@ export const asksForIdentity = (text: string): boolean =>
   text
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
+
+/**
+ * The name as the checkout should show it — applied only when the link is built, the
+ * stored value stays as she typed it. "maria jose ferreira" and "MARIA DA SILVA" both come
+ * out "Maria Jose Ferreira" / "Maria da Silva": the Portuguese particles stay lowercase.
+ */
+export const titleCaseName = (name: string): string =>
+  name
+    .trim()
+    .toLowerCase()
+    .split(/\s+/)
+    .map((w, i) => (i > 0 && /^(da|de|do|das|dos|e)$/.test(w) ? w : w.charAt(0).toUpperCase() + w.slice(1)))
+    .join(" ");

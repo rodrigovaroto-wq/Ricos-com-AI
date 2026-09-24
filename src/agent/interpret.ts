@@ -369,35 +369,67 @@ export const asksSomething = (message: string): boolean => {
 const negatedBefore = (t: string, at: number): boolean =>
   /\b(nao|nunca|jamais|nem)\b/.test(t.slice(0, at).split(/[,;.!?\n]/).pop() ?? "");
 
-const firstUnnegated = (t: string, re: RegExp): boolean => {
-  for (const m of t.matchAll(re)) if (!negatedBefore(t, m.index ?? 0)) return true;
-  return false;
-};
-
 /**
  * She says she already bought (persona round 3, Lu and Vera): "ja fez 3 dias que comprei",
  * "fiz um pedido semana passada", "meu pedido não chegou". That is the order context the
  * post-sale handoff needs even when no order is on file — the sale may have come through
  * a channel this system does not see. A hypothetical ("e se eu não gostar, consigo
  * cancelar depois?") or a denial ("ainda não comprei") is not.
+ *
+ * Code review, 2026-09-24: read over her history, a bare "comprei" turned an objection
+ * into a permanent handoff — "já comprei cinta antes e não gostei", "comprei um parecido em
+ * outra loja". So the bare verbs (comprei, paguei) count only in the CURRENT message, and
+ * never in a clause about another product, another store, the past or someone else. Only
+ * the phrases that can only mean an order with us count from the history.
  */
-export const statesPastPurchase = (message: string): boolean =>
-  firstUnnegated(
-    norm(message),
-    /\b(comprei|paguei|ja\s+(fiz|pedi|paguei)|fiz\s+(o|um|meu)\s+pedido|pedi\s+(o|um)\s+colete|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g,
-  );
+const OTHER_PURCHASE =
+  /\b(outra|outro|outras|outros|antes|parecid\w*|shopee|mercado|cinta|ano\s+passado|pra\s+ela|para\s+ela|pra\s+ele|para\s+ele|minha\s+(irma|mae|amiga|filha))\b/;
+const ORDER_WITH_US =
+  /\b(fiz\s+(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g;
+const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
+
+export const statesPastPurchase = (message: string, current = true): boolean => {
+  const t = norm(message);
+  for (const re of current ? [ORDER_WITH_US, BARE_PURCHASE] : [ORDER_WITH_US]) {
+    for (const m of t.matchAll(re)) {
+      const at = m.index ?? 0;
+      const start = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
+      const ends = [",", ";", ".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
+      const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
+      if (negatedBefore(t, at) || OTHER_PURCHASE.test(clause)) continue;
+      return true;
+    }
+  }
+  return false;
+};
 
 /**
  * A buying decision in her own words (persona round 3, Marcinha: "vou nesse então"). Read
  * deterministically as well as by the interpreter, because missing it keeps the link
  * back from a customer who already said yes. Conservative on purpose: "quero sim" answers
- * whatever was asked, and "quero um desconto" is not a purchase.
+ * whatever was asked, and "quero um desconto" is not a purchase. "Vou querer / levar /
+ * fechar / comprar" count only with the product or at the end of the clause — "vou querer
+ * pensar", "vou levar uns dias", "vou fechar aqui o whats" are not decisions — and a
+ * "quando"/"depois" in the same clause, or a "mas … depois" after it, postpones it
+ * ("quero a GG, mas é pra depois", "vou comprar quando cair o salário").
  */
-export const decidesToBuy = (message: string): boolean =>
-  firstUnnegated(
-    norm(message),
-    /\b(vou\s+(nesse|nessa|nele|nela|querer|levar|comprar|fechar)|quero\s+(entao|comprar|fechar|levar)|quero\s+(um|uma|o|a)\s+(pp|p|m|g|gg|xgg|colete)|(pode|me)\s+mand(ar|a)\s+o\s+link|manda\s+o\s+link|fecha(r)?\s+(pra\s+mim|entao))\b/g,
-  );
+const BUY =
+  /\b(vou\s+(nesse|nessa|nele|nela)|vou\s+(querer|levar|comprar|fechar)(?=\s*(?:$|[,.!;\n]|(?:o|a|um|uma)\s+(?:colete|pp|p|m|g|gg|xgg)\b|(?:esse|essa|ele|ela|entao)\b))|quero\s+(entao|comprar|fechar|levar)|quero\s+(um|uma|o|a)\s+(pp|p|m|g|gg|xgg|colete)|(pode|me)\s+mand(ar|a)\s+o\s+link|manda\s+o\s+link|fecha(r)?\s+(pra\s+mim|entao))\b/g;
+
+export const decidesToBuy = (message: string): boolean => {
+  const t = norm(message);
+  for (const m of t.matchAll(BUY)) {
+    const at = m.index ?? 0;
+    if (negatedBefore(t, at)) continue;
+    const rest = t.slice(at);
+    const clauseEnd = rest.search(/[,;.!?\n]/);
+    const clause = clauseEnd === -1 ? rest : rest.slice(0, clauseEnd);
+    if (/\b(quando|depois)\b/.test(clause)) continue;
+    if (/\bmas\b[^.!?\n]*\b(depois|quando|mais\s+tarde|outro\s+dia)\b/.test(rest)) continue;
+    return true;
+  }
+  return false;
+};
 
 /**
  * A goodbye that parks the sale (persona round 3, Tati: "ah deixa entao kkk vlw" got the
@@ -408,3 +440,10 @@ export const saysGoodbye = (message: string): boolean =>
   /\bdeixa\s+(entao|pra\s+la|quieto|pra\s+depois)\s*(k+|rs+|vlw|valeu|obrigad[ao]|[,.!]|$)|\b(tchau|fica\s+pra\s+proxima)\b/.test(
     norm(message).trim(),
   );
+
+/**
+ * A goodbye parks the sale only when it carries no decision (code review, 2026-09-24):
+ * "quero comprar, me manda o link. tchau" and "deixa quieto, quero o G mesmo" are buying.
+ */
+export const goodbyeParks = (message: string, i: Interpretation): boolean =>
+  saysGoodbye(message) && !decidesToBuy(message) && !i.wants_to_buy;

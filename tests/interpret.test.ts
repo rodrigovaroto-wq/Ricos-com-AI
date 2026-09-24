@@ -4,6 +4,7 @@ import {
   CLARIFY_SIZE_REPLIES,
   decideClarify,
   decidesToBuy,
+  goodbyeParks,
   handoffFor,
   interpretRequest,
   INTERPRET_MAX_COMPLETION_TOKENS,
@@ -443,9 +444,13 @@ describe("rodada 3: quem diz que já comprou", () => {
   });
 
   it("com a compra dita, cancelar vai para o humano; sem ela, fica com a Malu", () => {
-    const lu = "posso trocar se nao servir?\n\nquero cancelar o pedido";
-    const contexto = [lu, "oi ja fez 3 dias que comprei"].some(statesPastPurchase);
-    expect(handoffFor(read({ wants_cancel: true }), lu, false, contexto)).toBe("cancel");
+    // Lu, turno 1: a compra e a pergunta na mesma mensagem.
+    const lu = "oi ja fez 3 dias que comprei\n\nquando chega?";
+    expect(handoffFor(read({ post_sale: true }), lu, false, statesPastPurchase(lu))).toBe("post_sale");
+    // Vera: o pedido dito numa mensagem anterior conta pelo histórico.
+    const vera = "fiz um pedido semana passada e nada";
+    expect(statesPastPurchase(vera, false)).toBe(true);
+    expect(handoffFor(read({ wants_cancel: true }), "cancela ai", false, statesPastPurchase(vera, false))).toBe("cancel");
     const hipotese = "e se eu não gostar, consigo cancelar depois?";
     expect(handoffFor(read({ wants_cancel: true }), hipotese, false, statesPastPurchase(hipotese))).toBeNull();
   });
@@ -495,5 +500,65 @@ describe("rodada 3: despedida e a escada", () => {
     expect(system).toContain("deixa pra lá");
     expect(system).toContain("manequim");
     expect(system).toContain("vou nesse então");
+  });
+});
+
+/** Code review, 2026-09-24: objeção não é compra, e o histórico só lê pedido conosco. */
+describe("compra passada: objeção e outra loja não contam", () => {
+  const objecoes = [
+    "já comprei cinta antes e não gostei",
+    "comprei um parecido em outra loja e não serviu",
+    "paguei caro numa cinta que não prestou",
+    "minha irmã comprei pra ela ano passado e amou",
+    "já pedi o link duas vezes",
+  ];
+
+  it("nenhuma das objeções é compra passada, nem na mensagem atual nem no histórico", () => {
+    for (const frase of objecoes) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+      expect(statesPastPurchase(frase, false), frase).toBe(false);
+    }
+  });
+
+  it("\"comprei\" sozinho vale só na mensagem atual", () => {
+    expect(statesPastPurchase("comprei faz 3 dias", true)).toBe(true);
+    expect(statesPastPurchase("comprei faz 3 dias", false)).toBe(false);
+    expect(statesPastPurchase("já pedi o colete semana passada", false)).toBe(true);
+    expect(statesPastPurchase("meu pedido ainda não chegou", false)).toBe(true);
+  });
+});
+
+describe("decisão de compra: adiamento não é decisão", () => {
+  it("adiar não é decidir", () => {
+    for (const frase of [
+      "vou querer pensar",
+      "vou levar uns dias pra decidir",
+      "vou fechar aqui o whats, depois te chamo",
+      "quero a GG, mas é pra depois",
+      "vou comprar quando cair o salário",
+    ]) {
+      expect(decidesToBuy(frase), frase).toBe(false);
+    }
+  });
+
+  it("a decisão continua sendo lida", () => {
+    for (const frase of ["vou levar o G", "vou querer, pode mandar", "quero então, depois te mando o CEP", "vou comprar esse"]) {
+      expect(decidesToBuy(frase), frase).toBe(true);
+    }
+  });
+});
+
+describe("despedida não vence decisão", () => {
+  it("com decisão na mesma mensagem, não estaciona", () => {
+    for (const frase of ["quero comprar, me manda o link. tchau", "deixa quieto, quero o G mesmo", "deixa então, me manda o link"]) {
+      expect(goodbyeParks(frase, NEUTRAL_INTERPRETATION), frase).toBe(false);
+    }
+    expect(goodbyeParks("tchau", read({ wants_to_buy: true }))).toBe(false);
+  });
+
+  it("a despedida pura estaciona", () => {
+    for (const frase of ["ah deixa entao kkk vlw", "deixa pra lá, obrigada", "tchau"]) {
+      expect(goodbyeParks(frase, NEUTRAL_INTERPRETATION), frase).toBe(true);
+    }
   });
 });

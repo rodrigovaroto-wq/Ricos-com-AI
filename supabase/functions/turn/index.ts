@@ -43,6 +43,7 @@ import {
   extractIdentity,
   isIdentityComplete,
   mergeIdentity,
+  titleCaseName,
   nextIdentityQuestion,
   type Identity,
 } from "./identity.ts";
@@ -79,6 +80,7 @@ import {
   asksSomething,
   decidesToBuy,
   decideClarify,
+  goodbyeParks,
   handoffFor,
   INTERPRET_MAX_COMPLETION_TOKENS,
   interpretRequest,
@@ -86,7 +88,6 @@ import {
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   readyForLink,
-  saysGoodbye,
   sendLinkNow,
   statesPastPurchase,
   type Interpretation,
@@ -672,7 +673,8 @@ const sizeDirectiveFor = (
     const avg = CONFIG.delivery.prepayAvgDays;
     return `${fitting} A entrega com pagamento na entrega não cobre o CEP dela, então ofereça` +
       ` o pagamento antecipado como a saída boa que ele é${pct > 0 ? `, com ${pct}% de desconto` : ""}.` +
-      ` O frete é calculado no checkout${
+      (CONFIG.delivery.freeShipping === true ? ` O frete é grátis` : ` O frete é calculado no checkout`) +
+      `${
         avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis` : ""
       }.`;
   }
@@ -1872,8 +1874,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // Two readings the code also makes on its own, because missing either costs the sale
   // (persona round 3): a goodbye is answered like "vou pensar" (Tati got the size ladder),
   // and a decision in her words sends the link (Marcinha's "vou nesse então").
-  if (saysGoodbye(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_think: true };
+  // A goodbye never beats a decision: "deixa quieto, quero o G mesmo" is buying.
   if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
+  if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
@@ -1896,9 +1899,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     const mine = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`,
     ).catch(() => null);
-    orderContext = [inbound.body ?? "", ...(mine ?? []).map((m: { body: string }) => m.body ?? "")].some(
-      statesPastPurchase,
-    );
+    // The bare "comprei" counts only in THIS message; from the history, only the phrases
+    // that can only mean an order with us (code review, 2026-09-24).
+    orderContext =
+      statesPastPurchase(inbound.body ?? "") ||
+      (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
     const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
     for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl]) {
@@ -2109,6 +2114,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * once the link is in the chat.
    */
   const linkPath = linkPathFor(interpretation.payment_choice, region);
+  // What the link carries: the name title-cased for the checkout (code review,
+  // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
+  const linkCustomer = {
+    ...identityDraft,
+    ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
+    phone: lead.phone,
+  };
   const identityComplete = isIdentityComplete(identityDraft);
   const sizeKnown = (stated?.size ?? lead.size ?? null) !== null;
   const readiness = {
@@ -2134,7 +2146,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     : (["name", "email", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
   if (linkNow) {
     try {
-      checkoutUrl = buildPrefilledCheckoutLink({ ...identityDraft, phone: lead.phone }, linkPath, CONFIG.checkout ?? {});
+      checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {});
     } catch (error) {
       checkoutBlocked =
         error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
@@ -2149,7 +2161,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     let thinkLink: string | null = null;
     try {
       thinkLink = sizeKnown
-        ? buildPrefilledCheckoutLink({ ...identityDraft, phone: lead.phone }, linkPath, CONFIG.checkout ?? {})
+        ? buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {})
         : null;
     } catch {
       thinkLink = null;

@@ -279,3 +279,15 @@ describe("rodada 3: a pergunta tem de ser SOBRE o tamanho", () => {
     }
   });
 });
+
+describe("pergunta do tamanho: seu número sim, cintura solta não", () => {
+  it("\"me fala seu número de calça?\" pergunta o tamanho", () => {
+    expect(asksForSize("Me fala seu número de calça?")).toBe(true);
+    expect(asksForSize("Qual a sua cintura?")).toBe(true);
+  });
+
+  it("mencionar a cintura não é perguntar o tamanho", () => {
+    expect(asksForSize("Quer que eu explique como fica na cintura?")).toBe(false);
+    expect(asksForSize("Ele modela a cintura sem apertar, quer saber mais?")).toBe(false);
+  });
+});

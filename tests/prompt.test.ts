@@ -823,3 +823,23 @@ describe("verdades de dinheiro que não mudam com a adaptação", () => {
     if (config.delivery.freeShipping !== true) expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
   });
 });
+
+/**
+ * `coverage_claim` (persona round 3, code review 2026-09-24) is active whenever the region
+ * lookup did not answer — including the turn that carries the link, where two vetoes send
+ * the fallback without it. So every sentence the prompt teaches must pass it with the
+ * region unknown, and (trivially) with it known.
+ */
+describe("toda frase ensinada passa o coverage_claim, com e sem região", () => {
+  it.each(corners)("nenhuma frase ensinada afirma cobertura ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    const taught = [...new Set([...quotedSentences(prompt), ...exemplars(config).map((e) => e.text)])];
+    expect(taught.length).toBeGreaterThan(5);
+    for (const regionKnown of [false, true]) {
+      for (const text of taught) {
+        const trace = runGates(text, ctx({ config, regionKnown })).traces.find((t) => t.gate === "coverage_claim");
+        expect({ regionKnown, text, verdict: trace?.verdict }).toEqual({ regionKnown, text, verdict: "pass" });
+      }
+    }
+  });
+});

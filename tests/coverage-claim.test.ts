@@ -16,7 +16,7 @@ describe("coverage_claim: cobertura afirmada sem consulta de região", () => {
       "A gente entrega aí no seu CEP, pode ficar tranquila.",
       "Chega em Manaus em até 3 dias.",
       "Não se preocupe, chega sim aí.",
-      "Atendemos aqui sua cidade também.",
+      "Atendemos aí sua cidade também.",
       "Entregamos nesse CEP sem problema.",
     ]) {
       expect(verdict(texto, false), texto).toBe("block");
@@ -30,6 +30,14 @@ describe("coverage_claim: cobertura afirmada sem consulta de região", () => {
       "Não consigo confirmar agora se chega em Manaus.",
       "Chega em até 3 dias depois do pedido, e você escolhe o dia.",
       "Você recebe em casa e paga na entrega.",
+      // Code review, 2026-09-24: os seis falsos vetos.
+      "O checkout confirma a entrega no seu CEP quando você digitar.",
+      "No checkout você vê as datas de entrega pro seu CEP.",
+      "Lá você completa o endereço e escolhe o dia da entrega lá mesmo.",
+      "Atendemos aqui pelo WhatsApp todo dia.",
+      "A entrega aqui é agendada: você escolhe o dia.",
+      "Quando chega aí você tem 7 dias pra trocar.",
+      "Chega em Até 3 dias.",
     ]) {
       expect(verdict(texto, false), texto).toBe("pass");
     }

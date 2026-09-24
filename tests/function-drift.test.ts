@@ -358,6 +358,13 @@ describe("rodada 3 na Edge Function", () => {
   it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
     expect(source).not.toContain("frete grátis, e ainda sai mais barato");
     expect(source).toContain("O frete é calculado no checkout");
+    // O mesmo ramo que o prompt usa: só `true` explícito é grátis.
+    expect(source).toContain("CONFIG.delivery.freeShipping === true ? ` O frete é grátis`");
+  });
+
+  it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {
+    expect(source).toContain("name: titleCaseName(identityDraft.name)");
+    expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath/g)?.length).toBe(2);
   });
 
   it("depois do link, nada de pedir e-mail; e a instrução do link é uma frase só", () => {
@@ -367,8 +374,11 @@ describe("rodada 3 na Edge Function", () => {
   });
 
   it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
-    expect(source).toContain(".some(\n      statesPastPurchase,\n    )");
-    expect(source).toContain('if (saysGoodbye(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_think: true };');
+    expect(source).toContain('statesPastPurchase(inbound.body ?? "") ||');
+    expect(source).toContain("statesPastPurchase(m.body ?? \"\", false)");
+    expect(source).toContain('if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
+    // A decisão é lida antes da despedida, que a consulta.
+    expect(source.indexOf("if (decidesToBuy(")).toBeLessThan(source.indexOf("if (goodbyeParks("));
     expect(source).toContain('if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };');
   });
 

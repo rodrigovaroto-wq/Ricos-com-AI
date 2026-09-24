@@ -215,7 +215,7 @@ export const asksForSize = (text: string): boolean => {
   // "você veste" — not merely mention it: "fico por aqui pra ajudar com tamanho ou pedido,
   // quer que eu explique a troca?" restarted the ladder for Neusa (persona round 3).
   return questions.some((q) =>
-    /\b(qual|que|quais)\s+(?:(?:o|a|e|\u00e9)\s+)?(?:(?:o|a|seu|sua)\s+)?(tamanho|n[u\u00fa]mero|manequim|cal[c\u00e7]a|numera[c\u00e7][a\u00e3]o)|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))|\bcintura\b|\bescolher\s+o\s+tamanho\b/i.test(q),
+    /\b(qual|que|quais)\s+(?:(?:o|a|e|\u00e9)\s+)?(?:(?:o|a|seu|sua)\s+)?(tamanho|n[u\u00fa]mero|manequim|cal[c\u00e7]a|numera[c\u00e7][a\u00e3]o)|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))|\b(seu|sua)\s+(tamanho|n[u\u00fa]mero|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b/i.test(q),
   );
 };
 
