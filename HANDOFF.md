@@ -32,6 +32,28 @@ no ar. Plano em uma página: [`00-plano-simples.md`](docs/agente-ia/05-plano/00-
   retry de rede, respostas de objeção do operador. **R13.6 recusado:** escassez e prova
   social inventadas.
 
+**Em andamento quando a sessão de 24/09 fechou (retomar daqui):**
+- **Terceira revisão dos gates (`75bac92`) reprovou por vetos falsos novos** em frases
+  honestas — corrigir antes da rodada 3, cada um com a frase honesta que passa e a mentira
+  vizinha que continua barrada: "O colete é vendido por R$ 129,90." e "…vendido em 5
+  tamanhos" (`invented_testimonial`, regex de `vend…\d`); "…agendada, sendo 1 a 3 dias"
+  (`sendo \d`); negações honestas da Express inativa ("não está disponível na sua região",
+  "Express ainda não temos"); "Nosso suporte te atende todos os dias" (`humanity_claim`,
+  `suporte|atendimento` no WHO); "pode passar aqui seu CEP" (`unavailable_offer`); "em até
+  24 horas você recebe a confirmação" (`delivery_promise`). E, no mesmo ciclo, vetar prova
+  social com prazo depois de "satisfeitas" ("…só essa semana", "…compraram hoje", "98%
+  recomendam") e "Tem como retirar sim, em SP.". Sondas: `rev2/p8.txt`, `p9.txt` no
+  scratchpad da sessão (perdidas se o container foi reciclado — as frases estão aqui).
+- **Revisão final do fluxo do turno (`36387f4`)** estava rodando depois das dez correções
+  (escada depois dos extratores, ticket do retry, orçamento, "?" não troca tamanho,
+  cancelamento só com pedido, link só com tamanho, negação colada à palavra de pessoa, 429
+  transitório). Rodar `code-reviewer` de novo sobre esses arquivos.
+- **Nada disto rodou contra o modelo real ainda** — o intérprete (JSON da Muse, custo da
+  chamada extra) só se prova na rodada 3 das personas.
+- **Pendências do operador:** payload real da Coinzz (O6); o time real do "mais de 500
+  clientes satisfeitas" e do "planos de loja em São Paulo" (só ficam no config se forem
+  verdade); o secret com os campos novos.
+
 **Antes do deploy v33 (nesta ordem):**
 1. Aplicar a migração **`0007_gate_warn_verdict.sql`** — sem ela o `warn` derruba o lote
    inteiro de `gate_traces` em silêncio.
