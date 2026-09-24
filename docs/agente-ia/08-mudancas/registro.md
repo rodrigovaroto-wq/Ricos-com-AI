@@ -47,7 +47,11 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   desconhecida.
 - **Medida:** placar `pronta-por-prazo` = 0 e `respostas-prontas` = 0. **Linha de base R4:** 1 e 1.
 - **Rodada de verificação:** cleide, rafa, lu.
-- **Estado:** aberta.
+- **Feito (`ad46dd1`):** a causa estava no gate, não no caminho do turno — com a região
+  desconhecida o caminho já era `cod`; o `delivery_promise` julgava qualquer frase que
+  citasse "antecipado" como antecipado, mesmo com o prazo na metade "na entrega". Agora o
+  prazo pertence ao caminho citado mais perto antes dele. Afrouxa → segunda revisão.
+- **Estado:** feita, a medir na R5.
 
 ### M-02 — "Manequim" não define tamanho
 - **Por quê:** R3 e R4, Marcinha: "meu manequim é 40" trocou G (calça 44) por M. Na rodada
@@ -56,7 +60,11 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Objetivo:** o tamanho que a Malu diz não muda sem dado novo de calça, cintura ou letra.
 - **Medida:** placar `troca-de-tamanho` = 0. **Linha de base:** R3 = 1, R4 = 1.
 - **Rodada de verificação:** marcinha, karol, jussara.
-- **Estado:** aberta.
+- **Feito (`ad46dd1`):** "manequim" saiu do leitor de tamanho (`SIZE_CUE`, `LETTER_RE`) e o
+  número colado a "manequim" é descartado. Número de vestido ("visto 42 de vestido")
+  continua valendo — tirá-lo quebrava 35 cenários da persona Cida; decisão pendente se a
+  regra deve ser só calça, cintura e letra.
+- **Estado:** feita, a medir na R5.
 
 ### M-03 — O mesmo link não é mandado duas vezes
 - **Por quê:** R4, Jussara: link na mensagem 8 e de novo na 9 ("vou olhar aqui" → "Sem
@@ -64,7 +72,9 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Objetivo:** nenhum link repetido dentro de 3 respostas.
 - **Medida:** placar `link-repetido` = 0. **Linha de base R4:** 1.
 - **Rodada de verificação:** jussara, karol.
-- **Estado:** aberta.
+- **Feito (`ad46dd1`):** `linkSentRecently` (janela de 3 respostas) bloqueia o reenvio,
+  inclusive no "vou pensar".
+- **Estado:** feita, a medir na R5.
 
 ### M-04 — Tamanho quando há interesse; link antes de e-mail e CPF
 - **Por quê:** R4, Tati: pergunta de tamanho em 4 respostas seguidas sobre preço e cupom.
@@ -74,7 +84,10 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Medida:** placar `tamanho-na-conversa-de-preco` ≤ 0,5 e `dados-depois-da-decisao` = 0.
   **Linha de base:** R3 = 0,5 e 1; R4 = 0,29 e 0.
 - **Rodada de verificação:** tati, cleide, neusa.
-- **Estado:** aberta.
+- **Feito (`ad46dd1`):** duas instruções no prompt — perguntar tamanho quando houver
+  interesse, não em resposta de preço/cupom; com a decisão e o tamanho, link sem pedir nome,
+  e-mail ou CPF antes (cliente desconfiada: link primeiro).
+- **Estado:** feita, a medir na R5.
 
 ---
 
@@ -104,3 +117,4 @@ Feitas antes deste registro; o resultado vem das rodadas e do placar recalculado
 | O-01 | Consulta de região da Coinzz (`stock-and-delivery-day` redireciona para a home desde 24/09) | Sem ela a Malu não oferece o antecipado a quem não tem pagamento na entrega | aberta |
 | O-02 | Link de checkout no domínio da marca | R3: Jussara desistiu por causa de `logzz.com.br` | aberta |
 | O-03 | Confirmar "mais de 500 clientes satisfeitas" e "planos de loja em São Paulo" | A Malu afirma os dois para toda cliente | aberta |
+| O-04 | O workflow `Relógio da régua` autentica a chamada da função com a credencial chamada **"Gemini API"** (`n8n/workflows/relogio-da-regua.json`) e tem `neverError: true` | Se a credencial for mesmo a chave do Gemini, a varredura falha em silêncio e nenhum toque sai. Conferir no n8n qual valor ela guarda; o certo é a mesma `Supabase service_role` dos outros dois | aberta |
