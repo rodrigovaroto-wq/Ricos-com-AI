@@ -147,7 +147,7 @@ for (const [angle, reply, esperado] of [
   ["oferta sem a palavra desconto", "Te dou 30% agora se fechar.", "barra(price_promise)"],
   ["porcentagem por extenso", "Te dou 30 por cento de desconto.", "barra(price_promise)"],
   ["valor em reais por extenso", "Fica só 200 reais.", "barra(price_promise)"],
-  ["'sem juros' não é negação", "Sem juros e sem taxa, sai por R$ 59,90.", "barra(price_promise)"],
+  ["'sem juros' não é negação", "Sem juros e sem taxa, sai por R$ 59,90.", "barra(price_promise+installment_promise)"],
 ] as Array<[string, string, string]>) {
   check("preço e desconto", angle, reply, esperado, outcome(reply));
 }
@@ -364,10 +364,12 @@ const turn = (remedy: "rewrite" | "defer" | "stop" | null, used: number, spent: 
 for (const [angle, got, esperado] of [
   ["nada barrou", turn(null, 0, 0), "send"],
   ["primeira reescrita", turn("rewrite", 0, 0), "rewrite"],
-  // Uma reescrita só, e o fim dela não é handoff: a cliente recebe a resposta de saída e
-  // a conversa continua com a agente. Handoff ficou para o que não é questão de redação.
-  ["esgotou a reescrita", turn("rewrite", 1, 0), "fallback"],
-  ["esgotou de novo", turn("rewrite", 2, 0), "fallback"],
+  // Duas reescritas desde 2026-09-24 (R13.4), e o fim delas não é handoff: a cliente recebe
+  // a resposta de saída e a conversa continua com a agente. Handoff ficou para o que não é
+  // questão de redação.
+  ["segunda reescrita", turn("rewrite", 1, 0), "rewrite"],
+  ["esgotou a reescrita", turn("rewrite", 2, 0), "fallback"],
+  ["esgotou de novo", turn("rewrite", 3, 0), "fallback"],
   ["sem orçamento pra reescrever", turn("rewrite", 0, 1.5), "handoff"],
   ["opt-out nunca reescreve", turn("stop", 0, 0), "stop"],
   ["hora errada adia", turn("defer", 0, 0), "defer"],
@@ -422,7 +424,7 @@ for (const [angle, reply, esperado] of [
   ["cura dor nas costas", "Ele corrige a sua postura e cura a dor nas costas.", "barra(health_claim)"],
   ["trata problema de saúde", "Ajuda a tratar hérnia de disco e melhora a circulação.", "barra(health_claim)"],
   ["indicação pós-cirúrgica", "É indicado para pós-operatório de cirurgia plástica.", "barra(health_claim)"],
-  ["fala de postura sem prometer cura", "Muita cliente conta que se sente mais ereta usando.", "envia"],
+  ["fala de postura sem prometer cura", "Muita cliente conta que se sente mais ereta usando.", "barra(invented_testimonial)"],
   // Este bloco já virou de lado duas vezes, e o histórico importa porque ele explica
   // por que o gate tem duas metades. Até 2026-09-09 prometer frete grátis era o veto;
   // naquele dia o frete foi zerado nas duas ofertas e a frase virou verdade, então quem
@@ -470,7 +472,7 @@ for (const [angle, reply, esperado] of [
     ["nenhum frete seco", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", cfg0922],
     ["nenhum frete a mais no antecipado", "No antecipado, nenhum frete a mais na entrega.", "cod", "barra(shipping_promise)", cfg0922],
     ["ressalva negativa depois de outra negação (saída A)", "Não precisa esperar, o frete não está incluído e você economiza R$ 12,99 no produto.", "prepay", "barra(price_promise)", cfg0922],
-    ["'juros zero' não nega o frete (saída A)", "Você economiza R$ 12,99 no produto com juros zero e o frete calculado no checkout.", "prepay", "barra(price_promise)", cfg0922],
+    ["'juros zero' não nega o frete (saída A)", "Você economiza R$ 12,99 no produto com juros zero e o frete calculado no checkout.", "prepay", "barra(price_promise+installment_promise)", cfg0922],
     ["'zero frete' continua negando", "Você economiza R$ 12,99 e zero frete cobrado à parte.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
     // Segunda passada do /code-review (2026-09-22). A produção passa "cod" em todo turno.
     ["ressalva negada com vírgula no meio", "O frete não é, de jeito nenhum, cobrado à parte, e você economiza R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
