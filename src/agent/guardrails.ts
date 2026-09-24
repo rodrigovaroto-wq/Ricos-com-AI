@@ -701,12 +701,19 @@ const gates: readonly Gate[] = [
           )) {
             const at = m.index ?? 0;
             if (deniedJustBefore(t, at)) continue;
-            // Hours are a delivery claim only beside a delivery verb ("chega em 4 horas").
-            if (!m[0].startsWith("express") && !/\b(?:cheg|receb|entreg)\w*/.test(sentenceAt(t, at))) continue;
-            // Only a bare "not available/active" passes after the word. "A Express não tem
-            // custo extra" and "…não está disponível depois das 14h" say it exists.
+            // Hours are a delivery claim only when a delivery verb governs them, up to three
+            // words before ("chega em 4 horas") — "em até 24 horas você recebe a
+            // confirmação" is about the order, not the parcel (third review).
+            if (
+              !m[0].startsWith("express") &&
+              !/\b(?:cheg|receb|entreg)\w*(?:\s+\S+){0,3}\s*$/.test(t.slice(Math.max(0, at - 40), at)) &&
+              !/^\s+(?:voce\s+)?(?:cheg|receb|entreg)\w*\s+(?:o\s+colete|o\s+pedido|seu\s+colete|em\s+casa|ai)\b/.test(t.slice(at + m[0].length))
+            )
+              continue;
+            // Only a bare "not available/active/here yet" passes after the word. "A Express
+            // não tem custo extra" and "…não está disponível depois das 14h" say it exists.
             const after = t.slice(at + m[0].length).split(/[,;:.!?\n]|\bmas\b/)[0]!;
-            if (/^\s*(?:ainda\s+)?nao\s+(?:esta|ta|existe)(?:\s+(?:disponivel|ativa|funcionando))?(?:\s+(?:ainda|aqui|por\s+enquanto))?\s*$/.test(after)) continue;
+            if (/^\s*(?:ainda\s+)?nao\s+(?:esta|ta|existe|chegou|temos)(?:\s+(?:disponivel|ativa|funcionando))?(?:\s+(?:ainda|aqui|por\s+enquanto|na\s+sua\s+(?:regiao|cidade)))?\s*$/.test(after)) continue;
             return "offers a same-day modality that is not active";
           }
         }
@@ -855,7 +862,7 @@ const gates: readonly Gate[] = [
       // R13.6: no invented social proof, one customer or many ("as clientes dizem que…").
       const SUBJ = String.raw`\b(?:uma|outra|essa|minha|minhas|as|muita|muitas|varias|a\s+ultima|a\s+maioria\s+das|tem)\s+(?:cliente|compradora|menina|moca|mulher|consumidora)s?\b`;
       const said = new RegExp(
-        String.raw`${SUBJ}[^.!?]{0,30}?\b(?:me\s+)?(?:disse|diz|dizem|falou|fala|falam|contou|conta|contam|comentou|comenta|comentam|relatou|escreveu|mandou|elogiou|elogiam)\s+(?:\S+\s+){0,2}?que\b(?!\s*[\u201c\u201d"])|${SUBJ}\s+(?:ja\s+)?(?:amou|amaram|adorou|adoraram|adoram|aprovam|aprovaram|recomendam|recomendou|compr\w*|usam|usaram)\b`,
+        String.raw`${SUBJ}[^.!?]{0,30}?\b(?:me\s+)?(?:disse|diz|dizem|falou|fala|falam|contou|conta|contam|comentou|comenta|comentam|relatou|escreveu|mandou|elogiou|elogiam)\s+(?:\S+\s+){0,2}?que\b(?!\s*[\u201c\u201d"])|${SUBJ}\s+(?:ja\s+)?(?:amou|amaram|adorou|adoraram|adoram|aprovam|aprovaram|recomendam|recomendou|compr\w*)\b`,
       ).exec(norm(text));
       if (said) return "reports what a customer said, and no testimonial backs it";
 
@@ -867,7 +874,7 @@ const gates: readonly Gate[] = [
       // The configured number passes only as "N clientes satisfeitas" — never as sales
       // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
       if (
-        /\bvend(?:emos|eu|eram|idos?|idas?)\b[^.!?]{0,20}?\d|\d[\d.]*\s*(?:mil\s+)?(?:\w+\s+)?vendid\w*|\b\d{1,3}\s*%\s+d[ao]s\s+(?:clientes|compradoras|mulheres|pessoas)|\b\d+\s+em\s+cada\s+\d+|\b\d[\d.]*\s+avaliac\w*|\bnota\s+\d|\d[.,]\d\s+estrelas|\b\d[\d.]*\s+(?:delas|dessas|destas)\b|\bsendo\s+\d/.test(t)
+        /\bvend(?:emos|eu|eram)\b[^.!?]{0,20}?\d[\d.]*\s*(?:mil\b\s*)?(?:(?:pecas|unidades|coletes|vezes)\b|[.!?]|$)|\d[\d.]*\s*(?:mil\s+)?(?:(?:pecas|unidades|coletes)\s+)?vendid\w*|\b\d{1,3}\s*%\s+d[ao]s\s+(?:clientes|compradoras|mulheres|pessoas)|\b\d+\s+em\s+cada\s+\d+|\b\d[\d.]*\s+avaliac\w*|\bnota\s+\d|\d[.,]\d\s+estrelas|\b\d[\d.]*\s+(?:delas|dessas|destas)\b|\b(?:clientes?|compradoras?|mulheres)\b[^.!?]{0,40}\bsendo\s+\d/.test(t)
       )
         return "states a customer count nobody configured";
       for (const m of t.matchAll(
@@ -880,7 +887,15 @@ const gates: readonly Gate[] = [
         const after = t.slice((m.index ?? 0) + m[0].length);
         const claim = /^\s*(?:ja\s+)?(?:compr|us|aprov|recomend|vend|amar|ador)\w*/.test(after);
         if (!crowd && value < 1000 && !claim && !/\b(?:mais\s+de|quase|cerca\s+de)\s*$|\+\s*$/.test(t.slice(0, m.index ?? 0))) continue;
-        if (crowd && value === allowed && /^\s*satisfeit/.test(after)) continue;
+        // …and with no clock or other number beside it: "satisfeitas só essa semana",
+        // "hoje, mais de 500…", "…, 98% recomendam" are velocity again (third review).
+        if (
+          crowd &&
+          value === allowed &&
+          /^\s*satisfeit/.test(after) &&
+          !/\b(?:hoje|ontem|agora|semana|mes|ano|compr\w*)\b|\d\s*%/.test(sentenceAt(t, m.index ?? 0))
+        )
+          continue;
         return "states a customer count nobody configured";
       }
       return null;
@@ -905,11 +920,16 @@ const gates: readonly Gate[] = [
       if (ctx.layer === "agent") {
         const WHO = String.raw`(?:uma?\s+|o\s+|a\s+|nossa\s+|nosso\s+)?(?:atendente|pessoa|humano|time|equipe|colega|supervisor\w*|gerente|responsavel|alguem|suporte|atendimento)`;
         const TO = String.raw`(?:(?:pra|para|pro|ao|a)\s+)?`;
+        const PERSON = String.raw`(?:uma?\s+|o\s+|a\s+|nossa\s+|nosso\s+)?(?:atendente|pessoa|humano|time|equipe|colega|supervisor\w*|gerente|responsavel|alguem)`;
+        const DESK = String.raw`(?:o\s+|nosso\s+)?(?:suporte|atendimento)`;
         const claims = [
           new RegExp(String.raw`\b(?:ja\s+)?(?:chamei|avisei|acionei|transferi|encaminhei|notifiquei|passei|vou\s+(?:chamar|avisar|acionar|transferir|encaminhar|passar))\s+${TO}${WHO}\b`),
           new RegExp(String.raw`\b(?:estou|to|ja\s+to|ja\s+estou)\s+(?:chamando|avisando|acionando|transferindo|passando)\s+${TO}${WHO}\b`),
           new RegExp(String.raw`\b(?:deixei\s+avisad\w*|pedi\s+(?:pra|para))\s+${TO}${WHO}\b`),
-          new RegExp(String.raw`\b${WHO}(?:\s+do\s+(?:time|atendimento))?\s+(?:ja\s+)?(?:chega|vai\s+(?:te\s+)?(?:chamar|falar|responder|atender|entrar)|te\s+(?:chama|responde|atende)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
+          new RegExp(String.raw`\b${PERSON}(?:\s+do\s+(?:time|atendimento))?\s+(?:ja\s+)?(?:chega|vai\s+(?:te\s+)?(?:chamar|falar|responder|atender|entrar)|te\s+(?:chama|responde|atende)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
+          // The support desk exists, and "o suporte te atende todos os dias" is what the
+          // prompt teaches. Only a desk that is already on its way to her is a claim.
+          new RegExp(String.raw`\b${DESK}\s+(?:ja\s+)?(?:vai\s+(?:te\s+)?(?:chamar|entrar)|ja\s+(?:foi\s+(?:avisad|notificad|acionad)\w*|sabe|esta\s+vindo))\b`),
         ];
         for (const r of claims) {
           const m = r.exec(t);
@@ -1302,7 +1322,7 @@ const gates: readonly Gate[] = [
       // not exist. Only a denial that governs the verb passes ("não tem como retirar").
       // Second review (2026-09-24): also a store given an address ("a loja fica no Brás",
       // "temos loja em São Paulo"), and every "vem/passa/pega aqui".
-      const PLACE = String.raw`(?:loja|balcao|endereco|local|escritorio|galpao|showroom|aqui|la|com\s+a\s+gente|pessoalmente)`;
+      const PLACE = String.raw`(?:loja|balcao|endereco|local|escritorio|galpao|showroom|deposito|ponto\s+de\s+retirada|aqui|la|com\s+a\s+gente|pessoalmente)`;
       for (const m of t.matchAll(
         new RegExp(
           [
@@ -1312,9 +1332,11 @@ const gates: readonly Gate[] = [
             String.raw`\b(?:pode|podem|da\s+pra)\s+(?:buscar|retirar)\b`,
             String.raw`\b(?:pode|podem|da\s+pra)\s+(?:vir|ir|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
             String.raw`\b(?:venha|vem|vir|passa|passe|passar)\s+(?:(?:la|aqui|ai)\s+)?(?:e\s+)?(?:buscar|retirar|pegar|provar|experimentar|conhecer|visitar)\b`,
-            String.raw`\bpode\s+(?:vir|passar)\s*(?:aqui|la|[.!,]|$)`,
+            String.raw`\bpode\s+(?:vir|passar)\s*(?:aqui|la)?\s*(?:[.!,]|$)`,
+            String.raw`\btem\s+como\s+retirar\b`,
+            String.raw`\bte\s+encontr\w*\b`,
             String.raw`\b(?:te\s+espero|vem|venha|vir|passa|passe|passar|ir)\s+(?:\S+\s+){0,2}?(?:na|no|ate\s+a|ate\s+o)\s+(?:nossa\s+|nosso\s+)?(?:loja|showroom|escritorio|galpao)\b`,
-            String.raw`\bloja(?:\s+fisica)?\b[^.!?]{0,30}?\b(?:fica|esta|localizad\w*)\s+(?:na|no|em)\b`,
+            String.raw`\bloja(?:\s+fisica)?\b[^.!?,;]{0,30}?\b(?:fica|esta|localizad\w*)\s+(?:na|no|em)\b(?!\s+(?:site|planejamento|breve|construcao|obras))`,
             String.raw`\b(?:temos|tem)\s+(?:uma\s+)?loja(?:\s+fisica)?(?:\s+sim)?,?\s+(?:em|no|na)\b`,
             String.raw`\bloja\b[^.!?]*\b(?:ja\s+)?(?:temos|tem)\s+uma\s+(?:em|no|na)\b`,
           ].join("|"),
@@ -1333,6 +1355,8 @@ const gates: readonly Gate[] = [
       for (const m of t.matchAll(/\b(loja\s+fisica|nossa\s+loja|nossas\s+lojas)\b/g)) {
         const at = m.index ?? 0;
         if (deniedJustBefore(t, at)) continue;
+        // The denial after the noun: "loja física ainda não temos".
+        if (/^\s*(?:ainda\s+)?(?:nao|nem)\s+(?:temos|tem|existe)\b/.test(t.slice(at + m[0].length))) continue;
         if (
           city &&
           /\b(?:planos?\s+de|vamos|pretend\w*|queremos)\s+abrir\s+$/.test(t.slice(Math.max(0, at - 30), at)) &&
@@ -1397,35 +1421,58 @@ const gates: readonly Gate[] = [
         return /^\d+$/.test(raw) ? Number(raw) : raw.startsWith("vinte e") ? 24 : WORDS[raw];
       };
       const ONCE = /\bpag\w*\s+(?:so\s+)?(?:uma\s+vez|a\s+vista)\b|\be\s+a\s+vista\b|\buma\s+vez\s+so\b/;
-      const affirmed: Array<{ count: number | undefined; sentence: string }> = [];
-      const rest: string[] = [];
-      for (const sentence of t.split(/[.!?\n]+/)) {
-        const kept: string[] = [];
-        const found: Array<number | undefined> = [];
-        for (const clause of sentence.split(/[,;:]|\b(?:mas|porem)\b/)) {
-          const tokens = [...clause.matchAll(TOKEN)];
-          const live = tokens.filter((m) => !deniedJustBefore(clause, m.index ?? 0));
-          if (live.length === 0 && (tokens.length > 0 || ONCE.test(clause))) continue; // a refusal
-          kept.push(clause);
-          for (const m of live) found.push(countOf(m));
+      // Third review: the door is judged where the installment is, not across the whole
+      // message. "…e chega em média em 5 dias" is the parcel, not how she pays; `cheg`/
+      // `receb` count only when tied to paying ("paga quando chegar", "12x ao receber").
+      const DOOR = new RegExp(
+        String.raw`\bentreg\w*|\bmotoboy\b|\bmaquininha\b|\bpag\w*\s+depois\b|\bno\s+ato\b|\bna\s+porta\b|\bna\s+hora\b|\bpessoalmente\b|` +
+          String.raw`\b(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b(?:\s+\S+){0,3}?\s+(?:quando|ao|no|na\s+hora\s+que)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*|` +
+          String.raw`\b(?:quando|ao|no)\s+(?:o\s+colete\s+)?(?:cheg|receb)\w*(?:\s+\S+){0,3}?\s+(?:pag\w*|parcel\w*|cartao|credito|\d{1,2}\s*x)\b`,
+      );
+      const EXTEND = /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas|aceit\w*|credito)\b/;
+      const affirmed: Array<{ count: number | undefined; segment: string; sentence: string }> = [];
+      const extended: string[] = [];
+      for (const [raw] of t.matchAll(/[^.!?\n]+[.!?\n]?/g)) {
+        // A bare question ("Quer parcelar?") promises nothing. One with a count or a door
+        // in it does: "sabia que dá pra parcelar em 12x na entrega?".
+        const question =
+          raw.trim().endsWith("?") &&
+          !DOOR.test(raw) &&
+          [...raw.matchAll(TOKEN)].every((m) => countOf(m) === undefined);
+        const sentence = question ? "" : raw;
+        if (!sentence) continue;
+        const keptSentence: string[] = [];
+        for (const segment of sentence.split(/;|\b(?:mas|porem)\b|,?\s*\be\s+(?=(?:no|na|pagando|quem)\b)/)) {
+          const kept: string[] = [];
+          const found: Array<number | undefined> = [];
+          for (const clause of segment.split(/[,:]/)) {
+            const tokens = [...clause.matchAll(TOKEN)];
+            const live = tokens.filter((m) => !deniedJustBefore(clause, m.index ?? 0));
+            if (live.length === 0 && (tokens.length > 0 || ONCE.test(clause))) continue; // a refusal
+            kept.push(clause);
+            for (const m of live) found.push(countOf(m));
+          }
+          keptSentence.push(...kept);
+          // The door is read on the whole segment, refusal clause included: "na entrega
+          // você paga uma vez só, em 12x no cartão" is one promise, not a refusal plus one.
+          for (const count of found) affirmed.push({ count, segment, sentence: "" });
+          if (EXTEND.test(kept.join(" , "))) extended.push(segment);
         }
-        rest.push(...kept);
-        for (const count of found) affirmed.push({ count, sentence: kept.join(" , ") });
+        for (const a of affirmed) if (a.sentence === "") a.sentence = keptSentence.join(" , ");
       }
       if (affirmed.length === 0) return null;
 
       const max = maxInstallments(ctx.config);
-      const others = rest.join(" , ");
-      const DOOR =
-        /\bentreg\w*|\bmotoboy\b|\bmaquininha\b|\breceb\w*|\bcheg\w*|\bpag\w*\s+depois\b|\bno\s+ato\b|\bna\s+porta\b|\bna\s+hora\b|\bpessoalmente\b/;
-      if (DOOR.test(others)) return "promises installments on the cash-on-delivery path";
+      for (const { segment } of affirmed)
+        if (DOOR.test(segment)) return "promises installments on the cash-on-delivery path";
+      for (const segment of extended)
+        if (DOOR.test(segment) || /\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas)\b/.test(segment))
+          return "extends installments beyond the prepaid card checkout";
       if (max == null) return "promises installments, and none are configured";
-      if (/\b(?:tambem|igual|idem|mesmo\s+jeito|tanto|qualquer|ambos|ambas|nos\s+dois|nas\s+duas)\b/.test(others))
-        return "extends installments beyond the prepaid card checkout";
       const PREPAY =
         /(?<!\b(?:nao|sem|nem)\s+(?:\S+\s+){0,2})\b(?:antecip\w*|adiantad\w*|pagar\s+antes|pagamento\s+antes)\b(?!\s+(?:nao|nem)\b)|\bcartao\b[^.!?]{0,24}\bcheckout\b|\bcheckout\b[^.!?]{0,24}\bcartao\b/;
-      for (const { count, sentence } of affirmed) {
-        if (/\bou\b/.test(sentence)) return "joins two payment paths around an installment";
+      for (const { count, segment, sentence } of affirmed) {
+        if (/\bou\b/.test(segment)) return "joins two payment paths around an installment";
         if (!PREPAY.test(sentence)) return "promises installments without tying them to the prepaid checkout";
         if (count !== undefined && count > max) return `promises ${count} installments, above the configured ${max}`;
       }

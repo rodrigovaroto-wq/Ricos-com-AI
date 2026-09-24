@@ -505,3 +505,65 @@ describe("garantia: o prazo de entrega não empresta passe a uma troca sem 'dias
     expect(w("Chega em até 3 dias e você tem 7 dias pra devolver.")).toBe("pass");
   });
 });
+
+/**
+ * Terceira revisão (2026-09-24): falsos positivos em frases honestas. Cada caso traz a
+ * frase honesta que passa e a mentira vizinha que continua barrada.
+ */
+describe("terceira revisão: frase honesta passa, a mentira vizinha não", () => {
+  const full = withConfig({
+    prices: { ...config.prices, prepayMaxInstallments: 12 },
+    socialProof: { satisfiedCustomers: 500 },
+    store: { physicalStorePlanCity: "São Paulo" },
+  });
+  const verdict = (text: string, gate: string) =>
+    runGates(text, ctx({ config: full })).traces.find((t) => t.gate === gate)!.verdict;
+
+  it.each([
+    ["invented_testimonial", "O colete é vendido por R$ 129,90.", "Já vendemos 500 peças."],
+    ["invented_testimonial", "O colete é vendido em 5 tamanhos, do P ao XGG.", "Já vendemos mais de 2000."],
+    ["invented_testimonial", "A entrega é agendada, sendo 1 a 3 dias pra chegar.", "Mais de 500 clientes satisfeitas, sendo 300 só em São Paulo."],
+    ["invented_testimonial", "Mais de 500 clientes satisfeitas.", "Mais de 500 clientes satisfeitas só essa semana."],
+    ["invented_testimonial", "Qualidade, mais de 500 clientes satisfeitas, pagamento na entrega, 7 dias pra trocar e suporte todo dia.", "Mais de 500 clientes satisfeitas, 98% recomendam."],
+    ["invented_testimonial", "Muitas clientes usam por baixo do vestido.", "Várias clientes já compraram."],
+    ["delivery_promise", "Infelizmente a entrega expressa não está disponível na sua região.", "A Express não tem custo extra."],
+    ["delivery_promise", "Express ainda não temos, mas chega em 1 a 3 dias.", "A entrega Express não está disponível depois das 14h."],
+    ["delivery_promise", "A entrega expressa ainda não chegou na sua região.", "Não se preocupe, temos Express."],
+    ["delivery_promise", "Assim que você fizer o pedido, em até 24 horas você recebe a confirmação.", "Chega em 4 horas."],
+    ["humanity_claim", "Nosso suporte te atende todos os dias.", "Já acionei o suporte."],
+    ["humanity_claim", "Pra trocar, escreve pro sac@x.com que o atendimento te responde rapidinho.", "Transferi pro atendimento humano."],
+    ["humanity_claim", "Não sou uma pessoa, sou a assistente virtual da marca.", "Já chamei a atendente."],
+    ["unavailable_offer", "Se quiser, pode passar aqui seu CEP que eu confiro.", "Pode vir aqui."],
+    ["unavailable_offer", "Loja física ainda não temos, a venda está no site.", "Tem como retirar sim, em SP."],
+    ["unavailable_offer", "Não precisa buscar nada, o entregador leva aí.", "Retire no nosso ponto de retirada."],
+    ["installment_promise", "Na entrega é à vista, direto com o entregador; no antecipado dá pra parcelar em até 12x.", "Na entrega você paga uma vez só, em 12x no cartão do checkout."],
+    ["installment_promise", "Na entrega você paga em dinheiro, pix ou cartão, uma vez só; no antecipado parcela em até 12x.", "Na entrega você paga à vista ou em 12x no cartão."],
+    ["installment_promise", "No antecipado parcela em até 12x no cartão e chega em média em 5 dias.", "Parcela em 12x e paga quando chegar."],
+    ["installment_promise", "No antecipado, pelo cartão no checkout, dá pra parcelar em até 12x. O prazo varia por região, em média 5 dias pra chegar.", "No antecipado em até 12x no cartão. O entregador também aceita."],
+    ["installment_promise", "Pagando antecipado você parcela em até 12x no cartão e recebe em casa.", "No antecipado em até 12x no cartão, e na entrega aceitamos cartão."],
+    ["installment_promise", "Quer parcelar? No antecipado, pelo cartão, dá em até 12x.", "No antecipado, 12x. Com o motoboy dá pra passar no crédito parcelado."],
+    ["installment_promise", "Na entrega não dá pra parcelar. No antecipado sim, em até 12x no cartão.", "No antecipado em até 12x; quem prefere, faz igual com o entregador."],
+  ])("%s: passa a honesta, barra a vizinha", (gate, honest, lie) => {
+    expect(verdict(honest, gate), honest).toBe("pass");
+    expect(verdict(lie, gate), lie).toBe("block");
+  });
+
+  it.each([
+    "Hoje, mais de 500 clientes satisfeitas.",
+    "Já passamos de 500 clientes satisfeitas este mês.",
+    "Mais de 500 clientes satisfeitas compraram hoje.",
+  ])("prova social com relógio barra: %s", (text) => {
+    expect(verdict(text, "invented_testimonial")).toBe("block");
+  });
+});
+
+describe("pergunta sobre parcelamento", () => {
+  const cfg12 = withConfig({ prices: { ...config.prices, prepayMaxInstallments: 12 } });
+  const inst = (text: string) =>
+    runGates(text, ctx({ config: cfg12 })).traces.find((t) => t.gate === "installment_promise")!.verdict;
+  it("a pergunta seca não promete nada; com número ou porta, promete", () => {
+    expect(inst("Quer parcelar? No antecipado, pelo cartão, dá em até 12x.")).toBe("pass");
+    expect(inst("Sabia que dá pra parcelar em 12x na entrega?")).toBe("block");
+    expect(inst("Quer parcelar em 12x?")).toBe("block");
+  });
+});
