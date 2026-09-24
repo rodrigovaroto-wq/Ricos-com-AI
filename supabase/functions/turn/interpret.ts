@@ -478,21 +478,19 @@ export const linkSentRecently = (
  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
  * window does not hold it back (code review, 2026-09-24). Only the request form counts:
  * "você já mandou o link", "mandei o link pra minha irmã" and "não precisa mandar o link"
- * say she has it, and a refusal or her forwarding it is not a request (second review).
+ * say she has it, and a refusal, a condition or someone else forwarding it is not a
+ * request (second review).
  */
 export const asksForLink = (message: string): boolean => {
   const t = norm(message);
   if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
+  // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /\b(?:manda|mande|mandar|envia|envie|enviar|passa|passe|passar|reenvia|reenvie|reenviar)\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|pode|por\s+favor|eu\s+quero|quero)\s+)*(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie|mandar|enviar|passar|reenviar)\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
   )) {
-    const at = m.index ?? 0;
-    const before = t.slice(0, at).split(/[,;.!?\n]/).pop()!;
-    const after = t.slice(at + m[0].length).split(/[,;.!?\n]/)[0]!;
-    // Second review: "para de mandar o link", "manda o link não", "vou passar o link pro
-    // meu marido" — a refusal, or her forwarding it — are not a request.
-    if (/\b(?:nao|precisa|ja|nem|nunca|sem|para\s+de|pare\s+de|chega\s+de|vou|eu)\b/.test(before)) continue;
-    if (/\bnao\b/.test(after)) continue;
+    const after = t.slice((m.index ?? 0) + m[0].length).split(/[,;.!?\n]/)[0]!;
+    if (/\b(?:nao|se|quando|depois)\b/.test(after)) continue;
     return true;
   }
   return false;

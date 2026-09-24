@@ -92,6 +92,17 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "Na entrega também é 1 a 3 dias, no antecipado varia por região, igualzinho.",
     "No antecipado varia por região, na entrega chega em 1 a 3 dias, e pagando antes idem.",
     "No antecipado varia por região, na entrega chega em 1 a 3 dias, e pagando antes é igualzinho.",
+    // Terceira rodada: outra opção fora da lista, prazo para todos, e sinônimo do antecipado depois da entrega.
+    "Na entrega e via transferência também chega em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega e online também chega em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega e com crédito também chega em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega também chega em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega você também escolhe o dia, no antecipado varia por região; quem paga na entrega recebe em 1 a 3 dias, pagando antes 2 a 3 dias.",
+    "Na entrega você também escolhe o dia, no antecipado varia por região; na entrega são 1 a 3 dias, e no Pix 2 a 3 dias.",
+    "Na entrega também dá, e todo mundo recebe em 1 a 3 dias, no antecipado varia por região.",
+    "Na entrega também, recebendo em 1 a 3 dias qualquer pagamento, no antecipado varia por região.",
+    "Na entrega você também recebe em 1 a 3 dias, independente do pagamento; no antecipado varia por região.",
+    "No antecipado varia por região; na entrega são 1 a 3 dias, e no Pix 2 a 3 dias.",
   ];
   const passam = [
     "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",

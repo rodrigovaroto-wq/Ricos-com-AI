@@ -664,7 +664,7 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
   });
 
   it("ela pede o link de novo: o pedido explícito passa pela janela", () => {
-    for (const m of ["manda o link de novo", "me envia o link por favor", "não achei o link", "pode reenviar o link?", "manda um link"])
+    for (const m of ["manda o link de novo", "me envia o link por favor", "não achei o link", "pode reenviar o link?", "manda um link", "me passa o link por favor", "eu quero, manda o link", "ah sim, manda o link", "não sei, manda o link aí"])
       expect(asksForLink(m), m).toBe(true);
     for (const m of [
       "vou pensar",
@@ -690,6 +690,16 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       "vou passar o link pro meu marido",
       "minha amiga pediu pra eu passar o link pra ela",
       "ele disse pra não mandar o link",
+      // Terceira rodada: condição, adiamento e terceiros.
+      "nada de mandar o link",
+      "deixa de mandar o link",
+      "evita mandar o link toda hora",
+      "espera antes de mandar o link",
+      "pode esperar pra mandar o link?",
+      "manda o link só se eu pedir",
+      "só manda o link quando eu pedir",
+      "ela vai passar o link pro meu marido",
+      "meu marido que vai mandar o link",
     ])
       expect(asksForLink(m), m).toBe(false);
   });
