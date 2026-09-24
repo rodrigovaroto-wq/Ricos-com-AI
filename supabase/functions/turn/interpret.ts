@@ -383,9 +383,15 @@ const negatedBefore = (t: string, at: number): boolean =>
  * the phrases that can only mean an order with us count from the history.
  */
 const OTHER_PURCHASE =
-  /\b(outra|outro|outras|outros|antes|parecid\w*|shopee|mercado|cinta|ano\s+passado|pra\s+ela|para\s+ela|pra\s+ele|para\s+ele|minha\s+(irma|mae|amiga|filha))\b/;
+  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|shopee|mercado|cinta|ano\s+passado)\b/;
+/**
+ * A clause that names our product or us is about an order with us whatever else it says:
+ * "fiz o pedido pra ela ontem", "comprei o colete antes de ontem" (code review, 2026-09-24).
+ * Buying for someone else is still buying: "comprei pra minha mãe, cadê?".
+ */
+const ABOUT_US = /\b(pedido|colete|com\s+voces)\b/;
 const ORDER_WITH_US =
-  /\b(fiz\s+(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g;
+  /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
 
 export const statesPastPurchase = (message: string, current = true): boolean => {
@@ -396,7 +402,7 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
       const start = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
       const ends = [",", ";", ".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
       const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
-      if (negatedBefore(t, at) || OTHER_PURCHASE.test(clause)) continue;
+      if (negatedBefore(t, at) || (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause))) continue;
       return true;
     }
   }
@@ -414,7 +420,7 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
  * ("quero a GG, mas é pra depois", "vou comprar quando cair o salário").
  */
 const BUY =
-  /\b(vou\s+(nesse|nessa|nele|nela)|vou\s+(querer|levar|comprar|fechar)(?=\s*(?:$|[,.!;\n]|(?:o|a|um|uma)\s+(?:colete|pp|p|m|g|gg|xgg)\b|(?:esse|essa|ele|ela|entao)\b))|quero\s+(entao|comprar|fechar|levar)|quero\s+(um|uma|o|a)\s+(pp|p|m|g|gg|xgg|colete)|(pode|me)\s+mand(ar|a)\s+o\s+link|manda\s+o\s+link|fecha(r)?\s+(pra\s+mim|entao))\b/g;
+  /\b(vou\s+(nesse|nessa|nele|nela)|vou\s+(querer|levar|comprar|fechar)(?=\s*(?:$|[,.!;\n]|(?:o|a|um|uma)\s+(?:colete|pp|p|m|g|gg|xgg)\b|(?:esse|essa|ele|ela|entao|sim|agora)\b|\d+\b))|quero\s+(entao|comprar|fechar|levar)|quero\s+(um|uma|o|a)\s+(pp|p|m|g|gg|xgg|colete)|(pode|me)\s+mand(ar|a)\s+o\s+link|manda\s+o\s+link|fecha(r)?\s+(pra\s+mim|entao))\b/g;
 
 export const decidesToBuy = (message: string): boolean => {
   const t = norm(message);
@@ -424,7 +430,8 @@ export const decidesToBuy = (message: string): boolean => {
     const rest = t.slice(at);
     const clauseEnd = rest.search(/[,;.!?\n]/);
     const clause = clauseEnd === -1 ? rest : rest.slice(0, clauseEnd);
-    if (/\b(quando|depois)\b/.test(clause)) continue;
+    // "vou comprar agora não" — a denial after the verb, in the same clause, cancels too.
+    if (/\b(quando|depois|nao)\b/.test(clause)) continue;
     if (/\bmas\b[^.!?\n]*\b(depois|quando|mais\s+tarde|outro\s+dia)\b/.test(rest)) continue;
     return true;
   }

@@ -226,3 +226,17 @@ describe("o nome no link, em caixa de nome", () => {
     expect(titleCaseName("da silva")).toBe("Da Silva");
   });
 });
+
+/** Code review, 2026-09-24: parentesco não é nome. */
+describe("\"sou a mãe dela\" não é nome", () => {
+  it("parentesco depois de \"sou a\" não vira nome", () => {
+    for (const frase of ["sou a mãe dela", "sou a filha dela", "sou a irmã da Ana", "sou a esposa dele"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("o nome de verdade depois de \"sou a\" continua", () => {
+    expect(extractName("sou a Mariana Costa")).toBe("Mariana Costa");
+    expect(extractName("sou a Tia Nastácia")).toBeNull();
+  });
+});

@@ -291,3 +291,23 @@ describe("pergunta do tamanho: seu número sim, cintura solta não", () => {
     expect(asksForSize("Ele modela a cintura sem apertar, quer saber mais?")).toBe(false);
   });
 });
+
+/** Code review, 2026-09-24: "número" da casa, do CPF, do WhatsApp não é tamanho. */
+describe("número que não é de calça", () => {
+  it("endereço e identidade não abrem a escada", () => {
+    for (const q of [
+      "Qual o número da sua casa?",
+      "E qual o número do prédio?",
+      "Me passa seu número de CPF?",
+      "Qual o seu número de WhatsApp?",
+    ]) {
+      expect(asksForSize(q), q).toBe(false);
+    }
+  });
+
+  it("o número de calça continua sendo pergunta do tamanho", () => {
+    for (const q of ["Qual número de calça você usa?", "Me fala seu número de calça?", "Qual o seu número?", "Que número você veste?"]) {
+      expect(asksForSize(q), q).toBe(true);
+    }
+  });
+});

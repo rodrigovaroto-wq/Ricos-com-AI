@@ -562,3 +562,43 @@ describe("despedida não vence decisão", () => {
     }
   });
 });
+
+/** Code review, 2026-09-24: compras conosco que o filtro de objeção derrubava. */
+describe("compra passada conosco, mesmo com \"antes\" ou para outra pessoa", () => {
+  it("lê a compra", () => {
+    for (const frase of [
+      "comprei o colete antes de ontem e não chegou",
+      "fiz o meu pedido e não recebi",
+      "fiz o pedido pra ela ontem, quando chega?",
+      "comprei pra minha mãe, cadê?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+    }
+  });
+
+  it("as objeções continuam fora", () => {
+    for (const frase of [
+      "já comprei cinta antes e não gostei",
+      "comprei um parecido em outra loja e não serviu",
+      "paguei caro numa cinta que não prestou",
+      "minha irmã comprei pra ela ano passado e amou",
+      "já pedi o link duas vezes",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+    }
+  });
+});
+
+describe("decisão com \"sim\", \"agora\" e quantidade", () => {
+  it("lê a decisão", () => {
+    for (const frase of ["vou querer sim", "vou levar sim", "vou comprar agora", "vou fechar agora", "vou querer 2"]) {
+      expect(decidesToBuy(frase), frase).toBe(true);
+    }
+  });
+
+  it("adiamento continua fora", () => {
+    for (const frase of ["vou querer pensar", "vou comprar agora não, depois", "vou levar uns dias"]) {
+      expect(decidesToBuy(frase), frase).toBe(false);
+    }
+  });
+});

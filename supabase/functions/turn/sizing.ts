@@ -209,13 +209,25 @@ export const statedSizeOf = (
  * Whether the agent's message asked for her size — the condition that opens the clarify
  * ladder. Read on the question itself, so a size merely mentioned is not a question.
  */
+/**
+ * "Número" is a size only when it is the pants number — followed by the question mark, by
+ * "de calça", or by "que você usa/veste". "Qual o número da sua casa?", "seu número de CPF",
+ * "número de WhatsApp" are the address and identity asks (code review, 2026-09-24).
+ */
+const NUMBER = String.raw`n[u\u00fa]mero(?=\s*(?:\?|d[ea]\s+cal[c\u00e7]a|que\s+(?:voc|vc)|(?:voc|vc)\S*\s+(?:usa|veste)))`;
+
 export const asksForSize = (text: string): boolean => {
   const questions = text.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?"));
   // The question has to be ABOUT her size — "qual/que tamanho", "que número de calça",
   // "você veste" — not merely mention it: "fico por aqui pra ajudar com tamanho ou pedido,
   // quer que eu explique a troca?" restarted the ladder for Neusa (persona round 3).
   return questions.some((q) =>
-    /\b(qual|que|quais)\s+(?:(?:o|a|e|\u00e9)\s+)?(?:(?:o|a|seu|sua)\s+)?(tamanho|n[u\u00fa]mero|manequim|cal[c\u00e7]a|numera[c\u00e7][a\u00e3]o)|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))|\b(seu|sua)\s+(tamanho|n[u\u00fa]mero|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b/i.test(q),
+    new RegExp(
+      String.raw`\b(qual|que|quais)\s+(?:(?:o|a|e|\u00e9)\s+)?(?:(?:o|a|seu|sua)\s+)?(tamanho|${NUMBER}|manequim|cal[c\u00e7]a|numera[c\u00e7][a\u00e3]o)` +
+        String.raw`|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))` +
+        String.raw`|\b(seu|sua)\s+(tamanho|${NUMBER}|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b`,
+      "i",
+    ).test(q),
   );
 };
 

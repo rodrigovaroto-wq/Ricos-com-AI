@@ -89,7 +89,7 @@ const COMMON_WORDS =
  */
 /** Words a name never starts with — what follows "nome dela" when it is not a name. */
 const NOT_A_FIRST_NAME =
-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para)$/;
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra)$/;
 
 export const extractName = (text: string): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must

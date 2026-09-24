@@ -1649,22 +1649,19 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.regionKnown !== false) return null;
       const t = norm(text);
-      // Exempt: a condition or denial before the claim in its own phrase ("se", "quando",
-      // "não"); a clause that sends the question to the checkout ("o checkout confirma…",
-      // "lá você vê…", "quando digitar"); and "entrega" as a NOUN — after an article or a
-      // preposition ("a entrega aqui é agendada", "o dia da entrega lá mesmo"). Code
-      // review, 2026-09-24: all six were vetoed, and two vetoes on the link turn send the
-      // fallback without the link.
-      const phraseOf = (at: number): { before: string; whole: string } => {
-        const before = (t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "";
-        const after = t.slice(at).split(/[:;.!?\n]/)[0] ?? "";
-        return { before, whole: before + (after.split(PHRASE_COMMA)[0] ?? "") };
-      };
+      // Exempt: a condition or denial ATTACHED right before the claim ("se chega aí",
+      // "quando chega aí", "não sei se chega aí"); the checkout named BEFORE the claim in
+      // its own phrase ("o checkout confirma a entrega no seu CEP"); and "entrega" as a
+      // NOUN — after an article or a preposition ("a entrega aqui é agendada", "o dia da
+      // entrega lá mesmo"). Code review, 2026-09-24, twice: the first version vetoed six
+      // honest lines (two vetoes on the link turn send the fallback without the link);
+      // the loose second one let "Quando você fizer o pedido chega sim aí" and "Chega sim
+      // aí e você vê o dia no checkout" through. Attached and before is what separates them.
       const exempt = (at: number): boolean => {
-        const { before, whole } = phraseOf(at);
+        const before = (t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "";
         return (
-          /\b(se|nao|nem|quando)\b/.test(before) ||
-          /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(whole) ||
+          /\b(se|nao|nem|quando)\s+$/.test(before) ||
+          /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
           /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)
         );
       };
@@ -1682,7 +1679,7 @@ const gates: readonly Gate[] = [
       // "chega em Manaus": a capitalised place right after the verb, read on the original
       // text because `norm` lowercases it.
       for (const m of text.matchAll(
-        /\b(?:[Cc]hega|[Cc]hegam|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?!At[eé](?:\s|$))[A-ZÀ-Ú][a-zà-ú]+/g,
+        /\b(?:[Cc]hega|[Cc]hegam|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?:tod[oa]\s+(?:o\s+|a\s+)?)?(?!At[eé](?:\s|$))[A-ZÀ-Ú][a-zà-ú]+|\b[Aa]tend(?:e|emos)\s+(?!At[eé](?:\s|$))[A-ZÀ-Ú][a-zà-ú]+/g,
       )) {
         // `norm` keeps the length (it strips combining marks from NFD, and the source is
         // NFC), so the index carries over — but read the phrase on the normalised prefix.

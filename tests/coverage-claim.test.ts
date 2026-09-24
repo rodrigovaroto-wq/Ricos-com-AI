@@ -54,3 +54,39 @@ describe("coverage_claim: cobertura afirmada sem consulta de região", () => {
     expect(verdict(linha!, false)).toBe("pass");
   });
 });
+
+/**
+ * Code review, 2026-09-24 (blocking): the loose exemptions let lies through. A condition
+ * counts only attached right before the claim, and the checkout only when named before it.
+ */
+describe("coverage_claim: condição colada e checkout antes", () => {
+  it("veta a mentira que só menciona uma condição ou o checkout em outro lugar", () => {
+    for (const texto of [
+      "Quando você fizer o pedido chega sim aí em Manaus",
+      "Não se preocupa que chega sim aí 😊",
+      "Chega sim aí e você vê o dia no checkout",
+      "Chega sim aí em Manaus e o checkout confirma a data",
+      "Atendemos Manaus sim",
+      "A gente entrega em todo o Amazonas",
+    ]) {
+      expect(verdict(texto, false), texto).toBe("block");
+    }
+  });
+
+  it("continua deixando passar as linhas honestas", () => {
+    for (const texto of [
+      "O checkout confirma se chega aí",
+      "Quando chega aí você tem 7 dias",
+      "Não sei ainda se chega aí",
+      "O checkout confirma a entrega no seu CEP",
+      "No checkout você vê as datas de entrega pro seu CEP",
+      "Lá você completa o endereço e escolhe o dia da entrega lá mesmo.",
+      "Atendemos aqui pelo WhatsApp todo dia.",
+      "A entrega aqui é agendada: você escolhe o dia.",
+      "Deixa eu ver se entrega no seu CEP.",
+      "Não consigo confirmar agora se chega em Manaus.",
+    ]) {
+      expect(verdict(texto, false), texto).toBe("pass");
+    }
+  });
+});
