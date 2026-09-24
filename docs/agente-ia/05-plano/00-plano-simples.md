@@ -153,3 +153,4 @@ Não vamos: deixar o modelo tomar ações sozinho · buscar documentos por simil
 | 23/09 | **Payload real do webhook da Coinzz** (O6), com CPF, telefone e nome trocados por `XXX` — no próximo pedido | e-mail de aviso do n8n |
 | 23/09 | **Credencial da Meta** com site `api.meta.ai` (item 3 acima) | ambiente da nuvem → Edit |
 | 24/09 | **Voltar da variante `-contributor` para `muse-spark-1.3`** antes da operação real (apagar os secrets `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE`) — a contributor cede as conversas para treino da Meta | Supabase → Edge Functions → Secrets |
+| 24/09 | **Quatro decisões da rodada de personas** ([relatório](05-rodada-personas-2026-09-24.md)): o link de compra sai sem e-mail? · texto da recepção automática (hoje promete "atendentes") · desligar a escassez "restam 12 unidades" sem contagem real · CNPJ e texto aprovado sobre o CPF | resposta no chat |

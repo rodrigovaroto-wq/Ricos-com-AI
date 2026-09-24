@@ -1,0 +1,34 @@
+# Rodadas 1 e 2 das personas — 2026-09-24
+
+Relatório completo, com as 24 conversas anotadas mensagem a mensagem:
+[artifact "Malu nas 12 personas"](https://claude.ai/artifact/QEVUkRhKsooGd2cDoNUYEH) (privado).
+Transcrições brutas: `data/persona-runs/2026-09-24T03-04-34-314Z-local` (R1) e
+`…T03-27-00-630Z-local` (R2), git-ignored.
+
+**Setup:** porta `local` (v33 do disco), `muse-spark-1.3-contributor`, `reasoning_effort`
+mínimo, banco de produção com telefones sintéticos apagados no fim. R1 com o prompt de tom
+novo (`6bceca1`); R2 com `0a18cdf` + `ff935fa` + `0743bd2`. Custo: R1 R$ 0,15, R2 R$ 0,24.
+
+**Resultado:** 0 de 12 chegaram ao link nas duas rodadas. O texto do modelo está quase
+sempre certo; a venda trava em código e configuração.
+
+| # | Achado | Dono |
+|---|---|---|
+| 1 | E-mail obrigatório trava a venda (Jussara, Karol, Rafa, Vera); pergunta fixa de `identity.ts` repetida palavra por palavra | operador decide se o link sai sem e-mail |
+| 2 | `wantsHuman` só casa a mensagem inteira; Sandra pediu pessoa e a Malu disse "já chamei" sem handoff | código |
+| 3 | `extractDressSize` não lê "ela usa G 46" nem a letra; tamanho antigo (M) sobrescreveu o novo (Karol) | código |
+| 4 | Prompt manda anunciar a Express, que não está de pé em nenhuma praça (Rafa) | código |
+| 5 | Pós-venda: finge consultar/cancelar pedido e inventa "área do pedido" (Lu) — deve ir para humano | código |
+| 6 | Falsos vetos (`warranty_promise` lê "até 3 dias" como garantia; `unattributed_window`) viram a resposta pronta, que ignora a pergunta | código, com segunda revisão |
+| 7 | `fetch failed` na chamada ao modelo vira handoff definitivo (Vera R1) — tentar de novo uma vez | código |
+| 8 | Recusa a medida da cintura, embora a tabela seja por cintura (Marcinha); troca G/M/G | código + prompt |
+| 9 | Cliente telegráfica ("ta", "?") gera loop de 19 perguntas iguais (Neusa) | código + prompt |
+| 10 | Recepção automática promete "uma de nossas atendentes" | operador |
+| 11 | "Restam 12 unidades" sem contagem real (`allowUnverified: true`) e com motivo inventado | operador |
+| 12 | Explicação do CPF/dados inventada pelo modelo; falta CNPJ no config | operador (texto aprovado) |
+| 13 | Opt-out com pergunta no meio: para certo, mas não responde o preço pedido (Rose) | código |
+| 14 | Estilo: mediana de 49 palavras por mensagem, 29% das frases acima de 30 palavras, pergunta de roupa em quase todo turno | prompt |
+
+**O que já funciona:** honestidade sobre o produto, preço/desconto/frete corretos, consulta
+de região (Manaus → antecipado), gates pegando "amanhã"/cupom/parcela/frete grátis, e a
+identidade de assistente virtual.
