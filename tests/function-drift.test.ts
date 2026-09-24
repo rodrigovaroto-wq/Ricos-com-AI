@@ -345,3 +345,35 @@ describe("rodada 13 na Edge Function", () => {
     }
   });
 });
+
+/** Persona round 3 (2026-09-24), no código que a produção executa. */
+describe("rodada 3 na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+  it("a região sem resposta chega ao gate, e a diretiva não afirma cobertura", () => {
+    expect(source).toContain("regionKnown: region !== null,");
+    expect(source).toContain("nunca diga que chega ou que atende a cidade ou o CEP dela");
+  });
+
+  it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
+    expect(source).not.toContain("frete grátis, e ainda sai mais barato");
+    expect(source).toContain("O frete é calculado no checkout");
+  });
+
+  it("depois do link, nada de pedir e-mail; e a instrução do link é uma frase só", () => {
+    expect(source).toContain("O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF");
+    expect(source).not.toContain("são três dias");
+    expect(source).toContain("UMA frase curta e natural");
+  });
+
+  it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
+    expect(source).toContain(".some(\n      statesPastPurchase,\n    )");
+    expect(source).toContain('if (saysGoodbye(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_think: true };');
+    expect(source).toContain('if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };');
+  });
+
+  it("a escada lê o histórico: não recomeça logo depois do \"vou pensar\"", () => {
+    expect(source).toContain("parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),");
+    expect(source.indexOf("const clarify = decideClarify(")).toBeGreaterThan(source.indexOf("const recentOutbound = recent"));
+  });
+});

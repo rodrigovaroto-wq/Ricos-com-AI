@@ -155,6 +155,13 @@ export interface GateContext {
    * produces a refusal at the door.
    */
   sameDayWindow?: boolean;
+  /**
+   * Whether the region lookup answered for her postcode this turn. `false` means it did
+   * not — no CEP yet, or the lookup failed (the Coinzz endpoint started redirecting on
+   * 2026-09-24) — and then no sentence may affirm that delivery reaches her. `undefined`
+   * (the follow-up sweep, the fixed receipts) leaves the `coverage_claim` gate idle.
+   */
+  regionKnown?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -1617,6 +1624,49 @@ const gates: readonly Gate[] = [
         if (m && !negatedAt(t, m.index)) {
           return "claims the size is in stock or on its way before any check answered";
         }
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * Persona round 3 (2026-09-24, Cleide): the region lookup had failed — the Coinzz
+     * endpoint began answering with a redirect to its home page — and the agent said
+     * "Chega sim aí em Manaus" and sent the cash-on-delivery link. Nothing had checked.
+     * With no answer for her postcode, whether delivery reaches her is unknown, and the
+     * checkout is where it gets confirmed when she types the CEP.
+     *
+     * What stays allowed is the honest shape: a condition or a check ("o checkout confirma
+     * se chega aí", "deixa eu ver se entrega no seu CEP") and a denial. The exemption is
+     * read in the claim's own comma-bounded phrase, so "não se preocupe, chega sim aí"
+     * is still the claim.
+     */
+    name: "coverage_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Enquanto a região dela não foi consultada, nunca afirme que a entrega alcança a cidade ` +
+      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP.`,
+    check: (text, ctx) => {
+      if (ctx.regionKnown !== false) return null;
+      const t = norm(text);
+      const conditioned = (before: string): boolean =>
+        /\b(se|nao|nem)\b/.test((before.split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "");
+      const CLAIMS = [
+        /\bchega(?:m)?\s+sim\b/g,
+        /\b(?:chega|chegam|entrega|entregamos|entregam|atende|atendemos)\s+(?:sim\s+)?(?:ai|aqui|la)\b/g,
+        /\b(?:chega|chegam|entrega|entregamos|entregam|atende|atendemos)\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b/g,
+      ];
+      for (const re of CLAIMS) {
+        for (const m of t.matchAll(re)) {
+          if (!conditioned(t.slice(0, m.index))) return "affirms delivery reaches her before the region lookup answered";
+        }
+      }
+      // "chega em Manaus": a capitalised place right after the verb, read on the original
+      // text because `norm` lowercases it.
+      for (const m of text.matchAll(
+        /\b(?:[Cc]hega|[Cc]hegam|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?!At[eé]\b)[A-ZÀ-Ú][a-zà-ú]+/g,
+      )) {
+        if (!conditioned(norm(text.slice(0, m.index)))) return "affirms delivery reaches her city before the region lookup answered";
       }
       return null;
     },

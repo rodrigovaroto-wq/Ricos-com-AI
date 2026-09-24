@@ -175,3 +175,26 @@ describe("resposta vaga não vira nome", () => {
     expect(extractName("meu nome é Sei Lá Nunes")).not.toBeNull();
   });
 });
+
+/** Persona round 3 (2026-09-24, Karol): "oii desculpa sumi kkk" virou o nome no link. */
+describe("rodada 3: saudação não é nome, e o nome de quem recebe é", () => {
+  it("saudação, desculpa e risada nunca viram nome", () => {
+    for (const frase of ["oii desculpa sumi kkk", "desculpa kkk", "oiii tudo bem", "foi mal sumida", "kkkk rs"]) {
+      expect(extractName(frase), frase).toBeNull();
+    }
+  });
+
+  it("comprando para outra pessoa, o nome dela é lido — e para na quebra de linha", () => {
+    expect(extractName("nome dela maria jose ferreira")).toBe("maria jose ferreira");
+    expect(extractName("o nome dela é Maria José Ferreira")).toBe("Maria José Ferreira");
+    expect(
+      extractName("manda pro endereco dela\nnome dela maria jose ferreira\nRua Voluntarios da Patria 2100"),
+    ).toBe("maria jose ferreira");
+  });
+
+  it("o nome dela que chega depois substitui o que havia", () => {
+    const antes = extractIdentity("meu nome é Karol Souza").fields;
+    const depois = mergeIdentity(antes, extractIdentity("nome dela maria jose ferreira").fields).fields;
+    expect(depois.name).toBe("maria jose ferreira");
+  });
+});

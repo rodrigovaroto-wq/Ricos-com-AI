@@ -88,7 +88,8 @@ export const INTERPRETER_SYSTEM = [
   '- "post_sale": true se ela fala de um pedido que JÁ FEZ (onde está, quando chega, troca,',
   "  devolução, problema com a entrega).",
   '- "opt_out": true se ela pede para não receber mais mensagens.',
-  '- "size": { "letter": "P"|"M"|"G"|"GG"|"XGG"|null, "pants": número da calça ou null,',
+  '- "size": { "letter": "P"|"M"|"G"|"GG"|"XGG"|null, "pants": número da CALÇA ou null',
+  '  (manequim, número de vestido, de blusa ou de sapato NÃO é calça: pants null),',
   '  "waist_cm": cintura em cm ou null, "for_other_person": true se o tamanho é de outra',
   "  pessoa (mãe, filha, amiga) }. Só o tamanho que ela AFIRMA usar nesta mensagem; idade,",
   "  peso, sapato e preço não são tamanho. PERGUNTA não é tamanho dito: \"tem GG?\", \"qual",
@@ -97,8 +98,10 @@ export const INTERPRETER_SYSTEM = [
   '- "email_unavailable": true se ela diz que não tem e-mail ou não quer passar.',
   '- "payment_choice": "prepay" se ela escolhe pagar antes (pix, cartão, antecipado),',
   '  "cod" se escolhe pagar na entrega, null se não escolheu.',
-  '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes.',
-  '- "wants_to_buy": true se ela diz claramente que quer comprar/fechar/pedir.',
+  '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
+  '  se despede desistindo por agora ("deixa pra lá", "deixa então, vlw").',
+  '- "wants_to_buy": true se ela decide comprar: "quero comprar", "vou nesse então", "quero',
+  '  então", "vou querer", "pode mandar o link", "quero um G".',
   '- "pending_answer": compare com a ÚLTIMA mensagem da assistente.',
   '  "answered" = a assistente fez uma pergunta e a mensagem responde;',
   '  "other_question" = ela faz uma pergunta própria ou traz um assunto real novo;',
@@ -272,6 +275,12 @@ export const decideClarify = (args: {
   lastAskedSize: boolean;
   sizeFound: boolean;
   /**
+   * She was just told "Sem problemas, estou aqui…" (she will think, or said goodbye). The
+   * ladder does not START again right after that — Neusa got it twice in a row (persona
+   * round 3); a ladder already under way still runs its course.
+   */
+  parked?: boolean;
+  /**
    * Anything the deterministic readers took from the message — a CEP, an address piece, a
    * name, an e-mail, a CPF. Data is never "unrelated": silencing "meu cep é 01310-100,
    * Maria Souza" would throw away exactly what the sale needs (code review, 2026-09-24).
@@ -293,6 +302,7 @@ export const decideClarify = (args: {
     i.payment_choice !== null;
   if (meaningful) return { kind: "none" };
   if (step === CLARIFY_SIZE_REPLIES.length) return { kind: "silent" };
+  if (step === 0 && args.parked === true) return { kind: "none" };
   if ((lastAskedSize || step > 0) && i.pending_answer === "unrelated") {
     return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
   }
@@ -354,3 +364,47 @@ export const asksSomething = (message: string): boolean => {
     /\b(me\s+(diz|diga|fala|fale|conta|conte|explica|explique|responde|responda)|quanto|qual|quais|como|onde|quando|por\s*que|pq)\b/.test(t)
   );
 };
+
+/** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
+const negatedBefore = (t: string, at: number): boolean =>
+  /\b(nao|nunca|jamais|nem)\b/.test(t.slice(0, at).split(/[,;.!?\n]/).pop() ?? "");
+
+const firstUnnegated = (t: string, re: RegExp): boolean => {
+  for (const m of t.matchAll(re)) if (!negatedBefore(t, m.index ?? 0)) return true;
+  return false;
+};
+
+/**
+ * She says she already bought (persona round 3, Lu and Vera): "ja fez 3 dias que comprei",
+ * "fiz um pedido semana passada", "meu pedido não chegou". That is the order context the
+ * post-sale handoff needs even when no order is on file — the sale may have come through
+ * a channel this system does not see. A hypothetical ("e se eu não gostar, consigo
+ * cancelar depois?") or a denial ("ainda não comprei") is not.
+ */
+export const statesPastPurchase = (message: string): boolean =>
+  firstUnnegated(
+    norm(message),
+    /\b(comprei|paguei|ja\s+(fiz|pedi|paguei)|fiz\s+(o|um|meu)\s+pedido|pedi\s+(o|um)\s+colete|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g,
+  );
+
+/**
+ * A buying decision in her own words (persona round 3, Marcinha: "vou nesse então"). Read
+ * deterministically as well as by the interpreter, because missing it keeps the link
+ * back from a customer who already said yes. Conservative on purpose: "quero sim" answers
+ * whatever was asked, and "quero um desconto" is not a purchase.
+ */
+export const decidesToBuy = (message: string): boolean =>
+  firstUnnegated(
+    norm(message),
+    /\b(vou\s+(nesse|nessa|nele|nela|querer|levar|comprar|fechar)|quero\s+(entao|comprar|fechar|levar)|quero\s+(um|uma|o|a)\s+(pp|p|m|g|gg|xgg|colete)|(pode|me)\s+mand(ar|a)\s+o\s+link|manda\s+o\s+link|fecha(r)?\s+(pra\s+mim|entao))\b/g,
+  );
+
+/**
+ * A goodbye that parks the sale (persona round 3, Tati: "ah deixa entao kkk vlw" got the
+ * size ladder). It is answered like "vou pensar". Only the closing shape counts — "deixa
+ * então eu te mandar o CEP" goes on.
+ */
+export const saysGoodbye = (message: string): boolean =>
+  /\bdeixa\s+(entao|pra\s+la|quieto|pra\s+depois)\s*(k+|rs+|vlw|valeu|obrigad[ao]|[,.!]|$)|\b(tchau|fica\s+pra\s+proxima)\b/.test(
+    norm(message).trim(),
+  );

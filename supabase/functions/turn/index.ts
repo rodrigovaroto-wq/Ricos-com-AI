@@ -77,6 +77,7 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
+  decidesToBuy,
   decideClarify,
   handoffFor,
   INTERPRET_MAX_COMPLETION_TOKENS,
@@ -85,7 +86,9 @@ import {
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   readyForLink,
+  saysGoodbye,
   sendLinkNow,
+  statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
 import { systemPrompt as buildSystemPrompt } from "./prompt.ts";
@@ -641,6 +644,7 @@ const sizeDirectiveFor = (
   stated: { size: string; forOther?: boolean } | null,
   known: string | null,
   region: Region | null,
+  linkGoing = false,
 ): string | null => {
   // The size survives the turn it was said in. Reading only what THIS message contained
   // left the turn where she sends her postcode with no size at all, and the agent hedged
@@ -654,14 +658,23 @@ const sizeDirectiveFor = (
     }`;
 
   if (region === null) {
+    // She decided and the link goes in this message: the CEP is typed in the checkout,
+    // which is also where coverage is confirmed (persona round 3, Marcinha).
+    if (linkGoing) return `${fitting} Não peça o CEP agora: o link vai nesta mensagem.`;
     return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
       ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
       ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
   }
   if (!region.cod) {
-    return `${fitting} A entrega agendada não cobre o CEP dela, então ofereça o pagamento` +
-      ` antecipado como a saída boa que ele é: chega em qualquer lugar do país, mesmo` +
-      ` frete grátis, e ainda sai mais barato.`;
+    // Today's truth, from the config (persona round 3 found "mesmo frete grátis" here,
+    // two days after the operator decided the operation has no free shipping).
+    const pct = CONFIG.prices.prepayDiscountPercent;
+    const avg = CONFIG.delivery.prepayAvgDays;
+    return `${fitting} A entrega com pagamento na entrega não cobre o CEP dela, então ofereça` +
+      ` o pagamento antecipado como a saída boa que ele é${pct > 0 ? `, com ${pct}% de desconto` : ""}.` +
+      ` O frete é calculado no checkout${
+        avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis` : ""
+      }.`;
   }
   return `${fitting} A entrega chega no CEP dela${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
@@ -726,18 +739,17 @@ const checkoutDirectiveFor = (
 ): string | null =>
   url === null
     ? null
-    : `Mande este link para ela agora, exatamente como está, sem encurtar` +
-      ` e sem alterar:\n${url}\n${
-        prefilled ? "Diga que o que ela já te passou vai preenchido." : "Diga que é só abrir e preencher lá."
-      } Falta ela, lá` +
-      ` dentro: completar os dados que faltarem, digitar o endereço de entrega, escolher o dia da entrega — são três dias` +
-      ` pra ela escolher, e isso é bom, fale como bom — e${
+    : // One short, natural line about what is left inside (persona round 3, Cleide: the old
+      // list of steps came back as "escolhe o dia, que são 3 dias pra escolher").
+      `Mande este link para ela agora, exatamente como está, sem encurtar e sem alterar:\n${url}\n` +
+      `Junto, UMA frase curta e natural: ${prefilled ? "o que ela já te passou vai preenchido, e " : ""}` +
+      `lá ela completa o endereço e escolhe o dia da entrega${
         path === "cod"
-          ? ` ESCREVER O TAMANHO${size ? ` (${size})` : ""} NO CAMPO DE COMPLEMENTO do` +
-            ` agendamento. Diga isso com todas as letras: é ali que o tamanho entra, e em` +
-            ` branco o depósito escolhe por ela.`
-          : `${size ? ` escolher o tamanho ${size}` : ` escolher o tamanho`}.`
-      } NÃO diga que o pedido já está feito: ele nasce quando ela terminar no checkout.`;
+          ? `, e escreve o tamanho${size ? ` ${size}` : ""} no campo de complemento — essa parte diga` +
+            ` com todas as letras, porque em branco o depósito escolhe por ela`
+          : `${size ? ` e o tamanho ${size}` : " e o tamanho"}`
+      }. Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
+      ` nasce quando ela terminar no checkout.`;
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -1857,6 +1869,12 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   } catch {
     // Neutral reading; the turn goes on.
   }
+  // Two readings the code also makes on its own, because missing either costs the sale
+  // (persona round 3): a goodbye is answered like "vou pensar" (Tati got the size ladder),
+  // and a decision in her words sends the link (Marcinha's "vou nesse então").
+  if (saysGoodbye(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_think: true };
+  if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
+
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
   const replyBudgetFrom = Date.now();
@@ -1870,10 +1888,19 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // `orders_lead_idx`), or a checkout link already sent in this conversation (index
   // `messages_conversation_idx`, then a filter on the body). Only queried when the reading
   // asks — most turns never pay for it.
+  //
+  // She saying she already bought is context too (persona round 3, Lu and Vera) — in
+  // this message or any recent one of hers (index `messages_conversation_idx`).
   let orderContext = false;
   if (interpretation.wants_cancel || interpretation.post_sale) {
-    const orders = await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
-    orderContext = (orders?.length ?? 0) > 0;
+    const mine = await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`,
+    ).catch(() => null);
+    orderContext = [inbound.body ?? "", ...(mine ?? []).map((m: { body: string }) => m.body ?? "")].some(
+      statesPastPurchase,
+    );
+    const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
+    orderContext = orderContext || (orders?.length ?? 0) > 0;
     for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl]) {
       if (orderContext || !base) continue;
       const sent = await db(
@@ -2001,44 +2028,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }).catch(() => undefined);
   }
 
-  // 5f. The clarify ladder (R13.4): the agent asked her size and the answer is about
-  // nothing — three fixed lines from the operator, then silence until a message makes
-  // sense. The step is read back from the last outbound, so there is nothing to store.
-  // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
-  // message carrying data is never answered with a size line or with silence.
-  const lastAskedSize = asksForSize(lastOutbound);
-  const clarify = decideClarify({
-    interpreted,
-    interpretation,
-    lastOutbound,
-    lastAskedSize,
-    sizeFound: stated !== null,
-    factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
-  });
-  if (clarify.kind === "silent") {
-    await db(`conversations?id=eq.${conversation.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
-    }).catch(() => undefined);
-    const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
-    await Promise.all([
-      recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore),
-      persistStage(conversation.id, storedStage, reachedSoFar),
-    ]);
-    return json(200, { status: "stopped", reason, costBrl: spent });
-  }
-  if (clarify.kind === "reply") {
-    const sent = await sendFixed(clarify.text, "escada do tamanho");
-    if (sent) return sent;
-  }
-  // She asked her own question instead of the size: she gets the answer, and the size
-  // comes back at the end of it.
-  const backToSize =
-    lastAskedSize && stated === null && interpretation.pending_answer === "other_question"
-      ? `Ela fez outra pergunta em vez de dizer o tamanho: responda a pergunta dela primeiro` +
-        ` e, no fim, volte a perguntar o tamanho, com outras palavras.`
-      : null;
-
   // This turn's size, address and identity are already stored on the lead; the rung they
   // support holds for every exit from here on. The order is only built at the end.
   reachedSoFar = reachedStage({
@@ -2069,6 +2058,46 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const recentOutbound = recent
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
+
+  // 5f. The clarify ladder (R13.4): the agent asked her size and the answer is about
+  // nothing — three fixed lines from the operator, then silence until a message makes
+  // sense. The step is read back from the last outbound, so there is nothing to store.
+  // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
+  // message carrying data is never answered with a size line or with silence.
+  const lastAskedSize = asksForSize(lastOutbound);
+  const clarify = decideClarify({
+    interpreted,
+    interpretation,
+    lastOutbound,
+    lastAskedSize,
+    sizeFound: stated !== null,
+    factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
+    // She was just told "Sem problemas, estou aqui…": no fresh ladder right after it.
+    parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),
+  });
+  if (clarify.kind === "silent") {
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
+    await Promise.all([
+      recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, reachedSoFar),
+    ]);
+    return json(200, { status: "stopped", reason, costBrl: spent });
+  }
+  if (clarify.kind === "reply") {
+    const sent = await sendFixed(clarify.text, "escada do tamanho");
+    if (sent) return sent;
+  }
+  // She asked her own question instead of the size: she gets the answer, and the size
+  // comes back at the end of it.
+  const backToSize =
+    lastAskedSize && stated === null && interpretation.pending_answer === "other_question"
+      ? `Ela fez outra pergunta em vez de dizer o tamanho: responda a pergunta dela primeiro` +
+        ` e, no fim, volte a perguntar o tamanho, com outras palavras.`
+      : null;
 
   /**
    * The link she finishes in, built before the model writes so the reply can carry it.
@@ -2135,6 +2164,21 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   }
 
   const identityDirective = linkNow || linkAlreadySent ? null : identityDirectiveFor(identityDraft);
+  // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
+  // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
+  const afterLink = linkAlreadySent
+    ? `O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF — o` +
+      ` checkout pede o que faltar.`
+    : null;
+  // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
+  // and the `coverage_claim` gate refuses any sentence that affirms it.
+  const coverageUnknown =
+    region === null
+      ? `A entrega na região dela ainda não foi confirmada${
+          addressDraft.cep ? " (a consulta do CEP não respondeu)" : ""
+        }: nunca diga que chega ou que atende a cidade ou o CEP dela. Se ela perguntar, diga que` +
+        ` o checkout confirma quando ela digitar o CEP.`
+      : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
     stated?.size ?? lead.size ?? null,
@@ -2142,8 +2186,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     Object.keys(identityDraft).length > 0,
   );
   const sizeDirective =
-    [sizeDirectiveFor(stated, lead.size ?? null, region), backToSize, sizeBeforeLink].filter(Boolean).join(" ") ||
-    null;
+    [
+      sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
+      backToSize,
+      sizeBeforeLink,
+      coverageUnknown,
+      afterLink,
+    ].filter(Boolean).join(" ") || null;
 
   // 7. Nothing reaches the customer without the chain — but a veto is not the end of
   // the turn. The chain knows exactly what was wrong, so the reason goes back to the
@@ -2205,6 +2254,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
       sameDayWindow: region?.sameDay ?? false,
+      regionKnown: region !== null,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across

@@ -258,3 +258,24 @@ describe("pergunta sobre tamanho sem ponto de interrogação", () => {
     expect(statedSizeOf("uso 38, tem GG")).toBe("M");
   });
 });
+
+/** Persona round 3 (2026-09-24, Neusa): pergunta que menciona tamanho não é pergunta do tamanho. */
+describe("rodada 3: a pergunta tem de ser SOBRE o tamanho", () => {
+  it("mencionar tamanho numa pergunta de outra coisa não conta", () => {
+    expect(
+      asksForSize("Combinado, fico por aqui pra ajudar com tamanho ou pedido, quer que eu te explique rapidinho como funciona a troca?"),
+    ).toBe(false);
+    expect(asksForSize("Você usa cartão ou pix?")).toBe(false);
+  });
+
+  it("as perguntas do tamanho continuam contando", () => {
+    for (const q of [
+      "Qual tamanho de calça te deixa mais à vontade no dia a dia?",
+      "Me diz só que número de calça você veste e fica confortável?",
+      "Me conta qual calça você pega sem nem precisar provar, que já sabe que serve?",
+      "Qual a sua cintura em cm?",
+    ]) {
+      expect(asksForSize(q), q).toBe(true);
+    }
+  });
+});

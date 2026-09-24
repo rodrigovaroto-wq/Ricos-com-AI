@@ -3,6 +3,7 @@ import {
   asksSomething,
   CLARIFY_SIZE_REPLIES,
   decideClarify,
+  decidesToBuy,
   handoffFor,
   interpretRequest,
   INTERPRET_MAX_COMPLETION_TOKENS,
@@ -11,7 +12,9 @@ import {
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   readyForLink,
+  saysGoodbye,
   sendLinkNow,
+  statesPastPurchase,
   type Interpretation,
 } from "@/agent/interpret.js";
 import { classifyOptOut, runGates, wantsHuman } from "@/agent/guardrails.js";
@@ -410,5 +413,87 @@ describe("recusa de atendente com palavras de ligação", () => {
       expect(namesAPerson(frase), frase).toBe(true);
       expect(handoffFor(read({ asks_human: true }), frase, false, false), frase).toBe("human");
     }
+  });
+});
+
+/** Persona round 3 (2026-09-24). */
+describe("rodada 3: quem diz que já comprou", () => {
+  it("lê a compra passada que ela afirma", () => {
+    for (const frase of [
+      "oi ja fez 3 dias que comprei\n\nquando chega?",
+      "já fiz o pedido e não chegou",
+      "fiz um pedido semana passada",
+      "meu pedido ainda não chegou",
+      "paguei e ninguém me falou nada",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+    }
+  });
+
+  it("a pergunta hipotética e a negação não são compra passada", () => {
+    for (const frase of [
+      "e se eu não gostar, consigo cancelar depois?",
+      "ainda não comprei",
+      "quero fazer meu pedido",
+      "nunca comprei nada online",
+      "quanto custa?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+    }
+  });
+
+  it("com a compra dita, cancelar vai para o humano; sem ela, fica com a Malu", () => {
+    const lu = "posso trocar se nao servir?\n\nquero cancelar o pedido";
+    const contexto = [lu, "oi ja fez 3 dias que comprei"].some(statesPastPurchase);
+    expect(handoffFor(read({ wants_cancel: true }), lu, false, contexto)).toBe("cancel");
+    const hipotese = "e se eu não gostar, consigo cancelar depois?";
+    expect(handoffFor(read({ wants_cancel: true }), hipotese, false, statesPastPurchase(hipotese))).toBeNull();
+  });
+});
+
+describe("rodada 3: decisão de compra nas palavras dela", () => {
+  it("lê a decisão", () => {
+    for (const frase of ["ta bom, vou nesse entao", "quero então", "entao ta quero um G", "pode mandar o link", "vou querer"]) {
+      expect(decidesToBuy(frase), frase).toBe(true);
+    }
+  });
+
+  it("não lê decisão onde não há", () => {
+    for (const frase of ["não vou querer não", "quero sim", "quero um desconto", "quero saber o preço", "vou ver"]) {
+      expect(decidesToBuy(frase), frase).toBe(false);
+    }
+  });
+});
+
+describe("rodada 3: despedida e a escada", () => {
+  it("a despedida é lida", () => {
+    for (const frase of ["ah deixa entao kkk vlw", "deixa pra lá, obrigada", "tchau", "deixa quieto"]) {
+      expect(saysGoodbye(frase), frase).toBe(true);
+    }
+  });
+
+  it("\"deixa\" que continua a conversa não é despedida", () => {
+    for (const frase of ["deixa eu ver o cep", "deixa então eu te mandar o CEP", "ta", "obrigada pela explicação"]) {
+      expect(saysGoodbye(frase), frase).toBe(false);
+    }
+  });
+
+  it("a escada não recomeça logo depois do \"Sem problemas, estou aqui…\"", () => {
+    const solto = read({ pending_answer: "unrelated" });
+    const base = { interpreted: true, interpretation: solto, sizeFound: false, factsFound: false };
+    const perguntou = "Qual número de calça você usa?";
+    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: true }).kind).toBe("none");
+    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: false }).kind).toBe("reply");
+    // Uma escada já em curso segue.
+    expect(
+      decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: true, parked: true }).kind,
+    ).toBe("reply");
+  });
+
+  it("o intérprete sabe que despedida é \"vou pensar\" e que manequim não é calça", () => {
+    const { system } = interpretRequest("", "oi");
+    expect(system).toContain("deixa pra lá");
+    expect(system).toContain("manequim");
+    expect(system).toContain("vou nesse então");
   });
 });

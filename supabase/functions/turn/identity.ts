@@ -79,7 +79,7 @@ const NOT_A_NAME =
  * the sentence itself says what follows is a name.
  */
 const COMMON_WORDS =
-  /\b(oi|ola|opa|eae|bom|boa|dia|tarde|noite|tudo|bem|beleza|blz|certo|claro|sim|nao|ok|okay|obrigada?|obg|valeu|vlw|por|favor|pfv|quero|queria|posso|pode|vou|vamos|comprar|compro|fechar|fechado|gostei|adorei|amei|show|legal|otimo|otima|perfeito|perfeita|entao|agora|ainda|so|ja|mais|menos|muito|muita|aqui|ali|sei|isso|esse|essa|qual|quais|como|onde|quando|quem|que|voce|vc|eu|meu|minha|seu|sua|com|sem|para|pra|de|do|da|em|no|na|e|ou|mas|se|tem|ter|vai|ver|fica|ficou|sai|custa|chega|manda|mande|envia|entrega|frete|pagamento|pagar|desconto|link|checkout|cinta|modeladora|espera|espere|calma|deixa|deixe|certeza|duvida|entendi|entendo|acho|acha)\b/i;
+  /\b(oi+|ol[aá]|opa|eae|desculpa|desculpe|foi\s+mal|sumi|sumida|k{2,}|rs+|(?:ha){2,}|(?:he){2,}|mds|bom|boa|dia|tarde|noite|tudo|bem|beleza|blz|certo|claro|sim|nao|ok|okay|obrigada?|obg|valeu|vlw|por|favor|pfv|quero|queria|posso|pode|vou|vamos|comprar|compro|fechar|fechado|gostei|adorei|amei|show|legal|otimo|otima|perfeito|perfeita|entao|agora|ainda|so|ja|mais|menos|muito|muita|aqui|ali|sei|isso|esse|essa|qual|quais|como|onde|quando|quem|que|voce|vc|eu|meu|minha|seu|sua|com|sem|para|pra|de|do|da|em|no|na|e|ou|mas|se|tem|ter|vai|ver|fica|ficou|sai|custa|chega|manda|mande|envia|entrega|frete|pagamento|pagar|desconto|link|checkout|cinta|modeladora|espera|espere|calma|deixa|deixe|certeza|duvida|entendi|entendo|acho|acha)\b/i;
 
 /**
  * Her name, from the message where she gives it. Only two shapes are read: an explicit
@@ -88,12 +88,16 @@ const COMMON_WORDS =
  * the order wrong is on the package.
  */
 export const extractName = (text: string): string | null => {
-  const cleaned = text.replace(/\s+/g, " ").trim();
+  // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
+  // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
+  const cleaned = text.replace(/[^\S\n]+/g, " ").replace(/ *\n+ */g, "\n").trim();
 
+  // "nome dela é ..." — she is buying for someone else, and the link is prefilled with
+  // the recipient's name (persona round 3, Karol buying for her mother).
   const introduced = cleaned.match(
-    /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´`\s]{1,60})/i,
+    /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s+d[ae]l[ae](?:\s+(?:é|e|eh))?\s*:?|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60})/i,
   );
-  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´`\s]{1,60}$/.test(cleaned) ? cleaned : null);
+  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
   const name = candidate
