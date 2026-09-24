@@ -90,3 +90,35 @@ describe("coverage_claim: condição colada e checkout antes", () => {
     }
   });
 });
+
+/** Code review, 2026-09-24 (terceira): "e"/"que" abrem oração nova, e "sim" nunca é desculpado. */
+describe("coverage_claim: oração nova e afirmação com \"sim\"", () => {
+  it("veta a promessa depois do checkout em outra oração, ou com \"sim\"", () => {
+    for (const texto of [
+      "É só digitar o CEP no checkout e chega aí em até 3 dias.",
+      "No checkout você escolhe o dia e chega aí direitinho.",
+      "Faz o pedido pelo checkout que chega aí sim",
+      "Pelo checkout chega sim aí",
+      "Você digita o CEP e chega sim aí em 3 dias",
+      "Chegamos aí sim",
+      "Entrega sim na sua região",
+      "Atendemos na sua cidade sim.",
+    ]) {
+      expect(verdict(texto, false), texto).toBe("block");
+    }
+  });
+
+  it("o checkout que confirma, e o dia da semana, continuam passando", () => {
+    for (const texto of [
+      "O checkout confirma a entrega no seu CEP",
+      "No checkout você vê as datas de entrega pro seu CEP",
+      "Digitando o CEP no checkout, ele mostra se entrega aí",
+      "Assim que você digitar o CEP, o checkout confirma se entregamos aí",
+      "O checkout vai te mostrar se a entrega chega no seu CEP",
+      "Nossa equipe atende Segunda a Sábado.",
+      "A entrega na sua região aparece no checkout.",
+    ]) {
+      expect(verdict(texto, false), texto).toBe("pass");
+    }
+  });
+});

@@ -383,13 +383,20 @@ const negatedBefore = (t: string, at: number): boolean =>
  * the phrases that can only mean an order with us count from the history.
  */
 const OTHER_PURCHASE =
-  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|shopee|mercado|cinta|ano\s+passado)\b/;
+  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|shopee|mercado|cinta|ano\s+passado|loja|internet|site|online|ultima\s+vez)\b/;
+/**
+ * A store that is not us wins over everything, "colete" included: "comprei um colete
+ * parecido em outra loja" is an objection (code review, 2026-09-24). "Site" is left out on
+ * purpose — ours is one, and "comprei o colete pelo site" is an order with us.
+ */
+const OTHER_STORE = /\b(outra\s+loja|outras\s+lojas|shopee|mercado(\s+livre)?|internet)\b/;
 /**
  * A clause that names our product or us is about an order with us whatever else it says:
- * "fiz o pedido pra ela ontem", "comprei o colete antes de ontem" (code review, 2026-09-24).
- * Buying for someone else is still buying: "comprei pra minha mãe, cadê?".
+ * "comprei o colete antes de ontem" (code review, 2026-09-24). Not "pedido": "da última
+ * vez meu pedido não chegou" is fear, not an order. Buying for someone else is still
+ * buying: "comprei pra minha mãe, cadê?", "fiz o pedido pra ela ontem".
  */
-const ABOUT_US = /\b(pedido|colete|com\s+voces)\b/;
+const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
 const ORDER_WITH_US =
   /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
@@ -402,7 +409,8 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
       const start = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
       const ends = [",", ";", ".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
       const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
-      if (negatedBefore(t, at) || (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause))) continue;
+      if (negatedBefore(t, at) || OTHER_STORE.test(clause)) continue;
+      if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
       return true;
     }
   }
@@ -431,8 +439,9 @@ export const decidesToBuy = (message: string): boolean => {
     const clauseEnd = rest.search(/[,;.!?\n]/);
     const clause = clauseEnd === -1 ? rest : rest.slice(0, clauseEnd);
     // "vou comprar agora não" — a denial after the verb, in the same clause, cancels too.
-    if (/\b(quando|depois|nao)\b/.test(clause)) continue;
-    if (/\bmas\b[^.!?\n]*\b(depois|quando|mais\s+tarde|outro\s+dia)\b/.test(rest)) continue;
+    const LATER = String.raw`\b(depois|quando|mais\s+tarde|outro\s+dia|m[eê]s\s+que\s+vem|semana\s+que\s+vem)\b`;
+    if (/\bnao\b/.test(clause) || new RegExp(LATER).test(clause)) continue;
+    if (new RegExp(String.raw`\bmas\b[^.!?\n]*` + LATER).test(rest)) continue;
     return true;
   }
   return false;

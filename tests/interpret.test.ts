@@ -602,3 +602,39 @@ describe("decisão com \"sim\", \"agora\" e quantidade", () => {
     }
   });
 });
+
+/** Code review, 2026-09-24 (terceira): outra loja vence tudo; "pedido" sozinho não é conosco. */
+describe("compra passada: outra loja e medo antigo", () => {
+  it("não é compra conosco", () => {
+    for (const frase of [
+      "fiz um pedido em outra loja e nunca chegou",
+      "já fiz um pedido na shopee e não chegou",
+      "já fiz um pedido na internet e nunca chegou",
+      "da última vez meu pedido não chegou, por isso tenho medo",
+      "comprei um colete parecido em outra loja e não serviu",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+      expect(statesPastPurchase(frase, false), frase).toBe(false);
+    }
+  });
+
+  it("Lu, Vera e a compra para outra pessoa continuam valendo", () => {
+    expect(statesPastPurchase("oi ja fez 3 dias que comprei\n\nquando chega?")).toBe(true);
+    expect(statesPastPurchase("fiz um pedido semana passada", false)).toBe(true);
+    expect(statesPastPurchase("fiz o pedido pra ela ontem, quando chega?")).toBe(true);
+    expect(statesPastPurchase("comprei o colete pelo site de vocês e não chegou")).toBe(true);
+  });
+});
+
+describe("decisão adiada para o mês ou a semana que vem", () => {
+  it("não é decisão", () => {
+    for (const frase of ["vou levar sim, mas só mês que vem", "quero comprar semana que vem", "vou querer mes que vem"]) {
+      expect(decidesToBuy(frase), frase).toBe(false);
+    }
+  });
+
+  it("a decisão de agora continua", () => {
+    expect(decidesToBuy("vou levar sim")).toBe(true);
+    expect(decidesToBuy("quero comprar, me manda o link")).toBe(true);
+  });
+});

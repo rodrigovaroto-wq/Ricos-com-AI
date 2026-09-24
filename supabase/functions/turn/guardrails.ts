@@ -1653,38 +1653,51 @@ const gates: readonly Gate[] = [
       // "quando chega aí", "não sei se chega aí"); the checkout named BEFORE the claim in
       // its own phrase ("o checkout confirma a entrega no seu CEP"); and "entrega" as a
       // NOUN — after an article or a preposition ("a entrega aqui é agendada", "o dia da
-      // entrega lá mesmo"). Code review, 2026-09-24, twice: the first version vetoed six
-      // honest lines (two vetoes on the link turn send the fallback without the link);
-      // the loose second one let "Quando você fizer o pedido chega sim aí" and "Chega sim
-      // aí e você vê o dia no checkout" through. Attached and before is what separates them.
-      const exempt = (at: number): boolean => {
-        const before = (t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "";
+      // entrega lá mesmo"). Code review, 2026-09-24, three times: the first version vetoed
+      // six honest lines (two vetoes on the link turn send the fallback without the link);
+      // the second let "Quando você fizer o pedido chega sim aí" through; the third let
+      // "digitar o CEP no checkout e chega aí" and "Pelo checkout chega sim aí" through.
+      // So the phrase is also cut at " e " and " que " — a new clause starts there — and a
+      // claim with "sim" in it is an affirmation the checkout rule never excuses.
+      const exempt = (at: number, claim: string): boolean => {
+        const before =
+          ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
+          "";
+        if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        if (/\bsim\b/.test(claim)) return false;
         return (
-          /\b(se|nao|nem|quando)\s+$/.test(before) ||
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
           /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)
         );
       };
+      const VERB = String.raw`(?:chega|chegam|chegamos|entrega|entregamos|entregam|atende|atendemos)`;
       const CLAIMS = [
-        /\bchega(?:m)?\s+sim\b/g,
-        /\b(?:chega|chegam|entrega|entregamos|entregam)\s+(?:sim\s+)?(?:ai|aqui|la)\b/g,
-        /\b(?:atende|atendemos)\s+(?:sim\s+)?(?:ai|la)\b/g,
-        /\b(?:chega|chegam|entrega|entregamos|entregam|atende|atendemos)\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b/g,
+        /\b(?:chega|chegam|chegamos)\s+sim\b/g,
+        /\b(?:chega|chegam|chegamos|entrega|entregamos|entregam)\s+(?:sim\s+)?(?:ai|aqui|la)(?:\s+sim)?\b/g,
+        /\b(?:atende|atendemos)\s+(?:sim\s+)?(?:ai|la)(?:\s+sim)?\b/g,
+        new RegExp(String.raw`\b${VERB}\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b`, "g"),
+        new RegExp(String.raw`\b${VERB}\s+(?:sim\s+)?(?:na|pra|para|em)\s+sua\s+(?:cidade|regiao)\b`, "g"),
       ];
       for (const re of CLAIMS) {
         for (const m of t.matchAll(re)) {
-          if (!exempt(m.index ?? 0)) return "affirms delivery reaches her before the region lookup answered";
+          if (!exempt(m.index ?? 0, m[0])) return "affirms delivery reaches her before the region lookup answered";
         }
       }
       // "chega em Manaus": a capitalised place right after the verb, read on the original
-      // text because `norm` lowercases it.
+      // text because `norm` lowercases it. A weekday is not a place ("atende Segunda a
+      // Sábado"), and neither is "Até".
+      const NOT_A_PLACE = String.raw`(?!(?:At[eé]|Segunda|Ter[cç]a|Quarta|Quinta|Sexta|S[aá]bado|Domingo)(?:\s|$|[,.!?-]))`;
       for (const m of text.matchAll(
-        /\b(?:[Cc]hega|[Cc]hegam|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?:tod[oa]\s+(?:o\s+|a\s+)?)?(?!At[eé](?:\s|$))[A-ZÀ-Ú][a-zà-ú]+|\b[Aa]tend(?:e|emos)\s+(?!At[eé](?:\s|$))[A-ZÀ-Ú][a-zà-ú]+/g,
+        new RegExp(
+          String.raw`\b(?:[Cc]hega|[Cc]hegam|[Cc]hegamos|[Ee]ntrega|[Ee]ntregamos|[Aa]tende|[Aa]tendemos)\s+(?:sim\s+)?(?:em|no|na|pra|para)\s+(?:tod[oa]\s+(?:o\s+|a\s+)?)?${NOT_A_PLACE}[A-ZÀ-Ú][a-zà-ú]+` +
+            String.raw`|\b[Aa]tend(?:e|emos)\s+${NOT_A_PLACE}[A-ZÀ-Ú][a-zà-ú]+`,
+          "g",
+        ),
       )) {
         // `norm` keeps the length (it strips combining marks from NFD, and the source is
         // NFC), so the index carries over — but read the phrase on the normalised prefix.
         const prefix = norm(text.slice(0, m.index));
-        if (!exempt(prefix.length)) return "affirms delivery reaches her city before the region lookup answered";
+        if (!exempt(prefix.length, norm(m[0]))) return "affirms delivery reaches her city before the region lookup answered";
       }
       return null;
     },
