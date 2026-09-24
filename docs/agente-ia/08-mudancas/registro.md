@@ -133,6 +133,11 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   Terceira rodada: mais cinco com "pra você" depois da dúvida ("Tiro sua dúvida, pra você sai
   por menos") — o trecho também não sai antes de "pra/para", nem depois de ":" ou ";".
   Custo aceito: "Tiro mais alguma dúvida pra você?" volta a ser vetada, como antes da M-05.
+  Quarta rodada: mais cinco por outra pontuação ou conectivo ("Tiro sua dúvida (pra você um
+  pouquinho)", "…, até mais um pouquinho"). Listar separadores não convergia; agora o trecho
+  só sai quando a própria janela da varredura não acha palavra de concessão depois da dúvida.
+  No caminho, achado anterior: `pouc\w+` não casava "pouquinho", e "Eu tiro um pouquinho." — o
+  exemplo do próprio briefing — passava. Corrigido (`pou(?:c|qu)\w+`), com caso vetado.
 - **Estado:** feita — rodada jussara, tati pendente (precisa das credenciais do proxy).
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
@@ -153,7 +158,22 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   frases honestas de M-01 continuam passando. Resíduo que continua: nome do antecipado fora da
   lista em frase **sem** "antecipado" ("No depósito varia, e na entrega 1 a 3 dias") cai no
   caminho da entrega — fora do escopo da proximidade.
-- **Estado:** feita — segunda revisão e rodada cleide, rafa, lu pendentes.
+- **Segunda revisão (2026-09-24): nenhuma mentira nova passa, mas 14 frases honestas passaram
+  a ser vetadas** — "1 a 3 dias úteis", "no pagamento antecipado", "já / enquanto no
+  antecipado", "conforme / de acordo com / depende da região", parênteses. Entraram na lista
+  permitida, cada uma com a mentira vizinha como caso vetado.
+- **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
+
+### M-07 — Faixa compartilhada antes da entrega, e média do antecipado sem conferência
+- **Por quê:** segunda revisão da M-06 (2026-09-24), furos anteriores a ela: (1) um nome do
+  antecipado ligado à entrega por "e" antes da faixa dá a faixa só à entrega — "No antecipado
+  varia por região, e no pix e na entrega, 1 a 3 dias", "…; no cartão e na entrega, 1 a 3
+  dias"; (2) "em média N dias" apaga qualquer número — "…no antecipado o prazo varia em média
+  1 dias" passa sem nenhum gate disparar.
+- **Objetivo:** nenhuma faixa ou média inventada para o antecipado passa.
+- **Medida:** as frases acima como casos vetados em `tests/change-registry.test.ts`; placar
+  `pronta-por-prazo` = 0 numa rodada cleide, rafa, lu.
+- **Estado:** aberta. Endurece gate.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

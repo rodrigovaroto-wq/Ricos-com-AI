@@ -195,6 +195,16 @@ describe("M-05: tirar dúvida não é desconto", () => {
       "Tiro sua duvidinha, pra você um pouco mais barato.",
       "Tiro sua dúvida: pra você, um pouquinho a menos.",
       "Tiro sua dúvida, pra você sai por menos.",
+      // Quarta rodada: outra pontuação ou conectivo entre a dúvida e a concessão.
+      "Tiro sua dúvida – pra você um pouquinho.",
+      "Tiro sua dúvida (pra você um pouquinho).",
+      'Tiro sua dúvida "pra você" um pouquinho.',
+      "Tiro sua dúvida, ainda mais um pouco do valor.",
+      "Tiro sua dúvida, até mais um pouquinho.",
+      "Tiro sua dúvida, um pouquinho do valor também.",
+      // "pouc\w+" não casava "pouquinho": o exemplo do próprio briefing passava.
+      "Eu tiro um pouquinho.",
+      "Abato um pouquinho no valor.",
     ]) {
       expect(price(lie)?.verdict, lie).toBe("block");
     }
@@ -217,12 +227,28 @@ describe("M-06: depois da faixa da entrega, só a janela do antecipado", () => {
     "Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região e chega junto.",
     "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região e costuma bater com esse prazo.",
     "No antecipado o prazo varia, e na entrega é de 1 a 3 dias, dá na mesma.",
+    // Segunda revisão: as palavras novas na lista permitida não abrem espaço para faixa nem igualdade.
+    "Na entrega você recebe em 1 a 3 dias úteis, e no pagamento antecipado também.",
+    "Na entrega você recebe em 1 a 3 dias, já no antecipado 2 a 3 dias.",
+    "Na entrega você recebe em 1 a 3 dias, enquanto no pagamento antecipado é o mesmo.",
+    "Na entrega você recebe em 1 a 3 dias úteis, no antecipado depende da região, mas chega junto.",
+    "Na entrega você recebe em 1 a 3 dias (no antecipado também).",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado conforme a região, 2 a 3 dias.",
   ];
   const passam = [
     "Na entrega você recebe em 1 a 3 dias, no antecipado varia por região.",
     "Na entrega você recebe em 1 a 3 dias, e no antecipado o prazo varia por região, em média 5 dias úteis.",
     "Na entrega você recebe em 1 a 3 dias, mas no antecipado varia por região.",
     "No antecipado varia por região; na entrega são 1 a 3 dias.",
+    // Segunda revisão: a mesma janela nas palavras do modelo.
+    "Na entrega você recebe em 1 a 3 dias úteis, e no antecipado o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, e no pagamento antecipado o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região (em média 5 dias úteis).",
+    "Na entrega você recebe em 1 a 3 dias, já no antecipado o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, enquanto no antecipado o prazo varia por região.",
+    "Na entrega você recebe em 1 a 3 dias, e pagando antecipado o prazo varia conforme a região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia de acordo com a região, em média 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado o prazo depende da região, em média 5 dias úteis.",
   ];
 
   it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {

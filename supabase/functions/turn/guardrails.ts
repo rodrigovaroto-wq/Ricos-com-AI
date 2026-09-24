@@ -579,16 +579,17 @@ const gates: readonly Gate[] = [
       // set, and the number gate never sees them because there is no number to see.
       // "Tiro mais alguma dúvida" is the closing question, not a concession (M-05): the
       // object of "tiro" is the doubt, and only determiners may stand between them, so
-      // nothing that names a price can hide in the span removed. Not when a second object
-      // follows ("tiro sua dúvida e mais um pouco do preço", "…, pra você sai por menos"
-      // share the verb — second review), and blanked to the same length so `negatedAt`
-      // keeps its distances.
+      // nothing that names a price can hide in the span removed. Not when the scan's own
+      // window would find a concession word after the doubt ("tiro sua dúvida e mais um
+      // pouco do preço", "…, pra você sai por menos", "…(pra você um pouquinho)" share the
+      // verb — second review, three rounds: listing separators did not converge), and
+      // blanked to the same length so `negatedAt` keeps its distances.
       const concessions = t.replace(
-        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![\s,:;]*\b(?:e|mais|pra|para)\b)/g,
+        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![^.!?]{0,20}\b(?:um\s+pou(?:c|qu)\w+|mais|pra\s+voce|para\s+voce)\b)/g,
         (x) => " ".repeat(x.length),
       );
       for (const m of concessions.matchAll(
-        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pouc\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
+        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
       )) {
         if (!negatedAt(concessions, m.index ?? 0)) return "promises a discount with no number behind it";
       }
@@ -897,13 +898,18 @@ const gates: readonly Gate[] = [
         // "…na entrega são 1 a 3 dias, e no depósito 2 a 3 dias" and "…, no antecipado varia
         // por região, nada muda" through — a prepaid name off the list, or a tie at the end.
         // Same allowlist as `endsAtPrepayWindow`, plus the connectives that open that clause.
-        const tailIsPrepayWindow = /^[\s.,;:!?]*$/.test(
+        // Second review: "dias úteis" after the range, "pagamento antecipado", "já" /
+        // "enquanto" opening the clause and "conforme / de acordo com / depende da região"
+        // are the same window in the model's own words, and vetoing them cost honest turns.
+        const tailIsPrepayWindow = /^[\s.,;:!?()]*$/.test(
           t
             .slice(at + m[0].length)
             .split(/[.!?\n]/)[0]!
+            .replace(/^\s+uteis\b/, "")
             .replace(PREPAY, "")
             .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
-            .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando)\b/g, ""),
+            .replace(/\b(?:conforme|de\s+acordo\s+com|depende\s+d)[ae]?\s+(?:a\s+)?regiao\b/g, "")
+            .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
         );
         const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow;
         const named: "cod" | "prepay" | null =
