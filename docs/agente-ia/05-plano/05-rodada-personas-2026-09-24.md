@@ -56,3 +56,23 @@ resposta +60% (intérprete + prompt maior). Dos 14 achados, 11 resolvidos, 1 par
 | 7 | "Manequim 40" lido como calça (Marcinha, G→M) | código |
 | 8 | Diretiva de região sem COD ainda diz "mesmo frete grátis" (`sizeDirectiveFor`) | código |
 | 9 | Instruções do link repetitivas; e-mail pedido depois do link (Cleide) | código |
+
+---
+
+## Rodada 4 — 2026-09-24
+
+Código em `f34e0fa`. Custo R$ 0,21. Transcrições: `data/persona-runs/2026-09-24T20-16-00-949Z-local`.
+Relatório: mesmo artifact, versão 3.
+
+**Resultado:** 3 vendas encaminhadas (Jussara, Karol, Marcinha: link com nome e tamanho
+certos), 4 links, 3 handoffs certos (Lu e Vera pós-venda, Sandra pedido explícito), 1
+resposta pronta, mediana de 37 palavras, 4% de frases longas, R$ 0,0027 por resposta.
+
+| # | Achado da rodada 4 | Dono |
+|---|---|---|
+| 1 | Com a região desconhecida, `delivery_promise` julgou "1 a 3 dias" como antecipado → 2 vetos → resposta pronta (Cleide) | código |
+| 2 | "manequim" no leitor de tamanho trocou G por M pela segunda rodada (Marcinha) | código |
+| 3 | O mesmo link mandado duas vezes seguidas (Jussara) | código |
+| 4 | Pergunta de tamanho em quase toda resposta de preço (Tati); e-mail e CPF pedidos antes do link a cliente desconfiada (Cleide) | prompt |
+| 5 | Consulta de região da Coinzz continua fora do ar | operador |
+| 6 | Link no domínio da marca | operador |
