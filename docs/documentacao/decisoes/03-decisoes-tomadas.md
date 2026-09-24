@@ -1443,3 +1443,66 @@ dos provedores.
    passa a ser outro modelo da própria API da Meta, não a OpenAI.
 5. **Os secrets `OPENAI_API_KEY` e `GEMINI_API_KEY` do Supabase ficam até o deploy da v33**
    — a v32 no ar ainda usa os dois — e saem depois dele.
+
+---
+
+# Rodada 13 — Malu adaptativa (2026-09-24)
+
+Origem: as rodadas 1 e 2 das personas ([relatório](../../agente-ia/05-plano/05-rodada-personas-2026-09-24.md)).
+Nenhuma das 12 chegou ao link; o texto do modelo estava quase sempre certo e a venda
+travava em código. Conclusão do operador: **mais adaptabilidade e autonomia, menos
+guardrail.**
+
+## R13.1 — Um intérprete antes da resposta (revê o espírito de R11.1, não a letra)
+
+Uma chamada de modelo extra por turno lê a mensagem da cliente e devolve JSON estrito:
+pedido de pessoa, cancelamento, pós-venda, opt-out, tamanho (letra, calça, cintura, para
+quem), e-mail ou recusa de e-mail, forma de pagamento, "vou pensar", e se ela respondeu a
+pergunta pendente. **As ações continuam sendo TypeScript determinístico** — o modelo não
+chama ferramenta; ele só passa a *ler* o que as regex liam mal ("ela usa G 46",
+"me passa pra uma pessoa" no meio de outra frase).
+
+## R13.2 — Handoff só em três casos, com e-mail para o operador
+
+Pedido explícito de pessoa (intérprete **e** palavra de pessoa na mensagem, para não dar
+falso positivo), cancelamento, ou pergunta sobre pedido existente ("Vou checar pra você e
+já te retorno"). Resposta vetada ou sem resposta pronta **não** passa para humano.
+E-mail de handoff: `contato@encorpa-fashion.com.br` (secret `BUSINESS_CONFIG`).
+
+## R13.3 — Gates duros e gates brandos
+
+Continuam vetando (duros): preço, desconto, cupom, frete, prazo, garantia, parcelas,
+emagrecimento, saúde, depoimento inventado, se passar por pessoa, opt-out, tamanho sem
+CEP, escassez fora do configurado. Passam a só registrar (brandos): janela de prazo sem
+dono, repetição de texto e a menção a loja física. Garantia escrita como "7 dias após o
+recebimento". Parcelas: até 12x no cartão, só no antecipado; nunca "sem juros".
+
+## R13.4 — Fluxos que não travam
+
+E-mail e CPF deixam de ser obrigatórios para mandar o link: se ela não tem ou não quer
+passar, o link sai com o que se sabe e o checkout pede o resto. "Vou pensar" → "Sem
+problemas, estou aqui se tiver mais alguma dúvida" + link (antecipado se ela escolheu ou se
+a região não tem pagamento na entrega; senão, o da entrega). Tamanho sem resposta: três
+frases fixas do operador e depois silêncio até a mensagem fazer sentido. Falha de rede:
+novas tentativas antes de qualquer handoff. Mensagens de até ~30 palavras, divididas só em
+fim de frase.
+
+## R13.5 — Respostas de objeção definidas pelo operador
+
+CNPJ → e-mail do suporte. Loja física → "ainda não, só online, com planos de abrir em São
+Paulo". Depoimentos → seção de depoimentos do site. Frete e data exata → dentro do
+checkout. Preço alto → qualidade, "mais de 500 clientes satisfeitas", pagamento na
+entrega, 7 dias, suporte todo dia. CPF → nota fiscal, como a lei exige. Expressa sai do
+prompt até existir praça ativa. Recepção automática: "uma de nossas atendentes esclarecerá
+todas as suas dúvidas". **"500 clientes" e "planos em São Paulo" são fatos declarados pelo
+operador e ficam no config; só podem ficar lá se forem verdade.**
+
+## R13.6 — Recusado: escassez e prova social inventadas
+
+O operador pediu "nas últimas 24 horas compraram 68 peças", "o estoque vai acabar nas
+próximas horas" e, se alguém desmentir, dizer que "o estoque foi reposto". **Não
+implementado:** são números inventados e uma mentira planejada para quem desconfiar —
+publicidade enganosa (CDC art. 37) e contra a política de anúncios da Meta, com risco de
+derrubar a conta e o número. Não existe contagem real de estoque (a consulta da Logzz só
+diz se há disponibilidade por CEP). O "restam 12 unidades" (`allowUnverified`, decisão de
+08/09) fica, por decisão do operador, e carrega o mesmo risco em escala menor.
