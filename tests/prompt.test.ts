@@ -213,3 +213,86 @@ describe("toda frase-exemplo de preço e frete passa a cadeia de gates", () => {
     }
   });
 });
+
+/**
+ * The operator's complaint of 2026-09-24, after reading real Muse replies: the style was
+ * staccato ("Uma ideia por frase. Frase curta, ponto final, próxima.") and one reply ended
+ * on a question with a floating adjective and an ownerless pronoun. The prompt now asks
+ * for comma-linked oral PT-BR, a reread for concordância, and teaches natural questions.
+ * What must NOT move: every clarity rule that protects money, and the disclosure rule.
+ */
+describe("ritmo: vendedora brasileira no WhatsApp, não frase telegráfica", () => {
+  it.each(corners)("o ritmo telegráfico saiu do prompt ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).not.toContain("Uma ideia por frase");
+    expect(prompt).not.toContain("Frase curta, ponto final, próxima");
+    expect(prompt).not.toContain("criança de 8 anos");
+  });
+
+  it("o prompt pede vírgula mais que ponto, com um limite que dá pra verificar", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("Vírgula mais que ponto.");
+    expect(prompt).toContain("duas frases seguidas com menos de oito palavras cada já soam como robô");
+    expect(prompt).toContain(`com "né" no máximo uma vez por mensagem`);
+  });
+
+  // Edge: a longer, comma-linked sentence is exactly where a deadline drifts away from its
+  // payment path. The clarity rules that protect money stay, in every corner.
+  it.each(corners)("as regras de clareza que protegem dinheiro continuam ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).toContain("Todo número tem que dizer a que se refere");
+    expect(prompt).toContain("o preço ou o prazo de um caminho nunca divide a frase com os do outro");
+    expect(prompt).toContain(`Nada de "modalidade", "adicional", "mediante", "disponibilidade"`);
+    expect(prompt).toContain("O pagamento na entrega é O caminho");
+    expect(prompt).toContain("O pagamento antecipado é uma SAÍDA, não uma opção.");
+  });
+
+  // Negated case: a human tone is not a human claim. The prompt still forbids claiming to
+  // be a person, and says the tone is borrowed, not the identity; the gate still reads
+  // "não sou robô" as the offence and "não sou uma pessoa" as the right answer.
+  it("tom humano não é afirmar ser pessoa", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("Nunca afirma ser uma pessoa");
+    expect(prompt).toContain("o tom, não a identidade: você continua sendo a assistente virtual da marca");
+    expect(runGates("Não sou robô, tá? Sou a Malu mesmo.", ctx()).allowed).toBe(false);
+    expect(runGates("Não sou uma pessoa, sou a assistente virtual da marca, tá?", ctx()).allowed).toBe(true);
+  });
+});
+
+describe("concordância: a origem do erro sai do prompt e ele manda reler", () => {
+  const QUESTIONS = [
+    "Tem alguma roupa que você adora e deixou de usar? Me conta qual é.",
+    "Qual roupa você anda deixando no armário?",
+  ];
+
+  it.each(corners)("o prompt manda reler concordância e pronome antes de mandar ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).toContain("Releia cada frase antes de mandar");
+    expect(prompt).toContain("Concordância nominal: o adjetivo tem o gênero e o número da palavra que ele descreve");
+    expect(prompt).toContain("Concordância verbal: o verbo concorda com o sujeito");
+    expect(prompt).toContain(`troque pelo nome, "o colete", "a roupa"`);
+  });
+
+  // The origin: "o vestido que voltou a fechar bonito" taught the adverbial "bonito" that
+  // came back as "voltar a usar bonita com ele". The scene stays, the floating word goes.
+  it("a cena concreta fica, sem o adjetivo solto que originou o erro", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("o vestido que voltou a fechar, a foto da festa");
+    expect(prompt).not.toContain("fechar bonito");
+  });
+
+  // Every question the prompt now teaches passes the chain, on both payment paths and in
+  // both freeShipping branches. "deixou de usar" is the negated form, and no gate may
+  // read it as a claim.
+  describe.each(corners)("$name", ({ config }) => {
+    const prompt = flat(build(config));
+    it.each(QUESTIONS)("ensina e aprova: %s", (text) => {
+      expect(prompt).toContain(`"${text}"`);
+      for (const paymentPath of BOTH) {
+        const verdict = runGates(text, ctx({ config, paymentPath }));
+        const blocked = verdict.traces.filter((t) => t.verdict === "block");
+        expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+      }
+    });
+  });
+});
