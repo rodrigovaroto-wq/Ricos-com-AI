@@ -332,3 +332,111 @@ describe("fechamento por escolha: uma oferta só vence", () => {
     expect(verdict.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("unverified_size");
   });
 });
+
+/**
+ * Round-1 findings from a real Muse run, 2026-09-24. Asked "tem loja física?", she said
+ * "A gente não tem loja física, a venda é só por aqui…" — honest, and vetoed:
+ * `unavailable_offer` reads "loja física" as an offer even when denied, and loosening it
+ * failed four review rounds. The prompt teaches the answer without the words instead.
+ */
+const STORE_ANSWER = "Aqui a venda é toda online, pelo site e por esta conversa, e o colete vai direto pra sua casa.";
+
+/** Every double-quoted sentence the prompt teaches her to say (ends in . ? or !). */
+const quotedSentences = (prompt: string): string[] =>
+  [...prompt.matchAll(/"([^"]{12,}[.?!])"/g)].map((m) => m[1]!);
+
+const words = (s: string) => s.split(/\s+/).filter(Boolean).length;
+
+describe("loja, endereço, retirada: resposta sem as palavras que o gate lê", () => {
+  it.each(corners)("o prompt ensina a resposta e diz quais palavras evitar ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).toContain(`"${STORE_ANSWER}"`);
+    expect(prompt).toContain(`sem as palavras "loja", "retirada" e "balcão", nem pra negar`);
+  });
+
+  describe.each(corners)("$name", ({ config }) => {
+    it("a resposta ensinada passa a cadeia nos dois caminhos", () => {
+      for (const paymentPath of BOTH) {
+        const verdict = runGates(STORE_ANSWER, ctx({ config, paymentPath }));
+        const blocked = verdict.traces.filter((t) => t.verdict === "block");
+        expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+      }
+    });
+  });
+
+  // Negated case, and the reason for the whole block: the honest denial is vetoed. If a
+  // future gate learns negation here, this fails — and the prompt block can be relaxed.
+  it("a negação honesta que a Muse escreveu é vetada, por isso o prompt evita a palavra", () => {
+    const verdict = runGates("A gente não tem loja física, a venda é só por aqui e pelo site.", ctx());
+    expect(verdict.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
+      "unavailable_offer",
+    );
+  });
+});
+
+describe("tamanho da frase e pontuação da pergunta", () => {
+  it("o prompt dá o teto de 30 palavras junto do piso de oito", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("nenhuma frase passa de 30 palavras");
+    expect(prompt).toContain("duas frases seguidas com menos de oito palavras cada");
+  });
+
+  // Edge: the prompt must obey its own ceiling — an example over 30 words teaches the
+  // opposite of the rule. Not vacuous: the scan finds the store answer and the close.
+  it.each(corners)("nenhuma frase que o prompt manda dizer passa de 30 palavras ($name)", ({ config }) => {
+    const sentences = quotedSentences(flat(build(config)));
+    expect(sentences).toContain(STORE_ANSWER);
+    const over = sentences.filter((s) => words(s) > 30);
+    expect(over).toEqual([]);
+  });
+
+  it("toda pergunta termina em ?, inclusive a do né — e o exemplo passa a cadeia", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain(`Toda pergunta termina em "?", inclusive a que termina em "né"`);
+    expect(prompt).toContain(`"fica mais fácil assim, né?"`);
+    for (const c of corners) {
+      expect(runGates("fica mais fácil assim, né?", ctx({ config: c.config })).allowed).toBe(true);
+    }
+  });
+});
+
+describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
+  it.each(corners)("frase pronta de vendedora tem teto na conversa inteira ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).toContain(`como "sendo bem sincera" ou "você deve estar pensando que...", aparece no máximo uma vez na conversa inteira`);
+  });
+
+  it("a primeira frase responde o que ela perguntou", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("Se ela fez uma pergunta, a primeira frase da sua mensagem responde a ela.");
+  });
+
+  it("a pergunta da roupa abre a conversa e não volta; quando ela quer, a pergunta leva ao pedido", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("A pergunta sobre a roupa abre a conversa e não volta em toda mensagem");
+    expect(prompt).toContain("Quando ela disser que quer, a sua pergunta leva ao pedido");
+    // Still one question per message, which the tactic above already said.
+    expect(prompt).toContain("Uma pergunta por mensagem.");
+  });
+});
+
+describe("pronome: nunca \"com ele\" no fim da pergunta", () => {
+  it.each(corners)("a regra concreta está no prompt ($name)", ({ config }) => {
+    expect(flat(build(config))).toContain(`Nunca termine uma pergunta com "com ele": diga "com o colete".`);
+  });
+
+  it.each(corners)("nenhuma pergunta que o prompt ensina termina em \"com ele?\" ($name)", ({ config }) => {
+    const questions = quotedSentences(flat(build(config))).filter((s) => s.endsWith("?"));
+    expect(questions.length).toBeGreaterThan(0);
+    expect(questions.filter((q) => /com ele\?$/i.test(q))).toEqual([]);
+  });
+
+  // Negated edge: the rule names "com ele" to forbid it; the only occurrence in the prompt
+  // is inside that prohibition, never inside something she is taught to say.
+  it("\"com ele\" só aparece dentro da proibição", () => {
+    const prompt = flat(build(variant(false, true)));
+    const hits = [...prompt.matchAll(/com ele\b/g)].map((m) => prompt.slice(m.index! - 30, m.index! + 10));
+    expect(hits).toHaveLength(1);
+    expect(hits[0]).toContain("termine uma pergunta com");
+  });
+});

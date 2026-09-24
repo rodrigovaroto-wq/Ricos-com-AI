@@ -5,6 +5,36 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
+### 2026-09-24 (c) — achados da rodada 1 com a Muse
+
+- **Mudou (4 coisas juntas, a pedido. O efeito de cada uma não é atribuível):**
+  1. Um bloco novo diz o que responder quando ela pergunta onde a marca fica, com o exemplo
+     `"Aqui a venda é toda online, pelo site e por esta conversa, e o colete vai direto pra sua
+     casa."` e a instrução de não usar "loja", "retirada" nem "balcão", nem para negar.
+  2. Teto de 30 palavras por frase, ao lado do piso de oito que já existia. Toda pergunta
+     termina em "?", inclusive a que termina em "né" (`"fica mais fácil assim, né?"`).
+  3. "Sem bordão": frase pronta ("sendo bem sincera", "você deve estar pensando que...") no
+     máximo uma vez na conversa inteira. "Responda antes de perguntar": a primeira frase
+     responde o que ela perguntou, a pergunta sobre a roupa abre a conversa e não volta em
+     toda mensagem, e quando ela disser que quer, a pergunta leva ao pedido.
+  4. A regra de pronome ficou concreta: `Nunca termine uma pergunta com "com ele": diga "com
+     o colete".`
+- **Por quê:** rodada 1 real com a Muse. Ela respondeu "A gente não tem loja física…", o que
+  é honesto, mas `unavailable_offer` vetou porque não enxerga a negação, e soltar o gate
+  falhou em quatro rodadas de revisão. Também saíram bordão repetido, a pergunta da roupa em
+  toda mensagem, pergunta sem "?" e "voltar a vestir com ele?".
+- **Medido:** nada contra o modelo. O exemplo da loja passa `runGates` nos dois caminhos e nos
+  dois ramos de `freeShipping`, contra o `guardrails.ts` da `f7b53f7`. A negação que a Muse
+  escreveu segue vetada por `unavailable_offer`, e o teste fixa isso: se o gate aprender a
+  negação, o teste quebra e este bloco pode ser afrouxado. Nenhuma frase entre aspas no
+  prompt passa de 30 palavras, e nenhuma pergunta ensinada termina em "com ele?".
+- **Contradição que sobrou, fora do alcance deste arquivo:** o briefing do próprio
+  `unavailable_offer` (em `guardrails.ts`, que entra no prompt pelo `gateBriefing`) diz "não
+  existe loja física nem retirada no balcão". Ou seja, o prompt ainda mostra ao modelo as
+  palavras que o gate veta. O conserto é reescrever esse briefing sem as palavras.
+- **Regressão:** nenhuma. 3115/3115 com só esta mudança sobre a `f7b53f7`, e
+  `dev:conversas` segue 1640/1640.
+
 ### 2026-09-24 (b) — fechamento por escolha sem o antecipado
 
 - **Mudou:** a tática "Feche por escolha" deixou de ensinar `"prefere pagar na entrega ou
