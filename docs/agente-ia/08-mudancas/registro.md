@@ -56,11 +56,11 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Ajuste (code review, 2026-09-24):** a lista de palavras que igualam os caminhos ("também",
   "ou", "mesmo"…) valia na frase inteira e bloqueava comparação honesta — "Na entrega você
   também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região" caía na
-  resposta pronta. Agora a única exceção é "também escolhe / agenda / marca" antes de
+  resposta pronta. Agora a única exceção é "também escolhe / agenda / marca" — e só quando a frase termina na janela do antecipado — antes de
   qualquer menção ao antecipado, na oração da entrega que não traz segunda opção de pagamento.
   A proximidade reconhece os nomes do antecipado ("antes", "Pix", "cartão", "débito", "link"…),
-  e prazo "para todos" ("qualquer pagamento", "os dois") iguala. Segunda revisão, quatro
-  rodadas: as versões mais largas deixavam passar 35 frases com prazo inventado para o
+  e prazo "para todos" ("qualquer pagamento", "os dois") iguala. Segunda revisão, cinco
+  rodadas: as versões mais largas deixavam passar 42 frases com prazo inventado para o
   antecipado; todas viraram caso vetado em `tests/change-registry.test.ts`. Sem rodada de personas nova — a medida continua
   `pronta-por-prazo`.
 - **Estado:** atingida (prazo); resposta pronta restante → M-05.

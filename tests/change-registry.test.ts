@@ -114,6 +114,14 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "No antecipado varia por região, mas na entrega chega em 1 a 3 dias, e no débito 2 a 3 dias.",
     "No antecipado varia por região, mas na entrega chega em 1 a 3 dias, e via link 2 a 3 dias.",
     "No antecipado varia por região, mas na entrega chega em 1 a 3 dias e pra todas as clientes é assim.",
+    // Quinta rodada: a exceção do "também escolhe" só vale se a frase termina na janela do antecipado.
+    "Na entrega você também escolhe o dia, no antecipado varia por região; na entrega são 1 a 3 dias, e quem paga na compra 2 a 3 dias.",
+    "Na entrega você também escolhe o dia, no antecipado varia por região; na entrega são 1 a 3 dias, e no depósito 2 a 3 dias.",
+    "Na entrega você também escolhe o dia, no antecipado varia por região; na entrega são 1 a 3 dias, e no pré-pago 2 a 3 dias.",
+    "Na entrega você também escolhe o dia, no antecipado varia por região; na entrega são 1 a 3 dias, e pelo site 2 a 3 dias.",
+    "Na entrega você também marca o dia e em 1 a 3 dias chega, no antecipado varia por região, mas chega junto.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região e chega junto.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado varia por região e costuma bater com esse prazo.",
   ];
   const passam = [
     "No pagamento na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias.",
@@ -123,6 +131,7 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     "No antecipado o prazo varia, e na entrega é de 1 a 3 dias.",
     // Code review, 2026-09-24: palavra comum longe do antecipado não iguala os caminhos.
     "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região.",
+    "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis.",
   ];
 
   it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {

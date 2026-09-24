@@ -838,6 +838,20 @@ const gates: readonly Gate[] = [
         const PREPAY_NAME =
           /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|antes|pix|cartao|credito|debito|boleto|transferencia|online|link|a\s+vista)\b/g;
         const firstPrepay = sentence.search(PREPAY);
+        // The exemption holds only when the sentence ends at the prepaid window — nothing
+        // after "no antecipado o prazo varia por região, em média 5 dias úteis" but that
+        // window. Anything else there ("…e chega junto", "…e no depósito 2 a 3 dias") was
+        // blocked by the "também" alone before, and would slip through (second review, 5th
+        // round: listing more words did not converge).
+        const endsAtPrepayWindow =
+          firstPrepay !== -1 &&
+          !/\b(?:cheg|receb|bat|prazo|dia|junto|mesm)\w*|\d/.test(
+            sentence
+              .slice(firstPrepay)
+              .replace(PREPAY, "")
+              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b/g, ""),
+          );
         const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
           const eAt = e.index ?? 0;
           const clause =
@@ -845,6 +859,7 @@ const gates: readonly Gate[] = [
           const exempt =
             e[0] === "tambem" &&
             /^tambem\s+(?:escolh|agend|marc)\w*/.test(sentence.slice(eAt)) &&
+            endsAtPrepayWindow &&
             !/\b(?:e|ou)\b/.test(sentence.slice(0, eAt).split(/[,;:]/).pop()!) &&
             firstPrepay !== -1 &&
             eAt < firstPrepay &&

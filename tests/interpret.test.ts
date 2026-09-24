@@ -706,6 +706,14 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       "passar o link pro grupo da família",
       "mandar o link? não precisa",
       "Enviar link? Não, obrigada",
+      // Quinta rodada: pedido para depois não é pedido para agora.
+      "manda o link amanhã",
+      "sim, manda o link, mas só amanhã",
+      "manda o link mais tarde",
+      "manda o link à noite",
+      "me manda o link na sexta",
+      "pode mandar o link semana que vem",
+      "passa o link, não!",
     ])
       expect(asksForLink(m), m).toBe(false);
   });

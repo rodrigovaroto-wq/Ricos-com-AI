@@ -489,8 +489,10 @@ export const asksForLink = (message: string): boolean => {
   for (const m of t.matchAll(
     /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
   )) {
-    const after = t.slice((m.index ?? 0) + m[0].length).split(/[,;.!?\n]/)[0]!;
-    if (/\b(?:nao|se|quando|depois)\b/.test(after)) continue;
+    // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
+    // are not a request for now (second review, 5th round).
+    const after = t.slice((m.index ?? 0) + m[0].length);
+    if (/\b(?:nao|se|quando|depois|amanha|mais\s+tarde|noite|semana|segunda|terca|quarta|quinta|sexta|sabado|domingo|so)\b/.test(after)) continue;
     return true;
   }
   return false;
