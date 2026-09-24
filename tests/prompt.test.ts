@@ -296,3 +296,39 @@ describe("concordância: a origem do erro sai do prompt e ele manda reler", () =
     });
   });
 });
+
+/**
+ * Until 2026-09-24 the tactics block taught `Feche por escolha: "prefere pagar na entrega ou
+ * antecipado?"` while the clarity block said "Uma oferta só ... não pergunte qual ela
+ * prefere". The operator's decision settles it: cash on delivery is THE path, so the
+ * choice-close keeps the choice but never offers the other payment, a fixed day, or a size
+ * held for her.
+ */
+describe("fechamento por escolha: uma oferta só vence", () => {
+  const CLOSE = "Posso já seguir com o seu pedido pra pagar na entrega, ou ficou alguma dúvida que eu tiro antes?";
+
+  it.each(corners)("o prompt não ensina mais a escolha entre os dois pagamentos ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).not.toContain("prefere pagar na entrega ou antecipado");
+    expect(prompt).toContain("nenhuma delas é o pagamento antecipado, um dia marcado ou um tamanho separado");
+    // The rule that won is still there.
+    expect(prompt).toContain("Não ofereça alternativa, não monte comparação, não pergunte qual ela prefere");
+  });
+
+  // The close is a cash-on-delivery sentence, so it runs on that path only, as the other
+  // cash-on-delivery exemplars above do.
+  describe.each(corners)("$name", ({ config }) => {
+    it("ensina e aprova o fechamento novo", () => {
+      expect(flat(build(config))).toContain(`"${CLOSE}"`);
+      const verdict = runGates(CLOSE, ctx({ config, paymentPath: "cod" }));
+      expect(verdict.traces.filter((t) => t.verdict === "block")).toEqual([]);
+    });
+  });
+
+  // Failure: the tempting variant that holds a size for her is a promise the gate vetoes,
+  // which is why the example names no size.
+  it("a variante que separa tamanho é vetada, por isso o exemplo não cita tamanho", () => {
+    const verdict = runGates("Posso já reservar o seu M pra pagar na entrega, ou ficou alguma dúvida?", ctx());
+    expect(verdict.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("unverified_size");
+  });
+});
