@@ -11,7 +11,33 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-24 à noite
+## ▶ COMECE AQUI — estado em 2026-09-24, fim da noite
+
+**Branch:** `claude/sweet-meitner-g9nu8o` (a partir do `main` com o PR #31). Sem PR ainda.
+**Nada deployado** — a v32 continua no ar.
+
+### O que esta sessão fez (registro `docs/agente-ia/08-mudancas/registro.md`)
+- **M-05 atingida:** "tiro mais alguma dúvida" deixou de ser lido como desconto. Quatro
+  rodadas de segunda revisão (cada uma achou concessão escapando); a forma final só ignora
+  "tiro … dúvida" quando a janela da própria varredura não acha palavra de concessão depois.
+  No caminho: "Eu tiro um pouquinho." passava (`pouc\w+` não casa "pouquinho") — corrigido.
+  Placar ganhou `pronta-por-preco`.
+- **M-06 atingida:** a faixa "1 a 3 dias" só vai para a entrega por proximidade quando o que
+  vem depois dela é, no máximo, a janela do antecipado. Duas revisões (a primeira achou 14
+  frases honestas vetadas; corrigidas).
+- **Rodada R6** (jussara, tati, cleide, rafa, lu; R$ 0,10): todas as 8 checagens do placar
+  atingidas, 0 respostas prontas. Mediana subiu de 35 para 48 palavras — observar.
+- **M-07 aberta:** três furos antigos do `delivery_promise` achados pelas revisões.
+- `deno` não vem no container: `npm i -g deno` para rodar `pnpm typecheck:function`.
+- Runner: `--persona` é repetível, não aceita lista com vírgula.
+
+### Próximos passos
+1. **M-07** (endurece gate: revisão + rodada cleide, rafa, lu).
+2. **O-04** — autorização do operador para trocar a credencial do nó `Varre a regua`.
+3. Abrir PR desta branch quando o operador pedir; depois, o deploy v33 (ordem no bloco
+   abaixo, item 3).
+
+## ▶ Estado em 2026-09-24 à noite (histórico)
 
 **Branch:** `claude/affectionate-goodall-x5ujm4` → PR para `main` aberto no fim desta sessão.
 **Nada deployado** — a v32 continua no ar. Plano em uma página:

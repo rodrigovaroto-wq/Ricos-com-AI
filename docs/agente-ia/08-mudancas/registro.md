@@ -35,6 +35,7 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 | R3 | `8814026` | 4 | 1 | 0 | 37 | 5% | R$ 0,0026 |
 | R4 | `f34e0fa` | 4 | 3 | 1 | 37 | 4% | R$ 0,0027 |
 | R5 (8 personas) | `ad46dd1` | 3 | — | 1 | 35 | 4% | R$ 0,0026 |
+| R6 (5 personas) | `cc57020` | 3 | 1 | 0 | 48 | 4% | R$ 0,0031 |
 
 ---
 
@@ -144,7 +145,8 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   pouquinho abaixo do umbigo", "Diminuo um pouquinho a numeração") — custa uma reescrita, não
   é bug novo. Resíduos anteriores, sem regressão: "Tiro sua dúvida... um pouquinho a menos." e
   "Tiro todas as suas dúvidas, e um pouquinho." (fora da janela de 20 caracteres).
-- **Estado:** feita e revisada — rodada jussara, tati pendente.
+- **Resultado R6** (`data/persona-runs/2026-09-24T22-42-42-250Z-local` (jussara, tati, cleide, rafa, lu, `--concurrency=2`, R$ 0,10)): `pronta-por-preco` = 0 e `respostas-prontas` = 0 → **atingida**.
+- **Estado:** atingida.
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
 - **Por quê:** a segunda revisão do ajuste de M-01 (2026-09-24, seis rodadas) achou frases que
@@ -170,7 +172,9 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   permitida, cada uma com a mentira vizinha como caso vetado.
 - **Revisão final (`c48dec6`): aprovada com ressalva.** 23 frases, nenhuma de veto a
   aprovação; três mentiras que passavam agora são vetadas. Ressalva → M-07 (3).
-- **Estado:** feita e revisada — rodada cleide, rafa, lu pendente.
+- **Resultado R6** (`data/persona-runs/2026-09-24T22-42-42-250Z-local` (jussara, tati, cleide, rafa, lu, `--concurrency=2`, R$ 0,10)): `pronta-por-prazo` = 0 — o endurecimento não trouxe resposta
+  pronta → **atingida**.
+- **Estado:** atingida.
 
 ### M-07 — Faixa compartilhada antes da entrega, e média do antecipado sem conferência
 - **Por quê:** segunda revisão da M-06 (2026-09-24), furos anteriores a ela: (1) um nome do
