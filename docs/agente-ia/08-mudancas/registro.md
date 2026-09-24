@@ -120,8 +120,12 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Medida:** placar `respostas-prontas` = 0 (acrescentar uma checagem por gate, como
   `pronta-por-prazo`). **Linha de base R5:** 1.
 - **Rodada de verificação:** jussara, tati.
-- **Estado:** aberta (não iniciada — sessão encerrada a pedido do operador). É afrouxamento
-  de gate: segunda revisão obrigatória.
+- **Feito (2026-09-24, sessão seguinte):** o gate lia "tiro … mais" como concessão. Agora a
+  oração "tiro [mais / pra você / determinante] dúvida(s)" sai do texto antes da varredura de
+  concessão sem número; entre "tiro" e "dúvida" só cabem determinantes, então nada que fale de
+  preço se esconde no trecho removido. Casos em `tests/change-registry.test.ts` (4 honestas
+  passam, 5 concessões vizinhas continuam vetadas). Placar ganhou `pronta-por-preco`.
+- **Estado:** feita — segunda revisão e rodada jussara, tati pendentes.
 
 ### M-06 — Prazo do antecipado por proximidade, sem "também" (furo anterior ao ajuste de M-01)
 - **Por quê:** a segunda revisão do ajuste de M-01 (2026-09-24, seis rodadas) achou frases que

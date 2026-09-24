@@ -152,3 +152,34 @@ describe("M-01: antecipado igualado à entrega continua vetado", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-05 (rodada 5, Jussara): "tiro mais alguma dúvida" é a pergunta de fechamento, e o gate
+ * lia "tiro … mais" como concessão de preço → três vetos → resposta pronta.
+ */
+describe("M-05: tirar dúvida não é desconto", () => {
+  const price = (text: string) => runGates(text, ctx()).traces.find((t) => t.gate === "price_promise");
+
+  it("a pergunta de fechamento passa", () => {
+    for (const honest of [
+      "Quer que eu siga com seu pedido pra pagar na entrega ou tiro mais alguma dúvida antes?",
+      "Posso seguir com o pedido, ou tiro mais uma dúvida sua?",
+      "Tiro pra você qualquer dúvida sobre o tamanho.",
+      "Se quiser, tiro mais suas dúvidas antes de fechar.",
+    ]) {
+      expect(price(honest)?.verdict, honest).toBe("pass");
+    }
+  });
+
+  it("a concessão sem número continua vetada, mesmo ao lado da dúvida", () => {
+    for (const lie of [
+      "Tiro mais um pouquinho pra você fechar.",
+      "Eu tiro mais pra você, sem dúvida.",
+      "Tiro mais alguma dúvida e tiro mais um pouco do valor.",
+      "Tiro pra você um pouco, dúvida nenhuma.",
+      "Tiro mais do preço se tirar sua dúvida.",
+    ]) {
+      expect(price(lie)?.verdict, lie).toBe("block");
+    }
+  });
+});

@@ -102,6 +102,17 @@ describe("placar: respostas prontas (M-01) e métricas", () => {
     expect(check([c], "respostas-prontas").value).toBe(1);
     expect(check([c], "pronta-por-prazo").value).toBe(1);
   });
+  it("separa a resposta pronta causada por price_promise (M-05)", () => {
+    const c: Conversation = {
+      persona: "jussara",
+      transcript: [
+        { from: "persona", text: "é golpe?" },
+        { from: "valen", text: "Deixa eu te responder isso direitinho", status: "fallback", vetoes: [{ gate: "price_promise" }] },
+      ],
+    };
+    expect(check([c], "pronta-por-preco").value).toBe(1);
+    expect(check([c], "pronta-por-prazo").value).toBe(0);
+  });
   it("ignora a recepção automática na contagem de respostas", () => {
     const c: Conversation = {
       persona: "x",

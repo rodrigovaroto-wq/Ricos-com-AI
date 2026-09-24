@@ -577,10 +577,17 @@ const gates: readonly Gate[] = [
       // A concession with no number is still a concession. "Eu tiro um pouquinho",
       // "faço um precinho", "dou um jeito no valor" commit the shop to a price nobody
       // set, and the number gate never sees them because there is no number to see.
-      for (const m of t.matchAll(
+      // "Tiro mais alguma dúvida" is the closing question, not a concession (M-05): the
+      // object of "tiro" is the doubt, and only determiners may stand between them, so
+      // nothing that names a price can hide in the span removed.
+      const concessions = t.replace(
+        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer)\s+){0,3}duvidas?\b/g,
+        " ",
+      );
+      for (const m of concessions.matchAll(
         /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pouc\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
       )) {
-        if (!negatedAt(t, m.index ?? 0)) return "promises a discount with no number behind it";
+        if (!negatedAt(concessions, m.index ?? 0)) return "promises a discount with no number behind it";
       }
 
       // "30 por cento" is the same offer as "30%", and only the symbol was read.
