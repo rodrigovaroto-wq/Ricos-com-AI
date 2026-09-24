@@ -7,10 +7,12 @@
 
 1. **Think before coding** — state assumptions explicitly. If multiple interpretations exist, present them instead of picking silently. Say so when a simpler approach exists. If something is genuinely unclear, stop and ask.
 2. **Simplicity first** — minimum code that solves the problem. No speculative features, no abstractions for single-use code, no unrequested configurability, no error handling for impossible scenarios.
-   **Reuse before writing:** before adding a helper, type or regex, grep for one that already lives here — re-implementing what sits a few files over is the most common slop. (Ladder adapted from [ponytail](https://github.com/DietrichGebert/ponytail), MIT.)
+   **Every change that creates code climbs the seven-rung ladder first** (exists? → already here? → stdlib → platform → installed dep → one line → minimum), with the list of what it never cuts:
+
+@.claude/rules/code-ladder.md
+
 3. **Surgical changes** — touch only what the request requires. Match existing style. Don't refactor, reformat, or "improve" adjacent code that wasn't part of the request.
 4. **Goal-driven execution** — turn tasks into verifiable goals (e.g. "fix the bug" becomes "write a test that reproduces it, then make it pass"). For multi-step work, state a brief plan with a verify check per step, then loop until every step is verified.
-   **Bug fix = root cause, not symptom:** before editing a function, grep every caller and fix it once where they all route through — patching only the path the report names leaves the sibling callers broken. Here that includes the `src/agent/X.ts` ↔ `supabase/functions/turn/X.ts` mirror.
 5. **Orchestrator when there is someone to orchestrate** — when the specialists in the routing table below are actually installed, the main session plans, decides and coordinates instead of implementing, dispatching them in parallel when task scopes don't conflict. While they are not installed, the main session implements directly: there is nowhere to delegate to, and refusing to implement would stop the work entirely.
 
 ## Stack
@@ -150,6 +152,7 @@ território é agente que inventa trabalho.
 ## Regras adicionais
 
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
+- [`.claude/rules/code-ladder.md`](.claude/rules/code-ladder.md) — a escada de sete degraus que todo código novo sobe antes de ser escrito, e o que ela nunca corta. Importada acima, na diretriz 2.
 
 ## Memória entre sessões
 
