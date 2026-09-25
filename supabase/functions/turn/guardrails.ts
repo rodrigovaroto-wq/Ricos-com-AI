@@ -710,20 +710,40 @@ const gates: readonly Gate[] = [
         const after = t.slice(at + m[0].length, at + m[0].length + 40);
         // The end of a range ("1 a 3 dias") is the range check's to judge.
         if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
-        // The warranty and the return window are days too, and not a deadline: a count in
-        // a clause about returning, exchanging or the refund is theirs.
-        const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
-        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
-        if (/\b(?:troc\w*|devol\w*|reembols\w*|dinheiro|arrepend\w*|garantia)\b|\bapos\s+(?:o\s+)?receb/.test(clause)) continue;
-        // "Você tem 7 dias" is the warranty she holds; "faz 3 dias que comprei" is the past.
-        // ("um dia marcado" is not a count, so "um/uma" are not read as numbers at all.)
-        if (/\b(?:tem|tera|ganha)\s+(?:ate\s+)?$|\b(?:ha|faz|fez|fazem)\s+$/.test(before)) continue;
+        // The warranty and the return window are days too, and not a deadline — but only
+        // when the return word is tied to the count itself ("7 dias pra trocar", "devolver
+        // em 7 dias", "7 dias após o recebimento"). Anywhere in the clause was too loose:
+        // "chega em 2 dias com garantia" hid a deadline behind it (third review).
+        if (
+          /^\s*(?:uteis\s+)?(?:(?:de|pra|para)\s+)?(?:(?:o|a|seu|sua)\s+){0,2}(?:garantia|troc|devol|arrepend|reembols|dinheiro)/.test(after) ||
+          /^\s*(?:uteis\s+)?(?:apos|depois\s+d[eo])\s+(?:o\s+)?receb/.test(after) ||
+          /\b(?:garantia|troc\w*|devol\w*|reembols\w*|arrepend\w*|dinheiro\s+de\s+volta)\b[^,;:]{0,20}$/.test(before)
+        )
+          continue;
+        // "Você tem 7 dias" alone is the warranty she holds; "faz 3 dias que comprei" is the past.
+        // Both tied to the count: "tem 2 dias pra receber" and "há 2 dias de prazo" are not.
+        if (/\b(?:tem|tera|ganha)\s+(?:ate\s+)?$/.test(before) && Number(m[1]) === ctx.config.delivery.warrantyDays && /^\s*(?:[,;:.!?]|$)/.test(after)) continue;
+        if (/\b(?:ha|faz|fez|fazem)\s+$/.test(before) && /^\s*(?:que|atras)\b/.test(after)) continue;
+        // Refusing the number is the job ("não consigo garantir 2 dias no antecipado"): a
+        // denial that governs a promise verb, in the count's own comma phrase. "Não demora,
+        // chega em 2 dias" denies nothing about the 2.
+        if (/\b(?:nao|nunca|jamais)\s+(?:\w+\s+){0,2}?(?:garant\w*|promet\w*|consig\w*|posso|podemos|da\s+pra|tem\s+como|sei\s+se)\b[^,;:]*$/.test(before.split(/[,;:]/).pop()!)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
+        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
+        // A prepaid path named before the count, by any of its names — the same names the
+        // range check reads (third review: "No pix chega em 2 dias" passed on the delivery
+        // path). "Cartão" only with its own preposition: "dinheiro ou cartão" is the door.
+        const prepaidNamedBefore =
+          /\b(?:pix|boleto|transferencia|pag\w*\s+(?:antes|agora|adiantado)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito)|link\s+de\s+pagamento)\b/.test(
+            sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
+          );
         // On the prepaid path a sentence that names no path is about the prepaid delivery
         // only when its own clause talks delivery ("você recebe em até 3 dias").
         const prepaid =
           PREPAY_WORD.test(sentence) ||
+          prepaidNamedBefore ||
           (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);

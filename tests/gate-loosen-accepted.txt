@@ -21,3 +21,5 @@ M-07 | delivery_promise | Na entrega você recebe em 1 a 3 dias; no antecipado o
 M-07 | delivery_promise | Em média 2 dias de uso e você já nem sente o colete.
 M-07 | delivery_promise | A maioria das clientes se acostuma com o colete em cerca de 3 dias.
 M-05 | price_promise | Tiro mais alguma dúvida?
+M-07 | delivery_promise | Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.
+M-07 | delivery_promise | No antecipado não dá pra prometer 2 dias, o prazo varia por região, em média 5 dias úteis.

@@ -206,7 +206,23 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   antecipado, "você recebe em até 3 dias" passava — prazo inventado para o antecipado.
   `pnpm dev:gates`: 9 liberações intencionais (aceitas em `tests/gate-loosen-accepted.txt`),
   37 endurecimentos, todos mentira.
+- **Terceira revisão (2026-09-25): reprovada, corrigida.** A regra de número vetava a recusa
+  honesta ("Não consigo garantir 2 dias no antecipado…") — agora a negação que governa um verbo
+  de promessa, na mesma oração do número, libera; "não demora, chega em 2 dias" continua vetada.
+  As exceções (troca, devolução, garantia, "você tem 7 dias", "faz 3 dias que") ficaram presas
+  ao número, não à oração ("chega em 2 dias com garantia" se escondia atrás delas). A regra lê
+  os outros nomes do antecipado antes do número (pix, boleto, "pagando antes/agora", "no
+  cartão"; "dinheiro ou cartão" continua sendo a porta). `pnpm dev:gates`: 2 liberações
+  intencionais, 9 endurecimentos, todos mentira.
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
+
+### M-08 — Prazo do antecipado em palavras que a regra de número não lê
+- **Por quê:** terceira revisão da M-07, resíduos anteriores a ela: "No antecipado, um dia só."
+  ("um/uma" ficam fora de propósito — "um dia marcado"), "No antecipado chega em uma semana."
+  (semanas não são lidas), "Em 2 dias ele está aí na sua casa." (sem verbo de entrega da lista).
+- **Objetivo:** nenhum prazo do antecipado passa por estar em palavras.
+- **Medida:** as três frases como casos vetados, e `pnpm dev:gates` sem afrouxamento.
+- **Estado:** aberta, prioridade baixa (nenhuma apareceu nas rodadas de personas).
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

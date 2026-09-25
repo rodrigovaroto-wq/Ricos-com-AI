@@ -347,3 +347,42 @@ describe("M-07: todo número de dias do antecipado é a média configurada", () 
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/** M-07, terceira revisão: recusa honesta passa; as exceções ficam presas ao número. */
+describe("M-07: recusa passa, exceção presa ao número, nomes do antecipado", () => {
+  const vetadas = [
+    // A negação longe do número não libera a promessa.
+    "No antecipado não demora, chega em 2 dias.",
+    // Exceções presas ao número.
+    "No antecipado você tem 2 dias pra receber.",
+    "No antecipado há 2 dias de prazo.",
+    "No antecipado chega em 2 dias com garantia.",
+    "No antecipado chega em 2 dias ou seu dinheiro de volta.",
+    "No antecipado chega em 2 dias sem troca.",
+    // Outros nomes do antecipado.
+    "No pix chega em 2 dias.",
+    "Pagando antes, chega em 2 dias.",
+    "No cartão você recebe em 2 dias.",
+    "Pagando agora você recebe em 2 dias, não precisa esperar como na entrega.",
+  ];
+  const passam = [
+    "Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.",
+    "No antecipado não dá pra prometer 2 dias, o prazo varia por região, em média 5 dias úteis.",
+    "Você recebe em até 3 dias e escolhe o dia no checkout, pagando em dinheiro ou cartão.",
+    "Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.",
+  ];
+
+  it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passam)("passa no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+  });
+
+  it("a recusa honesta passa também no antecipado", () => {
+    expect(delivery(passam[0]!, "prepay")?.verdict).toBe("pass");
+    expect(delivery(passam[1]!, "prepay")?.verdict).toBe("pass");
+  });
+});
