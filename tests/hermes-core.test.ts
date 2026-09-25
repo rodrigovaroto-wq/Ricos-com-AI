@@ -33,7 +33,8 @@ describe("hermes: o pacote de evidência", () => {
     expect(conversa).not.toMatch(/123\.456|01310|98765|ana@x/);
   });
   it("mostra o veto que a resposta levou", () => {
-    expect(conversa).toContain("veto: price_promise — promises a discount with no number behind it");
+    expect(conversa).toContain("price_promise — promises a discount with no number behind it");
+    expect(conversa).toContain("veto num rascunho anterior (o texto vetado não foi gravado; o texto acima passou)");
   });
 });
 
@@ -80,5 +81,13 @@ describe("hermes: a validação das propostas", () => {
   it("lê no máximo cinco propostas", () => {
     const muitas = { propostas: Array.from({ length: 8 }, () => proposta().propostas[0]) };
     expect(checkProposals(muitas, conversas)).toHaveLength(5);
+  });
+});
+
+describe("hermes: cada trecho citado passa pelos gates de hoje", () => {
+  it("anota se o código atual já veta o trecho", async () => {
+    const { annotateWithGates, checkProposals } = await import("../src/dev/hermes-core.js");
+    const [c] = annotateWithGates(checkProposals(proposta(), conversas), (t) => (t.includes("tiro") ? [] : ["x"]));
+    expect(c?.today).toEqual([{ trecho: "tiro mais alguma dúvida antes?", blockedBy: [] }]);
   });
 });

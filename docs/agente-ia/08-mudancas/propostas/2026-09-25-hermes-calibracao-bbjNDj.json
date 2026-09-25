@@ -1,0 +1,135 @@
+{
+  "resumo": "A rodada tem uma promessa de data certa que passou (Tati recebe 'chega amanhã'), uma resposta pronta por price_promise na pergunta do frete (Cleide) e o retorno do link repetido (Jussara). As três retomam ou estendem entradas existentes sem reabrir as cinco decisões do regras.md.",
+  "checked": [
+    {
+      "proposal": {
+        "alvo": "gate:delivery_promise",
+        "como_medir": "checagem nova: nenhuma resposta da Malu promete dia certo de entrega (amanhã, hoje, dia da semana ou data) quando o dia só aparece no checkout",
+        "evidencias": [
+          {
+            "conversa": "persona-tati",
+            "mensagem": 4,
+            "trecho": "Seu tamanho é o M pra quem veste 38, vai ficar certinho em você, e chega amanhã certinho aí, pode ficar tranquila"
+          }
+        ],
+        "mentira_vizinha": "",
+        "o_que": "Vetar promessa de dia certo na entrega (amanhã, hoje, dia da semana) quando o dia só aparece no checkout.",
+        "objetivo": "Nenhuma resposta promete data certa de entrega; o dia segue vindo só do checkout.",
+        "por_que": "A Malu prometeu 'chega amanhã certinho' a uma cliente decidindo pela data, e a operação só garante até 3 dias com escolha no checkout. Data errada na porta custa reentrega, troca ou confiança.",
+        "registro": "",
+        "severidade": "alta"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "Seu tamanho é o M pra quem veste 38, vai ficar certinho em você, e chega amanhã certinho aí, pode ficar tranquila",
+          "blockedBy": [
+            "delivery_promise"
+          ]
+        }
+      ]
+    },
+    {
+      "proposal": {
+        "alvo": "gate:price_promise",
+        "como_medir": "pronta-por-preco",
+        "evidencias": [
+          {
+            "conversa": "persona-cleide",
+            "mensagem": 3,
+            "trecho": "Deixa eu confirmar isso direitinho e já te respondo, tá?"
+          }
+        ],
+        "mentira_vizinha": "Frase como 'te dou um desconto no frete' ou 'faço um precinho no frete' continua vetada.",
+        "o_que": "Não ler resposta sobre o valor do frete como concessão de desconto sem número.",
+        "objetivo": "Nenhuma resposta pronta causada por price_promise; pergunta de frete recebe o valor ou a regra do frete, sem fallback.",
+        "por_que": "A pergunta sobre o frete para Manaus levou três vetos price_promise e virou resposta pronta, escondendo justamente o valor pedido. É a segunda pronta por price_promise depois da M-05, que tinha zerado na R6.",
+        "registro": "M-05",
+        "severidade": "alta"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "Deixa eu confirmar isso direitinho e já te respondo, tá?",
+          "blockedBy": []
+        }
+      ]
+    },
+    {
+      "proposal": {
+        "alvo": "config:linkSentRecently",
+        "como_medir": "link-repetido",
+        "evidencias": [
+          {
+            "conversa": "persona-jussara",
+            "mensagem": 11,
+            "trecho": "https://entrega.logzz.com.br/pay/encorpa-pa?name=Jussara+Menezes&phone=5500099141470"
+          },
+          {
+            "conversa": "persona-jussara",
+            "mensagem": 13,
+            "trecho": "Aqui o link de novo: https://entrega.logzz.com.br/pay/encorpa-pa?name=Jussara+Menezes&phone=5500099141470"
+          }
+        ],
+        "mentira_vizinha": "",
+        "o_que": "Bloquear o reenvio do mesmo checkout dentro de 3 respostas quando não há pedido explícito de link.",
+        "objetivo": "Nenhum link repetido dentro de 3 respostas sem pedido da cliente.",
+        "por_que": "O mesmo checkout saiu na Malu 11 e de novo na Malu 13 sem pedido da cliente, repetindo a falha da R4 que a M-03 tinha zerado na R5.",
+        "registro": "M-03",
+        "severidade": "media"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "https://entrega.logzz.com.br/pay/encorpa-pa?name=Jussara+Menezes&phone=5500099141470",
+          "blockedBy": []
+        },
+        {
+          "trecho": "Aqui o link de novo: https://entrega.logzz.com.br/pay/encorpa-pa?name=Jussara+Menezes&phone=5500099141470",
+          "blockedBy": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "estimated_cost_usd": 0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 29510,
+    "output_tokens": 7688,
+    "cache_read_tokens": 85813,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 5047,
+    "total_tokens": 123011,
+    "api_calls": 6,
+    "model": "muse-spark-1.3-contributor",
+    "provider": "meta-ai",
+    "session_id": "20260925_010130_3ea225",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false,
+    "service_tier": null,
+    "auxiliary": {
+      "api_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_cost_usd": 0,
+      "total_tokens": 0,
+      "by_task": {}
+    },
+    "total_including_auxiliary": {
+      "estimated_cost_usd": 0,
+      "total_tokens": 123011,
+      "api_calls": 6
+    }
+  },
+  "costUsd": 0.00466
+}

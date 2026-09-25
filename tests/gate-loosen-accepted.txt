@@ -26,3 +26,6 @@ M-07 | delivery_promise | No antecipado não dá pra prometer 2 dias, o prazo va
 M-07 | delivery_promise | No antecipado você também tem 7 dias corridos para devolver.
 M-07 | delivery_promise | No pix, a garantia é a mesma: 7 dias.
 M-07 | delivery_promise | No antecipado você tem 7 dias de prazo pra troca.
+M-05 | price_promise | Quer que eu siga com seu pedido ou tiro mais alguma dúvida antes?
+M-05 | price_promise | Parar de ler 'tiro mais alguma dúvida' como desconto
+M-05 | price_promise | tiro mais alguma dúvida antes?
