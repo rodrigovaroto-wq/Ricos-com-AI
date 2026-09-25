@@ -205,6 +205,24 @@ flowchart TD
   C1 -.- R1
 ```
 
+## 13. Ligar o WhatsApp sem abrir uma porta (R14.16)
+
+```mermaid
+flowchart TD
+  S["Canal oficial precisa entrar antes do número existir"]
+  G1["🟥 deliveryFor testado mas NÃO ligado à varredura:<br/>régua mandaria texto livre fora das 24h"]
+  C1["🟩 varredura decide texto, template ou bloqueado (WA-1)"]
+  R1["🟥 revisão: encorpa-inbound e a função turn são portas públicas<br/>(chave anon abre a função; o n8n repassava o corpo inteiro)"]
+  C2["🟩 selo da entrada (HMAC) + lista fechada no n8n<br/>+ TURN_REQUIRE_SERVICE_ROLE"]
+  R2["🟥 revisão: last_inbound_at gravado no fim do turno,<br/>na retomada e na nova tentativa: janela esticada"]
+  C3["🟩 gravado uma vez, na mensagem dela, com o horário da Meta;<br/>janela fecha 10 min antes"]
+  R3["🟥 revisão: mensagem perdida depois do 200 sem rastro;<br/>toque bloqueado cancelado em silêncio"]
+  C4["🟩 envio em paralelo com log por id; e-mail dos toques bloqueados"]
+  OFF["🟩 envio desligado (CANAL_ATIVO=false) até os valores do sócio"]
+  GD["🛡️ WA-1-janela · WA-selo · WA-janela-no-fim · WA-envio-desligado ·<br/>regra n8n do corpo inteiro · teste do nó de envio contra src/channel"]
+  S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> OFF --> GD
+```
+
 ---
 
 ## Lições (valem para qualquer correção futura)
