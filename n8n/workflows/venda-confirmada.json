@@ -2,13 +2,9 @@
   "id": "gS72LhYGOnmyALRq",
   "name": "Encorpa — Venda confirmada",
   "active": true,
+  "versionId": "67431348-3b38-4b1f-abf4-89ca05906a23",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "encorpa-venda",
-        "options": {}
-      },
       "id": "e5e3a933-4d47-4bbf-9175-5a864da3244a",
       "name": "Venda recebida",
       "type": "n8n-nodes-base.webhook",
@@ -16,12 +12,16 @@
       "position": [
         0,
         96
-      ]
+      ],
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "encorpa-venda",
+        "responseMode": "onReceived",
+        "options": {}
+      },
+      "webhookId": "b224ead7-8d42-44ac-aca1-a491113e1c0d"
     },
     {
-      "parameters": {
-        "jsCode": "// One webhook, two platforms. Logzz is the pay-on-delivery scheduling and its field\n// names below are CONFIRMED — read off a real payload from the panel's own Testar button\n// on 2026-09-09. Coinzz is still expected, not confirmed; the first real one that fails\n// arrives as an e-mail with the raw JSON, which is how this half gets confirmed too.\n//\n// Nothing here reaches past those names. What does not resolve leaves ok:false and goes\n// to the operator raw, because a half-filled order files the wrong sale against the wrong\n// woman and the post-order ruler then chases her for it.\nconst item = $input.first().json;\nconst body = item.body ?? item;\nconst query = item.query ?? {};\nconst fonte = String(query.fonte ?? '').toLowerCase();\n\nconst at = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);\nconst pick = (paths) => {\n  for (const p of paths) {\n    const v = at(body, p);\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return undefined;\n};\n\n// Logzz sends both: `external_id` is its own sale id (\"venq000x10\") and `order_number`\n// the composite the panel shows. The sale id goes first because it is the one that is\n// unambiguously one row; the order number is the fallback and what a human recognises.\nconst externalId = pick(['external_id', 'order_number', 'id', 'order_id', 'orderId', 'transaction_id', 'sale_id', 'code', 'codigo', 'order.id', 'data.id']);\nconst phoneRaw = pick(['client_phone', 'phone', 'telefone', 'celular', 'whatsapp', 'customer.phone', 'customer.telefone', 'cliente.telefone', 'buyer.phone', 'data.customer.phone']);\n// The order total, not the unit price: `products.main.sale_price` is per unit and the\n// quantity can be more than one. She pays `order_final_price`.\nconst amountRaw = pick(['order_final_price', 'amount', 'value', 'valor', 'total', 'price', 'order.total', 'data.amount']);\n\n// The size has no field of its own. The Logzz page has no size selector, so the\n// supplier's instruction — in uppercase, in the product description — tells her to type\n// it into the COMPLEMENT of the scheduling, which arrives as `client_address_comp`.\n//\n// One size token in there wins. Zero is a blank complement or a real one (\"Apt 101\").\n// Two is \"P ou M?\", which is a coin toss, and the loser gets the wrong garment. Both go\n// to the operator instead of being guessed.\nconst SIZES = ['XGG', 'GGG', 'GG', 'P', 'M', 'G'];\nconst explicito = String(pick(['size', 'tamanho', 'variant', 'variacao', 'variation']) ?? '').toUpperCase().replace(/[^A-Z]/g, '');\nconst complemento = String(pick(['client_address_comp', 'complement', 'complemento', 'observacao', 'obs', 'notes', 'address.complement']) ?? '').toUpperCase();\n//\n// One trap that a probe caught before this went live: \"Bloco B, apto G\" read as a size G.\n// A single letter is a size in \"GG\" and a flat number in \"apto G\", and the difference is\n// the word before it. Two or more letters are never an address (\"apto XGG\" is nobody).\nconst ENDERECO = ['APTO', 'APT', 'AP', 'BLOCO', 'BL', 'CASA', 'CS', 'QUADRA', 'QD', 'LOTE', 'LT', 'TORRE', 'SALA', 'ANDAR', 'FUNDOS'];\nconst tokens = complemento.split(/[^A-Z]+/).filter(Boolean);\nconst achados = tokens.filter((t, i) => {\n  if (!SIZES.includes(t)) return false;\n  if (t.length > 1) return true;\n  return !ENDERECO.includes(tokens[i - 1] ?? '');\n});\nconst unico = achados.length === 1 ? achados[0] : undefined;\nconst size = SIZES.includes(explicito) ? explicito : unico;\n\n// Logzz is the pay-on-delivery platform, Coinzz the prepaid one. The exception is a\n// Coinzz order paid with `afterpay`, which IS pay on delivery (operator, 2026-09-08).\nconst declarado = String(pick(['payment_method', 'paymentMethod', 'forma_pagamento', 'payment.method']) ?? '').toLowerCase();\nconst paymentMethod = declarado === 'afterpay' ? 'cod' : (fonte === 'logzz' ? 'cod' : (fonte === 'coinzz' ? 'prepay' : undefined));\n\nconst phone = phoneRaw === undefined ? undefined : String(phoneRaw).replace(/\\D/g, '');\nconst parseBrl = (v) => {\n  if (v === undefined) return undefined;\n  if (typeof v === 'number') return v;\n  const s = String(v).replace(/[^\\d.,-]/g, '');\n  const norm = s.includes(',') ? s.replace(/\\./g, '').replace(',', '.') : s;\n  const n = Number(norm);\n  return Number.isFinite(n) ? n : undefined;\n};\nconst amountBrl = parseBrl(amountRaw);\n\n// Logzz writes \"2026-09-14 17:59:12\" — a space, not a T, which is not ISO and only parses\n// by luck. `scheduled_for` is a DATE column, so it takes the day and nothing else.\nconst soAData = (v) => (v === undefined ? null : String(v).slice(0, 10));\nconst paraIso = (v) => (v === undefined ? null : String(v).trim().replace(' ', 'T'));\n\nconst missing = [];\nif (!externalId) missing.push('externalId');\nif (!phone) missing.push('phone');\nif (!size) missing.push(achados.length > 1 ? 'size (o complemento tem mais de um tamanho: ' + achados.join(', ') + ')' : 'size (nao achei P/M/G/GG/XGG no complemento)');\nif (!paymentMethod) missing.push('paymentMethod (falta ?fonte=logzz ou ?fonte=coinzz na URL)');\nif (!(amountBrl > 0)) missing.push('amountBrl');\n\nconst order = {\n  externalId: externalId === undefined ? '' : String(externalId),\n  phone,\n  paymentMethod,\n  size,\n  amountBrl,\n  status: pick(['order_status', 'status', 'situacao']) ?? 'created',\n  checkoutUrl: pick(['checkout_url', 'checkoutUrl', 'url']) ?? null,\n  scheduledFor: soAData(pick(['date_delivery', 'scheduled_for', 'delivery_date', 'data_entrega', 'agendamento'])),\n  orderedAt: paraIso(pick(['date_order', 'created_at', 'ordered_at', 'date']))\n};\n\nreturn [{ json: { ok: missing.length === 0, missing: missing.join(', '), fonte: fonte || '(vazio)', order, raw: JSON.stringify(body, null, 2) } }];"
-      },
       "id": "f26e68f6-2262-4e04-ba35-5fdc62ef77d4",
       "name": "Normaliza a venda",
       "type": "n8n-nodes-base.code",
@@ -30,9 +30,22 @@
         224,
         96
       ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "// One webhook, two platforms. Logzz is the pay-on-delivery scheduling and its field\n// names below are CONFIRMED — read off a real payload from the panel's own Testar button\n// on 2026-09-09. Coinzz is still expected, not confirmed; the first real one that fails\n// arrives as an e-mail with the raw JSON, which is how this half gets confirmed too.\n//\n// Nothing here reaches past those names. What does not resolve leaves ok:false and goes\n// to the operator raw, because a half-filled order files the wrong sale against the wrong\n// woman and the post-order ruler then chases her for it.\nconst item = $input.first().json;\nconst body = item.body ?? item;\nconst query = item.query ?? {};\nconst fonte = String(query.fonte ?? '').toLowerCase();\n\nconst at = (obj, path) => path.split('.').reduce((o, k) => (o == null ? undefined : o[k]), obj);\nconst pick = (paths) => {\n  for (const p of paths) {\n    const v = at(body, p);\n    if (v !== undefined && v !== null && String(v).trim() !== '') return v;\n  }\n  return undefined;\n};\n\n// Logzz sends both: `external_id` is its own sale id (\"venq000x10\") and `order_number`\n// the composite the panel shows. The sale id goes first because it is the one that is\n// unambiguously one row; the order number is the fallback and what a human recognises.\nconst externalId = pick(['external_id', 'order_number', 'id', 'order_id', 'orderId', 'transaction_id', 'sale_id', 'code', 'codigo', 'order.id', 'data.id']);\nconst phoneRaw = pick(['client_phone', 'phone', 'telefone', 'celular', 'whatsapp', 'customer.phone', 'customer.telefone', 'cliente.telefone', 'buyer.phone', 'data.customer.phone']);\n// The order total, not the unit price: `products.main.sale_price` is per unit and the\n// quantity can be more than one. She pays `order_final_price`.\nconst amountRaw = pick(['order_final_price', 'amount', 'value', 'valor', 'total', 'price', 'order.total', 'data.amount']);\n\n// The size has no field of its own. The Logzz page has no size selector, so the\n// supplier's instruction — in uppercase, in the product description — tells her to type\n// it into the COMPLEMENT of the scheduling, which arrives as `client_address_comp`.\n//\n// One size token in there wins. Zero is a blank complement or a real one (\"Apt 101\").\n// Two is \"P ou M?\", which is a coin toss, and the loser gets the wrong garment. Both go\n// to the operator instead of being guessed.\nconst SIZES = ['XGG', 'GGG', 'GG', 'P', 'M', 'G'];\nconst explicito = String(pick(['size', 'tamanho', 'variant', 'variacao', 'variation']) ?? '').toUpperCase().replace(/[^A-Z]/g, '');\nconst complemento = String(pick(['client_address_comp', 'complement', 'complemento', 'observacao', 'obs', 'notes', 'address.complement']) ?? '').toUpperCase();\n//\n// One trap that a probe caught before this went live: \"Bloco B, apto G\" read as a size G.\n// A single letter is a size in \"GG\" and a flat number in \"apto G\", and the difference is\n// the word before it. Two or more letters are never an address (\"apto XGG\" is nobody).\nconst ENDERECO = ['APTO', 'APT', 'AP', 'BLOCO', 'BL', 'CASA', 'CS', 'QUADRA', 'QD', 'LOTE', 'LT', 'TORRE', 'SALA', 'ANDAR', 'FUNDOS'];\nconst tokens = complemento.split(/[^A-Z]+/).filter(Boolean);\nconst achados = tokens.filter((t, i) => {\n  if (!SIZES.includes(t)) return false;\n  if (t.length > 1) return true;\n  return !ENDERECO.includes(tokens[i - 1] ?? '');\n});\nconst unico = achados.length === 1 ? achados[0] : undefined;\nconst size = SIZES.includes(explicito) ? explicito : unico;\n\n// Logzz is the pay-on-delivery platform, Coinzz the prepaid one. The exception is a\n// Coinzz order paid with `afterpay`, which IS pay on delivery (operator, 2026-09-08).\nconst declarado = String(pick(['payment_method', 'paymentMethod', 'forma_pagamento', 'payment.method']) ?? '').toLowerCase();\nconst paymentMethod = declarado === 'afterpay' ? 'cod' : (fonte === 'logzz' ? 'cod' : (fonte === 'coinzz' ? 'prepay' : undefined));\n\nconst phone = phoneRaw === undefined ? undefined : String(phoneRaw).replace(/\\D/g, '');\nconst parseBrl = (v) => {\n  if (v === undefined) return undefined;\n  if (typeof v === 'number') return v;\n  const s = String(v).replace(/[^\\d.,-]/g, '');\n  const norm = s.includes(',') ? s.replace(/\\./g, '').replace(',', '.') : s;\n  const n = Number(norm);\n  return Number.isFinite(n) ? n : undefined;\n};\nconst amountBrl = parseBrl(amountRaw);\n\n// Logzz writes \"2026-09-14 17:59:12\" — a space, not a T, which is not ISO and only parses\n// by luck. `scheduled_for` is a DATE column, so it takes the day and nothing else.\nconst soAData = (v) => (v === undefined ? null : String(v).slice(0, 10));\nconst paraIso = (v) => (v === undefined ? null : String(v).trim().replace(' ', 'T'));\n\nconst missing = [];\nif (!externalId) missing.push('externalId');\nif (!phone) missing.push('phone');\nif (!size) missing.push(achados.length > 1 ? 'size (o complemento tem mais de um tamanho: ' + achados.join(', ') + ')' : 'size (nao achei P/M/G/GG/XGG no complemento)');\nif (!paymentMethod) missing.push('paymentMethod (falta ?fonte=logzz ou ?fonte=coinzz na URL)');\nif (!(amountBrl > 0)) missing.push('amountBrl');\n\nconst order = {\n  externalId: externalId === undefined ? '' : String(externalId),\n  phone,\n  paymentMethod,\n  size,\n  amountBrl,\n  status: pick(['order_status', 'status', 'situacao']) ?? 'created',\n  checkoutUrl: pick(['checkout_url', 'checkoutUrl', 'url']) ?? null,\n  scheduledFor: soAData(pick(['date_delivery', 'scheduled_for', 'delivery_date', 'data_entrega', 'agendamento'])),\n  orderedAt: paraIso(pick(['date_order', 'created_at', 'ordered_at', 'date']))\n};\n\nreturn [{ json: { ok: missing.length === 0, missing: missing.join(', '), fonte: fonte || '(vazio)', order, raw: JSON.stringify(body, null, 2) } }];"
+      },
       "notes": "Nada aqui adivinha. O que nao resolve sai como pendente e vai cru pro operador."
     },
     {
+      "id": "71b5d404-f160-485e-aef1-fc5b0d8fdb52",
+      "name": "Reconheceu a venda?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        448,
+        96
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -56,17 +69,17 @@
         },
         "options": {}
       },
-      "id": "71b5d404-f160-485e-aef1-fc5b0d8fdb52",
-      "name": "Reconheceu a venda?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        448,
-        96
-      ],
       "notes": "Falso significa que falta campo. A venda NAO e gravada pela metade."
     },
     {
+      "id": "344dd58e-7bed-461d-904b-1b48b4d822be",
+      "name": "Grava o pedido",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        672,
+        0
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
@@ -77,33 +90,36 @@
         "jsonBody": "={{ JSON.stringify({ job: \"order\", order: $json.order }) }}",
         "options": {
           "response": {
-            "response": {}
+            "response": {
+              "neverError": false
+            }
           },
           "timeout": 30000
         }
       },
-      "id": "344dd58e-7bed-461d-904b-1b48b4d822be",
-      "name": "Grava o pedido",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        672,
-        0
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
       },
-      "onError": "continueErrorOutput",
-      "notes": "job: \"order\" na Edge Function. Idempotente por externalId: o mesmo webhook duas vezes grava uma vez so."
+      "notes": "job: \"order\" na Edge Function. Idempotente por externalId: o mesmo webhook duas vezes grava uma vez so.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "continueErrorOutput"
     },
     {
+      "id": "292a55be-6e32-4ecc-9893-763cdd201b39",
+      "name": "Avisa a recusa da venda",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        896,
+        0
+      ],
       "parameters": {
+        "operation": "send",
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "=Venda recusada pela Edge Function — pedido {{ $(\"Normaliza a venda\").first().json.order.externalId }}",
@@ -113,27 +129,30 @@
           "appendAttribution": false
         }
       },
-      "id": "292a55be-6e32-4ecc-9893-763cdd201b39",
-      "name": "Avisa a recusa da venda",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        896,
-        0
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "credentials": {
         "smtp": {
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
       },
-      "notes": "A Edge Function recusa com 422 quando o telefone nao bate com lead nenhum, ou bate com dois."
+      "notes": "A Edge Function recusa com 422 quando o telefone nao bate com lead nenhum, ou bate com dois.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow",
+      "webhookId": "2fb7ec85-5384-40c0-9ff9-8771fefd3c77"
     },
     {
+      "id": "738fba2b-5fbe-472b-a584-0f6b3eaa70eb",
+      "name": "Avisa venda nao mapeada",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        192
+      ],
       "parameters": {
+        "operation": "send",
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "=Venda recebida mas NAO gravada — faltou {{ $json.missing }}",
@@ -143,56 +162,46 @@
           "appendAttribution": false
         }
       },
-      "id": "738fba2b-5fbe-472b-a584-0f6b3eaa70eb",
-      "name": "Avisa venda nao mapeada",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        672,
-        192
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "credentials": {
         "smtp": {
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
       },
-      "notes": "O primeiro webhook real de cada plataforma cai aqui — e o payload dele e o que fecha o mapeamento."
+      "notes": "O primeiro webhook real de cada plataforma cai aqui — e o payload dele e o que fecha o mapeamento.",
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "onError": "stopWorkflow",
+      "webhookId": "ac9674e4-d605-41ad-a993-81f385c6e138"
     },
     {
-      "parameters": {
-        "content": "## Webhook de venda — Logzz e Coinzz\n\nUma URL para as duas plataformas, e a query diz qual:\n\n- Logzz: `.../webhook/encorpa-venda?fonte=logzz` (pagamento na entrega)\n- Coinzz: `.../webhook/encorpa-venda?fonte=coinzz` (antecipado)\n\nSem `fonte` o mapeamento nao decide o metodo de pagamento e a venda vai como\npendente pro e-mail, de proposito.\n\nResponde 200 na hora (onReceived): plataforma de checkout reentrega quando\ndemora, e reentrega e pedido duplicado.",
-        "height": 528,
-        "width": 288,
-        "color": 4
-      },
       "id": "b8350928-57c5-4536-8f7e-3a7afbb07415",
       "name": "Sticky Note d3b93940",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        -48,
-        384
-      ]
+        384,
+        192
+      ],
+      "parameters": {
+        "content": "## Webhook de venda — Logzz e Coinzz\n\nUma URL para as duas plataformas, e a query diz qual:\n\n- Logzz: `.../webhook/encorpa-venda?fonte=logzz` (pagamento na entrega)\n- Coinzz: `.../webhook/encorpa-venda?fonte=coinzz` (antecipado)\n\nSem `fonte` o mapeamento nao decide o metodo de pagamento e a venda vai como\npendente pro e-mail, de proposito.\n\nResponde 200 na hora (onReceived): plataforma de checkout reentrega quando\ndemora, e reentrega e pedido duplicado.",
+        "color": 4
+      }
     },
     {
-      "parameters": {
-        "content": "## O mapeamento da Logzz esta confirmado\n\nLido de um payload real, pelo botao Testar do proprio painel, em 2026-09-09:\n`external_id`, `client_phone`, `order_final_price` (o TOTAL, nao o preco unitario),\n`client_address_comp`, `order_status`, `date_order`, `date_delivery`.\n\n**A Coinzz ainda nao.** Os nomes dela sao os esperados. O primeiro webhook real\nque falhar vira e-mail com o JSON cru — e e esse e-mail que fecha essa metade.\n\nO TAMANHO e a parte delicada: a pagina da Logzz nao tem seletor, entao a\ninstrucao do fornecedor manda a cliente escrever no COMPLEMENTO. Passa quando ha\nexatamente um tamanho ali. \"P ou M\" nao passa. \"Bloco B, apto G\" nao passa — uma\nletra sozinha depois de apto/bloco/casa e numero de porta, nao tamanho.",
-        "height": 528,
-        "width": 544,
-        "color": 3
-      },
       "id": "c13b4bcf-ebcd-40fb-ac66-8688811f6359",
       "name": "Sticky Note de774c60",
       "type": "n8n-nodes-base.stickyNote",
       "typeVersion": 1,
       "position": [
-        272,
-        384
-      ]
+        384,
+        448
+      ],
+      "parameters": {
+        "content": "## O mapeamento da Logzz esta confirmado\n\nLido de um payload real, pelo botao Testar do proprio painel, em 2026-09-09:\n`external_id`, `client_phone`, `order_final_price` (o TOTAL, nao o preco unitario),\n`client_address_comp`, `order_status`, `date_order`, `date_delivery`.\n\n**A Coinzz ainda nao.** Os nomes dela sao os esperados. O primeiro webhook real\nque falhar vira e-mail com o JSON cru — e e esse e-mail que fecha essa metade.\n\nO TAMANHO e a parte delicada: a pagina da Logzz nao tem seletor, entao a\ninstrucao do fornecedor manda a cliente escrever no COMPLEMENTO. Passa quando ha\nexatamente um tamanho ali. \"P ou M\" nao passa. \"Bloco B, apto G\" nao passa — uma\nletra sozinha depois de apto/bloco/casa e numero de porta, nao tamanho.",
+        "color": 3
+      }
     }
   ],
   "connections": {
@@ -248,10 +257,5 @@
         ]
       ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": true,
-    "binaryMode": "separate"
   }
 }

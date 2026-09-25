@@ -2,13 +2,15 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
+  "versionId": "81df7f07-114c-4573-86bf-856c7a24cb5d",
   "nodes": [
     {
       "parameters": {
         "rule": {
           "interval": [
             {
-              "field": "minutes"
+              "field": "minutes",
+              "minutesInterval": 5
             }
           ]
         }
@@ -21,7 +23,7 @@
         0,
         0
       ],
-      "disabled": true
+      "disabled": false
     },
     {
       "parameters": {
@@ -35,11 +37,12 @@
         "options": {
           "response": {
             "response": {
-              "neverError": true
+              "neverError": false
             }
           },
           "timeout": 120000
-        }
+        },
+        "contentType": "json"
       },
       "id": "b641137d-4d40-4b70-a77d-e8848a88c875",
       "name": "Varre a regua",
@@ -51,8 +54,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "0sqKT3S3CZoRh6ML",
-          "name": "Gemini API"
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
         }
       }
     },
@@ -85,10 +88,5 @@
         ]
       ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": true,
-    "binaryMode": "separate"
   }
 }

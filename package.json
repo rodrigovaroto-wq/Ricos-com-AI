@@ -16,7 +16,8 @@
     "dev:personas": "tsx src/dev/persona-run.ts",
     "typecheck:function": "deno check supabase/functions/turn/index.ts",
     "dev:estoque": "tsx src/dev/availability.ts",
-    "dev:placar": "tsx src/dev/persona-scorecard.ts"
+    "dev:placar": "tsx src/dev/persona-scorecard.ts",
+    "dev:n8n": "tsx src/dev/n8n-sync.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",

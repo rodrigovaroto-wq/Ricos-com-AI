@@ -2,6 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
+  "versionId": "cb3cf14b-89d4-4693-8f34-1ead3ee1cb52",
   "nodes": [
     {
       "parameters": {
@@ -17,7 +18,8 @@
       "position": [
         -144,
         0
-      ]
+      ],
+      "webhookId": "56457fd5-75b3-4447-9664-084628091064"
     },
     {
       "parameters": {
@@ -30,9 +32,11 @@
         "jsonBody": "={{ JSON.stringify($json.body) }}",
         "options": {
           "response": {
-            "response": {}
+            "response": {
+              "neverError": false
+            }
           },
-          "timeout": 60000
+          "timeout": 150000
         }
       },
       "id": "6b73f995-a501-4f03-981f-a2d037ff40aa",
@@ -146,6 +150,7 @@
         656,
         160
       ],
+      "webhookId": "a4734286-71ae-41b7-834d-7d8bf41a37bd",
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
@@ -211,6 +216,7 @@
       "retryOnFail": true,
       "maxTries": 3,
       "waitBetweenTries": 2000,
+      "webhookId": "ed59918c-e4cc-4d0d-9756-8e2a1f403199",
       "credentials": {
         "smtp": {
           "id": "clsHlXLQ1IwxQpqE",
@@ -287,10 +293,5 @@
         ]
       ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": true,
-    "binaryMode": "separate"
   }
 }
