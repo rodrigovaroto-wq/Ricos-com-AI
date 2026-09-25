@@ -717,6 +717,9 @@ que responde.
     o payload da plataforma e posta `job: "order"`;
   - `Encorpa — Relógio da régua` (`SVDtFUi2N9oOskkx`) — cron de 5 em 5 minutos.
 - **Logzz** — pagamento na entrega, a plataforma que agenda. **Coinzz** — antecipado.
+  O antecipado da Coinzz cobra pelo **Mercado Pago** desde 2026-09-25 (gateway configurado
+  no painel e ligado às ofertas pelo operador); o Claude Code alcança a conta pelo MCP em
+  `.mcp.json`, com `MERCADOPAGO_ACCESS_TOKEN` no ambiente.
 - **Meta / WhatsApp Cloud API** — o canal. **Ainda não existe.**
 
 **Duas cópias de cada arquivo, de propósito.** O Supabase sobe conteúdo de arquivo, não
