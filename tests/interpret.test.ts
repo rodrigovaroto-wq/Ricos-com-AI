@@ -423,19 +423,39 @@ describe("preço que a loja não tem não é decisão de compra", () => {
     "quero o G, dá pra parcelar em 12x?",
     "quero, chega em 30 dias?",
     "quero o G, 10h30 posso receber?",
+    "quero o G, se nao servir troco por 44?",
+    "quero o G, da pra trocar por 46 se nao servir?",
+    "quero o G, pode ser 80 de cintura",
+    "quero o G, minha cintura fica 80",
+    "quero o G, visto 44 mas por 90 de quadril fica bom?",
+    "quero o 44, eu levo",
   ];
   it("decisão com número que não é preço continua decisão", () => {
     for (const msg of notPrice) expect({ msg, own: namesOwnPrice(msg, prices, [10]) }).toEqual({ msg, own: false });
   });
   it.each([
     "quero o G por 59,90",
-    "quero um G por 50",
     "quero o G por noventa",
     "faz por cem que eu levo",
     "quero o G, pago 100 reais",
     "quero o G com 30% de desconto",
+    "quero o G, fecha em 100?",
+    "quero o G, deixa em 100",
+    "quero o G, sai a 100?",
+    "quero o G se fosse 100",
+    "quero o G, faria 100?",
+    "quero o G, consegue 100?",
+    "quero o G, valor 100?",
+    "quero o G, 100 eu pago",
+    "quero o G, só tenho 100",
+    "quero o G, meu limite é 100",
   ])("%s → pedido de preço (abaixo de 60, por extenso, porcentagem)", (msg) => {
     expect(namesOwnPrice(msg, prices, [10])).toBe(true);
+  });
+  // Ressalva aceita: "por 50" inteiro fica na faixa dos tamanhos de calça (36–56) e colide
+  // com "troco por 44"; o intérprete ainda lê a barganha.
+  it("ressalva: 'por 50' inteiro não é lido pelo número", () => {
+    expect(namesOwnPrice("quero um G por 50", prices, [10])).toBe(false);
   });
   it("a porcentagem que a loja dá não é pedido", () => {
     expect(namesOwnPrice("quero no pix com 10% de desconto", prices, [10])).toBe(false);

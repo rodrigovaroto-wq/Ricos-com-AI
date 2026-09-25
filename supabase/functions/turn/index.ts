@@ -1972,7 +1972,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   ];
   const shopPercents = [
     CONFIG.prices.prepayDiscountPercent,
-    ...(CONFIG.kits ?? []).map((k) => k.discountPercent),
+    // A kit's percentage only for more than one piece (third review): 30% on one piece is
+    // a discount the shop does not give.
+    ...((interpretation.units ?? 1) > 1 ? (CONFIG.kits ?? []).map((k) => k.discountPercent) : []),
     ...(CONFIG.coupon.active ? [CONFIG.coupon.percent] : []),
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
