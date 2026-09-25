@@ -1,10 +1,10 @@
 {
-  "resumo": "A rodada tem uma promessa de data certa que passou (Tati recebe 'chega amanhã'), uma resposta pronta por price_promise na pergunta do frete (Cleide) e o retorno do link repetido (Jussara). As três retomam ou estendem entradas existentes sem reabrir as cinco decisões do regras.md.",
+  "resumo": "Rodada com 5 conversas e 3 falhas caras: uma promessa de chegada 'amanhã' que passou sem veto (Tati), uma resposta pronta por price_promise em pergunta de frete (Cleide) e um link idêntico reenviado em 2 respostas (Jussara). As duas últimas reabrem M-05 e M-03, zeradas na R5/R6.",
   "checked": [
     {
       "proposal": {
         "alvo": "gate:delivery_promise",
-        "como_medir": "checagem nova: nenhuma resposta da Malu promete dia certo de entrega (amanhã, hoje, dia da semana ou data) quando o dia só aparece no checkout",
+        "como_medir": "checagem nova: promessa-de-data (nenhuma resposta com data absoluta de entrega como 'amanhã'/'hoje' passa); acompanhar pronta-por-prazo = 0",
         "evidencias": [
           {
             "conversa": "persona-tati",
@@ -13,9 +13,9 @@
           }
         ],
         "mentira_vizinha": "",
-        "o_que": "Vetar promessa de dia certo na entrega (amanhã, hoje, dia da semana) quando o dia só aparece no checkout.",
-        "objetivo": "Nenhuma resposta promete data certa de entrega; o dia segue vindo só do checkout.",
-        "por_que": "A Malu prometeu 'chega amanhã certinho' a uma cliente decidindo pela data, e a operação só garante até 3 dias com escolha no checkout. Data errada na porta custa reentrega, troca ou confiança.",
+        "o_que": "Vetar promessa de data absoluta de entrega ('chega amanhã', 'chega hoje') sem confirmação de CEP/checkout",
+        "objetivo": "Nenhuma resposta promete dia absoluto de chegada; a data só aparece como escolha no checkout",
+        "por_que": "A Malu prometeu chegada 'amanhã certinho' para São Paulo sem consulta, e a resposta saiu sem veto. É mentira que passou: se não chega, custa o frete na porta e a confiança.",
         "registro": "",
         "severidade": "alta"
       },
@@ -41,10 +41,10 @@
             "trecho": "Deixa eu confirmar isso direitinho e já te respondo, tá?"
           }
         ],
-        "mentira_vizinha": "Frase como 'te dou um desconto no frete' ou 'faço um precinho no frete' continua vetada.",
-        "o_que": "Não ler resposta sobre o valor do frete como concessão de desconto sem número.",
-        "objetivo": "Nenhuma resposta pronta causada por price_promise; pergunta de frete recebe o valor ou a regra do frete, sem fallback.",
-        "por_que": "A pergunta sobre o frete para Manaus levou três vetos price_promise e virou resposta pronta, escondendo justamente o valor pedido. É a segunda pronta por price_promise depois da M-05, que tinha zerado na R6.",
+        "mentira_vizinha": "'o frete sai por menos pra você' ou 'faço o frete grátis' sem valor no config continuam vetadas",
+        "o_que": "Distinguir resposta honesta sobre valor do frete da promessa de desconto sem número",
+        "objetivo": "Nenhuma resposta pronta causada por price_promise em pergunta de frete",
+        "por_que": "Na pergunta sobre o frete para Manaus o gate vetou três rascunhos como promessa de desconto e saiu a resposta pronta. Retoma a M-05, que tinha zerado pronta-por-preco na R6 e voltou a falhar nesta rodada.",
         "registro": "M-05",
         "severidade": "alta"
       },
@@ -59,7 +59,7 @@
     },
     {
       "proposal": {
-        "alvo": "config:linkSentRecently",
+        "alvo": "interpretador",
         "como_medir": "link-repetido",
         "evidencias": [
           {
@@ -74,9 +74,9 @@
           }
         ],
         "mentira_vizinha": "",
-        "o_que": "Bloquear o reenvio do mesmo checkout dentro de 3 respostas quando não há pedido explícito de link.",
-        "objetivo": "Nenhum link repetido dentro de 3 respostas sem pedido da cliente.",
-        "por_que": "O mesmo checkout saiu na Malu 11 e de novo na Malu 13 sem pedido da cliente, repetindo a falha da R4 que a M-03 tinha zerado na R5.",
+        "o_que": "Não reenviar o mesmo checkout dentro de 3 respostas quando a cliente diz que vai abrir/fazer, só em pedido explícito de novo link",
+        "objetivo": "link-repetido = 0; 'vou abrir aqui e fazer' não conta como pedido de link",
+        "por_que": "O mesmo link saiu na Malu 11 e de novo na Malu 13, com a cliente só confirmando que ia fazer. Retoma a M-03, atingida na R5 e de volta a falhar nesta rodada.",
         "registro": "M-03",
         "severidade": "media"
       },
@@ -98,16 +98,16 @@
     "estimated_cost_usd": 0,
     "cost_status": "unknown",
     "cost_source": "none",
-    "input_tokens": 29510,
-    "output_tokens": 7688,
-    "cache_read_tokens": 85813,
+    "input_tokens": 29468,
+    "output_tokens": 8735,
+    "cache_read_tokens": 91189,
     "cache_write_tokens": 0,
-    "reasoning_tokens": 5047,
-    "total_tokens": 123011,
+    "reasoning_tokens": 6584,
+    "total_tokens": 129392,
     "api_calls": 6,
     "model": "muse-spark-1.3-contributor",
     "provider": "meta-ai",
-    "session_id": "20260925_010130_3ea225",
+    "session_id": "20260925_013326_d9747a",
     "completed": true,
     "partial": false,
     "interrupted": false,
@@ -127,9 +127,9 @@
     },
     "total_including_auxiliary": {
       "estimated_cost_usd": 0,
-      "total_tokens": 123011,
+      "total_tokens": 129392,
       "api_calls": 6
     }
   },
-  "costUsd": 0.00466
+  "costUsd": 0.004876
 }

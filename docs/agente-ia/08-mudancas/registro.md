@@ -36,6 +36,7 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 | R4 | `f34e0fa` | 4 | 3 | 1 | 37 | 4% | R$ 0,0027 |
 | R5 (8 personas) | `ad46dd1` | 3 | — | 1 | 35 | 4% | R$ 0,0026 |
 | R6 (5 personas) | `cc57020` | 3 | 1 | 0 | 48 | 4% | R$ 0,0031 |
+| **R7 (12 personas)** | `7225de8` | 3 | 1 | 0 | 37 | 8% | R$ 0,0026 |
 
 ---
 

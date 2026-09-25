@@ -11,7 +11,46 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-24, fim da noite
+## ▶ COMECE AQUI — estado em 2026-09-25
+
+**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **v32 continua no ar**; nada da v33 foi deployado.
+**Etapa 2 ("testar por dentro") fechada do lado do agente** — o que falta para a etapa 3 é do operador.
+
+### O que esta sessão fez
+- **O-04 fechada:** a régua do n8n autenticava com a credencial "Gemini API" e recebia
+  `Invalid JWT` a cada 5 min desde o início, escondida por `neverError`. Agora usa `Supabase
+  service_role`, gatilho religado, `neverError` desligado — varredura responde `swept`.
+  Turno com timeout 150 s (pronto para a v33); régua manda e-mail para `handoffs[]`.
+- **M-05, M-06, M-07 atingidas; M-08 aberta** (baixa). A M-07 levou **nove rodadas de revisão**
+  até a regra que segura: no caminho antecipado só o número da garantia (7) pode ser
+  garantia; qualquer outro número é prazo.
+- **Plano 5.8:** o webhook de venda grava o estágio (`em_rota`, `entregue_pago`, `recusado`).
+- **Provedores `src/llm`:** 5xx/429 repetidos, página de erro nunca parseada como JSON (a Tati
+  morreu com "Unexpected token u" na rodada completa).
+- **Migrações `0007` e `0008` aplicadas em produção** (aditivas).
+- **Rodada R7 completa (12 personas):** 8/8 checagens, 0 respostas prontas, R$ 0,0026/resposta.
+  Eval por persona: `pnpm dev:eval`.
+- **Hermes instalado, configurado, calibrado e agendado** (`hermes/README.md`): 3/3 defeitos
+  plantados achados em três calibrações; na R7, "rodada limpa". Roda por GitHub Action a cada
+  50 leads e abre PR com as propostas.
+
+### As guardas que impedem os erros de voltar (todas no CI)
+- `pnpm dev:gates --fail-on-loosen` — diff de vereditos dos gates contra o `main`.
+- `tests/prepaid-deadline-fuzz.test.ts` — 3600 mentiras geradas, todas vetadas.
+- `pnpm dev:n8n` — confere a versão **ativa** do n8n (credencial, `neverError`, gatilho, timeout).
+- `pnpm verificar:guardas` — reinstala cada bug histórico e exige que a guarda fique vermelha
+  (11/11). **Guarda nova = mutação nova** (`.claude/memory/guarda-testada-por-mutacao.md`).
+
+### Gasto da API da Meta nesta sessão
+Rodadas de personas R$ 0,31 · Hermes ~US$ 0,03 (≈ R$ 0,16) · **total ≈ R$ 0,47**.
+
+### Próximos passos
+1. **Operador** (ver a lista no fim de `00-plano-simples.md` e o resumo desta sessão).
+2. **Etapa 3 — deploy v33:** secret `BUSINESS_CONFIG` com os campos novos; PAT do Supabase;
+   12 arquivos pela API (`ls supabase/functions/turn/*.ts`); sonda pela porta `n8n`; O2 e O10.
+3. M-08 (baixa).
+
+## ▶ Estado em 2026-09-24, fim da noite (histórico)
 
 **Branch:** `claude/sweet-meitner-g9nu8o` (a partir do `main` com o PR #31). Sem PR ainda.
 **Nada deployado** — a v32 continua no ar.

@@ -20,3 +20,4 @@ salvamento e a política de crescimento.
 - [O system prompt não é coberto por teste](prompt-nao-e-coberto-por-teste.md) — nenhum teste toca o texto que mais decide o comportamento; ele já se contradizia sobre desconto e afirmava frete grátis sem ler o config que o gate lia.
 - [`conversations.stage` nunca é escrito](stage-nunca-e-escrito.md) — corrigido no turno em 22/09 (não deployado); `em_rota`, `entregue_pago`, `recusado` e `perdido` ainda não têm quem os escreva, então o funil para em `pedido_criado`.
 - [O desfecho do turno não é persistido](desfecho-do-turno-nao-persistido.md) — vai para `turn_outcomes` desde 22/09 (não deployado); conversa anterior ao deploy da v33 não tem desfecho, e nenhuma taxa pode começar antes dessa data.
+- [Guarda testada por mutação](guarda-testada-por-mutacao.md) — toda guarda nova ganha uma mutação em `src/dev/verify-guards.ts` que reinstala o bug de origem; o CI exige que ela fique vermelha.

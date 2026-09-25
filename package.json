@@ -21,7 +21,8 @@
     "dev:gates": "tsx src/dev/gate-diff.ts",
     "hermes": "tsx src/dev/hermes-run.ts",
     "hermes:calibrar": "tsx src/dev/hermes-calibrate.ts",
-    "dev:eval": "tsx src/dev/persona-eval.ts"
+    "dev:eval": "tsx src/dev/persona-eval.ts",
+    "verificar:guardas": "tsx src/dev/verify-guards.ts"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
