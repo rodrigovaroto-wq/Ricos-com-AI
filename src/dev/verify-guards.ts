@@ -291,6 +291,14 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
+  {
+    id: "caminho-escolhido",
+    bug: 'o turno depois de "quero no pix" voltava para o link da entrega (a escolha valia só na mensagem)',
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const linkPath = linkPathFor(paymentChoice, region);",
+    to: "const linkPath = linkPathFor(interpretation.payment_choice, region);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

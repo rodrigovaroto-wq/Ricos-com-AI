@@ -980,7 +980,7 @@ const recordOrder = async (order: OrderWebhook) => {
   // and asks again, instead of sending the old kit link with the old sizes (code review).
   await db(`leads?id=eq.${lead.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ units: null, unit_sizes: null }),
+    body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null }),
   }).catch(() => undefined);
 
   // No conversation means no ruler to touch — the sale is recorded and that is all.
@@ -2200,7 +2200,16 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * the rest. The identity ask became a directive for the agent to phrase, and it stops
    * once the link is in the chat.
    */
-  const linkPath = linkPathFor(interpretation.payment_choice, region);
+  // Her choice holds until she makes another (loop round, 2026-09-25): read per message, the
+  // turn after "quero no pix" fell back to cash on delivery and sent the delivery checkout.
+  const paymentChoice = interpretation.payment_choice ?? ((lead.payment_choice as "cod" | "prepay" | null) ?? null);
+  if (interpretation.payment_choice && interpretation.payment_choice !== lead.payment_choice) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ payment_choice: interpretation.payment_choice, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+  const linkPath = linkPathFor(paymentChoice, region);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
   const linkCustomer = {
