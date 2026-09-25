@@ -135,7 +135,7 @@ const names =
 if (names.length === 0) throw new Error(`nenhum arquivo persona-*.md em ${AGENTS_DIR}`);
 
 const db = postgrestDb({ url: env.supabaseUrl, key: env.serviceKey });
-const deliver = deliverOver(doorTarget(args.door, env));
+const deliver = deliverOver(doorTarget(args.door, env), fetch, process.env.INBOUND_SIGNING_SECRET ?? "");
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
 const outDir = join(args.outDir, `${stamp}-${args.door}`);
 await mkdir(outDir, { recursive: true });

@@ -453,9 +453,16 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
  */
 export const SERVICE_WINDOW_MS = 24 * HOUR;
 
+/**
+ * Closed 10 minutes early (security review, 2026-09-25): the sweep decides at one moment and
+ * the send leaves seconds to minutes later, and Meta judges at send time. A template is
+ * always accepted; free text one minute late is refused (131047) and lost.
+ */
+export const SERVICE_WINDOW_SAFETY_MS = 10 * MINUTE;
+
 /** Exactly 24 hours is already closed — the boundary send is the one Meta rejects. */
 export const windowIsOpen = (now: Date, lastInboundAt: Date | null): boolean =>
-  lastInboundAt !== null && now.getTime() - lastInboundAt.getTime() < SERVICE_WINDOW_MS;
+  lastInboundAt !== null && now.getTime() - lastInboundAt.getTime() < SERVICE_WINDOW_MS - SERVICE_WINDOW_SAFETY_MS;
 
 /** How a touch leaves, once the clock has been consulted. */
 export type Delivery =

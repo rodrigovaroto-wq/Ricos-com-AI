@@ -1,6 +1,8 @@
 import { createHmac } from "node:crypto";
 import { describe, expect, it } from "vitest";
+import { sealInbound, sealIsValid } from "@/channel/inbound-signature.js";
 import {
+  deliveryErrors,
   parseWebhook,
   readAndTyping,
   templateMessage,
@@ -75,10 +77,19 @@ describe("handshake de inscrição do webhook", () => {
 });
 
 describe("o que chega vira o turno de sempre", () => {
-  it("texto: id, telefone e corpo", () => {
+  it("texto: id, telefone, corpo e o horário da Meta", () => {
     expect(parseWebhook(hook(msg("text", { text: { body: "quanto custa?" } })))).toEqual([
-      { externalId: "wamid.1", from: "5511987654321", body: "quanto custa?" },
+      { externalId: "wamid.1", from: "5511987654321", body: "quanto custa?", sentAt: new Date(1790000000 * 1000).toISOString() },
     ]);
+  });
+
+  it("horário ausente ou inválido não inventa um", () => {
+    expect(parseWebhook(hook({ ...msg("text", { text: { body: "oi" } }), timestamp: "x" }))[0]?.sentAt).toBeUndefined();
+  });
+
+  it("com o ID do nosso número, mensagem para outro número não entra no funil", () => {
+    expect(parseWebhook(hook(msg("text", { text: { body: "oi" } })), "PNID")).toHaveLength(1);
+    expect(parseWebhook(hook(msg("text", { text: { body: "oi" } })), "OUTRO")).toEqual([]);
   });
 
   it("legenda de imagem, botão e resposta de lista viram o texto", () => {
@@ -173,5 +184,49 @@ describe("o que sai pela Cloud API", () => {
       message_id: "wamid.1",
       typing_indicator: { type: "text" },
     });
+  });
+});
+
+describe("erros de entrega que a Meta devolve", () => {
+  it("só id e código, nunca telefone ou texto", () => {
+    const payload = {
+      entry: [
+        {
+          changes: [
+            {
+              field: "messages",
+              value: {
+                metadata: { phone_number_id: "PNID" },
+                statuses: [
+                  { id: "wamid.9", status: "failed", recipient_id: "5511", errors: [{ code: 131047, title: "Re-engagement message" }] },
+                  { id: "wamid.8", status: "read" },
+                ],
+              },
+            },
+          ],
+        },
+      ],
+    };
+    expect(deliveryErrors(payload)).toEqual([{ id: "wamid.9", code: 131047 }]);
+    expect(deliveryErrors(payload, "OUTRO")).toEqual([]);
+  });
+});
+
+/** O selo da entrada (revisão de segurança, 2026-09-25): a porta do n8n é pública. */
+describe("selo da entrada entre a função whatsapp e o turno", () => {
+  const m = { externalId: "wamid.1", from: "5511987654321", body: "oi", sentAt: "2026-09-25T12:00:00.000Z" };
+  it("a mensagem selada passa", async () => {
+    expect(await sealIsValid("s", m, await sealInbound("s", m))).toBe(true);
+  });
+  it("trocar telefone, texto, id ou horário quebra o selo", async () => {
+    const sig = await sealInbound("s", m);
+    for (const forged of [{ ...m, from: "5511000000000" }, { ...m, body: "para de me mandar" }, { ...m, externalId: "x" }, { ...m, sentAt: "2026-09-24T12:00:00.000Z" }]) {
+      expect(await sealIsValid("s", forged, sig)).toBe(false);
+    }
+  });
+  it("sem segredo, sem selo, ou selo de outro segredo: nada passa", async () => {
+    expect(await sealIsValid("", m, await sealInbound("s", m))).toBe(false);
+    expect(await sealIsValid("s", m, undefined)).toBe(false);
+    expect(await sealIsValid("s", m, await sealInbound("outro", m))).toBe(false);
   });
 });

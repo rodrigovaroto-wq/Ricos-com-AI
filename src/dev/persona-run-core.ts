@@ -4,6 +4,7 @@
  * the network on its own — the model, the door and the database are injected, so the
  * whole loop runs in `tests/persona-run.test.ts` with fakes.
  */
+import { sealInbound } from "../channel/inbound-signature.js";
 
 export type Door = "local" | "function" | "n8n";
 export const DOORS: readonly Door[] = ["local", "function", "n8n"];
@@ -234,12 +235,15 @@ export const doorTarget = (door: Door, env: RunnerEnv): DoorTarget => {
  * arrives as `status: "error"` in the body and is judged by the outcome table instead.
  */
 export const deliverOver =
-  (target: DoorTarget, fetchImpl: typeof fetch = fetch): Deliver =>
+  (target: DoorTarget, fetchImpl: typeof fetch = fetch, signingSecret = ""): Deliver =>
   async (inbound) => {
+    // With INBOUND_SIGNING_SECRET set in production, the turn refuses an unsealed message
+    // (security review, 2026-09-25); the runner seals like the `whatsapp` function does.
+    const signature = signingSecret ? await sealInbound(signingSecret, inbound) : undefined;
     const response = await fetchImpl(target.url, {
       method: "POST",
       headers: target.headers,
-      body: JSON.stringify(inbound),
+      body: JSON.stringify(signature ? { ...inbound, signature } : inbound),
     });
     const text = await response.text();
     if (!response.ok) throw new Error(`HTTP ${response.status} de ${target.url}: ${text.slice(0, 500)}`);

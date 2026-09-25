@@ -72,6 +72,17 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
   // O2: a new lead gets the welcome and, without the Wait and the resume call, nothing
   // else ever again. The inbound workflow must carry both.
   const inbound = wf.nodes.some((n) => n.type === "n8n-nodes-base.webhook" && n.parameters?.path === "encorpa-inbound");
+  // Security review 2026-09-25: encorpa-inbound is public. The turn call must name the
+  // message fields; forwarding the caller's body whole lets anyone post `job`, `order` or
+  // `token` through the webhook with n8n's service credential attached.
+  if (inbound) {
+    for (const n of wf.nodes) {
+      if (n.type !== "n8n-nodes-base.httpRequest" || !String(n.parameters?.url ?? "").includes("/functions/v1/turn")) continue;
+      const body = String(n.parameters?.jsonBody ?? "");
+      if (/JSON\.stringify\(\s*\$json\.body\s*\)|\.\.\.\s*\$\(\s*'Mensagem recebida'\s*\)\.first\(\)\.json\.body/.test(body))
+        problems.push(`${wf.name} › ${n.name}: forwards the public webhook's body whole to the turn`);
+    }
+  }
   if (inbound) {
     if (!wf.nodes.some((n) => n.type === "n8n-nodes-base.wait" && !n.disabled))
       problems.push(`${wf.name}: no Wait node after the welcome (O2)`);

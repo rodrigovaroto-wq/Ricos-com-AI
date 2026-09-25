@@ -22,6 +22,7 @@ import {
   decideTouch,
   deliveryFor,
   nextOpening,
+  windowIsOpen,
   onOrderConfirmed,
   stageForOrder,
   renderFollowup,
@@ -102,6 +103,7 @@ import {
   type Interpretation,
 } from "./interpret.ts";
 import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { sealIsValid } from "./inbound-signature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1145,6 +1147,21 @@ const runFollowupSweep = async () => {
         skipped.push({ followupId: row.id, reason: "nova tentativa fica para a próxima varredura" });
         continue;
       }
+      // A retry that waited past her 24-hour window cannot answer as free text (security
+      // review, 2026-09-25): a person picks it up instead of Meta refusing it in silence.
+      const retryInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
+      if (!windowIsOpen(new Date(), retryInbound)) {
+        await mark("canceled");
+        handoffs.push({
+          followupId: row.id,
+          reason: "nova tentativa passou da janela de 24h do WhatsApp: responda você",
+          notify: CONFIG.handoff?.email ?? null,
+          leadId: lead.id,
+          phone: lead.phone,
+          conversationId: row.conversation_id,
+        });
+        continue;
+      }
       retriedTurns += 1;
       await mark("sent");
       const ticket = readTicket(row.body);
@@ -1323,6 +1340,13 @@ type TurnPayload = {
   body?: string;
   /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
   source?: Record<string, unknown>;
+  /** When she sent it, from Meta's own timestamp (ISO): starts the 24-hour window. */
+  sentAt?: string;
+  /**
+   * The inbound seal made by the `whatsapp` function (security review, 2026-09-25). With
+   * INBOUND_SIGNING_SECRET set, a conversation turn without a valid seal is refused.
+   */
+  signature?: string;
   order?: OrderWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
@@ -1335,8 +1359,28 @@ type TurnPayload = {
   resume?: boolean;
 };
 
+/**
+ * The role inside the caller's JWT. The platform already verified its signature
+ * (`verify_jwt`); this only reads who it is. The anon key is public by design — it sits in
+ * any browser client — so with TURN_REQUIRE_SERVICE_ROLE=true it no longer opens the
+ * sweep, the order route or a turn (security review, 2026-09-25). Unset = not enforced yet.
+ */
+const callerRole = (request: Request): string | null => {
+  const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const part = token.split(".")[1] ?? "";
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method !== "POST") return json(405, { error: "use POST" });
+  if (Deno.env.get("TURN_REQUIRE_SERVICE_ROLE") === "true" && callerRole(request) !== "service_role") {
+    return json(401, { error: "use a chave de serviço" });
+  }
 
   let payload: TurnPayload;
   try {
@@ -1396,6 +1440,23 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const isRetry = internal.retry !== undefined;
   /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
   let retriedInboundAt: string | null = null;
+
+  // The door is public (n8n `encorpa-inbound`): with the secret set, only a message sealed
+  // by the `whatsapp` function becomes a turn — a forged "para de me mandar mensagem" on a
+  // real customer's number would otherwise opt her out for good. Unset = not enforced yet.
+  // The sweep's own retry is internal and carries no seal.
+  const signingSecret = Deno.env.get("INBOUND_SIGNING_SECRET") ?? "";
+  if (
+    signingSecret !== "" &&
+    !isRetry &&
+    !(await sealIsValid(
+      signingSecret,
+      { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt },
+      payload.signature,
+    ))
+  ) {
+    return json(401, { error: "mensagem sem o selo da entrada" });
+  }
 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
@@ -1501,6 +1562,18 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         external_id: inbound.externalId,
       }),
     }))?.[0]?.id ?? null;
+    // The 24-hour window counts from HER message (security review, 2026-09-25): stamped
+    // here, once, with Meta's own timestamp when it is plausible — never at the end of the
+    // turn, and never by a resume or a retry, which would stretch the window by minutes.
+    const sentAt = Date.parse(String(payload.sentAt ?? ""));
+    const inboundAt =
+      Number.isFinite(sentAt) && sentAt <= Date.now() + 60_000 && sentAt >= Date.now() - 24 * 60 * 60 * 1000
+        ? new Date(Math.min(sentAt, Date.now()))
+        : new Date();
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),
+    }).catch(() => undefined);
   }
 
   // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the
@@ -1937,7 +2010,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       method: "PATCH",
       body: JSON.stringify({
         cost_brl: spent,
-        last_inbound_at: new Date().toISOString(),
         last_outbound_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -2563,7 +2635,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     method: "PATCH",
     body: JSON.stringify({
       cost_brl: spent,
-      last_inbound_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }),
   });

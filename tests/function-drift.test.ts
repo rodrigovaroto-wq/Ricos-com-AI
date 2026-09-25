@@ -22,6 +22,8 @@ const mirrored = [
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
+  ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
+  ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {
@@ -414,6 +416,28 @@ describe("WA-1 na Edge Function: a régua respeita a janela de 24h (2026-09-25)"
     expect(blocked).toBeGreaterThan(decide);
     expect(record).toBeGreaterThan(blocked);
     expect(source).toContain("conversations(id,lead_id,last_inbound_at,leads(");
+  });
+});
+
+describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("mensagem sem o selo é recusada antes de virar turno", () => {
+    const seal = source.indexOf("!(await sealIsValid(");
+    const dedupe = source.indexOf("// 1. Idempotency");
+    expect(seal).toBeGreaterThan(-1);
+    expect(seal).toBeLessThan(dedupe);
+    expect(source).toContain('    signingSecret !== "" &&\n    !isRetry &&\n    !(await sealIsValid(');
+  });
+  it("com TURN_REQUIRE_SERVICE_ROLE, a chave pública não abre a função", () => {
+    expect(source).toContain('Deno.env.get("TURN_REQUIRE_SERVICE_ROLE") === "true" && callerRole(request) !== "service_role"');
+  });
+  it("a janela de 24h começa na mensagem dela, não no fim do turno nem na retomada", () => {
+    const writes = source.match(/last_inbound_at:/g) ?? [];
+    expect(writes).toHaveLength(1);
+    expect(source).toContain("body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),");
+  });
+  it("nova tentativa fora da janela vai para uma pessoa, não sai como texto", () => {
+    expect(source).toContain("if (!windowIsOpen(new Date(), retryInbound)) {");
   });
 });
 

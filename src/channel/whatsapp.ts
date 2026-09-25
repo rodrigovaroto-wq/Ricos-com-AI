@@ -17,21 +17,9 @@ export interface InboundMessage {
   body: string;
   /** Click-to-WhatsApp attribution, on the message that came from an ad. */
   source?: Record<string, string>;
+  /** When she sent it (Meta's unix timestamp, as ISO): starts the 24-hour window. */
+  sentAt?: string;
 }
-
-/**
- * Meta's subscription handshake: `GET ?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`.
- * The challenge is echoed only when the token is ours; anything else is refused.
- */
-export const verifyChallenge = (params: URLSearchParams, verifyToken: string): string | null =>
-  verifyToken !== "" &&
-  params.get("hub.mode") === "subscribe" &&
-  params.get("hub.verify_token") === verifyToken
-    ? params.get("hub.challenge")
-    : null;
-
-const hex = (bytes: ArrayBuffer): string =>
-  [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 /** Compares without leaking where the first difference is. */
 const sameString = (a: string, b: string): boolean => {
@@ -40,6 +28,20 @@ const sameString = (a: string, b: string): boolean => {
   for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
   return diff === 0;
 };
+
+/**
+ * Meta's subscription handshake: `GET ?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`.
+ * The challenge is echoed only when the token is ours; anything else is refused.
+ */
+export const verifyChallenge = (params: URLSearchParams, verifyToken: string): string | null =>
+  verifyToken !== "" &&
+  params.get("hub.mode") === "subscribe" &&
+  sameString(params.get("hub.verify_token") ?? "", verifyToken)
+    ? params.get("hub.challenge")
+    : null;
+
+const hex = (bytes: ArrayBuffer): string =>
+  [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
 
 /**
  * `X-Hub-Signature-256` against the RAW body — re-serialized JSON would not match. An empty
@@ -109,28 +111,68 @@ const sourceOf = (m: Obj): Record<string, string> | undefined => {
   return Object.keys(out).length ? out : undefined;
 };
 
-/**
- * Every customer message in one webhook POST. Delivery statuses, reactions and anything
- * malformed yield nothing: a webhook that cannot be read is answered 200 and dropped,
- * because Meta retries a non-200 for days.
- */
-export const parseWebhook = (payload: unknown): InboundMessage[] => {
-  const out: InboundMessage[] = [];
+const sentAtOf = (m: Obj): string | undefined => {
+  const seconds = Number(str(m.timestamp));
+  return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : undefined;
+};
+
+/** The `value` of every `messages` change addressed to our number (all, when none is set). */
+const valuesFor = (payload: unknown, phoneNumberId: string): Obj[] => {
+  const out: Obj[] = [];
   const entries = obj(payload)?.entry;
   for (const entry of Array.isArray(entries) ? entries : []) {
     const changes = obj(entry)?.changes;
     for (const change of Array.isArray(changes) ? changes : []) {
       if (obj(change)?.field !== "messages") continue;
-      const messages = obj(obj(change)?.value)?.messages;
-      for (const raw of Array.isArray(messages) ? messages : []) {
-        const m = obj(raw);
-        if (!m) continue;
-        const externalId = str(m.id);
-        const from = str(m.from).replace(/\D/g, "");
-        const body = textOf(m);
-        if (!externalId || !from || body === null) continue;
-        const source = sourceOf(m);
-        out.push({ externalId, from, body, ...(source ? { source } : {}) });
+      const value = obj(obj(change)?.value);
+      if (!value) continue;
+      // A test number and the real one on the same app must not share a funnel.
+      if (phoneNumberId !== "" && str(obj(value.metadata)?.phone_number_id) !== phoneNumberId) continue;
+      out.push(value);
+    }
+  }
+  return out;
+};
+
+/**
+ * Every customer message in one webhook POST. Delivery statuses, reactions and anything
+ * malformed yield nothing: a webhook that cannot be read is answered 200 and dropped,
+ * because Meta retries a non-200 for days. With `phoneNumberId`, only messages to that
+ * number count.
+ */
+export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessage[] => {
+  const out: InboundMessage[] = [];
+  for (const value of valuesFor(payload, phoneNumberId)) {
+    const messages = value.messages;
+    for (const raw of Array.isArray(messages) ? messages : []) {
+      const m = obj(raw);
+      if (!m) continue;
+      const externalId = str(m.id);
+      const from = str(m.from).replace(/\D/g, "");
+      const body = textOf(m);
+      if (!externalId || !from || body === null) continue;
+      const source = sourceOf(m);
+      const sentAt = sentAtOf(m);
+      out.push({ externalId, from, body, ...(source ? { source } : {}), ...(sentAt ? { sentAt } : {}) });
+    }
+  }
+  return out;
+};
+
+/**
+ * Meta's delivery failures (`statuses[].errors`), id and code only — no phone, no text.
+ * 131047 (outside the 24-hour window) is the proof that a send was misjudged.
+ */
+export const deliveryErrors = (payload: unknown, phoneNumberId = ""): Array<{ id: string; code: number }> => {
+  const out: Array<{ id: string; code: number }> = [];
+  for (const value of valuesFor(payload, phoneNumberId)) {
+    const statuses = value.statuses;
+    for (const raw of Array.isArray(statuses) ? statuses : []) {
+      const st = obj(raw);
+      const errors = st?.errors;
+      for (const e of Array.isArray(errors) ? errors : []) {
+        const code = Number(obj(e)?.code);
+        if (Number.isFinite(code)) out.push({ id: str(st?.id), code });
       }
     }
   }

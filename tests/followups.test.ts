@@ -405,6 +405,15 @@ describe("janela de 24h da Cloud API", () => {
   it("sem nenhuma mensagem dela, a janela nunca abriu", () => {
     expect(windowIsOpen(seteDaManha, null)).toBe(false);
   });
+
+  // Revisão de segurança (2026-09-25): a varredura decide agora e o envio sai depois; a
+  // Meta julga na hora do envio. Os últimos 10 minutos já contam como fechados.
+  it("nos últimos 10 minutos da janela já é template, não texto livre", () => {
+    const quase = new Date(seteDaManha.getTime() - (24 * 60 - 5) * 60 * 1000);
+    const antes = new Date(seteDaManha.getTime() - (24 * 60 - 11) * 60 * 1000);
+    expect(windowIsOpen(seteDaManha, quase)).toBe(false);
+    expect(windowIsOpen(seteDaManha, antes)).toBe(true);
+  });
 });
 
 describe("entrega do toque — texto livre ou template aprovado", () => {
