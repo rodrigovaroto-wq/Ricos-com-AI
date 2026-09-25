@@ -51,6 +51,11 @@ export interface BusinessConfig {
    * operação e divergia do tipo que a Edge Function usa de verdade.
    */
   checkout: { codUrl: string; prepayUrl?: string };
+  /**
+   * Kits of 2 and 3 pieces, one Coinzz checkout per quantity (operator, 2026-09-25).
+   * OPTIONAL: absent, one piece only — every kit price is refused by the gate.
+   */
+  kits?: ReadonlyArray<{ path: "cod" | "prepay"; units: number; priceBrl: number; discountPercent: number; checkoutUrl: string }>;
   handoff: { email: string };
   /**
    * Urgency the operation can actually back. Absent means the agent may not cite stock

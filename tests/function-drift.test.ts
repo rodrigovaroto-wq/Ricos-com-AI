@@ -394,11 +394,24 @@ describe("M-03 na Edge Function", () => {
 
   it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
-    expect(source).toContain('const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;');
+    expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     expect(source).toContain(
       '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
     );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
     expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+  });
+});
+
+describe("kits na Edge Function (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a quantidade escolhe o link do kit, e mais que o maior kit vai para uma pessoa", () => {
+    expect(source).toContain("const quantity = quantityOf(inbound.body ?? \"\", interpretation);");
+    expect(source).toContain("if (units > maxUnits) {");
+    expect(source).toContain("kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl");
+    expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath, linkCheckout\)/g)).toHaveLength(2);
+  });
+  it("com mais de uma peça, cada tamanho antes do link", () => {
+    expect(source).toContain("const sizeKnown = units > 1 ? unitSizes.length >= units");
   });
 });

@@ -50,6 +50,10 @@ export interface Interpretation {
   wants_to_think: boolean;
   wants_to_buy: boolean;
   pending_answer: PendingAnswer;
+  /** How many pieces she says she wants (kits, 2026-09-25), or null. */
+  units: number | null;
+  /** The letter of each piece she names, in order ("um M e um G" → M, G). */
+  unit_sizes: SizeLetter[];
 }
 
 /** What a failed or garbled interpretation reads as: nothing detected. */
@@ -65,6 +69,8 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   wants_to_think: false,
   wants_to_buy: false,
   pending_answer: "no_pending",
+  units: null,
+  unit_sizes: Object.freeze([]) as unknown as SizeLetter[],
 }) as Interpretation;
 
 /**
@@ -108,6 +114,11 @@ export const INTERPRETER_SYSTEM = [
   '  "unrelated" = a assistente perguntou algo e a mensagem não responde nem pergunta nada',
   '  que faça sentido ("ta", "?", "kkk", assunto solto);',
   '  "no_pending" = a assistente não deixou pergunta e a mensagem não pergunta nada.',
+  '- "units": quantas peças ela diz que quer (1, 2, 3...), ou null se não disse. "um pra mim e',
+  '  outro pra minha mãe" = 2; "o kit de 3" = 3; "só uma" = 1. Pergunta ("tem desconto',
+  '  levando 2?") não é decisão: null.',
+  '- "unit_sizes": a letra de cada peça que ela diz, na ordem ("um M e um G" → ["M","G"];',
+  '  "as duas G" → ["G","G"]; só "G" respondendo o tamanho de uma peça → ["G"]); [] se não disser.',
 ].join("\n");
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
@@ -178,12 +189,47 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       pending_answer: (PENDING as readonly string[]).includes(o.pending_answer as string)
         ? (o.pending_answer as PendingAnswer)
         : "no_pending",
+      units: (() => {
+        const n = numberIn(o.units, 1, 50);
+        return n !== null && Number.isInteger(n) ? n : null;
+      })(),
+      unit_sizes: (Array.isArray(o.unit_sizes) ? o.unit_sizes : [])
+        .map((x) => (typeof x === "string" ? x.trim().toUpperCase() : ""))
+        .filter((x): x is SizeLetter => (LETTERS as readonly string[]).includes(x)),
     },
   };
 };
 
 const norm = (text: string): string =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * More than one piece only when her own words say more than one (kits, 2026-09-25): a
+ * number, a count word, "kit", "par", "cada", "outro/outra", "mais uma". The model reads the
+ * quantity; this is the deterministic half, so an invented `units: 2` on "quero o M" does
+ * not swap her link for a kit she never asked for. One piece, or sizes alone, need no cue.
+ */
+const QUANTITY_CUE = /\b(?:[2-9]|[1-9]\d|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+
+export const quantityOf = (
+  message: string,
+  i: Interpretation,
+): { units: number | null; sizes: SizeLetter[] } | null => {
+  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(norm(message)) ? null : i.units;
+  if (units === null && i.unit_sizes.length === 0) return null;
+  return { units, sizes: [...i.unit_sizes] };
+};
+
+/**
+ * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).
+ * A full list replaces; a partial one completes what is missing; one that does not fit
+ * starts over — she changed her mind.
+ */
+export const mergeUnitSizes = (stored: readonly string[], said: readonly string[], units: number): string[] => {
+  if (said.length >= units) return said.slice(0, units);
+  if (stored.length + said.length <= units) return [...stored, ...said];
+  return [...said];
+};
 
 /** The words the operator listed as naming a person (R13.2). */
 const PERSON_WORD =

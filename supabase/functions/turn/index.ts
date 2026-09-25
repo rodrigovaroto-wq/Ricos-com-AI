@@ -87,7 +87,9 @@ import {
   linkPathFor,
   linkSentRecently,
   asksForLink,
+  mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
+  quantityOf,
   readInterpretation,
   readyForLink,
   sendLinkNow,
@@ -1916,7 +1918,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
     const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
-    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl]) {
+    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)]) {
       if (orderContext || !base) continue;
       const sent = await db(
         `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
@@ -1950,6 +1952,34 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ size: stated.size, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+
+  // 5c. How many pieces (kits, 2026-09-25). The Coinzz checkout sells a fixed quantity,
+  // so the quantity picks the link, and each piece has its own size. More than the biggest
+  // kit has no link at all: a person builds that order (operator's decision).
+  const kits = CONFIG.kits ?? [];
+  const quantity = quantityOf(inbound.body ?? "", interpretation);
+  const units: number = quantity?.units ?? (lead.units as number | null) ?? 1;
+  const maxUnits = Math.max(1, ...kits.map((k) => k.units));
+  if (units > maxUnits) {
+    return await handOff(
+      `Pra levar ${units} peças eu chamo uma pessoa do time pra montar seu pedido 💛`,
+      `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`,
+    );
+  }
+  const unitSizes: string[] =
+    units > 1
+      ? mergeUnitSizes(
+          (lead.unit_sizes as string[] | null) ?? [],
+          quantity?.sizes.length ? quantity.sizes : stated && units > 1 ? [stated.size] : [],
+          units,
+        )
+      : [];
+  if ((quantity || units > 1) && (units !== (lead.units ?? 1) || unitSizes.join() !== ((lead.unit_sizes as string[] | null) ?? []).join())) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ units, unit_sizes: unitSizes, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
 
@@ -2132,28 +2162,40 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     phone: lead.phone,
   };
   const identityComplete = isIdentityComplete(identityDraft);
-  const sizeKnown = (stated?.size ?? lead.size ?? null) !== null;
+  // Kits: every piece needs its size before the link, and the link is the kit's own.
+  const sizeKnown = units > 1 ? unitSizes.length >= units : (stated?.size ?? lead.size ?? null) !== null;
+  const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
+  if (units > 1 && !kitUrl) {
+    return await handOff(
+      `Pra montar esse pedido de ${units} peças eu chamo uma pessoa do time 💛`,
+      `a cliente quer ${units} peças no ${linkPath === "cod" ? "pagamento na entrega" : "antecipado"}, e não há kit de ${units} nesse caminho`,
+    );
+  }
+  const linkCheckout = kitUrl ? { codUrl: kitUrl, prepayUrl: kitUrl } : (CONFIG.checkout ?? {});
   const readiness = {
     identityComplete,
     interpretation,
     identityAsked: asksForIdentity(lastOutbound),
     identityGiven: Object.keys(identityFound).length > 0,
   };
-  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
+  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...kits.map((k) => k.checkoutUrl)].filter(
     (u): u is string => typeof u === "string" && u !== "",
   );
   // M-03: the link this turn would send, if it went out in the last three messages, is
   // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
   // from the delivery checkout to the prepaid one is a different link and still goes out.
-  const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+  const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
   const linkJustSent =
     !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
   const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
   // Ready for the link and the size still unknown: the size comes first, asked naturally.
   const sizeBeforeLink =
     !sizeKnown && readyForLink(readiness)
-      ? `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
-        ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
+      ? units > 1
+        ? `Ela quer ${units} peças e ${unitSizes.length === 0 ? "nenhum tamanho foi dito" : `só ${unitSizes.length} tamanho(s) foi dito (${unitSizes.join(", ")})`}:` +
+          ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
+        : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
+          ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : null;
   const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
@@ -2162,7 +2204,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     : (["name", "email", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
   if (linkNow) {
     try {
-      checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {});
+      checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout);
     } catch (error) {
       checkoutBlocked =
         error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
@@ -2177,7 +2219,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     let thinkLink: string | null = null;
     try {
       thinkLink = sizeKnown && !linkJustSent
-        ? buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {})
+        ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
       thinkLink = null;
@@ -2213,8 +2255,22 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     linkPath,
     Object.keys(identityDraft).length > 0,
   );
+  // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
+  // kit's, the sizes she gave go in the checkout complement — the only field she types.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = recentOutbound.some((m) => /\b[23]\s+peças\b|\bkit\b/i.test(m));
+  const kitDirective =
+    units > 1 && checkoutUrl !== null
+      ? `O link é do kit de ${units} peças. Diga para ela escrever os tamanhos (${unitSizes.join(" e ")})` +
+        ` no complemento do endereço no checkout.`
+      : units === 1 && interpretation.wants_to_buy && kitsOnPath.length > 0 && !kitOffered
+      ? `Na mesma mensagem, ofereça uma vez só, numa frase curta, que levando mais peças o desconto` +
+        ` sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
+        ` Se ela não quiser, siga com uma peça.`
+      : null;
   const sizeDirective =
     [
+      kitDirective,
       sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
       backToSize,
       sizeBeforeLink,
