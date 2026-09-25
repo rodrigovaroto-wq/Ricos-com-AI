@@ -648,11 +648,16 @@ const STRONG_CUE = /(?:r\$|rs|pago|paga|pagar|pagaria|custa|custar|custando)\s*$
  * pants size. A preposition may sit between ("fecha em 100", "sai a 100", "meu limite é 100").
  */
 const WEAK_CUE =
-  /\b(?:por|faz|faca|fazer|faria|fica|ficar|sai|sair|deixa|vale|valor|for|fosse|ser|fecha|fecho|fechar|consegue|conseguiria|tenho|limite)\s+(?:(?:e|em|a|de|por|so|uns|umas)\s+)*$/;
+  /\b(?:por|faz|faca|fazer|faria|fica|ficar|sai|sair|deixa|vale|valor|for|fosse|ser|fecha|fecho|fechar|consegue|conseguiria|tenho|limite|aceita|topa|cobra|cobraria|tal)\s+(?:(?:e|em|a|de|por|so|uns|umas)\s+)*$/;
 const NOT_MONEY_UNIT =
   /^\s*(?:x\b|vezes|parcelas?|anos?|kg|quilos?|kilos?|cm|m\b|metros?|%|horas?|h\b|dias?|semanas?|meses|pecas?|unidades?|numero|de\s+(?:cintura|quadril|busto|calca|sapato))/;
-/** A body measure or a size exchange before the number: "cintura 80", "troco por 44". */
-const NOT_MONEY_BEFORE = /\b(?:cintura|quadril|busto|calca|calco|visto|uso|troc\w*|tamanho|numero|n[ou]|apto?|casa|bloco|rua|avenida|av)\b[^.!?,\d]{0,12}$/;
+/**
+ * A body measure, an address or a size exchange right before the number: "cintura 80",
+ * "troco por 44", "apto 102". Glued to it, never anywhere in the window — "no pix por 100"
+ * is a bargain (fourth review).
+ */
+const NOT_MONEY_BEFORE =
+  /\b(?:cintura|quadril|busto|calca|calco|visto|uso|troc\w*|tamanho|numero|n[ou]?\.?|apto?|casa|bloco|rua|avenida|av)\s*(?:(?:e|de|eh|por|fica|tem|mede|da)\s+)?$/;
 
 export const namesOwnPrice = (
   message: string,
@@ -668,7 +673,7 @@ export const namesOwnPrice = (
     const value = Number(m[1]) + (m[2] ? Number(m[2].padEnd(2, "0")) / 100 : 0);
     const moneyAfter = /^\s*(?:reais|real|conto|contos|pila)\b/.test(after);
     // "100 eu pago", "100 eu levo": money only above the sizes ("o 44 eu levo" is a size).
-    const offerAfter = /^\s*(?:eu\s+)?(?:pago|levo|fecho|compro|pego)\b/.test(after);
+    const offerAfter = /^\s*(?:(?:eu\s+)?(?:pago|levo|fecho|compro|pego)|ta\s+bom|pode\s+ser)\b/.test(after);
     // Cents make it money whatever the cue ("por 59,90"); a bare "por 50" is a size range
     // (36–56) and stays a residual.
     const cue =

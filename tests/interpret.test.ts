@@ -449,6 +449,13 @@ describe("preço que a loja não tem não é decisão de compra", () => {
     "quero o G, 100 eu pago",
     "quero o G, só tenho 100",
     "quero o G, meu limite é 100",
+    "quero o G no pix por 100",
+    "quero o G, no pix fica 100?",
+    "quero o G, no cartao faz 100?",
+    "quero o tamanho G por 100",
+    "quero o G, aceita 100?",
+    "quero o G, que tal 100?",
+    "quero o G, 100 ta bom?",
   ])("%s → pedido de preço (abaixo de 60, por extenso, porcentagem)", (msg) => {
     expect(namesOwnPrice(msg, prices, [10])).toBe(true);
   });
