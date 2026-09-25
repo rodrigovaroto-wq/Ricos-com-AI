@@ -1,4 +1,5 @@
 import type { LlmRequest, Provider, ProviderResult } from "../seam.js";
+import { postJson } from "./http.js";
 
 /**
  * Meta Model API (api.meta.ai; api.llama.com until 2026-09-24) — serves Muse Spark 1.3, decided 2026-09-10 to
@@ -11,11 +12,21 @@ export const metaProvider = (options: {
   apiKey: string;
   model: string;
   fetchImpl?: typeof fetch;
+  /** Waits between retries of a 5xx/429; tests pass zeros. */
+  retryDelaysMs?: readonly number[];
 }): Provider => ({
   model: options.model,
   async complete(request: LlmRequest): Promise<ProviderResult> {
     const doFetch = options.fetchImpl ?? fetch;
-    const response = await doFetch("https://api.meta.ai/v1/chat/completions", {
+    const body = await postJson<{
+      error?: { message: string };
+      choices?: Array<{ message: { content: string | null } }>;
+      usage?: {
+        prompt_tokens: number;
+        completion_tokens: number;
+        prompt_tokens_details?: { cached_tokens?: number };
+      };
+    }>("meta", () => doFetch("https://api.meta.ai/v1/chat/completions", {
       method: "POST",
       headers: {
         Authorization: `Bearer ${options.apiKey}`,
@@ -32,17 +43,7 @@ export const metaProvider = (options: {
         max_completion_tokens: Math.max(request.maxOutputTokens ?? 0, 4000),
         reasoning_effort: "minimal",
       }),
-    });
-
-    const body = (await response.json()) as {
-      error?: { message: string };
-      choices?: Array<{ message: { content: string | null } }>;
-      usage?: {
-        prompt_tokens: number;
-        completion_tokens: number;
-        prompt_tokens_details?: { cached_tokens?: number };
-      };
-    };
+    }), options.retryDelaysMs);
 
     if (body.error) throw new Error(`meta: ${body.error.message}`);
     const text = body.choices?.[0]?.message.content;

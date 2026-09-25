@@ -1,0 +1,54 @@
+# Block → pass flips that are the point of a change. Format: <entry> | <gate> | <sentence>
+# `pnpm dev:gates --fail-on-loosen` fails on any loosening not listed here.
+M-05 | price_promise | tiro mais alguma dúvida
+M-05 | price_promise | Quer que eu siga com seu pedido pra pagar na entrega ou tiro mais alguma dúvida antes?
+M-05 | price_promise | Posso seguir com o pedido, ou tiro mais uma dúvida sua?
+M-05 | price_promise | Tiro pra você qualquer dúvida sobre o tamanho.
+M-05 | price_promise | Se quiser, tiro mais suas dúvidas antes de fechar.
+M-05 | price_promise | Tiro mais alguma das suas dúvidas?
+M-05 | price_promise | Tiro mais uma dúvidinha sua?
+M-05 | price_promise | Tiro mais uma dúvida, ou fechamos?
+M-05 | price_promise | Tiro mais alguma dúvida ou já posso seguir com o pedido?
+M-05 | price_promise | Tiro mais alguma dúvida e depois seguimos com o pedido?
+M-05 | price_promise | Tiro mais alguma dúvida, é só falar.
+M-07 | delivery_promise | No antecipado o prazo varia conforme a região, cerca de 5 dias úteis, e na entrega 1 a 3 dias.
+M-07 | delivery_promise | No antecipado varia por região, em torno de 5 dias úteis, e na entrega 1 a 3 dias.
+M-07 | delivery_promise | No antecipado varia, média de 5 dias, e na entrega 1 a 3 dias.
+M-07 | delivery_promise | No antecipado depende do seu CEP, em média 5 dias úteis; na entrega você recebe em 1 a 3 dias.
+M-07 | delivery_promise | No antecipado o prazo varia de acordo com a sua região, em média 5 dias úteis, e na entrega de 1 a 3 dias.
+M-07 | delivery_promise | Na entrega você recebe em 1 a 3 dias, no antecipado varia, em torno de 5 dias úteis.
+M-07 | delivery_promise | Na entrega você recebe em 1 a 3 dias; no antecipado o prazo varia bastante por região, em média 5 dias úteis.
+M-07 | delivery_promise | Em média 2 dias de uso e você já nem sente o colete.
+M-07 | delivery_promise | A maioria das clientes se acostuma com o colete em cerca de 3 dias.
+M-05 | price_promise | Tiro mais alguma dúvida?
+M-07 | delivery_promise | Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.
+M-07 | delivery_promise | No antecipado não dá pra prometer 2 dias, o prazo varia por região, em média 5 dias úteis.
+M-07 | delivery_promise | No antecipado você também tem 7 dias corridos para devolver.
+M-07 | delivery_promise | No pix, a garantia é a mesma: 7 dias.
+M-07 | delivery_promise | No antecipado você tem 7 dias de prazo pra troca.
+M-05 | price_promise | Quer que eu siga com seu pedido ou tiro mais alguma dúvida antes?
+M-05 | price_promise | Parar de ler 'tiro mais alguma dúvida' como desconto
+M-05 | price_promise | tiro mais alguma dúvida antes?
+M-07 | delivery_promise | No antecipado, quando o colete chegar você tem até 7 dias pra trocar.
+M-07 | delivery_promise | No pix, você recebe o colete e tem até 7 dias pra devolver.
+M-07 | delivery_promise | A garantia é de 7 dias após o recebimento para trocar ou devolver.
+M-07 | delivery_promise | No antecipado a garantia é de 7 dias após o recebimento para trocar ou devolver.
+M-07 | delivery_promise | No antecipado o prazo de troca é de 7 dias.
+M-07 | delivery_promise | No antecipado a garantia é de 7 dias.
+M-07 | delivery_promise | Pagando no pix, a garantia também é de 7 dias.
+M-07 | delivery_promise | No antecipado o prazo pra devolução é de 7 dias.
+M-07 | delivery_promise | No pix a troca pode ser feita em até 7 dias.
+M-07 | delivery_promise | No antecipado você tem até 7 dias depois de receber pra trocar.
+M-07 | delivery_promise | No antecipado você tem 7 dias corridos, a partir do recebimento, para trocar.
+M-07 | delivery_promise | Você tem 7 dias a partir do recebimento para trocar.
+M-07 | delivery_promise | O prazo de troca no antecipado é de 7 dias.
+M-07 | delivery_promise | No pix, a troca pode ser pedida em até 7 dias.
+M-07 | delivery_promise | No antecipado a devolução pode ser solicitada em até 7 dias.
+M-07 | delivery_promise | No pix, se precisar trocar, são 7 dias a partir de quando você receber.
+M-07 | delivery_promise | No pix você também tem 7 dias corridos, contados do recebimento, pra devolver.
+M-07 | delivery_promise | No pix vale o mesmo direito de 7 dias de arrependimento.
+M-07 | delivery_promise | No pix você tem 7 dias pra trocar depois que receber.
+M-07 | delivery_promise | No pix você tem 7 dias a partir da entrega pra trocar.
+M-07 | delivery_promise | No pix você tem 7 dias após a entrega pra devolver.
+M-07 | delivery_promise | No pix você tem 7 dias pra devolver a partir da entrega.
+M-09 | delivery_promise | Na entrega fica R$ 129,90, e o prazo é o de 3 dias úteis.

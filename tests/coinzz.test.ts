@@ -232,9 +232,9 @@ describe("link de checkout pré-preenchido", () => {
     },
   );
 
-  it("o CPF vai no nome que cada plataforma lê — `cpf` na Logzz, `document` na Coinzz", () => {
+  it("o CPF vai em `cpf` na entrega (Logzz) e em `document` no antecipado (Coinzz)", () => {
     // Mandar o nome errado é silencioso: a página abre, três campos vêm preenchidos, e
-    // ela redigita o CPF sem entender por quê.
+    // ela redigita o CPF sem entender por quê. A entrega voltou para a Logzz em 25/09.
     const cod = new URL(buildPrefilledCheckoutLink(cliente, "cod", config));
     expect(cod.searchParams.get("cpf")).toBe("73116687358");
     expect(cod.searchParams.get("document")).toBeNull();

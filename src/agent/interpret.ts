@@ -50,6 +50,12 @@ export interface Interpretation {
   wants_to_think: boolean;
   wants_to_buy: boolean;
   pending_answer: PendingAnswer;
+  /** How many pieces she says she wants (kits, 2026-09-25), or null. */
+  units: number | null;
+  /** The letter of each piece she names, in order ("um M e um G" → M, G). */
+  unit_sizes: SizeLetter[];
+  /** The pants number of each piece, when she gives numbers ("uso 42, ela 46" → 42, 46). */
+  unit_pants: number[];
 }
 
 /** What a failed or garbled interpretation reads as: nothing detected. */
@@ -65,6 +71,9 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   wants_to_think: false,
   wants_to_buy: false,
   pending_answer: "no_pending",
+  units: null,
+  unit_sizes: Object.freeze([]) as unknown as SizeLetter[],
+  unit_pants: Object.freeze([]) as unknown as number[],
 }) as Interpretation;
 
 /**
@@ -108,6 +117,13 @@ export const INTERPRETER_SYSTEM = [
   '  "unrelated" = a assistente perguntou algo e a mensagem não responde nem pergunta nada',
   '  que faça sentido ("ta", "?", "kkk", assunto solto);',
   '  "no_pending" = a assistente não deixou pergunta e a mensagem não pergunta nada.',
+  '- "units": quantas peças ela diz que quer (1, 2, 3...), ou null se não disse. "um pra mim e',
+  '  outro pra minha mãe" = 2; "o kit de 3" = 3; "só uma" = 1. Pergunta ("tem desconto',
+  '  levando 2?") não é decisão: null.',
+  '- "unit_sizes": a letra de cada peça que ela diz, na ordem ("um M e um G" → ["M","G"];',
+  '  "as duas G" → ["G","G"]; só "G" respondendo o tamanho de uma peça → ["G"]); [] se não disser.',
+  '- "unit_pants": quando ela quer mais de uma peça e diz o número de CALÇA de cada pessoa, os',
+  '  números na ordem ("uso 42, ela 46" → [42,46]); [] se não disser. Só calça, nunca manequim.',
 ].join("\n");
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
@@ -178,12 +194,100 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       pending_answer: (PENDING as readonly string[]).includes(o.pending_answer as string)
         ? (o.pending_answer as PendingAnswer)
         : "no_pending",
+      units: (() => {
+        const n = numberIn(o.units, 1, 50);
+        return n !== null && Number.isInteger(n) ? n : null;
+      })(),
+      unit_sizes: (Array.isArray(o.unit_sizes) ? o.unit_sizes : [])
+        .map((x) => (typeof x === "string" ? x.trim().toUpperCase() : ""))
+        .filter((x): x is SizeLetter => (LETTERS as readonly string[]).includes(x)),
+      unit_pants: (Array.isArray(o.unit_pants) ? o.unit_pants : [])
+        .map((x) => numberIn(x, 34, 56))
+        .filter((x): x is number => x !== null),
     },
   };
 };
 
 const norm = (text: string): string =>
   text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+
+/**
+ * More than one piece only when her own words say more than one (kits, 2026-09-25): a
+ * number, a count word, "kit", "par", "cada", "outro/outra", "mais uma". The model reads the
+ * quantity; this is the deterministic half, so an invented `units: 2` on "quero o M" does
+ * not swap her link for a kit she never asked for. One piece, or sizes alone, need no cue.
+ */
+const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+const COUNT_WORDS: Record<number, string> = {
+  2: "duas|dois", 3: "tres", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
+};
+/**
+ * Her words name this count: the word, a lone digit, or a number of pieces ("12 peças").
+ * Not any number — "uso 42" is her pants, and it vouched for an invented `units: 42`
+ * (code review, 2026-09-25).
+ */
+const namesCount = (text: string, units: number): boolean =>
+  (COUNT_WORDS[units] !== undefined && new RegExp(`\\b(?:${COUNT_WORDS[units]})\\b`).test(text)) ||
+  // "quero 2, M e G" and "quero 2." count; "2,5" and "42" do not (second review).
+  // Not a count: "2x", "em 2 vezes", "2 dias", "às 3 horas", "2 filhos", "apto 2" (third review).
+  (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d|\\s*(?:x|vezes|dias?|horas?|h|parcelas?|filh\\w*)\\b)`).test(text) &&
+    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as)\\s*${units}\\b`).test(text)) ||
+  new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text) ||
+  // "um pra mim e um pra minha mãe", "pra mim e pra minha irmã", "eu e minha filha" are two.
+  (units === 2 &&
+    /\b(?:um|uma)\b[^.!?]{0,30}\be\s+(?:um|uma)\b|\b(?:pra|para)\s+mim\s+e\s+(?:pra|para)\s+|\beu\s+e\s+(?:a\s+|o\s+)?(?:minha|meu)\s+\w+/.test(text)) ||
+  // "quero 2 M e 1 G" is three: the counts before size letters add up (third review).
+  [...text.matchAll(/\b(\d)\s*(?:p|m|g|gg|xgg)\b/g)].reduce((sum, m) => sum + Number(m[1]), 0) === units;
+
+export const quantityOf = (
+  message: string,
+  i: Interpretation,
+): { units: number | null; sizes: SizeLetter[] } | null => {
+  // A cue she denies is no cue: "não quero kit, só uma", "não quero duas" (code review).
+  const text = norm(message).replace(
+    /\b(?:nao|nem|sem)\s+(?:\w+\s+){0,3}?(?:(?:o|a|um|uma|do|da)\s+)?(?:kit(?:\s+de\s+\w+)?|par|duas|dois|tres|[2-9])\b/g,
+    " ",
+  );
+  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
+  if (units === null && i.unit_sizes.length === 0) return null;
+  return { units, sizes: [...i.unit_sizes] };
+};
+
+/**
+ * She corrects her OWN size ("na verdade o meu é G", "a minha é GG", "eu uso 44"), not
+ * someone else's. Deterministic: "minha irmã usa G" is about the sister.
+ */
+export const saysOwnSize = (message: string, i: Interpretation): boolean => {
+  const t = norm(message);
+  // A message that also names the other person ("pra mim tá bom, e pra ela G") is not a
+  // correction of her own: the size may be the other's (second review).
+  if (i.size.for_other_person || OTHER_PERSON.test(t)) return false;
+  return /\b(?:o\s+meu|a\s+minha)\s+(?:e|eh|sera|fica|vai\s+ser|tamanho)\b|\b(?:pra|para)\s+mim\b|\beu\s+(?:uso|visto|sou)\b|\bmeu\s+tamanho\b/.test(t);
+};
+// Not "ele/dele/ela" alone: the vest is "o colete" and the belt "a cinta" — "eu uso G,
+// ele é folgado?" is her own size (third review). The other person is named by "pra ela",
+// "dela", or kinship.
+const OTHER_PERSON =
+  /\b(?:dela|delas|(?:pra|para)\s+(?:ela|elas|ele|eles)|(?:pra|para)\s+(?:a|o|minha|meu)\s+\w+|(?:minha|meu)\s+(?:mae|irma|irmao|filha|filho|amiga|tia|avo|sogra|prima|cunhada|namorad[oa]|marido|esposa))\b/;
+
+/**
+ * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).
+ * A full list replaces. One size she says is her own replaces the first piece — hers —
+ * and never fills another piece's slot (code review: "na verdade o meu é G" on ["M"] made
+ * the kit "M e G"). Any other partial list completes what is missing.
+ */
+export const mergeUnitSizes = (
+  stored: readonly string[],
+  said: readonly string[],
+  units: number,
+  ownSize = false,
+): string[] => {
+  if (said.length >= units) return said.slice(0, units);
+  if (ownSize && said.length === 1) return [said[0]!, ...stored.slice(1)].slice(0, units);
+  // A complete list is not undone by one size said again ("ok, G") — code review.
+  if (stored.length >= units) return stored.slice(0, units);
+  return [...stored, ...said].slice(0, units);
+};
 
 /** The words the operator listed as naming a person (R13.2). */
 const PERSON_WORD =
@@ -225,6 +329,32 @@ export const namesAPerson = (message: string): boolean => {
 export type HandoffKind = "cancel" | "post_sale" | "human";
 
 /**
+ * She closes happily — thanks, goodbye, "já fiz" — with no question and no word of a
+ * problem. The only post-sale message that is not a person's job.
+ */
+export const reportsDone = (message: string): boolean => {
+  // A reply to "Chegou?! já vestiu?" can be all praise and no goodbye: "chegou sim, amei".
+  const praise = /\b(?:amei|adorei|vesti|serviu|chegou|gostei)\b/.test(norm(message));
+  if ((!closesConversation(message) && !praise) || message.includes("?")) return false;
+  // Happy only when every word left is a goodbye, a thanks, "já fiz/recebi/chegou" or
+  // filler: "obrigada, mas veio o M" and "valeu, recebi só 1 das 2" carry a complaint in
+  // words no list of problems can enumerate (eighth review) — so allow, never deny.
+  return norm(message)
+    .split(/[^a-z]+/)
+    .filter(Boolean)
+    .every((w) => DONE_WORDS.test(w));
+};
+const DONE_WORDS =
+  /^(?:tchau\w*|brigad[ao]s?|obrigad[ao]s?|valeu|vlw|flw|encerr\w*|finaliz\w*|ja|fiz|fechei|comprei|paguei|recebi|chegou|chegaram|amei|adorei|gostei|certinho|certo|tudo|ok|okay|beleza|blz|sim|entao|por|aqui|ate|mais|logo|boa|bom|tarde|noite|dia|muito|muita|pela|pelo|ajuda|atencao|conversa|voce|vc|te|pra|e|o|a|os|as|meu|minha|pedido|coletes?|bjs|beijos?|abraco|deus|abencoe\w*|k+|rs+|ai|hoje|estou|to|ta|usando|serviu|ficou|otim[oa]|perfeit\w*|lind[oa]|coracao|demais|amor|deu|viu|semana|proxima|fica|com|de|pix|paciencia|atendimento|malu|obg|brigadao|gratidao|tmj|sim|vesti|ja|nossa)$/;
+
+/**
+ * She closes the conversation — thanks, goodbye, "já fiz". After the link is in the chat,
+ * this is not "vou pensar": the link is not sent again (persona round, 2026-09-25).
+ */
+export const closesConversation = (message: string): boolean =>
+  /\b(?:tchau\w*|brigad[ao]|brigadao|obrigad[ao]+|obg|gratidao|tmj|abencoe\w*|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
+
+/**
  * The three reasons that hand a conversation to a person, and the only three (R13.2):
  * an order she wants to cancel, a question about an order that exists, or a person asked
  * for in so many words. The last needs BOTH the reading and a person-word in her text;
@@ -241,7 +371,10 @@ export const handoffFor = (
   orderContext: boolean,
 ): HandoffKind | null => {
   if (orderContext && i.wants_cancel) return "cancel";
-  if (orderContext && i.post_sale) return "post_sale";
+  // Everything about an order goes to a person EXCEPT a happy close: "obrigada, já
+  // finalizei" handed the buyer to a person (persona round). Requiring a question instead
+  // lost "ficou pequeno", "me cobraram frete" (seventh review) — exclude, never require.
+  if (orderContext && i.post_sale && !reportsDone(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };
@@ -306,6 +439,43 @@ export const decideClarify = (args: {
     return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
   }
   return { kind: "none" };
+};
+
+/**
+ * Her words CHOOSE a path, deterministically — the half that decides whether the model's
+ * `payment_choice` is stored for the next turns (fourth review). A question compares
+ * ("quanto economizo no pix em vez de pagar na entrega?"); a choice decides ("quero no
+ * pix", "prefiro pagar na entrega", or a bare "pix" answering the question).
+ */
+const PATH_WORD =
+  "(?:pix|antecipad\\w*|adiantad\\w*|cartao|entrega|na\\s+porta|pag\\w*\\s+(?:antes|agora|adiantado)|link\\s+do\\s+pix|(?:quando|na\\s+hora\\s+que)\\s+cheg\\w*)";
+export const choosesPath = (message: string): boolean => {
+  const t = norm(message);
+  const m =
+    new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
+    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
+  if (!m) return false;
+  // Doubt is not a choice (sixth review): "quero saber se aceita pix", "vou ver se consigo
+  // no pix", "pode ser que eu pague no pix", "pix ou cartão, não sei", "pagar na entrega é
+  // seguro". Read up to the choice only — a reason after it is not doubt: "prefiro pagar na
+  // entrega pra ver se serve" (seventh review).
+  const beforeEnd = t.slice(0, m.index + m[0].length);
+  if (
+    /\b(?:saber|ver|pensar|entender|perguntar)\s+(?:se|sobre|como)\b|\bpode\s+ser\s+que\b|\btalvez\b|\bfalar\s+com\b|\bentender\s+(?:a|o)\b/.test(beforeEnd) ||
+    /\bnao\s+sei\b|\btanto\s+faz\b|^[^,]*\be\s+segur\w*/.test(t) ||
+    new RegExp(`${PATH_WORD}[^.!?]{0,20}\\bou\\s+(?:n[oa]\\s+|pel[oa]\\s+)?${PATH_WORD}`).test(t)
+  )
+    return false;
+  // A question or a comparison BEFORE the choice is not a choice; one after it ("quero no
+  // pix, qual a chave?") is a new question about a path already chosen (fifth review).
+  const upTo = t.slice(0, m.index + m[0].length);
+  // After the choice, a question ends it unless it comes after a comma and names no other
+  // path ("quero no pix, qual a chave?" is a choice; "pode ser na entrega, mas no pix sai
+  // mais barato?" is not).
+  const after = t.slice(m.index + m[0].length);
+  const questionAfter =
+    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*,/.test(after) && !new RegExp(PATH_WORD).test(after));
+  return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;
 };
 
 /**

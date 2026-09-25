@@ -206,7 +206,7 @@ métrica que mais importa na comparação — não era gravada em lugar nenhum.
 | 5.5 | Régua de pós-pedido armada, de silêncio desarmada | Query em `followups` no mesmo `conversation_id` |
 | 5.6 | Cancelar um pedido: **a régua inteira morre** | Nenhum `order_eve` para quem cancelou |
 | 5.7 | Revarrer a cobertura (43 × 5), São Paulo/G primeiro | Tabela em `07-cobertura/` atualizada |
-| 5.8 | **O webhook de venda escreve o estágio.** `job: "order"` recebe o status do pedido e hoje não toca `conversations.stage`: `em_rota`, `entregue_pago` e `recusado` **não são escritos por ninguém**. Mesmo `furthest`, mesmo espelho | Pedido sintético entregue leva a conversa a `entregue_pago`; cancelado leva a `recusado`. Sem isso o funil para em `pedido_criado` e a métrica que o operador compra — entregue e pago — não existe no banco |
+| 5.8 ✅ | **FEITO em 25/09** — `stageForOrder` (`followups.ts`, espelhado) lê o status por raiz e `recordOrder` grava com `persistStage` (nunca regride); pago ≠ entregue; tentativa frustrada não mexe (terminal não se chuta); `tests/order-stage.test.ts`. **O webhook de venda escreve o estágio.** `job: "order"` recebe o status do pedido e hoje não toca `conversations.stage`: `em_rota`, `entregue_pago` e `recusado` **não são escritos por ninguém**. Mesmo `furthest`, mesmo espelho | Pedido sintético entregue leva a conversa a `entregue_pago`; cancelado leva a `recusado`. Sem isso o funil para em `pedido_criado` e a métrica que o operador compra — entregue e pago — não existe no banco |
 
 ---
 

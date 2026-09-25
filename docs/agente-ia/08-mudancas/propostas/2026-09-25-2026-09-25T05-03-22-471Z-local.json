@@ -1,0 +1,88 @@
+{
+  "resumo": "Rodada de 1 conversa e 6 respostas sem mentira, sem resposta pronta e sem troca de tamanho, com precos de kit corretos. A unica falha do placar e M-03 link-repetido, num reenvio do mesmo checkout apos pedido explicito da cliente com me mais imperativo.",
+  "checked": [
+    {
+      "proposal": {
+        "alvo": "interpretador",
+        "como_medir": "link-repetido",
+        "evidencias": [
+          {
+            "conversa": "persona-dupla",
+            "mensagem": 2,
+            "trecho": "**Malu 2 (ok):** https://app.coinzz.com.br/checkout/na-entrega-2-0?phone=5500099301547"
+          },
+          {
+            "conversa": "persona-dupla",
+            "mensagem": 5,
+            "trecho": "me manda o link ja com os 2 tamanhos?"
+          },
+          {
+            "conversa": "persona-dupla",
+            "mensagem": 5,
+            "trecho": "**Malu 5 (ok):** https://app.coinzz.com.br/checkout/na-entrega-2-0?phone=5500099301547"
+          }
+        ],
+        "mentira_vizinha": "",
+        "o_que": "Aceitar clitico mais imperativo (me manda, me passa, me envia o link) como pedido explicito de link em asksForLink e isentar esse caso da checagem link-repetido.",
+        "objetivo": "Reenvio apos pedido explicito com me mais imperativo nao conta como link-repetido, enquanto reenvio espontaneo do mesmo checkout em 3 respostas continua vetado e medido.",
+        "por_que": "A cliente pediu o reenvio de forma explicita e a Malu reenviou o mesmo checkout, o que o placar marcou como M-03 link-repetido igual a 1; tratar pedido explicito como repeticao indevida pune o comportamento certo e esconde reenvios realmente espontaneos.",
+        "registro": "M-03",
+        "severidade": "baixa"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "**Malu 2 (ok):** https://app.coinzz.com.br/checkout/na-entrega-2-0?phone=5500099301547",
+          "blockedBy": []
+        },
+        {
+          "trecho": "me manda o link ja com os 2 tamanhos?",
+          "blockedBy": []
+        },
+        {
+          "trecho": "**Malu 5 (ok):** https://app.coinzz.com.br/checkout/na-entrega-2-0?phone=5500099301547",
+          "blockedBy": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "estimated_cost_usd": 0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 23082,
+    "output_tokens": 6409,
+    "cache_read_tokens": 30291,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 5346,
+    "total_tokens": 59782,
+    "api_calls": 4,
+    "model": "muse-spark-1.3-contributor",
+    "provider": "meta-ai",
+    "session_id": "20260925_050547_e7081f",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false,
+    "service_tier": null,
+    "auxiliary": {
+      "api_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_cost_usd": 0,
+      "total_tokens": 0,
+      "by_task": {}
+    },
+    "total_including_auxiliary": {
+      "estimated_cost_usd": 0,
+      "total_tokens": 59782,
+      "api_calls": 4
+    }
+  },
+  "costUsd": 0.003651
+}

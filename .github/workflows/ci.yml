@@ -15,6 +15,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+        with:
+          # The gate verdict diff needs origin/main to find the base commit.
+          fetch-depth: 0
 
       - uses: pnpm/action-setup@v4
         with:
@@ -36,6 +39,17 @@ jobs:
       # that exercises the fourth turn: a gate proves a sentence is refused, a
       # conversation proves the size she gave in turn two survives to turn five.
       - run: pnpm test
+
+      # Every gate fix here opened a new hole that only a hand comparison found
+      # ("before: block, after: pass"). This does the comparison against the base
+      # branch over every sentence the tests and reviewers ever wrote, and fails on a
+      # loosening nobody accepted in tests/gate-loosen-accepted.txt.
+      - run: pnpm dev:gates --fail-on-loosen
+
+      # The guards guard themselves: each historical bug is put back in a throwaway
+      # worktree and the guard written for it must fail. A guard edited into something
+      # toothless turns this red.
+      - run: pnpm verificar:guardas
 
       # The Edge Function is Deno, and `tsc` does not cover it (`include: ["src",
       # "tests"]`). Without this step the file that actually runs in production is the

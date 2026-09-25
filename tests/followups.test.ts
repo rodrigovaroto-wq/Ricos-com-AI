@@ -191,6 +191,25 @@ describe("régua de pós-pedido", () => {
     expect(texto).toMatch(/maquininha/i);
   });
 
+  it("num kit, a véspera e a confirmação falam do pedido, não do preço de 1 peça (quinta revisão)", () => {
+    const vespera = renderFollowup("order_eve", render({ amountBrl: 233.82, units: 2, size: "M,G" }))!;
+    expect(vespera).toContain("R$ 233,82");
+    expect(vespera).not.toContain("129,90");
+    const confirmado = renderFollowup("order_confirmed", render({ amountBrl: 233.82, units: 2, size: "M,G" }))!;
+    expect(confirmado).toContain("Kit de 2 coletes, tamanhos **M e G**");
+    expect(confirmado).toContain("R$ 233,82");
+    expect(confirmado).not.toContain("129,90");
+  });
+
+  it("pedido antecipado: confirmação diz já pago e a véspera não manda separar dinheiro (sexta revisão)", () => {
+    const confirmado = renderFollowup("order_confirmed", render({ amountBrl: 116.91, prepaid: true, size: "M" }))!;
+    expect(confirmado).toContain("R$ 116,91, já pago");
+    expect(confirmado).not.toContain("na entrega");
+    const vespera = renderFollowup("order_eve", render({ amountBrl: 116.91, prepaid: true }))!;
+    expect(vespera).not.toMatch(/separado|maquininha/);
+    expect(vespera).toMatch(/amanhã/);
+  });
+
   it("a confirmação repete tamanho e endereço", () => {
     const texto = renderFollowup("order_confirmed", render({ size: "G", address: "Rua das Flores, 120" }))!;
     expect(texto).toContain("G");

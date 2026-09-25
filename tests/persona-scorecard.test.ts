@@ -80,6 +80,10 @@ describe("placar: link repetido (M-03) e decisão sem link", () => {
     const c = conv("jussara", [["pode mandar", `Aqui: ${link}`], ["vou olhar", `Sem problemas ${link}`]]);
     expect(check([c], "link-repetido").value).toBe(1);
   });
+  it("não conta o reenvio que ela pediu, com a mesma regra da produção", () => {
+    const c = conv("dupla", [["quero 2", `Aqui: ${link}`], ["me manda o link ja com os 2 tamanhos?", `De novo: ${link}`]]);
+    expect(check([c], "link-repetido").value).toBe(0);
+  });
   it("não conta um link só", () => {
     const c = conv("jussara", [["pode mandar", `Aqui: ${link}`], ["ok", "Qualquer dúvida estou aqui"]]);
     expect(check([c], "link-repetido").value).toBe(0);
@@ -101,6 +105,17 @@ describe("placar: respostas prontas (M-01) e métricas", () => {
     };
     expect(check([c], "respostas-prontas").value).toBe(1);
     expect(check([c], "pronta-por-prazo").value).toBe(1);
+  });
+  it("separa a resposta pronta causada por price_promise (M-05)", () => {
+    const c: Conversation = {
+      persona: "jussara",
+      transcript: [
+        { from: "persona", text: "é golpe?" },
+        { from: "valen", text: "Deixa eu te responder isso direitinho", status: "fallback", vetoes: [{ gate: "price_promise" }] },
+      ],
+    };
+    expect(check([c], "pronta-por-preco").value).toBe(1);
+    expect(check([c], "pronta-por-prazo").value).toBe(0);
   });
   it("ignora a recepção automática na contagem de respostas", () => {
     const c: Conversation = {

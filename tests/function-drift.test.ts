@@ -394,11 +394,67 @@ describe("M-03 na Edge Function", () => {
 
   it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
-    expect(source).toContain('const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;');
+    expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     expect(source).toContain(
       '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
     );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
     expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+  });
+});
+
+describe("kits na Edge Function (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a quantidade escolhe o link do kit, e mais que o maior kit vai para uma pessoa", () => {
+    expect(source).toContain("const quantity = quantityOf(inbound.body ?? \"\", interpretation);");
+    expect(source).toContain("if (units > maxUnits) {");
+    expect(source).toContain("kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl");
+    expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath, linkCheckout\)/g)).toHaveLength(2);
+  });
+  it("com mais de uma peça, cada tamanho antes do link", () => {
+    expect(source).toContain("const sizeKnown = units > 1 ? unitSizes.length >= units");
+  });
+});
+
+describe("kits: revisão de código (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
+    // The retry reads the clock, not the content: merged after the message arrived = replay.
+    expect(source).toContain("saidSizes.length < units &&\n    retriedInboundAt !== null &&");
+    // Every turn that uses the kit renews its clock.
+    expect(source).toContain("  if (quantity || units > 1) {\n    await db(`leads?id=eq.${lead.id}`, {");
+    expect(source).toContain("retriedInboundAt = latest[0].created_at ?? null;");
+    expect(source).toContain("replayed ? [] : saidSizes,");
+    expect(source).toContain("saysOwnSize(inbound.body");
+    // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
+    expect(source).toContain("const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;");
+    expect(source).toContain("const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;");
+    expect(source).toContain("const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);");
+    expect(source).toContain("units_at: new Date().toISOString(),");
+    expect(readFileSync("supabase/migrations/0011_units_at.sql", "utf8")).toContain("add column if not exists units_at timestamptz");
+    expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
+    expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
+    // A choice is stored only from a choice, and expires.
+    expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
+    expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
+    // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1");
+    expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
+    expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
+    // A goodbye after the link is in the chat does not resend it.
+    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    // O10: the sale webhook refuses a forged sale when the secret is set.
+    expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
+    expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');
+    // The gate knows the pieces in play.
+    expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");
+    // The path she chose holds across turns.
+    expect(source).toContain("const linkPath = linkPathFor(paymentChoice, region);");
+    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? storedChoice;");
+  });
+  it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
+    expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');
+    expect(source).toContain("units > 1 ? null : sizeDirectiveFor(");
+    expect(source).toContain("No complemento do endereço, escreva os tamanhos:");
   });
 });

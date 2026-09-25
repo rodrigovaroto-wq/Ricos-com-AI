@@ -11,7 +11,132 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-24 à noite
+## ▶ COMECE AQUI — estado em 2026-09-25, fim do dia
+
+**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **A v33 está no ar desde 2026-09-25 06:50 UTC
+(função `turn` versão 38)**, com o aval do operador. O2 e O10 no ar no n8n.
+
+> **⛔ BLOQUEIO — a Malu não responde em produção até isto ser feito:** a sonda pela porta do
+> n8n recebeu `meta: Unauthorized`. O secret **`META_API_KEY` do Supabase não é aceito pela
+> Meta**; toda conversa cai na resposta de segurança + handoff. Nos testes locais funcionava
+> porque o proxy desta máquina injeta a chave certa. O operador cola a chave válida de
+> dev.meta.ai em Supabase → Edge Functions → Secrets → `META_API_KEY`; depois, uma sonda pela
+> porta `n8n` (`pnpm dev:personas --door=n8n --persona=tati`, em horário 6–24 SP) confirma.
+> O canal do WhatsApp ainda não está ligado, então nenhuma cliente real foi afetada.
+>
+> **Checagem de 07:05 UTC (depois do "tudo feito" do operador):** a sonda pela porta `n8n`
+> **ainda recebe `meta: Unauthorized`** — a chave colada continua recusada (conferir se é a da
+> Model API em dev.meta.ai, sem espaço/quebra de linha, e se o secret salvou). O **PAT do
+> Supabase ainda responde 200** — não foi revogado. Os webhooks de venda da Coinzz (2) e da
+> Logzz (2) **já chegam com `&token=`** ✓. A entrada `/encorpa-inbound` respondeu **502** ao
+> curl nesta sonda embora a execução tenha terminado `success` — investigar (pode ser o
+> `Devolve a resposta` com o `Wait` na mesma execução). Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
+Mudanças técnicas: `registro.md` M-05 a M-09. **Grafo de decisões (o que falhou e por quê):
+`docs/documentacao/decisoes/04-grafo-de-decisoes.md` — leia antes de mexer em gate ou estado.**
+
+### Estado do produto (o que a v33 leva)
+- **Checkout:** entrega na **Logzz** (`ccm-1-unidade`, `ccm-2-unidades`, `ccm-3-unidades`,
+  frete R$ 0,00 para a cliente; CPF no link como `cpf`), antecipado na **Coinzz**
+  (`encorpa-pagamento-antecipado-0`, `antecipado-2-0`, `antecipado-3-0`; CPF como
+  `document`). Tabela de preços dos kits em R14.3.
+- **Kits de 2 e 3 peças (M-09):** a Malu oferece uma vez, na decisão; lê a quantidade e o
+  tamanho de cada peça (letra ou calça pela tabela); manda o link do kit e pede os tamanhos
+  no complemento; 4+ peças → pessoa. O kit expira após 7 dias sem uso (`units_at`).
+- **Caminho escolhido guardado** (`payment_choice`, só de uma escolha, 7 dias sem uso).
+- **Gate de preço** recebe a quantidade de peças da conversa (`ctx.units`); **régua
+  pós-compra** lê o pedido (total, peças, tamanhos, caminho; antecipado = "já pago").
+- **Pós-venda → pessoa**, exceto o encerramento feliz (lista de permissão).
+- **Hermes** instalado, calibrado (3/3), agendado a cada 50 leads (R14.1).
+- **Migrações aplicadas em produção, todas aditivas:** 0007 a 0013 (0011 `units_at`, 0012
+  `payment_choice`, 0013 `payment_choice_at` — a v32 no ar ignora todas).
+- **n8n "Venda confirmada"** lê Coinzz e Logzz (o teste do webhook da Logzz chegou em
+  05:38 com `?fonte=logzz` e `order_quantity`); kit exige N tamanhos no complemento.
+
+### Como foi verificado (o loop do dia)
+- **Nove passadas de revisão independente** (`code-reviewer`, Opus) sobre os kits e cada
+  leva de correção, até **aprovado com resíduos** — cada passada achou furos reais da
+  anterior (lista no M-09). Resíduos aceitos no M-09.
+- **Rodadas de personas** (12 fixas + 3 de kit temporárias, não versionadas): final
+  `06-19-27` + confirmação `06-37-29` → **8/8, 0 respostas prontas**. O Hermes rodou sobre
+  cada rodada; propostas e decisões em `08-mudancas/propostas/` (H-2 do dia aberta).
+- **`pnpm verificar:guardas` 56/56** — cada bug do dia reinstalado é pego pelo seu teste.
+- CI local: `pnpm lint`, `typecheck`, `test` (3868), `dev:conversas` (1640/1640),
+  `typecheck:function`, `dev:gates --fail-on-loosen` — todos verdes.
+
+### Gasto da API da Meta no dia
+Personas ≈ R$ 1,37 · Hermes ≈ US$ 0,04 (≈ R$ 0,22) · **total ≈ R$ 1,60**.
+
+### Deploy feito em 2026-09-25 (06:40–07:00 UTC)
+- Secrets gravados: `BUSINESS_CONFIG` (gerado do exemplo, entrega na Logzz), `CONVERSATION_MODEL`
+  = `muse-spark-1.3-contributor`, `CONVERSATION_MODEL_PRICE`, **`SALE_WEBHOOK_TOKEN`** (novo;
+  o valor está só no Supabase e com o operador — nunca no repositório).
+- Função `turn` versão 38 (12 arquivos, `verify_jwt` ligado como antes).
+- Migrações 0011–0013 aplicadas antes (aditivas).
+- n8n: Turno com `É recepção?` → `Espera a recepção` (Wait `resumeInSeconds`) → `Resposta de
+  verdade` (`resume: true`); Venda repassa `?token=`. `pnpm dev:n8n` agora falha sem esses dois.
+- **Sondas em produção:** recepção → espera de 120 s → retomada ✓ (mas `meta: Unauthorized`, ver
+  bloqueio); venda sem token → **401** ✓; venda com token → chega à busca do lead ✓. As sondas
+  mandaram 3 e-mails de teste ao operador e 1 handoff para `contato@`; lead de teste apagado.
+
+### Próximos passos
+1. **Operador:**
+   - **colar a `META_API_KEY` válida** no Supabase (bloqueio acima);
+   - trocar a URL dos webhooks de venda para a versão com `&token=<SALE_WEBHOOK_TOKEN>` — dois na
+     Coinzz (`?fonte=coinzz&token=…`), um na Logzz (`?fonte=logzz&token=…`); até lá, **toda
+     venda real é recusada com 401** e vai para o e-mail de recusa;
+   - trocar `CONVERSATION_MODEL` para o modelo **sem `-contributor`** antes do primeiro lead
+     real (LGPD, R14.2);
+   - **revogar o PAT do Supabase** logo depois do deploy (Account → Access Tokens);
+   - decidir H-2 do Hermes (link que troca de caminho sai com o preço dele).
+2. ~~Deploy v33~~ — **feito** (acima). Referência do que foi usado: secret `BUSINESS_CONFIG` = `config/business.example.json`
+   com `agentName` "Malu", `testimonials` [], sem `scarcity`, sem `_comment`, `handoff.email`
+   `contato@encorpa-fashion.com.br`, `coupon.code` "SUPER20" **inativo** (código veio do
+   arquivo de teste — confirmar), `coinzz.offerHash` `offp16pv` / `prepayOfferHash` `offkw47x`
+   (só usados pelo pedido via API, que o n8n ainda não chama); secrets
+   `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE={"in":0.10,"out":0.20,"cached":0.002}`;
+   subir os 12 arquivos de `supabase/functions/turn/` pela API (ler a versão no ar antes —
+   era a 36); sonda pela porta `n8n`; O2 (nó `Wait`) junto.
+3. **Confirmar com um pedido real de kit na Logzz** que `order_quantity` vem 2/3 (o teste
+   só confirmou o campo, com 3 fictício).
+4. Pendências baixas: dois pedidos no mesmo lead (a régua lê o último; guardar `order_id`
+   no follow-up); M-08; apps da Coinzz; checkout no domínio da marca (O-02).
+
+### Para rodar personas localmente (receita que funcionou)
+Função: `BUSINESS_CONFIG` do exemplo com `hours` 0–24 (fora do horário tudo vira
+`deferred`), `DENO_CERT=/root/.ccr/ca-bundle.crt`, `SUPABASE_SERVICE_ROLE_KEY`/`META_API_KEY`
+= `placeholder` (o proxy injeta), `deno run --allow-env --allow-net=127.0.0.1:8000,<proxy>,…
+supabase/functions/turn/index.ts`. Runner: `NODE_USE_ENV_PROXY=1 … pnpm dev:personas
+--door=local --all --concurrency=2 --budget-brl=1`. Concorrência 3 gera 500 por conexão
+cortada no proxy local (não acontece em produção — conferido nos logs). Para matar a função,
+não use `pkill -f` com o padrão na mesma linha: ele mata o próprio shell.
+
+## ▶ Estado em 2026-09-24, fim da noite (histórico)
+
+**Branch:** `claude/sweet-meitner-g9nu8o` (a partir do `main` com o PR #31). Sem PR ainda.
+**Nada deployado** — a v32 continua no ar.
+
+### O que esta sessão fez (registro `docs/agente-ia/08-mudancas/registro.md`)
+- **M-05 atingida:** "tiro mais alguma dúvida" deixou de ser lido como desconto. Quatro
+  rodadas de segunda revisão (cada uma achou concessão escapando); a forma final só ignora
+  "tiro … dúvida" quando a janela da própria varredura não acha palavra de concessão depois.
+  No caminho: "Eu tiro um pouquinho." passava (`pouc\w+` não casa "pouquinho") — corrigido.
+  Placar ganhou `pronta-por-preco`.
+- **M-06 atingida:** a faixa "1 a 3 dias" só vai para a entrega por proximidade quando o que
+  vem depois dela é, no máximo, a janela do antecipado. Duas revisões (a primeira achou 14
+  frases honestas vetadas; corrigidas).
+- **Rodada R6** (jussara, tati, cleide, rafa, lu; R$ 0,10): todas as 8 checagens do placar
+  atingidas, 0 respostas prontas. Mediana subiu de 35 para 48 palavras — observar.
+- **M-07 aberta:** três furos antigos do `delivery_promise` achados pelas revisões.
+- `deno` não vem no container: `npm i -g deno` para rodar `pnpm typecheck:function`.
+- Runner: `--persona` é repetível, não aceita lista com vírgula.
+
+### Próximos passos
+1. **M-07** (endurece gate: revisão + rodada cleide, rafa, lu).
+2. **O-04** — autorização do operador para trocar a credencial do nó `Varre a regua`.
+3. Abrir PR desta branch quando o operador pedir; depois, o deploy v33 (ordem no bloco
+   abaixo, item 3).
+
+## ▶ Estado em 2026-09-24 à noite (histórico)
 
 **Branch:** `claude/affectionate-goodall-x5ujm4` → PR para `main` aberto no fim desta sessão.
 **Nada deployado** — a v32 continua no ar. Plano em uma página:

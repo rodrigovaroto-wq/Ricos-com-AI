@@ -18,7 +18,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { asksForIdentity } from "../agent/identity.js";
-import { decidesToBuy } from "../agent/interpret.js";
+import { asksForLink, decidesToBuy } from "../agent/interpret.js";
 import { asksForSize, statedSizeOf } from "../agent/sizing.js";
 
 export interface Entry {
@@ -95,6 +95,7 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
   // M-01 — a reply vetoed into the canned fallback. Goal: none.
   const fallbacks: Hit[] = [];
   const fallbackDelivery: Hit[] = [];
+  const fallbackPrice: Hit[] = [];
   // M-02 — the size Malu states changes without new size data from the customer.
   const flips: Hit[] = [];
   // M-03 — the same checkout link twice within three replies.
@@ -139,6 +140,7 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
       if (reply.status === "fallback") {
         fallbacks.push(hit);
         if ((reply.vetoes ?? []).some((v) => v.gate === "delivery_promise")) fallbackDelivery.push(hit);
+        if ((reply.vetoes ?? []).some((v) => v.gate === "price_promise")) fallbackPrice.push(hit);
       }
 
       const said = SIZE_SAID.exec(text)?.[1] ?? null;
@@ -150,7 +152,9 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
       const url = LINK.exec(text)?.[0];
       if (url) {
         hadLink = true;
-        if (links.some((l) => l.url === url && n - l.n <= 3)) dupLinks.push(hit);
+        // She asked for it again: the turn exempts that resend (asksForLink), and so does the
+        // measure — otherwise the right behaviour scores as M-03 (Hermes, 2026-09-25).
+        if (!asksForLink(customer) && links.some((l) => l.url === url && n - l.n <= 3)) dupLinks.push(hit);
         links.push({ n, url });
       }
 
@@ -179,6 +183,7 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
 
   add({ id: "respostas-prontas", entry: "M-01", goal: "Nenhuma resposta vetada vira a resposta pronta", value: fallbacks.length, target: "0", hits: fallbacks }, fallbacks.length === 0);
   add({ id: "pronta-por-prazo", entry: "M-01", goal: "Nenhuma resposta pronta causada por delivery_promise", value: fallbackDelivery.length, target: "0", hits: fallbackDelivery }, fallbackDelivery.length === 0);
+  add({ id: "pronta-por-preco", entry: "M-05", goal: "Nenhuma resposta pronta causada por price_promise", value: fallbackPrice.length, target: "0", hits: fallbackPrice }, fallbackPrice.length === 0);
   add({ id: "troca-de-tamanho", entry: "M-02", goal: "O tamanho não muda sem dado novo de calça, cintura ou letra", value: flips.length, target: "0", hits: flips }, flips.length === 0);
   add({ id: "link-repetido", entry: "M-03", goal: "O mesmo link não é mandado duas vezes em 3 respostas", value: dupLinks.length, target: "0", hits: dupLinks }, dupLinks.length === 0);
   const nagRate = priceReplies ? priceSizeNag.length / priceReplies : 0;

@@ -1506,3 +1506,110 @@ publicidade enganosa (CDC art. 37) e contra a política de anúncios da Meta, co
 derrubar a conta e o número. Não existe contagem real de estoque (a consulta da Logzz só
 diz se há disponibilidade por CEP). O "restam 12 unidades" (`allowUnverified`, decisão de
 08/09) fica, por decisão do operador, e carrega o mesmo risco em escala menor.
+
+---
+
+# Rodada 14 — kits, checkout e o loop que testa as correções (2026-09-25)
+
+Origem: a validação da v33 (etapa 2 do plano simples) e as decisões do operador ao longo
+do dia. Registro técnico de cada mudança em
+[`08-mudancas/registro.md`](../../agente-ia/08-mudancas/registro.md) (M-05 a M-09).
+
+## R14.1 — Hermes é parte do sistema, com o mesmo peso de n8n e Supabase
+
+Instalado, calibrado (3 de 3 defeitos plantados achados) e agendado: a GitHub Action
+`hermes.yml` roda a cada 50 leads (R6.2) e grava propostas em `hermes_proposals`; também
+roda sobre cada rodada de personas (`pnpm hermes --source=personas:<pasta>`). Continua
+**offline e sem publicar sozinho** (R11.2, R11.6): toda proposta passa por um humano. Em
+dado de cliente real roda só o modelo padrão da Meta, **nunca** o `-contributor` (LGPD). Na
+rodada de kits, o Hermes achou um erro de medida no placar (M-03), aceito e corrigido.
+
+## R14.2 — Modelo da conversa: Muse Spark 1.3, trocado pelo operador antes do real
+
+O eval contra as 12 personas deu 0 respostas prontas; a Muse fica. Os testes rodam com
+`muse-spark-1.3-contributor`; **o operador troca para o modelo padrão antes do primeiro
+lead real** (secret `CONVERSATION_MODEL`).
+
+## R14.3 — Kits de 2 e 3 peças
+
+O checkout vende quantidade fixa, então há um link por quantidade e por caminho:
+
+| Caminho | 1 peça | 2 peças | 3 peças |
+|---|---|---|---|
+| Na entrega (Logzz) | R$ 129,90 (0%) | R$ 233,82 (10%) | R$ 311,76 (20%) |
+| Antecipado (Coinzz) | R$ 116,91 (10%) | R$ 207,84 (20%) | R$ 272,79 (30%) |
+
+Decisões do operador: a Malu **oferece o kit uma vez, na decisão**; **pergunta o tamanho de
+cada peça** (letra ou número de calça, convertido pela mesma tabela de 1 peça — ela nunca
+chuta); pede os tamanhos **no complemento do endereço**; **4 peças ou mais vão para uma
+pessoa**. O kit fica guardado enquanto é usado e expira após 7 dias sem uso. O gate de
+preço exige que preço e percentual pertençam a uma oferta do caminho e de uma das
+quantidades que a frase cita. **Resíduo aceito:** dois kits citados juntos com os preços
+trocados entre si ("2 peças R$ 311,76 e 3 peças R$ 233,82") — o link do checkout mostra o
+preço certo antes de ela confirmar.
+
+## R14.4 — Checkout: entrega na Logzz, antecipado na Coinzz
+
+O checkout de entrega da Coinzz cobrava frete e não havia como desligar; **a entrega voltou
+para a Logzz**, onde o frete para a cliente é R$ 0,00 (links `ccm-1-unidade`,
+`ccm-2-unidades`, `ccm-3-unidades`; ofertas `sal0g3mo`, `salng30n`, `sal6gz39`). O
+antecipado segue na Coinzz (`encorpa-pagamento-antecipado-0`, `antecipado-2-0`,
+`antecipado-3-0`; ofertas `offkw47x`, `offy3l4v`, `offdd0gn`). O link da Logzz preenche o
+CPF como `cpf`; o da Coinzz, como `document`. Os dois webhooks (Coinzz e Logzz) caem no
+mesmo `/encorpa-venda` do n8n, com `?fonte=`.
+
+## R14.5 — O caminho que ela escolheu vale até ela escolher de novo
+
+Achado da rodada de personas: depois de "prefiro pagar antecipado no pix", o turno
+seguinte voltava ao link da entrega, porque a escolha valia só na mensagem em que foi
+dita. Agora fica no lead (`leads.payment_choice`) e é zerada após a compra. Só é gravada
+quando a frase **é uma escolha** ("quero no pix", "pix mesmo"), nunca de uma pergunta ou
+comparação ("quanto economizo no pix?"), e expira após 7 dias sem uso, como o kit. Região
+sem pagamento na entrega continua forçando o antecipado.
+
+## R14.10 — A régua pós-compra fala do pedido, não do preço de tabela
+
+A confirmação e a véspera leem o pedido: total, peças, tamanhos e caminho. Kit na entrega:
+"Kit de 2 coletes, tamanhos M e G, R$ 233,82 na entrega" e "deixa R$ 233,82 separado".
+Pedido antecipado: "já pago", sem "deixa separado".
+
+## R14.11 — Pós-venda vai para uma pessoa, exceto o encerramento feliz
+
+Toda mensagem sobre um pedido existente vai para uma pessoa, menos o agradecimento ou a
+despedida sem queixa ("obrigada, já finalizei", "chegou, amei"). A exceção é uma lista de
+permissão: qualquer palavra fora dela ("mas veio o M", "só 1 das 2") mantém o handoff.
+
+## R14.6 — Fatos do config confirmados pelo operador
+
+Consulta de região **fica ativa** mesmo imperfeita. "Mais de 500 clientes satisfeitas" e
+"planos de loja em São Paulo" **são verdade** e ficam. Depoimentos: nenhum no secret (a
+Malu aponta a seção do site). **Proposto, sem objeção, a confirmar no deploy:** o secret
+de produção sai sem `scarcity` (o "restam 12" que a R13.6 manteve carrega o mesmo risco), e
+o cupom fica inativo — o código `SUPER20` veio do arquivo de teste, não do operador.
+
+## R14.7 — Erro corrigido é erro com guarda testada, e o loop vai até a revisão aprovar
+
+Cada bug corrigido ganha um teste e uma **mutação** em `pnpm verificar:guardas`, que
+reinstala o bug e exige que o teste fique vermelho (roda no CI). Mudança de gate passa por
+`pnpm dev:gates` (nenhum afrouxamento sem aceite). A validação é um loop: revisão
+independente → correção na origem → nova revisão, até aprovar; depois rodada de personas e
+Hermes sobre ela. Nos kits foram quatro passadas; cada uma achou furos da anterior.
+
+## R14.8 — Deploy só com o "pode subir" do operador
+
+A v33 sobe (secrets, 12 arquivos, sonda pelo n8n) só depois do aval explícito. O token de
+acesso (PAT) do Supabase usado no deploy é revogado pelo operador logo em seguida.
+
+## R14.12 — Deploy da v33 e a senha dos webhooks (O10)
+
+O operador deu o aval ("pode subir"). Coinzz e Logzz **não têm campo de cabeçalho** no
+webhook (conferido pelo operador nas telas), então a senha vai na URL (`&token=`), o n8n a
+repassa e a função a compara com o secret `SALE_WEBHOOK_TOKEN` — venda sem a senha recebe
+401. O O2 (espera de 2 min e retomada) subiu junto. A sonda de produção achou a
+`META_API_KEY` do Supabase recusada pela Meta: bloqueio do operador.
+
+## R14.9 — Para depois
+
+Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da
+marca (O-02); autenticar os webhooks do n8n (O10) — com segredo em header se Coinzz e Logzz
+permitirem, senão na URL.

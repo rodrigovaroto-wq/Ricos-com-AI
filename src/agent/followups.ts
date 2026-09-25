@@ -204,6 +204,26 @@ export interface ExistingFollowup {
 export const isOrderDead = (status: string | undefined): boolean =>
   /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
 
+/**
+ * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
+ * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
+ * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
+ * paid — did not exist in the database. Read by root, like `isOrderDead`, because neither
+ * platform publishes its vocabulary. Paid is not delivered: a prepaid "Pagamento
+ * aprovado" is still an order waiting to ship. A failed attempt ("não entregue",
+ * "frustrada") may be retried and `recusado` is terminal, so it moves nothing.
+ */
+export const stageForOrder = (
+  status: string | undefined,
+): "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null => {
+  const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
+  if (isOrderDead(s)) return "recusado";
+  if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
+  if (/\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid/.test(s)) return "em_rota";
+  return "pedido_criado";
+};
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
@@ -339,6 +359,15 @@ export interface RenderContext {
   now?: Date;
   size?: string;
   address?: string;
+  /**
+   * The order's own total and pieces (fifth review, kits): "deixa R$ 129,90 separado" on a
+   * kit of R$ 233,82 is the surprise at the door the post-order ruler exists to prevent.
+   * Absent means one piece at the configured price.
+   */
+  amountBrl?: number;
+  units?: number;
+  /** She already paid (prepaid order): nothing is due at the door (sixth review). */
+  prepaid?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
 }
@@ -351,7 +380,10 @@ export interface RenderContext {
  */
 export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string | null => {
   const now = ctx.now ?? new Date();
-  const price = brl(ctx.config.prices.codBrl);
+  const price = brl(ctx.amountBrl ?? ctx.config.prices.codBrl);
+  // A kit's sizes are stored "M,G"; she reads "M e G".
+  const sizes = (ctx.size ?? "—").split(",").join(" e ");
+  const item = (ctx.units ?? 1) > 1 ? `Kit de ${ctx.units} coletes, tamanhos **${sizes}**` : `Colete tamanho **${sizes}**`;
 
   switch (kind) {
     // Nothing to render: the text was written when the turn happened. A missing body
@@ -383,7 +415,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
 
     case "order_confirmed":
       return (
-        `Pedido confirmado! 🎉 Colete tamanho **${ctx.size ?? "—"}**, ${price} na entrega` +
+        `Pedido confirmado! 🎉 ${item}, ${ctx.prepaid ? `${price}, já pago` : `${price} na entrega`}` +
         `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n` +
         `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
       );
@@ -394,7 +426,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "order_eve":
       return (
         `Oi! Sua entrega está marcada pra **amanhã** 💛\n` +
-        `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n` +
+        (ctx.prepaid ? "" : `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n`) +
         `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`
       );
 
@@ -440,7 +472,7 @@ export type Delivery =
 const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string => {
   switch (variable) {
     case "price":
-      return brl(ctx.config.prices.codBrl);
+      return brl(ctx.amountBrl ?? ctx.config.prices.codBrl);
     case "warrantyDays":
       return String(ctx.config.delivery.warrantyDays);
     case "size":

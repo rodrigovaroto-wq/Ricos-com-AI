@@ -33,6 +33,7 @@ Chegamos lá quando estas cinco coisas forem verdade ao mesmo tempo:
 |---|---|
 | ✅ **Pronto e no ar** | A conversa inteira, do "oi" ao link de checkout, com 19 travas de segurança (gates), teto de custo e passagem para humano por e-mail. A venda confirmada volta pelo webhook e para a cobrança. É a versão **v32**. |
 | ✅ **Pronto, mas só no repositório** | A **v33**: modelo novo (Muse Spark), sem frete grátis, desconto do antecipado só em "10%", recepção automática com espera de 2 min, funil e desfecho de cada turno gravados no banco. Mais as 12 clientes de teste e o programa que as roda. 3049 testes verdes. |
+| ✅ **Pronto em 25/09** | **Hermes** instalado, configurado e calibrado: lê as conversas em lote, mascara dado pessoal, propõe mudanças no formato do registro, cada proposta validada (trecho literal, nada da lista do "não fazer") e testada contra os gates de hoje. Achou 3 de 3 defeitos plantados. Roda sozinho a cada 50 leads (GitHub Action) e abre um PR para você decidir. **Régua do n8n funcionando** (a credencial errada a travava desde o início). Ferramentas que impedem os erros de voltar: `dev:gates` (CI barra gate afrouxado), fuzz de 3500 mentiras, `dev:n8n` (confere o n8n que está no ar). |
 | ⏳ **Falta** | Rodar as 12 clientes de verdade · comparar os dois modelos · testar pedido real nas duas plataformas · subir a v33 · ligar o WhatsApp oficial · aquecer o número. |
 
 **O banco de produção está vazio.** Tudo o que foi "verificado em produção" antes foi com
@@ -129,16 +130,26 @@ correções do teste 1.
 
 ---
 
-## 5. O que fica para depois das vendas reais
+## 5. O Hermes em cada etapa
+
+O Hermes é o que faz a Malu melhorar com as conversas — com o mesmo peso de n8n e Supabase:
+
+- **Etapa 2 (agora):** roda sobre cada rodada de personas e é calibrado com defeitos
+  plantados (`pnpm hermes:calibrar`) — prova que acha o problema quando ele existe.
+- **Etapa 3:** três segredos no GitHub (`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`,
+  `META_API_KEY`) ligam a execução automática.
+- **Etapas 4 e 5:** a cada 50 leads reais ele lê as conversas e abre um PR com as propostas.
+  Você aceita (vira entrada do registro, medida pelo placar) ou fecha o PR. Nunca aplica
+  nada sozinho (R11.6).
+
+## 6. O que fica para depois das vendas reais
 
 Nada disto começa antes de haver conversas suficientes para uma taxa significar algo:
 
-- **Hermes** lendo as conversas em lote e propondo melhorias — que **você aprova**, nunca
-  aplicadas sozinhas.
 - Mandar a venda confirmada de volta ao Meta Ads (Conversions API).
 - Cupom do terceiro lembrete, depoimentos, tamanho M fora de Minas.
 
-## 6. O que decidimos não fazer
+## 7. O que decidimos não fazer
 
 Não vamos: deixar o modelo tomar ações sozinho · buscar documentos por similaridade (RAG)
 · pôr o Hermes dentro da conversa · aplicar melhoria em produção sem você. Motivos na

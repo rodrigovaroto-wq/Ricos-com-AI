@@ -234,6 +234,8 @@ export interface CheckoutLinkConfig {
  * both live pages; every other spelling, address and size included, is ignored by both.
  */
 export const CHECKOUT_QUERY_FIELDS = {
+  // Cash on delivery is back on Logzz (operator, 2026-09-25: the Coinzz delivery checkout
+  // charged freight and could not be set not to). Logzz reads the CPF as `cpf`.
   cod: ["name", "email", "phone", "cpf"],
   prepay: ["name", "email", "phone", "document"],
 } as const;
@@ -260,6 +262,7 @@ export const buildPrefilledCheckoutLink = (
   if (filled(customer.email)) query.set("email", customer.email!.trim().toLowerCase());
   if (digitsOnly(customer.phone ?? "").length >= 10) query.set("phone", digitsOnly(customer.phone!));
   if (digitsOnly(customer.document ?? "").length >= 11) {
+    // Logzz (cash on delivery) reads `cpf`; Coinzz (prepaid) reads `document`.
     query.set(paymentMethod === "cod" ? "cpf" : "document", digitsOnly(customer.document!));
   }
   const qs = query.toString();

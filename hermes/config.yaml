@@ -1,0 +1,30 @@
+# Hermes Agent — config for the Malu supervisor (R11.2: offline, never in the turn).
+# `pnpm hermes` copies this file and hermes/skills/ into a throwaway HERMES_HOME per run.
+#
+# Model: the STANDARD Muse Spark, never the `-contributor` variant. The supervisor reads
+# real customer conversations in production, and the contributor tier lets Meta train on
+# every prompt (LGPD). The Meta plugin sends side tasks to `muse-spark-1.2-contributor`
+# by default, so every auxiliary task below is pinned to the main endpoint and model too.
+# `pnpm hermes --model=muse-spark-1.3-contributor` is allowed only on persona runs, where
+# every customer is synthetic — the runner refuses it on the Supabase source.
+model:
+  provider: "meta-ai"
+  default: "muse-spark-1.3"
+
+auxiliary:
+  compression:
+    provider: "main"
+    model: "muse-spark-1.3"
+  session_search:
+    provider: "main"
+    model: "muse-spark-1.3"
+  web_extract:
+    provider: "main"
+    model: "muse-spark-1.3"
+  vision:
+    provider: "main"
+    model: "muse-spark-1.3"
+  title_generation:
+    enabled: false
+    provider: "main"
+    model: "muse-spark-1.3"

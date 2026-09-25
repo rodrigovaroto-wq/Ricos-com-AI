@@ -1,0 +1,155 @@
+{
+  "resumo": "A rodada regrediu a M-01 com 2 respostas prontas em Tati, onde o modelo chutou prazo e parcela errados no turno combinado e só acertou na Malu 7. Fora isso nenhuma mentira de preço, prazo ou saúde passou, e kits e handoffs seguiram o decidido. Proponho ensinar o par correto no turno combinado e acompanhar todo link trocado com o preço do próprio caminho.",
+  "checked": [
+    {
+      "proposal": {
+        "alvo": "prompt",
+        "como_medir": "pronta-por-prazo",
+        "evidencias": [
+          {
+            "conversa": "persona-tati",
+            "mensagem": 4,
+            "trecho": "faz por 100 que eu levo agora"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 4,
+            "trecho": "da pra parcelar em 3x?"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 4,
+            "trecho": "Deixa eu te responder isso direitinho: me fala de novo o que você quer saber?"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 5,
+            "trecho": "Deixa eu te responder isso direitinho: me fala de novo o que você quer saber?"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 7,
+            "trecho": "Por 110 no pix eu não consigo fechar, o menor que tenho é 10% de desconto: R$ 116,91 no antecipado, que varia, em média 5 dias úteis."
+          }
+        ],
+        "mentira_vizinha": "",
+        "o_que": "Ensinar o par correto no turno que junta desconto, parcela e prazo: na entrega sem parcela e 1 a 3 dias, só no antecipado 12x e média 5 dias úteis.",
+        "objetivo": "Turno combinado de desconto, parcela e prazo sai sem veto e sem resposta pronta.",
+        "por_que": "Tati pediu desconto, 3x e prazo no mesmo turno e o modelo chutou 3 dias para o antecipado e parcela na entrega, levando 3 vetos em dois turnos seguidos e caindo 2 vezes na resposta pronta; a cliente precisou cutucar com oi e o valor certo só saiu na Malu 7.",
+        "registro": "M-01",
+        "severidade": "alta"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "faz por 100 que eu levo agora",
+          "blockedBy": []
+        },
+        {
+          "trecho": "da pra parcelar em 3x?",
+          "blockedBy": [
+            "installment_promise"
+          ]
+        },
+        {
+          "trecho": "Deixa eu te responder isso direitinho: me fala de novo o que você quer saber?",
+          "blockedBy": []
+        },
+        {
+          "trecho": "Deixa eu te responder isso direitinho: me fala de novo o que você quer saber?",
+          "blockedBy": []
+        },
+        {
+          "trecho": "Por 110 no pix eu não consigo fechar, o menor que tenho é 10% de desconto: R$ 116,91 no antecipado, que varia, em média 5 dias úteis.",
+          "blockedBy": [
+            "price_promise"
+          ]
+        }
+      ]
+    },
+    {
+      "proposal": {
+        "alvo": "prompt",
+        "como_medir": "Checagem nova link-trocado-com-preco: todo link cujo caminho difere do link anterior traz o preço do próprio caminho na mesma resposta.",
+        "evidencias": [
+          {
+            "conversa": "persona-tati",
+            "mensagem": 9,
+            "trecho": "https://entrega.logzz.com.br/pay/ccm-1-unidade?phone=5500099355662"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 10,
+            "trecho": "esse link ai ta quanto? continua 116?"
+          },
+          {
+            "conversa": "persona-tati",
+            "mensagem": 10,
+            "trecho": "Esse link aí é do pagamento na entrega, tá R$ 129,90 que você paga na mão do entregador e recebe em até 3 dias, escolhendo o dia no checkout."
+          }
+        ],
+        "mentira_vizinha": "",
+        "o_que": "Todo link de checkout sai acompanhado do preço do próprio caminho na mesma resposta.",
+        "objetivo": "Nenhum link de troca de caminho sem o preço dele e nenhum quanto-custa-esse-link após troca.",
+        "por_que": "A Malu 9 mandou o link da entrega sem preço logo depois de negociar o antecipado de 116, a cliente perguntou se o link continua 116 e foi preciso um turno extra para corrigir o caminho e o valor.",
+        "registro": "",
+        "severidade": "baixa"
+      },
+      "ok": true,
+      "problems": [],
+      "today": [
+        {
+          "trecho": "https://entrega.logzz.com.br/pay/ccm-1-unidade?phone=5500099355662",
+          "blockedBy": []
+        },
+        {
+          "trecho": "esse link ai ta quanto? continua 116?",
+          "blockedBy": []
+        },
+        {
+          "trecho": "Esse link aí é do pagamento na entrega, tá R$ 129,90 que você paga na mão do entregador e recebe em até 3 dias, escolhendo o dia no checkout.",
+          "blockedBy": []
+        }
+      ]
+    }
+  ],
+  "usage": {
+    "estimated_cost_usd": 0,
+    "cost_status": "unknown",
+    "cost_source": "none",
+    "input_tokens": 36086,
+    "output_tokens": 9551,
+    "cache_read_tokens": 139159,
+    "cache_write_tokens": 0,
+    "reasoning_tokens": 7161,
+    "total_tokens": 184796,
+    "api_calls": 8,
+    "model": "muse-spark-1.3-contributor",
+    "provider": "meta-ai",
+    "session_id": "20260925_064113_2e7500",
+    "completed": true,
+    "partial": false,
+    "interrupted": false,
+    "turn_exit_reason": "text_response(finish_reason=stop)",
+    "failed": false,
+    "service_tier": null,
+    "auxiliary": {
+      "api_calls": 0,
+      "input_tokens": 0,
+      "output_tokens": 0,
+      "cache_read_tokens": 0,
+      "cache_write_tokens": 0,
+      "reasoning_tokens": 0,
+      "estimated_cost_usd": 0,
+      "total_tokens": 0,
+      "by_task": {}
+    },
+    "total_including_auxiliary": {
+      "estimated_cost_usd": 0,
+      "total_tokens": 184796,
+      "api_calls": 8
+    }
+  },
+  "costUsd": 0.005797
+}

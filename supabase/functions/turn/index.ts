@@ -22,12 +22,13 @@ import {
   decideTouch,
   nextOpening,
   onOrderConfirmed,
+  stageForOrder,
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, statedSizeOf } from "./sizing.ts";
+import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
@@ -86,7 +87,12 @@ import {
   linkPathFor,
   linkSentRecently,
   asksForLink,
+  choosesPath,
+  closesConversation,
+  saysOwnSize,
+  mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
+  quantityOf,
   readInterpretation,
   readyForLink,
   sendLinkNow,
@@ -910,8 +916,11 @@ interface OrderWebhook {
   externalId: string;
   phone: string;
   paymentMethod: "cod" | "prepay";
+  /** One size, or one per piece ("M,G") when the order is a kit. */
   size: string;
   amountBrl: number;
+  /** Pieces in the order (Coinzz `order_quantity`), 1 when absent. */
+  units?: number;
   status?: string;
   checkoutUrl?: string;
   scheduledFor?: string;
@@ -947,7 +956,7 @@ const recordOrder = async (order: OrderWebhook) => {
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
   const conversations = await db(
-    `conversations?lead_id=eq.${lead.id}&select=id&order=created_at.desc&limit=1`,
+    `conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`,
   );
   const conversation = conversations?.[0] ?? null;
 
@@ -961,6 +970,7 @@ const recordOrder = async (order: OrderWebhook) => {
       checkout_url: order.checkoutUrl ?? null,
       payment_method: order.paymentMethod,
       size: order.size,
+      units: order.units ?? 1,
       amount_brl: order.amountBrl,
       status: order.status ?? "created",
       scheduled_for: order.scheduledFor ?? null,
@@ -968,8 +978,19 @@ const recordOrder = async (order: OrderWebhook) => {
     }),
   });
 
+  // The purchase closes the kit she was building: a later purchase starts from one piece
+  // and asks again, instead of sending the old kit link with the old sizes (code review).
+  await db(`leads?id=eq.${lead.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),
+  }).catch(() => undefined);
+
   // No conversation means no ruler to touch — the sale is recorded and that is all.
   if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
+
+  // The funnel follows the sale (plan v2, 5.8): same no-regression rule as the turn.
+  const reached = stageForOrder(order.status);
+  if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the
   // unique key, and re-arming it throws.
@@ -1027,6 +1048,11 @@ const RETRY_TURN_BUDGET_MS = 30_000;
 const INTERPRET_TIMEOUT_MS = 20_000;
 /** On the sweep's retry the interpreter is cut much sooner — the reply is what matters. */
 const RETRY_INTERPRET_TIMEOUT_MS = 8_000;
+/**
+ * How long a kit is remembered with no turn using it (loop review). Every turn that uses
+ * the kit renews it, so a conversation that crosses days — the ruler's follow-ups — keeps it.
+ */
+const KIT_MEMORY_MS = 7 * 24 * 60 * 60 * 1000;
 /** Each postcode lookup (ViaCEP, then the checkout's availability) is cut here. */
 const REGION_TIMEOUT_MS = 10_000;
 const RETRY_REGION_TIMEOUT_MS = 5_000;
@@ -1060,7 +1086,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
   const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
@@ -1124,11 +1150,31 @@ const runFollowupSweep = async () => {
     }
 
     const kind = row.kind as FollowupKind;
+    // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
+    // 1-piece price (fifth review, kits).
+    const order = kind.startsWith("order_")
+      ? (
+          await db(
+            `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
+          )
+        )?.[0] ?? null
+      : null;
+    // Before the order, what the turn knew when it wrote a deferred reply: the kit and the
+    // path she chose, while fresh. Re-gated as "cod" and one piece, a kit reply was lost.
+    const fresh = (at: unknown) =>
+      typeof at === "string" && Number.isFinite(Date.parse(at)) && Date.now() - Date.parse(at) <= KIT_MEMORY_MS;
+    const touchUnits: number = order ? Number(order.units ?? 1) : fresh(lead.units_at) ? Number(lead.units ?? 1) : 1;
+    const touchPath: "cod" | "prepay" = order
+      ? order.payment_method === "prepay" ? "prepay" : "cod"
+      : fresh(lead.payment_choice_at) && lead.payment_choice === "prepay" ? "prepay" : "cod";
     const text = renderFollowup(kind, {
       leadId: lead.id,
       config: CONFIG,
       stopPoint: (row.stop_point ?? "before_size") as StopPoint,
-      size: lead.size ?? undefined,
+      size: order?.size ?? lead.size ?? undefined,
+      ...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),
+      units: touchUnits,
+      prepaid: order?.payment_method === "prepay",
       body: row.body ?? undefined,
     });
 
@@ -1151,7 +1197,9 @@ const runFollowupSweep = async () => {
       layer: "agent",
       optedOut: false,
       now: new Date(),
-      paymentPath: "cod",
+      paymentPath: touchPath,
+      units: touchUnits,
+      ...(order && Number(order.amount_brl) > 0 ? { orderAmountBrl: Number(order.amount_brl) } : {}),
       stage: kind.startsWith("order_") ? "logistics" : "presale",
     });
 
@@ -1228,6 +1276,8 @@ type TurnPayload = {
   /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
   source?: Record<string, unknown>;
   order?: OrderWebhook;
+  /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
+  token?: string;
   /**
    * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
    * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
@@ -1254,6 +1304,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
  * can run a turn again after a network failure (R13.4); `internal.retry` is only ever set
  * by the sweep, never by what n8n posts.
  */
+/** Constant-time comparison: a wrong token takes as long to refuse at any prefix. */
+const sameSecret = (given: string, expected: string): boolean => {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i]!;
+  return diff === 0;
+};
+
 const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket } = {}): Promise<Response> => {
   const turnStartedAt = Date.now();
 
@@ -1264,6 +1323,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
   // what that does to the schedule lives in `followups.ts`, where a test can hold it.
   if (payload.job === "order") {
+    // O10: the sale webhook is public — anyone could post a forged sale with a real
+    // customer's phone and arm the post-order ruler on her. Coinzz and Logzz cannot send a
+    // custom header, so the secret travels in their webhook URL (`&token=`), n8n forwards it,
+    // and it is checked here against a Supabase secret. Unset = not enforced yet.
+    const saleToken = Deno.env.get("SALE_WEBHOOK_TOKEN") ?? "";
+    if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {
+      return json(401, { error: "token do webhook de venda inválido" });
+    }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
     const result = await recordOrder(payload.order);
     // A refused order must not answer 200. n8n reads the status, and a green webhook over
@@ -1279,6 +1346,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
   // carries no fresh message: it re-reads the one already stored.
   const isRetry = internal.retry !== undefined;
+  /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
+  let retriedInboundAt: string | null = null;
 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
@@ -1371,6 +1440,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
+    retriedInboundAt = latest[0].created_at ?? null;
   }
 
   if (!isResume && !isRetry) {
@@ -1911,7 +1981,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
     const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
-    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl]) {
+    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)]) {
       if (orderContext || !base) continue;
       const sent = await db(
         `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
@@ -1945,6 +2015,61 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ size: stated.size, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+
+  // 5c. How many pieces (kits, 2026-09-25). The Coinzz checkout sells a fixed quantity,
+  // so the quantity picks the link, and each piece has its own size. More than the biggest
+  // kit has no link at all: a person builds that order (operator's decision).
+  const kits = CONFIG.kits ?? [];
+  const quantity = quantityOf(inbound.body ?? "", interpretation);
+  // An abandoned kit expires (loop review, 2026-09-25): nothing closes a conversation, so
+  // "quero 2, M e G" twelve days ago would turn today's "quero o M" into the kit-of-2 link.
+  const unitsAt = typeof lead.units_at === "string" ? Date.parse(lead.units_at) : NaN;
+  const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;
+  const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;
+  const maxUnits = Math.max(1, ...kits.map((k) => k.units));
+  if (units > maxUnits) {
+    return await handOff(
+      `Pra levar ${units} peças eu chamo uma pessoa do time pra montar seu pedido 💛`,
+      `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`,
+    );
+  }
+  const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);
+  // Pants numbers go through the same deterministic table as one piece's: the model never
+  // converts a size, and she should not have to guess her letter (kit round).
+  const saidSizes: string[] = quantity?.sizes.length
+    ? quantity.sizes
+    : interpretation.unit_pants.length
+      ? interpretation.unit_pants.map(sizeFromDressSize)
+      : stated && units > 1
+        ? [stated.size]
+        : [];
+  // A retry replays the same message: when the first attempt already merged it (the kit
+  // was written after that message arrived), merging again would add a size she said once.
+  // When it did not, the sizes count — read from the clock, never guessed from content.
+  // A full list is idempotent, so only a partial one can be dropped as a replay (third review).
+  const replayed =
+    isRetry &&
+    saidSizes.length < units &&
+    retriedInboundAt !== null &&
+    Number.isFinite(unitsAt) &&
+    unitsAt >= Date.parse(retriedInboundAt);
+  const unitSizes: string[] =
+    units > 1
+      ? mergeUnitSizes(
+          storedSizes,
+          replayed ? [] : saidSizes,
+          units,
+          saysOwnSize(inbound.body ?? "", interpretation),
+        )
+      : [];
+  // Written on every turn that uses a kit, not only when it changes: the age is of the last
+  // use, or a kit said on Monday expires mid-conversation on Friday (third review).
+  if (quantity || units > 1) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ units, unit_sizes: unitSizes, units_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
 
@@ -2118,7 +2243,35 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * the rest. The identity ask became a directive for the agent to phrase, and it stops
    * once the link is in the chat.
    */
-  const linkPath = linkPathFor(interpretation.payment_choice, region);
+  // Her choice holds until she makes another (loop round, 2026-09-25): read per message, the
+  // turn after "quero no pix" fell back to cash on delivery and sent the delivery checkout.
+  // Stored only when her words make a choice, never from a question ("quanto economizo no
+  // pix em vez de pagar na entrega?"), and forgotten like an abandoned kit (fourth review).
+  const choiceAt = typeof lead.payment_choice_at === "string" ? Date.parse(lead.payment_choice_at) : NaN;
+  const storedChoice =
+    Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
+      ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
+      : null;
+  const paymentChoice = interpretation.payment_choice ?? storedChoice;
+  // A choice in use is renewed like the kit, at most once a day (fifth review).
+  const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
+  if (renewChoice) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
+  if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({
+        payment_choice: interpretation.payment_choice,
+        payment_choice_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
+    }).catch(() => undefined);
+  }
+  const linkPath = linkPathFor(paymentChoice, region);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
   const linkCustomer = {
@@ -2127,28 +2280,40 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     phone: lead.phone,
   };
   const identityComplete = isIdentityComplete(identityDraft);
-  const sizeKnown = (stated?.size ?? lead.size ?? null) !== null;
+  // Kits: every piece needs its size before the link, and the link is the kit's own.
+  const sizeKnown = units > 1 ? unitSizes.length >= units : (stated?.size ?? lead.size ?? null) !== null;
+  const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
+  if (units > 1 && !kitUrl) {
+    return await handOff(
+      `Pra montar esse pedido de ${units} peças eu chamo uma pessoa do time 💛`,
+      `a cliente quer ${units} peças no ${linkPath === "cod" ? "pagamento na entrega" : "antecipado"}, e não há kit de ${units} nesse caminho`,
+    );
+  }
+  const linkCheckout = kitUrl ? { codUrl: kitUrl, prepayUrl: kitUrl } : (CONFIG.checkout ?? {});
   const readiness = {
     identityComplete,
     interpretation,
     identityAsked: asksForIdentity(lastOutbound),
     identityGiven: Object.keys(identityFound).length > 0,
   };
-  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl].filter(
+  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...kits.map((k) => k.checkoutUrl)].filter(
     (u): u is string => typeof u === "string" && u !== "",
   );
   // M-03: the link this turn would send, if it went out in the last three messages, is
   // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
   // from the delivery checkout to the prepaid one is a different link and still goes out.
-  const pathBase = linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+  const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
   const linkJustSent =
     !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
   const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
   // Ready for the link and the size still unknown: the size comes first, asked naturally.
   const sizeBeforeLink =
     !sizeKnown && readyForLink(readiness)
-      ? `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
-        ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
+      ? units > 1
+        ? `Ela quer ${units} peças e ${unitSizes.length === 0 ? "nenhum tamanho foi dito" : `só ${unitSizes.length} tamanho(s) foi dito (${unitSizes.join(", ")})`}:` +
+          ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
+        : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
+          ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : null;
   const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
@@ -2157,7 +2322,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     : (["name", "email", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
   if (linkNow) {
     try {
-      checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {});
+      checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout);
     } catch (error) {
       checkoutBlocked =
         error instanceof CoinzzIncompleteError ? [...error.missing] : [String(error)];
@@ -2167,18 +2332,24 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // "Vou pensar" (R13.4): the operator's line, then the link in a bubble of its own. No
   // model call — unless she also asked something, and then the model answers with the
   // link in its directive like any other turn.
+  // A goodbye with the link already in the chat gets the operator's line without the link
+  // again (persona round); "vou pensar" keeps the line either way (seventh review).
+  const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
   if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
     // Never a link without a size: without one she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = sizeKnown && !linkJustSent
-        ? buildPrefilledCheckoutLink(linkCustomer, linkPath, CONFIG.checkout ?? {})
+      thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? ""))
+        ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
       thinkLink = null;
     }
     const sent = await sendFixed(
-      thinkLink ? `${THINK_REPLY}\n\n${thinkLink}` : THINK_REPLY,
+      thinkLink
+        ? `${THINK_REPLY}\n\n${thinkLink}` +
+            (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
+        : THINK_REPLY,
       "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink },
@@ -2204,13 +2375,29 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
-    stated?.size ?? lead.size ?? null,
+    // A kit carries one size per piece, and she types them all in the complement.
+    units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,
     linkPath,
     Object.keys(identityDraft).length > 0,
   );
+  // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
+  // kit's, the sizes she gave go in the checkout complement — the only field she types.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = recentOutbound.some((m) =>
+    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
+  );
+  const kitDirective =
+    units > 1 && checkoutUrl !== null
+      ? `O link é do kit de ${units} peças, com os tamanhos ${unitSizes.join(" e ")}.`
+      : units === 1 && interpretation.wants_to_buy && kitsOnPath.length > 0 && !kitOffered
+      ? `Na mesma mensagem, ofereça uma vez só, numa frase curta, que levando mais peças o desconto` +
+        ` sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
+        ` Se ela não quiser, siga com uma peça.`
+      : null;
   const sizeDirective =
     [
-      sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
+      kitDirective,
+      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,
@@ -2269,6 +2456,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // The path the link opens (R13.4) — "cod" unless she chose prepaid or her region
       // has no cash on delivery, and then the prepaid rules are the ones that apply.
       paymentPath: linkPath,
+      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.
+      units,
       recentOutbound,
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.

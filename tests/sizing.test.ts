@@ -335,3 +335,13 @@ describe("M-02: manequim não muda o tamanho", () => {
     expect(statedSizeOf("eu visto 42 de vestido")).toBe("G");
   });
 });
+
+describe("\"o G dela\" é tamanho dito (rodada de personas, 2026-09-25)", () => {
+  it("lido; negação e pergunta não", () => {
+    expect(statedSizeOf("quero fechar pra minha mae\n\ne o G dela")).toBe("G");
+    expect(statedSizeOf("é o M mesmo")).toBe("M");
+    expect(statedSizeOf("não é o G dela")).toBeNull();
+    expect(statedSizeOf("o G dela serve?")).toBeNull();
+    expect(statedSizeOf("o G é bonito")).toBeNull();
+  });
+});

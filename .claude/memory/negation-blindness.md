@@ -51,3 +51,17 @@ frase citada nos testes e no `simulate.ts`, mais as frases das revisões), antes
 nas configs e nos dois caminhos: **nenhum veredito pode ir de barrado para liberado** sem
 que isso seja a intenção declarada daquela mudança. Isso transforma "revisei e parece
 certo" em uma tabela verificável.
+
+**O método virou código (25/09).** Ele ficou três dias escrito aqui e ninguém o rodou —
+M-01, M-05 e M-06 ainda precisaram de 12 rodadas de revisão manual para achar os
+afrouxamentos. Agora é `pnpm dev:gates` (`src/dev/gate-diff.ts`): gate da base × gate da
+árvore sobre toda frase dos testes, `tests/gate-corpus.txt` (frases de revisão) e as
+respostas das personas, 3 configs × 2 caminhos × região conhecida ou não. O CI roda
+`--fail-on-loosen`: veto → passa que não estiver em `tests/gate-loosen-accepted.txt`
+derruba o PR. Toda frase que uma revisão achar vai para o corpus, mesmo com teste.
+
+**Exemplo não basta; gere a propriedade (25/09).** O diff só compara frases que já estão
+no corpus — e as mentiras que as exceções da M-07 liberaram nunca estavam lá. Quatro
+revisões seguidas acharam a próxima. O que fechou: um teste que **gera** as mentiras
+(`tests/prepaid-deadline-fuzz.test.ts`: isca × nome × verbo × número, 1560 frases) e exige
+veto em todas. Toda regra nova com exceção ganha o seu gerador antes da revisão.

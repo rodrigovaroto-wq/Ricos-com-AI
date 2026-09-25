@@ -29,7 +29,9 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
 - **PikaPods** — hospeda o que ainda precisa ficar de pé (n8n, e o que mais não migrar para serverless). Deixou de existir só por causa do WAHA.
 - **Hermes Agent** — supervisor **offline**: lê as conversas em lote, fora do caminho do
   turno, e **propõe** mudanças em `hermes_proposals`; nunca publica em produção sozinho e
-  nunca é chamado durante uma conversa (R11.2).
+  nunca é chamado durante uma conversa (R11.2). Instalado e calibrado desde 2026-09-25:
+  roda na GitHub Action `hermes.yml` a cada 50 leads (R6.2), com o modelo padrão da Meta
+  (nunca `-contributor` sobre cliente real) — ver [`hermes/README.md`](hermes/README.md).
 
 ## Arquitetura — decidida na rodada 11 (2026-09-22)
 
@@ -95,6 +97,16 @@ Mais um, que não é opcional: **`pnpm typecheck:function`** roda `deno check` s
 (`include: ["src", "tests"]`), então esta é a única coisa que olha o código que a
 produção executa de verdade. Rodar antes de todo deploy — o CI já roda.
 
+Três que guardam a origem de erros já cometidos (2026-09-25):
+
+- **`pnpm dev:gates`** — compara os vereditos dos gates da base com os da árvore sobre todo
+  o corpus. Mudou gate, rode antes de pedir revisão; o CI barra afrouxamento não aceito em
+  `tests/gate-loosen-accepted.txt`.
+- **`pnpm dev:n8n`** — baixa a versão **ativa** dos workflows e falha em credencial errada,
+  `neverError`, gatilho desligado ou timeout curto. Mexeu no n8n, rode.
+- **`pnpm hermes`** / **`pnpm hermes:calibrar`** — o supervisor offline. Ver
+  [`hermes/README.md`](hermes/README.md).
+
 > Todos existem no `package.json` e passam. O CI
 > ([`.github/workflows/ci.yml`](.github/workflows/ci.yml)) roda os quatro mais o
 > `typecheck:function` em todo push e PR.
@@ -153,6 +165,12 @@ revisão é onde o modelo mais forte se paga. Revertível por arquivo; o critér
 território é agente que inventa trabalho.
 
 ## Regras adicionais
+
+- **Toda decisão ou alteração entra no grafo de decisões**
+  ([`docs/documentacao/decisoes/04-grafo-de-decisoes.md`](docs/documentacao/decisoes/04-grafo-de-decisoes.md)):
+  sintoma → causa → caminhos tentados que falharam (e por quê) → correção → guarda. Leia o
+  grafo antes de mexer em gate, estado da conversa ou handoff. Sem registro no grafo, a
+  mudança não está pronta.
 
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
 - [`.claude/rules/code-ladder.md`](.claude/rules/code-ladder.md) — a escada de sete degraus que todo código novo sobe antes de ser escrito, e o que ela nunca corta. Importada acima, na diretriz 2.

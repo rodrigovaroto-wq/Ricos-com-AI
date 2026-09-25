@@ -2,13 +2,15 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
+  "versionId": "1615c079-c72e-4c76-ae5b-d11e4272c0bb",
   "nodes": [
     {
       "parameters": {
         "rule": {
           "interval": [
             {
-              "field": "minutes"
+              "field": "minutes",
+              "minutesInterval": 5
             }
           ]
         }
@@ -21,7 +23,7 @@
         0,
         0
       ],
-      "disabled": true
+      "disabled": false
     },
     {
       "parameters": {
@@ -35,11 +37,12 @@
         "options": {
           "response": {
             "response": {
-              "neverError": true
+              "neverError": false
             }
           },
           "timeout": 120000
-        }
+        },
+        "contentType": "json"
       },
       "id": "b641137d-4d40-4b70-a77d-e8848a88c875",
       "name": "Varre a regua",
@@ -51,8 +54,8 @@
       ],
       "credentials": {
         "httpHeaderAuth": {
-          "id": "0sqKT3S3CZoRh6ML",
-          "name": "Gemini API"
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
         }
       }
     },
@@ -71,6 +74,49 @@
         -96,
         -448
       ]
+    },
+    {
+      "id": "ff595bcb-595f-4d79-b713-8fd81967aa08",
+      "name": "Separa os handoffs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "jsCode": "// The sweep's retried turns can end in handoff (R13.4). Each one is a customer waiting\n// for a person who never comes unless this e-mail goes out. Empty list = no items = no e-mail.\nconst body = $input.first().json;\nconst list = Array.isArray(body.handoffs) ? body.handoffs : [];\nreturn list.filter((h) => h && h.notify).map((h) => ({ json: h }));"
+      }
+    },
+    {
+      "id": "af55552a-fd63-487c-aaaa-790d9c9cc2fc",
+      "name": "Avisa o operador",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "={{ $json.notify }}",
+        "subject": "=Handoff — a cliente {{ $json.phone }} está esperando uma pessoa",
+        "emailFormat": "text",
+        "text": "=A agente passou uma conversa para você e não volta a responder essa cliente.\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\n(Veio da varredura da régua: uma nova tentativa de turno terminou em handoff.)\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      },
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "webhookId": "89074296-4350-402b-a66d-0c8304bdc033"
     }
   ],
   "connections": {
@@ -84,11 +130,28 @@
           }
         ]
       ]
+    },
+    "Varre a regua": {
+      "main": [
+        [
+          {
+            "node": "Separa os handoffs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Separa os handoffs": {
+      "main": [
+        [
+          {
+            "node": "Avisa o operador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
     }
-  },
-  "settings": {
-    "executionOrder": "v1",
-    "availableInMCP": true,
-    "binaryMode": "separate"
   }
 }

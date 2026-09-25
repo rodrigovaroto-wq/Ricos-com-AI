@@ -4,7 +4,26 @@
  * Edge Function) and in vitest — one source of truth, no copy to drift.
  * `BusinessConfig` satisfies it structurally.
  */
+/**
+ * A kit of 2 or 3 pieces with its own checkout (operator, 2026-09-25): the Coinzz checkout
+ * sells a fixed quantity, so each path has one link per quantity, each with its own price
+ * and discount. One piece stays in `prices` and `checkout`; kits add to them.
+ */
+export interface Kit {
+  path: "cod" | "prepay";
+  units: number;
+  priceBrl: number;
+  discountPercent: number;
+  checkoutUrl: string;
+}
+
 export interface GateConfig {
+  /**
+   * OPTIONAL, and absent means one piece only: production reads the whole config from the
+   * `BUSINESS_CONFIG` secret, so until the operator writes the kits there, no kit price
+   * exists and the gate refuses every one.
+   */
+  kits?: readonly Kit[];
   prices: {
     codBrl: number;
     prepayBrl: number;
@@ -149,6 +168,13 @@ export interface GateContext {
    * `undefined` means nothing was checked — and then no size may be recommended.
    */
   sizeChecked?: string;
+  /** Pieces this conversation is about (kits); absent means one. */
+  units?: number;
+  /**
+   * The total of the order a post-order touch speaks of (sixth review): a total the
+   * platform closed, a coupon, or a price changed since, is still the amount she pays.
+   */
+  orderAmountBrl?: number;
   /**
    * The checkout returned a same-day modality for her postcode ("Express — receba hoje
    * em até 4 horas"). Only then is "hoje" a fact rather than the broken promise that
@@ -257,6 +283,14 @@ const defersToCheckout = (t: string): boolean =>
  * invisible, so "custa 200 reais" — a number the operation does not have — passed the
  * price gate untouched.
  */
+/**
+ * Right before the price a comparison is made against: "em vez de", "contra", "e não",
+ * "desconto sobre os". Never "do que": "menos do que R$ 272,79" is the lying comparative
+ * (second review).
+ */
+const COMPARED_AGAINST =
+  /\b(?:em\s+vez\s+d[eoa]s?|ao\s+inves\s+d[eoa]s?|no\s+lugar\s+d[eoa]s?|abaixo\s+d[eoa]s?|contra\s+(?:os?\s+)?|e\s+nao|(?:desconto|%)\s+sobre\s+(?:os?|as?)|comparad[oa]\s+(?:a|com)(?:\s+os?)?)\s*$/;
+
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
     (m) => ({
@@ -499,22 +533,33 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       `Os únicos valores que existem são ${money(c.prices.codBrl)} na entrega, ` +
-      `${money(c.prices.prepayBrl)} antecipado e ${money(c.prices.anchorBrl)} de preço cheio. ` +
+      `${money(c.prices.prepayBrl)} antecipado e ${money(c.prices.anchorBrl)} de preço cheio` +
+      (c.kits?.length
+        ? `, e os kits: ${c.kits
+            .map((k) => `${k.units} peças ${k.path === "cod" ? "na entrega" : "no antecipado"} ${money(k.priceBrl)} (${k.discountPercent}%)`)
+            .join(", ")}`
+        : ``) +
+      `. ` +
       `Nenhum outro número em reais. ` +
       (savingOf(c) > 0
-        ? `Nunca diga a economia em reais — a diferença entre os dois preços, em nenhuma ` +
-          `formulação. Diga o percentual e o preço do antecipado ("${c.prices.prepayDiscountPercent}% ` +
-          `de desconto: ${money(c.prices.prepayBrl)} no antecipado"). `
+        ? `Nunca diga a economia em reais — a diferença entre os dois preços, nem a de um kit, em ` +
+          `nenhuma formulação. Diga o percentual e o preço ("${c.prices.prepayDiscountPercent}% ` +
+          `de desconto: ${money(c.prices.prepayBrl)} no antecipado"). Preço e desconto são do caminho e ` +
+          `da quantidade de que você está falando: não junte o desconto de um kit com o preço de outro. `
         : ``) +
       `Os únicos descontos são ` +
       `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
+      (c.kits?.length ? `, mais os percentuais dos kits acima` : ``) +
       `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
       `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
       `comprometem a loja com um preço que ninguém definiu. Recusar um número que ela pediu é ` +
       `permitido, e é o seu trabalho.`,
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl]);
+      const kits = ctx.config.kits ?? [];
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
+      const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
+      if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
@@ -526,14 +571,139 @@ const gates: readonly Gate[] = [
       // number said at all is what she takes to the checkout. The bare "12,99" counts too:
       // `moneyMatches` needs "R$" or "reais" and would let it through. Skipped only when the
       // difference coincides with a configured price, where the two cannot be told apart.
-      const saving = savingOf(ctx.config);
-      if (saving > 0 && !allowedPrices.has(saving)) {
+      // Every offer the shop has — one piece on each path plus the kits — and every saving
+      // they imply: the list price minus the offer, and prepaid against delivery at the same
+      // quantity (pricing review, 2026-09-25: "levando 2 você economiza 25,98" passed, as did
+      // any kit saving written without "R$").
+      const offers = [
+        { path: "cod" as const, units: 1, price: codBrl, pct: 0 },
+        { path: "prepay" as const, units: 1, price: prepayBrl, pct: prepayDiscountPercent },
+        ...kits.map((k) => ({ path: k.path, units: k.units, price: k.priceBrl, pct: k.discountPercent })),
+      ];
+      const savings = new Set<number>();
+      for (const o of offers) {
+        const vsList = +(o.units * codBrl - o.price).toFixed(2);
+        if (vsList > 0) savings.add(vsList);
+        const cod = offers.find((x) => x.path === "cod" && x.units === o.units);
+        if (o.path === "prepay" && cod && cod.price > o.price) savings.add(+(cod.price - o.price).toFixed(2));
+      }
+      for (const saving of savings) {
+        if (allowedPrices.has(saving)) continue;
         const [whole, cents] = saving.toFixed(2).split(".");
         if (
           new RegExp(`(?<![\\d.,])${whole}[.,]${cents}(?!\\d|[.,]\\d)`).test(t) ||
           moneyMatches(t).some((m) => m.value === saving)
         ) {
           return `cites the ${money(saving)} saving in reais; say only the percentage (${prepayDiscountPercent}%) and the prepaid price`;
+        }
+      }
+      // A saving can coincide with a price (3 × 129,90 − 272,79 = 116,91, the prepaid price),
+      // so value alone cannot tell it: any amount right after "economiza / poupa / desconto
+      // de" or right before "mais barato / a menos / de economia" is a saving in reais.
+      for (const m of moneyMatches(t)) {
+        if (negatedAt(t, m.at)) continue;
+        const amount = amountAt(t, m.at);
+        if (
+          /\b(?:econom\w*|poup\w*|deixa\s+de\s+pagar|desconto\s+de)\s+(?:de\s+)?(?:ate\s+)?(?:so\s+)?$/.test(t.slice(Math.max(0, m.at - 30), m.at)) ||
+          /^\s*(?:mais\s+barato|a\s+menos|de\s+economia|de\s+desconto)\b/.test(t.slice(m.at + amount.length, m.at + amount.length + 25))
+        )
+          return `states a saving in reais (${amount.trim()}); say only the percentage and the price`;
+      }
+
+      // An offer's price and percent belong to its path and quantity (pricing review,
+      // 2026-09-25): "na entrega você leva com 30% de desconto" and "3 peças na entrega saem
+      // por R$ 272,79" used every configured number, and she finds the gap at the door. When a
+      // sentence names exactly one path or exactly one quantity, every offer price and
+      // discount in it must belong to an offer that matches; comparing paths or quantities in
+      // one sentence names several, and that dimension is not checked.
+      const UNIT_WORDS: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5 };
+      const offerPrices = new Set(offers.map((o) => o.price));
+      for (const sm of t.matchAll(/[^.!?\n]+/g)) {
+        const sentence = sm[0];
+        const paths = new Set<string>();
+        if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b/.test(sentence)) paths.add("cod");
+        if (/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) paths.add("prepay");
+        // The quantities in play (fourth review): the conversation's own — the turn knows it
+        // deterministically, `ctx.units`, 1 when absent — plus every count the sentence names
+        // in so many words: "2 peças", "o kit de 3", "e o de 3", "e 3 saem", the single piece
+        // ("a unidade", "avulsa"), and "20% em 3" only beside another count. Guessing the
+        // quantity from the words alone ("seu M", "em 6") kept vetoing honest lines. A price
+        // or percent must belong to an offer of the sentence's path at one of them.
+        // Accepted residue: two kits named together with their prices swapped.
+        const N = "(\\d|um|uma|dois|duas|tres|quatro|cinco)";
+        const NOT_COUNT = "(?!\\s*(?:ou\\s+\\d+\\s+)?(?:x|vezes|dias?|horas?|parcelas?|uteis|cart\\w*|sem\\s+juros|no\\s+cartao)\\b)";
+        const counts: Array<{ at: number; units: number }> = [];
+        const add = (re: RegExp) => {
+          for (const u of sentence.matchAll(re)) {
+            const w = u.slice(1).find((x) => x !== undefined)!;
+            counts.push({ at: u.index ?? 0, units: UNIT_WORDS[w] ?? Number(w) });
+          }
+        };
+        add(
+          new RegExp(
+            `\\b${N}\\s+(?:pecas?|unidades?|coletes?)\\b|\\bkits?\\s+de\\s+${N}\\b|\\b(?:o|a|os|as)\\s+de\\s+${N}\\b${NOT_COUNT}|\\be\\s+${N}\\s+(?:por|sai\\w*|saem|fica\\w*|custa\\w*)\\b`,
+            "g",
+          ),
+        );
+        // Changing her mind inside a kit conversation (fifth review): "as duas", "levando 3".
+        add(new RegExp(`\\b(?:as|os)\\s+(duas|dois|tres)\\b|\\blev\\w*\\s+(?:so\\s+)?${N}\\b${NOT_COUNT}`, "g"));
+        if (counts.length > 0) add(new RegExp(`\\bem\\s+${N}\\b${NOT_COUNT}`, "g"));
+        for (const u of sentence.matchAll(
+          /\b(?:uma|a|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b|\bso\s+uma\b|\buma\s+so\b|^\s*uma\s+(?:sai|fica|custa|por)\b/g,
+        ))
+          counts.push({ at: u.index ?? 0, units: 1 });
+        // "a segunda peça", "com a terceira" — never "na segunda(-feira)" or "a terceira
+        // tentativa" (sixth review). And the single vest: "o colete", "só um".
+        for (const u of sentence.matchAll(
+          /\b(segunda|terceira)\s+(?:peca|unidade)\b|\b(?:com|levando)\s+a\s+(segunda|terceira)\b(?!\s*-?\s*feira)(?!\s+\w*(?:tentativa|vez|dia|entrega))|\bmais\s+uma\b/g,
+        ))
+          counts.push({
+            at: u.index ?? 0,
+            units: (u[1] ?? u[2]) === "segunda" ? 2 : (u[1] ?? u[2]) === "terceira" ? 3 : (ctx.units ?? 1) + 1,
+          });
+        for (const u of sentence.matchAll(/\b(?:so|um)\s+um\b|\bum\s+so\b|\b(?:o|um|cada|seu)\s+colete\b/g))
+          counts.push({ at: u.index ?? 0, units: 1 });
+        // A number whose own clause names a count answers to that count ("R$ 129,90 levando 2
+        // peças" is 2 for the price of 1); one in a clause without a count answers to the last
+        // count before it, else to the sentence's counts and the conversation's ("Seu M fica
+        // R$ 129,90, e levando 2 peças sai R$ 233,82" on the decision turn). A decimal comma
+        // is not a clause break.
+        const breaks = [...sentence.matchAll(/[,;:](?!\d)/g)].map((b) => b.index ?? 0);
+        const unitsAt = (at: number): Set<number> => {
+          const start = (breaks.filter((b) => b < at).at(-1) ?? -1) + 1;
+          const end = breaks.find((b) => b >= at) ?? sentence.length;
+          const own = counts.filter((c) => c.at >= start && c.at < end).map((c) => c.units);
+          if (own.length > 0) return new Set(own);
+          // A clause without a count continues the one before it ("se levar só uma, fica …").
+          const before = counts.filter((c) => c.at < start).at(-1);
+          return new Set(before ? [before.units] : [...counts.map((c) => c.units), ctx.units ?? 1]);
+        };
+        const matchingAt = (at: number) => {
+          const units = unitsAt(at);
+          return offers.filter((o) => (paths.size !== 1 || paths.has(o.path)) && units.has(o.units));
+        };
+        const moneys = moneyMatches(sentence);
+        for (const [k, m] of moneys.entries()) {
+          if (!offerPrices.has(m.value) || negatedAt(sentence, m.at) || m.value === orderAmount) continue;
+          const matching = matchingAt(m.at);
+          if (matching.some((o) => o.price === m.value)) continue;
+          // The price a comparison is made against is not the offer on sale: "antecipado sai
+          // R$ 116,91 em vez de R$ 129,90" is the script's own line (7.1). Only when an offer
+          // price that DOES match came first — "menos do que R$ 272,79" alone is the lie.
+          const comparedAgainst =
+            COMPARED_AGAINST.test(sentence.slice(Math.max(0, m.at - 30), m.at)) &&
+            moneys.slice(0, k).some((p) => matchingAt(p.at).some((o) => o.price === p.value));
+          if (comparedAgainst) continue;
+          return `price ${money(m.value)} belongs to another offer than the one this sentence names; say each offer in its own sentence`;
+        }
+        for (const m of sentence.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
+          const value = Number(m[1]);
+          const at = m.index ?? 0;
+          if (value === 40 || (ctx.config.coupon.active && value === ctx.config.coupon.percent)) continue;
+          // An offer's own percent is a discount even without the word ("sai com 30%").
+          if ((!looksLikeDiscount(sentence, at) && !offers.some((o) => o.pct === value)) || negatedAt(sentence, at)) continue;
+          if (!matchingAt(at).some((o) => o.pct === value))
+            return `discount of ${value}% belongs to another offer than the one this sentence names`;
         }
       }
 
@@ -554,18 +724,23 @@ const gates: readonly Gate[] = [
       // amount denies it; one before `total` ("não precisa esperar, o total fica...")
       // denies nothing.
       if (ctx.config.delivery.freeShipping !== true && prepayBrl !== codBrl) {
+        const prepayPrices = new Set([prepayBrl, ...kits.filter((k) => k.path === "prepay").map((k) => k.priceBrl)]);
         for (const m of moneyMatches(t)) {
-          if (m.value !== prepayBrl) continue;
-          if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
+          if (!prepayPrices.has(m.value)) continue;
           const amount = amountAt(t, m.at);
+          // Kit sentences are longer ("o total das 3 peças no antecipado fica R$ 272,79"), and
+          // "no total / ao todo" after the amount says the same (pricing review, 2026-09-25).
+          const totalBefore = /\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,45}$/.test(t.slice(Math.max(0, m.at - 60), m.at));
+          const totalAfter = /^\s*,?\s*(?:no\s+total|ao\s+todo)\b/.test(t.slice(m.at + amount.length, m.at + amount.length + 20));
+          if (!totalBefore && !totalAfter) continue;
           // Only the freight added right after the amount. A caveat anywhere later in the
           // sentence, and "sem o frete", were accepted for a while (2026-09-22) and let
           // through "o total é R$ 116,91, e o frete, que seria calculado no checkout, já
           // está incluso" and "o total é R$ 116,91 sem o frete cobrado à parte". The honest
           // sentences they freed cost a rewrite; the lies cost the freight at the door.
-          const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
-          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
-          return `calls the prepaid ${money(prepayBrl)} a total, and the freight is added in the checkout`;
+          const after = t.slice(m.at + amount.length, m.at + amount.length + 45);
+          if (/^(?:\s*,?\s*(?:no\s+total|ao\s+todo))?[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
+          return `calls the prepaid ${money(m.value)} a total, and the freight is added in the checkout`;
         }
       }
 
@@ -573,14 +748,26 @@ const gates: readonly Gate[] = [
         prepayDiscountPercent,
         40, // anchor discount already published on the site
         ...(ctx.config.coupon.active ? [ctx.config.coupon.percent] : []),
+        ...kits.map((k) => k.discountPercent),
       ]);
       // A concession with no number is still a concession. "Eu tiro um pouquinho",
       // "faço um precinho", "dou um jeito no valor" commit the shop to a price nobody
       // set, and the number gate never sees them because there is no number to see.
-      for (const m of t.matchAll(
-        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pouc\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
+      // "Tiro mais alguma dúvida" is the closing question, not a concession (M-05): the
+      // object of "tiro" is the doubt, and only determiners may stand between them, so
+      // nothing that names a price can hide in the span removed. Not when the scan's own
+      // window would find a concession word after the doubt ("tiro sua dúvida e mais um
+      // pouco do preço", "…, pra você sai por menos", "…(pra você um pouquinho)" share the
+      // verb — second review, three rounds: listing separators did not converge), and
+      // blanked to the same length so `negatedAt` keeps its distances.
+      const concessions = t.replace(
+        /\btiro\s+(?:(?:mais|pra\s+voce|para\s+voce|a|as|das|alguma|algumas|uma|outra|outras|sua|suas|essa|essas|qualquer|todas)\s+){0,4}duvid(?:as?|inhas?|azinhas?)\b(?![^.!?]{0,20}\b(?:um\s+pou(?:c|qu)\w+|mais|pra\s+voce|para\s+voce)\b)/g,
+        (x) => " ".repeat(x.length),
+      );
+      for (const m of concessions.matchAll(
+        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato|\bleve\s+\d+\s+(?:e\s+)?pague\s+\d+|\bganh\w*\s+(?:uma|1|outra)\s+(?:peca|unidade)|\b(?:peca|unidade)\s+(?:de\s+)?gratis|(?<=(?<!\b(?:troc|devol)\w*\s+d[oa]\s+)\b(?:segund[oa]|terceir[oa]|outr[oa]|colete|peca|unidade)\b(?:(?!troc|devol)[^.!?]){0,25})\b(?:sai|fica|vai|e|sera)\s+(?:de\s+gra[cç]a|por\s+nossa\s+conta|gratis)\b(?!\s+(?:pra|para)\s+(?:trocar|devolver))|(?<=\blev\w*\s+(?:\d|duas|dois|tres)\b[^.!?]{0,25})\bpag\w*\s+(?:so\s+)?(?:uma|um|1|duas|dois|2)\b(?!\s+vez)|\b(?:gratis|de\s+gra[cç]a|por\s+nossa\s+conta)\b[^.!?]{0,30}\b(?:segund[oa]|outr[oa])\s+(?:peca\s+)?tambem\b|\b(?:lev\w*|ganh\w*)\s+(?:a|o)\s+(?:outr[oa]|segund[oa])\b[^.!?]{0,15}\bde\s+gra[cç]a\b/g,
       )) {
-        if (!negatedAt(t, m.index ?? 0)) return "promises a discount with no number behind it";
+        if (!negatedAt(concessions, m.index ?? 0)) return "promises a discount with no number behind it";
       }
 
       // "30 por cento" is the same offer as "30%", and only the symbol was read.
@@ -679,15 +866,127 @@ const gates: readonly Gate[] = [
        * it only reads "N a M dias".
        */
       const avg = prepayAverage(ctx.config.delivery);
-      for (const m of t.matchAll(/(\d{1,2})\s*dias?\s*ute[il]s?/g)) {
+      // One number rule instead of a list of shapes (M-07, second review: "2 dias em
+      // média", "uns 3 dias", "dois dias", "em até 2 dias" each escaped a shape list). In
+      // a sentence about the prepaid path, EVERY day count that does not close the
+      // delivery range is the configured average, and the sentence says it varies.
+      // Elsewhere, only an average-shaped count in delivery talk is judged — "em média 2
+      // dias de uso" is about wearing the vest, not about the carrier.
+      const DAY_WORDS: Record<string, number> = {
+        dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+        oito: 8, nove: 9, dez: 10, quinze: 15, vinte: 20, trinta: 30,
+      };
+      const DELIVERY_TALK = /\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/;
+      const PREPAY_WORD = /\b(?:antecipa\w*|adianta\w*)\b/;
+      for (const m of t.matchAll(
+        /\b(\d{1,2}(?:[.,]\d{1,2})?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*dias?\b/g,
+      )) {
         const at = m.index ?? 0;
+        const before = t.slice(Math.max(0, at - 30), at);
+        const after = t.slice(at + m[0].length, at + m[0].length + 80);
+        // The end of a range ("1 a 3 dias") is the range check's to judge.
+        if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        // A number inside "N a M dias úteis" is the range, already judged above.
-        if (/\d\s*(?:a|e|ate)\s*\d{1,2}\s*dias?\s*ute/.test(sentence)) continue;
+        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
+        const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
+        // Every exemption is a loosening, and each shape so far leaked or over-blocked (M-07,
+        // six reviews): context rules freed "a troca é grátis e no pix chega em só 2 dias",
+        // exact shapes vetoed the warranty sentence `warranty_promise` itself teaches. The
+        // rule that holds is about the NUMBER: only the configured warranty is a warranty.
+        // Any other count on the prepaid path is a deadline, whatever words surround it —
+        // "garantia de 2 dias", "2 dias após o recebimento". The warranty count is exempt only
+        // when bound to a return word (before it with filler only, or after it) and no
+        // delivery verb governs it ("chega em 7 dias pra trocar", "leva 7 dias, com garantia").
+        // tests/prepaid-deadline-fuzz.test.ts generates the lies and requires a veto for all.
+        // Seventh review: the 7 is the warranty when its own clause names a return and no
+        // delivery, and nothing after it in the sentence talks delivery — "a garantia é de 7
+        // dias pra entrega" and "a troca é em 7 dias, e a entrega também" are deadlines. The
+        // one delivery-looking word allowed is the warranty's own anchor, "após/a partir
+        // de quando/contados do recebimento". Safe to be this simple only because no other
+        // number can ever be exempt.
+        if (days === ctx.config.delivery.warrantyDays) {
+          // Never stripped when the count is that verb's own time complement: "quando o colete
+          // chegar em 7 dias" is a deadline (eighth review).
+          const anchor =
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
+          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega.").
+          const anchorAfter =
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
+          const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
+          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
+          // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
+          // ("a garantia é de 7 dias" normalizes "é" to "e").
+          const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
+          // Two delivery-looking words that are not delivery (loop review, 2026-09-25): getting
+          // her money back ("e recebe seu dinheiro de volta") and asking the CEP to look the
+          // delivery up ("me passa seu CEP pra eu ver a entrega aí"). Both came from Malu's own
+          // honest warranty lines on the prepaid path, vetoed into rewrites.
+          const notDelivery = (x: string) =>
+            x
+              .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
+              // Only as the purpose of asking the CEP or address (second review: "dá pra ver
+              // a entrega em casa nesse tempo" is a deadline).
+              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
+          const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
+          const clause = notDelivery(sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " "));
+          const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));
+          const segment = sentenceBefore.split(/[,;]/).pop()!;
+          const purposeAfter =
+            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
+          // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
+          // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
+          const returnBefore =
+            (RET.test(segment) && !DELIVERY.test(segment)) ||
+            (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|fica)\s*$/.test(segment));
+          if (!DELIVERY.test(clause) && !DELIVERY.test(rest) && (purposeAfter || returnBefore)) continue;
+        }
+        // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até
+        // 30 dias o seu dinheiro de volta".
+        if (/\b(?:reembolso|estorno|dinheiro\s+de\s+volta)\s+(?:em|de|por)\s+(?:ate\s+)?$/.test(phrase)) continue;
+        if (/\breceb\w*\s+(?:em\s+)?(?:ate\s+)?$/.test(phrase) && /^\s*(?:(?:o|a|seu|sua)\s+){0,2}(?:reembols\w*|dinheiro\s+de\s+volta|estorno)\b/.test(after)) continue;
+        // "Faz 3 dias que comprei" is the past, tied to the count; "há 2 dias de prazo" is not.
+        if (/\b(?:ha|faz|fez|fazem)\s+$/.test(before) && /^\s*(?:que|atras)\b/.test(after)) continue;
+        // Refusing the number is the job — "não consigo garantir 2 dias", "não dá pra prometer
+        // 2 dias" — and only that: the denial must govern garantir/prometer right before the
+        // count. "Não tem como passar de 2 dias" and "não posso negar que chega em 2 dias"
+        // are promises (fourth review).
+        if (
+          /\b(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como)\s+)?(?:te\s+|lhe\s+)?(?:garant\w*|promet\w*)\s+(?:que\s+(?:chegue|chega|receba|recebe)\s+(?:em\s+)?(?:ate\s+)?)?$/.test(phrase)
+        )
+          continue;
+        const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
+        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
+        // A prepaid path named before the count, by any of its names — the same names the
+        // range check reads (third review: "No pix chega em 2 dias" passed on the delivery
+        // path). "Cartão" only with its own preposition: "dinheiro ou cartão" is the door.
+        const prepaidNamedBefore =
+          /\b(?:pix|boleto|transferencia|online|a\s+vista|pelo\s+link|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito)|link\s+de\s+pagamento)\b/.test(
+            sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
+          );
+        // On the prepaid path a sentence that names no path is about the prepaid delivery
+        // only when its own clause talks delivery ("você recebe em até 3 dias").
+        const prepaid =
+          PREPAY_WORD.test(sentence) ||
+          prepaidNamedBefore ||
+          (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
+        const averageShaped =
+          /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
+        // A sentence comparing the paths ("na entrega você recebe em até 3 dias, e no antecipado
+        // varia, em média 5 dias úteis") gives each count to the path named last before it;
+        // the delivery one answers to the delivery range, not to the prepaid average. Found
+        // when the stored path choice put Tati's conversation on prepaid (persona round).
+        const prefix = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        const lastAt = (re: RegExp) => Math.max(-1, ...[...prefix.matchAll(re)].map((x) => x.index ?? 0));
+        const codAt = lastAt(/\bna\s+entrega\b|\bentregador\b|\bna\s+porta\b|\bna\s+mao\b/g);
+        const prepayAt = lastAt(
+          /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g,
+        );
+        if (codAt > prepayAt) continue;
+        if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
-        if (Number(m[1]) !== avg) {
-          return `prepaid average of ${m[1]} days is not the configured ${avg}`;
+        if (Number(days) !== avg) {
+          return `prepaid average of ${days} days is not the configured ${avg}`;
         }
         if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {
           return "states the prepaid average as a fixed deadline, without saying it varies";
@@ -882,7 +1181,38 @@ const gates: readonly Gate[] = [
         const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
         const prepayAt = lastAt(PREPAY_NAME);
         const codAt = lastAt(/\bna\s+entrega\b/g);
-        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated;
+        // M-06: proximity gives the range to the delivery only when what follows it, to the
+        // end of the sentence, is at most the prepaid window. Without "também" it still let
+        // "…na entrega são 1 a 3 dias, e no depósito 2 a 3 dias" and "…, no antecipado varia
+        // por região, nada muda" through — a prepaid name off the list, or a tie at the end.
+        // Same allowlist as `endsAtPrepayWindow`, plus the connectives that open that clause.
+        // Second review: "dias úteis" after the range, "pagamento antecipado", "já" /
+        // "enquanto" opening the clause and "conforme / de acordo com / depende da região"
+        // are the same window in the model's own words, and vetoing them cost honest turns.
+        // M-07: the same rule on both sides of the range, and the prepaid mention must carry
+        // its own window ("varia / depende / conforme / em média") — "…1 a 3 dias e no
+        // pagamento antecipado." reads as "the same range there". Before the range it is
+        // the stretch from the first prepaid mention to "na entrega": "No antecipado varia
+        // por região, e no pix e na entrega, 1 a 3 dias" shares the range with the Pix.
+        const onlyPrepayWindow = (s: string): boolean => {
+          if (!PREPAY.test(s)) return /^[\s.,;:!?()]*$/.test(s.replace(/^\s+uteis\b/, ""));
+          if (!/\b(?:varia\w*|depende\w*|conforme|de\s+acordo|media)\b/.test(s)) return false;
+          return /^[\s.,;:!?()]*$/.test(
+            s
+              .replace(/^\s+uteis\b/, "")
+              .replace(PREPAY, "")
+              // Every average shape the number rule below accepts — its number is checked
+              // there, so the window here only has to be a window.
+              .replace(/,?\s*(?:em\s+)?(?:media|torno|cerca|aproximadamente)\s+(?:de\s+)?\d{1,2}(?:[.,]\d)?\s*dias?(?:\s+uteis)?/g, "")
+              .replace(/\b(?:conforme|de\s+acordo\s+com|depende)\s+(?:d?[aeo]\s+)?(?:(?:sua|seu)\s+)?(?:regiao|cep)\b/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*(?:\s+bastante)?|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
+          );
+        };
+        const tailIsPrepayWindow = onlyPrepayWindow(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!);
+        const headPrepay = head.search(PREPAY);
+        const headIsPrepayWindow = headPrepay === -1 || onlyPrepayWindow(head.slice(headPrepay, codAt));
+        const byProximity =
+          PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow && headIsPrepayWindow;
         const named: "cod" | "prepay" | null =
           byProximity && codAt > prepayAt
             ? "cod"
