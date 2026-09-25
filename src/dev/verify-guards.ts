@@ -483,6 +483,14 @@ const MUTATIONS: Mutation[] = [
     to: "if (false) {",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
   },
+  {
+    id: "O2-wait",
+    bug: "lead novo recebia a recepção e nunca mais era respondido (sem o nó Wait)",
+    files: ["n8n/workflows/turno-da-agente.json"],
+    from: '"type": "n8n-nodes-base.wait"',
+    to: '"type": "n8n-nodes-base.noOp"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

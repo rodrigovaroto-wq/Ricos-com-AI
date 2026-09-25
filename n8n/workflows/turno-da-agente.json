@@ -2,26 +2,38 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "cb3cf14b-89d4-4693-8f34-1ead3ee1cb52",
+  "versionId": "2a404adc-2135-4d37-b038-d165320c3cbf",
   "nodes": [
     {
-      "parameters": {
-        "httpMethod": "POST",
-        "path": "encorpa-inbound",
-        "responseMode": "responseNode",
-        "options": {}
-      },
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
       "name": "Mensagem recebida",
+      "webhookId": "56457fd5-75b3-4447-9664-084628091064",
       "type": "n8n-nodes-base.webhook",
       "typeVersion": 2.1,
       "position": [
         -144,
         0
       ],
-      "webhookId": "56457fd5-75b3-4447-9664-084628091064"
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "encorpa-inbound",
+        "responseMode": "responseNode",
+        "options": {}
+      }
     },
     {
+      "id": "6b73f995-a501-4f03-981f-a2d037ff40aa",
+      "name": "Cerebro do turno",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput",
+      "position": [
+        80,
+        0
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
@@ -39,31 +51,14 @@
           "timeout": 150000
         }
       },
-      "id": "6b73f995-a501-4f03-981f-a2d037ff40aa",
-      "name": "Cerebro do turno",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        80,
-        0
-      ],
-      "retryOnFail": true,
-      "maxTries": 2,
-      "waitBetweenTries": 1000,
       "credentials": {
         "httpHeaderAuth": {
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify($json) }}",
-        "options": {}
-      },
       "id": "4af9af35-6730-418f-88a8-a837db4ea6f6",
       "name": "Devolve a resposta",
       "type": "n8n-nodes-base.respondToWebhook",
@@ -71,15 +66,14 @@
       "position": [
         432,
         0
-      ]
+      ],
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify($json) }}",
+        "options": {}
+      }
     },
     {
-      "parameters": {
-        "content": "## Turno da agente\n\nWAHA (ou o canal simulado) manda a mensagem aqui.\nO cerebro roda na Edge Function: dedupe, teto de custo, classificacao,\nresposta e os 11 guardrails. O n8n e o cano.\n\nCorpo esperado: { externalId, from, body }",
-        "height": 208,
-        "width": 448,
-        "color": 4
-      },
       "id": "6cff1903-85f1-41fd-a624-1cfaf91ca135",
       "name": "Sticky Note 254657c6",
       "type": "n8n-nodes-base.stickyNote",
@@ -87,9 +81,24 @@
       "position": [
         -48,
         -304
-      ]
+      ],
+      "parameters": {
+        "content": "## Turno da agente\n\nWAHA (ou o canal simulado) manda a mensagem aqui.\nO cerebro roda na Edge Function: dedupe, teto de custo, classificacao,\nresposta e os 11 guardrails. O n8n e o cano.\n\nCorpo esperado: { externalId, from, body }",
+        "height": 208,
+        "width": 448,
+        "color": 4
+      }
     },
     {
+      "id": "d4e3ca24-0ac8-432b-9c88-0c01a7812842",
+      "name": "É handoff?",
+      "notes": "handoff sem destino configurado nao vira e-mail nenhum — por isso as duas condicoes.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        432,
+        160
+      ],
       "parameters": {
         "conditions": {
           "combinator": "and",
@@ -120,18 +129,22 @@
           ]
         },
         "options": {}
-      },
-      "id": "d4e3ca24-0ac8-432b-9c88-0c01a7812842",
-      "name": "É handoff?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        432,
-        160
-      ],
-      "notes": "handoff sem destino configurado nao vira e-mail nenhum — por isso as duas condicoes."
+      }
     },
     {
+      "id": "5fd6af1b-535e-4da2-88fb-7b22b6eb5326",
+      "name": "Avisa o operador",
+      "webhookId": "a4734286-71ae-41b7-834d-7d8bf41a37bd",
+      "notes": "FALTA ANEXAR A CREDENCIAL SMTP. O fromEmail tem de ser o mesmo endereco da conta que autentica no SMTP, senao o provedor recusa.",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        656,
+        160
+      ],
       "parameters": {
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "={{ $json.notify }}",
@@ -142,33 +155,14 @@
           "appendAttribution": false
         }
       },
-      "id": "5fd6af1b-535e-4da2-88fb-7b22b6eb5326",
-      "name": "Avisa o operador",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        656,
-        160
-      ],
-      "webhookId": "a4734286-71ae-41b7-834d-7d8bf41a37bd",
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
       "credentials": {
         "smtp": {
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "notes": "FALTA ANEXAR A CREDENCIAL SMTP. O fromEmail tem de ser o mesmo endereco da conta que autentica no SMTP, senao o provedor recusa."
+      }
     },
     {
-      "parameters": {
-        "content": "## Aviso de handoff\n\nA agente promete chamar alguem em tres casos: a cliente pediu com todas as letras,\na conversa estourou o teto de custo, ou o provedor de modelo falhou.\nNos tres ela para de responder aquela conversa PARA SEMPRE.\n\nSe este e-mail nao sair, a cliente fica esperando uma pessoa que nunca vem —\ne ela estava, quase sempre, no momento mais quente da conversa.\n\nRamo paralelo de proposito: a resposta ao webhook sai antes,\nsem esperar o SMTP.",
-        "height": 372,
-        "width": 524,
-        "color": 3
-      },
       "id": "d15148b5-8da8-4614-b4b3-27aaa7ca2132",
       "name": "Sticky handoff",
       "type": "n8n-nodes-base.stickyNote",
@@ -176,25 +170,44 @@
       "position": [
         -352,
         240
-      ]
+      ],
+      "parameters": {
+        "content": "## Aviso de handoff\n\nA agente promete chamar alguem em tres casos: a cliente pediu com todas as letras,\na conversa estourou o teto de custo, ou o provedor de modelo falhou.\nNos tres ela para de responder aquela conversa PARA SEMPRE.\n\nSe este e-mail nao sair, a cliente fica esperando uma pessoa que nunca vem —\ne ela estava, quase sempre, no momento mais quente da conversa.\n\nRamo paralelo de proposito: a resposta ao webhook sai antes,\nsem esperar o SMTP.",
+        "height": 372,
+        "width": 524,
+        "color": 3
+      }
     },
     {
-      "parameters": {
-        "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: \"error\", error: $json.error ?? $json }) }}",
-        "options": {}
-      },
       "id": "6488f943-1beb-4a46-b727-386510e33f0c",
       "name": "Devolve a recusa",
+      "notes": "200 de proposito: o canal nao deve reentregar a mensagem. A recusa viaja no CORPO, nao no status.",
       "type": "n8n-nodes-base.respondToWebhook",
       "typeVersion": 1.5,
       "position": [
         432,
         464
       ],
-      "notes": "200 de proposito: o canal nao deve reentregar a mensagem. A recusa viaja no CORPO, nao no status."
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ JSON.stringify({ status: \"error\", error: $json.error ?? $json }) }}",
+        "options": {}
+      }
     },
     {
+      "id": "6939bf8e-9d44-42b6-aee2-1c1c61876194",
+      "name": "Avisa a recusa",
+      "webhookId": "ed59918c-e4cc-4d0d-9756-8e2a1f403199",
+      "notes": "Mesma credencial SMTP do aviso de handoff. Se ela nao estiver anexada, a recusa volta a ser invisivel.",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        432,
+        304
+      ],
       "parameters": {
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "rodrigo.varoto@gmail.com",
@@ -205,33 +218,14 @@
           "appendAttribution": false
         }
       },
-      "id": "6939bf8e-9d44-42b6-aee2-1c1c61876194",
-      "name": "Avisa a recusa",
-      "type": "n8n-nodes-base.emailSend",
-      "typeVersion": 2.1,
-      "position": [
-        432,
-        304
-      ],
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "webhookId": "ed59918c-e4cc-4d0d-9756-8e2a1f403199",
       "credentials": {
         "smtp": {
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "notes": "Mesma credencial SMTP do aviso de handoff. Se ela nao estiver anexada, a recusa volta a ser invisivel."
+      }
     },
     {
-      "parameters": {
-        "content": "## Ramo de erro do turno\n\nA Edge Function recusa com 4xx (400 sem externalId, 422 pedido nao gravado)\ne o no lanca — neverError segue DESLIGADO de proposito, foi assim que uma\nporta fechada ficou invisivel por um dia em 2026-09-08.\n\nAntes: a execucao morria e o webhook respondia 200 VAZIO. A recusa existia\nso no log do n8n.\n\nAgora: saida de erro -> corpo { status: \"error\", error } + e-mail ao operador.\nO status HTTP continua 200 de proposito — nao queremos o canal reentregando.",
-        "height": 400,
-        "width": 492,
-        "color": 3
-      },
       "id": "4612140d-38b8-4135-b14d-84dd9c3952e1",
       "name": "Sticky recusa",
       "type": "n8n-nodes-base.stickyNote",
@@ -239,7 +233,100 @@
       "position": [
         720,
         -320
-      ]
+      ],
+      "parameters": {
+        "content": "## Ramo de erro do turno\n\nA Edge Function recusa com 4xx (400 sem externalId, 422 pedido nao gravado)\ne o no lanca — neverError segue DESLIGADO de proposito, foi assim que uma\nporta fechada ficou invisivel por um dia em 2026-09-08.\n\nAntes: a execucao morria e o webhook respondia 200 VAZIO. A recusa existia\nso no log do n8n.\n\nAgora: saida de erro -> corpo { status: \"error\", error } + e-mail ao operador.\nO status HTTP continua 200 de proposito — nao queremos o canal reentregando.",
+        "height": 400,
+        "width": 492,
+        "color": 3
+      }
+    },
+    {
+      "id": "215003d5-b629-4287-9d0e-8087689c56cd",
+      "name": "É recepção?",
+      "notes": "handoff sem destino configurado nao vira e-mail nenhum — por isso as duas condicoes.",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        432,
+        -200
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "f3916622-6d6b-4650-8570-f3a36da1444d",
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "welcomed",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d6df5705-05ba-49fc-aada-cb8b8d6e70a4",
+      "name": "Espera a recepção",
+      "webhookId": "bc6f61ca-b854-4402-ae29-bdc0ea59ecdb",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        656,
+        -200
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.resumeInSeconds ?? 120 }}",
+        "unit": "seconds"
+      }
+    },
+    {
+      "id": "6039df50-c8bc-441d-9f0b-905d9a91eef5",
+      "name": "Resposta de verdade",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "retryOnFail": true,
+      "maxTries": 2,
+      "waitBetweenTries": 1000,
+      "onError": "continueErrorOutput",
+      "position": [
+        880,
+        -200
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ ...$('Mensagem recebida').first().json.body, resume: true }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "timeout": 150000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
     }
   ],
   "connections": {
@@ -266,6 +353,11 @@
             "node": "É handoff?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "É recepção?",
+            "type": "main",
+            "index": 0
           }
         ],
         [
@@ -287,6 +379,46 @@
         [
           {
             "node": "Avisa o operador",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É recepção?": {
+      "main": [
+        [
+          {
+            "node": "Espera a recepção",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Espera a recepção": {
+      "main": [
+        [
+          {
+            "node": "Resposta de verdade",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resposta de verdade": {
+      "main": [
+        [
+          {
+            "node": "É handoff?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisa a recusa",
             "type": "main",
             "index": 0
           }

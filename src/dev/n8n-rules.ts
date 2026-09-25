@@ -54,6 +54,18 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
     const isConversationTurn = url.endsWith("/functions/v1/turn") && !String(node.parameters?.jsonBody ?? "").includes("job");
     if (isConversationTurn && timeout < MIN_TURN_TIMEOUT_MS)
       problems.push(`${where}: timeout ${timeout} ms is below ${MIN_TURN_TIMEOUT_MS} ms`);
+    // O10: the order call forwards the platform's secret, or every real sale is refused 401.
+    if (String(node.parameters?.jsonBody ?? "").includes('job: "order"') && !String(node.parameters?.jsonBody).includes("token"))
+      problems.push(`${where}: the order call does not forward the webhook token (O10)`);
+  }
+  // O2: a new lead gets the welcome and, without the Wait and the resume call, nothing
+  // else ever again. The inbound workflow must carry both.
+  const inbound = wf.nodes.some((n) => n.type === "n8n-nodes-base.webhook" && n.parameters?.path === "encorpa-inbound");
+  if (inbound) {
+    if (!wf.nodes.some((n) => n.type === "n8n-nodes-base.wait" && !n.disabled))
+      problems.push(`${wf.name}: no Wait node after the welcome (O2)`);
+    if (!wf.nodes.some((n) => !n.disabled && /resume:\s*true/.test(String(n.parameters?.jsonBody ?? ""))))
+      problems.push(`${wf.name}: no call with resume: true after the Wait (O2)`);
   }
   return problems;
 }

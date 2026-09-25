@@ -51,6 +51,25 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     wf.nodes[1]!.parameters!.jsonBody = "={{ JSON.stringify($json.body) }}";
     expect(checkWorkflow(wf).join()).toContain("timeout 60000");
   });
+  it("turno sem o Wait e a retomada da recepção (O2)", () => {
+    const turno = load("turno-da-agente");
+    const semWait = { ...turno, nodes: turno.nodes.filter((n) => n.type !== "n8n-nodes-base.wait") };
+    expect(checkWorkflow(semWait).join()).toContain("no Wait node");
+    const semResume = { ...turno, nodes: turno.nodes.filter((n) => !String(n.parameters?.jsonBody ?? "").includes("resume")) };
+    expect(checkWorkflow(semResume).join()).toContain("resume: true");
+  });
+  it("venda sem repassar o token (O10)", () => {
+    const venda = load("venda-confirmada");
+    const semToken = {
+      ...venda,
+      nodes: venda.nodes.map((n) =>
+        n.name === "Grava o pedido"
+          ? { ...n, parameters: { ...n.parameters, jsonBody: '={{ JSON.stringify({ job: "order", order: $json.order }) }}' } }
+          : n,
+      ),
+    };
+    expect(checkWorkflow(semToken).join()).toContain("token");
+  });
   it("a régua correta passa", () => {
     expect(checkWorkflow(sweep({}))).toEqual([]);
   });
