@@ -66,3 +66,35 @@ describe("n8n → banco: o tamanho que o normalizador manda cabe na coluna", () 
     expect(String(r.order.size)).toMatch(pattern);
   });
 });
+
+/** The Logzz shape, from its own test webhook that reached n8n on 2026-09-25 (execution 5490). */
+const logzz = (fields: Record<string, unknown>) => ({
+  query: { fonte: "logzz" },
+  body: {
+    client_name: "John Doe",
+    client_phone: "555-1234-567",
+    client_address_comp: "Apt 101",
+    order_number: "1000S0123P1000",
+    order_status: "Agendado",
+    order_quantity: "1",
+    order_final_price: "129,90",
+    external_id: "venq000x10",
+    date_order: "2026-09-25 02:38:23",
+    date_delivery: "2026-09-30 02:38:23",
+    ...fields,
+  },
+});
+
+describe("n8n: a venda da Logzz (entrega, de volta em 25/09)", () => {
+  it("kit de 3 com quantidade e total em texto", () => {
+    const r = normalize(logzz({ order_quantity: "3", order_final_price: "311,76", client_address_comp: "Apt 101, M, G e GG" }));
+    expect(r.ok).toBe(true);
+    expect(r.order).toMatchObject({ externalId: "venq000x10", paymentMethod: "cod", size: "M,G,GG", amountBrl: 311.76, units: 3, scheduledFor: "2026-09-30" });
+  });
+
+  it("o teste da própria Logzz, sem tamanho no complemento, vai para o operador", () => {
+    const r = normalize(logzz({ order_quantity: "3", order_final_price: "150,00" }));
+    expect(r.ok).toBe(false);
+    expect(r.missing).toContain("pedido de 3 pecas");
+  });
+});

@@ -232,12 +232,12 @@ describe("link de checkout pré-preenchido", () => {
     },
   );
 
-  it("o CPF vai em `document`, o nome que a Coinzz lê — nos dois caminhos desde 25/09", () => {
+  it("o CPF vai em `cpf` na entrega (Logzz) e em `document` no antecipado (Coinzz)", () => {
     // Mandar o nome errado é silencioso: a página abre, três campos vêm preenchidos, e
-    // ela redigita o CPF sem entender por quê. Até 25/09 a entrega era Logzz (`cpf`).
+    // ela redigita o CPF sem entender por quê. A entrega voltou para a Logzz em 25/09.
     const cod = new URL(buildPrefilledCheckoutLink(cliente, "cod", config));
-    expect(cod.searchParams.get("document")).toBe("73116687358");
-    expect(cod.searchParams.get("cpf")).toBeNull();
+    expect(cod.searchParams.get("cpf")).toBe("73116687358");
+    expect(cod.searchParams.get("document")).toBeNull();
 
     const prepay = new URL(buildPrefilledCheckoutLink(cliente, "prepay", config));
     expect(prepay.searchParams.get("document")).toBe("73116687358");
@@ -284,7 +284,7 @@ describe("o link preenchido com o que se sabe", () => {
   it("leva o que existe, com o nome do campo de cada checkout", () => {
     const cliente = { name: "Maria José", email: "Maria@Gmail.com", document: "529.982.247-25", phone: "11999998888" };
     const cod = new URL(buildPrefilledCheckoutLink(cliente, "cod", checkout));
-    expect(cod.searchParams.get("document")).toBe("52998224725");
+    expect(cod.searchParams.get("cpf")).toBe("52998224725");
     expect(cod.searchParams.get("email")).toBe("maria@gmail.com");
     const prepay = new URL(buildPrefilledCheckoutLink(cliente, "prepay", checkout));
     expect(prepay.origin + prepay.pathname).toBe(checkout.prepayUrl);
