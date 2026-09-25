@@ -723,18 +723,32 @@ const gates: readonly Gate[] = [
         // when bound to a return word (before it with filler only, or after it) and no
         // delivery verb governs it ("chega em 7 dias pra trocar", "leva 7 dias, com garantia").
         // tests/prepaid-deadline-fuzz.test.ts generates the lies and requires a veto for all.
-        const DELIVERY_VERB = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
-        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
-        if (days === ctx.config.delivery.warrantyDays && !new RegExp(`${DELIVERY_VERB.source}\\s+(?:em\\s+)?(?:ate\\s+)?(?:so\\s+|apenas\\s+)?$`).test(phrase)) {
-          const bound =
-            /\b(?:garantia|trocas?|trocar|devolucao|devolver|arrependimento|se\s+arrepender)\s+(?:(?:e|fica|tambem|sempre|igual|a\s+mesma|pode\s+ser\s+feit[ao]|de|em|ate|por)\b\s*:?\s*|:\s*)*$/.exec(head);
-          // The return word must not itself sit after a delivery word: "a entrega tem garantia
-          // de 7 dias" and "chega com troca em 7 dias" are deadlines.
-          if (bound && !DELIVERY_VERB.test(head.slice(0, bound.index).split(/[,;:]/).pop()!)) continue;
-          if (
-            /^\s*(?:corridos|uteis)?\s*,?\s*(?:(?:apos|depois\s+d[eo]|a\s+partir\s+d[eo])\s+(?:o\s+)?receb\w*\s*,?\s*)?(?:de\s+garantia\b|de\s+prazo\s+(?:pra|para)\s+(?:troca|devol)|(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)\b)/.test(after)
-          )
-            continue;
+        // Seventh review: the 7 is the warranty when its own clause names a return and no
+        // delivery, and nothing after it in the sentence talks delivery — "a garantia é de 7
+        // dias pra entrega" and "a troca é em 7 dias, e a entrega também" are deadlines. The
+        // one delivery-looking word allowed is the warranty's own anchor, "após/a partir
+        // de quando/contados do recebimento". Safe to be this simple only because no other
+        // number can ever be exempt.
+        if (days === ctx.config.delivery.warrantyDays) {
+          const anchor =
+            /\b(?:apos|depois\s+d[eo]|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*/g;
+          const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
+          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
+          // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
+          // ("a garantia é de 7 dias" normalizes "é" to "e").
+          const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
+          const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
+          const clause = (sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!).replace(anchor, " ");
+          const rest = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchor, " ");
+          const segment = sentenceBefore.split(/[,;]/).pop()!;
+          const purposeAfter =
+            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
+          // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
+          // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
+          const returnBefore =
+            (RET.test(segment) && !DELIVERY.test(segment)) ||
+            (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|em|ate|fica)\s*$/.test(segment));
+          if (!DELIVERY.test(clause) && !DELIVERY.test(rest) && (purposeAfter || returnBefore)) continue;
         }
         // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até
         // 30 dias o seu dinheiro de volta".

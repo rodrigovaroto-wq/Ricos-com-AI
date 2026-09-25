@@ -240,6 +240,12 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   Reembolso não é entrega, em qualquer número. Fuzz: 3500 mentiras vetadas, 20 garantias
   honestas passando. `pnpm dev:gates`: 10 liberações (as garantias honestas da revisão), 8
   endurecimentos no antecipado — todos garantia com número errado ("30 dias de garantia").
+- **Sétima revisão (2026-09-25):** a regra do número segurou todas as mentiras com número ≠ 7;
+  sobravam as que prendem o próprio 7 à entrega depois dele ("7 dias pra entrega", "e a
+  entrega também"). O 7 agora é garantia só quando nem a oração dele nem o resto da frase
+  falam de entrega (a âncora "após/a partir do recebimento", "quando o colete chegar" é
+  permitida) e há finalidade de troca logo depois ou palavra de troca no trecho dele. Fuzz:
+  3540 mentiras; `pnpm dev:gates`: 6 liberações (garantias honestas), 0 endurecimentos.
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê

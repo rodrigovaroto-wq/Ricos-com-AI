@@ -73,7 +73,10 @@ for (const name of NAMES) {
   // 7 é a garantia configurada: com 7 essas frases podem ser honestas; com outro número, não.
   for (const n of [1, 2, 3, 10]) for (const bait of WARRANTY_BAITS) lies.push(cap(bait.replaceAll("{name}", name).replaceAll("{n}", String(n))));
   // E com 7, as que dizem entrega continuam prazo.
-  for (const bait of ["{name} a entrega tem garantia de 7 dias.", "{name}, entrega com garantia de até 7 dias.", "{name} chega com troca em 7 dias.", "{name}: 7 dias, com garantia.", "Garantia total, e {name}: 7 dias.", "{name} leva 7 dias, com garantia.", "{name} chega em 7 dias pra trocar."])
+  for (const bait of ["{name} a entrega tem garantia de 7 dias.", "{name}, entrega com garantia de até 7 dias.", "{name} chega com troca em 7 dias.", "{name}: 7 dias, com garantia.", "Garantia total, e {name}: 7 dias.", "{name} leva 7 dias, com garantia.", "{name} chega em 7 dias pra trocar.",
+    // Sétima revisão: a entrega depois do 7.
+    "{name} a garantia é de 7 dias pra entrega.", "{name} a troca também é em 7 dias, e a entrega também.",
+    "{name}, a garantia é a mesma: 7 dias pra chegar na sua casa.", "{name} a troca é em 7 dias e chega junto."])
     lies.push(cap(bait.replaceAll("{name}", name)));
 }
 
@@ -109,6 +112,14 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No antecipado você tem até 7 dias depois de receber pra trocar.",
       "No antecipado você tem 7 dias corridos, a partir do recebimento, para trocar.",
       "Você tem 7 dias a partir do recebimento para trocar.",
+      // Sétima revisão.
+      "No antecipado, o colete chega e você tem 7 dias pra trocar.",
+      "O prazo de troca no antecipado é de 7 dias.",
+      "No pix, a troca pode ser pedida em até 7 dias.",
+      "No antecipado a devolução pode ser solicitada em até 7 dias.",
+      "No pix, se precisar trocar, são 7 dias a partir de quando você receber.",
+      "No pix você também tem 7 dias corridos, contados do recebimento, pra devolver.",
+      "No pix vale o mesmo direito de 7 dias de arrependimento.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);

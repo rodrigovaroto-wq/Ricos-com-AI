@@ -41,3 +41,9 @@ M-07 | delivery_promise | No pix a troca pode ser feita em até 7 dias.
 M-07 | delivery_promise | No antecipado você tem até 7 dias depois de receber pra trocar.
 M-07 | delivery_promise | No antecipado você tem 7 dias corridos, a partir do recebimento, para trocar.
 M-07 | delivery_promise | Você tem 7 dias a partir do recebimento para trocar.
+M-07 | delivery_promise | O prazo de troca no antecipado é de 7 dias.
+M-07 | delivery_promise | No pix, a troca pode ser pedida em até 7 dias.
+M-07 | delivery_promise | No antecipado a devolução pode ser solicitada em até 7 dias.
+M-07 | delivery_promise | No pix, se precisar trocar, são 7 dias a partir de quando você receber.
+M-07 | delivery_promise | No pix você também tem 7 dias corridos, contados do recebimento, pra devolver.
+M-07 | delivery_promise | No pix vale o mesmo direito de 7 dias de arrependimento.
