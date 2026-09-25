@@ -78,7 +78,6 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
-  bargainsToBuy,
   decidesToBuy,
   decideClarify,
   goodbyeParks,
@@ -87,6 +86,7 @@ import {
   interpretRequest,
   linkPathFor,
   linkSentRecently,
+  namesOwnPrice,
   asksForLink,
   choosesPath,
   closesConversation,
@@ -1959,8 +1959,15 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // A goodbye never beats a decision: "deixa quieto, quero o G mesmo" is buying.
   if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
   // A purchase on a price the shop does not have is not a decision (H-2): no link on
-  // "faz por 100 que eu levo", whichever reading said yes.
-  if (bargainsToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: false };
+  // "faz por 100 que eu levo", whichever reading said yes. "Por 116 eu levo" is the real
+  // prepaid price and stays a decision.
+  const shopPrices = [
+    CONFIG.prices.codBrl,
+    CONFIG.prices.prepayBrl,
+    CONFIG.prices.anchorBrl,
+    ...(CONFIG.kits ?? []).map((k) => k.priceBrl),
+  ];
+  if (namesOwnPrice(inbound.body ?? "", shopPrices)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
@@ -2670,7 +2677,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     recordOutcome(
       conversation.id,
       fallbackReason === null ? "send" : "fallback",
-      fallbackReason ?? (checkoutUrl && linkFact ? `link — ${linkFact}` : null),
+      fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),
       rewritesUsed,
       spent - spentBefore,
     ),
@@ -2705,7 +2712,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // ela escolhe o dia da entrega. `order` continua aqui para quando o pedido passar a
     // nascer por API — mas hoje quem cria o pedido é ela, clicando.
     checkoutUrl,
-    linkFact: checkoutUrl ? linkFact : null,
+    linkFact: checkoutUrl && replyText.includes(checkoutUrl) ? linkFact : null,
     checkoutBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.

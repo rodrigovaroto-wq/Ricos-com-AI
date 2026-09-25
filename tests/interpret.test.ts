@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
   asksSomething,
-  bargainsToBuy,
   CLARIFY_SIZE_REPLIES,
   decideClarify,
   decidesToBuy,
@@ -11,6 +10,7 @@ import {
   INTERPRET_MAX_COMPLETION_TOKENS,
   linkPathFor,
   namesAPerson,
+  namesOwnPrice,
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   linkSentRecently,
@@ -375,48 +375,50 @@ describe("quando o link sai sem esperar a identidade", () => {
     expect(sendLinkNow({ ...args, interpretation: read({ pending_answer: "other_question" }) })).toBe(false);
   });
 
-  // H-2 (operador, 2026-09-25): o link só vai quando ela confirma que quer comprar. Deixar
-  // o pedido do nome passar pra fazer outra pergunta é cliente ainda decidindo.
-  it("não sai quando ela ignorou o pedido do nome pra perguntar outra coisa", () => {
+  // Revisão do H-2 (2026-09-25): o pedido de identidade só vem depois da decisão, e a
+  // decisão não fica guardada em outro lugar — segurar o link aqui deixa sem link quem já
+  // disse sim ("pra que você precisa do meu CPF?").
+  it("ela ignorou o pedido do nome pra perguntar outra coisa: o link ainda sai", () => {
     const perguntou = read({ pending_answer: "other_question" });
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(false);
-    expect(readyForLink({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(false);
-    // ...mas se ela decidiu na mesma mensagem, a pergunta não segura o link.
-    expect(
-      sendLinkNow({ ...args, identityAsked: true, interpretation: read({ pending_answer: "other_question", wants_to_buy: true }) }),
-    ).toBe(true);
-    // E deixar passar sem perguntar nada continua mandando (R13.4).
-    expect(sendLinkNow({ ...args, identityAsked: true, interpretation: read({ pending_answer: "unrelated" }) })).toBe(true);
+    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(true);
   });
 });
 
-/** H-2: compra condicionada a um preço que a loja não tem não é decisão (Tati, 2026-09-25). */
-describe("barganha com 'eu levo' não é decisão de compra", () => {
-  it.each([
-    "faz por 100 que eu levo agora",
-    "Faz a 110 no pix?",
-    "se fizer por 100 eu compro",
-    "se você baixar eu levo",
-    "se vc der um desconto eu fecho",
-    "por 100 eu levo hoje",
-    "com desconto eu levo duas",
-    "se parcelar eu compro",
-    "deixa por R$ 99 que eu pego",
-  ])("%s → barganha", (msg) => {
-    expect(bargainsToBuy(msg)).toBe(true);
+/**
+ * H-2: quem cita um preço que a loja não tem está pedindo, não decidindo (Tati, "faz por
+ * 100 que eu levo agora"). Lido pelo número, não pela frase: a primeira versão, por frase,
+ * vetou "por 116 eu levo" (o preço real do pix) e deixou passar "não dá pra fazer por 100?".
+ */
+describe("preço que a loja não tem não é decisão de compra", () => {
+  const prices = [129.9, 116.91, 199.9, 233.82, 311.76, 207.84, 272.79];
+  const real = ["129,90", "129", "130", "116", "116,91", "117", "207", "R$ 233,82", "272", "311"];
+  const own = ["100", "110", "90", "R$ 99,90", "115", "120", "180", "150", "80"];
+  const frames = [
+    (n: string) => `por ${n} eu levo`,
+    (n: string) => `faz por ${n} que eu levo agora`,
+    (n: string) => `não dá pra fazer por ${n}? quero o G`,
+    (n: string) => `não faz ${n} não? quero um G`,
+    (n: string) => `quero um G por ${n}`,
+    (n: string) => `vou levar, mas só por ${n}`,
+    (n: string) => `se for ${n} eu fecho`,
+    (n: string) => `levo 2 por ${n}`,
+  ];
+  it("preço da loja, em qualquer frase e com negação: não é pedido de preço", () => {
+    for (const f of frames) for (const n of real) expect({ msg: f(n), own: namesOwnPrice(f(n), prices) }).toEqual({ msg: f(n), own: false });
   });
-
+  it("preço inventado, em qualquer frase e com negação: é pedido de preço", () => {
+    for (const f of frames) for (const n of own) expect({ msg: f(n), own: namesOwnPrice(f(n), prices) }).toEqual({ msg: f(n), own: true });
+  });
   it.each([
+    "quero o G, uso calça 46",
+    "meu cep é 01310-100, quero comprar",
+    "meu zap é 11 98765-4321",
+    "quero 2, um 42 e um 44",
+    "chega em 3 dias?",
+    "cpf 123.456.789-09",
     "quero comprar, pode mandar o link",
-    "vou levar o M",
-    "não precisa fazer por 100, manda o link",
-    "nem precisa baixar, eu levo assim mesmo",
-    "fica 129,90 mesmo? pode mandar",
-    "quero no pix",
-    "comprei por 100 numa loja e não serviu",
-    "o M serve pra quem usa 42?",
-  ])("%s → não é barganha", (msg) => {
-    expect(bargainsToBuy(msg)).toBe(false);
+  ])("%s → sem preço inventado", (msg) => {
+    expect(namesOwnPrice(msg, prices)).toBe(false);
   });
 });
 

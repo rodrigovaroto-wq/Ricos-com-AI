@@ -110,8 +110,9 @@ export const INTERPRETER_SYSTEM = [
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
   '  se despede desistindo por agora ("deixa pra lá", "deixa então, vlw").',
   '- "wants_to_buy": true se ela decide comprar: "quero comprar", "vou nesse então", "quero',
-  '  então", "vou querer", "pode mandar o link", "quero um G". Compra com condição de preço',
-  '  ("faz por 100 que eu levo", "se baixar eu compro") não é decisão: false.',
+  '  então", "vou querer", "pode mandar o link", "quero um G". Pedir preço menor ou desconto',
+  '  como condição ("faz por 100 que eu levo", "me dá um desconto que eu levo") não é decisão:',
+  '  false. Aceitar o preço que a assistente ofereceu ("por 116 eu levo", "fechado no pix") é.',
   '- "pending_answer": compare com a ÚLTIMA mensagem da assistente.',
   '  "answered" = a assistente fez uma pergunta e a mensagem responde;',
   '  "other_question" = ela faz uma pergunta própria ou traz um assunto real novo;',
@@ -512,10 +513,10 @@ export const sendLinkNow = (args: {
 /**
  * She is ready for the link — whether or not the size is known yet.
  *
- * H-2 (operator, 2026-09-25): the link goes only once she confirms she wants to buy; a
- * link sent while she is still asking rushes her and loses the sale. Letting the name
- * question pass still counts — the agent asks it only after she decided — but not when
- * she let it pass to ask something new: that is a customer still deciding.
+ * Letting the name question pass counts even when she asks something new ("pra que o
+ * CPF?"): the agent asks it only after she decided, and the decision is not stored
+ * anywhere else — holding the link there strands a customer who already said yes (H-2
+ * review, 2026-09-25).
  */
 export const readyForLink = (args: {
   identityComplete: boolean;
@@ -526,7 +527,7 @@ export const readyForLink = (args: {
   args.identityComplete ||
   args.interpretation.wants_to_buy ||
   args.interpretation.email_unavailable ||
-  (args.identityAsked && !args.identityGiven && args.interpretation.pending_answer !== "other_question");
+  (args.identityAsked && !args.identityGiven);
 
 /**
  * Whether an opt-out message also asks something (R13.4, Rose): "não me manda mais
@@ -625,19 +626,19 @@ export const decidesToBuy = (message: string): boolean => {
 };
 
 /**
- * A purchase on a condition the shop does not meet is not a decision (H-2, persona round
- * 2026-09-25, Tati: "faz por 100 que eu levo agora" sent the checkout link at R$ 129,90).
- * Only the bargain shapes count: asking for a price ("faz por 100", "se baixar", "por 100
- * eu levo") or a discount/installment as the condition. A denial of the bargain ("não
- * precisa fazer por 100, manda o link") is not one.
+ * She names a price the shop does not have (H-2, persona round 2026-09-25, Tati: "faz por
+ * 100 que eu levo agora" got the R$ 129,90 link). Read by the number, not by the phrasing:
+ * the phrase-based first version (review, 2026-09-25) vetoed "por 116 eu levo" — Tati
+ * accepting the real prepaid price — and let "não dá pra fazer por 100? quero o G" through.
+ * A money-sized number (60 to 999) that is none of the shop's prices, give or take R$ 1, is
+ * her own price, whatever the wording or negation around it. Pants sizes (36–56), CEP and
+ * phone pieces are outside the range or glued to other digits.
  */
-const BARGAIN =
-  /\b(?:(?:faz|faca|faria|fazer|deixa|deixaria)\s+(?:por|a|pra)\s+(?:r\$\s*)?\d+|se\s+(?:voce\s+|vc\s+)?(?:fizer|fazer|baixar|abaixar|tirar|der\s+(?:um\s+)?desconto|parcelar|dividir)|por\s+(?:r\$\s*)?\d+[^.!?\n]{0,20}\b(?:levo|compro|fecho|pego)|com\s+desconto[^.!?\n]{0,20}\b(?:levo|compro|fecho|pego))/g;
-
-export const bargainsToBuy = (message: string): boolean => {
-  const t = norm(message);
-  for (const m of t.matchAll(BARGAIN)) {
-    if (!negatedBefore(t, m.index ?? 0)) return true;
+export const namesOwnPrice = (message: string, prices: readonly number[]): boolean => {
+  for (const m of norm(message).matchAll(/(?<![\d.,-])(\d{2,3})(?:[.,](\d{1,2}))?(?![\d-]|[.,]\d)/g)) {
+    const value = Number(m[1]) + (m[2] ? Number(m[2].padEnd(2, "0")) / 100 : 0);
+    if (value < 60) continue;
+    if (!prices.some((p) => Math.abs(p - value) <= 1)) return true;
   }
   return false;
 };

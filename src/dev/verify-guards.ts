@@ -26,20 +26,28 @@ interface Mutation {
 
 const MUTATIONS: Mutation[] = [
   {
-    id: "H-2-pergunta",
-    bug: "o link saía quando ela deixava o pedido do nome passar pra fazer outra pergunta",
+    id: "H-2-preco-da-loja",
+    bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],
-    from: '(args.identityAsked && !args.identityGiven && args.interpretation.pending_answer !== "other_question")',
-    to: "(args.identityAsked && !args.identityGiven)",
+    from: "if (!prices.some((p) => Math.abs(p - value) <= 1)) return true;",
+    to: "return true;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
   },
   {
     id: "H-2-barganha",
     bug: '"faz por 100 que eu levo" contava como decisão e mandava o link (Tati)',
     files: ["supabase/functions/turn/index.ts"],
-    from: 'if (bargainsToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: false };',
+    from: 'if (namesOwnPrice(inbound.body ?? "", shopPrices)) interpretation = { ...interpretation, wants_to_buy: false };',
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "H-2-numero",
+    bug: "a leitura por número desligada: nenhum preço inventado é visto",
+    files: ["src/agent/interpret.ts"],
+    from: "if (value < 60) continue;",
+    to: "continue;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
   },
   {
     id: "M-05",
