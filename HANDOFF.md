@@ -48,7 +48,7 @@ Mudanças técnicas: `registro.md` M-05 a M-09.
   `typecheck:function`, `dev:gates --fail-on-loosen` — todos verdes.
 
 ### Gasto da API da Meta no dia
-Personas ≈ R$ 1,55 · Hermes ≈ US$ 0,045 (≈ R$ 0,25) · **total ≈ R$ 1,80**.
+Personas ≈ R$ 1,37 · Hermes ≈ US$ 0,04 (≈ R$ 0,22) · **total ≈ R$ 1,60**.
 
 ### Próximos passos
 1. **Operador:**
