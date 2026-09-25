@@ -1562,8 +1562,22 @@ mesmo `/encorpa-venda` do n8n, com `?fonte=`.
 
 Achado da rodada de personas: depois de "prefiro pagar antecipado no pix", o turno
 seguinte voltava ao link da entrega, porque a escolha valia só na mensagem em que foi
-dita. Agora fica no lead (`leads.payment_choice`) e é zerada após a compra. Região sem
-pagamento na entrega continua forçando o antecipado.
+dita. Agora fica no lead (`leads.payment_choice`) e é zerada após a compra. Só é gravada
+quando a frase **é uma escolha** ("quero no pix", "pix mesmo"), nunca de uma pergunta ou
+comparação ("quanto economizo no pix?"), e expira após 7 dias sem uso, como o kit. Região
+sem pagamento na entrega continua forçando o antecipado.
+
+## R14.10 — A régua pós-compra fala do pedido, não do preço de tabela
+
+A confirmação e a véspera leem o pedido: total, peças, tamanhos e caminho. Kit na entrega:
+"Kit de 2 coletes, tamanhos M e G, R$ 233,82 na entrega" e "deixa R$ 233,82 separado".
+Pedido antecipado: "já pago", sem "deixa separado".
+
+## R14.11 — Pós-venda vai para uma pessoa, exceto o encerramento feliz
+
+Toda mensagem sobre um pedido existente vai para uma pessoa, menos o agradecimento ou a
+despedida sem queixa ("obrigada, já finalizei", "chegou, amei"). A exceção é uma lista de
+permissão: qualquer palavra fora dela ("mas veio o M", "só 1 das 2") mantém o handoff.
 
 ## R14.6 — Fatos do config confirmados pelo operador
 

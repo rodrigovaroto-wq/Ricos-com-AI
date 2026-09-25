@@ -291,6 +291,30 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Hermes sobre a rodada:** 1 proposta (H-1, M-03) — o placar contava como link repetido
   o reenvio que a cliente pediu, que a produção já libera por `asksForLink`. Aceita: o placar
   usa a mesma função (`persona-scorecard.test.ts`).
+- **Loop de verificação (tarde de 2026-09-25):** nove passadas de revisão independente
+  (`code-reviewer`), cada uma sobre as correções da anterior, até **aprovado com resíduos**.
+  Achados reais corrigidos na origem, todos com teste e mutação:
+  - o gate vetava a fala 7.1 do script ("R$ 116,91 em vez de R$ 129,90");
+  - pedidos comuns de kit viravam 1 peça ("quero 2, M e G");
+  - correção do próprio tamanho virava tamanho da outra peça;
+  - o kit abandonado voltava dias depois (nada fecha conversa: expira por tempo, `units_at`);
+  - **o caminho escolhido valia só na mensagem** (o turno seguinte ao "quero no pix" mandava
+    o link da entrega): agora fica em `leads.payment_choice`, gravado só quando a frase é
+    escolha (`choosesPath`) e expirando em 7 dias sem uso;
+  - o gate recebe a quantidade de peças da conversa (`ctx.units`) em vez de adivinhá-la;
+  - **a régua pós-compra falava o preço de 1 peça num kit** ("deixa R$ 129,90 separado"
+    num pedido de R$ 233,82) e mandava "separar dinheiro" em pedido já pago: agora lê o
+    pedido (total, peças, tamanhos, caminho);
+  - peça grátis sem número ("a segunda sai de graça", "leve 2 pague 1") é concessão;
+  - "tchau brigada" virava nome; "obrigada, já finalizei" virava handoff; a despedida
+    reenviava o link — o handoff de pós-venda agora exclui só o encerramento feliz, por
+    lista de permissão;
+  - numa frase que compara os caminhos, cada prazo responde ao caminho citado antes dele.
+- **Resíduos aceitos** (revisão, 9ª passada): dois kits na mesma frase com os preços
+  trocados; "na troca, o colete novo sai de graça" veta (custa uma reescrita); dois pedidos
+  no mesmo lead fazem a régua ler o último.
+- **Medida final:** rodada completa `06-19-27` (15 personas) e confirmação `06-37-29`: 8/8,
+  0 respostas prontas; `pnpm verificar:guardas` 56/56.
 - **Estado:** feita e medida.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
