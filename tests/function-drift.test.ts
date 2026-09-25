@@ -419,7 +419,8 @@ describe("kits na Edge Function (2026-09-25)", () => {
 describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
-    expect(source).toContain("isRetry ? [] : quantity?.sizes.length");
+    expect(source).toContain("isRetry\n            ? []\n            : quantity?.sizes.length");
+    expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null }),');
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {

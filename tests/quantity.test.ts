@@ -10,6 +10,7 @@ describe("kits: quantas peças ela quer", () => {
     expect(interpretation.units).toBe(2);
     expect(interpretation.unit_sizes).toEqual(["M", "G"]);
     expect(readInterpretation('{"units": "abc"}').interpretation.units).toBeNull();
+    expect(readInterpretation('{"unit_pants": [42, "46", 99]}').interpretation.unit_pants).toEqual([42, 46]);
   });
 
   it("mais de uma peça só com pista de quantidade no texto dela", () => {

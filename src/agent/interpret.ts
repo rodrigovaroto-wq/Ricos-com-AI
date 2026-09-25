@@ -54,6 +54,8 @@ export interface Interpretation {
   units: number | null;
   /** The letter of each piece she names, in order ("um M e um G" → M, G). */
   unit_sizes: SizeLetter[];
+  /** The pants number of each piece, when she gives numbers ("uso 42, ela 46" → 42, 46). */
+  unit_pants: number[];
 }
 
 /** What a failed or garbled interpretation reads as: nothing detected. */
@@ -71,6 +73,7 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   pending_answer: "no_pending",
   units: null,
   unit_sizes: Object.freeze([]) as unknown as SizeLetter[],
+  unit_pants: Object.freeze([]) as unknown as number[],
 }) as Interpretation;
 
 /**
@@ -119,6 +122,8 @@ export const INTERPRETER_SYSTEM = [
   '  levando 2?") não é decisão: null.',
   '- "unit_sizes": a letra de cada peça que ela diz, na ordem ("um M e um G" → ["M","G"];',
   '  "as duas G" → ["G","G"]; só "G" respondendo o tamanho de uma peça → ["G"]); [] se não disser.',
+  '- "unit_pants": quando ela quer mais de uma peça e diz o número de CALÇA de cada pessoa, os',
+  '  números na ordem ("uso 42, ela 46" → [42,46]); [] se não disser. Só calça, nunca manequim.',
 ].join("\n");
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
@@ -196,6 +201,9 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       unit_sizes: (Array.isArray(o.unit_sizes) ? o.unit_sizes : [])
         .map((x) => (typeof x === "string" ? x.trim().toUpperCase() : ""))
         .filter((x): x is SizeLetter => (LETTERS as readonly string[]).includes(x)),
+      unit_pants: (Array.isArray(o.unit_pants) ? o.unit_pants : [])
+        .map((x) => numberIn(x, 34, 56))
+        .filter((x): x is number => x !== null),
     },
   };
 };

@@ -150,8 +150,8 @@ const MUTATIONS: Mutation[] = [
     id: "kit-retry",
     bug: 'a nova tentativa reaplicava o tamanho e virava "G e G"',
     files: ["supabase/functions/turn/index.ts"],
-    from: "isRetry ? [] : quantity?.sizes.length",
-    to: "quantity?.sizes.length",
+    from: "isRetry\n            ? []\n            : quantity?.sizes.length",
+    to: "false\n            ? []\n            : quantity?.sizes.length",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
   },
   {

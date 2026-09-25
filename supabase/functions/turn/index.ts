@@ -28,7 +28,7 @@ import {
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, statedSizeOf } from "./sizing.ts";
+import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
@@ -1984,7 +1984,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       ? mergeUnitSizes(
           (lead.unit_sizes as string[] | null) ?? [],
           // A retry replays the same message: merging it again would add a size she said once.
-          isRetry ? [] : quantity?.sizes.length ? quantity.sizes : stated && units > 1 ? [stated.size] : [],
+          // Pants numbers go through the same deterministic table as one piece's: the model
+          // never converts a size, and she should not have to guess her letter (kit round).
+          isRetry
+            ? []
+            : quantity?.sizes.length
+              ? quantity.sizes
+              : interpretation.unit_pants.length
+                ? interpretation.unit_pants.map(sizeFromDressSize)
+                : stated && units > 1
+                  ? [stated.size]
+                  : [],
           units,
         )
       : [];
