@@ -1646,6 +1646,33 @@ loop fecha num humano —, e o humano passa a ser o clique em cada proposta:
 Cuidado que isto cria: o deploy publica o `main` inteiro. Mudança manual no turno que for
 para o `main` precisa ser publicada logo (R14.8), senão sai de carona na próxima aprovada.
 
+## R14.15 — Mercado Pago processa o antecipado na Coinzz (2026-09-25, noite)
+
+Informado pelo operador: o pagamento do antecipado na Coinzz passou a ser processado pelo
+**Mercado Pago**, que cobra taxa menor. Nada muda no código: o checkout, o link, o webhook
+(`?fonte=coinzz`) e o preço que a Malu cita continuam os mesmos. O que muda é a margem do
+antecipado — a conta de unidade econômica que usava a taxa da Coinzz fica desatualizada até
+alguém refazê-la com a taxa do Mercado Pago. Mapa do funil no Miro atualizado no mesmo dia
+("Funil de Vendas com Agente de IA", quadros 1 a 8).
+
+## R14.16 — O canal do WhatsApp fica pronto e desligado (2026-09-25, noite)
+
+Decisão do operador: Meta Ads, Business Manager, o app de developer, o número e os templates
+são do **sócio**; o operador cuida do técnico. O técnico ficou pronto antes do número:
+
+1. **Entrada:** função `whatsapp` (assinatura da Meta conferida, 200 na hora, selo
+   `INBOUND_SIGNING_SECRET` em cada mensagem) → n8n `encorpa-inbound` → turno.
+2. **Saída:** workflow n8n "WhatsApp envio" (`CANAL_ATIVO = false`), chamado pelo Turno
+   (confirmação de leitura, balões) e pelo Relógio (toques, texto ou template).
+3. **Janela de 24h de verdade:** começa na mensagem dela (horário da Meta), fecha 10 min
+   antes; toque bloqueado vira e-mail; nova tentativa fora da janela vai para uma pessoa.
+4. **Porta fechada em camadas:** selo na entrada, lista fechada de campos no n8n, e
+   `TURN_REQUIRE_SERVICE_ROLE` para a chave pública — os dois segredos nascem ausentes e
+   são ligados na ativação, com uma sonda antes.
+
+Passo a passo de ativação: [`docs/operacao/whatsapp-cloud-api.md`](../../operacao/whatsapp-cloud-api.md).
+Grafo: §13.
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da

@@ -20,7 +20,9 @@ import {
 } from "./guardrails.ts";
 import {
   decideTouch,
+  deliveryFor,
   nextOpening,
+  windowIsOpen,
   onOrderConfirmed,
   stageForOrder,
   renderFollowup,
@@ -101,6 +103,7 @@ import {
   type Interpretation,
 } from "./interpret.ts";
 import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { sealIsValid } from "./inbound-signature.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -1093,10 +1096,27 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
-  const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
+  /**
+   * What n8n sends through the Cloud API. `via` is the 24-hour window decided here, not in
+   * n8n (WA-1, 2026-09-25): inside it the text goes as is; outside, only an approved
+   * template, with its variables. `body` is always the gated text, for the record.
+   */
+  type Send =
+    | { to: string; kind: string; followupId: string; via: "text"; body: string }
+    | {
+        to: string;
+        kind: string;
+        followupId: string;
+        via: "template";
+        body: string;
+        name: string;
+        language: string;
+        variables: readonly string[];
+      };
+  const toSend: Send[] = [];
   const skipped: Array<{ followupId: string; reason: string }> = [];
   /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
   const handoffs: Array<Record<string, unknown>> = [];
@@ -1127,6 +1147,26 @@ const runFollowupSweep = async () => {
         skipped.push({ followupId: row.id, reason: "nova tentativa fica para a próxima varredura" });
         continue;
       }
+      // A retry that waited past her 24-hour window cannot answer as free text (security
+      // review, 2026-09-25): a person picks it up instead of Meta refusing it in silence.
+      const retryInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
+      if (!windowIsOpen(new Date(), retryInbound)) {
+        await mark("canceled");
+        // A real handoff, as the e-mail says: the agent stops answering her (second review).
+        await db(`leads?id=eq.${lead.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+        }).catch(() => undefined);
+        handoffs.push({
+          followupId: row.id,
+          reason: "nova tentativa passou da janela de 24h do WhatsApp: responda você",
+          notify: CONFIG.handoff?.email ?? null,
+          leadId: lead.id,
+          phone: lead.phone,
+          conversationId: row.conversation_id,
+        });
+        continue;
+      }
       retriedTurns += 1;
       await mark("sent");
       const ticket = readTicket(row.body);
@@ -1138,8 +1178,9 @@ const runFollowupSweep = async () => {
       const result = await handleTurn({ externalId: `retry:${row.id}`, from: lead.phone }, { retry: ticket })
         .then((r) => r.json())
         .catch((error) => ({ status: `erro: ${redactKeys(error instanceof Error ? error.message : String(error))}` }));
+      // A retried turn answers a message of hers from minutes ago: inside the window.
       if (typeof result.reply === "string") {
-        toSend.push({ to: lead.phone, body: result.reply, kind: row.kind, followupId: row.id });
+        toSend.push({ to: lead.phone, via: "text", body: result.reply, kind: row.kind, followupId: row.id });
       }
       if (result.status === "handoff") {
         handoffs.push({
@@ -1174,7 +1215,7 @@ const runFollowupSweep = async () => {
     const touchPath: "cod" | "prepay" = order
       ? order.payment_method === "prepay" ? "prepay" : "cod"
       : fresh(lead.payment_choice_at) && lead.payment_choice === "prepay" ? "prepay" : "cod";
-    const text = renderFollowup(kind, {
+    const renderCtx = {
       leadId: lead.id,
       config: CONFIG,
       stopPoint: (row.stop_point ?? "before_size") as StopPoint,
@@ -1183,7 +1224,8 @@ const runFollowupSweep = async () => {
       units: touchUnits,
       prepaid: order?.payment_method === "prepay",
       body: row.body ?? undefined,
-    });
+    };
+    const text = renderFollowup(kind, renderCtx);
 
     // Two touches can render to nothing, and calling both "coupon" hides the one that
     // matters: a deferred reply with no body is a paid-for answer that got lost.
@@ -1246,6 +1288,23 @@ const runFollowupSweep = async () => {
       continue;
     }
 
+    // The 24-hour window (WA-1): outside it only an approved template leaves. A touch with
+    // no template is cancelled and reported, never sent as text Meta would refuse — and
+    // never written to `messages` as if she had read it.
+    const lastInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
+    const delivery = deliveryFor(kind, renderCtx, lastInbound);
+    if (delivery === null || delivery.via === "blocked") {
+      await mark("canceled");
+      skipped.push({
+        followupId: row.id,
+        reason:
+          delivery?.via === "blocked" && delivery.reason === "empty_variable"
+            ? "fora da janela de 24h: template com variável vazia"
+            : "fora da janela de 24h e sem template aprovado",
+      });
+      continue;
+    }
+
     await db("messages", {
       method: "POST",
       body: JSON.stringify({
@@ -1263,7 +1322,11 @@ const runFollowupSweep = async () => {
     if (kind === "deferred_reply") {
       await scheduleSilenceTouches(row.conversation_id, stopPointOf(text));
     }
-    toSend.push({ to: lead.phone, body: text, kind, followupId: row.id });
+    toSend.push(
+      delivery.via === "template"
+        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
+        : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
+    );
   }
 
   return { status: "swept", due: (due ?? []).length, send: toSend, skipped, handoffs };
@@ -1282,6 +1345,13 @@ type TurnPayload = {
   body?: string;
   /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
   source?: Record<string, unknown>;
+  /** When she sent it, from Meta's own timestamp (ISO): starts the 24-hour window. */
+  sentAt?: string;
+  /**
+   * The inbound seal made by the `whatsapp` function (security review, 2026-09-25). With
+   * INBOUND_SIGNING_SECRET set, a conversation turn without a valid seal is refused.
+   */
+  signature?: string;
   order?: OrderWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
@@ -1294,8 +1364,28 @@ type TurnPayload = {
   resume?: boolean;
 };
 
+/**
+ * The role inside the caller's JWT. The platform already verified its signature
+ * (`verify_jwt`); this only reads who it is. The anon key is public by design — it sits in
+ * any browser client — so with TURN_REQUIRE_SERVICE_ROLE=true it no longer opens the
+ * sweep, the order route or a turn (security review, 2026-09-25). Unset = not enforced yet.
+ */
+const callerRole = (request: Request): string | null => {
+  const token = (request.headers.get("authorization") ?? "").replace(/^Bearer\s+/i, "");
+  const part = token.split(".")[1] ?? "";
+  try {
+    const b64 = part.replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(atob(b64 + "=".repeat((4 - (b64.length % 4)) % 4)))?.role ?? null;
+  } catch {
+    return null;
+  }
+};
+
 Deno.serve(async (request: Request): Promise<Response> => {
   if (request.method !== "POST") return json(405, { error: "use POST" });
+  if (Deno.env.get("TURN_REQUIRE_SERVICE_ROLE") === "true" && callerRole(request) !== "service_role") {
+    return json(401, { error: "use a chave de serviço" });
+  }
 
   let payload: TurnPayload;
   try {
@@ -1303,7 +1393,21 @@ Deno.serve(async (request: Request): Promise<Response> => {
   } catch {
     return json(400, { error: "corpo não é JSON" });
   }
-  return await handleTurn(payload);
+  const response = await handleTurn(payload);
+  if (payload.job) return response;
+  // `sealed` tells n8n this message really came through the `whatsapp` function (second
+  // review): the only signal n8n may send to the customer on. `channel` is the caller's
+  // word; this is the seal's. With the secret unset it is always false — fail closed.
+  const secret = Deno.env.get("INBOUND_SIGNING_SECRET") ?? "";
+  const sealed =
+    secret !== "" &&
+    (await sealIsValid(
+      secret,
+      { externalId: payload.externalId ?? "", from: payload.from ?? "", body: payload.body ?? "", sentAt: payload.sentAt },
+      payload.signature,
+    ));
+  const out = await response.json().catch(() => null);
+  return out && typeof out === "object" && !Array.isArray(out) ? json(response.status, { ...out, sealed }) : response;
 });
 
 /**
@@ -1355,6 +1459,23 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const isRetry = internal.retry !== undefined;
   /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
   let retriedInboundAt: string | null = null;
+
+  // The door is public (n8n `encorpa-inbound`): with the secret set, only a message sealed
+  // by the `whatsapp` function becomes a turn — a forged "para de me mandar mensagem" on a
+  // real customer's number would otherwise opt her out for good. Unset = not enforced yet.
+  // The sweep's own retry is internal and carries no seal.
+  const signingSecret = Deno.env.get("INBOUND_SIGNING_SECRET") ?? "";
+  if (
+    signingSecret !== "" &&
+    !isRetry &&
+    !(await sealIsValid(
+      signingSecret,
+      { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt },
+      payload.signature,
+    ))
+  ) {
+    return json(401, { error: "mensagem sem o selo da entrada" });
+  }
 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
@@ -1460,6 +1581,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         external_id: inbound.externalId,
       }),
     }))?.[0]?.id ?? null;
+    // The 24-hour window counts from HER message (security review, 2026-09-25): stamped
+    // here, once, with Meta's own timestamp when it is plausible — never at the end of the
+    // turn, and never by a resume or a retry, which would stretch the window by minutes.
+    const sentAt = Date.parse(String(payload.sentAt ?? ""));
+    // Only the future is clamped (second review): an old message keeps its own time, so a
+    // redelivery days later reads as a closed window instead of reopening it.
+    const inboundAt = Number.isFinite(sentAt) ? new Date(Math.min(sentAt, Date.now())) : new Date();
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),
+    }).catch(() => undefined);
   }
 
   // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the
@@ -1896,7 +2028,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       method: "PATCH",
       body: JSON.stringify({
         cost_brl: spent,
-        last_inbound_at: new Date().toISOString(),
         last_outbound_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -2522,7 +2653,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     method: "PATCH",
     body: JSON.stringify({
       cost_brl: spent,
-      last_inbound_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     }),
   });

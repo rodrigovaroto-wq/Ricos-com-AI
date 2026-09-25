@@ -1,0 +1,191 @@
+{
+  "id": "GehzRG0OhJ4FtBm9",
+  "name": "Encorpa — WhatsApp envio",
+  "active": true,
+  "versionId": "1f3f67d4-b4fb-4064-b13a-d482b00bb33b",
+  "nodes": [
+    {
+      "id": "1b28e2a4-6478-487d-b166-a1fcb7928b1b",
+      "name": "Recebe o envio",
+      "type": "n8n-nodes-base.executeWorkflowTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        144
+      ],
+      "parameters": {
+        "inputSource": "passthrough"
+      }
+    },
+    {
+      "id": "417fa116-6966-40dc-871e-0e2115cb5309",
+      "name": "Monta os envios",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        224,
+        144
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// WA-3 (2026-09-25): what the Cloud API receives, one item per call, in order.\n// The payload shapes are the ones in src/channel/whatsapp.ts; tests/n8n-whatsapp-send.test.ts\n// runs THIS code and compares its output with them.\n//\n// Input, from the Turno: { to, markRead: wamid } as soon as her message arrives, then\n//                        { to, bubbles: [{ text, delayMs }] } with the reply\n//        from the Relogio: { to, via: \"text\", body } or { to, via: \"template\", name, language, variables }\n//\n// CANAL_ATIVO stays false until the number is registered and the partner's values are in:\n// while false, nothing leaves, whatever calls this.\nconst CANAL_ATIVO = false;\nconst PHONE_NUMBER_ID = '{{PHONE_NUMBER_ID}}';\nconst API = 'https://graph.facebook.com/v21.0/';\n\nconst out = [];\nif (!CANAL_ATIVO || !/^[0-9]+$/.test(PHONE_NUMBER_ID)) return out;\nconst url = API + PHONE_NUMBER_ID + '/messages';\nconst text = (to, body) => ({ messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'text', text: { preview_url: false, body } });\nconst template = (to, name, language, variables) => ({\n  messaging_product: 'whatsapp', recipient_type: 'individual', to, type: 'template',\n  template: { name, language: { code: language }, ...(variables.length ? { components: [{ type: 'body', parameters: variables.map((t) => ({ type: 'text', text: t })) }] } : {}) },\n});\nconst read = (messageId) => ({ messaging_product: 'whatsapp', status: 'read', message_id: messageId, typing_indicator: { type: 'text' } });\n// Typing pauses come from the turn (pacing); capped so one bubble never holds the line.\nconst pause = (ms) => Math.min(25, Math.max(0, Math.round(Number(ms ?? 0) / 1000)));\n\nfor (const item of $input.all()) {\n  const j = item.json ?? {};\n  const to = String(j.to ?? '').replace(/[^0-9]/g, '');\n  if (!to) continue;\n  if (typeof j.markRead === 'string' && j.markRead) {\n    out.push({ json: { url, to, delaySec: 0, payload: read(j.markRead) } });\n  } else if (Array.isArray(j.bubbles) && j.bubbles.length) {\n    for (const b of j.bubbles) {\n      const body = String(b?.text ?? '').trim();\n      if (body) out.push({ json: { url, to, delaySec: pause(b.delayMs), payload: text(to, body) } });\n    }\n  } else if (j.via === 'template' && j.name) {\n    out.push({ json: { url, to, delaySec: 0, payload: template(to, String(j.name), String(j.language ?? 'pt_BR'), (j.variables ?? []).map(String)) } });\n  } else if (typeof j.body === 'string' && j.body.trim()) {\n    out.push({ json: { url, to, delaySec: 0, payload: text(to, j.body.trim()) } });\n  }\n}\nreturn out;"
+      }
+    },
+    {
+      "id": "c6742d46-5ba4-47b1-8d1f-29464774ff9a",
+      "name": "Tempo de digitacao",
+      "type": "n8n-nodes-base.wait",
+      "typeVersion": 1.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "resume": "timeInterval",
+        "amount": "={{ $json.delaySec }}",
+        "unit": "seconds"
+      },
+      "webhookId": "15206b58-b356-4e8b-8d10-cfb757f31f1a"
+    },
+    {
+      "id": "71ebd8cd-1ca3-4883-971d-fb03fa7e056f",
+      "name": "Envia pela Cloud API",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        80
+      ],
+      "parameters": {
+        "method": "POST",
+        "url": "={{ $json.url }}",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpTemplatedCustomAuth",
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify($json.payload) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "onError": "continueErrorOutput"
+    },
+    {
+      "id": "cbe349b3-1b23-400b-b4c1-7e92aeb3845d",
+      "name": "Um por vez",
+      "type": "n8n-nodes-base.splitInBatches",
+      "typeVersion": 3,
+      "position": [
+        448,
+        144
+      ],
+      "parameters": {
+        "batchSize": 1
+      }
+    },
+    {
+      "id": "8ec19b8b-6d05-4eba-b9d8-8716d94b523c",
+      "name": "Avisa falha de envio",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        144
+      ],
+      "parameters": {
+        "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "=Mensagem NAO entregue pelo WhatsApp para {{ $(\"Tempo de digitacao\").item.json.to }}",
+        "emailFormat": "text",
+        "text": "=A Cloud API recusou uma mensagem. A cliente NAO recebeu.\n\nPara: {{ $(\"Tempo de digitacao\").item.json.to }}\nAbrir no WhatsApp: https://wa.me/{{ $(\"Tempo de digitacao\").item.json.to }}\n\nMensagem: {{ JSON.stringify($(\"Tempo de digitacao\").item.json.payload) }}\n\nErro: {{ JSON.stringify($json.error ?? $json) }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      },
+      "webhookId": "28d29740-1081-462b-a086-a4de844d6ce3"
+    }
+  ],
+  "connections": {
+    "Recebe o envio": {
+      "main": [
+        [
+          {
+            "node": "Monta os envios",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta os envios": {
+      "main": [
+        [
+          {
+            "node": "Um por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Tempo de digitacao": {
+      "main": [
+        [
+          {
+            "node": "Envia pela Cloud API",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia pela Cloud API": {
+      "main": [
+        [
+          {
+            "node": "Um por vez",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Avisa falha de envio",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Um por vez": {
+      "main": [
+        [],
+        [
+          {
+            "node": "Tempo de digitacao",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Avisa falha de envio": {
+      "main": [
+        [
+          {
+            "node": "Um por vez",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}

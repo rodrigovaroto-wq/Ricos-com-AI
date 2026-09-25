@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "2a404adc-2135-4d37-b038-d165320c3cbf",
+  "versionId": "3bf6508a-3fda-46f2-8ac0-deb8f7a9064c",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -41,7 +41,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify($json.body) }}",
+        "jsonBody": "={{ JSON.stringify({ externalId: $json.body.externalId, from: $json.body.from, body: $json.body.body, source: $json.body.source, sentAt: $json.body.sentAt, signature: $json.body.signature }) }}",
         "options": {
           "response": {
             "response": {
@@ -311,7 +311,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ ...$('Mensagem recebida').first().json.body, resume: true }) }}",
+        "jsonBody": "={{ JSON.stringify({ externalId: $('Mensagem recebida').first().json.body.externalId, from: $('Mensagem recebida').first().json.body.from, body: $('Mensagem recebida').first().json.body.body, sentAt: $('Mensagem recebida').first().json.body.sentAt, signature: $('Mensagem recebida').first().json.body.signature, resume: true }) }}",
         "options": {
           "response": {
             "response": {
@@ -327,6 +327,135 @@
           "name": "Supabase service_role"
         }
       }
+    },
+    {
+      "id": "37354789-8b3d-4e45-bf76-d86639255780",
+      "name": "Responde no WhatsApp?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        1104,
+        -400
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.sealed }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            },
+            {
+              "leftValue": "={{ $json.bubbles }}",
+              "rightValue": "",
+              "operator": {
+                "type": "array",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5d4a052e-4169-4967-bcfc-f1e5dee2aa2a",
+      "name": "Monta os balões",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        1328,
+        -400
+      ],
+      "parameters": {
+        "mode": "manual",
+        "includeOtherFields": false,
+        "assignments": {
+          "assignments": [
+            {
+              "id": "to",
+              "name": "to",
+              "value": "={{ $('Mensagem recebida').first().json.body.from }}",
+              "type": "string"
+            },
+            {
+              "id": "bubbles",
+              "name": "bubbles",
+              "value": "={{ $json.bubbles }}",
+              "type": "array"
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "d40dd475-ade7-4021-a6a6-86d8abd33276",
+      "name": "Envia a resposta",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.3,
+      "position": [
+        1552,
+        -400
+      ],
+      "parameters": {
+        "mode": "each",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "GehzRG0OhJ4FtBm9",
+          "cachedResultName": "Encorpa — WhatsApp envio"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "a406b2fd-b340-4a45-b6b2-3217f81d7d74",
+      "name": "É recusa de selo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        304
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ JSON.stringify($json) }}",
+              "rightValue": "selo da entrada",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Mensagem sem o selo da funcao whatsapp: e lixo na porta publica. Nao vira e-mail."
     }
   ],
   "connections": {
@@ -355,6 +484,11 @@
             "index": 0
           },
           {
+            "node": "Responde no WhatsApp?",
+            "type": "main",
+            "index": 0
+          },
+          {
             "node": "É recepção?",
             "type": "main",
             "index": 0
@@ -367,7 +501,7 @@
             "index": 0
           },
           {
-            "node": "Avisa a recusa",
+            "node": "É recusa de selo?",
             "type": "main",
             "index": 0
           }
@@ -414,8 +548,47 @@
             "node": "É handoff?",
             "type": "main",
             "index": 0
+          },
+          {
+            "node": "Responde no WhatsApp?",
+            "type": "main",
+            "index": 0
           }
         ],
+        [
+          {
+            "node": "É recusa de selo?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Responde no WhatsApp?": {
+      "main": [
+        [
+          {
+            "node": "Monta os balões",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta os balões": {
+      "main": [
+        [
+          {
+            "node": "Envia a resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É recusa de selo?": {
+      "main": [
+        null,
         [
           {
             "node": "Avisa a recusa",

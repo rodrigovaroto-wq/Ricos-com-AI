@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });
@@ -87,5 +87,17 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
       ),
     };
     expect(checkWorkflow(loose).join()).toContain("does not require the token");
+  });
+
+  // Revisão de segurança (2026-09-25): a porta encorpa-inbound é pública.
+  it("Turno que repassa o corpo inteiro do webhook para o turno", () => {
+    const wf = load("turno-da-agente");
+    const loose = {
+      ...wf,
+      nodes: wf.nodes.map((n) =>
+        n.name === "Cerebro do turno" ? { ...n, parameters: { ...n.parameters, jsonBody: "={{ JSON.stringify($json.body) }}" } } : n,
+      ),
+    };
+    expect(checkWorkflow(loose).join()).toContain("forwards the public webhook's body whole");
   });
 });

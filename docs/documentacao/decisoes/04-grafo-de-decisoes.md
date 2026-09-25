@@ -174,10 +174,12 @@ flowchart TD
 flowchart TD
   D1["entrega na Coinzz"] --> P1["🟥 Coinzz cobrava frete na entrega, sem opção"] --> C1["🟩 entrega volta para a Logzz (frete R$ 0,00)<br/>CPF no link: Logzz 'cpf', Coinzz 'document'"]
   D2["O10: webhook de venda anônimo"] --> P2["Coinzz e Logzz não mandam header"] --> C2["🟩 senha na URL (&token=), n8n repassa,<br/>função compara (tempo constante) → 401<br/>🛡️ O10-venda · dev:n8n"]
+  D5["taxa do antecipado na Coinzz"] --> C5["🟩 Mercado Pago processa o antecipado (R14.15)<br/>sem mudança de código; margem a refazer"]
   D3["O2: lead novo só recebia a recepção"] --> C3["🟩 nó Wait + chamada com resume:true<br/>🛡️ O2-wait · dev:n8n"]
   D4["deploy v33 (versão 38)"] --> P4["🟥 sonda: 'meta: Unauthorized'<br/>META_API_KEY do Supabase recusada"] --> C4["⏳ operador colou uma chave; 07:05 UTC<br/>ainda recusada — conferir chave e secret"]
   C4 --> T4["17:50 UTC: a credencial 'Meta API' do n8n responde 200<br/>→ a chave existe; o erro é o valor no Supabase<br/>(provável 'Bearer ' colado junto: o código já prefixa)"]
   T4 --> F4["🟥 operador perdeu a chave; o n8n não devolve segredo<br/>→ chave nova em dev.meta.ai: Supabase + GitHub (Hermes)"]
+  F4 --> OK4["🟩 19:34 UTC: sonda pela porta do n8n responde pela Meta<br/>(interpret + reply, desfecho send) — função v41"]
 ```
 
 ## 12. Quando o link sai? (H-2)
@@ -201,6 +203,26 @@ flowchart TD
   S --> H --> X --> C0 --> F1 --> F2 --> F3 --> F4 --> C1 --> C2 --> C3 --> G
   C1 -.- K
   C1 -.- R1
+```
+
+## 13. Ligar o WhatsApp sem abrir uma porta (R14.16)
+
+```mermaid
+flowchart TD
+  S["Canal oficial precisa entrar antes do número existir"]
+  G1["🟥 deliveryFor testado mas NÃO ligado à varredura:<br/>régua mandaria texto livre fora das 24h"]
+  C1["🟩 varredura decide texto, template ou bloqueado (WA-1)"]
+  R1["🟥 revisão: encorpa-inbound e a função turn são portas públicas<br/>(chave anon abre a função; o n8n repassava o corpo inteiro)"]
+  C2["🟩 selo da entrada (HMAC) + lista fechada no n8n<br/>+ TURN_REQUIRE_SERVICE_ROLE"]
+  R2["🟥 revisão: last_inbound_at gravado no fim do turno,<br/>na retomada e na nova tentativa: janela esticada"]
+  C3["🟩 gravado uma vez, na mensagem dela, com o horário da Meta;<br/>janela fecha 10 min antes"]
+  R3["🟥 revisão: mensagem perdida depois do 200 sem rastro;<br/>toque bloqueado cancelado em silêncio"]
+  C4["🟩 envio em paralelo com log por id; e-mail dos toques bloqueados"]
+  R4["🟥 2ª revisão: n8n enviava pelo campo channel, que o chamador escreve;<br/>recibo de leitura disparava em qualquer POST; 401 de selo virava e-mail"]
+  C5["🟩 turno devolve sealed; n8n só envia com ele;<br/>recibo sai da função whatsapp (assinatura da Meta conferida)"]
+  OFF["🟩 envio desligado (CANAL_ATIVO=false) até os valores do sócio"]
+  GD["🛡️ WA-1-janela · WA-selo · WA-janela-no-fim · WA-envio-desligado · WA-canal-forjado ·<br/>regras n8n (corpo inteiro, channel, sealed) · teste do nó de envio contra src/channel"]
+  S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> R4 --> C5 --> OFF --> GD
 ```
 
 ---

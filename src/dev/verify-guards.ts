@@ -26,6 +26,46 @@ interface Mutation {
 
 const MUTATIONS: Mutation[] = [
   {
+    id: "WA-selo",
+    bug: "a porta pública do n8n aceitava mensagem forjada com o telefone de uma cliente real",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    signingSecret !== \"\" &&\n    !isRetry &&",
+    to: "    false &&\n    !isRetry &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "WA-janela-no-fim",
+    bug: "last_inbound_at gravado no fim do turno esticava a janela de 24h",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "      cost_brl: spent,\n      updated_at: new Date().toISOString(),",
+    to: "      cost_brl: spent,\n      last_inbound_at: new Date().toISOString(),\n      updated_at: new Date().toISOString(),",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "WA-envio-desligado",
+    bug: "o envio pela Cloud API saía ligado antes do número e dos valores do sócio",
+    files: ["n8n/workflows/whatsapp-envio.json"],
+    from: "const CANAL_ATIVO = false;",
+    to: "const CANAL_ATIVO = true;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-whatsapp-send.test.ts"],
+  },
+  {
+    id: "WA-canal-forjado",
+    bug: "o n8n mandava mensagem pelo WhatsApp com base no campo channel que qualquer um escreve",
+    files: ["n8n/workflows/turno-da-agente.json"],
+    from: '"leftValue": "={{ $json.sealed }}"',
+    to: '"leftValue": "={{ $(\'Mensagem recebida\').first().json.body.channel === \'whatsapp\' }}"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
+  {
+    id: "WA-1-janela",
+    bug: "a régua mandava texto livre fora da janela de 24h, que a Meta recusa",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const delivery = deliveryFor(kind, renderCtx, lastInbound);",
+    to: "const delivery = { via: \"text\" as const, body: text };",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],
