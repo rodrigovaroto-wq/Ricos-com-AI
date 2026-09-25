@@ -420,7 +420,9 @@ describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
     // The retry reads the clock, not the content: merged after the message arrived = replay.
-    expect(source).toContain("isRetry && retriedInboundAt !== null && Number.isFinite(unitsAt) && unitsAt >= Date.parse(retriedInboundAt);");
+    expect(source).toContain("saidSizes.length < units &&\n    retriedInboundAt !== null &&");
+    // Every turn that uses the kit renews its clock.
+    expect(source).toContain("  if (quantity || units > 1) {\n    await db(`leads?id=eq.${lead.id}`, {");
     expect(source).toContain("retriedInboundAt = latest[0].created_at ?? null;");
     expect(source).toContain("replayed ? [] : saidSizes,");
     expect(source).toContain("saysOwnSize(inbound.body");

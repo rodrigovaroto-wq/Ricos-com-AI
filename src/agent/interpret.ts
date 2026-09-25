@@ -229,11 +229,15 @@ const COUNT_WORDS: Record<number, string> = {
 const namesCount = (text: string, units: number): boolean =>
   (COUNT_WORDS[units] !== undefined && new RegExp(`\\b(?:${COUNT_WORDS[units]})\\b`).test(text)) ||
   // "quero 2, M e G" and "quero 2." count; "2,5" and "42" do not (second review).
-  (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d)`).test(text) &&
-    !new RegExp(`\\b(?:uso|visto|numero|n)\\s*${units}\\b`).test(text)) ||
+  // Not a count: "2x", "em 2 vezes", "2 dias", "às 3 horas", "2 filhos", "apto 2" (third review).
+  (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d|\\s*(?:x|vezes|dias?|horas?|h|parcelas?|filh\\w*)\\b)`).test(text) &&
+    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as)\\s*${units}\\b`).test(text)) ||
   new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text) ||
-  // "um pra mim e um pra minha mãe" is two.
-  (units === 2 && /\b(?:um|uma)\b[^.!?]{0,30}\be\s+(?:um|uma)\b/.test(text));
+  // "um pra mim e um pra minha mãe", "pra mim e pra minha irmã", "eu e minha filha" are two.
+  (units === 2 &&
+    /\b(?:um|uma)\b[^.!?]{0,30}\be\s+(?:um|uma)\b|\b(?:pra|para)\s+mim\s+e\s+(?:pra|para)\s+|\beu\s+e\s+(?:a\s+|o\s+)?(?:minha|meu)\s+\w+/.test(text)) ||
+  // "quero 2 M e 1 G" is three: the counts before size letters add up (third review).
+  [...text.matchAll(/\b(\d)\s*(?:p|m|g|gg|xgg)\b/g)].reduce((sum, m) => sum + Number(m[1]), 0) === units;
 
 export const quantityOf = (
   message: string,
@@ -260,8 +264,11 @@ export const saysOwnSize = (message: string, i: Interpretation): boolean => {
   if (i.size.for_other_person || OTHER_PERSON.test(t)) return false;
   return /\b(?:o\s+meu|a\s+minha)\s+(?:e|eh|sera|fica|vai\s+ser|tamanho)\b|\b(?:pra|para)\s+mim\b|\beu\s+(?:uso|visto|sou)\b|\bmeu\s+tamanho\b/.test(t);
 };
+// Not "ele/dele/ela" alone: the vest is "o colete" and the belt "a cinta" — "eu uso G,
+// ele é folgado?" is her own size (third review). The other person is named by "pra ela",
+// "dela", or kinship.
 const OTHER_PERSON =
-  /\b(?:ela|dela|ele|dele|delas|deles|(?:pra|para)\s+(?:a|o|minha|meu)\s+\w+|(?:minha|meu)\s+(?:mae|irma|irmao|filha|filho|amiga|tia|avo|sogra|prima|cunhada|namorad[oa]|marido|esposa))\b/;
+  /\b(?:dela|delas|(?:pra|para)\s+(?:ela|elas|ele|eles)|(?:pra|para)\s+(?:a|o|minha|meu)\s+\w+|(?:minha|meu)\s+(?:mae|irma|irmao|filha|filho|amiga|tia|avo|sogra|prima|cunhada|namorad[oa]|marido|esposa))\b/;
 
 /**
  * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).

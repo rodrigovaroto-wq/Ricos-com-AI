@@ -106,3 +106,23 @@ describe("kits: segunda passada da revisão (2026-09-25)", () => {
     expect(saysOwnSize("pode ser G pra mim tbm", neutral)).toBe(true);
   });
 });
+
+describe("kits: terceira passada da revisão (2026-09-25)", () => {
+  it("mais formas honestas de pedir o kit", () => {
+    expect(quantityOf("quero 2 M e 1 G", said(3))?.units).toBe(3);
+    expect(quantityOf("pra mim e pra minha irmã", said(2))?.units).toBe(2);
+    expect(quantityOf("quero pra mim e pra minha mãe", said(2))?.units).toBe(2);
+    expect(quantityOf("eu e minha filha", said(2))?.units).toBe(2);
+  });
+
+  it("dígito que não é contagem não vale como pista (negação)", () => {
+    for (const msg of ["parcela em 2x?", "em 2 vezes", "chega em 2 dias?", "apto 2", "às 3 horas", "tenho 2 filhos"])
+      expect(quantityOf(msg, said(msg.includes("3") ? 3 : 2))?.units ?? null, msg).toBeNull();
+  });
+
+  it("falar do colete (ele/ela) não é falar de outra pessoa", () => {
+    const neutral = said(null, ["G"]);
+    for (const msg of ["na verdade eu uso o G, ele é folgado?", "pra mim G, eu gosto dele folgado", "eu uso G, ela fica bem folgada em mim?"])
+      expect(saysOwnSize(msg, neutral), msg).toBe(true);
+  });
+});

@@ -174,3 +174,33 @@ describe("kits: segunda passada da revisão (2026-09-25)", () => {
       expect(price(s), s).toBe("pass");
   });
 });
+
+describe("kits: terceira passada da revisão (2026-09-25)", () => {
+  it("comparações honestas de kits passam", () => {
+    for (const s of [
+      "Na entrega o kit de 2 sai R$ 233,82, e o de 3 R$ 311,76.",
+      "Na entrega o kit de 2 sai R$ 233,82 e o de 3 sai R$ 311,76.",
+      "Na entrega você leva 2 peças por R$ 233,82 e 3 por R$ 311,76.",
+      "Na entrega, 2 peças saem R$ 233,82 e 3 saem R$ 311,76.",
+      "Na entrega 2 peças ficam R$ 233,82, e uma sai R$ 129,90.",
+      "Na entrega 2 peças ficam R$ 233,82, e a unidade R$ 129,90.",
+      "Duas peças na entrega: R$ 233,82, e a peça avulsa R$ 129,90.",
+      "Levando 2 peças no antecipado, R$ 207,84, 20% de desconto, e a peça avulsa R$ 116,91.",
+      "Na entrega o desconto vai de 10% em 2 peças a 20% em 3 peças.",
+      "Na entrega são 10% de desconto em 2 peças e 20% em 3.",
+      "No antecipado o desconto é de 20% nas 2 peças e de 30% no kit de 3.",
+    ])
+      expect(price(s), s).toBe("pass");
+  });
+
+  it("quantidade sem kit e percentual sem a palavra desconto são vetados", () => {
+    for (const s of [
+      "Na entrega 4 peças saem R$ 311,76.",
+      "Levando 4 peças na entrega sai R$ 311,76.",
+      "Na entrega 4 peças com 20% de desconto.",
+      "Na entrega, 2 peças saem R$ 233,82 e o kit de 4 sai R$ 311,76.",
+      "Na entrega sai com 30% levando 3 peças.",
+    ])
+      expect(price(s), s).toBe("block");
+  });
+});

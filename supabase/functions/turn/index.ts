@@ -1046,8 +1046,11 @@ const RETRY_TURN_BUDGET_MS = 30_000;
 const INTERPRET_TIMEOUT_MS = 20_000;
 /** On the sweep's retry the interpreter is cut much sooner — the reply is what matters. */
 const RETRY_INTERPRET_TIMEOUT_MS = 8_000;
-/** How long a kit she asked for is remembered without being said again (loop review). */
-const KIT_MEMORY_MS = 72 * 60 * 60 * 1000;
+/**
+ * How long a kit is remembered with no turn using it (loop review). Every turn that uses
+ * the kit renews it, so a conversation that crosses days — the ruler's follow-ups — keeps it.
+ */
+const KIT_MEMORY_MS = 7 * 24 * 60 * 60 * 1000;
 /** Each postcode lookup (ViaCEP, then the checkout's availability) is cut here. */
 const REGION_TIMEOUT_MS = 10_000;
 const RETRY_REGION_TIMEOUT_MS = 5_000;
@@ -2002,8 +2005,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // A retry replays the same message: when the first attempt already merged it (the kit
   // was written after that message arrived), merging again would add a size she said once.
   // When it did not, the sizes count — read from the clock, never guessed from content.
+  // A full list is idempotent, so only a partial one can be dropped as a replay (third review).
   const replayed =
-    isRetry && retriedInboundAt !== null && Number.isFinite(unitsAt) && unitsAt >= Date.parse(retriedInboundAt);
+    isRetry &&
+    saidSizes.length < units &&
+    retriedInboundAt !== null &&
+    Number.isFinite(unitsAt) &&
+    unitsAt >= Date.parse(retriedInboundAt);
   const unitSizes: string[] =
     units > 1
       ? mergeUnitSizes(
@@ -2013,7 +2021,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
           saysOwnSize(inbound.body ?? "", interpretation),
         )
       : [];
-  if ((quantity || units > 1) && (kitStale || units !== (lead.units ?? 1) || unitSizes.join() !== ((lead.unit_sizes as string[] | null) ?? []).join())) {
+  // Written on every turn that uses a kit, not only when it changes: the age is of the last
+  // use, or a kit said on Monday expires mid-conversation on Friday (third review).
+  if (quantity || units > 1) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ units, unit_sizes: unitSizes, units_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
