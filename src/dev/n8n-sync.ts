@@ -1,5 +1,5 @@
 /**
- * Pulls the ACTIVE version of the three production workflows into n8n/workflows/ and
+ * Pulls the ACTIVE version of the production workflows into n8n/workflows/ and
  * checks them against src/dev/n8n-rules.ts. Read-only on n8n.
  *
  *   NODE_USE_ENV_PROXY=1 pnpm dev:n8n
@@ -16,6 +16,7 @@ const WORKFLOWS: Record<string, string> = {
   HnGrxquQLpfbXWLH: "turno-da-agente",
   SVDtFUi2N9oOskkx: "relogio-da-regua",
   gS72LhYGOnmyALRq: "venda-confirmada",
+  o5ZULK9Y74l1hReL: "hermes-decisao",
 };
 
 interface ApiWorkflow {

@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });
@@ -72,5 +72,20 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
   });
   it("a régua correta passa", () => {
     expect(checkWorkflow(sweep({}))).toEqual([]);
+  });
+
+  // Hermes (2026-09-25): o formulário é uma URL pública; sem o token e o status=proposed no
+  // filtro, qualquer link aprova uma mudança que se implementa e se publica sozinha.
+  it("formulário do Hermes que grava sem exigir o token", () => {
+    const wf = load("hermes-decisao");
+    const loose = {
+      ...wf,
+      nodes: wf.nodes.map((n) =>
+        n.name === "Grava a decisão"
+          ? { ...n, parameters: { ...n.parameters, url: String(n.parameters?.url).replace(/&decision_token=eq\.[^&]*/, "") } }
+          : n,
+      ),
+    };
+    expect(checkWorkflow(loose).join()).toContain("does not require the token");
   });
 });
