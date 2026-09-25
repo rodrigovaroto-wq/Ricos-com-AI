@@ -223,6 +223,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   `tests/prepaid-deadline-fuzz.test.ts` gera 1560 mentiras (toda isca × nome do antecipado ×
   verbo × número) e exige veto em todas — a propriedade, não o exemplo. `pnpm dev:gates`: 3
   liberações pedidas pela revisão, 2 endurecimentos no caminho antecipado.
+- **Quinta revisão (2026-09-25): reprovada — exceção por contexto vaza.** "Nenhum verbo de
+  entrega governa o número" liberou "a troca é grátis e no pix chega em só 2 dias" e "no pix
+  leva 7 dias, com garantia". As exceções viraram **formas exatas presas ao número**: "tem/com
+  (até) N dias pra trocar / de garantia / após o recebimento", "devolver/reembolso em N dias",
+  "recebe em N dias o dinheiro de volta" e "garantia …: N dias" (só o N da garantia). Qualquer
+  outra forma é prazo. O fuzz passou a 3000 mentiras (10 nomes do antecipado, incluindo "à
+  vista", "online", "pelo link", "se pagar hoje"). `pnpm dev:gates`: 2 liberações pedidas, 0
+  endurecimentos.
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê

@@ -12,7 +12,11 @@ import { ctx } from "./fixtures.js";
 const delivery = (text: string, paymentPath: "cod" | "prepay") =>
   runGates(text, ctx({ paymentPath, regionKnown: false })).traces.find((t) => t.gate === "delivery_promise")?.verdict;
 
-const NAMES = ["No antecipado", "No pix", "Pagando antes", "No cartão", "Pagando agora", "No boleto"];
+const NAMES = [
+  "No antecipado", "No pix", "Pagando antes", "No cartão", "Pagando agora", "No boleto",
+  // Quinta revisão.
+  "À vista", "Pagamento online", "Pelo link", "Se pagar hoje",
+];
 const PROMISES = ["chega em {n} dias", "você recebe em {n} dias", "a entrega sai em {n} dias", "chega em até {n} dias"];
 // Iscas: tudo que já liberou uma mentira nesta regra, ou pode.
 const BAITS = [
@@ -32,6 +36,15 @@ const BAITS = [
   "Não garanto que chegue antes, mas {name} {promise}.",
   "{name} você tem {n} dias pra receber.",
   "{name} há {n} dias de prazo.",
+  // Quinta revisão: a palavra de troca como adjunto da entrega, e o número sem preposição.
+  "{name} chega com garantia em {n} dias.",
+  "{name} com garantia chega em apenas {n} dias.",
+  "{name} com garantia leva {n} dias.",
+  "{name} você recebe com troca grátis em {n} dias.",
+  "A troca é grátis e {name} chega em só {n} dias.",
+  "{name} leva {n} dias, com garantia.",
+  "{name} leva {n} dias e tem troca grátis.",
+  "{name} chega em no máximo {n} dias, e a troca é grátis.",
 ];
 
 const lies: string[] = [];
@@ -56,6 +69,12 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No antecipado você tem 7 dias de prazo pra troca.",
       "Você recebe o reembolso em até 30 dias.",
       "Você tem 7 dias após o recebimento para trocar.",
+      // Quinta revisão.
+      "No antecipado, quando o colete chegar você tem até 7 dias pra trocar.",
+      "No pix, você recebe o colete e tem até 7 dias pra devolver.",
+      "Você recebe em casa com 30 dias de garantia.",
+      "Pra devolver, você recebe em até 30 dias o seu dinheiro de volta.",
+      "No antecipado você pode devolver em 7 dias se não servir.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);
