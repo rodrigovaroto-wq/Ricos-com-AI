@@ -224,6 +224,14 @@ describe("selo da entrada entre a função whatsapp e o turno", () => {
       expect(await sealIsValid("s", forged, sig)).toBe(false);
     }
   });
+  it("o texto assinado não tem duas leituras, e só string entra", async () => {
+    const a = { externalId: "w", from: "55", body: "a\nb", sentAt: "c" };
+    const b = { externalId: "w", from: "55", body: "a", sentAt: "b\nc" };
+    expect(await sealIsValid("s", b, await sealInbound("s", a))).toBe(false);
+    const arr = { ...m, body: ["oi"] as unknown as string };
+    expect(await sealIsValid("s", arr, await sealInbound("s", { ...m, body: "oi" }))).toBe(false);
+  });
+
   it("sem segredo, sem selo, ou selo de outro segredo: nada passa", async () => {
     expect(await sealIsValid("", m, await sealInbound("s", m))).toBe(false);
     expect(await sealIsValid("s", m, undefined)).toBe(false);

@@ -16,7 +16,12 @@ export interface Sealed {
   sentAt?: string;
 }
 
-const canonical = (m: Sealed): string => [m.externalId, m.from, m.body, m.sentAt ?? ""].join("\n");
+/** A JSON array: no field can borrow a separator from its neighbour (second review). */
+const canonical = (m: Sealed): string => JSON.stringify([m.externalId, m.from, m.body, m.sentAt ?? ""]);
+
+/** Only strings are sealed or checked: an array would stringify into the same text. */
+const allStrings = (m: Sealed): boolean =>
+  [m.externalId, m.from, m.body, m.sentAt ?? ""].every((v) => typeof v === "string");
 
 const hmacHex = async (secret: string, text: string): Promise<string> => {
   const key = await crypto.subtle.importKey(
@@ -34,7 +39,7 @@ export const sealInbound = (secret: string, m: Sealed): Promise<string> => hmacH
 
 /** Constant time; an empty secret or signature verifies nothing. */
 export const sealIsValid = async (secret: string, m: Sealed, signature: unknown): Promise<boolean> => {
-  if (secret === "" || typeof signature !== "string" || signature === "") return false;
+  if (secret === "" || typeof signature !== "string" || signature === "" || !allStrings(m)) return false;
   const expected = await sealInbound(secret, m);
   if (expected.length !== signature.length) return false;
   let diff = 0;

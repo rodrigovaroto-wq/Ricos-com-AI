@@ -46,7 +46,9 @@
    - `WHATSAPP_APP_SECRET` = chave secreta do app (A4)
    - `WHATSAPP_VERIFY_TOKEN` = token de verificação (B1)
    - `WHATSAPP_PHONE_NUMBER_ID` = ID do número (A4)
-   - `INBOUND_SIGNING_SECRET` = selo da entrada (B1)
+   - `WHATSAPP_TOKEN` = token do A3 (só para a confirmação de leitura com "digitando…")
+   - `INBOUND_SIGNING_SECRET` = selo da entrada (B1). **Sem ele, a Malu não responde pelo
+     WhatsApp**: o n8n só envia quando a função do turno confirma o selo.
 3. **Publicar as duas funções** no Codespace, a partir do `main` atualizado:
    ```
    export SUPABASE_ACCESS_TOKEN=sbp_...
@@ -66,10 +68,13 @@
    Publicar. Rodar `pnpm dev:n8n` e atualizar a cópia versionada (o teste
    `n8n-whatsapp-send` passa a exigir o estado novo — trocar junto).
 3. **Teste de verdade:** do celular pessoal, mandar "oi" para o número. Esperado: "lida" e
-   "digitando…" na hora, a recepção, e 2 minutos depois a resposta da Malu.
+   "digitando…" na hora, a recepção, e 2 minutos depois a resposta da Malu. Antes, usar o
+   botão **Testar** do webhook no painel da Meta (o sócio) e conferir o 200 no log da função.
 4. **Fechar as portas** depois do teste passar:
    - `TURN_REQUIRE_SERVICE_ROLE=true` nos segredos do Supabase (a chave pública deixa de
-     abrir a função do turno);
+     abrir a função do turno). **Antes**, confirmar que a credencial "Supabase service_role"
+     do n8n guarda mesmo a chave de serviço (JWT com `role: service_role`) — se for a
+     anônima, esse segredo derruba o Turno, o Relógio e a Venda;
    - conferir que as sondas e personas passam `INBOUND_SIGNING_SECRET` (o executor já
      sela quando a variável existe).
 5. **Templates aprovados:** cadastrar em `channel.templates` do `BUSINESS_CONFIG`. O
@@ -79,4 +84,6 @@
 
 - Duas mensagens seguidas da mesma cliente podem virar dois turnos ao mesmo tempo.
 - Uma mensagem que o n8n não receber (fora do ar) fica registrada só no log da função
-  `whatsapp`, pelo id, sem fila para reprocessar.
+  `whatsapp`, pelo id, sem fila para reprocessar. A Meta já recebeu o "ok" e não reenvia.
+- Enquanto `INBOUND_SIGNING_SECRET` e `TURN_REQUIRE_SERVICE_ROLE` não estiverem ligados, a
+  porta pública do n8n ainda aceita mensagem forjada (só sem `job`, `order` e `token`).

@@ -436,6 +436,17 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
     expect(writes).toHaveLength(1);
     expect(source).toContain("body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),");
   });
+  it("a resposta diz se a mensagem veio selada — é o único sinal para o n8n enviar", () => {
+    expect(source).toContain("json(response.status, { ...out, sealed })");
+  });
+  it("a função do turno nunca é publicada sem a verificação da chave (callerRole confia nela)", () => {
+    const places = [".github/workflows/deploy-hermes.yml", "docs/operacao/whatsapp-cloud-api.md", "HANDOFF.md"];
+    for (const file of places) {
+      for (const line of readFileSync(file, "utf8").split("\n")) {
+        if (/functions deploy turn\b/.test(line)) expect({ file, line }).toEqual({ file, line: line.replace("--no-verify-jwt", "") });
+      }
+    }
+  });
   it("nova tentativa fora da janela vai para uma pessoa, não sai como texto", () => {
     expect(source).toContain("if (!windowIsOpen(new Date(), retryInbound)) {");
   });

@@ -1152,6 +1152,11 @@ const runFollowupSweep = async () => {
       const retryInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
       if (!windowIsOpen(new Date(), retryInbound)) {
         await mark("canceled");
+        // A real handoff, as the e-mail says: the agent stops answering her (second review).
+        await db(`leads?id=eq.${lead.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+        }).catch(() => undefined);
         handoffs.push({
           followupId: row.id,
           reason: "nova tentativa passou da janela de 24h do WhatsApp: responda você",
@@ -1388,7 +1393,21 @@ Deno.serve(async (request: Request): Promise<Response> => {
   } catch {
     return json(400, { error: "corpo não é JSON" });
   }
-  return await handleTurn(payload);
+  const response = await handleTurn(payload);
+  if (payload.job) return response;
+  // `sealed` tells n8n this message really came through the `whatsapp` function (second
+  // review): the only signal n8n may send to the customer on. `channel` is the caller's
+  // word; this is the seal's. With the secret unset it is always false — fail closed.
+  const secret = Deno.env.get("INBOUND_SIGNING_SECRET") ?? "";
+  const sealed =
+    secret !== "" &&
+    (await sealIsValid(
+      secret,
+      { externalId: payload.externalId ?? "", from: payload.from ?? "", body: payload.body ?? "", sentAt: payload.sentAt },
+      payload.signature,
+    ));
+  const out = await response.json().catch(() => null);
+  return out && typeof out === "object" && !Array.isArray(out) ? json(response.status, { ...out, sealed }) : response;
 });
 
 /**
@@ -1566,10 +1585,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // here, once, with Meta's own timestamp when it is plausible — never at the end of the
     // turn, and never by a resume or a retry, which would stretch the window by minutes.
     const sentAt = Date.parse(String(payload.sentAt ?? ""));
-    const inboundAt =
-      Number.isFinite(sentAt) && sentAt <= Date.now() + 60_000 && sentAt >= Date.now() - 24 * 60 * 60 * 1000
-        ? new Date(Math.min(sentAt, Date.now()))
-        : new Date();
+    // Only the future is clamped (second review): an old message keeps its own time, so a
+    // redelivery days later reads as a closed window instead of reopening it.
+    const inboundAt = Number.isFinite(sentAt) ? new Date(Math.min(sentAt, Date.now())) : new Date();
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),

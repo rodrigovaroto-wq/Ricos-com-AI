@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "4b6c2a72-34f1-45ff-bef4-582c21ab8850",
+  "versionId": "3bf6508a-3fda-46f2-8ac0-deb8f7a9064c",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -329,92 +329,6 @@
       }
     },
     {
-      "id": "a0ea9e4c-fc4f-4e30-8464-b25c4fb79449",
-      "name": "Veio do WhatsApp?",
-      "type": "n8n-nodes-base.if",
-      "typeVersion": 2.3,
-      "position": [
-        80,
-        -400
-      ],
-      "parameters": {
-        "conditions": {
-          "combinator": "and",
-          "options": {
-            "caseSensitive": true,
-            "leftValue": "",
-            "typeValidation": "loose",
-            "version": 2
-          },
-          "conditions": [
-            {
-              "leftValue": "={{ $json.body.channel }}",
-              "rightValue": "whatsapp",
-              "operator": {
-                "type": "string",
-                "operation": "equals"
-              }
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "8bb60b9a-b2f0-45e1-8af2-b8dfb1357ea8",
-      "name": "Pede leitura",
-      "type": "n8n-nodes-base.set",
-      "typeVersion": 3.4,
-      "position": [
-        304,
-        -400
-      ],
-      "parameters": {
-        "mode": "manual",
-        "includeOtherFields": false,
-        "assignments": {
-          "assignments": [
-            {
-              "id": "to",
-              "name": "to",
-              "value": "={{ $json.body.from }}",
-              "type": "string"
-            },
-            {
-              "id": "markRead",
-              "name": "markRead",
-              "value": "={{ $json.body.externalId }}",
-              "type": "string"
-            }
-          ]
-        },
-        "options": {}
-      }
-    },
-    {
-      "id": "388ef164-ab41-4dc7-bfc6-142ddeac93ba",
-      "name": "Marca lida",
-      "type": "n8n-nodes-base.executeWorkflow",
-      "typeVersion": 1.3,
-      "position": [
-        528,
-        -400
-      ],
-      "parameters": {
-        "mode": "each",
-        "source": "database",
-        "workflowId": {
-          "__rl": true,
-          "mode": "id",
-          "value": "GehzRG0OhJ4FtBm9",
-          "cachedResultName": "Encorpa — WhatsApp envio"
-        },
-        "options": {
-          "waitForSubWorkflow": false
-        }
-      }
-    },
-    {
       "id": "37354789-8b3d-4e45-bf76-d86639255780",
       "name": "Responde no WhatsApp?",
       "type": "n8n-nodes-base.if",
@@ -434,11 +348,12 @@
           },
           "conditions": [
             {
-              "leftValue": "={{ $('Mensagem recebida').first().json.body.channel }}",
-              "rightValue": "whatsapp",
+              "leftValue": "={{ $json.sealed }}",
+              "rightValue": "",
               "operator": {
-                "type": "string",
-                "operation": "equals"
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
               }
             },
             {
@@ -508,17 +423,45 @@
           "waitForSubWorkflow": false
         }
       }
+    },
+    {
+      "id": "a406b2fd-b340-4a45-b6b2-3217f81d7d74",
+      "name": "É recusa de selo?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        256,
+        304
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ JSON.stringify($json) }}",
+              "rightValue": "selo da entrada",
+              "operator": {
+                "type": "string",
+                "operation": "contains"
+              }
+            }
+          ]
+        },
+        "options": {}
+      },
+      "notes": "Mensagem sem o selo da funcao whatsapp: e lixo na porta publica. Nao vira e-mail."
     }
   ],
   "connections": {
     "Mensagem recebida": {
       "main": [
         [
-          {
-            "node": "Veio do WhatsApp?",
-            "type": "main",
-            "index": 0
-          },
           {
             "node": "Cerebro do turno",
             "type": "main",
@@ -558,7 +501,7 @@
             "index": 0
           },
           {
-            "node": "Avisa a recusa",
+            "node": "É recusa de selo?",
             "type": "main",
             "index": 0
           }
@@ -614,29 +557,7 @@
         ],
         [
           {
-            "node": "Avisa a recusa",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Veio do WhatsApp?": {
-      "main": [
-        [
-          {
-            "node": "Pede leitura",
-            "type": "main",
-            "index": 0
-          }
-        ]
-      ]
-    },
-    "Pede leitura": {
-      "main": [
-        [
-          {
-            "node": "Marca lida",
+            "node": "É recusa de selo?",
             "type": "main",
             "index": 0
           }
@@ -659,6 +580,18 @@
         [
           {
             "node": "Envia a resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "É recusa de selo?": {
+      "main": [
+        null,
+        [
+          {
+            "node": "Avisa a recusa",
             "type": "main",
             "index": 0
           }

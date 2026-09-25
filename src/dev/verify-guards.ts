@@ -50,6 +50,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-whatsapp-send.test.ts"],
   },
   {
+    id: "WA-canal-forjado",
+    bug: "o n8n mandava mensagem pelo WhatsApp com base no campo channel que qualquer um escreve",
+    files: ["n8n/workflows/turno-da-agente.json"],
+    from: '"leftValue": "={{ $json.sealed }}"',
+    to: '"leftValue": "={{ $(\'Mensagem recebida\').first().json.body.channel === \'whatsapp\' }}"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
+  {
     id: "WA-1-janela",
     bug: "a régua mandava texto livre fora da janela de 24h, que a Meta recusa",
     files: ["supabase/functions/turn/index.ts"],
