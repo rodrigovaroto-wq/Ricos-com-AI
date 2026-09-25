@@ -214,8 +214,8 @@ const MUTATIONS: Mutation[] = [
     id: "kit-virgula",
     bug: "\"quero 2, M e G\" virava 1 peça (a vírgula depois do 2 não contava)",
     files: ["src/agent/interpret.ts"],
-    from: "(?!\\\\d|[.,]\\\\d)",
-    to: "(?![\\\\d,.])",
+    from: "(?!\\\\d|[.,]\\\\d|",
+    to: "(?![\\\\d,.]|",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
   {
