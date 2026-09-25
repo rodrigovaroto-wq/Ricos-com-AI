@@ -33,20 +33,29 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 - **Hermes instalado, configurado, calibrado e agendado** (`hermes/README.md`): 3/3 defeitos
   plantados achados em três calibrações; na R7, "rodada limpa". Roda por GitHub Action a cada
   50 leads e abre PR com as propostas.
+- **Kits de 2 e 3 peças (M-09)** — um checkout Coinzz por quantidade e caminho, em
+  `config.kits`. A Malu oferece o kit uma vez, na decisão; lê a quantidade e o tamanho de cada
+  peça (letra ou número de calça, pela mesma tabela de 1 peça); manda o link do kit e pede os
+  tamanhos no complemento; 4+ peças vão para uma pessoa. `price_promise` só aceita preço e
+  percentual do kit **do caminho e da quantidade da frase**. Migrações `0009`/`0010` aplicadas;
+  o n8n "Venda confirmada" lê o payload real da Coinzz e N tamanhos ("M,G"). Duas rodadas de
+  personas, placar 8/8; o Hermes achou um erro de medida no placar (M-03), corrigido.
 
 ### As guardas que impedem os erros de voltar (todas no CI)
 - `pnpm dev:gates --fail-on-loosen` — diff de vereditos dos gates contra o `main`.
 - `tests/prepaid-deadline-fuzz.test.ts` — 3600 mentiras geradas, todas vetadas.
 - `pnpm dev:n8n` — confere a versão **ativa** do n8n (credencial, `neverError`, gatilho, timeout).
 - `pnpm verificar:guardas` — reinstala cada bug histórico e exige que a guarda fique vermelha
-  (11/11). **Guarda nova = mutação nova** (`.claude/memory/guarda-testada-por-mutacao.md`).
+  (17/17). **Guarda nova = mutação nova** (`.claude/memory/guarda-testada-por-mutacao.md`).
 
 ### Gasto da API da Meta nesta sessão
-Rodadas de personas R$ 0,31 · Hermes ~US$ 0,03 (≈ R$ 0,16) · **total ≈ R$ 0,47**.
+Rodadas de personas R$ 0,50 · Hermes ~US$ 0,035 (≈ R$ 0,19) · **total ≈ R$ 0,69**.
 
 ### Próximos passos
 1. **Operador** (ver a lista no fim de `00-plano-simples.md` e o resumo desta sessão).
-2. **Etapa 3 — deploy v33:** secret `BUSINESS_CONFIG` com os campos novos; PAT do Supabase;
+2. **Etapa 3 — deploy v33** (espera o "pode subir" do operador): secret `BUSINESS_CONFIG`
+   gerado de `config/business.example.json` (Malu, `SUPER20` inativo, sem escassez, sem
+   depoimento, hashes `offp16pv`/`offkw47x`, `kits`); PAT do Supabase, revogado depois;
    12 arquivos pela API (`ls supabase/functions/turn/*.ts`); sonda pela porta `n8n`; O2 e O10.
 3. M-08 (baixa).
 
