@@ -22,7 +22,15 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > porque o proxy desta máquina injeta a chave certa. O operador cola a chave válida de
 > dev.meta.ai em Supabase → Edge Functions → Secrets → `META_API_KEY`; depois, uma sonda pela
 > porta `n8n` (`pnpm dev:personas --door=n8n --persona=tati`, em horário 6–24 SP) confirma.
-> O canal do WhatsApp ainda não está ligado, então nenhuma cliente real foi afetada. Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
+> O canal do WhatsApp ainda não está ligado, então nenhuma cliente real foi afetada.
+>
+> **Checagem de 07:05 UTC (depois do "tudo feito" do operador):** a sonda pela porta `n8n`
+> **ainda recebe `meta: Unauthorized`** — a chave colada continua recusada (conferir se é a da
+> Model API em dev.meta.ai, sem espaço/quebra de linha, e se o secret salvou). O **PAT do
+> Supabase ainda responde 200** — não foi revogado. Os webhooks de venda da Coinzz (2) e da
+> Logzz (2) **já chegam com `&token=`** ✓. A entrada `/encorpa-inbound` respondeu **502** ao
+> curl nesta sonda embora a execução tenha terminado `success` — investigar (pode ser o
+> `Devolve a resposta` com o `Wait` na mesma execução). Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
 Mudanças técnicas: `registro.md` M-05 a M-09. **Grafo de decisões (o que falhou e por quê):
 `docs/documentacao/decisoes/04-grafo-de-decisoes.md` — leia antes de mexer em gate ou estado.**
 

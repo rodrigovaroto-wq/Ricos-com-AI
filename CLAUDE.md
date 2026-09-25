@@ -166,6 +166,12 @@ território é agente que inventa trabalho.
 
 ## Regras adicionais
 
+- **Toda decisão ou alteração entra no grafo de decisões**
+  ([`docs/documentacao/decisoes/04-grafo-de-decisoes.md`](docs/documentacao/decisoes/04-grafo-de-decisoes.md)):
+  sintoma → causa → caminhos tentados que falharam (e por quê) → correção → guarda. Leia o
+  grafo antes de mexer em gate, estado da conversa ou handoff. Sem registro no grafo, a
+  mudança não está pronta.
+
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
 - [`.claude/rules/code-ladder.md`](.claude/rules/code-ladder.md) — a escada de sete degraus que todo código novo sobe antes de ser escrito, e o que ela nunca corta. Importada acima, na diretriz 2.
 
