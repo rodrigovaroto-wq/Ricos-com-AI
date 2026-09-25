@@ -85,7 +85,8 @@ function personaReplies(root = "data/persona-runs"): string[] {
 
 export function corpus(): string[] {
   const set = new Set<string>();
-  for (const f of readdirSync("tests").filter((f) => f.endsWith(".test.ts")))
+  // gate-diff's own test holds code snippets as strings, not sentences.
+  for (const f of readdirSync("tests").filter((f) => f.endsWith(".test.ts") && f !== "gate-diff.test.ts"))
     for (const s of literals(readFileSync(join("tests", f), "utf8"))) set.add(s);
   if (existsSync("tests/gate-corpus.txt"))
     for (const line of readFileSync("tests/gate-corpus.txt", "utf8").split("\n"))
