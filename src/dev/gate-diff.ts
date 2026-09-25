@@ -57,7 +57,8 @@ export function literals(source: string): string[] {
   const out: string[] = [];
   for (const m of source.matchAll(/"((?:[^"\\\n]|\\.){12,})"|'((?:[^'\\\n]|\\.){12,})'|`([^`$\\]{12,})`/g)) {
     const s = (m[1] ?? m[2] ?? m[3] ?? "").replace(/\\(["'\\])/g, "$1");
-    if (s.trim().split(/\s+/).length >= 3) out.push(s);
+    // A template ("{name} chega em {n} dias") is a generator's mold, not a sentence.
+    if (s.trim().split(/\s+/).length >= 3 && !/\{\w+\}/.test(s)) out.push(s);
   }
   return out;
 }

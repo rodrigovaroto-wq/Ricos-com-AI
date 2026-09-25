@@ -231,6 +231,15 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   outra forma é prazo. O fuzz passou a 3000 mentiras (10 nomes do antecipado, incluindo "à
   vista", "online", "pelo link", "se pagar hoje"). `pnpm dev:gates`: 2 liberações pedidas, 0
   endurecimentos.
+- **Sexta revisão (2026-09-25): reprovada — formas exatas vetavam garantia honesta**, inclusive
+  a frase que o `warranty_promise` ensina. A regra que segura é sobre o **número**: só a
+  garantia configurada (7) é garantia. Qualquer outro número no caminho antecipado é prazo,
+  sejam quais forem as palavras ("garantia de 2 dias", "2 dias após o recebimento"). O 7 só é
+  isento quando está preso a uma palavra de troca/devolução e nenhum verbo de entrega o governa
+  ("chega em 7 dias pra trocar" e "a entrega tem garantia de 7 dias" continuam prazo).
+  Reembolso não é entrega, em qualquer número. Fuzz: 3500 mentiras vetadas, 20 garantias
+  honestas passando. `pnpm dev:gates`: 10 liberações (as garantias honestas da revisão), 8
+  endurecimentos no antecipado — todos garantia com número errado ("30 dias de garantia").
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê

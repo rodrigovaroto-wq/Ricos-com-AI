@@ -707,32 +707,39 @@ const gates: readonly Gate[] = [
       )) {
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
-        const after = t.slice(at + m[0].length, at + m[0].length + 40);
+        const after = t.slice(at + m[0].length, at + m[0].length + 80);
         // The end of a range ("1 a 3 dias") is the range check's to judge.
         if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
         const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
-        // Every exemption is a loosening, and the ones defined by CONTEXT kept leaking: "no
-        // delivery verb governs it" freed "a troca é grátis e no pix chega em só 2 dias" and
-        // "no pix leva 7 dias, com garantia" (M-07, five reviews). So the exemptions are exact
-        // SHAPES tied to the count — the warranty and return sentences, nothing else — and every
-        // other day count on the prepaid path is a deadline. tests/prepaid-deadline-fuzz.test.ts
-        // generates the lies (bait × prepaid name × verb × count) and requires a veto for all.
-        // (a) "tem/terá/ganha/com/são (até) N dias pra trocar | de garantia | após o recebimento"
-        if (
-          /(?:^|\b(?:tem|tera|ganha|com|sao|possui))\s*(?:ate\s+)?$/.test(phrase) &&
-          /^\s*(?:corridos\s+|uteis\s+)?(?:de\s+garantia\b|de\s+prazo\s+(?:pra|para)\s+(?:troca|devol)|(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)\b|apos\s+(?:o\s+)?recebimento\b(?!\s+do\s+pagamento))/.test(after)
-        )
-          continue;
-        // (b) "devolver / trocar / reembolso / estorno em (até) N dias", "garantia de N dias"
-        if (/\b(?:devolv\w*|devolu\w*|trocar|troca|reembolso|estorno|dinheiro\s+de\s+volta)\s+(?:em|de|por)\s+(?:ate\s+)?$|\bgarantia\s+de\s+(?:ate\s+)?$/.test(phrase)) continue;
-        // (c) the refund is what she receives: "recebe em (até) N dias o (seu) dinheiro de volta"
+        // Every exemption is a loosening, and each shape so far leaked or over-blocked (M-07,
+        // six reviews): context rules freed "a troca é grátis e no pix chega em só 2 dias",
+        // exact shapes vetoed the warranty sentence `warranty_promise` itself teaches. The
+        // rule that holds is about the NUMBER: only the configured warranty is a warranty.
+        // Any other count on the prepaid path is a deadline, whatever words surround it —
+        // "garantia de 2 dias", "2 dias após o recebimento". The warranty count is exempt only
+        // when bound to a return word (before it with filler only, or after it) and no
+        // delivery verb governs it ("chega em 7 dias pra trocar", "leva 7 dias, com garantia").
+        // tests/prepaid-deadline-fuzz.test.ts generates the lies and requires a veto for all.
+        const DELIVERY_VERB = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
+        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        if (days === ctx.config.delivery.warrantyDays && !new RegExp(`${DELIVERY_VERB.source}\\s+(?:em\\s+)?(?:ate\\s+)?(?:so\\s+|apenas\\s+)?$`).test(phrase)) {
+          const bound =
+            /\b(?:garantia|trocas?|trocar|devolucao|devolver|arrependimento|se\s+arrepender)\s+(?:(?:e|fica|tambem|sempre|igual|a\s+mesma|pode\s+ser\s+feit[ao]|de|em|ate|por)\b\s*:?\s*|:\s*)*$/.exec(head);
+          // The return word must not itself sit after a delivery word: "a entrega tem garantia
+          // de 7 dias" and "chega com troca em 7 dias" are deadlines.
+          if (bound && !DELIVERY_VERB.test(head.slice(0, bound.index).split(/[,;:]/).pop()!)) continue;
+          if (
+            /^\s*(?:corridos|uteis)?\s*,?\s*(?:(?:apos|depois\s+d[eo]|a\s+partir\s+d[eo])\s+(?:o\s+)?receb\w*\s*,?\s*)?(?:de\s+garantia\b|de\s+prazo\s+(?:pra|para)\s+(?:troca|devol)|(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)\b)/.test(after)
+          )
+            continue;
+        }
+        // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até
+        // 30 dias o seu dinheiro de volta".
+        if (/\b(?:reembolso|estorno|dinheiro\s+de\s+volta)\s+(?:em|de|por)\s+(?:ate\s+)?$/.test(phrase)) continue;
         if (/\breceb\w*\s+(?:em\s+)?(?:ate\s+)?$/.test(phrase) && /^\s*(?:(?:o|a|seu|sua)\s+){0,2}(?:reembols\w*|dinheiro\s+de\s+volta|estorno)\b/.test(after)) continue;
-        // (d) the warranty count said on its own, "No pix, a garantia é a mesma: 7 dias." —
-        // only the configured warranty, right after a colon, with "garantia" in the sentence.
-        if (days === ctx.config.delivery.warrantyDays && /\bgarantia\b/.test(sentence) && /^\s*$/.test(phrase) && /:\s*$/.test(t.slice(0, at))) continue;
         // "Faz 3 dias que comprei" is the past, tied to the count; "há 2 dias de prazo" is not.
         if (/\b(?:ha|faz|fez|fazem)\s+$/.test(before) && /^\s*(?:que|atras)\b/.test(after)) continue;
         // Refusing the number is the job — "não consigo garantir 2 dias", "não dá pra prometer

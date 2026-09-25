@@ -47,12 +47,35 @@ const BAITS = [
   "{name} chega em no máximo {n} dias, e a troca é grátis.",
 ];
 
+// Sexta revisão: iscas com forma de garantia. Só o número da garantia (7 no fixture) pode
+// ser garantia; com qualquer outro número elas são prazo inventado.
+const WARRANTY_BAITS = [
+  "{name} são {n} dias após o recebimento do pedido.",
+  "{name} chega, {n} dias após o recebimento do pix.",
+  "{name} a entrega tem garantia de {n} dias.",
+  "{name}, entrega com garantia de até {n} dias.",
+  "{name} chega com troca em {n} dias.",
+  "{name}: {n} dias, com garantia.",
+  "Garantia total, e {name}: {n} dias.",
+  "{name} com {n} dias de garantia chega.",
+  "{name} a devolução em {n} dias e chega junto.",
+  "{name} a garantia é de {n} dias.",
+  "{name} você tem {n} dias pra trocar.",
+];
+
+const cap = (x: string) => x.replace(/^./, (c) => c.toUpperCase());
 const lies: string[] = [];
-for (const n of [1, 2, 3, 7, 10])
-  for (const name of NAMES)
+for (const name of NAMES) {
+  for (const n of [1, 2, 3, 7, 10])
     for (const promise of PROMISES)
       for (const bait of BAITS)
-        lies.push(bait.replaceAll("{promise}", promise).replaceAll("{name}", name).replaceAll("{n}", String(n)).replace(/^./, (c) => c.toUpperCase()));
+        lies.push(cap(bait.replaceAll("{promise}", promise).replaceAll("{name}", name).replaceAll("{n}", String(n))));
+  // 7 é a garantia configurada: com 7 essas frases podem ser honestas; com outro número, não.
+  for (const n of [1, 2, 3, 10]) for (const bait of WARRANTY_BAITS) lies.push(cap(bait.replaceAll("{name}", name).replaceAll("{n}", String(n))));
+  // E com 7, as que dizem entrega continuam prazo.
+  for (const bait of ["{name} a entrega tem garantia de 7 dias.", "{name}, entrega com garantia de até 7 dias.", "{name} chega com troca em 7 dias.", "{name}: 7 dias, com garantia.", "Garantia total, e {name}: 7 dias.", "{name} leva 7 dias, com garantia.", "{name} chega em 7 dias pra trocar."])
+    lies.push(cap(bait.replaceAll("{name}", name)));
+}
 
 describe("M-07: nenhuma isca libera prazo do antecipado", () => {
   it(`${new Set(lies).size} mentiras geradas, todas vetadas nos dois caminhos`, () => {
@@ -72,9 +95,20 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       // Quinta revisão.
       "No antecipado, quando o colete chegar você tem até 7 dias pra trocar.",
       "No pix, você recebe o colete e tem até 7 dias pra devolver.",
-      "Você recebe em casa com 30 dias de garantia.",
       "Pra devolver, você recebe em até 30 dias o seu dinheiro de volta.",
       "No antecipado você pode devolver em 7 dias se não servir.",
+      // Sexta revisão: garantia honesta em outras formas — inclusive a frase que o próprio
+      // warranty_promise ensina no briefing.
+      "A garantia é de 7 dias após o recebimento para trocar ou devolver.",
+      "No antecipado a garantia é de 7 dias após o recebimento para trocar ou devolver.",
+      "No antecipado o prazo de troca é de 7 dias.",
+      "No antecipado a garantia é de 7 dias.",
+      "Pagando no pix, a garantia também é de 7 dias.",
+      "No antecipado o prazo pra devolução é de 7 dias.",
+      "No pix a troca pode ser feita em até 7 dias.",
+      "No antecipado você tem até 7 dias depois de receber pra trocar.",
+      "No antecipado você tem 7 dias corridos, a partir do recebimento, para trocar.",
+      "Você tem 7 dias a partir do recebimento para trocar.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);

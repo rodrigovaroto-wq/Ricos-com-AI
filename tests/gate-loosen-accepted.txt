@@ -31,3 +31,13 @@ M-05 | price_promise | Parar de ler 'tiro mais alguma dúvida' como desconto
 M-05 | price_promise | tiro mais alguma dúvida antes?
 M-07 | delivery_promise | No antecipado, quando o colete chegar você tem até 7 dias pra trocar.
 M-07 | delivery_promise | No pix, você recebe o colete e tem até 7 dias pra devolver.
+M-07 | delivery_promise | A garantia é de 7 dias após o recebimento para trocar ou devolver.
+M-07 | delivery_promise | No antecipado a garantia é de 7 dias após o recebimento para trocar ou devolver.
+M-07 | delivery_promise | No antecipado o prazo de troca é de 7 dias.
+M-07 | delivery_promise | No antecipado a garantia é de 7 dias.
+M-07 | delivery_promise | Pagando no pix, a garantia também é de 7 dias.
+M-07 | delivery_promise | No antecipado o prazo pra devolução é de 7 dias.
+M-07 | delivery_promise | No pix a troca pode ser feita em até 7 dias.
+M-07 | delivery_promise | No antecipado você tem até 7 dias depois de receber pra trocar.
+M-07 | delivery_promise | No antecipado você tem 7 dias corridos, a partir do recebimento, para trocar.
+M-07 | delivery_promise | Você tem 7 dias a partir do recebimento para trocar.
