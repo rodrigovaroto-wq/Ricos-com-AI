@@ -730,8 +730,10 @@ const gates: readonly Gate[] = [
         // de quando/contados do recebimento". Safe to be this simple only because no other
         // number can ever be exempt.
         if (days === ctx.config.delivery.warrantyDays) {
+          // Never stripped when the count is that verb's own time complement: "quando o colete
+          // chegar em 7 dias" is a deadline (eighth review).
           const anchor =
-            /\b(?:apos|depois\s+d[eo]|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*/g;
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
           const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
           const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
           // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
@@ -747,7 +749,7 @@ const gates: readonly Gate[] = [
           // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
           const returnBefore =
             (RET.test(segment) && !DELIVERY.test(segment)) ||
-            (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|em|ate|fica)\s*$/.test(segment));
+            (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|fica)\s*$/.test(segment));
           if (!DELIVERY.test(clause) && !DELIVERY.test(rest) && (purposeAfter || returnBefore)) continue;
         }
         // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até

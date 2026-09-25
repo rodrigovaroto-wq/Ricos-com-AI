@@ -47,3 +47,6 @@ M-07 | delivery_promise | No antecipado a devolução pode ser solicitada em at�
 M-07 | delivery_promise | No pix, se precisar trocar, são 7 dias a partir de quando você receber.
 M-07 | delivery_promise | No pix você também tem 7 dias corridos, contados do recebimento, pra devolver.
 M-07 | delivery_promise | No pix vale o mesmo direito de 7 dias de arrependimento.
+M-07 | delivery_promise | No pix você tem 7 dias pra trocar depois que receber.
+M-07 | delivery_promise | No pix você tem 7 dias a partir da entrega pra trocar.
+M-07 | delivery_promise | No pix você tem 7 dias após a entrega pra devolver.

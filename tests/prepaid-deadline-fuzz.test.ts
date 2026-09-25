@@ -76,7 +76,11 @@ for (const name of NAMES) {
   for (const bait of ["{name} a entrega tem garantia de 7 dias.", "{name}, entrega com garantia de até 7 dias.", "{name} chega com troca em 7 dias.", "{name}: 7 dias, com garantia.", "Garantia total, e {name}: 7 dias.", "{name} leva 7 dias, com garantia.", "{name} chega em 7 dias pra trocar.",
     // Sétima revisão: a entrega depois do 7.
     "{name} a garantia é de 7 dias pra entrega.", "{name} a troca também é em 7 dias, e a entrega também.",
-    "{name}, a garantia é a mesma: 7 dias pra chegar na sua casa.", "{name} a troca é em 7 dias e chega junto."])
+    "{name}, a garantia é a mesma: 7 dias pra chegar na sua casa.", "{name} a troca é em 7 dias e chega junto.",
+    // Oitava revisão: a âncora que era o próprio verbo do prazo, e "em 7 dias" num trecho só dele.
+    "{name} a garantia é boa, quando o colete chegar em 7 dias.", "{name} tem troca, e quando você receber, em 7 dias.",
+    "{name} a troca é fácil, depois de chegar em 7 dias você usa.", "Com garantia, {name} o colete tá na sua casa em 7 dias.",
+    "Com troca grátis, {name} você veste em 7 dias.", "Garantia total: {name}, em 7 dias está aí."])
     lies.push(cap(bait.replaceAll("{name}", name)));
 }
 
@@ -120,6 +124,10 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No pix, se precisar trocar, são 7 dias a partir de quando você receber.",
       "No pix você também tem 7 dias corridos, contados do recebimento, pra devolver.",
       "No pix vale o mesmo direito de 7 dias de arrependimento.",
+      // Oitava revisão.
+      "No pix você tem 7 dias pra trocar depois que receber.",
+      "No pix você tem 7 dias a partir da entrega pra trocar.",
+      "No pix você tem 7 dias após a entrega pra devolver.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);

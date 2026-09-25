@@ -246,6 +246,10 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   falam de entrega (a âncora "após/a partir do recebimento", "quando o colete chegar" é
   permitida) e há finalidade de troca logo depois ou palavra de troca no trecho dele. Fuzz:
   3540 mentiras; `pnpm dev:gates`: 6 liberações (garantias honestas), 0 endurecimentos.
+- **Oitava revisão (2026-09-25):** a âncora "quando o colete chegar" era removida mesmo quando o
+  7 era o complemento de tempo dela ("quando o colete chegar em 7 dias"), e "em 7 dias" num
+  trecho só dele contava como garantia. Corrigidos; a âncora ganhou "depois que receber" e
+  "após/a partir da entrega". Fuzz: 3600 mentiras; `pnpm dev:gates`: 3 liberações, 0 endurecimentos.
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê
