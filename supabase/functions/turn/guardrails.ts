@@ -276,6 +276,10 @@ const defersToCheckout = (t: string): boolean =>
  * invisible, so "custa 200 reais" — a number the operation does not have — passed the
  * price gate untouched.
  */
+/** Right before the price a comparison is made against: "em vez de", "contra", "sobre os". */
+const COMPARED_AGAINST =
+  /\b(?:em\s+vez\s+d[eoa]s?|ao\s+inves\s+d[eoa]s?|no\s+lugar\s+d[eoa]s?|contra\s+(?:os?\s+)?|e\s+nao|sobre\s+(?:os?|as?)|do\s+que|comparad[oa]\s+(?:a|com)(?:\s+os?)?)\s*$/;
+
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
     (m) => ({
@@ -618,8 +622,13 @@ const gates: readonly Gate[] = [
         if (matching.length === 0) continue;
         for (const m of moneyMatches(sentence)) {
           if (!offerPrices.has(m.value) || negatedAt(sentence, m.at)) continue;
+          // The price a comparison is made against is not the offer on sale: "antecipado sai
+          // R$ 116,91 em vez de R$ 129,90" is the script's own line (7.1), and it was vetoed
+          // because 129,90 is not prepaid (code review, 2026-09-25). The offer's own price
+          // in the sentence is still checked.
+          if (COMPARED_AGAINST.test(sentence.slice(Math.max(0, m.at - 30), m.at))) continue;
           if (!matching.some((o) => o.price === m.value))
-            return `price ${money(m.value)} belongs to another offer than the one this sentence names`;
+            return `price ${money(m.value)} belongs to another offer than the one this sentence names; say each offer in its own sentence`;
         }
         for (const m of sentence.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
           const value = Number(m[1]);
@@ -842,9 +851,17 @@ const gates: readonly Gate[] = [
           // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
           // ("a garantia é de 7 dias" normalizes "é" to "e").
           const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
+          // Two delivery-looking words that are not delivery (loop review, 2026-09-25): getting
+          // her money back ("e recebe seu dinheiro de volta") and asking the CEP to look the
+          // delivery up ("me passa seu CEP pra eu ver a entrega aí"). Both came from Malu's own
+          // honest warranty lines on the prepaid path, vetoed into rewrites.
+          const notDelivery = (x: string) =>
+            x
+              .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
+              .replace(/\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?)\b)/g, " ");
           const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
-          const clause = sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " ");
-          const rest = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " ");
+          const clause = notDelivery(sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " "));
+          const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));
           const segment = sentenceBefore.split(/[,;]/).pop()!;
           const purposeAfter =
             /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);

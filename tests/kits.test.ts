@@ -129,3 +129,25 @@ describe("kits: o exemplo do prompt segue o caminho", () => {
     expect(r.traces.filter((t) => t.verdict === "block")).toEqual([]);
   });
 });
+
+describe("kits: o preço de comparação não é a oferta (revisão, 2026-09-25)", () => {
+  it("a fala do script do antecipado passa, com e sem kits", () => {
+    for (const c of [configKits, { ...configKits, kits: undefined }] as unknown as GateConfig[])
+      for (const s of [
+        "Pagando antecipado você leva 10% de desconto — R$ 116,91 em vez de R$ 129,90. O frete é calculado no checkout.",
+        "Pagando antecipado sai 10% mais barato: R$ 116,91 em vez de R$ 129,90.",
+        "No Pix fica R$ 116,91, com 10% de desconto sobre os R$ 129,90.",
+        "Pagando agora, cada peça sai R$ 116,91 em vez de R$ 129,90.",
+        "No antecipado tem 10% de desconto, a peça sai R$ 116,91 contra R$ 129,90 pagando na hora.",
+      ])
+        expect(price(s, c), s).toBe("pass");
+  });
+
+  it("a oferta da frase continua conferida mesmo com comparação", () => {
+    for (const s of [
+      "3 peças na entrega saem R$ 272,79 em vez de R$ 389,70.",
+      "Na entrega 2 peças saem R$ 207,84 em vez de R$ 259,80.",
+    ])
+      expect(price(s), s).toBe("block");
+  });
+});

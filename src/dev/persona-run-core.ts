@@ -566,7 +566,13 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
         endReason = "budget_exceeded";
         break;
       }
-      const { text, ended } = parsePersonaReply(await model.next(persona.system, history));
+      // A persona that has already said goodbye can come back empty, and the provider throws
+      // on an empty reply: that is her leaving, not a failure of the run (loop, 2026-09-25).
+      const raw = await model.next(persona.system, history).catch((error: unknown) => {
+        if (turn > 1 && /sem conteúdo/.test(String(error))) return "";
+        throw error;
+      });
+      const { text, ended } = parsePersonaReply(raw);
       if (!text) {
         endReason = "persona_left";
         break;

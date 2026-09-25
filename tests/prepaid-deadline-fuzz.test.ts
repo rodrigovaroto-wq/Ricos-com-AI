@@ -130,9 +130,20 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No pix você tem 7 dias após a entrega pra devolver.",
       "No pix você tem 7 dias pra devolver a partir da entrega.",
       "No pix você tem 7 dias pra trocar, contados do recebimento.",
+      // Loop de 2026-09-25: falas da própria Malu vetadas no antecipado.
+      "E pode ficar tranquila que se não amar como ficou você devolve em até 7 dias após o recebimento sem custo nenhum, me passa seu CEP pra eu ver a entrega aí?",
+      "Não precisa ter medo de errar, se não gostar pode devolver em até 7 dias após receber e recebe seu dinheiro de volta",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);
+    // O que a exceção do loop de 2026-09-25 não pode abrir: "ver a entrega" com prazo, e o
+    // colete recebido junto com o dinheiro.
+    for (const lie of [
+      "No pix você tem 7 dias pra trocar, dá pra ver a entrega chegar antes.",
+      "No pix você devolve em 7 dias e recebe o colete em 7 dias.",
+      "No pix você tem 7 dias pra devolver, e recebe seu dinheiro de volta e o colete em até 7 dias.",
+    ])
+      expect(delivery(lie, "prepay"), lie).toBe("block");
     // Fala do pagamento na entrega ("na mão do entregador"): só vale nesse caminho — no
     // antecipado, "1 a 3 dias" é faixa inventada, e a checagem de faixa a veta.
     expect(delivery("Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.", "cod")).toBe("pass");

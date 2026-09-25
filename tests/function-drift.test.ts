@@ -419,7 +419,11 @@ describe("kits na Edge Function (2026-09-25)", () => {
 describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
-    expect(source).toContain("isRetry\n            ? []\n            : quantity?.sizes.length");
+    expect(source).toContain("isRetry && saidSizes.length > 0 && storedSizes.slice(-saidSizes.length).join() === saidSizes.join();");
+    expect(source).toContain("replayed ? [] : saidSizes,");
+    expect(source).toContain("saysOwnSize(inbound.body");
+    // A new conversation does not inherit an abandoned kit.
+    expect(source).toContain("if (!openConversations?.[0] && (lead.units != null || lead.unit_sizes != null)) {");
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null }),');
   });

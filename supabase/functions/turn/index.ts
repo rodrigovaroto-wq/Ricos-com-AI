@@ -87,6 +87,7 @@ import {
   linkPathFor,
   linkSentRecently,
   asksForLink,
+  saysOwnSize,
   mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
   quantityOf,
@@ -1329,6 +1330,16 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const conversation =
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
+  // A new conversation does not inherit an abandoned kit (code review, 2026-09-25): "quero 2,
+  // M e G" twelve days ago must not turn today's "quero o M" into the kit-of-2 link.
+  if (!openConversations?.[0] && (lead.units != null || lead.unit_sizes != null)) {
+    lead.units = null;
+    lead.unit_sizes = null;
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ units: null, unit_sizes: null, updated_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
 
   /**
    * The stage already stored, read once and used by `persistStage` on every exit.
@@ -1979,23 +1990,27 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`,
     );
   }
+  const storedSizes = (lead.unit_sizes as string[] | null) ?? [];
+  // Pants numbers go through the same deterministic table as one piece's: the model never
+  // converts a size, and she should not have to guess her letter (kit round).
+  const saidSizes: string[] = quantity?.sizes.length
+    ? quantity.sizes
+    : interpretation.unit_pants.length
+      ? interpretation.unit_pants.map(sizeFromDressSize)
+      : stated && units > 1
+        ? [stated.size]
+        : [];
+  // A retry replays the same message: when the first attempt already stored these sizes,
+  // merging them again would add a size she said once. When it did not, they count.
+  const replayed =
+    isRetry && saidSizes.length > 0 && storedSizes.slice(-saidSizes.length).join() === saidSizes.join();
   const unitSizes: string[] =
     units > 1
       ? mergeUnitSizes(
-          (lead.unit_sizes as string[] | null) ?? [],
-          // A retry replays the same message: merging it again would add a size she said once.
-          // Pants numbers go through the same deterministic table as one piece's: the model
-          // never converts a size, and she should not have to guess her letter (kit round).
-          isRetry
-            ? []
-            : quantity?.sizes.length
-              ? quantity.sizes
-              : interpretation.unit_pants.length
-                ? interpretation.unit_pants.map(sizeFromDressSize)
-                : stated && units > 1
-                  ? [stated.size]
-                  : [],
+          storedSizes,
+          replayed ? [] : saidSizes,
           units,
+          saysOwnSize(inbound.body ?? "", interpretation),
         )
       : [];
   if ((quantity || units > 1) && (units !== (lead.units ?? 1) || unitSizes.join() !== ((lead.unit_sizes as string[] | null) ?? []).join())) {

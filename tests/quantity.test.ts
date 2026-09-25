@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeUnitSizes, NEUTRAL_INTERPRETATION, quantityOf, readInterpretation, type Interpretation } from "@/agent/interpret.js";
+import { mergeUnitSizes, NEUTRAL_INTERPRETATION, quantityOf, readInterpretation, saysOwnSize, type Interpretation } from "@/agent/interpret.js";
 
 const said = (units: number | null, unit_sizes: string[] = []): Interpretation =>
   ({ ...NEUTRAL_INTERPRETATION, units, unit_sizes } as Interpretation);
@@ -44,5 +44,34 @@ describe("kits: os tamanhos de cada peça se acumulam", () => {
     expect(mergeUnitSizes(["M", "G"], ["GG", "GG"], 2)).toEqual(["GG", "GG"]);
     // Revisão de código: lista completa + um tamanho reafirmado não apaga a lista.
     expect(mergeUnitSizes(["M", "G"], ["G"], 2)).toEqual(["M", "G"]);
+  });
+});
+
+describe("kits: achados da revisão de 2026-09-25", () => {
+  const own = (letter: string): Interpretation => ({
+    ...said(null, [letter]),
+    size: { letter, pants: null, waist_cm: null, for_other_person: false },
+  }) as Interpretation;
+
+  it("corrigir o próprio tamanho troca a peça dela, não preenche a outra", () => {
+    expect(mergeUnitSizes(["M"], ["G"], 2, saysOwnSize("ah, na verdade o meu é G", own("G")))).toEqual(["G"]);
+    expect(mergeUnitSizes(["M", "G"], ["GG"], 2, saysOwnSize("errei, a minha é GG", own("GG")))).toEqual(["GG", "G"]);
+  });
+
+  it("o tamanho da outra pessoa completa a lista (negação: não é o dela)", () => {
+    const other = { ...own("G"), size: { letter: "G", pants: null, waist_cm: null, for_other_person: true } } as Interpretation;
+    expect(saysOwnSize("minha irmã usa G", other)).toBe(false);
+    expect(saysOwnSize("G", own("G"))).toBe(false);
+    expect(mergeUnitSizes(["M"], ["G"], 2, false)).toEqual(["M", "G"]);
+  });
+
+  it("o número da calça não é pista de quantidade", () => {
+    expect(quantityOf("quero a do 42", said(42))?.units ?? null).toBeNull();
+    expect(quantityOf("eu uso 42 e ela usa G", said(2, ["G"]))?.units ?? null).toBeNull();
+    expect(quantityOf("uso 2", said(2))?.units ?? null).toBeNull();
+    // As pistas verdadeiras continuam valendo.
+    expect(quantityOf("quero 2", said(2))?.units).toBe(2);
+    expect(quantityOf("quero duas", said(2))?.units).toBe(2);
+    expect(quantityOf("preciso de 12 peças", said(12))?.units).toBe(12);
   });
 });

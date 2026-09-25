@@ -217,7 +217,20 @@ const norm = (text: string): string =>
  * quantity; this is the deterministic half, so an invented `units: 2` on "quero o M" does
  * not swap her link for a kit she never asked for. One piece, or sizes alone, need no cue.
  */
-const QUANTITY_CUE = /\b(?:[2-9]|[1-9]\d|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+const COUNT_WORDS: Record<number, string> = {
+  2: "duas|dois", 3: "tres", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
+};
+/**
+ * Her words name this count: the word, a lone digit, or a number of pieces ("12 peças").
+ * Not any number — "uso 42" is her pants, and it vouched for an invented `units: 42`
+ * (code review, 2026-09-25).
+ */
+const namesCount = (text: string, units: number): boolean =>
+  (COUNT_WORDS[units] !== undefined && new RegExp(`\\b(?:${COUNT_WORDS[units]})\\b`).test(text)) ||
+  (units <= 9 && new RegExp(`(?<![\\d,.])${units}(?![\\d,.])`).test(text) &&
+    !new RegExp(`\\b(?:uso|visto|numero|n)\\s*${units}\\b`).test(text)) ||
+  new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text);
 
 export const quantityOf = (
   message: string,
@@ -228,19 +241,36 @@ export const quantityOf = (
     /\b(?:nao|nem|sem)\s+(?:\w+\s+){0,3}?(?:(?:o|a|um|uma|do|da)\s+)?(?:kit(?:\s+de\s+\w+)?|par|duas|dois|tres|[2-9])\b/g,
     " ",
   );
-  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) ? null : i.units;
+  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) && !namesCount(text, i.units) ? null : i.units;
   if (units === null && i.unit_sizes.length === 0) return null;
   return { units, sizes: [...i.unit_sizes] };
 };
 
 /**
- * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).
- * A full list replaces; a partial one completes what is missing; one that does not fit
- * starts over — she changed her mind.
+ * She corrects her OWN size ("na verdade o meu é G", "a minha é GG", "eu uso 44"), not
+ * someone else's. Deterministic: "minha irmã usa G" is about the sister.
  */
-export const mergeUnitSizes = (stored: readonly string[], said: readonly string[], units: number): string[] => {
+export const saysOwnSize = (message: string, i: Interpretation): boolean =>
+  !i.size.for_other_person &&
+  /\b(?:o\s+meu|a\s+minha)\s+(?:e|eh|sera|fica|vai\s+ser|tamanho)\b|\b(?:pra|para)\s+mim\b|\beu\s+(?:uso|visto|sou)\b|\bmeu\s+tamanho\b/.test(
+    norm(message),
+  );
+
+/**
+ * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).
+ * A full list replaces. One size she says is her own replaces the first piece — hers —
+ * and never fills another piece's slot (code review: "na verdade o meu é G" on ["M"] made
+ * the kit "M e G"). Any other partial list completes what is missing.
+ */
+export const mergeUnitSizes = (
+  stored: readonly string[],
+  said: readonly string[],
+  units: number,
+  ownSize = false,
+): string[] => {
   if (said.length >= units) return said.slice(0, units);
-  // A complete list is not undone by one size said again ("ok, G pra mim") — code review.
+  if (ownSize && said.length === 1) return [said[0]!, ...stored.slice(1)].slice(0, units);
+  // A complete list is not undone by one size said again ("ok, G") — code review.
   if (stored.length >= units) return stored.slice(0, units);
   return [...stored, ...said].slice(0, units);
 };
