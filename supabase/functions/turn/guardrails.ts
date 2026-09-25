@@ -276,9 +276,13 @@ const defersToCheckout = (t: string): boolean =>
  * invisible, so "custa 200 reais" — a number the operation does not have — passed the
  * price gate untouched.
  */
-/** Right before the price a comparison is made against: "em vez de", "contra", "sobre os". */
+/**
+ * Right before the price a comparison is made against: "em vez de", "contra", "e não",
+ * "desconto sobre os". Never "do que": "menos do que R$ 272,79" is the lying comparative
+ * (second review).
+ */
 const COMPARED_AGAINST =
-  /\b(?:em\s+vez\s+d[eoa]s?|ao\s+inves\s+d[eoa]s?|no\s+lugar\s+d[eoa]s?|contra\s+(?:os?\s+)?|e\s+nao|sobre\s+(?:os?|as?)|do\s+que|comparad[oa]\s+(?:a|com)(?:\s+os?)?)\s*$/;
+  /\b(?:em\s+vez\s+d[eoa]s?|ao\s+inves\s+d[eoa]s?|no\s+lugar\s+d[eoa]s?|contra\s+(?:os?\s+)?|e\s+nao|(?:desconto|%)\s+sobre\s+(?:os?|as?)|comparad[oa]\s+(?:a|com)(?:\s+os?)?)\s*$/;
 
 const moneyMatches = (text: string): Array<{ value: number; at: number }> =>
   [...text.matchAll(/r\$\s*([\d.]+,\d{2}|\d+(?:\.\d{2})?)|\b([\d.]+,\d{2}|\d+)\s*reais\b/gi)].map(
@@ -610,31 +614,52 @@ const gates: readonly Gate[] = [
         const paths = new Set<string>();
         if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b/.test(sentence)) paths.add("cod");
         if (/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) paths.add("prepay");
-        const units = new Set<number>();
+        const counts: Array<{ at: number; units: number }> = [];
         for (const u of sentence.matchAll(/\b(\d|um|uma|dois|duas|tres)\s+(?:pecas?|unidades?|coletes?)\b|\bkit\s+de\s+(\d|duas|tres)\b/g)) {
           const w = u[1] ?? u[2]!;
-          units.add(UNIT_WORDS[w] ?? Number(w));
+          counts.push({ at: u.index ?? 0, units: UNIT_WORDS[w] ?? Number(w) });
         }
-        if (paths.size !== 1 && units.size !== 1) continue;
-        const matching = offers.filter(
-          (o) => (paths.size !== 1 || paths.has(o.path)) && (units.size !== 1 || units.has(o.units)),
-        );
-        if (matching.length === 0) continue;
-        for (const m of moneyMatches(sentence)) {
+        // The quantity a number belongs to (second review): the nearest count named before it,
+        // else a count in its own comma clause, else none. "Seu M na entrega fica R$ 129,90, e
+        // levando 2 peças sai R$ 233,82" — the kit directive's own offer — gives 129,90 no
+        // count and 233,82 the 2; "R$ 129,90 levando 2 peças" still binds 129,90 to the 2.
+        const countAt = (at: number): number | null => {
+          const before = counts.filter((c) => c.at < at).at(-1);
+          if (before) return before.units;
+          // A clause break is punctuation that is not a decimal comma ("129,90").
+          const breaks = [...sentence.matchAll(/[,;:](?!\d)/g)].map((b) => b.index ?? 0);
+          const start = (breaks.filter((b) => b < at).at(-1) ?? -1) + 1;
+          const endRel = (breaks.find((b) => b >= at) ?? sentence.length) - at;
+          const end = endRel < 0 ? sentence.length : at + endRel;
+          return counts.find((c) => c.at >= start && c.at < end)?.units ?? null;
+        };
+        if (paths.size !== 1 && counts.length === 0) continue;
+        const matchingAt = (at: number) => {
+          const n = countAt(at);
+          return offers.filter((o) => (paths.size !== 1 || paths.has(o.path)) && (n === null || o.units === n));
+        };
+        const moneys = moneyMatches(sentence);
+        for (const [k, m] of moneys.entries()) {
           if (!offerPrices.has(m.value) || negatedAt(sentence, m.at)) continue;
+          const matching = matchingAt(m.at);
+          if (matching.length === 0) continue;
+          if (matching.some((o) => o.price === m.value)) continue;
           // The price a comparison is made against is not the offer on sale: "antecipado sai
-          // R$ 116,91 em vez de R$ 129,90" is the script's own line (7.1), and it was vetoed
-          // because 129,90 is not prepaid (code review, 2026-09-25). The offer's own price
-          // in the sentence is still checked.
-          if (COMPARED_AGAINST.test(sentence.slice(Math.max(0, m.at - 30), m.at))) continue;
-          if (!matching.some((o) => o.price === m.value))
-            return `price ${money(m.value)} belongs to another offer than the one this sentence names; say each offer in its own sentence`;
+          // R$ 116,91 em vez de R$ 129,90" is the script's own line (7.1). Only when an offer
+          // price that DOES match came first — "menos do que R$ 272,79" alone is the lie.
+          const comparedAgainst =
+            COMPARED_AGAINST.test(sentence.slice(Math.max(0, m.at - 30), m.at)) &&
+            moneys.slice(0, k).some((p) => offers.some((o) => o.price === p.value && (paths.size !== 1 || paths.has(o.path))));
+          if (comparedAgainst) continue;
+          return `price ${money(m.value)} belongs to another offer than the one this sentence names; say each offer in its own sentence`;
         }
         for (const m of sentence.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
           const value = Number(m[1]);
           const at = m.index ?? 0;
           if (value === 40 || (ctx.config.coupon.active && value === ctx.config.coupon.percent)) continue;
           if (!looksLikeDiscount(sentence, at) || negatedAt(sentence, at)) continue;
+          const matching = matchingAt(at);
+          if (matching.length === 0) continue;
           if (!matching.some((o) => o.pct === value))
             return `discount of ${value}% belongs to another offer than the one this sentence names`;
         }
@@ -858,7 +883,9 @@ const gates: readonly Gate[] = [
           const notDelivery = (x: string) =>
             x
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
-              .replace(/\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?)\b)/g, " ");
+              // Only as the purpose of asking the CEP or address (second review: "dá pra ver
+              // a entrega em casa nesse tempo" is a deadline).
+              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
           const clause = notDelivery(sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " "));
           const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));

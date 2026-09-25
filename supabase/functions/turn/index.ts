@@ -1046,6 +1046,8 @@ const RETRY_TURN_BUDGET_MS = 30_000;
 const INTERPRET_TIMEOUT_MS = 20_000;
 /** On the sweep's retry the interpreter is cut much sooner — the reply is what matters. */
 const RETRY_INTERPRET_TIMEOUT_MS = 8_000;
+/** How long a kit she asked for is remembered without being said again (loop review). */
+const KIT_MEMORY_MS = 72 * 60 * 60 * 1000;
 /** Each postcode lookup (ViaCEP, then the checkout's availability) is cut here. */
 const REGION_TIMEOUT_MS = 10_000;
 const RETRY_REGION_TIMEOUT_MS = 5_000;
@@ -1298,6 +1300,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
   // carries no fresh message: it re-reads the one already stored.
   const isRetry = internal.retry !== undefined;
+  /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
+  let retriedInboundAt: string | null = null;
 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
@@ -1330,16 +1334,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const conversation =
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
-  // A new conversation does not inherit an abandoned kit (code review, 2026-09-25): "quero 2,
-  // M e G" twelve days ago must not turn today's "quero o M" into the kit-of-2 link.
-  if (!openConversations?.[0] && (lead.units != null || lead.unit_sizes != null)) {
-    lead.units = null;
-    lead.unit_sizes = null;
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ units: null, unit_sizes: null, updated_at: new Date().toISOString() }),
-    }).catch(() => undefined);
-  }
 
   /**
    * The stage already stored, read once and used by `persistStage` on every exit.
@@ -1400,6 +1394,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
+    retriedInboundAt = latest[0].created_at ?? null;
   }
 
   if (!isResume && !isRetry) {
@@ -1982,7 +1977,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // kit has no link at all: a person builds that order (operator's decision).
   const kits = CONFIG.kits ?? [];
   const quantity = quantityOf(inbound.body ?? "", interpretation);
-  const units: number = quantity?.units ?? (lead.units as number | null) ?? 1;
+  // An abandoned kit expires (loop review, 2026-09-25): nothing closes a conversation, so
+  // "quero 2, M e G" twelve days ago would turn today's "quero o M" into the kit-of-2 link.
+  const unitsAt = typeof lead.units_at === "string" ? Date.parse(lead.units_at) : NaN;
+  const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;
+  const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;
   const maxUnits = Math.max(1, ...kits.map((k) => k.units));
   if (units > maxUnits) {
     return await handOff(
@@ -1990,7 +1989,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`,
     );
   }
-  const storedSizes = (lead.unit_sizes as string[] | null) ?? [];
+  const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);
   // Pants numbers go through the same deterministic table as one piece's: the model never
   // converts a size, and she should not have to guess her letter (kit round).
   const saidSizes: string[] = quantity?.sizes.length
@@ -2000,10 +1999,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : stated && units > 1
         ? [stated.size]
         : [];
-  // A retry replays the same message: when the first attempt already stored these sizes,
-  // merging them again would add a size she said once. When it did not, they count.
+  // A retry replays the same message: when the first attempt already merged it (the kit
+  // was written after that message arrived), merging again would add a size she said once.
+  // When it did not, the sizes count — read from the clock, never guessed from content.
   const replayed =
-    isRetry && saidSizes.length > 0 && storedSizes.slice(-saidSizes.length).join() === saidSizes.join();
+    isRetry && retriedInboundAt !== null && Number.isFinite(unitsAt) && unitsAt >= Date.parse(retriedInboundAt);
   const unitSizes: string[] =
     units > 1
       ? mergeUnitSizes(
@@ -2013,10 +2013,10 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
           saysOwnSize(inbound.body ?? "", interpretation),
         )
       : [];
-  if ((quantity || units > 1) && (units !== (lead.units ?? 1) || unitSizes.join() !== ((lead.unit_sizes as string[] | null) ?? []).join())) {
+  if ((quantity || units > 1) && (kitStale || units !== (lead.units ?? 1) || unitSizes.join() !== ((lead.unit_sizes as string[] | null) ?? []).join())) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ units, unit_sizes: unitSizes, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ units, unit_sizes: unitSizes, units_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
 

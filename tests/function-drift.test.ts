@@ -419,11 +419,17 @@ describe("kits na Edge Function (2026-09-25)", () => {
 describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
-    expect(source).toContain("isRetry && saidSizes.length > 0 && storedSizes.slice(-saidSizes.length).join() === saidSizes.join();");
+    // The retry reads the clock, not the content: merged after the message arrived = replay.
+    expect(source).toContain("isRetry && retriedInboundAt !== null && Number.isFinite(unitsAt) && unitsAt >= Date.parse(retriedInboundAt);");
+    expect(source).toContain("retriedInboundAt = latest[0].created_at ?? null;");
     expect(source).toContain("replayed ? [] : saidSizes,");
     expect(source).toContain("saysOwnSize(inbound.body");
-    // A new conversation does not inherit an abandoned kit.
-    expect(source).toContain("if (!openConversations?.[0] && (lead.units != null || lead.unit_sizes != null)) {");
+    // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
+    expect(source).toContain("const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;");
+    expect(source).toContain("const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;");
+    expect(source).toContain("const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);");
+    expect(source).toContain("units_at: new Date().toISOString(),");
+    expect(readFileSync("supabase/migrations/0011_units_at.sql", "utf8")).toContain("add column if not exists units_at timestamptz");
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null }),');
   });

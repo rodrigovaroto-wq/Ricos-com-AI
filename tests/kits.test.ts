@@ -151,3 +151,26 @@ describe("kits: o preço de comparação não é a oferta (revisão, 2026-09-25)
       expect(price(s), s).toBe("block");
   });
 });
+
+describe("kits: segunda passada da revisão (2026-09-25)", () => {
+  it("comparativo mentiroso continua vetado", () => {
+    for (const s of [
+      "Na entrega, 3 peças: você paga menos do que R$ 272,79.",
+      "Na entrega 3 peças ficam mais barato do que R$ 272,79.",
+      "Na entrega 2 peças saem por menos do que R$ 207,84.",
+      "Na entrega 3 peças custam R$ 311,76, e sobre os R$ 272,79 você não paga frete.",
+      "Na entrega, a peça sai contra R$ 116,91.",
+      "R$ 129,90 levando 2 peças na entrega.",
+    ])
+      expect(price(s), s).toBe("block");
+  });
+
+  it("a oferta do kit com o preço de 1 peça antes passa", () => {
+    for (const s of [
+      "Seu M na entrega fica R$ 129,90, e levando 2 peças sai R$ 233,82.",
+      "Na entrega 3 peças saem R$ 311,76 e não R$ 272,79.",
+      "No antecipado, 2 peças ficam R$ 207,84 (20% de desconto) e 3 peças R$ 272,79 (30%).",
+    ])
+      expect(price(s), s).toBe("pass");
+  });
+});

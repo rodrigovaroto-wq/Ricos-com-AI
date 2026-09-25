@@ -75,3 +75,34 @@ describe("kits: achados da revisão de 2026-09-25", () => {
     expect(quantityOf("preciso de 12 peças", said(12))?.units).toBe(12);
   });
 });
+
+describe("kits: segunda passada da revisão (2026-09-25)", () => {
+  it("os pedidos comuns de kit continuam reconhecidos", () => {
+    for (const [msg, n] of [
+      ["quero 2, M e G", 2],
+      ["Quero 2, uma M e uma G", 2],
+      ["vou levar 3, todas G", 3],
+      ["quero 2.", 2],
+      ["2, por favor", 2],
+      ["um pra mim e um pra minha mãe", 2],
+      ["uma pra mim e uma pra minha filha", 2],
+      ["2 coletes", 2],
+      ["mais um", 2],
+    ] as const)
+      expect(quantityOf(msg, said(n))?.units, msg).toBe(n);
+    expect(quantityOf("uso 2,5 de manequim", said(2))?.units ?? null).toBeNull();
+  });
+
+  it("falar da outra pessoa não é corrigir o próprio tamanho", () => {
+    const neutral = said(null, ["G"]);
+    for (const msg of [
+      "pra mim tá bom, e pra ela G",
+      "G pra ela, pra mim nem sei",
+      "pra mim e pra ela G",
+      "eu sou G e minha irmã também",
+      "o meu é o mesmo, e o dela G",
+    ])
+      expect(saysOwnSize(msg, neutral), msg).toBe(false);
+    expect(saysOwnSize("pode ser G pra mim tbm", neutral)).toBe(true);
+  });
+});

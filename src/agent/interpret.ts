@@ -228,9 +228,12 @@ const COUNT_WORDS: Record<number, string> = {
  */
 const namesCount = (text: string, units: number): boolean =>
   (COUNT_WORDS[units] !== undefined && new RegExp(`\\b(?:${COUNT_WORDS[units]})\\b`).test(text)) ||
-  (units <= 9 && new RegExp(`(?<![\\d,.])${units}(?![\\d,.])`).test(text) &&
+  // "quero 2, M e G" and "quero 2." count; "2,5" and "42" do not (second review).
+  (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d)`).test(text) &&
     !new RegExp(`\\b(?:uso|visto|numero|n)\\s*${units}\\b`).test(text)) ||
-  new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text);
+  new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text) ||
+  // "um pra mim e um pra minha mãe" is two.
+  (units === 2 && /\b(?:um|uma)\b[^.!?]{0,30}\be\s+(?:um|uma)\b/.test(text));
 
 export const quantityOf = (
   message: string,
@@ -250,11 +253,15 @@ export const quantityOf = (
  * She corrects her OWN size ("na verdade o meu é G", "a minha é GG", "eu uso 44"), not
  * someone else's. Deterministic: "minha irmã usa G" is about the sister.
  */
-export const saysOwnSize = (message: string, i: Interpretation): boolean =>
-  !i.size.for_other_person &&
-  /\b(?:o\s+meu|a\s+minha)\s+(?:e|eh|sera|fica|vai\s+ser|tamanho)\b|\b(?:pra|para)\s+mim\b|\beu\s+(?:uso|visto|sou)\b|\bmeu\s+tamanho\b/.test(
-    norm(message),
-  );
+export const saysOwnSize = (message: string, i: Interpretation): boolean => {
+  const t = norm(message);
+  // A message that also names the other person ("pra mim tá bom, e pra ela G") is not a
+  // correction of her own: the size may be the other's (second review).
+  if (i.size.for_other_person || OTHER_PERSON.test(t)) return false;
+  return /\b(?:o\s+meu|a\s+minha)\s+(?:e|eh|sera|fica|vai\s+ser|tamanho)\b|\b(?:pra|para)\s+mim\b|\beu\s+(?:uso|visto|sou)\b|\bmeu\s+tamanho\b/.test(t);
+};
+const OTHER_PERSON =
+  /\b(?:ela|dela|ele|dele|delas|deles|(?:pra|para)\s+(?:a|o|minha|meu)\s+\w+|(?:minha|meu)\s+(?:mae|irma|irmao|filha|filho|amiga|tia|avo|sogra|prima|cunhada|namorad[oa]|marido|esposa))\b/;
 
 /**
  * The sizes of each piece, said across messages ("M" now, "G" when asked for the other).

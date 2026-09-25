@@ -142,6 +142,9 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No pix você tem 7 dias pra trocar, dá pra ver a entrega chegar antes.",
       "No pix você devolve em 7 dias e recebe o colete em 7 dias.",
       "No pix você tem 7 dias pra devolver, e recebe seu dinheiro de volta e o colete em até 7 dias.",
+      "No antecipado a garantia é de 7 dias pra devolver, e dá pra ver a entrega em casa nesse tempo.",
+      "Pagando antecipado, em 7 dias pra trocar você consegue ver a entrega na sua casa.",
+      "No antecipado, 7 dias pra trocar e ver a entrega na sua porta.",
     ])
       expect(delivery(lie, "prepay"), lie).toBe("block");
     // Fala do pagamento na entrega ("na mão do entregador"): só vale nesse caminho — no
