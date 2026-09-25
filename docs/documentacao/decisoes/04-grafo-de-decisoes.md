@@ -225,6 +225,24 @@ flowchart TD
   S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> R4 --> C5 --> OFF --> GD
 ```
 
+## 14. Margem do antecipado com o Mercado Pago (R14.15)
+
+```mermaid
+flowchart TD
+  S["🟥 06-modelo-economico dizia antecipado R$ 51,27 ≈ COD R$ 52,35<br/>com a taxa da Coinzz (6,99% + R$ 2,49), que deixou de valer"]
+  K["causa: R14.15 trocou o processador; a conta de margem<br/>não lê o config, então nada ficou vermelho"]
+  A1["🟧 atalho: 'o MP é mais barato, sobra margem → aumentar o desconto'"]
+  F1["🟥 a folga depende de premissas não confirmadas:<br/>antifraude R$ 2,49 continua? mix Pix/cartão? juros do 12x com quem?<br/>no kit de 3, 100% cartão à vista (4,98%) já fica abaixo do COD"]
+  C1["🟩 conta refeita com premissas marcadas (P1–P5):<br/>R$ 57,94 / 116,16 / 149,17 vs COD 52,35 / 109,01 / 145,12<br/>+ sensibilidade: mix, antifraude, parcelado, recusa de empate"]
+  D["preço e desconto não mudam: opções vão ao operador;<br/>nenhuma é aplicada antes de P1 e P4 confirmados"]
+  G["🛡️ sem teste: conta de margem é doc. Mudança de preço passa por<br/>BUSINESS_CONFIG + tests/prompt.test.ts + pnpm dev:gates, nos dois caminhos"]
+  S --> K --> A1 --> F1 --> C1 --> D --> G
+```
+
+**Resíduo:** o número vale enquanto P1 (antifraude) e P4 (parcelado) não forem confirmados
+no painel do Mercado Pago/Coinzz. Trocou taxa, processador ou mix, refaça a tabela da caixa
+de 2026-09-25 em [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
+
 ---
 
 ## Lições (valem para qualquer correção futura)
