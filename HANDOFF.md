@@ -11,7 +11,61 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-25, noite
+## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
+
+**Branch `claude/peaceful-feynman-l4zf0k`, à frente do `main`** com o canal do WhatsApp
+(commits `8b140a1` → `bee1dc3`). Abrir PR para o `main` quando o operador pedir. No ar:
+função `turn` **v41** (H-2) e os 5 workflows do n8n (Turno, Relógio, Venda, Hermes decisão,
+WhatsApp envio com `CANAL_ATIVO=false`). A `turn` do repositório está **à frente** da v41
+(janela real de 24h, selo, `sealed`, `TURN_REQUIRE_SERVICE_ROLE`) — tudo inerte com os
+segredos ausentes; sobe na ativação do canal ou antes, se o operador pedir.
+
+**Guia do operador para segredos e publicação:** [`docs/operacao/segredos-e-codespace.md`](docs/operacao/segredos-e-codespace.md).
+O Claude não publica nem mexe em credencial nesta máquina; o operador roda no Codespace.
+
+### Próximos passos, nesta ordem (decisão do operador)
+
+1. **(b) Margem do antecipado com o Mercado Pago** (R14.15). O antecipado da Coinzz passou a
+   ser processado pelo Mercado Pago, com taxa menor; a conta de unidade econômica ainda usa
+   a taxa antiga. Fonte: [`docs/documentacao/contexto-negocio/06-modelo-economico.md`](docs/documentacao/contexto-negocio/06-modelo-economico.md),
+   [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md)
+   e o painel `docs/operacao/mapa-financeiro.html`. **Pedir ao operador** as taxas reais do
+   Mercado Pago (pix e cartão, à vista e parcelado) e se a Coinzz cobra algo além; refazer a
+   margem de 1 peça e dos kits de 2 e 3 no antecipado; despachar o `pricing-guardian` (Opus)
+   com análise de sensibilidade. Se a margem permitir mudar desconto ou preço, é decisão do
+   operador — nada muda no `BUSINESS_CONFIG` sem ele.
+2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`).** O funil para em
+   `pedido_criado`. Já existe `stageForOrder` (`src/agent/followups.ts`), usado ao gravar a
+   venda (`recordOrder` em `supabase/functions/turn/index.ts`) — **primeiro confirmar** se a
+   Logzz e a Coinzz mandam webhook a cada mudança de status (o workflow "Venda confirmada"
+   recebe o mesmo endereço) e se esses status chegam até `recordOrder` e escrevem o estágio.
+   Faltando, ligar; `perdido` (lead sem compra após a régua) não tem dono. Mexe em estado
+   da conversa: ler o grafo antes, revisão Opus depois.
+3. **Ativação do WhatsApp** quando o sócio entregar os valores:
+   [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md) — Parte A
+   (sócio: app, número, token, webhook, templates), Parte B (operador: segredos + publicar
+   `turn` e `whatsapp` no Codespace), Parte C (Claude: `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`;
+   o operador cria a credencial "WhatsApp Cloud API" no n8n). Ordem que a revisão exige:
+   selo ligado antes de `CANAL_ATIVO=true`; conferir que a credencial "Supabase
+   service_role" do n8n é mesmo `service_role` antes de `TURN_REQUIRE_SERVICE_ROLE=true`.
+4. **Templates da Meta aprovados** → `channel.templates` no `BUSINESS_CONFIG` (colar o config
+   inteiro). Até lá, toque fora da janela é cancelado e chega por e-mail.
+5. **Demais pendências**, em seguida: primeiro pedido real de kit (confirmar
+   `order_quantity` 2/3); dois pedidos no mesmo lead (guardar `order_id` no follow-up);
+   M-08; apps da Coinzz; checkout no domínio da marca (O-02); ressalvas aceitas do WhatsApp
+   (dois turnos simultâneos da mesma cliente, mensagem perdida com o n8n fora do ar).
+
+### O que o Claude precisa saber antes de começar
+- **Não relembrar** o operador de revogar PAT nem de trocar o `CONVERSATION_MODEL`
+  (memória `nao-relembrar-pendencias-do-operador`). Meta Ads/BM/developer/número/templates
+  são do **sócio** (memória `divisao-de-papeis-meta`).
+- Rotina "Hermes — implementa proposta aprovada" roda a cada 3 h (9–21 SP); formulário do
+  Hermes no n8n manda e-mail só quando há proposta ou resultado.
+- Mapa do funil no Miro atualizado: "Funil de Vendas com Agente de IA" (quadros 1 a 8).
+- Sonda pela porta do n8n: `curl` do guia acima (o `pnpm dev:personas` com as flags de
+  produção é bloqueado pelo modo automático nesta máquina).
+
+## ▶ Estado em 2026-09-25, noite (histórico)
 
 **`main` = PR #35 mergeado. Função `turn` versão 41 no ar (H-2), deploy pelo operador via
 Codespace + Supabase CLI, com `verify_jwt` ligado.** A v40 anterior foi conferida byte a byte
