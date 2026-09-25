@@ -648,7 +648,7 @@ const STRONG_CUE = /(?:r\$|rs|pago|paga|pagar|pagaria|custa|custar|custando)\s*$
  * pants size. A preposition may sit between ("fecha em 100", "sai a 100", "meu limite é 100").
  */
 const WEAK_CUE =
-  /\b(?:por|faz|faca|fazer|faria|fica|ficar|sai|sair|deixa|vale|valor|for|fosse|ser|fecha|fecho|fechar|consegue|conseguiria|tenho|limite|aceita|topa|cobra|cobraria|tal)\s+(?:(?:e|em|a|de|por|so|uns|umas)\s+)*$/;
+  /\b(?:por|faz|faca|fazer|faria|fica|ficar|sai|sair|deixa|vale|valor|for|fosse|ser|fecha|fecho|fechar|consegue|conseguiria|tenho|limite|aceita|topa|cobra|cobraria|tal|da|daria)\s+(?:(?:e|em|a|de|por|so|uns|umas)\s+)*$/;
 const NOT_MONEY_UNIT =
   /^\s*(?:x\b|vezes|parcelas?|anos?|kg|quilos?|kilos?|cm|m\b|metros?|%|horas?|h\b|dias?|semanas?|meses|pecas?|unidades?|numero|de\s+(?:cintura|quadril|busto|calca|sapato))/;
 /**

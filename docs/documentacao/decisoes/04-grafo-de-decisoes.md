@@ -187,13 +187,20 @@ flowchart TD
   S["🟥 Tati: 'faz por 100 que eu levo agora' → link da entrega (R$ 129,90)<br/>logo depois do preço do antecipado (R$ 116,91) → 'continua 116?'"]
   H["Hermes H-2: todo link sai com o preço do caminho"]
   X["❌ recusada pelo operador: preço junto com o link<br/>apressa quem ainda pergunta e perde a venda"]
-  C1["🟩 link só com confirmação de compra:<br/>barganha ('faz por 100 que eu levo') não é decisão;<br/>pedido do nome ignorado PARA PERGUNTAR não libera o link"]
+  C0["🟩 link só com confirmação de compra: preço que a loja não tem<br/>('faz por 100 que eu levo') não é decisão"]
+  F1["❌ barganha por FRASE (regex de 'faz por … que eu levo'):<br/>vetou 'por 116 eu levo' (o preço real) e liberou<br/>'não dá pra fazer por 100? quero o G' — cegueira a negação"]
+  F2["❌ pedido do nome ignorado para perguntar segurava o link:<br/>'pra que o CPF?' ficava sem link depois de decidir"]
+  F3["❌ todo número 60–999 era preço: 'cintura 80', 'apto 102' sem link"]
+  F4["❌ 'por' a partir de 20: 'troco por 44' sem link;<br/>palavra de endereço em qualquer ponto: 'no pix por 100' liberado"]
+  C1["🟩 barganha pelo NÚMERO: valor em contexto de preço que não é<br/>nenhum preço do config (±R$ 1), nem colado a medida/endereço;<br/>'por' e gatilhos fracos a partir de 60, centavos a partir de 20;<br/>% de kit só com mais de uma peça"]
+  R1["ressalvas aceitas: 'por 50' inteiro (faixa de tamanho),<br/>'tenho uns 70', 'n dá 100?'"]
   C2["🟩 FATOS LIGADOS no prompt: preço · caminho · peças · prazo · link,<br/>do config, só referência interna; a instrução do link cita a linha dele"]
-  C3["🟩 turn_outcomes.reason = 'link — linha' em todo envio com link"]
+  C3["🟩 turn_outcomes.reason = 'link — linha' só quando a mensagem leva o link"]
   K["mantido: 'vou pensar' segue mandando o link (R13.4, operador)"]
-  G["🛡️ H-2-pergunta · H-2-barganha · prompt.test 'fatos ligados'"]
-  S --> H --> X --> C1 --> C2 --> C3 --> G
+  G["🛡️ H-2-preco-da-loja · H-2-barganha · H-2-numero ·<br/>gerador frase × preço real × preço inventado × medida<br/>(5 passadas de revisão até 'aprovado com ressalvas')"]
+  S --> H --> X --> C0 --> F1 --> F2 --> F3 --> F4 --> C1 --> C2 --> C3 --> G
   C1 -.- K
+  C1 -.- R1
 ```
 
 ---

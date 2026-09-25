@@ -456,6 +456,7 @@ describe("preço que a loja não tem não é decisão de compra", () => {
     "quero o G, aceita 100?",
     "quero o G, que tal 100?",
     "quero o G, 100 ta bom?",
+    "quero o G, no pix da 100?",
   ])("%s → pedido de preço (abaixo de 60, por extenso, porcentagem)", (msg) => {
     expect(namesOwnPrice(msg, prices, [10])).toBe(true);
   });
