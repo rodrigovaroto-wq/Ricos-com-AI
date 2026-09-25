@@ -1646,6 +1646,15 @@ loop fecha num humano —, e o humano passa a ser o clique em cada proposta:
 Cuidado que isto cria: o deploy publica o `main` inteiro. Mudança manual no turno que for
 para o `main` precisa ser publicada logo (R14.8), senão sai de carona na próxima aprovada.
 
+## R14.15 — Mercado Pago processa o antecipado na Coinzz (2026-09-25, noite)
+
+Informado pelo operador: o pagamento do antecipado na Coinzz passou a ser processado pelo
+**Mercado Pago**, que cobra taxa menor. Nada muda no código: o checkout, o link, o webhook
+(`?fonte=coinzz`) e o preço que a Malu cita continuam os mesmos. O que muda é a margem do
+antecipado — a conta de unidade econômica que usava a taxa da Coinzz fica desatualizada até
+alguém refazê-la com a taxa do Mercado Pago. Mapa do funil no Miro atualizado no mesmo dia
+("Funil de Vendas com Agente de IA", quadros 1 a 8).
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da
