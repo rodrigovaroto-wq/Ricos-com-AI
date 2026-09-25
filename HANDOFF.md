@@ -13,9 +13,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — estado em 2026-09-25, fim do dia
 
-**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **v32 continua no ar; nada da v33 foi
-deployado.** O código da v33 está pronto e verificado; **o deploy espera o "pode subir" do
-operador** (R14.8). Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
+**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **A v33 está no ar desde 2026-09-25 06:50 UTC
+(função `turn` versão 38)**, com o aval do operador. O2 e O10 no ar no n8n.
+
+> **⛔ BLOQUEIO — a Malu não responde em produção até isto ser feito:** a sonda pela porta do
+> n8n recebeu `meta: Unauthorized`. O secret **`META_API_KEY` do Supabase não é aceito pela
+> Meta**; toda conversa cai na resposta de segurança + handoff. Nos testes locais funcionava
+> porque o proxy desta máquina injeta a chave certa. O operador cola a chave válida de
+> dev.meta.ai em Supabase → Edge Functions → Secrets → `META_API_KEY`; depois, uma sonda pela
+> porta `n8n` (`pnpm dev:personas --door=n8n --persona=tati`, em horário 6–24 SP) confirma.
+> O canal do WhatsApp ainda não está ligado, então nenhuma cliente real foi afetada. Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
 Mudanças técnicas: `registro.md` M-05 a M-09. **Grafo de decisões (o que falhou e por quê):
 `docs/documentacao/decisoes/04-grafo-de-decisoes.md` — leia antes de mexer em gate ou estado.**
 
@@ -51,17 +58,29 @@ Mudanças técnicas: `registro.md` M-05 a M-09. **Grafo de decisões (o que falh
 ### Gasto da API da Meta no dia
 Personas ≈ R$ 1,37 · Hermes ≈ US$ 0,04 (≈ R$ 0,22) · **total ≈ R$ 1,60**.
 
+### Deploy feito em 2026-09-25 (06:40–07:00 UTC)
+- Secrets gravados: `BUSINESS_CONFIG` (gerado do exemplo, entrega na Logzz), `CONVERSATION_MODEL`
+  = `muse-spark-1.3-contributor`, `CONVERSATION_MODEL_PRICE`, **`SALE_WEBHOOK_TOKEN`** (novo;
+  o valor está só no Supabase e com o operador — nunca no repositório).
+- Função `turn` versão 38 (12 arquivos, `verify_jwt` ligado como antes).
+- Migrações 0011–0013 aplicadas antes (aditivas).
+- n8n: Turno com `É recepção?` → `Espera a recepção` (Wait `resumeInSeconds`) → `Resposta de
+  verdade` (`resume: true`); Venda repassa `?token=`. `pnpm dev:n8n` agora falha sem esses dois.
+- **Sondas em produção:** recepção → espera de 120 s → retomada ✓ (mas `meta: Unauthorized`, ver
+  bloqueio); venda sem token → **401** ✓; venda com token → chega à busca do lead ✓. As sondas
+  mandaram 3 e-mails de teste ao operador e 1 handoff para `contato@`; lead de teste apagado.
+
 ### Próximos passos
 1. **Operador:**
-   - dizer **"pode subir"**;
+   - **colar a `META_API_KEY` válida** no Supabase (bloqueio acima);
+   - trocar a URL dos webhooks de venda para a versão com `&token=<SALE_WEBHOOK_TOKEN>` — dois na
+     Coinzz (`?fonte=coinzz&token=…`), um na Logzz (`?fonte=logzz&token=…`); até lá, **toda
+     venda real é recusada com 401** e vai para o e-mail de recusa;
    - trocar `CONVERSATION_MODEL` para o modelo **sem `-contributor`** antes do primeiro lead
      real (LGPD, R14.2);
    - **revogar o PAT do Supabase** logo depois do deploy (Account → Access Tokens);
-   - O10: ver se a tela de webhook da Coinzz e a da Logzz aceitam **cabeçalho (header)
-     customizado** — o teste da Logzz chegou sem nenhum (user-agent `GuzzleHttp`); se não
-     aceitarem, a senha vai na URL e o operador cola a URL nova nos três webhooks;
    - decidir H-2 do Hermes (link que troca de caminho sai com o preço dele).
-2. **Deploy v33** (sessão, após o aval): secret `BUSINESS_CONFIG` = `config/business.example.json`
+2. ~~Deploy v33~~ — **feito** (acima). Referência do que foi usado: secret `BUSINESS_CONFIG` = `config/business.example.json`
    com `agentName` "Malu", `testimonials` [], sem `scarcity`, sem `_comment`, `handoff.email`
    `contato@encorpa-fashion.com.br`, `coupon.code` "SUPER20" **inativo** (código veio do
    arquivo de teste — confirmar), `coinzz.offerHash` `offp16pv` / `prepayOfferHash` `offkw47x`

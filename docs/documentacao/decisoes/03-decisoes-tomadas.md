@@ -1600,6 +1600,14 @@ Hermes sobre ela. Nos kits foram quatro passadas; cada uma achou furos da anteri
 A v33 sobe (secrets, 12 arquivos, sonda pelo n8n) só depois do aval explícito. O token de
 acesso (PAT) do Supabase usado no deploy é revogado pelo operador logo em seguida.
 
+## R14.12 — Deploy da v33 e a senha dos webhooks (O10)
+
+O operador deu o aval ("pode subir"). Coinzz e Logzz **não têm campo de cabeçalho** no
+webhook (conferido pelo operador nas telas), então a senha vai na URL (`&token=`), o n8n a
+repassa e a função a compara com o secret `SALE_WEBHOOK_TOKEN` — venda sem a senha recebe
+401. O O2 (espera de 2 min e retomada) subiu junto. A sonda de produção achou a
+`META_API_KEY` do Supabase recusada pela Meta: bloqueio do operador.
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da
