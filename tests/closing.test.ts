@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { extractName } from "@/agent/identity.js";
-import { asksAboutOrder, closesConversation, handoffFor, NEUTRAL_INTERPRETATION, type Interpretation } from "@/agent/interpret.js";
+import { closesConversation, handoffFor, NEUTRAL_INTERPRETATION, reportsDone, type Interpretation } from "@/agent/interpret.js";
 
 /** Rodada de personas de 2026-09-25: despedida depois da compra. */
 describe("despedida depois do link", () => {
@@ -17,7 +17,16 @@ describe("despedida depois do link", () => {
     expect(handoffFor(postSale, "já fiz o pedido, obrigada", true)).toBeNull();
     for (const msg of ["cadê meu pedido", "quando chega?", "meu pedido não chegou", "quero trocar o tamanho"])
       expect(handoffFor(postSale, msg, true), msg).toBe("post_sale");
-    expect(asksAboutOrder("obrigada, tchau")).toBe(false);
+    expect(reportsDone("obrigada, tchau")).toBe(true);
+    // Sétima revisão: todo problema real de pedido continua indo para uma pessoa.
+    for (const msg of [
+      "ficou pequeno", "ficou apertado", "não serviu", "ficou grande demais", "veio o tamanho G e eu pedi M", "quero outro tamanho",
+      "o entregador não apareceu", "o motoboy não passou", "não vou estar em casa amanhã", "remarca a entrega pra sexta",
+      "quero mudar o endereço", "me cobraram frete", "cobraram a mais", "paguei duas vezes", "o pix não caiu",
+      "a caixa veio aberta", "veio rasgado", "o zíper quebrou", "até agora nada", "e o meu pedido", "já faz 10 dias",
+      "obrigada, mas veio errado", "valeu, mas ficou apertado",
+    ])
+      expect(handoffFor(postSale, msg, true), msg).toBe("post_sale");
   });
 
   it("fechamento é reconhecido; decisão de compra não é fechamento", () => {

@@ -328,10 +328,16 @@ export const namesAPerson = (message: string): boolean => {
 
 export type HandoffKind = "cancel" | "post_sale" | "human";
 
-/** She asks about, or reports a problem with, an order — deterministic half of post_sale. */
-export const asksAboutOrder = (message: string): boolean =>
-  message.includes("?") ||
-  /\b(?:onde|quando|cade|chega|chegou|chegar|rastre\w*|codigo|troca\w*|troco|devol\w*|problema|errad\w*|defeito|atras\w*|status|previsao|nao\s+(?:chegou|veio|recebi|consegui))\b/.test(norm(message));
+/**
+ * She closes happily — thanks, goodbye, "já fiz" — with no question and no word of a
+ * problem. The only post-sale message that is not a person's job.
+ */
+export const reportsDone = (message: string): boolean =>
+  closesConversation(message) &&
+  !message.includes("?") &&
+  !/\b(?:nao|problema|errad\w*|defeit\w*|quebr\w*|rasg\w*|apert\w*|pequen\w*|grand\w*|cobr\w*|troc\w*|devol\w*|cancel\w*|atras\w*|mud\w*|remarc\w*|entregador|motoboy|cade|onde|quando|esperando|nada)\b/.test(
+    norm(message),
+  );
 
 /**
  * She closes the conversation — thanks, goodbye, "já fiz". After the link is in the chat,
@@ -357,9 +363,10 @@ export const handoffFor = (
   orderContext: boolean,
 ): HandoffKind | null => {
   if (orderContext && i.wants_cancel) return "cancel";
-  // A question or a problem about the order, not a report that she finished it: "obrigada,
-  // já finalizei" handed the buyer to a person (persona round, 2026-09-25).
-  if (orderContext && i.post_sale && asksAboutOrder(message)) return "post_sale";
+  // Everything about an order goes to a person EXCEPT a happy close: "obrigada, já
+  // finalizei" handed the buyer to a person (persona round). Requiring a question instead
+  // lost "ficou pequeno", "me cobraram frete" (seventh review) — exclude, never require.
+  if (orderContext && i.post_sale && !reportsDone(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };
@@ -438,13 +445,16 @@ export const choosesPath = (message: string): boolean => {
   const t = norm(message);
   const m =
     new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
-    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?\\s*[.!]*\\s*$`).exec(t);
+    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
   if (!m) return false;
   // Doubt is not a choice (sixth review): "quero saber se aceita pix", "vou ver se consigo
   // no pix", "pode ser que eu pague no pix", "pix ou cartão, não sei", "pagar na entrega é
-  // seguro".
+  // seguro". Read up to the choice only — a reason after it is not doubt: "prefiro pagar na
+  // entrega pra ver se serve" (seventh review).
+  const beforeEnd = t.slice(0, m.index + m[0].length);
   if (
-    /\b(?:saber|ver|pensar|entender|perguntar)\s+(?:se|sobre|como)\b|\bpode\s+ser\s+que\b|\btalvez\b|\bnao\s+sei\b|\btanto\s+faz\b|\bfalar\s+com\b|\bentender\b|\be\s+segur\w*/.test(t) ||
+    /\b(?:saber|ver|pensar|entender|perguntar)\s+(?:se|sobre|como)\b|\bpode\s+ser\s+que\b|\btalvez\b|\bfalar\s+com\b|\bentender\s+(?:a|o)\b/.test(beforeEnd) ||
+    /\bnao\s+sei\b|\btanto\s+faz\b|^[^,]*\be\s+segur\w*/.test(t) ||
     new RegExp(`${PATH_WORD}[^.!?]{0,20}\\bou\\s+(?:n[oa]\\s+|pel[oa]\\s+)?${PATH_WORD}`).test(t)
   )
     return false;

@@ -292,3 +292,18 @@ describe("kits: sexta passada (2026-09-25)", () => {
     expect(gate("Se for só um, sai R$ 129,90 na entrega.", { units: 2 })).toBe("pass");
   });
 });
+
+describe("kits: sétima passada — troca grátis e pagar uma vez são verdade (2026-09-25)", () => {
+  const gate = (text: string) =>
+    runGates(text, ctx({ config: configKits as never } as never)).traces.find((t) => t.gate === "price_promise")?.verdict;
+  it("passam", () => {
+    for (const s of [
+      "A primeira troca do colete é grátis.",
+      "O colete é grátis pra trocar em 7 dias.",
+      "Levando 2 peças você paga uma vez só na entrega.",
+      "Levando 3 peças, você paga só 1 vez.",
+      "Levando 2, não paga só uma não: paga o kit.",
+    ])
+      expect(gate(s), s).toBe("pass");
+  });
+});

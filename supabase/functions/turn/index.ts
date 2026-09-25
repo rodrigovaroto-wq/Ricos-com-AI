@@ -2313,16 +2313,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // "Vou pensar" (R13.4): the operator's line, then the link in a bubble of its own. No
   // model call — unless she also asked something, and then the model answers with the
   // link in its directive like any other turn.
+  // A goodbye with the link already in the chat gets the operator's line without the link
+  // again (persona round); "vou pensar" keeps the line either way (seventh review).
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
-  if (
-    interpretation.wants_to_think &&
-    interpretation.pending_answer !== "other_question" &&
-    !(linkInChat && closesConversation(inbound.body ?? ""))
-  ) {
+  if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
     // Never a link without a size: without one she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = sizeKnown && !linkJustSent
+      thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? ""))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {

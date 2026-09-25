@@ -135,6 +135,9 @@ describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", ()
       "no cartão então", "então pix", "pix mesmo", "ok, pix", "pix pfv", "beleza, na entrega", "na entrega mesmo",
       "prefiro pagar antes", "pode mandar o link do pix", "vou pagar na hora que chegar", "pago quando chegar",
       "quero no pix, qual a chave?", "quero pagar antecipado sim, qual o link?", "prefiro na entrega, pode?",
+      // Sétima revisão: um motivo depois da escolha não é dúvida.
+      "prefiro pagar na entrega pra ver se serve", "vou pagar na entrega, quero ver se é bom",
+      "quero no pix, vou falar com meu marido pra pagar", "pix, pra sair mais barato", "no pix, entendi que tem desconto",
     ])
       expect(choosesPath(msg), msg).toBe(true);
   });
