@@ -195,7 +195,18 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   "cerca de 3 dias"), e só o número que fecha uma faixa é pulado — antes a frase inteira era
   pulada quando tinha faixa em dias úteis. `pnpm dev:gates`: 0 afrouxamentos, 13
   endurecimentos, todos mentira; nenhuma resposta das rodadas de personas mudou.
-- **Estado:** feita — segunda revisão e rodada cleide, rafa, lu pendentes.
+- **Segunda revisão (2026-09-25): reprovada, refeita na raiz.** A média era lida por lista de
+  formatos, e 12 formatos escapavam ("2 dias em média", "uns 3 dias", "dois dias", "em até 2
+  dias", "pra sua região 2 dias"). Trocada por uma regra de número: em frase do antecipado —
+  ou, no caminho antecipado, em oração que fala de entrega — **todo número de dias que não
+  fecha a faixa da entrega é a média configurada**, e a frase diz que varia. Troca, devolução,
+  reembolso e "você tem 7 dias" (garantia) ficam de fora. A lista permitida da faixa passou a
+  aceitar os mesmos formatos de média que a regra aceita (antes, o gate aprovava a média numa
+  linha e vetava a mesma frase três linhas abaixo). Achado da regra nova: no caminho
+  antecipado, "você recebe em até 3 dias" passava — prazo inventado para o antecipado.
+  `pnpm dev:gates`: 9 liberações intencionais (aceitas em `tests/gate-loosen-accepted.txt`),
+  37 endurecimentos, todos mentira.
+- **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

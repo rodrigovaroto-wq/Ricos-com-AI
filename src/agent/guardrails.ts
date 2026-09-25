@@ -690,18 +690,45 @@ const gates: readonly Gate[] = [
        * it only reads "N a M dias".
        */
       const avg = prepayAverage(ctx.config.delivery);
-      // An average is an average with or without "úteis" (M-07: "varia em média 1 dias"
-      // passed unchecked because only "N dias úteis" was read). A number is skipped only
-      // when it is itself the end of a range; skipping the whole sentence let "1 a 3 dias
-      // úteis na entrega, no antecipado em média 1 dias" through.
+      // One number rule instead of a list of shapes (M-07, second review: "2 dias em
+      // média", "uns 3 dias", "dois dias", "em até 2 dias" each escaped a shape list). In
+      // a sentence about the prepaid path, EVERY day count that does not close the
+      // delivery range is the configured average, and the sentence says it varies.
+      // Elsewhere, only an average-shaped count in delivery talk is judged — "em média 2
+      // dias de uso" is about wearing the vest, not about the carrier.
+      const DAY_WORDS: Record<string, number> = {
+        dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+        oito: 8, nove: 9, dez: 10, quinze: 15, vinte: 20, trinta: 30,
+      };
+      const DELIVERY_TALK = /\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/;
+      const PREPAY_WORD = /\b(?:antecipa\w*|adianta\w*)\b/;
       for (const m of t.matchAll(
-        /\b(?:media|em\s+torno|cerca|aproximadamente)\s+(?:de\s+)?(\d{1,2})\s*dias?\b|(\d{1,2})\s*dias?\s*ute[il]s?/g,
+        /\b(\d{1,2}(?:[.,]\d{1,2})?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*dias?\b/g,
       )) {
         const at = m.index ?? 0;
+        const before = t.slice(Math.max(0, at - 30), at);
+        const after = t.slice(at + m[0].length, at + m[0].length + 40);
+        // The end of a range ("1 a 3 dias") is the range check's to judge.
+        if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
+        // The warranty and the return window are days too, and not a deadline: a count in
+        // a clause about returning, exchanging or the refund is theirs.
+        const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
+        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
+        if (/\b(?:troc\w*|devol\w*|reembols\w*|dinheiro|arrepend\w*|garantia)\b|\bapos\s+(?:o\s+)?receb/.test(clause)) continue;
+        // "Você tem 7 dias" is the warranty she holds; "faz 3 dias que comprei" is the past.
+        // ("um dia marcado" is not a count, so "um/uma" are not read as numbers at all.)
+        if (/\b(?:tem|tera|ganha)\s+(?:ate\s+)?$|\b(?:ha|faz|fez|fazem)\s+$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        if (m[2] != null && /\d\s*(?:a|e|ate)\s*$/.test(t.slice(Math.max(0, at - 8), at))) continue;
-        const days = m[1] ?? m[2]!;
+        // On the prepaid path a sentence that names no path is about the prepaid delivery
+        // only when its own clause talks delivery ("você recebe em até 3 dias").
+        const prepaid =
+          PREPAY_WORD.test(sentence) ||
+          (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
+        const averageShaped =
+          /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
+        if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
+        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
         if (avg == null) return "states a prepaid deadline, and none is configured";
         if (Number(days) !== avg) {
           return `prepaid average of ${days} days is not the configured ${avg}`;
@@ -919,9 +946,11 @@ const gates: readonly Gate[] = [
             s
               .replace(/^\s+uteis\b/, "")
               .replace(PREPAY, "")
-              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
-              .replace(/\b(?:conforme|de\s+acordo\s+com|depende\s+d)[ae]?\s+(?:a\s+)?regiao\b/g, "")
-              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
+              // Every average shape the number rule below accepts — its number is checked
+              // there, so the window here only has to be a window.
+              .replace(/,?\s*(?:em\s+)?(?:media|torno|cerca|aproximadamente)\s+(?:de\s+)?\d{1,2}(?:[.,]\d)?\s*dias?(?:\s+uteis)?/g, "")
+              .replace(/\b(?:conforme|de\s+acordo\s+com|depende)\s+(?:d?[aeo]\s+)?(?:(?:sua|seu)\s+)?(?:regiao|cep)\b/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*(?:\s+bastante)?|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
           );
         };
         const tailIsPrepayWindow = onlyPrepayWindow(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!);

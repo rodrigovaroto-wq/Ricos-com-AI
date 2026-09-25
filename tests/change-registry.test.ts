@@ -302,3 +302,48 @@ describe("M-07: a faixa e a média pertencem ao caminho certo", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-07, segunda revisão: a média era lida por lista de formatos, e cada formato novo
+ * escapava. Regra única: em frase do antecipado, todo número de dias fora da faixa da
+ * entrega é a média configurada (5 no fixture).
+ */
+describe("M-07: todo número de dias do antecipado é a média configurada", () => {
+  const vetadas = [
+    "No antecipado são 2 dias em média.",
+    "No antecipado a média é de 2 dias.",
+    "No antecipado, média: 2 dias.",
+    "No antecipado varia, em média uns 2 dias.",
+    "No antecipado varia, em média 2,5 dias.",
+    "No antecipado varia, em média dois dias úteis.",
+    "No antecipado, uns 3 dias.",
+    "No antecipado leva por volta de 2 dias.",
+    "No antecipado chega em até 2 dias.",
+    "No antecipado varia, mais ou menos 2 dias.",
+    "No antecipado varia, geralmente 2 dias.",
+    "No antecipado varia em média 5 dias úteis, mas pra sua região 2 dias.",
+  ];
+  const passam = [
+    "No antecipado o prazo varia conforme a região, cerca de 5 dias úteis, e na entrega 1 a 3 dias.",
+    "No antecipado varia por região, em torno de 5 dias úteis, e na entrega 1 a 3 dias.",
+    "No antecipado varia, média de 5 dias, e na entrega 1 a 3 dias.",
+    "No antecipado depende do seu CEP, em média 5 dias úteis; na entrega você recebe em 1 a 3 dias.",
+    "No antecipado o prazo varia de acordo com a sua região, em média 5 dias úteis, e na entrega de 1 a 3 dias.",
+    "Na entrega você recebe em 1 a 3 dias, no antecipado varia, em torno de 5 dias úteis.",
+    "Na entrega você recebe em 1 a 3 dias; no antecipado o prazo varia bastante por região, em média 5 dias úteis.",
+    "No antecipado você também tem 7 dias de garantia.",
+    // Número de dias que não é prazo de entrega não é média do antecipado.
+    "Em média 2 dias de uso e você já nem sente o colete.",
+    "A maioria das clientes se acostuma com o colete em cerca de 3 dias.",
+  ];
+
+  it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passam)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
