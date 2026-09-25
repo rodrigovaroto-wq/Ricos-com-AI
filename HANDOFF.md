@@ -33,6 +33,16 @@ contra `b8b3680` antes de subir: idêntica, nada de produção se perdeu.
   de produção e edição de workflow de deploy. Deploy manual = o operador roda no Codespace
   `npx supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api`.
 
+### WhatsApp Cloud API: pronto e desligado (R14.16, grafo §13)
+- Função `whatsapp` (não publicada) + workflow n8n "WhatsApp envio" (`CANAL_ATIVO=false`)
+  ligado ao Turno (resposta só com `sealed`) e ao Relógio (toques; janela de 24h decidida
+  na função do turno). Duas passadas do `security-reviewer`: aprovado com ressalvas.
+- **A função `turn` no repositório está à frente da v41 no ar** (WA-1, selo, janela real,
+  `sealed`, `TURN_REQUIRE_SERVICE_ROLE`). Tudo desligado com os segredos ausentes; publicar
+  junto com a ativação.
+- Ativação passo a passo, por quem faz: [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md).
+  Meta (app, número, token, webhook, templates) é do **sócio**.
+
 ### Pendências do operador
 1. **Revogar o PAT** usado no deploy de hoje (ficou no chat) — ele disse que faz no fim do dia.
 2. Trocar `CONVERSATION_MODEL` para o modelo sem `-contributor` antes do primeiro lead real.

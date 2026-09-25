@@ -218,9 +218,11 @@ flowchart TD
   C3["🟩 gravado uma vez, na mensagem dela, com o horário da Meta;<br/>janela fecha 10 min antes"]
   R3["🟥 revisão: mensagem perdida depois do 200 sem rastro;<br/>toque bloqueado cancelado em silêncio"]
   C4["🟩 envio em paralelo com log por id; e-mail dos toques bloqueados"]
+  R4["🟥 2ª revisão: n8n enviava pelo campo channel, que o chamador escreve;<br/>recibo de leitura disparava em qualquer POST; 401 de selo virava e-mail"]
+  C5["🟩 turno devolve sealed; n8n só envia com ele;<br/>recibo sai da função whatsapp (assinatura da Meta conferida)"]
   OFF["🟩 envio desligado (CANAL_ATIVO=false) até os valores do sócio"]
-  GD["🛡️ WA-1-janela · WA-selo · WA-janela-no-fim · WA-envio-desligado ·<br/>regra n8n do corpo inteiro · teste do nó de envio contra src/channel"]
-  S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> OFF --> GD
+  GD["🛡️ WA-1-janela · WA-selo · WA-janela-no-fim · WA-envio-desligado · WA-canal-forjado ·<br/>regras n8n (corpo inteiro, channel, sealed) · teste do nó de envio contra src/channel"]
+  S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> R4 --> C5 --> OFF --> GD
 ```
 
 ---
