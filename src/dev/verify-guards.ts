@@ -443,6 +443,22 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
   },
+  {
+    id: "feliz-com-queixa",
+    bug: "\"obrigada, mas veio o M\" contava como encerramento feliz (sem handoff)",
+    files: ["src/agent/interpret.ts"],
+    from: ".every((w) => DONE_WORDS.test(w));",
+    to: ".every((w) => w.length > 0);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/closing.test.ts"],
+  },
+  {
+    id: "troca-e-segunda",
+    bug: "\"a troca é grátis e a segunda peça também\" passava (peça grátis atrás da troca)",
+    files: ["src/agent/guardrails.ts"],
+    from: "|\\b(?:gratis|de\\s+gra[cç]a|por\\s+nossa\\s+conta)\\b[^.!?]{0,30}\\b(?:segund[oa]|outr[oa])\\s+(?:peca\\s+)?tambem\\b",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

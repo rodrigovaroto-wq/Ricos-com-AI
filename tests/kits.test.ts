@@ -307,3 +307,19 @@ describe("kits: sétima passada — troca grátis e pagar uma vez são verdade (
       expect(gate(s), s).toBe("pass");
   });
 });
+
+describe("kits: oitava passada — peça grátis escondida atrás da troca (2026-09-25)", () => {
+  const gate = (text: string) =>
+    runGates(text, ctx({ config: configKits as never } as never)).traces.find((t) => t.gate === "price_promise")?.verdict;
+  it("vetadas", () => {
+    for (const s of [
+      "A troca é grátis e a segunda peça também.",
+      "A troca é grátis, e a segunda sai de graça.",
+      "A troca sai de graça e a outra peça também sai de graça.",
+      "Se trocar, a outra fica de graça.",
+      "A devolução é por nossa conta e a segunda peça também é.",
+      "Levando 2 você paga só uma vez e leva a outra de graça.",
+    ])
+      expect(gate(s), s).toBe("block");
+  });
+});

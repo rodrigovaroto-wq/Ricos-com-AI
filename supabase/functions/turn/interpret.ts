@@ -332,12 +332,18 @@ export type HandoffKind = "cancel" | "post_sale" | "human";
  * She closes happily — thanks, goodbye, "já fiz" — with no question and no word of a
  * problem. The only post-sale message that is not a person's job.
  */
-export const reportsDone = (message: string): boolean =>
-  closesConversation(message) &&
-  !message.includes("?") &&
-  !/\b(?:nao|problema|errad\w*|defeit\w*|quebr\w*|rasg\w*|apert\w*|pequen\w*|grand\w*|cobr\w*|troc\w*|devol\w*|cancel\w*|atras\w*|mud\w*|remarc\w*|entregador|motoboy|cade|onde|quando|esperando|nada)\b/.test(
-    norm(message),
-  );
+export const reportsDone = (message: string): boolean => {
+  if (!closesConversation(message) || message.includes("?")) return false;
+  // Happy only when every word left is a goodbye, a thanks, "já fiz/recebi/chegou" or
+  // filler: "obrigada, mas veio o M" and "valeu, recebi só 1 das 2" carry a complaint in
+  // words no list of problems can enumerate (eighth review) — so allow, never deny.
+  return norm(message)
+    .split(/[^a-z]+/)
+    .filter(Boolean)
+    .every((w) => DONE_WORDS.test(w));
+};
+const DONE_WORDS =
+  /^(?:tchau\w*|brigad[ao]s?|obrigad[ao]s?|valeu|vlw|flw|encerr\w*|finaliz\w*|ja|fiz|fechei|comprei|paguei|recebi|chegou|chegaram|amei|adorei|gostei|certinho|certo|tudo|ok|okay|beleza|blz|sim|entao|por|aqui|ate|mais|logo|boa|bom|tarde|noite|dia|muito|muita|pela|pelo|ajuda|atencao|conversa|voce|vc|te|pra|e|o|a|os|as|meu|minha|pedido|coletes?|bjs|beijos?|abraco|deus|abencoe|k+|rs+|ai|aí)$/;
 
 /**
  * She closes the conversation — thanks, goodbye, "já fiz". After the link is in the chat,

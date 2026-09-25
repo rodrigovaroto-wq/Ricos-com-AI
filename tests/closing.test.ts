@@ -18,6 +18,8 @@ describe("despedida depois do link", () => {
     for (const msg of ["cadê meu pedido", "quando chega?", "meu pedido não chegou", "quero trocar o tamanho"])
       expect(handoffFor(postSale, msg, true), msg).toBe("post_sale");
     expect(reportsDone("obrigada, tchau")).toBe(true);
+    for (const msg of ["Obrigada, já finalizei. Encerro por aqui.", "já fiz, obrigada", "tchau brigada", "chegou certinho, amei, obrigada"])
+      expect(reportsDone(msg), msg).toBe(true);
     // Sétima revisão: todo problema real de pedido continua indo para uma pessoa.
     for (const msg of [
       "ficou pequeno", "ficou apertado", "não serviu", "ficou grande demais", "veio o tamanho G e eu pedi M", "quero outro tamanho",
@@ -25,6 +27,10 @@ describe("despedida depois do link", () => {
       "quero mudar o endereço", "me cobraram frete", "cobraram a mais", "paguei duas vezes", "o pix não caiu",
       "a caixa veio aberta", "veio rasgado", "o zíper quebrou", "até agora nada", "e o meu pedido", "já faz 10 dias",
       "obrigada, mas veio errado", "valeu, mas ficou apertado",
+      // Oitava revisão: a reclamação vem depois do obrigada.
+      "obrigada mas o tamanho", "valeu, veio certinho só que a cor", "obrigada, mas veio o M", "obrigada, mas ficou largo",
+      "obrigada, veio faltando uma peça", "valeu, mas só veio uma", "obrigada, recebi só 1 das 2", "obrigada, a peça veio manchada",
+      "obrigada, chegou o de outra pessoa", "obrigada, vou mandar de volta", "obrigada, fiz o pedido 2 vezes sem querer",
     ])
       expect(handoffFor(postSale, msg, true), msg).toBe("post_sale");
   });
