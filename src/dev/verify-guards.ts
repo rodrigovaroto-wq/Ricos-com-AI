@@ -327,8 +327,8 @@ const MUTATIONS: Mutation[] = [
     id: "caminho-pergunta",
     bug: "\"vou pagar no pix?\" gravava o caminho (uma pergunta lida como escolha)",
     files: ["src/agent/interpret.ts"],
-    from: "return !upTo.includes(\"?\") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;",
-    to: "return !upTo.includes(\"?\") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo);",
+    from: "&& !questionAfter;",
+    to: ";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
   {
