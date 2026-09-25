@@ -87,6 +87,7 @@ import {
   linkPathFor,
   linkSentRecently,
   asksForLink,
+  choosesPath,
   saysOwnSize,
   mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
@@ -980,7 +981,7 @@ const recordOrder = async (order: OrderWebhook) => {
   // and asks again, instead of sending the old kit link with the old sizes (code review).
   await db(`leads?id=eq.${lead.id}`, {
     method: "PATCH",
-    body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null }),
+    body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),
   }).catch(() => undefined);
 
   // No conversation means no ruler to touch — the sale is recorded and that is all.
@@ -2202,11 +2203,22 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    */
   // Her choice holds until she makes another (loop round, 2026-09-25): read per message, the
   // turn after "quero no pix" fell back to cash on delivery and sent the delivery checkout.
-  const paymentChoice = interpretation.payment_choice ?? ((lead.payment_choice as "cod" | "prepay" | null) ?? null);
-  if (interpretation.payment_choice && interpretation.payment_choice !== lead.payment_choice) {
+  // Stored only when her words make a choice, never from a question ("quanto economizo no
+  // pix em vez de pagar na entrega?"), and forgotten like an abandoned kit (fourth review).
+  const choiceAt = typeof lead.payment_choice_at === "string" ? Date.parse(lead.payment_choice_at) : NaN;
+  const storedChoice =
+    Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
+      ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
+      : null;
+  const paymentChoice = interpretation.payment_choice ?? storedChoice;
+  if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ payment_choice: interpretation.payment_choice, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        payment_choice: interpretation.payment_choice,
+        payment_choice_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      }),
     }).catch(() => undefined);
   }
   const linkPath = linkPathFor(paymentChoice, region);
@@ -2391,6 +2403,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // The path the link opens (R13.4) — "cod" unless she chose prepaid or her region
       // has no cash on delivery, and then the prepaid rules are the ones that apply.
       paymentPath: linkPath,
+      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.
+      units,
       recentOutbound,
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.

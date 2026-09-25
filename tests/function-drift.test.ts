@@ -433,10 +433,15 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("units_at: new Date().toISOString(),");
     expect(readFileSync("supabase/migrations/0011_units_at.sql", "utf8")).toContain("add column if not exists units_at timestamptz");
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
-    expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null }),');
+    expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
+    // A choice is stored only from a choice, and expires.
+    expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
+    expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
+    // The gate knows the pieces in play.
+    expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");
     // The path she chose holds across turns.
     expect(source).toContain("const linkPath = linkPathFor(paymentChoice, region);");
-    expect(source).toContain('const paymentChoice = interpretation.payment_choice ?? ((lead.payment_choice as "cod" | "prepay" | null) ?? null);');
+    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
     expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');

@@ -413,6 +413,21 @@ export const decideClarify = (args: {
 };
 
 /**
+ * Her words CHOOSE a path, deterministically — the half that decides whether the model's
+ * `payment_choice` is stored for the next turns (fourth review). A question compares
+ * ("quanto economizo no pix em vez de pagar na entrega?"); a choice decides ("quero no
+ * pix", "prefiro pagar na entrega", or a bare "pix" answering the question).
+ */
+export const choosesPath = (message: string): boolean => {
+  const t = norm(message);
+  if (message.includes("?") || /\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(t)) return false;
+  return (
+    /\b(?:quero|vou|prefiro|pode\s+ser|fecho|fechar|manda|escolho|opto|melhor)\b[^.!?]{0,30}\b(?:pix|antecipad\w*|adiantad\w*|cartao|entrega|na\s+porta)\b/.test(t) ||
+    /^\s*(?:no\s+|na\s+|pelo\s+|pela\s+)?(?:pix|antecipado|entrega|cartao)\s*[.!]*\s*$/.test(t)
+  );
+};
+
+/**
  * Which checkout the link opens (R13.4): the prepaid one when she chose it or when her
  * region has no cash on delivery, the delivery one otherwise.
  */

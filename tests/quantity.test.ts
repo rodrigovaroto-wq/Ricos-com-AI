@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { mergeUnitSizes, NEUTRAL_INTERPRETATION, quantityOf, readInterpretation, saysOwnSize, type Interpretation } from "@/agent/interpret.js";
+import { choosesPath, mergeUnitSizes, NEUTRAL_INTERPRETATION, quantityOf, readInterpretation, saysOwnSize, type Interpretation } from "@/agent/interpret.js";
 
 const said = (units: number | null, unit_sizes: string[] = []): Interpretation =>
   ({ ...NEUTRAL_INTERPRETATION, units, unit_sizes } as Interpretation);
@@ -124,5 +124,22 @@ describe("kits: terceira passada da revisão (2026-09-25)", () => {
     const neutral = said(null, ["G"]);
     for (const msg of ["na verdade eu uso o G, ele é folgado?", "pra mim G, eu gosto dele folgado", "eu uso G, ela fica bem folgada em mim?"])
       expect(saysOwnSize(msg, neutral), msg).toBe(true);
+  });
+});
+
+describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", () => {
+  it("escolhas", () => {
+    for (const msg of ["quero no pix", "prefiro pagar na entrega", "pix", "vou pagar antecipado", "pode ser no cartão"])
+      expect(choosesPath(msg), msg).toBe(true);
+  });
+  it("perguntas e comparações não são escolha (negação)", () => {
+    for (const msg of [
+      "quanto economizo no pix em vez de pagar na entrega?",
+      "e se eu pagar no pix",
+      "qual a diferença do pix pra entrega",
+      "compensa pagar antecipado?",
+      "pix?",
+    ])
+      expect(choosesPath(msg), msg).toBe(false);
   });
 });

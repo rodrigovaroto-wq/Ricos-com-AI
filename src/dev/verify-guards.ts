@@ -158,8 +158,8 @@ const MUTATIONS: Mutation[] = [
     id: "kit-caminho",
     bug: '"na entrega você leva com 30%" passava — percentual de outro caminho',
     files: ["src/agent/guardrails.ts"],
-    from: "if (paths.size !== 1 && units.size === 0) continue;",
-    to: "continue;",
+    from: "return offers.filter((o) => (paths.size !== 1 || paths.has(o.path)) && units.has(o.units));",
+    to: "return offers.filter((o) => units.has(o.units));",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
   {
@@ -236,10 +236,10 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "kit-oferta",
-    bug: '"Seu M fica R$ 129,90, e levando 2 peças R$ 233,82" vetada (a peça avulsa não contava como quantidade)',
+    bug: "\"Na entrega 2 peças ficam R$ 233,82, e uma sai R$ 129,90\" vetada (a peça avulsa não contava)",
     files: ["src/agent/guardrails.ts"],
-    from: "          units.add(1);",
-    to: "          void 0;",
+    from: "counts.push({ at: u.index ?? 0, units: 1 });",
+    to: "void u;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
 
@@ -298,6 +298,38 @@ const MUTATIONS: Mutation[] = [
     from: "const linkPath = linkPathFor(paymentChoice, region);",
     to: "const linkPath = linkPathFor(interpretation.payment_choice, region);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "gate-quantidade-da-conversa",
+    bug: "\"na entrega o colete sai R$ 233,82\" passava numa conversa de 1 peça (o gate não sabia a quantidade)",
+    files: ["src/agent/guardrails.ts"],
+    from: "[...counts.map((c) => c.units), ctx.units ?? 1]",
+    to: "[...counts.map((c) => c.units), 1, 2, 3]",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
+  {
+    id: "gate-oracao",
+    bug: "\"R$ 129,90 levando 2 peças\" passava (o preço não respondia à contagem da própria oração)",
+    files: ["src/agent/guardrails.ts"],
+    from: "own.length > 0 ? own :",
+    to: "false ? own :",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
+  {
+    id: "gate-quantidade-no-turno",
+    bug: "o turno não passava a quantidade de peças ao gate",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "caminho-pergunta",
+    bug: "\"quanto economizo no pix em vez de pagar na entrega?\" gravava o caminho",
+    files: ["src/agent/interpret.ts"],
+    from: "if (message.includes(\"?\") || ",
+    to: "if (",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
 ];
 

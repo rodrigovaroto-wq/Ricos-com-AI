@@ -168,6 +168,8 @@ export interface GateContext {
    * `undefined` means nothing was checked — and then no size may be recommended.
    */
   sizeChecked?: string;
+  /** Pieces this conversation is about (kits); absent means one. */
+  units?: number;
   /**
    * The checkout returned a same-day modality for her postcode ("Express — receba hoje
    * em até 4 horas"). Only then is "hoje" a fact rather than the broken promise that
@@ -614,41 +616,57 @@ const gates: readonly Gate[] = [
         const paths = new Set<string>();
         if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b/.test(sentence)) paths.add("cod");
         if (/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) paths.add("prepay");
-        // The quantities this sentence names (third review): every count, in the shapes a
-        // kit comparison takes — "2 peças", "o kit de 3", "e o de 3", "e 3 por", "20% em 3" —
-        // plus the single piece ("seu M", "uma peça", "a unidade", "avulsa"). Binding each
-        // number to one count kept breaking honest comparisons, so a price or percent only
-        // has to belong to an offer of the sentence's path with ONE of the named counts.
+        // The quantities in play (fourth review): the conversation's own — the turn knows it
+        // deterministically, `ctx.units`, 1 when absent — plus every count the sentence names
+        // in so many words: "2 peças", "o kit de 3", "e o de 3", "e 3 saem", the single piece
+        // ("a unidade", "avulsa"), and "20% em 3" only beside another count. Guessing the
+        // quantity from the words alone ("seu M", "em 6") kept vetoing honest lines. A price
+        // or percent must belong to an offer of the sentence's path at one of them.
         // Accepted residue: two kits named together with their prices swapped.
         const N = "(\\d|um|uma|dois|duas|tres|quatro|cinco)";
-        const units = new Set<number>();
-        for (const u of sentence.matchAll(
+        const NOT_COUNT = "(?!\\s*(?:ou\\s+\\d+\\s+)?(?:x|vezes|dias?|horas?|parcelas?|uteis|cart\\w*|sem\\s+juros|no\\s+cartao)\\b)";
+        const counts: Array<{ at: number; units: number }> = [];
+        const add = (re: RegExp) => {
+          for (const u of sentence.matchAll(re)) {
+            const w = u.slice(1).find((x) => x !== undefined)!;
+            counts.push({ at: u.index ?? 0, units: UNIT_WORDS[w] ?? Number(w) });
+          }
+        };
+        add(
           new RegExp(
-            `\\b${N}\\s+(?:pecas?|unidades?|coletes?)\\b|\\bkits?\\s+de\\s+${N}\\b|\\b(?:o|a|os|as)\\s+de\\s+${N}\\b|\\be\\s+${N}\\s+(?:por|sai\\w*|saem|fica\\w*|custa\\w*)\\b|\\bem\\s+${N}\\b(?!\\s*(?:x|vezes|dias?|horas?|parcelas?)\\b)`,
+            `\\b${N}\\s+(?:pecas?|unidades?|coletes?)\\b|\\bkits?\\s+de\\s+${N}\\b|\\b(?:o|a|os|as)\\s+de\\s+${N}\\b${NOT_COUNT}|\\be\\s+${N}\\s+(?:por|sai\\w*|saem|fica\\w*|custa\\w*)\\b`,
             "g",
           ),
-        )) {
-          const w = u.slice(1).find((x) => x !== undefined)!;
-          units.add(UNIT_WORDS[w] ?? Number(w));
-        }
-        if (/\b(?:seu|sua)\s+(?:p|m|g|gg|xgg)\b|\b(?:uma|a|sua|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b/.test(sentence))
-          units.add(1);
-        if (paths.size !== 1 && units.size === 0) continue;
-        // No offer at a named count (4 pieces) means any offer number in it is a promise
-        // nobody sells: `matching` is empty and every offer price or percent is vetoed.
-        const matching = offers.filter(
-          (o) => (paths.size !== 1 || paths.has(o.path)) && (units.size === 0 || units.has(o.units)),
         );
+        if (counts.length > 0) add(new RegExp(`\\bem\\s+${N}\\b${NOT_COUNT}`, "g"));
+        for (const u of sentence.matchAll(/\b(?:uma|a|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b/g))
+          counts.push({ at: u.index ?? 0, units: 1 });
+        // A number whose own clause names a count answers to that count ("R$ 129,90 levando 2
+        // peças" is 2 for the price of 1); one in a clause without a count answers to the
+        // sentence's counts and the conversation's ("Seu M fica R$ 129,90, e levando 2 peças
+        // sai R$ 233,82" on the decision turn). A decimal comma is not a clause break.
+        const breaks = [...sentence.matchAll(/[,;:](?!\d)/g)].map((b) => b.index ?? 0);
+        const unitsAt = (at: number): Set<number> => {
+          const start = (breaks.filter((b) => b < at).at(-1) ?? -1) + 1;
+          const end = breaks.find((b) => b >= at) ?? sentence.length;
+          const own = counts.filter((c) => c.at >= start && c.at < end).map((c) => c.units);
+          return new Set(own.length > 0 ? own : [...counts.map((c) => c.units), ctx.units ?? 1]);
+        };
+        const matchingAt = (at: number) => {
+          const units = unitsAt(at);
+          return offers.filter((o) => (paths.size !== 1 || paths.has(o.path)) && units.has(o.units));
+        };
         const moneys = moneyMatches(sentence);
         for (const [k, m] of moneys.entries()) {
           if (!offerPrices.has(m.value) || negatedAt(sentence, m.at)) continue;
+          const matching = matchingAt(m.at);
           if (matching.some((o) => o.price === m.value)) continue;
           // The price a comparison is made against is not the offer on sale: "antecipado sai
           // R$ 116,91 em vez de R$ 129,90" is the script's own line (7.1). Only when an offer
           // price that DOES match came first — "menos do que R$ 272,79" alone is the lie.
           const comparedAgainst =
             COMPARED_AGAINST.test(sentence.slice(Math.max(0, m.at - 30), m.at)) &&
-            moneys.slice(0, k).some((p) => matching.some((o) => o.price === p.value));
+            moneys.slice(0, k).some((p) => matchingAt(p.at).some((o) => o.price === p.value));
           if (comparedAgainst) continue;
           return `price ${money(m.value)} belongs to another offer than the one this sentence names; say each offer in its own sentence`;
         }
@@ -658,7 +676,7 @@ const gates: readonly Gate[] = [
           if (value === 40 || (ctx.config.coupon.active && value === ctx.config.coupon.percent)) continue;
           // An offer's own percent is a discount even without the word ("sai com 30%").
           if ((!looksLikeDiscount(sentence, at) && !offers.some((o) => o.pct === value)) || negatedAt(sentence, at)) continue;
-          if (!matching.some((o) => o.pct === value))
+          if (!matchingAt(at).some((o) => o.pct === value))
             return `discount of ${value}% belongs to another offer than the one this sentence names`;
         }
       }

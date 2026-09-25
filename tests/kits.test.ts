@@ -204,3 +204,40 @@ describe("kits: terceira passada da revisão (2026-09-25)", () => {
       expect(price(s), s).toBe("block");
   });
 });
+
+describe("kits: quarta passada — o gate sabe quantas peças a conversa tem (2026-09-25)", () => {
+  const withUnits = (text: string, units: number) =>
+    runGates(text, ctx({ config: configKits as never, units } as never)).traces.find((t) => t.gate === "price_promise")?.verdict;
+
+  it("no turno do link do kit, a frase com os tamanhos e o preço do kit passa", () => {
+    for (const s of [
+      "Seu M e o G da sua mãe saem R$ 233,82 na entrega.",
+      "Aqui está o link do kit: seu M e o G saem por R$ 233,82 na entrega.",
+      "O kit com seu M e o G sai R$ 233,82 na entrega.",
+      "Pronto, seu M e o G da sua irmã ficam R$ 233,82 na entrega, com 10% de desconto.",
+    ])
+      expect(withUnits(s, 2), s).toBe("pass");
+    expect(withUnits("Sua M e a G da sua mãe saem R$ 207,84 no pix.", 2)).toBe("pass");
+    expect(withUnits("Seu M, o G e o GG saem R$ 311,76 na entrega, 20% de desconto.", 3)).toBe("pass");
+  });
+
+  it("2 peças pelo preço de 1 é vetado, com ou sem contagem na frase", () => {
+    expect(withUnits("Seu M e o da sua mãe na entrega saem R$ 129,90.", 2)).toBe("block");
+    expect(withUnits("R$ 129,90 levando 2 peças na entrega.", 1)).toBe("block");
+  });
+
+  it("preço de kit numa conversa de 1 peça sem contagem é vetado", () => {
+    for (const s of ["Na entrega o colete sai R$ 233,82.", "Na entrega sai R$ 311,76."]) expect(withUnits(s, 1), s).toBe("block");
+  });
+
+  it("número que não é quantidade não vira quantidade (1 peça)", () => {
+    for (const s of [
+      "Na entrega sai R$ 129,90, e chega em 2 ou 3 dias.",
+      "No antecipado sai R$ 116,91 e dá pra parcelar em 6 no cartão.",
+      "No pix fica R$ 116,91, e dá pra dividir em 3 sem juros no cartão.",
+      "Na entrega sai R$ 129,90, pagando em 2 cartões se quiser.",
+      "Na entrega fica R$ 129,90, e o prazo é o de 3 dias úteis.",
+    ])
+      expect(withUnits(s, 1), s).toBe("pass");
+  });
+});
