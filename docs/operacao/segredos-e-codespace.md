@@ -46,6 +46,9 @@ Regras que já custaram caro:
    ```
    git checkout main && git pull
    ```
+   Se o Claude disser que o código ainda está num branch (ex.: o canal do WhatsApp, hoje em
+   `claude/peaceful-feynman-l4zf0k`, até o PR entrar no `main`), use
+   `git fetch origin <branch> && git checkout <branch>` no lugar.
 3. Informe o token (troque pelo seu):
    ```
    export SUPABASE_ACCESS_TOKEN=sbp_...
