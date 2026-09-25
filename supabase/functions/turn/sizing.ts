@@ -155,7 +155,10 @@ export const extractDressSize = (text: string): number | null => {
  * A cue is required for anything longer than the bare letter, and the same clause
  * negation as the numbers applies: "não uso M, uso G" is a G.
  */
-const LETTER_RE = /\b(?:uso|usa|usava|visto|veste|vestia|tamanho)\s+(?:o\s+|um\s+)?(pp|p|m|gg|g|xgg|eg)\b/gi;
+// "é o G dela", "o G mesmo" also state it (persona round 2026-09-25: Karol's "e o G dela"
+// was read only by the interpreter, and the scorecard counted a size flip).
+const LETTER_RE =
+  /\b(?:(?:uso|usa|usava|visto|veste|vestia|tamanho)\s+(?:o\s+|um\s+)?|o\s+(?=(?:pp|p|m|gg|g|xgg|eg)\s+(?:dela|dele|mesmo)\b))(pp|p|m|gg|g|xgg|eg)\b/gi;
 
 export const extractSizeLetter = (text: string): Size | null => {
   // A line that is only the letter — WhatsApp messages arrive as several lines at once.

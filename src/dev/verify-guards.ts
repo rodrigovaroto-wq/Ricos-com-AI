@@ -459,6 +459,22 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
+  {
+    id: "prazo-por-caminho",
+    bug: "\"na entrega 3 dias, e no antecipado 5 dias\" virava resposta pronta numa conversa do antecipado",
+    files: ["src/agent/guardrails.ts"],
+    from: "if (codAt > prepayAt) continue;",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "o-g-dela",
+    bug: "\"e o G dela\" não era lido como tamanho dito (o placar contava troca)",
+    files: ["src/agent/sizing.ts"],
+    from: "|o\\s+(?=(?:pp|p|m|gg|g|xgg|eg)\\s+(?:dela|dele|mesmo)\\b)",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/sizing.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -972,6 +972,17 @@ const gates: readonly Gate[] = [
           (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
+        // A sentence comparing the paths ("na entrega você recebe em até 3 dias, e no antecipado
+        // varia, em média 5 dias úteis") gives each count to the path named last before it;
+        // the delivery one answers to the delivery range, not to the prepaid average. Found
+        // when the stored path choice put Tati's conversation on prepaid (persona round).
+        const prefix = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        const lastAt = (re: RegExp) => Math.max(-1, ...[...prefix.matchAll(re)].map((x) => x.index ?? 0));
+        const codAt = lastAt(/\bna\s+entrega\b|\bentregador\b|\bna\s+porta\b|\bna\s+mao\b/g);
+        const prepayAt = lastAt(
+          /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g,
+        );
+        if (codAt > prepayAt) continue;
         if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
         if (Number(days) !== avg) {

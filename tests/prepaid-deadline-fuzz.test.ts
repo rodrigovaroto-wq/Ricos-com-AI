@@ -133,6 +133,9 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       // Loop de 2026-09-25: falas da própria Malu vetadas no antecipado.
       "E pode ficar tranquila que se não amar como ficou você devolve em até 7 dias após o recebimento sem custo nenhum, me passa seu CEP pra eu ver a entrega aí?",
       "Não precisa ter medo de errar, se não gostar pode devolver em até 7 dias após receber e recebe seu dinheiro de volta",
+      // Rodada final de 2026-09-25: comparação dos caminhos numa conversa do antecipado.
+      "Na entrega não tem parcelamento, você recebe em até 3 dias e o checkout confirma pelo seu CEP, e no antecipado o prazo varia por região, em média 5 dias úteis, e no cartão pelo checkout dá pra parcelar em até 12x.",
+      "Fazer por 100 não consigo, o preço é R$ 129,90 que você paga na entrega e recebe em até 3 dias, e no antecipado é R$ 116,91 com 10% de desconto e o prazo varia por região, em média 5 dias úteis.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);
@@ -145,6 +148,9 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No antecipado a garantia é de 7 dias pra devolver, e dá pra ver a entrega em casa nesse tempo.",
       "Pagando antecipado, em 7 dias pra trocar você consegue ver a entrega na sua casa.",
       "No antecipado, 7 dias pra trocar e ver a entrega na sua porta.",
+      "No antecipado chega em 3 dias, na entrega também.",
+      "Na entrega ou no antecipado, chega em 3 dias.",
+      "Na entrega é de 1 a 3 dias e no pix chega em 2 dias.",
     ])
       expect(delivery(lie, "prepay"), lie).toBe("block");
     // Fala do pagamento na entrega ("na mão do entregador"): só vale nesse caminho — no
