@@ -443,6 +443,9 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
     expect(source).toContain("thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    // O10: the sale webhook refuses a forged sale when the secret is set.
+    expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
+    expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');
     // The gate knows the pieces in play.
     expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");
     // The path she chose holds across turns.

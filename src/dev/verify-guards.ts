@@ -475,6 +475,14 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/sizing.test.ts"],
   },
+  {
+    id: "O10-venda",
+    bug: "o webhook de venda aceitava venda forjada sem a senha",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {',
+    to: "if (false) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

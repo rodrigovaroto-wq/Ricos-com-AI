@@ -1276,6 +1276,8 @@ type TurnPayload = {
   /** Ad attribution from a Click-to-WhatsApp entry, kept on the first touch only. */
   source?: Record<string, unknown>;
   order?: OrderWebhook;
+  /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
+  token?: string;
   /**
    * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
    * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
@@ -1302,6 +1304,15 @@ Deno.serve(async (request: Request): Promise<Response> => {
  * can run a turn again after a network failure (R13.4); `internal.retry` is only ever set
  * by the sweep, never by what n8n posts.
  */
+/** Constant-time comparison: a wrong token takes as long to refuse at any prefix. */
+const sameSecret = (given: string, expected: string): boolean => {
+  const a = new TextEncoder().encode(given);
+  const b = new TextEncoder().encode(expected);
+  let diff = a.length ^ b.length;
+  for (let i = 0; i < b.length; i++) diff |= (a[i] ?? 0) ^ b[i]!;
+  return diff === 0;
+};
+
 const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket } = {}): Promise<Response> => {
   const turnStartedAt = Date.now();
 
@@ -1312,6 +1323,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
   // what that does to the schedule lives in `followups.ts`, where a test can hold it.
   if (payload.job === "order") {
+    // O10: the sale webhook is public — anyone could post a forged sale with a real
+    // customer's phone and arm the post-order ruler on her. Coinzz and Logzz cannot send a
+    // custom header, so the secret travels in their webhook URL (`&token=`), n8n forwards it,
+    // and it is checked here against a Supabase secret. Unset = not enforced yet.
+    const saleToken = Deno.env.get("SALE_WEBHOOK_TOKEN") ?? "";
+    if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {
+      return json(401, { error: "token do webhook de venda inválido" });
+    }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
     const result = await recordOrder(payload.order);
     // A refused order must not answer 200. n8n reads the status, and a green webhook over
