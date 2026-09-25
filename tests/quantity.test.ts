@@ -139,6 +139,8 @@ describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", ()
       "qual a diferença do pix pra entrega",
       "compensa pagar antecipado?",
       "pix?",
+      "vou pagar no pix?",
+      "prefiro na entrega, pode?",
     ])
       expect(choosesPath(msg), msg).toBe(false);
   });

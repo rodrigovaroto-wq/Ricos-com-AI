@@ -221,6 +221,11 @@ describe("kits: quarta passada — o gate sabe quantas peças a conversa tem (20
     expect(withUnits("Seu M, o G e o GG saem R$ 311,76 na entrega, 20% de desconto.", 3)).toBe("pass");
   });
 
+  it("numa conversa de kit, a peça avulsa citada ao lado passa", () => {
+    expect(withUnits("Na entrega 2 peças ficam R$ 233,82, e a peça avulsa R$ 129,90.", 2)).toBe("pass");
+    expect(withUnits("Na entrega 2 peças ficam R$ 233,82, e uma sai R$ 129,90.", 2)).toBe("pass");
+  });
+
   it("2 peças pelo preço de 1 é vetado, com ou sem contagem na frase", () => {
     expect(withUnits("Seu M e o da sua mãe na entrega saem R$ 129,90.", 2)).toBe("block");
     expect(withUnits("R$ 129,90 levando 2 peças na entrega.", 1)).toBe("block");
