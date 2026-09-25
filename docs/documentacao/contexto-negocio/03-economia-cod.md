@@ -13,7 +13,8 @@ metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 > Confirmado pelo operador (§R10.2 em
 > [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md)). O valor
 > anterior, R$ 14,98, era a soma de handling (R$ 4,99) + falha COD (R$ 9,99) — o operador
-> corrigiu para o total ser **R$ 9,99**. O multiplicador entre as duas formas de recusa
+> corrigiu para o total ser **R$ 9,99**: só a taxa de frustração, sem o handling
+> (composição confirmada em 2026-09-25). O multiplicador entre as duas formas de recusa
 > abaixo foi recalculado; o valor pós-pago (R$ 54,98) não mudou. **Ainda pendente:**
 > recalcular o ponto de equilíbrio de inadimplência (linha abaixo) — não há registro da
 > fórmula original aqui para refazer a conta com segurança, e os R$ 63,35 de entrega paga

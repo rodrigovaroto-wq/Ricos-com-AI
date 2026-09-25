@@ -1078,9 +1078,9 @@ desde a rodada 1 (D1).
 
 **O que o repositório tinha antes:** R$ 14,98 era a soma de dois componentes — handling
 fixo de R$ 4,99 por remessa + falha COD de R$ 9,99 (tabela de `06-modelo-economico.md`,
-linha "COD recusado"). O operador confirmou que o total passa a ser R$ 9,99; a composição
-exata (se o handling deixou de entrar na conta, ou se a falha em si mudou de valor) não foi
-detalhada — o número que vale é o total.
+linha "COD recusado"). O operador confirmou que o total passa a ser R$ 9,99. **Composição
+confirmada em 2026-09-25:** a recusa cobra só a taxa de entrega frustrada (R$ 9,99); o
+handling de R$ 4,99 não entra na recusa.
 
 **Atualizado:** [`03-economia-cod.md`](../contexto-negocio/03-economia-cod.md) e
 [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md), incluindo os

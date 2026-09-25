@@ -71,7 +71,7 @@ entregue pelo operador em 2026-09-03.
 | Tipo | Custos considerados | Contribuição |
 |---|---|---|
 | COD entregue | produto + transação 6,99% + R$ 2,49 + handling R$ 4,99 + entrega R$ 19,99 | **R$ 63,35** |
-| COD recusado | handling R$ 4,99 + falha R$ 9,99 (produto e transação não são perdidos) | **− R$ 9,99** total |
+| COD recusado | só a taxa de entrega frustrada, R$ 9,99 — **sem handling** (confirmado pelo operador em 2026-09-25); produto e transação não são perdidos | **− R$ 9,99** total |
 | Antecipado/Pix (preço R$ 116,91, 10% off) | **mesma estrutura do COD entregue** — produto + transação + handling + entrega — sem taxa de frustração, porque nunca é recusado na porta | **R$ 51,27** |
 
 Média COD com 15% de recusa: **R$ 52,35** (0,85 × 63,35 + 0,15 × −9,99). Com o mix 70/30:
