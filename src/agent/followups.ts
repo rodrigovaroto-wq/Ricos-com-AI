@@ -204,6 +204,26 @@ export interface ExistingFollowup {
 export const isOrderDead = (status: string | undefined): boolean =>
   /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
 
+/**
+ * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
+ * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
+ * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
+ * paid — did not exist in the database. Read by root, like `isOrderDead`, because neither
+ * platform publishes its vocabulary. Paid is not delivered: a prepaid "Pagamento
+ * aprovado" is still an order waiting to ship. A failed attempt ("não entregue",
+ * "frustrada") may be retried and `recusado` is terminal, so it moves nothing.
+ */
+export const stageForOrder = (
+  status: string | undefined,
+): "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null => {
+  const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
+  if (isOrderDead(s)) return "recusado";
+  if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
+  if (/\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid/.test(s)) return "em_rota";
+  return "pedido_criado";
+};
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,

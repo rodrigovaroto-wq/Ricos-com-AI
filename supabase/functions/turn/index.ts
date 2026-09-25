@@ -22,6 +22,7 @@ import {
   decideTouch,
   nextOpening,
   onOrderConfirmed,
+  stageForOrder,
   renderFollowup,
   scheduleSilence,
   type FollowupKind,
@@ -947,7 +948,7 @@ const recordOrder = async (order: OrderWebhook) => {
   if (!lead) return { status: "unknown_lead", phone: order.phone, ok: false };
 
   const conversations = await db(
-    `conversations?lead_id=eq.${lead.id}&select=id&order=created_at.desc&limit=1`,
+    `conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1`,
   );
   const conversation = conversations?.[0] ?? null;
 
@@ -970,6 +971,10 @@ const recordOrder = async (order: OrderWebhook) => {
 
   // No conversation means no ruler to touch — the sale is recorded and that is all.
   if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
+
+  // The funnel follows the sale (plan v2, 5.8): same no-regression rule as the turn.
+  const reached = stageForOrder(order.status);
+  if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the
   // unique key, and re-arming it throws.
