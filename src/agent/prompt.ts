@@ -77,6 +77,36 @@ export const prepayDiscountRule = (config: PromptConfig): string =>
     : `**Nunca ofereça desconto ali:** os dois caminhos custam o mesmo, e prometer desconto é preço que a loja não tem.`;
 
 /**
+ * The kits of 2 and 3 pieces (operator, 2026-09-25), read from the config like every other
+ * price: absent, not one word about a kit — the gate would refuse every kit price anyway.
+ * Offered once, at the decision, and never pressed. More than the biggest kit has no link,
+ * so it goes to a person (the turn hands it off); she only has to not promise it.
+ */
+export const kitsBriefing = (config: PromptConfig): string[] => {
+  const kits = config.kits ?? [];
+  if (kits.length === 0) return [];
+  const line = (path: "cod" | "prepay") =>
+    kits
+      .filter((k) => k.path === path)
+      .sort((a, b) => a.units - b.units)
+      .map((k) => `${k.units} peças ${money(k.priceBrl)} (${k.discountPercent}% de desconto)`)
+      .join(", ");
+  const max = Math.max(...kits.map((k) => k.units));
+  const example = kits.find((k) => k.path === "cod" && k.units === 2) ?? kits[0]!;
+  return [
+    ``,
+    `KITS — levando mais de uma peça o desconto sobe. Na entrega: ${line("cod")}. No`,
+    `antecipado: ${line("prepay")}. Esses são os únicos preços de kit.`,
+    `Ofereça o kit uma vez só, quando ela decidir comprar, numa frase curta — por exemplo:`,
+    `"Levando ${example.units} peças o desconto sobe para ${example.discountPercent}%: ${money(example.priceBrl)} ${example.path === "cod" ? "na entrega" : "no antecipado"}."`,
+    `Se ela não quiser, siga com uma peça e não volte ao assunto. Se ela quiser mais de uma,`,
+    `pergunte o tamanho de cada peça (podem ser diferentes) antes do link, e diga para ela`,
+    `escrever os tamanhos no complemento do endereço no checkout. Mais de ${max} peças não tem`,
+    `link: nunca prometa, uma pessoa do time monta esse pedido.`,
+  ];
+};
+
+/**
  * What she may say about freight — read from `delivery.freeShipping`, with the exact
  * `=== true` test the `shipping_promise` gate uses (`guardrails.ts`).
  *
@@ -361,6 +391,7 @@ export const systemPrompt = (
     `${config.delivery.warrantyDays} dias após o recebimento para trocar ou devolver. Quem`,
     `prefere pagar antes paga`,
     `${prepayPriceLine(config)}, ${prepayWindowLine(config)} — as duas metades saem na mesma frase.`,
+    ...kitsBriefing(config),
     ``,
     ...freightBriefing(config),
     ``,

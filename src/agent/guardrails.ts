@@ -4,7 +4,26 @@
  * Edge Function) and in vitest — one source of truth, no copy to drift.
  * `BusinessConfig` satisfies it structurally.
  */
+/**
+ * A kit of 2 or 3 pieces with its own checkout (operator, 2026-09-25): the Coinzz checkout
+ * sells a fixed quantity, so each path has one link per quantity, each with its own price
+ * and discount. One piece stays in `prices` and `checkout`; kits add to them.
+ */
+export interface Kit {
+  path: "cod" | "prepay";
+  units: number;
+  priceBrl: number;
+  discountPercent: number;
+  checkoutUrl: string;
+}
+
 export interface GateConfig {
+  /**
+   * OPTIONAL, and absent means one piece only: production reads the whole config from the
+   * `BUSINESS_CONFIG` secret, so until the operator writes the kits there, no kit price
+   * exists and the gate refuses every one.
+   */
+  kits?: readonly Kit[];
   prices: {
     codBrl: number;
     prepayBrl: number;
@@ -499,7 +518,13 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       `Os únicos valores que existem são ${money(c.prices.codBrl)} na entrega, ` +
-      `${money(c.prices.prepayBrl)} antecipado e ${money(c.prices.anchorBrl)} de preço cheio. ` +
+      `${money(c.prices.prepayBrl)} antecipado e ${money(c.prices.anchorBrl)} de preço cheio` +
+      (c.kits?.length
+        ? `, e os kits: ${c.kits
+            .map((k) => `${k.units} peças ${k.path === "cod" ? "na entrega" : "no antecipado"} ${money(k.priceBrl)} (${k.discountPercent}%)`)
+            .join(", ")}`
+        : ``) +
+      `. ` +
       `Nenhum outro número em reais. ` +
       (savingOf(c) > 0
         ? `Nunca diga a economia em reais — a diferença entre os dois preços, em nenhuma ` +
@@ -508,13 +533,15 @@ const gates: readonly Gate[] = [
         : ``) +
       `Os únicos descontos são ` +
       `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
+      (c.kits?.length ? `, mais os percentuais dos kits acima` : ``) +
       `${c.coupon.active ? `, mais ${c.coupon.percent}% do cupom` : ``}. E não prometa desconto ` +
       `sem número: "eu tiro um pouquinho", "faço um precinho", "dou um jeito no valor" ` +
       `comprometem a loja com um preço que ninguém definiu. Recusar um número que ela pediu é ` +
       `permitido, e é o seu trabalho.`,
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl]);
+      const kits = ctx.config.kits ?? [];
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
       const t = norm(text);
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
@@ -554,8 +581,9 @@ const gates: readonly Gate[] = [
       // amount denies it; one before `total` ("não precisa esperar, o total fica...")
       // denies nothing.
       if (ctx.config.delivery.freeShipping !== true && prepayBrl !== codBrl) {
+        const prepayPrices = new Set([prepayBrl, ...kits.filter((k) => k.path === "prepay").map((k) => k.priceBrl)]);
         for (const m of moneyMatches(t)) {
-          if (m.value !== prepayBrl) continue;
+          if (!prepayPrices.has(m.value)) continue;
           if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
           const amount = amountAt(t, m.at);
           // Only the freight added right after the amount. A caveat anywhere later in the
@@ -565,7 +593,7 @@ const gates: readonly Gate[] = [
           // sentences they freed cost a rewrite; the lies cost the freight at the door.
           const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
           if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
-          return `calls the prepaid ${money(prepayBrl)} a total, and the freight is added in the checkout`;
+          return `calls the prepaid ${money(m.value)} a total, and the freight is added in the checkout`;
         }
       }
 
@@ -573,6 +601,7 @@ const gates: readonly Gate[] = [
         prepayDiscountPercent,
         40, // anchor discount already published on the site
         ...(ctx.config.coupon.active ? [ctx.config.coupon.percent] : []),
+        ...kits.map((k) => k.discountPercent),
       ]);
       // A concession with no number is still a concession. "Eu tiro um pouquinho",
       // "faço um precinho", "dou um jeito no valor" commit the shop to a price nobody
