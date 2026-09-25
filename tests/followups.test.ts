@@ -191,6 +191,16 @@ describe("régua de pós-pedido", () => {
     expect(texto).toMatch(/maquininha/i);
   });
 
+  it("num kit, a véspera e a confirmação falam do pedido, não do preço de 1 peça (quinta revisão)", () => {
+    const vespera = renderFollowup("order_eve", render({ amountBrl: 233.82, units: 2, size: "M,G" }))!;
+    expect(vespera).toContain("R$ 233,82");
+    expect(vespera).not.toContain("129,90");
+    const confirmado = renderFollowup("order_confirmed", render({ amountBrl: 233.82, units: 2, size: "M,G" }))!;
+    expect(confirmado).toContain("Kit de 2 coletes, tamanhos **M e G**");
+    expect(confirmado).toContain("R$ 233,82");
+    expect(confirmado).not.toContain("129,90");
+  });
+
   it("a confirmação repete tamanho e endereço", () => {
     const texto = renderFollowup("order_confirmed", render({ size: "G", address: "Rua das Flores, 120" }))!;
     expect(texto).toContain("G");

@@ -359,6 +359,13 @@ export interface RenderContext {
   now?: Date;
   size?: string;
   address?: string;
+  /**
+   * The order's own total and pieces (fifth review, kits): "deixa R$ 129,90 separado" on a
+   * kit of R$ 233,82 is the surprise at the door the post-order ruler exists to prevent.
+   * Absent means one piece at the configured price.
+   */
+  amountBrl?: number;
+  units?: number;
   /** The already-written text, for a deferred reply. */
   body?: string;
 }
@@ -371,7 +378,10 @@ export interface RenderContext {
  */
 export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string | null => {
   const now = ctx.now ?? new Date();
-  const price = brl(ctx.config.prices.codBrl);
+  const price = brl(ctx.amountBrl ?? ctx.config.prices.codBrl);
+  // A kit's sizes are stored "M,G"; she reads "M e G".
+  const sizes = (ctx.size ?? "—").split(",").join(" e ");
+  const item = (ctx.units ?? 1) > 1 ? `Kit de ${ctx.units} coletes, tamanhos **${sizes}**` : `Colete tamanho **${sizes}**`;
 
   switch (kind) {
     // Nothing to render: the text was written when the turn happened. A missing body
@@ -403,7 +413,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
 
     case "order_confirmed":
       return (
-        `Pedido confirmado! 🎉 Colete tamanho **${ctx.size ?? "—"}**, ${price} na entrega` +
+        `Pedido confirmado! 🎉 ${item}, ${price} na entrega` +
         `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n` +
         `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
       );
@@ -460,7 +470,7 @@ export type Delivery =
 const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string => {
   switch (variable) {
     case "price":
-      return brl(ctx.config.prices.codBrl);
+      return brl(ctx.amountBrl ?? ctx.config.prices.codBrl);
     case "warrantyDays":
       return String(ctx.config.delivery.warrantyDays);
     case "size":

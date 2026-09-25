@@ -246,3 +246,23 @@ describe("kits: quarta passada — o gate sabe quantas peças a conversa tem (20
       expect(withUnits(s, 1), s).toBe("pass");
   });
 });
+
+describe("kits: quinta passada — mudar de ideia dentro do kit (2026-09-25)", () => {
+  const withUnits = (text: string, units: number) =>
+    runGates(text, ctx({ config: configKits as never, units } as never)).traces.find((t) => t.gate === "price_promise")?.verdict;
+  it("voltar para uma peça ou subir para três passa", () => {
+    for (const s of [
+      "Se levar só uma, fica R$ 129,90 na entrega.",
+      "Só uma na entrega sai R$ 129,90.",
+      "Uma sai R$ 129,90 na entrega, e as duas R$ 233,82.",
+      "Levando 3 em vez de 2, na entrega sai R$ 311,76.",
+      "Com mais uma, fica R$ 311,76 na entrega.",
+      "Com a terceira peça fica R$ 311,76 na entrega, 20% de desconto.",
+    ])
+      expect(withUnits(s, 2), s).toBe("pass");
+  });
+  it("e continua vetando o preço trocado", () => {
+    expect(withUnits("Se levar só uma, fica R$ 233,82 na entrega.", 2)).toBe("block");
+    expect(withUnits("Com mais uma, fica R$ 272,79 na entrega.", 2)).toBe("block");
+  });
+});

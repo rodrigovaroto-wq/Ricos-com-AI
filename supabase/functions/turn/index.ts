@@ -1085,7 +1085,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
   const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
@@ -1149,11 +1149,30 @@ const runFollowupSweep = async () => {
     }
 
     const kind = row.kind as FollowupKind;
+    // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
+    // 1-piece price (fifth review, kits).
+    const order = kind.startsWith("order_")
+      ? (
+          await db(
+            `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
+          )
+        )?.[0] ?? null
+      : null;
+    // Before the order, what the turn knew when it wrote a deferred reply: the kit and the
+    // path she chose, while fresh. Re-gated as "cod" and one piece, a kit reply was lost.
+    const fresh = (at: unknown) =>
+      typeof at === "string" && Number.isFinite(Date.parse(at)) && Date.now() - Date.parse(at) <= KIT_MEMORY_MS;
+    const touchUnits: number = order ? Number(order.units ?? 1) : fresh(lead.units_at) ? Number(lead.units ?? 1) : 1;
+    const touchPath: "cod" | "prepay" = order
+      ? order.payment_method === "prepay" ? "prepay" : "cod"
+      : fresh(lead.payment_choice_at) && lead.payment_choice === "prepay" ? "prepay" : "cod";
     const text = renderFollowup(kind, {
       leadId: lead.id,
       config: CONFIG,
       stopPoint: (row.stop_point ?? "before_size") as StopPoint,
-      size: lead.size ?? undefined,
+      size: order?.size ?? lead.size ?? undefined,
+      ...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),
+      units: touchUnits,
       body: row.body ?? undefined,
     });
 
@@ -1176,7 +1195,8 @@ const runFollowupSweep = async () => {
       layer: "agent",
       optedOut: false,
       now: new Date(),
-      paymentPath: "cod",
+      paymentPath: touchPath,
+      units: touchUnits,
       stage: kind.startsWith("order_") ? "logistics" : "presale",
     });
 
@@ -2211,6 +2231,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
       : null;
   const paymentChoice = interpretation.payment_choice ?? storedChoice;
+  // A choice in use is renewed like the kit, at most once a day (fifth review).
+  const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
+  if (renewChoice) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+  }
   if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",

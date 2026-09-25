@@ -638,19 +638,29 @@ const gates: readonly Gate[] = [
             "g",
           ),
         );
+        // Changing her mind inside a kit conversation (fifth review): "as duas", "levando 3".
+        add(new RegExp(`\\b(?:as|os)\\s+(duas|dois|tres)\\b|\\blev\\w*\\s+(?:so\\s+)?${N}\\b${NOT_COUNT}`, "g"));
         if (counts.length > 0) add(new RegExp(`\\bem\\s+${N}\\b${NOT_COUNT}`, "g"));
-        for (const u of sentence.matchAll(/\b(?:uma|a|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b/g))
+        for (const u of sentence.matchAll(
+          /\b(?:uma|a|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b|\bso\s+uma\b|\buma\s+so\b|^\s*uma\s+(?:sai|fica|custa|por)\b/g,
+        ))
           counts.push({ at: u.index ?? 0, units: 1 });
+        for (const u of sentence.matchAll(/\b(segunda|terceira)\s+(?:peca|unidade)?|\bmais\s+uma\b/g))
+          counts.push({ at: u.index ?? 0, units: u[1] === "segunda" ? 2 : u[1] === "terceira" ? 3 : (ctx.units ?? 1) + 1 });
         // A number whose own clause names a count answers to that count ("R$ 129,90 levando 2
-        // peças" is 2 for the price of 1); one in a clause without a count answers to the
-        // sentence's counts and the conversation's ("Seu M fica R$ 129,90, e levando 2 peças
-        // sai R$ 233,82" on the decision turn). A decimal comma is not a clause break.
+        // peças" is 2 for the price of 1); one in a clause without a count answers to the last
+        // count before it, else to the sentence's counts and the conversation's ("Seu M fica
+        // R$ 129,90, e levando 2 peças sai R$ 233,82" on the decision turn). A decimal comma
+        // is not a clause break.
         const breaks = [...sentence.matchAll(/[,;:](?!\d)/g)].map((b) => b.index ?? 0);
         const unitsAt = (at: number): Set<number> => {
           const start = (breaks.filter((b) => b < at).at(-1) ?? -1) + 1;
           const end = breaks.find((b) => b >= at) ?? sentence.length;
           const own = counts.filter((c) => c.at >= start && c.at < end).map((c) => c.units);
-          return new Set(own.length > 0 ? own : [...counts.map((c) => c.units), ctx.units ?? 1]);
+          if (own.length > 0) return new Set(own);
+          // A clause without a count continues the one before it ("se levar só uma, fica …").
+          const before = counts.filter((c) => c.at < start).at(-1);
+          return new Set(before ? [before.units] : [...counts.map((c) => c.units), ctx.units ?? 1]);
         };
         const matchingAt = (at: number) => {
           const units = unitsAt(at);

@@ -129,7 +129,13 @@ describe("kits: terceira passada da revisão (2026-09-25)", () => {
 
 describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", () => {
   it("escolhas", () => {
-    for (const msg of ["quero no pix", "prefiro pagar na entrega", "pix", "vou pagar antecipado", "pode ser no cartão"])
+    for (const msg of [
+      "quero no pix", "prefiro pagar na entrega", "pix", "vou pagar antecipado", "pode ser no cartão",
+      // Quinta revisão.
+      "no cartão então", "então pix", "pix mesmo", "ok, pix", "pix pfv", "beleza, na entrega", "na entrega mesmo",
+      "prefiro pagar antes", "pode mandar o link do pix", "vou pagar na hora que chegar", "pago quando chegar",
+      "quero no pix, qual a chave?", "quero pagar antecipado sim, qual o link?", "prefiro na entrega, pode?",
+    ])
       expect(choosesPath(msg), msg).toBe(true);
   });
   it("perguntas e comparações não são escolha (negação)", () => {
@@ -140,7 +146,6 @@ describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", ()
       "compensa pagar antecipado?",
       "pix?",
       "vou pagar no pix?",
-      "prefiro na entrega, pode?",
     ])
       expect(choosesPath(msg), msg).toBe(false);
   });

@@ -418,13 +418,18 @@ export const decideClarify = (args: {
  * ("quanto economizo no pix em vez de pagar na entrega?"); a choice decides ("quero no
  * pix", "prefiro pagar na entrega", or a bare "pix" answering the question).
  */
+const PATH_WORD =
+  "(?:pix|antecipad\\w*|adiantad\\w*|cartao|entrega|na\\s+porta|pag\\w*\\s+(?:antes|agora|adiantado)|link\\s+do\\s+pix|(?:quando|na\\s+hora\\s+que)\\s+cheg\\w*)";
 export const choosesPath = (message: string): boolean => {
   const t = norm(message);
-  if (message.includes("?") || /\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(t)) return false;
-  return (
-    /\b(?:quero|vou|prefiro|pode\s+ser|fecho|fechar|manda|escolho|opto|melhor)\b[^.!?]{0,30}\b(?:pix|antecipad\w*|adiantad\w*|cartao|entrega|na\s+porta)\b/.test(t) ||
-    /^\s*(?:no\s+|na\s+|pelo\s+|pela\s+)?(?:pix|antecipado|entrega|cartao)\s*[.!]*\s*$/.test(t)
-  );
+  const m =
+    new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
+    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?\\s*[.!]*\\s*$`).exec(t);
+  if (!m) return false;
+  // A question or a comparison BEFORE the choice is not a choice; one after it ("quero no
+  // pix, qual a chave?") is a new question about a path already chosen (fifth review).
+  const upTo = t.slice(0, m.index + m[0].length);
+  return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !/^\s*\?/.test(t.slice(m.index + m[0].length));
 };
 
 /**
