@@ -408,7 +408,7 @@ describe("H-2 na Edge Function (2026-09-25)", () => {
   it("preço inventado desliga a decisão de compra, depois da leitura determinística", () => {
     const decide = source.indexOf('if (decidesToBuy(inbound.body ?? "")) interpretation');
     const bargain = source.indexOf(
-      'if (namesOwnPrice(inbound.body ?? "", shopPrices)) interpretation = { ...interpretation, wants_to_buy: false };',
+      'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
     );
     expect(decide).toBeGreaterThan(-1);
     expect(bargain).toBeGreaterThan(decide);

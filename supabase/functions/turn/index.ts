@@ -1961,13 +1961,21 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // A purchase on a price the shop does not have is not a decision (H-2): no link on
   // "faz por 100 que eu levo", whichever reading said yes. "Por 116 eu levo" is the real
   // prepaid price and stays a decision.
+  const couponCut = CONFIG.coupon.active ? 1 - CONFIG.coupon.percent / 100 : null;
   const shopPrices = [
     CONFIG.prices.codBrl,
     CONFIG.prices.prepayBrl,
     CONFIG.prices.anchorBrl,
     ...(CONFIG.kits ?? []).map((k) => k.priceBrl),
+    // With the coupon on, the price after it is the shop's too (second review).
+    ...(couponCut === null ? [] : [CONFIG.prices.codBrl * couponCut, CONFIG.prices.prepayBrl * couponCut]),
   ];
-  if (namesOwnPrice(inbound.body ?? "", shopPrices)) interpretation = { ...interpretation, wants_to_buy: false };
+  const shopPercents = [
+    CONFIG.prices.prepayDiscountPercent,
+    ...(CONFIG.kits ?? []).map((k) => k.discountPercent),
+    ...(CONFIG.coupon.active ? [CONFIG.coupon.percent] : []),
+  ];
+  if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does

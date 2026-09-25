@@ -630,15 +630,40 @@ export const decidesToBuy = (message: string): boolean => {
  * 100 que eu levo agora" got the R$ 129,90 link). Read by the number, not by the phrasing:
  * the phrase-based first version (review, 2026-09-25) vetoed "por 116 eu levo" — Tati
  * accepting the real prepaid price — and let "não dá pra fazer por 100? quero o G" through.
- * A money-sized number (60 to 999) that is none of the shop's prices, give or take R$ 1, is
- * her own price, whatever the wording or negation around it. Pants sizes (36–56), CEP and
- * phone pieces are outside the range or glued to other digits.
+ *
+ * A number counts only in price context (second review: "cintura 80", "tenho 62 anos",
+ * "apto 102" are not prices, and the prompt asks for the waist in cm): a money cue before
+ * it ("R$", "por", "pago", "custa", "faz", "fica", "sai") or "reais"/"conto" after, and no
+ * unit after ("dias", "x", "kg", "%"). The weak cues ("faz", "fica", "sai", "se for") start at 60, so
+ * "fica 44?" stays a size. A price within R$ 1 of the shop's is the shop's. A discount
+ * percentage the shop does not give is a price too ("com 30% de desconto").
  */
-export const namesOwnPrice = (message: string, prices: readonly number[]): boolean => {
-  for (const m of norm(message).matchAll(/(?<![\d.,-])(\d{2,3})(?:[.,](\d{1,2}))?(?![\d-]|[.,]\d)/g)) {
+const PRICE_WORDS: Record<string, string> = {
+  cem: "100", cinquenta: "50", sessenta: "60", setenta: "70", oitenta: "80", noventa: "90",
+};
+const STRONG_CUE = /(?:r\$|rs|por|pago|paga|pagar|pagaria|custa|custar|custando)\s*$/;
+const WEAK_CUE = /(?:faz|faca|fazer|fica|ficar|sai|sair|deixa|vale|for|ser)\s*$/;
+const NOT_MONEY_UNIT = /^\s*(?:x\b|vezes|parcelas?|anos?|kg|quilos?|kilos?|cm|m\b|metros?|%|horas?|h\b|dias?|semanas?|meses|pecas?|unidades?|numero)/;
+
+export const namesOwnPrice = (
+  message: string,
+  prices: readonly number[],
+  percents: readonly number[] = [],
+): boolean => {
+  const t = norm(message).replace(/\b(cem|cinquenta|sessenta|setenta|oitenta|noventa)\b/g, (w) => PRICE_WORDS[w]!);
+  for (const m of t.matchAll(/(?<![\d.,-])(\d{2,3})(?:[.,](\d{1,2}))?(?![\d-]|[.,]\d)/g)) {
+    const at = m.index ?? 0;
+    const before = t.slice(Math.max(0, at - 12), at);
+    const after = t.slice(at + m[0].length);
+    if (NOT_MONEY_UNIT.test(after)) continue;
     const value = Number(m[1]) + (m[2] ? Number(m[2].padEnd(2, "0")) / 100 : 0);
-    if (value < 60) continue;
+    const moneyAfter = /^\s*(?:reais|real|conto|contos|pila)\b/.test(after);
+    const cue = STRONG_CUE.test(before) || moneyAfter ? 20 : WEAK_CUE.test(before) ? 60 : null;
+    if (cue === null || value < cue) continue;
     if (!prices.some((p) => Math.abs(p - value) <= 1)) return true;
+  }
+  for (const m of t.matchAll(/(\d{1,2})\s*%\s*(?:de\s+)?(?:desconto|off)\b/g)) {
+    if (!percents.includes(Number(m[1]))) return true;
   }
   return false;
 };

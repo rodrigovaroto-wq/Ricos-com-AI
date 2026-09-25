@@ -409,6 +409,37 @@ describe("preço que a loja não tem não é decisão de compra", () => {
   it("preço inventado, em qualquer frase e com negação: é pedido de preço", () => {
     for (const f of frames) for (const n of own) expect({ msg: f(n), own: namesOwnPrice(f(n), prices) }).toEqual({ msg: f(n), own: true });
   });
+  // Segunda revisão: decisão + número que não é preço fica decisão (o prompt pede a cintura em cm).
+  const notPrice = [
+    "quero o G, minha cintura é 80",
+    "quero o M, cintura 72 cm",
+    "quero o GG, quadril 110",
+    "quero comprar, peso 75kg",
+    "quero o G, tenho 62 anos",
+    "Rua Augusta 150, pode mandar o link",
+    "moro no numero 321, quero o G",
+    "quero o G, apto 102",
+    "quero o G, fica 44 em mim?",
+    "quero o G, dá pra parcelar em 12x?",
+    "quero, chega em 30 dias?",
+    "quero o G, 10h30 posso receber?",
+  ];
+  it("decisão com número que não é preço continua decisão", () => {
+    for (const msg of notPrice) expect({ msg, own: namesOwnPrice(msg, prices, [10]) }).toEqual({ msg, own: false });
+  });
+  it.each([
+    "quero o G por 59,90",
+    "quero um G por 50",
+    "quero o G por noventa",
+    "faz por cem que eu levo",
+    "quero o G, pago 100 reais",
+    "quero o G com 30% de desconto",
+  ])("%s → pedido de preço (abaixo de 60, por extenso, porcentagem)", (msg) => {
+    expect(namesOwnPrice(msg, prices, [10])).toBe(true);
+  });
+  it("a porcentagem que a loja dá não é pedido", () => {
+    expect(namesOwnPrice("quero no pix com 10% de desconto", prices, [10])).toBe(false);
+  });
   it.each([
     "quero o G, uso calça 46",
     "meu cep é 01310-100, quero comprar",
