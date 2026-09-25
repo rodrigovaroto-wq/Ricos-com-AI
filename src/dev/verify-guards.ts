@@ -325,10 +325,10 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "caminho-pergunta",
-    bug: "\"quanto economizo no pix em vez de pagar na entrega?\" gravava o caminho",
+    bug: "\"vou pagar no pix?\" gravava o caminho (uma pergunta lida como escolha)",
     files: ["src/agent/interpret.ts"],
-    from: "return !upTo.includes(\"?\") && ",
-    to: "return ",
+    from: " && !/^\s*\?/.test(t.slice(m.index + m[0].length))",
+    to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
   {
