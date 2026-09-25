@@ -178,6 +178,7 @@ flowchart TD
   D4["deploy v33 (versão 38)"] --> P4["🟥 sonda: 'meta: Unauthorized'<br/>META_API_KEY do Supabase recusada"] --> C4["⏳ operador colou uma chave; 07:05 UTC<br/>ainda recusada — conferir chave e secret"]
   C4 --> T4["17:50 UTC: a credencial 'Meta API' do n8n responde 200<br/>→ a chave existe; o erro é o valor no Supabase<br/>(provável 'Bearer ' colado junto: o código já prefixa)"]
   T4 --> F4["🟥 operador perdeu a chave; o n8n não devolve segredo<br/>→ chave nova em dev.meta.ai: Supabase + GitHub (Hermes)"]
+  F4 --> OK4["🟩 19:34 UTC: sonda pela porta do n8n responde pela Meta<br/>(interpret + reply, desfecho send) — função v41"]
 ```
 
 ## 12. Quando o link sai? (H-2)

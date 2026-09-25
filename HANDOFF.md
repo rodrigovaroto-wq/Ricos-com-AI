@@ -11,7 +11,34 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-25, fim do dia
+## ▶ COMECE AQUI — estado em 2026-09-25, noite
+
+**`main` = PR #35 mergeado. Função `turn` versão 41 no ar (H-2), deploy pelo operador via
+Codespace + Supabase CLI, com `verify_jwt` ligado.** A v40 anterior foi conferida byte a byte
+contra `b8b3680` antes de subir: idêntica, nada de produção se perdeu.
+
+- **Bloqueio da Meta resolvido.** A chave antiga no Supabase provavelmente levava "Bearer "
+  colado (o código já prefixa). Chave nova no Supabase e no GitHub. Sonda pela porta do n8n
+  às 19:34 UTC: recepção → espera de 120 s → `interpret` + `reply` pela Meta → `send`. Lead de
+  teste apagado.
+- **H-2 no ar** (R14.13, grafo §12): link só com compra confirmada; preço que a loja não tem
+  (lido pelo número) não é decisão; FATOS LIGADOS no prompt; `turn_outcomes.reason` guarda a
+  linha quando o link sai. Cinco passadas de revisão Opus até "aprovado com ressalvas".
+- **Hermes com loop fechado no clique** (R14.14): histórico em `hermes_proposals` (0014–0016,
+  aplicadas), formulário n8n "Hermes: decisão do operador" (publicado, e-mail a cada 15 min
+  só quando há proposta ou resultado), rotina "Hermes — implementa proposta aprovada" a cada
+  3 h das 9 às 21 SP (operador adicionou repositório e conectores na UI),
+  `deploy-hermes.yml` publica só commit com `hermes:<id>`. Todo o resto: deploy manual (R14.8).
+- **Permissões desta máquina:** o modo automático bloqueou deploy por API, sonda com as flags
+  de produção e edição de workflow de deploy. Deploy manual = o operador roda no Codespace
+  `npx supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api`.
+
+### Pendências do operador
+1. **Revogar o PAT** usado no deploy de hoje (ficou no chat) — ele disse que faz no fim do dia.
+2. Trocar `CONVERSATION_MODEL` para o modelo sem `-contributor` antes do primeiro lead real.
+3. Confirmar com um pedido real de kit que `order_quantity` vem 2/3.
+
+## ▶ Estado em 2026-09-25, fim do dia (histórico)
 
 **Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **A v33 está no ar desde 2026-09-25 06:50 UTC
 (função `turn` versão 38)**, com o aval do operador. O2 e O10 no ar no n8n.
