@@ -333,7 +333,9 @@ export type HandoffKind = "cancel" | "post_sale" | "human";
  * problem. The only post-sale message that is not a person's job.
  */
 export const reportsDone = (message: string): boolean => {
-  if (!closesConversation(message) || message.includes("?")) return false;
+  // A reply to "Chegou?! já vestiu?" can be all praise and no goodbye: "chegou sim, amei".
+  const praise = /\b(?:amei|adorei|vesti|serviu|chegou|gostei)\b/.test(norm(message));
+  if ((!closesConversation(message) && !praise) || message.includes("?")) return false;
   // Happy only when every word left is a goodbye, a thanks, "já fiz/recebi/chegou" or
   // filler: "obrigada, mas veio o M" and "valeu, recebi só 1 das 2" carry a complaint in
   // words no list of problems can enumerate (eighth review) — so allow, never deny.
@@ -343,14 +345,14 @@ export const reportsDone = (message: string): boolean => {
     .every((w) => DONE_WORDS.test(w));
 };
 const DONE_WORDS =
-  /^(?:tchau\w*|brigad[ao]s?|obrigad[ao]s?|valeu|vlw|flw|encerr\w*|finaliz\w*|ja|fiz|fechei|comprei|paguei|recebi|chegou|chegaram|amei|adorei|gostei|certinho|certo|tudo|ok|okay|beleza|blz|sim|entao|por|aqui|ate|mais|logo|boa|bom|tarde|noite|dia|muito|muita|pela|pelo|ajuda|atencao|conversa|voce|vc|te|pra|e|o|a|os|as|meu|minha|pedido|coletes?|bjs|beijos?|abraco|deus|abencoe|k+|rs+|ai|aí)$/;
+  /^(?:tchau\w*|brigad[ao]s?|obrigad[ao]s?|valeu|vlw|flw|encerr\w*|finaliz\w*|ja|fiz|fechei|comprei|paguei|recebi|chegou|chegaram|amei|adorei|gostei|certinho|certo|tudo|ok|okay|beleza|blz|sim|entao|por|aqui|ate|mais|logo|boa|bom|tarde|noite|dia|muito|muita|pela|pelo|ajuda|atencao|conversa|voce|vc|te|pra|e|o|a|os|as|meu|minha|pedido|coletes?|bjs|beijos?|abraco|deus|abencoe\w*|k+|rs+|ai|hoje|estou|to|ta|usando|serviu|ficou|otim[oa]|perfeit\w*|lind[oa]|coracao|demais|amor|deu|viu|semana|proxima|fica|com|de|pix|paciencia|atendimento|malu|obg|brigadao|gratidao|tmj|sim|vesti|ja|nossa)$/;
 
 /**
  * She closes the conversation — thanks, goodbye, "já fiz". After the link is in the chat,
  * this is not "vou pensar": the link is not sent again (persona round, 2026-09-25).
  */
 export const closesConversation = (message: string): boolean =>
-  /\b(?:tchau\w*|brigad[ao]|obrigad[ao]|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
+  /\b(?:tchau\w*|brigad[ao]|brigadao|obrigad[ao]+|obg|gratidao|tmj|abencoe\w*|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
 
 /**
  * The three reasons that hand a conversation to a person, and the only three (R13.2):

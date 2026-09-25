@@ -18,7 +18,13 @@ describe("despedida depois do link", () => {
     for (const msg of ["cadê meu pedido", "quando chega?", "meu pedido não chegou", "quero trocar o tamanho"])
       expect(handoffFor(postSale, msg, true), msg).toBe("post_sale");
     expect(reportsDone("obrigada, tchau")).toBe(true);
-    for (const msg of ["Obrigada, já finalizei. Encerro por aqui.", "já fiz, obrigada", "tchau brigada", "chegou certinho, amei, obrigada"])
+    for (const msg of [
+      "Obrigada, já finalizei. Encerro por aqui.", "já fiz, obrigada", "tchau brigada", "chegou certinho, amei, obrigada",
+      // Nona revisão: a cliente satisfeita depois da entrega não vai para uma pessoa.
+      "obrigada, chegou hoje", "obrigada, já estou usando", "obrigada, serviu perfeitamente", "obrigada, ficou ótimo",
+      "obrigada, deu tudo certo", "obrigada de coração", "valeu demais", "obrigada, Malu", "Deus te abençoe", "brigadão",
+      "obg", "gratidão", "chegou sim, amei", "sim, já vesti",
+    ])
       expect(reportsDone(msg), msg).toBe(true);
     // Sétima revisão: todo problema real de pedido continua indo para uma pessoa.
     for (const msg of [
