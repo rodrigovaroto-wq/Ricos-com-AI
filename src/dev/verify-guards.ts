@@ -126,7 +126,7 @@ const MUTATIONS: Mutation[] = [
     id: "kit-quantidade",
     bug: "quantidade inventada pelo modelo troca o link por um kit que ela não pediu",
     files: ["src/agent/interpret.ts"],
-    from: "i.units !== null && i.units > 1 && !QUANTITY_CUE.test(norm(message)) ? null : i.units",
+    from: "i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) ? null : i.units",
     to: "i.units",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
