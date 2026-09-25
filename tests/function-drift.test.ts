@@ -441,6 +441,8 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1");
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
+    // A goodbye after the link is in the chat does not resend it.
+    expect(source).toContain("!(linkInChat && closesConversation(inbound.body ?? \"\"))");
     // The gate knows the pieces in play.
     expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");
     // The path she chose holds across turns.

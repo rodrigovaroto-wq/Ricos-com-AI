@@ -419,6 +419,30 @@ const MUTATIONS: Mutation[] = [
     to: "|\\b(?:na|com|levando|a)\\s+(segunda|terceira)\\b",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
+  {
+    id: "tchau-nome",
+    bug: "\"tchau brigada\" virava o nome da cliente no link",
+    files: ["src/agent/identity.ts"],
+    from: "|tchau|tchauzinho|brigad[ao]|",
+    to: "|",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/closing.test.ts"],
+  },
+  {
+    id: "ja-finalizei",
+    bug: "\"obrigada, já finalizei\" passava a compradora para uma pessoa",
+    files: ["src/agent/interpret.ts"],
+    from: "if (orderContext && i.post_sale && asksAboutOrder(message)) return",
+    to: "if (orderContext && i.post_sale) return",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/closing.test.ts"],
+  },
+  {
+    id: "despedida-link",
+    bug: "a despedida depois do link reenviava o link",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    !(linkInChat && closesConversation(inbound.body ?? \"\"))\n",
+    to: "    true\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -328,6 +328,18 @@ export const namesAPerson = (message: string): boolean => {
 
 export type HandoffKind = "cancel" | "post_sale" | "human";
 
+/** She asks about, or reports a problem with, an order — deterministic half of post_sale. */
+export const asksAboutOrder = (message: string): boolean =>
+  message.includes("?") ||
+  /\b(?:onde|quando|cade|chega|chegou|chegar|rastre\w*|codigo|troca\w*|troco|devol\w*|problema|errad\w*|defeito|atras\w*|status|previsao|nao\s+(?:chegou|veio|recebi|consegui))\b/.test(norm(message));
+
+/**
+ * She closes the conversation — thanks, goodbye, "já fiz". After the link is in the chat,
+ * this is not "vou pensar": the link is not sent again (persona round, 2026-09-25).
+ */
+export const closesConversation = (message: string): boolean =>
+  /\b(?:tchau\w*|brigad[ao]|obrigad[ao]|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
+
 /**
  * The three reasons that hand a conversation to a person, and the only three (R13.2):
  * an order she wants to cancel, a question about an order that exists, or a person asked
@@ -345,7 +357,9 @@ export const handoffFor = (
   orderContext: boolean,
 ): HandoffKind | null => {
   if (orderContext && i.wants_cancel) return "cancel";
-  if (orderContext && i.post_sale) return "post_sale";
+  // A question or a problem about the order, not a report that she finished it: "obrigada,
+  // já finalizei" handed the buyer to a person (persona round, 2026-09-25).
+  if (orderContext && i.post_sale && asksAboutOrder(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };

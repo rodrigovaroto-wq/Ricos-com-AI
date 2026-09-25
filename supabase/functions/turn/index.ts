@@ -88,6 +88,7 @@ import {
   linkSentRecently,
   asksForLink,
   choosesPath,
+  closesConversation,
   saysOwnSize,
   mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
@@ -2312,7 +2313,12 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // "Vou pensar" (R13.4): the operator's line, then the link in a bubble of its own. No
   // model call — unless she also asked something, and then the model answers with the
   // link in its directive like any other turn.
-  if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
+  const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
+  if (
+    interpretation.wants_to_think &&
+    interpretation.pending_answer !== "other_question" &&
+    !(linkInChat && closesConversation(inbound.body ?? ""))
+  ) {
     // Never a link without a size: without one she gets the line alone.
     let thinkLink: string | null = null;
     try {
