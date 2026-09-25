@@ -710,26 +710,50 @@ const gates: readonly Gate[] = [
         const after = t.slice(at + m[0].length, at + m[0].length + 40);
         // The end of a range ("1 a 3 dias") is the range check's to judge.
         if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
-        // The warranty and the return window are days too, and not a deadline — but only
-        // when the return word is tied to the count itself ("7 dias pra trocar", "devolver
-        // em 7 dias", "7 dias após o recebimento"). Anywhere in the clause was too loose:
-        // "chega em 2 dias com garantia" hid a deadline behind it (third review).
-        if (
-          /^\s*(?:uteis\s+)?(?:(?:de|pra|para)\s+)?(?:(?:o|a|seu|sua)\s+){0,2}(?:garantia|troc|devol|arrepend|reembols|dinheiro)/.test(after) ||
-          /^\s*(?:uteis\s+)?(?:apos|depois\s+d[eo])\s+(?:o\s+)?receb/.test(after) ||
-          /\b(?:garantia|troc\w*|devol\w*|reembols\w*|arrepend\w*|dinheiro\s+de\s+volta)\b[^,;:]{0,20}$/.test(before)
-        )
-          continue;
-        // "Você tem 7 dias" alone is the warranty she holds; "faz 3 dias que comprei" is the past.
-        // Both tied to the count: "tem 2 dias pra receber" and "há 2 dias de prazo" are not.
-        if (/\b(?:tem|tera|ganha)\s+(?:ate\s+)?$/.test(before) && Number(m[1]) === ctx.config.delivery.warrantyDays && /^\s*(?:[,;:.!?]|$)/.test(after)) continue;
-        if (/\b(?:ha|faz|fez|fazem)\s+$/.test(before) && /^\s*(?:que|atras)\b/.test(after)) continue;
-        // Refusing the number is the job ("não consigo garantir 2 dias no antecipado"): a
-        // denial that governs a promise verb, in the count's own comma phrase. "Não demora,
-        // chega em 2 dias" denies nothing about the 2.
-        if (/\b(?:nao|nunca|jamais)\s+(?:\w+\s+){0,2}?(?:garant\w*|promet\w*|consig\w*|posso|podemos|da\s+pra|tem\s+como|sei\s+se)\b[^,;:]*$/.test(before.split(/[,;:]/).pop()!)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
+        const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
+        // Every exemption below is a loosening, and each one so far hid a lie behind it (M-07,
+        // four reviews: "com garantia chega em 2 dias", "chega em 2 dias pra troca", "2 dias
+        // depois de receber o pagamento"). So they share one condition: no delivery verb
+        // governs the count — none in its comma phrase, unless a return word follows that
+        // verb ("você recebe o reembolso em 30 dias"). tests/prepaid-deadline-fuzz.test.ts
+        // generates every bait × prepaid name × delivery verb and requires a veto for all.
+        const RETURN = /\b(?:garantia|troc\w*|devol\w*|reembols\w*|estorno|arrepend\w*|dinheiro\s+de\s+volta)\b/;
+        const verbs = [...phrase.matchAll(new RegExp(DELIVERY_TALK.source, "g"))];
+        const lastVerb = verbs.length ? verbs[verbs.length - 1]!.index ?? 0 : -1;
+        // Governed = a delivery verb, then the count as its time complement ("chega em 2
+        // dias", "prazo de 2 dias"), with no return word in between. "Você tem 7 dias pra
+        // trocar" and "com 30 dias de garantia" are not deliveries.
+        const governed =
+          lastVerb !== -1 &&
+          !RETURN.test(phrase.slice(lastVerb)) &&
+          /\b(?:em|ate|dentro\s+de|daqui\s+a|de)\s+(?:ate\s+)?(?:uns\s+|umas\s+)?$/.test(phrase);
+        // A refund is received too: "você recebe em 30 dias o seu dinheiro de volta".
+        if (/^\s*(?:(?:o|a|seu|sua)\s+){0,2}(?:reembols\w*|dinheiro\s+de\s+volta|estorno)/.test(after)) continue;
+        if (!governed) {
+          // The return window, tied to the count: "7 dias pra trocar", "7 dias de garantia",
+          // "7 dias após o recebimento" (of the vest, never "do pagamento").
+          if (
+            /^\s*(?:corridos\s+|uteis\s+)?(?:de\s+(?:garantia|prazo\s+(?:pra|para)\s+(?:troca|devol))|(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|apos\s+(?:o\s+)?recebimento\b(?!\s+do\s+pagamento))/.test(after)
+          )
+            continue;
+          // A return word already governs it: "devolver em 7 dias", "recebe o reembolso em 30 dias".
+          if (RETURN.test(phrase)) continue;
+          // The warranty count said on its own: "No pix, a garantia é a mesma: 7 dias."
+          if (days === ctx.config.delivery.warrantyDays && RETURN.test(sentence)) continue;
+        }
+        // "Faz 3 dias que comprei" is the past, tied to the count; "há 2 dias de prazo" is not.
+        if (/\b(?:ha|faz|fez|fazem)\s+$/.test(before) && /^\s*(?:que|atras)\b/.test(after)) continue;
+        // Refusing the number is the job — "não consigo garantir 2 dias", "não dá pra prometer
+        // 2 dias" — and only that: the denial must govern garantir/prometer right before the
+        // count. "Não tem como passar de 2 dias" and "não posso negar que chega em 2 dias"
+        // are promises (fourth review).
+        if (
+          /\b(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como)\s+)?(?:te\s+|lhe\s+)?(?:garant\w*|promet\w*)\s+(?:que\s+(?:chegue|chega|receba|recebe)\s+(?:em\s+)?(?:ate\s+)?)?$/.test(phrase)
+        )
+          continue;
         const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
         const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
         // A prepaid path named before the count, by any of its names — the same names the
@@ -748,7 +772,6 @@ const gates: readonly Gate[] = [
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
         if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
-        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
         if (avg == null) return "states a prepaid deadline, and none is configured";
         if (Number(days) !== avg) {
           return `prepaid average of ${days} days is not the configured ${avg}`;

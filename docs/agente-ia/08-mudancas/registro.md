@@ -214,6 +214,15 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   os outros nomes do antecipado antes do número (pix, boleto, "pagando antes/agora", "no
   cartão"; "dinheiro ou cartão" continua sendo a porta). `pnpm dev:gates`: 2 liberações
   intencionais, 9 endurecimentos, todos mentira.
+- **Quarta revisão (2026-09-25): reprovada — e a causa era de método.** Cada exceção
+  (recusa, garantia, troca, "após o recebimento") é um afrouxamento, e cada rodada achou a
+  mentira seguinte escondida atrás dela, em frases que não estavam no corpus — então o
+  `dev:gates` não as via. Duas mudanças: (1) as exceções passaram a depender de uma condição
+  só — nenhum verbo de entrega governa o número ("chega em 2 dias", "prazo de 2 dias"); e a
+  recusa só libera "não consigo/posso garantir/prometer N" colado ao número; (2)
+  `tests/prepaid-deadline-fuzz.test.ts` gera 1560 mentiras (toda isca × nome do antecipado ×
+  verbo × número) e exige veto em todas — a propriedade, não o exemplo. `pnpm dev:gates`: 3
+  liberações pedidas pela revisão, 2 endurecimentos no caminho antecipado.
 - **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê

@@ -23,3 +23,6 @@ M-07 | delivery_promise | A maioria das clientes se acostuma com o colete em cer
 M-05 | price_promise | Tiro mais alguma dúvida?
 M-07 | delivery_promise | Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.
 M-07 | delivery_promise | No antecipado não dá pra prometer 2 dias, o prazo varia por região, em média 5 dias úteis.
+M-07 | delivery_promise | No antecipado você também tem 7 dias corridos para devolver.
+M-07 | delivery_promise | No pix, a garantia é a mesma: 7 dias.
+M-07 | delivery_promise | No antecipado você tem 7 dias de prazo pra troca.

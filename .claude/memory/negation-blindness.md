@@ -59,3 +59,9 @@ afrouxamentos. Agora é `pnpm dev:gates` (`src/dev/gate-diff.ts`): gate da base 
 respostas das personas, 3 configs × 2 caminhos × região conhecida ou não. O CI roda
 `--fail-on-loosen`: veto → passa que não estiver em `tests/gate-loosen-accepted.txt`
 derruba o PR. Toda frase que uma revisão achar vai para o corpus, mesmo com teste.
+
+**Exemplo não basta; gere a propriedade (25/09).** O diff só compara frases que já estão
+no corpus — e as mentiras que as exceções da M-07 liberaram nunca estavam lá. Quatro
+revisões seguidas acharam a próxima. O que fechou: um teste que **gera** as mentiras
+(`tests/prepaid-deadline-fuzz.test.ts`: isca × nome × verbo × número, 1560 frases) e exige
+veto em todas. Toda regra nova com exceção ganha o seu gerador antes da revisão.
