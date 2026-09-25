@@ -16,7 +16,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 **Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **v32 continua no ar; nada da v33 foi
 deployado.** O código da v33 está pronto e verificado; **o deploy espera o "pode subir" do
 operador** (R14.8). Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
-Mudanças técnicas: `registro.md` M-05 a M-09.
+Mudanças técnicas: `registro.md` M-05 a M-09. **Grafo de decisões (o que falhou e por quê):
+`docs/documentacao/decisoes/04-grafo-de-decisoes.md` — leia antes de mexer em gate ou estado.**
 
 ### Estado do produto (o que a v33 leva)
 - **Checkout:** entrega na **Logzz** (`ccm-1-unidade`, `ccm-2-unidades`, `ccm-3-unidades`,
