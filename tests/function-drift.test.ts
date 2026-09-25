@@ -21,6 +21,7 @@ const mirrored = [
   ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
+  ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
 ] as const;
 
 describe("cópias na Edge Function", () => {
@@ -400,6 +401,19 @@ describe("M-03 na Edge Function", () => {
     );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
     expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+  });
+});
+
+describe("WA-1 na Edge Function: a régua respeita a janela de 24h (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("decide texto ou template antes de gravar e antes de enviar", () => {
+    const decide = source.indexOf("const delivery = deliveryFor(kind, renderCtx, lastInbound);");
+    const blocked = source.indexOf('if (delivery === null || delivery.via === "blocked") {');
+    const record = source.indexOf("await db(\"messages\"", blocked);
+    expect(decide).toBeGreaterThan(-1);
+    expect(blocked).toBeGreaterThan(decide);
+    expect(record).toBeGreaterThan(blocked);
+    expect(source).toContain("conversations(id,lead_id,last_inbound_at,leads(");
   });
 });
 

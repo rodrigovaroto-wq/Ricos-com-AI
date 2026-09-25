@@ -1,0 +1,170 @@
+/**
+ * The WhatsApp Cloud API at the edge of the system (WA-2, 2026-09-25): what Meta sends in,
+ * what goes back out. Pure and dependency-free (Web Crypto only), mirrored byte for byte
+ * into `supabase/functions/whatsapp/whatsapp.ts`, which is the webhook Meta calls.
+ *
+ * This is a trust boundary. Anyone on the internet can POST to a webhook URL, so nothing
+ * here is believed before the signature is: Meta signs the raw body with the app secret
+ * (`X-Hub-Signature-256: sha256=<hex>`), and a body that does not verify is never parsed.
+ */
+
+/** One customer message, in the shape the turn already takes (`encorpa-inbound`). */
+export interface InboundMessage {
+  /** Meta's message id (`wamid…`): the turn's idempotency key, so a redelivery is a no-op. */
+  externalId: string;
+  /** The customer's number, digits only, as Meta sends it (e.g. 5511987654321). */
+  from: string;
+  body: string;
+  /** Click-to-WhatsApp attribution, on the message that came from an ad. */
+  source?: Record<string, string>;
+}
+
+/**
+ * Meta's subscription handshake: `GET ?hub.mode=subscribe&hub.verify_token=…&hub.challenge=…`.
+ * The challenge is echoed only when the token is ours; anything else is refused.
+ */
+export const verifyChallenge = (params: URLSearchParams, verifyToken: string): string | null =>
+  verifyToken !== "" &&
+  params.get("hub.mode") === "subscribe" &&
+  params.get("hub.verify_token") === verifyToken
+    ? params.get("hub.challenge")
+    : null;
+
+const hex = (bytes: ArrayBuffer): string =>
+  [...new Uint8Array(bytes)].map((b) => b.toString(16).padStart(2, "0")).join("");
+
+/** Compares without leaking where the first difference is. */
+const sameString = (a: string, b: string): boolean => {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+};
+
+/**
+ * `X-Hub-Signature-256` against the RAW body — re-serialized JSON would not match. An empty
+ * secret verifies nothing: a missing configuration fails closed, never open.
+ */
+export const verifySignature = async (
+  rawBody: string,
+  header: string | null,
+  appSecret: string,
+): Promise<boolean> => {
+  if (appSecret === "" || !header?.startsWith("sha256=")) return false;
+  const key = await crypto.subtle.importKey(
+    "raw",
+    new TextEncoder().encode(appSecret),
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"],
+  );
+  const mac = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(rawBody));
+  return sameString(hex(mac), header.slice("sha256=".length).toLowerCase());
+};
+
+/**
+ * What the agent reads when the message has no text of its own. The model only reads text
+ * (R11.1), so an audio or a sticker arrives as a plain sentence saying what came — the
+ * alternative is silence, and silence to a customer who sent an audio is a lost sale.
+ */
+const NO_TEXT: Record<string, string> = {
+  audio: "[a cliente mandou um áudio, que você não consegue ouvir]",
+  voice: "[a cliente mandou um áudio, que você não consegue ouvir]",
+  image: "[a cliente mandou uma imagem sem texto]",
+  video: "[a cliente mandou um vídeo sem texto]",
+  document: "[a cliente mandou um documento sem texto]",
+  sticker: "[a cliente mandou uma figurinha]",
+  location: "[a cliente mandou uma localização]",
+  contacts: "[a cliente mandou um contato]",
+};
+
+type Obj = Record<string, unknown>;
+const obj = (v: unknown): Obj | null => (v !== null && typeof v === "object" ? (v as Obj) : null);
+const str = (v: unknown): string => (typeof v === "string" ? v : "");
+
+const textOf = (m: Obj): string | null => {
+  const type = str(m.type);
+  if (type === "text") return str(obj(m.text)?.body) || null;
+  if (type === "button") return str(obj(m.button)?.text) || null;
+  if (type === "interactive") {
+    const i = obj(m.interactive);
+    return str(obj(i?.button_reply)?.title) || str(obj(i?.list_reply)?.title) || null;
+  }
+  const caption = str(obj(m[type])?.caption);
+  if (caption) return caption;
+  // A reaction (an emoji on one of our messages) is not a turn; nothing else unknown is dropped.
+  if (type === "reaction") return null;
+  return NO_TEXT[type] ?? `[a cliente mandou uma mensagem do tipo ${type || "desconhecido"}]`;
+};
+
+/** The ad a Click-to-WhatsApp message came from — the fields Meta documents, strings only. */
+const sourceOf = (m: Obj): Record<string, string> | undefined => {
+  const r = obj(m.referral);
+  if (!r) return undefined;
+  const out: Record<string, string> = {};
+  for (const k of ["ctwa_clid", "source_id", "source_type", "source_url", "headline"]) {
+    const v = str(r[k]);
+    if (v) out[k] = v;
+  }
+  return Object.keys(out).length ? out : undefined;
+};
+
+/**
+ * Every customer message in one webhook POST. Delivery statuses, reactions and anything
+ * malformed yield nothing: a webhook that cannot be read is answered 200 and dropped,
+ * because Meta retries a non-200 for days.
+ */
+export const parseWebhook = (payload: unknown): InboundMessage[] => {
+  const out: InboundMessage[] = [];
+  const entries = obj(payload)?.entry;
+  for (const entry of Array.isArray(entries) ? entries : []) {
+    const changes = obj(entry)?.changes;
+    for (const change of Array.isArray(changes) ? changes : []) {
+      if (obj(change)?.field !== "messages") continue;
+      const messages = obj(obj(change)?.value)?.messages;
+      for (const raw of Array.isArray(messages) ? messages : []) {
+        const m = obj(raw);
+        if (!m) continue;
+        const externalId = str(m.id);
+        const from = str(m.from).replace(/\D/g, "");
+        const body = textOf(m);
+        if (!externalId || !from || body === null) continue;
+        const source = sourceOf(m);
+        out.push({ externalId, from, body, ...(source ? { source } : {}) });
+      }
+    }
+  }
+  return out;
+};
+
+/** A text message — one per bubble. The checkout link needs its preview off: it is a form. */
+export const textMessage = (to: string, body: string) => ({
+  messaging_product: "whatsapp",
+  recipient_type: "individual",
+  to,
+  type: "text",
+  text: { preview_url: false, body },
+});
+
+/** An approved template, outside the 24-hour window, with its body variables in order. */
+export const templateMessage = (to: string, name: string, language: string, variables: readonly string[]) => ({
+  messaging_product: "whatsapp",
+  recipient_type: "individual",
+  to,
+  type: "template",
+  template: {
+    name,
+    language: { code: language },
+    ...(variables.length
+      ? { components: [{ type: "body", parameters: variables.map((text) => ({ type: "text", text })) }] }
+      : {}),
+  },
+});
+
+/** Marks her message read and shows "digitando…" while the turn thinks. */
+export const readAndTyping = (messageId: string) => ({
+  messaging_product: "whatsapp",
+  status: "read",
+  message_id: messageId,
+  typing_indicator: { type: "text" },
+});

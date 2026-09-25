@@ -26,6 +26,14 @@ interface Mutation {
 
 const MUTATIONS: Mutation[] = [
   {
+    id: "WA-1-janela",
+    bug: "a régua mandava texto livre fora da janela de 24h, que a Meta recusa",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const delivery = deliveryFor(kind, renderCtx, lastInbound);",
+    to: "const delivery = { via: \"text\" as const, body: text };",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],

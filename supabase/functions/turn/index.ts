@@ -20,6 +20,7 @@ import {
 } from "./guardrails.ts";
 import {
   decideTouch,
+  deliveryFor,
   nextOpening,
   onOrderConfirmed,
   stageForOrder,
@@ -1093,10 +1094,27 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
-  const toSend: Array<{ to: string; body: string; kind: string; followupId: string }> = [];
+  /**
+   * What n8n sends through the Cloud API. `via` is the 24-hour window decided here, not in
+   * n8n (WA-1, 2026-09-25): inside it the text goes as is; outside, only an approved
+   * template, with its variables. `body` is always the gated text, for the record.
+   */
+  type Send =
+    | { to: string; kind: string; followupId: string; via: "text"; body: string }
+    | {
+        to: string;
+        kind: string;
+        followupId: string;
+        via: "template";
+        body: string;
+        name: string;
+        language: string;
+        variables: readonly string[];
+      };
+  const toSend: Send[] = [];
   const skipped: Array<{ followupId: string; reason: string }> = [];
   /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
   const handoffs: Array<Record<string, unknown>> = [];
@@ -1138,8 +1156,9 @@ const runFollowupSweep = async () => {
       const result = await handleTurn({ externalId: `retry:${row.id}`, from: lead.phone }, { retry: ticket })
         .then((r) => r.json())
         .catch((error) => ({ status: `erro: ${redactKeys(error instanceof Error ? error.message : String(error))}` }));
+      // A retried turn answers a message of hers from minutes ago: inside the window.
       if (typeof result.reply === "string") {
-        toSend.push({ to: lead.phone, body: result.reply, kind: row.kind, followupId: row.id });
+        toSend.push({ to: lead.phone, via: "text", body: result.reply, kind: row.kind, followupId: row.id });
       }
       if (result.status === "handoff") {
         handoffs.push({
@@ -1174,7 +1193,7 @@ const runFollowupSweep = async () => {
     const touchPath: "cod" | "prepay" = order
       ? order.payment_method === "prepay" ? "prepay" : "cod"
       : fresh(lead.payment_choice_at) && lead.payment_choice === "prepay" ? "prepay" : "cod";
-    const text = renderFollowup(kind, {
+    const renderCtx = {
       leadId: lead.id,
       config: CONFIG,
       stopPoint: (row.stop_point ?? "before_size") as StopPoint,
@@ -1183,7 +1202,8 @@ const runFollowupSweep = async () => {
       units: touchUnits,
       prepaid: order?.payment_method === "prepay",
       body: row.body ?? undefined,
-    });
+    };
+    const text = renderFollowup(kind, renderCtx);
 
     // Two touches can render to nothing, and calling both "coupon" hides the one that
     // matters: a deferred reply with no body is a paid-for answer that got lost.
@@ -1246,6 +1266,23 @@ const runFollowupSweep = async () => {
       continue;
     }
 
+    // The 24-hour window (WA-1): outside it only an approved template leaves. A touch with
+    // no template is cancelled and reported, never sent as text Meta would refuse — and
+    // never written to `messages` as if she had read it.
+    const lastInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
+    const delivery = deliveryFor(kind, renderCtx, lastInbound);
+    if (delivery === null || delivery.via === "blocked") {
+      await mark("canceled");
+      skipped.push({
+        followupId: row.id,
+        reason:
+          delivery?.via === "blocked" && delivery.reason === "empty_variable"
+            ? "fora da janela de 24h: template com variável vazia"
+            : "fora da janela de 24h e sem template aprovado",
+      });
+      continue;
+    }
+
     await db("messages", {
       method: "POST",
       body: JSON.stringify({
@@ -1263,7 +1300,11 @@ const runFollowupSweep = async () => {
     if (kind === "deferred_reply") {
       await scheduleSilenceTouches(row.conversation_id, stopPointOf(text));
     }
-    toSend.push({ to: lead.phone, body: text, kind, followupId: row.id });
+    toSend.push(
+      delivery.via === "template"
+        ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
+        : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
+    );
   }
 
   return { status: "swept", due: (due ?? []).length, send: toSend, skipped, handoffs };
