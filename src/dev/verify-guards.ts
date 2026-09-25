@@ -311,8 +311,8 @@ const MUTATIONS: Mutation[] = [
     id: "gate-oracao",
     bug: "\"R$ 129,90 levando 2 peças\" passava (o preço não respondia à contagem da própria oração)",
     files: ["src/agent/guardrails.ts"],
-    from: "own.length > 0 ? own :",
-    to: "false ? own :",
+    from: "if (own.length > 0) return new Set(own);",
+    to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
   {
@@ -327,8 +327,8 @@ const MUTATIONS: Mutation[] = [
     id: "caminho-pergunta",
     bug: "\"quanto economizo no pix em vez de pagar na entrega?\" gravava o caminho",
     files: ["src/agent/interpret.ts"],
-    from: "if (message.includes(\"?\") || ",
-    to: "if (",
+    from: "return !upTo.includes(\"?\") && ",
+    to: "return ",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
   {
