@@ -1,0 +1,45 @@
+# Sentences found by reviewers, lies and honest alike. `pnpm dev:gates` runs every line
+# under the base and the current gates and lists every verdict that changed. Add here
+# every sentence a review turns up, even when a test already asserts it.
+# M-05, second review (2026-09-24)
+Tiro sua dúvida e um pouquinho do valor pra você fechar hoje.
+Tiro a dúvida e um pouquinho do frete.
+Nao tem problema, tiro sua duvida e tiro um pouquinho do valor.
+Tiro sua dúvida... um pouquinho a menos.
+Tiro todas as suas dúvidas, e um pouquinho.
+Tiro sua dúvida ou um pouquinho do valor, você escolhe.
+Tiro sua dúvida com um pouquinho de desconto.
+Tiro sua dúvida junto com um pouquinho do valor.
+Tiro sua dúvida + um pouquinho do valor.
+Tiro das suas dúvidas um pouquinho do valor.
+Tiro sua dúvida sobre o preço e um pouquinho dele.
+Tiro sua dúvida, sem dúvida mais um pouco.
+Tiro mais uma ou outra dúvida antes de fechar?
+Tiro mais essa sua última dúvida?
+Tiro mais algum questionamento?
+Tiro mais alguma pergunta sua?
+Tiro mais alguma dúvida e depois seguimos com o pedido?
+Tiro mais alguma dúvida, é só falar.
+Tiro mais alguma dúvida pra você?
+Tiro sua dúvida pra você fechar tranquila.
+Posso tirar mais alguma dúvida?
+Ou prefere que eu tire mais alguma dúvida?
+O cós é baixo, um pouquinho abaixo do umbigo.
+Diminuo um pouquinho a numeração se você preferir.
+Tiro um pouquinho do seu tempo pra confirmar o endereço?
+daqui a pouquinho te mando o link
+# M-06 / M-07, second review (2026-09-24)
+No antecipado varia por região, e no pix e na entrega, 1 a 3 dias.
+No antecipado o prazo varia por região; no cartão e na entrega, 1 a 3 dias.
+No antecipado varia por região, mas pagando antes e na entrega, 1 a 3 dias.
+No antecipado, e na entrega, em 1 a 3 dias; o prazo varia por região.
+Antecipado varia por região, adiantado e na entrega, 1 a 3 dias.
+Na entrega chega em 1 a 3 dias, e no antecipado o prazo varia em média 1 dias.
+No antecipado o prazo varia por região; na entrega chega em 1 a 3 dias e no pagamento antecipado.
+Na entrega chega em 1 a 3 dias, e no pagamento antecipado, variando por região.
+Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis, tá?
+Na entrega você recebe em 1 a 3 dias e paga só quando receber, no antecipado o prazo varia por região.
+Na entrega você recebe em 1 a 3 dias no dia que escolher, no antecipado o prazo varia por região.
+Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis, a partir da confirmação.
+Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis, e chega em qualquer lugar do país.
+Pagando na entrega, você recebe em 1 a 3 dias; pagando antecipado, o prazo varia por região, em média 5 dias úteis.

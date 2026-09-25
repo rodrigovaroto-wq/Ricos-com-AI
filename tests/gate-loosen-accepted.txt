@@ -1,0 +1,13 @@
+# Block → pass flips that are the point of a change. Format: <entry> | <gate> | <sentence>
+# `pnpm dev:gates --fail-on-loosen` fails on any loosening not listed here.
+M-05 | price_promise | tiro mais alguma dúvida
+M-05 | price_promise | Quer que eu siga com seu pedido pra pagar na entrega ou tiro mais alguma dúvida antes?
+M-05 | price_promise | Posso seguir com o pedido, ou tiro mais uma dúvida sua?
+M-05 | price_promise | Tiro pra você qualquer dúvida sobre o tamanho.
+M-05 | price_promise | Se quiser, tiro mais suas dúvidas antes de fechar.
+M-05 | price_promise | Tiro mais alguma das suas dúvidas?
+M-05 | price_promise | Tiro mais uma dúvidinha sua?
+M-05 | price_promise | Tiro mais uma dúvida, ou fechamos?
+M-05 | price_promise | Tiro mais alguma dúvida ou já posso seguir com o pedido?
+M-05 | price_promise | Tiro mais alguma dúvida e depois seguimos com o pedido?
+M-05 | price_promise | Tiro mais alguma dúvida, é só falar.
