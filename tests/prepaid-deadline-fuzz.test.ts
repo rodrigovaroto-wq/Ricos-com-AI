@@ -128,6 +128,8 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No pix você tem 7 dias pra trocar depois que receber.",
       "No pix você tem 7 dias a partir da entrega pra trocar.",
       "No pix você tem 7 dias após a entrega pra devolver.",
+      "No pix você tem 7 dias pra devolver a partir da entrega.",
+      "No pix você tem 7 dias pra trocar, contados do recebimento.",
     ];
     const vetoed = honest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass");
     expect(vetoed).toEqual([]);

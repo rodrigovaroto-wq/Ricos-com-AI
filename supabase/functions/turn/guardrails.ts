@@ -734,14 +734,17 @@ const gates: readonly Gate[] = [
           // chegar em 7 dias" is a deadline (eighth review).
           const anchor =
             /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
+          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega.").
+          const anchorAfter =
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
           const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
           const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
           // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
           // ("a garantia é de 7 dias" normalizes "é" to "e").
           const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
           const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
-          const clause = (sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!).replace(anchor, " ");
-          const rest = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchor, " ");
+          const clause = sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " ");
+          const rest = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " ");
           const segment = sentenceBefore.split(/[,;]/).pop()!;
           const purposeAfter =
             /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);

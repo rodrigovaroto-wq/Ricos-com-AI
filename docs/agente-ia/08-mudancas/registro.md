@@ -250,7 +250,15 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   7 era o complemento de tempo dela ("quando o colete chegar em 7 dias"), e "em 7 dias" num
   trecho só dele contava como garantia. Corrigidos; a âncora ganhou "depois que receber" e
   "após/a partir da entrega". Fuzz: 3600 mentiras; `pnpm dev:gates`: 3 liberações, 0 endurecimentos.
-- **Estado:** feita — revisão final e rodada cleide, rafa, lu pendentes.
+- **Revisão final (2026-09-25, `920214f` + âncora no fim da frase): APROVADA com resíduos.**
+  Nenhuma mentira que a base vetava passa; nenhuma frase honesta passou a ser vetada. Resíduos
+  de baixa prioridade: M-08 (prazo em palavras) e formas raras de garantia honesta ainda
+  vetadas no antecipado (custam uma reescrita). **Nove rodadas de revisão**: a lição está em
+  `.claude/memory/negation-blindness.md` — exceção por contexto vaza; a regra que segura é
+  sobre o número, com fuzz gerando as mentiras.
+- **Resultado R7** (rodada completa, 12 personas, `data/persona-runs/2026-09-25T01-17-14-806Z-local`,
+  R$ 0,19): `pronta-por-prazo` = 0 e `respostas-prontas` = 0 → **atingida**.
+- **Estado:** atingida.
 
 ### M-08 — Prazo do antecipado em palavras que a regra de número não lê
 - **Por quê:** terceira revisão da M-07, resíduos anteriores a ela: "No antecipado, um dia só."

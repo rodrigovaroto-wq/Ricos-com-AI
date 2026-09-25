@@ -50,3 +50,4 @@ M-07 | delivery_promise | No pix vale o mesmo direito de 7 dias de arrependiment
 M-07 | delivery_promise | No pix você tem 7 dias pra trocar depois que receber.
 M-07 | delivery_promise | No pix você tem 7 dias a partir da entrega pra trocar.
 M-07 | delivery_promise | No pix você tem 7 dias após a entrega pra devolver.
+M-07 | delivery_promise | No pix você tem 7 dias pra devolver a partir da entrega.
