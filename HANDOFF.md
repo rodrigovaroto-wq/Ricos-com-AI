@@ -11,53 +11,76 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — estado em 2026-09-25
+## ▶ COMECE AQUI — estado em 2026-09-25, fim do dia
 
-**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **v32 continua no ar**; nada da v33 foi deployado.
-**Etapa 2 ("testar por dentro") fechada do lado do agente** — o que falta para a etapa 3 é do operador.
+**Branch:** `claude/sweet-meitner-g9nu8o`. Sem PR. **v32 continua no ar; nada da v33 foi
+deployado.** O código da v33 está pronto e verificado; **o deploy espera o "pode subir" do
+operador** (R14.8). Decisões do dia: `03-decisoes-tomadas.md` §Rodada 14 (R14.1–R14.11).
+Mudanças técnicas: `registro.md` M-05 a M-09.
 
-### O que esta sessão fez
-- **O-04 fechada:** a régua do n8n autenticava com a credencial "Gemini API" e recebia
-  `Invalid JWT` a cada 5 min desde o início, escondida por `neverError`. Agora usa `Supabase
-  service_role`, gatilho religado, `neverError` desligado — varredura responde `swept`.
-  Turno com timeout 150 s (pronto para a v33); régua manda e-mail para `handoffs[]`.
-- **M-05, M-06, M-07 atingidas; M-08 aberta** (baixa). A M-07 levou **nove rodadas de revisão**
-  até a regra que segura: no caminho antecipado só o número da garantia (7) pode ser
-  garantia; qualquer outro número é prazo.
-- **Plano 5.8:** o webhook de venda grava o estágio (`em_rota`, `entregue_pago`, `recusado`).
-- **Provedores `src/llm`:** 5xx/429 repetidos, página de erro nunca parseada como JSON (a Tati
-  morreu com "Unexpected token u" na rodada completa).
-- **Migrações `0007` e `0008` aplicadas em produção** (aditivas).
-- **Rodada R7 completa (12 personas):** 8/8 checagens, 0 respostas prontas, R$ 0,0026/resposta.
-  Eval por persona: `pnpm dev:eval`.
-- **Hermes instalado, configurado, calibrado e agendado** (`hermes/README.md`): 3/3 defeitos
-  plantados achados em três calibrações; na R7, "rodada limpa". Roda por GitHub Action a cada
-  50 leads e abre PR com as propostas.
-- **Kits de 2 e 3 peças (M-09)** — um checkout Coinzz por quantidade e caminho, em
-  `config.kits`. A Malu oferece o kit uma vez, na decisão; lê a quantidade e o tamanho de cada
-  peça (letra ou número de calça, pela mesma tabela de 1 peça); manda o link do kit e pede os
-  tamanhos no complemento; 4+ peças vão para uma pessoa. `price_promise` só aceita preço e
-  percentual do kit **do caminho e da quantidade da frase**. Migrações `0009`/`0010` aplicadas;
-  o n8n "Venda confirmada" lê o payload real da Coinzz e N tamanhos ("M,G"). Duas rodadas de
-  personas, placar 8/8; o Hermes achou um erro de medida no placar (M-03), corrigido.
+### Estado do produto (o que a v33 leva)
+- **Checkout:** entrega na **Logzz** (`ccm-1-unidade`, `ccm-2-unidades`, `ccm-3-unidades`,
+  frete R$ 0,00 para a cliente; CPF no link como `cpf`), antecipado na **Coinzz**
+  (`encorpa-pagamento-antecipado-0`, `antecipado-2-0`, `antecipado-3-0`; CPF como
+  `document`). Tabela de preços dos kits em R14.3.
+- **Kits de 2 e 3 peças (M-09):** a Malu oferece uma vez, na decisão; lê a quantidade e o
+  tamanho de cada peça (letra ou calça pela tabela); manda o link do kit e pede os tamanhos
+  no complemento; 4+ peças → pessoa. O kit expira após 7 dias sem uso (`units_at`).
+- **Caminho escolhido guardado** (`payment_choice`, só de uma escolha, 7 dias sem uso).
+- **Gate de preço** recebe a quantidade de peças da conversa (`ctx.units`); **régua
+  pós-compra** lê o pedido (total, peças, tamanhos, caminho; antecipado = "já pago").
+- **Pós-venda → pessoa**, exceto o encerramento feliz (lista de permissão).
+- **Hermes** instalado, calibrado (3/3), agendado a cada 50 leads (R14.1).
+- **Migrações aplicadas em produção, todas aditivas:** 0007 a 0013 (0011 `units_at`, 0012
+  `payment_choice`, 0013 `payment_choice_at` — a v32 no ar ignora todas).
+- **n8n "Venda confirmada"** lê Coinzz e Logzz (o teste do webhook da Logzz chegou em
+  05:38 com `?fonte=logzz` e `order_quantity`); kit exige N tamanhos no complemento.
 
-### As guardas que impedem os erros de voltar (todas no CI)
-- `pnpm dev:gates --fail-on-loosen` — diff de vereditos dos gates contra o `main`.
-- `tests/prepaid-deadline-fuzz.test.ts` — 3600 mentiras geradas, todas vetadas.
-- `pnpm dev:n8n` — confere a versão **ativa** do n8n (credencial, `neverError`, gatilho, timeout).
-- `pnpm verificar:guardas` — reinstala cada bug histórico e exige que a guarda fique vermelha
-  (17/17). **Guarda nova = mutação nova** (`.claude/memory/guarda-testada-por-mutacao.md`).
+### Como foi verificado (o loop do dia)
+- **Nove passadas de revisão independente** (`code-reviewer`, Opus) sobre os kits e cada
+  leva de correção, até **aprovado com resíduos** — cada passada achou furos reais da
+  anterior (lista no M-09). Resíduos aceitos no M-09.
+- **Rodadas de personas** (12 fixas + 3 de kit temporárias, não versionadas): final
+  `06-19-27` + confirmação `06-37-29` → **8/8, 0 respostas prontas**. O Hermes rodou sobre
+  cada rodada; propostas e decisões em `08-mudancas/propostas/` (H-2 do dia aberta).
+- **`pnpm verificar:guardas` 56/56** — cada bug do dia reinstalado é pego pelo seu teste.
+- CI local: `pnpm lint`, `typecheck`, `test` (3868), `dev:conversas` (1640/1640),
+  `typecheck:function`, `dev:gates --fail-on-loosen` — todos verdes.
 
-### Gasto da API da Meta nesta sessão
-Rodadas de personas R$ 0,50 · Hermes ~US$ 0,035 (≈ R$ 0,19) · **total ≈ R$ 0,69**.
+### Gasto da API da Meta no dia
+Personas ≈ R$ 1,55 · Hermes ≈ US$ 0,045 (≈ R$ 0,25) · **total ≈ R$ 1,80**.
 
 ### Próximos passos
-1. **Operador** (ver a lista no fim de `00-plano-simples.md` e o resumo desta sessão).
-2. **Etapa 3 — deploy v33** (espera o "pode subir" do operador): secret `BUSINESS_CONFIG`
-   gerado de `config/business.example.json` (Malu, `SUPER20` inativo, sem escassez, sem
-   depoimento, hashes `offp16pv`/`offkw47x`, `kits`); PAT do Supabase, revogado depois;
-   12 arquivos pela API (`ls supabase/functions/turn/*.ts`); sonda pela porta `n8n`; O2 e O10.
-3. M-08 (baixa).
+1. **Operador:**
+   - dizer **"pode subir"**;
+   - trocar `CONVERSATION_MODEL` para o modelo **sem `-contributor`** antes do primeiro lead
+     real (LGPD, R14.2);
+   - **revogar o PAT do Supabase** logo depois do deploy (Account → Access Tokens);
+   - O10: ver se a tela de webhook da Coinzz e a da Logzz aceitam **cabeçalho (header)
+     customizado** — o teste da Logzz chegou sem nenhum (user-agent `GuzzleHttp`); se não
+     aceitarem, a senha vai na URL e o operador cola a URL nova nos três webhooks;
+   - decidir H-2 do Hermes (link que troca de caminho sai com o preço dele).
+2. **Deploy v33** (sessão, após o aval): secret `BUSINESS_CONFIG` = `config/business.example.json`
+   com `agentName` "Malu", `testimonials` [], sem `scarcity`, sem `_comment`, `handoff.email`
+   `contato@encorpa-fashion.com.br`, `coupon.code` "SUPER20" **inativo** (código veio do
+   arquivo de teste — confirmar), `coinzz.offerHash` `offp16pv` / `prepayOfferHash` `offkw47x`
+   (só usados pelo pedido via API, que o n8n ainda não chama); secrets
+   `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE={"in":0.10,"out":0.20,"cached":0.002}`;
+   subir os 12 arquivos de `supabase/functions/turn/` pela API (ler a versão no ar antes —
+   era a 36); sonda pela porta `n8n`; O2 (nó `Wait`) junto.
+3. **Confirmar com um pedido real de kit na Logzz** que `order_quantity` vem 2/3 (o teste
+   só confirmou o campo, com 3 fictício).
+4. Pendências baixas: dois pedidos no mesmo lead (a régua lê o último; guardar `order_id`
+   no follow-up); M-08; apps da Coinzz; checkout no domínio da marca (O-02).
+
+### Para rodar personas localmente (receita que funcionou)
+Função: `BUSINESS_CONFIG` do exemplo com `hours` 0–24 (fora do horário tudo vira
+`deferred`), `DENO_CERT=/root/.ccr/ca-bundle.crt`, `SUPABASE_SERVICE_ROLE_KEY`/`META_API_KEY`
+= `placeholder` (o proxy injeta), `deno run --allow-env --allow-net=127.0.0.1:8000,<proxy>,…
+supabase/functions/turn/index.ts`. Runner: `NODE_USE_ENV_PROXY=1 … pnpm dev:personas
+--door=local --all --concurrency=2 --budget-brl=1`. Concorrência 3 gera 500 por conexão
+cortada no proxy local (não acontece em produção — conferido nos logs). Para matar a função,
+não use `pkill -f` com o padrão na mesma linha: ele mata o próprio shell.
 
 ## ▶ Estado em 2026-09-24, fim da noite (histórico)
 
