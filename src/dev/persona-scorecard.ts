@@ -18,7 +18,7 @@
 import { readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { asksForIdentity } from "../agent/identity.js";
-import { decidesToBuy } from "../agent/interpret.js";
+import { asksForLink, decidesToBuy } from "../agent/interpret.js";
 import { asksForSize, statedSizeOf } from "../agent/sizing.js";
 
 export interface Entry {
@@ -152,7 +152,9 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
       const url = LINK.exec(text)?.[0];
       if (url) {
         hadLink = true;
-        if (links.some((l) => l.url === url && n - l.n <= 3)) dupLinks.push(hit);
+        // She asked for it again: the turn exempts that resend (asksForLink), and so does the
+        // measure — otherwise the right behaviour scores as M-03 (Hermes, 2026-09-25).
+        if (!asksForLink(customer) && links.some((l) => l.url === url && n - l.n <= 3)) dupLinks.push(hit);
         links.push({ n, url });
       }
 

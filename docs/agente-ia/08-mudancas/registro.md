@@ -283,7 +283,15 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   `code-reviewer` (venda de kit falharia no banco; tamanho duplicado na nova tentativa;
   instruções contraditórias; kit não zerado) — todos corrigidos, com teste e mutação.
 - **Medida:** placar sem regressão numa rodada de personas com o config de kits; `kits.test.ts`.
-- **Estado:** feita — rodada de personas pendente.
+- **Rodadas (2026-09-25):** 4 personas (`04-51-46`), placar 8/8, kit oferecido uma vez;
+  `persona-dupla` recebeu o link do kit 2 na entrega e corrigiu "3 com 30% na entrega". Achado
+  da rodada: "uso 42, ela 46" fazia a Malu pedir a letra, e a cliente chutou M (a tabela diz
+  G). Corrigido na origem — o intérprete lê `unit_pants` e cada número passa pela mesma
+  `sizeFromDressSize` de 1 peça. Rodada `05-03-22`: "G e GG" sem perguntar, placar 8/8.
+- **Hermes sobre a rodada:** 1 proposta (H-1, M-03) — o placar contava como link repetido
+  o reenvio que a cliente pediu, que a produção já libera por `asksForLink`. Aceita: o placar
+  usa a mesma função (`persona-scorecard.test.ts`).
+- **Estado:** feita e medida.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

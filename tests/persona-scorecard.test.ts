@@ -80,6 +80,10 @@ describe("placar: link repetido (M-03) e decisão sem link", () => {
     const c = conv("jussara", [["pode mandar", `Aqui: ${link}`], ["vou olhar", `Sem problemas ${link}`]]);
     expect(check([c], "link-repetido").value).toBe(1);
   });
+  it("não conta o reenvio que ela pediu, com a mesma regra da produção", () => {
+    const c = conv("dupla", [["quero 2", `Aqui: ${link}`], ["me manda o link ja com os 2 tamanhos?", `De novo: ${link}`]]);
+    expect(check([c], "link-repetido").value).toBe(0);
+  });
   it("não conta um link só", () => {
     const c = conv("jussara", [["pode mandar", `Aqui: ${link}`], ["ok", "Qualquer dúvida estou aqui"]]);
     expect(check([c], "link-repetido").value).toBe(0);
