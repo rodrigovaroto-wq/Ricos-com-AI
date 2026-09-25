@@ -913,8 +913,11 @@ interface OrderWebhook {
   externalId: string;
   phone: string;
   paymentMethod: "cod" | "prepay";
+  /** One size, or one per piece ("M,G") when the order is a kit. */
   size: string;
   amountBrl: number;
+  /** Pieces in the order (Coinzz `order_quantity`), 1 when absent. */
+  units?: number;
   status?: string;
   checkoutUrl?: string;
   scheduledFor?: string;
@@ -964,6 +967,7 @@ const recordOrder = async (order: OrderWebhook) => {
       checkout_url: order.checkoutUrl ?? null,
       payment_method: order.paymentMethod,
       size: order.size,
+      units: order.units ?? 1,
       amount_brl: order.amountBrl,
       status: order.status ?? "created",
       scheduled_for: order.scheduledFor ?? null,

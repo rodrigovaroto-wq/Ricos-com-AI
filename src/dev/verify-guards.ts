@@ -114,6 +114,30 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/hermes-core.test.ts"],
   },
+  {
+    id: "kit-preco",
+    bug: "qualquer preço de kit passa (o gate não lê os kits do config)",
+    files: ["src/agent/guardrails.ts"],
+    from: "...kits.map((k) => k.priceBrl)]);",
+    to: "...kits.map((k) => k.priceBrl), 220]);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
+  {
+    id: "kit-quantidade",
+    bug: "quantidade inventada pelo modelo troca o link por um kit que ela não pediu",
+    files: ["src/agent/interpret.ts"],
+    from: "i.units !== null && i.units > 1 && !QUANTITY_CUE.test(norm(message)) ? null : i.units",
+    to: "i.units",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
+  },
+  {
+    id: "apto-12",
+    bug: '"Apto 12, G" perdia o tamanho (números descartados no complemento)',
+    files: ["n8n/workflows/venda-confirmada.json"],
+    from: "complemento.split(/[^A-Z0-9]+/)",
+    to: "complemento.split(/[^A-Z]+/)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-sale-mapping.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
