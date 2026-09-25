@@ -74,6 +74,6 @@ jobs:
             Propostas do Hermes sobre as últimas conversas reais — cada uma validada (trecho
             copiado da conversa, nada da lista do que não se faz) e testada contra os gates de hoje.
 
-            **Nada aqui foi aplicado.** Aceitar uma proposta é abrir uma entrada em
-            `docs/agente-ia/08-mudancas/registro.md`; recusar é fechar este PR.
+            **Nada aqui foi aplicado.** A decisão é pelo link que chega por e-mail para cada
+            proposta (R14.14); este PR só guarda o documento da rodada.
           add-paths: docs/agente-ia/08-mudancas/propostas/*

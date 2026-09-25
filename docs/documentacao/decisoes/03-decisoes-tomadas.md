@@ -1623,6 +1623,29 @@ só perguntando e o link cedo demais apressa e perde a venda. No lugar:
 
 Grafo: §12.
 
+## R14.14 — Hermes: aprovar é um clique, e o resto anda sozinho (2026-09-25, tarde)
+
+Decisão do operador: "a cada rodada o Hermes fica mais inteligente, registrando todas as
+decisões e execuções; eu só clico em aprovar e tudo se atualiza". R11.6 continua de pé — o
+loop fecha num humano —, e o humano passa a ser o clique em cada proposta:
+
+1. **Histórico** (migração 0014): cada proposta guarda a decisão, o motivo do operador, a
+   implementação e o resultado. O Hermes lê `decisoes.md` antes de propor; recusada não
+   volta, e o motivo vira o critério.
+2. **Decisão por link** (migração 0015, workflow n8n "Hermes: decisão do operador"): e-mail
+   com um link por proposta; o formulário grava só na linha cujo código secreto bate e que
+   ainda está `proposed`. O resultado de cada aprovada também chega por e-mail (0016).
+3. **Implementação** (`hermes/IMPLEMENTAR.md`, rotina agendada): pega a aprovada, implementa,
+   passa o CI inteiro, a revisão Opus em loop e as personas; abre o PR com `hermes:<id>` e
+   faz o merge. O que precisa de segredo, config, migração ou n8n volta como `failed` com o
+   que o operador tem de fazer.
+4. **Publicação** (`deploy-hermes.yml`): depois do CI verde no `main`, só para commit com
+   `hermes:<id>`. **R14.8 continua valendo para todo o resto**: outro merge não publica.
+   Exige o secret `SUPABASE_ACCESS_TOKEN` no GitHub (operador: "(a) sim", e opção 1).
+
+Cuidado que isto cria: o deploy publica o `main` inteiro. Mudança manual no turno que for
+para o `main` precisa ser publicada logo (R14.8), senão sai de carona na próxima aprovada.
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da

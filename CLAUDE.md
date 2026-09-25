@@ -32,6 +32,9 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
   nunca é chamado durante uma conversa (R11.2). Instalado e calibrado desde 2026-09-25:
   roda na GitHub Action `hermes.yml` a cada 50 leads (R6.2), com o modelo padrão da Meta
   (nunca `-contributor` sobre cliente real) — ver [`hermes/README.md`](hermes/README.md).
+  Desde R14.14 o operador aprova ou recusa cada proposta por um link no e-mail; o motivo
+  vira o histórico que o Hermes lê antes de propor, e a aprovada é implementada, provada e
+  publicada sozinha ([`hermes/IMPLEMENTAR.md`](hermes/IMPLEMENTAR.md)).
 
 ## Arquitetura — decidida na rodada 11 (2026-09-22)
 
@@ -54,7 +57,7 @@ preferência:
 | **RAG** (R11.4) | A base de conhecimento tem 104 linhas e já cabe no prompt. RAG traria um modo de falha — recuperação que falha — que a arquitetura inteira existe para evitar |
 | **Vector store para memória** (R11.5) | O fato durável do lead é uma coluna `jsonb` em `leads`, escrita por extrator determinístico |
 | **Hermes dentro do turno** (R11.2) | Terceira chamada de modelo, com teto de R$ 1,50 por conversa e ritmo em milissegundos. Custo e latência sem ganho |
-| **Auto-aplicar melhoria em produção** (R11.6) | O loop fecha num humano. O `BUSINESS_CONFIG` já bloqueia isso fisicamente — **não remova essa barreira** |
+| **Auto-aplicar melhoria em produção** (R11.6) | O loop fecha num humano. O `BUSINESS_CONFIG` já bloqueia isso fisicamente — **não remova essa barreira**. Desde R14.14 o humano é o clique do operador em "Aprovar" de cada proposta; só depois dele a mudança se implementa, se prova e se publica |
 
 **A Evaluation Layer são views SQL e um job** (R11.3), não um serviço. **O Sandbox é o CI
 deste repositório** (R11.7) — `pnpm test && pnpm dev:conversas && pnpm typecheck:function`

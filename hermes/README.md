@@ -17,8 +17,12 @@ conversations (Supabase, or a persona round)
     a gate loosening names the neighbouring lie that stays vetoed
   → each quote run through TODAY's gates ("hoje: vetada por …" / "passa")
   → hermes_runs + hermes_proposals (status 'proposed') + a PR with the document
-  → the operator decides; an accepted proposal becomes a registry entry, measured by
-    the scorecard and `pnpm dev:gates` like any other change
+  → n8n e-mails one link per proposal; the operator approves or refuses, with a reason
+  → approved: a scheduled session implements it (hermes/IMPLEMENTAR.md), proves it (CI,
+    Opus review loop, personas) and merges it with `hermes:<id>`; deploy-hermes.yml
+    publishes after CI on main; the outcome is e-mailed
+  → every decision, reason and result is in hermes_proposals, and the next run reads it
+    (decisoes.md in the bundle) before proposing (R14.14)
 ```
 
 ## Commands
