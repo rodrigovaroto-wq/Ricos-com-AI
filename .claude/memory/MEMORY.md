@@ -22,3 +22,4 @@ salvamento e a política de crescimento.
 - [O desfecho do turno não é persistido](desfecho-do-turno-nao-persistido.md) — vai para `turn_outcomes` desde 22/09 (não deployado); conversa anterior ao deploy da v33 não tem desfecho, e nenhuma taxa pode começar antes dessa data.
 - [Guarda testada por mutação](guarda-testada-por-mutacao.md) — toda guarda nova ganha uma mutação em `src/dev/verify-guards.ts` que reinstala o bug de origem; o CI exige que ela fique vermelha.
 - [Grafo de decisões](grafo-de-decisoes.md) — leia antes de mexer em gate, estado da conversa ou handoff: os atalhos óbvios já falharam e o grafo diz por quê.
+- [Não relembrar PAT nem CONVERSATION_MODEL](nao-relembrar-pendencias-do-operador.md) — o operador sabe e faz; pendência já reconhecida não vira fecho de resposta.
