@@ -78,6 +78,7 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
+  bargainsToBuy,
   decidesToBuy,
   decideClarify,
   goodbyeParks,
@@ -99,7 +100,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -743,6 +744,7 @@ const checkoutDirectiveFor = (
   size: string | null,
   path: "cod" | "prepay",
   prefilled = true,
+  fact: string | null = null,
 ): string | null =>
   url === null
     ? null
@@ -756,7 +758,12 @@ const checkoutDirectiveFor = (
             ` com todas as letras, porque em branco o depósito escolhe por ela`
           : `${size ? ` e o tamanho ${size}` : " e o tamanho"}`
       }. Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
-      ` nasce quando ela terminar no checkout.`;
+      ` nasce quando ela terminar no checkout.` +
+      // H-2: the link's own row of the linked facts, for her reasoning — not a line to send.
+      (fact
+        ? ` Este link é o desta linha dos FATOS LIGADOS: [${fact}]. Se ela perguntar quanto é ou` +
+          ` quando chega, a resposta é essa linha, nunca a de outro caminho.`
+        : ``);
 
 /**
  * Everything the notifier needs to reach a person without querying the database
@@ -1951,6 +1958,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // and a decision in her words sends the link (Marcinha's "vou nesse então").
   // A goodbye never beats a decision: "deixa quieto, quero o G mesmo" is buying.
   if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
+  // A purchase on a price the shop does not have is not a decision (H-2): no link on
+  // "faz por 100 que eu levo", whichever reading said yes.
+  if (bargainsToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
@@ -2290,6 +2300,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     );
   }
   const linkCheckout = kitUrl ? { codUrl: kitUrl, prepayUrl: kitUrl } : (CONFIG.checkout ?? {});
+  // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
+  // the link and written to `turn_outcomes.reason`, so the record says what was sent.
+  const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
   const readiness = {
     identityComplete,
     interpretation,
@@ -2350,9 +2363,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         ? `${THINK_REPLY}\n\n${thinkLink}` +
             (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
         : THINK_REPLY,
-      "ela vai pensar: resposta fixa e link",
+      thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
-      { checkoutUrl: thinkLink },
+      { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
     );
     if (sent) return sent;
   }
@@ -2379,6 +2392,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,
     linkPath,
     Object.keys(identityDraft).length > 0,
+    linkFact,
   );
   // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
   // kit's, the sizes she gave go in the checkout complement — the only field she types.
@@ -2656,7 +2670,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     recordOutcome(
       conversation.id,
       fallbackReason === null ? "send" : "fallback",
-      fallbackReason,
+      fallbackReason ?? (checkoutUrl && linkFact ? `link — ${linkFact}` : null),
       rewritesUsed,
       spent - spentBefore,
     ),
@@ -2691,6 +2705,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // ela escolhe o dia da entrega. `order` continua aqui para quando o pedido passar a
     // nascer por API — mas hoje quem cria o pedido é ela, clicando.
     checkoutUrl,
+    linkFact: checkoutUrl ? linkFact : null,
     checkoutBlocked,
     // Where the sale actually stands. `addressReady` is the gate on creating an order:
     // complete is not enough, she has to have confirmed the read-back.

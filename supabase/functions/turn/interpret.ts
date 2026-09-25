@@ -110,7 +110,8 @@ export const INTERPRETER_SYSTEM = [
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
   '  se despede desistindo por agora ("deixa pra lá", "deixa então, vlw").',
   '- "wants_to_buy": true se ela decide comprar: "quero comprar", "vou nesse então", "quero',
-  '  então", "vou querer", "pode mandar o link", "quero um G".',
+  '  então", "vou querer", "pode mandar o link", "quero um G". Compra com condição de preço',
+  '  ("faz por 100 que eu levo", "se baixar eu compro") não é decisão: false.',
   '- "pending_answer": compare com a ÚLTIMA mensagem da assistente.',
   '  "answered" = a assistente fez uma pergunta e a mensagem responde;',
   '  "other_question" = ela faz uma pergunta própria ou traz um assunto real novo;',
@@ -508,7 +509,14 @@ export const sendLinkNow = (args: {
   sizeKnown: boolean;
 }): boolean => args.sizeKnown && readyForLink(args);
 
-/** She is ready for the link — whether or not the size is known yet. */
+/**
+ * She is ready for the link — whether or not the size is known yet.
+ *
+ * H-2 (operator, 2026-09-25): the link goes only once she confirms she wants to buy; a
+ * link sent while she is still asking rushes her and loses the sale. Letting the name
+ * question pass still counts — the agent asks it only after she decided — but not when
+ * she let it pass to ask something new: that is a customer still deciding.
+ */
 export const readyForLink = (args: {
   identityComplete: boolean;
   interpretation: Interpretation;
@@ -518,7 +526,7 @@ export const readyForLink = (args: {
   args.identityComplete ||
   args.interpretation.wants_to_buy ||
   args.interpretation.email_unavailable ||
-  (args.identityAsked && !args.identityGiven);
+  (args.identityAsked && !args.identityGiven && args.interpretation.pending_answer !== "other_question");
 
 /**
  * Whether an opt-out message also asks something (R13.4, Rose): "não me manda mais
@@ -612,6 +620,24 @@ export const decidesToBuy = (message: string): boolean => {
     if (/\bnao\b/.test(clause) || new RegExp(LATER).test(clause)) continue;
     if (new RegExp(String.raw`\bmas\b[^.!?\n]*` + LATER).test(rest)) continue;
     return true;
+  }
+  return false;
+};
+
+/**
+ * A purchase on a condition the shop does not meet is not a decision (H-2, persona round
+ * 2026-09-25, Tati: "faz por 100 que eu levo agora" sent the checkout link at R$ 129,90).
+ * Only the bargain shapes count: asking for a price ("faz por 100", "se baixar", "por 100
+ * eu levo") or a discount/installment as the condition. A denial of the bargain ("não
+ * precisa fazer por 100, manda o link") is not one.
+ */
+const BARGAIN =
+  /\b(?:(?:faz|faca|faria|fazer|deixa|deixaria)\s+(?:por|a|pra)\s+(?:r\$\s*)?\d+|se\s+(?:voce\s+|vc\s+)?(?:fizer|fazer|baixar|abaixar|tirar|der\s+(?:um\s+)?desconto|parcelar|dividir)|por\s+(?:r\$\s*)?\d+[^.!?\n]{0,20}\b(?:levo|compro|fecho|pego)|com\s+desconto[^.!?\n]{0,20}\b(?:levo|compro|fecho|pego))/g;
+
+export const bargainsToBuy = (message: string): boolean => {
+  const t = norm(message);
+  for (const m of t.matchAll(BARGAIN)) {
+    if (!negatedBefore(t, m.index ?? 0)) return true;
   }
   return false;
 };

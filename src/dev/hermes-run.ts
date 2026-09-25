@@ -28,7 +28,7 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runGates } from "../agent/guardrails.js";
 import { ctx as fixtureCtx } from "../../tests/fixtures.js";
-import { annotateWithGates, checkProposals, renderConversation, renderProposals } from "./hermes-core.js";
+import { annotateWithGates, checkProposals, renderConversation, renderLedger, renderProposals, type LedgerRow } from "./hermes-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
 import { renderScorecard, scoreRun, type Conversation } from "./persona-scorecard.js";
 
@@ -114,6 +114,15 @@ for (const c of conversations) {
 }
 writeFileSync(join(bundle, "placar.md"), renderScorecard(source, scoreRun(conversations)));
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
+// The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
+// idea is not proposed again. Read from Supabase whenever it is reachable — persona runs
+// included, because the lessons are the same; without it the file says so.
+const ledger: LedgerRow[] = SB
+  ? await rest<LedgerRow[]>(
+      "hermes_proposals?select=code,target,rationale,status,decision_reason,execution_ref,result,created_at,decided_at&order=created_at.desc&limit=200",
+    )
+  : [];
+writeFileSync(join(bundle, "decisoes.md"), renderLedger(ledger));
 const claude = readFileSync(join(REPO, "CLAUDE.md"), "utf8");
 writeFileSync(
   join(bundle, "regras.md"),
@@ -133,7 +142,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia placar.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia decisoes.md primeiro, depois placar.md, regras.md, registro.md e todos os arquivos em conversas/, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();
@@ -193,8 +202,11 @@ if (writeDb) {
     await rest("hermes_proposals", {
       method: "POST",
       body: JSON.stringify(
-        ok.map(({ proposal: p }) => ({
+        ok.map(({ proposal: p }, i) => ({
           run_id: run!.id,
+          // The code the operator reads in the document (renderProposals numbers the valid
+          // ones), with the day: H-numbers restart every run.
+          code: `${day} H-${i + 1}`,
           target: p.alvo,
           rationale: `${p.o_que} — ${p.por_que}`,
           evidence: { ...p, source },

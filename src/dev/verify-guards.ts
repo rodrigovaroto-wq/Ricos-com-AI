@@ -26,6 +26,22 @@ interface Mutation {
 
 const MUTATIONS: Mutation[] = [
   {
+    id: "H-2-pergunta",
+    bug: "o link saía quando ela deixava o pedido do nome passar pra fazer outra pergunta",
+    files: ["src/agent/interpret.ts"],
+    from: '(args.identityAsked && !args.identityGiven && args.interpretation.pending_answer !== "other_question")',
+    to: "(args.identityAsked && !args.identityGiven)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
+    id: "H-2-barganha",
+    bug: '"faz por 100 que eu levo" contava como decisão e mandava o link (Tati)',
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (bargainsToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: false };',
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
     id: "M-05",
     bug: 'afrouxamento: "tiro … dúvida" removido mesmo com concessão depois (1ª versão da M-05)',
     files: ["src/agent/guardrails.ts"],

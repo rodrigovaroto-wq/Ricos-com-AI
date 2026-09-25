@@ -1608,6 +1608,21 @@ repassa e a função a compara com o secret `SALE_WEBHOOK_TOKEN` — venda sem a
 401. O O2 (espera de 2 min e retomada) subiu junto. A sonda de produção achou a
 `META_API_KEY` do Supabase recusada pela Meta: bloqueio do operador.
 
+## R14.13 — H-2: o link só vai com a compra confirmada (2026-09-25, tarde)
+
+Decisão do operador sobre a proposta H-2 do Hermes ("todo link sai com o preço do caminho"):
+**recusada como escrita.** O link não carrega o preço por regra, porque a cliente pode estar
+só perguntando e o link cedo demais apressa e perde a venda. No lugar:
+
+1. **O link só sai quando ela confirma que quer comprar.** Barganha com "eu levo" não é
+   decisão; deixar o pedido do nome passar para perguntar outra coisa também não.
+2. **"Vou pensar" continua mandando o link** (R13.4 mantida, confirmado pelo operador).
+3. **Fatos ligados, só no raciocínio e no registro da agente**: preço ↔ caminho ↔ peças ↔
+   prazo ↔ link, lidos do config — nunca como formato de mensagem.
+4. **Prazo do antecipado continua "em média 5 dias úteis"** (sem faixa de 5 a 10).
+
+Grafo: §12.
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da

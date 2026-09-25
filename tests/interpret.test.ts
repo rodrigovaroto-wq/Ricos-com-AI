@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   asksSomething,
+  bargainsToBuy,
   CLARIFY_SIZE_REPLIES,
   decideClarify,
   decidesToBuy,
@@ -372,6 +373,50 @@ describe("quando o link sai sem esperar a identidade", () => {
   it("não sai numa conversa que ainda não chegou lá", () => {
     expect(sendLinkNow(args)).toBe(false);
     expect(sendLinkNow({ ...args, interpretation: read({ pending_answer: "other_question" }) })).toBe(false);
+  });
+
+  // H-2 (operador, 2026-09-25): o link só vai quando ela confirma que quer comprar. Deixar
+  // o pedido do nome passar pra fazer outra pergunta é cliente ainda decidindo.
+  it("não sai quando ela ignorou o pedido do nome pra perguntar outra coisa", () => {
+    const perguntou = read({ pending_answer: "other_question" });
+    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(false);
+    expect(readyForLink({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(false);
+    // ...mas se ela decidiu na mesma mensagem, a pergunta não segura o link.
+    expect(
+      sendLinkNow({ ...args, identityAsked: true, interpretation: read({ pending_answer: "other_question", wants_to_buy: true }) }),
+    ).toBe(true);
+    // E deixar passar sem perguntar nada continua mandando (R13.4).
+    expect(sendLinkNow({ ...args, identityAsked: true, interpretation: read({ pending_answer: "unrelated" }) })).toBe(true);
+  });
+});
+
+/** H-2: compra condicionada a um preço que a loja não tem não é decisão (Tati, 2026-09-25). */
+describe("barganha com 'eu levo' não é decisão de compra", () => {
+  it.each([
+    "faz por 100 que eu levo agora",
+    "Faz a 110 no pix?",
+    "se fizer por 100 eu compro",
+    "se você baixar eu levo",
+    "se vc der um desconto eu fecho",
+    "por 100 eu levo hoje",
+    "com desconto eu levo duas",
+    "se parcelar eu compro",
+    "deixa por R$ 99 que eu pego",
+  ])("%s → barganha", (msg) => {
+    expect(bargainsToBuy(msg)).toBe(true);
+  });
+
+  it.each([
+    "quero comprar, pode mandar o link",
+    "vou levar o M",
+    "não precisa fazer por 100, manda o link",
+    "nem precisa baixar, eu levo assim mesmo",
+    "fica 129,90 mesmo? pode mandar",
+    "quero no pix",
+    "comprei por 100 numa loja e não serviu",
+    "o M serve pra quem usa 42?",
+  ])("%s → não é barganha", (msg) => {
+    expect(bargainsToBuy(msg)).toBe(false);
   });
 });
 
