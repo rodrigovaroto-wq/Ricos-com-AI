@@ -28,6 +28,10 @@ uma. Nada do que você escreve vai para produção sem ele.
   proponha de novo o que já está lá**; se uma entrada aberta ou atingida voltou a falhar, cite
   o número dela (M-xx) e proponha o ajuste.
 - `regras.md` — o que o sistema decidiu **não** fazer, e por quê.
+- `decisoes.md` — **leia primeiro.** Cada proposta sua de antes, com a decisão do operador, o
+  motivo dele e o resultado medido depois. Proposta recusada não volta, nem com outras
+  palavras: o motivo é o critério que vale daqui pra frente. Aprovada que não atingiu o
+  resultado: diga isso e proponha o ajuste citando o código dela (H-xx).
 
 ## Como a Malu funciona (o que você precisa saber para propor certo)
 

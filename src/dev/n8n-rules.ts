@@ -58,6 +58,17 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
     if (String(node.parameters?.jsonBody ?? "").includes('job: "order"') && !String(node.parameters?.jsonBody).includes("token"))
       problems.push(`${where}: the order call does not forward the webhook token (O10)`);
   }
+  // The Hermes decision form (2026-09-25): a public URL. It may only flip a row whose token
+  // matches and that is still 'proposed' — without both filters any link, old or guessed,
+  // approves a change that then implements and publishes itself.
+  if (wf.nodes.some((n) => n.type === "n8n-nodes-base.formTrigger" && !n.disabled)) {
+    for (const node of wf.nodes) {
+      const url = String(node.parameters?.url ?? "");
+      if (node.type !== "n8n-nodes-base.httpRequest" || node.parameters?.method !== "PATCH" || !url.includes("/rest/v1/hermes_proposals?id=eq.")) continue;
+      if (!url.includes("decision_token=eq.") || !url.includes("status=eq.proposed"))
+        problems.push(`${wf.name} › ${node.name}: the decision update does not require the token and status=proposed`);
+    }
+  }
   // O2: a new lead gets the welcome and, without the Wait and the resume call, nothing
   // else ever again. The inbound workflow must carry both.
   const inbound = wf.nodes.some((n) => n.type === "n8n-nodes-base.webhook" && n.parameters?.path === "encorpa-inbound");

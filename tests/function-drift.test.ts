@@ -403,6 +403,22 @@ describe("M-03 na Edge Function", () => {
   });
 });
 
+describe("H-2 na Edge Function (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("preço inventado desliga a decisão de compra, depois da leitura determinística", () => {
+    const decide = source.indexOf('if (decidesToBuy(inbound.body ?? "")) interpretation');
+    const bargain = source.indexOf(
+      'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
+    );
+    expect(decide).toBeGreaterThan(-1);
+    expect(bargain).toBeGreaterThan(decide);
+  });
+  it("o link leva a linha dos fatos ligados, e o registro do turno a guarda", () => {
+    expect(source).toContain("const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);");
+    expect(source).toContain('fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),');
+  });
+});
+
 describe("kits na Edge Function (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a quantidade escolhe o link do kit, e mais que o maior kit vai para uma pessoa", () => {

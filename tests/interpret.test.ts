@@ -10,6 +10,7 @@ import {
   INTERPRET_MAX_COMPLETION_TOKENS,
   linkPathFor,
   namesAPerson,
+  namesOwnPrice,
   NEUTRAL_INTERPRETATION,
   readInterpretation,
   linkSentRecently,
@@ -372,6 +373,111 @@ describe("quando o link sai sem esperar a identidade", () => {
   it("não sai numa conversa que ainda não chegou lá", () => {
     expect(sendLinkNow(args)).toBe(false);
     expect(sendLinkNow({ ...args, interpretation: read({ pending_answer: "other_question" }) })).toBe(false);
+  });
+
+  // Revisão do H-2 (2026-09-25): o pedido de identidade só vem depois da decisão, e a
+  // decisão não fica guardada em outro lugar — segurar o link aqui deixa sem link quem já
+  // disse sim ("pra que você precisa do meu CPF?").
+  it("ela ignorou o pedido do nome pra perguntar outra coisa: o link ainda sai", () => {
+    const perguntou = read({ pending_answer: "other_question" });
+    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(true);
+  });
+});
+
+/**
+ * H-2: quem cita um preço que a loja não tem está pedindo, não decidindo (Tati, "faz por
+ * 100 que eu levo agora"). Lido pelo número, não pela frase: a primeira versão, por frase,
+ * vetou "por 116 eu levo" (o preço real do pix) e deixou passar "não dá pra fazer por 100?".
+ */
+describe("preço que a loja não tem não é decisão de compra", () => {
+  const prices = [129.9, 116.91, 199.9, 233.82, 311.76, 207.84, 272.79];
+  const real = ["129,90", "129", "130", "116", "116,91", "117", "207", "R$ 233,82", "272", "311"];
+  const own = ["100", "110", "90", "R$ 99,90", "115", "120", "180", "150", "80"];
+  const frames = [
+    (n: string) => `por ${n} eu levo`,
+    (n: string) => `faz por ${n} que eu levo agora`,
+    (n: string) => `não dá pra fazer por ${n}? quero o G`,
+    (n: string) => `não faz ${n} não? quero um G`,
+    (n: string) => `quero um G por ${n}`,
+    (n: string) => `vou levar, mas só por ${n}`,
+    (n: string) => `se for ${n} eu fecho`,
+    (n: string) => `levo 2 por ${n}`,
+  ];
+  it("preço da loja, em qualquer frase e com negação: não é pedido de preço", () => {
+    for (const f of frames) for (const n of real) expect({ msg: f(n), own: namesOwnPrice(f(n), prices) }).toEqual({ msg: f(n), own: false });
+  });
+  it("preço inventado, em qualquer frase e com negação: é pedido de preço", () => {
+    for (const f of frames) for (const n of own) expect({ msg: f(n), own: namesOwnPrice(f(n), prices) }).toEqual({ msg: f(n), own: true });
+  });
+  // Segunda revisão: decisão + número que não é preço fica decisão (o prompt pede a cintura em cm).
+  const notPrice = [
+    "quero o G, minha cintura é 80",
+    "quero o M, cintura 72 cm",
+    "quero o GG, quadril 110",
+    "quero comprar, peso 75kg",
+    "quero o G, tenho 62 anos",
+    "Rua Augusta 150, pode mandar o link",
+    "moro no numero 321, quero o G",
+    "quero o G, apto 102",
+    "quero o G, fica 44 em mim?",
+    "quero o G, dá pra parcelar em 12x?",
+    "quero, chega em 30 dias?",
+    "quero o G, 10h30 posso receber?",
+    "quero o G, se nao servir troco por 44?",
+    "quero o G, da pra trocar por 46 se nao servir?",
+    "quero o G, pode ser 80 de cintura",
+    "quero o G, minha cintura fica 80",
+    "quero o G, visto 44 mas por 90 de quadril fica bom?",
+    "quero o 44, eu levo",
+  ];
+  it("decisão com número que não é preço continua decisão", () => {
+    for (const msg of notPrice) expect({ msg, own: namesOwnPrice(msg, prices, [10]) }).toEqual({ msg, own: false });
+  });
+  it.each([
+    "quero o G por 59,90",
+    "quero o G por noventa",
+    "faz por cem que eu levo",
+    "quero o G, pago 100 reais",
+    "quero o G com 30% de desconto",
+    "quero o G, fecha em 100?",
+    "quero o G, deixa em 100",
+    "quero o G, sai a 100?",
+    "quero o G se fosse 100",
+    "quero o G, faria 100?",
+    "quero o G, consegue 100?",
+    "quero o G, valor 100?",
+    "quero o G, 100 eu pago",
+    "quero o G, só tenho 100",
+    "quero o G, meu limite é 100",
+    "quero o G no pix por 100",
+    "quero o G, no pix fica 100?",
+    "quero o G, no cartao faz 100?",
+    "quero o tamanho G por 100",
+    "quero o G, aceita 100?",
+    "quero o G, que tal 100?",
+    "quero o G, 100 ta bom?",
+    "quero o G, no pix da 100?",
+  ])("%s → pedido de preço (abaixo de 60, por extenso, porcentagem)", (msg) => {
+    expect(namesOwnPrice(msg, prices, [10])).toBe(true);
+  });
+  // Ressalva aceita: "por 50" inteiro fica na faixa dos tamanhos de calça (36–56) e colide
+  // com "troco por 44"; o intérprete ainda lê a barganha.
+  it("ressalva: 'por 50' inteiro não é lido pelo número", () => {
+    expect(namesOwnPrice("quero um G por 50", prices, [10])).toBe(false);
+  });
+  it("a porcentagem que a loja dá não é pedido", () => {
+    expect(namesOwnPrice("quero no pix com 10% de desconto", prices, [10])).toBe(false);
+  });
+  it.each([
+    "quero o G, uso calça 46",
+    "meu cep é 01310-100, quero comprar",
+    "meu zap é 11 98765-4321",
+    "quero 2, um 42 e um 44",
+    "chega em 3 dias?",
+    "cpf 123.456.789-09",
+    "quero comprar, pode mandar o link",
+  ])("%s → sem preço inventado", (msg) => {
+    expect(namesOwnPrice(msg, prices)).toBe(false);
   });
 });
 

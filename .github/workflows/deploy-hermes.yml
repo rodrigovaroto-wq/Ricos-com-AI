@@ -1,0 +1,84 @@
+# Publishes the Edge Function for a change the operator approved from a Hermes proposal
+# (R14.14, 2026-09-25): the operator's click on "Aprovar" is the human gate, CI is the
+# sandbox (R11.7), and this is the last step. Any other merge to main still deploys by
+# hand, on the operator's "pode subir" (R14.8).
+#
+# Runs after CI passes on main, and only when the merged commit carries `hermes:<uuid>`
+# (the implementing session puts it in the PR title). Refuses a change with a migration:
+# the running function must never meet a schema it does not know, so those stay manual.
+#
+# Secrets: SUPABASE_ACCESS_TOKEN (deploy), SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (mark
+# the proposal published or failed).
+name: Deploy (Hermes)
+
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy-turn
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 2
+
+      - name: Is this an approved Hermes change?
+        id: which
+        run: |
+          id=$(git log -1 --format=%B | grep -oE 'hermes:[0-9a-f-]{36}' | head -1 | cut -d: -f2 || true)
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          if [ -n "$id" ] && git diff --name-only HEAD~1 HEAD | grep -q '^supabase/migrations/'; then
+            echo "migration=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Refuse a migration
+        if: steps.which.outputs.id != '' && steps.which.outputs.migration == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -fsS -X PATCH "$SUPABASE_URL/rest/v1/hermes_proposals?id=eq.${{ steps.which.outputs.id }}" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d '{"status":"failed","result":"a mudança traz migração: publicação automática recusada, precisa do operador"}'
+          exit 1
+
+      - uses: supabase/setup-cli@v1
+        if: steps.which.outputs.id != ''
+        with:
+          version: latest
+
+      - name: Deploy the turn function
+        if: steps.which.outputs.id != ''
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+        # verify_jwt stays on (the CLI default), as in every deploy so far.
+        run: supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api
+
+      - name: Mark the proposal
+        if: always() && steps.which.outputs.id != '' && steps.which.outputs.migration != 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          OUTCOME: ${{ job.status }}
+          RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ "$OUTCOME" = "success" ]; then
+            body=$(jq -nc --arg r "$RUN" '{status:"published", result:("publicada: " + $r)}')
+          else
+            body=$(jq -nc --arg r "$RUN" '{status:"failed", result:("o deploy falhou, nada mudou em produção: " + $r)}')
+          fi
+          curl -fsS -X PATCH "$SUPABASE_URL/rest/v1/hermes_proposals?id=eq.${{ steps.which.outputs.id }}" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" -d "$body"

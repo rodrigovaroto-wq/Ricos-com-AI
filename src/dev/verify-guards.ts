@@ -26,6 +26,30 @@ interface Mutation {
 
 const MUTATIONS: Mutation[] = [
   {
+    id: "H-2-preco-da-loja",
+    bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
+    files: ["src/agent/interpret.ts"],
+    from: "if (!prices.some((p) => Math.abs(p - value) <= 1)) return true;",
+    to: "return true;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
+    id: "H-2-barganha",
+    bug: '"faz por 100 que eu levo" contava como decisão e mandava o link (Tati)',
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "H-2-numero",
+    bug: "a leitura por número desligada: nenhum preço inventado é visto",
+    files: ["src/agent/interpret.ts"],
+    from: "if (cue === null || value < cue) continue;",
+    to: "continue;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
     id: "M-05",
     bug: 'afrouxamento: "tiro … dúvida" removido mesmo com concessão depois (1ª versão da M-05)',
     files: ["src/agent/guardrails.ts"],

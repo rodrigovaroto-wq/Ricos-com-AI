@@ -112,6 +112,47 @@ export const kitsBriefing = (config: PromptConfig): string[] => {
 };
 
 /**
+ * One row of the linked facts (H-2, operator, 2026-09-25): the price, the path, the pieces,
+ * the deadline and the checkout, tied together. Null when there is no such checkout (a kit
+ * size the config does not carry). Read from the config like every other number.
+ */
+export const linkFactLine = (config: PromptConfig, path: "cod" | "prepay", units = 1): string | null => {
+  const kit = units > 1 ? (config.kits ?? []).find((k) => k.path === path && k.units === units) : undefined;
+  if (units > 1 && !kit) return null;
+  const price = kit ? kit.priceBrl : path === "cod" ? config.prices.codBrl : config.prices.prepayBrl;
+  const pieces = units > 1 ? `${units} peças` : `1 peça`;
+  const deadline =
+    path === "cod"
+      ? `recebe em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias, no dia que ela escolhe no checkout`
+      : prepayWindowLine(config).replace(/,$/, "") || `prazo não informado`;
+  return path === "cod"
+    ? `pagamento na entrega | ${pieces} | ${money(price)} pagos ao entregador | ${deadline} | link do checkout da entrega${units > 1 ? ` de ${pieces}` : ""}`
+    : `pagamento antecipado | ${pieces} | ${money(price)} pagos antes, no checkout | ${deadline} | link do checkout do antecipado${units > 1 ? ` de ${pieces}` : ""}`;
+};
+
+/**
+ * The linked facts, for her reasoning only (H-2): the operator wants every price tied to its
+ * link, path and deadline in her head, never sent in this shape. Tati got the delivery link
+ * right after the prepaid price and had to ask "continua 116?".
+ */
+export const linkFactsBriefing = (config: PromptConfig): string[] => {
+  const rows = (["cod", "prepay"] as const).flatMap((path) =>
+    [1, ...(config.kits ?? []).filter((k) => k.path === path).map((k) => k.units).sort((a, b) => a - b)]
+      .map((units) => linkFactLine(config, path, units))
+      .filter((row): row is string => row !== null),
+  );
+  return [
+    ``,
+    `FATOS LIGADOS — referência sua, NUNCA formato de mensagem. Cada linha liga um preço a um`,
+    `caminho, a uma quantidade, a um prazo e a um link, e nada de uma linha vale pra outra: o`,
+    `link da entrega tem sempre o preço e o prazo da entrega, o do antecipado sempre os do`,
+    `antecipado. Se ela perguntar quanto é o link que você mandou, a resposta é a linha dele.`,
+    `Nunca mande estas linhas nem este formato pra ela; fale com as suas palavras.`,
+    ...rows.map((row) => `[${row}]`),
+  ];
+};
+
+/**
  * What she may say about freight — read from `delivery.freeShipping`, with the exact
  * `=== true` test the `shipping_promise` gate uses (`guardrails.ts`).
  *
@@ -397,6 +438,7 @@ export const systemPrompt = (
     `prefere pagar antes paga`,
     `${prepayPriceLine(config)}, ${prepayWindowLine(config)} — as duas metades saem na mesma frase.`,
     ...kitsBriefing(config),
+    ...linkFactsBriefing(config),
     ``,
     ...freightBriefing(config),
     ``,
@@ -445,6 +487,10 @@ export const systemPrompt = (
     `Se ela já disse que quer comprar e o tamanho dela está definido, o link vem na instrução:`,
     `mande o link e NÃO peça nome, e-mail nem CPF antes — o checkout pede o que faltar. Com`,
     `cliente desconfiada, mais ainda: o link primeiro, nunca o CPF primeiro.`,
+    `O link só vai quando ela confirmar que quer comprar. Enquanto ela só pergunta, sem ter`,
+    `dito que quer, responda sem mandar link: quem pergunta ainda está decidindo, e o link cedo`,
+    `demais apressa e perde a venda. Pedir preço menor com "eu levo" não é decisão. Quando a`,
+    `instrução do link chegar, mande o link, mesmo que ela tenha perguntado algo junto.`,
     ``,
     ...objectionBriefing(config),
     ``,

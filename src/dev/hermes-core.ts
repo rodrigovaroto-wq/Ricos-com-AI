@@ -124,6 +124,60 @@ export function checkProposals(raw: unknown, conversations: ReadonlyMap<string, 
   });
 }
 
+/** One row of the ledger (`hermes_proposals`, migration 0014). */
+export interface LedgerRow {
+  code: string | null;
+  target: string;
+  rationale: string;
+  status: "proposed" | "accepted" | "rejected" | "implementing" | "published" | "failed";
+  decision_reason: string | null;
+  execution_ref: string | null;
+  result: string | null;
+  created_at: string;
+  decided_at: string | null;
+}
+
+const STATUS_PT: Record<LedgerRow["status"], string> = {
+  proposed: "aguardando o operador",
+  accepted: "aprovada, na fila de implementação",
+  rejected: "RECUSADA",
+  implementing: "aprovada, sendo implementada",
+  published: "aprovada e publicada",
+  failed: "aprovada, mas a implementação não passou nos testes (nada foi publicado)",
+};
+
+/**
+ * What Hermes reads before proposing (operator, 2026-09-25): every earlier proposal with
+ * the operator's decision and reason, and the result measured after. Refused ones first —
+ * they are the criterion Hermes most needs to learn, and the reason is the lesson.
+ */
+export function renderLedger(rows: readonly LedgerRow[]): string {
+  const lines = [
+    "# Decisões anteriores do operador",
+    "",
+    "Tudo o que você já propôs e o que o operador decidiu. **Não proponha de novo o que foi",
+    "recusado**, nem com outras palavras: o motivo dele é o critério que vale daqui pra frente.",
+    "Se uma proposta aprovada não atingiu o resultado, diga isso e proponha o ajuste citando o código dela.",
+    "",
+  ];
+  if (rows.length === 0) return [...lines, "(nenhuma decisão registrada ainda)", ""].join("\n");
+  const order: LedgerRow["status"][] = ["rejected", "failed", "published", "implementing", "accepted", "proposed"];
+  const sorted = [...rows].sort(
+    (a, b) => order.indexOf(a.status) - order.indexOf(b.status) || b.created_at.localeCompare(a.created_at),
+  );
+  for (const r of sorted) {
+    lines.push(
+      `## ${r.code ?? "H-?"} · ${r.target} · ${STATUS_PT[r.status]} (${(r.decided_at ?? r.created_at).slice(0, 10)})`,
+      `- **Proposta:** ${maskPii(r.rationale)}`,
+      ...(r.decision_reason ? [`- **Motivo do operador:** ${maskPii(r.decision_reason)}`] : []),
+      ...(r.execution_ref ? [`- **Implementação:** ${r.execution_ref}`] : []),
+      ...(r.result ? [`- **Resultado medido:** ${maskPii(r.result)}`] : []),
+      "",
+    );
+  }
+  return lines.join("\n");
+}
+
 /** The operator reads this: accepted proposals first, rejected ones with the reason. */
 export function renderProposals(title: string, summary: string, checked: readonly Checked[]): string {
   const lines = [`# ${title}`, "", summary.trim(), ""];

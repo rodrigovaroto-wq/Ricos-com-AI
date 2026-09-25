@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { checkProposals, maskPii, renderConversation } from "../src/dev/hermes-core.js";
+import { checkProposals, maskPii, renderConversation, renderLedger, type LedgerRow } from "../src/dev/hermes-core.js";
 
 const conversa = renderConversation({
   persona: "persona-jussara",
@@ -89,5 +89,43 @@ describe("hermes: cada trecho citado passa pelos gates de hoje", () => {
     const { annotateWithGates, checkProposals } = await import("../src/dev/hermes-core.js");
     const [c] = annotateWithGates(checkProposals(proposta(), conversas), (t) => (t.includes("tiro") ? [] : ["x"]));
     expect(c?.today).toEqual([{ trecho: "tiro mais alguma dúvida antes?", blockedBy: [] }]);
+  });
+});
+
+/** A memória do Hermes (operador, 2026-09-25): ele lê cada decisão antes de propor. */
+describe("hermes: o histórico de decisões", () => {
+  const row = (over: Partial<LedgerRow>): LedgerRow => ({
+    code: "H-1",
+    target: "prompt",
+    rationale: "Todo link sai com o preço — a cliente perguntou",
+    status: "proposed",
+    decision_reason: null,
+    execution_ref: null,
+    result: null,
+    created_at: "2026-09-25T06:19:27Z",
+    decided_at: null,
+    ...over,
+  });
+
+  it("sem decisões, diz que não há — nunca um arquivo vazio que parece erro", () => {
+    expect(renderLedger([])).toContain("(nenhuma decisão registrada ainda)");
+  });
+
+  it("recusada vem primeiro, com o motivo do operador, que vira o critério", () => {
+    const md = renderLedger([
+      row({ code: "H-9", status: "published", result: "0 respostas prontas", decided_at: "2026-09-25T10:00:00Z" }),
+      row({ code: "H-2", status: "rejected", decision_reason: "link cedo demais perde a venda", decided_at: "2026-09-25T18:00:00Z" }),
+    ]);
+    expect(md.indexOf("H-2")).toBeLessThan(md.indexOf("H-9"));
+    expect(md).toContain("RECUSADA");
+    expect(md).toContain("**Motivo do operador:** link cedo demais perde a venda");
+    expect(md).toContain("**Resultado medido:** 0 respostas prontas");
+    expect(md).toContain("Não proponha de novo o que foi");
+  });
+
+  it("mascara dado pessoal que tenha entrado no motivo ou no resultado", () => {
+    const md = renderLedger([row({ status: "rejected", decision_reason: "a cliente 11 98765-4321 reclamou" })]);
+    expect(md).not.toContain("98765-4321");
+    expect(md).toContain("[telefone]");
   });
 });

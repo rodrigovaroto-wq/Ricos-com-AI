@@ -1608,6 +1608,44 @@ repassa e a função a compara com o secret `SALE_WEBHOOK_TOKEN` — venda sem a
 401. O O2 (espera de 2 min e retomada) subiu junto. A sonda de produção achou a
 `META_API_KEY` do Supabase recusada pela Meta: bloqueio do operador.
 
+## R14.13 — H-2: o link só vai com a compra confirmada (2026-09-25, tarde)
+
+Decisão do operador sobre a proposta H-2 do Hermes ("todo link sai com o preço do caminho"):
+**recusada como escrita.** O link não carrega o preço por regra, porque a cliente pode estar
+só perguntando e o link cedo demais apressa e perde a venda. No lugar:
+
+1. **O link só sai quando ela confirma que quer comprar.** Barganha com "eu levo" não é
+   decisão; deixar o pedido do nome passar para perguntar outra coisa também não.
+2. **"Vou pensar" continua mandando o link** (R13.4 mantida, confirmado pelo operador).
+3. **Fatos ligados, só no raciocínio e no registro da agente**: preço ↔ caminho ↔ peças ↔
+   prazo ↔ link, lidos do config — nunca como formato de mensagem.
+4. **Prazo do antecipado continua "em média 5 dias úteis"** (sem faixa de 5 a 10).
+
+Grafo: §12.
+
+## R14.14 — Hermes: aprovar é um clique, e o resto anda sozinho (2026-09-25, tarde)
+
+Decisão do operador: "a cada rodada o Hermes fica mais inteligente, registrando todas as
+decisões e execuções; eu só clico em aprovar e tudo se atualiza". R11.6 continua de pé — o
+loop fecha num humano —, e o humano passa a ser o clique em cada proposta:
+
+1. **Histórico** (migração 0014): cada proposta guarda a decisão, o motivo do operador, a
+   implementação e o resultado. O Hermes lê `decisoes.md` antes de propor; recusada não
+   volta, e o motivo vira o critério.
+2. **Decisão por link** (migração 0015, workflow n8n "Hermes: decisão do operador"): e-mail
+   com um link por proposta; o formulário grava só na linha cujo código secreto bate e que
+   ainda está `proposed`. O resultado de cada aprovada também chega por e-mail (0016).
+3. **Implementação** (`hermes/IMPLEMENTAR.md`, rotina agendada): pega a aprovada, implementa,
+   passa o CI inteiro, a revisão Opus em loop e as personas; abre o PR com `hermes:<id>` e
+   faz o merge. O que precisa de segredo, config, migração ou n8n volta como `failed` com o
+   que o operador tem de fazer.
+4. **Publicação** (`deploy-hermes.yml`): depois do CI verde no `main`, só para commit com
+   `hermes:<id>`. **R14.8 continua valendo para todo o resto**: outro merge não publica.
+   Exige o secret `SUPABASE_ACCESS_TOKEN` no GitHub (operador: "(a) sim", e opção 1).
+
+Cuidado que isto cria: o deploy publica o `main` inteiro. Mudança manual no turno que for
+para o `main` precisa ser publicada logo (R14.8), senão sai de carona na próxima aprovada.
+
 ## R14.9 — Para depois
 
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da

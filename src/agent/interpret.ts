@@ -110,7 +110,9 @@ export const INTERPRETER_SYSTEM = [
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
   '  se despede desistindo por agora ("deixa pra lá", "deixa então, vlw").',
   '- "wants_to_buy": true se ela decide comprar: "quero comprar", "vou nesse então", "quero',
-  '  então", "vou querer", "pode mandar o link", "quero um G".',
+  '  então", "vou querer", "pode mandar o link", "quero um G". Pedir preço menor ou desconto',
+  '  como condição ("faz por 100 que eu levo", "me dá um desconto que eu levo") não é decisão:',
+  '  false. Aceitar o preço que a assistente ofereceu ("por 116 eu levo", "fechado no pix") é.',
   '- "pending_answer": compare com a ÚLTIMA mensagem da assistente.',
   '  "answered" = a assistente fez uma pergunta e a mensagem responde;',
   '  "other_question" = ela faz uma pergunta própria ou traz um assunto real novo;',
@@ -508,7 +510,14 @@ export const sendLinkNow = (args: {
   sizeKnown: boolean;
 }): boolean => args.sizeKnown && readyForLink(args);
 
-/** She is ready for the link — whether or not the size is known yet. */
+/**
+ * She is ready for the link — whether or not the size is known yet.
+ *
+ * Letting the name question pass counts even when she asks something new ("pra que o
+ * CPF?"): the agent asks it only after she decided, and the decision is not stored
+ * anywhere else — holding the link there strands a customer who already said yes (H-2
+ * review, 2026-09-25).
+ */
 export const readyForLink = (args: {
   identityComplete: boolean;
   interpretation: Interpretation;
@@ -612,6 +621,68 @@ export const decidesToBuy = (message: string): boolean => {
     if (/\bnao\b/.test(clause) || new RegExp(LATER).test(clause)) continue;
     if (new RegExp(String.raw`\bmas\b[^.!?\n]*` + LATER).test(rest)) continue;
     return true;
+  }
+  return false;
+};
+
+/**
+ * She names a price the shop does not have (H-2, persona round 2026-09-25, Tati: "faz por
+ * 100 que eu levo agora" got the R$ 129,90 link). Read by the number, not by the phrasing:
+ * the phrase-based first version (review, 2026-09-25) vetoed "por 116 eu levo" — Tati
+ * accepting the real prepaid price — and let "não dá pra fazer por 100? quero o G" through.
+ *
+ * A number counts only in price context (second review: "cintura 80", "tenho 62 anos",
+ * "apto 102" are not prices, and the prompt asks for the waist in cm): a money cue before
+ * it ("R$", "pago", "custa"; "por", "faz", "fica", "fecha em", "só tenho" from 60, so
+ * "troco por 44" stays a size) or "reais"/"eu levo" after, and no unit or body measure
+ * around it ("dias", "x", "kg", "cintura 80", "apto 102"). A price within R$ 1 of the shop's is the shop's. A discount
+ * percentage the shop does not give is a price too ("com 30% de desconto").
+ */
+const PRICE_WORDS: Record<string, string> = {
+  cem: "100", cinquenta: "50", sessenta: "60", setenta: "70", oitenta: "80", noventa: "90",
+};
+/** Only money: from R$ 20. */
+const STRONG_CUE = /(?:r\$|rs|pago|paga|pagar|pagaria|custa|custar|custando)\s*$/;
+/**
+ * Money or something else — "troco por 44", "fica 80 de cintura": from R$ 60, above every
+ * pants size. A preposition may sit between ("fecha em 100", "sai a 100", "meu limite é 100").
+ */
+const WEAK_CUE =
+  /\b(?:por|faz|faca|fazer|faria|fica|ficar|sai|sair|deixa|vale|valor|for|fosse|ser|fecha|fecho|fechar|consegue|conseguiria|tenho|limite|aceita|topa|cobra|cobraria|tal|da|daria)\s+(?:(?:e|em|a|de|por|so|uns|umas)\s+)*$/;
+const NOT_MONEY_UNIT =
+  /^\s*(?:x\b|vezes|parcelas?|anos?|kg|quilos?|kilos?|cm|m\b|metros?|%|horas?|h\b|dias?|semanas?|meses|pecas?|unidades?|numero|de\s+(?:cintura|quadril|busto|calca|sapato))/;
+/**
+ * A body measure, an address or a size exchange right before the number: "cintura 80",
+ * "troco por 44", "apto 102". Glued to it, never anywhere in the window — "no pix por 100"
+ * is a bargain (fourth review).
+ */
+const NOT_MONEY_BEFORE =
+  /\b(?:cintura|quadril|busto|calca|calco|visto|uso|troc\w*|tamanho|numero|n[ou]?\.?|apto?|casa|bloco|rua|avenida|av)\s*(?:(?:e|de|eh|por|fica|tem|mede|da)\s+)?$/;
+
+export const namesOwnPrice = (
+  message: string,
+  prices: readonly number[],
+  percents: readonly number[] = [],
+): boolean => {
+  const t = norm(message).replace(/\b(cem|cinquenta|sessenta|setenta|oitenta|noventa)\b/g, (w) => PRICE_WORDS[w]!);
+  for (const m of t.matchAll(/(?<![\d.,-])(\d{2,3})(?:[.,](\d{1,2}))?(?![\d-]|[.,]\d)/g)) {
+    const at = m.index ?? 0;
+    const before = t.slice(Math.max(0, at - 24), at);
+    const after = t.slice(at + m[0].length);
+    if (NOT_MONEY_UNIT.test(after) || NOT_MONEY_BEFORE.test(before)) continue;
+    const value = Number(m[1]) + (m[2] ? Number(m[2].padEnd(2, "0")) / 100 : 0);
+    const moneyAfter = /^\s*(?:reais|real|conto|contos|pila)\b/.test(after);
+    // "100 eu pago", "100 eu levo": money only above the sizes ("o 44 eu levo" is a size).
+    const offerAfter = /^\s*(?:(?:eu\s+)?(?:pago|levo|fecho|compro|pego)|ta\s+bom|pode\s+ser)\b/.test(after);
+    // Cents make it money whatever the cue ("por 59,90"); a bare "por 50" is a size range
+    // (36–56) and stays a residual.
+    const cue =
+      STRONG_CUE.test(before) || moneyAfter || (m[2] && WEAK_CUE.test(before)) ? 20 : WEAK_CUE.test(before) || offerAfter ? 60 : null;
+    if (cue === null || value < cue) continue;
+    if (!prices.some((p) => Math.abs(p - value) <= 1)) return true;
+  }
+  for (const m of t.matchAll(/(\d{1,2})\s*%\s*(?:de\s+)?(?:desconto|off)\b/g)) {
+    if (!percents.includes(Number(m[1]))) return true;
   }
   return false;
 };

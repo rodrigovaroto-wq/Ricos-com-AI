@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
   expressLine,
+  linkFactLine,
   money,
   prepayPriceLine,
   prepayWindowLine,
@@ -846,5 +847,50 @@ describe("toda frase ensinada passa o coverage_claim, com e sem região", () => 
         expect({ regionKnown, text, verdict: trace?.verdict }).toEqual({ regionKnown, text, verdict: "pass" });
       }
     }
+  });
+});
+
+/**
+ * H-2 (operator, 2026-09-25): every price tied to its path, pieces, deadline and link, in
+ * the agent's head only — Tati got the delivery link after the prepaid price and asked
+ * "continua 116?". The rows read the config; nothing from one row belongs to another.
+ */
+describe("fatos ligados: preço, caminho, peças, prazo e link", () => {
+  const withKits: PromptConfig = {
+    ...variant(false, true),
+    kits: [
+      { path: "cod", units: 2, priceBrl: 233.82, discountPercent: 10, checkoutUrl: "https://x/cod2" },
+      { path: "prepay", units: 2, priceBrl: 207.84, discountPercent: 20, checkoutUrl: "https://x/pre2" },
+    ],
+  };
+
+  it("cada linha fica no seu caminho e lê o config", () => {
+    const cod = linkFactLine(withKits, "cod");
+    const prepay = linkFactLine(withKits, "prepay");
+    expect(cod).toContain(money(withKits.prices.codBrl));
+    expect(cod).toContain(`${withKits.delivery.codDaysMin} a ${withKits.delivery.codDaysMax} dias`);
+    expect(cod).not.toContain(money(withKits.prices.prepayBrl));
+    expect(prepay).toContain(money(withKits.prices.prepayBrl));
+    expect(prepay).toContain(prepayWindowLine(withKits).replace(/,$/, ""));
+    expect(prepay).not.toContain(money(withKits.prices.codBrl));
+    expect(prepay).not.toContain(`${withKits.delivery.codDaysMin} a ${withKits.delivery.codDaysMax} dias`);
+  });
+
+  it("kit tem a linha do kit; quantidade sem kit não tem linha", () => {
+    expect(linkFactLine(withKits, "cod", 2)).toContain("R$ 233,82");
+    expect(linkFactLine(withKits, "prepay", 2)).toContain("R$ 207,84");
+    expect(linkFactLine(withKits, "cod", 3)).toBeNull();
+  });
+
+  it("o prompt traz as linhas como referência interna, nunca como formato de mensagem", () => {
+    const prompt = flat(build(withKits));
+    expect(prompt).toContain("FATOS LIGADOS — referência sua, NUNCA formato de mensagem.");
+    for (const row of [linkFactLine(withKits, "cod"), linkFactLine(withKits, "prepay", 2)]) {
+      expect(prompt).toContain(`[${row}]`);
+    }
+  });
+
+  it("o link só vai quando ela confirma a compra — está escrito no prompt", () => {
+    expect(flat(build(withKits))).toContain("O link só vai quando ela confirmar que quer comprar.");
   });
 });

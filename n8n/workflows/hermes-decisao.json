@@ -1,0 +1,549 @@
+{
+  "id": "o5ZULK9Y74l1hReL",
+  "name": "Encorpa — Hermes: decisão do operador",
+  "active": true,
+  "versionId": "c1a85688-e255-4d9c-8824-c01a80e9c6a0",
+  "nodes": [
+    {
+      "id": "cc531da6-14f1-4535-b9d2-874271e47cf7",
+      "name": "A cada 15 minutos",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 15
+            }
+          ]
+        }
+      }
+    },
+    {
+      "id": "f9a4bb52-ef7f-436c-af01-e29a08114c70",
+      "name": "Propostas sem aviso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        0
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=eq.proposed&notified_at=is.null&select=id,code,target,rationale,evidence,decision_token&order=created_at",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "id": "39e23cd3-8e24-44cb-b0a5-91aae769ee29",
+      "name": "Monta o e-mail",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// One e-mail for the batch, one link per proposal. The link carries the row id and its\n// token; the form only updates a row whose token matches and that is still 'proposed'.\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst blocks = rows.map((r) => {\n  const e = r.evidence ?? {};\n  const url = 'https://encorpa-fashion.pikapod.net/form/hermes-decisao?id=' + encodeURIComponent(r.id) + '&t=' + encodeURIComponent(r.decision_token);\n  return '<h3>' + esc(r.code ?? 'Proposta') + ' · ' + esc(r.target) + (e.severidade ? ' · ' + esc(e.severidade) : '') + '</h3>' +\n    '<p><b>O quê:</b> ' + esc(e.o_que ?? r.rationale) + '</p>' +\n    (e.por_que ? '<p><b>Por quê:</b> ' + esc(e.por_que) + '</p>' : '') +\n    (e.objetivo ? '<p><b>Objetivo:</b> ' + esc(e.objetivo) + '</p>' : '') +\n    '<p><a href=\"' + url + '\">Aprovar ou recusar esta proposta</a></p>';\n});\nreturn [{ json: {\n  ids: rows.map((r) => r.id),\n  subject: 'Hermes: ' + rows.length + (rows.length === 1 ? ' proposta' : ' propostas') + ' para decidir',\n  html: '<p>O Hermes leu as conversas e propôs as mudanças abaixo. Nada foi aplicado.</p>' +\n    '<p><b>Aprovar</b> manda implementar, testar e publicar sozinho se todos os testes passarem. ' +\n    '<b>Recusar</b> com o motivo ensina o Hermes a não propor de novo.</p>' + blocks.join('<hr>')\n} }];"
+      }
+    },
+    {
+      "id": "212c9b02-26fa-48f2-845f-aa915f08db21",
+      "name": "Manda as propostas",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        0
+      ],
+      "parameters": {
+        "fromEmail": "Hermes da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      },
+      "webhookId": "20eeaa1c-9693-46a5-a8d3-4a30726e9633"
+    },
+    {
+      "id": "af03865d-faa0-4e70-a727-191348449be1",
+      "name": "Marca como avisadas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        0
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?id=in.({{ $('Monta o e-mail').first().json.ids.join(',') }})",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ notified_at: $now.toISO() }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "id": "35a29d98-9050-4aef-86e9-1775e718ad7b",
+      "name": "Formulário de decisão",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        320
+      ],
+      "parameters": {
+        "formTitle": "Proposta do Hermes",
+        "formDescription": "Aprovar manda implementar, testar e publicar sozinho se todos os testes passarem. Recusar com o motivo ensina o Hermes a não propor de novo.",
+        "formFields": {
+          "values": [
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "id"
+            },
+            {
+              "fieldType": "hiddenField",
+              "fieldName": "t"
+            },
+            {
+              "fieldLabel": "Decisão",
+              "fieldName": "decisao",
+              "fieldType": "radio",
+              "fieldOptions": {
+                "values": [
+                  {
+                    "option": "Aprovar"
+                  },
+                  {
+                    "option": "Recusar"
+                  }
+                ]
+              },
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Motivo (é o que o Hermes aprende)",
+              "fieldName": "motivo",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "hermes-decisao",
+          "buttonLabel": "Registrar decisão",
+          "appendAttribution": false,
+          "ignoreBots": true
+        }
+      },
+      "webhookId": "f0269990-a0fa-449c-92df-2be085f24c6a"
+    },
+    {
+      "id": "2142c7b8-4d6c-48bb-b191-5e0de9b4cf60",
+      "name": "Grava a decisão",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        320
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?id=eq.{{ encodeURIComponent(String($json.id ?? '')) }}&decision_token=eq.{{ encodeURIComponent(String($json.t ?? '')) }}&status=eq.proposed&select=code",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=representation"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ status: $json.decisao === 'Aprovar' ? 'accepted' : 'rejected', decision_reason: String($json.motivo ?? '').slice(0, 2000), decided_at: $now.toISO() }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      },
+      "alwaysOutputData": true
+    },
+    {
+      "id": "e0a1b820-2ef7-4724-ba44-81b724f11724",
+      "name": "Gravou?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        448,
+        320
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "loose"
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.code ?? \"\" }}",
+              "operator": {
+                "type": "string",
+                "operation": "notEmpty",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        }
+      }
+    },
+    {
+      "id": "91866a40-a0a3-40cd-95e8-5b52bda59b7f",
+      "name": "Decisão registrada",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        672,
+        224
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Decisão registrada",
+        "completionMessage": "={{ $('Formulário de decisão').first().json.decisao === 'Aprovar' ? 'Aprovada. A implementação começa na próxima rodada e você recebe o resultado por e-mail.' : 'Recusada. O Hermes lê o seu motivo antes da próxima análise.' }}"
+      },
+      "webhookId": "bd5e213a-1e88-4080-b810-8016c40da611"
+    },
+    {
+      "id": "dab3c23d-ad23-4ed0-9866-f3593537b28b",
+      "name": "Link inválido",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        672,
+        416
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Nada foi registrado",
+        "completionMessage": "Este link não vale mais: a proposta já foi decidida, ou o link está incompleto."
+      },
+      "webhookId": "4fa98732-d774-472d-bd22-a0e2cdc25f73"
+    },
+    {
+      "id": "5a66a736-ee4c-4edb-ae80-7899f093c4db",
+      "name": "Resultados sem aviso",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        224,
+        -224
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=in.(published,failed)&outcome_notified_at=is.null&select=id,code,target,rationale,status,result,execution_ref&order=decided_at",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "id": "5c7718e3-bc59-4234-a935-40822716586b",
+      "name": "Monta o resultado",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        448,
+        -224
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "jsCode": "// One e-mail per batch: how each approved proposal ended (R14.14).\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst blocks = rows.map((r) => '<h3>' + esc(r.code ?? 'Proposta') + ' · ' + (r.status === 'published' ? 'PUBLICADA' : 'NÃO publicada') + '</h3>' +\n  '<p>' + esc(r.rationale) + '</p>' +\n  (r.result ? '<p><b>Resultado:</b> ' + esc(r.result) + '</p>' : '') +\n  (r.execution_ref ? '<p><a href=\"' + esc(r.execution_ref) + '\">A mudança</a></p>' : ''));\nconst pub = rows.filter((r) => r.status === 'published').length;\nreturn [{ json: { ids: rows.map((r) => r.id), subject: 'Hermes: ' + pub + ' publicada(s), ' + (rows.length - pub) + ' não', html: blocks.join('<hr>') } }];"
+      }
+    },
+    {
+      "id": "3cdbb6bd-3597-4f10-84d9-4554b9d10b35",
+      "name": "Manda o resultado",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        672,
+        -224
+      ],
+      "parameters": {
+        "fromEmail": "Hermes da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "={{ $json.subject }}",
+        "emailFormat": "html",
+        "html": "={{ $json.html }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      },
+      "webhookId": "4fcab60c-fc1f-482a-b64c-17bba0d89664"
+    },
+    {
+      "id": "e4a7c690-4677-4519-b26b-943fb360c4a4",
+      "name": "Marca resultado avisado",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        896,
+        -224
+      ],
+      "parameters": {
+        "method": "PATCH",
+        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?id=in.({{ $('Monta o resultado').first().json.ids.join(',') }})",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            },
+            {
+              "name": "Prefer",
+              "value": "return=minimal"
+            }
+          ]
+        },
+        "sendBody": true,
+        "contentType": "json",
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ outcome_notified_at: $now.toISO() }) }}",
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    }
+  ],
+  "connections": {
+    "A cada 15 minutos": {
+      "main": [
+        [
+          {
+            "node": "Propostas sem aviso",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Resultados sem aviso",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Propostas sem aviso": {
+      "main": [
+        [
+          {
+            "node": "Monta o e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta o e-mail": {
+      "main": [
+        [
+          {
+            "node": "Manda as propostas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manda as propostas": {
+      "main": [
+        [
+          {
+            "node": "Marca como avisadas",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Formulário de decisão": {
+      "main": [
+        [
+          {
+            "node": "Grava a decisão",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava a decisão": {
+      "main": [
+        [
+          {
+            "node": "Gravou?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Gravou?": {
+      "main": [
+        [
+          {
+            "node": "Decisão registrada",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Link inválido",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Resultados sem aviso": {
+      "main": [
+        [
+          {
+            "node": "Monta o resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Monta o resultado": {
+      "main": [
+        [
+          {
+            "node": "Manda o resultado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Manda o resultado": {
+      "main": [
+        [
+          {
+            "node": "Marca resultado avisado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
