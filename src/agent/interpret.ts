@@ -426,10 +426,24 @@ export const choosesPath = (message: string): boolean => {
     new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
     new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?\\s*[.!]*\\s*$`).exec(t);
   if (!m) return false;
+  // Doubt is not a choice (sixth review): "quero saber se aceita pix", "vou ver se consigo
+  // no pix", "pode ser que eu pague no pix", "pix ou cartão, não sei", "pagar na entrega é
+  // seguro".
+  if (
+    /\b(?:saber|ver|pensar|entender|perguntar)\s+(?:se|sobre|como)\b|\bpode\s+ser\s+que\b|\btalvez\b|\bnao\s+sei\b|\btanto\s+faz\b|\bfalar\s+com\b|\bentender\b|\be\s+segur\w*/.test(t) ||
+    new RegExp(`${PATH_WORD}[^.!?]{0,20}\\bou\\s+(?:n[oa]\\s+|pel[oa]\\s+)?${PATH_WORD}`).test(t)
+  )
+    return false;
   // A question or a comparison BEFORE the choice is not a choice; one after it ("quero no
   // pix, qual a chave?") is a new question about a path already chosen (fifth review).
   const upTo = t.slice(0, m.index + m[0].length);
-  return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !/^\s*\?/.test(t.slice(m.index + m[0].length));
+  // After the choice, a question ends it unless it comes after a comma and names no other
+  // path ("quero no pix, qual a chave?" is a choice; "pode ser na entrega, mas no pix sai
+  // mais barato?" is not).
+  const after = t.slice(m.index + m[0].length);
+  const questionAfter =
+    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*,/.test(after) && !new RegExp(PATH_WORD).test(after));
+  return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;
 };
 
 /**

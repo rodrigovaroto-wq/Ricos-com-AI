@@ -146,6 +146,11 @@ describe("caminho: só uma escolha é guardada (quarta passada, 2026-09-25)", ()
       "compensa pagar antecipado?",
       "pix?",
       "vou pagar no pix?",
+      // Sexta revisão: dúvida, hesitação e comparação não são escolha.
+      "quero saber se aceita pix", "quero saber se dá pra pagar na entrega", "vou ver se consigo no pix",
+      "vou pensar se pago no pix", "pode ser que eu pague no pix", "vou falar com meu marido sobre pagar antes",
+      "pago na entrega ou no pix? tanto faz", "vou de pix ou cartão, não sei", "melhor na entrega ou pix",
+      "pode ser na entrega, mas no pix sai mais barato?", "quero entender a entrega", "pagar na entrega é seguro",
     ])
       expect(choosesPath(msg), msg).toBe(false);
   });

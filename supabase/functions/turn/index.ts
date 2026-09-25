@@ -1173,6 +1173,7 @@ const runFollowupSweep = async () => {
       size: order?.size ?? lead.size ?? undefined,
       ...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),
       units: touchUnits,
+      prepaid: order?.payment_method === "prepay",
       body: row.body ?? undefined,
     });
 
@@ -1197,6 +1198,7 @@ const runFollowupSweep = async () => {
       now: new Date(),
       paymentPath: touchPath,
       units: touchUnits,
+      ...(order && Number(order.amount_brl) > 0 ? { orderAmountBrl: Number(order.amount_brl) } : {}),
       stage: kind.startsWith("order_") ? "logistics" : "presale",
     });
 

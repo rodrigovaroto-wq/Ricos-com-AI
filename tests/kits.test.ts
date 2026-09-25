@@ -266,3 +266,29 @@ describe("kits: quinta passada — mudar de ideia dentro do kit (2026-09-25)", (
     expect(withUnits("Com mais uma, fica R$ 272,79 na entrega.", 2)).toBe("block");
   });
 });
+
+describe("kits: sexta passada (2026-09-25)", () => {
+  const gate = (text: string, extra: Record<string, unknown>) =>
+    runGates(text, ctx({ config: configKits as never, ...extra } as never)).traces.find((t) => t.gate === "price_promise")?.verdict;
+
+  it("na logística, o total do próprio pedido passa mesmo fora do config", () => {
+    expect(gate("Deixa R$ 250,50 separado amanhã.", { stage: "logistics", orderAmountBrl: 250.5 })).toBe("pass");
+    expect(gate("Deixa R$ 250,50 separado amanhã.", { stage: "presale" })).toBe("block");
+  });
+
+  it("segunda-feira e terceira tentativa não são quantidade", () => {
+    for (const s of ["Na segunda eu te mando o link, e na entrega fica R$ 233,82.", "Na terceira tentativa de entrega, você paga R$ 311,76."])
+      expect(gate(s, { units: 1 }), s).toBe("block");
+  });
+
+  it("peça grátis sem número é concessão (com negação)", () => {
+    for (const s of ["A segunda sai de graça na entrega.", "Levando o segundo, ele sai de graça.", "Na entrega, levando 2 você paga só uma.", "Na entrega a segunda é por nossa conta."])
+      expect(gate(s, { units: 1 }), s).toBe("block");
+    expect(gate("A segunda peça não sai de graça, ela fica no preço do kit.", { units: 1 })).toBe("pass");
+  });
+
+  it("num kit, perguntar o preço de um colete tem resposta", () => {
+    expect(gate("O colete sai R$ 129,90 na entrega.", { units: 2 })).toBe("pass");
+    expect(gate("Se for só um, sai R$ 129,90 na entrega.", { units: 2 })).toBe("pass");
+  });
+});

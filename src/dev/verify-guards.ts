@@ -379,6 +379,46 @@ const MUTATIONS: Mutation[] = [
     to: "const upTo = t;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
   },
+  {
+    id: "regua-antecipado",
+    bug: "pedido antecipado recebia \"deixa R$ separado\" na véspera",
+    files: ["src/agent/followups.ts"],
+    from: "(ctx.prepaid ? \"\" : `Deixa",
+    to: "(false ? \"\" : `Deixa",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "regua-total-do-pedido",
+    bug: "a véspera era cancelada quando o total do pedido não era um preço do config",
+    files: ["src/agent/guardrails.ts"],
+    from: "if (orderAmount !== undefined) allowedPrices.add(orderAmount);",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
+  {
+    id: "caminho-duvida",
+    bug: "\"quero saber se aceita pix\" gravava o caminho",
+    files: ["src/agent/interpret.ts"],
+    from: "/\\b(?:saber|ver|pensar|entender|perguntar)\\s+(?:se|sobre|como)\\b|",
+    to: "/\\bNUNCA\\b|",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/quantity.test.ts"],
+  },
+  {
+    id: "peca-gratis",
+    bug: "\"a segunda sai de graça\" passava (concessão sem número)",
+    files: ["src/agent/guardrails.ts"],
+    from: "\\b(?:sai|fica|vai|e|sera)\\s+(?:de\\s+gra[c\u00e7]a|por\\s+nossa\\s+conta|gratis)\\b|",
+    to: "\\bNUNCA\\b|",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
+  {
+    id: "segunda-feira",
+    bug: "\"na segunda eu te mando o link\" contava 2 peças",
+    files: ["src/agent/guardrails.ts"],
+    from: "|\\b(?:com|levando)\\s+a\\s+(segunda|terceira)\\b(?!\\s*-?\\s*feira)",
+    to: "|\\b(?:na|com|levando|a)\\s+(segunda|terceira)\\b",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

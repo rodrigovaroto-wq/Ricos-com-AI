@@ -366,6 +366,8 @@ export interface RenderContext {
    */
   amountBrl?: number;
   units?: number;
+  /** She already paid (prepaid order): nothing is due at the door (sixth review). */
+  prepaid?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
 }
@@ -413,7 +415,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
 
     case "order_confirmed":
       return (
-        `Pedido confirmado! 🎉 ${item}, ${price} na entrega` +
+        `Pedido confirmado! 🎉 ${item}, ${ctx.prepaid ? `${price}, já pago` : `${price} na entrega`}` +
         `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n` +
         `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
       );
@@ -424,7 +426,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "order_eve":
       return (
         `Oi! Sua entrega está marcada pra **amanhã** 💛\n` +
-        `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n` +
+        (ctx.prepaid ? "" : `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n`) +
         `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`
       );
 

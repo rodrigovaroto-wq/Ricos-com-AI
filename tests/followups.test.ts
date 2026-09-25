@@ -201,6 +201,15 @@ describe("régua de pós-pedido", () => {
     expect(confirmado).not.toContain("129,90");
   });
 
+  it("pedido antecipado: confirmação diz já pago e a véspera não manda separar dinheiro (sexta revisão)", () => {
+    const confirmado = renderFollowup("order_confirmed", render({ amountBrl: 116.91, prepaid: true, size: "M" }))!;
+    expect(confirmado).toContain("R$ 116,91, já pago");
+    expect(confirmado).not.toContain("na entrega");
+    const vespera = renderFollowup("order_eve", render({ amountBrl: 116.91, prepaid: true }))!;
+    expect(vespera).not.toMatch(/separado|maquininha/);
+    expect(vespera).toMatch(/amanhã/);
+  });
+
   it("a confirmação repete tamanho e endereço", () => {
     const texto = renderFollowup("order_confirmed", render({ size: "G", address: "Rua das Flores, 120" }))!;
     expect(texto).toContain("G");

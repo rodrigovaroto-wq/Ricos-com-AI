@@ -171,6 +171,11 @@ export interface GateContext {
   /** Pieces this conversation is about (kits); absent means one. */
   units?: number;
   /**
+   * The total of the order a post-order touch speaks of (sixth review): a total the
+   * platform closed, a coupon, or a price changed since, is still the amount she pays.
+   */
+  orderAmountBrl?: number;
+  /**
    * The checkout returned a same-day modality for her postcode ("Express — receba hoje
    * em até 4 horas"). Only then is "hoje" a fact rather than the broken promise that
    * produces a refusal at the door.
@@ -553,6 +558,8 @@ const gates: readonly Gate[] = [
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const kits = ctx.config.kits ?? [];
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
+      const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
+      if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
@@ -645,8 +652,17 @@ const gates: readonly Gate[] = [
           /\b(?:uma|a|cada)\s+peca\b|\ba\s+unidade\b|\bavuls[oa]\b|\be\s+uma\s+(?:sai|fica|por)\b|\bso\s+uma\b|\buma\s+so\b|^\s*uma\s+(?:sai|fica|custa|por)\b/g,
         ))
           counts.push({ at: u.index ?? 0, units: 1 });
-        for (const u of sentence.matchAll(/\b(segunda|terceira)\s+(?:peca|unidade)?|\bmais\s+uma\b/g))
-          counts.push({ at: u.index ?? 0, units: u[1] === "segunda" ? 2 : u[1] === "terceira" ? 3 : (ctx.units ?? 1) + 1 });
+        // "a segunda peça", "com a terceira" — never "na segunda(-feira)" or "a terceira
+        // tentativa" (sixth review). And the single vest: "o colete", "só um".
+        for (const u of sentence.matchAll(
+          /\b(segunda|terceira)\s+(?:peca|unidade)\b|\b(?:com|levando)\s+a\s+(segunda|terceira)\b(?!\s*-?\s*feira)(?!\s+\w*(?:tentativa|vez|dia|entrega))|\bmais\s+uma\b/g,
+        ))
+          counts.push({
+            at: u.index ?? 0,
+            units: (u[1] ?? u[2]) === "segunda" ? 2 : (u[1] ?? u[2]) === "terceira" ? 3 : (ctx.units ?? 1) + 1,
+          });
+        for (const u of sentence.matchAll(/\b(?:so|um)\s+um\b|\bum\s+so\b|\b(?:o|um|cada|seu)\s+colete\b/g))
+          counts.push({ at: u.index ?? 0, units: 1 });
         // A number whose own clause names a count answers to that count ("R$ 129,90 levando 2
         // peças" is 2 for the price of 1); one in a clause without a count answers to the last
         // count before it, else to the sentence's counts and the conversation's ("Seu M fica
@@ -668,7 +684,7 @@ const gates: readonly Gate[] = [
         };
         const moneys = moneyMatches(sentence);
         for (const [k, m] of moneys.entries()) {
-          if (!offerPrices.has(m.value) || negatedAt(sentence, m.at)) continue;
+          if (!offerPrices.has(m.value) || negatedAt(sentence, m.at) || m.value === orderAmount) continue;
           const matching = matchingAt(m.at);
           if (matching.some((o) => o.price === m.value)) continue;
           // The price a comparison is made against is not the offer on sale: "antecipado sai
@@ -749,7 +765,7 @@ const gates: readonly Gate[] = [
         (x) => " ".repeat(x.length),
       );
       for (const m of concessions.matchAll(
-        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato|\bleve\s+\d+\s+(?:e\s+)?pague\s+\d+|\bganh\w*\s+(?:uma|1|outra)\s+(?:peca|unidade)|\b(?:peca|unidade)\s+(?:de\s+)?gratis/g,
+        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato|\bleve\s+\d+\s+(?:e\s+)?pague\s+\d+|\bganh\w*\s+(?:uma|1|outra)\s+(?:peca|unidade)|\b(?:peca|unidade)\s+(?:de\s+)?gratis|(?<=\b(?:segund[oa]|terceir[oa]|outr[oa]|colete|peca|unidade)\b[^.!?]{0,25})\b(?:sai|fica|vai|e|sera)\s+(?:de\s+gra[cç]a|por\s+nossa\s+conta|gratis)\b|\blev\w*\s+(?:\d|duas|dois|tres)\b[^.!?]{0,25}\bpag\w*\s+(?:so\s+)?(?:uma|um|1|duas|dois|2)\b/g,
       )) {
         if (!negatedAt(concessions, m.index ?? 0)) return "promises a discount with no number behind it";
       }
