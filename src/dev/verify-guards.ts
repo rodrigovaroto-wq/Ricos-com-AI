@@ -162,6 +162,22 @@ const MUTATIONS: Mutation[] = [
     to: "continue;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
+  {
+    id: "kit-calca",
+    bug: '"uso 42, ela 46" pedia a letra à cliente, que chutava (o número de cada peça não passava pela tabela)',
+    files: ["supabase/functions/turn/index.ts"],
+    from: "interpretation.unit_pants.map(sizeFromDressSize)",
+    to: "[]",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "placar-reenvio",
+    bug: "o placar contava como link repetido o reenvio que a cliente pediu (achado do Hermes)",
+    files: ["src/dev/persona-scorecard.ts"],
+    from: "if (!asksForLink(customer) && links.some(",
+    to: "if (links.some(",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/persona-scorecard.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
