@@ -407,8 +407,8 @@ const MUTATIONS: Mutation[] = [
     id: "peca-gratis",
     bug: "\"a segunda sai de graça\" passava (concessão sem número)",
     files: ["src/agent/guardrails.ts"],
-    from: "\\b(?:sai|fica|vai|e|sera)\\s+(?:de\\s+gra[c\u00e7]a|por\\s+nossa\\s+conta|gratis)\\b|",
-    to: "\\bNUNCA\\b|",
+    from: "(?:de\\s+gra[cç]a|por\\s+nossa\\s+conta|gratis)\\b(?!\\s+(?:pra|para)\\s+(?:trocar|devolver))",
+    to: "(?:NUNCA)\\b(?!\\s+(?:pra|para)\\s+(?:trocar|devolver))",
     guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
   },
   {
