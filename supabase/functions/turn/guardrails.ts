@@ -527,9 +527,10 @@ const gates: readonly Gate[] = [
       `. ` +
       `Nenhum outro número em reais. ` +
       (savingOf(c) > 0
-        ? `Nunca diga a economia em reais — a diferença entre os dois preços, em nenhuma ` +
-          `formulação. Diga o percentual e o preço do antecipado ("${c.prices.prepayDiscountPercent}% ` +
-          `de desconto: ${money(c.prices.prepayBrl)} no antecipado"). `
+        ? `Nunca diga a economia em reais — a diferença entre os dois preços, nem a de um kit, em ` +
+          `nenhuma formulação. Diga o percentual e o preço ("${c.prices.prepayDiscountPercent}% ` +
+          `de desconto: ${money(c.prices.prepayBrl)} no antecipado"). Preço e desconto são do caminho e ` +
+          `da quantidade de que você está falando: não junte o desconto de um kit com o preço de outro. `
         : ``) +
       `Os únicos descontos são ` +
       `${c.prices.prepayDiscountPercent}% no antecipado e 40% (o já publicado no site)` +
@@ -553,14 +554,80 @@ const gates: readonly Gate[] = [
       // number said at all is what she takes to the checkout. The bare "12,99" counts too:
       // `moneyMatches` needs "R$" or "reais" and would let it through. Skipped only when the
       // difference coincides with a configured price, where the two cannot be told apart.
-      const saving = savingOf(ctx.config);
-      if (saving > 0 && !allowedPrices.has(saving)) {
+      // Every offer the shop has — one piece on each path plus the kits — and every saving
+      // they imply: the list price minus the offer, and prepaid against delivery at the same
+      // quantity (pricing review, 2026-09-25: "levando 2 você economiza 25,98" passed, as did
+      // any kit saving written without "R$").
+      const offers = [
+        { path: "cod" as const, units: 1, price: codBrl, pct: 0 },
+        { path: "prepay" as const, units: 1, price: prepayBrl, pct: prepayDiscountPercent },
+        ...kits.map((k) => ({ path: k.path, units: k.units, price: k.priceBrl, pct: k.discountPercent })),
+      ];
+      const savings = new Set<number>();
+      for (const o of offers) {
+        const vsList = +(o.units * codBrl - o.price).toFixed(2);
+        if (vsList > 0) savings.add(vsList);
+        const cod = offers.find((x) => x.path === "cod" && x.units === o.units);
+        if (o.path === "prepay" && cod && cod.price > o.price) savings.add(+(cod.price - o.price).toFixed(2));
+      }
+      for (const saving of savings) {
+        if (allowedPrices.has(saving)) continue;
         const [whole, cents] = saving.toFixed(2).split(".");
         if (
           new RegExp(`(?<![\\d.,])${whole}[.,]${cents}(?!\\d|[.,]\\d)`).test(t) ||
           moneyMatches(t).some((m) => m.value === saving)
         ) {
           return `cites the ${money(saving)} saving in reais; say only the percentage (${prepayDiscountPercent}%) and the prepaid price`;
+        }
+      }
+      // A saving can coincide with a price (3 × 129,90 − 272,79 = 116,91, the prepaid price),
+      // so value alone cannot tell it: any amount right after "economiza / poupa / desconto
+      // de" or right before "mais barato / a menos / de economia" is a saving in reais.
+      for (const m of moneyMatches(t)) {
+        if (negatedAt(t, m.at)) continue;
+        const amount = amountAt(t, m.at);
+        if (
+          /\b(?:econom\w*|poup\w*|deixa\s+de\s+pagar|desconto\s+de)\s+(?:de\s+)?(?:ate\s+)?(?:so\s+)?$/.test(t.slice(Math.max(0, m.at - 30), m.at)) ||
+          /^\s*(?:mais\s+barato|a\s+menos|de\s+economia|de\s+desconto)\b/.test(t.slice(m.at + amount.length, m.at + amount.length + 25))
+        )
+          return `states a saving in reais (${amount.trim()}); say only the percentage and the price`;
+      }
+
+      // An offer's price and percent belong to its path and quantity (pricing review,
+      // 2026-09-25): "na entrega você leva com 30% de desconto" and "3 peças na entrega saem
+      // por R$ 272,79" used every configured number, and she finds the gap at the door. When a
+      // sentence names exactly one path or exactly one quantity, every offer price and
+      // discount in it must belong to an offer that matches; comparing paths or quantities in
+      // one sentence names several, and that dimension is not checked.
+      const UNIT_WORDS: Record<string, number> = { um: 1, uma: 1, dois: 2, duas: 2, tres: 3 };
+      const offerPrices = new Set(offers.map((o) => o.price));
+      for (const sm of t.matchAll(/[^.!?\n]+/g)) {
+        const sentence = sm[0];
+        const paths = new Set<string>();
+        if (/\bna\s+entrega\b|\bna\s+porta\b|\bentregador\b/.test(sentence)) paths.add("cod");
+        if (/\b(?:antecipa\w*|adianta\w*|pix|pag\w*\s+(?:antes|agora)|a\s+vista)\b/.test(sentence)) paths.add("prepay");
+        const units = new Set<number>();
+        for (const u of sentence.matchAll(/\b(\d|um|uma|dois|duas|tres)\s+(?:pecas?|unidades?|coletes?)\b|\bkit\s+de\s+(\d|duas|tres)\b/g)) {
+          const w = u[1] ?? u[2]!;
+          units.add(UNIT_WORDS[w] ?? Number(w));
+        }
+        if (paths.size !== 1 && units.size !== 1) continue;
+        const matching = offers.filter(
+          (o) => (paths.size !== 1 || paths.has(o.path)) && (units.size !== 1 || units.has(o.units)),
+        );
+        if (matching.length === 0) continue;
+        for (const m of moneyMatches(sentence)) {
+          if (!offerPrices.has(m.value) || negatedAt(sentence, m.at)) continue;
+          if (!matching.some((o) => o.price === m.value))
+            return `price ${money(m.value)} belongs to another offer than the one this sentence names`;
+        }
+        for (const m of sentence.matchAll(/(\d{1,3})\s*(?:%|por\s*cento)/g)) {
+          const value = Number(m[1]);
+          const at = m.index ?? 0;
+          if (value === 40 || (ctx.config.coupon.active && value === ctx.config.coupon.percent)) continue;
+          if (!looksLikeDiscount(sentence, at) || negatedAt(sentence, at)) continue;
+          if (!matching.some((o) => o.pct === value))
+            return `discount of ${value}% belongs to another offer than the one this sentence names`;
         }
       }
 
@@ -584,15 +651,19 @@ const gates: readonly Gate[] = [
         const prepayPrices = new Set([prepayBrl, ...kits.filter((k) => k.path === "prepay").map((k) => k.priceBrl)]);
         for (const m of moneyMatches(t)) {
           if (!prepayPrices.has(m.value)) continue;
-          if (!/\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,20}$/.test(t.slice(Math.max(0, m.at - 30), m.at))) continue;
           const amount = amountAt(t, m.at);
+          // Kit sentences are longer ("o total das 3 peças no antecipado fica R$ 272,79"), and
+          // "no total / ao todo" after the amount says the same (pricing review, 2026-09-25).
+          const totalBefore = /\btotal\b(?![^.!?]*\bnao\b)[^.!?]{0,45}$/.test(t.slice(Math.max(0, m.at - 60), m.at));
+          const totalAfter = /^\s*,?\s*(?:no\s+total|ao\s+todo)\b/.test(t.slice(m.at + amount.length, m.at + amount.length + 20));
+          if (!totalBefore && !totalAfter) continue;
           // Only the freight added right after the amount. A caveat anywhere later in the
           // sentence, and "sem o frete", were accepted for a while (2026-09-22) and let
           // through "o total é R$ 116,91, e o frete, que seria calculado no checkout, já
           // está incluso" and "o total é R$ 116,91 sem o frete cobrado à parte". The honest
           // sentences they freed cost a rewrite; the lies cost the freight at the door.
-          const after = t.slice(m.at + amount.length, m.at + amount.length + 30);
-          if (/^[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
+          const after = t.slice(m.at + amount.length, m.at + amount.length + 45);
+          if (/^(?:\s*,?\s*(?:no\s+total|ao\s+todo))?[^.!?]{0,25}?(?:\bmais|\+|\bfora|\bsem\s+contar|\balem\s+d[oe])\s*(?:o\s+)?(?:valor\s+d[oe]\s+)?frete\b/.test(after)) continue;
           return `calls the prepaid ${money(m.value)} a total, and the freight is added in the checkout`;
         }
       }
@@ -618,7 +689,7 @@ const gates: readonly Gate[] = [
         (x) => " ".repeat(x.length),
       );
       for (const m of concessions.matchAll(
-        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato/g,
+        /\b(tiro|abato|baixo|diminuo)\b[^.!?]{0,20}\b(um\s+pou(?:c|qu)\w+|mais|pra\s+voce)\b|\bfa[cç]o\s+um\s+pre[cç]\w+|\bdou\s+um\s+jeit\w+|\bmelhoro\s+(?:o\s+)?(?:pre[cç]o|valor)|\bdeixo\s+mais\s+barato|\bleve\s+\d+\s+(?:e\s+)?pague\s+\d+|\bganh\w*\s+(?:uma|1|outra)\s+(?:peca|unidade)|\b(?:peca|unidade)\s+(?:de\s+)?gratis/g,
       )) {
         if (!negatedAt(concessions, m.index ?? 0)) return "promises a discount with no number behind it";
       }

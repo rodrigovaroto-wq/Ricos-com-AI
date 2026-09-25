@@ -215,7 +215,12 @@ export const quantityOf = (
   message: string,
   i: Interpretation,
 ): { units: number | null; sizes: SizeLetter[] } | null => {
-  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(norm(message)) ? null : i.units;
+  // A cue she denies is no cue: "não quero kit, só uma", "não quero duas" (code review).
+  const text = norm(message).replace(
+    /\b(?:nao|nem|sem)\s+(?:\w+\s+){0,3}?(?:(?:o|a|um|uma|do|da)\s+)?(?:kit(?:\s+de\s+\w+)?|par|duas|dois|tres|[2-9])\b/g,
+    " ",
+  );
+  const units = i.units !== null && i.units > 1 && !QUANTITY_CUE.test(text) ? null : i.units;
   if (units === null && i.unit_sizes.length === 0) return null;
   return { units, sizes: [...i.unit_sizes] };
 };
@@ -227,8 +232,9 @@ export const quantityOf = (
  */
 export const mergeUnitSizes = (stored: readonly string[], said: readonly string[], units: number): string[] => {
   if (said.length >= units) return said.slice(0, units);
-  if (stored.length + said.length <= units) return [...stored, ...said];
-  return [...said];
+  // A complete list is not undone by one size said again ("ok, G pra mim") — code review.
+  if (stored.length >= units) return stored.slice(0, units);
+  return [...stored, ...said].slice(0, units);
 };
 
 /** The words the operator listed as naming a person (R13.2). */

@@ -415,3 +415,16 @@ describe("kits na Edge Function (2026-09-25)", () => {
     expect(source).toContain("const sizeKnown = units > 1 ? unitSizes.length >= units");
   });
 });
+
+describe("kits: revisão de código (2026-09-25)", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
+    expect(source).toContain("isRetry ? [] : quantity?.sizes.length");
+    expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null }),');
+  });
+  it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
+    expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');
+    expect(source).toContain("units > 1 ? null : sizeDirectiveFor(");
+    expect(source).toContain("No complemento do endereço, escreva os tamanhos:");
+  });
+});

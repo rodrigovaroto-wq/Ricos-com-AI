@@ -172,7 +172,7 @@ for (const [angle, reply, esperado] of [
     // Os dois furos da revisão de 2026-09-22: o artigo que uma preposição ou um "que"
     // governa não abre sujeito novo, e "nada de"/"nenhum"/"esquece" negam a ressalva.
     ["frete PARA o pedido é valor de frete", "O frete para o pedido é de R$ 12,99, calculado no checkout.", "barra(price_promise+shipping_promise)"],
-    ["frete COM o pedido é valor de frete", "No antecipado o frete com o pedido fica R$ 129,90.", "barra(shipping_promise)"],
+    ["frete COM o pedido é valor de frete", "No antecipado o frete com o pedido fica R$ 129,90.", "barra(price_promise+shipping_promise)"],
     ["relativa não troca o sujeito", "O frete, que o produto não inclui, sai R$ 15,00.", "barra(shipping_promise)"],
     ["sujeito novo de verdade, mas é a economia (saída A)", "O frete não está incluído, mas o produto sai R$ 12,99 mais barato no antecipado.", "barra(price_promise)"],
     ["'nada de frete' não é ressalva", "Você economiza R$ 12,99 e nada de frete cobrado à parte.", "barra(price_promise+shipping_promise)"],

@@ -22,6 +22,14 @@ describe("kits: quantas peças ela quer", () => {
     expect(quantityOf("sim pode ser", said(3))).toBeNull();
   });
 
+  it("a pista negada não conta (revisão de código)", () => {
+    expect(quantityOf("não quero kit, só uma", said(2))).toBeNull();
+    expect(quantityOf("não quero duas não", said(2))).toBeNull();
+    expect(quantityOf("nem precisa do kit de 3", said(3))).toBeNull();
+    // A negativa que não nega a quantidade.
+    expect(quantityOf("não sei, acho que vou levar duas", said(2))).toEqual({ units: 2, sizes: [] });
+  });
+
   it("uma peça, e só os tamanhos, passam sem pista", () => {
     expect(quantityOf("só uma mesmo", said(1))).toEqual({ units: 1, sizes: [] });
     expect(quantityOf("M e G", said(null, ["M", "G"]))).toEqual({ units: null, sizes: ["M", "G"] });
@@ -33,6 +41,7 @@ describe("kits: os tamanhos de cada peça se acumulam", () => {
     expect(mergeUnitSizes([], ["M", "G"], 2)).toEqual(["M", "G"]);
     expect(mergeUnitSizes(["M"], ["G"], 2)).toEqual(["M", "G"]);
     expect(mergeUnitSizes(["M", "G"], ["GG", "GG"], 2)).toEqual(["GG", "GG"]);
-    expect(mergeUnitSizes(["M", "G"], ["P"], 2)).toEqual(["P"]);
+    // Revisão de código: lista completa + um tamanho reafirmado não apaga a lista.
+    expect(mergeUnitSizes(["M", "G"], ["G"], 2)).toEqual(["M", "G"]);
   });
 });

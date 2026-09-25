@@ -269,6 +269,22 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Medida:** as três frases como casos vetados, e `pnpm dev:gates` sem afrouxamento.
 - **Estado:** aberta, prioridade baixa (nenhuma apareceu nas rodadas de personas).
 
+### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
+- **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por
+  quantidade e caminho, com desconto crescente (entrega 0/10/20%, antecipado 10/20/30%).
+- **Decisões do operador:** a Malu pergunta o tamanho de cada peça; oferece o kit uma vez, na
+  decisão; 4+ peças vão para uma pessoa; kits antes do deploy.
+- **Feito:** `config.kits` (opcional); `price_promise` aceita só preço/percentual de kit **do
+  caminho e da quantidade da frase**, economia de kit em reais vetada (com ou sem "R$", e após
+  "economiza/poupa"); intérprete lê quantidade e tamanhos com guarda determinística (pista de
+  quantidade, negação); turno escolhe o link do kit, pede cada tamanho, zera após a compra;
+  migrações 0009 e 0010 (aplicadas); n8n lê o payload real da Coinzz e "M,G".
+- **Revisões:** `pricing-guardian` (7 falsidades de caminho/quantidade e economia de kit) e
+  `code-reviewer` (venda de kit falharia no banco; tamanho duplicado na nova tentativa;
+  instruções contraditórias; kit não zerado) — todos corrigidos, com teste e mutação.
+- **Medida:** placar sem regressão numa rodada de personas com o config de kits; `kits.test.ts`.
+- **Estado:** feita — rodada de personas pendente.
+
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 
 Feitas antes deste registro; o resultado vem das rodadas e do placar recalculado.

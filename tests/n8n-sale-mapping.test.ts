@@ -50,3 +50,19 @@ describe("n8n: a venda da Coinzz, no formato real", () => {
     expect(r.order).toMatchObject({ paymentMethod: "prepay", status: "Aprovado / Enviado" });
   });
 });
+
+describe("n8n → banco: o tamanho que o normalizador manda cabe na coluna", () => {
+  // Revisão de código, 2026-09-25: o kit mandava "M,G" e `orders.size` só aceitava uma
+  // letra — toda venda de kit falharia no insert. Nenhum teste passava do normalizador.
+  const sql = readFileSync("supabase/migrations/0010_order_kit_sizes.sql", "utf8");
+  const pattern = new RegExp(/check \(size ~ '([^']+)'\)/.exec(sql)![1]!);
+  it.each([
+    [coinzz({}, "casa 2 - tamanho G")],
+    [coinzz({ order_quantity: 2, order_final_price: 233.82 }, "Apto 12, M e G")],
+    [coinzz({ order_quantity: 3, order_final_price: 311.76 }, "GG, GG e XGG")],
+  ])("%#", (payload) => {
+    const r = normalize(payload);
+    expect(r.ok).toBe(true);
+    expect(String(r.order.size)).toMatch(pattern);
+  });
+});

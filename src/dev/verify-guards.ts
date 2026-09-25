@@ -138,6 +138,30 @@ const MUTATIONS: Mutation[] = [
     to: "complemento.split(/[^A-Z]+/)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-sale-mapping.test.ts"],
   },
+  {
+    id: "kit-banco",
+    bug: 'orders.size só aceitava uma letra — toda venda de kit ("M,G") falhava no insert',
+    files: ["supabase/migrations/0010_order_kit_sizes.sql"],
+    from: "check (size ~ '^(P|M|G|GG|XGG)(,(P|M|G|GG|XGG))*$')",
+    to: "check (size ~ '^(P|M|G|GG|XGG)$')",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-sale-mapping.test.ts"],
+  },
+  {
+    id: "kit-retry",
+    bug: 'a nova tentativa reaplicava o tamanho e virava "G e G"',
+    files: ["supabase/functions/turn/index.ts"],
+    from: "isRetry ? [] : quantity?.sizes.length",
+    to: "quantity?.sizes.length",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
+  },
+  {
+    id: "kit-caminho",
+    bug: '"na entrega você leva com 30%" passava — percentual de outro caminho',
+    files: ["src/agent/guardrails.ts"],
+    from: "if (paths.size !== 1 && units.size !== 1) continue;",
+    to: "continue;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kits.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

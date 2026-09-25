@@ -73,3 +73,59 @@ describe("kits: a frase que o prompt ensina passa a cadeia inteira", () => {
     expect(r.traces.filter((t) => t.verdict === "block")).toEqual([]);
   });
 });
+
+describe("kits: preço e percentual pertencem ao caminho e à quantidade da frase (pricing-guardian)", () => {
+  const priceOn = (s: string, paymentPath: "cod" | "prepay" = "cod") =>
+    runGates(s, ctx({ config: configKits as never, paymentPath })).traces.find((t) => t.gate === "price_promise")?.verdict;
+
+  it("fora do caminho ou da quantidade é vetado", () => {
+    for (const s of [
+      "Na entrega você leva com 30% de desconto.",
+      "Levando 1 peça na entrega você tem 20% de desconto.",
+      "Levando 1 peça o desconto é de 20%.",
+      "3 peças na entrega saem por R$ 272,79.",
+      "2 peças no antecipado saem R$ 233,82.",
+      "Na entrega, 1 peça sai R$ 116,91.",
+    ])
+      expect(priceOn(s), s).toBe("block");
+  });
+
+  it("comparação com vários caminhos ou quantidades continua passando", () => {
+    for (const s of [
+      "No antecipado, 2 peças R$ 207,84 (20%) e 3 peças R$ 272,79 (30%).",
+      "Na entrega R$ 129,90, no antecipado R$ 116,91 com 10% de desconto.",
+      "Levando 3 peças na entrega fica R$ 311,76, com 20% de desconto.",
+      "Quem prefere pagar antes paga R$ 116,91 — 10% abaixo do preço da entrega.",
+    ])
+      expect(priceOn(s), s).toBe("pass");
+  });
+
+  it("economia de kit em reais é vetada, com ou sem R$, e mesmo quando coincide com um preço", () => {
+    for (const s of [
+      "No kit de 3 no antecipado você economiza R$ 116,91.",
+      "Levando 2 você economiza 25,98.",
+      "No kit de 3 na entrega você economiza 77,94.",
+      "Pagando antes o kit de 3 sai 38,97 mais barato.",
+    ])
+      expect(priceOn(s), s).toBe("block");
+  });
+
+  it("o total do antecipado sem o frete é vetado também em frase longa", () => {
+    for (const s of ["O total das 3 peças no antecipado fica R$ 272,79.", "No antecipado as 2 peças saem R$ 207,84 no total."])
+      expect(priceOn(s, "prepay"), s).toBe("block");
+    expect(priceOn("No antecipado as 2 peças saem R$ 207,84 no total, mais o frete.", "prepay")).toBe("pass");
+  });
+
+  it("'leve 3 pague 2' é concessão sem número", () => {
+    expect(priceOn("Leve 3 e pague 2!")).toBe("block");
+  });
+});
+
+describe("kits: o exemplo do prompt segue o caminho", () => {
+  it("o antecipado tem o seu exemplo, que passa a cadeia", () => {
+    const example = "Levando 2 peças o desconto sobe para 20%: R$ 207,84 no antecipado.";
+    expect(systemPrompt(configKits as never, [], null)).toContain(example);
+    const r = runGates(example, ctx({ config: configKits as never, paymentPath: "prepay" }));
+    expect(r.traces.filter((t) => t.verdict === "block")).toEqual([]);
+  });
+});

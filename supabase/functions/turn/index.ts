@@ -975,6 +975,13 @@ const recordOrder = async (order: OrderWebhook) => {
     }),
   });
 
+  // The purchase closes the kit she was building: a later purchase starts from one piece
+  // and asks again, instead of sending the old kit link with the old sizes (code review).
+  await db(`leads?id=eq.${lead.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ units: null, unit_sizes: null }),
+  }).catch(() => undefined);
+
   // No conversation means no ruler to touch — the sale is recorded and that is all.
   if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
 
@@ -1976,7 +1983,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     units > 1
       ? mergeUnitSizes(
           (lead.unit_sizes as string[] | null) ?? [],
-          quantity?.sizes.length ? quantity.sizes : stated && units > 1 ? [stated.size] : [],
+          // A retry replays the same message: merging it again would add a size she said once.
+          isRetry ? [] : quantity?.sizes.length ? quantity.sizes : stated && units > 1 ? [stated.size] : [],
           units,
         )
       : [];
@@ -2229,7 +2237,10 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       thinkLink = null;
     }
     const sent = await sendFixed(
-      thinkLink ? `${THINK_REPLY}\n\n${thinkLink}` : THINK_REPLY,
+      thinkLink
+        ? `${THINK_REPLY}\n\n${thinkLink}` +
+            (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
+        : THINK_REPLY,
       "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink },
@@ -2255,18 +2266,20 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
-    stated?.size ?? lead.size ?? null,
+    // A kit carries one size per piece, and she types them all in the complement.
+    units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,
     linkPath,
     Object.keys(identityDraft).length > 0,
   );
   // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
   // kit's, the sizes she gave go in the checkout complement — the only field she types.
   const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = recentOutbound.some((m) => /\b[23]\s+peças\b|\bkit\b/i.test(m));
+  const kitOffered = recentOutbound.some((m) =>
+    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
+  );
   const kitDirective =
     units > 1 && checkoutUrl !== null
-      ? `O link é do kit de ${units} peças. Diga para ela escrever os tamanhos (${unitSizes.join(" e ")})` +
-        ` no complemento do endereço no checkout.`
+      ? `O link é do kit de ${units} peças, com os tamanhos ${unitSizes.join(" e ")}.`
       : units === 1 && interpretation.wants_to_buy && kitsOnPath.length > 0 && !kitOffered
       ? `Na mesma mensagem, ofereça uma vez só, numa frase curta, que levando mais peças o desconto` +
         ` sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
@@ -2275,7 +2288,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const sizeDirective =
     [
       kitDirective,
-      sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
+      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,

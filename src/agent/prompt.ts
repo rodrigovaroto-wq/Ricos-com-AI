@@ -92,13 +92,18 @@ export const kitsBriefing = (config: PromptConfig): string[] => {
       .map((k) => `${k.units} peças ${money(k.priceBrl)} (${k.discountPercent}% de desconto)`)
       .join(", ");
   const max = Math.max(...kits.map((k) => k.units));
-  const example = kits.find((k) => k.path === "cod" && k.units === 2) ?? kits[0]!;
+  // One example per path: "sobe para 10%" is false for someone already on the prepaid 10%
+  // (pricing review, 2026-09-25).
+  const examples = (["cod", "prepay"] as const)
+    .map((path) => kits.filter((k) => k.path === path).sort((a, b) => a.units - b.units)[0])
+    .filter((k): k is NonNullable<typeof k> => k !== undefined)
+    .map((k) => `"Levando ${k.units} peças o desconto sobe para ${k.discountPercent}%: ${money(k.priceBrl)} ${k.path === "cod" ? "na entrega" : "no antecipado"}."`);
   return [
     ``,
     `KITS — levando mais de uma peça o desconto sobe. Na entrega: ${line("cod")}. No`,
     `antecipado: ${line("prepay")}. Esses são os únicos preços de kit.`,
-    `Ofereça o kit uma vez só, quando ela decidir comprar, numa frase curta — por exemplo:`,
-    `"Levando ${example.units} peças o desconto sobe para ${example.discountPercent}%: ${money(example.priceBrl)} ${example.path === "cod" ? "na entrega" : "no antecipado"}."`,
+    `Ofereça o kit uma vez só, quando ela decidir comprar, numa frase curta, no caminho dela —`,
+    `por exemplo: ${examples.join(" ou ")}`,
     `Se ela não quiser, siga com uma peça e não volte ao assunto. Se ela quiser mais de uma,`,
     `pergunte o tamanho de cada peça (podem ser diferentes) antes do link, e diga para ela`,
     `escrever os tamanhos no complemento do endereço no checkout. Mais de ${max} peças não tem`,
