@@ -188,7 +188,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Objetivo:** nenhuma faixa ou média inventada para o antecipado passa.
 - **Medida:** as frases acima como casos vetados em `tests/change-registry.test.ts`; placar
   `pronta-por-prazo` = 0 numa rodada cleide, rafa, lu.
-- **Estado:** aberta. Endurece gate.
+- **Feito (2026-09-25):** uma regra só dos dois lados da faixa (`onlyPrepayWindow`): o
+  trecho entre a primeira menção ao antecipado e "na entrega", e o que vem depois da faixa,
+  só podem conter a janela do antecipado — e a menção precisa trazer a janela dela ("varia /
+  depende / conforme / em média"). A média é conferida com ou sem "úteis" ("em média 1 dias",
+  "cerca de 3 dias"), e só o número que fecha uma faixa é pulado — antes a frase inteira era
+  pulada quando tinha faixa em dias úteis. `pnpm dev:gates`: 0 afrouxamentos, 13
+  endurecimentos, todos mentira; nenhuma resposta das rodadas de personas mudou.
+- **Estado:** feita — segunda revisão e rodada cleide, rafa, lu pendentes.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

@@ -690,15 +690,21 @@ const gates: readonly Gate[] = [
        * it only reads "N a M dias".
        */
       const avg = prepayAverage(ctx.config.delivery);
-      for (const m of t.matchAll(/(\d{1,2})\s*dias?\s*ute[il]s?/g)) {
+      // An average is an average with or without "úteis" (M-07: "varia em média 1 dias"
+      // passed unchecked because only "N dias úteis" was read). A number is skipped only
+      // when it is itself the end of a range; skipping the whole sentence let "1 a 3 dias
+      // úteis na entrega, no antecipado em média 1 dias" through.
+      for (const m of t.matchAll(
+        /\b(?:media|em\s+torno|cerca|aproximadamente)\s+(?:de\s+)?(\d{1,2})\s*dias?\b|(\d{1,2})\s*dias?\s*ute[il]s?/g,
+      )) {
         const at = m.index ?? 0;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        // A number inside "N a M dias úteis" is the range, already judged above.
-        if (/\d\s*(?:a|e|ate)\s*\d{1,2}\s*dias?\s*ute/.test(sentence)) continue;
+        if (m[2] != null && /\d\s*(?:a|e|ate)\s*$/.test(t.slice(Math.max(0, at - 8), at))) continue;
+        const days = m[1] ?? m[2]!;
         if (avg == null) return "states a prepaid deadline, and none is configured";
-        if (Number(m[1]) !== avg) {
-          return `prepaid average of ${m[1]} days is not the configured ${avg}`;
+        if (Number(days) !== avg) {
+          return `prepaid average of ${days} days is not the configured ${avg}`;
         }
         if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {
           return "states the prepaid average as a fixed deadline, without saying it varies";
@@ -901,17 +907,28 @@ const gates: readonly Gate[] = [
         // Second review: "dias úteis" after the range, "pagamento antecipado", "já" /
         // "enquanto" opening the clause and "conforme / de acordo com / depende da região"
         // are the same window in the model's own words, and vetoing them cost honest turns.
-        const tailIsPrepayWindow = /^[\s.,;:!?()]*$/.test(
-          t
-            .slice(at + m[0].length)
-            .split(/[.!?\n]/)[0]!
-            .replace(/^\s+uteis\b/, "")
-            .replace(PREPAY, "")
-            .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
-            .replace(/\b(?:conforme|de\s+acordo\s+com|depende\s+d)[ae]?\s+(?:a\s+)?regiao\b/g, "")
-            .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
-        );
-        const byProximity = PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow;
+        // M-07: the same rule on both sides of the range, and the prepaid mention must carry
+        // its own window ("varia / depende / conforme / em média") — "…1 a 3 dias e no
+        // pagamento antecipado." reads as "the same range there". Before the range it is
+        // the stretch from the first prepaid mention to "na entrega": "No antecipado varia
+        // por região, e no pix e na entrega, 1 a 3 dias" shares the range with the Pix.
+        const onlyPrepayWindow = (s: string): boolean => {
+          if (!PREPAY.test(s)) return /^[\s.,;:!?()]*$/.test(s.replace(/^\s+uteis\b/, ""));
+          if (!/\b(?:varia\w*|depende\w*|conforme|de\s+acordo|media)\b/.test(s)) return false;
+          return /^[\s.,;:!?()]*$/.test(
+            s
+              .replace(/^\s+uteis\b/, "")
+              .replace(PREPAY, "")
+              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
+              .replace(/\b(?:conforme|de\s+acordo\s+com|depende\s+d)[ae]?\s+(?:a\s+)?regiao\b/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
+          );
+        };
+        const tailIsPrepayWindow = onlyPrepayWindow(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!);
+        const headPrepay = head.search(PREPAY);
+        const headIsPrepayWindow = headPrepay === -1 || onlyPrepayWindow(head.slice(headPrepay, codAt));
+        const byProximity =
+          PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow && headIsPrepayWindow;
         const named: "cod" | "prepay" | null =
           byProximity && codAt > prepayAt
             ? "cod"

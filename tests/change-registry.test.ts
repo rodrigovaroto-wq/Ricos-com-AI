@@ -261,3 +261,44 @@ describe("M-06: depois da faixa da entrega, só a janela do antecipado", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-07 (segunda revisão da M-06): (1) nome do antecipado ligado à entrega antes da faixa;
+ * (2) média do antecipado sem "úteis" não era conferida; (3) depois da faixa, o antecipado
+ * sem janela própria lê como "a mesma faixa lá".
+ */
+describe("M-07: a faixa e a média pertencem ao caminho certo", () => {
+  const vetadas = [
+    // (1)
+    "No antecipado varia por região, e no pix e na entrega, 1 a 3 dias.",
+    "No antecipado o prazo varia por região; no cartão e na entrega, 1 a 3 dias.",
+    "No antecipado varia por região, mas pagando antes e na entrega, 1 a 3 dias.",
+    "No antecipado, e na entrega, em 1 a 3 dias; o prazo varia por região.",
+    "Antecipado varia por região, adiantado e na entrega, 1 a 3 dias.",
+    "No antecipado varia por região, no antecipado e na entrega chega em 1 a 3 dias.",
+    // (2)
+    "Na entrega chega em 1 a 3 dias, e no antecipado o prazo varia em média 1 dias.",
+    "No antecipado o prazo varia, em média 2 dias.",
+    "No antecipado varia, cerca de 3 dias.",
+    // (3)
+    "No antecipado o prazo varia por região; na entrega chega em 1 a 3 dias e no pagamento antecipado.",
+    "Na entrega chega em 1 a 3 dias, e no antecipado.",
+  ];
+  const passam = [
+    "No antecipado varia, em média 5 dias; na entrega chega em 1 a 3 dias.",
+    "No antecipado o prazo varia por região, em média 5 dias; na entrega é de 1 a 3 dias.",
+    "No antecipado o prazo varia, em média 5 dias.",
+    "Na entrega chega em 1 a 3 dias, e no pagamento antecipado, variando por região.",
+    "Pagando na entrega, você recebe em 1 a 3 dias; pagando antecipado, o prazo varia por região, em média 5 dias úteis.",
+  ];
+
+  it.each(vetadas)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passam)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
