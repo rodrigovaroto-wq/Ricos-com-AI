@@ -143,15 +143,6 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
 };
 
 /**
- * Whether the agent's text carries one of the checkout links. The words "link" and
- * "checkout" are not enough: they come in an offer ("quer que eu te mande o link?"), a
- * denial ("ainda não te mandei o link") and her own question, and since §R10.4 is armed
- * a false `link_sent` sends "o link ainda está aberto" about a link never sent.
- */
-export const sentCheckoutLink = (text: string, bases: readonly (string | undefined)[]): boolean =>
-  bases.some((b) => typeof b === "string" && b !== "" && text.includes(b));
-
-/**
  * The ruler to write when it is (re)anchored. A fresh ruler — the agent just spoke — is
  * `scheduleSilence` whole. Re-anchored because a touch was postponed by the clock, it only
  * brings back the checkout touch when that touch is the one postponed: a link sent at 23:40

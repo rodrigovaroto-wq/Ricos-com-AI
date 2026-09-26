@@ -331,8 +331,10 @@ flowchart TD
   adiado é o próprio lembrete, e o cancelamento do reancoramento não toca nele.
 - **Lembrete de link que não saiu:** `stopPointOf` armava `link_sent` pela palavra
   "link" ou "checkout", que aparecem também em oferta e negação ("quer que eu te mande o
-  link?"). Agora só conta se o texto leva um dos links de checkout (`sentCheckoutLink`),
-  com os testes de negação.
+  link?"). Agora só conta se o texto leva um dos links de checkout, pela mesma função do
+  M-03 (`linkSentRecently`), com os testes de negação. A sétima revisão pegou uma primeira
+  versão com um segundo helper igual; a lista de links agora é montada uma vez só, em
+  `CHECKOUT_BASES`.
 - **Guardas:** mutações R10.4-duplicado e R10.4-palavra-link.
 
 Achado pela revisão Opus de 2026-09-26 (terceira passada do §15), fora do diff que ela

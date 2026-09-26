@@ -6,10 +6,10 @@ import {
   onOrderConfirmed,
   rulerFor,
   scheduleSilence,
-  sentCheckoutLink,
   stageForLead,
   stageForOrder,
 } from "@/agent/followups.js";
+import { linkSentRecently } from "@/agent/interpret.js";
 
 /**
  * Plano v2, item 5.8: o webhook de venda recebia o status do pedido e não tocava
@@ -175,7 +175,7 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
     expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
   });
   it("link_sent só quando o texto leva um dos links de checkout", () => {
-    expect(source).toContain("if (sentCheckoutLink(replyText, [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)])) {");
+    expect(source).toContain('if (linkSentRecently([replyText], CHECKOUT_BASES)) return "link_sent";');
     expect(source).not.toContain('t.includes("checkout") || t.includes("link")');
   });
   it("a venda cancela o lembrete de checkout", () => {
@@ -204,7 +204,9 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
 
 describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link que não saiu", () => {
   const link = "https://entrega.logzz.com.br/pay/ccm-1-unidade";
-  const bases = [link, "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0", undefined, ""];
+  const bases = [link, "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0", ""];
+  // A mesma regra do M-03, sobre uma mensagem só (sétima revisão: nada de segundo helper).
+  const sentCheckoutLink = (texto: string, b: readonly string[]) => linkSentRecently([texto], b);
   // Link mandado às 23:40 em São Paulo: o lembrete sai 23:55; o silence_1 (00:10) é adiado.
   const reabertura = new Date("2026-09-27T09:00:00Z");
 
@@ -235,6 +237,6 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
     expect(sentCheckoutLink(texto, bases)).toBe(false);
   });
   it("base vazia ou ausente nunca casa", () => {
-    expect(sentCheckoutLink("qualquer texto", [undefined, ""])).toBe(false);
+    expect(sentCheckoutLink("qualquer texto", [""])).toBe(false);
   });
 });

@@ -237,9 +237,9 @@ const MUTATIONS: Mutation[] = [
   {
     id: "R10.4-palavra-link",
     bug: "a palavra link numa oferta armava o lembrete de um link que nunca saiu",
-    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
-    from: 'bases.some((b) => typeof b === "string" && b !== "" && text.includes(b));',
-    to: 'bases.some((b) => typeof b === "string" && b !== "" && text.includes(b)) || /\\blink\\b/i.test(text);',
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (linkSentRecently([replyText], CHECKOUT_BASES)) return "link_sent";',
+    to: 'if (/\\blink\\b/i.test(replyText)) return "link_sent";',
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {

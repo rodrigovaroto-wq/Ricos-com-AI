@@ -27,7 +27,6 @@ import {
   stageForLead,
   renderFollowup,
   rulerFor,
-  sentCheckoutLink,
   endsSilenceRuler,
   type FollowupKind,
   type StopPoint,
@@ -867,11 +866,21 @@ const cancelScheduled = (conversationId: string, withCheckout = true) =>
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
 
-/** Where she stopped decides what the first touch says. */
+/** Every checkout link the agent can send — delivery, prepaid and each kit. */
+const CHECKOUT_BASES: string[] = [
+  CONFIG.checkout?.codUrl,
+  CONFIG.checkout?.prepayUrl,
+  ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl),
+].filter((u): u is string => typeof u === "string" && u !== "");
+
+/**
+ * Where she stopped decides what the first touch says. `link_sent` only when a checkout
+ * link is in the text, by the same rule as M-03: the words "link" and "checkout" also come
+ * in an offer ("quer que eu te mande o link?") or a denial, and since §R10.4 is armed that
+ * would send "o link ainda está aberto" about a link never sent (sixth review).
+ */
 const stopPointOf = (replyText: string): StopPoint => {
-  if (sentCheckoutLink(replyText, [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)])) {
-    return "link_sent";
-  }
+  if (linkSentRecently([replyText], CHECKOUT_BASES)) return "link_sent";
   const t = replyText.toLowerCase();
   // From the config, not typed here: hardcoded prices meant a price change silently
   // downgraded every "she already heard the price" touch to the opening one.
@@ -2184,8 +2193,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
     const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
-    for (const base of [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)]) {
-      if (orderContext || !base) continue;
+    for (const base of CHECKOUT_BASES) {
+      if (orderContext) continue;
       const sent = await db(
         `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
           `&body=like.${encodeURIComponent(`*${base}*`)}&select=id&limit=1`,
@@ -2502,9 +2511,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     identityAsked: asksForIdentity(lastOutbound),
     identityGiven: Object.keys(identityFound).length > 0,
   };
-  const checkoutBases = [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...kits.map((k) => k.checkoutUrl)].filter(
-    (u): u is string => typeof u === "string" && u !== "",
-  );
+  const checkoutBases = CHECKOUT_BASES;
   // M-03: the link this turn would send, if it went out in the last three messages, is
   // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
   // from the delivery checkout to the prepaid one is a different link and still goes out.
