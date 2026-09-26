@@ -546,6 +546,44 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
   });
 });
 
+/**
+ * Dois pedidos no mesmo lead (pendência do HANDOFF, 2026-09-26). O toque pós-pedido guarda o
+ * pedido que o armou (`followups.order_id`); a morte de um pedido não cala a entrega do outro.
+ * Linha sem pedido (anterior à migração 0017) segue a regra antiga: morre com qualquer pedido.
+ */
+describe("dois pedidos no mesmo lead", () => {
+  const orderedAt = new Date("2026-09-26T15:00:00Z");
+  const doPedidoA = [
+    { kind: "order_eve", status: "scheduled", orderId: "A" },
+    { kind: "order_delivered", status: "scheduled", orderId: "A" },
+    { kind: "silence_3", status: "scheduled", orderId: null },
+  ] as never;
+
+  it("o cancelamento do pedido B não cala a véspera do pedido A", () => {
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "B");
+    expect(efeito.cancel).toEqual(["silence_3"]);
+    expect(efeito.arm).toEqual([]);
+  });
+
+  it("o cancelamento do próprio pedido A cala os toques dele", () => {
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "A");
+    expect(efeito.cancel).toEqual(["order_eve", "order_delivered", "silence_3"]);
+  });
+
+  it("linha sem pedido guardado morre com qualquer pedido, como antes", () => {
+    const antigas = [{ kind: "order_eve", status: "scheduled", orderId: null }] as never;
+    expect(onOrderConfirmed(antigas, orderedAt, 1, "Cancelado", "B").cancel).toEqual(["order_eve"]);
+  });
+
+  it("sem o id do pedido que morreu, tudo morre, como antes", () => {
+    expect(onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado").cancel).toEqual([
+      "order_eve",
+      "order_delivered",
+      "silence_3",
+    ]);
+  });
+});
+
 // A Edge Function roda em UTC: entre 21h e 23h59 de São Paulo o servidor já está no
 // dia seguinte. Instantes UTC explícitos, para o teste quebrar onde o bug mora.
 describe("dia da semana do terceiro toque — o de São Paulo, não o do servidor", () => {

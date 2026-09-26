@@ -193,6 +193,8 @@ export interface OrderEffect {
 export interface ExistingFollowup {
   readonly kind: FollowupKind;
   readonly status: "scheduled" | "sent" | "canceled";
+  /** The order that armed a post-order touch; null for silence and for rows before 0017. */
+  readonly orderId?: string | null;
 }
 
 /**
@@ -238,13 +240,20 @@ export const onOrderConfirmed = (
   orderedAt: Date,
   codDaysMin: number,
   status?: string,
+  orderId?: string,
 ): OrderEffect => {
   const scheduled = existing.filter((f) => f.status === "scheduled");
 
   // The sale is off. Everything still waiting dies with it — the post-order touches
   // because there is no delivery to talk about, and the silence ones because chasing
   // someone who just cancelled is worse than saying nothing. Nothing is armed.
-  if (isOrderDead(status)) return { cancel: scheduled.map((f) => f.kind), arm: [] };
+  //
+  // With two orders on one lead, only the dead one's touches go: another order's eve and
+  // delivery still happen. A row that does not say its order (before 0017) dies as before.
+  if (isOrderDead(status)) {
+    const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
+    return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [] };
+  }
 
   return {
     // Only what is still waiting can be cancelled; a touch already sent is history.

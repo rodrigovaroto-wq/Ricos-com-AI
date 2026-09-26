@@ -971,7 +971,7 @@ const recordOrder = async (order: OrderWebhook) => {
   );
   const conversation = conversations?.[0] ?? null;
 
-  await db("orders?on_conflict=external_id", {
+  const saved = await db("orders?on_conflict=external_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify({
@@ -1000,19 +1000,25 @@ const recordOrder = async (order: OrderWebhook) => {
   if (!conversation) return { status: "recorded", orderId: order.externalId, touches: 0 };
 
   // The funnel follows the sale (plan v2, 5.8): same no-regression rule as the turn.
+  // The row's own id, so each post-order touch speaks of the order that armed it (two
+  // orders on one lead read the latest otherwise).
+  const orderRowId: string | undefined = saved?.[0]?.id;
+
   const reached = stageForOrder(order.status);
   if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the
   // unique key, and re-arming it throws.
   const existing = await db(
-    `followups?conversation_id=eq.${conversation.id}&select=kind,status`,
+    `followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id`,
   );
   const effect = onOrderConfirmed(
-    (existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled" }>,
+    ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null }>)
+      .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id })),
     order.orderedAt ? new Date(order.orderedAt) : new Date(),
     CONFIG.delivery.codDaysMin,
     order.status,
+    orderRowId,
   );
 
   for (const kind of effect.cancel) {
@@ -1033,6 +1039,7 @@ const recordOrder = async (order: OrderWebhook) => {
           conversation_id: conversation.id,
           kind: f.kind,
           run_at: f.runAt.toISOString(),
+          order_id: orderRowId ?? null,
         })),
       ),
     });
@@ -1097,7 +1104,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,run_at,stop_point,body,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
   /**
@@ -1224,7 +1231,10 @@ const runFollowupSweep = async () => {
     const order = kind.startsWith("order_")
       ? (
           await db(
-            `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
+            // Its own order when the row says which (0017); the latest for rows armed before.
+            row.order_id
+              ? `orders?id=eq.${row.order_id}&select=amount_brl,units,size,payment_method`
+              : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
           )
         )?.[0] ?? null
       : null;

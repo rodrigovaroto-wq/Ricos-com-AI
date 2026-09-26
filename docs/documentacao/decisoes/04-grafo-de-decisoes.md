@@ -277,6 +277,30 @@ Opt-out e handoff saem antes e não marcam; toque adiado não saiu da fila.
 - **Sem conversa sintética:** não há conversa sintética de ponta a ponta; o teste lê a
   estrutura da varredura, que roda só no Deno.
 
+## 16. Dois pedidos no mesmo lead
+
+```mermaid
+flowchart TD
+  S["🟥 o toque pós-pedido lia o ÚLTIMO pedido do lead: com dois pedidos,<br/>a véspera do pedido A falava do total e dos tamanhos do pedido B"]
+  S2["🟥 o cancelamento do pedido B cancelava todo toque agendado,<br/>inclusive a véspera e a entrega do pedido A, que segue de pé"]
+  K["causa: followups não sabia qual pedido o armou"]
+  C1["🟩 migração 0017: followups.order_id (nula, on delete set null).<br/>recordOrder arma com o id da linha gravada; a varredura lê o pedido do toque;<br/>onOrderConfirmed com pedido morto cancela só silêncio + toques daquele pedido"]
+  G["🛡️ tests/followups.test.ts 'dois pedidos no mesmo lead';<br/>tests/order-stage.test.ts; mutação dois-pedidos"]
+  S --> K
+  S2 --> K
+  K --> C1 --> G
+```
+
+**Ordem de deploy:** aplicar a 0017 **antes** de publicar a `turn`. A varredura seleciona
+`order_id`, e sem a coluna o PostgREST recusa a leitura: nenhum toque sai.
+
+**Limites conhecidos:**
+- **O segundo pedido não ganha régua própria**, porque `unique (conversation_id, kind)` já
+  está ocupado pelos toques do primeiro. Mudar isso é mudar a chave da tabela, e fica fora
+  deste passo.
+- **Linha armada antes da 0017** tem `order_id` nulo e segue a regra antiga: lê o último
+  pedido e morre com qualquer pedido cancelado.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

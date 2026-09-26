@@ -108,3 +108,22 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(retry.indexOf("await handleTurn(")).toBeGreaterThan(retry.indexOf("claimed.length === 0"));
   });
 });
+
+describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("recordOrder arma com o id do pedido gravado e cancela só os toques dele", () => {
+    expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
+    expect(source).toContain("order_id: orderRowId ?? null,");
+    expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
+    expect(source).toContain("    order.status,\n    orderRowId,\n  );");
+  });
+  it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
+    expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&select=amount_brl,units,size,payment_method`");
+  });
+  it("a migração é aditiva e nula", () => {
+    const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
+    expect(sql).toContain("add column if not exists order_id uuid references public.orders(id) on delete set null");
+    expect(sql).not.toMatch(/not null/i);
+  });
+});
