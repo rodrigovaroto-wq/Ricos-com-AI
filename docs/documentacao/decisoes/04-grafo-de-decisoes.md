@@ -269,9 +269,11 @@ Opt-out e handoff saem antes e não marcam; toque adiado não saiu da fila.
 - **Venda que o webhook não casou** (`unknown_lead`, `ambiguous_phone`) deixa a régua viva.
   Três dias depois a conversa vira `perdido` sobre uma compra real. Isso se corrige sozinho
   se o webhook chegar depois (`furthest(perdido, pedido_criado)`).
-- **Mensagem já gravada:** o toque é gravado em `messages` antes de a linha ser fechada.
-  Se a cliente respondeu no intervalo, a mensagem sai mesmo assim; só o `perdido` e o
-  fechamento da linha nova são evitados. Esse defeito já existia antes desta mudança.
+- **Envio depois da resposta dela:** fechado em 2026-09-26, na segunda revisão. O toque só
+  é gravado e enviado depois que a varredura fecha a linha. Se a cliente respondeu no
+  intervalo, a linha já foi reagendada pelo turno dela e o toque velho não sai. A nova
+  tentativa de turno segue a mesma regra. O custo é que o envio passa a ser no máximo uma
+  vez: uma falha depois de fechar a linha perde um toque, em vez de enviar dois.
 - **Sem conversa sintética:** não há conversa sintética de ponta a ponta; o teste lê a
   estrutura da varredura, que roda só no Deno.
 

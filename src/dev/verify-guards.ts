@@ -171,6 +171,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
+    id: "7.4-envio",
+    bug: "o lembrete de silêncio saía depois de ela responder (a varredura gravava e enviava antes de fechar a linha)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'const claimed = await mark("sent");\n      if (!Array.isArray(claimed) || claimed.length === 0) {',
+    to: 'const claimed = await mark("sent");\n      if (false) {',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
     id: "hermes-trecho",
     bug: "proposta do Hermes com trecho inventado passando pela validação",
     files: ["src/dev/hermes-core.ts"],

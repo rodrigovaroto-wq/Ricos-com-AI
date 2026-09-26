@@ -77,7 +77,8 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // O silence_3 renderiza null com o cupom inativo (a configuração de hoje): esse ramo é o
     // único que a produção exercita, e foi o que a primeira versão esqueceu.
     expect(afterLeave).not.toContain("await mark(");
-    expect(afterLeave.match(/await leave\("(?:sent|canceled)"\);/g)?.length).toBe(4);
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(3);
+    expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.slice(0, nullBranch.indexOf("continue;"))).toContain('await leave("canceled");');
   });
@@ -86,7 +87,24 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(source).toContain("conversations(id,lead_id,stage,last_inbound_at,");
     expect(sweep).toContain("&select=id,kind,run_at,");
     expect(sweep).toContain("followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}");
-    expect(leaveDef).toContain("endsSilenceRuler(kind) && Array.isArray(closed) && closed.length > 0");
+    expect(leaveDef).toContain("const ours = Array.isArray(closed) && closed.length > 0;");
+    expect(leaveDef).toContain("if (endsSilenceRuler(kind) && ours) {");
     expect(leaveDef).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
+  });
+
+  it("o toque é fechado antes de ser gravado e enviado; se ela respondeu, não sai", () => {
+    const claim = afterLeave.indexOf('if (!(await leave("sent"))) {');
+    const skip = afterLeave.indexOf("continue;", claim);
+    expect(claim).toBeGreaterThan(-1);
+    expect(afterLeave.indexOf('await db("messages"')).toBeGreaterThan(skip);
+    expect(afterLeave.indexOf("toSend.push(")).toBeGreaterThan(skip);
+  });
+
+  it("a nova tentativa de turno só roda se a varredura fechou a linha", () => {
+    const retry = sweep.slice(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"), leaveAt);
+    const claim = retry.indexOf('const claimed = await mark("sent");');
+    expect(claim).toBeGreaterThan(-1);
+    expect(retry.indexOf("claimed.length === 0")).toBeGreaterThan(claim);
+    expect(retry.indexOf("await handleTurn(")).toBeGreaterThan(retry.indexOf("claimed.length === 0"));
   });
 });

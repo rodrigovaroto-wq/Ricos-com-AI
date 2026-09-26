@@ -1170,8 +1170,14 @@ const runFollowupSweep = async () => {
         });
         continue;
       }
+      // Claimed before it runs: a turn she sent meanwhile cancelled this retry, and running
+      // it anyway would answer an old message after the new one.
+      const claimed = await mark("sent");
+      if (!Array.isArray(claimed) || claimed.length === 0) {
+        skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da nova tentativa" });
+        continue;
+      }
       retriedTurns += 1;
-      await mark("sent");
       const ticket = readTicket(row.body);
       if (ticket === null) {
         skipped.push({ followupId: row.id, reason: "nova tentativa sem a mensagem de origem" });
@@ -1205,11 +1211,13 @@ const runFollowupSweep = async () => {
     // without a sale is where the lead is lost (plan v2, 7.4) — sent, or cancelled for any
     // reason. Opt-out and handoff left above; a postponed touch has not left. Only a row
     // this sweep actually closed counts, or a turn that just answered would be undone.
-    const leave = async (status: string) => {
+    const leave = async (status: string): Promise<boolean> => {
       const closed = await mark(status);
-      if (endsSilenceRuler(kind) && Array.isArray(closed) && closed.length > 0) {
+      const ours = Array.isArray(closed) && closed.length > 0;
+      if (endsSilenceRuler(kind) && ours) {
         await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido");
       }
+      return ours;
     };
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
@@ -1318,6 +1326,13 @@ const runFollowupSweep = async () => {
       continue;
     }
 
+    // Closed before it is recorded or sent: if she answered after this sweep read the row,
+    // her turn re-armed it and the old touch ("sumiu?") must not follow her reply. At most
+    // once — a failure after the claim loses one touch instead of sending it twice.
+    if (!(await leave("sent"))) {
+      skipped.push({ followupId: row.id, reason: "ela respondeu antes do envio" });
+      continue;
+    }
     await db("messages", {
       method: "POST",
       body: JSON.stringify({
@@ -1326,7 +1341,6 @@ const runFollowupSweep = async () => {
         body: text,
       }),
     });
-    await leave("sent");
 
     // The silence ruler starts when the agent finishes speaking, and for a deferred
     // reply that moment is now, not when the turn was written. The turn cancelled every
