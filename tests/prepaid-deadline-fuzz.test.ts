@@ -178,6 +178,69 @@ for (const ret of ["trocar", "devolver", "desistir"])
     ])
       detachedAnchors.push(`Pode ${ret} em ${count}${tail}.`);
 
+// Quarta revisão da M-08: o ônus invertido. A contagem da garantia só é isenta quando uma forma
+// de garantia a governa; o prazo ou o tempo "até quando chegar" nunca é garantia.
+const untilArrival: { text: string; both: boolean }[] = [];
+for (const name of ["", "No pix ", "No antecipado "])
+  for (const ret of ["pode trocar", "pode devolver", "tem garantia", "pode desistir"])
+    for (const noun of ["o prazo", "o tempo", "o prazo de entrega"])
+      for (const anchor of ["até quando chegar", "até quando o colete chegar", "até quando você receber", "até chegar"])
+        for (const count of ["7 dias", "uma semana"])
+          untilArrival.push(
+            { text: cap(`${name}${ret}, e ${noun} ${anchor} é de ${count}.`), both: name !== "" },
+            { text: cap(`${name}${ret}, ${noun} ${anchor} são ${count}.`), both: name !== "" },
+          );
+// A chegada entre a troca e "é/são N": "pode trocar, e quando o colete chegar é de 7 dias".
+for (const name of ["", "No pix "])
+  for (const ret of ["pode trocar", "pode devolver", "tem garantia de troca"])
+    for (const arrival of ["e quando o colete chegar é de", "e quando chegar são", "e quando ele chega é de"])
+      for (const count of ["7 dias", "uma semana"])
+        for (const tail of ["", " de viagem", " até lá"])
+          untilArrival.push({ text: cap(`${name}${ret}, ${arrival} ${count}${tail}.`), both: name !== "" });
+
+// Quarta revisão: conjunção + quantificador + contagem + chegada sem verbo.
+const conjQuantArrivals: string[] = [];
+for (const ret of ["Pode trocar", "Pode devolver", "Você tem 7 dias pra desistir"])
+  for (const conj of ["e", "mas", "porque", "pois", "já que", ""])
+    for (const quant of ["em até", "em uns", "em média", "com", "numa", "em", "daqui a", ""])
+      for (const count of ["7 dias", "semana"])
+        for (const arrival of ["ele está aí", "ele tá aí", "o colete tá em casa"]) {
+          if (count === "semana" && quant !== "numa") continue;
+          if (quant === "numa" && count !== "semana") continue;
+          conjQuantArrivals.push(`${ret} ${conj} ${quant} ${count} ${arrival}.`.replace(/\s+/g, " "));
+        }
+for (const ret of ["Pode trocar", "Pode devolver"])
+  for (const conj of ["e", "mas", "porque"])
+    conjQuantArrivals.push(`${ret} ${conj} 7 dias depois ele tá aí.`, `${ret} ${conj} uma semana depois ele está aí.`);
+
+// Quarta revisão: as formas honestas de garantia, geradas, têm de PASSAR nos dois caminhos.
+const honestWarranty: string[] = [];
+for (const name of ["", "No pix, ", "No antecipado, "])
+  for (const govern of [
+    "você tem {c} pra trocar", "você tem {c} pra devolver", "você tem {c} pra desistir", "são {c} de garantia",
+    "pode trocar em até {c}", "a troca é em {c}", "a garantia é de {c}", "você pode devolver em {c}",
+  ])
+    for (const anchor of [
+      "", " depois que receber", ", contados do recebimento", ", a partir do recebimento", " após a entrega",
+      ", a contar do dia que receber", ", contados de quando ele chegar", " a partir de quando você receber",
+    ])
+      for (const c of ["7 dias", "uma semana"])
+        honestWarranty.push(cap(`${name}${govern.replace("{c}", c)}${anchor}.`));
+
+describe("M-08, quarta revisão: o ônus invertido", () => {
+  it(`${untilArrival.length} prazos "até quando chegar", todos vetados`, () => {
+    expect(
+      untilArrival.filter(({ text, both }) => delivery(text, "prepay") !== "block" || (both && delivery(text, "cod") !== "block")).map((x) => x.text),
+    ).toEqual([]);
+  });
+  it(`${conjQuantArrivals.length} conjunções com quantificador e chegada, todas vetadas no antecipado`, () => {
+    expect(conjQuantArrivals.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${honestWarranty.length} garantias honestas geradas, todas passam nos dois caminhos`, () => {
+    expect(honestWarranty.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+});
+
 describe("M-08, terceira revisão: complemento da âncora, conjunção e âncora solta", () => {
   it(`${anchorComplements.length} contagens complemento do verbo da âncora, todas vetadas no antecipado`, () => {
     expect(anchorComplements.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);

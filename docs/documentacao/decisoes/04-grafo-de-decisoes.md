@@ -392,6 +392,19 @@ oração:
 - **Dois-pontos:** ":" não abre oração quando vem seguido de "você tem".
 - **Guardas:** 11 mutações da M-08.
 
+**Quarta revisão (NEEDS WORK, sem afrouxamento) → ônus invertido:** depois de quatro
+rodadas fechando formas enquanto os irmãos seguiam abertos, veio a mentira mais grave com o
+pix nomeado: "o prazo até quando chegar é de 7 dias". O desenho foi invertido. A contagem
+da garantia só é isenta quando uma forma de garantia a governa **positivamente**:
+- **Propósito colado:** "7 dias pra trocar".
+- **Palavra de troca tomando a contagem:** "a troca é em 7 dias", "pode trocar em até 7
+  dias".
+- **Depois da contagem, só o permitido:** "corridos/úteis", o propósito, uma âncora de
+  início ou uma oração que não fala de chegada.
+
+Saíram oito regexes (`anchor`, `anchorAfter`, `glued`, `newClause`…) e mais quatro variáveis
+de apoio. **Lição:** numa isenção, liste o que prova a exceção, não o que a desmente.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

@@ -912,62 +912,66 @@ const gates: readonly Gate[] = [
         // de quando/contados do recebimento". Safe to be this simple only because no other
         // number can ever be exempt.
         if (days === ctx.config.delivery.warrantyDays) {
-          // Never stripped when the count is that verb's own time complement: "quando o colete
-          // chegar em 7 dias" is a deadline (eighth review). M-08, third review: whatever the
-          // preposition or filler ("quando chegar lá pra você em uns 7 dias", "…com 7 dias"), a
-          // count in the anchor verb's own clause is its complement — unless "você tem / são / é"
-          // takes the count right before it ("quando o colete chegar você tem até 7 dias").
-          const anchor =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*\b|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)(?!(?![^,;:]*\b(?:voce\s+)?(?:tem|tera|sao|e)(?:\s+(?:ate|de))?\s*$)[^,;:]*$)/g;
-          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega."),
-          // but only glued to the count or to its purpose ("7 dias corridos, contados do
-          // recebimento", "7 dias pra desistir, a contar do dia que receber"). Anywhere else it is
-          // the arrival: "…, que é bem quando ele chega", "…, quando ele chega" (M-08, third review).
-          const anchorAfter =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
-          const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
-          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*|desist\w*)\b/;
-          // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
-          // ("a garantia é de 7 dias" normalizes "é" to "e").
-          const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
-          // Two delivery-looking words that are not delivery (loop review, 2026-09-25): getting
-          // her money back ("e recebe seu dinheiro de volta") and asking the CEP to look the
-          // delivery up ("me passa seu CEP pra eu ver a entrega aí"). Both came from Malu's own
-          // honest warranty lines on the prepaid path, vetoed into rewrites.
+          // M-08, fourth review: the burden is inverted. Four rounds stripped anchors and hunted
+          // for delivery words, and each closed a shape while its siblings stayed open. The count
+          // is the warranty only when a warranty form GOVERNS it — a return purpose right after
+          // it, or a return word taking it right before it — and nothing after it says anything
+          // but "corridos/úteis", the purpose, or when the warranty starts counting.
+          const ARRIVAL =
+            /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|aqui|casa|mao|porta|viagem|caminho)\b/;
+          // "Quando chega aí você tem 7 dias pra trocar": the place of the arrival is part of it.
+          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa))?`;
+          // When the warranty starts counting: "depois que receber", "a partir do recebimento",
+          // "contados de quando ele chegar", "a contar do dia que receber", "após a entrega".
+          const START = String.raw`(?:(?:depois\s+que|apos|depois\s+d[aeo]|a\s+partir\s+d[aeo](?:\s+quando)?|contad[oa]s?\s+(?:a\s+partir\s+)?d[aeo](?:\s+quando)?|a\s+contar\s+d[aeo](?:\s+dia\s+(?:em\s+)?que|\s+quando)?|de\s+quando)\s+${WHO}|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)`;
+          const PURPOSE = String.raw`(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|desistir|se\s+arrepender)(?:\s+ou\s+(?:trocar|devolver|desistir))?|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol\w*)))`;
+          // Getting her money back ("e recebe seu dinheiro de volta") and asking the CEP to look
+          // the delivery up ("me passa seu CEP pra eu ver a entrega aí") are not delivery (loop
+          // review, 2026-09-25) — only as the purpose of asking the CEP ("dá pra ver a entrega em
+          // casa nesse tempo" is a deadline).
           const notDelivery = (x: string) =>
             x
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
-              // Only as the purpose of asking the CEP or address (second review: "dá pra ver
-              // a entrega em casa nesse tempo" is a deadline).
-              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
-          const glued = new RegExp(
-            String.raw`^(\s*(?:corridos|uteis)?(?:\s*(?:pra|para)\s+(?:se\s+)?\w+(?:\s+ou\s+\w+)?|\s*de\s+(?:garantia|arrependimento))?)(?:\s+|\s*,\s*(?!quando\b))` +
-              anchorAfter.source,
-          );
-          const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
-          const afterCount = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(glued, "$1 ");
-          const clause = notDelivery(sentenceBefore.split(CL).pop()! + (m[0] + afterCount).split(CL)[0]!);
-          const rest = notDelivery(afterCount);
-          const segment = sentenceBefore.split(/[,;]/).pop()!;
-          const purposeAfter =
-            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender|desistir)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
-          // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
-          // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
-          // Never across a new clause after the last return word: "pode trocar: em 7 dias ele está
-          // aí", "…pra trocar e ele está aí em 7 dias" (M-08, second review), nor when a
-          // conjunction takes the count ("pode trocar e em 7 dias ele está aí", "…porque em 7
-          // dias", third review). "A garantia é a mesma: 7 dias" and "é só trocar: você tem 7
-          // dias" do not open a clause at the colon.
-          const lastRet = [...sentenceBefore.matchAll(new RegExp(RET.source, "g"))].pop();
-          const newClause =
-            /:\s*(?!(?:voce\s+)?(?:tem|tera|sao|fica)\b)\S|\s(?:e|mas|que)\s+(?:ele|ela|o\s+colete|ta|esta)\b|\s(?:mas|que|porque|pois|ja\s+que)\s+(?:(?:em|daqui\s+a|dentro\s+de|ate)\s+)?$|\se\s+(?:em|daqui\s+a|dentro\s+de|ate)\s+$/.test(
-            sentenceBefore.slice(lastRet?.index ?? 0),
-          );
-          const returnBefore =
-            !newClause &&
-            ((RET.test(segment) && !DELIVERY.test(segment)) ||
-              (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|fica)\s*$/.test(segment)));
-          if (!DELIVERY.test(clause) && !DELIVERY.test(rest) && (purposeAfter || returnBefore)) continue;
+              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
+          // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
+          // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
+          let tail = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!;
+          let purpose = false;
+          for (let x; (x = tail.match(new RegExp(String.raw`^[\s,]*(?:corridos|uteis|(${PURPOSE})|${START}${purpose ? String.raw`|quando\s+${WHO}` : ""})\b`))); ) {
+            purpose ||= x[1] != null;
+            tail = tail.slice(x[0].length);
+          }
+          // Then the sentence ends, or a new clause opens that says nothing about arrival or time
+          // ("…, e o frete da troca é por nossa conta", "…se não servir"). "de viagem", "até lá",
+          // "ele está aí", "…, que é bem quando ele chega" are the count's own arrival.
+          const tailOk =
+            /^\s*$/.test(tail) ||
+            (/^\s*(?:[,;:]|(?:e|mas|ou|se|sem|caso|porque|pois|que)\s)/.test(tail) &&
+              !ARRIVAL.test(notDelivery(tail)) &&
+              !/\b(?:quando|dias?|semanas?|depois|antes|ate|logo|junto|tempo|prazo|mesm\w*|igual\w*|tambem)\b/.test(tail));
+          const sb = t.slice(0, at).split(/[.!?\n]/).pop()!;
+          // A return word taking the count right before it: "a troca é (de/em até)", "a garantia
+          // é a mesma:", "a troca pode ser feita em até", "pode trocar/devolver em (até)". A
+          // conjunction between them ("pode trocar e em 7 dias…") is another clause.
+          const governedBefore =
+            /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|e|sao|fica|vale|a\s+mesma|o\s+mesmo))*\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
+            /\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela))?\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$/.test(sb);
+          // "(você) tem / são / é 7 dias" after a return word, with nothing about arrival between:
+          // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
+          // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
+          const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
+          const takenAfterReturn =
+            lastRet != null &&
+            /\b(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$/.test(sb) &&
+            !ARRIVAL.test(notDelivery(sb.slice(lastRet.index)));
+          // The count's own clause before it says nothing about arrival, except where the warranty
+          // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
+          // quando chegar é de 7 dias pra trocar").
+          const own = sb
+            .split(/[,;:]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)|\s(?:porque|pois)\s|(?<!\b(?:depois|dia|em))\sque\s/)
+            .pop()!
+            .replace(new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|quando\s+${WHO})`, "g"), " ");
+          if ((purpose || governedBefore || takenAfterReturn) && tailOk && !ARRIVAL.test(notDelivery(own))) continue;
         }
         // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até
         // 30 dias o seu dinheiro de volta".

@@ -309,7 +309,21 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   (preposição × quantificador × enchimento, conjunção × preposição, âncora solta); mutações
   `M-08-complemento`, `M-08-conjuncao`, `M-08-dois-pontos`, e `M-08-que-e-quando` passou a
   reinstalar a retirada da âncora em qualquer lugar.
-- **Estado:** fechada (aguarda quarta revisão).
+- **Quarta revisão (NEEDS WORK, sem afrouxamento; ônus invertido em 2026-09-26):** quatro rodadas
+  fechando formas enquanto as irmãs ficavam abertas. O código deixou de retirar âncoras e caçar
+  vestígio de entrega: a contagem da garantia (7 dias ou uma semana) só é isenta quando uma
+  forma de garantia a **governa** — propósito colado depois ("pra trocar/devolver/desistir",
+  "de garantia/arrependimento"), palavra de troca tomando-a logo antes ("a troca é (de/em até)",
+  "pode trocar em (até)"), ou "tem/são/é N" depois de uma troca sem chegada no meio — e o que vem
+  depois é fim de frase, "corridos/úteis", o propósito ou o início da contagem ("depois que
+  receber", "contados de quando ele chegar", "a contar do dia que receber"). Depois disso só
+  cabe oração nova que não fale de chegada nem de tempo. A âncora de chegada antes da contagem
+  não vale depois de "até / o prazo / o tempo". Saíram `anchor`, `anchorAfter`, `glued`,
+  `newClause`, `returnBefore`. Geradores: "o prazo/tempo até quando chegar é de N", conjunção +
+  quantificador + N + chegada sem verbo, e 384 garantias honestas que têm de passar. Mutações
+  reescritas: `M-08-governo`, `M-08-cauda`, `M-08-oracao-propria`, `M-08-ate-quando`,
+  `M-08-tomada` (as sete da segunda e terceira revisões miravam código que não existe mais).
+- **Estado:** fechada (aguarda quinta revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

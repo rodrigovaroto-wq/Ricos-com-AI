@@ -590,3 +590,66 @@ describe("M-08, terceira revisão: pela causa, não pela forma", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08, quarta revisão: quatro rodadas fechando formas enquanto as irmãs ficavam abertas. O ônus
+ * foi invertido: a contagem da garantia só é isenta quando uma forma de garantia a governa, e o
+ * que vem depois dela é fim de frase, "corridos/úteis", o propósito ou a âncora de início.
+ */
+describe("M-08, quarta revisão: a garantia governa a contagem, ou é prazo", () => {
+  const vetadasNosDois = ["No pix pode trocar, e o prazo até quando chegar é de 7 dias."];
+  const vetadasNoAntecipado = [
+    "Pode trocar, o prazo até quando chegar é de 7 dias.",
+    "Pode devolver, e o tempo até quando chegar é de 7 dias.",
+    "Pode trocar depois que chegar, são 7 dias de viagem.",
+    "Pode trocar depois que chegar são 7 dias de viagem.",
+    "Pode trocar, e quando o colete chegar é de 7 dias.",
+    "Tem garantia de troca quando chegar e são 7 dias até lá.",
+    "Pode trocar quando chegar é 7 dias.",
+    "Pode trocar e em até 7 dias ele está aí.",
+    "Pode trocar e em até uma semana ele está aí.",
+    "Pode trocar e numa semana ele está aí.",
+    "Pode trocar e em uns 7 dias ele tá aí.",
+    "Pode trocar e em média 7 dias ele está aí.",
+    "Pode trocar e com 7 dias ele tá aí.",
+    "Pode trocar e 7 dias depois ele tá aí.",
+    "Pode trocar porque em uns 7 dias ele tá aí.",
+    "Pode trocar mas uns 7 dias ele tá aí.",
+    "O prazo até quando chegar é de 7 dias pra trocar.",
+  ];
+  const passamNosDois = [
+    "A troca é em 7 dias.",
+    "A troca é em 7 dias corridos.",
+    "Você tem 7 dias pra trocar, contados de quando ele chegar.",
+    "Você tem 7 dias pra trocar, contados a partir de quando receber.",
+    "Você tem 7 dias pra trocar, a contar de quando receber.",
+    "Você tem 7 dias pra trocar, quando receber.",
+    "Depois que receber são 7 dias pra trocar.",
+    "Quando o colete chegar você tem até 7 dias pra trocar.",
+    "Depois que o colete chegar, a troca é em até 7 dias.",
+    "A garantia é a mesma: 7 dias.",
+    "Você tem 7 dias pra trocar, a partir do recebimento.",
+    "Pode trocar em até 7 dias, contados do recebimento.",
+    "Tem 7 dias de garantia a partir do recebimento.",
+    "São 7 dias de arrependimento depois que chega.",
+    "Você tem uma semana pra trocar depois que recebe.",
+    "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Quando chega aí você tem 7 dias pra trocar.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
