@@ -267,7 +267,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   (semanas não são lidas), "Em 2 dias ele está aí na sua casa." (sem verbo de entrega da lista).
 - **Objetivo:** nenhum prazo do antecipado passa por estar em palavras.
 - **Medida:** as três frases como casos vetados, e `pnpm dev:gates` sem afrouxamento.
-- **Estado:** aberta, prioridade baixa (nenhuma apareceu nas rodadas de personas).
+- **Feito (2026-09-26):** a regra de número de `delivery_promise` conta "um/uma/num/numa" e
+  semanas (semana = 7 dias corridos: pode ser a garantia, nunca a média, que é em dias úteis);
+  no antecipado, frase sem nome de caminho é prazo salvo quando a própria oração fala de uso
+  ("2 dias de uso", "se acostuma", "adapta") e não fala de entrega — a lista de verbos saiu
+  do caminho, porque a chegada tem palavras demais. "Um dia marcado/especial/de festa" não é
+  contagem. Testes em `change-registry.test.ts` e dois geradores no fuzz; mutações `M-08` e
+  `M-08-chegada` em `verify-guards.ts`.
+- **Estado:** fechada (aguarda revisão independente).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

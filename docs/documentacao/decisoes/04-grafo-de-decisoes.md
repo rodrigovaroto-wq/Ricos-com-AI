@@ -341,6 +341,25 @@ Achado pela revisão Opus de 2026-09-26 (terceira passada do §15), fora do diff
 revisava. **Lição:** um teste da função pura não prova que a produção chama a função com
 esse argumento.
 
+## 18. M-08: prazo do antecipado por extenso
+
+```mermaid
+flowchart TD
+  S["🟥 três prazos do antecipado passavam o gate: 'um dia só', 'chega em uma semana',<br/>'em 2 dias ele está aí na sua casa'"]
+  K["causa: a regra por número (M-07) não lia um/uma nem semanas, e no antecipado<br/>sem caminho nomeado só julgava se a oração tivesse verbo de DELIVERY_TALK"]
+  A1["🟧 atalho: pôr 'está aí', 'é seu', 'na sua mão' na lista de verbos"]
+  F1["🟥 a M-07 já mostrou em seis revisões: lista de formas vaza"]
+  C1["🟩 um/uma/num/numa = 1 (exceto 'um dia marcado/agendado/especial/de festa');<br/>semana = 7 corridos, nunca a média (dias úteis), pode ser a garantia;<br/>no antecipado a contagem é prazo, SALVO oração de uso (de uso, acostum, adapt) sem entrega"]
+  G["🛡️ change-registry M-08, fuzz com 6600 mentiras + 75 chegadas sem verbo;<br/>mutações M-08 e M-08-chegada; dev:gates 0 afrouxamentos, 26 endurecimentos"]
+  S --> K --> A1 --> F1 --> C1 --> G
+```
+
+**Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
+uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
+nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada
+por outro gate. As exceções são falsos positivos baratos, como "já faz 10 dias" na fala da
+cliente.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

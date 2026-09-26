@@ -386,3 +386,60 @@ describe("M-07: recusa passa, exceção presa ao número, nomes do antecipado", 
     expect(delivery(passam[1]!, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08 (terceira revisão da M-07): prazo do antecipado em palavras que a regra de número não
+ * lia — "um/uma" fora de propósito, semanas não lidas, e a chegada dita sem verbo de entrega
+ * ("está aí na sua casa"). Semana conta 7 dias corridos, e nunca é a média configurada (que é
+ * em dias úteis): no antecipado, "uma semana" só pode ser a garantia de 7 dias.
+ */
+describe("M-08: prazo do antecipado em palavras", () => {
+  const vetadasNosDois = [
+    "No antecipado, um dia só.",
+    "No antecipado chega em uma semana.",
+    "No pix chega em 1 semana.",
+    "No antecipado leva duas semanas.",
+    "No antecipado chega numa semana.",
+    "Pagando antes, em um dia você recebe.",
+    "No antecipado varia, em média uma semana.",
+  ];
+  const vetadasNoAntecipado = [
+    "Em 2 dias ele está aí na sua casa.",
+    "Em uma semana ele está na sua mão.",
+    "Em 2 dias o colete é seu.",
+    // A negativa que não nega.
+    "Não posso negar que chega em uma semana.",
+    "Não demora, em um dia tá aí.",
+    "Não se preocupa, em 3 dias ele está com você.",
+  ];
+  const passamNosDois = [
+    "Não consigo garantir uma semana no antecipado: varia por região, em média 5 dias úteis.",
+    "No antecipado não dá pra prometer um dia, o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você escolhe um dia marcado com o entregador.",
+    "No antecipado varia, em média 5 dias úteis.",
+    "No pix você tem uma semana pra trocar.",
+    "No antecipado você também tem 7 dias corridos para devolver.",
+    "Em uma semana de uso você já nem sente o colete.",
+    "Você escolhe um dia marcado com o entregador.",
+    "Ele fica lindo num dia de festa.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it("o qualificador não esconde a contagem", () => {
+    expect(delivery("No antecipado chega em um dia marcado, um dia só.", "prepay")?.verdict).toBe("block");
+    expect(delivery("Num dia especial como o seu, em 2 dias ele está aí.", "prepay")?.verdict).toBe("block");
+  });
+});

@@ -872,23 +872,28 @@ const gates: readonly Gate[] = [
       // delivery range is the configured average, and the sentence says it varies.
       // Elsewhere, only an average-shaped count in delivery talk is judged — "em média 2
       // dias de uso" is about wearing the vest, not about the carrier.
+      // M-08: "um/uma/num/numa" and weeks are counts too ("um dia só", "chega numa semana").
       const DAY_WORDS: Record<string, number> = {
-        dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+        um: 1, uma: 1, num: 1, numa: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
         oito: 8, nove: 9, dez: 10, quinze: 15, vinte: 20, trinta: 30,
       };
       const DELIVERY_TALK = /\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/;
       const PREPAY_WORD = /\b(?:antecipa\w*|adianta\w*)\b/;
       for (const m of t.matchAll(
-        /\b(\d{1,2}(?:[.,]\d{1,2})?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*dias?\b/g,
+        /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g,
       )) {
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
         const after = t.slice(at + m[0].length, at + m[0].length + 80);
         // The end of a range ("1 a 3 dias") is the range check's to judge.
         if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
+        // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
+        if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
+        // A week is 7 calendar days: it can be the warranty, never the average (business days).
+        const week = m[2]!.startsWith("semana");
+        const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
         const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
         // Every exemption is a loosening, and each shape so far leaked or over-blocked (M-07,
         // six reviews): context rules freed "a troca é grátis e no pix chega em só 2 dias",
@@ -965,11 +970,15 @@ const gates: readonly Gate[] = [
             sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
           );
         // On the prepaid path a sentence that names no path is about the prepaid delivery
-        // only when its own clause talks delivery ("você recebe em até 3 dias").
+        // unless its own clause is about getting used to the vest and never talks delivery.
+        // M-08: a verb list missed "em 2 dias ele está aí na sua casa"; the arrival has too
+        // many words, wearing it has few ("2 dias de uso", "se acostuma em cerca de 3 dias").
         const prepaid =
           PREPAY_WORD.test(sentence) ||
           prepaidNamedBefore ||
-          (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
+          (ctx.paymentPath === "prepay" &&
+            !/\bna\s+entrega\b/.test(sentence) &&
+            (DELIVERY_TALK.test(clause) || !/\b(?:de\s+uso|acostum\w*|adapt\w*)\b/.test(clause)));
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
         // A sentence comparing the paths ("na entrega você recebe em até 3 dias, e no antecipado
@@ -985,7 +994,7 @@ const gates: readonly Gate[] = [
         if (codAt > prepayAt) continue;
         if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
-        if (Number(days) !== avg) {
+        if (week || Number(days) !== avg) {
           return `prepaid average of ${days} days is not the configured ${avg}`;
         }
         if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {

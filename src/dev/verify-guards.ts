@@ -123,6 +123,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
+    id: "M-08",
+    bug: '"No antecipado, um dia só." e "chega em uma semana" passavam: um/uma e semanas não eram contados',
+    files: ["src/agent/guardrails.ts"],
+    from: "|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\\s*(dias?|semanas?)\\b/g,",
+    to: "|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\\s*(dias?)\\b/g,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-chegada",
+    bug: '"Em 2 dias ele está aí na sua casa." passava no antecipado: sem verbo da lista, não era prazo',
+    files: ["src/agent/guardrails.ts"],
+    from: "(DELIVERY_TALK.test(clause) || !/\\b(?:de\\s+uso|acostum\\w*|adapt\\w*)\\b/.test(clause)));",
+    to: "DELIVERY_TALK.test(clause));",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
     id: "O-04",
     bug: 'a régua chamando a Edge Function com a credencial "Gemini API"',
     files: ["n8n/workflows/relogio-da-regua.json"],

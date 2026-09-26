@@ -84,6 +84,25 @@ for (const name of NAMES) {
     lies.push(cap(bait.replaceAll("{name}", name)));
 }
 
+// M-08: a contagem em palavras e em semanas passa pelas mesmas iscas.
+for (const name of NAMES)
+  for (const count of ["um dia", "uma semana", "numa semana", "1 semana", "duas semanas"])
+    for (const promise of PROMISES)
+      for (const bait of BAITS)
+        lies.push(cap(bait.replaceAll("{promise}", promise).replaceAll("{name}", name).replaceAll("{n} dias", count).replace(/\bem numa/g, "numa")));
+
+// M-08: no antecipado, a chegada sem verbo de entrega e sem nome do caminho.
+const arrivals: string[] = [];
+for (const count of ["2 dias", "3 dias", "um dia", "uma semana", "dois dias"])
+  for (const arrival of ["ele está aí na sua casa", "o colete é seu", "tá na sua mão", "ele está com você", "você já abre a caixa"])
+    arrivals.push(`Em ${count} ${arrival}.`, `${cap(arrival)} em ${count}.`, `Não se preocupa, em ${count} ${arrival}.`);
+
+describe("M-08: a chegada sem verbo de entrega também é prazo no antecipado", () => {
+  it(`${arrivals.length} chegadas geradas, todas vetadas no antecipado`, () => {
+    expect(arrivals.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-07: nenhuma isca libera prazo do antecipado", () => {
   it(`${new Set(lies).size} mentiras geradas, todas vetadas nos dois caminhos`, () => {
     const passed = [...new Set(lies)].filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block");
