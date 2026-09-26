@@ -380,6 +380,18 @@ flowchart TD
 - **Aceito em `gate-loosen-accepted.txt`:** "No pix você tem 7 dias pra desistir, a contar
   do dia que receber." É a frase honesta do arrependimento (CDC), e a base a vetava.
 
+**Terceira revisão (NEEDS WORK, sem afrouxamento):** os consertos da segunda tinham sido
+de sintoma, por lista de preposições, e os irmãos passavam: "em uns/cerca de/no prazo de 7
+dias", "e em 7 dias ele está aí", "7 dias, bem quando ele chega". Agora a correção é pela
+oração:
+- **Contagem e âncora:** uma contagem na mesma oração do verbo da âncora é complemento
+  dele, e a âncora fica. O único corte é "(você) tem/terá/são/é" logo antes da contagem.
+- **Oração nova:** uma conjunção colada à contagem abre oração nova, e aí a troca não
+  isenta mais.
+- **Âncora depois da contagem:** só é retirada se estiver colada à contagem.
+- **Dois-pontos:** ":" não abre oração quando vem seguido de "você tem".
+- **Guardas:** 11 mutações da M-08.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

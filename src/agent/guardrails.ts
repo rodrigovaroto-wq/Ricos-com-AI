@@ -913,14 +913,18 @@ const gates: readonly Gate[] = [
         // number can ever be exempt.
         if (days === ctx.config.delivery.warrantyDays) {
           // Never stripped when the count is that verb's own time complement: "quando o colete
-          // chegar em 7 dias" is a deadline (eighth review) — nor with filler in between, up to
-          // the next clause or return verb: "quando chegar aí em 7 dias" (M-08, second review).
+          // chegar em 7 dias" is a deadline (eighth review). M-08, third review: whatever the
+          // preposition or filler ("quando chegar lá pra você em uns 7 dias", "…com 7 dias"), a
+          // count in the anchor verb's own clause is its complement — unless "você tem / são / é"
+          // takes the count right before it ("quando o colete chegar você tem até 7 dias").
           const anchor =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*\b|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)(?!(?:(?!\b(?:tem|tera|pode\w*|troc\w*|devol\w*|desist\w*|arrepend\w*)\b)[^,;:])*\b(?:em|ate|so|dentro\s+de|daqui\s+a)\s*$)/g;
-          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega.") —
-          // but "…, que é quando ele chega" says the count IS the arrival (M-08, second review).
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*\b|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)(?!(?![^,;:]*\b(?:voce\s+)?(?:tem|tera|sao|e)(?:\s+(?:ate|de))?\s*$)[^,;:]*$)/g;
+          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega."),
+          // but only glued to the count or to its purpose ("7 dias corridos, contados do
+          // recebimento", "7 dias pra desistir, a contar do dia que receber"). Anywhere else it is
+          // the arrival: "…, que é bem quando ele chega", "…, quando ele chega" (M-08, third review).
           const anchorAfter =
-            /(?<!\be\s)\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
           const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
           const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*|desist\w*)\b/;
           // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
@@ -936,19 +940,27 @@ const gates: readonly Gate[] = [
               // Only as the purpose of asking the CEP or address (second review: "dá pra ver
               // a entrega em casa nesse tempo" is a deadline).
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
+          const glued = new RegExp(
+            String.raw`^(\s*(?:corridos|uteis)?(?:\s*(?:pra|para)\s+(?:se\s+)?\w+(?:\s+ou\s+\w+)?|\s*de\s+(?:garantia|arrependimento))?)(?:\s+|\s*,\s*(?!quando\b))` +
+              anchorAfter.source,
+          );
           const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
-          const clause = notDelivery(sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " "));
-          const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));
+          const afterCount = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(glued, "$1 ");
+          const clause = notDelivery(sentenceBefore.split(CL).pop()! + (m[0] + afterCount).split(CL)[0]!);
+          const rest = notDelivery(afterCount);
           const segment = sentenceBefore.split(/[,;]/).pop()!;
           const purposeAfter =
             /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender|desistir)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
           // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
           // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
           // Never across a new clause after the last return word: "pode trocar: em 7 dias ele está
-          // aí", "…pra trocar e ele está aí em 7 dias" (M-08, second review). "A garantia é a
-          // mesma: 7 dias" has nothing after its colon but the count.
+          // aí", "…pra trocar e ele está aí em 7 dias" (M-08, second review), nor when a
+          // conjunction takes the count ("pode trocar e em 7 dias ele está aí", "…porque em 7
+          // dias", third review). "A garantia é a mesma: 7 dias" and "é só trocar: você tem 7
+          // dias" do not open a clause at the colon.
           const lastRet = [...sentenceBefore.matchAll(new RegExp(RET.source, "g"))].pop();
-          const newClause = /:\s*\S|\s(?:e|mas|que)\s+(?:ele|ela|o\s+colete|ta|esta)\b/.test(
+          const newClause =
+            /:\s*(?!(?:voce\s+)?(?:tem|tera|sao|fica)\b)\S|\s(?:e|mas|que)\s+(?:ele|ela|o\s+colete|ta|esta)\b|\s(?:mas|que|porque|pois|ja\s+que)\s+(?:(?:em|daqui\s+a|dentro\s+de|ate)\s+)?$|\se\s+(?:em|daqui\s+a|dentro\s+de|ate)\s+$/.test(
             sentenceBefore.slice(lastRet?.index ?? 0),
           );
           const returnBefore =

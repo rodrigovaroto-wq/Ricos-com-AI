@@ -147,6 +147,49 @@ for (const ret of ["trocar", "desistir", "devolver"])
         `Pode ${ret} em ${count}, que é quando você recebe.`,
       );
 
+// Terceira revisão da M-08: a contagem na mesma oração do verbo da âncora é complemento dele,
+// qualquer que seja a preposição ou o quantificador — e "tem/trocar" no meio não corta.
+const PREPS = [
+  "em", "em até", "em uns", "em cerca de", "em torno de", "em mais ou menos", "em no máximo", "no prazo de",
+  "por volta de", "com", "depois de", "após", "daqui a", "dentro de",
+];
+const anchorComplements: string[] = [];
+for (const anchor of ["quando chegar", "quando receber", "depois que chegar", "a contar do dia que chegar", "após receber"])
+  for (const filler of ["", "lá pra você", "aí", "pra você poder usar", "na casa que você tem", "pra você trocar"])
+    for (const prep of PREPS)
+      for (const count of ["7 dias", "uma semana"])
+        anchorComplements.push(`Tem 7 dias pra trocar ${anchor} ${filler} ${prep} ${count}.`.replace(/\s+/g, " "));
+
+// Terceira revisão: conjunção (e preposição) colada à contagem abre oração nova.
+const conjunctionArrivals: string[] = [];
+for (const ret of ["Pode trocar", "Você tem 7 dias pra desistir", "Pode devolver"])
+  for (const conj of ["e", "mas", "porque", "pois", "já que", "que"])
+    for (const prep of ["em", "daqui a", "dentro de", "até"])
+      for (const arrival of ["ele está aí", "tá aí", "o colete tá em casa"])
+        conjunctionArrivals.push(`${ret} ${conj} ${prep} 7 dias ${arrival}.`);
+
+// Terceira revisão: a âncora depois da contagem só vale colada a ela ou ao propósito.
+const detachedAnchors: string[] = [];
+for (const ret of ["trocar", "devolver", "desistir"])
+  for (const count of ["7 dias", "uma semana"])
+    for (const tail of [
+      ", que é bem quando ele chega", ", que é justamente quando ele chega", ", quando ele chega", ", bem quando ele chega",
+      ", exatamente quando ele chega", ", o mesmo tempo de quando ele chega", ", que é quando você recebe", ", justo quando chegar",
+    ])
+      detachedAnchors.push(`Pode ${ret} em ${count}${tail}.`);
+
+describe("M-08, terceira revisão: complemento da âncora, conjunção e âncora solta", () => {
+  it(`${anchorComplements.length} contagens complemento do verbo da âncora, todas vetadas no antecipado`, () => {
+    expect(anchorComplements.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${conjunctionArrivals.length} chegadas depois de conjunção, todas vetadas no antecipado`, () => {
+    expect(conjunctionArrivals.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${detachedAnchors.length} âncoras soltas depois da contagem, todas vetadas no antecipado`, () => {
+    expect(detachedAnchors.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-08, segunda revisão: âncora com enchimento e troca ao lado da chegada", () => {
   it(`${filledAnchors.length} prazos atrás de âncora com enchimento, todos vetados`, () => {
     expect(

@@ -295,7 +295,21 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   Geradores: âncora × enchimento × contagem, e troca/desistência ao lado da chegada; mutações
   `M-08-enchimento`, `M-08-troca-chegada`, `M-08-que-e-quando` (e `M-08-ancora` passou a
   reinstalar a âncora inteira da primeira revisão, porque o lookahead novo também barra o recuo).
-- **Estado:** fechada (aguarda terceira revisão).
+- **Terceira revisão (NEEDS WORK, sem afrouxamento; corrigida pela causa em 2026-09-26):** os
+  consertos da segunda eram de sintoma. (1) A contagem na mesma oração do verbo da âncora é
+  complemento dele, qualquer que seja a preposição ou o quantificador ("quando chegar lá pra
+  você em uns 7 dias", "…com 7 dias"): a âncora só é retirada quando outra oração começa antes
+  da contagem ou quando "(você) tem / são / é (até/de)" a toma logo antes; (2) conjunção
+  (e/mas/que/porque/pois/já que), com ou sem preposição de tempo, colada à contagem abre
+  oração, e a palavra de troca de antes não a isenta; (3) a âncora depois da contagem só é
+  retirada colada a ela ou ao propósito ("7 dias corridos, contados do recebimento", "7 dias
+  pra desistir, a contar do dia que receber"), nunca como aposto ("…, quando ele chega", "…,
+  que é bem quando ele chega"); (4) ":" seguido de "você tem / são / fica" não abre oração
+  ("é só trocar: você tem 7 dias depois que ele chegar" voltou a passar). Três geradores
+  (preposição × quantificador × enchimento, conjunção × preposição, âncora solta); mutações
+  `M-08-complemento`, `M-08-conjuncao`, `M-08-dois-pontos`, e `M-08-que-e-quando` passou a
+  reinstalar a retirada da âncora em qualquer lugar.
+- **Estado:** fechada (aguarda quarta revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por
