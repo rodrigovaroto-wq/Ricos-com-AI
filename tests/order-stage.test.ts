@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { endsSilenceRuler, scheduleSilence, stageForLead, stageForOrder } from "@/agent/followups.js";
+import { endsSilenceRuler, inSilenceRuler, onOrderConfirmed, scheduleSilence, stageForLead, stageForOrder } from "@/agent/followups.js";
 
 /**
  * Plano v2, item 5.8: o webhook de venda recebia o status do pedido e não tocava
@@ -146,5 +146,43 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=status");
     expect(source).toContain("const reached = stageForLead(order.status, (others ?? []).map((o: { status: string | null }) => o.status ?? \"\"));");
+  });
+});
+
+/**
+ * §R10.4 ligado de verdade (operador, 2026-09-26): o lembrete de 15 minutos depois do link
+ * nunca era agendado — `scheduleSilenceTouches` chamava `scheduleSilence(from)` sem o ponto
+ * de parada. Ligá-lo exige que a resposta dela e a venda o cancelem como cancelam o silêncio,
+ * ou ele perguntaria "conseguiu finalizar?" a quem acabou de comprar.
+ */
+describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a régua recebe o ponto de parada", () => {
+    expect(source).toContain("const rows = scheduleSilence(from, stopPoint).map((f) => ({");
+  });
+  it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
+    expect(source).toContain("&status=eq.scheduled&or=(kind.like.silence_*,kind.eq.checkout_reminder)");
+  });
+  it("a venda cancela o lembrete de checkout", () => {
+    const quando = new Date("2026-09-26T15:00:00Z");
+    const efeito = onOrderConfirmed(
+      [
+        { kind: "checkout_reminder", status: "scheduled" },
+        { kind: "silence_1", status: "scheduled" },
+      ] as never,
+      quando,
+      1,
+    );
+    expect(efeito.cancel).toEqual(["checkout_reminder", "silence_1"]);
+  });
+  it.each([
+    ["checkout_reminder", true],
+    ["silence_1", true],
+    ["silence_3", true],
+    ["order_eve", false],
+    ["deferred_reply", false],
+    ["retry_turn", false],
+  ])("%s é da régua de silêncio: %s", (kind, expected) => {
+    expect(inSilenceRuler(kind)).toBe(expected);
   });
 });

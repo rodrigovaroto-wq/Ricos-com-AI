@@ -40,7 +40,8 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
    operador — nada muda no `BUSINESS_CONFIG` sem ele.
 0. **Antes do próximo deploy da `turn`:** aplicar a migração `0017_followup_order.sql`
    (aditiva), senão a varredura não lê os toques (grafo §16). A `turn` do repositório agora
-   também leva o `perdido` (§15) e o toque fechado antes do envio.
+   também leva o `perdido` (§15), o toque fechado antes do envio e o lembrete de checkout
+   de 15 minutos ligado de verdade (§17).
 2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`)** — **fechado em
    2026-09-26 no repositório (não deployado)**: os três primeiros já eram escritos desde a
    v38 e o operador confirmou que Logzz e Coinzz disparam o webhook a cada status; `perdido`

@@ -858,10 +858,10 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * after buying killed `order_shipped`, `order_eve` and `order_delivered` — the delivery-eve
  * message being the one the whole post-order ruler exists for, and the one that prevents
  * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
- * as well, and did not.
+ * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
 const cancelScheduled = (conversationId: string) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&kind=like.silence_*`, {
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&or=(kind.like.silence_*,kind.eq.checkout_reminder)`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -891,7 +891,7 @@ const scheduleSilenceTouches = async (
   from: Date = new Date(),
 ) => {
   await cancelScheduled(conversationId);
-  const rows = scheduleSilence(from).map((f) => ({
+  const rows = scheduleSilence(from, stopPoint).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),

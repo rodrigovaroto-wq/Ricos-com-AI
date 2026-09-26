@@ -311,6 +311,23 @@ flowchart TD
 - **Linha armada antes da 0017** tem `order_id` nulo e segue a regra antiga: lê o último
   pedido e morre com qualquer pedido cancelado.
 
+## 17. O lembrete de 15 minutos depois do link nunca foi agendado (§R10.4)
+
+```mermaid
+flowchart TD
+  S["🟥 §R10.4 decidido e testado na função pura, mas nenhuma conversa em produção<br/>recebeu o lembrete de checkout de 15 minutos"]
+  K["causa: scheduleSilenceTouches chamava scheduleSilence(from) sem o stopPoint;<br/>o teste provava scheduleSilence(now, 'link_sent'), que a produção não chamava"]
+  A1["🟧 atalho: só passar o stopPoint"]
+  F1["🟥 a resposta dela (cancelScheduled) e a venda (onOrderConfirmed) só cancelavam silence_*:<br/>o lembrete perguntaria 'conseguiu finalizar?' a quem acabou de comprar"]
+  C1["🟩 operador disse sim (2026-09-26): stopPoint passado; inSilenceRuler<br/>(silence_* + checkout_reminder) usado na venda e no adiamento;<br/>cancelScheduled filtra os dois"]
+  G["🛡️ tests/order-stage.test.ts §R10.4; mutações R10.4-armado, -resposta, -venda"]
+  S --> K --> A1 --> F1 --> C1 --> G
+```
+
+Achado pela revisão Opus de 2026-09-26 (terceira passada do §15), fora do diff que ela
+revisava. **Lição:** um teste da função pura não prova que a produção chama a função com
+esse argumento.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

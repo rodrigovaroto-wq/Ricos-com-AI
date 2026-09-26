@@ -109,10 +109,17 @@ export type TouchAction =
   | { do: "postpone"; restartRuler: boolean }
   | { do: "cancel" };
 
+/**
+ * The touches that chase her silence — the three `silence_*` and the 15-minute checkout
+ * touch (§R10.4). Her reply and a sale end all of them; nothing else in the ruler.
+ */
+export const inSilenceRuler = (kind: string): boolean =>
+  kind.startsWith("silence_") || kind === "checkout_reminder";
+
 export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
   if (remedy === null) return { do: "send" };
   if (remedy !== "defer") return { do: "cancel" };
-  return { do: "postpone", restartRuler: kind.startsWith("silence_") || kind === "checkout_reminder" };
+  return { do: "postpone", restartRuler: inSilenceRuler(kind) };
 };
 
 /**
@@ -270,7 +277,7 @@ export const onOrderConfirmed = (
 
   return {
     // Only what is still waiting can be cancelled; a touch already sent is history.
-    cancel: scheduled.filter((f) => f.kind.startsWith("silence_")).map((f) => f.kind),
+    cancel: scheduled.filter((f) => inSilenceRuler(f.kind)).map((f) => f.kind),
     // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
     // after `order_confirmed` already went out would otherwise re-arm a kind the table
     // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
