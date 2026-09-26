@@ -143,6 +143,31 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
 };
 
 /**
+ * Whether the agent's text carries one of the checkout links. The words "link" and
+ * "checkout" are not enough: they come in an offer ("quer que eu te mande o link?"), a
+ * denial ("ainda não te mandei o link") and her own question, and since §R10.4 is armed
+ * a false `link_sent` sends "o link ainda está aberto" about a link never sent.
+ */
+export const sentCheckoutLink = (text: string, bases: readonly (string | undefined)[]): boolean =>
+  bases.some((b) => typeof b === "string" && b !== "" && text.includes(b));
+
+/**
+ * The ruler to write when it is (re)anchored. A fresh ruler — the agent just spoke — is
+ * `scheduleSilence` whole. Re-anchored because a touch was postponed by the clock, it only
+ * brings back the checkout touch when that touch is the one postponed: a link sent at 23:40
+ * has its 15-minute touch go out at 23:55, and `silence_1`, deferred past midnight, must
+ * not re-arm the touch she already got (sixth review, 2026-09-26).
+ */
+export const rulerFor = (
+  from: Date,
+  stopPoint: StopPoint,
+  postponed?: FollowupKind,
+): ScheduledFollowup[] =>
+  scheduleSilence(from, stopPoint).filter(
+    (f) => postponed === undefined || postponed === "checkout_reminder" || f.kind !== "checkout_reminder",
+  );
+
+/**
  * The touch that closes the silence ruler: once it leaves the queue — sent, or cancelled
  * by a gate or the 24-hour window — with no order, the conversation is `perdido` (plan v2,
  * 7.4; operator, 2026-09-26). She can still come back: `furthest` gives way to the stage

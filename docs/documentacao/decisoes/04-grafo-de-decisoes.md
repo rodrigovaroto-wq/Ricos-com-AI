@@ -324,6 +324,17 @@ flowchart TD
   S --> K --> A1 --> F1 --> C1 --> G
 ```
 
+**Sexta revisão (NEEDS WORK, corrigida no mesmo dia):**
+- **Lembrete duplicado:** com o link mandado às 23:40, o lembrete sai às 23:55. O
+  `silence_1` era adiado para as 06:00 e reancorava a régua inteira, e o upsert reativava
+  o lembrete que já tinha saído. Agora `rulerFor` só rearma o lembrete quando o toque
+  adiado é o próprio lembrete, e o cancelamento do reancoramento não toca nele.
+- **Lembrete de link que não saiu:** `stopPointOf` armava `link_sent` pela palavra
+  "link" ou "checkout", que aparecem também em oferta e negação ("quer que eu te mande o
+  link?"). Agora só conta se o texto leva um dos links de checkout (`sentCheckoutLink`),
+  com os testes de negação.
+- **Guardas:** mutações R10.4-duplicado e R10.4-palavra-link.
+
 Achado pela revisão Opus de 2026-09-26 (terceira passada do §15), fora do diff que ela
 revisava. **Lição:** um teste da função pura não prova que a produção chama a função com
 esse argumento.

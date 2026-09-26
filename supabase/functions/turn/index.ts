@@ -26,7 +26,8 @@ import {
   onOrderConfirmed,
   stageForLead,
   renderFollowup,
-  scheduleSilence,
+  rulerFor,
+  sentCheckoutLink,
   endsSilenceRuler,
   type FollowupKind,
   type StopPoint,
@@ -860,16 +861,18 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
  * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
-const cancelScheduled = (conversationId: string) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&or=(kind.like.silence_*,kind.eq.checkout_reminder)`, {
+const cancelScheduled = (conversationId: string, withCheckout = true) =>
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
 
 /** Where she stopped decides what the first touch says. */
 const stopPointOf = (replyText: string): StopPoint => {
+  if (sentCheckoutLink(replyText, [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)])) {
+    return "link_sent";
+  }
   const t = replyText.toLowerCase();
-  if (t.includes("checkout") || t.includes("link")) return "link_sent";
   // From the config, not typed here: hardcoded prices meant a price change silently
   // downgraded every "she already heard the price" touch to the opening one.
   const priced = [CONFIG.prices.codBrl, CONFIG.prices.prepayBrl].map((v) =>
@@ -889,9 +892,11 @@ const scheduleSilenceTouches = async (
   conversationId: string,
   stopPoint: StopPoint,
   from: Date = new Date(),
+  postponed?: FollowupKind,
 ) => {
-  await cancelScheduled(conversationId);
-  const rows = scheduleSilence(from, stopPoint).map((f) => ({
+  // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
+  await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
+  const rows = rulerFor(from, stopPoint, postponed).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
@@ -1303,6 +1308,7 @@ const runFollowupSweep = async () => {
             row.conversation_id,
             (row.stop_point ?? "before_size") as StopPoint,
             opening,
+            kind,
           );
         } else {
           await db(`followups?id=eq.${row.id}`, {
@@ -2072,8 +2078,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         updated_at: new Date().toISOString(),
       }),
     });
-    // A fixed line that carries the link starts the ruler at `link_sent`: the delivery
-    // checkout's URL has neither "checkout" nor "link" in it for `stopPointOf` to see.
+    // A fixed line that carries the link starts the ruler at `link_sent`.
     await scheduleSilenceTouches(conversation.id, extra.checkoutUrl ? "link_sent" : stopPointOf(text));
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),

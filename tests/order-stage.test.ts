@@ -1,6 +1,15 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { endsSilenceRuler, inSilenceRuler, onOrderConfirmed, scheduleSilence, stageForLead, stageForOrder } from "@/agent/followups.js";
+import {
+  endsSilenceRuler,
+  inSilenceRuler,
+  onOrderConfirmed,
+  rulerFor,
+  scheduleSilence,
+  sentCheckoutLink,
+  stageForLead,
+  stageForOrder,
+} from "@/agent/followups.js";
 
 /**
  * Plano v2, item 5.8: o webhook de venda recebia o status do pedido e não tocava
@@ -157,11 +166,17 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
  */
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-  it("a régua recebe o ponto de parada", () => {
-    expect(source).toContain("const rows = scheduleSilence(from, stopPoint).map((f) => ({");
+  it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
+    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed).map((f) => ({");
+    expect(source).toContain("            opening,\n            kind,\n          );");
   });
   it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
-    expect(source).toContain("&status=eq.scheduled&or=(kind.like.silence_*,kind.eq.checkout_reminder)");
+    expect(source).toContain('${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}');
+    expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
+  });
+  it("link_sent só quando o texto leva um dos links de checkout", () => {
+    expect(source).toContain("if (sentCheckoutLink(replyText, [CONFIG.checkout?.codUrl, CONFIG.checkout?.prepayUrl, ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl)])) {");
+    expect(source).not.toContain('t.includes("checkout") || t.includes("link")');
   });
   it("a venda cancela o lembrete de checkout", () => {
     const quando = new Date("2026-09-26T15:00:00Z");
@@ -184,5 +199,42 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
     ["retry_turn", false],
   ])("%s é da régua de silêncio: %s", (kind, expected) => {
     expect(inSilenceRuler(kind)).toBe(expected);
+  });
+});
+
+describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link que não saiu", () => {
+  const link = "https://entrega.logzz.com.br/pay/ccm-1-unidade";
+  const bases = [link, "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0", undefined, ""];
+  // Link mandado às 23:40 em São Paulo: o lembrete sai 23:55; o silence_1 (00:10) é adiado.
+  const reabertura = new Date("2026-09-27T09:00:00Z");
+
+  it("reancorada pelo silence_1 adiado, a régua não rearma o lembrete que já saiu", () => {
+    expect(rulerFor(reabertura, "link_sent", "silence_1").map((f) => f.kind)).toEqual([
+      "silence_1",
+      "silence_2",
+      "silence_3",
+    ]);
+  });
+  it("reancorada pelo próprio lembrete adiado, ele volta", () => {
+    expect(rulerFor(reabertura, "link_sent", "checkout_reminder").map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+  it("régua nova, depois de a agente falar com o link, arma o lembrete", () => {
+    expect(rulerFor(reabertura, "link_sent").map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+
+  it("o texto com o link de checkout (com parâmetros) é link enviado", () => {
+    expect(sentCheckoutLink(`Aqui está: ${link}?cpf=123&nome=Maria`, bases)).toBe(true);
+  });
+  it.each([
+    "Quer que eu te mande o link pra pagar antecipado?",
+    "Ainda não te mandei o link, me confirma o tamanho?",
+    "O link não chegou? Me avisa.",
+    "Posso te mandar o checkout agora?",
+    "Nosso site é https://encorpa-fashion.com.br",
+  ])("«%s» não é link enviado", (texto) => {
+    expect(sentCheckoutLink(texto, bases)).toBe(false);
+  });
+  it("base vazia ou ausente nunca casa", () => {
+    expect(sentCheckoutLink("qualquer texto", [undefined, ""])).toBe(false);
   });
 });
