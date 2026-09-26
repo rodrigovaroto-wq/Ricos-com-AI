@@ -354,6 +354,19 @@ flowchart TD
   S --> K --> A1 --> F1 --> C1 --> G
 ```
 
+**Primeira revisão independente (NEEDS WORK, corrigida no mesmo dia):**
+- **Faixa em semanas:** "1 a 2 semanas" escapava nos dois caminhos, porque o fim da faixa
+  ia para uma checagem que só lia dias.
+- **Âncora da garantia:** o backtracking em `(?:receb|cheg)\w*` derrotava o lookahead. Com
+  isso, "tem uma semana pra trocar depois que chega em uma semana" era isentada como
+  garantia.
+- **Isenção de uso:** valia para a oração inteira, e "em 3 dias ele está aí pra você se
+  adaptar" passava. Agora só isenta quando o uso governa a contagem.
+- **Arrependimento:** "7 dias pra desistir, a contar do dia que receber" era vetada, e
+  agora passa.
+- **Guardas:** cada família tem gerador de fuzz, e há as mutações M-08-semanas, -ancora e
+  -uso. Contra o `main`, 0 afrouxamentos.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

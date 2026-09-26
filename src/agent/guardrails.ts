@@ -885,14 +885,15 @@ const gates: readonly Gate[] = [
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
         const after = t.slice(at + m[0].length, at + m[0].length + 80);
-        // The end of a range ("1 a 3 dias") is the range check's to judge.
-        if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
+        // A week is 7 calendar days: it can be the warranty, never the average (business days).
+        const week = m[2]!.startsWith("semana");
+        // The end of a range ("1 a 3 dias") is the range check's to judge — and judged here too
+        // when in weeks ("1 a 2 semanas").
+        if (!week && /\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
         // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        // A week is 7 calendar days: it can be the warranty, never the average (business days).
-        const week = m[2]!.startsWith("semana");
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
         const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
         // Every exemption is a loosening, and each shape so far leaked or over-blocked (M-07,
@@ -914,12 +915,12 @@ const gates: readonly Gate[] = [
           // Never stripped when the count is that verb's own time complement: "quando o colete
           // chegar em 7 dias" is a deadline (eighth review).
           const anchor =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*\b|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
           // After the count the anchor can end the sentence ("…pra devolver a partir da entrega.").
           const anchorAfter =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
+            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|a\s+contar\s+d[eo](?:\s+dia\s+(?:em\s+)?que)?|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
           const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
-          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
+          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*|desist\w*)\b/;
           // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
           // ("a garantia é de 7 dias" normalizes "é" to "e").
           const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
@@ -938,7 +939,7 @@ const gates: readonly Gate[] = [
           const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));
           const segment = sentenceBefore.split(/[,;]/).pop()!;
           const purposeAfter =
-            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
+            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender|desistir)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
           // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
           // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
           const returnBefore =
@@ -961,7 +962,12 @@ const gates: readonly Gate[] = [
         )
           continue;
         const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
-        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
+        // The count's own clause, and every other clause of its sentence.
+        const others = t.slice(0, at).split(/[.!?\n]/).pop()!.split(CLAUSE);
+        const ownBefore = others.pop()!;
+        const tail = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.split(CLAUSE);
+        const ownAfter = tail.shift()!;
+        others.push(...tail);
         // A prepaid path named before the count, by any of its names — the same names the
         // range check reads (third review: "No pix chega em 2 dias" passed on the delivery
         // path). "Cartão" only with its own preposition: "dinheiro ou cartão" is the door.
@@ -970,15 +976,26 @@ const gates: readonly Gate[] = [
             sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
           );
         // On the prepaid path a sentence that names no path is about the prepaid delivery
-        // unless its own clause is about getting used to the vest and never talks delivery.
+        // unless getting used to the vest governs the count and the sentence says nothing else.
         // M-08: a verb list missed "em 2 dias ele está aí na sua casa"; the arrival has too
-        // many words, wearing it has few ("2 dias de uso", "se acostuma em cerca de 3 dias").
+        // many words, wearing it has few. Review: the wearing word anywhere in the clause freed
+        // "em 3 dias ele está aí pra você se adaptar" and "em 3 dias de uso ele está aí" — only
+        // "N dias de uso", "se acostuma (com ele) em N dias" and "em N dias você se acostuma"
+        // govern it, and any other clause may only say she no longer feels it.
+        const FEEL = String.raw`(?:voce\s+)?(?:ja\s+)?(?:nem\s+)?(?:sente|percebe)\w*(?:\s+(?:o\s+colete|ele|mais\s+nada|a\s+diferenca|diferenca))?`;
+        const USED = String.raw`se\s+(?:acostum|adapt)\w*(?:\s+(?:com|a|ao)\s+(?:ele|o\s+colete|colete))?`;
+        const LEAD = /^\s*(?:(?:com|em|depois\s+de|apos)\s+)?(?:(?:media|cerca|uns|umas|so|apenas)\s+(?:de\s+)?)*$/;
+        const wearing =
+          !DELIVERY_TALK.test(sentence) &&
+          others.every((c) => new RegExp(String.raw`^\s*(?:${FEEL})?\s*$`).test(c)) &&
+          ((LEAD.test(ownBefore) && new RegExp(String.raw`^\s*(?:uteis\s+)?de\s+uso(?:\s+${FEEL})?\s*$`).test(ownAfter)) ||
+            (LEAD.test(ownBefore) && new RegExp(String.raw`^\s*(?:voce\s+)?(?:ja\s+)?${USED}\s*$`).test(ownAfter)) ||
+            (new RegExp(String.raw`\b${USED}\s+(?:em|com)\s+(?:(?:media|cerca|uns|umas)\s+(?:de\s+)?)?$`).test(ownBefore) &&
+              /^\s*$/.test(ownAfter)));
         const prepaid =
           PREPAY_WORD.test(sentence) ||
           prepaidNamedBefore ||
-          (ctx.paymentPath === "prepay" &&
-            !/\bna\s+entrega\b/.test(sentence) &&
-            (DELIVERY_TALK.test(clause) || !/\b(?:de\s+uso|acostum\w*|adapt\w*)\b/.test(clause)));
+          (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && !wearing);
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
         // A sentence comparing the paths ("na entrega você recebe em até 3 dias, e no antecipado
@@ -1127,7 +1144,7 @@ const gates: readonly Gate[] = [
        * that picked a single path from context rejected the correct half of it, which
        * meant the message the agent is told to write could never pass.
        */
-      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
+      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*(dias|semanas)/g)) {
         const at = m.index ?? 0;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
@@ -1236,8 +1253,9 @@ const gates: readonly Gate[] = [
             ? [codDaysMin, codDaysMax]
             : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
 
-        const min = Number(m[1]);
-        const max = Number(m[2]);
+        // M-08 review: a range in weeks is a range in days, 7 each.
+        const min = Number(m[1]) * (m[3] === "semanas" ? 7 : 1);
+        const max = Number(m[2]) * (m[3] === "semanas" ? 7 : 1);
         if (min_ == null || max_ == null)
           return `states a range on the ${path} path, which has an average and not a range`;
         if (min < min_ || max > max_)

@@ -274,7 +274,18 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   do caminho, porque a chegada tem palavras demais. "Um dia marcado/especial/de festa" não é
   contagem. Testes em `change-registry.test.ts` e dois geradores no fuzz; mutações `M-08` e
   `M-08-chegada` em `verify-guards.ts`.
-- **Estado:** fechada (aguarda revisão independente).
+- **Revisão independente (NEEDS WORK, corrigida em 2026-09-26):** (1) faixa em semanas ("1 a 2
+  semanas") passava nos dois caminhos — a checagem de faixa lê semanas (×7) e o fim de faixa
+  só se isenta em dias; (2) a âncora da garantia recuava dentro de "chega/receber" e escapava
+  do próprio lookahead ("…pra trocar quando chegar em 7 dias") — `\w*\b`; (3) a palavra de uso
+  em qualquer lugar da oração isentava ("em 3 dias ele está aí pra você se adaptar") — agora
+  só "N dias de uso", "se acostuma (com ele) em N dias" e "em N dias você se acostuma"
+  isentam, e as outras orações da frase só podem dizer que ela não sente o colete; (4) o
+  arrependimento "7 dias pra desistir, a contar do dia que receber" voltou a passar
+  (`desist*` na garantia, "a contar do (dia que)" como âncora). Três geradores novos no fuzz
+  (faixas em semanas, prazo atrás de âncora, chegada com isca de uso) e mutações
+  `M-08-semanas`, `M-08-ancora`, `M-08-uso`.
+- **Estado:** fechada (aguarda segunda revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

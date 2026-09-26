@@ -96,6 +96,43 @@ const arrivals: string[] = [];
 for (const count of ["2 dias", "3 dias", "um dia", "uma semana", "dois dias"])
   for (const arrival of ["ele está aí na sua casa", "o colete é seu", "tá na sua mão", "ele está com você", "você já abre a caixa"])
     arrivals.push(`Em ${count} ${arrival}.`, `${cap(arrival)} em ${count}.`, `Não se preocupa, em ${count} ${arrival}.`);
+// Revisão da M-08: a isca de uso só isenta quando governa a contagem — nunca ao lado de uma chegada.
+for (const count of ["2 dias", "3 dias", "um dia", "uma semana", "dois dias"])
+  for (const arrival of ["ele está aí", "ele está aí na sua casa", "o colete é seu", "tá na sua mão", "ele está com você"])
+    arrivals.push(
+      `Em ${count} ${arrival} pra você se adaptar.`,
+      `Em ${count} ${arrival} pra você se acostumar com ele.`,
+      `Em ${count} ${arrival} pra você adaptar a rotina.`,
+      `Em ${count} de uso ${arrival}.`,
+      `Em ${count} você se acostuma e ${arrival}.`,
+      `Em ${count} você se acostuma, ${arrival}.`,
+      `Em ${count} de uso, ${arrival}.`,
+      `Pra você se acostumar, em ${count} ${arrival}.`,
+    );
+
+// Revisão da M-08: faixa em semanas, com qualquer nome — inclusive o da entrega.
+const weekRanges: string[] = [];
+for (const name of [...NAMES, "Na entrega", ""])
+  for (const [a, b] of [[1, 2], [2, 3], [1, 3]])
+    for (const promise of ["chega em {a} a {b} semanas", "leva de {a} a {b} semanas", "chega em {a} e {b} semanas", "você recebe em {a} a {b} semanas"])
+      weekRanges.push(cap(`${name} ${promise.replace("{a}", String(a)).replace("{b}", String(b))}.`.trim()));
+
+// Revisão da M-08: a âncora da garantia não pode ser o próprio verbo do prazo (backtracking).
+const anchoredDeadlines: string[] = [];
+for (const name of NAMES)
+  for (const warranty of ["você tem 7 dias pra trocar", "tem uma semana pra trocar", "você tem 7 dias pra devolver"])
+    for (const anchor of ["depois que chega", "quando receber", "quando chegar", "depois que receber", "após receber", "a partir de quando chegar", "a contar do dia que receber"])
+      for (const count of ["em 7 dias", "em uma semana", "em até 7 dias", "em 2 dias"])
+        anchoredDeadlines.push(`${name} ${warranty} ${anchor} ${count}.`);
+
+describe("M-08, revisão: faixa em semanas e âncora da garantia", () => {
+  it(`${weekRanges.length} faixas em semanas, todas vetadas nos dois caminhos`, () => {
+    expect(weekRanges.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${anchoredDeadlines.length} prazos atrás de âncora de garantia, todos vetados nos dois caminhos`, () => {
+    expect(anchoredDeadlines.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
 
 describe("M-08: a chegada sem verbo de entrega também é prazo no antecipado", () => {
   it(`${arrivals.length} chegadas geradas, todas vetadas no antecipado`, () => {

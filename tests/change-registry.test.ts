@@ -443,3 +443,52 @@ describe("M-08: prazo do antecipado em palavras", () => {
     expect(delivery("Num dia especial como o seu, em 2 dias ele está aí.", "prepay")?.verdict).toBe("block");
   });
 });
+
+/**
+ * M-08, revisão independente: a faixa em semanas passava pelo "fim de faixa" (a checagem de
+ * faixa só lia dias); a âncora da garantia recuava dentro de "chega" até escapar do próprio
+ * lookahead; e a isenção de uso olhava a oração inteira, não o que governa a contagem.
+ */
+describe("M-08, revisão: semanas em faixa, âncora da garantia, uso que governa a contagem", () => {
+  const vetadasNosDois = [
+    "Na entrega chega em 1 a 2 semanas.",
+    "No antecipado chega em 1 a 2 semanas.",
+    "No pix leva de 1 a 2 semanas.",
+    "Chega em 2 a 3 semanas.",
+    "No antecipado chega em 1 e 2 semanas.",
+    "No antecipado tem uma semana pra trocar depois que chega em uma semana.",
+    "No antecipado tem uma semana pra trocar depois que chega em 7 dias.",
+    "No antecipado você tem 7 dias pra trocar quando receber em uma semana.",
+    "No antecipado você tem 7 dias pra trocar quando chegar em 7 dias.",
+  ];
+  const vetadasNoAntecipado = [
+    "Em 3 dias ele está aí pra você se adaptar.",
+    "Em dois dias ele tá aí pra você se acostumar com ele.",
+    "Em uma semana ele está aí pra você se acostumar.",
+    "Em uma semana tá na sua mão pra você adaptar a rotina.",
+    "Em 3 dias de uso ele está aí.",
+    "Em 2 dias você se acostuma e ele está aí.",
+  ];
+  const passamNosDois = [
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Na entrega você recebe em 1 a 3 dias.",
+    "Em média 2 dias de uso e você já nem sente o colete.",
+    "A maioria das clientes se acostuma com o colete em cerca de 3 dias.",
+    "Em uma semana de uso você já nem sente o colete.",
+    "Em 2 dias você se acostuma com ele.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
