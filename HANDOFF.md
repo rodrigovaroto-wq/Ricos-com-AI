@@ -27,10 +27,9 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
 
 1. **(b) Margem do antecipado com o Mercado Pago** (R14.15) — **refeita em 2026-09-25**
    (Pix 0,99% + R$ 1,00, cartão à vista 4,98%, mix 50/50): antecipado R$ 57,94 / 116,16 /
-   149,17 contra COD R$ 52,35 / 109,01 / 145,12 (1/2/3 peças); grafo §14. **Falta o
-   operador:** confirmar se o antifraude de R$ 2,49 continua, a taxa do parcelado e quem
-   paga os juros; decidir entre manter preços (recomendado) ou subir desconto (opções na
-   caixa de 2026-09-25 de `06-modelo-economico.md`). Texto original do passo: O antecipado da Coinzz passou a
+   149,17 contra COD R$ 52,35 / 109,01 / 145,12 (1/2/3 peças); grafo §14. **Fechado em
+   2026-09-26:** antifraude não é cobrado; preços e descontos mantidos. Só falta a taxa do
+   parcelado e quem paga os juros (pode zerar a folga do kit de 3). Texto original do passo: O antecipado da Coinzz passou a
    ser processado pelo Mercado Pago, com taxa menor; a conta de unidade econômica ainda usa
    a taxa antiga. Fonte: [`docs/documentacao/contexto-negocio/06-modelo-economico.md`](docs/documentacao/contexto-negocio/06-modelo-economico.md),
    [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md)

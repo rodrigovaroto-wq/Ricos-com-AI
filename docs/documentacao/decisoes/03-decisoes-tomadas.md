@@ -1667,6 +1667,11 @@ sensibilidade:
 [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md) (caixa de
 2026-09-25). Grafo: §14.
 
+**Decisão do operador (2026-09-26):** o antifraude de R$ 2,49 **não é mais cobrado** (P1
+confirmado — vale R$ 57,94 / 116,16 / 149,17) e **preços e descontos ficam como estão**: o
+ganho do Mercado Pago vira margem. Segue em aberto só a taxa do parcelado e quem paga os
+juros (P4), que pode zerar a folga do kit de 3.
+
 ## R14.16 — O canal do WhatsApp fica pronto e desligado (2026-09-25, noite)
 
 Decisão do operador: Meta Ads, Business Manager, o app de developer, o número e os templates

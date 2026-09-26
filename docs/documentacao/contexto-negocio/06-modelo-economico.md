@@ -24,6 +24,8 @@ entregue pelo operador em 2026-09-03.
 >
 > - **P1.** A taxa do MP **substitui a transação inteira da Coinzz** (6,99% + R$ 2,49 de
 >   antifraude). Se os R$ 2,49 continuarem, vale a coluna "MP + R$ 2,49".
+>   **Confirmado pelo operador em 2026-09-26: o antifraude não é mais cobrado** — vale a
+>   coluna "Antecipado MP"; as linhas "com R$ 2,49" ficam só como registro.
 > - **P2.** Mix de pagamento **50% Pix / 50% cartão à vista**.
 > - **P3.** Handling (R$ 4,99) e entrega (R$ 19,99) **uma vez por pedido**, também nos kits;
 >   produto R$ 30,00 por peça.

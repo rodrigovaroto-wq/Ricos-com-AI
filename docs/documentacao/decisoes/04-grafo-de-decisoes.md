@@ -239,7 +239,10 @@ flowchart TD
   S --> K --> A1 --> F1 --> C1 --> D --> G
 ```
 
-**Resíduo:** o número vale enquanto P1 (antifraude) e P4 (parcelado) não forem confirmados
+**Fechado em 2026-09-26:** P1 confirmado (antifraude não é cobrado) e o operador manteve
+preços e descontos.
+
+**Resíduo:** o número vale enquanto P4 (parcelado) não for confirmado
 no painel do Mercado Pago/Coinzz. Trocou taxa, processador ou mix, refaça a tabela da caixa
 de 2026-09-25 em [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
 
