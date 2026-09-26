@@ -492,3 +492,47 @@ describe("M-08, revisão: semanas em faixa, âncora da garantia, uso que governa
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08, segunda revisão: o lookahead da âncora só protegia a contagem logo depois do verbo
+ * ("quando chegar aí em 7 dias" virava garantia), e a palavra de troca antes de ":" ou de
+ * "e ele está aí" isentava a chegada; "que é quando ele chega" era apagado como âncora.
+ */
+describe("M-08, segunda revisão: âncora com enchimento, troca ao lado da chegada", () => {
+  const vetadasNosDois = ["No antecipado você tem 7 dias pra desistir quando chegar aí em 7 dias."];
+  const vetadasNoAntecipado = [
+    "Tem 7 dias pra desistir a contar do dia que chegar aí em 7 dias.",
+    "Tem 7 dias pra trocar a contar do dia que chegar aí em 7 dias.",
+    "Você tem 7 dias pra trocar a contar do dia que chegar aí em 7 dias.",
+    "Tem 7 dias pra trocar quando chegar aí em 7 dias.",
+    "Pode desistir: em 7 dias ele está aí.",
+    "Você tem 7 dias pra desistir e ele está aí em 7 dias.",
+    "Pode desistir em uma semana, que é quando ele chega.",
+    "Pode trocar: em 7 dias ele está aí.",
+    "Você tem 7 dias pra trocar e ele está aí em 7 dias.",
+    "Pode trocar em uma semana, que é quando ele chega.",
+  ];
+  const passamNosDois = [
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Você tem uma semana pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem uma semana pra desistir, a contar do dia que receber.",
+    "No antecipado, quando o colete chegar você tem até 7 dias pra trocar.",
+    "Depois que receber, você tem 7 dias pra trocar.",
+    "No antecipado a garantia é de 7 dias.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});

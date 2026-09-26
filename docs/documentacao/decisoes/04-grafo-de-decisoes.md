@@ -367,6 +367,19 @@ flowchart TD
 - **Guardas:** cada família tem gerador de fuzz, e há as mutações M-08-semanas, -ancora e
   -uso. Contra o `main`, 0 afrouxamentos.
 
+**Segunda revisão (NEEDS WORK, corrigida no mesmo dia):**
+- **Âncora com enchimento:** a âncora nova "a contar do dia que" e o `desist` abriram
+  "tem 7 dias pra desistir quando chegar aí em 7 dias". O lookahead só protegia a contagem
+  colada no verbo. Agora a âncora não sai quando o verbo dela tem uma contagem na mesma
+  oração.
+- **Troca ao lado de chegada sem verbo:** "pode trocar: em 7 dias ele está aí" passava
+  (desde a M-07), e o "que é quando ele chega" era apagado como âncora. Agora os dois são
+  barrados.
+- **Guardas:** mutações M-08-enchimento, -troca-chegada e -que-e-quando. A M-08-ancora foi
+  reescrita, porque a versão antiga deixou de reinstalar o bug.
+- **Aceito em `gate-loosen-accepted.txt`:** "No pix você tem 7 dias pra desistir, a contar
+  do dia que receber." É a frase honesta do arrependimento (CDC), e a base a vetava.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

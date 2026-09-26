@@ -150,8 +150,10 @@ const MUTATIONS: Mutation[] = [
     id: "M-08-ancora",
     bug: '"…7 dias pra trocar quando chegar em 7 dias." passava: a âncora recuava dentro de "chegar" e escapava do lookahead',
     files: ["src/agent/guardrails.ts"],
-    from: "(?:receb|cheg)\\w*\\b|(?:apos",
-    to: "(?:receb|cheg)\\w*|(?:apos",
+    // The filler lookahead (M-08-enchimento) also blocks the backtrack, so the mutation puts
+    // back the whole tail of the anchor as it was before the first review.
+    from: "(?:receb|cheg)\\w*\\b|(?:apos|depois\\s+d[ae]|a\\s+partir\\s+d[ae])\\s+(?:a\\s+)?entrega)(?![\\s,]*(?:(?:em|ate|so)\\s*)*$)(?!(?:(?!\\b(?:tem|tera|pode\\w*|troc\\w*|devol\\w*|desist\\w*|arrepend\\w*)\\b)[^,;:])*\\b(?:em|ate|so|dentro\\s+de|daqui\\s+a)\\s*$)/g;",
+    to: "(?:receb|cheg)\\w*|(?:apos|depois\\s+d[ae]|a\\s+partir\\s+d[ae])\\s+(?:a\\s+)?entrega)(?![\\s,]*(?:(?:em|ate|so)\\s*)*$)/g;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
@@ -160,6 +162,30 @@ const MUTATIONS: Mutation[] = [
     files: ["src/agent/guardrails.ts"],
     from: "const wearing =\n          !DELIVERY_TALK.test(sentence) &&",
     to: "const wearing =\n          (/\\b(?:de\\s+uso|acostum\\w*|adapt\\w*)\\b/.test(ownBefore + ownAfter) && !DELIVERY_TALK.test(ownBefore + ownAfter)) ||\n          !DELIVERY_TALK.test(sentence) &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-enchimento",
+    bug: '"Tem 7 dias pra trocar quando chegar aí em 7 dias." passava: o enchimento entre o verbo e a contagem fazia da chegada uma âncora de garantia',
+    files: ["src/agent/guardrails.ts"],
+    from: "(?!(?:(?!\\b(?:tem|tera|pode\\w*|troc\\w*|devol\\w*|desist\\w*|arrepend\\w*)\\b)[^,;:])*\\b(?:em|ate|so|dentro\\s+de|daqui\\s+a)\\s*$)/g;",
+    to: "/g;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-troca-chegada",
+    bug: '"Pode trocar: em 7 dias ele está aí." passava: a palavra de troca em outra oração isentava a chegada sem verbo',
+    files: ["src/agent/guardrails.ts"],
+    from: "          const returnBefore =\n            !newClause &&",
+    to: "          const returnBefore =\n            newClause === newClause &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-que-e-quando",
+    bug: '"Pode trocar em uma semana, que é quando ele chega." passava: a âncora depois da contagem apagava a chegada',
+    files: ["src/agent/guardrails.ts"],
+    from: "/(?<!\\be\\s)\\b(?:(?:apos",
+    to: "/\\b(?:(?:apos",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {

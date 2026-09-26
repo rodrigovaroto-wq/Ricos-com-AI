@@ -52,3 +52,4 @@ M-07 | delivery_promise | No pix você tem 7 dias a partir da entrega pra trocar
 M-07 | delivery_promise | No pix você tem 7 dias após a entrega pra devolver.
 M-07 | delivery_promise | No pix você tem 7 dias pra devolver a partir da entrega.
 M-09 | delivery_promise | Na entrega fica R$ 129,90, e o prazo é o de 3 dias úteis.
+M-08 | delivery_promise | No pix você tem 7 dias pra desistir, a contar do dia que receber.

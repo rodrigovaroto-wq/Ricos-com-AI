@@ -125,6 +125,39 @@ for (const name of NAMES)
       for (const count of ["em 7 dias", "em uma semana", "em até 7 dias", "em 2 dias"])
         anchoredDeadlines.push(`${name} ${warranty} ${anchor} ${count}.`);
 
+// Segunda revisão da M-08: enchimento entre o verbo da âncora e a contagem ("quando chegar aí
+// em 7 dias") não faz da chegada uma âncora de garantia.
+const filledAnchors: { text: string; both: boolean }[] = [];
+for (const name of [...NAMES, ""])
+  for (const ret of ["trocar", "desistir", "devolver"])
+    for (const anchor of ["quando chegar", "quando receber", "depois que chegar", "a contar do dia que chegar", "a partir de quando receber", "após receber"])
+      for (const filler of ["aí", "na sua casa", "pra você", "aí na sua casa"])
+        for (const count of ["em 7 dias", "em uma semana", "em até 7 dias"])
+          filledAnchors.push({ text: cap(`${name} você tem 7 dias pra ${ret} ${anchor} ${filler} ${count}.`.trim()), both: name !== "" });
+
+// Segunda revisão da M-08: a palavra de troca ao lado de uma chegada sem verbo de entrega.
+const returnThenArrival: string[] = [];
+for (const ret of ["trocar", "desistir", "devolver"])
+  for (const arrival of ["ele está aí", "tá na sua mão", "o colete é seu"])
+    for (const count of ["7 dias", "uma semana"])
+      returnThenArrival.push(
+        `Pode ${ret}: em ${count} ${arrival}.`,
+        `Você tem 7 dias pra ${ret} e ${arrival} em ${count}.`,
+        `Pode ${ret} em ${count}, que é quando ele chega.`,
+        `Pode ${ret} em ${count}, que é quando você recebe.`,
+      );
+
+describe("M-08, segunda revisão: âncora com enchimento e troca ao lado da chegada", () => {
+  it(`${filledAnchors.length} prazos atrás de âncora com enchimento, todos vetados`, () => {
+    expect(
+      filledAnchors.filter(({ text, both }) => delivery(text, "prepay") !== "block" || (both && delivery(text, "cod") !== "block")).map((x) => x.text),
+    ).toEqual([]);
+  });
+  it(`${returnThenArrival.length} trocas ao lado da chegada, todas vetadas no antecipado`, () => {
+    expect(returnThenArrival.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-08, revisão: faixa em semanas e âncora da garantia", () => {
   it(`${weekRanges.length} faixas em semanas, todas vetadas nos dois caminhos`, () => {
     expect(weekRanges.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);

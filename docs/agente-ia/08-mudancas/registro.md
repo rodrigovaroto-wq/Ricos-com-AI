@@ -285,7 +285,17 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   (`desist*` na garantia, "a contar do (dia que)" como âncora). Três geradores novos no fuzz
   (faixas em semanas, prazo atrás de âncora, chegada com isca de uso) e mutações
   `M-08-semanas`, `M-08-ancora`, `M-08-uso`.
-- **Estado:** fechada (aguarda segunda revisão).
+- **Segunda revisão (NEEDS WORK, corrigida em 2026-09-26):** (1) afrouxamento real — o
+  lookahead da âncora só protegia a contagem colada ao verbo, e "tem 7 dias pra trocar quando
+  chegar aí em 7 dias" virava garantia: a âncora não é retirada quando uma preposição de tempo
+  ("em/até/dentro de") antes da contagem está na mesma oração do verbo dela, sem verbo de
+  troca no meio; (2) a palavra de troca antes de ":" ou de "e ele está aí" isentava a chegada
+  sem verbo — a isenção pela troca antes da contagem não atravessa oração nova depois da
+  última palavra de troca; e "…, que é quando ele chega" não é mais apagado como âncora.
+  Geradores: âncora × enchimento × contagem, e troca/desistência ao lado da chegada; mutações
+  `M-08-enchimento`, `M-08-troca-chegada`, `M-08-que-e-quando` (e `M-08-ancora` passou a
+  reinstalar a âncora inteira da primeira revisão, porque o lookahead novo também barra o recuo).
+- **Estado:** fechada (aguarda terceira revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por
