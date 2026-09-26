@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { endsSilenceRuler, scheduleSilence, stageForOrder } from "@/agent/followups.js";
+import { endsSilenceRuler, scheduleSilence, stageForLead, stageForOrder } from "@/agent/followups.js";
 
 /**
  * Plano v2, item 5.8: o webhook de venda recebia o status do pedido e não tocava
@@ -125,5 +125,26 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
     const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
     expect(sql).toContain("add column if not exists order_id uuid references public.orders(id) on delete set null");
     expect(sql).not.toMatch(/not null/i);
+  });
+});
+
+describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () => {
+  it("pedido morto com outro pedido vivo não move o estágio", () => {
+    expect(stageForLead("Cancelado", ["Em rota de entrega"])).toBeNull();
+    expect(stageForLead("Cancelado", ["Entregue"])).toBeNull();
+  });
+  it("pedido morto sem outro vivo recusa, como antes", () => {
+    expect(stageForLead("Cancelado", [])).toBe("recusado");
+    expect(stageForLead("Cancelado", ["Devolvido"])).toBe("recusado");
+  });
+  it("pedido vivo segue stageForOrder, com ou sem outros", () => {
+    expect(stageForLead("Entregue", ["Cancelado"])).toBe("entregue_pago");
+    expect(stageForLead("Enviado", [])).toBe("em_rota");
+    expect(stageForLead("Não entregue", ["Agendado"])).toBeNull();
+  });
+  it("recordOrder lê os outros pedidos do lead antes de gravar o estágio", () => {
+    const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=status");
+    expect(source).toContain("const reached = stageForLead(order.status, (others ?? []).map((o: { status: string | null }) => o.status ?? \"\"));");
   });
 });

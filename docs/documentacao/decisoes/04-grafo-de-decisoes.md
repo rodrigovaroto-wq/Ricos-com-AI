@@ -298,6 +298,12 @@ flowchart TD
 - **O segundo pedido não ganha régua própria**, porque `unique (conversation_id, kind)` já
   está ocupado pelos toques do primeiro. Mudar isso é mudar a chave da tabela, e fica fora
   deste passo.
+- **Estágio por lead (revisão Opus, corrigido no mesmo dia):** o cancelamento do pedido B
+  gravava `recusado`, que é terminal, enquanto o pedido A estava em rota. Quando A era
+  entregue, a venda continuava contando como recusa. Agora `stageForLead` só grava
+  `recusado` se nenhum outro pedido do lead estiver vivo. Continua em aberto o caso de
+  ordem inversa: um pedido A recusado sozinho e, depois, um pedido B novo e entregue. A
+  conversa fica em `recusado`, porque o estágio terminal não reabre.
 - **Linha armada antes da 0017** tem `order_id` nulo e segue a regra antiga: lê o último
   pedido e morre com qualquer pedido cancelado.
 

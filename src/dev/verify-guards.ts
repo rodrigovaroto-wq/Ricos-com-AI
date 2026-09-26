@@ -195,6 +195,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
   },
   {
+    id: "dois-pedidos-estagio",
+    bug: "o cancelamento de um pedido travava em recusado a conversa cujo outro pedido foi entregue",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: 'return reached === "recusado" && others.some((s) => !isOrderDead(s)) ? null : reached;',
+    to: "return reached;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
     id: "hermes-trecho",
     bug: "proposta do Hermes com trecho inventado passando pela validação",
     files: ["src/dev/hermes-core.ts"],

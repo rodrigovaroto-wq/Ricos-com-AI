@@ -24,7 +24,7 @@ import {
   nextOpening,
   windowIsOpen,
   onOrderConfirmed,
-  stageForOrder,
+  stageForLead,
   renderFollowup,
   scheduleSilence,
   endsSilenceRuler,
@@ -1004,7 +1004,10 @@ const recordOrder = async (order: OrderWebhook) => {
   // orders on one lead read the latest otherwise).
   const orderRowId: string | undefined = saved?.[0]?.id;
 
-  const reached = stageForOrder(order.status);
+  const others = await db(
+    `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=status`,
+  );
+  const reached = stageForLead(order.status, (others ?? []).map((o: { status: string | null }) => o.status ?? ""));
   if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the

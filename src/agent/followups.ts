@@ -235,6 +235,19 @@ export const stageForOrder = (
   return "pedido_criado";
 };
 
+/**
+ * The stage for the whole lead, not just this order: with two orders, one cancelled while
+ * the other is on its way must not lock the conversation in `recusado` (terminal) — the
+ * delivered one would then count as a refusal forever. `others` are the lead's other orders.
+ */
+export const stageForLead = (
+  status: string | undefined,
+  others: readonly string[],
+): ReturnType<typeof stageForOrder> => {
+  const reached = stageForOrder(status);
+  return reached === "recusado" && others.some((s) => !isOrderDead(s)) ? null : reached;
+};
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
