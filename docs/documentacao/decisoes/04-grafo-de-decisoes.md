@@ -304,6 +304,10 @@ flowchart TD
   `recusado` se nenhum outro pedido do lead estiver vivo. Continua em aberto o caso de
   ordem inversa: um pedido A recusado sozinho e, depois, um pedido B novo e entregue. A
   conversa fica em `recusado`, porque o estágio terminal não reabre.
+  "Vivo" quer dizer "não morto" (`isOrderDead`). Um Pix expirado ou parado em "aguardando
+  pagamento" conta como vivo e impede o `recusado` de outro pedido. O erro vai para o lado
+  seguro: um estágio não terminal. Incluir `expir` em `isOrderDead` quando o vocabulário real
+  das plataformas for conhecido.
 - **Linha armada antes da 0017** tem `order_id` nulo e segue a regra antiga: lê o último
   pedido e morre com qualquer pedido cancelado.
 
