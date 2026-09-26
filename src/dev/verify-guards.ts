@@ -163,6 +163,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
+    id: "7.4",
+    bug: "a régua de silêncio terminava sem ninguém escrever perdido",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '    await mark("sent");\n    await markLost();',
+    to: '    await mark("sent");',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
     id: "hermes-trecho",
     bug: "proposta do Hermes com trecho inventado passando pela validação",
     files: ["src/dev/hermes-core.ts"],

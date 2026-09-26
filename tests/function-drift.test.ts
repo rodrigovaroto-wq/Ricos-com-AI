@@ -415,7 +415,7 @@ describe("WA-1 na Edge Function: a régua respeita a janela de 24h (2026-09-25)"
     expect(decide).toBeGreaterThan(-1);
     expect(blocked).toBeGreaterThan(decide);
     expect(record).toBeGreaterThan(blocked);
-    expect(source).toContain("conversations(id,lead_id,last_inbound_at,leads(");
+    expect(source).toContain("conversations(id,lead_id,stage,last_inbound_at,leads(");
   });
 });
 

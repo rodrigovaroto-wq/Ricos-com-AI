@@ -27,6 +27,7 @@ import {
   stageForOrder,
   renderFollowup,
   scheduleSilence,
+  endsSilenceRuler,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
@@ -1096,7 +1097,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
   /**
@@ -1198,6 +1199,12 @@ const runFollowupSweep = async () => {
     }
 
     const kind = row.kind as FollowupKind;
+    // The ruler's last touch leaving the queue without a sale is where the lead is lost
+    // (plan v2, 7.4). Opt-out and handoff left above, and a postponed touch has not left.
+    const markLost = () =>
+      endsSilenceRuler(kind)
+        ? persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")
+        : Promise.resolve();
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
     const order = kind.startsWith("order_")
@@ -1284,6 +1291,7 @@ const runFollowupSweep = async () => {
       }
 
       await mark("canceled");
+      await markLost();
       skipped.push({ followupId: row.id, reason });
       continue;
     }
@@ -1295,6 +1303,7 @@ const runFollowupSweep = async () => {
     const delivery = deliveryFor(kind, renderCtx, lastInbound);
     if (delivery === null || delivery.via === "blocked") {
       await mark("canceled");
+      await markLost();
       skipped.push({
         followupId: row.id,
         reason:
@@ -1314,6 +1323,7 @@ const runFollowupSweep = async () => {
       }),
     });
     await mark("sent");
+    await markLost();
 
     // The silence ruler starts when the agent finishes speaking, and for a deferred
     // reply that moment is now, not when the turn was written. The turn cancelled every

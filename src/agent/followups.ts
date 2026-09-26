@@ -136,6 +136,15 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
 };
 
 /**
+ * The touch that closes the silence ruler: once it leaves the queue — sent, or cancelled
+ * by a gate or the 24-hour window — with no order, the conversation is `perdido` (plan v2,
+ * 7.4; operator, 2026-09-26). She can still come back: `furthest` gives way to the stage
+ * her next turn reaches. A sale cancels the ruler first, and `pedido_criado` has no edge
+ * to `perdido` anyway.
+ */
+export const endsSilenceRuler = (kind: string): boolean => kind === "silence_3";
+
+/**
  * Post-order ruler. `shipped` and `eve` only get a real time once logistics says so;
  * until then they sit at the estimate, which is what the customer was told.
  */
