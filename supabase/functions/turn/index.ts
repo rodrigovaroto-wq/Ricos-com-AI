@@ -1097,7 +1097,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,stop_point,body,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,run_at,stop_point,body,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
   );
 
   /**
@@ -1125,8 +1125,10 @@ const runFollowupSweep = async () => {
 
   for (const row of due ?? []) {
     const lead = row.conversations?.leads;
+    // Only the row as this sweep read it: a turn that answered meanwhile re-arms the same
+    // (conversation_id, kind) row with a new run_at, and that one is not ours to close.
     const mark = (status: string) =>
-      db(`followups?id=eq.${row.id}`, {
+      db(`followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}`, {
         method: "PATCH",
         body: JSON.stringify({ status, sent_at: new Date().toISOString() }),
       });
@@ -1199,12 +1201,16 @@ const runFollowupSweep = async () => {
     }
 
     const kind = row.kind as FollowupKind;
-    // The ruler's last touch leaving the queue without a sale is where the lead is lost
-    // (plan v2, 7.4). Opt-out and handoff left above, and a postponed touch has not left.
-    const markLost = () =>
-      endsSilenceRuler(kind)
-        ? persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")
-        : Promise.resolve();
+    // From here every exit goes through `leave`: the ruler's last touch leaving the queue
+    // without a sale is where the lead is lost (plan v2, 7.4) — sent, or cancelled for any
+    // reason. Opt-out and handoff left above; a postponed touch has not left. Only a row
+    // this sweep actually closed counts, or a turn that just answered would be undone.
+    const leave = async (status: string) => {
+      const closed = await mark(status);
+      if (endsSilenceRuler(kind) && Array.isArray(closed) && closed.length > 0) {
+        await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido");
+      }
+    };
     // A post-order touch speaks of THAT order — its total, pieces and sizes — never the
     // 1-piece price (fifth review, kits).
     const order = kind.startsWith("order_")
@@ -1237,7 +1243,7 @@ const runFollowupSweep = async () => {
     // Two touches can render to nothing, and calling both "coupon" hides the one that
     // matters: a deferred reply with no body is a paid-for answer that got lost.
     if (text === null) {
-      await mark("canceled");
+      await leave("canceled");
       skipped.push({
         followupId: row.id,
         reason:
@@ -1290,8 +1296,7 @@ const runFollowupSweep = async () => {
         continue;
       }
 
-      await mark("canceled");
-      await markLost();
+      await leave("canceled");
       skipped.push({ followupId: row.id, reason });
       continue;
     }
@@ -1302,8 +1307,7 @@ const runFollowupSweep = async () => {
     const lastInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
     const delivery = deliveryFor(kind, renderCtx, lastInbound);
     if (delivery === null || delivery.via === "blocked") {
-      await mark("canceled");
-      await markLost();
+      await leave("canceled");
       skipped.push({
         followupId: row.id,
         reason:
@@ -1322,8 +1326,7 @@ const runFollowupSweep = async () => {
         body: text,
       }),
     });
-    await mark("sent");
-    await markLost();
+    await leave("sent");
 
     // The silence ruler starts when the agent finishes speaking, and for a deferred
     // reply that moment is now, not when the turn was written. The turn cancelled every

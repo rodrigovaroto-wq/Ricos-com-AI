@@ -1,6 +1,6 @@
 ---
 name: stage-nunca-e-escrito
-description: `conversations.stage` nascia 'discovery' (fora de STAGES) e nunca era escrito — corrigido em 22/09 no turno, mas em_rota/entregue_pago/recusado/perdido ainda não têm quem os escreva; confira antes de confiar no funil.
+description: `conversations.stage` nascia 'discovery' e nunca era escrito — hoje todos os dez estágios têm quem escreva (turno, webhook de venda desde a v38, varredura para perdido desde 26/09, não deployado); o `perdido` só marca a linha que a varredura realmente fechou.
 metadata:
   type: architecture
 ---
@@ -32,3 +32,10 @@ contra `STAGES`), `furthest` em `state-machine.ts` (nono espelho), e o turno pas
 webhook de venda `job: "order"` não toca o estágio) e `perdido` (o sweep da régua não marca
 fim sem resposta). Itens 5.8 e 7.4 do plano v2. **Até eles fecharem, o funil para em
 `pedido_criado`** — e "entregue e pago" é a métrica que o operador compra.
+
+**Atualização de 2026-09-26.** `em_rota`, `entregue_pago` e `recusado` já eram escritos
+pelo webhook de venda (`stageForOrder`, no ar desde a v38). O operador confirmou que Logzz
+e Coinzz disparam o webhook a cada mudança de status. `perdido` passou a ser escrito
+pela varredura quando o `silence_3` sai da fila sem venda (grafo §15), **ainda não deployado**.
+Armadilha: com o cupom inativo o `silence_3` renderiza `null` — qualquer lógica de "fim da
+régua" tem de cobrir o ramo vazio, não só o envio.

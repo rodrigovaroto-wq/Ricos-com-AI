@@ -38,7 +38,11 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
    margem de 1 peça e dos kits de 2 e 3 no antecipado; despachar o `pricing-guardian` (Opus)
    com análise de sensibilidade. Se a margem permitir mudar desconto ou preço, é decisão do
    operador — nada muda no `BUSINESS_CONFIG` sem ele.
-2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`).** O funil para em
+2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`)** — **fechado em
+   2026-09-26 no repositório (não deployado)**: os três primeiros já eram escritos desde a
+   v38 e o operador confirmou que Logzz e Coinzz disparam o webhook a cada status; `perdido`
+   passou a ser escrito pela varredura quando o `silence_3` sai da fila sem venda (opção a do
+   operador; grafo §15). Sobe no próximo deploy da `turn`. Texto original do passo: O funil para em
    `pedido_criado`. Já existe `stageForOrder` (`src/agent/followups.ts`), usado ao gravar a
    venda (`recordOrder` em `supabase/functions/turn/index.ts`) — **primeiro confirmar** se a
    Logzz e a Coinzz mandam webhook a cada mudança de status (o workflow "Venda confirmada"

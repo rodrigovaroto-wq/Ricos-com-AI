@@ -164,10 +164,10 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "7.4",
-    bug: "a régua de silêncio terminava sem ninguém escrever perdido",
+    bug: "a régua de silêncio terminava sem ninguém escrever perdido (o silence_3 com cupom inativo sai pelo ramo vazio)",
     files: ["supabase/functions/turn/index.ts"],
-    from: '    await mark("sent");\n    await markLost();',
-    to: '    await mark("sent");',
+    from: '      await leave("canceled");\n      skipped.push({\n        followupId: row.id,\n        reason:\n          kind === "deferred_reply"',
+    to: '      await mark("canceled");\n      skipped.push({\n        followupId: row.id,\n        reason:\n          kind === "deferred_reply"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {

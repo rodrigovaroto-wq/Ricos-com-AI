@@ -246,6 +246,35 @@ preços e descontos.
 no painel do Mercado Pago/Coinzz. Trocou taxa, processador ou mix, refaça a tabela da caixa
 de 2026-09-25 em [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
 
+## 15. `perdido` sem dono (plano v2, 7.4)
+
+```mermaid
+flowchart TD
+  S["🟥 o funil não tinha fim sem compra: a régua de silêncio terminava<br/>e a conversa ficava para sempre no último estágio vivo"]
+  K["causa: ninguém escrevia perdido; em_rota / entregue_pago / recusado<br/>já eram escritos desde a v38 (stageForOrder no webhook de venda)"]
+  A1["🟧 1ª versão: markLost só depois de 'sent' e dos dois 'canceled' do gate e da janela"]
+  F1["🟥 revisão Opus: com o cupom inativo (produção hoje) o silence_3 renderiza null<br/>e sai pelo ramo vazio — o único caminho real ficava sem perdido;<br/>o teste contava chamadas e passou verde"]
+  F2["🟥 corrida: turno re-arma a mesma linha (conversation_id, kind) enquanto a varredura<br/>segura a antiga; mark sem condição fechava a nova e gravaria perdido numa conversa viva"]
+  C1["🟩 decisão do operador (a): silence_3 saiu da fila, por qualquer motivo, sem venda → perdido.<br/>toda saída depois de const kind passa por leave; mark só fecha a linha<br/>com status scheduled e o run_at lido; perdido só se a linha voltou"]
+  G["🛡️ tests/order-stage.test.ts: nenhum mark() cru depois de leave, 4 saídas,<br/>ramo vazio coberto; mutação 7.4 reinstala o ramo vazio sem leave"]
+  S --> K --> A1 --> F1 --> C1
+  A1 --> F2 --> C1
+  C1 --> G
+```
+
+Ela volta sozinha: `furthest(perdido, x)` devolve o estágio que o próximo turno alcança.
+Opt-out e handoff saem antes e não marcam; toque adiado não saiu da fila.
+
+**Limites conhecidos:**
+- **Venda que o webhook não casou** (`unknown_lead`, `ambiguous_phone`) deixa a régua viva.
+  Três dias depois a conversa vira `perdido` sobre uma compra real. Isso se corrige sozinho
+  se o webhook chegar depois (`furthest(perdido, pedido_criado)`).
+- **Mensagem já gravada:** o toque é gravado em `messages` antes de a linha ser fechada.
+  Se a cliente respondeu no intervalo, a mensagem sai mesmo assim; só o `perdido` e o
+  fechamento da linha nova são evitados. Esse defeito já existia antes desta mudança.
+- **Sem conversa sintética:** não há conversa sintética de ponta a ponta; o teste lê a
+  estrutura da varredura, que roda só no Deno.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

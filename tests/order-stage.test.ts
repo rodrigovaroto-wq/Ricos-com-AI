@@ -67,10 +67,26 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     },
   );
 
-  it("a varredura grava perdido pela regra de não regredir, nos três jeitos de o toque sair", () => {
-    const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+  const leaveAt = sweep.indexOf("const leave = async");
+  const leaveDef = sweep.slice(leaveAt, sweep.indexOf("\n    };", leaveAt));
+  const afterLeave = sweep.slice(leaveAt + leaveDef.length);
+
+  it("toda saída da fila depois de `leave` passa por ela — inclusive o toque que renderiza vazio", () => {
+    // O silence_3 renderiza null com o cupom inativo (a configuração de hoje): esse ramo é o
+    // único que a produção exercita, e foi o que a primeira versão esqueceu.
+    expect(afterLeave).not.toContain("await mark(");
+    expect(afterLeave.match(/await leave\("(?:sent|canceled)"\);/g)?.length).toBe(4);
+    const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
+    expect(nullBranch.slice(0, nullBranch.indexOf("continue;"))).toContain('await leave("canceled");');
+  });
+
+  it("só marca perdido a linha que esta varredura fechou, pela regra de não regredir", () => {
     expect(source).toContain("conversations(id,lead_id,stage,last_inbound_at,");
-    expect(source.match(/await markLost\(\);/g)?.length).toBe(3);
-    expect(source).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
+    expect(sweep).toContain("&select=id,kind,run_at,");
+    expect(sweep).toContain("followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}");
+    expect(leaveDef).toContain("endsSilenceRuler(kind) && Array.isArray(closed) && closed.length > 0");
+    expect(leaveDef).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
   });
 });
