@@ -529,6 +529,43 @@ A ferramenta agora:
 da nona revisão, e foram atualizadas neste commit. Toda mudança numa linha âncora de mutação
 tem de rodar `pnpm verificar:guardas` inteiro, não só a mutação nova.
 
+## 20. Revisão final do branch (2026-09-27)
+
+Quatro revisores Opus em paralelo (correção, integração, segurança, testes) sobre
+`main...claude/focused-gates-fjpixt`.
+
+```mermaid
+flowchart TD
+  A1["🟥 integração A1: a M-08 lia 'um dia bom' do silence_1 como prazo de 1 dia;<br/>no antecipado a varredura CANCELAVA o toque em silêncio (regressão contra o main)"]
+  N["🟥 correção: 'No pix não precisa esperar, chega em 2 dias' e<br/>'Nem no pix demora: chega em 2 dias' passavam no COD (regressão do 5995923)"]
+  S["🟧 segurança: toque pós-pedido lia o pedido por order_id sem o lead;<br/>externalId sem limite"]
+  T["🟧 testes/integração: verificar:guardas misturava árvore e HEAD; timeout contava como pego"]
+  F1["🟥 atalho sugerido para A1: 'um/uma' só conta com fala de entrega<br/>→ ~90 mentiras da M-08 passariam ('Em uma semana o colete é seu')"]
+  C["🟩 'um/uma' é artigo só sem entrega/chegada/posse, sem palavra de tempo tomando-a<br/>e sem o antecipado nomeado; negação que governa a contagem com a verdade na frase;<br/>'não precisa' e 'nem' só negam o nome fechando a oração"]
+  G["🛡️ teste que roda TODA variante de TODO toque da régua pelos gates (zero vetos);<br/>mutações um-dia-bom, um-artigo-largo, uma-semana-negada, pix-nao-precisa-verbo,<br/>nem-no-pix, pedido-de-outra-cliente; verificar:guardas preso a um commit limpo"]
+  A1 --> F1 --> C
+  N --> C
+  C --> G
+  S --> G
+  T --> G
+```
+
+**Provado na PostgREST real, com leituras apenas:** `or=(kind.like.silence_*,kind.eq.checkout_reminder)`
+casa, e a igualdade no timestamp que a própria API devolve (`…403606+00:00`) casa em `eq.`. Com
+isso, o fechamento pela `run_at` e o cancelamento na resposta funcionam no banco de verdade.
+
+**Aviso ao operador:** ao publicar, todo lead parado há 3 dias vira `perdido`. Com o cupom
+inativo, o `silence_3` sai cancelado, e isso já é o fim da régua (opção a).
+
+**Resíduos:**
+- **Mentira que passa no COD sem caminho nomeado:** "Uma semana e ele tá contigo". O `main`
+  também deixava passar.
+- **Negação só por extenso:** a negação que governa a contagem vale só para "um/uma".
+- **Envio no máximo uma vez:** com o canal ligado, uma falha da Cloud API perde o toque. Fica
+  só o e-mail de falha.
+- **Testes só textuais:** vários testes de `index.ts` só leem o texto do arquivo. A prova de
+  produção é a sonda da varredura pela porta do n8n depois do deploy.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

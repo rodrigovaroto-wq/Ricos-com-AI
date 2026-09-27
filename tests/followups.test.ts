@@ -623,3 +623,79 @@ describe("dia da semana do terceiro toque — o de São Paulo, não o do servido
     });
   });
 });
+
+/**
+ * Toda variante de todo toque, pela cadeia inteira, com o contexto que a varredura monta
+ * (index.ts: layer "agent", paymentPath do pedido ou da escolha fresca, units,
+ * orderAmountBrl do pedido, stage "logistics" nos order_* e "presale" nos demais). Um veto
+ * de reescrita aqui é um toque que decideTouch CANCELA em silêncio — foi assim que o
+ * silence_1 "…esperando um dia bom" morreu no caminho antecipado (M-08, revisão de integração).
+ * deferred_reply fica de fora: o corpo é o texto do modelo, já julgado no turno.
+ */
+describe("todo toque da régua passa pelos gates, em toda variante", () => {
+  const kinds = [
+    "checkout_reminder",
+    "silence_1",
+    "silence_2",
+    "silence_3",
+    "order_confirmed",
+    "order_shipped",
+    "order_eve",
+    "order_delivered",
+  ] as const;
+  const leadIds = ["a", "b", "c", "d", "e", "f", "g", "h", "lead-abc", "lead-1"];
+  // Os sete dias da semana, às 10h de São Paulo — o silence_3 escreve o dia.
+  const nows = Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2026, 8, 7 + i, 13)));
+  const casos: { rotulo: string; texto: string; ctx: ReturnType<typeof gateCtx> }[] = [];
+  for (const kind of kinds)
+    for (const stopPoint of ["before_size", "after_price", "link_sent"] as const)
+      for (const paymentPath of ["cod", "prepay"] as const)
+        for (const units of [1, 2])
+          for (const prepaid of [false, true])
+            for (const active of [false, true])
+              for (const leadId of leadIds)
+                for (const now of kind === "silence_3" ? nows : [nows[3]!]) {
+                  const order = kind.startsWith("order_");
+                  // Fora do pós-pedido não há pedido: prepaid só existe com ele.
+                  if (!order && prepaid) continue;
+                  const amountBrl = units > 1 ? 233.82 : undefined;
+                  const texto = renderFollowup(kind, {
+                    leadId,
+                    config: { ...config, coupon: { ...config.coupon, active } },
+                    stopPoint,
+                    now,
+                    size: units > 1 ? "M,G" : "M",
+                    address: "Rua das Flores, 10",
+                    units,
+                    prepaid,
+                    ...(order && amountBrl ? { amountBrl } : {}),
+                  });
+                  if (texto === null) continue;
+                  casos.push({
+                    rotulo: [kind, stopPoint, paymentPath, "u" + units, prepaid ? "pago" : "na-entrega", leadId].join("/"),
+                    texto,
+                    ctx: gateCtx({
+                      config: { ...config, coupon: { ...config.coupon, active } },
+                      now,
+                      paymentPath: order ? (prepaid ? "prepay" : "cod") : paymentPath,
+                      units,
+                      ...(order && amountBrl ? { orderAmountBrl: amountBrl } : {}),
+                      stage: order ? "logistics" : "presale",
+                    }),
+                  });
+                }
+
+  it("cobre as duas variantes sorteadas de cada toque que sorteia", () => {
+    for (const [kind, n] of [["checkout_reminder", 2], ["silence_1", 6], ["silence_2", 2]] as const)
+      expect(new Set(casos.filter((c) => c.rotulo.startsWith(kind + "/")).map((c) => c.texto)).size).toBe(n);
+  });
+
+  it("zero vetos, em qualquer caminho", () => {
+    const vetos = casos.flatMap((c) =>
+      runGates(c.texto, c.ctx)
+        .traces.filter((t) => t.verdict === "block")
+        .map((t) => c.rotulo + ": " + t.gate + " — " + t.detail),
+    );
+    expect([...new Set(vetos)]).toEqual([]);
+  });
+});

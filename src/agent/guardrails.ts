@@ -903,8 +903,17 @@ const gates: readonly Gate[] = [
           const denier = /\b(?:sem|nem|nada\s+de|nao\s+(precisa|quer\w*)(?:\s+(?:de|pagar|ser))?)\s+(?:(?:no|na|o|a|pelo|pela|de|com|via|em)\s+)?(?:pag\w*\s+)?$/.exec(
             s.slice(0, at).split(/[,;:.!?\n]/).pop()!,
           );
-          if (denier && !(denier[1]?.startsWith("quer") && /^[^.!\n]*\?/.test(s.slice(at)))) continue;
-          if (/^\s*nao\s*(?:[.!,;:?]|$|precisa\b)/.test(s.slice(at + m[0].length))) continue;
+          // "Nem" is also "not even": "nem no pix demora" names it. It denies only a name that its
+          // phrase closes on, or one in a series of "nem" ("Nem pix, nem boleto").
+          const rest = s.slice(at + m[0].length);
+          if (
+            denier &&
+            !(denier[1]?.startsWith("quer") && /^[^.!\n]*\?/.test(s.slice(at))) &&
+            !(/^nem\b/.test(denier[0]) && !/^\s*(?:[.!,;:?]|$|nem\b)/.test(rest))
+          )
+            continue;
+          // "Pix não precisa." denies; "pix não precisa esperar" says something about it.
+          if (/^\s*nao(?:\s+precisa)?\s*(?:[.!,;:?]|$)/.test(rest)) continue;
           last = at;
         }
         return last;
@@ -934,9 +943,9 @@ const gates: readonly Gate[] = [
         return null;
       };
       const prepaidHeader = (at: number): boolean => headerPath(at) === "prepay";
-      for (const m of t.matchAll(
-        /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g,
-      )) {
+      const COUNT =
+        /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g;
+      for (const m of t.matchAll(COUNT)) {
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
         const after = t.slice(at + m[0].length, at + m[0].length + 80);
@@ -1101,6 +1110,27 @@ const gates: readonly Gate[] = [
             (LEAD.test(ownBefore) && new RegExp(String.raw`^\s*(?:voce\s+)?(?:ja\s+)?${USED}\s*$`).test(ownAfter)) ||
             (new RegExp(String.raw`\b${USED}\s+(?:em|com)\s+(?:(?:media|cerca|uns|umas)\s+(?:de\s+)?)?$`).test(ownBefore) &&
               /^\s*$/.test(ownAfter)));
+        // Integration review: the word "um/uma" is an article as often as a count. The ruler's
+        // own "esperando um dia bom" was vetoed on the prepaid path — and a vetoed touch is
+        // cancelled without a word — with "um dia desses", "usa um dia inteiro", "uma semana
+        // depois de usar". In a sentence that says nothing of delivery, arrival or her having
+        // it, the word is a count only when a time word takes it ("em/de/até/só/tem/leva…
+        // uma semana", "um dia só") or the prepaid path is named; and a count for the payment
+        // to clear ("no pix é só um dia pra eu confirmar o pagamento") is not a deadline.
+        // Requiring delivery words alone freed "em uma semana o colete é seu" (M-08 fuzz).
+        if (
+          /^n?uma?$/.test(m[1]!) &&
+          !DELIVERY_TALK.test(sentence) &&
+          !ARRIVAL.test(sentence) &&
+          !/\b(?:contigo|com\s+voce|e\s+(?:seu|sua)|abre\s+a\s+caixa|ja\s+tem|vem)\b/.test(sentence) &&
+          (/^\s+(?:pra|para)\s+(?:(?:eu|(?:a\s+)?gente|o\s+banco)\s+)?(?:confirm|compens|aprov|identific|process)\w*/.test(after) ||
+            (!/\b(?:em|de|ate|dentro\s+de|por|media|cerca|so|apenas|tem|tera|sao|e|fica|leva\w*|demor\w*|dura\w*|passa\w*|mais|menos|que)\s+$/.test(before) &&
+              !/^\s+(?:so|apenas|no\s+maximo|no\s+minimo)\b/.test(after) &&
+              prepaidNamed(sentence) === -1 &&
+              !prepaidNamedBefore &&
+              !prepaidHeader(at)))
+        )
+          continue;
         const prepaid =
           prepaidNamed(sentence, new RegExp(PREPAY_WORD.source, "g")) !== -1 ||
           prepaidNamedBefore ||
@@ -1124,7 +1154,17 @@ const gates: readonly Gate[] = [
         // chega em uma semana / em 5 dias / de uma a duas semanas" passed. The prepaid average's
         // own shape ("em média N dias úteis") stays with the prepaid rule below — unless the
         // sentence or its header denies the prepaid path ("Nada de pix. Em média 5 dias úteis.").
+        // Integration review: "um/uma" denied right where it is counted, with the truth told in
+        // the same sentence, is the refusal, not the promise — "na entrega não chega em uma
+        // semana, chega em 1 a 3 dias", "…em até 3 dias, nunca uma semana". Only "não/nunca
+        // (chega/recebe/entrega/é) (em/de)": "não demora um dia" promises less than a day, and
+        // "não demora, chega em 5 dias" has its comma in between.
+        const denied =
+          /^n?uma?$/.test(m[1]!) &&
+          /\b(?:nao|nunca|jamais)\s+(?:(?:cheg\w*|receb\w*|entreg\w*|e)\s+)?(?:(?:em|de)\s+)?$/.test(phrase) &&
+          (sentence.match(COUNT)?.length ?? 0) > 1;
         if (codAt > prepayAt || (ctx.paymentPath === "cod" && !prepaid && ((averageShaped && (deniesPrepaid(sentence) || headerPath(at) === "cod")) || (!averageShaped && (DELIVERY_TALK.test(sentence) || ARRIVAL.test(sentence)))))) {
+          if (denied) continue;
           if (week) return `delivery in weeks contradicts the configured ${codDaysMin}-${codDaysMax} days`;
           const from = new RegExp(String.raw`\b(\d{1,2}|${Object.keys(DAY_WORDS).join("|")})\s+(?:a|e|ate)\s+$`).exec(before)?.[1];
           const start = from == null ? days : (DAY_WORDS[from] ?? Number(from));
@@ -1134,6 +1174,8 @@ const gates: readonly Gate[] = [
         }
         if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
+        // Denying a count faster than the average is the refusal; denying a week says it is faster.
+        if (denied && !week && days < avg) continue;
         if (week || Number(days) !== avg) {
           return `prepaid average of ${days} days is not the configured ${avg}`;
         }

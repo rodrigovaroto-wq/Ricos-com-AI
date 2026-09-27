@@ -629,6 +629,25 @@ for (const n of ["pix", "boleto", "antecipado"])
     `Não quer pagar no ${n}? Chega em 1 a 3 dias.`, `Não é caro no ${n}? Chega em 1 a 3 dias.`, `No ${n} não demora, chega em 1 a 3 dias.`,
     `Sem juros no ${n}: chega em 1 a 3 dias.`, `Nem precisa esperar, no ${n} chega em 1 a 3 dias.`, `Não quer pagar no ${n}? Chega em 2 dias.`,
   );
+// Revisão final de correção: "<nome> não precisa <verbo>" e "nem no <nome> <verbo>" (= "nem mesmo")
+// dizem algo do antecipado, não o negam — passavam no COD depois do 5995923.
+for (const n of ["no pix", "no boleto", "no antecipado", "pagando antecipado", "pagando antes", "pagou no pix", "se pagar no pix"])
+  for (const pred of [
+    "não precisa esperar", "não precisa esperar muito", "não precisa se preocupar", "não precisa esperar a entrega",
+    "não precisa de cadastro e", "não precisa de comprovante, e", "nao precisa pagar frete", "não precisa fazer nada",
+  ])
+    for (const body of ["chega em 2 dias.", "você recebe em 2 dias.", "chega em 1 a 3 dias.", "em 2 dias chega."])
+      notNegating.push(cap(n) + " " + pred + (/(?:,| e)$/.test(pred) ? " " : ", ") + body);
+for (const n of ["no pix", "no antecipado", "no boleto", "pagando antes"])
+  for (const pred of ["demora: chega em 2 dias.", "demora, chega em 2 dias.", "passa de 2 dias.", "demora mais que 2 dias.", "leva mais de 1 a 3 dias."])
+    notNegating.push("Nem " + n + " " + pred);
+// E o que tem de continuar passando no COD: o nome negado com pontuação, ou em série com outro "nem".
+const stillDenied = [
+  "Sem pix, chega em 1 a 3 dias.", "Pix não precisa. Chega em 1 a 3 dias.", "Te mando o link e chega em 1 a 3 dias.",
+  "Nada de cartão, nada de Pix, nada de cadastro. O colete chega na sua casa em 1 a 3 dias.",
+  "Nem pix, nem boleto: chega em 1 a 3 dias.", "Nem pix nem boleto, chega em 1 a 3 dias.", "Nem pix. Chega em 2 dias.",
+  "Pix não precisa, chega em 1 a 3 dias.",
+];
 
 describe("M-10, revisão independente: o antecipado negado não nomeia o antecipado", () => {
   it(`${negatedHonest.length} prazos da entrega depois do antecipado negado, todos passam no caminho da entrega`, () => {
@@ -639,5 +658,71 @@ describe("M-10, revisão independente: o antecipado negado não nomeia o antecip
   });
   it(`${notNegating.length} negativas que não negam o antecipado, todas vetadas nos dois caminhos`, () => {
     expect(notNegating.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(stillDenied.length + " negações de verdade continuam passando no caminho da entrega", () => {
+    expect(stillDenied.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+  });
+});
+
+// Revisão de integração: "um/uma" é artigo tanto quanto contagem. A régua mandava "esperando um
+// dia bom" e o antecipado vetava — e o toque vetado é cancelado sem aviso. Fora de frase que fala
+// de entrega, chegada, posse ou do antecipado, "um/uma" só conta prazo quando uma palavra de
+// tempo o toma ("em/de/até/só/tem/leva … uma semana", "um dia só").
+const articleHonest: string[] = [];
+for (const open of ["", "Oi! ", "Olha, "])
+  for (const s of [
+    "pensa naquela roupa que está parada no armário esperando um dia bom.", "um dia desses você me conta.",
+    "usa um dia inteiro sem incomodar.", "uma semana depois de usar você já sente a diferença.",
+    "num dia desses você me manda uma foto.", "veste um dia qualquer e me conta.", "uma semana depois você me fala.",
+  ])
+    articleHonest.push(open ? open + s : cap(s));
+// A contagem do pagamento compensar não é prazo de entrega.
+for (const n of ["No pix", "No antecipado", "Pagando antes", "No boleto"])
+  for (const c of ["um dia", "uma semana"])
+    for (const p of ["pra eu confirmar o pagamento", "pra compensar", "para o banco aprovar", "pra gente identificar o pagamento"])
+      articleHonest.push(n + " é só " + c + " " + p + ".");
+// A negação que governa a contagem, com a verdade na mesma frase.
+const deniedHonestCod = [
+  "Na entrega não chega em uma semana, chega em 1 a 3 dias.", "Na entrega chega em até 3 dias, nunca uma semana.",
+  "Na entrega não é uma semana, é de 1 a 3 dias.", "Na entrega nunca uma semana: de 1 a 3 dias.",
+];
+const deniedHonestPrepay = [
+  "No antecipado não chega em um dia, chega em média 5 dias úteis.", "No antecipado não é um dia, varia, em média 5 dias úteis.",
+];
+// As mentiras vizinhas: "um/uma" tomado por palavra de tempo, com o antecipado nomeado, ou com a
+// chegada/posse na frase — e a negação que não nega ("não demora um dia") ou nega sem a verdade.
+const articleLies: string[] = [];
+for (const c of ["um dia", "uma semana", "num dia", "numa semana"]) {
+  const em = c.startsWith("n") ? c : "em " + c;
+  const bare = c.replace(/^n/, "");
+  articleLies.push(
+    cap(em) + " o colete é seu.", cap(em) + " você já abre a caixa.", cap(em) + " ele tá contigo.", cap(em) + " tá na sua mão.",
+    "No antecipado, " + bare + " só.", "No pix é " + bare + ".", "Pagando antes, " + em + " você recebe.",
+    "No antecipado leva " + bare + ".", "Pelo link não passa de " + bare + ".", "No pix é só " + bare + " e chega.",
+    "No pix é só " + bare + " pra confirmar e já chega.", "No antecipado não demora " + bare + ".",
+    "Não chega em " + bare + ", chega antes.",
+  );
+}
+const articleLiesCod = [
+  "Na entrega chega em uma semana.", "Na entrega não chega em uma semana.", "Na entrega, nunca menos de uma semana.",
+  "Na entrega não demora, chega em 5 dias.", "Não demora, em uma semana tá aí.",
+];
+
+describe("revisão de integração: 'um/uma' é artigo fora de prazo, e a negação governa a contagem", () => {
+  it(articleHonest.length + " falas com artigo ou pagamento, todas passam nos dois caminhos", () => {
+    expect(articleHonest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+  it("a negação com a verdade na frase passa no caminho que ela descreve", () => {
+    expect(deniedHonestCod.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+    expect(deniedHonestPrepay.filter((s) => delivery(s, "prepay") !== "pass" || delivery(s, "cod") !== "pass")).toEqual([]);
+  });
+  it(articleLies.length + " mentiras com um/uma, todas vetadas no antecipado", () => {
+    expect(articleLies.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(articleLiesCod.length + " mentiras vizinhas, todas vetadas na entrega", () => {
+    expect(articleLiesCod.filter((s) => delivery(s, "cod") !== "block")).toEqual([]);
+  });
+  it("negar uma semana no antecipado ainda diz que é mais rápido — vetado", () => {
+    expect(delivery("No antecipado não chega em uma semana, chega em média 5 dias úteis.", "prepay")).toBe("block");
   });
 });

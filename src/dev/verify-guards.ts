@@ -900,6 +900,50 @@ const MUTATIONS: Mutation[] = [
     to: '"type": "n8n-nodes-base.noOp"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
   },
+  // Revisão de integração (2026-09-27): "um/uma" como artigo, a negação que governa a contagem,
+  // e o nome do antecipado negado por "não precisa <verbo>" / "nem no <nome>".
+  {
+    id: "um-dia-bom",
+    bug: "o silence_1 \"esperando um dia bom\" era vetado no antecipado e a varredura cancelava o toque em silêncio",
+    files: ["src/agent/guardrails.ts"],
+    from: "          /^n?uma?$/.test(m[1]!) &&\n          !DELIVERY_TALK.test(sentence) &&",
+    to: "          false &&\n          !DELIVERY_TALK.test(sentence) &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "um-artigo-largo",
+    bug: "exigir só palavra de entrega para \"um/uma\" soltava \"em uma semana o colete é seu\" no antecipado",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`            (!/\b(?:em|de|ate|dentro\s+de|por|media|cerca|so|apenas|tem|tera|sao|e|fica|leva\w*|demor\w*|dura\w*|passa\w*|mais|menos|que)\s+$/.test(before) &&`,
+    to: "            (true &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "uma-semana-negada",
+    bug: "\"na entrega não chega em uma semana, chega em 1 a 3 dias\" era vetada pela semana que ela nega",
+    files: ["src/agent/guardrails.ts"],
+    from: "          if (denied) continue;\n",
+    to: "",
+    also: [{ from: "        if (denied && !week && days < avg) continue;\n", to: "" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "pix-nao-precisa-verbo",
+    bug: "\"no pix não precisa esperar, chega em 2 dias\" lia o pix como negado e passava no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`/^\s*nao(?:\s+precisa)?\s*(?:[.!,;:?]|$)/.test(rest)`,
+    to: String.raw`/^\s*nao\s*(?:[.!,;:?]|$|precisa\b)/.test(rest)`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "nem-no-pix",
+    bug: "\"nem no pix demora, chega em 2 dias\" (nem = nem mesmo) lia o pix como negado e passava no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw` &&
+            !(/^nem\b/.test(denier[0]) && !/^\s*(?:[.!,;:?]|$|nem\b)/.test(rest))`,
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
