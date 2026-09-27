@@ -879,6 +879,34 @@ const gates: readonly Gate[] = [
       };
       const DELIVERY_TALK = /\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/;
       const PREPAY_WORD = /\b(?:antecipa\w*|adianta\w*)\b/;
+      const ARRIVAL =
+        /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|casa|mao|porta|viagem|caminho)\b/;
+      // The names each path goes by, as the proximity rule below reads them.
+      const COD_NAME = /\bna\s+entrega\b|\bentregador\b|\bna\s+porta\b|\bna\s+mao\b/g;
+      const PREPAY_NAME =
+        /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g;
+      const names = (re: RegExp, s: string) => s.search(re) !== -1;
+      /**
+       * M-10: the path named in a header right before the sentence — "Pagou no pix? Chega em 2
+       * dias." A header has no predicate of its own and the next sentence is its answer: a
+       * question, or a fragment of at most four words (a path name is two or three, "no pix",
+       * "pagando antes"; a fifth is room for a claim of its own), and a run of them counts
+       * ("Pagou no pix? Ótimo."). The closest one that names a path decides, prepaid when it
+       * names the prepaid one at all ("Na entrega ou no pix?"). A full statement ends the run,
+       * and so does a sentence that names a path itself.
+       */
+      const prepaidHeader = (at: number): boolean => {
+        const own = t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        if (names(COD_NAME, own) || names(PREPAY_NAME, own)) return false;
+        const earlier = t.slice(0, at).split(/(?<=[.!?\n])/);
+        if (!/[.!?\n]$/.test(earlier.at(-1) ?? "")) earlier.pop();
+        for (const s of earlier.reverse()) {
+          if (!/\?\s*$/.test(s) && s.trim().split(/\s+/).length > 4) return false;
+          if (names(PREPAY_NAME, s)) return true;
+          if (names(COD_NAME, s)) return false;
+        }
+        return false;
+      };
       for (const m of t.matchAll(
         /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g,
       )) {
@@ -917,8 +945,6 @@ const gates: readonly Gate[] = [
           // is the warranty only when a warranty form GOVERNS it — a return purpose right after
           // it, or a return word taking it right before it — and nothing after it says anything
           // but "corridos/úteis", the purpose, or when the warranty starts counting.
-          const ARRIVAL =
-            /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|casa|mao|porta|viagem|caminho)\b/;
           // "Quando chega aí você tem 7 dias pra trocar": the place of the arrival is part of it.
           const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa))?`;
           // When the warranty starts counting: "depois que receber", "a partir do recebimento",
@@ -932,8 +958,11 @@ const gates: readonly Gate[] = [
           // the delivery up ("me passa seu CEP pra eu ver a entrega aí") are not delivery (loop
           // review, 2026-09-25) — only as the purpose of asking the CEP ("dá pra ver a entrega em
           // casa nesse tempo" is a deadline).
+          // M-10: nor is the delivery path's own name — "na entrega / pagando na entrega / pagando
+          // na mão do entregador você tem 7 dias pra trocar" names the path, not an arrival.
           const notDelivery = (x: string) =>
             x
+              .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
@@ -1047,6 +1076,7 @@ const gates: readonly Gate[] = [
         const prepaid =
           PREPAY_WORD.test(sentence) ||
           prepaidNamedBefore ||
+          prepaidHeader(at) ||
           (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && !wearing);
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
@@ -1056,11 +1086,23 @@ const gates: readonly Gate[] = [
         // when the stored path choice put Tati's conversation on prepaid (persona round).
         const prefix = t.slice(0, at).split(/[.!?\n]/).pop()!;
         const lastAt = (re: RegExp) => Math.max(-1, ...[...prefix.matchAll(re)].map((x) => x.index ?? 0));
-        const codAt = lastAt(/\bna\s+entrega\b|\bentregador\b|\bna\s+porta\b|\bna\s+mao\b/g);
-        const prepayAt = lastAt(
-          /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g,
-        );
-        if (codAt > prepayAt) continue;
+        const codAt = lastAt(COD_NAME);
+        const prepayAt = lastAt(PREPAY_NAME);
+        // M-10: on the delivery path — named closest before the count, or the conversation's
+        // when the sentence names none and talks delivery or arrival ("o colete tá aí em 5 dias";
+        // "30 dias pra devolver" and "5 kg em uma semana" are other gates') — every count fits the
+        // configured range: one number inside it, or a range inside it ("de um a três dias"). A week never
+        // fits. It used to be `continue`, and the range check only reads digits, so "na entrega
+        // chega em uma semana / em 5 dias / de uma a duas semanas" passed. The prepaid average's
+        // own shape ("em média N dias úteis") stays with the prepaid rule below.
+        if (codAt > prepayAt || (ctx.paymentPath === "cod" && !prepaid && !averageShaped && (DELIVERY_TALK.test(sentence) || ARRIVAL.test(sentence)))) {
+          if (week) return `delivery in weeks contradicts the configured ${codDaysMin}-${codDaysMax} days`;
+          const from = new RegExp(String.raw`\b(\d{1,2}|${Object.keys(DAY_WORDS).join("|")})\s+(?:a|e|ate)\s+$`).exec(before)?.[1];
+          const start = from == null ? days : (DAY_WORDS[from] ?? Number(from));
+          if (start < codDaysMin || days > codDaysMax)
+            return `delivery window of ${start === days ? days : `${start}-${days}`} days contradicts the configured ${codDaysMin}-${codDaysMax}`;
+          continue;
+        }
         if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
         if (week || Number(days) !== avg) {
@@ -1299,7 +1341,10 @@ const gates: readonly Gate[] = [
               : /\bna\s+entrega\b/.test(sentence)
                 ? "cod"
                 : null;
-        const path = named ?? ctx.paymentPath;
+        // M-10: a sentence that names no path by "antecipado" or "na entrega" still names the
+        // prepaid one by its other names ("No pix chega em 1 a 3 dias"), or in a header before it.
+        const path =
+          named ?? ((!names(COD_NAME, sentence) && names(PREPAY_NAME, sentence)) || prepaidHeader(at) ? "prepay" : ctx.paymentPath);
         const [min_, max_] =
           path === "cod"
             ? [codDaysMin, codDaysMax]

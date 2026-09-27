@@ -472,6 +472,30 @@ nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria j�
 por outro gate. As exceções são falsos positivos baratos, como "já faz 10 dias" na fala da
 cliente.
 
+## 19. M-10: prazo da entrega por extenso, e o caminho nomeado na frase anterior
+
+```mermaid
+flowchart TD
+  S["🟥 na entrega (1 a 3 dias) passavam 'chega em uma semana', 'em até 2 semanas',<br/>'em 5 dias', 'em dez dias'; e 'Pagou no pix? Chega em 2 dias.' passava no COD"]
+  K["causa: uma contagem com o COD nomeado dava continue (codAt > prepayAt);<br/>a faixa só lia dígitos; o nome do caminho só valia na própria frase"]
+  F1["🟥 primeira versão julgava toda contagem sem nome no COD:<br/>'emagrece 5 kg em uma semana' e '30 dias pra devolver' viravam delivery_promise"]
+  C1["🟩 no COD a contagem tem de caber em [codDaysMin, codDaysMax] (número ou faixa, por extenso também);<br/>semana nunca cabe; sem nome, só em fala de entrega/chegada.<br/>Cabeçalho: pergunta ou fragmento de até 4 palavras na frase anterior nomeia o caminho"]
+  C2["🟩 irmão: a faixa lia só 'antecipado' como nome; 'No pix chega em 1 a 3 dias' passava no COD.<br/>notDelivery tira o próprio nome do caminho ('pagamento na entrega')"]
+  G["🛡️ geradores (6560 fora da faixa, 4050 dentro, cabeçalho, garantia com o nome do COD);<br/>mutações M-10, -sem-nome, -inicio, -semana, -cabecalho, -faixa-pix, -nome-da-entrega"]
+  S --> K --> F1 --> C1 --> C2 --> G
+```
+
+**Custo aceito:** falsos positivos baratos que custam uma reescrita cada. O mais provável é
+"…7 dias pra trocar e suporte todo dia", porque a cauda da garantia recusa "dia".
+
+**Fora do conserto:**
+- "Na entrega ou no pix, chega em 1 a 3 dias." passa no COD.
+- Numa conversa sem caminho, "Chega em uma semana." passa.
+
+**Registro:** as mutações M-08-tomada e M-08-troca-solta tinham ficado com o texto de antes
+da nona revisão, e foram atualizadas neste commit. Toda mudança numa linha âncora de mutação
+tem de rodar `pnpm verificar:guardas` inteiro, não só a mutação nova.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

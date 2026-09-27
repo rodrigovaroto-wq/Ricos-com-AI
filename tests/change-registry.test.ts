@@ -859,3 +859,87 @@ describe("M-08, oitava revisão: a troca governa a contagem, ou não a toma", ()
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-10 (revisão independente da M-08): no caminho da entrega, a contagem por extenso ou avulsa
+ * ia para o COD por `codAt > prepayAt` e o laço dava `continue`; a checagem de faixa só lê
+ * dígitos. E o nome do antecipado na frase anterior ("Pagou no pix? Chega em 2 dias.") não era
+ * lido no caminho da entrega.
+ */
+describe("M-10: prazo da entrega por extenso, avulso, e o caminho nomeado na frase anterior", () => {
+  const vetadasNosDois = [
+    "Na entrega chega de uma a duas semanas.",
+    "Na entrega chega em uma a duas semanas.",
+    "Na entrega chega em até 2 semanas.",
+    "Na entrega chega em uma semana.",
+    "Na entrega chega em 1 a 3 dias, no máximo uma semana.",
+    "Na entrega chega em 5 dias.",
+    "Na entrega chega em dez dias.",
+    "Na entrega chega de dois a cinco dias.",
+    "Na entrega não demora, chega em 5 dias.",
+    "Pagou no pix? São 7 dias contados da data que recebermos.",
+    "Pagou no pix? Chega em 2 dias.",
+    "Pagou no pix? Chega em 1 a 3 dias.",
+    "Pagou no pix? Ótimo. Chega em 2 dias.",
+    "E no antecipado? A entrega leva de um a três dias.",
+    "Prefere na entrega ou no pix? Chega em 1 a 3 dias.",
+    // Irmã, na mesma frase: a checagem de faixa só lia "antecipado/adiantado" como nome.
+    "No pix chega em 1 a 3 dias.",
+  ];
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  // Sem nome de caminho, no caminho da entrega a contagem responde à faixa da entrega.
+  it.each(["Chega em uma semana.", "Chega em 5 dias.", "Você recebe em dez dias.", "Chega em uns 4 dias."])(
+    "veta no caminho da entrega: %s",
+    (texto) => expect(delivery(texto, "cod")?.verdict).toBe("block"),
+  );
+
+  const passamNosDois = [
+    "Na entrega você recebe em 1 a 3 dias.",
+    "Na entrega você recebe em 1 a 3 dias, e no antecipado varia, em média 5 dias úteis.",
+    "No antecipado varia, em média 5 dias úteis.",
+    "Na entrega chega em 2 dias.",
+    "Na entrega chega em dois dias.",
+    "Na entrega chega de um a três dias.",
+    "Na entrega chega em até 3 dias úteis.",
+    "Faz 3 dias que comprei",
+    "Pagou no pix? O prazo varia por região, em média 5 dias úteis.",
+    "Pagou no pix? Você tem 7 dias pra trocar depois que receber.",
+    "Pagou no pix? Na entrega é diferente: na entrega chega em 1 a 3 dias.",
+  ];
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it.each([
+    "A entrega leva de um a três dias e é agendada, quem escolhe o dia é você no checkout.",
+    "Não consigo garantir amanhã, a entrega leva de 1 a 3 dias.",
+    "Chega em 2 dias.",
+    "O prazo varia por região, em média 5 dias úteis.",
+    "Em 5 dias de uso você nem sente o colete.",
+    // Pergunta com o nome da entrega não muda nada no caminho da entrega.
+    "Prefere pagar na entrega? Chega em 1 a 3 dias.",
+    // Afirmação inteira antes (não é cabeçalho): a frase seguinte volta ao caminho da conversa.
+    "No pix você ganha 10% de desconto no total do pedido. A entrega leva de um a três dias.",
+  ])("passa no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+  });
+
+  // A faixa vem do config: o início da faixa por extenso também cabe nela, e semana nunca cabe,
+  // mesmo quando o máximo configurado chega a 7.
+  it("julga pela faixa configurada, início e fim, e semana nunca cabe", () => {
+    const at = (codDaysMin: number, codDaysMax: number, text: string) =>
+      runGates(text, ctx({ config: { ...config, delivery: { ...config.delivery, codDaysMin, codDaysMax } } })).traces.find(
+        (t) => t.gate === "delivery_promise",
+      )?.verdict;
+    expect(at(2, 3, "Na entrega chega de um a três dias.")).toBe("block");
+    expect(at(2, 3, "Na entrega chega de dois a três dias.")).toBe("pass");
+    expect(at(2, 3, "Na entrega chega em um dia.")).toBe("block");
+    expect(at(1, 7, "Na entrega chega em uma semana.")).toBe("block");
+    expect(at(1, 7, "Na entrega chega em sete dias.")).toBe("pass");
+  });
+});

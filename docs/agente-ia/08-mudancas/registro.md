@@ -416,6 +416,48 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   0 respostas prontas; `pnpm verificar:guardas` 56/56.
 - **Estado:** feita e medida.
 
+### M-10 — Prazo da entrega por extenso ou avulso, e o caminho nomeado na frase anterior
+- **Por quê:** revisão independente da M-08. No caminho da entrega, a contagem ia para o COD
+  por `codAt > prepayAt` e o laço dava `continue`; a checagem de faixa só lê dígitos. Passavam
+  "Na entrega chega de uma a duas semanas.", "…em até 2 semanas.", "…em uma semana.", "…em 1 a
+  3 dias, no máximo uma semana.", "…em 5 dias.", "…em dez dias.". E o nome do antecipado na
+  frase anterior não era lido no caminho da entrega: "Pagou no pix? Chega em 2 dias." e "Pagou
+  no pix? São 7 dias contados da data que recebermos." passavam com `paymentPath: "cod"`.
+- **Objetivo:** no caminho da entrega, toda contagem de entrega cabe na faixa configurada
+  (`codDaysMin` a `codDaysMax`) — um número dentro dela ou a faixa inteira dentro dela — e
+  semana nunca cabe; o antecipado nomeado num cabeçalho logo antes vale para a frase seguinte.
+- **Medida:** as frases acima como casos vetados em `change-registry.test.ts`; geradores no
+  fuzz; `pnpm dev:gates` sem afrouxamento.
+- **Feito (2026-09-27):** a regra de número de `delivery_promise` julga a contagem da entrega
+  em vez de pular: quando a entrega é o caminho nomeado mais perto antes dela, ou quando a frase
+  não nomeia caminho, fala de entrega ou chegada e a conversa é da entrega (a forma da média do
+  antecipado, "em média N dias úteis", continua com a regra do antecipado). O início de faixa
+  por extenso ("de um a três dias") também é conferido. **Janela do cabeçalho:** a frase
+  imediatamente anterior, quando é pergunta ou fragmento de até 4 palavras, e uma sequência
+  deles ("Pagou no pix? Ótimo."); o mais perto que nomeia caminho decide, e é antecipado se
+  nomear o antecipado ("Na entrega ou no pix?"). Uma afirmação inteira encerra a janela —
+  ela tem o próprio predicado, e a frase seguinte pode ter mudado de assunto. Irmã corrigida
+  junto: a checagem de faixa só lia "antecipado/adiantado" como nome, e "No pix chega em 1 a 3
+  dias." passava na entrega. Exceção nova, provada por forma positiva: na garantia, o nome do
+  caminho da entrega ("na entrega", "pagando na porta/na mão do entregador") não é chegada —
+  sem ela, "Na entrega você tem 7 dias pra trocar." seria vetada. Geradores: prazos fora da
+  faixa (6560 com nome da entrega, 1168 sem nome), dentro da faixa (4050 com nome, 720 sem),
+  cabeçalhos (165 mentiras, 60 honestas), garantia com nome da entrega (144 honestas, 70
+  mentiras). Mutações
+  `M-10`, `M-10-sem-nome`, `M-10-inicio`, `M-10-semana`, `M-10-cabecalho`, `M-10-faixa-pix`,
+  `M-10-nome-da-entrega`; `prazo-por-caminho` passou a mirar a linha nova.
+- **Falsos positivos conhecidos (baratos, uma reescrita):** a garantia do M-08 agora vale no
+  caminho da entrega também, com os mesmos limites ("…7 dias pra trocar e suporte todo dia" —
+  "dia" na cauda; "Quando chega aí você tem 7 dias" sem propósito); negação que não governa
+  garantir/prometer ("Na entrega não leva uma semana, leva de 1 a 3 dias"); pergunta com o
+  antecipado antes da fala da entrega ("Você prefere pagar no pix? A entrega leva de um a três
+  dias…", "Não quer pagar no pix? Chega em 2 dias."); contagem de uso na mesma frase que nomeia
+  a entrega ("Na entrega…, e em 5 dias de uso você nem sente").
+- **Fora do conserto:** frase que nomeia os dois caminhos com a faixa da entrega sem janela do
+  antecipado ("Na entrega ou no pix, chega em 1 a 3 dias.") — a proximidade da checagem de faixa
+  continua lendo só "antecipado"; e "pagando na porta, 1 a 3 dias" segue vetada no antecipado.
+- **Estado:** feita — aguardando revisão independente.
+
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 
 Feitas antes deste registro; o resultado vem das rodadas e do placar recalculado.

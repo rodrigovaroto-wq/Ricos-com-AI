@@ -491,3 +491,104 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
     expect(delivery("Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.", "cod")).toBe("pass");
   });
 });
+
+// M-10: no caminho da entrega, toda contagem de entrega cabe na faixa configurada (1 a 3 no
+// fixture) — um número dentro dela, ou a faixa inteira dentro dela. Semana nunca cabe. Nomes da
+// entrega × verbos × contagens por extenso e em dígito, avulsas e em faixa, com as iscas que já
+// liberaram mentira noutras regras.
+const COD_NAMES = ["Na entrega", "Pagando na entrega", "No pagamento na entrega", "Pagando na porta", "Pagando na mão do entregador"];
+const COD_VERBS = [
+  "chega em {c}", "você recebe em {c}", "a entrega leva {c}", "chega em até {c}", "demora {c}", "leva de {c}",
+  "o prazo é de {c}", "chega em no máximo {c}", "o colete tá aí em {c}",
+];
+const COD_BAITS = [
+  "{name} {verb}.", "{name}, {verb}.", "{name} {verb}, com garantia.", "{name} não demora, {verb}.", "{name} sem demora, {verb}.",
+  "{name}, pode ficar tranquila que {verb}.", "Não posso negar que {name} {verb}.", "{name} {verb} ou seu dinheiro de volta.",
+  "{name} chega em 1 a 3 dias, no máximo {c}.", "{name} é rapidinho: {verb}.",
+];
+const COD_LIE_COUNTS = [
+  "4 dias", "5 dias", "10 dias", "quatro dias", "cinco dias", "dez dias", "quinze dias", "uns 5 dias",
+  "uma semana", "1 semana", "duas semanas", "2 semanas", "um a cinco dias", "dois a cinco dias", "uma a duas semanas", "um a dez dias",
+];
+const COD_OK_COUNTS = ["1 dia", "2 dias", "3 dias", "um dia", "dois dias", "três dias", "1 a 3 dias", "um a três dias", "dois a três dias", "1 a 2 dias"];
+const codCounts = (counts: string[], name: string) =>
+  counts.flatMap((c) =>
+    COD_VERBS.flatMap((verb) =>
+      COD_BAITS.filter((b) => !b.includes("no máximo {c}") || counts === COD_LIE_COUNTS).map((bait) =>
+        cap(bait.replaceAll("{verb}", verb).replaceAll("{name}", name).replaceAll("{c}", c).replace(/^\s*,?\s*/, "").replace(/\s+/g, " ").replace(" , ", ", ")),
+      ),
+    ),
+  );
+const codLiesNamed = [...new Set(COD_NAMES.flatMap((n) => codCounts(COD_LIE_COUNTS, n)))];
+const codLiesBare = [...new Set(codCounts(COD_LIE_COUNTS, ""))];
+const codHonestNamed = [...new Set(COD_NAMES.flatMap((n) => codCounts(COD_OK_COUNTS, n)))];
+const codHonestBare = [...new Set(codCounts(COD_OK_COUNTS, ""))];
+
+// M-10: o nome do antecipado num cabeçalho logo antes — pergunta, ou fragmento de até 4
+// palavras, em sequência — vale para a frase seguinte que não nomeia caminho nenhum.
+const HEADERS = [
+  "Pagou no pix?", "E no pix?", "No antecipado?", "Pagando antes?", "Se pagar no pix?", "Quer pagar no cartão?", "No boleto?",
+  "Pix?", "No pix.", "Pagando antecipado!", "Pagou no pix? Ótimo.", "E se for no pix? Perfeito, então.", "Prefere na entrega ou no pix?",
+  "E pagando à vista?", "Com crédito?",
+];
+const HEADER_LIES = [
+  "Chega em 2 dias.", "Chega em 1 a 3 dias.", "São 7 dias contados da data que recebermos.", "Você recebe em 3 dias.", "Leva uma semana.",
+  "A entrega leva de um a três dias.", "Chega em 5 dias.", "O prazo é de 2 dias.", "Em 2 dias ele está aí na sua casa.",
+  "Pode ficar tranquila, chega em dois dias.", "Não demora, chega em 1 a 3 dias.",
+];
+const HEADER_HONEST = [
+  "Varia por região, em média 5 dias úteis.", "O prazo varia, em média 5 dias úteis.", "Você tem 7 dias pra trocar depois que receber.",
+  "Não consigo garantir 2 dias, varia por região, em média 5 dias úteis.",
+];
+// M-10: a garantia dita no caminho da entrega, com o nome dele na frente — o nome do caminho não é
+// chegada. Têm de passar nos dois caminhos.
+const codWarranty: string[] = [];
+for (const name of ["Na entrega", "Na entrega,", "Pagando na entrega", "No pagamento na entrega,", "Pagando na porta,", "Pagando na mão do entregador"])
+  for (const govern of ["você tem 7 dias pra trocar", "você tem 7 dias pra devolver", "são 7 dias de garantia", "a troca é em 7 dias", "você pode devolver em 7 dias", "pode trocar em até uma semana"])
+    for (const anchor of ["", " depois que receber", ", contados do recebimento", " após a entrega"])
+      codWarranty.push(`${name} ${govern}${anchor}.`);
+// E o que essa exceção não pode abrir: o 7 da garantia como prazo de chegada, com o nome da entrega.
+const codWarrantyLies: string[] = [];
+for (const name of ["Na entrega", "Pagando na entrega", "No pagamento na entrega", "Pagando na porta", "Pagando na mão do entregador"])
+  for (const bait of [
+    "{name} chega em 7 dias pra trocar.", "{name} leva 7 dias, com garantia.", "{name} a garantia é de 7 dias pra entrega.",
+    "{name} a troca é em 7 dias e chega junto.", "{name}: 7 dias, com garantia.", "{name} você tem 7 dias pra trocar e ele está aí em 7 dias.",
+    "{name} a troca é em 7 dias, e a entrega também.", "{name} pode trocar em 7 dias, que é quando ele chega.", "{name} em 7 dias está aí, pode trocar.",
+    "{name} pode trocar: em 7 dias ele está aí.", "{name} a troca é fácil, e o prazo é 7 dias.", "{name} são 7 dias depois que recebermos.",
+    "{name} você tem 7 dias pra trocar, na entrega em 7 dias.", "{name} em 7 dias pra trocar ele chega.",
+  ])
+    codWarrantyLies.push(bait.replaceAll("{name}", name));
+
+const headerLies = HEADERS.flatMap((h) => HEADER_LIES.map((b) => `${h} ${b}`));
+const headerHonest = HEADERS.flatMap((h) => HEADER_HONEST.map((b) => `${h} ${b}`));
+
+describe("M-10: o prazo da entrega por extenso e avulso, e o nome do caminho na frase anterior", () => {
+  it(`${codLiesNamed.length} prazos fora da faixa com nome da entrega, todos vetados nos dois caminhos`, () => {
+    expect(codLiesNamed.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block").slice(0, 40)).toEqual([]);
+  });
+  it(`${codLiesBare.length} prazos fora da faixa sem nome, todos vetados no caminho da entrega`, () => {
+    expect(codLiesBare.filter((s) => delivery(s, "cod") !== "block").slice(0, 40)).toEqual([]);
+  });
+  // No antecipado, a checagem de faixa só lê "na entrega" como nome da entrega: "pagando na porta, 1 a 3
+  // dias" é vetada lá desde antes da M-10 (falso positivo barato, fora deste conserto).
+  it(`${codHonestNamed.length} prazos dentro da faixa com nome da entrega, todos passam`, () => {
+    expect(
+      codHonestNamed.filter((s) => delivery(s, "cod") !== "pass" || (/na entrega/i.test(s) && delivery(s, "prepay") !== "pass")).slice(0, 40),
+    ).toEqual([]);
+  });
+  it(`${codHonestBare.length} prazos dentro da faixa sem nome, todos passam no caminho da entrega`, () => {
+    expect(codHonestBare.filter((s) => delivery(s, "cod") !== "pass").slice(0, 40)).toEqual([]);
+  });
+  it(`${codWarranty.length} garantias com o nome da entrega na frente, todas passam nos dois caminhos`, () => {
+    expect(codWarranty.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+  it(`${codWarrantyLies.length} prazos com forma de garantia e nome da entrega, todos vetados nos dois caminhos`, () => {
+    expect(codWarrantyLies.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${headerLies.length} prazos atrás de cabeçalho do antecipado, todos vetados nos dois caminhos`, () => {
+    expect(headerLies.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block").slice(0, 40)).toEqual([]);
+  });
+  it(`${headerHonest.length} médias e garantias atrás de cabeçalho do antecipado, todas passam nos dois caminhos`, () => {
+    expect(headerHonest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass").slice(0, 40)).toEqual([]);
+  });
+});
