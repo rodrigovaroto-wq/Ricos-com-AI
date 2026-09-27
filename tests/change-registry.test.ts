@@ -702,3 +702,62 @@ describe("M-08, quinta revisão: falas honestas passam", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("block");
   });
 });
+
+/**
+ * M-08, sexta revisão: dois afrouxamentos reais da quinta. "Você tem N" + início da contagem só é
+ * garantia com ela recebendo ("contando de quando recebeu"); "são 7 dias depois que recebermos" e
+ * "o prazo é de 7 dias a partir do recebimento" são prazo. E depois de ";" tudo é julgado — só a
+ * locução do roteiro "do pedido até a entrega" sai antes.
+ */
+describe("M-08, sexta revisão: sem troca não há garantia; depois de ';' tudo é julgado", () => {
+  const vetadasNosDois = [
+    "No pix, são 7 dias depois que recebermos.",
+    "No pix são 7 dias úteis depois que recebermos.",
+    "No pix, são 7 dias a partir do recebimento.",
+    "No pix o prazo é de 7 dias, contados a partir do recebimento.",
+    "No antecipado, o prazo é de 7 dias a partir de quando recebermos.",
+    "No antecipado são 7 dias depois do recebimento.",
+    "No pix você tem 7 dias pra trocar; a entrega também.",
+  ];
+  const vetadasNoAntecipado = [
+    // O nome do antecipado na frase anterior ("Pagou no pix?") não é lido no caminho da entrega —
+    // família anterior à M-08, fora deste conserto.
+    "Pagou no pix? São 7 dias contados da data que recebermos.",
+    "Pode trocar em 7 dias; a entrega também.",
+    "Você tem 7 dias pra trocar; a entrega é igual.",
+    "Você tem 7 dias pra trocar; é o mesmo prazo da entrega.",
+    "Você tem 7 dias pra trocar; o frete é no mesmo prazo.",
+    "Você tem 7 dias pra trocar; a transportadora faz no mesmo prazo.",
+    "Você tem 7 dias pra trocar; a entrega segue o mesmo prazo.",
+    "Você tem 7 dias pra trocar; é o prazo da transportadora também.",
+    "Pode trocar em 7 dias; o correio faz igual.",
+    "Pode trocar em 7 dias; e ele vem nesse tempo.",
+    "Pode trocar em 7 dias; ele aparece aí nesse prazo.",
+    "Pode trocar em 7 dias; nesse prazo ele bate na sua porta.",
+    "Pode trocar em 7 dias; nesse tempo ele tá na sua casa.",
+    "Pode trocar em 7 dias; que é o tempo da viagem.",
+  ];
+  const passamNosDois = [
+    "Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita no ambiente da Coinzz, com nota; você tem 7 dias pra trocar ou devolver contando do dia que receber; e eu fico aqui no WhatsApp com você do pedido até a entrega, pode me cobrar.",
+    "Você tem 7 dias contando de quando recebeu.",
+    "Você tem 7 dias pra trocar, contando da data em que você recebe.",
+    "São 7 dias de garantia, contados da entrega.",
+    "Tem 7 dias pra trocar a partir do dia que receber.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});

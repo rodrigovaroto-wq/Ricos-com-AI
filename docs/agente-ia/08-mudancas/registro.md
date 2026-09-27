@@ -335,7 +335,17 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   ele está com você", "e o colete é seu", "já abre a caixa") passou a ser lida. Geradores de
   474 falas honestas e 90 chegadas em palavras; mutações `M-08-roteiro`, `M-08-objeto`,
   `M-08-presenca`.
-- **Estado:** fechada (aprovada com ressalvas na quinta revisão; ressalvas corrigidas).
+- **Sexta revisão (NEEDS WORK — dois afrouxamentos reais da quinta, corrigidos em 2026-09-27):**
+  (1) "são/é N" + início da contagem isentava sem palavra de troca, e o início aceitava a loja
+  ("depois que recebermos") e o substantivo ("a partir do recebimento"): agora essa forma é só
+  "você tem N" com ela recebendo ("contando de quando recebeu"), e "o prazo é de N" nunca é
+  tomado pela garantia; (2) depois de ";" a entrega e o tempo não eram julgados ("…; a entrega
+  também"): tudo depois da contagem é julgado igual, tirando antes só a locução do roteiro "do
+  pedido até a entrega" (e "aqui" saiu das palavras de chegada: é onde a Malu está). Geradores
+  de 224 e 56 mentiras; mutações `M-08-recebermos` e `M-08-ponto-e-virgula`. Fora do conserto:
+  o nome do antecipado na frase anterior ("Pagou no pix? São 7 dias…") não é lido no caminho da
+  entrega — família anterior à M-08, como a M-10.
+- **Estado:** fechada (aguarda sétima revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

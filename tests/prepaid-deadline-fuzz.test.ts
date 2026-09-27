@@ -248,7 +248,9 @@ for (const name of ["", "No pix, ", "No antecipado, "])
         "", " contando do dia que receber", ", contados da entrega", " a partir do dia que receber",
         ", contando da data em que você recebe", " contando de quando recebeu", " a partir do dia em que chegar",
       ]) {
-        if (govern === "você tem {c}" && start === "") continue;
+        // "Você tem N" sem troca só se isenta com ela recebendo (sexta revisão): "contados da
+        // entrega" fica fora dessa forma.
+        if (govern === "você tem {c}" && (start === "" || start === ", contados da entrega")) continue;
         honestObjects.push(cap(`${name}${govern.replace("{c}", c)}${start}.`));
       }
     honestObjects.push(cap(`${name}a garantia de ${c} vale nos dois.`), cap(`${name}a garantia é igual: ${c}.`));
@@ -263,6 +265,43 @@ for (const govern of ["Pode trocar em {c}", "A troca é em {c}", "A garantia é 
     " e ele tá contigo", " e ele é seu", ", e o colete tá contigo", "; e ele chega junto", "; e chega na sua casa",
   ])
     for (const c of ["7 dias", "uma semana"]) presenceTails.push(`${govern.replace("{c}", c)}${tail}.`);
+
+// Sexta revisão da M-08: "são / o prazo é de N" + início da contagem sem palavra de troca, com a
+// loja como sujeito ("depois que recebermos") ou o substantivo ("a partir do recebimento").
+// "Pagou no pix?" nomeia o caminho na frase anterior, que o caminho da entrega não lê (fora da
+// M-08): essas só no antecipado.
+const startWithoutReturn: string[] = [];
+for (const name of ["No pix, ", "No pix ", "No antecipado, ", "Pagou no pix? "])
+  for (const verb of ["são {c}", "o prazo é de {c}", "é de {c}", "são {c} úteis"])
+    for (const start of [
+      " depois que recebermos", " a partir do recebimento", ", contados a partir do recebimento", " contados da data que recebermos",
+      " depois do recebimento", " a partir de quando recebermos", " contando do dia que recebermos",
+    ])
+      for (const c of ["7 dias", "uma semana"]) startWithoutReturn.push(cap(`${name}${verb.replace("{c}", c)}${start}.`));
+
+// Sexta revisão: depois de ";", a entrega, o mesmo prazo e a chegada continuam julgados.
+const afterSemicolon: { text: string; both: boolean }[] = [];
+for (const govern of ["No pix você tem 7 dias pra trocar", "Pode trocar em 7 dias", "Você tem 7 dias pra trocar", "A troca é em uma semana"])
+  for (const tail of [
+    "; a entrega também", "; a entrega é igual", "; é o mesmo prazo da entrega", "; o frete é no mesmo prazo",
+    "; a transportadora faz no mesmo prazo", "; a entrega segue o mesmo prazo", "; é o prazo da transportadora também",
+    "; o correio faz igual", "; e ele vem nesse tempo", "; ele aparece aí nesse prazo", "; nesse prazo ele bate na sua porta",
+    "; nesse tempo ele tá na sua casa", "; que é o tempo da viagem", "; e o colete é seu nesse tempo",
+  ])
+    afterSemicolon.push({ text: `${govern}${tail}.`, both: govern.startsWith("No pix") });
+
+describe("M-08, sexta revisão: início da contagem sem troca, e o que vem depois de ponto e vírgula", () => {
+  it(`${startWithoutReturn.length} prazos "são N depois que recebermos", todos vetados nos dois caminhos`, () => {
+    expect(
+      startWithoutReturn.filter((s) => delivery(s, "prepay") !== "block" || (!s.startsWith("Pagou") && delivery(s, "cod") !== "block")),
+    ).toEqual([]);
+  });
+  it(`${afterSemicolon.length} prazos depois de ponto e vírgula, todos vetados`, () => {
+    expect(
+      afterSemicolon.filter(({ text, both }) => delivery(text, "prepay") !== "block" || (both && delivery(text, "cod") !== "block")).map((x) => x.text),
+    ).toEqual([]);
+  });
+});
 
 describe("M-08, quinta revisão: roteiro e objeto passam, chegada em palavras não", () => {
   it(`${honestObjects.length} falas honestas, todas passam nos dois caminhos`, () => {

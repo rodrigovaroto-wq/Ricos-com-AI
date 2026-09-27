@@ -417,6 +417,21 @@ eram falsos positivos em frases honestas, e foram corrigidas no mesmo dia:
   deixa passar a frase inteira do roteiro, e "Pode trocar em 7 dias; que é o tempo da
   viagem." também passaria.
 
+**Sexta revisão (NEEDS WORK, com afrouxamento real):** os dois caminhos novos da quinta
+abriram brechas. O caso "são/o prazo é de N depois que recebermos" isentava prazo sem
+palavra de troca: "No pix, são 7 dias depois que recebermos" passava nos dois caminhos. E o
+texto depois de ";" não era julgado, então "No pix você tem 7 dias pra trocar; a entrega
+também." passava. Os consertos:
+- **Isenção sem troca:** só vale com "você tem/terá" e com ela recebendo
+  (`receb(er|e|eu|a)`).
+- **Depois de ";":** é julgado como o resto da frase. Só sai a locução do roteiro "do
+  pedido até a entrega".
+- **Guardas:** geradores de fuzz para os dois caminhos e mutações M-08-recebermos e
+  M-08-ponto-e-virgula.
+- **Aceito:** a fala inteira do roteiro (`:252`).
+- **Fora da M-08, família da M-10:** "Pagou no pix? São 7 dias…" passa no caminho da
+  entrega, porque o nome do caminho está na frase anterior.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

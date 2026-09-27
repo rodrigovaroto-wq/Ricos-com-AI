@@ -57,3 +57,4 @@ M-08 | delivery_promise | Você tem 7 dias pra trocar ou devolver contando do di
 M-08 | delivery_promise | A gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.
 M-08 | delivery_promise | Você tem 7 dias contando de quando recebeu.
 M-08 | delivery_promise | Tem 7 dias pra trocar a partir do dia que receber.
+M-08 | delivery_promise | Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita no ambiente da Coinzz, com nota; você tem 7 dias pra trocar ou devolver contando do dia que receber; e eu fico aqui no WhatsApp com você do pedido até a entrega, pode me cobrar.
