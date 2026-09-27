@@ -887,6 +887,31 @@ const gates: readonly Gate[] = [
         /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g;
       const names = (re: RegExp, s: string) => s.search(re) !== -1;
       /**
+       * M-10, independent review: a prepaid name that is denied does not name the prepaid path.
+       * "Nada de cartão, nada de Pix" is the script's own argument for the delivery, and "sem
+       * pix / nem pix / não precisa (de / pagar) antecipar / pix não! / pix não precisa" read as
+       * the prepaid path vetoed its honest 1-3 days — and, in a header, let the prepaid average
+       * through as the delivery's. Only a denier glued to the name in its own phrase: "no pix
+       * não demora" and "sem juros no pix" still name it, and "não quer" denies only outside a
+       * question ("Não quer pagar no pix?" offers it). Returns where the last name that is not
+       * denied starts, or -1.
+       */
+      const prepaidNamed = (s: string, re: RegExp = PREPAY_NAME): number => {
+        let last = -1;
+        for (const m of s.matchAll(re)) {
+          const at = m.index ?? 0;
+          const denier = /\b(?:sem|nem|nada\s+de|nao\s+(precisa|quer\w*)(?:\s+(?:de|pagar|ser))?)\s+(?:(?:no|na|o|a|pelo|pela|de|com|via|em)\s+)?(?:pag\w*\s+)?$/.exec(
+            s.slice(0, at).split(/[,;:.!?\n]/).pop()!,
+          );
+          if (denier && !(denier[1]?.startsWith("quer") && /^[^.!\n]*\?/.test(s.slice(at)))) continue;
+          if (/^\s*nao\s*(?:[.!,;:?]|$|precisa\b)/.test(s.slice(at + m[0].length))) continue;
+          last = at;
+        }
+        return last;
+      };
+      /** A sentence that names the prepaid path only to deny it: "Sem pix, …", "Nada de pix." */
+      const deniesPrepaid = (s: string): boolean => names(PREPAY_NAME, s) && prepaidNamed(s) === -1;
+      /**
        * M-10: the path named in a header right before the sentence — "Pagou no pix? Chega em 2
        * dias." A header has no predicate of its own and the next sentence is its answer: a
        * question, or a fragment of at most four words (a path name is two or three, "no pix",
@@ -895,18 +920,20 @@ const gates: readonly Gate[] = [
        * names the prepaid one at all ("Na entrega ou no pix?"). A full statement ends the run,
        * and so does a sentence that names a path itself.
        */
-      const prepaidHeader = (at: number): boolean => {
+      // A header that denies the prepaid path ("Nada de pix.") names the delivery one.
+      const headerPath = (at: number): "prepay" | "cod" | null => {
         const own = t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        if (names(COD_NAME, own) || names(PREPAY_NAME, own)) return false;
+        if (names(COD_NAME, own) || names(PREPAY_NAME, own)) return null;
         const earlier = t.slice(0, at).split(/(?<=[.!?\n])/);
         if (!/[.!?\n]$/.test(earlier.at(-1) ?? "")) earlier.pop();
         for (const s of earlier.reverse()) {
-          if (!/\?\s*$/.test(s) && s.trim().split(/\s+/).length > 4) return false;
-          if (names(PREPAY_NAME, s)) return true;
-          if (names(COD_NAME, s)) return false;
+          if (!/\?\s*$/.test(s) && s.trim().split(/\s+/).length > 4) return null;
+          if (prepaidNamed(s) !== -1) return "prepay";
+          if (names(COD_NAME, s) || deniesPrepaid(s)) return "cod";
         }
-        return false;
+        return null;
       };
+      const prepaidHeader = (at: number): boolean => headerPath(at) === "prepay";
       for (const m of t.matchAll(
         /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g,
       )) {
@@ -1053,9 +1080,10 @@ const gates: readonly Gate[] = [
         // range check reads (third review: "No pix chega em 2 dias" passed on the delivery
         // path). "Cartão" only with its own preposition: "dinheiro ou cartão" is the door.
         const prepaidNamedBefore =
-          /\b(?:pix|boleto|transferencia|online|a\s+vista|pelo\s+link|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito)|link\s+de\s+pagamento)\b/.test(
+          prepaidNamed(
             sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
-          );
+            /\b(?:pix|boleto|transferencia|online|a\s+vista|pelo\s+link|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito)|link\s+de\s+pagamento)\b/g,
+          ) !== -1;
         // On the prepaid path a sentence that names no path is about the prepaid delivery
         // unless getting used to the vest governs the count and the sentence says nothing else.
         // M-08: a verb list missed "em 2 dias ele está aí na sua casa"; the arrival has too
@@ -1074,7 +1102,7 @@ const gates: readonly Gate[] = [
             (new RegExp(String.raw`\b${USED}\s+(?:em|com)\s+(?:(?:media|cerca|uns|umas)\s+(?:de\s+)?)?$`).test(ownBefore) &&
               /^\s*$/.test(ownAfter)));
         const prepaid =
-          PREPAY_WORD.test(sentence) ||
+          prepaidNamed(sentence, new RegExp(PREPAY_WORD.source, "g")) !== -1 ||
           prepaidNamedBefore ||
           prepaidHeader(at) ||
           (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && !wearing);
@@ -1087,15 +1115,16 @@ const gates: readonly Gate[] = [
         const prefix = t.slice(0, at).split(/[.!?\n]/).pop()!;
         const lastAt = (re: RegExp) => Math.max(-1, ...[...prefix.matchAll(re)].map((x) => x.index ?? 0));
         const codAt = lastAt(COD_NAME);
-        const prepayAt = lastAt(PREPAY_NAME);
+        const prepayAt = prepaidNamed(prefix);
         // M-10: on the delivery path — named closest before the count, or the conversation's
         // when the sentence names none and talks delivery or arrival ("o colete tá aí em 5 dias";
         // "30 dias pra devolver" and "5 kg em uma semana" are other gates') — every count fits the
         // configured range: one number inside it, or a range inside it ("de um a três dias"). A week never
         // fits. It used to be `continue`, and the range check only reads digits, so "na entrega
         // chega em uma semana / em 5 dias / de uma a duas semanas" passed. The prepaid average's
-        // own shape ("em média N dias úteis") stays with the prepaid rule below.
-        if (codAt > prepayAt || (ctx.paymentPath === "cod" && !prepaid && !averageShaped && (DELIVERY_TALK.test(sentence) || ARRIVAL.test(sentence)))) {
+        // own shape ("em média N dias úteis") stays with the prepaid rule below — unless the
+        // sentence or its header denies the prepaid path ("Nada de pix. Em média 5 dias úteis.").
+        if (codAt > prepayAt || (ctx.paymentPath === "cod" && !prepaid && ((averageShaped && (deniesPrepaid(sentence) || headerPath(at) === "cod")) || (!averageShaped && (DELIVERY_TALK.test(sentence) || ARRIVAL.test(sentence)))))) {
           if (week) return `delivery in weeks contradicts the configured ${codDaysMin}-${codDaysMax} days`;
           const from = new RegExp(String.raw`\b(\d{1,2}|${Object.keys(DAY_WORDS).join("|")})\s+(?:a|e|ate)\s+$`).exec(before)?.[1];
           const start = from == null ? days : (DAY_WORDS[from] ?? Number(from));
@@ -1336,7 +1365,7 @@ const gates: readonly Gate[] = [
         const named: "cod" | "prepay" | null =
           byProximity && codAt > prepayAt
             ? "cod"
-            : PREPAY.test(sentence)
+            : prepaidNamed(sentence, new RegExp(PREPAY.source, "g")) !== -1
               ? "prepay"
               : /\bna\s+entrega\b/.test(sentence)
                 ? "cod"
@@ -1344,7 +1373,7 @@ const gates: readonly Gate[] = [
         // M-10: a sentence that names no path by "antecipado" or "na entrega" still names the
         // prepaid one by its other names ("No pix chega em 1 a 3 dias"), or in a header before it.
         const path =
-          named ?? ((!names(COD_NAME, sentence) && names(PREPAY_NAME, sentence)) || prepaidHeader(at) ? "prepay" : ctx.paymentPath);
+          named ?? ((!names(COD_NAME, sentence) && prepaidNamed(sentence) !== -1) || prepaidHeader(at) ? "prepay" : ctx.paymentPath);
         const [min_, max_] =
           path === "cod"
             ? [codDaysMin, codDaysMax]

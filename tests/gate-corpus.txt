@@ -66,3 +66,16 @@ Pagou no pix? São 7 dias contados da data que recebermos.
 Pagou no pix? Chega em 2 dias.
 Na entrega chega em 2 dias.
 A entrega leva de um a três dias e é agendada, quem escolhe o dia é você no checkout.
+# M-10, independent review (2026-09-27): a denied prepaid name does not name the prepaid path
+Nada de pix. Chega em 1 a 3 dias.
+Sem pix, chega em 1 a 3 dias.
+Não precisa de pix, chega em 1 a 3 dias.
+Sem Pix e sem cartão, a entrega chega em 1 a 3 dias.
+Pix não precisa. Chega em 1 a 3 dias.
+Nada de pix. Chega em 5 dias, depende da região.
+Pix não! Chega em 5 dias, depende da região.
+Sem pix? Chega em 5 dias, varia um pouco.
+Não precisa antecipar. Chega em 5 dias, varia.
+Não quer pagar no pix? Chega em 2 dias.
+Te mando o link e chega em 1 a 3 dias.
+Você paga em dinheiro ou cartão e recebe em 1 a 3 dias.

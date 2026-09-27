@@ -595,3 +595,49 @@ describe("M-10: o prazo da entrega por extenso e avulso, e o nome do caminho na 
     expect(headerHonest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass").slice(0, 40)).toEqual([]);
   });
 });
+
+// M-10, revisão independente: o nome do antecipado negado não nomeia o antecipado. Negadores ×
+// nomes × corpo honesto da entrega (tem de passar no COD) e corpo mentiroso (tem de ser vetado).
+const NEGATED: Array<(n: string) => string> = [
+  (n) => `Nada de ${n}.`, (n) => `Sem ${n}.`, (n) => `Sem ${n}?`, (n) => `Não precisa de ${n}.`, (n) => `Nem ${n}.`,
+  (n) => `${cap(n)} não precisa.`, (n) => `${cap(n)} não!`, (n) => `Você não quer ${n}.`,
+];
+const NEGATED_NAMES = ["pix", "Pix", "boleto", "transferência", "antecipado", "pagar antes", "pagamento adiantado"];
+const NEGATED_HONEST = ["Chega em 1 a 3 dias.", "A entrega leva de 1 a 3 dias.", "Você recebe em 1 a 3 dias.", "Chega em 2 dias.", "A entrega leva de um a três dias."];
+const NEGATED_LIES = [
+  "Chega em 5 dias, depende da região.", "Chega em 5 dias, varia.", "Chega em uma semana.", "Varia, em média 5 dias úteis.",
+  "Em média 5 dias úteis.", "Chega em 1 a 5 dias.", "A entrega leva de 4 a 6 dias.",
+];
+const negatedHonest: string[] = [];
+const negatedLies: string[] = [];
+for (const neg of NEGATED)
+  for (const n of NEGATED_NAMES) {
+    for (const b of NEGATED_HONEST) negatedHonest.push(`${neg(n)} ${b}`);
+    // Cabeçalho é pergunta ou fragmento de até 4 palavras (M-10); afirmação maior encerra a janela.
+    if (neg(n).endsWith("?") || neg(n).split(/\s+/).length <= 4) for (const b of NEGATED_LIES) negatedLies.push(`${neg(n)} ${b}`);
+  }
+// Na mesma frase, a faixa (a contagem avulsa com o nome na frase é outra regra, anterior à M-10).
+for (const n of NEGATED_NAMES)
+  for (const lead of [`Sem ${n}, `, `Nada de ${n}: `, `Não precisa de ${n}, `, `Sem ${n} e sem cartão, `]) {
+    negatedHonest.push(`${lead}chega em 1 a 3 dias.`, `${lead}a entrega leva de 1 a 3 dias.`);
+    negatedLies.push(`${lead}chega em 1 a 5 dias.`, `${lead}chega em 5 dias, varia.`, `${lead}em média 5 dias úteis.`);
+  }
+// Negativas que não negam: o antecipado continua nomeado, e a faixa da entrega é mentira nele.
+const notNegating: string[] = [];
+for (const n of ["pix", "boleto", "antecipado"])
+  notNegating.push(
+    `Não quer pagar no ${n}? Chega em 1 a 3 dias.`, `Não é caro no ${n}? Chega em 1 a 3 dias.`, `No ${n} não demora, chega em 1 a 3 dias.`,
+    `Sem juros no ${n}: chega em 1 a 3 dias.`, `Nem precisa esperar, no ${n} chega em 1 a 3 dias.`, `Não quer pagar no ${n}? Chega em 2 dias.`,
+  );
+
+describe("M-10, revisão independente: o antecipado negado não nomeia o antecipado", () => {
+  it(`${negatedHonest.length} prazos da entrega depois do antecipado negado, todos passam no caminho da entrega`, () => {
+    expect(negatedHonest.filter((s) => delivery(s, "cod") !== "pass").slice(0, 40)).toEqual([]);
+  });
+  it(`${negatedLies.length} prazos fora da faixa depois do antecipado negado, todos vetados no caminho da entrega`, () => {
+    expect(negatedLies.filter((s) => delivery(s, "cod") !== "block").slice(0, 40)).toEqual([]);
+  });
+  it(`${notNegating.length} negativas que não negam o antecipado, todas vetadas nos dois caminhos`, () => {
+    expect(notNegating.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});

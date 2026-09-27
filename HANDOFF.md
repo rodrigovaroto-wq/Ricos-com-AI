@@ -49,6 +49,10 @@ Em paralelo: `pnpm lint`, `typecheck`, `test`, `dev:conversas`, `typecheck:funct
 - **M-10** (§19): prazo por extenso/avulso no caminho da entrega e caminho nomeado na frase
   anterior — **aprovado com ressalvas**; a negação no cabeçalho foi a última correção.
 - Ferramenta de mutação aceita `also` (duas camadas guardando o mesmo bug).
+- **Último commit da sessão (negação do nome do antecipado, ressalva 1 da M-10) SEM revisão
+  independente:** `prepaidNamed`/`headerPath` aplicados também à regra de número e à checagem
+  de faixa, mais o conserto de um `PREPAY_NAME` local que sombreava o externo. A revisão da
+  Tarefa 1 começa por ele (sondar negativas que não negam e afrouxamentos contra o merge-base).
 
 ### Depois da revisão, nesta ordem
 1. Publicar a `turn` (operador, Codespace) — leva §15–§19. Sonda pela porta do n8n.

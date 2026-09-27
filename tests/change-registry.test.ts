@@ -943,3 +943,43 @@ describe("M-10: prazo da entrega por extenso, avulso, e o caminho nomeado na fra
     expect(at(1, 7, "Na entrega chega em sete dias.")).toBe("pass");
   });
 });
+
+/**
+ * M-10, revisão independente (ressalva 1): o nome do antecipado negado ("sem pix", "nada de pix",
+ * "não precisa antecipar", "pix não!") não nomeia o antecipado — nem no cabeçalho, nem na frase.
+ * É o argumento do roteiro ("Nada de cartão, nada de Pix"), e a M-10 o vetava no COD; e, com o
+ * cabeçalho negado lido como antecipado, a média do antecipado passava como prazo da entrega.
+ */
+describe("M-10, revisão: o antecipado negado não nomeia o antecipado", () => {
+  it.each([
+    "Nada de pix. Chega em 1 a 3 dias.",
+    "Sem pix, chega em 1 a 3 dias.",
+    "Não precisa de pix, chega em 1 a 3 dias.",
+    "Sem Pix e sem cartão, a entrega chega em 1 a 3 dias.",
+    "Pix não precisa. Chega em 1 a 3 dias.",
+    "Não precisa pagar antes, chega em 1 a 3 dias.",
+    "Você não quer pix. Chega em 1 a 3 dias.",
+    // A lista local da faixa (com "cartão", "link" e "antes" soltos) sombreava a da M-10.
+    "Você paga em dinheiro ou cartão e recebe em 1 a 3 dias.",
+    "Te mando o link e chega em 1 a 3 dias.",
+  ])("passa no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+  });
+
+  it.each([
+    "Nada de pix. Chega em 5 dias, depende da região.",
+    "Pix não! Chega em 5 dias, depende da região.",
+    "Sem pix? Chega em 5 dias, varia um pouco.",
+    "Não precisa antecipar. Chega em 5 dias, varia.",
+    "Nada de pix. Varia, em média 5 dias úteis.",
+    "Sem pix, chega em 5 dias, varia.",
+    "Sem pix, em média 5 dias úteis.",
+    // Negativas que não negam: o pix continua nomeado.
+    "Não quer pagar no pix? Chega em 2 dias.",
+    "No pix não demora, chega em 1 a 3 dias.",
+    "Sem juros no pix: chega em 1 a 3 dias.",
+    "Nem precisa esperar, no pix chega em 1 a 3 dias.",
+  ])("veta no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+  });
+});

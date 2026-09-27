@@ -492,6 +492,15 @@ flowchart TD
 branch. A negação no cabeçalho ("Sem pix, chega em 1 a 3 dias" vetada; "Nada de pix. Chega em
 5 dias, depende da região" passando) foi corrigida em seguida.
 
+A correção:
+- **Negadores:** `prepaidNamed` ignora o nome do antecipado quando ele vem negado ("sem",
+  "nada de", "não precisa", "não quer" fora de pergunta, "pix não!").
+- **Onde vale:** no cabeçalho, na faixa e na regra de número.
+- **Sombreamento:** o `PREPAY_NAME` local da faixa sombreava o externo, e com isso "Te mando
+  o link e chega em 1 a 3 dias" era vetada. Foi consertado.
+- **Guardas:** gerador com 802 frases e 5 mutações novas. Esta correção **não teve revisão
+  independente**.
+
 **Fora do conserto, já existiam antes e ficam registrados:**
 - **Nome do COD depois da contagem:** "Chega em uma semana na entrega." passa no
   antecipado.
