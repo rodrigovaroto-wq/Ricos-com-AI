@@ -450,6 +450,22 @@ Os consertos:
   mais "garantia é são".
 - **Guardas:** um gerador com 1568 mentiras e as mutações M-08-troca-solta e M-08-copula.
 
+**Nona revisão → APROVADO COM RESSALVAS:** num corpus acumulado de 612 frases das nove
+rodadas, rodado no `main` e no branch nos dois caminhos, sobrou uma família só: "se precisar
+receber e trocar, são 7 dias". Ali o "se" atravessava a chegada. Foi corrigida com um gerador
+e a mutação M-08-se-chegada.
+
+Ressalvas aceitas:
+- **Garantia como condição:** "se quiser garantia, são 7 dias" já passava no `main`.
+- **Frase ambígua:** "o prazo com garantia de troca é de 7 dias".
+- **Nome na frase anterior:** "Pagou no pix? São 7 dias…" passa no caminho da entrega. É a
+  família da M-10.
+- **Dois falsos positivos baratos no antecipado.**
+
+**Lição das nove rodadas:** cada exceção aberta para uma frase honesta foi a porta da mentira
+seguinte. O que convergiu foi governo positivo, verificado por um corpus acumulado de
+mentiras rodado contra o `main` a cada passada.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

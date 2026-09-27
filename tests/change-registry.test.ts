@@ -828,6 +828,9 @@ describe("M-08, oitava revisão: a troca governa a contagem, ou não a toma", ()
     "No pix, troca garantida, o prazo é de uma semana.",
     "No antecipado com garantia, é uma semana.",
     "Pagando no pix, com direito a troca, são 7 dias.",
+    // Nona revisão: o "se" não atravessa verbo de chegada até a troca.
+    "No pix, se precisar receber e trocar, são 7 dias.",
+    "No antecipado, se precisar receber e trocar, são 7 dias.",
   ];
   const passamNosDois = [
     "O prazo pra trocar é de 7 dias.",
@@ -839,6 +842,9 @@ describe("M-08, oitava revisão: a troca governa a contagem, ou não a toma", ()
     "A troca é em 7 dias.",
     "No pix, se precisar trocar, são 7 dias a partir de quando você receber.",
     "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Se precisar trocar, são 7 dias.",
+    "Se quiser devolver, você tem 7 dias.",
+    "Se não servir, você tem 7 dias pra trocar.",
     "Você tem 7 dias pra desistir, a contar do dia que receber.",
     "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
   ];

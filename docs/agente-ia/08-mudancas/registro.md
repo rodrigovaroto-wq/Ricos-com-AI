@@ -359,7 +359,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   E o substantivo de troca aceita uma cópula só ("a garantia também é de"), para "tem garantia e
   são 7 dias" não ler o "e" como "é". Gerador de 1568 mentiras; mutações `M-08-troca-solta` e
   `M-08-copula`; `M-08-tomada` e `M-08-prazo-de-troca` passaram a mirar o código novo.
-- **Estado:** fechada (aguarda nona revisão).
+- **Nona revisão (NEEDS WORK por um caso, corrigido em 2026-09-27):** "se precisar receber e
+  trocar, são 7 dias" passava com o nome do antecipado — o "se" atravessava o verbo de chegada
+  até a troca. O "se" não atravessa mais chegada; gerador de 216 frases e mutação
+  `M-08-se-chegada`. Com isso o revisor declarou **aprovado com ressalvas**: garantia como
+  condição ("se quiser garantia, são 7 dias", já passava na base), "o prazo com garantia de
+  troca é de 7 dias" (ambígua, já passava), a família da M-10 ("Pagou no pix? São 7 dias…" no
+  caminho da entrega) e dois falsos positivos baratos no antecipado.
+- **Estado:** fechada — aprovada com ressalvas na nona revisão independente.
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

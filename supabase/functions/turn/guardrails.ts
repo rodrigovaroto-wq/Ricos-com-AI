@@ -985,7 +985,7 @@ const gates: readonly Gate[] = [
           const takenAfterReturn =
             lastRet != null &&
             new RegExp(
-              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+[^,;:]*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
+              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
             ).test(sb);
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até

@@ -316,9 +316,21 @@ for (const name of ["No antecipado ", "No pix ", "Pagando antes, ", "No pix, "])
       for (const verb of ["o prazo é", "o prazo é de", "são", "fica", "é", "o prazo fica", "o prazo são"])
         for (const c of ["7 dias", "uma semana"]) looseReturn.push(cap(`${name}${ret}${sep}${verb} ${c}.`));
 
+// Nona revisão: "se … <chegada> e <troca>, são N" — o "se" não atravessa a chegada.
+const ifArrival: string[] = [];
+for (const name of ["No pix, ", "No antecipado, ", "Pagando antes, "])
+  for (const cond of ["se precisar", "se quiser"])
+    for (const arr of ["receber", "chegar", "esperar a entrega"])
+      for (const ret of ["trocar", "devolver"])
+        for (const takes of [", são", ", você tem", ", o prazo é de"])
+          for (const c of ["7 dias", "uma semana"]) ifArrival.push(cap(`${name}${cond} ${arr} e ${ret}${takes} ${c}.`));
+
 describe("M-08, oitava revisão: a troca solta não toma a contagem", () => {
   it(`${looseReturn.length} prazos depois de troca solta, todos vetados nos dois caminhos`, () => {
     expect(looseReturn.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${ifArrival.length} prazos com "se … chegada e troca", todos vetados nos dois caminhos`, () => {
+    expect(ifArrival.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
   });
 });
 

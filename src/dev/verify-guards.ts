@@ -387,6 +387,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
+    id: "M-08-se-chegada",
+    bug: "\"No pix, se precisar receber e trocar, são 7 dias.\" passava: o \"se\" atravessava a chegada até a troca",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: String.raw`\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|`,
+    to: String.raw`\bse\s+[^,;:]*?|`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
     id: "hermes-trecho",
     bug: "proposta do Hermes com trecho inventado passando pela validação",
     files: ["src/dev/hermes-core.ts"],
