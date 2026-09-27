@@ -323,7 +323,19 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   quantificador + N + chegada sem verbo, e 384 garantias honestas que têm de passar. Mutações
   reescritas: `M-08-governo`, `M-08-cauda`, `M-08-oracao-propria`, `M-08-ate-quando`,
   `M-08-tomada` (as sete da segunda e terceira revisões miravam código que não existe mais).
-- **Estado:** fechada (aguarda quinta revisão).
+- **Quinta revisão (aprovada com ressalvas; falsos positivos corrigidos em 2026-09-27):** o
+  ônus invertido não deixa passar nenhuma mentira de chegada, mas vetava frases honestas. (1) As
+  falas do roteiro e da base de conhecimento ("contando do dia que receber", "contando da data
+  em que você recebe", "contados da entrega", "a partir do dia que receber") — o início da
+  contagem passou a conhecê-las, e "você tem 7 dias contando de quando recebeu" é garantia por
+  começar no recebimento; depois de ";" começa outra afirmação, e ali só verbo de entrega é
+  julgado; (2) a troca com objeto ou adjetivo ("pra trocar de tamanho", "pra devolver o
+  produto", "a troca é grátis em até 7 dias", "a garantia é igual: 7 dias", "a garantia de 7
+  dias vale nos dois", "pra pedir a troca"); (3) a chegada em palavras depois da garantia ("e
+  ele está com você", "e o colete é seu", "já abre a caixa") passou a ser lida. Geradores de
+  474 falas honestas e 90 chegadas em palavras; mutações `M-08-roteiro`, `M-08-objeto`,
+  `M-08-presenca`.
+- **Estado:** fechada (aprovada com ressalvas na quinta revisão; ressalvas corrigidas).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

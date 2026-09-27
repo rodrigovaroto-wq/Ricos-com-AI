@@ -405,6 +405,18 @@ da garantia só é isenta quando uma forma de garantia a governa **positivamente
 Saíram oito regexes (`anchor`, `anchorAfter`, `glued`, `newClause`…) e mais quatro variáveis
 de apoio. **Lição:** numa isenção, liste o que prova a exceção, não o que a desmente.
 
+**Quinta revisão (APROVADO COM RESSALVAS):** nenhuma mentira de chegada passa. As ressalvas
+eram falsos positivos em frases honestas, e foram corrigidas no mesmo dia:
+- **Falas do roteiro:** a fala para a objeção do antecipado ("7 dias pra trocar ou devolver
+  contando do dia que receber", `02-script-do-agente.md:252`) era vetada. Agora passa.
+- **Troca de tamanho:** "7 dias pra trocar de tamanho" era vetada. Agora passa.
+- **Chegada por extenso:** "e ele está com você" e "o colete é seu" passaram a ser julgadas
+  como chegada.
+- **Aceitos:** as quatro frases do roteiro e da base que a base vetava.
+- **Risco aceito:** depois de ";" só verbo de entrega e presença são julgados. É isso que
+  deixa passar a frase inteira do roteiro, e "Pode trocar em 7 dias; que é o tempo da
+  viagem." também passaria.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

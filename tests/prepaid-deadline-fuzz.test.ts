@@ -227,6 +227,52 @@ for (const name of ["", "No pix, ", "No antecipado, "])
       for (const c of ["7 dias", "uma semana"])
         honestWarranty.push(cap(`${name}${govern.replace("{c}", c)}${anchor}.`));
 
+// Quinta revisão da M-08: falas do roteiro e da base de conhecimento, e a troca com objeto ou
+// adjetivo, geradas — têm de PASSAR nos dois caminhos.
+const SCRIPT_LINES = [
+  "Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita no ambiente da Coinzz, com nota; você tem 7 dias pra trocar ou devolver contando do dia que receber; e eu fico aqui no WhatsApp com você do pedido até a entrega, pode me cobrar.",
+  "Aí a gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.",
+  "E se mesmo assim não servir, chame no WhatsApp. Você tem 7 dias contando de quando recebeu.",
+  "Você tem 7 dias pra trocar, contando da data em que você recebe.",
+];
+const honestObjects: string[] = [...SCRIPT_LINES];
+for (const name of ["", "No pix, ", "No antecipado, "])
+  for (const c of ["7 dias", "uma semana"]) {
+    for (const govern of [
+      "você tem {c} pra trocar de tamanho", "você tem {c} pra trocar o tamanho", "você tem {c} pra trocar por outro tamanho",
+      "você tem {c} pra devolver o produto", "pode trocar o tamanho em até {c}", "você pode trocar de tamanho em até {c}",
+      "a troca é grátis em até {c}", "a troca é gratuita em até {c}", "você tem {c} pra trocar ou devolver",
+      "são {c} de garantia", "você tem {c}",
+    ])
+      for (const start of [
+        "", " contando do dia que receber", ", contados da entrega", " a partir do dia que receber",
+        ", contando da data em que você recebe", " contando de quando recebeu", " a partir do dia em que chegar",
+      ]) {
+        if (govern === "você tem {c}" && start === "") continue;
+        honestObjects.push(cap(`${name}${govern.replace("{c}", c)}${start}.`));
+      }
+    honestObjects.push(cap(`${name}a garantia de ${c} vale nos dois.`), cap(`${name}a garantia é igual: ${c}.`));
+  }
+honestObjects.push("A garantia de 7 dias vale também no antecipado.", "Se o tamanho não servir, a troca é grátis em até 7 dias.");
+
+// Quinta revisão: a chegada em palavras depois da garantia.
+const presenceTails: string[] = [];
+for (const govern of ["Pode trocar em {c}", "A troca é em {c}", "A garantia é de {c}", "Você tem {c} pra trocar", "Pagando no pix, {c} de garantia"])
+  for (const tail of [
+    ", e ele está com você", ", e o colete é seu", ", que você já abre a caixa", ", ou seja, você já tem ele",
+    " e ele tá contigo", " e ele é seu", ", e o colete tá contigo", "; e ele chega junto", "; e chega na sua casa",
+  ])
+    for (const c of ["7 dias", "uma semana"]) presenceTails.push(`${govern.replace("{c}", c)}${tail}.`);
+
+describe("M-08, quinta revisão: roteiro e objeto passam, chegada em palavras não", () => {
+  it(`${honestObjects.length} falas honestas, todas passam nos dois caminhos`, () => {
+    expect(honestObjects.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+  it(`${presenceTails.length} chegadas em palavras depois da garantia, todas vetadas no antecipado`, () => {
+    expect(presenceTails.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-08, quarta revisão: o ônus invertido", () => {
   it(`${untilArrival.length} prazos "até quando chegar", todos vetados`, () => {
     expect(

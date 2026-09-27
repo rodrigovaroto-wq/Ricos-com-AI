@@ -653,3 +653,52 @@ describe("M-08, quarta revisão: a garantia governa a contagem, ou é prazo", ()
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08, quinta revisão (aprovada com ressalvas): falsos positivos em frases honestas — as
+ * falas do roteiro com "contando do dia que receber", a troca com objeto ou adjetivo ("pra
+ * trocar de tamanho", "a troca é grátis em até 7 dias"), "a garantia de 7 dias vale" — e a
+ * chegada em palavras depois da garantia ("e ele está com você", "e o colete é seu").
+ */
+describe("M-08, quinta revisão: falas honestas passam", () => {
+  const passamNosDois = [
+    "Você tem 7 dias pra trocar ou devolver contando do dia que receber.",
+    "A gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.",
+    "Você tem 7 dias contando de quando recebeu.",
+    "Você tem 7 dias pra trocar, contando da data em que você recebe.",
+    "São 7 dias de garantia, contados da entrega.",
+    "Tem 7 dias pra trocar a partir do dia que receber.",
+    "Você tem 7 dias pra trocar de tamanho.",
+    "Você tem 7 dias pra trocar o tamanho.",
+    "Você tem 7 dias pra trocar por outro tamanho.",
+    "Você tem 7 dias pra devolver o produto.",
+    "Pode trocar o tamanho em até 7 dias.",
+    "Você pode trocar de tamanho em até 7 dias.",
+    "Se o tamanho não servir, a troca é grátis em até 7 dias.",
+    "A troca é gratuita em até 7 dias.",
+    "A garantia de 7 dias vale nos dois.",
+    "No antecipado, a garantia é igual: 7 dias.",
+    "A garantia de 7 dias vale também no antecipado.",
+    "Você tem 7 dias pra pedir a troca.",
+  ];
+  const vetadasNoAntecipado = [
+    "Pode trocar em 7 dias, e ele está com você.",
+    "Pode trocar em 7 dias, e o colete é seu.",
+    "Pode trocar em 7 dias, que você já abre a caixa.",
+    "A garantia é de 7 dias, ou seja, você já tem ele.",
+    "Pode trocar em até uma semana e ele tá contigo.",
+    "Pagando no pix, 7 dias de garantia e ele é seu.",
+    "A troca é em uma semana, e o colete tá contigo.",
+    "A garantia de 7 dias vale até chegar.",
+    "Pode trocar em 7 dias; e ele chega junto.",
+  ];
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+});
