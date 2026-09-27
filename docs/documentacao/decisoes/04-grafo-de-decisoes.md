@@ -488,9 +488,27 @@ flowchart TD
 **Custo aceito:** falsos positivos baratos que custam uma reescrita cada. O mais provável é
 "…7 dias pra trocar e suporte todo dia", porque a cauda da garantia recusa "dia".
 
-**Fora do conserto:**
-- "Na entrega ou no pix, chega em 1 a 3 dias." passa no COD.
-- Numa conversa sem caminho, "Chega em uma semana." passa.
+**Revisão independente: APROVADO COM RESSALVAS.** Nenhuma mentira que o `main` vete passa no
+branch. A negação no cabeçalho ("Sem pix, chega em 1 a 3 dias" vetada; "Nada de pix. Chega em
+5 dias, depende da região" passando) foi corrigida em seguida.
+
+**Fora do conserto, já existiam antes e ficam registrados:**
+- **Nome do COD depois da contagem:** "Chega em uma semana na entrega." passa no
+  antecipado.
+- **Cabeçalho COD com corpo de média:** "Na entrega? Varia, em média 5 dias úteis." passa.
+- **"Entregador" ou "na porta" como nome do COD em frase do antecipado:** "No pix, o
+  entregador leva em 2 dias." vai para a faixa de 1 a 3 dias.
+- **Contagens fora da regra:** "um mês", "quinzena", "meia semana", "de zero a três dias",
+  "às vezes cinco", "nunca passa de 5 dias", e "5 dias." sozinho.
+- **Duas frases de caminho:** "Na entrega ou no pix, chega em 1 a 3 dias." passa no COD.
+
+**Custo aceito, falsos positivos baratos no COD:** o `ARRIVAL` inclui "aí" (a muleta da
+Malu) e casa "saia" em `sai\w*`. "E aí, em 2 semanas você já se acostuma" e "A garantia é de
+7 dias pagando na porta" são vetadas.
+
+**Instável:** `pnpm verificar:guardas` deu 100, 101 e 102 de 102 em rodadas seguidas do mesmo
+HEAD, e a M-08-semanas escapou uma vez. A causa não foi investigada, e é a primeira tarefa da
+revisão final.
 
 **Registro:** as mutações M-08-tomada e M-08-troca-solta tinham ficado com o texto de antes
 da nona revisão, e foram atualizadas neste commit. Toda mudança numa linha âncora de mutação

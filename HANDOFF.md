@@ -11,7 +11,53 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
+## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-27)
+
+**Branch `claude/focused-gates-fjpixt`, à frente do `main`, sem PR** (o operador pede o PR). No
+ar continua a `turn` **v41** — nada desta sessão foi publicado. CI só roda em PR: até lá,
+`pnpm verificar:guardas` inteiro é a única prova das mutações.
+
+### Tarefa 1 — revisão final extensa e crítica (pedido do operador, 2026-09-27)
+Revisar TODO o diff `main...claude/focused-gates-fjpixt` procurando brechas e erros, e garantir
+que nada disto causa problema no resto do código nem no workflow do projeto. Plano já definido,
+com revisores Opus independentes em paralelo:
+1. **`code-reviewer`** — correção do branch inteiro (estado, régua, pedidos, gates).
+2. **`workflow-architect`** — integração: n8n (o Relógio e o "WhatsApp envio" sabem de
+   `checkout_reminder`, que agora é armado de verdade?), ordem de deploy, `turn` v41 no ar vs.
+   repositório, migração 0017 (conferir com `list_migrations` que está aplicada — a `turn` do
+   repositório seleciona `followups.order_id`).
+3. **`security-reviewer`** — webhook de venda (`recordOrder` agora lê os outros pedidos do lead),
+   varredura (`mark` condicionado a `run_at`), dado de cliente.
+4. **`test-engineer`** — o que os testes provam por comportamento e o que é só texto de `index.ts`.
+Em paralelo: `pnpm lint`, `typecheck`, `test`, `dev:conversas`, `typecheck:function`,
+`dev:gates --fail-on-loosen`, `pnpm dev:n8n`, e **`pnpm verificar:guardas` três vezes** — deu
+100, 101 e 102/102 no mesmo HEAD (instável; `M-08-semanas` escapou uma vez): achar a causa.
+
+### O que esta sessão fez (2026-09-26/27), tudo no branch, nada publicado
+- **Margem do antecipado com o Mercado Pago** (R14.15): antecipado rende mais que o COD nas 3
+  quantidades; preços mantidos pelo operador; antifraude não é mais cobrado. Falta: taxa do
+  parcelado e quem paga os juros.
+- **`perdido`** escrito pela varredura quando o `silence_3` sai da fila sem venda (§15);
+  toque fechado **antes** de gravar/enviar (sem "sumiu?" depois da resposta dela).
+- **Dois pedidos no mesmo lead** (§16): `followups.order_id` (migração 0017), cancelamento só
+  dos toques do pedido morto, `stageForLead` (um cancelado não recusa o lead com outro vivo).
+- **Lembrete de checkout de 15 min (§R10.4) armado de verdade** (§17) — nunca tinha sido;
+  cancela na resposta e na venda; sem duplicata no reancoramento; só com link real no texto.
+- **M-08** (§18): prazo do antecipado por extenso — nove revisões, **aprovado com ressalvas**;
+  ônus da garantia invertido (governo positivo). 6 honestas aceitas em
+  `tests/gate-loosen-accepted.txt`.
+- **M-10** (§19): prazo por extenso/avulso no caminho da entrega e caminho nomeado na frase
+  anterior — **aprovado com ressalvas**; a negação no cabeçalho foi a última correção.
+- Ferramenta de mutação aceita `also` (duas camadas guardando o mesmo bug).
+
+### Depois da revisão, nesta ordem
+1. Publicar a `turn` (operador, Codespace) — leva §15–§19. Sonda pela porta do n8n.
+2. Ativação do WhatsApp (sócio: valores; ver `docs/operacao/whatsapp-cloud-api.md`).
+3. Pendências: taxa do parcelado; caso "pedido A recusado sozinho, depois B entregue" fica em
+   `recusado` (§16, decisão do operador); "fora do conserto" do §19; O-02; apps da Coinzz;
+   primeiro pedido real de kit.
+
+## ▶ Estado em 2026-09-25, fim da noite (histórico)
 
 **Branch `claude/peaceful-feynman-l4zf0k`, à frente do `main`** com o canal do WhatsApp
 (commits `8b140a1` → `bee1dc3`). Abrir PR para o `main` quando o operador pedir. No ar:
