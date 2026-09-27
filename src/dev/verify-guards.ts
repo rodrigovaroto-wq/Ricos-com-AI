@@ -21,6 +21,11 @@ interface Mutation {
   files: string[];
   from: string;
   to: string;
+  /**
+   * More swaps in the same files, for a bug two layers now guard: one layer reinstated alone
+   * leaves the other catching it, and the mutation would "escape" while the bug stays fixed.
+   */
+  also?: Array<{ from: string; to: string }>;
   guard: string[];
 }
 
@@ -144,6 +149,10 @@ const MUTATIONS: Mutation[] = [
     files: ["src/agent/guardrails.ts"],
     from: "(\\d{1,2})\\s*(dias|semanas)/g)) {",
     to: "(\\d{1,2})\\s*dias/g)) {",
+    // Since M-10 the count loop also judges the end of a week range: both layers go back.
+    also: [
+      { from: "if (!week && /\\d\\s*(?:a|e|ate)\\s*$/.test(before)) continue;", to: "if (/\\d\\s*(?:a|e|ate)\\s*$/.test(before)) continue;" },
+    ],
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
@@ -858,9 +867,12 @@ for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(
     let applied = true;
     for (const f of mu.files) {
       const p = join(dir, f);
-      const src = readFileSync(p, "utf8");
-      if (!src.includes(mu.from)) applied = false;
-      else writeFileSync(p, src.replace(mu.from, mu.to));
+      let src = readFileSync(p, "utf8");
+      for (const e of [{ from: mu.from, to: mu.to }, ...(mu.also ?? [])]) {
+        if (!src.includes(e.from)) applied = false;
+        else src = src.replace(e.from, e.to);
+      }
+      writeFileSync(p, src);
     }
     if (!applied) {
       results.push({ id: mu.id, caught: false, bug: mu.bug, note: "a mutação não se aplicou — o texto de origem mudou; atualize a mutação" });

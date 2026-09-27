@@ -479,6 +479,9 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "No pix você devolve em 7 dias e recebe o colete em 7 dias.",
       "No pix você tem 7 dias pra devolver, e recebe seu dinheiro de volta e o colete em até 7 dias.",
       "No antecipado a garantia é de 7 dias pra devolver, e dá pra ver a entrega em casa nesse tempo.",
+      // Only the CEP purpose frees "ver a entrega" (cep-entrega mutation; the line above is
+      // also caught by "nesse tempo" since M-08's fourth review).
+      "No antecipado você tem 7 dias pra trocar, e dá pra ver a entrega aí.",
       "Pagando antecipado, em 7 dias pra trocar você consegue ver a entrega na sua casa.",
       "No antecipado, 7 dias pra trocar e ver a entrega na sua porta.",
       "No antecipado chega em 3 dias, na entrega também.",
