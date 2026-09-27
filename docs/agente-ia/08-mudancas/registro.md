@@ -352,7 +352,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   pela garantia quando não há palavra de troca antes; (3) a presença com "aqui/aí" no meio ("tá
   aqui com você") passou a ser lida. Geradores de 288 mentiras com a locução e 90 honestas "o
   prazo pra trocar é de N"; mutações `M-08-locucao` e `M-08-prazo-de-troca`.
-- **Estado:** fechada (aguarda oitava revisão).
+- **Oitava revisão (NEEDS WORK por um achado, corrigido em 2026-09-27):** "o prazo é N" depois de
+  qualquer palavra de troca, em outra oração, era tomado pela garantia ("a troca é fácil, e o
+  prazo é 7 dias", passava nos dois caminhos). A troca só toma a contagem quando a governa: "o
+  prazo pra/de <troca> é de", "pra/se … <troca>, (o prazo) é/são/tem", "é só <troca>: você tem".
+  E o substantivo de troca aceita uma cópula só ("a garantia também é de"), para "tem garantia e
+  são 7 dias" não ler o "e" como "é". Gerador de 1568 mentiras; mutações `M-08-troca-solta` e
+  `M-08-copula`; `M-08-tomada` e `M-08-prazo-de-troca` passaram a mirar o código novo.
+- **Estado:** fechada (aguarda nona revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

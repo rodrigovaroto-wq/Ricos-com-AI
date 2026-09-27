@@ -801,3 +801,55 @@ describe("M-08, sétima revisão", () => {
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08, oitava revisão: "o prazo é 7 dias" depois de qualquer palavra de troca, em outra oração,
+ * era tomado pela garantia ("a troca é fácil, e o prazo é 7 dias"). A troca só toma a contagem
+ * quando a governa: "o prazo pra trocar é de", "pra trocar, o prazo é de", "se precisar trocar,
+ * são", "é só trocar: você tem".
+ */
+describe("M-08, oitava revisão: a troca governa a contagem, ou não a toma", () => {
+  const vetadasNosDois = [
+    "No antecipado a troca é fácil, e o prazo é 7 dias.",
+    "No pix a troca é fácil, e o prazo é 7 dias.",
+    "No antecipado pode trocar, e o prazo é 7 dias.",
+    "No antecipado tem troca, e o prazo é 7 dias.",
+    "No antecipado tem garantia, e o prazo é 7 dias.",
+    "No antecipado a troca é fácil, e o prazo é de 7 dias.",
+    "No antecipado a troca é simples e o prazo é 7 dias.",
+    "Pagando antes a devolução é fácil, e o prazo é de uma semana.",
+    "No antecipado a troca é grátis e o prazo fica 7 dias.",
+    "No antecipado a troca é fácil, e o prazo são 7 dias.",
+    "No pix, com garantia, o prazo é de 7 dias.",
+    "No pix tem troca grátis e o prazo é de 7 dias.",
+    "No pix tem garantia e são 7 dias.",
+    "Pagando antes, tem garantia, e fica 7 dias.",
+    "No pix, pode trocar; o prazo é de 7 dias.",
+    "No pix, troca garantida, o prazo é de uma semana.",
+    "No antecipado com garantia, é uma semana.",
+    "Pagando no pix, com direito a troca, são 7 dias.",
+  ];
+  const passamNosDois = [
+    "O prazo pra trocar é de 7 dias.",
+    "O prazo pra devolver é de 7 dias.",
+    "Seu prazo pra desistir é de 7 dias.",
+    "Pra trocar, o prazo é de 7 dias.",
+    "O prazo pra trocar ou devolver é de 7 dias depois que receber.",
+    "A garantia é a mesma: 7 dias.",
+    "A troca é em 7 dias.",
+    "No pix, se precisar trocar, são 7 dias a partir de quando você receber.",
+    "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});

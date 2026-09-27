@@ -968,18 +968,25 @@ const gates: readonly Gate[] = [
           // é a mesma:", "a troca pode ser feita em até", "pode trocar/devolver em (até)". A
           // conjunction between them ("pode trocar e em 7 dias…") is another clause.
           const governedBefore =
-            /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|e|sao|fica|vale|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
+            // One copula at most: "a garantia também é de", "a troca é grátis em até" — never "tem
+            // garantia e são 7 dias", where "e" is "and" (eighth review).
+            /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|vale|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*(?:\s+(?:e|sao|fica)(?:\s+(?:tambem|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*)?\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
             new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$`).test(sb);
           // "(você) tem / são / é 7 dias" after a return word, with nothing about arrival between:
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
           const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
-          // Only after a return word: "o prazo pra trocar é de 7 dias" is the warranty, "o prazo é de
-          // 7 dias a partir do recebimento" never is (sixth and seventh reviews).
+          // Only when the return word governs the count (eighth review): "o prazo pra trocar (ou
+          // devolver) é de", "pra trocar, o prazo é de", "se precisar trocar, são", "é só trocar:
+          // você tem". A return word loose in another clause takes nothing: "a troca é fácil, e o
+          // prazo é 7 dias", "tem garantia e são 7 dias", "com direito a troca, são 7 dias".
+          const RETV = String.raw`(?:troc|devol|desist|arrepend|garantia)\w*(?:\s+ou\s+(?:troc|devol)\w*)?`;
+          const TAKES = String.raw`(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$`;
           const takenAfterReturn =
             lastRet != null &&
-            /\b(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$/.test(sb) &&
-            !ARRIVAL.test(notDelivery(sb.slice(lastRet.index)));
+            new RegExp(
+              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+[^,;:]*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
+            ).test(sb);
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
           // quando chegar é de 7 dias pra trocar").

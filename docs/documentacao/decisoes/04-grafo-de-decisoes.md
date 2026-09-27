@@ -441,6 +441,15 @@ pedido até a entrega" passava nos dois caminhos. Os consertos:
 - **Presença:** "tá aqui com você" passou a ser vetada.
 - **Guardas:** mutações M-08-locucao e M-08-prazo-de-troca. Ao todo, 16 mutações na M-08.
 
+**Oitava revisão (NEEDS WORK, um achado):** tirar o `!prazo` fez "a troca é fácil, e o
+prazo é 7 dias" voltar a passar, porque uma troca solta em outra oração tomava a contagem.
+Os consertos:
+- **Troca governando:** agora a troca só toma a contagem quando a governa ("o prazo pra
+  trocar é de", "pra trocar, o prazo é de", "é só trocar: você tem").
+- **Cópula:** o substantivo aceita no máximo uma cópula, então "garantia e são" não vira
+  mais "garantia é são".
+- **Guardas:** um gerador com 1568 mentiras e as mutações M-08-troca-solta e M-08-copula.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

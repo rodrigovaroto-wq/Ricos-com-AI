@@ -306,6 +306,22 @@ for (const name of ["", "No pix, ", "No antecipado, "])
     for (const start of ["", " depois que receber", ", contados do recebimento"])
       for (const c of ["7 dias", "uma semana"]) honestPrazo.push(cap(`${name}${lead} ${c}${start}.`));
 
+// Oitava revisão da M-08: "o prazo é / são / fica / é N" depois de uma troca solta, em outra
+// oração, é prazo — a troca só toma a contagem quando a governa ("o prazo pra trocar é de",
+// "pra trocar, o prazo é de", "se precisar trocar, são").
+const looseReturn: string[] = [];
+for (const name of ["No antecipado ", "No pix ", "Pagando antes, ", "No pix, "])
+  for (const ret of ["a troca é fácil", "pode trocar", "tem garantia", "com garantia", "tem troca grátis", "a devolução é fácil", "com direito a troca"])
+    for (const sep of [", e ", " e ", ", ", "; "])
+      for (const verb of ["o prazo é", "o prazo é de", "são", "fica", "é", "o prazo fica", "o prazo são"])
+        for (const c of ["7 dias", "uma semana"]) looseReturn.push(cap(`${name}${ret}${sep}${verb} ${c}.`));
+
+describe("M-08, oitava revisão: a troca solta não toma a contagem", () => {
+  it(`${looseReturn.length} prazos depois de troca solta, todos vetados nos dois caminhos`, () => {
+    expect(looseReturn.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-08, sétima revisão: locução do roteiro presa ao sujeito, e o prazo de troca", () => {
   it(`${pedidoAteEntrega.length} garantias com "do pedido até a entrega", todas vetadas nos dois caminhos`, () => {
     expect(pedidoAteEntrega.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
