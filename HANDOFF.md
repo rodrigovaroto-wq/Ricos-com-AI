@@ -17,21 +17,35 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 ar continua a `turn` **v41** — nada desta sessão foi publicado. CI só roda em PR: até lá,
 `pnpm verificar:guardas` inteiro é a única prova das mutações.
 
-### Tarefa 1 — revisão final extensa e crítica (pedido do operador, 2026-09-27)
-Revisar TODO o diff `main...claude/focused-gates-fjpixt` procurando brechas e erros, e garantir
-que nada disto causa problema no resto do código nem no workflow do projeto. Plano já definido,
-com revisores Opus independentes em paralelo:
-1. **`code-reviewer`** — correção do branch inteiro (estado, régua, pedidos, gates).
-2. **`workflow-architect`** — integração: n8n (o Relógio e o "WhatsApp envio" sabem de
-   `checkout_reminder`, que agora é armado de verdade?), ordem de deploy, `turn` v41 no ar vs.
-   repositório, migração 0017 (conferir com `list_migrations` que está aplicada — a `turn` do
-   repositório seleciona `followups.order_id`).
-3. **`security-reviewer`** — webhook de venda (`recordOrder` agora lê os outros pedidos do lead),
-   varredura (`mark` condicionado a `run_at`), dado de cliente.
-4. **`test-engineer`** — o que os testes provam por comportamento e o que é só texto de `index.ts`.
-Em paralelo: `pnpm lint`, `typecheck`, `test`, `dev:conversas`, `typecheck:function`,
-`dev:gates --fail-on-loosen`, `pnpm dev:n8n`, e **`pnpm verificar:guardas` três vezes** — deu
-100, 101 e 102/102 no mesmo HEAD (instável; `M-08-semanas` escapou uma vez): achar a causa.
+### Tarefa 1 — revisão final: FEITA (2026-09-27), grafo §20
+Quatro revisores Opus independentes (correção, integração, segurança, testes) sobre
+`main...claude/focused-gates-fjpixt`. Resultado final: **aprovado com ressalvas** — nenhuma
+mentira de prazo que o `main` vete passa no branch, nos dois caminhos.
+- Achados corrigidos: A1 (o gate cancelava em silêncio o `silence_1` "…esperando um dia bom"
+  no antecipado); duas regressões de negação no COD ("No pix não precisa esperar, chega em 2
+  dias", "Nem no pix demora"); o toque pós-pedido lia o pedido sem filtrar a cliente;
+  `externalId` sem limite; `verificar:guardas` misturava árvore e HEAD (causa da instabilidade)
+  e contava timeout como "pegou" — agora preso a um commit limpo.
+- Provado na PostgREST real (só leitura): o filtro `or=(kind.like.silence_*,…)` e a igualdade
+  no `run_at` que a própria API devolve.
+- Verde em `378e3d0`: lint, typecheck, build, 4336 testes, 1640 conversas, `typecheck:function`,
+  `dev:gates` (só os 6 afrouxamentos honestos aceitos), `verificar:guardas` **113/113**, e os
+  workflows ativos do n8n idênticos ao repositório.
+
+### Próximos passos, nesta ordem
+1. **PR para o `main`** quando o operador pedir (o CI só roda em PR — é a primeira vez que o
+   branch passa por ele).
+2. **Publicar a `turn`** (operador, Codespace; a 0017 já está aplicada). Depois, **sonda da
+   varredura pela porta do n8n** — é a prova de produção do fechamento pela `run_at`, do
+   `perdido` e do lembrete de checkout (os testes de `index.ts` são textuais).
+   **Aviso:** ao publicar, todo lead parado há 3 dias vira `perdido` de uma vez (cupom inativo
+   → `silence_3` cancelado = fim da régua, opção a do operador).
+3. Gate, ressalvas da conferência final (§20): "uma semana, no máximo", "numa semana você já
+   está com ele", "daqui (a) uma semana…" passam no antecipado (o `main` também deixava).
+4. Testes que faltam (revisão de testes): extrair para `followups.ts` a decisão "linha fechada
+   é nossa" e o filtro de `cancelScheduled`; `stageForLead` com pedido pendente (`""`).
+5. Ativação do WhatsApp (sócio), taxa do parcelado, caso "A recusado sozinho, depois B entregue"
+   (§16), "fora do conserto" do §19, O-02, apps da Coinzz, primeiro pedido real de kit.
 
 ### O que esta sessão fez (2026-09-26/27), tudo no branch, nada publicado
 - **Margem do antecipado com o Mercado Pago** (R14.15): antecipado rende mais que o COD nas 3

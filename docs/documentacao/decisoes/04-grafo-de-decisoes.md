@@ -565,6 +565,17 @@ inativo, o `silence_3` sai cancelado, e isso já é o fim da régua (opção a).
   só o e-mail de falha.
 - **Testes só textuais:** vários testes de `index.ts` só leem o texto do arquivo. A prova de
   produção é a sonda da varredura pela porta do n8n depois do deploy.
+- **Conferência final (APROVADO COM RESSALVAS):** a exceção do artigo deixa passar no
+  antecipado mentiras de "uma semana" que o 5995923 vetava. O `main` também as deixava
+  passar, então não é regressão. Os casos:
+  - "Uma semana, no máximo." — o teste da cauda não aceita a vírgula; `^[\s,]+` resolve.
+  - "Numa semana você já está com ele." — falta "com ele / o colete" na lista de posse.
+  - "Daqui (a) uma semana você já está usando." — falta "daqui (a)" nas palavras de tempo
+    antes da contagem.
+  - "Numa semana você já veste." — chegada disfarçada de uso.
+
+  A gravidade é baixa: uma semana corrida fica perto da média de 5 dias úteis. É o próximo
+  item de gate.
 
 ---
 
