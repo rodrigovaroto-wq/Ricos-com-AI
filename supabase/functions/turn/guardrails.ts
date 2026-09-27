@@ -955,13 +955,14 @@ const gates: readonly Gate[] = [
           // "ele está aí", "e o colete é seu", "…, que é bem quando ele chega" are the count's own
           // arrival — past a semicolon too ("…; a entrega também", sixth review). The one delivery
           // mention that is not a deadline is the script's own "…; e eu fico aqui no WhatsApp com
-          // você do pedido até a entrega".
-          tail = tail.replace(/\bdo\s+pedido\s+ate\s+a\s+entrega\b/g, " ");
+          // você do pedido até a entrega" — only with its subject: loose, "7 dias pra trocar do
+          // pedido até a entrega" is the delivery (seventh review).
+          tail = tail.replace(/\beu\s+fico\s+aqui\b[^;,]*?\bcom\s+voce\s+do\s+pedido\s+ate\s+a\s+entrega\b/g, " ");
           const tailOk =
             /^\s*$/.test(tail) ||
             (/^\s*(?:[,;:]|(?:e|mas|ou|se|sem|caso|porque|pois|que)\s)/.test(tail) &&
               !ARRIVAL.test(notDelivery(tail)) &&
-              !/\b(?:quando|dias?|semanas?|depois|antes|ate|logo|junto|tempo|prazo|mesm\w*|igual\w*|tambem|(?:esta|ta|estara)\s+com\s+voce|contigo|e\s+(?:seu|sua)|abre\s+a\s+caixa|ja\s+tem)\b/.test(tail));
+              !/\b(?:quando|dias?|semanas?|depois|antes|ate|logo|junto|tempo|prazo|mesm\w*|igual\w*|tambem|(?:esta|ta|estara)\s+(?:(?:aqui|ai)\s+)?com\s+voce|contigo|e\s+(?:seu|sua)|abre\s+a\s+caixa|ja\s+tem)\b/.test(tail));
           const sb = t.slice(0, at).split(/[.!?\n]/).pop()!;
           // A return word taking the count right before it: "a troca é (de/em até)", "a garantia
           // é a mesma:", "a troca pode ser feita em até", "pode trocar/devolver em (até)". A
@@ -973,11 +974,11 @@ const gates: readonly Gate[] = [
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
           const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
-          // "O prazo é de 7 dias" is never taken by the warranty (sixth review).
-          const taken = /\b(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$/.test(sb) && !/\bprazo\b[^,;:]*$/.test(sb);
+          // Only after a return word: "o prazo pra trocar é de 7 dias" is the warranty, "o prazo é de
+          // 7 dias a partir do recebimento" never is (sixth and seventh reviews).
           const takenAfterReturn =
             lastRet != null &&
-            taken &&
+            /\b(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$/.test(sb) &&
             !ARRIVAL.test(notDelivery(sb.slice(lastRet.index)));
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até

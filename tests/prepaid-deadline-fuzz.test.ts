@@ -261,7 +261,7 @@ honestObjects.push("A garantia de 7 dias vale também no antecipado.", "Se o tam
 const presenceTails: string[] = [];
 for (const govern of ["Pode trocar em {c}", "A troca é em {c}", "A garantia é de {c}", "Você tem {c} pra trocar", "Pagando no pix, {c} de garantia"])
   for (const tail of [
-    ", e ele está com você", ", e o colete é seu", ", que você já abre a caixa", ", ou seja, você já tem ele",
+    ", e ele está com você", ", e ele tá aqui com você", ", e ele está aí com você", ", e o colete é seu", ", que você já abre a caixa", ", ou seja, você já tem ele",
     " e ele tá contigo", " e ele é seu", ", e o colete tá contigo", "; e ele chega junto", "; e chega na sua casa",
   ])
     for (const c of ["7 dias", "uma semana"]) presenceTails.push(`${govern.replace("{c}", c)}${tail}.`);
@@ -289,6 +289,31 @@ for (const govern of ["No pix você tem 7 dias pra trocar", "Pode trocar em 7 di
     "; nesse tempo ele tá na sua casa", "; que é o tempo da viagem", "; e o colete é seu nesse tempo",
   ])
     afterSemicolon.push({ text: `${govern}${tail}.`, both: govern.startsWith("No pix") });
+
+// Sétima revisão da M-08: "do pedido até a entrega" só sai com o sujeito do roteiro ("eu fico
+// aqui … com você"); solta, é a entrega no mesmo prazo.
+const pedidoAteEntrega: string[] = [];
+for (const name of ["No pix, ", "No antecipado, ", "Pagando antes, "])
+  for (const govern of ["você tem {c} pra trocar", "pode trocar em {c}", "a garantia é de {c}", "você tem {c} pra devolver"])
+    for (const sep of [", ", "; ", " "])
+      for (const tail of ["do pedido até a entrega", "e eu te acompanho do pedido até a entrega", "e eu te acompanho do pedido até a entrega, que é rapidinha", "com você do pedido até a entrega"])
+        for (const c of ["7 dias", "uma semana"]) pedidoAteEntrega.push(cap(`${name}${govern.replace("{c}", c)}${sep}${tail}.`));
+
+// Sétima revisão: "o prazo pra trocar é de N" é garantia — o "prazo" só não é tomado sem troca.
+const honestPrazo: string[] = [];
+for (const name of ["", "No pix, ", "No antecipado, "])
+  for (const lead of ["o prazo pra trocar é de", "o prazo pra devolver é de", "seu prazo pra desistir é de", "pra trocar, o prazo é de", "o prazo pra trocar ou devolver é de"])
+    for (const start of ["", " depois que receber", ", contados do recebimento"])
+      for (const c of ["7 dias", "uma semana"]) honestPrazo.push(cap(`${name}${lead} ${c}${start}.`));
+
+describe("M-08, sétima revisão: locução do roteiro presa ao sujeito, e o prazo de troca", () => {
+  it(`${pedidoAteEntrega.length} garantias com "do pedido até a entrega", todas vetadas nos dois caminhos`, () => {
+    expect(pedidoAteEntrega.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`${honestPrazo.length} "o prazo pra trocar é de N", todas passam nos dois caminhos`, () => {
+    expect(honestPrazo.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+});
 
 describe("M-08, sexta revisão: início da contagem sem troca, e o que vem depois de ponto e vírgula", () => {
   it(`${startWithoutReturn.length} prazos "são N depois que recebermos", todos vetados nos dois caminhos`, () => {

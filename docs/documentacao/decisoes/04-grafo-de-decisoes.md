@@ -432,6 +432,15 @@ também." passava. Os consertos:
 - **Fora da M-08, família da M-10:** "Pagou no pix? São 7 dias…" passa no caminho da
   entrega, porque o nome do caminho está na frase anterior.
 
+**Sétima revisão (NEEDS WORK, com afrouxamento real):** a locução do roteiro "do pedido até
+a entrega" era retirada em qualquer lugar, e com isso "No pix, você tem 7 dias pra trocar do
+pedido até a entrega" passava nos dois caminhos. Os consertos:
+- **Locução:** agora só sai com o sujeito do roteiro ("eu fico aqui… com você do pedido até
+  a entrega").
+- **"Prazo":** "o prazo pra trocar é de 7 dias" voltou a passar.
+- **Presença:** "tá aqui com você" passou a ser vetada.
+- **Guardas:** mutações M-08-locucao e M-08-prazo-de-troca. Ao todo, 16 mutações na M-08.
+
 **Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
 uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
 nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada

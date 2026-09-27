@@ -345,7 +345,14 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   de 224 e 56 mentiras; mutações `M-08-recebermos` e `M-08-ponto-e-virgula`. Fora do conserto:
   o nome do antecipado na frase anterior ("Pagou no pix? São 7 dias…") não é lido no caminho da
   entrega — família anterior à M-08, como a M-10.
-- **Estado:** fechada (aguarda sétima revisão).
+- **Sétima revisão (NEEDS WORK, corrigida em 2026-09-27):** (1) afrouxamento real — "do pedido
+  até a entrega" saía da cauda em qualquer lugar ("No pix, você tem 7 dias pra trocar do pedido
+  até a entrega"): agora só sai com o sujeito do roteiro ("eu fico aqui … com você do pedido até
+  a entrega"); (2) "o prazo pra trocar é de 7 dias" era vetada: "prazo" só deixa de ser tomado
+  pela garantia quando não há palavra de troca antes; (3) a presença com "aqui/aí" no meio ("tá
+  aqui com você") passou a ser lida. Geradores de 288 mentiras com a locução e 90 honestas "o
+  prazo pra trocar é de N"; mutações `M-08-locucao` e `M-08-prazo-de-troca`.
+- **Estado:** fechada (aguarda oitava revisão).
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por

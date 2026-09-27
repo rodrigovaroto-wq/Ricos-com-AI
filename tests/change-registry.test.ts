@@ -761,3 +761,43 @@ describe("M-08, sexta revisão: sem troca não há garantia; depois de ';' tudo 
     expect(delivery(texto, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08, sétima revisão: "do pedido até a entrega" saía da cauda em qualquer lugar (só a fala do
+ * roteiro, com o sujeito dela, sai); "o prazo pra trocar é de 7 dias" era vetada; e a presença com
+ * "aqui/aí" no meio ("tá aqui com você") não era lida.
+ */
+describe("M-08, sétima revisão", () => {
+  const vetadasNosDois = [
+    "No pix, você tem 7 dias pra trocar do pedido até a entrega.",
+    "No pix, pode trocar em 7 dias, do pedido até a entrega.",
+    "No pix o prazo é de 7 dias, contados a partir do recebimento.",
+  ];
+  const vetadasNoAntecipado = [
+    "Pode trocar em 7 dias do pedido até a entrega.",
+    "Você tem 7 dias pra trocar, e eu te acompanho do pedido até a entrega, que é rapidinha.",
+    "Pode trocar, o prazo até quando chegar é de 7 dias.",
+    "Pode trocar em 7 dias, e ele tá aqui com você.",
+  ];
+  const passamNosDois = [
+    "O prazo pra trocar é de 7 dias.",
+    "O prazo pra devolver é de 7 dias.",
+    "Seu prazo pra desistir é de 7 dias.",
+    "Pra trocar, o prazo é de 7 dias.",
+    "O prazo pra trocar ou devolver é de 7 dias depois que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
