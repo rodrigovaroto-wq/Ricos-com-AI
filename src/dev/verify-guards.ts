@@ -500,6 +500,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
+    id: "pedido-de-outra-cliente",
+    bug: "o toque pós-pedido lia o pedido pelo order_id sem o lead: numa colisão de external_id citava o pedido de outra cliente",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "`orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=",
+    to: "`orders?id=eq.${row.order_id}&select=",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
     id: "hermes-trecho",
     bug: "proposta do Hermes com trecho inventado passando pela validação",
     files: ["src/dev/hermes-core.ts"],
@@ -898,10 +906,21 @@ const wanted = process.argv.slice(2);
 const repo = resolve(".");
 const results: Array<{ id: string; caught: boolean; bug: string; note?: string }> = [];
 
+// The mutation list comes from this (working-tree) file, but each mutation is applied to a
+// worktree of a commit. With uncommitted edits the two disagree, and the score changed run to
+// run on the same HEAD (100, 101, 102/102 — final review, 2026-09-27). So: one commit, read
+// once, and a clean tree.
+const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+if (execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim() !== "") {
+  console.error("verificar:guardas: há mudança não commitada — commite antes; a lista de mutações e a árvore mutada precisam ser do mesmo commit.");
+  process.exit(2);
+}
+console.log(`# HEAD ${head.slice(0, 7)}`);
+
 for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(m.id))) {
   const dir = mkdtempSync(join(tmpdir(), `guard-${mu.id}-`));
   rmSync(dir, { recursive: true, force: true });
-  execFileSync("git", ["worktree", "add", "--detach", "-q", dir, "HEAD"]);
+  execFileSync("git", ["worktree", "add", "--detach", "-q", dir, head]);
   try {
     symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
     let applied = true;
@@ -920,6 +939,11 @@ for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(
     }
     // The guard runs against the mutated tree; the gate diff compares it with HEAD.
     const run = spawnSync(mu.guard[0]!, mu.guard.slice(1), { cwd: dir, encoding: "utf8", timeout: 10 * 60_000 });
+    // A guard killed by the timeout or a signal has no status: that is not a catch.
+    if (run.status === null) {
+      results.push({ id: mu.id, caught: false, bug: mu.bug, note: `inconclusivo — a guarda não terminou (${run.signal ?? run.error?.message ?? "sem status"})` });
+      continue;
+    }
     results.push({ id: mu.id, caught: run.status !== 0, bug: mu.bug });
   } finally {
     execFileSync("git", ["worktree", "remove", "--force", dir]);

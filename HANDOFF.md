@@ -88,8 +88,9 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
    margem de 1 peça e dos kits de 2 e 3 no antecipado; despachar o `pricing-guardian` (Opus)
    com análise de sensibilidade. Se a margem permitir mudar desconto ou preço, é decisão do
    operador — nada muda no `BUSINESS_CONFIG` sem ele.
-0. **Antes do próximo deploy da `turn`:** aplicar a migração `0017_followup_order.sql`
-   (aditiva), senão a varredura não lê os toques (grafo §16). A `turn` do repositório agora
+0. **Migração `0017_followup_order.sql`: aplicada** (conferido em `list_migrations`, versão
+   20260926005415, na revisão final de 2026-09-27) — a varredura da `turn` do repositório
+   depende dela (grafo §16). A `turn` do repositório agora
    também leva o `perdido` (§15), o toque fechado antes do envio e o lembrete de checkout
    de 15 minutos ligado de verdade (§17).
 2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`)** — **fechado em
@@ -113,7 +114,7 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
 4. **Templates da Meta aprovados** → `channel.templates` no `BUSINESS_CONFIG` (colar o config
    inteiro). Até lá, toque fora da janela é cancelado e chega por e-mail.
 5. **Demais pendências**, em seguida: primeiro pedido real de kit (confirmar
-   `order_quantity` 2/3); ~~dois pedidos no mesmo lead~~ (feito em 26/09, grafo §16, 0017 a aplicar);
+   `order_quantity` 2/3); ~~dois pedidos no mesmo lead~~ (feito em 26/09, grafo §16, 0017 aplicada);
    M-08; apps da Coinzz; checkout no domínio da marca (O-02); ressalvas aceitas do WhatsApp
    (dois turnos simultâneos da mesma cliente, mensagem perdida com o n8n fora do ar).
 

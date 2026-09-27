@@ -955,10 +955,15 @@ interface OrderWebhook {
 /** Digits only, which is how a phone survives being written six different ways. */
 const digits = (v: string): string => v.replace(/\D/g, "");
 
+const MAX_EXTERNAL_ID = 128;
+
 const recordOrder = async (order: OrderWebhook) => {
   // Without an id every retry inserts a fresh row: `external_id` is unique but nullable,
   // and NULL never conflicts with NULL. Refusing loudly beats duplicating silently.
   if (!order.externalId?.trim()) return { status: "missing_external_id", ok: false };
+  // An id is a short token; kilobytes of it overflow the second read's URL after the upsert
+  // already wrote (security review, 2026-09-27).
+  if (order.externalId.length > MAX_EXTERNAL_ID) return { status: "external_id_too_long", ok: false };
 
   // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
@@ -1250,7 +1255,7 @@ const runFollowupSweep = async () => {
           await db(
             // Its own order when the row says which (0017); the latest for rows armed before.
             row.order_id
-              ? `orders?id=eq.${row.order_id}&select=amount_brl,units,size,payment_method`
+              ? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`
               : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
           )
         )?.[0] ?? null

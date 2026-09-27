@@ -457,7 +457,7 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   antecipado ("Na entrega ou no pix, chega em 1 a 3 dias.") — a proximidade da checagem de faixa
   continua lendo só "antecipado"; e "pagando na porta, 1 a 3 dias" segue vetada no antecipado.
 - **Revisão independente (aprovada com ressalvas; ressalva 1 corrigida em 2026-09-27):** o nome do antecipado negado ("sem/nem/nada de pix", "não precisa (de/pagar) antecipar", "pix não!/não precisa", "não quer" fora de pergunta) deixou de nomear o antecipado no cabeçalho, na faixa e na regra de número — "Nada de pix. Chega em 1 a 3 dias." passa no COD e "Nada de pix. Chega em 5 dias, depende da região." é vetada; a faixa usava uma lista local que sombreava a da M-10 ("Te mando o link e chega em 1 a 3 dias." era vetada). Gerador de 336 honestas, 448 mentiras e 18 negativas que não negam; mutações `M-10-negacao`, `M-10-negacao-depois`, `M-10-nao-quer`, `M-10-media-negada`, `M-10-sombra`.
-- **Estado:** feita — aguardando revisão independente.
+- **Estado:** aprovada com ressalvas pela revisão independente; a correção da ressalva 1 (negação) e a do A1 da revisão final (2026-09-27) passam pela revisão final do branch.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

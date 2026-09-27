@@ -128,7 +128,7 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
-    expect(source).toContain("? `orders?id=eq.${row.order_id}&select=amount_brl,units,size,payment_method`");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
   });
   it("a migração é aditiva e nula", () => {
     const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
@@ -238,5 +238,23 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
   });
   it("base vazia ou ausente nunca casa", () => {
     expect(sentCheckoutLink("qualquer texto", [""])).toBe(false);
+  });
+});
+
+/**
+ * Revisão final de segurança (2026-09-27). O toque pós-pedido lê o pedido pelo `order_id` da
+ * linha; sem o `lead_id`, uma colisão de `external_id` (o upsert sobrescreve `lead_id`) faria a
+ * cliente A ouvir o valor, as peças e o tamanho do pedido da cliente B. E um `externalId`
+ * gigante estourava a URL da segunda leitura depois do upsert já gravado.
+ */
+describe("revisão de segurança: o pedido do toque é da própria cliente", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a leitura por order_id também filtra o lead", () => {
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
+  });
+  it("externalId longo demais é recusado antes de gravar", () => {
+    const guard = source.indexOf("order.externalId.length > MAX_EXTERNAL_ID");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(source.indexOf('await db("orders?on_conflict=external_id"'));
   });
 });

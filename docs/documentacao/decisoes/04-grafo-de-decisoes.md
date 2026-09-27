@@ -515,9 +515,15 @@ A correção:
 Malu) e casa "saia" em `sai\w*`. "E aí, em 2 semanas você já se acostuma" e "A garantia é de
 7 dias pagando na porta" são vetadas.
 
-**Instável:** `pnpm verificar:guardas` deu 100, 101 e 102 de 102 em rodadas seguidas do mesmo
-HEAD, e a M-08-semanas escapou uma vez. A causa não foi investigada, e é a primeira tarefa da
-revisão final.
+**Instável, causa provável achada na revisão final de 2026-09-27:** `pnpm verificar:guardas`
+deu 100, 101 e 102 de 102 no mesmo HEAD. A ferramenta lia a lista de mutações do arquivo da
+árvore, mas aplicava cada mutação num worktree do commit. Com edição não commitada, as duas
+versões divergiam. Além disso, uma guarda morta por timeout contava como "pegou".
+
+A ferramenta agora:
+- lê o HEAD uma vez só;
+- recusa rodar com a árvore suja;
+- trata guarda sem status como inconclusiva.
 
 **Registro:** as mutações M-08-tomada e M-08-troca-solta tinham ficado com o texto de antes
 da nona revisão, e foram atualizadas neste commit. Toda mudança numa linha âncora de mutação
