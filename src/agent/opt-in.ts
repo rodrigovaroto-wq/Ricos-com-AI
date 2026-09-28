@@ -14,9 +14,10 @@
  * - `acceptsMarketingOptIn`: whether her reply gives the keyword, alone, within 24h of the
  *   question. Anything unclear is a no: a wrong yes sends marketing to someone who never
  *   agreed (and spam reports can cost the only number); a wrong no costs two touches.
- * - `revokesMarketingOptIn`: whether a message, at any time, takes the consent back. It lives
- *   here, beside the yes, because the question teaches the word she will revoke with ("não
- *   quero ofertas"), and `classifyOptOut` — which stops everything — does not read it.
+ * - `revokesMarketingOptIn`: whether a message, at any time, takes the consent back — any
+ *   mention of marketing that is not a yes. It lives here, beside the yes, because the question
+ *   teaches the word she will revoke with ("não quero ofertas"), and `classifyOptOut` — which
+ *   stops everything — does not read it.
  *
  * Zero imports, so it can be mirrored byte for byte into `supabase/functions/turn/` like the
  * guardrail chain. The turn runs `classifyOptOut` before this; an opt-out never gets here.
@@ -115,41 +116,32 @@ export const acceptsMarketingOptIn = (reply: string, anchor: OptInAnchor): boole
 };
 
 /**
- * What a marketing opt-in covers, as STEMS (sixth review, 2026-09-28): "ofertinha",
- * "promo", "cupons", "descontos", "anúncio" — exact words missed the diminutives and slang.
- * "cupom" and "desconto" are here because `silence_3` offers exactly that.
+ * What a marketing opt-in covers, as stems: "ofertinha", "promo", "cupons", "descontos",
+ * "anúncio". "cupom" and "desconto" are here because `silence_3` offers exactly that.
  */
 const MARKETING_STEM = /ofert|promo|propag|lembret|cupo|descont|novidad|anunci|spam|marketing/;
 
-/**
- * Any negation or request to stop, in the forms WhatsApp writes them: "n", "nn", "ñ"
- * (read as "n"), "naum", "não" glued to the next word ("naoquero") or to the previous one
- * ("ofertasnão"), and stop verbs by stem ("dispensa", "cancelem", "desativa", "tô fora").
- */
-const STOP_STEM = new RegExp(
-  [
-    "nao", "naum", "\\bnn?\\b", "\\bnem\\b", "\\bsem\\b", "nunca", "jamais", "\\bnada\\b",
-    "\\bpar[aeo]\\b", "\\bparar", "\\bchega\\b", "\\bchega de", "\\bcancel", "\\btir[aeo]", "\\bretir", "\\bremov",
-    "\\bsai\\b", "\\bsair\\b", "\\bdispens", "\\bdesist", "\\bmudei", "\\bdesativ", "\\bdeslig", "\\bbloque",
-    "\\besquec", "\\bpasso\\b", "\\bfora d", "\\bodei", "\\bdetest", "\\bstop\\b", "\\bdeixa de", "\\bdeixa pra la",
-  ].join("|"),
-);
-
-/** "nãoo", "nããão", "ofertaaas": any run of one letter is read as one. */
+/** "ofertaaas", "promooo": any run of one letter is read as one. */
 const collapse = (s: string): string => s.replace(/(\p{L})\1+/gu, "$1");
 
 /**
- * True when a message takes the marketing consent back: a marketing stem next to any
- * negation or request to stop, in the same message, at any time. Loose on purpose — the safe
- * side here is revoking: a wrong revoke costs two touches, a missed one sends marketing to
- * someone who said no (LGPD art. 8º §5º). "não quero ofertas do M, quero o G" revokes too.
+ * True when a message takes the marketing consent back: ANY mention of marketing that is not
+ * one of the accepted yes replies, at any time.
  *
- * Both a marketing word AND a stop word are required, so "e o desconto do pix?" from a client
- * who opted in does not lose the consent. Revoking on the marketing word alone would be safer
- * still, at that cost — the operator's call (docs/agente-ia/05-plano/07-opt-in-marketing.md).
+ * No negation is read, on purpose (seven review rounds, 2026-09-28). Every rule that tried —
+ * exact "não" lists, then stems, then "marketing word AND stop word" — either missed real
+ * revocations ("n quero ofertas", "me exclui das promoções", "pode deixar as ofertas") or,
+ * because "para", "não" and "sem" are in almost every sentence, revoked 25 of 30 buying
+ * sentences anyway. Negation read by regex does not close (`.claude/memory/negation-blindness.md`).
+ *
+ * The cost is explicit and bounded: a client who opted in and writes "o cupom não funcionou"
+ * or "tem desconto para o pix?" loses the two marketing touches OUTSIDE the window — the
+ * conversation itself goes on, the window is open. A missed revocation, instead, sends
+ * marketing to someone who said no (LGPD art. 8º §5º) and risks the only number. A narrower
+ * rule is the operator's call (docs/agente-ia/05-plano/07-opt-in-marketing.md).
  */
 export const revokesMarketingOptIn = (text: string): boolean => {
   if (typeof text !== "string") return false;
-  const t = stripAccents(text).normalize("NFC").toLowerCase().replace(/ñ/g, "n");
-  return [t, collapse(t)].some((v) => MARKETING_STEM.test(v) && STOP_STEM.test(v));
+  if (YES.has(normalize(text))) return false;
+  return MARKETING_STEM.test(collapse(stripAccents(text).toLowerCase()));
 };

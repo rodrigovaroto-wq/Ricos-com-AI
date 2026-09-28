@@ -89,50 +89,44 @@ describe("opt-in de marketing: a resposta", () => {
   });
 });
 
-// Fifth review, 2026-09-28: the question teaches "ofertas", so she revokes with it — and
-// `classifyOptOut` reads none of these. Any time, not only within 24h.
+// Fifth to seventh reviews, 2026-09-28: the question teaches "ofertas", so she revokes with it,
+// in WhatsApp Portuguese no regex of negation covers. Any mention of marketing that is not a
+// yes revokes — no negation is read. Any time, not only within 24h.
 describe("opt-in de marketing: a revogação", () => {
   it.each([
     "não quero ofertas", "não quero receber ofertas", "mudei de ideia, não quero ofertas", "cancela as ofertas",
     "não manda oferta", "sem ofertas por favor", "para de mandar ofertas", "nada de promoção", "Não quero mais promoção",
     "chega de propaganda", "não quero lembrete", "pode tirar das ofertas", "OFERTAS NÃO", "ofertas nunca mais",
-    "nao quero ofertas", "dispenso as promoções", "quero sair da lista de ofertas", "me remove das promoções",
+    "n quero ofertas", "ñ quero ofertas", "naum quero ofertas", "nããão quero ofertas", "ofertaaas não", "ofertasnão",
+    "tô fora das promo", "dispensa as ofertas", "STOP ofertas", "odeio propaganda", "não quero cupom", "chega de desconto",
+    "não quero novidades", "chega de anúncio", "não quero spam", "ofertinhas não", "promoçãozinha não",
+    // Seventh review: missed by every negation rule.
+    "me exclui das ofertas", "me descadastra das promoções", "apaga meu número das promoções", "cansei das promoções",
+    "enjoei das ofertas", "basta de ofertas", "suspende as ofertas", "encerra as promoções", "pode deixar as ofertas",
+    "ofertas? tô de boa", "to de boa das promo", "ofertas me incomodam", "encheu o saco dessas promo", "ofertas, deixa quieto",
   ])("revoga: %s", (text) => {
     expect(revokesMarketingOptIn(text)).toBe(true);
   });
 
-  // Sixth review: exact words missed WhatsApp Portuguese. Every one of these is a revocation.
-  it.each([
-    "n quero ofertas", "N quero oferta", "ñ quero ofertas", "Ñ quero ofertas", "nn quero promo", "ofertas nn",
-    "naum quero ofertas", "n quero promoções", "nãoo quero ofertas", "nããão quero ofertas", "ofertaaas não",
-    "naoquero ofertas", "ofertasnão", "tô fora das promo", "to fora das promoções", "dispensa as ofertas",
-    "deixa de mandar oferta", "deixa pra lá as ofertas", "esquece as ofertas", "passo as ofertas", "desativa as ofertas",
-    "desliga as promoções", "bloquear ofertas", "cancelem as ofertas", "cancelo as ofertas", "STOP ofertas",
-    "odeio propaganda", "detesto essas promo", "não quero cupom", "chega de desconto", "não quero novidades",
-    "chega de anúncio", "não quero anuncio", "não quero spam", "ofertinhas não", "não quero ofertinha", "promoçãozinha não",
-  ])("revoga (sexta revisão): %s", (text) => {
-    expect(revokesMarketingOptIn(text)).toBe(true);
-  });
+  // The accepted cost, made visible so nobody mistakes it for a bug: a buying sentence that
+  // names marketing also revokes (two touches outside the window, never the conversation).
+  it.each(["o cupom não funcionou", "tem desconto para o pix?", "quero a oferta do kit", "e o desconto do pix?"])(
+    "custo aceito — também revoga: %s",
+    (text) => {
+      expect(revokesMarketingOptIn(text)).toBe(true);
+    },
+  );
 
-  // Generated: every marketing word × every way to say no or stop, in both orders.
-  const marketing = ["oferta", "ofertas", "ofertinha", "promoção", "promo", "promoções", "propaganda", "lembrete", "cupom", "cupons", "desconto", "novidades", "anúncio", "spam"];
-  const stop = ["não quero", "nao quero", "n quero", "ñ quero", "naum quero", "nn quero", "não", "chega de", "para de mandar", "pare com", "cancela", "tira", "sem", "nada de", "dispenso", "não manda mais"];
-  it("gerado: marketing × negação, nas duas ordens", () => {
-    const missed = marketing.flatMap((m) => stop.flatMap((n) => [`${n} ${m}`, `${m} ${n}`])).filter((t) => !revokesMarketingOptIn(t));
-    expect(missed).toEqual([]);
-  });
+  it.each(["não quero o M, quero o G", "não sei meu tamanho", "para quando chega?", "pode parar", "sim", ""])(
+    "sem palavra de marketing não é sobre o opt-in (classifyOptOut lê o resto): %j",
+    (text) => {
+      expect(revokesMarketingOptIn(text)).toBe(false);
+    },
+  );
 
-  it.each([
-    "OFERTAS", "quero ofertas", "sim, pode mandar ofertas", "tem oferta pro kit?", "e o desconto do pix?", "tem cupom?",
-    "qual a promoção de hoje?", "o lembrete chegou",
-    // Without a marketing word this is not about the opt-in — classifyOptOut reads the rest.
-    "não quero o M, quero o G", "não sei meu tamanho", "para quando chega?", "",
-  ])("não revoga: %j", (text) => {
-    expect(revokesMarketingOptIn(text)).toBe(false);
-  });
-
-  // The caller asks both; they must never both say yes (sixth review, item 6).
+  // The caller asks both; they must never both say yes.
   it("nenhuma resposta aceita como sim é lida como revogação", () => {
     for (const reply of YES_REPLIES) expect(revokesMarketingOptIn(reply), reply).toBe(false);
+    for (const reply of ["*OFERTAS* 💛", "Sim, quero ofertas!", "ofertasss"]) expect(revokesMarketingOptIn(reply), reply).toBe(false);
   });
 });
