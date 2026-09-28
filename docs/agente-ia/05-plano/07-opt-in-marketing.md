@@ -11,13 +11,21 @@
 > aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta e o
 > leitor do sim, provados em `tests/opt-in.test.ts`.
 >
-> **Um aperto sobre a especificação do item 4, abaixo:** "sim em até 24h depois da pergunta"
-> deixava um "sim" a outra pergunta da agente no mesmo dia ("fica o M, certo?") virar
-> consentimento. O leitor exige que **a última mensagem enviada antes da resposta seja a
-> própria pergunta**, e que a resposta inteira seja um sim curto.
+> **Dois ajustes sobre os itens 3 e 4 da especificação abaixo (segunda revisão, 2026-09-28).**
+> Eles valem mais que o texto original:
 >
+> - **A pergunta vai numa mensagem só dela**, logo depois do `silence_1`, e nunca dentro dele.
+>   Quatro das seis variantes do `silence_1` terminam numa pergunta de sim ou não própria
+>   ("Conseguiu finalizar seu pedido?"), e um "sim" a ela não é consentimento.
+> - **A captura exige três coisas:** que a última mensagem enviada seja exatamente a pergunta
+>   que a varredura gravou (pelo id, nunca qualquer mensagem enviada, porque o modelo pode
+>   repetir a linha); que a pergunta tenha sido feita há menos de 24h; e que a resposta inteira
+>   seja um sim curto.
+> - **O leitor recusa** "s" sozinho, qualquer interrogação (`?`, `¿`, `？`) e qualquer símbolo
+>   fora de uma lista curta de inofensivos (👎, ❌ e 🙄 contam como não).
+
 > **Fica para depois do merge:** a flag `channel.askMarketingOptIn` (ausente = não pergunta), a
-> linha no `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050
+> mensagem da pergunta depois do `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050
 > zerando o opt-in, e o espelho do `opt-in.ts` em `supabase/functions/turn/`.
 
 **O problema.** `silence_2` (manhã seguinte) e `silence_3` (cupom, 3 dias depois) saem fora
