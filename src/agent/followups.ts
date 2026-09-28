@@ -144,19 +144,29 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
 
 /**
  * The ruler to write when it is (re)anchored. A fresh ruler — the agent just spoke — is
- * `scheduleSilence` whole. Re-anchored because a touch was postponed by the clock, it only
- * brings back the checkout touch when that touch is the one postponed: a link sent at 23:40
- * has its 15-minute touch go out at 23:55, and `silence_1`, deferred past midnight, must
- * not re-arm the touch she already got (sixth review, 2026-09-26).
+ * `scheduleSilence` whole, except the checkout touch: that one only when THIS reply carried
+ * the link (`linkInReply`). The stop point stays `link_sent` for the turns after the link
+ * (M-03 window), and re-arming the 15-minute touch on each of them would ask "deu algum
+ * problema no checkout?" after every "vou abrir aqui" (second review, 2026-09-28).
+ *
+ * Re-anchored because a touch was postponed by the clock, the ruler restarts AT that touch:
+ * a link sent at 23:40 has its 15-minute touch go out at 23:55, and `silence_1`, deferred
+ * past midnight, must not re-arm the touch she already got (sixth review, 2026-09-26) — nor
+ * `silence_2` or `silence_3` re-arm the ones before them. The upsert is merge-duplicates, so
+ * a kind written here that already went out turns from `sent` back into `scheduled`.
  */
 export const rulerFor = (
   from: Date,
   stopPoint: StopPoint,
   postponed?: FollowupKind,
-): ScheduledFollowup[] =>
-  scheduleSilence(from, stopPoint).filter(
-    (f) => postponed === undefined || postponed === "checkout_reminder" || f.kind !== "checkout_reminder",
+  linkInReply = false,
+): ScheduledFollowup[] => {
+  const ruler = scheduleSilence(from, stopPoint).filter(
+    (f) => f.kind !== "checkout_reminder" || postponed !== undefined || linkInReply,
   );
+  const at = ruler.findIndex((f) => f.kind === postponed);
+  return at === -1 ? ruler : ruler.slice(at);
+};
 
 /**
  * The touch that closes the silence ruler: once it leaves the queue — sent, or cancelled
@@ -284,8 +294,9 @@ export const onOrderConfirmed = (
   // because there is no delivery to talk about, and the silence ones because chasing
   // someone who just cancelled is worse than saying nothing. Nothing is armed.
   //
-  // With two orders on one lead, only the dead one's touches go: another order's eve and
-  // delivery still happen. A row that does not say its order (before 0017) dies as before.
+  // With two orders on one lead, only the dead one's touches go. The rows are one per kind
+  // per conversation, so the live order usually has none of its own: `orderTakeOver` moves
+  // them to it. A row that does not say its order (before 0017) dies as before.
   if (isOrderDead(status)) {
     const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
     return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [] };
@@ -303,6 +314,51 @@ export const onOrderConfirmed = (
     ),
   };
 };
+
+/** One of the lead's orders, as the sale webhook sees them. */
+export interface LeadOrder {
+  readonly id: string;
+  readonly status: string | undefined;
+  readonly orderedAt: Date;
+}
+
+/**
+ * The post-order touches a live order takes over from a dead one (second review, 2026-09-28).
+ *
+ * `(conversation_id, kind)` is unique, so a lead's second order never gets rows of its own —
+ * `onOrderConfirmed` dedupes against every row. Two ways that left a live order with no eve:
+ * A and B created, A cancelled, and A's rows were the only ones there were; or A cancelled,
+ * then B created, and every kind was already taken by A's cancelled row. A row not sent,
+ * armed by a dead order, moves to the live one — its id and its dates. A moment already past
+ * is not sent late. Nothing moves onto the order whose own rows died: a late webhook of a
+ * cancelled order does not bring its touches back. Null when nothing moves.
+ */
+export const orderTakeOver = (
+  existing: readonly ExistingFollowup[],
+  order: LeadOrder,
+  /** The lead's other orders, newest first. */
+  others: readonly LeadOrder[],
+  now: Date,
+  codDaysMin: number,
+): { orderId: string; arm: ScheduledFollowup[] } | null => {
+  const live = isOrderDead(order.status) ? others.find((o) => !isOrderDead(o.status)) : order;
+  if (!live) return null;
+  const dead = [order, ...others].filter((o) => isOrderDead(o.status)).map((o) => o.id);
+  const arm = scheduleOrder(live.orderedAt, codDaysMin).filter(
+    (f) =>
+      f.runAt > now &&
+      existing.some((e) => e.kind === f.kind && e.status !== "sent" && !!e.orderId && dead.includes(e.orderId)),
+  );
+  return arm.length > 0 ? { orderId: live.id, arm } : null;
+};
+
+/**
+ * `recusado` is terminal for the conversation, and a second order is a new sale: this order
+ * alive while another of the lead's is dead reopens it (second review, 2026-09-28). A late
+ * webhook of the order that died does not — `others` never holds the order itself.
+ */
+export const reopensRefused = (status: string | undefined, others: readonly string[]): boolean =>
+  !isOrderDead(status) && others.some((s) => isOrderDead(s));
 
 export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {
   let hash = 0;

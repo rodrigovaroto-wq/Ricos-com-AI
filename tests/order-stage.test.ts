@@ -89,7 +89,8 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(3);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
-    expect(nullBranch.slice(0, nullBranch.indexOf("continue;"))).toContain('await leave("canceled");');
+    expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
+    expect(nullBranch.slice(0, nullBranch.indexOf("return;"))).toContain('await leave("canceled");');
   });
 
   it("só marca perdido a linha que esta varredura fechou, pela regra de não regredir", () => {
@@ -103,8 +104,9 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
 
   it("o toque é fechado antes de ser gravado e enviado; se ela respondeu, não sai", () => {
     const claim = afterLeave.indexOf('if (!(await leave("sent"))) {');
-    const skip = afterLeave.indexOf("continue;", claim);
+    const skip = afterLeave.indexOf("return;", claim);
     expect(claim).toBeGreaterThan(-1);
+    expect(skip).toBeGreaterThan(claim);
     expect(afterLeave.indexOf('await db("messages"')).toBeGreaterThan(skip);
     expect(afterLeave.indexOf("toSend.push(")).toBeGreaterThan(skip);
   });
@@ -153,8 +155,8 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
   });
   it("recordOrder lê os outros pedidos do lead antes de gravar o estágio", () => {
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=status");
-    expect(source).toContain("const reached = stageForLead(order.status, (others ?? []).map((o: { status: string | null }) => o.status ?? \"\"));");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc");
+    expect(source).toContain("const reached = stageForLead(order.status, otherStatuses);");
   });
 });
 
@@ -167,7 +169,7 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
-    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed).map((f) => ({");
+    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
   it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
@@ -175,7 +177,7 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
     expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
   });
   it("link_sent só quando o texto leva um dos links de checkout", () => {
-    expect(source).toContain('if (linkSentRecently([replyText], CHECKOUT_BASES)) return "link_sent";');
+    expect(source).toContain('if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return "link_sent";');
     expect(source).not.toContain('t.includes("checkout") || t.includes("link")');
   });
   it("a venda cancela o lembrete de checkout", () => {
@@ -221,7 +223,7 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
     expect(rulerFor(reabertura, "link_sent", "checkout_reminder").map((f) => f.kind)[0]).toBe("checkout_reminder");
   });
   it("régua nova, depois de a agente falar com o link, arma o lembrete", () => {
-    expect(rulerFor(reabertura, "link_sent").map((f) => f.kind)[0]).toBe("checkout_reminder");
+    expect(rulerFor(reabertura, "link_sent", undefined, true).map((f) => f.kind)[0]).toBe("checkout_reminder");
   });
 
   it("o texto com o link de checkout (com parâmetros) é link enviado", () => {
@@ -256,5 +258,56 @@ describe("revisão de segurança: o pedido do toque é da própria cliente", () 
     const guard = source.indexOf("order.externalId.length > MAX_EXTERNAL_ID");
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(source.indexOf('await db("orders?on_conflict=external_id"'));
+  });
+});
+
+/**
+ * Segunda revisão (2026-09-28), achados fora do gate. Cada um reproduzido antes por execução
+ * da Edge Function contra um PostgREST falso; aqui fica a ordem que o conserto exige, no
+ * arquivo que a produção roda. O comportamento das decisões puras está em followups.test.ts.
+ */
+describe("segunda revisão: varredura e webhook de venda", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("o ponto de parada lê a janela M-03; o lembrete, só a resposta que levou o link", () => {
+    expect(source).toContain(
+      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n  );",
+    );
+    expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),');
+    expect(sweep).toContain("stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES)");
+  });
+
+  it("o adiamento só reancora a linha que esta varredura leu", () => {
+    const postpone = sweep.slice(sweep.indexOf('if (action.do === "postpone") {'));
+    const owned = postpone.indexOf("if (!Array.isArray(moved) || moved.length === 0) {");
+    expect(postpone).toContain("`followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}`,");
+    expect(owned).toBeGreaterThan(-1);
+    expect(postpone.indexOf("await scheduleSilenceTouches(")).toBeGreaterThan(owned);
+  });
+
+  it("a nova tentativa fora da janela só vira handoff se a varredura fechou a linha", () => {
+    const retry = sweep.slice(sweep.indexOf("if (!windowIsOpen(new Date(), retryInbound)) {"));
+    const owned = retry.indexOf("if (!Array.isArray(closed) || closed.length === 0) {");
+    expect(retry).toContain('const closed = await mark("canceled");');
+    expect(owned).toBeGreaterThan(-1);
+    expect(retry.indexOf("handoff_at: new Date().toISOString()")).toBeGreaterThan(owned);
+  });
+
+  it("uma linha que lança não derruba a varredura", () => {
+    expect(sweep).toContain("await sweepRow(row).catch((error) => {");
+    expect(sweep).not.toMatch(/^ {4}continue;$/m);
+  });
+
+  it("externalId malformado é recusado antes de gravar", () => {
+    const guard = source.indexOf("if (!order.externalId.isWellFormed()) return { status: \"external_id_malformed\", ok: false };");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(source.indexOf('await db("orders?on_conflict=external_id"'));
+  });
+
+  it("recusado reabre só pela venda nova, e os toques do morto passam ao vivo sem tocar o que saiu", () => {
+    expect(source).toContain('if (reached && conversation.stage === "recusado" && reopensRefused(order.status, otherStatuses)) {');
+    expect(source).toContain("await db(`conversations?id=eq.${conversation.id}&stage=eq.recusado`, {");
+    expect(source).toContain("await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {");
   });
 });

@@ -24,6 +24,8 @@ import {
   nextOpening,
   windowIsOpen,
   onOrderConfirmed,
+  orderTakeOver,
+  reopensRefused,
   stageForLead,
   renderFollowup,
   rulerFor,
@@ -878,9 +880,15 @@ const CHECKOUT_BASES: string[] = [
  * link is in the text, by the same rule as M-03: the words "link" and "checkout" also come
  * in an offer ("quer que eu te mande o link?") or a denial, and since §R10.4 is armed that
  * would send "o link ainda está aberto" about a link never sent (sixth review).
+ *
+ * The text is this reply AND the M-03 window before it (`earlier`, the outbound messages
+ * already sent, oldest first): the turn after the link — "Isso! Qualquer dúvida me chama" —
+ * still stopped at the link, and reading only that reply armed "que tamanho você usa?"
+ * thirty minutes later (second review, 2026-09-28). Whether the 15-minute touch is armed is
+ * a separate question — only the reply that carries the link (`rulerFor`).
  */
-const stopPointOf = (replyText: string): StopPoint => {
-  if (linkSentRecently([replyText], CHECKOUT_BASES)) return "link_sent";
+const stopPointOf = (replyText: string, earlier: readonly string[]): StopPoint => {
+  if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return "link_sent";
   const t = replyText.toLowerCase();
   // From the config, not typed here: hardcoded prices meant a price change silently
   // downgraded every "she already heard the price" touch to the opening one.
@@ -900,12 +908,13 @@ const stopPointOf = (replyText: string): StopPoint => {
 const scheduleSilenceTouches = async (
   conversationId: string,
   stopPoint: StopPoint,
+  linkInReply: boolean,
   from: Date = new Date(),
   postponed?: FollowupKind,
 ) => {
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
-  const rows = rulerFor(from, stopPoint, postponed).map((f) => ({
+  const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
@@ -964,6 +973,9 @@ const recordOrder = async (order: OrderWebhook) => {
   // An id is a short token; kilobytes of it overflow the second read's URL after the upsert
   // already wrote (security review, 2026-09-27).
   if (order.externalId.length > MAX_EXTERNAL_ID) return { status: "external_id_too_long", ok: false };
+  // A lone surrogate ("LZ-\ud800") survives JSON and the upsert, and `encodeURIComponent`
+  // throws on the second read — after the write (second review, 2026-09-28).
+  if (!order.externalId.isWellFormed()) return { status: "external_id_malformed", ok: false };
 
   // The webhook writes the phone the way its platform stores it — +55, spaces, dashes,
   // sometimes without the 9. The lead row holds whatever the channel delivered. An exact
@@ -1023,21 +1035,33 @@ const recordOrder = async (order: OrderWebhook) => {
   // orders on one lead read the latest otherwise).
   const orderRowId: string | undefined = saved?.[0]?.id;
 
-  const others = await db(
-    `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=status`,
-  );
-  const reached = stageForLead(order.status, (others ?? []).map((o: { status: string | null }) => o.status ?? ""));
-  if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
+  // Index: orders_lead_idx (lead_id); a lead's handful of orders is sorted in memory.
+  const others: Array<{ id: string; status: string | null; created_at: string }> =
+    (await db(
+      `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc`,
+    )) ?? [];
+  const otherStatuses = others.map((o) => o.status ?? "");
+  const reached = stageForLead(order.status, otherStatuses);
+  if (reached && conversation.stage === "recusado" && reopensRefused(order.status, otherStatuses)) {
+    // A new sale after a refused one: `recusado` is terminal for `persistStage`, so the
+    // reopening is its own write, and only over the stage this call read.
+    await db(`conversations?id=eq.${conversation.id}&stage=eq.recusado`, {
+      method: "PATCH",
+      body: JSON.stringify({ stage: reached }),
+    }).catch(() => undefined);
+  } else if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the
   // unique key, and re-arming it throws.
   const existing = await db(
     `followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id`,
   );
+  const rows = ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null }>)
+    .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id }));
+  const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();
   const effect = onOrderConfirmed(
-    ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null }>)
-      .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id })),
-    order.orderedAt ? new Date(order.orderedAt) : new Date(),
+    rows,
+    orderedAt,
     CONFIG.delivery.codDaysMin,
     order.status,
     orderRowId,
@@ -1066,12 +1090,28 @@ const recordOrder = async (order: OrderWebhook) => {
       ),
     });
   }
+  // The post-order rows a dead order held move to the live one (`orderTakeOver`).
+  const takeOver = orderRowId
+    ? orderTakeOver(
+        rows,
+        { id: orderRowId, status: order.status, orderedAt },
+        others.map((o) => ({ id: o.id, status: o.status ?? "", orderedAt: new Date(o.created_at) })),
+        new Date(),
+        CONFIG.delivery.codDaysMin,
+      )
+    : null;
+  for (const f of takeOver?.arm ?? []) {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "scheduled", run_at: f.runAt.toISOString(), order_id: takeOver!.orderId, sent_at: null }),
+    });
+  }
 
   return {
     status: "recorded",
     orderId: order.externalId,
     canceled: effect.cancel,
-    armed: effect.arm.map((f) => f.kind),
+    armed: [...effect.arm, ...(takeOver?.arm ?? [])].map((f) => f.kind),
   };
 };
 
@@ -1152,7 +1192,12 @@ const runFollowupSweep = async () => {
   const handoffs: Array<Record<string, unknown>> = [];
   let retriedTurns = 0;
 
-  for (const row of due ?? []) {
+  // One row at a time, each on its own (second review, 2026-09-28): a throw in one row —
+  // the `messages` insert after the claim, typically — aborted the whole sweep, and every
+  // touch already closed as `sent` before it vanished from `send`: never delivered, never
+  // retried. Now that row is reported in `skipped` and the rest go on.
+  // deno-lint-ignore no-explicit-any
+  const sweepRow = async (row: any): Promise<void> => {
     const lead = row.conversations?.leads;
     // Only the row as this sweep read it: a turn that answered meanwhile re-arms the same
     // (conversation_id, kind) row with a new run_at, and that one is not ours to close.
@@ -1165,7 +1210,7 @@ const runFollowupSweep = async () => {
     if (!lead || lead.opted_out_at || lead.handoff_at) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "opt-out ou handoff" });
-      continue;
+      return;
     }
 
     /**
@@ -1177,13 +1222,19 @@ const runFollowupSweep = async () => {
     if (row.kind === RETRY_TURN_KIND) {
       if (retriedTurns >= RETRY_TURNS_PER_SWEEP) {
         skipped.push({ followupId: row.id, reason: "nova tentativa fica para a próxima varredura" });
-        continue;
+        return;
       }
       // A retry that waited past her 24-hour window cannot answer as free text (security
       // review, 2026-09-25): a person picks it up instead of Meta refusing it in silence.
       const retryInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
       if (!windowIsOpen(new Date(), retryInbound)) {
-        await mark("canceled");
+        // Only a row this sweep closed: her new message cancelled it and reopened the window,
+        // and her own turn answers — no handoff, no e-mail (second review, 2026-09-28).
+        const closed = await mark("canceled");
+        if (!Array.isArray(closed) || closed.length === 0) {
+          skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da nova tentativa" });
+          return;
+        }
         // A real handoff, as the e-mail says: the agent stops answering her (second review).
         await db(`leads?id=eq.${lead.id}`, {
           method: "PATCH",
@@ -1197,20 +1248,20 @@ const runFollowupSweep = async () => {
           phone: lead.phone,
           conversationId: row.conversation_id,
         });
-        continue;
+        return;
       }
       // Claimed before it runs: a turn she sent meanwhile cancelled this retry, and running
       // it anyway would answer an old message after the new one.
       const claimed = await mark("sent");
       if (!Array.isArray(claimed) || claimed.length === 0) {
         skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da nova tentativa" });
-        continue;
+        return;
       }
       retriedTurns += 1;
       const ticket = readTicket(row.body);
       if (ticket === null) {
         skipped.push({ followupId: row.id, reason: "nova tentativa sem a mensagem de origem" });
-        continue;
+        return;
       }
       // A turn that throws here must not take the rest of the sweep down with it.
       const result = await handleTurn({ externalId: `retry:${row.id}`, from: lead.phone }, { retry: ticket })
@@ -1232,7 +1283,7 @@ const runFollowupSweep = async () => {
       } else if (typeof result.reply !== "string") {
         skipped.push({ followupId: row.id, reason: `nova tentativa: ${result.status}` });
       }
-      continue;
+      return;
     }
 
     const kind = row.kind as FollowupKind;
@@ -1291,7 +1342,7 @@ const runFollowupSweep = async () => {
             ? "resposta adiada sem corpo guardado"
             : "cupom ainda não existe",
       });
-      continue;
+      return;
     }
 
     const gates = runGates(text, {
@@ -1317,29 +1368,35 @@ const runFollowupSweep = async () => {
       // `followups.ts`, where a test can reach it.
       if (action.do === "postpone") {
         const opening = nextOpening(new Date(), CONFIG.hours.openHour);
+        // Only the row as this sweep read it, like `mark`: a turn that answered meanwhile
+        // re-armed or cancelled it, and re-anchoring would overwrite her fresh ruler.
+        const moved = await db(
+          `followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}`,
+          { method: "PATCH", body: JSON.stringify({ run_at: opening.toISOString() }) },
+        );
+        if (!Array.isArray(moved) || moved.length === 0) {
+          skipped.push({ followupId: row.id, reason: "ela respondeu antes do adiamento" });
+          return;
+        }
         if (action.restartRuler) {
           await scheduleSilenceTouches(
             row.conversation_id,
             (row.stop_point ?? "before_size") as StopPoint,
+            false,
             opening,
             kind,
           );
-        } else {
-          await db(`followups?id=eq.${row.id}`, {
-            method: "PATCH",
-            body: JSON.stringify({ run_at: opening.toISOString() }),
-          });
         }
         skipped.push({
           followupId: row.id,
           reason: `adiado para ${opening.toISOString()}: ${reason}`,
         });
-        continue;
+        return;
       }
 
       await leave("canceled");
       skipped.push({ followupId: row.id, reason });
-      continue;
+      return;
     }
 
     // The 24-hour window (WA-1): outside it only an approved template leaves. A touch with
@@ -1356,15 +1413,16 @@ const runFollowupSweep = async () => {
             ? "fora da janela de 24h: template com variável vazia"
             : "fora da janela de 24h e sem template aprovado",
       });
-      continue;
+      return;
     }
 
     // Closed before it is recorded or sent: if she answered after this sweep read the row,
     // her turn re-armed it and the old touch ("sumiu?") must not follow her reply. At most
-    // once — a failure after the claim loses one touch instead of sending it twice.
+    // once — a failure after the claim loses this one touch, reported in `skipped` by the
+    // loop around `sweepRow`, instead of sending it twice.
     if (!(await leave("sent"))) {
       skipped.push({ followupId: row.id, reason: "ela respondeu antes do envio" });
-      continue;
+      return;
     }
     await db("messages", {
       method: "POST",
@@ -1380,13 +1438,27 @@ const runFollowupSweep = async () => {
     // pending touch on the way in and returned before scheduling, so without this the
     // conversation loses follow-up recovery entirely.
     if (kind === "deferred_reply") {
-      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text));
+      // The M-03 window before this reply, oldest first; the newest row is this reply.
+      // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+      const window = await db(
+        `messages?conversation_id=eq.${row.conversation_id}&direction=eq.outbound&select=body&order=created_at.desc&limit=3`,
+      ).catch(() => null);
+      const earlier = (window ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
+      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES));
     }
     toSend.push(
       delivery.via === "template"
         ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
+  };
+  for (const row of due ?? []) {
+    await sweepRow(row).catch((error) => {
+      skipped.push({
+        followupId: row.id,
+        reason: `erro: ${redactKeys(error instanceof Error ? error.message : String(error))}`,
+      });
+    });
   }
 
   return { status: "swept", due: (due ?? []).length, send: toSend, skipped, handoffs };
@@ -2093,7 +2165,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       }),
     });
     // A fixed line that carries the link starts the ruler at `link_sent`.
-    await scheduleSilenceTouches(conversation.id, extra.checkoutUrl ? "link_sent" : stopPointOf(text));
+    await scheduleSilenceTouches(
+      conversation.id,
+      extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
+      Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES),
+    );
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
@@ -2823,7 +2899,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   });
 
   // The silence ruler starts the moment the agent finishes speaking.
-  await scheduleSilenceTouches(conversation.id, stopPointOf(replyText));
+  await scheduleSilenceTouches(
+    conversation.id,
+    stopPointOf(replyText, recentOutbound),
+    linkSentRecently([replyText], CHECKOUT_BASES),
+  );
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;
   // a credencial e a chamada HTTP são cano. Quando falta alguma coisa — configuração

@@ -578,6 +578,31 @@ cupom inativo o `silence_3` sai cancelado, e isso é o fim da régua (opção a)
   A gravidade é baixa: uma semana corrida fica perto da média de 5 dias úteis. É o próximo
   item de gate.
 
+## 21. Segunda revisão, por execução (2026-09-28): consertos fora do gate
+
+A segunda revisão rodou o código da `turn` contra um PostgREST falso, com um harness de
+execução fora do repositório, e foi cética com os commits anteriores. Estes são os achados
+fora do gate, cada um reproduzido na base e corrigido com prova por execução (18/18):
+
+| # | Sintoma | Conserto | Guarda |
+|---|---|---|---|
+| 1 | **Regressão:** o turno depois do link ("qualquer dúvida no checkout me chama") armava `before_size`, e ela ouvia "que tamanho você usa?" depois de comprar | `stopPointOf` lê a janela M-03 (as 3 últimas saídas e a resposta); o lembrete de 15 minutos só é armado no turno que traz o link (`linkInReply`) | R2-link-janela, R2-lembrete-so-no-link, R2-lembrete-turno |
+| 2 | `silence_2` ou `silence_3` adiado rearmava os toques já enviados | reancorada, a régua recomeça do toque adiado (`ruler.slice(at)`) | R2-regua-recomeca |
+| 3 | o adiamento sobrescrevia a régua que o turno dela acabara de armar | adiar exige reivindicar a linha (`status` + `run_at`) | R2-adiamento-posse |
+| 4a | A e B criados, A cancelado: B ficava sem véspera | `orderTakeOver` passa os `order_*` não enviados ao pedido vivo | R2-dois-pedidos-vivo, R2-mesmo-pedido-nao-herda |
+| 4b | depois de um pedido recusado, um pedido novo ficava em `recusado` | `reopensRefused`: reabre quando ESTE pedido está vivo e outro do lead está morto | R2-recusado-reabre |
+| 5 | nova tentativa fora da janela virava handoff mesmo sem fechar a linha | handoff só com a linha fechada | R2-retry-janela-posse |
+| 6 | `externalId` com surrogate isolado causava URIError depois do upsert | `isWellFormed()` antes de gravar, com recusa própria | R2-externalid-malformado |
+| 7 | uma linha que lançava erro derrubava a varredura inteira | `sweepRow` isolada por linha; o erro vai para `skipped` | R2-varredura-isolada |
+
+**Fica aberto:**
+- **Webhook atrasado:** um webhook atrasado reescreve `orders.status`, e um "Enviado" que chega
+  depois de um "Cancelado" faz o pedido parecer vivo.
+- **Telefone malformado:** um telefone com surrogate isolado dá 500 antes de gravar qualquer
+  coisa.
+- **Tipo repetido na resposta:** a resposta de `recordOrder` lista o mesmo tipo em `canceled` e
+  em `armed` quando o toque é passado ao pedido vivo.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

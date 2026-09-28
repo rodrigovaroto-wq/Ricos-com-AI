@@ -3,6 +3,9 @@ import {
   pickVariant,
   renderFollowup,
   onOrderConfirmed,
+  orderTakeOver,
+  reopensRefused,
+  rulerFor,
   scheduleOrder,
   scheduleSilence,
   decideTouch,
@@ -581,6 +584,124 @@ describe("dois pedidos no mesmo lead", () => {
       "order_delivered",
       "silence_3",
     ]);
+  });
+});
+
+/**
+ * Segunda revisão (2026-09-28), provada antes por execução da Edge Function contra um
+ * PostgREST falso. Duas falhas da régua de silêncio e duas do pós-pedido com dois pedidos.
+ */
+describe("régua reancorada recomeça no toque adiado", () => {
+  const reabertura = new Date("2026-09-29T09:00:00Z"); // 06:00 em São Paulo
+  const kinds = (postponed?: Parameters<typeof rulerFor>[2]) =>
+    rulerFor(reabertura, "after_price", postponed).map((f) => f.kind);
+
+  it("silence_2 adiado não rearma o silence_1 que já saiu", () => {
+    expect(kinds("silence_2")).toEqual(["silence_2", "silence_3"]);
+  });
+  it("silence_3 adiado não rearma o silence_1 nem o silence_2", () => {
+    expect(kinds("silence_3")).toEqual(["silence_3"]);
+  });
+  it("silence_1 adiado e régua nova seguem inteiras", () => {
+    expect(kinds("silence_1")).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(kinds()).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+});
+
+describe("o lembrete de 15 min só no turno que mandou o link", () => {
+  const agora = new Date("2026-09-28T15:00:00Z");
+  it("o turno depois do link segue em link_sent, sem lembrete novo", () => {
+    const regua = rulerFor(agora, "link_sent", undefined, false);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+  it("o turno que mandou o link arma o lembrete aos 15 minutos", () => {
+    const [primeiro] = rulerFor(agora, "link_sent", undefined, true);
+    expect(primeiro).toEqual({ kind: "checkout_reminder", runAt: new Date(agora.getTime() + 15 * 60_000) });
+  });
+  it("reancorada, a régua ignora o link desta resposta: só o lembrete adiado volta", () => {
+    expect(rulerFor(agora, "link_sent", "silence_1", true).map((f) => f.kind)[0]).toBe("silence_1");
+    expect(rulerFor(agora, "link_sent", "checkout_reminder", false).map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+});
+
+describe("dois pedidos: o vivo herda os toques do morto", () => {
+  const h = 3_600_000;
+  const criadoA = new Date("2026-09-28T15:00:00Z");
+  const criadoB = new Date("2026-09-28T16:00:00Z");
+  const agora = new Date("2026-09-28T17:00:00Z");
+  const dosA = (status: "scheduled" | "canceled" | "sent" = "scheduled"): ExistingFollowup[] =>
+    (["order_confirmed", "order_shipped", "order_eve", "order_delivered"] as const).map((kind) => ({
+      kind,
+      status: kind === "order_confirmed" ? "sent" : status,
+      orderId: "A",
+    }));
+
+  it("A e B criados, A cancelado: véspera e entrega passam para B, nas datas de B", () => {
+    const r = orderTakeOver(
+      dosA(),
+      { id: "A", status: "Cancelado", orderedAt: criadoA },
+      [{ id: "B", status: "created", orderedAt: criadoB }],
+      agora,
+      1,
+    );
+    expect(r?.orderId).toBe("B");
+    expect(r?.arm).toEqual([
+      { kind: "order_shipped", runAt: new Date(criadoB.getTime() + 24 * h) },
+      { kind: "order_eve", runAt: new Date(criadoB.getTime() + 30 * h) },
+      { kind: "order_delivered", runAt: new Date(criadoB.getTime() + 48 * h) },
+    ]);
+  });
+  it("o que já saiu não muda de pedido, e hora que já passou não sai atrasada", () => {
+    const r = orderTakeOver(
+      dosA(),
+      { id: "A", status: "Cancelado", orderedAt: criadoA },
+      [{ id: "B", status: "created", orderedAt: criadoB }],
+      new Date(criadoB.getTime() + 25 * h),
+      1,
+    );
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
+  });
+  it("A cancelado antes, B criado depois: B toma as linhas canceladas de A", () => {
+    const r = orderTakeOver(
+      dosA("canceled"),
+      { id: "B", status: "created", orderedAt: agora },
+      [{ id: "A", status: "Cancelado", orderedAt: criadoA }],
+      agora,
+      1,
+    );
+    expect(r?.orderId).toBe("B");
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+  });
+  it("webhook atrasado do MESMO pedido cancelado não traz os toques dele de volta", () => {
+    expect(
+      orderTakeOver(dosA("canceled"), { id: "A", status: "Enviado", orderedAt: criadoA }, [], agora, 1),
+    ).toBeNull();
+  });
+  it("sem pedido vivo, ninguém herda; pedido vivo dono das linhas, nada muda", () => {
+    expect(
+      orderTakeOver(dosA(), { id: "A", status: "Cancelado", orderedAt: criadoA }, [{ id: "B", status: "Cancelado", orderedAt: criadoB }], agora, 1),
+    ).toBeNull();
+    expect(
+      orderTakeOver(dosA(), { id: "B", status: "Cancelado", orderedAt: criadoB }, [{ id: "A", status: "created", orderedAt: criadoA }], agora, 1),
+    ).toBeNull();
+  });
+  it("linha sem pedido guardado (antes da 0017) não muda de dono", () => {
+    const antigas: ExistingFollowup[] = [{ kind: "order_eve", status: "canceled", orderId: null }];
+    expect(
+      orderTakeOver(antigas, { id: "B", status: "created", orderedAt: agora }, [{ id: "A", status: "Cancelado", orderedAt: criadoA }], agora, 1),
+    ).toBeNull();
+  });
+});
+
+describe("recusado reabre com uma venda nova", () => {
+  it.each([
+    ["created", ["Cancelado"], true],
+    ["Entregue", ["Recusado na entrega"], true],
+    ["Enviado", [], false],
+    ["Cancelado", ["Cancelado"], false],
+    ["Entregue", ["Entregue"], false],
+  ] as const)("«%s» com os outros %j → %s", (status, outros, esperado) => {
+    expect(reopensRefused(status, outros)).toBe(esperado);
   });
 });
 
