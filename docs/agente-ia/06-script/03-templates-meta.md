@@ -121,6 +121,17 @@ Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
 
 Se o operador quiser o tamanho na véspera, a mudança começa em `renderFollowup`, não aqui.
 
+> **⚠ Não submeter este corpo sozinho (achado de 2026-09-28, `tests/whatsapp-templates.test.ts`).**
+> Para pedido **antecipado**, `renderFollowup` tira a linha "Deixa {{1}} separado", porque ela
+> já pagou; este template manda a linha sempre. Declarado como está, a cliente que pagou no
+> Pix recebe na véspera "Deixa R$ 129,90 separado", um texto que nenhum gate leu. O conserto
+> pede duas coisas: um segundo template sem a linha do valor (ex.:
+> `encorpa_vespera_entrega_pago`) e o código escolhendo entre os dois e passando pelo gate o
+> texto do template, não o texto livre. Até lá, o teste guarda a divergência com `it.fails`.
+>
+> O mesmo teste guarda uma segunda, menor: fora da janela, metade das leads recebe a
+> primeira variante do `silence_2`, mas o gate leu a segunda.
+
 Mantenha o texto **sem nada promocional**. Uma palavra de oferta num template `UTILITY` faz a
 Meta reclassificar o template como marketing, e aí ele muda de preço e passa a depender do
 opt-in de marketing.

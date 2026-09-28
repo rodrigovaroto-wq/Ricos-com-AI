@@ -10,6 +10,8 @@
  *   difference between what was committed and what ran.
  * - The v33 turn takes up to ~120 s; a 60 s timeout sends a saved reply to the refusal
  *   branch.
+ * - The régua's sweep (2026-09-28) had no error output: a sweep the Edge Function refused
+ *   (a missing column, a database error) failed every 5 minutes and told nobody.
  */
 
 export interface N8nNode {
@@ -18,13 +20,18 @@ export interface N8nNode {
   disabled?: boolean;
   parameters?: Record<string, unknown>;
   credentials?: Record<string, { id?: string; name: string }>;
+  onError?: string;
 }
+
+/** n8n's wiring: per node, one list of targets per output (`main[1]` is the error output). */
+export type N8nConnections = Record<string, { main?: ({ node: string }[] | null)[] }>;
 
 export interface N8nWorkflow {
   id: string;
   name: string;
   active: boolean;
   nodes: N8nNode[];
+  connections?: N8nConnections;
 }
 
 /** The one credential that may authenticate a call to the Edge Function. */
@@ -49,6 +56,8 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
       problems.push(`${where}: calls the Edge Function with credential "${cred ?? "none"}", not "${SUPABASE_CREDENTIAL}"`);
     if (get(node.parameters, ["options", "response", "response", "neverError"]) === true)
       problems.push(`${where}: neverError hides a gateway 401 as a green execution`);
+    if (node.onError !== "continueErrorOutput" || !wf.connections?.[node.name]?.main?.[1]?.length)
+      problems.push(`${where}: no wired error output — a refused call reaches nobody`);
     const timeout = Number(get(node.parameters, ["options", "timeout"]) ?? 0);
     // Only the conversation turn; the sweep and the order carry a `job` and are fast.
     const isConversationTurn = url.endsWith("/functions/v1/turn") && !String(node.parameters?.jsonBody ?? "").includes("job");
