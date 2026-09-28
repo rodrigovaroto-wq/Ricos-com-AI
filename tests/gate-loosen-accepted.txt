@@ -58,3 +58,12 @@ M-08 | delivery_promise | A gente troca ou devolve, sem drama, você tem 7 dias 
 M-08 | delivery_promise | Você tem 7 dias contando de quando recebeu.
 M-08 | delivery_promise | Tem 7 dias pra trocar a partir do dia que receber.
 M-08 | delivery_promise | Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita no ambiente da Coinzz, com nota; você tem 7 dias pra trocar ou devolver contando do dia que receber; e eu fico aqui no WhatsApp com você do pedido até a entrega, pode me cobrar.
+R2 | delivery_promise | Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.
+R2 | delivery_promise | Você não paga nada agora, você recebe o colete em casa em até 3 dias e só paga R$ 129,90 na mão do entregador, e ainda tem 7 dias pra devolver se não gostar.
+R2 | delivery_promise | Sem pix, em 2 dias o colete é seu.
+R2 | delivery_promise | Nada de pix: em até 3 dias ele tá com você.
+R2 | delivery_promise | Sem pix e sem boleto, chega em 2 dias.
+R2 | delivery_promise | Sem pix nenhum, chega em 2 dias.
+R2 | delivery_promise | Nada de pix, nada de cartão: você recebe em 1 a 3 dias e paga na porta.
+R2 | delivery_promise | Aí a gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.
+R2 | delivery_promise | E se mesmo assim não servir, chame no WhatsApp. Você tem 7 dias contando de quando recebeu.

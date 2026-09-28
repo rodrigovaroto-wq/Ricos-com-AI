@@ -55,9 +55,10 @@ async function loadBase(ref: string): Promise<Gates> {
 /** String literals of three words or more — the sentences the tests already care about. */
 export function literals(source: string): string[] {
   const out: string[] = [];
-  for (const m of source.matchAll(/"((?:[^"\\\n]|\\.){12,})"|'((?:[^'\\\n]|\\.){12,})'|`([^`$\\]{12,})`/g)) {
+  for (const m of source.matchAll(/"((?:[^"\\\n]|\\.){12,})"|'((?:[^'\\\n]|\\.){12,})'|`([^`$\\\n]{12,})`/g)) {
     const s = (m[1] ?? m[2] ?? m[3] ?? "").replace(/\\(["'\\])/g, "$1");
-    // A template ("{name} chega em {n} dias") is a generator's mold, not a sentence.
+    // A template ("{name} chega em {n} dias") is a generator's mold, not a sentence; a
+    // backtick span across lines is code between two template literals, not a sentence either.
     if (s.trim().split(/\s+/).length >= 3 && !/\{\w+\}/.test(s)) out.push(s);
   }
   return out;

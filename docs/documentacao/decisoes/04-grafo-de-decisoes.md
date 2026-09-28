@@ -603,6 +603,51 @@ fora do gate, cada um reproduzido na base e corrigido com prova por execução (
 - **Tipo repetido na resposta:** a resposta de `recordOrder` lista o mesmo tipo em `canceled` e
   em `armed` quando o toque é passado ao pedido vivo.
 
+## 22. O gate `delivery_promise` reestruturado (2026-09-28, decisão do operador: "unificar e consertar")
+
+**Sintoma:** dez rodadas de revisão (M-08 e M-10) sem convergir. A auditoria adversarial da
+segunda revisão, com cerca de 315 mil execuções, mostrou três coisas. O branch reduzia as
+mentiras (de 112 mil para 39 mil), mas vetava frases honestas novas: recusar a data
+impossível, garantia com média, reembolso e a fala do próprio prompt. E abria uma regressão:
+"Sem pix, em 5 dias o colete é seu".
+
+**Causa:**
+- três listas diferentes para o nome do antecipado;
+- quatro vocabulários de chegada;
+- as regras de contagem e de faixa decidiam o caminho cada uma de um jeito.
+
+Cada conserto remendava uma lista, e o vazamento seguinte vinha por outra.
+
+**Correção, passo 1 (refatoração, sem mudar veredito):**
+- um `PREPAY_NAME` e um `COD_NAME` ("entregador" solto não nomeia a entrega);
+- uma função `pathOf`, usada pelas duas regras;
+- um `ARRIVAL` único, que inclui a posse ("é seu", "tá com você").
+
+Contra o HEAD: 1 afrouxamento honesto e 15 endurecimentos, todos em pontos onde as listas
+divergiam.
+
+**Correção, passo 2:**
+- a) recusar a data impossível passa;
+- b) garantia e média na mesma frase passa;
+- c) o antecipado negado com posse é vetado;
+- d) o fallback do antecipado exige fala de entrega/chegada, então reembolso, promoção, uso,
+  recontato e a fala do prompt passam;
+- e) cauda da garantia: "logo", "contigo", "todo dia" e "perder tempo" não derrubam a
+  isenção;
+- f) "sem/nada de <nome> <adjetivo>" não nega o nome;
+- g) nome depois do número, os dois caminhos ligados e cabeçalho da entrega na faixa.
+
+**Guarda:**
+- geradores de fuzz com sonda negada em cada item;
+- 11 mutações novas e 13 reapontadas;
+- 7 afrouxamentos honestos aceitos (R2).
+- Desempenho no pior caso a 4.096 caracteres: 56 ms, contra 85–90 ms antes.
+- O extrator do corpus (`gate-diff.ts`) passou a descartar trecho entre crases que atravessa
+  linhas, porque aquilo é código e não fala.
+
+**Resíduo:** no antecipado, sem palavra de chegada e com a contagem no meio da oração, passam
+frases como "Te mando o link e é 2 dias."
+
 ---
 
 ## Lições (valem para qualquer correção futura)

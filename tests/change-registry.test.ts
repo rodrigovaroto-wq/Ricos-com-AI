@@ -669,6 +669,8 @@ describe("M-08, quinta revisão: falas honestas passam", () => {
     "São 7 dias de garantia, contados da entrega.",
     "Tem 7 dias pra trocar a partir do dia que receber.",
     "Você tem 7 dias pra trocar de tamanho.",
+    // 2026-09-28: sem chegada na frase o antecipado já não julga a contagem; com ela, o objeto importa.
+    "Você tem 7 dias pra trocar de tamanho, contando do dia que receber.",
     "Você tem 7 dias pra trocar o tamanho.",
     "Você tem 7 dias pra trocar por outro tamanho.",
     "Você tem 7 dias pra devolver o produto.",

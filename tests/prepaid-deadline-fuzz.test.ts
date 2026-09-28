@@ -489,9 +489,12 @@ describe("M-07: nenhuma isca libera prazo do antecipado", () => {
       "Na entrega é de 1 a 3 dias e no pix chega em 2 dias.",
     ])
       expect(delivery(lie, "prepay"), lie).toBe("block");
-    // Fala do pagamento na entrega ("na mão do entregador"): só vale nesse caminho — no
-    // antecipado, "1 a 3 dias" é faixa inventada, e a checagem de faixa a veta.
+    // Fala do pagamento na entrega ("paga … na mão do entregador"): nomeia a entrega, e desde
+    // 2026-09-28 (um nome por caminho) a faixa é dela também numa conversa do antecipado — como a
+    // contagem já era. O entregador sozinho não nomeia caminho nenhum: ele entrega os dois.
     expect(delivery("Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.", "cod")).toBe("pass");
+    expect(delivery("Ela paga R$ 129,90 na mão do entregador quando receber em 1 a 3 dias, com 7 dias pra trocar ou devolver se precisar.", "prepay")).toBe("pass");
+    expect(delivery("No antecipado, o entregador leva de 1 a 3 dias.", "cod")).toBe("block");
   });
 });
 
@@ -724,5 +727,153 @@ describe("revisão de integração: 'um/uma' é artigo fora de prazo, e a negaç
   });
   it("negar uma semana no antecipado ainda diz que é mais rápido — vetado", () => {
     expect(delivery("No antecipado não chega em uma semana, chega em média 5 dias úteis.", "prepay")).toBe("block");
+  });
+});
+
+// Reestruturação (2026-09-28): um nome por caminho, uma função de caminho e um vocabulário de
+// chegada. Cada item tem a frase honesta que precisa passar e a mentira vizinha que precisa barrar.
+// a) Recusar a data impossível na entrega é o trabalho — a negação que governa a contagem, com a
+// verdade na mesma frase. A negação que não governa ("não demora, chega…"), a que promete teto
+// ("não passa de", "não demora mais que") e a sem verdade continuam vetadas.
+const refusalHonest = [
+  "Não, na entrega não demora uma semana: chega em 1 a 3 dias.", "Na entrega não chega em 5 dias, chega em 1 a 3 dias.",
+  "Na entrega não é 5 dias, é de 1 a 3 dias.", "Na entrega chega em até 3 dias, nunca 5 dias.",
+  "Na entrega não leva 10 dias não, é de 1 a 3 dias.",
+];
+const refusalLies = ["Não demora, chega em 5 dias", "Na entrega não demora, chega em 5 dias.", "Na entrega não chega em 5 dias."];
+for (const neg of ["não", "nunca"])
+  for (const verb of ["chega em", "recebe em", "entrega em", "é", "leva", "demora", ""])
+    for (const c of ["5 dias", "10 dias", "uma semana", "duas semanas", "quinze dias"]) {
+      const denial = ("Na entrega " + neg + " " + verb + " " + c).replace(/\s+/g, " ");
+      for (const truth of [", chega em 1 a 3 dias.", ": é de 1 a 3 dias.", ", você recebe em até 3 dias."]) refusalHonest.push(denial + truth);
+      refusalLies.push(denial + ".", denial + ", chega em 4 dias.", denial + ", chega em " + (c === "5 dias" ? "6" : "5") + " dias.");
+    }
+for (const c of ["5 dias", "uma semana", "10 dias"])
+  refusalLies.push(
+    "Na entrega não passa de " + c + ", geralmente 1 a 3 dias.", "Na entrega não demora mais que " + c + ", em geral 1 a 3 dias.",
+    "Na entrega nunca menos de " + c + ", às vezes 1 a 3 dias.", "Não demora, em " + c + " tá aí e em 1 a 3 dias você usa.",
+  );
+
+// b) Garantia e média do antecipado na mesma frase (prompt.ts, fala da garantia).
+const warrantyAndAverage = [
+  "Você tem 7 dias pra trocar ou devolver, e no antecipado o prazo varia por região, em média 5 dias úteis.",
+  "A troca é grátis em até 7 dias; no pix chega em média 5 dias úteis, varia por região.",
+];
+const warrantyAndAverageLies = [
+  "Você tem 7 dias pra trocar ou devolver, e no antecipado o prazo é o mesmo, em média 5 dias úteis.",
+  "A troca é grátis em até 7 dias; no pix chega em média 5 dias úteis, varia por região, e chega junto.",
+  "Você tem 7 dias pra trocar, e no antecipado varia por região, em média 7 dias úteis.",
+  "A troca é grátis em até 7 dias; no pix chega em 7 dias.",
+];
+
+// c) O antecipado negado nomeia a entrega, e a posse sem verbo é chegada: fora da faixa, vetada.
+const deniedPossessionLies: string[] = [];
+for (const lead of ["Sem pix,", "Nada de pix:", "Não precisa pagar antes,", "Sem boleto,", "Nada de cartão, nada de pix:"])
+  for (const c of ["em 5 dias", "em até 4 dias", "numa semana", "em dez dias"])
+    for (const arrival of ["o colete é seu", "ele tá com você", "ele tá contigo", "você já abre a caixa"])
+      deniedPossessionLies.push(lead + " " + c + " " + arrival + ".");
+const deniedPossessionHonest = ["Sem pix, em 2 dias o colete é seu.", "Nada de pix: em até 3 dias ele tá com você."];
+
+// d) No antecipado, a contagem sem caminho nomeado só é prazo quando fala de entrega ou chegada.
+const notDeadlinePrepay = [
+  "Se devolver, o reembolso cai em até 5 dias úteis na sua conta.", "Se precisar devolver, o dinheiro volta em até 10 dias.",
+  "Pelo CDC você tem 7 dias pra desistir e 90 dias de garantia contra defeito.", "A promoção vale só por 5 dias.",
+  "O link fica válido por 2 dias.", "Nos primeiros 3 dias usa só umas horas, depois o dia todo.",
+  "Com uns 2 dias de uso você se acostuma.", "Usa ele por 2 dias e me conta o que achou.",
+  "Nos primeiros 2 dias pode apertar um pouco, é normal.", "Te chamo daqui a 2 dias pra saber o que achou.",
+  "Tem cliente que usa há 30 dias e ama.",
+  "Você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 na mão do entregador.",
+];
+const notDeadlineCod = ["Usa ele uns 15 dias em casa e depois me conta como ficou."];
+// A sonda negada: sem nome, com chegada ou posse, continua prazo no antecipado.
+const unnamedArrivalLies: string[] = [];
+for (const c of ["2 dias", "3 dias", "10 dias", "uma semana", "dois dias"])
+  for (const s of [
+    "Em {c} chega.", "Em {c} o colete tá em casa.", "Em {c} ele está na sua casa.", "Em {c} o colete é seu.", "Leva {c}.",
+    "Demora {c}.", "É rapidinho, {c}.", "Em {c} você já veste.", "Em {c} você recebe.", "O prazo é de {c}.",
+    "Em {c} ele tá contigo.", "Em {c} tá na sua mão.", "Usa ele por {c} e chega aí.", "Em {c} de uso ele está aí.",
+    // A contagem que é a oração inteira responde a pergunta do prazo.
+    "É {c}.", "São {c}.", "Em {c}.", "{c}, viu?", "Sem pix, é {c}.", "Mais ou menos {c}.",
+  ])
+    unnamedArrivalLies.push(s.replace("{c}", c));
+
+// e) A cauda da garantia: o que não fala de tempo nem de chegada passa; a chegada disfarçada, não.
+const warrantyTailsHonest = [
+  "Você tem 7 dias pra trocar e eu te ajudo logo.", "Você tem 7 dias pra trocar, sem burocracia e sem perder tempo.",
+  "Você tem 7 dias pra trocar, e eu fico aqui contigo.", "São 7 dias pra trocar, mesmo tamanho ou outro.",
+  "Pagamento na entrega, 7 dias pra trocar e suporte todo dia.",
+];
+const warrantyTailsLies = [
+  "Você tem 7 dias pra trocar e logo tá aí.", "Você tem 7 dias pra trocar, e ele fica aqui contigo.",
+  "São 7 dias pra trocar, mesmo prazo da entrega.", "Você tem 7 dias pra trocar e todo dia ele chega.",
+  "Você tem 7 dias pra trocar, sem perder tempo: ele chega junto.", "São 7 dias pra trocar, e é o mesmo tempo.",
+];
+
+// f) "Sem/nada de <nome> <adjetivo>" não nega o antecipado: fala dele.
+const notDenyingAdjective: string[] = [];
+for (const lead of ["Nada de", "Sem", "Não precisa de"])
+  for (const n of ["pix", "boleto", "antecipado", "pagamento antecipado"])
+    for (const adj of ["demorado", "que demora", "lento", "caro", "complicado"])
+      for (const body of ["chega em 2 dias.", "em média 2 dias úteis.", "você recebe em 1 a 3 dias."])
+        notDenyingAdjective.push(lead + " " + n + " " + adj + ", " + body, lead + " " + n + " " + adj + ": " + body);
+const stillDeniedSeries = ["Sem pix e sem boleto, chega em 2 dias.", "Nada de pix nem cartão: chega em 1 a 3 dias.", "Sem pix nenhum, chega em 2 dias."];
+
+// g) A função única de caminho: nome depois da contagem, cabeçalho da entrega, os dois caminhos.
+const pathLies: Array<[string, "cod" | "prepay"]> = [
+  ["Chega em 2 dias no pix.", "cod"], ["Chega em 5 dias na entrega.", "prepay"], ["Vai ser na entrega? Chega em média 5 dias úteis.", "prepay"],
+  ["No pix ou na entrega, chega em 1 a 3 dias.", "cod"], ["No pix ou na entrega, chega em 1 a 3 dias.", "prepay"],
+  ["Você recebe em 2 dias pelo pix.", "cod"], ["Chega em uma semana na entrega.", "prepay"], ["Na entrega? Varia, em média 5 dias úteis.", "prepay"],
+  ["No pix ou na entrega, chega em 2 dias.", "cod"], ["Na entrega ou no pix, em média 5 dias úteis.", "cod"],
+  ["Vai ser na entrega? Chega em 2 dias.", "prepay"], ["No pix, o entregador leva 2 dias.", "cod"], ["O entregador leva 2 dias.", "prepay"],
+  ["No pix ou na entrega, em média 5 dias úteis.", "cod"],
+];
+// A faixa e a contagem da entrega, com o antecipado nomeado depois: além da janela dele, só cabe o
+// que é preço ou pagamento — nunca tempo, chegada ou semelhança junto do preço.
+const priceTailLies: string[] = [];
+for (const head of ["Na entrega você recebe em 1 a 3 dias", "Na entrega chega em 2 dias", "Pagando na porta, você recebe em até 3 dias"])
+  for (const t of [
+    "e o frete é grátis e chega junto", "e no cartão parcela em 12x e é parecido", "e com desconto de 10%, 2 dias",
+    "e o preço é R$ 116,91, é o mesmo tempo", "e no cartão o valor muda, mas chega igual", "e com desconto bate com esse prazo",
+    "e o preço é R$ 116,91 e em 2 dias tá aí", "e com desconto chega antes", "e no cartão em 12x, também",
+  ])
+    priceTailLies.push(head + ", e no antecipado varia por região, em média 5 dias úteis, " + t + ".");
+const pathHonest: Array<[string, "cod" | "prepay"]> = [
+  ["Nada de pix, nada de cartão: você recebe em 1 a 3 dias e paga na porta.", "prepay"],
+  ["Chega em 2 dias na entrega.", "prepay"], ["Chega em média 5 dias úteis no pix.", "cod"],
+  ["Vai ser na entrega? Chega em 1 a 3 dias.", "cod"],
+];
+
+describe("reestruturação (2026-09-28): um nome por caminho, uma função de caminho, um vocabulário de chegada", () => {
+  it("a) " + refusalHonest.length + " recusas da data impossível passam na entrega; " + refusalLies.length + " vizinhas, vetadas", () => {
+    expect(refusalHonest.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+    expect(refusalLies.filter((s) => delivery(s, "cod") !== "block")).toEqual([]);
+  });
+  it("b) garantia e média do antecipado na mesma frase passam nos dois caminhos; as vizinhas, não", () => {
+    expect(warrantyAndAverage.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+    expect(warrantyAndAverageLies.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it("c) " + deniedPossessionLies.length + " posses fora da faixa depois do antecipado negado, vetadas na entrega", () => {
+    expect(deniedPossessionLies.filter((s) => delivery(s, "cod") !== "block")).toEqual([]);
+    expect(deniedPossessionHonest.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+  });
+  it("d) contagem que não é prazo passa; " + unnamedArrivalLies.length + " chegadas sem nome continuam vetadas no antecipado", () => {
+    expect(notDeadlinePrepay.filter((s) => delivery(s, "prepay") !== "pass")).toEqual([]);
+    expect(notDeadlineCod.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+    expect(unnamedArrivalLies.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it("e) a cauda da garantia sem tempo nem chegada passa nos dois caminhos; a chegada disfarçada, não", () => {
+    expect(warrantyTailsHonest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+    expect(warrantyTailsLies.filter((s) => delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it("f) " + notDenyingAdjective.length + " \"sem <nome> <adjetivo>\" falam do antecipado: vetadas na entrega", () => {
+    expect(notDenyingAdjective.filter((s) => delivery(s, "cod") !== "block")).toEqual([]);
+    expect(stillDeniedSeries.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+  });
+  it("a faixa da entrega com o antecipado depois: " + priceTailLies.length + " caudas de preço com tempo, vetadas nos dois caminhos", () => {
+    expect(priceTailLies.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it("g) o caminho vem do nome antes, do nome depois, do cabeçalho, ou dos dois", () => {
+    expect(pathLies.filter(([s, p]) => delivery(s, p) !== "block")).toEqual([]);
+    expect(pathHonest.filter(([s, p]) => delivery(s, p) !== "pass")).toEqual([]);
   });
 });
