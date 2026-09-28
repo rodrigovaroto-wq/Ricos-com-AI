@@ -227,6 +227,70 @@ flowchart TD
 
 ---
 
+## 23. A varredura falhava sem avisar ninguém (branch `claude/upbeat-newton-6l6dzz`, 2026-09-28)
+
+> Escrito em paralelo ao PR #37, que reescreve este arquivo até §22 — as duas séries de
+> seções se somam no merge, sem colisão de número.
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: o nó 'Varre a regua' não tinha saída de erro ligada"]
+  C["causa: uma Edge Function recusada (coluna ausente, erro de banco) reprovava a<br/>cada 5 minutos, e ninguém era avisado — nem e-mail, nem log lido por humano"]
+  F["🟧 tentativa que não foi tentada: nenhuma — o furo só apareceu ao escrever a<br/>regra 'toda chamada de Edge Function precisa de saída de erro ligada'<br/>(src/dev/n8n-rules.ts) e rodar contra o workflow existente"]
+  R["🟩 saída de erro no nó + e-mail; por linha, um campo 'erro:' no relatório da<br/>varredura pula o e-mail daquela linha em vez de falhar a rodada inteira"]
+  G["🛡️ regra em src/dev/n8n-rules.ts, provada por tests/n8n-workflows.test.ts;<br/>pnpm dev:n8n falha em qualquer chamada de Edge Function sem saída de erro"]
+  S --> C --> F --> R --> G
+```
+
+**Ainda em aberto:** o workflow corrigido está só no arquivo do repositório
+(`n8n/workflows/relogio-da-regua.json`); a versão publicada no n8n é a antiga, sem a saída de
+erro. `pnpm dev:n8n` compara contra a publicada — por isso ele acusa FALHA de propósito até o
+operador importar o arquivo novo.
+
+## 24. O rascunho de template não provava nada sobre o texto gated (2026-09-28)
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: 03-templates-meta.md tinha o texto do template escrito à mão,<br/>sem checar contra o que deliveryFor realmente manda depois da cadeia de gates"]
+  C["causa: 'o template está pronto para a Meta' era lido como 'o texto está certo',<br/>mas as duas coisas nunca tinham sido comparadas byte a byte"]
+  R["🟩 tests/whatsapp-templates.test.ts renderiza o texto gated (sentVsGated) e compara<br/>com o corpo do rascunho, placeholder por placeholder"]
+  D["🟥 duas divergências reais apareceram ao comparar: order_eve do antecipado cobra<br/>quem já pagou; a 2ª variante do silence_2 vira texto livre onde deveria haver template"]
+  G["🛡️ as duas divergências ficam fixadas com it.fails (visíveis, não silenciadas) até<br/>o conserto entrar em deliveryFor — nenhuma delas é ignorada em silêncio"]
+  S --> C --> R --> D --> G
+```
+
+## 25. A âncora do opt-in: quatro tentativas até parar de advinhar a que ela respondia
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: um 'sim' pode responder qualquer pergunta —<br/>a pergunta do agente antes da régua, a pergunta anterior da própria régua,<br/>ou a pergunta de opt-in — e só a última conta como consentimento"]
+  F1["🟧 tentativa 1: includes('sim') no texto da resposta<br/>— pega 'sim' dentro de qualquer frase, mesmo negando algo"]
+  F2["🟧 tentativa 2: igualdade exata de texto ('sim')<br/>— ainda lê 'sim' fora de contexto, sem saber a que responde"]
+  F3["🟧 tentativa 3: âncora por posição (só depois de after_price)<br/>+ id da última mensagem enviada (lastOutboundId)<br/>— falha quando a régua manda a pergunta em duas bolhas,<br/>ou quando o agente fez a própria pergunta antes ('Tá certinho assim?')"]
+  F4["🟧 tentativa 4 (quarta revisão, mesmo dia): ainda assim,<br/>uma pergunta pendente do agente podia vir depois da âncora<br/>e um 'sim' a ela colava como opt-in"]
+  R["🟩 correção final: parar de tentar advinhar a que ela responde.<br/>A pergunta pede uma PALAVRA-CHAVE que nada mais pergunta ('OFERTAS');<br/>só uma resposta construída em torno dela conta como sim.<br/>'Sim'/'pode'/'quero' sozinhos são resposta a qualquer coisa — não contam"]
+  G["🛡️ tests/opt-in.test.ts (55 testes); acceptsMarketingOptIn só lê questionId + janela<br/>de 24h, nunca posição nem última mensagem enviada"]
+  S --> F1 --> F2 --> F3 --> F4 --> R --> G
+```
+
+**Estado desta sessão:** a correção final (tentativa/correção acima) está no working tree
+de `claude/upbeat-newton-6l6dzz` (`src/agent/opt-in.ts`, `tests/opt-in.test.ts`,
+`supabase/migrations/0019_marketing_opt_in.sql`), **não commitada** — ver
+`docs/agente-ia/05-plano/07-opt-in-marketing.md` para o desenho completo e o `HANDOFF.md`
+para o estado do `git status`.
+
+## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: 'não quero mais promoção', 'não quero receber mais mensagens' e<br/>'chega de mensagem' não são lidas como opt-out por classifyOptOut"]
+  G["🟩 fixado com it.fails em tests/opt-out-gaps.test.ts — visível, vermelho quando<br/>o conserto entrar, em vez de silenciado"]
+  ABERTO["🟥 o conserto é em src/agent/guardrails.ts, área que o PR #37 reescreve;<br/>não editado nesta branch para não colidir com o merge dele"]
+  S --> G --> ABERTO
+```
+
+---
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
@@ -247,3 +311,7 @@ flowchart TD
    da Meta; produção tinha outra. Toda subida termina com sonda pela porta do n8n (grafo 11).
 9. **Mutação escrita por script:** o `re.sub` do Python come as barras invertidas do texto
    de substituição; use uma função como substituto, ou a mutação "não se aplica" e escapa.
+10. **Um "sim" nunca é âncora segura — só uma palavra que nada mais pergunta é.** Quatro
+    tentativas (`includes`, igualdade de texto, âncora por posição/id, e ainda assim uma
+    pergunta pendente do agente) leram consentimento de um "sim" que respondia outra coisa.
+    A correção parou de tentar advinhar a que ela respondia (grafo 25).

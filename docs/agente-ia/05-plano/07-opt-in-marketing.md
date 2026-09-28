@@ -9,20 +9,45 @@
 > **Já no repositório (sem tocar o PR):** a migração
 > [`0019_marketing_opt_in.sql`](../../../supabase/migrations/0019_marketing_opt_in.sql) (não
 > aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta e o
-> leitor do sim, provados em `tests/opt-in.test.ts`.
+> leitor da palavra-chave, provados em `tests/opt-in.test.ts` (55 testes). **Estado desta
+> sessão (2026-09-28, não commitado):** os três arquivos estão no working tree com o desenho
+> de palavra-chave do parágrafo acima; o commit mais recente no histório (`6214bc9`) ainda
+> tem o desenho anterior (âncora por id da última mensagem).
 >
 > **Dois ajustes sobre os itens 3 e 4 da especificação abaixo (segunda revisão, 2026-09-28).**
-> Eles valem mais que o texto original:
+> ~~Eles valem mais que o texto original~~ — **substituídos pelo desenho de palavra-chave
+> abaixo**, depois de uma quarta revisão no mesmo dia. Mantidos aqui riscados porque foram o
+> estado real por algumas horas, não porque ainda valem:
 >
-> - **A pergunta vai numa mensagem só dela**, logo depois do `silence_1`, e nunca dentro dele.
->   Quatro das seis variantes do `silence_1` terminam numa pergunta de sim ou não própria
->   ("Conseguiu finalizar seu pedido?"), e um "sim" a ela não é consentimento.
-> - **A captura exige três coisas:** que a última mensagem enviada seja exatamente a pergunta
->   que a varredura gravou (pelo id, nunca qualquer mensagem enviada, porque o modelo pode
->   repetir a linha); que a pergunta tenha sido feita há menos de 24h; e que a resposta inteira
->   seja um sim curto.
-> - **O leitor recusa** "s" sozinho, qualquer interrogação (`?`, `¿`, `？`) e qualquer símbolo
->   fora de uma lista curta de inofensivos (👎, ❌ e 🙄 contam como não).
+> - ~~A pergunta vai numa mensagem só dela, logo depois do `silence_1`, e nunca dentro dele.~~
+> - ~~A captura exige três coisas: que a última mensagem enviada seja exatamente a pergunta
+>   que a varredura gravou (pelo id, nunca qualquer mensagem enviada...); que a pergunta tenha
+>   sido feita há menos de 24h; e que a resposta inteira seja um sim curto.~~
+> - ~~O leitor recusa "s" sozinho, qualquer interrogação... e qualquer símbolo fora de uma
+>   lista curta de inofensivos.~~
+>
+> **Quarta revisão (2026-09-28, mesmo dia): o "sim" nunca é seguro, a palavra-chave é.**
+> As três âncoras acima (a resposta é "sim", a resposta é "sim" logo depois da pergunta, a
+> resposta é "sim" e a última mensagem enviada FOI a pergunta por id) caíram, nesta ordem, cada
+> uma para um "sim" que respondia outra coisa: um `includes` pegava "sim" dentro de outra
+> frase; a igualdade de texto ainda lia "sim" fora de contexto; e mesmo ancorado pelo id da
+> última mensagem, um "sim" respondendo à própria pergunta do agente antes da régua entrar
+> ("Tá certinho assim?") ainda passava, porque a régua também pode mandar a pergunta de
+> opt-in fora dessa sequência. A correção deixou de tentar advinhar a que a cliente estava
+> respondendo: **a pergunta agora pede uma palavra que nada mais pergunta** —
+> `me responde **OFERTAS**` — e só uma resposta construída em torno dela conta como sim.
+> "Sim" sozinho, "pode" sozinho, "quero" sozinho continuam sendo não. Isso está **implementado
+> no working tree desta sessão (não commitado ainda)**: `src/agent/opt-in.ts`,
+> `tests/opt-in.test.ts` (55 testes, verdes) e os comentários da migração `0019` já usam esse
+> desenho — ver `git diff` antes de reler os arquivos, porque o commit `6214bc9` (que fica no
+> histórico) ainda descreve a âncora por id, superada por este parágrafo.
+>
+> Consequência: a pergunta **não precisa mais vir só depois de `after_price`** — como ela não
+> é mais lida por posição nem por âncora de mensagem anterior, pode seguir qualquer variante do
+> `silence_1`, inclusive `link_sent`. `mayAskOptIn` e a regra "só depois de um toque que não
+> pergunta nada" saíram do código; a captura passa a exigir só duas coisas: que a pergunta
+> tenha sido feita (`marketing_opt_in_question_id` não nulo) e que a resposta tenha chegado
+> em menos de 24h.
 
 > **Fica para depois do merge:** a flag `channel.askMarketingOptIn` (ausente = não pergunta), a
 > mensagem da pergunta depois do `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050
@@ -88,7 +113,7 @@ verifica**. Hoje `leads` só tem `opted_out_at` (`supabase/migrations/0001_init.
 
 | | A. Só `UTILITY` fora da janela | B. Pergunta explícita, feita pelo código | C. CTWA vale como opt-in |
 |---|---|---|---|
-| **O que ela vê** | `silence_2` só se ainda estiver na janela. `silence_3` nunca sai (está sempre fora) | No `silence_1` (30 min, dentro da janela), uma linha a mais: "Posso te chamar aqui de novo com lembrete e oferta da Encorpa? Se sim, me responde *SIM*." | Nada muda |
+| **O que ela vê** | `silence_2` só se ainda estiver na janela. `silence_3` nunca sai (está sempre fora) | ~~No `silence_1` (30 min, dentro da janela), uma linha a mais: "Posso te chamar aqui de novo com lembrete e oferta da Encorpa? Se sim, me responde *SIM*."~~ **Corrigido (quarta revisão, 2026-09-28):** mensagem própria, depois de qualquer `silence_1`: "Posso te mandar lembretes e ofertas da Encorpa por aqui? Se quiser, me responde **OFERTAS**." — ver nota no topo do arquivo | Nada muda |
 | **O que o código grava** | Nada. `deliveryFor` bloqueia template de `silence_2`/`silence_3` | `leads.marketing_opt_in_at`, `marketing_opt_in_asked_at`, `marketing_opt_in_message_id` | Nada que prove o consentimento |
 | **Risco** | Nenhum novo | Baixo. Prova no banco, pedido nominal e específico (art. 8º, §4º), saída pela régua de opt-out que já existe | **Bloqueia.** Não cumpre os dois requisitos da página de opt-in e não tem prova (art. 8º, §2º). Denúncia de spam derruba a quality rating e o limite de envio do número, que é o único canal |
 | **Efeito em venda** | Perde o cupom do dia 3 e o `silence_2` de quem parou de madrugada | Perde esses dois toques só para quem não respondeu SIM. A cliente mais calada, que é o alvo da régua, provavelmente não responde | Nenhum até a primeira denúncia. Depois dela, o número inteiro sofre |
@@ -111,17 +136,25 @@ B é decisão do operador.
    Sem tabela nova, porque o cron de 90 dias já apaga a linha.
 2. **Config** `channel.askMarketingOptIn?: boolean`, lido `=== true`. **Ausente = não pergunta**,
    então ninguém entra e nenhum template de marketing sai. Espelha o `freeShipping`.
-3. **Pergunta, escrita pelo código e não pelo modelo:** `renderFollowup("silence_1")` junta a
-   linha só se a flag for `true` e `marketing_opt_in_asked_at` for nulo. O texto cita
-   `config.brand` (a Meta pede o nome da empresa). **Não cita cupom**, porque `coupon.active`
-   pode ser `false` e seria promessa que o `coupon_exists` barra. A varredura grava
-   `marketing_opt_in_asked_at` quando o toque sai. O texto passa pela cadeia de gates como hoje.
-4. **Captura, determinística:** em `turn`, depois do `classifyOptOut` e antes do modelo.
+3. ~~**Pergunta, escrita pelo código e não pelo modelo:** `renderFollowup("silence_1")` junta a
+   linha só se a flag for `true` e `marketing_opt_in_asked_at` for nulo.~~ **Corrigido (quarta
+   revisão):** a pergunta vai numa **mensagem própria** (`optInQuestion(brand)` em
+   `src/agent/opt-in.ts`), não dentro do `silence_1`, e pode seguir qualquer variante dele — a
+   restrição a "só depois de um toque que não pergunta nada" (`after_price`) saiu, porque a
+   captura não depende mais de posição. O texto cita `config.brand` (a Meta pede o nome da
+   empresa; `optInQuestion` devolve `null` para marca vazia) e não cita cupom, porque
+   `coupon.active` pode ser `false` e seria promessa que o `coupon_exists` barra. A varredura
+   grava `marketing_opt_in_asked_at` e `marketing_opt_in_question_id` quando a pergunta sai.
+4. ~~**Captura, determinística:** em `turn`, depois do `classifyOptOut` e antes do modelo.
    Grava `marketing_opt_in_at` e o id da mensagem só se a pergunta foi feita, se ela
    respondeu dentro de 24h e se a resposta é um sim explícito e curto ("sim", "pode", "quero",
-   "pode mandar"). **A negação é checada primeiro** ("não", "nao", "agora não", "pode não",
-   "sim, mas não quero oferta"). Resposta ambígua conta como **não**. O turno segue normal
-   para o modelo responder.
+   "pode mandar").~~ **Corrigido (quarta revisão):** `acceptsMarketingOptIn(reply, { questionId,
+   askedAt, now })` grava só se a pergunta foi feita (`questionId` não nulo) e a resposta
+   chegou em menos de 24h — sem depender de qual foi a última mensagem enviada. E a resposta
+   não é "um sim explícito e curto": é a palavra-chave `OFERTAS`, sozinha ou dentro de uma
+   das frases fixas de `src/agent/opt-in.ts` ("sim ofertas", "quero ofertas", "pode mandar
+   ofertas"...). "Sim", "pode" ou "quero" sozinhos não contam — são respostas a qualquer
+   pergunta, não a esta. O turno segue normal para o modelo responder.
 5. **Gate na saída:** `deliveryFor` recebe um conjunto fixo no código,
    `MARKETING_KINDS = {silence_2, silence_3}`. Com a janela fechada e sem opt-in, devolve
    `{ via: "blocked", reason: "no_opt_in" }` antes de olhar o template. A janela aberta não muda.

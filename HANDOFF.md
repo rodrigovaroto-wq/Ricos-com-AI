@@ -11,6 +11,76 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
+## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28)
+
+**HEAD `6fd6b2e`, à frente do `main` (`9222dc6`), sem PR aberto, nada publicado, nada
+aplicado em produção.** Feito nesta sessão, tudo verificado nesta sessão (`pnpm test`:
+4047 testes verdes; `pnpm typecheck` limpo):
+
+1. **"Relógio da régua" (n8n): saída de erro + e-mail.** O nó "Varre a regua" não tinha
+   saída de erro — uma falha (coluna ausente, erro de banco) reprovava a cada 5 minutos
+   e não avisava ninguém. Regra nova em `src/dev/n8n-rules.ts` ("toda chamada de Edge
+   Function precisa de saída de erro ligada"), aplicada ao workflow em
+   `n8n/workflows/relogio-da-regua.json`. **O operador precisa importar este workflow**
+   no n8n — até lá, `pnpm dev:n8n` acusa FALHA de propósito (é o workflow publicado que
+   ele compara, não o arquivo do repositório).
+2. **Migrações `0018_evaluation_views.sql` e `0019_marketing_opt_in.sql` — escritas,
+   não aplicadas.** A `0017` já está aplicada em produção; `0018` (5 views
+   `security_invoker` de avaliação) e `0019` (colunas de opt-in em `leads`, nuláveis)
+   podem ser aplicadas em qualquer ordem a partir daí. Nada lê `0019` ainda.
+3. **`pnpm dev:painel`** (`src/dev/painel.ts`, `src/dev/painel-core.ts`): painel diário
+   sobre as views de avaliação, com URL da Encorpa por padrão — nunca `SUPABASE_URL` (o
+   ambiente desta máquina aponta para outro projeto, ver
+   `.claude/memory/ambiente-aponta-para-outro-projeto.md`).
+4. **`tests/whatsapp-templates.test.ts`**: prova que o rascunho do template da Meta ==
+   `renderFollowup`. Duas divergências conhecidas, fixadas com `it.fails` para ficarem
+   visíveis (não silenciadas): o `order_eve` do antecipado cobra quem já pagou; a segunda
+   variante do `silence_2` sai como texto livre fora da janela quando deveria sair como
+   template. A seção 4 de
+   [`docs/agente-ia/06-script/03-templates-meta.md`](docs/agente-ia/06-script/03-templates-meta.md)
+   rascunha `encorpa_vespera_entrega_pago` para a primeira. **O operador precisa submeter
+   esse rascunho à Meta** — nenhum código submete template sozinho.
+5. **Decisões do operador em 2026-09-28** (opt-in opção B e `silence_2` opção (a)) — ver
+   entrada nova em
+   [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md).
+   `src/agent/opt-in.ts` com `optInQuestion`/`acceptsMarketingOptIn`, testado em
+   `tests/opt-in.test.ts` (55 testes) depois de três rodadas de revisão adversarial
+   registradas no grafo. **Correção de uma quarta rodada, no working tree desta sessão,
+   ainda não commitada**: o "sim" nunca ficou seguro como âncora de consentimento —
+   passou por `includes`, depois igualdade de texto, depois âncora pelo id da última
+   mensagem, e ainda assim um "sim" respondendo a uma pergunta do próprio agente (ex.:
+   "Tá certinho assim?") contava como opt-in. A correção troca a âncora por uma
+   **palavra-chave que nada mais pergunta** (`OFERTAS`) — ver a nota no topo de
+   [`docs/agente-ia/05-plano/07-opt-in-marketing.md`](docs/agente-ia/05-plano/07-opt-in-marketing.md).
+   `git status` mostra `src/agent/opt-in.ts`, `tests/opt-in.test.ts` e
+   `supabase/migrations/0019_marketing_opt_in.sql` como modificados e não commitados — a
+   próxima sessão que abrir este branch deve conferir se esse estado sobreviveu (working
+   tree, não stash, não commit) antes de continuar.
+6. **`tests/opt-out-gaps.test.ts`**: `classifyOptOut` lê "não quero mais promoção", "não
+   quero receber mais mensagens" e "chega de mensagem" como se não fossem pedido de
+   opt-out — fixado com `it.fails`. O conserto é em `guardrails.ts`, área que o PR #37
+   reescreve; não fazer aqui para não colidir com o merge dele.
+7. [`docs/agente-ia/05-plano/08-piso-de-amostra.md`](docs/agente-ia/05-plano/08-piso-de-amostra.md):
+   conta do piso de amostra por decisão, pronta para o operador escolher e assinar a
+   seção 4 — **até a assinatura, o piso não existe**.
+8. Memória: `.claude/memory/ambiente-aponta-para-outro-projeto.md`.
+
+### O que o operador precisa fazer
+- Importar `n8n/workflows/relogio-da-regua.json` no n8n (item 1).
+- Aplicar `0018_evaluation_views.sql` e depois `0019_marketing_opt_in.sql` no banco de
+  produção (item 2) — qualquer ordem entre elas, ambas depois de `0017`.
+- Submeter o rascunho de `encorpa_vespera_entrega_pago` (seção 4 de
+  `03-templates-meta.md`) à Meta para aprovação (item 4).
+- Escolher os pisos e assinar a seção 4 de `08-piso-de-amostra.md` (item 7).
+
+### Depois do PR #37 fechar (código em `followups.ts`/`turn/index.ts`)
+Flag `channel.askMarketingOptIn`; mandar a pergunta de opt-in como mensagem própria
+(agora **não** presa a `after_price` — pode seguir qualquer `silence_1`, ver item 5
+acima); capturar no turno; `no_opt_in` em `deliveryFor`; o erro **131050** zerando o
+opt-in; espelhar `opt-in.ts` em `supabase/functions/turn/`; a primeira variante do
+`silence_2` fora da janela; a escolha do template de véspera do antecipado; o conserto
+dos furos de `classifyOptOut` (item 6).
+
 ## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
 
 **Branch `claude/peaceful-feynman-l4zf0k`, à frente do `main`** com o canal do WhatsApp
