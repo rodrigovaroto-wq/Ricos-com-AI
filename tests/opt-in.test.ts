@@ -1,132 +1,136 @@
 import { describe, expect, it } from "vitest";
 import { runGates } from "../src/agent/guardrails.js";
-import { renderFollowup, type StopPoint } from "../src/agent/followups.js";
-import { acceptsMarketingOptIn, optInQuestion, revokesMarketingOptIn, YES_REPLIES, type OptInAnchor } from "../src/agent/opt-in.js";
+import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn, type OptInQuestion } from "../src/agent/opt-in.js";
+import { parseWebhook, replyButtonsMessage } from "../src/channel/whatsapp.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
 const brand = config.brand;
-const question = optInQuestion(brand)!;
+const msg = optInMessage(brand, "n1")!;
+const [yes, no] = msg.buttons;
 const now = new Date("2026-09-10T15:00:00Z");
 const askedAt = new Date("2026-09-10T13:00:00Z");
-/** The question the sweep sent two hours ago. */
-const anchor = (over: Partial<OptInAnchor> = {}): OptInAnchor => ({ questionId: "msg-question", askedAt, now, ...over });
+const question = (over: Partial<OptInQuestion> = {}): OptInQuestion => ({ nonce: "n1", askedAt, now, ...over });
+
+/** A tap, as the channel parses Meta's webhook — the real path, not a hand-built object. */
+const tap = (id: string, title = "x") =>
+  parseWebhook({
+    entry: [{ changes: [{ field: "messages", value: { messages: [{ from: "5511", id: "wamid.t", type: "interactive", context: { id: "wamid.q" }, interactive: { type: "button_reply", button_reply: { id, title } } }] } }] }],
+  })[0]!;
+const typed = (body: string) =>
+  parseWebhook({ entry: [{ changes: [{ field: "messages", value: { messages: [{ from: "5511", id: "wamid.x", type: "text", text: { body } }] } }] }] })[0]!;
 
 describe("opt-in de marketing: a pergunta", () => {
-  it("cita a marca, pede a palavra-chave e não promete cupom", () => {
-    expect(question).toContain("Encorpa");
-    expect(question).toContain("**OFERTAS**");
-    expect(question).not.toMatch(/cupom|desconto|%/i);
+  it("cita a marca, não promete cupom e cabe nos limites da Meta", () => {
+    expect(msg.body).toContain("Encorpa");
+    expect(msg.body).not.toMatch(/cupom|desconto|%/i);
+    expect(() => replyButtonsMessage("5511", msg.body, msg.buttons)).not.toThrow();
+    expect(yes.id).not.toBe(no.id);
   });
 
-  it("marca em branco não gera pergunta: a Meta exige o nome da empresa", () => {
-    for (const blank of ["", " ", "​", "﻿ "]) expect(optInQuestion(blank), JSON.stringify(blank)).toBeNull();
+  it("marca ou nonce em branco não geram pergunta", () => {
+    for (const blank of ["", " ", "​", "﻿ "]) {
+      expect(optInMessage(blank, "n1"), JSON.stringify(blank)).toBeNull();
+      expect(optInMessage(brand, blank), JSON.stringify(blank)).toBeNull();
+    }
   });
 
-  // It rides after the ruler's first touch as a message of its own; the sweep gates it.
-  it("passa a cadeia de gates, sozinha e depois de cada silence_1", () => {
+  it("passa a cadeia de gates; a contraprova com cupom é vetada", () => {
     const at = new Date("2026-09-10T10:00:00");
-    const texts = [question];
-    for (const stopPoint of ["before_size", "after_price", "link_sent"] as StopPoint[])
-      for (const leadId of ["lead-0", "lead-1", "lead-2", "lead-3"])
-        texts.push(`${renderFollowup("silence_1", { leadId, config, stopPoint, now: at })!}\n\n${question}`);
-    for (const text of texts)
-      expect(runGates(text, gateCtx({ now: at, stage: "presale" })).traces.filter((t) => t.verdict === "block"), text).toEqual([]);
-  });
-
-  it("contraprova: a mesma pergunta prometendo cupom é vetada", () => {
-    const withCoupon = question.replace("lembretes e ofertas", "lembretes e um cupom de 20%");
-    const result = runGates(withCoupon, gateCtx({ now: new Date("2026-09-10T10:00:00"), stage: "presale" }));
-    expect(result.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("coupon_exists");
+    expect(runGates(msg.body, gateCtx({ now: at, stage: "presale" })).traces.filter((t) => t.verdict === "block")).toEqual([]);
+    const withCoupon = msg.body.replace("lembretes e ofertas", "lembretes e um cupom de 20%");
+    expect(runGates(withCoupon, gateCtx({ now: at, stage: "presale" })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
+      "coupon_exists",
+    );
   });
 });
 
-describe("opt-in de marketing: a resposta", () => {
-  it.each([
-    "OFERTAS", "ofertas", "Ofertas!", "OFERTAS 💛", "*OFERTAS*", "**OFERTAS**", "ofertasss", "oferta",
-    "sim, ofertas", "Sim ofertas", "ofertas sim", "quero ofertas", "Sim, quero ofertas!", "pode mandar ofertas",
-    "ofertas por favor", "ofertas 👍🏻", "ofertas ❤️", "ofertas…",
-    "me manda ofertas", "aceito ofertas", "quero receber ofertas", "sim oferta",
-  ])("palavra-chave: %s", (reply) => {
-    expect(acceptsMarketingOptIn(reply, anchor())).toBe(true);
+describe("opt-in de marketing: o que um toque diz", () => {
+  it("sim da pergunta atual, em até 24h, é consentimento", () => {
+    expect(optInAnswer(tap(yes.id, yes.title).reply, question())).toBe("yes");
   });
 
-  // Four review rounds, 2026-09-28: each of these answered something else the agent had
-  // asked — the touch's own question, the bubble before, "Tá certinho assim?". Without the
-  // keyword, no reply is consent, whatever came before.
-  it.each(["sim", "Sim!", "SIM 💛", "siiim", "pode", "Pode sim", "pode mandar", "quero", "claro", "aceito", "ok", "s", "👍"])(
-    "sem a palavra-chave não é consentimento: %s",
-    (reply) => {
-      expect(acceptsMarketingOptIn(reply, anchor())).toBe(false);
+  it("não de qualquer pergunta, a qualquer hora, é recusa", () => {
+    expect(optInAnswer(tap(no.id).reply, question())).toBe("no");
+    expect(optInAnswer(tap("optin:no:antiga").reply, question())).toBe("no");
+    expect(optInAnswer(tap(no.id).reply, question({ now: new Date(askedAt.getTime() + 30 * 86_400_000) }))).toBe("no");
+  });
+
+  it("sim de uma pergunta antiga, ou sem pergunta registrada, não vale", () => {
+    expect(optInAnswer(tap("optin:yes:antiga").reply, question())).toBeNull();
+    expect(optInAnswer(tap(yes.id).reply, question({ nonce: null }))).toBeNull();
+  });
+
+  it("depois de 24h, o sim não vale; datas inválidas ou em texto ISO", () => {
+    const at = (h: number) => new Date(askedAt.getTime() + h * 3_600_000);
+    expect(optInAnswer(tap(yes.id).reply, question({ now: at(23.9) }))).toBe("yes");
+    expect(optInAnswer(tap(yes.id).reply, question({ now: at(24) }))).toBeNull();
+    expect(optInAnswer(tap(yes.id).reply, question({ now: at(-1) }))).toBeNull();
+    expect(optInAnswer(tap(yes.id).reply, question({ askedAt: askedAt.toISOString() }))).toBe("yes");
+    expect(optInAnswer(tap(yes.id).reply, question({ askedAt: "x" }))).toBeNull();
+    expect(optInAnswer(tap(yes.id).reply, question({ askedAt: null }))).toBeNull();
+    expect(optInAnswer(tap(yes.id).reply, question({ now: new Date("x") }))).toBeNull();
+  });
+
+  it("botão de outra coisa (tamanho, lista) não é resposta ao opt-in", () => {
+    expect(optInAnswer(tap("size:M").reply, question())).toBeNull();
+  });
+
+  // Eight review rounds, 2026-09-28: every one of these, typed, was once read as consent by
+  // some version of the text reader. Typed text has no `reply`, so none grants anything.
+  it.each(["sim", "Sim!", "SIM 💛", "pode", "quero", "claro", "aceito", "OFERTAS", "Quero ofertas", "optin:yes:n1", "s"])(
+    "texto digitado nunca é consentimento: %s",
+    (body) => {
+      expect(typed(body).reply).toBeUndefined();
+      expect(optInAnswer(typed(body).reply, question())).toBeNull();
+    },
+  );
+});
+
+describe("opt-in de marketing: texto dela só suspende", () => {
+  it.each([
+    "não quero ofertas", "n quero ofertas", "ñ quero ofertas", "naum quero ofertas", "ofertaaas não", "me exclui das ofertas",
+    "me descadastra das promoções", "pode deixar as ofertas", "ofertas? tô de boa", "chega de propaganda", "não quero publicidade",
+    "para com a publicidade", "chega de mkt", "não quero divulgação", "ofetas não", "nao quero ofeta", "ofretas não",
+    "não quero cupom", "chega de desconto", "promoçãozinha não", "não quero spam",
+    // Buying sentences suspend too — and are simply asked again with the buttons.
+    "o cupom não funcionou", "tem desconto para o pix?", "quero a oferta do kit",
+  ])("suspende: %s", (body) => {
+    expect(suspendsMarketingOptIn(typed(body))).toBe(true);
+  });
+
+  it.each(["me preocupo com golpe", "me ocupo o dia todo", "não quero o M, quero o G", "para quando chega?", "sim"])(
+    "não suspende: %j",
+    (body) => {
+      expect(suspendsMarketingOptIn(typed(body))).toBe(false);
     },
   );
 
-  it.each([
-    "não quero ofertas", "ofertas não", "sem ofertas", "nada de ofertas", "ofertas? não", "não, obrigada",
-    "ofertas de quê?", "ofertas?", "ofertas¿", "ofertas ？", "quero ofertas do M", "ofertas, mas só do pedido",
-    "ofertas 👎", "ofertas🙄", "ofertas ❌", "o̶f̶e̶r̶t̶a̶s̶", "",
-  ])("não é sim: %j", (reply) => {
-    expect(acceptsMarketingOptIn(reply, anchor())).toBe(false);
+  it("corpo vazio não suspende (o canal nem o entrega como mensagem)", () => {
+    expect(suspendsMarketingOptIn({ body: "" })).toBe(false);
   });
 
-  it("sem pergunta enviada, a palavra-chave não grava nada", () => {
-    expect(acceptsMarketingOptIn("ofertas", anchor({ questionId: null, askedAt: null }))).toBe(false);
-  });
-
-  it("depois de 24h da pergunta não vale; antes, vale", () => {
-    const at = (hours: number) => new Date(askedAt.getTime() + hours * 3_600_000);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ now: at(23.9) }))).toBe(true);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ now: at(24) }))).toBe(false);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ now: at(240) }))).toBe(false);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ now: at(-1) }))).toBe(false);
-  });
-
-  // Fourth review: PostgREST returns the column as ISO text; it must not throw.
-  it("askedAt como texto ISO funciona; data inválida conta como não", () => {
-    expect(acceptsMarketingOptIn("ofertas", anchor({ askedAt: askedAt.toISOString() }))).toBe(true);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ askedAt: "x" }))).toBe(false);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ askedAt: new Date(Number.NaN) }))).toBe(false);
-    expect(acceptsMarketingOptIn("ofertas", anchor({ now: new Date("x") }))).toBe(false);
+  it("o toque em 'Quero ofertas' não suspende, mesmo contendo a palavra", () => {
+    expect(suspendsMarketingOptIn(tap(yes.id, yes.title))).toBe(false);
   });
 });
 
-// Fifth to seventh reviews, 2026-09-28: the question teaches "ofertas", so she revokes with it,
-// in WhatsApp Portuguese no regex of negation covers. Any mention of marketing that is not a
-// yes revokes — no negation is read. Any time, not only within 24h.
-describe("opt-in de marketing: a revogação", () => {
-  it.each([
-    "não quero ofertas", "não quero receber ofertas", "mudei de ideia, não quero ofertas", "cancela as ofertas",
-    "não manda oferta", "sem ofertas por favor", "para de mandar ofertas", "nada de promoção", "Não quero mais promoção",
-    "chega de propaganda", "não quero lembrete", "pode tirar das ofertas", "OFERTAS NÃO", "ofertas nunca mais",
-    "n quero ofertas", "ñ quero ofertas", "naum quero ofertas", "nããão quero ofertas", "ofertaaas não", "ofertasnão",
-    "tô fora das promo", "dispensa as ofertas", "STOP ofertas", "odeio propaganda", "não quero cupom", "chega de desconto",
-    "não quero novidades", "chega de anúncio", "não quero spam", "ofertinhas não", "promoçãozinha não",
-    // Seventh review: missed by every negation rule.
-    "me exclui das ofertas", "me descadastra das promoções", "apaga meu número das promoções", "cansei das promoções",
-    "enjoei das ofertas", "basta de ofertas", "suspende as ofertas", "encerra as promoções", "pode deixar as ofertas",
-    "ofertas? tô de boa", "to de boa das promo", "ofertas me incomodam", "encheu o saco dessas promo", "ofertas, deixa quieto",
-  ])("revoga: %s", (text) => {
-    expect(revokesMarketingOptIn(text)).toBe(true);
+describe("opt-in de marketing: quando perguntar", () => {
+  const s = (over: Partial<Parameters<typeof mayAskOptIn>[0]>) => ({ askedAt: null, optInAt: null, suspendedAt: null, declinedAt: null, ...over });
+  const t1 = "2026-09-10T13:00:00Z";
+  const t2 = "2026-09-11T13:00:00Z";
+
+  it("nunca perguntada: pergunta", () => expect(mayAskOptIn(s({}))).toBe(true));
+  it("perguntada e sem resposta: não pergunta de novo", () => expect(mayAskOptIn(s({ askedAt: t1 }))).toBe(false));
+  it("consentimento em vigor: não pergunta", () => expect(mayAskOptIn(s({ askedAt: t1, optInAt: t1 }))).toBe(false));
+  it("suspensa depois da última pergunta: pergunta uma vez mais", () => {
+    expect(mayAskOptIn(s({ askedAt: t1, suspendedAt: t2 }))).toBe(true);
+    expect(mayAskOptIn(s({ askedAt: t2, suspendedAt: t1 }))).toBe(false);
   });
-
-  // The accepted cost, made visible so nobody mistakes it for a bug: a buying sentence that
-  // names marketing also revokes (two touches outside the window, never the conversation).
-  it.each(["o cupom não funcionou", "tem desconto para o pix?", "quero a oferta do kit", "e o desconto do pix?"])(
-    "custo aceito — também revoga: %s",
-    (text) => {
-      expect(revokesMarketingOptIn(text)).toBe(true);
-    },
-  );
-
-  it.each(["não quero o M, quero o G", "não sei meu tamanho", "para quando chega?", "pode parar", "sim", ""])(
-    "sem palavra de marketing não é sobre o opt-in (classifyOptOut lê o resto): %j",
-    (text) => {
-      expect(revokesMarketingOptIn(text)).toBe(false);
-    },
-  );
-
-  // The caller asks both; they must never both say yes.
-  it("nenhuma resposta aceita como sim é lida como revogação", () => {
-    for (const reply of YES_REPLIES) expect(revokesMarketingOptIn(reply), reply).toBe(false);
-    for (const reply of ["*OFERTAS* 💛", "Sim, quero ofertas!", "ofertasss"]) expect(revokesMarketingOptIn(reply), reply).toBe(false);
+  it("recusa estruturada é final", () => {
+    expect(mayAskOptIn(s({ declinedAt: t1 }))).toBe(false);
+    expect(mayAskOptIn(s({ askedAt: t1, suspendedAt: t2, declinedAt: t1 }))).toBe(false);
+  });
+  it("data ilegível na suspensão não reabre a pergunta", () => {
+    expect(mayAskOptIn(s({ askedAt: t1, suspendedAt: "x" }))).toBe(false);
   });
 });

@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readAndTyping, templateMessage, textMessage } from "@/channel/whatsapp.js";
+import { readAndTyping, replyButtonsMessage, templateMessage, textMessage } from "@/channel/whatsapp.js";
 
 /**
  * WA-3 (2026-09-25): runs the ACTUAL code of the n8n node "Monta os envios" (versioned
@@ -41,6 +41,19 @@ describe("n8n: envio pela Cloud API", () => {
 
   it("toque da régua como texto", () => {
     expect(run(live, [{ to: "5511", via: "text", body: "Oi de novo" }])[0]!.json.payload).toEqual(textMessage("5511", "Oi de novo"));
+  });
+
+  it("pergunta com botões sai com os botões, igual ao construtor do canal", () => {
+    const list = [{ id: "optin:yes:n1", title: "Quero ofertas" }, { id: "optin:no:n1", title: "Não, obrigada" }];
+    const [o] = run(live, [{ to: "5511", via: "buttons", body: "Posso te mandar ofertas?", buttons: list }]);
+    expect(o!.json.payload).toEqual(replyButtonsMessage("5511", "Posso te mandar ofertas?", list));
+  });
+
+  it("botões fora do limite ou vazios: nada sai — nunca o texto sem os botões", () => {
+    const b = (n: number) => Array.from({ length: n }, (_, i) => ({ id: `id${i}`, title: `t${i}` }));
+    for (const buttons of [[], b(4), [{ id: "", title: "x" }], "x"]) {
+      expect(run(live, [{ to: "5511", via: "buttons", body: "Pergunta?", buttons }]), JSON.stringify(buttons)).toEqual([]);
+    }
   });
 
   it("confirmação de leitura com digitando", () => {

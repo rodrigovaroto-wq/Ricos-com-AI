@@ -19,6 +19,13 @@ export interface InboundMessage {
   source?: Record<string, string>;
   /** When she sent it (Meta's unix timestamp, as ISO): starts the 24-hour window. */
   sentAt?: string;
+  /**
+   * A tap on one of our buttons: the id WE gave the button, and the message it answered.
+   * `body` still carries the title, for the conversation; a decision reads `reply.id`, never
+   * the text — the text is hers to type, the id only a tap produces (2026-09-28).
+   * NOT sealed yet: the seal gains it in the same change that makes the turn read it.
+   */
+  reply?: { id: string; contextId?: string };
 }
 
 /** Compares without leaking where the first difference is. */
@@ -111,19 +118,34 @@ const sourceOf = (m: Obj): Record<string, string> | undefined => {
   return Object.keys(out).length ? out : undefined;
 };
 
+/** Our button's id — reply buttons and list rows, or a template's quick-reply payload. */
+const replyOf = (m: Obj): { id: string; contextId?: string } | undefined => {
+  const i = obj(m.interactive);
+  const id =
+    str(m.type) === "interactive"
+      ? str(obj(i?.button_reply)?.id) || str(obj(i?.list_reply)?.id)
+      : str(m.type) === "button"
+        ? str(obj(m.button)?.payload)
+        : "";
+  if (!id) return undefined;
+  const contextId = str(obj(m.context)?.id);
+  return contextId ? { id, contextId } : { id };
+};
+
+/** Meta's unix seconds — text on messages, a number on `user_preferences`. */
 const sentAtOf = (m: Obj): string | undefined => {
-  const seconds = Number(str(m.timestamp));
+  const seconds = typeof m.timestamp === "number" ? m.timestamp : Number(str(m.timestamp));
   return Number.isFinite(seconds) && seconds > 0 ? new Date(seconds * 1000).toISOString() : undefined;
 };
 
-/** The `value` of every `messages` change addressed to our number (all, when none is set). */
-const valuesFor = (payload: unknown, phoneNumberId: string): Obj[] => {
+/** The `value` of every `field` change addressed to our number (all, when none is set). */
+const valuesFor = (payload: unknown, phoneNumberId: string, field = "messages"): Obj[] => {
   const out: Obj[] = [];
   const entries = obj(payload)?.entry;
   for (const entry of Array.isArray(entries) ? entries : []) {
     const changes = obj(entry)?.changes;
     for (const change of Array.isArray(changes) ? changes : []) {
-      if (obj(change)?.field !== "messages") continue;
+      if (obj(change)?.field !== field) continue;
       const value = obj(obj(change)?.value);
       if (!value) continue;
       // A test number and the real one on the same app must not share a funnel.
@@ -153,7 +175,8 @@ export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessa
       if (!externalId || !from || body === null) continue;
       const source = sourceOf(m);
       const sentAt = sentAtOf(m);
-      out.push({ externalId, from, body, ...(source ? { source } : {}), ...(sentAt ? { sentAt } : {}) });
+      const reply = replyOf(m);
+      out.push({ externalId, from, body, ...(source ? { source } : {}), ...(sentAt ? { sentAt } : {}), ...(reply ? { reply } : {}) });
     }
   }
   return out;
@@ -174,6 +197,30 @@ export const deliveryErrors = (payload: unknown, phoneNumberId = ""): Array<{ id
         const code = Number(obj(e)?.code);
         if (Number.isFinite(code)) out.push({ id: str(st?.id), code });
       }
+    }
+  }
+  return out;
+};
+
+/**
+ * She turned marketing messages off (or back on) in WhatsApp's own settings ("Ofertas e
+ * novidades") — Meta's `user_preferences` webhook. Structured, so no text is read: a `stop`
+ * takes the marketing consent back. Only the `marketing_messages` category, phone digits only.
+ */
+export const marketingPreferences = (
+  payload: unknown,
+  phoneNumberId = "",
+): Array<{ from: string; value: "stop" | "resume"; at?: string }> => {
+  const out: Array<{ from: string; value: "stop" | "resume"; at?: string }> = [];
+  for (const value of valuesFor(payload, phoneNumberId, "user_preferences")) {
+    const prefs = value.user_preferences;
+    for (const raw of Array.isArray(prefs) ? prefs : []) {
+      const p = obj(raw);
+      const v = str(p?.value);
+      const from = str(p?.wa_id).replace(/\D/g, "");
+      if (!p || str(p.category) !== "marketing_messages" || (v !== "stop" && v !== "resume") || !from) continue;
+      const at = sentAtOf(p);
+      out.push({ from, value: v, ...(at ? { at } : {}) });
     }
   }
   return out;
@@ -202,6 +249,32 @@ export const templateMessage = (to: string, name: string, language: string, vari
       : {}),
   },
 });
+
+/**
+ * Reply buttons (up to 3), inside the 24-hour window. The id is ours and comes back on the tap
+ * (`reply.id`), which is what makes a yes a fact instead of a reading of her text. Meta's
+ * limits are enforced here, where a wrong call is a bug, not at the send, where it is a lost
+ * message: 1–3 buttons, title 1–20 characters, id 1–256, body 1–1024.
+ */
+export const replyButtonsMessage = (to: string, body: string, buttons: ReadonlyArray<{ id: string; title: string }>) => {
+  if (body.length < 1 || body.length > 1024) throw new Error("botões: corpo de 1 a 1024 caracteres");
+  if (buttons.length < 1 || buttons.length > 3) throw new Error("botões: de 1 a 3");
+  for (const b of buttons)
+    if (b.id.length < 1 || b.id.length > 256 || [...b.title].length < 1 || [...b.title].length > 20)
+      throw new Error(`botões: id de 1 a 256 e título de 1 a 20 caracteres (${b.id})`);
+  if (new Set(buttons.map((b) => b.id)).size !== buttons.length) throw new Error("botões: ids repetidos");
+  return {
+    messaging_product: "whatsapp",
+    recipient_type: "individual",
+    to,
+    type: "interactive",
+    interactive: {
+      type: "button",
+      body: { text: body },
+      action: { buttons: buttons.map((b) => ({ type: "reply", reply: { id: b.id, title: b.title } })) },
+    },
+  };
+};
 
 /** Marks her message read and shows "digitando…" while the turn thinks. */
 export const readAndTyping = (messageId: string) => ({

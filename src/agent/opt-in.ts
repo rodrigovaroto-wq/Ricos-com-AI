@@ -2,146 +2,125 @@
  * Marketing opt-in (decision of 2026-09-28: option B of
  * docs/agente-ia/05-plano/07-opt-in-marketing.md). Meta sends a MARKETING template only to
  * someone who agreed to receive it from a named business; a click on the ad is not that.
- * So the code — never the model — asks once, inside the 24-hour window, and records a yes.
+ * So the code — never the model — asks, inside the 24-hour window, and records the answer.
  *
- * The consent is a KEYWORD, not a "sim". Four review rounds (2026-09-28) found a "sim" that
- * answered something else every time the anchor moved: the touch's own question, the bubble
- * before, the agent's "Tá certinho assim?" before the silence. "Sim" answers anything; only a
- * word nothing else asks for answers this question alone, whatever came before it or after.
+ * ROOT RULE: no text she types ever GRANTS consent. Eight review rounds (2026-09-28) read her
+ * text — "sim", then a keyword, then negations for the way back — and every reading had holes
+ * both ways, because intent in free text is not regular (`.claude/memory/negation-blindness.md`).
+ * The channel had the structured answer all along and threw it away: a tap on a reply button
+ * carries the id WE gave the button (`InboundMessage.reply`, src/channel/whatsapp.ts). So:
  *
- * - `optInQuestion`: a message of its own, after the ruler's first touch, when the operator
- *   turns the question on (`channel.askMarketingOptIn === true`; absent = never asked).
- * - `acceptsMarketingOptIn`: whether her reply gives the keyword, alone, within 24h of the
- *   question. Anything unclear is a no: a wrong yes sends marketing to someone who never
- *   agreed (and spam reports can cost the only number); a wrong no costs two touches.
- * - `revokesMarketingOptIn`: whether a message, at any time, takes the consent back — any
- *   mention of marketing that is not a yes. It lives here, beside the yes, because the question
- *   teaches the word she will revoke with ("não quero ofertas"), and `classifyOptOut` — which
- *   stops everything — does not read it.
+ * - consent = a tap on this question's "yes" button, within 24h;
+ * - refusal = a tap on any question's "no" button, Meta's `user_preferences` stop, error
+ *   131050 or the general opt-out — structured, recorded by the caller as `declinedAt`;
+ * - her TEXT can only SUSPEND: any mention of marketing clears the consent and lets the
+ *   question be asked again, once, with the buttons. A wrong suspension costs one question in
+ *   the window, not the consent; a revocation in words the stems miss is still covered by
+ *   Meta's own switch (`user_preferences`) and by the general opt-out.
  *
  * Zero imports, so it can be mirrored byte for byte into `supabase/functions/turn/` like the
- * guardrail chain. The turn runs `classifyOptOut` before this; an opt-out never gets here.
+ * guardrail chain. Nothing calls it yet: the turn and the sweep wire it after PR #37 merges.
  */
 
-/** The word she answers with. Nothing else the agent says asks for it. */
-export const OPT_IN_KEYWORD = "OFERTAS";
+const YES_PREFIX = "optin:yes:";
+const NO_PREFIX = "optin:no:";
 
-/**
- * Names the business (Meta's opt-in guide asks for it) and what she would receive. No coupon:
- * `coupon.active` may be false, and a question promising one is a promise `coupon_exists`
- * vetoes. Null for a blank brand: a question that names no business is not an opt-in.
- */
-export const optInQuestion = (brand: string): string | null =>
-  brand.replace(/[\s\u200b-\u200d\ufeff]/g, "") === ""
-    ? null
-    : `Posso te mandar lembretes e ofertas da ${brand.trim()} por aqui? Se quiser, me responde **${OPT_IN_KEYWORD}**.`;
-
-/** A question back, in any script: "sim?", "pode¿", "sim ？". */
-const QUESTION_MARK = /[?¿？]/;
-
-/**
- * The only symbols a yes may carry: 💛 ❤ ♥ 😊 🥰 😍 👍 🙏 🤩 ✨ (any skin tone), the bold she
- * copies back ("*OFERTAS*") and punctuation. Anything else — 👎 ❌ 🙄 😒 🤡 — may be the answer
- * itself, and an unknown symbol reads as no.
- */
-const HARMLESS =
-  /[!.,*\u2026\s\u200b-\u200d]|\ufe0e|\ufe0f|[\u{1f3fb}-\u{1f3ff}]|\u{1f49b}|\u2764|\u2665|\u{1f60a}|\u{1f970}|\u{1f60d}|\u{1f44d}|\u{1f64f}|\u{1f929}|\u2728/gu;
-
-/**
- * Only the accents Portuguese writes (grave, acute, circumflex, tilde, diaeresis, cedilla).
- * Any other combining mark stays and makes the reply a no: "s̶i̶m̶" is struck through.
- */
-const stripAccents = (s: string): string => s.normalize("NFD").replace(/[\u0300-\u0303\u0308\u0327]/g, "");
-
-const normalize = (s: string): string =>
-  stripAccents(s)
-    .toLowerCase()
-    .replace(HARMLESS, " ")
-    // "siiim", "ofertasss".
-    .replace(/(\p{L})\1{2,}/gu, "$1")
-    .replace(/\bsim+\b/g, "sim")
-    .replace(/\s+/g, " ")
-    .trim();
-
-/**
- * The whole reply must be one of these — each one carries the keyword; "sim" alone, "pode" or
- * "quero" alone are answers to anything and count as no. "não quero ofertas" is not in the set.
- */
-export const YES_REPLIES: readonly string[] = [
-  "ofertas",
-  "oferta",
-  "sim ofertas",
-  "ofertas sim",
-  "quero ofertas",
-  "sim quero ofertas",
-  "pode mandar ofertas",
-  "sim pode mandar ofertas",
-  "ofertas pode mandar",
-  "ofertas por favor",
-  "sim oferta",
-  "quero oferta",
-  "me manda ofertas",
-  "aceito ofertas",
-  "quero receber ofertas",
-];
-const YES = new Set(YES_REPLIES);
-
-/** She answers the question she can still see: after the service window, no reply counts. */
+/** She answers the question she can still see: after the service window, a yes does not count. */
 const ANSWER_WINDOW_MS = 24 * 60 * 60 * 1000;
 
-export interface OptInAnchor {
-  /** The question the sweep sent (`leads.marketing_opt_in_question_id`); null = never asked. */
-  questionId: string | null;
-  /** When it went out (`leads.marketing_opt_in_asked_at`), as a Date or the ISO text PostgREST returns. */
-  askedAt: Date | string | null;
-  now: Date;
-}
+/**
+ * The question and its two buttons, for `replyButtonsMessage`. Names the business (Meta's
+ * opt-in guide asks for it) and what she would receive. No coupon: `coupon.active` may be
+ * false, and a question promising one is a promise `coupon_exists` vetoes.
+ *
+ * `nonce` is fresh per question (the caller's `crypto.randomUUID()`, stored on the lead): a
+ * tap on an older question's yes is not a yes to this one. Null for a blank brand or nonce —
+ * a question that names no business is not an opt-in.
+ */
+export const optInMessage = (
+  brand: string,
+  nonce: string,
+): { body: string; buttons: [{ id: string; title: string }, { id: string; title: string }] } | null => {
+  const blank = (s: string) => s.replace(/[\s\u200b-\u200d\ufeff]/g, "") === "";
+  if (blank(brand) || blank(nonce)) return null;
+  return {
+    body: `Posso te mandar lembretes e ofertas da ${brand.trim()} por aqui?`,
+    buttons: [
+      { id: `${YES_PREFIX}${nonce}`, title: "Quero ofertas" },
+      { id: `${NO_PREFIX}${nonce}`, title: "Não, obrigada" },
+    ],
+  };
+};
 
 const toTime = (d: Date | string | null | undefined): number =>
   d instanceof Date ? d.getTime() : typeof d === "string" ? Date.parse(d) : NaN;
 
+export interface OptInQuestion {
+  /** The current question's nonce (`leads.marketing_opt_in_nonce`); null = never asked. */
+  nonce: string | null;
+  /** When it went out (`leads.marketing_opt_in_asked_at`), Date or the ISO text PostgREST returns. */
+  askedAt: Date | string | null;
+  now: Date;
+}
+
 /**
- * True only when the question went out less than 24 hours ago and her whole reply is the
- * keyword (optionally with "sim"/"quero"/"pode mandar"). Any missing or invalid input is a no.
+ * What a tap says. "yes" only for the CURRENT question's yes button, tapped less than 24h after
+ * it went out. "no" for ANY question's no button, at any time — a no is always a no. Null for
+ * everything else, typed text included (it has no `reply`): text never grants.
  */
-export const acceptsMarketingOptIn = (reply: string, anchor: OptInAnchor): boolean => {
-  if (!anchor.questionId) return false;
-  const age = toTime(anchor.now) - toTime(anchor.askedAt);
+export const optInAnswer = (reply: { id: string } | undefined, question: OptInQuestion): "yes" | "no" | null => {
+  const id = reply?.id;
+  if (typeof id !== "string") return null;
+  if (id.startsWith(NO_PREFIX)) return "no";
+  if (!question.nonce || id !== `${YES_PREFIX}${question.nonce}`) return null;
+  const age = toTime(question.now) - toTime(question.askedAt);
   // Written so NaN (an invalid date, a column missing from the select) fails closed.
-  if (!(age >= 0 && age < ANSWER_WINDOW_MS)) return false;
-  if (typeof reply !== "string" || QUESTION_MARK.test(reply)) return false;
-  // Anything that is not a letter, a digit or a harmless symbol makes the reply a no.
-  if (/[^\p{L}\p{N}]/u.test(stripAccents(reply).replace(HARMLESS, ""))) return false;
-  return YES.has(normalize(reply));
+  return age >= 0 && age < ANSWER_WINDOW_MS ? "yes" : null;
 };
 
 /**
- * What a marketing opt-in covers, as stems: "ofertinha", "promo", "cupons", "descontos",
- * "anúncio". "cupom" and "desconto" are here because `silence_3` offers exactly that.
+ * Words she would use for what the opt-in covers, as stems: "ofertinha", "promo", "cupons",
+ * "publicidade", "mkt". `\bcupo` and not `cupo`: "me preocupo com golpe" is the commonest
+ * objection, not a revocation (eighth review). "ofet"/"ofret" are the usual typos.
  */
-const MARKETING_STEM = /ofert|promo|propag|lembret|cupo|descont|novidad|anunci|spam|marketing/;
+const MARKETING_STEM =
+  /ofert|ofet|ofret|promo|propag|public|divulg|\bmkt\b|lembret|\bcupo|descont|novidad|anunci|spam|marketing/;
 
 /** "ofertaaas", "promooo": any run of one letter is read as one. */
 const collapse = (s: string): string => s.replace(/(\p{L})\1+/gu, "$1");
 
 /**
- * True when a message takes the marketing consent back: ANY mention of marketing that is not
- * one of the accepted yes replies, at any time.
- *
- * No negation is read, on purpose (seven review rounds, 2026-09-28). Every rule that tried —
- * exact "não" lists, then stems, then "marketing word AND stop word" — either missed real
- * revocations ("n quero ofertas", "me exclui das promoções", "pode deixar as ofertas") or,
- * because "para", "não" and "sem" are in almost every sentence, revoked 25 of 30 buying
- * sentences anyway. Negation read by regex does not close (`.claude/memory/negation-blindness.md`).
- *
- * The cost is explicit and bounded: a client who opted in and writes "o cupom não funcionou"
- * or "tem desconto para o pix?" loses the two marketing touches OUTSIDE the window — the
- * conversation itself goes on, the window is open. A missed revocation, instead, sends
- * marketing to someone who said no (LGPD art. 8º §5º) and risks the only number. A narrower
- * rule is the operator's call (docs/agente-ia/05-plano/07-opt-in-marketing.md).
+ * Whether her message suspends the consent: TYPED text that mentions marketing at all. No
+ * negation is read — "não quero ofertas" and "tem desconto no pix?" both suspend, and the
+ * second one is simply asked again with the buttons. A tap never suspends, even though
+ * "Quero ofertas" contains the word: the tap is the structured answer, read by `optInAnswer`.
  */
-export const revokesMarketingOptIn = (text: string): boolean => {
-  if (typeof text !== "string") return false;
-  if (YES.has(normalize(text))) return false;
-  return MARKETING_STEM.test(collapse(stripAccents(text).toLowerCase()));
+export const suspendsMarketingOptIn = (message: { body: string; reply?: { id: string } }): boolean => {
+  if (message.reply || typeof message.body !== "string") return false;
+  const t = collapse(message.body.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+  return MARKETING_STEM.test(t);
+};
+
+export interface OptInState {
+  /** `leads.marketing_opt_in_asked_at` — the last question. */
+  askedAt: Date | string | null;
+  /** `leads.marketing_opt_in_at` — consent in force. */
+  optInAt: Date | string | null;
+  /** `leads.marketing_opt_in_suspended_at` — her text suspended it. */
+  suspendedAt: Date | string | null;
+  /** `leads.marketing_opt_in_declined_at` — a structured no. Final. */
+  declinedAt: Date | string | null;
+}
+
+/**
+ * Whether the question may go out (the caller also needs `channel.askMarketingOptIn === true`
+ * and an open window). Never after a structured no; never while consent is in force; once when
+ * never asked; once more after each suspension. Any value in `declinedAt` or `optInAt` counts,
+ * readable or not (safe: do not ask), and a suspension with an unreadable date does not reopen
+ * the question.
+ */
+export const mayAskOptIn = (s: OptInState): boolean => {
+  if (s.declinedAt || s.optInAt) return false;
+  if (!s.askedAt) return true;
+  return toTime(s.suspendedAt) > toTime(s.askedAt);
 };
