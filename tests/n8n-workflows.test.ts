@@ -111,4 +111,20 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     };
     expect(checkWorkflow(loose).join()).toContain("forwards the public webhook's body whole");
   });
+
+  // 2026-09-28: o selo cobre `reply.id` desde 6d838b2; um nó que monta o corpo sem `reply`
+  // faz todo toque de botão voltar 401 com INBOUND_SIGNING_SECRET setado.
+  it.each(["Cerebro do turno", "Resposta de verdade"])("Turno cujo nó %s não repassa o reply selado", (name) => {
+    const wf = load("turno-da-agente");
+    const loose = {
+      ...wf,
+      nodes: wf.nodes.map((n) =>
+        n.name === name
+          ? { ...n, parameters: { ...n.parameters, jsonBody: String(n.parameters?.jsonBody).replace(/,\s*reply:[^,}]*/, "") } }
+          : n,
+      ),
+    };
+    expect(String(loose.nodes.find((n) => n.name === name)?.parameters?.jsonBody)).not.toMatch(/reply/);
+    expect(checkWorkflow(loose).join()).toContain(`${name}: does not forward sealed field reply`);
+  });
 });

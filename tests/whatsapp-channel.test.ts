@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { sealInbound, sealIsValid } from "@/channel/inbound-signature.js";
 import {
   deliveryErrors,
+  marketingDeclines,
   marketingPreferences,
   parseWebhook,
   readAndTyping,
@@ -264,7 +265,7 @@ describe("o que sai pela Cloud API", () => {
 });
 
 describe("erros de entrega que a Meta devolve", () => {
-  it("só id e código, nunca telefone ou texto", () => {
+  it("id, código e o telefone só em dígitos, nunca texto", () => {
     const payload = {
       entry: [
         {
@@ -283,8 +284,67 @@ describe("erros de entrega que a Meta devolve", () => {
         },
       ],
     };
-    expect(deliveryErrors(payload)).toEqual([{ id: "wamid.9", code: 131047 }]);
+    expect(deliveryErrors(payload)).toEqual([{ id: "wamid.9", code: 131047, to: "5511" }]);
     expect(deliveryErrors(payload, "OUTRO")).toEqual([]);
+  });
+});
+
+/**
+ * PR #38 item 5 (2026-09-28): a recusa estruturada de marketing que chega pelo webhook —
+ * o erro 131050 num envio e o `stop` em "Ofertas e novidades" — vira `declined_at`.
+ */
+describe("recusas de marketing que a Meta avisa pelo webhook", () => {
+  // Status real de um template MARKETING a quem desligou marketing (documentação da Meta).
+  const failed = (code: number, recipient = "5511987654321", pnid = "PNID") => ({
+    object: "whatsapp_business_account",
+    entry: [{ id: "WABA", changes: [{ field: "messages", value: {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "551140000000", phone_number_id: pnid },
+      statuses: [{
+        id: "wamid.HBgNNTUxMTk4NzY1NDMyMRUCABEYEjQ5",
+        status: "failed",
+        timestamp: "1790000000",
+        recipient_id: recipient,
+        errors: [{
+          code,
+          title: "Unable to deliver the message. This recipient has chosen to stop receiving marketing messages on WhatsApp from your business.",
+          message: "Unable to deliver the message. This recipient has chosen to stop receiving marketing messages on WhatsApp from your business.",
+          error_data: { details: "Unable to deliver the message. This recipient has chosen to stop receiving marketing messages on WhatsApp from your business." },
+        }],
+      }],
+    } }] }],
+  });
+  const prefs = (value: string, category = "marketing_messages", pnid = "PNID") => ({
+    object: "whatsapp_business_account",
+    entry: [{ id: "WABA", changes: [{ field: "user_preferences", value: {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "551140000000", phone_number_id: pnid },
+      contacts: [{ wa_id: "5511912345678" }],
+      user_preferences: [{ wa_id: "5511912345678", detail: "User requested to stop marketing messages", category, value, timestamp: 1790000000 }],
+    } }] }],
+  });
+
+  it("131050 recusa, pelo telefone que o lead guarda", () => {
+    expect(marketingDeclines(failed(131050), "PNID")).toEqual(["5511987654321"]);
+    expect(marketingDeclines(failed(131050, "+55 11 98765-4321"))).toEqual(["5511987654321"]);
+  });
+  it("user_preferences stop recusa", () => {
+    expect(marketingDeclines(prefs("stop"), "PNID")).toEqual(["5511912345678"]);
+  });
+  it("nega: outro erro de entrega, resume, outra categoria, outro número, nada lido", () => {
+    expect(marketingDeclines(failed(131047))).toEqual([]);
+    expect(marketingDeclines(failed(131026))).toEqual([]);
+    expect(marketingDeclines(prefs("resume"))).toEqual([]);
+    expect(marketingDeclines(prefs("stop", "other"))).toEqual([]);
+    expect(marketingDeclines(failed(131050), "OUTRO")).toEqual([]);
+    expect(marketingDeclines(prefs("stop"), "OUTRO")).toEqual([]);
+    expect(marketingDeclines(failed(131050, ""))).toEqual([]);
+    expect(marketingDeclines(hook(msg("text", { text: { body: "não quero mais promoção" } })))).toEqual([]);
+    expect(marketingDeclines(null)).toEqual([]);
+  });
+  it("o mesmo telefone duas vezes no mesmo POST é uma escrita só", () => {
+    const both = { entry: [...failed(131050, "5511912345678").entry, ...prefs("stop").entry] };
+    expect(marketingDeclines(both)).toEqual(["5511912345678"]);
   });
 });
 
