@@ -101,7 +101,8 @@ describe("template aprovado = texto que o gate leu", () => {
     expect(sent).toBe(gated);
   });
   // 2. Half the leads get `silence_2`'s second variant as free text, and the gate reads it;
-  //    outside the window the template sends the first one.
+  //    outside the window the template sends the first one. Operator's decision (2026-09-28):
+  //    option (a) — outside the window, always the first variant; no second template.
   it.fails("silence_2, segunda variante (diverge: fora da janela sai a primeira)", () => {
     const { sent, gated } = sentVsGated("silence_2", { leadId: leadFor(1) });
     expect(sent).toBe(gated);

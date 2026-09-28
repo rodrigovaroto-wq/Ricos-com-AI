@@ -55,7 +55,9 @@ do script (Estágio 8). A segunda ("o colete não muda o seu corpo…") não foi
 em template: ela chega perto do tema de corpo, e é aí que a revisão de marketing da Meta
 é mais rígida. Pode ser submetida depois, se a primeira for aprovada.
 
-> **Decisão pendente do operador — a segunda variante (achado de 2026-09-28,
+> **Decidido pelo operador em 2026-09-28: (a).** Entra no código depois do merge do PR #37.
+>
+> **A segunda variante (achado de 2026-09-28,
 > `tests/whatsapp-templates.test.ts`).** Fora da janela, metade das leads (por
 > `pickVariant(leadId, [0, 1])`) tem a segunda variante como texto livre, mas só a
 > primeira existe como template — então para essas leads o gate leu um texto e a

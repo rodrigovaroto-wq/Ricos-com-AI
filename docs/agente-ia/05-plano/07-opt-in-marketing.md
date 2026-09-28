@@ -1,8 +1,24 @@
 # Opt-in antes de template de marketing (item 16c)
 
-> Memorando de decisão para o operador, 2026-09-28. Status: **aguarda decisão**. Escrito
-> pelo `compliance-reviewer`, que **não é advogado**: onde a pergunta é jurídica de verdade,
-> ela está marcada como pergunta. Entra no grafo de decisões quando o operador escolher.
+> Memorando de decisão para o operador, 2026-09-28. Escrito pelo `compliance-reviewer`, que
+> **não é advogado**: onde a pergunta é jurídica de verdade, ela está marcada como pergunta.
+>
+> **Decidido pelo operador em 2026-09-28: opção B** (pergunta explícita feita pelo código,
+> começando em A). Entra no grafo de decisões depois do merge do PR #37, que reescreve o grafo.
+>
+> **Já no repositório (sem tocar o PR):** a migração
+> [`0019_marketing_opt_in.sql`](../../../supabase/migrations/0019_marketing_opt_in.sql) (não
+> aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta e o
+> leitor do sim, provados em `tests/opt-in.test.ts`.
+>
+> **Um aperto sobre a especificação do item 4, abaixo:** "sim em até 24h depois da pergunta"
+> deixava um "sim" a outra pergunta da agente no mesmo dia ("fica o M, certo?") virar
+> consentimento. O leitor exige que **a última mensagem enviada antes da resposta seja a
+> própria pergunta**, e que a resposta inteira seja um sim curto.
+>
+> **Fica para depois do merge:** a flag `channel.askMarketingOptIn` (ausente = não pergunta), a
+> linha no `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050
+> zerando o opt-in, e o espelho do `opt-in.ts` em `supabase/functions/turn/`.
 
 **O problema.** `silence_2` (manhã seguinte) e `silence_3` (cupom, 3 dias depois) saem fora
 da janela de 24h como template `MARKETING` ([`03-templates-meta.md`](../06-script/03-templates-meta.md)).
