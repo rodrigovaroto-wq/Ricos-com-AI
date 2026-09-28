@@ -1,4 +1,5 @@
 import { createHmac } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { sealInbound, sealIsValid } from "@/channel/inbound-signature.js";
 import {
@@ -392,5 +393,22 @@ describe("selo da entrada entre a função whatsapp e o turno", () => {
     expect(await sealIsValid("", m, await sealInbound("s", m))).toBe(false);
     expect(await sealIsValid("s", m, undefined)).toBe(false);
     expect(await sealIsValid("s", m, await sealInbound("outro", m))).toBe(false);
+  });
+});
+
+/**
+ * `marketingDeclines` is pure and tested above; the write is Deno I/O no test reaches. A line
+ * deleted from `forward` left the refusal read and never recorded (2026-09-28 mutation run),
+ * so the wiring is pinned by text, the way `function-drift.test.ts` pins the turn.
+ */
+describe("a recusa de marketing é gravada pela função do WhatsApp", () => {
+  const source = readFileSync("supabase/functions/whatsapp/index.ts", "utf8");
+  it("forward grava cada recusa e espera por ela", () => {
+    expect(source).toContain("marketingDeclines(payload, PHONE_NUMBER_ID).map(declineMarketing)");
+    expect(source).toContain("  await declines;\n");
+  });
+  it("a recusa é final: só o lead ainda não recusado, e o opt-in zera", () => {
+    expect(source).toContain("&marketing_opt_in_declined_at=is.null`");
+    expect(source).toContain("body: JSON.stringify({ marketing_opt_in_declined_at: new Date().toISOString(), marketing_opt_in_at: null }),");
   });
 });
