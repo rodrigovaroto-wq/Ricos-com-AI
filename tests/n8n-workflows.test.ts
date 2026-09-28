@@ -32,8 +32,11 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
           options: { timeout: 120000, ...over },
         },
         credentials: { httpHeaderAuth: { name: cred } },
+        onError: "continueErrorOutput",
       },
+      { name: "Avisa a falha", type: "n8n-nodes-base.emailSend" },
     ],
+    connections: { "Varre a regua": { main: [[], [{ node: "Avisa a falha" }]] } },
   });
 
   it("credencial de modelo chamando a Edge Function (O-04)", () => {
@@ -69,6 +72,14 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
       ),
     };
     expect(checkWorkflow(semToken).join()).toContain("token");
+  });
+  // 2026-09-28: a varredura sem saída de erro falhava a cada 5 minutos sem avisar ninguém.
+  it("chamada à Edge Function sem saída de erro ligada", () => {
+    const semOnError = sweep({});
+    delete semOnError.nodes[1]!.onError;
+    expect(checkWorkflow(semOnError).join()).toContain("no wired error output");
+    const desligada = { ...sweep({}), connections: { "Varre a regua": { main: [[], []] } } };
+    expect(checkWorkflow(desligada).join()).toContain("no wired error output");
   });
   it("a régua correta passa", () => {
     expect(checkWorkflow(sweep({}))).toEqual([]);

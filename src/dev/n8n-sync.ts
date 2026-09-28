@@ -25,10 +25,10 @@ interface ApiWorkflow {
   name: string;
   active: boolean;
   activeVersionId: string | null;
-  activeVersion?: { versionId: string; nodes: N8nWorkflow["nodes"]; connections: unknown };
+  activeVersion?: { versionId: string; nodes: N8nWorkflow["nodes"]; connections: NonNullable<N8nWorkflow["connections"]> };
 }
 
-async function fetchActive(id: string): Promise<N8nWorkflow & { versionId: string; connections: unknown }> {
+async function fetchActive(id: string): Promise<N8nWorkflow & { versionId: string }> {
   const headers: Record<string, string> = process.env.N8N_API_KEY ? { "X-N8N-API-KEY": process.env.N8N_API_KEY } : {};
   const res = await fetch(`${BASE}/api/v1/workflows/${id}`, { headers });
   if (!res.ok) throw new Error(`n8n ${id}: HTTP ${res.status}`);

@@ -650,6 +650,72 @@ frases como "Te mando o link e é 2 dias."
 
 ---
 
+## 23. A varredura falhava sem avisar ninguém (branch `claude/upbeat-newton-6l6dzz`, 2026-09-28)
+
+> Escrito em paralelo ao PR #37, que reescreve este arquivo até §22 — as duas séries de
+> seções se somam no merge, sem colisão de número.
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: o nó 'Varre a regua' não tinha saída de erro ligada"]
+  C["causa: uma Edge Function recusada (coluna ausente, erro de banco) reprovava a<br/>cada 5 minutos, e ninguém era avisado — nem e-mail, nem log lido por humano"]
+  F["🟧 tentativa que não foi tentada: nenhuma — o furo só apareceu ao escrever a<br/>regra 'toda chamada de Edge Function precisa de saída de erro ligada'<br/>(src/dev/n8n-rules.ts) e rodar contra o workflow existente"]
+  R["🟩 saída de erro no nó + e-mail; por linha, um campo 'erro:' no relatório da<br/>varredura pula o e-mail daquela linha em vez de falhar a rodada inteira"]
+  G["🛡️ regra em src/dev/n8n-rules.ts, provada por tests/n8n-workflows.test.ts;<br/>pnpm dev:n8n falha em qualquer chamada de Edge Function sem saída de erro"]
+  S --> C --> F --> R --> G
+```
+
+**Ainda em aberto:** o workflow corrigido está só no arquivo do repositório
+(`n8n/workflows/relogio-da-regua.json`); a versão publicada no n8n é a antiga, sem a saída de
+erro. `pnpm dev:n8n` compara contra a publicada — por isso ele acusa FALHA de propósito até o
+operador importar o arquivo novo.
+
+## 24. O rascunho de template não provava nada sobre o texto gated (2026-09-28)
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: 03-templates-meta.md tinha o texto do template escrito à mão,<br/>sem checar contra o que deliveryFor realmente manda depois da cadeia de gates"]
+  C["causa: 'o template está pronto para a Meta' era lido como 'o texto está certo',<br/>mas as duas coisas nunca tinham sido comparadas byte a byte"]
+  R["🟩 tests/whatsapp-templates.test.ts renderiza o texto gated (sentVsGated) e compara<br/>com o corpo do rascunho, placeholder por placeholder"]
+  D["🟥 duas divergências reais apareceram ao comparar: order_eve do antecipado cobra<br/>quem já pagou; a 2ª variante do silence_2 vira texto livre onde deveria haver template"]
+  G["🛡️ as duas divergências ficam fixadas com it.fails (visíveis, não silenciadas) até<br/>o conserto entrar em deliveryFor — nenhuma delas é ignorada em silêncio"]
+  S --> C --> R --> D --> G
+```
+
+## 25. O opt-in: oito revisões lendo texto, e a correção no canal
+
+Escrito em paralelo com o PR #37 (que vai até o §22).
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: consentimento de marketing decidido por texto livre —<br/>um sim falso manda marketing a quem não aceitou e arrisca o único número"]
+  F1["🟧 tentativas 1–4: 'sim' ancorado por includes, igualdade, id da última mensagem,<br/>só depois do after_price — sempre sobrava uma pergunta da agente que o 'sim' respondia"]
+  F2["🟧 tentativa 5: palavra-chave OFERTAS — concedia bem, mas a revogação<br/>virou leitura de negação"]
+  F3["🟧 tentativas 6–8: revogar por 'marketing E negação' (palavra, radical) ou por<br/>'palavra sozinha' — perdia 'n quero ofertas' ou revogava quem negocia desconto"]
+  C["🟦 causa: src/channel/whatsapp.ts textOf transformava o toque no botão em texto<br/>e descartava o id — o sistema não tinha sinal estruturado de sim/não"]
+  R["🟩 correção (17decb7): reply = {id, contextId} no canal; pergunta com botões e nonce;<br/>sim = toque na pergunta atual em 24h; não = botão, user_preferences, 131050, opt-out;<br/>texto só suspende e reabre uma pergunta"]
+  G["🛡️ tests/opt-in.test.ts (toques pelo parser real; texto nunca concede),<br/>tests/whatsapp-channel.test.ts, tests/n8n-whatsapp-send.test.ts"]
+  S --> F1 --> F2 --> F3 --> C --> R --> G
+```
+
+**Lição:** quando toda heurística de texto tem furo nos dois sentidos, procure o sinal
+estruturado que alguma camada está jogando fora antes de escrever a próxima regex.
+
+**Ainda por ligar (pós-merge do PR #37):** a lista está no `HANDOFF.md`, e inclui pôr
+`reply.id` no selo no mesmo commit em que o turno passar a lê-lo.
+
+## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
+
+```mermaid
+flowchart TD
+  S["🟥 sintoma: 'não quero mais promoção', 'não quero receber mais mensagens' e<br/>'chega de mensagem' não são lidas como opt-out por classifyOptOut"]
+  G["🟩 fixado com it.fails em tests/opt-out-gaps.test.ts — visível, vermelho quando<br/>o conserto entrar, em vez de silenciado"]
+  ABERTO["🟥 o conserto é em src/agent/guardrails.ts, área que o PR #37 reescreve;<br/>não editado nesta branch para não colidir com o merge dele"]
+  S --> G --> ABERTO
+```
+
+---
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
@@ -670,3 +736,9 @@ frases como "Te mando o link e é 2 dias."
    da Meta; produção tinha outra. Toda subida termina com sonda pela porta do n8n (grafo 11).
 9. **Mutação escrita por script:** o `re.sub` do Python come as barras invertidas do texto
    de substituição; use uma função como substituto, ou a mutação "não se aplica" e escapa.
+10. **Um "sim" nunca é âncora segura — só uma palavra que nada mais pergunta é.** Quatro
+    tentativas (`includes`, igualdade de texto, âncora por posição/id, e ainda assim uma
+    pergunta pendente do agente) leram consentimento de um "sim" que respondia outra coisa.
+    A correção parou de tentar advinhar a que ela respondia (grafo 25). E consentimento sem
+    saída não é consentimento completo: a quinta revisão do mesmo dia achou que a
+    palavra-chave só cobria entrar, não sair — todo "sim" precisa de um "não" simétrico.
