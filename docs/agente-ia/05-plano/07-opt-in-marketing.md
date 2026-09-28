@@ -8,11 +8,9 @@
 >
 > **Já no repositório (sem tocar o PR):** a migração
 > [`0019_marketing_opt_in.sql`](../../../supabase/migrations/0019_marketing_opt_in.sql) (não
-> aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta e o
-> leitor da palavra-chave, provados em `tests/opt-in.test.ts` (55 testes). **Estado desta
-> sessão (2026-09-28, não commitado):** os três arquivos estão no working tree com o desenho
-> de palavra-chave do parágrafo acima; o commit mais recente no histório (`6214bc9`) ainda
-> tem o desenho anterior (âncora por id da última mensagem).
+> aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta, o
+> leitor da palavra-chave e a revogação (§ abaixo), provados em `tests/opt-in.test.ts`.
+> Commitado: `6fd6b2e` (desenho de palavra-chave) e `eabfd38` (revogação, quinta revisão).
 >
 > **Dois ajustes sobre os itens 3 e 4 da especificação abaixo (segunda revisão, 2026-09-28).**
 > ~~Eles valem mais que o texto original~~ — **substituídos pelo desenho de palavra-chave
@@ -36,11 +34,9 @@
 > opt-in fora dessa sequência. A correção deixou de tentar advinhar a que a cliente estava
 > respondendo: **a pergunta agora pede uma palavra que nada mais pergunta** —
 > `me responde **OFERTAS**` — e só uma resposta construída em torno dela conta como sim.
-> "Sim" sozinho, "pode" sozinho, "quero" sozinho continuam sendo não. Isso está **implementado
-> no working tree desta sessão (não commitado ainda)**: `src/agent/opt-in.ts`,
-> `tests/opt-in.test.ts` (55 testes, verdes) e os comentários da migração `0019` já usam esse
-> desenho — ver `git diff` antes de reler os arquivos, porque o commit `6214bc9` (que fica no
-> histórico) ainda descreve a âncora por id, superada por este parágrafo.
+> "Sim" sozinho, "pode" sozinho, "quero" sozinho continuam sendo não. Commitado em `6fd6b2e`
+> (`src/agent/opt-in.ts`, `tests/opt-in.test.ts`, comentários da migração `0019`); o commit
+> anterior `6214bc9` (que fica no histórico) descreve a âncora por id, superada.
 >
 > Consequência: a pergunta **não precisa mais vir só depois de `after_price`** — como ela não
 > é mais lida por posição nem por âncora de mensagem anterior, pode seguir qualquer variante do
@@ -48,6 +44,20 @@
 > pergunta nada" saíram do código; a captura passa a exigir só duas coisas: que a pergunta
 > tenha sido feita (`marketing_opt_in_question_id` não nulo) e que a resposta tenha chegado
 > em menos de 24h.
+>
+> **Quinta revisão (2026-09-28, mesmo dia): a palavra-chave também precisa de saída.** A
+> palavra-chave resolve quem disse sim; faltava quem muda de ideia depois — "não quero mais
+> ofertas" tem de zerar o consentimento tanto quanto o opt-out geral zera a conversa inteira.
+> `revokesMarketingOptIn(text)` (commitado em `eabfd38`) lê qualquer mensagem, a qualquer
+> momento (não só dentro da janela de resposta à pergunta), como revogação quando ela junta
+> uma palavra de marketing (`oferta(s)`, `promoção(ões)`, `promo(s)`, `propaganda(s)`,
+> `lembrete(s)`, `marketing`) com uma negação ou pedido de parar (`não`, `pare`, `chega`,
+> `cancela`, `tira`, `remove`, `sai`, `desisto`...) na mesma mensagem. **Deliberadamente
+> frouxo**: uma revogação a mais custa dois toques perdidos; uma revogação a menos manda
+> marketing para quem já disse não (LGPD art. 8º §5º) — o lado seguro aqui é revogar demais,
+> não de menos. "Não quero ofertas do WhatsApp, quero do Instagram" revoga também, e isso é
+> aceito. Fica para depois do merge: o turno chamar `revokesMarketingOptIn` em toda mensagem
+> recebida e zerar `marketing_opt_in_at` quando ela voltar `true`.
 
 > **Fica para depois do merge:** a flag `channel.askMarketingOptIn` (ausente = não pergunta), a
 > mensagem da pergunta depois do `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050

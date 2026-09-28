@@ -1695,8 +1695,9 @@ perguntar nada) nem a C (tratar o clique no anúncio como opt-in, rejeitada por 
 os dois requisitos da página de opt-in da Meta e não ter prova de consentimento). **Decidido,
 não implantado**: a flag `channel.askMarketingOptIn` ainda não existe no `BUSINESS_CONFIG`
 nem é lida pelo turno — até ela nascer (ausente = não pergunta), o código se comporta como A.
-O módulo que faz a pergunta e lê a resposta (`src/agent/opt-in.ts`) já existe e está provado
-por teste, mas a fiação que o liga ao turno e à régua é trabalho posterior ao merge do PR #37.
+O módulo que faz a pergunta, lê a resposta e lê a revogação (`src/agent/opt-in.ts`,
+commits `6fd6b2e` e `eabfd38`) já existe e está provado por teste, mas a fiação que o liga
+ao turno e à régua é trabalho posterior ao merge do PR #37.
 
 ## R15.2 — `silence_2`: opção (a) para a segunda variante
 

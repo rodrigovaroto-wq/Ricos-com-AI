@@ -259,7 +259,7 @@ flowchart TD
   S --> C --> R --> D --> G
 ```
 
-## 25. A âncora do opt-in: quatro tentativas até parar de advinhar a que ela respondia
+## 25. A âncora do opt-in: cinco revisões até consentir só pela palavra e saber revogar
 
 ```mermaid
 flowchart TD
@@ -268,16 +268,17 @@ flowchart TD
   F2["🟧 tentativa 2: igualdade exata de texto ('sim')<br/>— ainda lê 'sim' fora de contexto, sem saber a que responde"]
   F3["🟧 tentativa 3: âncora por posição (só depois de after_price)<br/>+ id da última mensagem enviada (lastOutboundId)<br/>— falha quando a régua manda a pergunta em duas bolhas,<br/>ou quando o agente fez a própria pergunta antes ('Tá certinho assim?')"]
   F4["🟧 tentativa 4 (quarta revisão, mesmo dia): ainda assim,<br/>uma pergunta pendente do agente podia vir depois da âncora<br/>e um 'sim' a ela colava como opt-in"]
-  R["🟩 correção final: parar de tentar advinhar a que ela responde.<br/>A pergunta pede uma PALAVRA-CHAVE que nada mais pergunta ('OFERTAS');<br/>só uma resposta construída em torno dela conta como sim.<br/>'Sim'/'pode'/'quero' sozinhos são resposta a qualquer coisa — não contam"]
-  G["🛡️ tests/opt-in.test.ts (55 testes); acceptsMarketingOptIn só lê questionId + janela<br/>de 24h, nunca posição nem última mensagem enviada"]
-  S --> F1 --> F2 --> F3 --> F4 --> R --> G
+  R["🟩 correção (commit 6fd6b2e): parar de tentar advinhar a que ela responde.<br/>A pergunta pede uma PALAVRA-CHAVE que nada mais pergunta ('OFERTAS');<br/>só uma resposta construída em torno dela conta como sim.<br/>'Sim'/'pode'/'quero' sozinhos são resposta a qualquer coisa — não contam"]
+  F5["🟥 quinta revisão, mesmo dia: a palavra-chave resolvia entrar, não sair —<br/>'não quero mais ofertas' não tinha caminho de volta, distinto do opt-out geral"]
+  R2["🟩 correção (commit eabfd38): revokesMarketingOptIn(texto) — palavra de marketing<br/>+ negação/pedido de parar na mesma mensagem, a qualquer momento, zera o consentimento.<br/>Deliberadamente frouxo: revogar demais custa dois toques; revogar de menos manda<br/>marketing a quem disse não (LGPD art. 8º §5º)"]
+  G["🛡️ tests/opt-in.test.ts; acceptsMarketingOptIn só lê questionId + janela de 24h,<br/>nunca posição nem última mensagem enviada; revokesMarketingOptIn coberto por casos<br/>de negação separados"]
+  S --> F1 --> F2 --> F3 --> F4 --> R --> F5 --> R2 --> G
 ```
 
-**Estado desta sessão:** a correção final (tentativa/correção acima) está no working tree
-de `claude/upbeat-newton-6l6dzz` (`src/agent/opt-in.ts`, `tests/opt-in.test.ts`,
-`supabase/migrations/0019_marketing_opt_in.sql`), **não commitada** — ver
-`docs/agente-ia/05-plano/07-opt-in-marketing.md` para o desenho completo e o `HANDOFF.md`
-para o estado do `git status`.
+**Estado:** commitado — `6fd6b2e` (palavra-chave) e `eabfd38` (revogação, quinta revisão).
+Ainda por ligar (pós-merge do PR #37): o turno chamar `revokesMarketingOptIn` em toda
+mensagem recebida e zerar `marketing_opt_in_at` quando ela voltar `true` — ver
+`docs/agente-ia/05-plano/07-opt-in-marketing.md` para o desenho completo.
 
 ## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
 
@@ -314,4 +315,6 @@ flowchart TD
 10. **Um "sim" nunca é âncora segura — só uma palavra que nada mais pergunta é.** Quatro
     tentativas (`includes`, igualdade de texto, âncora por posição/id, e ainda assim uma
     pergunta pendente do agente) leram consentimento de um "sim" que respondia outra coisa.
-    A correção parou de tentar advinhar a que ela respondia (grafo 25).
+    A correção parou de tentar advinhar a que ela respondia (grafo 25). E consentimento sem
+    saída não é consentimento completo: a quinta revisão do mesmo dia achou que a
+    palavra-chave só cobria entrar, não sair — todo "sim" precisa de um "não" simétrico.

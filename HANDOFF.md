@@ -13,9 +13,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28)
 
-**HEAD `6fd6b2e`, à frente do `main` (`9222dc6`), sem PR aberto, nada publicado, nada
+**HEAD `eabfd38`, à frente do `main` (`9222dc6`), sem PR aberto, nada publicado, nada
 aplicado em produção.** Feito nesta sessão, tudo verificado nesta sessão (`pnpm test`:
-4047 testes verdes; `pnpm typecheck` limpo):
+4078 testes verdes; `pnpm typecheck` limpo).
 
 1. **"Relógio da régua" (n8n): saída de erro + e-mail.** O nó "Varre a regua" não tinha
    saída de erro — uma falha (coluna ausente, erro de banco) reprovava a cada 5 minutos
@@ -43,19 +43,17 @@ aplicado em produção.** Feito nesta sessão, tudo verificado nesta sessão (`p
 5. **Decisões do operador em 2026-09-28** (opt-in opção B e `silence_2` opção (a)) — ver
    entrada nova em
    [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md).
-   `src/agent/opt-in.ts` com `optInQuestion`/`acceptsMarketingOptIn`, testado em
-   `tests/opt-in.test.ts` (55 testes) depois de três rodadas de revisão adversarial
-   registradas no grafo. **Correção de uma quarta rodada, no working tree desta sessão,
-   ainda não commitada**: o "sim" nunca ficou seguro como âncora de consentimento —
+   `src/agent/opt-in.ts` com `optInQuestion`/`acceptsMarketingOptIn`/`revokesMarketingOptIn`,
+   testado em `tests/opt-in.test.ts`, depois de **cinco rodadas de revisão adversarial**
+   registradas no grafo (§25–§26): o "sim" nunca ficou seguro como âncora de consentimento —
    passou por `includes`, depois igualdade de texto, depois âncora pelo id da última
    mensagem, e ainda assim um "sim" respondendo a uma pergunta do próprio agente (ex.:
    "Tá certinho assim?") contava como opt-in. A correção troca a âncora por uma
-   **palavra-chave que nada mais pergunta** (`OFERTAS`) — ver a nota no topo de
+   **palavra-chave que nada mais pergunta** (`OFERTAS`, commit `6fd6b2e`) e acrescenta a
+   revogação (`eabfd38`, quinta revisão): qualquer mensagem, a qualquer momento, que junte
+   uma palavra de marketing com uma negação/pedido de parar zera o consentimento. Ver a nota
+   no topo de
    [`docs/agente-ia/05-plano/07-opt-in-marketing.md`](docs/agente-ia/05-plano/07-opt-in-marketing.md).
-   `git status` mostra `src/agent/opt-in.ts`, `tests/opt-in.test.ts` e
-   `supabase/migrations/0019_marketing_opt_in.sql` como modificados e não commitados — a
-   próxima sessão que abrir este branch deve conferir se esse estado sobreviveu (working
-   tree, não stash, não commit) antes de continuar.
 6. **`tests/opt-out-gaps.test.ts`**: `classifyOptOut` lê "não quero mais promoção", "não
    quero receber mais mensagens" e "chega de mensagem" como se não fossem pedido de
    opt-out — fixado com `it.fails`. O conserto é em `guardrails.ts`, área que o PR #37
@@ -76,10 +74,11 @@ aplicado em produção.** Feito nesta sessão, tudo verificado nesta sessão (`p
 ### Depois do PR #37 fechar (código em `followups.ts`/`turn/index.ts`)
 Flag `channel.askMarketingOptIn`; mandar a pergunta de opt-in como mensagem própria
 (agora **não** presa a `after_price` — pode seguir qualquer `silence_1`, ver item 5
-acima); capturar no turno; `no_opt_in` em `deliveryFor`; o erro **131050** zerando o
-opt-in; espelhar `opt-in.ts` em `supabase/functions/turn/`; a primeira variante do
-`silence_2` fora da janela; a escolha do template de véspera do antecipado; o conserto
-dos furos de `classifyOptOut` (item 6).
+acima); capturar no turno; chamar `revokesMarketingOptIn` em toda mensagem recebida e
+zerar `marketing_opt_in_at` quando ela voltar `true`; `no_opt_in` em `deliveryFor`; o
+erro **131050** zerando o opt-in; espelhar `opt-in.ts` em `supabase/functions/turn/`; a
+primeira variante do `silence_2` fora da janela; a escolha do template de véspera do
+antecipado; o conserto dos furos de `classifyOptOut` (item 6).
 
 ## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
 
