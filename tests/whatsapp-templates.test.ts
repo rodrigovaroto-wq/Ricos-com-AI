@@ -80,6 +80,16 @@ describe("template aprovado = texto que o gate leu", () => {
     expect(sent).toBe(gated);
   });
 
+  // The draft of the second eve template (section 4) is the prepaid free text already, so
+  // the day `deliveryFor` picks it for a prepaid order the divergence below closes.
+  it("rascunho da véspera do antecipado = texto livre do antecipado", () => {
+    const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith("Véspera do pedido já pago"));
+    const body = section && /\*\*Corpo:\*\*\s*```text\n([\s\S]*?)\n```/.exec(section)?.[1];
+    expect(body, "seção 4 do documento").toBeTruthy();
+    const { gated } = sentVsGated("order_eve", { prepaid: true });
+    expect(body!.replace(/\*([^*\n]+)\*/g, "**$1**")).toBe(gated);
+  });
+
   // KNOWN DIVERGENCES (2026-09-28), pinned with `it.fails` so they stay visible and turn
   // red the day they are fixed. Both need a code change in `deliveryFor` (the template's
   // own text is what must be gated) and one of them a second template at Meta.
