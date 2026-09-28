@@ -15,10 +15,10 @@ alter table public.leads
   add column if not exists marketing_opt_in_message_id text;
 
 comment on column public.leads.marketing_opt_in_asked_at is
-  'When the opt-in question went out, as a message of its own after the after_price touch (src/agent/opt-in.ts). Asked once.';
+  'When the opt-in question went out, as a message of its own after the ruler''s first touch (src/agent/opt-in.ts). Asked once; a yes counts for 24h after it.';
 comment on column public.leads.marketing_opt_in_question_id is
-  'The outbound message that carried the question. Her yes counts only if it answers THIS message: the last one sent to her, by id — never by text, which the model could repeat.';
+  'The outbound message that carried the question; null = never asked, and no reply is read as consent.';
 comment on column public.leads.marketing_opt_in_at is
-  'When she answered yes to that question; null = no marketing template. Cleared by WhatsApp error 131050.';
+  'When she answered with the keyword (OFERTAS) — never a bare "sim", which answers anything; null = no marketing template. Cleared by WhatsApp error 131050.';
 comment on column public.leads.marketing_opt_in_message_id is
   'The inbound message (messages.external_id) that said yes: the record of consent (LGPD art. 8º §2º).';
