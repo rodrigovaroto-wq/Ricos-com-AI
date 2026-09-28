@@ -17,6 +17,7 @@ const data = (over: Partial<PainelData> = {}): PainelData => ({
     { conversation_id: "c1", stage: "pedido_criado", model_calls: 6, cost_brl: "0.6000" as unknown as number, counter_drift_brl: "0.0000" as unknown as number },
     { conversation_id: "c2", stage: "perdido", model_calls: 2, cost_brl: "0.3000" as unknown as number, counter_drift_brl: "0.0000" as unknown as number },
   ],
+  watch: [],
   funnel: [
     { origin: "ad", stage: "perdido", stage_order: 9, conversations: 1 },
     { origin: "ad", stage: "pedido_criado", stage_order: 5, conversations: 1 },
@@ -45,14 +46,22 @@ describe("painel diário", () => {
       { conversation_id: "caro", stage: "conversando", model_calls: 30, cost_brl: 1.9, counter_drift_brl: 0 },
       { conversation_id: "limite", stage: "conversando", model_calls: 30, cost_brl: 1.875, counter_drift_brl: 0 },
     ];
-    const p = renderPainel(data({ costs }), 1.875);
+    const p = renderPainel(data({ costs, watch: costs }), 1.875);
     expect(p.alerts).toHaveLength(1);
     expect(p.alerts[0]).toContain("caro");
   });
 
+  it("conversa de ontem que passou do teto hoje é alerta no painel de hoje", () => {
+    // Começou às 23:50 do dia anterior: não está nas conversas do dia, está na janela.
+    const tarde = { conversation_id: "tarde", stage: "conversando", model_calls: 40, cost_brl: 2.1, counter_drift_brl: 0 };
+    const p = renderPainel(data({ watch: [tarde] }), 1.875);
+    expect(p.text).toContain("2 conversas");
+    expect(p.alerts.join()).toContain("tarde custou R$ 2,10");
+  });
+
   it("contador de custo divergente e handoff são alertas", () => {
     const costs = [{ conversation_id: "c9", stage: "novo", model_calls: 1, cost_brl: 0.1, counter_drift_brl: -0.05 }];
-    const p = renderPainel(data({ costs, outcomes: { ...data().outcomes!, handoffs: 2 } }), 1.875);
+    const p = renderPainel(data({ costs, watch: costs, outcomes: { ...data().outcomes!, handoffs: 2 } }), 1.875);
     expect(p.alerts.join()).toContain("c9: contador de custo difere");
     expect(p.alerts.join()).toContain("2 handoff(s)");
   });
@@ -64,7 +73,7 @@ describe("painel diário", () => {
   });
 
   it("dia vazio não quebra", () => {
-    const p = renderPainel({ day: "2026-10-02", outcomes: null, gates: [], costs: [], funnel: [], attribution: [] }, 1.875);
+    const p = renderPainel({ day: "2026-10-02", outcomes: null, gates: [], costs: [], watch: [], funnel: [], attribution: [] }, 1.875);
     expect(p.text).toContain("nenhum turno registrado");
     expect(p.text).toContain("perdido: 0");
     expect(p.alerts).toEqual([]);

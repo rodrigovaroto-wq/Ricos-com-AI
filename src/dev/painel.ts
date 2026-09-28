@@ -39,16 +39,21 @@ const config: BusinessConfig | null = process.env.BUSINESS_CONFIG
     ? loadBusinessConfig()
     : null;
 
-const [outcomes, gates, costs, funnel, attribution] = await Promise.all([
+const weekBefore = new Date(`${day}T12:00:00Z`);
+weekBefore.setUTCDate(weekBefore.getUTCDate() - 6);
+const since = weekBefore.toISOString().slice(0, 10);
+
+const [outcomes, gates, costs, watch, funnel, attribution] = await Promise.all([
   get<PainelData["outcomes"] & object>(`eval_turn_outcomes?day=eq.${day}`),
   get<PainelData["gates"][number]>(`eval_gate_blocks?day=eq.${day}`),
   get<PainelData["costs"][number]>(`eval_conversation_cost?day=eq.${day}`),
+  get<PainelData["watch"][number]>(`eval_conversation_cost?day=gte.${since}&day=lte.${day}`),
   get<PainelData["funnel"][number]>(`eval_funnel?day=eq.${day}`),
   get<PainelData["attribution"][number]>("eval_attribution"),
 ]);
 
 const painel = renderPainel(
-  { day, outcomes: outcomes[0] ?? null, gates, costs, funnel, attribution },
+  { day, outcomes: outcomes[0] ?? null, gates, costs, watch, funnel, attribution },
   config ? costCeilingBrl(config) : null,
 );
 console.log(painel.text);

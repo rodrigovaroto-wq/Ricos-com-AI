@@ -55,6 +55,13 @@ export interface PainelData {
   outcomes: OutcomeRow | null;
   gates: GateRow[];
   costs: CostRow[];
+  /**
+   * Conversations started in the 7 days up to `day`, for the ceiling and drift alerts. A
+   * conversation started late one day keeps spending the next; judged only on its own day it
+   * would climb past the ceiling after that day's panel ran and never be flagged. A week is
+   * the window because a conversation older than that is past the whole ruler (3 days).
+   */
+  watch: CostRow[];
   funnel: FunnelRow[];
   attribution: AttributionRow[];
 }
@@ -106,16 +113,14 @@ export const renderPainel = (data: PainelData, ceilingBrl: number | null): Paine
     const costs = data.costs.map((c) => num(c.cost_brl));
     const total = costs.reduce((a, b) => a + b, 0);
     lines.push(`  ${costs.length} conversas · total ${brl(total)} · média ${brl(total / costs.length)} · maior ${brl(Math.max(...costs))}`);
-    if (ceilingBrl === null) lines.push("  teto não conferido: sem BUSINESS_CONFIG nem config/business.json");
-    else {
-      const above = data.costs.filter((c) => num(c.cost_brl) > ceilingBrl);
-      lines.push(`  teto com folga ${brl(ceilingBrl)}: ${above.length} acima`);
-      for (const c of above) alerts.push(`conversa ${c.conversation_id} custou ${brl(num(c.cost_brl))}, acima do teto ${brl(ceilingBrl)}`);
-    }
-    const drift = data.costs.filter((c) => Math.abs(num(c.counter_drift_brl)) >= 0.0001);
-    for (const c of drift)
-      alerts.push(`conversa ${c.conversation_id}: contador de custo difere de llm_calls em ${brl(num(c.counter_drift_brl))}`);
+    if (ceilingBrl !== null) lines.push(`  teto com folga ${brl(ceilingBrl)}`);
   }
+  if (ceilingBrl === null) lines.push("  teto não conferido: sem BUSINESS_CONFIG nem config/business.json");
+  else
+    for (const c of data.watch.filter((w) => num(w.cost_brl) > ceilingBrl))
+      alerts.push(`conversa ${c.conversation_id} custou ${brl(num(c.cost_brl))}, acima do teto ${brl(ceilingBrl)}`);
+  for (const c of data.watch.filter((w) => Math.abs(num(w.counter_drift_brl)) >= 0.0001))
+    alerts.push(`conversa ${c.conversation_id}: contador de custo difere de llm_calls em ${brl(num(c.counter_drift_brl))}`);
 
   lines.push("", "Funil (conversas iniciadas no dia, estágio de agora)");
   if (data.funnel.length === 0) lines.push("  vazio");

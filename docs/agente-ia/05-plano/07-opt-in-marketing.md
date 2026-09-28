@@ -75,8 +75,9 @@ mudança na campanha, que está em outro repositório. Pode entrar depois, grava
 
 ## 4. Recomendação: B, que começa como A
 
-Até o operador ligar a pergunta, o código fica em A. Não há template de marketing sem
-`marketing_opt_in_at`. A regra de risco antes de conversão manda que A seja o padrão. Ligar
+Com esta especificação implementada, e até o operador ligar a pergunta, o código fica em A:
+não sai template de marketing sem `marketing_opt_in_at`. (Hoje, antes dela, `deliveryFor`
+não confere opt-in nenhum.) A regra de risco antes de conversão manda que A seja o padrão. Ligar
 B é decisão do operador.
 
 **Especificação mínima (para depois do merge do PR que mexe na régua):**
@@ -101,7 +102,8 @@ B é decisão do operador.
    `MARKETING_KINDS = {silence_2, silence_3}`. Com a janela fechada e sem opt-in, devolve
    `{ via: "blocked", reason: "no_opt_in" }` antes de olhar o template. A janela aberta não muda.
    A varredura já lê `leads(...)`: basta pôr `marketing_opt_in_at` no `select`
-   (`supabase/functions/turn/index.ts:1099`). O arquivo é espelhado byte a byte.
+   (`supabase/functions/turn/index.ts:1099`). A mudança em `deliveryFor` vale para
+   `src/agent/followups.ts` e para o espelho byte a byte `supabase/functions/turn/followups.ts`.
 6. **Revogação:** o opt-out explícito já para tudo (`supabase/functions/turn/index.ts:1794`). Isso é mais estrito que
    só marketing, e fica assim. O erro **131050** no webhook `whatsapp` (`deliveryErrors`)
    zera `marketing_opt_in_at` da lead. Hoje ele só vai para o log (`supabase/functions/whatsapp/index.ts:52`).
