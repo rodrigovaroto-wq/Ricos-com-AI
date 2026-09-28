@@ -19,6 +19,7 @@
     "dev:placar": "tsx src/dev/persona-scorecard.ts",
     "dev:n8n": "tsx src/dev/n8n-sync.ts",
     "dev:gates": "tsx src/dev/gate-diff.ts",
+    "dev:painel": "tsx src/dev/painel.ts",
     "hermes": "tsx src/dev/hermes-run.ts",
     "hermes:calibrar": "tsx src/dev/hermes-calibrate.ts",
     "dev:eval": "tsx src/dev/persona-eval.ts",

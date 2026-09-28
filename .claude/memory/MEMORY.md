@@ -24,3 +24,4 @@ salvamento e a política de crescimento.
 - [Grafo de decisões](grafo-de-decisoes.md) — leia antes de mexer em gate, estado da conversa ou handoff: os atalhos óbvios já falharam e o grafo diz por quê.
 - [Não relembrar PAT nem CONVERSATION_MODEL](nao-relembrar-pendencias-do-operador.md) — o operador sabe e faz; pendência já reconhecida não vira fecho de resposta.
 - [Divisão de papéis: Meta é do sócio](divisao-de-papeis-meta.md) — Ads, BM, developer, número e templates são do sócio; o operador cuida do técnico.
+- [Ambiente aponta para outro projeto](ambiente-aponta-para-outro-projeto.md) — no container de nuvem, `SUPABASE_URL`, `N8N_*` e os conectores MCP são de outro projeto; nada de produção da Encorpa roda daqui.

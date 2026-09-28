@@ -1678,3 +1678,33 @@ Grafo: §13.
 Apps de integração da Coinzz (pagar.me, Mercado Pago, 123Log); checkout no domínio da
 marca (O-02); autenticar os webhooks do n8n (O10) — com segredo em header se Coinzz e Logzz
 permitirem, senão na URL.
+
+# Rodada 15 — opt-in de marketing e a régua sem contradizer o template (2026-09-28)
+
+> Escrita na branch `claude/upbeat-newton-6l6dzz`, em paralelo ao PR #37
+> (`claude/focused-gates-fjpixt`, que chega a §22 do grafo e não usa esta numeração — as
+> duas se somam no merge). Ver
+> [`docs/agente-ia/05-plano/07-opt-in-marketing.md`](../../agente-ia/05-plano/07-opt-in-marketing.md)
+> para a especificação completa; grafo §23–§26.
+
+## R15.1 — Opt-in de marketing: opção B, que começa como opção A
+
+O operador decidiu, em 2026-09-28: **opção B** do memorando (pergunta explícita, feita pelo
+código, nunca pelo modelo) — não a opção A (só template `UTILITY` fora da janela, sem
+perguntar nada) nem a C (tratar o clique no anúncio como opt-in, rejeitada por não cumprir
+os dois requisitos da página de opt-in da Meta e não ter prova de consentimento). **Decidido,
+não implantado**: a flag `channel.askMarketingOptIn` ainda não existe no `BUSINESS_CONFIG`
+nem é lida pelo turno — até ela nascer (ausente = não pergunta), o código se comporta como A.
+O módulo que faz a pergunta, lê a resposta e lê a revogação (`src/agent/opt-in.ts`,
+commit `17decb7`: consentimento só pelo toque no botão, texto só suspende) já existe e está provado por teste, mas a fiação que o liga
+ao turno e à régua é trabalho posterior ao merge do PR #37.
+
+## R15.2 — `silence_2`: opção (a) para a segunda variante
+
+O operador decidiu, em 2026-09-28, a opção (a) para a segunda variante do `silence_2`
+quando cai fora da janela de 24h: ela sai como a **primeira variante** (que já tem
+rascunho de template), em vez de sair como texto livre — o que hoje acontece e que
+`tests/whatsapp-templates.test.ts` fixa como divergência conhecida (`it.fails`) até a
+mudança entrar. **Decidido, não implantado**: a implementação (escolher a primeira
+variante quando a janela está fechada e a segunda seria a mandada) é trabalho posterior
+ao merge do PR #37, listado no topo do `HANDOFF.md`.

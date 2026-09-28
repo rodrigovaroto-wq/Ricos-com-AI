@@ -3,8 +3,10 @@ import { describe, expect, it } from "vitest";
 import { sealInbound, sealIsValid } from "@/channel/inbound-signature.js";
 import {
   deliveryErrors,
+  marketingPreferences,
   parseWebhook,
   readAndTyping,
+  replyButtonsMessage,
   templateMessage,
   textMessage,
   verifyChallenge,
@@ -103,6 +105,25 @@ describe("o que chega vira o turno de sempre", () => {
     expect(got).toEqual(["esse serve?", "Quero comprar", "Tamanho M"]);
   });
 
+  // 2026-09-28: a tap carries the id WE gave the button and the message it answered — the
+  // only unambiguous yes/no the channel has. The title stays in `body` for the conversation.
+  it("toque em botão guarda o id do botão e a mensagem respondida; o texto segue no corpo", () => {
+    const [b, l, t, x] = parseWebhook(
+      hook(
+        msg("interactive", { context: { id: "wamid.q" }, interactive: { type: "button_reply", button_reply: { id: "optin:yes:n1", title: "Quero ofertas" } } }, "a"),
+        msg("interactive", { interactive: { type: "list_reply", list_reply: { id: "size:M", title: "Tamanho M" } } }, "b"),
+        msg("button", { context: { id: "wamid.t" }, button: { text: "Parar promoções", payload: "stop_promotions" } }, "c"),
+        msg("text", { text: { body: "optin:yes:n1" } }, "d"),
+      ),
+    );
+    expect(b).toMatchObject({ body: "Quero ofertas", reply: { id: "optin:yes:n1", contextId: "wamid.q" } });
+    expect(l).toMatchObject({ body: "Tamanho M", reply: { id: "size:M" } });
+    expect(l!.reply).not.toHaveProperty("contextId");
+    expect(t).toMatchObject({ body: "Parar promoções", reply: { id: "stop_promotions", contextId: "wamid.t" } });
+    // Typing the id is text, not a tap.
+    expect(x).not.toHaveProperty("reply");
+  });
+
   it("áudio, figurinha e imagem sem legenda chegam como frase dizendo o que veio", () => {
     const got = parseWebhook(
       hook(msg("audio", { audio: { id: "x" } }, "a"), msg("sticker", { sticker: { id: "y" } }, "b"), msg("image", { image: { id: "z" } }, "c")),
@@ -154,7 +175,62 @@ describe("o que chega vira o turno de sempre", () => {
   });
 });
 
+describe("preferência de marketing no próprio WhatsApp (user_preferences)", () => {
+  // Meta's documented example, verbatim apart from the value.
+  const prefs = (value: string, category = "marketing_messages", pnid = "106540352242922") => ({
+    object: "whatsapp_business_account",
+    entry: [{ id: "102290129340398", changes: [{ field: "user_preferences", value: {
+      messaging_product: "whatsapp",
+      metadata: { display_phone_number: "15550783881", phone_number_id: pnid },
+      contacts: [{ wa_id: "16505551234" }],
+      user_preferences: [{ wa_id: "16505551234", detail: "User requested to stop marketing messages", category, value, timestamp: 1731705721 }],
+    } }] }],
+  });
+
+  it("stop e resume, com telefone e horário", () => {
+    expect(marketingPreferences(prefs("stop"))).toEqual([{ from: "16505551234", value: "stop", at: "2024-11-15T21:22:01.000Z" }]);
+    expect(marketingPreferences(prefs("resume"))[0]!.value).toBe("resume");
+  });
+
+  it("outra categoria, valor desconhecido, outro número ou lixo não viram preferência", () => {
+    expect(marketingPreferences(prefs("stop", "other"))).toEqual([]);
+    expect(marketingPreferences(prefs("pause"))).toEqual([]);
+    expect(marketingPreferences(prefs("stop"), "OUTRO")).toEqual([]);
+    expect(marketingPreferences(null)).toEqual([]);
+  });
+
+  it("não é mensagem: parseWebhook ignora, e mensagens não viram preferência", () => {
+    expect(parseWebhook(prefs("stop"))).toEqual([]);
+    expect(marketingPreferences(hook(msg("text", { text: { body: "oi" } })))).toEqual([]);
+  });
+});
+
 describe("o que sai pela Cloud API", () => {
+  it("botões de resposta: o id é nosso e volta no toque", () => {
+    expect(replyButtonsMessage("5511", "Pergunta?", [{ id: "a", title: "Sim" }, { id: "b", title: "Não" }])).toEqual({
+      messaging_product: "whatsapp",
+      recipient_type: "individual",
+      to: "5511",
+      type: "interactive",
+      interactive: {
+        type: "button",
+        body: { text: "Pergunta?" },
+        action: { buttons: [{ type: "reply", reply: { id: "a", title: "Sim" } }, { type: "reply", reply: { id: "b", title: "Não" } }] },
+      },
+    });
+  });
+
+  it("botões fora dos limites da Meta são erro de programa, não mensagem perdida", () => {
+    const ok = { id: "a", title: "Sim" };
+    expect(() => replyButtonsMessage("5511", "", [ok])).toThrow();
+    expect(() => replyButtonsMessage("5511", "x", [])).toThrow();
+    expect(() => replyButtonsMessage("5511", "x", [ok, { id: "b", title: "b" }, { id: "c", title: "c" }, { id: "d", title: "d" }])).toThrow();
+    expect(() => replyButtonsMessage("5511", "x", [{ id: "a", title: "um título com mais de vinte" }])).toThrow();
+    expect(() => replyButtonsMessage("5511", "x", [ok, ok])).toThrow();
+    expect(() => replyButtonsMessage("5511", "x", [{ id: "a".repeat(257), title: "t" }])).toThrow();
+    expect(replyButtonsMessage("5511", "x", [{ id: "a", title: "Não, obrigada 💛" }]).interactive.action.buttons[0]!.reply.title).toBe("Não, obrigada 💛");
+  });
+
   it("texto sem prévia de link", () => {
     expect(textMessage("5511", "oi")).toEqual({
       messaging_product: "whatsapp",

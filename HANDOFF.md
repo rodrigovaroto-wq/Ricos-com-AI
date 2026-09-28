@@ -11,6 +11,66 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
+## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28) — para a sessão do PR #37
+
+Trabalho feito **em paralelo com o PR #37**, a partir do `main` `9222dc6`, sem tocar nenhum
+arquivo dele (`guardrails.ts`, `followups.ts`, `turn/index.ts`, `verify-guards.ts`, testes de
+gate). Nada publicado, nada aplicado em produção. Verde no branch: lint, typecheck, build,
+4057 testes, 1640 conversas, `dev:gates` sem nenhum veredito mudado. **Merge de teste com
+`claude/focused-gates-fjpixt`:** um conflito só, neste `HANDOFF.md` (manter as duas seções), e
+a bateria inteira verde no resultado.
+
+### O que entrou (pronto, provado por teste)
+1. **n8n "Relógio da régua":** saída de erro com e-mail no "Varre a regua" + e-mail quando
+   linhas da varredura dão `erro:` no `skipped` (o isolamento por linha do PR #37 as deixava
+   mudas). Regra nova em `n8n-rules.ts`: toda chamada à Edge Function precisa de saída de erro.
+2. **`0018_evaluation_views.sql`:** 5 views `security_invoker` (bloqueio por gate, desfecho do
+   turno, custo por conversa, funil por origem, atribuição CTWA) e **`pnpm dev:painel`**, o
+   painel diário sobre elas. A `0018` e a `0019` vêm depois da `0017`, que já está aplicada.
+3. **Templates da Meta:** `tests/whatsapp-templates.test.ts` prova rascunho == `renderFollowup`.
+   Duas divergências **fixadas com `it.fails`, para o PR #37 consertar em `deliveryFor`**:
+   (a) `order_eve` antecipado — o template manda "Deixa R$ X separado" a quem já pagou; o
+   rascunho `encorpa_vespera_entrega_pago` está na seção 4 de `03-templates-meta.md`; (b)
+   `silence_2` — fora da janela deve sair sempre a primeira variante (decisão R15.2).
+4. **Opt-in de marketing (decisão R15.1, opção B) — o módulo, sem fiação.** Oito revisões
+   mostraram que ler o texto dela (sim, palavra-chave, negação) nunca fecha. A causa estava
+   no canal: `textOf` jogava fora o id do botão. Agora:
+   - `src/channel/whatsapp.ts` (espelhado em `functions/whatsapp/`): `InboundMessage.reply =
+     { id, contextId }` no toque de botão; `marketingPreferences` lê o webhook
+     `user_preferences` da Meta; `replyButtonsMessage` monta botões. O n8n "WhatsApp envio"
+     aceita `via: "buttons"`.
+   - `src/agent/opt-in.ts`: consentimento **só** pelo toque no "Quero ofertas" da pergunta
+     atual (nonce) em até 24h; "Não, obrigada" de qualquer pergunta é recusa final; texto
+     digitado **nunca** concede e só **suspende** (qualquer menção a marketing), o que permite
+     perguntar de novo, uma vez, com botões (`mayAskOptIn`).
+   - `0019_marketing_opt_in.sql`: `asked_at`, `nonce`, `opt_in_at`, `message_id` (o toque),
+     `suspended_at`, `declined_at` em `leads`.
+5. **`tests/opt-out-gaps.test.ts`:** `classifyOptOut` lê como "none" "não quero mais
+   promoção", "não quero receber mais mensagens", "chega de mensagem", "para com isso" —
+   `it.fails`, conserto em `guardrails.ts` (área do PR #37).
+6. Docs: parecer de opt-in (`05-plano/07`), piso de amostra (`05-plano/08`), decisões
+   R15.1–R15.2, grafo §23–§26; memória `ambiente-aponta-para-outro-projeto`.
+
+### Para a sessão do PR #37 fazer ao unificar
+- **Ligar o opt-in no turno e na varredura** (arquivos do PR #37):
+  1. flag `channel.askMarketingOptIn` (ausente = não pergunta);
+  2. mandar `optInMessage` como `via: "buttons"` depois do `silence_1`, gravando `nonce`/`asked_at` e respeitando `mayAskOptIn`;
+  3. no turno, `optInAnswer(inbound.reply, …)` grava `opt_in_at`/`message_id` ou `declined_at`, e `suspendsMarketingOptIn(inbound)` grava `suspended_at` e zera `opt_in_at`;
+  4. `deliveryFor` bloqueia `silence_2`/`silence_3` como template sem `opt_in_at` (`no_opt_in`);
+  5. 131050 e `user_preferences` stop gravam `declined_at`;
+  6. espelhar `opt-in.ts` em `functions/turn/`.
+- **Selo:** incluir `reply.id` no selo (`inbound-signature.ts`, 3 cópias) **no mesmo commit**
+  em que o turno passa a ler `reply`. Hoje `reply` viaja sem selo e ninguém o lê.
+- Consertar as duas divergências de template (item 3) e os furos de `classifyOptOut` (item 5).
+
+### Do operador / sócio
+- Importar no n8n `relogio-da-regua.json` e `whatsapp-envio.json` (até lá `pnpm dev:n8n`
+  acusa falha, de propósito).
+- Aplicar `0018` e `0019` (depois da `0017`).
+- Sócio: submeter `encorpa_vespera_entrega_pago`; assinar a inscrição do webhook
+  **`user_preferences`** no app da Meta, além de `messages`.
+- Operador: assinar o piso de amostra (`08-piso-de-amostra.md` §4).
+
 ## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
 
 **Branch `claude/peaceful-feynman-l4zf0k`, à frente do `main`** com o canal do WhatsApp

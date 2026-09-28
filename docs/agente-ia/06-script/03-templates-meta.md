@@ -55,6 +55,24 @@ do script (Estágio 8). A segunda ("o colete não muda o seu corpo…") não foi
 em template: ela chega perto do tema de corpo, e é aí que a revisão de marketing da Meta
 é mais rígida. Pode ser submetida depois, se a primeira for aprovada.
 
+> **Decidido pelo operador em 2026-09-28: (a).** Entra no código depois do merge do PR #37.
+>
+> **A segunda variante (achado de 2026-09-28,
+> `tests/whatsapp-templates.test.ts`).** Fora da janela, metade das leads (por
+> `pickVariant(leadId, [0, 1])`) tem a segunda variante como texto livre, mas só a
+> primeira existe como template — então para essas leads o gate leu um texto e a
+> Meta manda outro. Duas saídas, não uma:
+>
+> - **(a) Fora da janela, sempre a primeira variante.** Muda `deliveryFor` para não
+>   chamar `pickVariant` quando o envio é por template — nenhum template novo.
+> - **(b) Submeter a segunda variante como um segundo template `MARKETING`.** Mantém
+>   a alternância também fora da janela, mas herda o mesmo risco de revisão mais
+>   rígida já citado acima (tema de corpo), com mais um template para manter.
+>
+> **Recomendação: (a).** É uma linha de código, sem submissão nova, e a alternância
+> de variante existe para não repetir a mesma frase para quem está dentro da janela —
+> fora dela, uma frase aprovada é melhor do que nenhuma.
+
 ---
 
 ## 2. `silence_3`: o cupom, com saída digna
@@ -121,9 +139,73 @@ Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
 
 Se o operador quiser o tamanho na véspera, a mudança começa em `renderFollowup`, não aqui.
 
+> **⚠ Não submeter este corpo sozinho (achado de 2026-09-28, `tests/whatsapp-templates.test.ts`).**
+> Para pedido **antecipado**, `renderFollowup` tira a linha "Deixa {{1}} separado", porque ela
+> já pagou; este template manda a linha sempre. Declarado como está, a cliente que pagou no
+> Pix recebe na véspera "Deixa R$ 129,90 separado", um texto que nenhum gate leu. O conserto
+> pede duas coisas: um segundo template sem a linha do valor (rascunho na seção 4, abaixo) e
+> o código escolhendo entre os dois e passando pelo gate o texto do template, não o texto
+> livre. Até lá, o teste guarda a divergência com `it.fails`.
+>
+> O mesmo teste guarda uma segunda, menor: fora da janela, metade das leads recebe a
+> primeira variante do `silence_2`, mas o gate leu a segunda — decisão do operador na
+> seção 1, acima.
+
 Mantenha o texto **sem nada promocional**. Uma palavra de oferta num template `UTILITY` faz a
 Meta reclassificar o template como marketing, e aí ele muda de preço e passa a depender do
 opt-in de marketing.
+
+---
+
+## 4. Véspera do pedido já pago (`order_eve`, antecipado)
+
+| Campo | Valor |
+|---|---|
+| Nome sugerido | `encorpa_vespera_entrega_pago` |
+| Categoria | `UTILITY`: mesma atualização de um pedido que já existe, sem oferta nenhuma |
+| Idioma | `pt_BR` |
+
+**Corpo:**
+
+```text
+Oi! Sua entrega está marcada pra *amanhã* 💛
+Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
+```
+
+**Sem placeholder.** Este corpo é `renderFollowup("order_eve", { prepaid: true, ... })`
+palavra por palavra, só com o negrito convertido (`**x**` → `*x*`) — a linha "Deixa {{1}}
+separado" não entra porque ela já pagou, e sem essa linha não sobra variável nenhuma para
+declarar. Isso é uma leitura válida da regra do topo desta página, não uma exceção a ela: a
+Meta não exige um mínimo de variáveis por template, um corpo pode ter zero. A verificação
+contra a cadeia de gates está abaixo, na mesma seção que verifica os outros três.
+
+**O código ainda não lê uma segunda chave.** Hoje `deliveryFor` só sabe de uma entrada por
+`FollowupKind` em `channel.templates` (uma chave, um template). Escolher entre este corpo e
+o de `encorpa_vespera_entrega` conforme `ctx.prepaid` é mudança de código em `deliveryFor`,
+a ser feita depois que o PR #37 for mesclado — até lá, declarar este nome no
+`BUSINESS_CONFIG` não muda nada, porque nada lê a chave. Quando a mudança existir, a
+declaração ficaria assim (rascunho, fora do bloco que o operador copia hoje):
+
+```text
+"channel": { "templates": {
+  "order_eve":       { "name": "encorpa_vespera_entrega",      "language": "pt_BR", "variables": ["price"] },
+  "order_eve_pago":  { "name": "encorpa_vespera_entrega_pago", "language": "pt_BR", "variables": [] }
+} }
+```
+
+### Verificação contra a cadeia de gates
+
+Mesmo método da seção de verificação abaixo, com `prepaid: true` e o mesmo config e
+relógio (quinta-feira, 09:00 de São Paulo). Saída literal:
+
+```text
+order_eve(antecipado) layer=auto stage=logistics allowed=true gates=20 pass=20 remedy=null []
+order_eve(antecipado) layer=agent stage=logistics allowed=true gates=20 pass=20 remedy=null []
+```
+
+`gates=20` (não 19, como no restante desta página): a cadeia cresceu desde a verificação
+original de 2026-09-22; o número é o de hoje, no repositório atual, não uma correção
+retroativa dos outros três.
 
 ---
 
