@@ -259,26 +259,27 @@ flowchart TD
   S --> C --> R --> D --> G
 ```
 
-## 25. A âncora do opt-in: cinco revisões até consentir só pela palavra e saber revogar
+## 25. O opt-in: oito revisões lendo texto, e a correção no canal
+
+Escrito em paralelo com o PR #37 (que vai até o §22).
 
 ```mermaid
 flowchart TD
-  S["🟥 sintoma: um 'sim' pode responder qualquer pergunta —<br/>a pergunta do agente antes da régua, a pergunta anterior da própria régua,<br/>ou a pergunta de opt-in — e só a última conta como consentimento"]
-  F1["🟧 tentativa 1: includes('sim') no texto da resposta<br/>— pega 'sim' dentro de qualquer frase, mesmo negando algo"]
-  F2["🟧 tentativa 2: igualdade exata de texto ('sim')<br/>— ainda lê 'sim' fora de contexto, sem saber a que responde"]
-  F3["🟧 tentativa 3: âncora por posição (só depois de after_price)<br/>+ id da última mensagem enviada (lastOutboundId)<br/>— falha quando a régua manda a pergunta em duas bolhas,<br/>ou quando o agente fez a própria pergunta antes ('Tá certinho assim?')"]
-  F4["🟧 tentativa 4 (quarta revisão, mesmo dia): ainda assim,<br/>uma pergunta pendente do agente podia vir depois da âncora<br/>e um 'sim' a ela colava como opt-in"]
-  R["🟩 correção (commit 6fd6b2e): parar de tentar advinhar a que ela responde.<br/>A pergunta pede uma PALAVRA-CHAVE que nada mais pergunta ('OFERTAS');<br/>só uma resposta construída em torno dela conta como sim.<br/>'Sim'/'pode'/'quero' sozinhos são resposta a qualquer coisa — não contam"]
-  F5["🟥 quinta revisão, mesmo dia: a palavra-chave resolvia entrar, não sair —<br/>'não quero mais ofertas' não tinha caminho de volta, distinto do opt-out geral"]
-  R2["🟩 correção (commit eabfd38): revokesMarketingOptIn(texto) — palavra de marketing<br/>+ negação/pedido de parar na mesma mensagem, a qualquer momento, zera o consentimento.<br/>Deliberadamente frouxo: revogar demais custa dois toques; revogar de menos manda<br/>marketing a quem disse não (LGPD art. 8º §5º)"]
-  G["🛡️ tests/opt-in.test.ts; acceptsMarketingOptIn só lê questionId + janela de 24h,<br/>nunca posição nem última mensagem enviada; revokesMarketingOptIn coberto por casos<br/>de negação separados"]
-  S --> F1 --> F2 --> F3 --> F4 --> R --> F5 --> R2 --> G
+  S["🟥 sintoma: consentimento de marketing decidido por texto livre —<br/>um sim falso manda marketing a quem não aceitou e arrisca o único número"]
+  F1["🟧 tentativas 1–4: 'sim' ancorado por includes, igualdade, id da última mensagem,<br/>só depois do after_price — sempre sobrava uma pergunta da agente que o 'sim' respondia"]
+  F2["🟧 tentativa 5: palavra-chave OFERTAS — concedia bem, mas a revogação<br/>virou leitura de negação"]
+  F3["🟧 tentativas 6–8: revogar por 'marketing E negação' (palavra, radical) ou por<br/>'palavra sozinha' — perdia 'n quero ofertas' ou revogava quem negocia desconto"]
+  C["🟦 causa: src/channel/whatsapp.ts textOf transformava o toque no botão em texto<br/>e descartava o id — o sistema não tinha sinal estruturado de sim/não"]
+  R["🟩 correção (17decb7): reply = {id, contextId} no canal; pergunta com botões e nonce;<br/>sim = toque na pergunta atual em 24h; não = botão, user_preferences, 131050, opt-out;<br/>texto só suspende e reabre uma pergunta"]
+  G["🛡️ tests/opt-in.test.ts (toques pelo parser real; texto nunca concede),<br/>tests/whatsapp-channel.test.ts, tests/n8n-whatsapp-send.test.ts"]
+  S --> F1 --> F2 --> F3 --> C --> R --> G
 ```
 
-**Estado:** commitado — `6fd6b2e` (palavra-chave) e `eabfd38` (revogação, quinta revisão).
-Ainda por ligar (pós-merge do PR #37): o turno chamar `revokesMarketingOptIn` em toda
-mensagem recebida e zerar `marketing_opt_in_at` quando ela voltar `true` — ver
-`docs/agente-ia/05-plano/07-opt-in-marketing.md` para o desenho completo.
+**Lição:** quando toda heurística de texto tem furo nos dois sentidos, procure o sinal
+estruturado que alguma camada está jogando fora antes de escrever a próxima regex.
+
+**Ainda por ligar (pós-merge do PR #37):** a lista está no `HANDOFF.md`, e inclui pôr
+`reply.id` no selo no mesmo commit em que o turno passar a lê-lo.
 
 ## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
 

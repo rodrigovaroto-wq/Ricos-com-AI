@@ -6,62 +6,25 @@
 > **Decidido pelo operador em 2026-09-28: opção B** (pergunta explícita feita pelo código,
 > começando em A). Entra no grafo de decisões depois do merge do PR #37, que reescreve o grafo.
 >
-> **Já no repositório (sem tocar o PR):** a migração
-> [`0019_marketing_opt_in.sql`](../../../supabase/migrations/0019_marketing_opt_in.sql) (não
-> aplicada) e o módulo [`src/agent/opt-in.ts`](../../../src/agent/opt-in.ts), com a pergunta, o
-> leitor da palavra-chave e a revogação (§ abaixo), provados em `tests/opt-in.test.ts`.
-> Commitado: `6fd6b2e` (desenho de palavra-chave) e `eabfd38` (revogação, quinta revisão).
+> **Desenho implementado (2026-09-28, depois de oito revisões adversariais — grafo §25).**
+> Ler o texto dela ("sim", palavra-chave, negação) nunca fechou nos dois sentidos. A causa
+> estava no canal, que descartava o id do botão tocado. O desenho final **não lê texto para
+> conceder**:
 >
-> **Dois ajustes sobre os itens 3 e 4 da especificação abaixo (segunda revisão, 2026-09-28).**
-> ~~Eles valem mais que o texto original~~ — **substituídos pelo desenho de palavra-chave
-> abaixo**, depois de uma quarta revisão no mesmo dia. Mantidos aqui riscados porque foram o
-> estado real por algumas horas, não porque ainda valem:
+> - a pergunta sai com **dois botões** ("Quero ofertas" / "Não, obrigada"), com um nonce por
+>   pergunta no id;
+> - **consentimento** = toque no "sim" da pergunta atual, em até 24h;
+> - **recusa final** = botão "não" de qualquer pergunta, `user_preferences` stop (a chave de
+>   ofertas do próprio WhatsApp), erro 131050 ou opt-out geral;
+> - **texto digitado só suspende**: qualquer menção a marketing zera o consentimento e permite
+>   perguntar de novo, uma vez, com botões. Erro do texto custa uma pergunta, não o
+>   consentimento.
 >
-> - ~~A pergunta vai numa mensagem só dela, logo depois do `silence_1`, e nunca dentro dele.~~
-> - ~~A captura exige três coisas: que a última mensagem enviada seja exatamente a pergunta
->   que a varredura gravou (pelo id, nunca qualquer mensagem enviada...); que a pergunta tenha
->   sido feita há menos de 24h; e que a resposta inteira seja um sim curto.~~
-> - ~~O leitor recusa "s" sozinho, qualquer interrogação... e qualquer símbolo fora de uma
->   lista curta de inofensivos.~~
->
-> **Quarta revisão (2026-09-28, mesmo dia): o "sim" nunca é seguro, a palavra-chave é.**
-> As três âncoras acima (a resposta é "sim", a resposta é "sim" logo depois da pergunta, a
-> resposta é "sim" e a última mensagem enviada FOI a pergunta por id) caíram, nesta ordem, cada
-> uma para um "sim" que respondia outra coisa: um `includes` pegava "sim" dentro de outra
-> frase; a igualdade de texto ainda lia "sim" fora de contexto; e mesmo ancorado pelo id da
-> última mensagem, um "sim" respondendo à própria pergunta do agente antes da régua entrar
-> ("Tá certinho assim?") ainda passava, porque a régua também pode mandar a pergunta de
-> opt-in fora dessa sequência. A correção deixou de tentar advinhar a que a cliente estava
-> respondendo: **a pergunta agora pede uma palavra que nada mais pergunta** —
-> `me responde **OFERTAS**` — e só uma resposta construída em torno dela conta como sim.
-> "Sim" sozinho, "pode" sozinho, "quero" sozinho continuam sendo não. Commitado em `6fd6b2e`
-> (`src/agent/opt-in.ts`, `tests/opt-in.test.ts`, comentários da migração `0019`); o commit
-> anterior `6214bc9` (que fica no histórico) descreve a âncora por id, superada.
->
-> Consequência: a pergunta **não precisa mais vir só depois de `after_price`** — como ela não
-> é mais lida por posição nem por âncora de mensagem anterior, pode seguir qualquer variante do
-> `silence_1`, inclusive `link_sent`. `mayAskOptIn` e a regra "só depois de um toque que não
-> pergunta nada" saíram do código; a captura passa a exigir só duas coisas: que a pergunta
-> tenha sido feita (`marketing_opt_in_question_id` não nulo) e que a resposta tenha chegado
-> em menos de 24h.
->
-> **Quinta revisão (2026-09-28, mesmo dia): a palavra-chave também precisa de saída.** A
-> palavra-chave resolve quem disse sim; faltava quem muda de ideia depois — "não quero mais
-> ofertas" tem de zerar o consentimento tanto quanto o opt-out geral zera a conversa inteira.
-> `revokesMarketingOptIn(text)` (commitado em `eabfd38`) lê qualquer mensagem, a qualquer
-> momento (não só dentro da janela de resposta à pergunta), como revogação quando ela junta
-> uma palavra de marketing (`oferta(s)`, `promoção(ões)`, `promo(s)`, `propaganda(s)`,
-> `lembrete(s)`, `marketing`) com uma negação ou pedido de parar (`não`, `pare`, `chega`,
-> `cancela`, `tira`, `remove`, `sai`, `desisto`...) na mesma mensagem. **Deliberadamente
-> frouxo**: uma revogação a mais custa dois toques perdidos; uma revogação a menos manda
-> marketing para quem já disse não (LGPD art. 8º §5º) — o lado seguro aqui é revogar demais,
-> não de menos. "Não quero ofertas do WhatsApp, quero do Instagram" revoga também, e isso é
-> aceito. Fica para depois do merge: o turno chamar `revokesMarketingOptIn` em toda mensagem
-> recebida e zerar `marketing_opt_in_at` quando ela voltar `true`.
-
-> **Fica para depois do merge:** a flag `channel.askMarketingOptIn` (ausente = não pergunta), a
-> mensagem da pergunta depois do `silence_1`, a captura no turno, o bloqueio `no_opt_in` em `deliveryFor`, o 131050
-> zerando o opt-in, e o espelho do `opt-in.ts` em `supabase/functions/turn/`.
+> No repositório: `src/agent/opt-in.ts`, o canal (`reply`, `marketingPreferences`,
+> `replyButtonsMessage` em `src/channel/whatsapp.ts`), o n8n "WhatsApp envio" com
+> `via: "buttons"`, e `0019_marketing_opt_in.sql` (não aplicada). A fiação no turno e na
+> varredura fica para depois do merge do PR #37 (lista no `HANDOFF.md`). O texto abaixo é o
+> memorando original; onde ele fala em "SIM" digitado, vale o desenho acima.
 
 **O problema.** `silence_2` (manhã seguinte) e `silence_3` (cupom, 3 dias depois) saem fora
 da janela de 24h como template `MARKETING` ([`03-templates-meta.md`](../06-script/03-templates-meta.md)).

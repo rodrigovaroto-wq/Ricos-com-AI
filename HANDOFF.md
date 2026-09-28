@@ -11,74 +11,65 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28)
+## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28) — para a sessão do PR #37
 
-**HEAD `eabfd38`, à frente do `main` (`9222dc6`), sem PR aberto, nada publicado, nada
-aplicado em produção.** Feito nesta sessão, tudo verificado nesta sessão (`pnpm test`:
-4078 testes verdes; `pnpm typecheck` limpo).
+Trabalho feito **em paralelo com o PR #37**, a partir do `main` `9222dc6`, sem tocar nenhum
+arquivo dele (`guardrails.ts`, `followups.ts`, `turn/index.ts`, `verify-guards.ts`, testes de
+gate). Nada publicado, nada aplicado em produção. Verde no branch: lint, typecheck, build,
+4057 testes, 1640 conversas, `dev:gates` sem nenhum veredito mudado. **Merge de teste com
+`claude/focused-gates-fjpixt`:** um conflito só, neste `HANDOFF.md` (manter as duas seções), e
+a bateria inteira verde no resultado.
 
-1. **"Relógio da régua" (n8n): saída de erro + e-mail.** O nó "Varre a regua" não tinha
-   saída de erro — uma falha (coluna ausente, erro de banco) reprovava a cada 5 minutos
-   e não avisava ninguém. Regra nova em `src/dev/n8n-rules.ts` ("toda chamada de Edge
-   Function precisa de saída de erro ligada"), aplicada ao workflow em
-   `n8n/workflows/relogio-da-regua.json`. **O operador precisa importar este workflow**
-   no n8n — até lá, `pnpm dev:n8n` acusa FALHA de propósito (é o workflow publicado que
-   ele compara, não o arquivo do repositório).
-2. **Migrações `0018_evaluation_views.sql` e `0019_marketing_opt_in.sql` — escritas,
-   não aplicadas.** A `0017` já está aplicada em produção; `0018` (5 views
-   `security_invoker` de avaliação) e `0019` (colunas de opt-in em `leads`, nuláveis)
-   podem ser aplicadas em qualquer ordem a partir daí. Nada lê `0019` ainda.
-3. **`pnpm dev:painel`** (`src/dev/painel.ts`, `src/dev/painel-core.ts`): painel diário
-   sobre as views de avaliação, com URL da Encorpa por padrão — nunca `SUPABASE_URL` (o
-   ambiente desta máquina aponta para outro projeto, ver
-   `.claude/memory/ambiente-aponta-para-outro-projeto.md`).
-4. **`tests/whatsapp-templates.test.ts`**: prova que o rascunho do template da Meta ==
-   `renderFollowup`. Duas divergências conhecidas, fixadas com `it.fails` para ficarem
-   visíveis (não silenciadas): o `order_eve` do antecipado cobra quem já pagou; a segunda
-   variante do `silence_2` sai como texto livre fora da janela quando deveria sair como
-   template. A seção 4 de
-   [`docs/agente-ia/06-script/03-templates-meta.md`](docs/agente-ia/06-script/03-templates-meta.md)
-   rascunha `encorpa_vespera_entrega_pago` para a primeira. **O operador precisa submeter
-   esse rascunho à Meta** — nenhum código submete template sozinho.
-5. **Decisões do operador em 2026-09-28** (opt-in opção B e `silence_2` opção (a)) — ver
-   entrada nova em
-   [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md).
-   `src/agent/opt-in.ts` com `optInQuestion`/`acceptsMarketingOptIn`/`revokesMarketingOptIn`,
-   testado em `tests/opt-in.test.ts`, depois de **cinco rodadas de revisão adversarial**
-   registradas no grafo (§25–§26): o "sim" nunca ficou seguro como âncora de consentimento —
-   passou por `includes`, depois igualdade de texto, depois âncora pelo id da última
-   mensagem, e ainda assim um "sim" respondendo a uma pergunta do próprio agente (ex.:
-   "Tá certinho assim?") contava como opt-in. A correção troca a âncora por uma
-   **palavra-chave que nada mais pergunta** (`OFERTAS`, commit `6fd6b2e`) e acrescenta a
-   revogação (`eabfd38`, quinta revisão): qualquer mensagem, a qualquer momento, que junte
-   uma palavra de marketing com uma negação/pedido de parar zera o consentimento. Ver a nota
-   no topo de
-   [`docs/agente-ia/05-plano/07-opt-in-marketing.md`](docs/agente-ia/05-plano/07-opt-in-marketing.md).
-6. **`tests/opt-out-gaps.test.ts`**: `classifyOptOut` lê "não quero mais promoção", "não
-   quero receber mais mensagens" e "chega de mensagem" como se não fossem pedido de
-   opt-out — fixado com `it.fails`. O conserto é em `guardrails.ts`, área que o PR #37
-   reescreve; não fazer aqui para não colidir com o merge dele.
-7. [`docs/agente-ia/05-plano/08-piso-de-amostra.md`](docs/agente-ia/05-plano/08-piso-de-amostra.md):
-   conta do piso de amostra por decisão, pronta para o operador escolher e assinar a
-   seção 4 — **até a assinatura, o piso não existe**.
-8. Memória: `.claude/memory/ambiente-aponta-para-outro-projeto.md`.
+### O que entrou (pronto, provado por teste)
+1. **n8n "Relógio da régua":** saída de erro com e-mail no "Varre a regua" + e-mail quando
+   linhas da varredura dão `erro:` no `skipped` (o isolamento por linha do PR #37 as deixava
+   mudas). Regra nova em `n8n-rules.ts`: toda chamada à Edge Function precisa de saída de erro.
+2. **`0018_evaluation_views.sql`:** 5 views `security_invoker` (bloqueio por gate, desfecho do
+   turno, custo por conversa, funil por origem, atribuição CTWA) e **`pnpm dev:painel`**, o
+   painel diário sobre elas. A `0018` e a `0019` vêm depois da `0017`, que já está aplicada.
+3. **Templates da Meta:** `tests/whatsapp-templates.test.ts` prova rascunho == `renderFollowup`.
+   Duas divergências **fixadas com `it.fails`, para o PR #37 consertar em `deliveryFor`**:
+   (a) `order_eve` antecipado — o template manda "Deixa R$ X separado" a quem já pagou; o
+   rascunho `encorpa_vespera_entrega_pago` está na seção 4 de `03-templates-meta.md`; (b)
+   `silence_2` — fora da janela deve sair sempre a primeira variante (decisão R15.2).
+4. **Opt-in de marketing (decisão R15.1, opção B) — o módulo, sem fiação.** Oito revisões
+   mostraram que ler o texto dela (sim, palavra-chave, negação) nunca fecha. A causa estava
+   no canal: `textOf` jogava fora o id do botão. Agora:
+   - `src/channel/whatsapp.ts` (espelhado em `functions/whatsapp/`): `InboundMessage.reply =
+     { id, contextId }` no toque de botão; `marketingPreferences` lê o webhook
+     `user_preferences` da Meta; `replyButtonsMessage` monta botões. O n8n "WhatsApp envio"
+     aceita `via: "buttons"`.
+   - `src/agent/opt-in.ts`: consentimento **só** pelo toque no "Quero ofertas" da pergunta
+     atual (nonce) em até 24h; "Não, obrigada" de qualquer pergunta é recusa final; texto
+     digitado **nunca** concede e só **suspende** (qualquer menção a marketing), o que permite
+     perguntar de novo, uma vez, com botões (`mayAskOptIn`).
+   - `0019_marketing_opt_in.sql`: `asked_at`, `nonce`, `opt_in_at`, `message_id` (o toque),
+     `suspended_at`, `declined_at` em `leads`.
+5. **`tests/opt-out-gaps.test.ts`:** `classifyOptOut` lê como "none" "não quero mais
+   promoção", "não quero receber mais mensagens", "chega de mensagem", "para com isso" —
+   `it.fails`, conserto em `guardrails.ts` (área do PR #37).
+6. Docs: parecer de opt-in (`05-plano/07`), piso de amostra (`05-plano/08`), decisões
+   R15.1–R15.2, grafo §23–§26; memória `ambiente-aponta-para-outro-projeto`.
 
-### O que o operador precisa fazer
-- Importar `n8n/workflows/relogio-da-regua.json` no n8n (item 1).
-- Aplicar `0018_evaluation_views.sql` e depois `0019_marketing_opt_in.sql` no banco de
-  produção (item 2) — qualquer ordem entre elas, ambas depois de `0017`.
-- Submeter o rascunho de `encorpa_vespera_entrega_pago` (seção 4 de
-  `03-templates-meta.md`) à Meta para aprovação (item 4).
-- Escolher os pisos e assinar a seção 4 de `08-piso-de-amostra.md` (item 7).
+### Para a sessão do PR #37 fazer ao unificar
+- **Ligar o opt-in no turno e na varredura** (arquivos do PR #37):
+  1. flag `channel.askMarketingOptIn` (ausente = não pergunta);
+  2. mandar `optInMessage` como `via: "buttons"` depois do `silence_1`, gravando `nonce`/`asked_at` e respeitando `mayAskOptIn`;
+  3. no turno, `optInAnswer(inbound.reply, …)` grava `opt_in_at`/`message_id` ou `declined_at`, e `suspendsMarketingOptIn(inbound)` grava `suspended_at` e zera `opt_in_at`;
+  4. `deliveryFor` bloqueia `silence_2`/`silence_3` como template sem `opt_in_at` (`no_opt_in`);
+  5. 131050 e `user_preferences` stop gravam `declined_at`;
+  6. espelhar `opt-in.ts` em `functions/turn/`.
+- **Selo:** incluir `reply.id` no selo (`inbound-signature.ts`, 3 cópias) **no mesmo commit**
+  em que o turno passa a ler `reply`. Hoje `reply` viaja sem selo e ninguém o lê.
+- Consertar as duas divergências de template (item 3) e os furos de `classifyOptOut` (item 5).
 
-### Depois do PR #37 fechar (código em `followups.ts`/`turn/index.ts`)
-Flag `channel.askMarketingOptIn`; mandar a pergunta de opt-in como mensagem própria
-(agora **não** presa a `after_price` — pode seguir qualquer `silence_1`, ver item 5
-acima); capturar no turno; chamar `revokesMarketingOptIn` em toda mensagem recebida e
-zerar `marketing_opt_in_at` quando ela voltar `true`; `no_opt_in` em `deliveryFor`; o
-erro **131050** zerando o opt-in; espelhar `opt-in.ts` em `supabase/functions/turn/`; a
-primeira variante do `silence_2` fora da janela; a escolha do template de véspera do
-antecipado; o conserto dos furos de `classifyOptOut` (item 6).
+### Do operador / sócio
+- Importar no n8n `relogio-da-regua.json` e `whatsapp-envio.json` (até lá `pnpm dev:n8n`
+  acusa falha, de propósito).
+- Aplicar `0018` e `0019` (depois da `0017`).
+- Sócio: submeter `encorpa_vespera_entrega_pago`; assinar a inscrição do webhook
+  **`user_preferences`** no app da Meta, além de `messages`.
+- Operador: assinar o piso de amostra (`08-piso-de-amostra.md` §4).
 
 ## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-25, fim da noite)
 
