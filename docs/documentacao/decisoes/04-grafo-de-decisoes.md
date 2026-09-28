@@ -554,8 +554,9 @@ flowchart TD
 casa, e a igualdade no timestamp que a própria API devolve (`…403606+00:00`) casa em `eq.`. Com
 isso, o fechamento pela `run_at` e o cancelamento na resposta funcionam no banco de verdade.
 
-**Aviso ao operador:** ao publicar, todo lead parado há 3 dias vira `perdido`. Com o cupom
-inativo, o `silence_3` sai cancelado, e isso já é o fim da régua (opção a).
+**Aviso ao operador (corrigido em 2026-09-28):** o `perdido` não acontece de uma vez no
+deploy. Produção tem 0 linhas em `followups`, e a v41 já cancela os `silence_3` vencidos. Com o
+cupom inativo o `silence_3` sai cancelado, e isso é o fim da régua (opção a), um lead de cada vez.
 
 **Resíduos:**
 - **Mentira que passa no COD sem caminho nomeado:** "Uma semana e ele tá contigo". O `main`

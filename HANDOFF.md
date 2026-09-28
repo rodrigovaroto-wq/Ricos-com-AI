@@ -35,16 +35,22 @@ mentira de prazo que o `main` vete passa no branch, nos dois caminhos.
 ### Próximos passos, nesta ordem
 1. **PR para o `main`** quando o operador pedir (o CI só roda em PR — é a primeira vez que o
    branch passa por ele).
-2. **Publicar a `turn`** (operador, Codespace; a 0017 já está aplicada). Depois, **sonda da
+2. **Antes de publicar (operador, no n8n):** pôr um ramo de erro com e-mail no nó "Varre a
+   regua" do workflow "Relógio da régua" — hoje ele não tem `onError` nem workflow de erro, e uma
+   varredura que falha (ex.: coluna ausente, erro de banco) não avisa ninguém (segunda revisão,
+   2026-09-28).
+3. **Publicar a `turn`** (operador, Codespace; a 0017 já está aplicada). Depois, **sonda da
    varredura pela porta do n8n** — é a prova de produção do fechamento pela `run_at`, do
    `perdido` e do lembrete de checkout (os testes de `index.ts` são textuais).
-   **Aviso:** ao publicar, todo lead parado há 3 dias vira `perdido` de uma vez (cupom inativo
-   → `silence_3` cancelado = fim da régua, opção a do operador).
-3. Gate, ressalvas da conferência final (§20): "uma semana, no máximo", "numa semana você já
+   **Correção de 2026-09-28:** o aviso anterior ("todo lead vira `perdido` de uma vez") estava
+   errado. Produção tem **0 linhas em `followups`** (consulta de leitura em 28/09), e a v41 já
+   cancela os `silence_3` vencidos; os `perdido` aparecem um a um, conforme a régua de cada
+   conversa termina.
+4. Gate, ressalvas da conferência final (§20): "uma semana, no máximo", "numa semana você já
    está com ele", "daqui (a) uma semana…" passam no antecipado (o `main` também deixava).
-4. Testes que faltam (revisão de testes): extrair para `followups.ts` a decisão "linha fechada
+5. Testes que faltam (revisão de testes): extrair para `followups.ts` a decisão "linha fechada
    é nossa" e o filtro de `cancelScheduled`; `stageForLead` com pedido pendente (`""`).
-5. Ativação do WhatsApp (sócio), taxa do parcelado, caso "A recusado sozinho, depois B entregue"
+6. Ativação do WhatsApp (sócio), taxa do parcelado, caso "A recusado sozinho, depois B entregue"
    (§16), "fora do conserto" do §19, O-02, apps da Coinzz, primeiro pedido real de kit.
 
 ### O que esta sessão fez (2026-09-26/27), tudo no branch, nada publicado
