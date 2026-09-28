@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { runGates } from "../src/agent/guardrails.js";
 import { renderFollowup, type StopPoint } from "../src/agent/followups.js";
-import { acceptsMarketingOptIn, optInQuestion, type OptInAnchor } from "../src/agent/opt-in.js";
+import { acceptsMarketingOptIn, optInQuestion, revokesMarketingOptIn, type OptInAnchor } from "../src/agent/opt-in.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
 
 const brand = config.brand;
@@ -45,6 +45,7 @@ describe("opt-in de marketing: a resposta", () => {
     "OFERTAS", "ofertas", "Ofertas!", "OFERTAS 💛", "*OFERTAS*", "**OFERTAS**", "ofertasss", "oferta",
     "sim, ofertas", "Sim ofertas", "ofertas sim", "quero ofertas", "Sim, quero ofertas!", "pode mandar ofertas",
     "ofertas por favor", "ofertas 👍🏻", "ofertas ❤️", "ofertas…",
+    "me manda ofertas", "aceito ofertas", "quero receber ofertas", "sim oferta",
   ])("palavra-chave: %s", (reply) => {
     expect(acceptsMarketingOptIn(reply, anchor())).toBe(true);
   });
@@ -85,5 +86,30 @@ describe("opt-in de marketing: a resposta", () => {
     expect(acceptsMarketingOptIn("ofertas", anchor({ askedAt: "x" }))).toBe(false);
     expect(acceptsMarketingOptIn("ofertas", anchor({ askedAt: new Date(Number.NaN) }))).toBe(false);
     expect(acceptsMarketingOptIn("ofertas", anchor({ now: new Date("x") }))).toBe(false);
+  });
+});
+
+// Fifth review, 2026-09-28: the question teaches "ofertas", so she revokes with it — and
+// `classifyOptOut` reads none of these. Any time, not only within 24h.
+describe("opt-in de marketing: a revogação", () => {
+  it.each([
+    "não quero ofertas", "não quero receber ofertas", "mudei de ideia, não quero ofertas", "cancela as ofertas",
+    "não manda oferta", "sem ofertas por favor", "para de mandar ofertas", "nada de promoção", "Não quero mais promoção",
+    "chega de propaganda", "não quero lembrete", "pode tirar das ofertas", "OFERTAS NÃO", "ofertas nunca mais",
+    "nao quero ofertas", "dispenso as promoções", "quero sair da lista de ofertas", "me remove das promoções",
+  ])("revoga: %s", (text) => {
+    expect(revokesMarketingOptIn(text)).toBe(true);
+  });
+
+  it.each([
+    "OFERTAS", "quero ofertas", "sim, pode mandar ofertas", "tem oferta pro kit?",
+    // Without a marketing word this is not about the opt-in — classifyOptOut reads the rest.
+    "não quero o M, quero o G", "não sei meu tamanho", "para quando chega?", "",
+  ])("não revoga: %j", (text) => {
+    expect(revokesMarketingOptIn(text)).toBe(false);
+  });
+
+  it("uma palavra que só contém a raiz não conta", () => {
+    expect(revokesMarketingOptIn("não, obrigada, ofertou bem")).toBe(false);
   });
 });

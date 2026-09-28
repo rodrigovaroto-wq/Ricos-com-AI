@@ -14,6 +14,9 @@
  * - `acceptsMarketingOptIn`: whether her reply gives the keyword, alone, within 24h of the
  *   question. Anything unclear is a no: a wrong yes sends marketing to someone who never
  *   agreed (and spam reports can cost the only number); a wrong no costs two touches.
+ * - `revokesMarketingOptIn`: whether a message, at any time, takes the consent back. It lives
+ *   here, beside the yes, because the question teaches the word she will revoke with ("não
+ *   quero ofertas"), and `classifyOptOut` — which stops everything — does not read it.
  *
  * Zero imports, so it can be mirrored byte for byte into `supabase/functions/turn/` like the
  * guardrail chain. The turn runs `classifyOptOut` before this; an opt-out never gets here.
@@ -74,6 +77,11 @@ const YES = new Set([
   "sim pode mandar ofertas",
   "ofertas pode mandar",
   "ofertas por favor",
+  "sim oferta",
+  "quero oferta",
+  "me manda ofertas",
+  "aceito ofertas",
+  "quero receber ofertas",
 ]);
 
 /** She answers the question she can still see: after the service window, no reply counts. */
@@ -103,4 +111,23 @@ export const acceptsMarketingOptIn = (reply: string, anchor: OptInAnchor): boole
   // Anything that is not a letter, a digit or a harmless symbol makes the reply a no.
   if (/[^\p{L}\p{N}]/u.test(stripAccents(reply).replace(HARMLESS, ""))) return false;
   return YES.has(normalize(reply));
+};
+
+/** What a marketing opt-in covers: the words she would use for it. */
+const MARKETING_WORD = /\b(?:ofertas?|promoc(?:ao|oes)|promos?|propagandas?|lembretes?|marketing)\b/;
+
+/** Any negation or request to stop, anywhere in the message. */
+const STOP_WORD =
+  /\b(?:nao|nem|sem|nunca|jamais|nada|para|pare|parar|chega|cancela|cancele|cancelar|tira|tire|tirar|retira|retirar|remove|remova|remover|sai|sair|dispenso|desisto|mudei)\b/;
+
+/**
+ * True when a message takes the marketing consent back: a marketing word next to any
+ * negation or request to stop, in the same message. Deliberately loose — the safe side here is
+ * revoking: a wrong revoke costs two touches, a missed one sends marketing to someone who said
+ * no (LGPD art. 8º §5º). "não quero ofertas do M, quero o G" revokes too, and that is accepted.
+ */
+export const revokesMarketingOptIn = (text: string): boolean => {
+  if (typeof text !== "string") return false;
+  const t = stripAccents(text).toLowerCase();
+  return MARKETING_WORD.test(t) && STOP_WORD.test(t);
 };
