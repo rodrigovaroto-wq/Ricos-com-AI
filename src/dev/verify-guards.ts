@@ -226,7 +226,7 @@ const MUTATIONS: Mutation[] = [
     bug: "\"Pode trocar em 7 dias, e o colete é seu.\" passava: a chegada em palavras depois da garantia não era lida",
     files: ["src/agent/guardrails.ts"],
     // 2026-09-28: her having it lives in the one ARRIVAL now.
-    from: String.raw`|ja\s+tem|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:seu|sua)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;`,
+    from: String.raw`|ja\s+tem|(?:tem|tera|vai\s+ter)\s+(?:o\s+(?:seu\s+)?colete|ele)|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:tod[oa]\s+)?(?:seu|sua)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;`,
     to: String.raw`)\b/;`,
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
@@ -418,8 +418,8 @@ const MUTATIONS: Mutation[] = [
     id: "M-10-sem-nome",
     bug: "\"Chega em uma semana.\" passava no caminho da entrega: sem nome de caminho, a contagem não era julgada",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: '(averageShaped ? path === "cod" : deadlineTalk)',
-    to: '(averageShaped ? path === "cod" : false)',
+    from: '(averageShaped ? path === "cod" : deadlineTalk || by === "denial")',
+    to: '(averageShaped ? path === "cod" : by === "denial")',
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
@@ -458,8 +458,8 @@ const MUTATIONS: Mutation[] = [
     id: "M-10-media-negada",
     bug: "\"Nada de pix. Em média 5 dias úteis.\" passava no COD: a forma da média ia para a regra do antecipado mesmo com o antecipado negado",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: '(averageShaped ? path === "cod" : deadlineTalk)',
-    to: "(averageShaped ? false : deadlineTalk)",
+    from: '(averageShaped ? path === "cod" : deadlineTalk || by === "denial")',
+    to: '(averageShaped ? false : deadlineTalk || by === "denial")',
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
