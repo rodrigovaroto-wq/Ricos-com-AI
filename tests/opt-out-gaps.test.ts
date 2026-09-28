@@ -12,7 +12,7 @@ import { classifyOptOut } from "../src/agent/guardrails.js";
  * negation controls below must keep reading "none" (`.claude/memory/negation-blindness.md`).
  */
 describe("opt-out: pedidos de parar que hoje passam em branco", () => {
-  it.fails.each(["não quero mais promoção", "não quero receber mais mensagens", "chega de mensagem"])(
+  it.fails.each(["não quero mais promoção", "não quero receber mais mensagens", "chega de mensagem", "para com isso"])(
     "%s deveria parar a agente",
     (text) => {
       expect(classifyOptOut(text)).not.toBe("none");

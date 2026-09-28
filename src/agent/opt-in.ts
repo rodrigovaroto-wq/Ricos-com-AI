@@ -66,7 +66,7 @@ const normalize = (s: string): string =>
  * The whole reply must be one of these — each one carries the keyword; "sim" alone, "pode" or
  * "quero" alone are answers to anything and count as no. "não quero ofertas" is not in the set.
  */
-const YES = new Set([
+export const YES_REPLIES: readonly string[] = [
   "ofertas",
   "oferta",
   "sim ofertas",
@@ -82,7 +82,8 @@ const YES = new Set([
   "me manda ofertas",
   "aceito ofertas",
   "quero receber ofertas",
-]);
+];
+const YES = new Set(YES_REPLIES);
 
 /** She answers the question she can still see: after the service window, no reply counts. */
 const ANSWER_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -113,21 +114,42 @@ export const acceptsMarketingOptIn = (reply: string, anchor: OptInAnchor): boole
   return YES.has(normalize(reply));
 };
 
-/** What a marketing opt-in covers: the words she would use for it. */
-const MARKETING_WORD = /\b(?:ofertas?|promoc(?:ao|oes)|promos?|propagandas?|lembretes?|marketing)\b/;
-
-/** Any negation or request to stop, anywhere in the message. */
-const STOP_WORD =
-  /\b(?:nao|nem|sem|nunca|jamais|nada|para|pare|parar|chega|cancela|cancele|cancelar|tira|tire|tirar|retira|retirar|remove|remova|remover|sai|sair|dispenso|desisto|mudei)\b/;
+/**
+ * What a marketing opt-in covers, as STEMS (sixth review, 2026-09-28): "ofertinha",
+ * "promo", "cupons", "descontos", "anúncio" — exact words missed the diminutives and slang.
+ * "cupom" and "desconto" are here because `silence_3` offers exactly that.
+ */
+const MARKETING_STEM = /ofert|promo|propag|lembret|cupo|descont|novidad|anunci|spam|marketing/;
 
 /**
- * True when a message takes the marketing consent back: a marketing word next to any
- * negation or request to stop, in the same message. Deliberately loose — the safe side here is
- * revoking: a wrong revoke costs two touches, a missed one sends marketing to someone who said
- * no (LGPD art. 8º §5º). "não quero ofertas do M, quero o G" revokes too, and that is accepted.
+ * Any negation or request to stop, in the forms WhatsApp writes them: "n", "nn", "ñ"
+ * (read as "n"), "naum", "não" glued to the next word ("naoquero") or to the previous one
+ * ("ofertasnão"), and stop verbs by stem ("dispensa", "cancelem", "desativa", "tô fora").
+ */
+const STOP_STEM = new RegExp(
+  [
+    "nao", "naum", "\\bnn?\\b", "\\bnem\\b", "\\bsem\\b", "nunca", "jamais", "\\bnada\\b",
+    "\\bpar[aeo]\\b", "\\bparar", "\\bchega\\b", "\\bchega de", "\\bcancel", "\\btir[aeo]", "\\bretir", "\\bremov",
+    "\\bsai\\b", "\\bsair\\b", "\\bdispens", "\\bdesist", "\\bmudei", "\\bdesativ", "\\bdeslig", "\\bbloque",
+    "\\besquec", "\\bpasso\\b", "\\bfora d", "\\bodei", "\\bdetest", "\\bstop\\b", "\\bdeixa de", "\\bdeixa pra la",
+  ].join("|"),
+);
+
+/** "nãoo", "nããão", "ofertaaas": any run of one letter is read as one. */
+const collapse = (s: string): string => s.replace(/(\p{L})\1+/gu, "$1");
+
+/**
+ * True when a message takes the marketing consent back: a marketing stem next to any
+ * negation or request to stop, in the same message, at any time. Loose on purpose — the safe
+ * side here is revoking: a wrong revoke costs two touches, a missed one sends marketing to
+ * someone who said no (LGPD art. 8º §5º). "não quero ofertas do M, quero o G" revokes too.
+ *
+ * Both a marketing word AND a stop word are required, so "e o desconto do pix?" from a client
+ * who opted in does not lose the consent. Revoking on the marketing word alone would be safer
+ * still, at that cost — the operator's call (docs/agente-ia/05-plano/07-opt-in-marketing.md).
  */
 export const revokesMarketingOptIn = (text: string): boolean => {
   if (typeof text !== "string") return false;
-  const t = stripAccents(text).toLowerCase();
-  return MARKETING_WORD.test(t) && STOP_WORD.test(t);
+  const t = stripAccents(text).normalize("NFC").toLowerCase().replace(/ñ/g, "n");
+  return [t, collapse(t)].some((v) => MARKETING_STEM.test(v) && STOP_STEM.test(v));
 };
