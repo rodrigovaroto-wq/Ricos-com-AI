@@ -14,9 +14,9 @@ import { config } from "./fixtures.js";
  */
 const doc = readFileSync("docs/agente-ia/06-script/03-templates-meta.md", "utf8");
 
-/** The body as submitted, from the template's own section. */
+/** The body as submitted, from the template's own section (or the one whose title starts so). */
 const bodyOf = (kind: string): string => {
-  const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith(`\`${kind}\``));
+  const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith(`\`${kind}\``) || sec.startsWith(kind));
   if (!section) throw new Error(`template de ${kind} não está no documento`);
   const body = /\*\*Corpo:\*\*\s*```text\n([\s\S]*?)\n```/.exec(section)?.[1];
   if (!body) throw new Error(`template de ${kind} sem corpo`);
@@ -30,9 +30,19 @@ const templates = (() => {
   return (JSON.parse(`{${block}}`) as { channel: { templates: Record<string, TemplateBinding> } }).channel.templates;
 })();
 
+/** The prepaid eve's declaration, from the draft in section 4 (not yet in the block above). */
+const PREPAID_EVE = "Véspera do pedido já pago";
+const evePago = (() => {
+  const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith(PREPAID_EVE));
+  const decl = section && /"order_eve_pago":\s*(\{[^}]*\})/.exec(section)?.[1];
+  if (!decl) throw new Error("declaração de order_eve_pago não está na seção 4");
+  return JSON.parse(decl) as TemplateBinding;
+})();
+
 const now = new Date("2026-09-10T12:00:00Z"); // quinta, 09:00 em São Paulo
-const withTemplates = { ...config, coupon: { ...config.coupon, active: true }, channel: { templates } };
-const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "lead-abc", config: withTemplates, now, ...over });
+const withTemplates = { ...config, coupon: { ...config.coupon, active: true }, channel: { templates: { ...templates, order_eve_pago: evePago } } };
+// With her consent (R15.1): without it `silence_2`/`silence_3` never leave as a template.
+const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "lead-abc", config: withTemplates, now, marketingOptIn: true, ...over });
 
 /**
  * Outside the window, through the production path: `deliveryFor` resolves the variables,
@@ -42,7 +52,7 @@ const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "le
 const sentVsGated = (kind: FollowupKind, over: Partial<RenderContext> = {}) => {
   const d = deliveryFor(kind, ctx(over), null);
   if (d?.via !== "template") throw new Error(`${kind} não saiu por template: ${JSON.stringify(d)}`);
-  const sent = bodyOf(kind)
+  const sent = bodyOf(kind === "order_eve" && over.prepaid ? PREPAID_EVE : kind)
     .replace(/\{\{(\d+)\}\}/g, (_, n: string) => d.variables[Number(n) - 1] ?? `{{${n}}}`)
     .replace(/\*([^*\n]+)\*/g, "**$1**");
   return { sent, gated: d.body };
@@ -80,30 +90,19 @@ describe("template aprovado = texto que o gate leu", () => {
     expect(sent).toBe(gated);
   });
 
-  // The draft of the second eve template (section 4) is the prepaid free text already, so
-  // the day `deliveryFor` picks it for a prepaid order the divergence below closes.
-  it("rascunho da véspera do antecipado = texto livre do antecipado", () => {
-    const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith("Véspera do pedido já pago"));
-    const body = section && /\*\*Corpo:\*\*\s*```text\n([\s\S]*?)\n```/.exec(section)?.[1];
-    expect(body, "seção 4 do documento").toBeTruthy();
-    const { gated } = sentVsGated("order_eve", { prepaid: true });
-    expect(body!.replace(/\*([^*\n]+)\*/g, "**$1**")).toBe(gated);
-  });
-
-  // KNOWN DIVERGENCES (2026-09-28), pinned with `it.fails` so they stay visible and turn
-  // red the day they are fixed. Both need a code change in `deliveryFor` (the template's
-  // own text is what must be gated) and one of them a second template at Meta.
-  //
-  // 1. Prepaid order: the free text drops "Deixa R$ X separado" (she already paid); the one
-  //    template tells her to have the money ready at the door.
-  it.fails("order_eve, antecipado (diverge: o template cobra quem já pagou)", () => {
+  // The two divergences pinned with `it.fails` until 2026-09-28, closed in `deliveryFor`.
+  // 1. Prepaid order: its own template (section 4), without "Deixa R$ X separado" — the one
+  //    template told her to have the money ready at the door after she paid.
+  it("order_eve, antecipado: o template dele (seção 4), sem cobrar quem já pagou", () => {
+    const d = deliveryFor("order_eve", ctx({ prepaid: true }), null);
+    expect(d).toMatchObject({ via: "template", name: "encorpa_vespera_entrega_pago", variables: [] });
     const { sent, gated } = sentVsGated("order_eve", { prepaid: true });
     expect(sent).toBe(gated);
+    expect(sent).not.toContain("separado");
   });
-  // 2. Half the leads get `silence_2`'s second variant as free text, and the gate reads it;
-  //    outside the window the template sends the first one. Operator's decision (2026-09-28):
-  //    option (a) — outside the window, always the first variant; no second template.
-  it.fails("silence_2, segunda variante (diverge: fora da janela sai a primeira)", () => {
+  // 2. Operator's decision (2026-09-28), option (a): outside the window, always the first
+  //    variant, and that is the text the gate reads — for the lead on the second one too.
+  it("silence_2, segunda variante: fora da janela sai a primeira, e é ela que o gate lê", () => {
     const { sent, gated } = sentVsGated("silence_2", { leadId: leadFor(1) });
     expect(sent).toBe(gated);
   });

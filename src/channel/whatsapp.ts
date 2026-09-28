@@ -23,7 +23,7 @@ export interface InboundMessage {
    * A tap on one of our buttons: the id WE gave the button, and the message it answered.
    * `body` still carries the title, for the conversation; a decision reads `reply.id`, never
    * the text — the text is hers to type, the id only a tap produces (2026-09-28).
-   * NOT sealed yet: the seal gains it in the same change that makes the turn read it.
+   * `id` is sealed (`inbound-signature.ts`): the turn reads it for the marketing opt-in.
    */
   reply?: { id: string; contextId?: string };
 }

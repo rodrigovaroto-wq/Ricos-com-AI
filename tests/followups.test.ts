@@ -473,7 +473,7 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
   });
 
   it("fora da janela sem template aprovado, o toque não sai", () => {
-    const entrega = deliveryFor("silence_3", comTemplate({ config: { ...config, coupon: { ...config.coupon, active: true } } }), fora);
+    const entrega = deliveryFor("silence_3", comTemplate({ config: { ...config, coupon: { ...config.coupon, active: true } }, marketingOptIn: true }), fora);
     expect(entrega).toEqual({ via: "blocked", reason: "no_template" });
   });
 
@@ -488,11 +488,66 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
   });
 
   it("config sem a chave `channel` bloqueia todo toque fora da janela, e nenhum dentro", () => {
-    expect(deliveryFor("silence_2", render({ now: agora }), fora)).toEqual({
+    expect(deliveryFor("silence_2", render({ now: agora, marketingOptIn: true }), fora)).toEqual({
       via: "blocked",
       reason: "no_template",
     });
     expect(deliveryFor("silence_2", render({ now: agora }), dentro)).toMatchObject({ via: "text" });
+  });
+
+  // R15.1: `silence_2` e `silence_3` fora da janela são template MARKETING — só com opt-in.
+  it("marketing fora da janela sem opt-in não sai, mesmo com template aprovado", () => {
+    const ativo = { ...config, coupon: { ...config.coupon, active: true } };
+    const todos = {
+      ...ativo,
+      channel: { templates: { silence_2: { name: "s2", language: "pt_BR", variables: [] }, silence_3: { name: "s3", language: "pt_BR", variables: [] } } },
+    };
+    for (const kind of ["silence_2", "silence_3"] as const) {
+      expect(deliveryFor(kind, render({ now: agora, config: todos }), fora), kind).toEqual({ via: "blocked", reason: "no_opt_in" });
+      expect(deliveryFor(kind, render({ now: agora, config: todos, marketingOptIn: false }), fora), kind).toEqual({ via: "blocked", reason: "no_opt_in" });
+      expect(deliveryFor(kind, render({ now: agora, config: todos, marketingOptIn: true }), fora), kind).toMatchObject({ via: "template", name: kind === "silence_2" ? "s2" : "s3" });
+      // Dentro da janela é conversa que ela abriu: texto livre, sem depender de opt-in.
+      expect(deliveryFor(kind, render({ now: agora, config: todos }), dentro), kind).toMatchObject({ via: "text" });
+    }
+  });
+
+  it("toque UTILITY não depende de opt-in", () => {
+    expect(deliveryFor("order_eve", comTemplate({ size: "GG" }), fora)).toMatchObject({ via: "template", name: "encorpa_vespera" });
+  });
+
+  // 03-templates-meta.md §4: o template da véspera cobra "Deixa R$ X separado"; a quem já pagou,
+  // só o dela, ou nada.
+  it("véspera do antecipado fora da janela: o template dela, ou bloqueado — nunca o que cobra", () => {
+    expect(deliveryFor("order_eve", comTemplate({ size: "GG", prepaid: true }), fora)).toEqual({ via: "blocked", reason: "no_template" });
+    const pago = comTemplate({ size: "GG", prepaid: true });
+    const comPago = {
+      ...pago,
+      config: { ...pago.config, channel: { templates: { ...pago.config.channel!.templates, order_eve_pago: { name: "encorpa_vespera_entrega_pago", language: "pt_BR", variables: [] } } } },
+    };
+    expect(deliveryFor("order_eve", comPago, fora)).toEqual({
+      via: "template",
+      name: "encorpa_vespera_entrega_pago",
+      language: "pt_BR",
+      variables: [],
+      body: renderFollowup("order_eve", comPago),
+    });
+    expect(renderFollowup("order_eve", comPago)).not.toContain("separado");
+  });
+
+  // R15.2: fora da janela vai sempre a primeira variante, e o corpo é ela — é o que o gate lê.
+  it("silence_2 fora da janela é a primeira variante em todo lead; dentro, alterna como sempre", () => {
+    const corpos = new Set<string>();
+    const dentroCorpos = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      const c = comTemplate({ leadId: `lead-${i}`, marketingOptIn: true });
+      const d = deliveryFor("silence_2", c, fora);
+      if (d?.via !== "template") throw new Error(JSON.stringify(d));
+      corpos.add(d.body);
+      dentroCorpos.add((deliveryFor("silence_2", c, dentro) as { body: string }).body);
+    }
+    expect([...corpos]).toHaveLength(1);
+    expect([...corpos][0]).toMatch(/^Bom dia! 💛 Passando só pra dizer/);
+    expect(dentroCorpos.size).toBe(2);
   });
 });
 
@@ -722,6 +777,7 @@ describe("dia da semana do terceiro toque — o de São Paulo, não o do servido
           },
         },
       },
+      marketingOptIn: true,
     });
   const fora = (now: Date) => new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 

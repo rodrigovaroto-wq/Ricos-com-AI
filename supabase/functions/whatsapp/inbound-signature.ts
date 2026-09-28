@@ -5,7 +5,9 @@
  * (`INBOUND_SIGNING_SECRET`). n8n passes it through untouched; the turn checks it.
  *
  * Signed: the message id, the phone, the text and Meta's timestamp — everything that
- * decides who the turn talks to, what it answers and when the 24-hour window opened.
+ * decides who the turn talks to, what it answers and when the 24-hour window opened — and,
+ * on a tap, the button's id, which is what grants or refuses the marketing opt-in (R15.1).
+ * Only when present, so a message without a tap keeps the seal it always had.
  *
  * Mirrored byte for byte into `supabase/functions/turn/` and `supabase/functions/whatsapp/`.
  */
@@ -14,14 +16,15 @@ export interface Sealed {
   from: string;
   body: string;
   sentAt?: string;
+  reply?: { id: string };
 }
 
 /** A JSON array: no field can borrow a separator from its neighbour (second review). */
-const canonical = (m: Sealed): string => JSON.stringify([m.externalId, m.from, m.body, m.sentAt ?? ""]);
+const fields = (m: Sealed): unknown[] => [m.externalId, m.from, m.body, m.sentAt ?? "", ...(m.reply ? [m.reply.id] : [])];
+const canonical = (m: Sealed): string => JSON.stringify(fields(m));
 
 /** Only strings are sealed or checked: an array would stringify into the same text. */
-const allStrings = (m: Sealed): boolean =>
-  [m.externalId, m.from, m.body, m.sentAt ?? ""].every((v) => typeof v === "string");
+const allStrings = (m: Sealed): boolean => fields(m).every((v) => typeof v === "string");
 
 const hmacHex = async (secret: string, text: string): Promise<string> => {
   const key = await crypto.subtle.importKey(

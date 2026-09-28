@@ -249,6 +249,15 @@ export const isOrderDead = (status: string | undefined): boolean =>
   /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
 
 /**
+ * The status an order keeps when a webhook arrives: a dead order stays dead (third review,
+ * 2026-09-28). The row was upserted last-arrival-wins, so a late "created" or "Enviado" after
+ * "Cancelado" brought the order back to life — the lead's other order then saw a live
+ * sibling, the dead one's touches never moved, and a cancelled order got the whole ruler.
+ */
+export const orderStatusAfter = (stored: string | null | undefined, incoming: string): string =>
+  isOrderDead(stored ?? undefined) && !isOrderDead(incoming) ? stored! : incoming;
+
+/**
  * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
  * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
  * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
@@ -459,7 +468,13 @@ export interface FollowupConfig {
    * out-of-window touch — free text outside the window is rejected by Meta anyway, so
    * the alternative is a touch that silently never arrives.
    */
-  channel?: { templates?: Partial<Record<FollowupKind, TemplateBinding>> };
+  channel?: {
+    /**
+     * `order_eve_pago` is the prepaid eve's own template (no "Deixa R$ X separado"): absent,
+     * a prepaid eve outside the window is blocked rather than sent the one that charges her.
+     */
+    templates?: Partial<Record<FollowupKind | "order_eve_pago", TemplateBinding>>;
+  };
 }
 
 export interface RenderContext {
@@ -480,6 +495,11 @@ export interface RenderContext {
   prepaid?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
+  /**
+   * Her marketing consent is in force (R15.1): `leads.marketing_opt_in_at`, read only when
+   * `channel.askMarketingOptIn` is on. Absent = no consent, so no MARKETING template.
+   */
+  marketingOptIn?: boolean;
 }
 
 /**
@@ -584,7 +604,7 @@ export type Delivery =
       readonly variables: readonly string[];
       readonly body: string;
     }
-  | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" };
+  | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" | "no_opt_in" };
 
 const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string => {
   switch (variable) {
@@ -626,7 +646,14 @@ export const deliveryFor = (
 
   if (windowIsOpen(ctx.now ?? new Date(), lastInboundAt)) return { via: "text", body };
 
-  const template = ctx.config.channel?.templates?.[kind];
+  // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1).
+  if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {
+    return { via: "blocked", reason: "no_opt_in" };
+  }
+
+  // One template per touch, and `body` is what it says — the text the sweep gates: `silence_2`
+  // leaves as its first variant (R15.2), and a prepaid eve by its own template.
+  const template = ctx.config.channel?.templates?.[kind === "order_eve" && ctx.prepaid ? "order_eve_pago" : kind];
   if (!template) return { via: "blocked", reason: "no_template" };
 
   const variables = template.variables.map((v) => resolveVariable(v, ctx));
@@ -637,6 +664,6 @@ export const deliveryFor = (
     name: template.name,
     language: template.language,
     variables,
-    body,
+    body: kind === "silence_2" ? SILENCE_2(ctx.config.delivery.warrantyDays)[0] : body,
   };
 };

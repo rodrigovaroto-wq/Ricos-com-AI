@@ -4,6 +4,7 @@ import {
   endsSilenceRuler,
   inSilenceRuler,
   onOrderConfirmed,
+  orderStatusAfter,
   rulerFor,
   scheduleSilence,
   stageForLead,
@@ -126,7 +127,7 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
     expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
     expect(source).toContain("order_id: orderRowId ?? null,");
     expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
-    expect(source).toContain("    order.status,\n    orderRowId,\n  );");
+    expect(source).toContain("    status,\n    orderRowId,\n  );");
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
@@ -156,7 +157,7 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
   it("recordOrder lê os outros pedidos do lead antes de gravar o estágio", () => {
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc");
-    expect(source).toContain("const reached = stageForLead(order.status, otherStatuses);");
+    expect(source).toContain("const reached = stageForLead(status, otherStatuses);");
   });
 });
 
@@ -306,8 +307,46 @@ describe("segunda revisão: varredura e webhook de venda", () => {
   });
 
   it("recusado reabre só pela venda nova, e os toques do morto passam ao vivo sem tocar o que saiu", () => {
-    expect(source).toContain('if (reached && conversation.stage === "recusado" && reopensRefused(order.status, otherStatuses)) {');
+    expect(source).toContain('if (reached && conversation.stage === "recusado" && reopensRefused(status, otherStatuses)) {');
     expect(source).toContain("await db(`conversations?id=eq.${conversation.id}&stage=eq.recusado`, {");
     expect(source).toContain("await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {");
+  });
+});
+
+/**
+ * Terceira revisão (2026-09-28): `orders` era gravado último-que-chega-vence, e um "created"
+ * ou "Enviado" atrasado depois do "Cancelado" ressuscitava o pedido. O irmão vivo via um
+ * pedido vivo onde havia um morto: régua pós-pedido inteira num cancelado, ou o pedido real
+ * sem régua e o lead preso em recusado. Reproduzido pela Edge Function contra um PostgREST
+ * falso, nas 24 ordens de chegada de dois pedidos.
+ */
+describe("terceira revisão: pedido morto não ressuscita por webhook atrasado", () => {
+  it("status vivo atrasado não sobrescreve um morto do mesmo pedido", () => {
+    expect(orderStatusAfter("Cancelado", "created")).toBe("Cancelado");
+    expect(orderStatusAfter("Cancelado", "Aprovado / Enviado")).toBe("Cancelado");
+    expect(orderStatusAfter("Devolvido", "Entregue")).toBe("Devolvido");
+  });
+  it("o resto segue o webhook: primeiro status, avanço, e morte de um vivo", () => {
+    expect(orderStatusAfter(undefined, "created")).toBe("created");
+    expect(orderStatusAfter(null, "Cancelado")).toBe("Cancelado");
+    expect(orderStatusAfter("created", "Aprovado / Enviado")).toBe("Aprovado / Enviado");
+    expect(orderStatusAfter("Aprovado / Enviado", "Cancelado")).toBe("Cancelado");
+    expect(orderStatusAfter("Cancelado", "Recusado na entrega")).toBe("Recusado na entrega");
+  });
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const record = source.slice(source.indexOf("const recordOrder"), source.indexOf("const RETRY_TURN_KIND"));
+  it("o status gravado e toda decisão leem o status efetivo, lido antes do upsert", () => {
+    const read = record.indexOf("orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status");
+    expect(read).toBeGreaterThan(-1);
+    expect(read).toBeLessThan(record.indexOf('await db("orders?on_conflict=external_id"'));
+    expect(record).toContain('const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");');
+    expect(record).not.toContain("order.status,");
+    expect(record).not.toContain("status: order.status");
+    expect(record).toContain("{ id: orderRowId, status, orderedAt },");
+  });
+  it("created_at do pedido é a data do pedido, que o takeover usa para os outros", () => {
+    expect(record).toContain("{ created_at: orderedOn.toISOString() }");
+    expect(record).toContain("orderedAt: new Date(o.created_at)");
   });
 });

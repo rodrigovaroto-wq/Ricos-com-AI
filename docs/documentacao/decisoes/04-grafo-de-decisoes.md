@@ -714,6 +714,41 @@ flowchart TD
   S --> G --> ABERTO
 ```
 
+## 27. Terceira revisão e itens do PR #38 (2026-09-28)
+
+**Pedido morto ressuscitado (regressão do bf23390):** um webhook atrasado ("created" ou
+"Enviado" depois de "Cancelado") reescrevia `orders.status`, porque o upsert grava o que chega
+por último. A `orderTakeOver` então dava a régua inteira, com a véspera, a um pedido cancelado.
+- **Causa:** o status morto não era terminal.
+- **Correção:** `orderStatusAfter`. Status morto não volta a vivo. O status efetivo é lido antes
+  do upsert e usado em todas as decisões. `created_at` passa a ser a data do pedido, então o
+  takeover agenda pela data certa.
+
+**Divergências de template (it.fails do #38):**
+- **Véspera do antecipado:** usa `order_eve_pago` e fica bloqueada até esse template existir.
+- **`silence_2` fora da janela:** sai sempre a 1ª variante.
+- **Varredura:** faz o gate sobre o texto que de fato sai (`delivery.body`).
+
+**Opt-in ligado, com a flag `channel.askMarketingOptIn`, ausente = desligado:**
+- **Com a flag desligada:** nenhuma coluna da 0019 é lida.
+- **Selo:** o `reply.id` entra no selo só quando existe.
+- **`silence_2`/`silence_3` como template:** exigem opt-in.
+
+**Bloqueio de deploy:** o nó "Cerebro do turno" do n8n descartava o `reply`, e isso dá 401 em
+todo toque de botão com o selo ligado.
+
+**Ordem de deploy:**
+1. aplicar a 0018 e a 0019;
+2. publicar a `turn`;
+3. publicar a `whatsapp` e o n8n com o `reply`, ainda com a flag desligada;
+4. ligar a flag;
+5. pôr `order_eve_pago` em `channel.templates` depois da aprovação da Meta.
+
+**Aberto:**
+- **N3c e N3e:** a regra `furthest` deixa o estágio em `em_rota` ou em `endereco_coletado`
+  quando o "Cancelado" chega primeiro. Não manda mensagem errada.
+- **Corrida:** dois webhooks do mesmo pedido no mesmo instante.
+
 ---
 
 ## Lições (valem para qualquer correção futura)

@@ -25,15 +25,18 @@ import {
   windowIsOpen,
   onOrderConfirmed,
   orderTakeOver,
+  orderStatusAfter,
   reopensRefused,
   stageForLead,
   renderFollowup,
   rulerFor,
   endsSilenceRuler,
+  type FollowupConfig,
   type FollowupKind,
   type StopPoint,
 } from "./followups.ts";
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
+import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { checkRegion, type Region } from "./availability.ts";
 import {
@@ -299,6 +302,12 @@ interface BusinessConfig extends GateConfig {
    * becomes a tool she can reach for.
    */
   testimonials?: string[];
+  /**
+   * `askMarketingOptIn`: only an explicit `true` asks the marketing opt-in question after a
+   * `silence_1` (R15.1). OPTIONAL — absent in the secret reads as off: nobody is asked, nobody
+   * consents, and `silence_2`/`silence_3` never leave as a template. Turn it on only after 0019.
+   */
+  channel?: FollowupConfig["channel"] & { askMarketingOptIn?: boolean };
 }
 
 const CONFIG: BusinessConfig = JSON.parse(
@@ -332,6 +341,9 @@ const CONFIG: BusinessConfig = JSON.parse(
 );
 
 const ceilingBrl = CONFIG.cost.conversationCapBrl * (1 + CONFIG.cost.overrunTolerance);
+
+/** R15.1. Off, the sweep never selects 0019's columns: nothing depends on that migration. */
+const ASK_OPT_IN = CONFIG.channel?.askMarketingOptIn === true;
 
 const db = async (path: string, init: RequestInit = {}): Promise<any> => {
   const response = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
@@ -1002,6 +1014,14 @@ const recordOrder = async (order: OrderWebhook) => {
   );
   const conversation = conversations?.[0] ?? null;
 
+  // A dead order stays dead (`orderStatusAfter`): what is written and every decision below
+  // read this status, never the late webhook's. Index: orders_external_id_key (unique).
+  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status`);
+  const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");
+  // The order's own date, not the first webhook's arrival: a live order that takes over a
+  // dead one's touches is scheduled from `created_at` (`orderTakeOver` below).
+  const orderedOn = order.orderedAt ? new Date(order.orderedAt) : null;
+
   const saved = await db("orders?on_conflict=external_id", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -1014,8 +1034,9 @@ const recordOrder = async (order: OrderWebhook) => {
       size: order.size,
       units: order.units ?? 1,
       amount_brl: order.amountBrl,
-      status: order.status ?? "created",
+      status,
       scheduled_for: order.scheduledFor ?? null,
+      ...(orderedOn && !Number.isNaN(orderedOn.getTime()) ? { created_at: orderedOn.toISOString() } : {}),
       updated_at: new Date().toISOString(),
     }),
   });
@@ -1041,8 +1062,8 @@ const recordOrder = async (order: OrderWebhook) => {
       `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc`,
     )) ?? [];
   const otherStatuses = others.map((o) => o.status ?? "");
-  const reached = stageForLead(order.status, otherStatuses);
-  if (reached && conversation.stage === "recusado" && reopensRefused(order.status, otherStatuses)) {
+  const reached = stageForLead(status, otherStatuses);
+  if (reached && conversation.stage === "recusado" && reopensRefused(status, otherStatuses)) {
     // A new sale after a refused one: `recusado` is terminal for `persistStage`, so the
     // reopening is its own write, and only over the stage this call read.
     await db(`conversations?id=eq.${conversation.id}&stage=eq.recusado`, {
@@ -1063,7 +1084,7 @@ const recordOrder = async (order: OrderWebhook) => {
     rows,
     orderedAt,
     CONFIG.delivery.codDaysMin,
-    order.status,
+    status,
     orderRowId,
   );
 
@@ -1094,7 +1115,7 @@ const recordOrder = async (order: OrderWebhook) => {
   const takeOver = orderRowId
     ? orderTakeOver(
         rows,
-        { id: orderRowId, status: order.status, orderedAt },
+        { id: orderRowId, status, orderedAt },
         others.map((o) => ({ id: o.id, status: o.status ?? "", orderedAt: new Date(o.created_at) })),
         new Date(),
         CONFIG.delivery.codDaysMin,
@@ -1166,7 +1187,9 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at))&limit=50",
+      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at" +
+      (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
+      "))&limit=50",
   );
 
   /**
@@ -1185,7 +1208,8 @@ const runFollowupSweep = async () => {
         name: string;
         language: string;
         variables: readonly string[];
-      };
+      }
+    | { to: string; kind: string; followupId: string; via: "buttons"; body: string; buttons: ReadonlyArray<{ id: string; title: string }> };
   const toSend: Send[] = [];
   const skipped: Array<{ followupId: string; reason: string }> = [];
   /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
@@ -1328,8 +1352,13 @@ const runFollowupSweep = async () => {
       units: touchUnits,
       prepaid: order?.payment_method === "prepay",
       body: row.body ?? undefined,
+      marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
-    const text = renderFollowup(kind, renderCtx);
+    // The 24-hour window (WA-1): outside it only an approved template leaves, and the text
+    // gated and recorded is the one it says — not a variant she never reads (R15.2).
+    const lastInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
+    const delivery = deliveryFor(kind, renderCtx, lastInbound);
+    const text = delivery !== null && delivery.via !== "blocked" ? delivery.body : renderFollowup(kind, renderCtx);
 
     // Two touches can render to nothing, and calling both "coupon" hides the one that
     // matters: a deferred reply with no body is a paid-for answer that got lost.
@@ -1399,11 +1428,8 @@ const runFollowupSweep = async () => {
       return;
     }
 
-    // The 24-hour window (WA-1): outside it only an approved template leaves. A touch with
-    // no template is cancelled and reported, never sent as text Meta would refuse — and
-    // never written to `messages` as if she had read it.
-    const lastInbound = row.conversations?.last_inbound_at ? new Date(row.conversations.last_inbound_at) : null;
-    const delivery = deliveryFor(kind, renderCtx, lastInbound);
+    // A touch with no template is cancelled and reported, never sent as text Meta would
+    // refuse — and never written to `messages` as if she had read it.
     if (delivery === null || delivery.via === "blocked") {
       await leave("canceled");
       skipped.push({
@@ -1411,7 +1437,9 @@ const runFollowupSweep = async () => {
         reason:
           delivery?.via === "blocked" && delivery.reason === "empty_variable"
             ? "fora da janela de 24h: template com variável vazia"
-            : "fora da janela de 24h e sem template aprovado",
+            : delivery?.via === "blocked" && delivery.reason === "no_opt_in"
+              ? "template de marketing sem opt-in"
+              : "fora da janela de 24h e sem template aprovado",
       });
       return;
     }
@@ -1451,6 +1479,34 @@ const runFollowupSweep = async () => {
         ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
+
+    // The marketing opt-in question (R15.1): its own message, with buttons, after a
+    // `silence_1` — always inside the window. Asked once, and once more per suspension.
+    if (
+      ASK_OPT_IN &&
+      kind === "silence_1" &&
+      delivery.via === "text" &&
+      mayAskOptIn({
+        askedAt: lead.marketing_opt_in_asked_at ?? null,
+        optInAt: lead.marketing_opt_in_at ?? null,
+        suspendedAt: lead.marketing_opt_in_suspended_at ?? null,
+        declinedAt: lead.marketing_opt_in_declined_at ?? null,
+      })
+    ) {
+      const nonce = crypto.randomUUID();
+      const question = optInMessage(CONFIG.brand, nonce);
+      if (question) {
+        await db(`leads?id=eq.${lead.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ marketing_opt_in_nonce: nonce, marketing_opt_in_asked_at: new Date().toISOString() }),
+        });
+        await db("messages", {
+          method: "POST",
+          body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: question.body }),
+        });
+        toSend.push({ to: lead.phone, kind: "opt_in", followupId: row.id, via: "buttons", body: question.body, buttons: question.buttons });
+      }
+    }
   };
   for (const row of due ?? []) {
     await sweepRow(row).catch((error) => {
@@ -1484,6 +1540,8 @@ type TurnPayload = {
    * INBOUND_SIGNING_SECRET set, a conversation turn without a valid seal is refused.
    */
   signature?: string;
+  /** A tap on one of our buttons (`InboundMessage.reply`); its `id` is sealed. */
+  reply?: { id: string; contextId?: string };
   order?: OrderWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
@@ -1535,7 +1593,7 @@ Deno.serve(async (request: Request): Promise<Response> => {
     secret !== "" &&
     (await sealIsValid(
       secret,
-      { externalId: payload.externalId ?? "", from: payload.from ?? "", body: payload.body ?? "", sentAt: payload.sentAt },
+      { externalId: payload.externalId ?? "", from: payload.from ?? "", body: payload.body ?? "", sentAt: payload.sentAt, reply: payload.reply },
       payload.signature,
     ));
   const out = await response.json().catch(() => null);
@@ -1602,7 +1660,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     !isRetry &&
     !(await sealIsValid(
       signingSecret,
-      { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt },
+      { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt, reply: payload.reply },
       payload.signature,
     ))
   ) {
@@ -1701,6 +1759,29 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
     retriedInboundAt = latest[0].created_at ?? null;
+  }
+
+  // The marketing opt-in (R15.1), written before her message is stored so a failed write is
+  // retried with it. Only a tap on our button grants or refuses; her typed text only
+  // suspends — and only when there is a question or a consent to suspend, so with the flag
+  // off and no consent no 0019 column is touched.
+  if (!isResume && !isRetry) {
+    const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;
+    const answer = optInAnswer(reply, {
+      nonce: lead.marketing_opt_in_nonce ?? null,
+      askedAt: lead.marketing_opt_in_asked_at ?? null,
+      now: new Date(),
+    });
+    const at = new Date().toISOString();
+    const optIn =
+      answer === "yes"
+        ? { marketing_opt_in_at: at, marketing_opt_in_message_id: inbound.externalId }
+        : answer === "no" && lead.marketing_opt_in_asked_at // a no to a question never asked is not one
+          ? { marketing_opt_in_declined_at: at, marketing_opt_in_at: null }
+          : (ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: inbound.body ?? "", reply })
+            ? { marketing_opt_in_suspended_at: at, marketing_opt_in_at: null }
+            : null;
+    if (optIn) await db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify(optIn) });
   }
 
   if (!isResume && !isRetry) {

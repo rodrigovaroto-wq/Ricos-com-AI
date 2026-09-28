@@ -308,6 +308,26 @@ describe("selo da entrada entre a função whatsapp e o turno", () => {
     expect(await sealIsValid("s", arr, await sealInbound("s", { ...m, body: "oi" }))).toBe(false);
   });
 
+  // R15.1: o id do botão decide o opt-in de marketing, então entra no selo — só quando existe,
+  // para a mensagem sem toque manter o selo de sempre.
+  it("o id do botão tocado é selado: acrescentar, tirar ou trocar quebra o selo", async () => {
+    const tap = { ...m, body: "Quero ofertas", reply: { id: "optin:yes:n1" } };
+    const sig = await sealInbound("s", tap);
+    expect(await sealIsValid("s", tap, sig)).toBe(true);
+    expect(await sealIsValid("s", { ...tap, reply: { id: "optin:yes:n1", contextId: "wamid.q" } } as typeof tap, sig)).toBe(true);
+    expect(await sealIsValid("s", { ...tap, reply: { id: "optin:no:n1" } }, sig)).toBe(false);
+    const { reply: _dropped, ...semToque } = tap;
+    expect(await sealIsValid("s", semToque, sig)).toBe(false);
+    expect(await sealIsValid("s", tap, await sealInbound("s", semToque))).toBe(false);
+    expect(await sealIsValid("s", { ...tap, reply: { id: 1 as unknown as string } }, sig)).toBe(false);
+    expect(await sealIsValid("s", { ...tap, reply: "optin:yes:n1" as unknown as { id: string } }, sig)).toBe(false);
+  });
+  it("sem toque, o selo é o mesmo de antes do id do botão entrar", async () => {
+    // O valor que o código anterior produzia: mensagem em trânsito no deploy continua válida.
+    const antes = "93a972d4608bd1bee67710b801614e1381e0a7e8fac4c99f477634a43bcb6055";
+    expect(await sealInbound("s", m)).toBe(antes);
+  });
+
   it("sem segredo, sem selo, ou selo de outro segredo: nada passa", async () => {
     expect(await sealIsValid("", m, await sealInbound("s", m))).toBe(false);
     expect(await sealIsValid("s", m, undefined)).toBe(false);
