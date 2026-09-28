@@ -10,11 +10,14 @@
 -- `touch_retention`) already covers them — no second truth about retention.
 alter table public.leads
   add column if not exists marketing_opt_in_asked_at timestamptz,
+  add column if not exists marketing_opt_in_question_id uuid references public.messages(id) on delete set null,
   add column if not exists marketing_opt_in_at timestamptz,
   add column if not exists marketing_opt_in_message_id text;
 
 comment on column public.leads.marketing_opt_in_asked_at is
-  'When the ruler''s first touch carried the opt-in question (src/agent/opt-in.ts). Asked once.';
+  'When the opt-in question went out, as a message of its own after the after_price touch (src/agent/opt-in.ts). Asked once.';
+comment on column public.leads.marketing_opt_in_question_id is
+  'The outbound message that carried the question. Her yes counts only if it answers THIS message: the last one sent to her, by id — never by text, which the model could repeat.';
 comment on column public.leads.marketing_opt_in_at is
   'When she answered yes to that question; null = no marketing template. Cleared by WhatsApp error 131050.';
 comment on column public.leads.marketing_opt_in_message_id is

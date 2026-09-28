@@ -5,9 +5,9 @@
  * So the code — never the model — asks once, inside the 24-hour window, and records a yes.
  *
  * Two pieces, both pure:
- * - `optInQuestion`: a message of its own, sent right after the ruler's first touch when the
- *   operator turns the question on (`channel.askMarketingOptIn === true`; absent = never
- *   asked, never sent).
+ * - `optInQuestion` and `mayAskOptIn`: a message of its own, sent right after a ruler touch
+ *   that asks nothing, when the operator turns the question on
+ *   (`channel.askMarketingOptIn === true`; absent = never asked, never sent).
  * - `acceptsMarketingOptIn`: whether her reply is a yes TO THAT QUESTION. Anything unclear
  *   is a no: a wrong yes sends marketing to someone who never agreed; a wrong no only costs
  *   two touches.
@@ -20,27 +20,41 @@
  * Names the business (Meta's opt-in guide asks for it) and what she would receive. No coupon:
  * `coupon.active` may be false, and a question promising one is a promise `coupon_exists`
  * vetoes.
- *
- * It goes out as a message OF ITS OWN, right after the ruler's first touch — never inside it.
- * Four of the six `silence_1` variants end on a yes/no of their own ("Conseguiu finalizar
- * seu pedido?"), and a "sim" to that is not consent (second review, 2026-09-28).
  */
 export const optInQuestion = (brand: string): string =>
   `Posso te chamar aqui de novo com lembretes e ofertas da ${brand}? Se puder, me responde **SIM**.`;
+
+/**
+ * Whether the question may follow this touch, as a message of its own. Only after a touch
+ * that leaves nothing for her to answer: after "Conseguiu finalizar seu pedido?" or "Me fala o
+ * tamanho", her "sim" answers that, in two bubbles as much as in one — and the Cloud API does
+ * not guarantee the two arrive in order (second and third reviews, 2026-09-28).
+ *
+ * So only the `after_price` touch ("Qualquer coisa é só chamar!"), and only while its copy
+ * asks nothing — a question added to it later turns this off instead of reopening the hole.
+ */
+export const mayAskOptIn = (stopPoint: string | undefined, touch: string, brand: string): boolean =>
+  stopPoint === "after_price" && brand.trim() !== "" && !QUESTION_MARK.test(touch);
 
 /** A question back, in any script: "sim?", "pode¿", "sim ？". */
 const QUESTION_MARK = /[?¿？]/;
 
 /**
- * The only symbols a yes may carry: 💛 ❤ ♥ 😊 🥰 😍 👍 🙏 🤩 ✨ and punctuation. Anything else —
- * 👎 ❌ 🙄 😒 🤡 — may be the answer itself, and an unknown symbol reads as no.
+ * The only symbols a yes may carry: 💛 ❤ ♥ 😊 🥰 😍 👍 🙏 🤩 ✨ (any skin tone), the bold she
+ * copies back ("*SIM*") and punctuation. Anything else — 👎 ❌ 🙄 😒 🤡 — may be the answer
+ * itself, and an unknown symbol reads as no.
  */
-const HARMLESS = /[!.,\s\u200b-\u200d]|\ufe0f|\u{1f49b}|\u2764|\u2665|\u{1f60a}|\u{1f970}|\u{1f60d}|\u{1f44d}|\u{1f64f}|\u{1f929}|\u2728/gu;
+const HARMLESS =
+  /[!.,*…\s\u200b-\u200d]|\ufe0e|\ufe0f|[\u{1f3fb}-\u{1f3ff}]|\u{1f49b}|❤|♥|\u{1f60a}|\u{1f970}|\u{1f60d}|\u{1f44d}|\u{1f64f}|\u{1f929}|✨/gu;
+
+/**
+ * Only the accents Portuguese writes (grave, acute, circumflex, tilde, diaeresis, cedilla).
+ * Any other combining mark stays and makes the reply a no: "s̶i̶m̶" is struck through.
+ */
+const stripAccents = (s: string): string => s.normalize("NFD").replace(/[̀-̧̃̈]/g, "");
 
 const normalize = (s: string): string =>
-  s
-    .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+  stripAccents(s)
     .toLowerCase()
     .replace(HARMLESS, " ")
     // "siiim", "podeee".
@@ -75,30 +89,28 @@ const YES = new Set([
 /** She answers the question she can still see: after the service window, no reply counts. */
 const ANSWER_WINDOW_MS = 24 * 60 * 60 * 1000;
 
+/** Ids, not text: the model sees the history and could write the same line. */
 export interface OptInAnchor {
-  /**
-   * The body of the last message sent to her before this reply. The caller passes the
-   * message the SWEEP recorded as the question (by id, from `marketing_opt_in_asked_at`'s
-   * touch), never any outbound: the model sees the history and could repeat the line.
-   */
-  lastOutbound: string | null;
-  /** When the sweep sent the question (`leads.marketing_opt_in_asked_at`). */
+  /** Id of the last message sent to her before this reply (`messages.id`, outbound). */
+  lastOutboundId: string | null;
+  /** Id of the question the sweep sent (`leads.marketing_opt_in_question_id`). */
+  questionId: string | null;
+  /** When the sweep sent it (`leads.marketing_opt_in_asked_at`). */
   askedAt: Date | null;
   now: Date;
 }
 
 /**
- * True only when her reply answers the opt-in question — the last thing she was sent, alone,
- * less than 24 hours ago — and the whole reply is a short yes.
+ * True only when her reply answers the opt-in question — the last message she was sent, less
+ * than 24 hours ago — and the whole reply is a short yes. Any missing or invalid input is a no.
  */
-export const acceptsMarketingOptIn = (reply: string, brand: string, anchor: OptInAnchor): boolean => {
-  if (anchor.lastOutbound?.trim() !== optInQuestion(brand)) return false;
-  if (!anchor.askedAt) return false;
-  const age = anchor.now.getTime() - anchor.askedAt.getTime();
-  if (age < 0 || age >= ANSWER_WINDOW_MS) return false;
+export const acceptsMarketingOptIn = (reply: string, anchor: OptInAnchor): boolean => {
+  if (!anchor.questionId || anchor.lastOutboundId !== anchor.questionId) return false;
+  const age = (anchor.now?.getTime() ?? NaN) - (anchor.askedAt?.getTime() ?? NaN);
+  // Written so NaN (an invalid date, a column missing from the select) fails closed.
+  if (!(age >= 0 && age < ANSWER_WINDOW_MS)) return false;
   if (QUESTION_MARK.test(reply)) return false;
   // Anything that is not a letter, a digit or a harmless symbol makes the reply a no.
-  const bare = reply.normalize("NFD").replace(/[̀-ͯ]/g, "").replace(HARMLESS, "");
-  if (/[^\p{L}\p{N}]/u.test(bare)) return false;
+  if (/[^\p{L}\p{N}]/u.test(stripAccents(reply).replace(HARMLESS, ""))) return false;
   return YES.has(normalize(reply));
 };
