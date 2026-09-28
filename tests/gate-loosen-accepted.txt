@@ -67,3 +67,23 @@ R2 | delivery_promise | Sem pix nenhum, chega em 2 dias.
 R2 | delivery_promise | Nada de pix, nada de cartão: você recebe em 1 a 3 dias e paga na porta.
 R2 | delivery_promise | Aí a gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.
 R2 | delivery_promise | E se mesmo assim não servir, chame no WhatsApp. Você tem 7 dias contando de quando recebeu.
+# R3 (2026-09-28, grafo §28): the warranty followed by the delivery's own window as a clause of its own — the 7 is the warranty, the window's numbers are judged by themselves.
+R3 | delivery_promise | Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias.
+R3 | delivery_promise | Você tem 7 dias pra trocar, e na entrega chega em 1 a 3 dias.
+R3 | delivery_promise | São 7 dias pra trocar ou devolver; a entrega é de 1 a 3 dias.
+R3 | delivery_promise | Você tem 7 dias pra trocar, e na entrega você recebe em até 3 dias.
+# R3: honest on the COD path (2 fits 1-3); warranty_promise still vetoes it, as in the base.
+R3 | delivery_promise | Você tem 7 dias pra devolver, e a entrega leva 2 dias.
+# R3: the warranty and the prepaid average as the subject ("a média do antecipado é de 5 dias") — honest; each gate had paired its noun with the other clause's number.
+R3 | delivery_promise | Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, tá?
+R3 | warranty_promise | Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, tá?
+R3 | delivery_promise | Você tem 7 dias pra trocar, e a média no pix é de 5 dias.
+R3 | warranty_promise | Você tem 7 dias pra trocar, e a média no pix é de 5 dias.
+R3 | delivery_promise | São 7 dias de garantia; a média do antecipado é de 5 dias úteis, viu?
+R3 | warranty_promise | São 7 dias de garantia; a média do antecipado é de 5 dias úteis, viu?
+# R3: lies whose number is the prepaid average's, so delivery_promise vetoes them (3 / 30 / 7 is not the average 5) — the chain still blocks every one.
+R3 | warranty_promise | Você tem 7 dias de garantia, e a média do antecipado é de 3 dias.
+R3 | warranty_promise | Pode trocar, e no pix em média 30 dias.
+R3 | warranty_promise | Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, e chega junto.
+# R3: the prompt's comparison of both windows with the tag "tá?" at the end — honest.
+R3 | delivery_promise | Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis, tá?

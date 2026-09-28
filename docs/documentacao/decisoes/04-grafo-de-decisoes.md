@@ -704,7 +704,7 @@ estruturado que alguma camada está jogando fora antes de escrever a próxima re
 **Ainda por ligar (pós-merge do PR #37):** a lista está no `HANDOFF.md`, e inclui pôr
 `reply.id` no selo no mesmo commit em que o turno passar a lê-lo.
 
-## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
+## 26. `classifyOptOut` não lê três frases comuns de opt-out (fechado no §28)
 
 ```mermaid
 flowchart TD
@@ -748,6 +748,50 @@ todo toque de botão com o selo ligado.
 - **N3c e N3e:** a regra `furthest` deixa o estágio em `em_rota` ou em `endereco_coletado`
   quando o "Cancelado" chega primeiro. Não manda mensagem errada.
 - **Corrida:** dois webhooks do mesmo pedido no mesmo instante.
+
+## 28. Terceira revisão do PR #37: regressões do gate de prazo, desempenho e opt-out (2026-09-28)
+
+Cada item foi reproduzido contra a base `9222dc6` antes do conserto, com a causa lida no código.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Sem pix, em 5 dias você tem o colete' passava nos dois caminhos (a base vetava)"]
+  K1["causa: a negação dava o caminho da entrega (by: denial), mas a regra da entrega<br/>ainda exigia fala de chegada — e 'você tem o colete' não era chegada no ARRIVAL"]
+  C1["🟩 a negação nomeia a entrega como 'na entrega': julga sem palavra de chegada;<br/>idem na exceção do artigo 'um/uma'; posse com 'ter' entra no ARRIVAL"]
+  S2["🟥 'Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias' vetada (desde a M-10)"]
+  S3["🟥 '7 dias de garantia, e a média do antecipado é de 5 dias' — cada gate<br/>pegava o número da outra oração"]
+  C2["🟩 a cauda da garantia aceita a janela da própria entrega como oração só dela;<br/>a janela do antecipado lê a média como sujeito; warranty_promise larga o número<br/>cuja oração é a média de um caminho"]
+  P["🟥 'se trocar 7 dias' repetido até 16k: 7 a 26 s no delivery_promise"]
+  KP["causa: cada regra lê a sentença inteira da contagem — custo contagens × sentença,<br/>e o 'se …' preguiçoso de takenAfterReturn revarre a sentença a partir de cada 'se'"]
+  CP["🟩 resposta com mais de 20 contagens ou sentença acima de 1000 caracteres volta<br/>para reescrita (corpus: 2 e 269); caminhada do cabeçalho calculada uma vez"]
+  O["🟥 §26: 'não quero receber mais mensagens', 'chega de mensagem'… liam none"]
+  CO["🟩 formas novas (ordem livre, promoção/oferta), sem ler pedido de compra como recusa;<br/>'não para de mandar' deixou de ser opt-out"]
+  G["🛡️ geradores em prepaid-deadline-fuzz (1 a 4) e opt-out-gaps; mutações R3-*;<br/>dev:gates: 15 afrouxamentos honestos aceitos (R3), 5 endurecimentos"]
+  S1 --> K1 --> C1 --> G
+  S2 --> C2
+  S3 --> C2 --> G
+  P --> KP --> CP --> G
+  O --> CO --> G
+```
+
+**Caminho descartado:** limitar o `se …` a 80 caracteres e trocar os 14 `slice(0, at).split(…).pop()` por
+leitura a partir de `at`. Os dois foram medidos: abaixo do teto de contagens não mudavam nada mensurável,
+e o primeiro ainda era um aperto semântico. Por isso saíram.
+
+**Verificado e deixado como está:**
+- **"Pelo link, o prazo médio é de 5 dias":** vetada na base e no branch, e com razão. O prompt ensina
+  "varia por região, em média", e "médio" não diz que varia.
+- **Reembolso ou estorno com número:** a `warranty_promise` veta, igual à base. O prompt, o roteiro e a
+  régua não têm fala de reembolso com prazo.
+- **"Não consigo garantir 2 dias. Varia, em média 5 dias úteis.":** a `warranty_promise` lê "garantir"
+  como garantia. Igual à base.
+- **"…e a entrega leva 2 dias" depois da garantia:** a `warranty_promise` veta o 2, porque "leva" não
+  isenta. Igual à base.
+- **"Sem pix, em 2 dias chega" no caminho antecipado:** continua vetada. Ali o "sem pix" pode ser o
+  cartão, e o desenho deixa a contagem para as duas regras.
+
+**Aberto:** o nível `ambiguous` de `classifyOptOut` não é lido pela `turn` (só `explicit` para a
+agente). "Parar" sozinho não pede confirmação em produção.
 
 ---
 

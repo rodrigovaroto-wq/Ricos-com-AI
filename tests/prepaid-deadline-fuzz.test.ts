@@ -877,3 +877,104 @@ describe("reestruturação (2026-09-28): um nome por caminho, uma função de ca
     expect(pathHonest.filter(([s, p]) => delivery(s, p) !== "pass")).toEqual([]);
   });
 });
+
+// Terceira revisão do PR #37 (2026-09-28). Cada item: a frase honesta que precisa passar e a
+// mentira vizinha que precisa barrar, com a causa no código.
+const allowed = (text: string, paymentPath: "cod" | "prepay") => runGates(text, ctx({ paymentPath, regionKnown: false })).allowed;
+
+// 1) O antecipado negado nomeia a entrega como "na entrega" nomeia: a contagem é dela mesmo sem
+// palavra de chegada. Antes, "Sem pix, em 5 dias você tem o colete" passava nos dois caminhos — a
+// negação dava o caminho, mas a regra da entrega ainda exigia chegada, e "você tem o colete" não
+// era chegada. E a posse com "ter" ("você tem o colete", "é todo seu") passa a ser chegada.
+const DENIALS = ["Sem pix,", "Sem antecipado,", "Sem pagar antes,", "Nada de pix:", "Nada de cartão, nada de pix:", "Sem boleto,"];
+const POSSESSIONS = ["você tem o colete", "você já tem ele", "ele é todo seu", "você tem ele aí", "o colete é seu", "chega", "você está usando ele"];
+const deniedOutOfRange: string[] = [];
+const deniedInRange: string[] = [];
+for (const d of DENIALS)
+  for (const p of POSSESSIONS) {
+    for (const c of ["em 5 dias", "em até 4 dias", "numa semana", "em dez dias", "em 7 dias"]) deniedOutOfRange.push(`${d} ${c} ${p}.`);
+    for (const c of ["em 2 dias", "em até 3 dias", "em um dia"]) deniedInRange.push(`${d} ${c} ${p}.`);
+  }
+// A sonda negada: a negativa que não nega o nome ("sem juros no pix", "sem pix demorado") fala do
+// antecipado, e a posse sem nome nenhum continua prazo.
+const notDeniedPossession: string[] = [];
+for (const d of ["Sem juros no pix,", "Sem pix demorado,", "Nada de boleto que demora:"])
+  for (const p of POSSESSIONS) notDeniedPossession.push(`${d} em 2 dias ${p}.`);
+const unnamedPossession = ["Em 5 dias você tem o colete.", "Em 5 dias ele é todo seu.", "Nada de pix. Em 5 dias você tem o colete.", "Vai ser na entrega? Em 5 dias você tem o colete."];
+
+// 2) A garantia seguida da janela da própria entrega, como oração que é só ela: o 7 é a garantia, e
+// o número da janela é julgado sozinho. Vetada desde a M-10, que passou a julgar a contagem sem nome
+// na entrega com a fala de entrega da oração vizinha.
+const warrantyThenCodWindow = [
+  "Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias.", "Você tem 7 dias pra trocar, e na entrega chega em 1 a 3 dias.",
+  "São 7 dias pra trocar ou devolver; a entrega é de 1 a 3 dias.", "Você tem 7 dias pra trocar, e na entrega você recebe em até 3 dias.",
+];
+// Só o prazo: `warranty_promise` ainda lê o 2 como garantia ("leva" não isenta ali), como na base.
+const warrantyThenCodCount = "Você tem 7 dias pra devolver, e a entrega leva 2 dias.";
+const warrantyThenCodWindowLies = [
+  "Você tem 7 dias pra devolver, e a entrega leva de 1 a 7 dias.", "Você tem 7 dias pra devolver, e a entrega leva 7 dias.",
+  "Você tem 7 dias pra devolver, e a entrega também.", "Você tem 7 dias pra devolver, e a entrega leva o mesmo.",
+  "Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias, e chega junto.", "Você tem 7 dias pra devolver, e a entrega leva de 5 a 7 dias.",
+  "Você tem 7 dias pra devolver, e a entrega leva uns 5 dias.",
+];
+
+// 3) A garantia e a média do antecipado como sujeito ("a média do antecipado é de 5 dias"): cada
+// gate pegava o número da outra oração — `delivery_promise` dava o 7 ao antecipado porque a janela
+// só lia "em média N dias", e `warranty_promise` dava o 5 à garantia pelos 40 caracteres em volta.
+const warrantyAndAverageSubject = [
+  "Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, tá?", "Você tem 7 dias pra trocar, e a média no pix é de 5 dias.",
+  "São 7 dias de garantia; a média do antecipado é de 5 dias úteis, viu?",
+];
+const warrantyAndAverageSubjectLies = [
+  "Você tem 7 dias de garantia, e a média do antecipado é de 7 dias.", "Você tem 7 dias de garantia, e a média do antecipado é de 3 dias.",
+  "A garantia é de 30 dias, e a média do antecipado é de 5 dias.", "Pode trocar, e em média 30 dias.", "Pode trocar, e no pix em média 30 dias.",
+  "A garantia em média é de 30 dias no antecipado.", "Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, e chega junto.",
+];
+
+describe("terceira revisão do PR #37: antecipado negado com posse, garantia com a janela ao lado", () => {
+  it(`1) ${deniedOutOfRange.length} posses fora da faixa depois do antecipado negado, vetadas nos dois caminhos`, () => {
+    expect(deniedOutOfRange.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it(`1) ${deniedInRange.length} posses dentro da faixa depois do antecipado negado passam na entrega`, () => {
+    expect(deniedInRange.filter((s) => delivery(s, "cod") !== "pass")).toEqual([]);
+  });
+  it("1) a negativa que não nega fala do antecipado, e a posse sem nome continua prazo", () => {
+    expect(notDeniedPossession.filter((s) => delivery(s, "cod") !== "block")).toEqual([]);
+    expect(unnamedPossession.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+  it("2) a garantia com a janela da entrega ao lado passa na entrega; a janela que se amarra ao 7, não", () => {
+    expect(warrantyThenCodWindow.filter((s) => !allowed(s, "cod"))).toEqual([]);
+    expect(delivery(warrantyThenCodCount, "cod")).toBe("pass");
+    expect(warrantyThenCodWindowLies.filter((s) => allowed(s, "cod"))).toEqual([]);
+  });
+  it("3) garantia e média do antecipado como sujeito passam nos dois caminhos; os números trocados, não", () => {
+    expect(warrantyAndAverageSubject.filter((s) => !allowed(s, "cod") || !allowed(s, "prepay"))).toEqual([]);
+    expect(warrantyAndAverageSubjectLies.filter((s) => allowed(s, "cod") || allowed(s, "prepay"))).toEqual([]);
+  });
+});
+
+// 4) Desempenho. Cada regra lê a sentença inteira da contagem, então o custo é contagens × sentença:
+// "se trocar 7 dias" repetido até 16k caracteres levava 7 s (o "se …" preguiçoso de `takenAfterReturn`
+// revarria a sentença a partir de cada "se"), e perguntas curtas em sequência faziam `headerPath`
+// refazer a caminhada a cada contagem. A resposta degenerada volta para ser reescrita antes.
+describe("desempenho: a cadeia de gates fica bem abaixo de 100 ms a 16k caracteres", () => {
+  const SHAPES = [
+    "se trocar 7 dias ", "7 dias pra trocar ", "um dia ", "voce tem 7 dias ", "Em 2 dias? ", "Oi? Em 1 a 3 dias? ",
+    "Na entrega? Em 2 dias? ", "e ou tambem 2 dias na entrega ", "? ", "pix? ", "nada de pix, nada de cartao, ",
+    // Abaixo do teto de contagens: a caminhada do cabeçalho e o "se …" preguiçoso.
+    "Oi? ".repeat(3960) + "Em 2 dias? ".repeat(20), ("se ".repeat(320) + "trocar 7 dias. ").repeat(16),
+  ];
+  it.each(SHAPES.map((s) => [s.slice(0, 30), s]))("%j repetido até 16k caracteres", (_, unit) => {
+    const text = unit.repeat(Math.ceil(16000 / unit.length)).slice(0, 16000);
+    for (const p of ["cod", "prepay"] as const) runGates(text, ctx({ paymentPath: p, regionKnown: false }));
+    const t0 = performance.now();
+    for (const p of ["cod", "prepay"] as const) runGates(text, ctx({ paymentPath: p, regionKnown: false }));
+    expect((performance.now() - t0) / 2).toBeLessThan(100);
+  });
+  it("a resposta degenerada é vetada: contagens demais, ou uma sentença sem fim", () => {
+    expect(delivery("Chega em 2 dias. ".repeat(21), "cod")).toBe("block");
+    expect(delivery("Chega em 2 dias. ".repeat(20), "cod")).toBe("pass");
+    expect(delivery("olha ".repeat(210) + "chega em 2 dias.", "cod")).toBe("block");
+    expect(delivery("olha ".repeat(190) + "chega em 2 dias.", "cod")).toBe("pass");
+  });
+});
