@@ -25,6 +25,9 @@ import {
   windowIsOpen,
   onOrderConfirmed,
   orderTakeOver,
+  orderTouchDue,
+  chasesSilence,
+  inSilenceRuler,
   orderStatusAfter,
   reopensRefused,
   stageForLead,
@@ -924,6 +927,15 @@ const scheduleSilenceTouches = async (
   from: Date = new Date(),
   postponed?: FollowupKind,
 ) => {
+  // She already bought (`chasesSilence`): every caller routes through here — end of turn,
+  // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
+  // A failed read arms as before; the sweep asks again before anything goes out.
+  // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id).
+  const at = (await db(`conversations?id=eq.${conversationId}&select=stage,leads(orders(status))`).catch(() => null))?.[0];
+  if (at && !chasesSilence(at.stage, (at.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
+    await cancelScheduled(conversationId);
+    return;
+  }
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
   const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({
@@ -1189,7 +1201,8 @@ const runFollowupSweep = async () => {
       encodeURIComponent(new Date().toISOString()) +
       "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at" +
       (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
-      "))&limit=50",
+      // Her orders, for `chasesSilence` below. Index: orders_lead_idx (lead_id).
+      ",orders(status)))&limit=50",
   );
 
   /**
@@ -1234,6 +1247,14 @@ const runFollowupSweep = async () => {
     if (!lead || lead.opted_out_at || lead.handoff_at) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "opt-out ou handoff" });
+      return;
+    }
+
+    // She bought after this row was armed, or it was armed before the scheduler knew: the
+    // silence ruler does not chase a buyer. Not the end of the ruler either — no `perdido`.
+    if (inSilenceRuler(row.kind) && !chasesSilence(row.conversations?.stage, (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
+      await mark("canceled");
+      skipped.push({ followupId: row.id, reason: "ela já comprou: régua de silêncio encerrada" });
       return;
     }
 
@@ -1330,11 +1351,18 @@ const runFollowupSweep = async () => {
           await db(
             // Its own order when the row says which (0017); the latest for rows armed before.
             row.order_id
-              ? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`
-              : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method&order=created_at.desc&limit=1`,
+              ? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`
+              : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status&order=created_at.desc&limit=1`,
           )
         )?.[0] ?? null
       : null;
+    // The webhook that made this touch moot cancels it (`onOrderConfirmed`); this is the second
+    // lock, at send time: no eve after "Entregue", nothing for a dead order.
+    if (order && !orderTouchDue(kind, order.status ?? undefined)) {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "pedido já entregue ou morto" });
+      return;
+    }
     // Before the order, what the turn knew when it wrote a deferred reply: the kit and the
     // path she chose, while fresh. Re-gated as "cod" and one piece, a kit reply was lost.
     const fresh = (at: unknown) =>

@@ -290,6 +290,26 @@ export const stageForLead = (
   return reached === "recusado" && others.some((s) => !isOrderDead(s)) ? null : reached;
 };
 
+/**
+ * Whether a post-order touch still has something to say, given its order's status. A dead
+ * order has nothing; a delivered one has only the after-delivery touch — `order_eve` is
+ * armed at orderedAt+30h and does not know the parcel arrived, so "sua entrega está marcada
+ * pra amanhã, deixa R$ 129,90 separado" went out after "Entregue" (HANDOFF, pre-existing).
+ */
+export const orderTouchDue = (kind: FollowupKind, status: string | undefined): boolean =>
+  !isOrderDead(status) && (stageForOrder(status) !== "entregue_pago" || kind === "order_delivered");
+
+/**
+ * Whether the silence ruler may chase her at all. A sale cancels it once (`onOrderConfirmed`),
+ * and the next thing she wrote — "obrigada!", "chega quando?" — re-armed it: the scheduler
+ * read neither the stage nor the orders, and the buyer heard "que tamanho você usa?" and the
+ * coupon (HANDOFF, pre-existing). A live order of the lead, or a stage the sale webhook
+ * writes, stops it. Only dead orders — a refusal, a cancellation — make her a prospect again,
+ * the same reading `stageForLead` and `reopensRefused` give "vivo" (§16).
+ */
+export const chasesSilence = (stage: string | null | undefined, orderStatuses: readonly string[]): boolean =>
+  !["pedido_criado", "em_rota", "entregue_pago"].includes(stage ?? "") && orderStatuses.every((s) => isOrderDead(s));
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
@@ -298,6 +318,7 @@ export const onOrderConfirmed = (
   orderId?: string,
 ): OrderEffect => {
   const scheduled = existing.filter((f) => f.status === "scheduled");
+  const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
 
   // The sale is off. Everything still waiting dies with it — the post-order touches
   // because there is no delivery to talk about, and the silence ones because chasing
@@ -307,8 +328,21 @@ export const onOrderConfirmed = (
   // per conversation, so the live order usually has none of its own: `orderTakeOver` moves
   // them to it. A row that does not say its order (before 0017) dies as before.
   if (isOrderDead(status)) {
-    const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
     return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [] };
+  }
+
+  // Delivered: the confirmation, the shipping and the eve have nothing left to say — and the
+  // first webhook may already be "Entregue", which armed the whole ruler. This order's pending
+  // ones go with the silence ruler; only the after-delivery touch is armed (`orderTouchDue`).
+  if (stageForOrder(status) === "entregue_pago") {
+    return {
+      cancel: scheduled
+        .filter((f) => inSilenceRuler(f.kind) || (f.kind.startsWith("order_") && theirs(f) && !orderTouchDue(f.kind, status)))
+        .map((f) => f.kind),
+      arm: scheduleOrder(orderedAt, codDaysMin).filter(
+        (f) => !existing.some((e) => e.kind === f.kind) && orderTouchDue(f.kind, status),
+      ),
+    };
   }
 
   return {
@@ -356,6 +390,7 @@ export const orderTakeOver = (
   const arm = scheduleOrder(live.orderedAt, codDaysMin).filter(
     (f) =>
       f.runAt > now &&
+      orderTouchDue(f.kind, live.status) &&
       existing.some((e) => e.kind === f.kind && e.status !== "sent" && !!e.orderId && dead.includes(e.orderId)),
   );
   return arm.length > 0 ? { orderId: live.id, arm } : null;

@@ -84,6 +84,31 @@ describe("furthest — o estágio que fica gravado", () => {
     expect(furthest("recusado", "bloqueado")).toBe("recusado");
   });
 
+  /**
+   * Grafo §27, N3c/N3e: o "Cancelado" chegando primeiro (sem "created" antes, ou numa venda
+   * pelo link, em que o turno não grava pedido_criado) deixava o estágio em
+   * endereco_coletado ou perdido — o pedido existiu e morreu, e o funil não contava a recusa.
+   * `recusado` vem do webhook de venda, que é a prova de que houve pedido.
+   */
+  it.each(["novo", "conversando", "tamanho_definido", "endereco_coletado", "pedido_criado", "em_rota", "perdido"] as const)(
+    "pedido morto chegando primeiro: %s → recusado",
+    (stored) => {
+      expect(furthest(stored, "recusado")).toBe("recusado");
+    },
+  );
+
+  it("pedido morto não tira de entregue_pago, bloqueado nem recusado", () => {
+    expect(furthest("entregue_pago", "recusado")).toBe("entregue_pago");
+    expect(furthest("bloqueado", "recusado")).toBe("bloqueado");
+    expect(furthest("recusado", "recusado")).toBe("recusado");
+  });
+
+  it("o salto até recusado não abre salto até perdido nem até bloqueado fora das arestas", () => {
+    expect(furthest("pedido_criado", "perdido")).toBe("pedido_criado");
+    expect(furthest("em_rota", "perdido")).toBe("em_rota");
+    expect(furthest("entregue_pago", "bloqueado")).toBe("entregue_pago");
+  });
+
   it("perdido é reentrável: ela voltou", () => {
     expect(furthest("perdido", "conversando")).toBe("conversando");
     expect(furthest("perdido", "endereco_coletado")).toBe("endereco_coletado");
@@ -124,6 +149,18 @@ describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => 
     expect(overwritableBy("endereco_coletado")).toEqual(
       expect.arrayContaining(["novo", "conversando", "tamanho_definido", "perdido"]),
     );
+  });
+
+  it("recusado sobrescreve todo estágio de antes da entrega, e perdido (N3c/N3e)", () => {
+    expect(overwritableBy("recusado")).toEqual([
+      "novo",
+      "conversando",
+      "tamanho_definido",
+      "endereco_coletado",
+      "pedido_criado",
+      "em_rota",
+      "perdido",
+    ]);
   });
 
   it("bloqueado sobrescreve o que TRANSITIONS permite e nada terminal fechado", () => {
