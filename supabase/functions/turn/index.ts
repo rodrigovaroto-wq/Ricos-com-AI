@@ -270,6 +270,8 @@ interface BusinessConfig extends GateConfig {
     prepayVariesByRegion?: boolean;
     warrantyDays: number;
     freeShipping: boolean;
+    /** Free shipping on cash on delivery only (2026-09-28). Absent reads as free on delivery (`!== false`). */
+    codFreeShipping?: boolean;
     /** Only an explicit `true` lets her name the Express delivery (R13.5). Absent: off. */
     expressActive?: boolean;
   };

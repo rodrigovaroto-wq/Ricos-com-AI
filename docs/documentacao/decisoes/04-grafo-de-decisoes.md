@@ -795,6 +795,45 @@ agente). "Parar" sozinho não pede confirmação em produção.
 
 ---
 
+## 29. Frete grátis na entrega: o gate vetava a verdade que vende (R15.3, 2026-09-28)
+
+Reproduzido no HEAD `ca691f6` com o config de exemplo antes do conserto: "Pagando na entrega o
+frete é grátis.", "O frete é grátis e você só paga quando receber." e "Na entrega não tem frete,
+você paga R$ 129,90 e mais nada." vetadas nos dois caminhos por `shipping_promise`.
+
+```mermaid
+flowchart TD
+  S1["🟥 a frase verdadeira da entrega vetada: 'Pagando na entrega o frete é grátis'"]
+  K1["causa: um só flag para os dois caminhos — freeShipping !== true (22/09) vetava<br/>todo 'grátis' (guardrails.ts, ramo não grátis de shipping_promise); o freightBriefing<br/>(prompt.ts) mandava nunca dizer 'grátis'. A verdade mudou por caminho, o config não"]
+  S2["🟥 mentiras do antecipado passavam no HEAD: 'Nem no pix tem frete', 'No pix não<br/>cobramos frete', 'No antecipado você não paga frete', 'A entrega é grátis no pix'"]
+  K2["causa: só 'grátis/zero/sem frete/nenhum frete' eram lidos como promessa;<br/>o frete negado pelo verbo (cobrar, pagar) e 'entrega grátis' não"]
+  S3["🟥 a negação honesta vetada: 'No pix não tem frete grátis'"]
+  K3["causa: o briefing de 22/09 proibia a palavra mesmo negada, e o gate não lia negação"]
+  T1["🟧 descartado: liberar o 'frete grátis' seco quando paymentPath = cod — o turno passa<br/>cod quando ela não escolheu nada, inclusive quando pergunta do pix; welcome, handoff e<br/>despedida passam cod sempre"]
+  T2["🟧 descartado: reusar prepaidNamed (com negação) no frete — içá-lo mudava a indentação<br/>de duas mutações (nem-no-pix, nega-adjetivo); sem ele, 'sem pix, na entrega o frete é<br/>grátis' custa uma reescrita (falso positivo aceito)"]
+  C["🟩 codFreeShipping (ausente = grátis na entrega, !== false). Cada promessa julgada na<br/>sua frase: passa negada (FREE_DENIED) ou com a entrega nomeada (COD_NAME, PAID_ON_RECEIPT)<br/>e nada além (PREPAY_NAME, preço do antecipado, BEYOND_COD); reticência depois dela ('No pix<br/>também.') e 'igual ao da entrega' vetam. Prompt ensina a frase com o caminho"]
+  G["🛡️ tests/honest-sales-lines.test.ts (verdades × mentira espelhada, config de exemplo e<br/>secret sem a chave; gerador 768 mentiras × 96 verdades); prompt.test.ts com 6 cantos;<br/>dev:gates: 22 afrouxamentos aceitos (R15.3), 14 endurecimentos no frete"]
+  S1 --> K1 --> C
+  S2 --> K2 --> C
+  S3 --> K3 --> C
+  T1 -.-> C
+  T2 -.-> C
+  C --> G
+```
+
+**Verificado e deixado como está:**
+- **"Nenhum frete grátis existe aqui"** (sem caminho): continua vetada, como decidido em 22/09 — com
+  o grátis da entrega verdadeiro, ela é falsa sobre a entrega.
+- **Reticência sem nome de caminho** ("Pagando na entrega o frete é grátis. E no site também."):
+  passa. "Site" é dos dois caminhos; o gate não lê elipse sem nome.
+- **"O frete não é cobrado à parte"** no antecipado: passa, igual à base. É promessa de frete
+  incluído, não de grátis, e fica fora deste conserto.
+- **"Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento"**: vetada
+  pelo `delivery_promise`, igual à base (o objeto "pelo tamanho certo" não é conhecido). Fixada
+  como `it.fails` em `honest-sales-lines.test.ts`, para conserto próprio.
+
+---
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

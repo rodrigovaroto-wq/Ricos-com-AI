@@ -167,6 +167,12 @@ export const linkFactsBriefing = (config: PromptConfig): string[] => {
  * the world as it is today. Since the operator's decision of 2026-09-22 that world has no
  * free shipping — the prepaid freight is charged by region at checkout — so only an
  * explicit `true` may put "frete grátis" in her mouth.
+ *
+ * On 2026-09-28 the operator split it by path: cash on delivery ships free (R$ 0,00 on the
+ * Logzz offer), the prepaid checkout charges by region. `delivery.codFreeShipping`, read with
+ * the gate's own `!== false` (absent = free on delivery, because the secret does not carry
+ * the key), makes her say it — with the path named in the same sentence, which is the exact
+ * condition under which `shipping_promise` lets "frete grátis" through.
  */
 export const freightBriefing = (config: PromptConfig): string[] =>
   config.delivery.freeShipping === true
@@ -177,16 +183,32 @@ export const freightBriefing = (config: PromptConfig): string[] =>
         `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
         `de entrega.`,
       ]
-    : [
-        `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
-        `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
-        `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
-        `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
-        `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
-        `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
-        `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
-        `os dois preços): diga o percentual e o preço do antecipado.`,
-      ];
+    : config.delivery.codFreeShipping !== false
+      ? [
+          `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
+          `mais caro. NO PAGAMENTO NA ENTREGA O FRETE É GRÁTIS: ela paga ${money(config.prices.codBrl)}`,
+          `quando receber e mais nada. Isso é verdade e vende: diga quando falar do preço da entrega`,
+          `ou quando ela perguntar do frete, sempre com o caminho na mesma frase, por exemplo:`,
+          `"Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber."`,
+          `"Frete grátis" sozinho, sem dizer na frase que é pagando na entrega, volta pra reescrita.`,
+          `NO ANTECIPADO o frete é calculado por região dentro do checkout, e você NÃO sabe o valor:`,
+          `nunca diga um número de frete, nunca diga que é grátis, nunca prometa que é barato, e não`,
+          `ponha "grátis" na mesma frase que o antecipado, o pix, o cartão, "nos dois" ou "também" —`,
+          `cada caminho na sua frase. Se ela perguntar quanto é, o valor aparece pra ela dentro do`,
+          `checkout, antes de pagar. Por exemplo: "No antecipado o frete é calculado por região, e o`,
+          `valor aparece pra você no checkout, antes de pagar." Nunca cite a economia em reais (a`,
+          `diferença entre os dois preços): diga o percentual e o preço do antecipado.`,
+        ]
+      : [
+          `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
+          `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
+          `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
+          `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
+          `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
+          `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
+          `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
+          `os dois preços): diga o percentual e o preço do antecipado.`,
+        ];
 
 /**
  * The Express (same-day) delivery, only when the operator says it is running. Round 1 with

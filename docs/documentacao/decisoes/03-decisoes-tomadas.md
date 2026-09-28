@@ -1725,3 +1725,36 @@ rascunho de template), em vez de sair como texto livre — o que hoje acontece e
 mudança entrar. **Decidido, não implantado**: a implementação (escolher a primeira
 variante quando a janela está fechada e a segunda seria a mandada) é trabalho posterior
 ao merge do PR #37, listado no topo do `HANDOFF.md`.
+
+## R15.3 — Frete grátis no pagamento na entrega; o antecipado segue cobrando por região
+
+O operador decidiu, em 2026-09-28: *"Com pagamento na entrega a Malu precisa informar o frete
+grátis sim, pois com pagamento na entrega o frete de fato é grátis. Desconto tem sim, deve
+prometer desconto no pagamento antecipado e quando adicionam mais de 1 peça, tudo está
+documentado. Não deixe as travas e guardrails tão fortes, pois podem limitar a atuação do
+agente e prejudicar a venda por limitar coisas que são verdades e agregam valor."*
+Perguntado, confirmou que o checkout do **antecipado (Coinzz) cobra frete por região** — o
+"frete grátis" é verdade **só** no pagamento na entrega (Logzz, frete R$ 0,00 para ela).
+
+**Supera, em parte, a decisão de 2026-09-22** ("a operação não oferece frete grátis"): ela
+continua valendo para o antecipado e deixa de valer para a entrega.
+
+- **Config:** `delivery.codFreeShipping`, opcional, lido com `!== false` — **ausente = grátis
+  na entrega**, que é a verdade de hoje, então o secret `BUSINESS_CONFIG` de produção não
+  precisa ser editado para a decisão valer. `false` volta ao mundo de 22/09. `freeShipping`
+  continua significando "grátis nos **dois** caminhos" (`=== true`) e, se ligado, prevalece.
+- **Gate (`shipping_promise`):** a promessa de frete grátis passa quando a frase nomeia o
+  pagamento na entrega ("na entrega", "pagando ao entregador", "paga quando receber") e nada
+  além dele — nenhum nome do antecipado (pix, cartão, boleto, "pagando antes"…), nenhum preço
+  do antecipado, nada que alcance os dois caminhos ou o outro ("nos dois", "em qualquer forma
+  de pagamento", "também", "ou antes", "não é só na entrega", "sem pagamento na entrega"). O
+  "frete grátis" **sem caminho** continua vetado nos dois caminhos: `paymentPath: "cod"` é o
+  que o turno passa quando ela não escolheu nada, e o turno em que ela pergunta "e no pix, tem
+  frete?" é um deles. A negação honesta do antecipado ("no pix não tem frete grátis") passa.
+  Valor de frete continua nunca citável.
+- **Prompt:** o bloco de frete ensina "Pagando na entrega o frete é grátis: você paga só
+  R$ 129,90 quando receber." e, no antecipado, "calculado por região, o valor aparece no
+  checkout". Desconto do antecipado, kits, pagar ao receber e os 7 dias já estavam ensinados.
+- **Guarda contra excesso de trava:** `tests/honest-sales-lines.test.ts` — as frases
+  verdadeiras que vendem, pela cadeia inteira com o config de exemplo, e a mentira espelhada de
+  cada uma. Grafo §29.

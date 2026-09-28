@@ -461,6 +461,7 @@ for (const [angle, reply, esperado] of [
   const cfg0922 = { ...config, prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 } };
   const { freeShipping: _omitida, ...deliverySemAChave } = cfg0922.delivery;
   const semAChave = { ...cfg0922, delivery: deliverySemAChave };
+  const codPago = { ...cfg0922, delivery: { ...cfg0922.delivery, codFreeShipping: false } };
   for (const [angle, reply, path, esperado, cfg] of [
     ["sujeito novo 'valor' depois do frete", "O frete é à parte, e o valor fica R$ 116,91 no antecipado.", "prepay", "envia", cfg0922],
     ["sujeito novo 'antecipado' depois do frete", "O frete é calculado no checkout e o antecipado sai R$ 116,91.", "prepay", "envia", cfg0922],
@@ -469,7 +470,15 @@ for (const [angle, reply, esperado] of [
     ["frete com 'o valor de'", "O frete tem o valor de R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
     ["economia dada como preço", "O frete é à parte, e o produto sai R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
     ["nenhum frete a mais na porta (COD)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "envia", cfg0922],
-    ["nenhum frete seco", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", cfg0922],
+    // 2026-09-28 (R15.3): na entrega o frete é grátis, e a chave ausente lê assim. Com
+    // `codFreeShipping: false` a frase seca volta a ser o veto de 22/09.
+    ["nenhum frete seco (grátis na entrega desde 28/09)", "Nenhum frete na entrega.", "cod", "envia", cfg0922],
+    ["nenhum frete seco, sem frete grátis na entrega", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", codPago],
+    ["frete grátis na entrega, com o caminho na frase", "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.", "cod", "envia", cfg0922],
+    ["frete grátis sem caminho", "Frete grátis!", "cod", "barra(shipping_promise)", cfg0922],
+    ["frete grátis no pix", "No pix o frete é grátis.", "cod", "barra(shipping_promise)", cfg0922],
+    ["'nem no pix tem frete' é promessa", "Nem no pix tem frete.", "prepay", "barra(shipping_promise)", cfg0922],
+    ["'no pix não tem frete grátis' é a verdade", "No pix não tem frete grátis, ele é calculado no checkout.", "prepay", "envia", cfg0922],
     ["nenhum frete a mais no antecipado", "No antecipado, nenhum frete a mais na entrega.", "cod", "barra(shipping_promise)", cfg0922],
     ["ressalva negativa depois de outra negação (saída A)", "Não precisa esperar, o frete não está incluído e você economiza R$ 12,99 no produto.", "prepay", "barra(price_promise)", cfg0922],
     ["'juros zero' não nega o frete (saída A)", "Você economiza R$ 12,99 no produto com juros zero e o frete calculado no checkout.", "prepay", "barra(price_promise+installment_promise)", cfg0922],

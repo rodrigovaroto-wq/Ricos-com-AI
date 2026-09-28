@@ -66,8 +66,10 @@ deste repositório** (R11.7) — `pnpm test && pnpm dev:conversas && pnpm typech
 **Prompt e gate são a mesma promessa escrita duas vezes.** Toda regra de negócio citada no
 system prompt **lê o config**, com o mesmo teste que o gate correspondente usa. **A chave
 ausente lê como a verdade de hoje** — chave nova nasce ausente no secret. Para
-`freeShipping`, desde 2026-09-22 isso é `=== true` (ausente = não grátis, porque a operação
-não oferece frete grátis); antes era `!== false`, quando grátis era a verdade. A regra é
+`freeShipping` (grátis nos dois caminhos), desde 2026-09-22 isso é `=== true` (ausente = não
+grátis); antes era `!== false`, quando grátis era a verdade. Para `codFreeShipping` (grátis só
+no pagamento na entrega, R15.3, 2026-09-28) é `!== false`: ausente = grátis na entrega, e o
+antecipado nunca é grátis. A regra é
 a verdade, não o operador. Até 2026-09-22 nenhum teste cobria o prompt — foi assim que ele
 passou doze dias se contradizendo sobre desconto. Desde então `tests/prompt.test.ts` prova
 que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou gate, esse

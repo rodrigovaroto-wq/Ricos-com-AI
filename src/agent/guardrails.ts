@@ -69,9 +69,20 @@ export interface GateConfig {
      * until someone edits the secret. Until 2026-09-22 the truth was free, so absent read
      * as free (`!== false`). On 2026-09-22 the operator decided the operation does NOT
      * offer free shipping, so absent now reads as NOT free: only an explicit `true` makes
-     * it free (`=== true`), in every gate and in the prompt alike.
+     * it free (`=== true`), in every gate and in the prompt alike. `codFreeShipping` below
+     * splits it by path (2026-09-28): this key stays "free on BOTH paths".
      */
     freeShipping?: boolean;
+    /**
+     * Free shipping on cash on delivery only (operator, 2026-09-28): the delivery offer's
+     * freight is R$ 0,00 for her, while the prepaid checkout charges it by region. So "frete
+     * grátis" is true in a sentence about paying at the door and false next to the prepaid
+     * offer. OPTIONAL, and ABSENT reads as today's truth — free on delivery — so the test is
+     * `!== false`: production's `BUSINESS_CONFIG` does not carry the key. `false` brings back
+     * the 2026-09-22 reading (not free on either path); `freeShipping === true` (free on
+     * both) overrides it.
+     */
+    codFreeShipping?: boolean;
     /**
      * Whether a same-day modality ("Express", "hoje em até 4 horas") really exists. It is
      * up in no region as of 2026-09-24, so absent reads as off: the briefing never
@@ -339,11 +350,70 @@ const sentencesIn = (t: string): string[] =>
  */
 const NOT_NEW_SUBJECT =
   String.raw`(?!(?<!\b(?:para|pra|com|sobre|em|por|ate|entre|contra|sob|sem|que)\s+)\b[oa]\s+(?:produto|colete|cinta|preco|pedido|antecipado|total)\b|(?<=(?:,|\be|\bmas)\s+)o\s+valor\s+(?:e|fica|sai|sera|custa|vai\s+dar)\b)`;
-/** An amount the sentence gives as the freight's own. Compiled once; see `shipping_promise`. */
+/** An amount the sentence gives as the freight's own, every occurrence. Compiled once; see `shipping_promise`. */
 const ATTRIBUTED_TO_SHIPPING = new RegExp(
   `\\bfrete\\b(?:${NOT_NEW_SUBJECT}[^.!?]){0,40}?\\b(e|fica|custa|sai|sera|vai\\s+dar|de|em\\s+torno\\s+de|cerca\\s+de|uns|aproximadamente)\\b(?:${NOT_NEW_SUBJECT}[^.!?]){0,12}?\\br\\$\\s*[\\d.,]+`,
+  "g",
 );
 
+// The prepaid path's names. "Cartão" only with its own preposition ("dinheiro ou cartão" is
+// paid at the door), "link" only as the payment link ("te mando o link" is the checkout of
+// both paths).
+const PREPAY_NAME =
+  /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|online|deposito|pelo\s+link|link\s+de\s+pagamento|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g;
+// The delivery path's names. The courier and the door are in both paths ("no pix, o
+// entregador leva…"): only paying there names this one.
+const COD_NAME = /\bna\s+entrega\b|\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:na\s+(?:porta|mao)|(?:ao|pro)\s+entregador)\b/g;
+
+/**
+ * `shipping_promise`'s reading of "the freight costs her nothing" (2026-09-28). A free word
+ * with `frete` within 24 characters before it (or 16 after, for "grátis o frete"), or with
+ * `entrega` right before it ("a entrega é grátis"); and the freight denied as a noun ("sem
+ * frete", "não tem frete", "nem no pix tem frete", "não cobramos frete", "o frete não é
+ * cobrado"). The last three passed every gate on the prepaid path until 2026-09-28.
+ * "Não esqueça de pagar o frete" and "não deixe de pagar o frete" are the reminder that it
+ * exists; "não cobrado à parte" says it is included, not free, and stays out.
+ */
+const FREE_WORD = /\b(?:gratis|gratuit[oa]|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a|custa\s+nada)\b/g;
+const FREIGHT_DENIAL =
+  /\b(?:sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b|(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b|\bnem\b[^.!?,]{0,20}?\b(?:tem|ha|existe|cobr\w*|pag\w*)\s+(?:o\s+|de\s+|nenhum\s+)?frete\b|\b(?:nao|nunca|sem)\s+(?:(?!esquec|deix)[a-z]+\s+){0,2}?(?:cobr|pag)\w*\s+(?:o\s+|de\s+|nenhum\s+)?frete\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora))|\bfrete\b(?:\s+[a-z]+){0,3}?\s+(?:nao|nunca)\s+(?:e\s+|sera\s+|vai\s+ser\s+|esta\s+sendo\s+)?cobrad[oa]\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora))/g;
+/**
+ * The free claim denied, which is the honest prepaid answer: "o frete (do pix) não é grátis",
+ * "no pix não tem frete grátis", "nem no pix tem frete grátis". Not when "só" follows ("não é
+ * grátis só na entrega" says it is free elsewhere too), and not inside a question ("não é
+ * frete grátis?" offers it).
+ */
+const FREE_DENIED =
+  /(?:\b(?:frete|entrega)\b(?:\s+(?!gratis|gratuit|zero|free)[a-z]+){0,4}?\s+(?:nao|nunca)\s+(?:e|sai|fica|vai\s+ser|sera|esta)\s+|(?:\b(?:nao|nunca)|\bnem(?:\s+(?:n[oa]|pel[oa]|com|via|pagando|pagar)(?:\s+[a-z]+)?)?)\s+(?:tem|ha|existe|temos|oferec\w*|damos|rola|vem\s+com|inclui\w*|e|sai|fica)\s+(?:com\s+)?(?:o\s+)?frete\s+)(?:gratis|gratuit[oa]|de\s+gra[cs]a|zero)\b(?!\s+(?:so|apenas|somente)\b)(?![^.!?\n]*\?)/g;
+/**
+ * Paying at the door named in so many words, beyond `COD_NAME`: "você só paga quando receber",
+ * "paga R$ 129,90 ao receber". The door or the courier alone are not it — the prepaid parcel
+ * reaches the door too.
+ */
+const PAID_ON_RECEIPT =
+  /\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:quando\s+(?:voce\s+)?receb\w*|ao\s+receber|no\s+recebimento)\b/;
+/**
+ * A sentence that reaches past cash on delivery: both paths ("nos dois", "em qualquer forma de
+ * pagamento", "independente do pagamento"), the other one ("no outro", "além da entrega"),
+ * "not only" ("não é só na entrega"), "even" ("até na entrega", "nem na entrega", "com ou sem
+ * pix"), "também" glued to the freight or to a path, and paying in the checkout or the link
+ * (cash on delivery pays at the door; "é só clicar no link" is both paths'), and the delivery
+ * named only to be denied ("sem pagamento na entrega", "se não for na entrega", "fora da
+ * entrega"), or offered with an alternative ("na entrega ou antes", "seja qual for"). "As duas peças" is a kit, not both paths. Any of them makes a free claim about
+ * the prepaid offer too.
+ */
+/** What `shipping_promise` tells the model when a free claim reaches past cash on delivery. */
+const BEYOND_COD_VETO =
+  `promises free shipping beyond cash on delivery: free only paying at the door, named in the same sentence ("pagando na entrega o frete é grátis"); the prepaid checkout charges freight by region`;
+/**
+ * The freight said to be the delivery's own ("o frete do pix é igual ao da entrega", "o mesmo
+ * frete da entrega", "frete como na entrega"), unless a denial sits between them ("o frete no
+ * pix não é igual ao da entrega").
+ */
+const SAME_AS_DELIVERY =
+  /\bfrete\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,30}\b(?:igua\w*|mesm[oa]|identic\w*|como)\b[^.!?]{0,12}?\b(?:d[ao]|n[ao]|a|ao)\s+(?:pagamento\s+(?:n[ao]\s+)?|pagar\s+n[ao]\s+)?entrega\b|\bmesmo\s+frete\s+(?:d[ao]|n[ao]|que\s+(?:n[ao]|d[ao]))\s+(?:pagamento\s+(?:n[ao]\s+)?)?entrega\b/;
+const BEYOND_COD =
+  /\b(?:(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b(?!\s+(?:pecas?|unidades?|coletes?|kits?)\b)|(?:ambos|ambas)\s+(?:os|as)\s+(?:caminhos|formas|pagamentos|opcoes)|os\s+dois\s+(?:caminhos|pagamentos|jeitos)|as\s+duas\s+(?:formas|opcoes|modalidades)|qualquer\s+(?:uma?\s+)?(?:d[aoe]s?\s+)?(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|independente\w*\s+d[aoe]s?\s+(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|tanto\s+(?:faz|n[oa]s?|pel[oa]s?|pagando|pagar|com)|inclusive\s+(?:n[oa]s?|pel[oa]s?|pagando|pagar|com)|com\s+ou\s+sem|outr[oa]s?\s+(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)|(?:no|na|pelo|pela)\s+outr[oa]|alem\s+d[ao]\s+(?:pagamento\s+(?:na\s+)?)?entrega|ate\s+(?:mesmo\s+)?na\s+entrega|nem\s+(?:mesmo\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar)|pag\w*\s+(?:(?:pelo|no|direto\s+no)\s+)?(?:checkout|link)|(?:sem|nao|fora|exceto|menos|salvo)\s+(?:(?:for|e|seja|ser|pagar|pagando|pagamento|quiser|quer|o|a|d[ao])\s+){0,3}(?:n[oa]\s+)?entrega)\b|\b(?:entrega|entregador|receber)\s+ou\b|\bseja\s+qual\s+for\b|\bqualquer\s+que\s+seja\b|\bnao\b[^.!?,]{0,30}\b(?:so|apenas|somente)\b|\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?tambem\b|\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:(?:o\s+)?frete|gratis|gratuit[oa]|n[oa]s?|pel[oa]s?|com|pagando|pagar|quando)\b/;
 /** The amount at `at`, as written: "r$ 12,99" or "12,99 reais". */
 const amountAt = (t: string, at: number): string =>
   /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(at))?.[0] ?? "";
@@ -897,16 +967,10 @@ const gates: readonly Gate[] = [
        * ONE vocabulary per idea, read by every rule of this gate (2026-09-28). Until then there
        * were three lists of the prepaid path's names and four of arrival words, each a little
        * different ("antes / cartão / online / link" in one and not in another), and ten review
-       * rounds kept finding the sentence that fell between two of them.
+       * rounds kept finding the sentence that fell between two of them. The two path names,
+       * `PREPAY_NAME` and `COD_NAME`, sit at module level since 2026-09-28, because
+       * `shipping_promise` reads them too.
        */
-      // The prepaid path's names. "Cartão" only with its own preposition ("dinheiro ou cartão" is
-      // paid at the door), "link" only as the payment link ("te mando o link" is the checkout of
-      // both paths).
-      const PREPAY_NAME =
-        /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|online|deposito|pelo\s+link|link\s+de\s+pagamento|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g;
-      // The delivery path's names. The courier and the door are in both paths ("no pix, o
-      // entregador leva…"): only paying there names this one.
-      const COD_NAME = /\bna\s+entrega\b|\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:na\s+(?:porta|mao)|(?:ao|pro)\s+entregador)\b/g;
       // Arrival: a delivery verb, the place, or her having it ("é seu", "tá com você", "tá contigo",
       // "abre a caixa", "já veste"). "Em casa" only with being there — "usa ele em casa" is wearing it.
       // "Prazo" is not arrival — "o prazo pra trocar" — and the rules that read it say so.
@@ -1819,9 +1883,10 @@ const gates: readonly Gate[] = [
   {
     /**
      * Freight is the difference between the two offers, and blurring it breaks whichever
-     * one the customer picks. Cash on delivery has it included in the price; prepaid has
-     * it calculated by region inside the checkout. "Frete grátis" is true in neither, and
-     * on the prepaid path it is a number the carrier has not agreed to.
+     * one the customer picks. Cash on delivery charges her no freight (R$ 0,00 on the
+     * Logzz offer); prepaid has it calculated by region inside the checkout. "Frete grátis"
+     * is true on the first only (2026-09-28, below), and on the prepaid path it is a number
+     * the carrier has not agreed to.
      */
     /**
      * This gate used to forbid "frete grátis" and now forbids denying it. The world
@@ -1851,6 +1916,11 @@ const gates: readonly Gate[] = [
      * only an explicit `true` in the secret brings the free branch back. `price_promise`
      * reads the flag the same way (`!== true` forbids calling the prepaid price "o total"),
      * and so does the prompt — the same promise written twice.
+     *
+     * On 2026-09-28 the operator split it by path: "com pagamento na entrega o frete de fato
+     * é grátis", and the prepaid checkout does charge it by region. `codFreeShipping` (absent
+     * = free on delivery, `!== false`) lets "frete grátis" through in a sentence that names
+     * paying at the door and nothing past it; the prompt teaches exactly that sentence.
      */
     name: "shipping_promise",
     remedy: "rewrite",
@@ -1859,8 +1929,15 @@ const gates: readonly Gate[] = [
         ? `O frete é GRÁTIS nos dois caminhos, e isso é verdade — pode dizer, é o seu melhor ` +
           `argumento. O que você não pode é cobrar frete dela: nada de "o frete é à parte", ` +
           `"mais o frete" ou qualquer valor de entrega.`
-        : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
-          `no antecipado ele é calculado por região dentro do checkout.`,
+        : c.delivery.codFreeShipping !== false
+          ? `No pagamento na entrega o frete é grátis: diga, sempre com o caminho na mesma frase ` +
+            `("Pagando na entrega o frete é grátis: você paga só ${money(c.prices.codBrl)} quando receber"). ` +
+            `"Frete grátis" sem dizer que é pagando na entrega volta pra reescrita. No antecipado o ` +
+            `frete é calculado por região dentro do checkout: nunca diga que é grátis, nunca cite ` +
+            `valor de frete, e nunca ponha "grátis" na mesma frase que o antecipado, o pix, o ` +
+            `cartão, "nos dois" ou "também".`
+          : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
+            `no antecipado ele é calculado por região dentro do checkout.`,
     check: (text, ctx) => {
       const t = norm(text);
       // Every shape of "there is no shipping cost", because each one is now true and each
@@ -1880,27 +1957,84 @@ const gates: readonly Gate[] = [
       const claimsFree = saysFree || freightDenials.length > 0;
 
       if (ctx.config.delivery.freeShipping !== true) {
-        // "Nenhum frete A MAIS na porta" is the truth about cash on delivery — the freight
-        // is inside the R$ 129,90, nothing is added at the door — and the prompt tells her
-        // to say it. On the prepaid path it is the lie: the freight is added in the
-        // checkout. So a denial is released only when it is qualified ("a mais", "extra",
-        // "somado", "adicional" right after `frete`), its sentence says nothing about the
-        // prepaid offer (not its name, pix, card, checkout, link, nor its price), and it
+        // Cash on delivery ships free (operator, 2026-09-28; `codFreeShipping`, absent = on):
+        // "pagando na entrega o frete é grátis" is true and sells, and the prepaid checkout
+        // charges the freight by region, so the same words next to the prepaid offer are the
+        // lie. Each free claim is judged in its own sentence, and it passes when:
+        //
+        // - it is denied ("no pix não tem frete grátis", "o frete do antecipado não é
+        //   grátis") — the honest prepaid answer, vetoed until 2026-09-28;
+        // - or cash on delivery ships free and the sentence names paying at the door
+        //   (`COD_NAME`, "paga quando receber") and nothing past it: no prepaid name, no
+        //   prepaid price, nothing that reaches both paths or the other one (`BEYOND_COD`).
+        //   A bare "frete grátis" stays vetoed on BOTH paths. `ctx.paymentPath` cannot vouch
+        //   for it: "cod" is what the turn passes when she has chosen nothing, which is also
+        //   the turn where she asks "e no pix, tem frete?"; the welcome, handoff and farewell
+        //   calls pass "cod" always. A sentence that names the door is true on either path,
+        //   as `delivery_promise` lets "na entrega você recebe em 1 a 3 dias" pass on both.
+        //
+        // And, whatever the flag, "nenhum frete A MAIS na porta": the freight inside the
+        // price, nothing added at the door. That denial is released when qualified ("a mais",
+        // "extra", "somado", "adicional" right after `frete`), its sentence says nothing about
+        // the prepaid offer (not its name, pix, card, checkout, link, nor its price), and it
         // is about the door, said in so many words ("na entrega", "na porta").
-        // A bare "nenhum frete" stays a promise of free shipping.
-        const onlyCodExtraDenied = freightDenials.every((m) => {
-          const end = (m.index ?? 0) + m[0].length;
-          if (!/^\s+(?:a\s+mais|extra|somado|adicional)\b/.test(t.slice(end))) return false;
-          const sentence = sentenceAt(t, m.index ?? 0);
-          // The prepaid offer named by its word, its means of payment, or its price.
-          if (/\b(?:antecip\w*|adiantad\w*|pix|cartao|boleto|checkout|link)\b/.test(sentence)) return false;
-          const { prepayBrl, codBrl } = ctx.config.prices;
-          if (prepayBrl !== codBrl && moneyMatches(sentence).some((x) => x.value === prepayBrl)) return false;
-          // The sentence itself has to be about the door. `ctx.paymentPath` cannot vouch
-          // for it: production passes "cod" on every turn, prepaid conversations included.
-          return /\b(?:na|da)\s+(?:porta|entrega)\b|\bentregador\b/.test(sentence);
-        });
-        if (saysFree || !onlyCodExtraDenied) return "promises free shipping, which neither offer has";
+        const codFree = ctx.config.delivery.codFreeShipping !== false;
+        const { prepayBrl, codBrl } = ctx.config.prices;
+        const kits = ctx.config.kits ?? [];
+        const codPrices = new Set([codBrl, ...kits.filter((k) => k.path === "cod").map((k) => k.priceBrl)]);
+        const prepayPrices = [prepayBrl, ...kits.filter((k) => k.path === "prepay").map((k) => k.priceBrl)].filter((v) => !codPrices.has(v));
+        const claims: Array<{ at: number; end?: number }> = [];
+        for (const m of t.matchAll(FREE_WORD)) {
+          const at = m.index ?? 0;
+          const before = t.slice(Math.max(0, at - 40), at);
+          if (
+            /\bfrete\b[^.!?]{0,24}$/.test(before) ||
+            (/^(?:gratis|gratuit[oa]|por\s+nossa\s+conta|de\s+gra[cs]a)$/.test(m[0]) && /^[^.!?]{0,16}\bfrete\b/.test(t.slice(at + m[0].length))) ||
+            (/^(?:gratis|gratuit[oa]|de\s+gra[cs]a|custa\s+nada)$/.test(m[0]) && /\bentrega\b[^.!?,]{0,12}$/.test(before))
+          )
+            claims.push({ at });
+        }
+        for (const m of t.matchAll(FREIGHT_DENIAL)) claims.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+        const freeOnDelivery = new Set<string>();
+        const denied = [...t.matchAll(FREE_DENIED)].map((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length] as const);
+        for (const claim of claims) {
+          if (denied.some(([from, to]) => claim.at >= from && claim.at < to)) continue;
+          const sentence = sentenceAt(t, claim.at);
+          if (
+            codFree &&
+            (sentence.search(COD_NAME) !== -1 || PAID_ON_RECEIPT.test(sentence)) &&
+            sentence.search(PREPAY_NAME) === -1 &&
+            !BEYOND_COD.test(sentence) &&
+            !moneyMatches(sentence).some((x) => prepayPrices.includes(x.value))
+          ) {
+            freeOnDelivery.add(sentence);
+            continue;
+          }
+          if (
+            claim.end !== undefined &&
+            /^\s+(?:a\s+mais|extra|somado|adicional)\b/.test(t.slice(claim.end)) &&
+            // The prepaid offer named by its word, its means of payment, or its price.
+            !/\b(?:antecip\w*|adiantad\w*|pix|cartao|boleto|checkout|link)\b/.test(sentence) &&
+            !(prepayBrl !== codBrl && moneyMatches(sentence).some((x) => x.value === prepayBrl)) &&
+            /\b(?:na|da)\s+(?:porta|entrega)\b|\bentregador\b/.test(sentence)
+          )
+            continue;
+          return codFree ? BEYOND_COD_VETO : "promises free shipping, which neither offer has";
+        }
+        // The same promise by reference, which no free word carries. "O frete do pix é igual
+        // ao da entrega" meant "included" until 2026-09-28 and now means "free"; either way
+        // the prepaid checkout charges it. And the ellipsis after a delivery claim that
+        // passed: "Pagando na entrega o frete é grátis. No pix também." — a sentence of up to
+        // six words with "também / igual / o mesmo" that, or whose question right before it,
+        // names the prepaid offer or the other path. A denial there is honest ("No pix não").
+        if (SAME_AS_DELIVERY.test(t)) return "says the freight is the same as on delivery, and the prepaid checkout charges it by region";
+        if (freeOnDelivery.size > 0) {
+          const all = sentencesIn(t);
+          for (const [i, s] of all.entries()) {
+            if ((s.match(/[a-z0-9]+/g) ?? []).length > 6 || !/\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/.test(s) || /\b(?:nao|nunca|nem)\b/.test(s)) continue;
+            if ([s, all[i - 1] ?? ""].some((x) => x.search(PREPAY_NAME) !== -1 || BEYOND_COD.test(x))) return BEYOND_COD_VETO;
+          }
+        }
         // The branch used to stop here, and stopping here dropped every charge rule
         // below with it — including the one about naming an amount. Which handed the
         // prepaid path the worst sentence available: neither offer has a citable freight
@@ -1940,8 +2074,14 @@ const gates: readonly Gate[] = [
         // The new subject is looked for on BOTH sides of the verb: "o frete já está
         // dentro, e o total é R$ 129,90" reaches the conjunction `e` first, and read it as
         // the freight's "é" with the amount ten characters later.
+        //
+        // One exception, the one the free branch below has as `claimsFree`: in a sentence whose
+        // free claim passed as cash on delivery, the amount beside `frete` is the product's —
+        // "pagando na entrega, levando 2 peças o frete é grátis e sai R$ 233,82". `price_promise`
+        // still holds it to a delivery price, and "R$ 15 de frete" is vetoed everywhere.
         const attributedToShipping =
-          ATTRIBUTED_TO_SHIPPING.test(t) || /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
+          [...t.matchAll(ATTRIBUTED_TO_SHIPPING)].some((m) => !freeOnDelivery.has(sentenceAt(t, m.index ?? 0))) ||
+          /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";
         }

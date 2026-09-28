@@ -30,8 +30,9 @@ export const config: BusinessConfig = {
 };
 
 /**
- * O config acima roda com `freeShipping: false`, que é a decisão do operador de
- * 2026-09-22: a operação não oferece frete grátis. Este aqui é o ramo oposto — mantido
+ * O config acima roda com `freeShipping: false` (não grátis nos DOIS caminhos, 2026-09-22) e
+ * sem a chave `codFreeShipping`, como o secret de produção: ausente lê como grátis no
+ * pagamento na entrega (R15.3, 2026-09-28). Este aqui é o ramo oposto — mantido
  * porque o gate tem duas metades e as duas precisam de teste. Sem ele, o dia em que o
  * frete voltar a ser grátis chega sem nenhuma cobertura do lado que passa a valer.
  */
