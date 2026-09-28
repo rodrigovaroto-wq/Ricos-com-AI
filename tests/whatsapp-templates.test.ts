@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { pickVariant, renderFollowup, type RenderContext, type TemplateVariable } from "../src/agent/followups.js";
+import { deliveryFor, pickVariant, type FollowupKind, type RenderContext, type TemplateBinding } from "../src/agent/followups.js";
 import { config } from "./fixtures.js";
 
 /**
@@ -14,36 +14,39 @@ import { config } from "./fixtures.js";
  */
 const doc = readFileSync("docs/agente-ia/06-script/03-templates-meta.md", "utf8");
 
-interface Draft {
-  body: string;
-  variables: TemplateVariable[];
-}
-
-const draftOf = (kind: string): Draft => {
-  const section = doc.split(/\n## \d+\. /).find((s) => s.startsWith(`\`${kind}\``));
+/** The body as submitted, from the template's own section. */
+const bodyOf = (kind: string): string => {
+  const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith(`\`${kind}\``));
   if (!section) throw new Error(`template de ${kind} não está no documento`);
   const body = /\*\*Corpo:\*\*\s*```text\n([\s\S]*?)\n```/.exec(section)?.[1];
   if (!body) throw new Error(`template de ${kind} sem corpo`);
-  const variables = [...section.matchAll(/^\| `\{\{(\d+)\}\}` \| `(\w+)` \|/gm)]
-    .sort((a, b) => Number(a[1]) - Number(b[1]))
-    .map((m) => m[2] as TemplateVariable);
-  return { body, variables };
+  return body;
 };
 
-/** The template as Meta sends it, with the values the code resolves, in the code's bold. */
-const filled = (draft: Draft, values: Record<string, string>): string =>
-  draft.body
-    .replace(/\{\{(\d+)\}\}/g, (_, n: string) => values[draft.variables[Number(n) - 1]!]!)
-    .replace(/\*([^*\n]+)\*/g, "**$1**");
+/** The block the operator pastes into `BUSINESS_CONFIG` — names and placeholder order. */
+const templates = (() => {
+  const block = /```json\n("channel"[\s\S]*?)\n```/.exec(doc)?.[1];
+  if (!block) throw new Error("bloco do BUSINESS_CONFIG não está no documento");
+  return (JSON.parse(`{${block}}`) as { channel: { templates: Record<string, TemplateBinding> } }).channel.templates;
+})();
 
 const now = new Date("2026-09-10T12:00:00Z"); // quinta, 09:00 em São Paulo
-const values = {
-  price: `R$ ${config.prices.codBrl.toFixed(2).replace(".", ",")}`,
-  warrantyDays: String(config.delivery.warrantyDays),
-  couponPercent: String(config.coupon.percent),
-  weekday: "Quinta",
+const withTemplates = { ...config, coupon: { ...config.coupon, active: true }, channel: { templates } };
+const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "lead-abc", config: withTemplates, now, ...over });
+
+/**
+ * Outside the window, through the production path: `deliveryFor` resolves the variables,
+ * the document's body is filled with THEM (in the code's bold), and the result must be the
+ * text the gate reads — `deliveryFor`'s own `body`, which is `renderFollowup`.
+ */
+const sentVsGated = (kind: FollowupKind, over: Partial<RenderContext> = {}) => {
+  const d = deliveryFor(kind, ctx(over), null);
+  if (d?.via !== "template") throw new Error(`${kind} não saiu por template: ${JSON.stringify(d)}`);
+  const sent = bodyOf(kind)
+    .replace(/\{\{(\d+)\}\}/g, (_, n: string) => d.variables[Number(n) - 1] ?? `{{${n}}}`)
+    .replace(/\*([^*\n]+)\*/g, "**$1**");
+  return { sent, gated: d.body };
 };
-const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "lead-abc", config, now, ...over });
 
 /** A lead id whose `pickVariant` lands on the given index of a two-variant touch. */
 const leadFor = (index: number): string => {
@@ -51,25 +54,30 @@ const leadFor = (index: number): string => {
 };
 
 describe("template aprovado = texto que o gate leu", () => {
-  it("os placeholders do documento são variáveis que o código resolve", () => {
+  it("o bloco do BUSINESS_CONFIG declara cada placeholder do corpo, na ordem da tabela", () => {
     for (const kind of ["silence_2", "silence_3", "order_eve"]) {
-      const d = draftOf(kind);
-      expect(d.variables.length, kind).toBe(new Set(d.body.match(/\{\{\d+\}\}/g)).size);
-      for (const v of d.variables) expect(Object.keys(values), `${kind}: ${v}`).toContain(v);
+      const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith(`\`${kind}\``))!;
+      const table = [...section.matchAll(/^\| `\{\{(\d+)\}\}` \| `(\w+)` \|/gm)]
+        .sort((a, b) => Number(a[1]) - Number(b[1]))
+        .map((m) => m[2]);
+      expect(templates[kind]?.variables, kind).toEqual(table);
+      expect(new Set(bodyOf(kind).match(/\{\{\d+\}\}/g)).size, kind).toBe(table.length);
     }
   });
 
   it("silence_2, primeira variante", () => {
-    expect(filled(draftOf("silence_2"), values)).toBe(renderFollowup("silence_2", ctx({ leadId: leadFor(0) })));
+    const { sent, gated } = sentVsGated("silence_2", { leadId: leadFor(0) });
+    expect(sent).toBe(gated);
   });
 
   it("silence_3, com o cupom ativo", () => {
-    const withCoupon = { ...config, coupon: { ...config.coupon, active: true } };
-    expect(filled(draftOf("silence_3"), values)).toBe(renderFollowup("silence_3", ctx({ config: withCoupon })));
+    const { sent, gated } = sentVsGated("silence_3");
+    expect(sent).toBe(gated);
   });
 
   it("order_eve, pagando na entrega", () => {
-    expect(filled(draftOf("order_eve"), values)).toBe(renderFollowup("order_eve", ctx()));
+    const { sent, gated } = sentVsGated("order_eve");
+    expect(sent).toBe(gated);
   });
 
   // KNOWN DIVERGENCES (2026-09-28), pinned with `it.fails` so they stay visible and turn
@@ -79,11 +87,13 @@ describe("template aprovado = texto que o gate leu", () => {
   // 1. Prepaid order: the free text drops "Deixa R$ X separado" (she already paid); the one
   //    template tells her to have the money ready at the door.
   it.fails("order_eve, antecipado (diverge: o template cobra quem já pagou)", () => {
-    expect(filled(draftOf("order_eve"), values)).toBe(renderFollowup("order_eve", ctx({ prepaid: true })));
+    const { sent, gated } = sentVsGated("order_eve", { prepaid: true });
+    expect(sent).toBe(gated);
   });
   // 2. Half the leads get `silence_2`'s second variant as free text, and the gate reads it;
   //    outside the window the template sends the first one.
   it.fails("silence_2, segunda variante (diverge: fora da janela sai a primeira)", () => {
-    expect(filled(draftOf("silence_2"), values)).toBe(renderFollowup("silence_2", ctx({ leadId: leadFor(1) })));
+    const { sent, gated } = sentVsGated("silence_2", { leadId: leadFor(1) });
+    expect(sent).toBe(gated);
   });
 });

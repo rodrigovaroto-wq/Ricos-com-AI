@@ -13,12 +13,15 @@ const sql = readdirSync("supabase/migrations")
  * hand phones, costs and ad ids to the anon key through PostgREST.
  */
 describe("migrações: nenhuma view fura o RLS", () => {
-  const views = [...sql.matchAll(/create\s+(?:or\s+replace\s+)?view\s+(public\.\w+)([^;]*?)\s+as\b/g)];
+  const views = [...sql.matchAll(/create\s+(?:or\s+replace\s+)?view\s+((?:public\.)?\w+)([^;]*?)\s+as\b/g)];
 
   it("existem views para conferir", () => {
     expect(views.map((v) => v[1])).toContain("public.eval_attribution");
   });
   it.each(views.map((v) => [v[1], v[2]] as const))("%s tem security_invoker", (_name, options) => {
     expect(options).toMatch(/security_invoker\s*=\s*true/);
+  });
+  it("nenhuma migração desliga o security_invoker depois", () => {
+    expect(sql).not.toMatch(/alter\s+view[^;]*(?:security_invoker\s*=\s*(?:false|off)|reset\s*\([^)]*security_invoker)/);
   });
 });

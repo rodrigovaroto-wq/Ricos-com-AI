@@ -35,9 +35,11 @@ group by 1, 2;
 
 -- ── Turn outcomes: how often the agent gives up ────────────────────────────────
 -- A fallback is the canned reply after the rewrites ran out: the agent giving up on the
--- sale. `fallback_rate` and `handoff_rate` are over the turns that reached the model
--- (`opted_out` never does, `stopped` writes nothing to her), so a wave of opt-outs does
--- not dilute them.
+-- sale. `fallback_rate` and `handoff_rate` are over the turns that decided a send now
+-- (`send`, `fallback`, `handoff`). Left out: `opted_out` and `stopped` (nothing goes to
+-- her) and `deferred` (the reply waits for the window and is judged again when it leaves),
+-- so a wave of opt-outs or of late-night replies does not dilute them. A day with only
+-- deferred replies reads null, not 0.
 create or replace view public.eval_turn_outcomes with (security_invoker = true) as
 select
   (o.created_at at time zone 'America/Sao_Paulo')::date as day,
