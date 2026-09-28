@@ -21,6 +21,11 @@ interface Mutation {
   files: string[];
   from: string;
   to: string;
+  /**
+   * More swaps in the same files, for a bug two layers now guard: one layer reinstated alone
+   * leaves the other catching it, and the mutation would "escape" while the bug stays fixed.
+   */
+  also?: Array<{ from: string; to: string }>;
   guard: string[];
 }
 
@@ -123,6 +128,157 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
+    id: "M-08",
+    bug: '"No antecipado, um dia só." e "chega em uma semana" passavam: um/uma e semanas não eram contados',
+    files: ["src/agent/guardrails.ts"],
+    from: "|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\\s*(dias?|semanas?)\\b/g;",
+    to: "|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\\s*(dias?)\\b/g;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-chegada",
+    bug: '"Em 2 dias ele está aí na sua casa." passava no antecipado: sem verbo da lista, não era prazo',
+    files: ["src/agent/guardrails.ts"],
+    from: "(!named && ctx.paymentPath === \"prepay\" && (deadlineTalk || averageWord))",
+    to: "(!named && ctx.paymentPath === \"prepay\" && (/\\b(?:prazo|cheg\\w*|entreg\\w*|receb\\w*|lev[ae]\\w*|demor\\w*|envi\\w*|despach\\w*|post\\w*)\\b/.test(sentence) || averageWord))",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-semanas",
+    bug: '"Na entrega chega em 1 a 2 semanas." passava: a checagem de faixa só lia dias',
+    files: ["src/agent/guardrails.ts"],
+    from: "(\\d{1,2})\\s*(dias|semanas)/g)) {",
+    to: "(\\d{1,2})\\s*dias/g)) {",
+    // Since M-10 the count loop also judges the end of a week range: both layers go back.
+    also: [
+      { from: "if (!week && /\\d\\s*(?:a|e|ate)\\s*$/.test(before)) continue;", to: "if (/\\d\\s*(?:a|e|ate)\\s*$/.test(before)) continue;" },
+    ],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-uso",
+    bug: '"Em 3 dias ele está aí pra você se adaptar." passava: a palavra de uso em qualquer lugar da oração isentava',
+    files: ["src/agent/guardrails.ts"],
+    // 2026-09-28: no wearing exemption any more — the fallback needs delivery talk. The bug is an
+    // exemption by the wearing word anywhere.
+    from: "(!named && ctx.paymentPath === \"prepay\" && (deadlineTalk || averageWord))",
+    to: "(!named && ctx.paymentPath === \"prepay\" && ((deadlineTalk && !/\\b(?:de\\s+uso|acostum\\w*|adapt\\w*)\\b/.test(sentence)) || averageWord))",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-governo",
+    bug: "\"Pode trocar quando chegar é 7 dias.\" passava: a contagem da garantia era isenta sem forma de garantia que a governasse",
+    files: ["src/agent/guardrails.ts"],
+    from: "if ((purpose || governedBefore || takenAfterReturn || hers) && tailOk",
+    to: "if (tailOk",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-cauda",
+    bug: "\"Pode trocar em 7 dias, quando ele chega.\" passava: o que vinha depois da contagem não era julgado",
+    files: ["src/agent/guardrails.ts"],
+    from: "const tailOk =\n            /^\\s*$/.test(tail) ||",
+    to: "const tailOk =\n            true ||",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-oracao-propria",
+    bug: "\"Chega em 7 dias pra trocar.\" passava: a chegada na própria oração da contagem não era julgada",
+    files: ["src/agent/guardrails.ts"],
+    from: "tailOk && !ARRIVAL.test(notDelivery(own))) continue;",
+    to: "tailOk) continue;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-ate-quando",
+    bug: "\"O prazo até quando chegar é de 7 dias pra trocar.\" passava: a âncora de chegada era retirada mesmo depois de \"até/o prazo/o tempo\"",
+    files: ["src/agent/guardrails.ts"],
+    from: "(?<!\\b(?:ate|pra|para|prazo|tempo)\\s)\\b(?:${START}",
+    to: "\\b(?:${START}",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-08-tomada",
+    bug: "\"Pode trocar, e quando o colete chegar é de 7 dias.\" passava: \"é/são/tem N\" depois da troca valia com a chegada no meio",
+    files: ["src/agent/guardrails.ts"],
+    from: "            new RegExp(\n              String.raw`\\bprazo\\s+(?:pra|para|de)\\s+${RETV}\\s+${TAKES}|(?:\\bse\\s+(?:(?!\\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\\w*)[^,;:])*?|\\b(?:pra|para)\\s+|\\be\\s+so\\s+)${RETV}${OBJECT}\\s*[,:]\\s*(?:(?:o|seu)\\s+prazo\\s+)?${TAKES}`,\n            ).test(sb);",
+    to: "            new RegExp(TAKES).test(sb);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-roteiro",
+    bug: "\"Você tem 7 dias pra trocar ou devolver contando do dia que receber.\" (fala do roteiro) era vetada no antecipado: o início da contagem não conhecia \"contando\"",
+    files: ["src/agent/guardrails.ts"],
+    from: "|contando(?:\\s+a\\s+partir)?|a\\s+contar)\\s+d[aeo]",
+    to: "|a\\s+contar)\\s+d[aeo]",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-08-objeto",
+    bug: "\"Você tem 7 dias pra trocar de tamanho.\" era vetada: o verbo de troca não aceitava objeto",
+    files: ["src/agent/guardrails.ts"],
+    from: "const OBJECT = String.raw`(?:\\s+(?:de|o|a|por\\s+outro)\\s+(?:tamanho|produto|colete|numero))?`;",
+    to: "const OBJECT = \"\";",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-08-presenca",
+    bug: "\"Pode trocar em 7 dias, e o colete é seu.\" passava: a chegada em palavras depois da garantia não era lida",
+    files: ["src/agent/guardrails.ts"],
+    // 2026-09-28: her having it lives in the one ARRIVAL now.
+    from: String.raw`|ja\s+tem|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:seu|sua)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;`,
+    to: String.raw`)\b/;`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-recebermos",
+    bug: "\"No pix, são 7 dias depois que recebermos.\" passava: \"são/é N\" + início da contagem isentava sem palavra de troca",
+    files: ["src/agent/guardrails.ts"],
+    from: "const hers = startHer && /\\bvoce\\s+(?:tem|tera)\\s+(?:ate\\s+)?$/.test(sb);",
+    to: "const hers = taken;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-ponto-e-virgula",
+    bug: "\"No pix você tem 7 dias pra trocar; a entrega também.\" passava: depois de \";\" a entrega e o tempo não eram julgados",
+    files: ["src/agent/guardrails.ts"],
+    from: "tail = tail.replace(/\\beu\\s+fico\\s+aqui\\b[^;,]*?\\bcom\\s+voce\\s+do\\s+pedido\\s+ate\\s+a\\s+entrega\\b/g, \" \");",
+    to: "tail = tail.split(\";\")[0]! + (tail.includes(\";\") ? \";\" : \"\");",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-locucao",
+    bug: "\"No pix, você tem 7 dias pra trocar do pedido até a entrega.\" passava: a locução do roteiro saía da cauda em qualquer lugar",
+    files: ["src/agent/guardrails.ts"],
+    from: "tail = tail.replace(/\\beu\\s+fico\\s+aqui\\b[^;,]*?\\bcom\\s+voce\\s+do\\s+pedido\\s+ate\\s+a\\s+entrega\\b/g, \" \");",
+    to: "tail = tail.replace(/\\bdo\\s+pedido\\s+ate\\s+a\\s+entrega\\b/g, \" \");",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-prazo-de-troca",
+    bug: "\"O prazo pra trocar é de 7 dias.\" era vetada: \"prazo\" nunca era tomado pela garantia, nem depois da troca",
+    files: ["src/agent/guardrails.ts"],
+    from: "String.raw`\\bprazo\\s+(?:pra|para|de)\\s+${RETV}\\s+${TAKES}|(?:\\bse",
+    to: "String.raw`(?:\\bse",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-08-troca-solta",
+    bug: "\"No antecipado a troca é fácil, e o prazo é 7 dias.\" passava: qualquer palavra de troca antes tomava \"o prazo é N\"",
+    files: ["src/agent/guardrails.ts"],
+    from: "            new RegExp(\n              String.raw`\\bprazo\\s+(?:pra|para|de)\\s+${RETV}\\s+${TAKES}|(?:\\bse\\s+(?:(?!\\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\\w*)[^,;:])*?|\\b(?:pra|para)\\s+|\\be\\s+so\\s+)${RETV}${OBJECT}\\s*[,:]\\s*(?:(?:o|seu)\\s+prazo\\s+)?${TAKES}`,\n            ).test(sb);",
+    to: "            new RegExp(TAKES).test(sb) &&\n            !ARRIVAL.test(notDelivery(sb.slice(lastRet.index)));",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-08-copula",
+    bug: "\"No pix tem garantia e são 7 dias.\" passava: o \"e\" de \"garantia e são\" era lido como \"é\"",
+    files: ["src/agent/guardrails.ts"],
+    from: "(?:\\s+(?:no\\s+\\w+|tambem|pode\\s+ser\\s+\\w+|vale|a\\s+mesma|o\\s+mesmo|gratis|gratuita|igual))*(?:\\s+(?:e|sao|fica)(?:\\s+(?:tambem|a\\s+mesma|o\\s+mesmo|gratis|gratuita|igual))*)?\\s*:?\\s+",
+    to: "(?:\\s+(?:no\\s+\\w+|tambem|pode\\s+ser\\s+\\w+|e|sao|fica|vale|a\\s+mesma|o\\s+mesmo|gratis|gratuita|igual))*\\s*:?\\s+",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
     id: "O-04",
     bug: 'a régua chamando a Edge Function com a credencial "Gemini API"',
     files: ["n8n/workflows/relogio-da-regua.json"],
@@ -160,6 +316,199 @@ const MUTATIONS: Mutation[] = [
     files: ["supabase/functions/turn/index.ts"],
     from: 'if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);',
     to: "void reached;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "7.4",
+    bug: "a régua de silêncio terminava sem ninguém escrever perdido (o silence_3 com cupom inativo sai pelo ramo vazio)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '      await leave("canceled");\n      skipped.push({\n        followupId: row.id,\n        reason:\n          kind === "deferred_reply"',
+    to: '      await mark("canceled");\n      skipped.push({\n        followupId: row.id,\n        reason:\n          kind === "deferred_reply"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "7.4-retry",
+    bug: "a nova tentativa de turno rodava depois de ela escrever de novo (respondia a mensagem velha)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'const claimed = await mark("sent");\n      if (!Array.isArray(claimed) || claimed.length === 0) {',
+    to: 'const claimed = await mark("sent");\n      if (false) {',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "7.4-envio",
+    bug: "o lembrete de silêncio saía depois de ela responder (a varredura gravava e enviava antes de fechar a linha)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '    if (!(await leave("sent"))) {\n      skipped.push({ followupId: row.id, reason: "ela respondeu antes do envio" });\n      return;\n    }\n',
+    to: '    await leave("sent");\n',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "dois-pedidos",
+    bug: "o cancelamento de um pedido calava a véspera de outro pedido do mesmo lead",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;",
+    to: "const theirs = (_f: ExistingFollowup) => true;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "dois-pedidos-estagio",
+    bug: "o cancelamento de um pedido travava em recusado a conversa cujo outro pedido foi entregue",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: 'return reached === "recusado" && others.some((s) => !isOrderDead(s)) ? null : reached;',
+    to: "return reached;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R10.4-armado",
+    bug: "o lembrete de 15 minutos depois do link nunca era agendado (a régua não recebia o ponto de parada)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({",
+    to: "const rows = rulerFor(from, \"before_size\", postponed, linkInReply).map((f) => ({",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R10.4-resposta",
+    bug: "a resposta dela não cancelava o lembrete de checkout (\"conseguiu finalizar?\" depois de ela falar)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}',
+    to: "kind=like.silence_*",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R10.4-venda",
+    bug: "a venda não cancelava o lembrete de checkout (\"conseguiu finalizar?\" para quem comprou)",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "    cancel: scheduled.filter((f) => inSilenceRuler(f.kind)).map((f) => f.kind),",
+    to: '    cancel: scheduled.filter((f) => f.kind.startsWith("silence_")).map((f) => f.kind),',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R10.4-duplicado",
+    bug: "o silence_1 adiado depois da meia-noite rearmava o lembrete de checkout que já tinha saído",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "  return at === -1 ? ruler : ruler.slice(at);",
+    to: "  return ruler;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R10.4-palavra-link",
+    bug: "a palavra link numa oferta armava o lembrete de um link que nunca saiu",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return "link_sent";',
+    to: 'if (/\\blink\\b/i.test(replyText)) return "link_sent";',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "M-08-se-chegada",
+    bug: "\"No pix, se precisar receber e trocar, são 7 dias.\" passava: o \"se\" atravessava a chegada até a troca",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: String.raw`\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|`,
+    to: String.raw`\bse\s+[^,;:]*?|`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10",
+    bug: "\"Na entrega chega em uma semana / em 5 dias / em dez dias\" passavam: a contagem da entrega dava `continue`",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: 'if ((named && path !== "prepay") || (',
+    to: 'if (named && path === "cod") continue;\n        if ((false) || (',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-sem-nome",
+    bug: "\"Chega em uma semana.\" passava no caminho da entrega: sem nome de caminho, a contagem não era julgada",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: '(averageShaped ? path === "cod" : deadlineTalk)',
+    to: '(averageShaped ? path === "cod" : false)',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-inicio",
+    bug: "\"de um a três dias\" passava com a entrega configurada de 2 a 3: só o fim da faixa por extenso era julgado",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: "if (start < codDaysMin || days > codDaysMax)",
+    to: "if (days > codDaysMax)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-10-semana",
+    bug: "\"Na entrega chega em uma semana\" passava com o máximo configurado em 7: semana não cabe na faixa da entrega",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: "if (week) return `delivery in weeks contradicts",
+    to: "if (false) return `delivery in weeks contradicts",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-10-cabecalho",
+    bug: "\"Pagou no pix? Chega em 2 dias.\" passava no caminho da entrega: o nome do caminho na frase anterior não era lido",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: "        if (names(COD_NAME, own) || names(PREPAY_NAME, own)) return null;",
+    to: "        return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-faixa-pix",
+    bug: "\"No pix chega em 1 a 3 dias.\" passava no caminho da entrega: a checagem de faixa só lia \"antecipado\" como nome",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: 'const named = found.by === "name" || found.by === "after" || found.path === "prepay" ? found.path : null;',
+    to: "const named = /antecipa/.test(t) ? found.path : null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-10-media-negada",
+    bug: "\"Nada de pix. Em média 5 dias úteis.\" passava no COD: a forma da média ia para a regra do antecipado mesmo com o antecipado negado",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: '(averageShaped ? path === "cod" : deadlineTalk)',
+    to: "(averageShaped ? false : deadlineTalk)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-sombra",
+    bug: "\"Te mando o link e chega em 1 a 3 dias.\" era vetada no COD: a lista local da faixa (link, cartão e antes soltos) sombreava a da M-10",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    // 2026-09-28: one list of names now; the bug is the loose "link / cartão / antes" in it.
+    from: String.raw`|online|deposito|pelo\s+link|`,
+    to: String.raw`|online|deposito|link|cartao|antes|pelo\s+link|`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/change-registry.test.ts"],
+  },
+  {
+    id: "M-10-negacao",
+    bug: "\"Nada de pix. Chega em 1 a 3 dias.\" (o argumento do roteiro) era vetada no COD, e \"Nada de pix. Chega em 5 dias, depende da região.\" passava: o nome do antecipado negado nomeava o antecipado",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: "if (denier && !(denier[1]?.startsWith",
+    to: "if (false && !(denier[1]?.startsWith",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-negacao-depois",
+    bug: "\"Pix não precisa. Chega em 1 a 3 dias.\" era vetada no COD: a negação depois do nome não era lida",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: String.raw`          if (/^\s*nao(?:\s+precisa)?\s*(?:[.!,;:?]|$)/.test(rest)) continue;`,
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-nao-quer",
+    bug: "\"Não quer pagar no pix? Chega em 2 dias.\" passaria no COD: a pergunta que oferece o pix lida como negação",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: String.raw`!(denier[1]?.startsWith("quer") && /^[^.!\n]*\?/.test(s.slice(at))) &&`,
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "M-10-nome-da-entrega",
+    bug: "\"Na entrega você tem 7 dias pra trocar.\" era vetada: o nome do caminho da entrega era lido como chegada",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: String.raw`.replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")`,
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "pedido-de-outra-cliente",
+    bug: "o toque pós-pedido lia o pedido pelo order_id sem o lead: numa colisão de external_id citava o pedido de outra cliente",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "`orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=",
+    to: "`orders?id=eq.${row.order_id}&select=",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
@@ -527,8 +876,8 @@ const MUTATIONS: Mutation[] = [
     id: "prazo-por-caminho",
     bug: "\"na entrega 3 dias, e no antecipado 5 dias\" virava resposta pronta numa conversa do antecipado",
     files: ["src/agent/guardrails.ts"],
-    from: "if (codAt > prepayAt) continue;",
-    to: "",
+    from: 'let near: Path | null = codAt > prepayAt ? "cod" : prepayAt > codAt ? "prepay" : null;',
+    to: 'let near: Path | null = prepayAt > codAt ? "prepay" : null;',
     guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
@@ -555,24 +904,275 @@ const MUTATIONS: Mutation[] = [
     to: '"type": "n8n-nodes-base.noOp"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
   },
+  // Revisão de integração (2026-09-27): "um/uma" como artigo, a negação que governa a contagem,
+  // e o nome do antecipado negado por "não precisa <verbo>" / "nem no <nome>".
+  {
+    id: "um-dia-bom",
+    bug: "o silence_1 \"esperando um dia bom\" era vetado no antecipado e a varredura cancelava o toque em silêncio",
+    files: ["src/agent/guardrails.ts"],
+    from: "          /^n?uma?$/.test(m[1]!) &&\n          !talksDelivery(sentence) &&",
+    to: "          false &&\n          !talksDelivery(sentence) &&",
+    // 2026-09-28: the prepaid fallback now needs delivery talk too, so the bug is both layers.
+    also: [{ from: "(!named && ctx.paymentPath === \"prepay\" && (deadlineTalk || averageWord))", to: "(!named && ctx.paymentPath === \"prepay\")" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "um-artigo-largo",
+    bug: "exigir só palavra de entrega para \"um/uma\" soltava \"em uma semana o colete é seu\" no antecipado",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`            (!/\b(?:em|de|ate|dentro\s+de|por|media|cerca|so|apenas|tem|tera|sao|e|fica|leva\w*|demor\w*|dura\w*|passa\w*|mais|menos|que)\s+$/.test(before) &&`,
+    to: "            (true &&",
+    // 2026-09-28: the one ARRIVAL has her having it, so the verb-only list is the other half of the bug.
+    also: [
+      {
+        from: "          !talksDelivery(sentence) &&\n          !bare &&",
+        to: String.raw`          !/\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/.test(sentence) &&
+          !bare &&`,
+      },
+    ],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "uma-semana-negada",
+    bug: "\"na entrega não chega em uma semana, chega em 1 a 3 dias\" era vetada pela semana que ela nega",
+    files: ["src/agent/guardrails.ts"],
+    from: "          if (denied) continue;\n",
+    to: "",
+    also: [{ from: "        if (denied && !week && days < avg) continue;\n", to: "" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "pix-nao-precisa-verbo",
+    bug: "\"no pix não precisa esperar, chega em 2 dias\" lia o pix como negado e passava no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`/^\s*nao(?:\s+precisa)?\s*(?:[.!,;:?]|$)/.test(rest)`,
+    to: String.raw`/^\s*nao\s*(?:[.!,;:?]|$|precisa\b)/.test(rest)`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "nem-no-pix",
+    bug: "\"nem no pix demora, chega em 2 dias\" (nem = nem mesmo) lia o pix como negado e passava no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: "          const closes =\n",
+    to: "          const closes =\n            /^nem\\b/.test(denier?.[0] ?? \"\") ||\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  // Reestruturação do delivery_promise (2026-09-28): um nome por caminho, uma função de caminho
+  // (pathOf), um vocabulário de chegada — e os consertos a–g por cima dela.
+  {
+    id: "recusa-qualquer-contagem",
+    bug: "\"na entrega não chega em 5 dias, chega em 1 a 3 dias\" era vetada: só \"um/uma\" negado contava como recusa",
+    files: ["src/agent/guardrails.ts"],
+    from: "        const denied =\n          /\\b(?:nao|nunca|jamais)",
+    to: "        const denied =\n          /^n?uma?$/.test(m[1]!) &&\n          /\\b(?:nao|nunca|jamais)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "garantia-e-media",
+    bug: "a fala da garantia com a média do antecipado na mesma frase (prompt.ts) era vetada nos dois caminhos",
+    files: ["src/agent/guardrails.ts"],
+    from: "            (newClause && PREPAY_ONE.test(tail) && onlyPrepayWindow(tail)) ||\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "fallback-chegada",
+    bug: "no antecipado toda contagem sem caminho era prazo: \"o reembolso cai em até 5 dias\", \"a promoção vale por 5 dias\" eram vetadas",
+    files: ["src/agent/guardrails.ts"],
+    from: "(!named && ctx.paymentPath === \"prepay\" && (deadlineTalk || averageWord))",
+    to: "(!named && ctx.paymentPath === \"prepay\")",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "resposta-nua",
+    bug: "com o fallback exigindo chegada, \"É 2 dias.\" (a contagem como resposta inteira) passaria no antecipado",
+    files: ["src/agent/guardrails.ts"],
+    from: "        const deadlineTalk = talksDelivery(sentence) || bare;",
+    to: "        const deadlineTalk = talksDelivery(sentence);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "cauda-garantia",
+    bug: "\"7 dias pra trocar e suporte todo dia / sem perder tempo / mesmo tamanho ou outro\" eram vetadas pela palavra de tempo que só dividem",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`                tail.replace(/\btod[oa]s?\s+(?:o\s+|os\s+)?dias?\b|\bperder\s+tempo\b|\bmesm[oa]\s+(?:tamanho|numero|modelo|cor)\b/g, " "),`,
+    to: "                tail,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "nega-adjetivo",
+    bug: "\"Nada de pix demorado: chega em 2 dias\" lia o pix como negado e passava no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: "          const closes =\n",
+    to: "          const closes =\n            !/^nem\\b/.test(denier?.[0] ?? \"\") ||\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "caminho-depois",
+    bug: "\"Chega em 2 dias no pix.\" passava no COD e \"Chega em 5 dias na entrega.\" no antecipado: a contagem só lia o nome antes dela",
+    files: ["src/agent/guardrails.ts"],
+    from: "        const prepayAny = prepaidNamed(sentence) !== -1;\n        const codAny = names(COD_NAME, sentence);",
+    to: "        const prepayAny = prepaidNamed(head) !== -1;\n        const codAny = names(COD_NAME, head);",
+    also: [
+      { from: "        if (near == null && prepaidNamed(ownAfter) !== -1) near = \"prepay\";\n", to: "" },
+      { from: "        if (near == null && names(COD_NAME, ownAfter) && prepaidNamed(ownAfter) === -1) {", to: "        if (false) {" },
+    ],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "os-dois-caminhos",
+    bug: "\"Na entrega ou no pix, em média 5 dias úteis\" passava no COD: o caminho mais perto levava a contagem sozinho",
+    files: ["src/agent/guardrails.ts"],
+    from: "return { path: codAny && equatedIn(sentence) ? \"both\" : \"prepay\", by: \"name\" };",
+    to: "return { path: \"prepay\", by: \"name\" };",
+    also: [{ from: "deliveryKeeps(sentence, head, tail, codAt) ? \"cod\" : \"both\", by };", to: "deliveryKeeps(sentence, head, tail, codAt) ? \"cod\" : \"prepay\", by };" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "cabecalho-entrega-no-antecipado",
+    bug: "\"Vai ser na entrega? Chega em média 5 dias úteis.\" passava no antecipado: o cabeçalho da entrega só valia no COD",
+    files: ["src/agent/guardrails.ts"],
+    from: "((ctx.paymentPath === \"cod\" || path === \"cod\") && path !== \"prepay\"",
+    to: "(ctx.paymentPath === \"cod\" && path !== \"prepay\"",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "entregador-nome",
+    bug: "\"O entregador leva 2 dias.\" passava no antecipado: o entregador (dos dois caminhos) nomeava a entrega",
+    files: ["src/agent/guardrails.ts"],
+    from: "const COD_NAME = /\\bna\\s+entrega\\b|",
+    to: "const COD_NAME = /\\bentregador\\b|\\bna\\s+entrega\\b|",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "cauda-de-preco",
+    bug: "a faixa da entrega com o antecipado depois aceitaria tempo junto do preço (\"…, e com desconto chega antes\")",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`                !talksDelivery(c.replace(COD_NAME, " ")) &&`,
+    to: "                true &&",
+    also: [{ from: String.raw`                !/\b(?:dias?|semanas?|horas?|tempo|junto|parecid\w*|similar\w*|diferen\w*|bate\w*|rapid\w*|logo)\b/.test(c)),`, to: "                true)," }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prepaid-deadline-fuzz.test.ts"],
+  },
+  {
+    id: "R2-link-janela",
+    bug: "o turno depois do link armava before_size (que tamanho você usa?)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return \"link_sent\";",
+    to: "if (linkSentRecently([replyText], CHECKOUT_BASES)) return \"link_sent\";",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R2-lembrete-so-no-link",
+    bug: "cada turno depois do link rearmava o lembrete de 15 min",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "(f) => f.kind !== \"checkout_reminder\" || postponed !== undefined || linkInReply,",
+    to: "(_f) => true,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "R2-lembrete-turno",
+    bug: "o turno armava o lembrete pelo ponto de parada, não pelo link desta resposta",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n",
+    to: "    stopPointOf(replyText, recentOutbound),\n    stopPointOf(replyText, recentOutbound) === \"link_sent\",\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R2-regua-recomeca",
+    bug: "silence_2/silence_3 adiado rearmava os toques já enviados",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "  const at = ruler.findIndex((f) => f.kind === postponed);",
+    to: "  const at = ruler.findIndex((f) => f.kind === postponed && f.kind !== \"silence_2\" && f.kind !== \"silence_3\");",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "R2-adiamento-posse",
+    bug: "o adiamento reancorava a régua que o turno dela acabou de armar",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "        if (!Array.isArray(moved) || moved.length === 0) {\n          skipped.push({ followupId: row.id, reason: \"ela respondeu antes do adiamento\" });\n          return;\n        }\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R2-dois-pedidos-vivo",
+    bug: "A e B criados, A cancelado: B ficava sem véspera",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "const live = isOrderDead(order.status) ? others.find((o) => !isOrderDead(o.status)) : order;",
+    to: "const live = isOrderDead(order.status) ? undefined : order;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "R2-mesmo-pedido-nao-herda",
+    bug: "webhook atrasado do mesmo pedido cancelado rearmava os toques dele",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "existing.some((e) => e.kind === f.kind && e.status !== \"sent\" && !!e.orderId && dead.includes(e.orderId)),",
+    to: "existing.some((e) => e.kind === f.kind && e.status !== \"sent\"),",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "R2-recusado-reabre",
+    bug: "pedido novo depois de um recusado ficava recusado",
+    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
+    from: "!isOrderDead(status) && others.some((s) => isOrderDead(s));",
+    to: "false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+  },
+  {
+    id: "R2-retry-janela-posse",
+    bug: "nova tentativa fora da janela virava handoff mesmo com a linha cancelada pela mensagem nova dela",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "        const closed = await mark(\"canceled\");\n        if (!Array.isArray(closed) || closed.length === 0) {\n          skipped.push({ followupId: row.id, reason: \"ela escreveu de novo antes da nova tentativa\" });\n          return;\n        }\n",
+    to: "        await mark(\"canceled\");\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R2-externalid-malformado",
+    bug: "externalId com surrogate isolado estourava URIError depois do upsert",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  if (!order.externalId.isWellFormed()) return { status: \"external_id_malformed\", ok: false };\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
+    id: "R2-varredura-isolada",
+    bug: "uma linha que lançava derrubava a varredura e sumia com os toques já fechados",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    await sweepRow(row).catch((error) => {\n      skipped.push({\n        followupId: row.id,\n        reason: `erro: ${redactKeys(error instanceof Error ? error.message : String(error))}`,\n      });\n    });\n",
+    to: "    await sweepRow(row);\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
 const repo = resolve(".");
 const results: Array<{ id: string; caught: boolean; bug: string; note?: string }> = [];
 
+// The mutation list comes from this (working-tree) file, but each mutation is applied to a
+// worktree of a commit. With uncommitted edits the two disagree, and the score changed run to
+// run on the same HEAD (100, 101, 102/102 — final review, 2026-09-27). So: one commit, read
+// once, and a clean tree.
+const head = execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+if (execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { encoding: "utf8" }).trim() !== "") {
+  console.error("verificar:guardas: há mudança não commitada — commite antes; a lista de mutações e a árvore mutada precisam ser do mesmo commit.");
+  process.exit(2);
+}
+console.log(`# HEAD ${head.slice(0, 7)}`);
+
 for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(m.id))) {
   const dir = mkdtempSync(join(tmpdir(), `guard-${mu.id}-`));
   rmSync(dir, { recursive: true, force: true });
-  execFileSync("git", ["worktree", "add", "--detach", "-q", dir, "HEAD"]);
+  execFileSync("git", ["worktree", "add", "--detach", "-q", dir, head]);
   try {
     symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
     let applied = true;
     for (const f of mu.files) {
       const p = join(dir, f);
-      const src = readFileSync(p, "utf8");
-      if (!src.includes(mu.from)) applied = false;
-      else writeFileSync(p, src.replace(mu.from, mu.to));
+      let src = readFileSync(p, "utf8");
+      for (const e of [{ from: mu.from, to: mu.to }, ...(mu.also ?? [])]) {
+        if (!src.includes(e.from)) applied = false;
+        else src = src.replace(e.from, e.to);
+      }
+      writeFileSync(p, src);
     }
     if (!applied) {
       results.push({ id: mu.id, caught: false, bug: mu.bug, note: "a mutação não se aplicou — o texto de origem mudou; atualize a mutação" });
@@ -580,6 +1180,11 @@ for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(
     }
     // The guard runs against the mutated tree; the gate diff compares it with HEAD.
     const run = spawnSync(mu.guard[0]!, mu.guard.slice(1), { cwd: dir, encoding: "utf8", timeout: 10 * 60_000 });
+    // A guard killed by the timeout or a signal has no status: that is not a catch.
+    if (run.status === null) {
+      results.push({ id: mu.id, caught: false, bug: mu.bug, note: `inconclusivo — a guarda não terminou (${run.signal ?? run.error?.message ?? "sem status"})` });
+      continue;
+    }
     results.push({ id: mu.id, caught: run.status !== 0, bug: mu.bug });
   } finally {
     execFileSync("git", ["worktree", "remove", "--force", dir]);

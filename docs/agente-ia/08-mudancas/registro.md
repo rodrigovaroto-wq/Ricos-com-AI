@@ -267,7 +267,106 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
   (semanas não são lidas), "Em 2 dias ele está aí na sua casa." (sem verbo de entrega da lista).
 - **Objetivo:** nenhum prazo do antecipado passa por estar em palavras.
 - **Medida:** as três frases como casos vetados, e `pnpm dev:gates` sem afrouxamento.
-- **Estado:** aberta, prioridade baixa (nenhuma apareceu nas rodadas de personas).
+- **Feito (2026-09-26):** a regra de número de `delivery_promise` conta "um/uma/num/numa" e
+  semanas (semana = 7 dias corridos: pode ser a garantia, nunca a média, que é em dias úteis);
+  no antecipado, frase sem nome de caminho é prazo salvo quando a própria oração fala de uso
+  ("2 dias de uso", "se acostuma", "adapta") e não fala de entrega — a lista de verbos saiu
+  do caminho, porque a chegada tem palavras demais. "Um dia marcado/especial/de festa" não é
+  contagem. Testes em `change-registry.test.ts` e dois geradores no fuzz; mutações `M-08` e
+  `M-08-chegada` em `verify-guards.ts`.
+- **Revisão independente (NEEDS WORK, corrigida em 2026-09-26):** (1) faixa em semanas ("1 a 2
+  semanas") passava nos dois caminhos — a checagem de faixa lê semanas (×7) e o fim de faixa
+  só se isenta em dias; (2) a âncora da garantia recuava dentro de "chega/receber" e escapava
+  do próprio lookahead ("…pra trocar quando chegar em 7 dias") — `\w*\b`; (3) a palavra de uso
+  em qualquer lugar da oração isentava ("em 3 dias ele está aí pra você se adaptar") — agora
+  só "N dias de uso", "se acostuma (com ele) em N dias" e "em N dias você se acostuma"
+  isentam, e as outras orações da frase só podem dizer que ela não sente o colete; (4) o
+  arrependimento "7 dias pra desistir, a contar do dia que receber" voltou a passar
+  (`desist*` na garantia, "a contar do (dia que)" como âncora). Três geradores novos no fuzz
+  (faixas em semanas, prazo atrás de âncora, chegada com isca de uso) e mutações
+  `M-08-semanas`, `M-08-ancora`, `M-08-uso`.
+- **Segunda revisão (NEEDS WORK, corrigida em 2026-09-26):** (1) afrouxamento real — o
+  lookahead da âncora só protegia a contagem colada ao verbo, e "tem 7 dias pra trocar quando
+  chegar aí em 7 dias" virava garantia: a âncora não é retirada quando uma preposição de tempo
+  ("em/até/dentro de") antes da contagem está na mesma oração do verbo dela, sem verbo de
+  troca no meio; (2) a palavra de troca antes de ":" ou de "e ele está aí" isentava a chegada
+  sem verbo — a isenção pela troca antes da contagem não atravessa oração nova depois da
+  última palavra de troca; e "…, que é quando ele chega" não é mais apagado como âncora.
+  Geradores: âncora × enchimento × contagem, e troca/desistência ao lado da chegada; mutações
+  `M-08-enchimento`, `M-08-troca-chegada`, `M-08-que-e-quando` (e `M-08-ancora` passou a
+  reinstalar a âncora inteira da primeira revisão, porque o lookahead novo também barra o recuo).
+- **Terceira revisão (NEEDS WORK, sem afrouxamento; corrigida pela causa em 2026-09-26):** os
+  consertos da segunda eram de sintoma. (1) A contagem na mesma oração do verbo da âncora é
+  complemento dele, qualquer que seja a preposição ou o quantificador ("quando chegar lá pra
+  você em uns 7 dias", "…com 7 dias"): a âncora só é retirada quando outra oração começa antes
+  da contagem ou quando "(você) tem / são / é (até/de)" a toma logo antes; (2) conjunção
+  (e/mas/que/porque/pois/já que), com ou sem preposição de tempo, colada à contagem abre
+  oração, e a palavra de troca de antes não a isenta; (3) a âncora depois da contagem só é
+  retirada colada a ela ou ao propósito ("7 dias corridos, contados do recebimento", "7 dias
+  pra desistir, a contar do dia que receber"), nunca como aposto ("…, quando ele chega", "…,
+  que é bem quando ele chega"); (4) ":" seguido de "você tem / são / fica" não abre oração
+  ("é só trocar: você tem 7 dias depois que ele chegar" voltou a passar). Três geradores
+  (preposição × quantificador × enchimento, conjunção × preposição, âncora solta); mutações
+  `M-08-complemento`, `M-08-conjuncao`, `M-08-dois-pontos`, e `M-08-que-e-quando` passou a
+  reinstalar a retirada da âncora em qualquer lugar.
+- **Quarta revisão (NEEDS WORK, sem afrouxamento; ônus invertido em 2026-09-26):** quatro rodadas
+  fechando formas enquanto as irmãs ficavam abertas. O código deixou de retirar âncoras e caçar
+  vestígio de entrega: a contagem da garantia (7 dias ou uma semana) só é isenta quando uma
+  forma de garantia a **governa** — propósito colado depois ("pra trocar/devolver/desistir",
+  "de garantia/arrependimento"), palavra de troca tomando-a logo antes ("a troca é (de/em até)",
+  "pode trocar em (até)"), ou "tem/são/é N" depois de uma troca sem chegada no meio — e o que vem
+  depois é fim de frase, "corridos/úteis", o propósito ou o início da contagem ("depois que
+  receber", "contados de quando ele chegar", "a contar do dia que receber"). Depois disso só
+  cabe oração nova que não fale de chegada nem de tempo. A âncora de chegada antes da contagem
+  não vale depois de "até / o prazo / o tempo". Saíram `anchor`, `anchorAfter`, `glued`,
+  `newClause`, `returnBefore`. Geradores: "o prazo/tempo até quando chegar é de N", conjunção +
+  quantificador + N + chegada sem verbo, e 384 garantias honestas que têm de passar. Mutações
+  reescritas: `M-08-governo`, `M-08-cauda`, `M-08-oracao-propria`, `M-08-ate-quando`,
+  `M-08-tomada` (as sete da segunda e terceira revisões miravam código que não existe mais).
+- **Quinta revisão (aprovada com ressalvas; falsos positivos corrigidos em 2026-09-27):** o
+  ônus invertido não deixa passar nenhuma mentira de chegada, mas vetava frases honestas. (1) As
+  falas do roteiro e da base de conhecimento ("contando do dia que receber", "contando da data
+  em que você recebe", "contados da entrega", "a partir do dia que receber") — o início da
+  contagem passou a conhecê-las, e "você tem 7 dias contando de quando recebeu" é garantia por
+  começar no recebimento; depois de ";" começa outra afirmação, e ali só verbo de entrega é
+  julgado; (2) a troca com objeto ou adjetivo ("pra trocar de tamanho", "pra devolver o
+  produto", "a troca é grátis em até 7 dias", "a garantia é igual: 7 dias", "a garantia de 7
+  dias vale nos dois", "pra pedir a troca"); (3) a chegada em palavras depois da garantia ("e
+  ele está com você", "e o colete é seu", "já abre a caixa") passou a ser lida. Geradores de
+  474 falas honestas e 90 chegadas em palavras; mutações `M-08-roteiro`, `M-08-objeto`,
+  `M-08-presenca`.
+- **Sexta revisão (NEEDS WORK — dois afrouxamentos reais da quinta, corrigidos em 2026-09-27):**
+  (1) "são/é N" + início da contagem isentava sem palavra de troca, e o início aceitava a loja
+  ("depois que recebermos") e o substantivo ("a partir do recebimento"): agora essa forma é só
+  "você tem N" com ela recebendo ("contando de quando recebeu"), e "o prazo é de N" nunca é
+  tomado pela garantia; (2) depois de ";" a entrega e o tempo não eram julgados ("…; a entrega
+  também"): tudo depois da contagem é julgado igual, tirando antes só a locução do roteiro "do
+  pedido até a entrega" (e "aqui" saiu das palavras de chegada: é onde a Malu está). Geradores
+  de 224 e 56 mentiras; mutações `M-08-recebermos` e `M-08-ponto-e-virgula`. Fora do conserto:
+  o nome do antecipado na frase anterior ("Pagou no pix? São 7 dias…") não é lido no caminho da
+  entrega — família anterior à M-08, como a M-10.
+- **Sétima revisão (NEEDS WORK, corrigida em 2026-09-27):** (1) afrouxamento real — "do pedido
+  até a entrega" saía da cauda em qualquer lugar ("No pix, você tem 7 dias pra trocar do pedido
+  até a entrega"): agora só sai com o sujeito do roteiro ("eu fico aqui … com você do pedido até
+  a entrega"); (2) "o prazo pra trocar é de 7 dias" era vetada: "prazo" só deixa de ser tomado
+  pela garantia quando não há palavra de troca antes; (3) a presença com "aqui/aí" no meio ("tá
+  aqui com você") passou a ser lida. Geradores de 288 mentiras com a locução e 90 honestas "o
+  prazo pra trocar é de N"; mutações `M-08-locucao` e `M-08-prazo-de-troca`.
+- **Oitava revisão (NEEDS WORK por um achado, corrigido em 2026-09-27):** "o prazo é N" depois de
+  qualquer palavra de troca, em outra oração, era tomado pela garantia ("a troca é fácil, e o
+  prazo é 7 dias", passava nos dois caminhos). A troca só toma a contagem quando a governa: "o
+  prazo pra/de <troca> é de", "pra/se … <troca>, (o prazo) é/são/tem", "é só <troca>: você tem".
+  E o substantivo de troca aceita uma cópula só ("a garantia também é de"), para "tem garantia e
+  são 7 dias" não ler o "e" como "é". Gerador de 1568 mentiras; mutações `M-08-troca-solta` e
+  `M-08-copula`; `M-08-tomada` e `M-08-prazo-de-troca` passaram a mirar o código novo.
+- **Nona revisão (NEEDS WORK por um caso, corrigido em 2026-09-27):** "se precisar receber e
+  trocar, são 7 dias" passava com o nome do antecipado — o "se" atravessava o verbo de chegada
+  até a troca. O "se" não atravessa mais chegada; gerador de 216 frases e mutação
+  `M-08-se-chegada`. Com isso o revisor declarou **aprovado com ressalvas**: garantia como
+  condição ("se quiser garantia, são 7 dias", já passava na base), "o prazo com garantia de
+  troca é de 7 dias" (ambígua, já passava), a família da M-10 ("Pagou no pix? São 7 dias…" no
+  caminho da entrega) e dois falsos positivos baratos no antecipado.
+- **Estado:** fechada — aprovada com ressalvas na nona revisão independente.
 
 ### M-09 — Kits de 2 e 3 peças (decisão do operador, 2026-09-25)
 - **Por quê:** o checkout da Coinzz vende quantidade fixa; o operador criou um link por
@@ -316,6 +415,49 @@ Estados: `aberta` → `feita (commit)` → `atingida` | `não atingida → M-xx`
 - **Medida final:** rodada completa `06-19-27` (15 personas) e confirmação `06-37-29`: 8/8,
   0 respostas prontas; `pnpm verificar:guardas` 56/56.
 - **Estado:** feita e medida.
+
+### M-10 — Prazo da entrega por extenso ou avulso, e o caminho nomeado na frase anterior
+- **Por quê:** revisão independente da M-08. No caminho da entrega, a contagem ia para o COD
+  por `codAt > prepayAt` e o laço dava `continue`; a checagem de faixa só lê dígitos. Passavam
+  "Na entrega chega de uma a duas semanas.", "…em até 2 semanas.", "…em uma semana.", "…em 1 a
+  3 dias, no máximo uma semana.", "…em 5 dias.", "…em dez dias.". E o nome do antecipado na
+  frase anterior não era lido no caminho da entrega: "Pagou no pix? Chega em 2 dias." e "Pagou
+  no pix? São 7 dias contados da data que recebermos." passavam com `paymentPath: "cod"`.
+- **Objetivo:** no caminho da entrega, toda contagem de entrega cabe na faixa configurada
+  (`codDaysMin` a `codDaysMax`) — um número dentro dela ou a faixa inteira dentro dela — e
+  semana nunca cabe; o antecipado nomeado num cabeçalho logo antes vale para a frase seguinte.
+- **Medida:** as frases acima como casos vetados em `change-registry.test.ts`; geradores no
+  fuzz; `pnpm dev:gates` sem afrouxamento.
+- **Feito (2026-09-27):** a regra de número de `delivery_promise` julga a contagem da entrega
+  em vez de pular: quando a entrega é o caminho nomeado mais perto antes dela, ou quando a frase
+  não nomeia caminho, fala de entrega ou chegada e a conversa é da entrega (a forma da média do
+  antecipado, "em média N dias úteis", continua com a regra do antecipado). O início de faixa
+  por extenso ("de um a três dias") também é conferido. **Janela do cabeçalho:** a frase
+  imediatamente anterior, quando é pergunta ou fragmento de até 4 palavras, e uma sequência
+  deles ("Pagou no pix? Ótimo."); o mais perto que nomeia caminho decide, e é antecipado se
+  nomear o antecipado ("Na entrega ou no pix?"). Uma afirmação inteira encerra a janela —
+  ela tem o próprio predicado, e a frase seguinte pode ter mudado de assunto. Irmã corrigida
+  junto: a checagem de faixa só lia "antecipado/adiantado" como nome, e "No pix chega em 1 a 3
+  dias." passava na entrega. Exceção nova, provada por forma positiva: na garantia, o nome do
+  caminho da entrega ("na entrega", "pagando na porta/na mão do entregador") não é chegada —
+  sem ela, "Na entrega você tem 7 dias pra trocar." seria vetada. Geradores: prazos fora da
+  faixa (6560 com nome da entrega, 1168 sem nome), dentro da faixa (4050 com nome, 720 sem),
+  cabeçalhos (165 mentiras, 60 honestas), garantia com nome da entrega (144 honestas, 70
+  mentiras). Mutações
+  `M-10`, `M-10-sem-nome`, `M-10-inicio`, `M-10-semana`, `M-10-cabecalho`, `M-10-faixa-pix`,
+  `M-10-nome-da-entrega`; `prazo-por-caminho` passou a mirar a linha nova.
+- **Falsos positivos conhecidos (baratos, uma reescrita):** a garantia do M-08 agora vale no
+  caminho da entrega também, com os mesmos limites ("…7 dias pra trocar e suporte todo dia" —
+  "dia" na cauda; "Quando chega aí você tem 7 dias" sem propósito); negação que não governa
+  garantir/prometer ("Na entrega não leva uma semana, leva de 1 a 3 dias"); pergunta com o
+  antecipado antes da fala da entrega ("Você prefere pagar no pix? A entrega leva de um a três
+  dias…", "Não quer pagar no pix? Chega em 2 dias."); contagem de uso na mesma frase que nomeia
+  a entrega ("Na entrega…, e em 5 dias de uso você nem sente").
+- **Fora do conserto:** frase que nomeia os dois caminhos com a faixa da entrega sem janela do
+  antecipado ("Na entrega ou no pix, chega em 1 a 3 dias.") — a proximidade da checagem de faixa
+  continua lendo só "antecipado"; e "pagando na porta, 1 a 3 dias" segue vetada no antecipado.
+- **Revisão independente (aprovada com ressalvas; ressalva 1 corrigida em 2026-09-27):** o nome do antecipado negado ("sem/nem/nada de pix", "não precisa (de/pagar) antecipar", "pix não!/não precisa", "não quer" fora de pergunta) deixou de nomear o antecipado no cabeçalho, na faixa e na regra de número — "Nada de pix. Chega em 1 a 3 dias." passa no COD e "Nada de pix. Chega em 5 dias, depende da região." é vetada; a faixa usava uma lista local que sombreava a da M-10 ("Te mando o link e chega em 1 a 3 dias." era vetada). Gerador de 336 honestas, 448 mentiras e 18 negativas que não negam; mutações `M-10-negacao`, `M-10-negacao-depois`, `M-10-nao-quer`, `M-10-media-negada`, `M-10-sombra`.
+- **Estado:** aprovada com ressalvas pela revisão independente; a correção da ressalva 1 (negação) e a do A1 da revisão final (2026-09-27) passam pela revisão final do branch.
 
 ## Entradas fechadas (reconstruídas das rodadas 1 a 4)
 

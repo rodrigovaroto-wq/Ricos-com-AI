@@ -872,23 +872,236 @@ const gates: readonly Gate[] = [
       // delivery range is the configured average, and the sentence says it varies.
       // Elsewhere, only an average-shaped count in delivery talk is judged — "em média 2
       // dias de uso" is about wearing the vest, not about the carrier.
+      // M-08: "um/uma/num/numa" and weeks are counts too ("um dia só", "chega numa semana").
       const DAY_WORDS: Record<string, number> = {
-        dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
+        um: 1, uma: 1, num: 1, numa: 1, dois: 2, duas: 2, tres: 3, quatro: 4, cinco: 5, seis: 6, sete: 7,
         oito: 8, nove: 9, dez: 10, quinze: 15, vinte: 20, trinta: 30,
       };
-      const DELIVERY_TALK = /\b(?:prazo|cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*)\b/;
-      const PREPAY_WORD = /\b(?:antecipa\w*|adianta\w*)\b/;
-      for (const m of t.matchAll(
-        /\b(\d{1,2}(?:[.,]\d{1,2})?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*dias?\b/g,
-      )) {
+      /**
+       * ONE vocabulary per idea, read by every rule of this gate (2026-09-28). Until then there
+       * were three lists of the prepaid path's names and four of arrival words, each a little
+       * different ("antes / cartão / online / link" in one and not in another), and ten review
+       * rounds kept finding the sentence that fell between two of them.
+       */
+      // The prepaid path's names. "Cartão" only with its own preposition ("dinheiro ou cartão" is
+      // paid at the door), "link" only as the payment link ("te mando o link" is the checkout of
+      // both paths).
+      const PREPAY_NAME =
+        /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|online|deposito|pelo\s+link|link\s+de\s+pagamento|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g;
+      // The delivery path's names. The courier and the door are in both paths ("no pix, o
+      // entregador leva…"): only paying there names this one.
+      const COD_NAME = /\bna\s+entrega\b|\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:na\s+(?:porta|mao)|(?:ao|pro)\s+entregador)\b/g;
+      // Arrival: a delivery verb, the place, or her having it ("é seu", "tá com você", "tá contigo",
+      // "abre a caixa", "já veste"). "Em casa" only with being there — "usa ele em casa" is wearing it.
+      // "Prazo" is not arrival — "o prazo pra trocar" — and the rules that read it say so.
+      const ARRIVAL =
+        /\b(?:cheg\w*|entreg\w*|receb\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|post\w*|sai\w*|ai|la|na\s+sua\s+casa|mao|porta|viagem|caminho|vem|abre\s+a\s+caixa|ja\s+tem|ja\s+(?:(?:esta|ta)\s+)?(?:vest|us)\w*|e\s+(?:seu|sua)|(?:esta|ta|estara|estar|fica)\s+(?:(?:aqui|ai|la)\s+)?(?:com\s+(?:voce|ele)|contigo|em\s+casa))\b/;
+      /** Delivery talk: arrival, the deadline named ("o prazo", "é rapidinho", "nesse tempo"), or the carrier. */
+      const talksDelivery = (s: string): boolean => ARRIVAL.test(s) || /\b(?:prazo|rapid\w*|correio\w*|transportador\w*|(?:mesmo|nesse|esse)\s+tempo)\b/.test(s);
+      const names = (re: RegExp, s: string) => s.search(re) !== -1;
+      /**
+       * M-10, independent review: a prepaid name that is denied does not name the prepaid path.
+       * "Nada de cartão, nada de Pix" is the script's own argument for the delivery, and "sem
+       * pix / nem pix / não precisa (de / pagar) antecipar / pix não! / pix não precisa" read as
+       * the prepaid path vetoed its honest 1-3 days — and, in a header, let the prepaid average
+       * through as the delivery's. Only a denier glued to the name in its own phrase: "no pix
+       * não demora" and "sem juros no pix" still name it, and "não quer" denies only outside a
+       * question ("Não quer pagar no pix?" offers it). Returns where the last name that is not
+       * denied starts, or -1.
+       */
+      const prepaidNamed = (s: string): number => {
+        let last = -1;
+        for (const m of s.matchAll(PREPAY_NAME)) {
+          const at = m.index ?? 0;
+          const denier = /\b(?:sem|nem|nada\s+de|nao\s+(precisa|quer\w*)(?:\s+(?:de|pagar|ser))?)\s+(?:(?:no|na|o|a|pelo|pela|de|com|via|em)\s+)?(?:pag\w*\s+)?$/.exec(
+            s.slice(0, at).split(/[,;:.!?\n]/).pop()!,
+          );
+          // A denier denies only a name its phrase closes on, or one in a series ("Nem pix, nem
+          // boleto", "sem pix e sem cartão", "sem pix nenhum"). "Nem" is also "not even" ("nem no pix
+          // demora" names it), and "nada de pix demorado / sem boleto que demora" talk about it
+          // (2026-09-28): a word of its own after the name makes it the subject, not the denied.
+          const rest = s.slice(at + m[0].length);
+          const closes =
+            /^\s*(?:[.!,;:?]|$|nem\b|nenhum\b|(?:e|ou)\s+(?:sem|nem|nada\s+de)\b|(?:e|ou)\s+(?:(?:no|na|pelo|pela|com|via|de)\s+)?(?:pix|boleto|cartao|credito|debito|transferencia|deposito|antecipa\w*|adianta\w*)\b)/.test(rest);
+          if (denier && !(denier[1]?.startsWith("quer") && /^[^.!\n]*\?/.test(s.slice(at))) && closes) continue;
+          // "Pix não precisa." denies; "pix não precisa esperar" says something about it.
+          if (/^\s*nao(?:\s+precisa)?\s*(?:[.!,;:?]|$)/.test(rest)) continue;
+          last = at;
+        }
+        return last;
+      };
+      /** A sentence that names the prepaid path only to deny it: "Sem pix, …", "Nada de pix." */
+      const deniesPrepaid = (s: string): boolean => names(PREPAY_NAME, s) && prepaidNamed(s) === -1;
+      /**
+       * M-10: the path named in a header right before the sentence — "Pagou no pix? Chega em 2
+       * dias." A header has no predicate of its own and the next sentence is its answer: a
+       * question, or a fragment of at most four words (a path name is two or three, "no pix",
+       * "pagando antes"; a fifth is room for a claim of its own), and a run of them counts
+       * ("Pagou no pix? Ótimo."). The closest one that names a path decides, prepaid when it
+       * names the prepaid one at all ("Na entrega ou no pix?"). A full statement ends the run,
+       * and so does a sentence that names a path itself.
+       */
+      // A header that denies the prepaid path ("Nada de pix.") names the delivery one.
+      const headerPath = (at: number): "prepay" | "cod" | null => {
+        const own = t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
+        if (names(COD_NAME, own) || names(PREPAY_NAME, own)) return null;
+        const earlier = t.slice(0, at).split(/(?<=[.!?\n])/);
+        if (!/[.!?\n]$/.test(earlier.at(-1) ?? "")) earlier.pop();
+        for (const s of earlier.reverse()) {
+          if (!/\?\s*$/.test(s) && s.trim().split(/\s+/).length > 4) return null;
+          if (prepaidNamed(s) !== -1) return "prepay";
+          if (names(COD_NAME, s) || deniesPrepaid(s)) return "cod";
+        }
+        return null;
+      };
+      const prepaidHeader = (at: number): boolean => headerPath(at) === "prepay";
+      const PREPAY_ONE = new RegExp(PREPAY_NAME.source);
+      /**
+       * Whether `s` is at most the prepaid path's own window: "no antecipado o prazo varia por
+       * região, em média 5 dias úteis". An allowlist — the 6th round found "…, nada muda" past a
+       * word blocklist. The average's number is judged by the number rule, so here a window only
+       * has to be a window. M-07: the prepaid mention must carry it ("varia / depende / conforme /
+       * em média") — "…1 a 3 dias e no pagamento antecipado." reads as "the same there".
+       */
+      const windowRest = (s: string): string =>
+        s
+          .replace(/^\s+uteis\b/, "")
+          .replace(PREPAY_ONE, "")
+          .replace(/,?\s*(?:(?:cheg\w*|lev[ae]\w*|demor\w*|(?:voce\s+)?receb\w*|e|sao|fica)\s+)?(?:em\s+)?(?:media|torno|cerca|aproximadamente)\s+(?:de\s+)?\d{1,2}(?:[.,]\d)?\s*dias?(?:\s+uteis)?/g, "")
+          .replace(/\b(?:conforme|de\s+acordo\s+com|depende)\s+(?:d?[aeo]\s+)?(?:(?:sua|seu)\s+)?(?:regiao|cep)\b/g, "")
+          .replace(/\bo\s+prazo\b|\bvaria\w*(?:\s+bastante)?|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, "");
+      const onlyPrepayWindow = (s: string): boolean => {
+        if (!PREPAY_ONE.test(s)) return /^[\s.,;:!?()]*$/.test(s.replace(/^\s+uteis\b/, ""));
+        if (!/\b(?:varia\w*|depende\w*|conforme|de\s+acordo|media)\b/.test(s)) return false;
+        return /^[\s.,;:!?()]*$/.test(windowRest(s));
+      };
+      // Words that tie one path's window to the other's.
+      const EQ =
+        "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|nada\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s?|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
+      /**
+       * Whether a count the delivery path is named closest to stays the delivery's in a sentence
+       * that also names the prepaid path (M-01, persona round 4, Cleide: "no pagamento na entrega
+       * você recebe em 1 a 3 dias, no antecipado o prazo varia…" was judged as prepaid and vetoed
+       * three times → fallback) — ONLY when the prepaid mention carries its own window, nothing
+       * equates or extends one path to the other, and what surrounds the count is at most that
+       * window. Second review, 2026-09-24: proximity alone let "no antecipado ou na entrega, chega
+       * em 1 a 3 dias" and "na entrega é 1 a 3 dias; no antecipado também" through.
+       */
+      /** Whether a word ties one path's window to the other's in `sentence`. */
+      const equatedIn = (sentence: string): boolean => {
+        const firstPrepay = sentence.search(PREPAY_NAME);
+        // "Na entrega você também escolhe o dia e recebe em 1 a 3 dias, no antecipado o prazo varia
+        // por região" (code review, 2026-09-24): a "também escolhe / agenda / marca" before any
+        // prepaid mention, in a clause that says "na entrega" and brings in no second option, and
+        // only when the sentence ends at the prepaid window. Second review, twice: wider exemptions
+        // let "…, e pagando antes também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em
+        // 1 a 3 dias" through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
+        const endsAtPrepayWindow =
+          firstPrepay !== -1 &&
+          /^[\s.,;:!?]*$/.test(
+            sentence
+              .slice(firstPrepay)
+              .replace(PREPAY_ONE, "")
+              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
+              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b/g, ""),
+          );
+        return [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
+          const eAt = e.index ?? 0;
+          const clause = sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
+          const exempt =
+            e[0] === "tambem" &&
+            /^tambem\s+(?:escolh|agend|marc)\w*/.test(sentence.slice(eAt)) &&
+            endsAtPrepayWindow &&
+            !/\b(?:e|ou)\b/.test(sentence.slice(0, eAt).split(/[,;:]/).pop()!) &&
+            eAt < firstPrepay &&
+            /\bna\s+entrega\b/.test(clause) &&
+            !/\b(?:e|ou)\s+(?:na|no|pagando|pelo|pela|de|a|o)\b|\boutr[oa]s?\b|\bopcao\b|\bforma\b|\bjeito\b|\bantes\b|\bpix\b|\bcartao\b|\bboleto\b|\bdois\b|\bduas\b|\bambos\b/.test(
+              clause,
+            );
+          return !exempt;
+        });
+      };
+      const deliveryKeeps = (sentence: string, head: string, tail: string, codAt: number): boolean => {
+        if (!new RegExp(String.raw`${PREPAY_NAME.source}[^.!?\n]{0,60}\b(?:varia\w*|media|regiao)\b`).test(sentence)) return false;
+        if (equatedIn(sentence)) return false;
+        // After the count, at most the prepaid window. Clause by clause, one more kind is allowed:
+        // what the price or the payment is ("…, e no cartão pelo checkout dá pra parcelar em até
+        // 12x", "…, e no antecipado é R$ 116,91 com 10% de desconto", "…e você paga na porta") —
+        // never time, arrival or likeness ("…e chega junto", "…é parecido", "…, e no depósito 2 a 3
+        // dias").
+        const windowed = PREPAY_ONE.test(tail) && /\b(?:varia\w*|depende\w*|conforme|de\s+acordo|media)\b/.test(tail);
+        const tailKeeps =
+          onlyPrepayWindow(tail) ||
+          tail.split(/[;:]|(?<!\d),|,(?!\d)|\s(?:e|mas)\s/).every(
+            (c) =>
+              /^[\s.,;:!?()]*$/.test(c) ||
+              (windowed && /^[\s.,;:!?()]*$/.test(windowRest(c))) ||
+              ((names(COD_NAME, c) || /r\$|\b(?:reais|desconto|parcel\w*|checkout|cep|juros|frete|preco|valor|custa|cupom|\d+\s*x)\b/.test(c)) &&
+                !talksDelivery(c.replace(COD_NAME, " ")) &&
+                !/\b(?:dias?|semanas?|horas?|tempo|junto|parecid\w*|similar\w*|diferen\w*|bate\w*|rapid\w*|logo)\b/.test(c)),
+          );
+        if (!tailKeeps) return false;
+        // M-07: before the count, the stretch from the first prepaid mention to the delivery name
+        // is at most the prepaid window — "No antecipado varia por região, e no pix e na entrega, 1
+        // a 3 dias" shares the range with the Pix.
+        const headPrepay = head.search(PREPAY_NAME);
+        return headPrepay === -1 || onlyPrepayWindow(head.slice(headPrepay, codAt === -1 ? head.length : codAt));
+      };
+      type Path = "cod" | "prepay" | "both";
+      /**
+       * THE answer to "which path is this count / range about", read by the number rule and the
+       * range rule alike (2026-09-28 — until then each had its own, and they disagreed on a name
+       * after the count, a header, and a denied name). In order:
+       * 1. A path named in the sentence: the one closest before the count, else one in the count's
+       *    own clause after it ("chega em 2 dias no pix"), else the only one the sentence names. The
+       *    delivery keeps a count the prepaid path is named around only per `deliveryKeeps`, and a
+       *    word that ties the two ("no pix ou na entrega, …") gives it to both — both rules judge it.
+       * 2. A sentence that names the prepaid path only to deny it ("Sem pix, …") names the delivery.
+       * 3. A header right before the sentence (`headerPath`).
+       * `null` leaves it to the conversation's path.
+       */
+      const pathOf = (at: number, end: number): { path: Path | null; by: "name" | "after" | "denial" | "header" | null } => {
+        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
+        const rest = t.slice(end).split(/[.!?\n]/)[0]!;
+        const sentence = head + t.slice(at, end) + rest;
+        const codAt = Math.max(-1, ...[...head.matchAll(COD_NAME)].map((x) => x.index ?? 0));
+        const prepayAt = prepaidNamed(head);
+        const ownAfter = rest.split(/[,;:]|\s(?:e|mas|ou)\s/)[0]!;
+        const prepayAny = prepaidNamed(sentence) !== -1;
+        const codAny = names(COD_NAME, sentence);
+        let near: Path | null = codAt > prepayAt ? "cod" : prepayAt > codAt ? "prepay" : null;
+        let tail = rest;
+        let by: "name" | "after" = "name";
+        if (near == null && names(COD_NAME, ownAfter) && prepaidNamed(ownAfter) === -1) {
+          near = "cod";
+          tail = rest.slice(ownAfter.length);
+          by = "after";
+        }
+        if (near == null && prepaidNamed(ownAfter) !== -1) near = "prepay";
+        if (near === "cod" || (near == null && codAny && !prepayAny))
+          return { path: !prepayAny || deliveryKeeps(sentence, head, tail, codAt) ? "cod" : "both", by };
+        // The prepaid path closest, and the delivery tied to it ("na entrega ou no pix, …"): both.
+        if (near === "prepay" || prepayAny) return { path: codAny && equatedIn(sentence) ? "both" : "prepay", by: "name" };
+        if (deniesPrepaid(sentence)) return { path: "cod", by: "denial" };
+        const h = headerPath(at);
+        return { path: h, by: h ? "header" : null };
+      };
+      const COUNT =
+        /\b(\d{1,2}(?:[.,]\d{1,2})?|n?uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|quinze|vinte|trinta)\s*(dias?|semanas?)\b/g;
+      for (const m of t.matchAll(COUNT)) {
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
         const after = t.slice(at + m[0].length, at + m[0].length + 80);
-        // The end of a range ("1 a 3 dias") is the range check's to judge.
-        if (/\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
+        // A week is 7 calendar days: it can be the warranty, never the average (business days).
+        const week = m[2]!.startsWith("semana");
+        // The end of a range ("1 a 3 dias") is the range check's to judge — and judged here too
+        // when in weeks ("1 a 2 semanas").
+        if (!week && /\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
+        // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
+        if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        const days = DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."));
+        const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
         const phrase = t.slice(0, at).split(/[,;:.!?\n]/).pop()!;
         // Every exemption is a loosening, and each shape so far leaked or over-blocked (M-07,
         // six reviews): context rules freed "a troca é grátis e no pix chega em só 2 dias",
@@ -906,40 +1119,102 @@ const gates: readonly Gate[] = [
         // de quando/contados do recebimento". Safe to be this simple only because no other
         // number can ever be exempt.
         if (days === ctx.config.delivery.warrantyDays) {
-          // Never stripped when the count is that verb's own time complement: "quando o colete
-          // chegar em 7 dias" is a deadline (eighth review).
-          const anchor =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)(?![\s,]*(?:(?:em|ate|so)\s*)*$)/g;
-          // After the count the anchor can end the sentence ("…pra devolver a partir da entrega.").
-          const anchorAfter =
-            /\b(?:(?:apos|depois\s+d[eo]|depois\s+que|a\s+partir\s+d[eo](?:\s+quando)?|contad[oa]s?\s+d[eo]|de\s+quando|quando)\s+(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae])\s+(?:a\s+)?entrega)/g;
-          const DELIVERY = /\b(?:cheg\w*|receb\w*|entreg\w*|lev[ae]\w*|demor\w*|envi\w*|despach\w*|sai\w*)\b/;
-          const RET = /\b(?:garantia|troc\w*|devol\w*|arrepend\w*)\b/;
-          // A new clause opens at punctuation or at "e/mas" + a new subject; never at "é"
-          // ("a garantia é de 7 dias" normalizes "é" to "e").
-          const CL = /[,;:.!?\n]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)/;
-          // Two delivery-looking words that are not delivery (loop review, 2026-09-25): getting
-          // her money back ("e recebe seu dinheiro de volta") and asking the CEP to look the
-          // delivery up ("me passa seu CEP pra eu ver a entrega aí"). Both came from Malu's own
-          // honest warranty lines on the prepaid path, vetoed into rewrites.
+          // M-08, fourth review: the burden is inverted. Four rounds stripped anchors and hunted
+          // for delivery words, and each closed a shape while its siblings stayed open. The count
+          // is the warranty only when a warranty form GOVERNS it — a return purpose right after
+          // it, or a return word taking it right before it — and nothing after it says anything
+          // but "corridos/úteis", the purpose, or when the warranty starts counting.
+          // "Quando chega aí você tem 7 dias pra trocar": the place of the arrival is part of it.
+          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa))?`;
+          // When the warranty starts counting: "depois que receber", "a partir do recebimento",
+          // "contados de quando ele chegar", "a contar do dia que receber", "após a entrega" — and
+          // the script's own "contando do dia que receber / da data em que você recebe" (fifth review).
+          const START = String.raw`(?:(?:depois\s+que|apos|depois\s+d[aeo]|(?:a\s+partir|contad[oa]s?(?:\s+a\s+partir)?|contando(?:\s+a\s+partir)?|a\s+contar)\s+d[aeo](?:\s+quando|\s+(?:dia|data)\s+(?:em\s+)?que)?|de\s+quando)\s+${WHO}|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae]|contad[oa]s?\s+d[ae]|contando\s+d[ae]|a\s+contar\s+d[ae])\s+(?:a\s+)?entrega)`;
+          // The return verb may carry its object: "pra trocar de tamanho", "pra devolver o produto".
+          const OBJECT = String.raw`(?:\s+(?:de|o|a|por\s+outro)\s+(?:tamanho|produto|colete|numero))?`;
+          const PURPOSE = String.raw`(?:(?:pra|para)\s+(?:(?:trocar|devolver|troca|devolu\w*|desistir|se\s+arrepender|experimentar)(?:\s+ou\s+(?:trocar|devolver|desistir))?${OBJECT}|(?:pedir|solicitar)\s+a\s+(?:troca|devolucao))|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol\w*)))`;
+          // Getting her money back ("e recebe seu dinheiro de volta") and asking the CEP to look
+          // the delivery up ("me passa seu CEP pra eu ver a entrega aí") are not delivery (loop
+          // review, 2026-09-25) — only as the purpose of asking the CEP ("dá pra ver a entrega em
+          // casa nesse tempo" is a deadline).
+          // M-10: nor is the delivery path's own name — "na entrega / pagando na entrega / pagando
+          // na mão do entregador você tem 7 dias pra trocar" names the path, not an arrival.
           const notDelivery = (x: string) =>
             x
+              .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
-              // Only as the purpose of asking the CEP or address (second review: "dá pra ver
-              // a entrega em casa nesse tempo" is a deadline).
-              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
-          const sentenceBefore = t.slice(0, at).split(/[.!?\n]/).pop()!.replace(anchor, " ");
-          const clause = notDelivery(sentenceBefore.split(CL).pop()! + t.slice(at).split(CL)[0]!.replace(anchorAfter, " "));
-          const rest = notDelivery(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!.replace(anchorAfter, " "));
-          const segment = sentenceBefore.split(/[,;]/).pop()!;
-          const purposeAfter =
-            /^\s*(?:corridos|uteis)?[\s,]*(?:(?:pra|para)\s+(?:trocar|devolver|troca|devolu\w*|se\s+arrepender)|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol)))/.test(rest);
-          // The return word in the 7's own comma segment ("pode devolver em até 7 dias", after
-          // "se não gostar do que chegou,"), or earlier in a sentence that never talks delivery.
-          const returnBefore =
-            (RET.test(segment) && !DELIVERY.test(segment)) ||
-            (RET.test(sentenceBefore) && !DELIVERY.test(sentenceBefore) && /\b(?:tem|tera|sao|de|fica)\s*$/.test(segment));
-          if (!DELIVERY.test(clause) && !DELIVERY.test(rest) && (purposeAfter || returnBefore)) continue;
+              .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
+          // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
+          // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
+          let tail = t.slice(at + m[0].length).split(/[.!?\n]/)[0]!;
+          let purpose = false;
+          // Her receiving it ("contando de quando recebeu"), not the store ("depois que
+          // recebermos") nor the noun ("a partir do recebimento") — sixth review.
+          let startHer = false;
+          for (let x; (x = tail.match(new RegExp(String.raw`^[\s,]*(?:corridos|uteis|(${PURPOSE})|(${START})${purpose ? String.raw`|quando\s+${WHO}` : ""})\b`))); ) {
+            purpose ||= x[1] != null;
+            startHer ||= /\b(?:receb(?:er|e|eu|a)|cheg(?:ar|a|ou))(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa))?$/.test(x[2] ?? "");
+            tail = tail.slice(x[0].length);
+          }
+          // "A garantia de 7 dias vale (também) nos dois": the warranty's own verb opens the rest.
+          tail = tail.replace(/^\s+(?:vale\w*|continua|se\s+aplica|e\s+(?:por\s+)?lei)(?:\s+tambem)?\b/, ",");
+          // Then the sentence ends, or a new clause opens that says nothing about arrival or time
+          // ("…, e o frete da troca é por nossa conta", "…se não servir"). "de viagem", "até lá",
+          // "ele está aí", "e o colete é seu", "…, que é bem quando ele chega" are the count's own
+          // arrival — past a semicolon too ("…; a entrega também", sixth review). The one delivery
+          // mention that is not a deadline is the script's own "…; e eu fico aqui no WhatsApp com
+          // você do pedido até a entrega" — only with its subject: loose, "7 dias pra trocar do
+          // pedido até a entrega" is the delivery (seventh review).
+          tail = tail.replace(/\beu\s+fico\s+aqui\b[^;,]*?\bcom\s+voce\s+do\s+pedido\s+ate\s+a\s+entrega\b/g, " ");
+          // 2026-09-28: the arrival and her having it are the one `ARRIVAL`; the time words here are
+          // time, not the phrases that only share a word with it — "suporte todo dia", "sem perder
+          // tempo", "mesmo tamanho ou outro". And the prepaid window may follow, as the prompt's own
+          // warranty line says it ("…7 dias pra trocar, e no antecipado o prazo varia por região, em
+          // média 5 dias úteis"): its number is judged on its own.
+          const newClause = /^\s*(?:[,;:]|(?:e|mas|ou|se|sem|caso|porque|pois|que)\s)/.test(tail);
+          const tailOk =
+            /^\s*$/.test(tail) ||
+            (newClause && PREPAY_ONE.test(tail) && onlyPrepayWindow(tail)) ||
+            (newClause &&
+              !ARRIVAL.test(notDelivery(tail)) &&
+              !/\b(?:quando|dias?|semanas?|depois|antes|ate|junto|tempo|prazo|mesm\w*|igual\w*|tambem)\b/.test(
+                tail.replace(/\btod[oa]s?\s+(?:o\s+|os\s+)?dias?\b|\bperder\s+tempo\b|\bmesm[oa]\s+(?:tamanho|numero|modelo|cor)\b/g, " "),
+              ));
+          const sb = t.slice(0, at).split(/[.!?\n]/).pop()!;
+          // A return word taking the count right before it: "a troca é (de/em até)", "a garantia
+          // é a mesma:", "a troca pode ser feita em até", "pode trocar/devolver em (até)". A
+          // conjunction between them ("pode trocar e em 7 dias…") is another clause.
+          const governedBefore =
+            // One copula at most: "a garantia também é de", "a troca é grátis em até" — never "tem
+            // garantia e são 7 dias", where "e" is "and" (eighth review).
+            /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|vale|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*(?:\s+(?:e|sao|fica)(?:\s+(?:tambem|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*)?\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
+            new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$`).test(sb);
+          // "(você) tem / são / é 7 dias" after a return word, with nothing about arrival between:
+          // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
+          // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
+          const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
+          // Only when the return word governs the count (eighth review): "o prazo pra trocar (ou
+          // devolver) é de", "pra trocar, o prazo é de", "se precisar trocar, são", "é só trocar:
+          // você tem". A return word loose in another clause takes nothing: "a troca é fácil, e o
+          // prazo é 7 dias", "tem garantia e são 7 dias", "com direito a troca, são 7 dias".
+          const RETV = String.raw`(?:troc|devol|desist|arrepend|garantia)\w*(?:\s+ou\s+(?:troc|devol)\w*)?`;
+          const TAKES = String.raw`(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$`;
+          const takenAfterReturn =
+            lastRet != null &&
+            new RegExp(
+              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
+            ).test(sb);
+          // The count's own clause before it says nothing about arrival, except where the warranty
+          // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
+          // quando chegar é de 7 dias pra trocar").
+          const own = sb
+            .split(/[,;:]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)|\s(?:porque|pois)\s|(?<!\b(?:depois|dia|em))\sque\s/)
+            .pop()!
+            .replace(new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|quando\s+${WHO})`, "g"), " ");
+          // "Você tem 7 dias contando de quando recebeu": a count she has, starting at her receiving
+          // it, is never the carrier's — only "você tem", never "são / é / o prazo é de".
+          const hers = startHer && /\bvoce\s+(?:tem|tera)\s+(?:ate\s+)?$/.test(sb);
+          if ((purpose || governedBefore || takenAfterReturn || hers) && tailOk && !ARRIVAL.test(notDelivery(own))) continue;
         }
         // A refund is not a delivery, at any count: "reembolso em até 30 dias", "recebe em até
         // 30 dias o seu dinheiro de volta".
@@ -955,37 +1230,81 @@ const gates: readonly Gate[] = [
           /\b(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como)\s+)?(?:te\s+|lhe\s+)?(?:garant\w*|promet\w*)\s+(?:que\s+(?:chegue|chega|receba|recebe)\s+(?:em\s+)?(?:ate\s+)?)?$/.test(phrase)
         )
           continue;
-        const CLAUSE = /[,;:.!?\n]|\s(?:e|mas)\s/;
-        const clause = t.slice(0, at).split(CLAUSE).pop()! + t.slice(at).split(CLAUSE)[0]!;
-        // A prepaid path named before the count, by any of its names — the same names the
-        // range check reads (third review: "No pix chega em 2 dias" passed on the delivery
-        // path). "Cartão" only with its own preposition: "dinheiro ou cartão" is the door.
-        const prepaidNamedBefore =
-          /\b(?:pix|boleto|transferencia|online|a\s+vista|pelo\s+link|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito)|link\s+de\s+pagamento)\b/.test(
-            sentence.slice(0, sentence.length - t.slice(at).split(/[.!?\n]/)[0]!.length),
-          );
-        // On the prepaid path a sentence that names no path is about the prepaid delivery
-        // only when its own clause talks delivery ("você recebe em até 3 dias").
-        const prepaid =
-          PREPAY_WORD.test(sentence) ||
-          prepaidNamedBefore ||
-          (ctx.paymentPath === "prepay" && !/\bna\s+entrega\b/.test(sentence) && DELIVERY_TALK.test(clause));
+        // A count that is the whole of its clause ("É 2 dias.", "Sem pix, em uns 3 dias, viu?")
+        // answers the one question that has a count for an answer.
+        const bare =
+          /^\s*(?:(?:e|sao|em|ate|uns|umas|so|mais\s+ou\s+menos|no\s+maximo|cerca\s+de|dentro\s+de|daqui\s+a|tipo|olha|entao)\s+)*$/.test(phrase) &&
+          /^\s*(?:uteis|corridos)?(?:\s*,?\s*(?:viu|ta|ok|so|no\s+maximo|mais\s+ou\s+menos))*\s*(?:[,;:.!?\n]|$)/.test(after);
+        // Integration review: the word "um/uma" is an article as often as a count. The ruler's
+        // own "esperando um dia bom" was vetoed on the prepaid path — and a vetoed touch is
+        // cancelled without a word — with "um dia desses", "usa um dia inteiro", "uma semana
+        // depois de usar". In a sentence that says nothing of delivery, arrival or her having
+        // it, the word is a count only when a time word takes it ("em/de/até/só/tem/leva…
+        // uma semana", "um dia só") or the prepaid path is named; and a count for the payment
+        // to clear ("no pix é só um dia pra eu confirmar o pagamento") is not a deadline.
+        // Requiring delivery words alone freed "em uma semana o colete é seu" (M-08 fuzz).
+        if (
+          /^n?uma?$/.test(m[1]!) &&
+          !talksDelivery(sentence) &&
+          !bare &&
+          (/^\s+(?:pra|para)\s+(?:(?:eu|(?:a\s+)?gente|o\s+banco)\s+)?(?:confirm|compens|aprov|identific|process)\w*/.test(after) ||
+            (!/\b(?:em|de|ate|dentro\s+de|por|media|cerca|so|apenas|tem|tera|sao|e|fica|leva\w*|demor\w*|dura\w*|passa\w*|mais|menos|que)\s+$/.test(before) &&
+              !/^\s+(?:so|apenas|no\s+maximo|no\s+minimo)\b/.test(after) &&
+              prepaidNamed(sentence) === -1 &&
+              !prepaidHeader(at)))
+        )
+          continue;
         const averageShaped =
           /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) || /^\s*uteis\b/.test(after);
-        // A sentence comparing the paths ("na entrega você recebe em até 3 dias, e no antecipado
-        // varia, em média 5 dias úteis") gives each count to the path named last before it;
-        // the delivery one answers to the delivery range, not to the prepaid average. Found
-        // when the stored path choice put Tati's conversation on prepaid (persona round).
-        const prefix = t.slice(0, at).split(/[.!?\n]/).pop()!;
-        const lastAt = (re: RegExp) => Math.max(-1, ...[...prefix.matchAll(re)].map((x) => x.index ?? 0));
-        const codAt = lastAt(/\bna\s+entrega\b|\bentregador\b|\bna\s+porta\b|\bna\s+mao\b/g);
-        const prepayAt = lastAt(
-          /\b(?:antecipa\w*|adianta\w*|pix|boleto|transferencia|a\s+vista|pag\w*\s+(?:antes|agora|adiantado|hoje|ja)|(?:no|pelo|com|via)\s+(?:cartao|credito|debito))\b/g,
-        );
-        if (codAt > prepayAt) continue;
-        if (!prepaid && !(averageShaped && DELIVERY_TALK.test(sentence))) continue;
+        // The prepaid average's own shape named by the delivery only after it ("em média 5 dias
+        // úteis na entrega") stays with the prepaid rule.
+        const found = pathOf(at, at + m[0].length);
+        const { path, by } = found.by === "after" && averageShaped ? { path: null, by: null } : found;
+        const named = by === "name" || by === "after";
+        // On the prepaid path a count whose sentence names no path is the prepaid delivery's when
+        // the sentence talks delivery or arrival — the one vocabulary, which has the arrival without
+        // a verb ("em 2 dias ele está aí na sua casa", "o colete é seu"). Until 2026-09-28 it was
+        // every count unless wearing the vest governed it, and "o reembolso cai em até 5 dias", "a
+        // promoção vale por 5 dias", "te chamo daqui a 2 dias" were vetoed on the prepaid path; a
+        // list of exemptions would have been the eleventh round. The average's own words ("em média
+        // 2 dias úteis") are delivery talk here — not in getting used to the vest ("em média 2 dias
+        // de uso", "se acostuma em cerca de 3 dias").
+        const averageWord = /\b(?:media|torno|cerca|aproximad\w*)\s+(?:de\s+)?$/.test(before) && !/\bde\s+uso\b|\bse\s+(?:acostum|adapt)\w*/.test(sentence);
+        const deadlineTalk = talksDelivery(sentence) || bare;
+        const prepaid = path === "both" || path === "prepay" || (!named && ctx.paymentPath === "prepay" && (deadlineTalk || averageWord));
+        // M-10: on the delivery path — named closest before the count, or the conversation's
+        // when the sentence names none and talks delivery or arrival ("o colete tá aí em 5 dias";
+        // "30 dias pra devolver" and "5 kg em uma semana" are other gates') — every count fits the
+        // configured range: one number inside it, or a range inside it ("de um a três dias"). A week never
+        // fits. It used to be `continue`, and the range check only reads digits, so "na entrega
+        // chega em uma semana / em 5 dias / de uma a duas semanas" passed. The prepaid average's
+        // own shape ("em média N dias úteis") stays with the prepaid rule below — unless the
+        // sentence or its header names or denies its way to the delivery ("Nada de pix. Em média 5
+        // dias úteis.", "Vai ser na entrega? Chega em média 5 dias úteis."). A header or a denial on
+        // the prepaid conversation leaves the count to both rules.
+        // Refusing the impossible date is the job (the briefing says so): a count denied right where
+        // it is counted, with the truth told in the same sentence — "na entrega não chega em 5 dias,
+        // chega em 1 a 3 dias", "…em até 3 dias, nunca 5 dias", "não demora uma semana: chega em 1 a
+        // 3 dias". Only "não/nunca (chega/recebe/entrega/é/leva/demora) (em/de)" or "não passa": "não
+        // passa de 5 dias" and "não demora mais que 5 dias" promise a ceiling, and "não demora, chega
+        // em 5 dias" has its comma in between. Every other count of the sentence is judged on its own.
+        const denied =
+          /\b(?:nao|nunca|jamais)\s+(?:(?:(?:cheg|receb|entreg|lev[ae]|demor)\w*|e)\s+(?:(?:em|de)\s+)?|(?:em|de)\s+|passa\s+)?$/.test(phrase) &&
+          (sentence.match(COUNT)?.length ?? 0) > 1;
+        if ((named && path !== "prepay") || ((ctx.paymentPath === "cod" || path === "cod") && path !== "prepay" && (averageShaped ? path === "cod" : deadlineTalk))) {
+          if (denied) continue;
+          if (week) return `delivery in weeks contradicts the configured ${codDaysMin}-${codDaysMax} days`;
+          const from = new RegExp(String.raw`\b(\d{1,2}|${Object.keys(DAY_WORDS).join("|")})\s+(?:a|e|ate)\s+$`).exec(before)?.[1];
+          const start = from == null ? days : (DAY_WORDS[from] ?? Number(from));
+          if (start < codDaysMin || days > codDaysMax)
+            return `delivery window of ${start === days ? days : `${start}-${days}`} days contradicts the configured ${codDaysMin}-${codDaysMax}`;
+          if (!prepaid) continue;
+        }
+        if (!prepaid && !(averageShaped && talksDelivery(sentence))) continue;
         if (avg == null) return "states a prepaid deadline, and none is configured";
-        if (Number(days) !== avg) {
+        // Denying a count faster than the average is the refusal; denying a week says it is faster.
+        if (denied && !week && days < avg) continue;
+        if (week || Number(days) !== avg) {
           return `prepaid average of ${days} days is not the configured ${avg}`;
         }
         if (!/\b(media|varia\w*|depende\w*|em\s+torno|cerca\s+de|aproximad\w*)\b/.test(sentence)) {
@@ -1118,121 +1437,24 @@ const gates: readonly Gate[] = [
        * that picked a single path from context rejected the correct half of it, which
        * meant the message the agent is told to write could never pass.
        */
-      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*dias/g)) {
+      for (const m of t.matchAll(/(\d{1,2})\s*(?:a|e|ate)\s*(\d{1,2})\s*(dias|semanas)/g)) {
         const at = m.index ?? 0;
-        const sentence =
-          t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
-        // When the sentence names BOTH paths, the range belongs to the one named closest
-        // before it (M-01, persona round 4, Cleide: "no pagamento na entrega você recebe em
-        // 1 a 3 dias, no antecipado o prazo varia…" was judged as prepay and vetoed three
-        // times → fallback) — but ONLY when the prepaid path gets its own window in the
-        // sentence (varia / média / região) and nothing equates or extends one path to the
-        // other. Second review, 2026-09-24: proximity alone let "no antecipado ou na entrega,
-        // chega em 1 a 3 dias" and "na entrega é 1 a 3 dias; no antecipado também" through —
-        // invented prepaid deadlines. Otherwise the old rule: any prepaid mention → prepaid.
-        const PREPAY = /\b(antecipa\w*|adianta\w*)\b/;
-        const prepayOwnWindow = /\b(?:antecipa\w*|adianta\w*)\b[^.!?\n]{0,40}\b(?:varia\w*|media|regiao)\b/.test(sentence);
-        // Any equating word in the sentence still counts, with one exemption (code review,
-        // 2026-09-24: "na entrega você também escolhe o dia e recebe em 1 a 3 dias, no
-        // antecipado o prazo varia por região" fell to the fallback): a "também escolhe /
-        // agenda / marca" before any mention of the prepaid path, in a clause that
-        // says "na entrega" and brings in no second option. Second review, twice: wider exemptions let "…, e pagando antes
-        // também chega em 1 a 3 dias" and "na entrega ou no boleto, chega em 1 a 3 dias"
-        // through — "ou", "igual", "mesmo" next to "na entrega" always tie in another path.
-        const EQ =
-          "(?:ou|tambem|igual\\w*|mesm\\w*|idem|que\\s+nem|tanto|quanto|como|mais\\s+rapido|em\\s+relacao|nao\\s+muda|sem\\s+esperar|nao\\s+precisa\\s+esperar|todo\\s+mundo|tod[oa]s?|toda\\s+cliente|qualquer|independente|os\\s+dois|as\\s+duas|ambos)";
-        // Every name for the prepaid path, for proximity: "pagando antes" or "no Pix" after
-        // "na entrega" is the prepaid range, not the delivery one (second review).
-        const PREPAY_NAME =
-          /\b(?:antecipa\w*|adianta\w*|pag\w*\s+(?:antes|agora)|antes|pix|cartao|credito|debito|boleto|transferencia|online|link|a\s+vista)\b/g;
-        const firstPrepay = sentence.search(PREPAY);
-        // The exemption holds only when the sentence ends at the prepaid window — nothing
-        // but punctuation after "no antecipado o prazo varia por região, em média 5 dias
-        // úteis" (an allowlist: 6th round found "…, nada muda" past a word blocklist). Anything else there ("…e chega junto", "…e no depósito 2 a 3 dias") was
-        // blocked by the "também" alone before, and would slip through (second review, 5th
-        // round: listing more words did not converge).
-        const endsAtPrepayWindow =
-          firstPrepay !== -1 &&
-          /^[\s.,;:!?]*$/.test(
-            sentence
-              .slice(firstPrepay)
-              .replace(PREPAY, "")
-              .replace(/,?\s*em\s+media\s+\d+\s+dias(?:\s+uteis)?/g, "")
-              .replace(/\bo\s+prazo\b|\bvaria\w*|\bpor\s+regiao\b/g, ""),
-          );
-        const equated = [...sentence.matchAll(new RegExp(`\\b${EQ}\\b`, "g"))].some((e) => {
-          const eAt = e.index ?? 0;
-          const clause =
-            sentence.slice(0, eAt).split(/[,;:]/).pop()! + sentence.slice(eAt).split(/[,;:]/)[0]!;
-          const exempt =
-            e[0] === "tambem" &&
-            /^tambem\s+(?:escolh|agend|marc)\w*/.test(sentence.slice(eAt)) &&
-            endsAtPrepayWindow &&
-            !/\b(?:e|ou)\b/.test(sentence.slice(0, eAt).split(/[,;:]/).pop()!) &&
-            firstPrepay !== -1 &&
-            eAt < firstPrepay &&
-            /\bna\s+entrega\b/.test(clause) &&
-            !/\b(?:e|ou)\s+(?:na|no|pagando|pelo|pela|de|a|o)\b|\boutr[oa]s?\b|\bopcao\b|\bforma\b|\bjeito\b|\bantes\b|\bpix\b|\bcartao\b|\bboleto\b|\bdois\b|\bduas\b|\bambos\b/.test(
-              clause,
-            );
-          return !exempt;
-        });
-        const head = t.slice(0, at).split(/[.!?\n]/).pop()!;
-        const lastAt = (re: RegExp): number => Math.max(-1, ...[...head.matchAll(re)].map((x) => x.index ?? -1));
-        const prepayAt = lastAt(PREPAY_NAME);
-        const codAt = lastAt(/\bna\s+entrega\b/g);
-        // M-06: proximity gives the range to the delivery only when what follows it, to the
-        // end of the sentence, is at most the prepaid window. Without "também" it still let
-        // "…na entrega são 1 a 3 dias, e no depósito 2 a 3 dias" and "…, no antecipado varia
-        // por região, nada muda" through — a prepaid name off the list, or a tie at the end.
-        // Same allowlist as `endsAtPrepayWindow`, plus the connectives that open that clause.
-        // Second review: "dias úteis" after the range, "pagamento antecipado", "já" /
-        // "enquanto" opening the clause and "conforme / de acordo com / depende da região"
-        // are the same window in the model's own words, and vetoing them cost honest turns.
-        // M-07: the same rule on both sides of the range, and the prepaid mention must carry
-        // its own window ("varia / depende / conforme / em média") — "…1 a 3 dias e no
-        // pagamento antecipado." reads as "the same range there". Before the range it is
-        // the stretch from the first prepaid mention to "na entrega": "No antecipado varia
-        // por região, e no pix e na entrega, 1 a 3 dias" shares the range with the Pix.
-        const onlyPrepayWindow = (s: string): boolean => {
-          if (!PREPAY.test(s)) return /^[\s.,;:!?()]*$/.test(s.replace(/^\s+uteis\b/, ""));
-          if (!/\b(?:varia\w*|depende\w*|conforme|de\s+acordo|media)\b/.test(s)) return false;
-          return /^[\s.,;:!?()]*$/.test(
-            s
-              .replace(/^\s+uteis\b/, "")
-              .replace(PREPAY, "")
-              // Every average shape the number rule below accepts — its number is checked
-              // there, so the window here only has to be a window.
-              .replace(/,?\s*(?:em\s+)?(?:media|torno|cerca|aproximadamente)\s+(?:de\s+)?\d{1,2}(?:[.,]\d)?\s*dias?(?:\s+uteis)?/g, "")
-              .replace(/\b(?:conforme|de\s+acordo\s+com|depende)\s+(?:d?[aeo]\s+)?(?:(?:sua|seu)\s+)?(?:regiao|cep)\b/g, "")
-              .replace(/\bo\s+prazo\b|\bvaria\w*(?:\s+bastante)?|\bpor\s+regiao\b|\b(?:e|mas|no|pagando|pagamento|ja|enquanto)\b/g, ""),
-          );
-        };
-        const tailIsPrepayWindow = onlyPrepayWindow(t.slice(at + m[0].length).split(/[.!?\n]/)[0]!);
-        const headPrepay = head.search(PREPAY);
-        const headIsPrepayWindow = headPrepay === -1 || onlyPrepayWindow(head.slice(headPrepay, codAt));
-        const byProximity =
-          PREPAY.test(sentence) && prepayOwnWindow && !equated && tailIsPrepayWindow && headIsPrepayWindow;
-        const named: "cod" | "prepay" | null =
-          byProximity && codAt > prepayAt
-            ? "cod"
-            : PREPAY.test(sentence)
-              ? "prepay"
-              : /\bna\s+entrega\b/.test(sentence)
-                ? "cod"
-                : null;
-        const path = named ?? ctx.paymentPath;
-        const [min_, max_] =
-          path === "cod"
-            ? [codDaysMin, codDaysMax]
-            : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
-
-        const min = Number(m[1]);
-        const max = Number(m[2]);
-        if (min_ == null || max_ == null)
-          return `states a range on the ${path} path, which has an average and not a range`;
-        if (min < min_ || max > max_)
-          return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_} on ${path}`;
+        // `pathOf` decides whose range this is, as it does for every count.
+        const found = pathOf(at, at + m[0].length);
+        const named = found.by === "name" || found.by === "after" || found.path === "prepay" ? found.path : null;
+        // M-08 review: a range in weeks is a range in days, 7 each.
+        const min = Number(m[1]) * (m[3] === "semanas" ? 7 : 1);
+        const max = Number(m[2]) * (m[3] === "semanas" ? 7 : 1);
+        for (const path of named === "both" ? (["cod", "prepay"] as const) : [named ?? ctx.paymentPath]) {
+          const [min_, max_] =
+            path === "cod"
+              ? [codDaysMin, codDaysMax]
+              : [ctx.config.delivery.prepayDaysMin, ctx.config.delivery.prepayDaysMax];
+          if (min_ == null || max_ == null)
+            return `states a range on the ${path} path, which has an average and not a range`;
+          if (min < min_ || max > max_)
+            return `delivery window ${min}-${max} days contradicts the configured ${min_}-${max_} on ${path}`;
+        }
       }
       return null;
     },

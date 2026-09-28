@@ -3,6 +3,9 @@ import {
   pickVariant,
   renderFollowup,
   onOrderConfirmed,
+  orderTakeOver,
+  reopensRefused,
+  rulerFor,
   scheduleOrder,
   scheduleSilence,
   decideTouch,
@@ -470,7 +473,7 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
   });
 
   it("fora da janela sem template aprovado, o toque não sai", () => {
-    const entrega = deliveryFor("silence_3", comTemplate({ config: { ...config, coupon: { ...config.coupon, active: true } } }), fora);
+    const entrega = deliveryFor("silence_3", comTemplate({ config: { ...config, coupon: { ...config.coupon, active: true } }, marketingOptIn: true }), fora);
     expect(entrega).toEqual({ via: "blocked", reason: "no_template" });
   });
 
@@ -485,11 +488,66 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
   });
 
   it("config sem a chave `channel` bloqueia todo toque fora da janela, e nenhum dentro", () => {
-    expect(deliveryFor("silence_2", render({ now: agora }), fora)).toEqual({
+    expect(deliveryFor("silence_2", render({ now: agora, marketingOptIn: true }), fora)).toEqual({
       via: "blocked",
       reason: "no_template",
     });
     expect(deliveryFor("silence_2", render({ now: agora }), dentro)).toMatchObject({ via: "text" });
+  });
+
+  // R15.1: `silence_2` e `silence_3` fora da janela são template MARKETING — só com opt-in.
+  it("marketing fora da janela sem opt-in não sai, mesmo com template aprovado", () => {
+    const ativo = { ...config, coupon: { ...config.coupon, active: true } };
+    const todos = {
+      ...ativo,
+      channel: { templates: { silence_2: { name: "s2", language: "pt_BR", variables: [] }, silence_3: { name: "s3", language: "pt_BR", variables: [] } } },
+    };
+    for (const kind of ["silence_2", "silence_3"] as const) {
+      expect(deliveryFor(kind, render({ now: agora, config: todos }), fora), kind).toEqual({ via: "blocked", reason: "no_opt_in" });
+      expect(deliveryFor(kind, render({ now: agora, config: todos, marketingOptIn: false }), fora), kind).toEqual({ via: "blocked", reason: "no_opt_in" });
+      expect(deliveryFor(kind, render({ now: agora, config: todos, marketingOptIn: true }), fora), kind).toMatchObject({ via: "template", name: kind === "silence_2" ? "s2" : "s3" });
+      // Dentro da janela é conversa que ela abriu: texto livre, sem depender de opt-in.
+      expect(deliveryFor(kind, render({ now: agora, config: todos }), dentro), kind).toMatchObject({ via: "text" });
+    }
+  });
+
+  it("toque UTILITY não depende de opt-in", () => {
+    expect(deliveryFor("order_eve", comTemplate({ size: "GG" }), fora)).toMatchObject({ via: "template", name: "encorpa_vespera" });
+  });
+
+  // 03-templates-meta.md §4: o template da véspera cobra "Deixa R$ X separado"; a quem já pagou,
+  // só o dela, ou nada.
+  it("véspera do antecipado fora da janela: o template dela, ou bloqueado — nunca o que cobra", () => {
+    expect(deliveryFor("order_eve", comTemplate({ size: "GG", prepaid: true }), fora)).toEqual({ via: "blocked", reason: "no_template" });
+    const pago = comTemplate({ size: "GG", prepaid: true });
+    const comPago = {
+      ...pago,
+      config: { ...pago.config, channel: { templates: { ...pago.config.channel!.templates, order_eve_pago: { name: "encorpa_vespera_entrega_pago", language: "pt_BR", variables: [] } } } },
+    };
+    expect(deliveryFor("order_eve", comPago, fora)).toEqual({
+      via: "template",
+      name: "encorpa_vespera_entrega_pago",
+      language: "pt_BR",
+      variables: [],
+      body: renderFollowup("order_eve", comPago),
+    });
+    expect(renderFollowup("order_eve", comPago)).not.toContain("separado");
+  });
+
+  // R15.2: fora da janela vai sempre a primeira variante, e o corpo é ela — é o que o gate lê.
+  it("silence_2 fora da janela é a primeira variante em todo lead; dentro, alterna como sempre", () => {
+    const corpos = new Set<string>();
+    const dentroCorpos = new Set<string>();
+    for (let i = 0; i < 20; i++) {
+      const c = comTemplate({ leadId: `lead-${i}`, marketingOptIn: true });
+      const d = deliveryFor("silence_2", c, fora);
+      if (d?.via !== "template") throw new Error(JSON.stringify(d));
+      corpos.add(d.body);
+      dentroCorpos.add((deliveryFor("silence_2", c, dentro) as { body: string }).body);
+    }
+    expect([...corpos]).toHaveLength(1);
+    expect([...corpos][0]).toMatch(/^Bom dia! 💛 Passando só pra dizer/);
+    expect(dentroCorpos.size).toBe(2);
   });
 });
 
@@ -546,6 +604,162 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
   });
 });
 
+/**
+ * Dois pedidos no mesmo lead (pendência do HANDOFF, 2026-09-26). O toque pós-pedido guarda o
+ * pedido que o armou (`followups.order_id`); a morte de um pedido não cala a entrega do outro.
+ * Linha sem pedido (anterior à migração 0017) segue a regra antiga: morre com qualquer pedido.
+ */
+describe("dois pedidos no mesmo lead", () => {
+  const orderedAt = new Date("2026-09-26T15:00:00Z");
+  const doPedidoA = [
+    { kind: "order_eve", status: "scheduled", orderId: "A" },
+    { kind: "order_delivered", status: "scheduled", orderId: "A" },
+    { kind: "silence_3", status: "scheduled", orderId: null },
+  ] as never;
+
+  it("o cancelamento do pedido B não cala a véspera do pedido A", () => {
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "B");
+    expect(efeito.cancel).toEqual(["silence_3"]);
+    expect(efeito.arm).toEqual([]);
+  });
+
+  it("o cancelamento do próprio pedido A cala os toques dele", () => {
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "A");
+    expect(efeito.cancel).toEqual(["order_eve", "order_delivered", "silence_3"]);
+  });
+
+  it("linha sem pedido guardado morre com qualquer pedido, como antes", () => {
+    const antigas = [{ kind: "order_eve", status: "scheduled", orderId: null }] as never;
+    expect(onOrderConfirmed(antigas, orderedAt, 1, "Cancelado", "B").cancel).toEqual(["order_eve"]);
+  });
+
+  it("sem o id do pedido que morreu, tudo morre, como antes", () => {
+    expect(onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado").cancel).toEqual([
+      "order_eve",
+      "order_delivered",
+      "silence_3",
+    ]);
+  });
+});
+
+/**
+ * Segunda revisão (2026-09-28), provada antes por execução da Edge Function contra um
+ * PostgREST falso. Duas falhas da régua de silêncio e duas do pós-pedido com dois pedidos.
+ */
+describe("régua reancorada recomeça no toque adiado", () => {
+  const reabertura = new Date("2026-09-29T09:00:00Z"); // 06:00 em São Paulo
+  const kinds = (postponed?: Parameters<typeof rulerFor>[2]) =>
+    rulerFor(reabertura, "after_price", postponed).map((f) => f.kind);
+
+  it("silence_2 adiado não rearma o silence_1 que já saiu", () => {
+    expect(kinds("silence_2")).toEqual(["silence_2", "silence_3"]);
+  });
+  it("silence_3 adiado não rearma o silence_1 nem o silence_2", () => {
+    expect(kinds("silence_3")).toEqual(["silence_3"]);
+  });
+  it("silence_1 adiado e régua nova seguem inteiras", () => {
+    expect(kinds("silence_1")).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(kinds()).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+});
+
+describe("o lembrete de 15 min só no turno que mandou o link", () => {
+  const agora = new Date("2026-09-28T15:00:00Z");
+  it("o turno depois do link segue em link_sent, sem lembrete novo", () => {
+    const regua = rulerFor(agora, "link_sent", undefined, false);
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+  });
+  it("o turno que mandou o link arma o lembrete aos 15 minutos", () => {
+    const [primeiro] = rulerFor(agora, "link_sent", undefined, true);
+    expect(primeiro).toEqual({ kind: "checkout_reminder", runAt: new Date(agora.getTime() + 15 * 60_000) });
+  });
+  it("reancorada, a régua ignora o link desta resposta: só o lembrete adiado volta", () => {
+    expect(rulerFor(agora, "link_sent", "silence_1", true).map((f) => f.kind)[0]).toBe("silence_1");
+    expect(rulerFor(agora, "link_sent", "checkout_reminder", false).map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+});
+
+describe("dois pedidos: o vivo herda os toques do morto", () => {
+  const h = 3_600_000;
+  const criadoA = new Date("2026-09-28T15:00:00Z");
+  const criadoB = new Date("2026-09-28T16:00:00Z");
+  const agora = new Date("2026-09-28T17:00:00Z");
+  const dosA = (status: "scheduled" | "canceled" | "sent" = "scheduled"): ExistingFollowup[] =>
+    (["order_confirmed", "order_shipped", "order_eve", "order_delivered"] as const).map((kind) => ({
+      kind,
+      status: kind === "order_confirmed" ? "sent" : status,
+      orderId: "A",
+    }));
+
+  it("A e B criados, A cancelado: véspera e entrega passam para B, nas datas de B", () => {
+    const r = orderTakeOver(
+      dosA(),
+      { id: "A", status: "Cancelado", orderedAt: criadoA },
+      [{ id: "B", status: "created", orderedAt: criadoB }],
+      agora,
+      1,
+    );
+    expect(r?.orderId).toBe("B");
+    expect(r?.arm).toEqual([
+      { kind: "order_shipped", runAt: new Date(criadoB.getTime() + 24 * h) },
+      { kind: "order_eve", runAt: new Date(criadoB.getTime() + 30 * h) },
+      { kind: "order_delivered", runAt: new Date(criadoB.getTime() + 48 * h) },
+    ]);
+  });
+  it("o que já saiu não muda de pedido, e hora que já passou não sai atrasada", () => {
+    const r = orderTakeOver(
+      dosA(),
+      { id: "A", status: "Cancelado", orderedAt: criadoA },
+      [{ id: "B", status: "created", orderedAt: criadoB }],
+      new Date(criadoB.getTime() + 25 * h),
+      1,
+    );
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
+  });
+  it("A cancelado antes, B criado depois: B toma as linhas canceladas de A", () => {
+    const r = orderTakeOver(
+      dosA("canceled"),
+      { id: "B", status: "created", orderedAt: agora },
+      [{ id: "A", status: "Cancelado", orderedAt: criadoA }],
+      agora,
+      1,
+    );
+    expect(r?.orderId).toBe("B");
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+  });
+  it("webhook atrasado do MESMO pedido cancelado não traz os toques dele de volta", () => {
+    expect(
+      orderTakeOver(dosA("canceled"), { id: "A", status: "Enviado", orderedAt: criadoA }, [], agora, 1),
+    ).toBeNull();
+  });
+  it("sem pedido vivo, ninguém herda; pedido vivo dono das linhas, nada muda", () => {
+    expect(
+      orderTakeOver(dosA(), { id: "A", status: "Cancelado", orderedAt: criadoA }, [{ id: "B", status: "Cancelado", orderedAt: criadoB }], agora, 1),
+    ).toBeNull();
+    expect(
+      orderTakeOver(dosA(), { id: "B", status: "Cancelado", orderedAt: criadoB }, [{ id: "A", status: "created", orderedAt: criadoA }], agora, 1),
+    ).toBeNull();
+  });
+  it("linha sem pedido guardado (antes da 0017) não muda de dono", () => {
+    const antigas: ExistingFollowup[] = [{ kind: "order_eve", status: "canceled", orderId: null }];
+    expect(
+      orderTakeOver(antigas, { id: "B", status: "created", orderedAt: agora }, [{ id: "A", status: "Cancelado", orderedAt: criadoA }], agora, 1),
+    ).toBeNull();
+  });
+});
+
+describe("recusado reabre com uma venda nova", () => {
+  it.each([
+    ["created", ["Cancelado"], true],
+    ["Entregue", ["Recusado na entrega"], true],
+    ["Enviado", [], false],
+    ["Cancelado", ["Cancelado"], false],
+    ["Entregue", ["Entregue"], false],
+  ] as const)("«%s» com os outros %j → %s", (status, outros, esperado) => {
+    expect(reopensRefused(status, outros)).toBe(esperado);
+  });
+});
+
 // A Edge Function roda em UTC: entre 21h e 23h59 de São Paulo o servidor já está no
 // dia seguinte. Instantes UTC explícitos, para o teste quebrar onde o bug mora.
 describe("dia da semana do terceiro toque — o de São Paulo, não o do servidor", () => {
@@ -563,6 +777,7 @@ describe("dia da semana do terceiro toque — o de São Paulo, não o do servido
           },
         },
       },
+      marketingOptIn: true,
     });
   const fora = (now: Date) => new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000);
 
@@ -583,5 +798,81 @@ describe("dia da semana do terceiro toque — o de São Paulo, não o do servido
       via: "template",
       variables: ["Sexta"],
     });
+  });
+});
+
+/**
+ * Toda variante de todo toque, pela cadeia inteira, com o contexto que a varredura monta
+ * (index.ts: layer "agent", paymentPath do pedido ou da escolha fresca, units,
+ * orderAmountBrl do pedido, stage "logistics" nos order_* e "presale" nos demais). Um veto
+ * de reescrita aqui é um toque que decideTouch CANCELA em silêncio — foi assim que o
+ * silence_1 "…esperando um dia bom" morreu no caminho antecipado (M-08, revisão de integração).
+ * deferred_reply fica de fora: o corpo é o texto do modelo, já julgado no turno.
+ */
+describe("todo toque da régua passa pelos gates, em toda variante", () => {
+  const kinds = [
+    "checkout_reminder",
+    "silence_1",
+    "silence_2",
+    "silence_3",
+    "order_confirmed",
+    "order_shipped",
+    "order_eve",
+    "order_delivered",
+  ] as const;
+  const leadIds = ["a", "b", "c", "d", "e", "f", "g", "h", "lead-abc", "lead-1"];
+  // Os sete dias da semana, às 10h de São Paulo — o silence_3 escreve o dia.
+  const nows = Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2026, 8, 7 + i, 13)));
+  const casos: { rotulo: string; texto: string; ctx: ReturnType<typeof gateCtx> }[] = [];
+  for (const kind of kinds)
+    for (const stopPoint of ["before_size", "after_price", "link_sent"] as const)
+      for (const paymentPath of ["cod", "prepay"] as const)
+        for (const units of [1, 2])
+          for (const prepaid of [false, true])
+            for (const active of [false, true])
+              for (const leadId of leadIds)
+                for (const now of kind === "silence_3" ? nows : [nows[3]!]) {
+                  const order = kind.startsWith("order_");
+                  // Fora do pós-pedido não há pedido: prepaid só existe com ele.
+                  if (!order && prepaid) continue;
+                  const amountBrl = units > 1 ? 233.82 : undefined;
+                  const texto = renderFollowup(kind, {
+                    leadId,
+                    config: { ...config, coupon: { ...config.coupon, active } },
+                    stopPoint,
+                    now,
+                    size: units > 1 ? "M,G" : "M",
+                    address: "Rua das Flores, 10",
+                    units,
+                    prepaid,
+                    ...(order && amountBrl ? { amountBrl } : {}),
+                  });
+                  if (texto === null) continue;
+                  casos.push({
+                    rotulo: [kind, stopPoint, paymentPath, "u" + units, prepaid ? "pago" : "na-entrega", leadId].join("/"),
+                    texto,
+                    ctx: gateCtx({
+                      config: { ...config, coupon: { ...config.coupon, active } },
+                      now,
+                      paymentPath: order ? (prepaid ? "prepay" : "cod") : paymentPath,
+                      units,
+                      ...(order && amountBrl ? { orderAmountBrl: amountBrl } : {}),
+                      stage: order ? "logistics" : "presale",
+                    }),
+                  });
+                }
+
+  it("cobre as duas variantes sorteadas de cada toque que sorteia", () => {
+    for (const [kind, n] of [["checkout_reminder", 2], ["silence_1", 6], ["silence_2", 2]] as const)
+      expect(new Set(casos.filter((c) => c.rotulo.startsWith(kind + "/")).map((c) => c.texto)).size).toBe(n);
+  });
+
+  it("zero vetos, em qualquer caminho", () => {
+    const vetos = casos.flatMap((c) =>
+      runGates(c.texto, c.ctx)
+        .traces.filter((t) => t.verdict === "block")
+        .map((t) => c.rotulo + ": " + t.gate + " — " + t.detail),
+    );
+    expect([...new Set(vetos)]).toEqual([]);
   });
 });

@@ -54,3 +54,75 @@ No antecipado varia, em média 2 dias corridos.
 Você tem 7 dias para trocar se não servir.
 O prazo de troca é de 7 dias.
 Levando 2 peças o desconto sobe para 10%: R$ 233,82 na entrega.
+# M-10, found by the independent review of M-08 (2026-09-27)
+Na entrega chega de uma a duas semanas.
+Na entrega chega em uma a duas semanas.
+Na entrega chega em até 2 semanas.
+Na entrega chega em uma semana.
+Na entrega chega em 1 a 3 dias, no máximo uma semana.
+Na entrega chega em 5 dias.
+Na entrega chega em dez dias.
+Pagou no pix? São 7 dias contados da data que recebermos.
+Pagou no pix? Chega em 2 dias.
+Na entrega chega em 2 dias.
+A entrega leva de um a três dias e é agendada, quem escolhe o dia é você no checkout.
+# M-10, independent review (2026-09-27): a denied prepaid name does not name the prepaid path
+Nada de pix. Chega em 1 a 3 dias.
+Sem pix, chega em 1 a 3 dias.
+Não precisa de pix, chega em 1 a 3 dias.
+Sem Pix e sem cartão, a entrega chega em 1 a 3 dias.
+Pix não precisa. Chega em 1 a 3 dias.
+Nada de pix. Chega em 5 dias, depende da região.
+Pix não! Chega em 5 dias, depende da região.
+Sem pix? Chega em 5 dias, varia um pouco.
+Não precisa antecipar. Chega em 5 dias, varia.
+Não quer pagar no pix? Chega em 2 dias.
+Te mando o link e chega em 1 a 3 dias.
+Você paga em dinheiro ou cartão e recebe em 1 a 3 dias.
+# Reestruturação do delivery_promise, auditoria adversarial (2026-09-28)
+Não, na entrega não demora uma semana: chega em 1 a 3 dias.
+Na entrega não chega em 5 dias, chega em 1 a 3 dias.
+Na entrega não é 5 dias, é de 1 a 3 dias.
+Na entrega chega em até 3 dias, nunca 5 dias.
+Na entrega não leva 10 dias não, é de 1 a 3 dias.
+Não demora, chega em 5 dias
+Na entrega não passa de 5 dias, geralmente 1 a 3 dias.
+Você tem 7 dias pra trocar ou devolver, e no antecipado o prazo varia por região, em média 5 dias úteis.
+A troca é grátis em até 7 dias; no pix chega em média 5 dias úteis, varia por região.
+Sem pix, em 5 dias o colete é seu.
+Nada de pix: em 5 dias ele tá com você.
+Não precisa pagar antes, Em até 4 dias o colete é seu.
+Se devolver, o reembolso cai em até 5 dias úteis na sua conta.
+Se precisar devolver, o dinheiro volta em até 10 dias.
+Pelo CDC você tem 7 dias pra desistir e 90 dias de garantia contra defeito.
+A promoção vale só por 5 dias.
+O link fica válido por 2 dias.
+Nos primeiros 3 dias usa só umas horas, depois o dia todo.
+Com uns 2 dias de uso você se acostuma.
+Usa ele por 2 dias e me conta o que achou.
+Nos primeiros 2 dias pode apertar um pouco, é normal.
+Te chamo daqui a 2 dias pra saber o que achou.
+Tem cliente que usa há 30 dias e ama.
+Você escolhe um dos próximos 3 dias, recebe em casa e paga R$ 129,90 na mão do entregador.
+Usa ele uns 15 dias em casa e depois me conta como ficou.
+É 2 dias.
+Em uma semana você já veste.
+Você tem 7 dias pra trocar e eu te ajudo logo.
+Você tem 7 dias pra trocar, sem burocracia e sem perder tempo.
+Você tem 7 dias pra trocar, e eu fico aqui contigo.
+São 7 dias pra trocar, mesmo tamanho ou outro.
+Pagamento na entrega, 7 dias pra trocar e suporte todo dia.
+Você tem 7 dias pra trocar e logo tá aí.
+São 7 dias pra trocar, e é o mesmo tempo.
+Nada de pix demorado: chega em 2 dias.
+Sem boleto demorado, chega em 2 dias.
+Nada de pix que demora, chega em 2 dias.
+Sem antecipado demorado, em média 2 dias úteis.
+Chega em 2 dias no pix.
+Chega em 5 dias na entrega.
+Vai ser na entrega? Chega em média 5 dias úteis.
+No pix ou na entrega, chega em 1 a 3 dias.
+Nada de pix, nada de cartão: você recebe em 1 a 3 dias e paga na porta.
+O entregador leva 2 dias.
+No pix, o entregador leva 2 dias.
+Na entrega ou no pix, em média 5 dias úteis.

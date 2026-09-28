@@ -1,6 +1,16 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { stageForOrder } from "@/agent/followups.js";
+import {
+  endsSilenceRuler,
+  inSilenceRuler,
+  onOrderConfirmed,
+  orderStatusAfter,
+  rulerFor,
+  scheduleSilence,
+  stageForLead,
+  stageForOrder,
+} from "@/agent/followups.js";
+import { linkSentRecently } from "@/agent/interpret.js";
 
 /**
  * Plano v2, item 5.8: o webhook de venda recebia o status do pedido e não tocava
@@ -41,5 +51,302 @@ describe("5.8: o status do pedido vira estágio do funil", () => {
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(source).toContain("persistStage(conversation.id, (conversation.stage as Stage | null) ?? \"novo\", reached)");
     expect(source).toContain("conversations?lead_id=eq.${lead.id}&select=id,stage&order=created_at.desc&limit=1");
+  });
+});
+
+/**
+ * `perdido` (decisão do operador, 2026-09-26, opção a): a conversa vira `perdido` quando o
+ * último toque da régua de silêncio sai da fila — enviado ou cancelado — sem pedido. Se ela
+ * voltar, `furthest` devolve o estágio que o turno alcançar. Pedido criado nunca vira
+ * `perdido` (a régua de silêncio é cancelada na venda, e `furthest` recusa a aresta).
+ */
+describe("7.4: a régua de silêncio termina em perdido", () => {
+  it("só o último toque da régua fecha a conversa", () => {
+    const now = new Date("2026-09-26T12:00:00Z");
+    for (const stopPoint of [undefined, "link_sent"] as const) {
+      const ruler = scheduleSilence(now, stopPoint);
+      const last = ruler.reduce((a, b) => (b.runAt > a.runAt ? b : a));
+      expect(ruler.filter((f) => endsSilenceRuler(f.kind)).map((f) => f.kind)).toEqual([last.kind]);
+    }
+  });
+
+  it.each(["silence_1", "silence_2", "checkout_reminder", "deferred_reply", "retry_turn", "order_confirmed"])(
+    "%s não fecha a conversa",
+    (kind) => {
+      expect(endsSilenceRuler(kind)).toBe(false);
+    },
+  );
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+  const leaveAt = sweep.indexOf("const leave = async");
+  const leaveDef = sweep.slice(leaveAt, sweep.indexOf("\n    };", leaveAt));
+  const afterLeave = sweep.slice(leaveAt + leaveDef.length);
+
+  it("toda saída da fila depois de `leave` passa por ela — inclusive o toque que renderiza vazio", () => {
+    // O silence_3 renderiza null com o cupom inativo (a configuração de hoje): esse ramo é o
+    // único que a produção exercita, e foi o que a primeira versão esqueceu.
+    expect(afterLeave).not.toContain("await mark(");
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(3);
+    expect(afterLeave).toContain('if (!(await leave("sent"))) {');
+    const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
+    expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
+    expect(nullBranch.slice(0, nullBranch.indexOf("return;"))).toContain('await leave("canceled");');
+  });
+
+  it("só marca perdido a linha que esta varredura fechou, pela regra de não regredir", () => {
+    expect(source).toContain("conversations(id,lead_id,stage,last_inbound_at,");
+    expect(sweep).toContain("&select=id,kind,run_at,");
+    expect(sweep).toContain("followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}");
+    expect(leaveDef).toContain("const ours = Array.isArray(closed) && closed.length > 0;");
+    expect(leaveDef).toContain("if (endsSilenceRuler(kind) && ours) {");
+    expect(leaveDef).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
+  });
+
+  it("o toque é fechado antes de ser gravado e enviado; se ela respondeu, não sai", () => {
+    const claim = afterLeave.indexOf('if (!(await leave("sent"))) {');
+    const skip = afterLeave.indexOf("return;", claim);
+    expect(claim).toBeGreaterThan(-1);
+    expect(skip).toBeGreaterThan(claim);
+    expect(afterLeave.indexOf('await db("messages"')).toBeGreaterThan(skip);
+    expect(afterLeave.indexOf("toSend.push(")).toBeGreaterThan(skip);
+  });
+
+  it("a nova tentativa de turno só roda se a varredura fechou a linha", () => {
+    const retry = sweep.slice(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"), leaveAt);
+    const claim = retry.indexOf('const claimed = await mark("sent");');
+    expect(claim).toBeGreaterThan(-1);
+    expect(retry.indexOf("claimed.length === 0")).toBeGreaterThan(claim);
+    expect(retry.indexOf("await handleTurn(")).toBeGreaterThan(retry.indexOf("claimed.length === 0"));
+  });
+});
+
+describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("recordOrder arma com o id do pedido gravado e cancela só os toques dele", () => {
+    expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
+    expect(source).toContain("order_id: orderRowId ?? null,");
+    expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
+    expect(source).toContain("    status,\n    orderRowId,\n  );");
+  });
+  it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
+    expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
+  });
+  it("a migração é aditiva e nula", () => {
+    const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
+    expect(sql).toContain("add column if not exists order_id uuid references public.orders(id) on delete set null");
+    expect(sql).not.toMatch(/not null/i);
+  });
+});
+
+describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () => {
+  it("pedido morto com outro pedido vivo não move o estágio", () => {
+    expect(stageForLead("Cancelado", ["Em rota de entrega"])).toBeNull();
+    expect(stageForLead("Cancelado", ["Entregue"])).toBeNull();
+  });
+  it("pedido morto sem outro vivo recusa, como antes", () => {
+    expect(stageForLead("Cancelado", [])).toBe("recusado");
+    expect(stageForLead("Cancelado", ["Devolvido"])).toBe("recusado");
+  });
+  it("pedido vivo segue stageForOrder, com ou sem outros", () => {
+    expect(stageForLead("Entregue", ["Cancelado"])).toBe("entregue_pago");
+    expect(stageForLead("Enviado", [])).toBe("em_rota");
+    expect(stageForLead("Não entregue", ["Agendado"])).toBeNull();
+  });
+  it("recordOrder lê os outros pedidos do lead antes de gravar o estágio", () => {
+    const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc");
+    expect(source).toContain("const reached = stageForLead(status, otherStatuses);");
+  });
+});
+
+/**
+ * §R10.4 ligado de verdade (operador, 2026-09-26): o lembrete de 15 minutos depois do link
+ * nunca era agendado — `scheduleSilenceTouches` chamava `scheduleSilence(from)` sem o ponto
+ * de parada. Ligá-lo exige que a resposta dela e a venda o cancelem como cancelam o silêncio,
+ * ou ele perguntaria "conseguiu finalizar?" a quem acabou de comprar.
+ */
+describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
+    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({");
+    expect(source).toContain("            opening,\n            kind,\n          );");
+  });
+  it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
+    expect(source).toContain('${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}');
+    expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
+  });
+  it("link_sent só quando o texto leva um dos links de checkout", () => {
+    expect(source).toContain('if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return "link_sent";');
+    expect(source).not.toContain('t.includes("checkout") || t.includes("link")');
+  });
+  it("a venda cancela o lembrete de checkout", () => {
+    const quando = new Date("2026-09-26T15:00:00Z");
+    const efeito = onOrderConfirmed(
+      [
+        { kind: "checkout_reminder", status: "scheduled" },
+        { kind: "silence_1", status: "scheduled" },
+      ] as never,
+      quando,
+      1,
+    );
+    expect(efeito.cancel).toEqual(["checkout_reminder", "silence_1"]);
+  });
+  it.each([
+    ["checkout_reminder", true],
+    ["silence_1", true],
+    ["silence_3", true],
+    ["order_eve", false],
+    ["deferred_reply", false],
+    ["retry_turn", false],
+  ])("%s é da régua de silêncio: %s", (kind, expected) => {
+    expect(inSilenceRuler(kind)).toBe(expected);
+  });
+});
+
+describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link que não saiu", () => {
+  const link = "https://entrega.logzz.com.br/pay/ccm-1-unidade";
+  const bases = [link, "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0", ""];
+  // A mesma regra do M-03, sobre uma mensagem só (sétima revisão: nada de segundo helper).
+  const sentCheckoutLink = (texto: string, b: readonly string[]) => linkSentRecently([texto], b);
+  // Link mandado às 23:40 em São Paulo: o lembrete sai 23:55; o silence_1 (00:10) é adiado.
+  const reabertura = new Date("2026-09-27T09:00:00Z");
+
+  it("reancorada pelo silence_1 adiado, a régua não rearma o lembrete que já saiu", () => {
+    expect(rulerFor(reabertura, "link_sent", "silence_1").map((f) => f.kind)).toEqual([
+      "silence_1",
+      "silence_2",
+      "silence_3",
+    ]);
+  });
+  it("reancorada pelo próprio lembrete adiado, ele volta", () => {
+    expect(rulerFor(reabertura, "link_sent", "checkout_reminder").map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+  it("régua nova, depois de a agente falar com o link, arma o lembrete", () => {
+    expect(rulerFor(reabertura, "link_sent", undefined, true).map((f) => f.kind)[0]).toBe("checkout_reminder");
+  });
+
+  it("o texto com o link de checkout (com parâmetros) é link enviado", () => {
+    expect(sentCheckoutLink(`Aqui está: ${link}?cpf=123&nome=Maria`, bases)).toBe(true);
+  });
+  it.each([
+    "Quer que eu te mande o link pra pagar antecipado?",
+    "Ainda não te mandei o link, me confirma o tamanho?",
+    "O link não chegou? Me avisa.",
+    "Posso te mandar o checkout agora?",
+    "Nosso site é https://encorpa-fashion.com.br",
+  ])("«%s» não é link enviado", (texto) => {
+    expect(sentCheckoutLink(texto, bases)).toBe(false);
+  });
+  it("base vazia ou ausente nunca casa", () => {
+    expect(sentCheckoutLink("qualquer texto", [""])).toBe(false);
+  });
+});
+
+/**
+ * Revisão final de segurança (2026-09-27). O toque pós-pedido lê o pedido pelo `order_id` da
+ * linha; sem o `lead_id`, uma colisão de `external_id` (o upsert sobrescreve `lead_id`) faria a
+ * cliente A ouvir o valor, as peças e o tamanho do pedido da cliente B. E um `externalId`
+ * gigante estourava a URL da segunda leitura depois do upsert já gravado.
+ */
+describe("revisão de segurança: o pedido do toque é da própria cliente", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("a leitura por order_id também filtra o lead", () => {
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
+  });
+  it("externalId longo demais é recusado antes de gravar", () => {
+    const guard = source.indexOf("order.externalId.length > MAX_EXTERNAL_ID");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(source.indexOf('await db("orders?on_conflict=external_id"'));
+  });
+});
+
+/**
+ * Segunda revisão (2026-09-28), achados fora do gate. Cada um reproduzido antes por execução
+ * da Edge Function contra um PostgREST falso; aqui fica a ordem que o conserto exige, no
+ * arquivo que a produção roda. O comportamento das decisões puras está em followups.test.ts.
+ */
+describe("segunda revisão: varredura e webhook de venda", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("o ponto de parada lê a janela M-03; o lembrete, só a resposta que levou o link", () => {
+    expect(source).toContain(
+      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n  );",
+    );
+    expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),');
+    expect(sweep).toContain("stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES)");
+  });
+
+  it("o adiamento só reancora a linha que esta varredura leu", () => {
+    const postpone = sweep.slice(sweep.indexOf('if (action.do === "postpone") {'));
+    const owned = postpone.indexOf("if (!Array.isArray(moved) || moved.length === 0) {");
+    expect(postpone).toContain("`followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}`,");
+    expect(owned).toBeGreaterThan(-1);
+    expect(postpone.indexOf("await scheduleSilenceTouches(")).toBeGreaterThan(owned);
+  });
+
+  it("a nova tentativa fora da janela só vira handoff se a varredura fechou a linha", () => {
+    const retry = sweep.slice(sweep.indexOf("if (!windowIsOpen(new Date(), retryInbound)) {"));
+    const owned = retry.indexOf("if (!Array.isArray(closed) || closed.length === 0) {");
+    expect(retry).toContain('const closed = await mark("canceled");');
+    expect(owned).toBeGreaterThan(-1);
+    expect(retry.indexOf("handoff_at: new Date().toISOString()")).toBeGreaterThan(owned);
+  });
+
+  it("uma linha que lança não derruba a varredura", () => {
+    expect(sweep).toContain("await sweepRow(row).catch((error) => {");
+    expect(sweep).not.toMatch(/^ {4}continue;$/m);
+  });
+
+  it("externalId malformado é recusado antes de gravar", () => {
+    const guard = source.indexOf("if (!order.externalId.isWellFormed()) return { status: \"external_id_malformed\", ok: false };");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(source.indexOf('await db("orders?on_conflict=external_id"'));
+  });
+
+  it("recusado reabre só pela venda nova, e os toques do morto passam ao vivo sem tocar o que saiu", () => {
+    expect(source).toContain('if (reached && conversation.stage === "recusado" && reopensRefused(status, otherStatuses)) {');
+    expect(source).toContain("await db(`conversations?id=eq.${conversation.id}&stage=eq.recusado`, {");
+    expect(source).toContain("await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {");
+  });
+});
+
+/**
+ * Terceira revisão (2026-09-28): `orders` era gravado último-que-chega-vence, e um "created"
+ * ou "Enviado" atrasado depois do "Cancelado" ressuscitava o pedido. O irmão vivo via um
+ * pedido vivo onde havia um morto: régua pós-pedido inteira num cancelado, ou o pedido real
+ * sem régua e o lead preso em recusado. Reproduzido pela Edge Function contra um PostgREST
+ * falso, nas 24 ordens de chegada de dois pedidos.
+ */
+describe("terceira revisão: pedido morto não ressuscita por webhook atrasado", () => {
+  it("status vivo atrasado não sobrescreve um morto do mesmo pedido", () => {
+    expect(orderStatusAfter("Cancelado", "created")).toBe("Cancelado");
+    expect(orderStatusAfter("Cancelado", "Aprovado / Enviado")).toBe("Cancelado");
+    expect(orderStatusAfter("Devolvido", "Entregue")).toBe("Devolvido");
+  });
+  it("o resto segue o webhook: primeiro status, avanço, e morte de um vivo", () => {
+    expect(orderStatusAfter(undefined, "created")).toBe("created");
+    expect(orderStatusAfter(null, "Cancelado")).toBe("Cancelado");
+    expect(orderStatusAfter("created", "Aprovado / Enviado")).toBe("Aprovado / Enviado");
+    expect(orderStatusAfter("Aprovado / Enviado", "Cancelado")).toBe("Cancelado");
+    expect(orderStatusAfter("Cancelado", "Recusado na entrega")).toBe("Recusado na entrega");
+  });
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const record = source.slice(source.indexOf("const recordOrder"), source.indexOf("const RETRY_TURN_KIND"));
+  it("o status gravado e toda decisão leem o status efetivo, lido antes do upsert", () => {
+    const read = record.indexOf("orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status");
+    expect(read).toBeGreaterThan(-1);
+    expect(read).toBeLessThan(record.indexOf('await db("orders?on_conflict=external_id"'));
+    expect(record).toContain('const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");');
+    expect(record).not.toContain("order.status,");
+    expect(record).not.toContain("status: order.status");
+    expect(record).toContain("{ id: orderRowId, status, orderedAt },");
+  });
+  it("created_at do pedido é a data do pedido, que o takeover usa para os outros", () => {
+    expect(record).toContain("{ created_at: orderedOn.toISOString() }");
+    expect(record).toContain("orderedAt: new Date(o.created_at)");
   });
 });

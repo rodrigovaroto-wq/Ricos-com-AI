@@ -1655,6 +1655,23 @@ antecipado — a conta de unidade econômica que usava a taxa da Coinzz fica des
 alguém refazê-la com a taxa do Mercado Pago. Mapa do funil no Miro atualizado no mesmo dia
 ("Funil de Vendas com Agente de IA", quadros 1 a 8).
 
+**Margem refeita (2026-09-25):** com Pix 0,99% + R$ 1,00 e cartão à vista 4,98% (taxas do
+operador), mix 50/50, o antecipado rende **R$ 57,94 / 116,16 / 149,17** (1/2/3 peças), contra
+R$ 52,35 / 109,01 / 145,12 da média do COD com 15% de recusa — era R$ 51,27 / 105,84 /
+136,25 com a Coinzz. O antecipado passa a render mais que o COD nas três quantidades; mix
+70/30 de 1 peça sobe para R$ 54,03. **Três premissas não confirmadas** mudam o resultado: se
+o antifraude de R$ 2,49 continua (folga cai para +3,10 / +4,66 / +1,55), o mix Pix/cartão e,
+sobretudo, a taxa do **parcelado** se os juros forem absorvidos pela operação (no kit de 3,
+acima de 7,94% no cartão a vantagem some). Nenhum preço ou desconto mudou. Conta e
+sensibilidade:
+[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md) (caixa de
+2026-09-25). Grafo: §14.
+
+**Decisão do operador (2026-09-26):** o antifraude de R$ 2,49 **não é mais cobrado** (P1
+confirmado — vale R$ 57,94 / 116,16 / 149,17) e **preços e descontos ficam como estão**: o
+ganho do Mercado Pago vira margem. Segue em aberto só a taxa do parcelado e quem paga os
+juros (P4), que pode zerar a folga do kit de 3.
+
 ## R14.16 — O canal do WhatsApp fica pronto e desligado (2026-09-25, noite)
 
 Decisão do operador: Meta Ads, Business Manager, o app de developer, o número e os templates

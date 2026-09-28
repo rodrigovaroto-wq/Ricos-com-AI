@@ -11,6 +11,151 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
+## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-28, noite)
+
+**PR #37** (`claude/focused-gates-fjpixt`), já com o `main` do **PR #38** mergeado (`1475088`).
+CI verde até `6d838b2`. Nada da `turn` publicado (no ar: v41).
+
+### Feito nesta sessão (depois da terceira revisão cética)
+- `6d838b2` — pedido morto é terminal (webhook atrasado não ressuscita pedido cancelado);
+  itens do #38: véspera do antecipado pelo template `order_eve_pago`, `silence_2` 1ª variante
+  fora da janela, **opt-in ligado atrás da flag `channel.askMarketingOptIn`** (ausente =
+  desligado), `reply.id` no selo. Grafo §27.
+- `24d8ad3` — n8n "Turno" repassa `reply` (sem isso todo toque de botão dá 401 com o selo);
+  erro 131050 e `user_preferences` stop gravam `marketing_opt_in_declined_at`.
+- **Migrações 0018 (views de avaliação) e 0019 (colunas de opt-in) APLICADAS em produção**
+  (2026-09-28; conferido: 5 views `security_invoker=true`, 6 colunas em `leads`).
+
+### Tarefa 1 — terminar o PR #37
+1. **Gate (se não estiver commitado):** um implementador estava consertando as regressões contra
+   o `main` achadas pela terceira revisão — mentira "Sem pix, em 5 dias você tem o colete"
+   (antecipado negado sem palavra de chegada), honestas vetadas ("7 dias pra devolver, e a
+   entrega leva de 1 a 3 dias"; "pelo link"/"online" como nome do antecipado; recusa em frase
+   separada; garantia+média com "tá?"; estorno), pior caso de desempenho (13 s a 16 mil
+   caracteres) e os furos de `classifyOptOut` (it.fails do #38). Se houver mudança sem commit
+   em `guardrails.ts`, rodar a bateria inteira antes de commitar; se não houver, refazer a
+   partir dos achados do grafo §27/§22 (regra: diagnóstico da causa antes do conserto).
+2. **Mutações a acrescentar em `src/dev/verify-guards.ts`** (entregues prontas pelos
+   implementadores; ids): PEDIDO-morto-ressuscita, PEDIDO-grava-status-do-webhook,
+   PEDIDO-data-da-chegada, TPL-antecipado-cobra, TPL-segunda-variante,
+   OPTIN-marketing-sem-consentimento, OPTIN-gate-le-outra-variante, OPTIN-flag-ausente-liga,
+   OPTIN-selo-sem-toque, OPTIN-turno-ignora-toque-no-selo, OPTIN-suspensao-sem-flag,
+   WA-selo-reply-n8n, WA-selo-reply-resume, WA-131050, WA-prefs-stop, WA-131050-digitos —
+   reescrever cada uma lendo o código (from/to exatos) e rodar `pnpm verificar:guardas` inteiro.
+3. CI verde → **O** faz merge.
+
+### Depois do merge (ordem obrigatória)
+1. **O importa no n8n:** `turno-da-agente.json` (com `reply`), `relogio-da-regua.json` (ramo de
+   erro, do #38) e `whatsapp-envio.json` (botões, do #38). Depois `pnpm dev:n8n` tem de passar.
+   (Não feito pelo Claude nesta sessão por limite de créditos.)
+2. **O publica a `turn`** (0017/0018/0019 já aplicadas) e a `whatsapp`, com a flag de opt-in
+   ainda desligada. **C** sonda a varredura pela porta do n8n.
+3. Só então `channel.askMarketingOptIn: true` no secret; depois da aprovação da Meta,
+   `order_eve_pago` em `channel.templates`. Sócio: assinar o webhook `user_preferences`.
+
+### Obrigatório antes de leads reais (já existia no `main`, achado pela revisão por execução)
+- Quem escreve **depois de comprar** volta a receber a régua de silêncio (cupom, "que tamanho
+  você usa?"): `scheduleSilenceTouches` ao fim de todo turno não olha estágio/pedido
+  (`index.ts`, fim do turno e resposta adiada); a varredura também não confere.
+- A **véspera sai depois de "Entregue"**: `onOrderConfirmed` só cancela silêncio; a véspera usa
+  orderedAt+30h e ignora `scheduled_for`.
+- Estágio: `furthest` deixa `em_rota`/`endereco_coletado` quando o "Cancelado" chega primeiro.
+
+### Pipeline até anúncios e leads reais (dono: C = Claude, O = operador, S = sócio)
+- **Fase 0 — fechar o código:** terceira revisão (acima) → corrigir o que ela achar → **O pede o
+  PR** → C leva o CI ao verde (primeira vez no CI) → merge.
+- **Fase 1 — publicar e provar:** O põe ramo de erro com e-mail no nó "Varre a regua" (n8n) →
+  O publica a `turn` (0017 já aplicada) → C faz a sonda da varredura pela porta do n8n (fechamento
+  pela `run_at`, `perdido`, lembrete de checkout, dois pedidos) e a sonda de turno (recepção,
+  preços/prazos dos dois caminhos, nunca frete grátis).
+- **Fase 2 — pedido dos dois lados:** pedido sintético COD (Logzz) e antecipado (Coinzz), webhooks
+  de cada status, estágio até `entregue_pago`; O confirma o primeiro kit real (`order_quantity`
+  2/3) e a taxa do parcelado do Mercado Pago.
+- **Fase 3 — personas:** as 12 pela porta do n8n contra o que está no ar.
+- **Fase 4 — canal:** S entrega app/número/token/webhook e templates aprovados; O grava segredos
+  (`INBOUND_SIGNING_SECRET`, `TURN_REQUIRE_SERVICE_ROLE`), publica `whatsapp`, cria a credencial no
+  n8n; C põe `PHONE_NUMBER_ID` e `channel.templates`, teste template ↔ `renderFollowup`, opt-in de
+  marketing, e por último `CANAL_ATIVO=true` (`docs/operacao/whatsapp-cloud-api.md`).
+- **Fase 5 — ensaio:** O troca `CONVERSATION_MODEL` para o modelo sem `-contributor` (LGPD); as 12
+  personas pelo WhatsApp de verdade; um pedido real pago na porta de ponta a ponta; **aquecer o
+  número** (item mais longo — começar já, se não começou).
+- **Fase 6 — anúncios:** C: atribuição CTWA (`leads.source`), views de avaliação; O: piso de
+  amostra escrito antes de olhar número; S: tráfego mínimo só nas 22 praças com COD; C:
+  acompanhamento diário (`turn_outcomes`, handoffs, custo, `perdido`).
+- **Fase 7 — depois do tráfego:** Hermes com dado real, Conversions API, cupom (sem ele o
+  `silence_3` fica mudo), O-02, apps da Coinzz.
+
+## ▶ Estado em 2026-09-27 (histórico)
+
+**Branch `claude/focused-gates-fjpixt`, à frente do `main`, sem PR** (o operador pede o PR). No
+ar continua a `turn` **v41** — nada desta sessão foi publicado. CI só roda em PR: até lá,
+`pnpm verificar:guardas` inteiro é a única prova das mutações.
+
+### Tarefa 1 — revisão final: FEITA (2026-09-27), grafo §20
+Quatro revisores Opus independentes (correção, integração, segurança, testes) sobre
+`main...claude/focused-gates-fjpixt`. Resultado final: **aprovado com ressalvas** — nenhuma
+mentira de prazo que o `main` vete passa no branch, nos dois caminhos.
+- Achados corrigidos: A1 (o gate cancelava em silêncio o `silence_1` "…esperando um dia bom"
+  no antecipado); duas regressões de negação no COD ("No pix não precisa esperar, chega em 2
+  dias", "Nem no pix demora"); o toque pós-pedido lia o pedido sem filtrar a cliente;
+  `externalId` sem limite; `verificar:guardas` misturava árvore e HEAD (causa da instabilidade)
+  e contava timeout como "pegou" — agora preso a um commit limpo.
+- Provado na PostgREST real (só leitura): o filtro `or=(kind.like.silence_*,…)` e a igualdade
+  no `run_at` que a própria API devolve.
+- Verde em `378e3d0`: lint, typecheck, build, 4336 testes, 1640 conversas, `typecheck:function`,
+  `dev:gates` (só os 6 afrouxamentos honestos aceitos), `verificar:guardas` **113/113**, e os
+  workflows ativos do n8n idênticos ao repositório.
+
+### Próximos passos, nesta ordem
+1. **PR para o `main`** quando o operador pedir (o CI só roda em PR — é a primeira vez que o
+   branch passa por ele).
+2. **Antes de publicar (operador, no n8n):** pôr um ramo de erro com e-mail no nó "Varre a
+   regua" do workflow "Relógio da régua" — hoje ele não tem `onError` nem workflow de erro, e uma
+   varredura que falha (ex.: coluna ausente, erro de banco) não avisa ninguém (segunda revisão,
+   2026-09-28).
+3. **Publicar a `turn`** (operador, Codespace; a 0017 já está aplicada). Depois, **sonda da
+   varredura pela porta do n8n** — é a prova de produção do fechamento pela `run_at`, do
+   `perdido` e do lembrete de checkout (os testes de `index.ts` são textuais).
+   **Correção de 2026-09-28:** o aviso anterior ("todo lead vira `perdido` de uma vez") estava
+   errado. Produção tem **0 linhas em `followups`** (consulta de leitura em 28/09), e a v41 já
+   cancela os `silence_3` vencidos; os `perdido` aparecem um a um, conforme a régua de cada
+   conversa termina.
+4. Gate, ressalvas da conferência final (§20): "uma semana, no máximo", "numa semana você já
+   está com ele", "daqui (a) uma semana…" passam no antecipado (o `main` também deixava).
+5. Testes que faltam (revisão de testes): extrair para `followups.ts` a decisão "linha fechada
+   é nossa" e o filtro de `cancelScheduled`; `stageForLead` com pedido pendente (`""`).
+6. Ativação do WhatsApp (sócio), taxa do parcelado, caso "A recusado sozinho, depois B entregue"
+   (§16), "fora do conserto" do §19, O-02, apps da Coinzz, primeiro pedido real de kit.
+
+### O que esta sessão fez (2026-09-26/27), tudo no branch, nada publicado
+- **Margem do antecipado com o Mercado Pago** (R14.15): antecipado rende mais que o COD nas 3
+  quantidades; preços mantidos pelo operador; antifraude não é mais cobrado. Falta: taxa do
+  parcelado e quem paga os juros.
+- **`perdido`** escrito pela varredura quando o `silence_3` sai da fila sem venda (§15);
+  toque fechado **antes** de gravar/enviar (sem "sumiu?" depois da resposta dela).
+- **Dois pedidos no mesmo lead** (§16): `followups.order_id` (migração 0017), cancelamento só
+  dos toques do pedido morto, `stageForLead` (um cancelado não recusa o lead com outro vivo).
+- **Lembrete de checkout de 15 min (§R10.4) armado de verdade** (§17) — nunca tinha sido;
+  cancela na resposta e na venda; sem duplicata no reancoramento; só com link real no texto.
+- **M-08** (§18): prazo do antecipado por extenso — nove revisões, **aprovado com ressalvas**;
+  ônus da garantia invertido (governo positivo). 6 honestas aceitas em
+  `tests/gate-loosen-accepted.txt`.
+- **M-10** (§19): prazo por extenso/avulso no caminho da entrega e caminho nomeado na frase
+  anterior — **aprovado com ressalvas**; a negação no cabeçalho foi a última correção.
+- Ferramenta de mutação aceita `also` (duas camadas guardando o mesmo bug).
+- **Último commit da sessão (negação do nome do antecipado, ressalva 1 da M-10) SEM revisão
+  independente:** `prepaidNamed`/`headerPath` aplicados também à regra de número e à checagem
+  de faixa, mais o conserto de um `PREPAY_NAME` local que sombreava o externo. A revisão da
+  Tarefa 1 começa por ele (sondar negativas que não negam e afrouxamentos contra o merge-base).
+
+### Depois da revisão, nesta ordem
+1. Publicar a `turn` (operador, Codespace) — leva §15–§19. Sonda pela porta do n8n.
+2. Ativação do WhatsApp (sócio: valores; ver `docs/operacao/whatsapp-cloud-api.md`).
+3. Pendências: taxa do parcelado; caso "pedido A recusado sozinho, depois B entregue" fica em
+   `recusado` (§16, decisão do operador); "fora do conserto" do §19; O-02; apps da Coinzz;
+   primeiro pedido real de kit.
+
+## ▶ Estado em 2026-09-25, fim da noite (histórico)
 ## ▶ Branch `claude/upbeat-newton-6l6dzz` (2026-09-28) — para a sessão do PR #37
 
 Trabalho feito **em paralelo com o PR #37**, a partir do `main` `9222dc6`, sem tocar nenhum
@@ -85,7 +230,11 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
 
 ### Próximos passos, nesta ordem (decisão do operador)
 
-1. **(b) Margem do antecipado com o Mercado Pago** (R14.15). O antecipado da Coinzz passou a
+1. **(b) Margem do antecipado com o Mercado Pago** (R14.15) — **refeita em 2026-09-25**
+   (Pix 0,99% + R$ 1,00, cartão à vista 4,98%, mix 50/50): antecipado R$ 57,94 / 116,16 /
+   149,17 contra COD R$ 52,35 / 109,01 / 145,12 (1/2/3 peças); grafo §14. **Fechado em
+   2026-09-26:** antifraude não é cobrado; preços e descontos mantidos. Só falta a taxa do
+   parcelado e quem paga os juros (pode zerar a folga do kit de 3). Texto original do passo: O antecipado da Coinzz passou a
    ser processado pelo Mercado Pago, com taxa menor; a conta de unidade econômica ainda usa
    a taxa antiga. Fonte: [`docs/documentacao/contexto-negocio/06-modelo-economico.md`](docs/documentacao/contexto-negocio/06-modelo-economico.md),
    [`docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](docs/documentacao/decisoes/04-frete-e-desconto-do-antecipado.md)
@@ -94,7 +243,16 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
    margem de 1 peça e dos kits de 2 e 3 no antecipado; despachar o `pricing-guardian` (Opus)
    com análise de sensibilidade. Se a margem permitir mudar desconto ou preço, é decisão do
    operador — nada muda no `BUSINESS_CONFIG` sem ele.
-2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`).** O funil para em
+0. **Migração `0017_followup_order.sql`: aplicada** (conferido em `list_migrations`, versão
+   20260926005415, na revisão final de 2026-09-27) — a varredura da `turn` do repositório
+   depende dela (grafo §16). A `turn` do repositório agora
+   também leva o `perdido` (§15), o toque fechado antes do envio e o lembrete de checkout
+   de 15 minutos ligado de verdade (§17).
+2. **(a) Estágios `em_rota`, `entregue_pago`, `recusado` (e `perdido`)** — **fechado em
+   2026-09-26 no repositório (não deployado)**: os três primeiros já eram escritos desde a
+   v38 e o operador confirmou que Logzz e Coinzz disparam o webhook a cada status; `perdido`
+   passou a ser escrito pela varredura quando o `silence_3` sai da fila sem venda (opção a do
+   operador; grafo §15). Sobe no próximo deploy da `turn`. Texto original do passo: O funil para em
    `pedido_criado`. Já existe `stageForOrder` (`src/agent/followups.ts`), usado ao gravar a
    venda (`recordOrder` em `supabase/functions/turn/index.ts`) — **primeiro confirmar** se a
    Logzz e a Coinzz mandam webhook a cada mudança de status (o workflow "Venda confirmada"
@@ -111,7 +269,7 @@ O Claude não publica nem mexe em credencial nesta máquina; o operador roda no 
 4. **Templates da Meta aprovados** → `channel.templates` no `BUSINESS_CONFIG` (colar o config
    inteiro). Até lá, toque fora da janela é cancelado e chega por e-mail.
 5. **Demais pendências**, em seguida: primeiro pedido real de kit (confirmar
-   `order_quantity` 2/3); dois pedidos no mesmo lead (guardar `order_id` no follow-up);
+   `order_quantity` 2/3); ~~dois pedidos no mesmo lead~~ (feito em 26/09, grafo §16, 0017 aplicada);
    M-08; apps da Coinzz; checkout no domínio da marca (O-02); ressalvas aceitas do WhatsApp
    (dois turnos simultâneos da mesma cliente, mensagem perdida com o n8n fora do ar).
 

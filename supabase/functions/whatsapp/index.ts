@@ -20,11 +20,15 @@
  * - The read receipt with "digitando…" goes from HERE, the one place that knows the message
  *   really came from Meta (second review: in n8n it fired on any POST to the public door).
  *
+ * - A structured marketing refusal (error 131050, or `stop` in WhatsApp's settings) is written
+ *   to `leads.marketing_opt_in_declined_at` here, with the consent cleared (PR #38 item 5).
+ *
  * Secrets: WHATSAPP_APP_SECRET, WHATSAPP_VERIFY_TOKEN, INBOUND_SIGNING_SECRET; optional:
  * WHATSAPP_PHONE_NUMBER_ID (only that number's messages, and needed for the receipt),
- * WHATSAPP_TOKEN (the receipt; absent = no receipt), N8N_INBOUND_URL.
+ * WHATSAPP_TOKEN (the receipt; absent = no receipt), N8N_INBOUND_URL. SUPABASE_URL and
+ * SUPABASE_SERVICE_ROLE_KEY are injected by the platform.
  */
-import { deliveryErrors, parseWebhook, readAndTyping, verifyChallenge, verifySignature } from "./whatsapp.ts";
+import { deliveryErrors, marketingDeclines, parseWebhook, readAndTyping, verifyChallenge, verifySignature } from "./whatsapp.ts";
 import { sealInbound } from "./inbound-signature.ts";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
@@ -34,6 +38,8 @@ const VERIFY_TOKEN = Deno.env.get("WHATSAPP_VERIFY_TOKEN") ?? "";
 const SIGNING_SECRET = Deno.env.get("INBOUND_SIGNING_SECRET") ?? "";
 const PHONE_NUMBER_ID = Deno.env.get("WHATSAPP_PHONE_NUMBER_ID") ?? "";
 const TOKEN = Deno.env.get("WHATSAPP_TOKEN") ?? "";
+const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
+const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const INBOUND_URL = Deno.env.get("N8N_INBOUND_URL") ?? "https://encorpa-fashion.pikapod.net/webhook/encorpa-inbound";
 /** Meta's payloads are a few KB; anything this big is not Meta, and is refused unread. */
 const MAX_BODY_BYTES = 256 * 1024;
@@ -44,12 +50,32 @@ const MAX_BODY_BYTES = 256 * 1024;
 const FORWARD_TIMEOUT_MS = 140_000;
 
 /**
+ * Her refusal is final (0019): only a lead not yet declined is touched, so the first refusal's
+ * time stays. `phone` is the unique index. Never throws, and logs no phone — Meta already has
+ * its 200 and the messages still go to n8n.
+ */
+const declineMarketing = async (phone: string) => {
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/leads?phone=eq.${encodeURIComponent(phone)}&marketing_opt_in_declined_at=is.null`, {
+      method: "PATCH",
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({ marketing_opt_in_declined_at: new Date().toISOString(), marketing_opt_in_at: null }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!res.ok) console.error(`whatsapp: recusa de marketing não gravada HTTP ${res.status}`);
+  } catch (error) {
+    console.error(`whatsapp: recusa de marketing falhou: ${error instanceof Error ? error.name : "erro"}`);
+  }
+};
+
+/**
  * Every message of one POST at once — in series, the later ones would outlive the function
  * and vanish. Two messages of hers usually arrive as two POSTs anyway. A failure is logged
  * by message id only (never the phone or the text), since Meta already has its 200.
  */
 const forward = async (payload: unknown) => {
   for (const e of deliveryErrors(payload, PHONE_NUMBER_ID)) console.error(`whatsapp: entrega falhou ${e.id} código ${e.code}`);
+  const declines = Promise.all(marketingDeclines(payload, PHONE_NUMBER_ID).map(declineMarketing));
   await Promise.all(
     parseWebhook(payload, PHONE_NUMBER_ID).map(async (message) => {
       if (TOKEN && PHONE_NUMBER_ID) {
@@ -76,6 +102,7 @@ const forward = async (payload: unknown) => {
       }
     }),
   );
+  await declines;
 };
 
 /**

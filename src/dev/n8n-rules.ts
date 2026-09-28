@@ -97,6 +97,11 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
       const body = String(n.parameters?.jsonBody ?? "");
       if (/JSON\.stringify\(\s*\$json\.body\s*\)|\.\.\.\s*\$\(\s*'Mensagem recebida'\s*\)\.first\(\)\.json\.body/.test(body))
         problems.push(`${wf.name} › ${n.name}: forwards the public webhook's body whole to the turn`);
+      // The turn checks the inbound seal over these fields (inbound-signature.ts); one left
+      // out of the body and every sealed message it applies to is refused 401 — `reply`
+      // since 6d838b2, which was every button tap (2026-09-28).
+      for (const field of ["externalId", "from", "body", "sentAt", "signature", "reply"])
+        if (!new RegExp(`\\b${field}:`).test(body)) problems.push(`${wf.name} › ${n.name}: does not forward sealed field ${field}`);
     }
   }
   if (inbound) {

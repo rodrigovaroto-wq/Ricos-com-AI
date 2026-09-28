@@ -225,6 +225,429 @@ flowchart TD
   S --> G1 --> C1 --> R1 --> C2 --> R2 --> C3 --> R3 --> C4 --> R4 --> C5 --> OFF --> GD
 ```
 
+## 14. Margem do antecipado com o Mercado Pago (R14.15)
+
+```mermaid
+flowchart TD
+  S["🟥 06-modelo-economico dizia antecipado R$ 51,27 ≈ COD R$ 52,35<br/>com a taxa da Coinzz (6,99% + R$ 2,49), que deixou de valer"]
+  K["causa: R14.15 trocou o processador; a conta de margem<br/>não lê o config, então nada ficou vermelho"]
+  A1["🟧 atalho: 'o MP é mais barato, sobra margem → aumentar o desconto'"]
+  F1["🟥 a folga depende de premissas não confirmadas:<br/>antifraude R$ 2,49 continua? mix Pix/cartão? juros do 12x com quem?<br/>no kit de 3, 100% cartão à vista (4,98%) já fica abaixo do COD"]
+  C1["🟩 conta refeita com premissas marcadas (P1–P5):<br/>R$ 57,94 / 116,16 / 149,17 vs COD 52,35 / 109,01 / 145,12<br/>+ sensibilidade: mix, antifraude, parcelado, recusa de empate"]
+  D["preço e desconto não mudam: opções vão ao operador;<br/>nenhuma é aplicada antes de P1 e P4 confirmados"]
+  G["🛡️ sem teste: conta de margem é doc. Mudança de preço passa por<br/>BUSINESS_CONFIG + tests/prompt.test.ts + pnpm dev:gates, nos dois caminhos"]
+  S --> K --> A1 --> F1 --> C1 --> D --> G
+```
+
+**Fechado em 2026-09-26:** P1 confirmado (antifraude não é cobrado) e o operador manteve
+preços e descontos.
+
+**Resíduo:** o número vale enquanto P4 (parcelado) não for confirmado
+no painel do Mercado Pago/Coinzz. Trocou taxa, processador ou mix, refaça a tabela da caixa
+de 2026-09-25 em [`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).
+
+## 15. `perdido` sem dono (plano v2, 7.4)
+
+```mermaid
+flowchart TD
+  S["🟥 o funil não tinha fim sem compra: a régua de silêncio terminava<br/>e a conversa ficava para sempre no último estágio vivo"]
+  K["causa: ninguém escrevia perdido; em_rota / entregue_pago / recusado<br/>já eram escritos desde a v38 (stageForOrder no webhook de venda)"]
+  A1["🟧 1ª versão: markLost só depois de 'sent' e dos dois 'canceled' do gate e da janela"]
+  F1["🟥 revisão Opus: com o cupom inativo (produção hoje) o silence_3 renderiza null<br/>e sai pelo ramo vazio — o único caminho real ficava sem perdido;<br/>o teste contava chamadas e passou verde"]
+  F2["🟥 corrida: turno re-arma a mesma linha (conversation_id, kind) enquanto a varredura<br/>segura a antiga; mark sem condição fechava a nova e gravaria perdido numa conversa viva"]
+  C1["🟩 decisão do operador (a): silence_3 saiu da fila, por qualquer motivo, sem venda → perdido.<br/>toda saída depois de const kind passa por leave; mark só fecha a linha<br/>com status scheduled e o run_at lido; perdido só se a linha voltou"]
+  G["🛡️ tests/order-stage.test.ts: nenhum mark() cru depois de leave, 4 saídas,<br/>ramo vazio coberto; mutação 7.4 reinstala o ramo vazio sem leave"]
+  S --> K --> A1 --> F1 --> C1
+  A1 --> F2 --> C1
+  C1 --> G
+```
+
+Ela volta sozinha: `furthest(perdido, x)` devolve o estágio que o próximo turno alcança.
+Opt-out e handoff saem antes e não marcam; toque adiado não saiu da fila.
+
+**Limites conhecidos:**
+- **Venda que o webhook não casou** (`unknown_lead`, `ambiguous_phone`) deixa a régua viva.
+  Três dias depois a conversa vira `perdido` sobre uma compra real. Isso se corrige sozinho
+  se o webhook chegar depois (`furthest(perdido, pedido_criado)`).
+- **Envio depois da resposta dela:** fechado em 2026-09-26, na segunda revisão. O toque só
+  é gravado e enviado depois que a varredura fecha a linha. Se a cliente respondeu no
+  intervalo, a linha já foi reagendada pelo turno dela e o toque velho não sai. A nova
+  tentativa de turno segue a mesma regra. O custo é que o envio passa a ser no máximo uma
+  vez: uma falha depois de fechar a linha perde um toque, em vez de enviar dois.
+- **Sem conversa sintética:** não há conversa sintética de ponta a ponta; o teste lê a
+  estrutura da varredura, que roda só no Deno.
+
+## 16. Dois pedidos no mesmo lead
+
+```mermaid
+flowchart TD
+  S["🟥 o toque pós-pedido lia o ÚLTIMO pedido do lead: com dois pedidos,<br/>a véspera do pedido A falava do total e dos tamanhos do pedido B"]
+  S2["🟥 o cancelamento do pedido B cancelava todo toque agendado,<br/>inclusive a véspera e a entrega do pedido A, que segue de pé"]
+  K["causa: followups não sabia qual pedido o armou"]
+  C1["🟩 migração 0017: followups.order_id (nula, on delete set null).<br/>recordOrder arma com o id da linha gravada; a varredura lê o pedido do toque;<br/>onOrderConfirmed com pedido morto cancela só silêncio + toques daquele pedido"]
+  G["🛡️ tests/followups.test.ts 'dois pedidos no mesmo lead';<br/>tests/order-stage.test.ts; mutação dois-pedidos"]
+  S --> K
+  S2 --> K
+  K --> C1 --> G
+```
+
+**Ordem de deploy:** aplicar a 0017 **antes** de publicar a `turn`. A varredura seleciona
+`order_id`, e sem a coluna o PostgREST recusa a leitura: nenhum toque sai.
+
+**Limites conhecidos:**
+- **O segundo pedido não ganha régua própria**, porque `unique (conversation_id, kind)` já
+  está ocupado pelos toques do primeiro. Mudar isso é mudar a chave da tabela, e fica fora
+  deste passo.
+- **Estágio por lead (revisão Opus, corrigido no mesmo dia):** o cancelamento do pedido B
+  gravava `recusado`, que é terminal, enquanto o pedido A estava em rota. Quando A era
+  entregue, a venda continuava contando como recusa. Agora `stageForLead` só grava
+  `recusado` se nenhum outro pedido do lead estiver vivo. Continua em aberto o caso de
+  ordem inversa: um pedido A recusado sozinho e, depois, um pedido B novo e entregue. A
+  conversa fica em `recusado`, porque o estágio terminal não reabre.
+  "Vivo" quer dizer "não morto" (`isOrderDead`). Um Pix expirado ou parado em "aguardando
+  pagamento" conta como vivo e impede o `recusado` de outro pedido. O erro vai para o lado
+  seguro: um estágio não terminal. Incluir `expir` em `isOrderDead` quando o vocabulário real
+  das plataformas for conhecido.
+- **Linha armada antes da 0017** tem `order_id` nulo e segue a regra antiga: lê o último
+  pedido e morre com qualquer pedido cancelado.
+
+## 17. O lembrete de 15 minutos depois do link nunca foi agendado (§R10.4)
+
+```mermaid
+flowchart TD
+  S["🟥 §R10.4 decidido e testado na função pura, mas nenhuma conversa em produção<br/>recebeu o lembrete de checkout de 15 minutos"]
+  K["causa: scheduleSilenceTouches chamava scheduleSilence(from) sem o stopPoint;<br/>o teste provava scheduleSilence(now, 'link_sent'), que a produção não chamava"]
+  A1["🟧 atalho: só passar o stopPoint"]
+  F1["🟥 a resposta dela (cancelScheduled) e a venda (onOrderConfirmed) só cancelavam silence_*:<br/>o lembrete perguntaria 'conseguiu finalizar?' a quem acabou de comprar"]
+  C1["🟩 operador disse sim (2026-09-26): stopPoint passado; inSilenceRuler<br/>(silence_* + checkout_reminder) usado na venda e no adiamento;<br/>cancelScheduled filtra os dois"]
+  G["🛡️ tests/order-stage.test.ts §R10.4; mutações R10.4-armado, -resposta, -venda"]
+  S --> K --> A1 --> F1 --> C1 --> G
+```
+
+**Sexta revisão (NEEDS WORK, corrigida no mesmo dia):**
+- **Lembrete duplicado:** com o link mandado às 23:40, o lembrete sai às 23:55. O
+  `silence_1` era adiado para as 06:00 e reancorava a régua inteira, e o upsert reativava
+  o lembrete que já tinha saído. Agora `rulerFor` só rearma o lembrete quando o toque
+  adiado é o próprio lembrete, e o cancelamento do reancoramento não toca nele.
+- **Lembrete de link que não saiu:** `stopPointOf` armava `link_sent` pela palavra
+  "link" ou "checkout", que aparecem também em oferta e negação ("quer que eu te mande o
+  link?"). Agora só conta se o texto leva um dos links de checkout, pela mesma função do
+  M-03 (`linkSentRecently`), com os testes de negação. A sétima revisão pegou uma primeira
+  versão com um segundo helper igual; a lista de links agora é montada uma vez só, em
+  `CHECKOUT_BASES`.
+- **Guardas:** mutações R10.4-duplicado e R10.4-palavra-link.
+
+Achado pela revisão Opus de 2026-09-26 (terceira passada do §15), fora do diff que ela
+revisava. **Lição:** um teste da função pura não prova que a produção chama a função com
+esse argumento.
+
+## 18. M-08: prazo do antecipado por extenso
+
+```mermaid
+flowchart TD
+  S["🟥 três prazos do antecipado passavam o gate: 'um dia só', 'chega em uma semana',<br/>'em 2 dias ele está aí na sua casa'"]
+  K["causa: a regra por número (M-07) não lia um/uma nem semanas, e no antecipado<br/>sem caminho nomeado só julgava se a oração tivesse verbo de DELIVERY_TALK"]
+  A1["🟧 atalho: pôr 'está aí', 'é seu', 'na sua mão' na lista de verbos"]
+  F1["🟥 a M-07 já mostrou em seis revisões: lista de formas vaza"]
+  C1["🟩 um/uma/num/numa = 1 (exceto 'um dia marcado/agendado/especial/de festa');<br/>semana = 7 corridos, nunca a média (dias úteis), pode ser a garantia;<br/>no antecipado a contagem é prazo, SALVO oração de uso (de uso, acostum, adapt) sem entrega"]
+  G["🛡️ change-registry M-08, fuzz com 6600 mentiras + 75 chegadas sem verbo;<br/>mutações M-08 e M-08-chegada; dev:gates 0 afrouxamentos, 26 endurecimentos"]
+  S --> K --> A1 --> F1 --> C1 --> G
+```
+
+**Primeira revisão independente (NEEDS WORK, corrigida no mesmo dia):**
+- **Faixa em semanas:** "1 a 2 semanas" escapava nos dois caminhos, porque o fim da faixa
+  ia para uma checagem que só lia dias.
+- **Âncora da garantia:** o backtracking em `(?:receb|cheg)\w*` derrotava o lookahead. Com
+  isso, "tem uma semana pra trocar depois que chega em uma semana" era isentada como
+  garantia.
+- **Isenção de uso:** valia para a oração inteira, e "em 3 dias ele está aí pra você se
+  adaptar" passava. Agora só isenta quando o uso governa a contagem.
+- **Arrependimento:** "7 dias pra desistir, a contar do dia que receber" era vetada, e
+  agora passa.
+- **Guardas:** cada família tem gerador de fuzz, e há as mutações M-08-semanas, -ancora e
+  -uso. Contra o `main`, 0 afrouxamentos.
+
+**Segunda revisão (NEEDS WORK, corrigida no mesmo dia):**
+- **Âncora com enchimento:** a âncora nova "a contar do dia que" e o `desist` abriram
+  "tem 7 dias pra desistir quando chegar aí em 7 dias". O lookahead só protegia a contagem
+  colada no verbo. Agora a âncora não sai quando o verbo dela tem uma contagem na mesma
+  oração.
+- **Troca ao lado de chegada sem verbo:** "pode trocar: em 7 dias ele está aí" passava
+  (desde a M-07), e o "que é quando ele chega" era apagado como âncora. Agora os dois são
+  barrados.
+- **Guardas:** mutações M-08-enchimento, -troca-chegada e -que-e-quando. A M-08-ancora foi
+  reescrita, porque a versão antiga deixou de reinstalar o bug.
+- **Aceito em `gate-loosen-accepted.txt`:** "No pix você tem 7 dias pra desistir, a contar
+  do dia que receber." É a frase honesta do arrependimento (CDC), e a base a vetava.
+
+**Terceira revisão (NEEDS WORK, sem afrouxamento):** os consertos da segunda tinham sido
+de sintoma, por lista de preposições, e os irmãos passavam: "em uns/cerca de/no prazo de 7
+dias", "e em 7 dias ele está aí", "7 dias, bem quando ele chega". Agora a correção é pela
+oração:
+- **Contagem e âncora:** uma contagem na mesma oração do verbo da âncora é complemento
+  dele, e a âncora fica. O único corte é "(você) tem/terá/são/é" logo antes da contagem.
+- **Oração nova:** uma conjunção colada à contagem abre oração nova, e aí a troca não
+  isenta mais.
+- **Âncora depois da contagem:** só é retirada se estiver colada à contagem.
+- **Dois-pontos:** ":" não abre oração quando vem seguido de "você tem".
+- **Guardas:** 11 mutações da M-08.
+
+**Quarta revisão (NEEDS WORK, sem afrouxamento) → ônus invertido:** depois de quatro
+rodadas fechando formas enquanto os irmãos seguiam abertos, veio a mentira mais grave com o
+pix nomeado: "o prazo até quando chegar é de 7 dias". O desenho foi invertido. A contagem
+da garantia só é isenta quando uma forma de garantia a governa **positivamente**:
+- **Propósito colado:** "7 dias pra trocar".
+- **Palavra de troca tomando a contagem:** "a troca é em 7 dias", "pode trocar em até 7
+  dias".
+- **Depois da contagem, só o permitido:** "corridos/úteis", o propósito, uma âncora de
+  início ou uma oração que não fala de chegada.
+
+Saíram oito regexes (`anchor`, `anchorAfter`, `glued`, `newClause`…) e mais quatro variáveis
+de apoio. **Lição:** numa isenção, liste o que prova a exceção, não o que a desmente.
+
+**Quinta revisão (APROVADO COM RESSALVAS):** nenhuma mentira de chegada passa. As ressalvas
+eram falsos positivos em frases honestas, e foram corrigidas no mesmo dia:
+- **Falas do roteiro:** a fala para a objeção do antecipado ("7 dias pra trocar ou devolver
+  contando do dia que receber", `02-script-do-agente.md:252`) era vetada. Agora passa.
+- **Troca de tamanho:** "7 dias pra trocar de tamanho" era vetada. Agora passa.
+- **Chegada por extenso:** "e ele está com você" e "o colete é seu" passaram a ser julgadas
+  como chegada.
+- **Aceitos:** as quatro frases do roteiro e da base que a base vetava.
+- **Risco aceito:** depois de ";" só verbo de entrega e presença são julgados. É isso que
+  deixa passar a frase inteira do roteiro, e "Pode trocar em 7 dias; que é o tempo da
+  viagem." também passaria.
+
+**Sexta revisão (NEEDS WORK, com afrouxamento real):** os dois caminhos novos da quinta
+abriram brechas. O caso "são/o prazo é de N depois que recebermos" isentava prazo sem
+palavra de troca: "No pix, são 7 dias depois que recebermos" passava nos dois caminhos. E o
+texto depois de ";" não era julgado, então "No pix você tem 7 dias pra trocar; a entrega
+também." passava. Os consertos:
+- **Isenção sem troca:** só vale com "você tem/terá" e com ela recebendo
+  (`receb(er|e|eu|a)`).
+- **Depois de ";":** é julgado como o resto da frase. Só sai a locução do roteiro "do
+  pedido até a entrega".
+- **Guardas:** geradores de fuzz para os dois caminhos e mutações M-08-recebermos e
+  M-08-ponto-e-virgula.
+- **Aceito:** a fala inteira do roteiro (`:252`).
+- **Fora da M-08, família da M-10:** "Pagou no pix? São 7 dias…" passa no caminho da
+  entrega, porque o nome do caminho está na frase anterior.
+
+**Sétima revisão (NEEDS WORK, com afrouxamento real):** a locução do roteiro "do pedido até
+a entrega" era retirada em qualquer lugar, e com isso "No pix, você tem 7 dias pra trocar do
+pedido até a entrega" passava nos dois caminhos. Os consertos:
+- **Locução:** agora só sai com o sujeito do roteiro ("eu fico aqui… com você do pedido até
+  a entrega").
+- **"Prazo":** "o prazo pra trocar é de 7 dias" voltou a passar.
+- **Presença:** "tá aqui com você" passou a ser vetada.
+- **Guardas:** mutações M-08-locucao e M-08-prazo-de-troca. Ao todo, 16 mutações na M-08.
+
+**Oitava revisão (NEEDS WORK, um achado):** tirar o `!prazo` fez "a troca é fácil, e o
+prazo é 7 dias" voltar a passar, porque uma troca solta em outra oração tomava a contagem.
+Os consertos:
+- **Troca governando:** agora a troca só toma a contagem quando a governa ("o prazo pra
+  trocar é de", "pra trocar, o prazo é de", "é só trocar: você tem").
+- **Cópula:** o substantivo aceita no máximo uma cópula, então "garantia e são" não vira
+  mais "garantia é são".
+- **Guardas:** um gerador com 1568 mentiras e as mutações M-08-troca-solta e M-08-copula.
+
+**Nona revisão → APROVADO COM RESSALVAS:** num corpus acumulado de 612 frases das nove
+rodadas, rodado no `main` e no branch nos dois caminhos, sobrou uma família só: "se precisar
+receber e trocar, são 7 dias". Ali o "se" atravessava a chegada. Foi corrigida com um gerador
+e a mutação M-08-se-chegada.
+
+Ressalvas aceitas:
+- **Garantia como condição:** "se quiser garantia, são 7 dias" já passava no `main`.
+- **Frase ambígua:** "o prazo com garantia de troca é de 7 dias".
+- **Nome na frase anterior:** "Pagou no pix? São 7 dias…" passa no caminho da entrega. É a
+  família da M-10.
+- **Dois falsos positivos baratos no antecipado.**
+
+**Lição das nove rodadas:** cada exceção aberta para uma frase honesta foi a porta da mentira
+seguinte. O que convergiu foi governo positivo, verificado por um corpus acumulado de
+mentiras rodado contra o `main` a cada passada.
+
+**Custo aceito:** no antecipado, uma contagem sem caminho nomeado e fora de uma oração de
+uso agora é julgada. "Sua festa é daqui a uma semana" é vetada e custa uma reescrita,
+nunca uma mentira. Das frases do corpus que passaram a ser vetadas, a maioria já é barrada
+por outro gate. As exceções são falsos positivos baratos, como "já faz 10 dias" na fala da
+cliente.
+
+## 19. M-10: prazo da entrega por extenso, e o caminho nomeado na frase anterior
+
+```mermaid
+flowchart TD
+  S["🟥 na entrega (1 a 3 dias) passavam 'chega em uma semana', 'em até 2 semanas',<br/>'em 5 dias', 'em dez dias'; e 'Pagou no pix? Chega em 2 dias.' passava no COD"]
+  K["causa: uma contagem com o COD nomeado dava continue (codAt > prepayAt);<br/>a faixa só lia dígitos; o nome do caminho só valia na própria frase"]
+  F1["🟥 primeira versão julgava toda contagem sem nome no COD:<br/>'emagrece 5 kg em uma semana' e '30 dias pra devolver' viravam delivery_promise"]
+  C1["🟩 no COD a contagem tem de caber em [codDaysMin, codDaysMax] (número ou faixa, por extenso também);<br/>semana nunca cabe; sem nome, só em fala de entrega/chegada.<br/>Cabeçalho: pergunta ou fragmento de até 4 palavras na frase anterior nomeia o caminho"]
+  C2["🟩 irmão: a faixa lia só 'antecipado' como nome; 'No pix chega em 1 a 3 dias' passava no COD.<br/>notDelivery tira o próprio nome do caminho ('pagamento na entrega')"]
+  G["🛡️ geradores (6560 fora da faixa, 4050 dentro, cabeçalho, garantia com o nome do COD);<br/>mutações M-10, -sem-nome, -inicio, -semana, -cabecalho, -faixa-pix, -nome-da-entrega"]
+  S --> K --> F1 --> C1 --> C2 --> G
+```
+
+**Custo aceito:** falsos positivos baratos que custam uma reescrita cada. O mais provável é
+"…7 dias pra trocar e suporte todo dia", porque a cauda da garantia recusa "dia".
+
+**Revisão independente: APROVADO COM RESSALVAS.** Nenhuma mentira que o `main` vete passa no
+branch. A negação no cabeçalho ("Sem pix, chega em 1 a 3 dias" vetada; "Nada de pix. Chega em
+5 dias, depende da região" passando) foi corrigida em seguida.
+
+A correção:
+- **Negadores:** `prepaidNamed` ignora o nome do antecipado quando ele vem negado ("sem",
+  "nada de", "não precisa", "não quer" fora de pergunta, "pix não!").
+- **Onde vale:** no cabeçalho, na faixa e na regra de número.
+- **Sombreamento:** o `PREPAY_NAME` local da faixa sombreava o externo, e com isso "Te mando
+  o link e chega em 1 a 3 dias" era vetada. Foi consertado.
+- **Guardas:** gerador com 802 frases e 5 mutações novas. Esta correção **não teve revisão
+  independente**.
+
+**Fora do conserto, já existiam antes e ficam registrados:**
+- **Nome do COD depois da contagem:** "Chega em uma semana na entrega." passa no
+  antecipado.
+- **Cabeçalho COD com corpo de média:** "Na entrega? Varia, em média 5 dias úteis." passa.
+- **"Entregador" ou "na porta" como nome do COD em frase do antecipado:** "No pix, o
+  entregador leva em 2 dias." vai para a faixa de 1 a 3 dias.
+- **Contagens fora da regra:** "um mês", "quinzena", "meia semana", "de zero a três dias",
+  "às vezes cinco", "nunca passa de 5 dias", e "5 dias." sozinho.
+- **Duas frases de caminho:** "Na entrega ou no pix, chega em 1 a 3 dias." passa no COD.
+
+**Custo aceito, falsos positivos baratos no COD:** o `ARRIVAL` inclui "aí" (a muleta da
+Malu) e casa "saia" em `sai\w*`. "E aí, em 2 semanas você já se acostuma" e "A garantia é de
+7 dias pagando na porta" são vetadas.
+
+**Instável, causa provável achada na revisão final de 2026-09-27:** `pnpm verificar:guardas`
+deu 100, 101 e 102 de 102 no mesmo HEAD. A ferramenta lia a lista de mutações do arquivo da
+árvore, mas aplicava cada mutação num worktree do commit. Com edição não commitada, as duas
+versões divergiam. Além disso, uma guarda morta por timeout contava como "pegou".
+
+A ferramenta agora:
+- lê o HEAD uma vez só;
+- recusa rodar com a árvore suja;
+- trata guarda sem status como inconclusiva.
+
+**Registro:** as mutações M-08-tomada e M-08-troca-solta tinham ficado com o texto de antes
+da nona revisão, e foram atualizadas neste commit. Toda mudança numa linha âncora de mutação
+tem de rodar `pnpm verificar:guardas` inteiro, não só a mutação nova.
+
+## 20. Revisão final do branch (2026-09-27)
+
+Quatro revisores Opus em paralelo (correção, integração, segurança, testes) sobre
+`main...claude/focused-gates-fjpixt`.
+
+```mermaid
+flowchart TD
+  A1["🟥 integração A1: a M-08 lia 'um dia bom' do silence_1 como prazo de 1 dia;<br/>no antecipado a varredura CANCELAVA o toque em silêncio (regressão contra o main)"]
+  N["🟥 correção: 'No pix não precisa esperar, chega em 2 dias' e<br/>'Nem no pix demora: chega em 2 dias' passavam no COD (regressão do 5995923)"]
+  S["🟧 segurança: toque pós-pedido lia o pedido por order_id sem o lead;<br/>externalId sem limite"]
+  T["🟧 testes/integração: verificar:guardas misturava árvore e HEAD; timeout contava como pego"]
+  F1["🟥 atalho sugerido para A1: 'um/uma' só conta com fala de entrega<br/>→ ~90 mentiras da M-08 passariam ('Em uma semana o colete é seu')"]
+  C["🟩 'um/uma' é artigo só sem entrega/chegada/posse, sem palavra de tempo tomando-a<br/>e sem o antecipado nomeado; negação que governa a contagem com a verdade na frase;<br/>'não precisa' e 'nem' só negam o nome fechando a oração"]
+  G["🛡️ teste que roda TODA variante de TODO toque da régua pelos gates (zero vetos);<br/>mutações um-dia-bom, um-artigo-largo, uma-semana-negada, pix-nao-precisa-verbo,<br/>nem-no-pix, pedido-de-outra-cliente; verificar:guardas preso a um commit limpo"]
+  A1 --> F1 --> C
+  N --> C
+  C --> G
+  S --> G
+  T --> G
+```
+
+**Provado na PostgREST real, com leituras apenas:** `or=(kind.like.silence_*,kind.eq.checkout_reminder)`
+casa, e a igualdade no timestamp que a própria API devolve (`…403606+00:00`) casa em `eq.`. Com
+isso, o fechamento pela `run_at` e o cancelamento na resposta funcionam no banco de verdade.
+
+**Aviso ao operador (corrigido em 2026-09-28):** o `perdido` não acontece de uma vez no
+deploy. Produção tem 0 linhas em `followups`, e a v41 já cancela os `silence_3` vencidos. Com o
+cupom inativo o `silence_3` sai cancelado, e isso é o fim da régua (opção a), um lead de cada vez.
+
+**Resíduos:**
+- **Mentira que passa no COD sem caminho nomeado:** "Uma semana e ele tá contigo". O `main`
+  também deixava passar.
+- **Negação só por extenso:** a negação que governa a contagem vale só para "um/uma".
+- **Envio no máximo uma vez:** com o canal ligado, uma falha da Cloud API perde o toque. Fica
+  só o e-mail de falha.
+- **Testes só textuais:** vários testes de `index.ts` só leem o texto do arquivo. A prova de
+  produção é a sonda da varredura pela porta do n8n depois do deploy.
+- **Conferência final (APROVADO COM RESSALVAS):** a exceção do artigo deixa passar no
+  antecipado mentiras de "uma semana" que o 5995923 vetava. O `main` também as deixava
+  passar, então não é regressão. Os casos:
+  - "Uma semana, no máximo." — o teste da cauda não aceita a vírgula; `^[\s,]+` resolve.
+  - "Numa semana você já está com ele." — falta "com ele / o colete" na lista de posse.
+  - "Daqui (a) uma semana você já está usando." — falta "daqui (a)" nas palavras de tempo
+    antes da contagem.
+  - "Numa semana você já veste." — chegada disfarçada de uso.
+
+  A gravidade é baixa: uma semana corrida fica perto da média de 5 dias úteis. É o próximo
+  item de gate.
+
+## 21. Segunda revisão, por execução (2026-09-28): consertos fora do gate
+
+A segunda revisão rodou o código da `turn` contra um PostgREST falso, com um harness de
+execução fora do repositório, e foi cética com os commits anteriores. Estes são os achados
+fora do gate, cada um reproduzido na base e corrigido com prova por execução (18/18):
+
+| # | Sintoma | Conserto | Guarda |
+|---|---|---|---|
+| 1 | **Regressão:** o turno depois do link ("qualquer dúvida no checkout me chama") armava `before_size`, e ela ouvia "que tamanho você usa?" depois de comprar | `stopPointOf` lê a janela M-03 (as 3 últimas saídas e a resposta); o lembrete de 15 minutos só é armado no turno que traz o link (`linkInReply`) | R2-link-janela, R2-lembrete-so-no-link, R2-lembrete-turno |
+| 2 | `silence_2` ou `silence_3` adiado rearmava os toques já enviados | reancorada, a régua recomeça do toque adiado (`ruler.slice(at)`) | R2-regua-recomeca |
+| 3 | o adiamento sobrescrevia a régua que o turno dela acabara de armar | adiar exige reivindicar a linha (`status` + `run_at`) | R2-adiamento-posse |
+| 4a | A e B criados, A cancelado: B ficava sem véspera | `orderTakeOver` passa os `order_*` não enviados ao pedido vivo | R2-dois-pedidos-vivo, R2-mesmo-pedido-nao-herda |
+| 4b | depois de um pedido recusado, um pedido novo ficava em `recusado` | `reopensRefused`: reabre quando ESTE pedido está vivo e outro do lead está morto | R2-recusado-reabre |
+| 5 | nova tentativa fora da janela virava handoff mesmo sem fechar a linha | handoff só com a linha fechada | R2-retry-janela-posse |
+| 6 | `externalId` com surrogate isolado causava URIError depois do upsert | `isWellFormed()` antes de gravar, com recusa própria | R2-externalid-malformado |
+| 7 | uma linha que lançava erro derrubava a varredura inteira | `sweepRow` isolada por linha; o erro vai para `skipped` | R2-varredura-isolada |
+
+**Fica aberto:**
+- **Webhook atrasado:** um webhook atrasado reescreve `orders.status`, e um "Enviado" que chega
+  depois de um "Cancelado" faz o pedido parecer vivo.
+- **Telefone malformado:** um telefone com surrogate isolado dá 500 antes de gravar qualquer
+  coisa.
+- **Tipo repetido na resposta:** a resposta de `recordOrder` lista o mesmo tipo em `canceled` e
+  em `armed` quando o toque é passado ao pedido vivo.
+
+## 22. O gate `delivery_promise` reestruturado (2026-09-28, decisão do operador: "unificar e consertar")
+
+**Sintoma:** dez rodadas de revisão (M-08 e M-10) sem convergir. A auditoria adversarial da
+segunda revisão, com cerca de 315 mil execuções, mostrou três coisas. O branch reduzia as
+mentiras (de 112 mil para 39 mil), mas vetava frases honestas novas: recusar a data
+impossível, garantia com média, reembolso e a fala do próprio prompt. E abria uma regressão:
+"Sem pix, em 5 dias o colete é seu".
+
+**Causa:**
+- três listas diferentes para o nome do antecipado;
+- quatro vocabulários de chegada;
+- as regras de contagem e de faixa decidiam o caminho cada uma de um jeito.
+
+Cada conserto remendava uma lista, e o vazamento seguinte vinha por outra.
+
+**Correção, passo 1 (refatoração, sem mudar veredito):**
+- um `PREPAY_NAME` e um `COD_NAME` ("entregador" solto não nomeia a entrega);
+- uma função `pathOf`, usada pelas duas regras;
+- um `ARRIVAL` único, que inclui a posse ("é seu", "tá com você").
+
+Contra o HEAD: 1 afrouxamento honesto e 15 endurecimentos, todos em pontos onde as listas
+divergiam.
+
+**Correção, passo 2:**
+- a) recusar a data impossível passa;
+- b) garantia e média na mesma frase passa;
+- c) o antecipado negado com posse é vetado;
+- d) o fallback do antecipado exige fala de entrega/chegada, então reembolso, promoção, uso,
+  recontato e a fala do prompt passam;
+- e) cauda da garantia: "logo", "contigo", "todo dia" e "perder tempo" não derrubam a
+  isenção;
+- f) "sem/nada de <nome> <adjetivo>" não nega o nome;
+- g) nome depois do número, os dois caminhos ligados e cabeçalho da entrega na faixa.
+
+**Guarda:**
+- geradores de fuzz com sonda negada em cada item;
+- 11 mutações novas e 13 reapontadas;
+- 7 afrouxamentos honestos aceitos (R2).
+- Desempenho no pior caso a 4.096 caracteres: 56 ms, contra 85–90 ms antes.
+- O extrator do corpus (`gate-diff.ts`) passou a descartar trecho entre crases que atravessa
+  linhas, porque aquilo é código e não fala.
+
+**Resíduo:** no antecipado, sem palavra de chegada e com a contagem no meio da oração, passam
+frases como "Te mando o link e é 2 dias."
+
 ---
 
 ## 23. A varredura falhava sem avisar ninguém (branch `claude/upbeat-newton-6l6dzz`, 2026-09-28)
@@ -290,6 +713,41 @@ flowchart TD
   ABERTO["🟥 o conserto é em src/agent/guardrails.ts, área que o PR #37 reescreve;<br/>não editado nesta branch para não colidir com o merge dele"]
   S --> G --> ABERTO
 ```
+
+## 27. Terceira revisão e itens do PR #38 (2026-09-28)
+
+**Pedido morto ressuscitado (regressão do bf23390):** um webhook atrasado ("created" ou
+"Enviado" depois de "Cancelado") reescrevia `orders.status`, porque o upsert grava o que chega
+por último. A `orderTakeOver` então dava a régua inteira, com a véspera, a um pedido cancelado.
+- **Causa:** o status morto não era terminal.
+- **Correção:** `orderStatusAfter`. Status morto não volta a vivo. O status efetivo é lido antes
+  do upsert e usado em todas as decisões. `created_at` passa a ser a data do pedido, então o
+  takeover agenda pela data certa.
+
+**Divergências de template (it.fails do #38):**
+- **Véspera do antecipado:** usa `order_eve_pago` e fica bloqueada até esse template existir.
+- **`silence_2` fora da janela:** sai sempre a 1ª variante.
+- **Varredura:** faz o gate sobre o texto que de fato sai (`delivery.body`).
+
+**Opt-in ligado, com a flag `channel.askMarketingOptIn`, ausente = desligado:**
+- **Com a flag desligada:** nenhuma coluna da 0019 é lida.
+- **Selo:** o `reply.id` entra no selo só quando existe.
+- **`silence_2`/`silence_3` como template:** exigem opt-in.
+
+**Bloqueio de deploy:** o nó "Cerebro do turno" do n8n descartava o `reply`, e isso dá 401 em
+todo toque de botão com o selo ligado.
+
+**Ordem de deploy:**
+1. aplicar a 0018 e a 0019;
+2. publicar a `turn`;
+3. publicar a `whatsapp` e o n8n com o `reply`, ainda com a flag desligada;
+4. ligar a flag;
+5. pôr `order_eve_pago` em `channel.templates` depois da aprovação da Meta.
+
+**Aberto:**
+- **N3c e N3e:** a regra `furthest` deixa o estágio em `em_rota` ou em `endereco_coletado`
+  quando o "Cancelado" chega primeiro. Não manda mensagem errada.
+- **Corrida:** dois webhooks do mesmo pedido no mesmo instante.
 
 ---
 

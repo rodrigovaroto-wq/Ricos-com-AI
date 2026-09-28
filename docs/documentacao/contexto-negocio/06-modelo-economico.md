@@ -11,6 +11,72 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### ⚠️ Correção de 2026-09-25 — o antecipado passa pelo Mercado Pago: R$ 57,94 (1 peça)
+>
+> Desde [R14.15](../decisoes/03-decisoes-tomadas.md) o pagamento do antecipado na Coinzz é
+> processado pelo **Mercado Pago**. Taxas informadas pelo operador em 2026-09-25: **Pix
+> 0,99% + R$ 1,00** e **cartão à vista 4,98%**. O COD (Logzz) não muda, nem o preço que a
+> cliente vê. **Esta caixa substitui a contribuição do antecipado das caixas abaixo**
+> (R$ 51,27) e o que se apoiava nela: o "quase empate" da seção 6 e o "não há headroom" do
+> teto de frete.
+>
+> **Premissas — adotadas sem resposta do operador, não medidas:**
+>
+> - **P1.** A taxa do MP **substitui a transação inteira da Coinzz** (6,99% + R$ 2,49 de
+>   antifraude). Se os R$ 2,49 continuarem, vale a coluna "MP + R$ 2,49".
+>   **Confirmado pelo operador em 2026-09-26: o antifraude não é mais cobrado** — vale a
+>   coluna "Antecipado MP"; as linhas "com R$ 2,49" ficam só como registro.
+> - **P2.** Mix de pagamento **50% Pix / 50% cartão à vista**.
+> - **P3.** Handling (R$ 4,99) e entrega (R$ 19,99) **uma vez por pedido**, também nos kits;
+>   produto R$ 30,00 por peça.
+> - **P4.** **Cartão parcelado não informado** (o config aceita até 12x). A tabela supõe à
+>   vista; a sensibilidade abaixo mostra quanto de taxa de parcelado a margem aguenta.
+> - **P5.** Recusa COD de 15% a −R$ 9,99 por pedido, também nos kits.
+>
+> Fórmula: `preço − 30 × peças − taxa MP − 4,99 − 19,99`, com
+> `taxa MP = 0,5 × (0,99% × preço + 1,00) + 0,5 × 4,98% × preço`.
+> 1 peça: `116,91 − 30,00 − 3,99 − 4,99 − 19,99 = R$ 57,94` (a taxa da Coinzz era R$ 10,66).
+>
+> | Peças (preço COD / antecipado) | COD entregue | COD média (15% recusa) | Antecipado Coinzz (antes) | **Antecipado MP** | MP + R$ 2,49 | MP − COD média |
+> |---|---|---|---|---|---|---|
+> | 1 (129,90 / 116,91) | 63,35 | 52,35 | 51,27 | **57,94** | 55,45 | +5,59 (+3,10 com R$ 2,49) |
+> | 2 (233,82 / 207,84) | 130,01 | 109,01 | 105,84 | **116,16** | 113,67 | +7,15 (+4,66) |
+> | 3 (311,76 / 272,79) | 172,50 | 145,12 | 136,25 | **149,17** | 146,68 | +4,04 (+1,55) |
+>
+> **Mix 70% COD / 30% antecipado, 1 peça:** 0,7 × 52,35 + 0,3 × 57,94 = **R$ 54,03**
+> (R$ 53,28 com os R$ 2,49; era R$ 52,03). Kits no mesmo mix: R$ 111,15 (2 peças) e
+> R$ 146,34 (3 peças).
+>
+> **A conclusão inverte:** o antecipado passa a render **mais** que a média do COD nas três
+> quantidades, em vez de R$ 1,08 a menos. A folga é menor no kit de 3 (+R$ 4,04), porque o
+> desconto de 30% come quase tudo.
+>
+> **Sensibilidade:**
+>
+> | Variável | 1 peça | 2 peças | 3 peças |
+> |---|---|---|---|
+> | Mix 100% Pix → 0% Pix (sem R$ 2,49) | 59,77 → 56,11 | 119,80 → 112,51 | 154,11 → **144,23** (abaixo do COD com < 9% de Pix) |
+> | Idem, com R$ 2,49 | 57,28 → 53,62 | 117,31 → 110,02 | 151,62 → **141,74** (abaixo do COD com < 34% de Pix) |
+> | Taxa de cartão que zera a vantagem — 50% Pix, metade cartão toda parcelada | 14,55% (10,29% com R$ 2,49) | 11,86% (9,46%) | 7,94% (6,12%) |
+> | Idem — 100% cartão parcelado | 8,20% (6,07%) | 6,67% (5,47%) | 4,65% (3,74%) — já abaixo dos 4,98% à vista |
+> | Recusa COD que empata com o antecipado MP (antes, com a Coinzz) | 7,4% (16,5%) | 9,9% (17,3%) | 12,8% (19,9%) |
+> | Idem, com R$ 2,49 | 10,8% | 11,7% | 14,1% |
+>
+> Leitura da recusa: abaixo desse percentual o COD rende mais; acima, o antecipado. Com a
+> Coinzz, o COD ganhava em qualquer recusa até ~16%; com o MP, o antecipado ganha em toda a
+> faixa que a Logzz declara (13% a 16%), exceto 3 peças com os R$ 2,49 (empate em 14,1%).
+>
+> **O que decide se a folga é real:** P4. Se o parcelado em até 12x for **sem juros para a
+> cliente** (juros absorvidos pela operação), a taxa real do MP para 12x precisa ser
+> conferida no painel contra a linha "taxa que zera a vantagem" — no kit de 3 o limite é
+> 7,94% com metade dos pedidos no cartão. Se os juros ficam com a cliente, P4 não pesa.
+>
+> **O que não muda:** a regra do que a agente diz (saída A, 2026-09-22 — só o percentual,
+> nunca a economia em reais): a taxa do MP é custo nosso, o frete adicional da cliente
+> continua à parte. Ponto de equilíbrio em % de CPL e cenários de lucro/dia continuam
+> **pendentes** (mesma razão registrada abaixo). Nota de arredondamento: o mix 70/30 antigo
+> dá R$ 52,02 com os valores exatos; R$ 52,03 vinha dos valores arredondados.
+
 > ### 🚨 Correção de 2026-09-21 (2ª) — desconto do antecipado volta a 10%: R$ 116,91
 >
 > O operador reduziu o desconto do antecipado de **15% para 10%** no mesmo dia da correção

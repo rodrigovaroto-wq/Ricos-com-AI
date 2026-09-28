@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "../src/agent/guardrails.js";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn, type OptInQuestion } from "../src/agent/opt-in.js";
@@ -132,5 +133,49 @@ describe("opt-in de marketing: quando perguntar", () => {
   });
   it("data ilegível na suspensão não reabre a pergunta", () => {
     expect(mayAskOptIn(s({ askedAt: t1, suspendedAt: "x" }))).toBe(false);
+  });
+});
+
+/**
+ * A fiação no turno e na varredura (R15.1), que nenhum teste executa: fica presa no arquivo que
+ * a produção roda. O comportamento foi provado pela Edge Function contra um PostgREST falso
+ * com e sem as colunas da 0019, com e sem a flag.
+ */
+describe("opt-in de marketing: fiação na Edge Function", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("a flag só liga com true explícito, e desligada a varredura não seleciona coluna da 0019", () => {
+    expect(source).toContain("const ASK_OPT_IN = CONFIG.channel?.askMarketingOptIn === true;");
+    expect(sweep).toContain(
+      '(ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "")',
+    );
+  });
+  it("o consentimento que a varredura passa a deliveryFor exige a flag, o opt-in e nenhuma recusa", () => {
+    expect(sweep).toContain("marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,");
+  });
+  it("o gate lê o texto que sai: o corpo de deliveryFor, antes de runGates", () => {
+    const line = "const text = delivery !== null && delivery.via !== \"blocked\" ? delivery.body : renderFollowup(kind, renderCtx);";
+    expect(sweep).toContain(line);
+    expect(sweep.indexOf(line)).toBeLessThan(sweep.indexOf("const gates = runGates(text, {"));
+  });
+  it("a pergunta sai depois do silence_1 em texto, com mayAskOptIn, gravando nonce e horário antes de entrar na fila", () => {
+    const ask = sweep.slice(sweep.indexOf("ASK_OPT_IN &&\n"));
+    expect(ask).toContain('kind === "silence_1" &&\n      delivery.via === "text" &&\n      mayAskOptIn({');
+    const patch = ask.indexOf("marketing_opt_in_nonce: nonce, marketing_opt_in_asked_at:");
+    expect(patch).toBeGreaterThan(-1);
+    expect(patch).toBeLessThan(ask.indexOf('via: "buttons", body: question.body'));
+    expect(sweep.indexOf('via: "buttons", body: question.body')).toBeGreaterThan(sweep.indexOf('{ to: lead.phone, kind, followupId: row.id, via: "text", body: text }'));
+  });
+  it("o turno grava a resposta antes de guardar a mensagem, e o texto só suspende", () => {
+    const optIn = source.indexOf("const answer = optInAnswer(reply, {");
+    expect(optIn).toBeGreaterThan(-1);
+    expect(optIn).toBeLessThan(source.indexOf("inboundId = (await db(\"messages\", {"));
+    expect(source).toContain('const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;');
+    expect(source).toContain('answer === "no" && lead.marketing_opt_in_asked_at');
+    expect(source).toContain('(ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: inbound.body ?? "", reply })');
+  });
+  it("as duas verificações do selo incluem o toque", () => {
+    expect(source.match(/sentAt: payload\.sentAt, reply: payload\.reply \}/g)).toHaveLength(2);
   });
 });

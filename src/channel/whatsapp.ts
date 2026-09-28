@@ -23,7 +23,7 @@ export interface InboundMessage {
    * A tap on one of our buttons: the id WE gave the button, and the message it answered.
    * `body` still carries the title, for the conversation; a decision reads `reply.id`, never
    * the text — the text is hers to type, the id only a tap produces (2026-09-28).
-   * NOT sealed yet: the seal gains it in the same change that makes the turn read it.
+   * `id` is sealed (`inbound-signature.ts`): the turn reads it for the marketing opt-in.
    */
   reply?: { id: string; contextId?: string };
 }
@@ -183,11 +183,12 @@ export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessa
 };
 
 /**
- * Meta's delivery failures (`statuses[].errors`), id and code only — no phone, no text.
- * 131047 (outside the 24-hour window) is the proof that a send was misjudged.
+ * Meta's delivery failures (`statuses[].errors`): id, code and the recipient's digits — never
+ * text. 131047 (outside the 24-hour window) is the proof that a send was misjudged; 131050
+ * (she turned marketing off) is a refusal, found by her phone.
  */
-export const deliveryErrors = (payload: unknown, phoneNumberId = ""): Array<{ id: string; code: number }> => {
-  const out: Array<{ id: string; code: number }> = [];
+export const deliveryErrors = (payload: unknown, phoneNumberId = ""): Array<{ id: string; code: number; to: string }> => {
+  const out: Array<{ id: string; code: number; to: string }> = [];
   for (const value of valuesFor(payload, phoneNumberId)) {
     const statuses = value.statuses;
     for (const raw of Array.isArray(statuses) ? statuses : []) {
@@ -195,7 +196,7 @@ export const deliveryErrors = (payload: unknown, phoneNumberId = ""): Array<{ id
       const errors = st?.errors;
       for (const e of Array.isArray(errors) ? errors : []) {
         const code = Number(obj(e)?.code);
-        if (Number.isFinite(code)) out.push({ id: str(st?.id), code });
+        if (Number.isFinite(code)) out.push({ id: str(st?.id), code, to: str(st?.recipient_id).replace(/\D/g, "") });
       }
     }
   }
@@ -227,6 +228,17 @@ export const marketingPreferences = (
 };
 
 /** A text message — one per bubble. The checkout link needs its preview off: it is a form. */
+/**
+ * The phones (digits, as `leads.phone`) that refused marketing in this webhook, structurally:
+ * error 131050 on a send, or `stop` in WhatsApp's own settings. Each once.
+ */
+export const marketingDeclines = (payload: unknown, phoneNumberId = ""): string[] => [
+  ...new Set([
+    ...deliveryErrors(payload, phoneNumberId).filter((e) => e.code === 131050 && e.to).map((e) => e.to),
+    ...marketingPreferences(payload, phoneNumberId).filter((p) => p.value === "stop").map((p) => p.from),
+  ]),
+];
+
 export const textMessage = (to: string, body: string) => ({
   messaging_product: "whatsapp",
   recipient_type: "individual",

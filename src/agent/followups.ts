@@ -109,10 +109,17 @@ export type TouchAction =
   | { do: "postpone"; restartRuler: boolean }
   | { do: "cancel" };
 
+/**
+ * The touches that chase her silence — the three `silence_*` and the 15-minute checkout
+ * touch (§R10.4). Her reply and a sale end all of them; nothing else in the ruler.
+ */
+export const inSilenceRuler = (kind: string): boolean =>
+  kind.startsWith("silence_") || kind === "checkout_reminder";
+
 export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
   if (remedy === null) return { do: "send" };
   if (remedy !== "defer") return { do: "cancel" };
-  return { do: "postpone", restartRuler: kind.startsWith("silence_") || kind === "checkout_reminder" };
+  return { do: "postpone", restartRuler: inSilenceRuler(kind) };
 };
 
 /**
@@ -134,6 +141,41 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
   );
   return touches;
 };
+
+/**
+ * The ruler to write when it is (re)anchored. A fresh ruler — the agent just spoke — is
+ * `scheduleSilence` whole, except the checkout touch: that one only when THIS reply carried
+ * the link (`linkInReply`). The stop point stays `link_sent` for the turns after the link
+ * (M-03 window), and re-arming the 15-minute touch on each of them would ask "deu algum
+ * problema no checkout?" after every "vou abrir aqui" (second review, 2026-09-28).
+ *
+ * Re-anchored because a touch was postponed by the clock, the ruler restarts AT that touch:
+ * a link sent at 23:40 has its 15-minute touch go out at 23:55, and `silence_1`, deferred
+ * past midnight, must not re-arm the touch she already got (sixth review, 2026-09-26) — nor
+ * `silence_2` or `silence_3` re-arm the ones before them. The upsert is merge-duplicates, so
+ * a kind written here that already went out turns from `sent` back into `scheduled`.
+ */
+export const rulerFor = (
+  from: Date,
+  stopPoint: StopPoint,
+  postponed?: FollowupKind,
+  linkInReply = false,
+): ScheduledFollowup[] => {
+  const ruler = scheduleSilence(from, stopPoint).filter(
+    (f) => f.kind !== "checkout_reminder" || postponed !== undefined || linkInReply,
+  );
+  const at = ruler.findIndex((f) => f.kind === postponed);
+  return at === -1 ? ruler : ruler.slice(at);
+};
+
+/**
+ * The touch that closes the silence ruler: once it leaves the queue — sent, or cancelled
+ * by a gate or the 24-hour window — with no order, the conversation is `perdido` (plan v2,
+ * 7.4; operator, 2026-09-26). She can still come back: `furthest` gives way to the stage
+ * her next turn reaches. A sale cancels the ruler first, and `pedido_criado` has no edge
+ * to `perdido` anyway.
+ */
+export const endsSilenceRuler = (kind: string): boolean => kind === "silence_3";
 
 /**
  * Post-order ruler. `shipped` and `eve` only get a real time once logistics says so;
@@ -184,6 +226,8 @@ export interface OrderEffect {
 export interface ExistingFollowup {
   readonly kind: FollowupKind;
   readonly status: "scheduled" | "sent" | "canceled";
+  /** The order that armed a post-order touch; null for silence and for rows before 0017. */
+  readonly orderId?: string | null;
 }
 
 /**
@@ -205,6 +249,15 @@ export const isOrderDead = (status: string | undefined): boolean =>
   /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
 
 /**
+ * The status an order keeps when a webhook arrives: a dead order stays dead (third review,
+ * 2026-09-28). The row was upserted last-arrival-wins, so a late "created" or "Enviado" after
+ * "Cancelado" brought the order back to life — the lead's other order then saw a live
+ * sibling, the dead one's touches never moved, and a cancelled order got the whole ruler.
+ */
+export const orderStatusAfter = (stored: string | null | undefined, incoming: string): string =>
+  isOrderDead(stored ?? undefined) && !isOrderDead(incoming) ? stored! : incoming;
+
+/**
  * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
  * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
  * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
@@ -224,22 +277,43 @@ export const stageForOrder = (
   return "pedido_criado";
 };
 
+/**
+ * The stage for the whole lead, not just this order: with two orders, one cancelled while
+ * the other is on its way must not lock the conversation in `recusado` (terminal) — the
+ * delivered one would then count as a refusal forever. `others` are the lead's other orders.
+ */
+export const stageForLead = (
+  status: string | undefined,
+  others: readonly string[],
+): ReturnType<typeof stageForOrder> => {
+  const reached = stageForOrder(status);
+  return reached === "recusado" && others.some((s) => !isOrderDead(s)) ? null : reached;
+};
+
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
   codDaysMin: number,
   status?: string,
+  orderId?: string,
 ): OrderEffect => {
   const scheduled = existing.filter((f) => f.status === "scheduled");
 
   // The sale is off. Everything still waiting dies with it — the post-order touches
   // because there is no delivery to talk about, and the silence ones because chasing
   // someone who just cancelled is worse than saying nothing. Nothing is armed.
-  if (isOrderDead(status)) return { cancel: scheduled.map((f) => f.kind), arm: [] };
+  //
+  // With two orders on one lead, only the dead one's touches go. The rows are one per kind
+  // per conversation, so the live order usually has none of its own: `orderTakeOver` moves
+  // them to it. A row that does not say its order (before 0017) dies as before.
+  if (isOrderDead(status)) {
+    const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
+    return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [] };
+  }
 
   return {
     // Only what is still waiting can be cancelled; a touch already sent is history.
-    cancel: scheduled.filter((f) => f.kind.startsWith("silence_")).map((f) => f.kind),
+    cancel: scheduled.filter((f) => inSilenceRuler(f.kind)).map((f) => f.kind),
     // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
     // after `order_confirmed` already went out would otherwise re-arm a kind the table
     // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
@@ -249,6 +323,51 @@ export const onOrderConfirmed = (
     ),
   };
 };
+
+/** One of the lead's orders, as the sale webhook sees them. */
+export interface LeadOrder {
+  readonly id: string;
+  readonly status: string | undefined;
+  readonly orderedAt: Date;
+}
+
+/**
+ * The post-order touches a live order takes over from a dead one (second review, 2026-09-28).
+ *
+ * `(conversation_id, kind)` is unique, so a lead's second order never gets rows of its own —
+ * `onOrderConfirmed` dedupes against every row. Two ways that left a live order with no eve:
+ * A and B created, A cancelled, and A's rows were the only ones there were; or A cancelled,
+ * then B created, and every kind was already taken by A's cancelled row. A row not sent,
+ * armed by a dead order, moves to the live one — its id and its dates. A moment already past
+ * is not sent late. Nothing moves onto the order whose own rows died: a late webhook of a
+ * cancelled order does not bring its touches back. Null when nothing moves.
+ */
+export const orderTakeOver = (
+  existing: readonly ExistingFollowup[],
+  order: LeadOrder,
+  /** The lead's other orders, newest first. */
+  others: readonly LeadOrder[],
+  now: Date,
+  codDaysMin: number,
+): { orderId: string; arm: ScheduledFollowup[] } | null => {
+  const live = isOrderDead(order.status) ? others.find((o) => !isOrderDead(o.status)) : order;
+  if (!live) return null;
+  const dead = [order, ...others].filter((o) => isOrderDead(o.status)).map((o) => o.id);
+  const arm = scheduleOrder(live.orderedAt, codDaysMin).filter(
+    (f) =>
+      f.runAt > now &&
+      existing.some((e) => e.kind === f.kind && e.status !== "sent" && !!e.orderId && dead.includes(e.orderId)),
+  );
+  return arm.length > 0 ? { orderId: live.id, arm } : null;
+};
+
+/**
+ * `recusado` is terminal for the conversation, and a second order is a new sale: this order
+ * alive while another of the lead's is dead reopens it (second review, 2026-09-28). A late
+ * webhook of the order that died does not — `others` never holds the order itself.
+ */
+export const reopensRefused = (status: string | undefined, others: readonly string[]): boolean =>
+  !isOrderDead(status) && others.some((s) => isOrderDead(s));
 
 export const pickVariant = <T>(leadId: string, variants: readonly T[]): T => {
   let hash = 0;
@@ -349,7 +468,13 @@ export interface FollowupConfig {
    * out-of-window touch — free text outside the window is rejected by Meta anyway, so
    * the alternative is a touch that silently never arrives.
    */
-  channel?: { templates?: Partial<Record<FollowupKind, TemplateBinding>> };
+  channel?: {
+    /**
+     * `order_eve_pago` is the prepaid eve's own template (no "Deixa R$ X separado"): absent,
+     * a prepaid eve outside the window is blocked rather than sent the one that charges her.
+     */
+    templates?: Partial<Record<FollowupKind | "order_eve_pago", TemplateBinding>>;
+  };
 }
 
 export interface RenderContext {
@@ -370,6 +495,11 @@ export interface RenderContext {
   prepaid?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
+  /**
+   * Her marketing consent is in force (R15.1): `leads.marketing_opt_in_at`, read only when
+   * `channel.askMarketingOptIn` is on. Absent = no consent, so no MARKETING template.
+   */
+  marketingOptIn?: boolean;
 }
 
 /**
@@ -474,7 +604,7 @@ export type Delivery =
       readonly variables: readonly string[];
       readonly body: string;
     }
-  | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" };
+  | { readonly via: "blocked"; readonly reason: "no_template" | "empty_variable" | "no_opt_in" };
 
 const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string => {
   switch (variable) {
@@ -516,7 +646,14 @@ export const deliveryFor = (
 
   if (windowIsOpen(ctx.now ?? new Date(), lastInboundAt)) return { via: "text", body };
 
-  const template = ctx.config.channel?.templates?.[kind];
+  // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1).
+  if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {
+    return { via: "blocked", reason: "no_opt_in" };
+  }
+
+  // One template per touch, and `body` is what it says — the text the sweep gates: `silence_2`
+  // leaves as its first variant (R15.2), and a prepaid eve by its own template.
+  const template = ctx.config.channel?.templates?.[kind === "order_eve" && ctx.prepaid ? "order_eve_pago" : kind];
   if (!template) return { via: "blocked", reason: "no_template" };
 
   const variables = template.variables.map((v) => resolveVariable(v, ctx));
@@ -527,6 +664,6 @@ export const deliveryFor = (
     name: template.name,
     language: template.language,
     variables,
-    body,
+    body: kind === "silence_2" ? SILENCE_2(ctx.config.delivery.warrantyDays)[0] : body,
   };
 };

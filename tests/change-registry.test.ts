@@ -386,3 +386,602 @@ describe("M-07: recusa passa, exceção presa ao número, nomes do antecipado", 
     expect(delivery(passam[1]!, "prepay")?.verdict).toBe("pass");
   });
 });
+
+/**
+ * M-08 (terceira revisão da M-07): prazo do antecipado em palavras que a regra de número não
+ * lia — "um/uma" fora de propósito, semanas não lidas, e a chegada dita sem verbo de entrega
+ * ("está aí na sua casa"). Semana conta 7 dias corridos, e nunca é a média configurada (que é
+ * em dias úteis): no antecipado, "uma semana" só pode ser a garantia de 7 dias.
+ */
+describe("M-08: prazo do antecipado em palavras", () => {
+  const vetadasNosDois = [
+    "No antecipado, um dia só.",
+    "No antecipado chega em uma semana.",
+    "No pix chega em 1 semana.",
+    "No antecipado leva duas semanas.",
+    "No antecipado chega numa semana.",
+    "Pagando antes, em um dia você recebe.",
+    "No antecipado varia, em média uma semana.",
+  ];
+  const vetadasNoAntecipado = [
+    "Em 2 dias ele está aí na sua casa.",
+    "Em uma semana ele está na sua mão.",
+    "Em 2 dias o colete é seu.",
+    // A negativa que não nega.
+    "Não posso negar que chega em uma semana.",
+    "Não demora, em um dia tá aí.",
+    "Não se preocupa, em 3 dias ele está com você.",
+  ];
+  const passamNosDois = [
+    "Não consigo garantir uma semana no antecipado: varia por região, em média 5 dias úteis.",
+    "No antecipado não dá pra prometer um dia, o prazo varia por região, em média 5 dias úteis.",
+    "Na entrega você escolhe um dia marcado com o entregador.",
+    "No antecipado varia, em média 5 dias úteis.",
+    "No pix você tem uma semana pra trocar.",
+    "No antecipado você também tem 7 dias corridos para devolver.",
+    "Em uma semana de uso você já nem sente o colete.",
+    "Você escolhe um dia marcado com o entregador.",
+    "Ele fica lindo num dia de festa.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it("o qualificador não esconde a contagem", () => {
+    expect(delivery("No antecipado chega em um dia marcado, um dia só.", "prepay")?.verdict).toBe("block");
+    expect(delivery("Num dia especial como o seu, em 2 dias ele está aí.", "prepay")?.verdict).toBe("block");
+  });
+});
+
+/**
+ * M-08, revisão independente: a faixa em semanas passava pelo "fim de faixa" (a checagem de
+ * faixa só lia dias); a âncora da garantia recuava dentro de "chega" até escapar do próprio
+ * lookahead; e a isenção de uso olhava a oração inteira, não o que governa a contagem.
+ */
+describe("M-08, revisão: semanas em faixa, âncora da garantia, uso que governa a contagem", () => {
+  const vetadasNosDois = [
+    "Na entrega chega em 1 a 2 semanas.",
+    "No antecipado chega em 1 a 2 semanas.",
+    "No pix leva de 1 a 2 semanas.",
+    "Chega em 2 a 3 semanas.",
+    "No antecipado chega em 1 e 2 semanas.",
+    "No antecipado tem uma semana pra trocar depois que chega em uma semana.",
+    "No antecipado tem uma semana pra trocar depois que chega em 7 dias.",
+    "No antecipado você tem 7 dias pra trocar quando receber em uma semana.",
+    "No antecipado você tem 7 dias pra trocar quando chegar em 7 dias.",
+  ];
+  const vetadasNoAntecipado = [
+    "Em 3 dias ele está aí pra você se adaptar.",
+    "Em dois dias ele tá aí pra você se acostumar com ele.",
+    "Em uma semana ele está aí pra você se acostumar.",
+    "Em uma semana tá na sua mão pra você adaptar a rotina.",
+    "Em 3 dias de uso ele está aí.",
+    "Em 2 dias você se acostuma e ele está aí.",
+  ];
+  const passamNosDois = [
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Na entrega você recebe em 1 a 3 dias.",
+    "Em média 2 dias de uso e você já nem sente o colete.",
+    "A maioria das clientes se acostuma com o colete em cerca de 3 dias.",
+    "Em uma semana de uso você já nem sente o colete.",
+    "Em 2 dias você se acostuma com ele.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, segunda revisão: o lookahead da âncora só protegia a contagem logo depois do verbo
+ * ("quando chegar aí em 7 dias" virava garantia), e a palavra de troca antes de ":" ou de
+ * "e ele está aí" isentava a chegada; "que é quando ele chega" era apagado como âncora.
+ */
+describe("M-08, segunda revisão: âncora com enchimento, troca ao lado da chegada", () => {
+  const vetadasNosDois = ["No antecipado você tem 7 dias pra desistir quando chegar aí em 7 dias."];
+  const vetadasNoAntecipado = [
+    "Tem 7 dias pra desistir a contar do dia que chegar aí em 7 dias.",
+    "Tem 7 dias pra trocar a contar do dia que chegar aí em 7 dias.",
+    "Você tem 7 dias pra trocar a contar do dia que chegar aí em 7 dias.",
+    "Tem 7 dias pra trocar quando chegar aí em 7 dias.",
+    "Pode desistir: em 7 dias ele está aí.",
+    "Você tem 7 dias pra desistir e ele está aí em 7 dias.",
+    "Pode desistir em uma semana, que é quando ele chega.",
+    "Pode trocar: em 7 dias ele está aí.",
+    "Você tem 7 dias pra trocar e ele está aí em 7 dias.",
+    "Pode trocar em uma semana, que é quando ele chega.",
+  ];
+  const passamNosDois = [
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Você tem uma semana pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem uma semana pra desistir, a contar do dia que receber.",
+    "No antecipado, quando o colete chegar você tem até 7 dias pra trocar.",
+    "Depois que receber, você tem 7 dias pra trocar.",
+    "No antecipado a garantia é de 7 dias.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, terceira revisão: os consertos da segunda eram de sintoma. Causa: a contagem na mesma
+ * oração do verbo da âncora é complemento dele (qualquer preposição); a conjunção colada à
+ * contagem abre oração; a âncora depois da contagem só vale colada a ela ou ao propósito; e
+ * ":" seguido de "você tem" não abre oração.
+ */
+describe("M-08, terceira revisão: pela causa, não pela forma", () => {
+  const vetadasNoAntecipado = [
+    "Tem 7 dias pra trocar quando chegar lá pra você em uns 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você em cerca de 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você em torno de 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você em mais ou menos 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você em no máximo 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você no prazo de 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você por volta de 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você com 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você depois de 7 dias.",
+    "Tem 7 dias pra trocar quando chegar lá pra você após 7 dias.",
+    "Tem 7 dias pra trocar quando chegar pra você poder usar em 7 dias.",
+    "Tem 7 dias pra trocar quando chegar na casa que você tem em 7 dias.",
+    "Tem 7 dias pra trocar quando chegar pra você trocar em 7 dias.",
+    "Pode trocar e em 7 dias ele está aí.",
+    "Pode trocar e daqui a 7 dias tá aí.",
+    "Você tem 7 dias pra desistir e em 7 dias o colete tá em casa.",
+    "Pode trocar porque em 7 dias ele tá aí.",
+    "Pode trocar em uma semana, que é bem quando ele chega.",
+    "Pode trocar em uma semana, que é justamente quando ele chega.",
+    "Pode trocar em 7 dias, quando ele chega.",
+    "Pode trocar em 7 dias, bem quando ele chega.",
+    "Pode trocar em 7 dias, exatamente quando ele chega.",
+    "Pode trocar em uma semana, o mesmo tempo de quando ele chega.",
+  ];
+  const passamNosDois = [
+    "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+    "A garantia é a mesma: 7 dias.",
+    "Se não servir, você pode trocar em até 7 dias depois que receber.",
+    "Pode trocar ou devolver em até 7 dias, e o frete da troca é por nossa conta.",
+    "Você pode trocar em 7 dias e ele fica guardado com você.",
+    "No antecipado, quando o colete chegar você tem até 7 dias pra trocar.",
+    "Depois que receber, você tem 7 dias pra trocar.",
+  ];
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, quarta revisão: quatro rodadas fechando formas enquanto as irmãs ficavam abertas. O ônus
+ * foi invertido: a contagem da garantia só é isenta quando uma forma de garantia a governa, e o
+ * que vem depois dela é fim de frase, "corridos/úteis", o propósito ou a âncora de início.
+ */
+describe("M-08, quarta revisão: a garantia governa a contagem, ou é prazo", () => {
+  const vetadasNosDois = ["No pix pode trocar, e o prazo até quando chegar é de 7 dias."];
+  const vetadasNoAntecipado = [
+    "Pode trocar, o prazo até quando chegar é de 7 dias.",
+    "Pode devolver, e o tempo até quando chegar é de 7 dias.",
+    "Pode trocar depois que chegar, são 7 dias de viagem.",
+    "Pode trocar depois que chegar são 7 dias de viagem.",
+    "Pode trocar, e quando o colete chegar é de 7 dias.",
+    "Tem garantia de troca quando chegar e são 7 dias até lá.",
+    "Pode trocar quando chegar é 7 dias.",
+    "Pode trocar e em até 7 dias ele está aí.",
+    "Pode trocar e em até uma semana ele está aí.",
+    "Pode trocar e numa semana ele está aí.",
+    "Pode trocar e em uns 7 dias ele tá aí.",
+    "Pode trocar e em média 7 dias ele está aí.",
+    "Pode trocar e com 7 dias ele tá aí.",
+    "Pode trocar e 7 dias depois ele tá aí.",
+    "Pode trocar porque em uns 7 dias ele tá aí.",
+    "Pode trocar mas uns 7 dias ele tá aí.",
+    "O prazo até quando chegar é de 7 dias pra trocar.",
+  ];
+  const passamNosDois = [
+    "A troca é em 7 dias.",
+    "A troca é em 7 dias corridos.",
+    "Você tem 7 dias pra trocar, contados de quando ele chegar.",
+    "Você tem 7 dias pra trocar, contados a partir de quando receber.",
+    "Você tem 7 dias pra trocar, a contar de quando receber.",
+    "Você tem 7 dias pra trocar, quando receber.",
+    "Depois que receber são 7 dias pra trocar.",
+    "Quando o colete chegar você tem até 7 dias pra trocar.",
+    "Depois que o colete chegar, a troca é em até 7 dias.",
+    "A garantia é a mesma: 7 dias.",
+    "Você tem 7 dias pra trocar, a partir do recebimento.",
+    "Pode trocar em até 7 dias, contados do recebimento.",
+    "Tem 7 dias de garantia a partir do recebimento.",
+    "São 7 dias de arrependimento depois que chega.",
+    "Você tem uma semana pra trocar depois que recebe.",
+    "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+    "Quando chega aí você tem 7 dias pra trocar.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, quinta revisão (aprovada com ressalvas): falsos positivos em frases honestas — as
+ * falas do roteiro com "contando do dia que receber", a troca com objeto ou adjetivo ("pra
+ * trocar de tamanho", "a troca é grátis em até 7 dias"), "a garantia de 7 dias vale" — e a
+ * chegada em palavras depois da garantia ("e ele está com você", "e o colete é seu").
+ */
+describe("M-08, quinta revisão: falas honestas passam", () => {
+  const passamNosDois = [
+    "Você tem 7 dias pra trocar ou devolver contando do dia que receber.",
+    "A gente troca ou devolve, sem drama, você tem 7 dias contando do dia que receber.",
+    "Você tem 7 dias contando de quando recebeu.",
+    "Você tem 7 dias pra trocar, contando da data em que você recebe.",
+    "São 7 dias de garantia, contados da entrega.",
+    "Tem 7 dias pra trocar a partir do dia que receber.",
+    "Você tem 7 dias pra trocar de tamanho.",
+    // 2026-09-28: sem chegada na frase o antecipado já não julga a contagem; com ela, o objeto importa.
+    "Você tem 7 dias pra trocar de tamanho, contando do dia que receber.",
+    "Você tem 7 dias pra trocar o tamanho.",
+    "Você tem 7 dias pra trocar por outro tamanho.",
+    "Você tem 7 dias pra devolver o produto.",
+    "Pode trocar o tamanho em até 7 dias.",
+    "Você pode trocar de tamanho em até 7 dias.",
+    "Se o tamanho não servir, a troca é grátis em até 7 dias.",
+    "A troca é gratuita em até 7 dias.",
+    "A garantia de 7 dias vale nos dois.",
+    "No antecipado, a garantia é igual: 7 dias.",
+    "A garantia de 7 dias vale também no antecipado.",
+    "Você tem 7 dias pra pedir a troca.",
+  ];
+  const vetadasNoAntecipado = [
+    "Pode trocar em 7 dias, e ele está com você.",
+    "Pode trocar em 7 dias, e o colete é seu.",
+    "Pode trocar em 7 dias, que você já abre a caixa.",
+    "A garantia é de 7 dias, ou seja, você já tem ele.",
+    "Pode trocar em até uma semana e ele tá contigo.",
+    "Pagando no pix, 7 dias de garantia e ele é seu.",
+    "A troca é em uma semana, e o colete tá contigo.",
+    "A garantia de 7 dias vale até chegar.",
+    "Pode trocar em 7 dias; e ele chega junto.",
+  ];
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+});
+
+/**
+ * M-08, sexta revisão: dois afrouxamentos reais da quinta. "Você tem N" + início da contagem só é
+ * garantia com ela recebendo ("contando de quando recebeu"); "são 7 dias depois que recebermos" e
+ * "o prazo é de 7 dias a partir do recebimento" são prazo. E depois de ";" tudo é julgado — só a
+ * locução do roteiro "do pedido até a entrega" sai antes.
+ */
+describe("M-08, sexta revisão: sem troca não há garantia; depois de ';' tudo é julgado", () => {
+  const vetadasNosDois = [
+    "No pix, são 7 dias depois que recebermos.",
+    "No pix são 7 dias úteis depois que recebermos.",
+    "No pix, são 7 dias a partir do recebimento.",
+    "No pix o prazo é de 7 dias, contados a partir do recebimento.",
+    "No antecipado, o prazo é de 7 dias a partir de quando recebermos.",
+    "No antecipado são 7 dias depois do recebimento.",
+    "No pix você tem 7 dias pra trocar; a entrega também.",
+  ];
+  const vetadasNoAntecipado = [
+    // O nome do antecipado na frase anterior ("Pagou no pix?") não é lido no caminho da entrega —
+    // família anterior à M-08, fora deste conserto.
+    "Pagou no pix? São 7 dias contados da data que recebermos.",
+    "Pode trocar em 7 dias; a entrega também.",
+    "Você tem 7 dias pra trocar; a entrega é igual.",
+    "Você tem 7 dias pra trocar; é o mesmo prazo da entrega.",
+    "Você tem 7 dias pra trocar; o frete é no mesmo prazo.",
+    "Você tem 7 dias pra trocar; a transportadora faz no mesmo prazo.",
+    "Você tem 7 dias pra trocar; a entrega segue o mesmo prazo.",
+    "Você tem 7 dias pra trocar; é o prazo da transportadora também.",
+    "Pode trocar em 7 dias; o correio faz igual.",
+    "Pode trocar em 7 dias; e ele vem nesse tempo.",
+    "Pode trocar em 7 dias; ele aparece aí nesse prazo.",
+    "Pode trocar em 7 dias; nesse prazo ele bate na sua porta.",
+    "Pode trocar em 7 dias; nesse tempo ele tá na sua casa.",
+    "Pode trocar em 7 dias; que é o tempo da viagem.",
+  ];
+  const passamNosDois = [
+    "Eu sei que pagar antes muda a conversa, então deixa eu te dar as garantias: a compra é feita no ambiente da Coinzz, com nota; você tem 7 dias pra trocar ou devolver contando do dia que receber; e eu fico aqui no WhatsApp com você do pedido até a entrega, pode me cobrar.",
+    "Você tem 7 dias contando de quando recebeu.",
+    "Você tem 7 dias pra trocar, contando da data em que você recebe.",
+    "São 7 dias de garantia, contados da entrega.",
+    "Tem 7 dias pra trocar a partir do dia que receber.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, sétima revisão: "do pedido até a entrega" saía da cauda em qualquer lugar (só a fala do
+ * roteiro, com o sujeito dela, sai); "o prazo pra trocar é de 7 dias" era vetada; e a presença com
+ * "aqui/aí" no meio ("tá aqui com você") não era lida.
+ */
+describe("M-08, sétima revisão", () => {
+  const vetadasNosDois = [
+    "No pix, você tem 7 dias pra trocar do pedido até a entrega.",
+    "No pix, pode trocar em 7 dias, do pedido até a entrega.",
+    "No pix o prazo é de 7 dias, contados a partir do recebimento.",
+  ];
+  const vetadasNoAntecipado = [
+    "Pode trocar em 7 dias do pedido até a entrega.",
+    "Você tem 7 dias pra trocar, e eu te acompanho do pedido até a entrega, que é rapidinha.",
+    "Pode trocar, o prazo até quando chegar é de 7 dias.",
+    "Pode trocar em 7 dias, e ele tá aqui com você.",
+  ];
+  const passamNosDois = [
+    "O prazo pra trocar é de 7 dias.",
+    "O prazo pra devolver é de 7 dias.",
+    "Seu prazo pra desistir é de 7 dias.",
+    "Pra trocar, o prazo é de 7 dias.",
+    "O prazo pra trocar ou devolver é de 7 dias depois que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(vetadasNoAntecipado)("veta no antecipado: %s", (texto) => {
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-08, oitava revisão: "o prazo é 7 dias" depois de qualquer palavra de troca, em outra oração,
+ * era tomado pela garantia ("a troca é fácil, e o prazo é 7 dias"). A troca só toma a contagem
+ * quando a governa: "o prazo pra trocar é de", "pra trocar, o prazo é de", "se precisar trocar,
+ * são", "é só trocar: você tem".
+ */
+describe("M-08, oitava revisão: a troca governa a contagem, ou não a toma", () => {
+  const vetadasNosDois = [
+    "No antecipado a troca é fácil, e o prazo é 7 dias.",
+    "No pix a troca é fácil, e o prazo é 7 dias.",
+    "No antecipado pode trocar, e o prazo é 7 dias.",
+    "No antecipado tem troca, e o prazo é 7 dias.",
+    "No antecipado tem garantia, e o prazo é 7 dias.",
+    "No antecipado a troca é fácil, e o prazo é de 7 dias.",
+    "No antecipado a troca é simples e o prazo é 7 dias.",
+    "Pagando antes a devolução é fácil, e o prazo é de uma semana.",
+    "No antecipado a troca é grátis e o prazo fica 7 dias.",
+    "No antecipado a troca é fácil, e o prazo são 7 dias.",
+    "No pix, com garantia, o prazo é de 7 dias.",
+    "No pix tem troca grátis e o prazo é de 7 dias.",
+    "No pix tem garantia e são 7 dias.",
+    "Pagando antes, tem garantia, e fica 7 dias.",
+    "No pix, pode trocar; o prazo é de 7 dias.",
+    "No pix, troca garantida, o prazo é de uma semana.",
+    "No antecipado com garantia, é uma semana.",
+    "Pagando no pix, com direito a troca, são 7 dias.",
+    // Nona revisão: o "se" não atravessa verbo de chegada até a troca.
+    "No pix, se precisar receber e trocar, são 7 dias.",
+    "No antecipado, se precisar receber e trocar, são 7 dias.",
+  ];
+  const passamNosDois = [
+    "O prazo pra trocar é de 7 dias.",
+    "O prazo pra devolver é de 7 dias.",
+    "Seu prazo pra desistir é de 7 dias.",
+    "Pra trocar, o prazo é de 7 dias.",
+    "O prazo pra trocar ou devolver é de 7 dias depois que receber.",
+    "A garantia é a mesma: 7 dias.",
+    "A troca é em 7 dias.",
+    "No pix, se precisar trocar, são 7 dias a partir de quando você receber.",
+    "Se não servir, é só trocar: você tem 7 dias depois que ele chegar.",
+    "Se precisar trocar, são 7 dias.",
+    "Se quiser devolver, você tem 7 dias.",
+    "Se não servir, você tem 7 dias pra trocar.",
+    "Você tem 7 dias pra desistir, a contar do dia que receber.",
+    "No pix você tem 7 dias pra desistir, a contar do dia que receber.",
+  ];
+
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+});
+
+/**
+ * M-10 (revisão independente da M-08): no caminho da entrega, a contagem por extenso ou avulsa
+ * ia para o COD por `codAt > prepayAt` e o laço dava `continue`; a checagem de faixa só lê
+ * dígitos. E o nome do antecipado na frase anterior ("Pagou no pix? Chega em 2 dias.") não era
+ * lido no caminho da entrega.
+ */
+describe("M-10: prazo da entrega por extenso, avulso, e o caminho nomeado na frase anterior", () => {
+  const vetadasNosDois = [
+    "Na entrega chega de uma a duas semanas.",
+    "Na entrega chega em uma a duas semanas.",
+    "Na entrega chega em até 2 semanas.",
+    "Na entrega chega em uma semana.",
+    "Na entrega chega em 1 a 3 dias, no máximo uma semana.",
+    "Na entrega chega em 5 dias.",
+    "Na entrega chega em dez dias.",
+    "Na entrega chega de dois a cinco dias.",
+    "Na entrega não demora, chega em 5 dias.",
+    "Pagou no pix? São 7 dias contados da data que recebermos.",
+    "Pagou no pix? Chega em 2 dias.",
+    "Pagou no pix? Chega em 1 a 3 dias.",
+    "Pagou no pix? Ótimo. Chega em 2 dias.",
+    "E no antecipado? A entrega leva de um a três dias.",
+    "Prefere na entrega ou no pix? Chega em 1 a 3 dias.",
+    // Irmã, na mesma frase: a checagem de faixa só lia "antecipado/adiantado" como nome.
+    "No pix chega em 1 a 3 dias.",
+  ];
+  it.each(vetadasNosDois)("veta nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+    expect(delivery(texto, "prepay")?.verdict).toBe("block");
+  });
+
+  // Sem nome de caminho, no caminho da entrega a contagem responde à faixa da entrega.
+  it.each(["Chega em uma semana.", "Chega em 5 dias.", "Você recebe em dez dias.", "Chega em uns 4 dias."])(
+    "veta no caminho da entrega: %s",
+    (texto) => expect(delivery(texto, "cod")?.verdict).toBe("block"),
+  );
+
+  const passamNosDois = [
+    "Na entrega você recebe em 1 a 3 dias.",
+    "Na entrega você recebe em 1 a 3 dias, e no antecipado varia, em média 5 dias úteis.",
+    "No antecipado varia, em média 5 dias úteis.",
+    "Na entrega chega em 2 dias.",
+    "Na entrega chega em dois dias.",
+    "Na entrega chega de um a três dias.",
+    "Na entrega chega em até 3 dias úteis.",
+    "Faz 3 dias que comprei",
+    "Pagou no pix? O prazo varia por região, em média 5 dias úteis.",
+    "Pagou no pix? Você tem 7 dias pra trocar depois que receber.",
+    "Pagou no pix? Na entrega é diferente: na entrega chega em 1 a 3 dias.",
+  ];
+  it.each(passamNosDois)("passa nos dois caminhos: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+    expect(delivery(texto, "prepay")?.verdict).toBe("pass");
+  });
+
+  it.each([
+    "A entrega leva de um a três dias e é agendada, quem escolhe o dia é você no checkout.",
+    "Não consigo garantir amanhã, a entrega leva de 1 a 3 dias.",
+    "Chega em 2 dias.",
+    "O prazo varia por região, em média 5 dias úteis.",
+    "Em 5 dias de uso você nem sente o colete.",
+    // Pergunta com o nome da entrega não muda nada no caminho da entrega.
+    "Prefere pagar na entrega? Chega em 1 a 3 dias.",
+    // Afirmação inteira antes (não é cabeçalho): a frase seguinte volta ao caminho da conversa.
+    "No pix você ganha 10% de desconto no total do pedido. A entrega leva de um a três dias.",
+  ])("passa no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+  });
+
+  // A faixa vem do config: o início da faixa por extenso também cabe nela, e semana nunca cabe,
+  // mesmo quando o máximo configurado chega a 7.
+  it("julga pela faixa configurada, início e fim, e semana nunca cabe", () => {
+    const at = (codDaysMin: number, codDaysMax: number, text: string) =>
+      runGates(text, ctx({ config: { ...config, delivery: { ...config.delivery, codDaysMin, codDaysMax } } })).traces.find(
+        (t) => t.gate === "delivery_promise",
+      )?.verdict;
+    expect(at(2, 3, "Na entrega chega de um a três dias.")).toBe("block");
+    expect(at(2, 3, "Na entrega chega de dois a três dias.")).toBe("pass");
+    expect(at(2, 3, "Na entrega chega em um dia.")).toBe("block");
+    expect(at(1, 7, "Na entrega chega em uma semana.")).toBe("block");
+    expect(at(1, 7, "Na entrega chega em sete dias.")).toBe("pass");
+  });
+});
+
+/**
+ * M-10, revisão independente (ressalva 1): o nome do antecipado negado ("sem pix", "nada de pix",
+ * "não precisa antecipar", "pix não!") não nomeia o antecipado — nem no cabeçalho, nem na frase.
+ * É o argumento do roteiro ("Nada de cartão, nada de Pix"), e a M-10 o vetava no COD; e, com o
+ * cabeçalho negado lido como antecipado, a média do antecipado passava como prazo da entrega.
+ */
+describe("M-10, revisão: o antecipado negado não nomeia o antecipado", () => {
+  it.each([
+    "Nada de pix. Chega em 1 a 3 dias.",
+    "Sem pix, chega em 1 a 3 dias.",
+    "Não precisa de pix, chega em 1 a 3 dias.",
+    "Sem Pix e sem cartão, a entrega chega em 1 a 3 dias.",
+    "Pix não precisa. Chega em 1 a 3 dias.",
+    "Não precisa pagar antes, chega em 1 a 3 dias.",
+    "Você não quer pix. Chega em 1 a 3 dias.",
+    // A lista local da faixa (com "cartão", "link" e "antes" soltos) sombreava a da M-10.
+    "Você paga em dinheiro ou cartão e recebe em 1 a 3 dias.",
+    "Te mando o link e chega em 1 a 3 dias.",
+  ])("passa no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("pass");
+  });
+
+  it.each([
+    "Nada de pix. Chega em 5 dias, depende da região.",
+    "Pix não! Chega em 5 dias, depende da região.",
+    "Sem pix? Chega em 5 dias, varia um pouco.",
+    "Não precisa antecipar. Chega em 5 dias, varia.",
+    "Nada de pix. Varia, em média 5 dias úteis.",
+    "Sem pix, chega em 5 dias, varia.",
+    "Sem pix, em média 5 dias úteis.",
+    // Negativas que não negam: o pix continua nomeado.
+    "Não quer pagar no pix? Chega em 2 dias.",
+    "No pix não demora, chega em 1 a 3 dias.",
+    "Sem juros no pix: chega em 1 a 3 dias.",
+    "Nem precisa esperar, no pix chega em 1 a 3 dias.",
+  ])("veta no caminho da entrega: %s", (texto) => {
+    expect(delivery(texto, "cod")?.verdict).toBe("block");
+  });
+});

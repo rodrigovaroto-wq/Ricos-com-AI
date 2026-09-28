@@ -21,6 +21,7 @@ const mirrored = [
   ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
+  ["src/agent/opt-in.ts", "supabase/functions/turn/opt-in.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],
@@ -415,7 +416,7 @@ describe("WA-1 na Edge Function: a régua respeita a janela de 24h (2026-09-25)"
     expect(decide).toBeGreaterThan(-1);
     expect(blocked).toBeGreaterThan(decide);
     expect(record).toBeGreaterThan(blocked);
-    expect(source).toContain("conversations(id,lead_id,last_inbound_at,leads(");
+    expect(source).toContain("conversations(id,lead_id,stage,last_inbound_at,leads(");
   });
 });
 
