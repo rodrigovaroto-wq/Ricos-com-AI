@@ -11,7 +11,55 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-27)
+## ▶ COMECE AQUI — próxima sessão (escrito em 2026-09-28, sessão encerrada por limite de uso)
+
+**Branch `claude/focused-gates-fjpixt`, HEAD `70a005c`, sem PR, nada publicado** (a `turn` no ar
+continua a v41). Tudo commitado e no remoto.
+
+### Onde parou
+1. **Segunda revisão cética (4 revisores, por execução/origem/sistema/gates) → rodada de correção
+   feita e commitada:** `bf23390` (7 consertos fora do gate, provados por execução real contra um
+   PostgREST falso: janela do link, régua recomeça no toque adiado, posse da linha no adiamento,
+   dois pedidos nas duas ordens, retry fora da janela, externalId malformado, varredura isolada
+   por linha — grafo §21) e `70a005c` (gate `delivery_promise` reestruturado por decisão do
+   operador "unificar e consertar": um nome por caminho, `pathOf`, um `ARRIVAL` — grafo §22).
+   Verde em `70a005c`: lint, typecheck, 4368 testes, 1640 conversas, `typecheck:function`,
+   `dev:gates` (só afrouxamentos honestos aceitos).
+2. **NÃO CONCLUÍDO — Tarefa 1 da próxima sessão:** a **terceira revisão cética** sobre `70a005c`
+   foi disparada e interrompida pelo limite: (a) auditoria adversarial do gate comparando main
+   9222dc6 / 890690c / 70a005c (scripts em `scratchpad/gates2/`); (b) execução real da `turn`
+   com cenários novos (harness em `scratchpad/e2e/` — confira se sobreviveu); (c) revisão do
+   branch inteiro (chamadores, espelhos, mutações, cada linha de `tests/gate-loosen-accepted.txt`).
+   Também rodar `pnpm verificar:guardas` inteiro em `70a005c` (≈13 min; o resultado da última
+   rodada não foi lido) — 22 mutações novas/reapontadas nesta rodada.
+   Critério de aprovação: nenhuma mentira de prazo que o `main` vete e o branch deixe passar;
+   nenhum veto novo em fala do roteiro, do prompt ou de toque da régua.
+
+### Pipeline até anúncios e leads reais (dono: C = Claude, O = operador, S = sócio)
+- **Fase 0 — fechar o código:** terceira revisão (acima) → corrigir o que ela achar → **O pede o
+  PR** → C leva o CI ao verde (primeira vez no CI) → merge.
+- **Fase 1 — publicar e provar:** O põe ramo de erro com e-mail no nó "Varre a regua" (n8n) →
+  O publica a `turn` (0017 já aplicada) → C faz a sonda da varredura pela porta do n8n (fechamento
+  pela `run_at`, `perdido`, lembrete de checkout, dois pedidos) e a sonda de turno (recepção,
+  preços/prazos dos dois caminhos, nunca frete grátis).
+- **Fase 2 — pedido dos dois lados:** pedido sintético COD (Logzz) e antecipado (Coinzz), webhooks
+  de cada status, estágio até `entregue_pago`; O confirma o primeiro kit real (`order_quantity`
+  2/3) e a taxa do parcelado do Mercado Pago.
+- **Fase 3 — personas:** as 12 pela porta do n8n contra o que está no ar.
+- **Fase 4 — canal:** S entrega app/número/token/webhook e templates aprovados; O grava segredos
+  (`INBOUND_SIGNING_SECRET`, `TURN_REQUIRE_SERVICE_ROLE`), publica `whatsapp`, cria a credencial no
+  n8n; C põe `PHONE_NUMBER_ID` e `channel.templates`, teste template ↔ `renderFollowup`, opt-in de
+  marketing, e por último `CANAL_ATIVO=true` (`docs/operacao/whatsapp-cloud-api.md`).
+- **Fase 5 — ensaio:** O troca `CONVERSATION_MODEL` para o modelo sem `-contributor` (LGPD); as 12
+  personas pelo WhatsApp de verdade; um pedido real pago na porta de ponta a ponta; **aquecer o
+  número** (item mais longo — começar já, se não começou).
+- **Fase 6 — anúncios:** C: atribuição CTWA (`leads.source`), views de avaliação; O: piso de
+  amostra escrito antes de olhar número; S: tráfego mínimo só nas 22 praças com COD; C:
+  acompanhamento diário (`turn_outcomes`, handoffs, custo, `perdido`).
+- **Fase 7 — depois do tráfego:** Hermes com dado real, Conversions API, cupom (sem ele o
+  `silence_3` fica mudo), O-02, apps da Coinzz.
+
+## ▶ Estado em 2026-09-27 (histórico)
 
 **Branch `claude/focused-gates-fjpixt`, à frente do `main`, sem PR** (o operador pede o PR). No
 ar continua a `turn` **v41** — nada desta sessão foi publicado. CI só roda em PR: até lá,
