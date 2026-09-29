@@ -208,7 +208,7 @@
           <tr><td>Taxa de manuseio</td><td class="num">R$ 4,99</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega concluída (Padrão)</td><td class="num">R$ 19,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega concluída (<strong>Express</strong>)</td><td class="num">R$ 24,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td>Devolução / cancelamento depois de enviado (frete inteiro + manuseio)</td><td class="num">19,99 + 4,99 (COD) · etiqueta + 4,99 (antecipado)</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Devolução / cancelamento depois de enviado (taxa completa, manuseio incluso)</td><td class="num">25,00</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega frustrada</td><td class="num">R$ 4,99</td><td>sim</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega garantida (opcional)</td><td class="num">R$ 24,99</td><td>opcional</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Etiqueta — Logzz expedição, São Paulo (manuseio incluso)</td><td class="num">R$ 13,79</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
@@ -250,7 +250,7 @@
         <div class="line total"><span>Margem na entrega concluída</span><span class="num">R$ 63,35</span></div>
         <div class="line"><span>Custo de uma recusa na porta (tudo o que se paga)</span><span class="num">− 9,90</span></div>
         <div class="line total"><span>Esperado com 15% de recusa</span><span class="num">R$ 52,36</span></div>
-        <div class="line"><span>Devolvido depois de enviado: entrega 19,99 + manuseio</span><span class="num">− 24,98</span></div>
+        <div class="line"><span>Devolvido depois de enviado: taxa completa de devolução</span><span class="num">− 25,00</span></div>
         <div class="line total"><span>Esperado com 15% de recusa e 7,5% de devolução</span><span class="num">R$ 45,74</span></div>
       </div>
       <div class="col out">
@@ -260,12 +260,12 @@
         <div class="line"><span>Produto</span><span class="num">− 30,00</span></div>
         <div class="line"><span>Manuseio (frete pago pela cliente; sem entrega concluída)</span><span class="num">− 4,99</span></div>
         <div class="line total"><span>Margem entregue, e não há frustração</span><span class="num">R$ 77,93</span></div>
-        <div class="line"><span>Devolvido depois de enviado: etiqueta média 20,00 + manuseio</span><span class="num">− 24,99</span></div>
-        <div class="line total"><span>Esperado com 7,5% de devolução</span><span class="num">R$ 70,21</span></div>
+        <div class="line"><span>Devolvido depois de enviado: taxa completa 25,00 + taxa do Mercado Pago que não volta 3,99</span><span class="num">− 28,99</span></div>
+        <div class="line total"><span>Esperado com 7,5% de devolução</span><span class="num">R$ 69,91</span></div>
       </div>
     </div>
     <p style="margin-top:18px; color:var(--ink-2); max-width:64ch">
-      O antecipado rende <strong>menos risco e mais dinheiro</strong>: R$ 70,21 esperados por pedido contra R$ 45,74 do COD, já com 7,5% de devolução nos dois e 15% de recusa só no COD. A escolha entre eles é de conversão e de cobertura: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43, não frustra, e o frete pago pela cliente deixa a margem igual em qualquer CEP.
+      O antecipado rende <strong>menos risco e mais dinheiro</strong>: R$ 69,91 esperados por pedido contra R$ 45,74 do COD, já com 7,5% de devolução nos dois e 15% de recusa só no COD. A escolha entre eles é de conversão e de cobertura: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43, não frustra, e o frete pago pela cliente deixa a margem igual em qualquer CEP.
     </p>
     <div class="note" style="margin-top:16px">
       <strong>A agente não tem mais como recusar uma venda por praça.</strong> Sem entrega no tamanho dela, ela oferece o antecipado — sempre, em qualquer CEP. A fila de espera por etiqueta cara deixou de existir quando o teto entrou: não há mais praça em que a venda dê prejuízo.
@@ -306,10 +306,10 @@
       </table>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>O que escala com as peças.</strong> Só o <em>produto</em> (R$ 30,00 por peça) e o preço do kit. Entrega concluída (R$ 19,99, só COD), manuseio (R$ 4,99), recusa (R$ 9,90), devolução, o fixo de R$ 2,49 da transação COD e o fixo de R$ 1,00 do Pix contam <strong>uma vez por pedido</strong>, também no kit de 3; a transação percentual (6,99% no COD, Mercado Pago no antecipado) incide sobre o preço do kit; lead e IA contam por venda. <em>Premissa não confirmada com a Logzz/Coinzz:</em> se a entrega ou o manuseio forem cobrados por peça, as colunas de 2 e 3 peças pioram.
+      <strong>O que escala com as peças.</strong> Só o <em>produto</em> (R$ 30,00 por peça) e o preço do kit. Entrega concluída (R$ 19,99, só COD), manuseio (R$ 4,99), recusa (R$ 9,90), devolução (R$ 25,00), o fixo de R$ 2,49 da transação COD e o fixo de R$ 1,00 do Pix contam <strong>uma vez por pedido</strong>, também no kit de 3; a transação percentual (6,99% no COD, Mercado Pago no antecipado) incide sobre o preço do kit; lead e IA contam por venda. Cobrança por pedido confirmada pelo operador em 29/09.
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como a devolução entra.</strong> Do pedido devolvido ou cancelado depois de enviado, o operador perde o frete inteiro e o manuseio (COD: R$ 19,99 + R$ 4,99; antecipado: etiqueta média R$ 20,00 + R$ 4,99) e não recebe a venda. Os 7,5% valem sobre o pedido criado e são separados dos 15% de recusa do COD. O antecipado nunca tem recusa nem entrega concluída; a cliente paga o frete no checkout.
+      <strong>Como a devolução entra.</strong> Do pedido devolvido ou cancelado depois de enviado, o operador paga a taxa completa de devolução de R$ 25,00 (manuseio já incluso, nos dois caminhos) e não recebe a venda; no antecipado a taxa do Mercado Pago também não volta no estorno. Os 7,5% valem sobre o pedido criado e são separados dos 15% de recusa do COD. O antecipado nunca tem recusa nem entrega concluída; a cliente paga o frete no checkout.
     </div>
   </section>
 
@@ -363,7 +363,7 @@
             <tbody>
               <tr><td>Anúncios</td><td class="num" id="sAds">—</td><td>no dia</td></tr>
               <tr><td>Saldo de expedição e devolução (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
-              <tr><td>Manuseio e etiqueta de devolução (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
+              <tr><td>Manuseio e taxa de devolução (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
               <tr><td>Produto</td><td class="num" id="sProd">—</td><td>descontado na venda — estoque do fornecedor, não do seu caixa</td></tr>
               <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,10 por lead (premissa do operador; o custo medido foi R$ 0,0197 por conversa)</td></tr>
               <tr><td class="strong">Total que sai por dia</td><td class="num strong" id="sTot">—</td><td>—</td></tr>
@@ -438,7 +438,7 @@
   const COD_PRECOS = [129.90, 233.82, 311.76], PRE_PRECOS = [116.91, 207.84, 272.79];  // kits de 1, 2 e 3 peças
   const TRANSACAO = 0.0699, ANTIFRAUDE = 2.49, MANUSEIO = 4.99;
   const ENTREGA_CONCLUIDA = 19.99, CUSTO_RECUSA = 9.90;  // recusa na porta: R$ 9,90 é tudo o que o operador paga (2026-09-29)
-  const ETIQUETA_DEV = 20.00;      // etiqueta média nas devoluções (operador, 2026-09-29); + manuseio
+  const CUSTO_DEV = 25.00;         // taxa completa de devolução, manuseio incluso (operador, 2026-09-29), nos dois caminhos
   const MP_PIX = 0.0099, MP_PIX_FIXO = 1.00, MP_CARTAO = 0.0498;  // Mercado Pago, mix 50% Pix / 50% cartão à vista
   const taxaMP = p => 0.5*(MP_PIX*p + MP_PIX_FIXO) + 0.5*MP_CARTAO*p;
   const LEAD = 1.00, CONVERSAO = 0.10;   // R$ 1 por lead, 10% viram venda
@@ -453,15 +453,15 @@
     const cod = { fat: COD_PRECO, prod, trans: COD_PRECO*TRANSACAO + ANTIFRAUDE, entrega: ENTREGA_CONCLUIDA, manuseio: MANUSEIO };
     cod.entregue = cod.fat - cod.prod - cod.trans - cod.entrega - cod.manuseio;
     cod.custoFrus = CUSTO_RECUSA;
-    cod.custoDev = ENTREGA_CONCLUIDA + MANUSEIO;
+    cod.custoDev = CUSTO_DEV;
     cod.perdaFrus = frus * (cod.entregue + cod.custoFrus);
     cod.perdaDev = dev * (cod.entregue + cod.custoDev);
     cod.esperada = cod.entregue - cod.perdaFrus - cod.perdaDev;
     const pre = { fat: PRE_PRECO, prod, trans: taxaMP(PRE_PRECO), entrega: 0, manuseio: MANUSEIO };
     pre.entregue = pre.fat - pre.prod - pre.trans - pre.entrega - pre.manuseio;
-    pre.custoDev = ETIQUETA_DEV + MANUSEIO;
+    pre.custoDev = CUSTO_DEV;
     pre.perdaFrus = 0;
-    pre.perdaDev = dev * (pre.entregue + pre.custoDev);
+    pre.perdaDev = dev * (pre.entregue + pre.custoDev + pre.trans);  // a taxa do Mercado Pago não volta no estorno
     pre.esperada = pre.entregue - pre.perdaDev;
     return { cod, pre };
   }

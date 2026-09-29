@@ -1779,6 +1779,12 @@ a cliente não paga), manuseio e taxas de transação. O operador decidiu:
   `06-modelo-economico.md` e no `mapa-financeiro.html`. **Etiqueta média de R$ 20,00** nas
   devoluções do antecipado (+ manuseio R$ 4,99 = R$ 24,99); recusa (15%, R$ 9,90) e devolução
   (7,5%, R$ 24,98 no COD) são eventos separados, com taxas e custos próprios.
+  **Fechado no mesmo dia:** a taxa completa de devolução é **R$ 25,00, manuseio incluso, nos dois
+  caminhos** (substitui os R$ 24,98 / R$ 24,99); a taxa de transação **não volta** no estorno
+  (no antecipado o Mercado Pago cobra mesmo assim); entrega, manuseio e demais taxas são
+  **por pedido**, também nos kits (confirmado); cartão à vista e 7,5% de devolução ficam como
+  expectativa. Lucro por venda 1 / 2 / 3 peças: COD 34,74 / 86,39 / 119,33; antecipado 58,91 /
+  112,56 / 142,95; mix 70/30 41,99 / 94,24 / 126,41.
 - **Teto de custo por conversa: R$ 0,50** (operador, 2026-09-29; supera os R$ 1,50 de R10.1).
   `conversationCapBrl` = 0,5 em `config/business.example.json`, no fallback da Edge Function
   (`supabase/functions/turn/index.ts`), nas fixtures e nos scripts de `src/dev/`; com a folga de
