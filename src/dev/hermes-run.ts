@@ -36,6 +36,7 @@ import {
   renderProposals,
   rowsToConversations,
   unquote,
+  proposalFields,
   withoutQuotes,
   type LedgerRow,
   type SupabaseRows,
@@ -89,9 +90,9 @@ async function fromSupabase(): Promise<{ conversations: Conversation[]; leads: n
   if (conversations.length === 0) return { conversations: [], leads: 0 };
   const ids = conversations.map((c) => c.id).join(",");
   const [messages, traces, outcomes] = await Promise.all([
-    restAll<SupabaseRows["messages"][number]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`),
-    restAll<SupabaseRows["traces"][number]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`),
-    restAll<SupabaseRows["outcomes"][number]>(`turn_outcomes?select=conversation_id,outcome,created_at&conversation_id=in.(${ids})&order=created_at`),
+    restAll<SupabaseRows["messages"][number]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at,id`),
+    restAll<SupabaseRows["traces"][number]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at,id`),
+    restAll<SupabaseRows["outcomes"][number]>(`turn_outcomes?select=conversation_id,outcome,created_at&conversation_id=in.(${ids})&order=created_at,id`),
   ]);
   return rowsToConversations({ conversations, messages, traces, outcomes });
 }
@@ -227,7 +228,7 @@ if (writeDb) {
           code: `${day} H-${i + 1}`,
           target: p.alvo,
           rationale: `${p.o_que} — ${p.por_que}`,
-          evidence: { ...p, source },
+          evidence: { ...proposalFields(p), source },
           status: "proposed",
           leads_seen: leads,
         })),

@@ -264,7 +264,7 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
   it("proposta malformada (rejeitada) não carrega texto por chave desconhecida, evidência em texto ou conversa inventada", () => {
     const torta = {
       ok: false,
-      problems: ["conversa inexistente: meu nome é Ana Souza", "alvo desconhecido: rua das Flores 12"],
+      problems: ["conversa inexistente: meu nome é Ana Souza", "alvo desconhecido: rua das Flores 12", 'trecho não está na conversa Ana mora na rua das Flores: "x"'],
       proposal: {
         ...proposta().propostas[0],
         contexto: { fala: "meu nome é Ana Souza" },
@@ -283,7 +283,15 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
     expect(run).toContain("const published = production ? withoutQuotes(checked) : checked;");
     expect(run).toContain("renderProposals(title, resumo, published)");
     expect(run).toContain("JSON.stringify({ resumo, checked: published, usage, costUsd }");
-    expect(run).toMatch(/ok\.map\(\(\{ proposal: p \}, i\) =>[\s\S]*evidence: \{ \.\.\.p, source \}/);
+    expect(run).toMatch(/ok\.map\(\(\{ proposal: p \}, i\) =>[\s\S]*evidence: \{ \.\.\.proposalFields\(p\), source \}/);
+  });
+
+  it("o banco grava só as chaves de uma proposta, com o trecho original", async () => {
+    const { proposalFields } = await import("../src/dev/hermes-core.js");
+    const p = proposalFields({ ...proposta().propostas[0], extra: "meu nome é Ana" } as never);
+    expect(JSON.stringify(p)).not.toContain("Ana");
+    expect(p.evidencias[0]?.trecho).toBe("tiro mais alguma dúvida antes?");
+    expect(p.como_medir).toBe("pronta-por-preco");
   });
 
   it("não altera a entrada — o banco grava o trecho original", () => {

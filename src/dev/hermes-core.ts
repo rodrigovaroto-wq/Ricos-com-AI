@@ -245,11 +245,30 @@ export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]
  * replaced; the operator reads the originals in the e-mail, from `hermes_proposals`, whose
  * `evidence` the purge clears at 90 days (migration 0020). Returns a copy.
  */
+const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade"] as const;
+const LABEL = /^(?:conversa|persona)-[\w-]+$/;
+/** The validator's problem names (checkProposals); anything after the name may echo the model. */
+const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer"];
+
+/**
+ * Only what a proposal is — the known text keys and the evidence as {conversa, mensagem,
+ * trecho} — for what `hermes_proposals.evidence` stores: a key the model invented would not
+ * be reached by the purge of `evidencias` at 90 days (migration 0020).
+ */
+export function proposalFields(p: Proposal): Proposal {
+  const r = (p ?? {}) as unknown as Record<string, unknown>;
+  const out = Object.fromEntries(TEXT.filter((k) => typeof r[k] === "string").map((k) => [k, r[k]])) as unknown as Proposal;
+  out.evidencias = (Array.isArray(r.evidencias) ? r.evidencias : []).map((e: Partial<Evidence> | null) => ({
+    conversa: String(e?.conversa ?? ""),
+    ...(typeof e?.mensagem === "number" ? { mensagem: e.mensagem } : {}),
+    trecho: String(e?.trecho ?? ""),
+  }));
+  return out;
+}
+
 export function withoutQuotes(checked: readonly Checked[]): Checked[] {
   // Only the keys a proposal has, and only as text: a rejected proposal can be anything the
   // model wrote, and its unknown keys, nested objects or string evidence would reach git.
-  const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade"] as const;
-  const LABEL = /^(?:conversa|persona)-[\w-]+$/;
   return checked.map((c) => {
     const p = (c.proposal ?? {}) as unknown as Record<string, unknown>;
     const proposal = Object.fromEntries(TEXT.filter((k) => typeof p[k] === "string").map((k) => [k, unquote(p[k])])) as unknown as Proposal;
@@ -261,7 +280,7 @@ export function withoutQuotes(checked: readonly Checked[]): Checked[] {
     return {
       ok: c.ok,
       // The validator's own words, never what it echoes of the model's text.
-      problems: c.problems.map((x) => x.split(":")[0]!),
+      problems: c.problems.map((x) => PROBLEMS.find((name) => x.startsWith(name)) ?? "problema"),
       proposal,
       ...(c.today ? { today: c.today.map((t) => ({ trecho: REDACTED, blockedBy: t.blockedBy })) } : {}),
     };
