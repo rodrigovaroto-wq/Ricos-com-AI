@@ -42,6 +42,8 @@ export interface Interpretation {
   asks_human: boolean;
   wants_cancel: boolean;
   post_sale: boolean;
+  /** She wants to exchange the size of an order she already has (R17.1). */
+  wants_exchange: boolean;
   opt_out: boolean;
   size: InterpretedSize;
   email: string | null;
@@ -63,6 +65,7 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   asks_human: false,
   wants_cancel: false,
   post_sale: false,
+  wants_exchange: false,
   opt_out: false,
   size: Object.freeze({ letter: null, pants: null, waist_cm: null, for_other_person: false }),
   email: null,
@@ -96,6 +99,9 @@ export const INTERPRETER_SYSTEM = [
   '- "wants_cancel": true só se ela quer cancelar um pedido que JÁ FEZ.',
   '- "post_sale": true se ela fala de um pedido que JÁ FEZ (onde está, quando chega, troca,',
   "  devolução, problema com a entrega).",
+  '- "wants_exchange": true só se ela quer TROCAR o tamanho de um colete que JÁ COMPROU',
+  '  ("ficou pequeno, quero trocar pelo G", "dá pra trocar o tamanho?"). Pergunta antes de comprar',
+  '  ("e se não servir, dá pra trocar?"), devolução e cancelamento: false.',
   '- "opt_out": true se ela pede para não receber mais mensagens.',
   '- "size": { "letter": "P"|"M"|"G"|"GG"|"XGG"|null, "pants": número da CALÇA ou null',
   '  (manequim, número de vestido, de blusa ou de sapato NÃO é calça: pants null),',
@@ -180,6 +186,7 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       asks_human: flag(o.asks_human),
       wants_cancel: flag(o.wants_cancel),
       post_sale: flag(o.post_sale),
+      wants_exchange: flag(o.wants_exchange),
       opt_out: flag(o.opt_out),
       size: {
         letter: (LETTERS as readonly string[]).includes(letter) ? (letter as SizeLetter) : null,

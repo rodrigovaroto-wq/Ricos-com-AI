@@ -145,3 +145,10 @@ R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparec
 R16.5 | warranty_promise | Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.
 R16.5 | warranty_promise | Não consigo garantir 2 dias, varia por região, em média 5 dias úteis.
 R16.5 | warranty_promise | No antecipado o prazo varia por região, em média 5 dias úteis. O link pra garantir o seu está aqui embaixo.
+§40 | scarcity_claim | Só tenho 2 perguntas rapidinhas pra você.
+§40 | scarcity_claim | Só tem 1 jeito de pagar aí: antecipado.
+§40 | scarcity_claim | Nos últimos dias muita gente pediu o M.
+§40 | scarcity_claim | Você tem 7 dias pra devolver, e nos últimos dias também vale.
+§40 | health_claim | Ele tira o incômodo da barriga marcando na roupa.
+§40 | shipping_promise | Prefere pagar no pix? É sem custo nenhum a devolução.
+§40 | shipping_promise | No pix? É sem custo nenhum pra você gerar o código.

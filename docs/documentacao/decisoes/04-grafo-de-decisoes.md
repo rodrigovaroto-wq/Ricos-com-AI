@@ -1187,6 +1187,60 @@ mix 70/30 R$ 60,02, devolvido −R$ 24,98 no COD e −(etiqueta + 4,99) no antec
 esses valores. **Guarda:** nenhuma automática — é conta de documentação; a taxa de
 devolução pós-envio fica registrada como pendência (P6), não como premissa.
 
+## 39. A troca de tamanho não é grátis: o envio é dela, pago por link (R17.1, 2026-09-29)
+
+**Sintoma:** a agente podia dizer "a troca é grátis" (§9, M-08, `RETURN_FREE`), e uma troca num
+pedido ia para uma pessoa sem valor nem link. O operador respondeu a pergunta do §37: o envio da
+troca é da cliente, pago por um link do Mercado Pago fora da Coinzz e da Logzz.
+
+**Causa:** a troca e a devolução eram tratadas como uma coisa só ("trocar ou devolver"), e o grátis
+da devolução (R16.3) valia para as duas.
+
+**Caminhos que não valiam:** (a) ensinar ao modelo o valor da troca: o valor passaria a ser um preço
+que `price_promise` teria de aceitar em qualquer mensagem, uma isenção aberta (Lição 1); (b) cortar a
+frase por vírgula: "Você tem 7 dias pra trocar ou devolver, sem custo nenhum" perdia o dono do grátis;
+(c) dar o grátis à palavra mais próxima: a devolução mais perto tomava o grátis da troca coordenada.
+
+**Correção:** `claimsExchangeFree` em `warranty_promise`, por frase: o grátis é da troca quando a
+governa depois ("grátis pra trocar", "o frete da troca"), quando a troca é a mais próxima antes, ou
+quando está coordenada com a devolução ("trocar ou devolver"); negado entre as duas, não conta; a
+resposta a uma pergunta sobre a troca herda a troca. O valor sai só na resposta fixa
+(`exchangeReply`, julgada com `GateContext.exchanging`), quando `wants_exchange` e há pedido. Config
+ausente = handoff como antes.
+
+**Guarda:** `tests/exchange-freight.test.ts` (15 mentiras, 9 verdades, a resposta fixa nos dois
+contextos, o config inválido, o intérprete e a ligação no turno); mutações `R17-*` (6/6 pegas);
+`dev:gates --fail-on-loosen`: 0 afrouxamento, 30 endurecimentos, todos a troca dita grátis. Os
+testes do §37 que exigiam "No pix a troca é grátis" passando foram invertidos.
+
+## 40. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
+
+**Sintoma:** a revisão Opus de `9183cd4..93a0386` reprovou: com a praça sem pagamento na entrega,
+"Você paga na entrega e não tem taxa nenhuma." passava (o `DENIED_AFTER` do §37 aceitava qualquer
+"não" a 60 caracteres), e "E no pix? Sim! É grátis também, igual ao pagamento na entrega." passava (a
+pergunta só era a frase anterior, e "na entrega" na resposta isentava). Mais oito ressalvas: o remédio
+do frete ensinava a frase que o `charge_promise` veta sem entrega na praça; "quando o carteiro
+chegar"; "na hora da entrega" lida como "agora"; estoque vetando "Só tenho 2 perguntas" e deixando
+passar "Últimas 12 unidades!"; "A gente garante 30 dias."; "a dor nas costas some"; e a devolução
+nomeada depois do "sem custo".
+
+**Causa:** a de sempre — negação lida numa janela em vez de colada ao verbo, e lista fechada onde a
+família é aberta (sujeito de "quando … chegar", números por extenso, "últimos dias").
+
+**Caminhos que não valiam:** aceitar "é/está/fica" depois de "pagar na entrega" como negação
+deixava "Pagar na entrega não é problema nenhum." passar — só com a palavra que desliga a opção
+(disponível, possível, liberado); "últimos dias" só com palavra de oferta afrouxava "Últimos dias!".
+
+**Correção:** negação colada (com o advérbio entre vírgulas), `NOT_BEFORE`, sujeito livre de até três
+palavras, `lastQuestion` por frase, remédio por praça, `STOCK` exigindo substantivo de estoque, raiz
+`garant`, dor como sujeito que some, `FREE_OWNED_AFTER` para a devolução. E o resíduo da R16.7:
+`askedTestimonial` vem da mensagem dela (`asksForTestimonial`, largo de propósito) e o gate veta
+depoimento não pedido. `recordOrder` com `date_order` ilegível não lança mais.
+
+**Guarda:** `tests/review-2026-09-29-second.test.ts` (111 casos, com a mentira de cada isenção);
+21 mutações `REV2-*`, 4 reapontadas, `R17-data-do-pedido-invalida`; `dev:gates --fail-on-loosen` com
+7 aceites §40 (frases verdadeiras que o gate vetava).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
