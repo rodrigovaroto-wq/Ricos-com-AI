@@ -38,6 +38,24 @@ entregue pelo operador em 2026-09-03.
 > | IA (R$ 0,10 × 10 leads) | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 |
 > | **Lucro por venda** | **34,74** | **86,40** | **119,33** | **59,21** | **113,06** | **143,60** |
 >
+> **Como cada linha escala com as peças** (nada é multiplicado por peça, exceto o produto):
+>
+> | Linha | Cobrada por | Conta (COD 1 / 2 / 3 peças; antecipado idem) |
+> |---|---|---|
+> | Faturamento | preço do kit | COD 129,90 / 233,82 / 311,76; antecipado 116,91 / 207,84 / 272,79 (sobre o unitário de R$ 129,90: COD 2 peças −10% e 3 peças −20%; antecipado 1 / 2 / 3 peças −10% / −20% / −30%) |
+> | Produto | **peça** | R$ 30,00 × 1 / 2 / 3 |
+> | Transação COD | % do preço + valor fixo **por pedido** | 6,99% × preço + R$ 2,49 (uma vez): 9,08+2,49 / 16,34+2,49 / 21,79+2,49 |
+> | Transação antecipado (MP) | % do preço + R$ 1,00 fixo do Pix **por pedido** | 50% Pix (0,99% × preço + R$ 1,00) + 50% cartão (4,98% × preço): 3,99 / 6,70 / 8,64 |
+> | Entrega concluída | **pedido** (só COD) | R$ 19,99 uma vez, mesmo no kit de 3 |
+> | Manuseio | **pedido** | R$ 4,99 uma vez |
+> | Recusa (só COD) | **pedido** | 15% × (margem entregue + R$ 9,90) |
+> | Devolução pós-envio | **pedido** | 7,5% × (margem entregue + custo do frete devolvido); frete devolvido COD R$ 24,98, antecipado R$ 24,99 |
+> | Lead e IA | **venda** | R$ 10,00 + R$ 1,00, iguais em qualquer kit |
+>
+> **Premissa não confirmada:** "uma vez por pedido, também nos kits" vem da P3 de 2026-09-25
+> (`06-modelo-economico.md`) e não foi conferida com a Logzz/Coinzz; se a Logzz cobrar entrega
+> ou manuseio por peça, as colunas de 2 e 3 peças pioram. Vale perguntar ao suporte.
+>
 > Mix 70% COD / 30% antecipado: **R$ 42,08 / R$ 94,40 / R$ 126,61** por venda (1 / 2 / 3 peças).
 > Estas contas **substituem** as médias das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02
 > do mix), que não tinham devolução, lead nem IA. A taxa de 7,5% é premissa do operador, não
