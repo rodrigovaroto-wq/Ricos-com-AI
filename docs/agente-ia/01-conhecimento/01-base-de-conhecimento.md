@@ -21,6 +21,10 @@ acreditar."*
 | 3 | "e se não servir" | **7 dias pra trocar** | Contando da data em que você recebeu. Errou o tamanho ou não gostou, a gente troca ou devolve o valor. |
 | 4 | "vou falar com um robô" | **WhatsApp com gente de verdade** | Não é robô. Se der qualquer problema, tem alguém do outro lado. |
 
+> **Troca de tamanho (R17.1, 2026-09-29):** o envio da troca é por conta da cliente, pago por um
+> link do Mercado Pago que a agente manda quando ela pede a troca de um pedido. A devolução continua
+> sem custo (R16.3). A agente nunca diz que a troca é grátis.
+
 > ⚠️ **A objeção 4 fica estranha vinda de um agente de IA.** É um conflito real entre a
 > promessa publicada e o canal novo, e está registrado como decisão em aberto — ver
 > [`../../documentacao/decisoes/02-decisoes-em-aberto.md`](../../documentacao/decisoes/02-decisoes-em-aberto.md).
