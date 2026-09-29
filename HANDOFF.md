@@ -15,7 +15,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ### Hermes v1 — branch `claude/cool-brahmagupta-hccc4p` (2026-09-29)
 Análise e conclusão: [`06-analise-hermes-v1.md`](docs/agente-ia/05-plano/06-analise-hermes-v1.md);
-grafo §38–§39. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
+grafo §39–§40. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
 amostra por sinal, números das views no pacote, mentira com a regra do prompt, descarte do que
 os gates já vetam, efeito medido das publicadas, e-mail com trecho, deploy que confere a
 aprovação e recusa afrouxamento. **Feito pelo Claude em 29/09, com o "pode aplicar" do operador:**

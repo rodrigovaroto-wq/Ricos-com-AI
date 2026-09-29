@@ -11,6 +11,91 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### Lucro por venda com lead, IA, recusa e devolução — 1, 2 e 3 peças (2026-09-29)
+>
+> Premissas do operador: **lead R$ 1,00**, **conversão 10%** (R$ 10,00 de lead por venda),
+> **IA R$ 0,10 por lead** (1 lead = 1 conversa → R$ 1,00 por venda), **recusa de 15% só no COD,
+> a R$ 9,90 — é tudo o que o operador paga quando a entrega frustra** (substitui os R$ 9,99 de
+> R10.2) e **devolução/cancelamento pós-envio de 7,5% nos dois caminhos**. A devolução é
+> separada da recusa e vale sobre o pedido criado; o pedido devolvido custa a **taxa completa de
+> devolução de R$ 25,00, manuseio já incluso, nos dois caminhos**, não gera receita e, no
+> antecipado, **a taxa do Mercado Pago não volta no estorno** (operador, 2026-09-29). Produto
+> R$ 30,00 por peça; manuseio, entrega, recusa e devolução contam **uma vez por pedido**, também
+> nos kits (**confirmado pelo operador em 2026-09-29**). Antecipado com taxa do
+> Mercado Pago (50% Pix / 50% cartão à vista, sem antifraude).
+>
+> | Por venda (R$) | COD 1 | COD 2 | COD 3 | Antec. 1 | Antec. 2 | Antec. 3 |
+> |---|---:|---:|---:|---:|---:|---:|
+> | Faturamento | 129,90 | 233,82 | 311,76 | 116,91 | 207,84 | 272,79 |
+> | Produto | −30,00 | −60,00 | −90,00 | −30,00 | −60,00 | −90,00 |
+> | Transação | −11,57 | −18,83 | −24,28 | −3,99 | −6,70 | −8,64 |
+> | Entrega concluída | −19,99 | −19,99 | −19,99 | 0,00 | 0,00 | 0,00 |
+> | Manuseio | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 |
+> | **Margem se entregue** | **63,35** | **130,01** | **172,50** | **77,93** | **136,15** | **169,16** |
+> | Perda esperada por recusa (15% × R$ 9,90) | −10,99 | −20,99 | −27,36 | 0,00 | 0,00 | 0,00 |
+> | Perda esperada por devolução (7,5%) | −6,63 | −11,63 | −14,81 | −8,02 | −12,59 | −15,21 |
+> | **Margem esperada, antes de lead e IA** | **45,74** | **97,39** | **130,33** | **69,91** | **123,56** | **153,95** |
+> | Lead (R$ 1,00 ÷ 10%) | −10,00 | −10,00 | −10,00 | −10,00 | −10,00 | −10,00 |
+> | IA (R$ 0,10 × 10 leads) | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 |
+> | **Lucro por venda** | **34,74** | **86,39** | **119,33** | **58,91** | **112,56** | **142,95** |
+>
+> **Como cada linha escala com as peças** (nada é multiplicado por peça, exceto o produto):
+>
+> | Linha | Cobrada por | Conta (COD 1 / 2 / 3 peças; antecipado idem) |
+> |---|---|---|
+> | Faturamento | preço do kit | COD 129,90 / 233,82 / 311,76; antecipado 116,91 / 207,84 / 272,79 (sobre o unitário de R$ 129,90: COD 2 peças −10% e 3 peças −20%; antecipado 1 / 2 / 3 peças −10% / −20% / −30%) |
+> | Produto | **peça** | R$ 30,00 × 1 / 2 / 3 |
+> | Transação COD | % do preço + valor fixo **por pedido** | 6,99% × preço + R$ 2,49 (uma vez): 9,08+2,49 / 16,34+2,49 / 21,79+2,49 |
+> | Transação antecipado (MP) | % do preço + R$ 1,00 fixo do Pix **por pedido** | 50% Pix (0,99% × preço + R$ 1,00) + 50% cartão (4,98% × preço): 3,99 / 6,70 / 8,64 |
+> | Entrega concluída | **pedido** (só COD) | R$ 19,99 uma vez, mesmo no kit de 3 |
+> | Manuseio | **pedido** | R$ 4,99 uma vez |
+> | Recusa (só COD) | **pedido** | 15% × (margem entregue + R$ 9,90) |
+> | Devolução pós-envio | **pedido** | 7,5% × (margem entregue + R$ 25,00); no antecipado soma-se a taxa do MP que não volta (3,99 / 6,70 / 8,64) |
+> | Lead e IA | **venda** | R$ 10,00 + R$ 1,00, iguais em qualquer kit |
+>
+> Mix 70% COD / 30% antecipado: **R$ 41,99 / R$ 94,24 / R$ 126,41** por venda (1 / 2 / 3 peças).
+> Estas contas **substituem** as médias das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02
+> do mix), que não tinham devolução, lead nem IA. A taxa de 7,5% é premissa do operador, não
+> medida; o mesmo cálculo roda no simulador de `docs/operacao/mapa-financeiro.html`.
+> **Pendências restantes:** cartão à vista, sem parcelamento, no mix do Mercado Pago
+> (confirmado como está). Na devolução do COD não há pagamento, logo não há taxa de transação a
+> perder: só os R$ 25,00.
+>
+> ### 🚨 Correção de 2026-09-29 — a entrega concluída (R$ 19,99) não existe no antecipado; devolução pós-envio custa frete + manuseio
+>
+> Confirmado pela atendente do suporte Logzz/Coinzz (print do operador, 2026-09-29): a **taxa de
+> entrega concluída de R$ 19,99 só é cobrada no pagamento na entrega (COD)**. No antecipado o
+> operador paga apenas a etiqueta (se a cliente não a pagar), o manuseio e as taxas de
+> transação/antifraude. **Isso derruba a premissa de 21/09** ("o antecipado paga as mesmas
+> taxas do COD, entrega inclusive) e a P3 da caixa de 25/09 no que toca ao antecipado.
+>
+> Decisões do operador no mesmo dia: (1) a **cliente paga o frete do antecipado inteiro no
+> checkout** (R15.3), então no pedido entregue o custo do operador é só taxa do MP + manuseio;
+> (2) **devolução, processo de devolução ou cancelamento depois de enviado** custa ao operador
+> **a taxa completa de devolução de R$ 25,00 (manuseio incluso), nos dois caminhos** —
+> primeiro descrita como frete inteiro + manuseio, fechada em R$ 25,00 no mesmo dia; (3) a **recusa de 15% não muda**: entrega frustrada é o entregador chegando
+> na porta e a cliente recusando pagar e receber — **só existe no COD**; o antecipado nunca
+> tem taxa de frustração. Devolução/cancelamento pós-envio é um custo à parte, sem taxa
+> percentual medida ainda.
+>
+> **Contribuição do antecipado entregue** (`preço − 30 × peças − taxa MP − 4,99`):
+>
+> | Peças | Antes (R$ 19,99 no custo) | **Vigente** | Média COD (15% recusa) | Vigente − COD média |
+> |---|---|---|---|---|
+> | 1 (116,91) | 57,94 | **77,93** | 52,35 | +25,58 |
+> | 2 (207,84) | 116,16 | **136,15** | 109,01 | +27,14 |
+> | 3 (272,79) | 149,17 | **169,16** | 145,12 | +24,04 |
+>
+> Mix 70% COD / 30% antecipado, 1 peça: 0,7 × 52,35 + 0,3 × 77,93 = **R$ 60,02** (era 54,03).
+>
+> **Custo de um pedido devolvido/cancelado depois de enviado, por pedido:** **− R$ 25,00** nos
+> dois caminhos (taxa completa, manuseio incluso; operador, 2026-09-29). No antecipado a taxa do
+> Mercado Pago **não volta** no estorno, então o pedido devolvido custa R$ 25,00 + a taxa (R$ 3,99
+> / 6,70 / 8,64). No COD não há pagamento, logo não há taxa de transação a perder. (O
+> `LABEL_COST_BRL = 15` do código é registro histórico.) Devolução (7,5%) e recusa (15%, R$ 9,90,
+> só COD) são eventos e custos diferentes; a tabela do topo do arquivo soma os dois. As médias
+> desta caixa (R$ 52,35, R$ 60,02) **não** incluem a devolução.
+>
 > ### ⚠️ Correção de 2026-09-25 — o antecipado passa pelo Mercado Pago: R$ 57,94 (1 peça)
 >
 > Desde [R14.15](../decisoes/03-decisoes-tomadas.md) o pagamento do antecipado na Coinzz é
@@ -128,7 +213,7 @@ entregue pelo operador em 2026-09-03.
 | Custo do produto | R$ 30,00 |
 | Mix | 70% COD / 30% antecipado |
 | Recusa COD | 15% |
-| Agente de IA | **R$ 1,50 por conversa** (era R$ 0,80 — subiu na rodada 10, §R7.3/§R10.1) |
+| Agente de IA | ~~R$ 1,50 por conversa~~ → **teto de R$ 0,50 por conversa** e premissa de R$ 0,10 por lead (2026-09-29, §R15.4; era R$ 0,80, depois R$ 1,50 na rodada 10, §R7.3/§R10.1) |
 | Upsell / order bump | não considerado |
 | Mercado | Brasil, 1 unidade por pedido |
 

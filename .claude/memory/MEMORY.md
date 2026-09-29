@@ -26,4 +26,5 @@ salvamento e a política de crescimento.
 - [Divisão de papéis: Meta é do sócio](divisao-de-papeis-meta.md) — Ads, BM, developer, número e templates são do sócio; o operador cuida do técnico.
 - [Diagnóstico antes de consertar](diagnostico-antes-de-consertar.md) — regra do operador: nada de tentativa e erro; causa e origem exatas primeiro, conserto depois. As 10 rodadas do gate de prazo são o contraexemplo.
 - [Ambiente muda entre sessões](ambiente-aponta-para-outro-projeto.md) — em 28/09 o Supabase do container era de outro projeto, em 29/09 era o da Encorpa; confira `list_projects` antes de tocar produção. O secret `BUSINESS_CONFIG` não é legível pelo conector.
+- [Entrega concluída só no COD](entrega-concluida-so-no-cod.md) — R$ 19,99 não existe no antecipado (29/09); devolução pós-envio = R$ 25,00 completos nos dois caminhos e a taxa de transação não volta; recusa (15%, só COD) custa R$ 9,90.
 - [`pnpm dev:n8n` sobrescreve os workflows](dev-n8n-sobrescreve-workflows.md) — grava a versão ativa em `n8n/workflows/`; com o main à frente do n8n, `git add -A` depois dele desfaz o main. Adicione só o workflow publicado.

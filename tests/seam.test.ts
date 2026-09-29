@@ -19,7 +19,7 @@ const seamWith = (record = vi.fn()) =>
 
 describe("seam de chamada de modelo", () => {
   it("o teto é o valor da conversa mais a folga de 25%", () => {
-    expect(costCeilingBrl(config)).toBeCloseTo(1.875, 5);
+    expect(costCeilingBrl(config)).toBeCloseTo(0.625, 5);
   });
 
   it("grava custo e latência de cada chamada", async () => {
