@@ -1,5 +1,13 @@
 # Cobertura real do pagamento na entrega
 
+> **Atualizado em 2026-09-29 (D13 do cruzamento).** A cobertura do pagamento na entrega é a da
+> **Logzz**, e a venda na entrega é feita no checkout da Logzz. O endpoint consultado
+> (`app.coinzz.com.br/checkout/stock-and-delivery-day`, em `src/agent/availability.ts`) é a porta
+> pública que lê essa mesma operação local da Logzz (`local_operation_cash_on_delivery`). Sondado
+> em 2026-09-29: São Paulo (01310-100) → entrega com 3 datas, a partir do dia seguinte; Manaus
+> (69005-010) → sem entrega. O "frete R$ 24,98" abaixo é o custo da operação, não o que ela paga:
+> no checkout da Logzz o frete para ela é R$ 0,00 (R15.3).
+
 > **Varredura de 2026-09-21**, 43 cidades × 5 tamanhos, contra o endpoint público
 > `GET /checkout/stock-and-delivery-day` do próprio checkout da Coinzz. Substitui a
 > varredura de 2026-09-08, mantida abaixo em §Como estava em 2026-09-08 para comparação.

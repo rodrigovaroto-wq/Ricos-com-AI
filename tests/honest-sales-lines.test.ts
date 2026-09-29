@@ -75,9 +75,10 @@ const HONEST: Array<{ text: string; paths: readonly Path[] }> = [
   { text: "Na entrega, 3 peças saem por R$ 311,76, com 20% de desconto.", paths: BOTH },
   { text: "Levando 2 peças o desconto sobe para 20%: R$ 207,84 no antecipado.", paths: BOTH },
   { text: "No antecipado, 3 peças saem por R$ 272,79, com 30% de desconto.", paths: BOTH },
-  // Pagar só ao receber, garantia e troca.
-  { text: "Você só paga quando receber.", paths: BOTH },
-  { text: "Você não paga nada agora e tem 7 dias após o recebimento pra devolver.", paths: BOTH },
+  // Pagar só ao receber, garantia e troca. Paying on arrival is the delivery's: on the prepaid path
+  // she pays in the checkout, and `charge_promise` vetoes it there (operator, 2026-09-29).
+  { text: "Você só paga quando receber.", paths: COD },
+  { text: "Você não paga nada agora e tem 7 dias após o recebimento pra devolver.", paths: COD },
   { text: "Você tem 7 dias após o recebimento para trocar ou devolver.", paths: BOTH },
   { text: "Se não servir, você pode trocar em até 7 dias após o recebimento.", paths: BOTH },
   { text: "Se não gostar, pode devolver em até 7 dias após o recebimento e a gente devolve o seu dinheiro sem custo nenhum.", paths: BOTH },

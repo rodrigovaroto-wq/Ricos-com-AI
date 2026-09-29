@@ -13,10 +13,10 @@ Fonte: `colet-cinta-modeladora` — `docs/contexto-do-projeto.md` §1 e §2,
 | Preço | **R$ 129,90**, frete embutido |
 | Pagamento | Na entrega (COD) — dinheiro, cartão ou maquininha, direto com o entregador |
 | Prazo | **1 a 3 dias** no COD, com o dia escolhido pela cliente dentro do checkout; no antecipado **varia por região, em média 5 dias úteis** (`prepayAvgDays`) |
-| Frete | **Não há frete grátis.** No COD o frete está dentro dos R$ 129,90; no antecipado ele é calculado por região dentro do checkout, e a agente não sabe nem cita o valor. *Corrigido em 2026-09-22: a operação não oferece frete grátis — de 2026-09-09 até aqui esta tabela dizia "frete grátis nos dois caminhos".* |
-| Garantia | 7 dias contando do recebimento |
+| Frete | **Grátis no pagamento na entrega** (R15.3, 2026-09-28): ela paga R$ 129,90 e mais nada; a agente diz isso nomeando o caminho ("Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber."). **No antecipado não é grátis:** calculado por região dentro do checkout, e a agente não sabe nem cita o valor. *Histórico: de 09/09 a 22/09 esta tabela dizia "grátis nos dois caminhos"; de 22/09 a 28/09, "não há frete grátis".* |
+| Garantia | 7 dias contando do recebimento; na devolução o frete é por conta da loja (R16.3, 2026-09-29) |
 | Fornecedor / logística | Logzz |
-| Checkout | Coinzz (com Omnicash) |
+| Checkout | Entrega: Logzz (desde 2026-09-25). Antecipado: Coinzz (com Omnicash) |
 | Site | www.encorpa-fashion.com.br |
 | WhatsApp | `5511916616348` (`src/config/business.ts`) |
 | E-mail | contato@encorpa-fashion.com.br |

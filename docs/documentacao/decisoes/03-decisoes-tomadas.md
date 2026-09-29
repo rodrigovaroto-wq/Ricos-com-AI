@@ -1758,3 +1758,80 @@ continua valendo para o antecipado e deixa de valer para a entrega.
 - **Guarda contra excesso de trava:** `tests/honest-sales-lines.test.ts` — as frases
   verdadeiras que vendem, pela cadeia inteira com o config de exemplo, e a mentira espelhada de
   cada uma. Grafo §29.
+
+---
+
+# Rodada 16 — o que a régua e o gate afirmam, contra a operação (2026-09-29)
+
+Origem: a revisão de riscos do PR #39 e o cruzamento do agente com a documentação
+([`revisao-pr39.md`](../../agente-ia/08-mudancas/revisao-pr39.md),
+[`09-cruzamento/divergencias.md`](../../agente-ia/09-cruzamento/divergencias.md)). Respostas do
+operador em 2026-09-29, uma por divergência.
+
+## R16.1 — Os toques depois da compra seguem o status e a data do pedido
+
+A véspera ("sua entrega está marcada pra amanhã") e o "já está a caminho" saíam por relógio (30 h
+e 24 h depois do pedido), inclusive no antecipado, que leva em média 5 dias úteis. Passam a
+seguir o **status** e a **data de entrega** do pedido. O operador prefere ler direto da API da
+Coinzz e da Logzz; por ora a fonte é o webhook de venda das duas plataformas, que já traz o
+status e a data (`date_delivery` → `orders.scheduled_for`). Sem data, não há véspera.
+
+## R16.2 — Praça sem pagamento na entrega segue o antecipado, também na régua
+
+Se a praça da lead não tem pagamento na entrega, a agente segue o segundo caminho, o
+antecipado, deixando explícito o desconto e o prazo médio de entrega. O turno já fazia isso; a
+régua não sabia a praça e mandava "você não paga nada agora". A praça passa a ser guardada no
+lead e o toque é escrito e julgado pelo caminho dela.
+
+## R16.3 — O frete da devolução é por nossa conta
+
+Se a cliente quiser devolver o produto dentro dos 7 dias, o frete é pago pela loja. "A gente
+devolve o seu dinheiro sem custo nenhum" é verdade e fica.
+
+## R16.4 — O entregador não espera ela vestir
+
+Nada pode dizer que ela veste ou experimenta o colete antes de pagar. O verdadeiro é o que o
+site publica: ela vê o colete antes de pagar e, se não for o que esperava, não fica com ele;
+depois de receber, tem 7 dias para devolver. Os toques que diziam "você vê, veste, e só paga se
+estiver tudo certo" foram reescritos, e o gate passa a vetar a promessa.
+
+## R16.5 — "Restam 12 unidades" continua
+
+O secret de produção tem `scarcity`, e o operador mantém o "restam 12 unidades" (R13.6, R14.6).
+
+## R16.6 — Postura agrega valor, sem virar tratamento
+
+Operador, 2026-09-29: o colete ajuda na postura, além de modelar. A agente pode dizer ("além de
+modelar, ele ajuda na postura", "dá apoio à postura") — é o que o site publica ("Segura a
+postura"). Continua vetado dizer que corrige, trata ou cura postura, coluna ou dor, e "melhora a
+postura" (efeito duradouro no corpo). Prompt e `health_claim` dizem a mesma coisa.
+
+## R16.7 — Depoimentos só quando ela pedir
+
+A agente mantém a indicação da seção de depoimentos do site, mas só quando a cliente pede
+depoimento. Hoje é regra de prompt e de briefing: o gate não vê a mensagem dela, então não há
+veto determinístico para a menção espontânea.
+
+## R16.8 — "Vou pensar": a resposta fixa passa a vender, e é o único lugar do estoque
+
+A resposta ao adiamento ("vou pensar", "depois eu compro") era só "Sem problemas, estou aqui se
+tiver mais alguma dúvida" + link. Agora (`thinkReply`) mantém essa abertura e acrescenta o estoque
+declarado ("restam 12 unidades desse lote"), o argumento do caminho dela (na entrega: nada agora e
+7 dias pra devolver sem custo; no antecipado: 10% de desconto e o prazo médio) e aponta o link, ou
+pede o tamanho se ainda não há link. O estoque sai do prompt da conversa e `scarcity_claim` veta
+nas outras mensagens as formas de estoque e prazo que conhece (contagem, últimas unidades, estoque
+acabando, esgotado, oferta que acaba) — é lista, não prova (`postponing`, grafo §37). Supera a parte "sem segundo argumento" da R13.4.
+
+## R16.9 — Cancelamento e devolução continuam com uma pessoa (veredito sobre as APIs)
+
+Pedido do operador: a agente completar cancelamento e devolução sozinha pela API. Veredito, com a
+documentação enviada em 2026-09-29: **não é possível hoje — a agente aciona o handoff.** A API da
+Coinzz documenta só `POST /api/sales` (criar venda ou reprocessar pagamento); a da Logzz, só
+`GET /api/v1/products` (token de teste validado: as ofertas de 1/2/3 peças batem com o config). Nenhuma
+expõe cancelar, estornar ou devolver. A devolução da Logzz é por formulário, e-mail
+(trocasereembolsos@logzz.com.br) ou WhatsApp, com etiqueta pré-paga e reembolso em até 72 h úteis
+após a inspeção. Se a Coinzz ou a Logzz passarem a expor esses endpoints, a automação entra como
+código determinístico, nunca como ferramenta do modelo (R11.1). **Pergunta aberta ao operador:** pela
+política pública da Logzz, a troca por preferência (tamanho) custa R$ 20 à cliente, mas o repositório
+trata "a troca do colete é grátis" como verdade desde 2026-09-25 (grafo §9, M-08) e a agente continua
+podendo dizer isso até o operador decidir.
