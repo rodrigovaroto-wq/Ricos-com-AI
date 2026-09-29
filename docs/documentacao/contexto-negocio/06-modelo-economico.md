@@ -17,7 +17,7 @@ entregue pelo operador em 2026-09-03.
 > **IA R$ 0,30 por conversa** (1 lead = 1 conversa → R$ 3,00 por venda), **recusa de 15% só no
 > COD** e **devolução/cancelamento pós-envio de 7,5% nos dois caminhos**. A devolução é
 > separada da recusa e vale sobre o pedido criado; o pedido devolvido custa o frete inteiro +
-> manuseio (COD R$ 19,99 + R$ 4,99; antecipado etiqueta de referência R$ 15,00 + R$ 4,99) e
+> manuseio (COD R$ 19,99 + R$ 4,99; antecipado etiqueta de São Paulo R$ 13,79 + R$ 4,99) e
 > não gera receita. Kit de 1 peça, antecipado com taxa do Mercado Pago (50% Pix / 50% cartão à
 > vista, sem antifraude).
 >
@@ -29,14 +29,14 @@ entregue pelo operador em 2026-09-03.
 > | Entrega concluída | −19,99 | 0,00 |
 > | Manuseio | −4,99 | −4,99 |
 > | **Margem se entregue** | **63,35** | **77,93** |
-> | Perda esperada por recusa (15%, só COD) | −11,00 | 0,00 |
-> | Perda esperada por devolução (7,5%) | −6,62 | −7,34 |
-> | **Margem esperada, antes de lead e IA** | **45,73** | **70,59** |
+> | Perda esperada por recusa (15% × −R$ 9,99, só COD) | −11,00 | 0,00 |
+> | Perda esperada por devolução (7,5%) | −6,62 | −7,25 |
+> | **Margem esperada, antes de lead e IA** | **45,72** | **70,68** |
 > | Lead (R$ 1,00 ÷ 10%) | −10,00 | −10,00 |
 > | IA (R$ 0,30 × 10 conversas) | −3,00 | −3,00 |
-> | **Lucro por venda** | **32,73** | **57,59** |
+> | **Lucro por venda** | **32,72** | **57,68** |
 >
-> Mix 70% COD / 30% antecipado: **R$ 40,18 por venda**. Estas contas **substituem** as médias
+> Mix 70% COD / 30% antecipado: **R$ 40,21 por venda**. Estas contas **substituem** as médias
 > das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02 do mix), que não tinham devolução,
 > lead nem IA. A taxa de 7,5% é premissa do operador, não medida; o mesmo cálculo roda no
 > simulador de `docs/operacao/mapa-financeiro.html`.
@@ -70,9 +70,10 @@ entregue pelo operador em 2026-09-03.
 >
 > **Custo de um pedido devolvido/cancelado depois de enviado, por pedido:**
 > COD = **− R$ 24,98** (19,99 + 4,99); antecipado = **− (etiqueta + 4,99)** — com a etiqueta de
-> R$ 15,00 (`LABEL_COST_BRL`) são **− R$ 19,99**; em São Paulo pela Logzz (R$ 13,79, manuseio já
-> incluso, conforme o operador) o custo é a própria etiqueta; em praça distante chega a
-> R$ 84,05 + 4,99. **Não modelado, por falta de dado:** a taxa de devolução/cancelamento
+> R$ 13,79 (São Paulo pela Logzz) são **− R$ 18,78**; em praça distante chega a R$ 84,05 + 4,99.
+> (O `LABEL_COST_BRL = 15` do código é registro histórico, não o custo atual.) **Dúvida aberta:**
+> o mapa registra o manuseio como já incluso nos R$ 13,79; se for, a devolução do antecipado
+> custa R$ 13,79 e a margem esperada sobe R$ 0,37. **Não modelado, por falta de dado:** a taxa de devolução/cancelamento
 > pós-envio (P6 — nenhuma premissa adotada) e se a taxa do MP volta no estorno. A média do COD
 > com 15% de recusa e o mix acima **não** incluem esse custo.
 >

@@ -1103,7 +1103,7 @@ custo (frete inteiro + manuseio, nos dois caminhos) sem taxa medida; inventar um
 devolução para fechar a média seria número sem fonte.
 
 **Correção (R15.4):** `06-modelo-economico.md` ganha a caixa de 29/09 (antecipado R$ 77,93,
-mix 70/30 R$ 60,02, devolvido −R$ 24,98 no COD e −(etiqueta + 4,99) no antecipado);
+mix 70/30 R$ 60,02, devolvido −R$ 24,98 no COD e −(etiqueta + 4,99) no antecipado; revisada no mesmo dia: recusa em R$ 9,99 como confirmado em R10.2, e não 9,98, e etiqueta de São Paulo R$ 13,79, não o `LABEL_COST_BRL` histórico);
 `mapa-financeiro.html` deixa de subtrair etiqueta do antecipado entregue. Nenhum código lê
 esses valores. **Guarda:** nenhuma automática — é conta de documentação; a taxa de
 devolução pós-envio fica registrada como pendência (P6), não como premissa.
