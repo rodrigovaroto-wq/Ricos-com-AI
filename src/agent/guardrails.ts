@@ -400,7 +400,10 @@ const PAID_ON_RECEIPT =
  * (cash on delivery pays at the door; "é só clicar no link" is both paths'), and the delivery
  * named only to be denied ("sem pagamento na entrega", "se não for na entrega", "fora da
  * entrega"), or offered with an alternative ("na entrega ou antes", "seja qual for"). "As duas peças" is a kit, not both paths. Any of them makes a free claim about
- * the prepaid offer too.
+ * the prepaid offer too. 2026-09-28: "not only" stays in its clause — the "só" of "não tem frete:
+ * você paga só R$ 129,90" is the price's — and "também" next to the freight, with a kit named
+ * in its clause before it, is the kit's ("no kit de 2 peças pagando na entrega o frete também
+ * é grátis"); "também pelo / no / com …" still reaches past the delivery.
  */
 /** What `shipping_promise` tells the model when a free claim reaches past cash on delivery. */
 const BEYOND_COD_VETO =
@@ -413,7 +416,7 @@ const BEYOND_COD_VETO =
 const SAME_AS_DELIVERY =
   /\bfrete\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,30}\b(?:igua\w*|mesm[oa]|identic\w*|como)\b[^.!?]{0,12}?\b(?:d[ao]|n[ao]|a|ao)\s+(?:pagamento\s+(?:n[ao]\s+)?|pagar\s+n[ao]\s+)?entrega\b|\bmesmo\s+frete\s+(?:d[ao]|n[ao]|que\s+(?:n[ao]|d[ao]))\s+(?:pagamento\s+(?:n[ao]\s+)?)?entrega\b/;
 const BEYOND_COD =
-  /\b(?:(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b(?!\s+(?:pecas?|unidades?|coletes?|kits?)\b)|(?:ambos|ambas)\s+(?:os|as)\s+(?:caminhos|formas|pagamentos|opcoes)|os\s+dois\s+(?:caminhos|pagamentos|jeitos)|as\s+duas\s+(?:formas|opcoes|modalidades)|qualquer\s+(?:uma?\s+)?(?:d[aoe]s?\s+)?(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|independente\w*\s+d[aoe]s?\s+(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|tanto\s+(?:faz|n[oa]s?|pel[oa]s?|pagando|pagar|com)|inclusive\s+(?:n[oa]s?|pel[oa]s?|pagando|pagar|com)|com\s+ou\s+sem|outr[oa]s?\s+(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)|(?:no|na|pelo|pela)\s+outr[oa]|alem\s+d[ao]\s+(?:pagamento\s+(?:na\s+)?)?entrega|ate\s+(?:mesmo\s+)?na\s+entrega|nem\s+(?:mesmo\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar)|pag\w*\s+(?:(?:pelo|no|direto\s+no)\s+)?(?:checkout|link)|(?:sem|nao|fora|exceto|menos|salvo)\s+(?:(?:for|e|seja|ser|pagar|pagando|pagamento|quiser|quer|o|a|d[ao])\s+){0,3}(?:n[oa]\s+)?entrega)\b|\b(?:entrega|entregador|receber)\s+ou\b|\bseja\s+qual\s+for\b|\bqualquer\s+que\s+seja\b|\bnao\b[^.!?,]{0,30}\b(?:so|apenas|somente)\b|\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?tambem\b|\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:(?:o\s+)?frete|gratis|gratuit[oa]|n[oa]s?|pel[oa]s?|com|pagando|pagar|quando)\b/;
+  /\b(?:(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b(?!\s+(?:pecas?|unidades?|coletes?|kits?)\b)|(?:ambos|ambas)\s+(?:os|as)\s+(?:caminhos|formas|pagamentos|opcoes)|os\s+dois\s+(?:caminhos|pagamentos|jeitos)|as\s+duas\s+(?:formas|opcoes|modalidades)|qualquer\s+(?:uma?\s+)?(?:d[aoe]s?\s+)?(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|independente\w*\s+d[aoe]s?\s+(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|tanto\s+(?:faz|n[oa]s?|pel[oa]s?|pagando|pagar|com)|inclusive\s+(?:n[oa]s?|pel[oa]s?|pagando|pagar|com)|com\s+ou\s+sem|outr[oa]s?\s+(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)|(?:no|na|pelo|pela)\s+outr[oa]|alem\s+d[ao]\s+(?:pagamento\s+(?:na\s+)?)?entrega|ate\s+(?:mesmo\s+)?na\s+entrega|nem\s+(?:mesmo\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar)|pag\w*\s+(?:(?:pelo|no|direto\s+no)\s+)?(?:checkout|link)|(?:sem|nao|fora|exceto|menos|salvo)\s+(?:(?:for|e|seja|ser|pagar|pagando|pagamento|quiser|quer|o|a|d[ao])\s+){0,3}(?:n[oa]\s+)?entrega)\b|\b(?:entrega|entregador|receber)\s+ou\b|\bseja\s+qual\s+for\b|\bqualquer\s+que\s+seja\b|\bnao\b[^.!?,;:]{0,30}\b(?:so|apenas|somente)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?tambem\b|\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar|quando)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:(?:o\s+)?frete|gratis|gratuit[oa])\b/;
 /** The amount at `at`, as written: "r$ 12,99" or "12,99 reais". */
 const amountAt = (t: string, at: number): string =>
   /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(at))?.[0] ?? "";
@@ -1236,8 +1239,11 @@ const gates: readonly Gate[] = [
           // "contados de quando ele chegar", "a contar do dia que receber", "após a entrega" — and
           // the script's own "contando do dia que receber / da data em que você recebe" (fifth review).
           const START = String.raw`(?:(?:depois\s+que|apos|depois\s+d[aeo]|(?:a\s+partir|contad[oa]s?(?:\s+a\s+partir)?|contando(?:\s+a\s+partir)?|a\s+contar)\s+d[aeo](?:\s+quando|\s+(?:dia|data)\s+(?:em\s+)?que)?|de\s+quando)\s+${WHO}|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae]|contad[oa]s?\s+d[ae]|contando\s+d[ae]|a\s+contar\s+d[ae])\s+(?:a\s+)?entrega)`;
-          // The return verb may carry its object: "pra trocar de tamanho", "pra devolver o produto".
-          const OBJECT = String.raw`(?:\s+(?:de|o|a|por\s+outro)\s+(?:tamanho|produto|colete|numero))?`;
+          // The return verb may carry its object: "pra trocar de tamanho", "pra devolver o produto",
+          // "trocar pelo tamanho certo" (2026-09-28: without "pelo" and the adjective, "pode trocar
+          // pelo tamanho certo em até 7 dias após o recebimento" was not governed, and its anchor's
+          // "recebimento" read as arrival).
+          const OBJECT = String.raw`(?:\s+(?:de|o|a|pelo|por\s+outro)\s+(?:tamanho|produto|colete|numero)(?:\s+(?:certo|correto|ideal|maior|menor))?)?`;
           const PURPOSE = String.raw`(?:(?:pra|para)\s+(?:(?:trocar|devolver|troca|devolu\w*|desistir|se\s+arrepender|experimentar)(?:\s+ou\s+(?:trocar|devolver|desistir))?${OBJECT}|(?:pedir|solicitar)\s+a\s+(?:troca|devolucao))|de\s+(?:garantia|arrependimento|prazo\s+(?:pra|para)\s+(?:troca|devol\w*)))`;
           // Getting her money back ("e recebe seu dinheiro de volta") and asking the CEP to look
           // the delivery up ("me passa seu CEP pra eu ver a entrega aí") are not delivery (loop
@@ -2436,7 +2442,9 @@ const gates: readonly Gate[] = [
       `disponível, reservado ou a caminho.`,
     check: (text, ctx) => {
       if (ctx.sizeChecked !== undefined) return null;
-      const t = norm(text);
+      // "Você tem 7 dias pra trocar de tamanho": that "tem" takes the days, not the size — the
+      // warranty is not stock (2026-09-28). Only the count and the return verb go.
+      const t = norm(text).replace(/\b(?:tem|tera)\s+(?:ate\s+)?\w+\s+(?:dias?|semanas?)\s+(?:(?:corridos|uteis)\s+)?(?:pra|para)\s+(?:troc|devolv)\w*/g, " ");
       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
       // "já reservei o M", "o seu tamanho chega em". Never the fitting itself.
       const CLAIMS_STOCK =

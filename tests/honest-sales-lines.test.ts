@@ -73,6 +73,11 @@ const HONEST: Array<{ text: string; paths: readonly Path[] }> = [
   { text: "Você tem 7 dias após o recebimento para trocar ou devolver.", paths: BOTH },
   { text: "Se não servir, você pode trocar em até 7 dias após o recebimento.", paths: BOTH },
   { text: "Se não gostar, pode devolver em até 7 dias após o recebimento e a gente devolve o seu dinheiro sem custo nenhum.", paths: BOTH },
+  // Vetadas até 2026-09-28: o objeto "pelo tamanho certo" não governava a garantia (`delivery_promise`),
+  // e o "tem" de "você tem 7 dias pra trocar de tamanho" era lido como estoque (`unverified_size`).
+  { text: "Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento.", paths: BOTH },
+  { text: "Você tem 7 dias pra trocar de tamanho.", paths: BOTH },
+  { text: "Tem 7 dias pra trocar o tamanho depois que chegar.", paths: BOTH },
   // Prazo de cada caminho.
   { text: "Na entrega você recebe em 1 a 3 dias, no dia que escolher no checkout.", paths: COD },
   { text: "Entrega em 1 a 3 dias, agendada — quem escolhe o dia é você, no checkout.", paths: COD },
@@ -88,14 +93,43 @@ describe.each(Object.entries(configs))("verdades que vendem passam a cadeia inte
 });
 
 /**
- * Over-restriction found while writing this file, and left for its own change (one change at a
- * time): `delivery_promise` reads "trocar pelo tamanho certo em até 7 dias" as a 7-day delivery
- * — the count's governing verb has an object it does not know. Vetoed on HEAD `ca691f6` too. The
- * honest sentences above say the same without the object. `it.fails` so the day it is fixed,
- * this goes red and moves up into `HONEST`.
+ * The exchange window, both ways (2026-09-28). `delivery_promise` read "trocar pelo tamanho certo em
+ * até 7 dias após o recebimento" as a 7-day delivery: the return verb's `OBJECT` knew no "pelo" and
+ * no adjective, so the 7 was not governed, and the anchor's "recebimento" made it delivery talk.
+ * `unverified_size` read the "tem" of "você tem 7 dias pra trocar de tamanho" as "tem o tamanho".
+ * The honest forms pass the whole chain — `warranty_promise` included — and the lies next to them
+ * keep the veto of the gate that owns them.
  */
-it.fails("conhecido: 'trocar pelo tamanho certo em até 7 dias' é vetada pelo delivery_promise", () => {
-  expect(blockedBy("Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento.", example, "cod")).toEqual([]);
+const EXCHANGE_HONEST = [
+  "Pode trocar em até 7 dias depois de receber.",
+  "A troca é em até 7 dias após receber.",
+  "Tem 7 dias pra trocar o tamanho depois que chegar.",
+  "Você pode trocar pelo tamanho certo em até 7 dias depois de receber.",
+  "Pra trocar pelo tamanho certo, você tem 7 dias após o recebimento.",
+  "Você tem até 7 dias pra devolver o tamanho errado.",
+  "Você tem uma semana pra trocar o tamanho, contando de quando recebeu.",
+];
+const EXCHANGE_LIES: Array<[string, string]> = [
+  ["Chega em até 7 dias.", "delivery_promise"],
+  ["No antecipado você recebe em até 7 dias.", "delivery_promise"],
+  ["Troca grátis e chega em 7 dias.", "delivery_promise"],
+  ["Em até 7 dias após o pagamento você recebe.", "delivery_promise"],
+  ["7 dias após o pix ele chega.", "delivery_promise"],
+  ["Pode trocar pelo tamanho certo e chega em 7 dias.", "delivery_promise"],
+  ["Pode trocar pelo tamanho certo em até 7 dias; a entrega também.", "delivery_promise"],
+  ["Pode trocar pelo tamanho certo em até 3 dias após o recebimento.", "warranty_promise"],
+  ["Tem 7 dias pra trocar e temos o seu tamanho.", "unverified_size"],
+  ["Tem 7 dias pra trocar, e o seu tamanho tá aí.", "unverified_size"],
+  ["Você tem 7 dias pra trocar o tamanho que está em estoque.", "unverified_size"],
+  ["Tem pra troca no seu tamanho.", "unverified_size"],
+];
+describe.each(Object.entries(configs))("a janela de troca, nos dois sentidos (%s)", (_name, config) => {
+  it.each(EXCHANGE_HONEST)("passa: %s", (text) => {
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toEqual({ paymentPath, blocked: [] });
+  });
+  it.each(EXCHANGE_LIES)("veta: %s (%s)", (text, gate) => {
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toMatchObject({ paymentPath, blocked: expect.arrayContaining([gate]) });
+  });
 });
 
 /** The mirror of each value: said where it is not true. Blocked on both paths. */
@@ -225,6 +259,61 @@ describe.each(Object.entries(configs))("gerador: frete grátis × caminho (%s)",
   it(`${honest.length} frases de frete grátis na entrega, nenhuma vetada pelo frete`, () => {
     const vetoed = honest.filter((text) => BOTH.some((p) => blockedBy(text, config, p).includes("shipping_promise")));
     expect(vetoed).toEqual([]);
+  });
+});
+
+/**
+ * Conversation audit (2026-09-28), two true lines `BEYOND_COD` vetoed: its "not only" read the
+ * "não" of one clause with the "só" of the next ("não tem frete: você paga só R$ 129,90" — the
+ * price's "só"), and "também" next to the freight was always another path, even when what it adds
+ * is the kit named in its clause. The mirror lies keep the veto.
+ */
+const KIT_AND_ONLY_HONEST = [
+  "Na entrega não tem frete: você paga só R$ 129,90.",
+  "Na entrega não tem frete; você paga só R$ 129,90.",
+  "No kit de 2 peças pagando na entrega o frete também é grátis.",
+  "Levando 2 peças pagando na entrega o frete é grátis também.",
+];
+const KIT_AND_ONLY_LIES = [
+  "Não é só na entrega que o frete é grátis.",
+  "O frete é grátis na entrega e no pix também.",
+  "Frete grátis também no antecipado.",
+  "Não tem frete só na entrega: você paga R$ 129,90.",
+  "Na entrega não tem frete: e não só na entrega.",
+  "Pagando na entrega o frete também é grátis.",
+  "No pix sai R$ 116,91. Pagando na entrega o frete também é grátis.",
+  "No kit de 2 peças o frete também é grátis no pix.",
+  "No kit de 2 peças o frete também é grátis.",
+  "Levando 2 peças o frete é grátis na entrega e também pelo site.",
+  "Levando 2 peças na entrega o frete também é grátis nos dois pagamentos.",
+  "No kit de 2 peças pagando na entrega ou antes o frete também é grátis.",
+  "No kit de 2 peças pagando na entrega o frete é grátis, e no site o frete também.",
+];
+describe.each(Object.entries(configs))("'só' do preço e 'também' do kit (%s)", (_name, config) => {
+  it.each(KIT_AND_ONLY_HONEST)("passa: %s", (text) => {
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toEqual({ paymentPath, blocked: [] });
+  });
+  it.each(KIT_AND_ONLY_LIES)("veta pelo frete: %s", (text) => {
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toMatchObject({ paymentPath, blocked: expect.arrayContaining(["shipping_promise"]) });
+  });
+});
+
+/** The kit's "também" is an exception, so it gets its generator: kit × delivery × prepaid cue. */
+const KITS = ["no kit de 2 peças", "levando 2 peças", "no kit de 3 peças", "levando 3 peças"];
+const ALSO = ["o frete também é grátis", "o frete é grátis também", "também é grátis o frete"];
+describe.each(Object.entries(configs))("gerador: 'também' do kit × caminho (%s)", (_name, config) => {
+  const honest = KITS.flatMap((kit) => COD_ANCHORS.flatMap((anchor) => ALSO.map((also) => `${cap(kit)} ${anchor} ${also}.`)));
+  it(`${honest.length} kits na entrega com 'também', nenhum vetado pelo frete`, () => {
+    expect(honest.filter((text) => BOTH.some((p) => blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+  const lies = KITS.flatMap((kit) =>
+    ALSO.flatMap((also) => [
+      `${cap(kit)} ${also}.`,
+      ...PREPAID_CUES.flatMap((cue) => [`${cap(kit)} ${cue} ${also}.`, `${cap(kit)} pagando na entrega ${also} ${cue}.`, `${cap(kit)} pagando na entrega ou ${cue} ${also}.`]),
+    ]),
+  );
+  it(`${lies.length} kits com 'também' fora da entrega ou sem ela, todos vetados`, () => {
+    expect(lies.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
   });
 });
 

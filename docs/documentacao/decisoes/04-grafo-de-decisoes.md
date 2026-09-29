@@ -830,7 +830,59 @@ flowchart TD
   incluído, não de grátis, e fica fora deste conserto.
 - **"Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento"**: vetada
   pelo `delivery_promise`, igual à base (o objeto "pelo tamanho certo" não é conhecido). Fixada
-  como `it.fails` em `honest-sales-lines.test.ts`, para conserto próprio.
+  como `it.fails` em `honest-sales-lines.test.ts`, para conserto próprio. **Consertada no §30.**
+
+---
+
+## 30. Quatro verdades de troca e de frete vetadas por gate (2026-09-28)
+
+A regra do operador foi que as travas não podem ser tão fortes a ponto de barrar a verdade que
+vende. Cada item abaixo foi reproduzido no HEAD `ad15714` com o config de exemplo, nos dois
+caminhos. A causa foi lida no código antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento'<br/>vetada pelo delivery_promise (7 fora de 1-3 / 7 não é a média 5)"]
+  K1["causa: o 7 só é garantia se uma forma de troca o governa (governedBefore, takenAfterReturn,<br/>PURPOSE), e as três passam por OBJECT, que só lia 'de/o/a/por outro' + substantivo (6f3130d).<br/>Sem governo, o 7 vai para as regras de prazo, e o 'recebimento' da âncora é ARRIVAL"]
+  S2["🟥 'Você tem 7 dias pra trocar de tamanho' vetada pelo unverified_size<br/>sempre que sizeChecked é undefined: antes do CEP e com a consulta de região falhando"]
+  K2["causa: CLAIMS_STOCK casa 'tem … até 28 caracteres … tamanho', e o 'tem' que toma<br/>a contagem da garantia era lido como 'tem o seu tamanho'. Os fuzz da M-08 liam só o<br/>trace do delivery_promise e nunca viram esse veto"]
+  S3["🟥 'Na entrega não tem frete: você paga só R$ 129,90' vetada pelo shipping_promise"]
+  K3["causa: o 'não … só' do BEYOND_COD (e824091) parava na vírgula mas não em ':' e ';',<br/>então o 'não' de uma oração pegava o 'só' do preço na oração seguinte"]
+  S4["🟥 'No kit de 2 peças pagando na entrega o frete também é grátis' vetada"]
+  K4["causa: dois ramos do BEYOND_COD liam 'frete (é grátis) também' como outro caminho,<br/>mesmo quando o que o 'também' soma é o kit nomeado na própria oração"]
+  T1["🟧 descartado: tirar 'após o recebimento' ou 'receb' do ARRIVAL.<br/>É a chegada sempre que a contagem não é garantia, e 'em até 7 dias após o pagamento<br/>você recebe' passaria"]
+  T2["🟧 descartado: isentar do unverified_size qualquer 'tem' seguido de troca.<br/>'tem pra troca no seu tamanho' é estoque"]
+  C["🟩 OBJECT aceita 'pelo' e um adjetivo (certo/correto/ideal/maior/menor);<br/>unverified_size corta só '(você) tem/terá (até) N dias/semanas pra trocar/devolver' antes de casar;<br/>'não … só' para em ':' e ';'; o 'também' do frete é do kit quando 'kit/peças' vem<br/>antes na mesma oração, sem pontuação no meio. 'Também no/pelo/com …' continua vetado"]
+  G["🛡️ honest-sales-lines: it.fails virou HONEST, mais a janela de troca e o frete do kit nos dois<br/>sentidos, com o gate dono de cada mentira; geradores: objeto (180 verdades, 540 mentiras,<br/>WARRANTY_BAITS com o objeto) e kit (48 verdades, 588 mentiras).<br/>dev:gates contra o HEAD: 14 afrouxamentos aceitos (§30), 0 endurecimentos"]
+  S1 --> K1 --> T1 --> C
+  S2 --> K2 --> T2 --> C
+  S3 --> K3 --> C
+  S4 --> K4 --> C
+  C --> G
+```
+
+**Varredura da base e do roteiro (só leitura):** 214 falas de
+`docs/agente-ia/01-conhecimento/` e `docs/agente-ia/06-script/` rodaram pela `runGates` com
+o config de exemplo, nos dois caminhos. As falas incluídas foram citações, blocos `>` e células
+longas de tabela. Nenhuma fala verdadeira ensinada ali é vetada por bug de gate. Todos os vetos
+caem em um destes casos:
+- **Fala da entrega no caminho antecipado:** "1 a 3 dias" sem o nome do caminho.
+- **Fala proibida de propósito:** a lista "nunca diga", o script antigo do diagnóstico, os
+  exemplos do changelog.
+- **Fala certa fora do contexto de produção.** Três casos, que passam no contexto real:
+  - a véspera, com `stage: logistics`;
+  - o handoff, com `layer: auto`;
+  - o cupom, com `active: true`.
+
+**Deixado como está:**
+- **"No kit de 3 peças, pagando na entrega, o frete também é grátis":** continua vetada. A
+  vírgula separa o kit do "também", e abrir a vírgula traria "…, e no site o frete também".
+  Custa uma reescrita.
+- **"A troca de tamanho é garantida em até 7 dias":** continua vetada pelo `unverified_size`.
+  O `STOCK_AFTER` lê "tamanho … garantida" como reserva. É fora deste conserto.
+- **"Pode trocar pelo tamanho certo em até 7 dias após o pagamento":** passa, igual à base, e
+  passa também sem o objeto. A âncora está errada (a garantia conta do recebimento), mas não é
+  promessa de entrega. Nenhum gate lê o início da garantia.
 
 ---
 

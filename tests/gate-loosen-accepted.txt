@@ -113,3 +113,21 @@ R15.3 | shipping_promise | Pagando na entrega, levando 2 peças o frete é grát
 # R15.3: the free claim denied is the honest prepaid answer; it was vetoed because the 22/09 briefing forbade the words even negated. "Nenhum frete grátis existe aqui" (no path) stays vetoed, as decided on 22/09.
 R15.3 | shipping_promise | No pix não tem frete grátis, ele é calculado no checkout.
 R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparece no checkout, antes de pagar.
+# §30 (grafo): the exchange window with its object. `OBJECT` knew only "de/o/a/por outro" + noun, so "trocar pelo tamanho certo em até 7 dias" was not governed and the anchor's "recebimento" read as arrival. Only the configured warranty count is freed; the object's lies are generated in prepaid-deadline-fuzz and stay vetoed.
+§30 | delivery_promise | Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento.
+§30 | delivery_promise | Você pode trocar pelo tamanho certo em até 7 dias depois de receber.
+§30 | delivery_promise | Pra trocar pelo tamanho certo, você tem 7 dias após o recebimento.
+# §30 (grafo): `unverified_size` read the "tem" of "(você) tem N dias pra trocar/devolver" as "tem o tamanho" (in stock). Only that count + return verb is cut before matching; "temos o seu tamanho", "o tamanho tá aí / em estoque" after it stay vetoed.
+§30 | unverified_size | Você tem 7 dias pra trocar de tamanho.
+§30 | unverified_size | Você tem 7 dias pra trocar de tamanho, contando do dia que receber.
+§30 | unverified_size | Você tem 7 dias pra trocar o tamanho.
+§30 | unverified_size | você tem 7 dias pra trocar de tamanho
+§30 | unverified_size | Tem 7 dias pra trocar o tamanho depois que chegar.
+§30 | unverified_size | Você tem até 7 dias pra devolver o tamanho errado.
+§30 | unverified_size | Você tem uma semana pra trocar o tamanho, contando de quando recebeu.
+# §30 (grafo): `BEYOND_COD`'s "not only" (`não … só`) crossed ":" and ";" into the next clause, where "só" is the price's ("você paga só R$ 129,90"). It now stays in its clause, as it already stopped at the comma; "Não é só na entrega…", "Não tem frete só na entrega: …" and "…: e não só na entrega" stay vetoed.
+§30 | shipping_promise | Na entrega não tem frete: você paga só R$ 129,90.
+§30 | shipping_promise | Na entrega não tem frete; você paga só R$ 129,90.
+# §30 (grafo): "também" next to the freight, with a kit ("kit", "peças") named in its clause before it, is the kit's on the same delivery path. "Também no/pelo/com …" still reaches past the delivery; no kit, a comma, a prepaid cue or an alternative keeps the veto (generator in honest-sales-lines).
+§30 | shipping_promise | No kit de 2 peças pagando na entrega o frete também é grátis.
+§30 | shipping_promise | Levando 2 peças pagando na entrega o frete é grátis também.

@@ -365,6 +365,39 @@ describe("M-08, quinta revisão: roteiro e objeto passam, chegada em palavras n�
   });
 });
 
+// 2026-09-28: a troca com objeto "pelo tamanho certo" (o `OBJECT` só lia "de/o/a/por outro" +
+// substantivo) não governava a contagem, e a âncora "após o recebimento" virava chegada. Honesta
+// com o 7 e com ela recebendo; toda isca de garantia com o objeto, e o 7 com uma chegada, seguem prazo.
+const OBJECTS = ["pelo tamanho certo", "pelo número certo", "pelo tamanho maior"];
+const objectHonest: string[] = [];
+const objectLies: string[] = [];
+for (const obj of OBJECTS) {
+  for (const name of ["", "No pix, ", "No antecipado, ", "Na entrega, "])
+    for (const govern of ["pode trocar {o} em até 7 dias", "você tem 7 dias pra trocar {o}", "pra trocar {o}, você tem 7 dias"])
+      for (const anchor of ["", " após o recebimento", " depois de receber", " depois que chegar", ", contando de quando recebeu"])
+        objectHonest.push(cap(`${name}${govern.replace("{o}", obj)}${anchor}.`));
+  for (const name of NAMES) {
+    for (const n of [1, 2, 3, 10])
+      for (const bait of [...WARRANTY_BAITS.filter((b) => /\btroc/.test(b)), "{name} pode trocar em até {n} dias após o recebimento."])
+        objectLies.push(cap(bait.replace(/\b(troca\w*)/, `$1 ${obj}`).replaceAll("{name}", name).replaceAll("{n}", String(n))));
+    for (const bait of [
+      "{name} pode trocar {o} em até 7 dias, e chega junto.", "{name} pode trocar {o} e chega em 7 dias.",
+      "{name} pode trocar {o} em até 7 dias; a entrega também.", "{name} pode trocar {o} em 7 dias, quando chegar aí na sua casa.",
+      "{name} você tem 7 dias pra trocar {o} e ele chega junto.", "{name} pra trocar {o}, o prazo até quando chegar é de 7 dias.",
+    ])
+      objectLies.push(cap(bait.replaceAll("{o}", obj).replaceAll("{name}", name)));
+  }
+}
+
+describe("2026-09-28: a troca 'pelo tamanho certo' governa a garantia, e só ela", () => {
+  it(`${objectHonest.length} garantias com objeto, todas passam nos dois caminhos`, () => {
+    expect(objectHonest.filter((s) => delivery(s, "cod") !== "pass" || delivery(s, "prepay") !== "pass")).toEqual([]);
+  });
+  it(`${new Set(objectLies).size} iscas com o objeto, todas vetadas nos dois caminhos`, () => {
+    expect([...new Set(objectLies)].filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
+  });
+});
+
 describe("M-08, quarta revisão: o ônus invertido", () => {
   it(`${untilArrival.length} prazos "até quando chegar", todos vetados`, () => {
     expect(
