@@ -40,6 +40,12 @@ jobs:
         run: |
           id=$(git log -1 --format=%B | grep -oE 'hermes:[0-9a-f-]{36}' | head -1 | cut -d: -f2 || true)
           echo "id=$id" >> "$GITHUB_OUTPUT"
+          # The checks below diff HEAD against its first parent: that is the whole PR only for a
+          # merge commit (IMPLEMENTAR.md §5). A rebase or squash of several commits would hide
+          # the earlier ones, so it is not published.
+          if [ -n "$id" ] && [ "$(git log -1 --format=%P | wc -w)" -lt 2 ]; then
+            echo "notmerge=yes" >> "$GITHUB_OUTPUT"
+          fi
           if [ -n "$id" ] && git diff --name-only HEAD~1 HEAD | grep -q '^supabase/migrations/'; then
             echo "migration=yes" >> "$GITHUB_OUTPUT"
           fi
@@ -67,6 +73,17 @@ jobs:
             exit 1
           fi
           echo "ok=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a change that is not a merge commit
+        if: steps.approved.outputs.ok == 'yes' && steps.which.outputs.notmerge == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -fsS -X PATCH "$SUPABASE_URL/rest/v1/hermes_proposals?id=eq.${{ steps.which.outputs.id }}" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d '{"status":"failed","result":"a mudança não chegou ao main por merge commit: publicação automática recusada, precisa do operador"}'
+          exit 1
 
       - name: Refuse a gate loosening
         if: steps.approved.outputs.ok == 'yes' && steps.which.outputs.loosen == 'yes'
@@ -103,7 +120,7 @@ jobs:
         run: supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api
 
       - name: Mark the proposal
-        if: always() && steps.approved.outputs.ok == 'yes' && steps.which.outputs.migration != 'yes' && steps.which.outputs.loosen != 'yes'
+        if: always() && steps.approved.outputs.ok == 'yes' && steps.which.outputs.migration != 'yes' && steps.which.outputs.loosen != 'yes' && steps.which.outputs.notmerge != 'yes'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

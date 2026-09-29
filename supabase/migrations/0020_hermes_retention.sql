@@ -43,6 +43,18 @@ begin
   get diagnostics n = row_count; table_name:='hermes_proposals.evidencias'; rows_deleted:=n; return next;
 end; $$;
 
+-- Audit of each run (the JEV idea of pinned versions): which skill text, which commit, which
+-- conversations. Ids only, no text — they dangle harmlessly once the purge removes the
+-- conversation. Nullable: a run before this migration has none.
+-- `started_at`: when the run read its sample. The next run reads activity after it — the
+-- row is inserted at the end, minutes later, and a conversation that moved in between would
+-- otherwise never be read.
+alter table public.hermes_runs
+  add column if not exists started_at timestamptz,
+  add column if not exists skill_sha text,
+  add column if not exists commit_sha text,
+  add column if not exists conversation_ids uuid[];
+
 -- R6.2 counts leads served. A persona round kept in the database (`--keep-data`, or a buy
 -- that stops at ORDER_READY) is not one: its phones start with SYNTHETIC_PHONE_PREFIX
 -- (src/dev/persona-run-core.ts), and without this a test round could trigger the
@@ -54,8 +66,9 @@ select
   count(l.id) >= 50 as due
 from public.leads l
 where l.phone not like '5500099%'
+  -- From when the last run started reading (0020), not from when it finished writing.
   and l.created_at > coalesce(
-    (select max(created_at) from public.hermes_runs where source = 'supabase'),
+    (select max(coalesce(started_at, created_at)) from public.hermes_runs where source = 'supabase'),
     '-infinity'::timestamptz
   );
 
@@ -66,13 +79,6 @@ where l.phone not like '5500099%'
 -- write the reading into `result` — until now `result` said only "publicada: <url>".
 alter table public.hermes_proposals add column if not exists published_at timestamptz;
 
--- Audit of each run (the JEV idea of pinned versions): which skill text, which commit, which
--- conversations. Ids only, no text — they dangle harmlessly once the purge removes the
--- conversation. Nullable: a run before this migration has none.
-alter table public.hermes_runs
-  add column if not exists skill_sha text,
-  add column if not exists commit_sha text,
-  add column if not exists conversation_ids uuid[];
 
 -- One row per real conversation with the signals that say where to look
 -- (src/dev/hermes-core.ts › pickSample): opt-outs and canned replies first, then handoffs,
@@ -82,6 +88,9 @@ create or replace view public.hermes_sample with (security_invoker = true) as
 select
   c.id as conversation_id,
   c.created_at,
+  -- The last thing that happened in it: a conversation that began before the last run and
+  -- got a reply (or a ruler touch) after it is read again.
+  greatest(c.created_at, (select max(m.created_at) from public.messages m where m.conversation_id = c.id)) as last_activity,
   c.cost_brl,
   (select count(*) from public.turn_outcomes o where o.conversation_id = c.id and o.outcome = 'fallback')::int as fallbacks,
   (select count(*) from public.turn_outcomes o where o.conversation_id = c.id and o.outcome = 'handoff')::int as handoffs,

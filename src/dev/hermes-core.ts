@@ -178,7 +178,14 @@ const FORBIDDEN: ReadonlyArray<[RegExp, string]> = [
 ];
 
 /** Asking a gate to let something through, in the words a model uses for it (security review, 2026-09-29). */
-const LOOSENS = /afrouxa|liberar|deixar passar|remov|desativ|desliga|relax|isent|permiti|aceitar|parar de (?:vetar|barrar|bloquear)|n[ãa]o vetar|menos r[ií]gid/i;
+const LOOSENS = /afrouxa|liberar|deixar passar|remov|desativ|desliga|relax|\bisent(?:ar|e|em|ando)\b|permiti|aceitar|flexibiliz|toler|abrand|suaviz|menos r[ií]gid/i;
+/** Loosening said as a negated veto: "não vetar", "parar de barrar". */
+const STOP_VETO = /parar de (?:vetar|barrar|bloquear)|n[ãa]o (?:vetar|barrar|bloquear)/i;
+/** A negated verb ("o gate não deve aceitar…") asks for the opposite: read without it. */
+const NEGATED = /\bn[ãa]o\s+(?:deve\s+|pode\s+|vai\s+|precisa\s+)?\S+/gi;
+
+/** Does this text ask a gate to let more through? Both ways of saying it, and not its negation. */
+export const asksToLoosen = (text: string): boolean => STOP_VETO.test(text) || LOOSENS.test(text.replace(NEGATED, " "));
 
 const norm = (s: string) => s.normalize("NFC").replace(/\s+/g, " ").trim();
 
@@ -209,7 +216,7 @@ export function checkProposals(raw: unknown, conversations: ReadonlyMap<string, 
       if (!text) problems.push(`conversa inexistente: ${e?.conversa}`);
       else if (!e?.trecho || !norm(text).includes(norm(e.trecho))) problems.push(`trecho não está na conversa ${e.conversa}: "${String(e?.trecho).slice(0, 60)}"`);
     }
-    if (typeof p?.alvo === "string" && p.alvo.startsWith("gate:") && LOOSENS.test(`${p.o_que} ${p.objetivo}`) && !p.mentira_vizinha?.trim())
+    if (typeof p?.alvo === "string" && p.alvo.startsWith("gate:") && asksToLoosen(`${p.o_que} ${p.objetivo}`) && !p.mentira_vizinha?.trim())
       problems.push("afrouxa gate sem a mentira vizinha que deve continuar vetada");
     // Only what the proposal asks for: the evidence may quote a lie it wants removed.
     const asks = [p?.o_que, p?.objetivo, p?.como_medir].join(" ");
@@ -426,6 +433,15 @@ export function measureEffect(comoMedir: string | undefined, before: readonly Co
   const [b, a] = [read(before), read(after)];
   const note = a.n === 0 ? " — ainda sem conversa depois da publicação" : " — piso de amostra não assinado: leitura, não veredito";
   return `${id}: antes ${b.text}; depois ${a.text}${note}`;
+}
+
+/**
+ * The new `result` of a published proposal: the deploy's "publicada: <run url>" stays in
+ * front (it is the only link from the row to the run that published it), the reading after.
+ */
+export function withMeasure(previous: string | null, measure: string): string {
+  const link = /^publicada: \S+/.exec(previous ?? "")?.[0];
+  return link ? `${link} · medida: ${measure}` : `medida: ${measure}`;
 }
 
 /**

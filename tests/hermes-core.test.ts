@@ -329,6 +329,18 @@ describe("hermes: afrouxar gate, nas palavras que o modelo usa", () => {
       expect(checkProposals(proposta({ o_que, mentira_vizinha: "" }), conversas)[0]?.problems.join()).toContain("mentira vizinha");
     },
   );
+  it.each(["Flexibilizar o gate de tamanho", "Tolerar a frase de troca", "Abrandar o veto de prazo", "Isentar a pergunta de fechamento"])("%s também é afrouxar", async (t) => {
+    const { asksToLoosen } = await import("../src/dev/hermes-core.js");
+    expect(asksToLoosen(t)).toBe(true);
+  });
+  it.each(["Vetar frete isento no antecipado", "O gate não deve aceitar desconto sem número", "Não permitir prazo exato", "Vetar escassez inventada"])(
+    "negação: %s endurece, não afrouxa",
+    async (t) => {
+      const { asksToLoosen } = await import("../src/dev/hermes-core.js");
+      expect(asksToLoosen(t)).toBe(false);
+    },
+  );
+
   it("negação: endurecer o gate não exige mentira vizinha", () => {
     expect(checkProposals(proposta({ o_que: "Vetar escassez inventada", objetivo: "Nenhuma escassez sai", mentira_vizinha: "" }), conversas)[0]?.ok).toBe(true);
   });
@@ -395,6 +407,14 @@ describe("hermes: o efeito medido de uma proposta publicada (item 2)", () => {
     expect(measureEffect("contar à mão", [], [])).toContain("medir à mão");
     expect(measureEffect("respostas-prontas", [conv(true)], [])).toContain("ainda sem conversa depois");
   });
+  it("a leitura nova não apaga o link do deploy, e substitui a leitura anterior", async () => {
+    const { withMeasure } = await import("../src/dev/hermes-core.js");
+    const first = withMeasure("publicada: https://github.com/o/r/actions/runs/1", "respostas-prontas: antes 2; depois 0");
+    expect(first).toBe("publicada: https://github.com/o/r/actions/runs/1 · medida: respostas-prontas: antes 2; depois 0");
+    expect(withMeasure(first, "respostas-prontas: antes 2; depois 1")).toBe("publicada: https://github.com/o/r/actions/runs/1 · medida: respostas-prontas: antes 2; depois 1");
+    expect(withMeasure(null, "x")).toBe("medida: x");
+  });
+
   it("o id mais longo ganha: pronta-por-preco não é lido como outro", async () => {
     const { checkIdOf } = await import("../src/dev/hermes-core.js");
     expect(checkIdOf("medir por pronta-por-preco")).toBe("pronta-por-preco");

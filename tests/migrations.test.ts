@@ -56,5 +56,7 @@ describe("migrações: o Hermes respeita a retenção", () => {
     const view = last(/create or replace view public\.hermes_sample/, ";");
     expect(view).toContain(`l.phone not like '${SYNTHETIC_PHONE_PREFIX}%'`);
     expect(view).not.toMatch(/\bbody\b|\bdetail\b|\breason\b|\bphone\b(?! not like)/);
+    // Activity, not creation: a conversation that began before the last run and moved after it is read.
+    expect(view).toMatch(/greatest\(c\.created_at, \(select max\(m\.created_at\) from public\.messages m/);
   });
 });

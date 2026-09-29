@@ -41,6 +41,7 @@ import {
   renderNumbers,
   scrubSecrets,
   storedEvidence,
+  withMeasure,
   type SampleRow,
   renderConversation,
   renderLedger,
@@ -109,10 +110,12 @@ async function load(convs: ConvRow[]): Promise<{ conversations: Conversation[]; 
   return { ...rowsToConversations({ conversations: convs, messages, traces, outcomes }), ids };
 }
 
-/** Where to look (item 3 of the analysis): conversations since the last production run,
- * flagged ones first, plus a control — all of them when there was no run yet. */
-async function fromSupabase(lastRunAt: string | null) {
-  const since = lastRunAt ? `&created_at=gt.${encodeURIComponent(lastRunAt)}` : "";
+/** Where to look (item 3 of the analysis): conversations with activity since the last
+ * production run STARTED (a conversation that began before it and got a new reply after it
+ * is read; one that arrived while it ran is not lost), flagged first, plus a control — all
+ * of them when there was no run yet. */
+async function fromSupabase(lastRunStart: string | null) {
+  const since = lastRunStart ? `&last_activity=gt.${encodeURIComponent(lastRunStart)}` : "";
   const sample = await restAll<SampleRow>(`hermes_sample?select=*${since}&order=created_at.desc,conversation_id`);
   const ids = pickSample(sample, limit);
   if (ids.length === 0) return { conversations: [], leads: 0, ids: [] };
@@ -135,8 +138,15 @@ if (onlyIfDue && source === "supabase" && !backlog?.due) {
   process.exit(0);
 }
 
+const startedAt = new Date().toISOString();
+const lastRunStart =
+  source === "supabase"
+    ? ((r) => r?.started_at ?? r?.created_at ?? null)(
+        (await rest<Array<{ started_at: string | null; created_at: string }>>("hermes_runs?select=started_at,created_at&source=eq.supabase&order=created_at.desc&limit=1"))[0],
+      )
+    : null;
 const { conversations, leads, ids: conversationIds } =
-  source === "supabase" ? await fromSupabase(backlog?.last_run_at ?? null) : { ...fromPersonas(source.slice("personas:".length)), ids: [] as string[] };
+  source === "supabase" ? await fromSupabase(lastRunStart) : { ...fromPersonas(source.slice("personas:".length)), ids: [] as string[] };
 if (conversations.length === 0) {
   console.log("hermes: nenhuma conversa para ler");
   process.exit(0);
@@ -157,7 +167,7 @@ const promptText = systemPrompt(fixtureConfig, gateBriefing(fixtureConfig), null
 writeFileSync(join(bundle, "prompt.md"), `# O prompt da Malu (config de teste)\n\n${promptText}\n`);
 // Counts and rates come from the evaluation views, never from the model (item 4).
 if (SB) {
-  const from = (backlog?.last_run_at ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
+  const from = (lastRunStart ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
   const [outcomesByDay, blocksByDay] = await Promise.all([
     restAll<Record<string, unknown>>(`eval_turn_outcomes?select=*&day=gte.${from}&order=day`),
     restAll<Record<string, unknown>>(`eval_gate_blocks?select=*&day=gte.${from}&blocks=gt.0&order=day,gate`),
@@ -274,6 +284,7 @@ if (writeDb) {
       proposals_ok: ok.length,
       proposals_rejected: checked.length - ok.length,
       cost_usd: costUsd,
+      started_at: startedAt,
       skill_sha: skillSha,
       commit_sha: commitSha,
       ...(conversationIds.length ? { conversation_ids: conversationIds } : {}),
@@ -302,8 +313,8 @@ if (writeDb) {
   // before and after it went live, rewritten on each run. The ledger Hermes reads next time
   // carries it as "Resultado medido".
   if (production) {
-    const live = await rest<Array<{ id: string; code: string | null; published_at: string; evidence: { como_medir?: string } | null }>>(
-      "hermes_proposals?select=id,code,published_at,evidence&status=eq.published&published_at=not.is.null",
+    const live = await rest<Array<{ id: string; code: string | null; published_at: string; result: string | null; evidence: { como_medir?: string } | null }>>(
+      "hermes_proposals?select=id,code,published_at,result,evidence&status=eq.published&published_at=not.is.null",
     );
     for (const p of live) {
       const at = encodeURIComponent(p.published_at);
@@ -311,7 +322,7 @@ if (writeDb) {
         rest<ConvRow[]>(`conversations?select=${CONV}&${REAL}&created_at=lt.${at}&order=created_at.desc&limit=${limit}`).then(load),
         rest<ConvRow[]>(`conversations?select=${CONV}&${REAL}&created_at=gte.${at}&order=created_at.desc&limit=${limit}`).then(load),
       ]);
-      const result = measureEffect(p.evidence?.como_medir, before.conversations, after.conversations);
+      const result = withMeasure(p.result, measureEffect(p.evidence?.como_medir, before.conversations, after.conversations));
       await rest(`hermes_proposals?id=eq.${p.id}`, { method: "PATCH", body: JSON.stringify({ result }) });
       console.log(`${p.code ?? p.id}: ${result}`);
     }
