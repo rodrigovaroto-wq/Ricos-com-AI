@@ -181,6 +181,13 @@ território é agente que inventa trabalho.
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
 - [`.claude/rules/code-ladder.md`](.claude/rules/code-ladder.md) — a escada de sete degraus que todo código novo sobe antes de ser escrito, e o que ela nunca corta. Importada acima, na diretriz 2.
 
+## Pipeline em execução
+
+O plano até produção é [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md)
+(versão 80/20). O andamento vive no **quadro do topo do [`HANDOFF.md`](HANDOFF.md)**: toda sessão
+que continua o pipeline confere o estado real, atualiza o quadro (onde estamos, executado, falta)
+ao começar e ao terminar, e diz ao operador em que etapa está.
+
 ## Memória entre sessões
 
 @.claude/memory/INSTRUCTIONS.md

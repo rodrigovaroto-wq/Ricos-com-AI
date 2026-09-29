@@ -8,6 +8,10 @@ Achados que motivam cada item: [`../10-auditoria/2026-09-29-auditoria.md`](../10
 
 Dono: **C** = Claude · **O** = operador · **S** = sócio (Meta: Ads, BM, número, templates).
 
+**Onde estamos:** o quadro de execução (feito, falta, próximo passo) fica no topo do
+[`HANDOFF.md`](../../../HANDOFF.md) e é atualizado a cada sessão. Este arquivo é o plano; o quadro é o
+andamento.
+
 ## A regra desta versão
 
 **Entra no V1 só o que impede a operação de rodar com lead real, ou o que faz a agente mentir,
@@ -56,7 +60,7 @@ Tudo o mais é paralelo ou posterior.
    `CONVERSATION_MODEL=muse-spark-1.3` (sem `-contributor`, sem `CONVERSATION_MODEL_PRICE`),
    `pnpm dev:personas`, e a tabela com `pnpm dev:eval <rodada>`. Saída: custo p50/p95 por conversa e quantas bateriam no teto.
    **O** fixa o teto pelo p95 medido, não pela premissa de R$ 0,10 por lead.
-6. **O** — merge do PR #43 (a `0020` já está aplicada em produção).
+6. ✅ **O** — merge do PR #43 (`5bf5a15`, 2026-09-29; a `0020` já estava aplicada em produção).
 7. **C** — logo depois do merge (mexe no mesmo `hermes.yml`): trocar a instalação do Hermes na
    Action pelo instalador oficial (A6) e rodar a Action uma vez à mão com `force` para provar que
    instala; registrar a troca de R$ 27,00 como R17.2 no grafo (pendência da revisão 1).

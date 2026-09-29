@@ -1,7 +1,7 @@
 # Mapa do repositório — onde está cada coisa
 
 Porta de entrada para achar informação sem ler os 2.750 linhas do `HANDOFF.md`. Atualizado em
-2026-09-29 (base: `main` em `29ab243`, PRs abertos #42 e #43).
+2026-09-29 (base: `main` em `5bf5a15`, com os PRs #42 e #43 mergeados).
 
 ## 1. Qual arquivo manda quando dois discordam
 
@@ -47,7 +47,7 @@ aplica é o do secret.
 | `src/agent/` | Gates, prompt, régua, estado, tamanho, endereço, identidade | Testes (Node); **espelhado byte a byte** em `supabase/functions/turn/` |
 | `supabase/functions/turn/` | A Edge Function do turno (Deno) — o que a produção executa | Supabase |
 | `supabase/functions/whatsapp/` | Entrada/saída do WhatsApp Cloud API (desligada: `CANAL_ATIVO`) | Supabase |
-| `supabase/migrations/` | 0001–0019 (0020 no PR #43, já aplicada em produção) | Postgres |
+| `supabase/migrations/` | 0001–0020 (todas aplicadas em produção) | Postgres |
 | `n8n/workflows/` | Cano e relógio: turno, régua, venda confirmada, envio WhatsApp, decisão do Hermes | PikaPods |
 | `src/llm/` | Seam único de modelo, preço, provedores (só Meta em uso na conversa) | — |
 | `src/dev/` | Ferramentas: simulador, personas, `dev:gates`, `dev:n8n`, `verificar:guardas`, Hermes | Local/CI |
@@ -56,9 +56,10 @@ aplica é o do secret.
 
 ## 4. Estado em uma frase (2026-09-29, noite)
 
-Produção roda a `turn` **v41** (PR #35, 25/09); o `main` tem os PRs #36–#42 sem publicar. O PR #43
-(Hermes v1) está aberto. O canal WhatsApp está desligado, e o Hermes de produção nunca rodou (a
-instalação falha na Action). O que falta para o primeiro lead real está no pipeline 80/20.
+Produção roda a `turn` **v41** (PR #35, 25/09); o `main` tem os PRs #36–#43 sem publicar. O canal
+WhatsApp está desligado, e o Hermes de produção nunca rodou (a instalação falha na Action). O
+andamento do pipeline 80/20 — feito, falta e próximo passo — está no quadro do topo do
+[`HANDOFF.md`](../HANDOFF.md).
 
 ## 5. Pastas com número faltando (não é arquivo perdido)
 

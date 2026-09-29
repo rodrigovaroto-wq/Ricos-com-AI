@@ -11,7 +11,64 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29, madrugada)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-29, noite)
+
+Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
+Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
+Mapa do repositório: [`docs/README.md`](docs/README.md). Tudo abaixo deste quadro é histórico.
+
+### Regra de toda sessão que continua o pipeline
+
+**Ao começar**, antes de qualquer trabalho:
+1. Conferir o estado real, não o escrito: `git log origin/main`, PRs abertos, o que está no ar
+   (versão da `turn`, `CANAL_ATIVO`, última execução da Action `Hermes`).
+2. Atualizar as três partes abaixo — **onde estamos**, **executado**, **falta** — se algo mudou
+   desde a última sessão (o operador ou o sócio podem ter feito etapas fora de sessão).
+3. Dizer ao operador, em até cinco linhas: a etapa atual, o que foi executado desde a última
+   sessão e o próximo passo.
+
+**Ao terminar**, atualizar o quadro de novo, com data e evidência (commit, PR, execução, print).
+Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa feita muda de lista.
+
+Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
+
+### Onde estamos
+
+**Etapa atual: L0 — Preparar.** Começaram só as etapas do Claude e do repositório; nenhuma
+etapa do sócio (Meta). **Próximo passo:** operador decide o canal de resposta humana (L0.3) e o
+sócio começa a Parte A do canal (L0.1). **Bloqueio principal:** sem L0.1 e L0.3 não há como
+atender lead real.
+
+### Executado
+
+| Etapa | O quê | Evidência |
+|---|---|---|
+| — | Auditoria do repositório (revisões 1 e 2) e pipeline 80/20 | PR desta branch (`claude/eager-sagan-qn74um`), 2026-09-29 |
+| — | Troca de tamanho não é grátis (R17.1), no código | PR #42 mergeado (`75c22c8`), 2026-09-29 |
+| — | Valor da troca: R$ 27,00 fixo, cobrado da cliente — na documentação | `05-decisoes-firmes.md` §9, 2026-09-29 |
+| — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
+| L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
+
+### Falta (na ordem do plano)
+
+| Etapa | O quê | Dono | Estado |
+|---|---|---|---|
+| L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
+| L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
+| L0.3 | Decidir o canal de resposta humana (formulário n8n recomendado) e construir | O decide → C | ⬜ |
+| L0.4 | Link do Mercado Pago de R$ 27,00; `exchange: { feeBrl: 27, checkoutUrl }` no secret; conferir `cost.conversationCapBrl` | O | ⬜ |
+| L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
+| L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
+| L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
+| L1.2 | `CONVERSATION_MODEL` = modelo padrão | O | ⬜ |
+| L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |
+| L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ⬜ |
+| L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ⬜ |
+| L2 | Três conversas reais: compra na entrega, compra antecipada, troca + handoff respondido | O + C | ⬜ |
+| L3 | Tráfego controlado nas 22 praças; piso de amostra assinado; critérios de pausa | S + O | ⬜ |
+| L4 | Hermes com H1–H5 (instala, segredos, rotina de implementação, vê pedido, piso assinado) | C + O | ⬜ |
+
+## ▶ Histórico — fila de 2026-09-29, madrugada (antes do pipeline 80/20)
 
 ### ▶ Fila de execução imediata (2026-09-29, madrugada) — branch `claude/inspiring-galileo-98shbt`, PR novo
 PR #40 mergeado. Nesta branch (grafo §39–§40, R17.1): troca de tamanho não é grátis; segunda revisão Opus
