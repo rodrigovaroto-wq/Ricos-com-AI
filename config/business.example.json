@@ -69,6 +69,10 @@
   "support": {
     "email": "contato@encorpa-fashion.com.br"
   },
+  "exchange": {
+    "feeBrl": "{{EXCHANGE_FEE_BRL}}",
+    "checkoutUrl": "{{EXCHANGE_MERCADO_PAGO_URL}}"
+  },
   "socialProof": {
     "satisfiedCustomers": 500
   },

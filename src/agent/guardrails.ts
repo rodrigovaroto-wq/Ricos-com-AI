@@ -96,6 +96,14 @@ export interface GateConfig {
   /** Where she writes to exchange or return. Absent, the briefing names no address. */
   support?: { email?: string };
   /**
+   * A size exchange's freight is hers (operator, 2026-09-29, R17.1): she pays it through a Mercado
+   * Pago link, outside the Coinzz and Logzz checkouts. OPTIONAL, and absent reads as today's truth
+   * — the exchange is never free — with no amount and no link: the agent says the freight is hers
+   * and an order's exchange goes to a person. Both present, the agent quotes `feeBrl` and sends the
+   * link. The return stays free (R16.3).
+   */
+  exchange?: { feeBrl?: number; checkoutUrl?: string };
+  /**
    * A customer count the operation can back. Absent, no customer count may be said;
    * present, only this one ("mais de N clientes satisfeitas").
    */
@@ -213,6 +221,12 @@ export interface GateContext {
    * then `scarcity_claim` refuses any stock or deadline, declared or not.
    */
   postponing?: boolean;
+  /**
+   * The fixed reply to a size exchange on an order (R17.1), the only place the exchange's freight
+   * (`exchange.feeBrl`) may be said. Absent everywhere else, and then that amount is one more price
+   * the shop does not have.
+   */
+  exchanging?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -485,13 +499,61 @@ const BARE_FREE_DENIED =
 const PAYMENT_FREE =
   /\b(?:gratis|gratuit[oa]|de\s+gra[cs]a|sem\s+(?:nenhum\s+)?custo|(?:nao\s+tem|nao\s+ha|zero\s+de)\s+custo|custo\s+zero|custa\s+nada|zerad[oa]|por\s+nossa\s+conta)\b/g;
 /**
- * The exchange or the return as what is free — "a troca do colete é grátis" is the operation's truth
- * (grafo §9, M-08) and the return costs her nothing (R16.3): "no pix a troca é grátis", "a devolução
- * não tem custo nenhum pra você". Only when nothing of payment or freight sits between it and the free
- * word ("na troca pro pix fica grátis").
+ * The exchange or the return as what is free, for this gate's payment rule only: the return costs
+ * her nothing (R16.3), "a devolução não tem custo nenhum pra você". The exchange is not free
+ * (R17.1), and `warranty_promise` vetoes that claim (`EXCHANGE_FREE`) on every path. Only when
+ * nothing of payment or freight sits between it and the free word ("na troca pro pix fica grátis").
  */
 const RETURN_FREE =
   /\b(?:troca|trocar|devoluc\w*|devolv\w*|garantia)\b(?:(?!\b(?:pag\w*|pix|cartao|frete|envio|entrega|site|link|antecipad\w*)\b)[^,;:])*$/;
+/**
+ * The size exchange said to cost her nothing (R17.1: its freight is hers). Every shape of "free" the
+ * gates know, plus the shop taking the freight on ("a gente paga o frete da troca").
+ */
+const EXCHANGE_FREE_WORD =
+  /\b(?:gratis|gratuit[oa]|de\s+gra[cs]a|sem\s+(?:nenhum\s+)?custo|custo\s+zero|(?:nao\s+tem|nao\s+ha|zero\s+de)\s+custo|(?:nao\s+)?custa\s+nada|(?:nao|sem)\s+(?:precisa\s+)?(?:pagar|paga)\s+(?:nada|o\s+frete|frete)|por\s+nossa\s+conta|zerad[oa]|(?:a\s+gente|nos|a\s+loja)\s+(?:paga|pagamos|cobre|cobrimos|arca\w*)\s+(?:com\s+)?o\s+frete)\b/g;
+/** The exchange, as a noun or a verb — not "troco" (change for cash) nor "trocado". */
+const EXCHANGE_WORD = /\btroc(?:a|as|ar|amos|ando|aria|ue|ou|ar\w+)\b/g;
+const RETURN_WORD = /\bdevol\w*|\breembols\w*|\bestorn\w*|\bdinheiro\s+de\s+volta\b/g;
+/** Is any free-word claim in `t` owned by the exchange? One sentence at a time. */
+const claimsExchangeFree = (t: string): boolean => {
+  let asked = false;
+  for (const piece of t.split(/(?<=[.!?;\n])/)) {
+    // The answer to her question about the exchange owns its free word too: "Trocar de tamanho?
+    // Pode sim, custa nada." — unless it names the return.
+    const answers = asked && !/\bdevol|\breembols|\bestorn/.test(piece);
+    asked = piece.trimEnd().endsWith("?") && /\btroc(?:a|ar)\b/.test(piece);
+    const sentence = answers ? `troca ${piece}` : piece;
+    if (!/\btroc/.test(sentence)) continue;
+    const exchanges = [...sentence.matchAll(EXCHANGE_WORD)].map((m) => m.index ?? 0);
+    if (exchanges.length === 0) continue;
+    const returns = [...sentence.matchAll(RETURN_WORD)].map((m) => m.index ?? 0);
+    for (const m of sentence.matchAll(EXCHANGE_FREE_WORD)) {
+      const at = m.index ?? 0;
+      const after = sentence.slice(at + m[0].length);
+      // "grátis pra trocar", "sem custo na troca", "a gente paga o frete da troca".
+      const governsAfter = /^[^,]{0,20}?\b(?:pra|para|na|pela|pelo|da|de|em|com\s+a)\s+(?:(?:a|sua|primeira|uma)\s+)?troc(?:a|ar)\b/.test(after);
+      // Otherwise the nearest exchange or return before it owns it: "a devolução não tem custo e a
+      // troca de tamanho é por sua conta" is the return's. "Trocar ou devolver, sem custo" is both.
+      const lastExchange = Math.max(-1, ...exchanges.filter((i) => i < at));
+      const lastReturn = Math.max(-1, ...returns.filter((i) => i < at));
+      const coordinated = lastReturn > lastExchange && lastExchange >= 0 && /^\w+\s+(?:ou|e)\s+(?:\w+\s+){0,2}$/.test(sentence.slice(lastExchange, lastReturn));
+      const owner = governsAfter ? at : lastExchange > lastReturn || coordinated ? lastExchange : -1;
+      if (owner < 0) continue;
+      // Denied between the exchange and the free word: "a troca não é grátis", "não sai de graça".
+      // The free word's own "não" ("não tem custo") is the claim, not its denial.
+      if (!governsAfter && /\b(?:nao|nunca)\b/.test(sentence.slice(owner, at))) continue;
+      // "Não existe troca grátis", "não tem troca sem custo".
+      if (/\b(?:nao|nunca)\s+(?:existe|tem|ha|e|oferecemos|fazemos)\s+(?:\w+\s+){0,2}$/.test(sentence.slice(0, Math.min(owner, at))))
+        continue;
+      return true;
+    }
+    // "A devolução é sem custo, e a troca também."
+    if (/\b(?:gratis|sem\s+(?:nenhum\s+)?custo|de\s+gra[cs]a|por\s+nossa\s+conta|nao\s+(?:tem|ha)\s+custo)\b[^]*\btroc(?:a|ar)\s+(?:de\s+tamanho\s+)?tambem\b/.test(sentence))
+      return true;
+  }
+  return false;
+};
 /**
  * The freight said to be the delivery's own ("o frete do pix é igual ao da entrega", "o mesmo
  * frete da entrega", "frete como na entrega"), unless a denial sits between them ("o frete no
@@ -658,6 +720,11 @@ export const wantsHuman = (text: string): boolean =>
 
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+/** The size exchange's freight, as the briefing teaches it (R17.1). The amount goes only in the fixed reply. */
+const EXCHANGE_FREIGHT_LINE =
+  `Na troca de tamanho o envio é por conta dela: o valor e o link de pagamento vão numa mensagem ` +
+  `à parte, quando ela pedir a troca de um pedido. Nunca diga que a troca é grátis ou sem custo, e ` +
+  `não cite valor da troca. A devolução, sim, é sem custo.`;
 const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
 /** The prepaid card's installment ceiling, or undefined when installments are off. */
 const maxInstallments = (c: GateConfig): number | undefined => {
@@ -842,6 +909,8 @@ const gates: readonly Gate[] = [
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
+      const exchangeFee = ctx.exchanging === true ? ctx.config.exchange?.feeBrl : undefined;
+      if (exchangeFee !== undefined) allowedPrices.add(exchangeFee);
       const t = norm(text);
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
@@ -2046,11 +2115,13 @@ const gates: readonly Gate[] = [
       `A garantia é de ${c.delivery.warrantyDays} dias após o recebimento para trocar ou ` +
       `devolver, e na devolução o dinheiro volta sem custo nenhum pra ela. Nenhum outro ` +
       `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.` +
+      ` ${EXCHANGE_FREIGHT_LINE}` +
       (c.support?.email ? ` Para trocar ou devolver, ela escreve para ${c.support.email}.` : ``),
     check: (text, ctx) => {
       const t = norm(text);
       if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
         return "promises a warranty with no limit";
+      if (claimsExchangeFree(t)) return "says the size exchange is free, and its freight is hers";
 
       /**
        * The delivery window's own numbers, and where they sit.

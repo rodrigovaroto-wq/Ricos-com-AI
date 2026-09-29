@@ -80,6 +80,7 @@ import {
   MIN_ATTEMPT_MS,
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
+  exchangeReply,
   ORDER_HANDOFF_REPLY,
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
@@ -1949,7 +1950,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * dropping the alert would be the worse half of the two. The e-mail goes the way it
    * always did: `notification(...)` in the body, sent by n8n.
    */
-  const handOff = async (reply: string, reason: string): Promise<Response> => {
+  const handOff = async (reply: string, reason: string, exchanging = false): Promise<Response> => {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -1962,6 +1963,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       now: new Date(),
       paymentPath: "cod",
       codUnavailable,
+      exchanging,
     });
     await recordTraces(conversation.id, receipt.traces);
     const sendable = passed(receipt);
@@ -2435,6 +2437,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
   }
   const handoffKind = handoffFor(interpretation, inbound.body ?? "", orderContext);
+  // A size exchange on an order (R17.1): the exchange's freight is hers, so she gets its amount and
+  // the Mercado Pago link, and a person takes the exchange from there. Without both in the config,
+  // the exchange goes to a person like any other post-sale question.
+  const exchange = handoffKind === "post_sale" && interpretation.wants_exchange ? exchangeReply(CONFIG.exchange) : null;
+  if (exchange !== null) {
+    return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);
+  }
   if (handoffKind !== null) {
     return await handOff(
       handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,
