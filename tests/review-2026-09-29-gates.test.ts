@@ -104,15 +104,15 @@ const FREE_BY_PAYMENT = [
   "Nem precisa perguntar, no pix é grátis.",
   "No pix não tem taxa e é grátis.",
 ];
-/** The honest neighbours: the denial of the free, and the exchange and return, free on both paths (grafo §9, R16.3). */
+/** The honest neighbours: the denial of the free, and the return, free on both paths (R16.3). The exchange is not free (R17.1). */
 const FREE_BY_PAYMENT_HONEST = [
   "No pix não tem frete grátis, ele é calculado no checkout.",
   "No pix o frete não é grátis.",
   "No pix não é grátis.",
   "No pix, se não servir, a devolução não tem custo nenhum pra você.",
   "No antecipado a devolução é sem custo pra você.",
-  "No pix a troca é grátis.",
-  "Pagando no pix ou na entrega, a troca de tamanho é grátis.",
+  "No pix, a devolução é grátis.",
+  "Pagando no pix ou na entrega, a devolução é grátis.",
 ];
 describe.each(Object.entries(ALL))("achado 4: grátis sem a palavra frete, no outro pagamento (%s)", (_name, config) => {
   it.each(FREE_BY_PAYMENT)("veta pelo frete: %s", (text) => {
@@ -121,6 +121,12 @@ describe.each(Object.entries(ALL))("achado 4: grátis sem a palavra frete, no ou
   it.each(FREE_BY_PAYMENT_HONEST)("passa: %s", (text) => {
     for (const p of BOTH) expect({ p, blocked: blockedBy(text, config, p) }).toEqual({ p, blocked: [] });
   });
+  it.each(["No pix a troca é grátis.", "Pagando no pix ou na entrega, a troca de tamanho é grátis."])(
+    "a troca não é grátis (R17.1): %s veta pela garantia",
+    (text) => {
+      for (const p of BOTH) expect(blockedBy(text, config, p)).toContain("warranty_promise");
+    },
+  );
   it("a troca grátis não abre o frete: 'No pix a troca é grátis e o frete também.' veta", () => {
     for (const p of BOTH) expect(blockedBy("No pix a troca é grátis e o frete também.", config, p)).toContain("shipping_promise");
   });

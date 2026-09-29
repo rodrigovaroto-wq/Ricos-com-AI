@@ -1872,3 +1872,34 @@ código determinístico, nunca como ferramenta do modelo (R11.1). **Pergunta abe
 política pública da Logzz, a troca por preferência (tamanho) custa R$ 20 à cliente, mas o repositório
 trata "a troca do colete é grátis" como verdade desde 2026-09-25 (grafo §9, M-08) e a agente continua
 podendo dizer isso até o operador decidir.
+
+> **Resposta de 2026-09-29 (R17.1):** a troca de tamanho **não é grátis** — o envio da troca é da
+> cliente. Ver abaixo.
+
+---
+
+# Rodada 17 — a troca de tamanho (2026-09-29)
+
+## R17.1 — O envio da troca de tamanho é da cliente, pago por um link do Mercado Pago
+
+Resposta do operador à pergunta aberta da R16.9: *"Frete por conta da cliente. Agente calcula e envia
+o link do checkout do Mercado Pago (fora da Coinzz ou Logzz) para a cliente pagar essa taxa."* O link
+ainda vai ser criado pelo operador.
+
+- **A agente nunca diz que a troca é grátis.** `warranty_promise` veta "a troca é grátis", "sem
+  custo pra trocar", "a gente paga o frete da troca", "trocar ou devolver, sem custo" e a resposta
+  "custa nada" a uma pergunta sobre a troca (`claimsExchangeFree`). A devolução continua sem custo
+  (R16.3): "a devolução é sem custo" passa.
+- **Antes da compra**, o prompt e o briefing dizem que o envio da troca é dela, sem valor.
+- **Depois da compra**, quando ela pede para trocar o tamanho de um pedido (`wants_exchange` no
+  intérprete, só com pedido no contexto), a resposta é fixa: o valor do envio da troca e o link do
+  Mercado Pago; em seguida o handoff, e uma pessoa combina a troca. O valor só passa o
+  `price_promise` nessa resposta (`GateContext.exchanging`).
+- **Config:** `exchange: { feeBrl, checkoutUrl }`, opcional. **Ausente** (o secret de hoje), a
+  troca de um pedido vai para uma pessoa como antes, com "Vou checar pra você e já te retorno 💛".
+  Os dois precisam estar escritos no `BUSINESS_CONFIG`, com `feeBrl` número e `checkoutUrl` em
+  `https://`, para a resposta com link sair.
+- **"Calcula":** hoje o valor é um só, fixo por troca (`feeBrl`). Se o envio variar por região
+  ou por número de peças, isso é uma decisão nova — pergunta aberta ao operador.
+
+Grafo §39.

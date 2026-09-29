@@ -84,6 +84,8 @@ export interface BusinessConfig {
    * customer count, no store plan is cited. They may only be filled with what is true.
    */
   support?: { email?: string };
+  /** Size exchange freight, hers (R17.1): amount and Mercado Pago link. Absent = no amount, no link. */
+  exchange?: { feeBrl?: number; checkoutUrl?: string };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
   /**

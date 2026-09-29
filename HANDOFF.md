@@ -11,11 +11,26 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29)
+## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29, madrugada)
+
+### ▶ Fila de execução imediata (2026-09-29, madrugada) — branch `claude/inspiring-galileo-98shbt`, PR novo
+PR #40 mergeado. Nesta branch (grafo §39–§40, R17.1): troca de tamanho não é grátis; segunda revisão Opus
+(10 achados) consertada; depoimento só quando ela pede (gate); `recordOrder` com data ilegível; n8n
+`soAData` só `AAAA-MM-DD`. Feito pelo operador em 29/09: merge do #40, `BUSINESS_CONFIG` colado, SQL de
+cancelar `order_shipped`/`order_delivered` agendadas.
+1. **C** — CI do PR novo verde → **O** merge → **O** publica a `turn` → **C** sonda pela porta do n8n.
+2. **O** — reimportar `n8n/workflows/venda-confirmada.json` e rodar `pnpm dev:n8n` (adiado pelo operador).
+3. **O — PENDENTE: preço da troca de tamanho.** O operador vai perguntar à Logzz/Coinzz (provavelmente
+   varia por região). Até lá `exchange` fica fora do secret: a troca de um pedido vai para uma pessoa,
+   e a agente nunca diz que é grátis. Com a resposta, **C** decide o cálculo (hoje `feeBrl` é fixo).
+4. **O — adiado até configurar o WhatsApp:** conferir no WhatsApp Manager se o `silence_2` antigo foi
+   submetido; se sim, submeter o novo (`03-templates-meta.md`).
+5. **C — resíduos:** véspera do antecipado (Coinzz sem data — polling da API no n8n);
+   cancelamento/devolução seguem handoff (R16.9); gates de texto continuam sendo listas.
 
 ### Hermes v1 — branch `claude/cool-brahmagupta-hccc4p` (2026-09-29)
 Análise e conclusão: [`06-analise-hermes-v1.md`](docs/agente-ia/05-plano/06-analise-hermes-v1.md);
-grafo §39–§40. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
+grafo §41–§42. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
 amostra por sinal, números das views no pacote, mentira com a regra do prompt, descarte do que
 os gates já vetam, efeito medido das publicadas, e-mail com trecho, deploy que confere a
 aprovação e recusa afrouxamento. **Feito pelo Claude em 29/09, com o "pode aplicar" do operador:**

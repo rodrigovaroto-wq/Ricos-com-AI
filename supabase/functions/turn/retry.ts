@@ -148,6 +148,24 @@ export const HUMAN_HANDOFF_REPLY = "Claro! Já avisei o time e alguém te chama 
 export const ORDER_HANDOFF_REPLY = "Vou checar pra você e já te retorno 💛";
 
 /**
+ * The reply to a size exchange on an order (R17.1): the exchange's freight is hers, paid through a
+ * Mercado Pago link outside the Coinzz and Logzz checkouts, and a person takes the exchange from
+ * there. Null until the operator writes both the amount and the link in `exchange`; the exchange
+ * then goes to a person with `ORDER_HANDOFF_REPLY`, as every post-sale question did before.
+ */
+export const exchangeReply = (exchange: { feeBrl?: number; checkoutUrl?: string } | undefined): string | null =>
+  // Read from the BUSINESS_CONFIG secret, typed by hand: a "20" string or a link that is not https
+  // stays null instead of throwing in the turn or sending a broken link.
+  typeof exchange?.feeBrl === "number" &&
+  Number.isFinite(exchange.feeBrl) &&
+  exchange.feeBrl > 0 &&
+  typeof exchange.checkoutUrl === "string" &&
+  /^https:\/\/\S+$/.test(exchange.checkoutUrl)
+    ? `Dá pra trocar de tamanho, sim 💛 O envio da troca fica por sua conta: R$ ${exchange.feeBrl.toFixed(2).replace(".", ",")}. ` +
+      `É só pagar por este link: ${exchange.checkoutUrl}\nAssim que pagar, uma pessoa do time te chama pra combinar a troca.`
+    : null;
+
+/**
  * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
  * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
  */
