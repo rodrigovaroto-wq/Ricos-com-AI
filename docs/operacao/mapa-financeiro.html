@@ -291,6 +291,23 @@
     </div>
   </section>
 
+  <!-- ============ 4b. POR VENDA ============ -->
+  <section>
+    <div class="sec-head">
+      <h2>Custo, faturamento e lucro por venda</h2>
+      <p>Kit de 1 peça, por pedido criado. Lead R$ 1,00 com 10% de conversão (R$ 10,00 por venda), IA R$ 0,30 por conversa (R$ 3,00 por venda, 1 lead = 1 conversa), recusa de 15% só no COD, devolução pós-envio de 7,5% nos dois caminhos.</p>
+    </div>
+    <div class="scroll">
+      <table>
+        <thead><tr><th>Por venda</th><th class="num">Pagamento na entrega</th><th class="num">Antecipado</th></tr></thead>
+        <tbody id="porVenda"></tbody>
+      </table>
+    </div>
+    <div class="note" style="margin-top:18px">
+      <strong>Como a devolução entra.</strong> Do pedido devolvido ou cancelado depois de enviado, o operador perde o frete inteiro e o manuseio (COD: R$ 19,99 + R$ 4,99; antecipado: etiqueta de referência R$ 15,00 + R$ 4,99) e não recebe a venda. Os 7,5% valem sobre o pedido criado e são separados dos 15% de recusa do COD. O antecipado nunca tem recusa nem entrega concluída; a cliente paga o frete no checkout.
+    </div>
+  </section>
+
   <!-- ============ 5. SIMULADOR ============ -->
   <section>
     <div class="sec-head">
@@ -304,16 +321,20 @@
           <input type="range" id="ads" min="50" max="3000" step="50" value="300">
         </div>
         <div class="field">
-          <label for="cpa">Custo por venda (CPA) <output id="cpaO">R$ 35</output></label>
-          <input type="range" id="cpa" min="10" max="90" step="1" value="35">
+          <label for="cpa">Custo por venda (R$ 1 por lead ÷ 10% de conversão) <output id="cpaO">R$ 10</output></label>
+          <input type="range" id="cpa" min="5" max="90" step="1" value="10">
         </div>
         <div class="field">
-          <label for="mix">Mix pagamento na entrega <output id="mixO">80%</output></label>
-          <input type="range" id="mix" min="0" max="100" step="5" value="80">
+          <label for="mix">Mix pagamento na entrega <output id="mixO">70%</output></label>
+          <input type="range" id="mix" min="0" max="100" step="5" value="70">
         </div>
         <div class="field">
           <label for="frus">Frustração no COD <output id="frusO">15%</output></label>
           <input type="range" id="frus" min="0" max="35" step="1" value="15">
+        </div>
+        <div class="field">
+          <label for="dev">Devolução pós-envio (COD e antecipado) <output id="devO">7,5%</output></label>
+          <input type="range" id="dev" min="0" max="20" step="0.5" value="7.5">
         </div>
         <div class="field">
           <label for="prod">Custo do produto <output id="prodO">R$ 30,00</output></label>
@@ -327,7 +348,7 @@
       <div class="sim-out">
         <div class="tiles">
           <div class="tile"><div class="lab">Vendas por dia</div><div class="val" id="oVendas">—</div><div class="sub" id="oVendasSub">&nbsp;</div></div>
-          <div class="tile"><div class="lab">Margem média</div><div class="val" id="oMargem">—</div><div class="sub">por venda, após taxas</div></div>
+          <div class="tile"><div class="lab">Margem média</div><div class="val" id="oMargem">—</div><div class="sub">por venda, após taxas, devolução e IA</div></div>
           <div class="tile"><div class="lab">Lucro por dia</div><div class="val" id="oLucro">—</div><div class="sub" id="oLucroSub">&nbsp;</div></div>
           <div class="tile"><div class="lab">Caixa necessário</div><div class="val" id="oCaixa">—</div><div class="sub" id="oCaixaSub">&nbsp;</div></div>
         </div>
@@ -336,10 +357,10 @@
             <thead><tr><th>Saída diária</th><th class="num">Valor</th><th>Quando</th></tr></thead>
             <tbody>
               <tr><td>Anúncios</td><td class="num" id="sAds">—</td><td>no dia</td></tr>
-              <tr><td>Saldo de expedição (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
-              <tr><td>Manuseio (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
+              <tr><td>Saldo de expedição e devolução (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
+              <tr><td>Manuseio e etiqueta de devolução (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
               <tr><td>Produto</td><td class="num" id="sProd">—</td><td>descontado na venda — estoque do fornecedor, não do seu caixa</td></tr>
-              <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,0197 por conversa medida</td></tr>
+              <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,30 por conversa (premissa do operador; o custo medido foi R$ 0,0197)</td></tr>
               <tr><td class="strong">Total que sai por dia</td><td class="num strong" id="sTot">—</td><td>—</td></tr>
             </tbody>
           </table>
@@ -347,7 +368,7 @@
       </div>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: o que <em>sai da sua conta</em> por dia, multiplicado pelos dias até o primeiro crédito voltar. O produto aparece na tabela para você ver o custo, mas fica de fora dessa multiplicação — o estoque é do fornecedor e os R$ 30,00 são descontados da venda, não pagos antes dela. O número não inclui reserva para devolução, imposto nem o chip do WhatsApp.
+      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: o que <em>sai da sua conta</em> por dia, multiplicado pelos dias até o primeiro crédito voltar. O produto aparece na tabela para você ver o custo, mas fica de fora dessa multiplicação — o estoque é do fornecedor e os R$ 30,00 são descontados da venda, não pagos antes dela. A devolução pós-envio (frete + manuseio) já está na saída diária; o número não inclui imposto nem o chip do WhatsApp.
     </div>
   </section>
 
@@ -406,46 +427,94 @@
   const brl0 = n => "R$ " + n.toLocaleString("pt-BR", {maximumFractionDigits:0});
 
   const el = id => document.getElementById(id);
-  const inputs = ["ads","cpa","mix","frus","prod","ciclo"].map(el);
+  const inputs = ["ads","cpa","mix","frus","dev","prod","ciclo"].map(el);
 
   // Taxas medidas. Ver a tabela "Toda taxa" acima.
-  const COD_PRECO = 129.90, PRE_PRECO = 110.41;
+  const COD_PRECO = 129.90, PRE_PRECO = 116.91;
   const TRANSACAO = 0.0699, ANTIFRAUDE = 2.49, MANUSEIO = 4.99;
   const ENTREGA_CONCLUIDA = 19.99, ENTREGA_FRUSTRADA = 4.99;
-  const ETIQUETA_TETO = 20.00;     // o que a operação absorve; o excedente é da cliente
-  const ETIQUETA = ETIQUETA_TETO;  // manuseio já incluso, confirmado pelo operador
-  const IA_POR_CONVERSA = 0.0197;  // custo medido de uma venda completa de sete turnos
-  const CONVERSAS_POR_VENDA = 12;  // nem toda conversa fecha
+  const ETIQUETA_DEV = 15.00;      // etiqueta de referência (LABEL_COST_BRL) perdida numa devolução do antecipado
+  const MP_PIX = 0.0099, MP_PIX_FIXO = 1.00, MP_CARTAO = 0.0498;  // Mercado Pago, mix 50% Pix / 50% cartão à vista
+  const taxaMP = p => 0.5*(MP_PIX*p + MP_PIX_FIXO) + 0.5*MP_CARTAO*p;
+  const LEAD = 1.00, CONVERSAO = 0.10;   // R$ 1 por lead, 10% viram venda
+  const IA_POR_CONVERSA = 0.30;          // premissa do operador (o custo medido foi R$ 0,0197)
+  const CONVERSAS_POR_VENDA = 1 / CONVERSAO;  // 1 lead = 1 conversa
+  const FRUS_BASE = 0.15, DEV_BASE = 0.075;
+
+  // Margem esperada por pedido criado, antes de lead e IA.
+  function cenario(frus, dev, prod){
+    const cod = { fat: COD_PRECO, prod, trans: COD_PRECO*TRANSACAO + ANTIFRAUDE, entrega: ENTREGA_CONCLUIDA, manuseio: MANUSEIO };
+    cod.entregue = cod.fat - cod.prod - cod.trans - cod.entrega - cod.manuseio;
+    cod.custoFrus = MANUSEIO + ENTREGA_FRUSTRADA;
+    cod.custoDev = ENTREGA_CONCLUIDA + MANUSEIO;
+    cod.perdaFrus = frus * (cod.entregue + cod.custoFrus);
+    cod.perdaDev = dev * (cod.entregue + cod.custoDev);
+    cod.esperada = cod.entregue - cod.perdaFrus - cod.perdaDev;
+    const pre = { fat: PRE_PRECO, prod, trans: taxaMP(PRE_PRECO), entrega: 0, manuseio: MANUSEIO };
+    pre.entregue = pre.fat - pre.prod - pre.trans - pre.entrega - pre.manuseio;
+    pre.custoDev = ETIQUETA_DEV + MANUSEIO;
+    pre.perdaFrus = 0;
+    pre.perdaDev = dev * (pre.entregue + pre.custoDev);
+    pre.esperada = pre.entregue - pre.perdaDev;
+    return { cod, pre };
+  }
+  const leadVenda = LEAD / CONVERSAO, iaVenda = CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
+
+  // Tabela "Custo, faturamento e lucro por venda" (cenário base).
+  (function(){
+    const { cod, pre } = cenario(FRUS_BASE, DEV_BASE, 30);
+    const neg = n => n === 0 ? brl(0) : "− " + brl(n);
+    const rows = [
+      ["Faturamento", brl(cod.fat), brl(pre.fat), true],
+      ["Produto", neg(cod.prod), neg(pre.prod)],
+      ["Transação (COD 6,99% + antifraude; antecipado Mercado Pago)", neg(cod.trans), neg(pre.trans)],
+      ["Entrega concluída", neg(cod.entrega), neg(pre.entrega)],
+      ["Manuseio", neg(cod.manuseio), neg(pre.manuseio)],
+      ["Margem se entregue", brl(cod.entregue), brl(pre.entregue), true],
+      ["Perda esperada por recusa (15%, só COD)", neg(cod.perdaFrus), neg(pre.perdaFrus)],
+      ["Perda esperada por devolução pós-envio (7,5%)", neg(cod.perdaDev), neg(pre.perdaDev)],
+      ["Margem esperada, antes de lead e IA", brl(cod.esperada), brl(pre.esperada), true],
+      ["Lead (R$ 1,00 ÷ 10%)", neg(leadVenda), neg(leadVenda)],
+      ["IA (R$ 0,30 × 10 conversas)", neg(iaVenda), neg(iaVenda)],
+      ["Lucro por venda", brl(cod.esperada - leadVenda - iaVenda), brl(pre.esperada - leadVenda - iaVenda), true]
+    ];
+    el("porVenda").innerHTML = rows.map(r => {
+      const c = r[3] ? "strong" : "";
+      return "<tr><td class=\"" + c + "\">" + r[0] + "</td><td class=\"num " + c + "\">" + r[1] + "</td><td class=\"num " + c + "\">" + r[2] + "</td></tr>";
+    }).join("");
+  })();
 
   function render(){
     const ads = +el("ads").value, cpa = +el("cpa").value;
-    const mix = +el("mix").value / 100, frus = +el("frus").value / 100;
+    const mix = +el("mix").value / 100, frus = +el("frus").value / 100, dev = +el("dev").value / 100;
     const prod = +el("prod").value, ciclo = +el("ciclo").value;
 
     el("adsO").textContent = brl0(ads);
     el("cpaO").textContent = brl0(cpa);
     el("mixO").textContent = Math.round(mix*100) + "%";
     el("frusO").textContent = Math.round(frus*100) + "%";
+    el("devO").textContent = (dev*100).toLocaleString("pt-BR", {maximumFractionDigits:1}) + "%";
     el("prodO").textContent = brl(prod);
     el("cicloO").textContent = ciclo + (ciclo === 1 ? " dia" : " dias");
 
     const vendas = ads / cpa;
     const vCod = vendas * mix, vPre = vendas * (1 - mix);
 
-    const margemCod = COD_PRECO - COD_PRECO*TRANSACAO - ANTIFRAUDE - prod - ENTREGA_CONCLUIDA - MANUSEIO;
-    const custoFrustrada = MANUSEIO + ENTREGA_FRUSTRADA;
-    const espCod = (1 - frus) * margemCod - frus * custoFrustrada;
-    const margemPre = PRE_PRECO - PRE_PRECO*TRANSACAO - ANTIFRAUDE - prod - MANUSEIO;  // cliente paga o frete; sem entrega concluída
+    const { cod, pre } = cenario(frus, dev, prod);
+    const custoFrustrada = cod.custoFrus, custoDevCod = cod.custoDev, custoDevPre = pre.custoDev;
+    const espCod = cod.esperada;   // recusa e devolução já descontadas
+    const espPre = pre.esperada;   // cliente paga o frete; sem entrega concluída nem recusa
 
-    const margemMedia = vendas > 0 ? (vCod*espCod + vPre*margemPre) / vendas : 0;
-    const receitaDia = vCod*espCod + vPre*margemPre;
-    const lucroDia = receitaDia - ads;
+    const iaVendaSim = CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
+    const margemMedia = vendas > 0 ? (vCod*espCod + vPre*espPre) / vendas - iaVendaSim : 0;
+    const receitaDia = vCod*espCod + vPre*espPre;
+    const lucroDia = receitaDia - ads - vendas * iaVendaSim;
 
     // Saídas diárias, na ordem em que o dinheiro deixa a conta.
-    const sExp = vCod * (1 - frus) * (ENTREGA_CONCLUIDA + MANUSEIO) + vCod * frus * custoFrustrada;
-    const sEti = vPre * MANUSEIO;  // devolução pós-envio (etiqueta + manuseio) não modelada: sem taxa medida
+    const sExp = vCod * ((1 - frus - dev) * (ENTREGA_CONCLUIDA + MANUSEIO) + frus * custoFrustrada + dev * custoDevCod);
+    const sEti = vPre * ((1 - dev) * MANUSEIO + dev * custoDevPre);
     const sProd = vendas * prod;
-    const sIa = vendas * CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
+    const sIa = vendas * iaVendaSim;
     // O produto NÃO entra: o estoque é do fornecedor e os R$ 30,00 são descontados da
     // venda, não pagos antes dela. Ele aparece na tabela só para o custo ficar visível.
     const saidaDia = ads + sExp + sEti + sIa;

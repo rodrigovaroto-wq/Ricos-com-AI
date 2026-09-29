@@ -11,6 +11,36 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### Lucro por venda com lead, IA e devolução — 2026-09-29 (premissas do operador)
+>
+> Premissas do operador: **lead R$ 1,00**, **conversão 10%** (R$ 10,00 de lead por venda),
+> **IA R$ 0,30 por conversa** (1 lead = 1 conversa → R$ 3,00 por venda), **recusa de 15% só no
+> COD** e **devolução/cancelamento pós-envio de 7,5% nos dois caminhos**. A devolução é
+> separada da recusa e vale sobre o pedido criado; o pedido devolvido custa o frete inteiro +
+> manuseio (COD R$ 19,99 + R$ 4,99; antecipado etiqueta de referência R$ 15,00 + R$ 4,99) e
+> não gera receita. Kit de 1 peça, antecipado com taxa do Mercado Pago (50% Pix / 50% cartão à
+> vista, sem antifraude).
+>
+> | Por venda (R$) | COD | Antecipado |
+> |---|---:|---:|
+> | Faturamento | 129,90 | 116,91 |
+> | Produto | −30,00 | −30,00 |
+> | Transação | −11,57 | −3,99 |
+> | Entrega concluída | −19,99 | 0,00 |
+> | Manuseio | −4,99 | −4,99 |
+> | **Margem se entregue** | **63,35** | **77,93** |
+> | Perda esperada por recusa (15%, só COD) | −11,00 | 0,00 |
+> | Perda esperada por devolução (7,5%) | −6,62 | −7,34 |
+> | **Margem esperada, antes de lead e IA** | **45,73** | **70,59** |
+> | Lead (R$ 1,00 ÷ 10%) | −10,00 | −10,00 |
+> | IA (R$ 0,30 × 10 conversas) | −3,00 | −3,00 |
+> | **Lucro por venda** | **32,73** | **57,59** |
+>
+> Mix 70% COD / 30% antecipado: **R$ 40,18 por venda**. Estas contas **substituem** as médias
+> das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02 do mix), que não tinham devolução,
+> lead nem IA. A taxa de 7,5% é premissa do operador, não medida; o mesmo cálculo roda no
+> simulador de `docs/operacao/mapa-financeiro.html`.
+>
 > ### 🚨 Correção de 2026-09-29 — a entrega concluída (R$ 19,99) não existe no antecipado; devolução pós-envio custa frete + manuseio
 >
 > Confirmado pela atendente do suporte Logzz/Coinzz (print do operador, 2026-09-29): a **taxa de
