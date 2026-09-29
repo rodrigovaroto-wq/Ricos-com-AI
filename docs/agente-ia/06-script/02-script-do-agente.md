@@ -264,7 +264,7 @@ frase é o que faz a cliente bloquear.
 | Onde ela parou | Mensagem |
 |---|---|
 | Antes do tamanho | *"Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛"* |
-| Depois do preço | *"Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão."* — ou *"Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele."* |
+| Depois do preço | *"Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão."* — ou *"Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem 7 dias pra devolver, sem custo nenhum pra você."* |
 | Depois do preço, **no antecipado** (ela escolheu, ou a praça dela não tem pagamento na entrega) | *"Qualquer coisa é só chamar! Lembrando que no pagamento antecipado você leva o colete com 10% de desconto: R$ 116,91. No antecipado, o prazo varia por região, em média 5 dias úteis."* — percentual, preço e prazo médio vêm do config; chave ausente tira a oração dela. Nunca "você não paga nada agora" |
 | Com o link enviado | *"Vi que o pedido ficou aberto! Precisa de ajuda pra confirmar? Se preferir, eu monto de novo pra você 😊"* |
 
@@ -314,6 +314,12 @@ das quatro: cada recusa evitada vale R$ 63,35 de diferença.
 > Eu sou a Malu e vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar
 > aqui mesmo.
 
+No **antecipado** (decisão do operador, 2026-09-29), a confirmação diz quando chega, numa linha
+antes da última: com a data da entrega no pedido, *"Sua entrega está prevista para 02/10."*; sem
+data, *"No antecipado, o prazo varia por região, em média 5 dias úteis."* (a média vem do config,
+e só com `prepayVariesByRegion` ligado); sem as duas, nenhuma frase de prazo. Nunca uma faixa fixa.
+Na entrega, não: o dia ela mesma escolheu no checkout.
+
 **9.2 — Saiu para a rota.** Quando o status do pedido diz que está em rota, não por relógio.
 
 > Oi! Seu colete já está a caminho 🚚 Qualquer dúvida sobre a entrega, é só me chamar aqui mesmo.
@@ -322,8 +328,9 @@ Não diz "assim que a transportadora agendar o dia": na entrega, o dia quem esco
 checkout.
 
 **9.3 — Véspera da entrega.** A mensagem que evita a recusa por surpresa. Só sai com a data da
-entrega no pedido, no dia anterior a ela (10h de São Paulo); sem data — o antecipado — não há
-véspera.
+entrega no pedido, no dia anterior a ela (10h de São Paulo); sem data não há véspera — e o
+webhook da Coinzz (o antecipado) não traz data. Se a data mudar, a véspera muda junto; no envio, a
+varredura confere de novo que a entrega é amanhã.
 
 > Oi! Sua entrega está marcada pra **amanhã** 💛
 > Deixa **R$ 129,90** separado — pode ser dinheiro ou cartão, na maquininha do entregador.

@@ -1110,6 +1110,34 @@ praça nem a data escolhida (`scheduled_for` é gravado e nunca lido).
 **Guarda:** cada conserto escolhido entra com teste de negação, mutação em `verify-guards.ts` e
 `pnpm dev:gates --fail-on-loosen`.
 
+## 36. Fechamento do cruzamento: o gate não sabia a praça, a régua não sabia a data (2026-09-29)
+
+**Sintoma:** os achados do §35 e as respostas do operador (R16.1–R16.9).
+
+**Causa, em cada frente:** (a) frete: `honest` aceitava qualquer "não"; `FREIGHT_CHARGED` lia
+"checkout" solto como cobrança; o preço do antecipado não nomeava o caminho; "grátis" sem "frete"
+não era contado. (b) Pagamento na porta: o gate só conhecia `paymentPath`, que junta "praça sem
+entrega" e "escolheu o antecipado onde a entrega chega" — no primeiro "paga na entrega" é
+mentira, no segundo é a outra opção verdadeira. (c) Pós-venda: `scheduleOrder` armava tudo por
+relógio; `orderStatusAfter` só protegia a morte. (d) Escassez: o número ia para o prompt da conversa
+inteira. (e) A média do antecipado era lida de três jeitos (prompt, resposta fixa, gate).
+
+**Caminhos que falharam:** vetar pagar na porta em todo `paymentPath: "prepay"` (primeira versão
+da frente A) endureceu 59 frases verdadeiras no `dev:gates` ("Prefere pagar na entrega?"); cortar a
+janela da garantia na frase afrouxaria "Você tem 30 dias. Para trocar é só chamar."; trocar
+`garanti` por `garantia` afrouxaria "30 dias garantidos". Ficou `garanti(?!r\b)`.
+
+**Correção:** `GateContext.codUnavailable` (turno: região desta volta ou a gravada; varredura:
+`leads.address.codAvailable`), `postponing` só no `thinkReply`; toques pós-venda pelo status e pela
+`scheduled_for`; entregue é terminal para status anterior; a média do antecipado lida como o gate
+(`prepayVariesByRegion && prepayAvgDays`) nos três lugares.
+
+**Guarda:** 37 mutações novas em `verify-guards.ts` (R39-*, R16-*, T1–T8) e a antiga
+`vespera-entregue-herda` reapontada; `tests/review-2026-09-29-gates.test.ts`,
+`think-reply.test.ts`, `postura-e-depoimentos.test.ts`; `dev:gates --fail-on-loosen` com três
+aceites R16.5. **Resíduo:** "depoimento só quando ela pedir" é regra de prompt, sem gate (o gate
+não vê a mensagem dela).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

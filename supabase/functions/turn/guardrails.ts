@@ -199,6 +199,20 @@ export interface GateContext {
    * (the follow-up sweep, the fixed receipts) leaves the `coverage_claim` gate idle.
    */
   regionKnown?: boolean;
+  /**
+   * Her region has no cash on delivery: the region lookup answered so this turn, or the lead
+   * carries it from an earlier one (`leads.address.codAvailable === false`, the sweep). Only then,
+   * or on a prepaid order's own touches, is "você paga na entrega" a lie — `paymentPath: "prepay"`
+   * alone also means she chose prepaid where delivery exists, and there naming the delivery as the
+   * other option is true (operator, 2026-09-29, R16.2).
+   */
+  codUnavailable?: boolean;
+  /**
+   * The reply to her putting the purchase off ("vou pensar", "depois eu compro"), the only place
+   * the declared stock may be said (operator, 2026-09-29, R16.5). Absent everywhere else, and
+   * then `scarcity_claim` refuses any stock or deadline, declared or not.
+   */
+  postponing?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -732,9 +746,9 @@ const gates: readonly Gate[] = [
     briefing: (c) =>
       (c.cod.physicalOnDeliveryActive
         ? `Ela paga só quando o colete chegar na mão dela, ao entregador — isso está ligado na loja e ` +
-          `você pode dizer, mas vale só no pagamento na entrega: no antecipado ela paga antes, no ` +
-          `checkout, e ali nunca diga que ela paga na entrega, ao entregador ou quando receber, nem ` +
-          `que não paga nada agora.`
+          `você pode dizer. Quando a entrega não chega no CEP dela, ela só tem o antecipado e paga ` +
+          `antes, no checkout: aí nunca diga que ela paga na entrega, ao entregador ou quando ` +
+          `receber, nem que não paga nada agora.`
         : `NÃO diga que ela paga na entrega: o pagamento na entrega está DESLIGADO na loja agora.`) +
       ` Em nenhum caminho ela veste, prova ou experimenta o colete antes de pagar: o entregador não ` +
       `espera. O que ela tem é ${c.delivery.warrantyDays} dias após o recebimento pra devolver.`,
@@ -753,11 +767,12 @@ const gates: readonly Gate[] = [
       for (const m of t.matchAll(TRY_BEFORE_PAYING)) {
         if (!deniedRightBefore(t, m.index ?? 0)) return "promises she tries the vest on before paying, and the courier does not wait";
       }
-      // On the prepaid path she pays before, in the checkout (operator, 2026-09-29): "você não paga
-      // nada agora", "paga na entrega", "paga pro entregador", "o pagamento é só quando o colete
-      // chegar" are the delivery's, and a lie here. A sentence that makes the delivery its condition
+      // Where delivery does not reach her, or about a prepaid order, she pays before, in the checkout
+      // (operator, 2026-09-29, R16.2): "você não paga nada agora", "paga na entrega", "paga pro
+      // entregador", "o pagamento é só quando o colete chegar" are the delivery's, and a lie there.
+      // `paymentPath: "prepay"` alone is not enough: she may have chosen it where delivery exists. A sentence that makes the delivery its condition
       // ("pagando na entrega…", the canonical free sentence) speaks of that path, and passes.
-      if (ctx.paymentPath === "prepay") {
+      if (ctx.codUnavailable === true || (ctx.paymentPath === "prepay" && ctx.stage === "logistics")) {
         for (const s of sentencesIn(t)) {
           if (COD_CONDITION.test(s) && s.search(PREPAY_NAME) === -1) continue;
           if (/\bnao\s+(?:paga|precisa\s+pagar|vai\s+pagar)\s+nada\s+(?:agora|antes|adiantado)\b/.test(s))
@@ -1745,8 +1760,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       `Só cite depoimento entre aspas se ele estiver na lista de depoimentos reais que você ` +
-      `recebeu. Sem essa lista, não atribua fala nenhuma a cliente nenhuma. Você pode indicar ` +
-      `os depoimentos no nosso site, na seção de depoimentos. ` +
+      `recebeu. Sem essa lista, não atribua fala nenhuma a cliente nenhuma. Quando ela pedir ` +
+      `depoimento, e só então, você pode indicar a seção de depoimentos do nosso site. ` +
       (c.socialProof?.satisfiedCustomers != null
         ? `O único número de clientes que existe é "mais de ${c.socialProof.satisfiedCustomers} ` +
           `clientes satisfeitas"; nenhum outro.`
@@ -1883,12 +1898,15 @@ const gates: readonly Gate[] = [
      * medical registration — the kind of sentence a sales model writes without being
      * asked, and the kind that turns a return into a complaint. Reporting what the
      * customer feels is still allowed; promising what the product does to her body is
-     * not, which is the same line `weight_loss_claim` draws.
+     * not, which is the same line `weight_loss_claim` draws. Support while worn is a fact the site
+     * publishes ("Segura a postura", `Comparison.tsx`) and the operator asked the agent to use it
+     * (2026-09-29, R16.6): "ajuda na postura", "dá apoio à postura" pass; correcting it does not.
      */
     name: "health_claim",
     remedy: "rewrite",
     briefing: () =>
-      `O produto é uma peça de roupa, não um tratamento. Não diga que cura, trata, corrige ou ` +
+      `O produto é uma peça de roupa, não um tratamento. Pode dizer que, além de modelar, ele ` +
+      `ajuda na postura e dá apoio enquanto está vestido. Não diga que cura, trata, corrige ou ` +
       `melhora dor, postura, coluna, hérnia, circulação, varizes ou celulite, e não o indique ` +
       `para pós-operatório nem uso médico.`,
     check: (text) => {
@@ -1918,8 +1936,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       c.scarcity?.allowUnverified || c.scarcity?.unitsLeft != null || c.scarcity?.offerEndsAt
-        ? `Urgência: use só o que a loja te deu, no bloco de urgência acima. Não invente contagem ` +
-          `regressiva em minutos nem número de unidades diferente do declarado.`
+        ? `Urgência: não cite estoque, unidades restantes nem prazo de oferta. O aviso de estoque ` +
+          `sai numa mensagem pronta, só quando ela disser que vai pensar ou deixar pra depois.`
         : `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
           `urgência inventada é publicidade enganosa.`,
     check: (text, ctx) => {
@@ -1929,6 +1947,20 @@ const gates: readonly Gate[] = [
       // number, and a declared end date lets her say the offer ends — the gate exists
       // to stop the model inventing either, not to stop the shop selling.
       const declared = ctx.config.scarcity;
+      // The stock is said only when she puts the purchase off (R16.5): anywhere else a count, the
+      // last units or an ending offer is refused, even the declared ones.
+      if (ctx.postponing !== true) {
+        const anyStock =
+          /\b(?:so\s+|apenas\s+)?(?:resta|restam|sobrou|sobraram)\s+(?:so\s+|apenas\s+)?\d/.test(t) ||
+          /\b(?:so|apenas)\s+(?:tem|temos)\s+\d{1,4}\s+(?:unidades?|pecas?|coletes?)\b/.test(t) ||
+          /\bultim[ao]s?\s+(?:unidades?|pecas?|coletes?)\b/.test(t) ||
+          /\bestoque\s+(?:acabando|limitado|quase|baixo|no\s+fim)\b/.test(t) ||
+          /\b(?:promocao|oferta|desconto|condicao)\s+(?:acaba|termina|expira|vence)\b/.test(t) ||
+          /\bacaba\s+em\s+\d/.test(t) ||
+          /\bcorre\s+que\s+(?:acaba|vai\s+acabar)\b/.test(t) ||
+          /\bvagas?\s+limitad[ao]s?\b/.test(t);
+        return anyStock ? "cites stock or a deadline outside the reply to her putting the purchase off" : null;
+      }
       if (declared?.allowUnverified) return null;
       const unitsLeft = declared?.unitsLeft ?? undefined;
       const endsAt = declared?.offerEndsAt ? new Date(declared.offerEndsAt) : null;
@@ -2009,7 +2041,9 @@ const gates: readonly Gate[] = [
 
       const accented = text.normalize("NFC").toLowerCase();
       const aligned = accented.length === t.length;
-      const window = /(troc|devol|garanti|arrepend|reembols|estorn|dinheiro\s+de\s+volta)/;
+      // Not the bare infinitive "garantir": it is securing the purchase ("vale garantir o seu logo",
+      // R16.5), and read as a warranty it paired "5 dias úteis" of the prepaid deadline with it.
+      const window = /(troc|devol|garanti(?!r\b)|arrepend|reembols|estorn|dinheiro\s+de\s+volta)/;
       for (const m of t.matchAll(/(\d{1,3})\s*dias?/g)) {
         const at = m.index ?? 0;
         if (insideDeliveryWindow(at)) continue;

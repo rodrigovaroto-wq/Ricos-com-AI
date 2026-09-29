@@ -1144,3 +1144,106 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
     expect([...new Set(vetos)]).toEqual([]);
   });
 });
+
+/**
+ * Q5 (operador, 2026-09-29): pedido antecipado confirmado diz quando chega — a data do pedido,
+ * se ele tiver uma, ou "o prazo varia por região, em média N dias úteis" do config. Sem as duas,
+ * nenhuma frase de prazo; nunca uma faixa fixa. Na entrega, o dia ela mesma escolheu no checkout.
+ */
+describe("confirmação do antecipado com a previsão de entrega (Q5)", () => {
+  const exemplo = { ...config, prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 } };
+  const pago = (over: Partial<RenderContext> = {}) =>
+    renderFollowup("order_confirmed", render({ config: exemplo, amountBrl: 116.91, prepaid: true, size: "M", ...over }))!;
+  const FAIXA = /\d+\s*(?:a|e|-|–)\s*\d+\s*dias/;
+
+  it("com data no pedido: o dia, em dd/mm, e nada de média", () => {
+    const t = pago({ scheduledFor: "2026-10-02" });
+    expect(t).toContain("Sua entrega está prevista para 02/10.");
+    expect(t).not.toMatch(/em média|dias úteis/);
+  });
+
+  it("sem data: a média do config, dita como média que varia por região", () => {
+    for (const scheduledFor of [undefined, null, "", "02/10/2026"]) {
+      const t = pago(scheduledFor === undefined ? {} : { scheduledFor });
+      expect(t).toContain("No antecipado, o prazo varia por região, em média 5 dias úteis.");
+      expect(t).not.toMatch(/prevista para/);
+      expect(t).not.toMatch(FAIXA);
+    }
+  });
+
+  it("sem média no config (ou sem variar por região): nenhuma frase de prazo", () => {
+    const semMedia = { ...exemplo, delivery: { ...exemplo.delivery, prepayAvgDays: undefined as never } };
+    const semRegiao = { ...exemplo, delivery: { ...exemplo.delivery, prepayVariesByRegion: false } };
+    for (const cfg of [semMedia, semRegiao]) {
+      const t = pago({ config: cfg });
+      expect(t).not.toMatch(/prazo|dias úteis|prevista/);
+      expect(t).toContain("R$ 116,91, já pago");
+    }
+  });
+
+  it("na entrega, a confirmação não ganha previsão, nem com data", () => {
+    const t = renderFollowup("order_confirmed", render({ config: exemplo, size: "G", scheduledFor: "2026-10-02" }))!;
+    expect(t).not.toMatch(/prevista|prazo|dias úteis/);
+    expect(t).toContain("R$ 129,90 na entrega");
+  });
+});
+
+/**
+ * Toda copy nova sai pela cadeia de gates no caminho e no estágio em que a varredura a julga:
+ * silêncio em `presale`, pós-pedido em `logistics`; `codUnavailable` como a varredura o passa
+ * (praça sem entrega gravada no lead, e só antes do pedido).
+ */
+describe("a copy nova da régua passa a cadeia no caminho em que sai", () => {
+  const exemplo = { ...config, prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 } };
+  const dia = new Date("2026-09-10T13:00:00Z"); // quinta, 10:00 em São Paulo
+  const leads = ["a", "b", "c", "d", "e", "f", "lead-abc", "lead-1"];
+  const bloqueios = (texto: string, over: Parameters<typeof gateCtx>[0]) =>
+    runGates(texto, gateCtx({ config: exemplo, now: dia, ...over })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  it("antecipado sem entrega na praça: toques 1 (depois do preço) e 2 passam com codUnavailable", () => {
+    for (const codUnavailable of [true, false])
+      for (const leadId of leads)
+        for (const kind of ["silence_1", "silence_2"] as const) {
+          const t = renderFollowup(kind, render({ config: exemplo, leadId, stopPoint: "after_price", paymentPath: "prepay" }))!;
+          expect({ t, blocked: bloqueios(t, { paymentPath: "prepay", codUnavailable, stage: "presale" }) }).toEqual({ t, blocked: [] });
+        }
+  });
+
+  it("o texto antigo do toque 1 é vetado para quem não tem pagamento na entrega", () => {
+    const antigo = "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.";
+    expect(bloqueios(antigo, { paymentPath: "prepay", codUnavailable: true, stage: "presale" })).toContain("charge_promise");
+    // Na praça com entrega continua verdade.
+    expect(bloqueios(antigo, { paymentPath: "cod", stage: "presale" })).toEqual([]);
+  });
+
+  it("na entrega, o toque 1 que fala da porta diz a verdade inteira: vê, paga, não fica, devolve sem custo (Q3/Q4)", () => {
+    const porta = ["a", "b", "c", "d", "lead-abc", "lead-1"]
+      .map((leadId) => renderFollowup("silence_1", render({ leadId, stopPoint: "after_price", paymentPath: "cod" }))!)
+      .filter((t) => t.includes("entregador"));
+    expect(porta.length).toBeGreaterThan(0);
+    for (const t of porta) {
+      expect(t).toContain("se não for o que você esperava, não fica com ele");
+      expect(t).toContain("depois de receber, ainda tem 7 dias pra devolver, sem custo nenhum pra você");
+    }
+  });
+
+  it("na entrega: os toques 1 e 2 reescritos passam", () => {
+    for (const leadId of leads)
+      for (const stopPoint of ["before_size", "after_price", "link_sent"] as const)
+        for (const kind of ["silence_1", "silence_2"] as const) {
+          const t = renderFollowup(kind, render({ config: exemplo, leadId, stopPoint, paymentPath: "cod" }))!;
+          expect({ t, blocked: bloqueios(t, { paymentPath: "cod", stage: "presale" }) }).toEqual({ t, blocked: [] });
+        }
+  });
+
+  it("pós-pedido: confirmação do antecipado (com data e com média) e «a caminho» nos dois caminhos", () => {
+    const pago = { amountBrl: 116.91, prepaid: true, size: "M" } as const;
+    for (const over of [{ ...pago, scheduledFor: "2026-10-02" }, pago]) {
+      const t = renderFollowup("order_confirmed", render({ config: exemplo, ...over }))!;
+      expect({ t, blocked: bloqueios(t, { paymentPath: "prepay", stage: "logistics", orderAmountBrl: 116.91 }) }).toEqual({ t, blocked: [] });
+    }
+    const envio = renderFollowup("order_shipped", render({ config: exemplo }))!;
+    for (const paymentPath of ["cod", "prepay"] as const)
+      expect(bloqueios(envio, { paymentPath, stage: "logistics" })).toEqual([]);
+  });
+});

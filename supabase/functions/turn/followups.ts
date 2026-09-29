@@ -237,7 +237,7 @@ const eveAt = (order: OrderFacts, now: Date): Date | null => {
  * 2026-09-29). The confirmation is the only one the order alone arms. "A caminho" waits for
  * a status that reads `em_rota` — at orderedAt+24h it said so of a parcel still in the
  * warehouse — and "Chegou?!" for one that reads `entregue_pago`, a couple of hours after.
- * The eve needs the date (`eveAt`). Callers filter by `orderTouchDue` and by what exists.
+ * The eve needs the date (`eveAt`). Callers filter by what exists.
  */
 export const scheduleOrder = (order: OrderFacts, now: Date): ScheduledFollowup[] => {
   const touches: ScheduledFollowup[] = [
@@ -254,7 +254,9 @@ export const scheduleOrder = (order: OrderFacts, now: Date): ScheduledFollowup[]
   const eve = eveAt(order, now);
   if (eve) touches.push({ kind: "order_eve", runAt: eve });
   if (stage === "entregue_pago") touches.push({ kind: "order_delivered", runAt: new Date(now.getTime() + 2 * HOUR) });
-  return touches;
+  // What the status already made moot is never planned: a delivered order with a date still
+  // ahead planned its eve, and `orderTakeOver` handed it on after the parcel arrived.
+  return touches.filter((f) => orderTouchDue(f.kind, order.status));
 };
 
 /**
@@ -505,7 +507,7 @@ const brl = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
  * Every variant here passes the guardrail chain, and the range asserts it — copy the
  * cron generates and then refuses is a touch the customer never gets.
  */
-const SILENCE_1: Record<StopPoint, readonly string[]> = {
+const SILENCE_1 = (days: number): Record<StopPoint, readonly string[]> => ({
   before_size: [
     "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛",
     "Oi! Pensa naquela roupa que está parada no armário esperando um dia bom. Me fala o tamanho de calça que você usa e eu te digo qual colete deixa ela caindo do jeito que você gosta 💛",
@@ -513,14 +515,24 @@ const SILENCE_1: Record<StopPoint, readonly string[]> = {
   after_price: [
     "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.",
     // The courier does not wait for her to try it on (Q4, operator, 2026-09-29): she sees it,
-    // pays at the door, and what is not what she expected she does not keep.
-    "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele.",
+    // pays at the door, and what is not what she expected she does not keep. The return after
+    // receiving is at the store's cost (Q3).
+    `Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem ${days} dias pra devolver, sem custo nenhum pra você.`,
   ],
   link_sent: [
     "Conseguiu finalizar seu pedido? Se travou em algum passo, é só me falar que eu te ajudo por aqui mesmo 😊",
     "Passando pra ver: deu certo de fechar o pedido? Se preferir, eu monto o link de novo pra você.",
   ],
-};
+});
+
+/**
+ * The prepaid deadline sentence, on the gate's reading (`prepayAverage`): the average only when
+ * the config says it varies by region. Empty when not — no deadline, never a guess or a range.
+ */
+const prepayAvgLine = (c: FollowupConfig): string =>
+  c.delivery.prepayVariesByRegion && c.delivery.prepayAvgDays != null
+    ? `No antecipado, o prazo varia por região, em média ${c.delivery.prepayAvgDays} dias úteis.`
+    : "";
 
 /**
  * `after_price` for a woman on the prepaid path — she chose it, or her region has no payment
@@ -533,10 +545,7 @@ const silence1Prepay = (c: FollowupConfig): readonly string[] => {
   const { prepayBrl, prepayDiscountPercent } = c.prices;
   const price =
     prepayBrl == null ? "" : (prepayDiscountPercent ?? 0) > 0 ? `com ${prepayDiscountPercent}% de desconto: ${brl(prepayBrl)}` : `por ${brl(prepayBrl)}`;
-  const avg =
-    c.delivery.prepayVariesByRegion && c.delivery.prepayAvgDays != null
-      ? ` No antecipado, o prazo varia por região, em média ${c.delivery.prepayAvgDays} dias úteis.`
-      : "";
+  const avg = prepayAvgLine(c) ? ` ${prepayAvgLine(c)}` : "";
   return [
     `Qualquer coisa é só chamar!${price ? ` Lembrando que no pagamento antecipado você leva o colete ${price}.` : ""}${avg}`,
     `Fico por aqui se precisar!${price ? ` E lembra: pagando antecipado, o colete sai ${price}.` : ""}${avg}`,
@@ -652,6 +661,8 @@ export interface RenderContext {
   units?: number;
   /** She already paid (prepaid order): nothing is due at the door (sixth review). */
   prepaid?: boolean;
+  /** The order's delivery day ("YYYY-MM-DD", `orders.scheduled_for`), when it has one. */
+  scheduledFor?: string | null;
   /**
    * The path the silence touches speak of (D3): "prepay" when she chose it or her region has
    * no payment at the door. Absent reads "cod", the truth for a region nobody looked up.
@@ -694,7 +705,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         ctx.leadId,
         ctx.paymentPath === "prepay" && ctx.stopPoint === "after_price"
           ? silence1Prepay(ctx.config)
-          : SILENCE_1[ctx.stopPoint ?? "before_size"],
+          : SILENCE_1(ctx.config.delivery.warrantyDays)[ctx.stopPoint ?? "before_size"],
       );
 
     case "silence_2":
@@ -715,12 +726,18 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       );
     }
 
-    case "order_confirmed":
+    case "order_confirmed": {
+      // Prepaid, she is told when it arrives (Q5, operator, 2026-09-29): the day the order holds,
+      // or the regional average. On delivery she chose the day herself, in the checkout.
+      const day = /^\d{4}-(\d{2})-(\d{2})$/.exec(ctx.scheduledFor ?? "");
+      const eta = !ctx.prepaid ? "" : day ? `Sua entrega está prevista para ${day[2]}/${day[1]}.` : prepayAvgLine(ctx.config);
       return (
         `Pedido confirmado! 🎉 ${item}, ${ctx.prepaid ? `${price}, já pago` : `${price} na entrega`}` +
         `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n` +
+        (eta ? `${eta}\n` : "") +
         `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
       );
+    }
 
     // Armed by a status that reads `em_rota`. Not "assim que a transportadora agendar o dia"
     // (D2): on delivery she chose the day herself, in the checkout. Nor "na véspera eu te

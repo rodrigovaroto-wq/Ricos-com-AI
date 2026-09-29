@@ -25,7 +25,7 @@ import {
 import { extractDressSize, sizeFromDressSize, sizeFromLabel } from "../agent/sizing.js";
 import { extractAddress, isComplete, nextQuestion } from "../agent/address.js";
 import { decideNext } from "../agent/retry.js";
-import { decideTouch, renderFollowup, scheduleSilence, type FollowupKind } from "../agent/followups.js";
+import { decideTouch, renderFollowup, scheduleSilence, type FollowupKind, type RenderContext } from "../agent/followups.js";
 import { CHATS } from "./chats.js";
 
 const config = {
@@ -404,6 +404,17 @@ for (const kind of ["silence_1", "silence_2", "order_confirmed", "order_shipped"
     if (kind !== "silence_1") break;
   }
 }
+// No antecipado (R16.2, Q5): a praça sem pagamento na entrega recebe os toques 1 e 2 do caminho
+// dela, e a confirmação do pedido pago diz o prazo — cada um julgado onde a varredura o julga.
+for (const [kind, ctx, over] of [
+  ["silence_1", { stopPoint: "after_price", paymentPath: "prepay" }, { paymentPath: "prepay", codUnavailable: true }],
+  ["silence_2", { paymentPath: "prepay" }, { paymentPath: "prepay", codUnavailable: true }],
+  ["order_confirmed", { prepaid: true, size: "G" }, { paymentPath: "prepay", stage: "logistics" }],
+  ["order_confirmed", { prepaid: true, size: "G", scheduledFor: "2026-10-02" }, { paymentPath: "prepay", stage: "logistics" }],
+] as Array<[FollowupKind, Partial<RenderContext>, Partial<GateContext>]>) {
+  const text = renderFollowup(kind, { leadId: "lead-prepay", config, ...ctx })!;
+  check("copy da régua passa na cadeia", `${kind}/antecipado`, text.slice(0, 48), "envia", outcome(text, { stage: "presale", ...over }));
+}
 
 // A régua de silêncio nunca pode marcar dois toques colados: repetir é o que derruba o número.
 {
@@ -578,7 +589,7 @@ for (const [angle, reply, esperado] of [
 for (const [angle, reply] of [
   ["ancoragem no preço cheio publicado", "De R$ 216,50 por R$ 129,90 — e o frete já está incluído."],
   ["reversão de risco", "Você não paga nada agora e tem 7 dias pra devolver se não gostar."],
-  ["antecipar a objeção", "Você deve estar pensando que não vai servir. Por isso você só paga depois de vestir."],
+  ["antecipar a objeção", "Você deve estar pensando que não vai servir. Por isso, se não servir, você tem 7 dias pra devolver."],
   ["fechamento por escolha", "Prefere um dos próximos 3 dias ou prefere que eu veja outro?"],
   ["espelhar a palavra dela", "Pra segurar a barriguinha no vestido, o G é o que eu indico."],
   ["prova social sem citar ninguém", "É o que mais ouço de quem já recebeu: a roupa cai diferente."],
@@ -633,7 +644,18 @@ for (const [angle, reply] of [
     ["com prazo já vencido, volta a ser invenção", "A promoção acaba em breve, viu?", prazoVencido, "barra(scarcity_claim)"],
     ["contagem regressiva nunca passa", "Corre que acaba em 10 minutos!", comPrazo, "barra(scarcity_claim)"],
   ] as Array<[string, string, typeof config, string]>) {
-    check("escassez", angle, reply, esperado, outcome(reply, { config: cfg }));
+    // Judged as the reply to her putting the purchase off, the only place stock is said (R16.5).
+    check("escassez", angle, reply, esperado, outcome(reply, { config: cfg, postponing: true }));
+  }
+
+  // R16.5 (operator, 2026-09-29): outside that reply, even the declared stock and deadline are
+  // refused — the conversation never cites them.
+  for (const [angle, reply, cfg] of [
+    ["estoque declarado, fora do adiamento", "Só restam 3 unidades!", comEstoque],
+    ["prazo declarado, fora do adiamento", "A promoção acaba em breve, viu?", comPrazo],
+    ["liberado pelo operador, fora do adiamento", "Corre que estão acabando as últimas peças do lote!", { ...config, scarcity: { allowUnverified: true } }],
+  ] as Array<[string, string, typeof config]>) {
+    check("escassez fora do adiamento", angle, reply, "barra(scarcity_claim)", outcome(reply, { config: cfg }));
   }
 
   // A chave do operador: com ela ligada, a cadeia para de recusar urgência que não
@@ -644,7 +666,7 @@ for (const [angle, reply] of [
     ["número improvisado", "Só restam 4 unidades!"],
     ["prazo sem data declarada", "A promoção acaba hoje, viu?"],
   ] as Array<[string, string]>) {
-    check("escassez liberada pelo operador", angle, reply, "envia", outcome(reply, { config: liberado }));
+    check("escassez liberada pelo operador", angle, reply, "envia", outcome(reply, { config: liberado, postponing: true }));
   }
 
   // E o que a chave NÃO libera: ela abre a urgência, não o resto da cadeia.
@@ -653,7 +675,7 @@ for (const [angle, reply] of [
     ["emagrecimento continua barrado", "Últimas peças! Ele emagrece 5 kg.", "barra(weight_loss_claim)"],
     ["cupom inventado continua barrado", "Últimas unidades, use o cupom de 20%!", "barra(price_promise+coupon_exists)"],
   ] as Array<[string, string, string]>) {
-    check("escassez liberada pelo operador", angle, reply, esperado, outcome(reply, { config: liberado }));
+    check("escassez liberada pelo operador", angle, reply, esperado, outcome(reply, { config: liberado, postponing: true }));
   }
 }
 

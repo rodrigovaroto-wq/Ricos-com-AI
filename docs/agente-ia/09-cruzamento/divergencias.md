@@ -82,3 +82,25 @@ suporte todo dia (R13.5); CPF pela nota fiscal (R13.5); Expressa desligada; cupo
 8. **D9:** apontar para os depoimentos reconstruídos do site continua?
 9. **D10:** a cobertura da Coinzz é a mesma da Logzz? Rodar a varredura contra o checkout da Logzz?
 10. **D11–D15:** correção só de documentação/código morto — posso fazer sem decisão de negócio?
+
+## Situação em 2026-09-29, noite (Fase 3: respostas do operador e consertos)
+
+| # | Divergência | Decisão | Onde foi fechada |
+|---|---|---|---|
+| D0 | frete grátis "no pix também" passava | R15.3 | gate `shipping_promise` (`honest`, `FREIGHT_CHARGED`, preço do antecipado, grátis sem "frete") |
+| D1 | véspera por relógio | R16.1 | régua: véspera só com `scheduled_for`, na véspera em SP |
+| D2 | "a caminho" por relógio | R16.1 | régua: `order_shipped` pelo status; texto sem "transportadora agendar" |
+| D3 | praça sem entrega ouvia "não paga nada agora" | R16.2 | praça gravada no lead; régua e gate pelo caminho (`codUnavailable`) |
+| D4 | "veste e só paga se estiver tudo certo" | R16.4 | textos da régua reescritos; gate veta vestir antes de pagar |
+| D5 | devolução "sem custo nenhum" sem fonte | R16.3 | é verdade; fica |
+| D6 | "restam 12 unidades" em qualquer mensagem | R16.5, R16.8 | só na resposta ao "vou pensar" (`thinkReply`); gate veta no resto |
+| D7 | documentos negavam o frete grátis na entrega | R15.3 | `05-decisoes-firmes`, `01-produto-e-oferta`, spec de guardrails |
+| D8 | recepção promete "atendentes" | mantida pelo operador | sem mudança |
+| D9 | depoimentos reconstruídos do site | R16.7 | só quando ela pedir (prompt e briefing) |
+| D10 | cobertura Coinzz × Logzz | resolvida | é a operação da Logzz, lida pelo endpoint público; sondado SP e Manaus |
+| D11 | fita métrica | doc atualizado | `02-tabela-de-medidas.md` |
+| D12 | postura (site × agente) | R16.6 | prompt ensina "ajuda na postura"; gate segue vetando corrigir/tratar |
+| D13–D14 | spec e produto com dados velhos | doc atualizado | idem D7 |
+| D15 | caminho OpenAI no código | rollback documentado da v32 | sem mudança |
+| — | confirmação do antecipado com prazo | R16.1 | `order_confirmed` do antecipado: data do pedido ou média do config |
+| — | cancelamento/devolução pela API | R16.9 | APIs não expõem; segue handoff |

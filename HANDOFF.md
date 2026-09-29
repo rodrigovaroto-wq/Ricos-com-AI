@@ -13,6 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29)
 
+> **2026-09-29, noite — cruzamento fechado no código (branch `claude/happy-planck-izq7jt`, sem PR).**
+> Todas as divergências de [`09-cruzamento/divergencias.md`](docs/agente-ia/09-cruzamento/divergencias.md)
+> têm situação final (tabela no fim do arquivo); decisões R16.1–R16.9, grafo §35–§36. Nada
+> publicado. **Antes de publicar a `turn`:** (1) o operador cola o `BUSINESS_CONFIG` novo (o secret
+> não é legível pelo conector; chaves que só ele sabe: `coinzz.*Hash`); (2) linhas `order_shipped` e
+> `order_delivered` armadas por relógio antes do deploy não são conferidas no envio — cancelar as
+> agendadas com um `update followups set status='canceled' where status='scheduled' and kind in
+> ('order_shipped','order_delivered')` e deixar os webhooks rearmarem; (3) se o template antigo do
+> `silence_2` já foi submetido à Meta, submeter o novo. Recomendado no n8n ("Normaliza a venda"):
+> `soAData` só deixar passar `AAAA-MM-DD`.
+
 **PR #39** (`claude/great-planck-48ozds`, sobre o `main` com o #37 e o #38 já mergeados). Nada da
 `turn` publicado (no ar: v41). **CI:** até `1ae187e` só a etapa `verificar:guardas` estava vermelha:
 4 guardas "inconclusivas (SIGTERM)". Causa raiz: sob `GITHUB_ACTIONS` o vitest imprime uma anotação

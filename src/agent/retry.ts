@@ -148,11 +148,56 @@ export const HUMAN_HANDOFF_REPLY = "Claro! Já avisei o time e alguém te chama 
 export const ORDER_HANDOFF_REPLY = "Vou checar pra você e já te retorno 💛";
 
 /**
- * "Vou pensar" (R13.4). No pressure and no second pitch: this, then the checkout link in
- * a bubble of its own, so the door she comes back through is already in the chat.
- * Operator's wording.
+ * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
+ * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
  */
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
+
+/** What `thinkReply` reads of the config: the stock, the prices and the deadlines. */
+export interface ThinkConfig {
+  prices: { prepayBrl: number; prepayDiscountPercent: number };
+  delivery: { warrantyDays: number; prepayAvgDays?: number; prepayVariesByRegion?: boolean };
+  scarcity?: { unitsLeft?: number | null } | null;
+}
+
+const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
+
+/**
+ * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
+ * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
+ * back. Now it is the one place the declared stock is said, with the strongest argument of her
+ * path, and it ends pointing at the link (or at the size, when there is no link yet):
+ *
+ * - on delivery: nothing paid now, and the days to return at no cost to her (R16.3);
+ * - prepaid (she chose it, or delivery does not reach her): the discount and the average
+ *   deadline, said as varying (R16.2).
+ *
+ * Every number comes from the config; an absent one drops its sentence. The turn sends it
+ * through the whole gate chain with `postponing: true` — the only context where
+ * `scarcity_claim` lets the stock through.
+ */
+export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boolean): string => {
+  const units = c.scarcity?.unitsLeft;
+  const pct = c.prices.prepayDiscountPercent;
+  // The average only while the deadline varies by region — the gate's reading (`prepayAverage`).
+  const avg = c.delivery.prepayVariesByRegion ? c.delivery.prepayAvgDays : undefined;
+  const parts = [
+    `${THINK_REPLY} 💛`,
+    ...(units != null && units > 0
+      ? [`Só te aviso que restam ${units} unidades desse lote, então se fizer sentido pra você, vale garantir o seu logo.`]
+      : []),
+    path === "cod"
+      ? `Pagando na entrega você não paga nada agora, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`
+      : pct > 0
+        ? `No antecipado você ganha ${pct}% de desconto: ${reais(c.prices.prepayBrl)}` +
+          (avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis.` : `.`)
+        : avg != null
+          ? `No antecipado o prazo varia por região, em média ${avg} dias úteis.`
+          : ``,
+    withLink ? `O link pra garantir o seu está aqui embaixo.` : `Quando quiser, me fala o tamanho de calça que você usa que eu te mando o link.`,
+  ];
+  return parts.filter((p) => p !== ``).join(" ");
+};
 
 /**
  * Network failures calling the model (R13.4). Only failures that say nothing about the

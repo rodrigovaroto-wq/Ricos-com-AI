@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { gateBriefing, runGates, type GateConfig } from "@/agent/guardrails.js";
+import { gateBriefing, runGates, type GateConfig, type GateContext } from "@/agent/guardrails.js";
 import { freightBriefing } from "@/agent/prompt.js";
 import type { BusinessConfig } from "@/config/business.js";
 import { config as fixture, ctx } from "./fixtures.js";
@@ -28,8 +28,8 @@ const EXAMPLE = { ...FREE_ON_DELIVERY, "codFreeShipping false": off } as const;
 /** The fixture has no prepaid discount nor kits: no price names the prepaid offer there. */
 const ALL = { ...EXAMPLE, "fixture de teste": fixture } as const;
 
-const blockedBy = (text: string, config: GateConfig, paymentPath: Path) =>
-  runGates(text, ctx({ config, paymentPath })).traces
+const blockedBy = (text: string, config: GateConfig, paymentPath: Path, extra: Partial<GateContext> = {}) =>
+  runGates(text, ctx({ config, paymentPath, ...extra })).traces
     .filter((t) => t.verdict === "block")
     .map((t) => t.gate);
 
@@ -184,17 +184,33 @@ const PREPAID_HONEST = [
   C,
   "No pagamento na entrega ela não paga nada agora e tem 7 dias após o recebimento pra devolver.",
 ];
-describe.each(Object.entries(ALL))("decisão de 2026-09-29: no antecipado não se paga na porta (%s)", (_name, config) => {
-  it.each(DOOR_PAYMENT)("veta no antecipado, passa na entrega: %s", (text) => {
-    expect(blockedBy(text, config, "prepay")).toContain("charge_promise");
+/**
+ * Where she chose prepaid but delivery reaches her, naming the delivery is the other true option:
+ * `paymentPath: "prepay"` alone vetoed these (dev:gates, 2026-09-29) — the root cause was the gate
+ * not knowing the region, hence `codUnavailable`.
+ */
+const DELIVERY_AS_OPTION = [
+  "Prefere pagar na entrega? Chega em 1 a 3 dias.",
+  "Você prefere pagar na entrega ou antecipado?",
+  "Posso já seguir com o seu pedido pra pagar na entrega, ou ficou alguma dúvida que eu tiro antes?",
+  "Na entrega você recebe em 1 a 3 dias e paga só quando receber, no antecipado o prazo varia por região.",
+];
+describe.each(Object.entries(ALL))("decisão de 2026-09-29: sem entrega na praça não se paga na porta (%s)", (_name, config) => {
+  it.each(DOOR_PAYMENT)("veta sem entrega na praça e no pós-venda do antecipado; passa na entrega: %s", (text) => {
+    expect(blockedBy(text, config, "prepay", { codUnavailable: true })).toContain("charge_promise");
+    expect(blockedBy(text, config, "prepay", { stage: "logistics" })).toContain("charge_promise");
     expect(blockedBy(text, config, "cod")).not.toContain("charge_promise");
   });
-  it.each(PREPAID_HONEST)("não veta pelo pagamento: %s", (text) => {
-    for (const p of BOTH) expect(blockedBy(text, config, p)).not.toContain("charge_promise");
+  it.each(DELIVERY_AS_OPTION)("escolheu o antecipado onde a entrega chega: nomear a entrega passa: %s", (text) => {
+    expect(blockedBy(text, config, "prepay")).not.toContain("charge_promise");
+    expect(blockedBy(text, config, "prepay", { codUnavailable: true })).toContain("charge_promise");
   });
-  it("o briefing diz que só vale no pagamento na entrega", () => {
+  it.each(PREPAID_HONEST)("não veta pelo pagamento: %s", (text) => {
+    for (const p of BOTH) expect(blockedBy(text, config, p, { codUnavailable: p === "prepay" })).not.toContain("charge_promise");
+  });
+  it("o briefing diz quando não vale", () => {
     // `charge_promise` is the first rewrite gate of the chain, so its line comes first.
-    expect(gateBriefing(config)[0]).toMatch(/só no pagamento na entrega/);
+    expect(gateBriefing(config)[0]).toMatch(/Quando a entrega não chega no CEP dela/);
   });
 });
 

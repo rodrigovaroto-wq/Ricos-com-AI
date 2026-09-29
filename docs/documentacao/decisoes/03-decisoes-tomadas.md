@@ -1798,3 +1798,38 @@ estiver tudo certo" foram reescritos, e o gate passa a vetar a promessa.
 ## R16.5 — "Restam 12 unidades" continua
 
 O secret de produção tem `scarcity`, e o operador mantém o "restam 12 unidades" (R13.6, R14.6).
+
+## R16.6 — Postura agrega valor, sem virar tratamento
+
+Operador, 2026-09-29: o colete ajuda na postura, além de modelar. A agente pode dizer ("além de
+modelar, ele ajuda na postura", "dá apoio à postura") — é o que o site publica ("Segura a
+postura"). Continua vetado dizer que corrige, trata ou cura postura, coluna ou dor, e "melhora a
+postura" (efeito duradouro no corpo). Prompt e `health_claim` dizem a mesma coisa.
+
+## R16.7 — Depoimentos só quando ela pedir
+
+A agente mantém a indicação da seção de depoimentos do site, mas só quando a cliente pede
+depoimento. Hoje é regra de prompt e de briefing: o gate não vê a mensagem dela, então não há
+veto determinístico para a menção espontânea.
+
+## R16.8 — "Vou pensar": a resposta fixa passa a vender, e é o único lugar do estoque
+
+A resposta ao adiamento ("vou pensar", "depois eu compro") era só "Sem problemas, estou aqui se
+tiver mais alguma dúvida" + link. Agora (`thinkReply`) mantém essa abertura e acrescenta o estoque
+declarado ("restam 12 unidades desse lote"), o argumento do caminho dela (na entrega: nada agora e
+7 dias pra devolver sem custo; no antecipado: 10% de desconto e o prazo médio) e aponta o link, ou
+pede o tamanho se ainda não há link. O estoque sai do prompt da conversa e `scarcity_claim` o veta
+em qualquer outra mensagem (`postponing`). Supera a parte "sem segundo argumento" da R13.4.
+
+## R16.9 — Cancelamento e devolução continuam com uma pessoa (veredito sobre as APIs)
+
+Pedido do operador: a agente completar cancelamento e devolução sozinha pela API. Veredito, com a
+documentação enviada em 2026-09-29: **não é possível hoje — a agente aciona o handoff.** A API da
+Coinzz documenta só `POST /api/sales` (criar venda ou reprocessar pagamento); a da Logzz, só
+`GET /api/v1/products` (token de teste validado: as ofertas de 1/2/3 peças batem com o config). Nenhuma
+expõe cancelar, estornar ou devolver. A devolução da Logzz é por formulário, e-mail
+(trocasereembolsos@logzz.com.br) ou WhatsApp, com etiqueta pré-paga e reembolso em até 72 h úteis
+após a inspeção. Se a Coinzz ou a Logzz passarem a expor esses endpoints, a automação entra como
+código determinístico, nunca como ferramenta do modelo (R11.1). Nota para o operador: pela
+política pública da Logzz, a **troca por preferência** (tamanho) custa R$ 20 à cliente; a agente não
+promete troca grátis, só a devolução sem custo (R16.3).

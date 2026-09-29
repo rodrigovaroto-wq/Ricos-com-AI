@@ -142,3 +142,6 @@ R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparec
 §33 | shipping_promise | pagando na entrega o frete sai grátis pra você
 §33 | shipping_promise | na entrega o frete é grátis pra você
 §33 | shipping_promise | Pagando na entrega o frete é grátis. No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.
+R16.5 | warranty_promise | Não consigo garantir 2 dias no antecipado: varia por região, em média 5 dias úteis.
+R16.5 | warranty_promise | Não consigo garantir 2 dias, varia por região, em média 5 dias úteis.
+R16.5 | warranty_promise | No antecipado o prazo varia por região, em média 5 dias úteis. O link pra garantir o seu está aqui embaixo.

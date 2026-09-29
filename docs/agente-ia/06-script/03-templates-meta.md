@@ -18,7 +18,7 @@ Fora disso, só sai template aprovado pela Meta. Três toques da régua caem for
 |---|---|---|
 | `silence_2` | manhã seguinte, 09:00 | fora da janela quando ela parou de madrugada ou cedo |
 | `silence_3` | três dias depois | sempre fora |
-| `order_eve` | véspera da entrega | o pedido pode chegar por webhook de quem nunca escreveu, então não há janela nenhuma |
+| `order_eve` | véspera da entrega: só com a data no pedido (`scheduled_for`), às 10h do dia anterior (2026-09-29) | o pedido pode chegar por webhook de quem nunca escreveu, então não há janela nenhuma |
 
 **A regra que amarra os três:** o template diz **a mesma coisa** que `renderFollowup`
 escreve hoje, palavra por palavra. A varredura roda a cadeia de gates sobre o texto livre
@@ -184,6 +184,10 @@ opt-in de marketing.
 Oi! Sua entrega está marcada pra *amanhã* 💛
 Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
 ```
+
+**Só sai com data.** Desde 2026-09-29 a véspera só é armada com a data da entrega no pedido, e o
+webhook da Coinzz (o antecipado) não traz data: enquanto isso for verdade, este template não tem
+quando sair. O corpo não mudou; submeter continua valendo para o dia em que a data existir.
 
 **Sem placeholder.** Este corpo é `renderFollowup("order_eve", { prepaid: true, ... })`
 palavra por palavra, só com o negrito convertido (`**x**` → `*x*`) — a linha "Deixa {{1}}

@@ -84,6 +84,7 @@ import {
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
   THINK_REPLY,
+  thinkReply,
   WELCOME_AUTO_REPLY,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
@@ -700,7 +701,8 @@ const sizeDirectiveFor = (
     // Today's truth, from the config (persona round 3 found "mesmo frete grátis" here,
     // two days after the operator decided the operation has no free shipping).
     const pct = CONFIG.prices.prepayDiscountPercent;
-    const avg = CONFIG.delivery.prepayAvgDays;
+    // The gate's reading: the average only while the deadline varies by region.
+    const avg = CONFIG.delivery.prepayVariesByRegion ? CONFIG.delivery.prepayAvgDays : undefined;
     return `${fitting} A entrega com pagamento na entrega não cobre o CEP dela, então ofereça` +
       ` o pagamento antecipado como a saída boa que ele é${pct > 0 ? `, com ${pct}% de desconto` : ""}.` +
       (CONFIG.delivery.freeShipping === true ? ` O frete é grátis` : ` O frete é calculado no checkout`) +
@@ -1402,6 +1404,7 @@ const runFollowupSweep = async () => {
       ...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),
       units: touchUnits,
       prepaid: order?.payment_method === "prepay",
+      scheduledFor: order?.scheduled_for ?? null,
       paymentPath: touchPath,
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
@@ -1433,6 +1436,8 @@ const runFollowupSweep = async () => {
       now: new Date(),
       paymentPath: touchPath,
       units: touchUnits,
+      // Before an order, her stored region; after it, the order's own path is the truth.
+      codUnavailable: !order && lead.address?.codAvailable === false,
       ...(order && Number(order.amount_brl) > 0 ? { orderAmountBrl: Number(order.amount_brl) } : {}),
       stage: kind.startsWith("order_") ? "logistics" : "presale",
     });
@@ -1750,6 +1755,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const conversation =
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
+  // Her region has no payment at the door (R16.2): as an earlier turn stored it, until this
+  // turn's lookup answers (5d-bis). Every gate below reads it — "você paga na entrega" is a lie there.
+  let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;
 
   /**
    * The stage already stored, read once and used by `persistStage` on every exit.
@@ -1873,6 +1881,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       optedOut: false,
       now: new Date(),
       paymentPath: "cod",
+      codUnavailable,
     });
     await recordTraces(conversation.id, receipt.traces);
 
@@ -1952,6 +1961,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       optedOut: false,
       now: new Date(),
       paymentPath: "cod",
+      codUnavailable,
     });
     await recordTraces(conversation.id, receipt.traces);
     const sendable = passed(receipt);
@@ -2023,6 +2033,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         optedOut: false,
         now: new Date(),
         paymentPath: "cod",
+        codUnavailable,
       });
       await recordTraces(conversation.id, gated.traces);
       if (passed(gated)) {
@@ -2271,6 +2282,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     reason: string,
     path: "cod" | "prepay" = "cod",
     extra: Record<string, unknown> = {},
+    /** The reply to her putting the purchase off: the only one allowed to cite the stock (R16.5). */
+    postponing = false,
   ): Promise<Response | null> => {
     const gated = runGates(text, {
       config: CONFIG,
@@ -2278,6 +2291,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       optedOut: false,
       now: new Date(),
       paymentPath: path,
+      codUnavailable,
+      postponing,
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
@@ -2565,6 +2580,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // turn and was never stored, so the silence ruler told a woman with no payment at the door
   // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
   const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
+  codUnavailable = codAvailable === false;
   if (addressChanged || codAvailable !== storedAddress.codAvailable) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -2778,14 +2794,18 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     } catch {
       thinkLink = null;
     }
+    // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
+    // link — and it is the only message allowed to cite the stock (`postponing`).
+    const think = thinkReply(CONFIG, linkPath, thinkLink !== null);
     const sent = await sendFixed(
       thinkLink
-        ? `${THINK_REPLY}\n\n${thinkLink}` +
+        ? `${think}\n\n${thinkLink}` +
             (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
-        : THINK_REPLY,
+        : think,
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
+      true,
     );
     if (sent) return sent;
   }
@@ -2892,6 +2912,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       paymentPath: linkPath,
       // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.
       units,
+      // Her region has no payment at the door (R16.2): this turn's lookup, or the stored one.
+      codUnavailable,
       recentOutbound,
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.

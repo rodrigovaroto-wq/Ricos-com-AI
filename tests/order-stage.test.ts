@@ -506,4 +506,20 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
     // Fora do rascunho: a praça não viaja para o pedido da Coinzz nem para a leitura do endereço.
     expect(source).toContain("delete (addressDraft as { codAvailable?: boolean }).codAvailable;");
   });
+
+  it("todo gate do turno sabe se a praça dela não tem pagamento na entrega (R16.2)", () => {
+    const turn = source.slice(source.indexOf("const handleTurn"));
+    const declared = turn.indexOf("let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;");
+    expect(declared).toBeGreaterThan(-1);
+    // Seis chamadas, contando a da varredura; as cinco do turno leem a variável.
+    expect(source.match(/runGates\(/g)?.length).toBe(6);
+    for (const call of turn.split("runGates(").slice(1)) expect(call.slice(0, call.indexOf("});"))).toContain("codUnavailable");
+    // A consulta desta volta vence o que estava gravado.
+    expect(turn.indexOf("  codUnavailable = codAvailable === false;\n")).toBeGreaterThan(turn.indexOf("const codAvailable = region !== null"));
+  });
+
+  it("a varredura: praça gravada antes do pedido, e a data do pedido na confirmação (Q5)", () => {
+    expect(sweep).toContain("codUnavailable: !order && lead.address?.codAvailable === false,");
+    expect(sweep).toContain("scheduledFor: order?.scheduled_for ?? null,");
+  });
 });
