@@ -1009,5 +1009,7 @@ describe("desempenho: a cadeia de gates fica bem abaixo de 100 ms a 16k caracter
     expect(delivery("Chega em 2 dias. ".repeat(20), "cod")).toBe("pass");
     expect(delivery("olha ".repeat(210) + "chega em 2 dias.", "cod")).toBe("block");
     expect(delivery("olha ".repeat(190) + "chega em 2 dias.", "cod")).toBe("pass");
+    // The ceiling is on counts × sentence: a long sentence with no count costs nothing (2026-09-29).
+    expect(delivery("o colete modela a cintura, ".repeat(45) + "e disfarça a barriga.", "cod")).toBe("pass");
   });
 });

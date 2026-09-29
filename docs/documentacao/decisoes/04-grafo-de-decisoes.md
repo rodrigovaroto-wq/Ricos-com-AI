@@ -765,7 +765,7 @@ flowchart TD
   KP["causa: cada regra lê a sentença inteira da contagem — custo contagens × sentença,<br/>e o 'se …' preguiçoso de takenAfterReturn revarre a sentença a partir de cada 'se'"]
   CP["🟩 resposta com mais de 20 contagens ou sentença acima de 1000 caracteres volta<br/>para reescrita (corpus: 2 e 269); caminhada do cabeçalho calculada uma vez"]
   O["🟥 §26: 'não quero receber mais mensagens', 'chega de mensagem'… liam none"]
-  CO["🟩 formas novas (ordem livre, promoção/oferta), sem ler pedido de compra como recusa;<br/>'não para de mandar' deixou de ser opt-out"]
+  CO["🟩 formas novas (ordem livre, promoção/oferta), sem ler pedido de compra como recusa;<br/>'não para de mandar' deixou de ser opt-out (revertido no §31)"]
   G["🛡️ geradores em prepaid-deadline-fuzz (1 a 4) e opt-out-gaps; mutações R3-*;<br/>dev:gates: 15 afrouxamentos honestos aceitos (R3), 5 endurecimentos"]
   S1 --> K1 --> C1 --> G
   S2 --> C2
@@ -883,6 +883,58 @@ caem em um destes casos:
 - **"Pode trocar pelo tamanho certo em até 7 dias após o pagamento":** passa, igual à base, e
   passa também sem o objeto. A âncora está errada (a garantia conta do recebimento), mas não é
   promessa de entrega. Nenhum gate lê o início da garantia.
+
+---
+
+## 31. Quarta revisão do branch: opt-out que bloqueava compradora, frete grátis por outro pagamento, garantia da média (2026-09-29)
+
+Uma revisão independente reprovou o branch no HEAD `dd530a7`. Cada item foi reproduzido com as sondas da
+revisão, no HEAD e na base `c1c0cdf`, e a causa foi lida no código antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Não quero mais oferta de kit, quero só 1', 'chega de promoção, me manda o link',<br/>'não quero receber nada pelo correio' → explicit → bloqueado terminal (a base lia none)"]
+  K1["causa: as formas novas do §28 aceitavam oferta/promoção/nada sem 'receber', e a exceção<br/>de compra era lista de proibição (quero fechar/comprar…): 'quero só 1', 'fico com', 'manda o link' fora dela"]
+  S5["🟥 'Vocês não para de mandar mensagem, que saco' → none (a base lia explicit)"]
+  K5["causa: o lookbehind (?<!nao) do §28 largava toda forma negada, e a negada é quase sempre a reclamação"]
+  S2["🟥 frete grátis do antecipado passava nos dois caminhos: 'Antes ou na entrega', 'Tanto antes quanto<br/>na entrega', '…e pagando pela internet também', 'igual pagando por cartão', 'todos os pagamentos'"]
+  K2["causa: BEYOND_COD é lista de proibição; não tinha 'X ou na entrega', 'quanto na entrega',<br/>'também' fechando a oração, 'igual', 'todos os pagamentos'; e nenhum verbo 'pag…' era lido"]
+  S3["🟥 'Na entrega em média você tem 3 dias pra trocar' passava (a base vetava)"]
+  K3["causa: warranty_promise lia como 'oração' só o texto antes do número (§28); a troca vinha depois"]
+  S6["🟧 verdades vetadas: '…grátis; no pix você ganha 10% de desconto', 'Entrega grátis pagando na hora que receber'"]
+  S7["🟧 sentença de 1222 caracteres sem contagem vetada pelo teto de custo do delivery_promise"]
+  T1["🟧 descartado: crescer a lista de compra do opt-out ou o BEYOND_COD palavra a palavra —<br/>é o que a revisão acabou de derrubar (Lição 3)"]
+  C1["🟩 opt-out: as formas novas só valem se TODA palavra da mensagem for recusa, cortesia ou<br/>queixa (REFUSAL_ONLY, lista de permissão, como HUMAN_REQUEST_PHRASES); 'não para/param de mandar'<br/>é explicit, salvo gosto dito e não negado ('tô gostando', 'oferta boa', 'quero ver')"]
+  C2["🟩 frete: todo 'pag…' da frase do grátis tem de ser o da porta (COD_PAY, lista de permissão);<br/>BEYOND_COD ganha 'ou/quanto … na entrega', 'também' no fim da oração (fora o do kit), 'igual/idem',<br/>'todas as formas'. A oração do desconto do antecipado, sem nada do frete, é lida à parte;<br/>PAID_ON_RECEIPT lê 'na hora que receber'. Frase já aprovada não é julgada de novo"]
+  C3["🟩 a oração da garantia vai até a pontuação depois do número; o teto de custo só vale com contagem"]
+  G["🛡️ honest-sales-lines: 24 mentiras da revisão, gerador outro pagamento × forma (5520) e oração do<br/>desconto (144 verdades, 1008 mentiras); opt-out-gaps com gerador recusa × resto (63 + 84);<br/>dev:gates contra dd530a7: 3 afrouxamentos aceitos (§31), 25 endurecimentos; 14 mutações simuladas, todas pegas"]
+  S1 --> K1 --> T1 --> C1 --> G
+  S5 --> K5 --> C1
+  S2 --> K2 --> T1
+  K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+  S6 --> C2
+  S7 --> C3
+```
+
+**Verificado e deixado como está:**
+- **"Não quero mais nada, só o colete M"** e **"Não quero mais mensagem de promoção, quero fechar o
+  pedido"**: continuam `explicit`, iguais à base. O primeiro item da lista original
+  (`nao quero mais (receber|nada|mensage)`) não passa pela lista de permissão. "Não quero mais nada,
+  obrigada" depois de "quer mais alguma coisa?" bloqueia uma compradora. **Decisão do operador em
+  aberto.**
+- **"Chega de mensagem, só me diz quando chega meu pedido"** e **"Não quero receber mais mensagens, só
+  a do rastreio"**: voltam a `none`, como na base. O `bloqueado` corta também a régua do pedido.
+- **"Pagando na entrega o frete é grátis, sempre"**: passa. O "sempre" é da entrega.
+- **"Pagando na entrega o frete é grátis. E no site também."**: passa a vetar. O §29 a deixava passar
+  porque o gate não lia elipse sem nome, e o "também" no fim da oração agora é lido.
+- **"No pix o frete sai zerado / fica por conta da loja"**, **"No pix a gente paga o frete"** e
+  **"pagando antecipado você não paga nada"**: passam, iguais na base e no HEAD. Nenhuma palavra de
+  grátis é lida. Fica fora deste conserto.
+- **Resposta degenerada sem contagem de dias** (16k caracteres, uma sentença): não é mais vetada pelo
+  teto de custo, que só vale com contagem. O `shipping_promise` leva cerca de 200 ms numa sentença de
+  16k com 430 alegações de grátis (no HEAD, cerca de 270 ms). O custo já existia. Nenhum gate limita o
+  tamanho da resposta.
 
 ---
 

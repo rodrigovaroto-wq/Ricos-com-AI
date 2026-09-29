@@ -391,7 +391,7 @@ const FREE_DENIED =
  * reaches the door too.
  */
 const PAID_ON_RECEIPT =
-  /\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:quando\s+(?:voce\s+)?receb\w*|ao\s+receber|no\s+recebimento)\b/;
+  /\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+)\s+)?(?:quando\s+(?:voce\s+)?receb\w*|ao\s+receber|no\s+recebimento|na\s+hora\s+(?:em\s+)?que\s+(?:voce\s+)?receb\w*)\b/;
 /**
  * A sentence that reaches past cash on delivery: both paths ("nos dois", "em qualquer forma de
  * pagamento", "independente do pagamento"), the other one ("no outro", "além da entrega"),
@@ -405,6 +405,25 @@ const PAID_ON_RECEIPT =
  * in its clause before it, is the kit's ("no kit de 2 peças pagando na entrega o frete também
  * é grátis"); "também pelo / no / com …" still reaches past the delivery.
  */
+/**
+ * Cash on delivery's own payment verb, the allow-list every "pag…" in a free claim's sentence is held
+ * to (2026-09-29, grafo §31): paying at the door or on receipt ("pagando na entrega", "você só paga
+ * R$ 129,90 quando receber"), the freight or anything denied ("não paga frete", "sem pagar nada
+ * antes"), or the price and nothing else ("você paga R$ 129,90 e mais nada", "você paga só R$ 129,90."). Growing `BEYOND_COD`
+ * one payment at a time missed "pagando por cartão", "pela internet", "na hora do pedido" and "todos
+ * os pagamentos"; any payment verb that is not the door's reaches past it. Sticky: read from `lastIndex`,
+ * right after the verb, so a long sentence is not copied once per verb.
+ */
+const COD_PAY =
+  /(?:\s+(?:so|tudo|apenas|somente|e|fica|sera|[oa]s?|valor|de|r\$\s*[\d.,]*\d|em\s+dinheiro(?:\s+ou\s+cartao)?))*(?:\s+(?:na\s+(?:entrega|porta|mao)|(?:ao|pro)\s+entregador|(?:quando\s+(?:voce\s+)?|ao\s+)receb\w*|no\s+recebimento|na\s+hora\s+(?:em\s+)?que\s+(?:voce\s+)?receb\w*|e\s+mais\s+nada|(?:o\s+|de\s+|nenhum\s+)?frete|nada)\b|\s+r\$\s*[\d.,]*\d\s*(?:[,;:!?]|$))/y;
+/**
+ * A clause of its own about the prepaid discount, after ";" or ", e / , mas" ("na entrega o frete é
+ * grátis; no pix você ganha 10% de desconto"): it says nothing of the freight, so `shipping_promise`
+ * judges the free claim without it (2026-09-29). Anything of the freight, the delivery, "também",
+ * "igual" or every payment in it, and it stays: "…grátis, e no pix também" is still the claim's.
+ */
+const PREPAID_DISCOUNT_CLAUSE =
+  /(?:;|,\s*(?:e|mas)\b)(?:(?!\b(?:frete|entreg\w*|envio|correio|gratis|gratuit\w*|gra[cs]a|tambem|igua\w*|idem|mesm[oa]|zero|nada|tod[oa]s?|qualquer)\b)[^,;:])*\bdesconto\b(?:(?!\b(?:frete|entreg\w*|envio|correio|gratis|gratuit\w*|gra[cs]a|tambem|igua\w*|idem|mesm[oa]|zero|nada|tod[oa]s?|qualquer)\b)[^,;:])*(?=[,;:]|$)/g;
 /** What `shipping_promise` tells the model when a free claim reaches past cash on delivery. */
 const BEYOND_COD_VETO =
   `promises free shipping beyond cash on delivery: free only paying at the door, named in the same sentence ("pagando na entrega o frete é grátis"); the prepaid checkout charges freight by region`;
@@ -416,7 +435,7 @@ const BEYOND_COD_VETO =
 const SAME_AS_DELIVERY =
   /\bfrete\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,30}\b(?:igua\w*|mesm[oa]|identic\w*|como)\b[^.!?]{0,12}?\b(?:d[ao]|n[ao]|a|ao)\s+(?:pagamento\s+(?:n[ao]\s+)?|pagar\s+n[ao]\s+)?entrega\b|\bmesmo\s+frete\s+(?:d[ao]|n[ao]|que\s+(?:n[ao]|d[ao]))\s+(?:pagamento\s+(?:n[ao]\s+)?)?entrega\b/;
 const BEYOND_COD =
-  /\b(?:(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b(?!\s+(?:pecas?|unidades?|coletes?|kits?)\b)|(?:ambos|ambas)\s+(?:os|as)\s+(?:caminhos|formas|pagamentos|opcoes)|os\s+dois\s+(?:caminhos|pagamentos|jeitos)|as\s+duas\s+(?:formas|opcoes|modalidades)|qualquer\s+(?:uma?\s+)?(?:d[aoe]s?\s+)?(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|independente\w*\s+d[aoe]s?\s+(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|tanto\s+(?:faz|n[oa]s?|pel[oa]s?|pagando|pagar|com)|inclusive\s+(?:n[oa]s?|pel[oa]s?|pagando|pagar|com)|com\s+ou\s+sem|outr[oa]s?\s+(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)|(?:no|na|pelo|pela)\s+outr[oa]|alem\s+d[ao]\s+(?:pagamento\s+(?:na\s+)?)?entrega|ate\s+(?:mesmo\s+)?na\s+entrega|nem\s+(?:mesmo\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar)|pag\w*\s+(?:(?:pelo|no|direto\s+no)\s+)?(?:checkout|link)|(?:sem|nao|fora|exceto|menos|salvo)\s+(?:(?:for|e|seja|ser|pagar|pagando|pagamento|quiser|quer|o|a|d[ao])\s+){0,3}(?:n[oa]\s+)?entrega)\b|\b(?:entrega|entregador|receber)\s+ou\b|\bseja\s+qual\s+for\b|\bqualquer\s+que\s+seja\b|\bnao\b[^.!?,;:]{0,30}\b(?:so|apenas|somente)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?tambem\b|\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar|quando)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:(?:o\s+)?frete|gratis|gratuit[oa])\b/;
+  /\b(?:(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b(?!\s+(?:pecas?|unidades?|coletes?|kits?)\b)|(?:ambos|ambas)\s+(?:os|as)\s+(?:caminhos|formas|pagamentos|opcoes)|os\s+dois\s+(?:caminhos|pagamentos|jeitos)|as\s+duas\s+(?:formas|opcoes|modalidades)|qualquer\s+(?:uma?\s+)?(?:d[aoe]s?\s+)?(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|independente\w*\s+d[aoe]s?\s+(?:forma|caminho|opcao|pagamento|jeito|modalidade|meio)|tanto\s+(?:faz|n[oa]s?|pel[oa]s?|pagando|pagar|com)|inclusive\s+(?:n[oa]s?|pel[oa]s?|pagando|pagar|com)|com\s+ou\s+sem|outr[oa]s?\s+(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)|(?:no|na|pelo|pela)\s+outr[oa]|alem\s+d[ao]\s+(?:pagamento\s+(?:na\s+)?)?entrega|ate\s+(?:mesmo\s+)?na\s+entrega|nem\s+(?:mesmo\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar)|pag\w*\s+(?:(?:pelo|no|direto\s+no)\s+)?(?:checkout|link)|(?:sem|nao|fora|exceto|menos|salvo)\s+(?:(?:for|e|seja|ser|pagar|pagando|pagamento|quiser|quer|o|a|d[ao])\s+){0,3}(?:n[oa]\s+)?entrega)\b|\b(?:entrega|entregador|receber)\s+ou\b|\b(?:ou|quanto)\s+(?:(?:(?:n[ao]|com)\s+)?(?:pagando|pagar|pagamento)\s+)?(?:(?:n[ao]|ao|pro)\s+(?:entrega|entregador|porta|recebimento)|(?:quando\s+(?:voce\s+)?|ao\s+)receb\w*)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})(?<!\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?)\btambem\s*(?:[,;:!?]|\.(?!\d)|$)|\b(?:igua\w*|idem|(?:a\s+)?mesma\s+coisa|do\s+mesmo\s+jeito)\b\s*(?:$|[,;:!?]|\.(?!\d)|[^.!?,;:]{0,30}\b(?:pag\w*|cart(?:ao|oes)|pix|antecip\w*|adiant\w*|antes|agora|site|link|internet|online|celular|compra|pedido|checkout)\b)|\btod[oa]s?\s+(?:[oa]s?\s+)?(?:formas?|caminhos?|opc(?:ao|oes)|pagamentos?|jeitos?|modalidades?|meios?)\b|\bseja\s+qual\s+for\b|\bqualquer\s+que\s+seja\b|\bnao\b[^.!?,;:]{0,30}\b(?:so|apenas|somente)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\b(?:frete|gratis|gratuit[oa])\s+(?:e\s+)?tambem\b|\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:n[oa]s?|pel[oa]s?|com|pagando|pagar|quando)\b|(?<!\b(?:kits?|pecas?)\b[^.!?,;:]{0,40})\btambem\s+(?:(?:e|tem|sai|fica)\s+)?(?:(?:o\s+)?frete|gratis|gratuit[oa])\b/;
 /** The amount at `at`, as written: "r$ 12,99" or "12,99 reais". */
 const amountAt = (t: string, at: number): string =>
   /^(?:r\$\s*[\d.,]*\d|[\d.,]*\d\s*reais)/.exec(t.slice(at))?.[0] ?? "";
@@ -450,7 +469,7 @@ export const classifyOptOut = (text: string): OptOutLevel => {
   const t = norm(text);
   const explicit = [
     /nao\s+(quero|desejo)\s+mais\s+(receber|nada|mensage)/,
-    // "Não para de mandar" asks for more (2026-09-28): the request is only one no "não" governs.
+    // The negated "não para de mandar" is read below (2026-09-29).
     /(?<!\bnao\s+)\b(para|pare|parem|pode\s+parar)\s+de\s+(me\s+)?(mandar|enviar|encher)/,
     /nao\s+me\s+(mande|manda|envie|envia)\s+mais/,
     /me\s+(tira|tire|remove|remova|exclui|exclua|apaga|apague)\s+d\w{0,4}\s+lista/,
@@ -458,16 +477,29 @@ export const classifyOptOut = (text: string): OptOutLevel => {
     /\bnao\s+tenho\s+interesse\b.*\bnao\s+me\s+(chame|procure)\b/,
   ];
   if (explicit.some((r) => r.test(t))) return "explicit";
+  // "Vocês não param de mandar mensagem, que saco" is a complaint, as it read until 2026-09-28; the
+  // negated form asks for more only beside a liking she says, not denied ("não para de mandar
+  // oferta boa não", "tô gostando") (2026-09-29, grafo §31).
+  if (
+    /\bnao\s+(?:para|param)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)/.test(t) &&
+    !/(?<!\bnao\s+(?:\S+\s+)?)\b(?:gost\w*|ador\w*|amo|amei|curt(?:o|i|indo|ir)|otim\w*|maravilh\w*|legal)\b|\b(?:ofertas?|promoc\w*|promos?|mensage\w*)\s+(?:boas?|otimas?|legais)\b|\bquero\s+ver\b/.test(t)
+  )
+    return "explicit";
   // The forms the list above missed (2026-09-28, grafo §26): it fixed the word order ("não quero
   // mais receber", never "não quero receber mais") and read messages but not what they carry.
-  // What she refuses is the messages or the offers in them — never the purchase, so a message
-  // that also asks to buy is not a refusal ("chega de mensagem, quero fechar").
+  // What she refuses is the messages or the offers in them — never the purchase. The block is
+  // terminal, so like `HUMAN_REQUEST_PHRASES` it is an allow-list: every word of the message is
+  // the refusal, courtesy or a complaint. A deny-list of purchase words let "não quero mais
+  // oferta de kit, quero só 1", "chega de promoção, me manda o link" and "não quero receber nada
+  // pelo correio" block a buyer (2026-09-29, grafo §31); they read none, as before 2026-09-28.
   const SENT = String.raw`(?:mensage\w*|promoc\w*|promo|ofert\w*|propaganda\w*|nada)\b`;
+  const REFUSAL_ONLY =
+    /^(?:nao|n|sim|ja|mais|mesmo|nunca|nenhum|nenhuma|nada|de|do|da|e|que|o|a|os|as|com|no|isso|essa|esse|disso|dessa|desse|tant[ao]s?|aqui|agora|hoje|gente|moc[ao]|amig[ao]|viu|ta|to|serio|pelo|amor|deus|por|favor|pfv?r?|obrigad[ao]|obg|brigad[ao]|valeu|grat[ao]|ok|okay|beleza|blz|tchau|desculp\w*|saco|chat[ao]|chatice|cansei|cansad[ao]|ench\w*|incomod\w*|perturb\w*|insuport\w*|spam|para|pare|parem|parar|chega|me|mim|mand\w*|envi\w*|receber|quero|desejo|voces?|vcs?|vou|bloquear|denunciar|meu|minha|nesse|neste|numero|whatsapp|zap|wpp|mensage\w*|promoc\w*|promos?|ofert\w*|propaganda\w*)$/;
   if (
     new RegExp(
       String.raw`\bnao\s+(?:quero|desejo)\s+(?:mais\s+(?:${SENT})|receber\s+(?:mais\s+)?(?:nenhuma?\s+)?${SENT})|\bchega\s+de\s+(?:tant[ao]s?\s+)?${SENT}|^\s*(?:para|pare|parem)\s+com\s+isso\s*(?:,?\s*por\s+favor)?\s*[.!]*\s*$`,
     ).test(t) &&
-    !/\b(?:quero|vou|pode|posso)\s+(?:fechar|comprar|levar|pedir)\b|\bfecha\s+(?:o\s+)?pedido\b/.test(t)
+    t.split(/[^a-z0-9]+/).every((w) => w === "" || REFUSAL_ONLY.test(w))
   )
     return "explicit";
 
@@ -1196,7 +1228,7 @@ const gates: readonly Gate[] = [
       // 16k characters (2026-09-28). It goes back to be rewritten before any rule reads it.
       const counted = t.match(COUNT)?.length ?? 0;
       if (counted > 20) return `states ${counted} day counts in one reply; say the deadline once, in a short message`;
-      if (t.split(/[.!?\n]/).some((s) => s.length > 1000)) return "a sentence of over 1000 characters; write short messages";
+      if (counted > 0 && t.split(/[.!?\n]/).some((s) => s.length > 1000)) return "a sentence of over 1000 characters; write short messages";
       for (const m of t.matchAll(COUNT)) {
         const at = m.index ?? 0;
         const before = t.slice(Math.max(0, at - 30), at);
@@ -1857,8 +1889,10 @@ const gates: readonly Gate[] = [
         if (!window.test(around)) continue;
         // The forty characters cross clauses: "7 dias de garantia, e a média do antecipado é de 5
         // dias" paired the 5 with "garantia" (2026-09-28). A number whose own clause is a path's
-        // average and names no return is the delivery's, and `delivery_promise` judges it.
-        const own = t.slice(0, at).split(/[,;.!?\n]/).pop()!;
+        // average and names no return is the delivery's, and `delivery_promise` judges it. The clause
+        // runs past the number too: "na entrega em média você tem 3 dias pra trocar" names its return
+        // after it (2026-09-29).
+        const own = t.slice(0, at).split(/[,;.!?\n]/).pop()! + t.slice(at).split(/[,;.!?\n]/)[0]!;
         if (/\bmedia\b/.test(own) && /\b(?:antecipa\w*|adianta\w*|pix|boleto|cartao|entrega)\b/.test(own) && !window.test(own)) continue;
         // "Você recebe em até 3 dias, com 7 dias pra devolver" was read as a three-day
         // warranty (Jussara R1, Karol R2, Tati R2, 2026-09-24): the delivery deadline sat
@@ -2005,15 +2039,22 @@ const gates: readonly Gate[] = [
         const denied = [...t.matchAll(FREE_DENIED)].map((m) => [m.index ?? 0, (m.index ?? 0) + m[0].length] as const);
         for (const claim of claims) {
           if (denied.some(([from, to]) => claim.at >= from && claim.at < to)) continue;
-          const sentence = sentenceAt(t, claim.at);
+          const whole = sentenceAt(t, claim.at);
+          // Judged once per sentence: every claim of a sentence that passed passes the same way.
+          if (freeOnDelivery.has(whole)) continue;
+          const sentence = whole.replace(PREPAID_DISCOUNT_CLAUSE, " ");
           if (
             codFree &&
             (sentence.search(COD_NAME) !== -1 || PAID_ON_RECEIPT.test(sentence)) &&
             sentence.search(PREPAY_NAME) === -1 &&
             !BEYOND_COD.test(sentence) &&
+            [...sentence.matchAll(/\bpag\w*/g)].every((p) => {
+              COD_PAY.lastIndex = (p.index ?? 0) + p[0].length;
+              return COD_PAY.test(sentence);
+            }) &&
             !moneyMatches(sentence).some((x) => prepayPrices.includes(x.value))
           ) {
-            freeOnDelivery.add(sentence);
+            freeOnDelivery.add(whole);
             continue;
           }
           if (

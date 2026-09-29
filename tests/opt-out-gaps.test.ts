@@ -24,6 +24,17 @@ describe("opt-out: pedidos de parar", () => {
     "não quero receber nenhuma mensagem",
     "chega de tanta mensagem",
     "chega de propaganda",
+    // Courtesy or a complaint around the refusal is still only the refusal (2026-09-29, grafo §31).
+    "Não quero mais ofertas, obrigada",
+    "Não quero receber mais mensagens de vocês, que saco",
+    "Chega de mensagem, que chato!",
+    // "Não para de mandar" is the complaint, as it read until 2026-09-28.
+    "Vocês não para de mandar mensagem, que saco",
+    "Não para de me mandar mensagem, que chato!",
+    "Essa loja não para de mandar mensagem",
+    "Vocês não param de mandar mensagem",
+    "Não para de mandar mensagem, não gosto disso",
+    "Não para de me mandar mensagem, boa noite",
   ])("%s para a agente", (text) => {
     expect(classifyOptOut(text)).toBe("explicit");
   });
@@ -48,7 +59,35 @@ describe("opt-out: pedidos de parar", () => {
     "a mensagem chega de manhã?",
     "essa promoção chega de quando?",
     "não quero mais pagar caro, tem promoção?",
+    // Refusing the upsell, or the carrier, inside a purchase (2026-09-29, grafo §31): terminal
+    // `bloqueado` for a buyer. The refusal is an allow-list now, not the purchase a deny-list.
+    "Não quero mais oferta de kit, quero só 1.",
+    "Não, não quero mais oferta, só uma peça mesmo.",
+    "Não quero mais ofertas, obrigada, vou ficar só com o de 1.",
+    "Não quero mais promoção, pode mandar o link do de 1.",
+    "Chega de promoção, me manda o link logo.",
+    "Não quero receber nada pelo correio, prefiro retirar.",
+    "Não quero receber nada na entrega sem conferir.",
+    // The negated "não para de mandar" beside a liking she says.
+    "Não para de mandar não, tô gostando",
+    "Não para de mandar, quero ver as promoções",
+    "Eles param de mandar se eu pedir?",
   ])("controle de negação: %s continua none", (text) => {
     expect(classifyOptOut(text)).toBe("none");
+  });
+});
+
+/** The allow-list is an exception to a terminal action, so it gets its generator (both ways). */
+describe("opt-out: gerador de recusa × resto da mensagem", () => {
+  const REFUSALS = ["Não quero mais promoção", "Não quero mais oferta", "Não quero receber mais mensagens", "Chega de mensagem", "Chega de promoção", "Não quero receber nada", "Não quero receber nenhuma oferta"];
+  const BARE = ["", ".", "!", ", obrigada", ", por favor", ", que saco", " de vocês", ", chega", ", tá?"];
+  const BUYING = [", quero só 1", ", só uma peça", ", vou ficar com o M", ", pode mandar o link", ", me manda o pix", ", quero fechar", ", fico com o de 2", ", só o colete", " de kit, quero o G", " pelo correio", ", só quero saber do meu pedido", ", quando chega?"];
+  it(`${REFUSALS.length * BARE.length} recusas sozinhas param a agente`, () => {
+    const read = REFUSALS.flatMap((r) => BARE.map((b) => r + b)).filter((m) => classifyOptOut(m) !== "explicit");
+    expect(read).toEqual([]);
+  });
+  it(`${REFUSALS.length * BUYING.length} recusas numa compra não bloqueiam a compradora`, () => {
+    const read = REFUSALS.flatMap((r) => BUYING.map((b) => r + b)).filter((m) => classifyOptOut(m) !== "none");
+    expect(read).toEqual([]);
   });
 });

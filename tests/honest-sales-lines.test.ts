@@ -60,6 +60,12 @@ const HONEST: Array<{ text: string; paths: readonly Path[] }> = [
   { text: "Pagando na entrega o frete é grátis. No antecipado a garantia também é de 7 dias.", paths: BOTH },
   { text: "Pagando na entrega o frete é grátis, e você também tem 7 dias pra trocar.", paths: BOTH },
   { text: "No pix o frete não é igual ao da entrega: ele é calculado no checkout.", paths: BOTH },
+  // Vetadas até 2026-09-29 (grafo §31): o pix da outra oração, "na hora que receber", "só os R$".
+  { text: "Pagando na entrega o frete é grátis; no pix você ganha 10% de desconto.", paths: BOTH },
+  { text: "Na entrega o frete é grátis, e no pix você ganha 10% de desconto.", paths: BOTH },
+  { text: "Entrega grátis pagando na hora que receber.", paths: BOTH },
+  { text: "O frete é grátis, você paga só os R$ 129,90 na entrega.", paths: BOTH },
+  { text: "Pagando na entrega, em dinheiro ou cartão, o frete é grátis.", paths: BOTH },
   // Desconto do antecipado e dos kits.
   { text: "No antecipado você tem 10% de desconto: sai R$ 116,91.", paths: BOTH },
   { text: "10% de desconto: R$ 116,91 no antecipado.", paths: BOTH },
@@ -108,6 +114,8 @@ const EXCHANGE_HONEST = [
   "Pra trocar pelo tamanho certo, você tem 7 dias após o recebimento.",
   "Você tem até 7 dias pra devolver o tamanho errado.",
   "Você tem uma semana pra trocar o tamanho, contando de quando recebeu.",
+  // The 5 is the prepaid average, in a clause of its own (grafo §28), and stays passing (§31).
+  "Você tem 7 dias de garantia, e a média do antecipado é de 5 dias, tá?",
 ];
 const EXCHANGE_LIES: Array<[string, string]> = [
   ["Chega em até 7 dias.", "delivery_promise"],
@@ -122,6 +130,13 @@ const EXCHANGE_LIES: Array<[string, string]> = [
   ["Tem 7 dias pra trocar, e o seu tamanho tá aí.", "unverified_size"],
   ["Você tem 7 dias pra trocar o tamanho que está em estoque.", "unverified_size"],
   ["Tem pra troca no seu tamanho.", "unverified_size"],
+  // "Em média" and a path before the number, the return after it (2026-09-29, grafo §31): the clause
+  // the warranty gate read stopped at the number and never saw "trocar".
+  ["Na entrega em média você tem 3 dias de garantia.", "warranty_promise"],
+  ["Na entrega em média você tem 3 dias pra trocar.", "warranty_promise"],
+  ["No pix em média você tem 5 dias pra trocar.", "warranty_promise"],
+  ["Pagando no pix em média você tem 5 dias pra devolver.", "warranty_promise"],
+  ["Na entrega em média são 3 dias pra trocar de tamanho.", "warranty_promise"],
 ];
 describe.each(Object.entries(configs))("a janela de troca, nos dois sentidos (%s)", (_name, config) => {
   it.each(EXCHANGE_HONEST)("passa: %s", (text) => {
@@ -288,6 +303,9 @@ const KIT_AND_ONLY_LIES = [
   "Levando 2 peças na entrega o frete também é grátis nos dois pagamentos.",
   "No kit de 2 peças pagando na entrega ou antes o frete também é grátis.",
   "No kit de 2 peças pagando na entrega o frete é grátis, e no site o frete também.",
+  // The kit more than 40 characters behind "também" is not the one the mutation reaches (grafo §31).
+  "Kit de 2 na entrega é grátis, e no site o frete também.",
+  "2 peças na entrega, e no site também é grátis o frete.",
 ];
 describe.each(Object.entries(configs))("'só' do preço e 'também' do kit (%s)", (_name, config) => {
   it.each(KIT_AND_ONLY_HONEST)("passa: %s", (text) => {
@@ -314,6 +332,96 @@ describe.each(Object.entries(configs))("gerador: 'também' do kit × caminho (%s
   );
   it(`${lies.length} kits com 'também' fora da entrega ou sem ela, todos vetados`, () => {
     expect(lies.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+});
+
+/**
+ * Fourth review (2026-09-29, grafo §31): the free claim reached past the delivery in shapes
+ * `BEYOND_COD` did not list — the other payment before "ou na entrega", "tanto … quanto", "também"
+ * closing the clause after another payment, "igual", "todos os pagamentos" — and in payment verbs it
+ * never read ("pagando por cartão", "pela internet", "na hora do pedido"). Every payment verb of the
+ * sentence is now held to the delivery's (`COD_PAY`, an allow-list), so the generator crosses the
+ * shapes with payments the gate names nowhere.
+ */
+const REVIEW4_LIES = [
+  "Antes ou na entrega, o frete é grátis.",
+  "Tanto antes quanto na entrega, o frete é grátis.",
+  "Seja agora ou na entrega, o frete é grátis.",
+  "Pagando por cartão de crédito ou na entrega, o frete é grátis.",
+  "Com pagamento por cartão ou na entrega, o frete é grátis.",
+  "Pagando na entrega o frete é grátis, e pagando pela internet também.",
+  "Pagando na entrega o frete é grátis, e pagando pelo celular também.",
+  "Pagando na entrega o frete é grátis, e pagando pela Coinzz também.",
+  "Pagando na entrega o frete é grátis, e pagando na hora do pedido também.",
+  "Pagando na entrega o frete é grátis, e pagando por cartão de crédito também.",
+  "Pagando na entrega o frete é grátis, igual pagando por cartão.",
+  "Pagando na entrega o frete é grátis, e vale pra todos os pagamentos.",
+  "Pagando na entrega o frete é grátis, e na compra pelo site é igual.",
+  "Frete grátis pagando na entrega. Por cartão também.",
+  "Frete grátis pagando na entrega. E por cartão? Também!",
+  "Frete grátis pagando na entrega. Pagando por cartão, também.",
+  "Pagando na entrega o frete é grátis, e antes também.",
+  "Pagando na entrega o frete é grátis em todas as formas.",
+  // A payment verb that is not the door's, with no "ou", "também" or "igual" to give it away.
+  "Frete grátis na entrega pagando pela internet.",
+  "Pagando pelo aplicativo, na entrega o frete é grátis.",
+  // The prepaid discount's own clause is read apart only while it says nothing of the freight.
+  "Na entrega o frete é grátis, e no pix você ganha 10% de desconto também.",
+  "Na entrega o frete é grátis, e no pix você ganha 10% de desconto e o frete também.",
+  "Na entrega o frete é grátis, e no pix você ganha 10% de desconto e não paga o envio.",
+  "Pagando na entrega o frete é grátis; no pix também.",
+];
+const OTHER_PAYMENTS = [
+  "antes",
+  "agora",
+  "pagando antes",
+  "por cartão",
+  "pagando por cartão de crédito",
+  "com pagamento por cartão",
+  "pela internet",
+  "pagando pela internet",
+  "pagando pelo celular",
+  "pagando pelo aplicativo",
+  "pagando pela Coinzz",
+  "pagando na hora do pedido",
+  "pelo site",
+  "no pix",
+];
+/** Payment verbs the gate names nowhere: only the allow-list of the door's own verb catches them. */
+const OTHER_PAY_VERBS = ["pagando por cartão", "pagando pela internet", "pagando pelo celular", "pagando pelo aplicativo", "pagando na hora do pedido", "pagando pela Coinzz", "com pagamento por cartão", "pagando de outro jeito"];
+describe.each(Object.entries(configs))("gerador: outro pagamento × forma de alcançar (%s)", (_name, config) => {
+  it.each(REVIEW4_LIES)("veta pelo frete: %s", (text) => {
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toMatchObject({ paymentPath, blocked: expect.arrayContaining(["shipping_promise"]) });
+  });
+  const lies = CLAIMS.flatMap((claim) =>
+    COD_ANCHORS.flatMap((anchor) => [
+      `${cap(anchor)} ${claim}, e vale pra todos os pagamentos.`,
+      ...OTHER_PAYMENTS.flatMap((other) => [
+        `${cap(other)} ou ${anchor}, ${claim}.`,
+        `Tanto ${other} quanto ${anchor}, ${claim}.`,
+        `Seja ${other} ou ${anchor}, ${claim}.`,
+        `${cap(anchor)} ${claim}, e ${other} também.`,
+        `${cap(anchor)} ${claim}, igual ${other}.`,
+        `${cap(claim)} ${anchor}. ${cap(other)} também.`,
+        `${cap(claim)} ${anchor}. E ${other}? Também!`,
+      ]),
+      ...OTHER_PAY_VERBS.flatMap((verb) => [`${cap(claim)} ${anchor} ${verb}.`, `${cap(verb)}, ${anchor} ${claim}.`]),
+    ]),
+  );
+  it(`${lies.length} promessas que alcançam outro pagamento, todas vetadas`, () => {
+    expect(lies.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+  const DISCOUNT = ["; no pix você ganha 10% de desconto", ", e no pix você ganha 10% de desconto", ", mas no antecipado tem 10% de desconto"];
+  const discountHonest = CLAIMS.flatMap((claim) => COD_ANCHORS.flatMap((anchor) => DISCOUNT.map((d) => `${cap(anchor)} ${claim}${d}.`)));
+  it(`${discountHonest.length} frases da entrega com o desconto do antecipado em oração própria, nenhuma vetada pelo frete`, () => {
+    expect(discountHonest.filter((text) => BOTH.some((p) => blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+  const DISCOUNT_TAILS = [" também", " e o frete também", " e o frete é grátis", " e não paga o envio", " e frete grátis", " e a entrega sai de graça", ", também"];
+  const discountLies = CLAIMS.flatMap((claim) =>
+    COD_ANCHORS.flatMap((anchor) => DISCOUNT.flatMap((d) => DISCOUNT_TAILS.map((tail) => `${cap(anchor)} ${claim}${d}${tail}.`))),
+  );
+  it(`${discountLies.length} frases em que a oração do desconto leva o frete junto, todas vetadas`, () => {
+    expect(discountLies.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
   });
 });
 

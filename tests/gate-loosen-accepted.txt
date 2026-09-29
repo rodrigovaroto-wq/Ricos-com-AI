@@ -131,3 +131,10 @@ R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparec
 # §30 (grafo): "também" next to the freight, with a kit ("kit", "peças") named in its clause before it, is the kit's on the same delivery path. "Também no/pelo/com …" still reaches past the delivery; no kit, a comma, a prepaid cue or an alternative keeps the veto (generator in honest-sales-lines).
 §30 | shipping_promise | No kit de 2 peças pagando na entrega o frete também é grátis.
 §30 | shipping_promise | Levando 2 peças pagando na entrega o frete é grátis também.
+# §31 (grafo): the prepaid discount in a clause of its own (after ";" or ", e / , mas"), with nothing of the freight, the delivery, "também", "igual" or every payment in it, is read apart from the free claim. "…grátis, e no pix também", "…desconto também", "…desconto e o frete também", "…e não paga o envio" stay vetoed (generator in honest-sales-lines).
+§31 | shipping_promise | Pagando na entrega o frete é grátis; no pix você ganha 10% de desconto.
+§31 | shipping_promise | Na entrega o frete é grátis, e no pix você ganha 10% de desconto.
+# §31 (grafo): "pagando na hora que receber" names paying on receipt, as "quando receber" already did (`PAID_ON_RECEIPT`).
+§31 | shipping_promise | Entrega grátis pagando na hora que receber.
+# R15.3, sentence added to the corpus on §31: cash on delivery is paid "em dinheiro ou cartão" at the door (prompt), so the card named that way is not the prepaid path; passes at dd530a7 as well.
+R15.3 | shipping_promise | Pagando na entrega, em dinheiro ou cartão, o frete é grátis.
