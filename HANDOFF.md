@@ -40,52 +40,129 @@ guarda é descartada; só o status importa). As 4 rodaram verdes sob `CI=true GI
 1. CI verde no `4700903` (a etapa `verificar:guardas` leva ~30 min no runner) → **O** faz merge.
 
 ### Tarefa 2 — revisão de riscos do PR #39 (NÃO FEITA; pedida pelo operador em 2026-09-29)
-Nesta sessão só se diagnosticou o CI vermelho e se conferiu o PR contra o HANDOFF. **Ninguém
-procurou o que o PR pode quebrar.** O PR mexe em gate, régua, selo do webhook, opt-in e ciclo do
-pedido (3,5 mil linhas, 32 arquivos, 16 commits, feito em outra sessão). Fazer, em execução real
-(o harness de PostgREST falso da sessão anterior serve) e não só lendo o diff:
-1. Pedido: `chasesSilence`/`orderTouchDue` × `onOrderConfirmed`, `recordOrder`, `furthest` — pedido
-   morto, entregue, dois pedidos no mesmo lead, webhook fora de ordem, `created_at` sem o
-   `created_at` do webhook.
-2. Gate: cada frase honesta que o prompt ensina ainda passa (`tests/prompt.test.ts`), e a
-   `pnpm dev:gates` do PR contra o `main` — cada afrouxamento em `gate-loosen-accepted.txt` tem
-   motivo escrito? Desempenho do pior caso no runner do CI, não só local.
-3. Opt-in/selo: `reply.id` no selo × n8n × as três cópias de `inbound-signature.ts`; flag ausente =
-   desligado em todos os caminhos (turno, varredura, gate de template).
-4. `codFreeShipping`: ausente lê "grátis na entrega" — conferir o que o secret de produção tem
-   escrito (`freeShipping`), e que prompt, gate e `config/business.example.json` dizem a mesma coisa.
-5. Espelho `src/agent` ↔ `supabase/functions/turn` byte a byte; `pnpm typecheck:function`.
-6. Migrações/n8n: nada do PR exige migração nova; os workflows do repositório ainda diferem dos
-   ativos até o operador importar (`pnpm dev:n8n`).
-Cético, sem se enviesar; achado com causa raiz antes de conserto.
+**Como executar (sem deliberar):** siga os passos na ordem. Nada de conserto durante a revisão:
+cada achado vira uma linha na tabela do passo 8. Só depois o operador escolhe o que consertar.
+Regras que valem: causa raiz antes de conserto (`.claude/memory/diagnostico-antes-de-consertar.md`),
+não procurar erro que não existe, não se enviesar. Gate/prompt/banco → agente `code-reviewer` com
+`model: "opus"`. Só o `orchestrator`/sessão principal commita.
+
+0. **Base:** se o PR #39 já foi mergeado, `git fetch origin && git checkout -B claude/review-pr39 origin/main`.
+   Se não, revise a cabeça dele (`git checkout claude/great-planck-48ozds`). Rodar, e anotar o resultado:
+   `pnpm install && pnpm lint && pnpm typecheck && pnpm test && pnpm dev:conversas`, e
+   `export PATH=$HOME/.deno/bin:$PATH DENO_CERT=/root/.ccr/ca-bundle.crt && pnpm typecheck:function`.
+   Baseline verde = ponto de partida; se algo já vier vermelho, isso é o primeiro achado.
+1. **Escopo real do diff:** `git diff --stat c1c0cdf..HEAD` (c1c0cdf = `main` antes do PR). Ler o
+   diff **arquivo por arquivo** nestes, que são os de risco: `src/agent/guardrails.ts`,
+   `src/agent/followups.ts`, `src/agent/state-machine.ts`, `src/agent/prompt.ts`,
+   `supabase/functions/turn/index.ts`, `supabase/functions/whatsapp/index.ts`,
+   `src/channel/whatsapp.ts`, `n8n/workflows/*.json`, `config/business.example.json`.
+   Os testes/mutações só entram para saber o que já está guardado.
+2. **Espelho e tipos:** `pnpm vitest run tests/function-drift.test.ts` (espelho byte a byte
+   `src/agent` ↔ `supabase/functions/turn`); `diff` das três cópias de `inbound-signature.ts`
+   (`grep -rl "inbound-signature" src supabase`). Divergência = achado crítico.
+3. **Ciclo do pedido** (`followups.ts`: `orderTouchDue` l.~299, `chasesSilence` l.~310,
+   `onOrderConfirmed`, `orderTakeOver`; `state-machine.ts`: `furthest`, `stageForOrder`;
+   `index.ts`: `recordOrder`, `scheduleSilenceTouches`, `sweepRow`). Montar e **executar** (teste
+   novo em `tests/order-stage.test.ts` ou script `tsx` descartável, não commitar o descartável)
+   estes cenários e registrar o resultado real, não o esperado:
+   a. compra → cliente escreve de novo: nenhum `silence_*` nem `checkout_reminder` agendado;
+   b. pedido `Entregue` chega: cancela `order_confirmed/shipped/eve` pendentes, arma só `order_delivered`;
+   c. webhook `Cancelado` antes de `Em rota`: estágio termina `recusado`, não `perdido`;
+   d. pedido cancelado e depois webhook atrasado `Em rota`: continua morto;
+   e. dois pedidos no mesmo lead (um morto, um vivo): a régua segue o vivo;
+   f. mesmo webhook duas vezes (idempotência) e webhook fora de ordem;
+   g. lead `perdido` (silence_3) que compra depois: estágio volta a `pedido_criado`.
+4. **Gate de frete (R15.3) e afrouxamentos:** `git fetch origin main && pnpm dev:gates` (sem
+   `--fail-on-loosen`, para VER a lista). Para cada linha nova de `tests/gate-loosen-accepted.txt`
+   no diff: existe motivo escrito no grafo (§27–§33)? A frase é mesmo verdade da operação?
+   Depois rodar as sondas de mentira à mão contra `runGates` (via um teste descartável): "frete
+   grátis" sem caminho; "no pix também é grátis"; "sem frete no pix"; "o frete é grátis" com
+   `paymentPath: "prepay"`; kit de 2/3 peças com a frase canônica; a frase canônica seguida de
+   outra frase. Todas as de mentira têm de vetar, as honestas de `tests/honest-sales-lines.test.ts`
+   têm de passar.
+5. **Desempenho do gate:** `tests/guardrails.test.ts` tem o teto de 16 mil caracteres; medir o pior
+   caso em `runGates` com texto degenerado (`"a ".repeat(8000)`, `"grátis na entrega. ".repeat(800)`,
+   `"não ".repeat(5000)`). Mais de 2 s = achado (a Edge Function tem limite de CPU).
+6. **Opt-in/selo/n8n:** ler `n8n/workflows/turno-da-agente.json` nos nós "Cerebro do turno" e
+   "Resposta de verdade" (têm de repassar `reply`); `pnpm dev:n8n` **não** roda aqui sem a chave do
+   n8n — se não rodar, só listar. Confirmar que com `channel.askMarketingOptIn` **ausente** nada de
+   opt-in é lido, escrito ou perguntado (turno, varredura e `deliveryFor`).
+7. **Config e produção:** `config/business.example.json` × prompt × gate dizem a mesma coisa sobre
+   `freeShipping`/`codFreeShipping`. Conferir o secret real sem imprimir segredo: pedir ao operador
+   se `BUSINESS_CONFIG` tem `freeShipping: true` escrito (isso vira "grátis nos dois caminhos").
+   Migrações do PR: nenhuma nova; 0017/0018/0019 já estão aplicadas.
+8. **Saída:** `docs/agente-ia/08-mudancas/revisao-pr39.md` com a tabela `# | severidade
+   (crítico/alto/médio/baixo) | onde (arquivo:linha) | o que acontece (cenário concreto, entrada →
+   saída) | causa raiz | correção proposta`. Achado sem cenário reproduzido não entra (é palpite).
+   Depois: uma linha no `HANDOFF.md` com a contagem por severidade, e registro no grafo.
 
 ### Tarefa 3 — cruzar o agente com toda a documentação (depois do merge do #39; pedida em 2026-09-29)
-Objetivo: achar divergência que faça o agente **mentir** (dizer o que a operação não cumpre) ou
-**render menos** (não usar recurso que existe; usar recurso que não existe). Não é para consertar
-no meio; primeiro o inventário, depois o operador decide cada divergência.
-1. **Lado do agente (o que ele diz e pode dizer):** `src/agent/prompt.ts` e o que ele lê do
-   `BUSINESS_CONFIG`; base de conhecimento `docs/agente-ia/01-conhecimento/`; script
-   `06-script/`; textos da régua e dos templates (`followups.ts`, `config/business.example.json`
-   `channel.templates`); gates e o briefing de cada um (`guardrails.ts`); mensagens de
-   fallback/handoff; o que o operador recebe no e-mail de handoff.
-2. **Lado da verdade (documentação):** `docs/documentacao/contexto-negocio/` (decisões firmes,
-   `05-decisoes-firmes.md`), `decisoes/03-decisoes-tomadas.md` e o grafo `04`, `docs/agente-ia/`
-   inteiro (plano, economia, lacunas), `docs/operacao/`, `docs/agente-ia/08-mudancas/registro.md`,
-   `.claude/memory/`, o `HANDOFF.md`, e o que o operador declarou nas conversas.
-3. **Cruzar por tema, uma tabela por tema (agente diz × documento diz × fonte/data):** preço e
-   kits, frete por caminho de pagamento, prazo de entrega, praças atendidas (as 22 do COD),
-   garantia/troca/devolução (CDC), pagamento (pix, cartão, parcelas, taxa do Mercado Pago),
-   tamanhos e tabela de medidas, claims de produto (apelo de corpo/saúde), identidade (é IA?),
-   horário de atendimento, suporte, régua e cupom, opt-in de marketing, retenção (LGPD).
-4. **Duas classes de achado:** (a) **mentira** — o agente afirma algo que a documentação contradiz
-   ou não sustenta; (b) **recurso ocioso ou fantasma** — existe na operação/config e o agente não
-   usa (ex.: `kits`, `delivery.expressActive`, `support.email`), ou o agente cita algo que não
-   existe. Cada achado: arquivo:linha dos dois lados, gravidade, correção proposta.
-5. **Saída:** relatório no repositório (`docs/agente-ia/`), divergências decididas pelo operador,
-   correção com o teste que a guarda (`tests/prompt.test.ts` prova que toda frase ensinada passa
-   a cadeia de gates) e registro no grafo. Correção de gate/prompt passa por revisão Opus.
-6. Uma divergência que só o operador sabe resolver (preço, prazo, política) vira pergunta a ele,
-   nunca escolha silenciosa.
+**Objetivo:** achar divergência que faça o agente **mentir** (afirma o que a operação não cumpre) ou
+**render menos** (não usa recurso que existe; usa recurso que não existe). **Fase 1 só inventaria;
+nada é consertado até o operador decidir cada divergência (Fase 3).** Base: `main` já com o #39.
+
+**Fase 1 — extrair o que o agente sabe e diz (arquivos prontos para diffar):**
+1. Criar `docs/agente-ia/09-cruzamento/` (pasta nova) para os artefatos.
+2. Prompt de produção por caminho: escrever `scripts/dump-prompt.ts` **descartável (não commitar)**
+   que importe `systemPrompt` de `src/agent/prompt.ts` e `gateBriefing` de `src/agent/guardrails.ts`,
+   leia `config/business.example.json` (espelho do `BUSINESS_CONFIG`) e grave o texto em
+   `09-cruzamento/prompt-cod.txt` e `prompt-prepay.txt` (`systemPrompt(cfg, gateBriefing(cfg), null)`;
+   a versão de produção acrescenta as diretivas de `supabase/functions/turn/index.ts` — `systemPrompt`
+   local ~l.2828, `OPT_OUT_FAREWELL_DIRECTIVE` ~l.1983 — listar essas diretivas à parte).
+3. Regras dos gates: `gateBriefing(cfg)` em `09-cruzamento/gate-briefing.txt`; e a lista de gates
+   (`grep -n "gate:" src/agent/guardrails.ts`) com o que cada um veta.
+4. Textos que saem sem modelo: régua/templates (`renderFollowup`, `deliveryFor` em
+   `src/agent/followups.ts`; `channel.templates` em `config/business.example.json`), fallback e
+   handoff (`grep -n "FALLBACK\|handoff" supabase/functions/turn/index.ts`), e-mail de handoff.
+5. Números e fatos do config: todo valor de `config/business.example.json` (preços, kits, frete,
+   prazos, praças, garantia, suporte, `expressActive`, `satisfiedCustomers`, `physicalStorePlanCity`).
+
+**Fase 2 — extrair a verdade e cruzar, um tema por vez.** Para cada tema abaixo, uma tabela em
+`09-cruzamento/divergencias.md` com colunas: `tema | o agente diz (arquivo:linha) | a documentação
+diz (arquivo:linha, data) | veredito (igual / mentira / recurso ocioso / recurso fantasma / doc
+desatualizada) | gravidade`. Fontes da verdade **em ordem de precedência** (a mais recente e mais
+firme vence; conflito entre docs também é achado): (1) `docs/documentacao/contexto-negocio/05-decisoes-firmes.md`,
+(2) `docs/documentacao/decisoes/03-decisoes-tomadas.md` (as rodadas mais novas por último),
+(3) `docs/documentacao/contexto-negocio/01–03,06`, (4) `docs/agente-ia/01-conhecimento/01-base-de-conhecimento.md`
+e `02-tabela-de-medidas.md`, (5) `docs/agente-ia/06-script/02-script-do-agente.md` e
+`03-templates-meta.md`, (6) `docs/agente-ia/02-especificacao/*` e `07-cobertura/*`,
+(7) `docs/agente-ia/08-mudancas/registro.md`, `docs/documentacao/decisoes/04-grafo-de-decisoes.md`,
+(8) `docs/operacao/*`, (9) `.claude/memory/*` e o `HANDOFF.md`.
+Temas, nesta ordem (grep sugerido entre parênteses, rodar em `docs/` e em `src/agent/prompt.ts`):
+1. Preço: 1/2/3 peças, entrega × antecipado, desconto % (`R\$|129|116|233|311|207|272`).
+2. Frete por caminho de pagamento (`frete`, `codFreeShipping`; a decisão R15.3 de 2026-09-28).
+3. Prazo de entrega, janela do antecipado, horário de corte (`prazo|dias úteis|entrega em`).
+4. Praças atendidas / COD: as 22 cidades, cobertura por CEP (`07-cobertura`, `availability.ts`).
+5. Garantia, troca, devolução, arrependimento (CDC) (`garantia|troca|devol|7 dias`).
+6. Pagamento: pix, cartão, parcelas, taxa do Mercado Pago, antifraude não cobrado (`parcel|pix|cart`).
+7. Tamanho e medidas: tabela, degrau, kit (`02-tabela-de-medidas.md` × `sizing.ts`).
+8. Claims de produto e apelo de corpo/saúde, prova social, escassez (`satisfiedCustomers|últimas`).
+9. Identidade (é IA?), handoff para humano, horário de atendimento, canal de suporte.
+10. Régua: quantos toques, quando, cupom, checkout em 15 min, o que é template × texto livre.
+11. Opt-in de marketing, retenção de 90 dias (LGPD), o que o agente diz sobre dados.
+12. Canal: WhatsApp Cloud API (o agente ainda cita WAHA/sessão/pacing?), Hermes (nunca no turno).
+13. Provedor de modelo: só a Meta (o prompt/docs ainda citam OpenAI/Gemini?).
+Duas classes de achado a procurar ativamente: **(a) mentira** = o agente pode afirmar X e a
+documentação diz não-X ou não sustenta X; **(b) ocioso/fantasma** = recurso existe no
+config/operação e o prompt não o ensina (`kits`, `expressActive`, `support.email`, `prepayMaxInstallments`,
+cobertura por CEP), ou o prompt cita recurso que não existe (cupom sem cupom cadastrado, "chamei
+alguém" sem handoff, frete grátis no antecipado). Para cada "mentira", **escrever a frase exata
+que o agente poderia dizer** e passá-la por `runGates` (teste descartável): se passa a cadeia,
+é furo real; se veta, é só divergência de texto.
+
+**Fase 3 — decisão e correção (só com o operador):**
+1. Apresentar `divergencias.md` ao operador, agrupado por gravidade, com **uma pergunta objetiva por
+   divergência que só ele resolve** (preço, prazo, política). Nunca escolher em silêncio.
+2. Consertar só o aprovado, sempre pelo dono da verdade: dado de negócio → `config/business.json`
+   (opcional, ausente = verdade de hoje); prompt → `src/agent/prompt.ts` lendo o config; gate →
+   `guardrails.ts`; doc desatualizada → corrigir o doc (`technical-writer`). Todo conserto de
+   `src/agent` espelha em `supabase/functions/turn/` byte a byte.
+3. Toda correção com o teste que a guarda: `tests/prompt.test.ts` (o prompt ensina só frase que
+   passa a cadeia), `pnpm dev:gates --fail-on-loosen`, `pnpm verificar:guardas` (mutação nova em
+   `src/dev/verify-guards.ts`), e registro no grafo. Bateria: lint, typecheck, test, dev:conversas,
+   typecheck:function. Gate/prompt vai para revisão Opus antes de commitar.
+4. Entrega: relatório final em `09-cruzamento/`, contagem por classe no `HANDOFF.md`. Não publicar a
+   `turn` (isso é do operador).
 
 ### Depois do merge (ordem obrigatória)
 1. **O importa no n8n:** `turno-da-agente.json` (com `reply`), `relogio-da-regua.json` (ramo de
