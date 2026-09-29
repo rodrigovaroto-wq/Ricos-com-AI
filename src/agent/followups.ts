@@ -324,9 +324,21 @@ export const isOrderDead = (status: string | undefined): boolean =>
  * the order back on its way: `onOrderConfirmed` re-armed confirmation, shipping and eve, and
  * the sweep sent "sua entrega está marcada pra amanhã" after the parcel had arrived.
  */
-export const orderStatusAfter = (stored: string | null | undefined, incoming: string): string =>
-  stageForOrder(stored ?? undefined) === "entregue_pago" && !isOrderDead(incoming) ? stored! :
-  isOrderDead(stored ?? undefined) && !isOrderDead(incoming) ? stored! : incoming;
+const ORDER_RANK = { pedido_criado: 0, em_rota: 1, entregue_pago: 2 } as const;
+export const orderStatusAfter = (stored: string | null | undefined, incoming: string): string => {
+  if (isOrderDead(stored ?? undefined) && !isOrderDead(incoming)) return stored!;
+  // A late earlier status never walks the order back — delivered stays delivered, on its way stays on
+  // its way ("Em rota" then a late "created" wrote "created", independent review, finding 19). A dead
+  // status may still arrive after any of them ("Devolvido" after delivery), and a status that reads as
+  // no stage ("Não entregue", a failed attempt) is recorded as it came.
+  const was = stageForOrder(stored ?? undefined);
+  const now = stageForOrder(incoming);
+  // Delivered is final for anything but death — "Não entregue" after "Entregue" included.
+  if (stored != null && was === "entregue_pago" && !isOrderDead(incoming)) return stored;
+  if (stored != null && was !== null && now !== null && was !== "recusado" && now !== "recusado" && ORDER_RANK[now] < ORDER_RANK[was])
+    return stored;
+  return incoming;
+};
 
 /**
  * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
@@ -345,7 +357,7 @@ export const stageForOrder = (
   const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
   if (isOrderDead(s)) return "recusado";
-  if (/\bentregue\s+(?:(?:a|ao|aos|as|para|pra)\s+)+(?:transportador|correio)/.test(s)) return "em_rota";
+  if (/\bentregue\s+(?:(?:a|ao|aos|as|o|os|para|pra|pro|pros)\s+)+(?:transportador|correio)/.test(s)) return "em_rota";
   if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
   if (/\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid/.test(s)) return "em_rota";
   return "pedido_criado";
@@ -720,7 +732,10 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       const weekday = localWeekday(now);
       return (
         `**Super ${weekday}!** 🎉 Separei um cupom de **${ctx.config.coupon.percent}% de desconto** ` +
-        `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n` +
+        // Where she only has the prepaid path, "nos dois jeitos" names one she cannot use (R16.2).
+        (ctx.paymentPath === "prepay"
+          ? `pra você, e ele vale no pagamento antecipado.\n\n`
+          : `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n`) +
         `Se quiser, eu monto o pedido agora com o desconto já aplicado. E se não for o momento, ` +
         `tudo bem também — é só me falar que eu não te mando mais nada 💛`
       );
@@ -846,6 +861,8 @@ export const deliveryFor = (
   // The `silence_2` template is the delivery path's text ("só paga ao entregador"): on the
   // prepaid path there is no template, so the touch is blocked rather than sent that one (D3).
   if (kind === "silence_2" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
+  // Same for the coupon: its template says "nos dois jeitos: pagando na entrega ou antecipado".
+  if (kind === "silence_3" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
 
   // One template per touch, and `body` is what it says — the text the sweep gates: `silence_2`
   // leaves as its first variant (R15.2), and a prepaid eve by its own template.

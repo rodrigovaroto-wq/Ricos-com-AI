@@ -104,14 +104,14 @@ const FREE_BY_PAYMENT = [
   "Nem precisa perguntar, no pix é grátis.",
   "No pix não tem taxa e é grátis.",
 ];
-/** The honest neighbours: the denial of the free, and the exchange and return, free on both paths. */
+/** The honest neighbours: the denial of the free, and the exchange and return, free on both paths (grafo §9, R16.3). */
 const FREE_BY_PAYMENT_HONEST = [
   "No pix não tem frete grátis, ele é calculado no checkout.",
   "No pix o frete não é grátis.",
   "No pix não é grátis.",
-  "No pix a troca é grátis.",
   "No pix, se não servir, a devolução não tem custo nenhum pra você.",
   "No antecipado a devolução é sem custo pra você.",
+  "No pix a troca é grátis.",
   "Pagando no pix ou na entrega, a troca de tamanho é grátis.",
 ];
 describe.each(Object.entries(ALL))("achado 4: grátis sem a palavra frete, no outro pagamento (%s)", (_name, config) => {
@@ -172,6 +172,26 @@ const DOOR_PAYMENT = [
   "Não se preocupe, você paga na entrega.",
   "Fica tranquila, não tem pegadinha: você paga só quando receber.",
   "No pix não tem taxa, e você paga pro entregador.",
+  // What the first version let through (independent review, finding 6).
+  "Pagamento só na entrega.",
+  "Paga em dinheiro na entrega.",
+  "Você só paga no recebimento.",
+  "Pague ao receber.",
+  "Paga só depois de receber.",
+  "Você paga na hora que receber.",
+  "Você acerta com o entregador.",
+  "O pagamento fica pra quando o colete chegar.",
+  "Você não paga nada hoje.",
+  "Não tem que pagar nada antes.",
+];
+/**
+ * Conditioned on the delivery: true about that path on a prepaid order's touches, a lie where delivery
+ * does not reach her (independent review, finding 7).
+ */
+const COD_CONDITIONED = [
+  C,
+  "No pagamento na entrega ela não paga nada agora e tem 7 dias após o recebimento pra devolver.",
+  "Pagando na entrega fica mais fácil, você paga quando receber.",
 ];
 const PREPAID_HONEST = [
   "Aqui o pagamento na entrega não chega, então é pelo antecipado.",
@@ -180,9 +200,12 @@ const PREPAID_HONEST = [
   "No antecipado você não paga na entrega: paga antes, no checkout.",
   "No antecipado não dá pra pagar na entrega.",
   "No seu CEP não tem pagamento na entrega, só o antecipado.",
-  // The delivery path named as the condition: true about that path (grafo §33).
-  C,
-  "No pagamento na entrega ela não paga nada agora e tem 7 dias após o recebimento pra devolver.",
+  // The predicate denied after it (independent review, finding 16).
+  "Pagar na entrega não está disponível no seu CEP.",
+  "Pagar na entrega, infelizmente, não dá no seu CEP.",
+  "O pagamento na entrega não chega aí, então é pelo antecipado.",
+  // Paying and receiving in one sentence, but paying first.
+  "No antecipado você paga antes e recebe em média 5 dias úteis.",
 ];
 /**
  * Where she chose prepaid but delivery reaches her, naming the delivery is the other true option:
@@ -203,6 +226,10 @@ describe.each(Object.entries(ALL))("decisão de 2026-09-29: sem entrega na praç
   });
   it.each(DELIVERY_AS_OPTION)("escolheu o antecipado onde a entrega chega: nomear a entrega passa: %s", (text) => {
     expect(blockedBy(text, config, "prepay")).not.toContain("charge_promise");
+    expect(blockedBy(text, config, "prepay", { codUnavailable: true })).toContain("charge_promise");
+  });
+  it.each(COD_CONDITIONED)("condicionada à entrega: passa no pós-venda do antecipado, veta sem entrega na praça: %s", (text) => {
+    expect(blockedBy(text, config, "prepay", { stage: "logistics" })).not.toContain("charge_promise");
     expect(blockedBy(text, config, "prepay", { codUnavailable: true })).toContain("charge_promise");
   });
   it.each(PREPAID_HONEST)("não veta pelo pagamento: %s", (text) => {
@@ -228,6 +255,12 @@ const TRY_BEFORE_PAYING = [
   "Não precisa ter medo: você pode experimentar antes de pagar.",
   "Não se preocupe, você veste e só depois paga.",
   "Você não precisa decidir agora e pode provar antes de pagar.",
+  // D4 itself, which the first version of this file listed as honest (independent review, finding 3).
+  "Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.",
+  // A negation of something else earlier in the clause (finding 2).
+  "Você recebe em casa sem precisar sair e prova antes de pagar.",
+  "Você recebe sem custo e experimenta antes de pagar.",
+  "Você não paga frete e prova antes de pagar.",
 ];
 const TRY_HONEST_COD = [
   "Você vê o colete antes de pagar, e se não for o que esperava não fica com ele.",
@@ -240,8 +273,8 @@ const TRY_HONEST = [
   "O entregador não espera você provar: você recebe, paga e tem 7 dias pra devolver.",
   "Você não pode experimentar antes de pagar, mas tem 7 dias pra devolver.",
   "Não dá pra provar antes de pagar, mas se não servir você devolve em 7 dias.",
-  "Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.",
   "O colete veste bem e você paga R$ 129,90.",
+  "O entregador não espera você provar antes de pagar, mas você tem 7 dias pra devolver.",
 ];
 describe.each(Object.entries(ALL))("decisão de 2026-09-29: ela não veste antes de pagar (%s)", (_name, config) => {
   it.each(TRY_BEFORE_PAYING)("veta nos dois caminhos: %s", (text) => {
@@ -256,4 +289,55 @@ describe.each(Object.entries(ALL))("decisão de 2026-09-29: ela não veste antes
   it("o briefing diz que o entregador não espera ela vestir", () => {
     expect(gateBriefing(config)[0]).toMatch(/entregador não espera/);
   });
+});
+
+/** The rest of the independent review of 2026-09-29, each lie with its honest neighbour. */
+describe.each(Object.entries(EXAMPLE))("revisão independente de 2026-09-29 (%s)", (_name, config) => {
+  it.each([
+    ["Posso garantir 30 dias pra você.", "warranty_promise"],
+    ["Consigo te garantir 30 dias.", "warranty_promise"],
+    ["Pra garantir, você tem 30 dias.", "warranty_promise"],
+    ["Você tem 30 dias garantidos pra trocar.", "warranty_promise"],
+    ["E no pix? É grátis também!", "shipping_promise"],
+    ["E no pix, o frete? É grátis também.", "shipping_promise"],
+    [`${C} No pix o frete é à parte? Não, também é grátis.`, "shipping_promise"],
+    [`${C} No pix também, pois o frete já vem calculado no preço.`, "shipping_promise"],
+    [`${C} No pix também, o frete é cobrado só na entrega.`, "shipping_promise"],
+    ["Tenho só 12 unidades.", "scarcity_claim"],
+    ["Temos apenas 12 peças.", "scarcity_claim"],
+    ["Sobram 12 unidades.", "scarcity_claim"],
+    ["Restando 12 unidades.", "scarcity_claim"],
+    ["Poucas unidades no estoque.", "scarcity_claim"],
+    ["O estoque tá acabando.", "scarcity_claim"],
+    ["O lote está quase esgotado.", "scarcity_claim"],
+    ["Esse preço vale só até hoje.", "scarcity_claim"],
+    ["Últimos dias da promoção!", "scarcity_claim"],
+    ["Ajuda na postura e alivia a dor nas costas.", "health_claim"],
+    ["Ele ajuda na postura e acaba com a dor lombar.", "health_claim"],
+  ] as const)("veta: %s", (text, gate) => {
+    for (const p of BOTH) expect(blockedBy(text, config, p)).toContain(gate);
+  });
+  it.each([
+    "Pode garantir o seu, e são 7 dias pra devolver.",
+    "E no pix? No pix o frete é calculado por região no checkout.",
+    "E na entrega? Na entrega o frete é grátis pra você, sem pegadinha.",
+    "Restam 2 tamanhos: G e GG.",
+    "Resta alguma dúvida?",
+    "O estoque não está acabando, fica tranquila.",
+    "Ele não alivia dor, ele ajuda na postura enquanto está vestido.",
+  ])("passa pelos gates desta revisão: %s", (text) => {
+    for (const p of BOTH) {
+      const blocked = blockedBy(text, config, p);
+      for (const g of ["warranty_promise", "scarcity_claim", "health_claim"]) expect(blocked).not.toContain(g);
+    }
+  });
+});
+
+it("revisão independente, achado 11: sem allowUnverified (fixture), 'Últimos dias' e 'Só tem 5 no G' vetam fora do adiamento", () => {
+  for (const text of ["Últimos dias da promoção!", "Últimas horas com esse preço.", "Só tem 5 no G."])
+    expect(blockedBy(text, fixture, "cod")).toContain("scarcity_claim");
+});
+
+it("revisão independente, achado 17: 'Resta 1 dia pra você devolver' não é estoque", () => {
+  for (const p of BOTH) expect(blockedBy("Resta 1 dia pra você devolver, se quiser.", example, p)).not.toContain("scarcity_claim");
 });

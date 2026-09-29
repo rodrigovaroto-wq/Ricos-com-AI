@@ -158,6 +158,7 @@ export interface ThinkConfig {
   prices: { prepayBrl: number; prepayDiscountPercent: number };
   delivery: { warrantyDays: number; prepayAvgDays?: number; prepayVariesByRegion?: boolean };
   scarcity?: { unitsLeft?: number | null } | null;
+  kits?: ReadonlyArray<{ path: "cod" | "prepay"; units: number; priceBrl: number; discountPercent: number }>;
 }
 
 const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
@@ -176,9 +177,14 @@ const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
  * through the whole gate chain with `postponing: true` — the only context where
  * `scarcity_claim` lets the stock through.
  */
-export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boolean): string => {
+export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boolean, pieces = 1): string => {
   const units = c.scarcity?.unitsLeft;
-  const pct = c.prices.prepayDiscountPercent;
+  // A kit's own price and discount: the link is the kit's, and the 1-piece R$ 116,91 next to it is a
+  // price the checkout does not show (independent review, finding 9). A kit the config lacks says
+  // no price at all rather than the wrong one.
+  const kit = pieces > 1 ? c.kits?.find((k) => k.path === "prepay" && k.units === pieces) : undefined;
+  const pct = pieces > 1 ? (kit?.discountPercent ?? 0) : c.prices.prepayDiscountPercent;
+  const price = pieces > 1 ? (kit?.priceBrl ?? 0) : c.prices.prepayBrl;
   // The average only while the deadline varies by region — the gate's reading (`prepayAverage`).
   const avg = c.delivery.prepayVariesByRegion ? c.delivery.prepayAvgDays : undefined;
   const parts = [
@@ -189,7 +195,7 @@ export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boo
     path === "cod"
       ? `Pagando na entrega você não paga nada agora, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`
       : pct > 0
-        ? `No antecipado você ganha ${pct}% de desconto: ${reais(c.prices.prepayBrl)}` +
+        ? `No antecipado você ganha ${pct}% de desconto: ${reais(price)}` +
           (avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis.` : `.`)
         : avg != null
           ? `No antecipado o prazo varia por região, em média ${avg} dias úteis.`

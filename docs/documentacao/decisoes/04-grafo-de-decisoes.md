@@ -1125,7 +1125,7 @@ inteira. (e) A média do antecipado era lida de três jeitos (prompt, resposta f
 **Caminhos que falharam:** vetar pagar na porta em todo `paymentPath: "prepay"` (primeira versão
 da frente A) endureceu 59 frases verdadeiras no `dev:gates` ("Prefere pagar na entrega?"); cortar a
 janela da garantia na frase afrouxaria "Você tem 30 dias. Para trocar é só chamar."; trocar
-`garanti` por `garantia` afrouxaria "30 dias garantidos". Ficou `garanti(?!r\b)`.
+`garanti` por `garantia` afrouxaria "30 dias garantidos". Ficou `garanti(?!r\b)` — **e isso também afrouxava** ("Posso garantir 30 dias"): ver §37.
 
 **Correção:** `GateContext.codUnavailable` (turno: região desta volta ou a gravada; varredura:
 `leads.address.codAvailable`), `postponing` só no `thinkReply`; toques pós-venda pelo status e pela
@@ -1137,6 +1137,35 @@ janela da garantia na frase afrouxaria "Você tem 30 dias. Para trocar é só ch
 `think-reply.test.ts`, `postura-e-depoimentos.test.ts`; `dev:gates --fail-on-loosen` com três
 aceites R16.5. **Resíduo:** "depoimento só quando ela pedir" é regra de prompt, sem gate (o gate
 não vê a mensagem dela).
+
+## 37. Revisão independente do §36: 19 achados, dois testes que congelavam mentira (2026-09-29)
+
+**Sintoma:** a revisão Opus do `f770757` reprovou: três afrouxamentos não aceitos (garantia pelo
+infinitivo, "Últimos dias" sem `allowUnverified`, extensão do grátis por "à parte"), mentiras que
+passavam nas frentes dadas como fechadas, e dois testes novos que exigiam frase falsa
+("…veste… e só então decide", a D4; "a troca é grátis" como isenção decidida pelo operador).
+
+**Causa:** a mesma do repositório inteiro — lista de proibição fechada onde a família é aberta
+(`DOOR_PAYMENT` com três formas; `anyStock` mais estreito que `claims`), negação lida numa janela
+em vez de colada ao verbo (`deniedRightBefore` de 3 palavras), e o grátis sem "frete" contado só
+na própria frase, nunca na resposta a uma pergunta ("E no pix? É grátis também!").
+
+**Caminho que falhou:** vetar "troca grátis" (achado 5). A regra "a troca custa R$ 20" era
+inferência da sessão a partir da página pública da Logzz, escrita na R16.9 como se fosse decisão; o
+repositório trata a troca do colete como grátis desde 25/09 (§9, M-08). Revertido; virou pergunta
+ao operador.
+
+**Correção:** `deniedRightBefore` só com a negação colada (mais modal); forma "só então decide";
+`DOOR_PAYMENT` por família (pagamento + porta/entregador/chegada/recebimento) com a negação do
+predicado depois (`DENIED_AFTER`); sem entrega na praça, nenhuma frase condicionada à entrega
+passa; grátis sem "frete" na resposta à frase que nomeou outro pagamento; `FREIGHT_CHARGED` não lê
+"calculado no preço"/"cobrado só na entrega"; `anyStock` ⊇ `claims`, com o que não é estoque
+excluído; dor aliviada/acabada vetada; garantia isenta só "garantir o seu/a sua/o pedido";
+`linkPathFor` e a diretiva de tamanho com a praça gravada; kit no "vou pensar"; "entregue para os
+Correios" é em rota; status monotônico; cupom pelo caminho.
+
+**Guarda:** 17 mutações `REV-*` e as 5 reapontadas; `tests/review-2026-09-29-ruler.test.ts`; os
+dois testes errados invertidos.
 
 ## Lições (valem para qualquer correção futura)
 

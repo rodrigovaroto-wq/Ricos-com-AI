@@ -91,7 +91,7 @@ suporte todo dia (R13.5); CPF pela nota fiscal (R13.5); Expressa desligada; cupo
 | D1 | véspera por relógio | R16.1 | régua: véspera só com `scheduled_for`, na véspera em SP |
 | D2 | "a caminho" por relógio | R16.1 | régua: `order_shipped` pelo status; texto sem "transportadora agendar" |
 | D3 | praça sem entrega ouvia "não paga nada agora" | R16.2 | praça gravada no lead; régua e gate pelo caminho (`codUnavailable`) |
-| D4 | "veste e só paga se estiver tudo certo" | R16.4 | textos da régua reescritos; gate veta vestir antes de pagar |
+| D4 | "veste e só paga se estiver tudo certo" | R16.4 | textos da régua reescritos; gate veta vestir antes de pagar, inclusive "…e só então decide" (a primeira versão deixava passar, grafo §37) |
 | D5 | devolução "sem custo nenhum" sem fonte | R16.3 | é verdade; fica |
 | D6 | "restam 12 unidades" em qualquer mensagem | R16.5, R16.8 | só na resposta ao "vou pensar" (`thinkReply`); gate veta no resto |
 | D7 | documentos negavam o frete grátis na entrega | R15.3 | `05-decisoes-firmes`, `01-produto-e-oferta`, spec de guardrails |
@@ -104,3 +104,7 @@ suporte todo dia (R13.5); CPF pela nota fiscal (R13.5); Expressa desligada; cupo
 | D15 | caminho OpenAI no código | rollback documentado da v32 | sem mudança |
 | — | confirmação do antecipado com prazo | R16.1 | `order_confirmed` do antecipado: data do pedido ou média do config |
 | — | cancelamento/devolução pela API | R16.9 | APIs não expõem; segue handoff |
+
+**Revisão independente do fechamento (grafo §37):** 19 achados reproduzidos no primeiro conserto; 18
+corrigidos na origem com teste e mutação. O da troca grátis foi revertido: não havia decisão do
+operador de que a troca custa, e o repositório a trata como grátis desde 25/09 — pergunta aberta.

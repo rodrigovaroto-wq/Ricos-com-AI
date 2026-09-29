@@ -675,7 +675,7 @@ const statedSize = (message: string, read: Interpretation): { size: string; forO
 const sizeDirectiveFor = (
   stated: { size: string; forOther?: boolean } | null,
   known: string | null,
-  region: Region | null,
+  region: Pick<Region, "cod" | "sameDay"> | null,
   linkGoing = false,
 ): string | null => {
   // The size survives the turn it was said in. Reading only what THIS message contained
@@ -2284,6 +2284,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     extra: Record<string, unknown> = {},
     /** The reply to her putting the purchase off: the only one allowed to cite the stock (R16.5). */
     postponing = false,
+    /** Pieces the text speaks of: a kit's price is judged as the kit's (review finding 9). */
+    pieces = 1,
   ): Promise<Response | null> => {
     const gated = runGates(text, {
       config: CONFIG,
@@ -2293,6 +2295,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       paymentPath: path,
       codUnavailable,
       postponing,
+      units: pieces,
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
@@ -2719,7 +2722,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       }),
     }).catch(() => undefined);
   }
-  const linkPath = linkPathFor(paymentChoice, region);
+  // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
+  // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
+  // (independent review, finding 8).
+  const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
+  const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
   const linkCustomer = {
@@ -2796,7 +2803,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
     // link — and it is the only message allowed to cite the stock (`postponing`).
-    const think = thinkReply(CONFIG, linkPath, thinkLink !== null);
+    const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
     const sent = await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
@@ -2806,6 +2813,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
       true,
+      units,
     );
     if (sent) return sent;
   }
@@ -2851,7 +2859,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const sizeDirective =
     [
       kitDirective,
-      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, region, checkoutUrl !== null),
+      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,

@@ -1818,8 +1818,9 @@ A resposta ao adiamento ("vou pensar", "depois eu compro") era só "Sem problema
 tiver mais alguma dúvida" + link. Agora (`thinkReply`) mantém essa abertura e acrescenta o estoque
 declarado ("restam 12 unidades desse lote"), o argumento do caminho dela (na entrega: nada agora e
 7 dias pra devolver sem custo; no antecipado: 10% de desconto e o prazo médio) e aponta o link, ou
-pede o tamanho se ainda não há link. O estoque sai do prompt da conversa e `scarcity_claim` o veta
-em qualquer outra mensagem (`postponing`). Supera a parte "sem segundo argumento" da R13.4.
+pede o tamanho se ainda não há link. O estoque sai do prompt da conversa e `scarcity_claim` veta
+nas outras mensagens as formas de estoque e prazo que conhece (contagem, últimas unidades, estoque
+acabando, esgotado, oferta que acaba) — é lista, não prova (`postponing`, grafo §37). Supera a parte "sem segundo argumento" da R13.4.
 
 ## R16.9 — Cancelamento e devolução continuam com uma pessoa (veredito sobre as APIs)
 
@@ -1830,6 +1831,7 @@ Coinzz documenta só `POST /api/sales` (criar venda ou reprocessar pagamento); a
 expõe cancelar, estornar ou devolver. A devolução da Logzz é por formulário, e-mail
 (trocasereembolsos@logzz.com.br) ou WhatsApp, com etiqueta pré-paga e reembolso em até 72 h úteis
 após a inspeção. Se a Coinzz ou a Logzz passarem a expor esses endpoints, a automação entra como
-código determinístico, nunca como ferramenta do modelo (R11.1). Nota para o operador: pela
-política pública da Logzz, a **troca por preferência** (tamanho) custa R$ 20 à cliente; a agente não
-promete troca grátis, só a devolução sem custo (R16.3).
+código determinístico, nunca como ferramenta do modelo (R11.1). **Pergunta aberta ao operador:** pela
+política pública da Logzz, a troca por preferência (tamanho) custa R$ 20 à cliente, mas o repositório
+trata "a troca do colete é grátis" como verdade desde 2026-09-25 (grafo §9, M-08) e a agente continua
+podendo dizer isso até o operador decidir.
