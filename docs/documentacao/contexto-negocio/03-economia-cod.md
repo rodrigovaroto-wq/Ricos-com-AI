@@ -8,6 +8,13 @@ por conversa, quando escalar para humano, quanto insistir num follow-up — se m
 Este arquivo traz a **unidade econômica medida da operação**. A projeção de volume, CPL e
 metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 
+> ### ⚠️ Atualização de 2026-09-29 — os números deste arquivo são históricos
+>
+> **Recusa: R$ 9,90** (R15.4, substitui os R$ 9,99 abaixo). **Checkout da entrega: Logzz**
+> desde 25/09 (onde abaixo se lê "Coinzz", leia a plataforma da época). Entrega concluída
+> (R$ 19,99) só existe no COD. A tabela vigente de lucro por venda, com 1, 2 e 3 peças, está em
+> [`06-modelo-economico.md`](06-modelo-economico.md), caixa de 2026-09-29.
+
 > ### ⚠️ Correção de 2026-09-21 — recusa com `Físico na entrega` ativo é R$ 9,99, não R$ 14,98
 >
 > Confirmado pelo operador (§R10.2 em

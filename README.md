@@ -23,21 +23,25 @@ Repositório com a **estrutura de execução** (como o agente de IA trabalha aqu
 cp .claude/settings.json.example .claude/settings.json
 ```
 
-O [`CLAUDE.md`](CLAUDE.md) já está preenchido com a stack e os comandos canônicos. Os scripts ainda não existem no `package.json` — quando o projeto for gerado, use exatamente esses nomes.
+O [`CLAUDE.md`](CLAUDE.md) traz a stack, a arquitetura decidida (rodada 11) e os comandos canônicos, que existem no `package.json` e rodam no CI (`pnpm install`, `pnpm lint`, `pnpm typecheck`, `pnpm test`, `pnpm typecheck:function`).
 
 Se é sua primeira vez com esse fluxo, comece pelo [playbook de onboarding](docs/documentacao/02-playbook-onboarding.md).
 
-### 2. Leia o guia de execução
+### 2. Ache o que precisa
+
+[`docs/README.md`](docs/README.md) é o mapa: qual arquivo manda quando dois discordam, pergunta → arquivo, o código em uma tela. O plano vigente até produção é [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md); o que está contraditório hoje, [`docs/agente-ia/10-auditoria/`](docs/agente-ia/10-auditoria/).
+
+### 3. Leia o guia de execução
 
 Comece por [`docs/agente-ia/README.md`](docs/agente-ia/README.md) — explica a ordem de leitura do contexto de negócio, da especificação do agente e das lacunas ainda em aberto. Para o lado de campanha/anúncio, ver o repositório [`encorpa-campanhas`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-).
 
-### 3. Construa
+### 4. Construa
 
-Nenhuma arquitetura foi escolhida ainda — as decisões em aberto estão em [`docs/documentacao/decisoes/02-decisoes-em-aberto.md`](docs/documentacao/decisoes/02-decisoes-em-aberto.md) e cabem ao operador.
+O código está em `src/` (Node, testes) e `supabase/functions/` (Deno, produção), com os workflows em `n8n/workflows/`. Estado e próximos passos da sessão: [`HANDOFF.md`](HANDOFF.md). Decisões: [`docs/documentacao/decisoes/03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md) e o [grafo](docs/documentacao/decisoes/04-grafo-de-decisoes.md).
 
 ## 🧠 Memória entre sessões
 
-O `CLAUDE.md` importa `.claude/memory/INSTRUCTIONS.md`, então toda sessão lê as regras de memória sozinha. O índice [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md) começa vazio e cresce só com o que passa no teste:
+O `CLAUDE.md` importa `.claude/memory/INSTRUCTIONS.md`, então toda sessão lê as regras de memória sozinha. O índice [`.claude/memory/MEMORY.md`](.claude/memory/MEMORY.md) cresce só com o que passa no teste:
 
 > Uma sessão futura ficaria surpresa e grata de saber disso antes de começar, em vez de descobrir do jeito difícil?
 

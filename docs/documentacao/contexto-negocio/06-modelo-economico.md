@@ -116,7 +116,8 @@ entregue pelo operador em 2026-09-03.
 >   produto R$ 30,00 por peça.
 > - **P4.** **Cartão parcelado não informado** (o config aceita até 12x). A tabela supõe à
 >   vista; a sensibilidade abaixo mostra quanto de taxa de parcelado a margem aguenta.
-> - **P5.** Recusa COD de 15% a −R$ 9,99 por pedido, também nos kits.
+> - **P5.** Recusa COD de 15% a −R$ 9,99 por pedido, também nos kits. *(Histórico: R$ 9,90 desde
+>   2026-09-29, R15.4 — ver a tabela do topo.)*
 >
 > Fórmula: `preço − 30 × peças − taxa MP − 4,99 − 19,99`, com
 > `taxa MP = 0,5 × (0,99% × preço + 1,00) + 0,5 × 4,98% × preço`.
@@ -204,6 +205,12 @@ entregue pelo operador em 2026-09-03.
 > segurança; ficam pendentes até o operador confirmar ou repassar a conta.
 
 ## Premissas gerais
+
+> **Histórico (2026-09-29).** Esta seção e a seguinte são da rodada de 21/09. Três linhas já não
+> valem: há kits de 2 e 3 peças (não "1 unidade por pedido"); a entrega concluída (R$ 19,99) só
+> existe no COD (R15.4), então o antecipado **não** tem "a mesma estrutura do COD entregue"; e a
+> contribuição do antecipado não é mais R$ 51,27. Os números vigentes estão na tabela de lucro por
+> venda do topo deste arquivo.
 
 | Item | Premissa |
 |---|---|
