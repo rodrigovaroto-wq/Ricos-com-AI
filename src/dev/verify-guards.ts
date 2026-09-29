@@ -708,8 +708,8 @@ const MUTATIONS: Mutation[] = [
     id: "caminho-escolhido",
     bug: 'o turno depois de "quero no pix" voltava para o link da entrega (a escolha valia só na mensagem)',
     files: ["supabase/functions/turn/index.ts"],
-    from: "const linkPath = linkPathFor(paymentChoice, region);",
-    to: "const linkPath = linkPathFor(interpretation.payment_choice, region);",
+    from: "const linkPath = linkPathFor(paymentChoice, knownRegion);",
+    to: "const linkPath = linkPathFor(interpretation.payment_choice, knownRegion);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
   },
   {
@@ -1145,8 +1145,8 @@ const MUTATIONS: Mutation[] = [
     id: "PEDIDO-morto-ressuscita",
     bug: "\"created\" ou \"Enviado\" atrasado depois do \"Cancelado\" ressuscitava o pedido e dava a régua inteira a um cancelado",
     files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
-    from: "  isOrderDead(stored ?? undefined) && !isOrderDead(incoming) ? stored! : incoming;",
-    to: "  incoming;",
+    from: "  if (isOrderDead(stored ?? undefined) && !isOrderDead(incoming)) return stored!;\n",
+    to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
@@ -1659,8 +1659,8 @@ const MUTATIONS: Mutation[] = [
     id: "§33-cobrado-ali",
     bug: "a linha do desconto do antecipado ao lado da frase canônica era vetada: dizer que o frete é calculado ali não contava",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: "          const honest = (s: string): boolean => /\\b(?:nao|nunca|nem)\\b/.test(s) || FREIGHT_CHARGED.test(s);",
-    to: "          const honest = (s: string): boolean => /\\b(?:nao|nunca|nem)\\b/.test(s);",
+    from: "        const honest = (s: string): boolean => s.search(FREE_DENIED) !== -1 || BARE_FREE_DENIED.test(s) || FREIGHT_CHARGED.test(s);",
+    to: "        const honest = (s: string): boolean => s.search(FREE_DENIED) !== -1 || BARE_FREE_DENIED.test(s);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/honest-sales-lines.test.ts"],
   },
   {
