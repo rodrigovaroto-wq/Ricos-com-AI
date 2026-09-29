@@ -7,6 +7,6 @@ metadata:
 
 Confirmado pelo suporte Logzz/Coinzz em 29/09 (R15.4). Não some R$ 19,99 ao custo do
 antecipado. A "entrega frustrada" (cliente recusa na porta, 15%) é só COD; devolução ou
-cancelamento depois de enviado é outro custo — COD R$ 19,99 + R$ 4,99, antecipado
+cancelamento depois de enviado é outro custo (recusa = R$ 9,90 no total, não R$ 9,99; etiqueta média de devolução R$ 20,00; desde 29/09) — COD R$ 19,99 + R$ 4,99, antecipado
 etiqueta + R$ 4,99 — sem taxa medida (P6), então fora das médias. Conta em
 `06-modelo-economico.md`, caixa de 29/09.

@@ -1771,7 +1771,20 @@ a cliente não paga), manuseio e taxas de transação. O operador decidiu:
   **frete inteiro + o manuseio**, nos dois caminhos (COD R$ 19,99 + R$ 4,99; antecipado
   etiqueta + R$ 4,99).
 - **Recusa de 15% inalterada** e exclusiva do COD (entregador na porta, cliente recusa). O
-  antecipado nunca tem taxa de frustração.
+  antecipado nunca tem taxa de frustração. **Custo da recusa: R$ 9,90, tudo o que o operador
+  paga** (operador, 2026-09-29 — substitui o R$ 9,99 de R10.2; os R$ 9,99 que sobram em
+  `03-economia-cod.md` e nas caixas históricas do modelo econômico ficam como registro).
+- **Premissas de lucro por venda (2026-09-29):** lead R$ 1,00, conversão 10%, IA R$ 0,10 por
+  lead, devolução pós-envio 7,5% nos dois caminhos; tabela para 1, 2 e 3 peças em
+  `06-modelo-economico.md` e no `mapa-financeiro.html`. **Etiqueta média de R$ 20,00** nas
+  devoluções do antecipado (+ manuseio R$ 4,99 = R$ 24,99); recusa (15%, R$ 9,90) e devolução
+  (7,5%, R$ 24,98 no COD) são eventos separados, com taxas e custos próprios.
+- **Teto de custo por conversa: R$ 0,50** (operador, 2026-09-29; supera os R$ 1,50 de R10.1).
+  `conversationCapBrl` = 0,5 em `config/business.example.json`, no fallback da Edge Function
+  (`supabase/functions/turn/index.ts`), nas fixtures e nos scripts de `src/dev/`; com a folga de
+  25% o teto efetivo cai de R$ 1,875 para **R$ 0,625**. **Não deployado:** o secret
+  `BUSINESS_CONFIG` de produção define o valor e sobrescreve o fallback inteiro — o operador
+  precisa trocar `cost.conversationCapBrl` lá para o teto novo valer.
 
 Supera a premissa de 21/09 e a P3 de 25/09 no que toca ao antecipado. Só documentação e o
 mapa financeiro mudam — nenhum gate, prompt ou config lê esses valores; a regra do que a agente

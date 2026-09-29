@@ -11,35 +11,40 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
-> ### Lucro por venda com lead, IA e devolução — 2026-09-29 (premissas do operador)
+> ### Lucro por venda com lead, IA, recusa e devolução — 1, 2 e 3 peças (2026-09-29)
 >
 > Premissas do operador: **lead R$ 1,00**, **conversão 10%** (R$ 10,00 de lead por venda),
-> **IA R$ 0,30 por conversa** (1 lead = 1 conversa → R$ 3,00 por venda), **recusa de 15% só no
-> COD** e **devolução/cancelamento pós-envio de 7,5% nos dois caminhos**. A devolução é
+> **IA R$ 0,10 por lead** (1 lead = 1 conversa → R$ 1,00 por venda), **recusa de 15% só no COD,
+> a R$ 9,90 — é tudo o que o operador paga quando a entrega frustra** (substitui os R$ 9,99 de
+> R10.2) e **devolução/cancelamento pós-envio de 7,5% nos dois caminhos**. A devolução é
 > separada da recusa e vale sobre o pedido criado; o pedido devolvido custa o frete inteiro +
-> manuseio (COD R$ 19,99 + R$ 4,99; antecipado etiqueta de São Paulo R$ 13,79 + R$ 4,99) e
-> não gera receita. Kit de 1 peça, antecipado com taxa do Mercado Pago (50% Pix / 50% cartão à
-> vista, sem antifraude).
+> manuseio (COD R$ 19,99 + R$ 4,99 = R$ 24,98; antecipado etiqueta **média de R$ 20,00** +
+> R$ 4,99 = R$ 24,99) e não gera receita. Produto R$ 30,00 por peça; manuseio, entrega,
+> recusa e devolução contam **uma vez por pedido**, também nos kits. Antecipado com taxa do
+> Mercado Pago (50% Pix / 50% cartão à vista, sem antifraude).
 >
-> | Por venda (R$) | COD | Antecipado |
-> |---|---:|---:|
-> | Faturamento | 129,90 | 116,91 |
-> | Produto | −30,00 | −30,00 |
-> | Transação | −11,57 | −3,99 |
-> | Entrega concluída | −19,99 | 0,00 |
-> | Manuseio | −4,99 | −4,99 |
-> | **Margem se entregue** | **63,35** | **77,93** |
-> | Perda esperada por recusa (15% × −R$ 9,99, só COD) | −11,00 | 0,00 |
-> | Perda esperada por devolução (7,5%) | −6,62 | −7,25 |
-> | **Margem esperada, antes de lead e IA** | **45,72** | **70,68** |
-> | Lead (R$ 1,00 ÷ 10%) | −10,00 | −10,00 |
-> | IA (R$ 0,30 × 10 conversas) | −3,00 | −3,00 |
-> | **Lucro por venda** | **32,72** | **57,68** |
+> | Por venda (R$) | COD 1 | COD 2 | COD 3 | Antec. 1 | Antec. 2 | Antec. 3 |
+> |---|---:|---:|---:|---:|---:|---:|
+> | Faturamento | 129,90 | 233,82 | 311,76 | 116,91 | 207,84 | 272,79 |
+> | Produto | −30,00 | −60,00 | −90,00 | −30,00 | −60,00 | −90,00 |
+> | Transação | −11,57 | −18,83 | −24,28 | −3,99 | −6,70 | −8,64 |
+> | Entrega concluída | −19,99 | −19,99 | −19,99 | 0,00 | 0,00 | 0,00 |
+> | Manuseio | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 |
+> | **Margem se entregue** | **63,35** | **130,01** | **172,50** | **77,93** | **136,15** | **169,16** |
+> | Perda esperada por recusa (15% × R$ 9,90) | −10,99 | −20,99 | −27,36 | 0,00 | 0,00 | 0,00 |
+> | Perda esperada por devolução (7,5%) | −6,62 | −11,62 | −14,81 | −7,72 | −12,09 | −14,56 |
+> | **Margem esperada, antes de lead e IA** | **45,74** | **97,40** | **130,33** | **70,21** | **124,06** | **154,60** |
+> | Lead (R$ 1,00 ÷ 10%) | −10,00 | −10,00 | −10,00 | −10,00 | −10,00 | −10,00 |
+> | IA (R$ 0,10 × 10 leads) | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 | −1,00 |
+> | **Lucro por venda** | **34,74** | **86,40** | **119,33** | **59,21** | **113,06** | **143,60** |
 >
-> Mix 70% COD / 30% antecipado: **R$ 40,21 por venda**. Estas contas **substituem** as médias
-> das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02 do mix), que não tinham devolução,
-> lead nem IA. A taxa de 7,5% é premissa do operador, não medida; o mesmo cálculo roda no
-> simulador de `docs/operacao/mapa-financeiro.html`.
+> Mix 70% COD / 30% antecipado: **R$ 42,08 / R$ 94,40 / R$ 126,61** por venda (1 / 2 / 3 peças).
+> Estas contas **substituem** as médias das caixas abaixo (R$ 52,35 do COD, R$ 54,03 e R$ 60,02
+> do mix), que não tinham devolução, lead nem IA. A taxa de 7,5% é premissa do operador, não
+> medida; o mesmo cálculo roda no simulador de `docs/operacao/mapa-financeiro.html`.
+> **Dúvida aberta:** o mapa registra o manuseio como já incluso nas etiquetas da Logzz; se os
+> R$ 20,00 já o incluírem, a devolução do antecipado custa R$ 20,00 e a margem esperada sobe
+> R$ 0,37 por pedido.
 >
 > ### 🚨 Correção de 2026-09-29 — a entrega concluída (R$ 19,99) não existe no antecipado; devolução pós-envio custa frete + manuseio
 >
@@ -69,13 +74,14 @@ entregue pelo operador em 2026-09-03.
 > Mix 70% COD / 30% antecipado, 1 peça: 0,7 × 52,35 + 0,3 × 77,93 = **R$ 60,02** (era 54,03).
 >
 > **Custo de um pedido devolvido/cancelado depois de enviado, por pedido:**
-> COD = **− R$ 24,98** (19,99 + 4,99); antecipado = **− (etiqueta + 4,99)** — com a etiqueta de
-> R$ 13,79 (São Paulo pela Logzz) são **− R$ 18,78**; em praça distante chega a R$ 84,05 + 4,99.
-> (O `LABEL_COST_BRL = 15` do código é registro histórico, não o custo atual.) **Dúvida aberta:**
-> o mapa registra o manuseio como já incluso nos R$ 13,79; se for, a devolução do antecipado
-> custa R$ 13,79 e a margem esperada sobe R$ 0,37. **Não modelado, por falta de dado:** a taxa de devolução/cancelamento
-> pós-envio (P6 — nenhuma premissa adotada) e se a taxa do MP volta no estorno. A média do COD
-> com 15% de recusa e o mix acima **não** incluem esse custo.
+> COD = **− R$ 24,98** (19,99 + 4,99); antecipado = **− (etiqueta + 4,99)** — com a etiqueta
+> **média de R$ 20,00** (operador, 2026-09-29) são **− R$ 24,99**; em São Paulo pela Logzz a
+> etiqueta é R$ 13,79 e em praça distante chega a R$ 84,05. (O `LABEL_COST_BRL = 15` do código
+> é registro histórico, não o custo atual.) **Dúvida aberta:** o mapa registra o manuseio como
+> já incluso nas etiquetas da Logzz; se os R$ 20,00 já o incluírem, a devolução custa R$ 20,00.
+> **Não modelado:** se a taxa do MP volta no estorno. Devolução (7,5%) e recusa (15%, R$ 9,90,
+> só COD) são eventos e custos diferentes; a tabela do topo do arquivo soma os dois. As médias
+> desta caixa (R$ 52,35, R$ 60,02) **não** incluem a devolução.
 >
 > ### ⚠️ Correção de 2026-09-25 — o antecipado passa pelo Mercado Pago: R$ 57,94 (1 peça)
 >
@@ -194,7 +200,7 @@ entregue pelo operador em 2026-09-03.
 | Custo do produto | R$ 30,00 |
 | Mix | 70% COD / 30% antecipado |
 | Recusa COD | 15% |
-| Agente de IA | **R$ 1,50 por conversa** (era R$ 0,80 — subiu na rodada 10, §R7.3/§R10.1) |
+| Agente de IA | ~~R$ 1,50 por conversa~~ → **teto de R$ 0,50 por conversa** e premissa de R$ 0,10 por lead (2026-09-29, §R15.4; era R$ 0,80, depois R$ 1,50 na rodada 10, §R7.3/§R10.1) |
 | Upsell / order bump | não considerado |
 | Mercado | Brasil, 1 unidade por pedido |
 
