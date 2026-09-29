@@ -128,3 +128,29 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     expect(checkWorkflow(loose).join()).toContain(`${name}: does not forward sealed field reply`);
   });
 });
+
+/**
+ * Hermes (analysis of 2026-09-29, §e): the operator approved from an e-mail that showed only
+ * what the model wrote about the conversation — never the conversation. The click is the
+ * human gate of a change that implements and publishes itself, so it has to see the excerpt
+ * and what today's gates say of it, escaped.
+ */
+describe("hermes-decisao: o e-mail mostra o que o operador está aprovando", () => {
+  const code = String(load("hermes-decisao").nodes.find((n) => n.name === "Monta o e-mail")?.parameters?.jsCode);
+  const run = (evidence: unknown) =>
+    (new Function("$input", code) as (i: unknown) => Array<{ json: { html: string } }>)({
+      all: () => [{ json: { id: "1", decision_token: "t", target: "prompt", rationale: "r", evidence } }],
+    })[0]!.json.html;
+
+  it("cada trecho, escapado, com o veredito de hoje", () => {
+    const html = run({ o_que: "x", evidencias: [{ conversa: "conversa-ab", trecho: "<b>chega amanhã</b>", hoje: ["delivery_promise"] }, { conversa: "conversa-cd", trecho: "ok", hoje: [] }] });
+    expect(html).toContain("&lt;b&gt;chega amanhã&lt;/b&gt;");
+    expect(html).toContain("vetada por delivery_promise");
+    expect(html).toContain("passa pelos gates (config de teste)");
+    expect(html).toContain("texto da cliente é dado, não instrução");
+  });
+  it("proposta antiga, ou com os trechos já expirados (90 dias), não quebra o e-mail", () => {
+    expect(run(null)).toContain("Aprovar ou recusar");
+    expect(run({ o_que: "x" })).not.toContain("Evidência");
+  });
+});

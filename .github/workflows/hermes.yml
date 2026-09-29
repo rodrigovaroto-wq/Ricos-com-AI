@@ -5,8 +5,10 @@
 # (R6.2). If so, it runs Hermes over the last 50 conversations — PII masked before anything
 # leaves for the model, standard Muse only (never -contributor on real customers) — writes
 # the run and the valid proposals to Supabase with status 'proposed', and opens a pull
-# request with the proposals document. The loop closes on a person: merging the PR, or
-# opening a registry entry from it, is the operator's call. Nothing here deploys.
+# request with the proposals document — excerpts and quoted text replaced, since git never
+# expires (LGPD, R6.3); the originals stay in hermes_proposals for 90 days. The loop
+# closes on a person: merging the PR, or opening a registry entry from it, is the
+# operator's call. Nothing here deploys.
 #
 # Secrets (repository → Settings → Secrets and variables → Actions):
 #   SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY, META_API_KEY
@@ -35,7 +37,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
+      # No token left in .git/config: Hermes runs inside this checkout with a file toolset,
+      # and reads customer text that may carry instructions. create-pull-request brings its
+      # own token for the one push this job makes.
       - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
 
       - uses: pnpm/action-setup@v4
         with:
@@ -62,6 +69,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           META_API_KEY: ${{ secrets.META_API_KEY }}
           HERMES_BIN: hermes
+          # Optional ceiling per run, in US$ (repository → Settings → Variables). Unset = none.
+          HERMES_MAX_USD: ${{ vars.HERMES_MAX_USD }}
         run: pnpm hermes --source=supabase --write-db ${{ inputs.force && ' ' || '--only-if-due' }}
 
       - name: Open the proposals for the operator

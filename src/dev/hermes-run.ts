@@ -7,28 +7,52 @@
  *
  * Options: --model=<id> (default muse-spark-1.3; the -contributor variant is refused on
  * the supabase source, because Meta trains on it and these are real customers) ·
- * --limit=N (supabase: last N conversations, default 50) · --write-db (insert into
- * hermes_runs and hermes_proposals) · --only-if-due (supabase: exit quietly unless
- * `hermes_backlog.due`).
+ * --limit=N (supabase: N conversations, default 50, picked by `hermes_sample` — flagged first,
+ * then a control of plain ones) · --write-db (insert into hermes_runs and hermes_proposals,
+ * and measure every published proposal's check before and after it went live) ·
+ * --only-if-due (supabase: exit quietly unless `hermes_backlog.due`).
  *
  * Environment: HERMES_BIN (default `hermes`), MODEL_API_KEY or META_API_KEY, and for the
- * supabase source SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. In the Claude Code cloud
+ * supabase source SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. HERMES_MAX_USD (optional): a run
+ * that costs more fails the job after writing — absent means no ceiling, as before. In the Claude Code cloud
  * container the proxy injects the Meta and Supabase keys; pass NODE_USE_ENV_PROXY=1.
  *
  * THE BARRIER (R11.6). Hermes runs with the `file`, `skills` and `todo` toolsets only —
- * no terminal, no web — in a throwaway copy of the evidence, with no Supabase key in its
- * environment. It can only write `propostas.json` there. This script validates every
+ * no terminal, no web — in a throwaway copy of the evidence, started there (`cwd`), with an
+ * environment of PATH, HOME, its own home, the model key and the proxy settings only. It can only write `propostas.json` there. This script validates every
  * proposal (quotes must be verbatim, nothing on the "do not" list) and writes the
  * survivors with status 'proposed'. Nothing Hermes writes reaches production: accepting a
  * proposal is opening a registry entry, by a person.
  */
 import { execFileSync } from "node:child_process";
+import { createHash } from "node:crypto";
 import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
-import { runGates } from "../agent/guardrails.js";
-import { ctx as fixtureCtx } from "../../tests/fixtures.js";
-import { annotateWithGates, checkProposals, renderConversation, renderLedger, renderProposals, type LedgerRow } from "./hermes-core.js";
+import { gateBriefing, runGates } from "../agent/guardrails.js";
+import { systemPrompt } from "../agent/prompt.js";
+import { config as fixtureConfig, ctx as fixtureCtx } from "../../tests/fixtures.js";
+import {
+  annotateWithGates,
+  checkProposals,
+  discardAlreadyVetoed,
+  measureEffect,
+  pickSample,
+  renderNumbers,
+  scrubSecrets,
+  storedEvidence,
+  withMeasure,
+  type SampleRow,
+  renderConversation,
+  renderLedger,
+  renderProposals,
+  rowsToConversations,
+  unquote,
+  withoutQuotes,
+  type LedgerRow,
+  type SupabaseRows,
+} from "./hermes-core.js";
+import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
 import { renderScorecard, scoreRun, type Conversation } from "./persona-scorecard.js";
 
@@ -58,29 +82,44 @@ async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-interface Row { id: string; lead_id: string; conversation_id: string; direction: string; body: string; created_at: string; gate: string; verdict: string; detail: string | null }
+/** Every row, page by page: PostgREST caps a response (1000 on Supabase) without saying so. */
+async function restAll<T>(path: string): Promise<T[]> {
+  const out: T[] = [];
+  for (;;) {
+    const page = await rest<T[]>(path, { headers: { "Range-Unit": "items", Range: `${out.length}-${out.length + 999}` } });
+    if (page.length === 0) return out;
+    out.push(...page);
+  }
+}
 
-async function fromSupabase(): Promise<{ conversations: Conversation[]; leads: number }> {
-  const convs = await rest<Pick<Row, "id" | "lead_id">[]>(`conversations?select=id,lead_id&order=created_at.desc&limit=${limit}`);
-  if (convs.length === 0) return { conversations: [], leads: 0 };
-  const ids = convs.map((c) => c.id).join(",");
-  const msgs = await rest<Row[]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`);
-  const traces = await rest<Row[]>(`gate_traces?select=conversation_id,gate,verdict,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`);
-  const conversations = convs.map((c): Conversation => {
-    const mine = msgs.filter((m) => m.conversation_id === c.id);
-    let pending = traces.filter((t) => t.conversation_id === c.id);
-    return {
-      persona: `conversa-${c.id.slice(0, 8)}`,
-      transcript: mine.map((m) => {
-        if (m.direction === "inbound") return { from: "persona", text: m.body };
-        // gate_traces carry no message id: a veto belongs to the next reply that went out.
-        const vetoes = pending.filter((t) => t.created_at <= m.created_at).map((t) => ({ gate: t.gate, detail: t.detail }));
-        pending = pending.filter((t) => t.created_at > m.created_at);
-        return { from: "valen", text: m.body, vetoes };
-      }),
-    };
-  });
-  return { conversations, leads: new Set(convs.map((c) => c.lead_id)).size };
+type ConvRow = SupabaseRows["conversations"][number];
+const CONV = "id,lead_id,welcomed_at,cost_brl,leads!inner(phone)";
+// Persona conversations are filtered in every query too, so a limit counts customers only;
+// rowsToConversations filters again, and is the tested half.
+const REAL = `leads.phone=not.like.${SYNTHETIC_PHONE_PREFIX}*`;
+
+async function load(convs: ConvRow[]): Promise<{ conversations: Conversation[]; leads: number; ids: string[] }> {
+  if (convs.length === 0) return { conversations: [], leads: 0, ids: [] };
+  const ids = convs.map((c) => c.id);
+  const inIds = `conversation_id=in.(${ids.join(",")})`;
+  const [messages, traces, outcomes] = await Promise.all([
+    restAll<SupabaseRows["messages"][number]>(`messages?select=conversation_id,direction,body,created_at&${inIds}&order=created_at,id`),
+    restAll<SupabaseRows["traces"][number]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&${inIds}&order=created_at,id`),
+    restAll<SupabaseRows["outcomes"][number]>(`turn_outcomes?select=conversation_id,outcome,created_at&${inIds}&order=created_at,id`),
+  ]);
+  return { ...rowsToConversations({ conversations: convs, messages, traces, outcomes }), ids };
+}
+
+/** Where to look (item 3 of the analysis): conversations with activity since the last
+ * production run STARTED (a conversation that began before it and got a new reply after it
+ * is read; one that arrived while it ran is not lost), flagged first, plus a control — all
+ * of them when there was no run yet. */
+async function fromSupabase(lastRunStart: string | null) {
+  const since = lastRunStart ? `&last_activity=gt.${encodeURIComponent(lastRunStart)}` : "";
+  const sample = await restAll<SampleRow>(`hermes_sample?select=*${since}&order=created_at.desc,conversation_id`);
+  const ids = pickSample(sample, limit);
+  if (ids.length === 0) return { conversations: [], leads: 0, ids: [] };
+  return load(await restAll<ConvRow>(`conversations?select=${CONV}&${REAL}&id=in.(${ids.join(",")})&order=created_at,id`));
 }
 
 function fromPersonas(dir: string): { conversations: Conversation[]; leads: number } {
@@ -90,15 +129,24 @@ function fromPersonas(dir: string): { conversations: Conversation[]; leads: numb
 }
 
 // ── The run ───────────────────────────────────────────────────────────────────────────
-if (onlyIfDue && source === "supabase") {
-  const [b] = await rest<Array<{ due: boolean; leads_since_last_run: number }>>("hermes_backlog?select=due,leads_since_last_run");
-  if (!b?.due) {
-    console.log(`hermes: ${b?.leads_since_last_run ?? 0} leads desde a última execução — espera 50 (R6.2)`);
-    process.exit(0);
-  }
+const backlog =
+  source === "supabase"
+    ? (await rest<Array<{ due: boolean; leads_since_last_run: number; last_run_at: string | null }>>("hermes_backlog?select=due,leads_since_last_run,last_run_at"))[0]
+    : undefined;
+if (onlyIfDue && source === "supabase" && !backlog?.due) {
+  console.log(`hermes: ${backlog?.leads_since_last_run ?? 0} leads desde a última execução — espera 50 (R6.2)`);
+  process.exit(0);
 }
 
-const { conversations, leads } = source === "supabase" ? await fromSupabase() : fromPersonas(source.slice("personas:".length));
+const startedAt = new Date().toISOString();
+const lastRunStart =
+  source === "supabase"
+    ? ((r) => r?.started_at ?? r?.created_at ?? null)(
+        (await rest<Array<{ started_at: string | null; created_at: string }>>("hermes_runs?select=started_at,created_at&source=eq.supabase&order=created_at.desc&limit=1"))[0],
+      )
+    : null;
+const { conversations, leads, ids: conversationIds } =
+  source === "supabase" ? await fromSupabase(lastRunStart) : { ...fromPersonas(source.slice("personas:".length)), ids: [] as string[] };
 if (conversations.length === 0) {
   console.log("hermes: nenhuma conversa para ler");
   process.exit(0);
@@ -113,6 +161,19 @@ for (const c of conversations) {
   writeFileSync(join(bundle, "conversas", `${c.persona}.md`), md);
 }
 writeFileSync(join(bundle, "placar.md"), renderScorecard(source, scoreRun(conversations)));
+// The rules a lie is judged against: the prompt Malu reads, under the test config the gates
+// below use too (the production secret is not readable). A lie proposal quotes its line.
+const promptText = systemPrompt(fixtureConfig, gateBriefing(fixtureConfig), null);
+writeFileSync(join(bundle, "prompt.md"), `# O prompt da Malu (config de teste)\n\n${promptText}\n`);
+// Counts and rates come from the evaluation views, never from the model (item 4).
+if (SB) {
+  const from = (lastRunStart ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
+  const [outcomesByDay, blocksByDay] = await Promise.all([
+    restAll<Record<string, unknown>>(`eval_turn_outcomes?select=*&day=gte.${from}&order=day`),
+    restAll<Record<string, unknown>>(`eval_gate_blocks?select=*&day=gte.${from}&blocks=gt.0&order=day,gate`),
+  ]);
+  writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay));
+} else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
 // idea is not proposed again. Read from Supabase whenever it is reachable — persona runs
@@ -142,13 +203,24 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia decisoes.md primeiro, depois placar.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia decisoes.md primeiro, depois placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();
 try {
   execFileSync(HERMES, ["-z", prompt, "-m", model, "--provider", "meta-ai", "-t", "file,skills,todo", "--skills", "encorpa-supervisor", "--in", bundle, "--usage-file", usageFile, "--ignore-rules"], {
-    env: { ...process.env, HERMES_HOME: home, SUPABASE_SERVICE_ROLE_KEY: "", MODEL_API_KEY: process.env.MODEL_API_KEY ?? process.env.META_API_KEY ?? "" },
+    // Started inside the bundle, and nothing of this process's environment but what it needs:
+    // Hermes reads customer text that may carry instructions (security review, 2026-09-29).
+    cwd: bundle,
+    env: {
+      ...Object.fromEntries(
+        ["PATH", "HOME", "LANG", "SSL_CERT_FILE", "REQUESTS_CA_BUNDLE", "HTTPS_PROXY", "HTTP_PROXY", "NO_PROXY", "https_proxy", "http_proxy", "no_proxy"]
+          .filter((k) => process.env[k] !== undefined)
+          .map((k) => [k, process.env[k]!]),
+      ),
+      HERMES_HOME: home,
+      MODEL_API_KEY: process.env.MODEL_API_KEY ?? process.env.META_API_KEY ?? "",
+    },
     stdio: ["ignore", "inherit", "inherit"],
     timeout: 20 * 60_000,
   });
@@ -168,7 +240,7 @@ const blockedBy = (text: string) => [
     ),
   ),
 ];
-const checked = annotateWithGates(checkProposals(raw, rendered), blockedBy);
+const checked = discardAlreadyVetoed(annotateWithGates(checkProposals(raw, rendered, promptText), blockedBy));
 const ok = checked.filter((c) => c.ok);
 
 const day = new Date().toISOString().slice(0, 10);
@@ -181,39 +253,86 @@ const costUsd =
   PRICES[model] && tok("total_tokens") > 0
     ? costBrl(model, { inputTokens: tok("input_tokens") + tok("cache_read_tokens"), cachedTokens: tok("cache_read_tokens"), outputTokens: tok("output_tokens") }, 1)
     : null;
-const md =
-  renderProposals(title, raw.resumo ?? "", checked) +
-  `\n---\nModelo ${model} · ${conversations.length} conversas · ${Math.round((Date.now() - started) / 1000)} s · ` +
-  `custo US$ ${costUsd != null ? costUsd.toFixed(4) : "?"} (${tok("total_tokens")} tokens, ${tok("api_calls")} chamadas)\n`;
+// A production run's document goes to git through hermes.yml's PR, and git never expires:
+// no customer excerpt in it (LGPD, R6.3). The originals stay in hermes_proposals (90 days).
+const production = source === "supabase";
+const published = production ? withoutQuotes(checked) : checked;
+const resumo = production ? String(unquote(raw.resumo ?? "")) : (raw.resumo ?? "");
+const skillSha = createHash("sha256").update(readFileSync(join(REPO, "hermes/skills/encorpa-supervisor/SKILL.md"))).digest("hex").slice(0, 12);
+const commitSha = process.env.GITHUB_SHA ?? execFileSync("git", ["rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+const md = scrubSecrets(
+  renderProposals(title, resumo, published) +
+    `\n---\nModelo ${model} · skill ${skillSha} · commit ${commitSha.slice(0, 12)} · ${conversations.length} conversas · ${Math.round((Date.now() - started) / 1000)} s · ` +
+    `custo US$ ${costUsd != null ? costUsd.toFixed(4) : "?"} (${tok("total_tokens")} tokens, ${tok("api_calls")} chamadas)\n`,
+);
 const dest = join(REPO, "docs/agente-ia/08-mudancas/propostas");
 mkdirSync(dest, { recursive: true });
 const file = join(dest, `${day}-${label}.md`);
 writeFileSync(file, md);
-writeFileSync(file.replace(/\.md$/, ".json"), JSON.stringify({ resumo: raw.resumo ?? "", checked, usage, costUsd }, null, 2));
+writeFileSync(file.replace(/\.md$/, ".json"), scrubSecrets(JSON.stringify({ resumo, checked: published, usage, costUsd }, null, 2)));
 console.log(md);
 console.log(`\nescrito em ${file}`);
 
 if (writeDb) {
   const [run] = await rest<Array<{ id: string }>>("hermes_runs", {
     method: "POST",
-    body: JSON.stringify({ source, model, conversations_seen: conversations.length, leads_seen: leads, proposals_ok: ok.length, proposals_rejected: checked.length - ok.length, cost_usd: costUsd }),
+    body: JSON.stringify({
+      source,
+      model,
+      conversations_seen: conversations.length,
+      leads_seen: leads,
+      proposals_ok: ok.length,
+      proposals_rejected: checked.length - ok.length,
+      cost_usd: costUsd,
+      started_at: startedAt,
+      skill_sha: skillSha,
+      commit_sha: commitSha,
+      ...(conversationIds.length ? { conversation_ids: conversationIds } : {}),
+    }),
   });
   if (ok.length)
     await rest("hermes_proposals", {
       method: "POST",
       body: JSON.stringify(
-        ok.map(({ proposal: p }, i) => ({
+        ok.map((c, i) => ({
           run_id: run!.id,
           // The code the operator reads in the document (renderProposals numbers the valid
           // ones), with the day: H-numbers restart every run.
           code: `${day} H-${i + 1}`,
-          target: p.alvo,
-          rationale: `${p.o_que} — ${p.por_que}`,
-          evidence: { ...p, source },
+          target: c.proposal.alvo,
+          rationale: `${c.proposal.o_que} — ${c.proposal.por_que}`,
+          evidence: { ...storedEvidence(c), source },
           status: "proposed",
           leads_seen: leads,
         })),
       ),
     });
   console.log(`hermes_runs ${run!.id}: ${ok.length} propostas gravadas como 'proposed'`);
+
+  // Item 2 of the analysis: every published proposal's own check, on real conversations
+  // before and after it went live, rewritten on each run. The ledger Hermes reads next time
+  // carries it as "Resultado medido".
+  if (production) {
+    const live = await rest<Array<{ id: string; code: string | null; published_at: string; result: string | null; evidence: { como_medir?: string } | null }>>(
+      "hermes_proposals?select=id,code,published_at,result,evidence&status=eq.published&published_at=not.is.null",
+    );
+    for (const p of live) {
+      const at = encodeURIComponent(p.published_at);
+      const [before, after] = await Promise.all([
+        rest<ConvRow[]>(`conversations?select=${CONV}&${REAL}&created_at=lt.${at}&order=created_at.desc&limit=${limit}`).then(load),
+        rest<ConvRow[]>(`conversations?select=${CONV}&${REAL}&created_at=gte.${at}&order=created_at.desc&limit=${limit}`).then(load),
+      ]);
+      const result = withMeasure(p.result, measureEffect(p.evidence?.como_medir, before.conversations, after.conversations));
+      await rest(`hermes_proposals?id=eq.${p.id}`, { method: "PATCH", body: JSON.stringify({ result }) });
+      console.log(`${p.code ?? p.id}: ${result}`);
+    }
+  }
+}
+
+// A ceiling for the supervisor (analysis §e): after the fact, because the Hermes binary is a
+// black box — the job fails, the operator sees it, and the next run is a decision.
+const maxUsd = Number(process.env.HERMES_MAX_USD ?? "");
+if (process.env.HERMES_MAX_USD && costUsd != null && Number.isFinite(maxUsd) && costUsd > maxUsd) {
+  console.error(`hermes: a rodada custou US$ ${costUsd.toFixed(4)}, acima do teto HERMES_MAX_USD de US$ ${maxUsd}`);
+  process.exitCode = 1;
 }
