@@ -13,6 +13,43 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29)
 
+### ▶ Fila de execução imediata (2026-09-29, fim) — branch `claude/happy-planck-izq7jt`, PR aberto
+Dono: C = Claude, O = operador. Nesta ordem:
+1. **C — segunda revisão Opus** de `8f72d71..HEAD` (`code-reviewer`, `model: "opus"`), mesmo roteiro da
+   primeira (grafo §37): sondas pela `runGates`, cenários da régua, mutações. Consertar o que reproduzir.
+2. **C — CI do PR verde** (a etapa `verificar:guardas` leva ~30 min) → **O** faz merge.
+3. **O — decidir a troca de tamanho:** grátis (hoje a agente pode dizer) ou R$ 20 (política pública
+   da Logzz). Se R$ 20: C veta "troca grátis" (desenho pronto no grafo §37, revertido por falta de decisão).
+4. **O — colar o `BUSINESS_CONFIG`** (JSON na conversa de 29/09; `coinzz.*Hash` = manter os atuais).
+5. **O — antes de publicar a `turn`:** `update followups set status='canceled' where status='scheduled'
+   and kind in ('order_shipped','order_delivered');` (linhas armadas por relógio). Depois publicar
+   `turn`; **C** sonda pela porta do n8n (turno, "vou pensar", praça sem entrega, webhook com data).
+6. **O — n8n "Normaliza a venda":** `soAData` só deixar passar `AAAA-MM-DD`; corrigir o comentário
+   "Both checkouts are Coinzz". Reimportar e rodar `pnpm dev:n8n`.
+7. **O — Meta:** se o `silence_2` antigo foi submetido, submeter o novo (`03-templates-meta.md`).
+8. **C — resíduos conhecidos:** depoimento "só quando pedir" sem gate (precisa passar a mensagem dela
+   ao gate); véspera do antecipado nunca sai (Coinzz sem data — polling da API no n8n resolveria);
+   `recordOrder` com `orderedAt` inválido lança; cancelamento/devolução seguem handoff (APIs não expõem, R16.9).
+
+> **2026-09-29, fim da noite — revisão independente aplicada (`9183cd4`, grafo §37).** 18 dos 19
+> achados corrigidos na origem, com teste e mutação. Pendências **do operador**: (a) a troca por
+> preferência é grátis ou custa R$ 20 (a agente hoje pode dizer "a troca é grátis", como o §9); (b)
+> colar o `BUSINESS_CONFIG` (JSON entregue na conversa; `coinzz.*Hash` = manter os atuais); (c) abrir
+> o PR desta branch. **Não feito por limite de sessão:** uma segunda revisão Opus depois do `9183cd4`
+> — é o primeiro passo da próxima sessão. Resíduos conhecidos: "depoimento só quando pedir" é só
+> prompt (o gate não vê a mensagem dela); gates de texto continuam sendo listas.
+>
+> **2026-09-29, noite — cruzamento fechado no código (branch `claude/happy-planck-izq7jt`, sem PR).**
+> Todas as divergências de [`09-cruzamento/divergencias.md`](docs/agente-ia/09-cruzamento/divergencias.md)
+> têm situação final (tabela no fim do arquivo); decisões R16.1–R16.9, grafo §35–§36. Nada
+> publicado. **Antes de publicar a `turn`:** (1) o operador cola o `BUSINESS_CONFIG` novo (o secret
+> não é legível pelo conector; chaves que só ele sabe: `coinzz.*Hash`); (2) linhas `order_shipped` e
+> `order_delivered` armadas por relógio antes do deploy não são conferidas no envio — cancelar as
+> agendadas com um `update followups set status='canceled' where status='scheduled' and kind in
+> ('order_shipped','order_delivered')` e deixar os webhooks rearmarem; (3) se o template antigo do
+> `silence_2` já foi submetido à Meta, submeter o novo. Recomendado no n8n ("Normaliza a venda"):
+> `soAData` só deixar passar `AAAA-MM-DD`.
+
 **PR #39** (`claude/great-planck-48ozds`, sobre o `main` com o #37 e o #38 já mergeados). Nada da
 `turn` publicado (no ar: v41). **CI:** até `1ae187e` só a etapa `verificar:guardas` estava vermelha:
 4 guardas "inconclusivas (SIGTERM)". Causa raiz: sob `GITHUB_ACTIONS` o vitest imprime uma anotação
@@ -39,7 +76,15 @@ guarda é descartada; só o status importa). As 4 rodaram verdes sob `CI=true GI
 ### Tarefa 1 — fechar o PR #39
 1. CI verde no `4700903` (a etapa `verificar:guardas` leva ~30 min no runner) → **O** faz merge.
 
-### Tarefa 2 — revisão de riscos do PR #39 (NÃO FEITA; pedida pelo operador em 2026-09-29)
+> **Feito em 2026-09-29 (tarde):** Tarefa 2 → [`revisao-pr39.md`](docs/agente-ia/08-mudancas/revisao-pr39.md):
+> **0 crítico · 4 alto · 1 médio · 1 baixo** (três frases de frete grátis no antecipado passam
+> a cadeia; véspera rearmada por webhook fora de ordem). Tarefa 3, Fases 1–2 →
+> [`09-cruzamento/divergencias.md`](docs/agente-ia/09-cruzamento/divergencias.md): **7 mentiras
+> possíveis (D0–D6, todas passam `runGates`), 6 médias, 3 só de doc**, com 10 perguntas ao
+> operador. Grafo §35. **Nada consertado:** a Fase 3 espera as respostas do operador.
+> Pergunta que bloqueia o deploy da `turn`: o secret ainda tem `freeShipping: true` escrito?
+
+### Tarefa 2 — revisão de riscos do PR #39 (FEITA em 2026-09-29, ver acima)
 **Como executar (sem deliberar):** siga os passos na ordem. Nada de conserto durante a revisão:
 cada achado vira uma linha na tabela do passo 8. Só depois o operador escolhe o que consertar.
 Regras que valem: causa raiz antes de conserto (`.claude/memory/diagnostico-antes-de-consertar.md`),

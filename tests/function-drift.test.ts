@@ -504,7 +504,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status&order=created_at.desc&limit=1");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
@@ -515,7 +515,10 @@ describe("kits: revisão de código (2026-09-25)", () => {
     // The gate knows the pieces in play.
     expect(source).toContain("      paymentPath: linkPath,\n      // The pieces in play: a kit price needs the kit, a 1-piece price the single piece.\n      units,");
     // The path she chose holds across turns.
-    expect(source).toContain("const linkPath = linkPathFor(paymentChoice, region);");
+    expect(source).toContain("const linkPath = linkPathFor(paymentChoice, knownRegion);");
+    // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
+    expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
+    expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
     expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {

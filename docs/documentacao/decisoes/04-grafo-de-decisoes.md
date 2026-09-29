@@ -1088,7 +1088,86 @@ escape. Reproduzido localmente só com `CI=true GITHUB_ACTIONS=true`: `ENOBUFS`,
 **Correção:** `stdio: "ignore"` no `spawnSync`. Só o status importa; a saída nunca foi lida.
 **Guarda:** o próprio `verificar:guardas` no CI, que agora roda as quatro sob o ambiente do runner.
 
-## 35. A entrega concluída de R$ 19,99 não existe no antecipado (2026-09-29)
+## 35. Revisão de riscos do PR #39 e cruzamento com a documentação (2026-09-29)
+
+**Sintoma:** depois do merge, a revisão pedida pelo operador achou 4 furos altos
+([`revisao-pr39.md`](../../agente-ia/08-mudancas/revisao-pr39.md)): três deixam passar frete
+grátis no antecipado ao lado da frase canônica ou sozinho ("No pix também é grátis."), e um
+webhook fora de ordem ("Entregue" → "created") rearma a véspera depois da entrega. O cruzamento
+([`divergencias.md`](../../agente-ia/09-cruzamento/divergencias.md)) achou textos fixos da régua
+que afirmam o que a operação não cumpre: véspera "amanhã" por relógio (inclusive no antecipado),
+"não paga nada agora" para praça sem entrega, e quatro documentos que ainda negam a R15.3.
+
+**Causa:** (a) a extensão da canônica (§33) aceitava como honesta qualquer negação na frase
+(`honest`), lia menção a `checkout` como "cobrado" e não reconhecia o preço do antecipado como
+nome do caminho — a negativa que não nega, de novo; (b) `orderStatusAfter` só protege a morte,
+não a entrega; (c) os toques da régua são escritos por relógio e julgados como `cod` sem saber a
+praça nem a data escolhida (`scheduled_for` é gravado e nunca lido).
+
+**Caminhos que não valiam:** nenhum tentado — a regra da tarefa foi inventariar sem consertar.
+
+**Correção:** pendente da escolha do operador, achado por achado (Fase 3).
+**Guarda:** cada conserto escolhido entra com teste de negação, mutação em `verify-guards.ts` e
+`pnpm dev:gates --fail-on-loosen`.
+
+## 36. Fechamento do cruzamento: o gate não sabia a praça, a régua não sabia a data (2026-09-29)
+
+**Sintoma:** os achados do §35 e as respostas do operador (R16.1–R16.9).
+
+**Causa, em cada frente:** (a) frete: `honest` aceitava qualquer "não"; `FREIGHT_CHARGED` lia
+"checkout" solto como cobrança; o preço do antecipado não nomeava o caminho; "grátis" sem "frete"
+não era contado. (b) Pagamento na porta: o gate só conhecia `paymentPath`, que junta "praça sem
+entrega" e "escolheu o antecipado onde a entrega chega" — no primeiro "paga na entrega" é
+mentira, no segundo é a outra opção verdadeira. (c) Pós-venda: `scheduleOrder` armava tudo por
+relógio; `orderStatusAfter` só protegia a morte. (d) Escassez: o número ia para o prompt da conversa
+inteira. (e) A média do antecipado era lida de três jeitos (prompt, resposta fixa, gate).
+
+**Caminhos que falharam:** vetar pagar na porta em todo `paymentPath: "prepay"` (primeira versão
+da frente A) endureceu 59 frases verdadeiras no `dev:gates` ("Prefere pagar na entrega?"); cortar a
+janela da garantia na frase afrouxaria "Você tem 30 dias. Para trocar é só chamar."; trocar
+`garanti` por `garantia` afrouxaria "30 dias garantidos". Ficou `garanti(?!r\b)` — **e isso também afrouxava** ("Posso garantir 30 dias"): ver §37.
+
+**Correção:** `GateContext.codUnavailable` (turno: região desta volta ou a gravada; varredura:
+`leads.address.codAvailable`), `postponing` só no `thinkReply`; toques pós-venda pelo status e pela
+`scheduled_for`; entregue é terminal para status anterior; a média do antecipado lida como o gate
+(`prepayVariesByRegion && prepayAvgDays`) nos três lugares.
+
+**Guarda:** 37 mutações novas em `verify-guards.ts` (R39-*, R16-*, T1–T8) e a antiga
+`vespera-entregue-herda` reapontada; `tests/review-2026-09-29-gates.test.ts`,
+`think-reply.test.ts`, `postura-e-depoimentos.test.ts`; `dev:gates --fail-on-loosen` com três
+aceites R16.5. **Resíduo:** "depoimento só quando ela pedir" é regra de prompt, sem gate (o gate
+não vê a mensagem dela).
+
+## 37. Revisão independente do §36: 19 achados, dois testes que congelavam mentira (2026-09-29)
+
+**Sintoma:** a revisão Opus do `f770757` reprovou: três afrouxamentos não aceitos (garantia pelo
+infinitivo, "Últimos dias" sem `allowUnverified`, extensão do grátis por "à parte"), mentiras que
+passavam nas frentes dadas como fechadas, e dois testes novos que exigiam frase falsa
+("…veste… e só então decide", a D4; "a troca é grátis" como isenção decidida pelo operador).
+
+**Causa:** a mesma do repositório inteiro — lista de proibição fechada onde a família é aberta
+(`DOOR_PAYMENT` com três formas; `anyStock` mais estreito que `claims`), negação lida numa janela
+em vez de colada ao verbo (`deniedRightBefore` de 3 palavras), e o grátis sem "frete" contado só
+na própria frase, nunca na resposta a uma pergunta ("E no pix? É grátis também!").
+
+**Caminho que falhou:** vetar "troca grátis" (achado 5). A regra "a troca custa R$ 20" era
+inferência da sessão a partir da página pública da Logzz, escrita na R16.9 como se fosse decisão; o
+repositório trata a troca do colete como grátis desde 25/09 (§9, M-08). Revertido; virou pergunta
+ao operador.
+
+**Correção:** `deniedRightBefore` só com a negação colada (mais modal); forma "só então decide";
+`DOOR_PAYMENT` por família (pagamento + porta/entregador/chegada/recebimento) com a negação do
+predicado depois (`DENIED_AFTER`); sem entrega na praça, nenhuma frase condicionada à entrega
+passa; grátis sem "frete" na resposta à frase que nomeou outro pagamento; `FREIGHT_CHARGED` não lê
+"calculado no preço"/"cobrado só na entrega"; `anyStock` ⊇ `claims`, com o que não é estoque
+excluído; dor aliviada/acabada vetada; garantia isenta só "garantir o seu/a sua/o pedido";
+`linkPathFor` e a diretiva de tamanho com a praça gravada; kit no "vou pensar"; "entregue para os
+Correios" é em rota; status monotônico; cupom pelo caminho.
+
+**Guarda:** 17 mutações `REV-*` e as 5 reapontadas; `tests/review-2026-09-29-ruler.test.ts`; os
+dois testes errados invertidos.
+
+## 38. A entrega concluída de R$ 19,99 não existe no antecipado (2026-09-29)
 
 **Sintoma:** o modelo econômico cobrava R$ 19,99 de entrega concluída também do antecipado
 (contribuição R$ 57,94, "quase empate" com o COD) e não modelava devolução pós-envio.
