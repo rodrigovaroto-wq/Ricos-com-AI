@@ -1765,7 +1765,10 @@ for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(
       continue;
     }
     // The guard runs against the mutated tree; the gate diff compares it with HEAD.
-    const run = spawnSync(mu.guard[0]!, mu.guard.slice(1), { cwd: dir, encoding: "utf8", timeout: 10 * 60_000 });
+    // Only the exit status matters, so the output is dropped: under GITHUB_ACTIONS vitest
+    // prints an annotation per failing case, and a piped buffer over 1 MB (ENOBUFS) kills the
+    // guard with SIGTERM — a catch read as "inconclusive".
+    const run = spawnSync(mu.guard[0]!, mu.guard.slice(1), { cwd: dir, stdio: "ignore", timeout: 10 * 60_000 });
     // A guard killed by the timeout or a signal has no status: that is not a catch.
     if (run.status === null) {
       results.push({ id: mu.id, caught: false, bug: mu.bug, note: `inconclusivo — a guarda não terminou (${run.signal ?? run.error?.message ?? "sem status"})` });
