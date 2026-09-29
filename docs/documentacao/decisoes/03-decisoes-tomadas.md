@@ -1758,3 +1758,43 @@ continua valendo para o antecipado e deixa de valer para a entrega.
 - **Guarda contra excesso de trava:** `tests/honest-sales-lines.test.ts` — as frases
   verdadeiras que vendem, pela cadeia inteira com o config de exemplo, e a mentira espelhada de
   cada uma. Grafo §29.
+
+---
+
+# Rodada 16 — o que a régua e o gate afirmam, contra a operação (2026-09-29)
+
+Origem: a revisão de riscos do PR #39 e o cruzamento do agente com a documentação
+([`revisao-pr39.md`](../../agente-ia/08-mudancas/revisao-pr39.md),
+[`09-cruzamento/divergencias.md`](../../agente-ia/09-cruzamento/divergencias.md)). Respostas do
+operador em 2026-09-29, uma por divergência.
+
+## R16.1 — Os toques depois da compra seguem o status e a data do pedido
+
+A véspera ("sua entrega está marcada pra amanhã") e o "já está a caminho" saíam por relógio (30 h
+e 24 h depois do pedido), inclusive no antecipado, que leva em média 5 dias úteis. Passam a
+seguir o **status** e a **data de entrega** do pedido. O operador prefere ler direto da API da
+Coinzz e da Logzz; por ora a fonte é o webhook de venda das duas plataformas, que já traz o
+status e a data (`date_delivery` → `orders.scheduled_for`). Sem data, não há véspera.
+
+## R16.2 — Praça sem pagamento na entrega segue o antecipado, também na régua
+
+Se a praça da lead não tem pagamento na entrega, a agente segue o segundo caminho, o
+antecipado, deixando explícito o desconto e o prazo médio de entrega. O turno já fazia isso; a
+régua não sabia a praça e mandava "você não paga nada agora". A praça passa a ser guardada no
+lead e o toque é escrito e julgado pelo caminho dela.
+
+## R16.3 — O frete da devolução é por nossa conta
+
+Se a cliente quiser devolver o produto dentro dos 7 dias, o frete é pago pela loja. "A gente
+devolve o seu dinheiro sem custo nenhum" é verdade e fica.
+
+## R16.4 — O entregador não espera ela vestir
+
+Nada pode dizer que ela veste ou experimenta o colete antes de pagar. O verdadeiro é o que o
+site publica: ela vê o colete antes de pagar e, se não for o que esperava, não fica com ele;
+depois de receber, tem 7 dias para devolver. Os toques que diziam "você vê, veste, e só paga se
+estiver tudo certo" foram reescritos, e o gate passa a vetar a promessa.
+
+## R16.5 — "Restam 12 unidades" continua
+
+O secret de produção tem `scarcity`, e o operador mantém o "restam 12 unidades" (R13.6, R14.6).

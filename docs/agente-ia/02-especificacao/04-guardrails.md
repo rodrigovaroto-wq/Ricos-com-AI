@@ -26,12 +26,12 @@ Proposta para o nosso caso, do mais irrevogável ao mais cosmético:
 |---|---|---|---|
 | 1 | **stop / opt-out** | a cliente pediu para parar | Irrevogável. Ver seção abaixo |
 | 2 | **promessa de cobrança** | a mensagem afirma que não haverá cobrança antes da entrega **e** `Físico na entrega` não está ativo | [`../../documentacao/contexto-negocio/05-decisoes-firmes.md`](../../documentacao/contexto-negocio/05-decisoes-firmes.md) §2 |
-| 3 | **promessa de preço e desconto** | valor fora de R$ 216,50 / R$ 129,90 / R$ 110,41 / R$ 19,49, ou percentual fora de 40% e 15% (20% só com o cupom ativo) | `Encorpa-Website/src/lib/checkout.ts`; R2.1 |
+| 3 | **promessa de preço e desconto** | valor fora de R$ 216,50 / R$ 129,90 / R$ 116,91 e dos preços de kit do config, ou percentual fora de 40%, 10% e os dos kits (20% só com o cupom ativo); a economia em reais nunca é citada (saída A, 2026-09-22). *Atualizado em 2026-09-29: esta linha dizia R$ 110,41 / R$ 19,49 / 15%.* | `Encorpa-Website/src/lib/checkout.ts`; R2.1 |
 | 4 | **claim de emagrecimento** | a mensagem sugere que o produto emagrece ou que o efeito é permanente | `FAQ.tsx` :26; decisão firme §3 |
 | 5 | **janela de atendimento** | fora de **06:00–00:00**, para a resposta real da agente (camada 2). A mensagem automática de recebimento (camada 1) roda 24/7 e não passa por este gate | R2.5 + R4.4 |
 | 6 | **pacing / anti-banimento** | acima do throttle, acima do teto diário, ou número ainda em aquecimento | DeskcommCRM → `pacing/engine.ts` :56, :120, :201 |
 | 7 | **anti-template-idêntico** | a mesma mensagem literal saindo em massa | DeskcommCRM → `spinning/engine.ts` :2–4 |
-| 8 | **prazo e logística** | promete uma janela fora da do caminho de pagamento em questão — 1 a 3 dias no COD, 3 a 10 dias úteis no antecipado | Reescrito em **2026-09-08** (R9.3), depois de o operador fazer um pedido real e ver as duas janelas no checkout. O gate agora escolhe a janela pelo `paymentPath`: a do COD dita no antecipado é veto, e vice-versa. Site alinhado no mesmo dia |
+| 8 | **prazo e logística** | promete uma janela fora da do caminho de pagamento em questão — 1 a 3 dias no COD; no antecipado "varia por região, em média 5 dias úteis", nunca faixa fixa (*atualizado em 2026-09-29: dizia 3 a 10 dias úteis*) | Reescrito em **2026-09-08** (R9.3), depois de o operador fazer um pedido real e ver as duas janelas no checkout. O gate agora escolhe a janela pelo `paymentPath`: a do COD dita no antecipado é veto, e vice-versa. Site alinhado no mesmo dia |
 | 9 | **depoimento inventado** | atribui um depoimento que não está na base | Decisão firme §7 |
 | 10 | **afirmação de humanidade** | a mensagem afirma ou insinua que a agente é uma pessoa | Ver "Identidade da agente" abaixo |
 | 11 | **cupom inexistente** | menciona desconto ou cupom que ainda não está configurado na Coinzz | Rodada 1, Q9 |
@@ -82,18 +82,14 @@ para quem silenciou por três dias, e **nunca** para quem já aceitou o preço c
 trava, o desconto migra para dentro da conversa normal e derruba a contribuição de todo
 mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de ~29%.
 
-**Gate do preço antecipado.** Duas travas, e as duas precisam cair antes de a oferta ir ao ar:
+**Gate do preço antecipado.**
 
-1. Enquanto `PREPAY_DISCOUNT` estiver desligado ou em 5%, a agente não pode anunciar
-   R$ 110,41 — o desconto vigente é **15%** (rodada 2), mas o código e a Coinzz ainda não
-   o refletem.
-2. **A economia é sobre o produto, e o frete tem que ser dito junto.** Decidido na rodada
-   2: a agente **pode** afirmar que a cliente tem 15% de desconto e economiza R$ 19,49 no
-   pagamento antecipado — a economia é real e é sobre o produto, que é o que a Encorpa
-   vende. O gate é o outro lado da frase: **na mesma mensagem**, ela diz que no caminho
-   os dois caminhos têm frete grátis desde 2026-09-09. Mensagem que anuncia a economia sem
-   mencionar o frete é vetada — não por moral, mas porque surpresa no checkout, com esta
-   audiência, traz o medo de golpe de volta.
+> **Substituído (atualizado em 2026-09-29).** Os dois itens que estavam aqui (15% e R$ 110,41;
+> "economia de R$ 19,49 com o frete dito junto"; "frete grátis nos dois caminhos desde 09/09")
+> caíram. Vale hoje: desconto de **10%, R$ 116,91** no antecipado; a economia em reais **nunca**
+> é citada (saída A, 2026-09-22); frete **grátis só no pagamento na entrega**, dito com a frase
+> canônica (R15.3, 2026-09-28, grafo §32–§33); no antecipado o frete é calculado por região no
+> checkout e nunca tem valor citado.
 
 ## Identidade da agente
 

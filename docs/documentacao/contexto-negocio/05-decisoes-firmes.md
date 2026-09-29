@@ -81,7 +81,7 @@ Momentos que a sequência precisa cobrir:
 
 Estado em 2026-09-04. Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md).
 
-- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98
+- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98 *(Desde 2026-09-25 o checkout da entrega é a Logzz; a Coinzz ficou com o antecipado.)*
 - [x] **Número decidido:** número novo, separado do site — a criar
 - [x] **Handoff decidido:** a agente para e notifica; o operador assume, exceto de madrugada
 - [ ] Configurar o **desconto de 10%** (R$ 116,91) no pagamento antecipado, e só então ligar `PREPAY_DISCOUNT` (hoje em 5% e desligado). *Era 15% até 2026-09-21, quando voltou a 10% — ver [`06-modelo-economico.md`](06-modelo-economico.md).*
@@ -90,5 +90,5 @@ Estado em 2026-09-04. Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-
 - [ ] Configurar `/obrigado.html` como destino pós-compra na Coinzz
 - [x] **Confirmado: a Coinzz tem API própria, além do webhook.** A API gera o checkout personalizado pré-preenchido; o webhook cobre o status do pedido para o acompanhamento pós-venda
 - [x] **Horário do agente definido:** mensagem automática 24/7 + agente real das 06:00 às 00:00 (3 min depois, ou às 06:00 se chegou de madrugada)
-- [x] **Frete Personalizado da Logzz confirmado que existe — decidido não usar.** Mantém 15% de desconto no antecipado, frete por conta da cliente, sem programa de subsídio. *Atualizado: o desconto voltou a 10% (R$ 116,91) em 2026-09-21; o frete continua por conta da cliente, calculado por região no checkout. Corrigido em 2026-09-22: a operação não oferece frete grátis em nenhum dos dois caminhos.*
+- [x] **Frete Personalizado da Logzz confirmado que existe — decidido não usar.** Mantém 15% de desconto no antecipado, frete por conta da cliente, sem programa de subsídio. *Atualizado: o desconto voltou a 10% (R$ 116,91) em 2026-09-21; o frete continua por conta da cliente, calculado por região no checkout. Corrigido em 2026-09-22: a operação não oferece frete grátis em nenhum dos dois caminhos. **Superado em parte em 2026-09-28 (R15.3):** no pagamento na entrega (Logzz) o frete é grátis para ela e a agente diz isso; no antecipado (Coinzz) continua calculado por região no checkout, nunca grátis.*
 - [x] **CNPJ confirmado (2026-09-21)** — canal é o WhatsApp Cloud API oficial, não WAHA. Ver item 1 acima.

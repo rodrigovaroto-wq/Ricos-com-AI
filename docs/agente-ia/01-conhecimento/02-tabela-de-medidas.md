@@ -45,6 +45,11 @@ já conhece do próprio guarda-roupa, e a regra do maior, que puxa para o lado s
 usa**, e **oferece** a medição como caminho mais preciso para quem quiser — sem transformar
 isso em requisito.
 
+> *Atualizado em 2026-09-29:* o prompt de hoje **não oferece** a fita ("Não peça fita métrica"),
+> pergunta o tamanho de calça e a preferência de caimento, e **aceita** a medida em centímetros
+> quando ela manda por conta própria — a tabela converte. A medição continua caminho
+> secundário; só deixou de ser oferecida.
+
 > **A palavra importa.** Este documento usa "manequim" porque é o termo técnico da tabela,
 > mas a agente **nunca** pergunta com ele: quase ninguém o usa, e a cliente que não entende
 > a pergunta simplesmente não responde. O que ela diz é *"uso 42 de calça"*. O extrator
