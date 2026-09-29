@@ -13,6 +13,14 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29)
 
+> **2026-09-29, fim da noite — revisão independente aplicada (`9183cd4`, grafo §37).** 18 dos 19
+> achados corrigidos na origem, com teste e mutação. Pendências **do operador**: (a) a troca por
+> preferência é grátis ou custa R$ 20 (a agente hoje pode dizer "a troca é grátis", como o §9); (b)
+> colar o `BUSINESS_CONFIG` (JSON entregue na conversa; `coinzz.*Hash` = manter os atuais); (c) abrir
+> o PR desta branch. **Não feito por limite de sessão:** uma segunda revisão Opus depois do `9183cd4`
+> — é o primeiro passo da próxima sessão. Resíduos conhecidos: "depoimento só quando pedir" é só
+> prompt (o gate não vê a mensagem dela); gates de texto continuam sendo listas.
+>
 > **2026-09-29, noite — cruzamento fechado no código (branch `claude/happy-planck-izq7jt`, sem PR).**
 > Todas as divergências de [`09-cruzamento/divergencias.md`](docs/agente-ia/09-cruzamento/divergencias.md)
 > têm situação final (tabela no fim do arquivo); decisões R16.1–R16.9, grafo §35–§36. Nada
