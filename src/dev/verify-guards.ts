@@ -2195,7 +2195,7 @@ const MUTATIONS: Mutation[] = [
     id: "R17-link-sem-validar",
     bug: "um feeBrl escrito como texto no secret lançava no turno (toFixed de string)",
     files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
-    from: "  typeof exchange?.feeBrl === \"number\" &&",
+    from: "  typeof exchange?.feeBrl === \"number\" &&\n  Number.isFinite(exchange.feeBrl) &&",
     to: "  exchange?.feeBrl !== undefined &&",
     guard: ["pnpm", "-s", "vitest", "run", "tests/exchange-freight.test.ts"],
   },
