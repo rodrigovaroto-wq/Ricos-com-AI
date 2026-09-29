@@ -14,7 +14,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 ## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29, madrugada)
 
 ### ▶ Fila de execução imediata (2026-09-29, madrugada) — branch `claude/inspiring-galileo-98shbt`, PR novo
-PR #40 mergeado. Nesta branch (grafo §38–§39, R17.1): troca de tamanho não é grátis; segunda revisão Opus
+PR #40 mergeado. Nesta branch (grafo §39–§40, R17.1): troca de tamanho não é grátis; segunda revisão Opus
 (10 achados) consertada; depoimento só quando ela pede (gate); `recordOrder` com data ilegível; n8n
 `soAData` só `AAAA-MM-DD`. Feito pelo operador em 29/09: merge do #40, `BUSINESS_CONFIG` colado, SQL de
 cancelar `order_shipped`/`order_delivered` agendadas.

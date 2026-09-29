@@ -19,7 +19,7 @@ amostra"). Quem olha o número primeiro escolhe o piso que confirma o que já vi
 | **Fallback aceitável** | `fallback_rate` (resposta pronta ÷ send+fallback+handoff) | `eval_turn_outcomes` | **Sem base de tráfego real.** Só sintético: 0 em 61 respostas no eval da Muse ([`06-eval-muse-2026-09-25.md`](06-eval-muse-2026-09-25.md)); 1 resposta pronta na R3 das personas ([`05-rodada-personas-2026-09-24.md`](05-rodada-personas-2026-09-24.md)). Persona adversarial não é cliente |
 | **Handoff aceitável** | `handoff_rate` | `eval_turn_outcomes` | **Sem base no repositório** |
 | **Gate calibrado** | `block_rate` por gate (por tentativa julgada, não por turno) | `eval_gate_blocks` | **Sem base de tráfego real.** Sintético: 0,03 reescrita por resposta (eval da Muse) |
-| **Custo sob o teto** | `cost_brl` por conversa; `counter_drift_brl` | `eval_conversation_cost` | Teto `cost.conversationCapBrl` = **R$ 1,50**, folga `overrunTolerance` 25% → **R$ 1,875** efetivo (`config/business.example.json`). Sintético: R$ 0,013 por conversa |
+| **Custo sob o teto** | `cost_brl` por conversa; `counter_drift_brl` | `eval_conversation_cost` | Teto `cost.conversationCapBrl` = **R$ 0,50** (era R$ 1,50 até 2026-09-29), folga `overrunTolerance` 25% → **R$ 0,625** efetivo (`config/business.example.json`). Sintético: R$ 0,013 por conversa |
 | **Qual anúncio ganha** | `leads_ordered / leads` por `ad` | `eval_attribution` | **Sem base no repositório** para diferença entre anúncios |
 | **Opt-out** | `leads_opted_out` ÷ `leads` | `eval_attribution` (conta por `leads.opted_out_at`, nunca por `stage` — item 7.0) | **Sem base no repositório** |
 
@@ -120,7 +120,7 @@ pausa os anúncios no mesmo dia, antes de qualquer piso:
 2. **Opt-out ignorado** — qualquer mensagem enviada a um lead depois de
    `leads.opted_out_at`. Um caso basta.
 3. **Custo acima do teto** — qualquer conversa com `cost_brl` acima de
-   `conversationCapBrl × (1 + overrunTolerance)` (hoje R$ 1,875), ou `counter_drift_brl`
+   `conversationCapBrl × (1 + overrunTolerance)` (hoje R$ 0,625), ou `counter_drift_brl`
    diferente de zero: o mecanismo do teto falhou. Um caso basta.
 4. Outras que eu acrescento: ___________________________________________________
 

@@ -1167,7 +1167,27 @@ Correios" é em rota; status monotônico; cupom pelo caminho.
 **Guarda:** 17 mutações `REV-*` e as 5 reapontadas; `tests/review-2026-09-29-ruler.test.ts`; os
 dois testes errados invertidos.
 
-## 38. A troca de tamanho não é grátis: o envio é dela, pago por link (R17.1, 2026-09-29)
+## 38. A entrega concluída de R$ 19,99 não existe no antecipado (2026-09-29)
+
+**Sintoma:** o modelo econômico cobrava R$ 19,99 de entrega concluída também do antecipado
+(contribuição R$ 57,94, "quase empate" com o COD) e não modelava devolução pós-envio.
+
+**Causa:** premissa de 21/09, "o antecipado paga as mesmas taxas do COD", nunca conferida com a
+Logzz/Coinzz. A atendente do suporte corrigiu em 29/09: a entrega concluída só existe no COD;
+no antecipado há etiqueta (se a cliente não paga), manuseio e taxas de transação.
+
+**Caminhos que não valiam:** tratar a devolução como a "entrega frustrada" — frustrada é a
+cliente recusar na porta, só no COD, e mantém os 15%; devolução/cancelamento pós-envio é outro
+custo (frete inteiro + manuseio, nos dois caminhos) sem taxa medida; inventar uma taxa de
+devolução para fechar a média seria número sem fonte.
+
+**Correção (R15.4):** `06-modelo-economico.md` ganha a caixa de 29/09 (antecipado R$ 77,93,
+mix 70/30 R$ 60,02, devolvido −R$ 24,98 no COD e −(etiqueta + 4,99) no antecipado; fechada no mesmo dia em taxa completa de devolução de R$ 25,00 (manuseio incluso, nos dois caminhos, sem devolução da taxa de transação) e cobrança por pedido confirmada; revisada antes: recusa em R$ 9,99 como confirmado em R10.2, e não 9,98, e etiqueta de São Paulo R$ 13,79, não o `LABEL_COST_BRL` histórico);
+`mapa-financeiro.html` deixa de subtrair etiqueta do antecipado entregue. Nenhum código lê
+esses valores. **Guarda:** nenhuma automática — é conta de documentação; a taxa de
+devolução pós-envio fica registrada como pendência (P6), não como premissa.
+
+## 39. A troca de tamanho não é grátis: o envio é dela, pago por link (R17.1, 2026-09-29)
 
 **Sintoma:** a agente podia dizer "a troca é grátis" (§9, M-08, `RETURN_FREE`), e uma troca num
 pedido ia para uma pessoa sem valor nem link. O operador respondeu a pergunta do §37: o envio da
@@ -1193,7 +1213,7 @@ contextos, o config inválido, o intérprete e a ligação no turno); mutações
 `dev:gates --fail-on-loosen`: 0 afrouxamento, 30 endurecimentos, todos a troca dita grátis. Os
 testes do §37 que exigiam "No pix a troca é grátis" passando foram invertidos.
 
-## 39. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
+## 40. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
 
 **Sintoma:** a revisão Opus de `9183cd4..93a0386` reprovou: com a praça sem pagamento na entrega,
 "Você paga na entrega e não tem taxa nenhuma." passava (o `DENIED_AFTER` do §37 aceitava qualquer
@@ -1219,7 +1239,7 @@ depoimento não pedido. `recordOrder` com `date_order` ilegível não lança mai
 
 **Guarda:** `tests/review-2026-09-29-second.test.ts` (111 casos, com a mentira de cada isenção);
 21 mutações `REV2-*`, 4 reapontadas, `R17-data-do-pedido-invalida`; `dev:gates --fail-on-loosen` com
-7 aceites §39 (frases verdadeiras que o gate vetava).
+7 aceites §40 (frases verdadeiras que o gate vetava).
 
 ## Lições (valem para qualquer correção futura)
 
