@@ -1241,6 +1241,96 @@ depoimento não pedido. `recordOrder` com `date_order` ilegível não lança mai
 21 mutações `REV2-*`, 4 reapontadas, `R17-data-do-pedido-invalida`; `dev:gates --fail-on-loosen` com
 7 aceites §40 (frases verdadeiras que o gate vetava).
 
+## 41. Hermes: a fonte de produção media errado, e a citação de cliente não expirava (2026-09-29)
+
+**Sintoma:** análise de viabilidade do Hermes v1
+([`06-analise-hermes-v1.md`](../../agente-ia/05-plano/06-analise-hermes-v1.md)). Nada em
+produção quebrou, porque o canal está desligado e o Hermes nunca leu cliente real; três
+defeitos esperavam o primeiro lead.
+
+**Causa:**
+- `fromSupabase` montava as respostas sem `status` e sem custo; `messages` não tem status.
+  Na fonte de produção, o placar lia 0 respostas prontas e 0 handoffs em qualquer
+  rodada, contava a boas-vindas como resposta 1 da Malu e custo 0. Nenhum teste passava ali.
+- `hermes_proposals.evidence` copia literalmente as frases da cliente, sem `expires_at` e
+  fora do `purge_expired`; o PR da Action commitava as mesmas frases no git.
+- `hermes_backlog` e a leitura contavam conversas de persona (`5500099`) como leads.
+
+**Caminhos que não valiam:**
+- Adicionar coluna `status` em `messages`: mexe na função no ar, e o desfecho já existe
+  em `turn_outcomes`.
+- Apagar a linha inteira da proposta aos 90 dias: perderia o histórico que o Hermes lê
+  antes de propor (R14.14).
+- `evidence = null` (a primeira versão, pega na revisão): apagava `objetivo` e `como_medir`
+  de uma proposta aprovada e ainda não implementada.
+- Redigir a cópia do git copiando todas as chaves e aplicando a troca só nos textos (também
+  pega na revisão): proposta rejeitada com chave desconhecida, objeto aninhado ou evidência
+  em texto passava inteira. Agora é uma lista de permissão de chaves.
+- Tirar o documento do PR: o operador perde o relatório da rodada. Basta tirar o trecho.
+
+**Correção:**
+- `rowsToConversations` (pura, em `hermes-core.ts`) liga cada desfecho à última resposta
+  antes dele e depois do desfecho anterior e da última mensagem dela (`deferred`,
+  `stopped` e alguns handoffs não gravam mensagem; sem o piso, roubariam um toque da régua),
+  marca a boas-vindas por `conversations.welcomed_at` e descarta o prefixo sintético.
+- `withoutQuotes` troca trecho e texto entre aspas por um marcador na cópia que vai ao git
+  (`.md`, `.json` e o resumo); o banco guarda o original.
+- A migração `0020` põe `expires_at` em `hermes_proposals`. O `purge_expired` tira só a
+  chave `evidencias` da `evidence` aos 90 dias e marca `evidence_redacted_at`, porque
+  `objetivo` e `como_medir` só existem ali e a implementação de uma aprovada ainda os lê. A
+  mesma migração tira o prefixo sintético do `hermes_backlog`.
+- `hermes.yml` faz checkout com `persist-credentials: false`.
+
+**Guarda:** `tests/hermes-core.test.ts` (fonte de produção e redação),
+`tests/migrations.test.ts` (definições vigentes), e cinco mutações em `verify-guards.ts`
+(`hermes-fonte-*`, `hermes-git-sem-trecho`, `hermes-retencao`).
+
+**Resíduo:**
+- `rationale` (`o_que — por_que`) não expira e pode parafrasear a cliente.
+- Desfecho ligado por horário, não por id (`gate_traces.message_id` segue vazio).
+- A migração é aplicada à mão pelo operador.
+
+
+## 42. Hermes: ler onde está o problema, provar o que afirma, medir o efeito (2026-09-29)
+
+**Sintoma:** conclusão da análise do Hermes v1 (`06-analise-hermes-v1.md`):
+- o Hermes lia as 50 últimas conversas, calculava número no texto e propunha "mentira" sem
+  dizer qual regra foi quebrada;
+- ninguém media se uma proposta publicada funcionou: o `result` era só `"publicada: <url>"`;
+- o operador aprovava sem ver a conversa;
+- o deploy publicava qualquer commit com `hermes:<uuid>`.
+
+**Causa:** o loop de R14.14 fechava no clique, mas o clique via só o que o modelo escreveu,
+e o aprendizado vinha só da opinião do operador, nunca do efeito medido.
+
+**Caminhos que não valiam:**
+- Um juiz com perguntas tipadas por conversa (a ideia do JEV): sem tráfego não há o que
+  calibrar, e o juiz custaria na ordem da conversa (§b, §f).
+- Confiança declarada pelo modelo: não calibrada.
+- Medir no n8n: regra de negócio, e o n8n é cano.
+
+**Correção:**
+- `hermes_sample` (view) e `pickSample`: sinal primeiro, mais controle.
+- `numeros.md` com as views da 0018.
+- `prompt.md` e `fato_contradito`, validado por substring.
+- `discardAlreadyVetoed`.
+- `measureEffect` sobre `published_at`, reescrito em `result` a cada passada.
+- O e-mail mostra trecho e "hoje".
+- `deploy-hermes.yml` confere `accepted`/`implementing` e recusa diff em
+  `gate-loosen-accepted.txt`.
+- Hermes com `cwd` no pacote e env mínimo; `scrubSecrets` no documento; `HERMES_MAX_USD`
+  opcional; auditoria no `hermes_runs` (hash da skill, commit, ids).
+
+**Guarda:** testes em `hermes-core`, `migrations` e `n8n-workflows`; mutações
+`hermes-fato-contradito`, `hermes-ja-vetada*`, `hermes-afrouxa-sinonimo`,
+`hermes-amostra-controle`, `hermes-segredo`, `hermes-email-trecho`.
+
+**Resíduo:**
+- A medida é leitura, não veredito, até o piso de amostra ser assinado.
+- O controle da amostra é "as mais caras e mais novas sem sinal", não aleatório.
+- O teto de custo é verificado depois da passada.
+- A calibração segue com 3 defeitos.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

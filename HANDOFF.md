@@ -28,6 +28,21 @@ cancelar `order_shipped`/`order_delivered` agendadas.
 5. **C — resíduos:** véspera do antecipado (Coinzz sem data — polling da API no n8n);
    cancelamento/devolução seguem handoff (R16.9); gates de texto continuam sendo listas.
 
+### Hermes v1 — branch `claude/cool-brahmagupta-hccc4p` (2026-09-29)
+Análise e conclusão: [`06-analise-hermes-v1.md`](docs/agente-ia/05-plano/06-analise-hermes-v1.md);
+grafo §41–§42. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
+amostra por sinal, números das views no pacote, mentira com a regra do prompt, descarte do que
+os gates já vetam, efeito medido das publicadas, e-mail com trecho, deploy que confere a
+aprovação e recusa afrouxamento. **Feito pelo Claude em 29/09, com o "pode aplicar" do operador:**
+1. migração `0020_hermes_retention.sql` aplicada no Supabase da Encorpa (`hbmkgakzrqmdlsvszjeo`,
+   conferido por `list_projects`): colunas, views com `security_invoker`, `purge_expired` novo;
+2. nó "Monta o e-mail" do workflow n8n "Hermes: decisão do operador" atualizado e publicado
+   (versão ativa `88928b49`); `pnpm dev:n8n` dá `ok` para ele.
+   Fora do escopo do Hermes, o mesmo `dev:n8n` acusa "Turno da agente" (campo selado `reply`) e
+   "Relógio da régua" (saída de erro): o `main` à frente do n8n, itens da fila acima.
+**O:** opcional, variável de repositório `HERMES_MAX_USD` (teto por passada).
+Não feito: calibração com ≥ 100 defeitos plantados (precisa de rodada de personas com modelo).
+
 ### ▶ Fila de execução imediata (2026-09-29, fim) — branch `claude/happy-planck-izq7jt`, PR aberto
 Dono: C = Claude, O = operador. Nesta ordem:
 1. **C — segunda revisão Opus** de `8f72d71..HEAD` (`code-reviewer`, `model: "opus"`), mesmo roteiro da

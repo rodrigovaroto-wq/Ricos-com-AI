@@ -8,19 +8,27 @@ applies anything (R11.6): a person accepts or refuses each proposal.
 ## The loop
 
 ```
-conversations (Supabase, or a persona round)
-  → evidence bundle: scorecard + conversations with vetoes + registry + "do not" list,
+conversations (Supabase — picked by `hermes_sample`: flagged first, then a control —
+or a persona round)
+  → evidence bundle: scorecard + the evaluation views' numbers (numeros.md) + Malu's prompt
+    (prompt.md) + conversations with vetoes and outcomes + registry + "do not" list,
     PII masked (phone, CPF, CEP, e-mail)
   → Hermes, file/skills/todo toolsets only, in a throwaway copy, no Supabase key
   → propostas.json
-  → validation: every quote verbatim in the conversation, nothing from the "do not" list,
-    a gate loosening names the neighbouring lie that stays vetoed
-  → each quote run through TODAY's gates ("hoje: vetada por …" / "passa")
+  → validation: every quote verbatim in the conversation, a lie quotes the prompt rule it
+    breaks (verbatim too), nothing from the "do not" list, a gate loosening names the
+    neighbouring lie that stays vetoed
+  → each quote run through TODAY's gates ("hoje: vetada por …" / "passa"); a lie every
+    quote of which is already vetoed is set aside
+  → the git copy of a production run carries no excerpt nor quoted text (LGPD)
   → hermes_runs + hermes_proposals (status 'proposed') + a PR with the document
   → n8n e-mails one link per proposal; the operator approves or refuses, with a reason
   → approved: a scheduled session implements it (hermes/IMPLEMENTAR.md), proves it (CI,
     Opus review loop, personas) and merges it with `hermes:<id>`; deploy-hermes.yml
-    publishes after CI on main; the outcome is e-mailed
+    publishes after CI on main — only a row the operator approved, and never a change that
+    accepts a gate loosening; the outcome is e-mailed
+  → every later production run measures each published proposal's `como_medir` check on
+    conversations before and after `published_at`, into `result`
   → every decision, reason and result is in hermes_proposals, and the next run reads it
     (decisoes.md in the bundle) before proposing (R14.14)
 ```
@@ -34,7 +42,8 @@ conversations (Supabase, or a persona round)
 | `pnpm hermes:calibrar <dir>` | Plants three known defects in a copy of a round and checks Hermes finds all three. Rerun after changing the skill or the model. |
 
 Production runs daily from `.github/workflows/hermes.yml` (needs the secrets
-`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `META_API_KEY`).
+`SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `META_API_KEY`; optional variable
+`HERMES_MAX_USD`, a ceiling per run in US$). Migration `0020` must be applied first.
 
 ## Files
 
@@ -44,7 +53,8 @@ Production runs daily from `.github/workflows/hermes.yml` (needs the secrets
   output format.
 - `src/dev/hermes-core.ts` (pure, tested) and `src/dev/hermes-run.ts` (the run).
 - `supabase/migrations/0008_hermes_runs.sql` — `hermes_runs`, `hermes_proposals.run_id`,
-  `hermes_backlog`.
+  `hermes_backlog`. `0020_hermes_retention.sql` — the excerpts expire at 90 days,
+  `hermes_sample`, `published_at`, the run's skill/commit/conversation ids.
 
 ## Local setup (Python 3.14)
 
@@ -61,5 +71,7 @@ install.
 ## Measured (2026-09-25)
 
 - Calibration: 3/3 planted defects found (invented deadline, canned reply, repeated link).
-- Cost: ~US$ 0.005 per persona round on `-contributor`; ~US$ 0.05 per production run on
-  the standard model (≈120k tokens, mostly cached).
+- Cost: ~US$ 0.005 per persona round on `-contributor` (measured). The standard model was
+  never run: at `src/llm/pricing.ts` prices, with no cache price, a production pass of 50
+  conversations is estimated at US$ 0.23–0.64 (analysis §f). The earlier "~US$ 0.05 for
+  ≈120k tokens" did not follow from that table.
