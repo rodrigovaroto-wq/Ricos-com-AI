@@ -54,11 +54,11 @@ aplica é o do secret.
 | `tests/` | 49 arquivos, 5.679 casos (2026-09-29) | CI |
 | `hermes/` | Skill e config do supervisor offline | GitHub Action |
 
-## 4. Estado em uma frase (2026-09-29)
+## 4. Estado em uma frase (2026-09-29, noite)
 
-Produção roda a `turn` **v41** (PR #35, 25/09). Tudo dos PRs #36–#41 está no `main` e **não
-publicado**; #42 (troca não é grátis) e #43 (Hermes v1) estão abertos, com CI em andamento.
-Ordem de fechamento no pipeline.
+Produção roda a `turn` **v41** (PR #35, 25/09); o `main` tem os PRs #36–#42 sem publicar. O PR #43
+(Hermes v1) está aberto. O canal WhatsApp está desligado, e o Hermes de produção nunca rodou (a
+instalação falha na Action). O que falta para o primeiro lead real está no pipeline 80/20.
 
 ## 5. Pastas com número faltando (não é arquivo perdido)
 
