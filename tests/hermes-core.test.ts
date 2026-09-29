@@ -329,7 +329,7 @@ describe("hermes: afrouxar gate, nas palavras que o modelo usa", () => {
       expect(checkProposals(proposta({ o_que, mentira_vizinha: "" }), conversas)[0]?.problems.join()).toContain("mentira vizinha");
     },
   );
-  it.each(["Flexibilizar o gate de tamanho", "Tolerar a frase de troca", "Abrandar o veto de prazo", "Isentar a pergunta de fechamento"])("%s também é afrouxar", async (t) => {
+  it.each(["Flexibilizar o gate de tamanho", "Tolerar a frase de troca", "Abrandar o veto de prazo", "Isentar a pergunta de fechamento", "o gate não deve bloquear parcelamento", "o gate não deve mais vetar frete grátis", "deixar de vetar troca grátis"])("%s também é afrouxar", async (t) => {
     const { asksToLoosen } = await import("../src/dev/hermes-core.js");
     expect(asksToLoosen(t)).toBe(true);
   });

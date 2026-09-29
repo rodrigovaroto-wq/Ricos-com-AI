@@ -610,6 +610,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/hermes-core.test.ts"],
   },
   {
+    id: "hermes-afrouxa-auxiliar",
+    bug: "\"o gate não deve mais vetar…\" e \"deixar de vetar…\" passavam sem a mentira vizinha",
+    files: ["src/dev/hermes-core.ts"],
+    from: "(?:parar|deixar) de (?:vetar|barrar|bloquear)|n[ãa]o\\s+(?:(?:deve|pode|vai|precisa)\\s+)?(?:mais\\s+)?(?:vetar|barrar|bloquear)",
+    to: "parar de (?:vetar|barrar|bloquear)|n[ãa]o (?:vetar|barrar|bloquear)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/hermes-core.test.ts"],
+  },
+  {
     id: "hermes-medida-link",
     bug: "a medida da proposta publicada apagava o link do run que a publicou",
     files: ["src/dev/hermes-core.ts"],

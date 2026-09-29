@@ -179,8 +179,8 @@ const FORBIDDEN: ReadonlyArray<[RegExp, string]> = [
 
 /** Asking a gate to let something through, in the words a model uses for it (security review, 2026-09-29). */
 const LOOSENS = /afrouxa|liberar|deixar passar|remov|desativ|desliga|relax|\bisent(?:ar|e|em|ando)\b|permiti|aceitar|flexibiliz|toler|abrand|suaviz|menos r[ií]gid/i;
-/** Loosening said as a negated veto: "não vetar", "parar de barrar". */
-const STOP_VETO = /parar de (?:vetar|barrar|bloquear)|n[ãa]o (?:vetar|barrar|bloquear)/i;
+/** Loosening said as a negated veto: "não vetar", "não deve mais bloquear", "deixar de barrar". */
+const STOP_VETO = /(?:parar|deixar) de (?:vetar|barrar|bloquear)|n[ãa]o\s+(?:(?:deve|pode|vai|precisa)\s+)?(?:mais\s+)?(?:vetar|barrar|bloquear)/i;
 /** A negated verb ("o gate não deve aceitar…") asks for the opposite: read without it. */
 const NEGATED = /\bn[ãa]o\s+(?:deve\s+|pode\s+|vai\s+|precisa\s+)?\S+/gi;
 
