@@ -56,7 +56,7 @@ preferência:
 | **Tool-calling na conversa** (R11.1) | Trocaria código determinístico e testado por escolha do modelo, num funil cuja falha típica é uma promessa que custa o frete inteiro |
 | **RAG** (R11.4) | A base de conhecimento tem 104 linhas e já cabe no prompt. RAG traria um modo de falha — recuperação que falha — que a arquitetura inteira existe para evitar |
 | **Vector store para memória** (R11.5) | O fato durável do lead é uma coluna `jsonb` em `leads`, escrita por extrator determinístico |
-| **Hermes dentro do turno** (R11.2) | Terceira chamada de modelo, com teto de R$ 1,50 por conversa e ritmo em milissegundos. Custo e latência sem ganho |
+| **Hermes dentro do turno** (R11.2) | Terceira chamada de modelo, com teto de R$ 0,50 por conversa e ritmo em milissegundos. Custo e latência sem ganho |
 | **Auto-aplicar melhoria em produção** (R11.6) | O loop fecha num humano. O `BUSINESS_CONFIG` já bloqueia isso fisicamente — **não remova essa barreira**. Desde R14.14 o humano é o clique do operador em "Aprovar" de cada proposta; só depois dele a mudança se implementa, se prova e se publica |
 
 **A Evaluation Layer são views SQL e um job** (R11.3), não um serviço. **O Sandbox é o CI
