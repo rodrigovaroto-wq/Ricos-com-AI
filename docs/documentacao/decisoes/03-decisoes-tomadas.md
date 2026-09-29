@@ -1758,3 +1758,22 @@ continua valendo para o antecipado e deixa de valer para a entrega.
 - **Guarda contra excesso de trava:** `tests/honest-sales-lines.test.ts` — as frases
   verdadeiras que vendem, pela cadeia inteira com o config de exemplo, e a mentira espelhada de
   cada uma. Grafo §29.
+
+## R15.4 — Entrega concluída só no COD; devolução pós-envio custa frete + manuseio (2026-09-29)
+
+A atendente do suporte Logzz/Coinzz informou ao operador que a **taxa de entrega concluída
+(R$ 19,99) só é cobrada no pagamento na entrega**. No antecipado o operador paga etiqueta (se
+a cliente não paga), manuseio e taxas de transação. O operador decidiu:
+
+- **Antecipado entregue:** a cliente paga o frete inteiro no checkout; custo do operador =
+  taxa do MP + R$ 4,99. Contribuição 1 peça **R$ 77,93** (era R$ 57,94).
+- **Devolução, processo de devolução ou cancelamento depois de enviado:** o operador paga o
+  **frete inteiro + o manuseio**, nos dois caminhos (COD R$ 19,99 + R$ 4,99; antecipado
+  etiqueta + R$ 4,99).
+- **Recusa de 15% inalterada** e exclusiva do COD (entregador na porta, cliente recusa). O
+  antecipado nunca tem taxa de frustração.
+
+Supera a premissa de 21/09 e a P3 de 25/09 no que toca ao antecipado. Só documentação e o
+mapa financeiro mudam — nenhum gate, prompt ou config lê esses valores; a regra do que a agente
+diz (só o percentual, frete no checkout do antecipado) segue igual. Conta completa em
+[`06-modelo-economico.md`](../contexto-negocio/06-modelo-economico.md).

@@ -1088,6 +1088,26 @@ escape. Reproduzido localmente só com `CI=true GITHUB_ACTIONS=true`: `ENOBUFS`,
 **Correção:** `stdio: "ignore"` no `spawnSync`. Só o status importa; a saída nunca foi lida.
 **Guarda:** o próprio `verificar:guardas` no CI, que agora roda as quatro sob o ambiente do runner.
 
+## 35. A entrega concluída de R$ 19,99 não existe no antecipado (2026-09-29)
+
+**Sintoma:** o modelo econômico cobrava R$ 19,99 de entrega concluída também do antecipado
+(contribuição R$ 57,94, "quase empate" com o COD) e não modelava devolução pós-envio.
+
+**Causa:** premissa de 21/09, "o antecipado paga as mesmas taxas do COD", nunca conferida com a
+Logzz/Coinzz. A atendente do suporte corrigiu em 29/09: a entrega concluída só existe no COD;
+no antecipado há etiqueta (se a cliente não paga), manuseio e taxas de transação.
+
+**Caminhos que não valiam:** tratar a devolução como a "entrega frustrada" — frustrada é a
+cliente recusar na porta, só no COD, e mantém os 15%; devolução/cancelamento pós-envio é outro
+custo (frete inteiro + manuseio, nos dois caminhos) sem taxa medida; inventar uma taxa de
+devolução para fechar a média seria número sem fonte.
+
+**Correção (R15.4):** `06-modelo-economico.md` ganha a caixa de 29/09 (antecipado R$ 77,93,
+mix 70/30 R$ 60,02, devolvido −R$ 24,98 no COD e −(etiqueta + 4,99) no antecipado);
+`mapa-financeiro.html` deixa de subtrair etiqueta do antecipado entregue. Nenhum código lê
+esses valores. **Guarda:** nenhuma automática — é conta de documentação; a taxa de
+devolução pós-envio fica registrada como pendência (P6), não como premissa.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

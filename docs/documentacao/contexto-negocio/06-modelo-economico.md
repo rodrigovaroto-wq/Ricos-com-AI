@@ -11,6 +11,41 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### 🚨 Correção de 2026-09-29 — a entrega concluída (R$ 19,99) não existe no antecipado; devolução pós-envio custa frete + manuseio
+>
+> Confirmado pela atendente do suporte Logzz/Coinzz (print do operador, 2026-09-29): a **taxa de
+> entrega concluída de R$ 19,99 só é cobrada no pagamento na entrega (COD)**. No antecipado o
+> operador paga apenas a etiqueta (se a cliente não a pagar), o manuseio e as taxas de
+> transação/antifraude. **Isso derruba a premissa de 21/09** ("o antecipado paga as mesmas
+> taxas do COD, entrega inclusive) e a P3 da caixa de 25/09 no que toca ao antecipado.
+>
+> Decisões do operador no mesmo dia: (1) a **cliente paga o frete do antecipado inteiro no
+> checkout** (R15.3), então no pedido entregue o custo do operador é só taxa do MP + manuseio;
+> (2) **devolução, processo de devolução ou cancelamento depois de enviado** custa ao operador
+> **o frete inteiro + o manuseio, nos dois caminhos** — COD: R$ 19,99 + R$ 4,99; antecipado:
+> etiqueta + R$ 4,99; (3) a **recusa de 15% não muda**: entrega frustrada é o entregador chegando
+> na porta e a cliente recusando pagar e receber — **só existe no COD**; o antecipado nunca
+> tem taxa de frustração. Devolução/cancelamento pós-envio é um custo à parte, sem taxa
+> percentual medida ainda.
+>
+> **Contribuição do antecipado entregue** (`preço − 30 × peças − taxa MP − 4,99`):
+>
+> | Peças | Antes (R$ 19,99 no custo) | **Vigente** | Média COD (15% recusa) | Vigente − COD média |
+> |---|---|---|---|---|
+> | 1 (116,91) | 57,94 | **77,93** | 52,35 | +25,58 |
+> | 2 (207,84) | 116,16 | **136,15** | 109,01 | +27,14 |
+> | 3 (272,79) | 149,17 | **169,16** | 145,12 | +24,04 |
+>
+> Mix 70% COD / 30% antecipado, 1 peça: 0,7 × 52,35 + 0,3 × 77,93 = **R$ 60,02** (era 54,03).
+>
+> **Custo de um pedido devolvido/cancelado depois de enviado, por pedido:**
+> COD = **− R$ 24,98** (19,99 + 4,99); antecipado = **− (etiqueta + 4,99)** — com a etiqueta de
+> R$ 15,00 (`LABEL_COST_BRL`) são **− R$ 19,99**; em São Paulo pela Logzz (R$ 13,79, manuseio já
+> incluso, conforme o operador) o custo é a própria etiqueta; em praça distante chega a
+> R$ 84,05 + 4,99. **Não modelado, por falta de dado:** a taxa de devolução/cancelamento
+> pós-envio (P6 — nenhuma premissa adotada) e se a taxa do MP volta no estorno. A média do COD
+> com 15% de recusa e o mix acima **não** incluem esse custo.
+>
 > ### ⚠️ Correção de 2026-09-25 — o antecipado passa pelo Mercado Pago: R$ 57,94 (1 peça)
 >
 > Desde [R14.15](../decisoes/03-decisoes-tomadas.md) o pagamento do antecipado na Coinzz é
