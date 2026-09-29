@@ -4,10 +4,12 @@
 -- `hermes_proposals.evidence` holds the whole proposal, with the customer's sentences it
 -- cites copied verbatim (src/dev/hermes-run.ts). The table had no `expires_at`, no foreign
 -- key to `conversations` and was not in `purge_expired()`, so those sentences outlived the
--- conversation they came from, forever. Now `evidence` is cleared 90 days after the
--- proposal: what was proposed (`target`, `rationale`), the operator's decision and reason,
--- and the result stay — they are the ledger Hermes reads before proposing (0014). The
--- e-mail that shows the excerpts goes out within minutes of the run, long before that.
+-- conversation they came from, forever. Now the excerpts (`evidence -> 'evidencias'`) are
+-- removed 90 days after the proposal. The rest of `evidence` stays: `objetivo` and
+-- `como_medir` live only there, and an approved proposal implemented after day 90 still
+-- needs them (hermes/IMPLEMENTAR.md §3). So do the operator's decision, reason and result —
+-- the ledger Hermes reads before proposing (0014). The e-mail that shows the excerpts goes
+-- out within minutes of the run, long before that.
 --
 -- Additive: a new column with a default, and a function and a view replaced with the same
 -- signature. The running turn reads none of them.
@@ -16,6 +18,8 @@ alter table public.hermes_proposals
   add column if not exists expires_at timestamptz not null default now() + interval '90 days';
 -- Rows already there count from when they were proposed, not from this migration.
 update public.hermes_proposals set expires_at = created_at + interval '90 days';
+-- When the excerpts were removed; null = still there.
+alter table public.hermes_proposals add column if not exists evidence_redacted_at timestamptz;
 
 -- Same body as 0001, plus the last step. One place for retention, so the pg_cron job of 0002
 -- keeps being the only thing that expires customer data.
@@ -34,8 +38,9 @@ begin
   get diagnostics n = row_count; table_name:='orders'; rows_deleted:=n; return next;
   delete from public.jobs where status in ('done','failed') and created_at < now() - interval '30 days';
   get diagnostics n = row_count; table_name:='jobs'; rows_deleted:=n; return next;
-  update public.hermes_proposals set evidence = null where expires_at < now() and evidence is not null;
-  get diagnostics n = row_count; table_name:='hermes_proposals.evidence'; rows_deleted:=n; return next;
+  update public.hermes_proposals set evidence = evidence - 'evidencias', evidence_redacted_at = now()
+   where expires_at < now() and evidence_redacted_at is null;
+  get diagnostics n = row_count; table_name:='hermes_proposals.evidencias'; rows_deleted:=n; return next;
 end; $$;
 
 -- R6.2 counts leads served. A persona round kept in the database (`--keep-data`, or a buy

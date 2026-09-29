@@ -39,9 +39,9 @@ describe("migrações: o Hermes respeita a retenção", () => {
     return from < 0 ? "" : hit.slice(from, hit.indexOf(end, from));
   };
 
-  it("a versão vigente de purge_expired limpa a evidence vencida do hermes_proposals", () => {
+  it("a versão vigente de purge_expired tira os trechos vencidos e mantém objetivo e como_medir", () => {
     expect(last(/create or replace function public\.purge_expired\(\)/, "end; $$;")).toMatch(
-      /update public\.hermes_proposals set evidence = null where expires_at < now\(\)/,
+      /update public\.hermes_proposals set evidence = evidence - 'evidencias', evidence_redacted_at = now\(\)\s+where expires_at < now\(\)/,
     );
   });
   it("hermes_proposals tem expires_at", () => {

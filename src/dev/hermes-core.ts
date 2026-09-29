@@ -81,11 +81,16 @@ export function rowsToConversations(rows: SupabaseRows): { conversations: Conver
       return entry;
     });
     if (c.welcomed_at && replies[0]) replies[0].entry.status = "welcomed";
+    // A turn answers an inbound message: its reply is after the latest one she sent before
+    // the outcome. Without this bound, a handoff that wrote no message (vetoed receipt, a
+    // hold that failed) would take a ruler touch sent while she was silent.
+    const inbound = mine.filter((m) => m.direction === "inbound").map((m) => at(m.created_at));
     let since = -Infinity;
     const outcomes = rows.outcomes.filter((o) => o.conversation_id === c.id).sort((a, b) => at(a.created_at) - at(b.created_at));
     for (const o of outcomes) {
       const status = STATUS_OF[o.outcome];
-      const reply = status ? [...replies].reverse().find((r) => r.t <= at(o.created_at) && r.t > since && !r.entry.status) : undefined;
+      const floor = Math.max(since, ...inbound.filter((t) => t <= at(o.created_at)));
+      const reply = status ? [...replies].reverse().find((r) => r.t <= at(o.created_at) && r.t > floor && !r.entry.status) : undefined;
       if (reply && status) reply.entry.status = status;
       since = at(o.created_at);
     }
@@ -241,15 +246,24 @@ export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]
  * `evidence` the purge clears at 90 days (migration 0020). Returns a copy.
  */
 export function withoutQuotes(checked: readonly Checked[]): Checked[] {
+  // Only the keys a proposal has, and only as text: a rejected proposal can be anything the
+  // model wrote, and its unknown keys, nested objects or string evidence would reach git.
+  const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade"] as const;
+  const LABEL = /^(?:conversa|persona)-[\w-]+$/;
   return checked.map((c) => {
-    const p = c.proposal ?? ({} as Proposal);
-    const proposal = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, unquote(v)])) as unknown as Proposal;
-    if (Array.isArray(p.evidencias)) proposal.evidencias = p.evidencias.map((e) => ({ ...e, trecho: REDACTED }));
+    const p = (c.proposal ?? {}) as unknown as Record<string, unknown>;
+    const proposal = Object.fromEntries(TEXT.filter((k) => typeof p[k] === "string").map((k) => [k, unquote(p[k])])) as unknown as Proposal;
+    proposal.evidencias = (Array.isArray(p.evidencias) ? p.evidencias : []).map((e: Partial<Evidence> | null) => ({
+      conversa: typeof e?.conversa === "string" && LABEL.test(e.conversa) ? e.conversa : "(conversa)",
+      ...(typeof e?.mensagem === "number" ? { mensagem: e.mensagem } : {}),
+      trecho: REDACTED,
+    }));
     return {
-      ...c,
+      ok: c.ok,
+      // The validator's own words, never what it echoes of the model's text.
+      problems: c.problems.map((x) => x.split(":")[0]!),
       proposal,
-      problems: c.problems.map((x) => unquote(x) as string),
-      ...(c.today ? { today: c.today.map((t) => ({ ...t, trecho: REDACTED })) } : {}),
+      ...(c.today ? { today: c.today.map((t) => ({ trecho: REDACTED, blockedBy: t.blockedBy })) } : {}),
     };
   });
 }

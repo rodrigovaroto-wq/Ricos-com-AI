@@ -135,7 +135,7 @@ escrever `message_id` nos traces, que mexe na função no ar e passa por deploy 
 
 | Risco | Fato | Gravidade | Mitigação mais barata |
 |---|---|---|---|
-| **G1 · Citação de cliente fica para sempre** | `evidence: { ...p, source }` (`hermes-run.ts:212`) guarda trechos literais; `hermes_proposals`/`hermes_runs` não têm `expires_at` nem FK para `conversations` (a única FK é `run_id`, `0008:18`); `purge_expired` não os toca (`0001:116-153`) **[C]** | **Alta: já existe** | Migração: `expires_at` e, no purge, `evidence = null` depois de 90 dias. O registro da decisão fica, a citação some |
+| **G1 · Citação de cliente fica para sempre** | `evidence: { ...p, source }` (`hermes-run.ts:212`) guarda trechos literais; `hermes_proposals`/`hermes_runs` não têm `expires_at` nem FK para `conversations` (a única FK é `run_id`, `0008:18`); `purge_expired` não os toca (`0001:116-153`) **[C]** | **Alta: já existe** | Migração: `expires_at` e, no purge, a chave `evidencias` removida depois de 90 dias. A decisão, o objetivo e a medida ficam; a citação some |
 | **G2 · Citação de cliente no git** | A Action commita `propostas/*` (`.md` e `.json` com as evidências) via PR (`hermes.yml:79`) **[C]**. O histórico do git não expira | **Alta: já existe** (quando houver tráfego) | Documento de produção sem trechos no PR, ou fora do git |
 | **G3 · Máscara incompleta** | `maskPii` cobre e-mail, CPF, CEP e telefone (`hermes-core.ts:14-19`) **[C]**; rua, número, nome e **dado de saúde** (pós-parto, hérnia) passam. Saúde pode ser dado sensível (LGPD art. 11) **[I]** | Média | Mascarar endereço e nome; pergunta a um advogado sobre saúde |
 | **G4 · Termos da Meta no modelo padrão** | O `-contributor` é recusado em dado real (`hermes-run.ts:46-47`) **[C]**; retenção e DPA do modelo padrão não estão no repositório | **Não sei** | Obter os termos de dados da Meta Model API e a cláusula de transferência internacional (art. 33) |
@@ -236,7 +236,7 @@ a dependência.
 Decisão do operador sobre **G1 e G2**, que já valem hoje e não dependem do JEV. Proposta
 de uma PR só:
 
-1. migração com `expires_at` em `hermes_proposals` e `evidence = null` no `purge_expired`;
+1. migração com `expires_at` em `hermes_proposals` e os trechos removidos da `evidence` no `purge_expired`;
 2. `hermes.yml` sem citação de cliente no PR, com `persist-credentials: false`;
 3. `fromSupabase` extraída como função pura, com teste de desfecho, boas-vindas e filtro
    sintético.

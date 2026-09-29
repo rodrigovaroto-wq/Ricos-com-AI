@@ -1108,16 +1108,24 @@ defeitos esperavam o primeiro lead.
   em `turn_outcomes`.
 - Apagar a linha inteira da proposta aos 90 dias: perderia o histórico que o Hermes lê
   antes de propor (R14.14).
+- `evidence = null` (a primeira versão, pega na revisão): apagava `objetivo` e `como_medir`
+  de uma proposta aprovada e ainda não implementada.
+- Redigir a cópia do git copiando todas as chaves e aplicando a troca só nos textos (também
+  pega na revisão): proposta rejeitada com chave desconhecida, objeto aninhado ou evidência
+  em texto passava inteira. Agora é uma lista de permissão de chaves.
 - Tirar o documento do PR: o operador perde o relatório da rodada. Basta tirar o trecho.
 
 **Correção:**
 - `rowsToConversations` (pura, em `hermes-core.ts`) liga cada desfecho à última resposta
-  antes dele e depois do desfecho anterior (`deferred` e `stopped` não gravam mensagem),
+  antes dele e depois do desfecho anterior e da última mensagem dela (`deferred`,
+  `stopped` e alguns handoffs não gravam mensagem; sem o piso, roubariam um toque da régua),
   marca a boas-vindas por `conversations.welcomed_at` e descarta o prefixo sintético.
 - `withoutQuotes` troca trecho e texto entre aspas por um marcador na cópia que vai ao git
   (`.md`, `.json` e o resumo); o banco guarda o original.
-- A migração `0020` põe `expires_at` em `hermes_proposals`, limpa `evidence` no
-  `purge_expired` e tira o prefixo sintético do `hermes_backlog`.
+- A migração `0020` põe `expires_at` em `hermes_proposals`. O `purge_expired` tira só a
+  chave `evidencias` da `evidence` aos 90 dias e marca `evidence_redacted_at`, porque
+  `objetivo` e `como_medir` só existem ali e a implementação de uma aprovada ainda os lê. A
+  mesma migração tira o prefixo sintético do `hermes_backlog`.
 - `hermes.yml` faz checkout com `persist-credentials: false`.
 
 **Guarda:** `tests/hermes-core.test.ts` (fonte de produção e redação),

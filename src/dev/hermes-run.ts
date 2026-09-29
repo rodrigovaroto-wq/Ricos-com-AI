@@ -70,6 +70,16 @@ async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
+/** Every row, page by page: PostgREST caps a response (1000 on Supabase) without saying so. */
+async function restAll<T>(path: string): Promise<T[]> {
+  const out: T[] = [];
+  for (;;) {
+    const page = await rest<T[]>(path, { headers: { "Range-Unit": "items", Range: `${out.length}-${out.length + 999}` } });
+    if (page.length === 0) return out;
+    out.push(...page);
+  }
+}
+
 async function fromSupabase(): Promise<{ conversations: Conversation[]; leads: number }> {
   // Persona conversations are filtered here too, so `limit` counts customers only;
   // rowsToConversations filters again, and is the tested half.
@@ -79,9 +89,9 @@ async function fromSupabase(): Promise<{ conversations: Conversation[]; leads: n
   if (conversations.length === 0) return { conversations: [], leads: 0 };
   const ids = conversations.map((c) => c.id).join(",");
   const [messages, traces, outcomes] = await Promise.all([
-    rest<SupabaseRows["messages"]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`),
-    rest<SupabaseRows["traces"]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`),
-    rest<SupabaseRows["outcomes"]>(`turn_outcomes?select=conversation_id,outcome,created_at&conversation_id=in.(${ids})&order=created_at`),
+    restAll<SupabaseRows["messages"][number]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`),
+    restAll<SupabaseRows["traces"][number]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`),
+    restAll<SupabaseRows["outcomes"][number]>(`turn_outcomes?select=conversation_id,outcome,created_at&conversation_id=in.(${ids})&order=created_at`),
   ]);
   return rowsToConversations({ conversations, messages, traces, outcomes });
 }

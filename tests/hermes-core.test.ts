@@ -206,6 +206,26 @@ describe("hermes: a fonte de produção", () => {
     expect(conversations[0]?.transcript.find((e) => e.text?.startsWith("Vou chamar"))?.status).toBeUndefined();
   });
 
+  it("um handoff sem mensagem (recibo vetado, espera que falhou) não rouba o toque da régua de antes da cliente voltar", () => {
+    const { conversations } = rowsToConversations(
+      rows({
+        messages: [
+          { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "oi", created_at: t(0) },
+          { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Oi! Qual seu tamanho?", created_at: t(2) },
+          { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Ainda por aí?", created_at: t(20) },
+          { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "quero falar com gente", created_at: t(30) },
+        ],
+        traces: [],
+        outcomes: [
+          { conversation_id: "c1aaaaaaaa", outcome: "send", created_at: t(3) },
+          { conversation_id: "c1aaaaaaaa", outcome: "handoff", created_at: t(40) },
+        ],
+        conversations: [{ ...rows().conversations[0]!, welcomed_at: null }],
+      }),
+    );
+    expect(conversations[0]?.transcript.find((e) => e.text === "Ainda por aí?")?.status).toBeUndefined();
+  });
+
   it("deixa de fora a conversa sintética das personas (prefixo 5500099) e conta só os leads reais", () => {
     const sint = { id: "c2bbbbbbbb", lead_id: "l2", welcomed_at: null, cost_brl: 0, leads: { phone: "5500099123456" } };
     const { conversations, leads } = rowsToConversations(rows({ conversations: [...rows().conversations, sint] }));
@@ -239,6 +259,31 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
     expect(c?.proposal.alvo).toBe("gate:price_promise");
     expect(c?.proposal.evidencias[0]?.conversa).toBe("persona-jussara");
     expect(c?.today?.[0]?.blockedBy).toEqual([]);
+  });
+
+  it("proposta malformada (rejeitada) não carrega texto por chave desconhecida, evidência em texto ou conversa inventada", () => {
+    const torta = {
+      ok: false,
+      problems: ["conversa inexistente: meu nome é Ana Souza", "alvo desconhecido: rua das Flores 12"],
+      proposal: {
+        ...proposta().propostas[0],
+        contexto: { fala: "meu nome é Ana Souza" },
+        evidencias: ["quero pagar na entrega", { conversa: "Ana da rua das Flores", trecho: "x" }],
+      },
+    } as unknown as Checked;
+    const out = JSON.stringify(withoutQuotes([torta]));
+    expect(out).not.toMatch(/Ana|Flores|pagar na entrega/);
+    expect(out).toContain("conversa inexistente");
+  });
+
+  it("o runner publica a cópia redigida na fonte de produção, e grava o original no banco", async () => {
+    const { readFileSync } = await import("node:fs");
+    const run = readFileSync("src/dev/hermes-run.ts", "utf8");
+    expect(run).toContain('const production = source === "supabase";');
+    expect(run).toContain("const published = production ? withoutQuotes(checked) : checked;");
+    expect(run).toContain("renderProposals(title, resumo, published)");
+    expect(run).toContain("JSON.stringify({ resumo, checked: published, usage, costUsd }");
+    expect(run).toMatch(/ok\.map\(\(\{ proposal: p \}, i\) =>[\s\S]*evidence: \{ \.\.\.p, source \}/);
   });
 
   it("não altera a entrada — o banco grava o trecho original", () => {
