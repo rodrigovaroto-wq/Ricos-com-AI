@@ -11,59 +11,45 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-28, noite)
+## ▶ COMECE AQUI — próxima sessão (atualizado 2026-09-29)
 
-**PR #37** (`claude/focused-gates-fjpixt`), já com o `main` do **PR #38** mergeado (`1475088`).
-CI verde até `6d838b2`. Nada da `turn` publicado (no ar: v41).
+**PR #39** (`claude/great-planck-48ozds`, sobre o `main` com o #37 e o #38 já mergeados). Nada da
+`turn` publicado (no ar: v41). **CI:** até `1ae187e` só a etapa `verificar:guardas` estava vermelha:
+4 guardas "inconclusivas (SIGTERM)". Causa raiz: sob `GITHUB_ACTIONS` o vitest imprime uma anotação
+por caso que falha, e o buffer de 1 MB do `spawnSync` estourava (ENOBUFS), o que mata a guarda e
+o verificador lia como "não pegou". Não era timeout nem gate. Conserto em `4700903` (a saída da
+guarda é descartada; só o status importa). As 4 rodaram verdes sob `CI=true GITHUB_ACTIONS=true`.
 
-### Feito nesta sessão (depois da terceira revisão cética)
-- `6d838b2` — pedido morto é terminal (webhook atrasado não ressuscita pedido cancelado);
-  itens do #38: véspera do antecipado pelo template `order_eve_pago`, `silence_2` 1ª variante
-  fora da janela, **opt-in ligado atrás da flag `channel.askMarketingOptIn`** (ausente =
-  desligado), `reply.id` no selo. Grafo §27.
-- `24d8ad3` — n8n "Turno" repassa `reply` (sem isso todo toque de botão dá 401 com o selo);
-  erro 131050 e `user_preferences` stop gravam `marketing_opt_in_declined_at`.
-- **Migrações 0018 (views de avaliação) e 0019 (colunas de opt-in) APLICADAS em produção**
-  (2026-09-28; conferido: 5 views `security_invoker=true`, 6 colunas em `leads`).
+### Feito no PR #39 (tudo commitado e provado por teste; grafo §27–§33, R15.3)
+- Depois da compra: sem régua de silêncio, sem véspera depois de "Entregue", "Cancelado" que
+  chega primeiro escreve `recusado` (`0bba58b`). Fecha os três bloqueadores que estavam
+  "obrigatórios antes de leads reais".
+- Gate da terceira revisão (`6e15da9`): antecipado negado nomeia a entrega, a garantia é dona
+  do próprio número, custo com teto, `classifyOptOut` lê as formas comuns.
+- **Decisão do operador 2026-09-28 (R15.3):** frete grátis no pagamento na entrega
+  (`delivery.codFreeShipping`, ausente = grátis na entrega), antecipado continua cobrando. O
+  gate aceita só a frase canônica (§32–§33). **Cuidado no deploy:** o secret `BUSINESS_CONFIG`
+  não carrega a chave, então vale o padrão; se ele tiver `freeShipping: true` escrito, isso
+  significa grátis nos dois caminhos: conferir antes de publicar.
+- Mutações: as 16 da lista antiga e as de §30–§33 entraram em `verify-guards.ts`.
+- A descrição do PR ainda diz "removed `reply.id` from the seal" e "`ASK_OPT_IN` `!== false`":
+  **está desatualizada**, o código mantém `reply.id` no selo e o opt-in só liga com
+  `askMarketingOptIn === true`. Vale o código.
 
-### Tarefa 1 — terminar o PR #37
-1. **Gate (se não estiver commitado):** um implementador estava consertando as regressões contra
-   o `main` achadas pela terceira revisão — mentira "Sem pix, em 5 dias você tem o colete"
-   (antecipado negado sem palavra de chegada), honestas vetadas ("7 dias pra devolver, e a
-   entrega leva de 1 a 3 dias"; "pelo link"/"online" como nome do antecipado; recusa em frase
-   separada; garantia+média com "tá?"; estorno), pior caso de desempenho (13 s a 16 mil
-   caracteres) e os furos de `classifyOptOut` (it.fails do #38). Se houver mudança sem commit
-   em `guardrails.ts`, rodar a bateria inteira antes de commitar; se não houver, refazer a
-   partir dos achados do grafo §27/§22 (regra: diagnóstico da causa antes do conserto).
-2. **Mutações a acrescentar em `src/dev/verify-guards.ts`** (entregues prontas pelos
-   implementadores; ids): PEDIDO-morto-ressuscita, PEDIDO-grava-status-do-webhook,
-   PEDIDO-data-da-chegada, TPL-antecipado-cobra, TPL-segunda-variante,
-   OPTIN-marketing-sem-consentimento, OPTIN-gate-le-outra-variante, OPTIN-flag-ausente-liga,
-   OPTIN-selo-sem-toque, OPTIN-turno-ignora-toque-no-selo, OPTIN-suspensao-sem-flag,
-   WA-selo-reply-n8n, WA-selo-reply-resume, WA-131050, WA-prefs-stop, WA-131050-digitos —
-   reescrever cada uma lendo o código (from/to exatos) e rodar `pnpm verificar:guardas` inteiro.
-3. CI verde → **O** faz merge.
+### Tarefa 1 — fechar o PR #39
+1. CI verde no `4700903` (a etapa `verificar:guardas` leva ~30 min no runner) → **O** faz merge.
 
 ### Depois do merge (ordem obrigatória)
 1. **O importa no n8n:** `turno-da-agente.json` (com `reply`), `relogio-da-regua.json` (ramo de
    erro, do #38) e `whatsapp-envio.json` (botões, do #38). Depois `pnpm dev:n8n` tem de passar.
-   (Não feito pelo Claude nesta sessão por limite de créditos.)
 2. **O publica a `turn`** (0017/0018/0019 já aplicadas) e a `whatsapp`, com a flag de opt-in
    ainda desligada. **C** sonda a varredura pela porta do n8n.
 3. Só então `channel.askMarketingOptIn: true` no secret; depois da aprovação da Meta,
    `order_eve_pago` em `channel.templates`. Sócio: assinar o webhook `user_preferences`.
 
-### Obrigatório antes de leads reais (já existia no `main`, achado pela revisão por execução)
-- Quem escreve **depois de comprar** volta a receber a régua de silêncio (cupom, "que tamanho
-  você usa?"): `scheduleSilenceTouches` ao fim de todo turno não olha estágio/pedido
-  (`index.ts`, fim do turno e resposta adiada); a varredura também não confere.
-- A **véspera sai depois de "Entregue"**: `onOrderConfirmed` só cancela silêncio; a véspera usa
-  orderedAt+30h e ignora `scheduled_for`.
-- Estágio: `furthest` deixa `em_rota`/`endereco_coletado` quando o "Cancelado" chega primeiro.
 
 ### Pipeline até anúncios e leads reais (dono: C = Claude, O = operador, S = sócio)
-- **Fase 0 — fechar o código:** terceira revisão (acima) → corrigir o que ela achar → **O pede o
-  PR** → C leva o CI ao verde (primeira vez no CI) → merge.
+- **Fase 0 — fechar o código:** FEITA no PR #39, falta o CI verde (`4700903`) e o **merge (O)**.
 - **Fase 1 — publicar e provar:** O põe ramo de erro com e-mail no nó "Varre a regua" (n8n) →
   O publica a `turn` (0017 já aplicada) → C faz a sonda da varredura pela porta do n8n (fechamento
   pela `run_at`, `perdido`, lembrete de checkout, dois pedidos) e a sonda de turno (recepção,
