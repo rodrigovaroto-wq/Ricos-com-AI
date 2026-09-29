@@ -667,13 +667,24 @@ describe("preço, desconto e frete depois de 2026-09-10", () => {
 
   it("o briefing manda dizer frete embutido no COD e calculado no checkout", () => {
     // A linha do preço também fala de frete desde a saída C (a ressalva da economia);
-    // esta é a do gate do frete.
-    const linha = gateBriefing(config0910).find(
+    // esta é a do gate do frete. Com `codFreeShipping: false` — o mundo de 22/09.
+    const semGratisNaEntrega = { ...config0910, delivery: { ...config0910.delivery, codFreeShipping: false } };
+    const linha = gateBriefing(semGratisNaEntrega).find(
       (b) => b.includes("frete") && !b.includes("Os únicos valores"),
     )!;
     expect(linha).toContain('Nunca diga "frete grátis"');
     expect(linha).toContain("já está dentro do preço");
     expect(linha).toContain("calculado por região dentro do checkout");
+  });
+
+  it("com a chave codFreeShipping ausente (2026-09-28), o briefing manda dizer o grátis da entrega com o caminho", () => {
+    const linha = gateBriefing(config0910).find(
+      (b) => b.includes("frete") && !b.includes("Os únicos valores"),
+    )!;
+    expect(linha).toContain("No pagamento na entrega o frete é grátis");
+    expect(linha).toContain("Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber");
+    expect(linha).toContain("calculado por região dentro do checkout");
+    expect(linha).not.toContain('Nunca diga "frete grátis"');
   });
 });
 
@@ -1001,28 +1012,44 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
 
   describe("4 — 'nenhum frete a mais na porta' é verdade no COD", () => {
     it("qualificado e falando da entrega, passa", () => {
+      // With `codFreeShipping: false` (the 2026-09-22 world) the qualified denial is its own rule.
+      // While the delivery ships free it is one more free claim, held to the canonical sentences
+      // (grafo §32): the free forms cost a rewrite, and the canonical one passes.
+      const pago = (c: typeof cod) => ({ ...c, config: { ...c.config, delivery: { ...c.config.delivery, codFreeShipping: false } } });
       for (const frase of [
         "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.",
         "Na entrega é R$ 129,90, sem frete extra na porta.",
         "Nada de frete somado na entrega: são R$ 129,90.",
       ]) {
-        expect(blocked(runGates(frase, cod)), frase).not.toContain("shipping_promise");
-        expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, pago(cod))), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, pago(prepay))), frase).not.toContain("shipping_promise");
+        // custa uma reescrita (R15.3 canônica)
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
+      for (const c of [cod, pago(cod), pago(prepay)])
+        expect(blocked(runGates("Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.", c))).not.toContain("shipping_promise");
+      // No caminho antecipado, só os núcleos com "pagando / no pagamento na entrega" (grafo §33).
+      expect(blocked(runGates("Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.", prepay))).toContain("shipping_promise");
       // Com preço único (antecipado = entrega), o R$ 129,90 na frase não é o antecipado.
-      expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", ctx())))
+      expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", pago(ctx()))))
         .not.toContain("shipping_promise");
     });
 
     it("seco, no antecipado, ou com 'grátis' junto, continua vetado", () => {
       for (const frase of [
-        "Nenhum frete na entrega.",
         "Nenhum frete a mais, pode pagar antecipado.",
         "No antecipado, nenhum frete a mais na entrega.",
         "Nenhum frete a mais na porta, o frete é grátis.",
-        "Sem frete: R$ 129,90 na entrega.",
       ]) {
         expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+      }
+      // Secas mas nomeando a entrega: verdade desde 2026-09-28 (frete grátis na entrega), mas fora
+      // das frases canônicas custam uma reescrita (R15.3 canônica, grafo §32); e o veto de 22/09 com
+      // `codFreeShipping: false`.
+      const codPago = ctx({ config: { ...cod.config, delivery: { ...cod.config.delivery, codFreeShipping: false } } });
+      for (const frase of ["Nenhum frete na entrega.", "Sem frete: R$ 129,90 na entrega."]) {
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
+        expect(blocked(runGates(frase, codPago)), frase).toContain("shipping_promise");
       }
       // Caminho antecipado e sem falar da porta: ela paga frete, "nenhum a mais" é mentira.
       expect(blocked(runGates("São R$ 116,91 e nenhum frete adicional.", prepay)))
@@ -1031,10 +1058,15 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
       for (const frase of [
         "Nenhum frete a mais na porta: R$ 116,91 no pix.",
         "Nenhum frete extra na entrega, é só pagar no cartão.",
-        "Nenhum frete a mais na entrega, o checkout já mostra.",
+        "Nenhum frete a mais na entrega, é só pagar no checkout.",
       ]) {
         expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
+      // O checkout é dos dois caminhos: com o frete grátis na entrega (2026-09-28) a frase é
+      // verdade, mas não é canônica e custa uma reescrita (grafo §32); com `codFreeShipping: false`
+      // o checkout na frase continua vetando.
+      expect(blocked(runGates("Nenhum frete a mais na entrega, o checkout já mostra.", cod))).toContain("shipping_promise");
+      expect(blocked(runGates("Nenhum frete a mais na entrega, o checkout já mostra.", codPago))).toContain("shipping_promise");
       // A mensagem cita as duas ofertas, mas a frase que nega o frete é a do antecipado.
       expect(
         blocked(runGates("Na entrega são R$ 129,90. No antecipado são R$ 116,91 e nenhum frete a mais.", cod)),
@@ -1149,10 +1181,14 @@ describe("config de produção sem a chave nova", () => {
       .toContain("shipping_promise");
   });
 
-  it("sem a chave, o briefing proíbe o grátis em vez de mandá-lo dizer", () => {
+  it("sem a chave, o briefing proíbe o grátis nos dois caminhos em vez de mandá-lo dizer", () => {
     const briefing = gateBriefing({ ...config, delivery: deliverySemAChave }).join("\n");
-    expect(briefing).toContain('Nunca diga "frete grátis"');
     expect(briefing).not.toContain("GRÁTIS nos dois caminhos");
+    // Desde 2026-09-28 o grátis da entrega é a verdade de hoje (`codFreeShipping` ausente),
+    // e o antecipado continua nunca grátis.
+    expect(briefing).toContain("No antecipado o frete é calculado por região dentro do checkout: nunca diga que é grátis");
+    const semAsDuas = { ...deliverySemAChave, codFreeShipping: false };
+    expect(gateBriefing({ ...config, delivery: semAsDuas }).join("\n")).toContain('Nunca diga "frete grátis"');
   });
 
   it("sem a chave, a economia do antecipado continua vetada (price_promise)", () => {
@@ -1404,7 +1440,9 @@ describe("segunda passada do /code-review de 2026-09-22", () => {
     it("a frase da porta continua passando", () => {
       const frase = "Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.";
       expect(blocked(runGates(frase, cod))).not.toContain("shipping_promise");
-      expect(blocked(runGates(frase, prepay))).not.toContain("shipping_promise");
+      // Com a entrega grátis, o caminho antecipado só aceita o núcleo que diz "pagando na entrega"
+      // (grafo §33): lá "na entrega" sozinho se lê "quando chegar".
+      expect(blocked(runGates(frase, prepay))).toContain("shipping_promise");
     });
   });
 

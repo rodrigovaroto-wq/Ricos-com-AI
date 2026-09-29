@@ -1,7 +1,9 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
   expressLine,
+  freightBriefing,
   linkFactLine,
   money,
   prepayPriceLine,
@@ -19,21 +21,37 @@ import { config as base, ctx } from "./fixtures.js";
  * the same promise written twice — these tests hold them to each other.
  */
 
-/** The four corners that matter: freight on or off, prepaid discount on or off. */
-const variant = (freeShipping: boolean, discount: boolean): PromptConfig => ({
+/**
+ * The corners that matter: freight free on both paths, on cash on delivery only (the truth
+ * since 2026-09-28, and what an ABSENT `codFreeShipping` reads as — the key is omitted, as
+ * it arrives from production's secret) or on neither (`codFreeShipping: false`); prepaid
+ * discount on or off.
+ */
+const EXAMPLE_KITS = (JSON.parse(readFileSync(new URL("../config/business.example.json", import.meta.url), "utf8")) as PromptConfig).kits ?? [];
+
+const variant = (freeShipping: boolean, discount: boolean, codFreeShipping?: false): PromptConfig => ({
   ...base,
   prices: discount
     ? { ...base.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 }
     : { ...base.prices, prepayBrl: base.prices.codBrl, prepayDiscountPercent: 0 },
-  delivery: { ...base.delivery, freeShipping },
+  delivery: { ...base.delivery, freeShipping, ...(codFreeShipping === false ? { codFreeShipping } : {}) },
 });
 
 const corners = [
-  { name: "frete pago, com desconto", config: variant(false, true) },
-  { name: "frete pago, sem desconto", config: variant(false, false) },
+  { name: "grátis só na entrega, com desconto", config: variant(false, true) },
+  { name: "grátis só na entrega, sem desconto", config: variant(false, false) },
+  { name: "frete pago nos dois, com desconto", config: variant(false, true, false) },
+  { name: "frete pago nos dois, sem desconto", config: variant(false, false, false) },
   { name: "frete grátis, com desconto", config: variant(true, true) },
   { name: "frete grátis, sem desconto", config: variant(true, false) },
 ] as const;
+
+/** Free on neither path: the only corner where the prompt may not say "frete é grátis" at all. */
+const freeNowhere = (c: PromptConfig) => c.delivery.freeShipping !== true && c.delivery.codFreeShipping === false;
+
+/** Every "frete é grátis" in the text has the delivery path named in the 40 characters before it. */
+const freeOnlyOnDelivery = (text: string) =>
+  [...text.matchAll(/frete\s+[eé]\s+gr[aá]tis/gi)].every((m) => /entrega/i.test(text.slice(Math.max(0, (m.index ?? 0) - 40), m.index)));
 
 const build = (c: PromptConfig) => systemPrompt(c, gateBriefing(c), null);
 
@@ -44,11 +62,82 @@ const flat = (text: string) => text.replace(/\s+/g, " ");
 const AFFIRMS_FREE_SHIPPING = /frete\s+[eé]\s+gr[aá]tis/i;
 
 describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
-  it("com freeShipping false, não instrui dizer que o frete é grátis", () => {
-    const prompt = build(variant(false, true));
+  it("com codFreeShipping false, não instrui dizer que o frete é grátis", () => {
+    const prompt = build(variant(false, true, false));
     expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
     expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região");
   });
+
+  // 2026-09-28: cash on delivery ships free. The prompt reads `codFreeShipping` with the
+  // gate's own `!== false` — absent is free on delivery — and every time it says "frete é
+  // grátis" it names the delivery path, which is the condition the gate lets it through on.
+  it("com codFreeShipping ausente, instrui o grátis da entrega, sempre com o caminho", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("NO PAGAMENTO NA ENTREGA O FRETE É GRÁTIS");
+    expect(prompt).toContain(`"Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber."`);
+    // The gate lets the free claim through only in a canonical sentence (grafo §32): the prompt
+    // teaches that one word for word, in a sentence of its own, in both briefings.
+    expect(prompt).toContain("Use esta frase, com estas palavras, numa frase só dela:");
+    expect(prompt).toContain("use esta frase, com estas palavras, numa frase só dela");
+    expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região dentro do checkout");
+    expect(prompt).toContain("nunca diga que é grátis");
+    expect(prompt).toMatch(AFFIRMS_FREE_SHIPPING);
+    expect(freeOnlyOnDelivery(prompt)).toBe(true);
+    expect(prompt).not.toContain("O FRETE É GRÁTIS nos dois caminhos");
+  });
+
+  // The gate lets the free claim through only in a canonical sentence (grafo §32). Each briefing
+  // names ONE sentence to use as it is — the prompt's freight paragraph and the gate's briefing —
+  // and it has to be the same sentence, and it has to pass the whole chain on both paths.
+  it.each(corners.filter((c) => c.config.delivery.freeShipping !== true && c.config.delivery.codFreeShipping !== false))(
+    "a frase que os dois briefings mandam usar é a mesma e passa a cadeia ($name)",
+    ({ config }) => {
+      const fromPrompt = /numa frase só dela: "([^"]+)"/.exec(flat(freightBriefing(config).join(" ")))?.[1];
+      const fromGate = /numa frase só dela \("([^"]+)"\)/.exec(flat(gateBriefing(config).join(" ")))?.[1];
+      expect(fromPrompt).toBe(`Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber.`);
+      expect(fromGate).toBe(fromPrompt);
+      for (const paymentPath of ["cod", "prepay"] as const) {
+        const blocked = runGates(fromPrompt!, ctx({ config, paymentPath })).traces.filter((t) => t.verdict === "block");
+        expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+      }
+    },
+  );
+
+  // Next to the free sentence, every other sentence that names the prepaid offer has to say the
+  // freight is charged there (grafo §33). The prompt teaches the one line that carries the prepaid
+  // discount that way, and the kit's own canonical sentence with the kit's price.
+  it.each([
+    ...corners.filter((c) => c.config.delivery.freeShipping !== true && c.config.delivery.codFreeShipping !== false),
+    { name: "com os kits do exemplo", config: { ...variant(false, true), kits: EXAMPLE_KITS } },
+  ])(
+    "a linha do desconto do antecipado passa ao lado da frase canônica ($name)",
+    ({ config }) => {
+      const prompt = flat(freightBriefing(config).join(" "));
+      const canonical = `Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber.`;
+      const combined = /desconto do antecipado na mesma mensagem, use esta frase: "([^"]+)"/.exec(prompt)?.[1];
+      if (config.prices.prepayDiscountPercent > 0) {
+        expect(combined).toBe(
+          `No antecipado o frete é calculado por região no checkout, e você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)}.`,
+        );
+        for (const paymentPath of ["cod", "prepay"] as const) {
+          const blocked = runGates(`${canonical} ${combined}`, ctx({ config, paymentPath })).traces.filter((t) => t.verdict === "block");
+          expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+        }
+        // The bare discount line next to it extends the free to the prepaid offer.
+        expect(runGates(`${canonical} No pix você ganha ${config.prices.prepayDiscountPercent}% de desconto.`, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("shipping_promise");
+      } else expect(combined).toBeUndefined();
+      for (const kit of (config.kits ?? []).filter((k) => k.path === "cod")) {
+        const line = `"Pagando na entrega o frete é grátis: você paga só ${money(kit.priceBrl)} quando receber."`;
+        expect(prompt).toContain(`Levando ${kit.units} peças, o mesmo com o preço do kit: ${line}`);
+        for (const paymentPath of ["cod", "prepay"] as const) {
+          const blocked = runGates(line.slice(1, -1), ctx({ config, paymentPath, units: kit.units })).traces.filter((t) => t.verdict === "block");
+          expect({ paymentPath, units: kit.units, blocked }).toEqual({ paymentPath, units: kit.units, blocked: [] });
+        }
+      }
+    },
+  );
+
+  it("o caso dos kits não é vazio", () => expect(EXAMPLE_KITS.filter((k) => k.path === "cod").length).toBeGreaterThan(0));
 
   it("com freeShipping true, instrui", () => {
     const prompt = build(variant(true, true));
@@ -61,7 +150,8 @@ describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
   it("com a chave ausente, lê como não grátis — o mesmo `=== true` do gate", () => {
     const { freeShipping: _, ...delivery } = base.delivery;
     const prompt = build({ ...base, delivery });
-    expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
+    // Not free on both; free on delivery only, said with the path (2026-09-28).
+    expect(freeOnlyOnDelivery(prompt)).toBe(true);
     expect(prompt).not.toContain("O FRETE É GRÁTIS nos dois caminhos");
     expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região");
   });
@@ -170,6 +260,16 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
     list.push(
       { text: `O FRETE É GRÁTIS nos dois caminhos`, paths: BOTH },
       { text: `o valor que você diz é o valor final, sem nada somado na porta nem no checkout.`, paths: BOTH },
+    );
+  } else if (c.delivery.codFreeShipping !== false) {
+    // Said on either path: the sentence names the delivery, as "na entrega você recebe em 1 a
+    // 3 dias" does, and the prepaid one names its own.
+    list.push(
+      { text: `"Pagando na entrega o frete é grátis: você paga só ${cod} quando receber."`, paths: BOTH },
+      {
+        text: `"No antecipado o frete é calculado por região, e o valor aparece pra você no checkout, antes de pagar."`,
+        paths: BOTH,
+      },
     );
   } else {
     list.push({
@@ -472,7 +572,7 @@ const FULL: PromptConfig = {
 
 /** Both freight branches of the fully configured shop, for the gate checks. */
 const FULL_CORNERS = [
-  { name: "frete pago", config: FULL },
+  { name: "grátis só na entrega", config: FULL },
   { name: "frete grátis", config: { ...FULL, delivery: { ...FULL.delivery, freeShipping: true } } },
 ] as const;
 
@@ -826,7 +926,8 @@ describe("verdades de dinheiro que não mudam com a adaptação", () => {
     expect(prompt).toContain(`Preço: ${money(config.prices.codBrl)} pago na entrega ao entregador`);
     expect(prompt).toContain("NÃO emagrece");
     expect(prompt).toContain("Preço, desconto ou cupom que não existem.");
-    if (config.delivery.freeShipping !== true) expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
+    if (freeNowhere(config)) expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
+    else if (config.delivery.freeShipping !== true) expect(freeOnlyOnDelivery(prompt)).toBe(true);
   });
 });
 

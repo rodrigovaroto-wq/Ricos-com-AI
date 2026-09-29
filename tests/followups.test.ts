@@ -4,6 +4,7 @@ import {
   renderFollowup,
   onOrderConfirmed,
   orderTakeOver,
+  orderTouchDue,
   reopensRefused,
   rulerFor,
   scheduleOrder,
@@ -583,7 +584,9 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
     );
   });
 
-  it.each(["Agendado", "Em separação", "Enviado", "Entregue", "Pago", undefined])(
+  // "Entregue" saiu desta lista: ela armava a véspera de uma entrega que já aconteceu (ver
+  // "pedido entregue" abaixo).
+  it.each(["Agendado", "Em separação", "Enviado", "Pago", undefined])(
     "«%s» não é morte: a régua segue de pé",
     (status) => {
       const efeito = onOrderConfirmed([], orderedAt, 1, status);
@@ -601,6 +604,73 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
     // é a mensagem que queima o número e a marca de uma vez.
     const efeito = onOrderConfirmed(armada, orderedAt, 1, "Cancelado");
     expect(efeito.cancel).toContain("order_eve");
+  });
+});
+
+/**
+ * Pedido entregue (HANDOFF, "obrigatório antes de leads reais"): `onOrderConfirmed` só olhava
+ * a morte do pedido; qualquer outro status cancelava o silêncio e deixava a régua pós-pedido
+ * inteira. A véspera ("sua entrega está marcada pra amanhã, deixa R$ 129,90 separado") é
+ * armada a orderedAt+30h e saía depois do "Entregue" — e o primeiro webhook já "Entregue"
+ * armava a régua inteira. Entregue, só o "Chegou?!" ainda tem o que dizer.
+ */
+describe("pedido entregue: véspera, envio e confirmação não saem depois da entrega", () => {
+  const orderedAt = new Date("2026-09-28T12:00:00Z");
+  const armada: ExistingFollowup[] = [
+    { kind: "order_confirmed", status: "sent", orderId: "A" },
+    { kind: "order_shipped", status: "scheduled", orderId: "A" },
+    { kind: "order_eve", status: "scheduled", orderId: "A" },
+    { kind: "order_delivered", status: "scheduled", orderId: "A" },
+  ];
+
+  it.each(["Entregue", "delivered", "Concluído", "Aprovado / Entregue"])("«%s» cancela véspera e envio pendentes", (status) => {
+    const efeito = onOrderConfirmed(armada, orderedAt, 1, status, "A");
+    expect(efeito.cancel).toEqual(["order_shipped", "order_eve"]);
+    expect(efeito.arm).toEqual([]);
+  });
+
+  it("o primeiro webhook já entregue arma só o toque de depois da entrega", () => {
+    expect(onOrderConfirmed([], orderedAt, 1, "Entregue", "A").arm.map((f) => f.kind)).toEqual(["order_delivered"]);
+  });
+
+  it("a entrega do pedido A não cala a véspera do pedido B", () => {
+    const deB: ExistingFollowup[] = [{ kind: "order_eve", status: "scheduled", orderId: "B" }];
+    expect(onOrderConfirmed(deB, orderedAt, 1, "Entregue", "A").cancel).toEqual([]);
+  });
+
+  it("em rota, a véspera segue de pé", () => {
+    expect(onOrderConfirmed(armada, orderedAt, 1, "Em rota de entrega", "A").cancel).toEqual([]);
+  });
+
+  it("o pedido vivo que herda do morto já entregue não herda a véspera", () => {
+    const h = 3_600_000;
+    const doMorto: ExistingFollowup[] = (["order_shipped", "order_eve", "order_delivered"] as const).map((kind) => ({
+      kind,
+      status: "canceled",
+      orderId: "A",
+    }));
+    const r = orderTakeOver(
+      doMorto,
+      { id: "B", status: "Entregue", orderedAt },
+      [{ id: "A", status: "Cancelado", orderedAt }],
+      new Date(orderedAt.getTime() + h),
+      1,
+    );
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_delivered"]);
+  });
+
+  it.each([
+    ["order_eve", "Entregue", false],
+    ["order_shipped", "Entregue", false],
+    ["order_confirmed", "Entregue", false],
+    ["order_delivered", "Entregue", true],
+    ["order_eve", "Cancelado", false],
+    ["order_delivered", "Recusado na entrega", false],
+    ["order_eve", "Em rota de entrega", true],
+    ["order_eve", "Não entregue", true],
+    ["order_eve", "created", true],
+  ] as const)("a varredura: %s com o pedido «%s» ainda sai? %s", (kind, status, esperado) => {
+    expect(orderTouchDue(kind, status)).toBe(esperado);
   });
 });
 

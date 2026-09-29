@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  chasesSilence,
   endsSilenceRuler,
   inSilenceRuler,
   onOrderConfirmed,
@@ -87,7 +88,8 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // O silence_3 renderiza null com o cupom inativo (a configuração de hoje): esse ramo é o
     // único que a produção exercita, e foi o que a primeira versão esqueceu.
     expect(afterLeave).not.toContain("await mark(");
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(3);
+    // Four: the empty render, the gate, the blocked delivery, and the order touch its status made moot.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(4);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
@@ -131,7 +133,7 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
-    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`");
   });
   it("a migração é aditiva e nula", () => {
     const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
@@ -253,7 +255,7 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
 describe("revisão de segurança: o pedido do toque é da própria cliente", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a leitura por order_id também filtra o lead", () => {
-    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method`");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`");
   });
   it("externalId longo demais é recusado antes de gravar", () => {
     const guard = source.indexOf("order.externalId.length > MAX_EXTERNAL_ID");
@@ -348,5 +350,69 @@ describe("terceira revisão: pedido morto não ressuscita por webhook atrasado",
   it("created_at do pedido é a data do pedido, que o takeover usa para os outros", () => {
     expect(record).toContain("{ created_at: orderedOn.toISOString() }");
     expect(record).toContain("orderedAt: new Date(o.created_at)");
+  });
+});
+
+/**
+ * HANDOFF, "obrigatório antes de leads reais": quem escrevia DEPOIS de comprar voltava a
+ * receber a régua de silêncio ("me diz que tamanho você usa", o cupom). A venda cancelava o
+ * silêncio uma vez (`onOrderConfirmed`), e o turno seguinte dela — "obrigada!", "chega
+ * quando?" — rearmava tudo: `scheduleSilenceTouches` não lia estágio nem pedido, e a
+ * varredura também não. A decisão é `chasesSilence`, lida no único ponto por onde passam os
+ * quatro chamadores e, de novo, na varredura, antes de o toque sair.
+ */
+describe("depois da compra, a régua de silêncio não volta", () => {
+  it.each(["pedido_criado", "em_rota", "entregue_pago"])("estágio %s: não persegue", (stage) => {
+    expect(chasesSilence(stage, [])).toBe(false);
+  });
+  it.each([["created"], ["Aprovado / Enviado"], ["Entregue"], ["Não entregue"], [""]])(
+    "pedido vivo «%s» no lead: não persegue, em qualquer estágio",
+    (status) => {
+      for (const stage of ["conversando", "tamanho_definido", "perdido", "recusado", null]) {
+        expect(chasesSilence(stage, [status])).toBe(false);
+      }
+    },
+  );
+  it("pedido morto e nenhum vivo: ela volta a ser uma venda em aberto, a régua persegue (§16, R2 4b)", () => {
+    expect(chasesSilence("recusado", ["Cancelado"])).toBe(true);
+    expect(chasesSilence("recusado", ["Cancelado", "Recusado na entrega"])).toBe(true);
+    expect(chasesSilence("conversando", [])).toBe(true);
+    expect(chasesSilence(null, [])).toBe(true);
+  });
+  it("um morto e um vivo: o vivo manda", () => {
+    expect(chasesSilence("em_rota", ["Cancelado", "Enviado"])).toBe(false);
+    expect(chasesSilence("recusado", ["Cancelado", "created"])).toBe(false);
+  });
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const schedule = source.slice(source.indexOf("const scheduleSilenceTouches"), source.indexOf("const recordOrder"));
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=stage,leads(orders(status))");
+    const guard = schedule.indexOf("if (at && !chasesSilence(");
+    expect(read).toBeGreaterThan(-1);
+    expect(guard).toBeGreaterThan(read);
+    const bail = schedule.slice(guard, schedule.indexOf("return;", guard));
+    expect(bail).toContain("await cancelScheduled(conversationId);");
+    expect(schedule.indexOf("rulerFor(")).toBeGreaterThan(guard);
+  });
+
+  it("a varredura lê os pedidos do lead e cancela o silêncio de quem comprou antes de qualquer envio", () => {
+    expect(sweep).toContain(",orders(status)))&limit=50");
+    const guard = sweep.indexOf("if (inSilenceRuler(row.kind) && !chasesSilence(");
+    expect(guard).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"));
+    const bail = sweep.slice(guard, sweep.indexOf("return;", guard));
+    expect(bail).toContain('await mark("canceled");');
+  });
+
+  it("a varredura cancela o toque pós-pedido que o status do pedido já tornou sem sentido", () => {
+    expect(sweep).toContain("&select=amount_brl,units,size,payment_method,status`");
+    const guard = sweep.indexOf("if (order && !orderTouchDue(kind, order.status ?? undefined)) {");
+    expect(guard).toBeGreaterThan(sweep.indexOf("const order = kind.startsWith(\"order_\")"));
+    const bail = sweep.slice(guard, sweep.indexOf("return;", guard));
+    expect(bail).toContain('await leave("canceled");');
+    expect(guard).toBeLessThan(sweep.indexOf("const delivery = deliveryFor("));
   });
 });

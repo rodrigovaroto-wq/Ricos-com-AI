@@ -167,6 +167,12 @@ export const linkFactsBriefing = (config: PromptConfig): string[] => {
  * the world as it is today. Since the operator's decision of 2026-09-22 that world has no
  * free shipping — the prepaid freight is charged by region at checkout — so only an
  * explicit `true` may put "frete grátis" in her mouth.
+ *
+ * On 2026-09-28 the operator split it by path: cash on delivery ships free (R$ 0,00 on the
+ * Logzz offer), the prepaid checkout charges by region. `delivery.codFreeShipping`, read with
+ * the gate's own `!== false` (absent = free on delivery, because the secret does not carry
+ * the key), makes her say it — with the path named in the same sentence, which is the exact
+ * condition under which `shipping_promise` lets "frete grátis" through.
  */
 export const freightBriefing = (config: PromptConfig): string[] =>
   config.delivery.freeShipping === true
@@ -177,16 +183,44 @@ export const freightBriefing = (config: PromptConfig): string[] =>
         `pode é cobrar frete dela: nada de "mais o frete", "calculado à parte" ou qualquer valor`,
         `de entrega.`,
       ]
-    : [
-        `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
-        `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
-        `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
-        `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
-        `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
-        `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
-        `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
-        `os dois preços): diga o percentual e o preço do antecipado.`,
-      ];
+    : config.delivery.codFreeShipping !== false
+      ? [
+          `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
+          `mais caro. NO PAGAMENTO NA ENTREGA O FRETE É GRÁTIS: ela paga ${money(config.prices.codBrl)}`,
+          `quando receber e mais nada. Isso é verdade e vende: diga quando falar do preço da entrega`,
+          `ou quando ela perguntar do frete. Use esta frase, com estas palavras, numa frase só dela:`,
+          `"Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber."`,
+          ...(config.kits ?? [])
+            .filter((k) => k.path === "cod")
+            .sort((a, b) => a.units - b.units)
+            .map((k) => `Levando ${k.units} peças, o mesmo com o preço do kit: "Pagando na entrega o frete é grátis: você paga só ${money(k.priceBrl)} quando receber."`),
+          `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita.`,
+          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão, do site ou do link`,
+          `diz que ali o frete é calculado no checkout, ou volta pra reescrita ("No pix também." e`,
+          `"Vale pros dois." estendem o grátis).`,
+          ...(config.prices.prepayDiscountPercent > 0
+            ? [
+                `Para falar do desconto do antecipado na mesma mensagem, use esta frase: "No antecipado o frete`,
+                `é calculado por região no checkout, e você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)}."`,
+              ]
+            : []),
+          `NO ANTECIPADO o frete é calculado por região dentro do checkout, e você NÃO sabe o valor:`,
+          `nunca diga um número de frete, nunca diga que é grátis, nunca prometa que é barato —`,
+          `cada caminho na sua frase. Se ela perguntar quanto é, o valor aparece pra ela dentro do`,
+          `checkout, antes de pagar. Por exemplo: "No antecipado o frete é calculado por região, e o`,
+          `valor aparece pra você no checkout, antes de pagar." Nunca cite a economia em reais (a`,
+          `diferença entre os dois preços): diga o percentual e o preço do antecipado.`,
+        ]
+      : [
+          `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
+          `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
+          `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
+          `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
+          `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
+          `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
+          `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
+          `os dois preços): diga o percentual e o preço do antecipado.`,
+        ];
 
 /**
  * The Express (same-day) delivery, only when the operator says it is running. Round 1 with

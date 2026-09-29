@@ -65,3 +65,13 @@ no corpus — e as mentiras que as exceções da M-07 liberaram nunca estavam l�
 revisões seguidas acharam a próxima. O que fechou: um teste que **gera** as mentiras
 (`tests/prepaid-deadline-fuzz.test.ts`: isca × nome × verbo × número, 1560 frases) e exige
 veto em todas. Toda regra nova com exceção ganha o seu gerador antes da revisão.
+
+**Frase inteira quando o texto livre precisa provar uma restrição (29/09, grafo §32).** O
+`shipping_promise` passou três rodadas (§29–§31) tentando provar, lendo palavras, que um "grátis"
+ficava preso à entrega. Primeiro foi uma lista de proibição, depois exceções, depois uma lista de
+permissão de verbos. Cada revisão achou uma família nova ("…e no site", "…e na Coinzz", a vírgula
+decimal de "R$ 129,90" lida como fim de oração). O que fechou foi uma lista de permissão da frase
+inteira, `canonicalFree`: um conjunto pequeno de frases, com o prompt ensinando a primeira palavra
+por palavra. O que ficou de fora custa uma reescrita, e esse custo está escrito em
+`COSTS_A_REWRITE`, não escondido. Se uma heurística precisa provar que o resto da frase não diz
+nada a mais, é hora de enumerar a frase.

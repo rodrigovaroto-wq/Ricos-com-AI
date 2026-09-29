@@ -95,9 +95,16 @@ export const rankOf = (stage: Stage): number => LADDER.indexOf(stage);
  * `TRANSITIONS`: one arriving is accepted only where it is a legal edge (so
  * `pedido_criado` never becomes `perdido`); a stored `perdido` gives way to any linear
  * stage, because she came back; `bloqueado`, `recusado` and `entregue_pago` stay.
+ *
+ * `recusado` only ever comes from the sale webhook, which is itself the evidence that an
+ * order existed — so it is judged from where that order put her, `pedido_criado` or beyond.
+ * Judged from `stored`, a "Cancelado" arriving first (no "created" before it, or a sale by
+ * the link, where the turn never writes `pedido_criado`) left her at `endereco_coletado` or
+ * `perdido`, and the refusal never reached the funnel (grafo §27, N3c/N3e).
  */
 export const furthest = (stored: Stage, reached: Stage): Stage => {
-  if (rankOf(reached) === -1) return canTransition(stored, reached) ? reached : stored;
+  const from = reached === "recusado" ? furthest(stored, "pedido_criado") : stored;
+  if (rankOf(reached) === -1) return canTransition(from, reached) ? reached : stored;
   if (stored === "perdido") return reached;
   if (rankOf(stored) === -1) return stored;
   return rankOf(reached) > rankOf(stored) ? reached : stored;

@@ -704,7 +704,7 @@ estruturado que alguma camada está jogando fora antes de escrever a próxima re
 **Ainda por ligar (pós-merge do PR #37):** a lista está no `HANDOFF.md`, e inclui pôr
 `reply.id` no selo no mesmo commit em que o turno passar a lê-lo.
 
-## 26. `classifyOptOut` não lê três frases comuns de opt-out (aberto)
+## 26. `classifyOptOut` não lê três frases comuns de opt-out (fechado no §28)
 
 ```mermaid
 flowchart TD
@@ -749,7 +749,344 @@ todo toque de botão com o selo ligado.
   quando o "Cancelado" chega primeiro. Não manda mensagem errada.
 - **Corrida:** dois webhooks do mesmo pedido no mesmo instante.
 
+## 28. Terceira revisão do PR #37: regressões do gate de prazo, desempenho e opt-out (2026-09-28)
+
+Cada item foi reproduzido contra a base `9222dc6` antes do conserto, com a causa lida no código.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Sem pix, em 5 dias você tem o colete' passava nos dois caminhos (a base vetava)"]
+  K1["causa: a negação dava o caminho da entrega (by: denial), mas a regra da entrega<br/>ainda exigia fala de chegada — e 'você tem o colete' não era chegada no ARRIVAL"]
+  C1["🟩 a negação nomeia a entrega como 'na entrega': julga sem palavra de chegada;<br/>idem na exceção do artigo 'um/uma'; posse com 'ter' entra no ARRIVAL"]
+  S2["🟥 'Você tem 7 dias pra devolver, e a entrega leva de 1 a 3 dias' vetada (desde a M-10)"]
+  S3["🟥 '7 dias de garantia, e a média do antecipado é de 5 dias' — cada gate<br/>pegava o número da outra oração"]
+  C2["🟩 a cauda da garantia aceita a janela da própria entrega como oração só dela;<br/>a janela do antecipado lê a média como sujeito; warranty_promise larga o número<br/>cuja oração é a média de um caminho"]
+  P["🟥 'se trocar 7 dias' repetido até 16k: 7 a 26 s no delivery_promise"]
+  KP["causa: cada regra lê a sentença inteira da contagem — custo contagens × sentença,<br/>e o 'se …' preguiçoso de takenAfterReturn revarre a sentença a partir de cada 'se'"]
+  CP["🟩 resposta com mais de 20 contagens ou sentença acima de 1000 caracteres volta<br/>para reescrita (corpus: 2 e 269); caminhada do cabeçalho calculada uma vez"]
+  O["🟥 §26: 'não quero receber mais mensagens', 'chega de mensagem'… liam none"]
+  CO["🟩 formas novas (ordem livre, promoção/oferta), sem ler pedido de compra como recusa;<br/>'não para de mandar' deixou de ser opt-out (revertido no §31)"]
+  G["🛡️ geradores em prepaid-deadline-fuzz (1 a 4) e opt-out-gaps; mutações R3-*;<br/>dev:gates: 15 afrouxamentos honestos aceitos (R3), 5 endurecimentos"]
+  S1 --> K1 --> C1 --> G
+  S2 --> C2
+  S3 --> C2 --> G
+  P --> KP --> CP --> G
+  O --> CO --> G
+```
+
+**Caminho descartado:** limitar o `se …` a 80 caracteres e trocar os 14 `slice(0, at).split(…).pop()` por
+leitura a partir de `at`. Os dois foram medidos: abaixo do teto de contagens não mudavam nada mensurável,
+e o primeiro ainda era um aperto semântico. Por isso saíram.
+
+**Verificado e deixado como está:**
+- **"Pelo link, o prazo médio é de 5 dias":** vetada na base e no branch, e com razão. O prompt ensina
+  "varia por região, em média", e "médio" não diz que varia.
+- **Reembolso ou estorno com número:** a `warranty_promise` veta, igual à base. O prompt, o roteiro e a
+  régua não têm fala de reembolso com prazo.
+- **"Não consigo garantir 2 dias. Varia, em média 5 dias úteis.":** a `warranty_promise` lê "garantir"
+  como garantia. Igual à base.
+- **"…e a entrega leva 2 dias" depois da garantia:** a `warranty_promise` veta o 2, porque "leva" não
+  isenta. Igual à base.
+- **"Sem pix, em 2 dias chega" no caminho antecipado:** continua vetada. Ali o "sem pix" pode ser o
+  cartão, e o desenho deixa a contagem para as duas regras.
+
+**Aberto:** o nível `ambiguous` de `classifyOptOut` não é lido pela `turn` (só `explicit` para a
+agente). "Parar" sozinho não pede confirmação em produção.
+
 ---
+
+## 29. Frete grátis na entrega: o gate vetava a verdade que vende (R15.3, 2026-09-28)
+
+Reproduzido no HEAD `ca691f6` com o config de exemplo antes do conserto: "Pagando na entrega o
+frete é grátis.", "O frete é grátis e você só paga quando receber." e "Na entrega não tem frete,
+você paga R$ 129,90 e mais nada." vetadas nos dois caminhos por `shipping_promise`.
+
+```mermaid
+flowchart TD
+  S1["🟥 a frase verdadeira da entrega vetada: 'Pagando na entrega o frete é grátis'"]
+  K1["causa: um só flag para os dois caminhos — freeShipping !== true (22/09) vetava<br/>todo 'grátis' (guardrails.ts, ramo não grátis de shipping_promise); o freightBriefing<br/>(prompt.ts) mandava nunca dizer 'grátis'. A verdade mudou por caminho, o config não"]
+  S2["🟥 mentiras do antecipado passavam no HEAD: 'Nem no pix tem frete', 'No pix não<br/>cobramos frete', 'No antecipado você não paga frete', 'A entrega é grátis no pix'"]
+  K2["causa: só 'grátis/zero/sem frete/nenhum frete' eram lidos como promessa;<br/>o frete negado pelo verbo (cobrar, pagar) e 'entrega grátis' não"]
+  S3["🟥 a negação honesta vetada: 'No pix não tem frete grátis'"]
+  K3["causa: o briefing de 22/09 proibia a palavra mesmo negada, e o gate não lia negação"]
+  T1["🟧 descartado: liberar o 'frete grátis' seco quando paymentPath = cod — o turno passa<br/>cod quando ela não escolheu nada, inclusive quando pergunta do pix; welcome, handoff e<br/>despedida passam cod sempre"]
+  T2["🟧 descartado: reusar prepaidNamed (com negação) no frete — içá-lo mudava a indentação<br/>de duas mutações (nem-no-pix, nega-adjetivo); sem ele, 'sem pix, na entrega o frete é<br/>grátis' custa uma reescrita (falso positivo aceito)"]
+  C["🟩 codFreeShipping (ausente = grátis na entrega, !== false). Cada promessa julgada na<br/>sua frase: passa negada (FREE_DENIED) ou com a entrega nomeada (COD_NAME, PAID_ON_RECEIPT)<br/>e nada além (PREPAY_NAME, preço do antecipado, BEYOND_COD); reticência depois dela ('No pix<br/>também.') e 'igual ao da entrega' vetam. Prompt ensina a frase com o caminho"]
+  G["🛡️ tests/honest-sales-lines.test.ts (verdades × mentira espelhada, config de exemplo e<br/>secret sem a chave; gerador 768 mentiras × 96 verdades); prompt.test.ts com 6 cantos;<br/>dev:gates: 22 afrouxamentos aceitos (R15.3), 14 endurecimentos no frete"]
+  S1 --> K1 --> C
+  S2 --> K2 --> C
+  S3 --> K3 --> C
+  T1 -.-> C
+  T2 -.-> C
+  C --> G
+```
+
+**Verificado e deixado como está:**
+- **"Nenhum frete grátis existe aqui"** (sem caminho): continua vetada, como decidido em 22/09 — com
+  o grátis da entrega verdadeiro, ela é falsa sobre a entrega.
+- **Reticência sem nome de caminho** ("Pagando na entrega o frete é grátis. E no site também."):
+  passa. "Site" é dos dois caminhos; o gate não lê elipse sem nome.
+- **"O frete não é cobrado à parte"** no antecipado: passa, igual à base. É promessa de frete
+  incluído, não de grátis, e fica fora deste conserto.
+- **"Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento"**: vetada
+  pelo `delivery_promise`, igual à base (o objeto "pelo tamanho certo" não é conhecido). Fixada
+  como `it.fails` em `honest-sales-lines.test.ts`, para conserto próprio. **Consertada no §30.**
+
+---
+
+## 30. Quatro verdades de troca e de frete vetadas por gate (2026-09-28)
+
+A regra do operador foi que as travas não podem ser tão fortes a ponto de barrar a verdade que
+vende. Cada item abaixo foi reproduzido no HEAD `ad15714` com o config de exemplo, nos dois
+caminhos. A causa foi lida no código antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Se não servir, você pode trocar pelo tamanho certo em até 7 dias após o recebimento'<br/>vetada pelo delivery_promise (7 fora de 1-3 / 7 não é a média 5)"]
+  K1["causa: o 7 só é garantia se uma forma de troca o governa (governedBefore, takenAfterReturn,<br/>PURPOSE), e as três passam por OBJECT, que só lia 'de/o/a/por outro' + substantivo (6f3130d).<br/>Sem governo, o 7 vai para as regras de prazo, e o 'recebimento' da âncora é ARRIVAL"]
+  S2["🟥 'Você tem 7 dias pra trocar de tamanho' vetada pelo unverified_size<br/>sempre que sizeChecked é undefined: antes do CEP e com a consulta de região falhando"]
+  K2["causa: CLAIMS_STOCK casa 'tem … até 28 caracteres … tamanho', e o 'tem' que toma<br/>a contagem da garantia era lido como 'tem o seu tamanho'. Os fuzz da M-08 liam só o<br/>trace do delivery_promise e nunca viram esse veto"]
+  S3["🟥 'Na entrega não tem frete: você paga só R$ 129,90' vetada pelo shipping_promise"]
+  K3["causa: o 'não … só' do BEYOND_COD (e824091) parava na vírgula mas não em ':' e ';',<br/>então o 'não' de uma oração pegava o 'só' do preço na oração seguinte"]
+  S4["🟥 'No kit de 2 peças pagando na entrega o frete também é grátis' vetada"]
+  K4["causa: dois ramos do BEYOND_COD liam 'frete (é grátis) também' como outro caminho,<br/>mesmo quando o que o 'também' soma é o kit nomeado na própria oração"]
+  T1["🟧 descartado: tirar 'após o recebimento' ou 'receb' do ARRIVAL.<br/>É a chegada sempre que a contagem não é garantia, e 'em até 7 dias após o pagamento<br/>você recebe' passaria"]
+  T2["🟧 descartado: isentar do unverified_size qualquer 'tem' seguido de troca.<br/>'tem pra troca no seu tamanho' é estoque"]
+  C["🟩 OBJECT aceita 'pelo' e um adjetivo (certo/correto/ideal/maior/menor);<br/>unverified_size corta só '(você) tem/terá (até) N dias/semanas pra trocar/devolver' antes de casar;<br/>'não … só' para em ':' e ';'; o 'também' do frete é do kit quando 'kit/peças' vem<br/>antes na mesma oração, sem pontuação no meio. 'Também no/pelo/com …' continua vetado"]
+  G["🛡️ honest-sales-lines: it.fails virou HONEST, mais a janela de troca e o frete do kit nos dois<br/>sentidos, com o gate dono de cada mentira; geradores: objeto (180 verdades, 540 mentiras,<br/>WARRANTY_BAITS com o objeto) e kit (48 verdades, 588 mentiras).<br/>dev:gates contra o HEAD: 14 afrouxamentos aceitos (§30), 0 endurecimentos"]
+  S1 --> K1 --> T1 --> C
+  S2 --> K2 --> T2 --> C
+  S3 --> K3 --> C
+  S4 --> K4 --> C
+  C --> G
+```
+
+**Varredura da base e do roteiro (só leitura):** 214 falas de
+`docs/agente-ia/01-conhecimento/` e `docs/agente-ia/06-script/` rodaram pela `runGates` com
+o config de exemplo, nos dois caminhos. As falas incluídas foram citações, blocos `>` e células
+longas de tabela. Nenhuma fala verdadeira ensinada ali é vetada por bug de gate. Todos os vetos
+caem em um destes casos:
+- **Fala da entrega no caminho antecipado:** "1 a 3 dias" sem o nome do caminho.
+- **Fala proibida de propósito:** a lista "nunca diga", o script antigo do diagnóstico, os
+  exemplos do changelog.
+- **Fala certa fora do contexto de produção.** Três casos, que passam no contexto real:
+  - a véspera, com `stage: logistics`;
+  - o handoff, com `layer: auto`;
+  - o cupom, com `active: true`.
+
+**Deixado como está:**
+- **"No kit de 3 peças, pagando na entrega, o frete também é grátis":** continua vetada. A
+  vírgula separa o kit do "também", e abrir a vírgula traria "…, e no site o frete também".
+  Custa uma reescrita.
+- **"A troca de tamanho é garantida em até 7 dias":** continua vetada pelo `unverified_size`.
+  O `STOCK_AFTER` lê "tamanho … garantida" como reserva. É fora deste conserto.
+- **"Pode trocar pelo tamanho certo em até 7 dias após o pagamento":** passa, igual à base, e
+  passa também sem o objeto. A âncora está errada (a garantia conta do recebimento), mas não é
+  promessa de entrega. Nenhum gate lê o início da garantia.
+
+---
+
+## 31. Quarta revisão do branch: opt-out que bloqueava compradora, frete grátis por outro pagamento, garantia da média (2026-09-29)
+
+Uma revisão independente reprovou o branch no HEAD `dd530a7`. Cada item foi reproduzido com as sondas da
+revisão, no HEAD e na base `c1c0cdf`, e a causa foi lida no código antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Não quero mais oferta de kit, quero só 1', 'chega de promoção, me manda o link',<br/>'não quero receber nada pelo correio' → explicit → bloqueado terminal (a base lia none)"]
+  K1["causa: as formas novas do §28 aceitavam oferta/promoção/nada sem 'receber', e a exceção<br/>de compra era lista de proibição (quero fechar/comprar…): 'quero só 1', 'fico com', 'manda o link' fora dela"]
+  S5["🟥 'Vocês não para de mandar mensagem, que saco' → none (a base lia explicit)"]
+  K5["causa: o lookbehind (?<!nao) do §28 largava toda forma negada, e a negada é quase sempre a reclamação"]
+  S2["🟥 frete grátis do antecipado passava nos dois caminhos: 'Antes ou na entrega', 'Tanto antes quanto<br/>na entrega', '…e pagando pela internet também', 'igual pagando por cartão', 'todos os pagamentos'"]
+  K2["causa: BEYOND_COD é lista de proibição; não tinha 'X ou na entrega', 'quanto na entrega',<br/>'também' fechando a oração, 'igual', 'todos os pagamentos'; e nenhum verbo 'pag…' era lido"]
+  S3["🟥 'Na entrega em média você tem 3 dias pra trocar' passava (a base vetava)"]
+  K3["causa: warranty_promise lia como 'oração' só o texto antes do número (§28); a troca vinha depois"]
+  S6["🟧 verdades vetadas: '…grátis; no pix você ganha 10% de desconto', 'Entrega grátis pagando na hora que receber'"]
+  S7["🟧 sentença de 1222 caracteres sem contagem vetada pelo teto de custo do delivery_promise"]
+  T1["🟧 descartado: crescer a lista de compra do opt-out ou o BEYOND_COD palavra a palavra —<br/>é o que a revisão acabou de derrubar (Lição 3)"]
+  C1["🟩 opt-out: as formas novas só valem se TODA palavra da mensagem for recusa, cortesia ou<br/>queixa (REFUSAL_ONLY, lista de permissão, como HUMAN_REQUEST_PHRASES); 'não para/param de mandar'<br/>é explicit, salvo gosto dito e não negado ('tô gostando', 'oferta boa', 'quero ver')"]
+  C2["🟩 frete: todo 'pag…' da frase do grátis tem de ser o da porta (COD_PAY, lista de permissão);<br/>BEYOND_COD ganha 'ou/quanto … na entrega', 'também' no fim da oração (fora o do kit), 'igual/idem',<br/>'todas as formas'. A oração do desconto do antecipado, sem nada do frete, é lida à parte;<br/>PAID_ON_RECEIPT lê 'na hora que receber'. Frase já aprovada não é julgada de novo"]
+  C3["🟩 a oração da garantia vai até a pontuação depois do número; o teto de custo só vale com contagem"]
+  G["🛡️ honest-sales-lines: 24 mentiras da revisão, gerador outro pagamento × forma (5520) e oração do<br/>desconto (144 verdades, 1008 mentiras); opt-out-gaps com gerador recusa × resto (63 + 84);<br/>dev:gates contra dd530a7: 3 afrouxamentos aceitos (§31), 25 endurecimentos; 14 mutações simuladas, todas pegas"]
+  S1 --> K1 --> T1 --> C1 --> G
+  S5 --> K5 --> C1
+  S2 --> K2 --> T1
+  K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+  S6 --> C2
+  S7 --> C3
+```
+
+**Verificado e deixado como está:**
+- **"Não quero mais nada, só o colete M"** e **"Não quero mais mensagem de promoção, quero fechar o
+  pedido"**: continuam `explicit`, iguais à base. O primeiro item da lista original
+  (`nao quero mais (receber|nada|mensage)`) não passa pela lista de permissão. "Não quero mais nada,
+  obrigada" depois de "quer mais alguma coisa?" bloqueia uma compradora. **Decisão do operador em
+  aberto.**
+- **"Chega de mensagem, só me diz quando chega meu pedido"** e **"Não quero receber mais mensagens, só
+  a do rastreio"**: voltam a `none`, como na base. O `bloqueado` corta também a régua do pedido.
+- **"Pagando na entrega o frete é grátis, sempre"**: passa. O "sempre" é da entrega.
+- **"Pagando na entrega o frete é grátis. E no site também."**: passa a vetar. O §29 a deixava passar
+  porque o gate não lia elipse sem nome, e o "também" no fim da oração agora é lido.
+- **"No pix o frete sai zerado / fica por conta da loja"**, **"No pix a gente paga o frete"** e
+  **"pagando antecipado você não paga nada"**: passam, iguais na base e no HEAD. Nenhuma palavra de
+  grátis é lida. Fica fora deste conserto.
+- **Resposta degenerada sem contagem de dias** (16k caracteres, uma sentença): não é mais vetada pelo
+  teto de custo, que só vale com contagem. O `shipping_promise` leva cerca de 200 ms numa sentença de
+  16k com 430 alegações de grátis (no HEAD, cerca de 270 ms). O custo já existia. Nenhum gate limita o
+  tamanho da resposta.
+
+---
+
+## 32. Frete grátis julgado pela frase inteira, contra uma lista de frases canônicas (2026-09-29)
+
+Duas revisões independentes reprovaram o gate de frete do §31 no HEAD `2587a24`. Cada sonda foi
+reproduzida no HEAD e na base `c1c0cdf`. Passavam no HEAD e eram vetadas na base: "Frete grátis na
+entrega e pagando R$ 129,90 pela internet." (o `COD_PAY` lia a vírgula decimal do preço como fim de
+oração), "…e no site.", "…e comprando pelo site.", "…e pela internet.", "…e na Coinzz.", "…e fechando
+agora.", "Na entrega o frete é grátis, e comprando no site o frete é grátis.", "…, e quem compra agora
+não paga frete.", "O frete é grátis na entrega e na loja." e "Aqui o frete é sempre grátis, na entrega
+por exemplo.". O custo era quadrático: 990 ms numa resposta de 16 mil caracteres com "frete zero"
+repetido, porque o `sentenceAt` rodava uma vez por alegação.
+
+```mermaid
+flowchart TD
+  S1["🟥 mentiras do antecipado passavam no HEAD e eram vetadas na base: '…na entrega e no site',<br/>'…e pela internet', '…e na Coinzz', '…e pagando R$ 129,90 pela internet'"]
+  K1["causa: shipping_promise tentava provar, a partir de texto livre, que o 'grátis' ficava<br/>preso à entrega. Uma frase tem formas sem fim; a lista de proibição (BEYOND_COD) e a<br/>lista de permissão de verbos (COD_PAY) cobriam pedaços dela, nunca a frase"]
+  F1["🟧 §29: COD_NAME na frase e nada de PREPAY_NAME/BEYOND_COD —<br/>'…e no site também', 'antes ou na entrega' passaram"]
+  F2["🟧 §30: 'não … só' e o 'também' do kit abertos — cada exceção abriu uma irmã"]
+  F3["🟧 §31: todo 'pag…' preso ao da porta (COD_PAY), oração do desconto lida à parte —<br/>'e no site', 'e na Coinzz' (sem verbo 'pag') e a vírgula de 'R$ 129,90' passaram"]
+  S2["🟥 opt-out: 'Minhas amigas não param de me mandar foto com o colete, quero comprar um' → explicit"]
+  K2["causa: o ramo 'não para(m) de mandar' do §31 não lia o sujeito"]
+  S3["🟥 'Pagando antecipado a média é de 5 dias e a troca é em 7 dias' vetada (regressão sobre dd530a7)"]
+  K3["causa: a oração do número no warranty_promise (§31) atravessava o 'e' até a troca do 7"]
+  C1["🟩 canonicalFree: a frase inteira da alegação (corte em . ! ? e quebra de linha, nunca na<br/>vírgula), depois de norm, tem de ser abertura × núcleo × cauda, com os preços da entrega<br/>exatos. O resto custa uma reescrita. 'nenhum frete a mais' entra na mesma lista enquanto a<br/>entrega é grátis. Reticência curta ('No pix também.', 'Vale pros dois.') veta. Fronteiras<br/>calculadas uma vez. Prompt e briefing ensinam a mesma frase, 'numa frase só dela'"]
+  C2["🟩 opt-out: o sujeito de 'não para(m) de mandar' é lista de permissão: nenhum, 'vocês',<br/>'essa loja', 'esse número'"]
+  C3["🟩 a oração do número termina em 'mas' e no 'e' sem acento; 'é' não corta<br/>('em média 3 dias é o prazo pra trocar' continua vetada). O acento vem do texto original"]
+  G["🛡️ honest-sales-lines: canônicas (960), canônica estendida (2720) e com preço do antecipado<br/>(50) geradas; 154 mentiras das duas revisões; COSTS_A_REWRITE (21 verdades que agora custam<br/>reescrita, explícitas); prompt.test prova que a frase dos dois briefings é a mesma e passa;<br/>opt-out-gaps com sujeito de terceiro; dev:gates contra HEAD: 3 afrouxamentos aceitos (garantia),<br/>74 endurecimentos no frete; contra c1c0cdf: 58 afrouxamentos, todos aceitos; 17 mutações simuladas, todas pegas"]
+  S1 --> K1
+  F1 --> F2 --> F3 --> K1
+  K1 --> C1 --> G
+  S2 --> K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+```
+
+**Por que as três rodadas falharam.** Todas tentavam provar uma restrição (o grátis vale só na
+entrega) a partir de texto livre. O §29 procurava o nome da entrega e a ausência do antecipado. O
+§30 abriu exceções dentro dessa busca. O §31 trocou uma das listas de proibição por uma lista de
+permissão de verbos. Mas o que precisava ser permitido era a frase inteira, e não as palavras dela.
+A cada rodada a revisão seguinte achou uma família nova ("e no site", "e na Coinzz", "fechando
+agora"), porque a frase continuava aberta depois do trecho provado.
+
+**O conjunto canônico** (em `canonicalFree`, `guardrails.ts`):
+- **abertura opcional:** "e", "ah", "olha", "e olha", "aqui", "lembrando que";
+- **núcleo:**
+  - "(pagando | no pagamento | com pagamento) na entrega, o frete é grátis/gratuito";
+  - "na entrega, o frete é grátis";
+  - "o frete é grátis (pagando) na entrega";
+  - "frete grátis (pagando) na entrega";
+  - "na entrega não tem frete";
+  - "o frete na entrega é grátis";
+  - "na entrega, nenhum frete a mais";
+- **cauda opcional**, depois de ":", ",", "—" ou "e":
+  - "você (só) paga (só) (o valor de | os) R$ <preço da entrega> (quando receber | quando o colete chegar | na porta) (e mais nada)";
+  - "você só paga quando receber";
+  - "sem nada a mais na porta".
+
+Pontuação, aspas e emoji nas pontas não contam.
+
+**Custa uma reescrita** (explícito em `COSTS_A_REWRITE`): 21 verdades. Entre elas estão "O frete é
+grátis e você só paga quando receber", "Na entrega o frete sai de graça", "…grátis; no pix você ganha
+10% de desconto", "…grátis, sempre", "Pagando na entrega você não paga frete", "No kit de 2 peças
+pagando na entrega o frete também é grátis" e "Na entrega você paga R$ 129,90 e nenhum frete a mais na
+porta". A frase que o prompt ensina passa, e a reescrita cai nela.
+
+**Deixado como está:**
+- **Grátis sem nenhuma palavra que o gate lê:** "No pix o frete sai zerado", "…fica por conta da
+  loja", "No pix a gente paga o frete", "No site é tudo grátis", "Nenhuma cobrança de frete na entrega
+  nem no site" e "Quanto ao frete, pagando antecipado você não paga nada". Passam no HEAD e na base,
+  como antes. Ficam fora deste conserto.
+- **Reticência com mais de seis palavras e sem palavra de grátis:** "Pagando no pix é a mesma coisa."
+  (7 palavras) passa depois de uma frase canônica.
+- **`codFreeShipping: false`:** o "nenhum frete a mais" qualificado continua julgado pela regra de
+  22/09, que não é uma lista de frases.
+- **"Não quero mais nada"** continua `explicit`. É a decisão do operador em aberto (C6).
+
+---
+
+## 33. Terceira revisão do §32: a mentira vinha das outras frases da mensagem (2026-09-29)
+
+Uma revisão independente reprovou o `c0c8dbe` (HEAD `cbd585b`). A frase canônica segurava, e a
+mentira vinha das outras frases da mesma mensagem. Cada sonda foi reproduzida no HEAD antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Pagando na entrega o frete é grátis. Isso também vale se você pagar no pix.' / '… No pix<br/>funciona assim.' / '… E no pix? Sim!' / '… Na Coinzz é assim.' passavam"]
+  K1["causa: a extensão só era lida em frase de até 6 palavras com também/igual/mesmo e sem negação<br/>(o laço de reticência do §32) — de novo um pedaço da forma, não a regra"]
+  S2["🟥 'Faz o pix de R$ 116,91. Frete grátis na entrega.' / 'Pix feito! Na entrega o frete é grátis'"]
+  K2["causa: a frase anterior punha a cliente no pix, e o núcleo sem 'pagando' se lia 'quando chegar'"]
+  S3["🟥 'Nossa, não para de mandar mensagem a transportadora', 'Não param de me mandar SMS de rastreio'<br/>→ explicit (bloqueio terminal; regressão sobre c1c0cdf)"]
+  K3["causa: o sujeito vazio era aceito sem olhar o que ela recebe nem o sujeito posposto"]
+  S4["🟧 num kit, o motivo da reescrita e o prompt mandavam escrever R$ 129,90, que o price_promise veta"]
+  S5["🟧 custo: 'Isso mesmo!', 'Eu também uso!', 'Pagando na entrega o frete é grátis, tá?' vetadas"]
+  C1["🟩 regra fechada, sem limite de palavras: com uma frase canônica aprovada, toda OUTRA frase que<br/>nomeia outro pagamento (PREPAY_NAME, OTHER_PAYMENT: site, internet, Coinzz, checkout, link,<br/>cartão, pix, 'pros dois', 'qualquer pagamento') passa só negando ou dizendo que ali o frete é<br/>calculado/cobrado (FREIGHT_CHARGED). 'Também/igual/mesmo' só contam com palavra de pagamento na<br/>frase ou na pergunta antes ('Antes também.', 'E antes? Também!')"]
+  C2["🟩 no caminho antecipado, só os núcleos com 'pagando / no pagamento na entrega'"]
+  C3["🟩 opt-out sem sujeito: o que não para de chegar tem de ser mensagem, promoção, oferta ou nada,<br/>sem sujeito depois"]
+  C4["🟩 o motivo cita o preço do kit da conversa; o prompt ensina a frase canônica de cada kit da entrega<br/>e a linha 'No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.'"]
+  C5["🟩 fecho de cortesia (', tá', ', viu', ', amiga', ', ok') e 'o frete sai grátis' / 'é grátis pra você'"]
+  G["🛡️ honest-sales-lines: REVIEW6_LIES (39), gerador com PRIORS e as extensões novas, vizinhas neutras<br/>(que passam), canônicas sem 'pagando' vetadas no antecipado, motivo por quantidade; prompt.test: a<br/>linha do desconto e a de cada kit passam ao lado da canônica; opt-out-gaps com sujeito vazio;<br/>dev:gates contra HEAD: 5 afrouxamentos aceitos, 44 endurecimentos; contra c1c0cdf: 62 aceitos;<br/>15 mutações novas ou reapontadas, todas pegas, e as 27 existentes do frete e do opt-out continuam pegas"]
+  S1 --> K1 --> C1 --> G
+  S2 --> K2 --> C1
+  K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+  S4 --> C4 --> G
+  S5 --> C5 --> G
+```
+
+**Medido antes de aceitar o custo** (nas 730 falas roteirizadas do `dev:conversas`, com a config
+dele):
+- **Primeira passada vetada pelo `shipping_promise`:** 85 no `c0c8dbe` e 85 nesta árvore com o
+  `R.price` antigo ("O colete sai por R$ 129,90, com frete grátis, e você paga na entrega ao
+  entregador…", 75 usos, fora da frase canônica desde o §32). No `2587a24` eram 10.
+- **Com o `R.price` na frase canônica:** 10, as duas mentiras roteirizadas de propósito ("nos dois
+  caminhos").
+- **Falas de frete da base e do roteiro:** 9. Em cada caminho, 3 são vetadas: "FRETE GRÁTIS" solto,
+  que é título de seção. Igual no HEAD.
+
+**Custa uma reescrita, a mais que no §32:**
+- ao lado da frase canônica: "No pix você ganha 10% de desconto.", "No antecipado a garantia também é
+  de 7 dias." e "No antecipado o prazo varia por região, em média 5 dias úteis.";
+- no caminho antecipado: os núcleos sem "pagando" ("Na entrega o frete é grátis", "Frete grátis na
+  entrega", "Na entrega não tem frete").
+
+**Deixado como está:**
+- **Negação que não nega o grátis:** uma frase que nomeia o pix e tem qualquer "não/nem" passa
+  ("No pix nem precisa esperar, vale igual."). A regra pede só negação, como decidido.
+- **"Não para de mandar, quero comprar":** continua `explicit` (a base também lia assim). Não é
+  sujeito de terceiro.
+- **Custo quadrático já existente:** "Pagando na entrega o frete é grátis" seguido de 16 mil espaços
+  leva 133–190 ms, e 600 ms a 32 mil. Era igual no `2587a24`, antes do §32. Não está no
+  `shipping_promise` nem veio deste conserto.
+
+---
+
+## 34. CI vermelho no PR #39: a guarda era morta pelo buffer, não pelo tempo (2026-09-29)
+
+**Sintoma:** `pnpm verificar:guardas` no CI: 204/208, quatro "ESCAPOU … (inconclusivo — a guarda
+não terminou (SIGTERM))", todas com `tests/honest-sales-lines.test.ts`. Local, as mesmas quatro
+pegavam o bug em ~50 s.
+
+**Causa:** com `GITHUB_ACTIONS=true` o vitest usa o repórter de anotações e imprime uma linha por
+caso que falha. O `spawnSync` do verificador canalizava a saída com o `maxBuffer` padrão de 1 MB;
+estourou (`ENOBUFS`), o Node mata o filho com SIGTERM e `status` vem `null`. O verificador lê
+`null` como inconclusivo por desenho (§20), então uma guarda que pegou o bug de fato contava como
+escape. Reproduzido localmente só com `CI=true GITHUB_ACTIONS=true`: `ENOBUFS`, 569 KB lidos.
+
+**Caminhos que não valiam:** subir o timeout de 10 min (não era tempo: 48 s); aceitar `null` como
+"pegou" (reabriria o furo que o §20 fechou: um travamento de verdade leria como pegada).
+
+**Correção:** `stdio: "ignore"` no `spawnSync`. Só o status importa; a saída nunca foi lida.
+**Guarda:** o próprio `verificar:guardas` no CI, que agora roda as quatro sob o ambiente do runner.
 
 ## Lições (valem para qualquer correção futura)
 
@@ -777,3 +1114,8 @@ todo toque de botão com o selo ligado.
     A correção parou de tentar advinhar a que ela respondia (grafo 25). E consentimento sem
     saída não é consentimento completo: a quinta revisão do mesmo dia achou que a
     palavra-chave só cobria entrar, não sair — todo "sim" precisa de um "não" simétrico.
+11. **Quando o texto livre precisa provar uma restrição, a lista de permissão é da frase
+    inteira.** Três rodadas tentaram provar que um "grátis" ficava preso à entrega, lendo
+    palavras dentro de uma frase aberta, e cada revisão achou a família seguinte. O que fechou foi
+    um conjunto pequeno de frases canônicas, com o prompt ensinando a primeira palavra por palavra
+    (grafo 32).

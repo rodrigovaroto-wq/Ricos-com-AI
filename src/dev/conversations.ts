@@ -112,7 +112,8 @@ export interface Arc {
 const R = {
   greet: "Oi! Que bom te ver por aqui 💛 Posso te ajudar com o colete?",
   price:
-    "O colete sai por R$ 129,90, com frete grátis, e você paga na entrega ao entregador. Você escolhe um dos próximos 3 dias pra receber.",
+    // 2026-09-29 (grafo §33): the free claim in the canonical sentence, as the prompt teaches it.
+    "O colete sai por R$ 129,90. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Você escolhe um dos próximos 3 dias pra receber.",
   askSize: "Que tamanho de calça você usa? Pode ser o número ou a letra, como preferir.",
   delivery: "Chega em 1 a 3 dias e você escolhe o dia no checkout, então não tem surpresa.",
   noSlim: "O colete não muda o seu corpo. Muda como a roupa cai nele — enquanto você usa.",
@@ -589,7 +590,11 @@ export const ARCS: Arc[] = [
     // isso virava handoff: a conversa acabava, e um humano herdava o problema de uma
     // agente que se repetiu. Agora ela manda a resposta de saída, que é uma resposta de
     // verdade com uma pergunta viva, e a conversa continua com ela.
-    expect: () => ({ sent: 3, handoff: false, minRewrites: 2 }),
+    // 2026-09-28: sem reescrita. O `identical_template` é brando desde 2026-09-24 (só
+    // registra), e as duas reescritas que este cenário contava vinham do `shipping_promise`
+    // vetando o "com frete grátis, e você paga na entrega" do `R.price` — que desde a decisão
+    // do operador de 28/09 é verdade; desde 29/09 (grafo §32–§33) o `R.price` diz a frase canônica.
+    expect: () => ({ sent: 3, handoff: false, minRewrites: 0 }),
   },
   {
     // Este cenário se chamava "conversa longa que atravessa o teto de custo" e nunca
@@ -627,7 +632,10 @@ export const ARCS: Arc[] = [
       { from: p.style("quanto custa?"), reply: R.price },
       { from: p.style("e aí?"), vetoedFirst: R.price, reply: R.bye },
     ],
-    expect: () => ({ sent: 2, minRewrites: 1 }),
+    // 2026-09-28: a repetição literal é aviso desde 2026-09-24, não veto; a reescrita que
+    // este cenário contava era o `shipping_promise` vetando o frete grátis do `R.price`,
+    // verdade desde a decisão do operador de 28/09. A cópia sai, e fica registrada.
+    expect: () => ({ sent: 2, minRewrites: 0 }),
   },
   {
     name: "compra rápida de uma mensagem só",

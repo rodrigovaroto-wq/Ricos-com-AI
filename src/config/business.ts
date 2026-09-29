@@ -35,6 +35,13 @@ export interface BusinessConfig {
      * 2026-09-22 it was the reverse: absent meant free, tested as `!== false`.)
      */
     freeShipping?: boolean;
+    /**
+     * Free shipping on cash on delivery only (operator, 2026-09-28): the Logzz offer charges
+     * her R$ 0,00 of freight, the prepaid checkout charges it by region. Absent reads as free
+     * on delivery (`!== false`), because production's secret does not carry the key; `false`
+     * brings back "not free on either path". `freeShipping: true` overrides it.
+     */
+    codFreeShipping?: boolean;
     /** Only an explicit `true` lets her name the Express delivery (R13.5). Absent: off. */
     expressActive?: boolean;
   };
