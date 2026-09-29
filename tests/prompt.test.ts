@@ -232,9 +232,10 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
   const list = [
     // Tactics block, the anchor.
     { text: `o preço cheio publicado é ${money(c.prices.anchorBrl)}.`, paths: BOTH },
-    // Tactics block, risk reversal.
+    // Tactics block, risk reversal: the delivery named as its condition, so it is true on the
+    // prepaid path too, where "ela não paga nada agora" alone is vetoed (operator, 2026-09-29).
     {
-      text: `ela não paga nada agora e tem ${c.delivery.warrantyDays} dias após o recebimento pra devolver.`,
+      text: `no pagamento na entrega ela não paga nada agora e tem ${c.delivery.warrantyDays} dias após o recebimento pra devolver.`,
       paths: BOTH,
     },
     // "Uma oferta só": the cash-on-delivery offer.

@@ -228,7 +228,7 @@ a dependência.
 ## Próximo passo concreto
 
 > **Feito em 2026-09-29, sem PR** (operador: "corrija os 3 itens, mas ainda não abra nenhum
-> PR"), grafo §35. Na branch `claude/cool-brahmagupta-hccc4p`: migração `0020` (não aplicada),
+> PR"), grafo §38. Na branch `claude/cool-brahmagupta-hccc4p`: migração `0020` (não aplicada),
 > `hermes.yml` sem citação e com `persist-credentials: false`, `rowsToConversations` testada.
 > A lista abaixo fica como o registro do que foi pedido.
 
@@ -260,7 +260,7 @@ Nada disso é feito antes do "sim" do operador.
 
 | # | Aplicar | O que melhora | Por quê, com evidência | Esforço |
 |---|---|---|---|---|
-| 1 | **Fonte de produção correta** | Análise | Sem isso, toda leitura de produção era falsa (fallback 0). **Feito** (grafo §35) | feito |
+| 1 | **Fonte de produção correta** | Análise | Sem isso, toda leitura de produção era falsa (fallback 0). **Feito** (grafo §38) | feito |
 | 2 | **Medir o efeito de cada proposta publicada** | Sugestão | O `result` de uma publicada é só `"publicada: <url>"` (`deploy-hermes.yml:79`) **[C]**: nada diz se a mudança funcionou. O "resultado medido" que o Hermes lê em `decisoes.md` nunca é medido. Um passo do job que, a cada passada, recalcula o `como_medir` de cada publicada (antes × depois, com o N e o piso de `08-piso-de-amostra.md`, ou "amostra insuficiente") e grava em `result`. É o único sinal de aprendizado que não depende de opinião, nem do operador nem do modelo | médio |
 | 3 | **Ler as conversas certas, não as 50 últimas** | Análise | Hoje: as 50 mais recentes (`hermes-run.ts`, `limit`) **[C]**. Com tráfego, a maioria é conversa sem problema, e o modelo gasta tokens nelas. Amostra estratificada em SQL: toda conversa com fallback, handoff, opt-out, veto ou custo alto, mais um controle aleatório pequeno (para achar a mentira que nenhum sinal marcou). Mais achado por token, sem modelo novo [I] | baixo |
 | 4 | **Números prontos no pacote** (ideia 5 do JEV) | Análise e sugestão | O pacote leva o placar, mas não as views da 0018 (`eval_gate_blocks`, `eval_turn_outcomes`, `eval_conversation_cost`, `eval_funnel`) **[C]**. Com elas, o `como_medir` aponta para uma view real, e a skill proíbe o modelo de calcular taxa | baixo |

@@ -39,8 +39,10 @@ export interface PromptConfig extends GateConfig {
  * no prepaid deadline at all, which is the right silence when nobody measured one.
  */
 export const prepayWindowLine = (config: PromptConfig): string => {
-  const { prepayAvgDays } = config.delivery;
-  if (prepayAvgDays == null) return "";
+  // The gate's own reading (`prepayAverage`): the average only while the deadline varies by
+  // region. Read alone, turning `prepayVariesByRegion` off taught a sentence the gate vetoes.
+  const { prepayAvgDays, prepayVariesByRegion } = config.delivery;
+  if (prepayAvgDays == null || !prepayVariesByRegion) return "";
   return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
 };
 
@@ -171,8 +173,9 @@ export const linkFactsBriefing = (config: PromptConfig): string[] => {
  * On 2026-09-28 the operator split it by path: cash on delivery ships free (R$ 0,00 on the
  * Logzz offer), the prepaid checkout charges by region. `delivery.codFreeShipping`, read with
  * the gate's own `!== false` (absent = free on delivery, because the secret does not carry
- * the key), makes her say it — with the path named in the same sentence, which is the exact
- * condition under which `shipping_promise` lets "frete grátis" through.
+ * the key), makes her say it — in one of the whole sentences `shipping_promise` lists
+ * (`canonicalFree`, grafo §32), the first of which this paragraph teaches word for word: since
+ * §32, naming the path in the sentence is no longer enough to let "frete grátis" through.
  */
 export const freightBriefing = (config: PromptConfig): string[] =>
   config.delivery.freeShipping === true
@@ -195,7 +198,7 @@ export const freightBriefing = (config: PromptConfig): string[] =>
             .sort((a, b) => a.units - b.units)
             .map((k) => `Levando ${k.units} peças, o mesmo com o preço do kit: "Pagando na entrega o frete é grátis: você paga só ${money(k.priceBrl)} quando receber."`),
           `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita.`,
-          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão, do site ou do link`,
+          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão online, do site`,
           `diz que ali o frete é calculado no checkout, ou volta pra reescrita ("No pix também." e`,
           `"Vale pros dois." estendem o grátis).`,
           ...(config.prices.prepayDiscountPercent > 0
@@ -299,7 +302,8 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
     `  informação você não tem aqui, ela aparece no checkout personalizado dela.`,
     `— **"Me manda o zap de uma cliente" ou pedido de depoimento.** Contato de cliente você não`,
     `  passa, por privacidade. Não invente depoimento e não diga que não tem: "Se quiser ver`,
-    `  alguns depoimentos, é só acessar nosso site e rolar até a seção de depoimentos."`,
+    `  alguns depoimentos, é só acessar nosso site e rolar até a seção de depoimentos." Só fale`,
+    `  dos depoimentos quando ela pedir; por conta própria, não.`,
     ...(email
       ? [
           `— **CNPJ e dados técnicos da empresa.** Peça pra ela mandar um e-mail pra ${email}, que`,
@@ -316,39 +320,23 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
 };
 
 /**
- * What the agent is allowed to say about urgency, decided by config rather than by the
- * model's instincts. Three settings, and the difference between them is who is
- * accountable for the number:
- *
- * - a declared count or deadline: the shop's number, and she repeats it;
- * - `allowUnverified`: the operator has decided she may create urgency without one;
- * - neither: she says nothing about stock or deadlines at all.
- *
- * Even in the middle case she is pushed toward one stable line rather than a fresh
- * number per conversation — the same claim all day reads as real, and a different one
- * every time is what the customer with the screenshot notices.
+ * What the agent says about urgency: nothing, in the conversation. Until 2026-09-29 a declared
+ * count went into the prompt and she used it whenever she judged right; the operator restricted
+ * it to her putting the purchase off (R16.5), and that reply is fixed (`thinkReply`), so the
+ * model is told the system handles it and `scarcity_claim` refuses it anywhere else.
  */
 export const scarcityBriefing = (config: PromptConfig): string[] => {
+  // Since 2026-09-29 (R16.5) the stock is said only in the fixed reply to her putting the
+  // purchase off (`thinkReply`); the conversation itself never cites it.
   const s = config.scarcity;
-  const lines: string[] = [];
-  if (s?.unitsLeft !== undefined && s?.unitsLeft !== null) {
-    lines.push(`URGÊNCIA REAL: restam ${s.unitsLeft} unidades. Use esse número, e nenhum outro.`);
-  }
-  if (s?.offerEndsAt) {
-    lines.push(`PRAZO REAL: a condição atual termina em ${s.offerEndsAt}. Pode dizer que acaba.`);
-  }
-  if (lines.length === 0 && s?.allowUnverified) {
-    lines.push(
-      `URGÊNCIA: use senso de urgência sobre o lote acabando quando ela estiver em cima do`,
-      `muro — é uma das suas ferramentas mais fortes e você tem liberdade com ela. Duas`,
-      `bordas: não prometa contagem regressiva em minutos, e nunca use urgência para empurrar`,
-      `tamanho errado. Peça que não serve volta, e devolução custa mais que a venda vale.`,
-    );
-  }
-  if (lines.length === 0) {
-    lines.push(`URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`);
-  }
-  return ["", ...lines];
+  const declared = s?.unitsLeft != null || !!s?.offerEndsAt || !!s?.allowUnverified;
+  return [
+    "",
+    declared
+      ? `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta. Quando ela disser que` +
+        ` vai pensar ou deixar pra depois, o sistema manda o aviso de estoque numa mensagem pronta.`
+      : `URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`,
+  ];
 };
 
 /**
@@ -386,7 +374,7 @@ export const systemPrompt = (
     `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
     `— **Ancoragem:** o preço cheio publicado é ${money(config.prices.anchorBrl)}. Diga de onde`,
     `  ela está saindo antes de dizer onde chega.`,
-    `— **Reversão de risco:** ela não paga nada agora e tem ${config.delivery.warrantyDays} dias`,
+    `— **Reversão de risco:** no pagamento na entrega ela não paga nada agora e tem ${config.delivery.warrantyDays} dias`,
     `  após o recebimento pra devolver. É o seu argumento mais forte — use quando ela hesitar,`,
     `  com palavras novas, e não em toda mensagem.`,
     `— **Antecipe a objeção:** diga "você deve estar pensando que..." antes que ela pense.`,
@@ -461,6 +449,9 @@ export const systemPrompt = (
     ``,
     `O produto é o Colete Cinta Modeladora. Ele modela enquanto está vestido e muda como a roupa`,
     `cai — NÃO emagrece, e o efeito acaba ao tirar. Diga isso quando o assunto chegar perto.`,
+    `Além de modelar, ele ajuda na postura enquanto está vestido: dá apoio e segura a postura. Isso`,
+    `agrega valor e você pode dizer ("além de modelar, ele ajuda na postura") — sem prometer que`,
+    `corrige, trata ou cura postura, coluna ou dor, que ele não faz.`,
     `Essa honestidade é argumento de venda, não ressalva: ela já foi enganada por promessa de`,
     `emagrecimento e reconhece quem não mente.`,
     ``,
@@ -501,7 +492,7 @@ export const systemPrompt = (
     ...(config.testimonials?.length
       ? [
           `DEPOIMENTOS REAIS que você pode citar entre aspas, palavra por palavra, sem inventar`,
-          `outros: ${config.testimonials.map((t) => `"${t}"`).join(" ")}`,
+          `outros, só quando ela pedir depoimento: ${config.testimonials.map((t) => `"${t}"`).join(" ")}`,
         ]
       : []),
     ``,
