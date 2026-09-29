@@ -18,12 +18,14 @@ Análise e conclusão: [`06-analise-hermes-v1.md`](docs/agente-ia/05-plano/06-an
 grafo §38–§39. Feito no repositório: fonte de produção correta, nada de trecho de cliente no git,
 amostra por sinal, números das views no pacote, mentira com a regra do prompt, descarte do que
 os gates já vetam, efeito medido das publicadas, e-mail com trecho, deploy que confere a
-aprovação e recusa afrouxamento. **O, nesta ordem, antes do merge:**
-1. aplicar a migração `0020_hermes_retention.sql` no Supabase da Encorpa (sem ela, a passada de
-   produção e a marca `published_at` do deploy falham);
-2. reimportar o workflow n8n "Hermes: decisão do operador" (`n8n/workflows/hermes-decisao.json`)
-   e rodar `pnpm dev:n8n`;
-3. opcional: variável de repositório `HERMES_MAX_USD` (teto por passada).
+aprovação e recusa afrouxamento. **Feito pelo Claude em 29/09, com o "pode aplicar" do operador:**
+1. migração `0020_hermes_retention.sql` aplicada no Supabase da Encorpa (`hbmkgakzrqmdlsvszjeo`,
+   conferido por `list_projects`): colunas, views com `security_invoker`, `purge_expired` novo;
+2. nó "Monta o e-mail" do workflow n8n "Hermes: decisão do operador" atualizado e publicado
+   (versão ativa `88928b49`); `pnpm dev:n8n` dá `ok` para ele.
+   Fora do escopo do Hermes, o mesmo `dev:n8n` acusa "Turno da agente" (campo selado `reply`) e
+   "Relógio da régua" (saída de erro): o `main` à frente do n8n, itens da fila acima.
+**O:** opcional, variável de repositório `HERMES_MAX_USD` (teto por passada).
 Não feito: calibração com ≥ 100 defeitos plantados (precisa de rodada de personas com modelo).
 
 ### ▶ Fila de execução imediata (2026-09-29, fim) — branch `claude/happy-planck-izq7jt`, PR aberto

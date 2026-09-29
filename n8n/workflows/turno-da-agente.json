@@ -41,7 +41,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ externalId: $json.body.externalId, from: $json.body.from, body: $json.body.body, source: $json.body.source, sentAt: $json.body.sentAt, signature: $json.body.signature, reply: $json.body.reply }) }}",
+        "jsonBody": "={{ JSON.stringify({ externalId: $json.body.externalId, from: $json.body.from, body: $json.body.body, source: $json.body.source, sentAt: $json.body.sentAt, signature: $json.body.signature }) }}",
         "options": {
           "response": {
             "response": {
@@ -311,7 +311,7 @@
         "genericAuthType": "httpHeaderAuth",
         "sendBody": true,
         "specifyBody": "json",
-        "jsonBody": "={{ JSON.stringify({ externalId: $('Mensagem recebida').first().json.body.externalId, from: $('Mensagem recebida').first().json.body.from, body: $('Mensagem recebida').first().json.body.body, sentAt: $('Mensagem recebida').first().json.body.sentAt, signature: $('Mensagem recebida').first().json.body.signature, reply: $('Mensagem recebida').first().json.body.reply, resume: true }) }}",
+        "jsonBody": "={{ JSON.stringify({ externalId: $('Mensagem recebida').first().json.body.externalId, from: $('Mensagem recebida').first().json.body.from, body: $('Mensagem recebida').first().json.body.body, sentAt: $('Mensagem recebida').first().json.body.sentAt, signature: $('Mensagem recebida').first().json.body.signature, resume: true }) }}",
         "options": {
           "response": {
             "response": {
