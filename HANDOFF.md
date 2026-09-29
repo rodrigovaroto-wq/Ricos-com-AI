@@ -39,6 +39,54 @@ guarda é descartada; só o status importa). As 4 rodaram verdes sob `CI=true GI
 ### Tarefa 1 — fechar o PR #39
 1. CI verde no `4700903` (a etapa `verificar:guardas` leva ~30 min no runner) → **O** faz merge.
 
+### Tarefa 2 — revisão de riscos do PR #39 (NÃO FEITA; pedida pelo operador em 2026-09-29)
+Nesta sessão só se diagnosticou o CI vermelho e se conferiu o PR contra o HANDOFF. **Ninguém
+procurou o que o PR pode quebrar.** O PR mexe em gate, régua, selo do webhook, opt-in e ciclo do
+pedido (3,5 mil linhas, 32 arquivos, 16 commits, feito em outra sessão). Fazer, em execução real
+(o harness de PostgREST falso da sessão anterior serve) e não só lendo o diff:
+1. Pedido: `chasesSilence`/`orderTouchDue` × `onOrderConfirmed`, `recordOrder`, `furthest` — pedido
+   morto, entregue, dois pedidos no mesmo lead, webhook fora de ordem, `created_at` sem o
+   `created_at` do webhook.
+2. Gate: cada frase honesta que o prompt ensina ainda passa (`tests/prompt.test.ts`), e a
+   `pnpm dev:gates` do PR contra o `main` — cada afrouxamento em `gate-loosen-accepted.txt` tem
+   motivo escrito? Desempenho do pior caso no runner do CI, não só local.
+3. Opt-in/selo: `reply.id` no selo × n8n × as três cópias de `inbound-signature.ts`; flag ausente =
+   desligado em todos os caminhos (turno, varredura, gate de template).
+4. `codFreeShipping`: ausente lê "grátis na entrega" — conferir o que o secret de produção tem
+   escrito (`freeShipping`), e que prompt, gate e `config/business.example.json` dizem a mesma coisa.
+5. Espelho `src/agent` ↔ `supabase/functions/turn` byte a byte; `pnpm typecheck:function`.
+6. Migrações/n8n: nada do PR exige migração nova; os workflows do repositório ainda diferem dos
+   ativos até o operador importar (`pnpm dev:n8n`).
+Cético, sem se enviesar; achado com causa raiz antes de conserto.
+
+### Tarefa 3 — cruzar o agente com toda a documentação (depois do merge do #39; pedida em 2026-09-29)
+Objetivo: achar divergência que faça o agente **mentir** (dizer o que a operação não cumpre) ou
+**render menos** (não usar recurso que existe; usar recurso que não existe). Não é para consertar
+no meio; primeiro o inventário, depois o operador decide cada divergência.
+1. **Lado do agente (o que ele diz e pode dizer):** `src/agent/prompt.ts` e o que ele lê do
+   `BUSINESS_CONFIG`; base de conhecimento `docs/agente-ia/01-conhecimento/`; script
+   `06-script/`; textos da régua e dos templates (`followups.ts`, `config/business.example.json`
+   `channel.templates`); gates e o briefing de cada um (`guardrails.ts`); mensagens de
+   fallback/handoff; o que o operador recebe no e-mail de handoff.
+2. **Lado da verdade (documentação):** `docs/documentacao/contexto-negocio/` (decisões firmes,
+   `05-decisoes-firmes.md`), `decisoes/03-decisoes-tomadas.md` e o grafo `04`, `docs/agente-ia/`
+   inteiro (plano, economia, lacunas), `docs/operacao/`, `docs/agente-ia/08-mudancas/registro.md`,
+   `.claude/memory/`, o `HANDOFF.md`, e o que o operador declarou nas conversas.
+3. **Cruzar por tema, uma tabela por tema (agente diz × documento diz × fonte/data):** preço e
+   kits, frete por caminho de pagamento, prazo de entrega, praças atendidas (as 22 do COD),
+   garantia/troca/devolução (CDC), pagamento (pix, cartão, parcelas, taxa do Mercado Pago),
+   tamanhos e tabela de medidas, claims de produto (apelo de corpo/saúde), identidade (é IA?),
+   horário de atendimento, suporte, régua e cupom, opt-in de marketing, retenção (LGPD).
+4. **Duas classes de achado:** (a) **mentira** — o agente afirma algo que a documentação contradiz
+   ou não sustenta; (b) **recurso ocioso ou fantasma** — existe na operação/config e o agente não
+   usa (ex.: `kits`, `delivery.expressActive`, `support.email`), ou o agente cita algo que não
+   existe. Cada achado: arquivo:linha dos dois lados, gravidade, correção proposta.
+5. **Saída:** relatório no repositório (`docs/agente-ia/`), divergências decididas pelo operador,
+   correção com o teste que a guarda (`tests/prompt.test.ts` prova que toda frase ensinada passa
+   a cadeia de gates) e registro no grafo. Correção de gate/prompt passa por revisão Opus.
+6. Uma divergência que só o operador sabe resolver (preço, prazo, política) vira pergunta a ele,
+   nunca escolha silenciosa.
+
 ### Depois do merge (ordem obrigatória)
 1. **O importa no n8n:** `turno-da-agente.json` (com `reply`), `relogio-da-regua.json` (ramo de
    erro, do #38) e `whatsapp-envio.json` (botões, do #38). Depois `pnpm dev:n8n` tem de passar.
