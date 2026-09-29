@@ -469,10 +469,12 @@ for (const [angle, reply, esperado] of [
     ["'total' do antecipado sem o frete", "O frete é calculado no checkout e o total fica R$ 116,91.", "prepay", "barra(price_promise)", cfg0922],
     ["frete com 'o valor de'", "O frete tem o valor de R$ 12,99.", "prepay", "barra(price_promise+shipping_promise)", cfg0922],
     ["economia dada como preço", "O frete é à parte, e o produto sai R$ 12,99.", "prepay", "barra(price_promise)", cfg0922],
-    ["nenhum frete a mais na porta (COD)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "envia", cfg0922],
+    ["nenhum frete a mais na porta (COD)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "envia", codPago],
     // 2026-09-28 (R15.3): na entrega o frete é grátis, e a chave ausente lê assim. Com
-    // `codFreeShipping: false` a frase seca volta a ser o veto de 22/09.
-    ["nenhum frete seco (grátis na entrega desde 28/09)", "Nenhum frete na entrega.", "cod", "envia", cfg0922],
+    // `codFreeShipping: false` a frase seca volta a ser o veto de 22/09. Desde 2026-09-29 (grafo
+    // §32) o grátis só passa numa frase canônica: estas custam uma reescrita.
+    ["nenhum frete a mais fora da frase canônica (custa uma reescrita)", "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", "cod", "barra(shipping_promise)", cfg0922],
+    ["nenhum frete seco (custa uma reescrita, grafo §32)", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", cfg0922],
     ["nenhum frete seco, sem frete grátis na entrega", "Nenhum frete na entrega.", "cod", "barra(shipping_promise)", codPago],
     ["frete grátis na entrega, com o caminho na frase", "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.", "cod", "envia", cfg0922],
     ["frete grátis sem caminho", "Frete grátis!", "cod", "barra(shipping_promise)", cfg0922],

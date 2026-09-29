@@ -35,6 +35,8 @@ describe("opt-out: pedidos de parar", () => {
     "Vocês não param de mandar mensagem",
     "Não para de mandar mensagem, não gosto disso",
     "Não para de me mandar mensagem, boa noite",
+    "Vocês não param de mandar mensagem, que saco",
+    "Oi, vocês não param de me mandar mensagem",
   ])("%s para a agente", (text) => {
     expect(classifyOptOut(text)).toBe("explicit");
   });
@@ -72,6 +74,12 @@ describe("opt-out: pedidos de parar", () => {
     "Não para de mandar não, tô gostando",
     "Não para de mandar, quero ver as promoções",
     "Eles param de mandar se eu pedir?",
+    // Someone else who keeps sending (grafo §32): the subject is an allow-list, no subject or this shop.
+    "Minhas amigas não param de me mandar foto com o colete, quero comprar um",
+    "A transportadora não para de mandar mensagem, cadê meu pedido?",
+    "O correio não para de me mandar SMS e o colete não chegou",
+    "Meu marido não para de mandar mensagem perguntando do colete, quando chega?",
+    "O entregador não para de me mandar mensagem, ele já saiu?",
   ])("controle de negação: %s continua none", (text) => {
     expect(classifyOptOut(text)).toBe("none");
   });

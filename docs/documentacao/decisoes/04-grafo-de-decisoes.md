@@ -938,6 +938,82 @@ flowchart TD
 
 ---
 
+## 32. Frete grátis julgado pela frase inteira, contra uma lista de frases canônicas (2026-09-29)
+
+Duas revisões independentes reprovaram o gate de frete do §31 no HEAD `2587a24`. Cada sonda foi
+reproduzida no HEAD e na base `c1c0cdf`. Passavam no HEAD e eram vetadas na base: "Frete grátis na
+entrega e pagando R$ 129,90 pela internet." (o `COD_PAY` lia a vírgula decimal do preço como fim de
+oração), "…e no site.", "…e comprando pelo site.", "…e pela internet.", "…e na Coinzz.", "…e fechando
+agora.", "Na entrega o frete é grátis, e comprando no site o frete é grátis.", "…, e quem compra agora
+não paga frete.", "O frete é grátis na entrega e na loja." e "Aqui o frete é sempre grátis, na entrega
+por exemplo.". O custo era quadrático: 990 ms numa resposta de 16 mil caracteres com "frete zero"
+repetido, porque o `sentenceAt` rodava uma vez por alegação.
+
+```mermaid
+flowchart TD
+  S1["🟥 mentiras do antecipado passavam no HEAD e eram vetadas na base: '…na entrega e no site',<br/>'…e pela internet', '…e na Coinzz', '…e pagando R$ 129,90 pela internet'"]
+  K1["causa: shipping_promise tentava provar, a partir de texto livre, que o 'grátis' ficava<br/>preso à entrega. Uma frase tem formas sem fim; a lista de proibição (BEYOND_COD) e a<br/>lista de permissão de verbos (COD_PAY) cobriam pedaços dela, nunca a frase"]
+  F1["🟧 §29: COD_NAME na frase e nada de PREPAY_NAME/BEYOND_COD —<br/>'…e no site também', 'antes ou na entrega' passaram"]
+  F2["🟧 §30: 'não … só' e o 'também' do kit abertos — cada exceção abriu uma irmã"]
+  F3["🟧 §31: todo 'pag…' preso ao da porta (COD_PAY), oração do desconto lida à parte —<br/>'e no site', 'e na Coinzz' (sem verbo 'pag') e a vírgula de 'R$ 129,90' passaram"]
+  S2["🟥 opt-out: 'Minhas amigas não param de me mandar foto com o colete, quero comprar um' → explicit"]
+  K2["causa: o ramo 'não para(m) de mandar' do §31 não lia o sujeito"]
+  S3["🟥 'Pagando antecipado a média é de 5 dias e a troca é em 7 dias' vetada (regressão sobre dd530a7)"]
+  K3["causa: a oração do número no warranty_promise (§31) atravessava o 'e' até a troca do 7"]
+  C1["🟩 canonicalFree: a frase inteira da alegação (corte em . ! ? e quebra de linha, nunca na<br/>vírgula), depois de norm, tem de ser abertura × núcleo × cauda, com os preços da entrega<br/>exatos. O resto custa uma reescrita. 'nenhum frete a mais' entra na mesma lista enquanto a<br/>entrega é grátis. Reticência curta ('No pix também.', 'Vale pros dois.') veta. Fronteiras<br/>calculadas uma vez. Prompt e briefing ensinam a mesma frase, 'numa frase só dela'"]
+  C2["🟩 opt-out: o sujeito de 'não para(m) de mandar' é lista de permissão: nenhum, 'vocês',<br/>'essa loja', 'esse número'"]
+  C3["🟩 a oração do número termina em 'mas' e no 'e' sem acento; 'é' não corta<br/>('em média 3 dias é o prazo pra trocar' continua vetada). O acento vem do texto original"]
+  G["🛡️ honest-sales-lines: canônicas (960), canônica estendida (2720) e com preço do antecipado<br/>(50) geradas; 154 mentiras das duas revisões; COSTS_A_REWRITE (21 verdades que agora custam<br/>reescrita, explícitas); prompt.test prova que a frase dos dois briefings é a mesma e passa;<br/>opt-out-gaps com sujeito de terceiro; dev:gates contra HEAD: 3 afrouxamentos aceitos (garantia),<br/>74 endurecimentos no frete; contra c1c0cdf: 58 afrouxamentos, todos aceitos; 17 mutações simuladas, todas pegas"]
+  S1 --> K1
+  F1 --> F2 --> F3 --> K1
+  K1 --> C1 --> G
+  S2 --> K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+```
+
+**Por que as três rodadas falharam.** Todas tentavam provar uma restrição (o grátis vale só na
+entrega) a partir de texto livre. O §29 procurava o nome da entrega e a ausência do antecipado. O
+§30 abriu exceções dentro dessa busca. O §31 trocou uma das listas de proibição por uma lista de
+permissão de verbos. Mas o que precisava ser permitido era a frase inteira, e não as palavras dela.
+A cada rodada a revisão seguinte achou uma família nova ("e no site", "e na Coinzz", "fechando
+agora"), porque a frase continuava aberta depois do trecho provado.
+
+**O conjunto canônico** (em `canonicalFree`, `guardrails.ts`):
+- **abertura opcional:** "e", "ah", "olha", "e olha", "aqui", "lembrando que";
+- **núcleo:**
+  - "(pagando | no pagamento | com pagamento) na entrega, o frete é grátis/gratuito";
+  - "na entrega, o frete é grátis";
+  - "o frete é grátis (pagando) na entrega";
+  - "frete grátis (pagando) na entrega";
+  - "na entrega não tem frete";
+  - "o frete na entrega é grátis";
+  - "na entrega, nenhum frete a mais";
+- **cauda opcional**, depois de ":", ",", "—" ou "e":
+  - "você (só) paga (só) (o valor de | os) R$ <preço da entrega> (quando receber | quando o colete chegar | na porta) (e mais nada)";
+  - "você só paga quando receber";
+  - "sem nada a mais na porta".
+
+Pontuação, aspas e emoji nas pontas não contam.
+
+**Custa uma reescrita** (explícito em `COSTS_A_REWRITE`): 21 verdades. Entre elas estão "O frete é
+grátis e você só paga quando receber", "Na entrega o frete sai de graça", "…grátis; no pix você ganha
+10% de desconto", "…grátis, sempre", "Pagando na entrega você não paga frete", "No kit de 2 peças
+pagando na entrega o frete também é grátis" e "Na entrega você paga R$ 129,90 e nenhum frete a mais na
+porta". A frase que o prompt ensina passa, e a reescrita cai nela.
+
+**Deixado como está:**
+- **Grátis sem nenhuma palavra que o gate lê:** "No pix o frete sai zerado", "…fica por conta da
+  loja", "No pix a gente paga o frete", "No site é tudo grátis", "Nenhuma cobrança de frete na entrega
+  nem no site" e "Quanto ao frete, pagando antecipado você não paga nada". Passam no HEAD e na base,
+  como antes. Ficam fora deste conserto.
+- **Reticência com mais de seis palavras e sem palavra de grátis:** "Pagando no pix é a mesma coisa."
+  (7 palavras) passa depois de uma frase canônica.
+- **`codFreeShipping: false`:** o "nenhum frete a mais" qualificado continua julgado pela regra de
+  22/09, que não é uma lista de frases.
+- **"Não quero mais nada"** continua `explicit`. É a decisão do operador em aberto (C6).
+
+---
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
@@ -964,3 +1040,8 @@ flowchart TD
     A correção parou de tentar advinhar a que ela respondia (grafo 25). E consentimento sem
     saída não é consentimento completo: a quinta revisão do mesmo dia achou que a
     palavra-chave só cobria entrar, não sair — todo "sim" precisa de um "não" simétrico.
+11. **Quando o texto livre precisa provar uma restrição, a lista de permissão é da frase
+    inteira.** Três rodadas tentaram provar que um "grátis" ficava preso à entrega, lendo
+    palavras dentro de uma frase aberta, e cada revisão achou a família seguinte. O que fechou foi
+    um conjunto pequeno de frases canônicas, com o prompt ensinando a primeira palavra por palavra
+    (grafo 32).

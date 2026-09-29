@@ -1012,16 +1012,24 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
 
   describe("4 — 'nenhum frete a mais na porta' é verdade no COD", () => {
     it("qualificado e falando da entrega, passa", () => {
+      // With `codFreeShipping: false` (the 2026-09-22 world) the qualified denial is its own rule.
+      // While the delivery ships free it is one more free claim, held to the canonical sentences
+      // (grafo §32): the free forms cost a rewrite, and the canonical one passes.
+      const pago = (c: typeof cod) => ({ ...c, config: { ...c.config, delivery: { ...c.config.delivery, codFreeShipping: false } } });
       for (const frase of [
         "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.",
         "Na entrega é R$ 129,90, sem frete extra na porta.",
         "Nada de frete somado na entrega: são R$ 129,90.",
       ]) {
-        expect(blocked(runGates(frase, cod)), frase).not.toContain("shipping_promise");
-        expect(blocked(runGates(frase, prepay)), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, pago(cod))), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, pago(prepay))), frase).not.toContain("shipping_promise");
+        // custa uma reescrita (R15.3 canônica)
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
+      for (const c of [cod, prepay, pago(cod), pago(prepay)])
+        expect(blocked(runGates("Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.", c))).not.toContain("shipping_promise");
       // Com preço único (antecipado = entrega), o R$ 129,90 na frase não é o antecipado.
-      expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", ctx())))
+      expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", pago(ctx()))))
         .not.toContain("shipping_promise");
     });
 
@@ -1033,11 +1041,12 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
       ]) {
         expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
-      // Secas mas nomeando a entrega: verdade desde 2026-09-28 (frete grátis na entrega,
-      // `codFreeShipping` ausente), e o veto de 22/09 com `codFreeShipping: false`.
+      // Secas mas nomeando a entrega: verdade desde 2026-09-28 (frete grátis na entrega), mas fora
+      // das frases canônicas custam uma reescrita (R15.3 canônica, grafo §32); e o veto de 22/09 com
+      // `codFreeShipping: false`.
       const codPago = ctx({ config: { ...cod.config, delivery: { ...cod.config.delivery, codFreeShipping: false } } });
       for (const frase of ["Nenhum frete na entrega.", "Sem frete: R$ 129,90 na entrega."]) {
-        expect(blocked(runGates(frase, cod)), frase).not.toContain("shipping_promise");
+        expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
         expect(blocked(runGates(frase, codPago)), frase).toContain("shipping_promise");
       }
       // Caminho antecipado e sem falar da porta: ela paga frete, "nenhum a mais" é mentira.
@@ -1052,8 +1061,9 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
         expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
       // O checkout é dos dois caminhos: com o frete grátis na entrega (2026-09-28) a frase é
-      // verdade, e só com `codFreeShipping: false` o checkout na frase continua vetando.
-      expect(blocked(runGates("Nenhum frete a mais na entrega, o checkout já mostra.", cod))).not.toContain("shipping_promise");
+      // verdade, mas não é canônica e custa uma reescrita (grafo §32); com `codFreeShipping: false`
+      // o checkout na frase continua vetando.
+      expect(blocked(runGates("Nenhum frete a mais na entrega, o checkout já mostra.", cod))).toContain("shipping_promise");
       expect(blocked(runGates("Nenhum frete a mais na entrega, o checkout já mostra.", codPago))).toContain("shipping_promise");
       // A mensagem cita as duas ofertas, mas a frase que nega o frete é a do antecipado.
       expect(

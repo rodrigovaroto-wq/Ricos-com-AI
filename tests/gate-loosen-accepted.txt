@@ -138,3 +138,26 @@ R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparec
 §31 | shipping_promise | Entrega grátis pagando na hora que receber.
 # R15.3, sentence added to the corpus on §31: cash on delivery is paid "em dinheiro ou cartão" at the door (prompt), so the card named that way is not the prepaid path; passes at dd530a7 as well.
 R15.3 | shipping_promise | Pagando na entrega, em dinheiro ou cartão, o frete é grátis.
+# §32 (grafo): a free claim passes only when its whole sentence is one of `canonicalFree`'s (lead × core × tail, the delivery's own prices). These canonical forms, and the honest two-sentence answers built from them, were vetoed at c1c0cdf by the 22/09 "never free" rule; the non-canonical forms §29–§31 freed now cost a rewrite (`COSTS_A_REWRITE`).
+§32 | shipping_promise | Pagando na entrega o frete é grátis! 💛
+§32 | shipping_promise | E olha, pagando na entrega o frete é grátis: você só paga quando receber.
+§32 | shipping_promise | Lembrando que no pagamento na entrega o frete é grátis, você paga R$ 129,90 quando o colete chegar.
+§32 | shipping_promise | Frete grátis na entrega.
+§32 | shipping_promise | O frete na entrega é gratuito.
+§32 | shipping_promise | Na entrega o frete é grátis, sem nada a mais na porta.
+§32 | shipping_promise | No antecipado o frete não é grátis, é calculado no checkout.
+§32 | shipping_promise | Pagando na entrega o frete é grátis. No pix não tem frete grátis, ele é calculado no checkout.
+§32 | shipping_promise | Pagando na entrega o frete é grátis. No pix você ganha 10% de desconto.
+§32 | shipping_promise | pagando na entrega o frete é grátis
+§32 | shipping_promise | no pagamento na entrega o frete é grátis
+§32 | shipping_promise | com pagamento na entrega, o frete é gratuito
+§32 | shipping_promise | na entrega o frete é grátis
+§32 | shipping_promise | o frete é grátis pagando na entrega
+§32 | shipping_promise | frete grátis pagando na entrega
+§32 | shipping_promise | frete grátis na entrega
+§32 | shipping_promise | na entrega não tem frete
+§32 | shipping_promise | o frete na entrega é grátis
+# §32 (grafo): `warranty_promise` read the number's clause past "e" (and) into the next one, so the prepaid average took the exchange's words ("a média é de 5 dias e a troca é em 7 dias"; vetoed at dd530a7 and after). The clause now ends at "mas" and at an unaccented "e"; "é" (is) does not cut, so "em média 3 dias é o prazo pra trocar" stays vetoed.
+§32 | warranty_promise | Pagando antecipado a média é de 5 dias e a troca é em 7 dias.
+§32 | warranty_promise | No pix a média é 5 dias e você tem 7 dias de garantia.
+§32 | warranty_promise | Em média 5 dias no pix e 7 dias pra trocar.

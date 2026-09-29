@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
   expressLine,
+  freightBriefing,
   linkFactLine,
   money,
   prepayPriceLine,
@@ -71,12 +72,33 @@ describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
     const prompt = flat(build(variant(false, true)));
     expect(prompt).toContain("NO PAGAMENTO NA ENTREGA O FRETE É GRÁTIS");
     expect(prompt).toContain(`"Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber."`);
+    // The gate lets the free claim through only in a canonical sentence (grafo §32): the prompt
+    // teaches that one word for word, in a sentence of its own, in both briefings.
+    expect(prompt).toContain("Use esta frase, com estas palavras, numa frase só dela:");
+    expect(prompt).toContain("use esta frase, com estas palavras, numa frase só dela");
     expect(prompt).toContain("NO ANTECIPADO o frete é calculado por região dentro do checkout");
     expect(prompt).toContain("nunca diga que é grátis");
     expect(prompt).toMatch(AFFIRMS_FREE_SHIPPING);
     expect(freeOnlyOnDelivery(prompt)).toBe(true);
     expect(prompt).not.toContain("O FRETE É GRÁTIS nos dois caminhos");
   });
+
+  // The gate lets the free claim through only in a canonical sentence (grafo §32). Each briefing
+  // names ONE sentence to use as it is — the prompt's freight paragraph and the gate's briefing —
+  // and it has to be the same sentence, and it has to pass the whole chain on both paths.
+  it.each(corners.filter((c) => c.config.delivery.freeShipping !== true && c.config.delivery.codFreeShipping !== false))(
+    "a frase que os dois briefings mandam usar é a mesma e passa a cadeia ($name)",
+    ({ config }) => {
+      const fromPrompt = /numa frase só dela: "([^"]+)"/.exec(flat(freightBriefing(config).join(" ")))?.[1];
+      const fromGate = /numa frase só dela \("([^"]+)"\)/.exec(flat(gateBriefing(config).join(" ")))?.[1];
+      expect(fromPrompt).toBe(`Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber.`);
+      expect(fromGate).toBe(fromPrompt);
+      for (const paymentPath of ["cod", "prepay"] as const) {
+        const blocked = runGates(fromPrompt!, ctx({ config, paymentPath })).traces.filter((t) => t.verdict === "block");
+        expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+      }
+    },
+  );
 
   it("com freeShipping true, instrui", () => {
     const prompt = build(variant(true, true));
