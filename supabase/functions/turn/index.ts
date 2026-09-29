@@ -11,6 +11,7 @@
  * n8n holds in its credential.
  */
 import {
+  asksForTestimonial,
   classifyOptOut,
   gateBriefing,
   remedyFor,
@@ -2935,6 +2936,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // Social proof is a tool, and it was locked: nobody ever passed this list, so
       // every quote she attributed to a customer was read as invented and rewritten.
       knownTestimonials: CONFIG.testimonials,
+      // Testimonials only when she asks for them (R16.7).
+      askedTestimonial: asksForTestimonial(inbound.body ?? ""),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
