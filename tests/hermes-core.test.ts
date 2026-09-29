@@ -1,5 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { checkProposals, maskPii, renderConversation, renderLedger, type LedgerRow } from "../src/dev/hermes-core.js";
+import {
+  checkProposals,
+  maskPii,
+  renderConversation,
+  renderLedger,
+  rowsToConversations,
+  withoutQuotes,
+  type Checked,
+  type LedgerRow,
+  type SupabaseRows,
+} from "../src/dev/hermes-core.js";
+import { scoreRun } from "../src/dev/persona-scorecard.js";
 
 const conversa = renderConversation({
   persona: "persona-jussara",
@@ -127,5 +138,111 @@ describe("hermes: o histórico de decisões", () => {
     const md = renderLedger([row({ status: "rejected", decision_reason: "a cliente 11 98765-4321 reclamou" })]);
     expect(md).not.toContain("98765-4321");
     expect(md).toContain("[telefone]");
+  });
+});
+
+/**
+ * The production source (`--source=supabase`). Until 2026-09-29 the rows were mapped inline
+ * in `hermes-run.ts` with no status, so the scorecard read 0 canned replies and 0 handoffs
+ * on real data whatever happened, counted the welcome as Malu's reply 1, and priced every
+ * conversation at zero. No test touched that path.
+ */
+describe("hermes: a fonte de produção", () => {
+  const t = (s: number) => new Date(Date.UTC(2026, 8, 29, 12, 0, s)).toISOString();
+  const rows = (over: Partial<SupabaseRows> = {}): SupabaseRows => ({
+    conversations: [{ id: "c1aaaaaaaa", lead_id: "l1", welcomed_at: t(1), cost_brl: "0.0123", leads: { phone: "5511987654321" } }],
+    messages: [
+      { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "oi", created_at: t(0) },
+      { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Oi! Já te respondo.", created_at: t(2) },
+      { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "tem desconto?", created_at: t(10) },
+      { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Deixa eu confirmar isso direitinho e já te respondo, tá?", created_at: t(20) },
+      { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "quero falar com uma pessoa", created_at: t(30) },
+      { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Vou chamar alguém da equipe.", created_at: t(40) },
+    ],
+    traces: [1, 2, 3].map((n) => ({ conversation_id: "c1aaaaaaaa", gate: "price_promise", detail: "sem número", created_at: t(10 + n) })),
+    outcomes: [
+      { conversation_id: "c1aaaaaaaa", outcome: "fallback", created_at: t(21) },
+      { conversation_id: "c1aaaaaaaa", outcome: "handoff", created_at: t(41) },
+    ],
+    ...over,
+  });
+
+  it("marca a boas-vindas, a resposta pronta e o handoff pelo desfecho gravado", () => {
+    const { conversations } = rowsToConversations(rows());
+    expect(conversations[0]?.transcript.filter((e) => e.from !== "persona").map((e) => e.status)).toEqual(["welcomed", "fallback", "handoff"]);
+  });
+
+  it("o placar de produção conta a resposta pronta e o handoff, e não conta a boas-vindas como resposta", () => {
+    const { metrics, checks } = scoreRun(rowsToConversations(rows()).conversations);
+    expect(metrics.fallbacks).toBe(1);
+    expect(metrics.handoffs).toBe(1);
+    expect(metrics.replies).toBe(2);
+    expect(checks.find((c) => c.id === "pronta-por-preco")?.value).toBe(1);
+    expect(metrics.agentCostBrl).toBe(0.0123);
+  });
+
+  it("o veto fica na resposta que saiu depois dele", () => {
+    const reply = rowsToConversations(rows()).conversations[0]?.transcript.find((e) => e.status === "fallback");
+    expect(reply?.vetoes).toHaveLength(3);
+  });
+
+  it("resposta sem desfecho gravado (toque da régua, conversa anterior à v33) fica sem status — nunca vira fallback", () => {
+    const { conversations } = rowsToConversations(rows({ outcomes: [], conversations: [{ ...rows().conversations[0]!, welcomed_at: null }] }));
+    expect(conversations[0]?.transcript.filter((e) => e.from !== "persona").map((e) => e.status)).toEqual([undefined, undefined, undefined]);
+  });
+
+  it("um desfecho sem mensagem (deferred, stopped) não rouba o status da resposta anterior", () => {
+    const { conversations } = rowsToConversations(
+      rows({
+        outcomes: [
+          { conversation_id: "c1aaaaaaaa", outcome: "send", created_at: t(21) },
+          { conversation_id: "c1aaaaaaaa", outcome: "deferred", created_at: t(25) },
+          { conversation_id: "c1aaaaaaaa", outcome: "stopped", created_at: t(45) },
+          { conversation_id: "c1aaaaaaaa", outcome: "handoff", created_at: t(46) },
+        ],
+      }),
+    );
+    expect(conversations[0]?.transcript.find((e) => e.text?.startsWith("Deixa eu"))?.status).toBe("replied");
+    expect(conversations[0]?.transcript.find((e) => e.text?.startsWith("Vou chamar"))?.status).toBeUndefined();
+  });
+
+  it("deixa de fora a conversa sintética das personas (prefixo 5500099) e conta só os leads reais", () => {
+    const sint = { id: "c2bbbbbbbb", lead_id: "l2", welcomed_at: null, cost_brl: 0, leads: { phone: "5500099123456" } };
+    const { conversations, leads } = rowsToConversations(rows({ conversations: [...rows().conversations, sint] }));
+    expect(conversations.map((c) => c.persona)).toEqual(["conversa-c1aaaaaa"]);
+    expect(leads).toBe(1);
+  });
+});
+
+/** LGPD (R6.3): the proposals document of a production run goes to git, which never expires. */
+describe("hermes: o documento de produção não leva citação de cliente", () => {
+  const checked: Checked[] = [
+    {
+      ok: true,
+      problems: [],
+      proposal: { ...proposta().propostas[0]!, por_que: 'ela disse "moro na rua X 123" e travou' } as Checked["proposal"],
+      today: [{ trecho: "tiro mais alguma dúvida antes?", blockedBy: [] }],
+    },
+    { ok: false, problems: ['trecho não está na conversa conversa-1: "meu cpf é 123"'], proposal: proposta().propostas[0] as Checked["proposal"] },
+  ];
+
+  it("troca cada trecho e cada texto entre aspas por um marcador", () => {
+    const out = JSON.stringify(withoutQuotes(checked));
+    expect(out).not.toContain("tiro mais alguma dúvida");
+    expect(out).not.toContain("rua X 123");
+    expect(out).not.toContain("meu cpf");
+    expect(out).toContain("hermes_proposals");
+  });
+
+  it("mantém o que o operador precisa ler: alvo, conversa, veredito de hoje", () => {
+    const [c] = withoutQuotes(checked);
+    expect(c?.proposal.alvo).toBe("gate:price_promise");
+    expect(c?.proposal.evidencias[0]?.conversa).toBe("persona-jussara");
+    expect(c?.today?.[0]?.blockedBy).toEqual([]);
+  });
+
+  it("não altera a entrada — o banco grava o trecho original", () => {
+    withoutQuotes(checked);
+    expect(checked[0]?.proposal.evidencias[0]?.trecho).toBe("tiro mais alguma dúvida antes?");
   });
 });

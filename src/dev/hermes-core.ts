@@ -7,7 +7,8 @@
  * conversation (a proposal built on an invented quote is worse than none), and that it
  * proposes nothing this project decided not to do (CLAUDE.md, "Cinco coisas").
  */
-import type { Conversation } from "./persona-scorecard.js";
+import type { Conversation, Entry } from "./persona-scorecard.js";
+import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 
 /** LGPD: what leaves the database for a model is masked first — the supervisor needs the
  * sentence, never the phone, CPF, CEP or e-mail in it. */
@@ -41,6 +42,56 @@ export function renderConversation(c: Conversation): string {
     lines.push("");
   }
   return lines.join("\n");
+}
+
+/** The rows `--source=supabase` reads, as PostgREST returns them. */
+export interface SupabaseRows {
+  conversations: Array<{ id: string; lead_id: string; welcomed_at: string | null; cost_brl: number | string | null; leads?: { phone: string } | null }>;
+  messages: Array<{ conversation_id: string; direction: string; body: string | null; created_at: string }>;
+  /** Blocks only: a veto belongs to the next reply that went out. */
+  traces: Array<{ conversation_id: string; gate: string; detail: string | null; created_at: string }>;
+  outcomes: Array<{ conversation_id: string; outcome: string; created_at: string }>;
+}
+
+/** How the persona runner spells what `turn_outcomes` records, so one scorecard reads both. */
+const STATUS_OF: Record<string, string> = { send: "replied", fallback: "fallback", handoff: "handoff" };
+
+/**
+ * Production rows into the shape the scorecard and Hermes read. `messages` has no status
+ * column, so the turn's outcome is joined here: the turn writes its message first and the
+ * outcome right after (supabase/functions/turn/index.ts), so an outcome belongs to the
+ * latest reply before it — and never to one from before the previous outcome, because
+ * `deferred` and `stopped` write no message and must not take the last turn's. The welcome
+ * is the first reply of a conversation with `welcomed_at`. Persona conversations
+ * (SYNTHETIC_PHONE_PREFIX) are dropped: they are tests, not customers.
+ */
+export function rowsToConversations(rows: SupabaseRows): { conversations: Conversation[]; leads: number } {
+  const at = (s: string) => Date.parse(s);
+  const real = rows.conversations.filter((c) => !c.leads?.phone?.startsWith(SYNTHETIC_PHONE_PREFIX));
+  const conversations = real.map((c): Conversation => {
+    const mine = rows.messages.filter((m) => m.conversation_id === c.id).sort((a, b) => at(a.created_at) - at(b.created_at));
+    let pending = rows.traces.filter((t) => t.conversation_id === c.id);
+    const replies: Array<{ entry: Entry; t: number }> = [];
+    const transcript = mine.map((m): Entry => {
+      if (m.direction === "inbound") return { from: "persona", text: m.body ?? "" };
+      const vetoes = pending.filter((t) => at(t.created_at) <= at(m.created_at)).map((t) => ({ gate: t.gate, detail: t.detail }));
+      pending = pending.filter((t) => at(t.created_at) > at(m.created_at));
+      const entry: Entry = { from: "valen", text: m.body ?? "", vetoes };
+      replies.push({ entry, t: at(m.created_at) });
+      return entry;
+    });
+    if (c.welcomed_at && replies[0]) replies[0].entry.status = "welcomed";
+    let since = -Infinity;
+    const outcomes = rows.outcomes.filter((o) => o.conversation_id === c.id).sort((a, b) => at(a.created_at) - at(b.created_at));
+    for (const o of outcomes) {
+      const status = STATUS_OF[o.outcome];
+      const reply = status ? [...replies].reverse().find((r) => r.t <= at(o.created_at) && r.t > since && !r.entry.status) : undefined;
+      if (reply && status) reply.entry.status = status;
+      since = at(o.created_at);
+    }
+    return { persona: `conversa-${c.id.slice(0, 8)}`, transcript, costBrl: c.cost_brl == null ? null : Number(c.cost_brl) };
+  });
+  return { conversations, leads: new Set(real.map((c) => c.lead_id)).size };
 }
 
 export interface Evidence {
@@ -176,6 +227,31 @@ export function renderLedger(rows: readonly LedgerRow[]): string {
     );
   }
   return lines.join("\n");
+}
+
+const REDACTED = "(trecho guardado só em hermes_proposals, expira em 90 dias)";
+/** Every quoted span of a free text replaced by the marker (the model's summary quotes too). */
+export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]*"|“[^”]*”|'[^']*'|‘[^’]*’/g, `"${REDACTED}"`) : s);
+
+/**
+ * The copy of a production run that goes to git (hermes.yml opens a PR with it), which
+ * never expires — LGPD retention is 90 days (R6.3). Every excerpt and every quoted text
+ * (double, single or curly quotes: over-redacting an apostrophe is the safe side) is
+ * replaced; the operator reads the originals in the e-mail, from `hermes_proposals`, whose
+ * `evidence` the purge clears at 90 days (migration 0020). Returns a copy.
+ */
+export function withoutQuotes(checked: readonly Checked[]): Checked[] {
+  return checked.map((c) => {
+    const p = c.proposal ?? ({} as Proposal);
+    const proposal = Object.fromEntries(Object.entries(p).map(([k, v]) => [k, unquote(v)])) as unknown as Proposal;
+    if (Array.isArray(p.evidencias)) proposal.evidencias = p.evidencias.map((e) => ({ ...e, trecho: REDACTED }));
+    return {
+      ...c,
+      proposal,
+      problems: c.problems.map((x) => unquote(x) as string),
+      ...(c.today ? { today: c.today.map((t) => ({ ...t, trecho: REDACTED })) } : {}),
+    };
+  });
 }
 
 /** The operator reads this: accepted proposals first, rejected ones with the reason. */

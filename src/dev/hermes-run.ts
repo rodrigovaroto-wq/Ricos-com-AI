@@ -28,7 +28,19 @@ import { tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 import { runGates } from "../agent/guardrails.js";
 import { ctx as fixtureCtx } from "../../tests/fixtures.js";
-import { annotateWithGates, checkProposals, renderConversation, renderLedger, renderProposals, type LedgerRow } from "./hermes-core.js";
+import {
+  annotateWithGates,
+  checkProposals,
+  renderConversation,
+  renderLedger,
+  renderProposals,
+  rowsToConversations,
+  unquote,
+  withoutQuotes,
+  type LedgerRow,
+  type SupabaseRows,
+} from "./hermes-core.js";
+import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
 import { renderScorecard, scoreRun, type Conversation } from "./persona-scorecard.js";
 
@@ -58,29 +70,20 @@ async function rest<T>(path: string, init: RequestInit = {}): Promise<T> {
   return (await res.json()) as T;
 }
 
-interface Row { id: string; lead_id: string; conversation_id: string; direction: string; body: string; created_at: string; gate: string; verdict: string; detail: string | null }
-
 async function fromSupabase(): Promise<{ conversations: Conversation[]; leads: number }> {
-  const convs = await rest<Pick<Row, "id" | "lead_id">[]>(`conversations?select=id,lead_id&order=created_at.desc&limit=${limit}`);
-  if (convs.length === 0) return { conversations: [], leads: 0 };
-  const ids = convs.map((c) => c.id).join(",");
-  const msgs = await rest<Row[]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`);
-  const traces = await rest<Row[]>(`gate_traces?select=conversation_id,gate,verdict,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`);
-  const conversations = convs.map((c): Conversation => {
-    const mine = msgs.filter((m) => m.conversation_id === c.id);
-    let pending = traces.filter((t) => t.conversation_id === c.id);
-    return {
-      persona: `conversa-${c.id.slice(0, 8)}`,
-      transcript: mine.map((m) => {
-        if (m.direction === "inbound") return { from: "persona", text: m.body };
-        // gate_traces carry no message id: a veto belongs to the next reply that went out.
-        const vetoes = pending.filter((t) => t.created_at <= m.created_at).map((t) => ({ gate: t.gate, detail: t.detail }));
-        pending = pending.filter((t) => t.created_at > m.created_at);
-        return { from: "valen", text: m.body, vetoes };
-      }),
-    };
-  });
-  return { conversations, leads: new Set(convs.map((c) => c.lead_id)).size };
+  // Persona conversations are filtered here too, so `limit` counts customers only;
+  // rowsToConversations filters again, and is the tested half.
+  const conversations = await rest<SupabaseRows["conversations"]>(
+    `conversations?select=id,lead_id,welcomed_at,cost_brl,leads!inner(phone)&leads.phone=not.like.${SYNTHETIC_PHONE_PREFIX}*&order=created_at.desc&limit=${limit}`,
+  );
+  if (conversations.length === 0) return { conversations: [], leads: 0 };
+  const ids = conversations.map((c) => c.id).join(",");
+  const [messages, traces, outcomes] = await Promise.all([
+    rest<SupabaseRows["messages"]>(`messages?select=conversation_id,direction,body,created_at&conversation_id=in.(${ids})&order=created_at`),
+    rest<SupabaseRows["traces"]>(`gate_traces?select=conversation_id,gate,detail,created_at&verdict=eq.block&conversation_id=in.(${ids})&order=created_at`),
+    rest<SupabaseRows["outcomes"]>(`turn_outcomes?select=conversation_id,outcome,created_at&conversation_id=in.(${ids})&order=created_at`),
+  ]);
+  return rowsToConversations({ conversations, messages, traces, outcomes });
 }
 
 function fromPersonas(dir: string): { conversations: Conversation[]; leads: number } {
@@ -181,15 +184,20 @@ const costUsd =
   PRICES[model] && tok("total_tokens") > 0
     ? costBrl(model, { inputTokens: tok("input_tokens") + tok("cache_read_tokens"), cachedTokens: tok("cache_read_tokens"), outputTokens: tok("output_tokens") }, 1)
     : null;
+// A production run's document goes to git through hermes.yml's PR, and git never expires:
+// no customer excerpt in it (LGPD, R6.3). The originals stay in hermes_proposals (90 days).
+const production = source === "supabase";
+const published = production ? withoutQuotes(checked) : checked;
+const resumo = production ? String(unquote(raw.resumo ?? "")) : (raw.resumo ?? "");
 const md =
-  renderProposals(title, raw.resumo ?? "", checked) +
+  renderProposals(title, resumo, published) +
   `\n---\nModelo ${model} · ${conversations.length} conversas · ${Math.round((Date.now() - started) / 1000)} s · ` +
   `custo US$ ${costUsd != null ? costUsd.toFixed(4) : "?"} (${tok("total_tokens")} tokens, ${tok("api_calls")} chamadas)\n`;
 const dest = join(REPO, "docs/agente-ia/08-mudancas/propostas");
 mkdirSync(dest, { recursive: true });
 const file = join(dest, `${day}-${label}.md`);
 writeFileSync(file, md);
-writeFileSync(file.replace(/\.md$/, ".json"), JSON.stringify({ resumo: raw.resumo ?? "", checked, usage, costUsd }, null, 2));
+writeFileSync(file.replace(/\.md$/, ".json"), JSON.stringify({ resumo, checked: published, usage, costUsd }, null, 2));
 console.log(md);
 console.log(`\nescrito em ${file}`);
 

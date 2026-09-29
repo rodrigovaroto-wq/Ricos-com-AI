@@ -1088,6 +1088,47 @@ escape. Reproduzido localmente só com `CI=true GITHUB_ACTIONS=true`: `ENOBUFS`,
 **Correção:** `stdio: "ignore"` no `spawnSync`. Só o status importa; a saída nunca foi lida.
 **Guarda:** o próprio `verificar:guardas` no CI, que agora roda as quatro sob o ambiente do runner.
 
+## 35. Hermes: a fonte de produção media errado, e a citação de cliente não expirava (2026-09-29)
+
+**Sintoma:** análise de viabilidade do Hermes v1
+([`06-analise-hermes-v1.md`](../../agente-ia/05-plano/06-analise-hermes-v1.md)). Nada em
+produção quebrou, porque o canal está desligado e o Hermes nunca leu cliente real; três
+defeitos esperavam o primeiro lead.
+
+**Causa:**
+- `fromSupabase` montava as respostas sem `status` e sem custo; `messages` não tem status.
+  Na fonte de produção, o placar lia 0 respostas prontas e 0 handoffs em qualquer
+  rodada, contava a boas-vindas como resposta 1 da Malu e custo 0. Nenhum teste passava ali.
+- `hermes_proposals.evidence` copia literalmente as frases da cliente, sem `expires_at` e
+  fora do `purge_expired`; o PR da Action commitava as mesmas frases no git.
+- `hermes_backlog` e a leitura contavam conversas de persona (`5500099`) como leads.
+
+**Caminhos que não valiam:**
+- Adicionar coluna `status` em `messages`: mexe na função no ar, e o desfecho já existe
+  em `turn_outcomes`.
+- Apagar a linha inteira da proposta aos 90 dias: perderia o histórico que o Hermes lê
+  antes de propor (R14.14).
+- Tirar o documento do PR: o operador perde o relatório da rodada. Basta tirar o trecho.
+
+**Correção:**
+- `rowsToConversations` (pura, em `hermes-core.ts`) liga cada desfecho à última resposta
+  antes dele e depois do desfecho anterior (`deferred` e `stopped` não gravam mensagem),
+  marca a boas-vindas por `conversations.welcomed_at` e descarta o prefixo sintético.
+- `withoutQuotes` troca trecho e texto entre aspas por um marcador na cópia que vai ao git
+  (`.md`, `.json` e o resumo); o banco guarda o original.
+- A migração `0020` põe `expires_at` em `hermes_proposals`, limpa `evidence` no
+  `purge_expired` e tira o prefixo sintético do `hermes_backlog`.
+- `hermes.yml` faz checkout com `persist-credentials: false`.
+
+**Guarda:** `tests/hermes-core.test.ts` (fonte de produção e redação),
+`tests/migrations.test.ts` (definições vigentes), e cinco mutações em `verify-guards.ts`
+(`hermes-fonte-*`, `hermes-git-sem-trecho`, `hermes-retencao`).
+
+**Resíduo:**
+- `rationale` (`o_que — por_que`) não expira e pode parafrasear a cliente.
+- Desfecho ligado por horário, não por id (`gate_traces.message_id` segue vazio).
+- A migração é aplicada à mão pelo operador.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
