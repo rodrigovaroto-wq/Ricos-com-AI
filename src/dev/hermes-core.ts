@@ -7,7 +7,7 @@
  * conversation (a proposal built on an invented quote is worse than none), and that it
  * proposes nothing this project decided not to do (CLAUDE.md, "Cinco coisas").
  */
-import type { Conversation, Entry } from "./persona-scorecard.js";
+import { scoreRun, type Conversation, type Entry } from "./persona-scorecard.js";
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 
 /** LGPD: what leaves the database for a model is masked first — the supervisor needs the
@@ -103,7 +103,12 @@ export interface Evidence {
   conversa: string;
   mensagem?: number;
   trecho: string;
+  /** Today's gates on this excerpt (annotateWithGates), kept with it so the e-mail shows it. */
+  hoje?: string[];
 }
+
+/** The skill's cost order (SKILL.md): what kind of problem a proposal is about. */
+export const CLASSES = ["mentira", "resposta_pronta", "venda_perdida", "tom"] as const;
 
 export interface Proposal {
   alvo: string;
@@ -115,6 +120,9 @@ export interface Proposal {
   mentira_vizinha?: string;
   registro?: string;
   severidade: "alta" | "media" | "baixa";
+  classe: (typeof CLASSES)[number];
+  /** For a lie: the sentence of the prompt (prompt.md in the bundle) that the excerpt contradicts. */
+  fato_contradito?: string;
 }
 
 export interface Checked {
@@ -137,6 +145,22 @@ export function annotateWithGates(checked: Checked[], blockedBy: (text: string) 
   );
 }
 
+export const ALREADY_VETOED = "já vetada hoje pelos gates (config de teste)";
+
+/**
+ * A lie whose every excerpt today's gates already refuse is not news for the operator: the
+ * leak was fixed after the conversation (or the path, not the gate, let it out — the
+ * operator can still read it among the discarded). Only lies: an honest sentence vetoed is
+ * exactly a proposal that SHOULD cite a vetoed excerpt.
+ */
+export function discardAlreadyVetoed(checked: Checked[]): Checked[] {
+  return checked.map((c) =>
+    c.ok && c.proposal.classe === "mentira" && c.today?.length && c.today.every((t) => t.blockedBy.length > 0)
+      ? { ...c, ok: false, problems: [ALREADY_VETOED] }
+      : c,
+  );
+}
+
 const TARGET = /^(?:gate:[a-z_]+|prompt|config:[\w.]+|regua|interpretador|tamanho|n8n:[\w\s—-]+|operador)$/;
 
 /**
@@ -153,10 +177,18 @@ const FORBIDDEN: ReadonlyArray<[RegExp, string]> = [
   [/[uú]ltimas?\s+unidades|\bestoque\s+acabando|\brestam\s+\d+|\d+\s*%\s+(?:das\s+clientes\s+)?recomend/i, "escassez ou prova social inventada (R13.6)"],
 ];
 
+/** Asking a gate to let something through, in the words a model uses for it (security review, 2026-09-29). */
+const LOOSENS = /afrouxa|liberar|deixar passar|remov|desativ|desliga|relax|isent|permiti|aceitar|parar de (?:vetar|barrar|bloquear)|n[ãa]o vetar|menos r[ií]gid/i;
+
 const norm = (s: string) => s.normalize("NFC").replace(/\s+/g, " ").trim();
 
 /** Every excerpt must be a verbatim substring of the conversation it names. */
-export function checkProposals(raw: unknown, conversations: ReadonlyMap<string, string>): Checked[] {
+/**
+ * `facts` is the system prompt as the bundle carries it (prompt.md): a lie is only a lie
+ * against a rule, and the rule it breaks must be quoted from there, verbatim — the same
+ * check the excerpts get. Without it (older callers), the rule is required but not matched.
+ */
+export function checkProposals(raw: unknown, conversations: ReadonlyMap<string, string>, facts?: string): Checked[] {
   const list = (raw as { propostas?: unknown })?.propostas;
   if (!Array.isArray(list)) throw new Error("propostas.json sem a lista `propostas`");
   return list.slice(0, 5).map((p: Proposal) => {
@@ -165,13 +197,19 @@ export function checkProposals(raw: unknown, conversations: ReadonlyMap<string, 
       if (typeof p?.[k] !== "string" || !p[k].trim()) problems.push(`campo ${k} vazio`);
     if (typeof p?.alvo === "string" && !TARGET.test(p.alvo.trim())) problems.push(`alvo desconhecido: ${p.alvo}`);
     if (!["alta", "media", "baixa"].includes(p?.severidade)) problems.push("severidade inválida");
+    if (!CLASSES.includes(p?.classe)) problems.push("classe inválida");
+    if (p?.classe === "mentira") {
+      if (typeof p.fato_contradito !== "string" || !p.fato_contradito.trim()) problems.push("mentira sem o fato contradito");
+      else if (facts !== undefined && !norm(facts).includes(norm(p.fato_contradito)))
+        problems.push(`fato contradito não está no prompt: "${p.fato_contradito.slice(0, 60)}"`);
+    }
     if (!Array.isArray(p?.evidencias) || p.evidencias.length === 0) problems.push("sem evidência");
     for (const e of Array.isArray(p?.evidencias) ? p.evidencias : []) {
       const text = conversations.get(e?.conversa);
       if (!text) problems.push(`conversa inexistente: ${e?.conversa}`);
       else if (!e?.trecho || !norm(text).includes(norm(e.trecho))) problems.push(`trecho não está na conversa ${e.conversa}: "${String(e?.trecho).slice(0, 60)}"`);
     }
-    if (typeof p?.alvo === "string" && p.alvo.startsWith("gate:") && /afrouxa|liberar|deixar passar/i.test(`${p.o_que} ${p.objetivo}`) && !p.mentira_vizinha?.trim())
+    if (typeof p?.alvo === "string" && p.alvo.startsWith("gate:") && LOOSENS.test(`${p.o_que} ${p.objetivo}`) && !p.mentira_vizinha?.trim())
       problems.push("afrouxa gate sem a mentira vizinha que deve continuar vetada");
     // Only what the proposal asks for: the evidence may quote a lie it wants removed.
     const asks = [p?.o_que, p?.objetivo, p?.como_medir].join(" ");
@@ -245,10 +283,10 @@ export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]
  * replaced; the operator reads the originals in the e-mail, from `hermes_proposals`, whose
  * `evidence` the purge clears at 90 days (migration 0020). Returns a copy.
  */
-const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade"] as const;
+const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade", "classe", "fato_contradito"] as const;
 const LABEL = /^(?:conversa|persona)-[\w-]+$/;
 /** The validator's problem names (checkProposals); anything after the name may echo the model. */
-const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer"];
+const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "classe inválida", "mentira sem o fato contradito", "fato contradito não está no prompt", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer", ALREADY_VETOED];
 
 /**
  * Only what a proposal is — the known text keys and the evidence as {conversa, mensagem,
@@ -264,6 +302,13 @@ export function proposalFields(p: Proposal): Proposal {
     trecho: String(e?.trecho ?? ""),
   }));
   return out;
+}
+
+/** What the database stores for a valid proposal: its fields, each excerpt with today's gates on it. */
+export function storedEvidence(c: Checked): Proposal {
+  const p = proposalFields(c.proposal);
+  p.evidencias = p.evidencias.map((e, i) => ({ ...e, hoje: c.today?.[i]?.blockedBy ?? [] }));
+  return p;
 }
 
 export function withoutQuotes(checked: readonly Checked[]): Checked[] {
@@ -316,4 +361,97 @@ export function renderProposals(title: string, summary: string, checked: readonl
     lines.push("");
   }
   return lines.join("\n");
+}
+
+/** One row of the `hermes_sample` view (migration 0020): a conversation and its signals. */
+export interface SampleRow {
+  conversation_id: string;
+  created_at: string;
+  fallbacks: number;
+  handoffs: number;
+  opt_outs: number;
+  blocks: number;
+  cost_brl: number | string;
+}
+
+/**
+ * Which conversations Hermes reads: the ones where something went wrong first, then a
+ * control of plain ones. Reading the last 50 spends most of the tokens on conversations
+ * with nothing to find; reading only the flagged ones never finds the lie no signal marks
+ * (a lie that passed the gates leaves no trace) — so the control is never zero.
+ *
+ * Order among flagged: opt-out and canned reply first (the irreversible error and the
+ * agent giving up), then handoff, then vetoes, then cost; newest first on a tie.
+ */
+export function pickSample(rows: readonly SampleRow[], limit: number, control = Math.max(1, Math.round(limit / 5))): string[] {
+  const score = (r: SampleRow) => r.opt_outs * 1000 + r.fallbacks * 100 + r.handoffs * 10 + Math.min(r.blocks, 9);
+  const newest = (a: SampleRow, b: SampleRow) => Date.parse(b.created_at) - Date.parse(a.created_at);
+  const flagged = rows.filter((r) => score(r) > 0).sort((a, b) => score(b) - score(a) || Number(b.cost_brl) - Number(a.cost_brl) || newest(a, b));
+  const plain = rows.filter((r) => score(r) === 0).sort((a, b) => Number(b.cost_brl) - Number(a.cost_brl) || newest(a, b));
+  const plainTake = Math.min(plain.length, Math.max(control, limit - flagged.length));
+  const take = [...flagged.slice(0, limit - plainTake), ...plain.slice(0, plainTake)];
+  return take.slice(0, limit).map((r) => r.conversation_id);
+}
+
+/**
+ * A token has no business in a document that goes to a pull request: Hermes reads customer
+ * text that may carry instructions, and writes free text (security review, 2026-09-29).
+ */
+export function scrubSecrets(text: string): string {
+  return text.replace(
+    /\b(?:gh[posu]_[A-Za-z0-9]{20,}|github_pat_[A-Za-z0-9_]{20,}|sbp_[A-Za-z0-9]{20,}|sk-[A-Za-z0-9_-]{20,})\b|\beyJ[\w-]{10,}\.[\w-]{10,}\.[\w-]{10,}/g,
+    "[segredo removido]",
+  );
+}
+
+/** The scorecard check a proposal names in `como_medir`, if it names one. */
+export function checkIdOf(comoMedir: string | undefined): string | null {
+  const ids = scoreRun([]).checks.map((c) => c.id).sort((a, b) => b.length - a.length);
+  return ids.find((id) => (comoMedir ?? "").includes(id)) ?? null;
+}
+
+/**
+ * The measured result of a published proposal (R14.14's "resultado medido", which until
+ * 2026-09-29 was only "publicada: <url>"): the check it named, on real conversations before
+ * and after it went live. A reading, not a verdict — the sample floor
+ * (05-plano/08-piso-de-amostra.md §4) is the operator's to sign, and until then the text says so.
+ */
+export function measureEffect(comoMedir: string | undefined, before: readonly Conversation[], after: readonly Conversation[]): string {
+  const id = checkIdOf(comoMedir);
+  if (!id) return "sem medida automática: o como_medir não nomeia uma checagem do placar — medir à mão";
+  const read = (cs: readonly Conversation[]) => {
+    const c = scoreRun(cs).checks.find((x) => x.id === id)!;
+    return { text: `${c.value} (meta ${c.target}, ${c.pass ? "atingida" : "não atingida"}) em ${cs.length} conversas`, n: cs.length };
+  };
+  const [b, a] = [read(before), read(after)];
+  const note = a.n === 0 ? " — ainda sem conversa depois da publicação" : " — piso de amostra não assinado: leitura, não veredito";
+  return `${id}: antes ${b.text}; depois ${a.text}${note}`;
+}
+
+/**
+ * The evaluation views (0018) as the bundle carries them: every count and rate is SQL's,
+ * never the model's (it is weak at arithmetic, and the operator reads the same views).
+ */
+export function renderNumbers(
+  outcomes: ReadonlyArray<Record<string, unknown>>,
+  blocks: ReadonlyArray<Record<string, unknown>>,
+): string {
+  const table = (rows: ReadonlyArray<Record<string, unknown>>, cols: string[]) =>
+    rows.length === 0
+      ? ["(sem linhas no período)"]
+      : [`| ${cols.join(" | ")} |`, `|${cols.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${cols.map((c) => String(r[c] ?? "")).join(" | ")} |`)];
+  return [
+    "# Números do período (views SQL — não recalcule)",
+    "",
+    "Estes números vêm do banco. Cite-os; nunca conte, some ou calcule taxa você mesmo.",
+    "",
+    "## Desfecho dos turnos por dia (`eval_turn_outcomes`)",
+    "",
+    ...table(outcomes, ["day", "turns", "sent", "fallbacks", "handoffs", "deferred", "stopped", "opted_out", "fallback_rate", "handoff_rate", "avg_rewrites", "cost_brl"]),
+    "",
+    "## Vetos por gate e dia (`eval_gate_blocks`)",
+    "",
+    ...table(blocks, ["day", "gate", "checks", "blocks", "warns", "block_rate"]),
+    "",
+  ].join("\n");
 }

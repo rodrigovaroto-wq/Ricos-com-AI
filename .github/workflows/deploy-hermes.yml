@@ -43,9 +43,44 @@ jobs:
           if [ -n "$id" ] && git diff --name-only HEAD~1 HEAD | grep -q '^supabase/migrations/'; then
             echo "migration=yes" >> "$GITHUB_OUTPUT"
           fi
+          # A loosening the gate diff was told to accept is the operator's to publish: the
+          # implementing session can write this file, so the CI check it feeds is not a
+          # barrier against that session (security review, 2026-09-29).
+          if [ -n "$id" ] && git diff --name-only HEAD~1 HEAD | grep -qx 'tests/gate-loosen-accepted.txt'; then
+            echo "loosen=yes" >> "$GITHUB_OUTPUT"
+          fi
+
+      # The mark in a commit message is text anyone with push can write. Publish only a
+      # proposal the operator's click moved out of 'proposed' — and leave any other row
+      # untouched.
+      - name: Did the operator approve it?
+        id: approved
+        if: steps.which.outputs.id != ''
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          status=$(curl -fsS "$SUPABASE_URL/rest/v1/hermes_proposals?id=eq.${{ steps.which.outputs.id }}&select=status" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | jq -r '.[0].status // "none"')
+          if [ "$status" != "accepted" ] && [ "$status" != "implementing" ]; then
+            echo "hermes:${{ steps.which.outputs.id }} está '$status', não aprovada: nada publicado"
+            exit 1
+          fi
+          echo "ok=yes" >> "$GITHUB_OUTPUT"
+
+      - name: Refuse a gate loosening
+        if: steps.approved.outputs.ok == 'yes' && steps.which.outputs.loosen == 'yes'
+        env:
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          curl -fsS -X PATCH "$SUPABASE_URL/rest/v1/hermes_proposals?id=eq.${{ steps.which.outputs.id }}" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d '{"status":"failed","result":"a mudança aceita afrouxar um gate (tests/gate-loosen-accepted.txt): publicação automática recusada, precisa do operador"}'
+          exit 1
 
       - name: Refuse a migration
-        if: steps.which.outputs.id != '' && steps.which.outputs.migration == 'yes'
+        if: steps.approved.outputs.ok == 'yes' && steps.which.outputs.migration == 'yes'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -68,7 +103,7 @@ jobs:
         run: supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api
 
       - name: Mark the proposal
-        if: always() && steps.which.outputs.id != '' && steps.which.outputs.migration != 'yes'
+        if: always() && steps.approved.outputs.ok == 'yes' && steps.which.outputs.migration != 'yes' && steps.which.outputs.loosen != 'yes'
         env:
           SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
           KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
@@ -76,7 +111,9 @@ jobs:
           RUN: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
           if [ "$OUTCOME" = "success" ]; then
-            body=$(jq -nc --arg r "$RUN" '{status:"published", result:("publicada: " + $r)}')
+            # published_at starts the before/after measurement of the proposal's own check
+            # (hermes-run.ts); the next production runs overwrite `result` with it.
+            body=$(jq -nc --arg r "$RUN" --arg at "$(date -u +%Y-%m-%dT%H:%M:%SZ)" '{status:"published", published_at:$at, result:("publicada: " + $r)}')
           else
             body=$(jq -nc --arg r "$RUN" '{status:"failed", result:("o deploy falhou, nada mudou em produção: " + $r)}')
           fi

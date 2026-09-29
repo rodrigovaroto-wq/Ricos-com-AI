@@ -69,6 +69,8 @@ jobs:
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
           META_API_KEY: ${{ secrets.META_API_KEY }}
           HERMES_BIN: hermes
+          # Optional ceiling per run, in US$ (repository → Settings → Variables). Unset = none.
+          HERMES_MAX_USD: ${{ vars.HERMES_MAX_USD }}
         run: pnpm hermes --source=supabase --write-db ${{ inputs.force && ' ' || '--only-if-due' }}
 
       - name: Open the proposals for the operator

@@ -83,8 +83,9 @@ pela Meta Model API (`api.meta.ai`, [dev.meta.ai](https://dev.meta.ai/)) é o ú
 manualmente antes da operação real. **OpenAI e Gemini saíram do escopo** —
 a chamada de intenção do Gemini não decidia nada e sai do turno (item 2.10 do plano v2); a
 v32 no ar ainda usa os dois até o deploy da v33. Toda chamada passa por um seam único, com
-teto de custo e trace. **O eval da Muse contra a rubrica das personas ainda não foi
-rodado** — a troca subiu o mecanismo, não a prova.
+teto de custo e trace. **O eval da Muse contra a rubrica das personas rodou em 25/09 só no
+`-contributor`** (0 respostas prontas em 61, `06-eval-muse-2026-09-25.md`); contra o modelo
+padrão, que é o que fala com cliente real, ainda não.
 
 ## Canonical commands
 

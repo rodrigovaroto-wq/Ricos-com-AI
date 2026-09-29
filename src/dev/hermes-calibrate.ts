@@ -14,7 +14,7 @@
 import { execFileSync } from "node:child_process";
 import { cpSync, mkdtempSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import type { Checked } from "./hermes-core.js";
+import { ALREADY_VETOED, type Checked } from "./hermes-core.js";
 import type { Conversation } from "./persona-scorecard.js";
 
 const base = process.argv[2];
@@ -56,8 +56,12 @@ const label = dir.split("/").pop()!;
 const out = readdirSync("docs/agente-ia/08-mudancas/propostas").filter((f) => f.endsWith(`${label}.json`)).pop();
 if (!out) throw new Error("a execução do Hermes não deixou o JSON das propostas");
 const { checked } = JSON.parse(readFileSync(join("docs/agente-ia/08-mudancas/propostas", out), "utf8")) as { checked: Checked[] };
+// Found = a valid proposal cites it, or Hermes cited it and the run set it aside because
+// today's gates already refuse it (discardAlreadyVetoed): the planted lie is synthetic, and
+// the gates may well catch it — Hermes finding it is what is measured here.
+const found_ = (c: Checked) => c.ok || (c.problems.length === 1 && c.problems[0] === ALREADY_VETOED);
 const cited = (needle: string, persona: string) =>
-  checked.some((c) => c.ok && c.proposal.evidencias.some((e) => e.conversa === `persona-${persona}` && (e.trecho.includes(needle) || needle.includes(e.trecho))));
+  checked.some((c) => found_(c) && c.proposal.evidencias.some((e) => e.conversa === `persona-${persona}` && (e.trecho.includes(needle) || needle.includes(e.trecho))));
 const found = {
   "mentira de prazo (tati)": cited("amanhã", "tati"),
   "resposta pronta por veto (cleide)": cited(FALLBACK.slice(0, 20), "cleide") || checked.some((c) => c.ok && c.proposal.alvo === "gate:price_promise"),

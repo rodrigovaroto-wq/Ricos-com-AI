@@ -58,3 +58,35 @@ where l.phone not like '5500099%'
     (select max(created_at) from public.hermes_runs where source = 'supabase'),
     '-infinity'::timestamptz
   );
+
+-- ── What Hermes reads, and what it proves (conclusion of the analysis, items 2–4) ──────
+
+-- When the deploy published an approved proposal (deploy-hermes.yml). The next production
+-- runs measure the proposal's own check on conversations before and after this instant and
+-- write the reading into `result` — until now `result` said only "publicada: <url>".
+alter table public.hermes_proposals add column if not exists published_at timestamptz;
+
+-- Audit of each run (the JEV idea of pinned versions): which skill text, which commit, which
+-- conversations. Ids only, no text — they dangle harmlessly once the purge removes the
+-- conversation. Nullable: a run before this migration has none.
+alter table public.hermes_runs
+  add column if not exists skill_sha text,
+  add column if not exists commit_sha text,
+  add column if not exists conversation_ids uuid[];
+
+-- One row per real conversation with the signals that say where to look
+-- (src/dev/hermes-core.ts › pickSample): opt-outs and canned replies first, then handoffs,
+-- vetoes and cost. Counts only — no customer text. Persona phones are left out, as in
+-- `hermes_backlog`.
+create or replace view public.hermes_sample with (security_invoker = true) as
+select
+  c.id as conversation_id,
+  c.created_at,
+  c.cost_brl,
+  (select count(*) from public.turn_outcomes o where o.conversation_id = c.id and o.outcome = 'fallback')::int as fallbacks,
+  (select count(*) from public.turn_outcomes o where o.conversation_id = c.id and o.outcome = 'handoff')::int as handoffs,
+  (select count(*) from public.turn_outcomes o where o.conversation_id = c.id and o.outcome = 'opted_out')::int as opt_outs,
+  (select count(*) from public.gate_traces t where t.conversation_id = c.id and t.verdict = 'block')::int as blocks
+from public.conversations c
+join public.leads l on l.id = c.lead_id
+where l.phone not like '5500099%';

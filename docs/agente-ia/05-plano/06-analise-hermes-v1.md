@@ -255,6 +255,11 @@ Nada disso é feito antes do "sim" do operador.
 
 ## Conclusão (2026-09-29, pedido do operador): o que aplicar ao Hermes para analisar melhor e propor melhor
 
+> **Estado (2026-09-29, noite, grafo §39):** os itens 1 a 7 estão no repositório, na branch
+> `claude/cool-brahmagupta-hccc4p`. O item 8 (calibração com ≥ 100 defeitos) não, porque
+> precisa de rodadas de personas com modelo. A migração `0020` e o workflow n8n
+> dependem do operador (ver `HANDOFF.md`).
+
 **Veredito:** o Hermes não precisa de modelo novo nem de juiz novo. O que falta é
 **entrada certa, alvo certo e prova de efeito**. Em ordem de retorno por esforço:
 

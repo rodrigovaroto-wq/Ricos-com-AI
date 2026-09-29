@@ -51,4 +51,10 @@ describe("migrações: o Hermes respeita a retenção", () => {
     const { SYNTHETIC_PHONE_PREFIX } = await import("../src/dev/persona-run-core.js");
     expect(last(/create or replace view public\.hermes_backlog/, ";")).toContain(`l.phone not like '${SYNTHETIC_PHONE_PREFIX}%'`);
   });
+  it("hermes_sample conta sinais sem texto de cliente e deixa a persona de fora", async () => {
+    const { SYNTHETIC_PHONE_PREFIX } = await import("../src/dev/persona-run-core.js");
+    const view = last(/create or replace view public\.hermes_sample/, ";");
+    expect(view).toContain(`l.phone not like '${SYNTHETIC_PHONE_PREFIX}%'`);
+    expect(view).not.toMatch(/\bbody\b|\bdetail\b|\breason\b|\bphone\b(?! not like)/);
+  });
 });

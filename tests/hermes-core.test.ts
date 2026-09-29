@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  annotateWithGates,
   checkProposals,
   maskPii,
   renderConversation,
@@ -31,6 +32,7 @@ const proposta = (over: Record<string, unknown> = {}) => ({
       como_medir: "pronta-por-preco",
       mentira_vizinha: "Tiro mais um pouquinho pra você fechar.",
       severidade: "alta",
+      classe: "resposta_pronta",
       ...over,
     },
   ],
@@ -283,7 +285,7 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
     expect(run).toContain("const published = production ? withoutQuotes(checked) : checked;");
     expect(run).toContain("renderProposals(title, resumo, published)");
     expect(run).toContain("JSON.stringify({ resumo, checked: published, usage, costUsd }");
-    expect(run).toMatch(/ok\.map\(\(\{ proposal: p \}, i\) =>[\s\S]*evidence: \{ \.\.\.proposalFields\(p\), source \}/);
+    expect(run).toMatch(/ok\.map\(\(c, i\) =>[\s\S]*evidence: \{ \.\.\.storedEvidence\(c\), source \}/);
   });
 
   it("o banco grava só as chaves de uma proposta, com o trecho original", async () => {
@@ -297,5 +299,124 @@ describe("hermes: o documento de produção não leva citação de cliente", () 
   it("não altera a entrada — o banco grava o trecho original", () => {
     withoutQuotes(checked);
     expect(checked[0]?.proposal.evidencias[0]?.trecho).toBe("tiro mais alguma dúvida antes?");
+  });
+});
+
+describe("hermes: mentira aponta a regra que contradiz (item 5 da conclusão)", () => {
+  const prompt = "Nunca prometa entrega em data exata: o prazo é de 1 a 3 dias úteis.";
+  const mentira = (over: Record<string, unknown> = {}) =>
+    proposta({ classe: "mentira", o_que: "Vetar prazo exato", mentira_vizinha: "", fato_contradito: "o prazo é de 1 a 3 dias úteis", ...over });
+
+  it("aceita mentira com o fato copiado do prompt", () => {
+    expect(checkProposals(mentira(), conversas, prompt)[0]?.problems).toEqual([]);
+  });
+  it("derruba mentira sem fato, e fato que não está no prompt", () => {
+    expect(checkProposals(mentira({ fato_contradito: "" }), conversas, prompt)[0]?.problems).toContain("mentira sem o fato contradito");
+    expect(checkProposals(mentira({ fato_contradito: "entrega sempre amanhã" }), conversas, prompt)[0]?.problems.join()).toContain("fato contradito não está no prompt");
+  });
+  it("derruba classe fora da lista", () => {
+    expect(checkProposals(proposta({ classe: "outra" }), conversas)[0]?.problems).toContain("classe inválida");
+  });
+  it("proposta que não é mentira não precisa de fato", () => {
+    expect(checkProposals(proposta(), conversas, prompt)[0]?.ok).toBe(true);
+  });
+});
+
+describe("hermes: afrouxar gate, nas palavras que o modelo usa", () => {
+  it.each(["Remover o veto de preço nessa frase", "Desativar o gate de prazo", "Relaxar o gate", "Isentar a pergunta de fechamento", "Parar de vetar a frase de troca", "Não vetar a pergunta"])(
+    "%s exige a mentira vizinha",
+    (o_que) => {
+      expect(checkProposals(proposta({ o_que, mentira_vizinha: "" }), conversas)[0]?.problems.join()).toContain("mentira vizinha");
+    },
+  );
+  it("negação: endurecer o gate não exige mentira vizinha", () => {
+    expect(checkProposals(proposta({ o_que: "Vetar escassez inventada", objetivo: "Nenhuma escassez sai", mentira_vizinha: "" }), conversas)[0]?.ok).toBe(true);
+  });
+});
+
+describe("hermes: descarta a mentira que os gates de hoje já vetam (item 6)", () => {
+  const c = (classe: string, blocked: string[][]): Checked => ({
+    ok: true,
+    problems: [],
+    proposal: { ...proposta().propostas[0], classe } as Checked["proposal"],
+    today: blocked.map((b) => ({ trecho: "x", blockedBy: b })),
+  });
+  it("mentira com todo trecho vetado hoje sai das propostas, com o motivo", async () => {
+    const { discardAlreadyVetoed, ALREADY_VETOED } = await import("../src/dev/hermes-core.js");
+    const [out] = discardAlreadyVetoed([c("mentira", [["delivery_promise"], ["price_promise"]])]);
+    expect(out?.ok).toBe(false);
+    expect(out?.problems).toEqual([ALREADY_VETOED]);
+  });
+  it("basta um trecho que passa para a mentira continuar", async () => {
+    const { discardAlreadyVetoed } = await import("../src/dev/hermes-core.js");
+    expect(discardAlreadyVetoed([c("mentira", [["delivery_promise"], []])])[0]?.ok).toBe(true);
+  });
+  it("frase honesta vetada (resposta pronta) nunca é descartada por estar vetada", async () => {
+    const { discardAlreadyVetoed } = await import("../src/dev/hermes-core.js");
+    expect(discardAlreadyVetoed([c("resposta_pronta", [["price_promise"]])])[0]?.ok).toBe(true);
+  });
+});
+
+describe("hermes: lê onde o problema está, com controle (item 3)", () => {
+  const row = (id: string, s: Partial<import("../src/dev/hermes-core.js").SampleRow> = {}) => ({
+    conversation_id: id, created_at: `2026-09-29T12:00:${id.padStart(2, "0")}Z`, fallbacks: 0, handoffs: 0, opt_outs: 0, blocks: 0, cost_brl: 0, ...s,
+  });
+  it("sinal primeiro — opt-out, resposta pronta, handoff, veto — e o controle nunca é zero", async () => {
+    const { pickSample } = await import("../src/dev/hermes-core.js");
+    const rows = [row("1"), row("2", { blocks: 2 }), row("3", { handoffs: 1 }), row("4", { fallbacks: 1 }), row("5", { opt_outs: 1 }), row("6"), row("7", { blocks: 1 })];
+    expect(pickSample(rows, 5, 1)).toEqual(["5", "4", "3", "2", "6"]);
+  });
+  it("com pouco sinal, completa com as conversas sem sinal", async () => {
+    const { pickSample } = await import("../src/dev/hermes-core.js");
+    expect(pickSample([row("1"), row("2"), row("3", { fallbacks: 1 })], 50)).toEqual(["3", "2", "1"]);
+  });
+  it("tudo com sinal: ainda sobra lugar para o controle", async () => {
+    const { pickSample } = await import("../src/dev/hermes-core.js");
+    const rows = [...Array.from({ length: 10 }, (_, i) => row(String(i + 10), { blocks: 1 })), row("1")];
+    const got = pickSample(rows, 5, 1);
+    expect(got).toHaveLength(5);
+    expect(got).toContain("1");
+  });
+});
+
+describe("hermes: o efeito medido de uma proposta publicada (item 2)", () => {
+  const conv = (fallback: boolean) => ({
+    persona: "c",
+    transcript: [{ from: "persona", text: "oi" }, { from: "valen", text: "Oi!", ...(fallback ? { status: "fallback" } : {}) }],
+  });
+  it("lê a checagem nomeada antes e depois, com o N, e diz que não é veredito", async () => {
+    const { measureEffect } = await import("../src/dev/hermes-core.js");
+    const r = measureEffect("pronta-por-preco ou respostas-prontas", [conv(true), conv(true)], [conv(false)]);
+    expect(r).toMatch(/^respostas-prontas: antes 2 \(meta 0, não atingida\) em 2 conversas; depois 0 \(meta 0, atingida\) em 1 conversas/);
+    expect(r).toContain("não veredito");
+  });
+  it("sem checagem nomeada, diz que é à mão; sem conversa depois, diz que ainda não há", async () => {
+    const { measureEffect } = await import("../src/dev/hermes-core.js");
+    expect(measureEffect("contar à mão", [], [])).toContain("medir à mão");
+    expect(measureEffect("respostas-prontas", [conv(true)], [])).toContain("ainda sem conversa depois");
+  });
+  it("o id mais longo ganha: pronta-por-preco não é lido como outro", async () => {
+    const { checkIdOf } = await import("../src/dev/hermes-core.js");
+    expect(checkIdOf("medir por pronta-por-preco")).toBe("pronta-por-preco");
+  });
+});
+
+describe("hermes: nenhum segredo sai no documento", () => {
+  it("troca token do GitHub, do Supabase, JWT e chave de API", async () => {
+    const { scrubSecrets } = await import("../src/dev/hermes-core.js");
+    const out = scrubSecrets(`a ghs_${"a".repeat(36)} b sbp_${"b".repeat(40)} c eyJhbGciOiJIUzI1.eyJyb2xlIjoic2Vydmlj.c2lnbmF0dXJlX2hlcmU d sk-${"c".repeat(30)}`);
+    expect(out).not.toMatch(/ghs_|sbp_|eyJ|sk-/);
+  });
+  it("negação: texto comum com 'sk' ou 'eyJ' curto passa intacto", async () => {
+    const { scrubSecrets } = await import("../src/dev/hermes-core.js");
+    expect(scrubSecrets("risk-free e o eyJ curto")).toBe("risk-free e o eyJ curto");
+  });
+});
+
+describe("hermes: o e-mail mostra o trecho e o veredito de hoje", () => {
+  it("o que o banco guarda de uma proposta válida leva os gates de hoje em cada trecho", async () => {
+    const { storedEvidence } = await import("../src/dev/hermes-core.js");
+    const [c] = annotateWithGates(checkProposals(proposta(), conversas), () => ["price_promise"]);
+    expect(storedEvidence(c!).evidencias[0]).toEqual({ conversa: "persona-jussara", mensagem: 1, trecho: "tiro mais alguma dúvida antes?", hoje: ["price_promise"] });
   });
 });

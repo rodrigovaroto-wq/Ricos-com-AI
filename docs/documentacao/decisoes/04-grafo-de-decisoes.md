@@ -1217,6 +1217,46 @@ defeitos esperavam o primeiro lead.
 - A migração é aplicada à mão pelo operador.
 
 
+## 39. Hermes: ler onde está o problema, provar o que afirma, medir o efeito (2026-09-29)
+
+**Sintoma:** conclusão da análise do Hermes v1 (`06-analise-hermes-v1.md`):
+- o Hermes lia as 50 últimas conversas, calculava número no texto e propunha "mentira" sem
+  dizer qual regra foi quebrada;
+- ninguém media se uma proposta publicada funcionou: o `result` era só `"publicada: <url>"`;
+- o operador aprovava sem ver a conversa;
+- o deploy publicava qualquer commit com `hermes:<uuid>`.
+
+**Causa:** o loop de R14.14 fechava no clique, mas o clique via só o que o modelo escreveu,
+e o aprendizado vinha só da opinião do operador, nunca do efeito medido.
+
+**Caminhos que não valiam:**
+- Um juiz com perguntas tipadas por conversa (a ideia do JEV): sem tráfego não há o que
+  calibrar, e o juiz custaria na ordem da conversa (§b, §f).
+- Confiança declarada pelo modelo: não calibrada.
+- Medir no n8n: regra de negócio, e o n8n é cano.
+
+**Correção:**
+- `hermes_sample` (view) e `pickSample`: sinal primeiro, mais controle.
+- `numeros.md` com as views da 0018.
+- `prompt.md` e `fato_contradito`, validado por substring.
+- `discardAlreadyVetoed`.
+- `measureEffect` sobre `published_at`, reescrito em `result` a cada passada.
+- O e-mail mostra trecho e "hoje".
+- `deploy-hermes.yml` confere `accepted`/`implementing` e recusa diff em
+  `gate-loosen-accepted.txt`.
+- Hermes com `cwd` no pacote e env mínimo; `scrubSecrets` no documento; `HERMES_MAX_USD`
+  opcional; auditoria no `hermes_runs` (hash da skill, commit, ids).
+
+**Guarda:** testes em `hermes-core`, `migrations` e `n8n-workflows`; mutações
+`hermes-fato-contradito`, `hermes-ja-vetada*`, `hermes-afrouxa-sinonimo`,
+`hermes-amostra-controle`, `hermes-segredo`, `hermes-email-trecho`.
+
+**Resíduo:**
+- A medida é leitura, não veredito, até o piso de amostra ser assinado.
+- O controle da amostra é "as mais caras e mais novas sem sinal", não aleatório.
+- O teto de custo é verificado depois da passada.
+- A calibração segue com 3 defeitos.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
