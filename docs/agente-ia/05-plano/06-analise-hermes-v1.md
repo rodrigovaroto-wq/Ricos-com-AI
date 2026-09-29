@@ -250,3 +250,35 @@ Os três **começam** o v1 da §a; não o fecham. Ficam para uma segunda PR:
 - a verificação do `--in` no `hermes-agent@ac4181f`.
 
 Nada disso é feito antes do "sim" do operador.
+
+---
+
+## Conclusão (2026-09-29, pedido do operador): o que aplicar ao Hermes para analisar melhor e propor melhor
+
+**Veredito:** o Hermes não precisa de modelo novo nem de juiz novo. O que falta é
+**entrada certa, alvo certo e prova de efeito**. Em ordem de retorno por esforço:
+
+| # | Aplicar | O que melhora | Por quê, com evidência | Esforço |
+|---|---|---|---|---|
+| 1 | **Fonte de produção correta** | Análise | Sem isso, toda leitura de produção era falsa (fallback 0). **Feito** (grafo §35) | feito |
+| 2 | **Medir o efeito de cada proposta publicada** | Sugestão | O `result` de uma publicada é só `"publicada: <url>"` (`deploy-hermes.yml:79`) **[C]**: nada diz se a mudança funcionou. O "resultado medido" que o Hermes lê em `decisoes.md` nunca é medido. Um passo do job que, a cada passada, recalcula o `como_medir` de cada publicada (antes × depois, com o N e o piso de `08-piso-de-amostra.md`, ou "amostra insuficiente") e grava em `result`. É o único sinal de aprendizado que não depende de opinião, nem do operador nem do modelo | médio |
+| 3 | **Ler as conversas certas, não as 50 últimas** | Análise | Hoje: as 50 mais recentes (`hermes-run.ts`, `limit`) **[C]**. Com tráfego, a maioria é conversa sem problema, e o modelo gasta tokens nelas. Amostra estratificada em SQL: toda conversa com fallback, handoff, opt-out, veto ou custo alto, mais um controle aleatório pequeno (para achar a mentira que nenhum sinal marcou). Mais achado por token, sem modelo novo [I] | baixo |
+| 4 | **Números prontos no pacote** (ideia 5 do JEV) | Análise e sugestão | O pacote leva o placar, mas não as views da 0018 (`eval_gate_blocks`, `eval_turn_outcomes`, `eval_conversation_cost`, `eval_funnel`) **[C]**. Com elas, o `como_medir` aponta para uma view real, e a skill proíbe o modelo de calcular taxa | baixo |
+| 5 | **Mentira exige a linha contradita** (o passo barato da ideia 1) | Sugestão | A skill proíbe preço ou prazo fora do config (`SKILL.md:97-99`), mas não exige citar a regra que a frase contradiz. Pôr no pacote o bloco de fatos que o prompt gera (com a config de teste) e exigir `fato_contradito` em toda proposta de mentira, validado por substring como o trecho | baixo |
+| 6 | **Descartar sozinho o que já está resolvido** | Sugestão | O runner já passa cada trecho pelos gates de hoje (`annotateWithGates`) **[C]**, mas só anota. Proposta cujos trechos de mentira já são todos vetados hoje cai para "já corrigido" antes de chegar ao operador | baixo |
+| 7 | **Blindar o caminho clique → deploy** | Segurança do loop | É o que torna seguro o loop de R14.14. O e-mail mostra o trecho e a anotação "hoje"; `evidence` entra no `IMPLEMENTAR.md` como dado não confiável; diff em `gate-loosen-accepted.txt` vira `failed`; o deploy confere `accepted`; o Hermes roda com `cwd: bundle` e env mínimo (§e) | médio |
+| 8 | **Holdout sintético na calibração** | Confiança no Hermes | Hoje, 3 defeitos plantados (3/3 não mede taxa). Crescer para ≥ 100 por classe, com separação congelada; o CI roda a calibração quando a skill muda (§d) | médio |
+
+**Não aplicar agora:**
+- juiz com perguntas tipadas por conversa;
+- confiança por julgamento e amostragem k×;
+- rótulo por julgamento;
+- o JEV como dependência.
+
+Sem tráfego não há o que calibrar (§b, §g). Voltam à mesa quando os itens 2 e 3 estiverem
+rodando e houver o piso de amostra assinado. Aí o próprio histórico dirá onde o Hermes erra,
+e só então uma pergunta tipada naquele ponto se paga.
+
+**Uma frase:** o Hermes fica melhor aprendendo com o efeito das mudanças que ele propõe
+(item 2), lendo onde o problema está (itens 3 e 4) e provando o que afirma (itens 5 e 6), não
+com um segundo modelo julgando o primeiro.
