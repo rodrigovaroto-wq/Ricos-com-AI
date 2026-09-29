@@ -39,7 +39,15 @@ guarda é descartada; só o status importa). As 4 rodaram verdes sob `CI=true GI
 ### Tarefa 1 — fechar o PR #39
 1. CI verde no `4700903` (a etapa `verificar:guardas` leva ~30 min no runner) → **O** faz merge.
 
-### Tarefa 2 — revisão de riscos do PR #39 (NÃO FEITA; pedida pelo operador em 2026-09-29)
+> **Feito em 2026-09-29 (tarde):** Tarefa 2 → [`revisao-pr39.md`](docs/agente-ia/08-mudancas/revisao-pr39.md):
+> **0 crítico · 4 alto · 1 médio · 1 baixo** (três frases de frete grátis no antecipado passam
+> a cadeia; véspera rearmada por webhook fora de ordem). Tarefa 3, Fases 1–2 →
+> [`09-cruzamento/divergencias.md`](docs/agente-ia/09-cruzamento/divergencias.md): **7 mentiras
+> possíveis (D0–D6, todas passam `runGates`), 6 médias, 3 só de doc**, com 10 perguntas ao
+> operador. Grafo §35. **Nada consertado:** a Fase 3 espera as respostas do operador.
+> Pergunta que bloqueia o deploy da `turn`: o secret ainda tem `freeShipping: true` escrito?
+
+### Tarefa 2 — revisão de riscos do PR #39 (FEITA em 2026-09-29, ver acima)
 **Como executar (sem deliberar):** siga os passos na ordem. Nada de conserto durante a revisão:
 cada achado vira uma linha na tabela do passo 8. Só depois o operador escolhe o que consertar.
 Regras que valem: causa raiz antes de conserto (`.claude/memory/diagnostico-antes-de-consertar.md`),

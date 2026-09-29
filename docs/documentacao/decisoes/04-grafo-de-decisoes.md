@@ -1088,6 +1088,28 @@ escape. Reproduzido localmente só com `CI=true GITHUB_ACTIONS=true`: `ENOBUFS`,
 **Correção:** `stdio: "ignore"` no `spawnSync`. Só o status importa; a saída nunca foi lida.
 **Guarda:** o próprio `verificar:guardas` no CI, que agora roda as quatro sob o ambiente do runner.
 
+## 35. Revisão de riscos do PR #39 e cruzamento com a documentação (2026-09-29)
+
+**Sintoma:** depois do merge, a revisão pedida pelo operador achou 4 furos altos
+([`revisao-pr39.md`](../../agente-ia/08-mudancas/revisao-pr39.md)): três deixam passar frete
+grátis no antecipado ao lado da frase canônica ou sozinho ("No pix também é grátis."), e um
+webhook fora de ordem ("Entregue" → "created") rearma a véspera depois da entrega. O cruzamento
+([`divergencias.md`](../../agente-ia/09-cruzamento/divergencias.md)) achou textos fixos da régua
+que afirmam o que a operação não cumpre: véspera "amanhã" por relógio (inclusive no antecipado),
+"não paga nada agora" para praça sem entrega, e quatro documentos que ainda negam a R15.3.
+
+**Causa:** (a) a extensão da canônica (§33) aceitava como honesta qualquer negação na frase
+(`honest`), lia menção a `checkout` como "cobrado" e não reconhecia o preço do antecipado como
+nome do caminho — a negativa que não nega, de novo; (b) `orderStatusAfter` só protege a morte,
+não a entrega; (c) os toques da régua são escritos por relógio e julgados como `cod` sem saber a
+praça nem a data escolhida (`scheduled_for` é gravado e nunca lido).
+
+**Caminhos que não valiam:** nenhum tentado — a regra da tarefa foi inventariar sem consertar.
+
+**Correção:** pendente da escolha do operador, achado por achado (Fase 3).
+**Guarda:** cada conserto escolhido entra com teste de negação, mutação em `verify-guards.ts` e
+`pnpm dev:gates --fail-on-loosen`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
