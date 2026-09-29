@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
@@ -26,6 +27,8 @@ import { config as base, ctx } from "./fixtures.js";
  * it arrives from production's secret) or on neither (`codFreeShipping: false`); prepaid
  * discount on or off.
  */
+const EXAMPLE_KITS = (JSON.parse(readFileSync(new URL("../config/business.example.json", import.meta.url), "utf8")) as PromptConfig).kits ?? [];
+
 const variant = (freeShipping: boolean, discount: boolean, codFreeShipping?: false): PromptConfig => ({
   ...base,
   prices: discount
@@ -99,6 +102,42 @@ describe("frete: o prompt lê delivery.freeShipping como o gate lê", () => {
       }
     },
   );
+
+  // Next to the free sentence, every other sentence that names the prepaid offer has to say the
+  // freight is charged there (grafo §33). The prompt teaches the one line that carries the prepaid
+  // discount that way, and the kit's own canonical sentence with the kit's price.
+  it.each([
+    ...corners.filter((c) => c.config.delivery.freeShipping !== true && c.config.delivery.codFreeShipping !== false),
+    { name: "com os kits do exemplo", config: { ...variant(false, true), kits: EXAMPLE_KITS } },
+  ])(
+    "a linha do desconto do antecipado passa ao lado da frase canônica ($name)",
+    ({ config }) => {
+      const prompt = flat(freightBriefing(config).join(" "));
+      const canonical = `Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber.`;
+      const combined = /desconto do antecipado na mesma mensagem, use esta frase: "([^"]+)"/.exec(prompt)?.[1];
+      if (config.prices.prepayDiscountPercent > 0) {
+        expect(combined).toBe(
+          `No antecipado o frete é calculado por região no checkout, e você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)}.`,
+        );
+        for (const paymentPath of ["cod", "prepay"] as const) {
+          const blocked = runGates(`${canonical} ${combined}`, ctx({ config, paymentPath })).traces.filter((t) => t.verdict === "block");
+          expect({ paymentPath, blocked }).toEqual({ paymentPath, blocked: [] });
+        }
+        // The bare discount line next to it extends the free to the prepaid offer.
+        expect(runGates(`${canonical} No pix você ganha ${config.prices.prepayDiscountPercent}% de desconto.`, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("shipping_promise");
+      } else expect(combined).toBeUndefined();
+      for (const kit of (config.kits ?? []).filter((k) => k.path === "cod")) {
+        const line = `"Pagando na entrega o frete é grátis: você paga só ${money(kit.priceBrl)} quando receber."`;
+        expect(prompt).toContain(`Levando ${kit.units} peças, o mesmo com o preço do kit: ${line}`);
+        for (const paymentPath of ["cod", "prepay"] as const) {
+          const blocked = runGates(line.slice(1, -1), ctx({ config, paymentPath, units: kit.units })).traces.filter((t) => t.verdict === "block");
+          expect({ paymentPath, units: kit.units, blocked }).toEqual({ paymentPath, units: kit.units, blocked: [] });
+        }
+      }
+    },
+  );
+
+  it("o caso dos kits não é vazio", () => expect(EXAMPLE_KITS.filter((k) => k.path === "cod").length).toBeGreaterThan(0));
 
   it("com freeShipping true, instrui", () => {
     const prompt = build(variant(true, true));

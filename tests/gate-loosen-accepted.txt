@@ -161,3 +161,10 @@ R15.3 | shipping_promise | Pagando na entrega, em dinheiro ou cartão, o frete �
 §32 | warranty_promise | Pagando antecipado a média é de 5 dias e a troca é em 7 dias.
 §32 | warranty_promise | No pix a média é 5 dias e você tem 7 dias de garantia.
 §32 | warranty_promise | Em média 5 dias no pix e 7 dias pra trocar.
+# §33 (grafo): the canonical set gains a courtesy close (", tá", ", viu", ", amiga", ", ok") and the cores "o frete sai grátis" / "é grátis pra você"; the other sentences are judged by whether they name another payment, not by "também/mesmo" alone, so "Isso mesmo!" and "Eu também uso!" next to the canonical sentence no longer veto. The prepaid discount passes next to it in the prompt's line, which says the freight is calculated there.
+§33 | shipping_promise | Pagando na entrega o frete é grátis, tá? 💛
+§33 | shipping_promise | Pagando na entrega o frete sai grátis pra você.
+§33 | shipping_promise | Isso mesmo! Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Eu também uso!
+§33 | shipping_promise | pagando na entrega o frete sai grátis pra você
+§33 | shipping_promise | na entrega o frete é grátis pra você
+§33 | shipping_promise | Pagando na entrega o frete é grátis. No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.

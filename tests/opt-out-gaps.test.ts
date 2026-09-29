@@ -37,6 +37,8 @@ describe("opt-out: pedidos de parar", () => {
     "Não para de me mandar mensagem, boa noite",
     "Vocês não param de mandar mensagem, que saco",
     "Oi, vocês não param de me mandar mensagem",
+    "Não param de me mandar mensagem",
+    "Aff, não para de mandar promoção",
   ])("%s para a agente", (text) => {
     expect(classifyOptOut(text)).toBe("explicit");
   });
@@ -80,6 +82,14 @@ describe("opt-out: pedidos de parar", () => {
     "O correio não para de me mandar SMS e o colete não chegou",
     "Meu marido não para de mandar mensagem perguntando do colete, quando chega?",
     "O entregador não para de me mandar mensagem, ele já saiu?",
+    // No subject said: what keeps coming has to be the messages or the offers, with no subject after
+    // them (grafo §33; explicit at c0c8dbe, a terminal block for a buyer).
+    "Oi, não param de me mandar notificação do correio, meu pedido chegou?",
+    "Olá, não param de mandar SMS da transportadora",
+    "Não param de me mandar SMS de rastreio, já saiu pra entrega?",
+    "Gente não param de me mandar foto do colete no grupo, quero um",
+    "Nossa, não para de mandar mensagem a transportadora",
+    "não para de me mandar msg o entregador, ele já saiu?",
   ])("controle de negação: %s continua none", (text) => {
     expect(classifyOptOut(text)).toBe("none");
   });

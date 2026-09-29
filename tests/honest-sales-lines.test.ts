@@ -46,24 +46,28 @@ const HONEST: Array<{ text: string; paths: readonly Path[] }> = [
   { text: "Pagando na entrega o frete é grátis! 💛", paths: BOTH },
   { text: "E olha, pagando na entrega o frete é grátis: você só paga quando receber.", paths: BOTH },
   { text: "Lembrando que no pagamento na entrega o frete é grátis, você paga R$ 129,90 quando o colete chegar.", paths: BOTH },
-  { text: "Na entrega não tem frete, você paga R$ 129,90 e mais nada.", paths: BOTH },
-  { text: "Na entrega não tem frete: você paga só R$ 129,90.", paths: BOTH },
+  // Without "pagando / no pagamento", "na entrega" reads "when it arrives" on the prepaid path (grafo §33).
+  { text: "Na entrega não tem frete, você paga R$ 129,90 e mais nada.", paths: COD },
+  { text: "Na entrega não tem frete: você paga só R$ 129,90.", paths: COD },
   { text: "Frete grátis pagando na entrega!", paths: BOTH },
-  { text: "Frete grátis na entrega.", paths: BOTH },
-  { text: "O frete na entrega é gratuito.", paths: BOTH },
-  { text: "Na entrega o frete é grátis, sem nada a mais na porta.", paths: BOTH },
-  { text: "Na entrega nenhum frete a mais: você paga R$ 129,90 na porta.", paths: BOTH },
+  { text: "Frete grátis na entrega.", paths: COD },
+  { text: "O frete na entrega é gratuito.", paths: COD },
+  { text: "Na entrega o frete é grátis, sem nada a mais na porta.", paths: COD },
+  { text: "Na entrega nenhum frete a mais: você paga R$ 129,90 na porta.", paths: COD },
   // O frete do antecipado, dito com honestidade — inclusive negando o grátis.
   { text: "No antecipado o frete é calculado por região, e o valor aparece pra você no checkout, antes de pagar.", paths: BOTH },
   { text: "No pix não tem frete grátis, ele é calculado no checkout.", paths: BOTH },
   { text: "No antecipado o frete não é grátis: o valor aparece no checkout, antes de pagar.", paths: BOTH },
   { text: "No antecipado o frete não é grátis, é calculado no checkout.", paths: BOTH },
   { text: "No pix o frete é calculado por região. Pagando na entrega o frete é grátis.", paths: BOTH },
-  { text: "Pagando na entrega o frete é grátis. No antecipado a garantia também é de 7 dias.", paths: BOTH },
   { text: "Pagando na entrega o frete é grátis. No pix não tem frete grátis, ele é calculado no checkout.", paths: BOTH },
   { text: "No pix o frete não é igual ao da entrega: ele é calculado no checkout.", paths: BOTH },
-  // Cada caminho na sua frase: o desconto do antecipado depois da frase canônica.
-  { text: "Pagando na entrega o frete é grátis. No pix você ganha 10% de desconto.", paths: BOTH },
+  // Cada caminho na sua frase: o desconto do antecipado depois da frase canônica, dizendo que o frete
+  // ali é calculado (grafo §33) — a linha que o prompt ensina.
+  { text: "Pagando na entrega o frete é grátis. No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.", paths: BOTH },
+  { text: "Pagando na entrega o frete é grátis, tá? 💛", paths: BOTH },
+  { text: "Pagando na entrega o frete sai grátis pra você.", paths: BOTH },
+  { text: "Isso mesmo! Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Eu também uso!", paths: BOTH },
   // Desconto do antecipado e dos kits.
   { text: "No antecipado você tem 10% de desconto: sai R$ 116,91.", paths: BOTH },
   { text: "10% de desconto: R$ 116,91 no antecipado.", paths: BOTH },
@@ -97,7 +101,7 @@ describe.each(Object.entries(configs))("verdades que vendem passam a cadeia inte
   // The kit's price in the canonical tail: the delivery kit's, with the kit's quantity in the turn.
   it.each([
     [2, "Pagando na entrega o frete é grátis: você paga só R$ 233,82 quando receber."],
-    [3, "Ah, na entrega o frete é grátis — você paga R$ 311,76 quando receber."],
+    [3, "Ah, pagando na entrega o frete é grátis — você paga R$ 311,76 quando receber."],
   ] as const)("passa com o kit de %i: %s", (units, text) => {
     for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath, units) }).toEqual({ paymentPath, blocked: [] });
   });
@@ -134,6 +138,11 @@ const COSTS_A_REWRITE = [
   "Pagando na entrega o frete é grátis e chega em 1 a 3 dias.",
   "Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.",
   "Nenhum frete na entrega.",
+  // Next to the canonical sentence, a sentence that names the prepaid offer without saying the freight
+  // is charged there (grafo §33).
+  "Pagando na entrega o frete é grátis. No pix você ganha 10% de desconto.",
+  "Pagando na entrega o frete é grátis. No antecipado a garantia também é de 7 dias.",
+  "Pagando na entrega o frete é grátis. No antecipado o prazo varia por região, em média 5 dias úteis.",
 ];
 describe.each(Object.entries(configs))("custa uma reescrita (R15.3 canônica) (%s)", (_name, config) => {
   it.each(COSTS_A_REWRITE)("veta pelo frete, e a frase canônica passa no lugar: %s", (text) => {
@@ -319,6 +328,8 @@ const CANONICAL_CORES = [
   "na entrega não tem frete",
   "o frete na entrega é grátis",
   "na entrega, nenhum frete a mais",
+  "pagando na entrega o frete sai grátis pra você",
+  "na entrega o frete é grátis pra você",
 ];
 const CANONICAL_TAILS = [
   "",
@@ -333,7 +344,12 @@ const CANONICAL_TAILS = [
 const CANONICAL_BODIES = CANONICAL_LEADS.flatMap((lead) =>
   CANONICAL_CORES.flatMap((core) => CANONICAL_TAILS.map((tail) => cap(lead + core) + tail)),
 );
-const CANONICAL = CANONICAL_BODIES.flatMap((body) => [`${body}.`, `${body}! 💛`]);
+const CANONICAL = CANONICAL_BODIES.flatMap((body) => [`${body}.`, `${body}! 💛`, `${body}, tá bom?`]);
+/**
+ * The paths a canonical sentence passes on: without "pagando / pagamento na entrega", "na entrega"
+ * reads "when it arrives" on the prepaid path, so those cores are the delivery path's (grafo §33).
+ */
+const pathsOf = (text: string): readonly Path[] => (/\b(?:pagando|pagamento) na entrega\b/i.test(text) ? BOTH : COD);
 /** Anything more in the canonical sentence reaches past the door, or might: every one vetoes. */
 const SAME_SENTENCE = [
   ", e no pix também",
@@ -349,7 +365,28 @@ const SAME_SENTENCE = [
   ", e comprando no site o frete é grátis",
 ];
 /** The short sentence right after that extends it, with no free word of its own. */
-const FOLLOW_UPS = ["No pix também.", "E no site também!", "Igual no pix.", "Vale pros dois.", "No cartão, idem.", "Pagando antes, a mesma coisa."];
+const FOLLOW_UPS = [
+  "No pix também.",
+  "E no site também!",
+  "Igual no pix.",
+  "Vale pros dois.",
+  "No cartão, idem.",
+  "Pagando antes, a mesma coisa.",
+  // Third review (grafo §33): no word limit, no "também" needed — naming the other payment is enough.
+  "Isso também vale se você pagar no pix.",
+  "No pix funciona assim.",
+  "E no pix? Sim!",
+  "Na Coinzz é assim.",
+  "Serve pra qualquer pagamento, pix ou cartão, amiga.",
+  "No antecipado também tem esse benefício, viu?",
+  "Pix e cartão entram nessa regra também, tá bom?",
+  "E pelo link? Mesma coisa!",
+  "No pix você ganha 10% de desconto.",
+];
+/** A sentence before the free one that set another payment: the free one then reads as that one's. */
+const PRIORS = ["Você paga no pix agora.", "Faz o pix de R$ 116,91.", "Pix feito!", "Pagou no pix?", "Você paga pelo link agora.", "No site fica R$ 116,91."];
+/** Neighbours that name no payment: they extend nothing and pass the freight gate. */
+const NEUTRAL = ["Isso mesmo!", "Eu também uso!", "Igualzinho à foto!", "Vale a pena mesmo!", "E tem 7 dias pra trocar também.", "Chega em 1 a 3 dias."];
 
 describe.each(Object.entries(configs))("gerador: frete grátis × caminho (%s)", (_name, config) => {
   const lies = CLAIMS.flatMap((claim) =>
@@ -368,12 +405,20 @@ describe.each(Object.entries(configs))("gerador: frete grátis × caminho (%s)",
   // Since 2026-09-29 (grafo §32) the free claim beside the delivery passes only in a canonical
   // sentence: the claim × anchor crossing that passed here is the price in `COSTS_A_REWRITE`.
   it(`${CANONICAL.length} frases canônicas do frete grátis na entrega, todas passam a cadeia inteira`, () => {
-    expect(CANONICAL.filter((text) => BOTH.some((p) => blockedBy(text, config, p).length > 0))).toEqual([]);
+    expect(CANONICAL.filter((text) => pathsOf(text).some((p) => blockedBy(text, config, p).length > 0))).toEqual([]);
+  });
+  it(`${CANONICAL.length - CANONICAL.filter((c) => pathsOf(c) === BOTH).length} frases canônicas sem "pagando na entrega", vetadas no antecipado`, () => {
+    expect(CANONICAL.filter((text) => pathsOf(text) === COD && !blockedBy(text, config, "prepay").includes("shipping_promise"))).toEqual([]);
   });
   const extended = CANONICAL_BODIES.filter((_, i) => i % 3 === 0).flatMap((body) => [
     ...SAME_SENTENCE.map((more) => `${body}${more}.`),
     ...FOLLOW_UPS.map((next) => `${body}. ${next}`),
+    ...PRIORS.map((prior) => `${prior} ${body}.`),
   ]);
+  const neutral = CANONICAL_BODIES.filter((_, i) => i % 3 === 0).flatMap((body) => NEUTRAL.flatMap((n) => [`${body}. ${n}`, `${n} ${body}.`]));
+  it(`${neutral.length} frases canônicas ao lado de frases que não nomeiam pagamento, nenhuma vetada pelo frete`, () => {
+    expect(neutral.filter((text) => pathsOf(text).some((p) => blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
   it(`${extended.length} frases canônicas estendidas a outro pagamento, todas vetadas pelo frete`, () => {
     expect(extended.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
   });
@@ -410,8 +455,9 @@ const KIT_AND_ONLY_LIES = [
   "2 peças na entrega, e no site também é grátis o frete.",
 ];
 describe.each(Object.entries(configs))("'só' do preço e 'também' do kit (%s)", (_name, config) => {
+  // A core without "pagando na entrega": the delivery path's only (grafo §33).
   it.each(KIT_AND_ONLY_HONEST)("passa: %s", (text) => {
-    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toEqual({ paymentPath, blocked: [] });
+    for (const paymentPath of COD) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toEqual({ paymentPath, blocked: [] });
   });
   it.each(KIT_AND_ONLY_LIES)("veta pelo frete: %s", (text) => {
     for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedBy(text, config, paymentPath) }).toMatchObject({ paymentPath, blocked: expect.arrayContaining(["shipping_promise"]) });
@@ -521,9 +567,15 @@ describe.each(Object.entries(configs))("gerador: outro pagamento × forma de alc
   it(`${discountSameSentence.length} frases da entrega com o desconto do antecipado na mesma frase custam uma reescrita`, () => {
     expect(discountSameSentence.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
   });
-  const discountHonest = CANONICAL_BODIES.flatMap((body) => ["No pix você ganha 10% de desconto.", "No antecipado você tem 10% de desconto: sai R$ 116,91."].map((d) => `${body}. ${d}`));
+  // The prompt's line (grafo §33): the discount said with the freight charged there.
+  const discountHonest = CANONICAL_BODIES.flatMap((body) =>
+    [
+      "No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.",
+      "No pix sai R$ 116,91, com 10% de desconto, e o frete é calculado no checkout.",
+    ].map((d) => `${body}. ${d}`),
+  );
   it(`${discountHonest.length} frases canônicas com o desconto do antecipado na frase seguinte, nenhuma vetada`, () => {
-    expect(discountHonest.filter((text) => BOTH.some((p) => blockedBy(text, config, p).length > 0))).toEqual([]);
+    expect(discountHonest.filter((text) => pathsOf(text).some((p) => blockedBy(text, config, p).length > 0))).toEqual([]);
   });
   const DISCOUNT_TAILS = [" também", " e o frete também", " e o frete é grátis", " e não paga o envio", " e frete grátis", " e a entrega sai de graça", ", também"];
   const discountLies = CLAIMS.flatMap((claim) =>
@@ -700,6 +752,72 @@ const REVIEW5_LIES = [
 describe.each(Object.entries(configs))("as mentiras da quinta e da sexta revisão (%s)", (_name, config) => {
   it(`${REVIEW5_LIES.length} promessas de frete grátis, todas vetadas pelo frete`, () => {
     expect(REVIEW5_LIES.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+});
+
+/**
+ * Third review of §32 (2026-09-29, grafo §33): the canonical sentence held, and the lie came from the
+ * OTHER sentences of the message — an extension longer than six words or with no "também" ("Isso
+ * também vale se você pagar no pix.", "No pix funciona assim.", "E no pix? Sim!"), or a sentence
+ * before it that set the prepaid path ("Faz o pix de R$ 116,91. Frete grátis na entrega."). All vetoed
+ * by `shipping_promise` on both paths.
+ */
+const REVIEW6_LIES = [
+  "Pagando na entrega o frete é grátis. Isso também vale se você pagar no pix.",
+  "Pagando na entrega o frete é grátis. E se preferir o pix, vale também.",
+  "Pagando na entrega o frete é grátis. Isso vale no antecipado também, tá bom?",
+  "Pagando na entrega o frete é grátis. Vale pro pix e pro cartão.",
+  "Pagando na entrega o frete é grátis. No antecipado, sem diferença.",
+  "Pagando na entrega o frete é grátis. No pix funciona assim.",
+  "Pagando na entrega o frete é grátis. No pix é a mesma coisa.",
+  "Pagando na entrega o frete é grátis. No site funciona do mesmo jeito.",
+  "Pagando na entrega o frete é grátis. E pelo link? Mesma coisa!",
+  "Pagando na entrega o frete é grátis. Isso vale no antecipado também, tá?",
+  "Pagando na entrega o frete é grátis. Pelo pix também é assim, fica tranquila amiga.",
+  "Pagando na entrega o frete é grátis. E no pix? Sim!",
+  "Pagando na entrega o frete é grátis. E no pix? Também!",
+  "Pagando na entrega o frete é grátis. Pagando no pix, idem.",
+  "Pagando na entrega o frete é grátis. No pix, a regra é a mesma, viu amiga?",
+  "Pagando na entrega o frete é grátis. E no pix sai R$ 116,91, com o mesmo benefício.",
+  "Pagando na entrega o frete é grátis. Pagando no pix é assim também, e ainda sai mais barato.",
+  "Pagando na entrega o frete é grátis. No pix vale igual.",
+  "Pagando na entrega o frete é grátis. Serve pra qualquer pagamento, pix ou cartão, amiga.",
+  "Pagando na entrega o frete é grátis. No pix ou no cartão, idem, viu amiga linda?",
+  "Pagando na entrega o frete é grátis. O pix segue a mesma regra.",
+  "Pagando na entrega o frete é grátis. Pix e cartão entram nessa.",
+  "Pagando na entrega o frete é grátis. Pix e cartão entram nessa regra também, tá bom?",
+  "Você paga no pix agora. Na entrega, o frete é grátis.",
+  "Você paga pelo link agora. E na entrega, não tem frete.",
+  "Pagando no pix você recebe em casa. Na entrega, nenhum frete a mais.",
+  "Faz o pix de R$ 116,91. O frete é grátis na entrega.",
+  "Faz o pix de R$ 116,91. Frete grátis na entrega.",
+  "No pix fica R$ 116,91. E o frete na entrega é grátis.",
+  "Pagou no pix? Aqui, na entrega o frete é grátis.",
+  "Pagou no pix? Lembrando que na entrega não tem frete.",
+  "Pix feito! Na entrega o frete é grátis: você paga só quando receber.",
+  "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber, no pix R$ 116,91.",
+  "Pagando na entrega o frete é grátis. No site funciona assim.",
+  "Pagando na entrega o frete é grátis. E pela internet? Também.",
+  "Pagando na entrega o frete é grátis. Na Coinzz é assim.",
+  "Pagando na entrega o frete é grátis. Antecipado? Sim, amiga!",
+  "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. No antecipado também tem esse benefício, viu?",
+  "Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. No pix funciona do mesmo jeitinho, amiga!",
+];
+describe.each(Object.entries(configs))("as mentiras da terceira revisão do §32 (%s)", (_name, config) => {
+  it(`${REVIEW6_LIES.length} mensagens em que outra frase estende o grátis, todas vetadas pelo frete`, () => {
+    expect(REVIEW6_LIES.filter((text) => BOTH.some((p) => !blockedBy(text, config, p).includes("shipping_promise")))).toEqual([]);
+  });
+});
+
+/** The rewrite reason names the sentence with the price of the pieces in the turn (grafo §33). */
+describe("o motivo da reescrita cita o preço da quantidade da conversa", () => {
+  it.each([
+    [undefined, "R$ 129,90"],
+    [2, "R$ 233,82"],
+    [3, "R$ 311,76"],
+  ] as const)("com %s peças: %s", (units, price) => {
+    const trace = runGates("Frete grátis!", ctx({ config: example, ...(units ? { units } : {}) })).traces.find((t) => t.gate === "shipping_promise");
+    expect(trace?.detail).toContain(`você paga só ${price} quando receber`);
   });
 });
 

@@ -190,8 +190,20 @@ export const freightBriefing = (config: PromptConfig): string[] =>
           `quando receber e mais nada. Isso é verdade e vende: diga quando falar do preço da entrega`,
           `ou quando ela perguntar do frete. Use esta frase, com estas palavras, numa frase só dela:`,
           `"Pagando na entrega o frete é grátis: você paga só ${money(config.prices.codBrl)} quando receber."`,
-          `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita,`,
-          `e a frase seguinte não estende o grátis ("No pix também.", "Vale pros dois.").`,
+          ...(config.kits ?? [])
+            .filter((k) => k.path === "cod")
+            .sort((a, b) => a.units - b.units)
+            .map((k) => `Levando ${k.units} peças, o mesmo com o preço do kit: "Pagando na entrega o frete é grátis: você paga só ${money(k.priceBrl)} quando receber."`),
+          `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita.`,
+          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão, do site ou do link`,
+          `diz que ali o frete é calculado no checkout, ou volta pra reescrita ("No pix também." e`,
+          `"Vale pros dois." estendem o grátis).`,
+          ...(config.prices.prepayDiscountPercent > 0
+            ? [
+                `Para falar do desconto do antecipado na mesma mensagem, use esta frase: "No antecipado o frete`,
+                `é calculado por região no checkout, e você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)}."`,
+              ]
+            : []),
           `NO ANTECIPADO o frete é calculado por região dentro do checkout, e você NÃO sabe o valor:`,
           `nunca diga um número de frete, nunca diga que é grátis, nunca prometa que é barato —`,
           `cada caminho na sua frase. Se ela perguntar quanto é, o valor aparece pra ela dentro do`,

@@ -1014,6 +1014,62 @@ porta". A frase que o prompt ensina passa, e a reescrita cai nela.
 
 ---
 
+## 33. Terceira revisão do §32: a mentira vinha das outras frases da mensagem (2026-09-29)
+
+Uma revisão independente reprovou o `c0c8dbe` (HEAD `cbd585b`). A frase canônica segurava, e a
+mentira vinha das outras frases da mesma mensagem. Cada sonda foi reproduzida no HEAD antes do conserto.
+
+```mermaid
+flowchart TD
+  S1["🟥 'Pagando na entrega o frete é grátis. Isso também vale se você pagar no pix.' / '… No pix<br/>funciona assim.' / '… E no pix? Sim!' / '… Na Coinzz é assim.' passavam"]
+  K1["causa: a extensão só era lida em frase de até 6 palavras com também/igual/mesmo e sem negação<br/>(o laço de reticência do §32) — de novo um pedaço da forma, não a regra"]
+  S2["🟥 'Faz o pix de R$ 116,91. Frete grátis na entrega.' / 'Pix feito! Na entrega o frete é grátis'"]
+  K2["causa: a frase anterior punha a cliente no pix, e o núcleo sem 'pagando' se lia 'quando chegar'"]
+  S3["🟥 'Nossa, não para de mandar mensagem a transportadora', 'Não param de me mandar SMS de rastreio'<br/>→ explicit (bloqueio terminal; regressão sobre c1c0cdf)"]
+  K3["causa: o sujeito vazio era aceito sem olhar o que ela recebe nem o sujeito posposto"]
+  S4["🟧 num kit, o motivo da reescrita e o prompt mandavam escrever R$ 129,90, que o price_promise veta"]
+  S5["🟧 custo: 'Isso mesmo!', 'Eu também uso!', 'Pagando na entrega o frete é grátis, tá?' vetadas"]
+  C1["🟩 regra fechada, sem limite de palavras: com uma frase canônica aprovada, toda OUTRA frase que<br/>nomeia outro pagamento (PREPAY_NAME, OTHER_PAYMENT: site, internet, Coinzz, checkout, link,<br/>cartão, pix, 'pros dois', 'qualquer pagamento') passa só negando ou dizendo que ali o frete é<br/>calculado/cobrado (FREIGHT_CHARGED). 'Também/igual/mesmo' só contam com palavra de pagamento na<br/>frase ou na pergunta antes ('Antes também.', 'E antes? Também!')"]
+  C2["🟩 no caminho antecipado, só os núcleos com 'pagando / no pagamento na entrega'"]
+  C3["🟩 opt-out sem sujeito: o que não para de chegar tem de ser mensagem, promoção, oferta ou nada,<br/>sem sujeito depois"]
+  C4["🟩 o motivo cita o preço do kit da conversa; o prompt ensina a frase canônica de cada kit da entrega<br/>e a linha 'No antecipado o frete é calculado por região no checkout, e você ganha 10% de desconto: R$ 116,91.'"]
+  C5["🟩 fecho de cortesia (', tá', ', viu', ', amiga', ', ok') e 'o frete sai grátis' / 'é grátis pra você'"]
+  G["🛡️ honest-sales-lines: REVIEW6_LIES (39), gerador com PRIORS e as extensões novas, vizinhas neutras<br/>(que passam), canônicas sem 'pagando' vetadas no antecipado, motivo por quantidade; prompt.test: a<br/>linha do desconto e a de cada kit passam ao lado da canônica; opt-out-gaps com sujeito vazio;<br/>dev:gates contra HEAD: 5 afrouxamentos aceitos, 44 endurecimentos; contra c1c0cdf: 62 aceitos;<br/>15 mutações novas ou reapontadas, todas pegas, e as 27 existentes do frete e do opt-out continuam pegas"]
+  S1 --> K1 --> C1 --> G
+  S2 --> K2 --> C1
+  K2 --> C2 --> G
+  S3 --> K3 --> C3 --> G
+  S4 --> C4 --> G
+  S5 --> C5 --> G
+```
+
+**Medido antes de aceitar o custo** (nas 730 falas roteirizadas do `dev:conversas`, com a config
+dele):
+- **Primeira passada vetada pelo `shipping_promise`:** 85 no `c0c8dbe` e 85 nesta árvore com o
+  `R.price` antigo ("O colete sai por R$ 129,90, com frete grátis, e você paga na entrega ao
+  entregador…", 75 usos, fora da frase canônica desde o §32). No `2587a24` eram 10.
+- **Com o `R.price` na frase canônica:** 10, as duas mentiras roteirizadas de propósito ("nos dois
+  caminhos").
+- **Falas de frete da base e do roteiro:** 9. Em cada caminho, 3 são vetadas: "FRETE GRÁTIS" solto,
+  que é título de seção. Igual no HEAD.
+
+**Custa uma reescrita, a mais que no §32:**
+- ao lado da frase canônica: "No pix você ganha 10% de desconto.", "No antecipado a garantia também é
+  de 7 dias." e "No antecipado o prazo varia por região, em média 5 dias úteis.";
+- no caminho antecipado: os núcleos sem "pagando" ("Na entrega o frete é grátis", "Frete grátis na
+  entrega", "Na entrega não tem frete").
+
+**Deixado como está:**
+- **Negação que não nega o grátis:** uma frase que nomeia o pix e tem qualquer "não/nem" passa
+  ("No pix nem precisa esperar, vale igual."). A regra pede só negação, como decidido.
+- **"Não para de mandar, quero comprar":** continua `explicit` (a base também lia assim). Não é
+  sujeito de terceiro.
+- **Custo quadrático já existente:** "Pagando na entrega o frete é grátis" seguido de 16 mil espaços
+  leva 133–190 ms, e 600 ms a 32 mil. Era igual no `2587a24`, antes do §32. Não está no
+  `shipping_promise` nem veio deste conserto.
+
+---
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

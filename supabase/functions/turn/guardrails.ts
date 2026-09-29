@@ -395,35 +395,57 @@ const FREE_DENIED =
  * line break, never at a comma) has to be one of these, after `norm`, with its runs of spaces
  * collapsed and the quotes, emoji and punctuation at its ends trimmed. Anything else costs a
  * rewrite, and the prompt teaches the first form word for word. The prices are the delivery's
- * (`codBrl` and the delivery kits), exact, never a prepaid one.
+ * (`codBrl` and the delivery kits), exact, never a prepaid one. `payWord`: only the cores that say
+ * paying on delivery ("pagando / no pagamento na entrega"), for the prepaid path, where a bare "na
+ * entrega" reads as "when it arrives" (2026-09-29, grafo §33).
  */
-const canonicalFree = (codPrices: readonly number[]): RegExp => {
+const canonicalFree = (codPrices: readonly number[], payWord: boolean): RegExp => {
   const price = `(?:${codPrices.map((v) => String.raw`r\$ ?${v.toFixed(2).replace(".", "[.,]")}`).join("|")})`;
   const free = `(?:gratis|gratuito)`;
+  const isFree = `(?:e|sai) ${free}(?: pra voce)?`;
+  const pay = `(?:pagando|no pagamento|com pagamento|com o pagamento|pagamento) na entrega`;
+  const payAfter = `(?:pagando|no pagamento|com pagamento) na entrega`;
   const lead = `(?:(?:e|ah|ah e|olha|e olha|aqui|e aqui|lembrando que|e lembrando que|so lembrando que),? )?`;
-  const core = [
-    `(?:pagando|no pagamento|com pagamento|com o pagamento|pagamento) na entrega,? o frete e ${free}`,
-    `na entrega,? o frete e ${free}`,
-    `(?:o )?frete e ${free} (?:(?:pagando|no pagamento|com pagamento) )?na entrega`,
-    `frete ${free} (?:(?:pagando|no pagamento|com pagamento) )?na entrega`,
-    `na entrega,? nao tem frete`,
-    `na entrega,? nenhum frete a mais`,
-    `o frete na entrega e ${free}`,
-  ].join("|");
+  const core = (
+    payWord
+      ? [`${pay},? o frete ${isFree}`, `(?:o )?frete ${isFree} ${payAfter}`, `frete ${free} ${payAfter}`]
+      : [
+          `${pay},? o frete ${isFree}`,
+          `na entrega,? o frete ${isFree}`,
+          `(?:o )?frete ${isFree} (?:${payAfter}|na entrega)`,
+          `frete ${free} (?:${payAfter}|na entrega)`,
+          `na entrega,? nao tem frete`,
+          `na entrega,? nenhum frete a mais`,
+          `o frete na entrega ${isFree}`,
+        ]
+  ).join("|");
   const receive = `(?:receber|o colete chegar)`;
   const pays = `voce (?:so )?paga (?:so )?(?:(?:o valor de |os )?${price}(?: quando ${receive}| na porta)?|quando ${receive})(?: e mais nada)?`;
   const tail = `(?:(?:,? e |: |, | [—–-] )(?:${pays}|sem nada a mais na porta))?`;
-  return new RegExp(`^${lead}(?:${core})${tail}$`);
+  const courtesy = `(?:,? (?:ta bom|ta|viu|amiga|linda|ok))?`;
+  return new RegExp(`^${lead}(?:${core})${tail}${courtesy}$`);
 };
 /** A sentence as `canonicalFree` reads it: one space between words, nothing but words at its ends. */
 const canonicalShape = (s: string): string =>
   s.replace(/\s+/g, " ").replace(/^[^a-z0-9]+|[^a-z0-9]+$/g, "");
 /**
- * A short sentence that extends the one before it to another payment, with no free word of its
- * own: "No pix também.", "E no site também!", "Igual no pix.", "Vale pros dois.".
+ * A sentence that names another way to pay or buy, or every way at once: the prepaid path's names
+ * (`PREPAY_NAME`), where it is bought (site, internet, Coinzz, checkout, link), its means (card, pix),
+ * and "pros dois", "todas as formas", "qualquer pagamento", "outro pagamento". Next to a free
+ * sentence that passed, such a sentence extends the free to it unless it denies or says the freight
+ * is charged there (grafo §33).
  */
-const EXTENDS =
-  /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\s+(?:[oa]s\s+)?(?:formas?|pagamentos?|caminhos?|jeitos?|opc\w*|modalidades?|meios?)\b|\bqualquer\s+(?:uma?\s+)?(?:forma|pagamento|caminho|jeito|opcao|modalidade|meio)\b/;
+const OTHER_PAYMENT =
+  /\b(?:site|internet|coinzz|checkout|link|cartao|cartoes|pix)\b|\b(?:n[oa]s|pr[oa]s|para\s+[oa]s|em)\s+(?:dois|duas|ambos|ambas)\b|\btod[oa]s\s+(?:[oa]s\s+)?(?:formas?|pagamentos?|caminhos?|jeitos?|opc\w*|modalidades?|meios?)\b|\b(?:qualquer|outr[oa]s?)\s+(?:uma?\s+)?(?:formas?|pagamentos?|caminhos?|jeitos?|opc\w*|modalidades?|meios?)\b/;
+/**
+ * "Também", "igual", "o mesmo", "idem": they extend the free sentence only about a payment — "Antes
+ * também.", "Parcelando também.", "E antes? Também!" (the question before it). "Isso mesmo!", "Eu
+ * também uso!" and "Tem no G também." name none and pass.
+ */
+const ALSO = /\b(?:tambem|igua\w*|mesm[oa]s?|idem)\b/;
+const PAYISH = /\b(?:pag\w*|parcel\w*|antes|agora|hoje|celular|aplicativo|app|online|loja|maquininha|compr\w*)\b/;
+/** The freight said to be charged: the prompt's own prepaid line ("o frete é calculado por região… no checkout"). */
+const FREIGHT_CHARGED = /\bfrete\b[^.!?]{0,40}\b(?:calculad|cobrad|regiao|checkout)/;
 /**
  * The freight said to be the delivery's own ("o frete do pix é igual ao da entrega", "o mesmo
  * frete da entrega", "frete como na entrega"), unless a denial sits between them ("o frete no
@@ -477,12 +499,18 @@ export const classifyOptOut = (text: string): OptOutLevel => {
   // oferta boa não", "tô gostando") (2026-09-29, grafo §31). And only about this shop: no subject, or
   // "vocês" / "essa loja" (an allow-list). "Minhas amigas não param de me mandar foto com o colete,
   // quero comprar um" and "a transportadora não para de mandar mensagem" are someone else (grafo §32).
+  // With no subject said, what keeps coming has to be this shop's (grafo §33): nothing, the messages
+  // or the offers, and no subject after it — "não param de me mandar SMS de rastreio", "não para de
+  // mandar mensagem a transportadora" and "gente, não param de me mandar foto do colete" are others.
   const stillSending = /\bnao\s+(?:para|param)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)/.exec(t);
+  const subject = stillSending ? t.slice(0, stillSending.index).split(/[,;.!?:\n]/).pop()!.trimStart() : "";
   if (
     stillSending &&
-    /^(?:(?:e|mas|gente|nossa|aff?e?|oi|ola)\s+)?(?:(?:voces|vcs|voce|vc|tu|essa\s+loja|esse\s+numero|essa\s+empresa)\s+)?$/.test(
-      t.slice(0, stillSending.index).split(/[,;.!?:\n]/).pop()!.trimStart(),
-    ) &&
+    /^(?:(?:e|mas|gente|nossa|aff?e?|oi|ola)\s+)?(?:(?:voces|vcs|voce|vc|tu|essa\s+loja|esse\s+numero|essa\s+empresa)\s+)?$/.test(subject) &&
+    (/\b(?:voces|vcs|voce|vc|tu|loja|numero|empresa)\s+$/.test(subject) ||
+      /^\s*(?:(?:mais\s+)?(?:mensage\w*|msg|promo\w*|ofertas?|propaganda\w*|isso|o\s+saco))?\s*$/.test(
+        t.slice(stillSending.index + stillSending[0].length).split(/[,;.!?:\n]/)[0]!,
+      )) &&
     !/(?<!\bnao\s+(?:\S+\s+)?)\b(?:gost\w*|ador\w*|amo|amei|curt(?:o|i|indo|ir)|otim\w*|maravilh\w*|legal)\b|\b(?:ofertas?|promoc\w*|promos?|mensage\w*)\s+(?:boas?|otimas?|legais)\b|\bquero\s+ver\b/.test(t)
   )
     return "explicit";
@@ -1981,7 +2009,8 @@ const gates: readonly Gate[] = [
           ? `No pagamento na entrega o frete é grátis. Para dizer isso, use esta frase, com estas ` +
             `palavras, numa frase só dela ("Pagando na entrega o frete é grátis: você paga só ${money(c.prices.codBrl)} quando receber."). ` +
             `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita, ` +
-            `e a frase seguinte não pode estender o grátis ("No pix também."). No antecipado o ` +
+            `e, na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão, do site ou do ` +
+            `link diz que ali o frete é calculado no checkout ("No pix também." volta). No antecipado o ` +
             `frete é calculado por região dentro do checkout: nunca diga que é grátis e nunca cite ` +
             `valor de frete.`
           : `Nunca diga "frete grátis". No pagamento na entrega o frete já está dentro do preço; ` +
@@ -2032,8 +2061,10 @@ const gates: readonly Gate[] = [
         const codFree = ctx.config.delivery.codFreeShipping !== false;
         const { prepayBrl, codBrl } = ctx.config.prices;
         const kits = ctx.config.kits ?? [];
-        const canonical = canonicalFree([codBrl, ...kits.filter((k) => k.path === "cod").map((k) => k.priceBrl)]);
-        const beyondCod = `promises free shipping outside the one sentence cash on delivery allows: say it as "Pagando na entrega o frete é grátis: você paga só ${money(codBrl)} quando receber.", in a sentence of its own with nothing else in it; the prepaid checkout charges freight by region`;
+        const canonical = canonicalFree([codBrl, ...kits.filter((k) => k.path === "cod").map((k) => k.priceBrl)], ctx.paymentPath === "prepay");
+        // The price she pays for the pieces of this conversation: a kit's, when the turn has one.
+        const unitPrice = kits.find((k) => k.path === "cod" && k.units === ctx.units)?.priceBrl ?? codBrl;
+        const beyondCod = `promises free shipping outside the one sentence cash on delivery allows: say it as "Pagando na entrega o frete é grátis: você paga só ${money(unitPrice)} quando receber.", in a sentence of its own with nothing else in it, and never next to a sentence that names the prepaid offer, pix, card, site or link unless it says the freight is calculated in the checkout there; the prepaid checkout charges freight by region`;
         const claims: Array<{ at: number; end?: number }> = [];
         for (const m of t.matchAll(FREE_WORD)) {
           const at = m.index ?? 0;
@@ -2098,14 +2129,26 @@ const gates: readonly Gate[] = [
         }
         // The same promise by reference, which no free word carries. "O frete do pix é igual
         // ao da entrega" meant "included" until 2026-09-28 and now means "free"; either way
-        // the prepaid checkout charges it. And the ellipsis once a delivery claim passed:
-        // "Pagando na entrega o frete é grátis. No pix também." — a sentence of up to six words
-        // that extends another to one more payment (`EXTENDS`: "também", "igual", "o mesmo",
-        // "pros dois", "todas as formas"). A denial there is honest ("No pix não").
+        // the prepaid checkout charges it. And the other sentences once a delivery claim passed
+        // (2026-09-29, grafo §33): every one that names another payment (`PREPAY_NAME`,
+        // `OTHER_PAYMENT`) extends the free to it — "No pix também.", "Isso também vale se você
+        // pagar no pix.", "E no pix? Sim!", "Faz o pix de R$ 116,91. Frete grátis na entrega." —
+        // unless it denies ("No pix não tem frete grátis") or says the freight is charged there
+        // (`FREIGHT_CHARGED`, the prompt's prepaid line). A closed rule, with no word limit: the
+        // six-word one let the longer extensions through. "Isso mesmo!" names no payment and passes.
         if (SAME_AS_DELIVERY.test(t)) return "says the freight is the same as on delivery, and the prepaid checkout charges it by region";
         if (freeOnDelivery.size > 0) {
-          for (const s of sentencesIn(t)) {
-            if ((s.match(/[a-z0-9]+/g) ?? []).length > 6 || !EXTENDS.test(s) || /\b(?:nao|nunca|nem)\b/.test(s)) continue;
+          const sentence = (i: number): string => t.slice(starts[i]!, i + 1 < starts.length ? starts[i + 1]! - 1 : t.length);
+          const names = (s: string): boolean => s.search(PREPAY_NAME) !== -1 || OTHER_PAYMENT.test(s);
+          const honest = (s: string): boolean => /\b(?:nao|nunca|nem)\b/.test(s) || FREIGHT_CHARGED.test(s);
+          for (const [i, start] of starts.entries()) {
+            if (freeOnDelivery.has(start)) continue;
+            const s = sentence(i);
+            // The sentence before, when it is neither the free one nor an honest one: "E antes? Também!".
+            const prev = i > 0 && !freeOnDelivery.has(starts[i - 1]!) ? sentence(i - 1) : "";
+            const prevOther = prev !== "" && !honest(prev) && (names(prev) || PAYISH.test(prev));
+            if (!names(s) && !(ALSO.test(s) && (PAYISH.test(s) || prevOther))) continue;
+            if (honest(s)) continue;
             return beyondCod;
           }
         }

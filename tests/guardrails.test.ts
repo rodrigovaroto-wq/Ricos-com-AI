@@ -1026,8 +1026,10 @@ describe("achados do /code-review de 2026-09-22 (frete e economia)", () => {
         // custa uma reescrita (R15.3 canônica)
         expect(blocked(runGates(frase, cod)), frase).toContain("shipping_promise");
       }
-      for (const c of [cod, prepay, pago(cod), pago(prepay)])
+      for (const c of [cod, pago(cod), pago(prepay)])
         expect(blocked(runGates("Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.", c))).not.toContain("shipping_promise");
+      // No caminho antecipado, só os núcleos com "pagando / no pagamento na entrega" (grafo §33).
+      expect(blocked(runGates("Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.", prepay))).toContain("shipping_promise");
       // Com preço único (antecipado = entrega), o R$ 129,90 na frase não é o antecipado.
       expect(blocked(runGates("Na entrega você paga R$ 129,90 e nenhum frete a mais na porta.", pago(ctx()))))
         .not.toContain("shipping_promise");
@@ -1438,7 +1440,9 @@ describe("segunda passada do /code-review de 2026-09-22", () => {
     it("a frase da porta continua passando", () => {
       const frase = "Na entrega, nenhum frete a mais: você paga R$ 129,90 na porta.";
       expect(blocked(runGates(frase, cod))).not.toContain("shipping_promise");
-      expect(blocked(runGates(frase, prepay))).not.toContain("shipping_promise");
+      // Com a entrega grátis, o caminho antecipado só aceita o núcleo que diz "pagando na entrega"
+      // (grafo §33): lá "na entrega" sozinho se lê "quando chegar".
+      expect(blocked(runGates(frase, prepay))).toContain("shipping_promise");
     });
   });
 
