@@ -100,3 +100,11 @@ describe("o turno liga a troca (R17.1)", () => {
     expect(source.match(/exchanging/g)?.length).toBe(2);
   });
 });
+
+describe("recordOrder com data do pedido ilegível", () => {
+  const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
+  it("a régua não recebe Invalid Date: cai na chegada do webhook", () => {
+    expect(source).toContain("const orderedAt = orderedOn && !Number.isNaN(orderedOn.getTime()) ? orderedOn : new Date();");
+    expect(source).not.toContain("const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();");
+  });
+});

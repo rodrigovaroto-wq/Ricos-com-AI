@@ -2377,6 +2377,14 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/review-2026-09-29-second.test.ts"],
   },
+  {
+    id: "R17-data-do-pedido-invalida",
+    bug: "date_order ilegível virava Invalid Date e o toISOString da régua lançava no webhook",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const orderedAt = orderedOn && !Number.isNaN(orderedOn.getTime()) ? orderedOn : new Date();",
+    to: "const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/exchange-freight.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

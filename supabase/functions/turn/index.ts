@@ -1101,7 +1101,9 @@ const recordOrder = async (order: OrderWebhook) => {
   );
   const rows = ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null; run_at: string | null }>)
     .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id, ...(f.run_at ? { runAt: new Date(f.run_at) } : {}) }));
-  const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();
+  // An unreadable `date_order` ("14/09/2026") is an Invalid Date, and the schedule's toISOString
+  // threw inside the webhook: the order was saved and no touch was armed. Its arrival stands in.
+  const orderedAt = orderedOn && !Number.isNaN(orderedOn.getTime()) ? orderedOn : new Date();
   const effect = onOrderConfirmed(
     rows,
     orderedAt,

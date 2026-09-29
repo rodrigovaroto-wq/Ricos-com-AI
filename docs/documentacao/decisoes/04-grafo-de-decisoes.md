@@ -1193,6 +1193,34 @@ contextos, o config inválido, o intérprete e a ligação no turno); mutações
 `dev:gates --fail-on-loosen`: 0 afrouxamento, 30 endurecimentos, todos a troca dita grátis. Os
 testes do §37 que exigiam "No pix a troca é grátis" passando foram invertidos.
 
+## 39. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
+
+**Sintoma:** a revisão Opus de `9183cd4..93a0386` reprovou: com a praça sem pagamento na entrega,
+"Você paga na entrega e não tem taxa nenhuma." passava (o `DENIED_AFTER` do §37 aceitava qualquer
+"não" a 60 caracteres), e "E no pix? Sim! É grátis também, igual ao pagamento na entrega." passava (a
+pergunta só era a frase anterior, e "na entrega" na resposta isentava). Mais oito ressalvas: o remédio
+do frete ensinava a frase que o `charge_promise` veta sem entrega na praça; "quando o carteiro
+chegar"; "na hora da entrega" lida como "agora"; estoque vetando "Só tenho 2 perguntas" e deixando
+passar "Últimas 12 unidades!"; "A gente garante 30 dias."; "a dor nas costas some"; e a devolução
+nomeada depois do "sem custo".
+
+**Causa:** a de sempre — negação lida numa janela em vez de colada ao verbo, e lista fechada onde a
+família é aberta (sujeito de "quando … chegar", números por extenso, "últimos dias").
+
+**Caminhos que não valiam:** aceitar "é/está/fica" depois de "pagar na entrega" como negação
+deixava "Pagar na entrega não é problema nenhum." passar — só com a palavra que desliga a opção
+(disponível, possível, liberado); "últimos dias" só com palavra de oferta afrouxava "Últimos dias!".
+
+**Correção:** negação colada (com o advérbio entre vírgulas), `NOT_BEFORE`, sujeito livre de até três
+palavras, `lastQuestion` por frase, remédio por praça, `STOCK` exigindo substantivo de estoque, raiz
+`garant`, dor como sujeito que some, `FREE_OWNED_AFTER` para a devolução. E o resíduo da R16.7:
+`askedTestimonial` vem da mensagem dela (`asksForTestimonial`, largo de propósito) e o gate veta
+depoimento não pedido. `recordOrder` com `date_order` ilegível não lança mais.
+
+**Guarda:** `tests/review-2026-09-29-second.test.ts` (111 casos, com a mentira de cada isenção);
+21 mutações `REV2-*`, 4 reapontadas, `R17-data-do-pedido-invalida`; `dev:gates --fail-on-loosen` com
+7 aceites §39 (frases verdadeiras que o gate vetava).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
