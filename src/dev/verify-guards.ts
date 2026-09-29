@@ -1755,8 +1755,8 @@ const MUTATIONS: Mutation[] = [
     id: "R39-4-sem-frete",
     bug: "'No pix também é grátis.' passava: grátis sem a palavra frete não era contado",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: "          if (!names(sentence)) continue;\n",
-    to: "          if (names(sentence) || !names(sentence)) continue;\n",
+    from: "          if (!names(sentence) && !answersOther) continue;",
+    to: "          if (true) continue;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/review-2026-09-29-gates.test.ts"],
   },
   {
