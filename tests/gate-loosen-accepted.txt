@@ -88,28 +88,14 @@ R3 | warranty_promise | Você tem 7 dias de garantia, e a média do antecipado �
 # R3: the prompt's comparison of both windows with the tag "tá?" at the end — honest.
 R3 | delivery_promise | Na entrega você recebe em 1 a 3 dias, no antecipado o prazo varia por região, em média 5 dias úteis, tá?
 # R15.3 (2026-09-28, grafo §29): operator decision — "com pagamento na entrega o frete de fato é grátis"; the prepaid (Coinzz) checkout charges freight by region. A free-shipping claim passes when its sentence names paying at the door and nothing past it (codFreeShipping, absent = on).
-R15.3 | shipping_promise | O frete é grátis, você paga só os R$ 129,90 na entrega.
 R15.3 | shipping_promise | No pagamento na entrega o frete é grátis
 R15.3 | shipping_promise | Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber
 R15.3 | shipping_promise | Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
 R15.3 | shipping_promise | NO PAGAMENTO NA ENTREGA O FRETE É GRÁTIS
-R15.3 | shipping_promise | Nenhum frete na entrega.
-R15.3 | shipping_promise | Sem frete: R$ 129,90 na entrega.
-R15.3 | shipping_promise | Frete grátis, R$ 129,90 na entrega.
 R15.3 | shipping_promise | Pagando na entrega o frete é grátis.
-R15.3 | shipping_promise | O frete é grátis e você só paga quando receber.
 R15.3 | shipping_promise | Na entrega não tem frete, você paga R$ 129,90 e mais nada.
 R15.3 | shipping_promise | Frete grátis pagando na entrega!
-R15.3 | shipping_promise | Na entrega o frete sai de graça.
-R15.3 | shipping_promise | Pagando ao entregador, o frete é por nossa conta.
-R15.3 | shipping_promise | Não se preocupe com a entrega: pagando na entrega o frete é grátis.
 R15.3 | shipping_promise | No pix o frete é calculado por região. Pagando na entrega o frete é grátis.
-R15.3 | shipping_promise | Pagando na entrega o frete é grátis. No antecipado a garantia também é de 7 dias.
-R15.3 | shipping_promise | Pagando na entrega o frete é grátis, e você também tem 7 dias pra trocar.
-# R15.3: the checkout is both paths' (Logzz and Coinzz); with free shipping on delivery the sentence is true. "É só pagar no checkout" still vetoes.
-R15.3 | shipping_promise | Nenhum frete a mais na entrega, o checkout já mostra.
-# R15.3: the amount beside `frete` in a sentence whose claim passed as cash on delivery is the product's (the free branch's `claimsFree`); price_promise holds it to a delivery price.
-R15.3 | shipping_promise | Pagando na entrega, levando 2 peças o frete é grátis e sai R$ 233,82.
 # R15.3: the free claim denied is the honest prepaid answer; it was vetoed because the 22/09 briefing forbade the words even negated. "Nenhum frete grátis existe aqui" (no path) stays vetoed, as decided on 22/09.
 R15.3 | shipping_promise | No pix não tem frete grátis, ele é calculado no checkout.
 R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparece no checkout, antes de pagar.
@@ -127,17 +113,6 @@ R15.3 | shipping_promise | No antecipado o frete não é grátis: o valor aparec
 §30 | unverified_size | Você tem uma semana pra trocar o tamanho, contando de quando recebeu.
 # §30 (grafo): `BEYOND_COD`'s "not only" (`não … só`) crossed ":" and ";" into the next clause, where "só" is the price's ("você paga só R$ 129,90"). It now stays in its clause, as it already stopped at the comma; "Não é só na entrega…", "Não tem frete só na entrega: …" and "…: e não só na entrega" stay vetoed.
 §30 | shipping_promise | Na entrega não tem frete: você paga só R$ 129,90.
-§30 | shipping_promise | Na entrega não tem frete; você paga só R$ 129,90.
-# §30 (grafo): "também" next to the freight, with a kit ("kit", "peças") named in its clause before it, is the kit's on the same delivery path. "Também no/pelo/com …" still reaches past the delivery; no kit, a comma, a prepaid cue or an alternative keeps the veto (generator in honest-sales-lines).
-§30 | shipping_promise | No kit de 2 peças pagando na entrega o frete também é grátis.
-§30 | shipping_promise | Levando 2 peças pagando na entrega o frete é grátis também.
-# §31 (grafo): the prepaid discount in a clause of its own (after ";" or ", e / , mas"), with nothing of the freight, the delivery, "também", "igual" or every payment in it, is read apart from the free claim. "…grátis, e no pix também", "…desconto também", "…desconto e o frete também", "…e não paga o envio" stay vetoed (generator in honest-sales-lines).
-§31 | shipping_promise | Pagando na entrega o frete é grátis; no pix você ganha 10% de desconto.
-§31 | shipping_promise | Na entrega o frete é grátis, e no pix você ganha 10% de desconto.
-# §31 (grafo): "pagando na hora que receber" names paying on receipt, as "quando receber" already did (`PAID_ON_RECEIPT`).
-§31 | shipping_promise | Entrega grátis pagando na hora que receber.
-# R15.3, sentence added to the corpus on §31: cash on delivery is paid "em dinheiro ou cartão" at the door (prompt), so the card named that way is not the prepaid path; passes at dd530a7 as well.
-R15.3 | shipping_promise | Pagando na entrega, em dinheiro ou cartão, o frete é grátis.
 # §32 (grafo): a free claim passes only when its whole sentence is one of `canonicalFree`'s (lead × core × tail, the delivery's own prices). These canonical forms, and the honest two-sentence answers built from them, were vetoed at c1c0cdf by the 22/09 "never free" rule; the non-canonical forms §29–§31 freed now cost a rewrite (`COSTS_A_REWRITE`).
 §32 | shipping_promise | Pagando na entrega o frete é grátis! 💛
 §32 | shipping_promise | E olha, pagando na entrega o frete é grátis: você só paga quando receber.
@@ -147,7 +122,6 @@ R15.3 | shipping_promise | Pagando na entrega, em dinheiro ou cartão, o frete �
 §32 | shipping_promise | Na entrega o frete é grátis, sem nada a mais na porta.
 §32 | shipping_promise | No antecipado o frete não é grátis, é calculado no checkout.
 §32 | shipping_promise | Pagando na entrega o frete é grátis. No pix não tem frete grátis, ele é calculado no checkout.
-§32 | shipping_promise | Pagando na entrega o frete é grátis. No pix você ganha 10% de desconto.
 §32 | shipping_promise | pagando na entrega o frete é grátis
 §32 | shipping_promise | no pagamento na entrega o frete é grátis
 §32 | shipping_promise | com pagamento na entrega, o frete é gratuito

@@ -42,12 +42,25 @@ código usa `**duplo**`. O conteúdo é o mesmo.
 **Corpo:**
 
 ```text
-Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e só paga se estiver tudo certo. Se não servir, tem {{1}} dias pra devolver. Se ainda fizer sentido pra você, é só me chamar.
+Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem {{1}} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.
 ```
 
 | Placeholder | Variável do código | Exemplo para a submissão |
 |---|---|---|
 | `{{1}}` | `warrantyDays` | `7` |
+
+> **Corpo reescrito em 2026-09-29 (D4 do cruzamento; decisões do operador Q3 e Q4).** O texto
+> anterior dizia "você vê, veste, e só paga se estiver tudo certo" — o entregador **não espera**
+> ela vestir antes de pagar (Q4). O verdadeiro: ela vê, paga ao entregador na hora, não fica com
+> o que não for o esperado, e depois de receber tem {{1}} dias para devolver com o frete de volta
+> por conta da loja (Q3). **Se o corpo antigo já foi submetido à Meta, ele tem de ser submetido
+> de novo** com este texto; declarar o nome antigo aprovado no `BUSINESS_CONFIG` faria a Meta
+> entregar a ela o texto que nenhum gate leu.
+>
+> **Só no caminho da entrega.** Este corpo fala de pagar ao entregador. Para quem está no caminho
+> antecipado (escolheu, ou a praça dela não tem pagamento na entrega — D3), `renderFollowup`
+> escreve outro texto e `deliveryFor` **bloqueia** o toque fora da janela (`no_template`): não há
+> template do antecipado, e mandar este seria dizer a ela que paga na porta.
 
 **Uma variante só.** Dentro da janela, `pickVariant` alterna entre duas versões do toque
 2. Fora dela, a config aceita um template por toque, então vale só a primeira, que é a

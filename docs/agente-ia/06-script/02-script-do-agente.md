@@ -264,15 +264,29 @@ frase é o que faz a cliente bloquear.
 | Onde ela parou | Mensagem |
 |---|---|
 | Antes do tamanho | *"Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛"* |
-| Depois do preço | *"Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão."* |
+| Depois do preço | *"Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão."* — ou *"Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele."* |
+| Depois do preço, **no antecipado** (ela escolheu, ou a praça dela não tem pagamento na entrega) | *"Qualquer coisa é só chamar! Lembrando que no pagamento antecipado você leva o colete com 10% de desconto: R$ 116,91. No antecipado, o prazo varia por região, em média 5 dias úteis."* — percentual, preço e prazo médio vêm do config; chave ausente tira a oração dela. Nunca "você não paga nada agora" |
 | Com o link enviado | *"Vi que o pedido ficou aberto! Precisa de ajuda pra confirmar? Se preferir, eu monto de novo pra você 😊"* |
 
 **Toque 2 — manhã do dia seguinte.** Ângulo novo: a objeção que ela não disse.
 
 > Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem:
-> você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e
-> só paga se estiver tudo certo. Se não servir, tem 7 dias pra devolver. Se ainda fizer
-> sentido pra você, é só me chamar.
+> você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao
+> entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber,
+> ainda tem 7 dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só
+> me chamar.
+
+No antecipado, o mesmo ângulo sem pagar na porta:
+
+> Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem:
+> comprar sem ver dá um frio na barriga, eu sei. Então fica tranquila: depois que o colete chega
+> na sua casa, você tem 7 dias pra devolver se não for o que você esperava, sem custo nenhum pra
+> você. Se ainda fizer sentido pra você, é só me chamar.
+
+**O entregador não espera ela vestir** (decisão do operador, 2026-09-29): nenhum toque diz que
+ela veste, experimenta ou se olha no espelho antes de pagar. Ela vê, paga ao entregador e não fica
+com o que não for o esperado; depois de receber, tem os dias de garantia para devolver, e o frete
+de volta é da loja.
 
 **Toque 3 — três dias depois.** Último toque, com o cupom de 20% e saída digna.
 
@@ -300,18 +314,22 @@ das quatro: cada recusa evitada vale R$ 63,35 de diferença.
 > Eu sou a Malu e vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar
 > aqui mesmo.
 
-**9.2 — Saiu para a rota.**
+**9.2 — Saiu para a rota.** Quando o status do pedido diz que está em rota, não por relógio.
 
-> Oi! Seu colete já está a caminho 🚚 Assim que a transportadora agendar o dia, eu te aviso
-> aqui pra você não ser pega de surpresa.
+> Oi! Seu colete já está a caminho 🚚 Qualquer dúvida sobre a entrega, é só me chamar aqui mesmo.
 
-**9.3 — Véspera da entrega.** A mensagem que evita a recusa por surpresa.
+Não diz "assim que a transportadora agendar o dia": na entrega, o dia quem escolheu foi ela, no
+checkout.
+
+**9.3 — Véspera da entrega.** A mensagem que evita a recusa por surpresa. Só sai com a data da
+entrega no pedido, no dia anterior a ela (10h de São Paulo); sem data — o antecipado — não há
+véspera.
 
 > Oi! Sua entrega está marcada pra **amanhã** 💛
 > Deixa **R$ 129,90** separado — pode ser dinheiro ou cartão, na maquininha do entregador.
 > Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
 
-**9.4 — Depois de receber.**
+**9.4 — Depois de receber.** Quando o status do pedido diz entregue, duas horas depois.
 
 > Chegou?! 😍 Me conta: serviu direitinho?
 > Dica de primeira vez: feche os colchetes na fileira mais folgada e vá apertando com o uso —

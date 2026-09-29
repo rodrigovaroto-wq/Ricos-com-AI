@@ -5,6 +5,7 @@ import {
   onOrderConfirmed,
   orderTakeOver,
   orderTouchDue,
+  eveIsTomorrow,
   reopensRefused,
   rulerFor,
   scheduleOrder,
@@ -161,31 +162,78 @@ describe("variantes sem chamar modelo", () => {
   });
 });
 
+/**
+ * Decisão do operador (2026-09-29, Q1): o pós-pedido segue o STATUS e a DATA do pedido, não o
+ * relógio. A véspera saía a pedido+30h nos dois caminhos ("sua entrega está marcada pra
+ * amanhã" para um antecipado de 5 dias úteis, D1), e o "a caminho" a pedido+24h, de um pacote
+ * ainda no depósito (D2).
+ */
 describe("régua de pós-pedido", () => {
-  const ordered = new Date("2026-09-06T12:00:00");
+  const ordered = new Date("2026-09-10T12:00:00Z"); // quinta, 09:00 em São Paulo
+  const h = 3_600_000;
+  const plan = (status: string | undefined, scheduledFor?: string | null, now = ordered, orderedAt = ordered) =>
+    scheduleOrder({ orderedAt, status, scheduledFor }, now);
+  const kinds = (...args: Parameters<typeof plan>) => plan(...args).map((f) => f.kind);
+  const at = (kind: string, ...args: Parameters<typeof plan>) => plan(...args).find((f) => f.kind === kind)?.runAt;
 
-  it("são quatro mensagens entre o pedido e a porta", () => {
-    const plano = scheduleOrder(ordered, config.delivery.codDaysMin);
-    expect(plano.map((p) => p.kind)).toEqual([
-      "order_confirmed",
-      "order_shipped",
-      "order_eve",
-      "order_delivered",
-    ]);
+  it("o pedido sozinho arma só a confirmação, no mesmo dia; o resto espera status e data", () => {
+    expect(kinds("created")).toEqual(["order_confirmed"]);
+    expect(kinds(undefined)).toEqual(["order_confirmed"]);
+    expect(kinds("Pagamento aprovado")).toEqual(["order_confirmed"]);
+    expect(at("order_confirmed", "created")).toEqual(new Date(ordered.getTime() + 5 * 60_000));
   });
 
-  it("a confirmação sai no mesmo dia e a véspera antes da entrega", () => {
-    const [confirmado, , vespera] = scheduleOrder(ordered, 3);
-    expect(confirmado!.runAt.getDate()).toBe(ordered.getDate());
-    expect(vespera!.runAt.getTime()).toBeLessThan(ordered.getTime() + 3 * 24 * 60 * 60_000);
+  it("«a caminho» só com status em rota, logo depois — e nunca colado na confirmação (D2)", () => {
+    for (const status of ["Em rota de entrega", "Aprovado / Enviado", "Saiu para entrega", "Entregue à transportadora"])
+      expect(kinds(status)).toContain("order_shipped");
+    // Em rota já no primeiro webhook: uma hora depois da confirmação, não junto.
+    expect(at("order_shipped", "Em rota de entrega", null, new Date(ordered.getTime() + 5 * 60_000))).toEqual(
+      new Date(ordered.getTime() + h),
+    );
+    // Em rota dois dias depois: sai logo, dez minutos depois do webhook.
+    const depois = new Date(ordered.getTime() + 48 * h);
+    expect(at("order_shipped", "Em rota de entrega", null, depois)).toEqual(new Date(depois.getTime() + 10 * 60_000));
+    expect(kinds("created")).not.toContain("order_shipped");
   });
 
-  it("a véspera nunca sai antes do pedido existir, nem junto com o envio", () => {
-    // Com a janela de 1 dia, `codDaysMin - 1` dava ZERO: "sua entrega é amanhã, separe
-    // R$ 129,90" saía na hora do pedido, antes da própria confirmação.
-    const [confirmado, envio, vespera] = scheduleOrder(ordered, 1);
-    expect(vespera!.runAt.getTime()).toBeGreaterThan(confirmado!.runAt.getTime());
-    expect(vespera!.runAt.getTime()).toBeGreaterThan(envio!.runAt.getTime());
+  it("«Chegou?!» só com status entregue, duas horas depois do webhook (D2)", () => {
+    const entregue = new Date(ordered.getTime() + 72 * h);
+    expect(at("order_delivered", "Entregue", null, entregue)).toEqual(new Date(entregue.getTime() + 2 * h));
+    for (const status of ["created", "Em rota de entrega", "Entregue à transportadora", "Não entregue"])
+      expect(kinds(status, null, entregue)).not.toContain("order_delivered");
+  });
+
+  it("a véspera só com a data da entrega: no dia anterior, às 10h de São Paulo (D1)", () => {
+    // Entrega no sábado 12/09: a véspera é sexta 11/09, 10:00 em SP = 13:00 UTC.
+    expect(at("order_eve", "created", "2026-09-12")).toEqual(new Date("2026-09-11T13:00:00Z"));
+    // Sem data — o antecipado, ou um webhook que não trouxe — não há véspera.
+    for (const semData of [null, undefined, "", "12/09/2026", "2026-9-12", "amanhã"])
+      expect(kinds("created", semData)).not.toContain("order_eve");
+  });
+
+  it("passadas as 10h da véspera, sai logo; no dia da entrega ou depois, não sai", () => {
+    const tardeDaVespera = new Date("2026-09-11T20:00:00Z"); // 17:00 em SP, dia 11
+    expect(at("order_eve", "created", "2026-09-12", tardeDaVespera)).toEqual(new Date(tardeDaVespera.getTime() + 5 * 60_000));
+    // 23:58 em SP: "logo" já seria dia 12, o dia da entrega.
+    expect(kinds("created", "2026-09-12", new Date("2026-09-12T02:58:00Z"))).not.toContain("order_eve");
+    expect(kinds("created", "2026-09-12", new Date("2026-09-12T03:00:00Z"))).not.toContain("order_eve");
+    expect(kinds("created", "2026-09-12", new Date("2026-09-13T15:00:00Z"))).not.toContain("order_eve");
+  });
+
+  it("a véspera nunca sai antes da confirmação, nem com o pedido feito na própria véspera", () => {
+    const quaseDez = new Date("2026-09-11T12:58:00Z"); // 09:58 em SP, dia 11
+    const vespera = at("order_eve", "created", "2026-09-12", quaseDez, quaseDez)!;
+    const confirmado = at("order_confirmed", "created", "2026-09-12", quaseDez, quaseDez)!;
+    expect(vespera.getTime()).toBeGreaterThanOrEqual(confirmado.getTime() + 55 * 60_000);
+  });
+
+  it("eveIsTomorrow: só no dia anterior à data, no calendário de São Paulo", () => {
+    expect(eveIsTomorrow("2026-09-12", new Date("2026-09-11T03:00:00Z"))).toBe(true); // 00:00 do dia 11
+    expect(eveIsTomorrow("2026-09-12", new Date("2026-09-12T02:59:00Z"))).toBe(true); // 23:59 do dia 11
+    expect(eveIsTomorrow("2026-09-12", new Date("2026-09-11T02:59:00Z"))).toBe(false); // 23:59 do dia 10
+    expect(eveIsTomorrow("2026-09-12", new Date("2026-09-12T03:00:00Z"))).toBe(false); // o próprio dia
+    expect(eveIsTomorrow(null, new Date("2026-09-11T13:00:00Z"))).toBe(false);
+    expect(eveIsTomorrow("12/09/2026", new Date("2026-09-11T13:00:00Z"))).toBe(false);
   });
 
   it("a véspera manda separar o valor certo — é a mensagem que evita a recusa", () => {
@@ -218,6 +266,105 @@ describe("régua de pós-pedido", () => {
     const texto = renderFollowup("order_confirmed", render({ size: "G", address: "Rua das Flores, 120" }))!;
     expect(texto).toContain("G");
     expect(texto).toContain("Rua das Flores, 120");
+  });
+});
+
+/**
+ * D3/Q2 (operador, 2026-09-29): quem está no caminho antecipado — escolheu, ou a praça dela
+ * não tem pagamento na entrega — não pode ouvir "você não paga nada agora". O toque fala do
+ * desconto e do prazo médio, lidos do config como o gate lê. D4/Q4: o entregador não espera
+ * ela vestir; nada diz que ela veste ou experimenta antes de pagar.
+ */
+describe("régua de silêncio pelo caminho de pagamento", () => {
+  const exemplo = { ...config, prices: { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 } };
+  const variantes = (kind: "silence_1" | "silence_2", over: Partial<RenderContext>) =>
+    new Set(["a", "b", "c", "d", "e", "f", "lead-abc", "lead-1"].map((leadId) => renderFollowup(kind, render({ leadId, ...over }))!));
+  const PAGA_NA_PORTA = /n[aã]o paga nada agora|n[aã]o sai nada do seu bolso|paga quando|s[oó] paga|entregador|na entrega/i;
+
+  it("antecipado, depois do preço: desconto com o preço e o prazo médio — nada de pagar na porta", () => {
+    const textos = variantes("silence_1", { config: exemplo, stopPoint: "after_price", paymentPath: "prepay" });
+    expect(textos.size).toBe(2);
+    for (const t of textos) {
+      expect(t).not.toMatch(PAGA_NA_PORTA);
+      expect(t).toContain("10% de desconto: R$ 116,91");
+      expect(t).toContain("o prazo varia por região, em média 5 dias úteis");
+    }
+  });
+
+  it("chave ausente tira a oração dela, nunca inventa", () => {
+    const semMedia = { ...exemplo, delivery: { ...exemplo.delivery, prepayAvgDays: undefined as never } };
+    const semRegiao = { ...exemplo, delivery: { ...exemplo.delivery, prepayVariesByRegion: false } };
+    const semDesconto = config; // antecipado R$ 129,90, 0%
+    const semPreco = { ...exemplo, prices: { codBrl: 129.9 } } as never;
+    for (const cfg of [semMedia, semRegiao])
+      for (const t of variantes("silence_1", { config: cfg, stopPoint: "after_price", paymentPath: "prepay" }))
+        expect(t).not.toMatch(/dias úteis/);
+    for (const t of variantes("silence_1", { config: semDesconto, stopPoint: "after_price", paymentPath: "prepay" })) {
+      expect(t).toContain("por R$ 129,90");
+      expect(t).not.toMatch(/desconto/);
+    }
+    for (const t of variantes("silence_1", { config: semPreco, stopPoint: "after_price", paymentPath: "prepay" })) {
+      expect(t).not.toMatch(/R\$|desconto/);
+      expect(t).not.toMatch(PAGA_NA_PORTA);
+    }
+  });
+
+  it("antecipado, toque 2: sem pagar na porta, com a devolução sem custo", () => {
+    const textos = variantes("silence_2", { paymentPath: "prepay" });
+    expect(textos.size).toBe(2);
+    for (const t of textos) {
+      expect(t).not.toMatch(PAGA_NA_PORTA);
+      expect(t).toContain("7 dias pra devolver");
+      expect(t).toContain("sem custo nenhum");
+    }
+  });
+
+  it("na entrega, sem caminho ou com cod: o texto da entrega, como sempre", () => {
+    expect(variantes("silence_1", { stopPoint: "after_price" })).toEqual(
+      variantes("silence_1", { stopPoint: "after_price", paymentPath: "cod" }),
+    );
+    for (const t of variantes("silence_2", { paymentPath: "cod" })) {
+      expect(t).toMatch(/entregador|chegar na sua mão/);
+      expect(t).toContain("7 dias pra devolver");
+      expect(t).toContain("sem custo nenhum");
+    }
+  });
+
+  it("antes do tamanho e com o link, o caminho não muda o texto", () => {
+    for (const stopPoint of ["before_size", "link_sent"] as const)
+      expect(variantes("silence_1", { stopPoint, paymentPath: "prepay" })).toEqual(variantes("silence_1", { stopPoint }));
+  });
+
+  it("nenhum toque de silêncio diz que ela veste ou experimenta antes de pagar (Q4)", () => {
+    const VESTE = /\bveste\b|\bvestir\b|espelho|experiment|prova[rn]?\b/i;
+    for (const paymentPath of ["cod", "prepay"] as const)
+      for (const stopPoint of ["before_size", "after_price", "link_sent"] as const)
+        for (const kind of ["silence_1", "silence_2"] as const)
+          for (const t of variantes(kind, { config: exemplo, stopPoint, paymentPath })) expect(t).not.toMatch(VESTE);
+  });
+
+  it("o «a caminho» não diz que a transportadora agenda o dia (D2)", () => {
+    const t = renderFollowup("order_shipped", render())!;
+    expect(t).not.toMatch(/agendar|agenda o dia|véspera/i);
+    expect(t).toMatch(/a caminho/);
+  });
+
+  it("fora da janela, o toque 2 do antecipado não sai: o template é o texto da entrega", () => {
+    const comTemplate = {
+      ...config,
+      channel: { templates: { silence_2: { name: "encorpa_retomada_confianca", language: "pt_BR", variables: ["warrantyDays" as const] } } },
+    };
+    const fora = new Date("2026-09-08T10:00:00Z");
+    expect(deliveryFor("silence_2", render({ config: comTemplate, marketingOptIn: true, paymentPath: "prepay" }), fora)).toEqual({
+      via: "blocked",
+      reason: "no_template",
+    });
+    expect(deliveryFor("silence_2", render({ config: comTemplate, marketingOptIn: true, paymentPath: "cod" }), fora)).toMatchObject({
+      via: "template",
+    });
+    // Dentro da janela, o texto do antecipado sai como texto livre.
+    const dentro = new Date("2026-09-10T09:00:00");
+    expect(deliveryFor("silence_2", render({ paymentPath: "prepay" }), dentro)).toMatchObject({ via: "text" });
   });
 });
 
@@ -342,31 +489,86 @@ describe("venda confirmada", () => {
     kinds.map((kind) => ({ kind, status: "scheduled" }) as never);
 
   it("cancela todo toque de silêncio ainda agendado", () => {
-    const efeito = onOrderConfirmed(agendado("silence_1", "silence_2", "silence_3"), quando, 1);
+    const efeito = onOrderConfirmed(agendado("silence_1", "silence_2", "silence_3"), quando, quando);
     expect(efeito.cancel).toEqual(["silence_1", "silence_2", "silence_3"]);
   });
 
-  it("arma a régua de pós-pedido inteira", () => {
-    const efeito = onOrderConfirmed([], quando, 1);
-    expect(efeito.arm.map((f) => f.kind)).toEqual([
+  it("arma a régua pelo que o pedido diz: a confirmação, e a véspera se houver data", () => {
+    expect(onOrderConfirmed([], quando, quando).arm.map((f) => f.kind)).toEqual(["order_confirmed"]);
+    expect(onOrderConfirmed([], quando, quando, "Agendado", "A", "2026-09-12").arm.map((f) => f.kind)).toEqual([
       "order_confirmed",
-      "order_shipped",
       "order_eve",
-      "order_delivered",
     ]);
   });
 
   it("um segundo webhook do mesmo pedido não mexe no que já está agendado", () => {
     // Retry e mudança de status chegam de novo. Rearmar arrastaria a véspera da entrega
     // para outra data, que é a mensagem que evita a recusa na porta.
-    const efeito = onOrderConfirmed(agendado("order_confirmed", "order_shipped"), quando, 1);
-    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
-    expect(efeito.cancel).toEqual([]);
+    const primeiro = onOrderConfirmed([], quando, quando, "Em rota de entrega", "A", "2026-09-12");
+    expect(primeiro.arm.map((f) => f.kind)).toEqual(["order_confirmed", "order_shipped", "order_eve"]);
+    const linhas = primeiro.arm.map((f) => ({ kind: f.kind, status: "scheduled" as const, orderId: "A", runAt: f.runAt }));
+    const depois = new Date(quando.getTime() + 20 * 60_000);
+    expect(onOrderConfirmed(linhas, quando, depois, "Em rota de entrega", "A", "2026-09-12")).toEqual({
+      cancel: [],
+      arm: [],
+      move: [],
+    });
   });
 
   it("não cancela um toque de pós-pedido junto", () => {
-    const efeito = onOrderConfirmed(agendado("silence_2", "order_confirmed"), quando, 1);
+    const efeito = onOrderConfirmed(agendado("silence_2", "order_confirmed"), quando, quando);
     expect(efeito.cancel).toEqual(["silence_2"]);
+  });
+});
+
+/**
+ * D1: a data da entrega muda (ela remarcou, a transportadora reagendou). A linha é uma por
+ * (conversation_id, kind) e o arm é insert ignore-duplicates — então a véspera que este pedido
+ * já tem é remarcada no lugar (`move`), nunca inserida de novo. Na data velha, a varredura
+ * acharia o dia errado e cancelaria: ela ficaria sem véspera nenhuma.
+ */
+describe("nova data de entrega remarca a véspera, no lugar", () => {
+  const quando = new Date("2026-09-09T15:00:00Z"); // quarta, 12:00 em SP
+  const vesperaDo12 = new Date("2026-09-11T13:00:00Z");
+  const vesperaDo14 = new Date("2026-09-13T13:00:00Z");
+  const eve = (status: ExistingFollowup["status"], orderId: string | null = "A"): ExistingFollowup[] => [
+    { kind: "order_confirmed", status: "sent", orderId },
+    { kind: "order_eve", status, orderId, runAt: vesperaDo12 },
+  ];
+
+  it("data nova: a véspera agendada vai para a véspera da data nova, sem linha nova", () => {
+    const efeito = onOrderConfirmed(eve("scheduled"), quando, quando, "Agendado", "A", "2026-09-14");
+    expect(efeito.move).toEqual([{ kind: "order_eve", runAt: vesperaDo14 }]);
+    expect(efeito.arm).toEqual([]);
+  });
+
+  it("data nova depois de a véspera velha ter sido cancelada: volta a valer", () => {
+    expect(onOrderConfirmed(eve("canceled"), quando, quando, "Agendado", "A", "2026-09-14").move).toEqual([
+      { kind: "order_eve", runAt: vesperaDo14 },
+    ]);
+  });
+
+  it("a mesma data de novo não mexe, nem ressuscita a véspera cancelada daquele dia", () => {
+    const tarde = new Date("2026-09-11T20:00:00Z"); // na véspera, depois das 10h: "logo" cai no mesmo dia
+    for (const status of ["scheduled", "canceled"] as const) {
+      expect(onOrderConfirmed(eve(status), quando, quando, "Agendado", "A", "2026-09-12").move).toEqual([]);
+      expect(onOrderConfirmed(eve(status), quando, tarde, "Em rota de entrega", "A", "2026-09-12").move).toEqual([]);
+    }
+  });
+
+  it("a véspera que já saiu não volta; a de outro pedido não é deste", () => {
+    expect(onOrderConfirmed(eve("sent"), quando, quando, "Agendado", "A", "2026-09-14").move).toEqual([]);
+    expect(onOrderConfirmed(eve("scheduled", "B"), quando, quando, "Agendado", "A", "2026-09-14").move).toEqual([]);
+  });
+
+  it("data nova já no dia da entrega: nada a remarcar (a varredura cancela a velha na hora)", () => {
+    const noDia = new Date("2026-09-14T13:00:00Z");
+    expect(onOrderConfirmed(eve("scheduled"), quando, noDia, "Agendado", "A", "2026-09-14").move).toEqual([]);
+  });
+
+  it("entregue ou morto não remarca véspera", () => {
+    expect(onOrderConfirmed(eve("scheduled"), quando, quando, "Entregue", "A", "2026-09-14").move).toEqual([]);
+    expect(onOrderConfirmed(eve("scheduled"), quando, quando, "Cancelado", "A", "2026-09-14").move).toEqual([]);
   });
 });
 
@@ -385,9 +587,12 @@ describe("segundo webhook depois que um toque já saiu", () => {
         { kind: "silence_2", status: "scheduled" },
       ],
       new Date("2026-09-09T15:00:00Z"),
-      1,
+      new Date("2026-09-09T15:00:00Z"),
+      "Em rota de entrega",
+      undefined,
+      "2026-09-12",
     );
-    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+    expect(efeito.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve"]);
     // O toque de silêncio que já saiu não tem o que cancelar; o que ainda espera, sim.
     expect(efeito.cancel).toEqual(["silence_2"]);
   });
@@ -571,7 +776,7 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
     "Reembolsado",
     "refunded",
   ])("«%s» desarma a régua inteira e não arma nada", (status) => {
-    const efeito = onOrderConfirmed(armada, orderedAt, 1, status);
+    const efeito = onOrderConfirmed(armada, orderedAt, orderedAt, status);
     expect(efeito.arm).toEqual([]);
     expect(efeito.cancel).toEqual(
       expect.arrayContaining(["order_shipped", "order_eve", "order_delivered", "silence_3"]),
@@ -579,7 +784,7 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
   });
 
   it("o que já saiu não é cancelado — não dá para desfazer uma mensagem entregue", () => {
-    expect(onOrderConfirmed(armada, orderedAt, 1, "Cancelado").cancel).not.toContain(
+    expect(onOrderConfirmed(armada, orderedAt, orderedAt, "Cancelado").cancel).not.toContain(
       "order_confirmed",
     );
   });
@@ -589,20 +794,15 @@ describe("pedido morto — cancelado, recusado, devolvido", () => {
   it.each(["Agendado", "Em separação", "Enviado", "Pago", undefined])(
     "«%s» não é morte: a régua segue de pé",
     (status) => {
-      const efeito = onOrderConfirmed([], orderedAt, 1, status);
-      expect(efeito.arm.map((f) => f.kind)).toEqual([
-        "order_confirmed",
-        "order_shipped",
-        "order_eve",
-        "order_delivered",
-      ]);
+      const efeito = onOrderConfirmed([], orderedAt, orderedAt, status, "A", "2026-09-12");
+      expect(efeito.arm.map((f) => f.kind)).toEqual(expect.arrayContaining(["order_confirmed", "order_eve"]));
     },
   );
 
   it("a véspera é o toque que isso existe para não mandar", () => {
     // "Sua entrega está marcada pra amanhã, deixa R$ 129,90 separado" para quem cancelou
     // é a mensagem que queima o número e a marca de uma vez.
-    const efeito = onOrderConfirmed(armada, orderedAt, 1, "Cancelado");
+    const efeito = onOrderConfirmed(armada, orderedAt, orderedAt, "Cancelado");
     expect(efeito.cancel).toContain("order_eve");
   });
 });
@@ -624,22 +824,22 @@ describe("pedido entregue: véspera, envio e confirmação não saem depois da e
   ];
 
   it.each(["Entregue", "delivered", "Concluído", "Aprovado / Entregue"])("«%s» cancela véspera e envio pendentes", (status) => {
-    const efeito = onOrderConfirmed(armada, orderedAt, 1, status, "A");
+    const efeito = onOrderConfirmed(armada, orderedAt, orderedAt, status, "A");
     expect(efeito.cancel).toEqual(["order_shipped", "order_eve"]);
     expect(efeito.arm).toEqual([]);
   });
 
   it("o primeiro webhook já entregue arma só o toque de depois da entrega", () => {
-    expect(onOrderConfirmed([], orderedAt, 1, "Entregue", "A").arm.map((f) => f.kind)).toEqual(["order_delivered"]);
+    expect(onOrderConfirmed([], orderedAt, orderedAt, "Entregue", "A").arm.map((f) => f.kind)).toEqual(["order_delivered"]);
   });
 
   it("a entrega do pedido A não cala a véspera do pedido B", () => {
     const deB: ExistingFollowup[] = [{ kind: "order_eve", status: "scheduled", orderId: "B" }];
-    expect(onOrderConfirmed(deB, orderedAt, 1, "Entregue", "A").cancel).toEqual([]);
+    expect(onOrderConfirmed(deB, orderedAt, orderedAt, "Entregue", "A").cancel).toEqual([]);
   });
 
   it("em rota, a véspera segue de pé", () => {
-    expect(onOrderConfirmed(armada, orderedAt, 1, "Em rota de entrega", "A").cancel).toEqual([]);
+    expect(onOrderConfirmed(armada, orderedAt, orderedAt, "Em rota de entrega", "A").cancel).toEqual([]);
   });
 
   it("o pedido vivo que herda do morto já entregue não herda a véspera", () => {
@@ -651,10 +851,10 @@ describe("pedido entregue: véspera, envio e confirmação não saem depois da e
     }));
     const r = orderTakeOver(
       doMorto,
-      { id: "B", status: "Entregue", orderedAt },
+      // Com data de entrega ainda por vir: mesmo assim, entregue não herda véspera.
+      { id: "B", status: "Entregue", orderedAt, scheduledFor: "2026-09-30" },
       [{ id: "A", status: "Cancelado", orderedAt }],
       new Date(orderedAt.getTime() + h),
-      1,
     );
     expect(r?.arm.map((f) => f.kind)).toEqual(["order_delivered"]);
   });
@@ -688,23 +888,23 @@ describe("dois pedidos no mesmo lead", () => {
   ] as never;
 
   it("o cancelamento do pedido B não cala a véspera do pedido A", () => {
-    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "B");
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, orderedAt, "Cancelado", "B");
     expect(efeito.cancel).toEqual(["silence_3"]);
     expect(efeito.arm).toEqual([]);
   });
 
   it("o cancelamento do próprio pedido A cala os toques dele", () => {
-    const efeito = onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado", "A");
+    const efeito = onOrderConfirmed(doPedidoA, orderedAt, orderedAt, "Cancelado", "A");
     expect(efeito.cancel).toEqual(["order_eve", "order_delivered", "silence_3"]);
   });
 
   it("linha sem pedido guardado morre com qualquer pedido, como antes", () => {
     const antigas = [{ kind: "order_eve", status: "scheduled", orderId: null }] as never;
-    expect(onOrderConfirmed(antigas, orderedAt, 1, "Cancelado", "B").cancel).toEqual(["order_eve"]);
+    expect(onOrderConfirmed(antigas, orderedAt, orderedAt, "Cancelado", "B").cancel).toEqual(["order_eve"]);
   });
 
   it("sem o id do pedido que morreu, tudo morre, como antes", () => {
-    expect(onOrderConfirmed(doPedidoA, orderedAt, 1, "Cancelado").cancel).toEqual([
+    expect(onOrderConfirmed(doPedidoA, orderedAt, orderedAt, "Cancelado").cancel).toEqual([
       "order_eve",
       "order_delivered",
       "silence_3",
@@ -750,7 +950,6 @@ describe("o lembrete de 15 min só no turno que mandou o link", () => {
 });
 
 describe("dois pedidos: o vivo herda os toques do morto", () => {
-  const h = 3_600_000;
   const criadoA = new Date("2026-09-28T15:00:00Z");
   const criadoB = new Date("2026-09-28T16:00:00Z");
   const agora = new Date("2026-09-28T17:00:00Z");
@@ -761,59 +960,51 @@ describe("dois pedidos: o vivo herda os toques do morto", () => {
       orderId: "A",
     }));
 
-  it("A e B criados, A cancelado: véspera e entrega passam para B, nas datas de B", () => {
-    const r = orderTakeOver(
-      dosA(),
-      { id: "A", status: "Cancelado", orderedAt: criadoA },
-      [{ id: "B", status: "created", orderedAt: criadoB }],
-      agora,
-      1,
-    );
+  // B em rota, com entrega na quarta 30/09: o "a caminho" e a véspera de B, pelo status e pela data de B.
+  const emRotaB = { id: "B", status: "Em rota de entrega", orderedAt: criadoB, scheduledFor: "2026-09-30" };
+  it("A e B criados, A cancelado: o que B já pede passa para B, no status e na data de B", () => {
+    const r = orderTakeOver(dosA(), { id: "A", status: "Cancelado", orderedAt: criadoA }, [emRotaB], agora);
     expect(r?.orderId).toBe("B");
     expect(r?.arm).toEqual([
-      { kind: "order_shipped", runAt: new Date(criadoB.getTime() + 24 * h) },
-      { kind: "order_eve", runAt: new Date(criadoB.getTime() + 30 * h) },
-      { kind: "order_delivered", runAt: new Date(criadoB.getTime() + 48 * h) },
+      { kind: "order_shipped", runAt: new Date(agora.getTime() + 10 * 60_000) },
+      { kind: "order_eve", runAt: new Date("2026-09-29T13:00:00Z") },
     ]);
   });
-  it("o que já saiu não muda de pedido, e hora que já passou não sai atrasada", () => {
-    const r = orderTakeOver(
-      dosA(),
-      { id: "A", status: "Cancelado", orderedAt: criadoA },
-      [{ id: "B", status: "created", orderedAt: criadoB }],
-      new Date(criadoB.getTime() + 25 * h),
-      1,
-    );
-    expect(r?.arm.map((f) => f.kind)).toEqual(["order_eve", "order_delivered"]);
+  it("o que já saiu não muda de pedido, e a véspera que passou não sai atrasada", () => {
+    const saiu = dosA().map((f) => (f.kind === "order_shipped" ? { ...f, status: "sent" as const } : f));
+    const r = orderTakeOver(saiu, { id: "A", status: "Cancelado", orderedAt: criadoA }, [emRotaB], agora);
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_eve"]);
+    // No dia da entrega (01:00 em SP do dia 30), a véspera de B já passou.
+    const noDia = orderTakeOver(saiu, { id: "A", status: "Cancelado", orderedAt: criadoA }, [emRotaB], new Date("2026-09-30T04:00:00Z"));
+    expect(noDia).toBeNull();
   });
   it("A cancelado antes, B criado depois: B toma as linhas canceladas de A", () => {
     const r = orderTakeOver(
       dosA("canceled"),
-      { id: "B", status: "created", orderedAt: agora },
+      { ...emRotaB, orderedAt: agora },
       [{ id: "A", status: "Cancelado", orderedAt: criadoA }],
       agora,
-      1,
     );
     expect(r?.orderId).toBe("B");
-    expect(r?.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve", "order_delivered"]);
+    expect(r?.arm.map((f) => f.kind)).toEqual(["order_shipped", "order_eve"]);
   });
   it("webhook atrasado do MESMO pedido cancelado não traz os toques dele de volta", () => {
     expect(
-      orderTakeOver(dosA("canceled"), { id: "A", status: "Enviado", orderedAt: criadoA }, [], agora, 1),
+      orderTakeOver(dosA("canceled"), { id: "A", status: "Enviado", orderedAt: criadoA }, [], agora),
     ).toBeNull();
   });
   it("sem pedido vivo, ninguém herda; pedido vivo dono das linhas, nada muda", () => {
     expect(
-      orderTakeOver(dosA(), { id: "A", status: "Cancelado", orderedAt: criadoA }, [{ id: "B", status: "Cancelado", orderedAt: criadoB }], agora, 1),
+      orderTakeOver(dosA(), { id: "A", status: "Cancelado", orderedAt: criadoA }, [{ id: "B", status: "Cancelado", orderedAt: criadoB }], agora),
     ).toBeNull();
     expect(
-      orderTakeOver(dosA(), { id: "B", status: "Cancelado", orderedAt: criadoB }, [{ id: "A", status: "created", orderedAt: criadoA }], agora, 1),
+      orderTakeOver(dosA(), { id: "B", status: "Cancelado", orderedAt: criadoB }, [{ id: "A", status: "created", orderedAt: criadoA }], agora),
     ).toBeNull();
   });
   it("linha sem pedido guardado (antes da 0017) não muda de dono", () => {
     const antigas: ExistingFollowup[] = [{ kind: "order_eve", status: "canceled", orderId: null }];
     expect(
-      orderTakeOver(antigas, { id: "B", status: "created", orderedAt: agora }, [{ id: "A", status: "Cancelado", orderedAt: criadoA }], agora, 1),
+      orderTakeOver(antigas, { id: "B", status: "created", orderedAt: agora, scheduledFor: "2026-09-30" }, [{ id: "A", status: "Cancelado", orderedAt: criadoA }], agora),
     ).toBeNull();
   });
 });
@@ -894,12 +1085,16 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
   // Os sete dias da semana, às 10h de São Paulo — o silence_3 escreve o dia.
   const nows = Array.from({ length: 7 }, (_, i) => new Date(Date.UTC(2026, 8, 7 + i, 13)));
   const casos: { rotulo: string; texto: string; ctx: ReturnType<typeof gateCtx> }[] = [];
+  // O config dos testes (antecipado a R$ 129,90, 0%) e o decidido (R$ 116,91, 10%): a copy do
+  // antecipado escreve o desconto do config, e o gate lê o mesmo config.
+  const precos = [config.prices, { ...config.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 }];
   for (const kind of kinds)
     for (const stopPoint of ["before_size", "after_price", "link_sent"] as const)
       for (const paymentPath of ["cod", "prepay"] as const)
         for (const units of [1, 2])
           for (const prepaid of [false, true])
             for (const active of [false, true])
+              for (const prices of kind.startsWith("silence_") ? precos : [config.prices])
               for (const leadId of leadIds)
                 for (const now of kind === "silence_3" ? nows : [nows[3]!]) {
                   const order = kind.startsWith("order_");
@@ -908,7 +1103,9 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                   const amountBrl = units > 1 ? 233.82 : undefined;
                   const texto = renderFollowup(kind, {
                     leadId,
-                    config: { ...config, coupon: { ...config.coupon, active } },
+                    config: { ...config, prices, coupon: { ...config.coupon, active } },
+                    // O caminho em que o toque sai é o caminho em que o gate o julga (D3).
+                    ...(order ? {} : { paymentPath }),
                     stopPoint,
                     now,
                     size: units > 1 ? "M,G" : "M",
@@ -922,7 +1119,7 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                     rotulo: [kind, stopPoint, paymentPath, "u" + units, prepaid ? "pago" : "na-entrega", leadId].join("/"),
                     texto,
                     ctx: gateCtx({
-                      config: { ...config, coupon: { ...config.coupon, active } },
+                      config: { ...config, prices, coupon: { ...config.coupon, active } },
                       now,
                       paymentPath: order ? (prepaid ? "prepay" : "cod") : paymentPath,
                       units,
@@ -933,7 +1130,8 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                 }
 
   it("cobre as duas variantes sorteadas de cada toque que sorteia", () => {
-    for (const [kind, n] of [["checkout_reminder", 2], ["silence_1", 6], ["silence_2", 2]] as const)
+    // silence_1: 2 por ponto de parada, mais 2 do antecipado depois do preço em cada config.
+    for (const [kind, n] of [["checkout_reminder", 2], ["silence_1", 10], ["silence_2", 4]] as const)
       expect(new Set(casos.filter((c) => c.rotulo.startsWith(kind + "/")).map((c) => c.texto)).size).toBe(n);
   });
 

@@ -171,8 +171,9 @@ export const linkFactsBriefing = (config: PromptConfig): string[] => {
  * On 2026-09-28 the operator split it by path: cash on delivery ships free (R$ 0,00 on the
  * Logzz offer), the prepaid checkout charges by region. `delivery.codFreeShipping`, read with
  * the gate's own `!== false` (absent = free on delivery, because the secret does not carry
- * the key), makes her say it — with the path named in the same sentence, which is the exact
- * condition under which `shipping_promise` lets "frete grátis" through.
+ * the key), makes her say it — in one of the whole sentences `shipping_promise` lists
+ * (`canonicalFree`, grafo §32), the first of which this paragraph teaches word for word: since
+ * §32, naming the path in the sentence is no longer enough to let "frete grátis" through.
  */
 export const freightBriefing = (config: PromptConfig): string[] =>
   config.delivery.freeShipping === true
@@ -195,7 +196,7 @@ export const freightBriefing = (config: PromptConfig): string[] =>
             .sort((a, b) => a.units - b.units)
             .map((k) => `Levando ${k.units} peças, o mesmo com o preço do kit: "Pagando na entrega o frete é grátis: você paga só ${money(k.priceBrl)} quando receber."`),
           `Qualquer outra frase com "grátis", "sem frete" ou "não paga frete" volta pra reescrita.`,
-          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão, do site ou do link`,
+          `Na mesma mensagem, toda frase que falar do antecipado, do pix, do cartão online, do site`,
           `diz que ali o frete é calculado no checkout, ou volta pra reescrita ("No pix também." e`,
           `"Vale pros dois." estendem o grátis).`,
           ...(config.prices.prepayDiscountPercent > 0
@@ -386,7 +387,7 @@ export const systemPrompt = (
     `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
     `— **Ancoragem:** o preço cheio publicado é ${money(config.prices.anchorBrl)}. Diga de onde`,
     `  ela está saindo antes de dizer onde chega.`,
-    `— **Reversão de risco:** ela não paga nada agora e tem ${config.delivery.warrantyDays} dias`,
+    `— **Reversão de risco:** no pagamento na entrega ela não paga nada agora e tem ${config.delivery.warrantyDays} dias`,
     `  após o recebimento pra devolver. É o seu argumento mais forte — use quando ela hesitar,`,
     `  com palavras novas, e não em toda mensagem.`,
     `— **Antecipe a objeção:** diga "você deve estar pensando que..." antes que ela pense.`,

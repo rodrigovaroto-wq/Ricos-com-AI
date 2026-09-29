@@ -556,7 +556,7 @@ for (const chat of CHATS) {
 // simplesmente não recebe o toque.
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply, esperado] of [
-  ["espelho, sem prometer corpo", "Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.", "envia"],
+  ["a porta, sem prometer prova antes de pagar", "Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele.", "envia"],
   ["a roupa parada no armário", "Pensa naquela roupa que está parada no armário esperando um dia bom.", "envia"],
   ["honestidade como argumento", "O colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa.", "envia"],
   ["a cena concreta", "É o vestido que você já tem, caindo do jeito que você queria.", "envia"],

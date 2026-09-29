@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import {
   chasesSilence,
   endsSilenceRuler,
+  orderTouchDue,
   inSilenceRuler,
   onOrderConfirmed,
   orderStatusAfter,
@@ -34,8 +35,18 @@ describe("5.8: o status do pedido vira estágio do funil", () => {
     ["shipped", "em_rota"],
     ["in_transit", "em_rota"],
     ["Entregue", "entregue_pago"],
+    ["Pedido entregue", "entregue_pago"],
+    ["Aprovado / Entregue", "entregue_pago"],
     ["delivered", "entregue_pago"],
     ["Concluído", "entregue_pago"],
+    // Entregue à transportadora é a caminho, não na porta dela (revisão do PR #39).
+    ["Entregue à transportadora", "em_rota"],
+    ["Entregue ao transportador", "em_rota"],
+    ["Entregue para a transportadora", "em_rota"],
+    ["Pedido entregue ao correio", "em_rota"],
+    ["Pedido entregue aos Correios", "em_rota"],
+    ["Aprovado / Entregue à transportadora", "em_rota"],
+    ["Não entregue à transportadora", null],
     ["Cancelado", "recusado"],
     ["Recusado na entrega", "recusado"],
     ["cancelado pelo cliente", "recusado"],
@@ -88,8 +99,9 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     // O silence_3 renderiza null com o cupom inativo (a configuração de hoje): esse ramo é o
     // único que a produção exercita, e foi o que a primeira versão esqueceu.
     expect(afterLeave).not.toContain("await mark(");
-    // Four: the empty render, the gate, the blocked delivery, and the order touch its status made moot.
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(4);
+    // Five: the empty render, the gate, the blocked delivery, the order touch its status made
+    // moot, and the eve whose delivery day is not tomorrow (D1).
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(5);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
@@ -129,11 +141,11 @@ describe("dois pedidos no mesmo lead: o toque guarda o pedido dele", () => {
     expect(source).toContain("const orderRowId: string | undefined = saved?.[0]?.id;");
     expect(source).toContain("order_id: orderRowId ?? null,");
     expect(source).toContain("followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id");
-    expect(source).toContain("    status,\n    orderRowId,\n  );");
+    expect(source).toContain("    status,\n    orderRowId,\n    scheduledFor,\n  );");
   });
   it("a varredura lê o pedido do toque, e o último só para linha antiga", () => {
     expect(source).toContain("&select=id,kind,run_at,stop_point,body,order_id,conversation_id,");
-    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for`");
   });
   it("a migração é aditiva e nula", () => {
     const sql = readFileSync("supabase/migrations/0017_followup_order.sql", "utf8");
@@ -158,7 +170,7 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
   });
   it("recordOrder lê os outros pedidos do lead antes de gravar o estágio", () => {
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at,scheduled_for&order=created_at.desc");
     expect(source).toContain("const reached = stageForLead(status, otherStatuses);");
   });
 });
@@ -191,7 +203,7 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
         { kind: "silence_1", status: "scheduled" },
       ] as never,
       quando,
-      1,
+      quando,
     );
     expect(efeito.cancel).toEqual(["checkout_reminder", "silence_1"]);
   });
@@ -255,7 +267,7 @@ describe("§R10.4, sexta revisão: nem lembrete duplicado, nem lembrete de link 
 describe("revisão de segurança: o pedido do toque é da própria cliente", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a leitura por order_id também filtra o lead", () => {
-    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`");
+    expect(source).toContain("? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for`");
   });
   it("externalId longo demais é recusado antes de gravar", () => {
     const guard = source.indexOf("order.externalId.length > MAX_EXTERNAL_ID");
@@ -328,6 +340,33 @@ describe("terceira revisão: pedido morto não ressuscita por webhook atrasado",
     expect(orderStatusAfter("Cancelado", "Aprovado / Enviado")).toBe("Cancelado");
     expect(orderStatusAfter("Devolvido", "Entregue")).toBe("Devolvido");
   });
+  it("entregue não volta a vivo por status atrasado; só a morte o sobrescreve (revisão do PR #39, achado 1)", () => {
+    for (const atrasado of ["created", "Em rota", "Em rota de entrega", "Aprovado / Enviado", "Agendado", "Não entregue", "Entregue à transportadora"]) {
+      expect(orderStatusAfter("Entregue", atrasado)).toBe("Entregue");
+      expect(orderStatusAfter("Aprovado / Entregue", atrasado)).toBe("Aprovado / Entregue");
+    }
+    expect(orderStatusAfter("Entregue", "Devolvido")).toBe("Devolvido");
+    expect(orderStatusAfter("Entregue", "Recusado na entrega")).toBe("Recusado na entrega");
+    // Entregue à transportadora é em rota: a entrega de verdade ainda o sobrescreve.
+    expect(orderStatusAfter("Entregue à transportadora", "Entregue")).toBe("Entregue");
+  });
+  it("o caminho inteiro: «Entregue» e depois «created» atrasado não rearma confirmação, envio nem véspera", () => {
+    const orderedAt = new Date("2026-09-28T12:00:00Z");
+    const now = new Date("2026-09-29T12:00:00Z");
+    const armada = [
+      { kind: "order_confirmed", status: "canceled", orderId: "A" },
+      { kind: "order_delivered", status: "scheduled", orderId: "A" },
+    ] as const;
+    for (const atrasado of ["created", "Em rota de entrega", "Aprovado / Enviado"]) {
+      const status = orderStatusAfter("Entregue", atrasado);
+      const efeito = onOrderConfirmed([...armada], orderedAt, now, status, "A", "2026-09-30");
+      expect(efeito.arm).toEqual([]);
+      expect(efeito.move).toEqual([]);
+      expect(orderTouchDue("order_eve", status)).toBe(false);
+      // Sem a linha de confirmação: o primeiro webhook tardio também não arma nada além da entrega.
+      expect(onOrderConfirmed([], orderedAt, now, status, "A", "2026-09-30").arm.map((f) => f.kind)).toEqual(["order_delivered"]);
+    }
+  });
   it("o resto segue o webhook: primeiro status, avanço, e morte de um vivo", () => {
     expect(orderStatusAfter(undefined, "created")).toBe("created");
     expect(orderStatusAfter(null, "Cancelado")).toBe("Cancelado");
@@ -345,7 +384,7 @@ describe("terceira revisão: pedido morto não ressuscita por webhook atrasado",
     expect(record).toContain('const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");');
     expect(record).not.toContain("order.status,");
     expect(record).not.toContain("status: order.status");
-    expect(record).toContain("{ id: orderRowId, status, orderedAt },");
+    expect(record).toContain("{ id: orderRowId, status, orderedAt, scheduledFor },");
   });
   it("created_at do pedido é a data do pedido, que o takeover usa para os outros", () => {
     expect(record).toContain("{ created_at: orderedOn.toISOString() }");
@@ -408,11 +447,63 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   });
 
   it("a varredura cancela o toque pós-pedido que o status do pedido já tornou sem sentido", () => {
-    expect(sweep).toContain("&select=amount_brl,units,size,payment_method,status`");
+    expect(sweep).toContain("&select=amount_brl,units,size,payment_method,status,scheduled_for`");
     const guard = sweep.indexOf("if (order && !orderTouchDue(kind, order.status ?? undefined)) {");
     expect(guard).toBeGreaterThan(sweep.indexOf("const order = kind.startsWith(\"order_\")"));
     const bail = sweep.slice(guard, sweep.indexOf("return;", guard));
     expect(bail).toContain('await leave("canceled");');
     expect(guard).toBeLessThan(sweep.indexOf("const delivery = deliveryFor("));
+  });
+});
+
+/**
+ * Revisão do PR #39 e cruzamento D1–D3 (2026-09-29), no arquivo que a produção roda. As decisões
+ * puras estão em followups.test.ts; aqui fica o que só o `index.ts` faz: ler e gravar a data, a
+ * trava da véspera no envio, o cancelamento que não reescreve o que saiu e a praça do lead.
+ */
+describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const record = source.slice(source.indexOf("const recordOrder"), source.indexOf("const RETRY_TURN_KIND"));
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("o cancelamento do webhook só toca linha ainda agendada — a que acabou de sair fica sent", () => {
+    expect(record).toContain("await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}&status=eq.scheduled`, {");
+    expect(record).not.toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}`");
+  });
+
+  it("a data em vigor é a do webhook, ou a gravada quando ele não traz — nunca apagada por um webhook sem data", () => {
+    const read = record.indexOf("orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for");
+    expect(read).toBeGreaterThan(-1);
+    expect(record).toContain("const scheduledFor: string | null = order.scheduledFor ?? stored?.[0]?.scheduled_for ?? null;");
+    expect(record).toContain("      scheduled_for: scheduledFor,\n");
+    expect(record).not.toContain("scheduled_for: order.scheduledFor ?? null");
+  });
+
+  it("a véspera remarcada é a mesma linha, só se não saiu", () => {
+    expect(record).toContain("for (const f of effect.move) {");
+    expect(record).toContain("&select=kind,status,order_id,run_at`");
+    const move = record.slice(record.indexOf("for (const f of effect.move) {"));
+    expect(move).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`");
+  });
+
+  it("a varredura só manda a véspera se a entrega é amanhã, pela data do pedido de agora", () => {
+    const lock = sweep.indexOf('if (kind === "order_eve" && !eveIsTomorrow(order?.scheduled_for, new Date())) {');
+    expect(lock).toBeGreaterThan(sweep.indexOf("const order = kind.startsWith(\"order_\")"));
+    expect(lock).toBeLessThan(sweep.indexOf("const delivery = deliveryFor("));
+    expect(sweep.slice(lock, sweep.indexOf("return;", lock))).toContain('await leave("canceled");');
+  });
+
+  it("a varredura julga e escreve o silêncio no caminho antecipado quando a praça não tem entrega", () => {
+    expect(sweep).toContain(",payment_choice,payment_choice_at,address");
+    expect(sweep).toContain('fresh(lead.payment_choice_at) && lead.payment_choice === "prepay") || lead.address?.codAvailable === false');
+    expect(sweep).toContain("      paymentPath: touchPath,\n      body:");
+  });
+
+  it("o turno grava a praça no lead quando a consulta respondeu", () => {
+    expect(source).toContain("const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;");
+    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable) {");
+    expect(source).toContain("...(codAvailable !== undefined ? { codAvailable } : {}),");
+    // Fora do rascunho: a praça não viaja para o pedido da Coinzz nem para a leitura do endereço.
+    expect(source).toContain("delete (addressDraft as { codAvailable?: boolean }).codAvailable;");
   });
 });

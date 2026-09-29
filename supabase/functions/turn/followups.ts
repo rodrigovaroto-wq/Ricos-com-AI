@@ -73,6 +73,32 @@ export const nextOpening = (now: Date, openHour: number): Date =>
   nextLocalHour(now, openHour, true);
 
 /**
+ * `hour` o'clock in São Paulo, `days` after the calendar day `date` ("YYYY-MM-DD", the shape
+ * `orders.scheduled_for` holds). Null for anything else: no date is no eve, never a guess.
+ */
+const localDateAt = (date: string | null | undefined, days: number, hour: number): Date | null => {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(date ?? "");
+  if (!m) return null;
+  const wall = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3]) + days, hour));
+  return new Date(wall.getTime() - offsetMinutes(wall, BUSINESS_TZ) * 60_000);
+};
+
+/** The São Paulo calendar day of an instant, "YYYY-MM-DD". */
+const localDay = (at: Date): string =>
+  new Date(at.getTime() + offsetMinutes(at, BUSINESS_TZ) * 60_000).toISOString().slice(0, 10);
+
+/**
+ * Whether the delivery day is tomorrow in São Paulo — the only day "sua entrega está marcada
+ * pra amanhã" is true (D1, 2026-09-29). The sweep checks it again at send time, against the
+ * order's date as it is then: a webhook may have moved it, and a pre-date eve has none.
+ */
+export const eveIsTomorrow = (scheduledFor: string | null | undefined, now: Date): boolean => {
+  const from = localDateAt(scheduledFor, -1, 0);
+  const to = localDateAt(scheduledFor, 0, 0);
+  return from !== null && to !== null && now >= from && now < to;
+};
+
+/**
  * Structurally the same as the guardrail chain's `Remedy`, declared here instead of
  * imported so this file keeps zero imports and mirrors byte-for-byte into the Edge
  * Function — the rule `guardrails.ts` and `retry.ts` already follow. A test asserts
@@ -177,28 +203,59 @@ export const rulerFor = (
  */
 export const endsSilenceRuler = (kind: string): boolean => kind === "silence_3";
 
+/** What the sale webhook says about one order — all the post-order ruler reads. */
+export interface OrderFacts {
+  readonly orderedAt: Date;
+  readonly status: string | undefined;
+  /** The delivery day she chose ("YYYY-MM-DD", `orders.scheduled_for`); absent on prepaid. */
+  readonly scheduledFor?: string | null | undefined;
+}
+
 /**
- * Post-order ruler. `shipped` and `eve` only get a real time once logistics says so;
- * until then they sit at the estimate, which is what the customer was told.
+ * The eve goes out the morning of the day before, at 10:00 in São Paulo: late enough that
+ * nobody is woken, early enough that she can still say "não vou estar em casa" and be heard.
  */
-export const scheduleOrder = (orderedAt: Date, codDaysMin: number): ScheduledFollowup[] => [
-  { kind: "order_confirmed", runAt: new Date(orderedAt.getTime() + 5 * MINUTE) },
-  { kind: "order_shipped", runAt: new Date(orderedAt.getTime() + DAY) },
-  /**
-   * The eve of the delivery, and never before the order exists. It used to be
-   * `(codDaysMin - 1)` days out, and `codDaysMin` is 1 — so "sua entrega é amanhã, separe
-   * R$ 129,90" fired at order time, ahead of the confirmation itself.
-   *
-   * Counted in hours because the floor and the shipping touch collide otherwise: with a
-   * one-day window both would land at +24h, and two messages arriving together is how a
-   * number gets reported. Thirty hours puts it the following day, after the parcel left.
-   */
-  {
-    kind: "order_eve",
-    runAt: new Date(orderedAt.getTime() + Math.max(30, (codDaysMin - 1) * 24) * HOUR),
-  },
-  { kind: "order_delivered", runAt: new Date(orderedAt.getTime() + (codDaysMin + 1) * DAY) },
-];
+const EVE_HOUR = 10;
+
+/**
+ * The eve of the delivery: only with a delivery day, and only on the day before it (D1,
+ * operator, 2026-09-29). It was armed at orderedAt+30h on both paths, so "sua entrega está
+ * marcada pra amanhã" went out on a clock — to a prepaid order that takes five working days,
+ * and to a COD order whose day she chose herself in the checkout. Past 10:00 of that day, it
+ * leaves soon; on the delivery day or later, not at all. Never before the confirmation.
+ */
+const eveAt = (order: OrderFacts, now: Date): Date | null => {
+  const morning = localDateAt(order.scheduledFor, -1, EVE_HOUR);
+  const deliveryDay = localDateAt(order.scheduledFor, 0, 0);
+  if (!morning || !deliveryDay) return null;
+  const at = new Date(Math.max(morning.getTime(), now.getTime() + 5 * MINUTE, order.orderedAt.getTime() + HOUR));
+  return at < deliveryDay ? at : null;
+};
+
+/**
+ * Post-order ruler, from the order's status and date instead of the clock (Q1, operator,
+ * 2026-09-29). The confirmation is the only one the order alone arms. "A caminho" waits for
+ * a status that reads `em_rota` — at orderedAt+24h it said so of a parcel still in the
+ * warehouse — and "Chegou?!" for one that reads `entregue_pago`, a couple of hours after.
+ * The eve needs the date (`eveAt`). Callers filter by `orderTouchDue` and by what exists.
+ */
+export const scheduleOrder = (order: OrderFacts, now: Date): ScheduledFollowup[] => {
+  const touches: ScheduledFollowup[] = [
+    { kind: "order_confirmed", runAt: new Date(order.orderedAt.getTime() + 5 * MINUTE) },
+  ];
+  const stage = stageForOrder(order.status);
+  // An hour after the confirmation at the earliest: two messages together get a number reported.
+  if (stage === "em_rota") {
+    touches.push({
+      kind: "order_shipped",
+      runAt: new Date(Math.max(now.getTime() + 10 * MINUTE, order.orderedAt.getTime() + HOUR)),
+    });
+  }
+  const eve = eveAt(order, now);
+  if (eve) touches.push({ kind: "order_eve", runAt: eve });
+  if (stage === "entregue_pago") touches.push({ kind: "order_delivered", runAt: new Date(now.getTime() + 2 * HOUR) });
+  return touches;
+};
 
 /**
  * Same customer, same variant; different customers, different variants — without a
@@ -215,11 +272,15 @@ export const scheduleOrder = (orderedAt: Date, codDaysMin: number): ScheduledFol
  * every scheduled silence touch dies with it — the post-order ruler takes over.
  *
  * `order_*` touches already scheduled are left alone: a second webhook for the same sale
- * (retry, status change) must not slide the delivery-eve message off its date.
+ * (retry, status change) must not slide the delivery-eve message off its date. The one
+ * exception is `move`: a webhook with a NEW delivery day re-dates the eve this order holds,
+ * in place — `(conversation_id, kind)` is unique, and the arm is an ignore-duplicates insert.
  */
 export interface OrderEffect {
   readonly cancel: readonly FollowupKind[];
   readonly arm: readonly ScheduledFollowup[];
+  /** Rows this order already holds, not sent, to reschedule (status back to scheduled). */
+  readonly move: readonly ScheduledFollowup[];
 }
 
 /** A row as the table holds it: the kind, and whether it is still waiting to go out. */
@@ -228,6 +289,8 @@ export interface ExistingFollowup {
   readonly status: "scheduled" | "sent" | "canceled";
   /** The order that armed a post-order touch; null for silence and for rows before 0017. */
   readonly orderId?: string | null;
+  /** When it is (or was) due — how a new delivery day is told apart from the same one. */
+  readonly runAt?: Date;
 }
 
 /**
@@ -253,8 +316,14 @@ export const isOrderDead = (status: string | undefined): boolean =>
  * 2026-09-28). The row was upserted last-arrival-wins, so a late "created" or "Enviado" after
  * "Cancelado" brought the order back to life — the lead's other order then saw a live
  * sibling, the dead one's touches never moved, and a cancelled order got the whole ruler.
+ *
+ * A delivered order stays delivered too, except by death — "Devolvido" after "Entregue" is a
+ * real return (PR #39 review, finding 1). A late "created" or "Em rota" after "Entregue" put
+ * the order back on its way: `onOrderConfirmed` re-armed confirmation, shipping and eve, and
+ * the sweep sent "sua entrega está marcada pra amanhã" after the parcel had arrived.
  */
 export const orderStatusAfter = (stored: string | null | undefined, incoming: string): string =>
+  stageForOrder(stored ?? undefined) === "entregue_pago" && !isOrderDead(incoming) ? stored! :
   isOrderDead(stored ?? undefined) && !isOrderDead(incoming) ? stored! : incoming;
 
 /**
@@ -264,7 +333,9 @@ export const orderStatusAfter = (stored: string | null | undefined, incoming: st
  * paid — did not exist in the database. Read by root, like `isOrderDead`, because neither
  * platform publishes its vocabulary. Paid is not delivered: a prepaid "Pagamento
  * aprovado" is still an order waiting to ship. A failed attempt ("não entregue",
- * "frustrada") may be retried and `recusado` is terminal, so it moves nothing.
+ * "frustrada") may be retried and `recusado` is terminal, so it moves nothing. Handed to the
+ * carrier ("Entregue à transportadora", "entregue aos Correios") is on its way, not at her
+ * door: read as delivered, it cancelled the shipping and the eve and counted a sale paid.
  */
 export const stageForOrder = (
   status: string | undefined,
@@ -272,6 +343,7 @@ export const stageForOrder = (
   const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
   if (isOrderDead(s)) return "recusado";
+  if (/\bentregue\s+(?:(?:a|ao|aos|as|para|pra)\s+)+(?:transportador|correio)/.test(s)) return "em_rota";
   if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
   if (/\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid/.test(s)) return "em_rota";
   return "pedido_criado";
@@ -292,9 +364,10 @@ export const stageForLead = (
 
 /**
  * Whether a post-order touch still has something to say, given its order's status. A dead
- * order has nothing; a delivered one has only the after-delivery touch — `order_eve` is
- * armed at orderedAt+30h and does not know the parcel arrived, so "sua entrega está marcada
+ * order has nothing; a delivered one has only the after-delivery touch — `order_eve` was
+ * armed at orderedAt+30h and did not know the parcel arrived, so "sua entrega está marcada
  * pra amanhã, deixa R$ 129,90 separado" went out after "Entregue" (HANDOFF, pre-existing).
+ * The eve's own date is a second check, at send time (`eveIsTomorrow`).
  */
 export const orderTouchDue = (kind: FollowupKind, status: string | undefined): boolean =>
   !isOrderDead(status) && (stageForOrder(status) !== "entregue_pago" || kind === "order_delivered");
@@ -313,9 +386,11 @@ export const chasesSilence = (stage: string | null | undefined, orderStatuses: r
 export const onOrderConfirmed = (
   existing: readonly ExistingFollowup[],
   orderedAt: Date,
-  codDaysMin: number,
+  now: Date,
   status?: string,
   orderId?: string,
+  /** The delivery day in force — the webhook's, or the one stored when it brings none. */
+  scheduledFor?: string | null,
 ): OrderEffect => {
   const scheduled = existing.filter((f) => f.status === "scheduled");
   const theirs = (f: ExistingFollowup) => !orderId || !f.orderId || f.orderId === orderId;
@@ -328,8 +403,9 @@ export const onOrderConfirmed = (
   // per conversation, so the live order usually has none of its own: `orderTakeOver` moves
   // them to it. A row that does not say its order (before 0017) dies as before.
   if (isOrderDead(status)) {
-    return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [] };
+    return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [], move: [] };
   }
+  const plan = scheduleOrder({ orderedAt, status, scheduledFor }, now);
 
   // Delivered: the confirmation, the shipping and the eve have nothing left to say — and the
   // first webhook may already be "Entregue", which armed the whole ruler. This order's pending
@@ -339,11 +415,18 @@ export const onOrderConfirmed = (
       cancel: scheduled
         .filter((f) => inSilenceRuler(f.kind) || (f.kind.startsWith("order_") && theirs(f) && !orderTouchDue(f.kind, status)))
         .map((f) => f.kind),
-      arm: scheduleOrder(orderedAt, codDaysMin).filter(
+      arm: plan.filter(
         (f) => !existing.some((e) => e.kind === f.kind) && orderTouchDue(f.kind, status),
       ),
+      move: [],
     };
   }
+
+  // A new delivery day re-dates the eve this order holds, not sent: at the old date the sweep
+  // would find the day wrong and cancel it, and she would get no eve at all. The same day again
+  // (a retry, another status) moves nothing — nor revives a row cancelled for that day.
+  const eve = plan.find((f) => f.kind === "order_eve");
+  const held = existing.find((e) => e.kind === "order_eve" && e.status !== "sent" && theirs(e));
 
   return {
     // Only what is still waiting can be cancelled; a touch already sent is history.
@@ -352,17 +435,16 @@ export const onOrderConfirmed = (
     // after `order_confirmed` already went out would otherwise re-arm a kind the table
     // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
     // — the whole call 500s, the status update is lost, and n8n retries into the same wall.
-    arm: scheduleOrder(orderedAt, codDaysMin).filter(
+    arm: plan.filter(
       (f) => !existing.some((e) => e.kind === f.kind),
     ),
+    move: eve && held?.runAt && localDay(held.runAt) !== localDay(eve.runAt) ? [eve] : [],
   };
 };
 
 /** One of the lead's orders, as the sale webhook sees them. */
-export interface LeadOrder {
+export interface LeadOrder extends OrderFacts {
   readonly id: string;
-  readonly status: string | undefined;
-  readonly orderedAt: Date;
 }
 
 /**
@@ -382,15 +464,13 @@ export const orderTakeOver = (
   /** The lead's other orders, newest first. */
   others: readonly LeadOrder[],
   now: Date,
-  codDaysMin: number,
 ): { orderId: string; arm: ScheduledFollowup[] } | null => {
   const live = isOrderDead(order.status) ? others.find((o) => !isOrderDead(o.status)) : order;
   if (!live) return null;
   const dead = [order, ...others].filter((o) => isOrderDead(o.status)).map((o) => o.id);
-  const arm = scheduleOrder(live.orderedAt, codDaysMin).filter(
+  const arm = scheduleOrder(live, now).filter(
     (f) =>
       f.runAt > now &&
-      orderTouchDue(f.kind, live.status) &&
       existing.some((e) => e.kind === f.kind && e.status !== "sent" && !!e.orderId && dead.includes(e.orderId)),
   );
   return arm.length > 0 ? { orderId: live.id, arm } : null;
@@ -432,12 +512,35 @@ const SILENCE_1: Record<StopPoint, readonly string[]> = {
   ],
   after_price: [
     "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.",
-    "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você recebe, veste com a sua roupa, se olha no espelho — e só então decide.",
+    // The courier does not wait for her to try it on (Q4, operator, 2026-09-29): she sees it,
+    // pays at the door, and what is not what she expected she does not keep.
+    "Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele.",
   ],
   link_sent: [
     "Conseguiu finalizar seu pedido? Se travou em algum passo, é só me falar que eu te ajudo por aqui mesmo 😊",
     "Passando pra ver: deu certo de fechar o pedido? Se preferir, eu monto o link de novo pra você.",
   ],
+};
+
+/**
+ * `after_price` for a woman on the prepaid path — she chose it, or her region has no payment
+ * at the door (D3/Q2, operator, 2026-09-29). "Você não paga nada agora" is false there. What
+ * is true and sells is the discount and the deadline, read from the config the way the gate
+ * reads them: the percentage with the price (never the saving in reais), and the average only
+ * when the config says it varies by region. A missing key drops its clause, never guesses.
+ */
+const silence1Prepay = (c: FollowupConfig): readonly string[] => {
+  const { prepayBrl, prepayDiscountPercent } = c.prices;
+  const price =
+    prepayBrl == null ? "" : (prepayDiscountPercent ?? 0) > 0 ? `com ${prepayDiscountPercent}% de desconto: ${brl(prepayBrl)}` : `por ${brl(prepayBrl)}`;
+  const avg =
+    c.delivery.prepayVariesByRegion && c.delivery.prepayAvgDays != null
+      ? ` No antecipado, o prazo varia por região, em média ${c.delivery.prepayAvgDays} dias úteis.`
+      : "";
+  return [
+    `Qualquer coisa é só chamar!${price ? ` Lembrando que no pagamento antecipado você leva o colete ${price}.` : ""}${avg}`,
+    `Fico por aqui se precisar!${price ? ` E lembra: pagando antecipado, o colete sai ${price}.` : ""}${avg}`,
+  ];
 };
 
 /**
@@ -456,10 +559,24 @@ const CHECKOUT_REMINDER: readonly string[] = [
  * config turned the ruler's own copy into a veto, and the sweep, which treats a rewrite
  * remedy as a cancel, would have thrown the touch away without a word.
  */
+/**
+ * Both used to say she wears it before paying ("você vê, veste, e só paga se estiver tudo
+ * certo"; "só paga se, ao se olhar no espelho, achar que valeu") — the courier does not wait
+ * for that (Q4, operator, 2026-09-29). True: she sees it and pays at the door, does not keep
+ * what is not what she expected, and after receiving has the warranty days to return it, at
+ * no cost to her — the store pays the return (Q3).
+ */
 const SILENCE_2 = (days: number) =>
   [
-    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê, veste, e só paga se estiver tudo certo. Se não servir, tem ${days} dias pra devolver. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga se, ao se olhar no espelho, achar que valeu — e ainda tem ${days} dias pra devolver se não achar. É só me chamar.`,
+    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
+    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga quando ele chegar na sua mão — e, depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
+  ] as const;
+
+/** The same angles on the prepaid path: she pays first, so nothing about paying at the door. */
+const SILENCE_2_PREPAY = (days: number) =>
+  [
+    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: comprar sem ver dá um frio na barriga, eu sei. Então fica tranquila: depois que o colete chega na sua casa, você tem ${days} dias pra devolver se não for o que você esperava, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
+    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E se, com ele na mão, você achar que não valeu, tem ${days} dias pra devolver sem custo nenhum. É só me chamar.`,
   ] as const;
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
@@ -492,9 +609,16 @@ export interface TemplateBinding {
 /** Only what the copy reads. Declared locally so this file has zero imports and
  * runs byte-identical in Deno and in vitest, like the guardrail chain. */
 export interface FollowupConfig {
-  prices: { codBrl: number };
+  /** The prepaid keys are optional here: a missing one drops its clause from the copy. */
+  prices: { codBrl: number; prepayBrl?: number; prepayDiscountPercent?: number };
   coupon: { percent: number; active: boolean };
-  delivery: { codDaysMin: number; codDaysMax: number; warrantyDays: number };
+  delivery: {
+    codDaysMin: number;
+    codDaysMax: number;
+    warrantyDays: number;
+    prepayAvgDays?: number;
+    prepayVariesByRegion?: boolean;
+  };
   /**
    * OPTIONAL, and absent means no template is approved yet. That is not laziness: in
    * production the whole config comes from a `BUSINESS_CONFIG` secret that overrides the
@@ -528,6 +652,11 @@ export interface RenderContext {
   units?: number;
   /** She already paid (prepaid order): nothing is due at the door (sixth review). */
   prepaid?: boolean;
+  /**
+   * The path the silence touches speak of (D3): "prepay" when she chose it or her region has
+   * no payment at the door. Absent reads "cod", the truth for a region nobody looked up.
+   */
+  paymentPath?: "cod" | "prepay";
   /** The already-written text, for a deferred reply. */
   body?: string;
   /**
@@ -561,10 +690,18 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
     case "silence_1":
-      return pickVariant(ctx.leadId, SILENCE_1[ctx.stopPoint ?? "before_size"]);
+      return pickVariant(
+        ctx.leadId,
+        ctx.paymentPath === "prepay" && ctx.stopPoint === "after_price"
+          ? silence1Prepay(ctx.config)
+          : SILENCE_1[ctx.stopPoint ?? "before_size"],
+      );
 
     case "silence_2":
-      return pickVariant(ctx.leadId, SILENCE_2(ctx.config.delivery.warrantyDays));
+      return pickVariant(
+        ctx.leadId,
+        (ctx.paymentPath === "prepay" ? SILENCE_2_PREPAY : SILENCE_2)(ctx.config.delivery.warrantyDays),
+      );
 
     case "silence_3": {
       if (!ctx.config.coupon.active) return null;
@@ -585,8 +722,11 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
       );
 
+    // Armed by a status that reads `em_rota`. Not "assim que a transportadora agendar o dia"
+    // (D2): on delivery she chose the day herself, in the checkout. Nor "na véspera eu te
+    // aviso": a prepaid order has no date and gets no eve, and "Saiu para entrega" is the day.
     case "order_shipped":
-      return "Oi! Seu colete já está a caminho 🚚 Assim que a transportadora agendar o dia, eu te aviso aqui pra você não ser pega de surpresa.";
+      return "Oi! Seu colete já está a caminho 🚚 Qualquer dúvida sobre a entrega, é só me chamar aqui mesmo.";
 
     case "order_eve":
       return (
@@ -685,6 +825,10 @@ export const deliveryFor = (
   if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {
     return { via: "blocked", reason: "no_opt_in" };
   }
+
+  // The `silence_2` template is the delivery path's text ("só paga ao entregador"): on the
+  // prepaid path there is no template, so the touch is blocked rather than sent that one (D3).
+  if (kind === "silence_2" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
 
   // One template per touch, and `body` is what it says — the text the sweep gates: `silence_2`
   // leaves as its first variant (R15.2), and a prepaid eve by its own template.

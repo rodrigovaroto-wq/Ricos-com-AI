@@ -26,6 +26,7 @@ import {
   onOrderConfirmed,
   orderTakeOver,
   orderTouchDue,
+  eveIsTomorrow,
   chasesSilence,
   inSilenceRuler,
   orderStatusAfter,
@@ -1030,8 +1031,11 @@ const recordOrder = async (order: OrderWebhook) => {
 
   // A dead order stays dead (`orderStatusAfter`): what is written and every decision below
   // read this status, never the late webhook's. Index: orders_external_id_key (unique).
-  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status`);
+  const stored = await db(`orders?external_id=eq.${encodeURIComponent(order.externalId)}&select=status,scheduled_for`);
   const status = orderStatusAfter(stored?.[0]?.status, order.status ?? "created");
+  // The delivery day in force (D1): a status webhook without `date_delivery` does not erase
+  // the day she chose — without it the eve has no date and the sweep would cancel it.
+  const scheduledFor: string | null = order.scheduledFor ?? stored?.[0]?.scheduled_for ?? null;
   // The order's own date, not the first webhook's arrival: a live order that takes over a
   // dead one's touches is scheduled from `created_at` (`orderTakeOver` below).
   const orderedOn = order.orderedAt ? new Date(order.orderedAt) : null;
@@ -1049,7 +1053,7 @@ const recordOrder = async (order: OrderWebhook) => {
       units: order.units ?? 1,
       amount_brl: order.amountBrl,
       status,
-      scheduled_for: order.scheduledFor ?? null,
+      scheduled_for: scheduledFor,
       ...(orderedOn && !Number.isNaN(orderedOn.getTime()) ? { created_at: orderedOn.toISOString() } : {}),
       updated_at: new Date().toISOString(),
     }),
@@ -1071,9 +1075,9 @@ const recordOrder = async (order: OrderWebhook) => {
   const orderRowId: string | undefined = saved?.[0]?.id;
 
   // Index: orders_lead_idx (lead_id); a lead's handful of orders is sorted in memory.
-  const others: Array<{ id: string; status: string | null; created_at: string }> =
+  const others: Array<{ id: string; status: string | null; created_at: string; scheduled_for: string | null }> =
     (await db(
-      `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at&order=created_at.desc`,
+      `orders?lead_id=eq.${lead.id}&external_id=neq.${encodeURIComponent(order.externalId)}&select=id,status,created_at,scheduled_for&order=created_at.desc`,
     )) ?? [];
   const otherStatuses = others.map((o) => o.status ?? "");
   const reached = stageForLead(status, otherStatuses);
@@ -1087,23 +1091,25 @@ const recordOrder = async (order: OrderWebhook) => {
   } else if (reached) await persistStage(conversation.id, (conversation.stage as Stage | null) ?? "novo", reached);
 
   // Every row, not just the scheduled ones: a kind already `sent` still occupies the
-  // unique key, and re-arming it throws.
+  // unique key, and re-arming it throws. Index: followups_conversation_id_kind_key (unique).
   const existing = await db(
-    `followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id`,
+    `followups?conversation_id=eq.${conversation.id}&select=kind,status,order_id,run_at`,
   );
-  const rows = ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null }>)
-    .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id }));
+  const rows = ((existing ?? []) as Array<{ kind: FollowupKind; status: "scheduled" | "sent" | "canceled"; order_id: string | null; run_at: string | null }>)
+    .map((f) => ({ kind: f.kind, status: f.status, orderId: f.order_id, ...(f.run_at ? { runAt: new Date(f.run_at) } : {}) }));
   const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();
   const effect = onOrderConfirmed(
     rows,
     orderedAt,
-    CONFIG.delivery.codDaysMin,
+    new Date(),
     status,
     orderRowId,
+    scheduledFor,
   );
 
+  // Only a row still waiting: the sweep may have just sent it, and a sent touch is history.
   for (const kind of effect.cancel) {
-    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}`, {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${kind}&status=eq.scheduled`, {
       method: "PATCH",
       body: JSON.stringify({ status: "canceled" }),
     });
@@ -1125,14 +1131,20 @@ const recordOrder = async (order: OrderWebhook) => {
       ),
     });
   }
+  // A new delivery day re-dates the eve this order holds, in place (D1): one row per kind.
+  for (const f of effect.move) {
+    await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.${f.kind}&status=neq.sent`, {
+      method: "PATCH",
+      body: JSON.stringify({ status: "scheduled", run_at: f.runAt.toISOString(), order_id: orderRowId ?? null, sent_at: null }),
+    });
+  }
   // The post-order rows a dead order held move to the live one (`orderTakeOver`).
   const takeOver = orderRowId
     ? orderTakeOver(
         rows,
-        { id: orderRowId, status, orderedAt },
-        others.map((o) => ({ id: o.id, status: o.status ?? "", orderedAt: new Date(o.created_at) })),
+        { id: orderRowId, status, orderedAt, scheduledFor },
+        others.map((o) => ({ id: o.id, status: o.status ?? "", orderedAt: new Date(o.created_at), scheduledFor: o.scheduled_for })),
         new Date(),
-        CONFIG.delivery.codDaysMin,
       )
     : null;
   for (const f of takeOver?.arm ?? []) {
@@ -1146,7 +1158,7 @@ const recordOrder = async (order: OrderWebhook) => {
     status: "recorded",
     orderId: order.externalId,
     canceled: effect.cancel,
-    armed: [...effect.arm, ...(takeOver?.arm ?? [])].map((f) => f.kind),
+    armed: [...effect.arm, ...effect.move, ...(takeOver?.arm ?? [])].map((f) => f.kind),
   };
 };
 
@@ -1201,7 +1213,7 @@ const runFollowupSweep = async () => {
   const due = await db(
     "followups?status=eq.scheduled&run_at=lte." +
       encodeURIComponent(new Date().toISOString()) +
-      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at" +
+      "&select=id,kind,run_at,stop_point,body,order_id,conversation_id,conversations(id,lead_id,stage,last_inbound_at,leads(id,phone,size,opted_out_at,handoff_at,units,units_at,payment_choice,payment_choice_at,address" +
       (ASK_OPT_IN ? ",marketing_opt_in_at,marketing_opt_in_asked_at,marketing_opt_in_suspended_at,marketing_opt_in_declined_at" : "") +
       // Her orders, for `chasesSilence` below. Index: orders_lead_idx (lead_id).
       ",orders(status)))&limit=50",
@@ -1353,8 +1365,8 @@ const runFollowupSweep = async () => {
           await db(
             // Its own order when the row says which (0017); the latest for rows armed before.
             row.order_id
-              ? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status`
-              : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status&order=created_at.desc&limit=1`,
+              ? `orders?id=eq.${row.order_id}&lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for`
+              : `orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1`,
           )
         )?.[0] ?? null
       : null;
@@ -1365,14 +1377,23 @@ const runFollowupSweep = async () => {
       skipped.push({ followupId: row.id, reason: "pedido já entregue ou morto" });
       return;
     }
+    // The eve says "amanhã": only on the day before the delivery day the order holds NOW (D1).
+    // No date (prepaid, or a row armed by the old clock) is no eve; a moved date moved the row.
+    if (kind === "order_eve" && !eveIsTomorrow(order?.scheduled_for, new Date())) {
+      await leave("canceled");
+      skipped.push({ followupId: row.id, reason: "véspera fora do dia anterior à entrega" });
+      return;
+    }
     // Before the order, what the turn knew when it wrote a deferred reply: the kit and the
     // path she chose, while fresh. Re-gated as "cod" and one piece, a kit reply was lost.
+    // A region the turn found without payment at the door is prepaid too (D3): "você não paga
+    // nada agora" is false there, and the touch is written and gated on that path.
     const fresh = (at: unknown) =>
       typeof at === "string" && Number.isFinite(Date.parse(at)) && Date.now() - Date.parse(at) <= KIT_MEMORY_MS;
     const touchUnits: number = order ? Number(order.units ?? 1) : fresh(lead.units_at) ? Number(lead.units ?? 1) : 1;
     const touchPath: "cod" | "prepay" = order
       ? order.payment_method === "prepay" ? "prepay" : "cod"
-      : fresh(lead.payment_choice_at) && lead.payment_choice === "prepay" ? "prepay" : "cod";
+      : (fresh(lead.payment_choice_at) && lead.payment_choice === "prepay") || lead.address?.codAvailable === false ? "prepay" : "cod";
     const renderCtx = {
       leadId: lead.id,
       config: CONFIG,
@@ -1381,6 +1402,7 @@ const runFollowupSweep = async () => {
       ...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),
       units: touchUnits,
       prepaid: order?.payment_method === "prepay",
+      paymentPath: touchPath,
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -2480,10 +2502,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // 5d. The address loop. It accumulates across turns because she says it in pieces,
   // and it is only ever *confirmed* by her saying so — a package sent to an address
   // nobody read back is the failed delivery this costs the most to fix.
-  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string };
+  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string; codAvailable?: boolean };
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
+  delete (addressDraft as { codAvailable?: boolean }).codAvailable;
 
   const foundAddress = extractAddress(inbound.body ?? "");
   if (Object.keys(foundAddress.fields).length > 0) {
@@ -2537,14 +2560,19 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
-    JSON.stringify({ ...storedAddress, confirmedAt: Boolean(storedAddress.confirmedAt) });
-  if (addressChanged) {
+    JSON.stringify({ ...storedAddress, codAvailable: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
+  // Whether her region pays at the door, kept for the sweep (D3): the region is looked up per
+  // turn and was never stored, so the silence ruler told a woman with no payment at the door
+  // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
+  const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
+  if (addressChanged || codAvailable !== storedAddress.codAvailable) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
         address: {
           ...addressDraft,
           ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
+          ...(codAvailable !== undefined ? { codAvailable } : {}),
         },
         updated_at: new Date().toISOString(),
       }),

@@ -504,7 +504,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status&order=created_at.desc&limit=1");
+    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
