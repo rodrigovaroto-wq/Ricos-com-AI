@@ -1213,6 +1213,11 @@ contextos, o config inválido, o intérprete e a ligação no turno); mutações
 `dev:gates --fail-on-loosen`: 0 afrouxamento, 30 endurecimentos, todos a troca dita grátis. Os
 testes do §37 que exigiam "No pix a troca é grátis" passando foram invertidos.
 
+**Adendo R17.2 (2026-09-29, registrado em 2026-09-30):** a pergunta "calcula" da R17.1 fechou — o
+envio da troca é **R$ 27,00 fixo por troca**, cobrado da cliente (operador, `05-decisoes-firmes.md`
+§9). Nenhum cálculo por região ou peça: `exchange.feeBrl` é um número só, e o link do Mercado Pago
+de R$ 27,00 está no `BUSINESS_CONFIG` desde 2026-09-30 (L0.4). Guarda: `tests/exchange-freight.test.ts`.
+
 ## 40. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
 
 **Sintoma:** a revisão Opus de `9183cd4..93a0386` reprovou: com a praça sem pagamento na entrega,
@@ -1400,6 +1405,26 @@ template ganha `{{3}}` = `couponCode`, sem `coupon.code` o toque não sai, e o b
 (só depois do toque) nomeia o código e diz que nenhum outro existe. Nenhum gate veta um código
 inventado: é regra de briefing, não veto. E o `silence_3` só sai
 com template MARKETING aprovado e opt-in (`channel.askMarketingOptIn`), ainda desligados.
+
+## 45. O Hermes nunca instalou na Action (A6, L0.7, 2026-09-30)
+
+**Sintoma:** as seis execuções da Action `Hermes` (26–30/09) falharam no passo "Install Hermes
+Agent", antes de ler qualquer conversa.
+
+**Causa (log da execução 6):** `RuntimeError: Building wheels or sdists for hermes-agent is not
+supported. Hermes is distributed via the shell installer, Docker image, or Nix.` O `setup.py` do
+commit fixado bloqueia `bdist_wheel`; `uv tool install "hermes-agent @ git+…"` constrói um wheel.
+
+**Caminhos descartados:** (a) install editável (`uv tool install --editable`) — o `setup.py` o
+libera, mas resolve dependências soltas, sem o `uv.lock`; (b) `setup-hermes.sh` — monta o ambiente
+de desenvolvimento com as extras de teste.
+
+**Correção:** o instalador oficial (`scripts/install.sh`), baixado do **mesmo commit fixado**, com
+`--commit <sha> --skip-setup --skip-browser`; ele sincroniza as dependências com hash pelo
+`uv.lock` e publica `~/.local/bin/hermes`, que o passo põe no `GITHUB_PATH` e chama com `--version`.
+
+**Guarda:** a própria execução manual da Action (sem `force`: instala, lê o `hermes_backlog` e sai
+se não há 50 leads novos).
 
 ## Lições (valem para qualquer correção futura)
 

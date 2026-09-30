@@ -55,13 +55,19 @@ jobs:
 
       - run: pnpm install --frozen-lockfile
 
-      - uses: astral-sh/setup-uv@v6
-
       # Pinned: a supervisor that reads customer conversations does not float on main.
+      # The official shell installer (A6, L0.7): hermes-agent refuses to build a wheel, so the
+      # `uv tool install git+…` this step used failed in all six runs up to 2026-09-30. The
+      # installer is read from the same pinned commit it installs, and syncs dependencies
+      # hash-verified against the project's uv.lock.
       - name: Install Hermes Agent
+        env:
+          HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
         run: |
-          uv python install 3.14
-          uv tool install --python 3.14 "hermes-agent @ git+https://github.com/NousResearch/hermes-agent@ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62"
+          curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
+          bash "$RUNNER_TEMP/hermes-install.sh" --commit "$HERMES_COMMIT" --skip-setup --skip-browser
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          "$HOME/.local/bin/hermes" --version
 
       - name: Run Hermes
         env:

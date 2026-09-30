@@ -1904,6 +1904,13 @@ ainda vai ser criado pelo operador.
 
 Grafo §39.
 
+## R17.2 — O envio da troca é R$ 27,00 fixo
+
+Operador, 2026-09-29 (`05-decisoes-firmes.md` §9): a troca de tamanho custa **R$ 27,00 por troca**,
+cobrado da cliente pelo link do Mercado Pago. Fecha a pergunta "calcula" da R17.1: não varia por
+região nem por número de peças, e `exchange.feeBrl` continua um número só. No `BUSINESS_CONFIG`
+desde 2026-09-30 (L0.4). Grafo §39 (adendo).
+
 ## R17.3 — A pessoa responde a cliente por um formulário do n8n
 
 Decisão do operador em 2026-09-30 (L0.3 do pipeline 80/20): opção (a), formulário no n8n
