@@ -34,37 +34,28 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos
 
-**Etapa atual: L0 — Preparar.** PR #45 (L0.3) mergeado, CI verde; falta publicar a `turn` e
-importar o formulário no n8n — as duas ações o modo automático barrou nesta sessão (deploy de
-produção), então são do operador. L0.4: link recebido, trecho entregue, falta colar no secret.
-**Bloqueio principal:** sem L0.1 não há como atender lead real.
+**Etapa atual: L0 — Preparar.** L0.3 e L0.4 feitos em 2026-09-30: formulário "Responder cliente"
+ativo com senha, `turn` v44 no ar, `BUSINESS_CONFIG` colado. O cupom só no follow-up (R17.4) está
+na branch `claude/nice-gates-2yer56`, revisado (Opus), esperando PR → merge → v45.
+**Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
-**Conferido em 2026-09-30 (sessão `claude/nice-gates-2yer56`):**
-- API do n8n: sem 401. `pnpm dev:n8n` dá `ok` para Venda confirmada, Hermes e WhatsApp envio;
-  acusa "Turno da agente" (campo selado `reply`) e "Relógio da régua" (saída de erro) — o `main`
-  à frente do n8n, que é o L1.1. O `dev:n8n` grava a versão ativa em `n8n/workflows/`; com a árvore
-  suja, 4 testes de n8n falham — desfazer (`git checkout -- n8n/workflows/`) antes de `pnpm test`.
-- Supabase pela porta REST: **a chave injetada não é a service_role.** `leads`, `messages` e
-  `hermes_proposals` voltam `*/0` pelo REST, mas o SQL da Management API conta 1, 3 e 2 (RLS ligado
-  em `leads`). Não bloqueia o formulário — o nó "Grava a resposta" usa a credencial do próprio n8n —,
-  mas qualquer leitura de dado por REST nesta máquina vem vazia até a chave do ambiente ser trocada.
-- `turn` no ar: **v42, de 2026-09-25** — sem `job: "human_reply"`.
+**Estado conferido em 2026-09-30:**
+- `turn` **v44** (`updated_at` 30/09; a 1ª tentativa deu 500 e só subiu o número para 43 sem trocar o
+  pacote — conferir `updated_at` e `entrypoint_path`, não só a versão).
+- n8n: "Responder cliente" `3Q18SjoW0UUXrTPI` ativo, `dev:n8n` `ok`. Ao ativar depois do teste pelo
+  editor, a versão ativa veio **sem senha** — desativada, consertada pela API, reativada
+  (memória `n8n-editor-tira-senha-do-formulario`). "Turno da agente" e "Relógio da régua" seguem
+  acusando o atraso do L1.1.
+- Supabase REST desta máquina: 401 (`No API key found`) — a credencial do ambiente não injeta o
+  `apikey`. A Management API funciona; nada depende do REST agora.
 
 **Próxima sessão — nesta ordem:**
-1. **O** — publicar a `turn` do `main` (a 1ª tentativa, 30/09, deu `list functions status 401`:
-   token sem acesso ao projeto — gerar outro logado na conta da org "OFERTA ENCORPA"):
-   `npx supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api`
-   (passo a passo em `docs/operacao/segredos-e-codespace.md`). **C** confere a versão nova (> 42).
-2. **Importado desativado em 2026-09-30: `3Q18SjoW0UUXrTPI`** ("Encorpa — Responder cliente"),
-   com "Supabase service_role" (`uNGrb6LchX9rT743`) no nó "Grava a resposta" e o sub-workflow
-   "WhatsApp envio" (`GehzRG0OhJ4FtBm9`); basic auth "Formulário do operador" (`gOgrccS0tW6EvBWy`,
-   criada pelo operador) ligada ao gatilho pela API. **C** — com a `turn` nova no ar: envio de teste com
-   telefone inexistente tem de voltar "Nenhuma conversa com esse telefone"; ativar; ID em
-   `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
-3. **O** — L0.4: colar no `BUSINESS_CONFIG` (nunca no git)
-   `"exchange": { "feeBrl": 27, "checkoutUrl": "<link do Mercado Pago>" }` e conferir no secret
-   o valor de `cost.conversationCapBrl` (o exemplo diz 0.5; a nota de 21/09 diz que subiu para 1.5).
-4. **C** — L0.7 (Hermes na Action + R17.2 no grafo) e L0.5 (personas no modelo padrão). **S** — L0.1 e L0.2.
+1. **C** — PR da branch `claude/nice-gates-2yer56` (R17.4) → CI verde → **O** merge → **C** publica a
+   `turn` (v45) e confere `updated_at`.
+2. **C** — L0.7 (Hermes na Action + R17.2 no grafo), depois L0.5 (personas no modelo padrão, custo
+   p50/p95 contra o teto de R$ 0,50).
+3. **C** — L1.1 (importar Turno e Relógio do `main` no n8n) pode andar sem o canal.
+4. **S** — L0.1 e L0.2; templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
 
 ### Executado
 
@@ -77,6 +68,9 @@ produção), então são do operador. L0.4: link recebido, trecho entregue, falt
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
 | L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
+| L0.3 | `turn` v44 publicada; "Responder cliente" importado e ativo com senha; teste com telefone inexistente voltou "Nenhuma conversa com esse telefone" (operador); `dev:n8n` `ok` | v44, workflow `3Q18SjoW0UUXrTPI` versão ativa `d5659dab`, 2026-09-30 |
+| L0.4 | `BUSINESS_CONFIG` colado pelo operador | operador, 2026-09-30 |
+| — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
@@ -86,8 +80,7 @@ produção), então são do operador. L0.4: link recebido, trecho entregue, falt
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.3 | Publicar o formulário: publicar a `turn` (v42 no ar); importar e ativar `responder-cliente.json` no n8n (passos 1–2 acima) | O → C | 🔄 |
-| L0.4 | Colar `exchange` no secret; conferir `cost.conversationCapBrl` (passo 3 acima) | O | 🔄 |
+| — | Publicar R17.4 (cupom só no follow-up): PR → merge → `turn` v45 | C → O → C | 🔄 |
 | L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
 | L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |

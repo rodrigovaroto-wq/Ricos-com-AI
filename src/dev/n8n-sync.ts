@@ -18,6 +18,7 @@ const WORKFLOWS: Record<string, string> = {
   gS72LhYGOnmyALRq: "venda-confirmada",
   o5ZULK9Y74l1hReL: "hermes-decisao",
   GehzRG0OhJ4FtBm9: "whatsapp-envio",
+  "3Q18SjoW0UUXrTPI": "responder-cliente",
 };
 
 interface ApiWorkflow {
