@@ -91,7 +91,8 @@ export interface GateConfig {
     expressActive?: boolean;
   };
   hours: { openHour: number; closeHour: number; timeZone?: string };
-  coupon: { percent: number; active: boolean };
+  /** `code`: what she types at checkout (R17.4 a), named in the briefing once the coupon is hers. */
+  coupon: { percent: number; active: boolean; code?: string };
   cod: { physicalOnDeliveryActive: boolean };
   /** Where she writes to exchange or return. Absent, the briefing names no address. */
   support?: { email?: string };
@@ -1179,7 +1180,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: (c) =>
       c.coupon.active
-        ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo.`
+        ? `O cupom de ${c.coupon.percent}% está ativo e você pode citá-lo` +
+          (c.coupon.code?.trim() ? `: o código é ${c.coupon.code.trim()}, digitado por ela no checkout. Nenhum outro código existe.` : `.`)
         : `Não existe cupom. Você pode dizer que não temos cupom no momento — o que não pode é ` +
           `anunciar um, porque ele não existiria no checkout.`,
     // The gate exists so the agent never announces a coupon with no destination in

@@ -1213,6 +1213,11 @@ contextos, o config inválido, o intérprete e a ligação no turno); mutações
 `dev:gates --fail-on-loosen`: 0 afrouxamento, 30 endurecimentos, todos a troca dita grátis. Os
 testes do §37 que exigiam "No pix a troca é grátis" passando foram invertidos.
 
+**Adendo R17.2 (2026-09-29, registrado em 2026-09-30):** a pergunta "calcula" da R17.1 fechou — o
+envio da troca é **R$ 27,00 fixo por troca**, cobrado da cliente (operador, `05-decisoes-firmes.md`
+§9). Nenhum cálculo por região ou peça: `exchange.feeBrl` é um número só, e o link do Mercado Pago
+de R$ 27,00 está no `BUSINESS_CONFIG` desde 2026-09-30 (L0.4). Guarda: `tests/exchange-freight.test.ts`.
+
 ## 40. Segunda revisão independente: a negação longe e a pergunta de antes (2026-09-29)
 
 **Sintoma:** a revisão Opus de `9183cd4..93a0386` reprovou: com a praça sem pagamento na entrega,
@@ -1376,6 +1381,66 @@ porque o `node_modules` é um symlink só e dois vitest gravando o mesmo cache p
 guarda — e guarda derrubada conta como "pegou".
 
 **Guarda:** a própria rodada: 306/306 pegas em 684 s com 4 em paralelo (antes ~30 min).
+
+## 44. O cupom ativo valia para a conversa inteira, não só para o follow-up (R17.4, 2026-09-30)
+
+**Sintoma:** o operador ligou o cupom SUPER20 para o terceiro toque de silêncio (`silence_3`,
+quem não comprou de primeira). Com `coupon.active: true`, o briefing dizia "o cupom de 20% está
+ativo e você pode citá-lo" e `coupon_exists` e o gate de desconto deixavam passar os 20% já no
+primeiro contato — a oferta de retenção virava desconto de entrada.
+
+**Causa:** uma chave só (`coupon.active`) respondia duas perguntas: "o toque do cupom sai?" e "a
+conversa pode citar o cupom?".
+
+**Caminhos descartados:** (a) chave nova `coupon.followupOnly` — configurabilidade que ninguém
+pediu, e a chave ausente teria de ler como a verdade de hoje; (b) mexer em `coupon_exists` e no
+briefing — dois lugares para a mesma regra, e o gate não sabe o que foi enviado a ela.
+
+**Caminho que falhou na revisão (Opus):** ler `status = 'sent'`. O fim de todo turno rearma a
+régua com upsert `merge-duplicates` e devolve o `silence_3` para `scheduled` — o cupom valia só no
+primeiro turno depois do toque e sumia quando ela pedia o link com os 20%. E `sent_at` não servia
+como estava: o sweep o gravava também ao cancelar.
+
+**Correção:** `conversationCoupon(config, couponTouchSent)` em `followups.ts`. O sweep grava
+`sent_at` só no envio (o upsert da régua nunca escreve `sent_at`, então ele sobrevive ao rearme).
+O `handleTurn` lê, uma vez, se algum `silence_3` dela tem `sent_at` (em qualquer conversa dela) e
+monta `turnConfig`;
+todo gate, o prompt e a leitura de preço próprio do turno leem `turnConfig`. A régua continua
+lendo `CONFIG`, então o toque sai. Leitura que falha deixa o cupom reservado.
+
+**Guarda:** `tests/coupon-followup-only.test.ts` (antes do toque: anúncio e 20% vetados, "não temos
+cupom" permitido; depois: passa; o turno não passa `CONFIG` cru a gate nem a prompt).
+`pnpm dev:gates`: nenhum veredito mudou (o gate é o mesmo; muda o config que ele recebe).
+
+**Resíduo:** `sent_at` marca "tomado para envio", não "entregue": se a Meta recusar o template
+depois, a conversa libera um cupom que ela não recebeu (janela estreita; "no máximo uma vez" é o
+desenho do sweep). O código `SUPER20` não era enviado em lugar nenhum e o toque prometia "eu monto o pedido
+com o desconto já aplicado", o que nada fazia — **consertado no mesmo dia (R17.4 a):** Logzz e
+Coinzz aceitam o código no checkout; o toque diz "É só usar o código **SUPER20** no checkout", o
+template ganha `{{3}}` = `couponCode`, sem `coupon.code` o toque não sai, e o briefing da conversa
+(só depois do toque) nomeia o código e diz que nenhum outro existe. Nenhum gate veta um código
+inventado: é regra de briefing, não veto. E o `silence_3` só sai
+com template MARKETING aprovado e opt-in (`channel.askMarketingOptIn`), ainda desligados.
+
+## 45. O Hermes nunca instalou na Action (A6, L0.7, 2026-09-30)
+
+**Sintoma:** as seis execuções da Action `Hermes` (26–30/09) falharam no passo "Install Hermes
+Agent", antes de ler qualquer conversa.
+
+**Causa (log da execução 6):** `RuntimeError: Building wheels or sdists for hermes-agent is not
+supported. Hermes is distributed via the shell installer, Docker image, or Nix.` O `setup.py` do
+commit fixado bloqueia `bdist_wheel`; `uv tool install "hermes-agent @ git+…"` constrói um wheel.
+
+**Caminhos descartados:** (a) install editável (`uv tool install --editable`) — o `setup.py` o
+libera, mas resolve dependências soltas, sem o `uv.lock`; (b) `setup-hermes.sh` — monta o ambiente
+de desenvolvimento com as extras de teste.
+
+**Correção:** o instalador oficial (`scripts/install.sh`), baixado do **mesmo commit fixado**, com
+`--commit <sha> --skip-setup --skip-browser`; ele sincroniza as dependências com hash pelo
+`uv.lock` e publica `~/.local/bin/hermes`, que o passo põe no `GITHUB_PATH` e chama com `--version`.
+
+**Guarda:** a própria execução manual da Action (sem `force`: instala, lê o `hermes_backlog` e sai
+se não há 50 leads novos).
 
 ## Lições (valem para qualquer correção futura)
 

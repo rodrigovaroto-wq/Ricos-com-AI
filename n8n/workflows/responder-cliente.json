@@ -1,11 +1,13 @@
 {
-  "id": "",
+  "id": "3Q18SjoW0UUXrTPI",
   "name": "Encorpa — Responder cliente",
-  "active": false,
+  "active": true,
+  "versionId": "d5659dab-5b47-41a4-9525-571c9c56bc67",
   "nodes": [
     {
       "id": "a1f0c001-0000-4000-8000-000000000001",
       "name": "Formulário do operador",
+      "webhookId": "fa936d19-e06e-41b9-8b1b-900ec62e40a4",
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
       "position": [
@@ -13,7 +15,6 @@
         0
       ],
       "parameters": {
-        "authentication": "basicAuth",
         "formTitle": "Responder cliente",
         "formDescription": "Responde uma cliente pelo WhatsApp da Encorpa. Só texto, e só até ~24 h depois da última mensagem dela. A agente não volta a falar numa conversa em handoff.",
         "formFields": {
@@ -21,28 +22,29 @@
             {
               "fieldLabel": "Telefone (com 55 e DDD, como veio no e-mail de handoff)",
               "fieldName": "telefone",
-              "fieldType": "text",
               "placeholder": "5511987654321",
               "requiredField": true
             },
             {
               "fieldLabel": "Mensagem",
-              "fieldName": "mensagem",
               "fieldType": "textarea",
+              "fieldName": "mensagem",
               "requiredField": true
             }
           ]
         },
         "responseMode": "lastNode",
         "options": {
-          "path": "responder-cliente",
-          "buttonLabel": "Enviar",
           "appendAttribution": false,
+          "buttonLabel": "Enviar",
+          "path": "responder-cliente",
           "ignoreBots": true
-        }
+        },
+        "authentication": "basicAuth"
       },
       "credentials": {
         "httpBasicAuth": {
+          "id": "gOgrccS0tW6EvBWy",
           "name": "Formulário do operador"
         }
       }
@@ -52,11 +54,11 @@
       "name": "Grava a resposta",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "onError": "continueErrorOutput",
       "position": [
-        260,
+        272,
         0
       ],
-      "onError": "continueErrorOutput",
       "parameters": {
         "method": "POST",
         "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
@@ -67,9 +69,7 @@
         "jsonBody": "={{ JSON.stringify({ job: \"human_reply\", phone: $json.telefone, text: $json.mensagem }) }}",
         "options": {
           "response": {
-            "response": {
-              "neverError": false
-            }
+            "response": {}
           },
           "timeout": 30000
         }
@@ -87,8 +87,8 @@
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.2,
       "position": [
-        520,
-        -100
+        528,
+        -96
       ],
       "parameters": {
         "conditions": {
@@ -119,18 +119,17 @@
       "type": "n8n-nodes-base.executeWorkflow",
       "typeVersion": 1.2,
       "position": [
-        780,
-        -200
+        784,
+        -208
       ],
       "parameters": {
-        "mode": "each",
-        "source": "database",
         "workflowId": {
           "__rl": true,
           "mode": "id",
           "value": "GehzRG0OhJ4FtBm9",
           "cachedResultName": "Encorpa — WhatsApp envio"
         },
+        "mode": "each",
         "options": {
           "waitForSubWorkflow": false
         }
@@ -139,49 +138,52 @@
     {
       "id": "a1f0c001-0000-4000-8000-000000000005",
       "name": "Enviada",
+      "webhookId": "e8e4828c-e060-4182-a3c3-b36265ffbe86",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
         1040,
-        -200
+        -208
       ],
       "parameters": {
         "operation": "completion",
-        "respondWith": "text",
         "completionTitle": "Mensagem enviada",
-        "completionMessage": "Gravada na conversa e entregue ao envio do WhatsApp. Se a Meta recusar, chega o e-mail \"Mensagem NAO entregue\"."
+        "completionMessage": "Gravada na conversa e entregue ao envio do WhatsApp. Se a Meta recusar, chega o e-mail \"Mensagem NAO entregue\".",
+        "options": {}
       }
     },
     {
       "id": "a1f0c001-0000-4000-8000-000000000006",
       "name": "Não enviada",
+      "webhookId": "aca7f7bf-2093-4967-9a5e-e941c514315a",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        780,
+        784,
         0
       ],
       "parameters": {
         "operation": "completion",
-        "respondWith": "text",
         "completionTitle": "Nada foi enviado",
-        "completionMessage": "={{ $('Grava a resposta').first().json.message ?? 'A resposta não pôde sair.' }}"
+        "completionMessage": "={{ $('Grava a resposta').first().json.message ?? 'A resposta não pôde sair.' }}",
+        "options": {}
       }
     },
     {
       "id": "a1f0c001-0000-4000-8000-000000000007",
       "name": "Erro na Edge Function",
+      "webhookId": "15474bf5-8137-47a0-b395-25cb96b36bae",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
-        520,
+        528,
         160
       ],
       "parameters": {
         "operation": "completion",
-        "respondWith": "text",
         "completionTitle": "Nada foi enviado",
-        "completionMessage": "={{ 'A Edge Function recusou a chamada. Tente de novo em 1 minuto; se repetir, responda pelo link https://wa.me/' + ($('Formulário do operador').first().json.telefone ?? '') + ' e avise o Claude. Erro: ' + JSON.stringify($json.error ?? $json) }}"
+        "completionMessage": "={{ 'A Edge Function recusou a chamada. Tente de novo em 1 minuto; se repetir, responda pelo link https://wa.me/' + ($('Formulário do operador').first().json.telefone ?? '') + ' e avise o Claude. Erro: ' + JSON.stringify($json.error ?? $json) }}",
+        "options": {}
       }
     }
   ],

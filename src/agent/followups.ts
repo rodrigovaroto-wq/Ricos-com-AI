@@ -179,7 +179,8 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
  * a link sent at 23:40 has its 15-minute touch go out at 23:55, and `silence_1`, deferred
  * past midnight, must not re-arm the touch she already got (sixth review, 2026-09-26) — nor
  * `silence_2` or `silence_3` re-arm the ones before them. The upsert is merge-duplicates, so
- * a kind written here that already went out turns from `sent` back into `scheduled`.
+ * a kind written here that already went out turns from `sent` back into `scheduled` — while its
+ * `sent_at` stays, which is how the turn still knows the coupon touch reached her (R17.4).
  */
 export const rulerFor = (
   from: Date,
@@ -617,6 +618,7 @@ export type TemplateVariable =
   | "size"
   | "address"
   | "couponPercent"
+  | "couponCode"
   | "weekday";
 
 /** One template already approved by Meta, as the config declares it. */
@@ -632,7 +634,8 @@ export interface TemplateBinding {
 export interface FollowupConfig {
   /** The prepaid keys are optional here: a missing one drops its clause from the copy. */
   prices: { codBrl: number; prepayBrl?: number; prepayDiscountPercent?: number };
-  coupon: { percent: number; active: boolean };
+  /** `code` is what she types at checkout (R17.4 a). Absent or blank, the coupon touch stays silent. */
+  coupon: { percent: number; active: boolean; code?: string };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -690,6 +693,17 @@ export interface RenderContext {
 }
 
 /**
+ * The coupon is the `silence_3` touch's offer to someone who did not buy the first time, not
+ * the conversation's (operator, 2026-09-30, R17.4). Until that touch reached her, the turn reads
+ * the coupon as off — briefing, prompt, discount gate and `coupon_exists` all take this config —
+ * and the ruler keeps reading the operator's, so the touch itself still goes out.
+ */
+export const conversationCoupon = <C extends { coupon: { percent: number; active: boolean } }>(
+  config: C,
+  couponTouchSent: boolean,
+): C => (config.coupon.active && !couponTouchSent ? { ...config, coupon: { ...config.coupon, active: false } } : config);
+
+/**
  * Renders the message for a touch. Returns null when the touch must not go out —
  * today that is only the coupon one, which is silent until the coupon exists in
  * Coinzz. Announcing a coupon that has no destination is the broken promise this
@@ -727,7 +741,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       );
 
     case "silence_3": {
-      if (!ctx.config.coupon.active) return null;
+      // No code, no coupon touch: she would have a discount and nothing to type (R17.4 a).
+      const code = ctx.config.coupon.code?.trim();
+      if (!ctx.config.coupon.active || !code) return null;
       // "Super + dia da semana" — a seasonal frame with no calendar to maintain.
       const weekday = localWeekday(now);
       return (
@@ -736,7 +752,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         (ctx.paymentPath === "prepay"
           ? `pra você, e ele vale no pagamento antecipado.\n\n`
           : `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n`) +
-        `Se quiser, eu monto o pedido agora com o desconto já aplicado. E se não for o momento, ` +
+        // Logzz and Coinzz take the code at checkout; nobody applies it for her (R17.4 a).
+        `É só usar o código **${code}** no checkout — se quiser, te mando o link agora. E se não for o momento, ` +
         `tudo bem também — é só me falar que eu não te mando mais nada 💛`
       );
     }
@@ -869,6 +886,8 @@ const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string
       return ctx.address ?? "";
     case "couponPercent":
       return String(ctx.config.coupon.percent);
+    case "couponCode":
+      return ctx.config.coupon.code?.trim() ?? "";
     case "weekday":
       return localWeekday(ctx.now ?? new Date());
   }

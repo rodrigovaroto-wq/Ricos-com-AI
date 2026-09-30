@@ -34,26 +34,29 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos
 
-**Etapa atual: L0 — Preparar.** O operador escolheu o formulário no n8n (L0.3, R17.3); o código
-está no PR da branch `claude/awesome-carson-p64spq`, revisado (Opus, 4 achados consertados).
-Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como atender lead real.
+**Etapa atual: L0 — Preparar.** L0.3 e L0.4 feitos em 2026-09-30: formulário "Responder cliente"
+ativo com senha, `turn` v44 no ar, `BUSINESS_CONFIG` colado. O cupom só no follow-up (R17.4) está
+no PR #47 (branch `claude/nice-gates-2yer56`), revisado (Opus), esperando CI → merge → v45.
+L0.7 feito (execução 8 do Hermes verde).
+**Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
-**Próxima sessão (2026-09-30, caminho 1 escolhido pelo operador) — nesta ordem:**
-1. **C** — conferir o acesso ao n8n: `NODE_USE_ENV_PROXY=1 pnpm dev:n8n`. Na sessão anterior deu
-   401 (a credencial da API foi adicionada ao ambiente no meio da sessão e só vale em sessão nova).
-   O token do MCP do n8n foi colado no chat: o operador deve revogá-lo e gerar outro.
-2. **C** — CI do PR verde → **O** merge → **O** publica a `turn` (a rota `job: "human_reply"`).
-3. **C** — no n8n: importar `n8n/workflows/responder-cliente.json`, com a credencial "Supabase
-   service_role" no nó "Grava a resposta" e uma basic auth "Formulário do operador" (usuário e
-   senha do operador) no gatilho; conferir o "WhatsApp envio" (`GehzRG0OhJ4FtBm9`) no "Envia pelo
-   WhatsApp". **Antes de ativar**, um envio de teste com telefone inexistente: tem de voltar "Nenhuma
-   conversa com esse telefone" — prova que o n8n entrega os campos como `telefone`/`mensagem` (se
-   vier `no_lead` até com telefone real, o n8n usou o rótulo como chave). Ativar e pôr o ID do
-   workflow em `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
-4. **O** — L0.4: mandar o link do Mercado Pago de R$ 27,00; **C** devolve o trecho
-   `exchange: { feeBrl: 27, checkoutUrl }` para o operador colar no `BUSINESS_CONFIG` (nunca no git).
-5. **C** — L0.7 (Hermes na Action + R17.2 no grafo) e L0.5 (personas no modelo padrão) seguem
-   sem depender de ninguém. **S** — L0.1 e L0.2.
+**Estado conferido em 2026-09-30:**
+- `turn` **v44** (`updated_at` 30/09; a 1ª tentativa deu 500 e só subiu o número para 43 sem trocar o
+  pacote — conferir `updated_at` e `entrypoint_path`, não só a versão).
+- n8n: "Responder cliente" `3Q18SjoW0UUXrTPI` ativo, `dev:n8n` `ok`. Ao ativar depois do teste pelo
+  editor, a versão ativa veio **sem senha** — desativada, consertada pela API, reativada
+  (memória `n8n-editor-tira-senha-do-formulario`). "Turno da agente" e "Relógio da régua" seguem
+  acusando o atraso do L1.1.
+- Supabase REST desta máquina: 401 (`No API key found`) — a credencial do ambiente não injeta o
+  `apikey`. A Management API funciona; nada depende do REST agora.
+
+**Próxima sessão — nesta ordem:**
+1. **C** — PR da branch `claude/nice-gates-2yer56` (R17.4) → CI verde → **O** merge → **C** publica a
+   `turn` (v45) e confere `updated_at`.
+2. **C** — L0.5 (personas no modelo padrão, custo p50/p95 contra o teto de R$ 0,50): ⛔ até a
+   credencial REST do Supabase no ambiente injetar `apikey` (sessão nova). L0.7 feito.
+3. **C** — L1.1 (importar Turno e Relógio do `main` no n8n) pode andar sem o canal.
+4. **S** — L0.1 e L0.2; templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
 
 ### Executado
 
@@ -65,6 +68,13 @@ Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como a
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
+| L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
+| L0.3 | `turn` v44 publicada; "Responder cliente" importado e ativo com senha; teste com telefone inexistente voltou "Nenhuma conversa com esse telefone" (operador); `dev:n8n` `ok` | v44, workflow `3Q18SjoW0UUXrTPI` versão ativa `d5659dab`, 2026-09-30 |
+| L0.4 | `BUSINESS_CONFIG` colado pelo operador | operador, 2026-09-30 |
+| L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca R$ 27,00 fixa) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
+| — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
+| L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
+| L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
 
@@ -72,10 +82,8 @@ Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como a
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.3 | Publicar o formulário: merge do PR; publicar a `turn`; importar e ativar `responder-cliente.json` no n8n (passo 3 acima) | O → C | 🔄 |
-| L0.4 | Link do Mercado Pago de R$ 27,00; `exchange: { feeBrl: 27, checkoutUrl }` no secret; conferir `cost.conversationCapBrl` | O | ⬜ |
-| L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
-| L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
+| — | Publicar R17.4 (cupom só no follow-up): PR → merge → `turn` v45 | C → O → C | 🔄 |
+| L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⛔ as portas `local` e `function` leem e gravam no Supabase pela REST, e a credencial do ambiente dá 401 (`No API key found`) — trocar os dois cabeçalhos (`apikey` e `Authorization: Bearer`) e abrir sessão nova |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | O | ⬜ |
 | L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |

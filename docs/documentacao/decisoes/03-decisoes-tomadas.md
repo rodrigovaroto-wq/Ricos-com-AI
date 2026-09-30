@@ -1904,6 +1904,13 @@ ainda vai ser criado pelo operador.
 
 Grafo §39.
 
+## R17.2 — O envio da troca é R$ 27,00 fixo
+
+Operador, 2026-09-29 (`05-decisoes-firmes.md` §9): a troca de tamanho custa **R$ 27,00 por troca**,
+cobrado da cliente pelo link do Mercado Pago. Fecha a pergunta "calcula" da R17.1: não varia por
+região nem por número de peças, e `exchange.feeBrl` continua um número só. No `BUSINESS_CONFIG`
+desde 2026-09-30 (L0.4). Grafo §39 (adendo).
+
 ## R17.3 — A pessoa responde a cliente por um formulário do n8n
 
 Decisão do operador em 2026-09-30 (L0.3 do pipeline 80/20): opção (a), formulário no n8n
@@ -1917,3 +1924,13 @@ Decisão do operador em 2026-09-30 (L0.3 do pipeline 80/20): opção (a), formul
 - **Chatwoot** (Q12 original) fica para quando o volume de handoff pedir.
 
 Grafo §43.
+
+## R17.4 — O cupom é do follow-up, não da conversa
+
+Decisão do operador em 2026-09-30: o cupom SUPER20 (20%) está ativo e serve ao follow-up de quem
+não comprou de primeira (`silence_3`). A conversa só pode citá-lo depois que esse toque chegou a
+ela; antes, lê como se não houvesse cupom. Sem chave nova no `BUSINESS_CONFIG`: `coupon.active`
+continua ligando o toque. Grafo §44.
+
+**R17.4 (a), mesmo dia:** Logzz e Coinzz aceitam cupom no checkout. O toque dá o código
+(`coupon.code`) para ela digitar; deixa de prometer "eu monto o pedido com o desconto já aplicado".
