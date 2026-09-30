@@ -34,26 +34,36 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos
 
-**Etapa atual: L0 — Preparar.** O operador escolheu o formulário no n8n (L0.3, R17.3); o código
-está no PR da branch `claude/awesome-carson-p64spq`, revisado (Opus, 4 achados consertados).
-Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como atender lead real.
+**Etapa atual: L0 — Preparar.** PR #45 (L0.3) mergeado, CI verde; falta publicar a `turn` e
+importar o formulário no n8n — as duas ações o modo automático barrou nesta sessão (deploy de
+produção), então são do operador. L0.4: link recebido, trecho entregue, falta colar no secret.
+**Bloqueio principal:** sem L0.1 não há como atender lead real.
 
-**Próxima sessão (2026-09-30, caminho 1 escolhido pelo operador) — nesta ordem:**
-1. **C** — conferir o acesso ao n8n: `NODE_USE_ENV_PROXY=1 pnpm dev:n8n`. Na sessão anterior deu
-   401 (a credencial da API foi adicionada ao ambiente no meio da sessão e só vale em sessão nova).
-   O token do MCP do n8n foi colado no chat: o operador deve revogá-lo e gerar outro.
-2. **C** — CI do PR verde → **O** merge → **O** publica a `turn` (a rota `job: "human_reply"`).
-3. **C** — no n8n: importar `n8n/workflows/responder-cliente.json`, com a credencial "Supabase
-   service_role" no nó "Grava a resposta" e uma basic auth "Formulário do operador" (usuário e
-   senha do operador) no gatilho; conferir o "WhatsApp envio" (`GehzRG0OhJ4FtBm9`) no "Envia pelo
-   WhatsApp". **Antes de ativar**, um envio de teste com telefone inexistente: tem de voltar "Nenhuma
-   conversa com esse telefone" — prova que o n8n entrega os campos como `telefone`/`mensagem` (se
-   vier `no_lead` até com telefone real, o n8n usou o rótulo como chave). Ativar e pôr o ID do
-   workflow em `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
-4. **O** — L0.4: mandar o link do Mercado Pago de R$ 27,00; **C** devolve o trecho
-   `exchange: { feeBrl: 27, checkoutUrl }` para o operador colar no `BUSINESS_CONFIG` (nunca no git).
-5. **C** — L0.7 (Hermes na Action + R17.2 no grafo) e L0.5 (personas no modelo padrão) seguem
-   sem depender de ninguém. **S** — L0.1 e L0.2.
+**Conferido em 2026-09-30 (sessão `claude/nice-gates-2yer56`):**
+- API do n8n: sem 401. `pnpm dev:n8n` dá `ok` para Venda confirmada, Hermes e WhatsApp envio;
+  acusa "Turno da agente" (campo selado `reply`) e "Relógio da régua" (saída de erro) — o `main`
+  à frente do n8n, que é o L1.1. O `dev:n8n` grava a versão ativa em `n8n/workflows/`; com a árvore
+  suja, 4 testes de n8n falham — desfazer (`git checkout -- n8n/workflows/`) antes de `pnpm test`.
+- Supabase pela porta REST: **a chave injetada não é a service_role.** `leads`, `messages` e
+  `hermes_proposals` voltam `*/0` pelo REST, mas o SQL da Management API conta 1, 3 e 2 (RLS ligado
+  em `leads`). Não bloqueia o formulário — o nó "Grava a resposta" usa a credencial do próprio n8n —,
+  mas qualquer leitura de dado por REST nesta máquina vem vazia até a chave do ambiente ser trocada.
+- `turn` no ar: **v42, de 2026-09-25** — sem `job: "human_reply"`.
+
+**Próxima sessão — nesta ordem:**
+1. **O** — publicar a `turn` do `main`:
+   `npx supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api`
+   (passo a passo em `docs/operacao/segredos-e-codespace.md`). **C** confere a versão nova (> 42).
+2. **O** (ou **C**, se o operador liberar a permissão) — no n8n: importar
+   `n8n/workflows/responder-cliente.json`, credencial "Supabase service_role" no nó "Grava a
+   resposta", basic auth "Formulário do operador" no gatilho, "WhatsApp envio" (`GehzRG0OhJ4FtBm9`)
+   no "Envia pelo WhatsApp". **Antes de ativar**, envio de teste com telefone inexistente: tem de
+   voltar "Nenhuma conversa com esse telefone". Ativar; **C** põe o ID em `WORKFLOWS` de
+   `src/dev/n8n-sync.ts` e `pnpm dev:n8n` dá `ok` para ele.
+3. **O** — L0.4: colar no `BUSINESS_CONFIG` (nunca no git)
+   `"exchange": { "feeBrl": 27, "checkoutUrl": "<link do Mercado Pago>" }` e conferir no secret
+   o valor de `cost.conversationCapBrl` (o exemplo diz 0.5; a nota de 21/09 diz que subiu para 1.5).
+4. **C** — L0.7 (Hermes na Action + R17.2 no grafo) e L0.5 (personas no modelo padrão). **S** — L0.1 e L0.2.
 
 ### Executado
 
@@ -65,6 +75,8 @@ Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como a
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
+| L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
+| L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
 
@@ -72,8 +84,8 @@ Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como a
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.3 | Publicar o formulário: merge do PR; publicar a `turn`; importar e ativar `responder-cliente.json` no n8n (passo 3 acima) | O → C | 🔄 |
-| L0.4 | Link do Mercado Pago de R$ 27,00; `exchange: { feeBrl: 27, checkoutUrl }` no secret; conferir `cost.conversationCapBrl` | O | ⬜ |
+| L0.3 | Publicar o formulário: publicar a `turn` (v42 no ar); importar e ativar `responder-cliente.json` no n8n (passos 1–2 acima) | O → C | 🔄 |
+| L0.4 | Colar `exchange` no secret; conferir `cost.conversationCapBrl` (passo 3 acima) | O | 🔄 |
 | L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
 | L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
