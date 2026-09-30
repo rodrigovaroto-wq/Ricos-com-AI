@@ -78,6 +78,14 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
         problems.push(`${wf.name} › ${node.name}: the decision update does not require the token and status=proposed`);
     }
   }
+  // L0.3 (2026-09-30): the "Responder cliente" form sends a person's text to a real
+  // customer. A form URL is public; without a password anyone who finds it writes to her
+  // as the Encorpa.
+  if (wf.nodes.some((n) => /\\?"?job\\?"?\s*:\s*\\?"human_reply/.test(String(n.parameters?.jsonBody ?? "")))) {
+    for (const n of wf.nodes)
+      if (n.type === "n8n-nodes-base.formTrigger" && !n.disabled && n.parameters?.authentication !== "basicAuth")
+        problems.push(`${wf.name} › ${n.name}: the human reply form has no password (basicAuth)`);
+  }
   // O2: a new lead gets the welcome and, without the Wait and the resume call, nothing
   // else ever again. The inbound workflow must carry both.
   const inbound = wf.nodes.some((n) => n.type === "n8n-nodes-base.webhook" && n.parameters?.path === "encorpa-inbound");

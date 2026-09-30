@@ -1331,6 +1331,35 @@ e o aprendizado vinha só da opinião do operador, nunca do efeito medido.
 - O teto de custo é verificado depois da passada.
 - A calibração segue com 3 defeitos.
 
+## 43. A pessoa do handoff não tinha por onde responder (R17.3, 2026-09-30)
+
+**Sintoma:** a agente passa a conversa para uma pessoa em três portas (pedido explícito, teto de
+custo, falha do provedor) e para de responder para sempre (`handoff_at`). Com a Cloud API no lugar
+do WAHA, o número não abre no celular de ninguém: o e-mail de handoff chegava, e não havia como
+responder a cliente (bloqueio 2 do pipeline 80/20).
+
+**Causa:** o canal humano ficou implícito quando o WAHA saiu (R5): no WAHA a pessoa respondia pelo
+WhatsApp Web do próprio número.
+
+**Caminhos que não valiam para o V1:** (b) coexistência do app WhatsApp Business com a Cloud API:
+depende de o número aceitar, e o que a pessoa escrevesse no celular não entraria no histórico que o
+Hermes e o turno leem; (c) Chatwoot: mais um serviço de pé para um operador, cedo para o volume.
+Dentro do (a): a regra da janela e do opt-out no nó de código do n8n seria regra de negócio no cano
+(CLAUDE.md), sem teste.
+
+**Correção:** formulário n8n "Responder cliente" (senha básica) → `turn` com
+`{ job: "human_reply", phone, text }` (só `service_role`) → `checkHumanReply` decide: texto não
+vazio e até 4096, lead existe, não pediu para parar, janela de 24 h aberta com a mesma margem de
+10 min da régua (`windowIsOpen`), e não é o mesmo texto de 2 min atrás (clique duplo). Se sai, a
+mensagem é gravada como saída na conversa e o n8n entrega ao "WhatsApp envio". `handoff_at` não é
+tocado: a agente continua fora.
+
+**Guarda:** `tests/human-reply.test.ts` (cada recusa, a borda da janela, e a negação do duplicado);
+`checkWorkflow` recusa o formulário de resposta humana sem senha (`tests/n8n-workflows.test.ts`,
+com a negação: o formulário do Hermes não é pego).
+
+**Resíduo:** fora da janela de 24 h não há resposta (só template); a pessoa liga ou espera ela
+escrever. Sem mídia: só texto.
 ## 44. A CI levava 30 min, quase todos numa fila de mutações (2026-09-30)
 
 **Sintoma:** todo PR esperava ~30 min de CI; o operador compara com 8 min nos outros projetos.

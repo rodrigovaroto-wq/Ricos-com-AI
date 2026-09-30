@@ -1903,3 +1903,17 @@ ainda vai ser criado pelo operador.
   ou por número de peças, isso é uma decisão nova — pergunta aberta ao operador.
 
 Grafo §39.
+
+## R17.3 — A pessoa responde a cliente por um formulário do n8n
+
+Decisão do operador em 2026-09-30 (L0.3 do pipeline 80/20): opção (a), formulário no n8n
+"Responder cliente", em vez da coexistência com o app WhatsApp Business ou do Chatwoot.
+
+- **Como:** telefone (como veio no e-mail de handoff) + texto → a `turn` confere e grava → "WhatsApp
+  envio". O formulário tem senha (credencial "Formulário do operador", basic auth).
+- **Quando sai:** só texto, só dentro da janela de 24 h da última mensagem dela, nunca para quem
+  pediu para parar, um envio por clique. A recusa aparece no próprio formulário, em português.
+- **A agente não volta:** responder pelo formulário não limpa o `handoff_at`.
+- **Chatwoot** (Q12 original) fica para quando o volume de handoff pedir.
+
+Grafo §43.

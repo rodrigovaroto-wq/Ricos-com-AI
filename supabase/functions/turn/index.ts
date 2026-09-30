@@ -24,6 +24,8 @@ import {
   deliveryFor,
   nextOpening,
   windowIsOpen,
+  checkHumanReply,
+  HUMAN_REPLY_REFUSAL,
   onOrderConfirmed,
   orderTakeOver,
   orderTouchDue,
@@ -1606,6 +1608,9 @@ type TurnPayload = {
   order?: OrderWebhook;
   /** The sale webhook's secret, forwarded by n8n from the platform's URL (O10). */
   token?: string;
+  /** `job: "human_reply"` (L0.3): her phone and what the person typed in the n8n form. */
+  phone?: string;
+  text?: string;
   /**
    * n8n's second call for a brand-new lead, sent after its own `Wait` node — opção (a)
    * of 2026-09-21 (see HANDOFF.md). Never a channel event, so it skips the
@@ -1644,6 +1649,10 @@ Deno.serve(async (request: Request): Promise<Response> => {
   } catch {
     return json(400, { error: "corpo não é JSON" });
   }
+  // A person's reply goes to a real customer: only n8n's service key, flag or no flag.
+  if (payload.job === "human_reply" && callerRole(request) !== "service_role") {
+    return json(401, { error: "use a chave de serviço" });
+  }
   const response = await handleTurn(payload);
   if (payload.job) return response;
   // `sealed` tells n8n this message really came through the `whatsapp` function (second
@@ -1660,6 +1669,59 @@ Deno.serve(async (request: Request): Promise<Response> => {
   const out = await response.json().catch(() => null);
   return out && typeof out === "object" && !Array.isArray(out) ? json(response.status, { ...out, sealed }) : response;
 });
+
+/**
+ * The reply a person typed in the n8n form "Responder cliente" (L0.3, 2026-09-30). The rule
+ * of whether it may leave is `checkHumanReply`; this reads what it needs, stores the reply
+ * as outbound — so the history, the Hermes and any later turn see what she was told — and
+ * hands n8n what to send. It never touches `handoff_at`: a conversation a person took stays
+ * out of the agent's hands.
+ */
+const humanReply = async (rawPhone: string, rawText: string) => {
+  const phone = rawPhone.replace(/\D/g, "");
+  const lead = phone
+    ? ((await db(`leads?phone=eq.${encodeURIComponent(phone)}&select=id,phone,opted_out_at`))?.[0] ?? null)
+    : null;
+  const conversation = lead
+    ? ((await db(`conversations?lead_id=eq.${lead.id}&select=id,last_inbound_at&order=created_at.desc&limit=1`))?.[0] ?? null)
+    : null;
+  const lastOutbound = conversation
+    ? ((
+        await db(
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body,created_at&order=created_at.desc&limit=1`,
+        )
+      )?.[0] ?? null)
+    : null;
+  const now = new Date();
+  const check = checkHumanReply({
+    now,
+    text: rawText,
+    lead: conversation ? lead : null,
+    lastInboundAt: conversation?.last_inbound_at ? new Date(conversation.last_inbound_at) : null,
+    lastOutbound: lastOutbound ? { body: String(lastOutbound.body ?? ""), at: new Date(lastOutbound.created_at) } : null,
+  });
+  if (!check.ok) return { status: "refused", reason: check.reason, message: HUMAN_REPLY_REFUSAL[check.reason] };
+
+  // Two submits racing past the read above both pass `checkHumanReply`; the unique
+  // `external_id` (same conversation, same text, same 2-minute slot) lets only one insert.
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(check.text));
+  const hash = Array.from(new Uint8Array(digest).slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+  const externalId = `human:${conversation.id}:${hash}:${Math.floor(now.getTime() / 120_000)}`;
+  try {
+    await db("messages", {
+      method: "POST",
+      body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: check.text, external_id: externalId }),
+    });
+  } catch (error) {
+    if (!String(error).includes(": 409 ")) throw error;
+    return { status: "refused", reason: "duplicate", message: HUMAN_REPLY_REFUSAL.duplicate };
+  }
+  await db(`conversations?id=eq.${conversation.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ last_outbound_at: now.toISOString(), updated_at: now.toISOString() }),
+  });
+  return { status: "ready", to: lead.phone, bubbles: [{ text: check.text, delayMs: 0 }] };
+};
 
 /**
  * Everything after the JSON is read. A function of its own since 2026-09-24 so the sweep
@@ -1699,6 +1761,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // a sale that was never filed is the silent failure this whole route exists to end.
     return json("ok" in result && result.ok === false ? 422 : 200, result);
   }
+
+  // L0.3: a person answers her from the n8n form "Responder cliente".
+  if (payload.job === "human_reply") return json(200, await humanReply(String(payload.phone ?? ""), String(payload.text ?? "")));
 
   let inbound = payload as { externalId: string; from: string; body: string };
   if (!inbound.externalId || !inbound.from) {

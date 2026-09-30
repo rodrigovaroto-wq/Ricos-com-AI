@@ -1,0 +1,248 @@
+{
+  "id": "",
+  "name": "Encorpa — Responder cliente",
+  "active": false,
+  "nodes": [
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000001",
+      "name": "Formulário do operador",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.6,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "authentication": "basicAuth",
+        "formTitle": "Responder cliente",
+        "formDescription": "Responde uma cliente pelo WhatsApp da Encorpa. Só texto, e só até ~24 h depois da última mensagem dela. A agente não volta a falar numa conversa em handoff.",
+        "formFields": {
+          "values": [
+            {
+              "fieldLabel": "Telefone (com 55 e DDD, como veio no e-mail de handoff)",
+              "fieldName": "telefone",
+              "fieldType": "text",
+              "placeholder": "5511987654321",
+              "requiredField": true
+            },
+            {
+              "fieldLabel": "Mensagem",
+              "fieldName": "mensagem",
+              "fieldType": "textarea",
+              "requiredField": true
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "responder-cliente",
+          "buttonLabel": "Enviar",
+          "appendAttribution": false,
+          "ignoreBots": true
+        }
+      },
+      "credentials": {
+        "httpBasicAuth": {
+          "name": "Formulário do operador"
+        }
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000002",
+      "name": "Grava a resposta",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        260,
+        0
+      ],
+      "onError": "continueErrorOutput",
+      "parameters": {
+        "method": "POST",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ job: \"human_reply\", phone: $json.telefone, text: $json.mensagem }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "neverError": false
+            }
+          },
+          "timeout": 30000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000003",
+      "name": "Pode enviar?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        520,
+        -100
+      ],
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.status }}",
+              "rightValue": "ready",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000004",
+      "name": "Envia pelo WhatsApp",
+      "type": "n8n-nodes-base.executeWorkflow",
+      "typeVersion": 1.2,
+      "position": [
+        780,
+        -200
+      ],
+      "parameters": {
+        "mode": "each",
+        "source": "database",
+        "workflowId": {
+          "__rl": true,
+          "mode": "id",
+          "value": "GehzRG0OhJ4FtBm9",
+          "cachedResultName": "Encorpa — WhatsApp envio"
+        },
+        "options": {
+          "waitForSubWorkflow": false
+        }
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000005",
+      "name": "Enviada",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        1040,
+        -200
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Mensagem enviada",
+        "completionMessage": "Gravada na conversa e entregue ao envio do WhatsApp. Se a Meta recusar, chega o e-mail \"Mensagem NAO entregue\"."
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000006",
+      "name": "Não enviada",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        780,
+        0
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Nada foi enviado",
+        "completionMessage": "={{ $('Grava a resposta').first().json.message ?? 'A resposta não pôde sair.' }}"
+      }
+    },
+    {
+      "id": "a1f0c001-0000-4000-8000-000000000007",
+      "name": "Erro na Edge Function",
+      "type": "n8n-nodes-base.form",
+      "typeVersion": 2.5,
+      "position": [
+        520,
+        160
+      ],
+      "parameters": {
+        "operation": "completion",
+        "respondWith": "text",
+        "completionTitle": "Nada foi enviado",
+        "completionMessage": "={{ 'A Edge Function recusou a chamada. Tente de novo em 1 minuto; se repetir, responda pelo link https://wa.me/' + ($('Formulário do operador').first().json.telefone ?? '') + ' e avise o Claude. Erro: ' + JSON.stringify($json.error ?? $json) }}"
+      }
+    }
+  ],
+  "connections": {
+    "Formulário do operador": {
+      "main": [
+        [
+          {
+            "node": "Grava a resposta",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Grava a resposta": {
+      "main": [
+        [
+          {
+            "node": "Pode enviar?",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Erro na Edge Function",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Pode enviar?": {
+      "main": [
+        [
+          {
+            "node": "Envia pelo WhatsApp",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Não enviada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Envia pelo WhatsApp": {
+      "main": [
+        [
+          {
+            "node": "Enviada",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  }
+}
