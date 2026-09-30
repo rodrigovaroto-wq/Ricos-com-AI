@@ -57,8 +57,8 @@ produção), então são do operador. L0.4: link recebido, trecho entregue, falt
    (passo a passo em `docs/operacao/segredos-e-codespace.md`). **C** confere a versão nova (> 42).
 2. **Importado desativado em 2026-09-30: `3Q18SjoW0UUXrTPI`** ("Encorpa — Responder cliente"),
    com "Supabase service_role" (`uNGrb6LchX9rT743`) no nó "Grava a resposta" e o sub-workflow
-   "WhatsApp envio" (`GehzRG0OhJ4FtBm9`). **O** — criar a basic auth "Formulário do operador" no
-   n8n (não existe) e escolhê-la no gatilho. **C** — com a `turn` nova no ar: envio de teste com
+   "WhatsApp envio" (`GehzRG0OhJ4FtBm9`); basic auth "Formulário do operador" (`gOgrccS0tW6EvBWy`,
+   criada pelo operador) ligada ao gatilho pela API. **C** — com a `turn` nova no ar: envio de teste com
    telefone inexistente tem de voltar "Nenhuma conversa com esse telefone"; ativar; ID em
    `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
 3. **O** — L0.4: colar no `BUSINESS_CONFIG` (nunca no git)
@@ -77,6 +77,7 @@ produção), então são do operador. L0.4: link recebido, trecho entregue, falt
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
 | L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
+| L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
