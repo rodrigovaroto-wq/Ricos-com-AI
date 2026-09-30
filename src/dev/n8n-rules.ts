@@ -81,7 +81,7 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
   // L0.3 (2026-09-30): the "Responder cliente" form sends a person's text to a real
   // customer. A form URL is public; without a password anyone who finds it writes to her
   // as the Encorpa.
-  if (wf.nodes.some((n) => /job:\s*\\?"human_reply/.test(String(n.parameters?.jsonBody ?? "")))) {
+  if (wf.nodes.some((n) => /\\?"?job\\?"?\s*:\s*\\?"human_reply/.test(String(n.parameters?.jsonBody ?? "")))) {
     for (const n of wf.nodes)
       if (n.type === "n8n-nodes-base.formTrigger" && !n.disabled && n.parameters?.authentication !== "basicAuth")
         problems.push(`${wf.name} › ${n.name}: the human reply form has no password (basicAuth)`);

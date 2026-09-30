@@ -84,6 +84,14 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
       ),
     };
     expect(checkWorkflow(semSenha).join()).toContain("no password");
+    // O mesmo corpo escrito como JSON com a chave entre aspas, o outro estilo do repositório.
+    const aspas = {
+      ...semSenha,
+      nodes: semSenha.nodes.map((n) =>
+        n.name === "Grava a resposta" ? { ...n, parameters: { ...n.parameters, jsonBody: '{"job":"human_reply","phone":"5511"}' } } : n,
+      ),
+    };
+    expect(checkWorkflow(aspas).join()).toContain("no password");
     // Negação: o formulário do Hermes não manda nada para cliente e não é pego por esta regra.
     expect(checkWorkflow(load("hermes-decisao"))).toEqual([]);
   });

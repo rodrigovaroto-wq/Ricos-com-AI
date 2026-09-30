@@ -816,7 +816,8 @@ export const HUMAN_REPLY_REFUSAL: Readonly<Record<HumanReplyRefusal, string>> = 
   opted_out: "Ela pediu para não receber mais mensagens. Nada foi enviado.",
   window_closed:
     "Passaram quase 24 h desde a última mensagem dela: o WhatsApp só aceita texto livre dentro dessa janela. Nada foi enviado.",
-  duplicate: "Essa mesma mensagem acabou de ser enviada para ela. Nada foi enviado de novo.",
+  duplicate:
+    "Essa mesma mensagem foi gravada para ela há menos de 2 min. Se o e-mail \"Mensagem NAO entregue\" chegou, espere 2 min e envie de novo.",
 };
 
 /**

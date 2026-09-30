@@ -1702,10 +1702,20 @@ const humanReply = async (rawPhone: string, rawText: string) => {
   });
   if (!check.ok) return { status: "refused", reason: check.reason, message: HUMAN_REPLY_REFUSAL[check.reason] };
 
-  await db("messages", {
-    method: "POST",
-    body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: check.text }),
-  });
+  // Two submits racing past the read above both pass `checkHumanReply`; the unique
+  // `external_id` (same conversation, same text, same 2-minute slot) lets only one insert.
+  const digest = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(check.text));
+  const hash = Array.from(new Uint8Array(digest).slice(0, 8), (b) => b.toString(16).padStart(2, "0")).join("");
+  const externalId = `human:${conversation.id}:${hash}:${Math.floor(now.getTime() / 120_000)}`;
+  try {
+    await db("messages", {
+      method: "POST",
+      body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: check.text, external_id: externalId }),
+    });
+  } catch (error) {
+    if (!String(error).includes(": 409 ")) throw error;
+    return { status: "refused", reason: "duplicate", message: HUMAN_REPLY_REFUSAL.duplicate };
+  }
   await db(`conversations?id=eq.${conversation.id}`, {
     method: "PATCH",
     body: JSON.stringify({ last_outbound_at: now.toISOString(), updated_at: now.toISOString() }),

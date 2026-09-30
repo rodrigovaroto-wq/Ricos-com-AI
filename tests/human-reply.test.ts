@@ -1,3 +1,4 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { checkHumanReply, HUMAN_REPLY_REFUSAL, SERVICE_WINDOW_MS } from "@/agent/followups.js";
 
@@ -67,5 +68,25 @@ describe("resposta humana pelo formulário (L0.3)", () => {
     for (const reason of ["empty", "too_long", "no_lead", "opted_out", "window_closed", "duplicate"] as const) {
       expect(HUMAN_REPLY_REFUSAL[reason].length).toBeGreaterThan(10);
     }
+  });
+});
+
+/** A rota na Edge Function não roda no vitest; o texto dela é o que se pode segurar aqui. */
+describe("rota human_reply na turn", () => {
+  const src = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const route = src.slice(src.indexOf("const humanReply = async"), src.indexOf("const sameSecret"));
+
+  it("só a chave de serviço, com ou sem TURN_REQUIRE_SERVICE_ROLE", () => {
+    expect(src).toMatch(/payload\.job === "human_reply" && callerRole\(request\) !== "service_role"\)\s*\{\s*return json\(401/);
+  });
+
+  it("não mexe em handoff_at: a agente continua fora da conversa", () => {
+    expect(route.length).toBeGreaterThan(500);
+    expect(route).not.toContain("handoff_at");
+  });
+
+  it("o envio duplicado ao mesmo tempo é barrado pela chave única, não só pela leitura", () => {
+    expect(route).toContain("external_id: externalId");
+    expect(route).toMatch(/409[\s\S]*reason: "duplicate"/);
   });
 });
