@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });
@@ -72,6 +72,32 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
       ),
     };
     expect(checkWorkflow(semToken).join()).toContain("token");
+  });
+  // L0.3: o formulário que escreve para a cliente real é URL pública.
+  it("formulário de resposta humana sem senha", () => {
+    const wf = load("responder-cliente");
+    expect(checkWorkflow(wf)).toEqual([]);
+    const semSenha = {
+      ...wf,
+      nodes: wf.nodes.map((n) =>
+        n.type === "n8n-nodes-base.formTrigger" ? { ...n, parameters: { ...n.parameters, authentication: "none" } } : n,
+      ),
+    };
+    expect(checkWorkflow(semSenha).join()).toContain("no password");
+    // O mesmo corpo escrito como JSON com a chave entre aspas, o outro estilo do repositório.
+    const aspas = {
+      ...semSenha,
+      nodes: semSenha.nodes.map((n) =>
+        n.name === "Grava a resposta" ? { ...n, parameters: { ...n.parameters, jsonBody: '{"job":"human_reply","phone":"5511"}' } } : n,
+      ),
+    };
+    expect(checkWorkflow(aspas).join()).toContain("no password");
+    // Negação: o formulário do Hermes não manda nada para cliente e não é pego por esta regra.
+    expect(checkWorkflow(load("hermes-decisao"))).toEqual([]);
+  });
+  it("formulário de resposta humana repassa telefone e texto no job certo", () => {
+    const body = String(load("responder-cliente").nodes.find((n) => n.name === "Grava a resposta")!.parameters!.jsonBody);
+    expect(body).toMatch(/job: "human_reply", phone: \$json\.telefone, text: \$json\.mensagem/);
   });
   // 2026-09-28: a varredura sem saída de erro falhava a cada 5 minutos sem avisar ninguém.
   it("chamada à Edge Function sem saída de erro ligada", () => {

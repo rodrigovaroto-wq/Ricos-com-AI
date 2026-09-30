@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-29, noite)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-30)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -34,10 +34,26 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos
 
-**Etapa atual: L0 — Preparar.** Começaram só as etapas do Claude e do repositório; nenhuma
-etapa do sócio (Meta). **Próximo passo:** operador decide o canal de resposta humana (L0.3) e o
-sócio começa a Parte A do canal (L0.1). **Bloqueio principal:** sem L0.1 e L0.3 não há como
-atender lead real.
+**Etapa atual: L0 — Preparar.** O operador escolheu o formulário no n8n (L0.3, R17.3); o código
+está no PR da branch `claude/awesome-carson-p64spq`, revisado (Opus, 4 achados consertados).
+Nenhuma etapa do sócio (Meta). **Bloqueio principal:** sem L0.1 não há como atender lead real.
+
+**Próxima sessão (2026-09-30, caminho 1 escolhido pelo operador) — nesta ordem:**
+1. **C** — conferir o acesso ao n8n: `NODE_USE_ENV_PROXY=1 pnpm dev:n8n`. Na sessão anterior deu
+   401 (a credencial da API foi adicionada ao ambiente no meio da sessão e só vale em sessão nova).
+   O token do MCP do n8n foi colado no chat: o operador deve revogá-lo e gerar outro.
+2. **C** — CI do PR verde → **O** merge → **O** publica a `turn` (a rota `job: "human_reply"`).
+3. **C** — no n8n: importar `n8n/workflows/responder-cliente.json`, com a credencial "Supabase
+   service_role" no nó "Grava a resposta" e uma basic auth "Formulário do operador" (usuário e
+   senha do operador) no gatilho; conferir o "WhatsApp envio" (`GehzRG0OhJ4FtBm9`) no "Envia pelo
+   WhatsApp". **Antes de ativar**, um envio de teste com telefone inexistente: tem de voltar "Nenhuma
+   conversa com esse telefone" — prova que o n8n entrega os campos como `telefone`/`mensagem` (se
+   vier `no_lead` até com telefone real, o n8n usou o rótulo como chave). Ativar e pôr o ID do
+   workflow em `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
+4. **O** — L0.4: mandar o link do Mercado Pago de R$ 27,00; **C** devolve o trecho
+   `exchange: { feeBrl: 27, checkoutUrl }` para o operador colar no `BUSINESS_CONFIG` (nunca no git).
+5. **C** — L0.7 (Hermes na Action + R17.2 no grafo) e L0.5 (personas no modelo padrão) seguem
+   sem depender de ninguém. **S** — L0.1 e L0.2.
 
 ### Executado
 
@@ -48,6 +64,7 @@ atender lead real.
 | — | Valor da troca: R$ 27,00 fixo, cobrado da cliente — na documentação | `05-decisoes-firmes.md` §9, 2026-09-29 |
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
+| L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
 
 ### Falta (na ordem do plano)
 
@@ -55,7 +72,7 @@ atender lead real.
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.3 | Decidir o canal de resposta humana (formulário n8n recomendado) e construir | O decide → C | ⬜ |
+| L0.3 | Publicar o formulário: merge do PR; publicar a `turn`; importar e ativar `responder-cliente.json` no n8n (passo 3 acima) | O → C | 🔄 |
 | L0.4 | Link do Mercado Pago de R$ 27,00; `exchange: { feeBrl: 27, checkoutUrl }` no secret; conferir `cost.conversationCapBrl` | O | ⬜ |
 | L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
 | L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
