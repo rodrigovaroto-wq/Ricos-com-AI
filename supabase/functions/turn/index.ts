@@ -25,6 +25,7 @@ import {
   nextOpening,
   windowIsOpen,
   checkHumanReply,
+  conversationCoupon,
   HUMAN_REPLY_REFUSAL,
   onOrderConfirmed,
   orderTakeOver,
@@ -640,11 +641,12 @@ const recordTraces = (
  * config and to the briefing of the same gates that will judge the reply.
  */
 const systemPrompt = (
+  config: BusinessConfig,
   sizeDirective: string | null,
   identityDirective: string | null = null,
   checkoutDirective: string | null = null,
 ): string =>
-  buildSystemPrompt(CONFIG, gateBriefing(CONFIG), sizeDirective, identityDirective, checkoutDirective);
+  buildSystemPrompt(config, gateBriefing(config), sizeDirective, identityDirective, checkoutDirective);
 
 /**
  * R8.4: the model must never convert a clothing size on its own — a real conversation
@@ -1260,10 +1262,12 @@ const runFollowupSweep = async () => {
     const lead = row.conversations?.leads;
     // Only the row as this sweep read it: a turn that answered meanwhile re-arms the same
     // (conversation_id, kind) row with a new run_at, and that one is not ours to close.
+    // `sent_at` only on a send (R17.4): the ruler's re-arm resets `status` but never `sent_at`,
+    // so a `silence_3` that went out stays readable as the coupon offered to her.
     const mark = (status: string) =>
       db(`followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}`, {
         method: "PATCH",
-        body: JSON.stringify({ status, sent_at: new Date().toISOString() }),
+        body: JSON.stringify(status === "sent" ? { status, sent_at: new Date().toISOString() } : { status }),
       });
 
     if (!lead || lead.opted_out_at || lead.handoff_at) {
@@ -1824,6 +1828,15 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const conversation =
     openConversations?.[0] ??
     (await db("conversations", { method: "POST", body: JSON.stringify({ lead_id: lead.id }) }))[0];
+  // R17.4: the coupon exists in her conversation only after the `silence_3` touch offered it to
+  // her, in any conversation of hers. `sent_at`, not `status`: the end of every turn re-arms the
+  // ruler and turns that row back into `scheduled`. A failed read keeps the coupon reserved.
+  const couponTouchSent =
+    CONFIG.coupon.active &&
+    ((await db(
+      `followups?select=id,conversations!inner(lead_id)&conversations.lead_id=eq.${lead.id}&kind=eq.silence_3&sent_at=not.is.null&limit=1`,
+    ).catch(() => [])) ?? []).length > 0;
+  const turnConfig = conversationCoupon(CONFIG, couponTouchSent);
   // Her region has no payment at the door (R16.2): as an earlier turn stored it, until this
   // turn's lookup answers (5d-bis). Every gate below reads it — "você paga na entrega" is a lie there.
   let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;
@@ -1945,7 +1958,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (isNewLead && !isResume) {
     const welcomedAt = new Date().toISOString();
     const receipt = runGates(WELCOME_AUTO_REPLY, {
-      config: CONFIG,
+      config: turnConfig,
       layer: "auto",
       optedOut: false,
       now: new Date(),
@@ -2025,7 +2038,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     await cancelScheduled(conversation.id);
     const receipt = runGates(reply, {
-      config: CONFIG,
+      config: turnConfig,
       layer: "auto",
       optedOut: false,
       now: new Date(),
@@ -2082,7 +2095,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
       content: m.body ?? "",
     }));
-    const base = `${systemPrompt(null)} ${OPT_OUT_FAREWELL_DIRECTIVE}`;
+    const base = `${systemPrompt(turnConfig, null)} ${OPT_OUT_FAREWELL_DIRECTIVE}`;
     let correction = "";
     const deadline = turnStartedAt + OPT_OUT_FAREWELL_BUDGET_MS;
     for (let rewrites = 0; rewrites <= MAX_REWRITES; rewrites += 1) {
@@ -2098,7 +2111,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       spent += attempt.costBrl;
       await recordCall(conversation.id, "farewell", conversationProvider, CONVERSATION_MODEL, attempt);
       const gated = runGates(attempt.text, {
-        config: CONFIG,
+        config: turnConfig,
         layer: "agent",
         optedOut: false,
         now: new Date(),
@@ -2358,7 +2371,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     pieces = 1,
   ): Promise<Response | null> => {
     const gated = runGates(text, {
-      config: CONFIG,
+      config: turnConfig,
       layer: "agent",
       optedOut: false,
       now: new Date(),
@@ -2448,7 +2461,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // A purchase on a price the shop does not have is not a decision (H-2): no link on
   // "faz por 100 que eu levo", whichever reading said yes. "Por 116 eu levo" is the real
   // prepaid price and stays a decision.
-  const couponCut = CONFIG.coupon.active ? 1 - CONFIG.coupon.percent / 100 : null;
+  const couponCut = turnConfig.coupon.active ? 1 - turnConfig.coupon.percent / 100 : null;
   const shopPrices = [
     CONFIG.prices.codBrl,
     CONFIG.prices.prepayBrl,
@@ -2462,7 +2475,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // A kit's percentage only for more than one piece (third review): 30% on one piece is
     // a discount the shop does not give.
     ...((interpretation.units ?? 1) > 1 ? (CONFIG.kits ?? []).map((k) => k.discountPercent) : []),
-    ...(CONFIG.coupon.active ? [CONFIG.coupon.percent] : []),
+    ...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
@@ -2958,8 +2971,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // The correction rides in the system prompt, so the vetoed text never enters
       // the conversation history the customer's next turn is built from.
       const system = correction === null
-        ? systemPrompt(sizeDirective, identityDirective, checkoutDirective)
-        : `${systemPrompt(sizeDirective, identityDirective, checkoutDirective)} ${correction}`;
+        ? systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)
+        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
         replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
@@ -2988,7 +3001,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     );
 
     gates = runGates(attempt.text, {
-      config: CONFIG,
+      config: turnConfig,
       layer: "agent",
       optedOut: false,
       now: new Date(),

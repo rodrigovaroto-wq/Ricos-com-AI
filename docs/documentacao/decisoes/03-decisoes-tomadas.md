@@ -1917,3 +1917,10 @@ Decisão do operador em 2026-09-30 (L0.3 do pipeline 80/20): opção (a), formul
 - **Chatwoot** (Q12 original) fica para quando o volume de handoff pedir.
 
 Grafo §43.
+
+## R17.4 — O cupom é do follow-up, não da conversa
+
+Decisão do operador em 2026-09-30: o cupom SUPER20 (20%) está ativo e serve ao follow-up de quem
+não comprou de primeira (`silence_3`). A conversa só pode citá-lo depois que esse toque chegou a
+ela; antes, lê como se não houvesse cupom. Sem chave nova no `BUSINESS_CONFIG`: `coupon.active`
+continua ligando o toque. Grafo §44.

@@ -690,6 +690,17 @@ export interface RenderContext {
 }
 
 /**
+ * The coupon is the `silence_3` touch's offer to someone who did not buy the first time, not
+ * the conversation's (operator, 2026-09-30, R17.4). Until that touch reached her, the turn reads
+ * the coupon as off — briefing, prompt, discount gate and `coupon_exists` all take this config —
+ * and the ruler keeps reading the operator's, so the touch itself still goes out.
+ */
+export const conversationCoupon = <C extends { coupon: { percent: number; active: boolean } }>(
+  config: C,
+  couponTouchSent: boolean,
+): C => (config.coupon.active && !couponTouchSent ? { ...config, coupon: { ...config.coupon, active: false } } : config);
+
+/**
  * Renders the message for a touch. Returns null when the touch must not go out —
  * today that is only the coupon one, which is silent until the coupon exists in
  * Coinzz. Announcing a coupon that has no destination is the broken promise this

@@ -1361,6 +1361,42 @@ com a negação: o formulário do Hermes não é pego).
 **Resíduo:** fora da janela de 24 h não há resposta (só template); a pessoa liga ou espera ela
 escrever. Sem mídia: só texto.
 
+## 44. O cupom ativo valia para a conversa inteira, não só para o follow-up (R17.4, 2026-09-30)
+
+**Sintoma:** o operador ligou o cupom SUPER20 para o terceiro toque de silêncio (`silence_3`,
+quem não comprou de primeira). Com `coupon.active: true`, o briefing dizia "o cupom de 20% está
+ativo e você pode citá-lo" e `coupon_exists` e o gate de desconto deixavam passar os 20% já no
+primeiro contato — a oferta de retenção virava desconto de entrada.
+
+**Causa:** uma chave só (`coupon.active`) respondia duas perguntas: "o toque do cupom sai?" e "a
+conversa pode citar o cupom?".
+
+**Caminhos descartados:** (a) chave nova `coupon.followupOnly` — configurabilidade que ninguém
+pediu, e a chave ausente teria de ler como a verdade de hoje; (b) mexer em `coupon_exists` e no
+briefing — dois lugares para a mesma regra, e o gate não sabe o que foi enviado a ela.
+
+**Caminho que falhou na revisão (Opus):** ler `status = 'sent'`. O fim de todo turno rearma a
+régua com upsert `merge-duplicates` e devolve o `silence_3` para `scheduled` — o cupom valia só no
+primeiro turno depois do toque e sumia quando ela pedia o link com os 20%. E `sent_at` não servia
+como estava: o sweep o gravava também ao cancelar.
+
+**Correção:** `conversationCoupon(config, couponTouchSent)` em `followups.ts`. O sweep grava
+`sent_at` só no envio (o upsert da régua nunca escreve `sent_at`, então ele sobrevive ao rearme).
+O `handleTurn` lê, uma vez, se algum `silence_3` dela tem `sent_at` (em qualquer conversa dela) e
+monta `turnConfig`;
+todo gate, o prompt e a leitura de preço próprio do turno leem `turnConfig`. A régua continua
+lendo `CONFIG`, então o toque sai. Leitura que falha deixa o cupom reservado.
+
+**Guarda:** `tests/coupon-followup-only.test.ts` (antes do toque: anúncio e 20% vetados, "não temos
+cupom" permitido; depois: passa; o turno não passa `CONFIG` cru a gate nem a prompt).
+`pnpm dev:gates`: nenhum veredito mudou (o gate é o mesmo; muda o config que ele recebe).
+
+**Resíduo:** `sent_at` marca "tomado para envio", não "entregue": se a Meta recusar o template
+depois, a conversa libera um cupom que ela não recebeu (janela estreita; "no máximo uma vez" é o
+desenho do sweep). O código `SUPER20` não é enviado em lugar nenhum e nenhum checkout aplica o desconto
+sozinho — o toque promete "eu monto o pedido com o desconto já aplicado". E o `silence_3` só sai
+com template MARKETING aprovado e opt-in (`channel.askMarketingOptIn`), ainda desligados.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
