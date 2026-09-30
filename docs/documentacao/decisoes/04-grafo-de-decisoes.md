@@ -1360,6 +1360,22 @@ com a negação: o formulário do Hermes não é pego).
 
 **Resíduo:** fora da janela de 24 h não há resposta (só template); a pessoa liga ou espera ela
 escrever. Sem mídia: só texto.
+## 44. A CI levava 30 min, quase todos numa fila de mutações (2026-09-30)
+
+**Sintoma:** todo PR esperava ~30 min de CI; o operador compara com 8 min nos outros projetos.
+
+**Causa:** `pnpm verificar:guardas` roda 306 mutações uma depois da outra, cada uma com o seu
+vitest, num runner de 4 núcleos usando um.
+
+**Caminhos que não valiam:** rodar só as mutações dos arquivos do PR deixaria um PR quebrar a
+guarda de outro arquivo sem ninguém ver até o `main`.
+
+**Correção:** um pool de `availableParallelism()` guardas ao mesmo tempo (`GUARDS_JOBS=1` volta ao
+serial); `git worktree add/remove` continuam em fila; o vitest de cada guarda roda com `--no-cache`,
+porque o `node_modules` é um symlink só e dois vitest gravando o mesmo cache podiam derrubar uma
+guarda — e guarda derrubada conta como "pegou".
+
+**Guarda:** a própria rodada: 306/306 pegas em 684 s com 4 em paralelo (antes ~30 min).
 
 ## Lições (valem para qualquer correção futura)
 
