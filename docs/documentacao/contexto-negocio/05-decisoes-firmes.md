@@ -77,11 +77,32 @@ Momentos que a sequência precisa cobrir:
 | Véspera da entrega | Avisar o dia, lembrar do valor e das formas de pagamento |
 | Depois de receber | Perguntar se serviu, ensinar o primeiro uso, pedir foto/depoimento |
 
+## 9. Troca de tamanho: R$ 27,00 fixo, cobrado da cliente
+
+Decisão do operador em 2026-09-29. **A troca de tamanho custa R$ 27,00 à cliente, valor fixo** —
+o mesmo em qualquer região, para qualquer caminho de pagamento (entrega ou antecipado) e qualquer
+número de peças do pedido.
+
+- **Quem paga:** a cliente, por um link do Mercado Pago fora da Coinzz e da Logzz (R17.1, PR #42).
+- **O que não muda:** a devolução continua sem custo para ela (R16.3); a garantia continua 7 dias a
+  partir do recebimento.
+- **O que a agente diz:** nunca que a troca é grátis. Depois da compra, quando ela pede a troca,
+  manda o valor e o link e passa para uma pessoa combinar a troca (PR #42). Antes da compra, o
+  PR #42 ensina "o envio da troca é seu" **sem número** — o `price_promise` veta R$ 27,00 fora da
+  resposta de troca. Citar o valor já na pré-venda é mudança de prompt e gate juntos, ainda não
+  decidida (item do pipeline).
+- **Onde vira código:** `exchange.feeBrl = 27` no secret `BUSINESS_CONFIG`, junto com
+  `exchange.checkoutUrl` (o link do Mercado Pago). O campo só existe depois do merge do PR #42; até
+  lá a agente no `main` não conhece a taxa — ver o pipeline em
+  [`../../agente-ia/05-plano/09-pipeline-ate-producao.md`](../../agente-ia/05-plano/09-pipeline-ate-producao.md).
+- **Supera:** a pergunta aberta da R16.9 (troca grátis × R$ 20 da política pública da Logzz) e o
+  "preço pendente, provavelmente regional" do PR #42. Não é R$ 20, não é grátis, não é regional.
+
 ## Pendências do operador que travam decisões técnicas
 
 Estado em 2026-09-04. Ver [`../decisoes/03-decisoes-tomadas.md`](../decisoes/03-decisoes-tomadas.md).
 
-- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98 *(Desde 2026-09-25 o checkout da entrega é a Logzz; a Coinzz ficou com o antecipado.)*
+- [x] **`Físico na entrega` ativo na Coinzz** — confirmado. A recusa custa −R$ 14,98 *(valor histórico: virou R$ 9,99 em 21/09, R10.2, e **R$ 9,90 em 29/09, R15.4 — o vigente**.)* *(Desde 2026-09-25 o checkout da entrega é a Logzz; a Coinzz ficou com o antecipado.)*
 - [x] **Número decidido:** número novo, separado do site — a criar
 - [x] **Handoff decidido:** a agente para e notifica; o operador assume, exceto de madrugada
 - [ ] Configurar o **desconto de 10%** (R$ 116,91) no pagamento antecipado, e só então ligar `PREPAY_DISCOUNT` (hoje em 5% e desligado). *Era 15% até 2026-09-21, quando voltou a 10% — ver [`06-modelo-economico.md`](06-modelo-economico.md).*

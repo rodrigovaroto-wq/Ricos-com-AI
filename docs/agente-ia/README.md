@@ -3,10 +3,9 @@
 Tudo que uma sessão nova precisa saber para construir o agente, sem ter que
 reconstruir a pesquisa nem adivinhar o negócio.
 
-> **Nada aqui é código, e nada aqui é decisão de arquitetura tomada.** É contexto,
-> pesquisa com evidência e especificação funcional. As escolhas de rota estão
-> listadas em [`../documentacao/decisoes/02-decisoes-em-aberto.md`](../documentacao/decisoes/02-decisoes-em-aberto.md)
-> e são do operador.
+> **Nada aqui é código.** É contexto, pesquisa com evidência, especificação, plano e registro
+> de mudanças. O código está em `src/` e `supabase/functions/`; a arquitetura foi decidida na
+> rodada 11 ([`CLAUDE.md`](../../CLAUDE.md) §Arquitetura). Mapa geral: [`../README.md`](../README.md).
 
 ## Leia nesta ordem
 
@@ -25,6 +24,10 @@ conversa em si.
 | 5 | [`../documentacao/decisoes/`](../documentacao/decisoes/) | O que falta, o que já foi decidido e o que ainda precisa de escolha |
 | 6 | [`05-plano/`](05-plano/) | O plano de construção: onde estamos, o que falta, em que ordem, e as perguntas ainda abertas antes do MVP |
 | 7 | [`06-script/`](06-script/) | O que a agente fala: diagnóstico do funil recebido do operador e o script reescrito para a operação da Encorpa |
+| 8 | [`07-cobertura/`](07-cobertura/) | Onde há pagamento na entrega (as 22 praças) e como foi medido |
+| 9 | [`08-mudancas/`](08-mudancas/) | Registro de mudanças da agente, propostas do Hermes e a revisão do PR #39 |
+| 10 | [`09-cruzamento/`](09-cruzamento/) | Agente × documentação: divergências e instantâneos do prompt (foto datada, não se atualiza sozinha) |
+| 11 | [`10-auditoria/`](10-auditoria/) | Auditoria do repositório: o que está contraditório, com situação de cada achado |
 
 ## Atalho por pergunta
 
@@ -37,7 +40,7 @@ conversa em si.
 - *"O que já foi decidido?"* → [`../documentacao/decisoes/03-decisoes-tomadas.md`](../documentacao/decisoes/03-decisoes-tomadas.md)
 - *"O que ainda não decidimos?"* → [`../documentacao/decisoes/02-decisoes-em-aberto.md`](../documentacao/decisoes/02-decisoes-em-aberto.md)
 - *"Por que o frete e o desconto do antecipado estão travados?"* → [`../documentacao/decisoes/04-frete-e-desconto-do-antecipado.md`](../documentacao/decisoes/04-frete-e-desconto-do-antecipado.md)
-- *"O que falta para o sistema ficar pronto para os primeiros testes reais?"* → [`05-plano/02-plano-de-execucao-ate-os-testes-reais.md`](05-plano/02-plano-de-execucao-ate-os-testes-reais.md)
+- *"O que falta até produção real?"* → [`05-plano/09-pipeline-ate-producao.md`](05-plano/09-pipeline-ate-producao.md) (o plano vigente; o `02-plano-de-execucao…` é histórico)
 - *"Como a agente é testada por dentro antes de falar com cliente de verdade?"* → [`05-plano/03-personas-de-teste-interno.md`](05-plano/03-personas-de-teste-interno.md)
 - *"O sistema deveria ter Evaluation Layer, Hermes supervisor, RAG, closed loop?"* → [`05-plano/04-analise-de-arquitetura.md`](05-plano/04-analise-de-arquitetura.md)
 - *"Qual era o desenho original do agente, a árvore de funções?"* → [`05-plano/README.md`](05-plano/README.md)

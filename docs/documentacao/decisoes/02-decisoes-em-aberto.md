@@ -24,6 +24,11 @@ faz sentido, e porque algumas voltarão à mesa quando houver dado real.
 
 ## Status em 2026-09-04
 
+> **Nota de 2026-09-29.** Duas respostas deste quadro ficaram velhas: o sistema **não** roda numa
+> VPS — roda como Edge Function no Supabase, com n8n no PikaPods (R5.2–R5.7); e o COD **tem**
+> checkout — links da Logzz por kit desde 25/09. O item 1 foi atualizado em 21/09; os demais são
+> de 04/09.
+
 | # | Decisão | Status |
 |---|---|---|
 | 1 | Transporte de WhatsApp | ✅ **WhatsApp Cloud API** — era WAHA; trocado em 2026-09-21 |

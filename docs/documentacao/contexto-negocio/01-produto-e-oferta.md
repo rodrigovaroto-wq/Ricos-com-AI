@@ -15,6 +15,7 @@ Fonte: `colet-cinta-modeladora` — `docs/contexto-do-projeto.md` §1 e §2,
 | Prazo | **1 a 3 dias** no COD, com o dia escolhido pela cliente dentro do checkout; no antecipado **varia por região, em média 5 dias úteis** (`prepayAvgDays`) |
 | Frete | **Grátis no pagamento na entrega** (R15.3, 2026-09-28): ela paga R$ 129,90 e mais nada; a agente diz isso nomeando o caminho ("Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber."). **No antecipado não é grátis:** calculado por região dentro do checkout, e a agente não sabe nem cita o valor. *Histórico: de 09/09 a 22/09 esta tabela dizia "grátis nos dois caminhos"; de 22/09 a 28/09, "não há frete grátis".* |
 | Garantia | 7 dias contando do recebimento; na devolução o frete é por conta da loja (R16.3, 2026-09-29) |
+| Troca de tamanho | **R$ 27,00 fixo por troca, cobrado da cliente** (operador, 2026-09-29) — não varia por região nem por número de peças; pago por link do Mercado Pago, fora da Coinzz/Logzz (R17.1). A devolução segue sem custo para ela (R16.3). A agente nunca diz que a troca é grátis. |
 | Fornecedor / logística | Logzz |
 | Checkout | Entrega: Logzz (desde 2026-09-25). Antecipado: Coinzz (com Omnicash) |
 | Site | www.encorpa-fashion.com.br |

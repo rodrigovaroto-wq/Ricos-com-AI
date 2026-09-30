@@ -29,6 +29,11 @@ acreditar."*
 > promessa publicada e o canal novo, e está registrado como decisão em aberto — ver
 > [`../../documentacao/decisoes/02-decisoes-em-aberto.md`](../../documentacao/decisoes/02-decisoes-em-aberto.md).
 
+> **Taxa da troca de tamanho — R$ 27,00 fixo, pago pela cliente (operador, 2026-09-29).** O
+> "a gente troca" da objeção 3 não quer dizer troca grátis: a troca de tamanho custa R$ 27,00, o
+> mesmo valor em qualquer região e caminho de pagamento. A devolução segue sem custo (R16.3). Ver
+> [`05-decisoes-firmes.md` §9](../../documentacao/contexto-negocio/05-decisoes-firmes.md).
+
 ## Perguntas frequentes — as quatro respostas
 
 Fonte: `FAQ.tsx` :11–26.
