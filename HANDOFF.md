@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-29, noite)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-30)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -34,10 +34,10 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos
 
-**Etapa atual: L0 — Preparar.** Começaram só as etapas do Claude e do repositório; nenhuma
-etapa do sócio (Meta). **Próximo passo:** operador decide o canal de resposta humana (L0.3) e o
-sócio começa a Parte A do canal (L0.1). **Bloqueio principal:** sem L0.1 e L0.3 não há como
-atender lead real.
+**Etapa atual: L0 — Preparar.** O operador escolheu o formulário no n8n (L0.3, R17.3); o código
+está no repositório e falta o operador importar e publicar. Nenhuma etapa do sócio (Meta).
+**Próximo passo:** operador faz L0.4 (link de R$ 27,00) e importa o "Responder cliente"; o sócio
+começa a Parte A do canal (L0.1). **Bloqueio principal:** sem L0.1 não há como atender lead real.
 
 ### Executado
 
@@ -48,6 +48,7 @@ atender lead real.
 | — | Valor da troca: R$ 27,00 fixo, cobrado da cliente — na documentação | `05-decisoes-firmes.md` §9, 2026-09-29 |
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
+| L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43 | branch `claude/awesome-carson-p64spq`, 2026-09-30 |
 
 ### Falta (na ordem do plano)
 
@@ -55,7 +56,7 @@ atender lead real.
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.3 | Decidir o canal de resposta humana (formulário n8n recomendado) e construir | O decide → C | ⬜ |
+| L0.3 | Publicar o formulário: merge do PR; publicar a `turn`; no n8n criar a credencial basic auth "Formulário do operador", importar `responder-cliente.json`, escolher as credenciais, ativar; mandar o ID do workflow ao C (entra no `dev:n8n`) | O → C | 🔄 |
 | L0.4 | Link do Mercado Pago de R$ 27,00; `exchange: { feeBrl: 27, checkoutUrl }` no secret; conferir `cost.conversationCapBrl` | O | ⬜ |
 | L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
 | L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |

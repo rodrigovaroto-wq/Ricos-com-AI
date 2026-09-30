@@ -801,6 +801,49 @@ export const SERVICE_WINDOW_SAFETY_MS = 10 * MINUTE;
 export const windowIsOpen = (now: Date, lastInboundAt: Date | null): boolean =>
   lastInboundAt !== null && now.getTime() - lastInboundAt.getTime() < SERVICE_WINDOW_MS - SERVICE_WINDOW_SAFETY_MS;
 
+/** Cloud API's limit on a text body; a longer one is refused after it was already stored. */
+const TEXT_BODY_MAX = 4096;
+/** A second submit of the same text this soon is the form clicked twice, not a new message. */
+const DOUBLE_SUBMIT_MS = 2 * MINUTE;
+
+export type HumanReplyRefusal = "empty" | "too_long" | "no_lead" | "opted_out" | "window_closed" | "duplicate";
+
+/** What the operator reads on the form when the reply does not leave (L0.3). */
+export const HUMAN_REPLY_REFUSAL: Readonly<Record<HumanReplyRefusal, string>> = {
+  empty: "A mensagem está vazia.",
+  too_long: "A mensagem passa de 4096 caracteres, o limite do WhatsApp. Divida em duas.",
+  no_lead: "Nenhuma conversa com esse telefone. Confira o número (com 55 e DDD), como veio no e-mail de handoff.",
+  opted_out: "Ela pediu para não receber mais mensagens. Nada foi enviado.",
+  window_closed:
+    "Passaram quase 24 h desde a última mensagem dela: o WhatsApp só aceita texto livre dentro dessa janela. Nada foi enviado.",
+  duplicate: "Essa mesma mensagem acabou de ser enviada para ela. Nada foi enviado de novo.",
+};
+
+/**
+ * Whether a reply a person typed in the n8n form "Responder cliente" may go to her (L0.3,
+ * 2026-09-30). Free text only, so the same window as the ruler; never to a woman who asked
+ * to stop; and one message per click, whatever the form does with a double click.
+ */
+export const checkHumanReply = (input: {
+  readonly now: Date;
+  readonly text: string;
+  readonly lead: { readonly opted_out_at: string | null } | null;
+  readonly lastInboundAt: Date | null;
+  readonly lastOutbound: { readonly body: string; readonly at: Date } | null;
+}): { readonly ok: true; readonly text: string } | { readonly ok: false; readonly reason: HumanReplyRefusal } => {
+  const text = input.text.trim();
+  if (text === "") return { ok: false, reason: "empty" };
+  if (text.length > TEXT_BODY_MAX) return { ok: false, reason: "too_long" };
+  if (!input.lead) return { ok: false, reason: "no_lead" };
+  if (input.lead.opted_out_at) return { ok: false, reason: "opted_out" };
+  if (!windowIsOpen(input.now, input.lastInboundAt)) return { ok: false, reason: "window_closed" };
+  const last = input.lastOutbound;
+  if (last && last.body.trim() === text && input.now.getTime() - last.at.getTime() < DOUBLE_SUBMIT_MS) {
+    return { ok: false, reason: "duplicate" };
+  }
+  return { ok: true, text };
+};
+
 /** How a touch leaves, once the clock has been consulted. */
 export type Delivery =
   | { readonly via: "text"; readonly body: string }
