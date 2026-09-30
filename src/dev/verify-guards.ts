@@ -10,9 +10,9 @@
  * Each mutation names: the file it breaks, the exact text it swaps back, and the command
  * that must fail. Exit 1 if any mutation survives (its guard stayed green).
  */
-import { execFileSync, spawnSync } from "node:child_process";
+import { execFileSync, spawn } from "node:child_process";
 import { existsSync, mkdtempSync, readFileSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
-import { tmpdir } from "node:os";
+import { availableParallelism, tmpdir } from "node:os";
 import { join, resolve } from "node:path";
 
 interface Mutation {
@@ -2519,7 +2519,6 @@ const MUTATIONS: Mutation[] = [
 
 const wanted = process.argv.slice(2);
 const repo = resolve(".");
-const results: Array<{ id: string; caught: boolean; bug: string; note?: string }> = [];
 
 // The mutation list comes from this (working-tree) file, but each mutation is applied to a
 // worktree of a commit. With uncommitted edits the two disagree, and the score changed run to
@@ -2532,10 +2531,40 @@ if (execFileSync("git", ["status", "--porcelain", "--untracked-files=no"], { enc
 }
 console.log(`# HEAD ${head.slice(0, 7)}`);
 
-for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(m.id))) {
+type Result = { id: string; caught: boolean; bug: string; note?: string };
+
+/**
+ * Up to one mutation per core at a time (2026-09-30: 306 in a row took ~30 min of CI).
+ * `git worktree add/remove` write `.git/worktrees` and run one at a time; only the guards
+ * overlap. `GUARDS_JOBS=1` is the old serial run.
+ */
+const jobs = Math.max(1, Number(process.env.GUARDS_JOBS ?? availableParallelism()) || 1);
+let gitQueue: Promise<unknown> = Promise.resolve();
+const gitSerial = (args: string[]) => {
+  const step = gitQueue.then(() => execFileSync("git", args));
+  gitQueue = step.catch(() => undefined);
+  return step;
+};
+
+/** Exit status, or null when the timeout or a signal killed it — never a catch. */
+const runGuard = (cmd: string[], cwd: string) =>
+  new Promise<{ status: number | null; why: string }>((done) => {
+    // Only the exit status matters, so the output is dropped: under GITHUB_ACTIONS vitest
+    // prints an annotation per failing case, and a piped buffer over 1 MB (ENOBUFS) kills the
+    // guard with SIGTERM — a catch read as "inconclusive".
+    // `--no-cache`: node_modules is one symlink shared by every worktree, and two vitest runs
+    // writing its results cache at once can crash a guard — a false catch.
+    const args = cmd.includes("vitest") ? [...cmd.slice(1), "--no-cache"] : cmd.slice(1);
+    const child = spawn(cmd[0]!, args, { cwd, stdio: "ignore" });
+    const timer = setTimeout(() => child.kill("SIGTERM"), 10 * 60_000);
+    child.on("error", (e) => (clearTimeout(timer), done({ status: null, why: e.message })));
+    child.on("close", (status, signal) => (clearTimeout(timer), done({ status, why: signal ?? "sem status" })));
+  });
+
+const check = async (mu: Mutation): Promise<Result> => {
   const dir = mkdtempSync(join(tmpdir(), `guard-${mu.id}-`));
   rmSync(dir, { recursive: true, force: true });
-  execFileSync("git", ["worktree", "add", "--detach", "-q", dir, head]);
+  await gitSerial(["worktree", "add", "--detach", "-q", dir, head]);
   try {
     symlinkSync(join(repo, "node_modules"), join(dir, "node_modules"));
     let applied = true;
@@ -2549,25 +2578,32 @@ for (const mu of MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(
       writeFileSync(p, src);
     }
     if (!applied) {
-      results.push({ id: mu.id, caught: false, bug: mu.bug, note: "a mutação não se aplicou — o texto de origem mudou; atualize a mutação" });
-      continue;
+      return { id: mu.id, caught: false, bug: mu.bug, note: "a mutação não se aplicou — o texto de origem mudou; atualize a mutação" };
     }
     // The guard runs against the mutated tree; the gate diff compares it with HEAD.
-    // Only the exit status matters, so the output is dropped: under GITHUB_ACTIONS vitest
-    // prints an annotation per failing case, and a piped buffer over 1 MB (ENOBUFS) kills the
-    // guard with SIGTERM — a catch read as "inconclusive".
-    const run = spawnSync(mu.guard[0]!, mu.guard.slice(1), { cwd: dir, stdio: "ignore", timeout: 10 * 60_000 });
-    // A guard killed by the timeout or a signal has no status: that is not a catch.
+    const run = await runGuard(mu.guard, dir);
     if (run.status === null) {
-      results.push({ id: mu.id, caught: false, bug: mu.bug, note: `inconclusivo — a guarda não terminou (${run.signal ?? run.error?.message ?? "sem status"})` });
-      continue;
+      return { id: mu.id, caught: false, bug: mu.bug, note: `inconclusivo — a guarda não terminou (${run.why})` };
     }
-    results.push({ id: mu.id, caught: run.status !== 0, bug: mu.bug });
+    return { id: mu.id, caught: run.status !== 0, bug: mu.bug };
   } finally {
-    execFileSync("git", ["worktree", "remove", "--force", dir]);
+    await gitSerial(["worktree", "remove", "--force", dir]).catch(() => undefined);
     if (existsSync(dir)) rmSync(dir, { recursive: true, force: true });
   }
-}
+};
+
+const todo = MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(m.id));
+const results: Result[] = new Array(todo.length);
+let next = 0;
+await Promise.all(
+  Array.from({ length: Math.min(jobs, todo.length) }, async () => {
+    while (next < todo.length) {
+      const i = next++;
+      results[i] = await check(todo[i]!);
+    }
+  }),
+);
+console.log(`# ${jobs} em paralelo`);
 
 console.log("# Mutação das guardas — cada bug histórico reinstalado precisa ser pego\n");
 for (const r of results) console.log(`- ${r.caught ? "pegou   " : "ESCAPOU "} ${r.id}: ${r.bug}${r.note ? ` (${r.note})` : ""}`);
