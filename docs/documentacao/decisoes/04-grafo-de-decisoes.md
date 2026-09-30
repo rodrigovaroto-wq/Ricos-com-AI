@@ -1393,8 +1393,12 @@ cupom" permitido; depois: passa; o turno não passa `CONFIG` cru a gate nem a pr
 
 **Resíduo:** `sent_at` marca "tomado para envio", não "entregue": se a Meta recusar o template
 depois, a conversa libera um cupom que ela não recebeu (janela estreita; "no máximo uma vez" é o
-desenho do sweep). O código `SUPER20` não é enviado em lugar nenhum e nenhum checkout aplica o desconto
-sozinho — o toque promete "eu monto o pedido com o desconto já aplicado". E o `silence_3` só sai
+desenho do sweep). O código `SUPER20` não era enviado em lugar nenhum e o toque prometia "eu monto o pedido
+com o desconto já aplicado", o que nada fazia — **consertado no mesmo dia (R17.4 a):** Logzz e
+Coinzz aceitam o código no checkout; o toque diz "É só usar o código **SUPER20** no checkout", o
+template ganha `{{3}}` = `couponCode`, sem `coupon.code` o toque não sai, e o briefing da conversa
+(só depois do toque) nomeia o código e diz que nenhum outro existe. Nenhum gate veta um código
+inventado: é regra de briefing, não veto. E o `silence_3` só sai
 com template MARKETING aprovado e opt-in (`channel.askMarketingOptIn`), ainda desligados.
 
 ## Lições (valem para qualquer correção futura)

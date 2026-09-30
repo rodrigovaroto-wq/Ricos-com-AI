@@ -1924,3 +1924,6 @@ Decisão do operador em 2026-09-30: o cupom SUPER20 (20%) está ativo e serve ao
 não comprou de primeira (`silence_3`). A conversa só pode citá-lo depois que esse toque chegou a
 ela; antes, lê como se não houvesse cupom. Sem chave nova no `BUSINESS_CONFIG`: `coupon.active`
 continua ligando o toque. Grafo §44.
+
+**R17.4 (a), mesmo dia:** Logzz e Coinzz aceitam cupom no checkout. O toque dá o código
+(`coupon.code`) para ela digitar; deixa de prometer "eu monto o pedido com o desconto já aplicado".

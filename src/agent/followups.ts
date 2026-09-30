@@ -618,6 +618,7 @@ export type TemplateVariable =
   | "size"
   | "address"
   | "couponPercent"
+  | "couponCode"
   | "weekday";
 
 /** One template already approved by Meta, as the config declares it. */
@@ -633,7 +634,8 @@ export interface TemplateBinding {
 export interface FollowupConfig {
   /** The prepaid keys are optional here: a missing one drops its clause from the copy. */
   prices: { codBrl: number; prepayBrl?: number; prepayDiscountPercent?: number };
-  coupon: { percent: number; active: boolean };
+  /** `code` is what she types at checkout (R17.4 a). Absent or blank, the coupon touch stays silent. */
+  coupon: { percent: number; active: boolean; code?: string };
   delivery: {
     codDaysMin: number;
     codDaysMax: number;
@@ -739,7 +741,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       );
 
     case "silence_3": {
-      if (!ctx.config.coupon.active) return null;
+      // No code, no coupon touch: she would have a discount and nothing to type (R17.4 a).
+      const code = ctx.config.coupon.code?.trim();
+      if (!ctx.config.coupon.active || !code) return null;
       // "Super + dia da semana" — a seasonal frame with no calendar to maintain.
       const weekday = localWeekday(now);
       return (
@@ -748,7 +752,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         (ctx.paymentPath === "prepay"
           ? `pra você, e ele vale no pagamento antecipado.\n\n`
           : `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n`) +
-        `Se quiser, eu monto o pedido agora com o desconto já aplicado. E se não for o momento, ` +
+        // Logzz and Coinzz take the code at checkout; nobody applies it for her (R17.4 a).
+        `É só usar o código **${code}** no checkout — se quiser, te mando o link agora. E se não for o momento, ` +
         `tudo bem também — é só me falar que eu não te mando mais nada 💛`
       );
     }
@@ -881,6 +886,8 @@ const resolveVariable = (variable: TemplateVariable, ctx: RenderContext): string
       return ctx.address ?? "";
     case "couponPercent":
       return String(ctx.config.coupon.percent);
+    case "couponCode":
+      return ctx.config.coupon.code?.trim() ?? "";
     case "weekday":
       return localWeekday(ctx.now ?? new Date());
   }

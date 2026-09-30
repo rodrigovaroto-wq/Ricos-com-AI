@@ -1434,7 +1434,9 @@ const runFollowupSweep = async () => {
         reason:
           kind === "deferred_reply"
             ? "resposta adiada sem corpo guardado"
-            : "cupom ainda não existe",
+            : CONFIG.coupon.active
+              ? "cupom ativo sem código (coupon.code) no BUSINESS_CONFIG"
+              : "cupom ainda não existe",
       });
       return;
     }

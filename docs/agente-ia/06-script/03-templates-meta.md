@@ -101,13 +101,19 @@ em template: ela chega perto do tema de corpo, e é aí que a revisão de market
 ```text
 *Super {{1}}!* 🎉 Separei um cupom de *{{2}}% de desconto* pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.
 
-Se quiser, eu monto o pedido agora com o desconto já aplicado. E se não for o momento, tudo bem também — é só me falar que eu não te mando mais nada 💛
+É só usar o código *{{3}}* no checkout — se quiser, te mando o link agora. E se não for o momento, tudo bem também — é só me falar que eu não te mando mais nada 💛
 ```
 
 | Placeholder | Variável do código | Exemplo para a submissão |
 |---|---|---|
 | `{{1}}` | `weekday` | `Quinta` |
 | `{{2}}` | `couponPercent` | `20` |
+| `{{3}}` | `couponCode` | `SUPER20` |
+
+**Mudou em 2026-09-30 (R17.4 a):** o texto antigo prometia "eu monto o pedido agora com o desconto
+já aplicado", o que nada fazia. Agora dá o código, que Logzz e Coinzz aceitam no checkout. Em
+`channel.templates.silence_3.variables`: `["weekday", "couponPercent", "couponCode"]`. Sem
+`coupon.code` no `BUSINESS_CONFIG`, o toque não sai.
 
 **Fica mudo até o cupom existir na Coinzz.** `renderFollowup` devolve `null` para
 `silence_3` enquanto `coupon.active` não for verdadeiro, e a varredura cancela o toque.
@@ -233,7 +239,7 @@ Depois de **aprovados**, com os nomes exatamente como ficaram na Meta:
 ```json
 "channel": { "templates": {
   "silence_2": { "name": "encorpa_retomada_confianca", "language": "pt_BR", "variables": ["warrantyDays"] },
-  "silence_3": { "name": "encorpa_cupom_super_dia",   "language": "pt_BR", "variables": ["weekday", "couponPercent"] },
+  "silence_3": { "name": "encorpa_cupom_super_dia",   "language": "pt_BR", "variables": ["weekday", "couponPercent", "couponCode"] },
   "order_eve": { "name": "encorpa_vespera_entrega",   "language": "pt_BR", "variables": ["price"] }
 } }
 ```

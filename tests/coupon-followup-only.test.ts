@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { conversationCoupon, renderFollowup, type RenderContext } from "@/agent/followups.js";
+import { conversationCoupon, deliveryFor, renderFollowup, type RenderContext } from "@/agent/followups.js";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import { systemPrompt } from "@/agent/prompt.js";
 import { config, ctx } from "./fixtures.js";
@@ -91,5 +91,55 @@ describe("o turno liga o cupom ao toque (R17.4)", () => {
     expect(turn).not.toMatch(/systemPrompt\((?!turnConfig)/);
     expect(turn).toContain("const couponCut = turnConfig.coupon.active ? 1 - turnConfig.coupon.percent / 100 : null;");
     expect(turn).toContain("...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),");
+  });
+});
+
+/**
+ * R17.4 (a), operator 2026-09-30: Logzz and Coinzz accept the coupon at checkout, so the touch
+ * gives her the code to type. It used to promise "eu monto o pedido com o desconto já aplicado",
+ * which nothing did.
+ */
+describe("o toque do cupom dá o código (R17.4 a)", () => {
+  const render = (over: Partial<RenderContext> = {}): RenderContext => ({
+    leadId: "lead-1",
+    config: ativo,
+    now: new Date("2026-09-10T10:00:00"),
+    ...over,
+  });
+
+  it("diz o código e onde usar, sem prometer desconto aplicado por alguém", () => {
+    const texto = renderFollowup("silence_3", render())!;
+    expect(texto).toContain("**SUPER20**");
+    expect(texto).toMatch(/no checkout/);
+    expect(texto).not.toMatch(/já aplicado/);
+    expect(texto).toMatch(/não te mando mais nada/);
+  });
+
+  it("sem código no config, o toque não sai (nada de cupom sem código)", () => {
+    const semCodigo = { ...ativo, coupon: { percent: 20, active: true } };
+    expect(renderFollowup("silence_3", render({ config: semCodigo }))).toBeNull();
+    expect(renderFollowup("silence_3", render({ config: { ...ativo, coupon: { ...ativo.coupon, code: " " } } }))).toBeNull();
+  });
+
+  it("o texto do toque passa a cadeia de gates com o cupom do operador", () => {
+    const texto = renderFollowup("silence_3", render())!;
+    expect(runGates(texto, ctx({ config: ativo })).allowed).toBe(true);
+  });
+
+  it("o template pode levar o código como variável", () => {
+    const comTemplate = render({
+      config: {
+        ...ativo,
+        channel: { templates: { silence_3: { name: "s3", language: "pt_BR", variables: ["weekday", "couponPercent", "couponCode"] } } },
+      } as RenderContext["config"],
+      marketingOptIn: true,
+    });
+    const entrega = deliveryFor("silence_3", comTemplate, new Date("2026-09-01T10:00:00"));
+    expect(entrega).toMatchObject({ via: "template", variables: ["Quinta", "20", "SUPER20"] });
+  });
+
+  it("depois do toque, o briefing da conversa traz o código; antes, não", () => {
+    expect(gateBriefing(conversationCoupon(ativo, true)).join(" ")).toContain("SUPER20");
+    expect(gateBriefing(conversationCoupon(ativo, false)).join(" ")).not.toContain("SUPER20");
   });
 });
