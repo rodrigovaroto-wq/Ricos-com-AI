@@ -51,15 +51,16 @@ produção), então são do operador. L0.4: link recebido, trecho entregue, falt
 - `turn` no ar: **v42, de 2026-09-25** — sem `job: "human_reply"`.
 
 **Próxima sessão — nesta ordem:**
-1. **O** — publicar a `turn` do `main`:
+1. **O** — publicar a `turn` do `main` (a 1ª tentativa, 30/09, deu `list functions status 401`:
+   token sem acesso ao projeto — gerar outro logado na conta da org "OFERTA ENCORPA"):
    `npx supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api`
    (passo a passo em `docs/operacao/segredos-e-codespace.md`). **C** confere a versão nova (> 42).
-2. **O** (ou **C**, se o operador liberar a permissão) — no n8n: importar
-   `n8n/workflows/responder-cliente.json`, credencial "Supabase service_role" no nó "Grava a
-   resposta", basic auth "Formulário do operador" no gatilho, "WhatsApp envio" (`GehzRG0OhJ4FtBm9`)
-   no "Envia pelo WhatsApp". **Antes de ativar**, envio de teste com telefone inexistente: tem de
-   voltar "Nenhuma conversa com esse telefone". Ativar; **C** põe o ID em `WORKFLOWS` de
-   `src/dev/n8n-sync.ts` e `pnpm dev:n8n` dá `ok` para ele.
+2. **Importado desativado em 2026-09-30: `3Q18SjoW0UUXrTPI`** ("Encorpa — Responder cliente"),
+   com "Supabase service_role" (`uNGrb6LchX9rT743`) no nó "Grava a resposta" e o sub-workflow
+   "WhatsApp envio" (`GehzRG0OhJ4FtBm9`). **O** — criar a basic auth "Formulário do operador" no
+   n8n (não existe) e escolhê-la no gatilho. **C** — com a `turn` nova no ar: envio de teste com
+   telefone inexistente tem de voltar "Nenhuma conversa com esse telefone"; ativar; ID em
+   `WORKFLOWS` de `src/dev/n8n-sync.ts`; `pnpm dev:n8n` dá `ok` para ele.
 3. **O** — L0.4: colar no `BUSINESS_CONFIG` (nunca no git)
    `"exchange": { "feeBrl": 27, "checkoutUrl": "<link do Mercado Pago>" }` e conferir no secret
    o valor de `cost.conversationCapBrl` (o exemplo diz 0.5; a nota de 21/09 diz que subiu para 1.5).
