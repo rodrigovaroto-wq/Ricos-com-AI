@@ -81,7 +81,7 @@ na branch `claude/nice-gates-2yer56`, revisado (Opus), esperando PR → merge �
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
 | — | Publicar R17.4 (cupom só no follow-up): PR → merge → `turn` v45 | C → O → C | 🔄 |
-| L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⬜ |
+| L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⛔ as portas `local` e `function` leem e gravam no Supabase pela REST, e a credencial do ambiente dá 401 (`No API key found`) — trocar os dois cabeçalhos (`apikey` e `Authorization: Bearer`) e abrir sessão nova |
 | L0.7 | Consertar a instalação do Hermes na Action e provar com uma execução manual; R17.2 no grafo | C | ⬜ |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | O | ⬜ |
