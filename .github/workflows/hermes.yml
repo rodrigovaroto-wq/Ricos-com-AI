@@ -60,15 +60,22 @@ jobs:
       # `uv tool install git+…` this step used failed in all six runs up to 2026-09-30. The
       # installer is read from the same pinned commit it installs, and syncs dependencies
       # hash-verified against the project's uv.lock.
-      - name: Install Hermes Agent
+      #
+      # raw.githubusercontent.com answers 429 to the runner's shared IP without a token
+      # (run 7, 2026-09-30). The job's token goes to this download only: the installer runs
+      # in the next step, which never sees it (the job's token can write to this repository).
+      - name: Download the Hermes installer
         env:
           HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
-          # raw.githubusercontent.com answers 429 to the runner's shared IP without a token
-          # (run 7, 2026-09-30). The job's own token, in this one request's header only.
           GH_TOKEN: ${{ github.token }}
         run: |
           curl -fsSL --retry 3 --retry-all-errors -H "Authorization: Bearer $GH_TOKEN" \
             "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
+
+      - name: Install Hermes Agent
+        env:
+          HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
+        run: |
           bash "$RUNNER_TEMP/hermes-install.sh" --commit "$HERMES_COMMIT" --skip-setup --skip-browser
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/hermes" --version
