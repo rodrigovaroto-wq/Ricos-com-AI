@@ -63,8 +63,12 @@ jobs:
       - name: Install Hermes Agent
         env:
           HERMES_COMMIT: ac4181fdfaa4fa3b0682ea7b592c7a3ee6465e62
+          # raw.githubusercontent.com answers 429 to the runner's shared IP without a token
+          # (run 7, 2026-09-30). The job's own token, in this one request's header only.
+          GH_TOKEN: ${{ github.token }}
         run: |
-          curl -fsSL "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
+          curl -fsSL --retry 3 --retry-all-errors -H "Authorization: Bearer $GH_TOKEN" \
+            "https://raw.githubusercontent.com/NousResearch/hermes-agent/$HERMES_COMMIT/scripts/install.sh" -o "$RUNNER_TEMP/hermes-install.sh"
           bash "$RUNNER_TEMP/hermes-install.sh" --commit "$HERMES_COMMIT" --skip-setup --skip-browser
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
           "$HOME/.local/bin/hermes" --version
