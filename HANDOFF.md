@@ -36,7 +36,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 **Etapa atual: L0 — Preparar.** L0.3 e L0.4 feitos em 2026-09-30: formulário "Responder cliente"
 ativo com senha, `turn` v44 no ar, `BUSINESS_CONFIG` colado. O cupom só no follow-up (R17.4) está
-no PR #47 (branch `claude/nice-gates-2yer56`), revisado (Opus), esperando CI → merge → v45.
+no ar: PR #47 mergeado (`41203ba`), `turn` **v45** publicada em 2026-09-30 20:28 UTC.
 L0.7 feito (execução 8 do Hermes verde).
 **Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
@@ -51,8 +51,6 @@ L0.7 feito (execução 8 do Hermes verde).
   `apikey`. A Management API funciona; nada depende do REST agora.
 
 **Próxima sessão — nesta ordem:**
-1. **C** — PR da branch `claude/nice-gates-2yer56` (R17.4) → CI verde → **O** merge → **C** publica a
-   `turn` (v45) e confere `updated_at`.
 2. **C** — L0.5 (personas no modelo padrão, custo p50/p95 contra o teto de R$ 0,50): ⛔ até a
    credencial REST do Supabase no ambiente injetar `apikey` (sessão nova). L0.7 feito.
 3. **C** — L1.1 (importar Turno e Relógio do `main` no n8n) pode andar sem o canal.
@@ -72,7 +70,7 @@ L0.7 feito (execução 8 do Hermes verde).
 | L0.3 | `turn` v44 publicada; "Responder cliente" importado e ativo com senha; teste com telefone inexistente voltou "Nenhuma conversa com esse telefone" (operador); `dev:n8n` `ok` | v44, workflow `3Q18SjoW0UUXrTPI` versão ativa `d5659dab`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` colado pelo operador | operador, 2026-09-30 |
 | L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca R$ 27,00 fixa) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
-| — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
+| — | Cupom só no follow-up (R17.4) e código no toque (R17.4 a); grafo §44; duas revisões Opus aprovadas com resíduos; `turn` v45 no ar | PR #47 (`41203ba`), v45 20:28 UTC, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
@@ -82,7 +80,6 @@ L0.7 feito (execução 8 do Hermes verde).
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| — | Publicar R17.4 (cupom só no follow-up): PR → merge → `turn` v45 | C → O → C | 🔄 |
 | L0.5 | Rodada das 12 personas no modelo padrão; custo p50/p95; operador fixa o teto | C → O | ⛔ as portas `local` e `function` leem e gravam no Supabase pela REST, e a credencial do ambiente dá 401 (`No API key found`) — trocar os dois cabeçalhos (`apikey` e `Authorization: Bearer`) e abrir sessão nova |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | O | ⬜ |
