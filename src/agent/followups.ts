@@ -179,7 +179,8 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFoll
  * a link sent at 23:40 has its 15-minute touch go out at 23:55, and `silence_1`, deferred
  * past midnight, must not re-arm the touch she already got (sixth review, 2026-09-26) — nor
  * `silence_2` or `silence_3` re-arm the ones before them. The upsert is merge-duplicates, so
- * a kind written here that already went out turns from `sent` back into `scheduled`.
+ * a kind written here that already went out turns from `sent` back into `scheduled` — while its
+ * `sent_at` stays, which is how the turn still knows the coupon touch reached her (R17.4).
  */
 export const rulerFor = (
   from: Date,
