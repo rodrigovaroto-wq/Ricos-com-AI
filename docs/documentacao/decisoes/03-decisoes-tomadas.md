@@ -1934,3 +1934,20 @@ continua ligando o toque. Grafo §44.
 
 **R17.4 (a), mesmo dia:** Logzz e Coinzz aceitam cupom no checkout. O toque dá o código
 (`coupon.code`) para ela digitar; deixa de prometer "eu monto o pedido com o desconto já aplicado".
+
+## R17.5 — O modelo padrão no ar, medido antes (L0.5 e L1.2)
+
+**Medição (L0.5, 2026-09-30):** as 12 personas pela porta `local` no `muse-spark-1.3` (sem
+`-contributor`), `BUSINESS_CONFIG` de teste com teto de R$ 0,50 e tolerância 0. Custo da conversa:
+**p50 R$ 0,268 · p95 R$ 0,546 · máx R$ 0,546**; ~R$ 0,07 por turno; **3 de 12 no teto** (handoff
+"teto de custo da conversa antes da reescrita"). A chamada que cruza o teto já foi paga e é
+descartada: o custo real passa ~R$ 0,07 do nominal. Rodada `2026-09-30T21-08-04-483Z-local`.
+
+**Execução (L1.2, 2026-10-01):** com a delegação do operador ("siga com todas as fases que você
+consiga executar de forma autônoma"), os segredos `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE`
+foram apagados: a `turn` usa o padrão do código, `muse-spark-1.3`. Supera o "o operador troca"
+de R14.2. O `-contributor` fica só para o lado sintético (o modelo da persona e o Hermes sobre
+rodada de personas).
+
+**Aberto, do operador:** o teto por conversa, pelo p95 medido (`cost.conversationCapBrl` /
+`overrunTolerance`). Grafo §47.
