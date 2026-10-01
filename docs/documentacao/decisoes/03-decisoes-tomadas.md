@@ -1949,5 +1949,7 @@ foram apagados: a `turn` usa o padrão do código, `muse-spark-1.3`. Supera o "o
 de R14.2. O `-contributor` fica só para o lado sintético (o modelo da persona e o Hermes sobre
 rodada de personas).
 
-**Aberto, do operador:** o teto por conversa, pelo p95 medido (`cost.conversationCapBrl` /
-`overrunTolerance`). Grafo §47.
+**Teto (decisão do operador, 2026-10-01):** `cost.conversationCapBrl` = **0.55**, `overrunTolerance`
+= 0 — logo acima do p95 medido (R$ 0,546). Com a chamada que cruza o teto já paga, o gasto máximo
+de uma conversa fica perto de R$ 0,62. Aplicar exige o JSON inteiro do secret: a Management API só
+devolve o hash SHA-256 do valor. Grafo §47.
