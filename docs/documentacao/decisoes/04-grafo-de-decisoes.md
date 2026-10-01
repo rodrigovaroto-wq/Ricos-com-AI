@@ -1510,6 +1510,27 @@ service_role passada pelo operador, só em variável de ambiente — que por iss
 `Prefer: count=exact`, sem chave, e o `Content-Range` batendo com o `count(*)` da Management API.
 Ler a service_role pela Management API está barrado no modo automático — não tente.
 
+## 49. Duas mensagens em rajada recebem duas respostas iguais (teste ponta a ponta, 2026-10-01)
+
+**Sintoma:** no teste do caminho inteiro pelo n8n de produção, a cliente mandou "posso trocar?" e,
+1 s depois, "quanto tempo demora?". As duas execuções do Turno (7951, 7952) leram o histórico com
+as duas perguntas e responderam as duas: duas respostas quase iguais seguidas, custo dobrado
+(~R$ 0,07). Nada travou.
+
+**Causa:** cada mensagem dispara uma execução e um turno completo; a `turn` não confere se chegou
+mensagem mais nova da mesma conversa antes de responder. A espera da recepção já trata isso (a
+retomada da 1ª mensagem não duplica quando a 2ª foi respondida no meio dos 120 s — conferido).
+
+**Caminhos descartados (por ora):** agrupar no n8n (n8n é cano, não regra); mexer antes de dado real
+— a rajada é comum no WhatsApp, mas o custo de errar o agrupamento (responder só a última e perder
+a pergunta da primeira) é maior que o de responder duas vezes.
+
+**Correção:** em aberto — candidata para depois do L2: antes de gravar a resposta, a `turn` descarta
+o turno se já existe inbound mais novo na conversa (o turno mais novo responde a todas). Exige teste
+de concorrência e rodada de personas.
+
+**Guarda:** nenhuma ainda. Medir a frequência nas conversas reais (duas `outbound` em < 30 s).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

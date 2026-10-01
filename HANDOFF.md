@@ -45,6 +45,16 @@ e R$ 0,150 acumulados em dois turnos (ritmo do modelo padrão; o `-contributor` 
 **PR desta sessão:** [#48](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/48) (branch
 `claude/blissful-einstein-x0fjp8`) — o n8n já roda o Turno dela; o `main` fica atrás até o merge.
 Decisão R17.5; grafo §46–§48.
+**Caminho inteiro pelo n8n testado em 2026-10-01** (produção, `CANAL_ATIVO=false`, 5 leads sintéticos,
+R$ 0,74, apagados depois): compra na entrega até o link da Logzz (recepção → espera → resposta,
+tamanho, endereço, e-mail, CPF), reentrega do mesmo `externalId` (`duplicate`, sem custo), 3 leads
+novos ao mesmo tempo, mensagem durante a espera da recepção (sem resposta dupla), handoff (e-mail ao
+operador, régua cancelada, silêncio depois), opt-out (silêncio depois), Relógio (`silence_1` vencido
+varrido e entregue ao Envio), venda sem token (recusada 401, nenhum pedido) e venda sem tamanho
+(aviso "não mapeada"). Todas as execuções `success`; turno mais longo 30 s (teto do n8n 150 s, da
+função `whatsapp` 140 s). **Achado:** duas mensagens em rajada recebem duas respostas iguais (grafo
+§49, em aberto). **Não provado daqui:** venda com token válido (o token não está no container) e o
+envio real ao WhatsApp (canal desligado) — os dois no L2.
 **Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
 **Estado conferido em 2026-09-30, 21h UTC:**

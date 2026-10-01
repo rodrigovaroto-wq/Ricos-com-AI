@@ -12,8 +12,11 @@ seguiu executando: a `turn` terminou **depois** da limpeza do runner, não achou
 um novo e o tratou como primeira mensagem (recepção + Wait + resposta).
 
 O que vale:
-- Porta `n8n` a partir do container prova só a recepção (1ª mensagem). Conversa inteira pela
-  porta do n8n: de máquina sem esse proxy, ou pelo canal.
+- O corte é do proxy (~30 s), não do n8n: a execução continua. Conversa inteira pela porta do n8n
+  funciona assim (feito em 2026-10-01): POST no webhook ignorando a resposta HTTP, esperar a
+  execução do Turno sair de `running`/`waiting` pela API do n8n, e conferir o resultado no banco
+  (`messages`, `turn_outcomes`, `followups`). Com mensagens simultâneas, separe as execuções por
+  lead — a janela de tempo sozinha mistura.
 - Depois de qualquer sonda pela porta do n8n, espere as execuções do Turno saírem de
   `waiting` e apague os `leads` com telefone `5500099*` que nasceram depois da limpeza
   (`postgrestDb(...).deleteLead(phone)`). O `5500099000035` de 25/09 não é de sonda recente.
