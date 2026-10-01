@@ -1034,6 +1034,16 @@ const MUTATIONS: Mutation[] = [
     to: '"type": "n8n-nodes-base.noOp"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
   },
+  // Grafo §46 (2026-09-30): o n8n v1 roda os filhos de cima para baixo; abaixo do ramo do Wait,
+  // a resposta ao webhook só saía depois dos 120 s.
+  {
+    id: "responde-depois-do-wait",
+    bug: "o Turno respondia ao webhook só depois do Wait da recepção: 502 em toda primeira mensagem",
+    files: ["n8n/workflows/turno-da-agente.json"],
+    from: '"position": [\n        432,\n        -600\n      ]',
+    to: '"position": [\n        432,\n        0\n      ]',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
   // Revisão de integração (2026-09-27): "um/uma" como artigo, a negação que governa a contagem,
   // e o nome do antecipado negado por "não precisa <verbo>" / "nem no <nome>".
   {
