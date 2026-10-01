@@ -42,6 +42,9 @@ API, `dev:n8n` `ok` nos seis; o Turno respondia ao webhook só depois do Wait �
 **L1.2 feito em 2026-10-01:** `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE` apagados dos segredos
 da Supabase → a `turn` usa o padrão do código, `muse-spark-1.3`; sonda pela porta `function`: R$ 0,082
 e R$ 0,150 acumulados em dois turnos (ritmo do modelo padrão; o `-contributor` era ~15× mais barato).
+**PR desta sessão:** [#48](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/48) (branch
+`claude/blissful-einstein-x0fjp8`) — o n8n já roda o Turno dela; o `main` fica atrás até o merge.
+Decisão R17.5; grafo §46–§48.
 **Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
 **Estado conferido em 2026-09-30, 21h UTC:**
@@ -89,6 +92,7 @@ verdes.
   Só relatado: nenhum gate ou prompt mudou por causa disso.
 
 **Próxima sessão — nesta ordem:**
+0. **O** — merge do PR #48 (CI verde) — o `main` volta a bater com o n8n no ar.
 1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
    no `BUSINESS_CONFIG` (`cost.conversationCapBrl` / `overrunTolerance`).
 2. **O** — rotacionar a service_role (exposta na conversa de 30/09) e conferir o REST numa sessão nova.
