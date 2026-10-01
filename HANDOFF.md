@@ -93,9 +93,8 @@ verdes.
 
 **Próxima sessão — nesta ordem:**
 0. ✅ PR #48 mergeado (`9808bbf`, 2026-10-01).
-1. **O** — teto decidido em **R$ 0,55** (R17.5, 01/10): colar no `BUSINESS_CONFIG` `"cost":
-   {"conversationCapBrl": 0.55, "overrunTolerance": 0}` — ou passar o JSON atual ao C, que confere
-   o hash contra o do secret e publica (o secret não é legível pela API, só o hash).
+1. ✅ Teto **R$ 0,55**, tolerância 0 (R17.5) no `BUSINESS_CONFIG` — colado pelo operador em 01/10
+   16:28 UTC; o hash do secret (`a85f8f88…`) bate com o JSON que ele passou.
 2. **O** — rotacionar a service_role (exposta na conversa de 30/09) e conferir o REST numa sessão nova.
 3. **S** — L0.1 e L0.2 (canal e `order_eve`): tudo o que vem depois (L1.3–L1.5, L2) espera por eles.
 4. **S** — templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
@@ -128,7 +127,7 @@ verdes.
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.5 | Teto decidido: R$ 0,55, tolerância 0 (R17.5) — falta colar no `BUSINESS_CONFIG` | O | 🔄 decidido 01/10 |
+| L0.5 | Teto R$ 0,55, tolerância 0 (R17.5) no `BUSINESS_CONFIG`, conferido pelo hash | O | ✅ 01/10 |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
 | L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |

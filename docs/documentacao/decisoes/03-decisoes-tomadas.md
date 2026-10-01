@@ -1951,5 +1951,5 @@ rodada de personas).
 
 **Teto (decisão do operador, 2026-10-01):** `cost.conversationCapBrl` = **0.55**, `overrunTolerance`
 = 0 — logo acima do p95 medido (R$ 0,546). Com a chamada que cruza o teto já paga, o gasto máximo
-de uma conversa fica perto de R$ 0,62. Aplicar exige o JSON inteiro do secret: a Management API só
-devolve o hash SHA-256 do valor. Grafo §47.
+de uma conversa fica perto de R$ 0,62. Colado pelo operador em 2026-10-01 16:28 UTC; conferido pelo
+hash SHA-256 do secret (a Management API só devolve o hash) contra o JSON que ele passou. Grafo §47.
