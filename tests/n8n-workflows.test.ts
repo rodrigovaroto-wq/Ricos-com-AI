@@ -61,6 +61,16 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     const semResume = { ...turno, nodes: turno.nodes.filter((n) => !String(n.parameters?.jsonBody ?? "").includes("resume")) };
     expect(checkWorkflow(semResume).join()).toContain("resume: true");
   });
+  it("turno que responde ao webhook só depois do Wait (2026-09-30)", () => {
+    const turno = load("turno-da-agente");
+    const embaixo = {
+      ...turno,
+      nodes: turno.nodes.map((n) => (n.name === "Devolve a resposta" ? { ...n, position: [432, 0] as [number, number] } : n)),
+    };
+    expect(checkWorkflow(embaixo).join()).toContain("Devolve a resposta: runs after");
+    const semPosicao = { ...turno, nodes: turno.nodes.map(({ position: _p, ...n }) => n) };
+    expect(checkWorkflow(semPosicao).join()).toContain("Devolve a resposta: runs after");
+  });
   it("venda sem repassar o token (O10)", () => {
     const venda = load("venda-confirmada");
     const semToken = {

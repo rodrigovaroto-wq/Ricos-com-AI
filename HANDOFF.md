@@ -37,6 +37,11 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 **Etapa atual: L0 — Preparar.** L0.3, L0.4, L0.7 feitos; R17.4 mergeado (PR #47, `41203ba`) e no ar
 (`turn` v46). **L0.5 rodado em 2026-09-30** (12 personas, modelo padrão): p95 R$ 0,546 por conversa,
 3 de 12 bateram no teto de R$ 0,50 — **o operador fixa o teto pelo p95** (números abaixo).
+**L1.1 feito em 2026-09-30, 22h UTC:** Turno, Relógio, Venda e Envio do `main` publicados no n8n pela
+API, `dev:n8n` `ok` nos seis; o Turno respondia ao webhook só depois do Wait — consertado (grafo §46).
+**L1.2 feito em 2026-10-01:** `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE` apagados dos segredos
+da Supabase → a `turn` usa o padrão do código, `muse-spark-1.3`; sonda pela porta `function`: R$ 0,082
+e R$ 0,150 acumulados em dois turnos (ritmo do modelo padrão; o `-contributor` era ~15× mais barato).
 **Bloqueio principal:** sem L0.1 (sócio) não há como atender lead real.
 
 **Estado conferido em 2026-09-30, 21h UTC:**
@@ -56,8 +61,12 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
   editor, a versão ativa veio **sem senha** — desativada, consertada pela API, reativada
   (memória `n8n-editor-tira-senha-do-formulario`). "Turno da agente" e "Relógio da régua" seguem
   acusando o atraso do L1.1.
-- `dev:n8n` (30/09, 21h): 4 `ok`; "Turno da agente" (campo selado `reply`) e "Relógio da régua" (saída
-  de erro) ainda falham — é o L1.1.
+- n8n (30/09, 22h): versões ativas Turno `e2e2804e`, Relógio `3d3cd9d6`, Venda `1ce55289`, Envio
+  `c2f3c1c3` (conteúdo = `main`); `dev:n8n` `ok` nos seis; Relógio rodou `success` depois da troca.
+  Sonda pela porta do n8n: a 1ª mensagem volta `welcomed` na hora e a retomada responde dentro do
+  n8n; o turno com modelo dá 502 **do proxy deste container** (corta em < ~40 s) — conversa inteira
+  pela porta do n8n só fora do container ou pelo canal (memória `porta-n8n-do-container-bate-no-proxy`).
+  Os leads que o turno atrasado recriou depois da limpeza foram apagados (`leads` = 1).
 
 **L0.5 — rodada `2026-09-30T21-08-04-483Z-local`** (porta `local`, `turn` do disco em `41203ba`,
 `CONVERSATION_MODEL=muse-spark-1.3`, `BUSINESS_CONFIG` do exemplo com Malu, SUPER20 ativo, sem
@@ -83,8 +92,8 @@ verdes.
 1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
    no `BUSINESS_CONFIG` (`cost.conversationCapBrl` / `overrunTolerance`).
 2. **O** — rotacionar a service_role (exposta na conversa de 30/09) e conferir o REST numa sessão nova.
-3. **C** — L1.1 (importar Turno e Relógio do `main` no n8n) pode andar sem o canal.
-4. **S** — L0.1 e L0.2; templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
+3. **S** — L0.1 e L0.2 (canal e `order_eve`): tudo o que vem depois (L1.3–L1.5, L2) espera por eles.
+4. **S** — templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
 
 ### Executado
 
@@ -103,6 +112,8 @@ verdes.
 | — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | — | R17.4 mergeado (PR #47) e publicado: `turn` v46 do `41203ba`, mesmo `ezbr_sha256` da v45 | `41203ba`, CI run 117 `success`, v46 21:00:08 UTC, 2026-09-30 |
+| L1.2 | Segredos `CONVERSATION_MODEL`/`CONVERSATION_MODEL_PRICE` removidos → modelo padrão na `turn` v46; sonda `function` (cleide, 2 turnos, R$ 0,15) | 2026-10-01 |
+| L1.1 | Turno, Relógio, Venda e Envio do `main` publicados no n8n pela API; `dev:n8n` `ok` nos seis. "Devolve a resposta" do Turno movido acima do ramo do Wait (respondia só depois dos 120 s, 502 para quem chama) + regra no `dev:n8n`; grafo §46; revisão Opus aprovada com resíduos | versões ativas acima, 2026-09-30 |
 | L0.5 | Rodada das 12 personas no modelo padrão: p50 R$ 0,268 · p95 R$ 0,546 · máx R$ 0,546; 3/12 no teto; vetos e piores no topo do quadro | rodada `2026-09-30T21-08-04-483Z-local`, `41203ba`, 2026-09-30 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
@@ -113,8 +124,8 @@ verdes.
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
 | L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | 🔄 rodada feita; causa do 401 era o host da credencial |
-| L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | O → C | ⬜ |
-| L1.2 | `CONVERSATION_MODEL` = modelo padrão | O | ⬜ |
+| L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
+| L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
 | L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |
 | L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ⬜ |
 | L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ⬜ |
