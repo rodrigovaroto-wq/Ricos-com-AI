@@ -1442,6 +1442,74 @@ de desenvolvimento com as extras de teste.
 **Guarda:** a própria execução manual da Action (sem `force`: instala, lê o `hermes_backlog` e sai
 se não há 50 leads novos).
 
+## 46. O Turno respondia ao webhook só depois do Wait da recepção (L1.1, 2026-09-30)
+
+**Sintoma:** depois de importar Turno, Relógio, Venda e Envio do `main` (L1.1, `dev:n8n` todo `ok`),
+a sonda pela porta do n8n (`dev:personas --door=n8n`) recebeu **502** na primeira mensagem. A
+execução 7641 ficou em `waiting` com "Devolve a resposta" sem rodar; ele só rodou às 22:09:12,
+depois dos 120 s do Wait.
+
+**Causa:** com `executionOrder: v1`, o n8n executa os filhos de um nó **de cima para baixo pela
+posição na tela**, cada ramo até o fim. Os filhos do "Cerebro do turno" eram "Responde no
+WhatsApp?" (y −400), "É recepção?" (y −200) → Wait, e "Devolve a resposta" (y 0): o Wait
+estacionava a execução antes da resposta. A importação não causou isso (ligações e posições iguais
+às da versão anterior). A cliente não sentia (recepção e resposta saem por "Envia a resposta"), mas
+a função `whatsapp` registrava falha a cada primeira mensagem e a porta `n8n` não fechava.
+
+**Caminhos descartados:** religar o Wait atrás do "Devolve a resposta" — conserta sem depender da
+posição, mas muda a fiação que as regras O2 e os testes já cobrem; mover um nó é o menor diff.
+
+**Correção:** "Devolve a resposta" em y −600, acima de todo irmão. Publicado (versão ativa
+`e2e2804e`). A sonda seguinte recebeu `welcomed` na hora e a retomada respondeu dentro do n8n.
+
+**Guarda:** regra em `src/dev/n8n-rules.ts` — um `respondToWebhook` que tem irmão levando a um
+Wait precisa estar acima dele (posição ausente conta como falha); roda no `dev:n8n` contra a versão
+ativa e em `tests/n8n-workflows.test.ts` contra a versionada. Revisão Opus: aprovada com resíduos —
+(1) só compara irmãos diretos: um nó intermediário entre o "Cerebro" e o respond escaparia; (2) a
+regra assume `executionOrder: v1` (conferido no ar; os JSON versionados não guardam `settings`).
+
+**Limite desta máquina:** a porta `n8n` a partir do container ainda não fecha uma conversa inteira —
+o proxy de saída corta em menos de ~40 s, e um turno com o modelo passa disso (502 com a execução
+seguindo no n8n). Sonda completa pela porta do n8n: de uma máquina sem esse proxy, ou pelo canal.
+
+## 47. O modelo padrão nunca tinha falado numa conversa medida (L0.5, L1.2, 2026-09-30/10-01)
+
+**Sintoma:** toda medição de custo e de comportamento tinha sido no `-contributor`, ~15× mais
+barato, e a produção seguia com `CONVERSATION_MODEL=muse-spark-1.3-contributor` — a variante que
+cede as conversas para treino da Meta (A8).
+
+**Causa:** a troca era "do operador, antes do real" (R14.2) e o teto de R$ 0,50 tinha sido fixado
+por premissa (R$ 0,10 por lead), sem rodada no modelo que fala com a cliente.
+
+**Caminhos descartados:** medir pela porta `function` (grava em produção e roda a `turn` com os
+segredos do ar, ainda no `-contributor`); estimar pela tabela de preço (a análise do Hermes já
+mostrou que a estimativa errava por fator).
+
+**Correção:** rodada das 12 personas pela porta `local` com `CONVERSATION_MODEL=muse-spark-1.3`
+(R17.5: p95 R$ 0,546, 3/12 no teto); depois os dois segredos apagados (L1.2) e sonda pela porta
+`function`: R$ 0,082 no 1º turno, R$ 0,150 no 2º — o ritmo do modelo padrão.
+
+**Guarda:** o `index.ts` já recusa um modelo novo sem preço (`CONVERSATION_MODEL_PRICE`) e cai no
+padrão com a variável ausente; o custo por turno no `llm_calls` denuncia uma volta ao `-contributor`.
+O teto em si segue aberto (operador, pelo p95).
+
+## 48. A REST do Supabase dava 401 neste container (L0.5, 2026-09-30)
+
+**Sintoma:** `GET /rest/v1/leads` pelo proxy de saída voltava `401 No API key found`; a Management
+API funcionava. O L0.5 ficou travado uma sessão (a porta `local` lê e grava pela REST).
+
+**Causa:** a credencial "Supabase (Dados)" do ambiente estava presa ao host
+`hbmkgakzrqmd1svszjeo` (número **1**) — o projeto é `hbmkgakzrqmdlsvszjeo` (letra **l**). O proxy
+não injetava nada no host real. Corrigido pelo operador em 30/09.
+
+**Caminho que falhou depois da correção:** a sessão seguinte ainda recebeu o 401 sem cabeçalho de
+chave (a sessão começou antes da troca, ou a credencial não injeta `apikey`). O L0.5 rodou com a
+service_role passada pelo operador, só em variável de ambiente — que por isso precisa ser rotacionada.
+
+**Guarda:** o passo 1 de toda sessão que usa a REST: `curl …/rest/v1/leads?select=id` com
+`Prefer: count=exact`, sem chave, e o `Content-Range` batendo com o `count(*)` da Management API.
+Ler a service_role pela Management API está barrado no modo automático — não tente.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

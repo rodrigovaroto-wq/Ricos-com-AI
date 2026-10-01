@@ -78,14 +78,13 @@ teste roda**. Ver
 
 **Provedor de modelo — só a Meta** (§R12.1, 2026-09-23; supera §R7.1): `muse-spark-1.3`
 pela Meta Model API (`api.meta.ai`, [dev.meta.ai](https://dev.meta.ai/)) é o único provedor
-(o código chamava `api.llama.com` até 24/09). Nos testes roda a variante
-`muse-spark-1.3-contributor` por `CONVERSATION_MODEL` — decisão do operador, que troca
-manualmente antes da operação real. **OpenAI e Gemini saíram do escopo** —
-a chamada de intenção do Gemini não decidia nada e sai do turno (item 2.10 do plano v2); a
-v32 no ar ainda usa os dois até o deploy da v33. Toda chamada passa por um seam único, com
-teto de custo e trace. **O eval da Muse contra a rubrica das personas rodou em 25/09 só no
-`-contributor`** (0 respostas prontas em 61, `06-eval-muse-2026-09-25.md`); contra o modelo
-padrão, que é o que fala com cliente real, ainda não.
+(o código chamava `api.llama.com` até 24/09). **Desde 2026-10-01 a `turn` no ar roda o modelo
+padrão** (segredos `CONVERSATION_MODEL` e `CONVERSATION_MODEL_PRICE` apagados, L1.2, R17.5); o
+`-contributor` fica só no lado sintético (persona, Hermes sobre rodada de personas). **OpenAI e
+Gemini saíram do escopo** — a chamada de intenção do Gemini não decidia nada e saiu do turno
+(item 2.10 do plano v2). Toda chamada passa por um seam único, com teto de custo e trace. **O
+modelo padrão foi medido em 30/09** (L0.5, 12 personas): custo da conversa p50 R$ 0,268, p95
+R$ 0,546, 3 de 12 no teto de R$ 0,50 — o teto definitivo é do operador, pelo p95.
 
 ## Canonical commands
 

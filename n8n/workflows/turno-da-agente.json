@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "3bf6508a-3fda-46f2-8ac0-deb8f7a9064c",
+  "versionId": "e2e2804e-59be-445c-b86a-818351b01efe",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -65,7 +65,7 @@
       "typeVersion": 1.5,
       "position": [
         432,
-        0
+        -600
       ],
       "parameters": {
         "respondWith": "json",
@@ -427,6 +427,7 @@
     {
       "id": "a406b2fd-b340-4a45-b6b2-3217f81d7d74",
       "name": "É recusa de selo?",
+      "notes": "Mensagem sem o selo da funcao whatsapp: e lixo na porta publica. Nao vira e-mail.",
       "type": "n8n-nodes-base.if",
       "typeVersion": 2.3,
       "position": [
@@ -454,8 +455,7 @@
           ]
         },
         "options": {}
-      },
-      "notes": "Mensagem sem o selo da funcao whatsapp: e lixo na porta publica. Nao vira e-mail."
+      }
     }
   ],
   "connections": {

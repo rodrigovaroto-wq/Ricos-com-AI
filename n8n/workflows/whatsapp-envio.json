@@ -2,7 +2,7 @@
   "id": "GehzRG0OhJ4FtBm9",
   "name": "Encorpa — WhatsApp envio",
   "active": true,
-  "versionId": "1f3f67d4-b4fb-4064-b13a-d482b00bb33b",
+  "versionId": "c2f3c1c3-6fc5-46a2-b1a0-455e0d19a93f",
   "nodes": [
     {
       "id": "1b28e2a4-6478-487d-b166-a1fcb7928b1b",
@@ -34,6 +34,7 @@
     {
       "id": "c6742d46-5ba4-47b1-8d1f-29464774ff9a",
       "name": "Tempo de digitacao",
+      "webhookId": "15206b58-b356-4e8b-8d10-cfb757f31f1a",
       "type": "n8n-nodes-base.wait",
       "typeVersion": 1.1,
       "position": [
@@ -44,14 +45,14 @@
         "resume": "timeInterval",
         "amount": "={{ $json.delaySec }}",
         "unit": "seconds"
-      },
-      "webhookId": "15206b58-b356-4e8b-8d10-cfb757f31f1a"
+      }
     },
     {
       "id": "71ebd8cd-1ca3-4883-971d-fb03fa7e056f",
       "name": "Envia pela Cloud API",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "onError": "continueErrorOutput",
       "position": [
         896,
         80
@@ -68,8 +69,7 @@
         "options": {
           "timeout": 20000
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
       "id": "cbe349b3-1b23-400b-b4c1-7e92aeb3845d",
@@ -87,6 +87,7 @@
     {
       "id": "8ec19b8b-6d05-4eba-b9d8-8716d94b523c",
       "name": "Avisa falha de envio",
+      "webhookId": "28d29740-1081-462b-a086-a4de844d6ce3",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
@@ -108,8 +109,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "webhookId": "28d29740-1081-462b-a086-a4de844d6ce3"
+      }
     }
   ],
   "connections": {

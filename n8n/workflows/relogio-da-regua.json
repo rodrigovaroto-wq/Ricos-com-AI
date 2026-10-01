@@ -2,9 +2,18 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
-  "versionId": "95309097-185a-44c7-9689-f845fd0c6ef6",
+  "versionId": "3d3cd9d6-6a45-4410-9182-c1732a0cd70b",
   "nodes": [
     {
+      "id": "ba5ae99a-298d-4fe2-a9a2-248025dba571",
+      "name": "A cada 5 minutos",
+      "disabled": false,
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.4,
+      "position": [
+        0,
+        0
+      ],
       "parameters": {
         "rule": {
           "interval": [
@@ -14,18 +23,18 @@
             }
           ]
         }
-      },
-      "id": "ba5ae99a-298d-4fe2-a9a2-248025dba571",
-      "name": "A cada 5 minutos",
-      "type": "n8n-nodes-base.scheduleTrigger",
-      "typeVersion": 1.4,
-      "position": [
-        0,
-        0
-      ],
-      "disabled": false
+      }
     },
     {
+      "id": "b641137d-4d40-4b70-a77d-e8848a88c875",
+      "name": "Varre a regua",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "onError": "continueErrorOutput",
+      "position": [
+        224,
+        0
+      ],
       "parameters": {
         "method": "POST",
         "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn",
@@ -44,29 +53,14 @@
         },
         "contentType": "json"
       },
-      "id": "b641137d-4d40-4b70-a77d-e8848a88c875",
-      "name": "Varre a regua",
-      "type": "n8n-nodes-base.httpRequest",
-      "typeVersion": 4.5,
-      "position": [
-        224,
-        0
-      ],
       "credentials": {
         "httpHeaderAuth": {
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
-      },
-      "onError": "continueErrorOutput"
+      }
     },
     {
-      "parameters": {
-        "content": "## Relogio da regua\n\nVarre a regua de silencio (3 toques) e a de pos-pedido (4 mensagens)\na cada 5 minutos.\n\nA Edge Function decide tudo: renderiza a copy, passa pelos 11 guardrails,\ngrava o trace e marca o que foi enviado. Nenhuma chamada de modelo —\numa varredura custa zero, rode com a frequencia que quiser.\n\nA retencao de 90 dias NAO esta aqui: virou pg_cron dentro do banco,\npara nao depender do n8n estar de pe.\n\nO campo \"send\" da resposta e o que o WAHA vai enviar quando o canal existir.",
-        "height": 416,
-        "width": 560,
-        "color": 3
-      },
       "id": "d8218334-269b-47c7-a05a-4fdd7c48c6cc",
       "name": "Sticky Note d96e4157",
       "type": "n8n-nodes-base.stickyNote",
@@ -74,7 +68,13 @@
       "position": [
         -96,
         -448
-      ]
+      ],
+      "parameters": {
+        "content": "## Relogio da regua\n\nVarre a regua de silencio (3 toques) e a de pos-pedido (4 mensagens)\na cada 5 minutos.\n\nA Edge Function decide tudo: renderiza a copy, passa pelos 11 guardrails,\ngrava o trace e marca o que foi enviado. Nenhuma chamada de modelo —\numa varredura custa zero, rode com a frequencia que quiser.\n\nA retencao de 90 dias NAO esta aqui: virou pg_cron dentro do banco,\npara nao depender do n8n estar de pe.\n\nO campo \"send\" da resposta e o que o WAHA vai enviar quando o canal existir.",
+        "height": 416,
+        "width": 560,
+        "color": 3
+      }
     },
     {
       "id": "ff595bcb-595f-4d79-b713-8fd81967aa08",
@@ -92,8 +92,12 @@
     {
       "id": "af55552a-fd63-487c-aaaa-790d9c9cc2fc",
       "name": "Avisa o operador",
+      "webhookId": "89074296-4350-402b-a66d-0c8304bdc033",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "position": [
         672,
         0
@@ -113,11 +117,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "webhookId": "89074296-4350-402b-a66d-0c8304bdc033"
+      }
     },
     {
       "id": "5994c63f-f860-4896-be44-f5305fe6c4e7",
@@ -171,6 +171,7 @@
     {
       "id": "083706ef-f25a-450f-8db3-036c392dc676",
       "name": "Avisa os bloqueios",
+      "webhookId": "70055ca7-15ec-44a8-a492-2f13d17697ef",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
@@ -192,14 +193,17 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "webhookId": "70055ca7-15ec-44a8-a492-2f13d17697ef"
+      }
     },
     {
       "id": "5b0f3c1e-8a47-4c2e-9d51-2f7a6c0e4b18",
       "name": "Avisa a falha da varredura",
+      "webhookId": "c3d9a2f4-6e1b-4f87-a0c5-9b2e7d41f630",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "position": [
         448,
         400
@@ -219,11 +223,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "webhookId": "c3d9a2f4-6e1b-4f87-a0c5-9b2e7d41f630"
+      }
     },
     {
       "id": "8e6a1d27-3c95-4b0f-b7e2-5d14a9c63f02",
@@ -241,8 +241,12 @@
     {
       "id": "f41b7c09-2d6e-4a83-95c1-7e0b3a8d52c6",
       "name": "Avisa os erros",
+      "webhookId": "2a7e5f13-b8c4-4d69-8f0a-c61d9e3b47a5",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
       "position": [
         672,
         600
@@ -262,11 +266,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "retryOnFail": true,
-      "maxTries": 3,
-      "waitBetweenTries": 2000,
-      "webhookId": "2a7e5f13-b8c4-4d69-8f0a-c61d9e3b47a5"
+      }
     }
   ],
   "connections": {

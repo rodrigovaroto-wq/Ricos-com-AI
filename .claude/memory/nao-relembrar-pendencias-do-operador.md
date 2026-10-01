@@ -10,4 +10,6 @@ de dois itens que ele já sabe e vai fazer: revogar o PAT do Supabase usado no d
 `CONVERSATION_MODEL` para o modelo sem `-contributor`. Os dois ficam registrados no
 `HANDOFF.md`; nas respostas, não mencione nenhum dos dois a menos que ele pergunte ou que
 uma ação sua dependa disso (ex.: rodar algo sobre cliente real com `-contributor` ainda ativo).
+A troca do `CONVERSATION_MODEL` foi feita em 2026-10-01 (L1.2); a regra de não repetir pendência
+reconhecida continua valendo para as outras (PAT, rotação da service_role).
 Regra geral: pendência que o operador já reconheceu não vira fecho de toda resposta.

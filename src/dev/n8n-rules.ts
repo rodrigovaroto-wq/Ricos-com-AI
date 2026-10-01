@@ -12,6 +12,8 @@
  *   branch.
  * - The régua's sweep (2026-09-28) had no error output: a sweep the Edge Function refused
  *   (a missing column, a database error) failed every 5 minutes and told nobody.
+ * - The turn answered its webhook only after the welcome's Wait (2026-09-30): the caller got
+ *   a 502 on every first message, and the `n8n` persona door could not run.
  */
 
 export interface N8nNode {
@@ -21,6 +23,7 @@ export interface N8nNode {
   parameters?: Record<string, unknown>;
   credentials?: Record<string, { id?: string; name: string }>;
   onError?: string;
+  position?: [number, number];
 }
 
 /** n8n's wiring: per node, one list of targets per output (`main[1]` is the error output). */
@@ -112,6 +115,25 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
         if (!new RegExp(`\\b${field}:`).test(body)) problems.push(`${wf.name} › ${n.name}: does not forward sealed field ${field}`);
     }
   }
+  // 2026-09-30: n8n (executionOrder v1) runs a node's children top to bottom by canvas
+  // position, each branch to its end. A Wait placed above the webhook's response parks the
+  // execution before the response runs: the caller waits out the whole pause and gets a 502.
+  const byName = new Map(wf.nodes.map((n) => [n.name, n]));
+  const reachesWait = (name: string, seen = new Set<string>()): boolean => {
+    if (seen.has(name)) return false;
+    seen.add(name);
+    const node = byName.get(name);
+    if (node?.type === "n8n-nodes-base.wait" && !node.disabled) return true;
+    return (wf.connections?.[name]?.main ?? []).some((out) => (out ?? []).some((t) => reachesWait(t.node, seen)));
+  };
+  for (const outputs of Object.values(wf.connections ?? {}))
+    for (const out of outputs.main ?? []) {
+      const targets = (out ?? []).map((t) => byName.get(t.node)).filter((n): n is N8nNode => n !== undefined && !n.disabled);
+      for (const respond of targets.filter((n) => n.type === "n8n-nodes-base.respondToWebhook"))
+        for (const other of targets)
+          if (other !== respond && reachesWait(other.name) && !((respond.position?.[1] ?? Infinity) < (other.position?.[1] ?? -Infinity)))
+            problems.push(`${wf.name} › ${respond.name}: runs after "${other.name}", which reaches a Wait — the webhook answers only after the pause`);
+    }
   if (inbound) {
     if (!wf.nodes.some((n) => n.type === "n8n-nodes-base.wait" && !n.disabled))
       problems.push(`${wf.name}: no Wait node after the welcome (O2)`);

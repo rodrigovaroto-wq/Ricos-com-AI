@@ -34,6 +34,10 @@ e o painel diário existem para ler.
 | 4 | **Modelo padrão nunca medido** (A8) | Toda medição foi no `-contributor`, ~15× mais barato. Pela estimativa, a conversa longa de cliente desconfiada bate no teto de R$ 0,50 (efetivo R$ 0,625) e vira handoff — que hoje cai no bloqueio 2 | C mede, O decide o teto | C: 1 h, ~R$ 5 de API |
 | 5 | **Anúncio CTWA apontando para o número** | Sem anúncio não há lead | S | 1 h, depois do 1 |
 
+**Estado em 2026-10-01:** 2 ✅ (formulário "Responder cliente", R17.3) · 3 ✅ (`turn` v46 = `main`
+`41203ba`; n8n = `main`, L1.1) · 4 ✅ medido (p95 R$ 0,546, R17.5; o teto é do operador) ·
+1 e 5 seguem com o sócio. Andamento detalhado no quadro do topo do [`HANDOFF.md`](../../../HANDOFF.md).
+
 Tudo o mais é paralelo ou posterior.
 
 ## L0 — Preparar (em paralelo, começa hoje)
@@ -44,7 +48,7 @@ Tudo o mais é paralelo ou posterior.
    [`06-script/03-templates-meta.md`](../06-script/03-templates-meta.md). É o único template que
    mexe em dinheiro no V1: a véspera derruba a recusa na porta (15% × R$ 9,90 + a venda perdida).
    `silence_2` e `silence_3` ficam para depois (L4).
-3. **O decide o canal de resposta humana** (bloqueio 2). Três caminhos:
+3. ✅ **O decide o canal de resposta humana** (bloqueio 2) — (a), R17.3, 2026-09-30. Três caminhos:
    - **(a) Formulário no n8n "Responder cliente"** — telefone + texto → workflow "WhatsApp envio" →
      grava a mensagem como saída. Só texto dentro da janela de 24 h. **C** constrói em ~4 h, com
      teste. É o menor que resolve. **Recomendado para o V1.**
@@ -56,12 +60,12 @@ Tudo o mais é paralelo ou posterior.
 4. **O** — criar o link do Mercado Pago de **R$ 27,00** (troca de tamanho) e escrever no
    `BUSINESS_CONFIG`: `exchange: { feeBrl: 27, checkoutUrl: "<link>" }`; conferir
    `cost.conversationCapBrl` (A3).
-5. **C** — medir o modelo padrão: uma rodada das 12 personas com
+5. ✅ **C** — medir o modelo padrão (2026-09-30, R17.5: p50 R$ 0,268 · p95 R$ 0,546 · 3/12 no teto; falta **O** fixar o teto): uma rodada das 12 personas com
    `CONVERSATION_MODEL=muse-spark-1.3` (sem `-contributor`, sem `CONVERSATION_MODEL_PRICE`),
    `pnpm dev:personas`, e a tabela com `pnpm dev:eval <rodada>`. Saída: custo p50/p95 por conversa e quantas bateriam no teto.
    **O** fixa o teto pelo p95 medido, não pela premissa de R$ 0,10 por lead.
 6. ✅ **O** — merge do PR #43 (`5bf5a15`, 2026-09-29; a `0020` já estava aplicada em produção).
-7. **C** — logo depois do merge (mexe no mesmo `hermes.yml`): trocar a instalação do Hermes na
+7. ✅ **C** — logo depois do merge (mexe no mesmo `hermes.yml`; execução 8 verde, 2026-09-30): trocar a instalação do Hermes na
    Action pelo instalador oficial (A6) e rodar a Action uma vez à mão com `force` para provar que
    instala; registrar a troca de R$ 27,00 como R17.2 no grafo (pendência da revisão 1).
 
@@ -70,9 +74,10 @@ modelo padrão medido e teto decidido, `BUSINESS_CONFIG` com `exchange`.
 
 ## L1 — Publicar (1 dia, depois de L0)
 
-1. **O** — importar no n8n os workflows do `main` (turno, relógio, venda, envio) → **C** roda
-   `pnpm dev:n8n` até passar (hoje falha em "Turno" e "Relógio": o `main` está à frente).
-2. **O** — `CONVERSATION_MODEL` para o modelo padrão (conversa real tem dado pessoal).
+1. ✅ **C** — importar no n8n os workflows do `main` (turno, relógio, venda, envio) e rodar
+   `pnpm dev:n8n` até passar (2026-09-30, pela API; o Turno respondia só depois do Wait — grafo §46).
+2. ✅ **C** — `CONVERSATION_MODEL` para o modelo padrão (conversa real tem dado pessoal) — segredos
+   apagados em 2026-10-01, com a delegação do operador (R17.5).
 3. **O** — Parte B do runbook do canal: segredos no Supabase, publicar `turn` e `whatsapp`.
 4. **S** — webhook da Meta apontando para a função `whatsapp`.
 5. **C** — Parte C: credencial no n8n, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`; fechar as portas

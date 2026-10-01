@@ -29,3 +29,4 @@ salvamento e a política de crescimento.
 - [Entrega concluída só no COD](entrega-concluida-so-no-cod.md) — R$ 19,99 não existe no antecipado (29/09); devolução pós-envio = R$ 25,00 completos nos dois caminhos e a taxa de transação não volta; recusa (15%, só COD) custa R$ 9,90.
 - [`pnpm dev:n8n` sobrescreve os workflows](dev-n8n-sobrescreve-workflows.md) — grava a versão ativa em `n8n/workflows/`; com o main à frente do n8n, `git add -A` depois dele desfaz o main. Adicione só o workflow publicado.
 - [Editor do n8n tira a senha do formulário](n8n-editor-tira-senha-do-formulario.md) — em 30/09 o "Responder cliente" foi ativado sem basic auth depois do teste pelo editor; ative só com `pnpm dev:n8n` dando ok para ele.
+- [Porta n8n do container bate no proxy](porta-n8n-do-container-bate-no-proxy.md) — do container, turno com modelo pela porta do n8n dá 502 (proxy < ~40 s) e o turno atrasado recria o lead sintético depois da limpeza; apague `5500099*` depois.
