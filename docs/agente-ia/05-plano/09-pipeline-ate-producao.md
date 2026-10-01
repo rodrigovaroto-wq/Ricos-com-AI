@@ -102,8 +102,9 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
 ## L3 — Tráfego controlado (semana 1)
 
-1. **S** — anúncio CTWA só nas 22 praças com pagamento na entrega, orçamento baixo (sugestão:
-   R$ 50–100 por dia nos 3 primeiros dias).
+1. **S** — anúncio CTWA conforme [`10-plano-de-testes.md`](10-plano-de-testes.md) (R18, 2026-10-01):
+   copy em 5 dias/R$ 300, depois região N+NE × S+SE+CO em 7 dias/R$ 500. *Até 01/10 este item
+   dizia "só nas 22 praças com pagamento na entrega, R$ 50–100 por dia" — superado por R18.2.*
 2. **O** — ler **todas** as conversas dos 3 primeiros dias (são poucas) e o `pnpm dev:painel`
    diário; responder todo handoff em até 1 h no horário de atendimento (06:00–00:00).
 3. **O** — assinar o piso de amostra ([`08-piso-de-amostra.md`](08-piso-de-amostra.md) §4)

@@ -1510,6 +1510,24 @@ service_role passada pelo operador, só em variável de ambiente — que por iss
 `Prefer: count=exact`, sem chave, e o `Content-Range` batendo com o `count(*)` da Management API.
 Ler a service_role pela Management API está barrado no modo automático — não tente.
 
+## 49. O teste de tráfego tinha alvo geográfico sem dono (R18, 2026-10-01)
+
+**Sintoma:** o L3 do pipeline dizia "anúncio só nas 22 praças com pagamento na entrega"; o operador
+planejava "Brasil inteiro × Sul + Sudeste + Centro-Oeste" com R$ 800, sem critério de escala escrito.
+
+**Causa:** o L3 foi escrito pelo lado técnico (onde a entrega existe); a hipótese do operador é de
+negócio (renda e escolaridade por região). Nenhuma das duas estava medida.
+
+**Caminhos descartados:** as 22 praças (o operador manteve a região, R18.2); Brasil inteiro como
+controle (contém o tratamento, R18.3); um conjunto por região (R$ 100 cada não sai da fase de
+aprendizado, R18.4).
+
+**Correção:** [`10-plano-de-testes.md`](../../agente-ia/05-plano/10-plano-de-testes.md) — copy em 5
+dias/R$ 300, região em 7 dias/R$ 500 com N+NE × S+SE+CO, critérios de escala escritos antes do dado.
+
+**Guarda:** o piso de amostra assinado antes do dia 1 com os critérios do plano; a leitura por
+região depende da view por DDD (pendente) — sem ela, o pedido por região só sai do CEP de quem comprou.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -134,7 +134,7 @@ verdes.
 | L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ⬜ |
 | L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ⬜ |
 | L2 | Três conversas reais: compra na entrega, compra antecipada, troca + handoff respondido | O + C | ⬜ |
-| L3 | Tráfego controlado nas 22 praças; piso de amostra assinado; critérios de pausa | S + O | ⬜ |
+| L3 | Tráfego de teste conforme [`10-plano-de-testes.md`](docs/agente-ia/05-plano/10-plano-de-testes.md) (R18, 01/10): copy 5 dias/R$ 300, região N+NE × S+SE+CO 7 dias/R$ 500; piso assinado; critérios de pausa. Pendentes: revisão das 6 copies (aguarda texto do operador), view de região por DDD (C) | S + O + C | ⬜ plano decidido |
 | L4 | Hermes com H1–H5 (instala, segredos, rotina de implementação, vê pedido, piso assinado) | C + O | ⬜ |
 
 ## ▶ Histórico — fila de 2026-09-29, madrugada (antes do pipeline 80/20)

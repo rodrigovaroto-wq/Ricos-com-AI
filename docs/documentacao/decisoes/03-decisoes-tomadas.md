@@ -1951,3 +1951,31 @@ rodada de personas).
 
 **Aberto, do operador:** o teto por conversa, pelo p95 medido (`cost.conversationCapBrl` /
 `overrunTolerance`). Grafo §47.
+
+# Rodada 18 — o plano de testes antes de escalar (2026-10-01)
+
+Plano completo: [`../../agente-ia/05-plano/10-plano-de-testes.md`](../../agente-ia/05-plano/10-plano-de-testes.md).
+Grafo §49.
+
+## R18.1 — R$ 800 só de mídia, em duas fases, depois de tudo validado
+
+Decisão do operador: R$ 800 de verba de mídia (a IA fica fora dela); o dia 1 só começa com conta
+de anúncios, canal e agente validados na prática. **Copy:** 5 dias, R$ 300, os 6 vídeos num
+conjunto aberto. **Região:** 7 dias, R$ 500, só as 2 copies vencedoras.
+
+## R18.2 — O teste de região é por região, não pelas 22 praças
+
+O operador manteve o recorte por região — Sul, Sudeste e Centro-Oeste contra Norte e Nordeste —
+pela hipótese de mais renda e escolaridade levarem a menos recusa e devolução. Supera a linha "só
+nas 22 praças" do L3 do pipeline. As cidades de S+SE+CO sem pagamento na entrega entram no
+conjunto e são separadas só na leitura.
+
+## R18.3 — O controle é Norte + Nordeste, não Brasil inteiro
+
+Brasil inteiro contém S+SE+CO e disputaria o mesmo leilão; com N+NE a comparação fica limpa e o
+"Brasil aberto" sai da mistura dos dois.
+
+## R18.4 — Dois conjuntos, as cinco regiões lidas por dentro
+
+Dois conjuntos de R$ 250, não cinco de R$ 100 (que não sairiam da fase de aprendizado). As cinco
+regiões se leem pelo detalhamento do Ads Manager e pelo DDD de cada lead.
