@@ -370,8 +370,8 @@ const MUTATIONS: Mutation[] = [
     id: "R10.4-armado",
     bug: "o lembrete de 15 minutos depois do link nunca era agendado (a régua não recebia o ponto de parada)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "const rows = rulerFor(from, stopPoint, postponed, linkInReply, rulerAnchors(at)).map((f) => ({",
-    to: "const rows = rulerFor(from, \"before_size\", postponed, linkInReply, rulerAnchors(at)).map((f) => ({",
+    from: "const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);",
+    to: "const ruler = rulerFor(from, \"before_size\", postponed, linkInReply, anchors);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
