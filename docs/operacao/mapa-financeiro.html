@@ -155,7 +155,7 @@
 <div class="wrap">
 
   <header class="masthead">
-    <p class="kicker">Encorpa · Colete Cinta Modeladora · 09 set 2026 · revisão 2</p>
+    <p class="kicker">Encorpa · Colete Cinta Modeladora · 09 set 2026 · revisão 3, 02 out 2026 (custo real)</p>
     <h1>Caixa e Margem</h1>
     <p class="standfirst">Tudo que está medido, tudo que ainda é suposição, e quanto de caixa a operação exige antes do primeiro real de retorno. Cada número traz de onde veio.</p>
     <div class="legend">
@@ -181,8 +181,8 @@
           <tr><td class="strong">Pagamento na entrega — produto</td><td class="num strong">R$ 129,90</td><td>oferta Logzz 75567</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Pagamento na entrega — frete cobrado hoje</td><td class="num">R$ 24,98</td><td><code>stock-and-delivery-day</code>, hoje</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Total na porta, enquanto o frete não for zerado</td><td class="num">R$ 154,88</td><td>soma das duas linhas</td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td class="strong">Pagamento antecipado</td><td class="num strong">R$ 110,41</td><td>oferta Coinzz, frete grátis nacional</td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td>Desconto do antecipado sobre o COD</td><td class="num">15,0%</td><td><code>129,90 × 0,85 = 110,41</code></td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td class="strong">Pagamento antecipado — produto</td><td class="num strong">R$ 116,91</td><td><code>prices.prepayBrl</code>; frete por região à parte, no checkout (R15.3)</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Desconto do antecipado sobre o COD</td><td class="num">10,0%</td><td><code>129,90 × 0,90 = 116,91</code></td><td><span class="chip c-ok">Medido</span></td></tr>
         </tbody>
       </table>
     </div>
@@ -203,13 +203,19 @@
           <th>Taxa</th><th class="num">Valor</th><th>Na entrega</th><th>Antecipado</th><th>Confiança</th>
         </tr></thead>
         <tbody>
-          <tr><td>Transação (Coinzz / Logzz)</td><td class="num">6,99%</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
-          <tr><td>Antifraude</td><td class="num">R$ 2,49</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Transação (Coinzz / Logzz)</td><td class="num">6,99%</td><td>sim</td><td>não (Mercado Pago, abaixo)</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Antifraude</td><td class="num">R$ 2,49</td><td>sim</td><td>não (operador, 26/09)</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Transação Mercado Pago (50% Pix 0,99% + R$ 1,00 / 50% cartão à vista 4,98%)</td><td class="num">R$ 3,99 em 1 peça</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de manuseio</td><td class="num">R$ 4,99</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega concluída (Padrão)</td><td class="num">R$ 19,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega concluída (<strong>Express</strong>)</td><td class="num">R$ 24,99</td><td>sim</td><td><strong>não</strong></td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Devolução / cancelamento depois de enviado (taxa completa, manuseio incluso)</td><td class="num">25,00</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Taxa de entrega frustrada</td><td class="num">R$ 4,99</td><td>sim</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td><strong>Recusa na porta — tudo o que se paga</strong> (12–17% dos pedidos na entrega)</td><td class="num">R$ 9,99</td><td>sim</td><td>não</td><td><span class="chip c-warn">Suposto</span> taxa especulada, ainda precisa ser medida; R$ 9,90 na memória de 29/09</td></tr>
+          <tr><td>Modelo de IA da agente (p50 medido em 30/09; p95 R$ 0,546; teto R$ 0,55)</td><td class="num">R$ 0,27 por lead</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>WhatsApp — atendimento e régua dentro das janelas de 24 h e 72 h</td><td class="num">R$ 0 por lead</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>WhatsApp — template UTILITY do pós-venda fora da janela (<code>order_eve</code>), US$ 0,0068</td><td class="num">~R$ 0,04 por pedido</td><td>sim</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
+          <tr><td>Lead (CPL do anúncio CTWA)</td><td class="num">R$ 1,25 – 1,50</td><td>sim</td><td>sim</td><td><span class="chip c-warn">Suposto</span></td></tr>
           <tr><td>Taxa de entrega garantida (opcional)</td><td class="num">R$ 24,99</td><td>opcional</td><td>não</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td>Etiqueta — Logzz expedição, São Paulo (manuseio incluso)</td><td class="num">R$ 13,79</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
           <tr><td><strong>Teto de etiqueta absorvido pela operação</strong></td><td class="num strong">R$ 20,00</td><td>não</td><td>sim</td><td><span class="chip c-ok">Medido</span></td></tr>
@@ -222,12 +228,12 @@
     </div>
     <div class="stack" style="margin-top:18px">
       <div class="note" style="border-left-color:var(--accent); background:var(--accent-soft)">
-        <strong>Express: R$ 5,00 a mais, e a Logzz diz que compensa.</strong> A oferta tem duas modalidades — <em>Padrão</em>, que ela agenda entre três datas, e <em>Express — receba hoje em até 4 horas</em>. A diferença é só a entrega concluída: R$ 24,99 contra R$ 19,99. A própria Logzz avisa na tela que a eficiência do Express tende a ser <strong>30% superior</strong> à normal — ou seja, menos frustração, que a R$ 9,90 por tentativa perdida paga os R$ 5,00 de sobra com folga se a diferença for real. Sondado hoje, São Paulo devolve só a Padrão; o Express existe na plataforma e ainda não apareceu na consulta.
+        <strong>Express: R$ 5,00 a mais, e a Logzz diz que compensa.</strong> A oferta tem duas modalidades — <em>Padrão</em>, que ela agenda entre três datas, e <em>Express — receba hoje em até 4 horas</em>. A diferença é só a entrega concluída: R$ 24,99 contra R$ 19,99. A própria Logzz avisa na tela que a eficiência do Express tende a ser <strong>30% superior</strong> à normal — ou seja, menos frustração, que a R$ 9,99 por tentativa perdida paga os R$ 5,00 de sobra com folga se a diferença for real. Sondado hoje, São Paulo devolve só a Padrão; o Express existe na plataforma e ainda não apareceu na consulta.
       </div>
       <div class="note">
         <strong>O que a cliente paga de frete no antecipado.</strong> Desde 29/09 (R15.4) a cliente paga o frete inteiro no checkout; a operação não absorve etiqueta no pedido entregue e não paga a entrega concluída de R$ 19,99. A etiqueta só pesa para a operação quando o pedido é devolvido ou cancelado depois de enviado (etiqueta + manuseio de R$ 4,99).</div>
-      <div class="note">
-        <strong>O estoque é do fornecedor.</strong> Os R$ 30,00 saem do valor da venda, não do seu caixa antes dela. Por isso o produto entra na margem abaixo e <em>não</em> entra na conta de capital de giro — é a diferença entre precisar de dezenas de milhares e precisar de alguns milhares.
+      <div class="note gap">
+        <strong>O produto entra na reserva? Em aberto.</strong> A revisão 2 dizia que o estoque é do fornecedor e os R$ 30,00 saem da comissão, não do caixa antes da venda. A reserva definida pelo operador em 02/10 conta <em>todo</em> custo do pedido até virar dinheiro, produto e transação inclusive. O simulador segue a definição de 02/10 e mostra ao lado quanto seria sem produto e transação — com a verba de L3, é a diferença entre os R$ 1.200 reservados bastarem ou não.
       </div>
     </div>
   </section>
@@ -236,7 +242,7 @@
   <section>
     <div class="sec-head">
       <h2>A margem, linha a linha</h2>
-      <p>Cenário base: frete do COD zerado, cliente paga R$ 129,90 na porta; antecipado roteado pela expedição da Logzz em São Paulo.</p>
+      <p>Cenário base, 1 peça, na ponta pessimista das faixas de 02/10: recusa 17% (especulada), devolução 10%. Frete do COD grátis para a cliente, que paga R$ 129,90 na porta; no antecipado ela paga o frete no checkout.</p>
     </div>
     <div class="ledger">
       <div class="col in">
@@ -248,10 +254,10 @@
         <div class="line"><span>Entrega concluída</span><span class="num">− 19,99</span></div>
         <div class="line"><span>Manuseio</span><span class="num">− 4,99</span></div>
         <div class="line total"><span>Margem na entrega concluída</span><span class="num">R$ 63,35</span></div>
-        <div class="line"><span>Custo de uma recusa na porta (tudo o que se paga)</span><span class="num">− 9,90</span></div>
-        <div class="line total"><span>Esperado com 15% de recusa</span><span class="num">R$ 52,36</span></div>
+        <div class="line"><span>Custo de uma recusa na porta (tudo o que se paga)</span><span class="num">− 9,99</span></div>
+        <div class="line total"><span>Esperado com 17% de recusa</span><span class="num">R$ 50,88</span></div>
         <div class="line"><span>Devolvido depois de enviado: taxa completa de devolução</span><span class="num">− 25,00</span></div>
-        <div class="line total"><span>Esperado com 15% de recusa e 7,5% de devolução</span><span class="num">R$ 45,74</span></div>
+        <div class="line total"><span>Esperado com 17% de recusa e 10% de devolução</span><span class="num">R$ 42,05</span></div>
       </div>
       <div class="col out">
         <h3><span>Pagamento antecipado</span><span>Coinzz</span></h3>
@@ -261,11 +267,11 @@
         <div class="line"><span>Manuseio (frete pago pela cliente; sem entrega concluída)</span><span class="num">− 4,99</span></div>
         <div class="line total"><span>Margem entregue, e não há frustração</span><span class="num">R$ 77,93</span></div>
         <div class="line"><span>Devolvido depois de enviado: taxa completa 25,00 + taxa do Mercado Pago que não volta 3,99</span><span class="num">− 28,99</span></div>
-        <div class="line total"><span>Esperado com 7,5% de devolução</span><span class="num">R$ 69,91</span></div>
+        <div class="line total"><span>Esperado com 10% de devolução</span><span class="num">R$ 67,24</span></div>
       </div>
     </div>
     <p style="margin-top:18px; color:var(--ink-2); max-width:64ch">
-      O antecipado rende <strong>menos risco e mais dinheiro</strong>: R$ 69,91 esperados por pedido contra R$ 45,74 do COD, já com 7,5% de devolução nos dois e 15% de recusa só no COD. A escolha entre eles é de conversão e de cobertura: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43, não frustra, e o frete pago pela cliente deixa a margem igual em qualquer CEP.
+      O antecipado rende <strong>menos risco e mais dinheiro</strong>: R$ 67,24 esperados por pedido contra R$ 42,05 do COD, já com 10% de devolução nos dois e 17% de recusa só no COD — antes de lead, IA e WhatsApp, que custam igual nos dois caminhos. A escolha entre eles é de conversão e de cobertura: o COD converte com público frio e alcança 22 das 43 cidades varridas; o antecipado alcança as 43, não frustra, e o frete pago pela cliente deixa a margem igual em qualquer CEP.
     </p>
     <div class="note" style="margin-top:16px">
       <strong>A agente não tem mais como recusar uma venda por praça.</strong> Sem entrega no tamanho dela, ela oferece o antecipado — sempre, em qualquer CEP. A fila de espera por etiqueta cara deixou de existir quando o teto entrou: não há mais praça em que a venda dê prejuízo.
@@ -281,14 +287,14 @@
     <div class="timeline">
       <div class="tl-row"><span class="tl-day">D0</span><div class="tl-bar out">Anúncio pago ao Meta · saldo de expedição debitado quando o pedido entra em separação</div></div>
       <div class="tl-row"><span class="tl-day">D+1 a 3</span><div class="tl-bar wait">Entrega agendada acontece — ou frustra</div></div>
-      <div class="tl-row"><span class="tl-day">D+15 a 17</span><div class="tl-bar in">Comissão liberada: 14 dias após a entrega concluída</div></div>
+      <div class="tl-row"><span class="tl-day">D+15 a 17</span><div class="tl-bar in">Comissão do pagamento na entrega liberada: 14 dias após o pagamento na porta</div></div>
     </div>
     <div class="stack" style="margin-top:20px">
       <div class="note gap">
         <strong>O saldo de expedição é pré-pago, e trava a venda quando acaba.</strong> Quando o gerente do armazém muda o pedido para “em separação”, a Logzz debita automaticamente o saldo de expedição do produtor. Sem saldo, o pedido fica <em>“saldo insuficiente”</em> — a venda existe e não anda. Recarga por Pix, cartão ou saldo do painel. Se a entrega não acontece, o valor da entrega é estornado.
       </div>
       <div class="note">
-        <strong>No antecipado o intervalo é outro.</strong> Pix e boleto liberam em 1 dia; cartão de crédito em 14. Antecipar recebível custa R$ 4,99 e o teto antecipável é 60%. Vender no Pix é a forma mais barata de encurtar o ciclo — não tem taxa extra e o dinheiro volta no dia seguinte.
+        <strong>No antecipado não há intervalo.</strong> O pagamento cai na hora no Mercado Pago (operador, 02/10) e cobre o custo do próprio pedido; por isso ele não entra na reserva de caixa. Só o pagamento na entrega empata dinheiro: produto, transação, entrega concluída, manuseio, recusa e devolução ficam adiantados até a comissão liberar.
       </div>
     </div>
   </section>
@@ -297,7 +303,7 @@
   <section>
     <div class="sec-head">
       <h2>Custo, faturamento e lucro por venda</h2>
-      <p>Kits de 1, 2 e 3 peças, por pedido criado. Lead R$ 1,00 com 10% de conversão (R$ 10,00 por venda), IA R$ 0,10 por lead (R$ 1,00 por venda), recusa de 15% só no COD (R$ 9,90 é tudo o que se paga), devolução pós-envio de 7,5% nos dois caminhos. Manuseio, entrega e devolução contam uma vez por pedido, também nos kits.</p>
+      <p>Kits de 1, 2 e 3 peças, por pedido criado, na ponta pessimista das faixas de 02/10. Lead R$ 1,50 com 10% de conversão (R$ 15,00 por venda), IA R$ 0,27 por lead (p50 medido; R$ 2,70 por venda), WhatsApp ~R$ 0,04 por pedido, recusa de 17% só no COD (R$ 9,99 é tudo o que se paga; taxa especulada), devolução pós-envio de 10% nos dois caminhos. Manuseio, entrega e devolução contam uma vez por pedido, também nos kits. Na ponta otimista (recusa 12%, devolução 5%, CPL R$ 1,25) o mix 70/30 de 1 peça sobe de R$ 31,86 para R$ 41,63.</p>
     </div>
     <div class="scroll">
       <table>
@@ -306,10 +312,10 @@
       </table>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>O que escala com as peças.</strong> Só o <em>produto</em> (R$ 30,00 por peça) e o preço do kit. Entrega concluída (R$ 19,99, só COD), manuseio (R$ 4,99), recusa (R$ 9,90), devolução (R$ 25,00), o fixo de R$ 2,49 da transação COD e o fixo de R$ 1,00 do Pix contam <strong>uma vez por pedido</strong>, também no kit de 3; a transação percentual (6,99% no COD, Mercado Pago no antecipado) incide sobre o preço do kit; lead e IA contam por venda. Cobrança por pedido confirmada pelo operador em 29/09.
+      <strong>O que escala com as peças.</strong> Só o <em>produto</em> (R$ 30,00 por peça) e o preço do kit. Entrega concluída (R$ 19,99, só COD), manuseio (R$ 4,99), recusa (R$ 9,99), devolução (R$ 25,00), WhatsApp (~R$ 0,04), o fixo de R$ 2,49 da transação COD e o fixo de R$ 1,00 do Pix contam <strong>uma vez por pedido</strong>, também no kit de 3; a transação percentual (6,99% no COD, Mercado Pago no antecipado) incide sobre o preço do kit; lead e IA contam por venda (1 lead = 1 conversa). Cobrança por pedido confirmada pelo operador em 29/09.
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como a devolução entra.</strong> Do pedido devolvido ou cancelado depois de enviado, o operador paga a taxa completa de devolução de R$ 25,00 (manuseio já incluso, nos dois caminhos) e não recebe a venda; no antecipado a taxa do Mercado Pago também não volta no estorno. Os 7,5% valem sobre o pedido criado e são separados dos 15% de recusa do COD. O antecipado nunca tem recusa nem entrega concluída; a cliente paga o frete no checkout.
+      <strong>Como a devolução entra.</strong> Do pedido devolvido ou cancelado depois de enviado, o operador paga a taxa completa de devolução de R$ 25,00 (manuseio já incluso, nos dois caminhos) e não recebe a venda; no antecipado a taxa do Mercado Pago também não volta no estorno. Os 5–10% valem sobre o pedido criado e são separados dos 12–17% de recusa do COD. O antecipado nunca tem recusa nem entrega concluída; a cliente paga o frete no checkout.
     </div>
   </section>
 
@@ -317,7 +323,7 @@
   <section>
     <div class="sec-head">
       <h2>Quanto de caixa a operação exige</h2>
-      <p>Mexa nos controles. O caixa necessário é tudo que sai antes do primeiro crédito voltar: anúncio, expedição e produto, multiplicados pelos dias de ciclo.</p>
+      <p>Mexa nos controles. A reserva é todo custo de um pedido até a venda virar dinheiro (produto, manuseio, transação, entrega concluída, recusa, devolução). O antecipado cai na hora no Mercado Pago; o pagamento na entrega libera 14 dias depois do pagamento na porta. A verba de anúncio fica à parte.</p>
     </div>
     <div class="sim">
       <div class="sim-controls">
@@ -326,46 +332,49 @@
           <input type="range" id="ads" min="50" max="3000" step="50" value="300">
         </div>
         <div class="field">
-          <label for="cpa">Custo por venda (R$ 1 por lead ÷ 10% de conversão) <output id="cpaO">R$ 10</output></label>
-          <input type="range" id="cpa" min="5" max="90" step="1" value="10">
+          <label for="cpl">Custo por lead (CPL; ÷ 10% de conversão = custo por venda) <output id="cplO">R$ 1,50</output></label>
+          <input type="range" id="cpl" min="0.5" max="3" step="0.05" value="1.5">
         </div>
         <div class="field">
           <label for="mix">Mix pagamento na entrega <output id="mixO">70%</output></label>
           <input type="range" id="mix" min="0" max="100" step="5" value="70">
         </div>
         <div class="field">
-          <label for="frus">Frustração no COD <output id="frusO">15%</output></label>
-          <input type="range" id="frus" min="0" max="35" step="1" value="15">
+          <label for="frus">Recusa na porta no COD (12–17%, especulada) <output id="frusO">17%</output></label>
+          <input type="range" id="frus" min="0" max="35" step="1" value="17">
         </div>
         <div class="field">
-          <label for="dev">Devolução pós-envio (COD e antecipado) <output id="devO">7,5%</output></label>
-          <input type="range" id="dev" min="0" max="20" step="0.5" value="7.5">
+          <label for="dev">Devolução pós-envio (COD e antecipado) <output id="devO">10%</output></label>
+          <input type="range" id="dev" min="0" max="20" step="0.5" value="10">
         </div>
         <div class="field">
           <label for="prod">Custo do produto <output id="prodO">R$ 30,00</output></label>
           <input type="range" id="prod" min="20" max="50" step="0.25" value="30">
         </div>
         <div class="field">
-          <label for="ciclo">Dias até o crédito voltar <output id="cicloO">17 dias</output></label>
+          <label for="ia">IA por lead (p50 R$ 0,27; p95 R$ 0,546; teto R$ 0,55) <output id="iaO">R$ 0,27</output></label>
+          <input type="range" id="ia" min="0" max="0.75" step="0.01" value="0.27">
+        </div>
+        <div class="field">
+          <label for="ciclo">Dias até a entrega liberar (14 após o pagamento na porta) <output id="cicloO">17 dias</output></label>
           <input type="range" id="ciclo" min="1" max="30" step="1" value="17">
         </div>
       </div>
       <div class="sim-out">
         <div class="tiles">
           <div class="tile"><div class="lab">Vendas por dia</div><div class="val" id="oVendas">—</div><div class="sub" id="oVendasSub">&nbsp;</div></div>
-          <div class="tile"><div class="lab">Margem média</div><div class="val" id="oMargem">—</div><div class="sub">por venda, após taxas, devolução e IA</div></div>
+          <div class="tile"><div class="lab">Margem média</div><div class="val" id="oMargem">—</div><div class="sub" id="oMargemSub">por venda, após taxas, recusa, devolução, IA e WhatsApp</div></div>
           <div class="tile"><div class="lab">Lucro por dia</div><div class="val" id="oLucro">—</div><div class="sub" id="oLucroSub">&nbsp;</div></div>
-          <div class="tile"><div class="lab">Caixa necessário</div><div class="val" id="oCaixa">—</div><div class="sub" id="oCaixaSub">&nbsp;</div></div>
+          <div class="tile"><div class="lab">Reserva de caixa</div><div class="val" id="oCaixa">—</div><div class="sub" id="oCaixaSub">&nbsp;</div></div>
         </div>
         <div class="scroll">
           <table>
             <thead><tr><th>Saída diária</th><th class="num">Valor</th><th>Quando</th></tr></thead>
             <tbody>
               <tr><td>Anúncios</td><td class="num" id="sAds">—</td><td>no dia</td></tr>
-              <tr><td>Saldo de expedição e devolução (COD)</td><td class="num" id="sExp">—</td><td>na separação, D0</td></tr>
-              <tr><td>Manuseio e taxa de devolução (antecipado)</td><td class="num" id="sEti">—</td><td>na separação, D0</td></tr>
-              <tr><td>Produto</td><td class="num" id="sProd">—</td><td>descontado na venda — estoque do fornecedor, não do seu caixa</td></tr>
-              <tr><td>Modelo de IA da agente</td><td class="num" id="sIa">—</td><td>no dia · R$ 0,10 por lead (premissa do operador; o custo medido foi R$ 0,0197 por conversa)</td></tr>
+              <tr><td>Pedidos na entrega: produto, transação, entrega concluída, manuseio, recusa, devolução</td><td class="num" id="sExp">—</td><td>adiantado; volta 14 dias depois do pagamento na porta — <strong>é isto que a reserva cobre</strong></td></tr>
+              <tr><td>Pedidos antecipados: produto, taxa do Mercado Pago, manuseio, devolução</td><td class="num" id="sEti">—</td><td>coberto na hora pelo pagamento no Mercado Pago</td></tr>
+              <tr><td>Modelo de IA da agente e WhatsApp</td><td class="num" id="sIa">—</td><td>no dia · IA por lead (controle acima) + ~R$ 0,04 por pedido de template UTILITY</td></tr>
               <tr><td class="strong">Total que sai por dia</td><td class="num strong" id="sTot">—</td><td>—</td></tr>
             </tbody>
           </table>
@@ -373,7 +382,7 @@
       </div>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como ler o caixa necessário.</strong> É o pico de capital empatado: o que <em>sai da sua conta</em> por dia, multiplicado pelos dias até o primeiro crédito voltar. O produto aparece na tabela para você ver o custo, mas fica de fora dessa multiplicação — o estoque é do fornecedor e os R$ 30,00 são descontados da venda, não pagos antes dela. A devolução pós-envio (frete + manuseio) já está na saída diária; o número não inclui imposto nem o chip do WhatsApp.
+      <strong>Como ler a reserva.</strong> É o pico de capital empatado em pedidos: o custo diário dos pedidos na entrega multiplicado pelos dias até a comissão liberar. Por pedido na entrega criado, com 1 peça: <code>(1 − recusa − devolução) × (produto + transação + 19,99 + 4,99) + recusa × 9,99 + devolução × 25,00</code> — R$ 52,78 na ponta pessimista. O antecipado não entra (cai na hora) e o anúncio também não (verba à parte). Com a verba de L3 (R$ 800, CPL R$ 1,25–1,50, 10% de conversão) o teste cria 37 a 45 pedidos na entrega antes do primeiro crédito: reserva de R$ 1.970 a R$ 2.584, contra R$ 1.200 reservados — ou R$ 838 a R$ 1.039 se produto e transação saírem da comissão e não do caixa (pergunta aberta). O número não inclui imposto.
     </div>
   </section>
 
@@ -415,6 +424,8 @@
         <tbody>
           <tr><td>O Frete Fixo aceita teto com repasse, ou só preço fixo?</td><td>Suporte da Coinzz, perguntado</td><td class="num">quem paga o excedente</td></tr>
           <tr><td>Em quais praças o Express aparece?</td><td>Não precisa saber: a agente conta que existe e manda conferir no checkout</td><td class="num">nenhum</td></tr>
+          <tr><td>Qual a recusa real na porta, e quanto ela custa: R$ 9,90 ou R$ 9,99?</td><td>Os primeiros pedidos na entrega; o extrato da Logzz da primeira recusa</td><td class="num">R$ 0,73 por venda COD a cada ponto</td></tr>
+          <tr><td>Produto e transação do COD saem do caixa antes da venda, ou da comissão?</td><td>Operador / extrato da Logzz</td><td class="num">se a reserva de R$ 1.200 basta</td></tr>
           <tr><td>O checkout aceita endereço por parâmetro?</td><td>Suporte da Coinzz — assumido que não, por ora</td><td class="num">atrito no fechamento</td></tr>
         </tbody>
       </table>
@@ -432,19 +443,20 @@
   const brl0 = n => "R$ " + n.toLocaleString("pt-BR", {maximumFractionDigits:0});
 
   const el = id => document.getElementById(id);
-  const inputs = ["ads","cpa","mix","frus","dev","prod","ciclo"].map(el);
+  const inputs = ["ads","cpl","mix","frus","dev","prod","ia","ciclo"].map(el);
 
   // Taxas medidas. Ver a tabela "Toda taxa" acima.
   const COD_PRECOS = [129.90, 233.82, 311.76], PRE_PRECOS = [116.91, 207.84, 272.79];  // kits de 1, 2 e 3 peças
   const TRANSACAO = 0.0699, ANTIFRAUDE = 2.49, MANUSEIO = 4.99;
-  const ENTREGA_CONCLUIDA = 19.99, CUSTO_RECUSA = 9.90;  // recusa na porta: R$ 9,90 é tudo o que o operador paga (2026-09-29)
+  const ENTREGA_CONCLUIDA = 19.99, CUSTO_RECUSA = 9.99;  // recusa na porta: R$ 9,99 (plano de 2026-10-02; a memória de 29/09 diz R$ 9,90 — divergência a conferir no extrato)
   const CUSTO_DEV = 25.00;         // taxa completa de devolução, manuseio incluso (operador, 2026-09-29), nos dois caminhos
   const MP_PIX = 0.0099, MP_PIX_FIXO = 1.00, MP_CARTAO = 0.0498;  // Mercado Pago, mix 50% Pix / 50% cartão à vista
   const taxaMP = p => 0.5*(MP_PIX*p + MP_PIX_FIXO) + 0.5*MP_CARTAO*p;
-  const LEAD = 1.00, CONVERSAO = 0.10;   // R$ 1 por lead, 10% viram venda
-  const IA_POR_CONVERSA = 0.10;          // R$ 0,10 por lead (premissa do operador, 2026-09-29)
+  const LEAD = 1.50, CONVERSAO = 0.10;   // CPL R$ 1,25–1,50 (ponta pessimista), 10% viram venda
+  const IA_POR_CONVERSA = 0.27;          // R$ 0,27 por lead, p50 medido em 30/09 (p95 R$ 0,546; teto R$ 0,55)
+  const WA_POR_PEDIDO = 0.04;            // template UTILITY do pós-venda fora da janela, US$ 0,0068; lead custa R$ 0
   const CONVERSAS_POR_VENDA = 1 / CONVERSAO;  // 1 lead = 1 conversa
-  const FRUS_BASE = 0.15, DEV_BASE = 0.075;
+  const FRUS_BASE = 0.17, DEV_BASE = 0.10;    // recusa 12–17% (especulada), devolução 5–10%: ponta pessimista
 
   // Margem esperada por pedido criado, antes de lead e IA. `n` = peças do kit; produto é por peça;
   // manuseio, entrega e devolução contam uma vez por pedido, também nos kits.
@@ -479,12 +491,13 @@
       ["Entrega concluída", cols(x => neg(x.entrega))],
       ["Manuseio", cols(x => neg(x.manuseio))],
       ["Margem se entregue", cols(x => brl(x.entregue)), true],
-      ["Perda esperada por recusa (15% × R$ 9,90, só COD)", cols(x => neg(x.perdaFrus))],
-      ["Perda esperada por devolução pós-envio (7,5%)", cols(x => neg(x.perdaDev))],
-      ["Margem esperada, antes de lead e IA", cols(x => brl(x.esperada)), true],
-      ["Lead (R$ 1,00 ÷ 10%)", cols(() => neg(leadVenda))],
-      ["IA (R$ 0,10 por lead × 10 leads)", cols(() => neg(iaVenda))],
-      ["Lucro por venda", cols(x => brl(x.esperada - leadVenda - iaVenda)), true]
+      ["Perda esperada por recusa (17% × R$ 9,99, só COD)", cols(x => neg(x.perdaFrus))],
+      ["Perda esperada por devolução pós-envio (10%)", cols(x => neg(x.perdaDev))],
+      ["Margem esperada, antes de lead, IA e WhatsApp", cols(x => brl(x.esperada)), true],
+      ["Lead (R$ 1,50 ÷ 10%)", cols(() => neg(leadVenda))],
+      ["IA (R$ 0,27 por lead × 10 leads)", cols(() => neg(iaVenda))],
+      ["WhatsApp (UTILITY pós-venda, por pedido)", cols(() => neg(WA_POR_PEDIDO))],
+      ["Lucro por venda", cols(x => brl(x.esperada - leadVenda - iaVenda - WA_POR_PEDIDO)), true]
     ];
     el("porVenda").innerHTML = rows.map(r => {
       const c = r[2] ? "strong" : "";
@@ -493,55 +506,59 @@
   })();
 
   function render(){
-    const ads = +el("ads").value, cpa = +el("cpa").value;
+    const ads = +el("ads").value, cpl = +el("cpl").value;
     const mix = +el("mix").value / 100, frus = +el("frus").value / 100, dev = +el("dev").value / 100;
-    const prod = +el("prod").value, ciclo = +el("ciclo").value;
+    const prod = +el("prod").value, ia = +el("ia").value, ciclo = +el("ciclo").value;
 
     el("adsO").textContent = brl0(ads);
-    el("cpaO").textContent = brl0(cpa);
+    el("cplO").textContent = brl(cpl);
     el("mixO").textContent = Math.round(mix*100) + "%";
     el("frusO").textContent = Math.round(frus*100) + "%";
     el("devO").textContent = (dev*100).toLocaleString("pt-BR", {maximumFractionDigits:1}) + "%";
     el("prodO").textContent = brl(prod);
+    el("iaO").textContent = brl(ia);
     el("cicloO").textContent = ciclo + (ciclo === 1 ? " dia" : " dias");
 
+    const cpa = cpl / CONVERSAO;   // lead por venda
     const vendas = ads / cpa;
     const vCod = vendas * mix, vPre = vendas * (1 - mix);
 
     const { cod, pre } = cenario(frus, dev, prod);
-    const custoFrustrada = cod.custoFrus, custoDevCod = cod.custoDev, custoDevPre = pre.custoDev;
     const espCod = cod.esperada;   // recusa e devolução já descontadas
     const espPre = pre.esperada;   // cliente paga o frete; sem entrega concluída nem recusa
 
-    const iaVendaSim = CONVERSAS_POR_VENDA * IA_POR_CONVERSA;
-    const margemMedia = vendas > 0 ? (vCod*espCod + vPre*espPre) / vendas - iaVendaSim : 0;
-    const receitaDia = vCod*espCod + vPre*espPre;
-    const lucroDia = receitaDia - ads - vendas * iaVendaSim;
+    const apiVenda = CONVERSAS_POR_VENDA * ia + WA_POR_PEDIDO;   // IA por lead + WhatsApp por pedido
+    const margemMedia = vendas > 0 ? (vCod*espCod + vPre*espPre) / vendas - apiVenda : 0;
+    const lucroDia = vendas * margemMedia - ads;
 
-    // Saídas diárias, na ordem em que o dinheiro deixa a conta.
-    const sExp = vCod * ((1 - frus - dev) * (ENTREGA_CONCLUIDA + MANUSEIO) + frus * custoFrustrada + dev * custoDevCod);
-    const sEti = vPre * ((1 - dev) * MANUSEIO + dev * custoDevPre);
-    const sProd = vendas * prod;
-    const sIa = vendas * iaVendaSim;
-    // O produto NÃO entra: o estoque é do fornecedor e os R$ 30,00 são descontados da
-    // venda, não pagos antes dela. Ele aparece na tabela só para o custo ficar visível.
+    // Custo de cada pedido até a venda virar dinheiro (definição do operador, 2026-10-02):
+    // produto, transação, entrega concluída, manuseio, recusa, devolução.
+    const custoCodPedido = (1 - frus - dev) * (cod.prod + cod.trans + ENTREGA_CONCLUIDA + MANUSEIO) + frus * cod.custoFrus + dev * cod.custoDev;
+    const custoCodSemProd = (1 - frus - dev) * (ENTREGA_CONCLUIDA + MANUSEIO) + frus * cod.custoFrus + dev * cod.custoDev;
+    const custoPrePedido = (1 - dev) * (pre.prod + pre.trans + MANUSEIO) + dev * (pre.custoDev + pre.trans);
+    const sExp = vCod * custoCodPedido;
+    const sEti = vPre * custoPrePedido;
+    const sIa = vendas * apiVenda;
     const saidaDia = ads + sExp + sEti + sIa;
+    // Só o pagamento na entrega empata caixa: o antecipado cai na hora no Mercado Pago, e a
+    // verba de anúncio é separada da reserva.
+    const reserva = sExp * ciclo, reservaSemProd = vCod * custoCodSemProd * ciclo;
 
     el("oVendas").textContent = vendas.toFixed(1);
     el("oVendasSub").textContent = vCod.toFixed(1) + " na entrega · " + vPre.toFixed(1) + " antecipado";
     el("oMargem").textContent = brl(margemMedia);
+    el("oMargemSub").textContent = "lucro por venda " + brl(margemMedia - cpa) + " com lead de " + brl(cpa);
     el("oLucro").textContent = brl0(lucroDia);
     el("oLucro").className = "val " + (lucroDia >= 0 ? "pos" : "neg");
     el("oLucroSub").textContent = lucroDia >= 0
       ? "CPA máximo viável: " + brl0(margemMedia)
       : "CPA acima da margem — cada venda perde dinheiro";
-    el("oCaixa").textContent = brl0(saidaDia * ciclo);
-    el("oCaixaSub").textContent = brl0(saidaDia) + " por dia × " + ciclo + " dias";
+    el("oCaixa").textContent = brl0(reserva);
+    el("oCaixaSub").textContent = brl0(sExp) + " por dia × " + ciclo + " dias · " + brl0(reservaSemProd) + " sem produto e transação · anúncio à parte";
 
     el("sAds").textContent = brl(ads);
     el("sExp").textContent = brl(sExp);
     el("sEti").textContent = brl(sEti);
-    el("sProd").textContent = brl(sProd);
     el("sIa").textContent = brl(sIa);
     el("sTot").textContent = brl(saidaDia);
   }
