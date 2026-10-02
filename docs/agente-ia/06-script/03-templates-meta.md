@@ -6,6 +6,13 @@
 > Contexto: [`HANDOFF.md` §Frente 2](../../../HANDOFF.md). O código já está pronto e
 > **bloqueia de propósito** todo toque fora da janela sem template declarado
 > (`deliveryFor` em [`src/agent/followups.ts`](../../../src/agent/followups.ts)).
+>
+> **Mudou em 2026-10-02 (mês 1, §4a; L3 item 5 de
+> [`09-pipeline-ate-producao.md`](../05-plano/09-pipeline-ate-producao.md)):** o `silence_2`
+> **deixou de ser template**. A régua agora o agenda sempre dentro de 24 h da última mensagem
+> dela (09:00 do dia seguinte, ou antes, no último horário de 06:00–00:00 que caiba), então ele
+> sai como texto livre, sem template e sem opt-in. **Não submeta a seção 1** e não declare
+> `silence_2` em `channel.templates`. Sobram dois templates: `silence_3` e `order_eve`.
 
 ---
 
@@ -16,8 +23,8 @@ Fora disso, só sai template aprovado pela Meta. Três toques da régua caem for
 
 | Toque | Quando | Por que precisa de template |
 |---|---|---|
-| `silence_2` | manhã seguinte, 09:00 | fora da janela quando ela parou de madrugada ou cedo |
-| `silence_3` | três dias depois | sempre fora |
+| ~~`silence_2`~~ | ~~manhã seguinte, 09:00~~ — desde 2026-10-02, sempre dentro de 24 h da última mensagem dela | **não precisa mais**: sai como texto livre |
+| `silence_3` | 63–71 h depois da entrada dela pelo anúncio, no último horário de 06:00–00:00 (2026-10-02; antes, três dias depois do silêncio) | fora da janela de 24 h quando ela parou antes; dentro da janela gratuita de 72 h da entrada, então o template não é cobrado — mas é MARKETING, e só sai com opt-in |
 | `order_eve` | véspera da entrega: só com a data no pedido (`scheduled_for`), às 10h do dia anterior (2026-09-29) | o pedido pode chegar por webhook de quem nunca escreveu, então não há janela nenhuma |
 
 **A regra que amarra os três:** o template diz **a mesma coisa** que `renderFollowup`
@@ -32,6 +39,16 @@ código usa `**duplo**`. O conteúdo é o mesmo.
 ---
 
 ## 1. `silence_2`: a objeção que ela não disse
+
+> **Não submeter (2026-10-02).** O `silence_2` sai sempre dentro da janela de 24 h, como texto
+> livre. A seção fica como registro do que já foi redigido; o código ainda sabe usar um template
+> declarado em `channel.templates.silence_2`, mas a régua não o deixa mais cair fora da janela.
+> A declaração que estava no bloco do `BUSINESS_CONFIG` (fora dele desde então; o teste
+> `tests/whatsapp-templates.test.ts` ainda confere corpo e placeholders contra ela):
+>
+> ```text
+> "silence_2": { "name": "encorpa_retomada_confianca", "language": "pt_BR", "variables": ["warrantyDays"] }
+> ```
 
 | Campo | Valor |
 |---|---|
@@ -238,7 +255,6 @@ Depois de **aprovados**, com os nomes exatamente como ficaram na Meta:
 
 ```json
 "channel": { "templates": {
-  "silence_2": { "name": "encorpa_retomada_confianca", "language": "pt_BR", "variables": ["warrantyDays"] },
   "silence_3": { "name": "encorpa_cupom_super_dia",   "language": "pt_BR", "variables": ["weekday", "couponPercent", "couponCode"] },
   "order_eve": { "name": "encorpa_vespera_entrega",   "language": "pt_BR", "variables": ["price"] }
 } }
@@ -302,7 +318,7 @@ mudança de corpo.
 - [ ] Nenhum placeholder no começo ou no fim do corpo, e nenhum colado em outro. Os três
       respeitam isso.
 - [ ] Sem cabeçalho, rodapé nem botão. O código envia só o corpo.
-- [ ] Marketing (`silence_2`, `silence_3`) só vai para quem deu opt-in para receber mensagem
+- [ ] Marketing (`silence_3`; o `silence_2` não é mais template) só vai para quem deu opt-in para receber mensagem
       da marca no WhatsApp. Isso é regra da Meta, não do código, e **o código não verifica**.
 - [ ] Aprovou? Copie o nome **aprovado** para o bloco do `BUSINESS_CONFIG` acima.
 - [ ] Reprovou ou foi reclassificado? Não reescreva o template sozinho: o texto novo tem que

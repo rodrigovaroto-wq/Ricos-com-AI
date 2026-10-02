@@ -41,6 +41,7 @@ import {
   endsSilenceRuler,
   type FollowupConfig,
   type FollowupKind,
+  type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
@@ -926,6 +927,21 @@ const stopPointOf = (replyText: string, earlier: readonly string[]): StopPoint =
 };
 
 /**
+ * What anchors her ruler inside Meta's free windows (4a): her latest entry by an ad
+ * (`entry_at`, 0022) or else the conversation's start, and her last message. Read from a
+ * `select=*` row, so before 0022 is applied `entry_at` is just absent. Missing either, the
+ * ruler is the unanchored one.
+ */
+// deno-lint-ignore no-explicit-any
+const rulerAnchors = (c: any): RulerAnchors | undefined => {
+  const entry = Date.parse(c?.entry_at ?? c?.created_at ?? "");
+  const lastInbound = Date.parse(c?.last_inbound_at ?? "");
+  return Number.isFinite(entry) && Number.isFinite(lastInbound)
+    ? { entry: new Date(entry), lastInbound: new Date(lastInbound) }
+    : undefined;
+};
+
+/**
  * `from` is the moment the ruler is anchored on: normally now, the instant the agent
  * finished speaking, and the next opening when a touch was postponed by the clock —
  * re-anchoring keeps the 30min / next morning / 3 days spacing instead of dragging one
@@ -941,15 +957,16 @@ const scheduleSilenceTouches = async (
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
   // A failed read arms as before; the sweep asks again before anything goes out.
-  // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=stage,leads(orders(status))`).catch(() => null))?.[0];
+  // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
+  // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status))`).catch(() => null))?.[0];
   if (at && !chasesSilence(at.stage, (at.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
     await cancelScheduled(conversationId);
     return;
   }
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
-  const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({
+  const rows = rulerFor(from, stopPoint, postponed, linkInReply, rulerAnchors(at)).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
@@ -1362,11 +1379,18 @@ const runFollowupSweep = async () => {
     // without a sale is where the lead is lost (plan v2, 7.4) — sent, or cancelled for any
     // reason. Opt-out and handoff left above; a postponed touch has not left. Only a row
     // this sweep actually closed counts, or a turn that just answered would be undone.
+    // The last touch is read from the data (4a): with no `silence_3` armed, `silence_2` ends it.
     const leave = async (status: string): Promise<boolean> => {
       const closed = await mark(status);
       const ours = Array.isArray(closed) && closed.length > 0;
-      if (endsSilenceRuler(kind) && ours) {
-        await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido");
+      if (ours && kind.startsWith("silence_")) {
+        // Index: followups_conversation_id_kind_key (conversation_id, kind), the unique constraint.
+        const rest = await db(
+          `followups?conversation_id=eq.${row.conversation_id}&status=eq.scheduled&kind=like.silence_*&select=kind`,
+        ).catch(() => null);
+        if (endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {
+          await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido");
+        }
       }
       return ours;
     };
@@ -1466,6 +1490,21 @@ const runFollowupSweep = async () => {
       // `followups.ts`, where a test can reach it.
       if (action.do === "postpone") {
         const opening = nextOpening(new Date(), CONFIG.hours.openHour);
+        // Anchored (4a), `silence_2` and `silence_3` have deadlines — 24 h from her last message,
+        // 71 h from her entry. A reopening past them leaves the queue through `leave`, so the
+        // ruler's end is written, instead of being pushed out of the free window.
+        // Index: conversations_pkey. `*`: `entry_at` may not exist yet (0022).
+        if (action.restartRuler && (kind === "silence_2" || kind === "silence_3")) {
+          const anchors = rulerAnchors(
+            (await db(`conversations?id=eq.${row.conversation_id}&select=*`).catch(() => null))?.[0],
+          );
+          const stopPoint = (row.stop_point ?? "before_size") as StopPoint;
+          if (anchors && !rulerFor(opening, stopPoint, kind, false, anchors).some((f) => f.kind === kind)) {
+            await leave("canceled");
+            skipped.push({ followupId: row.id, reason: `fora da janela gratuita depois do adiamento: ${reason}` });
+            return;
+          }
+        }
         // Only the row as this sweep read it, like `mark`: a turn that answered meanwhile
         // re-armed or cancelled it, and re-anchoring would overwrite her fresh ruler.
         const moved = await db(
@@ -1949,6 +1988,15 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       method: "PATCH",
       body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),
     }).catch(() => undefined);
+    // A message from an ad (CTWA `referral`) is a new entry: a new free window of 72 h, and the
+    // anchor of `silence_3` (4a). Its own write: before 0022 the column does not exist, and the
+    // failure must not take `last_inbound_at` with it.
+    if (payload.source) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ entry_at: inboundAt.toISOString() }),
+      }).catch(() => undefined);
+    }
   }
 
   // 2c. Estágio 0 — every brand-new lead gets this fixed receipt, 24/7, never the

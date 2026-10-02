@@ -39,8 +39,23 @@ const evePago = (() => {
   return JSON.parse(decl) as TemplateBinding;
 })();
 
+/**
+ * `silence_2` left the block on 2026-10-02 (month 1, §4a): the ruler keeps it inside her 24 hours,
+ * as free text. Its old declaration stays in section 1, and the code still honours one if declared.
+ */
+const silence2 = (() => {
+  const section = doc.split(/\n## \d+\. /).find((sec) => sec.startsWith("`silence_2`"));
+  const decl = section && /"silence_2":\s*(\{[^}]*\})/.exec(section)?.[1];
+  if (!decl) throw new Error("declaração antiga de silence_2 não está na seção 1");
+  return JSON.parse(decl) as TemplateBinding;
+})();
+
 const now = new Date("2026-09-10T12:00:00Z"); // quinta, 09:00 em São Paulo
-const withTemplates = { ...config, coupon: { ...config.coupon, active: true }, channel: { templates: { ...templates, order_eve_pago: evePago } } };
+const withTemplates = {
+  ...config,
+  coupon: { ...config.coupon, active: true },
+  channel: { templates: { ...templates, silence_2: silence2, order_eve_pago: evePago } },
+};
 // With her consent (R15.1): without it `silence_2`/`silence_3` never leave as a template.
 const ctx = (over: Partial<RenderContext> = {}): RenderContext => ({ leadId: "lead-abc", config: withTemplates, now, marketingOptIn: true, ...over });
 
@@ -70,9 +85,13 @@ describe("template aprovado = texto que o gate leu", () => {
       const table = [...section.matchAll(/^\| `\{\{(\d+)\}\}` \| `(\w+)` \|/gm)]
         .sort((a, b) => Number(a[1]) - Number(b[1]))
         .map((m) => m[2]);
-      expect(templates[kind]?.variables, kind).toEqual(table);
+      expect((withTemplates.channel.templates as Record<string, TemplateBinding>)[kind]?.variables, kind).toEqual(table);
       expect(new Set(bodyOf(kind).match(/\{\{\d+\}\}/g)).size, kind).toBe(table.length);
     }
+  });
+
+  it("o bloco do BUSINESS_CONFIG não declara mais o silence_2 (§4a: texto livre dentro das 24 h)", () => {
+    expect(templates.silence_2).toBeUndefined();
   });
 
   it("silence_2, primeira variante", () => {
