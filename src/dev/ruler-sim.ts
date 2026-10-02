@@ -11,6 +11,8 @@
 import {
   BUSINESS_TZ,
   nextOpening,
+  SERVICE_WINDOW_MS,
+  SERVICE_WINDOW_SAFETY_MS,
   offsetMinutes,
   rulerFor,
   type FollowupKind,
@@ -32,6 +34,8 @@ const open = (at: Date) => localHour(at) >= 6;
 interface Sent {
   kind: FollowupKind;
   at: Date;
+  /** Scheduled past the 24 h service window — always a failure. */
+  late?: boolean;
 }
 
 /** One silence after her last message: the sweep sends or postpones until the ruler is empty. */
@@ -42,8 +46,11 @@ export const simulate = (entry: Date, lastInbound: Date, reply: Date, stop: Stop
   for (let guard = 0; queue.length && guard < 50; guard++) {
     queue.sort((a, b) => a.runAt.getTime() - b.runAt.getTime());
     const touch = queue.shift()!;
-    // The 24 h service window closes the text touches (the sweep cancels them).
-    if (touch.kind !== "silence_3" && touch.runAt.getTime() > lastInbound.getTime() + 24 * HOUR) continue;
+    // The text touches must fit the 24 h service window as production checks it (`windowIsOpen`:
+    // 24 h minus 10 min of safety). One scheduled past it is a ruler bug, not a cancel.
+    if (touch.kind !== "silence_3" && touch.runAt.getTime() - lastInbound.getTime() >= SERVICE_WINDOW_MS - SERVICE_WINDOW_SAFETY_MS) {
+      return [...sent, { kind: touch.kind, at: touch.runAt, late: true }];
+    }
     if (open(touch.runAt)) {
       sent.push({ kind: touch.kind, at: touch.runAt });
       continue;
@@ -79,6 +86,7 @@ for (let i = 0; i < CASES; i++) {
   if (new Set(kinds).size !== kinds.length) fail("um toque saiu duas vezes", c);
   for (let k = 1; k < sent.length; k++) if (sent[k]!.at < sent[k - 1]!.at) fail("toques fora de ordem", c);
   for (const s of sent) {
+    if (s.late) fail(`${s.kind} agendado fora da janela de 24 h da última mensagem dela`, c);
     if (!open(s.at)) fail(`${s.kind} saiu de madrugada`, c);
     if (s.at < reply) fail(`${s.kind} antes da resposta da agente`, c);
   }

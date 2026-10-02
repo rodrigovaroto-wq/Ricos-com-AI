@@ -580,8 +580,9 @@ const isRevert = (alvo: unknown) => typeof alvo === "string" && /^reverter:v\d+$
 
 /**
  * A revert the model wrote passes the same bar as the deterministic one: only of the version
- * on air, none while one for it is proposed/accepted/implementing or written by this run
- * (`writing`, from revertToWrite), and at most one per version. `onAir` null (no version
+ * on air, none once any revert of it is in the ledger except a failed one — refused included, or a
+ * refusal would come back every 50 leads and hold every other proposal — nor one written by this
+ * run (`writing`, from revertToWrite), and at most one per version. `onAir` null (no version
  * registered, or a persona round) drops every model revert.
  */
 export function checkModelReverts(checked: Checked[], onAir: number | null, ledger: readonly LedgerRow[], writing: Revert | null): Checked[] {
@@ -592,8 +593,8 @@ export function checkModelReverts(checked: Checked[], onAir: number | null, ledg
     const problem =
       onAir === null || v !== `v${onAir}`
         ? `reversão de versão fora do ar: ${v} (no ar: ${onAir === null ? "nenhuma" : `v${onAir}`})`
-        : writing?.version === onAir || ledger.some((l) => l.code?.startsWith(`${REVERT_CODE}${v} `) && PENDING.includes(l.status))
-          ? `reversão já pendente: ${v}`
+        : writing?.version === onAir || ledger.some((l) => l.code?.startsWith(`${REVERT_CODE}${v} `) && l.status !== "failed")
+          ? `reversão já pendente ou decidida: ${v}`
           : kept
             ? `reversão repetida: ${v}`
             : null;

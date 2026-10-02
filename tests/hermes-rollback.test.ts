@@ -131,8 +131,13 @@ describe("reversão escrita pelo modelo: só da versão no ar, uma por versão",
   it("passa: reversão da versão no ar, nenhuma pendente", () => {
     const list = [checked("reverter:v3"), checked("prompt")];
     expect(checkModelReverts(list, 3, [], null)).toEqual(list);
-    // A revert of another version, already published or refused, does not block this one.
-    expect(checkModelReverts(list, 3, [ledger("REVERTER-v2 2026-10-01 handoff", "proposed"), ledger("REVERTER-v3 2026-10-01 H-1", "rejected")], null)).toEqual(list);
+    // A revert of another version does not block this one; a failed one of this version neither.
+    expect(checkModelReverts(list, 3, [ledger("REVERTER-v2 2026-10-01 handoff", "proposed"), ledger("REVERTER-v3 2026-10-01 H-1", "failed")], null)).toEqual(list);
+  });
+  it.each(["rejected", "published"] as const)("descarta reversão de uma versão cuja reversão já foi %s (não volta a cada lote)", (status) => {
+    const [r] = checkModelReverts([checked("reverter:v3")], 3, [ledger("REVERTER-v3 2026-10-01 H-1", status)], null);
+    expect(r!.ok).toBe(false);
+    expect(r!.problems[0]).toMatch(/^reversão já pendente ou decidida: v3/);
   });
   it.each([
     ["v9, versão que não existe", "reverter:v9"],
