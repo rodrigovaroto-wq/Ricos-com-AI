@@ -135,6 +135,18 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    horário que caia em 06:00–00:00 — a faixa de 8 h sempre contém um horário de atendimento. Nada
    de marketing depois das 72 h. **No código ainda é "3 dias depois do silêncio"**
    (`followups.ts`), que pode cair fora da janela: muda antes do primeiro anúncio.
+   Decisões do operador no mesmo dia:
+   - a contagem começa na **primeira mensagem dela em cada entrada por anúncio** (um anúncio novo
+     abre janela nova e recomeça a contagem);
+   - se ela conversou além das 63 h e então sumiu, **não há `silence_3`**: a régua fecha no
+     `silence_2`, e é ele que marca a conversa `perdido`;
+   - **opt-in, caminhos 1 + 3** ([`07-opt-in-marketing.md`](07-opt-in-marketing.md)): o
+     `silence_2` sai sempre **dentro de 24 h da última mensagem dela** (texto livre, sem template e
+     sem opt-in — às 09:00 do dia seguinte, ou antes, no último horário de atendimento que caiba
+     nas 24 h); o `silence_3` (template MARKETING) só para quem tocou "Quero ofertas". O botão já
+     existe: mensagem própria logo depois do `silence_1`, ligada por
+     `channel.askMarketingOptIn: true` no `BUSINESS_CONFIG`. Opt-in no texto do anúncio (caminho
+     2) só se o sócio confirmar com a Meta.
 6. **Critérios de pausa — manuais** (o operador decide; nada pausa sozinho):
    - mais de 5% das conversas com alguma premissa indevida (o Hermes marca nas 50 de cada lote; o
      operador confere por amostra);
