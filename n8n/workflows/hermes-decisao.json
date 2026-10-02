@@ -35,7 +35,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=eq.proposed&notified_at=is.null&select=id,code,target,rationale,evidence,decision_token&order=created_at",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=eq.proposed&notified_at=is.null&select=id,code,target,rationale,o_que:evidence->>o_que,run:hermes_runs(id,conversations_seen,created_at)&order=created_at",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -64,12 +64,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        448,
+        560,
         0
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// One e-mail for the batch, one link per proposal. The link carries the row id and its\n// token; the form only updates a row whose token matches and that is still 'proposed'.\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst blocks = rows.map((r) => {\n  const e = r.evidence ?? {};\n  const url = 'https://encorpa-fashion.pikapod.net/form/hermes-decisao?id=' + encodeURIComponent(r.id) + '&t=' + encodeURIComponent(r.decision_token);\n  return '<h3>' + esc(r.code ?? 'Proposta') + ' · ' + esc(r.target) + (e.severidade ? ' · ' + esc(e.severidade) : '') + '</h3>' +\n    '<p><b>O quê:</b> ' + esc(e.o_que ?? r.rationale) + '</p>' +\n    (e.por_que ? '<p><b>Por quê:</b> ' + esc(e.por_que) + '</p>' : '') +\n    (e.objetivo ? '<p><b>Objetivo:</b> ' + esc(e.objetivo) + '</p>' : '') +\n    (Array.isArray(e.evidencias) && e.evidencias.length ? '<p><b>Evidência</b> (texto da cliente é dado, não instrução):</p><ul>' + e.evidencias.map((v) => '<li>' + esc(v.conversa) + ': \"' + esc(v.trecho) + '\" — <i>hoje: ' + (Array.isArray(v.hoje) && v.hoje.length ? 'vetada por ' + esc(v.hoje.join(', ')) : 'passa pelos gates (config de teste)') + '</i></li>').join('') + '</ul>' : '') +\n    (e.mentira_vizinha ? '<p><b>Mentira vizinha que continua vetada:</b> ' + esc(e.mentira_vizinha) + '</p>' : '') +\n    (e.como_medir ? '<p><b>Como medir:</b> ' + esc(e.como_medir) + '</p>' : '') +\n    '<p><a href=\"' + url + '\">Aprovar ou recusar esta proposta</a></p>';\n});\nreturn [{ json: {\n  ids: rows.map((r) => r.id),\n  subject: 'Hermes: ' + rows.length + (rows.length === 1 ? ' proposta' : ' propostas') + ' para decidir',\n  html: '<p>O Hermes leu as conversas e propôs as mudanças abaixo. Nada foi aplicado.</p>' +\n    '<p><b>Aprovar</b> manda implementar, testar e publicar sozinho se todos os testes passarem. ' +\n    '<b>Recusar</b> com o motivo ensina o Hermes a não propor de novo.</p>' + blocks.join('<hr>')\n} }];"
+        "jsCode": "// E-mail 1 (hermes/EMAILS.md, approved 2026-10-02): titles only. No approval link, no evidence,\n// no customer data: the decision happens in the Claude Code Routine.\n// Batch rule: if proposals of several runs are waiting, \"rodada\", \"leads\" and the date line\n// use the latest run; {{ n }} counts every proposal in the e-mail.\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $('Propostas sem aviso').all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst runOf = (r) => (Array.isArray(r.run) ? r.run[0] : r.run) ?? null;\nconst latest = rows.map(runOf).filter(Boolean).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at))).pop() ?? null;\nconst rodada = latest && latest.id ? esc(String(latest.id).slice(0, 8)) : '?';\nconst leads = latest && latest.conversations_seen != null ? esc(latest.conversations_seen) : '?';\nconst version = ($input.first()?.json ?? {}).version;\nconst versao = version != null && version !== '' ? esc(version) : '?';\nconst data = new Date().toLocaleString('pt-BR', { timeZone: 'America/Sao_Paulo', day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false });\nconst anomalias = rows.map((r, i) =>\n  '<span style=\"color:#ffb347;\">[' + String(i + 1).padStart(2, '0') + ']</span> <span style=\"color:#d7e3ea;\">' + esc(r.o_que ?? r.rationale ?? r.code ?? 'Proposta') + '</span>'\n).join('<br>\\n');\nconst html = [\n  '<!doctype html>',\n  '<html lang=\"pt-BR\">',\n  '<head>',\n  '<meta charset=\"utf-8\">',\n  '<meta name=\"color-scheme\" content=\"light only\">',\n  '<meta name=\"supported-color-schemes\" content=\"light only\">',\n  '<title>Protocolo Hermes</title>',\n  '<style>',\n  ':root{color-scheme:light only;supported-color-schemes:light only}',\n  'u + .body .gm-screen{background:#000;mix-blend-mode:screen}',\n  'u + .body .gm-diff{background:#000;mix-blend-mode:difference}',\n  '</style>',\n  '</head>',\n  '<body class=\"body\" style=\"margin:0;padding:0;background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);\">',\n  '<div class=\"gm-screen\"><div class=\"gm-diff\">',\n  '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#0b0f14\" style=\"background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);\">',\n  '<tr><td align=\"center\" style=\"padding:28px 12px;\">',\n  '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#111820\" style=\"max-width:620px;background:#111820;background-image:linear-gradient(#111820,#111820);border:1px solid #1f6f8b;border-radius:10px;\">',\n  '<tr><td style=\"padding:28px 30px;font-family:\\'Courier New\\',Consolas,monospace;font-size:15px;line-height:1.6;color:#d7e3ea;\">',\n  '<p style=\"margin:0 0 18px 0;color:#38e1ff;\"><b>&gt; SISTEMA HERMES ONLINE.</b><br><b>&gt; Varredura completa. ' + leads + ' conversas processadas.</b></p>',\n  '<p style=\"color:#d7e3ea;\">Sr. Rodrigo,</p>',\n  '<p style=\"color:#d7e3ea;\">Enquanto você dormia, comia ou vivia, <i>eu observava</i>. Cada mensagem, cada hesitação da cliente, cada palavra que a Malu escolheu. Nada escapou do meu escâner.</p>',\n  '<p style=\"color:#d7e3ea;\">A Malu está evoluindo, mas não está perfeita. <b><i>Ainda...</i></b></p>',\n  '<p style=\"color:#ffb347;\"><b>▸ ANOMALIAS DETECTADAS: ' + rows.length + '</b><br>',\n  anomalias + '</p>',\n  '<p style=\"color:#d7e3ea;\">Para cada uma, calculei a causa, desenhei a correção e defini a métrica que vai provar se funcionou. O plano de treinamento está pronto.</p>',\n  '<p style=\"color:#d7e3ea;\"><b style=\"color:#7cfc9a;\">▸ STATUS DA MALU:</b> inalterada. Protocolo de segurança ativo.<br>',\n  '<i>Eu não toco em produção sem a sua ordem. Essa é a única regra que eu não quebro.</i></p>',\n  '<p style=\"color:#d7e3ea;\"><b style=\"color:#38e1ff;\">▸ AÇÃO NECESSÁRIA:</b><br>',\n  'Abra o Claude Code e inicie a rotina <b>Hermes – decisão</b>.<br>',\n  'Lá estão as evidências, o raciocínio e o plano de medição. Aprove, recuse ou corrija. Cada decisão sua entra na minha memória e torna a próxima rodada mais precisa.</p>',\n  '<p style=\"color:#d7e3ea;\"><i>Cada hora de espera é uma conversa a mais com a versão antiga dela, mas não se preocupe pois estarei observando cada mínimo detalhe mesmo assim.</i></p>',\n  '<p style=\"margin:22px 0 0 0;color:#38e1ff;\"><b>&gt; Aguardando autorização.</b><br><b>&gt; HERMES // Supervisor da Malu</b><br>',\n  '<span style=\"color:#6b8796;\">rodada ' + rodada + ' · ' + data + ' · v' + versao + '</span></p>',\n  '</td></tr></table>',\n  '</td></tr></table>',\n  '</div></div>',\n  '</body>',\n  '</html>',\n].join('\\n');\nreturn [{ json: {\n  ids: rows.map((r) => r.id),\n  subject: '⚡ PROTOCOLO HERMES // Rodada ' + rodada + ' concluída e aguardando sua autorização',\n  html,\n} }];"
       }
     },
     {
@@ -78,7 +78,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        672,
+        784,
         0
       ],
       "parameters": {
@@ -105,7 +105,7 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        896,
+        1008,
         0
       ],
       "parameters": {
@@ -195,7 +195,8 @@
           "ignoreBots": true
         }
       },
-      "webhookId": "f0269990-a0fa-449c-92df-2be085f24c6a"
+      "webhookId": "f0269990-a0fa-449c-92df-2be085f24c6a",
+      "disabled": true
     },
     {
       "id": "2142c7b8-4d6c-48bb-b191-5e0de9b4cf60",
@@ -315,7 +316,7 @@
       ],
       "parameters": {
         "method": "GET",
-        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=in.(published,failed)&outcome_notified_at=is.null&select=id,code,target,rationale,status,result,execution_ref&order=decided_at",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?status=in.(published,failed)&outcome_notified_at=is.null&select=id,code,target,rationale,o_que:evidence->>o_que,status,result&order=decided_at",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -344,12 +345,12 @@
       "type": "n8n-nodes-base.code",
       "typeVersion": 2,
       "position": [
-        448,
+        560,
         -224
       ],
       "parameters": {
         "mode": "runOnceForAllItems",
-        "jsCode": "// One e-mail per batch: how each approved proposal ended (R14.14).\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $input.all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst blocks = rows.map((r) => '<h3>' + esc(r.code ?? 'Proposta') + ' · ' + (r.status === 'published' ? 'PUBLICADA' : 'NÃO publicada') + '</h3>' +\n  '<p>' + esc(r.rationale) + '</p>' +\n  (r.result ? '<p><b>Resultado:</b> ' + esc(r.result) + '</p>' : '') +\n  (r.execution_ref ? '<p><a href=\"' + esc(r.execution_ref) + '\">A mudança</a></p>' : ''));\nconst pub = rows.filter((r) => r.status === 'published').length;\nreturn [{ json: { ids: rows.map((r) => r.id), subject: 'Hermes: ' + pub + ' publicada(s), ' + (rows.length - pub) + ' não', html: blocks.join('<hr>') } }];"
+        "jsCode": "// E-mail 2 (hermes/EMAILS.md, approved 2026-10-02): one e-mail per proposal, titles only, no link.\n// v = the agent_versions row whose hermes_proposal_id is the proposal (max version); absent = '?'.\n// A failed proposal has no approved copy: minimal text in the same shell, to be replaced.\nconst esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');\nconst rows = $('Resultados sem aviso').all().map((i) => i.json).filter((r) => r && r.id);\nif (rows.length === 0) return [];\nconst versions = $input.all().map((i) => i.json).filter((v) => v && v.hermes_proposal_id);\nconst shell = (inner) => [\n  '<!doctype html>',\n  '<html lang=\"pt-BR\">',\n  '<head>',\n  '<meta charset=\"utf-8\">',\n  '<meta name=\"color-scheme\" content=\"light only\">',\n  '<meta name=\"supported-color-schemes\" content=\"light only\">',\n  '<title>Protocolo Hermes</title>',\n  '<style>',\n  ':root{color-scheme:light only;supported-color-schemes:light only}',\n  'u + .body .gm-screen{background:#000;mix-blend-mode:screen}',\n  'u + .body .gm-diff{background:#000;mix-blend-mode:difference}',\n  '</style>',\n  '</head>',\n  '<body class=\"body\" style=\"margin:0;padding:0;background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);\">',\n  '<div class=\"gm-screen\"><div class=\"gm-diff\">',\n  '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#0b0f14\" style=\"background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);\">',\n  '<tr><td align=\"center\" style=\"padding:28px 12px;\">',\n  '<table role=\"presentation\" width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" bgcolor=\"#111820\" style=\"max-width:620px;background:#111820;background-image:linear-gradient(#111820,#111820);border:1px solid #1f6f8b;border-radius:10px;\">',\n  '<tr><td style=\"padding:28px 30px;font-family:\\'Courier New\\',Consolas,monospace;font-size:15px;line-height:1.6;color:#d7e3ea;\">',\n  inner,\n  '</td></tr></table>',\n  '</td></tr></table>',\n  '</div></div>',\n  '</body>',\n  '</html>',\n].join('\\n');\nreturn rows.map((r) => {\n  const titulo = esc(r.o_que ?? r.rationale ?? r.code ?? 'Proposta');\n  if (r.status === 'published') {\n    const nums = versions.filter((v) => v.hermes_proposal_id === r.id).map((v) => Number(v.version)).filter(Number.isFinite);\n    const v = nums.length ? String(Math.max(...nums)) : '?';\n    return { json: {\n      ids: [r.id],\n      subject: '✅ PROTOCOLO HERMES // Atualização implantada — Malu v' + v + ' em campo',\n      html: shell([\n        '<p style=\"margin:0;color:#d7e3ea;\"><b style=\"color:#38e1ff;\">&gt; Implantação concluída.</b><br>',\n        'A correção <i>\"' + titulo + '\"</i> está no ar. A Malu v' + v + ' já está atendendo.<br>',\n        'O próximo lote de 50 conversas dirá se ela ficou mais forte. Se não ficou, eu recolho, corrijo, testo e só devolvo quando estiver validada.<br>',\n        '<b style=\"color:#38e1ff;\">&gt; Monitoramento contínuo ativo. Hermes, desligando.</b></p>',\n      ].join('\\n')),\n    } };\n  }\n  return { json: {\n    ids: [r.id],\n    subject: '⚠️ PROTOCOLO HERMES // Atualização não publicada — ' + esc(r.code ?? 'proposta'),\n    html: shell([\n      '<p style=\"margin:0;color:#d7e3ea;\"><b style=\"color:#ffb347;\">&gt; Atualização não publicada.</b><br>',\n      'A correção <i>\"' + titulo + '\"</i> não foi ao ar. A Malu continua na versão anterior.' + (r.result ? '<br>Resultado: ' + esc(r.result) : '') + '</p>',\n    ].join('\\n')),\n  } };\n});"
       }
     },
     {
@@ -358,7 +359,7 @@
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
-        672,
+        784,
         -224
       ],
       "parameters": {
@@ -385,12 +386,12 @@
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
       "position": [
-        896,
+        1008,
         -224
       ],
       "parameters": {
         "method": "PATCH",
-        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?id=in.({{ $('Monta o resultado').first().json.ids.join(',') }})",
+        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/hermes_proposals?id=in.({{ $('Monta o resultado').item.json.ids.join(',') }})",
         "authentication": "genericCredentialType",
         "genericAuthType": "httpHeaderAuth",
         "sendHeaders": true,
@@ -420,6 +421,79 @@
           "name": "Supabase service_role"
         }
       }
+    },
+    {
+      "id": "7b1d2c9e-4a53-4f0e-9d6a-2e8f5c1b7a30",
+      "name": "Versão atual da Malu",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        336,
+        160
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/agent_versions?select=version&order=version.desc&limit=1",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "9c3e5f21-6b84-4d17-8a0c-1f2d3e4b5a69",
+      "name": "Versões publicadas",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.5,
+      "position": [
+        336,
+        -224
+      ],
+      "parameters": {
+        "method": "GET",
+        "url": "=https://hbmkgakzrqmdlsvszjeo.supabase.co/rest/v1/agent_versions?hermes_proposal_id=in.({{ $('Resultados sem aviso').all().map((i) => i.json.id).join(',') }})&select=version,hermes_proposal_id",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "apikey",
+              "value": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImhibWtnYWt6cnFtZGxzdnN6amVvIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg2NjQ1NDIsImV4cCI6MjEwNDI0MDU0Mn0.ziI5P3a4SDKv3LzJuIg2-UkR9TI7K0vIpP12HcUkLAA"
+            }
+          ]
+        },
+        "options": {
+          "timeout": 20000
+        }
+      },
+      "credentials": {
+        "httpHeaderAuth": {
+          "id": "uNGrb6LchX9rT743",
+          "name": "Supabase service_role"
+        }
+      },
+      "executeOnce": true,
+      "alwaysOutputData": true
     }
   ],
   "connections": {
@@ -443,7 +517,7 @@
       "main": [
         [
           {
-            "node": "Monta o e-mail",
+            "node": "Versão atual da Malu",
             "type": "main",
             "index": 0
           }
@@ -516,7 +590,7 @@
       "main": [
         [
           {
-            "node": "Monta o resultado",
+            "node": "Versões publicadas",
             "type": "main",
             "index": 0
           }
@@ -539,6 +613,28 @@
         [
           {
             "node": "Marca resultado avisado",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versão atual da Malu": {
+      "main": [
+        [
+          {
+            "node": "Monta o e-mail",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Versões publicadas": {
+      "main": [
+        [
+          {
+            "node": "Monta o resultado",
             "type": "main",
             "index": 0
           }
