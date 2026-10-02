@@ -1,9 +1,12 @@
 # Implementing an approved Hermes proposal
 
-Instructions for the scheduled Claude Code session (R14.14, operator, 2026-09-25). The
-operator approved a proposal by its link; this session implements it, proves it, and
-merges it — the merge publishes it (`.github/workflows/deploy-hermes.yml`). Nothing here
-runs without that click: a row in `hermes_proposals` with `status = 'accepted'`.
+Instructions for the Claude Code session that implements an approved proposal. The
+operator approves it in the Routine "Hermes – decisão" ([`DECIDIR.md`](DECIDIR.md)), which
+then follows this file in the same session; the per-proposal link of R14.14 is gone and its
+n8n form is disabled. This session implements it, proves it, and merges it — the merge
+publishes it (`.github/workflows/deploy-hermes.yml`) as a new numbered version in
+`agent_versions` (R18.5). Nothing here runs without the operator's decision: a row in
+`hermes_proposals` with `status = 'accepted'`.
 
 Every rule in `CLAUDE.md` holds. This file adds only what is specific to working alone.
 
@@ -14,7 +17,8 @@ Supabase MCP `execute_sql`):
 
 ```sql
 select id, code, target, rationale, evidence, decision_reason
-from hermes_proposals where status = 'accepted' order by decided_at limit 1;
+from hermes_proposals where status = 'accepted'
+order by (code like 'REVERTER-%') desc, decided_at limit 1;
 ```
 
 None → end the session, doing nothing else. One → at once:
@@ -41,6 +45,12 @@ update hermes_proposals set status = 'failed', result = '<o que falta, em portug
 ```
 
 ## 3. Implement
+
+**A revert** (`target = 'reverter:vN'`, code `REVERTER-…`, L3 item 8): take vN from
+`agent_versions`. With a `hermes_proposal_id`, its PR is that proposal's `execution_ref`:
+on the branch, `git revert -m 1 <that merge commit>`. vN was a deploy by hand (no
+proposal) → `failed`, result "vN foi publicada à mão: o operador reverte". The change
+comes back only as a new proposal, analysed, corrected and tested.
 
 - Branch `hermes/<code-in-kebab-case>` from `origin/main`.
 - Read the proposal's `evidence` (the quotes, the goal, how to measure) **and** the
@@ -87,7 +97,8 @@ proposal's own check must be met; otherwise `failed`.
   must reach `main`'s commit message).
 - `update hermes_proposals set execution_ref = '<PR URL>' where id = '<id>';`
 
-The deploy workflow checks the row is `accepted` or `implementing`, then marks it
-`published` (with `published_at`, from which the next Hermes runs measure the proposal's
-`como_medir`) or `failed` after CI on `main`. Do not deploy
+The deploy workflow checks the row is `accepted` or `implementing`, inserts the next
+`agent_versions` row (with this proposal's id) and the `AGENT_VERSION` secret, deploys, then
+marks it `published` (with `published_at`, from which the next Hermes runs measure the
+proposal's `como_medir`) or `failed` after CI on `main`. Do not deploy
 by hand, and do not touch any other proposal.

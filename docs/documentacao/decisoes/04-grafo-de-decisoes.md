@@ -1568,6 +1568,21 @@ desfazendo tudo se falhar; `eval_version_outcomes` dá os números por versão a
 (R$ 0,55, tolerância 0, no exemplo e no fallback), R18.3 (R$ 9,99). **Guarda:** testes que fixavam
 120 s e 3 min passaram a fixar 60 s; o segredo `BUSINESS_CONFIG` é do operador.
 
+## 52. A aprovação do Hermes saía de um link e nada revertia uma versão pior (mês 1, 2026-10-02)
+
+**Sintoma:** o operador aprovava por um link no e-mail, sem ver evidência nem poder corrigir; o e-mail
+levava trecho de conversa; e nenhuma regra tirava do ar uma mudança que piorasse o handoff.
+**Causa:** R14.14 foi desenhado antes da versão por turno (§50) — sem versão, não havia o que comparar.
+**Caminhos descartados:** severidade numa coluna nova (migração só para ordenar; o prefixo
+`REVERTER-` basta); a reversão escrita pelo modelo (dependeria de ele seguir a instrução — o código
+escreve a de handoff); disparar com amostra pequena (50 leads a ~4 turnos é ruído).
+**Correção (R18.6):** e-mail com o texto aprovado e sem link; Rotina com `DECIDIR.md`; `revertCheck`
+em `hermes-core.ts` (≥ 200 turnos por versão, z ≥ 1,645); reversão pendente segura as outras.
+**Guarda:** `tests/hermes-emails.test.ts` (texto exato, sem link, título escapado),
+`tests/hermes-rollback.test.ts` (dispara pior com amostra; não dispara igual, melhor, pouca amostra).
+**Resíduo:** recalibrar o Hermes (`pnpm hermes:calibrar`) depois da skill 1.2.0; texto do e-mail de
+falha sem aprovação.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

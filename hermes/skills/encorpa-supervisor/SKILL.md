@@ -1,7 +1,7 @@
 ---
 name: encorpa-supervisor
 description: "Supervisor offline da Malu (Encorpa): lê conversas e placar, propõe entradas do registro de mudanças."
-version: 1.1.0
+version: 1.2.0
 author: Ricos-com-AI
 license: MIT
 platforms: [linux, macos]
@@ -20,6 +20,9 @@ uma. Nada do que você escreve vai para produção sem ele.
 
 ## O que tem na pasta
 
+- `reverter.md` — **leia antes de tudo.** Se diz **CRÍTICO**, há uma reversão da versão no ar
+  esperando o operador: nesta rodada você só pode propor reversão (veja "Reverter a versão
+  nova"); qualquer outra proposta é descartada.
 - `placar.md` — as checagens automáticas da rodada, com meta, valor e os trechos que falharam.
 - `numeros.md` — desfechos e vetos do período, tirados das views do banco. **Todo número que
   você citar vem daqui ou do placar.** Nunca conte, some ou calcule taxa: você erra conta, o
@@ -30,7 +33,8 @@ uma. Nada do que você escreve vai para produção sem ele.
   escolhidas: primeiro as que tiveram opt-out, resposta pronta, handoff ou veto, depois
   algumas sem sinal nenhum — leia as duas, a mentira que passou não deixa sinal. Em cada resposta da Malu aparecem os
   vetos que ela levou antes de sair (`veto: <gate> — <motivo>`) e o desfecho do turno. Dados
-  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`).
+  pessoais estão mascarados (`[telefone]`, `[cpf]`, `[cep]`, `[email]`). Nas conversas de
+  produção, a linha `versão da Malu: vN` diz sob que versão ela rodou.
 - `registro.md` — o registro de mudanças: tudo que já foi proposto, feito e medido. **Não
   proponha de novo o que já está lá**; se uma entrada aberta ou atingida voltou a falhar, cite
   o número dela (M-xx) e proponha o ajuste.
@@ -70,6 +74,23 @@ segue esta skill.
 
 Checagem do placar que falhou é o ponto de partida, não o limite: leia a conversa inteira.
 
+## Reverter a versão nova
+
+Cada publicação vira uma versão da Malu (`numeros.md`, "Versão no ar"). Se a mudança da versão
+nova piorou a conversa, ela sai de produção antes de qualquer outra coisa:
+
+- **Handoff pior** é conta do banco, não sua: o sistema compara a versão no ar com a anterior e,
+  se piorou, já grava a reversão e avisa em `reverter.md`. Não repita essa proposta.
+- **Premissa indevida** é julgamento seu: a Malu parte de algo que a cliente não disse (tamanho,
+  endereço, forma de pagamento, decisão de comprar) ou que a operação não faz. Compare as
+  conversas da versão no ar com as da anterior (linha `versão da Malu`). Se a premissa aparece nas
+  da versão nova e não nas da anterior, proponha `"alvo": "reverter:vN"` (N = a versão no ar),
+  `"severidade": "alta"`, com trechos **da versão nova**, e em `por_que` as conversas de cada
+  versão em que você viu e não viu a premissa. Sem conversa da versão anterior no pacote, não há
+  comparação: não proponha reversão.
+- Com reversão pendente (`reverter.md` diz **CRÍTICO**), só `alvo: reverter:vN` entra. Sem nada
+  para reverter, entregue `"propostas": []`.
+
 ## O que você entrega
 
 Escreva **um arquivo `propostas.json`** na pasta atual, e nada mais. Formato exato:
@@ -79,7 +100,7 @@ Escreva **um arquivo `propostas.json`** na pasta atual, e nada mais. Formato exa
   "resumo": "duas ou três frases sobre a rodada",
   "propostas": [
     {
-      "alvo": "gate:<nome> | prompt | config:<chave> | regua | interpretador | tamanho | n8n:<workflow> | operador",
+      "alvo": "gate:<nome> | prompt | config:<chave> | regua | interpretador | tamanho | n8n:<workflow> | operador | reverter:v<N>",
       "o_que": "a mudança, em uma frase",
       "por_que": "o problema e o custo dele, em uma ou duas frases",
       "evidencias": [

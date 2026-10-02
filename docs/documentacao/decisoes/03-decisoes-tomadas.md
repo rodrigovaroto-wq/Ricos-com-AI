@@ -2003,3 +2003,15 @@ e só então publica; desfaz os dois se a publicação falha. A `turn` lê o seg
 positivo ou `null`). **A `turn` só sobe depois da 0021 aplicada**: antes dela, os inserts com a coluna
 nova falham em silêncio e os desfechos se perdem. Grafo §50.
 
+## R18.6 — O operador decide as propostas do Hermes numa Rotina do Claude Code (§6)
+
+Supera o link do e-mail de R14.14. O e-mail (n8n "Hermes — decisão") usa o texto aprovado de
+[`hermes/EMAILS.md`](../../../hermes/EMAILS.md), sem link e sem dado de cliente, com a versão de
+`agent_versions`; o formulário fica no workflow, desligado. A Rotina "Hermes – decisão" (sessão nova a
+cada disparo, sem horário) segue [`hermes/DECIDIR.md`](../../../hermes/DECIDIR.md): mostra cada proposta
+com a evidência mascarada, grava aprovar/recusar/corrigir com motivo nas mesmas colunas do formulário
+e implementa a aprovada por `IMPLEMENTAR.md`. **Reversão (L3 item 8):** o Hermes compara a versão no ar
+com a anterior; handoff pior com ≥ 200 turnos decididos em cada uma e z ≥ 1,645 → proposta
+`REVERTER-vN` escrita pelo código, mostrada primeiro; premissa indevida pior → o modelo propõe a
+reversão. Enquanto houver reversão pendente, nenhuma proposta nova é decidida. Grafo §52.
+

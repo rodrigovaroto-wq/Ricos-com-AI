@@ -2,8 +2,10 @@
 
 The two e-mails the n8n workflow "Hermes — decisão" sends. **Copy is final:** use it word for
 word, keeping the bold, the italics and every line break (render as HTML; each `<br>` below is a
-line break in the e-mail). Not yet in the workflow: it still sends
-the approval link (R14.14). The swap ships with the Claude Code Routine that replaces that link.
+line break in the e-mail). In the workflow since 2026-10-02 (R18.6):
+the approval link is gone, the decision happens in the Claude Code Routine "Hermes – decisão"
+([`DECIDIR.md`](DECIDIR.md)), and the old form stays in the workflow, disabled. The `failed` e-mail
+has no approved copy yet (a minimal text in the same shell).
 
 Rules that hold the copy: no customer data (phone, excerpt, quote) — only proposal titles; no
 approval link — the decision happens only in the Routine.
