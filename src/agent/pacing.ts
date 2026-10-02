@@ -9,8 +9,11 @@ import { BUSINESS_TZ, nextOpening, offsetMinutes } from "@/agent/followups.js";
  *    opposite of the intended effect.
  * 2. The "typing" presence expires in about 20s, so a longer wait has to refresh it
  *    in blocks instead of being set once.
+ *
+ * The first real reply waits one minute (operator, R18.1, 2026-10-02) — the same number
+ * as `WELCOME_RESUME_DELAY_SECONDS`, which is what production actually waits.
  */
-export const FIRST_REPLY_DELAY_MS = 3 * 60_000;
+export const FIRST_REPLY_DELAY_MS = 60_000;
 export const MS_PER_WORD = 800;
 export const PRESENCE_REFRESH_MS = 15_000;
 

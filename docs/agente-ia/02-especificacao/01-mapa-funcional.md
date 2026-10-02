@@ -91,7 +91,7 @@ padrão de confirmação de recebimento. Não contradiz o guardrail de identidad
 
 | Regra | Valor |
 |---|---|
-| Atraso da primeira resposta real, dentro do horário (06:00–00:00) | **3 minutos** |
+| Atraso da primeira resposta real, dentro do horário (06:00–00:00) | **1 minuto** (era 3; R18.1, 2026-10-02) |
 | Se a mensagem chegou fora do horário (00:00–06:00) | **a partir das 06:00** |
 | Atraso das demais respostas | **0,8 s por palavra da mensagem** |
 | "Digitando" | **visível enquanto a agente prepara a resposta** |

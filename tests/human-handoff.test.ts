@@ -219,7 +219,8 @@ describe("recepção automática do Estágio 0", () => {
 
   // O número que o n8n lê para o nó de espera (opção a, 2026-09-21) — fixado aqui
   // porque um valor sem teste é um valor que qualquer PR muda sem perceber o efeito.
-  it("o timer de retomada é de 2 minutos", () => {
-    expect(WELCOME_RESUME_DELAY_SECONDS).toBe(120);
+  // 1 minuto desde 2026-10-02 (R18.1); era 120 s.
+  it("o timer de retomada é de 1 minuto", () => {
+    expect(WELCOME_RESUME_DELAY_SECONDS).toBe(60);
   });
 });
