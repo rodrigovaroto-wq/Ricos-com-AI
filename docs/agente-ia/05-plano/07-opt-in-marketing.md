@@ -49,7 +49,9 @@ verifica**. Hoje `leads` só tem `opted_out_at` (`supabase/migrations/0001_init.
   saída clara por categoria.
 - [Pricing](https://developers.facebook.com/docs/whatsapp/pricing) (atualizada em 28/09/2026):
   quem chega por anúncio Click-to-WhatsApp (CTWA) abre a janela de atendimento, e a resposta
-  abre uma **free entry point window de até 7 dias**. É regra de **preço**, não de permissão.
+  abre uma **free entry point window de 72 h**, contada da resposta (corrigido em 2026-10-02:
+  este memorando dizia "até 7 dias"; a página diz "FEP windows remain open for 72 hours").
+  É regra de **preço**, não de permissão.
 - [Error codes](https://developers.facebook.com/docs/whatsapp/cloud-api/support/error-codes/)
   (atualizada em 18/06/2026): **131050**, a cliente "has chosen to stop receiving marketing
   messages". Não reenviar. O webhook `user_preferences` avisa quando ela para ou volta.
@@ -59,7 +61,7 @@ verifica**. Hoje `leads` só tem `opted_out_at` (`supabase/migrations/0001_init.
 - **Clicar num CTWA não é opt-in para template de marketing.** Ela escreveu para conversar
   agora. Não há frase dizendo que aceita receber comunicação futura da Encorpa, que são os
   dois requisitos da página de opt-in. O clique cobre a janela da conversa, não a régua.
-- A "free entry point window" de 7 dias **não** autoriza texto livre depois de 24h. Ela
+- A "free entry point window" de 72 h **não** autoriza texto livre depois de 24h. Ela
   torna o envio gratuito, mas o texto da policy ("Outside the 24-hour customer service
   window, you may only send messages via approved Message Templates") continua valendo.
 - `silence_2` **dentro** da janela sai como texto livre em conversa que ela abriu, e não

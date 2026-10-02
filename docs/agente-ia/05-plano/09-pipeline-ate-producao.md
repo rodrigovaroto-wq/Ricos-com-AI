@@ -100,21 +100,103 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
 **Saída de L2:** os três fluxos fecharam sem intervenção fora do previsto.
 
-## L3 — Tráfego controlado (semana 1)
+## L3 — Tráfego controlado (dias 1–12)
 
-1. **S** — anúncio CTWA só nas 22 praças com pagamento na entrega, orçamento baixo (sugestão:
-   R$ 50–100 por dia nos 3 primeiros dias).
-2. **O** — ler **todas** as conversas dos 3 primeiros dias (são poucas) e o `pnpm dev:painel`
-   diário; responder todo handoff em até 1 h no horário de atendimento (06:00–00:00).
-3. **O** — assinar o piso de amostra ([`08-piso-de-amostra.md`](08-piso-de-amostra.md) §4)
-   **antes** de olhar a primeira taxa.
-4. **Critérios de pausa** (qualquer um → pausar o anúncio, consertar, voltar):
-   - uma mentira de preço, frete, prazo, troca ou saúde chegou à cliente;
-   - handoff sem resposta humana em mais de 2 h no horário de atendimento;
-   - custo por conversa acima do teto em mais de 10% das conversas do dia;
-   - mensagem da cliente sem resposta nenhuma (falha de canal).
+> **Reescrito em 2026-10-02 com as respostas do operador** (estrutura do teste, caixa, metas,
+> pausa). A versão anterior (só as 22 praças, R$ 50–100/dia, pausa automática em handoff de 2 h)
+> está no histórico do Git.
 
-**Saída de L3:** 50 leads reais — o gatilho do Hermes (R6.2).
+1. **S** — anúncio CTWA (só CTWA: é o que abre a janela gratuita de 72 h, ver item 5), em três fases:
+
+   | Fase | Dias | Verba | Estrutura |
+   |---|---|---|---|
+   | Copy | 1–5 | R$ 400 (R$ 80/dia) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
+   | Região | 6–10 | R$ 400 (R$ 40/dia por conjunto) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
+   | Leitura | 11–12 | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
+
+   Verba total R$ 800 (operador, 2026-10-02: Copy R$ 300 → R$ 400; Região R$ 500 → R$ 400 e dias
+   6–12 → 6–10). **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
+   métricas por criativo/copy e por região que mostrem pontos fortes e fracos de cada um (proposta
+   em [`10-execucao-mes-1.md`](10-execucao-mes-1.md) §8). A referência anterior (Copy > 7,5% / CPL
+   < R$ 1,50; Região > 10% / CPL < R$ 1,25) fica só como ponto de partida da conversa.
+   Os criativos se validam por outro método (CPL/CTR); pedidos e conversão leem a operação inteira.
+   A e B se sobrepõem no Sudeste, Centro-Oeste e Sul — a leitura de região é direcional.
+2. **O** — caixa: **R$ 1.200 reservados** para **todo custo de um pedido até a venda virar
+   dinheiro** (produto, manuseio, taxa de transação, entrega concluída, recusa, devolução),
+   mix 70% na entrega / 30% antecipado, 1 peça por pedido. Recusa na porta 12–17% a R$ 9,99
+   (**valor especulado, ainda precisa ser medido**); devolução pós-envio 5–10% a R$ 25,00.
+   WhatsApp: R$ 0 por lead (tudo dentro da janela de 24 h ou da gratuita de 72 h); só o template
+   UTILITY do pós-venda fora da janela custa ~R$ 0,04 por pedido. A taxa de entrega concluída (R$ 19,99)
+   só é descontada quando a entrega conclui. O antecipado cai no Mercado Pago na hora; a comissão
+   do pagamento na entrega libera 14 dias depois do pagamento.
+3. **O** — handoff: o operador responde o mais rápido que conseguir, das 06:00 às 00:00. Fora disso
+   vale R4.4 (mensagem automática 24/7, agente a partir das 06:00). A primeira resposta real da
+   agente sai **1 minuto** depois da mensagem (operador, 2026-10-02; era 3 min na doc e 120 s no
+   código). Sem prazo que pause anúncio.
+   As conversas são lidas pelo Hermes a cada 50 leads; o operador revisa quando ele volta.
+4. **O** — piso de amostra (assinado em 2026-10-02): nenhum teste é dado como validado antes de
+   **mais de 500 leads atendidos e mais de 50 pedidos criados**.
+5. **Régua de silêncio dentro da janela gratuita.** Lead de CTWA respondido em até 24 h abre uma
+   *free entry point window* de **72 h, contada da primeira resposta** — que é a mensagem
+   automática da camada 1 (R4.4), enviada na hora. Dentro dela qualquer mensagem é gratuita,
+   template de marketing inclusive; fora dela, template de marketing é cobrado (verificado em
+   2026-10-02 em [Pricing](https://developers.facebook.com/docs/whatsapp/pricing); só vale para
+   quem escreveu pelo app Android/iOS, não pelo WhatsApp Web/desktop). Decisão do operador
+   (2026-10-02): o `silence_3` sai **entre 63 h e 71 h depois da abertura da janela**, no último
+   horário que caia em 06:00–00:00 — a faixa de 8 h sempre contém um horário de atendimento. Nada
+   de marketing depois das 72 h. **No código ainda é "3 dias depois do silêncio"**
+   (`followups.ts`), que pode cair fora da janela: muda antes do primeiro anúncio.
+   Decisões do operador no mesmo dia:
+   - a contagem começa na **primeira mensagem dela em cada entrada por anúncio** (um anúncio novo
+     abre janela nova e recomeça a contagem);
+   - se ela conversou além das 63 h e então sumiu, **não há `silence_3`**: a régua fecha no
+     `silence_2`, e é ele que marca a conversa `perdido`;
+   - **opt-in, caminhos 1 + 3** ([`07-opt-in-marketing.md`](07-opt-in-marketing.md)): o
+     `silence_2` sai sempre **dentro de 24 h da última mensagem dela** (texto livre, sem template e
+     sem opt-in — às 09:00 do dia seguinte, ou antes, no último horário de atendimento que caiba
+     nas 24 h); o `silence_3` (template MARKETING) só para quem tocou "Quero ofertas". O botão já
+     existe: mensagem própria logo depois do `silence_1`, ligada por
+     `channel.askMarketingOptIn: true` no `BUSINESS_CONFIG`. Opt-in no texto do anúncio (caminho
+     2) só se o sócio confirmar com a Meta.
+6. **Critérios de pausa — manuais** (o operador decide; nada pausa sozinho; cada um tem seção
+   própria no portal, ver [`10-execucao-mes-1.md`](10-execucao-mes-1.md) §8):
+   - mais de 5% das conversas com alguma premissa indevida (o Hermes marca nas 50 de cada lote; o
+     operador confere por amostra);
+   - opt-out acima de 2,5%;
+   - custo de API (modelo + WhatsApp) acima de R$ 0,75 por lead em mais de 5% dos últimos 100
+     leads atendidos (com o teto de R$ 0,55 do modelo, só a conversa que bate o teto chega lá);
+   - handoff em mais de **10%** das conversas (acima de 5% a agente já falha em algum grau, mas no
+     começo o handoff é esperado e é o dado que explica o porquê; operador, 2026-10-02);
+   - caixa reservado para custo antecipado (item 2) acabando;
+   - número restrito pela Meta ou Cloud API fora → **para toda a operação** até resolver.
+7. **Decidir no dia 12** (a pior das três métricas decide, sobre o piso do item 4):
+
+   | Decisão | Conversão da agente | CPL | ROI |
+   |---|---|---|---|
+   | Escalar | > 10% | < R$ 1,25 | > 2,5 |
+   | Ajustar | 6%–10% | R$ 1,25–1,75 | 1,5–2,5 |
+   | Parar | < 6% | > R$ 1,75 | < 1,5 |
+
+   ROI = lucro bruto antes de anúncio e API ÷ (anúncio + API: WhatsApp e modelo).
+
+8. **Hermes durante o teste** (operador, 2026-10-02) — cada proposta entra assim que aprovada, não
+   na virada de fase: o Hermes do lote seguinte lê a agente já com a mudança dele e mede o efeito
+   da própria proposta. Não estraga o teste: os criativos se julgam por CPL/CTR (anúncio, não
+   agente) e A/B de região rodam ao mesmo tempo, sob a mesma versão.
+   - roda a cada 50 leads (R6.2); o operador aprova numa **Rotina do Claude Code**, não mais pelo
+     link do e-mail (R14.14); o e-mail só avisa que há proposta esperando;
+   - **cada publicação grava um número de versão em toda conversa** — sem ele, nem o Hermes nem o
+     painel separam antes de depois. **Não existe hoje** (nem coluna, nem campo): entra antes do
+     primeiro anúncio;
+   - a proposta é julgada pela **frequência e pelo impacto do erro na continuidade da conversa e
+     no fechamento da venda** — veto, handoff, resposta pronta, premissa indevida, custo, e onde
+     a conversa parou — nunca por taxa de venda de um lote só (50 leads a 10% é ±8 pp);
+   - piorou handoff ou premissa indevida no lote seguinte → a mudança **sai de produção, é
+     analisada, corrigida, testada internamente e validada**, e só então volta. Nenhuma proposta
+     nova entra antes disso.
+
+**Saída de L3:** dia 12 com a decisão da tabela acima. O Hermes roda a cada 50 leads durante o
+teste (R6.2).
 
 ## L4 — Hermes assume a melhoria contínua (a partir dos 50 leads)
 

@@ -1510,6 +1510,30 @@ service_role passada pelo operador, só em variável de ambiente — que por iss
 `Prefer: count=exact`, sem chave, e o `Content-Range` batendo com o `count(*)` da Management API.
 Ler a service_role pela Management API está barrado no modo automático — não tente.
 
+## 49. A régua de silêncio pagava e pedia template fora da janela gratuita (mês 1, 2026-10-02) — planejado
+
+**Sintoma:** o `silence_3` (cupom) sai 3 dias depois do silêncio (`followups.ts`), e o `silence_2` às
+09:00 do dia seguinte — que passa das 24 h de quem parou cedo. Os dois iam como template MARKETING:
+pago fora da janela e só para quem deu opt-in.
+
+**Causa:** a régua foi desenhada antes de existir o canal oficial; ninguém ancorou os toques nas
+janelas da Meta (24 h de atendimento; *free entry point* de 72 h aberta pela primeira resposta a um
+lead de CTWA — a camada 1, na hora). O memorando de opt-in ainda dizia que essa janela durava "até
+7 dias"; a página de preços diz 72 h.
+
+**Caminhos considerados e descartados:** (a) contar o CTWA como opt-in — bloqueado em 28/09 (sem
+declaração nem prova; uma denúncia derruba o número); (b) congelar as mudanças do Hermes por fase —
+recusado pelo operador: perde a medição de cada proposta pelo lote seguinte; (c) `silence_3` "3 dias
+depois do silêncio" com limite — a âncora certa é a entrada, não o silêncio.
+
+**Correção (decidida, ainda não implementada — `10-execucao-mes-1.md` §4a):** `silence_3` a 63–71 h
+da entrada, no último horário de 06:00–00:00; sem faixa válida, não há `silence_3` e o `silence_2`
+fecha a régua e marca `perdido`; `silence_2` sempre dentro de 24 h da última mensagem dela, como
+texto livre; `silence_3` só com o toque em "Quero ofertas".
+
+**Guarda (a construir):** testes de faixa por hora de entrada; mutação em `verify-guards.ts` que
+volta o `silence_3` para `3 * DAY` tem de ficar vermelha.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

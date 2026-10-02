@@ -91,6 +91,21 @@ verdes.
   respostas ainda em `conversando`, handoff por teto justo na pergunta "só pago quando chegar?").
   Só relatado: nenhum gate ou prompt mudou por causa disso.
 
+**2026-10-02 — mês 1 definido com o operador** (branch `claude/lucid-volta-nnk2nq`): L3 reescrito
+em [`09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md) — Copy dias
+1–5 R$ 400, Região dias 6–10 R$ 400, Leitura 11–12, decisão no dia 12; caixa reservado R$ 1.200
+(todo custo do pedido até virar dinheiro); piso 500 leads + 50 pedidos; pausa manual (premissa > 5%,
+handoff > 10%, opt-out > 2,5%, API > R$ 0,75 em > 5% dos últimos 100, caixa, canal); primeira resposta
+em 1 min; Hermes publica a cada lote, com versão por conversa e reversão. **Metas por fase e as 8–15
+métricas por criativo/região ainda a definir com o operador.** E-mails do Hermes em
+[`hermes/EMAILS.md`](hermes/EMAILS.md). Janela gratuita do CTWA = 72 h (o memorando de opt-in dizia
+7 dias — corrigido). Meta Business validada e app instalado; **falta o WABA validar** (S).
+**Plano de execução dos itens 3–8:** [`10-execucao-mes-1.md`](docs/agente-ia/05-plano/10-execucao-mes-1.md)
+— **O:** `"channel": { "askMarketingOptIn": true }` no segredo `BUSINESS_CONFIG` (§3 do plano);
+**C:** régua 63–71 h / `silence_2` < 24 h (§4a), 1 minuto (§4b), versão por turno + migração 0021
+(§5), Rotina "Hermes – decisão" + e-mails (§6), lucro por venda (§7), portal Vercel (§8). API de
+cancelamento/devolução reconfirmada inexistente em 02/10 (print: só `POST /api/sales`, R16.9). Grafo §49.
+
 **Próxima sessão — nesta ordem:**
 0. **O** — merge do PR #48 (CI verde) — o `main` volta a bater com o n8n no ar.
 1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
