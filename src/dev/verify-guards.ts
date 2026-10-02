@@ -722,12 +722,15 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/hermes-core.test.ts"],
   },
   {
-    id: "hermes-email-trecho",
-    bug: "o operador aprovava sem ver o trecho da conversa nem o veredito de hoje",
+    // Replaces "hermes-email-trecho" (R14.14): since R18.6 the e-mail carries no excerpt at all —
+    // the decision happens in the Routine — and the guard is now that a quote inside a title is
+    // redacted before it reaches the inbox.
+    id: "hermes-email-citacao",
+    bug: "o título da proposta levava a citação da cliente para o e-mail (nome, endereço entre aspas)",
     files: ["n8n/workflows/hermes-decisao.json"],
-    from: "(Array.isArray(e.evidencias) && e.evidencias.length ?",
-    to: "(false ?",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+    from: "esc(unquote(r.o_que ?? r.rationale ?? r.code ?? 'Proposta')) + '</span>'",
+    to: "esc(r.o_que ?? r.rationale ?? r.code ?? 'Proposta') + '</span>'",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/hermes-emails.test.ts"],
   },
   {
     id: "hermes-retencao",
