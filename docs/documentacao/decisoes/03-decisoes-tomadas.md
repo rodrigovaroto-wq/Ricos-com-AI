@@ -1873,6 +1873,10 @@ política pública da Logzz, a troca por preferência (tamanho) custa R$ 20 à c
 trata "a troca do colete é grátis" como verdade desde 2026-09-25 (grafo §9, M-08) e a agente continua
 podendo dizer isso até o operador decidir.
 
+> **Reconfirmado em 2026-10-02:** print do operador da página Integrações → API mostra só
+> `POST /api/sales` ("Salvar venda"). Nenhum endpoint de cancelar, estornar ou devolver: segue com
+> uma pessoa.
+
 > **Resposta de 2026-09-29 (R17.1):** a troca de tamanho **não é grátis** — o envio da troca é da
 > cliente. Ver abaixo.
 

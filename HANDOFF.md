@@ -103,8 +103,8 @@ métricas por criativo/região ainda a definir com o operador.** E-mails do Herm
 **Plano de execução dos itens 3–8:** [`10-execucao-mes-1.md`](docs/agente-ia/05-plano/10-execucao-mes-1.md)
 — **O:** `"channel": { "askMarketingOptIn": true }` no segredo `BUSINESS_CONFIG` (§3 do plano);
 **C:** régua 63–71 h / `silence_2` < 24 h (§4a), 1 minuto (§4b), versão por turno + migração 0021
-(§5), Rotina "Hermes – decisão" + e-mails (§6), lucro por venda (§7), portal Vercel (§8),
-reverificar API de cancelamento (R16.9). Grafo §49.
+(§5), Rotina "Hermes – decisão" + e-mails (§6), lucro por venda (§7), portal Vercel (§8). API de
+cancelamento/devolução reconfirmada inexistente em 02/10 (print: só `POST /api/sales`, R16.9). Grafo §49.
 
 **Próxima sessão — nesta ordem:**
 0. **O** — merge do PR #48 (CI verde) — o `main` volta a bater com o n8n no ar.

@@ -22,7 +22,7 @@
 | 6 | Rotina "Hermes – decisão" + e-mails novos no n8n | 5 (o e-mail cita a versão) | C (+ **O** autoriza a Rotina) | ~½ dia |
 | 7 | Conta de lucro por venda com o custo real | nada | C | ~1 h |
 | 8 | Portal no Vercel | 5 (separa versões), métricas por criativo/região a definir | C (+ **O**/S credenciais) | 2–3 dias |
-| — | Reverificar API de cancelamento/devolução (Logzz/Coinzz) | painel da Logzz (**O**) | C | ~1 h |
+| — | ~~Reverificar API de cancelamento/devolução~~ — fechado em 02/10: não existe (ver fim) | — | — | — |
 
 4a, 4b, 5 e 7 têm arquivos disjuntos e podem ir em paralelo (regra de ondas). 6 vem depois de 5.
 
@@ -243,8 +243,9 @@ Logzz só `GET /api/v1/products`; a devolução da Logzz é por formulário, e-m
 nova; a ajuda da Logzz diz que pedido em "Agendado", "Em separação" ou "A reagendar" se **exclui**
 pelo painel, não se cancela.
 
-**Para fechar de vez (≈1 h):** o operador manda print de Integração → Documentação da Logzz e da
-página de API da Coinzz; com a credencial "Logzz API" do n8n, testar **só leitura** nos endpoints
-documentados. Existindo cancelar/excluir/devolver, a automação entra como código determinístico
-(R11.1), nunca como ferramenta do modelo, e começa por pedido de teste. Não existindo, fica como
-está: a Malu conversa e manda o handoff com os dados; o operador executa.
+**Fechado em 2026-10-02:** o operador mandou o print da página Integrações → API (Documentação):
+o único endpoint é **`POST /api/sales` — "Salvar venda"** (cria venda ou reprocessa pagamento com
+`order_hash`), com `payment_method` `afterpay | bank_slip | credit_card | pix`. Nenhum cancelar,
+excluir, estornar ou devolver. **A automação sai do plano:** a Malu conversa com a cliente e manda o
+handoff com os dados; o operador executa nas plataformas. Se a Logzz/Coinzz publicarem esses
+endpoints, volta como código determinístico (R11.1).
