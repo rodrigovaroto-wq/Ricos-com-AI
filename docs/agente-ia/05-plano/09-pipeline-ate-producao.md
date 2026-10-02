@@ -140,7 +140,8 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
      operador confere por amostra);
    - opt-out acima de 2,5%;
    - custo do modelo acima de R$ 0,75 por lead em mais de 5% dos últimos 100 leads atendidos;
-   - muitos handoffs — sinal de que a agente está falhando (limite: **a definir pelo operador**);
+   - handoff em mais de **10%** das conversas (acima de 5% a agente já falha em algum grau, mas no
+     começo o handoff é esperado e é o dado que explica o porquê; operador, 2026-10-02);
    - caixa reservado para custo antecipado (item 2) acabando;
    - número restrito pela Meta ou Cloud API fora → **para toda a operação** até resolver.
 7. **Decidir no dia 14** (a pior das três métricas decide, sobre o piso do item 4):
