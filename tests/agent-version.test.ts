@@ -41,7 +41,10 @@ describe("versão da Malu: a turn grava em cada linha", () => {
   it.each(["turn_outcomes", "llm_calls"])("todo insert em %s leva agent_version", (table) => {
     const found = inserts(table);
     expect(found.length).toBeGreaterThan(0);
-    for (const body of found) expect(body).toContain("agent_version: AGENT_VERSION,");
+    for (const body of found) expect(body).toContain("...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),");
+  });
+  it("negação: sem segredo, o insert não leva a coluna (antes da 0021 ela não existe e o insert falharia)", () => {
+    expect(source).not.toMatch(/^\s*agent_version: AGENT_VERSION,$/m);
   });
   it("nenhum outro insert em turn_outcomes ou llm_calls escapa do padrão acima", () => {
     expect(source.match(/db\("(?:turn_outcomes|llm_calls)"/g)).toHaveLength(inserts("turn_outcomes").length + inserts("llm_calls").length);

@@ -134,7 +134,7 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(leaveDef).toContain("const ours = Array.isArray(closed) && closed.length > 0;");
     expect(leaveDef).toContain('if (ours && kind.startsWith("silence_")) {');
     expect(leaveDef).toContain("followups?conversation_id=eq.${row.conversation_id}&status=eq.scheduled&kind=like.silence_*&select=kind");
-    expect(leaveDef).toContain("if (endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {");
+    expect(leaveDef).toContain("if (!sheWrote && endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {");
     expect(leaveDef).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
   });
 
@@ -202,6 +202,17 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
  * de parada. Ligá-lo exige que a resposta dela e a venda o cancelem como cancelam o silêncio,
  * ou ele perguntaria "conseguiu finalizar?" a quem acabou de comprar.
  */
+describe("§4a: perdido nunca numa conversa em que ela acabou de escrever", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o fim da régua confere a última mensagem dela contra a hora do toque", () => {
+    expect(source).toContain('const sheWrote = typeof since === "string" && Date.parse(since) > Date.parse(row.run_at);');
+    expect(source).toContain("if (!sheWrote && endsSilenceRuler(");
+  });
+  it("negação: sem mensagem nova dela o fim da régua continua marcando perdido", () => {
+    expect(source).not.toContain("if (sheWrote && endsSilenceRuler(");
+  });
+});
+
 describe("§4a: sem âncora (leitura falhou), a régua sai sem silence_3", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("o silence_3 só é armado com a âncora da entrada", () => {

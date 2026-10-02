@@ -448,7 +448,9 @@ const recordOutcome = async (
       reason,
       rewrites,
       cost_brl: costBrl,
-      agent_version: AGENT_VERSION,
+      // Only when set: before 0021 the column does not exist and the insert would 400 — every
+      // outcome and call lost in silence (review, 2026-10-02).
+      ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
     }),
   }).catch(() => undefined);
 };
@@ -608,7 +610,9 @@ const recordCall = (
       output_tokens: call.outTok,
       cached_tokens: call.cachedTok,
       cost_brl: call.costBrl,
-      agent_version: AGENT_VERSION,
+      // Only when set: before 0021 the column does not exist and the insert would 400 — every
+      // outcome and call lost in silence (review, 2026-10-02).
+      ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
     }),
   }).catch(() => undefined);
 
@@ -1398,7 +1402,14 @@ const runFollowupSweep = async () => {
         const rest = await db(
           `followups?conversation_id=eq.${row.conversation_id}&status=eq.scheduled&kind=like.silence_*&select=kind`,
         ).catch(() => null);
-        if (endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {
+        // She wrote while this touch was going out: her turn cancels the rest of the ruler before
+        // re-arming it, and reading that gap as "nothing left" would mark a live conversation
+        // `perdido` (review, 2026-10-02). Index: conversations_pkey.
+        const since = (
+          await db(`conversations?id=eq.${row.conversation_id}&select=last_inbound_at`).catch(() => null)
+        )?.[0]?.last_inbound_at;
+        const sheWrote = typeof since === "string" && Date.parse(since) > Date.parse(row.run_at);
+        if (!sheWrote && endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {
           await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido");
         }
       }

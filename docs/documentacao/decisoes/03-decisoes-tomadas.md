@@ -625,7 +625,7 @@ mensagem fala em "atendentes", não afirma nem nega automação.
 
 | Situação | Quando chega |
 |---|---|
-| Dentro do horário de atendimento (06:00–00:00) | **3 minutos** depois da mensagem da cliente |
+| Dentro do horário de atendimento (06:00–00:00) | **1 minuto** depois da mensagem da cliente (R18.1, 2026-10-02; era 3 min aqui e 120 s no código) |
 | Fora do horário (00:00–06:00) | **A partir das 06:00** |
 
 O atraso de "3 minutos" **substitui os 15 segundos** definidos na rodada 2 para a primeira
@@ -651,7 +651,7 @@ camada 2. A camada 1 roda 24/7, sempre.
 | 3 | Desconto de 15% vs. frete grátis com teto no antecipado | ✅ **Resolvida (R4.2) — mantém 15%, sem subsídio de frete** |
 | 4 | Calendário de datas comerciais para o cupom de 20% | ✅ **Resolvida (R4.3) — moldura "Super + dia da semana", sem calendário a manter** |
 | 5 | Copy do site *"Não é robô"* | ✅ Resolvida na rodada 3 — mantida sem alteração |
-| 6 | Lead que chega entre 00:00 e 06:00 | ✅ **Resolvida (R4.4) — mensagem automática 24/7 + agente real às 06:00 ou 3 min depois** |
+| 6 | Lead que chega entre 00:00 e 06:00 | ✅ **Resolvida (R4.4) — mensagem automática 24/7 + agente real às 06:00 ou 1 min depois (R18.1)** |
 | 7 | Medir custo real de frete por região | ✅ **Resolvida (R4.2) — operador já tem o dado: R$15–35 em metrópoles, R$40+ em regiões afastadas** |
 | 8 | Biblioteca de áudios | ✅ Resolvida — escopo inicial é boas-vindas + explicação do produto |
 
@@ -1955,3 +1955,51 @@ rodada de personas).
 
 **Aberto, do operador:** o teto por conversa, pelo p95 medido (`cost.conversationCapBrl` /
 `overrunTolerance`). Grafo §47.
+
+# Rodada 18 — o mês 1 vira código (2026-10-02)
+
+Plano: [`10-execucao-mes-1.md`](../../agente-ia/05-plano/10-execucao-mes-1.md). Decisões de negócio
+no L3 de [`09-pipeline-ate-producao.md`](../../agente-ia/05-plano/09-pipeline-ate-producao.md).
+
+## R18.1 — A primeira resposta real da agente sai 1 minuto depois da mensagem
+
+Operador, 2026-10-02. `WELCOME_RESUME_DELAY_SECONDS = 60` (`retry.ts`, espelhado),
+`FIRST_REPLY_DELAY_MS = 60_000` (`pacing.ts`), fallback do Wait do n8n `?? 60`. Supera os 3 min de
+R4.4 (o código rodava 120 s). A mensagem automática da camada 1 continua instantânea.
+
+## R18.2 — A régua de silêncio ancora na entrada pelo anúncio (§4a)
+
+`silence_3` a entrada + 71 h, recuado para 23:30 da véspera quando cai em 00:00–06:00 (sempre entre
+63 e 71 h, dentro da janela gratuita de 72 h). `silence_2` = o menor entre 09:00 do dia seguinte e a
+última mensagem dela + 23 h, com o mesmo recuo — nunca passa das 24 h, então sai como texto livre.
+Sem horário válido, não há toque; a régua termina pelo dado (nenhum `silence_*` ainda agendado), e
+é o último toque que marca `perdido`. Leitura da conversa que falha arma a régua **sem** `silence_3`.
+
+**A âncora foi escolhida pela leitura do código:** a `turn` nunca fecha conversa (`closed_at` não é
+escrito em lugar nenhum) — um lead tem uma conversa para sempre, então `conversations.created_at` não
+marca uma segunda entrada por anúncio. O `referral` do CTWA chega à `turn` como `payload.source` em
+toda mensagem vinda de anúncio, mas só era gravado na criação do lead. Migração `0022`:
+`conversations.entry_at`, gravado na mensagem que traz `referral`; âncora = `entry_at ?? created_at`.
+Retorno orgânico mantém a âncora antiga → faixa já passou → sem `silence_3` (nada de marketing fora
+da janela gratuita). Grafo §49.
+
+## R18.3 — A recusa na porta custa R$ 9,99
+
+Operador, 2026-10-02. Supera os R$ 9,90 de R15.4 / memória `entrega-concluida-so-no-cod`. A **taxa**
+de recusa (12–17%) continua especulada até o primeiro extrato com recusa.
+
+## R18.4 — Teto por conversa R$ 0,55, sem tolerância
+
+Operador, 2026-10-02, pelo p95 medido em L0.5 (R$ 0,546; R17.5). `config/business.example.json` e o
+fallback da `turn`: `conversationCapBrl` 0.55, `overrunTolerance` 0. **Vale em produção só depois de
+escrito no segredo `BUSINESS_CONFIG`** (o fallback inteiro é ignorado com o segredo presente).
+
+## R18.5 — Cada publicação da `turn` tem número de versão, gravado em todo turno (§5)
+
+Migração `0021`: `agent_versions` e `agent_version` em `turn_outcomes` e `llm_calls`; view
+`eval_version_outcomes`. Quem incrementa é o deploy — `pnpm deploy:turn` (manual, lista os arquivos
+do disco) e `deploy-hermes.yml` (proposta aprovada): insere `max+1`, grava o segredo `AGENT_VERSION`
+e só então publica; desfaz os dois se a publicação falha. A `turn` lê o segredo uma vez (inteiro
+positivo ou `null`). **A `turn` só sobe depois da 0021 aplicada**: antes dela, os inserts com a coluna
+nova falham em silêncio e os desfechos se perdem. Grafo §50.
+

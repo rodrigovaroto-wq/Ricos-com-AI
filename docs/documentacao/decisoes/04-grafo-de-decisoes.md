@@ -1510,29 +1510,63 @@ service_role passada pelo operador, só em variável de ambiente — que por iss
 `Prefer: count=exact`, sem chave, e o `Content-Range` batendo com o `count(*)` da Management API.
 Ler a service_role pela Management API está barrado no modo automático — não tente.
 
-## 49. A régua de silêncio pagava e pedia template fora da janela gratuita (mês 1, 2026-10-02) — planejado
+## 49. A régua de silêncio pagava e pedia template fora da janela gratuita (mês 1, 2026-10-02)
 
-**Sintoma:** o `silence_3` (cupom) sai 3 dias depois do silêncio (`followups.ts`), e o `silence_2` às
+**Sintoma:** o `silence_3` (cupom) saía 3 dias depois do silêncio (`followups.ts`), e o `silence_2` às
 09:00 do dia seguinte — que passa das 24 h de quem parou cedo. Os dois iam como template MARKETING:
 pago fora da janela e só para quem deu opt-in.
 
-**Causa:** a régua foi desenhada antes de existir o canal oficial; ninguém ancorou os toques nas
-janelas da Meta (24 h de atendimento; *free entry point* de 72 h aberta pela primeira resposta a um
-lead de CTWA — a camada 1, na hora). O memorando de opt-in ainda dizia que essa janela durava "até
-7 dias"; a página de preços diz 72 h.
+**Causa:** a régua foi desenhada antes de existir o canal oficial e era ancorada só no instante em que
+a agente falou (`from + 3 * DAY`, `nextMorning`); ninguém ancorou os toques nas janelas da Meta (24 h
+de atendimento; *free entry point* de 72 h aberta pela primeira resposta a um lead de CTWA — a camada
+1, na hora). O memorando de opt-in ainda dizia "até 7 dias"; a página de preços diz 72 h.
 
-**Caminhos considerados e descartados:** (a) contar o CTWA como opt-in — bloqueado em 28/09 (sem
-declaração nem prova; uma denúncia derruba o número); (b) congelar as mudanças do Hermes por fase —
-recusado pelo operador: perde a medição de cada proposta pelo lote seguinte; (c) `silence_3` "3 dias
-depois do silêncio" com limite — a âncora certa é a entrada, não o silêncio.
+**Caminhos considerados e descartados:** (a) contar o CTWA como opt-in — bloqueado em 28/09; (b)
+congelar as mudanças do Hermes por fase — recusado pelo operador; (c) "3 dias depois do silêncio" com
+limite — a âncora certa é a entrada; (d) **ancorar em `conversations.created_at`** — a `turn` nunca
+fecha conversa (`closed_at` não é escrito), então a segunda entrada por anúncio nunca reiniciaria a
+contagem; (e) `rulerFor` devolvendo a régua inteira quando o toque adiado não cabe — rearmaria toques
+já enviados; (f) fim da régua pelo nome `silence_3` — sem `silence_3`, ninguém marcava `perdido`; (g)
+leitura falha arma "como antes" — punha o cupom a 3 dias, fora da janela.
 
-**Correção (decidida, ainda não implementada — `10-execucao-mes-1.md` §4a):** `silence_3` a 63–71 h
-da entrada, no último horário de 06:00–00:00; sem faixa válida, não há `silence_3` e o `silence_2`
-fecha a régua e marca `perdido`; `silence_2` sempre dentro de 24 h da última mensagem dela, como
-texto livre; `silence_3` só com o toque em "Quero ofertas".
+**Correção (PR desta sessão, R18.2):** `conversations.entry_at` (0022), gravado na mensagem com
+`referral`; âncora `entry_at ?? created_at`. `silence3At` = entrada + 71 h, recuado para 23:30 da
+véspera se cair em 00:00–06:00; `silence_2` = min(09:00 seguinte, última dela + 23 h), mesmo recuo.
+Sem faixa, sem toque; fim da régua lido do dado; adiado sem horário no prazo sai por `leave`
+(`perdido`); leitura falha arma sem `silence_3`.
 
-**Guarda (a construir):** testes de faixa por hora de entrada; mutação em `verify-guards.ts` que
-volta o `silence_3` para `3 * DAY` tem de ficar vermelha.
+**Guarda:** testes de faixa por hora de entrada (00:10, 05:50, 06:00, 12:00, 23:50 e varredura de 10
+em 10 min, viradas de horário de verão 2018–2019), `silence_2` ≤ 23 h em 144 horários; mutações
+`4a-silence3-3dias`, `4a-silence2-24h`, `4a-fim-pelo-dado`, `4a-adiado-fora-do-prazo`, `4a-entrada`,
+`4a-sem-ancora` — todas vermelhas.
+
+## 50. Ninguém separava os turnos de antes e depois de uma publicação (mês 1, 2026-10-02)
+
+**Sintoma:** a regra de reversão do L3 (item 8) compara a versão nova com a anterior, mas não havia
+versão em lugar nenhum — nem o Hermes nem o painel separavam antes de depois.
+
+**Causa:** o deploy, a única coisa que sabe que uma publicação aconteceu, não registrava nada.
+
+**Caminhos descartados:** grão dia × versão em `eval_turn_outcomes` (o painel lê uma linha por dia,
+`painel.ts:47`); dividir `eval_conversation_cost` por versão (uma conversa cruza deploy, quebra
+`counter_drift_brl`); lista de arquivos do deploy escrita à mão (ficou velha três vezes); REST do
+container sem chave (401) — o script escreve pela API de gerência.
+
+**Correção (R18.5):** `agent_versions` + `agent_version` em `turn_outcomes`/`llm_calls` (0021);
+`pnpm deploy:turn` e `deploy-hermes.yml` inserem `max+1`, gravam `AGENT_VERSION` e só então publicam,
+desfazendo tudo se falhar; `eval_version_outcomes` dá os números por versão ao Hermes.
+
+**Guarda:** `tests/agent-version.test.ts`, espelho `agent-version.ts` no `function-drift`, mutação
+`versao-da-malu`. Os dois caminhos de deploy falham fechados antes da 0021 (o primeiro write é em
+`agent_versions`); deploy à mão por outro caminho perderia os desfechos em silêncio.
+
+## 51. Primeira resposta, teto e recusa: números do operador no código (mês 1, 2026-10-02)
+
+**Sintoma:** a doc dizia 3 min, o código rodava 120 s, o operador decidiu 1 min; o teto do exemplo
+(R$ 0,50 + 25%) não era o medido; a recusa estava em R$ 9,90 na memória e R$ 9,99 no plano.
+**Correção:** R18.1 (60 s em `retry.ts`, `pacing.ts`, Wait do n8n, runner de personas), R18.4
+(R$ 0,55, tolerância 0, no exemplo e no fallback), R18.3 (R$ 9,99). **Guarda:** testes que fixavam
+120 s e 3 min passaram a fixar 60 s; o segredo `BUSINESS_CONFIG` é do operador.
 
 ## Lições (valem para qualquer correção futura)
 

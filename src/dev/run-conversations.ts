@@ -29,7 +29,7 @@ const config = {
     freeShipping: false,
   },
   hours: { openHour: 6, closeHour: 24 },
-  cost: { conversationCapBrl: 0.5, overrunTolerance: 0.25 },
+  cost: { conversationCapBrl: 0.55, overrunTolerance: 0 },
   coupon: { percent: 20, active: false },
   cod: { physicalOnDeliveryActive: true },
 };
