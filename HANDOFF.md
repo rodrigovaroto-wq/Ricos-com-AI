@@ -113,9 +113,15 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
   gratuita (âncora `conversations.entry_at`, migração **0022**), §4b 1 minuto, §5 versão da Malu (migração
   **0021**, `pnpm deploy:turn`), §7 lucro por venda; R18.1–R18.5, grafo §49–§51. Validação local verde
   (5956 testes, 1640/1640, 0 afrouxou), 314/314 mutações; revisão Opus aprovada com resíduos.
-- **Onda 2 (commits locais `c13c782`, `a5f935a`, sobem depois do merge do #50):** e-mails do Hermes
-  com o texto de `EMAILS.md`, sem link; Rotina `hermes/DECIDIR.md`; reversão determinística
-  `REVERTER-vN`; R18.6, grafo §52. Validação local verde (6010 testes).
+- **Onda 2 — no mesmo PR #50** (depende da versão da onda 1): e-mails do Hermes com o texto de
+  `EMAILS.md`, sem link e com citação redigida; Rotina `hermes/DECIDIR.md`; reversão determinística
+  `REVERTER-vN`; R18.6, grafo §52. Revisão Opus: reprovada → corrigida → aprovada com resíduos
+  (`b0ae69d`). Validação local verde (6034 testes).
+- **Loop de verificação (custo de API R$ 0):** `pnpm dev:regua` — simulação da régua, 110 mil casos
+  em quatro sementes, no CI; deploy em `--dry-run` contra produção (15 arquivos do disco, recusa sem a
+  0021); e-mails renderizados pelo código do n8n. Personas pela porta local **bloqueadas**: o REST da
+  Supabase ainda dá 401 neste container (a credencial não injeta `apikey`).
+- §8: proposta de decisões, 12 métricas e metas por fase em `10-execucao-mes-1.md` — fechar com o operador.
 - Operador: recusa **R$ 9,99** (R18.3), teto **R$ 0,55** sem tolerância (R18.4). Reserva de R$ 1.200 a
   rever (o §7 calcula R$ 1.970–2.584 com produto e transação na reserva).
 - **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
@@ -153,7 +159,7 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 | L1.1 | Turno, Relógio, Venda e Envio do `main` publicados no n8n pela API; `dev:n8n` `ok` nos seis. "Devolve a resposta" do Turno movido acima do ramo do Wait (respondia só depois dos 120 s, 502 para quem chama) + regra no `dev:n8n`; grafo §46; revisão Opus aprovada com resíduos | versões ativas acima, 2026-09-30 |
 | L0.5 | Rodada das 12 personas no modelo padrão: p50 R$ 0,268 · p95 R$ 0,546 · máx R$ 0,546; 3/12 no teto; vetos e piores no topo do quadro | rodada `2026-09-30T21-08-04-483Z-local`, `41203ba`, 2026-09-30 |
 | L3 prep | Mês 1, onda 1 (§4a, §4b, §5, §7) — PR #50; 314/314 mutações; revisão Opus aprovada com resíduos | `6a4bb29`, 2026-10-02 |
-| L3 prep | Mês 1, onda 2 (§6) — e-mails, Rotina `DECIDIR.md`, reversão | `c13c782`, `a5f935a` (locais), 2026-10-02 |
+| L3 prep | Mês 1, onda 2 (§6) — e-mails, Rotina `DECIDIR.md`, reversão; simulação da régua no CI | PR #50, `b0ae69d`, 2026-10-02 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
