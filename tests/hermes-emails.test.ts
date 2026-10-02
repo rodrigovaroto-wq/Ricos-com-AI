@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
+import { unquote } from "../src/dev/hermes-core.js";
 
 interface Item {
   json: Record<string, unknown>;
@@ -9,7 +10,7 @@ interface Out {
   json: { ids: string[]; subject: string; html: string };
 }
 interface Wf {
-  nodes: { name: string; type: string; disabled?: boolean; parameters: { jsCode?: string; url?: string } }[];
+  nodes: { name: string; type: string; disabled?: boolean; onError?: string; parameters: { jsCode?: string; url?: string } }[];
 }
 const wf = JSON.parse(readFileSync("n8n/workflows/hermes-decisao.json", "utf8")) as Wf;
 const code = (name: string) => wf.nodes.find((n) => n.name === name)!.parameters.jsCode!;
@@ -137,5 +138,53 @@ describe("workflow: formulário desligado, e-mails sem link", () => {
   it("a consulta de propostas não traz token nem evidência", () => {
     const url = wf.nodes.find((n) => n.name === "Propostas sem aviso")!.parameters.url!;
     expect(url).not.toMatch(/decision_token|[,=]evidence[,&]/);
+  });
+  it("a lista de resultados é uma proposta por execução: envio e marca são tudo-ou-nada", () => {
+    const url = wf.nodes.find((n) => n.name === "Resultados sem aviso")!.parameters.url!;
+    expect(url).toMatch(/[&?]limit=1(&|$)/);
+    expect(url).toMatch(/[&?]order=decided_at(&|$)/);
+  });
+  it("Versões publicadas tolera agent_versions ausente (antes da migração 0021)", () => {
+    for (const name of ["Versões publicadas", "Versão atual da Malu"])
+      expect(wf.nodes.find((n) => n.name === name)!.onError).toBe("continueRegularOutput");
+  });
+});
+
+describe("título sem citação de cliente (mesma regra do unquote do hermes-core)", () => {
+  const quoted = 'A cliente disse "sou a Joana, moro na Rua X 120" e “meu zap 11999998888” sem resposta';
+  const nodeUnquote = (name: string) => /const unquote = .*;/.exec(code(name))?.[0];
+
+  it("e-mail 1: título e rationale saem redigidos como o unquote", () => {
+    const m = newProposals([prop("p1", quoted), prop("p2", undefined as unknown as string, { rationale: 'Ela falou \'Rua X 120\' e parou' })]);
+    expect(m.html).not.toMatch(/Joana|Rua X|11999998888/);
+    expect(m.html).toContain((unquote(quoted) as string).replace(/&/g, "&amp;"));
+    expect(m.html).toContain(unquote("Ela falou 'Rua X 120' e parou") as string);
+  });
+
+  it("e-mail 2: publicada e falha saem redigidas", () => {
+    const [ok, bad] = published([{ id: "p1", code: "H-1", o_que: quoted, status: "published" }, { id: "p2", code: "H-2", rationale: quoted, status: "failed" }], [{}]);
+    for (const m of [ok!, bad!]) {
+      expect(m.json.html).not.toMatch(/Joana|Rua X|11999998888/);
+      expect(m.json.html).toContain(unquote(quoted) as string);
+    }
+  });
+
+  it("e-mail de falha: o result (escrito por quem leu a evidência) sai redigido", () => {
+    const [bad] = published([{ id: "p2", code: "H-2", o_que: "x", status: "failed", result: quoted }], [{}]);
+    expect(bad!.json.html).not.toMatch(/Joana|Rua X|11999998888/);
+    expect(published([{ id: "p3", code: "H-3", o_que: "x", status: "failed", result: "testes falharam" }], [{}])[0]!.json.html).toContain("testes falharam");
+  });
+
+  it("negação: título sem aspas passa inalterado", () => {
+    expect(newProposals([prop("p1", "Não prometer frete grátis")]).html).toContain(">Não prometer frete grátis</span>");
+    expect(published([{ id: "p1", code: "H-1", o_que: "Perguntar o tamanho antes", status: "published" }], [{}])[0]!.json.html).toContain("<i>\"Perguntar o tamanho antes\"</i>");
+  });
+
+  it("os dois nós carregam a mesma lógica do unquote, e a do hermes-core também", () => {
+    const a = nodeUnquote("Monta o e-mail");
+    expect(a).toBeDefined();
+    expect(nodeUnquote("Monta o resultado")).toBe(a);
+    const fn = runInNewContext(`${code("Monta o e-mail").match(/const REDACTED = .*;/)![0]}\n${a}\nunquote`) as (s: unknown) => unknown;
+    for (const t of [quoted, "sem aspas", "d'água é 'x'", 42, null]) expect(fn(t)).toBe(unquote(t));
   });
 });

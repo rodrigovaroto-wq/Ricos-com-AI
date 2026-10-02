@@ -296,7 +296,7 @@ export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]
 const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade", "classe", "fato_contradito"] as const;
 const LABEL = /^(?:conversa|persona)-[\w-]+$/;
 /** The validator's problem names (checkProposals); anything after the name may echo the model. */
-const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "classe inválida", "mentira sem o fato contradito", "fato contradito não está no prompt", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer", ALREADY_VETOED, "reversão pendente"];
+const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "classe inválida", "mentira sem o fato contradito", "fato contradito não está no prompt", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer", ALREADY_VETOED, "reversão pendente", "reversão de versão fora do ar", "reversão já pendente", "reversão repetida"];
 
 /**
  * Only what a proposal is — the known text keys and the evidence as {conversa, mensagem,
@@ -527,10 +527,12 @@ export interface Revert {
 }
 
 /**
- * The version on air against the newest earlier version with turns, from
- * `eval_version_outcomes` (0021): handoff worse with enough sample → revert it. Null when
- * no version is registered, either side is under REVERT_MIN_TURNS, or the rise is within
- * chance. Equal or better never fires.
+ * The version on air against the newest earlier version with at least REVERT_MIN_TURNS
+ * decided turns, from `eval_version_outcomes` (0021): handoff worse with enough sample →
+ * revert it. A short-lived version in between is skipped, so two quick publishes do not
+ * leave the one on air unchecked. Null when no version is registered, the one on air or
+ * every earlier one is under REVERT_MIN_TURNS, or the rise is within chance. Equal or
+ * better never fires.
  */
 export function revertCheck(byVersion: ReadonlyArray<Record<string, unknown>>, latest: AgentVersionRow | null): Revert | null {
   if (!latest) return null;
@@ -541,8 +543,8 @@ export function revertCheck(byVersion: ReadonlyArray<Record<string, unknown>>, l
   };
   const rows = byVersion.filter((r) => r.agent_version != null).map(read);
   const cur = rows.find((r) => r.version === latest.version);
-  const prev = rows.filter((r) => r.version < latest.version).sort((a, b) => b.version - a.version)[0];
-  if (!cur || !prev || cur.turns < REVERT_MIN_TURNS || prev.turns < REVERT_MIN_TURNS) return null;
+  const prev = rows.filter((r) => r.version < latest.version && r.turns >= REVERT_MIN_TURNS).sort((a, b) => b.version - a.version)[0];
+  if (!cur || !prev || cur.turns < REVERT_MIN_TURNS) return null;
   const [p1, p0] = [cur.handoffs / cur.turns, prev.handoffs / prev.turns];
   const pool = (cur.handoffs + prev.handoffs) / (cur.turns + prev.turns);
   const se = Math.sqrt(pool * (1 - pool) * (1 / cur.turns + 1 / prev.turns));
@@ -569,10 +571,37 @@ export function revertToWrite(r: Revert | null, ledger: readonly LedgerRow[]): R
  * change comes back as a proposal), rejected (the operator kept the version) or failed.
  */
 export function revertPending(ledger: readonly LedgerRow[], writing: boolean): boolean {
-  return writing || ledger.some((l) => isRevertCode(l.code) && ["proposed", "accepted", "implementing"].includes(l.status));
+  return writing || ledger.some((l) => isRevertCode(l.code) && PENDING.includes(l.status));
 }
 
+const PENDING: ReadonlyArray<LedgerRow["status"]> = ["proposed", "accepted", "implementing"];
+
 const isRevert = (alvo: unknown) => typeof alvo === "string" && /^reverter:v\d+$/.test(alvo.trim());
+
+/**
+ * A revert the model wrote passes the same bar as the deterministic one: only of the version
+ * on air, none while one for it is proposed/accepted/implementing or written by this run
+ * (`writing`, from revertToWrite), and at most one per version. `onAir` null (no version
+ * registered, or a persona round) drops every model revert.
+ */
+export function checkModelReverts(checked: Checked[], onAir: number | null, ledger: readonly LedgerRow[], writing: Revert | null): Checked[] {
+  let kept = false;
+  return checked.map((c) => {
+    if (!c.ok || !isRevert(c.proposal.alvo)) return c;
+    const v = c.proposal.alvo.trim().slice("reverter:".length);
+    const problem =
+      onAir === null || v !== `v${onAir}`
+        ? `reversão de versão fora do ar: ${v} (no ar: ${onAir === null ? "nenhuma" : `v${onAir}`})`
+        : writing?.version === onAir || ledger.some((l) => l.code?.startsWith(`${REVERT_CODE}${v} `) && PENDING.includes(l.status))
+          ? `reversão já pendente: ${v}`
+          : kept
+            ? `reversão repetida: ${v}`
+            : null;
+    if (problem) return { ...c, ok: false, problems: [problem] };
+    kept = true;
+    return c;
+  });
+}
 
 /** While a revert is pending, only revert proposals are written. */
 export function holdForRevert(checked: Checked[], pending: boolean): Checked[] {

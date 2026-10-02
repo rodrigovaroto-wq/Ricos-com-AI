@@ -34,6 +34,7 @@ import { systemPrompt } from "../agent/prompt.js";
 import { config as fixtureConfig, ctx as fixtureCtx } from "../../tests/fixtures.js";
 import {
   annotateWithGates,
+  checkModelReverts,
   checkProposals,
   discardAlreadyVetoed,
   holdForRevert,
@@ -131,10 +132,11 @@ async function fromSupabase(lastRunStart: string | null) {
   if (ids.length === 0) return { conversations: [], leads: 0, ids: [] };
   const loaded = await load(await restAll<ConvRow>(`conversations?select=${CONV}&${REAL}&id=in.(${ids.join(",")})&order=created_at,id`));
   // The version each conversation ran under (L3 item 8): Hermes judges an undue premise
-  // against the previous version. turn_outcomes_conversation_idx serves the `in`; before
+  // against the previous version. turn_outcomes_conversation_idx (conversation_id,
+  // created_at) serves the `in` and the order restAll pages by; before
   // migration 0021 the column does not exist and the conversations go without it.
   const tagged = await restAll<{ conversation_id: string; agent_version: number }>(
-    `turn_outcomes?select=conversation_id,agent_version&conversation_id=in.(${loaded.ids.join(",")})&agent_version=not.is.null`,
+    `turn_outcomes?select=conversation_id,agent_version&conversation_id=in.(${loaded.ids.join(",")})&agent_version=not.is.null&order=conversation_id,created_at,id`,
   ).catch(() => []);
   const versions = new Map<string, number[]>();
   for (const t of tagged) {
@@ -191,6 +193,7 @@ const promptText = systemPrompt(fixtureConfig, gateBriefing(fixtureConfig), null
 writeFileSync(join(bundle, "prompt.md"), `# O prompt da Malu (config de teste)\n\n${promptText}\n`);
 // Counts and rates come from the evaluation views, never from the model (item 4).
 let revert: Revert | null = null;
+let onAir: number | null = null;
 if (SB) {
   const from = (lastRunStart ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
   // Until the operator applies 0021 these two do not exist: the run goes on without them.
@@ -205,7 +208,10 @@ if (SB) {
   writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay, outcomesByVersion, latestVersion ?? null));
   // L3 item 8: handoff worse under the version on air → revert it. Production runs only: a
   // persona round never writes a revert of what real customers ran.
-  if (source === "supabase") revert = revertCheck(outcomesByVersion, latestVersion ?? null);
+  if (source === "supabase") {
+    revert = revertCheck(outcomesByVersion, latestVersion ?? null);
+    onAir = latestVersion?.version ?? null;
+  }
 } else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
@@ -277,7 +283,12 @@ const blockedBy = (text: string) => [
     ),
   ),
 ];
-const checked = holdForRevert(discardAlreadyVetoed(annotateWithGates(checkProposals(raw, rendered, promptText), blockedBy)), holding);
+// A model-written revert passes the bar of the deterministic one: the version on air, one
+// per version, none while one is pending or written by this run (revertNow).
+const checked = holdForRevert(
+  checkModelReverts(discardAlreadyVetoed(annotateWithGates(checkProposals(raw, rendered, promptText), blockedBy)), onAir, ledger, revertNow),
+  holding,
+);
 const ok = checked.filter((c) => c.ok);
 
 const day = new Date().toISOString().slice(0, 10);
