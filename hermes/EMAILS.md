@@ -8,6 +8,16 @@ the approval link (R14.14). The swap ships with the Claude Code Routine that rep
 Rules that hold the copy: no customer data (phone, excerpt, quote) — only proposal titles; no
 approval link — the decision happens only in the Routine.
 
+## HTML template (dark, approved 2026-10-02)
+
+[`email-proposta.html`](email-proposta.html) is the approved layout of e-mail 1, tested through the
+production SMTP credential on 2026-10-02. It stays dark in the Gmail app's dark mode (background
+images are not inverted; two `mix-blend-mode` layers behind `u + .body` undo the text inversion).
+Known residue the operator accepted: a light edge may still show around the block on the phone.
+`{{ anomalias }}` = one line per proposal:
+`<span style="color:#ffb347;">[01]</span> <span style="color:#d7e3ea;">título</span><br>` (no `<br>`
+after the last). E-mail 2 uses the same shell.
+
 ## 1. New proposals
 
 **Subject:** ⚡ PROTOCOLO HERMES // Rodada {{ id }} concluída e aguardando sua autorização

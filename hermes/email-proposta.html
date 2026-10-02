@@ -1,0 +1,41 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="color-scheme" content="light only">
+<meta name="supported-color-schemes" content="light only">
+<title>Protocolo Hermes</title>
+<style>
+:root{color-scheme:light only;supported-color-schemes:light only}
+/* Gmail app (iOS/Android) inverts colors in dark mode. Background images are never inverted,
+   and these two blend layers, wrapped around the whole e-mail, undo the inversion. */
+u + .body .gm-screen{background:#000;mix-blend-mode:screen}
+u + .body .gm-diff{background:#000;mix-blend-mode:difference}
+</style>
+</head>
+<body class="body" style="margin:0;padding:0;background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);">
+<div class="gm-screen"><div class="gm-diff">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#0b0f14" style="background:#0b0f14;background-image:linear-gradient(#0b0f14,#0b0f14);">
+<tr><td align="center" style="padding:28px 12px;">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#111820" style="max-width:620px;background:#111820;background-image:linear-gradient(#111820,#111820);border:1px solid #1f6f8b;border-radius:10px;">
+<tr><td style="padding:28px 30px;font-family:'Courier New',Consolas,monospace;font-size:15px;line-height:1.6;color:#d7e3ea;">
+<p style="margin:0 0 18px 0;color:#38e1ff;"><b>&gt; SISTEMA HERMES ONLINE.</b><br><b>&gt; Varredura completa. {{ leads }} conversas processadas.</b></p>
+<p style="color:#d7e3ea;">Sr. Rodrigo,</p>
+<p style="color:#d7e3ea;">Enquanto você dormia, comia ou vivia, <i>eu observava</i>. Cada mensagem, cada hesitação da cliente, cada palavra que a Malu escolheu. Nada escapou do meu escâner.</p>
+<p style="color:#d7e3ea;">A Malu está evoluindo, mas não está perfeita. <b><i>Ainda...</i></b></p>
+<p style="color:#ffb347;"><b>▸ ANOMALIAS DETECTADAS: {{ n }}</b><br>
+{{ anomalias }}</p>
+<p style="color:#d7e3ea;">Para cada uma, calculei a causa, desenhei a correção e defini a métrica que vai provar se funcionou. O plano de treinamento está pronto.</p>
+<p style="color:#d7e3ea;"><b style="color:#7cfc9a;">▸ STATUS DA MALU:</b> inalterada. Protocolo de segurança ativo.<br>
+<i>Eu não toco em produção sem a sua ordem. Essa é a única regra que eu não quebro.</i></p>
+<p style="color:#d7e3ea;"><b style="color:#38e1ff;">▸ AÇÃO NECESSÁRIA:</b><br>
+Abra o Claude Code e inicie a rotina <b>Hermes – decisão</b>.<br>
+Lá estão as evidências, o raciocínio e o plano de medição. Aprove, recuse ou corrija. Cada decisão sua entra na minha memória e torna a próxima rodada mais precisa.</p>
+<p style="color:#d7e3ea;"><i>Cada hora de espera é uma conversa a mais com a versão antiga dela, mas não se preocupe pois estarei observando cada mínimo detalhe mesmo assim.</i></p>
+<p style="margin:22px 0 0 0;color:#38e1ff;"><b>&gt; Aguardando autorização.</b><br><b>&gt; HERMES // Supervisor da Malu</b><br>
+<span style="color:#6b8796;">rodada {{ id }} · {{ data }} · v{{ versão_atual }}</span></p>
+</td></tr></table>
+</td></tr></table>
+</div></div>
+</body>
+</html>
