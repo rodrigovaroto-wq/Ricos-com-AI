@@ -51,6 +51,7 @@ import {
   withoutQuotes,
   type LedgerRow,
   type SupabaseRows,
+  type AgentVersionRow,
 } from "./hermes-core.js";
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
@@ -168,11 +169,16 @@ writeFileSync(join(bundle, "prompt.md"), `# O prompt da Malu (config de teste)\n
 // Counts and rates come from the evaluation views, never from the model (item 4).
 if (SB) {
   const from = (lastRunStart ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
-  const [outcomesByDay, blocksByDay] = await Promise.all([
+  // Until the operator applies 0021 these two do not exist: the run goes on without them.
+  const beforeMigration = <T>(e: Error): T[] => (console.warn(`hermes: versão da Malu indisponível (${e.message.slice(0, 120)})`), []);
+  const [outcomesByDay, blocksByDay, outcomesByVersion, [latestVersion]] = await Promise.all([
     restAll<Record<string, unknown>>(`eval_turn_outcomes?select=*&day=gte.${from}&order=day`),
     restAll<Record<string, unknown>>(`eval_gate_blocks?select=*&day=gte.${from}&blocks=gt.0&order=day,gate`),
+    // The last ten versions whole, not the period: the rollback rule compares a version with the one before it.
+    rest<Record<string, unknown>[]>("eval_version_outcomes?select=*&order=agent_version.desc.nullslast&limit=10").catch(beforeMigration<Record<string, unknown>>),
+    rest<AgentVersionRow[]>("agent_versions?select=*&order=version.desc&limit=1").catch(beforeMigration<AgentVersionRow>),
   ]);
-  writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay));
+  writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay, outcomesByVersion, latestVersion ?? null));
 } else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused

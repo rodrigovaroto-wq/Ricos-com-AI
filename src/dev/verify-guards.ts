@@ -71,6 +71,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/function-drift.test.ts"],
   },
   {
+    id: "versao-da-malu",
+    bug: "o desfecho do turno saía sem versão da Malu: nem o Hermes nem o painel separavam antes de depois",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "      cost_brl: costBrl,\n      agent_version: AGENT_VERSION,\n",
+    to: "      cost_brl: costBrl,\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/agent-version.test.ts"],
+  },
+  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],

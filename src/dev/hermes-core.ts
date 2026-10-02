@@ -444,18 +444,34 @@ export function withMeasure(previous: string | null, measure: string): string {
   return link ? `${link} · medida: ${measure}` : `medida: ${measure}`;
 }
 
+/** One row of `agent_versions` (migration 0021): a publication of the turn. */
+export interface AgentVersionRow {
+  version: number;
+  git_sha: string;
+  published_at: string;
+  hermes_proposal_id: string | null;
+  note: string | null;
+}
+
 /**
  * The evaluation views (0018) as the bundle carries them: every count and rate is SQL's,
  * never the model's (it is weak at arithmetic, and the operator reads the same views).
+ * Since 0021 also per agent version (`eval_version_outcomes`) and the version on air, so a
+ * proposal can compare the newest version with the one before it.
  */
 export function renderNumbers(
   outcomes: ReadonlyArray<Record<string, unknown>>,
   blocks: ReadonlyArray<Record<string, unknown>>,
+  byVersion: ReadonlyArray<Record<string, unknown>> = [],
+  latest: AgentVersionRow | null = null,
 ): string {
   const table = (rows: ReadonlyArray<Record<string, unknown>>, cols: string[]) =>
     rows.length === 0
       ? ["(sem linhas no período)"]
       : [`| ${cols.join(" | ")} |`, `|${cols.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${cols.map((c) => String(r[c] ?? "")).join(" | ")} |`)];
+  const onAir = latest
+    ? `Versão no ar: v${latest.version} (commit ${latest.git_sha.slice(0, 7)}, publicada em ${latest.published_at}, ${latest.hermes_proposal_id ? `proposta ${latest.hermes_proposal_id}` : "deploy manual, sem proposta"})`
+    : "Nenhuma versão registrada em `agent_versions`: não atribua turno a versão nenhuma.";
   return [
     "# Números do período (views SQL — não recalcule)",
     "",
@@ -468,6 +484,15 @@ export function renderNumbers(
     "## Vetos por gate e dia (`eval_gate_blocks`)",
     "",
     ...table(blocks, ["day", "gate", "checks", "blocks", "warns", "block_rate"]),
+    "",
+    "## Desfecho dos turnos por versão da Malu (`eval_version_outcomes`)",
+    "",
+    onAir,
+    "",
+    ...table(
+      byVersion.map((r) => ({ ...r, agent_version: r.agent_version ?? "sem versão" })),
+      ["agent_version", "first_at", "last_at", "turns", "sent", "fallbacks", "handoffs", "fallback_rate", "handoff_rate", "avg_rewrites", "cost_brl"],
+    ),
     "",
   ].join("\n");
 }
