@@ -27,11 +27,9 @@ entregue pelo operador em 2026-09-03.
 > | Devolução pós-envio (dois caminhos) | 7,5% a R$ 25,00 | **5–10% a R$ 25,00** | operador |
 > | Conversão lead → pedido | 10% | 10% (sem mudança; é o limiar de "escalar" em L3.7) | operador |
 >
-> **Divergência de valor da recusa, não resolvida aqui:** a memória
-> `entrega-concluida-so-no-cod` e a caixa de 29/09 dizem **R$ 9,90** ("não R$ 9,99", R15.4); o
-> plano de 02/10 diz **R$ 9,99**. Esta tabela usa R$ 9,99 (o mais recente, e o mais
-> conservador). O efeito é R$ 0,02 por venda COD a 17%; o que pesa é qual dos dois a Logzz cobra
-> de fato — conferir no primeiro extrato com recusa.
+> **Valor da recusa — decidido pelo operador em 2026-10-02: R$ 9,99** (R18.3). A memória
+> `entrega-concluida-so-no-cod` e a caixa de 29/09 diziam R$ 9,90; ficam como histórico. A
+> **taxa** de recusa (12–17%) continua especulada — medir no primeiro extrato com recusa.
 >
 > **Tabela base na ponta pessimista das faixas** (recusa 17%, devolução 10%, CPL R$ 1,50, IA
 > no p50). Margem antes de volume: a operação só escala se o pior caso da faixa ainda paga.
