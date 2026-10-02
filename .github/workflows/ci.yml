@@ -46,6 +46,11 @@ jobs:
       # loosening nobody accepted in tests/gate-loosen-accepted.txt.
       - run: pnpm dev:gates --fail-on-loosen
 
+      # The anchored silence ruler (month-1 §4a) under random entries, conversation lengths
+      # and clock deferrals: silence_3 always 63-71 h after the entry and never before dawn,
+      # silence_2 never past 24 h of her last message, no touch twice.
+      - run: pnpm dev:regua --cases=20000
+
       # The guards guard themselves: each historical bug is put back in a throwaway
       # worktree and the guard written for it must fail. A guard edited into something
       # toothless turns this red.
