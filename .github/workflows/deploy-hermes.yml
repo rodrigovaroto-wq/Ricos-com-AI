@@ -112,12 +112,38 @@ jobs:
         with:
           version: latest
 
+      # Every publication is a numbered version of the agent (§5 of 10-execucao-mes-1.md),
+      # written on each turn_outcomes and llm_calls row: the next row in agent_versions and the
+      # AGENT_VERSION secret go BEFORE the deploy. A secret or deploy that fails puts both back,
+      # so turns of the old code never carry the new number. Before migration 0021 the first
+      # insert fails and nothing is published.
       - name: Deploy the turn function
         if: steps.which.outputs.id != ''
         env:
           SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_URL: ${{ secrets.SUPABASE_URL }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          PROPOSAL: ${{ steps.which.outputs.id }}
         # verify_jwt stays on (the CLI default), as in every deploy so far.
-        run: supabase functions deploy turn --project-ref hbmkgakzrqmdlsvszjeo --use-api
+        run: |
+          REF=hbmkgakzrqmdlsvszjeo
+          last=$(curl -fsS "$SUPABASE_URL/rest/v1/agent_versions?select=version&order=version.desc&limit=1" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" | jq -r '.[0].version // 0')
+          next=$((last + 1))
+          curl -fsS -X POST "$SUPABASE_URL/rest/v1/agent_versions" \
+            -H "apikey: $KEY" -H "Authorization: Bearer $KEY" -H "Content-Type: application/json" \
+            -d "$(jq -nc --argjson v "$next" --arg sha "$SHA" --arg p "$PROPOSAL" '{version:$v, git_sha:$sha, hermes_proposal_id:$p, note:"deploy-hermes.yml"}')"
+          if supabase secrets set "AGENT_VERSION=$next" --project-ref "$REF" \
+            && supabase functions deploy turn --project-ref "$REF" --use-api; then
+            echo "agent_version $next publicada"
+          else
+            if [ "$last" -gt 0 ]; then supabase secrets set "AGENT_VERSION=$last" --project-ref "$REF" || true
+            else supabase secrets unset AGENT_VERSION --project-ref "$REF" --yes || true; fi
+            curl -fsS -X DELETE "$SUPABASE_URL/rest/v1/agent_versions?version=eq.$next" \
+              -H "apikey: $KEY" -H "Authorization: Bearer $KEY" || true
+            exit 1
+          fi
 
       - name: Mark the proposal
         if: always() && steps.approved.outputs.ok == 'yes' && steps.which.outputs.migration != 'yes' && steps.which.outputs.loosen != 'yes' && steps.which.outputs.notmerge != 'yes'

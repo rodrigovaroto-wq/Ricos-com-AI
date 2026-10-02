@@ -120,6 +120,7 @@ import {
 } from "./interpret.ts";
 import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
+import { agentVersionOf } from "./agent-version.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -128,6 +129,9 @@ const OPENAI_KEY = Deno.env.get("OPENAI_API_KEY") ?? "";
 // key. `callMuse` is the only function that reads this.
 const META_KEY = Deno.env.get("META_API_KEY") ?? "";
 const USD_TO_BRL = Number(Deno.env.get("USD_TO_BRL") ?? "5.4");
+// Which published version of the agent this is, set by the deploy (`agent_versions`, 0021).
+// Written on every `turn_outcomes` and `llm_calls` row; absent or malformed → null, never a guess.
+const AGENT_VERSION = agentVersionOf(Deno.env.get("AGENT_VERSION"));
 
 /** Nenhuma credencial sai desta função em texto de erro. Ver `modelFailure`. */
 const redactKeys = (text: string): string => {
@@ -443,6 +447,7 @@ const recordOutcome = async (
       reason,
       rewrites,
       cost_brl: costBrl,
+      agent_version: AGENT_VERSION,
     }),
   }).catch(() => undefined);
 };
@@ -602,6 +607,7 @@ const recordCall = (
       output_tokens: call.outTok,
       cached_tokens: call.cachedTok,
       cost_brl: call.costBrl,
+      agent_version: AGENT_VERSION,
     }),
   }).catch(() => undefined);
 
