@@ -202,10 +202,20 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
  * de parada. Ligá-lo exige que a resposta dela e a venda o cancelem como cancelam o silêncio,
  * ou ele perguntaria "conseguiu finalizar?" a quem acabou de comprar.
  */
+describe("§4a: sem âncora (leitura falhou), a régua sai sem silence_3", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o silence_3 só é armado com a âncora da entrada", () => {
+    expect(source).toContain('const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({');
+  });
+  it("negação: com âncora, a régua passa inteira (o filtro não corta o silence_3 ancorado)", () => {
+    expect(source).not.toContain('const rows = ruler.filter((f) => f.kind !== "silence_3").map(');
+  });
+});
+
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
-    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed, linkInReply, rulerAnchors(at)).map((f) => ({");
+    expect(source).toContain("const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
   it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {

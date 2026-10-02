@@ -415,6 +415,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
+    id: "4a-sem-ancora",
+    bug: "leitura da conversa falhou e a régua armou o silence_3 a 3 dias, fora da janela gratuita de 72 h",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '(anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3"))',
+    to: "ruler",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+  },
+  {
     id: "R10.4-resposta",
     bug: "a resposta dela não cancelava o lembrete de checkout (\"conseguiu finalizar?\" depois de ela falar)",
     files: ["supabase/functions/turn/index.ts"],

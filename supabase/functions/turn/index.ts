@@ -342,7 +342,7 @@ const CONFIG: BusinessConfig = JSON.parse(
         freeShipping: false,
       },
       hours: { openHour: 6, closeHour: 24 },
-      cost: { conversationCapBrl: 0.5, overrunTolerance: 0.25 },
+      cost: { conversationCapBrl: 0.55, overrunTolerance: 0 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
       // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
@@ -962,7 +962,9 @@ const scheduleSilenceTouches = async (
 ) => {
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
-  // A failed read arms as before; the sweep asks again before anything goes out.
+  // A failed read arms as before, minus `silence_3`: without the entry anchor its time is a
+  // guess, and a guess can land past the free 72 h window (operator, 2026-10-02). The sweep
+  // asks again before anything goes out.
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
   const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status))`).catch(() => null))?.[0];
@@ -972,7 +974,9 @@ const scheduleSilenceTouches = async (
   }
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
-  const rows = rulerFor(from, stopPoint, postponed, linkInReply, rulerAnchors(at)).map((f) => ({
+  const anchors = rulerAnchors(at);
+  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);
+  const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
     run_at: f.runAt.toISOString(),
