@@ -91,6 +91,15 @@ verdes.
   respostas ainda em `conversando`, handoff por teto justo na pergunta "só pago quando chegar?").
   Só relatado: nenhum gate ou prompt mudou por causa disso.
 
+**2026-10-02 — mês 1 definido com o operador** (branch `claude/lucid-volta-nnk2nq`): L3 reescrito
+em [`09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md) — fases
+Copy/Região/Leitura (R$ 800), caixa reservado R$ 1.200, piso 500 leads + 50 pedidos, pausa manual,
+tabela escalar/ajustar/parar, Hermes publicando a cada lote com versão por conversa; e-mails do
+Hermes em [`hermes/EMAILS.md`](hermes/EMAILS.md). Janela gratuita do CTWA é de 72 h (o memorando de
+opt-in dizia 7 dias — corrigido). **Código que falta antes do 1º anúncio:** `silence_3` a 63–71 h da
+entrada, `silence_2` dentro de 24 h, versão da agente gravada por conversa, Rotina "Hermes – decisão"
++ e-mails novos no n8n. **O:** `channel.askMarketingOptIn: true` no `BUSINESS_CONFIG`.
+
 **Próxima sessão — nesta ordem:**
 0. **O** — merge do PR #48 (CI verde) — o `main` volta a bater com o n8n no ar.
 1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
