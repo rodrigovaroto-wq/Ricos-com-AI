@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-09-30, 21h UTC)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-02, 22h UTC)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -106,8 +106,26 @@ métricas por criativo/região ainda a definir com o operador.** E-mails do Herm
 (§5), Rotina "Hermes – decisão" + e-mails (§6), lucro por venda (§7), portal Vercel (§8). API de
 cancelamento/devolução reconfirmada inexistente em 02/10 (print: só `POST /api/sales`, R16.9). Grafo §49.
 
+**2026-10-02, noite — mês 1, ondas 1 e 2 construídas** (branch `claude/ricos-pipeline-mes-1-vjgx7v`).
+Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` v49 com o mesmo
+`ezbr_sha256` da v46 (pacote de 30/09); migrações até 0020; `dev:n8n` `ok` nos seis, iguais ao `main`.
+- **Onda 1 — [PR #50](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/50):** §4a régua na janela
+  gratuita (âncora `conversations.entry_at`, migração **0022**), §4b 1 minuto, §5 versão da Malu (migração
+  **0021**, `pnpm deploy:turn`), §7 lucro por venda; R18.1–R18.5, grafo §49–§51. Validação local verde
+  (5956 testes, 1640/1640, 0 afrouxou), 314/314 mutações; revisão Opus aprovada com resíduos.
+- **Onda 2 (commits locais `c13c782`, `a5f935a`, sobem depois do merge do #50):** e-mails do Hermes
+  com o texto de `EMAILS.md`, sem link; Rotina `hermes/DECIDIR.md`; reversão determinística
+  `REVERTER-vN`; R18.6, grafo §52. Validação local verde (6010 testes).
+- Operador: recusa **R$ 9,99** (R18.3), teto **R$ 0,55** sem tolerância (R18.4). Reserva de R$ 1.200 a
+  rever (o §7 calcula R$ 1.970–2.584 com produto e transação na reserva).
+- **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
+
 **Próxima sessão — nesta ordem:**
-0. **O** — merge do PR #48 (CI verde) — o `main` volta a bater com o n8n no ar.
+0. **O** — aplicar 0021 e 0022 (SQL Editor), colar teto R$ 0,55 / tolerância 0 e
+   `"channel": { "askMarketingOptIn": true }` no `BUSINESS_CONFIG`, merge do PR #50.
+0b. **C** — `pnpm deploy:turn` (v1), sonda pela porta de produção (`followups.run_at` do `silence_3`
+   de uma conversa nova dentro de 63–71 h; `turn_outcomes.agent_version = 1`); publicar o Wait `?? 60`
+   no n8n; subir a onda 2, publicar "Hermes — decisão" e criar a Rotina "Hermes – decisão".
 1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
    no `BUSINESS_CONFIG` (`cost.conversationCapBrl` / `overrunTolerance`).
 2. **O** — rotacionar a service_role (exposta na conversa de 30/09) e conferir o REST numa sessão nova.
@@ -134,6 +152,8 @@ cancelamento/devolução reconfirmada inexistente em 02/10 (print: só `POST /ap
 | L1.2 | Segredos `CONVERSATION_MODEL`/`CONVERSATION_MODEL_PRICE` removidos → modelo padrão na `turn` v46; sonda `function` (cleide, 2 turnos, R$ 0,15) | 2026-10-01 |
 | L1.1 | Turno, Relógio, Venda e Envio do `main` publicados no n8n pela API; `dev:n8n` `ok` nos seis. "Devolve a resposta" do Turno movido acima do ramo do Wait (respondia só depois dos 120 s, 502 para quem chama) + regra no `dev:n8n`; grafo §46; revisão Opus aprovada com resíduos | versões ativas acima, 2026-09-30 |
 | L0.5 | Rodada das 12 personas no modelo padrão: p50 R$ 0,268 · p95 R$ 0,546 · máx R$ 0,546; 3/12 no teto; vetos e piores no topo do quadro | rodada `2026-09-30T21-08-04-483Z-local`, `41203ba`, 2026-09-30 |
+| L3 prep | Mês 1, onda 1 (§4a, §4b, §5, §7) — PR #50; 314/314 mutações; revisão Opus aprovada com resíduos | `6a4bb29`, 2026-10-02 |
+| L3 prep | Mês 1, onda 2 (§6) — e-mails, Rotina `DECIDIR.md`, reversão | `c13c782`, `a5f935a` (locais), 2026-10-02 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
@@ -142,7 +162,7 @@ cancelamento/devolução reconfirmada inexistente em 02/10 (print: só `POST /ap
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | 🔄 rodada feita; causa do 401 era o host da credencial |
+| L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | 🔄 decidido R$ 0,55 / tolerância 0 (R18.4); falta colar no `BUSINESS_CONFIG` |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
 | L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |
