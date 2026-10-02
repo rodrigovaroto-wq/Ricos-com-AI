@@ -11,9 +11,10 @@
  * first; without it the first write fails and nothing is published.
  *
  * Refuses a function directory that differs from HEAD: the row's git_sha has to be the code
- * that went up. In the Claude Code cloud container the proxy injects the credentials for
- * api.supabase.com and the project's supabase.co host; elsewhere pass SUPABASE_ACCESS_TOKEN
- * (the operator's sbp_… token) and SUPABASE_SERVICE_ROLE_KEY.
+ * that went up. Everything goes through the management API (SQL by `database/query`, with
+ * parameters), so one credential does it all: in the Claude Code cloud container the proxy
+ * injects it for api.supabase.com; elsewhere pass SUPABASE_ACCESS_TOKEN (the operator's
+ * sbp_… token).
  */
 import { execFileSync } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -27,10 +28,7 @@ const proposal = flag("proposal") ?? null;
 const note = flag("note") ?? "pnpm deploy:turn";
 
 const REF = process.env.SUPABASE_PROJECT_REF ?? "hbmkgakzrqmdlsvszjeo";
-const SB = process.env.SUPABASE_URL ?? `https://${REF}.supabase.co`;
 const API = `https://api.supabase.com/v1/projects/${REF}`;
-const SB_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY ?? "";
-const sbHeaders = { apikey: SB_KEY, Authorization: `Bearer ${SB_KEY}`, "Content-Type": "application/json", Prefer: "return=representation" };
 const apiHeaders: Record<string, string> = process.env.SUPABASE_ACCESS_TOKEN ? { Authorization: `Bearer ${process.env.SUPABASE_ACCESS_TOKEN}` } : {};
 
 async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
@@ -40,6 +38,8 @@ async function call<T>(url: string, init: RequestInit = {}): Promise<T> {
   return (text ? JSON.parse(text) : null) as T;
 }
 const git = (...a: string[]) => execFileSync("git", a, { encoding: "utf8" }).trim();
+const sql = <T>(query: string, parameters: unknown[] = []) =>
+  call<T[]>(`${API}/database/query`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify({ query, parameters }) });
 const setSecret = (value: string) =>
   call(`${API}/secrets`, { method: "POST", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify([{ name: "AGENT_VERSION", value }]) });
 
@@ -48,7 +48,8 @@ const sha = git("rev-parse", "HEAD");
 const dirty = git("status", "--porcelain", "--", FUNCTION_DIR);
 if (dirty && !dryRun) throw new Error(`${FUNCTION_DIR} difere do HEAD; commite antes, para o git_sha da versão ser o código publicado:\n${dirty}`);
 
-const last = await call<Array<{ version: number }>>(`${SB}/rest/v1/agent_versions?select=version&order=version.desc&limit=1`, { headers: sbHeaders }).catch(
+if (proposal !== null && !/^[0-9a-f-]{36}$/.test(proposal)) throw new Error(`--proposal=${proposal}: não é o id (uuid) de hermes_proposals`);
+const last = await sql<{ version: number }>("select version from public.agent_versions order by version desc limit 1").catch(
   (e: Error) => {
     if (!dryRun) throw e;
     console.log(`(agent_versions não lida: ${e.message} — a 0021 está aplicada?)`);
@@ -66,11 +67,8 @@ if (dryRun) {
   process.exit(0);
 }
 
-await call(`${SB}/rest/v1/agent_versions`, {
-  method: "POST",
-  headers: sbHeaders,
-  body: JSON.stringify({ version, git_sha: sha, hermes_proposal_id: proposal, note }),
-});
+// The primary key refuses a second deploy that read the same max at the same time.
+await sql("insert into public.agent_versions (version, git_sha, hermes_proposal_id, note) values ($1::int, $2, $3::uuid, $4)", [version, sha, proposal, note]);
 try {
   await setSecret(String(version));
   const form = new FormData();
@@ -88,7 +86,7 @@ try {
     previous === null
       ? call(`${API}/secrets`, { method: "DELETE", headers: { ...apiHeaders, "Content-Type": "application/json" }, body: JSON.stringify(["AGENT_VERSION"]) })
       : setSecret(String(previous)),
-    call(`${SB}/rest/v1/agent_versions?version=eq.${version}`, { method: "DELETE", headers: sbHeaders }),
+    sql("delete from public.agent_versions where version = $1::int", [version]),
   ]);
   for (const u of undo) if (u.status === "rejected") console.error(`NÃO DESFEITO — confira à mão: ${(u.reason as Error).message}`);
   throw e;
