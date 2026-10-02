@@ -166,6 +166,22 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
    ROI = lucro bruto antes de anúncio e API ÷ (anúncio + API: WhatsApp e modelo).
 
+8. **Hermes durante o teste** (operador, 2026-10-02) — cada proposta entra assim que aprovada, não
+   na virada de fase: o Hermes do lote seguinte lê a agente já com a mudança dele e mede o efeito
+   da própria proposta. Não estraga o teste: os criativos se julgam por CPL/CTR (anúncio, não
+   agente) e A/B de região rodam ao mesmo tempo, sob a mesma versão.
+   - roda a cada 50 leads (R6.2); o operador aprova numa **Rotina do Claude Code**, não mais pelo
+     link do e-mail (R14.14); o e-mail só avisa que há proposta esperando;
+   - **cada publicação grava um número de versão em toda conversa** — sem ele, nem o Hermes nem o
+     painel separam antes de depois. **Não existe hoje** (nem coluna, nem campo): entra antes do
+     primeiro anúncio;
+   - a proposta é julgada pela **frequência e pelo impacto do erro na continuidade da conversa e
+     no fechamento da venda** — veto, handoff, resposta pronta, premissa indevida, custo, e onde
+     a conversa parou — nunca por taxa de venda de um lote só (50 leads a 10% é ±8 pp);
+   - piorou handoff ou premissa indevida no lote seguinte → a mudança **sai de produção, é
+     analisada, corrigida, testada internamente e validada**, e só então volta. Nenhuma proposta
+     nova entra antes disso.
+
 **Saída de L3:** dia 14 com a decisão da tabela acima. O Hermes roda a cada 50 leads durante o
 teste (R6.2).
 
