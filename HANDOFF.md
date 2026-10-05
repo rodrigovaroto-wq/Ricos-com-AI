@@ -56,6 +56,14 @@ Estado conferido ao começar: PR #50 mergeado (`2ef7b03`), migrações só até 
   enquanto o tamanho não está definido (Neusa); teto padrão **R$ 1,00** / tolerância 0 e critério de pausa de
   custo R$ 1,00. Sonda pela porta do n8n: "oi" → resposta do modelo; "ta" → "Desculpa, não entendi, qual o
   tamanho que deseja?" (`escada do tamanho`, v4). **O:** colar `"conversationCapBrl": 1.0` no `BUSINESS_CONFIG`.
+- **Parte B adiantada (operador autorizou, 2026-10-05, 13h UTC):** segredos `WHATSAPP_VERIFY_TOKEN` e
+  `INBOUND_SIGNING_SECRET` gravados; função **`whatsapp` v1 publicada** (`verify_jwt` false);
+  `TURN_REQUIRE_SERVICE_ROLE=true`. Provas: verificação da Meta 200 com o token certo e 403 com o errado;
+  POST sem assinatura 401; mensagem **sem selo** pela porta do n8n → 401 "mensagem sem o selo da entrada"
+  (nenhum lead criado); mensagem **selada** → recepção, resposta v4, `sealed: true`, "WhatsApp envio" roda e
+  não envia (`CANAL_ATIVO` desligado); Relógio `swept` com a porta fechada; os cinco nós que chamam a `turn`
+  usam a mesma credencial "Supabase service_role". **Sondas e personas pela porta do n8n agora precisam de
+  `INBOUND_SIGNING_SECRET`** no ambiente (o runner sela); o valor não está no repositório — gere outro se perder.
 - **Sem conserto:** Marcinha — falha da API do modelo na reescrita → handoff na 1ª mensagem (não reproduzido).
 
 **Etapa atual: L0 — Preparar.** L0.3, L0.4, L0.7 feitos; R17.4 mergeado (PR #47, `41203ba`) e no ar
@@ -158,8 +166,9 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
    [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md) Parte A.
 3. **S** — L0.2 + templates: `order_eve` e véspera do antecipado (UTILITY), `silence_2` e `silence_3`
    (MARKETING), texto exato de `03-templates-meta.md`.
-4. **C** — com os três valores: Parte B (segredos `WHATSAPP_*` + `INBOUND_SIGNING_SECRET`, deploy da
-   `whatsapp` `--no-verify-jwt`) e Parte C (`CANAL_ATIVO`, teste do celular, fechar as portas).
+4. **C** — com os três valores: segredos `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`
+   (o resto da Parte B já está feito) e Parte C (`PHONE_NUMBER_ID` e `CANAL_ATIVO` no n8n, teste do celular;
+   as portas já estão fechadas). O sócio cola na Meta a URL do webhook e o `WHATSAPP_VERIFY_TOKEN`.
    **O** cria a credencial "WhatsApp Cloud API" no n8n.
 5. **O** — decidir o §8 do portal; rever a reserva de R$ 1.200.
 
