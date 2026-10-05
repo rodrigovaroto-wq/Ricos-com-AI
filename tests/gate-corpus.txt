@@ -126,3 +126,17 @@ Nada de pix, nada de cartão: você recebe em 1 a 3 dias e paga na porta.
 O entregador leva 2 dias.
 No pix, o entregador leva 2 dias.
 Na entrega ou no pix, em média 5 dias úteis.
+# Persona round 2026-10-05 (agent_version 2): Jussara, the free sentence beside "isso mesmo" / "não paga nada antes"
+Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, tá? Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+É isso mesmo, você paga só quando receber. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+Você não paga nada adiantado. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+Você não precisa pagar nada antes, só ao entregador. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. No pix também.
+Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Isso mesmo, no pix também é grátis.
+Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Pagando antes é o mesmo.
+Você não paga nada adiantado, e no pix o frete também é grátis.
+Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Se pagar adiantado também.
+Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, tá? Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber. Pra Fortaleza o valor é o mesmo, e o checkout confirma quando você digita o CEP se a entrega chega aí, quer seguir?
+# Karol: holding a size before any check
+Que bom te ver de volta, tava guardando seu M aqui.
+Guarda essa dica: o M veste justinho.

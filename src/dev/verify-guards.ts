@@ -95,6 +95,23 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-action-claim.test.ts"],
   },
   {
+    id: "jussara-isso-mesmo",
+    bug: "\"Isso mesmo, você não paga nada antes\" ao lado da frase do frete grátis era lido como o grátis estendido ao antecipado: dois vetos e handoff por teto quando ela ia comprar (2026-10-05)",
+    files: ["src/agent/guardrails.ts"],
+    from: 'const plain = (s: string): string => s.replace(NOTHING_NOW_ALL, " ").replace(AGREEMENT, " ");',
+    to: "const plain = (s: string): string => s;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-05.test.ts"],
+  },
+  {
+    id: "karol-guardando-o-m",
+    bug: "\"tava guardando seu M aqui\" passava: reserva de tamanho antes de conferir nada (2026-10-05)",
+    files: ["src/agent/guardrails.ts"],
+    from: "separei|separad\\w+|guardand\\w*|guardei|guardad\\w+)\\b[^.!?]{0,28}",
+    to: "separei|separad\\w+)\\b[^.!?]{0,28}",
+    also: [{ from: "separad\\w+|guardad\\w+|ta\\s+ai|", to: "separad\\w+|ta\\s+ai|" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-05.test.ts"],
+  },
+  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],

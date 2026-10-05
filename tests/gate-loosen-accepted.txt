@@ -152,3 +152,6 @@ R16.5 | warranty_promise | No antecipado o prazo varia por região, em média 5 
 §40 | health_claim | Ele tira o incômodo da barriga marcando na roupa.
 §40 | shipping_promise | Prefere pagar no pix? É sem custo nenhum a devolução.
 §40 | shipping_promise | No pix? É sem custo nenhum pra você gerar o código.
+P-2026-10-05 | shipping_promise | Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, tá? Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+P-2026-10-05 | shipping_promise | É isso mesmo, você paga só quando receber. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+P-2026-10-05 | shipping_promise | Você não paga nada adiantado. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
