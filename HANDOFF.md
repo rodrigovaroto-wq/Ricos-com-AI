@@ -52,10 +52,11 @@ Estado conferido ao começar: PR #50 mergeado (`2ef7b03`), migrações só até 
   mesmo, você não paga nada antes" ao lado da frase do frete grátis como o grátis estendido ao antecipado;
   Karol ouviu "tava guardando seu M" → **`agent_version` 3** (`turn` v55). Gate diff: 3 afrouxamentos, todos
   aceitos (`P-2026-10-05`), só nos contextos da entrega; 4/4 mutações novas pegam.
-- **Achados sem conserto (decisão do operador):** (a) 3/12 ainda vão para pessoa por teto (beatriz,
-  jussara, neusa, ~R$ 0,07/turno → teto no 8º–9º turno); (b) a escada do "não entendi" só começa depois
-  da pergunta de tamanho — Neusa ("ta", "?") gastou 9 turnos de modelo; (c) Marcinha: falha da API do
-  modelo na reescrita → handoff na 1ª mensagem (não reproduzido).
+- **`agent_version` 4** (`turn` v57, R18.7, operador): escada do "não entendi" depois de qualquer pergunta
+  enquanto o tamanho não está definido (Neusa); teto padrão **R$ 1,00** / tolerância 0 e critério de pausa de
+  custo R$ 1,00. Sonda pela porta do n8n: "oi" → resposta do modelo; "ta" → "Desculpa, não entendi, qual o
+  tamanho que deseja?" (`escada do tamanho`, v4). **O:** colar `"conversationCapBrl": 1.0` no `BUSINESS_CONFIG`.
+- **Sem conserto:** Marcinha — falha da API do modelo na reescrita → handoff na 1ª mensagem (não reproduzido).
 
 **Etapa atual: L0 — Preparar.** L0.3, L0.4, L0.7 feitos; R17.4 mergeado (PR #47, `41203ba`) e no ar
 (`turn` v46). **L0.5 rodado em 2026-09-30** (12 personas, modelo padrão): p95 R$ 0,546 por conversa,
@@ -150,7 +151,7 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 - **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
 
 **Próxima sessão — nesta ordem:**
-1. **O** — merge do PR #51 (o `main` está atrás da `turn` no ar, `agent_version` 3).
+1. **O** — `cost.conversationCapBrl` 1.0 no `BUSINESS_CONFIG`; merge do PR #51 (o `main` está atrás da `turn` no ar, `agent_version` 4).
 2. **S** — L0.1: WABA validada, número verificado, nome de exibição, **token permanente** (usuário do
    sistema admin, `whatsapp_business_messaging` + `whatsapp_business_management`, sem expiração),
    **Phone number ID**, **App secret** — entregues ao operador por canal seguro. Checklist completo em
@@ -160,7 +161,7 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 4. **C** — com os três valores: Parte B (segredos `WHATSAPP_*` + `INBOUND_SIGNING_SECRET`, deploy da
    `whatsapp` `--no-verify-jwt`) e Parte C (`CANAL_ATIVO`, teste do celular, fechar as portas).
    **O** cria a credencial "WhatsApp Cloud API" no n8n.
-5. **O** — decidir os achados (a)–(c) acima e o §8 do portal; rever a reserva de R$ 1.200.
+5. **O** — decidir o §8 do portal; rever a reserva de R$ 1.200.
 
 ### Executado
 
