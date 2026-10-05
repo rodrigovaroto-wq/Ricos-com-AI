@@ -427,6 +427,13 @@ export const decideClarify = (args: {
    * Maria Souza" would throw away exactly what the sale needs (code review, 2026-09-24).
    */
   factsFound: boolean;
+  /**
+   * The size is already known (on file or said now). Absent = not known. While it is not, the
+   * ladder starts after ANY question of hers left unanswered, not only the size one (operator,
+   * 2026-10-05, after Neusa's nine model turns of "ta" and "?"); once it is, the lines — all
+   * about the size — start only after the size question.
+   */
+  sizeKnown?: boolean;
 }): ClarifyDecision => {
   const { interpreted, interpretation: i, lastOutbound, lastAskedSize, sizeFound, factsFound } = args;
   if (!interpreted) return { kind: "none" };
@@ -444,7 +451,7 @@ export const decideClarify = (args: {
   if (meaningful) return { kind: "none" };
   if (step === CLARIFY_SIZE_REPLIES.length) return { kind: "silent" };
   if (step === 0 && args.parked === true) return { kind: "none" };
-  if ((lastAskedSize || step > 0) && i.pending_answer === "unrelated") {
+  if ((lastAskedSize || step > 0 || args.sizeKnown !== true) && i.pending_answer === "unrelated") {
     return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
   }
   return { kind: "none" };

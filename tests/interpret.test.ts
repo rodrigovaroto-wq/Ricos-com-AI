@@ -301,8 +301,31 @@ describe("a escada de esclarecimento do tamanho", () => {
     expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[2], lastAskedSize: false }).kind).toBe("silent");
   });
 
-  it("não sobe a escada quando a última mensagem não perguntou o tamanho", () => {
-    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false }).kind).toBe("none");
+  // Rodada de personas 2026-10-05 (Neusa): "ta" e "?" depois de "o que você quer saber do colete?"
+  // custaram nove turnos de modelo e terminaram no teto. Operador, 2026-10-05: a escada vale em
+  // qualquer pergunta da Malu — enquanto o tamanho não está definido, porque as frases são do tamanho.
+  it("sobe a escada depois de qualquer pergunta, enquanto o tamanho não está definido", () => {
+    for (const last of ["Me passa seu CEP?", "Tô aqui com você, o que você quer saber do colete?"]) {
+      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: false, sizeKnown: false }), last).toEqual({
+        kind: "reply",
+        text: CLARIFY_SIZE_REPLIES[0],
+      });
+    }
+  });
+
+  it("com o tamanho já definido, só a pergunta do tamanho começa a escada", () => {
+    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false, sizeKnown: true }).kind).toBe("none");
+    // Uma escada já em curso segue o seu curso.
+    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: false, sizeKnown: true })).toEqual({
+      kind: "reply",
+      text: CLARIFY_SIZE_REPLIES[1],
+    });
+  });
+
+  it("sem pergunta da Malu não há escada: \"oi\" depois da recepção é no_pending", () => {
+    expect(
+      decideClarify({ ...base, interpretation: read({ pending_answer: "no_pending" }), lastOutbound: "Oii, tudo bem?", lastAskedSize: false, sizeKnown: false }).kind,
+    ).toBe("none");
   });
 
   // Silêncio decidido sem informação seria a pior falha daqui.

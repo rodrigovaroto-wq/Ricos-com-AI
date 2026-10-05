@@ -33,7 +33,7 @@
     "closeHour": 24
   },
   "cost": {
-    "conversationCapBrl": 0.55,
+    "conversationCapBrl": 1.0,
     "overrunTolerance": 0
   },
   "coupon": {
