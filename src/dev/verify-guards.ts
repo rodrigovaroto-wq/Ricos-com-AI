@@ -1907,8 +1907,8 @@ const MUTATIONS: Mutation[] = [
     id: "§33-outra-frase-nomeia",
     bug: "'Pagando na entrega o frete é grátis. No pix funciona assim.' passava: a frase que nomeia o pix sem 'também' não era lida",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: "            if (!names(s) && !(ALSO.test(s) && (PAYISH.test(s) || prevOther))) continue;",
-    to: "            if (!(ALSO.test(s) && (PAYISH.test(s) || prevOther))) continue;",
+    from: "            if (!names(s) && !(ALSO.test(plain(s)) && (PAYISH.test(plain(s)) || prevOther))) continue;",
+    to: "            if (!(ALSO.test(plain(s)) && (PAYISH.test(plain(s)) || prevOther))) continue;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/honest-sales-lines.test.ts"],
   },
   {
@@ -1931,8 +1931,8 @@ const MUTATIONS: Mutation[] = [
     id: "§33-tambem-sem-pagamento",
     bug: "'Isso mesmo!' e 'Eu também uso!' ao lado da frase canônica eram vetadas: 'também/mesmo' sem pagamento nenhum",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: "            if (!names(s) && !(ALSO.test(s) && (PAYISH.test(s) || prevOther))) continue;",
-    to: "            if (!names(s) && !ALSO.test(s)) continue;",
+    from: "            if (!names(s) && !(ALSO.test(plain(s)) && (PAYISH.test(plain(s)) || prevOther))) continue;",
+    to: "            if (!names(s) && !ALSO.test(plain(s))) continue;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/honest-sales-lines.test.ts"],
   },
   {
