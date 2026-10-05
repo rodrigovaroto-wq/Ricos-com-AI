@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-02, 22h UTC)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-05, 12h30 UTC)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -33,6 +33,29 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
 ### Onde estamos
+
+**2026-10-05 — mês 1 no ar, Malu v3** (branch `claude/determined-bell-6ilmig`, [PR #51](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/51)).
+Estado conferido ao começar: PR #50 mergeado (`2ef7b03`), migrações só até 0020, `turn` v49 (pacote de 30/09).
+- **0021 e 0022 aplicadas** (conector Supabase); `BUSINESS_CONFIG` com teto R$ 0,55 / tolerância 0 e
+  `askMarketingOptIn` colado pelo operador. n8n (Turno com Wait `?? 60`, "Hermes — decisão") já igual ao `main`.
+- **`agent_version` 1** = `2ef7b03` (`turn` v51). Sonda pela porta do n8n com `source` de anúncio: recepção na
+  hora, resposta em 80 s, `entry_at` gravado, `silence_3` em +71 h (07:19 BRT), `silence_2` em +23 h,
+  `turn_outcomes.agent_version = 1`. REST da Supabase **200** neste container (o 401 acabou).
+- Rotina **"Hermes – decisão"** criada (`trig_01SR8fhPWmJktwR8oVTfd3gV`, sem cron, sessão nova por disparo).
+- Rodada de personas na v1 (porta `function`): 6/12 caíram por 502 — o proxy do container corta em ~40 s, o
+  runner apagava o lead e a `turn`, ainda rodando, dava FK 23503 (500 no log). Não é defeito de produção
+  (n8n espera 150 s; turno mais lento 50 s). **Defeito real (Lu):** "quero cancelar o pedido" ficava com a
+  Malu e ela disse "já deixo cancelado" → **`agent_version` 2** (`edb775f`, `turn` v53): o pedido dito vira
+  contexto de pedido (handoff R16.9) e gate novo `order_action_claim`. Sonda: handoff "a cliente quer cancelar um pedido".
+- Rodada na v2 (porta `local`, Deno instalado no container, 12/12, R$ 3,76): Lu e Vera → pessoa na 1ª
+  mensagem. **Defeitos:** Jussara foi para pessoa por teto no "sim" dela — `shipping_promise` lia "Isso
+  mesmo, você não paga nada antes" ao lado da frase do frete grátis como o grátis estendido ao antecipado;
+  Karol ouviu "tava guardando seu M" → **`agent_version` 3** (`turn` v55). Gate diff: 3 afrouxamentos, todos
+  aceitos (`P-2026-10-05`), só nos contextos da entrega; 4/4 mutações novas pegam.
+- **Achados sem conserto (decisão do operador):** (a) 3/12 ainda vão para pessoa por teto (beatriz,
+  jussara, neusa, ~R$ 0,07/turno → teto no 8º–9º turno); (b) a escada do "não entendi" só começa depois
+  da pergunta de tamanho — Neusa ("ta", "?") gastou 9 turnos de modelo; (c) Marcinha: falha da API do
+  modelo na reescrita → handoff na 1ª mensagem (não reproduzido).
 
 **Etapa atual: L0 — Preparar.** L0.3, L0.4, L0.7 feitos; R17.4 mergeado (PR #47, `41203ba`) e no ar
 (`turn` v46). **L0.5 rodado em 2026-09-30** (12 personas, modelo padrão): p95 R$ 0,546 por conversa,
@@ -127,16 +150,17 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 - **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
 
 **Próxima sessão — nesta ordem:**
-0. **O** — aplicar 0021 e 0022 (SQL Editor), colar teto R$ 0,55 / tolerância 0 e
-   `"channel": { "askMarketingOptIn": true }` no `BUSINESS_CONFIG`, merge do PR #50.
-0b. **C** — `pnpm deploy:turn` (v1), sonda pela porta de produção (`followups.run_at` do `silence_3`
-   de uma conversa nova dentro de 63–71 h; `turn_outcomes.agent_version = 1`); publicar o Wait `?? 60`
-   no n8n; subir a onda 2, publicar "Hermes — decisão" e criar a Rotina "Hermes – decisão".
-1. **O** — fixar o teto por conversa pelo p95 do L0.5 (R$ 0,546 medido contra R$ 0,50 nominal) e colar
-   no `BUSINESS_CONFIG` (`cost.conversationCapBrl` / `overrunTolerance`).
-2. **O** — rotacionar a service_role (exposta na conversa de 30/09) e conferir o REST numa sessão nova.
-3. **S** — L0.1 e L0.2 (canal e `order_eve`): tudo o que vem depois (L1.3–L1.5, L2) espera por eles.
-4. **S** — templates MARKETING (`silence_2`, `silence_3`) para o cupom sair.
+1. **O** — merge do PR #51 (o `main` está atrás da `turn` no ar, `agent_version` 3).
+2. **S** — L0.1: WABA validada, número verificado, nome de exibição, **token permanente** (usuário do
+   sistema admin, `whatsapp_business_messaging` + `whatsapp_business_management`, sem expiração),
+   **Phone number ID**, **App secret** — entregues ao operador por canal seguro. Checklist completo em
+   [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md) Parte A.
+3. **S** — L0.2 + templates: `order_eve` e véspera do antecipado (UTILITY), `silence_2` e `silence_3`
+   (MARKETING), texto exato de `03-templates-meta.md`.
+4. **C** — com os três valores: Parte B (segredos `WHATSAPP_*` + `INBOUND_SIGNING_SECRET`, deploy da
+   `whatsapp` `--no-verify-jwt`) e Parte C (`CANAL_ATIVO`, teste do celular, fechar as portas).
+   **O** cria a credencial "WhatsApp Cloud API" no n8n.
+5. **O** — decidir os achados (a)–(c) acima e o §8 do portal; rever a reserva de R$ 1.200.
 
 ### Executado
 
@@ -160,6 +184,10 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 | L0.5 | Rodada das 12 personas no modelo padrão: p50 R$ 0,268 · p95 R$ 0,546 · máx R$ 0,546; 3/12 no teto; vetos e piores no topo do quadro | rodada `2026-09-30T21-08-04-483Z-local`, `41203ba`, 2026-09-30 |
 | L3 prep | Mês 1, onda 1 (§4a, §4b, §5, §7) — PR #50; 314/314 mutações; revisão Opus aprovada com resíduos | `6a4bb29`, 2026-10-02 |
 | L3 prep | Mês 1, onda 2 (§6) — e-mails, Rotina `DECIDIR.md`, reversão; simulação da régua no CI | PR #50, `b0ae69d`, 2026-10-02 |
+| L3 prep | 0021/0022 aplicadas; `agent_version` 1 no ar e sondada pela porta do n8n (régua 63–71 h, 1 minuto, versão por turno) | `turn` v51, `2ef7b03`, 2026-10-05 |
+| L3 prep | Rotina "Hermes – decisão" criada | `trig_01SR8fhPWmJktwR8oVTfd3gV`, 2026-10-05 |
+| L0.5 | Teto R$ 0,55 / tolerância 0 colado no `BUSINESS_CONFIG` | operador, 2026-10-05 |
+| — | Rodadas de personas v1 (`function`) e v2 (`local`); `agent_version` 2 (cancelar → pessoa, `order_action_claim`) e 3 (`shipping_promise` ao lado de "isso mesmo", "guardando seu M") | PR #51, `turn` v53 e v55, 2026-10-05 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 
 ### Falta (na ordem do plano)
@@ -168,7 +196,7 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 |---|---|---|---|
 | L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
-| L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | 🔄 decidido R$ 0,55 / tolerância 0 (R18.4); falta colar no `BUSINESS_CONFIG` |
+| L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | ✅ R$ 0,55 / tolerância 0 no `BUSINESS_CONFIG`, 2026-10-05 |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
 | L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |
