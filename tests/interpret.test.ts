@@ -822,3 +822,44 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       expect(asksForLink(m), m).toBe(false);
   });
 });
+
+/** Rodada de personas 2026-10-05 (porta function, agent_version 1): Lu pediu para cancelar e a Malu ficou seis turnos com ela. */
+describe("rodada 2026-10-05: cancelar O pedido e pedido a caminho são pedido feito", () => {
+  it("lê o pedido que só existe se ela já comprou", () => {
+    for (const frase of [
+      "blz\nquero cancelar o pedido",
+      "queria cancelar meu pedido",
+      "preciso cancelar o pedido que fiz",
+      "cancela o meu pedido por favor",
+      "ja saiu pra entrega?",
+      "já saiu para entrega?",
+      "meu colete ja saiu pra entrega?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+      // Também do histórico: o "só cancela aí" seguinte acha o contexto na mensagem anterior.
+      expect(statesPastPurchase(frase, false), frase).toBe(true);
+    }
+  });
+
+  it("a pergunta hipotética, o futuro e a negação continuam fora", () => {
+    for (const frase of [
+      "e se eu não gostar, consigo cancelar depois?",
+      "se eu fizer o pedido, dá pra cancelar o pedido depois?",
+      "não quero cancelar o pedido",
+      "posso cancelar o pedido se não servir?",
+      "quando sai pra entrega?",
+      "em quanto tempo sai pra entrega?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+    }
+  });
+
+  it("com isso, o cancelamento dela vai para uma pessoa já na primeira mensagem", () => {
+    expect(handoffFor(read({ wants_cancel: true }), "quero cancelar o pedido", statesPastPurchase("quero cancelar o pedido"))).toBe(
+      "cancel",
+    );
+    expect(handoffFor(read({ post_sale: true }), "ja saiu pra entrega?", statesPastPurchase("ja saiu pra entrega?"))).toBe(
+      "post_sale",
+    );
+  });
+});

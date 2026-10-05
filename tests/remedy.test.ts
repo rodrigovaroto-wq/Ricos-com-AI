@@ -12,9 +12,9 @@ import { ctx } from "./fixtures.js";
 const byClass = (remedy: Remedy) =>
   gateNames.filter((name) => gateRemedies[name] === remedy).sort();
 
-describe("classificação dos vinte gates", () => {
+describe("classificação dos vinte e um gates", () => {
   it("todo gate tem uma classe, e só existem três", () => {
-    expect(Object.keys(gateRemedies)).toHaveLength(20);
+    expect(Object.keys(gateRemedies)).toHaveLength(21);
     expect(new Set(Object.values(gateRemedies))).toEqual(
       new Set<Remedy>(["rewrite", "defer", "stop"]),
     );
@@ -31,6 +31,7 @@ describe("classificação dos vinte gates", () => {
       "identical_template",
       "installment_promise",
       "invented_testimonial",
+      "order_action_claim",
       "price_promise",
       "scarcity_claim",
       "shipping_promise",

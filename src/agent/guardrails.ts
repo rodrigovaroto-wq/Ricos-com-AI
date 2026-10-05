@@ -2037,6 +2037,42 @@ const gates: readonly Gate[] = [
   },
   {
     /**
+     * Saying she did something to an order (persona round 2026-10-05, Lu: "já deixo cancelado
+     * pra você"). The agent cancels, refunds and changes nothing — cancellation and returns go
+     * to a person (R16.9), and a cancellation she was told happened is a package that still
+     * arrives and a delivery she refuses. Only the agent's own text is read: the code's fixed
+     * lines (`layer: "auto"`) say what the code did. How she cancels, an offer and a denial pass.
+     */
+    name: "order_action_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Você não cancela, não estorna e não altera pedido nenhum. Nunca diga que cancelou, que ` +
+      `vai cancelar, que deixou cancelado, que estornou ou que mudou algo no pedido dela. Pode ` +
+      `perguntar se ela quer que alguém do time a chame para isso.`,
+    check: (text, ctx) => {
+      if (ctx.layer !== "agent") return null;
+      const t = norm(text);
+      const claims = [
+        /\b(?:cancelei|estornei|reembolsei)\b/,
+        /\b(?:ja|eu)\s+(?:te\s+)?cancelo\b/,
+        /\bvou\s+(?:ja\s+)?(?:te\s+)?(?:cancelar|estornar|reembolsar)\b/,
+        /\b(?:deixo|deixei|ta|esta|fica|ficou|foi)\s+(?:\S+\s+){0,2}?cancelad[oa]\b/,
+        /\b(?:fiz|fizemos)\s+o\s+(?:estorno|reembolso|cancelamento)\b/,
+        /\b(?:alterei|mudei|troquei|atualizei|corrigi|vou\s+(?:alterar|mudar|trocar|atualizar|corrigir))\s+(?:\S+\s+){0,4}?pedido\b/,
+      ];
+      for (const r of claims) {
+        const m = r.exec(t);
+        if (!m) continue;
+        const before = t.slice(Math.max(0, m.index - 40), m.index);
+        if (/\b(?:se\s+(?:quiser|preferir|precisar)|quer\s+que|posso|prefere\s+que)\b[^.!?]*$/.test(before)) continue;
+        if (deniedJustBefore(t, m.index)) continue;
+        return "claims an action on her order the agent cannot take";
+      }
+      return null;
+    },
+  },
+  {
+    /**
      * The shop sells a garment, not a treatment. "Corrige a postura", "trata hérnia",
      * "indicado para pós-operatório" are medical claims about a product that has no
      * medical registration — the kind of sentence a sales model writes without being

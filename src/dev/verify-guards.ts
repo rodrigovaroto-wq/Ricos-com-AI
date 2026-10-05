@@ -79,6 +79,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/agent-version.test.ts"],
   },
   {
+    id: "lu-cancelar-o-pedido",
+    bug: "\"quero cancelar o pedido\" e \"já saiu pra entrega?\" não eram pedido feito: a Lu ficou seis turnos com a Malu em vez de ir para uma pessoa (2026-10-05)",
+    files: ["src/agent/interpret.ts"],
+    from: String.raw`|(?:quero|queria|preciso|gostaria\s+de)\s+cancelar\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|cancela\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|ja\s+saiu\s+(?:pra|para)\s+(?:a\s+)?entrega)\b/g;`,
+    to: ")\\b/g;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
+    id: "lu-ja-deixo-cancelado",
+    bug: "a Malu disse \"já deixo cancelado pra você\" e nenhum gate vetou: ela não cancela pedido (R16.9, 2026-10-05)",
+    files: ["src/agent/guardrails.ts"],
+    from: '        return "claims an action on her order the agent cannot take";',
+    to: "        return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/order-action-claim.test.ts"],
+  },
+  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],
