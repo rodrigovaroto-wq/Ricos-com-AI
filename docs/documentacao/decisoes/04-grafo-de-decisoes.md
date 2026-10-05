@@ -1583,6 +1583,43 @@ em `hermes-core.ts` (≥ 200 turnos por versão, z ≥ 1,645); reversão pendent
 **Resíduo:** recalibrar o Hermes (`pnpm hermes:calibrar`) depois da skill 1.2.0; texto do e-mail de
 falha sem aprovação.
 
+## 53. Hermes pela assinatura do Claude Code: descartado (2026-10-05)
+
+**Sintoma:** pergunta do operador: rodar as tarefas do Hermes pelo Claude Code autenticado, para
+gastar a assinatura em vez de tokens de API.
+**Causa (da premissa):** o Hermes não chama a API do Claude. Roda a Muse Spark da Meta
+(`hermes/config.yaml:10-12`, `src/dev/hermes-run.ts:253` com `META_API_KEY`, `hermes.yml:87`). O
+Claude só aparece nas Rotinas `DECIDIR.md`/`IMPLEMENTAR.md`, que já gastam a assinatura.
+**Caminhos descartados:**
+- Hermes Agent com o login Pro/Max como provedor: os termos proíbem credencial de assinatura em
+  ferramenta de terceiro.
+- Trocar a chamada por `claude -p` com o token de `claude setup-token`: suportado e o contrato
+  (`propostas.json`) se mantém, mas quem pensa deixa de ser o Hermes Agent. O plano de consumidor
+  pode treinar com o dado, o mesmo motivo que barra o `-contributor` com cliente real
+  (`config.yaml:4-6`); a cota é dividida com o uso pessoal, sem SLA, e o `--bare` não lê o login.
+- Economia: com 100 leads/dia, 2 passadas/dia × US$ 0,23–0,64 (estimado, `06-analise-hermes-v1.md`
+  §f) ≈ US$ 14–38/mês (R$ 75–210), 9–26% do gasto de modelo; a `turn` (≈ R$ 800/mês) não sai da Meta.
+**Correção:** nenhuma. O Hermes segue na Muse Spark padrão. Decisão do operador: mexer no que
+funciona e mudar a estrutura por economia baixa não se paga.
+**Guarda:** este registro. Reabrir exige número medido (`usage.json` de uma passada real) que mude a
+conta, ou um caminho de dado aceito pela LGPD.
+
+## 54. JEV complementar ao Hermes, avaliando as propostas: adiado de novo (2026-10-05)
+
+**Sintoma:** pergunta do operador: adicionar o JEV para avaliar as sugestões do Hermes e fazer o que
+ele foi criado para fazer.
+**Causa:** a avaliação da proposta já é código e humano, não modelo: `checkProposals` (trecho copiado),
+`annotateWithGates`, `discardAlreadyVetoed`, `holdForRevert`, `measureEffect` e o clique do operador.
+As ideias do JEV que se pagavam já entraram (§42): versão e auditoria (`0020`), número em SQL
+(`numeros.md`), `fato_contradito`, veredito do operador como rótulo.
+**Caminhos descartados:** juiz tipado por conversa sobre o Hermes. Sem conversa real (`CANAL_ATIVO`
+desligado, L1.5) não há o que calibrar; custa US$ 0,31–0,94 por passada, mais que o próprio Hermes
+(§f); é mais um fornecedor recebendo conversa de cliente (DPA, retenção, treino).
+**Correção:** nenhuma; vale o veredito de 29/09 (`06-analise-hermes-v1.md`, §42).
+**Guarda:** reabrir só com os quatro critérios de `06-analise-hermes-v1.md` §g valendo juntos (piso de
+amostra atingido e Hermes medido abaixo da barra; contrato de dados; fora do turno com teto; vence o
+holdout e a bateria de negação e injeção).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
