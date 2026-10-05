@@ -8,7 +8,7 @@ salvamento e a política de crescimento.
 
 - [`ON CONFLICT` e índice parcial em `followups`](on-conflict-partial-index.md) — Não troque a unique constraint por índice parcial: o upsert do handler quebra em silêncio.
 - [Drift entre a Edge Function e o repositório](edge-function-drift.md) — A Edge Function no ar pode divergir do repositório nos dois sentidos; nada compara os dois lados; sempre ler o que está deployado antes de deployar.
-- [Deploy da Edge Function pela API](supabase-deploy-por-api.md) — A ferramenta MCP transcreve os arquivos e o pacote não cabe mais numa mensagem; deploye pela API de gerência, com os arquivos do disco.
+- [Deploy da Edge Function pela API](supabase-deploy-por-api.md) — A ferramenta MCP transcreve os arquivos e o pacote não cabe mais numa mensagem; deploye com `pnpm deploy:turn` (API de gerência, arquivos do disco, versão gravada) — só depois da 0021.
 - [Verificar pela porta de produção](verificar-pela-porta-de-producao.md) — Sonda contra a Edge Function prova o código, não o caminho; o webhook do n8n devolvia 200 sem criar conversa nenhuma.
 - [Isolate quente depois do deploy](edge-function-warm-isolate.md) — Por minutos depois de um deploy, parte das requisições ainda cai na versão anterior; confira a sonda pelo formato da resposta, não pelo conteúdo.
 - [Cegueira a negação, nos dois sentidos](negation-blindness.md) — Toda heurística de texto deste repositório já errou em negação; antes de mexer numa, sonde a frase negada **e** a negativa que não nega — e todo conserto passa por segunda revisão antes de ser dado como resolvido; desde 25/09 `pnpm dev:gates` compara os vereditos antes/depois e o CI barra afrouxamento não aceito.
@@ -26,7 +26,7 @@ salvamento e a política de crescimento.
 - [Divisão de papéis: Meta é do sócio](divisao-de-papeis-meta.md) — Ads, BM, developer, número e templates são do sócio; o operador cuida do técnico.
 - [Diagnóstico antes de consertar](diagnostico-antes-de-consertar.md) — regra do operador: nada de tentativa e erro; causa e origem exatas primeiro, conserto depois. As 10 rodadas do gate de prazo são o contraexemplo.
 - [Ambiente muda entre sessões](ambiente-aponta-para-outro-projeto.md) — em 28/09 o Supabase do container era de outro projeto, em 29/09 era o da Encorpa; confira `list_projects` antes de tocar produção. O secret `BUSINESS_CONFIG` não é legível pelo conector.
-- [Entrega concluída só no COD](entrega-concluida-so-no-cod.md) — R$ 19,99 não existe no antecipado (29/09); devolução pós-envio = R$ 25,00 completos nos dois caminhos e a taxa de transação não volta; recusa (15%, só COD) custa R$ 9,90.
+- [Entrega concluída só no COD](entrega-concluida-so-no-cod.md) — R$ 19,99 não existe no antecipado (29/09); devolução pós-envio = R$ 25,00 completos nos dois caminhos e a taxa de transação não volta; recusa (só COD) custa R$ 9,99 (02/10).
 - [`pnpm dev:n8n` sobrescreve os workflows](dev-n8n-sobrescreve-workflows.md) — grava a versão ativa em `n8n/workflows/`; com o main à frente do n8n, `git add -A` depois dele desfaz o main. Adicione só o workflow publicado.
 - [Editor do n8n tira a senha do formulário](n8n-editor-tira-senha-do-formulario.md) — em 30/09 o "Responder cliente" foi ativado sem basic auth depois do teste pelo editor; ative só com `pnpm dev:n8n` dando ok para ele.
 - [Porta n8n do container bate no proxy](porta-n8n-do-container-bate-no-proxy.md) — do container, turno com modelo pela porta do n8n dá 502 (proxy < ~40 s) e o turno atrasado recria o lead sintético depois da limpeza; apague `5500099*` depois.

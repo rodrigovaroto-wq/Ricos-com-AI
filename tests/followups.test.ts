@@ -10,6 +10,7 @@ import {
   rulerFor,
   scheduleOrder,
   scheduleSilence,
+  silence3At,
   decideTouch,
   nextOpening,
   windowIsOpen,
@@ -1245,5 +1246,121 @@ describe("a copy nova da régua passa a cadeia no caminho em que sai", () => {
     const envio = renderFollowup("order_shipped", render({ config: exemplo }))!;
     for (const paymentPath of ["cod", "prepay"] as const)
       expect(bloqueios(envio, { paymentPath, stage: "logistics" })).toEqual([]);
+  });
+});
+
+/**
+ * Mês 1, §4a (operador, 2026-10-02): a régua de uma conversa real cabe nas janelas gratuitas
+ * da Meta. `silence_3` entre 63 h e 71 h da entrada dela pelo anúncio (a janela de 72 h), no
+ * último horário de 06:00–00:00; `silence_2` sempre dentro de 24 h da última mensagem dela.
+ */
+describe("§4a: a régua dentro das janelas gratuitas", () => {
+  /** Hora de parede em São Paulo (UTC-3 desde 2019). */
+  const sp = (s: string) => new Date(`${s}-03:00`);
+  const H = 3_600_000;
+  const horas = (a: Date, b: Date) => (b.getTime() - a.getTime()) / H;
+
+  it.each(["00:10", "05:50", "06:00", "12:00", "23:50"])("entrada às %s → silence_3 em [63 h, 71 h] e em 06:00–00:00", (hora) => {
+    const entrada = sp(`2026-10-05T${hora}:00`);
+    const s3 = silence3At(entrada);
+    expect(horas(entrada, s3)).toBeGreaterThanOrEqual(63);
+    expect(horas(entrada, s3)).toBeLessThanOrEqual(71);
+    expect(horaEmSP(s3)).toBeGreaterThanOrEqual(6);
+  });
+
+  it("71 h que caem de madrugada recuam para 23:30 da véspera, nunca para depois", () => {
+    const s3 = silence3At(sp("2026-10-05T05:50:00")); // + 71 h = 08/10 04:50
+    expect(s3).toEqual(sp("2026-10-07T23:30:00"));
+    expect(silence3At(sp("2026-10-05T12:00:00"))).toEqual(sp("2026-10-08T11:00:00"));
+  });
+
+  it("a faixa vale para toda entrada do dia, inclusive na virada do horário de verão (2018)", () => {
+    // O Brasil teve horário de verão até 2019; o ICU guarda o histórico. 04/11/2018 00:00 → 01:00.
+    for (const inicio of [sp("2026-10-05T00:00:00"), new Date("2018-11-01T03:00:00Z"), new Date("2019-02-14T02:00:00Z")]) {
+      for (let m = 0; m < 3 * 24 * 60; m += 10) {
+        const entrada = new Date(inicio.getTime() + m * 60_000);
+        const s3 = silence3At(entrada);
+        expect(horas(entrada, s3), entrada.toISOString()).toBeGreaterThanOrEqual(63);
+        expect(horas(entrada, s3), entrada.toISOString()).toBeLessThanOrEqual(71);
+        expect(horaEmSP(s3), entrada.toISOString()).toBeGreaterThanOrEqual(6);
+      }
+    }
+  });
+
+  it("nunca 3 dias depois do silêncio", () => {
+    const entrada = sp("2026-10-05T12:00:00");
+    const agora = sp("2026-10-06T15:00:00");
+    const s3 = scheduleSilence(agora, "after_price", { entry: entrada, lastInbound: agora }).find((f) => f.kind === "silence_3")!;
+    expect(s3.runAt).toEqual(silence3At(entrada));
+    expect(s3.runAt.getTime()).not.toBe(agora.getTime() + 3 * 24 * H);
+  });
+
+  it("a conversa que durou 65 h não tem silence_3: o silence_2 é o último toque", () => {
+    const entrada = sp("2026-10-05T12:00:00");
+    const agora = new Date(entrada.getTime() + 65 * H);
+    const regua = scheduleSilence(agora, "after_price", { entry: entrada, lastInbound: agora });
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2"]);
+  });
+
+  it("silence_2: última mensagem às 08:00 → antes das 08:00 do dia seguinte", () => {
+    const ultima = sp("2026-10-05T08:00:00");
+    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
+    expect(s2.kind).toBe("silence_2");
+    expect(s2.runAt).toEqual(sp("2026-10-06T07:00:00"));
+  });
+
+  it("silence_2: última mensagem às 23:00 → 09:00 do dia seguinte", () => {
+    const ultima = sp("2026-10-05T23:00:00");
+    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
+    expect(s2.runAt).toEqual(sp("2026-10-06T09:00:00"));
+  });
+
+  it("silence_2: última mensagem às 02:00 → 23:30 do mesmo dia", () => {
+    const ultima = sp("2026-10-05T02:00:00");
+    const s2 = scheduleSilence(new Date(ultima.getTime() + 60_000), "before_size", { entry: ultima, lastInbound: ultima })[1]!;
+    expect(s2.runAt).toEqual(sp("2026-10-05T23:30:00"));
+  });
+
+  it("silence_2 nunca passa de 24 h da última mensagem dela, nunca de madrugada, sempre depois do silence_1", () => {
+    for (let m = 0; m < 24 * 60; m += 10) {
+      const ultima = new Date(sp("2026-10-05T00:00:00").getTime() + m * 60_000);
+      const [s1, s2] = scheduleSilence(new Date(ultima.getTime() + 60_000), "after_price", { entry: ultima, lastInbound: ultima });
+      expect(s2!.kind).toBe("silence_2");
+      expect(horas(ultima, s2!.runAt), ultima.toISOString()).toBeLessThanOrEqual(23);
+      expect(horaEmSP(s2!.runAt), ultima.toISOString()).toBeGreaterThanOrEqual(6);
+      expect(s2!.runAt.getTime()).toBeGreaterThan(s1!.runAt.getTime());
+    }
+  });
+
+  it("sem horário que caiba nas 24 h depois do silence_1, não há silence_2", () => {
+    const ultima = sp("2026-10-05T10:00:00");
+    const reabertura = new Date(ultima.getTime() + 23 * H);
+    const anchors = { entry: ultima, lastInbound: ultima };
+    expect(scheduleSilence(reabertura, "after_price", anchors).map((f) => f.kind)).toEqual(["silence_1", "silence_3"]);
+    // Adiado, ele não volta — nem rearma o silence_1 que já saiu.
+    expect(rulerFor(reabertura, "after_price", "silence_2", false, anchors)).toEqual([]);
+  });
+
+  it("silence_3 adiado sai na reabertura dentro da faixa, e não sai depois de 71 h", () => {
+    const entrada = sp("2026-10-05T05:50:00"); // silence_3 às 07/10 23:30 (65 h 40)
+    const anchors = { entry: entrada, lastInbound: entrada };
+    const dentro = new Date(entrada.getTime() + 68 * H); // adiado por pacing ou janela mais curta
+    expect(rulerFor(dentro, "after_price", "silence_3", false, anchors)).toEqual([{ kind: "silence_3", runAt: dentro }]);
+    expect(rulerFor(new Date(entrada.getTime() + 71 * H + 60_000), "after_price", "silence_3", false, anchors)).toEqual([]);
+  });
+
+  it("reancorada por um silence_1 adiado, o silence_3 fica na hora da entrada", () => {
+    const entrada = sp("2026-10-05T23:20:00");
+    const reabertura = sp("2026-10-06T06:00:00");
+    const regua = rulerFor(reabertura, "before_size", "silence_1", false, { entry: entrada, lastInbound: entrada });
+    expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
+    expect(regua[2]!.runAt).toEqual(silence3At(entrada));
+    expect(horas(entrada, regua[1]!.runAt)).toBeLessThanOrEqual(23);
+  });
+
+  it("sem âncoras, a régua antiga continua (os simuladores de src/dev)", () => {
+    const agora = sp("2026-10-05T12:00:00");
+    expect(scheduleSilence(agora)[2]!.runAt.getTime() - agora.getTime()).toBe(3 * 24 * H);
+    expect(rulerFor(agora, "after_price", "silence_3").map((f) => f.kind)).toEqual(["silence_3"]);
   });
 });

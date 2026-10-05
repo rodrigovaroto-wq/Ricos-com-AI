@@ -22,11 +22,19 @@ or a persona round)
     quote of which is already vetoed is set aside
   → the git copy of a production run carries no excerpt nor quoted text (LGPD)
   → hermes_runs + hermes_proposals (status 'proposed') + a PR with the document
-  → n8n e-mails one link per proposal; the operator approves or refuses, with a reason
-  → approved: a scheduled session implements it (hermes/IMPLEMENTAR.md), proves it (CI,
+  → n8n e-mails the proposal titles (hermes/EMAILS.md — no link; the R14.14 link form is
+    disabled); the operator fires the Claude Code Routine "Hermes – decisão"
+    (hermes/DECIDIR.md), which shows each proposal with its evidence masked, and approves,
+    refuses or corrects it, with a reason
+  → approved: the same session implements it (hermes/IMPLEMENTAR.md), proves it (CI,
     Opus review loop, personas) and merges it with `hermes:<id>`; deploy-hermes.yml
-    publishes after CI on main — only a row the operator approved, and never a change that
-    accepts a gate loosening; the outcome is e-mailed
+    publishes after CI on main as the next version in `agent_versions` (R18.5) — only a row
+    the operator approved, and never a change that accepts a gate loosening; the outcome
+    is e-mailed
+  → rollback (L3 item 8): every production run compares handoff of the version on air with
+    the previous one (`eval_version_outcomes`, `revertCheck` in hermes-core.ts); worse → a
+    `REVERTER-vN` proposal, shown first by the Routine, and no other proposal is written
+    while it waits. An undue premise worse under the new version is Hermes's call (skill)
   → every later production run measures each published proposal's `como_medir` check on
     conversations before and after `published_at`, into `result`
   → every decision, reason and result is in hermes_proposals, and the next run reads it
@@ -51,6 +59,8 @@ Production runs daily from `.github/workflows/hermes.yml` (needs the secrets
   defaults side tasks to a `-contributor` model, which trains on the data).
 - `skills/encorpa-supervisor/SKILL.md` — what to look for, in cost order, and the exact
   output format.
+- `DECIDIR.md` — the prompt of the Routine "Hermes – decisão". `IMPLEMENTAR.md` — what the
+  session does with an approved proposal.
 - `src/dev/hermes-core.ts` (pure, tested) and `src/dev/hermes-run.ts` (the run).
 - `supabase/migrations/0008_hermes_runs.sql` — `hermes_runs`, `hermes_proposals.run_id`,
   `hermes_backlog`. `0020_hermes_retention.sql` — the excerpts expire at 90 days,

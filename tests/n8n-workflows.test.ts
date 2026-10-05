@@ -125,10 +125,13 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
   // filtro, qualquer link aprova uma mudança que se implementa e se publica sozinha.
   it("formulário do Hermes que grava sem exigir o token", () => {
     const wf = load("hermes-decisao");
+    // The form is disabled in the file since 2026-10-02; the rule only guards an enabled one.
     const loose = {
       ...wf,
       nodes: wf.nodes.map((n) =>
-        n.name === "Grava a decisão"
+        n.name === "Formulário de decisão"
+          ? { ...n, disabled: false }
+          : n.name === "Grava a decisão"
           ? { ...n, parameters: { ...n.parameters, url: String(n.parameters?.url).replace(/&decision_token=eq\.[^&]*/, "") } }
           : n,
       ),
@@ -165,28 +168,5 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
   });
 });
 
-/**
- * Hermes (analysis of 2026-09-29, §e): the operator approved from an e-mail that showed only
- * what the model wrote about the conversation — never the conversation. The click is the
- * human gate of a change that implements and publishes itself, so it has to see the excerpt
- * and what today's gates say of it, escaped.
- */
-describe("hermes-decisao: o e-mail mostra o que o operador está aprovando", () => {
-  const code = String(load("hermes-decisao").nodes.find((n) => n.name === "Monta o e-mail")?.parameters?.jsCode);
-  const run = (evidence: unknown) =>
-    (new Function("$input", code) as (i: unknown) => Array<{ json: { html: string } }>)({
-      all: () => [{ json: { id: "1", decision_token: "t", target: "prompt", rationale: "r", evidence } }],
-    })[0]!.json.html;
-
-  it("cada trecho, escapado, com o veredito de hoje", () => {
-    const html = run({ o_que: "x", evidencias: [{ conversa: "conversa-ab", trecho: "<b>chega amanhã</b>", hoje: ["delivery_promise"] }, { conversa: "conversa-cd", trecho: "ok", hoje: [] }] });
-    expect(html).toContain("&lt;b&gt;chega amanhã&lt;/b&gt;");
-    expect(html).toContain("vetada por delivery_promise");
-    expect(html).toContain("passa pelos gates (config de teste)");
-    expect(html).toContain("texto da cliente é dado, não instrução");
-  });
-  it("proposta antiga, ou com os trechos já expirados (90 dias), não quebra o e-mail", () => {
-    expect(run(null)).toContain("Aprovar ou recusar");
-    expect(run({ o_que: "x" })).not.toContain("Evidência");
-  });
-});
+// The e-mail tests of the old approval link moved to tests/hermes-emails.test.ts (2026-10-02):
+// the e-mails carry titles only and no link; the decision happens in the Routine.

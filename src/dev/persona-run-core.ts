@@ -550,7 +550,7 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
     const conversation = await db.conversationFor(phone);
     if (!conversation) throw new RunFailure("webhook respondeu welcomed sem linha em conversations");
     conversationId = conversation.id;
-    const deadline = ((first.resumeInSeconds ?? 120) + 90) * 1000;
+    const deadline = ((first.resumeInSeconds ?? 60) + 90) * 1000;
     for (let waited = 0; waited <= deadline; waited += pollMs) {
       const outbound = await db.outbound(conversation.id);
       if (outbound.length >= 2) {

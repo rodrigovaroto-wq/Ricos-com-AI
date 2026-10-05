@@ -11,6 +11,11 @@ arquivos da função `turn` passaram de 138 KB e o deploy simplesmente não coub
 o caminho tem outro custo antes disso: reescrever 138 KB à mão é uma chance de
 errar um caractere numa regex que só a produção descobriria.
 
+**Desde 2026-10-02 use `NODE_USE_ENV_PROXY=1 pnpm deploy:turn`** (`--dry-run` primeiro): lista
+os `.ts` do diretório (nunca uma lista escrita à mão), grava a versão em `agent_versions` e no
+segredo `AGENT_VERSION` antes de publicar (R18.5), e desfaz os dois se o deploy falhar. **Só depois
+das migrações 0021 e 0022 aplicadas.** O `curl` abaixo fica como referência do que o script faz.
+
 Use a API de gerência, que envia os arquivos **do disco**:
 
 ```bash

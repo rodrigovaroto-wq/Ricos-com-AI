@@ -149,22 +149,67 @@ export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAct
 };
 
 /**
+ * What anchors the ruler of a real conversation (plan month 1, §4a, 2026-10-02). `entry` is her
+ * entry by an ad — the free entry point window of 72 h opens with the reply to it, so a touch
+ * inside the window costs nothing, MARKETING template included; `lastInbound` is her last
+ * message, which the 24-hour service window counts from. Without them, `scheduleSilence` is the
+ * ruler it always was (30 min / next morning / 3 days) — the shape `src/dev` still simulates.
+ */
+export interface RulerAnchors {
+  readonly entry: Date;
+  readonly lastInbound: Date;
+}
+
+/** The latest a touch may go in the entry's window: 71 h, an hour of margin before the 72. */
+const ENTRY_BAND_END = 71 * HOUR;
+
+/**
+ * A touch that would land between 00:00 and 06:00 in São Paulo goes at 23:30 the evening
+ * before instead — earlier, never later, because both windows here are deadlines. The forbidden
+ * stretch is 6 h; moved back, a touch loses at most 6.5 h.
+ */
+const beforeDawn = (at: Date): Date => {
+  const local = new Date(at.getTime() + offsetMinutes(at, BUSINESS_TZ) * 60_000);
+  if (local.getUTCHours() >= 6) return at;
+  const wall = new Date(Date.UTC(local.getUTCFullYear(), local.getUTCMonth(), local.getUTCDate()) - 30 * MINUTE);
+  return new Date(wall.getTime() - offsetMinutes(wall, BUSINESS_TZ) * 60_000);
+};
+
+/**
+ * `silence_3`, the coupon: 71 h after her entry, or 23:30 the evening before when that falls
+ * before dawn — always between 63 h and 71 h, the operator's band (L3 item 5), and always
+ * inside 06:00–00:00. Never "3 days after the silence": that lands outside the free window,
+ * where the MARKETING template is paid.
+ */
+export const silence3At = (entry: Date): Date => beforeDawn(new Date(entry.getTime() + ENTRY_BAND_END));
+
+/**
  * The silence ruler. With `stopPoint` `"link_sent"` it gains an extra, earlier touch —
  * `checkout_reminder` at 15 minutes, asking about trouble with the checkout — before
  * `silence_1` at 30 minutes, which for that same stop point asks whether she managed to
  * finish. Every other stop point, and the omitted-`stopPoint` call every existing caller
  * already makes, keeps the original three-touch shape untouched (§R10.4).
  */
-export const scheduleSilence = (now: Date, stopPoint?: StopPoint): ScheduledFollowup[] => {
+export const scheduleSilence = (now: Date, stopPoint?: StopPoint, anchors?: RulerAnchors): ScheduledFollowup[] => {
   const touches: ScheduledFollowup[] = [];
   if (stopPoint === "link_sent") {
     touches.push({ kind: "checkout_reminder", runAt: new Date(now.getTime() + 15 * MINUTE) });
   }
-  touches.push(
-    { kind: "silence_1", runAt: new Date(now.getTime() + 30 * MINUTE) },
-    { kind: "silence_2", runAt: nextMorning(now) },
-    { kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) },
-  );
+  const first = new Date(now.getTime() + 30 * MINUTE);
+  touches.push({ kind: "silence_1", runAt: first });
+  if (!anchors) {
+    touches.push(
+      { kind: "silence_2", runAt: nextMorning(now) },
+      { kind: "silence_3", runAt: new Date(now.getTime() + 3 * DAY) },
+    );
+    return touches;
+  }
+  // Anchored (4a): no `silence_2` when no time fits her 24 hours after `silence_1`, and no
+  // `silence_3` when the entry's band is already behind the touch before it.
+  const second = beforeDawn(new Date(Math.min(nextMorning(now).getTime(), anchors.lastInbound.getTime() + 23 * HOUR)));
+  if (second > first) touches.push({ kind: "silence_2", runAt: second });
+  const third = silence3At(anchors.entry);
+  if (third > (second > first ? second : first)) touches.push({ kind: "silence_3", runAt: third });
   return touches;
 };
 
@@ -187,11 +232,20 @@ export const rulerFor = (
   stopPoint: StopPoint,
   postponed?: FollowupKind,
   linkInReply = false,
+  anchors?: RulerAnchors,
 ): ScheduledFollowup[] => {
-  const ruler = scheduleSilence(from, stopPoint).filter(
+  // Anchored, `silence_3` keeps the entry's time: postponed, it goes at the reopening while
+  // that is still inside the band, and not at all after it (4a).
+  if (anchors && postponed === "silence_3") {
+    const at = new Date(Math.max(from.getTime(), silence3At(anchors.entry).getTime()));
+    return at.getTime() <= anchors.entry.getTime() + ENTRY_BAND_END ? [{ kind: "silence_3", runAt: at }] : [];
+  }
+  const ruler = scheduleSilence(from, stopPoint, anchors).filter(
     (f) => f.kind !== "checkout_reminder" || postponed !== undefined || linkInReply,
   );
   const at = ruler.findIndex((f) => f.kind === postponed);
+  // A postponed touch the anchored ruler has no time for is not re-armed — nor the ones before it.
+  if (at === -1 && postponed !== undefined && anchors) return [];
   return at === -1 ? ruler : ruler.slice(at);
 };
 
@@ -201,8 +255,15 @@ export const rulerFor = (
  * 7.4; operator, 2026-09-26). She can still come back: `furthest` gives way to the stage
  * her next turn reaches. A sale cancels the ruler first, and `pedido_criado` has no edge
  * to `perdido` anyway.
+ *
+ * Which touch is last is read from the data, not the name (4a, 2026-10-02): the anchored ruler
+ * has no `silence_3` when the entry's band is past, and then `silence_2` closes it. `scheduled`
+ * is every `silence_*` kind of that conversation still scheduled after this one left; `null`
+ * (the read failed) falls back to the name, as before.
  */
-export const endsSilenceRuler = (kind: string): boolean => kind === "silence_3";
+export const endsSilenceRuler = (kind: string, scheduled: readonly string[] | null): boolean =>
+  kind.startsWith("silence_") &&
+  (scheduled === null ? kind === "silence_3" : !scheduled.some((k) => k.startsWith("silence_")));
 
 /** What the sale webhook says about one order — all the post-order ruler reads. */
 export interface OrderFacts {

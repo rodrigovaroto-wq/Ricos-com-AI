@@ -176,7 +176,7 @@ describe("recepção automática (welcomed)", () => {
   it("portas local e function simulam o timer: segunda chamada com resume e o mesmo payload", async () => {
     for (const door of ["local", "function"] as const) {
       const fake = fakeDoor(
-        { status: "welcomed", reply: "Oi! Já te respondo.", resumeInSeconds: 120 },
+        { status: "welcomed", reply: "Oi! Já te respondo.", resumeInSeconds: 60 },
         { status: "ok", reply: "O colete custa R$ 129,90." },
       );
       const report = await run(door, scripted("oi\n[FIM]"), fake.deliver);
@@ -195,7 +195,7 @@ describe("recepção automática (welcomed)", () => {
         return polls < 3 ? ["Oi! Já te respondo."] : ["Oi! Já te respondo.", "O colete custa R$ 129,90."];
       },
     });
-    const fake = fakeDoor({ status: "welcomed", reply: "Oi! Já te respondo.", resumeInSeconds: 120 });
+    const fake = fakeDoor({ status: "welcomed", reply: "Oi! Já te respondo.", resumeInSeconds: 60 });
     const sleep = vi.fn(async () => undefined);
     const report = await run("n8n", scripted("oi\n[FIM]"), fake.deliver, { db, sleep });
     expect(fake.received).toHaveLength(1);

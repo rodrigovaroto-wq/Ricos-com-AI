@@ -235,6 +235,43 @@ recusa na porta, custo de API por lead, ROI.
 
 ---
 
+### Proposta para fechar com o operador (2026-10-02, noite) — nada construído ainda
+
+**Decisões abertas, com recomendação:**
+
+| # | Decisão | Recomendação | Alternativa |
+|---|---|---|---|
+| 1 | Onde mora o código | Repositório novo `encorpa-portal`, Next.js no Vercel, revalidação de 1 h (ISR) | HTML estático + função na Supabase (menos peças, mais código à mão) |
+| 2 | Conta e token do Vercel | **O** cria o projeto e um token com escopo só nele | — |
+| 3 | Dados do anúncio | Token de usuário do sistema do BM com `ads_read` (**S**) e o id da conta de anúncio; o portal lê gasto/impressões/cliques por anúncio e conjunto | CSV exportado do Gerenciador, à mão |
+| 4 | Comissões recebidas | Fase 1: **estimado** a partir de `orders` + taxas do config (as APIs da Logzz/Coinzz não têm extrato); antecipado pela API do Mercado Pago; conciliação semanal por CSV do extrato | Só estimado |
+| 5 | Login | Supabase Auth por link mágico, lista de 2 e-mails; a chave do banco só no servidor | Senha do Vercel (exige plano Pro, ~US$ 20/mês) |
+
+**Métricas por criativo e por região (12):** do anúncio — (1) gasto, (2) CPM, (3) CTR do link,
+(4) custo por conversa iniciada (CPL); da agente, pelo `referral` gravado no lead — (5) taxa de
+resposta (ela manda a 2ª mensagem), (6) % que chega ao preço, (7) % que recebe o link, (8) conversão
+em pedido, (9) % antecipado, (10) handoff, (11) opt-out, (12) custo de API por lead. Ficam fora por
+amostra: ticket médio, recusa na porta e ROI por criativo (aparecem só no total da operação).
+**Região:** pelo conjunto (A × B), não pelo endereço — o endereço só existe para quem chegou longe,
+e ler região por ele mede o funil, não a região.
+
+**Metas por fase (mínima / ideal):**
+
+| Fase | Métrica que decide | Mínima | Ideal |
+|---|---|---|---|
+| Copy (1–5) | CPL do criativo | ≤ R$ 1,75 | ≤ R$ 1,25 |
+| Copy (1–5) | CTR do link | ≥ 1% | ≥ 2% |
+| Copy (1–5) | Taxa de resposta | ≥ 60% | ≥ 75% |
+| Copy (1–5) | % que chega ao preço | ≥ 40% | ≥ 55% |
+| Região (6–10) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
+| Região (6–10) | Conversão em pedido | ≥ 6% | ≥ 10% |
+| Leitura (11–12) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
+
+**Conta que o operador precisa ver antes de assinar:** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
+leads (passa o piso de 500). Pedidos: 53–64 a 10%, mas **32–38 a 6%** — abaixo do piso de 50. Ou
+seja, se a conversão ficar na faixa "ajustar", o teste termina sem amostra para validar nada; a
+decisão do dia 12 vira "estender", não "ajustar".
+
 ## Reverificar: Malu executando troca, recusa, cancelamento e devolução sozinha
 
 **Veredito vigente (R16.9, 29/09):** não dá — a API da Coinzz documenta só `POST /api/sales` e a da

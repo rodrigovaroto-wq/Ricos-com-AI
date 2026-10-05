@@ -315,5 +315,6 @@ export const WELCOME_AUTO_REPLY =
  * a `Wait` node, then calls the turn endpoint again with `resume: true` for the real
  * answer. The Edge Function does not schedule this itself — it only tells n8n how long
  * to wait, so the number lives in one place instead of being copied into the workflow.
+ * One minute since 2026-10-02 (operator, R18.1); it was 120 s, against a spec that said 3 min.
  */
-export const WELCOME_RESUME_DELAY_SECONDS = 120;
+export const WELCOME_RESUME_DELAY_SECONDS = 60;

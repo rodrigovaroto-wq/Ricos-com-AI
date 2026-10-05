@@ -11,7 +11,99 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02)
+>
+> Premissas (plano do mês 1, [`10-execucao-mes-1.md`](../../agente-ia/05-plano/10-execucao-mes-1.md)
+> §7, e L3 itens 2 e 7 de [`09-pipeline-ate-producao.md`](../../agente-ia/05-plano/09-pipeline-ate-producao.md);
+> operador, 2026-10-02). Preços de `config/business.example.json` (`codBrl` 129,90, `prepayBrl`
+> 116,91, 10%); kits e taxas da tabela de 29/09 logo abaixo, sem mudança.
+>
+> | Item | Antes (29/09) | **Vigente (02/10)** | Origem |
+> |---|---|---|---|
+> | Lead (CPL) | R$ 1,00 | **R$ 1,25–1,50** → R$ 12,50–15,00 por venda a 10% | operador |
+> | IA (modelo) | R$ 0,10 por lead → R$ 1,00 por venda | **R$ 0,27 por lead** (p50 medido em 30/09; p95 R$ 0,546; teto R$ 0,55) → **R$ 2,70 por venda** a 10% | medido (L0.5) |
+> | WhatsApp | não contado | **R$ 0 por lead** (atendimento e régua dentro da janela de 24 h e da gratuita de 72 h); só o template UTILITY do pós-venda fora da janela (`order_eve`), US$ 0,0068 (~**R$ 0,04**) **por pedido** | tabela da Meta |
+> | Recusa na porta (só COD) | 15% a R$ 9,90 | **12–17% a R$ 9,99** — **valor especulado, ainda precisa ser medido** | operador |
+> | Devolução pós-envio (dois caminhos) | 7,5% a R$ 25,00 | **5–10% a R$ 25,00** | operador |
+> | Conversão lead → pedido | 10% | 10% (sem mudança; é o limiar de "escalar" em L3.7) | operador |
+>
+> **Valor da recusa — decidido pelo operador em 2026-10-02: R$ 9,99** (R18.3). A memória
+> `entrega-concluida-so-no-cod` e a caixa de 29/09 diziam R$ 9,90; ficam como histórico. A
+> **taxa** de recusa (12–17%) continua especulada — medir no primeiro extrato com recusa.
+>
+> **Tabela base na ponta pessimista das faixas** (recusa 17%, devolução 10%, CPL R$ 1,50, IA
+> no p50). Margem antes de volume: a operação só escala se o pior caso da faixa ainda paga.
+>
+> | Por venda (R$) | COD 1 | COD 2 | COD 3 | Antec. 1 | Antec. 2 | Antec. 3 |
+> |---|---:|---:|---:|---:|---:|---:|
+> | Faturamento | 129,90 | 233,82 | 311,76 | 116,91 | 207,84 | 272,79 |
+> | Produto | −30,00 | −60,00 | −90,00 | −30,00 | −60,00 | −90,00 |
+> | Transação | −11,57 | −18,83 | −24,28 | −3,99 | −6,70 | −8,64 |
+> | Entrega concluída | −19,99 | −19,99 | −19,99 | 0,00 | 0,00 | 0,00 |
+> | Manuseio | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 | −4,99 |
+> | **Margem se entregue** | **63,35** | **130,01** | **172,50** | **77,93** | **136,15** | **169,16** |
+> | Perda esperada por recusa (17% × (margem + R$ 9,99)) | −12,47 | −23,80 | −31,02 | 0,00 | 0,00 | 0,00 |
+> | Perda esperada por devolução (10% × (margem + R$ 25,00), + taxa MP no antecipado) | −8,83 | −15,50 | −19,75 | −10,69 | −16,79 | −20,28 |
+> | **Margem esperada, antes de lead, IA e WhatsApp** | **42,05** | **90,71** | **121,73** | **67,24** | **119,36** | **148,88** |
+> | Lead (R$ 1,50 ÷ 10%) | −15,00 | −15,00 | −15,00 | −15,00 | −15,00 | −15,00 |
+> | IA (R$ 0,27 × 10 leads) | −2,70 | −2,70 | −2,70 | −2,70 | −2,70 | −2,70 |
+> | WhatsApp (UTILITY pós-venda, por pedido) | −0,04 | −0,04 | −0,04 | −0,04 | −0,04 | −0,04 |
+> | **Lucro por venda** | **24,31** | **72,97** | **103,99** | **49,50** | **101,62** | **131,14** |
+>
+> Mix 70% COD / 30% antecipado: **R$ 31,86 / R$ 81,56 / R$ 112,13** por venda (1 / 2 / 3 peças).
+> Na ponta otimista (recusa 12%, devolução 5%, CPL R$ 1,25): **R$ 41,63 / R$ 96,91 / R$ 130,97**.
+> Totais calculados com valores exatos; a soma das linhas arredondadas pode diferir em R$ 0,01.
+>
+> **A conta de 1 peça, por caminho (ponta pessimista):**
+>
+> ```
+> COD:        129,90 − 30,00 − 11,57 (6,99% × 129,90 + 2,49) − 19,99 − 4,99      = 63,35 se entregue
+>             − 17% × (63,35 + 9,99) = −12,47      (recusa: perde a margem e paga R$ 9,99)
+>             − 10% × (63,35 + 25,00) = −8,83      (devolução: perde a margem e paga R$ 25,00)
+>             = 42,05 − 15,00 (lead) − 2,70 (IA) − 0,04 (WhatsApp)                 = 24,31
+> Antecipado: 116,91 − 30,00 − 3,99 (MP: 0,5 × (0,99% × 116,91 + 1,00) + 0,5 × 4,98% × 116,91) − 4,99
+>                                                                                     = 77,93 se entregue
+>             − 10% × (77,93 + 25,00 + 3,99) = −10,69   (a taxa do MP não volta no estorno)
+>             = 67,24 − 15,00 − 2,70 − 0,04                                          = 49,50
+> Mix 70/30:  0,7 × 24,31 + 0,3 × 49,50                                              = 31,86
+> ```
+>
+> **Sensibilidade, 1 peça** (devolução 10%; com 5%, acrescente R$ 4,42 no COD e R$ 5,35 no antecipado):
+>
+> | Recusa \ CPL | R$ 1,25: COD / Antec. / Mix | R$ 1,50: COD / Antec. / Mix |
+> |---|---|---|
+> | 12% | 30,47 / 52,00 / **36,93** | 27,97 / 49,50 / **34,43** |
+> | 17% | 26,81 / 52,00 / **34,36** | 24,31 / 49,50 / **31,86** |
+>
+> - Cada ponto de recusa custa **R$ 0,73** por venda COD (63,35 + 9,99 = 73,34 × 1%); o
+>   antecipado não muda.
+> - Cada R$ 0,25 de CPL custa **R$ 2,50** por venda nos dois caminhos — a 10% de conversão, o CPL
+>   pesa mais que a recusa em toda a faixa.
+> - IA no p95 (R$ 0,546) ou no teto (R$ 0,55): R$ 5,46–5,50 por venda, −R$ 2,76 a −2,80 sobre o
+>   p50 → mix pessimista **R$ 29,06–29,10**.
+> - Contra a tabela de 29/09 (mix R$ 41,99, 1 peça), a ponta pessimista perde **R$ 10,13** (41,99 − 31,86) por
+>   venda: lead +R$ 5,00, IA +R$ 1,70, WhatsApp +R$ 0,04, recusa e devolução mais altas o resto.
+>
+> **Reserva de caixa** (L3.2): **todo custo de um pedido até a venda virar dinheiro** — produto,
+> manuseio, taxa de transação, entrega concluída, recusa, devolução. O **antecipado cai na hora**
+> no Mercado Pago e cobre o próprio custo; **a entrega libera 14 dias depois do pagamento** (que
+> acontece na porta, D+1 a 3), então só o COD empata caixa. Por pedido COD criado, com 1 peça:
+> `(1 − recusa − devolução) × 66,55 + recusa × 9,99 + devolução × 25,00`, onde 66,55 =
+> 30,00 + 11,57 + 19,99 + 4,99 → **R$ 52,78** na ponta pessimista, **R$ 57,69** na otimista
+> (menos recusa = mais pedidos entregues = mais custo adiantado).
+>
+> **A conta da reserva de L3 não fecha com estas premissas — decisão do operador.** Com a verba de
+> R$ 800 e 10% de conversão, o teste cria 53 pedidos (CPL R$ 1,50) a 64 (CPL R$ 1,25), 37 a 45 no
+> COD, e nenhum crédito do COD volta antes do dia 15. Reserva necessária: **R$ 1.970 a R$ 2.584**,
+> contra **R$ 1.200** reservados. Os R$ 1.200 cobrem até ~6,1% de conversão na ponta pessimista.
+> Fecha se o produto e a transação não saírem do caixa antes da venda (a seção de caixa de
+> `docs/operacao/mapa-financeiro.html` dizia que o estoque é do fornecedor e os R$ 30,00 saem da
+> comissão): aí são **R$ 838 a R$ 1.039**. Qual das duas é a verdade é pergunta para o operador.
+
 > ### Lucro por venda com lead, IA, recusa e devolução — 1, 2 e 3 peças (2026-09-29)
+>
+> **Histórico desde 2026-10-02:** lead, IA, recusa e devolução foram substituídos pela caixa
+> acima; produto, transação, entrega concluída e manuseio continuam valendo.
 >
 > Premissas do operador: **lead R$ 1,00**, **conversão 10%** (R$ 10,00 de lead por venda),
 > **IA R$ 0,10 por lead** (1 lead = 1 conversa → R$ 1,00 por venda), **recusa de 15% só no COD,

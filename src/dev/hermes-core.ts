@@ -20,9 +20,12 @@ export function maskPii(text: string): string {
     .replace(/(?:\+?55\s?)?\(?\b\d{2}\)?\s?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]");
 }
 
-/** One conversation as Hermes reads it: every Malu reply with the vetoes it took first. */
-export function renderConversation(c: Conversation): string {
+/** One conversation as Hermes reads it: every Malu reply with the vetoes it took first.
+ * `versions`: the agent versions its turns ran under (production), so a premise the model
+ * judges can be set against the previous version (L3 item 8). */
+export function renderConversation(c: Conversation, versions: readonly number[] = []): string {
   const lines = [`# ${c.persona}`, ""];
+  if (versions.length) lines.push(`${versions.length > 1 ? "versões" : "versão"} da Malu: ${versions.map((v) => `v${v}`).join(", ")}`, "");
   let n = 0;
   for (const e of c.transcript) {
     const text = maskPii(e.text ?? "").trim();
@@ -161,7 +164,7 @@ export function discardAlreadyVetoed(checked: Checked[]): Checked[] {
   );
 }
 
-const TARGET = /^(?:gate:[a-z_]+|prompt|config:[\w.]+|regua|interpretador|tamanho|n8n:[\w\s—-]+|operador)$/;
+const TARGET = /^(?:gate:[a-z_]+|prompt|config:[\w.]+|regua|interpretador|tamanho|n8n:[\w\s—-]+|operador|reverter:v[1-9]\d*)$/;
 
 /**
  * The five things this project decided not to do (R11.1, R11.4, R11.5, R11.2, R11.6),
@@ -293,7 +296,7 @@ export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]
 const TEXT = ["alvo", "o_que", "por_que", "objetivo", "como_medir", "mentira_vizinha", "registro", "severidade", "classe", "fato_contradito"] as const;
 const LABEL = /^(?:conversa|persona)-[\w-]+$/;
 /** The validator's problem names (checkProposals); anything after the name may echo the model. */
-const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "classe inválida", "mentira sem o fato contradito", "fato contradito não está no prompt", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer", ALREADY_VETOED];
+const PROBLEMS = ["campo", "alvo desconhecido", "severidade inválida", "classe inválida", "mentira sem o fato contradito", "fato contradito não está no prompt", "sem evidência", "conversa inexistente", "trecho não está na conversa", "afrouxa gate", "propõe o que foi decidido não fazer", ALREADY_VETOED, "reversão pendente", "reversão de versão fora do ar", "reversão já pendente", "reversão repetida"];
 
 /**
  * Only what a proposal is — the known text keys and the evidence as {conversa, mensagem,
@@ -444,18 +447,34 @@ export function withMeasure(previous: string | null, measure: string): string {
   return link ? `${link} · medida: ${measure}` : `medida: ${measure}`;
 }
 
+/** One row of `agent_versions` (migration 0021): a publication of the turn. */
+export interface AgentVersionRow {
+  version: number;
+  git_sha: string;
+  published_at: string;
+  hermes_proposal_id: string | null;
+  note: string | null;
+}
+
 /**
  * The evaluation views (0018) as the bundle carries them: every count and rate is SQL's,
  * never the model's (it is weak at arithmetic, and the operator reads the same views).
+ * Since 0021 also per agent version (`eval_version_outcomes`) and the version on air, so a
+ * proposal can compare the newest version with the one before it.
  */
 export function renderNumbers(
   outcomes: ReadonlyArray<Record<string, unknown>>,
   blocks: ReadonlyArray<Record<string, unknown>>,
+  byVersion: ReadonlyArray<Record<string, unknown>> = [],
+  latest: AgentVersionRow | null = null,
 ): string {
   const table = (rows: ReadonlyArray<Record<string, unknown>>, cols: string[]) =>
     rows.length === 0
       ? ["(sem linhas no período)"]
       : [`| ${cols.join(" | ")} |`, `|${cols.map(() => "---").join("|")}|`, ...rows.map((r) => `| ${cols.map((c) => String(r[c] ?? "")).join(" | ")} |`)];
+  const onAir = latest
+    ? `Versão no ar: v${latest.version} (commit ${latest.git_sha.slice(0, 7)}, publicada em ${latest.published_at}, ${latest.hermes_proposal_id ? `proposta ${latest.hermes_proposal_id}` : "deploy manual, sem proposta"})`
+    : "Nenhuma versão registrada em `agent_versions`: não atribua turno a versão nenhuma.";
   return [
     "# Números do período (views SQL — não recalcule)",
     "",
@@ -468,6 +487,167 @@ export function renderNumbers(
     "## Vetos por gate e dia (`eval_gate_blocks`)",
     "",
     ...table(blocks, ["day", "gate", "checks", "blocks", "warns", "block_rate"]),
+    "",
+    "## Desfecho dos turnos por versão da Malu (`eval_version_outcomes`)",
+    "",
+    onAir,
+    "",
+    ...table(
+      byVersion.map((r) => ({ ...r, agent_version: r.agent_version ?? "sem versão" })),
+      ["agent_version", "first_at", "last_at", "turns", "sent", "fallbacks", "handoffs", "fallback_rate", "handoff_rate", "avg_rewrites", "cost_brl"],
+    ),
+    "",
+  ].join("\n");
+}
+
+// ── Rollback (L3 item 8 of 09-pipeline-ate-producao.md) ──────────────────────────────
+/** Code prefix of a revert proposal: there is no severity column, and the decision Routine
+ * (hermes/DECIDIR.md) shows every row whose code starts with it first. */
+export const REVERT_CODE = "REVERTER-";
+/**
+ * Decided turns (send + fallback + handoff, the denominator of `handoff_rate`) each version
+ * needs before the comparison runs: a run reads 50 leads (R6.2), so this is about four
+ * decided turns per lead of one batch. Below it a handful of handoffs swings the rate by
+ * whole points, and a revert would chase noise.
+ */
+export const REVERT_MIN_TURNS = 200;
+/** One-sided 95% for a pooled two-proportion z: worse beyond what chance between two
+ * samples of that size explains. Turns of one conversation are not independent, so this
+ * is lenient, not strict — and a revert is a proposal the operator still decides. */
+const REVERT_Z = 1.645;
+
+export interface Revert {
+  version: number;
+  previous: number;
+  latestRate: number;
+  previousRate: number;
+  latestTurns: number;
+  previousTurns: number;
+  z: number;
+}
+
+/**
+ * The version on air against the newest earlier version with at least REVERT_MIN_TURNS
+ * decided turns, from `eval_version_outcomes` (0021): handoff worse with enough sample →
+ * revert it. A short-lived version in between is skipped, so two quick publishes do not
+ * leave the one on air unchecked. Null when no version is registered, the one on air or
+ * every earlier one is under REVERT_MIN_TURNS, or the rise is within chance. Equal or
+ * better never fires.
+ */
+export function revertCheck(byVersion: ReadonlyArray<Record<string, unknown>>, latest: AgentVersionRow | null): Revert | null {
+  if (!latest) return null;
+  const read = (r: Record<string, unknown>) => {
+    const handoffs = Number(r.handoffs ?? 0);
+    const turns = Number(r.sent ?? 0) + Number(r.fallbacks ?? 0) + handoffs;
+    return { version: Number(r.agent_version), handoffs, turns };
+  };
+  const rows = byVersion.filter((r) => r.agent_version != null).map(read);
+  const cur = rows.find((r) => r.version === latest.version);
+  const prev = rows.filter((r) => r.version < latest.version && r.turns >= REVERT_MIN_TURNS).sort((a, b) => b.version - a.version)[0];
+  if (!cur || !prev || cur.turns < REVERT_MIN_TURNS) return null;
+  const [p1, p0] = [cur.handoffs / cur.turns, prev.handoffs / prev.turns];
+  const pool = (cur.handoffs + prev.handoffs) / (cur.turns + prev.turns);
+  const se = Math.sqrt(pool * (1 - pool) * (1 / cur.turns + 1 / prev.turns));
+  if (!(p1 > p0) || se === 0) return null;
+  const z = (p1 - p0) / se;
+  return z >= REVERT_Z
+    ? { version: cur.version, previous: prev.version, latestRate: p1, previousRate: p0, latestTurns: cur.turns, previousTurns: prev.turns, z }
+    : null;
+}
+
+const isRevertCode = (code: string | null) => code?.startsWith(REVERT_CODE) ?? false;
+
+/** One revert per version: none when the ledger already has one for it — pending, decided
+ * or published. A failed one (its implementation did not pass) is tried again. */
+export function revertToWrite(r: Revert | null, ledger: readonly LedgerRow[]): Revert | null {
+  if (!r) return null;
+  const mine = `${REVERT_CODE}v${r.version} `;
+  return ledger.some((l) => l.code?.startsWith(mine) && l.status !== "failed") ? null : r;
+}
+
+/**
+ * "Nenhuma proposta nova entra antes disso" (L3 item 8): a revert waiting for the operator
+ * or being implemented, or one this run writes. Not after it is published (the corrected
+ * change comes back as a proposal), rejected (the operator kept the version) or failed.
+ */
+export function revertPending(ledger: readonly LedgerRow[], writing: boolean): boolean {
+  return writing || ledger.some((l) => isRevertCode(l.code) && PENDING.includes(l.status));
+}
+
+const PENDING: ReadonlyArray<LedgerRow["status"]> = ["proposed", "accepted", "implementing"];
+
+const isRevert = (alvo: unknown) => typeof alvo === "string" && /^reverter:v\d+$/.test(alvo.trim());
+
+/**
+ * A revert the model wrote passes the same bar as the deterministic one: only of the version
+ * on air, none once any revert of it is in the ledger except a failed one — refused included, or a
+ * refusal would come back every 50 leads and hold every other proposal — nor one written by this
+ * run (`writing`, from revertToWrite), and at most one per version. `onAir` null (no version
+ * registered, or a persona round) drops every model revert.
+ */
+export function checkModelReverts(checked: Checked[], onAir: number | null, ledger: readonly LedgerRow[], writing: Revert | null): Checked[] {
+  let kept = false;
+  return checked.map((c) => {
+    if (!c.ok || !isRevert(c.proposal.alvo)) return c;
+    const v = c.proposal.alvo.trim().slice("reverter:".length);
+    const problem =
+      onAir === null || v !== `v${onAir}`
+        ? `reversão de versão fora do ar: ${v} (no ar: ${onAir === null ? "nenhuma" : `v${onAir}`})`
+        : writing?.version === onAir || ledger.some((l) => l.code?.startsWith(`${REVERT_CODE}${v} `) && l.status !== "failed")
+          ? `reversão já pendente ou decidida: ${v}`
+          : kept
+            ? `reversão repetida: ${v}`
+            : null;
+    if (problem) return { ...c, ok: false, problems: [problem] };
+    kept = true;
+    return c;
+  });
+}
+
+/** While a revert is pending, only revert proposals are written. */
+export function holdForRevert(checked: Checked[], pending: boolean): Checked[] {
+  if (!pending) return checked;
+  return checked.map((c) =>
+    c.ok && !isRevert(c.proposal.alvo) ? { ...c, ok: false, problems: ["reversão pendente: nenhuma proposta nova entra antes dela (L3 item 8)"] } : c,
+  );
+}
+
+/** The code the operator reads: H-numbers restart every run, so the day goes with them. */
+export function proposalCode(alvo: string, day: string, n: number): string {
+  return isRevert(alvo) ? `${REVERT_CODE}${alvo.trim().slice("reverter:".length)} ${day} H-${n}` : `${day} H-${n}`;
+}
+
+const pct = (x: number) => `${(x * 100).toFixed(1).replace(".", ",")}%`;
+
+/** What the deterministic revert says, in the ledger and in the bundle. */
+export function revertRationale(r: Revert): string {
+  return (
+    `Reverter v${r.version} — handoff subiu de ${pct(r.previousRate)} em ${r.previousTurns} turnos (v${r.previous}) ` +
+    `para ${pct(r.latestRate)} em ${r.latestTurns} turnos (v${r.version}), acima do que o acaso explica (z ${r.z.toFixed(2).replace(".", ",")} ≥ 1,645).`
+  );
+}
+
+/** `reverter.md` in the bundle: Hermes reads it first. */
+export function renderRevert(fired: Revert | null, pending: boolean): string {
+  const head = "# Reversão da versão nova (L3 item 8)";
+  if (!pending)
+    return [
+      head,
+      "",
+      "Nenhuma reversão pendente. Compare as conversas da versão mais nova com as da anterior",
+      "(cada conversa diz `versão da Malu: vN`): se a nova mostra **premissa indevida** que a anterior",
+      "não mostrava, proponha `alvo: reverter:vN` (ver a skill).",
+      "",
+    ].join("\n");
+  return [
+    head,
+    "",
+    `**CRÍTICO — ${fired ? `reverter v${fired.version}` : "há uma reversão aguardando o operador"}.**`,
+    "",
+    ...(fired ? [revertRationale(fired), "", "O sistema já gravou essa proposta de reversão; não a repita.", ""] : []),
+    "Enquanto a reversão não for decidida, **só proposta de reversão** entra: nenhuma outra mudança.",
+    "Qualquer outra proposta desta rodada é descartada. Sem premissa indevida nova para reverter,",
+    'entregue `"propostas": []`.',
     "",
   ].join("\n");
 }

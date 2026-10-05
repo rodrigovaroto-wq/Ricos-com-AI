@@ -34,11 +34,21 @@ import { systemPrompt } from "../agent/prompt.js";
 import { config as fixtureConfig, ctx as fixtureCtx } from "../../tests/fixtures.js";
 import {
   annotateWithGates,
+  checkModelReverts,
   checkProposals,
   discardAlreadyVetoed,
+  holdForRevert,
   measureEffect,
   pickSample,
+  proposalCode,
   renderNumbers,
+  renderRevert,
+  REVERT_CODE,
+  revertCheck,
+  revertPending,
+  revertRationale,
+  revertToWrite,
+  type Revert,
   scrubSecrets,
   storedEvidence,
   withMeasure,
@@ -51,6 +61,7 @@ import {
   withoutQuotes,
   type LedgerRow,
   type SupabaseRows,
+  type AgentVersionRow,
 } from "./hermes-core.js";
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
 import { costBrl, PRICES } from "../llm/pricing.js";
@@ -119,7 +130,20 @@ async function fromSupabase(lastRunStart: string | null) {
   const sample = await restAll<SampleRow>(`hermes_sample?select=*${since}&order=created_at.desc,conversation_id`);
   const ids = pickSample(sample, limit);
   if (ids.length === 0) return { conversations: [], leads: 0, ids: [] };
-  return load(await restAll<ConvRow>(`conversations?select=${CONV}&${REAL}&id=in.(${ids.join(",")})&order=created_at,id`));
+  const loaded = await load(await restAll<ConvRow>(`conversations?select=${CONV}&${REAL}&id=in.(${ids.join(",")})&order=created_at,id`));
+  // The version each conversation ran under (L3 item 8): Hermes judges an undue premise
+  // against the previous version. turn_outcomes_conversation_idx (conversation_id,
+  // created_at) serves the `in` and the order restAll pages by; before
+  // migration 0021 the column does not exist and the conversations go without it.
+  const tagged = await restAll<{ conversation_id: string; agent_version: number }>(
+    `turn_outcomes?select=conversation_id,agent_version&conversation_id=in.(${loaded.ids.join(",")})&agent_version=not.is.null&order=conversation_id,created_at,id`,
+  ).catch(() => []);
+  const versions = new Map<string, number[]>();
+  for (const t of tagged) {
+    const label = `conversa-${t.conversation_id.slice(0, 8)}`;
+    versions.set(label, [...new Set([...(versions.get(label) ?? []), t.agent_version])].sort((a, b) => a - b));
+  }
+  return { ...loaded, versions };
 }
 
 function fromPersonas(dir: string): { conversations: Conversation[]; leads: number } {
@@ -145,8 +169,10 @@ const lastRunStart =
         (await rest<Array<{ started_at: string | null; created_at: string }>>("hermes_runs?select=started_at,created_at&source=eq.supabase&order=created_at.desc&limit=1"))[0],
       )
     : null;
-const { conversations, leads, ids: conversationIds } =
-  source === "supabase" ? await fromSupabase(lastRunStart) : { ...fromPersonas(source.slice("personas:".length)), ids: [] as string[] };
+const { conversations, leads, ids: conversationIds, versions } =
+  source === "supabase"
+    ? { versions: new Map<string, number[]>(), ...(await fromSupabase(lastRunStart)) }
+    : { ...fromPersonas(source.slice("personas:".length)), ids: [] as string[], versions: new Map<string, number[]>() };
 if (conversations.length === 0) {
   console.log("hermes: nenhuma conversa para ler");
   process.exit(0);
@@ -156,7 +182,7 @@ const bundle = mkdtempSync(join(tmpdir(), "hermes-bundle-"));
 mkdirSync(join(bundle, "conversas"));
 const rendered = new Map<string, string>();
 for (const c of conversations) {
-  const md = renderConversation(c);
+  const md = renderConversation(c, versions.get(c.persona));
   rendered.set(c.persona, md);
   writeFileSync(join(bundle, "conversas", `${c.persona}.md`), md);
 }
@@ -166,13 +192,26 @@ writeFileSync(join(bundle, "placar.md"), renderScorecard(source, scoreRun(conver
 const promptText = systemPrompt(fixtureConfig, gateBriefing(fixtureConfig), null);
 writeFileSync(join(bundle, "prompt.md"), `# O prompt da Malu (config de teste)\n\n${promptText}\n`);
 // Counts and rates come from the evaluation views, never from the model (item 4).
+let revert: Revert | null = null;
+let onAir: number | null = null;
 if (SB) {
   const from = (lastRunStart ?? new Date(Date.now() - 14 * 86_400_000).toISOString()).slice(0, 10);
-  const [outcomesByDay, blocksByDay] = await Promise.all([
+  // Until the operator applies 0021 these two do not exist: the run goes on without them.
+  const beforeMigration = <T>(e: Error): T[] => (console.warn(`hermes: versão da Malu indisponível (${e.message.slice(0, 120)})`), []);
+  const [outcomesByDay, blocksByDay, outcomesByVersion, [latestVersion]] = await Promise.all([
     restAll<Record<string, unknown>>(`eval_turn_outcomes?select=*&day=gte.${from}&order=day`),
     restAll<Record<string, unknown>>(`eval_gate_blocks?select=*&day=gte.${from}&blocks=gt.0&order=day,gate`),
+    // The last ten versions whole, not the period: the rollback rule compares a version with the one before it.
+    rest<Record<string, unknown>[]>("eval_version_outcomes?select=*&order=agent_version.desc.nullslast&limit=10").catch(beforeMigration<Record<string, unknown>>),
+    rest<AgentVersionRow[]>("agent_versions?select=*&order=version.desc&limit=1").catch(beforeMigration<AgentVersionRow>),
   ]);
-  writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay));
+  writeFileSync(join(bundle, "numeros.md"), renderNumbers(outcomesByDay, blocksByDay, outcomesByVersion, latestVersion ?? null));
+  // L3 item 8: handoff worse under the version on air → revert it. Production runs only: a
+  // persona round never writes a revert of what real customers ran.
+  if (source === "supabase") {
+    revert = revertCheck(outcomesByVersion, latestVersion ?? null);
+    onAir = latestVersion?.version ?? null;
+  }
 } else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
@@ -184,6 +223,10 @@ const ledger: LedgerRow[] = SB
     )
   : [];
 writeFileSync(join(bundle, "decisoes.md"), renderLedger(ledger));
+// One revert per version; while one is pending no other proposal is written (L3 item 8).
+const revertNow = revertToWrite(revert, ledger);
+const holding = revertPending(ledger, revertNow !== null);
+writeFileSync(join(bundle, "reverter.md"), renderRevert(revertNow, holding));
 const claude = readFileSync(join(REPO, "CLAUDE.md"), "utf8");
 writeFileSync(
   join(bundle, "regras.md"),
@@ -203,7 +246,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia decisoes.md primeiro, depois placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();
@@ -240,7 +283,12 @@ const blockedBy = (text: string) => [
     ),
   ),
 ];
-const checked = discardAlreadyVetoed(annotateWithGates(checkProposals(raw, rendered, promptText), blockedBy));
+// A model-written revert passes the bar of the deterministic one: the version on air, one
+// per version, none while one is pending or written by this run (revertNow).
+const checked = holdForRevert(
+  checkModelReverts(discardAlreadyVetoed(annotateWithGates(checkProposals(raw, rendered, promptText), blockedBy)), onAir, ledger, revertNow),
+  holding,
+);
 const ok = checked.filter((c) => c.ok);
 
 const day = new Date().toISOString().slice(0, 10);
@@ -290,6 +338,34 @@ if (writeDb) {
       ...(conversationIds.length ? { conversation_ids: conversationIds } : {}),
     }),
   });
+  // The deterministic revert (L3 item 8): written by this run from the SQL numbers, not by
+  // the model. Critical by its code prefix — there is no severity column (no migration).
+  if (revertNow) {
+    const o_que = `Reverter v${revertNow.version}`;
+    await rest("hermes_proposals", {
+      method: "POST",
+      body: JSON.stringify({
+        run_id: run!.id,
+        code: `${REVERT_CODE}v${revertNow.version} ${day} handoff`,
+        target: `reverter:v${revertNow.version}`,
+        rationale: revertRationale(revertNow),
+        evidence: {
+          alvo: `reverter:v${revertNow.version}`,
+          o_que,
+          por_que: revertRationale(revertNow),
+          objetivo: `handoff de volta ao nível da v${revertNow.previous}; a mudança da v${revertNow.version} é analisada, corrigida, testada e validada antes de voltar`,
+          como_medir: "handoff_rate em eval_version_outcomes, versão nova contra a anterior",
+          severidade: "critica",
+          evidencias: [],
+          reverter: revertNow,
+          source,
+        },
+        status: "proposed",
+        leads_seen: leads,
+      }),
+    });
+    console.log(`hermes: CRÍTICO — reversão da v${revertNow.version} gravada`);
+  }
   if (ok.length)
     await rest("hermes_proposals", {
       method: "POST",
@@ -297,8 +373,8 @@ if (writeDb) {
         ok.map((c, i) => ({
           run_id: run!.id,
           // The code the operator reads in the document (renderProposals numbers the valid
-          // ones), with the day: H-numbers restart every run.
-          code: `${day} H-${i + 1}`,
+          // ones), with the day: H-numbers restart every run. A revert starts with REVERTER-.
+          code: proposalCode(c.proposal.alvo, day, i + 1),
           target: c.proposal.alvo,
           rationale: `${c.proposal.o_que} — ${c.proposal.por_que}`,
           evidence: { ...storedEvidence(c), source },

@@ -73,21 +73,39 @@ describe("5.8: o status do pedido vira estágio do funil", () => {
  * `perdido` (a régua de silêncio é cancelada na venda, e `furthest` recusa a aresta).
  */
 describe("7.4: a régua de silêncio termina em perdido", () => {
+  // O que ainda está agendado depois de cada toque sair, na ordem da régua.
+  const after = (ruler: ReadonlyArray<{ kind: string }>, i: number) => ruler.slice(i + 1).map((f) => f.kind);
+
   it("só o último toque da régua fecha a conversa", () => {
     const now = new Date("2026-09-26T12:00:00Z");
     for (const stopPoint of [undefined, "link_sent"] as const) {
       const ruler = scheduleSilence(now, stopPoint);
       const last = ruler.reduce((a, b) => (b.runAt > a.runAt ? b : a));
-      expect(ruler.filter((f) => endsSilenceRuler(f.kind)).map((f) => f.kind)).toEqual([last.kind]);
+      expect(ruler.filter((f, i) => endsSilenceRuler(f.kind, after(ruler, i))).map((f) => f.kind)).toEqual([last.kind]);
     }
   });
 
-  it.each(["silence_1", "silence_2", "checkout_reminder", "deferred_reply", "retry_turn", "order_confirmed"])(
-    "%s não fecha a conversa",
-    (kind) => {
-      expect(endsSilenceRuler(kind)).toBe(false);
-    },
-  );
+  // §4a: a conversa que passou da faixa de 63–71 h não tem silence_3; o silence_2 marca perdido.
+  it("sem silence_3 na régua ancorada, o silence_2 é quem fecha", () => {
+    const entry = new Date("2026-10-05T15:00:00Z");
+    const now = new Date(entry.getTime() + 65 * 3_600_000);
+    const ruler = scheduleSilence(now, "after_price", { entry, lastInbound: now });
+    expect(ruler.filter((f, i) => endsSilenceRuler(f.kind, after(ruler, i))).map((f) => f.kind)).toEqual(["silence_2"]);
+  });
+
+  it.each(["silence_1", "silence_2", "silence_3"])("%s com outro silence_* ainda agendado não fecha", (kind) => {
+    expect(endsSilenceRuler(kind, ["silence_9"])).toBe(false);
+  });
+
+  it.each(["checkout_reminder", "deferred_reply", "retry_turn", "order_confirmed"])("%s nunca fecha a conversa", (kind) => {
+    expect(endsSilenceRuler(kind, [])).toBe(false);
+    expect(endsSilenceRuler(kind, null)).toBe(false);
+  });
+
+  it("leitura falhou: só o silence_3 fecha, como antes", () => {
+    expect(endsSilenceRuler("silence_3", null)).toBe(true);
+    expect(endsSilenceRuler("silence_2", null)).toBe(false);
+  });
 
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
@@ -101,7 +119,8 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(afterLeave).not.toContain("await mark(");
     // Five: the empty render, the gate, the blocked delivery, the order touch its status made
     // moot, and the eve whose delivery day is not tomorrow (D1).
-    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(5);
+    // And a sixth (4a): the anchored silence_2/silence_3 whose reopening is past its deadline.
+    expect(afterLeave.match(/await leave\("canceled"\);/g)?.length).toBe(6);
     expect(afterLeave).toContain('if (!(await leave("sent"))) {');
     const nullBranch = afterLeave.slice(afterLeave.indexOf("if (text === null) {"));
     expect(nullBranch.indexOf("return;")).toBeGreaterThan(-1);
@@ -113,7 +132,9 @@ describe("7.4: a régua de silêncio termina em perdido", () => {
     expect(sweep).toContain("&select=id,kind,run_at,");
     expect(sweep).toContain("followups?id=eq.${row.id}&status=eq.scheduled&run_at=eq.${encodeURIComponent(row.run_at)}");
     expect(leaveDef).toContain("const ours = Array.isArray(closed) && closed.length > 0;");
-    expect(leaveDef).toContain("if (endsSilenceRuler(kind) && ours) {");
+    expect(leaveDef).toContain('if (ours && kind.startsWith("silence_")) {');
+    expect(leaveDef).toContain("followups?conversation_id=eq.${row.conversation_id}&status=eq.scheduled&kind=like.silence_*&select=kind");
+    expect(leaveDef).toContain("if (!sheWrote && endsSilenceRuler(kind, Array.isArray(rest) ? rest.map((r: { kind: string }) => r.kind) : null)) {");
     expect(leaveDef).toContain('persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "perdido")');
   });
 
@@ -181,10 +202,31 @@ describe("dois pedidos no mesmo lead: um cancelado não recusa a conversa", () =
  * de parada. Ligá-lo exige que a resposta dela e a venda o cancelem como cancelam o silêncio,
  * ou ele perguntaria "conseguiu finalizar?" a quem acabou de comprar.
  */
+describe("§4a: perdido nunca numa conversa em que ela acabou de escrever", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o fim da régua confere a última mensagem dela contra a hora do toque", () => {
+    expect(source).toContain('const sheWrote = typeof since === "string" && Date.parse(since) > Date.parse(row.run_at);');
+    expect(source).toContain("if (!sheWrote && endsSilenceRuler(");
+  });
+  it("negação: sem mensagem nova dela o fim da régua continua marcando perdido", () => {
+    expect(source).not.toContain("if (sheWrote && endsSilenceRuler(");
+  });
+});
+
+describe("§4a: sem âncora (leitura falhou), a régua sai sem silence_3", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o silence_3 só é armado com a âncora da entrada", () => {
+    expect(source).toContain('const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({');
+  });
+  it("negação: com âncora, a régua passa inteira (o filtro não corta o silence_3 ancorado)", () => {
+    expect(source).not.toContain('const rows = ruler.filter((f) => f.kind !== "silence_3").map(');
+  });
+});
+
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
-    expect(source).toContain("const rows = rulerFor(from, stopPoint, postponed, linkInReply).map((f) => ({");
+    expect(source).toContain("const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
   it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
@@ -428,7 +470,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=stage,leads(orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
@@ -521,5 +563,36 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
   it("a varredura: praça gravada antes do pedido, e a data do pedido na confirmação (Q5)", () => {
     expect(sweep).toContain("codUnavailable: !order && lead.address?.codAvailable === false,");
     expect(sweep).toContain("scheduledFor: order?.scheduled_for ?? null,");
+  });
+});
+
+/**
+ * Mês 1, §4a (2026-10-02): a régua ancorada na entrada e na última mensagem dela. O turno nunca
+ * fecha conversa, então a entrada nova por anúncio é o `referral` do CTWA (`payload.source`),
+ * gravado em `entry_at` (0022) — numa escrita própria, porque antes da migração a coluna não
+ * existe e a falha não pode levar junto o `last_inbound_at`.
+ */
+describe("§4a: a régua lê a entrada e a última mensagem dela", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
+
+  it("a mensagem de anúncio grava entry_at, à parte do last_inbound_at e sem derrubar o turno", () => {
+    const write = source.indexOf("body: JSON.stringify({ entry_at: inboundAt.toISOString() }),");
+    expect(write).toBeGreaterThan(source.indexOf("body: JSON.stringify({ last_inbound_at: inboundAt.toISOString() }),"));
+    expect(source.slice(write - 160, write)).toContain("if (payload.source) {");
+    expect(source.slice(write, write + 120)).toContain("}).catch(() => undefined);");
+  });
+
+  it("âncora = entry_at ?? created_at, lida de select=* (a coluna pode ainda não existir)", () => {
+    expect(source).toContain('const entry = Date.parse(c?.entry_at ?? c?.created_at ?? "");');
+    expect(source).not.toMatch(/select=[^`"]*entry_at/);
+  });
+
+  it("o adiamento de silence_2/silence_3 sem horário dentro do prazo sai por leave, antes de reancorar", () => {
+    const postpone = sweep.slice(sweep.indexOf('if (action.do === "postpone") {'));
+    const check = postpone.indexOf("if (anchors && !rulerFor(opening, stopPoint, kind, false, anchors).some((f) => f.kind === kind)) {");
+    expect(check).toBeGreaterThan(-1);
+    expect(postpone.slice(check, postpone.indexOf("return;", check))).toContain('await leave("canceled");');
+    expect(check).toBeLessThan(postpone.indexOf("await scheduleSilenceTouches("));
   });
 });

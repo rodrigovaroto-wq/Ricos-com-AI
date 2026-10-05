@@ -34,11 +34,11 @@ describe("ritmo humano", () => {
    * `openHour: 6` virava 03:00 em Brasília. Por isso todo instante daqui é escrito em
    * UTC explícito e toda expectativa é lida no relógio de São Paulo.
    */
-  it("dentro do horário local, a primeira resposta sai 3 minutos depois", () => {
+  it("dentro do horário local, a primeira resposta sai 1 minuto depois (R18.1)", () => {
     // 17:00Z = 14:00 em São Paulo, dentro da janela 6-24.
     const chegou = new Date("2026-09-10T17:00:00Z");
     expect(horaEmSP(chegou)).toBe(14);
-    expect(firstReplyAt(chegou, config).getTime() - chegou.getTime()).toBe(180_000);
+    expect(firstReplyAt(chegou, config).getTime() - chegou.getTime()).toBe(60_000);
   });
 
   it("depois do closeHour local, espera a abertura do dia seguinte", () => {
@@ -76,7 +76,7 @@ describe("ritmo humano", () => {
     const aindaAberto = new Date("2026-09-11T01:00:00Z");
     expect(aindaAberto.getUTCHours()).toBe(1);
     expect(horaEmSP(aindaAberto)).toBe(22);
-    expect(firstReplyAt(aindaAberto, config).getTime() - aindaAberto.getTime()).toBe(180_000);
+    expect(firstReplyAt(aindaAberto, config).getTime() - aindaAberto.getTime()).toBe(60_000);
   });
 
   it("quebra a resposta em no máximo três bolhas", () => {
