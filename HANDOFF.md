@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-06, noite)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07, madrugada)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -31,6 +31,27 @@ Mapa do repositório: [`docs/README.md`](docs/README.md). Tudo abaixo deste quad
 Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa feita muda de lista.
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
+
+### Onde estamos — 2026-10-07, madrugada (sessão `claude/focused-lovelace-ym1coj`, LEIA PRIMEIRO)
+
+**Conferido ao começar:** `turn` no ar = v78 com o pacote da v76 (`agent_version` 9); migrações até 0022
+(**0023 não aplicada**). PR #53 tinha conflito só no título deste quadro — resolvido por merge (`1b8ad71`).
+
+**Feito nesta sessão (tudo na branch, também empurrado para a do PR #53 até `6122dd9`):**
+- "Falta" 1 da sessão anterior **fechado**: o WIP `f657faa` revisado pelo Opus em cinco rodadas (NEEDS WORK
+  ×4 → APPROVED WITH RESIDUALS, resíduos consertados em `c22d187`); grafo §63; decisão R18.8.
+- "Falta" 2 **decidido pelo operador: opção 1** — resposta com link arma só o lembrete de 15 min (sem "Ainda
+  está aí?" nem `silence_1`); a pergunta de ofertas segue também esse lembrete (`optInFollows`).
+- `WA-envio-desligado` reescrita para o canal ligado (operador autorizou).
+- Validação em `c22d187`: `test` 6556, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxamento sem aceite,
+  `dev:regua` 20 000 casos, `typecheck:function` limpo; `verificar:guardas` 342/342 em `a2d1a10` + as duas
+  mutações alteradas depois, pegas em `c22d187`.
+
+**Falta, nesta ordem:**
+1. **O autoriza** (o modo automático bloqueia como deploy de produção): migração 0023 → 12 personas contra a
+   `turn` do disco (porta `local`, modelo padrão, teto R$ 5) → `pnpm deploy:turn` (v10) e sonda.
+2. **O** teste real pelo WhatsApp; depois os itens 6 da lista anterior (devolução, portal, templates).
+3. PR #53: atualizar a branch do PR com os commits desta sessão (ou abrir PR desta branch) e mergear.
 
 ### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
