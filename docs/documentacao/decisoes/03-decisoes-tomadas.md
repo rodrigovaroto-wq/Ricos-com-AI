@@ -1988,7 +1988,7 @@ da janela gratuita). Grafo §49.
 Operador, 2026-10-02. Supera os R$ 9,90 de R15.4 / memória `entrega-concluida-so-no-cod`. A **taxa**
 de recusa (12–17%) continua especulada até o primeiro extrato com recusa.
 
-## R18.4 — Teto por conversa R$ 0,55, sem tolerância
+## R18.4 — Teto por conversa R$ 0,55, sem tolerância (superada por R18.7)
 
 Operador, 2026-10-02, pelo p95 medido em L0.5 (R$ 0,546; R17.5). `config/business.example.json` e o
 fallback da `turn`: `conversationCapBrl` 0.55, `overrunTolerance` 0. **Vale em produção só depois de
@@ -2014,4 +2014,20 @@ e implementa a aprovada por `IMPLEMENTAR.md`. **Reversão (L3 item 8):** o Herme
 com a anterior; handoff pior com ≥ 200 turnos decididos em cada uma e z ≥ 1,645 → proposta
 `REVERTER-vN` escrita pelo código, mostrada primeiro; premissa indevida pior → o modelo propõe a
 reversão. Enquanto houver reversão pendente, nenhuma proposta nova é decidida. Grafo §52.
+
+## R18.7 — Teto por conversa R$ 1,00, sem tolerância; escada do "não entendi" em qualquer pergunta
+
+Operador, 2026-10-05, depois das rodadas de personas contra as `agent_version` 1 e 2: com ~R$ 0,07 por
+turno (cada mensagem dela respondida: leitura, resposta e reescritas), o teto de R$ 0,55 chegava no
+8º–9º turno e 3 de 12 conversas iam para uma pessoa por custo — a Jussara no momento em que disse sim.
+Supera R18.4. `config/business.example.json`, o fallback da `turn` e os simuladores: `conversationCapBrl`
+1.0, `overrunTolerance` 0. **Vale em produção só depois de escrito no segredo `BUSINESS_CONFIG`.**
+
+Junto: a escada fixa de R13.4 ("Desculpa, não entendi…") passa a começar depois de QUALQUER pergunta da
+Malu deixada sem resposta (`pending_answer: "unrelated"`), enquanto o tamanho não está definido — a Neusa
+gastou nove turnos de modelo com "ta" e "?". Com o tamanho definido, só a pergunta do tamanho a começa
+(as três frases são sobre o tamanho). "Oi" depois da recepção não a começa: a recepção não pergunta nada.
+
+O critério de pausa de custo (`09-pipeline-ate-producao.md` L3 item 6) sobe junto: custo de API acima
+de **R$ 1,00** por lead em mais de 5% dos últimos 100 (era R$ 0,75; operador, 2026-10-05).
 

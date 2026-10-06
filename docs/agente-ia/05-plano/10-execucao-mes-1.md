@@ -186,7 +186,7 @@ lote de teste) chega como e-mail no formato novo; a Rotina mostra, o operador ap
 [`06-modelo-economico.md`](../../documentacao/contexto-negocio/06-modelo-economico.md) e o
 simulador `docs/operacao/mapa-financeiro.html` com:
 
-- **IA (modelo):** R$ 0,27 por lead (p50 medido em 30/09; p95 R$ 0,546; teto R$ 0,55) no lugar
+- **IA (modelo):** R$ 0,27 por lead (p50 medido em 30/09; p95 R$ 0,546; teto R$ 1,00 desde R18.7) no lugar
   de R$ 0,10 — a 10% de conversão, R$ 2,70 por venda (era R$ 1,00);
 - **WhatsApp:** R$ 0 por lead (atendimento e régua dentro da janela de 24 h e da janela gratuita
   de 72 h); só os templates UTILITY do pós-venda fora da janela (`order_eve`), US$ 0,0068 cada
@@ -211,7 +211,7 @@ pronta (fallback), opt-out, taxa de conversão, ROI, faturamento, custo operacio
 lucro líquido (comissões recebidas no dia).
 
 **Seção "Quando pausar"** — os seis critérios do L3 item 6, cada um com o valor atual, o limite e
-a cor: premissa indevida (> 5%), handoff (> 10%), opt-out (> 2,5%), custo de API (> R$ 0,75 em
+a cor: premissa indevida (> 5%), handoff (> 10%), opt-out (> 2,5%), custo de API (> R$ 1,00 em
 mais de 5% dos últimos 100 leads), caixa reservado restante, saúde do canal (número e Cloud API).
 
 **Seção por criativo/copy e por região — a definir com o operador (8 a 15 métricas).** Proposta

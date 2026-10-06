@@ -342,7 +342,7 @@ const CONFIG: BusinessConfig = JSON.parse(
         freeShipping: false,
       },
       hours: { openHour: 6, closeHour: 24 },
-      cost: { conversationCapBrl: 0.55, overrunTolerance: 0 },
+      cost: { conversationCapBrl: 1.0, overrunTolerance: 0 },
       coupon: { percent: 20, active: false },
       cod: { physicalOnDeliveryActive: true },
       // Urgência ligada pelo operador em 2026-09-08. `unitsLeft` dá a ela um número
@@ -2806,8 +2806,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
-  // 5f. The clarify ladder (R13.4): the agent asked her size and the answer is about
-  // nothing — three fixed lines from the operator, then silence until a message makes
+  // 5f. The clarify ladder (R13.4): the agent asked her something (her size, or anything while
+  // the size is unknown — operator, 2026-10-05) and the answer is about nothing — three fixed lines from the operator, then silence until a message makes
   // sense. The step is read back from the last outbound, so there is nothing to store.
   // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
   // message carrying data is never answered with a size line or with silence.
@@ -2818,6 +2818,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     lastOutbound,
     lastAskedSize,
     sizeFound: stated !== null,
+    sizeKnown: (stated?.size ?? lead.size ?? null) !== null,
     factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
     // She was just told "Sem problemas, estou aqui…": no fresh ladder right after it.
     parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),

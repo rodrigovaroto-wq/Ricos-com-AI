@@ -301,8 +301,31 @@ describe("a escada de esclarecimento do tamanho", () => {
     expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[2], lastAskedSize: false }).kind).toBe("silent");
   });
 
-  it("não sobe a escada quando a última mensagem não perguntou o tamanho", () => {
-    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false }).kind).toBe("none");
+  // Rodada de personas 2026-10-05 (Neusa): "ta" e "?" depois de "o que você quer saber do colete?"
+  // custaram nove turnos de modelo e terminaram no teto. Operador, 2026-10-05: a escada vale em
+  // qualquer pergunta da Malu — enquanto o tamanho não está definido, porque as frases são do tamanho.
+  it("sobe a escada depois de qualquer pergunta, enquanto o tamanho não está definido", () => {
+    for (const last of ["Me passa seu CEP?", "Tô aqui com você, o que você quer saber do colete?"]) {
+      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: false, sizeKnown: false }), last).toEqual({
+        kind: "reply",
+        text: CLARIFY_SIZE_REPLIES[0],
+      });
+    }
+  });
+
+  it("com o tamanho já definido, só a pergunta do tamanho começa a escada", () => {
+    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false, sizeKnown: true }).kind).toBe("none");
+    // Uma escada já em curso segue o seu curso.
+    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: false, sizeKnown: true })).toEqual({
+      kind: "reply",
+      text: CLARIFY_SIZE_REPLIES[1],
+    });
+  });
+
+  it("sem pergunta da Malu não há escada: \"oi\" depois da recepção é no_pending", () => {
+    expect(
+      decideClarify({ ...base, interpretation: read({ pending_answer: "no_pending" }), lastOutbound: "Oii, tudo bem?", lastAskedSize: false, sizeKnown: false }).kind,
+    ).toBe("none");
   });
 
   // Silêncio decidido sem informação seria a pior falha daqui.
@@ -820,5 +843,46 @@ describe("M-03: link já enviado nas últimas 3 mensagens não sai de novo", () 
       "passa o link, não!",
     ])
       expect(asksForLink(m), m).toBe(false);
+  });
+});
+
+/** Rodada de personas 2026-10-05 (porta function, agent_version 1): Lu pediu para cancelar e a Malu ficou seis turnos com ela. */
+describe("rodada 2026-10-05: cancelar O pedido e pedido a caminho são pedido feito", () => {
+  it("lê o pedido que só existe se ela já comprou", () => {
+    for (const frase of [
+      "blz\nquero cancelar o pedido",
+      "queria cancelar meu pedido",
+      "preciso cancelar o pedido que fiz",
+      "cancela o meu pedido por favor",
+      "ja saiu pra entrega?",
+      "já saiu para entrega?",
+      "meu colete ja saiu pra entrega?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+      // Também do histórico: o "só cancela aí" seguinte acha o contexto na mensagem anterior.
+      expect(statesPastPurchase(frase, false), frase).toBe(true);
+    }
+  });
+
+  it("a pergunta hipotética, o futuro e a negação continuam fora", () => {
+    for (const frase of [
+      "e se eu não gostar, consigo cancelar depois?",
+      "se eu fizer o pedido, dá pra cancelar o pedido depois?",
+      "não quero cancelar o pedido",
+      "posso cancelar o pedido se não servir?",
+      "quando sai pra entrega?",
+      "em quanto tempo sai pra entrega?",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+    }
+  });
+
+  it("com isso, o cancelamento dela vai para uma pessoa já na primeira mensagem", () => {
+    expect(handoffFor(read({ wants_cancel: true }), "quero cancelar o pedido", statesPastPurchase("quero cancelar o pedido"))).toBe(
+      "cancel",
+    );
+    expect(handoffFor(read({ post_sale: true }), "ja saiu pra entrega?", statesPastPurchase("ja saiu pra entrega?"))).toBe(
+      "post_sale",
+    );
   });
 });

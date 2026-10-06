@@ -163,8 +163,9 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    - mais de 5% das conversas com alguma premissa indevida (o Hermes marca nas 50 de cada lote; o
      operador confere por amostra);
    - opt-out acima de 2,5%;
-   - custo de API (modelo + WhatsApp) acima de R$ 0,75 por lead em mais de 5% dos últimos 100
-     leads atendidos (com o teto de R$ 0,55 do modelo, só a conversa que bate o teto chega lá);
+   - custo de API (modelo + WhatsApp) acima de R$ 1,00 por lead em mais de 5% dos últimos 100
+     leads atendidos (era R$ 0,75; subiu junto com o teto do modelo, R18.7, operador 2026-10-05 — só a
+     conversa que bate o teto, mais o WhatsApp, chega lá);
    - handoff em mais de **10%** das conversas (acima de 5% a agente já falha em algum grau, mas no
      começo o handoff é esperado e é o dado que explica o porquê; operador, 2026-10-02);
    - caixa reservado para custo antecipado (item 2) acabando;

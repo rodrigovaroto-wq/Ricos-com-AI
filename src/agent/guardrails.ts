@@ -843,6 +843,9 @@ const NOT_BEFORE = /\b(?:nao|nunca)\s+(?:e|sera|vai\s+ser|fica)\s+(?:antes|agora
  */
 const NOTHING_NOW =
   /\bnao\s+(?:paga|precisa\s+pagar|vai\s+pagar|tem\s+que\s+pagar|tem\s+de\s+pagar|desembolsa)\s+nada\s+(?:agora|antes|adiantado|hoje|na\s+hora\b(?!\s+(?:da\s+entrega|que\s+(?:receber|chegar))))\b/;
+const NOTHING_NOW_ALL = new RegExp(NOTHING_NOW.source, "g");
+/** Agreeing, not extending: "isso mesmo", "é isso mesmo", "exatamente isso", "sim, mesmo". Never "o mesmo". */
+const AGREEMENT = /\b(?:e\s+)?isso\s+mesm[oa]\b|\bsim\s*,?\s+mesm[oa]\b/g;
 /**
  * The predicate denied right after it: "pagar na entrega não está disponível no seu CEP", "o pagamento
  * na entrega não chega aí" — the sentence this path needs most, which the first version vetoed
@@ -2037,6 +2040,42 @@ const gates: readonly Gate[] = [
   },
   {
     /**
+     * Saying she did something to an order (persona round 2026-10-05, Lu: "já deixo cancelado
+     * pra você"). The agent cancels, refunds and changes nothing — cancellation and returns go
+     * to a person (R16.9), and a cancellation she was told happened is a package that still
+     * arrives and a delivery she refuses. Only the agent's own text is read: the code's fixed
+     * lines (`layer: "auto"`) say what the code did. How she cancels, an offer and a denial pass.
+     */
+    name: "order_action_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Você não cancela, não estorna e não altera pedido nenhum. Nunca diga que cancelou, que ` +
+      `vai cancelar, que deixou cancelado, que estornou ou que mudou algo no pedido dela. Pode ` +
+      `perguntar se ela quer que alguém do time a chame para isso.`,
+    check: (text, ctx) => {
+      if (ctx.layer !== "agent") return null;
+      const t = norm(text);
+      const claims = [
+        /\b(?:cancelei|estornei|reembolsei)\b/,
+        /\b(?:ja|eu)\s+(?:te\s+)?cancelo\b/,
+        /\bvou\s+(?:ja\s+)?(?:te\s+)?(?:cancelar|estornar|reembolsar)\b/,
+        /\b(?:deixo|deixei|ta|esta|fica|ficou|foi)\s+(?:\S+\s+){0,2}?cancelad[oa]\b/,
+        /\b(?:fiz|fizemos)\s+o\s+(?:estorno|reembolso|cancelamento)\b/,
+        /\b(?:alterei|mudei|troquei|atualizei|corrigi|vou\s+(?:alterar|mudar|trocar|atualizar|corrigir))\s+(?:\S+\s+){0,4}?pedido\b/,
+      ];
+      for (const r of claims) {
+        const m = r.exec(t);
+        if (!m) continue;
+        const before = t.slice(Math.max(0, m.index - 40), m.index);
+        if (/\b(?:se\s+(?:quiser|preferir|precisar)|quer\s+que|posso|prefere\s+que)\b[^.!?]*$/.test(before)) continue;
+        if (deniedJustBefore(t, m.index)) continue;
+        return "claims an action on her order the agent cannot take";
+      }
+      return null;
+    },
+  },
+  {
+    /**
      * The shop sells a garment, not a treatment. "Corrige a postura", "trata hérnia",
      * "indicado para pós-operatório" are medical claims about a product that has no
      * medical registration — the kind of sentence a sales model writes without being
@@ -2388,8 +2427,16 @@ const gates: readonly Gate[] = [
         // has ("Na oferta de R$ 116,91 também.", revisão do PR #39, achado 3).
         const codPrices = [codBrl, ...kits.filter((k) => k.path === "cod").map((k) => k.priceBrl)];
         const prepaidPrices = [prepayBrl, ...kits.filter((k) => k.path === "prepay").map((k) => k.priceBrl)].filter((v) => !codPrices.includes(v));
-        const names = (s: string): boolean =>
-          s.search(PREPAY_NAME) !== -1 || OTHER_PAYMENT.test(s) || moneyMatches(s).some((x) => prepaidPrices.includes(x.value));
+        // Read without "não paga nada antes/adiantado" (it denies paying first: the door, said
+        // otherwise) and without the agreement "isso mesmo" (not "o mesmo"): persona round
+        // 2026-10-05, Jussara — "Isso mesmo, você não paga nada antes, só quando o colete chegar"
+        // beside the canonical sentence was read as the free extended to the prepaid offer, twice,
+        // and the conversation went to a person by cost at the moment she said yes.
+        const plain = (s: string): string => s.replace(NOTHING_NOW_ALL, " ").replace(AGREEMENT, " ");
+        const names = (raw: string): boolean => {
+          const s = plain(raw);
+          return s.search(PREPAY_NAME) !== -1 || OTHER_PAYMENT.test(s) || moneyMatches(s).some((x) => prepaidPrices.includes(x.value));
+        };
         // Honest about the other payment: the free denied (`FREE_DENIED`, `BARE_FREE_DENIED`), or the
         // freight said to be charged there. Not any "não" in the sentence: "No pix também, não se
         // preocupe." denies the worry, not the free (revisão do PR #39, achado 2).
@@ -2515,7 +2562,7 @@ const gates: readonly Gate[] = [
             // The sentence before, when it is neither the free one nor an honest one: "E antes? Também!".
             const prev = i > 0 && !freeOnDelivery.has(starts[i - 1]!) ? sentence(i - 1) : "";
             const prevOther = prev !== "" && !honest(prev) && (names(prev) || PAYISH.test(prev));
-            if (!names(s) && !(ALSO.test(s) && (PAYISH.test(s) || prevOther))) continue;
+            if (!names(s) && !(ALSO.test(plain(s)) && (PAYISH.test(plain(s)) || prevOther))) continue;
             if (honest(s)) continue;
             return beyondCod;
           }
@@ -2925,11 +2972,12 @@ const gates: readonly Gate[] = [
       // warranty is not stock (2026-09-28). Only the count and the return verb go.
       const t = norm(text).replace(/\b(?:tem|tera)\s+(?:ate\s+)?\w+\s+(?:dias?|semanas?)\s+(?:(?:corridos|uteis)\s+)?(?:pra|para)\s+(?:troc|devolv)\w*/g, " ");
       // "tem no seu tamanho", "o G está disponível", "temos o GG em estoque",
-      // "já reservei o M", "o seu tamanho chega em". Never the fitting itself.
+      // "já reservei o M", "o seu tamanho chega em", "tava guardando seu M" (persona round
+      // 2026-10-05, Karol). Never the fitting itself, nor "guarda essa dica".
       const CLAIMS_STOCK =
-        /\b(tem|temos|tenho|ha|disponivel|disponiveis|em\s+estoque|reserv\w+|garantid\w+|separei|separad\w+)\b[^.!?]{0,28}\b(tamanho|p|m|g|gg|xgg)\b/;
+        /\b(tem|temos|tenho|ha|disponivel|disponiveis|em\s+estoque|reserv\w+|garantid\w+|separei|separad\w+|guardand\w*|guardei|guardad\w+)\b[^.!?]{0,28}\b(tamanho|p|m|g|gg|xgg)\b/;
       const STOCK_AFTER =
-        /\b(tamanho|p|m|g|gg|xgg)\b[^.!?]{0,28}\b(disponivel|em\s+estoque|reservad\w+|garantid\w+|separad\w+|ta\s+ai|chega\s+(hoje|amanha))\b/;
+        /\b(tamanho|p|m|g|gg|xgg)\b[^.!?]{0,28}\b(disponivel|em\s+estoque|reservad\w+|garantid\w+|separad\w+|guardad\w+|ta\s+ai|chega\s+(hoje|amanha))\b/;
       for (const re of [CLAIMS_STOCK, STOCK_AFTER]) {
         const m = re.exec(t);
         if (m && !negatedAt(t, m.index)) {

@@ -427,6 +427,13 @@ export const decideClarify = (args: {
    * Maria Souza" would throw away exactly what the sale needs (code review, 2026-09-24).
    */
   factsFound: boolean;
+  /**
+   * The size is already known (on file or said now). Absent = not known. While it is not, the
+   * ladder starts after ANY question of hers left unanswered, not only the size one (operator,
+   * 2026-10-05, after Neusa's nine model turns of "ta" and "?"); once it is, the lines — all
+   * about the size — start only after the size question.
+   */
+  sizeKnown?: boolean;
 }): ClarifyDecision => {
   const { interpreted, interpretation: i, lastOutbound, lastAskedSize, sizeFound, factsFound } = args;
   if (!interpreted) return { kind: "none" };
@@ -444,7 +451,7 @@ export const decideClarify = (args: {
   if (meaningful) return { kind: "none" };
   if (step === CLARIFY_SIZE_REPLIES.length) return { kind: "silent" };
   if (step === 0 && args.parked === true) return { kind: "none" };
-  if ((lastAskedSize || step > 0) && i.pending_answer === "unrelated") {
+  if ((lastAskedSize || step > 0 || args.sizeKnown !== true) && i.pending_answer === "unrelated") {
     return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
   }
   return { kind: "none" };
@@ -580,10 +587,15 @@ const OTHER_STORE = /\b(outra\s+loja|outras\s+lojas|shopee|mercado(\s+livre)?|in
  * "comprei o colete antes de ontem" (code review, 2026-09-24). Not "pedido": "da última
  * vez meu pedido não chegou" is fear, not an order. Buying for someone else is still
  * buying: "comprei pra minha mãe, cadê?", "fiz o pedido pra ela ontem".
+ *
+ * Wanting THE order cancelled, or asking if it already left for delivery, only exists after a
+ * purchase (persona round 2026-10-05, Lu: "quero cancelar o pedido", "já saiu pra entrega?" kept
+ * her with Malu for six turns). The want is required — "posso cancelar o pedido se não servir?"
+ * is still the pre-sale question — and so is the "já": "quando sai pra entrega?" is not.
  */
 const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
 const ORDER_WITH_US =
-  /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz)\b/g;
+  /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz|(?:quero|queria|preciso|gostaria\s+de)\s+cancelar\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|cancela\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|ja\s+saiu\s+(?:pra|para)\s+(?:a\s+)?entrega)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
 
 export const statesPastPurchase = (message: string, current = true): boolean => {
