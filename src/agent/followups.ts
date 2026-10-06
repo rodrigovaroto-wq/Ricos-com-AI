@@ -373,7 +373,7 @@ export interface ExistingFollowup {
  * failed before, which is the floor, not a new risk.
  */
 export const isOrderDead = (status: string | undefined): boolean =>
-  /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
+  /cancel|recus|devol|estorn|reembols|refund|refus|return/i.test(status ?? "");
 
 /**
  * The status an order keeps when a webhook arrives: a dead order stays dead (third review,

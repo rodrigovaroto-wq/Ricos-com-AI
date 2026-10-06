@@ -1619,6 +1619,10 @@ para entrega". Os dias vêm de `delivery.warrantyDays`.
 logística, nos dois caminhos e sem pagamento na entrega; dias fora do config vetados; negação: não
 enviado, entregue, frustrado, só morto, sem pedido, um pedido ainda cancelável; sem contexto de
 pedido não há handoff).
+**Achado da revisão (corrigido na raiz):** `isOrderDead` procurava `devolv` e não via "devolução"
+— "Em rota de devolução" lia `em_rota`, e ela ouviria "quando ele chegar aí" com o pacote voltando.
+A raiz virou `devol`, em `isOrderDead` (que a régua e `stageForOrder` também usam), com os dois
+status na negação do teste (vermelho antes, verde depois).
 **Resíduo:** no pagamento na entrega ela pode recusar na porta sem pagar; o texto não diz que não
 pode, mas "espera chegar para pedir a devolução" não lembra essa saída — decisão do operador.
 

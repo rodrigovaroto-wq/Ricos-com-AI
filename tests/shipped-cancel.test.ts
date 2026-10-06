@@ -52,6 +52,9 @@ describe("cancelar pedido que já saiu para entrega (2026-10-06)", () => {
       ["Não entregue"],
       ["Cancelado"],
       ["Devolvido"],
+      // Coming back to the sender is not on its way to her (review, 2026-10-06).
+      ["Em rota de devolução"],
+      ["Devolução em trânsito"],
       [undefined],
       ["Em rota", "created"],
       ["Em rota", "Entregue"],
