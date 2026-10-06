@@ -13,3 +13,8 @@ uma ação sua dependa disso (ex.: rodar algo sobre cliente real com `-contribut
 A troca do `CONVERSATION_MODEL` foi feita em 2026-10-01 (L1.2); a regra de não repetir pendência
 reconhecida continua valendo para as outras (PAT, rotação da service_role).
 Regra geral: pendência que o operador já reconheceu não vira fecho de toda resposta.
+
+**O modelo é do operador (2026-10-06).** Quem troca `CONVERSATION_MODEL` /
+`CONVERSATION_MODEL_PRICE` (padrão ↔ `-contributor` para testes) é o operador, à mão, no painel.
+O Claude nunca grava esses segredos nem escreve código que escolha modelo por número/lead —
+no máximo passa os valores exatos para ele colar.
