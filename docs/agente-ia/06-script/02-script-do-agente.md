@@ -358,12 +358,30 @@ resolver mais uma vez.
 
 > Claro! Já estou chamando alguém do time aqui pra falar com você, tá? Só um minutinho 💛
 
-**Quer cancelar um pedido que já saiu para entrega** (2026-10-06, `shippedCancelReply`): texto
-fixo do código, e uma pessoa assume a conversa. Os dias vêm de `delivery.warrantyDays`. Qualquer
-outro cancelamento recebe "Vou checar pra você e já te retorno 💛" e vai para uma pessoa.
+**Quer cancelar um pedido** (2026-10-06, `cancelReplyFor` em `followups.ts`): a resposta depende
+do caminho de pagamento e do status do pedido, lidos da tabela `orders` (nunca do modelo). Os
+textos são fixos no código e, em todos os casos, uma pessoa assume a conversa e recebe o e-mail de
+handoff com o motivo.
+
+Pago na entrega, tenha saído ou não (`COD_CANCEL_REPLY`):
+
+> Como o seu pedido é pago na entrega, é só esperar ele chegar aí. Se não quiser receber, é só
+> dizer isso pro entregador na hora 💛
+
+Antecipado, já em rota (`shippedCancelReply`; os dias vêm de `delivery.warrantyDays`):
 
 > Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só
 > me chamar aqui pra pedir a devolução 💛 Você tem 7 dias pra devolver depois que receber.
+
+Antecipado, pago e ainda não saiu (`PREPAID_CANCEL_REPLY`; o motivo do handoff manda o operador
+cancelar manualmente na Coinzz):
+
+> Conferi que seu pedido ainda não saiu para a entrega, irei dar início no cancelamento.
+
+Qualquer outro cancelamento — nenhum pedido registrado (só "comprei" ou o link enviado), pedido
+entregue, tentativa frustrada, antecipado sem pagamento aprovado, caminhos misturados ou
+desconhecidos, pedidos vivos em estágios diferentes, ou pedido na entrega com a região marcada sem
+pagamento na entrega — recebe "Vou checar pra você e já te retorno 💛".
 
 **Pediu para parar:** para na hora, sem tentativa de retenção, sem "só mais uma coisinha".
 

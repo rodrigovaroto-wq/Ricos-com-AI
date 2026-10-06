@@ -426,14 +426,35 @@ export const stageForOrder = (
 };
 
 /**
- * Whether her orders are past cancelling (operator, 2026-10-06): every live one is on its way
- * (`em_rota`). One still at `pedido_criado` may be the one she means and can be cancelled; a
- * delivered one is a return, and a failed attempt (no stage) is a person's call — all keep the
- * plain order handoff. Dead orders are ignored; no live order at all is not shipped.
+ * Which reply a cancel gets (operator, 2026-10-06), from her orders as the sale webhook left them —
+ * status and `payment_method`, never the model. Paid at the door, shipped or not: `cod`, she refuses
+ * it at the door. Prepaid and on its way (`em_rota`): `shipped`. Prepaid, paid and not yet on its
+ * way: `prepaid_pending`, a person cancels it. Anything else is null and keeps the plain order
+ * handoff: no live order, mixed or unknown paths, live orders in different stages, delivered, a
+ * failed attempt, a prepaid order the status does not say is paid. Dead orders are ignored. A
+ * region stored without payment at the door makes the door reply a `charge_promise` veto, so null.
  */
-export const pastCancelling = (statuses: readonly (string | undefined)[]): boolean => {
-  const live = statuses.filter((s) => !isOrderDead(s));
-  return live.length > 0 && live.every((s) => stageForOrder(s) === "em_rota");
+export const cancelReplyFor = (
+  orders: readonly { status?: string | null; payment_method?: string | null }[],
+  codUnavailable = false,
+): "cod" | "shipped" | "prepaid_pending" | null => {
+  const live = orders.filter((o) => !isOrderDead(o.status ?? undefined));
+  const paths = new Set(live.map((o) => o.payment_method));
+  const stages = new Set(live.map((o) => stageForOrder(o.status ?? undefined)));
+  if (live.length === 0 || paths.size !== 1 || stages.size !== 1) return null;
+  const [path] = paths;
+  const [stage] = stages;
+  if (path === "cod") return !codUnavailable && (stage === "pedido_criado" || stage === "em_rota") ? "cod" : null;
+  if (path !== "prepay") return null;
+  if (stage === "em_rota") return "shipped";
+  const paid = (status: string | null | undefined): boolean => {
+    const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return (
+      /\baprovad|\bapproved\b|\bpag[oa]\b|\bpaid\b/.test(s) &&
+      !/\bnao\s+(?:foi\s+)?(?:aprovad|pag)|\bunpaid\b|\bnot\s+(?:paid|approved)|\b(?:aguardando|pendente|pending)\s+(?:(?:de|o)\s+)?(?:pagamento|aprovac|payment|approval)/.test(s)
+    );
+  };
+  return stage === "pedido_criado" && live.every((o) => paid(o.status)) ? "prepaid_pending" : null;
 };
 
 /**

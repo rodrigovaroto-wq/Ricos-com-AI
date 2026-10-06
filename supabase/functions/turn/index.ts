@@ -34,7 +34,7 @@ import {
   chasesSilence,
   inSilenceRuler,
   orderStatusAfter,
-  pastCancelling,
+  cancelReplyFor,
   reopensRefused,
   stageForLead,
   renderFollowup,
@@ -87,7 +87,9 @@ import {
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
   exchangeReply,
+  COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
+  PREPAID_CANCEL_REPLY,
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
@@ -2598,17 +2600,28 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (exchange !== null) {
     return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);
   }
-  // A cancel on an order already on its way (operator, 2026-10-06): she is told it left and the return
-  // is asked for once it arrives, and a person still takes it. Index `orders_lead_idx`.
-  const shipped =
-    handoffKind === "cancel" &&
-    pastCancelling(
-      ((await db(`orders?lead_id=eq.${lead.id}&select=status`).catch(() => null)) ?? []).map(
-        (o: { status: string | null }) => o.status ?? undefined,
-      ),
+  // A cancel reads her orders (operator, 2026-10-06, `cancelReplyFor`): paid at the door, she
+  // refuses it there; prepaid on its way, the return comes after it arrives; prepaid and not yet
+  // shipped, a person cancels it. Anything else keeps "vou checar". A person takes every one.
+  // Index `orders_lead_idx`.
+  const cancelling =
+    handoffKind === "cancel"
+      ? cancelReplyFor(
+          (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? [],
+          codUnavailable,
+        )
+      : null;
+  if (cancelling === "cod") {
+    return await handOff(COD_CANCEL_REPLY, "a cliente quer cancelar um pedido na entrega; foi orientada a recusar na porta");
+  }
+  if (cancelling === "shipped") {
+    return await handOff(shippedCancelReply(CONFIG.delivery.warrantyDays), "a cliente quer cancelar um pedido antecipado que já saiu para entrega");
+  }
+  if (cancelling === "prepaid_pending") {
+    return await handOff(
+      PREPAID_CANCEL_REPLY,
+      "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",
     );
-  if (shipped) {
-    return await handOff(shippedCancelReply(CONFIG.delivery.warrantyDays), "a cliente quer cancelar um pedido que já saiu para entrega");
   }
   if (handoffKind !== null) {
     return await handOff(

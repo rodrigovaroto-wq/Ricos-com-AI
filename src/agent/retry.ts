@@ -177,6 +177,19 @@ export const shippedCancelReply = (warrantyDays: number): string =>
   `chamar aqui pra pedir a devolução 💛 Você tem ${warrantyDays} dias pra devolver depois que receber.`;
 
 /**
+ * The reply when she wants to cancel an order paid at the door (operator, 2026-10-06), shipped or
+ * not: she refuses it at the door and pays nothing. A person still takes the conversation.
+ */
+export const COD_CANCEL_REPLY =
+  "Como o seu pedido é pago na entrega, é só esperar ele chegar aí. Se não quiser receber, é só dizer isso pro entregador na hora 💛";
+
+/**
+ * The reply when she wants to cancel a prepaid order already paid and not yet on its way (operator,
+ * 2026-10-06, his words). The agent cancels nothing: the handoff tells a person to cancel it.
+ */
+export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para a entrega, irei dar início no cancelamento.";
+
+/**
  * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
  * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
  */

@@ -1625,6 +1625,8 @@ A raiz virou `devol`, em `isOrderDead` (que a régua e `stageForOrder` também u
 status na negação do teste (vermelho antes, verde depois).
 **Resíduo:** no pagamento na entrega ela pode recusar na porta sem pagar; o texto não diz que não
 pode, mas "espera chegar para pedir a devolução" não lembra essa saída — decisão do operador.
+**Superado em §56** (mesmo dia): `pastCancelling` virou `cancelReplyFor`; na entrega ela é orientada a
+recusar na porta, e `shippedCancelReply` ficou só para o antecipado.
 
 ## 55. O nó de envio do WhatsApp não tinha credencial (L1.5, 2026-10-06)
 
@@ -1642,6 +1644,41 @@ permissão do operador. Fila conferida antes: 0 toques agendados, 1 lead (de tes
 **Guarda:** regra nova em `src/dev/n8n-rules.ts` (o nó de envio só com "WhatsApp Cloud API" em
 Header Auth), testada em `tests/n8n-workflows.test.ts` e conferida contra a versão antiga (acusa
 `credential "none"`); `tests/n8n-whatsapp-send.test.ts` exige o canal ligado com o ID do número.
+
+## 56. Cancelar pedido pago na entrega mandava pedir devolução (2026-10-06)
+
+**Sintoma:** o operador decidiu que o cancelamento depende do caminho de pagamento. Com §54, um
+pedido na entrega já em rota ouvia "não dá mais pra cancelar… pedir a devolução" — mas na entrega
+ela simplesmente recusa na porta e não paga nada (o resíduo de §54). E um antecipado pago que ainda
+não saiu recebia "vou checar", sem dizer ao operador o que fazer.
+**Causa:** `pastCancelling` só lia o status; o turno consultava `orders?select=status`, sem
+`payment_method`.
+**Caminhos descartados:** deixar o modelo escolher o texto (R11.1); ler "pago" do texto da
+cliente (o caminho é o da plataforma que mandou o webhook: Logzz ou Coinzz `afterpay` = `cod`,
+Coinzz = `prepay`, coluna `orders.payment_method`, not null); afrouxar `order_action_claim` para o
+texto 3 — desnecessário: "irei dar início no cancelamento" passa a cadeia como está (0 gates
+afrouxados); tratar todo `pedido_criado` antecipado como pago — "Aguardando pagamento" também lê
+`pedido_criado` em `stageForOrder`.
+**Correção:** `cancelReplyFor(orders, codUnavailable)` em `followups.ts` (substitui
+`pastCancelling`): pedidos vivos de um só caminho e um só estágio; `cod` em `pedido_criado` ou
+`em_rota` → `COD_CANCEL_REPLY`; `prepay` em `em_rota` → `shippedCancelReply`; `prepay` em
+`pedido_criado` com todo status lido como pago ("aprovado", "pago", "paid", sem negação nem
+"aguardando pagamento") → `PREPAID_CANCEL_REPLY`; o resto → null → `ORDER_HANDOFF_REPLY`. No turno,
+uma consulta `orders?lead_id=eq.…&select=status,payment_method` (`orders_lead_idx`), só quando
+`handoffKind === "cancel"`; os três ramos continuam `handOff`, com motivos distintos — o do
+antecipado não saído diz "cancelar manualmente na Coinzz" e chega no e-mail de handoff
+("Motivo:") do workflow "turno-da-agente", desde que `handoff.email` esteja no config.
+**Achado no teste:** `COD_CANCEL_REPLY` ("pago na entrega") é vetado por `charge_promise` quando o
+lead tem `codUnavailable` (região gravada sem entrega) — `handOff` passaria a cliente sem resposta
+nenhuma. Em vez de afrouxar o gate, `cancelReplyFor` devolve null nesse caso e ela ouve "vou checar".
+**Guarda:** `tests/shipped-cancel.test.ts` (textos literais; os três passam `runGates` como o
+`handOff` julga — `cod`, sem estágio e na logística; o mapeamento de cada caso e a negação: vazio,
+só mortos, "Em rota de devolução", entregue, frustrado, antecipado não pago/pendente/reprovado/sem
+status, caminhos misturados ou desconhecidos, estágios diferentes; a fiação de cada ramo no turno).
+**Resíduo:** o turno só conhece o último status que o webhook gravou — nenhuma API da Logzz ou da
+Coinzz é consultada. Um antecipado que já saiu sem o webhook "Enviado" ter chegado ouve "ainda não
+saiu… irei dar início no cancelamento"; por isso o handoff permanece em todos os casos. O
+vocabulário de pago da Coinzz só está confirmado para "Aprovado".
 
 ## Lições (valem para qualquer correção futura)
 
