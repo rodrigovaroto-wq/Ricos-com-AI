@@ -65,7 +65,7 @@ import {
 import {
   extractIdentityBurst,
   nameOnFirstLine,
-  asksForIdentity,
+  asksForName,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
@@ -2994,7 +2994,7 @@ const handleTurn = async (
   // The name on the first line above her street, only right after the agent asked for the name and
   // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
   const firstLineName =
-    !storedIdentity.name && !burstIdentity.name && /\b(?:nome\s+completo|seu\s+nome)\b/i.test(lastOutbound) && asksForIdentity(lastOutbound)
+    !storedIdentity.name && !burstIdentity.name && asksForName(lastOutbound)
       ? (parts.map(nameOnFirstLine).find((n: string | null) => n !== null) ?? null)
       : null;
   const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };

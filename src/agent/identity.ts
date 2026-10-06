@@ -142,7 +142,7 @@ export const nameOnFirstLine = (text: string): string | null => {
   const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
   if (lines.length < 2) return null;
   if (!lines.slice(1).some((l) => /^(?:rua|r\.|av\.?|avenida|travessa|tv\.|alameda|estrada|rodovia)\s+\S+.*\d/i.test(l))) return null;
-  if (/\b(?:segue|endere[cç]o|completo|cidade|bairro|centro|parque|vila|jardim|condom[ií]nio|residencial)\b/i.test(lines[0]!)) return null;
+  if (/\b(?:segue|endere[cç]o|completo|cidade|bairro|centro|parque|vila|jardim|condom[ií]nio|residencial|conj(?:unto)?|nova|santa|s[aã]o|dom|ponta|manaus|destinat[aá]rio)\b/i.test(lines[0]!)) return null;
   return extractName(lines[0]!);
 };
 
@@ -216,6 +216,24 @@ export const asksForIdentity = (text: string): boolean =>
 const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
 
 /**
+ * "Seu nome" / "nome completo" as the thing asked, never as the reason ("pra nota fiscal sair no seu
+ * nome", "emitir em seu nome", "com seu nome", "no seu nome completo"): third to fifth reviews of the
+ * link-after-data work.
+ */
+const NAME_ASK = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?(?:seu\s+)?)nome\s+completo|(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?)seu\s+nome`;
+
+/**
+ * Whether the agent's message asks for her name, with or without a "?" (review of 6601194: "Me passa
+ * seu nome completo, por favor." and "Pra finalizar: nome completo, CPF e e-mail." are asks too).
+ * Read per sentence; the name as the reason is no ask.
+ */
+export const asksForName = (text: string): boolean =>
+  text
+    .split(/(?<=[.!?\n])\s*/)
+    .map((q) => q.trim())
+    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
+
+/**
  * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as
  * `asksForIdentity` does. A sentence asks for it when it names the field and is a question or a
  * request ("Me passa seu e-mail, pra completar o cadastro."), or names it and the very next
@@ -251,11 +269,7 @@ export const refusedAsks = (
   field: "email" | "document",
 ): number => {
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
-  // "Seu nome" asks unless it is the reason ("pra nota fiscal sair no seu nome", "emitir em seu nome"):
-  // third and fourth reviews.
-  // Fifth review: any preposition before it ("com seu nome", "pro seu nome", "no seu nome completo").
-  const name = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?(?:seu\s+)?)nome\s+completo|(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?)seu\s+nome`;
-  const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${name})\b`, "i");
+  const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${NAME_ASK})\b`, "i");
   const found = field === "email" ? extractEmail : extractCpf;
   let count = 0;
   messages.forEach((m, i) => {

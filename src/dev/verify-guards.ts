@@ -2858,6 +2858,22 @@ const MUTATIONS: Mutation[] = [
     to: "  return null;\n};",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-pedido-de-nome-sem-interrogacao",
+    bug: "'Me passa seu nome completo, por favor.' não contava como pedido do nome e 'Cleide Barbosa\\nRua…' deixava o nome faltando",
+    files: ["src/agent/identity.ts"],
+    from: "(q.endsWith(\"?\") || REQUEST.test(q) || /\\bpor\\s+favor\\b|:/i.test(q))",
+    to: "q.endsWith(\"?\")",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-pra-clientes-chega-aqui",
+    bug: "'Pra todas as clientes chega aqui em Manaus' passava antes da consulta como gente chegando",
+    files: ["src/agent/guardrails.ts"],
+    from: "          !/\\b(?:pra|para|pras|pros|nas|nos)\\b/.test(before)",
+    to: "          true",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { extractName, nameOnFirstLine, refusedAsks } from "@/agent/identity.js";
+import { asksForName, extractName, nameOnFirstLine, refusedAsks } from "@/agent/identity.js";
 import { NEUTRAL_INTERPRETATION, buyerAsk, kitWasOffered, pathChoiceToStore, quantityOf, type Interpretation } from "@/agent/interpret.js";
 import { DEFAULT_COD_CONFIRM, twoOptionsMessage } from "@/agent/prompt.js";
 import { confirmsAddress } from "@/agent/address.js";
@@ -486,6 +486,12 @@ describe("coverage_claim: sujeito pessoa não é cobertura", () => {
     "Para muita gente chega aí em 2 dias.",
     "Pras clientes chega aí em 3 dias.",
     "A gente entrega aí no seu CEP, pode ficar tranquila.",
+    "Pra todas as clientes chega aqui.",
+    "Pra todas as clientes chega aqui em Manaus.",
+    "Pra maioria das clientes chega aqui em 3 dias.",
+    "Pra muitas clientes chega aqui em 3 dias.",
+    "Pras nossas clientes chega aqui em 3 dias.",
+    "Pra várias clientes entrega aqui em 3 dias.",
   ])("negação — o colete chegando segue vetado: %s", (t) =>
     expect(blocks(t)).toContain("coverage_claim"),
   );
@@ -507,10 +513,27 @@ describe("nome na primeira linha, endereço embaixo", () => {
     "Endereço completo\nRua Paraiba 210",
     "Parque Dez\nRua X 10",
     "Cidade Nova\nRua X 10, casa 2",
+    "Ponta Negra\nRua X 10",
+    "Santa Etelvina\nRua X 10",
+    "Nova Esperança\nRua X 10",
+    "São José\nRua X 10",
+    "Dom Pedro\nRua X 10",
+    "Conjunto Eldorado\nRua X 10",
+    "Conj Vieiralves\nRua X 10",
+    "Manaus Amazonas\nRua X 10",
+    "Petrópolis Manaus\nRua X 10",
+    "Destinatário Cleide Barbosa\nRua X 10",
     "Cleide Barbosa",
   ])("negação: %s", (m) => expect(nameOnFirstLine(m)).toBeNull());
   it("o extrator sozinho segue sem ler a 1ª linha; o turno só a lê logo depois de pedir o nome, sem nome guardado", () => {
     expect(extractName("Cleide Barbosa\nRua Paraiba 210, Manaus")).toBeNull();
-    expect(source).toContain("!storedIdentity.name && !burstIdentity.name && /\\b(?:nome\\s+completo|seu\\s+nome)\\b/i.test(lastOutbound) && asksForIdentity(lastOutbound)");
+    expect(source).toContain("!storedIdentity.name && !burstIdentity.name && asksForName(lastOutbound)");
   });
+  it.each(["Qual seu nome completo?", "Me passa seu nome completo, por favor.", "Seu nome completo e o endereço, por favor.", "Pra finalizar: nome completo, CPF e e-mail."])(
+    "pedido do nome, com ou sem '?': %s",
+    (m) => expect(asksForName(m)).toBe(true),
+  );
+  it.each(["Me passa seu CPF? A nota sai no seu nome.", "Obrigada, Cleide, já deixei anotado no seu nome.", "Qual seu CEP?"])("negação: %s", (m) =>
+    expect(asksForName(m)).toBe(false),
+  );
 });

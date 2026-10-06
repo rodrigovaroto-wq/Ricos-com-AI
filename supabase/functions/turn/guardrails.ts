@@ -3103,7 +3103,9 @@ const gates: readonly Gate[] = [
         if (
           /\baqui\b/.test(claim) &&
           /\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before) &&
-          !/\b(?:pra|para|pras|pros|na|nas|no|nos)\s+(?:(?:a|as|o|os|toda|todas)\s+)?(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before)
+          // Any destination preposition in the phrase (review of 6601194: "Pra todas as clientes chega
+          // aqui", "Pras nossas clientes chega aqui"); never "a/na/no", or "porque a maioria" would fall.
+          !/\b(?:pra|para|pras|pros|nas|nos)\b/.test(before)
         )
           return true;
         return (
