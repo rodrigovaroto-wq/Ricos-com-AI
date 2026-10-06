@@ -2008,6 +2008,36 @@ conferir/tirar uma dúvida" como compra; "não faz o pagamento" é negação; "D
 operador); `answersWhichOfTwo` e `REQUEST` são listas de palavras; nada medido contra o modelo antes da
 rodada de personas.
 
+## 64. Rodadas de personas sobre o código da v10 (2026-10-07): nota interna, balões, preço, nome
+
+**Sintoma:** duas rodadas de 12 personas contra a `turn` do disco. No modelo padrão (R$ 5,23): a Malu
+mandou "Se o CEP dela? Need ask CEP." à Jussara; 5 de 12 primeiras respostas em 4 balões; o e-mail
+recusado pedido três vezes; a oferta do kit colada no pedido do e-mail. No modelo de produção
+(`muse-spark-1.3-contributor`, segredos de 06/10 19:30 UTC; R$ 0,33): Neusa e Sandra pediram o preço e
+ficaram sem ele até o CEP (Neusa, quinze turnos); Rose caiu na resposta pronta por "a maioria chega aqui
+com esse mesmo receio"; Cleide deu "Cleide Barbosa\nRua Paraiba 210, …" e teve o nome pedido de novo.
+**Causa:** nenhum gate olhava texto que não é mensagem; `splitBubbles` desistia de juntar acima de 30
+palavras; a diretiva dizia "falta o CPF" sem dizer que o e-mail estava dispensado, e o prompt manda
+coletar e-mail; o prompt dizia só "antes do CEP… peça o CEP" (o desenho v2 §9.4 q53 dá o preço antes);
+o `coverage_claim` lia qualquer "chega aqui" como entrega; `extractName` só aceitava a mensagem que é
+só o nome.
+**Caminhos descartados:** cortar balão no meio da frase; detectar nota em português na 3ª pessoa
+("Pergunte o CEP dela") — veta fala legítima ("a filha dela"); liberar "gente chega aqui" com a palavra
+"gente" solta — "a gente entrega aí" é a loja prometendo (pego pelo `dev:gates`); ler a 1ª linha como
+nome ao lado de qualquer CEP — cidade na 1ª linha viraria nome. **Não eram defeito** (não mexidos): o
+veto de composição do frete na 1ª resposta da Neusa (grafo §32), os "?" repetidos (§60), o tamanho pela
+calça (Marcinha), "não tem expressa" (`expressActive` false), "500 clientes"/loja em São Paulo/12x
+(config), a região nula (Coinzz 302 do container — memória `proxy-sobrescreve-auth-do-supabase`).
+**Correção:** gate `internal_note` (22º, reescrita); `splitBubbles` com teto duro de 3 (junta o par vizinho
+mais curto); diretiva "o e-mail ela não passou e está dispensado"; oferta do kit sozinha;
+`priceBeforeCepMessage` no prompt ("Nunca segure o preço até ela mandar o CEP"); sujeito pessoa
+("maioria", "muita gente", "você"…) isenta o `coverage_claim`; 1ª linha como nome só ao lado de linha de
+rua.
+**Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
+`tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
+**Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
+(lista de palavras comuns); o caminho sem pagamento na entrega só se prova pela porta de produção.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
