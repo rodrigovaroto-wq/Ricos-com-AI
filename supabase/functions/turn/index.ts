@@ -34,6 +34,7 @@ import {
   chasesSilence,
   inSilenceRuler,
   orderStatusAfter,
+  isKnownOrderStatus,
   cancelReplyFor,
   reopensRefused,
   stageForLead,
@@ -1827,9 +1828,12 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
     const result = await recordOrder(payload.order);
+    // A status not in the vocabulary goes back raw: n8n e-mails the operator to map it (grafo §57).
+    const incoming = payload.order.status ?? "created";
+    const reply = isKnownOrderStatus(incoming) ? result : { ...result, unknownStatus: incoming };
     // A refused order must not answer 200. n8n reads the status, and a green webhook over
     // a sale that was never filed is the silent failure this whole route exists to end.
-    return json("ok" in result && result.ok === false ? 422 : 200, result);
+    return json("ok" in result && result.ok === false ? 422 : 200, reply);
   }
 
   // L0.3: a person answers her from the n8n form "Responder cliente".

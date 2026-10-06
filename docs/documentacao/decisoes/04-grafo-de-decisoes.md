@@ -1693,6 +1693,48 @@ Coinzz é consultada. Um antecipado que já saiu sem o webhook "Enviado" ter che
 saiu… irei dar início no cancelamento"; por isso o handoff permanece em todos os casos. O
 vocabulário de pago da Coinzz só está confirmado para "Aprovado".
 
+## 57. O status do pedido era lido por palpite de raiz (2026-10-06)
+
+**Sintoma:** "Completo" — o entregue e pago da Logzz — lia `pedido_criado`: a régua nunca
+mandava o toque de depois da entrega e o funil nunca contava a venda paga. "A caminho" (Logzz,
+no roteiro do entregador) lia `pedido_criado`, não `em_rota`; "A reagendar" (Logzz) e "Sem
+sucesso" (Coinzz), tentativas frustradas, liam `pedido_criado` em vez de não mover o estágio. Um
+status que ninguém conhecia virava uma resposta de cancelamento afirmativa.
+**Causa:** `stageForOrder` e `isOrderDead` liam por raiz de palavra, porque "nenhuma plataforma
+publica o vocabulário" — e o que não casava raiz nenhuma virava `pedido_criado`. Os status
+confirmados da Logzz (central de ajuda) e da Coinzz nunca tinham sido escritos em lugar nenhum.
+**Caminhos descartados:** deixar o modelo interpretar o status (R11.1: status é ação, e ação é
+código; decisão do operador de 2026-10-06 mantém isso); só acrescentar raízes ("complet",
+"caminho") — mais palpite, e "A caminho" vs. "a caminho da devolução" é o tipo de colisão que a
+raiz não vê; tratar status desconhecido como morto ou como em rota na régua — os dois mudariam o
+que já roda sem status real que justifique.
+**Correção:** `ORDER_STATUS_TERMS` em `followups.ts` (espelhado): cada termo normalizado (acento,
+caixa e espaço) → pago, não pago, pré-envio, em rota, entregue, tentativa sem sucesso ou morto; o
+status "pagamento / envio" da Coinzz é conhecido só se toda parte estiver na tabela.
+`isKnownOrderStatus` é público. `stageForOrder` e `isOrderDead` leem a tabela primeiro (morto >
+sem sucesso > entregue > em rota > criado) e caem na leitura por raiz de antes só para o
+desconhecido — a régua mantém o comportamento de hoje nesse caso. `cancelReplyFor` devolve null
+(`ORDER_HANDOFF_REPLY`) se algum pedido vivo tiver status desconhecido, e o "pago e não enviado"
+virou leitura da tabela (a allowlist de §56, com as mesmas palavras, mais as da Coinzz). O job
+`order` devolve `unknownStatus` (o status cru que chegou) quando ele não é conhecido; no
+workflow versionado "Venda confirmada", a saída de sucesso de "Grava o pedido" passa por "Status
+novo?" e "Avisa status novo" (mesmo SMTP e destinatário dos outros avisos): "Status novo da
+<Logzz|Coinzz>: X — o que ele significa? (pedido …)". **A versão ativa no n8n não foi alterada**
+— o operador aplica.
+**Muda comportamento além dos três bugs (inferidos, aprovados pelo operador):** "Expirado" e
+"Chargeback" passam a pedido morto (cancelam os toques do pedido e liberam a régua de silêncio);
+"Postado", "Em transporte", "Em trânsito" da Coinzz passam a `em_rota` (toque de envio; no
+cancelamento antecipado, o texto de "já saiu"). Na entrega, um status fora da tabela ("Não
+enviado", "Despachado") agora ouve "vou checar" em vez do texto de recusar na porta.
+**Guarda:** `tests/order-status-vocabulary.test.ts` (todo status confirmado e inferido → estágio,
+morto/vivo, os três bugs, acento/caixa/espaço, negação — "Não entregue", "Não enviado", "Não está
+em trânsito" — desconhecidos inclusive `__proto__`, a resposta de cancelamento de cada um, a
+fiação de `unknownStatus` no job e o IF + e-mail no JSON do n8n). `tests/shipped-cancel.test.ts`
+ajustado nos casos que a decisão mudou.
+**Resíduo:** os inferidos da Coinzz não têm fonte — o e-mail de status novo é o que os corrige. Um
+status desconhecido segue sem toque de envio nem de entrega até entrar na tabela. "Pendente /
+Enviado" (não pago e enviado) lê `em_rota`, como antes.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

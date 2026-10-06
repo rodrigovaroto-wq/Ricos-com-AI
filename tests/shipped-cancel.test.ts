@@ -54,7 +54,7 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
   });
 
   it("antecipado em rota: o texto de saiu para entrega", () => {
-    for (const o of [[prepay("Aprovado / Enviado")], [prepay("Em rota")], [prepay("Aprovado / Entregue à transportadora")], [prepay("Em rota"), cod("Cancelado")]])
+    for (const o of [[prepay("Aprovado / Enviado")], [prepay("Em rota")], [prepay("Aprovado / Postado")], [prepay("Em rota"), cod("Cancelado")]])
       expect(cancelReplyFor(o), JSON.stringify(o)).toBe("shipped");
   });
 
@@ -100,10 +100,12 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
   // Review of da612fd, 2026-10-06: `stageForOrder` reads anything it does not know as `pedido_criado`,
   // so "ainda não saiu" was stated from a shipping status nobody recognised. Allowlist now.
   it("revisão: antecipado com envio desconhecido ou estranho não ouve 'ainda não saiu'", () => {
+    // In the vocabulary since grafo §57 (operator, 2026-10-06): on its way, so `shipped`.
+    for (const status of ["Aprovado / Postado", "Pago / Em transporte"]) expect(cancelReplyFor([prepay(status)]), status).toBe("shipped");
     for (const status of [
-      "Aprovado / Postado",
       "Aprovado / Objeto postado",
-      "Pago / Em transporte",
+      // Not in the vocabulary: no guess either way (grafo §57).
+      "Aprovado / Entregue à transportadora",
       "Aprovado / Em distribuição",
       "Aprovado / Aguardando retirada",
       "Aprovado / Out for delivery",
@@ -123,7 +125,8 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
       expect(stageForOrder(status), status).not.toBe("em_rota");
       expect(cancelReplyFor([prepay(status)]), status).not.toBe("shipped");
     }
-    for (const status of ["Não enviado", "Não despachado", "Não coletado"]) expect(cancelReplyFor([cod(status)]), status).toBe("cod");
+    // Not in the vocabulary (grafo §57): "vou checar", never a guess — not even the door reply.
+    for (const status of ["Não enviado", "Não despachado", "Não coletado"]) expect(cancelReplyFor([cod(status)]), status).toBeNull();
     // Still on its way without the negation.
     for (const status of ["Aprovado / Enviado", "Despachado", "Coletado"]) expect(stageForOrder(status), status).toBe("em_rota");
   });

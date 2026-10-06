@@ -367,13 +367,90 @@ export interface ExistingFollowup {
  * deixa R$ 129,90 separado". That is the message that burns the number and the brand at
  * once, and nothing in the system was stopping it.
  *
- * Matched by root rather than by an exact list, because neither platform publishes its
- * status vocabulary and both write in Portuguese with their own wording — "Cancelado",
- * "cancelado pelo cliente", "Recusado na entrega". A root missed here fails the way it
- * failed before, which is the floor, not a new risk.
+ * A status in the vocabulary below (grafo §57) is read from it. One outside it is matched by
+ * root, as before — "cancelado pelo cliente", "Recusado na entrega". A root missed here fails
+ * the way it failed before, which is the floor, not a new risk.
  */
-export const isOrderDead = (status: string | undefined): boolean =>
-  /cancel|recus|devol|estorn|reembols|refund|refus|return/i.test(status ?? "");
+export const isOrderDead = (status: string | undefined): boolean => {
+  const terms = statusTerms(status);
+  return terms ? terms.includes("dead") : /cancel|recus|devol|estorn|reembols|refund|refus|return/i.test(status ?? "");
+};
+
+/**
+ * The status vocabulary of Logzz and Coinzz, in code (operator, 2026-10-06, grafo §57). Logzz sends
+ * `order_status` bare; Coinzz arrives "payment / shipping" (n8n "Normaliza a venda"), the shipping
+ * part absent before shipping. Every part of a status must be here for it to be known — accents,
+ * case and spacing aside. CONFIRMED (Logzz help center, Coinzz test webhook): Agendado, Reagendado,
+ * A reagendar, Em separação, Em rota, A caminho, Completo, Frustrado, Cancelado, Reembolsado;
+ * Aprovado, Enviado, Sem sucesso. The rest is INFERRED. The words the cancel allowlist already took
+ * (review of da612fd) stay. `created` is n8n's own when no status came.
+ *
+ * Unknown is a status nobody has mapped yet: the sale webhook returns it raw to n8n, which e-mails
+ * the operator to add it here with a test; a cancel on it hears "vou checar" (`cancelReplyFor`);
+ * the ruler keeps reading it by root, as before the vocabulary — that is the floor, not a new risk.
+ */
+type StatusTerm = "unpaid" | "paid" | "pre_ship" | "en_route" | "delivered" | "failed" | "dead";
+const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
+  // Logzz.
+  ["agendado", "pre_ship"],
+  ["reagendado", "pre_ship"],
+  ["em separacao", "pre_ship"],
+  ["em rota", "en_route"],
+  ["a caminho", "en_route"],
+  ["completo", "delivered"],
+  ["a reagendar", "failed"],
+  ["frustrado", "failed"],
+  ["cancelado", "dead"],
+  ["reembolsado", "dead"],
+  // Coinzz, payment.
+  ["aprovado", "paid"],
+  ["aprovada", "paid"],
+  ["pago", "paid"],
+  ["paga", "paid"],
+  ["paid", "paid"],
+  ["approved", "paid"],
+  ["pagamento aprovado", "paid"],
+  ["pagamento confirmado", "paid"],
+  ["pendente", "unpaid"],
+  ["aguardando pagamento", "unpaid"],
+  ["aguardando", "unpaid"],
+  ["em analise", "unpaid"],
+  ["recusado", "dead"],
+  ["estornado", "dead"],
+  ["chargeback", "dead"],
+  ["expirado", "dead"],
+  // Coinzz, shipping.
+  ["aguardando envio", "pre_ship"],
+  ["aguardando coleta", "pre_ship"],
+  ["preparando envio", "pre_ship"],
+  ["enviado", "en_route"],
+  ["em transito", "en_route"],
+  ["postado", "en_route"],
+  ["em transporte", "en_route"],
+  ["saiu para entrega", "en_route"],
+  ["entregue", "delivered"],
+  ["sem sucesso", "failed"],
+  ["nao entregue", "failed"],
+  ["devolvido", "dead"],
+  ["em devolucao", "dead"],
+  // n8n, when the webhook carried no status.
+  ["created", "pre_ship"],
+]);
+
+/** The terms of a status, or null when any part of it is not in the vocabulary. */
+const statusTerms = (status: string | null | undefined): StatusTerm[] | null => {
+  const parts = (status ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split("/")
+    .map((t) => t.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const terms = parts.map((t) => ORDER_STATUS_TERMS.get(t));
+  return parts.length > 0 && terms.every((t) => t !== undefined) ? (terms as StatusTerm[]) : null;
+};
+
+export const isKnownOrderStatus = (status: string | null | undefined): boolean => statusTerms(status) !== null;
 
 /**
  * The status an order keeps when a webhook arrives: a dead order stays dead (third review,
@@ -406,8 +483,8 @@ export const orderStatusAfter = (stored: string | null | undefined, incoming: st
  * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
  * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
  * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
- * paid — did not exist in the database. Read by root, like `isOrderDead`, because neither
- * platform publishes its vocabulary. Paid is not delivered: a prepaid "Pagamento
+ * paid — did not exist in the database. Read from the vocabulary (grafo §57); a status outside
+ * it by root, like `isOrderDead`. Paid is not delivered: a prepaid "Pagamento
  * aprovado" is still an order waiting to ship. A failed attempt ("não entregue",
  * "frustrada") may be retried and `recusado` is terminal, so it moves nothing. Handed to the
  * carrier ("Entregue à transportadora", "entregue aos Correios") is on its way, not at her
@@ -416,6 +493,15 @@ export const orderStatusAfter = (stored: string | null | undefined, incoming: st
 export const stageForOrder = (
   status: string | undefined,
 ): "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null => {
+  // The vocabulary first (grafo §57): dead, then a failed attempt, then the furthest stage reached.
+  const terms = statusTerms(status);
+  if (terms) {
+    if (terms.includes("dead")) return "recusado";
+    if (terms.includes("failed")) return null;
+    if (terms.includes("delivered")) return "entregue_pago";
+    return terms.includes("en_route") ? "em_rota" : "pedido_criado";
+  }
+  // Unknown: read by root, as before the vocabulary.
   const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
   if (isOrderDead(s)) return "recusado";
@@ -431,12 +517,10 @@ export const stageForOrder = (
  * Which reply a cancel gets (operator, 2026-10-06), from her orders as the sale webhook left them —
  * status and `payment_method`, never the model. Paid at the door, shipped or not: `cod`, she refuses
  * it at the door. Prepaid and on its way (`em_rota`): `shipped`. Prepaid, paid and not yet on its
- * way: `prepaid_pending`, a person cancels it — only from an allowlist (review of da612fd): the
- * status is "payment / shipping" (n8n "Normaliza a venda"), the payment part a paid word and the
- * shipping part empty or a known pre-shipment one, because `stageForOrder` reads any status it
- * does not know ("Postado", "Em distribuição") as `pedido_criado`. Anything else is null and keeps
- * the plain order handoff: no live order, mixed or unknown paths, live orders in different stages,
- * delivered, a failed attempt, a prepaid status outside the allowlist. Dead orders are ignored. A
+ * way: `prepaid_pending`, a person cancels it — only when every part of the status is paid or
+ * pre-shipment in the vocabulary (review of da612fd, grafo §57). Anything else is null and keeps
+ * the plain order handoff: no live order, a live order in a status outside the vocabulary, mixed
+ * or unknown paths, live orders in different stages, delivered, a failed attempt, prepaid unpaid. Dead orders are ignored. A
  * region stored without payment at the door makes the door reply a `charge_promise` veto, so null.
  */
 export const cancelReplyFor = (
@@ -444,6 +528,8 @@ export const cancelReplyFor = (
   codUnavailable = false,
 ): "cod" | "shipped" | "prepaid_pending" | null => {
   const live = orders.filter((o) => !isOrderDead(o.status ?? undefined));
+  // A live order in a status nobody mapped gets no guess (operator, 2026-10-06, grafo §57).
+  if (live.some((o) => !isKnownOrderStatus(o.status))) return null;
   const paths = new Set(live.map((o) => o.payment_method));
   const stages = new Set(live.map((o) => stageForOrder(o.status ?? undefined)));
   if (live.length === 0 || paths.size !== 1 || stages.size !== 1) return null;
@@ -453,13 +539,8 @@ export const cancelReplyFor = (
   if (path !== "prepay") return null;
   if (stage === "em_rota") return "shipped";
   const paidNotShipped = (status: string | null | undefined): boolean => {
-    const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const [pay = "", ship = "", ...rest] = s.split("/").map((t) => t.trim());
-    return (
-      rest.length === 0 &&
-      /^(?:aprovad[oa]|pag[oa]|paid|approved|pagamento\s+(?:aprovado|confirmado))$/.test(pay) &&
-      /^(?:|aguardando\s+(?:envio|coleta)|em\s+separacao)$/.test(ship)
-    );
+    const terms = statusTerms(status) ?? [];
+    return terms.includes("paid") && terms.every((t) => t === "paid" || t === "pre_ship");
   };
   return stage === "pedido_criado" && live.every((o) => paidNotShipped(o.status)) ? "prepaid_pending" : null;
 };

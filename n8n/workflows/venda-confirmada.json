@@ -136,6 +136,71 @@
       }
     },
     {
+      "id": "45cb54be-70bf-4bb8-b7e9-9a200019867a",
+      "name": "Status novo?",
+      "notes": "A Edge Function devolve unknownStatus quando o status nao esta no vocabulario (grafo 57).",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.3,
+      "position": [
+        896,
+        -96
+      ],
+      "parameters": {
+        "conditions": {
+          "combinator": "and",
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "leftValue": "={{ $json.unknownStatus !== undefined }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ]
+        },
+        "options": {}
+      }
+    },
+    {
+      "id": "5e81bf1b-3635-475e-b124-450fb5c54c30",
+      "name": "Avisa status novo",
+      "webhookId": "80c79749-4332-467e-8055-2201656f9f38",
+      "notes": "Status que o codigo nao conhece: a venda foi gravada; o operador diz o que ele significa e ele entra no vocabulario com teste.",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "retryOnFail": true,
+      "maxTries": 3,
+      "waitBetweenTries": 2000,
+      "position": [
+        1120,
+        -96
+      ],
+      "parameters": {
+        "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
+        "toEmail": "rodrigo.varoto@gmail.com",
+        "subject": "=Status novo da {{ ({ logzz: \"Logzz\", coinzz: \"Coinzz\" })[$(\"Normaliza a venda\").first().json.fonte] ?? $(\"Normaliza a venda\").first().json.fonte }}: {{ $json.unknownStatus }} — o que ele significa? (pedido {{ $(\"Normaliza a venda\").first().json.order.externalId }})",
+        "emailFormat": "text",
+        "text": "=Chegou um status de pedido que o codigo ainda nao conhece.\nA venda foi gravada. Enquanto ele nao entra no vocabulario, a regua le esse status como antes\n(pela raiz da palavra) e, se a cliente pedir para cancelar, ela ouve \"Vou checar pra voce e ja te retorno\".\n\nStatus: {{ $json.unknownStatus }}\nFonte: {{ $(\"Normaliza a venda\").first().json.fonte }}\nPedido: {{ $(\"Normaliza a venda\").first().json.order.externalId }}\n\nO que ele significa? (aguardando envio, a caminho, entregue, tentativa sem sucesso, cancelado...)\nResponda e ele entra em src/agent/followups.ts (ORDER_STATUS_TERMS) com teste.\n\nPayload cru:\n{{ $(\"Normaliza a venda\").first().json.raw }}",
+        "options": {
+          "appendAttribution": false
+        }
+      },
+      "credentials": {
+        "smtp": {
+          "id": "clsHlXLQ1IwxQpqE",
+          "name": "SMTP e-mail"
+        }
+      }
+    },
+    {
       "id": "738fba2b-5fbe-472b-a584-0f6b3eaa70eb",
       "name": "Avisa venda nao mapeada",
       "webhookId": "ac9674e4-d605-41ad-a993-81f385c6e138",
@@ -242,7 +307,13 @@
     },
     "Grava o pedido": {
       "main": [
-        [],
+        [
+          {
+            "node": "Status novo?",
+            "type": "main",
+            "index": 0
+          }
+        ],
         [
           {
             "node": "Avisa a recusa da venda",
@@ -250,6 +321,18 @@
             "index": 0
           }
         ]
+      ]
+    },
+    "Status novo?": {
+      "main": [
+        [
+          {
+            "node": "Avisa status novo",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        []
       ]
     }
   }

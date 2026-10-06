@@ -72,6 +72,27 @@ Cada um marca uma pergunta operacional diferente:
 Os dois últimos são os únicos que fecham a conta. Todo o resto é aposta em aberto — ver
 [`../../documentacao/contexto-negocio/03-economia-cod.md`](../../documentacao/contexto-negocio/03-economia-cod.md).
 
+## Status do pedido → estágio (vocabulário, 2026-10-06)
+
+O status que o webhook de venda grava em `orders.status` vira estágio por um vocabulário
+explícito, em código: `ORDER_STATUS_TERMS` em `src/agent/followups.ts` (espelhado na Edge
+Function), lido por `stageForOrder`, `isOrderDead` e `cancelReplyFor`. Logzz manda o
+`order_status` puro; Coinzz chega como "pagamento / envio". Acento, caixa e espaço não
+contam. Decisão do operador e histórico: grafo de decisões §57.
+
+| Estágio | Logzz (confirmado) | Coinzz (confirmado em **negrito**, o resto inferido) |
+|---|---|---|
+| `pedido_criado` | Agendado, Reagendado, Em separação | **Aprovado**, Pago, Pendente, Aguardando pagamento, Aguardando, Em análise; envio vazio, Aguardando envio, Em separação, Preparando envio |
+| `em_rota` | Em rota, A caminho | **Enviado**, Em trânsito, Postado, Em transporte, Saiu para entrega, Em rota |
+| `entregue_pago` | Completo | Entregue |
+| tentativa sem sucesso (não move o estágio) | A reagendar, Frustrado | **Sem sucesso**, Não entregue, Frustrado |
+| `recusado` (pedido morto) | Cancelado, Reembolsado | **Cancelado**, Recusado, Estornado, Reembolsado, Chargeback, Expirado; Devolvido, Em devolução |
+
+**Status fora do vocabulário:** o job `order` devolve `unknownStatus` cru ao n8n, que manda
+ao operador "Status novo da Logzz/Coinzz: X — o que ele significa?"; ele entra na tabela com
+teste. Até lá, a régua o lê pela raiz da palavra (o comportamento de antes) e, num pedido de
+cancelamento, a cliente ouve "Vou checar pra você e já te retorno 💛".
+
 ## Aberto
 
 - **Estágio para "abandonou no meio do pedido"** — é `perdido` ou um estado próprio de
