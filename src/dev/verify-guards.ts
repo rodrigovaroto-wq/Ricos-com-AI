@@ -2834,6 +2834,30 @@ const MUTATIONS: Mutation[] = [
     to: "(``)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-preco-antes-do-cep",
+    bug: "o prompt só dizia 'peça o CEP' e a Malu segurou o preço por quinze turnos (Neusa, Sandra)",
+    files: ["src/agent/prompt.ts"],
+    from: "    `CEP: \"${priceBeforeCepMessage(config)}\" Nunca segure o preço até ela mandar o CEP.`,\n",
+    to: "    `CEP.`,\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prompt.test.ts"],
+  },
+  {
+    id: "P07-gente-chega-aqui",
+    bug: "'a maioria chega aqui com esse mesmo receio' era lida como entrega e virava a resposta pronta (Rose)",
+    files: ["src/agent/guardrails.ts"],
+    from: "        if (/\\b(?:maioria|muita\\s+gente|todo\\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\\s+$/.test(before)) return true;\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-nome-na-primeira-linha",
+    bug: "'Cleide Barbosa\\nRua Paraiba 210' deixava o nome faltando e a Malu pedia de novo",
+    files: ["src/agent/identity.ts"],
+    from: "  const candidate = introduced?.[1] ?? (bare(cleaned) ? cleaned : firstLine);",
+    to: "  const candidate = introduced?.[1] ?? (bare(cleaned) ? cleaned : null);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { refusedAsks } from "@/agent/identity.js";
+import { extractName, refusedAsks } from "@/agent/identity.js";
 import { NEUTRAL_INTERPRETATION, buyerAsk, kitWasOffered, pathChoiceToStore, quantityOf, type Interpretation } from "@/agent/interpret.js";
 import { DEFAULT_COD_CONFIRM, twoOptionsMessage } from "@/agent/prompt.js";
 import { confirmsAddress } from "@/agent/address.js";
@@ -462,4 +462,34 @@ describe("diretivas depois da rodada de personas", () => {
     expect(source).toContain("Nesta mensagem, só a oferta, terminando na pergunta do kit");
     expect(source).toContain("não peça nome, e-mail nem CPF agora");
   });
+});
+
+/** Rodada de personas no modelo contribuidor (2026-10-07, Rose): gente que "chega aqui" não é entrega. */
+describe("coverage_claim: sujeito pessoa não é cobertura", () => {
+  const blocks = (text: string) =>
+    runGates(text, ctx({ regionKnown: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+  it.each([
+    "É normal ficar nessa dúvida, porque a maioria chega aqui com esse mesmo receio.",
+    "Muita gente chega aqui com essa dúvida.",
+    "Toda cliente chega aqui assim, desconfiada.",
+    "Quando você chega aqui já sabe o que quer, né?",
+  ])("passa: %s", (t) => expect(blocks(t)).not.toContain("coverage_claim"));
+  it.each(["O colete chega aqui sim.", "Ele chega aí em 3 dias.", "Chega aí sim, pode ficar tranquila."])("negação — o colete chegando segue vetado: %s", (t) =>
+    expect(blocks(t)).toContain("coverage_claim"),
+  );
+});
+
+/** Rodada no contribuidor (2026-10-07, Cleide): nome na 1ª linha e endereço embaixo, na mesma mensagem. */
+describe("nome na primeira linha, endereço embaixo", () => {
+  it.each([
+    ["Cleide Barbosa\nRua Paraiba 210, Adrianopolis, Manaus/AM, CEP 69050-000", "Cleide Barbosa"],
+    ["Ana Paula Ferreira\nAv. Brasil 1000, ap 12\n01310-100", "Ana Paula Ferreira"],
+  ])("%s", (m, name) => expect(extractName(m)).toBe(name));
+  it.each([
+    "boa tarde\nRua Paraiba 210, Manaus",
+    "quero comprar\nRua Paraiba 210",
+    "Maria Silva\nquero comprar",
+    "Rua Paraiba 210\nAdrianopolis",
+    "Manaus Amazonas\nCEP 69050-000",
+  ])("negação: %s", (m) => expect(extractName(m)).toBeNull());
 });

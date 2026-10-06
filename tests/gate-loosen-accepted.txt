@@ -159,3 +159,7 @@ G63 | delivery_promise | delivery_promise: 'escolhe um dia em que você vai esta
 G63 | delivery_promise | Escolhe um dia em que você vai estar em casa.
 G63 | delivery_promise | Dá pra marcar um dia em que você vai estar em casa.
 G63 | delivery_promise | negação (achado 7): no antecipado não existe agendamento — 'marcar um dia' segue vetado
+P07 | coverage_claim | É normal ficar nessa dúvida, porque a maioria chega aqui com esse mesmo receio.
+P07 | coverage_claim | Muita gente chega aqui com essa dúvida.
+P07 | coverage_claim | Toda cliente chega aqui assim, desconfiada.
+P07 | coverage_claim | Quando você chega aqui já sabe o que quer, né?

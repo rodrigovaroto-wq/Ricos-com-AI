@@ -9,6 +9,7 @@ import {
   linkFactLine,
   money,
   noCodMessage,
+  priceBeforeCepMessage,
   prepayWindowLine,
   productFacts,
   systemPrompt,
@@ -482,6 +483,15 @@ describe("pagamento: duas opções onde a entrega chega, o antecipado onde não 
       expect(msg).not.toContain(`${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias`);
       expect(msg).not.toContain("duas opções");
       expect(blocked(msg, { config, paymentPath: "prepay", codUnavailable: true })).toEqual([]);
+    });
+
+    it("preço antes do CEP: os números, sem segurar até o CEP (rodada de 2026-10-07, Neusa; desenho v2 §9.4 q53)", () => {
+      const msg = priceBeforeCepMessage(config);
+      expect(prompt).toContain(`"${msg}"`);
+      expect(prompt).toContain("Nunca segure o preço até ela mandar o CEP");
+      expect(msg).toContain(money(config.prices.anchorBrl));
+      expect(msg).toContain(money(config.prices.codBrl));
+      expect(blocked(msg, { config, paymentPath: "cod", regionKnown: false })).toEqual([]);
     });
 
     it("\"sim\" sem escolher: fica no pagamento na entrega, confirmando", () => {

@@ -3090,6 +3090,9 @@ const gates: readonly Gate[] = [
           ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
           "";
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        // A person arriving is no delivery (persona round of 2026-10-07, Rose: "a maioria chega aqui com
+        // esse mesmo receio" went to the canned reply). Never "ele/ela": that is the vest or the parcel.
+        if (/\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before)) return true;
         // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
         // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
         // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em

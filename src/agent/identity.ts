@@ -101,7 +101,17 @@ export const extractName = (text: string): string | null => {
   const introduced = cleaned.match(
     /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s+d[ae]l[ae](?:\s+(?:é|e|eh))?\s*:?|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60})/i,
   );
-  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(cleaned) ? cleaned : null);
+  const bare = (s: string): boolean => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(s);
+  // The name on the first line and her street on another, in one message (persona round of
+  // 2026-10-07, Cleide: "Cleide Barbosa\nRua Paraiba 210, …" left the name missing and she was asked
+  // it again). Only with a street line — a CEP alone follows a city as easily as a name.
+  const lines = cleaned.split("\n");
+  const firstLine =
+    lines.length > 1 && bare(lines[0]!) &&
+    lines.slice(1).some((l) => /^\s*(?:rua|r\.|av\.?|avenida|travessa|tv\.|alameda|estrada|rodovia)\s+\S+.*\d/i.test(l))
+      ? lines[0]!
+      : null;
+  const candidate = introduced?.[1] ?? (bare(cleaned) ? cleaned : firstLine);
   if (candidate === null) return null;
 
   const name = candidate
