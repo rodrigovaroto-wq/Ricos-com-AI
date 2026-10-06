@@ -365,3 +365,44 @@ describe("segunda revisão: buyerAsk (furo 5) e o artigo do charge_promise", () 
     expect(blocks("Isso não faz o pagar na entrega ficar caro, você paga na entrega.")).toContain("charge_promise");
   });
 });
+
+/** Terceira revisão (2749cf7). */
+describe("terceira revisão: escolha", () => {
+  const two = twoOptionsMessage(config).join("\n\n");
+  const store = (msg: string, interpreted: "cod" | "prepay") =>
+    pathChoiceToStore({ interpreted, parts: [msg], lastOutbound: two, confirms: confirmsAddress(msg) });
+  it.each([
+    ["a primeira?", "cod"], ["pix?", "prepay"], ["pelo pix?", "prepay"], ["na entrega?", "cod"],
+    ["a segunda?", "prepay"], ["pagar quando receber?", "cod"], ["antecipado??", "prepay"],
+  ] as const)("pergunta não grava (furo 1): %s", (msg, path) => expect(store(msg, path)).toBeNull());
+  it.each([
+    ["a 1", "cod"], ["1", "cod"], ["2", "prepay"], ["opção 1", "cod"], ["a primeira opção", "cod"],
+    ["primeira opcao", "cod"], ["a segunda opção", "prepay"], ["primeira kkk", "cod"], ["primeira msm", "cod"],
+    ["a primeira né", "cod"], ["a primera", "cod"], ["vou querer a primeira", "cod"], ["pagamento na entrega", "cod"],
+  ] as const)("resposta natural grava (médio 3): %s → %s", (msg, path) => expect(store(msg, path)).toBe(path));
+  it.each(["a segunda vez que compro", "a primeira vez", "pix nao kkk", "1 dúvida", "tenho 2 filhos"])("negação: %s", (msg) => {
+    expect(store(msg, "cod")).toBeNull();
+    expect(store(msg, "prepay")).toBeNull();
+  });
+});
+
+describe("terceira revisão: 'no seu nome' no motivo não apaga o pedido (furo 2)", () => {
+  it("CPF e e-mail com o motivo 'no seu nome' contam a recusa", () => {
+    expect(refusedAsks([out("Agora o CPF, pra nota fiscal sair no seu nome?"), inn("não passo")], "document")).toBe(1);
+    expect(refusedAsks([out("Me passa seu e-mail, pra completar o cadastro do pedido no seu nome."), inn("não tenho")], "email")).toBe(1);
+  });
+  it("negação: o nome completo pedido junto segue não contando", () => {
+    expect(refusedAsks([out("Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."), inn("Maria Silva")], "document")).toBe(0);
+  });
+});
+
+describe("terceira revisão: condição de prazo não é de cobertura (baixo 4)", () => {
+  const blocks = (text: string) =>
+    runGates(text, ctx({ regionKnown: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+  it("vetada: 'Se aí tiver entrega rápida, …'", () => {
+    expect(blocks("Se aí tiver entrega rápida, dá pra pagar na entrega aí.")).toContain("coverage_claim");
+  });
+  it("negação: 'Se aí tiver pagamento na entrega, …' isenta", () => {
+    expect(blocks("Se aí tiver pagamento na entrega, dá pra pagar na entrega aí.")).not.toContain("coverage_claim");
+  });
+});

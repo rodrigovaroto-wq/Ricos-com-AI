@@ -3078,7 +3078,7 @@ const gates: readonly Gate[] = [
         // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
         // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em
         // casa, …" and "Se aí for bom pra você, …" condition nothing about her place.
-        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)[^,]{0,20})\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
+        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)(?:\s+na\s+(?:entrega|porta))?)\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||

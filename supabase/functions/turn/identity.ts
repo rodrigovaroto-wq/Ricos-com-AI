@@ -236,7 +236,8 @@ export const refusedAsks = (
   field: "email" | "document",
 ): number => {
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
-  const others = field === "email" ? /\b(?:cpf|nome\s+completo|seu\s+nome)\b/i : /\b(?:e-?mail|nome\s+completo|seu\s+nome)\b/i;
+  // "Nome completo" only: "pra nota fiscal sair no seu nome" is the reason, not an ask (third review).
+  const others = field === "email" ? /\b(?:cpf|nome\s+completo)\b/i : /\b(?:e-?mail|nome\s+completo)\b/i;
   const found = field === "email" ? extractEmail : extractCpf;
   let count = 0;
   messages.forEach((m, i) => {

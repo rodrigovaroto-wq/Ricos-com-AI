@@ -2774,8 +2774,16 @@ const MUTATIONS: Mutation[] = [
     id: "R63-condicao-so-de-cobertura",
     bug: "'Se aí tiver alguém em casa, dá pra pagar na entrega aí' passava antes da consulta como condição",
     files: ["src/agent/guardrails.ts"],
-    from: "(?:der|atender|tiver\\s+(?:o\\s+)?(?:pagamento|entrega)[^,]{0,20})\\s*,/",
+    from: "(?:der|atender|tiver\\s+(?:o\\s+)?(?:pagamento|entrega)(?:\\s+na\\s+(?:entrega|porta))?)\\s*,/",
     to: "(?:der|atender|tiver|for|chegar)\\b/",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "R63-pergunta-nao-escolhe",
+    bug: "'pix?' depois das duas opções gravava o antecipado: o '?' era cortado antes do teste",
+    files: ["src/agent/interpret.ts"],
+    from: "  if (message.includes(\"?\")) return null;\n",
+    to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
 ];

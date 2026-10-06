@@ -513,12 +513,14 @@ export const kitWasOffered = (outbound: readonly string[], kitPrices: readonly n
  * "A primeira" is the delivery: `twoOptionsMessage` says it first.
  */
 const whichOfTwo = (message: string): PaymentChoice | null => {
+  // The "?" is read on her raw text, before the trailing marks are cut (third review: "pix?" stored).
+  if (message.includes("?")) return null;
   const t = norm(message).trim().replace(/[^a-z0-9]+$/, "");
-  if (t.includes("?") || /\b(?:nao|nunca|jamais|nem|medo|sei|talvez|pensar|tanto\s+faz|qual|quais|quanto|como|diferenca|compensa)\b/.test(t)) return null;
+  if (/\b(?:nao|nunca|jamais|nem|medo|sei|talvez|pensar|tanto\s+faz|qual|quais|quanto|como|diferenca|compensa)\b/.test(t)) return null;
   const m =
-    /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|de)\s+)*(primeira|segunda|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|entao|por\s+favor|pfv|sim))*$/.exec(t);
+    /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+querer|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|pagamento|de|opcao)\s+)*(primeira|primera|segunda|[12]|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|msm|entao|por\s+favor|pfv|sim|opcao|ne|kk+))*$/.exec(t);
   if (!m) return null;
-  return /^(?:primeira|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
+  return /^(?:primeira|primera|1|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
 };
 
 /**
