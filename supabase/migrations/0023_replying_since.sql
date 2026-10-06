@@ -3,9 +3,11 @@
 -- (`replying_since` null or older than 150 s, the platform's cut) and clears it when it ends. A
 -- message that arrives while it is set joins that turn, which folds it into its reply.
 --
--- Additive and nullable: before this runs, the conditional update fails, the turn reads that as
--- "nobody holds it" and answers as before, so deploy order does not matter. Read and written by
--- primary key only (conversations_pkey); no index.
+-- Additive and nullable. Deploy order matters: apply this BEFORE the turn that reads it. Without
+-- the column the conditional update fails, and a turn whose update failed holds nothing — no newer
+-- message can join it — so its second look discards its draft (the grafo §59 behaviour) and the
+-- newer message's turn answers the whole burst; before that fallback (review of 7c8bc7c) both
+-- turns answered it. Read and written by primary key only (conversations_pkey); no index.
 alter table public.conversations add column if not exists replying_since timestamptz;
 
 comment on column public.conversations.replying_since is

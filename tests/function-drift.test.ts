@@ -361,11 +361,12 @@ describe("rodada 3 na Edge Function", () => {
     expect(source).toContain("nunca diga que chega ou que atende a cidade ou o CEP dela");
   });
 
+  // Grafo §63: a diretiva da região manda ao exemplo do prompt (`noCodMessage`), que lê o frete com
+  // o mesmo `=== true` do gate (tests/prompt.test.ts); "saída boa" saiu.
   it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
     expect(source).not.toContain("frete grátis, e ainda sai mais barato");
-    expect(source).toContain("O frete é calculado no checkout");
-    // O mesmo ramo que o prompt usa: só `true` explícito é grátis.
-    expect(source).toContain("CONFIG.delivery.freeShipping === true ? ` O frete é grátis`");
+    expect(source).not.toContain("saída boa");
+    expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
   });
 
   it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {
@@ -400,7 +401,7 @@ describe("M-03 na Edge Function", () => {
       '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
     );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
-    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
   });
 });
 
@@ -498,14 +499,14 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
     // A choice is stored only from a choice, and expires.
-    expect(source).toContain("if (interpretation.payment_choice && parts.some(choosesPath)) {");
+    expect(source).toContain("if ((interpretation.payment_choice && parts.some(choosesPath)) || defaultCod) {");
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
-    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
     // O10: the sale webhook refuses a forged sale when the secret is set.
     expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
     expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');
@@ -516,11 +517,12 @@ describe("kits: revisão de código (2026-09-25)", () => {
     // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
     expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
     expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
-    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? storedChoice;");
+    expect(source).toContain('const paymentChoice = interpretation.payment_choice ?? (defaultCod ? "cod" : storedChoice);');
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
     expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');
     expect(source).toContain("units > 1 ? null : sizeDirectiveFor(");
-    expect(source).toContain("No complemento do endereço, escreva os tamanhos:");
+    expect(source).toContain("Lá no checkout você escolhe o tamanho de cada peça:");
+    expect(source).not.toMatch(/complemento/i);
   });
 });

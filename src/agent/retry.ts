@@ -209,7 +209,8 @@ const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
  * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
  * back. Now it is the one place the declared stock is said, with the strongest argument of her
- * path, and it ends pointing at the link (or at the size, when there is no link yet):
+ * path, and it ends pointing at the link — only when every datum the link waits for is in
+ * (operator, 2026-10-06); otherwise at the conversation, warmly:
  *
  * - on delivery: nothing paid now, and the days to return at no cost to her (R16.3);
  * - prepaid (she chose it, or delivery does not reach her): the discount and the average
@@ -242,7 +243,8 @@ export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boo
         : avg != null
           ? `No antecipado o prazo varia por região, em média ${avg} dias úteis.`
           : ``,
-    withLink ? `O link pra garantir o seu está aqui embaixo.` : `Quando quiser, me fala o tamanho de calça que você usa que eu te mando o link.`,
+    // Without every datum there is no link (operator, 2026-10-06), and no promise of one either.
+    withLink ? `O link pra garantir o seu está aqui embaixo.` : `Quando quiser seguir, é só me chamar aqui que eu continuo de onde a gente parou.`,
   ];
   return parts.filter((p) => p !== ``).join(" ");
 };

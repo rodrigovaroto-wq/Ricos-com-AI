@@ -491,12 +491,12 @@ describe("pagamento: duas opções onde a entrega chega, o antecipado onde não 
   });
 
   // Negated sentence, the failure that shaped the wording: script 02 §7.2 says "não faz pagamento
-  // na entrega", and `charge_promise` reads it as the promise. Not loosened here; pinned, so the day
-  // the gate learns the negation this can go back to the script's words.
-  it("\"não faz pagamento na entrega\" é vetado onde a entrega não chega; \"não tem\" passa", () => {
+  // na entrega", and `charge_promise` read it as the promise. Since grafo §63 the gate reads the
+  // negation ("não faz", "não trabalha com"); the prompt keeps "não tem", which passed both ways.
+  it("\"não faz\" e \"não tem pagamento na entrega\" passam onde a entrega não chega", () => {
     const c = variant(false, true);
     const over = { config: c, paymentPath: "prepay" as const, codUnavailable: true };
-    expect(blocked("Aí na sua região a transportadora ainda não faz pagamento na entrega, mas tem o antecipado.", over)).toContain("charge_promise");
+    expect(blocked("Aí na sua região a transportadora ainda não faz pagamento na entrega, mas tem o antecipado.", over)).toEqual([]);
     expect(blocked("Aí na sua região a transportadora ainda não tem pagamento na entrega, mas tem o antecipado.", over)).toEqual([]);
   });
 
@@ -1074,6 +1074,12 @@ describe("toda frase ensinada passa o coverage_claim, com e sem região", () => 
     expect(taught.length).toBeGreaterThan(5);
     for (const regionKnown of [false, true]) {
       for (const text of taught) {
+        // The two options open with the lookup's answer and are taught only after it (grafo §63):
+        // before the lookup that opening is the claim `coverage_claim` vetoes, pinned below.
+        if (!regionKnown && /\bNo seu CEP dá pra pagar na entrega\b/.test(text)) {
+          expect(runGates(text, ctx({ config, regionKnown })).traces.find((t) => t.gate === "coverage_claim")?.verdict).toBe("block");
+          continue;
+        }
         const trace = runGates(text, ctx({ config, regionKnown })).traces.find((t) => t.gate === "coverage_claim");
         expect({ regionKnown, text, verdict: trace?.verdict }).toEqual({ regionKnown, text, verdict: "pass" });
       }
@@ -1219,5 +1225,54 @@ describe("público ainda não convencido: valor e segurança antes da oferta", (
     expect(prompt).toContain("Ela veio do anúncio e AINDA NÃO ESTÁ CONVENCIDA.");
     expect(prompt).toContain("só depois vêm a oferta, o preço e os dados");
     expect(prompt).toContain("O CAMINHO DA CONVERSA, que é caminho e não trilho");
+  });
+});
+
+/**
+ * Operator, 2026-10-06 (grafo §63): after she chooses how to pay, the 2- and 3-piece kits are
+ * offered once, with their discounts, and only then the data. Each kit has its own checkout, and
+ * she picks each piece's size there. The offer, said the way the prompt teaches it, passes the
+ * chain on its own path — and on the prepaid one where delivery does not reach her.
+ */
+describe("o kit depois da escolha do pagamento e antes dos dados", () => {
+  const withKits: PromptConfig = { ...variant(false, true), kits: EXAMPLE_KITS };
+
+  it("o caminho ensina pagamento → kit → dados, e sem kit no config o kit não aparece", () => {
+    const prompt = flat(build(withKits));
+    const choice = prompt.indexOf("a escolha dela → o kit, oferecido uma vez → nome completo");
+    expect(choice).toBeGreaterThan(-1);
+    expect(prompt).toContain("logo depois que ela escolher como paga e antes de pedir os dados");
+    expect(prompt).toContain("o link é o checkout do kit, e lá ela escolhe o tamanho de cada peça");
+    const none = flat(build({ ...withKits, kits: [] }));
+    expect(none).not.toContain("o kit, oferecido uma vez");
+    expect(none).not.toContain("KITS —");
+    expect(none).toContain("a escolha dela → nome completo, e-mail e CPF → o link");
+  });
+
+  it.each([
+    ["cod", false],
+    ["prepay", false],
+    ["prepay", true],
+  ] as const)("a oferta do kit passa a cadeia (caminho %s, sem entrega na região: %s)", (path, codUnavailable) => {
+    const kits = EXAMPLE_KITS.filter((k) => k.path === path).sort((a, b) => a.units - b.units);
+    expect(kits.length).toBe(2);
+    const where = path === "cod" ? "na entrega" : "no antecipado";
+    const offer =
+      `Levando ${kits[0]!.units} peças o desconto sobe para ${kits[0]!.discountPercent}%: ${money(kits[0]!.priceBrl)} ${where}, ` +
+      `e levando ${kits[1]!.units} peças sobe para ${kits[1]!.discountPercent}%: ${money(kits[1]!.priceBrl)} ${where}. ` +
+      `Vai de 1 mesmo ou quer aproveitar?`;
+    const blocked = runGates(offer, ctx({ config: withKits, paymentPath: path, codUnavailable, units: 1 })).traces
+      .filter((t) => t.verdict === "block")
+      .map((t) => t.gate);
+    expect(blocked).toEqual([]);
+    // Negation: the kit price without "peças" is a price the gate does not let through.
+    const bare = `Sai por ${money(kits[0]!.priceBrl)} ${where}.`;
+    expect(runGates(bare, ctx({ config: withKits, paymentPath: path, codUnavailable, units: 1 })).traces.some((t) => t.verdict === "block")).toBe(true);
+  });
+
+  it("a cobertura do colete é a frase do operador", () => {
+    const facts = productFacts(withKits).join(" ");
+    expect(facts).toContain("Pega o abdômen e as costas por completo, e tem alças.");
+    expect(facts).not.toContain("Pega o abdômen e as costas, e tem alças.");
   });
 });

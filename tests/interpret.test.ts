@@ -15,7 +15,8 @@ import {
   readInterpretation,
   linkSentRecently,
   asksForLink,
-  readyForLink,
+  buyerAsk,
+  missingForLink,
   saysGoodbye,
   sendLinkNow,
   statesPastPurchase,
@@ -273,53 +274,71 @@ describe("qual link sai", () => {
   });
 });
 
-/** E-mail e CPF deixaram de travar o link (R13.4). */
-describe("quando o link sai sem esperar a identidade", () => {
-  const args = {
-    identityComplete: false,
-    interpretation: NEUTRAL_INTERPRETATION,
-    identityAsked: false,
-    identityGiven: false,
+/**
+ * Os dados antes do link (operador, 2026-10-06; substitui o R13.4, em que e-mail e CPF deixaram
+ * de travar o link): tamanho, CEP, caminho de pagamento, nome, e-mail (dado ou recusado uma vez)
+ * e CPF (válido ou recusado duas vezes). O H-2 "ela deixou passar o pedido do nome" saiu: um "sim"
+ * ao lado de pergunta nunca manda o link.
+ */
+describe("o link só sai com os dados", () => {
+  const all = {
     sizeKnown: true,
+    cepKnown: true,
+    pathSettled: true,
+    nameKnown: true,
+    emailDone: true,
+    cpfDone: true,
+    yesBesideQuestion: false,
   };
 
-  it("sai quando ela quer comprar, não tem e-mail, ou ignorou o pedido", () => {
-    expect(sendLinkNow({ ...args, interpretation: read({ wants_to_buy: true }) })).toBe(true);
-    expect(sendLinkNow({ ...args, interpretation: read({ email_unavailable: true }) })).toBe(true);
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false })).toBe(true);
-    expect(sendLinkNow({ ...args, identityComplete: true })).toBe(true);
+  it("sai com tudo", () => {
+    expect(missingForLink(all)).toBeNull();
+    expect(sendLinkNow(all)).toBe(true);
   });
 
-  it("não sai quando ela respondeu o que foi pedido — a conversa segue", () => {
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: true })).toBe(false);
+  it.each([
+    ["sizeKnown", "size"],
+    ["cepKnown", "cep"],
+    ["pathSettled", "payment"],
+    ["nameKnown", "name"],
+    ["emailDone", "email"],
+    ["cpfDone", "document"],
+  ] as const)("sem %s não sai, e o que falta é %s", (field, datum) => {
+    expect(sendLinkNow({ ...all, [field]: false })).toBe(false);
+    expect(missingForLink({ ...all, [field]: false })).toBe(datum);
   });
 
-  // Code review, 2026-09-24: no checkout da entrega ela digita o tamanho; em branco, o
-  // depósito escolhe — e volta às custas da operação.
-  it("nunca sai sem tamanho, mesmo pronta para comprar — o tamanho vem antes", () => {
-    for (const pronta of [
-      { ...args, interpretation: read({ wants_to_buy: true }) },
-      { ...args, interpretation: read({ email_unavailable: true }) },
-      { ...args, identityAsked: true },
-      { ...args, identityComplete: true },
-    ]) {
-      expect(sendLinkNow({ ...pronta, sizeKnown: false })).toBe(false);
-      expect(readyForLink(pronta)).toBe(true); // e o turno pede o tamanho
-    }
+  it("falta uma coisa por vez, na ordem da conversa", () => {
+    const nothing = { sizeKnown: false, cepKnown: false, pathSettled: false, nameKnown: false, emailDone: false, cpfDone: false };
+    expect(missingForLink(nothing)).toBe("size");
+    expect(missingForLink({ ...nothing, sizeKnown: true })).toBe("cep");
+    expect(missingForLink({ ...all, nameKnown: false, cpfDone: false })).toBe("name");
+    expect(missingForLink({ ...all, emailDone: false, cpfDone: false })).toBe("email");
   });
 
-  it("não sai numa conversa que ainda não chegou lá", () => {
-    expect(sendLinkNow(args)).toBe(false);
-    expect(sendLinkNow({ ...args, interpretation: read({ pending_answer: "other_question" }) })).toBe(false);
+  it("um \"sim\" ao lado de pergunta não manda o link, nem com os dados completos", () => {
+    expect(sendLinkNow({ ...all, yesBesideQuestion: true })).toBe(false);
   });
+});
 
-  // Revisão do H-2 (2026-09-25): o pedido de identidade só vem depois da decisão, e a
-  // decisão não fica guardada em outro lugar — segurar o link aqui deixa sem link quem já
-  // disse sim ("pra que você precisa do meu CPF?").
-  it("ela ignorou o pedido do nome pra perguntar outra coisa: o link ainda sai", () => {
-    const perguntou = read({ pending_answer: "other_question" });
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(true);
-  });
+/**
+ * Revisão de 7c8bc7c: o "sim" ao lado de pergunta zerava a decisão de quem estava comprando. A
+ * pergunta de quem compra não segura nada; qualquer outra ("tem rastreio?") segura o link.
+ */
+describe("a pergunta de quem está comprando", () => {
+  it.each(["Sim! Como faço pra pagar?", "sim, quero. qual o prazo?", "isso mesmo, pode mandar?", "ok, como pago?"])(
+    "%s é de quem compra",
+    (msg) => {
+      expect(asksSomething(msg)).toBe(true);
+      expect(buyerAsk(msg)).toBe(true);
+    },
+  );
+  it.each(["tem rastreio?", "sim", "e chega quando?", "não quero agora, qual o prazo?", "quanto custa o frete?"])(
+    "%s não é",
+    (msg) => {
+      expect(buyerAsk(msg)).toBe(false);
+    },
+  );
 });
 
 /**

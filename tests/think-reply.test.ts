@@ -43,9 +43,13 @@ describe("thinkReply", () => {
     expect(text).not.toMatch(/restam|unidades/);
     expect(blocked(text, noStock, "cod")).toEqual([]);
   });
-  it("sem link, pede o tamanho em vez de apontar um link que não existe", () => {
-    expect(thinkReply(example, "cod", false)).toMatch(/tamanho de calça/);
-    expect(thinkReply(example, "cod", false)).not.toMatch(/aqui embaixo/);
+  // Grafo §63: sem os dados não há link, nem promessa de link — fecha com carinho, sem pedir nada.
+  it("sem link, fecha com carinho, sem apontar nem prometer link", () => {
+    for (const path of ["cod", "prepay"] as const) {
+      const text = thinkReply(example, path, false);
+      expect(text).toMatch(/é só me chamar aqui/);
+      expect(text).not.toMatch(/aqui embaixo|link|tamanho de calça/);
+    }
   });
 });
 

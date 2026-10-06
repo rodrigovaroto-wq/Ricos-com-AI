@@ -110,8 +110,11 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(guard).toContain("retryIsMoot(inboundId, latest?.[0] ?? null, null)");
     // Uma leitura que falha nunca cala a cliente.
     expect(guard).toContain("if (latest === null && !isRetry) return null;");
-    // Grafo §61: o descarte "superseded" saiu da segunda olhada; só a nova tentativa desiste.
-    expect(guard).not.toContain("superseded");
+    // Grafo §61: o descarte "superseded" saiu da segunda olhada; só a nova tentativa desiste —
+    // e o turno que não conseguiu tomar a conversa (0023 ausente), que volta ao §59 (revisão de 7c8bc7c).
+    const fallback = guard.slice(guard.indexOf("if (claimFailed) {"), guard.indexOf("const revisions"));
+    expect(fallback).toContain('status: "superseded"');
+    expect(guard.replace(fallback, "")).not.toContain("superseded");
     expect(guard).toContain('status: "retry_moot"');
     const finalInsert = source.indexOf("const outbound = (");
     expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert)).toBeLessThan(200);
@@ -318,12 +321,14 @@ describe("o 'sim' só confirma quando é tudo o que ela disse", () => {
   });
 
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-  it("o 'sim' do lado de uma pergunta não vira decisão de compra (sem link), a não ser que ela decida com as palavras dela", () => {
+  it("o 'sim' do lado de uma pergunta segura o link, sem zerar a decisão de quem compra (revisão de 7c8bc7c)", () => {
     expect(source).toContain(
-      "if (decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething)) interpretation = { ...interpretation, wants_to_buy: false };",
+      "decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething) && !parts.some(buyerAsk);",
     );
+    expect(source).not.toMatch(/parts\.some\(asksSomething\)\) interpretation = \{ \.\.\.interpretation, wants_to_buy: false \}/);
+    expect(source).toContain("sendLinkNow({ ...linkData, yesBesideQuestion })");
     // Depois da leitura do intérprete e da decisão por mensagem, antes do link.
-    const rule = source.indexOf("if (decided !== true && parts.some(confirmsAddress)");
+    const rule = source.indexOf("const yesBesideQuestion =");
     expect(rule).toBeGreaterThan(source.indexOf("const decided = decisionInBurst(parts);"));
     expect(rule).toBeLessThan(source.indexOf("const linkNow = "));
   });

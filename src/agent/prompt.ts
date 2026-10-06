@@ -139,7 +139,7 @@ export const BURST_EXAMPLE = [
 export const productFacts = (config: PromptConfig): string[] => [
   `FATOS DO COLETE — pra quando ela perguntar; fora daqui você não afirma nada sobre a peça:`,
   `— Material: "É essencialmente de poliéster e elastano, tem forro de algodão e colchetes que não ficam enrolando enquanto você usa." Barbatana não tem nenhuma, nem de metal nem de plástico. É liso e fininho, não marca embaixo da roupa.`,
-  `— Pega o abdômen e as costas, e tem alças. Cor: só preto, por enquanto.`,
+  `— Pega o abdômen e as costas por completo, e tem alças. Cor: só preto, por enquanto.`,
   `— Calor: "Não dá calor, ele é feito justamente pra respirar no corpo e não te deixar suando."`,
   `— Quanto tempo por dia: "O quanto você quiser, ele é preparado pra aguentar o dia inteiro!" Dormir com o colete: "Pode sim!" Exercício: "Sim, ele é elástico e não limita seus movimentos!"`,
   `— Lavagem: à mão, com água fria, secando na sombra; máquina e secadora soltam a elasticidade, e é a elasticidade que faz o trabalho.`,
@@ -174,11 +174,13 @@ export const kitsBriefing = (config: PromptConfig): string[] => {
     ``,
     `KITS — levando mais de uma peça o desconto sobe. Na entrega: ${line("cod")}. No`,
     `antecipado: ${line("prepay")}. Esses são os únicos preços de kit.`,
-    `Ofereça o kit uma vez só, quando ela decidir comprar, numa frase curta, no caminho dela —`,
+    `Ofereça o kit uma vez só, logo depois que ela escolher como paga e antes de pedir os dados,`,
+    `numa frase curta, no caminho dela, sempre com "peças" junto do preço —`,
     `por exemplo: ${examples.join(" ou ")}`,
     `Se ela não quiser, siga com uma peça e não volte ao assunto. Se ela quiser mais de uma,`,
-    `pergunte o tamanho de cada peça (podem ser diferentes) antes do link. Mais de ${max} peças não tem`,
-    `link: nunca prometa, uma pessoa do time monta esse pedido.`,
+    `pergunte o tamanho de cada peça (podem ser diferentes): o link é o checkout do kit, e lá ela`,
+    `escolhe o tamanho de cada peça. Mais de ${max} peças não tem link: nunca prometa, uma pessoa do`,
+    `time monta esse pedido.`,
   ];
 };
 
@@ -449,7 +451,7 @@ export const systemPrompt = (
     ``,
     `O CAMINHO DA CONVERSA, que é caminho e não trilho: a roupa ou a ocasião dela → as dúvidas`,
     `do colete e o tamanho → o valor (o que ele faz e o que não faz) → o CEP → as opções de`,
-    `pagamento e a escolha dela → nome completo, e-mail e CPF → o link. Ela pode pular ou voltar:`,
+    `pagamento e a escolha dela →${config.kits?.length ? ` o kit, oferecido uma vez →` : ``} nome completo, e-mail e CPF → o link. Ela pode pular ou voltar:`,
     `responda o que ela trouxe e volte com uma ponte curta ("E pra eu te indicar o tamanho`,
     `certo, ..."). Saiba sempre o que já foi dito e o que falta, e nunca peça de novo o que ela já deu.`,
     ``,

@@ -433,45 +433,63 @@ export const linkPathFor = (
   region: { cod: boolean } | null,
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
-/**
- * Whether the link goes out this turn without waiting for the rest of her identity
- * (R13.4). E-mail and CPF stopped being a condition: the checkout form asks for whatever
- * the link did not fill. What remains is the signal that she is ready — the three the
- * operator named, plus the complete identity that already sent it before.
- */
-export const sendLinkNow = (args: {
-  identityComplete: boolean;
-  interpretation: Interpretation;
-  /** The agent's last message asked for name, e-mail or CPF... */
-  identityAsked: boolean;
-  /** ...and this message brought none of them. */
-  identityGiven: boolean;
+/** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
+
+export interface LinkData {
   /**
-   * Never a link without a size (code review, 2026-09-24): on the delivery checkout she
-   * types the size herself, and a blank one is picked by the warehouse — a return at the
-   * operator's cost. Without it, the turn asks the size first.
+   * Never a link without a size (code review, 2026-09-24): a piece that does not fit comes
+   * back at the operator's cost.
    */
   sizeKnown: boolean;
-}): boolean => args.sizeKnown && readyForLink(args);
+  /** Her CEP, so the region was looked up and the payment options were said. */
+  cepKnown: boolean;
+  /** She chose the payment path, or her region left only the prepaid one. */
+  pathSettled: boolean;
+  nameKnown: boolean;
+  /** The e-mail is known, or she refused it once (`refusedAsks`, `email_unavailable`). */
+  emailDone: boolean;
+  /** A valid CPF is known, or she refused it twice. */
+  cpfDone: boolean;
+}
 
 /**
- * She is ready for the link — whether or not the size is known yet.
- *
- * Letting the name question pass counts even when she asks something new ("pra que o
- * CPF?"): the agent asks it only after she decided, and the decision is not stored
- * anywhere else — holding the link there strands a customer who already said yes (H-2
- * review, 2026-09-25).
+ * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
+ * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
+ * full name, e-mail and CPF, in this order. The order is the directive's: one thing at a time.
  */
-export const readyForLink = (args: {
-  identityComplete: boolean;
-  interpretation: Interpretation;
-  identityAsked: boolean;
-  identityGiven: boolean;
-}): boolean =>
-  args.identityComplete ||
-  args.interpretation.wants_to_buy ||
-  args.interpretation.email_unavailable ||
-  (args.identityAsked && !args.identityGiven);
+export const missingForLink = (d: LinkData): LinkDatum | null =>
+  !d.sizeKnown ? "size"
+  : !d.cepKnown ? "cep"
+  : !d.pathSettled ? "payment"
+  : !d.nameKnown ? "name"
+  : !d.emailDone ? "email"
+  : !d.cpfDone ? "document"
+  : null;
+
+/**
+ * Whether the link goes out this turn: every datum is in, and her message is not a bare "sim"
+ * beside a question (`yesBesideQuestion`) — the H-2 exception that let an ignored identity ask
+ * send the link is gone with R13.4 (the data now come first).
+ */
+export const sendLinkNow = (d: LinkData & { yesBesideQuestion: boolean }): boolean =>
+  !d.yesBesideQuestion && missingForLink(d) === null;
+
+/**
+ * A question that is itself a buyer's (review of 7c8bc7c): "Sim! Como faço pra pagar?",
+ * "sim, quero. qual o prazo?", "isso mesmo, pode mandar?", "ok, como pago?". A "sim" beside one
+ * of these goes on to the next datum or the link; a "sim" beside any other question
+ * ("tem rastreio?") holds the link until she answers alone. A denied "quero" is no buyer's.
+ */
+export const buyerAsk = (message: string): boolean => {
+  const t = norm(message);
+  return (
+    asksForLink(message) ||
+    /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(t) ||
+    /\bcomo\s+(?:(?:eu\s+)?(?:faco|faz)\s+(?:pra|para)\s+)?pag/.test(t) ||
+    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0))
+  );
+};
 
 /**
  * Whether an opt-out message also asks something (R13.4, Rose): "não me manda mais

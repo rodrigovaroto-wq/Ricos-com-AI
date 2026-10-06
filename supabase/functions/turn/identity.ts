@@ -178,9 +178,9 @@ export const isIdentityComplete = (fields: Partial<Identity>): fields is Identit
  */
 export const nextIdentityQuestion = (missing: readonly IdentityField[]): string | null => {
   const asks: Record<IdentityField, string> = {
-    name: "o nome completo dela",
-    email: "o e-mail dela, que é pra onde vai a confirmação do pedido",
-    document: "o CPF dela",
+    name: "o nome completo dela, pra deixar o pedido no nome dela",
+    email: "o e-mail dela, pra completar o cadastro do pedido",
+    document: "o CPF dela, pra nota fiscal do pedido, que a lei exige",
   };
   const next = IDENTITY_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;
@@ -196,6 +196,35 @@ export const asksForIdentity = (text: string): boolean =>
   text
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
+
+/**
+ * How many times the agent asked for the e-mail or the CPF and her answer did not bring it
+ * (operator, 2026-10-06: the link waits for the data; an e-mail refused once and a CPF refused
+ * twice are not asked again). Read from the conversation instead of a column: an ask is an
+ * outbound message naming the field and asking something, and her answer is every
+ * inbound until the next outbound. A "pra que?", a refusal, an invalid CPF and a change of
+ * subject all count — the script's own steps (design §6). An ask not yet answered does not.
+ * `messages` oldest first, as the model reads them.
+ */
+export const refusedAsks = (
+  messages: ReadonlyArray<{ direction: string; body: string | null }>,
+  field: "email" | "document",
+): number => {
+  const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
+  const found = field === "email" ? extractEmail : extractCpf;
+  let count = 0;
+  messages.forEach((m, i) => {
+    if (m.direction === "inbound") return;
+    // The field and a question in the same message: "E por último o CPF, pra nota fiscal. Me passa?"
+    const asked = word.test(m.body ?? "") && (m.body ?? "").includes("?");
+    if (!asked) return;
+    const next = messages.slice(i + 1);
+    const end = next.findIndex((n) => n.direction !== "inbound");
+    const answer = (end === -1 ? next : next.slice(0, end)).map((n) => n.body ?? "");
+    if (answer.length > 0 && !answer.some((a) => found(a) !== null)) count += 1;
+  });
+  return count;
+};
 
 /**
  * The name as the checkout should show it — applied only when the link is built, the

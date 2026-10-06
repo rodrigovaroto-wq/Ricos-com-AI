@@ -62,12 +62,12 @@ import {
   type Address,
 } from "./address.ts";
 import {
-  asksForIdentity,
   extractIdentityBurst,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
   nextIdentityQuestion,
+  refusedAsks,
   type Identity,
 } from "./identity.ts";
 import {
@@ -126,7 +126,8 @@ import {
   NEUTRAL_INTERPRETATION,
   quantityOf,
   readInterpretation,
-  readyForLink,
+  missingForLink,
+  buyerAsk,
   sendLinkNow,
   statesPastPurchase,
   type Interpretation,
@@ -726,22 +727,35 @@ const sizeDirectiveFor = (
       ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
       ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
   }
+  // What the lookup found has its own directive (`regionDirectiveFor`), said with or without a size.
+  return fitting;
+};
+
+/**
+ * What the CEP lookup found, on its own (operator, 2026-10-06): until then it rode on the size
+ * directive, so a kit — or a CEP before the size — never heard it, and the prepaid was only ever
+ * offered as a fallback. Delivery reaches her: the two options and her choice (`twoOptionsMessage`
+ * in the prompt), or her choice kept. It does not: only the prepaid, with the one reason
+ * (`noCodMessage`). The sentences are the prompt's, so prompt and gate stay one promise.
+ */
+const regionDirectiveFor = (
+  region: Pick<Region, "cod" | "sameDay"> | null,
+  choice: "cod" | "prepay" | null,
+): string | null => {
+  if (region === null) return null;
   if (!region.cod) {
-    // Today's truth, from the config (persona round 3 found "mesmo frete grátis" here,
-    // two days after the operator decided the operation has no free shipping).
-    const pct = CONFIG.prices.prepayDiscountPercent;
-    // The gate's reading: the average only while the deadline varies by region.
-    const avg = CONFIG.delivery.prepayVariesByRegion ? CONFIG.delivery.prepayAvgDays : undefined;
-    return `${fitting} A entrega com pagamento na entrega não cobre o CEP dela, então ofereça` +
-      ` o pagamento antecipado como a saída boa que ele é${pct > 0 ? `, com ${pct}% de desconto` : ""}.` +
-      (CONFIG.delivery.freeShipping === true ? ` O frete é grátis` : ` O frete é calculado no checkout`) +
-      `${
-        avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis` : ""
-      }.`;
+    return `A consulta do CEP dela respondeu: ali a transportadora ainda não tem pagamento na entrega.` +
+      ` Ofereça só o pagamento antecipado, com carinho e com esse motivo e nenhum outro, como no PAGAMENTO` +
+      ` ("Não chega"), e nunca diga que ela paga na entrega, ao entregador ou quando receber. Se você` +
+      ` já disse isso nesta conversa, não repita: siga no antecipado.`;
   }
-  return `${fitting} A entrega chega no CEP dela${
+  return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
-  }. Fale disso como boa notícia, não como confirmação de sistema.`;
+  }.` +
+    (choice === null
+      ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
+        ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
+      : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
 };
 
 /**
@@ -757,23 +771,25 @@ const sizeDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
-  if (isIdentityComplete(draft)) return null;
-  // Nothing collected yet means the model decides *when* to start — the prompt says only
-  // after she has decided to buy. This directive drives the ORDER, not the opening: fired
-  // unconditionally it would have the agent asking a stranger for her full name in reply
-  // to "oi", which is where the conversation ends.
-  if (Object.keys(draft).length === 0) return null;
-  const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
+const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfRefusals: number): string | null => {
+  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
+  // link waits for them: an e-mail refused once and a CPF refused twice are not asked again.
+  const missing = (["name", "email", "document"] as const).filter(
+    (f) => !draft[f] && !(f === "email" && emailDone) && !(f === "document" && cpfRefusals >= 2),
+  );
   const topic = nextIdentityQuestion(missing);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
-  // for word, turn after turn. And never a condition — the link goes without it.
+  // for word, turn after turn.
   return topic === null
     ? null
-    : `Para o link do pedido já sair preenchido, falta ${topic}. Se a conversa estiver nesse` +
-      ` ponto, peça isso com as suas palavras, uma coisa só — nunca repita uma pergunta que` +
-      ` você já fez. Se ela não quiser ou não tiver, tudo bem: o link sai assim mesmo e o` +
-      ` checkout pede o resto.`;
+    : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
+      ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
+      (missing[0] === "email" ? ` Se ela não tiver ou não quiser passar, tudo bem, não insista.` : ``) +
+      (missing[0] === "document" && cpfRefusals === 1
+        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo com outras` +
+          ` palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+        : ``) +
+      ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
 
 /**
@@ -787,12 +803,10 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
  *
  * The day is genuinely good news and is said as such: three dates, and she picks.
  *
- * On the cash-on-delivery path the size needs saying out loud, and this is the one
- * instruction that cannot be dropped. That checkout is Logzz's scheduling page, where
- * the size is NOT a selector — the supplier's own product page says it in capitals:
- * "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types it into the complement
- * field with the delivery day. Left blank, the warehouse picks for her, and a piece that
- * does not fit comes back at the operator's cost.
+ * The size needs saying out loud on both paths: she picks it on the checkout page (operator,
+ * 2026-10-06 — the Logzz checkout has a size selector now; the old instruction to type it
+ * beside the address predates it), and a wrong pick comes back at the operator's cost. A kit's
+ * checkout is the kit's own, and she picks each piece's size there.
  */
 const checkoutDirectiveFor = (
   url: string | null,
@@ -800,6 +814,7 @@ const checkoutDirectiveFor = (
   path: "cod" | "prepay",
   prefilled = true,
   fact: string | null = null,
+  pieces = 1,
 ): string | null =>
   url === null
     ? null
@@ -807,12 +822,11 @@ const checkoutDirectiveFor = (
       // list of steps came back as "escolhe o dia, que são 3 dias pra escolher").
       `Mande este link para ela agora, exatamente como está, sem encurtar e sem alterar:\n${url}\n` +
       `Junto, UMA frase curta e natural: ${prefilled ? "o que ela já te passou vai preenchido, e " : ""}` +
-      `lá ela completa o endereço e escolhe o dia da entrega${
-        path === "cod"
-          ? `, e escreve o tamanho${size ? ` ${size}` : ""} no campo de complemento — essa parte diga` +
-            ` com todas as letras, porque em branco o depósito escolhe por ela`
-          : `${size ? ` e o tamanho ${size}` : " e o tamanho"}`
-      }. Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
+      `lá ela completa o endereço${path === "cod" ? ", escolhe o dia da entrega" : ""} e escolhe ${
+        pieces > 1 ? `o tamanho de cada peça${size ? ` (${size})` : ""}` : `o tamanho${size ? ` ${size}` : ""}`
+      } — diga com o tamanho, tipo "${
+        pieces > 1 ? "lá você escolhe o tamanho de cada peça" : `lá você escolhe o ${size ?? "seu tamanho"}`
+      }". Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
       ` nasce quando ela terminar no checkout.` +
       // H-2: the link's own row of the linked facts, for her reasoning — not a line to send.
       (fact
@@ -1978,6 +1992,8 @@ const handleTurn = async (
 
   /** The stored inbound message this turn answers — what a `retry_turn` ticket names. */
   let inboundId: string | null = null;
+  // The update that takes the conversation failed (grafo §61); see the 2d block.
+  let claimFailed = false;
 
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
@@ -2157,6 +2173,9 @@ const handleTurn = async (
   // writing and folds this message into its reply at its second look — this one leaves no reply.
   // A failed update never silences her (0023 not applied, network): only an empty answer means
   // another turn holds it. The resume takes it too; the sweep's retry and a revision do not.
+  // A turn whose update failed holds nothing, so the newer message's turn cannot join it and
+  // answers on its own: its second look discards instead of revising (`claimFailed`, grafo §59),
+  // or the burst is answered twice (review of 7c8bc7c).
   // Index: conversations_pkey.
   if (internal.claimed) {
     const stale = new Date(Date.now() - REPLYING_STALE_MS).toISOString();
@@ -2170,6 +2189,7 @@ const handleTurn = async (
       return json(200, { status: "joined", reason });
     }
     if (won?.[0]) Object.assign(internal.claimed, { id: conversation.id, at: won[0].replying_since });
+    claimFailed = won === null;
   }
   const unanswered = recentRows === null ? [] : unansweredInbound(recentRows);
   const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
@@ -2489,14 +2509,16 @@ const handleTurn = async (
     retries: number,
     reason = "falha de rede ao chamar o modelo — nova tentativa agendada",
   ): Promise<Response | null> => {
-    if (inboundId === null) return null;
     const runAt = new Date(Date.now() + DEFERRED_RETRY_DELAY_SECONDS * 1000);
     // A message that joined this turn (grafo §61) is newer than the one it started on: the retry
     // answers the whole burst through the newest, or it would be moot and nobody would answer.
+    // Read before giving up on a null `inboundId` (a revision whose read failed): the newest is
+    // the ticket then, and the draft that did not read her never goes out (review of 7c8bc7c).
     // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
-    const newest = (
+    const newest: string | null = (
       await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id&order=created_at.desc&limit=1`).catch(() => null)
     )?.[0]?.id ?? inboundId;
+    if (newest === null) return null;
     const ticket: RetryTicket = { inboundId: newest, retries };
     const armed = await db("followups?on_conflict=conversation_id,kind", {
       method: "POST",
@@ -2540,13 +2562,15 @@ const handleTurn = async (
    * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
    */
   const lateGuard = async (rewrites: number, draft: string): Promise<Response | null> => {
-    if (inboundId === null) return null;
+    // A revision that could not read the burst does not know what its draft answered: it revises
+    // again or goes to the sweep, never out unread (review of 7c8bc7c).
+    if (inboundId === null && !isRevise) return null;
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
     ).catch(() => null);
     // A failed read never silences her; the retry keeps its old rule and gives up.
     if (latest === null && !isRetry) return null;
-    if (!retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
+    if (inboundId !== null && !retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
@@ -2555,6 +2579,12 @@ const handleTurn = async (
       const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
       await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
       return json(200, { status: "retry_moot", reason, costBrl: spent });
+    }
+    if (claimFailed) {
+      // Nobody joined this turn: her newer message's turn answers the whole burst (grafo §59).
+      const reason = "superseded: chegou mensagem nova antes do envio e a conversa não foi tomada — o turno dela responde a rajada inteira";
+      await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
+      return json(200, { status: "superseded", reason, costBrl: spent });
     }
     const revisions = internal.revise?.revisions ?? 0;
     const deadline = internal.revise?.deadline ?? turnStartedAt + REVISE_DEADLINE_MS;
@@ -2698,9 +2728,12 @@ const handleTurn = async (
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
-  // A bare "sim" beside a question or request is no decision (operator, 2026-10-06): she gets the
-  // answer, and the link waits for a yes that is all she said — unless her own words decide.
-  if (decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething)) interpretation = { ...interpretation, wants_to_buy: false };
+  // A bare "sim" beside a question holds the link (operator, 2026-10-06): she gets the answer, and
+  // the link waits for a yes that is all she said — unless her own words decide or the question is
+  // a buyer's ("como faço pra pagar?"). It never forces "not buying": the model's reading stands,
+  // and "Sim! Como faço pra pagar?" goes on to the next datum (review of 7c8bc7c).
+  const yesBesideQuestion =
+    decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething) && !parts.some(buyerAsk);
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
@@ -3014,7 +3047,15 @@ const handleTurn = async (
     Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
       ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
       : null;
-  const paymentChoice = interpretation.payment_choice ?? storedChoice;
+  // "Sim" to the default the prompt teaches (`DEFAULT_COD_CONFIRM`, "Então deixo no pagamento na
+  // entrega…, pode ser?") is her choice too, and the data come after it: unstored, the next turn
+  // would have no path and the link would wait for good (operator, 2026-10-06).
+  const defaultCod =
+    interpretation.payment_choice !== "prepay" &&
+    /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/i.test(lastOutbound) &&
+    parts.some(confirmsAddress) &&
+    !parts.some(asksSomething);
+  const paymentChoice = interpretation.payment_choice ?? (defaultCod ? "cod" : storedChoice);
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
   if (renewChoice) {
@@ -3023,11 +3064,11 @@ const handleTurn = async (
       body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
-  if (interpretation.payment_choice && parts.some(choosesPath)) {
+  if ((interpretation.payment_choice && parts.some(choosesPath)) || defaultCod) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        payment_choice: interpretation.payment_choice,
+        payment_choice: interpretation.payment_choice ?? "cod",
         payment_choice_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -3045,7 +3086,6 @@ const handleTurn = async (
     ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
     phone: lead.phone,
   };
-  const identityComplete = isIdentityComplete(identityDraft);
   // Kits: every piece needs its size before the link, and the link is the kit's own.
   const sizeKnown = units > 1 ? unitSizes.length >= units : (stated?.size ?? lead.size ?? null) !== null;
   const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
@@ -3059,12 +3099,19 @@ const handleTurn = async (
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
   // the link and written to `turn_outcomes.reason`, so the record says what was sent.
   const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
-  const readiness = {
-    identityComplete,
-    interpretation,
-    identityAsked: asksForIdentity(lastOutbound),
-    identityGiven: Object.keys(identityFound).length > 0,
+  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name, e-mail and CPF.
+  // The refusals are read from the conversation (`refusedAsks`), not stored: an e-mail refused once
+  // and a CPF refused twice let the link go without them.
+  const cpfRefusals = refusedAsks(recent, "document");
+  const linkData = {
+    sizeKnown,
+    cepKnown: Boolean(addressDraft.cep),
+    pathSettled: paymentChoice !== null || knownRegion?.cod === false,
+    nameKnown: Boolean(identityDraft.name),
+    emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,
+    cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
   };
+  const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
   // M-03: the link this turn would send, if it went out in the last three messages, is
   // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
@@ -3072,16 +3119,23 @@ const handleTurn = async (
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
   const linkJustSent =
     !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
-  const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
-  // Ready for the link and the size still unknown: the size comes first, asked naturally.
+  const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });
+  // She wants the link and something comes first: that one thing, asked naturally. The payment
+  // choice is the region directive's; name, e-mail and CPF are the identity directive's.
+  const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
   const sizeBeforeLink =
-    !sizeKnown && readyForLink(readiness)
+    missing === "size" && (linkDue || units > 1)
       ? units > 1
         ? `Ela quer ${units} peças e ${unitSizes.length === 0 ? "nenhum tamanho foi dito" : `só ${unitSizes.length} tamanho(s) foi dito (${unitSizes.join(", ")})`}:` +
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
-      : null;
+      : missing === "cep" && linkDue
+        ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
+          ` entrega e o pagamento na região dela. Não escreva link nenhum.`
+        : missing === "payment" && linkDue && knownRegion === null
+          ? `Ela quer fechar, mas ainda não escolheu como paga: pergunte qual ela prefere antes do link.`
+          : null;
   const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
@@ -3103,10 +3157,10 @@ const handleTurn = async (
   // again (persona round); "vou pensar" keeps the line either way (seventh review).
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
   if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
-    // Never a link without a size: without one she gets the line alone.
+    // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? ""))
+      thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? ""))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -3118,7 +3172,7 @@ const handleTurn = async (
     const sent = await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
-            (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
+            (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)
         : think,
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
@@ -3129,7 +3183,20 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  const identityDirective = linkNow || linkAlreadySent ? null : identityDirectiveFor(identityDraft);
+  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
+  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = recentOutbound.some((m) =>
+    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
+  );
+  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // After the size and the CEP too, so the offer never shares a message with another question.
+  const kitOfferNow =
+    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow;
+  const identityDirective =
+    linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+      ? null
+      : identityDirectiveFor(identityDraft, linkData.emailDone, cpfRefusals);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent
@@ -3147,30 +3214,27 @@ const handleTurn = async (
       : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
-    // A kit carries one size per piece, and she types them all in the complement.
+    // A kit carries one size per piece, and she picks each one on the kit's own checkout.
     units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,
     linkPath,
     Object.keys(identityDraft).length > 0,
     linkFact,
+    units,
   );
-  // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
-  // kit's, the sizes she gave go in the checkout complement — the only field she types.
-  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = recentOutbound.some((m) =>
-    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
-  );
+  // When the link is a kit's, it is that kit's own checkout, and she picks each size there.
   const kitDirective =
     units > 1 && checkoutUrl !== null
       ? `O link é do kit de ${units} peças, com os tamanhos ${unitSizes.join(" e ")}.`
-      : units === 1 && interpretation.wants_to_buy && kitsOnPath.length > 0 && !kitOffered
-      ? `Na mesma mensagem, ofereça uma vez só, numa frase curta, que levando mais peças o desconto` +
-        ` sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
-        ` Se ela não quiser, siga com uma peça.`
+      : kitOfferNow
+      ? `Ela já escolheu como paga: antes de pedir os dados, ofereça uma vez só, numa frase curta, que` +
+        ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
+        ` Diga sempre "peças" junto do preço do kit. Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
   const sizeDirective =
     [
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
+      regionDirectiveFor(knownRegion, paymentChoice),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,

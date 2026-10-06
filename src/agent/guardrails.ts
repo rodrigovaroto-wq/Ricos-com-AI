@@ -821,8 +821,10 @@ interface Gate {
  * passed as honest with the three-word window of the first version (independent review, 2026-09-29;
  * `.claude/memory/negation-blindness.md`).
  */
+// "Faz" and "trabalha com" (2026-10-06, grafo §63): "a transportadora ainda não faz pagamento na
+// entrega" is the reason the script gives where delivery does not reach her, and was vetoed there.
 const deniedRightBefore = (t: string, at: number): boolean =>
-  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
+  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|faz|fazemos|trabalha\s+com|trabalhamos\s+com|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
   );
 /** Trying the vest on, as her act. Never "vista" (also "à vista") nor the noun "prova" alone. */
@@ -1543,6 +1545,9 @@ const gates: readonly Gate[] = [
         if (!week && /\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
         // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
+        // Nor is the day she picks (2026-10-06, grafo §63): "escolhe/marca um dia em que você vai estar
+        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a count.
+        if (/^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
@@ -3077,6 +3082,10 @@ const gates: readonly Gate[] = [
         /\b(?:atende|atendemos)\s+(?:sim\s+)?(?:ai|la)(?:\s+sim)?\b/g,
         new RegExp(String.raw`\b${VERB}\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b`, "g"),
         new RegExp(String.raw`\b${VERB}\s+(?:sim\s+)?(?:na|pra|para|em)\s+sua\s+(?:cidade|regiao)\b`, "g"),
+        // Payment at the door affirmed for her place (2026-10-06, grafo §63): the opening of the two
+        // options, "No seu CEP dá pra pagar na entrega", is the lookup's answer and nobody else's.
+        /\b(?:n[oa]|pr[oa]|para\s+[oa]|nesse|nessa)\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\s+(?:(?:ja|tambem)\s+)?(?:da|tem|rola|existe|aceita|funciona|pode)\b[^.!?\n]{0,25}\bentrega\b/g,
+        /\b(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\s+(?:ai|aqui|la|n[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao)))\b/g,
       ];
       for (const re of CLAIMS) {
         for (const m of t.matchAll(re)) {
