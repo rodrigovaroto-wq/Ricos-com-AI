@@ -611,6 +611,15 @@ const looksLikeDiscount = (t: string, at: number): boolean => {
  */
 export type OptOutLevel = "explicit" | "ambiguous" | "none";
 
+/**
+ * A burst of her messages (grafo §59): each one is classified on its own — the anchored patterns
+ * break with another line before — and the strongest wins.
+ */
+export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel => {
+  const levels = messages.map(classifyOptOut);
+  return levels.includes("explicit") ? "explicit" : levels.includes("ambiguous") ? "ambiguous" : "none";
+};
+
 export const classifyOptOut = (text: string): OptOutLevel => {
   const t = norm(text);
   const explicit = [

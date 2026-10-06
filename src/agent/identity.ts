@@ -158,6 +158,10 @@ export const mergeIdentity = (
   return { fields, missing: IDENTITY_FIELDS.filter((f) => !fields[f]) };
 };
 
+/** A burst of her messages (grafo §59): each read on its own, in order — the newest wins. */
+export const extractIdentityBurst = (messages: readonly string[]): Partial<Identity> =>
+  messages.reduce<Partial<Identity>>((found, m) => mergeIdentity(found, extractIdentity(m).fields).fields, {});
+
 export const isIdentityComplete = (fields: Partial<Identity>): fields is Identity =>
   IDENTITY_FIELDS.every((f) => Boolean(fields[f]));
 

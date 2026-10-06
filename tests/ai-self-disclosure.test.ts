@@ -191,6 +191,6 @@ describe("humanity_claim: não anuncia que é virtual sem ela perguntar (Q10 lin
     // `index.ts` is Deno and outside the tsconfig: its wiring is read as source, as in function-drift.
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
     const call = /gates = runGates\(attempt\.text, \{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
-    expect(call).toContain('askedIdentity: asksWhatSheIs(inbound.body ?? "")');
+    expect(call).toContain("askedIdentity: parts.some(asksWhatSheIs),");
   });
 });

@@ -645,6 +645,20 @@ export const decidesToBuy = (message: string): boolean => {
 };
 
 /**
+ * The decision in a burst of her messages (grafo §59): the newest word wins. True when a line
+ * decides and no later line puts it off or takes it back ("quero o M" / "não, pensando bem vou
+ * esperar"); false when one does; null when no line decides.
+ */
+const RETRACTS =
+  /\b(?:depois|esperar|pensar|pensando\s+bem|desist\w*|mais\s+tarde|outro\s+dia|deixa\s+(?:pra\s+la|pra\s+depois|quieto)|agora\s+nao|melhor\s+nao|nao\s+vou\s+(?:querer|levar|comprar)|nao\s+quero\s+mais)\b/;
+export const decisionInBurst = (messages: readonly string[]): boolean | null => {
+  const lines = messages.flatMap((m) => m.split("\n"));
+  const at = lines.findLastIndex(decidesToBuy);
+  if (at === -1) return null;
+  return !lines.slice(at + 1).some((l) => RETRACTS.test(norm(l)));
+};
+
+/**
  * She names a price the shop does not have (H-2, persona round 2026-09-25, Tati: "faz por
  * 100 que eu levo agora" got the R$ 129,90 link). Read by the number, not by the phrasing:
  * the phrase-based first version (review, 2026-09-25) vetoed "por 116 eu levo" — Tati

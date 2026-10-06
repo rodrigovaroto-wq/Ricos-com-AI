@@ -1828,13 +1828,25 @@ tentativa. Depois de gravar a mensagem, o turno de uma mensagem nova espera `QUI
 `retry.ts`, espelhado) e lê as últimas 20 mensagens da conversa; se a inbound mais nova não é a dele
 (`retryIsMoot`, a mesma função da nova tentativa), sai `superseded`, sem resposta, com
 `turn_outcomes` `stopped` e motivo "superseded: …". O turno que responde lê
-`unansweredInbound(...)` — toda inbound desde a última outbound, sem contar a boas-vindas fixa — e
-`inbound.body` passa a ser a rajada unida por quebra de linha, como uma mensagem de várias linhas:
-todos os leitores abaixo veem tudo. A exceção é `wantsHuman` (frase exata), lida mensagem a mensagem.
+`unansweredInbound(...)` — toda inbound desde a última outbound, sem contar a boas-vindas fixa. Unida
+por quebra de linha (`inbound.body`), vai ao intérprete, ao modelo e aos leitores que procuram algo em
+qualquer ponto do texto (`namesOwnPrice`, `statesPastPurchase`, `handoffFor`, `quantityOf`,
+`saysOwnSize`, `asksForLink`, `closesConversation`, `asksForTestimonial`). Mensagem a mensagem
+(`parts`), corrigido na revisão de 5af3a8b: o que é ancorado no texto inteiro ou em que a mais nova
+corrige a anterior — opt-out (`classifyOptOutBurst`, a mais forte vence: "oi"+"não quero receber mais
+promoção" lia `none`), `asksSomething`, `wantsHuman`, `choosesPath` e `asksWhatSheIs` (qualquer uma);
+a decisão de compra (`decisionInBurst`: a última linha que decide vale, e uma linha depois dela que adia
+ou desiste — "pensando bem vou esperar", "depois eu vejo" — a desfaz, `wants_to_buy: false`); a
+despedida (`goodbyeParks`) e a confirmação do endereço (`confirmsAddress`) só na última mensagem; o
+tamanho na mais nova que diz um; endereço e identidade extraídos um a um, em ordem, a mais nova vence
+(`extractAddressBurst`, `extractIdentityBurst` — "Leila Souza" sozinha numa mensagem volta a ser nome).
 A segunda olhada (`retryGaveUp` → `lateGuard`) vale para todo turno: logo antes de gravar e mandar a
 resposta (e a linha fixa), uma inbound mais nova descarta a resposta — sem linha em `messages`, sem
 régua, `stopped` com o custo — e o turno novo responde tudo; uma leitura que falha nunca cala a
-cliente. A retomada (`resume: true`) fica moot quando a inbound mais nova não é a que disparou a
+cliente; a leitura da rajada que falha também não — o turno responde a própria mensagem. O custo
+(`costTotal`) deixou de sobrescrever `cost_brl` com o valor lido no começo do turno: cada gravação relê
+o total e soma só o que o turno gastou desde a gravação anterior, e o turno relê o total depois da
+espera — o gasto de um turno descartado não sai mais do teto. A retomada (`resume: true`) fica moot quando a inbound mais nova não é a que disparou a
 boas-vindas (`external_id`): aquela mensagem tem turno próprio e responde a rajada inteira. O kit:
 `replayed` deixou de ser só da nova tentativa — um `units_at` gravado depois do começo da rajada é de
 um turno descartado, e uma lista parcial não é somada de novo. n8n sem mudança: `superseded` não traz
@@ -1844,13 +1856,20 @@ continua respondida; outbound (régua, pessoa, agente) fecha a rajada, a boas-vi
 nova derruba o turno anterior e a mesma mensagem não; a espera cabe nos 150 s do n8n; fiação lida
 como fonte (espera só fora de retomada/nova tentativa, consulta por `conversation_id`, posição entre
 a gravação e o primeiro leitor, `wantsHuman` por mensagem, retomada moot por `external_id`,
-`lateGuard` sem `if (!isRetry)` e antes do insert final). `tests/function-drift.test.ts` acompanhou
-os nomes novos.
+`lateGuard` sem `if (!isRetry)` e antes do insert final); os probes da revisão de 5af3a8b (opt-out
+com outra linha antes, desistência depois da decisão, endereço corrigido, nome sozinho) e as negações
+(rajada sem opt-out, decisão seguida de pergunta, "não sei meu CEP" não desiste); a fiação de cada
+leitor por mensagem, a leitura com `.catch` e nenhum `cost_brl: spent` sobrando.
+`tests/function-drift.test.ts`, `tests/ai-self-disclosure.test.ts` e as mutações `WA-janela-no-fim` e
+`G58-fiacao` acompanharam os nomes novos.
 **Resíduo:** ela escrever depois da janela enquanto a resposta está em ritmo no WhatsApp ainda gera
 duas respostas que podem se intercalar (a segunda olhada só vê o que chegou antes do insert); cada
 turno fica 8 s mais lento (no pior caso ~138 s + banco, contra 150 s do n8n e do relógio da Edge
-Function); `cost_brl` é lido no começo do turno, e o gasto de um turno descartado que grava depois
-dessa leitura some do contador do teto (o `llm_calls` tem o valor); fatos (tamanho, endereço,
+Function); `costTotal` lê e grava em duas chamadas, então duas gravações no mesmo instante ainda podem
+perder uma (um incremento atômico pediria uma função SQL e uma migração); a lista de desistência de
+`decisionInBurst` é curta e de propósito — "espera, qual o prazo?" não desiste —, e o que ela não
+cobre fica com o intérprete; uma "confirmação" seguida de outra mensagem ("sim"+"obrigada") não confirma
+o endereço, e a agente lê o endereço de novo; fatos (tamanho, endereço,
 identidade) gravados por um turno descartado ficam, e o turno novo os relê da mesma rajada — idem;
 depois de um turno que não respondeu (`stopped`, `deferred`), a rajada seguinte inclui as mensagens
 dele; acima de 20 mensagens sem resposta, só as 20 últimas entram.

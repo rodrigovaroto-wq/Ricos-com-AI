@@ -13,7 +13,7 @@
 import {
   asksForTestimonial,
   asksWhatSheIs,
-  classifyOptOut,
+  classifyOptOutBurst,
   gateBriefing,
   remedyFor,
   runGates,
@@ -54,6 +54,7 @@ import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
+  extractAddressBurst,
   readBackAddress,
   isComplete,
   mergeAddress,
@@ -61,7 +62,7 @@ import {
 } from "./address.ts";
 import {
   asksForIdentity,
-  extractIdentity,
+  extractIdentityBurst,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
@@ -105,7 +106,7 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
-  decidesToBuy,
+  decisionInBurst,
   decideClarify,
   goodbyeParks,
   handoffFor,
@@ -1973,6 +1974,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)) {
       return json(200, { status: "retry_moot" });
     }
+    inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
   }
 
@@ -2097,26 +2099,47 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // 2d. One answer per burst (grafo §59). A new message waits for her to stop typing; if a
   // newer one of hers arrived meanwhile, that one's turn answers — this one leaves no reply.
   // The turn that answers reads every message of hers since the agent last spoke, joined as
-  // one message with line breaks: every reader below sees the burst, not just its last line.
+  // one message with line breaks, for the interpreter, the model and the readers that look for
+  // something anywhere in it. A reader whose meaning is per message — an anchored pattern, or a
+  // later message that corrects an earlier one — reads `parts`, one message at a time.
+  // A failed read never leaves her unanswered: the turn answers its own message.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
   if (!isResume && !isRetry) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
-  const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> =
-    (await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`)) ?? [];
-  if (!isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {
+  const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> | null =
+    await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
+  if (recentRows !== null && !isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {
     const reason = "superseded: chegou mensagem mais nova dela, e o turno dela responde a rajada inteira";
     await recordOutcome(conversation.id, "stopped", reason);
     return json(200, { status: "superseded", reason });
   }
-  const unanswered = unansweredInbound(recentRows);
+  const unanswered = recentRows === null ? [] : unansweredInbound(recentRows);
+  const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
   if (unanswered.length > 0) {
-    inbound = { ...inbound, body: unanswered.map((m: { body: string | null }) => m.body ?? "").join("\n") };
+    inbound = { ...inbound, body: parts.join("\n") };
     batchFrom = unanswered[0]?.created_at ?? null;
   }
 
   // The spend so far, read before any exit that may call a model. `turn_outcomes`
   // records the delta against `spentBefore`.
-  let spent = Number(conversation.cost_brl ?? 0);
+  // Read again after the quiet window (grafo §59 review): a turn running alongside may have spent since.
+  // Index: conversations_pkey.
+  const storedCost = async (): Promise<number | null> => {
+    const row = await db(`conversations?id=eq.${conversation.id}&select=cost_brl`).catch(() => null);
+    return row?.[0] ? Number(row[0].cost_brl ?? 0) : null;
+  };
+  let spent = (await storedCost()) ?? Number(conversation.cost_brl ?? 0);
   const spentBefore = spent;
+  /**
+   * What `cost_brl` should hold now: the stored total plus what this turn spent since its last
+   * write. Writing `spent` itself overwrote what a turn running alongside — one a newer message
+   * discarded — had added, and its spend fell out of the ceiling.
+   */
+  let costWritten = spent;
+  const costTotal = async (): Promise<number> => {
+    const total = ((await storedCost()) ?? costWritten) + (spent - costWritten);
+    costWritten = spent;
+    return total;
+  };
 
   // Which host serves CONVERSATION_MODEL, resolved once — used for every call and for
   // the provider label written to `llm_calls`, so the two never disagree.
@@ -2160,7 +2183,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (spent !== spentBefore) {
       await db(`conversations?id=eq.${conversation.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+        body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
       }).catch(() => undefined);
     }
     await Promise.all([
@@ -2227,7 +2250,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         }).catch(() => null);
         await db(`conversations?id=eq.${conversation.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ cost_brl: spent, last_outbound_at: new Date().toISOString() }),
+          body: JSON.stringify({ cost_brl: await costTotal(), last_outbound_at: new Date().toISOString() }),
         }).catch(() => undefined);
         return { text: attempt.text, id: out?.[0]?.id ?? null };
       }
@@ -2245,13 +2268,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent }),
+      body: JSON.stringify({ cost_brl: await costTotal() }),
     }).catch(() => undefined);
     return null;
   };
 
   // 3. Opt-out is irrevocable and costs nothing to check.
-  const optOut = classifyOptOut(inbound.body ?? "");
+  const optOut = classifyOptOutBurst(parts);
   if (optOut === "explicit") {
     // Written first: nothing below — a model call, a failure — may delay or lose it.
     await db(`leads?id=eq.${lead.id}`, {
@@ -2260,7 +2283,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     // Only on the opt-out itself: a lead already out, or already with a person, gets none.
     const farewell =
-      !lead.opted_out_at && !lead.handoff_at && asksSomething(inbound.body ?? "") ? await optOutFarewell() : null;
+      !lead.opted_out_at && !lead.handoff_at && parts.some(asksSomething) ? await optOutFarewell() : null;
     // `bloqueado` is terminal and irreversible by the agent — only a person undoes it.
     await Promise.all([
       recordOutcome(
@@ -2295,7 +2318,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // call, because there is no point paying to generate a reply she already said she does
   // not want. The interpreter (4b) catches the request inside a longer message.
   // An exact phrase: read message by message, or "oi" + "quero falar com atendente" misses it.
-  if (unanswered.some((m: { body: string | null }) => wantsHuman(m.body ?? ""))) {
+  if (parts.some(wantsHuman)) {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
@@ -2344,7 +2367,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const modelFailure = async (error: unknown) => {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     /**
      * `handoff_at` is written and never cleared: a lead that gets it is out of the
@@ -2420,7 +2443,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (!armed) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     const reason = "falha de rede ao chamar o modelo — nova tentativa agendada";
     await Promise.all([
@@ -2453,7 +2476,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (!retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     const reason = isRetry
       ? "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava"
@@ -2500,7 +2523,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        cost_brl: spent,
+        cost_brl: await costTotal(),
         last_outbound_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -2564,7 +2587,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // (persona round 3): a goodbye is answered like "vou pensar" (Tati got the size ladder),
   // and a decision in her words sends the link (Marcinha's "vou nesse então").
   // A goodbye never beats a decision: "deixa quieto, quero o G mesmo" is buying.
-  if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
+  // In a burst the newest word wins (grafo §59): "quero o M" then "pensando bem vou esperar" is no decision.
+  const decided = decisionInBurst(parts);
+  if (decided !== null) interpretation = { ...interpretation, wants_to_buy: decided };
   // A purchase on a price the shop does not have is not a decision (H-2): no link on
   // "faz por 100 que eu levo", whichever reading said yes. "Por 116 eu levo" is the real
   // prepaid price and stays a decision.
@@ -2585,7 +2610,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     ...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
-  if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
+  if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
@@ -2674,7 +2699,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // and an empty column becomes a dash in a message a customer sees. What counts as
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
-  const stated = statedSize(inbound.body ?? "", interpretation);
+  // The newest message that states a size wins over an earlier one in the same burst (grafo §59).
+  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? inbound.body ?? "", interpretation);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -2746,7 +2772,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
 
-  const foundAddress = extractAddress(inbound.body ?? "");
+  // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
+  const foundAddress = { fields: extractAddressBurst(parts) };
   if (Object.keys(foundAddress.fields).length > 0) {
     // What she stated wins over what a previous pass inferred, and a new piece never
     // silently re-confirms an address she has not seen read back.
@@ -2755,7 +2782,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   } else if (
     !addressConfirmed &&
     isComplete(addressDraft) &&
-    confirmsAddress(inbound.body ?? "") &&
+    confirmsAddress(parts[parts.length - 1] ?? "") &&
     // Only when the agent's last message actually read the address back. A bare "sim"
     // answering something else — "quer que eu te mande o link?" — used to set
     // `confirmedAt` and flip the order ready, which is §D2 skipped in silence.
@@ -2820,7 +2847,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
 
   // 5e. Identity accumulates the same way, and for the same reason.
   const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
-  const foundIdentity = extractIdentity(inbound.body ?? "");
+  // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
+  const foundIdentity = { fields: extractIdentityBurst(parts) };
   // The e-mail the interpreter read counts when the strict reader found none.
   const identityFound = {
     ...(interpretation.email ? { email: interpretation.email } : {}),
@@ -2885,7 +2913,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (clarify.kind === "silent") {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
     await Promise.all([
@@ -2933,7 +2961,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
-  if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {
+  if (interpretation.payment_choice && parts.some(choosesPath)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -3150,7 +3178,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       // Testimonials only when she asks for them (R16.7).
       askedTestimonial: asksForTestimonial(inbound.body ?? ""),
       // Virtual, IA, robô only when she asks what the agent is (Q10, line 2; grafo §58).
-      askedIdentity: asksWhatSheIs(inbound.body ?? ""),
+      askedIdentity: parts.some(asksWhatSheIs),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
@@ -3179,7 +3207,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   await db(`conversations?id=eq.${conversation.id}`, {
     method: "PATCH",
     body: JSON.stringify({
-      cost_brl: spent,
+      cost_brl: await costTotal(),
       updated_at: new Date().toISOString(),
     }),
   });

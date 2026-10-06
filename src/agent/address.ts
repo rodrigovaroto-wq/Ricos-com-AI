@@ -219,6 +219,10 @@ export const mergeAddress = (
   return { fields, missing: REQUIRED_FIELDS.filter((f) => !fields[f]) };
 };
 
+/** A burst of her messages (grafo §59): each read on its own, in order — the newest wins. */
+export const extractAddressBurst = (messages: readonly string[]): Partial<Address> =>
+  messages.reduce<Partial<Address>>((found, m) => mergeAddress(found, extractAddress(m).fields).fields, {});
+
 export const isComplete = (fields: Partial<Address>): fields is Address =>
   REQUIRED_FIELDS.every((f) => Boolean(fields[f]));
 

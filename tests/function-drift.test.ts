@@ -381,10 +381,10 @@ describe("rodada 3 na Edge Function", () => {
   it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
     expect(source).toContain('statesPastPurchase(inbound.body ?? "") ||');
     expect(source).toContain("statesPastPurchase(m.body ?? \"\", false)");
-    expect(source).toContain('if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
+    expect(source).toContain('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
     // A decisão é lida antes da despedida, que a consulta.
     expect(source.indexOf("if (decidesToBuy(")).toBeLessThan(source.indexOf("if (goodbyeParks("));
-    expect(source).toContain('if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };');
+    expect(source).toContain("if (decided !== null) interpretation = { ...interpretation, wants_to_buy: decided };");
   });
 
   it("a escada lê o histórico: não recomeça logo depois do \"vou pensar\"", () => {
@@ -457,7 +457,7 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
 describe("H-2 na Edge Function (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("preço inventado desliga a decisão de compra, depois da leitura determinística", () => {
-    const decide = source.indexOf('if (decidesToBuy(inbound.body ?? "")) interpretation');
+    const decide = source.indexOf("if (decided !== null) interpretation");
     const bargain = source.indexOf(
       'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
     );
@@ -502,7 +502,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
     // A choice is stored only from a choice, and expires.
-    expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
+    expect(source).toContain("if (interpretation.payment_choice && parts.some(choosesPath)) {");
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
