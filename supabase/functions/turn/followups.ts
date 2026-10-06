@@ -842,7 +842,11 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       return (
         `Oi! Sua entrega está marcada pra **amanhã** 💛\n` +
         (ctx.prepaid ? "" : `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n`) +
-        `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`
+        // Prepaid, anyone can take it in (the doorman, someone at home); on delivery, whoever
+        // receives is whoever pays (operator, 2026-10-06).
+        (ctx.prepaid
+          ? `Se não tiver ninguém para receber, me avisa que eu tento remarcar.`
+          : `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`)
       );
 
     case "order_delivered":

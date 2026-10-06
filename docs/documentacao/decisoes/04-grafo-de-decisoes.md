@@ -1583,6 +1583,20 @@ em `hermes-core.ts` (≥ 200 turnos por versão, z ≥ 1,645); reversão pendent
 **Resíduo:** recalibrar o Hermes (`pnpm hermes:calibrar`) depois da skill 1.2.0; texto do e-mail de
 falha sem aprovação.
 
+## 53. A véspera do pedido já pago perguntava se ela estaria em casa (2026-10-06)
+
+**Sintoma:** revisando os templates antes de submeter, o operador leu na véspera do antecipado
+"Se você não estiver em casa amanhã, me avisa que eu tento remarcar".
+**Causa:** a linha final era uma só para os dois caminhos. Na entrega, quem recebe paga, então
+precisa ser ela; já pago, a portaria ou alguém da casa recebe.
+**Caminhos descartados:** trocar a linha nos dois caminhos (o operador recusou: na entrega a
+pergunta certa continua sendo se ela está em casa).
+**Correção:** `renderFollowup("order_eve")` com `ctx.prepaid` termina em "Se não tiver ninguém
+para receber, me avisa que eu tento remarcar."; template `encorpa_vespera_entrega_pago` (seção 4
+de `03-templates-meta.md`) com o mesmo texto, ainda não submetido.
+**Guarda:** `tests/whatsapp-templates.test.ts` compara o corpo da seção 4 com o texto do código e
+passa os dois pela cadeia de gates (ficou vermelho com a doc trocada antes do código).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

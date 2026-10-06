@@ -336,6 +336,11 @@ varredura confere de novo que a entrega é amanhã.
 > Deixa **R$ 129,90** separado — pode ser dinheiro ou cartão, na maquininha do entregador.
 > Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
 
+Já pago, sem a linha do valor e com a última trocada (2026-10-06 — qualquer pessoa recebe):
+
+> Oi! Sua entrega está marcada pra **amanhã** 💛
+> Se não tiver ninguém para receber, me avisa que eu tento remarcar.
+
 **9.4 — Depois de receber.** Quando o status do pedido diz entregue, duas horas depois.
 
 > Chegou?! 😍 Me conta: serviu direitinho?
