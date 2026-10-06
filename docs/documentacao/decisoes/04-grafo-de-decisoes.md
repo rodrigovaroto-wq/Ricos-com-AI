@@ -1771,19 +1771,38 @@ sempre. O briefing do gate ganhou a linha 2. Prompt: "Você é a {agentName}, da
 WhatsApp… Quando se apresenta, é "a {agentName}, da {brand}", e só… Nunca diz por conta própria que
 é virtual, IA, robô, bot ou assistente virtual: só quando a mensagem dela pergunta o que você é…";
 o bloco de tom virou "o tom, não a identidade: você nunca diz que é uma pessoa".
-**Guarda:** `tests/ai-self-disclosure.test.ts` (as duas aberturas de produção vetadas depois de "oi";
-16 perguntas de identidade, negações inclusive, liberam a resposta honesta; negar ser robô segue
-vetado mesmo perguntada; nome + marca, "loja virtual", "eu ia" e "não sou uma pessoa" passam; linhas
+**Achados da revisão de 5fce1df (corrigidos, testes vermelhos antes):** (1) falsos negativos em
+`asksWhatSheIs` viravam a resposta honesta em veto e empurravam a reescrita para a mentira — "vc é
+real?", "tem alguém aí?" (que estava na lista de não-pergunta: neste contexto é sondar quem responde),
+"é atendente?", "é gpt?", "vc é de carne e osso?", "isso é resposta pronta?", "é gravação?", "isso é um
+sistema?", "vc é programada?", "falo com quem?", "é vc mesma q responde?", "vc é rbo?" — todos cobertos,
+com não-perguntas de venda ("a entrega é programada?", "qual o sistema de entrega?", "custa 129
+reais?") seguindo falsas; (2) a resposta honesta inteira ("não sou uma pessoa/gente…, sou a assistente
+virtual…") nunca é vetada pelo anúncio, perguntada ou não — ela só existe como resposta (resíduo
+aceito pelo operador); (3) buraco da linha 1: "sou de verdade", "sou real", "sou gente", "sou de carne
+e osso", "sou eu mesma, uma pessoa" agora vetam como afirmar ser gente, perguntada ou não, com a
+negação passando ("não sou de verdade uma pessoa", "não sou gente, sou a assistente virtual"); (4)
+"atendimento/mensagem/resposta automática" vetava texto da transportadora ("mensagem automática dos
+Correios") — ancorado em "sou/aqui é/isso (aqui) é/este é…" e com Correios/transportadora/rastreio
+excluídos.
+**Guarda:** `tests/ai-self-disclosure.test.ts` (101 casos: as duas aberturas de produção vetadas
+depois de "oi"; 29 perguntas de identidade, negações e erros de digitação inclusive, liberam a
+resposta honesta; 12 não-perguntas; a resposta honesta inteira passa sem pergunta; texto da
+transportadora passa e "isso aqui é atendimento automático" veta; as afirmações de ser gente vetam
+nos três estados do sinal e as negações passam; nome + marca, "loja virtual", "eu ia" passam; linhas
 fixas passam; fiação no `index.ts` lida como fonte). `tests/prompt.test.ts` prova que a apresentação
 ensinada passa a cadeia e que a frase da produção não. Arco "agente se anuncia virtual sem ela
 perguntar" em `dev:conversas` (o motor passa `askedIdentity`). Mutações `G58-anuncia-virtual` e
-`G58-fiacao` em `verify-guards.ts`, ambas mortas pelo teste. `dev:gates`: 0 viradas — os contextos
-do diff não têm `askedIdentity`, como não têm `askedTestimonial`; com `askedIdentity: false`, 21
-frases do corpus endurecem, todas anúncio não perguntado ou resposta à pergunta (que passa com ela).
-**Resíduo:** "não sou uma pessoa" sem pergunta passa (pedido explícito: não vetar); a despedida do
-opt-out e a varredura não leem a pergunta (veto ocioso lá); pergunta de identidade feita num turno
-anterior não libera o turno seguinte; frase de anúncio fora da lista (ex.: "aqui quem fala é a IA")
-passa.
+`G58-fiacao` em `verify-guards.ts`. `dev:gates` ganhou um 13º contexto com `askedIdentity: false`
+("sem-pergunta-de-identidade"), para o veto ser visto pelo diff daqui em diante: contra 0d49d9c, 0
+afrouxou e 24 endureceram — anúncios não perguntados, perguntas da cliente e trechos de teste/prompt
+(só nesse contexto), e as cinco afirmações novas de ser gente (nos 13); nenhuma é resposta honesta
+a pergunta de identidade.
+**Resíduo:** "sou a assistente virtual da marca" sem o "não sou uma pessoa" na frente veta quando ela
+não perguntou (é anúncio); a despedida do opt-out e a varredura não leem a pergunta (veto ocioso lá);
+pergunta de identidade feita num turno anterior não libera o turno seguinte; frase de anúncio fora da
+lista (ex.: "aqui quem fala é a IA") passa; `asksWhatSheIs` é largo — "o preço é real?" conta como
+pergunta e só devolve o comportamento de antes de §58.
 
 ## Lições (valem para qualquer correção futura)
 

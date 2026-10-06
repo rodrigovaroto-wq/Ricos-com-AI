@@ -43,6 +43,20 @@ const IDENTITY_QUESTIONS = [
   "com quem eu to falando?",
   "é inteligência artificial?",
   "vc é de verdade?",
+  // Review of 5fce1df: false negatives turned the honest answer into a veto.
+  "vc é real?",
+  "tem alguém aí?",
+  "é atendente?",
+  "é gpt?",
+  "vc é de carne e osso?",
+  "isso é resposta pronta?",
+  "é gravação?",
+  "isso é um sistema?",
+  "vc é programada?",
+  "falo com quem?",
+  "é vc mesma q responde?",
+  "vc é rbo?",
+  "é um robozinho?",
 ] as const;
 
 const NOT_ASKING = [
@@ -50,8 +64,12 @@ const NOT_ASKING = [
   "Oi, vi o anúncio",
   "quanto custa?",
   "eu ia comprar mas fiquei na dúvida",
-  "tem alguém aí?",
   "qual o tecido?",
+  "a entrega é programada?",
+  "qual o sistema de entrega?",
+  "custa 129 reais?",
+  "o colete marca na roupa?",
+  "quero ver as fotos",
   "funciona mesmo?",
   "uso 42 de calça",
 ] as const;
@@ -91,6 +109,53 @@ describe("humanity_claim: não anuncia que é virtual sem ela perguntar (Q10 lin
     expect(blockedBy("Você confere tudo na nossa loja virtual, encorpa-fashion.com.br.", unasked)).toEqual([]);
     expect(blockedBy("Eu ia te perguntar: qual roupa você anda deixando no armário?", unasked)).toEqual([]);
     expect(blockedBy("Não sou uma pessoa, mas te ajudo em tudo do colete.", unasked)).toEqual([]);
+  });
+
+  // The full honest sentence only exists as an answer: never vetoed, asked or not.
+  it.each([
+    "Não sou uma pessoa, sou a assistente virtual da Encorpa, e sigo te ajudando aqui.",
+    "Não sou uma pessoa, sou a assistente virtual da marca, tá?",
+    "Não sou gente, sou a assistente virtual da marca.",
+  ])("a resposta honesta inteira passa mesmo sem pergunta: %s", (text) => {
+    expect(blockedBy(text, { askedIdentity: false })).toEqual([]);
+  });
+
+  // Carrier text is not self-reference: only "sou/aqui é/isso é … automático" about herself is.
+  it.each([
+    "Você vai receber uma mensagem automática dos Correios com o código de rastreio.",
+    "Chega uma resposta automática do correio quando sair pra entrega.",
+    "A transportadora manda uma mensagem automática no dia da entrega.",
+    "Isso não é atendimento automático da transportadora, é o rastreio.",
+    "Isso é uma mensagem automática dos Correios, pode ficar tranquila.",
+  ])("texto da transportadora passa: %s", (text) => {
+    expect(blockedBy(text, { askedIdentity: false })).toEqual([]);
+  });
+  it.each([
+    "Isso aqui é atendimento automático, mas te explico tudo.",
+    "Sou uma mensagem automática da Encorpa.",
+    "Aqui é um atendimento automático, tá?",
+  ])("atendimento automático sobre ela é vetado: %s", (text) => {
+    expect(blockedBy(text, { askedIdentity: false })).toContain("humanity_claim");
+  });
+
+  // Line 1: claiming to be human in other words, asked or not.
+  it.each([
+    "Sou de verdade sim, pode falar comigo.",
+    "Sou real, viu?",
+    "Sou gente como você.",
+    "Sou de carne e osso!",
+    "Pode confiar que sou eu mesma, uma pessoa.",
+  ])("afirma ser gente, perguntada ou não: %s", (text) => {
+    expect(blockedBy(text, { askedIdentity: true })).toContain("humanity_claim");
+    expect(blockedBy(text, { askedIdentity: false })).toContain("humanity_claim");
+    expect(blockedBy(text)).toContain("humanity_claim");
+  });
+  it.each([
+    "Não sou de verdade uma pessoa, sou a assistente virtual da marca.",
+    "Não sou gente, sou a assistente virtual.",
+  ])("a negação passa: %s", (text) => {
+    expect(blockedBy(text, { askedIdentity: true })).toEqual([]);
+    expect(blockedBy(text, { askedIdentity: false })).toEqual([]);
   });
 
   it("as linhas fixas do código passam (camada auto)", () => {
