@@ -787,6 +787,9 @@ const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfR
     : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
       (missing[0] === "email" ? ` Se ela não tiver ou não quiser passar, tudo bem, não insista.` : ``) +
+      // Persona round of 2026-10-07 (Jussara): told only "falta o CPF", the model saw no e-mail and
+      // asked it a third time — the prompt says the e-mail is collected. Say it is settled.
+      (!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``) +
       (missing[0] === "document" && cpfRefusals === 1
         ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo com outras` +
           ` palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
@@ -906,6 +909,15 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
     const [a, b] = bubbles.slice(-2) as [string, string];
     if (wordCount(a) + wordCount(b) > maxWords) break;
     bubbles.splice(-2, 2, `${a}\n\n${b}`);
+  }
+  // The count is the operator's rule, the words a preference (persona round of 2026-10-07: five of
+  // twelve first replies went out in four bubbles): past it, the shortest neighbouring pair joins.
+  while (bubbles.length > max) {
+    let at = 0;
+    for (let i = 1; i < bubbles.length - 1; i++) {
+      if (wordCount(bubbles[i]!) + wordCount(bubbles[i + 1]!) < wordCount(bubbles[at]!) + wordCount(bubbles[at + 1]!)) at = i;
+    }
+    bubbles.splice(at, 2, `${bubbles[at]}\n\n${bubbles[at + 1]}`);
   }
   return bubbles;
 };
@@ -3232,7 +3244,9 @@ const handleTurn = async (
       : kitOfferNow
       ? `Ela já escolheu como paga: antes de pedir os dados, ofereça uma vez só, numa frase curta, que` +
         ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
-        ` Diga sempre "peças" junto do preço do kit. Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
+        ` Diga sempre "peças" junto do preço do kit. Nesta mensagem, só a oferta, terminando na pergunta do kit —` +
+        ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
+        ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
   const sizeDirective =
     [

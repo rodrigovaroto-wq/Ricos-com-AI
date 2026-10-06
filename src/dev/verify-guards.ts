@@ -2810,6 +2810,30 @@ const MUTATIONS: Mutation[] = [
     to: "|as)\\\\s*${units}",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-nota-interna",
+    bug: "a nota interna do modelo ('Need ask CEP.') saía na resposta para a cliente",
+    files: ["src/agent/guardrails.ts"],
+    from: "        ? \"the model's own note leaked into the reply\"",
+    to: "        ? null",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/internal-note.test.ts"],
+  },
+  {
+    id: "P07-tres-baloes",
+    bug: "a primeira resposta saía em quatro balões quando juntar passava de 30 palavras",
+    files: ["src/agent/pacing.ts"],
+    from: "    bubbles.splice(at, 2, `${bubbles[at]}\\n\\n${bubbles[at + 1]}`);\n",
+    to: "    break;\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/pacing.test.ts"],
+  },
+  {
+    id: "P07-email-dispensado",
+    bug: "com o e-mail recusado, a diretiva dizia só 'falta o CPF' e o modelo pedia o e-mail pela terceira vez",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "(!draft.email && emailDone ? ` O e-mail ela n\u00e3o passou e est\u00e1 dispensado: n\u00e3o pe\u00e7a e-mail de novo.` : ``)",
+    to: "(``)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -454,3 +454,12 @@ describe("quinta revisão", () => {
     (m, p) => expect(store(m, p)).toBe(p),
   );
 });
+
+/** Rodada de personas de 2026-10-07 (Jussara, Cleide). */
+describe("diretivas depois da rodada de personas", () => {
+  it("o e-mail dispensado é dito ao modelo; a oferta do kit sai sem pedido de dado", () => {
+    expect(source).toContain("(!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``)");
+    expect(source).toContain("Nesta mensagem, só a oferta, terminando na pergunta do kit");
+    expect(source).toContain("não peça nome, e-mail nem CPF agora");
+  });
+});

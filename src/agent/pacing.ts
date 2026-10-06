@@ -92,6 +92,15 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
     if (wordCount(a) + wordCount(b) > maxWords) break;
     bubbles.splice(-2, 2, `${a}\n\n${b}`);
   }
+  // The count is the operator's rule, the words a preference (persona round of 2026-10-07: five of
+  // twelve first replies went out in four bubbles): past it, the shortest neighbouring pair joins.
+  while (bubbles.length > max) {
+    let at = 0;
+    for (let i = 1; i < bubbles.length - 1; i++) {
+      if (wordCount(bubbles[i]!) + wordCount(bubbles[i + 1]!) < wordCount(bubbles[at]!) + wordCount(bubbles[at + 1]!)) at = i;
+    }
+    bubbles.splice(at, 2, `${bubbles[at]}\n\n${bubbles[at + 1]}`);
+  }
   return bubbles;
 };
 

@@ -2921,6 +2921,22 @@ const gates: readonly Gate[] = [
     },
   },
   {
+    /**
+     * The model's own reasoning, leaked into the reply (persona round of 2026-10-07, Jussara: "Se o
+     * CEP dela? Need ask CEP." in the middle of an answer). Malu only ever writes Portuguese to her;
+     * an English instruction to itself is a note, never a message. Read on the original text: the
+     * markers are English phrases no Portuguese sentence uses ("need ask", "let me", "the user").
+     */
+    name: "internal_note",
+    remedy: "rewrite",
+    briefing: () =>
+      `Escreva só a mensagem para ela, em português — nunca uma anotação sua sobre o que fazer.`,
+    check: (text) =>
+      /\b(?:needs?\s+(?:to\s+)?(?:ask|check|say|confirm|get)|let\s+me|i\s+(?:should|need|will|must)|the\s+(?:user|customer|client)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
+        ? "the model's own note leaked into the reply"
+        : null,
+  },
+  {
     name: "identical_template",
     remedy: "rewrite",
     briefing: () =>
