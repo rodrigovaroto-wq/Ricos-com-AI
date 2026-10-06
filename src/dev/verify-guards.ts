@@ -48,10 +48,11 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "WA-envio-desligado",
-    bug: "o envio pela Cloud API saía ligado antes do número e dos valores do sócio",
+    // Live since 2026-10-06 (L1.5): the switch is on, so the guard is that turning it off stops every send.
+    bug: "desligar CANAL_ATIVO não parava o envio pela Cloud API",
     files: ["n8n/workflows/whatsapp-envio.json"],
-    from: "const CANAL_ATIVO = false;",
-    to: "const CANAL_ATIVO = true;",
+    from: "if (!CANAL_ATIVO || !/^[0-9]+$/.test(PHONE_NUMBER_ID)) return out;",
+    to: "if (!/^[0-9]+$/.test(PHONE_NUMBER_ID)) return out;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-whatsapp-send.test.ts"],
   },
   {
