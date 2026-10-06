@@ -426,6 +426,17 @@ export const stageForOrder = (
 };
 
 /**
+ * Whether her orders are past cancelling (operator, 2026-10-06): every live one is on its way
+ * (`em_rota`). One still at `pedido_criado` may be the one she means and can be cancelled; a
+ * delivered one is a return, and a failed attempt (no stage) is a person's call — all keep the
+ * plain order handoff. Dead orders are ignored; no live order at all is not shipped.
+ */
+export const pastCancelling = (statuses: readonly (string | undefined)[]): boolean => {
+  const live = statuses.filter((s) => !isOrderDead(s));
+  return live.length > 0 && live.every((s) => stageForOrder(s) === "em_rota");
+};
+
+/**
  * The stage for the whole lead, not just this order: with two orders, one cancelled while
  * the other is on its way must not lock the conversation in `recusado` (terminal) — the
  * delivered one would then count as a refusal forever. `others` are the lead's other orders.

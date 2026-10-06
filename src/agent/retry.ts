@@ -166,6 +166,17 @@ export const exchangeReply = (exchange: { feeBrl?: number; checkoutUrl?: string 
     : null;
 
 /**
+ * The reply when she wants to cancel an order that already left for delivery (operator,
+ * 2026-10-06): it cannot be cancelled any more, and the return is asked for once it arrives. A
+ * person still takes the conversation. Nothing here says the agent did or will do anything to the
+ * order (`order_action_claim`), and the days are the config's (`warranty_promise`). The heart is
+ * not after the count: `delivery_promise` reads anything left in the count's sentence as a deadline.
+ */
+export const shippedCancelReply = (warrantyDays: number): string =>
+  `Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só me ` +
+  `chamar aqui pra pedir a devolução 💛 Você tem ${warrantyDays} dias pra devolver depois que receber.`;
+
+/**
  * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
  * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
  */

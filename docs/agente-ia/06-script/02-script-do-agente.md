@@ -358,6 +358,13 @@ resolver mais uma vez.
 
 > Claro! Já estou chamando alguém do time aqui pra falar com você, tá? Só um minutinho 💛
 
+**Quer cancelar um pedido que já saiu para entrega** (2026-10-06, `shippedCancelReply`): texto
+fixo do código, e uma pessoa assume a conversa. Os dias vêm de `delivery.warrantyDays`. Qualquer
+outro cancelamento recebe "Vou checar pra você e já te retorno 💛" e vai para uma pessoa.
+
+> Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só
+> me chamar aqui pra pedir a devolução 💛 Você tem 7 dias pra devolver depois que receber.
+
 **Pediu para parar:** para na hora, sem tentativa de retenção, sem "só mais uma coisinha".
 
 > Sem problema! Não te mando mais mensagens. Se um dia quiser voltar, é só chamar 💛

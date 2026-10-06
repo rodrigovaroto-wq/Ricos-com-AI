@@ -1597,6 +1597,31 @@ de `03-templates-meta.md`) com o mesmo texto, ainda não submetido.
 **Guarda:** `tests/whatsapp-templates.test.ts` compara o corpo da seção 4 com o texto do código e
 passa os dois pela cadeia de gates (ficou vermelho com a doc trocada antes do código).
 
+## 54. Cancelar um pedido que já saiu para entrega recebia "vou checar" (2026-10-06)
+
+**Sintoma:** o operador pediu que, quando a cliente quer cancelar depois que o pedido saiu para a
+entrega, a Malu diga que já saiu e que ela espera chegar para pedir a devolução. O turno respondia
+`ORDER_HANDOFF_REPLY` ("Vou checar pra você e já te retorno 💛") a todo cancelamento.
+**Causa:** o turno não lia o status do pedido no cancelamento — só sabia que havia um pedido
+(`orders?select=id&limit=1`, e nem isso quando ela dizia "comprei").
+**Caminhos descartados:** deixar o modelo dizer (R11.1: ação e status são código, e o
+`order_action_claim` existe porque o modelo prometeu cancelamento); tirar o handoff (uma pessoa
+ainda confere — o status pode estar atrasado); texto "você tem 7 dias depois de receber 💛" — o
+coração depois da contagem fica na frase e o `delivery_promise` lê como prazo de entrega (vetado nos
+dois caminhos, pego pelo teste antes do código ir para o turno).
+**Correção:** `pastCancelling(statuses)` em `followups.ts` (todo pedido vivo em `em_rota` por
+`stageForOrder`; um ainda em `pedido_criado`, um entregue ou uma tentativa frustrada mantém o
+comportamento de antes) e `shippedCancelReply(warrantyDays)` em `retry.ts`, ligados no turno só
+quando `handoffKind === "cancel"`, com uma consulta `orders?lead_id=eq.…&select=status`
+(`orders_lead_idx`). Continua `handOff`, motivo "a cliente quer cancelar um pedido que já saiu
+para entrega". Os dias vêm de `delivery.warrantyDays`.
+**Guarda:** `tests/shipped-cancel.test.ts` (o texto passa `runGates` como o `handOff` julga, na
+logística, nos dois caminhos e sem pagamento na entrega; dias fora do config vetados; negação: não
+enviado, entregue, frustrado, só morto, sem pedido, um pedido ainda cancelável; sem contexto de
+pedido não há handoff).
+**Resíduo:** no pagamento na entrega ela pode recusar na porta sem pagar; o texto não diz que não
+pode, mas "espera chegar para pedir a devolução" não lembra essa saída — decisão do operador.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

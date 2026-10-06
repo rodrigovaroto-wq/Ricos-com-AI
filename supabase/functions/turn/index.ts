@@ -34,6 +34,7 @@ import {
   chasesSilence,
   inSilenceRuler,
   orderStatusAfter,
+  pastCancelling,
   reopensRefused,
   stageForLead,
   renderFollowup,
@@ -89,6 +90,7 @@ import {
   ORDER_HANDOFF_REPLY,
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
+  shippedCancelReply,
   THINK_REPLY,
   thinkReply,
   WELCOME_AUTO_REPLY,
@@ -2595,6 +2597,18 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const exchange = handoffKind === "post_sale" && interpretation.wants_exchange ? exchangeReply(CONFIG.exchange) : null;
   if (exchange !== null) {
     return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);
+  }
+  // A cancel on an order already on its way (operator, 2026-10-06): she is told it left and the return
+  // is asked for once it arrives, and a person still takes it. Index `orders_lead_idx`.
+  const shipped =
+    handoffKind === "cancel" &&
+    pastCancelling(
+      ((await db(`orders?lead_id=eq.${lead.id}&select=status`).catch(() => null)) ?? []).map(
+        (o: { status: string | null }) => o.status ?? undefined,
+      ),
+    );
+  if (shipped) {
+    return await handOff(shippedCancelReply(CONFIG.delivery.warrantyDays), "a cliente quer cancelar um pedido que já saiu para entrega");
   }
   if (handoffKind !== null) {
     return await handOff(
