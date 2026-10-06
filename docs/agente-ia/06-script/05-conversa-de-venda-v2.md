@@ -889,7 +889,7 @@ pedir pelo correio, nao tem como?"**
 - *O que mudou:* respondeu a pergunta inteira, com a tabela; a medição como opção (ela pediu),
   não como requisito; a reversão de risco no momento em que ela hesitou.
 
-**Placar da v2 nesta conversa:** preço na entrega dito 2 vezes (T8, e T10 sem número) contra 6;
+**Placar da v2 nesta conversa:** preço na entrega dito 1 vez (T8) contra 3;
 vestido 1 vez contra 5; nome 1 vez contra 6; CEP pedido 1 vez contra 3; zero "não entendi",
 zero "não tenho aqui", zero contradição, zero pergunta sem resposta.
 
@@ -914,8 +914,18 @@ Este desenho contradiz regras escritas hoje. Cada linha precisa de registro em
 | C10 | Tamanho "escolhido no checkout" | "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO" | `coinzz.ts` l. 211–215; `prompt.ts` l. 110–111 — `[F13]` |
 | C11 | "Já deixei separado no seu tamanho" como viés de default | gate `unverified_size` veta "separado/reservado/tem no M" antes da consulta | usar "deixo no pagamento na entrega", nunca estoque |
 
-**Antes do prompt:** as frases de §5, §6 e §7 passam pelo `tests/prompt.test.ts` com o
-`test-engineer` (há canônicas de frete envolvidas); mudança de gate passa pelo `pnpm dev:gates`.
+**O que já foi conferido (2026-10-06):** as frases de §5, §6, §7, §8, as da Leila (§11) e as
+de preço, prazo, garantia, saúde e identidade de §9 foram rodadas por `runGates` com o
+`config/business.example.json` (CEP consultado e não consultado). Todas passam sem veto. Avisos
+restantes, aceitos: `unattributed_window` em §5.2 e `unavailable_offer` na frase de loja física
+(a frase é a do próprio prompt). Seis formas foram reescritas porque os gates vetavam: o prazo
+do antecipado numa frase separada (`shipping_promise`), "daqui 5 dias" na fala da Malu
+(`delivery_promise`), o kit sem "peças" (`price_promise`) e os dias da garantia no mesmo balão
+que "envio" (`delivery_promise`).
+
+**Antes do prompt:** isso é conferência de rascunho, não prova. As frases de §5, §6 e §7 entram
+no `tests/prompt.test.ts` com o `test-engineer` (há frases canônicas de frete envolvidas), sob
+todas as variantes de config; mudança de gate passa pelo `pnpm dev:gates`.
 
 ---
 
