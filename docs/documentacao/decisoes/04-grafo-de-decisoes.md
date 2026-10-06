@@ -2024,15 +2024,18 @@ só o nome.
 **Caminhos descartados:** cortar balão no meio da frase; detectar nota em português na 3ª pessoa
 ("Pergunte o CEP dela") — veta fala legítima ("a filha dela"); liberar "gente chega aqui" com a palavra
 "gente" solta — "a gente entrega aí" é a loja prometendo (pego pelo `dev:gates`); ler a 1ª linha como
-nome ao lado de qualquer CEP — cidade na 1ª linha viraria nome. **Não eram defeito** (não mexidos): o
+nome dentro do `extractName`, sem contexto — bairro e "Segue endereço" virariam nome. **Não eram defeito** (não mexidos): o
 veto de composição do frete na 1ª resposta da Neusa (grafo §32), os "?" repetidos (§60), o tamanho pela
 calça (Marcinha), "não tem expressa" (`expressActive` false), "500 clientes"/loja em São Paulo/12x
 (config), a região nula (Coinzz 302 do container — memória `proxy-sobrescreve-auth-do-supabase`).
 **Correção:** gate `internal_note` (22º, reescrita); `splitBubbles` com teto duro de 3 (junta o par vizinho
 mais curto); diretiva "o e-mail ela não passou e está dispensado"; oferta do kit sozinha;
 `priceBeforeCepMessage` no prompt ("Nunca segure o preço até ela mandar o CEP"); sujeito pessoa
-("maioria", "muita gente", "você"…) isenta o `coverage_claim`; 1ª linha como nome só ao lado de linha de
-rua.
+("maioria", "muita gente", "você"…) isenta o `coverage_claim` só em "chega **aqui**", depois do teste do
+"sim" e nunca atrás de "pra/para/na" (revisão: a 1ª versão reabria "Pra você chega sim aí em Manaus");
+`nameOnFirstLine` (1ª linha acima de linha de rua, sem palavra de lugar) lida pelo turno só logo depois
+de a Malu pedir o nome e sem nome guardado (revisão: dentro do `extractName`, "Parque Dez\nRua …" e
+"Segue endereço\nRua …" iriam para o pacote).
 **Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
 `tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
 **Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
