@@ -1,10 +1,24 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { IN_CALL_RETRY_BUDGET_MS, QUIET_WINDOW_MS, WELCOME_AUTO_REPLY, retryIsMoot, unansweredInbound } from "@/agent/retry.js";
+import {
+  IN_CALL_RETRY_BUDGET_MS,
+  MAX_REVISIONS,
+  MAX_REWRITES,
+  MIN_ATTEMPT_MS,
+  QUIET_WINDOW_MS,
+  REPLYING_STALE_MS,
+  REVISE_DEADLINE_MS,
+  REVISE_MIN_MS,
+  WELCOME_AUTO_REPLY,
+  retryIsMoot,
+  reviseInstruction,
+  revisionAllowed,
+  unansweredInbound,
+} from "@/agent/retry.js";
 import { MIN_TURN_TIMEOUT_MS } from "@/dev/n8n-rules.js";
 import { classifyOptOutBurst } from "@/agent/guardrails.js";
-import { decisionInBurst } from "@/agent/interpret.js";
-import { extractAddressBurst } from "@/agent/address.js";
+import { asksSomething, decisionInBurst } from "@/agent/interpret.js";
+import { confirmsAddress, extractAddressBurst } from "@/agent/address.js";
 import { extractIdentityBurst } from "@/agent/identity.js";
 
 /**
@@ -54,8 +68,8 @@ describe("chegou mensagem mais nova dela", () => {
 });
 
 describe("a janela de silêncio cabe no tempo do n8n", () => {
-  it("8 s, e espera + intérprete (20 s) + região (2 × 10 s) + resposta cabem nos 150 s", () => {
-    expect(QUIET_WINDOW_MS).toBe(8_000);
+  it("5 s (operador, 2026-10-06), e espera + intérprete (20 s) + região (2 × 10 s) + resposta cabem nos 150 s", () => {
+    expect(QUIET_WINDOW_MS).toBe(5_000);
     expect(QUIET_WINDOW_MS + 20_000 + 20_000 + IN_CALL_RETRY_BUDGET_MS).toBeLessThan(MIN_TURN_TIMEOUT_MS);
   });
 });
@@ -72,11 +86,13 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(optOut).toBeGreaterThan(burst);
     const block = source.slice(burst, optOut);
     // Só o turno de uma mensagem nova espera: a retomada já esperou, a nova tentativa é da varredura.
-    expect(block).toContain("if (!isResume && !isRetry) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    expect(block).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
     // Só mensagens desta conversa contam; linhas da agente não (direction filtrada no find).
     expect(block).toContain("`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`");
     expect(block).toContain('retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)');
     expect(block).toContain('status: "superseded"');
+    // Grafo §61: um turno respondendo por vez; o mais novo entrega a mensagem a ele.
+    expect(block).toContain('status: "joined"');
     expect(block).toContain('inbound = { ...inbound, body: parts.join("\\n") };');
   });
 
@@ -88,16 +104,18 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(source).toContain("if (latest?.[0] && latest[0].external_id !== inbound.externalId) return json(200, { status: \"resume_moot\" });");
   });
 
-  it("logo antes de mandar, uma mensagem mais nova descarta a resposta — para todo turno, não só a nova tentativa", () => {
+  it("logo antes de mandar, uma mensagem mais nova é revisada na resposta — a nova tentativa ainda desiste", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
     expect(guard).not.toContain("if (!isRetry) return null;");
     expect(guard).toContain("retryIsMoot(inboundId, latest?.[0] ?? null, null)");
     // Uma leitura que falha nunca cala a cliente.
     expect(guard).toContain("if (latest === null && !isRetry) return null;");
-    expect(guard).toContain('status: isRetry ? "retry_moot" : "superseded"');
+    // Grafo §61: o descarte "superseded" saiu da segunda olhada; só a nova tentativa desiste.
+    expect(guard).not.toContain("superseded");
+    expect(guard).toContain('status: "retry_moot"');
     const finalInsert = source.indexOf("const outbound = (");
-    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed);", finalInsert)).toBeLessThan(200);
-    expect(source).toContain("const gaveUp = await lateGuard(0);");
+    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert)).toBeLessThan(200);
+    expect(source).toContain("const gaveUp = await lateGuard(0, text);");
   });
 
   it("os tamanhos de um kit não se somam duas vezes quando um turno descartado já os gravou", () => {
@@ -167,6 +185,7 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
     expect(source).toContain("const decided = decisionInBurst(parts);");
     expect(source).toContain("const foundAddress = { fields: extractAddressBurst(parts) };");
     expect(source).toContain("confirmsAddress(parts[parts.length - 1] ?? \"\")");
+    expect(source).toContain("!parts.some(asksSomething) &&");
     expect(source).toContain("const foundIdentity = { fields: extractIdentityBurst(parts) };");
     expect(source).toContain("parts.some(choosesPath)");
     expect(source).toContain("askedIdentity: parts.some(asksWhatSheIs),");
@@ -180,5 +199,132 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
     expect(source).not.toMatch(/cost_brl: spent\b/);
     // 8 since grafo §60: the ladder's silent exit, one of the nine, was deleted with it.
     expect(source.match(/cost_brl: await costTotal\(\)/g)?.length).toBeGreaterThanOrEqual(8);
+  });
+});
+
+/**
+ * Rajada v2 (grafo §61, operador, 2026-10-06): "se chegar outra mensagem enquanto ela 'digita' ela
+ * não deve jogar tudo fora: deve dar um passo para trás, olhar o que já tem como resposta e contexto,
+ * introduzir a nova mensagem e a partir daí criar a resposta".
+ */
+describe("um turno respondendo por vez, e a resposta revisada com o que chegou", () => {
+  it("a instrução de revisão leva o rascunho e pede uma resposta só, natural, sem lista", () => {
+    const text = reviseInstruction("Oi! O colete tem barbatanas flexíveis.");
+    expect(text).toContain('"Oi! O colete tem barbatanas flexíveis."');
+    expect(text).toContain("Ela mandou mais mensagens enquanto você escrevia");
+    expect(text).toContain("uma resposta só");
+    expect(text).toContain("sem virar lista");
+  });
+
+  it("revisa enquanto há revisão e tempo; depois não", () => {
+    const deadline = 100_000;
+    expect(revisionAllowed(0, deadline - REVISE_MIN_MS, deadline)).toBe(true);
+    expect(revisionAllowed(MAX_REVISIONS - 1, 0, deadline)).toBe(true);
+    // Negações: o limite de revisões e o relógio.
+    expect(revisionAllowed(MAX_REVISIONS, 0, deadline)).toBe(false);
+    expect(revisionAllowed(0, deadline - REVISE_MIN_MS + 1, deadline)).toBe(false);
+  });
+
+  it("a revisão cabe nos 150 s do n8n: começa no máximo REVISE_MIN_MS antes do prazo, e as reescritas passam dele no máximo uma tentativa mínima cada", () => {
+    expect(MAX_REVISIONS).toBe(2);
+    // intérprete (8 s) + região (2 × 5 s) + uma tentativa mínima cabem no mínimo para começar.
+    expect(REVISE_MIN_MS).toBeGreaterThanOrEqual(8_000 + 2 * 5_000 + MIN_ATTEMPT_MS);
+    expect(REVISE_DEADLINE_MS + MAX_REWRITES * MIN_ATTEMPT_MS + 10_000 /* banco */).toBeLessThan(MIN_TURN_TIMEOUT_MS);
+    // A marca de "respondendo" vence quando o turno que a pôs já foi cortado.
+    expect(REPLYING_STALE_MS).toBeGreaterThanOrEqual(MIN_TURN_TIMEOUT_MS);
+  });
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  const burst = source.slice(source.indexOf("// 2d. One answer per burst"), source.indexOf("const optOut = classifyOptOutBurst(parts);"));
+
+  it("depois da espera, o turno toma a conversa num update condicional; quem não toma sai 'joined'", () => {
+    expect(burst).toContain("replying_since.is.null,replying_since.lt.");
+    expect(burst.indexOf("replying_since")).toBeGreaterThan(burst.indexOf('status: "superseded"'));
+    // Só quem o Deno.serve chamou toma a conversa: a revisão herda, a nova tentativa não toma.
+    expect(burst).toContain("if (internal.claimed) {");
+    // Uma leitura que falha não cala a cliente: só uma resposta vazia do update é "outro turno respondendo".
+    expect(burst).toContain(".catch(() => null);");
+    expect(burst).toContain("won?.length === 0");
+  });
+
+  it("a marca sai quando o turno termina, de qualquer jeito, e só a dele", () => {
+    const serve = source.slice(source.indexOf("Deno.serve("), source.indexOf("const humanReply = async"));
+    expect(serve).toContain("handleTurn(payload, { claimed }).finally(");
+    expect(serve).toContain("replying_since=eq.");
+  });
+
+  it("a segunda olhada revisa pelo próprio turno, com o rascunho, o prazo e o custo de antes", () => {
+    const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
+    expect(guard).toContain("revisionAllowed(revisions, Date.now(), deadline)");
+    expect(guard).toContain("handleTurn(");
+    expect(guard).toContain("revise: { draft, revisions: revisions + 1, deadline, spentBefore }");
+    // Sem revisão possível, a rajada inteira vai para a varredura — nunca uma resposta que não leu o que chegou.
+    expect(guard).toContain("deferRetry(");
+    // O custo do rascunho é gravado antes de a revisão reler o total.
+    expect(guard.indexOf("cost_brl: await costTotal()")).toBeLessThan(guard.indexOf("handleTurn("));
+  });
+
+  it("a revisão não é mensagem nova: sem selo, sem idempotência, sem gravar, sem esperar", () => {
+    expect(source).toContain("const isRevise = internal.revise !== undefined;");
+    expect(source).toContain("    !isRetry &&\n    !isRevise &&");
+    expect(source).toContain("if (!isResume && !isRetry && !isRevise) {\n    const seen");
+    expect(source).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    expect(source).toContain("const spentBefore = internal.revise?.spentBefore ?? spent;");
+    // O prazo da revisão manda nas chamadas dela.
+    expect(source).toContain("isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
+    expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
+    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+  });
+
+  it("o modelo recebe o rascunho no prompt de sistema, não no histórico", () => {
+    expect(source).toContain("internal.revise ? ` ${reviseInstruction(internal.revise.draft)}` : \"\"");
+  });
+
+  it("a resposta fora de hora também passa pela segunda olhada", () => {
+    const defer = source.slice(source.indexOf('if (outcome.kind === "defer") {'), source.indexOf('kind: "deferred_reply",'));
+    expect(defer).toContain("await lateGuard(rewritesUsed, attempt.text)");
+  });
+
+  it("a nova tentativa agendada responde pela mensagem mais nova dela, a que pode ter se juntado", () => {
+    const defer = source.slice(source.indexOf("const deferRetry = async"), source.indexOf("const lateGuard = async"));
+    expect(defer).toContain("direction=eq.inbound&select=id&order=created_at.desc&limit=1");
+  });
+
+  it("migração 0023: a coluna da marca, aditiva e anulável", () => {
+    const sql = readFileSync("supabase/migrations/0023_replying_since.sql", "utf8");
+    expect(sql).toContain("alter table public.conversations add column if not exists replying_since timestamptz;");
+  });
+});
+
+/**
+ * "Sim" no meio de outras mensagens (operador, 2026-10-06): "'Sim' depois do endereço conta como
+ * confirmação, porém precisa fazer sentido: se a cliente pede mais informações e manda um 'Sim' no
+ * meio, o agente não deve mandar o checkout; deve ler as demais mensagens e responder adequadamente."
+ */
+describe("o 'sim' só confirma quando é tudo o que ela disse", () => {
+  /** A regra do turno, com os leitores dele: o "sim" na última mensagem e nenhuma pergunta na rajada. */
+  const confirms = (parts: string[]) => confirmsAddress(parts[parts.length - 1] ?? "") && !parts.some(asksSomething);
+  it("'sim' sozinho depois da leitura do endereço confirma", () => {
+    expect(confirms(["sim"])).toBe(true);
+    expect(confirms(["isso mesmo"])).toBe(true);
+    expect(confirms(["ok", "sim"])).toBe(true);
+  });
+  it("'tem rastreio?' + 'sim' não confirma", () => {
+    expect(confirms(["tem rastreio?", "sim"])).toBe(false);
+  });
+  it("'sim' + 'mas antes, qual o prazo?' não confirma", () => {
+    expect(confirms(["sim", "mas antes, qual o prazo?"])).toBe(false);
+    expect(confirms(["sim, qual o prazo?"])).toBe(false);
+  });
+
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o 'sim' do lado de uma pergunta não vira decisão de compra (sem link), a não ser que ela decida com as palavras dela", () => {
+    expect(source).toContain(
+      "if (decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething)) interpretation = { ...interpretation, wants_to_buy: false };",
+    );
+    // Depois da leitura do intérprete e da decisão por mensagem, antes do link.
+    const rule = source.indexOf("if (decided !== true && parts.some(confirmsAddress)");
+    expect(rule).toBeGreaterThan(source.indexOf("const decided = decisionInBurst(parts);"));
+    expect(rule).toBeLessThan(source.indexOf("const linkNow = "));
   });
 });

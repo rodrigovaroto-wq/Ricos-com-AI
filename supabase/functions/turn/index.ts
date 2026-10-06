@@ -42,6 +42,7 @@ import {
   renderFollowup,
   rulerFor,
   endsSilenceRuler,
+  endsWithQuestion,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
@@ -94,7 +95,11 @@ import {
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
   QUIET_WINDOW_MS,
+  REPLYING_STALE_MS,
+  REVISE_DEADLINE_MS,
   retryIsMoot,
+  reviseInstruction,
+  revisionAllowed,
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
   thinkReply,
@@ -907,7 +912,7 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
 const cancelScheduled = (conversationId: string, withCheckout = true) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}`, {
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -970,6 +975,8 @@ const scheduleSilenceTouches = async (
   linkInReply: boolean,
   from: Date = new Date(),
   postponed?: FollowupKind,
+  /** The reply ended in a question: "Ainda está aí?" in 10 minutes (operator, 2026-10-06). */
+  askedQuestion = false,
 ) => {
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
@@ -986,7 +993,7 @@ const scheduleSilenceTouches = async (
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
   const anchors = rulerAnchors(at);
-  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);
+  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
@@ -1239,6 +1246,13 @@ const RETRY_REGION_TIMEOUT_MS = 5_000;
  */
 type RetryTicket = { inboundId: string; retries: number };
 
+/**
+ * The turn run again over the whole burst when she wrote while it was writing (grafo §61): the
+ * draft it had, how many revisions came before, the deadline every revision shares, and the spend
+ * when the first turn started — one `turn_outcomes` row prices the whole burst.
+ */
+type ReviseTicket = { draft: string; revisions: number; deadline: number; spentBefore: number };
+
 const readTicket = (body: unknown): RetryTicket | null => {
   try {
     const t = JSON.parse(String(body ?? ""));
@@ -1290,6 +1304,8 @@ const runFollowupSweep = async () => {
   /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
   const handoffs: Array<Record<string, unknown>> = [];
   let retriedTurns = 0;
+  /** Conversations that got "Ainda está aí?" in this sweep: their other silence touch waits a sweep. */
+  const nudged = new Set<string>();
 
   // One row at a time, each on its own (second review, 2026-09-28): a throw in one row —
   // the `messages` insert after the claim, typically — aborted the whole sweep, and every
@@ -1319,6 +1335,12 @@ const runFollowupSweep = async () => {
     if (inSilenceRuler(row.kind) && !chasesSilence(row.conversations?.stage, (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "ela já comprou: régua de silêncio encerrada" });
+      return;
+    }
+
+    // Due together — a late sweep — "Ainda está aí?" goes and the other keeps its row for the next.
+    if (inSilenceRuler(row.kind) && row.kind !== "still_there" && nudged.has(row.conversation_id)) {
+      skipped.push({ followupId: row.id, reason: "\"Ainda está aí?\" saiu nesta varredura; este toque fica para a próxima" });
       return;
     }
 
@@ -1608,13 +1630,14 @@ const runFollowupSweep = async () => {
         `messages?conversation_id=eq.${row.conversation_id}&direction=eq.outbound&select=body&order=created_at.desc&limit=3`,
       ).catch(() => null);
       const earlier = (window ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
-      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES));
+      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text));
     }
     toSend.push(
       delivery.via === "template"
         ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
+    if (kind === "still_there") nudged.add(row.conversation_id);
 
     // The marketing opt-in question (R15.1): its own message, with buttons, after a
     // `silence_1` — always inside the window. Asked once, and once more per suspension.
@@ -1644,7 +1667,8 @@ const runFollowupSweep = async () => {
       }
     }
   };
-  for (const row of due ?? []) {
+  // "Ainda está aí?" first (operator, 2026-10-06): one nudge per conversation per sweep.
+  for (const row of [...(due ?? [])].sort((a, b) => Number(b.kind === "still_there") - Number(a.kind === "still_there"))) {
     await sweepRow(row).catch((error) => {
       skipped.push({
         followupId: row.id,
@@ -1726,7 +1750,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (payload.job === "human_reply" && callerRole(request) !== "service_role") {
     return json(401, { error: "use a chave de serviço" });
   }
-  const response = await handleTurn(payload);
+  // Grafo §61: the "replying" mark this turn took comes off however it ends — its own, by value.
+  const claimed: { id?: string; at?: string } = {};
+  const response = await handleTurn(payload, { claimed }).finally(() =>
+    claimed.id
+      ? db(`conversations?id=eq.${claimed.id}&replying_since=eq.${encodeURIComponent(claimed.at ?? "")}`, {
+          method: "PATCH",
+          body: JSON.stringify({ replying_since: null }),
+        }).catch(() => undefined)
+      : undefined,
+  );
   if (payload.job) return response;
   // `sealed` tells n8n this message really came through the `whatsapp` function (second
   // review): the only signal n8n may send to the customer on. `channel` is the caller's
@@ -1810,7 +1843,10 @@ const sameSecret = (given: string, expected: string): boolean => {
   return diff === 0;
 };
 
-const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket } = {}): Promise<Response> => {
+const handleTurn = async (
+  payload: TurnPayload,
+  internal: { retry?: RetryTicket; revise?: ReviseTicket; claimed?: { id?: string; at?: string } } = {},
+): Promise<Response> => {
   const turnStartedAt = Date.now();
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
@@ -1849,6 +1885,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
   // carries no fresh message: it re-reads the one already stored.
   const isRetry = internal.retry !== undefined;
+  // The same turn over the whole burst, when she wrote while it was writing (grafo §61): no new
+  // message, no seal, no quiet window — it holds the conversation the first turn took.
+  const isRevise = internal.revise !== undefined;
   /** When the oldest message this turn answers arrived — the kit step compares it with `units_at`. */
   let batchFrom: string | null = null;
 
@@ -1860,6 +1899,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (
     signingSecret !== "" &&
     !isRetry &&
+    !isRevise &&
     !(await sealIsValid(
       signingSecret,
       { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt, reply: payload.reply },
@@ -1872,7 +1912,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
   // against, so it gets its own guard below instead (welcomed_at vs. last_outbound_at).
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     const seen = await db(`messages?external_id=eq.${encodeURIComponent(inbound.externalId)}&select=id`);
     if (seen?.length) return json(200, { status: "duplicate" });
   }
@@ -1980,7 +2020,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // retried with it. Only a tap on our button grants or refuses; her typed text only
   // suspends — and only when there is a question or a consent to suspend, so with the flag
   // off and no consent no 0019 column is touched.
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;
     const answer = optInAnswer(reply, {
       nonce: lead.marketing_opt_in_nonce ?? null,
@@ -1999,7 +2039,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (optIn) await db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify(optIn) });
   }
 
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     inboundId = (await db("messages", {
       method: "POST",
       body: JSON.stringify({
@@ -2102,13 +2142,34 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // later message that corrects an earlier one — reads `parts`, one message at a time.
   // A failed read never leaves her unanswered: the turn answers its own message.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
-  if (!isResume && !isRetry) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
+  if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
   const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> | null =
     await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
+  // A revision answers through her newest message, the one its second look compares against.
+  if (isRevise) inboundId = recentRows?.find((m: { direction: string }) => m.direction === "inbound")?.id ?? null;
   if (recentRows !== null && !isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {
     const reason = "superseded: chegou mensagem mais nova dela, e o turno dela responde a rajada inteira";
     await recordOutcome(conversation.id, "stopped", reason);
     return json(200, { status: "superseded", reason });
+  }
+  // One turn writes at a time (grafo §61). Past the quiet window this turn takes the conversation
+  // in one conditional update; when another turn holds it and is not stale, that one is still
+  // writing and folds this message into its reply at its second look — this one leaves no reply.
+  // A failed update never silences her (0023 not applied, network): only an empty answer means
+  // another turn holds it. The resume takes it too; the sweep's retry and a revision do not.
+  // Index: conversations_pkey.
+  if (internal.claimed) {
+    const stale = new Date(Date.now() - REPLYING_STALE_MS).toISOString();
+    const won = await db(
+      `conversations?id=eq.${conversation.id}&or=${encodeURIComponent(`(replying_since.is.null,replying_since.lt."${stale}")`)}&select=replying_since`,
+      { method: "PATCH", body: JSON.stringify({ replying_since: new Date().toISOString() }) },
+    ).catch(() => null);
+    if (won?.length === 0) {
+      const reason = "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele";
+      await recordOutcome(conversation.id, "stopped", reason);
+      return json(200, { status: "joined", reason });
+    }
+    if (won?.[0]) Object.assign(internal.claimed, { id: conversation.id, at: won[0].replying_since });
   }
   const unanswered = recentRows === null ? [] : unansweredInbound(recentRows);
   const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
@@ -2126,7 +2187,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     return row?.[0] ? Number(row[0].cost_brl ?? 0) : null;
   };
   let spent = (await storedCost()) ?? Number(conversation.cost_brl ?? 0);
-  const spentBefore = spent;
+  const spentBefore = internal.revise?.spentBefore ?? spent;
   /**
    * What `cost_brl` should hold now: the stored total plus what this turn spent since its last
    * write. Writing `spent` itself overwrote what a turn running alongside — one a newer message
@@ -2423,10 +2484,20 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * nothing scheduled would be the one outcome worse than a handoff.
    * Index: the unique (conversation_id, kind) of `followups`, as the rulers use.
    */
-  const deferRetry = async (error: unknown, retries: number): Promise<Response | null> => {
+  const deferRetry = async (
+    error: unknown,
+    retries: number,
+    reason = "falha de rede ao chamar o modelo — nova tentativa agendada",
+  ): Promise<Response | null> => {
     if (inboundId === null) return null;
     const runAt = new Date(Date.now() + DEFERRED_RETRY_DELAY_SECONDS * 1000);
-    const ticket: RetryTicket = { inboundId, retries };
+    // A message that joined this turn (grafo §61) is newer than the one it started on: the retry
+    // answers the whole burst through the newest, or it would be moot and nobody would answer.
+    // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+    const newest = (
+      await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id&order=created_at.desc&limit=1`).catch(() => null)
+    )?.[0]?.id ?? inboundId;
+    const ticket: RetryTicket = { inboundId: newest, retries };
     const armed = await db("followups?on_conflict=conversation_id,kind", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -2443,7 +2514,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    const reason = "falha de rede ao chamar o modelo — nova tentativa agendada";
     await Promise.all([
       recordOutcome(conversation.id, "deferred", reason, 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
@@ -2459,12 +2529,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
 
   /**
    * The second look, right before a reply is stored and sent (code review, 2026-09-24, for
-   * the retry; every turn since grafo §59): the model calls take seconds, and a message she
-   * sends meanwhile starts a turn that answers the whole burst. Null means "go ahead";
-   * otherwise the spend is written down and nothing is stored, scheduled or sent.
+   * the retry; every turn since grafo §59): the model calls take seconds, and she may write
+   * meanwhile. Null means "go ahead". The sweep's retry gives up, as before: her new message's
+   * turn answers. Any other turn holds the conversation, and her new message's turn joined it
+   * (grafo §61): the draft is not thrown away — the turn runs again over the whole burst, every
+   * reader, the interpreter and the routes (opt-out, a person, a cancel) included, and the model
+   * rewrites with the draft as context. Past `MAX_REVISIONS` or the deadline, the whole burst goes
+   * to the sweep's retry: a reply that did not read what she sent would mark it answered, and
+   * the turns of those messages already left.
    * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
    */
-  const lateGuard = async (rewrites: number): Promise<Response | null> => {
+  const lateGuard = async (rewrites: number, draft: string): Promise<Response | null> => {
     if (inboundId === null) return null;
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
@@ -2476,11 +2551,24 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    const reason = isRetry
-      ? "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava"
-      : "superseded: chegou mensagem mais nova dela antes de a resposta sair; o turno dela responde tudo";
-    await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
-    return json(200, { status: isRetry ? "retry_moot" : "superseded", reason, costBrl: spent });
+    if (isRetry) {
+      const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
+      await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
+      return json(200, { status: "retry_moot", reason, costBrl: spent });
+    }
+    const revisions = internal.revise?.revisions ?? 0;
+    const deadline = internal.revise?.deadline ?? turnStartedAt + REVISE_DEADLINE_MS;
+    if (revisionAllowed(revisions, Date.now(), deadline)) {
+      return await handleTurn(
+        { externalId: inbound.externalId, from: inbound.from, body: inbound.body },
+        { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
+      );
+    }
+    return await deferRetry(
+      new Error("mensagem nova depois da última revisão possível"),
+      0,
+      "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
+    );
   };
 
   /**
@@ -2509,7 +2597,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
-    const gaveUp = await lateGuard(0);
+    const gaveUp = await lateGuard(0, text);
     if (gaveUp) return gaveUp;
     const out = (
       await db("messages", {
@@ -2530,6 +2618,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       conversation.id,
       extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
       Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES),
+      new Date(),
+      undefined,
+      endsWithQuestion(text),
     );
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
@@ -2571,7 +2662,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       ask.system,
       [{ role: "user", content: ask.user }],
       INTERPRET_MAX_COMPLETION_TOKENS,
-      isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS,
+      isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS,
     );
     spent += reading.costBrl;
     await recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading);
@@ -2607,6 +2698,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
+  // A bare "sim" beside a question or request is no decision (operator, 2026-10-06): she gets the
+  // answer, and the link waits for a yes that is all she said — unless her own words decide.
+  if (decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething)) interpretation = { ...interpretation, wants_to_buy: false };
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
@@ -2779,6 +2873,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     !addressConfirmed &&
     isComplete(addressDraft) &&
     confirmsAddress(parts[parts.length - 1] ?? "") &&
+    // Nor beside a question in the same burst ("tem rastreio?" + "sim"): she gets the answer first.
+    !parts.some(asksSomething) &&
     // Only when the agent's last message actually read the address back. A bare "sim"
     // answering something else — "quer que eu te mande o link?" — used to set
     // `confirmedAt` and flip the order ready, which is §D2 skipped in silence.
@@ -2810,7 +2906,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     try {
       region = await checkRegion(async (url) => {
         const r = await fetch(url, {
-          signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+          signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         });
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
@@ -3095,12 +3191,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     try {
       // The correction rides in the system prompt, so the vetoed text never enters
       // the conversation history the customer's next turn is built from.
+      // A revision carries its own draft the same way (grafo §61).
+      const revising = internal.revise ? ` ${reviseInstruction(internal.revise.draft)}` : "";
       const system = correction === null
-        ? systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)
-        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)} ${correction}`;
+        ? `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising}`
+        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
-        replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
+        isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
       );
     } catch (error) {
       // The network, still down after the in-call retries: one more try from the sweep
@@ -3191,6 +3289,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // same cron that runs the rulers sends it when the window opens — the chain runs
   // again then, so a message held overnight is still gated before it goes out.
   if (outcome.kind === "defer") {
+    // She wrote meanwhile (grafo §61): the reply held for the morning folds her new messages in too.
+    const revised = await lateGuard(rewritesUsed, attempt.text);
+    if (revised) return revised;
     const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
     // Upsert, and for the same reason the rulers use one: a second reply written in
     // the same closed window replaces the first. What she asked last is the live
@@ -3267,7 +3368,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
   const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
 
-  const gaveUp = await lateGuard(rewritesUsed);
+  const gaveUp = await lateGuard(rewritesUsed, replyText);
   if (gaveUp) return gaveUp;
 
   const outbound = (
@@ -3291,6 +3392,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     conversation.id,
     stopPointOf(replyText, recentOutbound),
     linkSentRecently([replyText], CHECKOUT_BASES),
+    new Date(),
+    undefined,
+    endsWithQuestion(replyText),
   );
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;

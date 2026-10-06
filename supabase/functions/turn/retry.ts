@@ -347,8 +347,37 @@ export const WELCOME_RESUME_DELAY_SECONDS = 60;
  * One answer per burst (grafo §59, first real WhatsApp test, 2026-10-06): a person waits until
  * she stops typing, reads everything and answers once. The turn of a new message waits this
  * long after storing it; if a newer one of hers arrived meanwhile, that one's turn answers.
+ * 5 s since grafo §61 (operator, 2026-10-06): what arrives later is folded into the reply.
  */
-export const QUIET_WINDOW_MS = 8_000;
+export const QUIET_WINDOW_MS = 5_000;
+
+/**
+ * Grafo §61 (operator, 2026-10-06): one turn answers a conversation at a time, and a message she
+ * sends while it writes is folded into its reply instead of throwing the reply away. The turn
+ * that writes revises its draft with the whole burst at most this many times.
+ */
+export const MAX_REVISIONS = 2;
+/**
+ * From the turn's start, the deadline a revision's reply calls aim for. A revision starts only
+ * with `REVISE_MIN_MS` left (interpreter 8 s + region 2 × 5 s + one 10 s attempt), and each of its
+ * `MAX_REWRITES` past the deadline is one `MIN_ATTEMPT_MS` call: 110 + 2 × 10 + database < 150 s.
+ */
+export const REVISE_DEADLINE_MS = 110_000;
+export const REVISE_MIN_MS = 30_000;
+/** A turn's "replying" mark older than this belongs to a turn the platform already cut (150 s). */
+export const REPLYING_STALE_MS = 150_000;
+
+/** Whether the writing turn may revise once more: revisions left and time for one. */
+export const revisionAllowed = (revisions: number, now: number, deadline: number): boolean =>
+  revisions < MAX_REVISIONS && now + REVISE_MIN_MS <= deadline;
+
+/**
+ * Rides in the system prompt like the rewrite's correction, so the draft never enters the
+ * history. The burst itself is already in the history, in order.
+ */
+export const reviseInstruction = (draft: string): string =>
+  `Você estava escrevendo esta resposta: "${draft}". Ela mandou mais mensagens enquanto você escrevia.` +
+  ` Reescreva uma resposta só, natural, que responda tudo na ordem em que ela mandou, sem virar lista.`;
 
 /**
  * Her messages the agent has not answered yet, oldest first: the run of inbound rows at the

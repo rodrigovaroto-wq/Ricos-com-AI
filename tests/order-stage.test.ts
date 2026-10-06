@@ -226,11 +226,11 @@ describe("§4a: sem âncora (leitura falhou), a régua sai sem silence_3", () =>
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
-    expect(source).toContain("const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);");
+    expect(source).toContain("const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
   it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
-    expect(source).toContain('${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}');
+    expect(source).toContain('${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}');
     expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
   });
   it("link_sent só quando o texto leva um dos links de checkout", () => {
@@ -256,6 +256,7 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
     ["order_eve", false],
     ["deferred_reply", false],
     ["retry_turn", false],
+    ["still_there", true],
   ])("%s é da régua de silêncio: %s", (kind, expected) => {
     expect(inSilenceRuler(kind)).toBe(expected);
   });
@@ -329,10 +330,10 @@ describe("segunda revisão: varredura e webhook de venda", () => {
 
   it("o ponto de parada lê a janela M-03; o lembrete, só a resposta que levou o link", () => {
     expect(source).toContain(
-      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n  );",
+      "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n  );",
     );
     expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),');
-    expect(sweep).toContain("stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES)");
+    expect(sweep).toContain("stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text)");
   });
 
   it("o adiamento só reancora a linha que esta varredura leu", () => {

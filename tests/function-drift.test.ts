@@ -313,10 +313,10 @@ describe("rodada 13 na Edge Function", () => {
     expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
     // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
     const finalInsert = source.indexOf("const outbound = (");
-    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed);", finalInsert);
+    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert);
     expect(lastCheck).toBeGreaterThan(-1);
     expect(finalInsert - lastCheck).toBeLessThan(200);
-    expect(source).toContain("const gaveUp = await lateGuard(0);");
+    expect(source).toContain("const gaveUp = await lateGuard(0, text);");
     expect(source).toContain("body: JSON.stringify(ticket),");
     expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
   });
@@ -327,8 +327,8 @@ describe("rodada 13 na Edge Function", () => {
 
   it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
     expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
-    expect(source).toContain("isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
-    expect(source).toContain("signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+    expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
+    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
   // Grafo §60 (operador, 2026-10-06): a escada fixa saiu; toda mensagem vai ao modelo, e a
@@ -424,7 +424,7 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
     const dedupe = source.indexOf("// 1. Idempotency");
     expect(seal).toBeGreaterThan(-1);
     expect(seal).toBeLessThan(dedupe);
-    expect(source).toContain('    signingSecret !== "" &&\n    !isRetry &&\n    !(await sealIsValid(');
+    expect(source).toContain('    signingSecret !== "" &&\n    !isRetry &&\n    !isRevise &&\n    !(await sealIsValid(');
   });
   it("com TURN_REQUIRE_SERVICE_ROLE, a chave pública não abre a função", () => {
     expect(source).toContain('Deno.env.get("TURN_REQUIRE_SERVICE_ROLE") === "true" && callerRole(request) !== "service_role"');

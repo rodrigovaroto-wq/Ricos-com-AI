@@ -17,7 +17,9 @@ export type OrderKind = "order_confirmed" | "order_shipped" | "order_eve" | "ord
 export type CheckoutKind = "checkout_reminder";
 /** A reply the model already wrote, held back by the clock rather than reworded. */
 export type DeferredKind = "deferred_reply";
-export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind;
+/** "Ainda está aí?" — ten minutes after a reply of hers that ended in a question (operator, 2026-10-06). */
+export type StillThereKind = "still_there";
+export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -140,11 +142,13 @@ export type TouchAction =
  * touch (§R10.4). Her reply and a sale end all of them; nothing else in the ruler.
  */
 export const inSilenceRuler = (kind: string): boolean =>
-  kind.startsWith("silence_") || kind === "checkout_reminder";
+  kind.startsWith("silence_") || kind === "checkout_reminder" || kind === "still_there";
 
 export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
   if (remedy === null) return { do: "send" };
   if (remedy !== "defer") return { do: "cancel" };
+  // "Ainda está aí?" belongs to the moment: at the reopening it would be a non sequitur.
+  if (kind === "still_there") return { do: "cancel" };
   return { do: "postpone", restartRuler: inSilenceRuler(kind) };
 };
 
@@ -159,6 +163,14 @@ export interface RulerAnchors {
   readonly entry: Date;
   readonly lastInbound: Date;
 }
+
+/** "Ainda está aí?" — exactly this, once per question of hers left open (operator, 2026-10-06). */
+export const STILL_THERE_REPLY = "Ainda está aí?";
+export const STILL_THERE_MS = 10 * MINUTE;
+
+/** The reply ends in a question: the last thing before trailing spaces and emoji is a "?". */
+export const endsWithQuestion = (text: string): boolean =>
+  /\?[\s\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]*$/u.test(text);
 
 /** The latest a touch may go in the entry's window: 71 h, an hour of margin before the 72. */
 const ENTRY_BAND_END = 71 * HOUR;
@@ -233,6 +245,8 @@ export const rulerFor = (
   postponed?: FollowupKind,
   linkInReply = false,
   anchors?: RulerAnchors,
+  /** The reply ended in a question: a fresh ruler opens with "Ainda está aí?" (operator, 2026-10-06). */
+  askedQuestion = false,
 ): ScheduledFollowup[] => {
   // Anchored, `silence_3` keeps the entry's time: postponed, it goes at the reopening while
   // that is still inside the band, and not at all after it (4a).
@@ -246,6 +260,7 @@ export const rulerFor = (
   const at = ruler.findIndex((f) => f.kind === postponed);
   // A postponed touch the anchored ruler has no time for is not re-armed — nor the ones before it.
   if (at === -1 && postponed !== undefined && anchors) return [];
+  if (postponed === undefined && askedQuestion) ruler.unshift({ kind: "still_there", runAt: new Date(from.getTime() + STILL_THERE_MS) });
   return at === -1 ? ruler : ruler.slice(at);
 };
 
@@ -911,6 +926,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "checkout_reminder":
       return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
+    case "still_there":
+      return STILL_THERE_REPLY;
+
     case "silence_1":
       return pickVariant(
         ctx.leadId,
@@ -1104,6 +1122,9 @@ export const deliveryFor = (
   if (body === null) return null;
 
   if (windowIsOpen(ctx.now ?? new Date(), lastInboundAt)) return { via: "text", body };
+
+  // Text only (operator, 2026-10-06): a nudge is not worth a template, whatever the config holds.
+  if (kind === "still_there") return { via: "blocked", reason: "no_template" };
 
   // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1).
   if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {
