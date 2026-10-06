@@ -21,6 +21,12 @@ describe("internal_note: nota interna do modelo não sai", () => {
     "Must ask CEP. Me passa seu CEP?",
     "Should ask CEP. Me passa seu CEP?",
     "User wants price. Ele sai por R$ 129,90 na entrega.",
+    "Ask for CEP. Me passa seu CEP?",
+    "Need the CEP. Me passa seu CEP?",
+    "Needs CEP. Me passa seu CEP?",
+    "Need her CEP. Me passa seu CEP?",
+    "Get CEP. Me passa seu CEP?",
+    "Ask for size. Qual sua calça?",
   ])("vetada: %s", (t) => expect(blocks(t)).toContain("internal_note"));
 
   it.each([

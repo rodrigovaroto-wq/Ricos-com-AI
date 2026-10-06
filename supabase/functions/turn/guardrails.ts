@@ -2932,7 +2932,7 @@ const gates: readonly Gate[] = [
     briefing: () =>
       `Escreva só a mensagem para ela, em português — nunca uma anotação sua sobre o que fazer.`,
     check: (text) =>
-      /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|need\s+(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her|for\s+the|cep|size|e-?mail|cpf|name|price)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
+      /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
         ? "the model's own note leaked into the reply"
         : null,
   },
@@ -3090,15 +3090,22 @@ const gates: readonly Gate[] = [
           ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
           "";
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
-        // A person arriving is no delivery (persona round of 2026-10-07, Rose: "a maioria chega aqui com
-        // esse mesmo receio" went to the canned reply). Never "ele/ela": that is the vest or the parcel.
-        if (/\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before)) return true;
         // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
         // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
         // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em
         // casa, …" and "Se aí for bom pra você, …" condition nothing about her place.
         if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)(?:\s+na\s+(?:entrega|porta))?)\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
+        // A person arriving HERE, at the shop, is no delivery (persona round of 2026-10-07, Rose: "a maioria
+        // chega aqui com esse mesmo receio" went to the canned reply). Only "aqui", never after "pra/para/
+        // na" ("pra você chega aí" is the delivery to her), never "ele/ela" (the vest or the parcel), and
+        // never "a gente" (the shop): review of dad2ae2.
+        if (
+          /\baqui\b/.test(claim) &&
+          /\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before) &&
+          !/\b(?:pra|para|pras|pros|na|nas|no|nos)\s+(?:(?:a|as|o|os|toda|todas)\s+)?(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before)
+        )
+          return true;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
           /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)

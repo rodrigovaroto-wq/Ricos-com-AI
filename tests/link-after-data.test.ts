@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { extractName, refusedAsks } from "@/agent/identity.js";
+import { extractName, nameOnFirstLine, refusedAsks } from "@/agent/identity.js";
 import { NEUTRAL_INTERPRETATION, buyerAsk, kitWasOffered, pathChoiceToStore, quantityOf, type Interpretation } from "@/agent/interpret.js";
 import { DEFAULT_COD_CONFIRM, twoOptionsMessage } from "@/agent/prompt.js";
 import { confirmsAddress } from "@/agent/address.js";
@@ -474,7 +474,19 @@ describe("coverage_claim: sujeito pessoa não é cobertura", () => {
     "Toda cliente chega aqui assim, desconfiada.",
     "Quando você chega aqui já sabe o que quer, né?",
   ])("passa: %s", (t) => expect(blocks(t)).not.toContain("coverage_claim"));
-  it.each(["O colete chega aqui sim.", "Ele chega aí em 3 dias.", "Chega aí sim, pode ficar tranquila."])("negação — o colete chegando segue vetado: %s", (t) =>
+  it.each([
+    "O colete chega aqui sim.",
+    "Ele chega aí em 3 dias.",
+    "Chega aí sim, pode ficar tranquila.",
+    "Pra você chega sim aí em Manaus.",
+    "Você chega aí rapidinho.",
+    "Voce chega aí rapidinho.",
+    "Pra você entrega aí em 2 dias.",
+    "Pra maioria chega aí em 2 dias.",
+    "Para muita gente chega aí em 2 dias.",
+    "Pras clientes chega aí em 3 dias.",
+    "A gente entrega aí no seu CEP, pode ficar tranquila.",
+  ])("negação — o colete chegando segue vetado: %s", (t) =>
     expect(blocks(t)).toContain("coverage_claim"),
   );
 });
@@ -484,12 +496,21 @@ describe("nome na primeira linha, endereço embaixo", () => {
   it.each([
     ["Cleide Barbosa\nRua Paraiba 210, Adrianopolis, Manaus/AM, CEP 69050-000", "Cleide Barbosa"],
     ["Ana Paula Ferreira\nAv. Brasil 1000, ap 12\n01310-100", "Ana Paula Ferreira"],
-  ])("%s", (m, name) => expect(extractName(m)).toBe(name));
+  ])("%s", (m, name) => expect(nameOnFirstLine(m)).toBe(name));
   it.each([
     "boa tarde\nRua Paraiba 210, Manaus",
     "quero comprar\nRua Paraiba 210",
     "Maria Silva\nquero comprar",
     "Rua Paraiba 210\nAdrianopolis",
     "Manaus Amazonas\nCEP 69050-000",
-  ])("negação: %s", (m) => expect(extractName(m)).toBeNull());
+    "Segue endereço\nRua Paraiba 210",
+    "Endereço completo\nRua Paraiba 210",
+    "Parque Dez\nRua X 10",
+    "Cidade Nova\nRua X 10, casa 2",
+    "Cleide Barbosa",
+  ])("negação: %s", (m) => expect(nameOnFirstLine(m)).toBeNull());
+  it("o extrator sozinho segue sem ler a 1ª linha; o turno só a lê logo depois de pedir o nome, sem nome guardado", () => {
+    expect(extractName("Cleide Barbosa\nRua Paraiba 210, Manaus")).toBeNull();
+    expect(source).toContain("!storedIdentity.name && !burstIdentity.name && /\\b(?:nome\\s+completo|seu\\s+nome)\\b/i.test(lastOutbound) && asksForIdentity(lastOutbound)");
+  });
 });
