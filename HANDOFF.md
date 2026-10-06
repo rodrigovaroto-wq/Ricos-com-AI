@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-05, 12h30 UTC)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-06)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -158,19 +158,27 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
   rever (o §7 calcula R$ 1.970–2.584 com produto e transação na reserva).
 - **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
 
-**Próxima sessão — nesta ordem:**
-1. **O** — `cost.conversationCapBrl` 1.0 no `BUSINESS_CONFIG`; merge do PR #51 (o `main` está atrás da `turn` no ar, `agent_version` 4).
-2. **S** — L0.1: WABA validada, número verificado, nome de exibição, **token permanente** (usuário do
-   sistema admin, `whatsapp_business_messaging` + `whatsapp_business_management`, sem expiração),
-   **Phone number ID**, **App secret** — entregues ao operador por canal seguro. Checklist completo em
-   [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md) Parte A.
-3. **S** — L0.2 + templates: `order_eve` e véspera do antecipado (UTILITY), `silence_2` e `silence_3`
-   (MARKETING), texto exato de `03-templates-meta.md`.
-4. **C** — com os três valores: segredos `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET`
-   (o resto da Parte B já está feito) e Parte C (`PHONE_NUMBER_ID` e `CANAL_ATIVO` no n8n, teste do celular;
-   as portas já estão fechadas). O sócio cola na Meta a URL do webhook e o `WHATSAPP_VERIFY_TOKEN`.
-   **O** cria a credencial "WhatsApp Cloud API" no n8n.
-5. **O** — decidir o §8 do portal; rever a reserva de R$ 1.200.
+**2026-10-06 — feito pelo operador:** PR #51 mergeado (`main` = `agent_version` 4 no ar);
+`cost.conversationCapBrl` 1.0 no `BUSINESS_CONFIG`; checklist da Meta, URL do webhook e
+`WHATSAPP_VERIFY_TOKEN` entregues ao sócio. **O operador traz os valores da Meta na próxima sessão.**
+
+**Próxima sessão — nesta ordem (C = Claude, com os valores na conversa):**
+1. **C** — conferir o estado real: `git log origin/main`, `turn` v57 / `agent_version` 4, função `whatsapp` v1,
+   segredos presentes (`INBOUND_SIGNING_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `TURN_REQUIRE_SERVICE_ROLE`), n8n `dev:n8n` ok.
+2. **C** — gravar `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET` nos segredos da Supabase
+   (operador já autorizou ações em qualquer plataforma em 2026-10-05; a sessão precisa de um `sbp_…` novo).
+3. **S** — Meta → Webhook: URL `https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/whatsapp`, token de
+   verificação, campo **messages**; botão **Testar** → conferir 200 no log da função `whatsapp`.
+4. **O** — n8n, "WhatsApp envio" → nó "Envia pela Cloud API": credencial **"WhatsApp Cloud API"**,
+   cabeçalho `Authorization: Bearer <token permanente>`.
+5. **C** — n8n, nó "Monta os envios": `PHONE_NUMBER_ID` e `CANAL_ATIVO = true`; publicar; `pnpm dev:n8n` e
+   atualizar a cópia versionada + `tests/n8n-whatsapp-send.test.ts` (Parte C, passo 2).
+6. **O + C** — teste de verdade do celular pessoal: "oi" → lida + digitando, recepção, resposta em ~1 min;
+   conferir `turn_outcomes` (`agent_version` 4) e o envio no n8n. Apagar o lead de teste depois.
+7. **S** — templates aprovados → **C** cadastra em `channel.templates` (o operador cola o `BUSINESS_CONFIG`
+   inteiro de novo, com a chave nova).
+8. **O + C** — L2: três conversas reais (na entrega, antecipado, troca + handoff respondido).
+9. **O** — decidir o §8 do portal; rever a reserva de R$ 1.200 → L3 (tráfego do mês 1).
 
 ### Executado
 
@@ -209,7 +217,7 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
 | L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | ✅ R$ 0,55 / tolerância 0 no `BUSINESS_CONFIG`, 2026-10-05 |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
-| L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ⬜ |
+| L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | 🔄 selo, token de verificação, `whatsapp` v1 e porta fechada feitos (2026-10-05); faltam os 3 segredos da Meta |
 | L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ⬜ |
 | L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ⬜ |
 | L2 | Três conversas reais: compra na entrega, compra antecipada, troca + handoff respondido | O + C | ⬜ |
