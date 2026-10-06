@@ -1626,6 +1626,23 @@ status na negação do teste (vermelho antes, verde depois).
 **Resíduo:** no pagamento na entrega ela pode recusar na porta sem pagar; o texto não diz que não
 pode, mas "espera chegar para pedir a devolução" não lembra essa saída — decisão do operador.
 
+## 55. O nó de envio do WhatsApp não tinha credencial (L1.5, 2026-10-06)
+
+**Sintoma:** ao ligar o canal, a versão ativa de "Encorpa — WhatsApp envio" tinha o nó "Envia pela
+Cloud API" sem credencial nenhuma e pedindo o tipo `httpTemplatedCustomAuth`; a credencial que a
+Parte C manda criar ("WhatsApp Cloud API") é `httpHeaderAuth`. Ligado assim, a Meta recusaria toda
+mensagem (o e-mail de falha avisaria, mas nenhuma cliente receberia nada).
+**Causa:** o workflow foi importado sem credencial (n8n não exporta credencial) e o tipo de
+autenticação ficou no padrão do construtor; nenhuma regra do `dev:n8n` olhava esse nó.
+**Caminhos descartados:** criar uma credencial do tipo que o nó pedia (outro formato para o mesmo
+cabeçalho, e duas credenciais para o mesmo token).
+**Correção:** nó com `genericAuthType: httpHeaderAuth` e a credencial "WhatsApp Cloud API";
+"Monta os envios" com `PHONE_NUMBER_ID` e `CANAL_ATIVO = true` (versão ativa `e85cf497`), com a
+permissão do operador. Fila conferida antes: 0 toques agendados, 1 lead (de teste).
+**Guarda:** regra nova em `src/dev/n8n-rules.ts` (o nó de envio só com "WhatsApp Cloud API" em
+Header Auth), testada em `tests/n8n-workflows.test.ts` e conferida contra a versão antiga (acusa
+`credential "none"`); `tests/n8n-whatsapp-send.test.ts` exige o canal ligado com o ID do número.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

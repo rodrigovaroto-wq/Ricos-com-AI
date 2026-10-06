@@ -14,6 +14,8 @@
  *   (a missing column, a database error) failed every 5 minutes and told nobody.
  * - The turn answered its webhook only after the welcome's Wait (2026-09-30): the caller got
  *   a 502 on every first message, and the `n8n` persona door could not run.
+ * - The WhatsApp send node had no credential and asked for another auth type (2026-10-06):
+ *   with the channel on, every message would have been refused by Meta.
  */
 
 export interface N8nNode {
@@ -39,6 +41,8 @@ export interface N8nWorkflow {
 
 /** The one credential that may authenticate a call to the Edge Function. */
 export const SUPABASE_CREDENTIAL = "Supabase service_role";
+/** The one credential that may authenticate a call to the WhatsApp Cloud API. */
+export const WHATSAPP_CREDENTIAL = "WhatsApp Cloud API";
 /** The Supabase gateway's own limit; the v33 turn needs close to all of it. */
 export const MIN_TURN_TIMEOUT_MS = 150_000;
 
@@ -51,6 +55,13 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
     const where = `${wf.name} › ${node.name}`;
     if (node.type === "n8n-nodes-base.scheduleTrigger" && wf.active && node.disabled)
       problems.push(`${where}: schedule trigger disabled in an active workflow`);
+
+    // The send node's URL is built in "Monta os envios", so it is recognized by name.
+    if (node.type === "n8n-nodes-base.httpRequest" && node.name === "Envia pela Cloud API" && !node.disabled) {
+      const wa = node.credentials?.httpHeaderAuth?.name;
+      if (node.parameters?.genericAuthType !== "httpHeaderAuth" || wa !== WHATSAPP_CREDENTIAL)
+        problems.push(`${where}: sends to WhatsApp with credential "${wa ?? "none"}", not "${WHATSAPP_CREDENTIAL}" (Header Auth)`);
+    }
 
     const url = String(node.parameters?.url ?? "");
     if (node.type !== "n8n-nodes-base.httpRequest" || !url.includes(".supabase.co/functions/")) continue;

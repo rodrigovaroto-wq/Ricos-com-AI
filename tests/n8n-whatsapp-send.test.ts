@@ -14,16 +14,24 @@ const code = wf.nodes.find((n) => n.name === "Monta os envios")!.parameters.jsCo
 type Out = Array<{ json: { url: string; to: string; delaySec: number; payload: unknown } }>;
 const run = (src: string, items: unknown[]) =>
   new Function("$input", src)({ all: () => items.map((json) => ({ json })) }) as Out;
-const live = code.replace("const CANAL_ATIVO = false;", "const CANAL_ATIVO = true;").replace("'{{PHONE_NUMBER_ID}}'", "'123456'");
+// Live since 2026-10-06 (L1.5): the production node carries the number and the switch on.
+const PHONE_NUMBER_ID = "1370670962794717";
+const live = code;
+const off = code.replace("const CANAL_ATIVO = true;", "const CANAL_ATIVO = false;");
 
 describe("n8n: envio pela Cloud API", () => {
+  it("produção está ligada, com o ID do número", () => {
+    expect(code).toContain("const CANAL_ATIVO = true;");
+    expect(code).toContain(`const PHONE_NUMBER_ID = '${PHONE_NUMBER_ID}';`);
+  });
+
   it("com o canal desligado, nada sai — seja o que for que chamar", () => {
-    expect(code).toContain("const CANAL_ATIVO = false;");
-    expect(run(code, [{ to: "5511", bubbles: [{ text: "oi", delayMs: 0 }] }])).toEqual([]);
+    expect(off).toContain("const CANAL_ATIVO = false;");
+    expect(run(off, [{ to: "5511", bubbles: [{ text: "oi", delayMs: 0 }] }])).toEqual([]);
   });
 
   it("sem o ID do número preenchido, nada sai mesmo ligado", () => {
-    const semId = code.replace("const CANAL_ATIVO = false;", "const CANAL_ATIVO = true;");
+    const semId = code.replace(`'${PHONE_NUMBER_ID}'`, "'{{PHONE_NUMBER_ID}}'");
     expect(run(semId, [{ to: "5511", bubbles: [{ text: "oi", delayMs: 0 }] }])).toEqual([]);
   });
 
@@ -31,7 +39,7 @@ describe("n8n: envio pela Cloud API", () => {
     const out = run(live, [{ to: "+55 11 98765-4321", bubbles: [{ text: "Oi!", delayMs: 2400 }, { text: " ", delayMs: 0 }, { text: "Tudo bem?", delayMs: 90000 }] }]);
     expect(out.map((o) => o.json.delaySec)).toEqual([2, 25]);
     expect(out.map((o) => o.json.payload)).toEqual([textMessage("5511987654321", "Oi!"), textMessage("5511987654321", "Tudo bem?")]);
-    expect(out[0]!.json.url).toBe("https://graph.facebook.com/v21.0/123456/messages");
+    expect(out[0]!.json.url).toBe(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`);
   });
 
   it("toque da régua como template leva o nome, o idioma e as variáveis", () => {
