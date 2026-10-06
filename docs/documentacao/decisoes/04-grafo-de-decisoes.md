@@ -1740,6 +1740,51 @@ e o cancelamento na entrega lê como mais uma tentativa vindo. Os dois nos teste
 status desconhecido segue sem toque de envio nem de entrega até entrar na tabela. "Pendente /
 Enviado" (não pago e enviado) lê `em_rota`, como antes.
 
+## 58. A agente abria a conversa se anunciando "assistente virtual" (Q10, 2026-10-06)
+
+**Sintoma:** primeiro teste real no WhatsApp (agent_version 5). Ela escreveu "oi"; depois da
+boas-vindas fixa, a agente abriu com "eu sou a assistente virtual da Encorpa…" e, noutro lead,
+"eu sou a Malu, assistente virtual da Encorpa". Quebra a linha 2 da regra do operador (Q10, R3.5:
+"não mente, não anuncia") — ninguém perguntou o que ela é.
+**Causa:** o prompt dava a identidade como frase pronta em dois lugares — a abertura ("assistente de
+vendas da marca… se perguntarem, diz que é a assistente virtual da marca") e o bloco de tom ("o tom,
+não a identidade: você continua sendo a assistente virtual da marca"), este sem condição nenhuma. E
+nenhum gate conhecia a linha 2: `humanity_claim` só cobria a linha 1 (afirmar ser pessoa, negar ser
+robô) e, de propósito, aprovava "sou a assistente virtual da marca" em qualquer contexto.
+**Caminhos descartados:** só o prompt — prompt e gate são a mesma promessa escrita duas vezes, e o
+prompt sozinho já falhou aqui; vetar "assistente virtual" sempre — deixa a agente sem resposta para
+"você é robô?" (o motivo da isenção de antes, linha 3); um gate novo — a regra é a mesma família de
+`humanity_claim`, e um nome novo espalharia listas de gates; reaproveitar `namesAPerson`/
+`IDENTITY_QUESTION_BEFORE` (interpret.ts) — eles leem o prefixo de uma palavra de pessoa para não
+rotear handoff, não respondem "a mensagem pergunta o que ela é" ("é IA?", "isso é um bot?", "com
+quem eu tô falando?" não têm palavra de pessoa); ler a negação na pergunta — "você não é robô né?"
+é a pergunta.
+**Correção:** `asksWhatSheIs(message)` em `guardrails.ts` (espelhado), largo e cego à negação de
+propósito, como `asksForTestimonial`: robô, bot, máquina, IA, inteligência artificial, virtual,
+automático, humano, "é uma pessoa", "de verdade", "com quem eu tô falando". `GateContext.askedIdentity`
+(opcional) e, em `humanity_claim`, com `layer: "agent"` e `askedIdentity === false`, veto a
+"assistente/atendente… virtual|digital|automática", "inteligência artificial", "sou (uma) IA/robô/
+bot/máquina/programa/virtual", "uma IA/um robô/um bot", "atendimento/mensagem automática" — lido como
+escrito, com negação. `undefined` (varredura, despedida, linhas fixas) deixa o veto ocioso. O turno
+passa `askedIdentity: asksWhatSheIs(inbound.body ?? "")`; o motivo volta ao modelo pela reescrita de
+sempre. O briefing do gate ganhou a linha 2. Prompt: "Você é a {agentName}, da {brand}, e vende pelo
+WhatsApp… Quando se apresenta, é "a {agentName}, da {brand}", e só… Nunca diz por conta própria que
+é virtual, IA, robô, bot ou assistente virtual: só quando a mensagem dela pergunta o que você é…";
+o bloco de tom virou "o tom, não a identidade: você nunca diz que é uma pessoa".
+**Guarda:** `tests/ai-self-disclosure.test.ts` (as duas aberturas de produção vetadas depois de "oi";
+16 perguntas de identidade, negações inclusive, liberam a resposta honesta; negar ser robô segue
+vetado mesmo perguntada; nome + marca, "loja virtual", "eu ia" e "não sou uma pessoa" passam; linhas
+fixas passam; fiação no `index.ts` lida como fonte). `tests/prompt.test.ts` prova que a apresentação
+ensinada passa a cadeia e que a frase da produção não. Arco "agente se anuncia virtual sem ela
+perguntar" em `dev:conversas` (o motor passa `askedIdentity`). Mutações `G58-anuncia-virtual` e
+`G58-fiacao` em `verify-guards.ts`, ambas mortas pelo teste. `dev:gates`: 0 viradas — os contextos
+do diff não têm `askedIdentity`, como não têm `askedTestimonial`; com `askedIdentity: false`, 21
+frases do corpus endurecem, todas anúncio não perguntado ou resposta à pergunta (que passa com ela).
+**Resíduo:** "não sou uma pessoa" sem pergunta passa (pedido explícito: não vetar); a despedida do
+opt-out e a varredura não leem a pergunta (veto ocioso lá); pergunta de identidade feita num turno
+anterior não libera o turno seguinte; frase de anúncio fora da lista (ex.: "aqui quem fala é a IA")
+passa.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

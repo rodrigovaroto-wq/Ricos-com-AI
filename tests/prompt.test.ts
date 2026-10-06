@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { gateBriefing, runGates } from "@/agent/guardrails.js";
+import { asksWhatSheIs, gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
   expressLine,
   freightBriefing,
@@ -359,9 +359,22 @@ describe("ritmo: vendedora brasileira no WhatsApp, não frase telegráfica", () 
   it("tom humano não é afirmar ser pessoa", () => {
     const prompt = flat(build(variant(false, true)));
     expect(prompt).toContain("Nunca afirma ser uma pessoa");
-    expect(prompt).toContain("o tom, não a identidade: você continua sendo a assistente virtual da marca");
+    expect(prompt).toContain("o tom, não a identidade: você nunca diz que é uma pessoa.");
     expect(runGates("Não sou robô, tá? Sou a Malu mesmo.", ctx()).allowed).toBe(false);
     expect(runGates("Não sou uma pessoa, sou a assistente virtual da marca, tá?", ctx()).allowed).toBe(true);
+  });
+
+  // Q10, line 2 (grafo §58): the prompt no longer primes "assistente virtual" for the opening. It
+  // teaches the name and the brand, and "virtual" only when her message asks — the gate's test.
+  it("não anuncia: apresenta-se pelo nome e pela marca, e virtual só se ela perguntar", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain(`Quando se apresenta, é "a ${base.agentName}, da ${base.brand}", e só.`);
+    expect(prompt).toContain("Nunca diz por conta própria que é virtual, IA, robô, bot ou assistente virtual");
+    expect(prompt).not.toContain(`assistente de vendas da ${base.brand}`);
+    const opening = `Oi, que bom falar com você, eu sou a ${base.agentName}, da ${base.brand}. Tem alguma roupa que você adora e deixou de usar? Me conta qual é.`;
+    expect(runGates(opening, ctx({ askedIdentity: asksWhatSheIs("oi") })).allowed).toBe(true);
+    expect(runGates("Não sou uma pessoa, sou a assistente virtual da marca, tá?", ctx({ askedIdentity: asksWhatSheIs("vc é robo?") })).allowed).toBe(true);
+    expect(runGates(`Oi, eu sou a ${base.agentName}, assistente virtual da ${base.brand}.`, ctx({ askedIdentity: asksWhatSheIs("oi") })).allowed).toBe(false);
   });
 });
 

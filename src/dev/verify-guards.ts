@@ -2642,6 +2642,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/review-2026-09-29-second.test.ts"],
   },
   {
+    id: "G58-anuncia-virtual",
+    bug: "a agente abria a conversa como \"assistente virtual\" sem ela perguntar (Q10 linha 2, grafo §58)",
+    files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
+    from: "ctx.askedIdentity === false &&",
+    to: "false &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/ai-self-disclosure.test.ts"],
+  },
+  {
+    id: "G58-fiacao",
+    bug: "o runGates da conversa não passava a pergunta de identidade, e o veto ficava ocioso em produção",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "      askedIdentity: asksWhatSheIs(inbound.body ?? \"\"),\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/ai-self-disclosure.test.ts"],
+  },
+  {
     id: "R17-data-do-pedido-invalida",
     bug: "date_order ilegível virava Invalid Date e o toISOString da régua lançava no webhook",
     files: ["supabase/functions/turn/index.ts"],

@@ -234,6 +234,12 @@ export interface GateContext {
    * mention of them. `undefined` (the sweep, the fixed replies) leaves that check idle, as `regionKnown`.
    */
   askedTestimonial?: boolean;
+  /**
+   * Whether her message asks what the agent is (`asksWhatSheIs`). Q10, line 2: she never announces
+   * she is virtual on her own, so `false` makes `humanity_claim` refuse "assistente virtual", IA,
+   * robô. `undefined` (the sweep, the fixed replies) leaves that check idle, as `askedTestimonial`.
+   */
+  askedIdentity?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -741,6 +747,17 @@ export const wantsHuman = (text: string): boolean =>
  */
 export const asksForTestimonial = (message: string): boolean =>
   /\bdepoiment|\bavalia|\bopinia|\bopinio|\breclame\s*aqui\b|\breclamac|\bquem\s+(?:ja\s+)?(?:comprou|usou|usa|testou|provou|pegou)\b|\b(?:outr[ao]s|algum[ao]s?|uma|as|suas)\s+(?:clientes?|compradoras?|pessoas\s+que)\b|\b(?:funciona|serve|resolve|modela|afina)\s+mesmo\b|\bconfia(?:vel|veis|nca|r)\b|\bgolpe\b|\bfraude\b|\breferenc|\bfeedbac?k|\bresultado|\bantes\s+e\s+depois\b|\b(?:zap|whats\w*|numero|contato|telefone|insta\w*)\s+d[ea]\s+(?:uma?|alguma|algum|outra)\s+(?:cliente|compradora|pessoa)\b/.test(
+    norm(message),
+  );
+
+/**
+ * Whether her message asks what the agent is — a person, a robot, an AI (Q10, line 3), which is what
+ * lets the agent say she is the brand's virtual assistant (`GateContext.askedIdentity`). Broad and
+ * blind to negation on purpose, as `asksForTestimonial`: "você não é robô né?" is the question, and
+ * so is "não quero falar com máquina". A false positive only restores the behaviour before §58.
+ */
+export const asksWhatSheIs = (message: string): boolean =>
+  /\brobo\w*|\bbots?\b|\bchat\s*(?:bot|gpt)\b|\bmaquina\b|\binteligencia\s+artificial\b|^\W*ia\b|\b(?:e|eh|com|uma|um|tipo)\s+(?:uma\s+)?ia\b|\bvirtual\b|\bautomatic[oa]s?\b|\bautomatizad|\bhuman[oa]s?\b|\b(?:e|eh|com|sendo)\s+(?:uma?\s+)?(?:pessoa|gente)\b|\b(?:pessoa|gente|alguem|voce|vc|ce|tu|e|eh)\s+(?:\S+\s+)?de\s+verdade\b|\b(?:pessoa|gente)\s+real\b|\bquem\s+(?:e|eh|ta|esta)\s+(?:falando|ai|respondendo|digitando|me\s+atendendo)\b|\bcom\s+quem\s+(?:eu\s+)?(?:falo|to|estou|converso)\b|\bquem\s+(?:e|eh)\s+(?:voce|vc)\b/.test(
     norm(message),
   );
 
@@ -1982,7 +1999,9 @@ const gates: readonly Gate[] = [
       `Nunca afirme ser uma pessoa. Dizer "não sou uma pessoa, sou a assistente virtual da marca" ` +
       `é a resposta certa; o proibido é o contrário — negar ser robô. E nunca diga que já ` +
       `chamou, avisou ou passou a conversa para alguém do time, nem que uma pessoa vem falar ` +
-      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame.`,
+      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame. ` +
+      `E não anuncie o que você é: virtual, IA, robô, bot ou assistente virtual só aparece quando a ` +
+      `mensagem dela pergunta o que você é. Sem a pergunta, apresente-se só pelo seu nome e pela marca.`,
     check: (text, ctx) => {
       const t = norm(text);
 
@@ -2035,6 +2054,16 @@ const gates: readonly Gate[] = [
           if (!negatedAt(t, m.index ?? 0)) return "claims to be a human being";
         }
       }
+
+      // Q10, line 2 (grafo §58): she never announces she is virtual unless her message asked what
+      // she is. Read as written, negation included — "não sou uma IA" is line 1's lie anyway. "Loja
+      // virtual" is the shop, not her; "não sou uma pessoa" is left to line 3's answer.
+      if (
+        ctx.layer === "agent" &&
+        ctx.askedIdentity === false &&
+        /\b(?:assistente|atendente|vendedora|consultora|agente|secretaria)\s+(?:virtual|digital|automatic[ao]|eletronic[ao]|de\s+(?:ia|inteligencia\s+artificial))\b|\binteligencia\s+artificial\b|\bsou\s+(?:uma?\s+|a\s+|o\s+)?(?:ia|robo\w*|bot|chatbot|maquina|programa|virtual)\b|\b(?:uma|um)\s+(?:ia|robo\w*|bot|chatbot)\b|\b(?:atendimento|mensagem|resposta)\s+(?:e\s+)?automatic[ao]\b/.test(t)
+      )
+        return "announces she is virtual (assistente virtual, IA, robô) when her message did not ask what she is";
       return null;
     },
   },
