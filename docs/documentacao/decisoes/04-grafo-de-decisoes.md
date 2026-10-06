@@ -1971,6 +1971,37 @@ com `codUnavailable`, o "sim" vetado onde a entrega não chega, fatos e negaçõ
 com tamanho conhecido; `coverage_claim` não veta "No seu CEP dá pra pagar na entrega" antes da consulta;
 prompt +~850 tokens; nada medido contra o modelo ainda.
 
+## 63. O código obedecia o prompt antigo: link antes dos dados, tamanho no complemento (conversa de venda v2, 2026-10-06)
+
+**Sintoma:** o resíduo do §62 — o prompt v2 pedia os dados antes do link, mas o turno ainda mandava o
+link pela vontade de comprar (`readyForLink`), mandava o tamanho no complemento, a diretiva de região só
+saía com tamanho e três gates vetavam frases que o prompt v2 ensina. Revisão de `7c8bc7c`: "Sim! Como faço
+pra pagar?" perdia o link; sem a 0023 cada rajada era respondida duas vezes.
+**Causa:** R13.4 ("link primeiro, o checkout pede o resto") vivia no código em quatro lugares; o prompt
+mudou sozinho.
+**Caminhos descartados:** guardar recusas numa coluna (a conversa já diz quantas vezes ela recusou —
+`refusedAsks` lê); detectar a oferta do kit só pela redação (revisão: "as duas saem por R$ 239,80" virava
+laço — agora também pelo preço, `kitWasOffered`); aceitar "não faz/trabalha com" antes de qualquer verbo
+em `charge_promise` (revisão: "não faz você pagar mais, você paga na entrega" passava — agora só antes do
+substantivo "pagamento"); isentar "marcar um dia" no antecipado (não há agendamento lá); contar recusa
+por "?" em qualquer ponto da mensagem (revisão: "O CPF vai na nota. Qual tamanho você usa?" + "M" contava,
+"me passa seu CPF" + "não passo" não contava).
+**Correção:** `missingForLink`/`sendLinkNow` (tamanho → CEP → forma de pagamento → nome → e-mail ou uma
+recusa → CPF ou duas recusas); `pathChoiceToStore` grava a escolha natural ("a primeira", "o antecipado")
+e o "sim" ao padrão da entrega, também ao lado de pergunta de compradora (`buyerAsk`, que não lê "quero
+saber" como compra); `refusedAsks` lê o pedido por frase, com o imperativo; "vou pensar" sem link;
+`regionDirectiveFor` independente do tamanho; tamanho escolhido no checkout; Coinzz sem o 55; kit oferecido
+uma vez, depois da escolha; `coverage_claim` veta "No seu CEP dá pra pagar na entrega" e "Aí dá pra pagar
+na entrega" antes da consulta, com a condição "Se no seu CEP der" isenta; `claimFailed` volta ao descarte
+do §59 sem a 0023. Toques depois do link, opção 1 (R18.8): a resposta com link arma só o lembrete de 15 min;
+a pergunta de ofertas segue esse lembrete também (`optInFollows`).
+**Guarda:** `tests/link-after-data.test.ts` (comportamento das funções puras e fiação), `tests/still-there.test.ts`
+(toques depois do link), `tests/opt-in.test.ts`; mutações `toques-depois-do-link` e nove `R63-*`;
+`WA-envio-desligado` reescrita para o canal ligado (desligar `CANAL_ATIVO` corta todo envio).
+**Resíduo:** nome e CEP não têm saída por recusa — quem recusa os dois nunca recebe o link (regra do
+operador); `answersWhichOfTwo` e `REQUEST` são listas de palavras; nada medido contra o modelo antes da
+rodada de personas.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
