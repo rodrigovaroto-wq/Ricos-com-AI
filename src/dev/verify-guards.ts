@@ -1322,8 +1322,8 @@ const MUTATIONS: Mutation[] = [
     id: "R2-lembrete-so-no-link",
     bug: "cada turno depois do link rearmava o lembrete de 15 min",
     files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
-    from: "(f) => f.kind !== \"checkout_reminder\" || postponed !== undefined || linkInReply,",
-    to: "(_f) => true,",
+    from: "f.kind === \"checkout_reminder\" ? postponed !== undefined || linkInReply :",
+    to: "f.kind === \"checkout_reminder\" ? true :",
     guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
   },
   {
