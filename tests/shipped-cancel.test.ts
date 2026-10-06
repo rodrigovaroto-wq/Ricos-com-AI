@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cancelReplyFor } from "@/agent/followups.js";
+import { cancelReplyFor, stageForOrder } from "@/agent/followups.js";
 import { runGates } from "@/agent/guardrails.js";
 import { handoffFor, NEUTRAL_INTERPRETATION } from "@/agent/interpret.js";
 import { COD_CANCEL_REPLY, ORDER_HANDOFF_REPLY, PREPAID_CANCEL_REPLY, shippedCancelReply } from "@/agent/retry.js";
@@ -59,7 +59,7 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
   });
 
   it("antecipado pago que ainda não saiu: cancelamento manual", () => {
-    for (const o of [[prepay("Aprovado")], [prepay("Pagamento aprovado")], [prepay("Pago")], [prepay("Aprovado / Aguardando envio")], [prepay("paid")]])
+    for (const o of [[prepay("Aprovado")], [prepay("Pagamento aprovado")], [prepay("Pago")], [prepay("Aprovado / Aguardando envio")], [prepay("paid")], [prepay("Aprovado / ")], [prepay("Aprovado / Em separação")], [prepay("Aprovado / Aguardando coleta")]])
       expect(cancelReplyFor(o), JSON.stringify(o)).toBe("prepaid_pending");
   });
 
@@ -95,6 +95,37 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
       [prepay("Aprovado"), prepay("Aprovado / Enviado")],
     ])
       expect(cancelReplyFor(o), JSON.stringify(o)).toBeNull();
+  });
+
+  // Review of da612fd, 2026-10-06: `stageForOrder` reads anything it does not know as `pedido_criado`,
+  // so "ainda não saiu" was stated from a shipping status nobody recognised. Allowlist now.
+  it("revisão: antecipado com envio desconhecido ou estranho não ouve 'ainda não saiu'", () => {
+    for (const status of [
+      "Aprovado / Postado",
+      "Aprovado / Objeto postado",
+      "Pago / Em transporte",
+      "Aprovado / Em distribuição",
+      "Aprovado / Aguardando retirada",
+      "Aprovado / Out for delivery",
+      "paid / pending",
+      "Aprovado / Chargeback",
+      "Aprovado / Contestado",
+      "Aprovado / Não enviado",
+      "Aprovado / Não despachado",
+      "Aprovado / Não coletado",
+      "Aprovado e postado",
+    ])
+      expect(cancelReplyFor([prepay(status)]), status).toBeNull();
+  });
+
+  it("revisão: envio negado não é em rota, na raiz (stageForOrder)", () => {
+    for (const status of ["Aprovado / Não enviado", "Aprovado / Não despachado", "Aprovado / Não coletado", "Não foi enviado", "Não saiu para entrega"]) {
+      expect(stageForOrder(status), status).not.toBe("em_rota");
+      expect(cancelReplyFor([prepay(status)]), status).not.toBe("shipped");
+    }
+    for (const status of ["Não enviado", "Não despachado", "Não coletado"]) expect(cancelReplyFor([cod(status)]), status).toBe("cod");
+    // Still on its way without the negation.
+    for (const status of ["Aprovado / Enviado", "Despachado", "Coletado"]) expect(stageForOrder(status), status).toBe("em_rota");
   });
 
   it("pagamento na entrega com a região marcada sem entrega: o gate vetaria, então ORDER_HANDOFF_REPLY", () => {

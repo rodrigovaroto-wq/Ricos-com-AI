@@ -379,7 +379,8 @@ cancelar manualmente na Coinzz):
 > Conferi que seu pedido ainda não saiu para a entrega, irei dar início no cancelamento.
 
 Qualquer outro cancelamento — nenhum pedido registrado (só "comprei" ou o link enviado), pedido
-entregue, tentativa frustrada, antecipado sem pagamento aprovado, caminhos misturados ou
+entregue, tentativa frustrada, antecipado sem pagamento aprovado ou com um status de envio que
+o código não reconhece como "ainda não saiu", caminhos misturados ou
 desconhecidos, pedidos vivos em estágios diferentes, ou pedido na entrega com a região marcada sem
 pagamento na entrega — recebe "Vou checar pra você e já te retorno 💛".
 

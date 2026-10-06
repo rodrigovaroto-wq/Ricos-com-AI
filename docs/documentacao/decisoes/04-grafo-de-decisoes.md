@@ -1662,8 +1662,8 @@ afrouxados); tratar todo `pedido_criado` antecipado como pago — "Aguardando pa
 **Correção:** `cancelReplyFor(orders, codUnavailable)` em `followups.ts` (substitui
 `pastCancelling`): pedidos vivos de um só caminho e um só estágio; `cod` em `pedido_criado` ou
 `em_rota` → `COD_CANCEL_REPLY`; `prepay` em `em_rota` → `shippedCancelReply`; `prepay` em
-`pedido_criado` com todo status lido como pago ("aprovado", "pago", "paid", sem negação nem
-"aguardando pagamento") → `PREPAID_CANCEL_REPLY`; o resto → null → `ORDER_HANDOFF_REPLY`. No turno,
+`pedido_criado` com todo status na allowlist de pago e não enviado (ver o achado da revisão abaixo)
+→ `PREPAID_CANCEL_REPLY`; o resto → null → `ORDER_HANDOFF_REPLY`. No turno,
 uma consulta `orders?lead_id=eq.…&select=status,payment_method` (`orders_lead_idx`), só quando
 `handoffKind === "cancel"`; os três ramos continuam `handOff`, com motivos distintos — o do
 antecipado não saído diz "cancelar manualmente na Coinzz" e chega no e-mail de handoff
@@ -1671,6 +1671,19 @@ antecipado não saído diz "cancelar manualmente na Coinzz" e chega no e-mail de
 **Achado no teste:** `COD_CANCEL_REPLY` ("pago na entrega") é vetado por `charge_promise` quando o
 lead tem `codUnavailable` (região gravada sem entrega) — `handOff` passaria a cliente sem resposta
 nenhuma. Em vez de afrouxar o gate, `cancelReplyFor` devolve null nesse caso e ela ouve "vou checar".
+**Achado da revisão de da612fd (corrigido):** (1) `stageForOrder` lê como `pedido_criado` qualquer
+status que não reconhece, e o "pago" era uma busca por palavra — "Aprovado / Postado", "Pago / Em
+transporte", "Aprovado / Em distribuição", "Aprovado / Aguardando retirada", "Aprovado / Out for
+delivery", "paid / pending", "Aprovado / Chargeback" ouviam "ainda não saiu… irei dar início no
+cancelamento". Correção por allowlist (lição 3): o status é "pagamento / envio" (n8n "Normaliza a
+venda"); `prepaid_pending` só com a parte do pagamento exatamente uma palavra de pago (aprovado,
+pago, paid, approved, pagamento aprovado/confirmado) e a de envio vazia ou "aguardando envio",
+"aguardando coleta", "em separação". O resto vira "vou checar". A lista de `em_rota` de
+`stageForOrder` não ganhou "postado", "em transporte" etc.: mudaria a régua (toques de envio e
+véspera) sem status real da Coinzz que os confirme — a allowlist basta para o cancelamento.
+(2) "Aprovado / Não enviado", "Não despachado", "Não coletado" liam `em_rota` e ouviam "já saiu para
+entrega": lookbehind de negação (`nao`, `nao foi`, `nao esta`) na raiz, em `stageForOrder`, que a
+régua também usa; no caminho na entrega esses status continuam `cod`.
 **Guarda:** `tests/shipped-cancel.test.ts` (textos literais; os três passam `runGates` como o
 `handOff` julga — `cod`, sem estágio e na logística; o mapeamento de cada caso e a negação: vazio,
 só mortos, "Em rota de devolução", entregue, frustrado, antecipado não pago/pendente/reprovado/sem
