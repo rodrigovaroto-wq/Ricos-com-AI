@@ -389,7 +389,9 @@ export const isOrderDead = (status: string | undefined): boolean => {
  * the operator to add it here with a test; a cancel on it hears "vou checar" (`cancelReplyFor`);
  * the ruler keeps reading it by root, as before the vocabulary — that is the floor, not a new risk.
  */
-type StatusTerm = "unpaid" | "paid" | "pre_ship" | "en_route" | "delivered" | "failed" | "dead";
+// `reschedule` is a failed attempt with another one coming: the ruler reads it as `failed`, but a
+// cancel on delivery still hears the door reply (review of 82b4643).
+type StatusTerm = "unpaid" | "paid" | "pre_ship" | "en_route" | "delivered" | "failed" | "reschedule" | "dead";
 const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
   // Logzz.
   ["agendado", "pre_ship"],
@@ -398,7 +400,7 @@ const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
   ["em rota", "en_route"],
   ["a caminho", "en_route"],
   ["completo", "delivered"],
-  ["a reagendar", "failed"],
+  ["a reagendar", "reschedule"],
   ["frustrado", "failed"],
   ["cancelado", "dead"],
   ["reembolsado", "dead"],
@@ -418,7 +420,8 @@ const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
   ["recusado", "dead"],
   ["estornado", "dead"],
   ["chargeback", "dead"],
-  ["expirado", "dead"],
+  // Not dead: a Pix or boleto that expired can be paid on the same order (review of 82b4643).
+  ["expirado", "unpaid"],
   // Coinzz, shipping.
   ["aguardando envio", "pre_ship"],
   ["aguardando coleta", "pre_ship"],
@@ -497,7 +500,7 @@ export const stageForOrder = (
   const terms = statusTerms(status);
   if (terms) {
     if (terms.includes("dead")) return "recusado";
-    if (terms.includes("failed")) return null;
+    if (terms.includes("failed") || terms.includes("reschedule")) return null;
     if (terms.includes("delivered")) return "entregue_pago";
     return terms.includes("en_route") ? "em_rota" : "pedido_criado";
   }
@@ -535,7 +538,8 @@ export const cancelReplyFor = (
   if (live.length === 0 || paths.size !== 1 || stages.size !== 1) return null;
   const [path] = paths;
   const [stage] = stages;
-  if (path === "cod") return !codUnavailable && (stage === "pedido_criado" || stage === "em_rota") ? "cod" : null;
+  const rescheduled = live.every((o) => statusTerms(o.status)?.includes("reschedule"));
+  if (path === "cod") return !codUnavailable && (stage === "pedido_criado" || stage === "em_rota" || rescheduled) ? "cod" : null;
   if (path !== "prepay") return null;
   if (stage === "em_rota") return "shipped";
   const paidNotShipped = (status: string | null | undefined): boolean => {

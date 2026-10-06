@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { cancelReplyFor, isKnownOrderStatus, isOrderDead, stageForOrder } from "@/agent/followups.js";
+import { cancelReplyFor, isKnownOrderStatus, isOrderDead, orderStatusAfter, stageForOrder } from "@/agent/followups.js";
 
 /**
  * Operator, 2026-10-06 (grafo §57): order statuses stay deterministic code. The Logzz and Coinzz
@@ -43,7 +43,8 @@ describe("vocabulário de status da Logzz e da Coinzz (2026-10-06)", () => {
     ["Estornado", "recusado"],
     ["Reembolsado", "recusado"],
     ["Chargeback", "recusado"],
-    ["Expirado", "recusado"],
+    // A Pix/boleto that expired can still be paid on the same order (review of 82b4643).
+    ["Expirado", "pedido_criado"],
     // INFERRED shipping.
     ["Aprovado / Aguardando envio", "pedido_criado"],
     ["Aprovado / Em separação", "pedido_criado"],
@@ -78,9 +79,9 @@ describe("vocabulário de status da Logzz e da Coinzz (2026-10-06)", () => {
   });
 
   it("morto e vivo pelo vocabulário: a régua para no que morreu", () => {
-    for (const s of ["Cancelado", "Reembolsado", "Estornado", "Chargeback", "Expirado", "Recusado", "Aprovado / Devolvido", "Aprovado / Em devolução"])
+    for (const s of ["Cancelado", "Reembolsado", "Estornado", "Chargeback", "Recusado", "Aprovado / Devolvido", "Aprovado / Em devolução"])
       expect(isOrderDead(s), s).toBe(true);
-    for (const s of ["Completo", "A caminho", "A reagendar", "Aprovado / Sem sucesso", "Aprovado / Não entregue", "Frustrado", "Agendado", "Pendente"])
+    for (const s of ["Completo", "A caminho", "A reagendar", "Aprovado / Sem sucesso", "Aprovado / Não entregue", "Frustrado", "Agendado", "Pendente", "Expirado"])
       expect(isOrderDead(s), s).toBe(false);
   });
 
@@ -128,7 +129,8 @@ describe("cancelamento: o vocabulário decide, o desconhecido vai para 'vou chec
     ["A caminho", "cod"],
     ["Em rota", "cod"],
     ["Completo", null],
-    ["A reagendar", null],
+    // Another attempt is coming: refusing at the door is still true (review of 82b4643).
+    ["A reagendar", "cod"],
     ["Frustrado", null],
   ])("Logzz (na entrega) %s → %s", (status, reply) => {
     expect(cancelReplyFor([cod(status)])).toBe(reply);
@@ -165,6 +167,11 @@ describe("cancelamento: o vocabulário decide, o desconhecido vai para 'vou chec
     ["Aprovado / Em devolução", null],
   ])("Coinzz (antecipado) %s → %s", (status, reply) => {
     expect(cancelReplyFor([prepay(status)])).toBe(reply);
+  });
+
+  it("um Expirado pago depois volta a viver (revisão de 82b4643)", () => {
+    expect(orderStatusAfter("Expirado", "Aprovado")).toBe("Aprovado");
+    expect(orderStatusAfter("Expirado", "Aprovado / Enviado")).toBe("Aprovado / Enviado");
   });
 
   it("Coinzz afterpay (na entrega) segue o mesmo caminho da porta", () => {

@@ -1731,6 +1731,11 @@ morto/vivo, os três bugs, acento/caixa/espaço, negação — "Não entregue", 
 em trânsito" — desconhecidos inclusive `__proto__`, a resposta de cancelamento de cada um, a
 fiação de `unknownStatus` no job e o IF + e-mail no JSON do n8n). `tests/shipped-cancel.test.ts`
 ajustado nos casos que a decisão mudou.
+**Achados da revisão de 82b4643 (corrigidos):** "Expirado" como morto travava para sempre um
+pedido pago depois na mesma cobrança reemitida (morto fica morto) — virou não pago, o comportamento
+de antes; "A reagendar" na entrega caía em "vou checar", contra a regra do operador (na entrega,
+recusar na porta, saído ou não) — termo próprio `reschedule`, que a régua lê como tentativa frustrada
+e o cancelamento na entrega lê como mais uma tentativa vindo. Os dois nos testes, vermelhos antes.
 **Resíduo:** os inferidos da Coinzz não têm fonte — o e-mail de status novo é o que os corrige. Um
 status desconhecido segue sem toque de envio nem de entrega até entrar na tabela. "Pendente /
 Enviado" (não pago e enviado) lê `em_rota`, como antes.
