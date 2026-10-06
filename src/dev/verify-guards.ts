@@ -2657,6 +2657,14 @@ const MUTATIONS: Mutation[] = [
     to: "const orderedAt = order.orderedAt ? new Date(order.orderedAt) : new Date();",
     guard: ["pnpm", "-s", "vitest", "run", "tests/exchange-freight.test.ts"],
   },
+  {
+    id: "toques-depois-do-link",
+    bug: "a resposta com o link armava 'Ainda está aí?' e o silence_1 junto do lembrete de 15 min (opção 1, operador, 2026-10-06)",
+    files: ["src/agent/followups.ts"],
+    from: 'const linkTouch = stopPoint === "link_sent" && (postponed === undefined ? linkInReply : postponed === "checkout_reminder");',
+    to: "const linkTouch = false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/still-there.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

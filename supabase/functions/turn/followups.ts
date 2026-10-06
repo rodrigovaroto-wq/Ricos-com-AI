@@ -254,13 +254,17 @@ export const rulerFor = (
     const at = new Date(Math.max(from.getTime(), silence3At(anchors.entry).getTime()));
     return at.getTime() <= anchors.entry.getTime() + ENTRY_BAND_END ? [{ kind: "silence_3", runAt: at }] : [];
   }
-  const ruler = scheduleSilence(from, stopPoint, anchors).filter(
-    (f) => f.kind !== "checkout_reminder" || postponed !== undefined || linkInReply,
+  // Touches after the link, option 1 (operator, 2026-10-06): the reply that carried the link —
+  // or its 15-minute touch, postponed by the clock — gets only that touch in the first half hour:
+  // no "Ainda está aí?" and no `silence_1` asking again whether she managed to finish.
+  const linkTouch = stopPoint === "link_sent" && (postponed === undefined ? linkInReply : postponed === "checkout_reminder");
+  const ruler = scheduleSilence(from, stopPoint, anchors).filter((f) =>
+    f.kind === "checkout_reminder" ? postponed !== undefined || linkInReply : !(linkTouch && f.kind === "silence_1"),
   );
   const at = ruler.findIndex((f) => f.kind === postponed);
   // A postponed touch the anchored ruler has no time for is not re-armed — nor the ones before it.
   if (at === -1 && postponed !== undefined && anchors) return [];
-  if (postponed === undefined && askedQuestion) ruler.unshift({ kind: "still_there", runAt: new Date(from.getTime() + STILL_THERE_MS) });
+  if (postponed === undefined && askedQuestion && !linkTouch) ruler.unshift({ kind: "still_there", runAt: new Date(from.getTime() + STILL_THERE_MS) });
   return at === -1 ? ruler : ruler.slice(at);
 };
 

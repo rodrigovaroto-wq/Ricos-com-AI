@@ -97,3 +97,31 @@ describe("fiação (index.ts lido como fonte)", () => {
     expect(sweep).toContain("if (!lead || lead.opted_out_at || lead.handoff_at) {");
   });
 });
+
+/** Opção 1 dos toques (operador, 2026-10-06): com link, só o lembrete do link aos 15 min. */
+describe("toques depois do link", () => {
+  const kinds = (...a: Parameters<typeof rulerFor>) => rulerFor(...a).map((f) => f.kind);
+  it("a resposta com o link arma só o lembrete de 15 min na primeira meia hora — sem 'Ainda está aí?' nem silence_1", () => {
+    expect(kinds(now, "link_sent", undefined, true, undefined, true)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
+    expect(kinds(now, "link_sent", undefined, true)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
+  });
+  it("o lembrete do link adiado pelo relógio volta sem silence_1", () => {
+    expect(kinds(now, "link_sent", "checkout_reminder", false)).toEqual(["checkout_reminder", "silence_2", "silence_3"]);
+  });
+  it("negações: sem link na resposta, 'Ainda está aí?' aos 10 e silence_1 aos 30 seguem", () => {
+    expect(kinds(now, "before_size", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_2", "silence_3"]);
+    expect(kinds(now, "link_sent", undefined, false, undefined, true)).toEqual(["still_there", "silence_1", "silence_2", "silence_3"]);
+    expect(kinds(now, "link_sent", "silence_1", true)[0]).toBe("silence_1");
+  });
+  it("ancorada, a resposta com link também perde o silence_1", () => {
+    const anchors = { entry: new Date(now.getTime() - 60 * 60_000), lastInbound: now };
+    expect(kinds(now, "link_sent", undefined, true, anchors, true)).not.toContain("silence_1");
+    expect(kinds(now, "link_sent", undefined, true, anchors, true)).not.toContain("still_there");
+  });
+});
+
+describe("toques depois do link: só na régua do link", () => {
+  it("negação: link na resposta fora de link_sent não apaga o silence_1 (não haveria lembrete nenhum)", () => {
+    expect(rulerFor(now, "after_price", undefined, true).map((f) => f.kind)).toContain("silence_1");
+  });
+});
