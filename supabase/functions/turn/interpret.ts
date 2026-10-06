@@ -522,7 +522,7 @@ const whichOfTwo = (message: string): PaymentChoice | null => {
     /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+querer|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|pagamento|de|opcao)\s+)*(primeira|primera|segunda|[12]|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|msm|entao|por\s+favor|pfv|sim|opcao|ne|kk+))*$/.exec(t);
   if (!m) return null;
   // A digit is the option only alone or after "a/o/opção": "quero 2" is two pieces (fourth review).
-  if (/^[12]$/.test(m[1]!) && !/(?:^|\b(?:a|o|opcao)\s+)[12]\b/.test(t)) return null;
+  if (/^[12]$/.test(m[1]!) && !/(?:^(?:(?:ok|sim|entao|beleza)[,\s]+)?|\b(?:a|o|na|no|pel[ao]|opcao)\s+)[12]\b/.test(t)) return null;
   return /^(?:primeira|primera|1|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
 };
 

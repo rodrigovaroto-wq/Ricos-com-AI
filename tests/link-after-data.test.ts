@@ -431,3 +431,26 @@ describe("quarta revisão", () => {
   it.each(["a 2", "opcao 2", "opção 2"])("'%s' (a segunda opção) não vira kit de 2", (m) => expect(quantityOf(m, read({ units: 2 }))).toBeNull());
   it("negação: 'quero 2' segue quantidade", () => expect(quantityOf("quero 2", read({ units: 2 }))?.units).toBe(2));
 });
+
+/** Quinta revisão (a2d1a10). */
+describe("quinta revisão", () => {
+  it.each([
+    "Agora o CPF, pra nota fiscal sair com seu nome?",
+    "Me passa o CPF pra nota ir pro seu nome?",
+    "Me passa o CPF pra nota ser emitida para seu nome?",
+    "Me passa o CPF pra registrar o pedido com o seu nome?",
+    "Me passa o CPF pra nota fiscal sair no seu nome completo?",
+  ])("o motivo com qualquer preposição não apaga o pedido do CPF: %s", (q) =>
+    expect(refusedAsks([out(q), inn("não passo")], "document")).toBe(1),
+  );
+  it("negação: 'Qual o seu nome e CPF?' pede o nome", () => {
+    expect(refusedAsks([out("Qual o seu nome e CPF?"), inn("Maria Souza")], "document")).toBe(0);
+  });
+  const two = twoOptionsMessage(config).join("\n\n");
+  const store = (msg: string, interpreted: "cod" | "prepay") =>
+    pathChoiceToStore({ interpreted, parts: [msg], lastOutbound: two, confirms: confirmsAddress(msg) });
+  it.each([["sim, 1", "cod"], ["ok, 2", "prepay"], ["beleza, 2", "prepay"], ["na 2", "prepay"], ["pela 1", "cod"]] as const)(
+    "o número com o prefixo curto segue escolha: %s",
+    (m, p) => expect(store(m, p)).toBe(p),
+  );
+});

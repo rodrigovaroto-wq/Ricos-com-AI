@@ -238,7 +238,8 @@ export const refusedAsks = (
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
   // "Seu nome" asks unless it is the reason ("pra nota fiscal sair no seu nome", "emitir em seu nome"):
   // third and fourth reviews.
-  const name = String.raw`nome\s+completo|(?<!\b(?:n[oa]|em|d[oa])\s+)seu\s+nome`;
+  // Fifth review: any preposition before it ("com seu nome", "pro seu nome", "no seu nome completo").
+  const name = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?(?:seu\s+)?)nome\s+completo|(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?)seu\s+nome`;
   const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${name})\b`, "i");
   const found = field === "email" ? extractEmail : extractCpf;
   let count = 0;
