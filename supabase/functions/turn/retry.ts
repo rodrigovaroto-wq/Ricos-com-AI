@@ -191,7 +191,7 @@ export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para
 
 /**
  * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
- * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
+ * opening of `thinkReply`, which the turn sends.
  */
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
 

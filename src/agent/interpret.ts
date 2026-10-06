@@ -160,8 +160,7 @@ const numberIn = (v: unknown, min: number, max: number): number | null => {
  * The model's JSON, read defensively. Anything that is not exactly the declared shape
  * reads as the neutral value for that field — a `"true"` string is not `true`, a letter
  * outside the table is no letter. `parsed` says whether there was a JSON object at all,
- * because "nothing detected" and "could not read" must not drive the same decision
- * (the clarify ladder, for one, only runs on a real reading).
+ * because "nothing detected" and "could not read" must not drive the same decision.
  */
 export const readInterpretation = (raw: string): { parsed: boolean; interpretation: Interpretation } => {
   const start = raw.indexOf("{");
@@ -386,75 +385,6 @@ export const handoffFor = (
   if (orderContext && i.post_sale && !reportsDone(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
-};
-
-/**
- * The three fixed lines of the clarify ladder, word for word from the operator (R13.4),
- * then silence. The step is read back from what was last sent, so there is no counter to
- * store and no schema change: the conversation history IS the state.
- */
-export const CLARIFY_SIZE_REPLIES = [
-  "Desculpa, não entendi, qual o tamanho que deseja?",
-  "Precisa de ajuda para escolher o tamanho?",
-  "Quando decidir é só me falar que prossigo com a criação do seu pedido.",
-] as const;
-
-export type ClarifyDecision = { kind: "none" } | { kind: "reply"; text: string } | { kind: "silent" };
-
-/**
- * What the ladder does with this message.
- *
- * It only runs on a real reading (`interpreted`): a failed call reads as "nothing
- * detected", and silence decided on no information would be the worst failure here.
- * Anything that carries meaning — a size, her own question, a decision, a payment choice,
- * an e-mail — steps off the ladder and the conversation goes on normally.
- */
-export const decideClarify = (args: {
-  interpreted: boolean;
-  interpretation: Interpretation;
-  lastOutbound: string;
-  lastAskedSize: boolean;
-  sizeFound: boolean;
-  /**
-   * She was just told "Sem problemas, estou aqui…" (she will think, or said goodbye). The
-   * ladder does not START again right after that — Neusa got it twice in a row (persona
-   * round 3); a ladder already under way still runs its course.
-   */
-  parked?: boolean;
-  /**
-   * Anything the deterministic readers took from the message — a CEP, an address piece, a
-   * name, an e-mail, a CPF. Data is never "unrelated": silencing "meu cep é 01310-100,
-   * Maria Souza" would throw away exactly what the sale needs (code review, 2026-09-24).
-   */
-  factsFound: boolean;
-  /**
-   * The size is already known (on file or said now). Absent = not known. While it is not, the
-   * ladder starts after ANY question of hers left unanswered, not only the size one (operator,
-   * 2026-10-05, after Neusa's nine model turns of "ta" and "?"); once it is, the lines — all
-   * about the size — start only after the size question.
-   */
-  sizeKnown?: boolean;
-}): ClarifyDecision => {
-  const { interpreted, interpretation: i, lastOutbound, lastAskedSize, sizeFound, factsFound } = args;
-  if (!interpreted) return { kind: "none" };
-  const step = (CLARIFY_SIZE_REPLIES as readonly string[]).indexOf(lastOutbound.trim()) + 1;
-  const meaningful =
-    sizeFound ||
-    factsFound ||
-    i.pending_answer === "answered" ||
-    i.pending_answer === "other_question" ||
-    i.wants_to_buy ||
-    i.wants_to_think ||
-    i.email !== null ||
-    i.email_unavailable ||
-    i.payment_choice !== null;
-  if (meaningful) return { kind: "none" };
-  if (step === CLARIFY_SIZE_REPLIES.length) return { kind: "silent" };
-  if (step === 0 && args.parked === true) return { kind: "none" };
-  if ((lastAskedSize || step > 0 || args.sizeKnown !== true) && i.pending_answer === "unrelated") {
-    return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
-  }
-  return { kind: "none" };
 };
 
 /**

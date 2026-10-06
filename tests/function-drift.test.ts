@@ -331,12 +331,13 @@ describe("rodada 13 na Edge Function", () => {
     expect(source).toContain("signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
-  // Code review, 2026-09-24: a escada silenciava "meu cep é 01310-100, Maria Souza".
-  it("a escada do tamanho decide depois dos leitores de endereço e identidade", () => {
-    const ladder = source.indexOf("const clarify = decideClarify(");
-    expect(ladder).toBeGreaterThan(source.indexOf("const foundAddress = extractAddress("));
-    expect(ladder).toBeGreaterThan(source.indexOf("const identityDraft = mergeIdentity("));
-    expect(source).toContain("factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0");
+  // Grafo §60 (operador, 2026-10-06): a escada fixa saiu; toda mensagem vai ao modelo, e a
+  // pergunta dela no lugar do tamanho continua respondida primeiro.
+  it("a escada do \"não entendi\" não existe mais no turno", () => {
+    for (const gone of ["decideClarify", "CLARIFY_SIZE_REPLIES", "escada do tamanho", "não entendi, qual o tamanho"]) {
+      expect(source, gone).not.toContain(gone);
+    }
+    expect(source).toContain("lastAskedSize && stated === null && interpretation.pending_answer === \"other_question\"");
   });
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
@@ -385,11 +386,6 @@ describe("rodada 3 na Edge Function", () => {
     // A decisão é lida antes da despedida, que a consulta.
     expect(source.indexOf("if (decidesToBuy(")).toBeLessThan(source.indexOf("if (goodbyeParks("));
     expect(source).toContain("if (decided !== null) interpretation = { ...interpretation, wants_to_buy: decided };");
-  });
-
-  it("a escada lê o histórico: não recomeça logo depois do \"vou pensar\"", () => {
-    expect(source).toContain("parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),");
-    expect(source.indexOf("const clarify = decideClarify(")).toBeGreaterThan(source.indexOf("const recentOutbound = recent"));
   });
 });
 

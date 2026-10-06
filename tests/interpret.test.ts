@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   asksSomething,
-  CLARIFY_SIZE_REPLIES,
-  decideClarify,
+  decisionInBurst,
   decidesToBuy,
   goodbyeParks,
   handoffFor,
@@ -12,6 +11,7 @@ import {
   namesAPerson,
   namesOwnPrice,
   NEUTRAL_INTERPRETATION,
+  quantityOf,
   readInterpretation,
   linkSentRecently,
   asksForLink,
@@ -21,8 +21,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "@/agent/interpret.js";
-import { classifyOptOut, runGates, wantsHuman } from "@/agent/guardrails.js";
-import { ctx } from "./fixtures.js";
+import { classifyOptOut, wantsHuman } from "@/agent/guardrails.js";
 
 /** A reading with only the fields a case cares about set. */
 const read = (over: Partial<Interpretation> = {}): Interpretation => ({
@@ -233,110 +232,26 @@ describe("quem vai para o humano, e só quem", () => {
 });
 
 /**
- * A escada do tamanho (R13.4): três frases fixas do operador e depois silêncio até a
- * mensagem fazer sentido. O degrau é lido da última mensagem enviada.
+ * Grafo §60 (operador, 2026-10-06): a escada fixa do "não entendi" saiu. As três mensagens
+ * que a receberam em produção (agent_version 7) não param em nenhuma saída fixa: vão ao modelo.
  */
-describe("a escada de esclarecimento do tamanho", () => {
-  const perguntou = "Qual número de calça você usa?";
-  const solto = read({ pending_answer: "unrelated" });
-  const base = { interpreted: true, interpretation: solto, sizeFound: false, factsFound: false };
+describe("sem escada: a resposta solta vai ao modelo", () => {
+  const producao = ["Aah ok", "Tem sim, um vestido azul lindo que ganhei do meu marido!!", "??"];
 
-  it("as três frases são as do operador, palavra por palavra", () => {
-    expect(CLARIFY_SIZE_REPLIES).toEqual([
-      "Desculpa, não entendi, qual o tamanho que deseja?",
-      "Precisa de ajuda para escolher o tamanho?",
-      "Quando decidir é só me falar que prossigo com a criação do seu pedido.",
-    ]);
+  it("as frases da escada não existem mais no módulo", async () => {
+    const mod: Record<string, unknown> = await import("@/agent/interpret.js");
+    expect(mod.CLARIFY_SIZE_REPLIES).toBeUndefined();
+    expect(mod.decideClarify).toBeUndefined();
   });
 
-  it("sobe um degrau por resposta solta, e depois fica em silêncio", () => {
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[0],
-    });
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[1],
-    });
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[1], lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[2],
-    });
-    // O terceiro degrau não pergunta nada — a leitura pode vir "no_pending", e o silêncio vale.
-    for (const pending of ["unrelated", "no_pending"] as const) {
-      expect(
-        decideClarify({
-          ...base,
-          interpretation: read({ pending_answer: pending }),
-          lastOutbound: CLARIFY_SIZE_REPLIES[2],
-          lastAskedSize: false,
-        }),
-      ).toEqual({ kind: "silent" });
-    }
-  });
-
-  it("uma mensagem que faz sentido sai da escada, em qualquer degrau", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: true, sizeFound: true }).kind).toBe("none");
-      for (const r of [
-        read({ pending_answer: "other_question" }),
-        read({ pending_answer: "answered" }),
-        read({ pending_answer: "unrelated", wants_to_buy: true }),
-        read({ pending_answer: "unrelated", wants_to_think: true }),
-        read({ pending_answer: "unrelated", payment_choice: "cod" }),
-      ]) {
-        expect(decideClarify({ ...base, interpretation: r, lastOutbound: last, lastAskedSize: true }).kind, last).toBe(
-          "none",
-        );
-      }
-    }
-  });
-
-  // Code review, 2026-09-24: "meu cep é 01310-100, Maria Souza" no degrau 3 era silenciada.
-  it("mensagem com dado (CEP, endereço, nome, CPF) nunca é silenciada nem ganha frase da escada", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: true, factsFound: true }).kind, last).toBe("none");
-    }
-    // Sem dado, a mesma mensagem solta continua na escada.
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[2], lastAskedSize: false }).kind).toBe("silent");
-  });
-
-  // Rodada de personas 2026-10-05 (Neusa): "ta" e "?" depois de "o que você quer saber do colete?"
-  // custaram nove turnos de modelo e terminaram no teto. Operador, 2026-10-05: a escada vale em
-  // qualquer pergunta da Malu — enquanto o tamanho não está definido, porque as frases são do tamanho.
-  it("sobe a escada depois de qualquer pergunta, enquanto o tamanho não está definido", () => {
-    for (const last of ["Me passa seu CEP?", "Tô aqui com você, o que você quer saber do colete?"]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: false, sizeKnown: false }), last).toEqual({
-        kind: "reply",
-        text: CLARIFY_SIZE_REPLIES[0],
-      });
-    }
-  });
-
-  it("com o tamanho já definido, só a pergunta do tamanho começa a escada", () => {
-    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false, sizeKnown: true }).kind).toBe("none");
-    // Uma escada já em curso segue o seu curso.
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: false, sizeKnown: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[1],
-    });
-  });
-
-  it("sem pergunta da Malu não há escada: \"oi\" depois da recepção é no_pending", () => {
-    expect(
-      decideClarify({ ...base, interpretation: read({ pending_answer: "no_pending" }), lastOutbound: "Oii, tudo bem?", lastAskedSize: false, sizeKnown: false }).kind,
-    ).toBe("none");
-  });
-
-  // Silêncio decidido sem informação seria a pior falha daqui.
-  it("sem leitura do intérprete, nunca silencia nem sobe", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, interpreted: false, lastOutbound: last, lastAskedSize: true }).kind).toBe("none");
-    }
-  });
-
-  it("as três frases passam na cadeia inteira", () => {
-    for (const texto of CLARIFY_SIZE_REPLIES) expect(runGates(texto, ctx()).allowed, texto).toBe(true);
+  it.each(producao)("\"%s\" não é despedida, decisão, quantidade, opt-out, pessoa nem handoff", (msg) => {
+    const solto = read({ pending_answer: "unrelated" });
+    expect(goodbyeParks(msg, solto)).toBe(false);
+    expect(decisionInBurst([msg])).toBeNull();
+    expect(quantityOf(msg, solto)).toBeNull();
+    expect(classifyOptOut(msg)).toBe("none");
+    expect(wantsHuman(msg)).toBe(false);
+    expect(handoffFor(solto, msg, false)).toBeNull();
   });
 });
 
@@ -610,18 +525,6 @@ describe("rodada 3: despedida e a escada", () => {
     for (const frase of ["deixa eu ver o cep", "deixa então eu te mandar o CEP", "ta", "obrigada pela explicação"]) {
       expect(saysGoodbye(frase), frase).toBe(false);
     }
-  });
-
-  it("a escada não recomeça logo depois do \"Sem problemas, estou aqui…\"", () => {
-    const solto = read({ pending_answer: "unrelated" });
-    const base = { interpreted: true, interpretation: solto, sizeFound: false, factsFound: false };
-    const perguntou = "Qual número de calça você usa?";
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: true }).kind).toBe("none");
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: false }).kind).toBe("reply");
-    // Uma escada já em curso segue.
-    expect(
-      decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: true, parked: true }).kind,
-    ).toBe("reply");
   });
 
   it("o intérprete sabe que despedida é \"vou pensar\" e que manequim não é calça", () => {

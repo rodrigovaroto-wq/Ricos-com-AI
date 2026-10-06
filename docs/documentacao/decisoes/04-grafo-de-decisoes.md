@@ -1874,6 +1874,49 @@ identidade) gravados por um turno descartado ficam, e o turno novo os relê da m
 depois de um turno que não respondeu (`stopped`, `deferred`), a rajada seguinte inclui as mensagens
 dele; acima de 20 mensagens sem resposta, só as 20 últimas entram.
 
+## 60. A resposta solta dela recebia "Desculpa, não entendi" (escada do tamanho, 2026-10-06)
+
+**Sintoma:** produção, agent_version 7. Depois da abertura "Tem alguma roupa que você adora e deixou
+de usar?", "Aah ok" recebeu "Desculpa, não entendi, qual o tamanho que deseja?"; "Tem sim, um vestido
+azul lindo que ganhei do meu marido!!" — a resposta exata à pergunta — recebeu "Precisa de ajuda para
+escolher o tamanho?"; "??" recebeu "Quando decidir é só me falar que prossigo com a criação do seu
+pedido." (`turn_outcomes` motivo "escada do tamanho"). Três linhas de robô seguidas, e a terceira
+fecharia a conversa em silêncio até ela dizer algo que o código achasse com sentido.
+**Causa:** a escada fixa de R13.4 (`decideClarify` / `CLARIFY_SIZE_REPLIES`), estendida em R18.7 a
+QUALQUER pergunta da Malu enquanto o tamanho não estava definido. Ela decidia sobre o
+`pending_answer: "unrelated"` do intérprete — e o intérprete leu a história do vestido como não
+relacionada a uma pergunta de abertura. Uma leitura errada de um campo virava três frases fixas sobre
+tamanho e depois silêncio; o modelo, que leria a conversa inteira, nunca era chamado.
+**Caminhos descartados:** ajustar o intérprete para ler a abertura melhor — o erro de leitura muda de
+lugar, e a escada continua respondendo "não entendi" a quem se fez entender; restringir de novo a
+escada só à pergunta do tamanho (desfazer R18.7) — "Aah ok" depois de "qual seu número?" ainda
+receberia "não entendi"; trocar as três frases por outras — o operador recusou o mecanismo, não o
+texto ("um agente de IA, não um robô binário"); não responder ao reconhecimento (C5 do script v2) —
+deixa ela sem resposta, e o operador pediu continuação calorosa.
+**Correção:** a escada saiu inteira. `decideClarify`, `ClarifyDecision` e `CLARIFY_SIZE_REPLIES`
+apagados de `interpret.ts` (espelhado); o bloco 5f do `index.ts` e a saída silenciosa
+"escada do tamanho esgotada" apagados, junto com `parked`, `interpreted` e o import de
+`THINK_REPLY` que só ela usava. Toda mensagem vai ao modelo. A diretiva `backToSize` (ela perguntou
+outra coisa no lugar do tamanho → responde e volta ao tamanho) fica. O prompt ganhou um item na lista
+de táticas: toda resposta dela é conversa; desvio → responde primeiro e volta à pergunta com outras
+palavras; "ah ok"/"hm"/"kkk" → continuação curta e calorosa do assunto aberto; "??" → a última
+mensagem não ficou clara, diga de novo mais simples, sem pôr a culpa nela; nunca "não entendi".
+Custo: nenhuma chamada a mais; cada mensagem que antes levava linha fixa (só a leitura do intérprete)
+passa a levar a resposta do modelo, ~R$ 0,05–0,06 a mais por mensagem que caía na escada.
+**Guarda:** `tests/function-drift.test.ts` — o turno não contém `decideClarify`,
+`CLARIFY_SIZE_REPLIES`, "escada do tamanho" nem a primeira frase, e a diretiva `backToSize` segue;
+`tests/interpret.test.ts` — o módulo não exporta mais a escada, e as três mensagens de produção não
+param em nenhuma saída fixa (despedida, decisão, quantidade, opt-out, pessoa, handoff);
+`tests/prompt.test.ts` — o item novo está no prompt nas seis variantes de config, e as frases
+ensinadas seguem passando a cadeia. `tests/burst.test.ts` conta 8 gravações de custo (a saída
+silenciosa era a nona). Mutação `neusa-escada-em-qualquer-pergunta` removida de `verify-guards.ts`:
+o código que ela mutava não existe. `pnpm dev:gates --base=HEAD`: 0 vereditos mudaram.
+**Resíduo:** nenhum gate veta "não entendi" — a proibição está só no prompt (um gate de texto novo
+pede `dev:gates` e teste de negação próprios); sem a saída silenciosa, a conversa de "ta"/"?" sem fim
+da Neusa volta a gastar um turno de modelo por mensagem até o teto de R$ 1,00 (R18.7), que a manda a
+uma pessoa; o corpus do `dev:conversas` não tinha arco da escada nem gate que a marque como BAD, então
+nada mudou lá; C3 em `05-conversa-de-venda-v2.md` §12 continua listado como conflito.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

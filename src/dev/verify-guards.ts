@@ -112,14 +112,6 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/persona-2026-10-05.test.ts"],
   },
   {
-    id: "neusa-escada-em-qualquer-pergunta",
-    bug: "a escada do \"não entendi\" só começava depois da pergunta do tamanho: a Neusa gastou nove turnos de modelo com \"ta\" e \"?\" (2026-10-05)",
-    files: ["src/agent/interpret.ts"],
-    from: "if ((lastAskedSize || step > 0 || args.sizeKnown !== true) && i.pending_answer === \"unrelated\") {",
-    to: "if ((lastAskedSize || step > 0) && i.pending_answer === \"unrelated\") {",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
-  },
-  {
     id: "H-2-preco-da-loja",
     bug: '"por 116 eu levo" (o preço real do pix) lido como barganha: a venda ficava sem link',
     files: ["src/agent/interpret.ts"],

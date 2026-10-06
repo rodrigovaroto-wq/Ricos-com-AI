@@ -97,7 +97,6 @@ import {
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
-  THINK_REPLY,
   thinkReply,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
@@ -107,7 +106,6 @@ import {
 import {
   asksSomething,
   decisionInBurst,
-  decideClarify,
   goodbyeParks,
   handoffFor,
   INTERPRET_MAX_COMPLETION_TOKENS,
@@ -2486,9 +2484,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   };
 
   /**
-   * A fixed line, sent through the chain like anything else (the clarify ladder and the
-   * "vou pensar" reply, R13.4). Null when the chain refuses it — out of hours, typically —
-   * and the caller then falls through to the normal turn, which handles that case.
+   * A fixed line, sent through the chain like anything else (the "vou pensar" reply, R13.4).
+   * Null when the chain refuses it — out of hours, typically — and the caller then falls through to the normal turn, which handles that case.
    */
   const sendFixed = async (
     text: string,
@@ -2551,8 +2548,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
   };
 
-  // The agent's last message: what the interpreter compares her answer with, what the
-  // clarify ladder counts from, and what the address read-back is checked against.
+  // The agent's last message: what the interpreter compares her answer with, and what the
+  // address read-back is checked against.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
   const lastOutbound: string =
     (
@@ -2568,7 +2565,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * failed call reads as `NEUTRAL_INTERPRETATION` and the deterministic readers still run.
    */
   let interpretation: Interpretation = NEUTRAL_INTERPRETATION;
-  let interpreted = false;
   try {
     const ask = interpretRequest(lastOutbound, inbound.body ?? "");
     const reading = await callConversationModel(
@@ -2579,7 +2575,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     );
     spent += reading.costBrl;
     await recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading);
-    ({ parsed: interpreted, interpretation } = readInterpretation(reading.text));
+    ({ interpretation } = readInterpretation(reading.text));
   } catch {
     // Neutral reading; the turn goes on.
   }
@@ -2893,39 +2889,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
-  // 5f. The clarify ladder (R13.4): the agent asked her something (her size, or anything while
-  // the size is unknown — operator, 2026-10-05) and the answer is about nothing — three fixed lines from the operator, then silence until a message makes
-  // sense. The step is read back from the last outbound, so there is nothing to store.
-  // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
-  // message carrying data is never answered with a size line or with silence.
+  // No fixed "não entendi" ladder (grafo §60, operator 2026-10-06): every message reaches the
+  // model, which reads it and answers; the prompt teaches what to do with a loose reply.
   const lastAskedSize = asksForSize(lastOutbound);
-  const clarify = decideClarify({
-    interpreted,
-    interpretation,
-    lastOutbound,
-    lastAskedSize,
-    sizeFound: stated !== null,
-    sizeKnown: (stated?.size ?? lead.size ?? null) !== null,
-    factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
-    // She was just told "Sem problemas, estou aqui…": no fresh ladder right after it.
-    parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),
-  });
-  if (clarify.kind === "silent") {
-    await db(`conversations?id=eq.${conversation.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
-    }).catch(() => undefined);
-    const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
-    await Promise.all([
-      recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore),
-      persistStage(conversation.id, storedStage, reachedSoFar),
-    ]);
-    return json(200, { status: "stopped", reason, costBrl: spent });
-  }
-  if (clarify.kind === "reply") {
-    const sent = await sendFixed(clarify.text, "escada do tamanho");
-    if (sent) return sent;
-  }
   // She asked her own question instead of the size: she gets the answer, and the size
   // comes back at the end of it.
   const backToSize =

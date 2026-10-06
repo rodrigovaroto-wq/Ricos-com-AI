@@ -549,6 +549,17 @@ describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
   });
 });
 
+/** Grafo §60 (operador, 2026-10-06): a escada fixa saiu; quem interpreta a resposta solta é a Malu. */
+describe("resposta solta: conversa, nunca \"não entendi\"", () => {
+  it.each(corners)("o prompt ensina responder o desvio e voltar à pergunta ($name)", ({ config }) => {
+    const prompt = flat(build(config));
+    expect(prompt).toContain("responda isso primeiro e depois volte à sua pergunta com outras palavras");
+    expect(prompt).toContain(`Um "ah ok", "hm" ou "kkk" pede uma continuação curta e calorosa do assunto que está aberto`);
+    expect(prompt).toContain(`"??" quer dizer que a sua última mensagem não ficou clara`);
+    expect(prompt).toContain(`Nunca escreva "não entendi"`);
+  });
+});
+
 describe("pronome: nunca \"com ele\" no fim da pergunta", () => {
   it.each(corners)("a regra concreta está no prompt ($name)", ({ config }) => {
     expect(flat(build(config))).toContain(`Nunca termine uma pergunta com "com ele": diga "com o colete".`);

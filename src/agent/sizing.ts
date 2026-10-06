@@ -220,8 +220,9 @@ export const statedSizeOf = (
 };
 
 /**
- * Whether the agent's message asked for her size — the condition that opens the clarify
- * ladder. Read on the question itself, so a size merely mentioned is not a question.
+ * Whether the agent's message asked for her size — the condition for the "answer her
+ * question, then back to the size" directive. Read on the question itself, so a size merely
+ * mentioned is not a question.
  */
 /**
  * "Número" is a size only when it is the pants number — followed by the question mark, by

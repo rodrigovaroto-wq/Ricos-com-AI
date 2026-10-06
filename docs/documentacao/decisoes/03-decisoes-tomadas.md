@@ -1487,6 +1487,9 @@ frases fixas do operador e depois silêncio até a mensagem fazer sentido. Falha
 novas tentativas antes de qualquer handoff. Mensagens de até ~30 palavras, divididas só em
 fim de frase.
 
+> **2026-10-06 — a escada do tamanho foi superada** (operador; grafo §60): saiu do turno, e toda
+> mensagem vai ao modelo, que responde o desvio primeiro e volta à pergunta. O resto de R13.4 vale.
+
 ## R13.5 — Respostas de objeção definidas pelo operador
 
 CNPJ → e-mail do suporte. Loja física → "ainda não, só online, com planos de abrir em São
@@ -2027,6 +2030,9 @@ Junto: a escada fixa de R13.4 ("Desculpa, não entendi…") passa a começar dep
 Malu deixada sem resposta (`pending_answer: "unrelated"`), enquanto o tamanho não está definido — a Neusa
 gastou nove turnos de modelo com "ta" e "?". Com o tamanho definido, só a pergunta do tamanho a começa
 (as três frases são sobre o tamanho). "Oi" depois da recepção não a começa: a recepção não pergunta nada.
+
+> **2026-10-06 — esta extensão da escada foi superada** junto com a escada inteira (operador; grafo
+> §60). O teto de R$ 1,00 continua.
 
 O critério de pausa de custo (`09-pipeline-ate-producao.md` L3 item 6) sobe junto: custo de API acima
 de **R$ 1,00** por lead em mais de 5% dos últimos 100 (era R$ 0,75; operador, 2026-10-05).

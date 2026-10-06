@@ -178,6 +178,7 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
   });
   it("o custo gravado soma ao que está no banco, não sobrescreve", () => {
     expect(source).not.toMatch(/cost_brl: spent\b/);
-    expect(source.match(/cost_brl: await costTotal\(\)/g)?.length).toBeGreaterThanOrEqual(9);
+    // 8 since grafo §60: the ladder's silent exit, one of the nine, was deleted with it.
+    expect(source.match(/cost_brl: await costTotal\(\)/g)?.length).toBeGreaterThanOrEqual(8);
   });
 });
