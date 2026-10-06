@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-05, 12h30 UTC)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-06, noite)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -31,6 +31,60 @@ Mapa do repositório: [`docs/README.md`](docs/README.md). Tudo abaixo deste quad
 Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa feita muda de lista.
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
+
+### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
+
+**No ar:** `agent_version` 9 (`turn` v76, commit `1026821`). Canal WhatsApp **ligado e testado de ponta a ponta**
+(webhook da Meta verificado, n8n "WhatsApp envio" com credencial Header Auth "WhatsApp Cloud API",
+`PHONE_NUMBER_ID` 1370670962794717, `CANAL_ATIVO=true`). "Venda confirmada" no n8n com o aviso de status novo
+(versão ativa `23768d23`). Teto R$ 1,00. Modelo: o **operador** troca `CONVERSATION_MODEL` à mão (memória
+`nao-relembrar-pendencias-do-operador`) — nunca o Claude.
+
+**Publicado hoje (v5→v9):** v5 cancelamento por forma de pagamento (§54–§56) e véspera do pago "ninguém para
+receber" (§53); v6 vocabulário de status Logzz/Coinzz + e-mail de status novo (§57); v7 nunca se anuncia
+virtual sem pergunta (§58); v8 rajada de mensagens = uma resposta (§59); v9 sem escada "não entendi" (§60).
+
+**Commitado e NÃO publicado:**
+- `7c8bc7c` rajada v2 (§61): espera 5 s; mensagem que chega enquanto escreve é incorporada (revisão, máx. 2),
+  não descartada; lock `conversations.replying_since` (**migração 0023 — aplicar ANTES do deploy**);
+  "Ainda está aí?" (`still_there`) 10 min após pergunta sem resposta; "sim" ao lado de pergunta não confirma.
+  Revisão: NEEDS WORK — (1) "Sim! Como faço pra pagar?" perdia o link; (2) sem 0023 cada rajada era
+  respondida 2×. As duas correções estão no trabalho em andamento abaixo.
+- `e46ddbc` prompt de venda v2 (§62), do desenho `docs/agente-ia/06-script/05-conversa-de-venda-v2.md`.
+- `d502a70` o desenho (117 perguntas, arco em 8 etapas, Leila reescrita).
+
+**Em andamento (WIP commitado como "wip:" se a sessão acabou no meio — conferir testes):** o código obedecendo o
+prompt v2: link só com tamanho + CEP + forma de pagamento + nome + e-mail + CPF (CPF recusado 2× → link sem
+ele); tamanho escolhido no checkout (sem "complemento"); "vou pensar" sem link; diretiva de região
+independente do tamanho; telefone sem 55 na Coinzz; oferta de kit 2/3 peças UMA vez depois da escolha da
+forma de pagamento, com link do checkout específico do kit; gates `charge_promise` (negação "não faz pagamento
+na entrega"), `delivery_promise` ("um dia em que você vai estar"), `coverage_claim` (antes da consulta do CEP);
++ as 2 correções da revisão de `7c8bc7c`. Arquivo novo `tests/link-after-data.test.ts`. Entrada do grafo §63
+a escrever.
+
+**Decisões do operador hoje (não reabrir):** público do anúncio não convencido → valor e segurança antes do
+preço; duas opções lado a lado só com pagamento na entrega na região (sem: só antecipado + motivo "a
+transportadora ainda não tem pagamento na entrega"); "sim" = entrega só onde existe; até 3 balões, um assunto
+cada — primeiro as perguntas dela na ordem, depois o que ela contou, depois a próxima pergunta; recepção fixa
+NÃO muda; e-mail pedido nos dois caminhos e guardado (Logzz não mostra); Coinzz: tamanho escolhido no checkout;
+pós-parto/gestante fora; "vou pensar" sem link; CPF recusado 2× → link sem CPF.
+**Fatos do produto (operador):** poliéster + elastano, forro de algodão, colchetes que não enrolam, sem
+barbatana; não dá calor; o dia todo; pode dormir; exercício sim; lavar à mão, água fria, secar à sombra (site);
+só preto; "pega o abdômen e as costas por completo, e tem alças"; na entrega ela escolhe como pagar, outra
+pessoa pode receber e pagar, ninguém em casa → volta ao centro e a entrega é frustrada; antecipado por Correios
+ou transportadora conforme a região, com rastreio, sem boleto; confiança: só site e e-mail.
+
+**Falta, nesta ordem:**
+1. **C** terminar o código acima → revisão Opus → `pnpm verificar:guardas` (ids `R10.4-armado`,
+   `R10.4-resposta`, `WA-janela-no-fim`, `G58-fiacao`) → grafo §63.
+2. **O decide:** toques depois do link — proposta (1) com link só o lembrete do link aos 15 min, sem "Ainda
+   está aí?"; sem link "Ainda está aí?" 10 min + `silence_1` 30 min; ou (2) manter os três em 30 min.
+3. **C** aplicar a migração 0023 e `pnpm deploy:turn` (v10) — precisa de `sbp_` e do "pode publicar" do operador.
+4. **C** rodada das 12 personas no modelo (taxa de link, reescritas, balões, as duas opções) antes do teste humano.
+5. **O** teste real pelo WhatsApp (o lead de teste final 5983 está no banco; apagar para testar a abertura).
+6. Depois: ensinar a guiar a devolução; portal (operador decidiu manter, com fluxo n8n + token `ads_read` do
+   sócio); templates na Meta (texto do `encorpa_vespera_entrega_pago` mudou: "Se não tiver ninguém para
+   receber…").
 
 ### Onde estamos
 
