@@ -57,6 +57,13 @@ const IDENTITY_QUESTIONS = [
   "é vc mesma q responde?",
   "vc é rbo?",
   "é um robozinho?",
+  // Second review of e6452b4.
+  "vc existe msm?",
+  "isso é inteligência artifical?",
+  "vc é uma assistente?",
+  "quem me responde?",
+  "quem responde aqui?",
+  "tem gente ai?",
 ] as const;
 
 const NOT_ASKING = [
@@ -90,6 +97,18 @@ describe("humanity_claim: não anuncia que é virtual sem ela perguntar (Q10 lin
     expect(blockedBy("Não sou uma pessoa, sou a assistente virtual da Encorpa, e sigo te ajudando aqui.", asked)).toEqual([]);
     expect(blockedBy("Sou a assistente virtual da marca, posso chamar alguém do time.", asked)).toEqual([]);
     expect(blockedBy(OPENINGS[1], asked)).toEqual([]);
+  });
+
+  // Other honest wordings (second review of e6452b4): "não uma pessoa", "não sou de verdade".
+  it("as respostas honestas com outra ordem passam com ou sem pergunta", () => {
+    for (const extra of [{ askedIdentity: false }, { askedIdentity: true }])
+      for (const text of ["Sou a assistente virtual, não uma pessoa 💛", "Não sou de verdade, sou a assistente virtual da Encorpa."])
+        expect(blockedBy(text, extra), text).toEqual([]);
+  });
+
+  it("\"sou eu mesma, de verdade\" afirma ser gente, com ou sem pergunta", () => {
+    for (const extra of [{ askedIdentity: false }, { askedIdentity: true }])
+      expect(blockedBy("Sou eu mesma, de verdade, pode falar 💛", extra)).toContain("humanity_claim");
   });
 
   // Line 1 is untouched by the question: denying being a bot is still a lie, asked or not.

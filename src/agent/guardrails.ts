@@ -757,7 +757,7 @@ export const asksForTestimonial = (message: string): boolean =>
  * so is "não quero falar com máquina". A false positive only restores the behaviour before §58.
  */
 export const asksWhatSheIs = (message: string): boolean =>
-  /\b(?:robo|rbo|robbo|robot)\w*|\bbots?\b|\bchat\s*(?:bot|gpt)\b|\bgpt\b|\bcarne\s+e\s+osso\b|\b(?:resposta|mensagem|texto)\s+(?:pront|gravad|automatic)\w*|\bgravac|\b(?:e|eh)\s+(?:um\s+)?(?:sistema|programa)\b|\b(?:voce|vc|ce|tu)\s+(?:e|eh|foi|ta)?\s*programad|\b(?:e|eh|vc|voce)\s+(?:um\s+|uma\s+|a\s+|o\s+)?atendente\b|\b(?:voce|vc|ce|tu|e|eh|pessoa|gente)\s+(?:\S+\s+)?real\b|\btem\s+alguem\s+(?:ai|ae|aqui)\b|\b(?:falo|falando|converso|conversando)\s+com\s+quem\b|\bmesm[ao]\s+(?:q|que)\s+(?:responde|escreve|digita|ta|esta|fala)\b|\bmaquina\b|\binteligencia\s+artificial\b|^\W*ia\b|\b(?:e|eh|com|uma|um|tipo)\s+(?:uma\s+)?ia\b|\bvirtual\b|\bautomatic[oa]s?\b|\bautomatizad|\bhuman[oa]s?\b|\b(?:e|eh|com|sendo)\s+(?:uma?\s+)?(?:pessoa|gente)\b|\b(?:pessoa|gente|alguem|voce|vc|ce|tu|e|eh)\s+(?:\S+\s+)?de\s+verdade\b|\b(?:pessoa|gente)\s+real\b|\bquem\s+(?:e|eh|ta|esta)\s+(?:falando|ai|respondendo|digitando|me\s+atendendo)\b|\bcom\s+quem\s+(?:eu\s+)?(?:falo|to|estou|converso)\b|\bquem\s+(?:e|eh)\s+(?:voce|vc)\b/.test(
+  /\b(?:robo|rbo|robbo|robot)\w*|\bbots?\b|\bchat\s*(?:bot|gpt)\b|\bgpt\b|\bcarne\s+e\s+osso\b|\b(?:resposta|mensagem|texto)\s+(?:pront|gravad|automatic)\w*|\bgravac|\b(?:e|eh)\s+(?:um\s+)?(?:sistema|programa)\b|\b(?:voce|vc|ce|tu)\s+(?:e|eh|foi|ta)?\s*programad|\b(?:e|eh|vc|voce)\s+(?:um\s+|uma\s+|a\s+|o\s+)?atendente\b|\b(?:voce|vc|ce|tu|e|eh|pessoa|gente)\s+(?:\S+\s+)?real\b|\btem\s+alguem\s+(?:ai|ae|aqui)\b|\b(?:falo|falando|converso|conversando)\s+com\s+quem\b|\bmesm[ao]\s+(?:q|que)\s+(?:responde|escreve|digita|ta|esta|fala)\b|\bmaquina\b|\binteligencia\s+artificial\b|^\W*ia\b|\b(?:e|eh|com|uma|um|tipo)\s+(?:uma\s+)?ia\b|\bvirtual\b|\bautomatic[oa]s?\b|\bautomatizad|\bhuman[oa]s?\b|\b(?:e|eh|com|sendo)\s+(?:uma?\s+)?(?:pessoa|gente)\b|\b(?:pessoa|gente|alguem|voce|vc|ce|tu|e|eh)\s+(?:\S+\s+)?de\s+verdade\b|\b(?:pessoa|gente)\s+real\b|\bquem\s+(?:e|eh|ta|esta)\s+(?:falando|ai|respondendo|digitando|me\s+atendendo)\b|\bcom\s+quem\s+(?:eu\s+)?(?:falo|to|estou|converso)\b|\bquem\s+(?:e|eh)\s+(?:voce|vc)\b|\b(?:voce|vc|ce|tu)\s+existe|\bartific\w*|\buma\s+assistente\b|\bquem\s+(?:me\s+)?responde\b|\btem\s+gente\s+(?:ai|ae|aqui)\b/.test(
     norm(message),
   );
 
@@ -2048,7 +2048,7 @@ const gates: readonly Gate[] = [
       const claims = [
         /\bsou\s+(uma\s+)?(pessoa|humana|gente)\b/g,
         /\bsou\s+(?:eu\s+)?(?:de\s+verdade|real|de\s+carne\s+e\s+osso)\b/g,
-        /\beu\s+mesma\s*,?\s+(?:uma\s+)?(?:pessoa|humana|gente)\b/g,
+        /\beu\s+mesma\s*,?\s+(?:uma\s+)?(?:pessoa|humana|gente|de\s+verdade|real)\b/g,
       ];
       for (const pattern of claims) {
         for (const m of t.matchAll(pattern)) {
@@ -2063,7 +2063,7 @@ const gates: readonly Gate[] = [
       if (
         ctx.layer === "agent" &&
         ctx.askedIdentity === false &&
-        !/\bnao\s+sou\s+(?:\S+\s+){0,3}?(?:pessoa|humana|gente)\b/.test(t) &&
+        !/\bnao\s+sou\s+(?:\S+\s+){0,3}?(?:pessoa|humana|gente)\b|\bnao\s+(?:uma\s+)?(?:pessoa|humana|gente)\b|\bnao\s+sou\s+de\s+verdade\b/.test(t) &&
         /\b(?:assistente|atendente|vendedora|consultora|agente|secretaria)\s+(?:virtual|digital|automatic[ao]|eletronic[ao]|de\s+(?:ia|inteligencia\s+artificial))\b|\binteligencia\s+artificial\b|\bsou\s+(?:uma?\s+|a\s+|o\s+)?(?:ia|robo\w*|bot|chatbot|maquina|programa|virtual)\b|\b(?:uma|um)\s+(?:ia|robo\w*|bot|chatbot)\b|\b(?:sou|aqui\s+e|isso\s+(?:aqui\s+)?e|este\s+e|esta\s+e|esse\s+e|essa\s+e)\s+(?:um\s+|uma\s+|o\s+|a\s+)?(?:atendimento|mensagem|resposta)\s+automatic[ao]\b(?!\s+d[oa]s?\s+(?:correios?|transportadora|entregador\w*|rastreio|logzz|coinzz)\b)/.test(t)
       )
         return "announces she is virtual (assistente virtual, IA, robô) when her message did not ask what she is";
