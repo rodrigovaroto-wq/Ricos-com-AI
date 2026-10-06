@@ -487,7 +487,7 @@ export const buyerAsk = (message: string): boolean => {
     asksForLink(message) ||
     /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(t) ||
     /\bcomo\s+(?:(?:eu\s+)?(?:faco|faz)\s+(?:pra|para)\s+)?pag/.test(t) ||
-    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0) && !/^\s+(?:saber|entender|ver)\b/.test(t.slice((m.index ?? 0) + 5)))
+    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0) && !/^\s+(?:sabe|saber|entender|ver|perguntar|tirar|confirmar|conferir|uma\s+(?:duvida|informacao))\b/.test(t.slice((m.index ?? 0) + 5)))
   );
 };
 
@@ -505,11 +505,20 @@ export const kitWasOffered = (outbound: readonly string[], kitPrices: readonly n
   );
 };
 
-/** Her answer names one of the two options; the "?" and the doubt words make it a question instead. */
-const answersWhichOfTwo = (message: string): boolean => {
-  const t = norm(message);
-  if (t.includes("?") || /\b(?:qual|quais|quanto|como|diferenca|compensa|nao|nao\s+sei|tanto\s+faz|talvez|pensar)\b/.test(t)) return false;
-  return /\b(?:primeira|segunda|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)\b/.test(t);
+/**
+ * The path her short answer to the two options names, or null (second review of 41757c8): the whole
+ * message is the answer — "a primeira", "vou de pix", "prefiro pagar quando receber", "na entrega
+ * mesmo" — so a word inside another sentence ("é minha primeira compra", "a entrega é pelos
+ * Correios", "minha irmã pagou no pix") names nothing, and a denial or a doubt is no answer.
+ * "A primeira" is the delivery: `twoOptionsMessage` says it first.
+ */
+const whichOfTwo = (message: string): PaymentChoice | null => {
+  const t = norm(message).trim().replace(/[^a-z0-9]+$/, "");
+  if (t.includes("?") || /\b(?:nao|nunca|jamais|nem|medo|sei|talvez|pensar|tanto\s+faz|qual|quais|quanto|como|diferenca|compensa)\b/.test(t)) return null;
+  const m =
+    /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|de)\s+)*(primeira|segunda|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|entao|por\s+favor|pfv|sim))*$/.exec(t);
+  if (!m) return null;
+  return /^(?:primeira|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
 };
 
 /**
@@ -529,7 +538,7 @@ export const pathChoiceToStore = (d: {
   confirms: boolean;
 }): PaymentChoice | null => {
   const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
-  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some(answersWhichOfTwo)))) return d.interpreted;
+  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))) return d.interpreted;
   const defaultCod =
     d.interpreted !== "prepay" &&
     /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&

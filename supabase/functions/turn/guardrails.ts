@@ -829,7 +829,7 @@ const deniedRightBefore = (t: string, at: number): boolean =>
   /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
   ) ||
-  (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+$/.test(t.slice(Math.max(0, at - 40), at)) &&
+  (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+(?:o\s+)?$/.test(t.slice(Math.max(0, at - 40), at)) &&
     /^pagamento\b/.test(t.slice(at)));
 /** Trying the vest on, as her act. Never "vista" (also "à vista") nor the noun "prova" alone. */
 const TRY = String.raw`(?:vest(?:e|ir|ia|indo)|experiment\w*|prova(?:r|ndo)?|prove|provou)`;
@@ -3076,7 +3076,9 @@ const gates: readonly Gate[] = [
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
         // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
         // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
-        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\b[^,]{0,30}\b(?:der|tiver|for|existir|atender|chegar)\b/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
+        // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em
+        // casa, …" and "Se aí for bom pra você, …" condition nothing about her place.
+        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)[^,]{0,20})\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
@@ -3096,7 +3098,7 @@ const gates: readonly Gate[] = [
         /\b(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\s+(?:ai|aqui|la|n[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao)))\b/g,
         // The place before the verb (review of f657faa, finding 9): "Aí dá pra pagar na entrega",
         // "Aí na sua cidade a entrega com pagamento na hora funciona".
-        /\b(?:ai|aqui|la)\s+(?:(?:ja|tambem|sim)\s+)?(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\b/g,
+        /\b(?:ai|dai|aqui|la)\s+(?:(?:ja|tambem|sim)\s+)?(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\b/g,
         /\bn[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\b[^.!?\n]{0,40}\bpagamento\s+na\s+(?:entrega|hora)\s+(?:(?:ja|tambem|sim)\s+)?(?:funciona|existe|rola)\b/g,
       ];
       for (const re of CLAIMS) {

@@ -208,10 +208,13 @@ const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?
  * field beside another question ("O CPF vai na nota. Qual tamanho você usa?") or told as a fact
  * ("…chega no seu e-mail. Ficou alguma dúvida?") is not asked; "não precisa" never is.
  */
-const asksForField = (text: string, word: RegExp): boolean => {
+const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
   const sentences = text.split(/(?<=[.!?\n])\s*/).map((q) => q.trim()).filter(Boolean);
   return sentences.some((q, i) => {
-    if (!word.test(q) || /\bn[aã]o\s+precisa\b/i.test(q)) return false;
+    // Another identity field in the same sentence asks for that one first, or for all at once
+    // ("Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."): her answer to it
+    // refuses nothing of this field (second review of 41757c8).
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q)) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
     return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
@@ -233,11 +236,12 @@ export const refusedAsks = (
   field: "email" | "document",
 ): number => {
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
+  const others = field === "email" ? /\b(?:cpf|nome\s+completo|seu\s+nome)\b/i : /\b(?:e-?mail|nome\s+completo|seu\s+nome)\b/i;
   const found = field === "email" ? extractEmail : extractCpf;
   let count = 0;
   messages.forEach((m, i) => {
     if (m.direction === "inbound") return;
-    if (!asksForField(m.body ?? "", word)) return;
+    if (!asksForField(m.body ?? "", word, others)) return;
     const next = messages.slice(i + 1);
     const end = next.findIndex((n) => n.direction !== "inbound");
     const answer = (end === -1 ? next : next.slice(0, end)).map((n) => n.body ?? "");

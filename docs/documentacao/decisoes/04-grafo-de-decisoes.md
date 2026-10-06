@@ -1995,8 +1995,14 @@ uma vez, depois da escolha; `coverage_claim` veta "No seu CEP dá pra pagar na e
 na entrega" antes da consulta, com a condição "Se no seu CEP der" isenta; `claimFailed` volta ao descarte
 do §59 sem a 0023. Toques depois do link, opção 1 (R18.8): a resposta com link arma só o lembrete de 15 min;
 a pergunta de ofertas segue esse lembrete também (`optInFollows`).
+Segunda revisão (furos dos consertos): a escolha só se grava quando a resposta CURTA dela nomeia o mesmo
+caminho que o intérprete leu (`whichOfTwo`: "a primeira" é a entrega; "é minha primeira compra", "pix
+nunca", "a segunda" lido como entrega não gravam); pedido que nomeia outro campo de identidade não é pedido
+deste ("me passa seu nome, que depois eu te peço o e-mail e o CPF"); a condição isenta do `coverage_claim`
+é só de cobertura ("Se aí tiver alguém em casa, …" segue vetada); `buyerAsk` não lê "quero perguntar/
+conferir/tirar uma dúvida" como compra; "não faz o pagamento" é negação; "Daí dá pra pagar" vetado.
 **Guarda:** `tests/link-after-data.test.ts` (comportamento das funções puras e fiação), `tests/still-there.test.ts`
-(toques depois do link), `tests/opt-in.test.ts`; mutações `toques-depois-do-link` e nove `R63-*`;
+(toques depois do link), `tests/opt-in.test.ts`; mutações `toques-depois-do-link` e catorze `R63-*`;
 `WA-envio-desligado` reescrita para o canal ligado (desligar `CANAL_ATIVO` corta todo envio).
 **Resíduo:** nome e CEP não têm saída por recusa — quem recusa os dois nunca recebe o link (regra do
 operador); `answersWhichOfTwo` e `REQUEST` são listas de palavras; nada medido contra o modelo antes da

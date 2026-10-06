@@ -292,3 +292,76 @@ describe("a oferta do kit é reconhecida pelo preço, não pela redação (achad
     expect(kitWasOffered([m], [239.8, 339.7])).toBe(false),
   );
 });
+
+/** Segunda revisão (41757c8): os furos dos consertos. */
+describe("segunda revisão: a escolha gravada é a palavra dela, no caminho que a palavra diz (furo 1)", () => {
+  const two = twoOptionsMessage(config).join("\n\n");
+  const store = (msg: string, interpreted: "cod" | "prepay") =>
+    pathChoiceToStore({ interpreted, parts: [msg], lastOutbound: two, confirms: confirmsAddress(msg) });
+  it.each([
+    "pix nunca",
+    "nunca comprei pelo pix",
+    "nem pix nem cartão, só na entrega",
+    "antecipado jamais, tenho medo",
+    "é minha primeira compra aqui",
+    "A entrega é pelos Correios",
+    "minha irmã pagou no pix e deu certo",
+  ])("não grava: %s", (msg) => {
+    expect(store(msg, "prepay")).toBeNull();
+    expect(store(msg, "cod")).toBeNull();
+  });
+  it("a palavra e a leitura discordam: não grava", () => {
+    expect(store("a segunda", "cod")).toBeNull();
+    expect(store("a primeira", "prepay")).toBeNull();
+    expect(store("o antecipado", "cod")).toBeNull();
+  });
+  it.each([
+    ["a primeira 💛", "cod"],
+    ["vou de pix", "prepay"],
+    ["fico com a segunda", "prepay"],
+    ["na entrega mesmo", "cod"],
+  ] as const)("grava: %s → %s", (msg, path) => expect(store(msg, path)).toBe(path));
+});
+
+describe("segunda revisão: pedido de nome não é pedido de e-mail nem de CPF (furo 2)", () => {
+  it("o nome pedido com os outros campos anunciados para depois", () => {
+    const msgs = [out("Perfeito! Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."), inn("Maria Silva")];
+    expect(refusedAsks(msgs, "email")).toBe(0);
+    expect(refusedAsks(msgs, "document")).toBe(0);
+    const all = [out("Pra fechar preciso do seu nome completo, e-mail e CPF. Começa pelo nome?"), inn("Maria Silva")];
+    expect(refusedAsks(all, "email")).toBe(0);
+    expect(refusedAsks(all, "document")).toBe(0);
+  });
+  it("negação: o pedido só do campo segue contando", () => {
+    expect(refusedAsks([out("Agora me passa seu e-mail, pra completar o cadastro."), inn("não tenho")], "email")).toBe(1);
+  });
+});
+
+describe("segunda revisão: a condição do coverage_claim é de cobertura (furo 3)", () => {
+  const blocks = (text: string) =>
+    runGates(text, ctx({ regionKnown: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+  it.each([
+    "Se aí tiver alguém em casa, dá pra pagar na entrega aí.",
+    "Se lá tiver alguém pra receber, dá pra pagar na entrega lá.",
+    "Se no seu CEP chegar em 3 dias, dá pra pagar na entrega aí.",
+    "Se aí for bom pra você, dá pra pagar na entrega aí.",
+    "Daí dá pra pagar na entrega.",
+  ])("vetada antes da consulta: %s", (t) => expect(blocks(t)).toContain("coverage_claim"));
+  it("negação: a condição de cobertura segue isenta", () => {
+    expect(blocks("Se no seu CEP der, dá pra pagar na entrega aí.")).not.toContain("coverage_claim");
+    expect(blocks("Se aí tiver pagamento na entrega, dá pra pagar na entrega aí.")).not.toContain("coverage_claim");
+  });
+});
+
+describe("segunda revisão: buyerAsk (furo 5) e o artigo do charge_promise", () => {
+  it.each(["sim, quero perguntar uma coisa, tem rastreio?", "quero conferir o rastreio?", "quero sabe se tem rastreio?", "quero tirar uma dúvida?"])(
+    "não é compra: %s",
+    (m) => expect(buyerAsk(m)).toBe(false),
+  );
+  it("'não faz o pagamento na entrega' é negação onde não há entrega", () => {
+    const noCod = { paymentPath: "prepay" as const, codUnavailable: true, regionKnown: true };
+    const blocks = (t: string) => runGates(t, ctx(noCod)).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    expect(blocks("A transportadora ainda não faz o pagamento na entrega aí.")).toEqual([]);
+    expect(blocks("Isso não faz o pagar na entrega ficar caro, você paga na entrega.")).toContain("charge_promise");
+  });
+});
