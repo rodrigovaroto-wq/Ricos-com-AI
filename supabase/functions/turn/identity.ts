@@ -247,11 +247,14 @@ const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
     // Another identity field in the same sentence asks for that one first, or for all at once
     // ("Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."): her answer to it
     // refuses nothing of this field (second review of 41757c8).
-    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q)) return false;
+    // "Não precisa", and the field let go ("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?",
+    // "Tudo bem sem o CPF, tá?"): a "tá?" at the end asks nothing of her (final persona round).
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b|\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q)) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
     return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
-      !/\b(?:tamanho|cep|nome|e-?mail|cpf|endere[cç]o)\b/i.test(nextQ);
+      // Another field asked in it; "no seu nome" is the reason, not the name asked (Jussara).
+      !/\b(?:tamanho|cep|e-?mail|cpf|endere[cç]o)\b/i.test(nextQ) && !new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(nextQ);
   });
 };
 
@@ -271,15 +274,27 @@ export const refusedAsks = (
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
   const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${NAME_ASK})\b`, "i");
   const found = field === "email" ? extractEmail : extractCpf;
+  // One answer window per block of her messages between two of the agent's. It counts once when it
+  // brings no valid value and either answers an ask of the field, or refuses the field in her own
+  // words ("nao passo cpf") — however the agent worded the ask (final persona round of 2026-10-07,
+  // Jussara: "Consegue me mandar só os números?" named no CPF, and three refusals counted one).
   let count = 0;
-  messages.forEach((m, i) => {
-    if (m.direction === "inbound") return;
-    if (!asksForField(m.body ?? "", word, others)) return;
-    const next = messages.slice(i + 1);
-    const end = next.findIndex((n) => n.direction !== "inbound");
-    const answer = (end === -1 ? next : next.slice(0, end)).map((n) => n.body ?? "");
-    if (answer.length > 0 && !answer.some((a) => found(a) !== null)) count += 1;
-  });
+  let asked = false;
+  let answer: string[] = [];
+  const close = () => {
+    const refused = answer.some((a) => word.test(a) && /\b(?:n[aã]o|nunca|jamais|nem)\b/i.test(a));
+    if (answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused)) count += 1;
+    answer = [];
+  };
+  for (const m of messages) {
+    if (m.direction === "inbound") {
+      answer.push(m.body ?? "");
+      continue;
+    }
+    close();
+    asked = asksForField(m.body ?? "", word, others);
+  }
+  close();
   return count;
 };
 

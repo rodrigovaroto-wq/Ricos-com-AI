@@ -3196,7 +3196,11 @@ const handleTurn = async (
     // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
     // link — and it is the only message allowed to cite the stock (`postponing`).
     const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
-    const sent = await sendFixed(
+    // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
+    // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
+    // send, the model answers her goodbye instead.
+    const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));
+    const sent = thinkRepeated ? null : await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
             (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)

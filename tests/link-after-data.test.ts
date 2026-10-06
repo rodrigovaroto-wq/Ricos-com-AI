@@ -537,3 +537,41 @@ describe("nome na primeira linha, endereço embaixo", () => {
     expect(asksForName(m)).toBe(false),
   );
 });
+
+/** Rodada final no contribuidor (2026-10-07, Jussara): três recusas de CPF e o link nunca saiu. */
+describe("recusa explícita dela conta, seja qual for a redação do pedido", () => {
+  const jussara = [
+    out("Fechado em 1 peça então.\n\nQual seu nome completo? É pra deixar o pedido no seu nome, por favor?"),
+    inn("jussara menezes"),
+    out("Obrigada, Jussara.\n\nQual seu e-mail? É pra completar o cadastro do pedido, por favor?"),
+    inn("nao tenho email nao\n\nprecisa msm disso ai"),
+    out("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?\n\nMe passa seu CPF, por favor? É pra emitir a nota fiscal do pedido, que a lei exige."),
+    inn("cpf nao vou passar nao viu\n\nisso ai e golpe é"),
+    out("Entendo você ficar com receio, e pode ficar tranquila que é só pra nota fiscal, como a lei pede pra toda compra.\n\nConsegue me mandar só os números pra eu deixar no cadastro do pedido?"),
+    inn("nao passo cpf nao\n\nmeu endereço e rua doutor jose lourenço 870 meireles fortaleza ce"),
+  ];
+  it("a conversa da Jussara conta duas recusas de CPF", () => {
+    expect(refusedAsks(jussara, "document")).toBe(2);
+    expect(refusedAsks(jussara, "email")).toBe(1);
+  });
+  it("o motivo 'no seu nome' na frase seguinte não apaga o pedido", () => {
+    expect(refusedAsks([out("Sobre o CPF, precisamos dele pra nota fiscal. Consegue me passar só os números pra deixar o pedido certinho no seu nome?"), inn("nao")], "document")).toBe(1);
+  });
+  it("o campo dispensado com 'tá?' no fim não é pedido", () => {
+    expect(refusedAsks([out("Tudo bem sem o CPF, tá?"), inn("ok")], "document")).toBe(0);
+    expect(refusedAsks([out("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?"), inn("ta bom")], "email")).toBe(0);
+  });
+  it("negações: CPF dado, CPF citado sem negar, e uma janela conta uma vez só", () => {
+    expect(refusedAsks([out("Me passa seu CPF?"), inn("não tem problema, meu cpf é 731.166.873-58")], "document")).toBe(0);
+    expect(refusedAsks([inn("o cpf vai na nota né?")], "document")).toBe(0);
+    expect(refusedAsks([out("Me passa seu CPF?"), inn("nao passo cpf"), inn("nao passo mesmo o cpf")], "document")).toBe(1);
+    expect(refusedAsks([out("Qual o tamanho?"), inn("nao sei")], "document")).toBe(0);
+  });
+});
+
+describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada final)", () => {
+  it("sem link novo, a frase já dita não sai de novo e o modelo responde", () => {
+    expect(source).toContain("const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));");
+    expect(source).toContain("const sent = thinkRepeated ? null : await sendFixed(");
+  });
+});

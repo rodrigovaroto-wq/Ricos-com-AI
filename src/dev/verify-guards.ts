@@ -2874,6 +2874,30 @@ const MUTATIONS: Mutation[] = [
     to: "          true",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-recusa-explicita-do-cpf",
+    bug: "três recusas de CPF contavam uma quando a Malu pedia 'só os números' (Jussara) e o link nunca saía sem CPF",
+    files: ["src/agent/identity.ts"],
+    from: "&& (asked || refused)) count += 1;",
+    to: "&& asked) count += 1;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-campo-dispensado-nao-e-pedido",
+    bug: "'Tudo bem sem o CPF, tá?' contava como pedido e a recusa vinha antes da hora",
+    files: ["src/agent/identity.ts"],
+    from: "|\\b(?:sem|n[aã]o\\s+ter)\\s+(?:o\\s+|seu\\s+)?(?:e-?mail|cpf)\\b/i.test(q)) return false;",
+    to: "/i.test(q)) return false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-vou-pensar-sem-repetir",
+    bug: "a frase fixa do 'vou pensar' saía duas vezes seguidas (Cleide)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const sent = thinkRepeated ? null : await sendFixed(",
+    to: "const sent = await sendFixed(",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
