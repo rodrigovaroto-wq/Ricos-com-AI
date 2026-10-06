@@ -2786,6 +2786,30 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "R63-seu-nome-pedido-ou-motivo",
+    bug: "'Me passa seu nome e e-mail?' + o nome contava recusa do e-mail e o link saía sem ele",
+    files: ["src/agent/identity.ts"],
+    from: "nome\\s+completo|(?<!\\b(?:n[oa]|em|d[oa])\\s+)seu\\s+nome",
+    to: "nome\\s+completo",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "R63-quero-2-e-quantidade",
+    bug: "'quero 2' depois das duas opções gravava o antecipado",
+    files: ["src/agent/interpret.ts"],
+    from: "  if (/^[12]$/.test(m[1]!) && !/(?:^|\\b(?:a|o|opcao)\\s+)[12]\\b/.test(t)) return null;\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "R63-a-2-nao-e-kit",
+    bug: "'a 2' / 'opção 2' (a segunda forma de pagamento) virava kit de 2 peças",
+    files: ["src/agent/interpret.ts"],
+    from: "|as|a|o|op[c\u00e7][a\u00e3]o)\\\\s*${units}",
+    to: "|as)\\\\s*${units}",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -406,3 +406,28 @@ describe("terceira revisão: condição de prazo não é de cobertura (baixo 4)"
     expect(blocks("Se aí tiver pagamento na entrega, dá pra pagar na entrega aí.")).not.toContain("coverage_claim");
   });
 });
+
+/** Quarta revisão (b61ed5b). */
+describe("quarta revisão", () => {
+  it("pedido de nome sem 'completo' junto do e-mail ou do CPF não conta recusa deles (média)", () => {
+    expect(refusedAsks([out("Me passa seu nome e e-mail?"), inn("Maria Souza")], "email")).toBe(0);
+    expect(refusedAsks([out("Qual seu nome e CPF?"), inn("Maria Souza")], "document")).toBe(0);
+  });
+  it("negação: 'no seu nome' / 'em seu nome' segue sendo motivo, e a recusa conta", () => {
+    expect(refusedAsks([out("Agora o CPF, pra nota fiscal sair no seu nome?"), inn("não passo")], "document")).toBe(1);
+    expect(refusedAsks([out("Me passa o CPF pra emitir em seu nome?"), inn("não")], "document")).toBe(1);
+  });
+  const two = twoOptionsMessage(config).join("\n\n");
+  const store = (msg: string, interpreted: "cod" | "prepay") =>
+    pathChoiceToStore({ interpreted, parts: [msg], lastOutbound: two, confirms: confirmsAddress(msg) });
+  it.each(["quero 2", "vou querer 2", "fico com 2", "prefiro 2", "quero 1", "pode ser 1"])("número depois de verbo é quantidade, não caminho: %s", (m) => {
+    expect(store(m, "prepay")).toBeNull();
+    expect(store(m, "cod")).toBeNull();
+  });
+  it.each([["1", "cod"], ["a 1", "cod"], ["opção 2", "prepay"], ["quero a 2", "prepay"]] as const)("negação: o número sozinho ou com artigo segue escolha: %s", (m, p) =>
+    expect(store(m, p)).toBe(p),
+  );
+  const read = (over: Partial<Interpretation>): Interpretation => ({ ...NEUTRAL_INTERPRETATION, ...over });
+  it.each(["a 2", "opcao 2", "opção 2"])("'%s' (a segunda opção) não vira kit de 2", (m) => expect(quantityOf(m, read({ units: 2 }))).toBeNull());
+  it("negação: 'quero 2' segue quantidade", () => expect(quantityOf("quero 2", read({ units: 2 }))?.units).toBe(2));
+});

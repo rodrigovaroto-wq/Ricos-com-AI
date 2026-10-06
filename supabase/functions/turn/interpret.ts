@@ -239,7 +239,8 @@ const namesCount = (text: string, units: number): boolean =>
   // "quero 2, M e G" and "quero 2." count; "2,5" and "42" do not (second review).
   // Not a count: "2x", "em 2 vezes", "2 dias", "às 3 horas", "2 filhos", "apto 2" (third review).
   (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d|\\s*(?:x|vezes|dias?|horas?|h|parcelas?|filh\\w*)\\b)`).test(text) &&
-    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as)\\s*${units}\\b`).test(text)) ||
+    // "a 2", "opção 2" name the second payment option, not two pieces (fourth review).
+    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as|a|o|op[cç][aã]o)\\s*${units}\\b`).test(text)) ||
   new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text) ||
   // "um pra mim e um pra minha mãe", "pra mim e pra minha irmã", "eu e minha filha" are two.
   (units === 2 &&
@@ -520,6 +521,8 @@ const whichOfTwo = (message: string): PaymentChoice | null => {
   const m =
     /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+querer|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|pagamento|de|opcao)\s+)*(primeira|primera|segunda|[12]|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|msm|entao|por\s+favor|pfv|sim|opcao|ne|kk+))*$/.exec(t);
   if (!m) return null;
+  // A digit is the option only alone or after "a/o/opção": "quero 2" is two pieces (fourth review).
+  if (/^[12]$/.test(m[1]!) && !/(?:^|\b(?:a|o|opcao)\s+)[12]\b/.test(t)) return null;
   return /^(?:primeira|primera|1|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
 };
 
