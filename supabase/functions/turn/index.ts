@@ -92,11 +92,13 @@ import {
   COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
+  QUIET_WINDOW_MS,
   retryIsMoot,
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
   THINK_REPLY,
   thinkReply,
+  unansweredInbound,
   WELCOME_AUTO_REPLY,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
@@ -1848,8 +1850,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
   // carries no fresh message: it re-reads the one already stored.
   const isRetry = internal.retry !== undefined;
-  /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
-  let retriedInboundAt: string | null = null;
+  /** When the oldest message this turn answers arrived — the kit step compares it with `units_at`. */
+  let batchFrom: string | null = null;
 
   // The door is public (n8n `encorpa-inbound`): with the secret set, only a message sealed
   // by the `whatsapp` function becomes a turn — a forged "para de me mandar mensagem" on a
@@ -1952,9 +1954,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       return json(200, { status: "resume_moot" });
     }
     const latest = await db(
-      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,body&order=created_at.desc&limit=1`,
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,external_id&order=created_at.desc&limit=1`,
     );
-    inbound = { ...inbound, body: latest?.[0]?.body ?? inbound.body ?? "" };
+    // A message after the one that triggered the welcome has a turn of its own, which answers
+    // the whole burst, this one included (grafo §59) — answering here too is the duplicate.
+    if (latest?.[0] && latest[0].external_id !== inbound.externalId) return json(200, { status: "resume_moot" });
     inboundId = latest?.[0]?.id ?? null;
   }
 
@@ -1969,9 +1973,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)) {
       return json(200, { status: "retry_moot" });
     }
-    inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
-    retriedInboundAt = latest[0].created_at ?? null;
   }
 
   // The marketing opt-in (R15.1), written before her message is stored so a failed write is
@@ -2091,6 +2093,25 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     method: "POST",
     body: JSON.stringify({ p_lead_id: lead.id }),
   }).catch(() => undefined);
+
+  // 2d. One answer per burst (grafo §59). A new message waits for her to stop typing; if a
+  // newer one of hers arrived meanwhile, that one's turn answers — this one leaves no reply.
+  // The turn that answers reads every message of hers since the agent last spoke, joined as
+  // one message with line breaks: every reader below sees the burst, not just its last line.
+  // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+  if (!isResume && !isRetry) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
+  const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> =
+    (await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`)) ?? [];
+  if (!isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {
+    const reason = "superseded: chegou mensagem mais nova dela, e o turno dela responde a rajada inteira";
+    await recordOutcome(conversation.id, "stopped", reason);
+    return json(200, { status: "superseded", reason });
+  }
+  const unanswered = unansweredInbound(recentRows);
+  if (unanswered.length > 0) {
+    inbound = { ...inbound, body: unanswered.map((m: { body: string | null }) => m.body ?? "").join("\n") };
+    batchFrom = unanswered[0]?.created_at ?? null;
+  }
 
   // The spend so far, read before any exit that may call a model. `turn_outcomes`
   // records the delta against `spentBefore`.
@@ -2273,7 +2294,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // costs nothing and never depends on the model noticing — and it runs before any model
   // call, because there is no point paying to generate a reply she already said she does
   // not want. The interpreter (4b) catches the request inside a longer message.
-  if (wantsHuman(inbound.body ?? "")) {
+  // An exact phrase: read message by message, or "oi" + "quero falar com atendente" misses it.
+  if (unanswered.some((m: { body: string | null }) => wantsHuman(m.body ?? ""))) {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
@@ -2415,24 +2437,29 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   };
 
   /**
-   * The retry's second look, right before it sends (code review, 2026-09-24): its model
-   * calls take seconds, and a message she sends meanwhile starts a turn that owns the
-   * reply. Null means "go ahead"; otherwise the spend is written down and nothing is sent.
+   * The second look, right before a reply is stored and sent (code review, 2026-09-24, for
+   * the retry; every turn since grafo §59): the model calls take seconds, and a message she
+   * sends meanwhile starts a turn that answers the whole burst. Null means "go ahead";
+   * otherwise the spend is written down and nothing is stored, scheduled or sent.
    * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
    */
-  const retryGaveUp = async (rewrites: number): Promise<Response | null> => {
-    if (!isRetry) return null;
+  const lateGuard = async (rewrites: number): Promise<Response | null> => {
+    if (inboundId === null) return null;
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
     ).catch(() => null);
-    if (!retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, null)) return null;
+    // A failed read never silences her; the retry keeps its old rule and gives up.
+    if (latest === null && !isRetry) return null;
+    if (!retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
+    const reason = isRetry
+      ? "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava"
+      : "superseded: chegou mensagem mais nova dela antes de a resposta sair; o turno dela responde tudo";
     await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
-    return json(200, { status: "retry_moot", reason, costBrl: spent });
+    return json(200, { status: isRetry ? "retry_moot" : "superseded", reason, costBrl: spent });
   };
 
   /**
@@ -2462,7 +2489,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
-    const gaveUp = await retryGaveUp(0);
+    const gaveUp = await lateGuard(0);
     if (gaveUp) return gaveUp;
     const out = (
       await db("messages", {
@@ -2682,16 +2709,16 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : stated && units > 1
         ? [stated.size]
         : [];
-  // A retry replays the same message: when the first attempt already merged it (the kit
-  // was written after that message arrived), merging again would add a size she said once.
-  // When it did not, the sizes count — read from the clock, never guessed from content.
+  // A retry, or the turn after one discarded by a newer message (grafo §59), replays the same
+  // messages: when an earlier attempt already merged them (the kit was written after the
+  // burst began), merging again would add a size she said once. When it did not, the sizes
+  // count — read from the clock, never guessed from content.
   // A full list is idempotent, so only a partial one can be dropped as a replay (third review).
   const replayed =
-    isRetry &&
     saidSizes.length < units &&
-    retriedInboundAt !== null &&
+    batchFrom !== null &&
     Number.isFinite(unitsAt) &&
-    unitsAt >= Date.parse(retriedInboundAt);
+    unitsAt >= Date.parse(batchFrom);
   const unitSizes: string[] =
     units > 1
       ? mergeUnitSizes(
@@ -3246,7 +3273,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
   const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
 
-  const gaveUp = await retryGaveUp(rewritesUsed);
+  const gaveUp = await lateGuard(rewritesUsed);
   if (gaveUp) return gaveUp;
 
   const outbound = (

@@ -342,3 +342,25 @@ export const WELCOME_AUTO_REPLY =
  * One minute since 2026-10-02 (operator, R18.1); it was 120 s, against a spec that said 3 min.
  */
 export const WELCOME_RESUME_DELAY_SECONDS = 60;
+
+/**
+ * One answer per burst (grafo §59, first real WhatsApp test, 2026-10-06): a person waits until
+ * she stops typing, reads everything and answers once. The turn of a new message waits this
+ * long after storing it; if a newer one of hers arrived meanwhile, that one's turn answers.
+ */
+export const QUIET_WINDOW_MS = 8_000;
+
+/**
+ * Her messages the agent has not answered yet, oldest first: the run of inbound rows at the
+ * end of the conversation (`newestFirst`, as the turn reads it). Any outbound row — a reply,
+ * a ruler touch, a person's reply — ends the run, except the fixed welcome, which answers
+ * nothing she asked: the resume after it answers the message that triggered it.
+ */
+export const unansweredInbound = <M extends { direction: string; body?: string | null }>(newestFirst: readonly M[]): M[] => {
+  const run: M[] = [];
+  for (const m of newestFirst) {
+    if (m.direction === "inbound") run.unshift(m);
+    else if (m.body !== WELCOME_AUTO_REPLY) break;
+  }
+  return run;
+};

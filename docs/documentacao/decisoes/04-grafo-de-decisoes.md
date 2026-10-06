@@ -1804,6 +1804,57 @@ pergunta de identidade feita num turno anterior não libera o turno seguinte; fr
 lista (ex.: "aqui quem fala é a IA") passa; `asksWhatSheIs` é largo — "o preço é real?" conta como
 pergunta e só devolve o comportamento de antes de §58.
 
+## 59. Cada mensagem dela virava uma resposta (primeiro teste real no WhatsApp, 2026-10-06)
+
+**Sintoma:** conversa b6933f88 (agent_version 7). "…ela tem quelas barbatanas de metal?" (14:17:51) e
+"Qual o material usado?" (14:17:53) → duas respostas quase iguais, as duas pedindo o CEP. "Mas e se
+eu não estiver em casa?", "Leila", "Leila da Silva Claude" (14:22:27–41) → três respostas, o link duas
+vezes e um "Valeu, Leila…". Balões de duas execuções se intercalaram (uma linha fixa rápida passou na
+frente de uma resposta do modelo em ritmo). Os turnos duplicados foram ~17% do custo da conversa.
+**Causa:** o turno é um por evento do canal. Nada esperava ela parar de digitar, e cada turno lia só
+`inbound.body` — a mensagem que o disparou —, então dois turnos paralelos respondiam a mesma conversa,
+cada um com metade do que ela disse. O guarda "chegou mensagem mais nova" já existia, mas só para a
+nova tentativa da varredura (`retryIsMoot`, R13.4).
+**Caminhos descartados:** debounce no n8n com um Wait por mensagem — o Wait não sabe se chegou outra,
+precisaria de estado no n8n (regra de negócio no cano, R5.2) e cada execução esperando ainda chamaria
+o turno; fila/lock por conversa no Postgres — tabela e varredura novas para o que uma leitura do
+índice `messages_conversation_idx` já responde; responder só a última mensagem — perde a pergunta da
+primeira ("barbatanas de metal?"); juntar só no prompt e deixar os leitores determinísticos na última —
+o intérprete, o handoff, o tamanho, o endereço e a identidade decidiriam sobre metade do que ela disse;
+descartar também os handoffs na segunda olhada — o handoff já gravou `handoff_at`, o turno seguinte
+sai `already_handed_off`, e ela ficaria sem resposta nenhuma.
+**Correção:** um bloco só no `index.ts` (2d), por onde passam mensagem nova, retomada e nova
+tentativa. Depois de gravar a mensagem, o turno de uma mensagem nova espera `QUIET_WINDOW_MS` (8 s,
+`retry.ts`, espelhado) e lê as últimas 20 mensagens da conversa; se a inbound mais nova não é a dele
+(`retryIsMoot`, a mesma função da nova tentativa), sai `superseded`, sem resposta, com
+`turn_outcomes` `stopped` e motivo "superseded: …". O turno que responde lê
+`unansweredInbound(...)` — toda inbound desde a última outbound, sem contar a boas-vindas fixa — e
+`inbound.body` passa a ser a rajada unida por quebra de linha, como uma mensagem de várias linhas:
+todos os leitores abaixo veem tudo. A exceção é `wantsHuman` (frase exata), lida mensagem a mensagem.
+A segunda olhada (`retryGaveUp` → `lateGuard`) vale para todo turno: logo antes de gravar e mandar a
+resposta (e a linha fixa), uma inbound mais nova descarta a resposta — sem linha em `messages`, sem
+régua, `stopped` com o custo — e o turno novo responde tudo; uma leitura que falha nunca cala a
+cliente. A retomada (`resume: true`) fica moot quando a inbound mais nova não é a que disparou a
+boas-vindas (`external_id`): aquela mensagem tem turno próprio e responde a rajada inteira. O kit:
+`replayed` deixou de ser só da nova tentativa — um `units_at` gravado depois do começo da rajada é de
+um turno descartado, e uma lista parcial não é somada de novo. n8n sem mudança: `superseded` não traz
+`bubbles`, e o "Responde no WhatsApp?" só manda com `sealed` e `bubbles`.
+**Guarda:** `tests/burst.test.ts` — rajada lida da mais antiga para a mais nova; mensagem sozinha
+continua respondida; outbound (régua, pessoa, agente) fecha a rajada, a boas-vindas não; mensagem
+nova derruba o turno anterior e a mesma mensagem não; a espera cabe nos 150 s do n8n; fiação lida
+como fonte (espera só fora de retomada/nova tentativa, consulta por `conversation_id`, posição entre
+a gravação e o primeiro leitor, `wantsHuman` por mensagem, retomada moot por `external_id`,
+`lateGuard` sem `if (!isRetry)` e antes do insert final). `tests/function-drift.test.ts` acompanhou
+os nomes novos.
+**Resíduo:** ela escrever depois da janela enquanto a resposta está em ritmo no WhatsApp ainda gera
+duas respostas que podem se intercalar (a segunda olhada só vê o que chegou antes do insert); cada
+turno fica 8 s mais lento (no pior caso ~138 s + banco, contra 150 s do n8n e do relógio da Edge
+Function); `cost_brl` é lido no começo do turno, e o gasto de um turno descartado que grava depois
+dessa leitura some do contador do teto (o `llm_calls` tem o valor); fatos (tamanho, endereço,
+identidade) gravados por um turno descartado ficam, e o turno novo os relê da mesma rajada — idem;
+depois de um turno que não respondeu (`stopped`, `deferred`), a rajada seguinte inclui as mensagens
+dele; acima de 20 mensagens sem resposta, só as 20 últimas entram.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

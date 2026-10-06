@@ -313,10 +313,10 @@ describe("rodada 13 na Edge Function", () => {
     expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
     // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
     const finalInsert = source.indexOf("const outbound = (");
-    const lastCheck = source.lastIndexOf("const gaveUp = await retryGaveUp(rewritesUsed);", finalInsert);
+    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed);", finalInsert);
     expect(lastCheck).toBeGreaterThan(-1);
     expect(finalInsert - lastCheck).toBeLessThan(200);
-    expect(source).toContain("const gaveUp = await retryGaveUp(0);");
+    expect(source).toContain("const gaveUp = await lateGuard(0);");
     expect(source).toContain("body: JSON.stringify(ticket),");
     expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
   });
@@ -487,10 +487,10 @@ describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
     // The retry reads the clock, not the content: merged after the message arrived = replay.
-    expect(source).toContain("saidSizes.length < units &&\n    retriedInboundAt !== null &&");
+    expect(source).toContain("saidSizes.length < units &&\n    batchFrom !== null &&");
     // Every turn that uses the kit renews its clock.
     expect(source).toContain("  if (quantity || units > 1) {\n    await db(`leads?id=eq.${lead.id}`, {");
-    expect(source).toContain("retriedInboundAt = latest[0].created_at ?? null;");
+    expect(source).toContain("batchFrom = unanswered[0]?.created_at ?? null;");
     expect(source).toContain("replayed ? [] : saidSizes,");
     expect(source).toContain("saysOwnSize(inbound.body");
     // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
