@@ -823,10 +823,14 @@ interface Gate {
  */
 // "Faz" and "trabalha com" (2026-10-06, grafo §63): "a transportadora ainda não faz pagamento na
 // entrega" is the reason the script gives where delivery does not reach her, and was vetoed there.
+// Only before the noun "pagamento" (review of f657faa, finding 4): "não faz você pagar mais, você
+// paga na entrega" denies nothing about paying at the door.
 const deniedRightBefore = (t: string, at: number): boolean =>
-  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|faz|fazemos|trabalha\s+com|trabalhamos\s+com|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
+  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
-  );
+  ) ||
+  (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+$/.test(t.slice(Math.max(0, at - 40), at)) &&
+    /^pagamento\b/.test(t.slice(at)));
 /** Trying the vest on, as her act. Never "vista" (also "à vista") nor the noun "prova" alone. */
 const TRY = String.raw`(?:vest(?:e|ir|ia|indo)|experiment\w*|prova(?:r|ndo)?|prove|provou)`;
 /**
@@ -1547,7 +1551,8 @@ const gates: readonly Gate[] = [
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         // Nor is the day she picks (2026-10-06, grafo §63): "escolhe/marca um dia em que você vai estar
         // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a count.
-        if (/^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
+        // Only where she picks a day at all, the delivery (review of f657faa, finding 7): the prepaid has no scheduling.
+        if (ctx.paymentPath === "cod" && ctx.codUnavailable !== true && /^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
@@ -3069,6 +3074,9 @@ const gates: readonly Gate[] = [
           ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
           "";
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
+        // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
+        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\b[^,]{0,30}\b(?:der|tiver|for|existir|atender|chegar)\b/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
@@ -3086,6 +3094,10 @@ const gates: readonly Gate[] = [
         // options, "No seu CEP dá pra pagar na entrega", is the lookup's answer and nobody else's.
         /\b(?:n[oa]|pr[oa]|para\s+[oa]|nesse|nessa)\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\s+(?:(?:ja|tambem)\s+)?(?:da|tem|rola|existe|aceita|funciona|pode)\b[^.!?\n]{0,25}\bentrega\b/g,
         /\b(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\s+(?:ai|aqui|la|n[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao)))\b/g,
+        // The place before the verb (review of f657faa, finding 9): "Aí dá pra pagar na entrega",
+        // "Aí na sua cidade a entrega com pagamento na hora funciona".
+        /\b(?:ai|aqui|la)\s+(?:(?:ja|tambem|sim)\s+)?(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\b/g,
+        /\bn[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\b[^.!?\n]{0,40}\bpagamento\s+na\s+(?:entrega|hora)\s+(?:(?:ja|tambem|sim)\s+)?(?:funciona|existe|rola)\b/g,
       ];
       for (const re of CLAIMS) {
         for (const m of t.matchAll(re)) {

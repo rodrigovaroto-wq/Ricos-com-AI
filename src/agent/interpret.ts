@@ -487,8 +487,55 @@ export const buyerAsk = (message: string): boolean => {
     asksForLink(message) ||
     /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(t) ||
     /\bcomo\s+(?:(?:eu\s+)?(?:faco|faz)\s+(?:pra|para)\s+)?pag/.test(t) ||
-    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0))
+    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0) && !/^\s+(?:saber|entender|ver)\b/.test(t.slice((m.index ?? 0) + 5)))
   );
+};
+
+/**
+ * Whether the agent already offered the kit (review of f657faa, finding 6): by the words she
+ * reads ("duas peças", "kit", "levando 2") or by any kit's price in her messages — "as duas saem
+ * por R$ 239,80" names no kit and was offered again every turn, holding the data and the link.
+ */
+export const kitWasOffered = (outbound: readonly string[], kitPrices: readonly number[]): boolean => {
+  const prices = kitPrices.map((p) => p.toFixed(2).replace(".", ","));
+  return outbound.some(
+    (m) =>
+      /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m) ||
+      prices.some((p) => new RegExp(`(?<![\\d.,])${p}(?![\\d])`).test(m)),
+  );
+};
+
+/** Her answer names one of the two options; the "?" and the doubt words make it a question instead. */
+const answersWhichOfTwo = (message: string): boolean => {
+  const t = norm(message);
+  if (t.includes("?") || /\b(?:qual|quais|quanto|como|diferenca|compensa|nao|nao\s+sei|tanto\s+faz|talvez|pensar)\b/.test(t)) return false;
+  return /\b(?:primeira|segunda|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)\b/.test(t);
+};
+
+/**
+ * The payment path to store for the next turns, or null (review of f657faa, findings 1 and 2).
+ * The link waits for a settled path, so the choice must survive the turn it was made in:
+ * - the interpreter's reading, when her words choose (`choosesPath`) or answer the prompt's
+ *   "Qual das duas fica melhor pra você?" naturally ("a primeira", "o antecipado", "prefiro pagar
+ *   quando receber") — never a question about the two ("qual a diferença das duas?");
+ * - the delivery, when she says "sim" to `DEFAULT_COD_CONFIRM` — also beside a buyer's question
+ *   ("Sim! Como faço pra pagar?"), never beside another one ("sim, tem rastreio?").
+ * `confirms` is `parts.some(confirmsAddress)`, computed by the caller: this file has zero imports.
+ */
+export const pathChoiceToStore = (d: {
+  interpreted: PaymentChoice | null;
+  parts: readonly string[];
+  lastOutbound: string;
+  confirms: boolean;
+}): PaymentChoice | null => {
+  const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
+  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some(answersWhichOfTwo)))) return d.interpreted;
+  const defaultCod =
+    d.interpreted !== "prepay" &&
+    /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
+    d.confirms &&
+    (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
+  return defaultCod ? "cod" : null;
 };
 
 /**

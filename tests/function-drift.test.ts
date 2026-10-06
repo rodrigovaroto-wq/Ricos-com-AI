@@ -499,7 +499,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
     // A choice is stored only from a choice, and expires.
-    expect(source).toContain("if ((interpretation.payment_choice && parts.some(choosesPath)) || defaultCod) {");
+    expect(source).toContain("if (choiceToStore) {");
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
@@ -517,7 +517,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
     expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
     expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
-    expect(source).toContain('const paymentChoice = interpretation.payment_choice ?? (defaultCod ? "cod" : storedChoice);');
+    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
     expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');

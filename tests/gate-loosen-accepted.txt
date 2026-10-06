@@ -158,3 +158,4 @@ P-2026-10-05 | shipping_promise | Você não paga nada adiantado. Pagando na ent
 G63 | delivery_promise | delivery_promise: 'escolhe um dia em que você vai estar' não é prazo
 G63 | delivery_promise | Escolhe um dia em que você vai estar em casa.
 G63 | delivery_promise | Dá pra marcar um dia em que você vai estar em casa.
+G63 | delivery_promise | negação (achado 7): no antecipado não existe agendamento — 'marcar um dia' segue vetado

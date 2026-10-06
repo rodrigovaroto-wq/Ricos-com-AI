@@ -141,6 +141,14 @@ export type TouchAction =
  * The touches that chase her silence — the three `silence_*` and the 15-minute checkout
  * touch (§R10.4). Her reply and a sale end all of them; nothing else in the ruler.
  */
+/**
+ * The touches the marketing opt-in question may follow (R15.1): `silence_1`, and since the touches
+ * after the link (option 1, operator 2026-10-06) the 15-minute `checkout_reminder` too — the link
+ * reply no longer arms `silence_1`, and without the question the coupon touch would never reach the
+ * hottest abandonment, the one who got the link and went quiet (review of f657faa, finding 5).
+ */
+export const optInFollows = (kind: string): boolean => kind === "silence_1" || kind === "checkout_reminder";
+
 export const inSilenceRuler = (kind: string): boolean =>
   kind.startsWith("silence_") || kind === "checkout_reminder" || kind === "still_there";
 

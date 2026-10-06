@@ -34,6 +34,7 @@ import {
   eveIsTomorrow,
   chasesSilence,
   inSilenceRuler,
+  optInFollows,
   orderStatusAfter,
   isKnownOrderStatus,
   cancelReplyFor,
@@ -119,7 +120,8 @@ import {
   linkSentRecently,
   namesOwnPrice,
   asksForLink,
-  choosesPath,
+  pathChoiceToStore,
+  kitWasOffered,
   closesConversation,
   saysOwnSize,
   mergeUnitSizes,
@@ -1654,10 +1656,11 @@ const runFollowupSweep = async () => {
     if (kind === "still_there") nudged.add(row.conversation_id);
 
     // The marketing opt-in question (R15.1): its own message, with buttons, after a
-    // `silence_1` — always inside the window. Asked once, and once more per suspension.
+    // `silence_1` or the link's 15-minute touch (`optInFollows`) — always inside the window.
+    // Asked once, and once more per suspension.
     if (
       ASK_OPT_IN &&
-      kind === "silence_1" &&
+      optInFollows(kind) &&
       delivery.via === "text" &&
       mayAskOptIn({
         askedAt: lead.marketing_opt_in_asked_at ?? null,
@@ -3050,12 +3053,15 @@ const handleTurn = async (
   // "Sim" to the default the prompt teaches (`DEFAULT_COD_CONFIRM`, "Então deixo no pagamento na
   // entrega…, pode ser?") is her choice too, and the data come after it: unstored, the next turn
   // would have no path and the link would wait for good (operator, 2026-10-06).
-  const defaultCod =
-    interpretation.payment_choice !== "prepay" &&
-    /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/i.test(lastOutbound) &&
-    parts.some(confirmsAddress) &&
-    !parts.some(asksSomething);
-  const paymentChoice = interpretation.payment_choice ?? (defaultCod ? "cod" : storedChoice);
+  // A natural answer to the two options ("a primeira", "o antecipado") is stored too (review of
+  // f657faa): the link waits for a settled path, and an unstored choice was asked again next turn.
+  const choiceToStore = pathChoiceToStore({
+    interpreted: interpretation.payment_choice ?? null,
+    parts,
+    lastOutbound,
+    confirms: parts.some(confirmsAddress),
+  });
+  const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
   if (renewChoice) {
@@ -3064,11 +3070,11 @@ const handleTurn = async (
       body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
-  if ((interpretation.payment_choice && parts.some(choosesPath)) || defaultCod) {
+  if (choiceToStore) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        payment_choice: interpretation.payment_choice ?? "cod",
+        payment_choice: choiceToStore,
         payment_choice_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -3186,9 +3192,7 @@ const handleTurn = async (
   // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
   // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
   const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = recentOutbound.some((m) =>
-    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
-  );
+  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =

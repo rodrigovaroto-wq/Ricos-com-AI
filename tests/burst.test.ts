@@ -190,7 +190,7 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
     expect(source).toContain("confirmsAddress(parts[parts.length - 1] ?? \"\")");
     expect(source).toContain("!parts.some(asksSomething) &&");
     expect(source).toContain("const foundIdentity = { fields: extractIdentityBurst(parts) };");
-    expect(source).toContain("parts.some(choosesPath)");
+    expect(source).toContain("const choiceToStore = pathChoiceToStore({");
     expect(source).toContain("askedIdentity: parts.some(asksWhatSheIs),");
     expect(source).not.toMatch(/classifyOptOut\(inbound\.body|extractAddress\(inbound\.body|extractIdentity\(inbound\.body|confirmsAddress\(inbound\.body|decidesToBuy\(inbound\.body/);
   });

@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "../src/agent/guardrails.js";
+import { optInFollows } from "../src/agent/followups.js";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn, type OptInQuestion } from "../src/agent/opt-in.js";
 import { parseWebhook, replyButtonsMessage } from "../src/channel/whatsapp.js";
 import { config, ctx as gateCtx } from "./fixtures.js";
@@ -161,7 +162,7 @@ describe("opt-in de marketing: fiação na Edge Function", () => {
   });
   it("a pergunta sai depois do silence_1 em texto, com mayAskOptIn, gravando nonce e horário antes de entrar na fila", () => {
     const ask = sweep.slice(sweep.indexOf("ASK_OPT_IN &&\n"));
-    expect(ask).toContain('kind === "silence_1" &&\n      delivery.via === "text" &&\n      mayAskOptIn({');
+    expect(ask).toContain('optInFollows(kind) &&\n      delivery.via === "text" &&\n      mayAskOptIn({');
     const patch = ask.indexOf("marketing_opt_in_nonce: nonce, marketing_opt_in_asked_at:");
     expect(patch).toBeGreaterThan(-1);
     expect(patch).toBeLessThan(ask.indexOf('via: "buttons", body: question.body'));
@@ -178,4 +179,12 @@ describe("opt-in de marketing: fiação na Edge Function", () => {
   it("as duas verificações do selo incluem o toque", () => {
     expect(source.match(/sentAt: payload\.sentAt, reply: payload\.reply \}/g)).toHaveLength(2);
   });
+});
+
+describe("a pergunta de ofertas também depois do lembrete do link (achado 5, operador 2026-10-06)", () => {
+  it("segue o silence_1 e o checkout_reminder", () => {
+    expect(optInFollows("silence_1")).toBe(true);
+    expect(optInFollows("checkout_reminder")).toBe(true);
+  });
+  it.each(["still_there", "silence_2", "silence_3", "order_eve"])("negação: não segue %s", (k) => expect(optInFollows(k)).toBe(false));
 });

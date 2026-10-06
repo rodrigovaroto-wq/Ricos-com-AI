@@ -197,6 +197,28 @@ export const asksForIdentity = (text: string): boolean =>
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
 
+/** A sentence that asks for something: a question, or a request ("me passa", "me manda", "preciso do"). */
+const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
+
+/**
+ * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as
+ * `asksForIdentity` does. A sentence asks for it when it names the field and is a question or a
+ * request ("Me passa seu e-mail, pra completar o cadastro."), or names it and the very next
+ * sentence is a bare request question ("E por último o CPF, pra nota fiscal. Me passa?"). The
+ * field beside another question ("O CPF vai na nota. Qual tamanho você usa?") or told as a fact
+ * ("…chega no seu e-mail. Ficou alguma dúvida?") is not asked; "não precisa" never is.
+ */
+const asksForField = (text: string, word: RegExp): boolean => {
+  const sentences = text.split(/(?<=[.!?\n])\s*/).map((q) => q.trim()).filter(Boolean);
+  return sentences.some((q, i) => {
+    if (!word.test(q) || /\bn[aã]o\s+precisa\b/i.test(q)) return false;
+    if (q.endsWith("?") || REQUEST.test(q)) return true;
+    const nextQ = sentences[i + 1] ?? "";
+    return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
+      !/\b(?:tamanho|cep|nome|e-?mail|cpf|endere[cç]o)\b/i.test(nextQ);
+  });
+};
+
 /**
  * How many times the agent asked for the e-mail or the CPF and her answer did not bring it
  * (operator, 2026-10-06: the link waits for the data; an e-mail refused once and a CPF refused
@@ -215,9 +237,7 @@ export const refusedAsks = (
   let count = 0;
   messages.forEach((m, i) => {
     if (m.direction === "inbound") return;
-    // The field and a question in the same message: "E por último o CPF, pra nota fiscal. Me passa?"
-    const asked = word.test(m.body ?? "") && (m.body ?? "").includes("?");
-    if (!asked) return;
+    if (!asksForField(m.body ?? "", word)) return;
     const next = messages.slice(i + 1);
     const end = next.findIndex((n) => n.direction !== "inbound");
     const answer = (end === -1 ? next : next.slice(0, end)).map((n) => n.body ?? "");

@@ -2,7 +2,9 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
 import { refusedAsks } from "@/agent/identity.js";
-import { NEUTRAL_INTERPRETATION, quantityOf, type Interpretation } from "@/agent/interpret.js";
+import { NEUTRAL_INTERPRETATION, buyerAsk, kitWasOffered, pathChoiceToStore, quantityOf, type Interpretation } from "@/agent/interpret.js";
+import { DEFAULT_COD_CONFIRM, twoOptionsMessage } from "@/agent/prompt.js";
+import { confirmsAddress } from "@/agent/address.js";
 import { buildPrefilledCheckoutLink } from "@/agent/coinzz.js";
 import { thinkReply } from "@/agent/retry.js";
 import { config, ctx } from "./fixtures.js";
@@ -45,6 +47,23 @@ describe("recusas lidas da conversa (refusedAsks)", () => {
   });
 });
 
+describe("recusas: o pedido é a frase que pede o campo (achado 3)", () => {
+  it("pedido no imperativo conta: CPF e e-mail", () => {
+    expect(refusedAsks([out("E por último me passa seu CPF, pra nota fiscal."), inn("não passo cpf")], "document")).toBe(1);
+    const twice = [out("E por último me passa seu CPF, pra nota fiscal."), inn("não passo cpf"), out("É pra nota fiscal, que a lei exige. Me manda o CPF."), inn("não vou passar")];
+    expect(refusedAsks(twice, "document")).toBe(2);
+    expect(refusedAsks([out("Me passa seu e-mail, pra completar o cadastro."), inn("não tenho e-mail")], "email")).toBe(1);
+  });
+  it("o campo numa frase e 'Me passa?' na seguinte é pedido", () => {
+    expect(refusedAsks([out("E por último o CPF, pra nota fiscal. Me passa?"), inn("não")], "document")).toBe(1);
+  });
+  it("negações: o campo citado ao lado de outra pergunta não é pedido dele", () => {
+    expect(refusedAsks([out("O CPF vai na nota. Qual tamanho você usa?"), inn("M")], "document")).toBe(0);
+    expect(refusedAsks([out("A confirmação chega no seu e-mail e no WhatsApp. Ficou alguma dúvida?"), inn("não")], "email")).toBe(0);
+    expect(refusedAsks([out("Não precisa me passar o CPF agora. Qual o seu CEP?"), inn("01310-100")], "document")).toBe(0);
+  });
+});
+
 describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   it("as seis condições entram no link e no 'vou pensar'", () => {
     expect(source).toContain('const cpfRefusals = refusedAsks(recent, "document");');
@@ -84,9 +103,9 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");
   });
 
-  it("o 'sim' ao default da entrega fica gravado como escolha", () => {
-    expect(source).toMatch(/deixo\\s\+no\\s\+pagamento\\s\+na\\s\+entrega/);
-    expect(source).toContain('payment_choice: interpretation.payment_choice ?? "cod",');
+  it("a escolha gravada é a de pathChoiceToStore (comportamento testado abaixo)", () => {
+    expect(source).toContain("const choiceToStore = pathChoiceToStore({");
+    expect(source).toContain("payment_choice: choiceToStore,");
   });
 
   it("nenhum texto do turno fala em complemento; o tamanho se escolhe no checkout", () => {
@@ -171,14 +190,22 @@ describe("gates: os conflitos do §62", () => {
     expect(blocks("Aí na sua região a transportadora ainda não faz pagamento na entrega, mas tem o antecipado.", noCod)).toEqual([]);
     expect(blocks("A gente ainda não trabalha com pagamento na entrega aí.", noCod)).toEqual([]);
   });
+  it("negativas que não negam (achado 4): 'não faz você pagar mais, você paga na entrega' segue vetada", () => {
+    expect(blocks("Isso não faz você pagar mais, você paga na entrega.", noCod)).toContain("charge_promise");
+    expect(blocks("Isso não faz pagar na entrega ficar mais caro.", noCod)).toContain("charge_promise");
+  });
   it("negações: 'não faz diferença, você paga na entrega' e 'faz pagamento na entrega' seguem vetados", () => {
     expect(blocks("Não faz diferença, você paga na entrega.", noCod)).toContain("charge_promise");
     expect(blocks("A transportadora faz pagamento na entrega aí.", noCod)).toContain("charge_promise");
   });
 
-  it("delivery_promise: 'escolhe um dia em que você vai estar' não é prazo", () => {
-    expect(blocks("Escolhe um dia em que você vai estar em casa.", { paymentPath: "prepay" as const })).toEqual([]);
-    expect(blocks("Dá pra marcar um dia em que você vai estar em casa.", { paymentPath: "prepay" as const })).toEqual([]);
+  it("delivery_promise: 'escolhe um dia em que você vai estar' não é prazo na entrega", () => {
+    expect(blocks("Escolhe um dia em que você vai estar em casa.", { paymentPath: "cod" as const })).toEqual([]);
+    expect(blocks("Dá pra marcar um dia em que você vai estar em casa.", { paymentPath: "cod" as const })).toEqual([]);
+  });
+  it("negação (achado 7): no antecipado não existe agendamento — 'marcar um dia' segue vetado", () => {
+    expect(blocks("Dá pra marcar um dia em que você vai estar em casa.", { paymentPath: "prepay" as const })).toContain("delivery_promise");
+    expect(blocks("Escolhe um dia em que você vai estar em casa.", noCod)).toContain("delivery_promise");
   });
   it("negações: 'chega em um dia' segue prazo", () => {
     expect(blocks("No antecipado chega em um dia.", { paymentPath: "prepay" as const })).toContain("delivery_promise");
@@ -189,9 +216,79 @@ describe("gates: os conflitos do §62", () => {
     expect(blocks("No seu CEP dá pra pagar na entrega, então você tem duas opções.", { regionKnown: false })).toContain("coverage_claim");
     expect(blocks("Dá pra pagar na entrega aí, sim.", { regionKnown: false })).toContain("coverage_claim");
   });
+  it("achado 9: 'aí dá pra pagar na entrega' e 'na sua cidade o pagamento na hora funciona' antes da consulta", () => {
+    expect(blocks("Aí dá pra pagar na entrega.", { regionKnown: false })).toContain("coverage_claim");
+    expect(blocks("Aí na sua cidade a entrega com pagamento na hora funciona.", { regionKnown: false })).toContain("coverage_claim");
+  });
+  it("achado 9, negações: a condição 'se no seu CEP der' e 'se quiser' sem condição de lugar", () => {
+    expect(blocks("Se no seu CEP der, dá pra pagar na entrega aí.", { regionKnown: false })).not.toContain("coverage_claim");
+    expect(blocks("Se quiser, dá pra pagar na entrega aí.", { regionKnown: false })).toContain("coverage_claim");
+    expect(blocks("Aí dá pra pagar na entrega.", { regionKnown: true })).toEqual([]);
+  });
   it("negações: depois da consulta passa; condição, pergunta e negação passam antes dela", () => {
     expect(blocks("No seu CEP dá pra pagar na entrega, então você tem duas opções.", { regionKnown: true })).toEqual([]);
     expect(blocks("Me passa seu CEP que eu vejo se no seu CEP dá pra pagar na entrega?", { regionKnown: false })).toEqual([]);
     expect(blocks("Aí na sua região ainda não tem pagamento na entrega.", { regionKnown: false })).not.toContain("coverage_claim");
   });
+});
+
+/** Revisão de f657faa, achados 1 e 2: a escolha que fica gravada é a que ela fez, em palavras naturais. */
+
+describe("a escolha gravada (pathChoiceToStore)", () => {
+  const two = twoOptionsMessage(config).join("\n\n");
+  const store = (msg: string, interpreted: "cod" | "prepay" | null, lastOutbound = two) =>
+    pathChoiceToStore({ interpreted, parts: [msg], lastOutbound, confirms: confirmsAddress(msg) });
+
+  it.each([
+    ["a primeira", "cod"],
+    ["a segunda", "prepay"],
+    ["prefiro a primeira", "cod"],
+    ["o antecipado", "prepay"],
+    ["prefiro pagar quando receber", "cod"],
+    ["quero no pix", "prepay"],
+  ] as const)("resposta às duas opções: %s → %s", (msg, path) => {
+    expect(store(msg, path)).toBe(path);
+  });
+
+  it.each(["qual a diferença das duas?", "a primeira tem rastreio?", "não sei, qual compensa mais?", "não sei ainda, talvez a segunda"])(
+    "negação: pergunta ou dúvida depois das duas opções não grava (%s)",
+    (msg) => expect(store(msg, "cod")).toBeNull(),
+  );
+
+  it("negação: 'a primeira' fora da pergunta das duas opções não grava", () => {
+    expect(store("a primeira", "cod", "Qual o número da calça que você usa?")).toBeNull();
+  });
+
+  it("sem leitura do intérprete, nada se grava pela pergunta das duas", () => {
+    expect(store("a primeira", null)).toBeNull();
+  });
+
+  it("'sim' ao padrão da entrega grava a entrega — também com pergunta de compradora ao lado", () => {
+    expect(store("sim", null, DEFAULT_COD_CONFIRM)).toBe("cod");
+    expect(store("Sim! Como faço pra pagar?", null, DEFAULT_COD_CONFIRM)).toBe("cod");
+  });
+
+  it("negações do padrão: 'sim' com outra pergunta, ou o antecipado lido, não gravam a entrega", () => {
+    expect(store("sim, tem rastreio?", null, DEFAULT_COD_CONFIRM)).toBeNull();
+    expect(store("sim", "prepay", DEFAULT_COD_CONFIRM)).toBeNull();
+  });
+});
+
+describe("buyerAsk: 'quero saber' não é compra (achado 8)", () => {
+  it.each(["sim, quero saber se tem rastreio?", "quero entender como funciona?", "quero ver se serve?"])("%s", (msg) =>
+    expect(buyerAsk(msg)).toBe(false),
+  );
+  it.each(["sim, quero. qual o prazo?", "quero sim, como pago?"])("negação: compra continua (%s)", (msg) => expect(buyerAsk(msg)).toBe(true));
+});
+
+describe("a oferta do kit é reconhecida pelo preço, não pela redação (achado 6)", () => {
+  it.each([
+    "Se levar mais de uma, as duas saem por R$ 239,80 💛",
+    "Levando 2 peças sai mais em conta.",
+    "Tem o kit também, quer ver?",
+    "As três ficam por R$339,70.",
+  ])("ofertado: %s", (m) => expect(kitWasOffered([m], [239.8, 339.7])).toBe(true));
+  it.each(["O colete sai por R$ 129,90 na entrega.", "Qual o seu tamanho?", "Custa R$ 1.239,80"])("negação: %s", (m) =>
+    expect(kitWasOffered([m], [239.8, 339.7])).toBe(false),
+  );
 });
