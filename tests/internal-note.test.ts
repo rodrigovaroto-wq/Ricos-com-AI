@@ -16,6 +16,11 @@ describe("internal_note: nota interna do modelo não sai", () => {
     "The user wants the price. Ele sai por R$ 129,90 na entrega.",
     "I should ask for the CEP. Me passa seu CEP?",
     "Ask her for the e-mail. Me passa seu e-mail?",
+    "Ask CEP. Me passa seu CEP?",
+    "Need CEP. Me passa seu CEP?",
+    "Must ask CEP. Me passa seu CEP?",
+    "Should ask CEP. Me passa seu CEP?",
+    "User wants price. Ele sai por R$ 129,90 na entrega.",
   ])("vetada: %s", (t) => expect(blocks(t)).toContain("internal_note"));
 
   it.each([
@@ -29,4 +34,10 @@ describe("internal_note: nota interna do modelo não sai", () => {
   ])("negação — português, inclusive com palavra estrangeira de uso comum, passa: %s", (t) =>
     expect(blocks(t)).not.toContain("internal_note"),
   );
+});
+
+describe("internal_note: limite conhecido", () => {
+  it("citar em inglês o que ela escreveu custa uma reescrita (nada se perde)", () => {
+    expect(blocks("Você falou 'let me think', fica à vontade pra pensar.")).toContain("internal_note");
+  });
 });

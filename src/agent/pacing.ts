@@ -62,8 +62,8 @@ const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).l
  * Splits a reply into WhatsApp-sized bubbles. A paragraph is a bubble; a paragraph over
  * `maxWords` is cut at sentence ends and the sentences packed back up to the limit. A
  * sentence is NEVER cut — one longer than the limit goes out whole, because half a
- * sentence in a bubble reads as a bug. `max` still caps the count, but only by merging
- * trailing bubbles that fit together under `maxWords`.
+ * sentence in a bubble reads as a bug. `max` is a hard cap: trailing bubbles merge while
+ * they fit `maxWords`, then the shortest neighbouring pair merges.
  */
 const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): string[] => {
   const bubbles: string[] = [];

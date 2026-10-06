@@ -2932,7 +2932,7 @@ const gates: readonly Gate[] = [
     briefing: () =>
       `Escreva só a mensagem para ela, em português — nunca uma anotação sua sobre o que fazer.`,
     check: (text) =>
-      /\b(?:needs?\s+(?:to\s+)?(?:ask|check|say|confirm|get)|let\s+me|i\s+(?:should|need|will|must)|the\s+(?:user|customer|client)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
+      /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|need\s+(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her|for\s+the|cep|size|e-?mail|cpf|name|price)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
         ? "the model's own note leaked into the reply"
         : null,
   },
