@@ -655,7 +655,9 @@ export const decisionInBurst = (messages: readonly string[]): boolean | null => 
   const lines = messages.flatMap((m) => m.split("\n"));
   const at = lines.findLastIndex(decidesToBuy);
   if (at === -1) return null;
-  return !lines.slice(at + 1).some((l) => RETRACTS.test(norm(l)));
+  // A later line that may take it back is not read as "no": "depois de amanhã pode entregar?" is
+  // a buyer (review of 21f2e29). The model, reading the whole burst, decides.
+  return lines.slice(at + 1).some((l) => RETRACTS.test(norm(l))) ? null : true;
 };
 
 /**

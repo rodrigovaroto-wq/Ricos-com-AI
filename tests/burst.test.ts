@@ -124,9 +124,20 @@ describe("leitura da rajada mensagem a mensagem", () => {
   });
 
   it("decisão: a desistência numa mensagem posterior vence", () => {
-    expect(decisionInBurst(["quero comprar o M\nnão, pensando bem vou esperar"])).toBe(false);
-    expect(decisionInBurst(["quero comprar o M", "não, pensando bem vou esperar"])).toBe(false);
-    expect(decisionInBurst(["vou levar", "depois eu vejo"])).toBe(false);
+    // A later line that may take it back hands the call to the model, which reads the whole burst
+    // (review of 21f2e29: "depois de amanhã pode entregar?" is a buyer, not a retraction).
+    expect(decisionInBurst(["quero comprar o M\nnão, pensando bem vou esperar"])).toBeNull();
+    expect(decisionInBurst(["quero comprar o M", "não, pensando bem vou esperar"])).toBeNull();
+    expect(decisionInBurst(["vou levar", "depois eu vejo"])).toBeNull();
+    for (const burst of [
+      ["quero o M", "depois de amanhã pode entregar?"],
+      ["quero o M", "quanto tempo depois chega?"],
+      ["quero o M", "entrega mais tarde?"],
+      ["vou levar", "pode mandar depois do almoço?"],
+      ["quero o M", "quero pagar na entrega, pode ser depois das 18h?"],
+      ["quero o G", "vou pensar no kit depois"],
+    ])
+      expect(decisionInBurst(burst), burst.join(" + ")).not.toBe(false);
   });
   it("decisão: continua decidida quando a mensagem posterior não desiste, e nula sem decisão", () => {
     expect(decisionInBurst(["quero comprar o M", "qual o prazo?"])).toBe(true);
