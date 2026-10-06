@@ -119,7 +119,7 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
   });
 
   it("revisão: envio negado não é em rota, na raiz (stageForOrder)", () => {
-    for (const status of ["Aprovado / Não enviado", "Aprovado / Não despachado", "Aprovado / Não coletado", "Não foi enviado", "Não saiu para entrega"]) {
+    for (const status of ["Aprovado / Não enviado", "Aprovado / Não despachado", "Aprovado / Não coletado", "Não foi enviado", "Não saiu para entrega", "Aprovado / Não está em trânsito", "Aprovado / Não foi ainda enviado"]) {
       expect(stageForOrder(status), status).not.toBe("em_rota");
       expect(cancelReplyFor([prepay(status)]), status).not.toBe("shipped");
     }

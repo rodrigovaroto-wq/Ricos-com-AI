@@ -422,7 +422,7 @@ export const stageForOrder = (
   if (/\bentregue\s+(?:(?:a|ao|aos|as|o|os|para|pra|pro|pros)\s+)+(?:transportador|correio)/.test(s)) return "em_rota";
   if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
   // "Não enviado", "não foi despachado" are not on their way (review of da612fd).
-  if (/(?<!\bnao\s+(?:foi\s+|esta\s+)?)(?:\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid)/.test(s))
+  if (/(?<!\bnao\s+(?:(?:foi|esta)\s+)?(?:ainda\s+)?(?:em\s+)?)(?:\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid)/.test(s))
     return "em_rota";
   return "pedido_criado";
 };
