@@ -1917,6 +1917,60 @@ da Neusa volta a gastar um turno de modelo por mensagem até o teto de R$ 1,00 (
 uma pessoa; o corpus do `dev:conversas` não tinha arco da escada nem gate que a marque como BAD, então
 nada mudou lá; C3 em `05-conversa-de-venda-v2.md` §12 continua listado como conflito.
 
+## 61. A resposta dela era jogada fora quando ela escrevia de novo (rajada v2, operador, 2026-10-06)
+
+**Sintoma:** depois do §59, uma mensagem que chegava enquanto a Malu escrevia descartava a resposta já
+paga (`lateGuard` → `superseded`), e o turno novo começava do zero. O operador: "ela não deve jogar tudo
+fora: deve dar um passo para trás, olhar o que já tem como resposta e contexto, introduzir a nova
+mensagem e a partir daí criar a resposta — natural, não checklist", esperando 5 s, não 8. E duas regras
+novas: "Ainda está aí?" quando a pergunta dela fica 10 min sem resposta, e "sim" no meio de uma pergunta
+não manda o checkout.
+**Causa:** cada mensagem era dona do próprio turno; nada dizia que outro turno já estava escrevendo. A
+confirmação do endereço lia só a última mensagem ("tem rastreio?" + "sim" confirmava).
+**Caminhos descartados:** revisar só o texto sem reler a rajada (opt-out, pessoa, cancelamento, tamanho,
+endereço e link decidiriam sobre metade do que ela disse); o turno novo esperar o anterior (o orçamento
+de 150 s não comporta); mandar o rascunho quando as revisões acabam (as mensagens novas ficariam marcadas
+como respondidas sem resposta); tabela nova de lock (uma coluna basta).
+**Correção:** migração 0023 (`conversations.replying_since`). Depois de `QUIET_WINDOW_MS` 5 s e do
+`superseded`, o turno toma a conversa num PATCH condicional (nulo ou com mais de 150 s); quem não toma sai
+`joined`; quem falha ao tentar responde. O `Deno.serve` solta a marca no `finally`. `lateGuard(rewrites,
+draft)` não descarta: com mensagem nova chama `handleTurn` com `revise`, que relê a rajada inteira, roda
+todos os leitores e rotas, e o modelo reescreve com `reviseInstruction(draft)`; gates iguais. Limite: 2
+revisões e 30 s antes do prazo de 110 s; passado o limite, `deferRetry` manda a rajada para a varredura.
+"Ainda está aí?": toque `still_there` a 10 min depois de resposta terminada em pergunta, cancelado pela
+resposta dela, venda, handoff, opt-out e fora do horário; só texto dentro das 24 h; primeiro na varredura.
+"Sim": a confirmação do endereço exige `!parts.some(asksSomething)`, e um "sim" ao lado de uma pergunta
+zera `wants_to_buy` quando a decisão não vem das palavras dela.
+**Guarda:** `tests/burst.test.ts` (5 s, orçamento, revisão, fiação, migração, "sim"), `tests/still-there.test.ts`;
+`pnpm dev:regua` com dois invariantes novos.
+**Resíduo:** turno morto pela plataforma deixa a marca por 150 s; update que falha pode gerar duas
+respostas; rajada além do limite espera a varredura (1–6 min); resposta com link terminada em pergunta
+recebe três toques em 30 min; `asksSomething` é lista de palavras.
+
+## 62. A conversa empurrava uma oferta só e mandava o link antes dos dados (conversa de venda v2, 2026-10-06)
+
+**Sintoma:** teste real da Leila: preço da entrega dito três vezes e só uma opção; link antes do e-mail e
+do CPF; tamanho no complemento; "não tenho aqui" sobre material e barbatana. O operador: "parece um robô".
+**Causa:** o prompt mandava "Uma oferta só… não pergunte qual ela prefere", "O antecipado é uma SAÍDA, não
+uma opção" (2026-09-24) e "mande o link e NÃO peça nome, e-mail nem CPF antes" (R13.4); os fatos do produto
+não estavam no prompt; o "complemento" vinha de antes de a Logzz ter seletor de tamanho.
+**Caminhos descartados:** afrouxar `charge_promise` para "a transportadora ainda não faz pagamento na
+entrega" (virou "não tem"); prazo do antecipado em frase separada (o grátis vaza, `shipping_promise` veta);
+"escolhe um dia em que você vai estar" no antecipado (lido como prazo de 1 dia; virou "uma data"); dois
+balões (o operador quer até três).
+**Correção:** `prompt.ts` e espelho: `twoOptionsMessage` (só com pagamento na entrega no CEP), `noCodMessage`
+(só antecipado, com o motivo), `DEFAULT_COD_CONFIRM` (o "sim" vira entrega só onde ela existe),
+`productFacts` com os fatos do operador e chave opcional `site`, blocos de público ainda não convencido,
+caminho da conversa e dados antes do link (CPF recusado duas vezes: link sem ele), tamanho escolhido no
+checkout, "vou pensar" sem link, até três balões de um assunto cada. `tests/change-registry.test.ts` M-04
+invertido.
+**Guarda:** `tests/prompt.test.ts` (288 testes): as duas opções nas seis variantes, a mensagem sem entrega
+com `codUnavailable`, o "sim" vetado onde a entrega não chega, fatos e negações, ausência dos textos antigos.
+**Resíduo:** o código ainda manda o link antes dos dados (`readyForLink`, `identityDirectiveFor`,
+`thinkReply`) e ainda manda o tamanho no complemento (`checkoutDirectiveFor`); a diretiva de região só sai
+com tamanho conhecido; `coverage_claim` não veta "No seu CEP dá pra pagar na entrega" antes da consulta;
+prompt +~850 tokens; nada medido contra o modelo ainda.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

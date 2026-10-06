@@ -914,6 +914,26 @@ Este desenho contradiz regras escritas hoje. Cada linha precisa de registro em
 | C10 | Tamanho "escolhido no checkout" | "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO" | `coinzz.ts` l. 211–215; `prompt.ts` l. 110–111 — `[F13]` |
 | C11 | "Já deixei separado no seu tamanho" como viés de default | gate `unverified_size` veta "separado/reservado/tem no M" antes da consulta | usar "deixo no pagamento na entrega", nunca estoque |
 
+**Decidido pelo operador e levado ao prompt (2026-10-06, grafo §62, changelog do prompt):**
+
+| # | Como ficou |
+|---|---|
+| C1 | **Decidido.** Duas opções lado a lado só quando o pagamento na entrega existe para o CEP dela (`twoOptionsMessage`). Sem ele: só o antecipado, com o motivo documentado no script 02 §7.2 — a transportadora ainda não tem pagamento na entrega ali (`noCodMessage`). |
+| C2 | **Decidido no prompt.** Tamanho, CEP, nome completo, e-mail e CPF antes do link; CPF recusado duas vezes → o link vai sem ele. **O código ainda manda o link antes dos dados** (`readyForLink`, `identityDirectiveFor`) — mudança fora do prompt. |
+| C6 | **Superado.** O operador quer até **três** balões, um assunto cada (não dois). A regra 11 de §3 vale com três. |
+| C7 | **Decidido no prompt:** "vou pensar" sem link. `thinkReply`/o turno ainda mandam o link quando o tamanho é conhecido — mudança fora do prompt. |
+| C8 | **Decidido:** poliéster e elastano, **com** forro de algodão e colchetes que não ficam enrolando; sem barbatana. |
+| C10 | **Decidido:** tamanho escolhido num seletor no checkout (Logzz e Coinzz). O prompt não fala mais em complemento; a diretiva do link (`checkoutDirectiveFor`) e o `thinkReply` do kit ainda falam — fora do prompt. |
+| "Sim" sem escolher | Pagamento na entrega, confirmado, **só** onde ele existe para o CEP dela; onde não existe, o "sim" é o antecipado. |
+
+Fatos de §13 respondidos pelo operador na mesma data: F1 (sem percentuais; forro de algodão), F2
+(colchetes), F3 (só preto), F4 (abdômen, costas e alças), F5, F6, F7, F8 (lavagem do site), F9
+(colchetes não enrolam), F13 (seletor), F14 (ela escolhe a forma; não listar), F15, F16, F18
+(Correios ou transportadora, com rastreio), F19 (sem boleto), F22 (link sem CPF após duas
+recusas), F24 (só site e e-mail). F10/F11: não adicionar. Estão em
+[`01-base-de-conhecimento.md`](../01-conhecimento/01-base-de-conhecimento.md). Abertos: F12, F17,
+F20, F21, F23, F26, F28–F31.
+
 **O que já foi conferido (2026-10-06):** as frases de §5, §6, §7, §8, as da Leila (§11) e as
 de preço, prazo, garantia, saúde e identidade de §9 foram rodadas por `runGates` com o
 `config/business.example.json` (CEP consultado e não consultado). Todas passam sem veto. Avisos

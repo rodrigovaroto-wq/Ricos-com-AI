@@ -37,9 +37,11 @@ describe("M-04: pergunta do tamanho e link antes da identidade", () => {
     expect(prompt).toContain("não emende a pergunta do tamanho em toda mensagem");
   });
 
-  it("ensina o link antes de nome, e-mail e CPF quando ela já quer comprar", () => {
-    expect(prompt).toContain("mande o link e NÃO peça nome, e-mail nem CPF antes");
-    expect(prompt).toContain("o link primeiro, nunca o CPF primeiro");
+  // Superseded by the operator on 2026-10-06 (sales conversation v2, graph §62): the data come
+  // before the link now.
+  it("não ensina mais o link antes de nome, e-mail e CPF", () => {
+    expect(prompt).not.toContain("mande o link e NÃO peça nome, e-mail nem CPF antes");
+    expect(prompt).not.toContain("o link primeiro, nunca o CPF primeiro");
     // O fluxo antigo continua para quando o link ainda não pode sair.
     expect(prompt).toContain("Nunca repita a mesma pergunta com as mesmas palavras.");
   });

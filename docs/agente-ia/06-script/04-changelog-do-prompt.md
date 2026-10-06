@@ -5,6 +5,61 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
+### 2026-10-06 — conversa de venda v2: duas opções, dados antes do link, fatos do colete
+
+- **Mudou (várias coisas juntas, a pedido do operador; o efeito de cada uma não é atribuível):**
+  1. **C1:** saíram "Uma oferta só… não pergunte qual ela prefere" e "O pagamento antecipado é
+     uma SAÍDA, não uma opção". Entrou o bloco `PAGAMENTO`. Onde o pagamento na entrega existe
+     para o CEP, ela recebe as duas opções em três balões (`twoOptionsMessage`, tudo lido do
+     config) e escolhe. Onde não existe, só o antecipado, com o motivo do script 02 §7.2
+     (`noCodMessage`). O "sim" sem escolha vira entrega confirmada (`DEFAULT_COD_CONFIRM`) **só**
+     onde a entrega existe; fora dela, o "sim" é o antecipado. O fechamento por escolha agora
+     é "Qual das duas fica melhor pra você?".
+  2. **C2:** saíram "mande o link e NÃO peça nome, e-mail nem CPF antes" e "o link primeiro,
+     nunca o CPF primeiro". Entrou `OS DADOS E O LINK`: tamanho, CEP, nome completo, e-mail e
+     CPF antes do link, um por mensagem e com o motivo. CPF recusado duas vezes faz o link ir
+     sem ele. Para e-mail recusado ela não insiste, e saiu "o checkout pede o e-mail lá": a Logzz
+     não tem o campo.
+  3. **C10:** saiu "escrever os tamanhos no complemento" (kits). No checkout ela escolhe o
+     tamanho ("lá você escolhe o M").
+  4. **C7:** o "vou pensar" deixou de dizer "o link vai junto automaticamente" e passou a dizer
+     "não escreva link nenhum".
+  5. **Público ainda não convencido**, mais `O CAMINHO DA CONVERSA` (arco do design §4), a
+     ordem AECR nas objeções e uma linha nova de desconfiança.
+  6. **Balões:** até três, um assunto cada, com até uns 30 palavras. Com várias mensagens dela,
+     vêm primeiro as perguntas, na ordem em que ela fez, depois o que ela informou, e a pergunta
+     no fim. O exemplo do operador vai literal (`BURST_EXAMPLE`).
+  7. **`FATOS DO COLETE`** (`productFacts`): material, barbatana, cobertura, cor, calor, horas,
+     dormir, exercício, lavagem, pagamento na porta sem listar formas (saiu "em dinheiro ou
+     cartão"), outra pessoa recebe, ninguém em casa, transporte e rastreio do antecipado, sem
+     boleto, confiança só pelo site e pelo e-mail. Chave nova opcional `site` no `PromptConfig`.
+  8. **Cortes para caber:** o parágrafo "Você tem liberdade de estilo", a tática "Antecipe a
+     objeção" (o bordão segue citado no "Sem bordão"), "Quem prefere pagar antes paga…" (já
+     está em `PAGAMENTO` e nos FATOS LIGADOS), `prepayPriceLine` (código morto) e metade do
+     parágrafo `A VERIFICAÇÃO DA LOJA`.
+- **Por quê:** decisões do operador de 2026-10-06 sobre o desenho
+  [`05-conversa-de-venda-v2.md`](05-conversa-de-venda-v2.md) e o teste real da Leila.
+- **Medido: nada contra o modelo.** Tamanho com o config de exemplo e kits: o prompt próprio foi
+  de 19 222 para 22 289 caracteres (+16%), e o prompt inteiro, com o briefing dos gates, de 25 276
+  para 28 343 (+12%). São ~+850 tokens estimados a ~3,6 caracteres/token, de ~7,0k para ~7,9k. A
+  suíte prova: os três balões das duas opções passam `runGates` nas seis variantes de config, com
+  região consultada e etapa pré-venda. A mensagem sem entrega passa no antecipado com
+  `codUnavailable`. O "sim" padrão passa na entrega e é vetado (`charge_promise`) onde a entrega
+  não chega. Fatos e frases negadas passam nos dois caminhos. Nenhuma frase ensinada passa de
+  30 palavras. `tests/prompt.test.ts` tem 288 casos, todos passando.
+  **A prova que falta** é uma rodada de personas com `muse-spark-1.3` antes e depois. Contar a
+  taxa de link, as reescritas por gate por conversa, os balões por resposta e as conversas que
+  recebem as duas opções.
+- **Regressão:** `pnpm test` dá 6387/6388. A falha é `tests/change-registry.test.ts` M-04, que
+  fixava a regra C2 revertida pelo operador. O arquivo não é deste trabalho e o teste precisa
+  inverter. `dev:conversas` 1665/1665, `dev:gates` sem nenhum afrouxamento.
+- **Conflitos com gate (nenhum gate afrouxado):** `charge_promise` veta "a transportadora ainda
+  não faz pagamento na entrega" (cego à negação), por isso o texto diz "não tem".
+  `delivery_promise` veta "escolhe um dia em que você vai estar" no antecipado (lê "um dia" como
+  prazo de 1 dia), por isso o texto diz "uma data". `coverage_claim` **não** veta "No seu CEP dá
+  pra pagar na entrega" com a região não consultada, então só o texto do prompt segura essa
+  frase até a consulta.
+
 ### 2026-09-24 (d) — Malu adaptável: decisões do operador depois das rodadas 1 e 2
 
 - **Mudou (muitas coisas juntas, a pedido do operador. O efeito de cada uma não é

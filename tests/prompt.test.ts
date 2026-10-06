@@ -2,13 +2,17 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { asksWhatSheIs, gateBriefing, runGates } from "@/agent/guardrails.js";
 import {
+  BURST_EXAMPLE,
+  DEFAULT_COD_CONFIRM,
   expressLine,
   freightBriefing,
   linkFactLine,
   money,
-  prepayPriceLine,
+  noCodMessage,
   prepayWindowLine,
+  productFacts,
   systemPrompt,
+  twoOptionsMessage,
   type PromptConfig,
 } from "@/agent/prompt.js";
 import { config as base, ctx } from "./fixtures.js";
@@ -198,14 +202,14 @@ describe("desconto: o prompt lê prices.prepayDiscountPercent", () => {
     const prompt = build(variant(false, true));
     expect(prompt).not.toContain("Nunca ofereça desconto");
     expect(prompt).not.toContain("custam o mesmo");
-    expect(prompt).toContain("10% abaixo do preço da entrega");
+    expect(flat(prompt)).toContain("você ganha 10% de desconto, R$ 116,91");
   });
 
   it("sem desconto, proíbe e diz que custam o mesmo", () => {
     const prompt = build(variant(false, false));
     expect(prompt).toContain("Nunca ofereça desconto");
     expect(prompt).toContain("custam o mesmo");
-    expect(prompt).not.toContain("abaixo do preço da entrega");
+    expect(prompt).not.toContain("você ganha");
   });
 });
 
@@ -238,24 +242,13 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
       text: `no pagamento na entrega ela não paga nada agora e tem ${c.delivery.warrantyDays} dias após o recebimento pra devolver.`,
       paths: BOTH,
     },
-    // "Uma oferta só": the cash-on-delivery offer.
-    {
-      text: `ela escolhe um dos próximos ${c.delivery.codDaysMax} dias, recebe em casa e paga ${cod} na mão do entregador.`,
-      paths: COD,
-    },
-    // The prepaid path, presented as a way out.
-    {
-      text: `${prepayPriceLine(c)}, chega em qualquer lugar do país. ${prepayWindowLine(c).replace(/,$/, ".")}`,
-      paths: BOTH,
-    },
-    // The price paragraph: the delivery half, then the prepaid half.
-    { text: `Preço: ${cod} pago na entrega ao entregador, em dinheiro ou cartão.`, paths: COD },
+    // The price paragraph. No payment methods listed (operator, 2026-10-06).
+    { text: `Preço: ${cod} pago na entrega ao entregador.`, paths: COD },
     {
       text: `Entrega em ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, agendada — quem escolhe o dia é ela, no checkout.`,
       paths: COD,
     },
     { text: `${c.delivery.warrantyDays} dias após o recebimento para trocar ou devolver.`, paths: BOTH },
-    { text: `Quem prefere pagar antes paga ${prepayPriceLine(c)}, ${prepayWindowLine(c)}`, paths: BOTH },
   ];
   if (c.delivery.freeShipping === true) {
     list.push(
@@ -349,8 +342,6 @@ describe("ritmo: vendedora brasileira no WhatsApp, não frase telegráfica", () 
     expect(prompt).toContain("Todo número tem que dizer a que se refere");
     expect(prompt).toContain("o preço ou o prazo de um caminho nunca divide a frase com os do outro");
     expect(prompt).toContain(`Nada de "modalidade", "adicional", "mediante", "disponibilidade"`);
-    expect(prompt).toContain("O pagamento na entrega é O caminho");
-    expect(prompt).toContain("O pagamento antecipado é uma SAÍDA, não uma opção.");
   });
 
   // Negated case: a human tone is not a human claim. The prompt still forbids claiming to
@@ -417,30 +408,30 @@ describe("concordância: a origem do erro sai do prompt e ele manda reler", () =
 });
 
 /**
- * Until 2026-09-24 the tactics block taught `Feche por escolha: "prefere pagar na entrega ou
- * antecipado?"` while the clarity block said "Uma oferta só ... não pergunte qual ela
- * prefere". The operator's decision settles it: cash on delivery is THE path, so the
- * choice-close keeps the choice but never offers the other payment, a fixed day, or a size
- * held for her.
+ * Until 2026-10-06 the prompt said "Uma oferta só ... não pergunte qual ela prefere" and "O
+ * pagamento antecipado é uma SAÍDA, não uma opção" (2026-09-24). The operator reversed it (C1 of
+ * the v2 design): where payment at the door reaches her CEP, she gets both options and chooses.
+ * The choice-close is that question; it still never offers a fixed day or a size held for her.
  */
-describe("fechamento por escolha: uma oferta só vence", () => {
-  const CLOSE = "Posso já seguir com o seu pedido pra pagar na entrega, ou ficou alguma dúvida que eu tiro antes?";
+describe("fechamento por escolha: as duas opções, ela escolhe", () => {
+  const CLOSE = "Qual das duas fica melhor pra você?";
 
-  it.each(corners)("o prompt não ensina mais a escolha entre os dois pagamentos ($name)", ({ config }) => {
+  it.each(corners)("a regra de uma oferta só e a da saída saíram ($name)", ({ config }) => {
     const prompt = flat(build(config));
-    expect(prompt).not.toContain("prefere pagar na entrega ou antecipado");
-    expect(prompt).toContain("nenhuma delas é o pagamento antecipado, um dia marcado ou um tamanho separado");
-    // The rule that won is still there.
-    expect(prompt).toContain("Não ofereça alternativa, não monte comparação, não pergunte qual ela prefere");
+    expect(prompt).not.toContain("Não ofereça alternativa, não monte comparação, não pergunte qual ela prefere");
+    expect(prompt).not.toContain("SAÍDA, não uma opção");
+    expect(prompt).not.toContain("O pagamento na entrega é O caminho");
+    expect(prompt).not.toContain("continua sendo a saída");
+    expect(prompt).toContain("nenhuma delas é um dia marcado ou um tamanho separado");
+    expect(prompt).toContain("apresente as duas opções e deixe ela escolher");
   });
 
-  // The close is a cash-on-delivery sentence, so it runs on that path only, as the other
-  // cash-on-delivery exemplars above do.
   describe.each(corners)("$name", ({ config }) => {
-    it("ensina e aprova o fechamento novo", () => {
+    it("ensina e aprova o fechamento novo nos dois caminhos", () => {
       expect(flat(build(config))).toContain(`"${CLOSE}"`);
-      const verdict = runGates(CLOSE, ctx({ config, paymentPath: "cod" }));
-      expect(verdict.traces.filter((t) => t.verdict === "block")).toEqual([]);
+      for (const paymentPath of BOTH) {
+        expect(runGates(CLOSE, ctx({ config, paymentPath })).traces.filter((t) => t.verdict === "block")).toEqual([]);
+      }
     });
   });
 
@@ -449,6 +440,102 @@ describe("fechamento por escolha: uma oferta só vence", () => {
   it("a variante que separa tamanho é vetada, por isso o exemplo não cita tamanho", () => {
     const verdict = runGates("Posso já reservar o seu M pra pagar na entrega, ou ficou alguma dúvida?", ctx());
     expect(verdict.traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain("unverified_size");
+  });
+});
+
+/**
+ * The payment step (operator, 2026-10-06; design §5). Region known: both options, three
+ * bubbles, each price and window tied to its path. Region without payment at the door: said
+ * kindly, prepaid only. "Sim" without a choice: the delivery, confirmed. Every corner of the
+ * config, at the stage it is said (pre-sale, region answered).
+ */
+describe("pagamento: duas opções onde a entrega chega, o antecipado onde não chega", () => {
+  const blocked = (text: string, over: Parameters<typeof ctx>[0]) =>
+    runGates(text, ctx({ stage: "presale", regionKnown: true, ...over })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  describe.each(corners)("$name", ({ config }) => {
+    const prompt = flat(build(config));
+    const options = twoOptionsMessage(config);
+
+    it("as duas opções: o prompt ensina os três balões e a mensagem inteira passa", () => {
+      expect(options).toHaveLength(3);
+      for (const bubble of options) expect(prompt).toContain(`"${bubble}"`);
+      expect(blocked(options.join("\n\n"), { config, paymentPath: "cod" })).toEqual([]);
+      for (const bubble of options) expect(words(bubble.split(/(?<=[.?!])\s+/).sort((a, b) => words(b) - words(a))[0]!)).toBeLessThanOrEqual(30);
+    });
+
+    it("cada número vem do config e cada prazo fica colado no seu caminho", () => {
+      expect(options[0]).toContain(money(config.prices.codBrl));
+      expect(options[0]).toContain(`chega em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias`);
+      expect(options[0]).not.toContain(money(config.prices.prepayBrl) === money(config.prices.codBrl) ? "\u0000" : money(config.prices.prepayBrl));
+      expect(options[1]).toContain(money(config.prices.prepayBrl));
+      expect(options[1]).toContain(prepayWindowLine(config).replace(/,$/, ""));
+      expect(options[1]).not.toContain(`${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias`);
+    });
+
+    it("sem entrega no CEP: a frase negada passa no antecipado, e nunca promete pagar na porta", () => {
+      const msg = noCodMessage(config);
+      expect(prompt).toContain(`"${msg}"`);
+      // The reason the repository documents (script 02 §7.2), and no other.
+      expect(msg).toContain("Aí na sua região a transportadora ainda não tem pagamento na entrega");
+      // Only the prepaid: no window or price of the delivery, no choice question.
+      expect(msg).not.toContain(`${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias`);
+      expect(msg).not.toContain("duas opções");
+      expect(blocked(msg, { config, paymentPath: "prepay", codUnavailable: true })).toEqual([]);
+    });
+
+    it("\"sim\" sem escolher: fica no pagamento na entrega, confirmando", () => {
+      expect(prompt).toContain(`"${DEFAULT_COD_CONFIRM}"`);
+      expect(blocked(DEFAULT_COD_CONFIRM, { config, paymentPath: "cod" })).toEqual([]);
+    });
+  });
+
+  // Negated sentence, the failure that shaped the wording: script 02 §7.2 says "não faz pagamento
+  // na entrega", and `charge_promise` reads it as the promise. Not loosened here; pinned, so the day
+  // the gate learns the negation this can go back to the script's words.
+  it("\"não faz pagamento na entrega\" é vetado onde a entrega não chega; \"não tem\" passa", () => {
+    const c = variant(false, true);
+    const over = { config: c, paymentPath: "prepay" as const, codUnavailable: true };
+    expect(blocked("Aí na sua região a transportadora ainda não faz pagamento na entrega, mas tem o antecipado.", over)).toContain("charge_promise");
+    expect(blocked("Aí na sua região a transportadora ainda não tem pagamento na entrega, mas tem o antecipado.", over)).toEqual([]);
+  });
+
+  // Operator clarification, 2026-10-06: the "sim" default is the delivery ONLY where it reaches
+  // her; elsewhere "sim" is the prepaid, and the prompt says so next to the no-delivery message.
+  it("o \"sim\" vira entrega só onde a entrega chega; onde não chega, é o antecipado", () => {
+    const prompt = flat(build(variant(false, true)));
+    const cod = prompt.indexOf("**O pagamento na entrega chega no CEP dela:**");
+    const noCod = prompt.indexOf("**Não chega:**");
+    const confirm = prompt.indexOf(DEFAULT_COD_CONFIRM);
+    expect(cod).toBeGreaterThan(-1);
+    expect(confirm).toBeGreaterThan(cod);
+    expect(confirm).toBeLessThan(noCod);
+    expect(prompt).toContain("Só neste caso, se ela responder \"sim\" ou \"pode ser\" sem escolher");
+    expect(prompt).toContain(`Aqui o "sim" é o antecipado: siga pros dados, sem oferecer nem supor pagamento na entrega`);
+    // What she says on that "sim" where delivery does not reach passes; the delivery default is vetoed.
+    for (const { config } of corners) {
+      expect(blocked("Combinado, fica no antecipado então, e agora pra deixar o pedido no seu nome, me passa seu nome completo?", { config, paymentPath: "prepay", codUnavailable: true })).toEqual([]);
+    }
+  });
+
+  // Failure: what the no-delivery branch must never say, and why the prompt says so.
+  it("onde a entrega não chega, pagar na porta e \"não paga nada agora\" são vetados", () => {
+    const c = variant(false, true);
+    expect(blocked("Pagando na entrega você paga só quando receber.", { config: c, paymentPath: "prepay", codUnavailable: true })).toContain("charge_promise");
+    expect(blocked(DEFAULT_COD_CONFIRM, { config: c, paymentPath: "prepay", codUnavailable: true })).toContain("charge_promise");
+  });
+
+  // Edge, and the reason the prepaid half is ONE sentence (design §5.1): its window in a second
+  // sentence names the prepaid without its freight, and the free claim leaks to it.
+  it("o prazo do antecipado numa frase separada vaza o grátis e é vetado", () => {
+    const c = variant(false, true);
+    const split = `${twoOptionsMessage(c)[0]}\n\nNo antecipado você ganha 10% de desconto, R$ 116,91. No antecipado, o prazo varia por região, em média 5 dias úteis.`;
+    expect(blocked(split, { config: c, paymentPath: "cod" })).toContain("shipping_promise");
+  });
+
+  it("sem desconto, as opções não falam de desconto", () => {
+    expect(twoOptionsMessage(variant(false, false)).join(" ")).not.toMatch(/desconto/);
+    expect(noCodMessage(variant(false, false))).not.toMatch(/desconto/);
   });
 });
 
@@ -620,10 +707,25 @@ const teachesAndPasses = (text: string, paths: readonly Path[] = BOTH) => {
 };
 
 describe("tamanho da mensagem: até uns 30 palavras, e mais vira outro balão", () => {
-  it("o padrão é a mensagem de até uns 30 palavras, e o parágrafo a mais é um balão", () => {
+  // Operator, 2026-10-06: up to three bubbles, one subject each, her questions in the order she
+  // asked. A blank line is what `splitBubbles` cuts on (index.ts), so that is what the prompt teaches.
+  it("até três balões, um assunto cada, separados por linha em branco", () => {
     const prompt = own(FULL);
-    expect(prompt).toContain("Por padrão, a mensagem inteira tem até uns 30 palavras.");
-    expect(prompt).toContain("abra outro parágrafo, com uma linha em branco entre eles: cada parágrafo chega nela como um balão separado, e são no máximo três");
+    expect(prompt).toContain("No máximo três balões, separados por uma linha em branco: cada parágrafo chega nela como um balão separado.");
+    expect(prompt).toContain("Cada balão trata de um assunto só e tem até uns 30 palavras");
+    expect(prompt).toContain("primeiro as perguntas dela, na ordem em que ela perguntou, depois o que ela informou, e no fim a sua pergunta");
+  });
+
+  it("o exemplo do operador está no prompt, cada balão com até 30 palavras, e passa nos dois caminhos", () => {
+    const prompt = own(FULL);
+    expect(BURST_EXAMPLE).toHaveLength(3);
+    for (const bubble of BURST_EXAMPLE) {
+      expect(prompt).toContain(`"${bubble}"`);
+      expect(words(bubble)).toBeLessThanOrEqual(30);
+    }
+    for (const { config } of FULL_CORNERS) {
+      for (const p of BOTH) expect({ p, blocked: blockedOn(BURST_EXAMPLE.join("\n\n"), config, p) }).toEqual({ p, blocked: [] });
+    }
   });
 
   // Edge: splitting must never cut a sentence; every bubble stands alone.
@@ -637,6 +739,7 @@ describe("tamanho da mensagem: até uns 30 palavras, e mais vira outro balão", 
     const prompt = own(FULL);
     expect(prompt).not.toContain("duas ou três frases resolvem quase tudo");
     expect(prompt).not.toContain("use o espaço que precisar");
+    expect(prompt).not.toContain("a mensagem inteira tem até uns 30 palavras");
   });
 });
 
@@ -661,15 +764,17 @@ describe("a pergunta da roupa uma vez só, e o bloco de preço uma vez por assun
   });
 });
 
-describe("\"vou pensar\": resposta calorosa, sem link inventado", () => {
+describe("\"vou pensar\": resposta calorosa, sem link", () => {
   const LATER = "Sem problemas, estou aqui se tiver mais alguma dúvida.";
 
   it("ensina a resposta e ela passa a cadeia nos dois caminhos e nos dois fretes", () => {
     teachesAndPasses(`"${LATER}"`.slice(1, -1));
   });
 
-  it("o prompt diz que o link vai junto sozinho e manda não escrever link", () => {
-    expect(own(FULL)).toContain("O link certo do checkout vai junto automaticamente, então não escreva link nenhum.");
+  // C7 (operator, 2026-10-06): no link without her data any more, so "vou pensar" carries none.
+  it("o prompt manda não escrever link, e não promete mais um link automático", () => {
+    expect(own(FULL)).toContain("Não escreva link nenhum: o link só vai com os dados dela.");
+    expect(own(FULL)).not.toContain("vai junto automaticamente");
   });
 
   // Failure: the prompt must not carry a URL she could copy as if it were the checkout.
@@ -745,7 +850,7 @@ describe("tamanho: ela ajuda a achar, aceita centímetros e não troca", () => {
   it("o tamanho do sistema é fato, e ela não troca depois", () => {
     const prompt = own(FULL);
     expect(prompt).toContain("Nunca converta o tamanho por conta própria");
-    expect(prompt).toContain("diga esse tamanho como fato e não troque por outro depois");
+    expect(prompt).toContain("diga esse tamanho como fato, com a faixa de cintura dele, e não troque por outro depois");
   });
 
   // Negated: telling her she need not measure is not a size claim.
@@ -912,10 +1017,10 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
   });
 
   describe("e-mail → pede, e não insiste", () => {
-    it("sem e-mail, não insiste: o link sai e o checkout pede", () => {
-      expect(own(FULL)).toContain(
-        "Se ela não tiver e-mail ou não quiser dar, não insista: o sistema manda o link mesmo assim e o checkout pede o e-mail lá.",
-      );
+    // The Logzz checkout has no e-mail field (operator, 2026-10-06): "o checkout pede lá" was false.
+    it("sem e-mail, não insiste, e não diz que o checkout pede", () => {
+      expect(own(FULL)).toContain("Se ela disser que não tem e-mail, não insista.");
+      expect(own(FULL)).not.toContain("o checkout pede o e-mail lá");
     });
     it("nunca a mesma pergunta com as mesmas palavras", () => {
       expect(own(FULL)).toContain("Nunca repita a mesma pergunta com as mesmas palavras.");
@@ -1018,5 +1123,101 @@ describe("fatos ligados: preço, caminho, peças, prazo e link", () => {
 
   it("o link só vai quando ela confirma a compra — está escrito no prompt", () => {
     expect(flat(build(withKits))).toContain("O link só vai quando ela confirmar que quer comprar.");
+  });
+});
+
+/**
+ * Product and logistics facts the operator confirmed on 2026-10-06. Every quoted one passes the
+ * chain on both paths; the negated ones ("não tem barbatana", "não dá calor", "boleto não tem")
+ * are the cases a text heuristic here has always got wrong.
+ */
+describe("fatos do colete (operador, 2026-10-06)", () => {
+  const FACTS = [
+    "É essencialmente de poliéster e elastano, tem forro de algodão e colchetes que não ficam enrolando enquanto você usa.",
+    "Não dá calor, ele é feito justamente pra respirar no corpo e não te deixar suando.",
+    "O quanto você quiser, ele é preparado pra aguentar o dia inteiro!",
+    "Sim, ele é elástico e não limita seus movimentos!",
+  ];
+
+  it.each(FACTS)("ensina e aprova nos dois caminhos: %s", (text) => teachesAndPasses(`"${text}"`.slice(1, -1)));
+
+  // Negated sentences, said in her words from the facts block.
+  it.each([
+    "Não tem barbatana nenhuma, nem de metal nem de plástico.",
+    "No antecipado o pagamento é no pix ou no cartão, boleto não tem.",
+    "Pode sim, sem problemas, outra pessoa pode receber e pagar no seu lugar.",
+    "Se ninguém estiver em casa, o entregador leva o pedido de volta pro centro de distribuição e a entrega não acontece, então escolhe uma data em que você vai estar em casa.",
+    "No antecipado o envio é pelos Correios ou por transportadora, conforme a região, com código de rastreio.",
+    "Você escolhe a forma que deseja pagar na hora da entrega.",
+  ])("a frase dita a partir do fato passa nos dois caminhos: %s", (text) => {
+    for (const { config } of FULL_CORNERS) {
+      for (const p of BOTH) expect({ p, blocked: blockedOn(text, config, p) }).toEqual({ p, blocked: [] });
+    }
+  });
+
+  it("o bloco diz o que não existe e o que ela não lista", () => {
+    const prompt = own(FULL);
+    expect(prompt).toContain("Barbatana não tem nenhuma, nem de metal nem de plástico.");
+    expect(prompt).toContain("Cor: só preto, por enquanto.");
+    expect(prompt).toContain("boleto não tem");
+    expect(prompt).toContain("não liste formas de pagamento");
+    // The unconfirmed methods are gone from the price line (F14).
+    expect(prompt).not.toContain("em dinheiro ou cartão");
+  });
+
+  it("confiança: só o site e o e-mail do config, e a chave ausente derruba", () => {
+    const withSite = { ...FULL, site: "encorpa-fashion.com.br" };
+    expect(productFacts(withSite).join(" ")).toContain("o site, encorpa-fashion.com.br, e o e-mail contato@encorpa-fashion.com.br");
+    const { support: _, site: __, ...noMail } = FULL as PromptConfig;
+    expect(productFacts(noMail).join(" ")).not.toContain("@");
+    expect(productFacts(noMail).join(" ")).toContain("o nosso site");
+    expect(own(FULL)).toContain("Não cite Instagram, Reclame Aqui nem dado de empresa que não está aqui.");
+  });
+});
+
+/**
+ * C2 and C10 (operator, 2026-10-06): the link goes after size, CEP, name, e-mail and CPF, and the
+ * size is chosen on the checkout page — Logzz and Coinzz both have a selector — not typed in the
+ * address complement.
+ */
+describe("os dados antes do link, e o tamanho escolhido no checkout", () => {
+  const withKits: PromptConfig = { ...FULL, kits: EXAMPLE_KITS };
+
+  it.each(corners)("o \"complemento\" e o link antes dos dados saíram ($name)", ({ config }) => {
+    const prompt = flat(build({ ...config, kits: EXAMPLE_KITS }));
+    expect(prompt).not.toMatch(/complemento/i);
+    expect(prompt).not.toContain("mande o link e NÃO peça nome, e-mail nem CPF antes");
+    expect(prompt).not.toContain("o link primeiro, nunca o CPF primeiro");
+  });
+
+  it("as cinco coisas, a ordem, o CPF recusado duas vezes e o tamanho no checkout", () => {
+    const prompt = own(withKits);
+    expect(prompt).toContain("Antes do link você precisa de cinco coisas: o tamanho, o CEP, o nome completo, o e-mail e o CPF.");
+    expect(prompt).toContain("depois que ela escolher o pagamento, nessa ordem, um por mensagem");
+    expect(prompt).toContain("Se ela recusar o CPF duas vezes, não insista: o link vai sem ele e ela digita o CPF no checkout.");
+    expect(prompt).toContain(`No checkout ela completa o endereço e escolhe o tamanho dela — diga com o tamanho, tipo "lá você escolhe o M".`);
+    expect(prompt).toContain("Você NÃO pede endereço, só o CEP");
+  });
+
+  it("as frases do checkout e do CEP recusado passam nos dois caminhos", () => {
+    for (const text of [
+      "Lá você completa o endereço e escolhe o seu tamanho, o M.",
+      "Entendo, e tudo bem. Então te mando o link sem o CPF, e você digita ele direto no checkout.",
+      "Pra deixar o pedido no seu nome, me passa seu nome completo?",
+    ]) {
+      for (const { config } of FULL_CORNERS) {
+        for (const p of BOTH) expect({ text, p, blocked: blockedOn(text, config, p) }).toEqual({ text, p, blocked: [] });
+      }
+    }
+  });
+});
+
+/** Operator, 2026-10-06: the ad audience is not convinced yet — value and security before the offer. */
+describe("público ainda não convencido: valor e segurança antes da oferta", () => {
+  it("o prompt diz a ordem e o que afasta", () => {
+    const prompt = own(FULL);
+    expect(prompt).toContain("Ela veio do anúncio e AINDA NÃO ESTÁ CONVENCIDA.");
+    expect(prompt).toContain("só depois vêm a oferta, o preço e os dados");
+    expect(prompt).toContain("O CAMINHO DA CONVERSA, que é caminho e não trilho");
   });
 });
