@@ -72,7 +72,8 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     expect(source).toContain("nameKnown: Boolean(identityDraft.name),");
     expect(source).toContain('emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,');
     expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,");
-    expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });");
+    expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
+    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
     expect(source).toContain("thinkLink = linkNow && !(linkInChat");
     // The old exits are gone: wanting to buy, no e-mail, or an ignored ask no longer send it.
     expect(source).not.toContain("readyForLink");
@@ -89,7 +90,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice),");
+    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),");
     expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
     expect(source).toContain("apresente as duas opções, como no PAGAMENTO");
     expect(source).not.toContain("saída boa");
@@ -97,7 +98,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
 
   it("o kit é oferecido depois da escolha, uma vez, e o link do kit é o checkout do kit", () => {
     expect(source).toContain(
-      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;',
+      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;',
     );
     expect(source).toContain("linkNow || linkAlreadySent || kitOfferNow ||");
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");
@@ -582,7 +583,7 @@ describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada fi
     expect(source).toContain("farewell = thinkRepeated;");
     expect(source).toContain("const identityDirective = farewell");
     expect(source).toContain("Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.");
-    expect(source).toContain("!kitOffered && !linkNow && !farewell;");
+    expect(source).toContain("!kitOffered && !linkNow && !farewell && !withdrew;");
     expect(source).toContain("if (farewell) checkoutUrl = null;");
   });
 });

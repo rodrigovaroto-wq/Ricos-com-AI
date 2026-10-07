@@ -2055,6 +2055,46 @@ e-mail dela. Confirmação no contribuidor: Jussara recusou o CPF duas vezes e r
 modelo às vezes junta duas perguntas (caminho e e-mail, Karol) ou reconfirma um nome de duas palavras
 (Cleide) — obediência ao prompt, sem regra quebrada.
 
+## 65. Cinco defeitos do código da v10 (`agent_version` 10), portados para o desenho de main (2026-10-07)
+
+**Sintoma:** (1) link → "chega quando?" → "e se não servir?" → "aceita troca?" → "tá bom": o link saía de
+novo, com os dados, e cada reenvio armava outro `checkout_reminder`. (2) "sim"/"pode ser" às duas opções:
+o prompt manda confirmar a entrega (`DEFAULT_COD_CONFIRM`), a diretiva da região mandava perguntar "qual
+das duas" de novo — contradição e laço. (3) "desisti"/"não quero mais" no turno em que os dados fechavam
+levava o link. (4) Região sem entrega: "ok" à mensagem do antecipado não contava como caminho escolhido, e
+o kit era pulado. (5) Revisão (§61) cuja leitura falhava mandava o rascunho que não leu a rajada; e, sem
+revisão possível, um `deferRetry` que não gravava virava "mande".
+**Causa:** (1) `linkSentRecently` olhava só as 3 últimas mensagens da agente (M-03). (2)
+`regionDirectiveFor` não distinguia "ela concordou sem escolher". (3) Nenhum leitor de desistência no
+caminho do link. (4) `pathChosen` só aceitava o antecipado forçado com `wants_to_buy`. (5) `lateGuard`:
+`if (latest === null && !isRetry) return null;` valia também para a revisão, e `return await deferRetry(…)`
+devolvia `null` ao chamador, que lê `null` como "envie".
+**Caminhos descartados:** ler a conversa inteira em todo turno (uma consulta a mais por turno: só se lê
+quando a janela de 20 não tem link e o link sairia, pelo host do checkout, `limit=1`); reaproveitar
+`RETRACTS` como desistência (lê "depois" e "pensar" — "vou pensar" tem resposta própria com link, e
+"depois de amanhã pode entregar?" seguraria o link); contar "mudei de ideia" sozinho (é também "mudei de
+ideia, quero 2"); gravar "ok" ao antecipado sem olhar a pergunta final da mensagem ("… Qual seu tamanho de
+calça?" seria lido como escolha); um campo novo no lead para o link enviado (a conversa já diz).
+**Correção:** (1) `lastLinkBase`/`linkHeldBack`: o link deste pedido sai de novo só se ela pede
+(`asksForLink`) ou se o pedido mudou (outro caminho ou kit vira o link mais novo); fora da janela, uma
+consulta por `or=(body.like.*host*)` nas mensagens da agente — índice `messages_conversation_idx`
+(conversation_id, created_at) lido de trás para frente, primeira linha encerra; falha da consulta cai na
+janela (envia). (2) `agreesWithoutChoosing` (só com entrega na região e sem escolha guardada): a diretiva
+manda confirmar com `DEFAULT_COD_CONFIRM`, e o "sim" seguinte é gravado pelo tratamento do padrão que já
+existia em `pathChoiceToStore`. (3) `withdrawsInBurst` (a linha mais nova vence; comprar, pedir o link ou
+escolher caminho contam como compra; parte do pedido — "o kit", "duas" — não é desistência): sem link e sem
+oferta do kit. (4) `pathChoiceToStore({ noCod })`: "ok"/"sim"/"pode ser" à mensagem do antecipado, sem
+pergunta de outro assunto no fim, grava `prepay` — o kit é oferecido uma vez, depois os dados. (5)
+`draftMayGo`: leitura que falha manda só no primeiro turno (nunca cala); na revisão, revisa de novo ou vai
+para a varredura; sem nova tentativa gravada, `modelFailure(…, reachable = true)` — resposta de espera e
+e-mail ao operador, sem `handoff_at`.
+**Guarda:** `tests/v10-defects.test.ts` (comportamento e negações dos cinco, fiação lida da fonte);
+mutações `R65-link-reenviado`, `R65-sim-sem-escolha`, `R65-desistencia`, `R65-ok-ao-antecipado`,
+`R65-rascunho-sem-ler` — as cinco pegas.
+**Resíduo:** "mudei de ideia" sozinho não segura o link (o modelo responde); a pergunta final da mensagem
+do antecipado é lida por lista de palavras; o "sim" sem escolha confia no modelo escrever a frase do padrão
+— se ele parafrasear sem "deixo no pagamento na entrega", o "sim" seguinte não grava e a diretiva volta.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

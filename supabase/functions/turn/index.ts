@@ -103,6 +103,7 @@ import {
   retryIsMoot,
   reviseInstruction,
   revisionAllowed,
+  draftMayGo,
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
   thinkReply,
@@ -120,6 +121,10 @@ import {
   interpretRequest,
   linkPathFor,
   linkSentRecently,
+  lastLinkBase,
+  linkHeldBack,
+  withdrawsInBurst,
+  agreesWithoutChoosing,
   namesOwnPrice,
   asksForLink,
   pathChoiceToStore,
@@ -136,7 +141,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { DEFAULT_COD_CONFIRM, linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 
@@ -745,6 +750,7 @@ const sizeDirectiveFor = (
 const regionDirectiveFor = (
   region: Pick<Region, "cod" | "sameDay"> | null,
   choice: "cod" | "prepay" | null,
+  agreedOnly = false,
 ): string | null => {
   if (region === null) return null;
   if (!region.cod) {
@@ -756,7 +762,11 @@ const regionDirectiveFor = (
   return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
   }.` +
-    (choice === null
+    // Grafo §65: "sim" to the two options without choosing is the delivery, confirmed — not the question again.
+    (agreedOnly
+      ? ` Ela disse sim às duas opções sem escolher uma: deixe no pagamento na entrega e confirme com estas palavras:` +
+        ` "${DEFAULT_COD_CONFIRM}" Não apresente as duas opções de novo.`
+      : choice === null
       ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
         ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
       : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
@@ -953,6 +963,8 @@ const CHECKOUT_BASES: string[] = [
   CONFIG.checkout?.prepayUrl,
   ...(CONFIG.kits ?? []).map((k) => k.checkoutUrl),
 ].filter((u): u is string => typeof u === "string" && u !== "");
+/** Their hosts, to find the newest link anywhere in a conversation (grafo §65). */
+const CHECKOUT_HOSTS: string[] = [...new Set(CHECKOUT_BASES.map((u) => URL.parse(u)?.host ?? "").filter((h) => /^[a-z0-9.-]+$/i.test(h)))];
 
 /**
  * Where she stopped decides what the first touch says. `link_sent` only when a checkout
@@ -2460,7 +2472,7 @@ const handleTurn = async (
    * applies: she hears the holding reply, a person is called, and the spend up to the
    * failure is written down instead of lost.
    */
-  const modelFailure = async (error: unknown) => {
+  const modelFailure = async (error: unknown, reason = "falha ao chamar o modelo", reachable = error instanceof ModelConfigError) => {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
@@ -2478,7 +2490,7 @@ const handleTurn = async (
      * failure gets the holding reply and the operator's email, and leaves her reachable:
      * fix the variable and the next message is answered normally.
      */
-    if (!(error instanceof ModelConfigError)) {
+    if (!reachable) {
       await db(`leads?id=eq.${lead.id}`, {
         method: "PATCH",
         body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -2493,12 +2505,12 @@ const handleTurn = async (
       }),
     }).catch(() => null);
     await Promise.all([
-      recordOutcome(conversation.id, "handoff", "falha ao chamar o modelo", 0, spent - spentBefore),
+      recordOutcome(conversation.id, "handoff", reason, 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
     ]);
     return json(200, {
       status: "handoff",
-      reason: "falha ao chamar o modelo",
+      reason,
       // The Gemini key used to ride in the URL query string, and Deno's network error
       // carries the whole URL in `message` — which leaves here in the JSON body and lands
       // in n8n's execution log. Gemini left the turn on 2026-09-23; redacting stays here as
@@ -2585,9 +2597,9 @@ const handleTurn = async (
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
     ).catch(() => null);
-    // A failed read never silences her; the retry keeps its old rule and gives up.
-    if (latest === null && !isRetry) return null;
-    if (inboundId !== null && !retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
+    // A failed read never silences her on a first turn; the retry keeps its old rule and gives up, and a
+    // revision that could not read revises again or goes to the sweep (grafo §65).
+    if (draftMayGo(latest === null, inboundId === null || retryIsMoot(inboundId, latest?.[0] ?? null, null), { isRetry, isRevise })) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
@@ -2611,10 +2623,14 @@ const handleTurn = async (
         { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
       );
     }
-    return await deferRetry(
-      new Error("mensagem nova depois da última revisão possível"),
-      0,
-      "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
+    // Nothing scheduled either (grafo §65): never the draft that did not read her — the holding reply and
+    // the operator's e-mail, and she stays reachable (no `handoff_at`).
+    return (
+      (await deferRetry(
+        new Error("mensagem nova depois da última revisão possível"),
+        0,
+        "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
+      )) ?? (await modelFailure(new Error("rascunho sem ler a rajada"), "rascunho não leu a rajada e a nova tentativa não foi agendada", true))
     );
   };
 
@@ -3076,13 +3092,25 @@ const handleTurn = async (
   // would have no path and the link would wait for good (operator, 2026-10-06).
   // A natural answer to the two options ("a primeira", "o antecipado") is stored too (review of
   // f657faa): the link waits for a settled path, and an unstored choice was asked again next turn.
+  // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
+  // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
+  // (independent review, finding 8).
+  const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
+  // Where delivery reaches her, a bare "sim" to the two options is no choice yet: the model confirms the
+  // delivery (`DEFAULT_COD_CONFIRM`), and her yes to that is stored (grafo §65).
+  const agreedOnly =
+    knownRegion?.cod === true &&
+    storedChoice === null &&
+    agreesWithoutChoosing({ parts, lastOutbound, confirms: parts.some(confirmsAddress) });
+  // Where it does not, her yes to the prepaid offer is the prepaid chosen (grafo §65).
   const choiceToStore = pathChoiceToStore({
     interpreted: interpretation.payment_choice ?? null,
     parts,
     lastOutbound,
     confirms: parts.some(confirmsAddress),
+    noCod: knownRegion?.cod === false,
   });
-  const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;
+  const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
   if (renewChoice) {
@@ -3101,10 +3129,6 @@ const handleTurn = async (
       }),
     }).catch(() => undefined);
   }
-  // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
-  // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
-  // (independent review, finding 8).
-  const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -3140,13 +3164,27 @@ const handleTurn = async (
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
-  // M-03: the link this turn would send, if it went out in the last three messages, is
-  // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
-  // from the delivery checkout to the prepaid one is a different link and still goes out.
+  // M-03, grafo §65: the link this turn would send, if it is the newest link anywhere in the
+  // conversation, goes again only when she asks for it. Only this path's checkout counts (code
+  // review, 2026-09-24): a switch to the prepaid one, or to a kit, is a different link and goes out.
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
-  const linkJustSent =
-    !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
-  const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });
+  const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });
+  // Past the twenty-message window, the newest link is read by the checkout hosts: the outbound rows
+  // that carry one, newest first. Only when the window has none and the link would go; a failed read
+  // falls back to the window, which sends.
+  // Index: messages_conversation_idx (conversation_id, created_at), read backwards; direction and body
+  // are filtered on the conversation's own rows, and the first match stops the scan.
+  const linkHistory: string[] =
+    linkReady && CHECKOUT_HOSTS.length > 0 && lastLinkBase(recentOutbound, CHECKOUT_BASES) === null
+      ? ((
+          await db(
+            `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=body&order=created_at.desc&limit=1`,
+          ).catch(() => null))?.map((m: { body: string | null }) => m.body ?? "") ?? recentOutbound)
+      : recentOutbound;
+  const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, inbound.body ?? "");
+  // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
+  const withdrew = withdrawsInBurst(parts);
+  const linkNow = !linkJustSent && linkReady && !withdrew;
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -3226,7 +3264,7 @@ const handleTurn = async (
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =
-    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;
+    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
   const identityDirective = farewell
@@ -3274,7 +3312,7 @@ const handleTurn = async (
     [
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
-      regionDirectiveFor(knownRegion, paymentChoice),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,

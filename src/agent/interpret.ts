@@ -541,16 +541,48 @@ export const pathChoiceToStore = (d: {
   parts: readonly string[];
   lastOutbound: string;
   confirms: boolean;
+  /** Her region has no payment at the door: a yes to the prepaid offer is the prepaid (grafo §65). */
+  noCod?: boolean;
 }): PaymentChoice | null => {
   const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
   if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))) return d.interpreted;
+  const yes = d.confirms && (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
   const defaultCod =
     d.interpreted !== "prepay" &&
     /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
-    d.confirms &&
-    (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
-  return defaultCod ? "cod" : null;
+    yes;
+  if (defaultCod) return "cod";
+  return d.noCod === true && d.interpreted !== "cod" && yes && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
 };
+
+/**
+ * Whether the agent's message is the prepaid offer of a region without payment at the door
+ * (`noCodMessage`, in her words or the model's), with no question about anything else at the end
+ * (grafo §65): "ok" to "Aí na sua região … tem o antecipado" chooses it; "sim" to "… Qual seu tamanho
+ * de calça?" or "… Ficou alguma dúvida?" answers that question.
+ */
+const offersPrepayOnly = (lastOutbound: string): boolean => {
+  const t = norm(lastOutbound);
+  if (!/\bantecipad/.test(t)) return false;
+  const q = t.lastIndexOf("?");
+  if (q === -1) return true;
+  const ask = t.slice(0, q).split(/[.!?\n]/).pop() ?? "";
+  return (
+    /\b(?:antecipad\w*|pix|pagamento|pagar|pode\s+ser|seguir|seguimos|fechar|fechamos|combinado)\b/.test(ask) &&
+    !/\b(?:tamanho|calca|cintura|cep|nome|e-?mail|cpf|kit|pecas|endereco|duvida)\b/.test(ask)
+  );
+};
+
+/**
+ * She said yes to the two options without choosing one (grafo §65): "sim", "pode ser", "ok" right
+ * after "Qual das duas fica melhor pra você?". The prompt answers that with `DEFAULT_COD_CONFIRM`, and
+ * her yes to it is stored by `pathChoiceToStore`. A choice ("a primeira", "sim, no pix"), a doubt or
+ * another question is no bare yes. `confirms` is `parts.some(confirmsAddress)`, as above.
+ */
+export const agreesWithoutChoosing = (d: { parts: readonly string[]; lastOutbound: string; confirms: boolean }): boolean =>
+  /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound)) &&
+  d.confirms &&
+  !d.parts.some((p) => asksSomething(p) || choosesPath(p) || whichOfTwo(p) !== null || new RegExp(PATH_WORD).test(norm(p)));
 
 /**
  * Whether an opt-out message also asks something (R13.4, Rose): "não me manda mais
@@ -670,6 +702,30 @@ export const decisionInBurst = (messages: readonly string[]): boolean | null => 
 };
 
 /**
+ * She takes the purchase back (grafo §65): "desisti", "não quero mais", "deixa pra lá", "não vou
+ * levar", "desisti do M". Narrower than `RETRACTS`, which also reads "depois" and "pensar" — "vou
+ * pensar" has its own reply, with the link. Giving up a part of the order is no withdrawal ("deixa
+ * pra lá o kit, só uma", "não quero mais o kit"), nor is impatience ("não quero mais esperar"). The
+ * newest line wins: a line that buys, asks for the link or chooses a path ("mudei de ideia, quero o G",
+ * "deixa pra lá, manda o link") counts as buying.
+ */
+const WITHDRAWS =
+  /\b(?:desist\w*|nao\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar))\b/g;
+const PART_OF_ORDER = /^\s*(?:d?[oa]s?\s+|de\s+|n[oa]\s+)?(?:kit|[23]\b|duas|tres|pecas?|outra|segunda|pix|antecipad|entrega|cartao|esperar|pensar)/;
+const withdraws = (line: string): boolean => {
+  const t = norm(line);
+  return [...t.matchAll(WITHDRAWS)].some(
+    (m) => !negatedBefore(t, m.index ?? 0) && !PART_OF_ORDER.test(t.slice((m.index ?? 0) + m[0].length)),
+  );
+};
+export const withdrawsInBurst = (messages: readonly string[]): boolean => {
+  const lines = messages.flatMap((m) => m.split("\n"));
+  const buys = lines.findLastIndex((l) => decidesToBuy(l) || asksForLink(l) || choosesPath(l));
+  const quits = lines.findLastIndex(withdraws);
+  return quits > buys;
+};
+
+/**
  * She names a price the shop does not have (H-2, persona round 2026-09-25, Tati: "faz por
  * 100 que eu levo agora" got the R$ 129,90 link). Read by the number, not by the phrasing:
  * the phrase-based first version (review, 2026-09-25) vetoed "por 116 eu levo" — Tati
@@ -757,6 +813,29 @@ export const linkSentRecently = (
   checkoutBases: readonly string[],
   window = 3,
 ): boolean => recentOutbound.slice(-window).some((m) => checkoutBases.some((base) => base !== "" && m.includes(base)));
+
+/**
+ * The checkout the newest link in these messages opens, or null (grafo §65): the longest base the
+ * newest message with a link carries, so a base that prefixes another is not read as it.
+ */
+export const lastLinkBase = (outbound: readonly string[], checkoutBases: readonly string[]): string | null => {
+  const has = (m: string) => checkoutBases.filter((b) => b !== "" && m.includes(b));
+  const m = outbound.findLast((o) => has(o).length > 0);
+  return m === undefined ? null : has(m).reduce((a, b) => (b.length > a.length ? b : a));
+};
+
+/**
+ * Grafo §65 (supersedes M-03's three-message window for the link the turn would send): once this
+ * order's checkout went out, anywhere in the conversation, it goes again only when she asks for it
+ * (`asksForLink`) or the order changed — another path or kit makes another link the newest one.
+ * Three questions after the link and a "tá bom" sent it again, and each resend armed a reminder.
+ */
+export const linkHeldBack = (
+  outbound: readonly string[],
+  checkoutBases: readonly string[],
+  pathBase: string | undefined,
+  message: string,
+): boolean => pathBase !== undefined && !asksForLink(message) && lastLinkBase(outbound, checkoutBases) === pathBase;
 
 /**
  * She asks for the link herself ("manda o link de novo", "não achei o link") — the M-03
