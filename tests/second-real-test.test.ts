@@ -91,7 +91,7 @@ describe("C3 — CEP com o número errado de dígitos", () => {
   });
 
   it("o turno diz ao modelo que o CEP não foi lido, e nunca 'recebi/anotei'", () => {
-    expect(turn).toContain('malformedCep(spoken(inbound.body ?? ""), /\\bcep\\b/i.test(lastOutbound))');
+    expect(turn).toContain("/\\bcep\\b[^.!?\\n]*\\?/i.test(lastOutbound) && !/\\b(?:cpf|nome)\\b[^.!?\\n]*\\?/i.test(lastOutbound)");
     expect(turn).toContain("Nunca diga que recebeu ou anotou o CEP.");
     expect(turn).toContain("nunca diga que recebeu, anotou ou vai conferir o CEP.");
     expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
@@ -534,5 +534,46 @@ describe("size_claim — o tamanho é da tabela, a medida é dela (personas 2026
   );
   it("sem tamanho conhecido no contexto (kit), não pergunta", () => {
     expect(runGates("Então o seu é o G.", ctx()).traces.some((x) => x.gate === "size_claim" && x.verdict === "block")).toBe(false);
+  });
+});
+
+describe("revisão do §66, M2 — 'quando vai me mandar o link?' é cobrança", () => {
+  it.each(["quando vai me mandar o link?", "vc vai me mandar o link quando?", "você não vai me mandar o link????"])("pede o link: %s", (f) =>
+    expect(asksForLink(f)).toBe(true),
+  );
+  it.each(["vai me mandar o link quando eu pagar?", "se eu escolher pix vai me mandar o link?", "vai me mandar o link amanhã?"])(
+    "condição não é pedido: %s",
+    (f) => expect(asksForLink(f)).toBe(false),
+  );
+});
+
+describe("revisão do §66, B4 — telefone e CPF não são CEP", () => {
+  it.each([
+    ["celular sem DDD numa frase", "pode ligar 99876-5432", true],
+    ["CEP negado", "meu cep não é 004710090", false],
+    ["número de casa", "moro no 1234567", true],
+  ])("não lê como CEP: %s", (_, frase, asked) => expect(malformedCep(frase, asked)).toBeNull());
+  it.each([
+    ["CEP com 9 dígitos ao lado da palavra", "meu cep é 004710090", false, "004710090"],
+    ["CEP com 7 dígitos ao lado da palavra", "cep 0471009", false, "0471009"],
+    ["só o número, depois da pergunta", "0471009", true, "0471009"],
+  ])("lê como CEP errado: %s", (_, frase, asked, cep) => expect(malformedCep(frase, asked)).toBe(cep));
+});
+
+describe("revisão do §66 — desistir não é recusar o dado", () => {
+  const asked = "Para a emissão da nota fiscal, me passa seu CPF por favor?";
+  it.each(["não vou passar pq não confio, deixa pra lá", "não passo não, esquece", "não vou passar, não quero mais"])("desistência: %s", (f) =>
+    expect(refusesAskedDatum(asked, f)).toBe(false),
+  );
+  it("a recusa continua recusa, e a pergunta não é", () => {
+    expect(refusesAskedDatum(asked, "não passo meu cpf")).toBe(true);
+    expect(refusesAskedDatum(asked, "e se eu não passar?")).toBe(false);
+  });
+});
+
+describe("personas 2026-10-07 — sem CEP, nada de 'o checkout confirma'", () => {
+  it("o turno só manda dizer 'o checkout confirma' depois de um CEP que a consulta não respondeu", () => {
+    expect(turn).toContain('diga que pelo CEP dela você vê se chega — nunca "o checkout confirma"');
+    expect(turn.indexOf("addressDraft.cep\n            ? `diga que o checkout confirma")).toBeGreaterThan(0);
   });
 });

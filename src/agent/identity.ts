@@ -229,7 +229,7 @@ export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean
     !t.endsWith("?") &&
     new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(t) &&
     // "não passo, vou pensar" is still putting it off (review of the §66 fixes).
-    !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto)\b/.test(t)
+    !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto|deixa\s+(?:pra|para)\s+la|esquece|nao\s+quero\s+mais)\b/.test(t)
   );
 };
 

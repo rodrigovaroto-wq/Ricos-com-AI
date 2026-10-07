@@ -85,8 +85,15 @@ export const parseCep = (text: string): string | null => {
  * the word "CEP" or as the answer to the agent asking for it: nine digits alone are as much a phone.
  */
 export const malformedCep = (text: string, askedCep = false): string | null => {
-  if (parseCep(text) || !(askedCep || /\bcep\b/i.test(text))) return null;
-  const m = text.replace(/(\d)[.\-\s](?=\d)/g, "$1").match(/(?<!\d)(\d{7}|\d{9})(?!\d)/);
+  if (parseCep(text)) return null;
+  const digits = text.replace(/(\d)[.\-\s](?=\d)/g, "$1");
+  // Beside the word, not denied ("meu cep não é 004710090"); after the question, only as the whole
+  // message — "moro no 1234567" or a phone in a sentence is no CEP (review of §66, B4).
+  const m = /\bcep\b/i.test(digits)
+    ? digits.match(/\bcep\b(?![^\d]*\bn[aã]o\b)[^\d]{0,20}(?<!\d)(\d{7}|\d{9})(?!\d)/i)
+    : askedCep
+      ? digits.match(/^\s*(\d{7}|\d{9})\s*[.!]*\s*$/)
+      : null;
   return m ? m[1]! : null;
 };
 

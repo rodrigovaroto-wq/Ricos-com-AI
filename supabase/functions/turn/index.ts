@@ -3004,7 +3004,10 @@ const handleTurn = async (
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
-  const wrongCep = addressDraft.cep ? null : malformedCep(spoken(inbound.body ?? ""), /\bcep\b/i.test(lastOutbound));
+  const wrongCep = addressDraft.cep ? null : malformedCep(
+    spoken(inbound.body ?? ""),
+    /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
+  );
   const cepState = addressDraft.cep
     ? null
     : wrongCep
@@ -3337,8 +3340,11 @@ const handleTurn = async (
     region === null
       ? `A entrega na região dela ainda não foi confirmada${
           addressDraft.cep ? " (a consulta do CEP não respondeu)" : ""
-        }: nunca diga que chega ou que atende a cidade ou o CEP dela. Se ela perguntar, diga que` +
-        ` o checkout confirma quando ela digitar o CEP.`
+        }: nunca diga que chega ou que atende a cidade ou o CEP dela. Se ela perguntar, ${
+          addressDraft.cep
+            ? `diga que o checkout confirma quando ela digitar o CEP.`
+            : `diga que pelo CEP dela você vê se chega — nunca "o checkout confirma" (personas 2026-10-07).`
+        }`
       : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,

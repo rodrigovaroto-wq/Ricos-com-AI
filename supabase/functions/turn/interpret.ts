@@ -860,7 +860,8 @@ export const asksForLink = (message: string): boolean => {
   if (
     /\b(?:nao\s+)?vai\s+(?:me\s+)?(?:mandar|enviar|passar)\s+(?:o\s+)?(?:link|checkout)\b[^?]*\?/.test(t) &&
     // A condition is no request for now ("se eu escolher pix vai me mandar o link?", "… amanhã?").
-    !/\b(?:se|quando|depois|amanha|mais\s+tarde)\b/.test(t)
+    // "Quando vai me mandar o link?" is the cobrança itself (review of §66, M2); "quando eu pagar" is a condition.
+    !/\bse\b|\b(?:quando|depois)\s+(?:eu|ela|voce|vc|tiver|der|puder|chegar|pagar|escolher)\b|\b(?:amanha|mais\s+tarde)\b/.test(t)
   )
     return true;
   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
