@@ -194,9 +194,9 @@ describe("o briefing que vai no prompt", () => {
  */
 describe("recepção automática do Estágio 0", () => {
   it("é exatamente o texto aprovado, com as quebras de linha aprovadas", () => {
+    // Sem o "Oii, tudo bem?" desde 2026-10-07 (operador, grafo §66): a saudação é da Malu.
     expect(WELCOME_AUTO_REPLY).toBe(
-      "Oii, tudo bem?\n\n" +
-        "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
+      "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
         "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
         "encorpa-fashion.com.br",
     );

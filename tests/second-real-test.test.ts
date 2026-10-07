@@ -11,6 +11,7 @@ import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } f
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
+import { unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -307,5 +308,15 @@ describe("revisão dos consertos do §66 — os furos que o Opus achou", () => {
 
   it.each(["vai me mandar o link amanhã?", "se eu escolher pix vai me mandar o link?"])("C6: condição não é pedido de link: %s", (frase) => {
     expect(asksForLink(frase)).toBe(false);
+  });
+});
+
+describe("T1 — a recepção sem o 'Oii, tudo bem?'", () => {
+  it("a recepção nova e a antiga fecham a rajada do mesmo jeito: nenhuma das duas é resposta", () => {
+    const novo = [{ direction: "inbound", body: "quanto custa?" }, { direction: "outbound", body: WELCOME_AUTO_REPLY }, { direction: "inbound", body: "oi" }];
+    const antigo = [{ direction: "inbound", body: "quanto custa?" }, { direction: "outbound", body: `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}` }, { direction: "inbound", body: "oi" }];
+    expect(WELCOME_AUTO_REPLY.startsWith("Oii")).toBe(false);
+    expect(unansweredInbound(novo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
+    expect(unansweredInbound(antigo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
   });
 });

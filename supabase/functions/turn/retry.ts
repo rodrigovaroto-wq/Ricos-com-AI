@@ -330,7 +330,8 @@ export const networkRetryDelay = (
  * so the hours gate does not apply (R4.4). Approved by the operator on 2026-09-21,
  * spacing included — the paragraph breaks are the approved text, not formatting. The
  * second line changed on 2026-09-24 (R13.5): "fará seu atendimento" became "esclarecerá
- * todas as suas dúvidas".
+ * todas as suas dúvidas". On 2026-10-07 the opening "Oii, tudo bem?" left it (operator, grafo §66):
+ * the greeting is Malu's, in her first real reply.
  *
  * It answers nothing about her message; it exists to be honest that a person has not
  * replied yet, in a channel where silence reads as ignored. Sent once per lead, never
@@ -338,7 +339,6 @@ export const networkRetryDelay = (
  * again on her second message.
  */
 export const WELCOME_AUTO_REPLY =
-  "Oii, tudo bem?\n\n" +
   "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
   "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
   "encorpa-fashion.com.br";
@@ -399,7 +399,8 @@ export const unansweredInbound = <M extends { direction: string; body?: string |
   const run: M[] = [];
   for (const m of newestFirst) {
     if (m.direction === "inbound") run.unshift(m);
-    else if (m.body !== WELCOME_AUTO_REPLY) break;
+    // The receipt sent before 2026-10-07 opened with "Oii, tudo bem?" — still the receipt.
+    else if (m.body !== WELCOME_AUTO_REPLY && m.body !== `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}`) break;
   }
   return run;
 };
