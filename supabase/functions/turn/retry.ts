@@ -393,7 +393,7 @@ export const isReceipt = (body: string): boolean =>
 export const onlyGreets = (parts: readonly string[]): boolean =>
   parts.length > 0 &&
   parts.every((p) =>
-    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|[\p{Extended_Pictographic}‍️]+)\s*)+$/iu.test(p.trim()),
+    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|(?:\p{Extended_Pictographic}|‍|️)+)\s*)+$/iu.test(p.trim()),
   );
 
 /**
