@@ -143,6 +143,11 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
     ["desisti, quero meu dinheiro"],
     ["não quero mais pagar nada"],
     ["desisti de pagar isso tudo"],
+    // resíduos da terceira revisão: "pode mandar" negado e "nem quero mais"
+    ["pode mandar não, desisti"],
+    ["não pode mandar, desisti"],
+    ["não vou comprar, pode mandar não"],
+    ["nem quero mais"],
   ])("desistiu (revisão): %s", (...burst) => expect(withdrawsInBurst(burst)).toBe(true));
 
   it("fiação: o link e a oferta do kit esperam", () => {

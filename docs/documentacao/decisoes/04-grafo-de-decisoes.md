@@ -2110,6 +2110,34 @@ sem vírgula; compra é `asksForLink` ou "pode mandar"; "pagar" só isenta "paga
 **Resíduo da revisão:** "deixa pra lá" sozinho, respondendo ao pedido do CPF, ainda conta como
 desistência (sem link; o modelo responde); "quero fechar" dias depois, sem pedir o link, não reenvia —
 o modelo é avisado de que ela já o tem.
+**Terceira revisão: APPROVED WITH RESIDUALS** (código de `24e9268`, no ar como `agent_version` 11, `turn`
+v82, 2026-10-07 13:37 UTC; `verificar:guardas` 370/370). Dois resíduos de uma linha consertados depois,
+a pedido do operador (**ainda não publicados**): "pode mandar" negado ("pode mandar não, desisti", "não pode
+mandar, desisti") não conta como compra; "nem quero mais" é desistência. Mutações `R65-pode-mandar-negado`
+e `R65-nem-quero-mais`.
+
+
+## 66. Segundo teste real ("Leila 2"): compradora com todos os dados não recebe o link e é descadastrada (2026-10-07) — ABERTO
+
+**Sintoma:** conversa `816795ca-…` (v10 → v11 no meio). Ela escolheu tamanho, pagamento, deu nome e CPF,
+pediu o link cinco vezes; a Malu respondeu quatro vezes "estou deixando seu link prontinho, já te mando" e
+nunca mandou. "pare de me mandar confirmações, apenas me mande o link do checkout" → `opted_out`, conversa
+bloqueada. Auditoria completa: [`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](../../agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md).
+**Causa (reproduzida com `tsx` contra as funções exportadas):**
+(1) `classifyOptOut` — "pare de me mandar …" é `explicit` sem olhar o objeto nem o pedido de link na mesma
+frase. (2) `parseCep` — "004710090" (9 dígitos) → `null`; o turno não diz ao modelo que o CEP não foi lido,
+e ele escreve "Recebi seu CEP"/"Anotei". (3) A diretiva do CEP só existe com `linkDue`; nome, e-mail e CPF
+foram pedidos com o CEP faltando, e às 10:33 ela ouviu "tá tudo pronto". (4) Nenhum gate veta promessa
+futura de link/conferência num turno sem link nem handoff. (5) Recusa do e-mail ("nao vou passar não,
+valeu") → `wants_to_think` → resposta fixa do adiamento, com "restam 12 unidades" (`scarcity.allowUnverified`,
+operador 2026-09-08). (6) `asksForLink` não lê "checkout" nem a cobrança em pergunta. (7) `choosesPath("o na
+entrega acho")` → `false`, `payment_choice` nulo. (8) `identity.name` ficou "Leila", não o nome completo.
+**Caminhos descartados (ainda não tentados, só pesados):** adivinhar o zero a mais do CEP (pode virar o CEP
+de outra pessoa; perguntar custa uma mensagem); afrouxar o opt-out por lista de proibição de palavras de
+compra (o §26 mostrou que só lista de permissão do objeto fecha).
+**Correção:** pendente — ordem e desenho na auditoria (opt-out → CEP + diretiva + gate de promessa →
+recusa ≠ adiamento → `asksForLink` → `choosesPath` → nome).
+**Guarda:** pendente — cada conserto com a frase literal desta conversa como teste e uma mutação.
 
 ## Lições (valem para qualquer correção futura)
 

@@ -55,10 +55,21 @@ Revisão Opus em três rodadas (NEEDS WORK ×2 → APPROVED WITH RESIDUALS). Val
 6758, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxado, `typecheck:function` limpo, `dev:regua` 20 000,
 `verificar:guardas` 370/370.
 
+**⚠️ Segundo teste real do operador (07/10, 10:01–10:49, v10 → v11): a compradora deu todos os dados,
+pediu o link 5× e não recebeu; no fim foi descadastrada** por "pare de me mandar confirmações, apenas me
+mande o link do checkout". Auditoria completa, com 8 causas reproduzidas no código e a ordem de conserto:
+[`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md)
+(grafo §66, ABERTO). Em uma linha: opt-out falso; CEP "004710090" (9 dígitos) nunca lido e a Malu dizendo
+"anotei"; CEP só pedido quando ela já quer fechar; promessa "já te mando o link" sem gate; recusa do e-mail
+lida como "vou pensar" (com "restam 12 unidades" — número sem contagem, reavaliar); `asksForLink` não lê
+"checkout"; "o na entrega acho" não gravado; nome completo não gravado. O lead final 5983 ficou
+**bloqueado** — apagar antes do próximo teste.
+
+**Na branch, ainda não publicado:** os dois resíduos de uma linha da revisão — "pode mandar não, desisti"
+já não conta como compra; "nem quero mais" é desistência (mutações `R65-pode-mandar-negado`,
+`R65-nem-quero-mais`). Publicar junto com os consertos do §66.
+
 **Resíduos conhecidos (candidatos ao próximo conserto, com a frase que quebra):**
-- "pode mandar não, desisti" / "não pode mandar, desisti" contam como compra (falta `negatedBefore` e
-  `(?!\s+nao\b)` no "pode mandar" de `withdrawsInBurst`) — link sai.
-- "nem quero mais" não é desistência (`WITHDRAWS` só tem "nao quero mais").
 - "deixa pra lá" sozinho respondendo ao pedido do CPF conta como desistência (sem link; o modelo responde).
 - "quero fechar" dias depois, sem pedir o link, não reenvia (o modelo é avisado de que ela já o tem).
 - O "sim" seco às duas opções depende do modelo escrever a frase do padrão (`DEFAULT_COD_CONFIRM`).
@@ -72,8 +83,9 @@ caminho do achado ao deploy. Modelo de relatório:
 O lead de teste do operador (final 5983) foi apagado a pedido dele em 07/10, para testar do zero.
 
 **Falta, nesta ordem:**
-1. Auditar as 3 conversas reais que o operador enviar; cada defeito → teste de comportamento →
-   conserto → revisão Opus → grafo → publicar com o "pode publicar" dele.
+1. Consertar o §66 na ordem da auditoria (opt-out falso primeiro); cada defeito → teste com a frase
+   literal → conserto no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar".
+   Depois, auditar as 3 conversas reais dos amigos do operador pelo mesmo roteiro.
 2. **O** mergear o PR desta branch.
 3. Depois: devolução guiada (a Malu ensina a cliente a pedir a devolução), portal (n8n com o token
    `ads_read` do sócio), templates na Meta (`encorpa_vespera_entrega_pago` teve o texto trocado).

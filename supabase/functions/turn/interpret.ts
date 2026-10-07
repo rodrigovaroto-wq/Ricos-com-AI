@@ -714,7 +714,7 @@ export const decisionInBurst = (messages: readonly string[]): boolean | null => 
  * desistir"). Reviews of 58ba217 and e796416.
  */
 const WITHDRAWS =
-  /\b(?:desist\w*|nao\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar))\b/g;
+  /\b(?:desist\w*|(?:nao|nem)\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar))\b/g;
 const PART_OF_ORDER =
   /^\s*(?:d?[oa]s?\s+|de\s+|n[oa]\s+)?(?:kit|[23]\b|duas|tres|pecas?|outra|segunda|pix|antecipad|entrega|cartao|esperar|pensar|e-?mail|cpf|nome|tamanho|frete|pagar\s+(?:o\s+)?frete)/;
 const SIZE_SWAP = /\b(?:manda|quero|prefiro|fico\s+com|troca\w*)\s+(?:[oa]\s+)?(?:pp|p|m|g|gg|xgg)\b/;
@@ -728,7 +728,7 @@ const withdraws = (line: string): boolean => {
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
   const lines = messages.flatMap((m) => m.split("\n"));
   const buys = lines.findLastIndex(
-    (l) => decidesToBuy(l) || asksForLink(l) || /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(norm(l)) || choosesPath(l),
+    (l) => decidesToBuy(l) || asksForLink(l) || /(?<!\bnao\s+)\bpode\s+(?:me\s+)?(?:mandar|enviar)\b(?!\s+nao\b)/.test(norm(l)) || choosesPath(l),
   );
   const quits = lines.findLastIndex(withdraws);
   return quits > buys;
