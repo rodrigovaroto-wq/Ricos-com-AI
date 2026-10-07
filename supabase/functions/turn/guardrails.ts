@@ -2980,6 +2980,20 @@ const gates: readonly Gate[] = [
     },
   },
   {
+    /**
+     * "Anotei seu CEP", "já deixei anotado aqui", "anotei o CPF pra nota fiscal": five times in the second
+     * real test (grafo §66), once about a CEP the system never read. She sent it and got an answer — she
+     * knows. The words, not a reading of intent: no sentence Malu needs uses them.
+     */
+    name: "noted_claim",
+    remedy: "rewrite",
+    briefing: () => `Não diga que anotou, registrou ou deixou anotado um dado dela: siga a conversa.`,
+    check: (text) =>
+      /\b(?:anotei|anotad[oa]s?|anotand\w*|registrei|registrad[oa]s?|deixei\s+(?:tudo\s+)?(?:anotad|registrad)\w*)\b/.test(norm(text))
+        ? "says it noted down what she sent"
+        : null,
+  },
+  {
     name: "identical_template",
     remedy: "rewrite",
     briefing: () =>

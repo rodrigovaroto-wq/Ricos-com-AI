@@ -163,7 +163,7 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
 describe("o briefing que vai no prompt", () => {
   it("todo gate de reescrita tem uma linha, e nenhuma vem vazia", () => {
     const linhas = gateBriefing(config);
-    expect(linhas.length).toBe(20);
+    expect(linhas.length).toBe(21);
     for (const linha of linhas) expect(linha.trim().length).toBeGreaterThan(20);
   });
 

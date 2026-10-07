@@ -10,12 +10,13 @@ const warned = (result: ReturnType<typeof runGates>) =>
   result.traces.filter((t) => t.verdict === "warn").map((t) => t.gate);
 
 describe("a cadeia inteira", () => {
-  it("tem os vinte e três gates", () => {
+  it("tem os vinte e quatro gates", () => {
     // O vigésimo, `coverage_claim`, entrou na rodada 3 das personas (2026-09-24); o vigésimo
     // primeiro, `order_action_claim`, na rodada de 2026-10-05 (Lu: "já deixo cancelado"); o
     // vigésimo segundo, `internal_note`, na rodada de 2026-10-07 (Jussara: "Need ask CEP."); o
-    // vigésimo terceiro, `pending_promise`, no segundo teste real (grafo §66: "já te mando o link" 4×).
-    expect(gateNames).toHaveLength(23);
+    // vigésimo terceiro, `pending_promise`, e o vigésimo quarto, `noted_claim`, no segundo teste real
+    // (grafo §66: "já te mando o link" 4×, "anotei" 5×).
+    expect(gateNames).toHaveLength(24);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -28,7 +29,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(23);
+    expect(result.traces).toHaveLength(24);
   });
 });
 

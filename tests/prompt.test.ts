@@ -372,8 +372,8 @@ describe("ritmo: vendedora brasileira no WhatsApp, não frase telegráfica", () 
 
 describe("concordância: a origem do erro sai do prompt e ele manda reler", () => {
   const QUESTIONS = [
-    "Tem alguma roupa que você adora e deixou de usar? Me conta qual é.",
-    "Qual roupa você anda deixando no armário?",
+    // Os ganchos na dor dela (operador, 2026-10-07, grafo §66).
+    "Não marca, o tecido é liso e fininho. Mas me diz, tem alguma roupa que você ama e não tem usado por conta do corpo?",
   ];
 
   it.each(corners)("o prompt manda reler concordância e pronome antes de mandar ($name)", ({ config }) => {
@@ -641,8 +641,19 @@ describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
     const prompt = flat(build(variant(false, true)));
     expect(prompt).toContain("A pergunta sobre a roupa ou a história dela é feita no máximo uma vez na conversa inteira");
     expect(prompt).toContain("Quando ela disser que quer, a sua pergunta leva ao pedido");
-    // Still one question per message, which the tactic above already said.
-    expect(prompt).toContain("Uma pergunta por mensagem, e nunca a mesma pergunta duas vezes com as mesmas palavras.");
+    // Grafo §66: o gancho nasce do que ela disse, nunca a mesma frase pronta, uma pergunta por mensagem.
+    expect(prompt).toContain("nunca a mesma frase pronta pra toda cliente");
+    expect(prompt).toContain("Uma pergunta por mensagem.");
+  });
+
+  it("sem enrolação e sem opinar sobre a roupa (grafo §66)", () => {
+    const prompt = flat(build(variant(false, true)));
+    expect(prompt).toContain("Não diga que anotou, registrou ou recebeu um dado");
+    expect(prompt).toContain("não pergunte se pode mandar o link");
+    expect(prompt).toContain("Você não viu a roupa: nunca diga que ela é linda, maravilhosa");
+    expect(prompt).toContain("A roupa dela aparece no máximo duas vezes na conversa inteira.");
+    expect(prompt).toContain("Não modela quadril nem bumbum");
+    expect(prompt).toContain("um vídeo de uma cliente usando o colete");
   });
 });
 
@@ -843,9 +854,9 @@ describe("pessoa do time: só o código decide o handoff", () => {
 });
 
 describe("tamanho: ela ajuda a achar, aceita centímetros e não troca", () => {
-  it("pergunta pela calça confortável e pela preferência de caimento", () => {
+  it("pergunta só pela calça confortável — soltinha ou justinha não muda o tamanho (grafo §66)", () => {
     const prompt = own(FULL);
-    expect(prompt).toContain("que tamanho de calça ela veste e fica confortável, e se gosta da roupa mais soltinha ou mais justinha");
+    expect(prompt).toContain("que tamanho de calça ela veste e fica confortável. Não pergunte se ela gosta mais soltinha");
   });
 
   // The failure of round 1 (Marcinha): the prompt said "não peça medida em centímetros" and
@@ -987,7 +998,7 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
   describe("parcelamento → só no antecipado, sem \"sem juros\"", () => {
     const PARCELA = "No pagamento na entrega não tem parcelamento, mas no antecipado pelo cartão dá pra parcelar em até 12x.";
     it("configurado, diz até quantas vezes no antecipado", () => {
-      expect(own(FULL)).toContain("No antecipado pelo cartão ela pode parcelar em até 12x.");
+      expect(own(FULL)).toContain("No antecipado pelo cartão ela pode parcelar em até 12x — diga sempre \"no antecipado\"");
     });
     it("ausente, não cita parcela no antecipado", () => {
       const { prepayMaxInstallments: _, ...prices } = FULL.prices;

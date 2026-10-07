@@ -3245,6 +3245,14 @@ const MUTATIONS: Mutation[] = [
     to: "  if (false) {",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-anotei",
+    bug: "'anotei seu CEP', 'já deixei anotado aqui' saíam a cada dado que ela mandava",
+    files: ["src/agent/guardrails.ts"],
+    from: '        ? "says it noted down what she sent"',
+    to: "        ? null",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

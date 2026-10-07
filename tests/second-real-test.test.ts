@@ -407,3 +407,18 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
   });
 });
+
+describe("T6 — noted_claim: sem 'anotei'", () => {
+  const blocks = (t: string) => runGates(t, ctx()).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+  it.each([
+    "Obrigada, Leila da Silva, já deixei anotado aqui.",
+    "Obrigada, anotei o CPF pra nota fiscal, como a legislação pede.",
+    "Anotei, 004710090, obrigada por mandar de novo.",
+    "Anotei seu CEP, obrigada, e o seu tamanho segue o G.",
+    "Perfeito, Leila, tá tudo anotado pra 1 peça no M.",
+  ])("veta: %s", (frase) => expect(blocks(frase)).toContain("noted_claim"));
+  it.each(["Me passa seu CEP?", "Com 40 de calça o seu é o M.", "Para a emissão da nota fiscal, me passa seu CPF por favor?"])(
+    "não veta: %s",
+    (frase) => expect(blocks(frase)).not.toContain("noted_claim"),
+  );
+});
