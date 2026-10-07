@@ -90,7 +90,8 @@ const transcribe = async (mediaId: string): Promise<string | null> => {
     const auth = { Authorization: `Bearer ${TOKEN}` };
     const media = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(mediaId)}`, { headers: auth, signal: AbortSignal.timeout(10_000) });
     const url = media.ok ? String(((await media.json()) as { url?: unknown }).url ?? "") : "";
-    if (!url.startsWith("https://")) return null;
+    // The token only ever goes to Meta's own hosts (the media lives on lookaside.fbsbx.com).
+    if (!/^https:\/\/(?:[a-z0-9-]+\.)*(?:fbsbx\.com|facebook\.com|whatsapp\.net)\//i.test(url)) return null;
     const file = await fetch(url, { headers: auth, signal: AbortSignal.timeout(20_000) });
     const bytes = file.ok ? new Uint8Array(await file.arrayBuffer()) : null;
     if (!bytes || bytes.length === 0 || bytes.length > MAX_AUDIO_BYTES) return null;

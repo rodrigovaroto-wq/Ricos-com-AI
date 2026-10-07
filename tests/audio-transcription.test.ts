@@ -63,6 +63,9 @@ describe("o áudio dela vira texto", () => {
     expect(fn).toContain("const message = heard ? { ...parsed, body: heard } : parsed;");
     expect(fn.indexOf("const heard =")).toBeLessThan(fn.indexOf("await sealInbound(SIGNING_SECRET, message)"));
     expect(fn).toContain('purpose: "transcribe"');
+    // O token do WhatsApp só vai para os domínios da Meta.
+    const host = /\/\^https:\\\/\\\/(.+?)\/i\.test\(url\)/.exec(fn)?.[0] ?? "";
+    expect(host).toContain("fbsbx");
   });
 
   it("o prompt ensina a ler a transcrição e confirmar o que parecer estranho", () => {
