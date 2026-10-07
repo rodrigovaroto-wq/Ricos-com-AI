@@ -2035,15 +2035,43 @@ guardado; `secondLook` em cada estado; `buyerAsk` com "quero saber". Fiação li
 do arquivo e em `tests/burst.test.ts`/`tests/function-drift.test.ts`. `pnpm dev:gates --base=HEAD`:
 0 afrouxados, 4 endurecidos (as quatro mentiras); a linha de `tests/gate-loosen-accepted.txt` que
 era um título de teste saiu (o título foi reescrito sem a frase).
+**Re-revisão de 35d70c0 (6 de 8 corrigidos; NEEDS WORK):** (1) "a do pix", "a da entrega", "a
+primeira mesmo", "Primeira, por favor", "opção 1", "1" às duas opções e "Pagando no pix você ganha
+10% de desconto. Prefere assim?" + "sim" seguiam nulos; (1b) no "sim" às duas opções o prompt
+mandava confirmar a entrega e a diretiva da região mandava perguntar qual das duas — laço; (2)
+"deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link" liam
+desistência e seguravam o link pedido; (3) sem pagamento na entrega, qualquer "sim" gravava o
+antecipado ("…Qual seu tamanho de calça?" + "sim"), e esse antecipado forçado travava a entrega
+num CEP novo que a tem; (4) "Agora só falta o CPF, pra nota fiscal. Consegue?" + "não" contava 0;
+(5) a leitura do último link olhava 10 saídas com qualquer URL. **Correção:** `pathAnswer` lê
+ordinais ("primeira", "opção 1", "1", com "mesmo"/"por favor") e o caminho nomeado ("a do pix", "a
+da entrega") quando a mensagem ofereceu os dois, e uma pergunta curta ("Prefere assim?", "Pode
+ser?") lê a frase de antes; sem entrega, só o "sim" à mensagem do antecipado sem pergunta, ou a uma
+pergunta sobre ele. `assentsToBoth` → `regionDirectiveFor(..., agreedToBoth)` manda confirmar com
+`DEFAULT_COD_CONFIRM`, só no ramo em que a entrega chega, e o "sim" a ela grava a entrega.
+`withdrawsInBurst` lê o resto da linha: compra, pedido do link, kit, tamanho ou quantidade desfazem
+a desistência. `storedChoiceHolds`: antecipado gravado quando a região não tinha entrega não vale
+quando a consulta nova acha entrega, e é apagado (índice `leads_pkey`). `refusedAsks` aceita
+"consegue/pode/pode ser/tudo bem" depois da frase do dado. O último link é lido por host do
+checkout (`checkoutHosts`: Logzz e Coinzz, um `like *host*` cada, `limit 3`, índice
+`messages_conversation_idx`), não por qualquer URL. **Guarda:** comportamento em
+`tests/link-after-data.test.ts` (cada resposta, as negações — "12", pergunta, "Pode ser?" sem
+caminho, os dois caminhos na frase, "1" à pergunta da calça —, a confirmação, desistências de um
+pedaço, "sim" a outra pergunta sem entrega, `storedChoiceHolds` em cada combinação, "Consegue?");
+sete mutações em `src/dev/verify-guards.ts` (`G63-escolha-nao-gravada`, `G63-pergunta-curta`,
+`G63-link-reenviado`, `G63-desistencia-falsa`, `G63-rascunho-sem-leitura`, `G63-recusa-falsa`,
+`G63-toque-no-meio`), cada uma pega pela guarda numa simulação local (rodam de verdade depois do
+commit).
 **Resíduo:** `pathAnswer` lê só a última saída — um toque ("Ainda está aí?") entre as opções e o
 "a primeira" faz a resposta não ser lida (o intérprete ainda pode ler a escolha explícita);
-o "sim" às duas opções segue para a confirmação, e a diretiva da região ainda manda "pergunte qual
-das duas" no mesmo turno em que o prompt manda confirmar a entrega; `refusedAsks` do CPF lê só as
-20 últimas mensagens — duas recusas separadas por mais de 20 mensagens pedem o CPF uma terceira vez
-(depois do primeiro link isso não importa mais: o checkout pede); `emailRefused` gravado vale para
-o lead, também numa conversa nova; a leitura do último link olha as 10 últimas saídas com URL —
-mais de 10 mensagens com o endereço do site depois do link faria o link parecer não enviado;
-`withdrawsInBurst` e `pathAnswer` são listas de palavras; nada medido contra o modelo ainda.
+uma escolha explícita do antecipado feita numa região sem entrega também é reaberta num CEP novo
+com entrega (o código não distingue a forçada da escolhida — ela escolhe de novo);
+`refusedAsks` do CPF lê só as 20 últimas mensagens — duas recusas separadas por mais de 20
+mensagens pedem o CPF uma terceira vez (depois do primeiro link isso não importa mais: o checkout
+pede); `emailRefused` gravado vale para o lead, também numa conversa nova; a leitura do último
+link pega as 3 mais novas por host; `withdrawsInBurst` e `pathAnswer` são listas de palavras
+("deixa pra lá" com uma letra solta de tamanho depois cancela a desistência); nada medido contra o
+modelo ainda.
 
 ## Lições (valem para qualquer correção futura)
 

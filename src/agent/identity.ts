@@ -224,7 +224,7 @@ export const refusedAsks = (
         q.trim().endsWith("?") &&
         (word.test(q) ||
           (!/\b(?:e-?mail|cpf|nome|cep|tamanho|cal[cç]a|endere[cç]o)\b/i.test(q) &&
-            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar)\b/i.test(q) &&
+            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar|consegue|conseguiria|pode|pode\s+ser|tudo\s+bem)\b/i.test(q) &&
             word.test(sentences[i - 1] ?? ""))),
     );
   };

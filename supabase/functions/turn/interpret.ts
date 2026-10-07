@@ -429,50 +429,106 @@ export const choosesPath = (message: string): boolean => {
  * region has no cash on delivery, the delivery one otherwise.
  */
 /**
- * Her answer read against the agent's last message (review of f657faa): the choice that answers
- * the payment question is hers even when no path word is in it — "a primeira", "a segunda opção"
- * (in the order that message named the paths, not a fixed sentence), "pagar quando receber", or a
- * yes to a question that offers one path ("Fica no pagamento na entrega, pode ser?"). Where her
- * region has no payment at the door, a yes to the message about the prepaid path is the prepaid.
- * A yes to both options without choosing is not stored: the prompt confirms the delivery first
- * (`DEFAULT_COD_CONFIRM`). Null when the message offered no path, its last question is about
- * something else, or she asked, doubted or refused.
+ * Her answer read against the agent's last message (review of f657faa; re-review of 35d70c0): the
+ * choice that answers the payment question is hers even when it is not a full sentence — "a
+ * primeira", "opção 1", "1", "a do pix", "a da entrega" (ordinals in the order that message named
+ * the paths, not a fixed sentence), "pagar quando receber", or a yes to a question that offers one
+ * path ("Fica no pagamento na entrega, pode ser?", or "Pagando no pix você ganha 10%. Prefere
+ * assim?" — a short question reads the sentence before it). Where her region has no payment at
+ * the door, a yes to a question about the prepaid path (or to the prepaid message itself, when it
+ * asks nothing) is the prepaid. A yes to both options without choosing is not stored: the turn
+ * asks the delivery's confirmation first (`assentsToBoth`, `DEFAULT_COD_CONFIRM`). Null when the
+ * message offered no path, its last question is about something else, or she asked, doubted or
+ * refused.
  */
 const COD_OFFER = /\bpag\w*\s+na\s+entrega\b|\bna\s+entrega\b|\bquando\s+receb\w*/;
 const PREPAY_OFFER = /\bantecipad\w*|\bpix\b|\badiantad\w*/;
 const ASSENT =
   /^(?:sim|isso|isso\s+mesmo|certo|ok|okay|pode\s+ser|pode|ta\s+bom|ta|beleza|blz|fechado|combinado|bora|vamos|perfeito|claro|quero(?!\s+(?:saber|ver|entender|perguntar)\b))\b[\s!.,]*(?:sim|entao|pode\s+ser|quero|vamos|fechado)?[\s!.]*$/;
+/** A question that offers a choice between paths. */
+const CHOICE_Q = /\b(?:das\s+duas|qual\s+(?:voce\s+)?prefere|qual\s+(?:fica|e)\s+melhor|como\s+(?:voce\s+)?(?:prefere|quer)\s+pagar|qual\s+(?:delas|opcao))\b/;
+/** A short question that asks her to agree with the sentence before it. */
+const SHORT_OK = /^[^?]{0,30}\b(?:prefere|pode\s+ser|tudo\s+bem|combinado|fica\s+bom|assim|seguir|seguimos|certo|beleza)\b[^?]{0,20}\?$/;
+const TAIL = String.raw`(?:\s+mesmo)?[\s!.,]*(?:por\s+favor|pfv|pf)?[\s!.]*$`;
+const LEAD = String.raw`^(?:(?:a|o|na|no|pela|pelo|com|fico\s+com|quero|prefiro|vou|vou\s+de|pode\s+ser)\s+)*`;
+const FIRST = new RegExp(`${LEAD}(?:(?:a\\s+)?primeira(?:\\s+opcao)?|opcao\\s+(?:1|um)|1)${TAIL}`);
+const SECOND = new RegExp(`${LEAD}(?:(?:a\\s+)?segunda(?:\\s+opcao)?|opcao\\s+(?:2|dois)|2)${TAIL}`);
+const NAMED = new RegExp(
+  `${LEAD}(?:d[aoe]\\s+|n[ao]\\s+|pel[ao]\\s+)?(?:o\\s+|a\\s+)?(pix|cartao|antecipad\\w*|adiantad\\w*|entrega|pag\\w*\\s+na\\s+entrega)${TAIL}`,
+);
+const readOffer = (lastOutbound: string) => {
+  const o = norm(lastOutbound);
+  const sentences = o.split(/(?<=[.!?\n])\s*/).filter((x) => x.trim() !== "");
+  const qi = sentences.findLastIndex((x) => x.trim().endsWith("?"));
+  const question = qi === -1 ? "" : sentences[qi]!.trim();
+  const named = (t: string) => COD_OFFER.test(t) || PREPAY_OFFER.test(t);
+  const scope = !named(question) && SHORT_OK.test(question) ? `${sentences[qi - 1] ?? ""} ${question}` : question;
+  return { o, question, scope, aboutPath: named(scope) || CHOICE_Q.test(question) };
+};
+/** Her lines when they are a plain answer: no question, no doubt, no refusal. */
+const plainLines = (parts: readonly string[]): string[] | null => {
+  const lines = parts.map((p) => norm(p).trim()).filter(Boolean);
+  return lines.length === 0 || lines.some((l) => l.includes("?") || /\b(?:nao|nem|talvez|duvida)\b/.test(l)) ? null : lines;
+};
 export const pathAnswer = (
   lastOutbound: string,
   parts: readonly string[],
   codAvailable: boolean | null,
 ): PaymentChoice | null => {
-  const o = norm(lastOutbound);
-  const question = o.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?")).pop() ?? "";
-  const lines = parts.map((p) => norm(p).trim()).filter(Boolean);
-  if (lines.length === 0 || lines.some((l) => l.includes("?") || /\b(?:nao|nem|talvez|duvida)\b/.test(l))) return null;
+  const { o, question, scope, aboutPath } = readOffer(lastOutbound);
+  const lines = plainLines(parts);
+  if (lines === null) return null;
   const said = lines.join("\n");
   if (codAvailable === false) {
-    return PREPAY_OFFER.test(o) && lines.every((l) => ASSENT.test(l)) ? "prepay" : null;
+    // The prepaid message asks nothing, or its question is about the prepaid (re-review of 35d70c0).
+    const offered = question === "" ? PREPAY_OFFER.test(o) : PREPAY_OFFER.test(scope);
+    return offered && lines.every((l) => ASSENT.test(l)) ? "prepay" : null;
   }
-  const aboutPath =
-    COD_OFFER.test(question) ||
-    PREPAY_OFFER.test(question) ||
-    /\b(?:das\s+duas|qual\s+(?:voce\s+)?prefere|qual\s+(?:fica|e)\s+melhor|como\s+(?:voce\s+)?(?:prefere|quer)\s+pagar|qual\s+(?:delas|opcao))\b/.test(question);
   if (!aboutPath) return null;
   const codAt = o.search(COD_OFFER);
   const prepayAt = o.search(PREPAY_OFFER);
   if (codAt !== -1 && prepayAt !== -1) {
     const first: PaymentChoice = codAt < prepayAt ? "cod" : "prepay";
     const second: PaymentChoice = first === "cod" ? "prepay" : "cod";
-    if (/^(?:(?:a|na|pela|pelo|com|fico\s+com|quero|prefiro|vou\s+(?:de|na|com))\s+)*(?:a\s+)?primeira(?:\s+opcao)?[\s!.]*$/.test(said)) return first;
-    if (/^(?:(?:a|na|pela|pelo|com|fico\s+com|quero|prefiro|vou\s+(?:de|na|com))\s+)*(?:a\s+)?segunda(?:\s+opcao)?[\s!.]*$/.test(said)) return second;
+    if (FIRST.test(said)) return first;
+    if (SECOND.test(said)) return second;
+    const named = NAMED.exec(said);
+    if (named) return /entrega/.test(named[1]!) ? "cod" : "prepay";
   }
   if (codAt !== -1 && /\bpag\w*\s+(?:so\s+)?(?:quando|na\s+hora\s+que|depois\s+que)\s+(?:eu\s+)?(?:cheg|receb)\w*|\breceb\w*\s+e\s+(?:depois\s+)?pag\w*/.test(said)) return "cod";
-  // A yes to a question that offers one path only; to both, the prompt confirms the delivery first.
-  if (lines.every((l) => ASSENT.test(l)) && (codAt === -1) !== (prepayAt === -1)) return codAt !== -1 ? "cod" : "prepay";
+  // A yes to a question that offers one path only; to both, the delivery is confirmed first.
+  const cod = COD_OFFER.test(scope);
+  const prepay = PREPAY_OFFER.test(scope);
+  if (lines.every((l) => ASSENT.test(l)) && cod !== prepay) return cod ? "cod" : "prepay";
   return null;
 };
+
+/**
+ * She said yes to the two options without choosing (re-review of 35d70c0): the prompt's default,
+ * the delivery, is confirmed with `DEFAULT_COD_CONFIRM` — never the two options asked again, which
+ * looped. Only where the delivery reaches her.
+ */
+export const assentsToBoth = (lastOutbound: string, parts: readonly string[], codAvailable: boolean | null): boolean => {
+  if (codAvailable === false) return false;
+  const { o, scope, aboutPath } = readOffer(lastOutbound);
+  const lines = plainLines(parts);
+  return (
+    lines !== null &&
+    aboutPath &&
+    COD_OFFER.test(o) &&
+    PREPAY_OFFER.test(o) &&
+    COD_OFFER.test(scope) === PREPAY_OFFER.test(scope) &&
+    lines.every((l) => ASSENT.test(l))
+  );
+};
+
+/**
+ * A choice stored while her region had no payment at the door is the prepaid by force: when a new
+ * CEP finds the delivery, it is not hers to keep, and the two options are offered (re-review of
+ * 35d70c0). Any other stored choice holds.
+ */
+export const storedChoiceHolds = (stored: PaymentChoice | null, storedWithoutCod: boolean, codNow: boolean | null): boolean =>
+  !(stored === "prepay" && storedWithoutCod && codNow === true);
 
 /**
  * The payment path stored for the next turns (review of f657faa): her explicit choice as the
@@ -568,6 +624,19 @@ export const linkGoesOut = (
   );
 };
 
+/** Each checkout host once — what the turn searches her conversation for (re-review of 35d70c0). */
+export const checkoutHosts = (bases: readonly string[]): string[] => [
+  ...new Set(
+    bases.flatMap((b) => {
+      try {
+        return [new URL(b).host];
+      } catch {
+        return [];
+      }
+    }),
+  ),
+];
+
 /** The checkout a message carries: the longest base in it, so a kit's URL that extends the single piece's is the kit's. */
 export const linkedBase = (message: string, bases: readonly string[]): string | null =>
   bases.filter((b) => b !== "" && message.includes(b)).sort((a, b) => b.length - a.length)[0] ?? null;
@@ -580,11 +649,16 @@ export const linkedBase = (message: string, bases: readonly string[]): string | 
  */
 const WITHDRAWS =
   /\b(?:desisti(?!\s+d[oa]\s+kit)\w*|desist(?:o|ir)\b|nao\s+quero\s+mais|nao\s+vou\s+mais\s+(?:querer|levar|comprar)|deixa\s+pra\s+la|mudei\s+de\s+ideia)/;
+const KEEPS_BUYING = /\b(?:kit|so\s+uma?|uma?\s+so|quero|vou\s+levar|levo|manda\w*|link|tamanho|pp|p|m|g|gg|xgg|duas|tres|\d)\b/;
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
   const lines = messages.flatMap((m) => m.split("\n")).map(norm);
   const at = lines.findLastIndex((l) => {
     const m = WITHDRAWS.exec(l);
-    return m !== null && !/\bnao\s*$/.test(l.slice(0, m.index));
+    if (m === null || /\bnao\s*$/.test(l.slice(0, m.index))) return false;
+    // The rest of the line may take back only a piece, or go on buying (re-review of 35d70c0):
+    // "deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link".
+    const rest = l.slice(m.index + m[0].length);
+    return !(decidesToBuy(rest) || asksForLink(rest) || KEEPS_BUYING.test(rest));
   });
   return at !== -1 && !lines.slice(at + 1).some((l) => decidesToBuy(l) || /^(?:quero|vou\s+levar)\b/.test(l));
 };

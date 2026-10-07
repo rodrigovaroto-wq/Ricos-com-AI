@@ -5,9 +5,12 @@ import { emailRefused, refusedAsks } from "@/agent/identity.js";
 import {
   asksForLink,
   buyerAsk,
+  assentsToBoth,
   choiceToStore,
   choosesPath,
+  storedChoiceHolds,
   kitOfferDue,
+  checkoutHosts,
   linkedBase,
   linkGoesOut,
   missingForLink,
@@ -85,7 +88,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice),");
+    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, assentsToBoth(lastOutbound, parts, knownRegion?.cod ?? null)),");
     expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
     expect(source).toContain("apresente as duas opções, como no PAGAMENTO");
     expect(source).not.toContain("saída boa");
@@ -442,7 +445,7 @@ describe("revisão de f657faa — fiação no turno (fonte)", () => {
   it("o link lê a conversa inteira e linkGoesOut decide", () => {
     expect(source).toContain("const linkNow = linkGoesOut({");
     expect(source).not.toContain("linkJustSent");
-    expect(source).toContain('&body=like.${encodeURIComponent("*http*")}');
+    expect(source).toContain("for (const host of checkoutHosts(checkoutBases)) {");
   });
   it("a segunda olhada é secondLook, e o adiamento que falha não manda o rascunho", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
@@ -451,5 +454,117 @@ describe("revisão de f657faa — fiação no turno (fonte)", () => {
   });
   it("a recusa do e-mail é guardada na identidade", () => {
     expect(source).toContain("emailRefused: true");
+  });
+});
+
+/** Re-revisão de 35d70c0: o que ainda faltava em cada achado. */
+describe("re-revisão de 35d70c0 — 1: respostas comuns às duas opções", () => {
+  const options = twoOptionsMessage(config).join("\n\n");
+  it.each([
+    ["a do pix", "prepay"],
+    ["a da entrega", "cod"],
+    ["a de entrega", "cod"],
+    ["no pix", "prepay"],
+    ["na entrega mesmo", "cod"],
+    ["a primeira mesmo", "cod"],
+    ["Primeira, por favor", "cod"],
+    ["opção 1", "cod"],
+    ["1", "cod"],
+    ["opção 2", "prepay"],
+    ["2", "prepay"],
+    ["a segunda, por favor", "prepay"],
+  ] as const)("'%s' → %s", (answer, path) => {
+    expect(pathAnswer(options, [answer], true)).toBe(path);
+  });
+  it("oferta de um caminho só, com a pergunta curta depois", () => {
+    expect(pathAnswer("Pagando no pix você ganha 10% de desconto. Prefere assim?", ["sim"], true)).toBe("prepay");
+    expect(pathAnswer("Pagando na entrega você paga só quando receber. Pode ser?", ["sim"], true)).toBe("cod");
+  });
+  it("negações: número que não é opção, pergunta curta sobre outra coisa, os dois caminhos na frase", () => {
+    expect(pathAnswer(options, ["12"], true)).toBeNull();
+    expect(pathAnswer(options, ["a do pix tem desconto?"], true)).toBeNull();
+    expect(pathAnswer("O colete tem 7 dias pra devolver. Pode ser?", ["sim"], true)).toBeNull();
+    expect(pathAnswer("No pix tem desconto e na entrega você paga quando receber. Pode ser?", ["sim"], true)).toBeNull();
+    expect(pathAnswer("Qual o número da sua calça?", ["1"], true)).toBeNull();
+  });
+});
+
+describe("re-revisão de 35d70c0 — 1b: 'sim' às duas opções vira a confirmação, e o 'sim' a ela grava", () => {
+  const options = twoOptionsMessage(config).join("\n\n");
+  it("'sim'/'pode ser' às duas opções: não grava, e pede a confirmação da entrega", () => {
+    for (const yes of ["sim", "pode ser", "ok"]) {
+      expect(choiceToStore(null, [yes], options, true)).toBeNull();
+      expect(assentsToBoth(options, [yes], true)).toBe(true);
+    }
+    // A confirmação que o prompt ensina, respondida com "sim", grava a entrega.
+    expect(choiceToStore(null, ["sim"], DEFAULT_COD_CONFIRM, true)).toBe("cod");
+    expect(choiceToStore(null, ["pode ser"], DEFAULT_COD_CONFIRM, true)).toBe("cod");
+  });
+  it("negações: sem entrega na região, uma escolha, uma pergunta, ou outra mensagem não pedem a confirmação", () => {
+    expect(assentsToBoth(options, ["sim"], false)).toBe(false);
+    expect(assentsToBoth(options, ["a primeira"], true)).toBe(false);
+    expect(assentsToBoth(options, ["sim, tem rastreio?"], true)).toBe(false);
+    expect(assentsToBoth("Qual o número da sua calça?", ["sim"], true)).toBe(false);
+    expect(assentsToBoth(DEFAULT_COD_CONFIRM, ["sim"], true)).toBe(false);
+  });
+  it("a diretiva da região manda confirmar a entrega, só onde ela chega (fonte)", () => {
+    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, assentsToBoth(lastOutbound, parts, knownRegion?.cod ?? null)),");
+    expect(source).toContain('palavras: "${DEFAULT_COD_CONFIRM}" Não pergunte de novo qual das duas.');
+    // Só no ramo em que a entrega chega: o ramo sem entrega retorna antes.
+    const fn = source.slice(source.indexOf("const regionDirectiveFor = ("), source.indexOf("const identityDirectiveFor"));
+    expect(fn.indexOf("if (!region.cod) {")).toBeLessThan(fn.indexOf("agreedToBoth\n"));
+  });
+});
+
+describe("re-revisão de 35d70c0 — 2: desistir de um pedaço não é desistir da compra", () => {
+  it.each(["deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link", "desisti do kit", "não quero mais o kit", "mudei de ideia, vou levar duas"])(
+    "%s não segura o link",
+    (msg) => {
+      expect(withdrawsInBurst([msg])).toBe(false);
+    },
+  );
+  it.each(["desisti", "mudei de ideia", "deixa pra lá", "não quero mais, obrigada", "pensando bem, desisti"])("%s continua desistência", (msg) => {
+    expect(withdrawsInBurst([msg])).toBe(true);
+  });
+});
+
+describe("re-revisão de 35d70c0 — 3: sem entrega, só o 'sim' sobre pagar grava; e a entrega que chega depois reabre", () => {
+  it("negações: 'sim' a outra pergunta numa mensagem que fala do antecipado não grava", () => {
+    expect(pathAnswer(`${noCodMessage(config)} Quer saber como funciona a troca?`, ["sim"], false)).toBeNull();
+    expect(pathAnswer(`${noCodMessage(config)} Qual seu tamanho de calça?`, ["sim"], false)).toBeNull();
+  });
+  it("o 'sim' à mensagem do antecipado, com ou sem pergunta sobre ele, grava", () => {
+    expect(pathAnswer(noCodMessage(config), ["sim"], false)).toBe("prepay");
+    expect(pathAnswer(`${noCodMessage(config)} Quer seguir assim?`, ["sim"], false)).toBe("prepay");
+    expect(pathAnswer(`${noCodMessage(config)} Pode ser no antecipado?`, ["pode ser"], false)).toBe("prepay");
+  });
+  it("antecipado guardado numa região sem entrega não vale quando um CEP novo tem entrega", () => {
+    expect(storedChoiceHolds("prepay", true, true)).toBe(false);
+    // Negações: a escolha feita onde a entrega existia, a da entrega, ou sem consulta nova, valem.
+    expect(storedChoiceHolds("prepay", false, true)).toBe(true);
+    expect(storedChoiceHolds("prepay", true, null)).toBe(true);
+    expect(storedChoiceHolds("prepay", true, false)).toBe(true);
+    expect(storedChoiceHolds("cod", true, true)).toBe(true);
+    expect(storedChoiceHolds(null, true, true)).toBe(true);
+  });
+});
+
+describe("re-revisão de 35d70c0 — 4: 'Consegue?' depois da frase do CPF é pedido", () => {
+  it.each(["Agora só falta o CPF, pra nota fiscal. Consegue?", "Falta o CPF, pra nota fiscal. Pode ser?", "Só preciso do CPF pra nota. Tudo bem?"])("%s + 'não' conta 1", (ask) => {
+    expect(refusedAsks([out(ask), inn("não")], "document")).toBe(1);
+  });
+  it("negação: 'Consegue?' depois de frase sem o CPF não é pedido do CPF", () => {
+    expect(refusedAsks([out("O frete é calculado no checkout. Consegue?"), inn("não")], "document")).toBe(0);
+  });
+});
+
+describe("re-revisão de 35d70c0 — 5: o link enviado é lido pelos hosts do checkout", () => {
+  it("cada host do checkout uma vez, e a leitura procura o host, não qualquer URL (fonte)", () => {
+    expect(checkoutHosts(["https://entrega.logzz.com.br/pay/a", "https://entrega.logzz.com.br/pay/kit2", "https://app.coinzz.com.br/checkout/b", "x"])).toEqual([
+      "entrega.logzz.com.br",
+      "app.coinzz.com.br",
+    ]);
+    expect(source).toContain("for (const host of checkoutHosts(checkoutBases)) {");
+    expect(source).not.toContain('encodeURIComponent("*http*")');
   });
 });

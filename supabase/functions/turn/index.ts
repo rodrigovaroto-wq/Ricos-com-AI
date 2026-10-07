@@ -121,7 +121,10 @@ import {
   linkSentRecently,
   namesOwnPrice,
   asksForLink,
+  assentsToBoth,
+  checkoutHosts,
   choiceToStore,
+  storedChoiceHolds,
   closesConversation,
   kitOfferDue,
   linkedBase,
@@ -137,7 +140,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { DEFAULT_COD_CONFIRM, linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 
@@ -746,6 +749,8 @@ const sizeDirectiveFor = (
 const regionDirectiveFor = (
   region: Pick<Region, "cod" | "sameDay"> | null,
   choice: "cod" | "prepay" | null,
+  /** She said yes to the two options without choosing (`assentsToBoth`, re-review of 35d70c0). */
+  agreedToBoth = false,
 ): string | null => {
   if (region === null) return null;
   if (!region.cod) {
@@ -757,7 +762,10 @@ const regionDirectiveFor = (
   return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
   }.` +
-    (choice === null
+    (choice === null && agreedToBoth
+      ? ` Ela disse sim às duas opções sem escolher: deixe no pagamento na entrega e confirme com estas` +
+        ` palavras: "${DEFAULT_COD_CONFIRM}" Não pergunte de novo qual das duas.`
+      : choice === null
       ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
         ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
       : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
@@ -3061,10 +3069,26 @@ const handleTurn = async (
   // Stored only when her words make a choice, never from a question ("quanto economizo no
   // pix em vez de pagar na entrega?"), and forgotten like an abandoned kit (fourth review).
   const choiceAt = typeof lead.payment_choice_at === "string" ? Date.parse(lead.payment_choice_at) : NaN;
-  const storedChoice =
+  const keptChoice =
     Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
       ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
       : null;
+  // The prepaid stored where her region had no payment at the door was forced, not chosen: a new
+  // CEP that has it reopens the two options, and the stored one is cleared — next turn the address
+  // already says the delivery reaches her (re-review of 35d70c0). Index: leads_pkey.
+  const storedChoice = storedChoiceHolds(
+    keptChoice,
+    (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false,
+    region?.cod ?? null,
+  )
+    ? keptChoice
+    : null;
+  if (storedChoice !== keptChoice) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ payment_choice: null, payment_choice_at: null }),
+    }).catch(() => undefined);
+  }
   // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
   // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
   // (independent review, finding 8).
@@ -3139,16 +3163,22 @@ const handleTurn = async (
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
   // M-03, over the whole conversation (review of f657faa: three messages let the link go again
-  // after a few questions): the last checkout link sent. One read, newest first, of her outbound
-  // messages with a URL — the site's own address is one too, hence the filter in code. A failed
-  // read falls back to the twenty messages already read.
+  // after a few questions): the last checkout link sent. One read per checkout host (two today:
+  // Logzz and Coinzz; a kit shares its path's host), newest first — the site's or a tracking URL
+  // never pushes it out (re-review of 35d70c0). A failed read falls back to the twenty messages
+  // already read.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards, then a filter on the body.
-  const linkRows: Array<{ body: string | null }> | null = await db(
-    `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
-      `&body=like.${encodeURIComponent("*http*")}&select=body&order=created_at.desc&limit=10`,
-  ).catch(() => null);
+  let linkRows: Array<{ body: string | null; created_at: string }> | null = [];
+  for (const host of checkoutHosts(checkoutBases)) {
+    const rows = await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+        `&body=like.${encodeURIComponent(`*${host}*`)}&select=body,created_at&order=created_at.desc&limit=3`,
+    ).catch(() => null);
+    linkRows = rows === null || linkRows === null ? null : [...linkRows, ...rows];
+  }
   const lastLink =
-    (linkRows ?? recentOutbound.map((body: string) => ({ body })).reverse())
+    (linkRows?.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)) ??
+      recentOutbound.map((body: string) => ({ body })).reverse())
       .map((m) => m.body ?? "")
       .find((m) => linkedBase(m, checkoutBases) !== null) ?? null;
   // Only this path's checkout counts (code review, 2026-09-24): a switch from the delivery checkout
@@ -3275,7 +3305,7 @@ const handleTurn = async (
     [
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
-      regionDirectiveFor(knownRegion, paymentChoice),
+      regionDirectiveFor(knownRegion, paymentChoice, assentsToBoth(lastOutbound, parts, knownRegion?.cod ?? null)),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,
