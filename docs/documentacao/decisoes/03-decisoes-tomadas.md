@@ -2055,9 +2055,9 @@ nunca seria perguntada, e o `silence_3` (cupom, 63–71 h, fora da janela de 24 
 
 Operador, 2026-10-07. A função `whatsapp` baixa a mensagem de voz pela Graph API, decodifica o Ogg/Opus
 com o `libopus` em WebAssembly do `opus-decoder` 0.7.12 (MIT; copiado em `supabase/functions/whatsapp/vendor/`
-sem o Web Worker, que o empacotador do Supabase recusa por puxar `node:vm`, e preso por hash num teste; o
-`EmscriptenWasm.js` de 82 KB vem do jsDelivr na versão fixa, porque o conector de deploy não o transporta
-— o operador escolheu isso, opção 2, em vez do deploy pelo terminal; o Ogg
+sem o Web Worker, que o empacotador do Supabase recusa por puxar `node:vm`, e preso por hash num teste; os
+três arquivos com binário em yEnc vêm do jsDelivr na versão exata do npm, lidos só no deploy, porque o
+conector de deploy não os transporta — o operador escolheu isso, opção 2, em vez do deploy pelo terminal; o Ogg
 é desmontado por um leitor de 30 linhas em `whatsapp.ts`) — **a primeira dependência de runtime do projeto**,
 só nessa função, com teto de 2 MB, de 5 min decodificados (~0,5 s de CPU contra os 2 s do Edge) e prazo único de 25 s — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
 Meta Model API (US$ 0,18/h; sem tier de treino). O texto chega à Malu marcado "[áudio da cliente, transcrito

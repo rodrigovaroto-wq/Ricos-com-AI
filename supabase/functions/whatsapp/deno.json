@@ -1,0 +1,5 @@
+{
+  "imports": {
+    "simple-yenc": "https://cdn.jsdelivr.net/npm/simple-yenc@1.0.4/dist/esm.js"
+  }
+}

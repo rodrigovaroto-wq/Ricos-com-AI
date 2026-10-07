@@ -121,13 +121,14 @@ describe("o Ogg dela vira pacotes Opus", () => {
     expect(oggOpus(Uint8Array.from([...page([19], head(0, 0)), ...page([8], opusTags)]))).toBeNull();
   });
 
-  it("o decoder copiado é exatamente o que foi revisado (trocar um arquivo exige trocar o hash)", () => {
-    const pinned = {
-      "OpusDecoder.js": "b0ed0ec83d376cd75082b77f9e521d4737caaffe3117683cc3a5b925403316ba",
-      "WASMAudioDecoderCommon.js": "83aa80c0c251b049046f8b0dfabc020a10f4b79d0a955647cafeff2a71d47d85",
-      "simple-yenc.js": "14680ab2c8dec870ceffc05e79967b7358d31fd96eee6481388f06347a53ac3e",
-    };
-    for (const [file, sha] of Object.entries(pinned))
-      expect(createHash("sha256").update(readFileSync(`supabase/functions/whatsapp/vendor/${file}`)).digest("hex"), file).toBe(sha);
+  it("o decoder é exatamente o que foi revisado: o arquivo copiado pelo hash, os do jsDelivr pela versão", () => {
+    const opus = readFileSync("supabase/functions/whatsapp/vendor/OpusDecoder.js");
+    expect(createHash("sha256").update(opus).digest("hex")).toBe("2585c59bba07b99fc82c5f72282ad5218ae3cc25d28ceac5b7863a04a83da633");
+    expect(opus.toString()).toContain('from "https://cdn.jsdelivr.net/npm/opus-decoder@0.7.12/src/EmscriptenWasm.js"');
+    expect(opus.toString()).toContain('from "https://cdn.jsdelivr.net/npm/@wasm-audio-decoders/common@9.0.7/src/WASMAudioDecoderCommon.js"');
+    expect(JSON.parse(readFileSync("supabase/functions/whatsapp/deno.json", "utf8"))).toEqual({
+      imports: { "simple-yenc": "https://cdn.jsdelivr.net/npm/simple-yenc@1.0.4/dist/esm.js" },
+    });
   });
+
 });

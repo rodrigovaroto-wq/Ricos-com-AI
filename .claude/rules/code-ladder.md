@@ -22,8 +22,8 @@ Stop at the first rung that holds:
    clock, see `CLAUDE.md`).
 5. **An installed dependency does it?** This repository ships **one runtime
    dependency** — the `opus-decoder` WebAssembly build, vendored in
-   `supabase/functions/whatsapp/vendor/` and pinned by hash (its 82 KB WebAssembly file is imported
-   from a version-pinned jsDelivr URL, read only at deploy) (R18.9: an Opus decoder is not a few lines) — and the Edge Function runs on Deno from a mirrored copy. A new
+   `supabase/functions/whatsapp/vendor/` and pinned by hash (its files with yEnc binary are imported
+   from version-pinned jsDelivr URLs, read only at deploy) (R18.9: an Opus decoder is not a few lines) — and the Edge Function runs on Deno from a mirrored copy. A new
    dependency needs a reason a few lines of code cannot meet.
 6. **Can it be one line?** One line.
 7. **Only then:** the minimum code that works.
