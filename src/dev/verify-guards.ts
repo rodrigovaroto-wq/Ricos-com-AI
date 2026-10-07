@@ -2995,6 +2995,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
   {
+    id: "R65-desistencia-recusa-dado",
+    bug: "'deixa pra lá o email' (a recusa que fecha os dados) era lida como desistência e segurava o link",
+    files: ["src/agent/interpret.ts"],
+    from: "|esperar|pensar|e-?mail|cpf|nome|tamanho|frete|pagar)/;",
+    to: "|esperar|pensar)/;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
+  },
+  {
     id: "R65-ok-ao-antecipado",
     bug: "'ok' à mensagem do antecipado na região sem entrega não contava como caminho escolhido e o kit era pulado",
     files: ["src/agent/interpret.ts"],

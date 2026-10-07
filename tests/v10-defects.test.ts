@@ -86,7 +86,13 @@ describe("2. 'sim' às duas opções sem escolher: confirma a entrega (agreesWit
   });
 
   it("fiação: só com entrega na região e sem escolha guardada; a diretiva cita DEFAULT_COD_CONFIRM", () => {
-    expect(source).toContain("knownRegion?.cod === true &&\n    storedChoice === null &&\n    agreesWithoutChoosing({ parts, lastOutbound, confirms: parts.some(confirmsAddress) });");
+    expect(source).toContain("knownRegion?.cod === true &&\n    storedChoice === null &&\n    choiceToStore === null &&\n    interpretation.payment_choice !== \"prepay\" &&\n    agreesWithoutChoosing({ parts, lastOutbound, confirms: parts.some(confirmsAddress) });");
+  });
+
+  it("negação: o antecipado lido pelo intérprete ('sim, a com desconto') não vira confirmação da entrega", () => {
+    // agreesWithoutChoosing não lê "a com desconto"; a fiação acima é quem guarda o prepay do intérprete
+    expect(agrees("sim, a com desconto", "Qual das duas fica melhor pra você?")).toBe(true);
+    expect(source.indexOf("const choiceToStore = pathChoiceToStore(")).toBeLessThan(source.indexOf("const agreedOnly ="));
     expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),");
     expect(source).toContain("deixe no pagamento na entrega e confirme com estas palavras:");
     expect(source).toContain("` \"${DEFAULT_COD_CONFIRM}\" Não apresente as duas opções de novo.`");
@@ -109,10 +115,21 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
     ["não quero mais esperar"],
     ["desisti", "não, pensando bem quero o M"],
     ["Maria Souza"],
+    // revisão do 58ba217: recusa de dado, troca de tamanho, "pode mandar", negação depois do verbo
+    ["deixa pra lá o email"],
+    ["deixa quieto o cpf"],
+    ["deixa pra lá, pode mandar"],
+    ["desisti não, pode mandar"],
+    ["desisti do P, manda o M"],
+    ["desisti não, só tava ocupada"],
+    ["desisti nada"],
+    ["não quero mais pagar frete, tem como?"],
   ])("negação: %s", (...burst) => expect(withdrawsInBurst(burst)).toBe(false));
 
   it("fiação: o link e a oferta do kit esperam", () => {
     expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
+    // link segurado pelo histórico (além da janela) avisa o modelo que ela já o tem
+    expect(source).toContain("const linkAlreadySent = linkJustSent || linkSentRecently(");
     expect(source).toContain("!kitOffered && !linkNow && !farewell && !withdrew;");
   });
 });

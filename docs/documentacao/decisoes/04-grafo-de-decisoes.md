@@ -2094,6 +2094,17 @@ mutações `R65-link-reenviado`, `R65-sim-sem-escolha`, `R65-desistencia`, `R65-
 **Resíduo:** "mudei de ideia" sozinho não segura o link (o modelo responde); a pergunta final da mensagem
 do antecipado é lida por lista de palavras; o "sim" sem escolha confia no modelo escrever a frase do padrão
 — se ele parafrasear sem "deixo no pagamento na entrega", o "sim" seguinte não grava e a diretiva volta.
+**Revisão (NEEDS WORK, três achados, corrigidos no mesmo dia):** (a) a desistência segurava o link
+justo no turno em que os dados fechavam — "deixa pra lá o email", "deixa pra lá, pode mandar",
+"desisti do P, manda o M", "desisti não": `PART_OF_ORDER` passa a isentar dado e frete, `buyerAsk`
+conta como compra, troca de tamanho e negação depois do verbo não desistem (mutação
+`R65-desistencia-recusa-dado`). (b) `agreedOnly` jogava fora o antecipado lido pelo intérprete ("sim,
+a com desconto") e trocava por confirmação da entrega: só vale sem `prepay` do intérprete e sem
+escolha gravada no turno. (c) link segurado pelo histórico, além da janela, não ligava a diretiva
+`afterLink`: `linkAlreadySent` inclui `linkJustSent`.
+**Resíduo da revisão:** "deixa pra lá" sozinho, respondendo ao pedido do CPF, ainda conta como
+desistência (sem link; o modelo responde); "quero fechar" dias depois, sem pedir o link, não reenvia —
+o modelo é avisado de que ela já o tem.
 
 ## Lições (valem para qualquer correção futura)
 

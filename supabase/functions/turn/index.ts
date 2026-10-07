@@ -3098,10 +3098,6 @@ const handleTurn = async (
   const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
   // Where delivery reaches her, a bare "sim" to the two options is no choice yet: the model confirms the
   // delivery (`DEFAULT_COD_CONFIRM`), and her yes to that is stored (grafo §65).
-  const agreedOnly =
-    knownRegion?.cod === true &&
-    storedChoice === null &&
-    agreesWithoutChoosing({ parts, lastOutbound, confirms: parts.some(confirmsAddress) });
   // Where it does not, her yes to the prepaid offer is the prepaid chosen (grafo §65).
   const choiceToStore = pathChoiceToStore({
     interpreted: interpretation.payment_choice ?? null,
@@ -3110,6 +3106,13 @@ const handleTurn = async (
     confirms: parts.some(confirmsAddress),
     noCod: knownRegion?.cod === false,
   });
+  // A prepaid read by the interpreter ("sim, a com desconto") or a choice already stored stays a choice.
+  const agreedOnly =
+    knownRegion?.cod === true &&
+    storedChoice === null &&
+    choiceToStore === null &&
+    interpretation.payment_choice !== "prepay" &&
+    agreesWithoutChoosing({ parts, lastOutbound, confirms: parts.some(confirmsAddress) });
   const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
@@ -3201,7 +3204,8 @@ const handleTurn = async (
         : missing === "payment" && linkDue && knownRegion === null
           ? `Ela quer fechar, mas ainda não escolheu como paga: pergunte qual ela prefere antes do link.`
           : null;
-  const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
+  // A link held back by the history counts as sent, past the window too (review of 58ba217).
+  const linkAlreadySent = linkJustSent || linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
     ? []

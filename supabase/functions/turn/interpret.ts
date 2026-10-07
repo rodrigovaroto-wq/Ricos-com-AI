@@ -705,22 +705,27 @@ export const decisionInBurst = (messages: readonly string[]): boolean | null => 
  * She takes the purchase back (grafo §65): "desisti", "não quero mais", "deixa pra lá", "não vou
  * levar", "desisti do M". Narrower than `RETRACTS`, which also reads "depois" and "pensar" — "vou
  * pensar" has its own reply, with the link. Giving up a part of the order is no withdrawal ("deixa
- * pra lá o kit, só uma", "não quero mais o kit"), nor is impatience ("não quero mais esperar"). The
- * newest line wins: a line that buys, asks for the link or chooses a path ("mudei de ideia, quero o G",
- * "deixa pra lá, manda o link") counts as buying.
+ * pra lá o kit, só uma", "não quero mais o kit"), nor is impatience ("não quero mais esperar"), nor
+ * dropping a datum or the freight ("deixa pra lá o email", "não quero mais pagar frete"), nor a size
+ * swap ("desisti do P, manda o M"), nor the spoken negation after the verb ("desisti não", "desisti
+ * nada"). The newest line wins: a line that buys, asks for the link or chooses a path ("mudei de
+ * ideia, quero o G", "deixa pra lá, pode mandar") counts as buying (review of 58ba217).
  */
 const WITHDRAWS =
   /\b(?:desist\w*|nao\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar))\b/g;
-const PART_OF_ORDER = /^\s*(?:d?[oa]s?\s+|de\s+|n[oa]\s+)?(?:kit|[23]\b|duas|tres|pecas?|outra|segunda|pix|antecipad|entrega|cartao|esperar|pensar)/;
+const PART_OF_ORDER =
+  /^\s*(?:d?[oa]s?\s+|de\s+|n[oa]\s+)?(?:kit|[23]\b|duas|tres|pecas?|outra|segunda|pix|antecipad|entrega|cartao|esperar|pensar|e-?mail|cpf|nome|tamanho|frete|pagar)/;
+const SIZE_SWAP = /\b(?:manda|quero|prefiro|fico\s+com|troca\w*)\s+(?:[oa]\s+)?(?:pp|p|m|g|gg|xgg)\b/;
 const withdraws = (line: string): boolean => {
   const t = norm(line);
-  return [...t.matchAll(WITHDRAWS)].some(
-    (m) => !negatedBefore(t, m.index ?? 0) && !PART_OF_ORDER.test(t.slice((m.index ?? 0) + m[0].length)),
-  );
+  return [...t.matchAll(WITHDRAWS)].some((m) => {
+    const rest = t.slice((m.index ?? 0) + m[0].length);
+    return !negatedBefore(t, m.index ?? 0) && !/^\s*,?\s*(?:nao|nada)\b/.test(rest) && !PART_OF_ORDER.test(rest) && !SIZE_SWAP.test(rest);
+  });
 };
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
   const lines = messages.flatMap((m) => m.split("\n"));
-  const buys = lines.findLastIndex((l) => decidesToBuy(l) || asksForLink(l) || choosesPath(l));
+  const buys = lines.findLastIndex((l) => decidesToBuy(l) || buyerAsk(l) || choosesPath(l));
   const quits = lines.findLastIndex(withdraws);
   return quits > buys;
 };
