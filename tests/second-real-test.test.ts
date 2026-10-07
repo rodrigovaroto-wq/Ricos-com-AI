@@ -4,7 +4,11 @@
  * the negations beside it.
  */
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { malformedCep } from "@/agent/address.js";
 import { classifyOptOut } from "@/agent/guardrails.js";
+
+const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
 describe("C2 — 'pare de me mandar …' só é descadastro quando o que para são as mensagens da loja", () => {
   it("a frase da compradora não é descadastro", () => {
@@ -34,5 +38,34 @@ describe("C2 — 'pare de me mandar …' só é descadastro quando o que para s�
     "parem de me mandar mensagem no whatsapp!",
   ])("continua descadastro: %s", (frase) => {
     expect(classifyOptOut(frase)).toBe("explicit");
+  });
+});
+
+describe("C3 — CEP com o número errado de dígitos", () => {
+  it("as duas mensagens da conversa", () => {
+    expect(malformedCep("e meu cep é 004710090")).toBe("004710090");
+    expect(malformedCep("ja te mandei meu cep, mas é 004710090")).toBe("004710090");
+  });
+
+  it("sete dígitos, e a resposta ao pedido do CEP sem a palavra", () => {
+    expect(malformedCep("cep 0471009")).toBe("0471009");
+    expect(malformedCep("004710090", true)).toBe("004710090");
+  });
+
+  it.each([
+    ["CEP certo", "meu cep é 04710-090", false],
+    ["CEP certo sem traço", "04710090", true],
+    ["telefone de 9 dígitos sem falar de CEP", "meu número é 996557745", false],
+    ["CPF", "meu cpf é 55138146840", true],
+    ["número de casa", "cep? moro no 123", false],
+  ])("não lê como CEP errado: %s", (_, frase, asked) => {
+    expect(malformedCep(frase, asked)).toBeNull();
+  });
+
+  it("o turno diz ao modelo que o CEP não foi lido, e nunca 'recebi/anotei'", () => {
+    expect(turn).toContain('malformedCep(inbound.body ?? "", /\\bcep\\b/i.test(lastOutbound))');
+    expect(turn).toContain("Nunca diga que recebeu ou anotou o CEP.");
+    expect(turn).toContain("nunca diga que recebeu, anotou ou vai conferir o CEP.");
+    expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
   });
 });

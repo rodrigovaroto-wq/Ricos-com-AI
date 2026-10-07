@@ -3066,6 +3066,14 @@ const MUTATIONS: Mutation[] = [
     to: "if (/(?<!\\bnao\\s+)\\b(para|pare|parem|pode\\s+parar)\\s+de\\s+(me\\s+)?(mandar|enviar|encher)/.test(t)) return \"explicit\";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-cep-errado",
+    bug: "o CEP de 9 dígitos ('004710090') não era lido e o modelo dizia 'recebi/anotei seu CEP'",
+    files: ["src/agent/address.ts"],
+    from: "return m ? m[1]! : null;",
+    to: "return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

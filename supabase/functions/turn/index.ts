@@ -57,6 +57,7 @@ import {
   confirmsAddress,
   extractAddress,
   extractAddressBurst,
+  malformedCep,
   readBackAddress,
   isComplete,
   mergeAddress,
@@ -2982,6 +2983,16 @@ const handleTurn = async (
     }
   }
 
+  // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
+  // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
+  const wrongCep = addressDraft.cep ? null : malformedCep(inbound.body ?? "", /\bcep\b/i.test(lastOutbound));
+  const cepState = addressDraft.cep
+    ? null
+    : wrongCep
+      ? `Ela mandou um CEP com ${wrongCep.length} números (${wrongCep}), e CEP tem 8: o sistema não conseguiu ler.` +
+        ` Peça com gentileza pra ela conferir e mandar de novo. Nunca diga que recebeu ou anotou o CEP.`
+      : `O CEP dela ainda não foi recebido: nunca diga que recebeu, anotou ou vai conferir o CEP.`;
+
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
     JSON.stringify({ ...storedAddress, codAvailable: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
@@ -3321,6 +3332,7 @@ const handleTurn = async (
       backToSize,
       sizeBeforeLink,
       coverageUnknown,
+      cepState,
       afterLink,
     ].filter(Boolean).join(" ") || null;
 
