@@ -60,11 +60,19 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
   custo ~R$ 0,03 por conversa.
 - Ver a memória `proxy-sobrescreve-auth-do-supabase` antes de rodar personas pelo container.
 
+**No ar desde 2026-10-07 08:17 UTC:** `agent_version` **10** = `turn` v80 = commit `a5d4837`
+([PR #54](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/54), CI verde, `verificar:guardas` 362/362).
+Sonda pela porta `function`: 401 "mensagem sem o selo da entrada" — a v10 sobe e a porta segue fechada a
+quem não vem selado pelo n8n. A prova da conversa em produção é o teste do operador pelo WhatsApp.
+
 **Falta, nesta ordem:**
-1. **C** PR desta branch (supera o PR #53, que tem só até `6122dd9`), CI verde.
-2. **C** `pnpm deploy:turn` (v10) e sonda pela porta de produção — o caminho "sem pagamento na entrega"
-   (Cleide, Manaus) só se prova ali (a Coinzz responde 302 ao container).
-3. **O** teste real pelo WhatsApp; depois devolução guiada, portal, templates na Meta.
+1. **O** teste real pelo WhatsApp (a partir das 06:00 de São Paulo — antes disso a resposta é adiada para a
+   abertura). Roteiro mínimo: "quanto custa?" antes do CEP (deve dar o preço), um CEP com pagamento na
+   entrega e um sem (Manaus 69050-000 — só antecipado, com o motivo), o tamanho pela calça, a escolha "a
+   primeira", nome/e-mail/CPF (recusar o CPF duas vezes → o link sai sem ele), "vou pensar".
+   Conferir `turn_outcomes.agent_version = 10`. Apagar o lead de teste depois.
+2. **O** mergear o PR #54 e fechar o #53 (superado).
+3. Depois: devolução guiada, portal, templates na Meta.
 
 ### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
