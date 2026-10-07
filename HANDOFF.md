@@ -32,6 +32,16 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
+### Atualização — 2026-10-07, madrugada (mesma sessão)
+
+**Pronto para a v10, NÃO publicado:** `40231de` na branch (PR #53, CI verde até `697ead2`). Inclui rajada v2
+(`7c8bc7c`), prompt de venda v2 (`e46ddbc`), toques depois do link opção 1 (`9262f4c`, decisão do operador:
+link → só o lembrete de 15 min; sem link → "Ainda está aí?" 10 min + `silence_1`), e o link só depois dos dados
+com todas as revisões fechadas (`35d70c0`, `697ead2`, `40231de`; grafo §63; revisão final APROVADO COM RESSALVA
+e as ressalvas corrigidas). 6544 testes, 1665/1665, `verificar:guardas` com os G63 todos pegando.
+**Falta:** (1) **aplicar a migração 0023 ANTES do deploy**; (2) `pnpm deploy:turn` (v10) com `sbp_` e o "pode
+publicar" do operador; (3) rodada das 12 personas no modelo; (4) teste do operador no WhatsApp.
+
 ### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
 **No ar:** `agent_version` 9 (`turn` v76, commit `1026821`). Canal WhatsApp **ligado e testado de ponta a ponta**
