@@ -2942,7 +2942,7 @@ const MUTATIONS: Mutation[] = [
     id: "P07-email-da-loja-nao-e-pedido",
     bug: "'me manda um e-mail pra contato@…' contava como pedido do e-mail dela e o e-mail ficava dispensado sem ser pedido (Jussara)",
     files: ["src/agent/identity.ts"],
-    from: " || letGo || /\\S@\\S/.test(q)) return false;",
+    from: " || letGo || (/\\S@\\S/.test(q) && !/\\bseu\\s+e-?mail\\b/i.test(q))) return false;",
     to: " || letGo) return false;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
