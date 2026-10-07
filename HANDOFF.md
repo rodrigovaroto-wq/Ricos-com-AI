@@ -13,6 +13,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07)
 
+> **Fim da sessão de 2026-10-07, noite.** `whatsapp` v19 no ar (áudio transcrito; falta a prova real com
+> uma nota de voz). `turn` v12 **não publicada** — espera o "pode publicar" do operador, com a migração
+> 0024. Revisão completa do §66 consertada em parte; o que falta está no fim do grafo §66 (decisões 17,
+> 18, espera de 2 s na rajada, e os achados baixos). Lead 5983 apagado.
+
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
 Mapa do repositório: [`docs/README.md`](docs/README.md). Tudo abaixo deste quadro é histórico.

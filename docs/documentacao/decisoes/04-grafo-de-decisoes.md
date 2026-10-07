@@ -2169,6 +2169,29 @@ mandar o link?" não conta como cobrança; uma rajada de 3+ mensagens custa uma 
 espera); o áudio segue sem transcrição (pesquisa: Meta `muse-voice-transcribe-1.0` exige WAV; decisão do
 operador pendente).
 
+### §66 — revisão completa (2026-10-07, noite)
+
+Dois revisores Opus (correção e cobertura) e a rodada 2 de personas. Consertado, com teste e negação:
+
+- **Descadastro × compra:** o pedido de link em qualquer ponto da mensagem, ou em outra mensagem da
+  rajada, não bloqueia; recusa ("não quero", "não tenho interesse") continua bloqueando.
+- **`pending_promise`:** pega "te mando o link agora", "daqui a pouco", "já vou gerar seu link", "deixa eu
+  ver o estoque"; a condição libera só o envio, nunca a conferência; a promessa negada é honesta.
+  `noted_claim` deixa "ainda não anotei" passar.
+- **Áudio:** `spoken()` tira o marcador e o ponto do ASR antes de toda regra fixa (pedido de pessoa, link,
+  nome); o modelo continua lendo a mensagem marcada.
+- **`size_claim` (25º gate):** veta tamanho diferente do da tabela e medida de calça que ela não mandou
+  (Karol: "Com 38 de calça o seu é o M").
+- "Quando vai me mandar o link?" é cobrança; `malformedCep` não lê telefone, CEP negado nem "moro no
+  1234567"; "deixa pra lá" é desistência; sem CEP, nunca "o checkout confirma".
+- **Decisão 16 do operador:** todas as reescritas vetadas → pergunta de preço recebe a frase de preço do
+  prompt; o resto vai para uma pessoa com a frase de espera. "Me fala de novo o que você quer saber?" saiu.
+
+**Não feito (o operador mandou parar e abrir o PR):** decisões 17 (no máximo 2 pedidos de CEP seguidos),
+18 (no máximo 1 gancho por conversa) e espera de 2 s na rajada de 3; e os baixos — link na 1ª resposta
+sem saudação, "Maria da Hora", e-mail vazio no pedido por API, "antes" lido como antecipado, teste de
+desempenho que oscila sob carga, fiação do `index.ts` provada só por texto.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

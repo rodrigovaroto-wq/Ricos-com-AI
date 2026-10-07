@@ -107,7 +107,6 @@ import {
   reviseInstruction,
   revisionAllowed,
   draftMayGo,
-  SAFE_FALLBACK_REPLY,
   shippedCancelReply,
   thinkReply,
   linkMessage,
@@ -150,7 +149,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { DEFAULT_COD_CONFIRM, linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 
@@ -3543,6 +3542,12 @@ const handleTurn = async (
     });
   }
 
+  // Every draft vetoed (operator, 2026-10-07, decision 16): "quanto que é" got "me fala de novo o que você
+  // quer saber?" (persona Sandra). Her price question gets the price, in the prompt's own sentence; anything
+  // else goes to a person with the holding line.
+  const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
+  if (outcome.kind === "fallback" && !asksPrice) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
+
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
     await db(`leads?id=eq.${lead.id}`, {
@@ -3589,7 +3594,7 @@ const handleTurn = async (
    * which is where a gate that keeps firing becomes Hermes' material.
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
-  const body = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
+  const body = fallbackReason === null ? attempt.text : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
 
   // The draft a revision rewrites is Malu's own text; the greeting is added again after it.

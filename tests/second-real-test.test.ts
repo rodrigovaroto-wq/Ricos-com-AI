@@ -577,3 +577,11 @@ describe("personas 2026-10-07 — sem CEP, nada de 'o checkout confirma'", () =>
     expect(turn.indexOf("addressDraft.cep\n            ? `diga que o checkout confirma")).toBeGreaterThan(0);
   });
 });
+
+describe("decisão 16 (operador, 2026-10-07) — reserva: o preço, ou uma pessoa", () => {
+  it("pergunta de preço recebe a frase de preço do prompt; o resto vira atendimento humano", () => {
+    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice) outcome = { kind: "handoff"');
+    expect(turn).toContain("codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG)");
+    expect(turn).not.toContain("SAFE_FALLBACK_REPLY");
+  });
+});
