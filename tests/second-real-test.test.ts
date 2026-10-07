@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
 import { asksForLink, asksSomething, buyerAsk, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
 import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } from "@/agent/identity.js";
-import { classifyOptOut, runGates } from "@/agent/guardrails.js";
+import { classifyOptOut, classifyOptOutBurst, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
 import { GREETING_ASK, greetingFor, linkMessage, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
@@ -40,6 +40,31 @@ describe("C2 — 'pare de me mandar …' só é descadastro quando o que para s�
     "pare de me mandar",
     "parem de me mandar mensagem no whatsapp!",
   ])("continua descadastro: %s", (frase) => {
+    expect(classifyOptOut(frase)).toBe("explicit");
+  });
+  // Revisão completa do §66 (A1): o link antes do "pare", em outra mensagem da rajada, com "não precisa".
+  it.each([
+    "me manda o link e para de me mandar mensagem",
+    "pare de me mandar mensagem, me manda o link, não tenho tempo",
+    "para de me mandar mensagem, não precisa, só me manda o link",
+    "parem de me mandar mensagem, me mandem o link",
+    "não para de me mandar mensagem, me manda o link",
+  ])("pedido de link em qualquer ponto não bloqueia: %s", (frase) => {
+    expect(classifyOptOut(frase)).toBe("none");
+  });
+
+  it("o link pedido em outra mensagem da rajada é a mesma compra", () => {
+    expect(classifyOptOutBurst(["pare de me mandar confirmações", "apenas me mande o link do checkout"])).toBe("none");
+    expect(classifyOptOutBurst(["pare de me mandar confirmações", "obrigada"])).toBe("explicit");
+  });
+
+  it.each([
+    "pare de me mandar mensagem, nem me manda link",
+    "pare de me mandar mensagem, me manda o link quando eu pedir",
+    "não quero mais nada, pare de me mandar mensagem, nem link",
+    "pare de me mandar mensagem, não quero link nenhum, não me manda o link",
+    "não tenho interesse, para de me mandar mensagem e me manda o link pra ver",
+  ])("negação do pedido continua descadastro: %s", (frase) => {
     expect(classifyOptOut(frase)).toBe("explicit");
   });
 });
@@ -96,6 +121,19 @@ describe("C5 — pending_promise: prometer mandar o link depois, num turno sem l
     "Vou conferir esse CEP com calma pra ver a entrega e o pagamento.",
     "Recebi seu CEP também, deixa eu conferir como fica a entrega e o pagamento aí na sua região.",
     "Vou te mandar o link agora.",
+    // Revisão completa do §66 (A2): as formas comuns da mesma promessa.
+    "Te mando o link agora mesmo.",
+    "Daqui a pouco te mando o link.",
+    "Em instantes te envio o link.",
+    "Aguarde um instante que te mando o link.",
+    "Já vou gerar seu link.",
+    "Seu link já vai sair.",
+    "Vou providenciar seu link.",
+    "Vou deixar seu link pronto.",
+    "Estou conferindo seu CEP.",
+    "Deixa eu ver o estoque.",
+    "Não demora: já te mando o link.",
+    "Vou conferir seu CEP assim que você me passar o CPF.",
   ])("veta, sem link no turno: %s", (frase) => {
     expect(blockedBy(frase, false)).toContain("pending_promise");
   });
@@ -406,6 +444,24 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     expect(turn).toContain("if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {");
     expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
   });
+});
+
+describe("revisão completa do §66 — a negação honesta passa", () => {
+  const gates = (t: string) => runGates(t, ctx({ linkInTurn: false })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+  it.each([
+    "Não vou te mandar o link agora, primeiro preciso do CPF.",
+    "Eu nunca vou te mandar o link sem seus dados.",
+    "Não consigo te mandar o link sem o CPF.",
+    "O link só sai com o CPF.",
+    "Te mando o link?",
+  ])("pending_promise não veta: %s", (frase) => expect(gates(frase)).not.toContain("pending_promise"));
+  it.each(["Ainda não anotei seu CEP.", "Não anotei nada ainda, me passa o CEP?", "Deixa anotado aí o número do pedido."])(
+    "noted_claim não veta: %s",
+    (frase) => expect(gates(frase)).not.toContain("noted_claim"),
+  );
+  it.each(["Não se preocupa, anotei tudo.", "Já deixei anotado aqui.", "Anotei seu CEP."])("noted_claim veta: %s", (frase) =>
+    expect(gates(frase)).toContain("noted_claim"),
+  );
 });
 
 describe("T6 — noted_claim: sem 'anotei'", () => {

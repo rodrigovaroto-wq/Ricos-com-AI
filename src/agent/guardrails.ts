@@ -623,14 +623,42 @@ export type OptOutLevel = "explicit" | "ambiguous" | "none";
  * break with another line before — and the strongest wins.
  */
 export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel => {
-  const levels = messages.map(classifyOptOut);
+  // The link asked in another message of the burst is the same purchase (review of §66, A1).
+  const levels = messages.map((m) => classifyOptOut(m, messages.join("\n")));
   return levels.includes("explicit") ? "explicit" : levels.includes("ambiguous") ? "ambiguous" : "none";
 };
 
+/** The condition that makes a send true: it goes the moment she gives what is missing (`pending_promise`). */
+const PROMISE_CONDITION =
+  /\b(?:assim|logo)\s+que\s+(?:voce\s+)?(?:me\s+)?(?:passar|mandar|enviar|disser|escolher)|\bquando\s+voce\s+(?:me\s+)?(?:passar|mandar|enviar)|\bso\s+me\s+passa\b/;
+/** A send still to come (`pending_promise`; second real test and review of §66). */
+const PROMISED_SEND: readonly RegExp[] = [
+  /\b(?:ja|logo|agora|em\s+seguida|daqui\s+a\s+pouco|em\s+(?:instantes|breve)|num\s+instante)\s+(?:te\s+)?(?:mando|envio|passo)(?:\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b|\s*(?:[.!?,]|$)|\s+(?:aqui|nesta|em\s+seguida|pra\s+voce))/,
+  /\b(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b[^.!?]*?\b(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo|logo|agora|em\s+(?:instantes|breve))\b/,
+  /\bque\s+(?:ja\s+)?(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?link\b/,
+  /\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando|providenciando|gerar|providenciar|deixar|preparar)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b/,
+  /\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto/,
+  /\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b/,
+  /\blink\s+(?:ja\s+)?vai\s+sair\b/,
+];
+/** A check still to come — never freed by a condition (`pending_promise`). */
+const PROMISED_CHECK: readonly RegExp[] = [
+  /\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b(?!\s*:)/,
+  /\bdeix[ae]\s+eu\s+ver\s+(?:o\s+|a\s+|se\s+)?(?:estoque|cep|entrega|disponib\w*|frete|prazo|tamanho|regiao)/,
+  /\b(?:estou|to|tou)\s+(?:conferindo|verificando|checando|consultando)\b|\b(?:estou|to|tou)\s+vendo\s+(?:o\s+|a\s+|seu\s+|sua\s+)?(?:estoque|cep|entrega|disponib\w*|frete|prazo)/,
+];
+
 /** "Para/pare de me mandar …" — the negated "não para de mandar" is read in `classifyOptOut`. */
 const STOP_SENDING = /(?<!\bnao\s+)\b(?:para|pare|parem|pode\s+parar)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)\b/;
+/**
+ * She asks for the link: not denied right before the verb ("nem me manda link"), and not conditional in
+ * its own clause ("me manda o link quando eu pedir").
+ */
+const LINK_REQUEST =
+  /(?<!\b(?:nao|nem|nunca)\s+(?:me\s+)?)\b(?:me\s+)?(?:manda|mande|mandem|envia|envie|enviem|passa|passe)\s+(?:o\s+|so\s+o\s+)?(?:link|checkout)\b(?![^,.;!?\n]*\b(?:se|quando|depois)\b)/;
 
-export const classifyOptOut = (text: string): OptOutLevel => {
+/** `burst` is the whole burst she sent, where the link may be asked in another message. */
+export const classifyOptOut = (text: string, burst = text): OptOutLevel => {
   const t = norm(text);
   const explicit = [
     /nao\s+(quero|desejo)\s+mais\s+(receber|nada|mensage)/,
@@ -640,18 +668,13 @@ export const classifyOptOut = (text: string): OptOutLevel => {
     /\bnao\s+tenho\s+interesse\b.*\bnao\s+me\s+(chame|procure)\b/,
   ];
   if (explicit.some((r) => r.test(t))) return "explicit";
-  // A purchase beside it is never a refusal of everything (grafo §66).
-  const stop = STOP_SENDING.exec(t);
-  // Asking for the link in the same message is buying: "pare de me mandar confirmações, apenas me mande o
-  // link do checkout" blocked a buyer for good (second real test, grafo §66). The request itself, never
-  // denied nor conditional after the stop ("nem me manda link", "me manda o link quando eu pedir"), and
-  // never beside a refusal ("não quero", "não tenho interesse"): everything else still blocks (reviews of
-  // the §66 fixes).
-  const after = stop ? t.slice(stop.index + stop[0].length) : "";
-  const buysNow =
-    /\b(?:me\s+)?(?:manda|mande|envia|envie|passa|passe)\s+(?:o\s+|s[oó]\s+o\s+)?(?:link|checkout)\b/.test(after) &&
-    !/\b(?:nao|nem|nunca|nenhum|se|quando|depois|interesse)\b/.test(after);
-  if (stop && !buysNow) return "explicit";
+  // A purchase beside it is never a refusal of everything (grafo §66). Asking for the link — in this
+  // message or another of the burst, before or after the stop — is buying: "pare de me mandar
+  // confirmações, apenas me mande o link do checkout" blocked a buyer for good (second real test). Never
+  // beside a refusal ("não quero", "não tenho interesse"), which still blocks (reviews of the §66 fixes).
+  const whole = norm(burst);
+  const buysNow = LINK_REQUEST.test(whole) && !/\bnao\s+(?:quero|desejo)\b|\binteresse\b/.test(whole);
+  if (STOP_SENDING.test(t) && !buysNow) return "explicit";
   // "Vocês não param de mandar mensagem, que saco" is a complaint, as it read until 2026-09-28; the
   // negated form asks for more only beside a liking she says, not denied ("não para de mandar
   // oferta boa não", "tô gostando") (2026-09-29, grafo §31). And only about this shop: no subject, or
@@ -663,6 +686,7 @@ export const classifyOptOut = (text: string): OptOutLevel => {
   const stillSending = /\bnao\s+(?:para|param)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)/.exec(t);
   const subject = stillSending ? t.slice(0, stillSending.index).split(/[,;.!?:\n]/).pop()!.trimStart() : "";
   if (
+    !buysNow &&
     stillSending &&
     /^(?:(?:e|mas|gente|nossa|aff?e?|oi|ola)\s+)?(?:(?:voces|vcs|voce|vc|tu|essa\s+loja|esse\s+numero|essa\s+empresa)\s+)?$/.test(subject) &&
     (/\b(?:voces|vcs|voce|vc|tu|loja|numero|empresa)\s+$/.test(subject) ||
@@ -2972,8 +2996,15 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.linkInTurn !== false) return null;
       // Sentence by sentence: a true condition ("Já te mando o link assim que você me passar o CPF") frees
-      // its own sentence, never the promise in the next one (review 3 of §66).
-      return norm(text).split(/(?<=[.!?])\s+|\n+/).some((t) => !/\b(?:assim|logo)\s+que\s+(?:voce\s+)?(?:me\s+)?(?:passar|mandar|enviar|disser|escolher)|\bquando\s+voce\s+(?:me\s+)?(?:passar|mandar|enviar)|\bso\s+me\s+passa\b/.test(t) && /\b(?:ja|logo|em\s+seguida)\s+(?:te\s+)?(?:mando|envio|passo)(?:\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b|\s*(?:[.!?,]|$)|\s+(?:aqui|nesta|em\s+seguida|pra\s+voce))|\b(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b[^.!?]*?\b(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo|logo)\b|\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b|\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto|\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b|(?<!\bnao\s+)\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b(?!\s*:)/.test(t))
+      // its own sentence's send, never the promise in the next one (review 3 of §66), nor a check (review
+      // of §66, B1). A promise denied right before it ("Não vou te mandar o link agora") is honest; an
+      // offer ("Te mando o link?") matches no pattern, and "tá bom?" after a promise is still one.
+      const negated = (t: string, at: number): boolean => /\b(?:nao|nunca)\s+(?:[a-z]+\s+)?$/.test(t.slice(Math.max(0, at - 24), at));
+      const hits = (t: string, patterns: readonly RegExp[]): boolean =>
+        patterns.some((r) => [...t.matchAll(new RegExp(r.source, "g"))].some((m) => !negated(t, m.index ?? 0)));
+      return norm(text)
+        .split(/(?<=[.!?])\s+|\n+/)
+        .some((t) => hits(t, PROMISED_CHECK) || (!PROMISE_CONDITION.test(t) && hits(t, PROMISED_SEND)))
         ? "promises to send the link or check something later, in a turn that sends no link"
         : null;
     },
@@ -2989,7 +3020,8 @@ const gates: readonly Gate[] = [
     briefing: () => `Não diga que anotou, registrou ou deixou anotado um dado dela: siga a conversa.`,
     check: (text) =>
       // Not "registrado": "marca registrada" and "fica registrado no checkout" are no claim (review 3 of §66).
-      /\b(?:anotei|anotad[oa]s?|anotand\w*|registrei|deixei\s+(?:tudo\s+)?anotad\w*)\b/.test(norm(text))
+      // Nor denied ("Ainda não anotei seu CEP"), nor asked of her ("Deixa anotado aí o número do pedido").
+      /(?<!\b(?:nao|nunca)\s+(?:[a-z]+\s+)?)\b(?:anotei|anotand\w*|registrei|deixei\s+(?:tudo\s+)?anotad\w*)\b|(?<!\b(?:nao|nunca|deix[ae])\s+(?:[a-z]+\s+)?)\banotad[oa]s?\b/.test(norm(text))
         ? "says it noted down what she sent"
         : null,
   },
