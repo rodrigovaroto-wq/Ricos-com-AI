@@ -32,7 +32,17 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-07, tarde (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-07, noite (sessão `claude/gracious-hopper-9a79su`, LEIA PRIMEIRO)
+
+**Conferido ao começar:** `main` = `78b3e74` (PR #55 mergeado); `turn` v82 = `agent_version` 11
+(`ef521e6`, código de `24e9268`); `2c0e9ea` na main, não publicado. Leads no banco: 5983 (operador,
+bloqueado), 7967, 9393 (amigos, v10/v11), 7745 (v9).
+**Em andamento:** análise conjunta com o operador (anotações dele + auditoria `…-leila-2.md` + conversas dos
+amigos). Achado novo: a consulta de cobertura da Coinzz responde de novo com o cabeçalho
+`X-Requested-With: XMLHttpRequest` (sem ele, 302 desde 24/09 — O-01); em produção a região é sempre nula.
+Nenhum código mudou ainda — esperando o operador confirmar a lista e a ordem.
+
+### Onde estamos — 2026-10-07, tarde (sessão `claude/hopeful-cori-dlzhvu`)
 
 **No ar:** `agent_version` **11** = `turn` v82 = código do commit `24e9268`, publicado de `ef521e6` em 2026-10-07 13:37 UTC (sonda sem selo: 400 "externalId e from são obrigatórios", `sealed:false` — a função sobe e recusa o que não vem do n8n).
 Modelo da conversa: `muse-spark-1.3-contributor` (do operador, à mão — **nunca troque**). Teto R$ 1,00.
