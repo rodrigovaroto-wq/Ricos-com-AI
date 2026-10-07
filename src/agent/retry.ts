@@ -206,6 +206,29 @@ export interface ThinkConfig {
 const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
 /**
+ * The link, said the operator's way (2026-10-07, grafo §66): no "quer que eu te mande o link?" — it is
+ * sent, in three bubbles: the line, the link alone, and what is left there, once. Fixed text: the model
+ * asked permission five times and never sent it.
+ */
+export const linkMessage = (
+  url: string,
+  path: "cod" | "prepay",
+  size: string | null,
+  brand: string,
+  pieces = 1,
+): string => {
+  const choose = pieces > 1 ? "escolhe o tamanho de cada peça" : `escolhe o ${size ?? "seu tamanho"}`;
+  const there =
+    path === "cod"
+      ? `Lá você completa o endereço, ${choose} e o dia da entrega.`
+      : `Lá você completa o endereço, ${choose}, confere o frete da sua região e paga no pix ou no cartão.`;
+  return (
+    `Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.` +
+    `\n\n${url}\n\n${there} Se precisar de alguma ajuda, estarei aqui.`
+  );
+};
+
+/**
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
  * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
  * back. Now it is the one place the declared stock is said, with the strongest argument of her

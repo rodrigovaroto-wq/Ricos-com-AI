@@ -11,7 +11,7 @@ import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } f
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
-import { GREETING_ASK, greetingFor, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
+import { GREETING_ASK, greetingFor, linkMessage, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -378,5 +378,32 @@ describe("C2 — segunda revisão: sem o pedido do link, 'pare de me mandar' blo
   ])("C5: a condição verdadeira não é promessa pendente: %s", (frase) => {
     const gates = runGates(frase, ctx({ linkInTurn: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
     expect(gates).not.toContain("pending_promise");
+  });
+});
+
+describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
+  const url = "https://entrega.logzz.com.br/pay/ccm-1-unidade?name=Leila%20da%20Silva&phone=5511900000000";
+  it("na entrega: a frase, o link sozinho e o que falta, uma vez", () => {
+    expect(linkMessage(url, "cod", "M", "Encorpa")).toBe(
+      "Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a Encorpa." +
+        `\n\n${url}\n\n` +
+        "Lá você completa o endereço, escolhe o M e o dia da entrega. Se precisar de alguma ajuda, estarei aqui.",
+    );
+  });
+  it("no antecipado e no kit", () => {
+    expect(linkMessage(url, "prepay", "G", "Encorpa")).toContain(
+      "Lá você completa o endereço, escolhe o G, confere o frete da sua região e paga no pix ou no cartão.",
+    );
+    expect(linkMessage(url, "cod", null, "Encorpa", 2)).toContain("escolhe o tamanho de cada peça e o dia da entrega");
+  });
+  it("passa a cadeia nos dois caminhos", () => {
+    for (const path of ["cod", "prepay"] as const) {
+      const blocked = runGates(linkMessage(url, path, "M", "Encorpa"), ctx({ paymentPath: path })).traces.filter((t) => t.verdict === "block");
+      expect({ path, blocked }).toEqual({ path, blocked: [] });
+    }
+  });
+  it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
+    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !(parts.some(asksSomething) && !parts.some(buyerAsk))) {");
+    expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
   });
 });

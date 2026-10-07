@@ -110,6 +110,7 @@ import {
   SAFE_FALLBACK_REPLY,
   shippedCancelReply,
   thinkReply,
+  linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
   greetingFor,
@@ -3286,6 +3287,20 @@ const handleTurn = async (
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
       true,
+      units,
+    );
+    if (sent) return sent;
+  }
+
+  // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
+  // asked something beside it, and then the model answers with the link in its directive.
+  if (checkoutUrl !== null && !farewell && !(parts.some(asksSomething) && !parts.some(buyerAsk))) {
+    const sent = await sendFixed(
+      linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units),
+      linkFact ? `link — ${linkFact}` : "link",
+      linkPath,
+      { checkoutUrl, linkFact },
+      false,
       units,
     );
     if (sent) return sent;

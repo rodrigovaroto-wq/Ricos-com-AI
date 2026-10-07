@@ -3237,6 +3237,14 @@ const MUTATIONS: Mutation[] = [
     to: "    true;\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-link-fixo",
+    bug: "o modelo perguntava 'quer que eu te mande o link?' em vez de mandar",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  if (checkoutUrl !== null && !farewell && !(parts.some(asksSomething) && !parts.some(buyerAsk))) {",
+    to: "  if (false) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
