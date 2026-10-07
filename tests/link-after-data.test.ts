@@ -635,7 +635,7 @@ describe("recusa: verbo de recusa, não qualquer 'não' perto do campo", () => {
 
 /** Revisão de 6f3a6a6: dúvida com "se" não é recusa; formas comuns de recusa contam; a ordem da despedida. */
 describe("recusa: condicional e formas do WhatsApp", () => {
-  it.each(["e se eu nao passar o cpf tem problema?", "se eu nao informar o cpf da problema?"])("condicional não é recusa: %s", (m) => {
+  it.each(["e se eu nao passar o cpf tem problema?", "se eu nao informar o cpf da problema?", "e se eu nao passar o cpf tem problema", "se eu nao informar o cpf da problema"])("condicional não é recusa: %s", (m) => {
     const msgs = [out("Me passa seu CPF?"), inn("pra que?"), out("Consegue me mandar só os números?"), inn(m)];
     expect(refusedAsks(msgs, "document")).toBe(1);
   });
