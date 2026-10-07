@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
-import { asksForLink } from "@/agent/interpret.js";
+import { asksForLink, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
 import { refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { ctx } from "./fixtures.js";
@@ -167,5 +167,35 @@ describe("C7 — recusar um dado não é 'vou pensar'", () => {
 
   it("o turno não manda a resposta fixa do 'vou pensar' para a recusa de dado", () => {
     expect(turn).toContain('!refusesAskedDatum(lastOutbound, inbound.body ?? "")');
+  });
+});
+
+describe("C8 — 'o na entrega acho' é escolha", () => {
+  it.each(["o na entrega acho", "o da entrega", "a do pix", "na entrega"])("escolhe: %s", (frase) => {
+    expect(choosesPath(frase)).toBe(true);
+  });
+
+  it.each(["na entrega acho que não", "o na entrega acho, mas e o prazo?", "na entrega é seguro?", "pix ou entrega, não sei"])(
+    "não escolhe: %s",
+    (frase) => {
+      expect(choosesPath(frase)).toBe(false);
+    },
+  );
+
+  it("a palavra dela contra a leitura do intérprete: não grava", () => {
+    const lastOutbound = "Qual das duas fica melhor pra você?";
+    expect(pathChoiceToStore({ interpreted: "cod", parts: ["o antecipado"], lastOutbound, confirms: false })).toBeNull();
+    expect(pathChoiceToStore({ interpreted: "prepay", parts: ["o na entrega acho"], lastOutbound, confirms: false })).toBeNull();
+  });
+
+  it("a escolha lida pelo intérprete é gravada com a frase da conversa", () => {
+    expect(
+      pathChoiceToStore({
+        interpreted: "cod",
+        parts: ["o na entrega acho"],
+        lastOutbound: "Pagando na entrega o frete é grátis… O que confirma pra esse CEP é digitando no checkout, qual das duas fica melhor pra você?",
+        confirms: false,
+      }),
+    ).toBe("cod");
   });
 });

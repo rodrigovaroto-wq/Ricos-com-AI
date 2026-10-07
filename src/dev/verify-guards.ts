@@ -3132,6 +3132,15 @@ const MUTATIONS: Mutation[] = [
     to: "    true\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-escolha-com-artigo",
+    bug: "'o na entrega acho' não contava como escolha e o pagamento nunca foi gravado",
+    files: ["src/agent/interpret.ts"],
+    from: "(?:(?:o|a)\\\\s+(?:d[oa]\\\\s+)?)?(?:no\\\\s+|na\\\\s+|pelo",
+    to: "(?:no\\\\s+|na\\\\s+|pelo",
+    also: [{ from: "|sim|acho|eu\\\\s+acho))?", to: "|sim))?" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

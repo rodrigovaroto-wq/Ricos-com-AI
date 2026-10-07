@@ -390,7 +390,7 @@ export const choosesPath = (message: string): boolean => {
   const t = norm(message);
   const m =
     new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
-    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
+    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:(?:o|a)\\s+(?:d[oa]\\s+)?)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim|acho|eu\\s+acho))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
   if (!m) return false;
   // Doubt is not a choice (sixth review): "quero saber se aceita pix", "vou ver se consigo
   // no pix", "pode ser que eu pague no pix", "pix ou cartão, não sei", "pagar na entrega é
@@ -532,7 +532,19 @@ export const pathChoiceToStore = (d: {
   noCod?: boolean;
 }): PaymentChoice | null => {
   const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
-  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))) return d.interpreted;
+  // The path her own words name never contradicts the reading ("o antecipado" read as cod): grafo §66.
+  const named = (p: string): PaymentChoice | null => {
+    const t = norm(p);
+    const cod = /\b(?:entrega|na\s+porta|quando\s+cheg\w*)\b/.test(t);
+    const prepay = /\b(?:pix|antecipad\w*|adiantad\w*|cartao|antes|agora)\b/.test(t);
+    return cod === prepay ? null : cod ? "cod" : "prepay";
+  };
+  if (
+    d.interpreted &&
+    (d.parts.some((p) => choosesPath(p) && (named(p) ?? d.interpreted) === d.interpreted) ||
+      (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))
+  )
+    return d.interpreted;
   const yes = d.confirms && (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
   const defaultCod =
     d.interpreted !== "prepay" &&
