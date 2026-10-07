@@ -3294,7 +3294,9 @@ const handleTurn = async (
 
   // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  if (checkoutUrl !== null && !farewell && !parts.some((p: string) => asksSomething(p) && !buyerAsk(p))) {
+  // Read clause by clause: "me manda o link, aceita cartão?" has a real question beside the request (review 4).
+  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
+  if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
       linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units),
       linkFact ? `link — ${linkFact}` : "link",

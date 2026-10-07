@@ -3269,6 +3269,14 @@ const MUTATIONS: Mutation[] = [
     to: "    `o desconto no antecipado`,\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prompt.test.ts"],
   },
+  {
+    id: "G66-link-por-oracao",
+    bug: "'me manda o link, aceita cartão?' recebia só o link fixo, sem resposta à pergunta",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\\s+|\\n+/));\n",
+    to: "  const clauses = parts;\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

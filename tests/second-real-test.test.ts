@@ -6,7 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
-import { asksForLink, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
+import { asksForLink, asksSomething, buyerAsk, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
 import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
@@ -403,7 +403,7 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     }
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
-    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !parts.some((p: string) => asksSomething(p) && !buyerAsk(p))) {");
+    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {");
     expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
   });
 });
@@ -446,4 +446,16 @@ describe("revisão 3 do §66", () => {
   it("a resposta da primeira mensagem guardada para a abertura leva a saudação da hora em que sai", () => {
     expect(turn).toContain("body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\\n\\n${attempt.text}`,");
   });
+});
+
+describe("revisão 4 do §66 — o link fixo não engole a pergunta da mesma mensagem", () => {
+  const clauses = (parts: string[]) => parts.flatMap((p) => p.split(/(?<=[.!?,;])\s+|\n+/));
+  const fixed = (parts: string[]) => !clauses(parts).some((q) => asksSomething(q) && !buyerAsk(q));
+  it.each([["pode mandar o link? e quanto tempo demora pra chegar?"], ["quero sim! chega até sexta?"], ["me manda o link, aceita cartão?"]])(
+    "com pergunta, o modelo responde: %s",
+    (msg) => expect(fixed([msg])).toBe(false),
+  );
+  it.each([["pode mandar o link"], ["sim, pode mandar!"], ["55138146840"], ["quero sim"]])("sem pergunta, o link fixo sai: %s", (msg) =>
+    expect(fixed([msg])).toBe(true),
+  );
 });
