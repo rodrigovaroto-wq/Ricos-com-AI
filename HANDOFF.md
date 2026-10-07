@@ -34,7 +34,7 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 ### Onde estamos — 2026-10-07, tarde (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
-**No ar:** `agent_version` **11** = `turn` v{{TURN_VERSION}} = commit `24e9268` (publicado {{DEPLOY_AT}}).
+**No ar:** `agent_version` **11** = `turn` v82 = código do commit `24e9268`, publicado de `ef521e6` em 2026-10-07 13:37 UTC (sonda sem selo: 400 "externalId e from são obrigatórios", `sealed:false` — a função sobe e recusa o que não vem do n8n).
 Modelo da conversa: `muse-spark-1.3-contributor` (do operador, à mão — **nunca troque**). Teto R$ 1,00.
 
 **O que a v11 mudou sobre a v10** (grafo §65; cinco defeitos que sobraram no código da v10, achados na
@@ -53,7 +53,7 @@ auditoria da conversa da Leila e portados para o desenho do PR #54):
 
 Revisão Opus em três rodadas (NEEDS WORK ×2 → APPROVED WITH RESIDUALS). Validação em `24e9268`: `test`
 6758, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxado, `typecheck:function` limpo, `dev:regua` 20 000,
-`verificar:guardas` {{GUARDS}}.
+`verificar:guardas` 370/370.
 
 **Resíduos conhecidos (candidatos ao próximo conserto, com a frase que quebra):**
 - "pode mandar não, desisti" / "não pode mandar, desisti" contam como compra (falta `negatedBefore` e
