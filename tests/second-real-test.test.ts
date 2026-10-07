@@ -6,7 +6,8 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
-import { classifyOptOut } from "@/agent/guardrails.js";
+import { classifyOptOut, runGates } from "@/agent/guardrails.js";
+import { ctx } from "./fixtures.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -77,5 +78,43 @@ describe("C4 — nome, e-mail e CPF esperam o CEP", () => {
 
   it("o CEP é pedido também quando ela já escolheu como paga, não só quando pede o link", () => {
     expect(turn).toContain(': missing === "cep" && (linkDue || paymentChoice !== null)');
+  });
+});
+
+describe("C5 — pending_promise: prometer mandar o link depois, num turno sem link", () => {
+  const blockedBy = (text: string, linkInTurn: boolean | undefined) =>
+    runGates(text, ctx({ linkInTurn })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+
+  it.each([
+    "Já deixo tudo pronto aqui pra 1 peça no M, pagando na entrega, e te mando o link em seguida, tá bom?",
+    "Estou deixando seu link prontinho aqui e já te mando em seguida pra você concluir lá, escolhendo o M e o dia que prefere receber?",
+    "Te mando o checkout aqui em seguida pra você concluir lá, escolhendo o M e o dia que prefere receber, tá bom?",
+    "Estou só finalizando seu checkout aqui, e já te mando nesta conversa pra você concluir lá?",
+    "Tá tudo aqui comigo, então assim que seu link ficar pronto eu mando aqui mesmo, pode ser?",
+    "Vou conferir esse CEP com calma pra ver a entrega e o pagamento.",
+    "Recebi seu CEP também, deixa eu conferir como fica a entrega e o pagamento aí na sua região.",
+    "Vou te mandar o link agora.",
+  ])("veta, sem link no turno: %s", (frase) => {
+    expect(blockedBy(frase, false)).toContain("pending_promise");
+  });
+
+  it.each([
+    "Te mando o link?",
+    "Quer que eu te mande o link do antecipado, já com seus dados?",
+    "Assim que você me passar o CEP, o link sai com seus dados.",
+    "O checkout confirma quando você digitar o CEP.",
+    "Me passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí na sua região.",
+  ])("não veta oferta nem pedido do que falta: %s", (frase) => {
+    expect(blockedBy(frase, false)).not.toContain("pending_promise");
+  });
+
+  it("com o link no turno, ou fora do turno (varredura), fica ocioso", () => {
+    const frase = "Estou deixando seu link prontinho aqui e já te mando em seguida.";
+    expect(blockedBy(frase, true)).not.toContain("pending_promise");
+    expect(blockedBy(frase, undefined)).not.toContain("pending_promise");
+  });
+
+  it("o turno passa se o link sai nesta resposta", () => {
+    expect(turn).toContain("linkInTurn: checkoutUrl !== null,");
   });
 });

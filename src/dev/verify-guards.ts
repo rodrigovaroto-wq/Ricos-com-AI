@@ -3083,6 +3083,22 @@ const MUTATIONS: Mutation[] = [
     also: [{ from: ': missing === "cep" && (linkDue || paymentChoice !== null)', to: ': missing === "cep" && linkDue' }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-promessa-de-link",
+    bug: "'estou deixando seu link prontinho e já te mando' saiu 4 vezes num turno sem link",
+    files: ["src/agent/guardrails.ts"],
+    from: "      if (ctx.linkInTurn !== false) return null;\n",
+    to: "      return null;\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-promessa-fiacao",
+    bug: "o turno não dizia ao gate se o link saía nesta resposta, e a promessa passava",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "      linkInTurn: checkoutUrl !== null,\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -3407,6 +3407,8 @@ const handleTurn = async (
       askedTestimonial: asksForTestimonial(inbound.body ?? ""),
       // Virtual, IA, robô only when she asks what the agent is (Q10, line 2; grafo §58).
       askedIdentity: parts.some(asksWhatSheIs),
+      // A promise to send the link later, in a turn that sends none (grafo §66).
+      linkInTurn: checkoutUrl !== null,
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),

@@ -240,6 +240,13 @@ export interface GateContext {
    * robô. `undefined` (the sweep, the fixed replies) leaves that check idle, as `askedTestimonial`.
    */
   askedIdentity?: boolean;
+  /**
+   * Whether this turn's reply carries the checkout link. `false` makes `pending_promise` refuse a
+   * promise to send it later ("já te mando o link", "estou finalizando seu checkout"): four of them
+   * in a row and no link in the second real test (grafo §66). `undefined` (the sweep, the fixed
+   * replies, the handoff's waiting line) leaves the check idle.
+   */
+  linkInTurn?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -2948,6 +2955,27 @@ const gates: readonly Gate[] = [
       /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
         ? "the model's own note leaked into the reply"
         : null,
+  },
+  {
+    /**
+     * A promise of an action nobody will take: "estou deixando seu link prontinho e já te mando",
+     * "vou conferir esse CEP com calma" — four in a row, and no link, in the second real test (grafo
+     * §66). The link is the system's, sent the turn its data close; the model never sends it later.
+     * Offers stay ("Te mando o link?" closes the prepaid message) — only the announcement of a send
+     * or a check still to come is refused.
+     */
+    name: "pending_promise",
+    remedy: "rewrite",
+    briefing: () =>
+      `Nunca prometa mandar o link depois nem conferir algo depois: se o link não está nesta mensagem, ` +
+      `peça o que falta pra ele sair, que a instrução aqui embaixo diz o que é.`,
+    check: (text, ctx) => {
+      if (ctx.linkInTurn !== false) return null;
+      const t = norm(text);
+      return /\b(?:ja|logo|em\s+seguida)\s+(?:te\s+)?(?:mando|envio|passo)\b|\b(?:te\s+)?(?:mando|envio|passo)\s+(?:\S+\s+){0,4}?(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo)\b|\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b|\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto|\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b|\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b/.test(t)
+        ? "promises to send the link or check something later, in a turn that sends no link"
+        : null;
+    },
   },
   {
     name: "identical_template",
