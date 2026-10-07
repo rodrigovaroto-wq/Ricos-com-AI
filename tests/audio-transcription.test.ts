@@ -129,6 +129,12 @@ describe("o Ogg dela vira pacotes Opus", () => {
     expect(JSON.parse(readFileSync("supabase/functions/whatsapp/deno.json", "utf8"))).toEqual({
       imports: { "simple-yenc": "https://cdn.jsdelivr.net/npm/simple-yenc@1.0.4/dist/esm.js" },
     });
+    // O deno.lock prende o sha256 de cada arquivo do jsDelivr: arquivo trocado lá, carga recusada aqui.
+    expect(JSON.parse(readFileSync("supabase/functions/whatsapp/deno.lock", "utf8")).remote).toEqual({
+      "https://cdn.jsdelivr.net/npm/@wasm-audio-decoders/common@9.0.7/src/WASMAudioDecoderCommon.js": "9eb713858e7c98dcb2da9a3121ba10b2f0e69bf9f32151eb705569c68e1f33ce",
+      "https://cdn.jsdelivr.net/npm/opus-decoder@0.7.12/src/EmscriptenWasm.js": "278768f829703b8b443dfc64b8c5d0e29e73f5012ba7edc641b4c211390a1a72",
+      "https://cdn.jsdelivr.net/npm/simple-yenc@1.0.4/dist/esm.js": "14680ab2c8dec870ceffc05e79967b7358d31fd96eee6481388f06347a53ac3e",
+    });
   });
 
 });

@@ -18,7 +18,8 @@ que o empacotador recusa) — a transcrição não precisa dele.
 Licenças: os três pacotes são MIT, de Ethan Halsall (texto em `LICENSE`). O `libopus` dentro do
 WebAssembly é BSD-3-Clause (Xiph.Org Foundation e colaboradores, https://opus-codec.org/license/).
 
-**Antes de cada deploy**, confira que cada URL ainda entrega o arquivo revisado em 2026-10-07
+O `../deno.lock` prende o sha256 de cada arquivo remoto: se um deles mudar no jsDelivr, o Deno recusa
+a carga. **Antes de cada deploy**, mesmo assim, confira que cada URL ainda entrega o arquivo revisado em 2026-10-07
 (`curl -sS <url> | sha256sum`). O hash do `OpusDecoder.js` e as URLs ficam presos em
 `tests/audio-transcription.test.ts`.
 
