@@ -585,3 +585,10 @@ describe("decisão 16 (operador, 2026-10-07) — reserva: o preço, ou uma pesso
     expect(turn).not.toContain("SAFE_FALLBACK_REPLY");
   });
 });
+
+describe("G66 — o link fixo lê oração por oração", () => {
+  it("'me manda o link, aceita cartão?' não recebe só o link fixo: a pergunta da outra oração segura", () => {
+    expect(turn).toContain("const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\\s+|\\n+/));");
+    expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))");
+  });
+});
