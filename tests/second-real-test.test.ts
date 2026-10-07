@@ -260,3 +260,52 @@ describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no m�
     expect(turn).toContain("select=*,leads(orders(status)),followups(kind,sent_at)");
   });
 });
+
+describe("revisão dos consertos do §66 — os furos que o Opus achou", () => {
+  it.each([
+    "Pare de me mandar mensagens, não quero comprar nada",
+    "parem de me mandar mensagem, já falei que não vou comprar",
+    "Pare de me mandar mensagem!!! Não vou comprar",
+    "pare de me mandar mensagem, já cancelei o pedido",
+    "para de me mandar mensagem por favor obrigada",
+    "pare de me mandar mensagens que eu não quero",
+    "para de me mandar mensagem pq eu nao quero mais",
+    "pare de me enviar mensagens eu não quero",
+    "Para de me mandar essas mensagens chatas",
+    "pare de me mandar mensagem moça",
+    "pare de me mandar mensagens obrigada",
+    "pare de me mandar mensagem sobre esse colete",
+  ])("C2: opt-out legítimo continua bloqueando: %s", (frase) => {
+    expect(classifyOptOut(frase)).toBe("explicit");
+  });
+
+  it.each(["fim de semana te passo", "hora do almoço te mando", "Fim de semana", "depois te falo"])(
+    "C9: depois do pedido do nome, não é nome: %s",
+    (frase) => {
+      expect(extractName(frase, true)).toBeNull();
+      expect(mergeIdentity({ name: "Leila" }, extractIdentityBurst([frase], true)).fields.name).toBe("Leila");
+    },
+  );
+
+  it.each([
+    "não vou passar agora não, vou pensar melhor e te falo",
+    "nao passo cpf, deixa que eu penso e volto depois",
+    "não dou meu cpf, desisti",
+  ])("C7: recusa com adiamento continua 'vou pensar': %s", (frase) => {
+    expect(refusesAskedDatum("Para a emissão da nota fiscal, me passa seu CPF por favor?", frase)).toBe(false);
+  });
+
+  it.each([
+    "Deixa eu conferir: seu tamanho é M e o CEP 01310-100, certo?",
+    "Já te passo as opções: na entrega ou antecipado com desconto.",
+    "Já te envio a tabela de medidas aqui: P 36-38.",
+    "Não vou conferir nada, pode ficar tranquila.",
+  ])("C5: não é promessa pendente: %s", (frase) => {
+    const gates = runGates(frase, ctx({ linkInTurn: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+    expect(gates).not.toContain("pending_promise");
+  });
+
+  it.each(["vai me mandar o link amanhã?", "se eu escolher pix vai me mandar o link?"])("C6: condição não é pedido de link: %s", (frase) => {
+    expect(asksForLink(frase)).toBe(false);
+  });
+});

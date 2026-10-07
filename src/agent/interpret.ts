@@ -857,7 +857,12 @@ export const asksForLink = (message: string): boolean => {
   if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
   // Second real test (grafo §66): "você nao vai me mandar o link do checkout????" — the cobrança, in a
   // question — and "então manda logo" / "sim pode mandar" as the whole message.
-  if (/\b(?:nao\s+)?vai\s+(?:me\s+)?(?:mandar|enviar|passar)\s+(?:o\s+)?(?:link|checkout)\b[^?]*\?/.test(t)) return true;
+  if (
+    /\b(?:nao\s+)?vai\s+(?:me\s+)?(?:mandar|enviar|passar)\s+(?:o\s+)?(?:link|checkout)\b[^?]*\?/.test(t) &&
+    // A condition is no request for now ("se eu escolher pix vai me mandar o link?", "… amanhã?").
+    !/\b(?:se|quando|depois|amanha|mais\s+tarde)\b/.test(t)
+  )
+    return true;
   if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.

@@ -3070,8 +3070,8 @@ const MUTATIONS: Mutation[] = [
     id: "G66-optout-objeto",
     bug: "'pare de me mandar confirmações, apenas me mande o link do checkout' descadastrava a compradora",
     files: ["src/agent/guardrails.ts"],
-    from: "if (STOP_SENDING.test(t) && !/\\b(?:link|checkout|comprar|compra|pedido|finalizar|fechar)\\b/.test(t)) return \"explicit\";",
-    to: "if (/(?<!\\bnao\\s+)\\b(para|pare|parem|pode\\s+parar)\\s+de\\s+(me\\s+)?(mandar|enviar|encher)/.test(t)) return \"explicit\";",
+    from: "  if (stop && !NOT_STOPPING.test(t.slice(stop.index + stop[0].length)) && !wantsLink) return \"explicit\";",
+    to: "  if (stop) return \"explicit\";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
@@ -3188,6 +3188,30 @@ const MUTATIONS: Mutation[] = [
     from: "unansweredInbound(recentRows).length) <= 1) {",
     to: "unansweredInbound(recentRows).length) >= 0) {",
     guard: ["pnpm", "-s", "vitest", "run", "tests/burst.test.ts"],
+  },
+  {
+    id: "G66-recusa-com-adiamento",
+    bug: "'não passo o cpf, vou pensar' perdia a resposta do 'vou pensar' e a Malu pedia o CPF de novo",
+    files: ["src/agent/identity.ts"],
+    from: "    !/\\b(?:pens\\w*|depois|desist\\w*|ver\\s+com|mais\\s+tarde|amanha|volto)\\b/.test(t)\n",
+    to: "    true\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-nome-nao-e-hora",
+    bug: "depois do pedido do nome, 'fim de semana te passo' virava o nome e apagava o primeiro nome bom",
+    files: ["src/agent/identity.ts"],
+    from: "    if (askedName && /(?:^|\\s)(?:te|passo",
+    to: "    if (false && /(?:^|\\s)(?:te|passo",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-link-condicional",
+    bug: "'se eu escolher pix vai me mandar o link?' contava como pedido de link",
+    files: ["src/agent/interpret.ts"],
+    from: "    !/\\b(?:se|quando|depois|amanha|mais\\s+tarde)\\b/.test(t)\n",
+    to: "    true\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
 ];
 

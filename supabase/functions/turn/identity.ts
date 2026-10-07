@@ -130,6 +130,9 @@ export const extractName = (text: string, askedName = false): string | null => {
     // silva" was dropped and the link went out with "Leila": second real test, grafo §66). Only then:
     // on its own, "Vila da Penha" and "Fim de semana" would be names.
     if (COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : name)) return null;
+    // Nor a time or a promise said in reply ("fim de semana te passo", "hora do almoço te mando"): review
+    // of the §66 fixes — it overwrote a good first name.
+    if (askedName && /(?:^|\s)(?:te|passo|mando|envio|falo|fim|semana|hora|almo[cç]o|janta|jantar|manh[aã]|m[eê]s|final|amanh[aã]|depois|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|feriado)(?=\s|$)/i.test(name)) return null;
   }
   return name;
 };
@@ -224,9 +227,17 @@ export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean
   return (
     asksForIdentity(lastOutbound) &&
     !t.endsWith("?") &&
-    /(?<!\bse\s+(?:eu\s+)?)\b(?:nao|n|nunca)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)\b/.test(t)
+    new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(t) &&
+    // "não passo, vou pensar" is still putting it off (review of the §66 fixes).
+    !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto)\b/.test(t)
   );
 };
+
+/**
+ * Refusing to give a datum: "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se"
+ * ("e se eu nao passar o cpf tem problema?" is a doubt): review of 6f3a6a6.
+ */
+const REFUSE_VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
 
 /** A sentence that asks for something: a question, or a request ("me passa", "me manda", "preciso do"). */
 const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
@@ -308,9 +319,7 @@ export const refusedAsks = (
   // "não" near it ("nao sei se precisa do cpf", "nao passo cartao", "nao dou conta"): reviews of 5383dc5
   // and ca51825.
   const F = field === "email" ? "e-?mail" : "cpf";
-  // "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se" ("e se eu nao passar o cpf
-  // tem problema?" is a doubt): review of 6f3a6a6.
-  const VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
+  const VERB = REFUSE_VERB;
   const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|esse\s+)?(?:meu\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
   let count = 0;
   let asked = false;
