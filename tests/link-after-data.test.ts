@@ -550,8 +550,12 @@ describe("re-revisão de 35d70c0 — 3: sem entrega, só o 'sim' sobre pagar gra
 });
 
 describe("re-revisão de 35d70c0 — 4: 'Consegue?' depois da frase do CPF é pedido", () => {
-  it.each(["Agora só falta o CPF, pra nota fiscal. Consegue?", "Falta o CPF, pra nota fiscal. Pode ser?", "Só preciso do CPF pra nota. Tudo bem?"])("%s + 'não' conta 1", (ask) => {
+  it.each(["Agora só falta o CPF, pra nota fiscal. Consegue?", "Falta o CPF, pra nota fiscal. Conseguiria?"])("%s + 'não' conta 1", (ask) => {
     expect(refusedAsks([out(ask), inn("não")], "document")).toBe(1);
+  });
+  // 697ead2: "Pode ser?"/"Tudo bem?" pedem concordância, não o dado — saíram dos verbos do pedido.
+  it.each(["Falta o CPF, pra nota fiscal. Pode ser?", "Só preciso do CPF pra nota. Tudo bem?"])("%s não é pedido do CPF", (ask) => {
+    expect(refusedAsks([out(ask), inn("não")], "document")).toBe(0);
   });
   it("negação: 'Consegue?' depois de frase sem o CPF não é pedido do CPF", () => {
     expect(refusedAsks([out("O frete é calculado no checkout. Consegue?"), inn("não")], "document")).toBe(0);
@@ -567,4 +571,52 @@ describe("re-revisão de 35d70c0 — 5: o link enviado é lido pelos hosts do ch
     expect(source).toContain("for (const host of checkoutHosts(checkoutBases)) {");
     expect(source).not.toContain('encodeURIComponent("*http*")');
   });
+});
+
+/** Aprovado com resíduos em 697ead2: os três que precisam sair antes do deploy. */
+describe("697ead2 — 1: a pergunta curta só empresta a frase de antes no mesmo assunto e no mesmo balão", () => {
+  it("negações: a pergunta curta com outro assunto, ou em outro balão, não é sobre pagar", () => {
+    expect(pathAnswer("Na entrega você paga só quando receber. O M fica bom, tudo bem?", ["sim"], true)).toBeNull();
+    expect(pathAnswer("Pagando no pix você ganha 10% de desconto. O kit de 2 fica bom, tudo bem?", ["sim"], true)).toBeNull();
+    expect(pathAnswer("Na entrega você paga só quando receber. Pode ser amanhã?", ["pode"], true)).toBeNull();
+    expect(pathAnswer("Pagando no pix você ganha 10% de desconto.\n\nPrefere assim?", ["sim"], true)).toBeNull();
+    expect(pathAnswer(`${noCodMessage(config)}\n\nQuer seguir assim?`, ["sim"], false)).toBeNull();
+  });
+  it("no mesmo balão e sem outro assunto, continua lida", () => {
+    expect(pathAnswer("Pagando no pix você ganha 10% de desconto. Prefere assim?", ["sim"], true)).toBe("prepay");
+    expect(pathAnswer("Pagando na entrega você paga só quando receber. Pode ser?", ["sim"], true)).toBe("cod");
+    expect(pathAnswer(`${noCodMessage(config)} Quer seguir assim?`, ["sim"], false)).toBe("prepay");
+  });
+});
+
+describe("697ead2 — 2: concordar nunca é recusar", () => {
+  it.each([
+    ["O CPF é só pra nota fiscal. Pode ser no M então?", "pode", "document"],
+    ["O e-mail é só pra confirmação do pedido. Pode ser?", "pode", "email"],
+    ["O e-mail é só pra confirmação do pedido. Tudo bem?", "tudo bem", "email"],
+    ["Qual o seu CPF?", "sim", "document"],
+    ["Me passa seu e-mail?", "claro", "email"],
+    ["Agora só falta o CPF, pra nota fiscal. Consegue?", "ok", "document"],
+  ] as const)("%s + '%s' conta 0", (ask, answer, field) => {
+    expect(refusedAsks([out(ask), inn(answer)], field)).toBe(0);
+  });
+  it("e não grava a recusa do e-mail", () => {
+    expect(emailRefused({}, false, [out("O e-mail é só pra confirmação do pedido. Pode ser?"), inn("pode")])).toBe(false);
+  });
+  it("a recusa de verdade depois de 'Consegue?' continua contando", () => {
+    expect(refusedAsks([out("Agora só falta o CPF, pra nota fiscal. Consegue?"), inn("não")], "document")).toBe(1);
+    expect(refusedAsks([out("Qual o seu CPF?"), inn("sim, mas pra que?")], "document")).toBe(1);
+  });
+});
+
+describe("697ead2 — 3: palavra de compra negada não desfaz a desistência", () => {
+  it.each(["desisti do M", "deixa pra lá, não quero mais o G", "mudei de ideia, não vou levar", "desisti, não quero mais nada"])("%s é desistência", (msg) => {
+    expect(withdrawsInBurst([msg])).toBe(true);
+  });
+  it.each(["deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link", "desisti do M, quero o G", "deixa pra lá, não quero o kit, só uma"])(
+    "%s continua comprando",
+    (msg) => {
+      expect(withdrawsInBurst([msg])).toBe(false);
+    },
+  );
 });

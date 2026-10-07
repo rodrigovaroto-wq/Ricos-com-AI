@@ -2062,6 +2062,19 @@ sete mutações em `src/dev/verify-guards.ts` (`G63-escolha-nao-gravada`, `G63-p
 `G63-link-reenviado`, `G63-desistencia-falsa`, `G63-rascunho-sem-leitura`, `G63-recusa-falsa`,
 `G63-toque-no-meio`), cada uma pega pela guarda numa simulação local (rodam de verdade depois do
 commit).
+**Aprovado com resíduos em 697ead2; três corrigidos antes do deploy:** (1) a pergunta curta
+emprestava a frase de antes mesmo sobre outro assunto ("Na entrega você paga só quando receber. O M
+fica bom, tudo bem?" + "sim" gravava a entrega) — agora só empresta no mesmo balão (sem linha em
+branco entre as duas) e se a pergunta não tem assunto próprio (tamanho, kit, quantidade, data, outro
+dado); (2) "pode", "pode ser" e "tudo bem" contavam como pedido do dado, e a concordância dela como
+recusa ("O e-mail é só pra confirmação do pedido. Pode ser?" + "pode" gravava `emailRefused` para
+sempre) — saíram dos verbos do pedido (ficam "consegue/conseguiria"), e uma resposta que só
+concorda ("pode", "sim", "ok", "claro") nunca é recusa; (3) uma palavra de compra negada desfazia a
+desistência ("deixa pra lá, não quero mais o G", "desisti do M") — o objeto da desistência e o
+trecho negado não contam, e cada desistência da linha é testada. Guarda: comportamento em
+`tests/link-after-data.test.ts` com as negações, e três mutações (`G63-pergunta-curta-outro-assunto`,
+`G63-concordar-recusa`, `G63-compra-negada`), pegas numa simulação local; `G63-pergunta-curta` e
+`G63-desistencia-falsa` acompanharam o texto novo.
 **Resíduo:** `pathAnswer` lê só a última saída — um toque ("Ainda está aí?") entre as opções e o
 "a primeira" faz a resposta não ser lida (o intérprete ainda pode ler a escolha explícita);
 uma escolha explícita do antecipado feita numa região sem entrega também é reaberta num CEP novo
@@ -2070,7 +2083,9 @@ com entrega (o código não distingue a forçada da escolhida — ela escolhe de
 mensagens pedem o CPF uma terceira vez (depois do primeiro link isso não importa mais: o checkout
 pede); `emailRefused` gravado vale para o lead, também numa conversa nova; a leitura do último
 link pega as 3 mais novas por host; `withdrawsInBurst` e `pathAnswer` são listas de palavras
-("deixa pra lá" com uma letra solta de tamanho depois cancela a desistência); nada medido contra o
+("deixa pra lá" com uma letra de tamanho não negada depois — "deixa pra lá, o M é grande" — ainda
+cancela a desistência; uma pergunta curta sobre pagar em balão separado da oferta não é lida);
+"Tudo bem?"/"Pode ser?" depois da frase do CPF + "não" não conta recusa — o CPF é pedido de novo; nada medido contra o
 modelo ainda.
 
 ## Lições (valem para qualquer correção futura)

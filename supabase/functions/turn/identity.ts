@@ -224,7 +224,7 @@ export const refusedAsks = (
         q.trim().endsWith("?") &&
         (word.test(q) ||
           (!/\b(?:e-?mail|cpf|nome|cep|tamanho|cal[cç]a|endere[cç]o)\b/i.test(q) &&
-            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar|consegue|conseguiria|pode|pode\s+ser|tudo\s+bem)\b/i.test(q) &&
+            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar|consegue|conseguiria)\b/i.test(q) &&
             word.test(sentences[i - 1] ?? ""))),
     );
   };
@@ -237,7 +237,13 @@ export const refusedAsks = (
     const rest = next.slice(first);
     const end = rest.findIndex((n) => n.direction !== "inbound");
     const answer = (end === -1 ? rest : rest.slice(0, end)).map((n) => n.body ?? "");
-    if (!answer.some((a) => found(a) !== null)) count += 1;
+    // Agreeing is never refusing (697ead2): "pode", "sim", "ok", "claro" — the datum comes next.
+    const agrees = answer.every((a) =>
+      /^(?:sim|pode|pode\s+ser|ok|okay|claro|ta|ta\s+bom|tudo\s+bem|beleza|certo|isso|combinado)\b[\s!.,]*(?:sim|claro)?[\s!.]*$/.test(
+        a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(),
+      ),
+    );
+    if (!agrees && !answer.some((a) => found(a) !== null)) count += 1;
   });
   return count;
 };

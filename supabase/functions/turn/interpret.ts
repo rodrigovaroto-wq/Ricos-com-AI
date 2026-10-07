@@ -456,13 +456,20 @@ const SECOND = new RegExp(`${LEAD}(?:(?:a\\s+)?segunda(?:\\s+opcao)?|opcao\\s+(?
 const NAMED = new RegExp(
   `${LEAD}(?:d[aoe]\\s+|n[ao]\\s+|pel[ao]\\s+)?(?:o\\s+|a\\s+)?(pix|cartao|antecipad\\w*|adiantad\\w*|entrega|pag\\w*\\s+na\\s+entrega)${TAIL}`,
 );
+/** Another subject in a short question — a size, a kit, a quantity, a date, another datum. */
+const OTHER_SUBJECT = /\b(?:pp|p|m|g|gg|xgg|tamanho|kit|pecas?|duas|tres|\d+|dia|data|amanha|hoje|semana|cep|nome|e-?mail|cpf)\b/;
 const readOffer = (lastOutbound: string) => {
   const o = norm(lastOutbound);
   const sentences = o.split(/(?<=[.!?\n])\s*/).filter((x) => x.trim() !== "");
   const qi = sentences.findLastIndex((x) => x.trim().endsWith("?"));
   const question = qi === -1 ? "" : sentences[qi]!.trim();
   const named = (t: string) => COD_OFFER.test(t) || PREPAY_OFFER.test(t);
-  const scope = !named(question) && SHORT_OK.test(question) ? `${sentences[qi - 1] ?? ""} ${question}` : question;
+  // The short question borrows the sentence before it only in the same bubble (no blank line
+  // between) and with no subject of its own: "O M fica bom, tudo bem?" is about the size (697ead2).
+  const prev = qi > 0 ? sentences[qi - 1]! : "";
+  const sameBubble = prev !== "" && !/\n\s*\n/.test(o.slice(o.lastIndexOf(prev) + prev.length, o.lastIndexOf(question)));
+  const borrows = !named(question) && SHORT_OK.test(question) && !OTHER_SUBJECT.test(question) && sameBubble;
+  const scope = borrows ? `${prev} ${question}` : question;
   return { o, question, scope, aboutPath: named(scope) || CHOICE_Q.test(question) };
 };
 /** Her lines when they are a plain answer: no question, no doubt, no refusal. */
@@ -653,12 +660,18 @@ const KEEPS_BUYING = /\b(?:kit|so\s+uma?|uma?\s+so|quero|vou\s+levar|levo|manda\
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
   const lines = messages.flatMap((m) => m.split("\n")).map(norm);
   const at = lines.findLastIndex((l) => {
-    const m = WITHDRAWS.exec(l);
-    if (m === null || /\bnao\s*$/.test(l.slice(0, m.index))) return false;
-    // The rest of the line may take back only a piece, or go on buying (re-review of 35d70c0):
-    // "deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link".
-    const rest = l.slice(m.index + m[0].length);
-    return !(decidesToBuy(rest) || asksForLink(rest) || KEEPS_BUYING.test(rest));
+    // Each withdrawal in the line. The rest of the line may take back only a piece, or go on buying
+    // (re-review of 35d70c0): "deixa pra lá o kit, só uma", "mudei de ideia, quero o G". What the
+    // withdrawal takes ("desisti do M") and a negated span ("não quero mais o G", "não vou levar")
+    // never count as buying (697ead2).
+    return [...l.matchAll(new RegExp(WITHDRAWS.source, "g"))].some((m) => {
+      if (/\bnao\s*$/.test(l.slice(0, m.index))) return false;
+      const rest = l
+        .slice((m.index ?? 0) + m[0].length)
+        .replace(/^\s*(?:d[oa]|o|a)\s+(?:pp|p|m|g|gg|xgg|colete|pedido|compra)\b/, "")
+        .replace(/\b(?:nao|nem|nada)\b[^,;.!?]*/g, "");
+      return !(decidesToBuy(rest) || asksForLink(rest) || KEEPS_BUYING.test(rest));
+    });
   });
   return at !== -1 && !lines.slice(at + 1).some((l) => decidesToBuy(l) || /^(?:quero|vou\s+levar)\b/.test(l));
 };
