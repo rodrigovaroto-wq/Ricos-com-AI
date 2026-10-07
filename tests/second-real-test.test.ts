@@ -83,7 +83,7 @@ describe("C4 — nome, e-mail e CPF esperam o CEP", () => {
 
 describe("C5 — pending_promise: prometer mandar o link depois, num turno sem link", () => {
   const blockedBy = (text: string, linkInTurn: boolean | undefined) =>
-    runGates(text, ctx({ linkInTurn })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+    runGates(text, ctx(linkInTurn === undefined ? {} : { linkInTurn })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
   it.each([
     "Já deixo tudo pronto aqui pra 1 peça no M, pagando na entrega, e te mando o link em seguida, tá bom?",

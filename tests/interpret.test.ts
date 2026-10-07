@@ -56,7 +56,7 @@ describe("a leitura do JSON do intérprete", () => {
     expect(parsed).toBe(true);
     expect(interpretation.asks_human).toBe(true);
     expect(interpretation.size).toEqual({ letter: "G", pants: 46, waist_cm: null, for_other_person: true });
-    expect(interpretation.email).toBe("karol@gmail.com");
+    expect("email" in interpretation).toBe(false); // e-mail não é mais lido (2026-10-07)
     expect(interpretation.payment_choice).toBe("prepay");
     expect(interpretation.wants_to_buy).toBe(true);
     expect(interpretation.pending_answer).toBe("answered");
@@ -93,7 +93,6 @@ describe("a leitura do JSON do intérprete", () => {
     expect(interpretation.size.letter).toBeNull();
     expect(interpretation.size.pants).toBeNull(); // 12 não é número de calça
     expect(interpretation.size.waist_cm).toBe(80); // número escrito como texto é lido
-    expect(interpretation.email).toBeNull(); // sem domínio completo
     expect(interpretation.payment_choice).toBeNull();
     expect(interpretation.pending_answer).toBe("no_pending");
   });
@@ -286,7 +285,6 @@ describe("o link só sai com os dados", () => {
     cepKnown: true,
     pathSettled: true,
     nameKnown: true,
-    emailDone: true,
     cpfDone: true,
     yesBesideQuestion: false,
   };
@@ -301,7 +299,6 @@ describe("o link só sai com os dados", () => {
     ["cepKnown", "cep"],
     ["pathSettled", "payment"],
     ["nameKnown", "name"],
-    ["emailDone", "email"],
     ["cpfDone", "document"],
   ] as const)("sem %s não sai, e o que falta é %s", (field, datum) => {
     expect(sendLinkNow({ ...all, [field]: false })).toBe(false);
@@ -309,11 +306,11 @@ describe("o link só sai com os dados", () => {
   });
 
   it("falta uma coisa por vez, na ordem da conversa", () => {
-    const nothing = { sizeKnown: false, cepKnown: false, pathSettled: false, nameKnown: false, emailDone: false, cpfDone: false };
+    const nothing = { sizeKnown: false, cepKnown: false, pathSettled: false, nameKnown: false, cpfDone: false };
     expect(missingForLink(nothing)).toBe("size");
     expect(missingForLink({ ...nothing, sizeKnown: true })).toBe("cep");
     expect(missingForLink({ ...all, nameKnown: false, cpfDone: false })).toBe("name");
-    expect(missingForLink({ ...all, emailDone: false, cpfDone: false })).toBe("email");
+    expect(missingForLink({ ...all, cpfDone: false })).toBe("document");
   });
 
   it("um \"sim\" ao lado de pergunta não manda o link, nem com os dados completos", () => {

@@ -786,11 +786,11 @@ const regionDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfRefusals: number): string | null => {
+const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number): string | null => {
   // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
-  // link waits for them: an e-mail refused once and a CPF refused twice are not asked again.
-  const missing = (["name", "email", "document"] as const).filter(
-    (f) => !draft[f] && !(f === "email" && emailDone) && !(f === "document" && cpfRefusals >= 2),
+  // link waits for them: a CPF refused twice is not asked again. No e-mail since 2026-10-07 (operator).
+  const missing = (["name", "document"] as const).filter(
+    (f) => !draft[f] && !(f === "document" && cpfRefusals >= 2),
   );
   const topic = nextIdentityQuestion(missing);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
@@ -799,10 +799,8 @@ const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfR
     ? null
     : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
-      (missing[0] === "email" ? ` Se ela não tiver ou não quiser passar, tudo bem, não insista.` : ``) +
-      // Persona round of 2026-10-07 (Jussara): told only "falta o CPF", the model saw no e-mail and
-      // asked it a third time — the prompt says the e-mail is collected. Say it is settled.
-      (!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``) +
+      // No e-mail (operator, 2026-10-07): said, so the model never asks it on its own.
+      ` Não peça e-mail.` +
       (missing[0] === "document" && cpfRefusals === 1
         ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
           ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
@@ -3016,7 +3014,8 @@ const handleTurn = async (
   }
 
   // 5e. Identity accumulates the same way, and for the same reason.
-  const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
+  // An e-mail stored before 2026-10-07 is dropped (operator: no e-mail kept), and the next write clears it.
+  const { email: _noEmail, ...storedIdentity } = (lead.identity ?? {}) as Partial<Identity> & { email?: string };
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
   const burstIdentity = extractIdentityBurst(parts);
   // The name on the first line above her street, only right after the agent asked for the name and
@@ -3026,12 +3025,7 @@ const handleTurn = async (
       ? (parts.map(nameOnFirstLine).find((n: string | null) => n !== null) ?? null)
       : null;
   const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
-  // The e-mail the interpreter read counts when the strict reader found none.
-  const identityFound = {
-    ...(interpretation.email ? { email: interpretation.email } : {}),
-    ...foundIdentity.fields,
-  };
-  const identityDraft = mergeIdentity(storedIdentity, identityFound).fields;
+  const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
   if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -3165,16 +3159,15 @@ const handleTurn = async (
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
   // the link and written to `turn_outcomes.reason`, so the record says what was sent.
   const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
-  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name, e-mail and CPF.
-  // The refusals are read from the conversation (`refusedAsks`), not stored: an e-mail refused once
-  // and a CPF refused twice let the link go without them.
+  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name and CPF — no e-mail
+  // since 2026-10-07. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
+  // refused twice lets the link go without it.
   const cpfRefusals = refusedAsks(recent, "document");
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep),
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
     nameKnown: Boolean(identityDraft.name),
-    emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,
     cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
   };
   const missing = missingForLink(linkData);
@@ -3221,7 +3214,7 @@ const handleTurn = async (
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
     ? []
-    : (["name", "email", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
+    : (["name", "document"] as const).filter((f) => !identityDraft[f]).map((f) => `customer.${f}`);
   if (linkNow) {
     try {
       checkoutUrl = buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout);
@@ -3286,9 +3279,9 @@ const handleTurn = async (
   const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
-    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "document")
       ? null
-      : identityDirectiveFor(identityDraft, linkData.emailDone, cpfRefusals);
+      : identityDirectiveFor(identityDraft, cpfRefusals);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent
@@ -3576,7 +3569,7 @@ const handleTurn = async (
         {
           leadId: lead.id,
           name: identityDraft.name,
-          email: identityDraft.email,
+          email: "",
           document: identityDraft.document,
           phone: lead.phone,
           address: addressDraft,
@@ -3656,7 +3649,7 @@ const handleTurn = async (
     // O sinal que o n8n espera para chamar a Coinzz: endereço confirmado por ela,
     // identidade completa e tamanho resolvido. Faltando um, o pedido não nasce.
     orderReady,
-    identityMissing: (["name", "email", "document"] as const).filter((f) => !identityDraft[f]),
+    identityMissing: (["name", "document"] as const).filter((f) => !identityDraft[f]),
     addressMissing: isComplete(addressDraft) ? [] : extractAddress("").missing.filter((f) => !addressDraft[f]),
     costBrl: spent,
     ceilingBrl,

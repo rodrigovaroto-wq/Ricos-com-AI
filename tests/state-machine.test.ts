@@ -228,7 +228,7 @@ describe("reachedStage — onde o turno chegou", () => {
     const build = (identity: Identity, config: Partial<CoinzzConfig>): CoinzzRequest | null => {
       try {
         return buildCoinzzRequest(
-          { leadId: "l", phone: "5519999998888", address, size: "G", paymentMethod: "cod", ...identity },
+          { leadId: "l", phone: "5519999998888", address, size: "G", paymentMethod: "cod", email: "ana@x.com", ...identity },
           config as CoinzzConfig,
           "k",
         );
@@ -245,7 +245,7 @@ describe("reachedStage — onde o turno chegou", () => {
         orderBuilt: build(identity, config) !== null,
       });
     };
-    const identity: Identity = { name: "Ana Souza", email: "ana@x.com", document: "529.982.247-25" };
+    const identity: Identity = { name: "Ana Souza", document: "529.982.247-25" };
     const config: CoinzzConfig = { offerHash: "off123", codPaymentMethod: "afterpay" };
 
     it("com tudo certo, o pedido nasce", () => {

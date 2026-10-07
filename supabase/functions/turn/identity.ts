@@ -14,12 +14,12 @@
 
 export interface Identity {
   name: string;
-  email: string;
   /** Digits only, validated. */
   document: string;
 }
 
-export const IDENTITY_FIELDS = ["name", "email", "document"] as const;
+/** No e-mail since 2026-10-07 (operator): not asked, not stored, not waited for — the checkout asks it. */
+export const IDENTITY_FIELDS = ["name", "document"] as const;
 export type IdentityField = (typeof IDENTITY_FIELDS)[number];
 
 const digitsOnly = (s: string): string => s.replace(/\D/g, "");
@@ -154,7 +154,6 @@ export interface IdentityResult {
 export const extractIdentity = (text: string): IdentityResult => {
   const fields: Partial<Identity> = {
     ...(extractName(text) ? { name: extractName(text)! } : {}),
-    ...(extractEmail(text) ? { email: extractEmail(text)! } : {}),
     ...(extractCpf(text) ? { document: extractCpf(text)! } : {}),
   };
   return { fields, missing: IDENTITY_FIELDS.filter((f) => !fields[f]) };
@@ -194,8 +193,7 @@ export const isIdentityComplete = (fields: Partial<Identity>): fields is Identit
 export const nextIdentityQuestion = (missing: readonly IdentityField[]): string | null => {
   const asks: Record<IdentityField, string> = {
     name: "o nome completo dela, pra deixar o pedido no nome dela",
-    email: "o e-mail dela, pra completar o cadastro do pedido",
-    document: "o CPF dela, pra nota fiscal do pedido, que a lei exige",
+    document: "o CPF dela, pra emissão da nota fiscal (sem dizer que a lei exige)",
   };
   const next = IDENTITY_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;

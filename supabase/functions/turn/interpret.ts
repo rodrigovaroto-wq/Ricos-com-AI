@@ -46,8 +46,6 @@ export interface Interpretation {
   wants_exchange: boolean;
   opt_out: boolean;
   size: InterpretedSize;
-  email: string | null;
-  email_unavailable: boolean;
   payment_choice: PaymentChoice | null;
   wants_to_think: boolean;
   wants_to_buy: boolean;
@@ -68,8 +66,6 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   wants_exchange: false,
   opt_out: false,
   size: Object.freeze({ letter: null, pants: null, waist_cm: null, for_other_person: false }),
-  email: null,
-  email_unavailable: false,
   payment_choice: null,
   wants_to_think: false,
   wants_to_buy: false,
@@ -109,8 +105,6 @@ export const INTERPRETER_SYSTEM = [
   "  pessoa (mãe, filha, amiga) }. Só o tamanho que ela AFIRMA usar nesta mensagem; idade,",
   "  peso, sapato e preço não são tamanho. PERGUNTA não é tamanho dito: \"tem GG?\", \"qual",
   "  tamanho pra quem usa 44?\", \"o M serve?\" → tudo null. Se ela corrige o tamanho, use o novo.",
-  '- "email": o e-mail que ela escreveu, ou null.',
-  '- "email_unavailable": true se ela diz que não tem e-mail ou não quer passar.',
   '- "payment_choice": "prepay" se ela escolhe pagar antes (pix, cartão, antecipado),',
   '  "cod" se escolhe pagar na entrega, null se não escolheu.',
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
@@ -178,7 +172,6 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
   const o = value as Record<string, unknown>;
   const s = (typeof o.size === "object" && o.size !== null ? o.size : {}) as Record<string, unknown>;
   const letter = typeof s.letter === "string" ? s.letter.trim().toUpperCase() : "";
-  const email = typeof o.email === "string" ? o.email.trim().toLowerCase() : "";
   return {
     parsed: true,
     interpretation: {
@@ -193,9 +186,6 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
         waist_cm: numberIn(s.waist_cm, 50, 150),
         for_other_person: flag(s.for_other_person),
       },
-      // Same strictness as `extractEmail`: a truncated address is worse than none.
-      email: /^[\w.+-]+@[\w-]+(?:\.[\w-]{2,})+$/.test(email) ? email : null,
-      email_unavailable: flag(o.email_unavailable),
       payment_choice: o.payment_choice === "cod" || o.payment_choice === "prepay" ? o.payment_choice : null,
       wants_to_think: flag(o.wants_to_think),
       wants_to_buy: flag(o.wants_to_buy),
@@ -435,7 +425,7 @@ export const linkPathFor = (
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
 /** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
-export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "document";
 
 export interface LinkData {
   /**
@@ -448,8 +438,6 @@ export interface LinkData {
   /** She chose the payment path, or her region left only the prepaid one. */
   pathSettled: boolean;
   nameKnown: boolean;
-  /** The e-mail is known, or she refused it once (`refusedAsks`, `email_unavailable`). */
-  emailDone: boolean;
   /** A valid CPF is known, or she refused it twice. */
   cpfDone: boolean;
 }
@@ -457,14 +445,13 @@ export interface LinkData {
 /**
  * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
  * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
- * full name, e-mail and CPF, in this order. The order is the directive's: one thing at a time.
+ * full name and CPF, in this order — no e-mail since 2026-10-07 (operator). The order is the directive's: one thing at a time.
  */
 export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
   : !d.nameKnown ? "name"
-  : !d.emailDone ? "email"
   : !d.cpfDone ? "document"
   : null;
 
