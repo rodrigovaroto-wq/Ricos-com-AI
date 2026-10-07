@@ -2946,6 +2946,30 @@ const MUTATIONS: Mutation[] = [
     to: " || letGo) return false;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-n-como-negacao",
+    bug: "'n passo cpf' (o 'não' do WhatsApp) não contava como recusa",
+    files: ["src/agent/identity.ts"],
+    from: "(?:n[aã]o|n|nunca|jamais)\\s+(?:vou",
+    to: "(?:n[aã]o|nunca|jamais)\\s+(?:vou",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-pergunta-nao-e-recusa",
+    bug: "'tem como nao passar o cpf?' contava como recusa espontânea",
+    files: ["src/agent/identity.ts"],
+    from: "REFUSAL.test(a) && !a.trim().endsWith(\"?\")",
+    to: "REFUSAL.test(a)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
+  {
+    id: "P07-exemplo-de-email-no-pedido",
+    bug: "'Qual seu e-mail (ex: maria@gmail.com)?' deixava de ser pedido",
+    files: ["src/agent/identity.ts"],
+    from: "(/\\S@\\S/.test(q) && !/\\bseu\\s+e-?mail\\b/i.test(q))",
+    to: "/\\S@\\S/.test(q)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

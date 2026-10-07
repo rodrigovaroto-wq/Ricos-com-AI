@@ -659,3 +659,12 @@ describe("e-mail da loja não é pedido do e-mail dela", () => {
     expect(refusedAsks([out("Me passa seu e-mail? É pro cadastro do pedido."), inn("nao tenho")], "email")).toBe(1);
   });
 });
+
+describe("revisão de 3c613a4", () => {
+  it.each(["Me passa seu e-mail, tipo nome@gmail.com?", "Qual seu e-mail (ex: maria@gmail.com)?"])("pedido com exemplo de endereço segue pedido: %s", (q) =>
+    expect(refusedAsks([out(q), inn("nao tenho")], "email")).toBe(1),
+  );
+  it.each(["tem como nao passar o cpf?", "posso n passar o cpf?", "e se caso eu nao passar o cpf?"])("pergunta não é recusa espontânea: %s", (m) =>
+    expect(refusedAsks([inn(m)], "document")).toBe(0),
+  );
+});

@@ -242,7 +242,8 @@ export const asksForName = (text: string): boolean =>
  * ("…chega no seu e-mail. Ficou alguma dúvida?") is not asked; "não precisa" never is.
  */
 const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
-  const sentences = text.split(/(?<=[.!?\n])\s*/).map((q) => q.trim()).filter(Boolean);
+  // A sentence ends at a mark followed by a space or a line: "maria@gmail.com" is one word (review of 3c613a4).
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((q) => q.trim()).filter(Boolean);
   return sentences.some((q, i) => {
     // Another identity field in the same sentence asks for that one first, or for all at once
     // ("Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."): her answer to it
@@ -256,7 +257,7 @@ const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
       !/\b(?:pode|consegue)\s+(?:me\s+)?(?:passar|mandar|informar|enviar)\b/i.test(q);
     // An address in the sentence is the shop's ("me manda um e-mail pra contato@…"), not an ask for hers
     // (confirmation round on the production model, Jussara: her e-mail went unasked).
-    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo || /\S@\S/.test(q)) return false;
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo || (/\S@\S/.test(q) && !/\bseu\s+e-?mail\b/i.test(q))) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
     return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
@@ -299,7 +300,8 @@ export const refusedAsks = (
   let asked = false;
   let answer: string[] = [];
   const close = () => {
-    const refused = answer.some((a) => REFUSAL.test(a));
+    // A question is no refusal ("tem como nao passar o cpf?"): review of 3c613a4.
+    const refused = answer.some((a) => REFUSAL.test(a) && !a.trim().endsWith("?"));
     if (answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused)) count += 1;
     answer = [];
   };
