@@ -394,7 +394,7 @@ export const handoffFor = (
  * pix", "prefiro pagar na entrega", or a bare "pix" answering the question).
  */
 const PATH_WORD =
-  "(?:pix|antecipad\\w*|adiantad\\w*|cartao|entrega|na\\s+porta|pag\\w*\\s+(?:antes|agora|adiantado)|link\\s+do\\s+pix|(?:quando|na\\s+hora\\s+que)\\s+cheg\\w*)";
+  "(?:pix|antecipad\\w*|adiantad\\w*|cartao|entrega|na\\s+porta|pag\\w*\\s+(?:antes|agora|adiantado)|link\\s+do\\s+pix|(?:quando|na\\s+hora\\s+que)\\s+(?:cheg|receb)\\w*|receb\\w*\\s+e\\s+(?:depois\\s+)?pag\\w*)";
 export const choosesPath = (message: string): boolean => {
   const t = norm(message);
   const m =
@@ -428,6 +428,79 @@ export const choosesPath = (message: string): boolean => {
  * Which checkout the link opens (R13.4): the prepaid one when she chose it or when her
  * region has no cash on delivery, the delivery one otherwise.
  */
+/**
+ * Her answer read against the agent's last message (review of f657faa): the choice that answers
+ * the payment question is hers even when no path word is in it — "a primeira", "a segunda opção"
+ * (in the order that message named the paths, not a fixed sentence), "pagar quando receber", or a
+ * yes to a question that offers one path ("Fica no pagamento na entrega, pode ser?"). Where her
+ * region has no payment at the door, a yes to the message about the prepaid path is the prepaid.
+ * A yes to both options without choosing is not stored: the prompt confirms the delivery first
+ * (`DEFAULT_COD_CONFIRM`). Null when the message offered no path, its last question is about
+ * something else, or she asked, doubted or refused.
+ */
+const COD_OFFER = /\bpag\w*\s+na\s+entrega\b|\bna\s+entrega\b|\bquando\s+receb\w*/;
+const PREPAY_OFFER = /\bantecipad\w*|\bpix\b|\badiantad\w*/;
+const ASSENT =
+  /^(?:sim|isso|isso\s+mesmo|certo|ok|okay|pode\s+ser|pode|ta\s+bom|ta|beleza|blz|fechado|combinado|bora|vamos|perfeito|claro|quero(?!\s+(?:saber|ver|entender|perguntar)\b))\b[\s!.,]*(?:sim|entao|pode\s+ser|quero|vamos|fechado)?[\s!.]*$/;
+export const pathAnswer = (
+  lastOutbound: string,
+  parts: readonly string[],
+  codAvailable: boolean | null,
+): PaymentChoice | null => {
+  const o = norm(lastOutbound);
+  const question = o.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?")).pop() ?? "";
+  const lines = parts.map((p) => norm(p).trim()).filter(Boolean);
+  if (lines.length === 0 || lines.some((l) => l.includes("?") || /\b(?:nao|nem|talvez|duvida)\b/.test(l))) return null;
+  const said = lines.join("\n");
+  if (codAvailable === false) {
+    return PREPAY_OFFER.test(o) && lines.every((l) => ASSENT.test(l)) ? "prepay" : null;
+  }
+  const aboutPath =
+    COD_OFFER.test(question) ||
+    PREPAY_OFFER.test(question) ||
+    /\b(?:das\s+duas|qual\s+(?:voce\s+)?prefere|qual\s+(?:fica|e)\s+melhor|como\s+(?:voce\s+)?(?:prefere|quer)\s+pagar|qual\s+(?:delas|opcao))\b/.test(question);
+  if (!aboutPath) return null;
+  const codAt = o.search(COD_OFFER);
+  const prepayAt = o.search(PREPAY_OFFER);
+  if (codAt !== -1 && prepayAt !== -1) {
+    const first: PaymentChoice = codAt < prepayAt ? "cod" : "prepay";
+    const second: PaymentChoice = first === "cod" ? "prepay" : "cod";
+    if (/^(?:(?:a|na|pela|pelo|com|fico\s+com|quero|prefiro|vou\s+(?:de|na|com))\s+)*(?:a\s+)?primeira(?:\s+opcao)?[\s!.]*$/.test(said)) return first;
+    if (/^(?:(?:a|na|pela|pelo|com|fico\s+com|quero|prefiro|vou\s+(?:de|na|com))\s+)*(?:a\s+)?segunda(?:\s+opcao)?[\s!.]*$/.test(said)) return second;
+  }
+  if (codAt !== -1 && /\bpag\w*\s+(?:so\s+)?(?:quando|na\s+hora\s+que|depois\s+que)\s+(?:eu\s+)?(?:cheg|receb)\w*|\breceb\w*\s+e\s+(?:depois\s+)?pag\w*/.test(said)) return "cod";
+  // A yes to a question that offers one path only; to both, the prompt confirms the delivery first.
+  if (lines.every((l) => ASSENT.test(l)) && (codAt === -1) !== (prepayAt === -1)) return codAt !== -1 ? "cod" : "prepay";
+  return null;
+};
+
+/**
+ * The payment path stored for the next turns (review of f657faa): her explicit choice as the
+ * interpreter read it, when her words choose (`choosesPath`), or her answer to the payment
+ * question (`pathAnswer`). Unstored, the next turn has no path and asks again, forever.
+ */
+export const choiceToStore = (
+  interpreted: PaymentChoice | null,
+  parts: readonly string[],
+  lastOutbound: string,
+  codAvailable: boolean | null,
+): PaymentChoice | null =>
+  (interpreted !== null && parts.some(choosesPath) ? interpreted : null) ?? pathAnswer(lastOutbound, parts, codAvailable);
+
+/**
+ * The kit, offered once after she chose how to pay and before the data (operator, 2026-10-06), and
+ * after the size and the CEP, so the offer never shares a message with another question.
+ */
+export const kitOfferDue = (s: {
+  units: number;
+  pathChosen: boolean;
+  missing: LinkDatum | null;
+  kitsOnPath: number;
+  kitOffered: boolean;
+  linkNow: boolean;
+}): boolean =>
+  s.units === 1 && s.pathChosen && s.missing !== "size" && s.missing !== "cep" && s.kitsOnPath > 0 && !s.kitOffered && !s.linkNow;
+
 export const linkPathFor = (
   choice: PaymentChoice | null,
   region: { cod: boolean } | null,
@@ -476,6 +549,47 @@ export const sendLinkNow = (d: LinkData & { yesBesideQuestion: boolean }): boole
   !d.yesBesideQuestion && missingForLink(d) === null;
 
 /**
+ * Whether the link goes out this turn (review of f657faa). The first time, with every datum in.
+ * Once a link went out in this conversation — read over the whole conversation, not a window —
+ * it goes again only when she asks for it or the order changed (another path, another kit: a
+ * different checkout), and then name, e-mail and CPF no longer hold it: the checkout asks them.
+ * She took the purchase back (`withdrawsInBurst`): no link.
+ */
+export const linkGoesOut = (
+  d: LinkData & { yesBesideQuestion: boolean; sentBefore: boolean; orderChanged: boolean; asked: boolean; withdrew: boolean },
+): boolean => {
+  if (d.withdrew) return false;
+  if (!d.sentBefore) return sendLinkNow(d);
+  const missing = missingForLink(d);
+  return (
+    !d.yesBesideQuestion &&
+    (d.asked || d.orderChanged) &&
+    (missing === null || missing === "name" || missing === "email" || missing === "document")
+  );
+};
+
+/** The checkout a message carries: the longest base in it, so a kit's URL that extends the single piece's is the kit's. */
+export const linkedBase = (message: string, bases: readonly string[]): string | null =>
+  bases.filter((b) => b !== "" && message.includes(b)).sort((a, b) => b.length - a.length)[0] ?? null;
+
+/**
+ * She takes the purchase back in her newest words (review of f657faa): "desisti", "não quero
+ * mais", "deixa pra lá", "mudei de ideia" — and no later line decides again. Narrower than
+ * `RETRACTS` on purpose: "depois de amanhã pode entregar?" and "vou pensar no kit" are buyers, and
+ * "não vou querer o kit" refuses the kit, not the piece. A negated one ("não desisti") is not.
+ */
+const WITHDRAWS =
+  /\b(?:desisti(?!\s+d[oa]\s+kit)\w*|desist(?:o|ir)\b|nao\s+quero\s+mais|nao\s+vou\s+mais\s+(?:querer|levar|comprar)|deixa\s+pra\s+la|mudei\s+de\s+ideia)/;
+export const withdrawsInBurst = (messages: readonly string[]): boolean => {
+  const lines = messages.flatMap((m) => m.split("\n")).map(norm);
+  const at = lines.findLastIndex((l) => {
+    const m = WITHDRAWS.exec(l);
+    return m !== null && !/\bnao\s*$/.test(l.slice(0, m.index));
+  });
+  return at !== -1 && !lines.slice(at + 1).some((l) => decidesToBuy(l) || /^(?:quero|vou\s+levar)\b/.test(l));
+};
+
+/**
  * A question that is itself a buyer's (review of 7c8bc7c): "Sim! Como faço pra pagar?",
  * "sim, quero. qual o prazo?", "isso mesmo, pode mandar?", "ok, como pago?". A "sim" beside one
  * of these goes on to the next datum or the link; a "sim" beside any other question
@@ -487,7 +601,8 @@ export const buyerAsk = (message: string): boolean => {
     asksForLink(message) ||
     /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(t) ||
     /\bcomo\s+(?:(?:eu\s+)?(?:faco|faz)\s+(?:pra|para)\s+)?pag/.test(t) ||
-    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0))
+    // "quero saber/ver/entender/perguntar" asks, it does not buy (review of f657faa).
+    [...t.matchAll(/\bquero\b(?!\s+(?:saber|ver|entender|perguntar)\b)/g)].some((m) => !negatedBefore(t, m.index ?? 0))
   );
 };
 

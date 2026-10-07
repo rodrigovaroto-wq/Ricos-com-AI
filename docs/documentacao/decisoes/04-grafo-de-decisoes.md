@@ -1971,6 +1971,80 @@ com `codUnavailable`, o "sim" vetado onde a entrega não chega, fatos e negaçõ
 com tamanho conhecido; `coverage_claim` não veta "No seu CEP dá pra pagar na entrega" antes da consulta;
 prompt +~850 tokens; nada medido contra o modelo ainda.
 
+## 63. O código seguia o prompt antigo: link antes dos dados, uma oferta só, sem kit (código do prompt v2, 2026-10-06/07)
+
+**Sintoma:** depois do §62 o prompt ensinava a conversa v2 e o código ainda mandava o link antes de
+nome, e-mail e CPF (`readyForLink`, `identityDirectiveFor`, `thinkReply`), mandava escrever o
+tamanho no complemento (`checkoutDirectiveFor`), só dizia a região junto do tamanho e não oferecia
+kit. O WIP `f657faa` (link depois dos dados, kits, gates), escrito por uma sessão cortada antes da
+validação, foi revisado NEEDS WORK com oito achados: (1) "a primeira", "a segunda", "pagar quando
+receber", "prefiro receber e pagar" às duas opções não gravavam a escolha (`choosesPath` falso), e
+o turno seguinte perguntava de novo, para sempre; o "sim" à confirmação dependia da frase literal
+"deixo no pagamento na entrega"; (2) o link voltava depois de três perguntas e respostas (a janela
+do M-03 era de 3 mensagens); (3) o `delivery_promise` isentava qualquer "um dia" depois de
+escolher/marcar/agendar e soltava "Pelo pix a entrega é marcada um dia depois do pagamento."; (4)
+`refusedAsks` contava como pedido toda mensagem com "CPF" e "?" ("O CPF é pra nota fiscal. Qual o
+seu nome completo?" + "Maria Souza" = 1 recusa); (5) um toque da régua entre o pedido e a recusa
+zerava a recusa, e a recusa do e-mail lida pelo intérprete vivia um turno; (6) a revisão cuja
+leitura da rajada falhou mandava o rascunho que não leu a mensagem que a fez revisar, e o
+adiamento que falhava também; (7) "sim, quero saber se tem rastreio?" era pergunta de quem compra;
+(8) sem pagamento na entrega, o "ok" à mensagem do antecipado não oferecia o kit.
+**Causa:** cada leitor decidia sobre um pedaço — a escolha só pelas palavras dela, sem a pergunta
+que ela respondia; o link só pela janela das últimas mensagens; a recusa só pela presença da
+palavra; a segunda olhada por ramos `if` cujo caso "leitura falhou" sempre virava "manda".
+**Caminhos descartados:** ensinar mais frases ao `choosesPath` sem ler a mensagem da agente
+("a primeira" só tem sentido relativo a ela); guardar a escolha no "sim" às duas opções (o "não"
+seguinte à confirmação não teria como desfazer — o prompt confirma antes); uma coluna nova para
+"link enviado" (a conversa já diz, numa leitura indexada); uma consulta por checkout como a do
+`orderContext` (até seis por turno); listar os textos da régua para pulá-los em `refusedAsks` (a
+estrutura já diz: duas saídas seguidas sem resposta dela são toque, sem lista para envelhecer);
+handoff permanente quando o adiamento falha (uma falha de escrita não é sobre ela).
+**Correção:** funções puras, espelhadas, chamadas pelo turno. `pathAnswer` lê a resposta contra
+a última mensagem da agente: ordinal na ordem em que ela citou os caminhos, "pagar quando
+receber", "sim" a uma pergunta que oferece um caminho só (qualquer redação), e, sem pagamento na
+entrega, o "sim" à mensagem do antecipado; o "sim" às duas opções sem escolher continua indo à
+confirmação do prompt. `choiceToStore` = escolha explícita (intérprete + `choosesPath`, que
+aprendeu "quando receber" e "receber e pagar") ou `pathAnswer`; gravada uma vez, nunca perguntada
+de novo; `defaultCod` saiu. `kitOfferDue` é a oferta do kit. `linkGoesOut`: a primeira vez com
+todos os dados; depois de um link na conversa inteira (uma leitura `messages` por
+`conversation_id` com `body like *http*`, `limit 10`, índice `messages_conversation_idx`, filtro
+no corpo; falhou → as 20 já lidas), só quando ela pede (`asksForLink`) ou o pedido mudou (outro
+caminho ou kit: `linkedBase`, a base mais longa contida, compara com o checkout deste turno), e
+então nome, e-mail e CPF não seguram — o checkout pede; ela desistiu (`withdrawsInBurst`:
+"desisti", "não quero mais", "deixa pra lá", "mudei de ideia", sem nova decisão depois, negação
+excluída) → sem link. `delivery_promise` só isenta "um dia" depois de escolher/marcar/agendar com
+a oração relativa sobre ela depois ("em que você", "que você"). `refusedAsks` conta o pedido só
+quando a frase da pergunta é sobre o dado (o nomeia, ou pede pra passar logo depois de uma frase
+que o nomeia), e pula as saídas entre o pedido e a primeira resposta dela (toques), a não ser que
+uma delas peça o dado de novo — aí é ela a dona da resposta. `emailRefused`: a primeira recusa do
+e-mail é gravada em `leads.identity.emailRefused` (jsonb, como `address.codAvailable`; índice
+`leads_pkey`) e vale nos turnos seguintes. `secondLook` decide a segunda olhada: rascunho que não
+leu a rajada nunca sai (revisa de novo ou vai à varredura); revisões esgotadas → varredura; a
+varredura que não pode ser agendada → a mensagem de espera, o e-mail do operador e ela continua com
+a agente (`modelFailure(..., reachable)`, sem `handoff_at`); leitura que falha não cala quem foi
+lida. `buyerAsk` exclui "quero saber/ver/entender/perguntar". Comentários e o prompt alinhados ao
+código: "O link só vai quando os dados estiverem completos, e quem decide isso é o sistema".
+**Guarda:** `tests/link-after-data.test.ts` — comportamento: cada resposta das duas opções gravada
+e o turno seguinte seguindo (kit, depois dados), a ordem invertida, a confirmação em três
+redações, as negações (pergunta, dúvida, "sim" a outra pergunta, "sim" às duas, "não",
+"segunda-feira"); sem entrega, "ok/sim/pode ser/tá bom/quero" gravam o antecipado e as negações não;
+link → três respostas → "tá bom" sem link, "me manda o link de novo" com link, 2 peças → link do
+kit, desistência e suas negações; as quatro mentiras do prazo vetadas no antecipado e as três
+frases da oração relativa passando; recusas falsas, toque no meio, toque que pede de novo, e-mail
+guardado; `secondLook` em cada estado; `buyerAsk` com "quero saber". Fiação lida como fonte no fim
+do arquivo e em `tests/burst.test.ts`/`tests/function-drift.test.ts`. `pnpm dev:gates --base=HEAD`:
+0 afrouxados, 4 endurecidos (as quatro mentiras); a linha de `tests/gate-loosen-accepted.txt` que
+era um título de teste saiu (o título foi reescrito sem a frase).
+**Resíduo:** `pathAnswer` lê só a última saída — um toque ("Ainda está aí?") entre as opções e o
+"a primeira" faz a resposta não ser lida (o intérprete ainda pode ler a escolha explícita);
+o "sim" às duas opções segue para a confirmação, e a diretiva da região ainda manda "pergunte qual
+das duas" no mesmo turno em que o prompt manda confirmar a entrega; `refusedAsks` do CPF lê só as
+20 últimas mensagens — duas recusas separadas por mais de 20 mensagens pedem o CPF uma terceira vez
+(depois do primeiro link isso não importa mais: o checkout pede); `emailRefused` gravado vale para
+o lead, também numa conversa nova; a leitura do último link olha as 10 últimas saídas com URL —
+mais de 10 mensagens com o endereço do site depois do link faria o link parecer não enviado;
+`withdrawsInBurst` e `pathAnswer` são listas de palavras; nada medido contra o modelo ainda.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

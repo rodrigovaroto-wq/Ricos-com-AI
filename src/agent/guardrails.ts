@@ -1546,8 +1546,15 @@ const gates: readonly Gate[] = [
         // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         // Nor is the day she picks (2026-10-06, grafo §63): "escolhe/marca um dia em que você vai estar
-        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a count.
-        if (/^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
+        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a
+        // count, and only with the relative clause about her after it (review of f657faa): "a entrega é
+        // marcada um dia depois do pagamento" and "a gente marca um dia só de prazo" are deadlines.
+        if (
+          /^uma?$/.test(m[1]!) &&
+          /\b(?:escolh|marc|agend)\w*\s+$/.test(before) &&
+          /^\s+(?:em\s+)?que\s+(?:voce|vc|alguem)\b/.test(after)
+        )
+          continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);

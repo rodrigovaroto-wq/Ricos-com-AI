@@ -107,12 +107,13 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
   it("logo antes de mandar, uma mensagem mais nova é revisada na resposta — a nova tentativa ainda desiste", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
     expect(guard).not.toContain("if (!isRetry) return null;");
-    expect(guard).toContain("retryIsMoot(inboundId, latest?.[0] ?? null, null)");
-    // Uma leitura que falha nunca cala a cliente.
-    expect(guard).toContain("if (latest === null && !isRetry) return null;");
-    // Grafo §61: o descarte "superseded" saiu da segunda olhada; só a nova tentativa desiste —
-    // e o turno que não conseguiu tomar a conversa (0023 ausente), que volta ao §59 (revisão de 7c8bc7c).
-    const fallback = guard.slice(guard.indexOf("if (claimFailed) {"), guard.indexOf("const revisions"));
+    expect(guard).toContain("retryIsMoot(inboundId, latest[0] ?? null, null)");
+    // O veredito é a função pura `secondLook` (revisão de f657faa; comportamento em
+    // tests/link-after-data.test.ts): uma leitura que falha não cala quem foi lida, e o descarte
+    // "superseded" só vale para o turno que não tomou a conversa (0023 ausente, §59).
+    expect(guard).toContain("secondLook({");
+    expect(guard).toContain("if (look === \"send\") return null;");
+    const fallback = guard.slice(guard.indexOf('if (look === "stop") {'), guard.indexOf('if (look === "revise")'));
     expect(fallback).toContain('status: "superseded"');
     expect(guard.replace(fallback, "")).not.toContain("superseded");
     expect(guard).toContain('status: "retry_moot"');
@@ -190,7 +191,7 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
     expect(source).toContain("confirmsAddress(parts[parts.length - 1] ?? \"\")");
     expect(source).toContain("!parts.some(asksSomething) &&");
     expect(source).toContain("const foundIdentity = { fields: extractIdentityBurst(parts) };");
-    expect(source).toContain("parts.some(choosesPath)");
+    expect(source).toContain("choiceToStore(interpretation.payment_choice, parts, lastOutbound,");
     expect(source).toContain("askedIdentity: parts.some(asksWhatSheIs),");
     expect(source).not.toMatch(/classifyOptOut\(inbound\.body|extractAddress\(inbound\.body|extractIdentity\(inbound\.body|confirmsAddress\(inbound\.body|decidesToBuy\(inbound\.body/);
   });
@@ -326,7 +327,7 @@ describe("o 'sim' só confirma quando é tudo o que ela disse", () => {
       "decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething) && !parts.some(buyerAsk);",
     );
     expect(source).not.toMatch(/parts\.some\(asksSomething\)\) interpretation = \{ \.\.\.interpretation, wants_to_buy: false \}/);
-    expect(source).toContain("sendLinkNow({ ...linkData, yesBesideQuestion })");
+    expect(source).toContain("const linkNow = linkGoesOut({\n    ...linkData,\n    yesBesideQuestion,");
     // Depois da leitura do intérprete e da decisão por mensagem, antes do link.
     const rule = source.indexOf("const yesBesideQuestion =");
     expect(rule).toBeGreaterThan(source.indexOf("const decided = decisionInBurst(parts);"));

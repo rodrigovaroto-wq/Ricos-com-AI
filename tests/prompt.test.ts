@@ -1127,8 +1127,9 @@ describe("fatos ligados: preço, caminho, peças, prazo e link", () => {
     }
   });
 
-  it("o link só vai quando ela confirma a compra — está escrito no prompt", () => {
-    expect(flat(build(withKits))).toContain("O link só vai quando ela confirmar que quer comprar.");
+  it("o link só vai com os dados completos, decidido pelo sistema — como o código faz (grafo §63)", () => {
+    expect(flat(build(withKits))).toContain("O link só vai quando os dados estiverem completos, e quem decide isso é o sistema");
+    expect(flat(build(withKits))).not.toContain("O link só vai quando ela confirmar que quer comprar.");
   });
 });
 

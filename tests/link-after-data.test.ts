@@ -1,10 +1,25 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { refusedAsks } from "@/agent/identity.js";
-import { NEUTRAL_INTERPRETATION, quantityOf, type Interpretation } from "@/agent/interpret.js";
+import { emailRefused, refusedAsks } from "@/agent/identity.js";
+import {
+  asksForLink,
+  buyerAsk,
+  choiceToStore,
+  choosesPath,
+  kitOfferDue,
+  linkedBase,
+  linkGoesOut,
+  missingForLink,
+  NEUTRAL_INTERPRETATION,
+  pathAnswer,
+  quantityOf,
+  withdrawsInBurst,
+  type Interpretation,
+} from "@/agent/interpret.js";
 import { buildPrefilledCheckoutLink } from "@/agent/coinzz.js";
-import { thinkReply } from "@/agent/retry.js";
+import { DEFAULT_COD_CONFIRM, noCodMessage, twoOptionsMessage } from "@/agent/prompt.js";
+import { secondLook, thinkReply } from "@/agent/retry.js";
 import { config, ctx } from "./fixtures.js";
 
 /**
@@ -51,9 +66,9 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     expect(source).toContain("cepKnown: Boolean(addressDraft.cep),");
     expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion?.cod === false,");
     expect(source).toContain("nameKnown: Boolean(identityDraft.name),");
-    expect(source).toContain('emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,');
+    expect(source).toContain("emailDone: Boolean(identityDraft.email) || emailRefusedNow,");
     expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,");
-    expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });");
+    expect(source).toContain("const linkNow = linkGoesOut({");
     expect(source).toContain("thinkLink = linkNow && !(linkInChat");
     // The old exits are gone: wanting to buy, no e-mail, or an ignored ask no longer send it.
     expect(source).not.toContain("readyForLink");
@@ -77,16 +92,13 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("o kit é oferecido depois da escolha, uma vez, e o link do kit é o checkout do kit", () => {
-    expect(source).toContain(
-      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow;',
-    );
+    expect(source).toContain("const kitOfferNow = kitOfferDue({ units, pathChosen, missing, kitsOnPath: kitsOnPath.length, kitOffered, linkNow });");
     expect(source).toContain("linkNow || linkAlreadySent || kitOfferNow ||");
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");
   });
 
-  it("o 'sim' ao default da entrega fica gravado como escolha", () => {
-    expect(source).toMatch(/deixo\\s\+no\\s\+pagamento\\s\+na\\s\+entrega/);
-    expect(source).toContain('payment_choice: interpretation.payment_choice ?? "cod",');
+  it("a escolha lida (choiceToStore) é a gravada", () => {
+    expect(source).toContain("payment_choice: chosenPath,");
   });
 
   it("nenhum texto do turno fala em complemento; o tamanho se escolhe no checkout", () => {
@@ -100,13 +112,12 @@ describe("revisão de 7c8bc7c no turno", () => {
   it("a conversa não tomada (0023 ausente) volta ao descarte do §59 na segunda olhada", () => {
     expect(source).toContain("claimFailed = won === null;");
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
-    expect(guard.indexOf("if (claimFailed) {")).toBeGreaterThan(guard.indexOf('status: "retry_moot"'));
-    expect(guard.indexOf("if (claimFailed) {")).toBeLessThan(guard.indexOf("revisionAllowed("));
+    expect(guard).toContain("      claimFailed,\n");
   });
 
   it("a revisão que não leu a rajada não sai sem ler: revisa de novo ou vai à varredura pela mais nova", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
-    expect(guard).toContain("if (inboundId === null && !isRevise) return null;");
+    expect(guard).toContain("const draftRead = !isRevise || inboundId !== null;");
     const defer = source.slice(source.indexOf("const deferRetry = async"), source.indexOf("const lateGuard = async"));
     expect(defer).not.toContain("if (inboundId === null) return null;");
     expect(defer).toContain("if (newest === null) return null;");
@@ -176,7 +187,7 @@ describe("gates: os conflitos do §62", () => {
     expect(blocks("A transportadora faz pagamento na entrega aí.", noCod)).toContain("charge_promise");
   });
 
-  it("delivery_promise: 'escolhe um dia em que você vai estar' não é prazo", () => {
+  it("delivery_promise: o dia que ela escolhe, com a oração relativa, não é prazo", () => {
     expect(blocks("Escolhe um dia em que você vai estar em casa.", { paymentPath: "prepay" as const })).toEqual([]);
     expect(blocks("Dá pra marcar um dia em que você vai estar em casa.", { paymentPath: "prepay" as const })).toEqual([]);
   });
@@ -193,5 +204,252 @@ describe("gates: os conflitos do §62", () => {
     expect(blocks("No seu CEP dá pra pagar na entrega, então você tem duas opções.", { regionKnown: true })).toEqual([]);
     expect(blocks("Me passa seu CEP que eu vejo se no seu CEP dá pra pagar na entrega?", { regionKnown: false })).toEqual([]);
     expect(blocks("Aí na sua região ainda não tem pagamento na entrega.", { regionKnown: false })).not.toContain("coverage_claim");
+  });
+});
+
+/**
+ * Revisão de f657faa (NEEDS WORK): cada achado provado pelo comportamento — funções puras que o
+ * turno chama —, não pela fonte. A fiação que liga cada uma ao turno é lida como fonte no fim.
+ */
+describe("revisão de f657faa — 1: a escolha do pagamento fica gravada", () => {
+  const options = twoOptionsMessage(config).join("\n\n");
+  const answers: Array<[string, "cod" | "prepay" | null]> = [
+    ["a primeira", "cod"],
+    ["a segunda", "prepay"],
+    ["a primeira opção", "cod"],
+    ["A segunda opção!", "prepay"],
+    ["pagar quando receber", "cod"],
+    ["prefiro receber e pagar", "cod"],
+  ];
+  it.each(answers)("'%s' às duas opções é gravada como %s", (answer, path) => {
+    // O intérprete pode ler ou não: a leitura determinística é que grava.
+    expect(choiceToStore(null, [answer], options, true)).toBe(path);
+    // Quando o intérprete lê o caminho, o mesmo é gravado.
+    expect(choiceToStore(path, [answer], options, true)).toBe(path);
+  });
+
+  it("a ordem é a da mensagem dela, não uma frase fixa: antecipado primeiro inverte", () => {
+    const flipped = "No pix você ganha 10% de desconto. Ou paga na entrega, R$ 129,90 quando receber. Qual você prefere?";
+    expect(pathAnswer(flipped, ["a primeira"], true)).toBe("prepay");
+    expect(pathAnswer(flipped, ["a segunda"], true)).toBe("cod");
+  });
+
+  it("o 'sim' à confirmação do pagamento na entrega grava, em qualquer redação", () => {
+    for (const ask of [DEFAULT_COD_CONFIRM, "Fica no pagamento na entrega então, tudo bem?", "Deixo pra você pagar na entrega, combinado?"]) {
+      for (const yes of ["sim", "pode ser", "ok", "tá bom", "beleza"]) expect(choiceToStore(null, [yes], ask, true), `${ask} + ${yes}`).toBe("cod");
+    }
+  });
+
+  it("gravada, o turno seguinte segue: oferta do kit, depois os dados — nunca a pergunta de novo", () => {
+    for (const [answer, path] of answers) {
+      // Turno 1: ela responde às duas opções; a escolha é gravada.
+      const stored = choiceToStore(null, [answer], options, true);
+      expect(stored, answer).toBe(path);
+      // Turno 1 também oferece o kit (tamanho e CEP já ditos).
+      const data = { sizeKnown: true, cepKnown: true, pathSettled: stored !== null, nameKnown: false, emailDone: false, cpfDone: false };
+      expect(missingForLink(data), answer).toBe("name");
+      expect(kitOfferDue({ units: 1, pathChosen: stored !== null, missing: missingForLink(data), kitsOnPath: 2, kitOffered: false, linkNow: false })).toBe(true);
+      // Turno 2: "só uma mesmo" depois da oferta — nada lê caminho, e o guardado vale.
+      const next = choiceToStore(null, ["só uma mesmo"], "Levando 2 peças sai R$ 233,82. Quer levar mais uma?", true) ?? stored;
+      expect(next, answer).toBe(path);
+      expect(missingForLink({ ...data, pathSettled: next !== null })).toBe("name");
+      expect(kitOfferDue({ units: 1, pathChosen: true, missing: "name", kitsOnPath: 2, kitOffered: true, linkNow: false })).toBe(false);
+    }
+  });
+
+  it("negações: pergunta, dúvida, 'sim' a outra pergunta e 'sim' às duas sem escolher não gravam", () => {
+    expect(choiceToStore(null, ["a primeira chega quando?"], options, true)).toBeNull();
+    expect(choiceToStore(null, ["não sei qual a melhor"], options, true)).toBeNull();
+    expect(choiceToStore(null, ["sim"], "Qual o número da sua calça?", true)).toBeNull();
+    expect(choiceToStore(null, ["sim"], "No pagamento na entrega você tem 7 dias pra devolver. Qual o seu CEP?", true)).toBeNull();
+    // O "sim" às duas opções sem escolher pede a confirmação do prompt antes de gravar.
+    expect(choiceToStore(null, ["sim"], options, true)).toBeNull();
+    expect(choiceToStore(null, ["não"], DEFAULT_COD_CONFIRM, true)).toBeNull();
+    expect(choiceToStore(null, ["sim, mas tem rastreio?"], DEFAULT_COD_CONFIRM, true)).toBeNull();
+    expect(choiceToStore(null, ["segunda-feira eu estou em casa"], options, true)).toBeNull();
+    // Onde o pagamento na entrega não chega, ordinal e "quando receber" não viram entrega.
+    expect(choiceToStore(null, ["pagar quando receber"], noCodMessage(config), false)).toBeNull();
+  });
+
+  it("choosesPath aprende 'pagar quando receber' e 'receber e pagar'; a dúvida continua fora", () => {
+    expect(choosesPath("pagar quando receber")).toBe(true);
+    expect(choosesPath("prefiro receber e pagar")).toBe(true);
+    expect(choosesPath("quero saber se posso pagar quando receber")).toBe(false);
+    expect(choosesPath("dá pra pagar quando receber?")).toBe(false);
+  });
+});
+
+describe("revisão de f657faa — 8: sem pagamento na entrega, o 'sim' ao antecipado é a escolha", () => {
+  it.each(["ok", "sim", "pode ser", "tá bom", "quero"])("'%s' à mensagem do antecipado grava o antecipado", (yes) => {
+    expect(choiceToStore(null, [yes], noCodMessage(config), false)).toBe("prepay");
+    expect(choiceToStore(null, [yes], `${noCodMessage(config)} Quer seguir assim?`, false)).toBe("prepay");
+  });
+  it("e o kit é oferecido uma vez, depois os dados", () => {
+    expect(kitOfferDue({ units: 1, pathChosen: true, missing: "name", kitsOnPath: 2, kitOffered: false, linkNow: false })).toBe(true);
+    expect(kitOfferDue({ units: 1, pathChosen: true, missing: "name", kitsOnPath: 2, kitOffered: true, linkNow: false })).toBe(false);
+  });
+  it("negações: 'não', pergunta, ou mensagem que não fala do antecipado não gravam", () => {
+    expect(choiceToStore(null, ["não"], noCodMessage(config), false)).toBeNull();
+    expect(choiceToStore(null, ["quero saber o prazo"], noCodMessage(config), false)).toBeNull();
+    expect(choiceToStore(null, ["ok, e tem rastreio?"], noCodMessage(config), false)).toBeNull();
+    expect(choiceToStore(null, ["ok"], "Qual o número da sua calça?", false)).toBeNull();
+    // Onde a entrega chega, o "ok" à mensagem do antecipado não escolhe nada sozinho.
+    expect(choiceToStore(null, ["ok"], noCodMessage(config), true)).toBeNull();
+  });
+});
+
+describe("revisão de f657faa — 2: o link não é reenviado", () => {
+  const base = "https://entrega.logzz.com.br/pay/encorpa-pa";
+  const kit2 = "https://entrega.logzz.com.br/pay/encorpa-pa-kit2";
+  const bases = [base, "https://app.coinzz.com.br/checkout/encorpa", kit2];
+  const done = { sizeKnown: true, cepKnown: true, pathSettled: true, nameKnown: true, emailDone: true, cpfDone: true };
+  const turn = (over: Partial<Parameters<typeof linkGoesOut>[0]>) =>
+    linkGoesOut({ ...done, yesBesideQuestion: false, sentBefore: false, orderChanged: false, asked: false, withdrew: false, ...over });
+
+  it("sai uma vez, com os dados", () => {
+    expect(turn({})).toBe(true);
+  });
+
+  it("link, três perguntas e respostas, 'tá bom' → sem link; 'me manda o link de novo' → link", () => {
+    const sent = `Aqui está: ${base}?name=Maria`;
+    const history = [sent, "O prazo é de 1 a 3 dias.", "Tem rastreio sim.", "Pode lavar à mão."];
+    const last = history.findLast((m) => linkedBase(m, bases) !== null) ?? null;
+    expect(linkedBase(last!, bases)).toBe(base);
+    for (const msg of ["tá bom", "qual o prazo?", "obrigada"]) {
+      expect(turn({ sentBefore: true, asked: asksForLink(msg), orderChanged: linkedBase(last!, bases) !== base }), msg).toBe(false);
+    }
+    expect(turn({ sentBefore: true, asked: asksForLink("me manda o link de novo"), orderChanged: false })).toBe(true);
+  });
+
+  it("mudou pra 2 peças → link novo do kit (o do kit não é lido como o de uma peça)", () => {
+    const last = `Aqui está: ${base}?name=Maria`;
+    expect(turn({ sentBefore: true, orderChanged: linkedBase(last, bases) !== kit2 })).toBe(true);
+    // E o link do kit enviado não volta a sair na rodada seguinte.
+    expect(linkedBase(`Aqui: ${kit2}?name=Maria`, bases)).toBe(kit2);
+    expect(turn({ sentBefore: true, orderChanged: linkedBase(`Aqui: ${kit2}?name=Maria`, bases) !== kit2 })).toBe(false);
+  });
+
+  it("depois do primeiro link, nome, e-mail e CPF não seguram o pedido dela; tamanho e CEP seguram", () => {
+    expect(turn({ sentBefore: true, asked: true, emailDone: false, cpfDone: false })).toBe(true);
+    expect(turn({ sentBefore: true, orderChanged: true, sizeKnown: false })).toBe(false);
+  });
+
+  it("ela desistiu: o link segura, com ou sem envio anterior", () => {
+    expect(turn({ withdrew: true })).toBe(false);
+    expect(turn({ sentBefore: true, asked: true, withdrew: true })).toBe(false);
+    expect(withdrawsInBurst(["731.166.873-58", "pensando bem, desisti"])).toBe(true);
+    expect(withdrawsInBurst(["quero o M", "não quero mais"])).toBe(true);
+    expect(withdrawsInBurst(["não vou passar o CPF, deixa pra lá"])).toBe(true);
+  });
+  it("negações: desistência negada, desfeita, ou recusa do kit não seguram", () => {
+    expect(withdrawsInBurst(["não desisti não, quero sim"])).toBe(false);
+    expect(withdrawsInBurst(["desisti do kit", "vou levar uma"])).toBe(false);
+    expect(withdrawsInBurst(["não vou querer o kit, só uma"])).toBe(false);
+    expect(withdrawsInBurst(["quero o M", "depois de amanhã pode entregar?"])).toBe(false);
+    expect(withdrawsInBurst(["tá bom"])).toBe(false);
+  });
+});
+
+describe("revisão de f657faa — 3: 'um dia' depois de marcar/agendar só sai na oração relativa", () => {
+  const blocks = (text: string) =>
+    runGates(text, ctx({ paymentPath: "prepay" as const })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+  it.each([
+    "Pelo pix a entrega é marcada um dia depois do pagamento.",
+    "A entrega é agendada um dia após a compra.",
+    "No antecipado a transportadora agenda um dia depois e entrega.",
+    "Pagando no pix, a gente marca um dia só de prazo pra chegar.",
+  ])("vetada no antecipado: %s", (lie) => {
+    expect(blocks(lie)).toContain("delivery_promise");
+  });
+  it.each(["Escolhe um dia em que você vai estar em casa.", "Dá pra marcar um dia em que você vai estar em casa.", "Você agenda um dia que você esteja em casa."])(
+    "passa: %s",
+    (ok) => {
+      expect(blocks(ok)).toEqual([]);
+    },
+  );
+});
+
+describe("revisão de f657faa — 4 e 5: recusa só de pedido de verdade, e a régua não interrompe o par", () => {
+  it("resposta sobre o CPF seguida de outra pergunta não é pedido do CPF", () => {
+    expect(refusedAsks([out("O CPF é pra nota fiscal. Qual o seu nome completo?"), inn("Maria Souza")], "document")).toBe(0);
+    expect(refusedAsks([out("O e-mail é só pro cadastro. Qual o seu CEP?"), inn("01310-100")], "email")).toBe(0);
+    expect(refusedAsks([out("O CPF é pra nota fiscal, que a lei exige. Me passa seu nome completo?"), inn("Maria Souza")], "document")).toBe(0);
+  });
+  it("o pedido de verdade continua contando", () => {
+    expect(refusedAsks([out("E por último o CPF, pra nota fiscal. Me passa?"), inn("não")], "document")).toBe(1);
+    expect(refusedAsks([out("Pra nota fiscal eu preciso do seu CPF, pode me passar?"), inn("não")], "document")).toBe(1);
+  });
+  it("'Qual seu CPF?' → 'Ainda está aí?' → 'não vou passar' conta 1", () => {
+    expect(refusedAsks([out("Qual seu CPF?"), out("Ainda está aí?"), inn("não vou passar")], "document")).toBe(1);
+    expect(refusedAsks([out("Qual seu CPF?"), out("Ainda está aí?"), inn("731.166.873-58")], "document")).toBe(0);
+  });
+  it("um toque que pede o dado de novo é dono da resposta: uma recusa só", () => {
+    expect(refusedAsks([out("Qual seu CPF?"), out("Ainda está aí? Me passa o CPF?"), inn("não")], "document")).toBe(1);
+  });
+  it("a recusa do e-mail fica guardada e vale nos turnos seguintes", () => {
+    // Turno 1: ela diz que não tem e-mail sem ninguém pedir — só o intérprete lê.
+    expect(emailRefused({}, true, [inn("não tenho e-mail")])).toBe(true);
+    // Turno 2: a conversa não mostra o pedido; o que vale é o guardado.
+    expect(emailRefused({ emailRefused: true }, false, [])).toBe(true);
+    // Negação: nada guardado, nada lido, nada recusado.
+    expect(emailRefused({}, false, [out("Qual seu e-mail?"), inn("maria@gmail.com")])).toBe(false);
+    expect(emailRefused(null, false, [])).toBe(false);
+  });
+});
+
+describe("revisão de f657faa — 6: a revisão não manda rascunho que não leu", () => {
+  const look = (over: Partial<Parameters<typeof secondLook>[0]>) =>
+    secondLook({ retry: false, draftRead: true, newer: false, claimFailed: false, revisionAllowed: true, ...over });
+  it("a revisão que não leu a rajada nunca sai: revisa de novo ou vai à varredura", () => {
+    expect(look({ draftRead: false, newer: null })).toBe("revise");
+    expect(look({ draftRead: false, newer: null, revisionAllowed: false })).toBe("defer");
+    expect(look({ draftRead: false, newer: true, revisionAllowed: false })).toBe("defer");
+  });
+  it("mensagem nova e revisões esgotadas: varredura, nunca o rascunho", () => {
+    expect(look({ newer: true, revisionAllowed: false })).toBe("defer");
+    expect(look({ newer: true })).toBe("revise");
+  });
+  it("negações: rascunho que leu tudo sai; leitura que falha não cala quem foi lida", () => {
+    expect(look({})).toBe("send");
+    expect(look({ newer: null })).toBe("send");
+  });
+  it("a nova tentativa e a conversa não tomada param como antes", () => {
+    expect(look({ retry: true, newer: true })).toBe("stop");
+    expect(look({ retry: true, newer: null })).toBe("stop");
+    expect(look({ retry: true })).toBe("send");
+    expect(look({ claimFailed: true, newer: true })).toBe("stop");
+  });
+});
+
+describe("revisão de f657faa — 7: 'quero saber' não é pergunta de quem compra", () => {
+  it.each(["sim, quero saber se tem rastreio?", "sim, quero saber quanto tempo demora?", "ok, quero ver como lava?", "sim, quero entender o frete?", "sim, quero perguntar uma coisa?"])(
+    "%s não é",
+    (msg) => {
+      expect(buyerAsk(msg)).toBe(false);
+    },
+  );
+  it.each(["sim, quero. qual o prazo?", "quero sim, como pago?"])("%s continua sendo", (msg) => {
+    expect(buyerAsk(msg)).toBe(true);
+  });
+});
+
+describe("revisão de f657faa — fiação no turno (fonte)", () => {
+  it("a escolha gravada é a de choiceToStore; nada de frase literal", () => {
+    expect(source).toContain("const chosenPath = choiceToStore(interpretation.payment_choice, parts, lastOutbound, knownRegion?.cod ?? null);");
+    expect(source).toContain("if (chosenPath !== null) {");
+    expect(source).not.toContain("defaultCod");
+  });
+  it("o link lê a conversa inteira e linkGoesOut decide", () => {
+    expect(source).toContain("const linkNow = linkGoesOut({");
+    expect(source).not.toContain("linkJustSent");
+    expect(source).toContain('&body=like.${encodeURIComponent("*http*")}');
+  });
+  it("a segunda olhada é secondLook, e o adiamento que falha não manda o rascunho", () => {
+    const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
+    expect(guard).toContain("secondLook({");
+    expect(guard).toContain("?? (await modelFailure(");
+  });
+  it("a recusa do e-mail é guardada na identidade", () => {
+    expect(source).toContain("emailRefused: true");
   });
 });

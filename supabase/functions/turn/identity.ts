@@ -200,11 +200,16 @@ export const asksForIdentity = (text: string): boolean =>
 /**
  * How many times the agent asked for the e-mail or the CPF and her answer did not bring it
  * (operator, 2026-10-06: the link waits for the data; an e-mail refused once and a CPF refused
- * twice are not asked again). Read from the conversation instead of a column: an ask is an
- * outbound message naming the field and asking something, and her answer is every
- * inbound until the next outbound. A "pra que?", a refusal, an invalid CPF and a change of
- * subject all count — the script's own steps (design §6). An ask not yet answered does not.
- * `messages` oldest first, as the model reads them.
+ * twice are not asked again). Read from the conversation instead of a column. An ask is a
+ * question sentence about that datum — it names it ("Qual o seu CPF?"), or asks her to pass
+ * something right after a sentence that names it ("E por último o CPF, pra nota fiscal. Me
+ * passa?"); a sentence that only explains the datum beside a question about another one ("O CPF
+ * é pra nota fiscal. Qual o seu nome completo?") is not (review of f657faa). Her answer is every
+ * inbound after the ask until the next outbound; outbound rows before her first answer are the
+ * ruler's touches ("Ainda está aí?"), and she answers the ask through them — unless one of them
+ * asks for the datum again, and then that one owns the answer. A "pra que?", a refusal, an
+ * invalid CPF and a change of subject all count — the script's own steps (design §6). An ask not
+ * yet answered does not. `messages` oldest first, as the model reads them.
  */
 export const refusedAsks = (
   messages: ReadonlyArray<{ direction: string; body: string | null }>,
@@ -212,19 +217,41 @@ export const refusedAsks = (
 ): number => {
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
   const found = field === "email" ? extractEmail : extractCpf;
+  const asks = (body: string): boolean => {
+    const sentences = body.split(/(?<=[.!?\n])\s*/);
+    return sentences.some(
+      (q, i) =>
+        q.trim().endsWith("?") &&
+        (word.test(q) ||
+          (!/\b(?:e-?mail|cpf|nome|cep|tamanho|cal[cç]a|endere[cç]o)\b/i.test(q) &&
+            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar)\b/i.test(q) &&
+            word.test(sentences[i - 1] ?? ""))),
+    );
+  };
   let count = 0;
   messages.forEach((m, i) => {
-    if (m.direction === "inbound") return;
-    // The field and a question in the same message: "E por último o CPF, pra nota fiscal. Me passa?"
-    const asked = word.test(m.body ?? "") && (m.body ?? "").includes("?");
-    if (!asked) return;
+    if (m.direction === "inbound" || !asks(m.body ?? "")) return;
     const next = messages.slice(i + 1);
-    const end = next.findIndex((n) => n.direction !== "inbound");
-    const answer = (end === -1 ? next : next.slice(0, end)).map((n) => n.body ?? "");
-    if (answer.length > 0 && !answer.some((a) => found(a) !== null)) count += 1;
+    const first = next.findIndex((n) => n.direction === "inbound");
+    if (first === -1 || next.slice(0, first).some((n) => asks(n.body ?? ""))) return;
+    const rest = next.slice(first);
+    const end = rest.findIndex((n) => n.direction !== "inbound");
+    const answer = (end === -1 ? rest : rest.slice(0, end)).map((n) => n.body ?? "");
+    if (!answer.some((a) => found(a) !== null)) count += 1;
   });
   return count;
 };
+
+/**
+ * The e-mail is refused for good (review of f657faa): stored on the lead's identity
+ * (`emailRefused`, written by the turn the first time), said this turn (the interpreter's
+ * `email_unavailable`, which nothing else remembers), or an ask she let pass in the window.
+ */
+export const emailRefused = (
+  stored: { emailRefused?: unknown } | null,
+  unavailableNow: boolean,
+  messages: ReadonlyArray<{ direction: string; body: string | null }>,
+): boolean => stored?.emailRefused === true || unavailableNow || refusedAsks(messages, "email") > 0;
 
 /**
  * The name as the checkout should show it — applied only when the link is built, the
