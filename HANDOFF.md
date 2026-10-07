@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07, madrugada)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -47,11 +47,24 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
   `dev:regua` 20 000 casos, `typecheck:function` limpo; `verificar:guardas` 342/342 em `a2d1a10` + as duas
   mutações alteradas depois, pegas em `c22d187`.
 
+**Depois (mesma sessão, 07/10):**
+- **0023 aplicada** em produção (`20261006221247_0023_replying_since`, autorizada pelo operador).
+- **Modelo de produção:** desde 06/10 19:30 UTC a `turn` roda `muse-spark-1.3-contributor` (segredos
+  conferidos pelo hash SHA-256; `CLAUDE.md` corrigido).
+- **Quatro rodadas de 12 personas** contra a `turn` do disco (porta `local`): uma no padrão (R$ 5,23) e três
+  no contribuidor (R$ 0,33 · 0,22 confirmação · 0,37 final). Defeitos reais achados e consertados (grafo §64):
+  nota interna do modelo vazando ("Need ask CEP."), 4 balões, e-mail pedido 3×, kit colado no pedido de dado,
+  preço segurado até o CEP, "a maioria chega aqui" vetado, nome na 1ª linha acima da rua, CPF recusado 3× sem
+  link, frase do "vou pensar" repetida. Cada conserto revisado pelo Opus até aprovar; mutações `P07-*`.
+- Rodada final no contribuidor: 12/12 sem resposta pronta, nenhum balão a mais, nenhuma nota interna;
+  custo ~R$ 0,03 por conversa.
+- Ver a memória `proxy-sobrescreve-auth-do-supabase` antes de rodar personas pelo container.
+
 **Falta, nesta ordem:**
-1. **O autoriza** (o modo automático bloqueia como deploy de produção): migração 0023 → 12 personas contra a
-   `turn` do disco (porta `local`, modelo padrão, teto R$ 5) → `pnpm deploy:turn` (v10) e sonda.
-2. **O** teste real pelo WhatsApp; depois os itens 6 da lista anterior (devolução, portal, templates).
-3. PR #53: atualizar a branch do PR com os commits desta sessão (ou abrir PR desta branch) e mergear.
+1. **C** PR desta branch (supera o PR #53, que tem só até `6122dd9`), CI verde.
+2. **C** `pnpm deploy:turn` (v10) e sonda pela porta de produção — o caminho "sem pagamento na entrega"
+   (Cleide, Manaus) só se prova ali (a Coinzz responde 302 ao container).
+3. **O** teste real pelo WhatsApp; depois devolução guiada, portal, templates na Meta.
 
 ### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
