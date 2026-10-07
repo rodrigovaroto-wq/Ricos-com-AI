@@ -10,7 +10,7 @@ import { asksForLink, choosesPath, pathChoiceToStore } from "@/agent/interpret.j
 import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
-import { renderFollowup } from "@/agent/followups.js";
+import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -233,5 +233,30 @@ describe("C10 — o lembrete não pede o tamanho a quem já deu", () => {
   it("sem o tamanho, continua perguntando", () => {
     const texts = ["a", "b", "c", "d"].map((id) => renderFollowup("silence_1", { ...base, leadId: id }) ?? "");
     expect(texts.every((t) => /cal[çc]a/i.test(t))).toBe(true);
+  });
+});
+
+describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no máximo 1 vez por dia", () => {
+  const now = new Date("2026-10-07T10:30:00-03:00");
+  it("os tempos", () => {
+    const ruler = rulerFor(now, "before_size", undefined, false, undefined, true);
+    expect(ruler.find((f) => f.kind === "still_there")?.runAt).toEqual(new Date(now.getTime() + 20 * 60_000));
+    expect(ruler.find((f) => f.kind === "silence_1")?.runAt).toEqual(new Date(now.getTime() + 60 * 60_000));
+  });
+  it("enviado há menos de 24 h, não arma de novo", () => {
+    const ruler = rulerFor(now, "before_size", undefined, false, undefined, true);
+    const sent = { still_there: new Date(now.getTime() - 2 * 3600_000), silence_1: new Date(now.getTime() - 5 * 3600_000) };
+    expect(oncePerDay(ruler, sent).map((f) => f.kind)).not.toContain("still_there");
+    expect(oncePerDay(ruler, sent).map((f) => f.kind)).not.toContain("silence_1");
+    expect(oncePerDay(ruler, sent).map((f) => f.kind)).toContain("silence_2");
+  });
+  it("enviado há mais de 24 h, ou nunca, arma", () => {
+    const ruler = rulerFor(now, "before_size", undefined, false, undefined, true);
+    const old = { still_there: new Date(now.getTime() - 25 * 3600_000) };
+    expect(oncePerDay(ruler, old).map((f) => f.kind)).toEqual(ruler.map((f) => f.kind));
+    expect(oncePerDay(ruler, {}).map((f) => f.kind)).toEqual(ruler.map((f) => f.kind));
+  });
+  it("o turno lê o envio de cada toque antes de armar", () => {
+    expect(turn).toContain("select=*,leads(orders(status)),followups(kind,sent_at)");
   });
 });

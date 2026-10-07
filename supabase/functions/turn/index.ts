@@ -41,6 +41,7 @@ import {
   reopensRefused,
   stageForLead,
   renderFollowup,
+  oncePerDay,
   rulerFor,
   endsSilenceRuler,
   endsWithQuestion,
@@ -879,7 +880,8 @@ const notification = (
  *    seconds and then dumps everything at once is the opposite of the intended effect.
  * 2. Never instant. A one-word bubble still waits a second.
  */
-const MS_PER_WORD = 800;
+// 30% faster than the 800 of R13 (operator, 2026-10-07, grafo §66).
+const MS_PER_WORD = 560;
 
 const bubbleDelayMs = (bubble: string): number =>
   Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
@@ -1027,7 +1029,7 @@ const scheduleSilenceTouches = async (
   // asks again before anything goes out.
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status))`).catch(() => null))?.[0];
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at)`).catch(() => null))?.[0];
   if (at && !chasesSilence(at.stage, (at.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
     await cancelScheduled(conversationId);
     return;
@@ -1035,7 +1037,13 @@ const scheduleSilenceTouches = async (
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
   const anchors = rulerAnchors(at);
-  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);
+  // "Ainda está aí?" and `silence_1` at most once a day each (operator, 2026-10-07, grafo §66).
+  const sentAt = Object.fromEntries(
+    ((at?.followups ?? []) as Array<{ kind: FollowupKind; sent_at: string | null }>)
+      .filter((f) => f.sent_at)
+      .map((f) => [f.kind, new Date(f.sent_at!)]),
+  ) as Partial<Record<FollowupKind, Date>>;
+  const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
@@ -2187,9 +2195,15 @@ const handleTurn = async (
   // later message that corrects an earlier one — reads `parts`, one message at a time.
   // A failed read never leaves her unanswered: the turn answers its own message.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
-  if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
-  const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> | null =
-    await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
+  const readRecent = (): Promise<Array<{ id: string; direction: string; body: string | null; created_at: string }> | null> =>
+    db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
+  let recentRows = await readRecent();
+  // With more than one message of hers already waiting the burst is in, and the 5 s wait was only
+  // slowness (operator, 2026-10-07, grafo §66). One message alone still waits for the next.
+  if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {
+    await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
+    recentRows = await readRecent();
+  }
   // A revision answers through her newest message, the one its second look compares against.
   if (isRevise) inboundId = recentRows?.find((m: { direction: string }) => m.direction === "inbound")?.id ?? null;
   if (recentRows !== null && !isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {

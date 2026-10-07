@@ -174,7 +174,8 @@ export interface RulerAnchors {
 
 /** "Ainda está aí?" — exactly this, once per question of hers left open (operator, 2026-10-06). */
 export const STILL_THERE_REPLY = "Ainda está aí?";
-export const STILL_THERE_MS = 10 * MINUTE;
+// 20 minutes since 2026-10-07 (operator, grafo §66): at 10 it came four times in two hours.
+export const STILL_THERE_MS = 20 * MINUTE;
 
 /** The reply ends in a question: the last thing before trailing spaces and emoji is a "?". */
 export const endsWithQuestion = (text: string): boolean =>
@@ -203,6 +204,25 @@ const beforeDawn = (at: Date): Date => {
  */
 export const silence3At = (entry: Date): Date => beforeDawn(new Date(entry.getTime() + ENTRY_BAND_END));
 
+/** `silence_1`, after the agent's last reply (operator, 2026-10-07: one hour; it was 30 minutes). */
+export const SILENCE_1_MS = 60 * MINUTE;
+
+/**
+ * "Ainda está aí?" and `silence_1` at most once a day each (operator, 2026-10-07, grafo §66): every
+ * reply of the agent ending in a question re-armed both, and two friends got four "Ainda está aí?"
+ * and three reminders in three hours. A kind that went out less than 24 h before its new time is
+ * dropped; `sentAt` is `followups.sent_at`, which the upsert keeps when the kind is re-armed.
+ */
+export const oncePerDay = (
+  ruler: readonly ScheduledFollowup[],
+  sentAt: Partial<Record<FollowupKind, Date>>,
+): ScheduledFollowup[] =>
+  ruler.filter((f) => {
+    if (f.kind !== "still_there" && f.kind !== "silence_1") return true;
+    const last = sentAt[f.kind];
+    return !last || f.runAt.getTime() - last.getTime() >= DAY;
+  });
+
 /**
  * The silence ruler. With `stopPoint` `"link_sent"` it gains an extra, earlier touch —
  * `checkout_reminder` at 15 minutes, asking about trouble with the checkout — before
@@ -215,7 +235,8 @@ export const scheduleSilence = (now: Date, stopPoint?: StopPoint, anchors?: Rule
   if (stopPoint === "link_sent") {
     touches.push({ kind: "checkout_reminder", runAt: new Date(now.getTime() + 15 * MINUTE) });
   }
-  const first = new Date(now.getTime() + 30 * MINUTE);
+  // One hour since 2026-10-07 (operator, grafo §66); it was 30 minutes.
+  const first = new Date(now.getTime() + SILENCE_1_MS);
   touches.push({ kind: "silence_1", runAt: first });
   if (!anchors) {
     touches.push(

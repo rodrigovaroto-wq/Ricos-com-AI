@@ -244,8 +244,8 @@ describe("ritmo humano da Edge Function", () => {
   it("as bolhas saem iguais às de splitBubbles, com o atraso de bubbleDelayMs", () => {
     const texto = ["um dois três", "quatro cinco", "seis"].join("\n\n");
     expect(splitBubbles(texto).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }))).toEqual([
-      { text: "um dois três", delayMs: 2400 },
-      { text: "quatro cinco", delayMs: 1600 },
+      { text: "um dois três", delayMs: 1680 },
+      { text: "quatro cinco", delayMs: 1120 },
       { text: "seis", delayMs: 1000 },
     ]);
   });

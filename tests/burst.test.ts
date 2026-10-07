@@ -86,7 +86,8 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(optOut).toBeGreaterThan(burst);
     const block = source.slice(burst, optOut);
     // Só o turno de uma mensagem nova espera: a retomada já esperou, a nova tentativa é da varredura.
-    expect(block).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    // Grafo §66: com mais de uma mensagem dela já esperando, a rajada chegou — sem os 5 s.
+    expect(block).toContain("if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {\n    await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));\n    recentRows = await readRecent();");
     // Só mensagens desta conversa contam; linhas da agente não (direction filtrada no find).
     expect(block).toContain("`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`");
     expect(block).toContain('retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)');
@@ -271,7 +272,7 @@ describe("um turno respondendo por vez, e a resposta revisada com o que chegou",
     expect(source).toContain("const isRevise = internal.revise !== undefined;");
     expect(source).toContain("    !isRetry &&\n    !isRevise &&");
     expect(source).toContain("if (!isResume && !isRetry && !isRevise) {\n    const seen");
-    expect(source).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    expect(source).toContain("if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {");
     expect(source).toContain("const spentBefore = internal.revise?.spentBefore ?? spent;");
     // O prazo da revisão manda nas chamadas dela.
     expect(source).toContain("isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");

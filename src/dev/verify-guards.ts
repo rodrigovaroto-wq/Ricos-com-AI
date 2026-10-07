@@ -404,8 +404,8 @@ const MUTATIONS: Mutation[] = [
     id: "R10.4-armado",
     bug: "o lembrete de 15 minutos depois do link nunca era agendado (a régua não recebia o ponto de parada)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);",
-    to: "const ruler = rulerFor(from, \"before_size\", postponed, linkInReply, anchors, askedQuestion);",
+    from: "const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);",
+    to: "const ruler = oncePerDay(rulerFor(from, \"before_size\", postponed, linkInReply, anchors, askedQuestion), sentAt);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
@@ -3164,6 +3164,30 @@ const MUTATIONS: Mutation[] = [
     from: '=== "before_size" && ctx.size ? "after_price"',
     to: '=== "before_size" && false ? "after_price"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-uma-vez-por-dia",
+    bug: "'Ainda está aí?' e o lembrete eram rearmados a cada resposta: 4 'Ainda está aí?' e 3 lembretes em 3 horas",
+    files: ["src/agent/followups.ts"],
+    from: "    return !last || f.runAt.getTime() - last.getTime() >= DAY;",
+    to: "    return true;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-uma-vez-por-dia-fiacao",
+    bug: "o turno armava a régua sem ler quando cada toque saiu, e o filtro de uma vez por dia nunca agia",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "select=*,leads(orders(status)),followups(kind,sent_at)",
+    to: "select=*,leads(orders(status))",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-rajada-sem-espera",
+    bug: "com a rajada já esperando, o turno ainda esperava 5 s antes de responder",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "unansweredInbound(recentRows).length) <= 1) {",
+    to: "unansweredInbound(recentRows).length) >= 0) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/burst.test.ts"],
   },
 ];
 
