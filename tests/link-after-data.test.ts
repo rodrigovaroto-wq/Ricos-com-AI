@@ -560,6 +560,10 @@ describe("recusa explícita dela conta, seja qual for a redação do pedido", ()
   it("o campo dispensado com 'tá?' no fim não é pedido", () => {
     expect(refusedAsks([out("Tudo bem sem o CPF, tá?"), inn("ok")], "document")).toBe(0);
     expect(refusedAsks([out("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?"), inn("ta bom")], "email")).toBe(0);
+    expect(refusedAsks([out("Tudo bem sem o CPF, pode deixar, tá?"), inn("ok")], "document")).toBe(0);
+    expect(refusedAsks([out("Tudo bem sem o CPF, pode ficar tranquila, tá?"), inn("ok")], "document")).toBe(0);
+    expect(refusedAsks([out("Sem o CPF a gente passa direto pro link, tá?"), inn("ok")], "document")).toBe(0);
+    expect(refusedAsks([out("Sem problemas não ter e-mail, a gente consegue seguir assim, tá?"), inn("ok")], "email")).toBe(0);
   });
   it("negações: CPF dado, CPF citado sem negar, e uma janela conta uma vez só", () => {
     expect(refusedAsks([out("Me passa seu CPF?"), inn("não tem problema, meu cpf é 731.166.873-58")], "document")).toBe(0);
@@ -579,6 +583,7 @@ describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada fi
     expect(source).toContain("const identityDirective = farewell");
     expect(source).toContain("Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.");
     expect(source).toContain("!kitOffered && !linkNow && !farewell;");
+    expect(source).toContain("if (farewell) checkoutUrl = null;");
   });
 });
 
@@ -597,9 +602,29 @@ describe("recusa: verbo de recusa, não qualquer 'não' perto do campo", () => {
   it("recusa espontânea com verbo conta", () => {
     expect(refusedAsks([inn("nao passo cpf de jeito nenhum")], "document")).toBe(1);
   });
-  it.each(["esse dado eu não passo", "não vou passar isso não"])("na sequência do pedido, a recusa sem citar o campo conta: %s", (m) => {
+  it.each(["nao passo o cpf", "ja falei que cpf nao passo", "não vou passar meu cpf não"])("recusa com o campo colado ao verbo conta, mesmo depois de pedido sem a palavra CPF: %s", (m) => {
     const msgs = [out("Me passa seu CPF? É pra nota fiscal."), inn("cpf nao vou passar"), out("Consegue me mandar só os números?"), inn(m)];
     expect(refusedAsks(msgs, "document")).toBe(2);
+  });
+  it("limite conhecido: 'esse dado eu não passo' depois de pedido sem a palavra CPF não conta (a diretiva manda citar o CPF)", () => {
+    const msgs = [out("Me passa seu CPF? É pra nota fiscal."), inn("cpf nao vou passar"), out("Consegue me mandar só os números?"), inn("esse dado eu não passo")];
+    expect(refusedAsks(msgs, "document")).toBe(1);
+    expect(source).toContain("peça de novo citando o CPF");
+  });
+  it.each([
+    ["o email é so pra nao dar problema na entrega ne?", "email"],
+    ["pode mandar o boleto no email? nao quero dar trabalho", "email"],
+    ["o cpf é pra nao dar problema na nota?", "document"],
+    ["posso passar o cpf amanha? hoje nao dou conta", "document"],
+    ["cpf eu passo sim, so nao passo cartao", "document"],
+  ] as const)("'não' + verbo com outro objeto não é recusa: %s", (m, f) => expect(refusedAsks([inn(m)], f)).toBe(0));
+  it.each([
+    ["Qual seu CEP?", "nao vou passar agora, to na rua"],
+    ["Sem problema! Prefere pagar na entrega ou no pix?", "nao vou passar cartao, na entrega"],
+    ["Tudo bem!", "nao quero passar meu endereço"],
+    ["Fica tranquila!", "kkk nao vou passar mal nao"],
+  ])("recusa de outra coisa não vira recusa de CPF: %s / %s", (q, a) => {
+    expect(refusedAsks([out("Me passa seu CPF?"), inn("nao passo"), out(q), inn(a)], "document")).toBe(1);
   });
   it.each([
     "Sem o CPF eu não consigo emitir a nota, pode me passar?",

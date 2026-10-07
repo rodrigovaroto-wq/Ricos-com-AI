@@ -793,8 +793,8 @@ const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfR
       // asked it a third time — the prompt says the e-mail is collected. Say it is settled.
       (!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``) +
       (missing[0] === "document" && cpfRefusals === 1
-        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo com outras` +
-          ` palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
+          ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
         : ``) +
       ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
@@ -3203,6 +3203,8 @@ const handleTurn = async (
     // send, the model answers her goodbye instead.
     const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));
     farewell = thinkRepeated;
+    // Review of ca51825: a link already built this turn would have its directive say "mande o link".
+    if (farewell) checkoutUrl = null;
     const sent = thinkRepeated ? null : await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +

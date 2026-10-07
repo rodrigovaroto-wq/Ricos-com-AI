@@ -253,7 +253,7 @@ const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
     const letGo =
       /\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q) &&
       !REQUEST.test(q) &&
-      !/\b(?:passa|passar|manda|mandar|consegue|pode)\b/i.test(q);
+      !/\b(?:pode|consegue)\s+(?:me\s+)?(?:passar|mandar|informar|enviar)\b/i.test(q);
     if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
@@ -283,19 +283,20 @@ export const refusedAsks = (
   // brings no valid value and either answers an ask of the field, or refuses the field in her own
   // words ("nao passo cpf") — however the agent worded the ask (final persona round of 2026-10-07,
   // Jussara: "Consegue me mandar só os números?" named no CPF, and three refusals counted one).
-  // A refusal is a refusal verb under the negation ("não passo", "não vou passar", "nunca dou") — never
-  // any "não" near the field ("nao sei se precisa do cpf" is a doubt; review of 5383dc5). It names
-  // the field, or follows a window already counted (the agent re-asking in other words).
-  const REFUSAL = /\b(?:n[aã]o|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)\b/i;
+  // Her refusal in her own words counts even when the agent re-asked without naming the field (final
+  // persona round of 2026-10-07, Jussara: "Consegue me mandar só os números?" then "nao passo cpf nao").
+  // Only with the field as the refusal verb's object — "não passo o cpf", "cpf não vou passar" — never any
+  // "não" near it ("nao sei se precisa do cpf", "nao passo cartao", "nao dou conta"): reviews of 5383dc5
+  // and ca51825.
+  const F = field === "email" ? "e-?mail" : "cpf";
+  const VERB = String.raw`(?:n[aã]o|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
+  const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|meu\s+|esse\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
   let count = 0;
   let asked = false;
-  let streak = false;
   let answer: string[] = [];
   const close = () => {
-    const refused = answer.some((a) => REFUSAL.test(a) && (word.test(a) || asked || streak));
-    const counts = answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused);
-    if (counts) count += 1;
-    if (answer.length > 0) streak = counts;
+    const refused = answer.some((a) => REFUSAL.test(a));
+    if (answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused)) count += 1;
     answer = [];
   };
   for (const m of messages) {
@@ -305,8 +306,6 @@ export const refusedAsks = (
     }
     close();
     asked = asksForField(m.body ?? "", word, others);
-    // The agent moved on to another field: her next refusal is of that one.
-    if (others.test(m.body ?? "")) streak = false;
   }
   close();
   return count;
