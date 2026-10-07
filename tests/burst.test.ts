@@ -108,8 +108,8 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
     expect(guard).not.toContain("if (!isRetry) return null;");
     expect(guard).toContain("retryIsMoot(inboundId, latest?.[0] ?? null, null)");
-    // Uma leitura que falha nunca cala a cliente.
-    expect(guard).toContain("if (latest === null && !isRetry) return null;");
+    // Uma leitura que falha nunca cala a cliente no primeiro turno (draftMayGo, grafo §65).
+    expect(guard).toContain("if (draftMayGo(latest === null, inboundId === null || retryIsMoot(inboundId, latest?.[0] ?? null, null), { isRetry, isRevise })) return null;");
     // Grafo §61: o descarte "superseded" saiu da segunda olhada; só a nova tentativa desiste —
     // e o turno que não conseguiu tomar a conversa (0023 ausente), que volta ao §59 (revisão de 7c8bc7c).
     const fallback = guard.slice(guard.indexOf("if (claimFailed) {"), guard.indexOf("const revisions"));

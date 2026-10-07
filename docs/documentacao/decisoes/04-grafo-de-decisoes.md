@@ -2055,6 +2055,90 @@ e-mail dela. Confirmação no contribuidor: Jussara recusou o CPF duas vezes e r
 modelo às vezes junta duas perguntas (caminho e e-mail, Karol) ou reconfirma um nome de duas palavras
 (Cleide) — obediência ao prompt, sem regra quebrada.
 
+## 65. Cinco defeitos do código da v10 (`agent_version` 10), portados para o desenho de main (2026-10-07)
+
+**Sintoma:** (1) link → "chega quando?" → "e se não servir?" → "aceita troca?" → "tá bom": o link saía de
+novo, com os dados, e cada reenvio armava outro `checkout_reminder`. (2) "sim"/"pode ser" às duas opções:
+o prompt manda confirmar a entrega (`DEFAULT_COD_CONFIRM`), a diretiva da região mandava perguntar "qual
+das duas" de novo — contradição e laço. (3) "desisti"/"não quero mais" no turno em que os dados fechavam
+levava o link. (4) Região sem entrega: "ok" à mensagem do antecipado não contava como caminho escolhido, e
+o kit era pulado. (5) Revisão (§61) cuja leitura falhava mandava o rascunho que não leu a rajada; e, sem
+revisão possível, um `deferRetry` que não gravava virava "mande".
+**Causa:** (1) `linkSentRecently` olhava só as 3 últimas mensagens da agente (M-03). (2)
+`regionDirectiveFor` não distinguia "ela concordou sem escolher". (3) Nenhum leitor de desistência no
+caminho do link. (4) `pathChosen` só aceitava o antecipado forçado com `wants_to_buy`. (5) `lateGuard`:
+`if (latest === null && !isRetry) return null;` valia também para a revisão, e `return await deferRetry(…)`
+devolvia `null` ao chamador, que lê `null` como "envie".
+**Caminhos descartados:** ler a conversa inteira em todo turno (uma consulta a mais por turno: só se lê
+quando a janela de 20 não tem link e o link sairia, pelo host do checkout, `limit=1`); reaproveitar
+`RETRACTS` como desistência (lê "depois" e "pensar" — "vou pensar" tem resposta própria com link, e
+"depois de amanhã pode entregar?" seguraria o link); contar "mudei de ideia" sozinho (é também "mudei de
+ideia, quero 2"); gravar "ok" ao antecipado sem olhar a pergunta final da mensagem ("… Qual seu tamanho de
+calça?" seria lido como escolha); um campo novo no lead para o link enviado (a conversa já diz).
+**Correção:** (1) `lastLinkBase`/`linkHeldBack`: o link deste pedido sai de novo só se ela pede
+(`asksForLink`) ou se o pedido mudou (outro caminho ou kit vira o link mais novo); fora da janela, uma
+consulta por `or=(body.like.*host*)` nas mensagens da agente — índice `messages_conversation_idx`
+(conversation_id, created_at) lido de trás para frente, primeira linha encerra; falha da consulta cai na
+janela (envia). (2) `agreesWithoutChoosing` (só com entrega na região e sem escolha guardada): a diretiva
+manda confirmar com `DEFAULT_COD_CONFIRM`, e o "sim" seguinte é gravado pelo tratamento do padrão que já
+existia em `pathChoiceToStore`. (3) `withdrawsInBurst` (a linha mais nova vence; comprar, pedir o link ou
+escolher caminho contam como compra; parte do pedido — "o kit", "duas" — não é desistência): sem link e sem
+oferta do kit. (4) `pathChoiceToStore({ noCod })`: "ok"/"sim"/"pode ser" à mensagem do antecipado, sem
+pergunta de outro assunto no fim, grava `prepay` — o kit é oferecido uma vez, depois os dados. (5)
+`draftMayGo`: leitura que falha manda só no primeiro turno (nunca cala); na revisão, revisa de novo ou vai
+para a varredura; sem nova tentativa gravada, `modelFailure(…, reachable = true)` — resposta de espera e
+e-mail ao operador, sem `handoff_at`.
+**Guarda:** `tests/v10-defects.test.ts` (comportamento e negações dos cinco, fiação lida da fonte);
+mutações `R65-link-reenviado`, `R65-sim-sem-escolha`, `R65-desistencia`, `R65-ok-ao-antecipado`,
+`R65-rascunho-sem-ler` — as cinco pegas.
+**Resíduo:** "mudei de ideia" sozinho não segura o link (o modelo responde); a pergunta final da mensagem
+do antecipado é lida por lista de palavras; o "sim" sem escolha confia no modelo escrever a frase do padrão
+— se ele parafrasear sem "deixo no pagamento na entrega", o "sim" seguinte não grava e a diretiva volta.
+**Revisão (NEEDS WORK, três achados, corrigidos no mesmo dia):** (a) a desistência segurava o link
+justo no turno em que os dados fechavam — "deixa pra lá o email", "deixa pra lá, pode mandar",
+"desisti do P, manda o M", "desisti não": `PART_OF_ORDER` passa a isentar dado e frete, `buyerAsk`
+conta como compra, troca de tamanho e negação depois do verbo não desistem (mutação
+`R65-desistencia-recusa-dado`). (b) `agreedOnly` jogava fora o antecipado lido pelo intérprete ("sim,
+a com desconto") e trocava por confirmação da entrega: só vale sem `prepay` do intérprete e sem
+escolha gravada no turno. (c) link segurado pelo histórico, além da janela, não ligava a diretiva
+`afterLink`: `linkAlreadySent` inclui `linkJustSent`.
+**Segunda revisão (NEEDS WORK, regressão do ajuste (a)):** a exceção "não depois do verbo" aceitava
+vírgula e valia para todo verbo — "desisti, não dá", "não vou levar não" soltavam o link; e `buyerAsk`
+contava o "quero" solto — "quero desistir" virava compra. Corrigido: a exceção vale só para "desisti",
+sem vírgula; compra é `asksForLink` ou "pode mandar"; "pagar" só isenta "pagar (o) frete". Mutações
+`R65-desistencia-nao-depois` e `R65-desistencia-quero-solto`.
+**Resíduo da revisão:** "deixa pra lá" sozinho, respondendo ao pedido do CPF, ainda conta como
+desistência (sem link; o modelo responde); "quero fechar" dias depois, sem pedir o link, não reenvia —
+o modelo é avisado de que ela já o tem.
+**Terceira revisão: APPROVED WITH RESIDUALS** (código de `24e9268`, no ar como `agent_version` 11, `turn`
+v82, 2026-10-07 13:37 UTC; `verificar:guardas` 370/370). Dois resíduos de uma linha consertados depois,
+a pedido do operador (**ainda não publicados**): "pode mandar" negado ("pode mandar não, desisti", "não pode
+mandar, desisti") não conta como compra; "nem quero mais" é desistência. Mutações `R65-pode-mandar-negado`
+e `R65-nem-quero-mais`.
+
+
+## 66. Segundo teste real ("Leila 2"): compradora com todos os dados não recebe o link e é descadastrada (2026-10-07) — ABERTO
+
+**Sintoma:** conversa `816795ca-…` (v10 → v11 no meio). Ela escolheu tamanho, pagamento, deu nome e CPF,
+pediu o link cinco vezes; a Malu respondeu quatro vezes "estou deixando seu link prontinho, já te mando" e
+nunca mandou. "pare de me mandar confirmações, apenas me mande o link do checkout" → `opted_out`, conversa
+bloqueada. Auditoria completa: [`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](../../agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md).
+**Causa (reproduzida com `tsx` contra as funções exportadas):**
+(1) `classifyOptOut` — "pare de me mandar …" é `explicit` sem olhar o objeto nem o pedido de link na mesma
+frase. (2) `parseCep` — "004710090" (9 dígitos) → `null`; o turno não diz ao modelo que o CEP não foi lido,
+e ele escreve "Recebi seu CEP"/"Anotei". (3) A diretiva do CEP só existe com `linkDue`; nome, e-mail e CPF
+foram pedidos com o CEP faltando, e às 10:33 ela ouviu "tá tudo pronto". (4) Nenhum gate veta promessa
+futura de link/conferência num turno sem link nem handoff. (5) Recusa do e-mail ("nao vou passar não,
+valeu") → `wants_to_think` → resposta fixa do adiamento, com "restam 12 unidades" (`scarcity.allowUnverified`,
+operador 2026-09-08). (6) `asksForLink` não lê "checkout" nem a cobrança em pergunta. (7) `choosesPath("o na
+entrega acho")` → `false`, `payment_choice` nulo. (8) `identity.name` ficou "Leila", não o nome completo.
+**Caminhos descartados (ainda não tentados, só pesados):** adivinhar o zero a mais do CEP (pode virar o CEP
+de outra pessoa; perguntar custa uma mensagem); afrouxar o opt-out por lista de proibição de palavras de
+compra (o §26 mostrou que só lista de permissão do objeto fecha).
+**Correção:** pendente — ordem e desenho na auditoria (opt-out → CEP + diretiva + gate de promessa →
+recusa ≠ adiamento → `asksForLink` → `choosesPath` → nome).
+**Guarda:** pendente — cada conserto com a frase literal desta conversa como teste e uma mutação.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

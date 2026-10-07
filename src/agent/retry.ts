@@ -299,6 +299,14 @@ export const retryIsMoot = (
   latestInbound.id !== ticketInboundId ||
   (lastOutboundAt !== null && new Date(lastOutboundAt).getTime() > new Date(latestInbound.created_at).getTime());
 
+/**
+ * Whether the second look lets the draft go (grafo §61, §65): nothing she sent arrived after the
+ * message it answers (`moot` false) — or the read failed on a first turn, which never silences her.
+ * A revision or a sweep retry whose read failed does not know what its draft answered: never sent.
+ */
+export const draftMayGo = (readFailed: boolean, moot: boolean, mode: { isRetry: boolean; isRevise: boolean }): boolean =>
+  readFailed ? !mode.isRetry && !mode.isRevise : !moot;
+
 export const afterRetryFailure = (timedOut: boolean, retriesSoFar: number): "reschedule" | "handoff" =>
   timedOut && retriesSoFar < MAX_DEFERRED_RETRIES ? "reschedule" : "handoff";
 
