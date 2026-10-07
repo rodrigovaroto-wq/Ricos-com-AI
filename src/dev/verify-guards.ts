@@ -3050,6 +3050,14 @@ const MUTATIONS: Mutation[] = [
     to: "readFailed ? !mode.isRetry : !moot;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
+  {
+    id: "G66-cabecalho-coinzz",
+    bug: "a consulta de cobertura da Coinzz ia sem o cabeçalho de XHR e voltava 302: região sempre nula em produção desde 24/09",
+    files: ["src/agent/availability.ts"],
+    from: '"X-Requested-With": "XMLHttpRequest",',
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

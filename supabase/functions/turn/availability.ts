@@ -179,7 +179,18 @@ export const readAvailability = (size: Size, body: unknown): Availability => {
 export const hasPendingCod = (body: unknown): boolean =>
   Boolean((body as { data?: RawData } | null)?.data?.has_pending_cash_on_delivery);
 
-export type Fetcher = (url: string) => Promise<unknown>;
+/**
+ * Since 2026-09-24 the endpoint redirects (302) to the home page every request that does not
+ * look like the checkout's own XHR, and with this header it answers again (probe of 2026-10-07:
+ * São Paulo 01310-100 → three dates, Manaus 69005-010 → none). Without it every lookup read as
+ * "unknown region" in production for two weeks (O-01, grafo §66).
+ */
+export const AVAILABILITY_HEADERS: Readonly<Record<string, string>> = {
+  "X-Requested-With": "XMLHttpRequest",
+  Accept: "application/json",
+};
+
+export type Fetcher = (url: string, headers?: Readonly<Record<string, string>>) => Promise<unknown>;
 
 export const checkSize = async (
   fetcher: Fetcher,
@@ -189,7 +200,7 @@ export const checkSize = async (
 ): Promise<Availability> =>
   readAvailability(
     size,
-    await fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip, place, SIZE_CODES[size])}`),
+    await fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip, place, SIZE_CODES[size])}`, AVAILABILITY_HEADERS),
   );
 
 /**

@@ -2970,8 +2970,9 @@ const handleTurn = async (
   let region: Region | null = null;
   if (addressDraft.cep) {
     try {
-      region = await checkRegion(async (url) => {
+      region = await checkRegion(async (url, headers) => {
         const r = await fetch(url, {
+          headers,
           signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         });
         return r.ok ? await r.json() : null;
