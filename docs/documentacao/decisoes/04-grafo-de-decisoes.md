@@ -2036,10 +2036,18 @@ mais curto); diretiva "o e-mail ela não passou e está dispensado"; oferta do k
 `nameOnFirstLine` (1ª linha acima de linha de rua, sem palavra de lugar) lida pelo turno só logo depois
 de a Malu pedir o nome e sem nome guardado (revisão: dentro do `extractName`, "Parque Dez\nRua …" e
 "Segue endereço\nRua …" iriam para o pacote).
+Rodada final no contribuidor (R$ 0,37, nenhuma resposta pronta, nenhum balão a mais): Jussara recusou o
+CPF três vezes e o link nunca saiu — a Malu, obedecendo "peça de novo com outras palavras", pediu "só os
+números" (sem a palavra CPF) e depois com o motivo "no seu nome", e a contagem viu uma recusa só; Cleide
+recebeu a frase fixa do "vou pensar" duas vezes seguidas. Correção: `refusedAsks` por janela de resposta
+— conta quando a janela não traz o dado e responde a um pedido **ou** recusa o campo nas palavras dela;
+"Tudo bem sem o CPF, tá?" não é pedido; a frase fixa não se repete sem link novo (o modelo responde).
 **Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
 `tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
 **Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
-(lista de palavras comuns); o caminho sem pagamento na entrega só se prova pela porta de produção.
+(lista de palavras comuns); o caminho sem pagamento na entrega só se prova pela porta de produção; o
+modelo às vezes junta duas perguntas (caminho e e-mail, Karol) ou reconfirma um nome de duas palavras
+(Cleide) — obediência ao prompt, sem regra quebrada.
 
 ## Lições (valem para qualquer correção futura)
 
