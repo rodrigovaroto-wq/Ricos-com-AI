@@ -83,8 +83,11 @@ caminho do achado ao deploy. Modelo de relatório:
 O lead de teste do operador (final 5983) foi apagado a pedido dele em 07/10, para testar do zero.
 
 **Falta, nesta ordem:**
-1. Consertar o §66 na ordem da auditoria (opt-out falso primeiro); cada defeito → teste com a frase
-   literal → conserto no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar".
+1. **O operador abre a próxima sessão mandando a análise que ele mesmo fez desta conversa.** A auditoria
+   `2026-10-07-teste-real-leila-2.md` é só ponto de partida: analisar **junto com ele**, juntando as
+   anotações dele com as dela, e só então consertar (cada defeito → teste com a frase literal → conserto
+   no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar"). **Depois de tudo
+   consertado, apagar esse arquivo de auditoria** (decisão do operador, 07/10); o §66 do grafo fica.
    Depois, auditar as 3 conversas reais dos amigos do operador pelo mesmo roteiro.
 2. **O** mergear o PR desta branch.
 3. Depois: devolução guiada (a Malu ensina a cliente a pedir a devolução), portal (n8n com o token
