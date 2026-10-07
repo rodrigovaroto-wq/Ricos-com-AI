@@ -3058,6 +3058,14 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
+  {
+    id: "G66-optout-objeto",
+    bug: "'pare de me mandar confirmações, apenas me mande o link do checkout' descadastrava a compradora",
+    files: ["src/agent/guardrails.ts"],
+    from: "if (STOP_SENDING.test(t) && !/\\b(?:link|checkout|comprar|compra|pedido|finalizar|fechar)\\b/.test(t)) return \"explicit\";",
+    to: "if (/(?<!\\bnao\\s+)\\b(para|pare|parem|pode\\s+parar)\\s+de\\s+(me\\s+)?(mandar|enviar|encher)/.test(t)) return \"explicit\";",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

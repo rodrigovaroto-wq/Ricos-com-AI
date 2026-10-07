@@ -620,18 +620,31 @@ export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel =>
   return levels.includes("explicit") ? "explicit" : levels.includes("ambiguous") ? "ambiguous" : "none";
 };
 
+/**
+ * "Para/pare de me mandar …": what she wants stopped is this shop's messages — an allow-list of the
+ * object, then the clause ends (the negated "não para de mandar" is read in `classifyOptOut`). "Pare de
+ * me mandar confirmações, apenas me mande o link do checkout" blocked a buyer for good (second real
+ * test, grafo §66).
+ */
+const STOP_SENDING = new RegExp(
+  String.raw`(?<!\bnao\s+)\b(?:para|pare|parem|pode\s+parar)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)` +
+    String.raw`(?:\s+(?:(?:ess[ae]s?|tant[ao]s?|suas?|seus|as|os|a|o)\s+)?(?:mais\s+)?(?:mensage\w*|msgs?|promo\w*|ofert\w*|propaganda\w*|spam|isso|coisa\w*|nada|o\s+saco))?` +
+    String.raw`(?:\s+(?:toda\s+hora|todo\s+dia|o\s+tempo\s+todo|toda\s+vez|aqui|mais|no\s+(?:whats\w*|zap|wpp)|(?:nesse|neste)\s+numero|pra\s+mim))*` +
+    String.raw`\s*(?:,?\s*(?:por\s+favor|pfv\w*|pf))?\s*(?:[.!,;?\n]|$)`,
+);
+
 export const classifyOptOut = (text: string): OptOutLevel => {
   const t = norm(text);
   const explicit = [
     /nao\s+(quero|desejo)\s+mais\s+(receber|nada|mensage)/,
-    // The negated "não para de mandar" is read below (2026-09-29).
-    /(?<!\bnao\s+)\b(para|pare|parem|pode\s+parar)\s+de\s+(me\s+)?(mandar|enviar|encher)/,
     /nao\s+me\s+(mande|manda|envie|envia)\s+mais/,
     /me\s+(tira|tire|remove|remova|exclui|exclua|apaga|apague)\s+d\w{0,4}\s+lista/,
     /(descadastrar|desinscrever|sair\s+da\s+lista)/,
     /\bnao\s+tenho\s+interesse\b.*\bnao\s+me\s+(chame|procure)\b/,
   ];
   if (explicit.some((r) => r.test(t))) return "explicit";
+  // A purchase beside it is never a refusal of everything (grafo §66).
+  if (STOP_SENDING.test(t) && !/\b(?:link|checkout|comprar|compra|pedido|finalizar|fechar)\b/.test(t)) return "explicit";
   // "Vocês não param de mandar mensagem, que saco" is a complaint, as it read until 2026-09-28; the
   // negated form asks for more only beside a liking she says, not denied ("não para de mandar
   // oferta boa não", "tô gostando") (2026-09-29, grafo §31). And only about this shop: no subject, or
