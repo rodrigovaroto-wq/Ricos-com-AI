@@ -823,10 +823,14 @@ interface Gate {
  */
 // "Faz" and "trabalha com" (2026-10-06, grafo §63): "a transportadora ainda não faz pagamento na
 // entrega" is the reason the script gives where delivery does not reach her, and was vetoed there.
+// Only before the noun "pagamento" (review of f657faa, finding 4): "não faz você pagar mais, você
+// paga na entrega" denies nothing about paying at the door.
 const deniedRightBefore = (t: string, at: number): boolean =>
-  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|faz|fazemos|trabalha\s+com|trabalhamos\s+com|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
+  /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
-  );
+  ) ||
+  (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+(?:o\s+)?$/.test(t.slice(Math.max(0, at - 40), at)) &&
+    /^pagamento\b/.test(t.slice(at)));
 /** Trying the vest on, as her act. Never "vista" (also "à vista") nor the noun "prova" alone. */
 const TRY = String.raw`(?:vest(?:e|ir|ia|indo)|experiment\w*|prova(?:r|ndo)?|prove|provou)`;
 /**
@@ -1546,15 +1550,9 @@ const gates: readonly Gate[] = [
         // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
         // Nor is the day she picks (2026-10-06, grafo §63): "escolhe/marca um dia em que você vai estar
-        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a
-        // count, and only with the relative clause about her after it (review of f657faa): "a entrega é
-        // marcada um dia depois do pagamento" and "a gente marca um dia só de prazo" are deadlines.
-        if (
-          /^uma?$/.test(m[1]!) &&
-          /\b(?:escolh|marc|agend)\w*\s+$/.test(before) &&
-          /^\s+(?:em\s+)?que\s+(?:voce|vc|alguem)\b/.test(after)
-        )
-          continue;
+        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a count.
+        // Only where she picks a day at all, the delivery (review of f657faa, finding 7): the prepaid has no scheduling.
+        if (ctx.paymentPath === "cod" && ctx.codUnavailable !== true && /^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
@@ -2923,6 +2921,22 @@ const gates: readonly Gate[] = [
     },
   },
   {
+    /**
+     * The model's own reasoning, leaked into the reply (persona round of 2026-10-07, Jussara: "Se o
+     * CEP dela? Need ask CEP." in the middle of an answer). Malu only ever writes Portuguese to her;
+     * an English instruction to itself is a note, never a message. Read on the original text: the
+     * markers are English phrases no Portuguese sentence uses ("need ask", "let me", "the user").
+     */
+    name: "internal_note",
+    remedy: "rewrite",
+    briefing: () =>
+      `Escreva só a mensagem para ela, em português — nunca uma anotação sua sobre o que fazer.`,
+    check: (text) =>
+      /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
+        ? "the model's own note leaked into the reply"
+        : null,
+  },
+  {
     name: "identical_template",
     remedy: "rewrite",
     briefing: () =>
@@ -3076,7 +3090,24 @@ const gates: readonly Gate[] = [
           ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
           "";
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
+        // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
+        // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em
+        // casa, …" and "Se aí for bom pra você, …" condition nothing about her place.
+        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)(?:\s+na\s+(?:entrega|porta))?)\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
+        // A person arriving HERE, at the shop, is no delivery (persona round of 2026-10-07, Rose: "a maioria
+        // chega aqui com esse mesmo receio" went to the canned reply). Only "aqui", never after "pra/para/
+        // na" ("pra você chega aí" is the delivery to her), never "ele/ela" (the vest or the parcel), and
+        // never "a gente" (the shop): review of dad2ae2.
+        if (
+          /\baqui\b/.test(claim) &&
+          /\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before) &&
+          // Any destination preposition in the phrase (review of 6601194: "Pra todas as clientes chega
+          // aqui", "Pras nossas clientes chega aqui"); never "a/na/no", or "porque a maioria" would fall.
+          !/\b(?:pra|para|pras|pros|nas|nos)\b/.test(before)
+        )
+          return true;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
           /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)
@@ -3093,6 +3124,10 @@ const gates: readonly Gate[] = [
         // options, "No seu CEP dá pra pagar na entrega", is the lookup's answer and nobody else's.
         /\b(?:n[oa]|pr[oa]|para\s+[oa]|nesse|nessa)\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\s+(?:(?:ja|tambem)\s+)?(?:da|tem|rola|existe|aceita|funciona|pode)\b[^.!?\n]{0,25}\bentrega\b/g,
         /\b(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\s+(?:ai|aqui|la|n[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao)))\b/g,
+        // The place before the verb (review of f657faa, finding 9): "Aí dá pra pagar na entrega",
+        // "Aí na sua cidade a entrega com pagamento na hora funciona".
+        /\b(?:ai|dai|aqui|la)\s+(?:(?:ja|tambem|sim)\s+)?(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\b/g,
+        /\bn[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\b[^.!?\n]{0,40}\bpagamento\s+na\s+(?:entrega|hora)\s+(?:(?:ja|tambem|sim)\s+)?(?:funciona|existe|rola)\b/g,
       ];
       for (const re of CLAIMS) {
         for (const m of t.matchAll(re)) {

@@ -34,6 +34,7 @@ import {
   eveIsTomorrow,
   chasesSilence,
   inSilenceRuler,
+  optInFollows,
   orderStatusAfter,
   isKnownOrderStatus,
   cancelReplyFor,
@@ -63,11 +64,12 @@ import {
 } from "./address.ts";
 import {
   extractIdentityBurst,
+  nameOnFirstLine,
+  asksForName,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
   nextIdentityQuestion,
-  emailRefused,
   refusedAsks,
   type Identity,
 } from "./identity.ts";
@@ -102,7 +104,6 @@ import {
   reviseInstruction,
   revisionAllowed,
   SAFE_FALLBACK_REPLY,
-  secondLook,
   shippedCancelReply,
   thinkReply,
   unansweredInbound,
@@ -121,15 +122,9 @@ import {
   linkSentRecently,
   namesOwnPrice,
   asksForLink,
-  assentsToBoth,
-  checkoutHosts,
-  choiceToStore,
-  storedChoiceHolds,
+  pathChoiceToStore,
+  kitWasOffered,
   closesConversation,
-  kitOfferDue,
-  linkedBase,
-  linkGoesOut,
-  withdrawsInBurst,
   saysOwnSize,
   mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
@@ -137,10 +132,11 @@ import {
   readInterpretation,
   missingForLink,
   buyerAsk,
+  sendLinkNow,
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { DEFAULT_COD_CONFIRM, linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { linkFactLine, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 
@@ -728,8 +724,8 @@ const sizeDirectiveFor = (
     }`;
 
   if (region === null) {
-    // The link goes in this message, so her CEP is already in hand (the link waits for it,
-    // grafo §63) and only the lookup did not answer: the checkout confirms coverage.
+    // She decided and the link goes in this message: the CEP is typed in the checkout,
+    // which is also where coverage is confirmed (persona round 3, Marcinha).
     if (linkGoing) return `${fitting} Não peça o CEP agora: o link vai nesta mensagem.`;
     return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
       ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
@@ -749,8 +745,6 @@ const sizeDirectiveFor = (
 const regionDirectiveFor = (
   region: Pick<Region, "cod" | "sameDay"> | null,
   choice: "cod" | "prepay" | null,
-  /** She said yes to the two options without choosing (`assentsToBoth`, re-review of 35d70c0). */
-  agreedToBoth = false,
 ): string | null => {
   if (region === null) return null;
   if (!region.cod) {
@@ -762,10 +756,7 @@ const regionDirectiveFor = (
   return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
   }.` +
-    (choice === null && agreedToBoth
-      ? ` Ela disse sim às duas opções sem escolher: deixe no pagamento na entrega e confirme com estas` +
-        ` palavras: "${DEFAULT_COD_CONFIRM}" Não pergunte de novo qual das duas.`
-      : choice === null
+    (choice === null
       ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
         ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
       : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
@@ -798,9 +789,12 @@ const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfR
     : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
       (missing[0] === "email" ? ` Se ela não tiver ou não quiser passar, tudo bem, não insista.` : ``) +
+      // Persona round of 2026-10-07 (Jussara): told only "falta o CPF", the model saw no e-mail and
+      // asked it a third time — the prompt says the e-mail is collected. Say it is settled.
+      (!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``) +
       (missing[0] === "document" && cpfRefusals === 1
-        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo com outras` +
-          ` palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
+          ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
         : ``) +
       ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
@@ -888,8 +882,8 @@ const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).l
  * Splits a reply into WhatsApp-sized bubbles. A paragraph is a bubble; a paragraph over
  * `maxWords` is cut at sentence ends and the sentences packed back up to the limit. A
  * sentence is NEVER cut — one longer than the limit goes out whole, because half a
- * sentence in a bubble reads as a bug. `max` still caps the count, but only by merging
- * trailing bubbles that fit together under `maxWords`.
+ * sentence in a bubble reads as a bug. `max` is a hard cap: trailing bubbles merge while
+ * they fit `maxWords`, then the shortest neighbouring pair merges.
  */
 const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): string[] => {
   const bubbles: string[] = [];
@@ -917,6 +911,15 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
     const [a, b] = bubbles.slice(-2) as [string, string];
     if (wordCount(a) + wordCount(b) > maxWords) break;
     bubbles.splice(-2, 2, `${a}\n\n${b}`);
+  }
+  // The count is the operator's rule, the words a preference (persona round of 2026-10-07: five of
+  // twelve first replies went out in four bubbles): past it, the shortest neighbouring pair joins.
+  while (bubbles.length > max) {
+    let at = 0;
+    for (let i = 1; i < bubbles.length - 1; i++) {
+      if (wordCount(bubbles[i]!) + wordCount(bubbles[i + 1]!) < wordCount(bubbles[at]!) + wordCount(bubbles[at + 1]!)) at = i;
+    }
+    bubbles.splice(at, 2, `${bubbles[at]}\n\n${bubbles[at + 1]}`);
   }
   return bubbles;
 };
@@ -1667,10 +1670,11 @@ const runFollowupSweep = async () => {
     if (kind === "still_there") nudged.add(row.conversation_id);
 
     // The marketing opt-in question (R15.1): its own message, with buttons, after a
-    // `silence_1` — always inside the window. Asked once, and once more per suspension.
+    // `silence_1` or the link's 15-minute touch (`optInFollows`) — always inside the window.
+    // Asked once, and once more per suspension.
     if (
       ASK_OPT_IN &&
-      kind === "silence_1" &&
+      optInFollows(kind) &&
       delivery.via === "text" &&
       mayAskOptIn({
         askedAt: lead.marketing_opt_in_asked_at ?? null,
@@ -2456,7 +2460,7 @@ const handleTurn = async (
    * applies: she hears the holding reply, a person is called, and the spend up to the
    * failure is written down instead of lost.
    */
-  const modelFailure = async (error: unknown, reason = "falha ao chamar o modelo", reachable = error instanceof ModelConfigError) => {
+  const modelFailure = async (error: unknown) => {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
@@ -2474,7 +2478,7 @@ const handleTurn = async (
      * failure gets the holding reply and the operator's email, and leaves her reachable:
      * fix the variable and the next message is answered normally.
      */
-    if (!reachable) {
+    if (!(error instanceof ModelConfigError)) {
       await db(`leads?id=eq.${lead.id}`, {
         method: "PATCH",
         body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -2489,12 +2493,12 @@ const handleTurn = async (
       }),
     }).catch(() => null);
     await Promise.all([
-      recordOutcome(conversation.id, "handoff", reason, 0, spent - spentBefore),
+      recordOutcome(conversation.id, "handoff", "falha ao chamar o modelo", 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
     ]);
     return json(200, {
       status: "handoff",
-      reason,
+      reason: "falha ao chamar o modelo",
       // The Gemini key used to ride in the URL query string, and Deno's network error
       // carries the whole URL in `message` — which leaves here in the JSON body and lands
       // in n8n's execution log. Gemini left the turn on 2026-09-23; redacting stays here as
@@ -2575,56 +2579,42 @@ const handleTurn = async (
    * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
    */
   const lateGuard = async (rewrites: number, draft: string): Promise<Response | null> => {
-    // A revision whose read of the burst failed answers the old burst, not the message that made
-    // it revise: it never goes out unread (review of f657faa, `secondLook`).
-    const draftRead = !isRevise || inboundId !== null;
-    const latest = inboundId === null ? null : await db(
+    // A revision that could not read the burst does not know what its draft answered: it revises
+    // again or goes to the sweep, never out unread (review of 7c8bc7c).
+    if (inboundId === null && !isRevise) return null;
+    const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
     ).catch(() => null);
-    const revisions = internal.revise?.revisions ?? 0;
-    const deadline = internal.revise?.deadline ?? turnStartedAt + REVISE_DEADLINE_MS;
-    const look = secondLook({
-      retry: isRetry,
-      draftRead,
-      newer: inboundId === null || latest === null ? null : retryIsMoot(inboundId, latest[0] ?? null, null),
-      claimFailed,
-      revisionAllowed: revisionAllowed(revisions, Date.now(), deadline),
-    });
-    if (look === "send") return null;
+    // A failed read never silences her; the retry keeps its old rule and gives up.
+    if (latest === null && !isRetry) return null;
+    if (inboundId !== null && !retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    if (look === "stop" && isRetry) {
+    if (isRetry) {
       const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
       await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
       return json(200, { status: "retry_moot", reason, costBrl: spent });
     }
-    if (look === "stop") {
+    if (claimFailed) {
       // Nobody joined this turn: her newer message's turn answers the whole burst (grafo §59).
       const reason = "superseded: chegou mensagem nova antes do envio e a conversa não foi tomada — o turno dela responde a rajada inteira";
       await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
       return json(200, { status: "superseded", reason, costBrl: spent });
     }
-    if (look === "revise") {
+    const revisions = internal.revise?.revisions ?? 0;
+    const deadline = internal.revise?.deadline ?? turnStartedAt + REVISE_DEADLINE_MS;
+    if (revisionAllowed(revisions, Date.now(), deadline)) {
       return await handleTurn(
         { externalId: inbound.externalId, from: inbound.from, body: inbound.body },
         { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
       );
     }
-    // The sweep answers the whole burst. When even that cannot be scheduled, the draft that did not
-    // read her still never goes out, and silence is worse: the holding reply, the operator's e-mail,
-    // and she stays with the agent — a failed write says nothing about her (review of f657faa).
-    return (
-      (await deferRetry(
-        new Error("mensagem nova depois da última revisão possível"),
-        0,
-        "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
-      )) ?? (await modelFailure(
-        new Error("rascunho sem leitura da rajada e nova tentativa não agendada"),
-        "rascunho sem leitura da rajada e nova tentativa não agendada",
-        true,
-      ))
+    return await deferRetry(
+      new Error("mensagem nova depois da última revisão possível"),
+      0,
+      "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
     );
   };
 
@@ -3000,7 +2990,14 @@ const handleTurn = async (
   // 5e. Identity accumulates the same way, and for the same reason.
   const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
-  const foundIdentity = { fields: extractIdentityBurst(parts) };
+  const burstIdentity = extractIdentityBurst(parts);
+  // The name on the first line above her street, only right after the agent asked for the name and
+  // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
+  const firstLineName =
+    !storedIdentity.name && !burstIdentity.name && asksForName(lastOutbound)
+      ? (parts.map(nameOnFirstLine).find((n: string | null) => n !== null) ?? null)
+      : null;
+  const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
   // The e-mail the interpreter read counts when the strict reader found none.
   const identityFound = {
     ...(interpretation.email ? { email: interpretation.email } : {}),
@@ -3059,46 +3056,33 @@ const handleTurn = async (
   /**
    * The link she finishes in, built before the model writes so the reply can carry it.
    *
-   * Since 2026-10-06 (operator, grafo §63, superseding R13.4's "link first") it waits for the
-   * data: size, CEP, payment path, full name, e-mail (or one refusal) and CPF (or two refusals)
-   * — `missingForLink`. Once it went out, it goes again only when she asks for it or the order
-   * changed (`linkGoesOut`), and the checkout asks what is still missing.
+   * Since R13.4 (2026-09-24) it no longer waits for name, e-mail and CPF: it goes out
+   * with whatever is known as soon as she is ready — she wants to buy, she has no e-mail
+   * or will not give it, or she let an ask for it pass — and the checkout form asks for
+   * the rest. The identity ask became a directive for the agent to phrase, and it stops
+   * once the link is in the chat.
    */
   // Her choice holds until she makes another (loop round, 2026-09-25): read per message, the
   // turn after "quero no pix" fell back to cash on delivery and sent the delivery checkout.
   // Stored only when her words make a choice, never from a question ("quanto economizo no
   // pix em vez de pagar na entrega?"), and forgotten like an abandoned kit (fourth review).
   const choiceAt = typeof lead.payment_choice_at === "string" ? Date.parse(lead.payment_choice_at) : NaN;
-  const keptChoice =
+  const storedChoice =
     Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
       ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
       : null;
-  // The prepaid stored where her region had no payment at the door was forced, not chosen: a new
-  // CEP that has it reopens the two options, and the stored one is cleared — next turn the address
-  // already says the delivery reaches her (re-review of 35d70c0). Index: leads_pkey.
-  const storedChoice = storedChoiceHolds(
-    keptChoice,
-    (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false,
-    region?.cod ?? null,
-  )
-    ? keptChoice
-    : null;
-  if (storedChoice !== keptChoice) {
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ payment_choice: null, payment_choice_at: null }),
-    }).catch(() => undefined);
-  }
-  // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
-  // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
-  // (independent review, finding 8).
-  const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
-  // Her answer to the payment question is her choice too, read against the agent's last message
-  // ("a primeira", "pagar quando receber", a yes to "Fica no pagamento na entrega, pode ser?", a yes
-  // to the prepaid where delivery does not reach): unstored, the next turn had no path and asked
-  // again, forever (review of f657faa). Stored once, never asked again.
-  const chosenPath = choiceToStore(interpretation.payment_choice, parts, lastOutbound, knownRegion?.cod ?? null);
-  const paymentChoice = chosenPath ?? interpretation.payment_choice ?? storedChoice;
+  // "Sim" to the default the prompt teaches (`DEFAULT_COD_CONFIRM`, "Então deixo no pagamento na
+  // entrega…, pode ser?") is her choice too, and the data come after it: unstored, the next turn
+  // would have no path and the link would wait for good (operator, 2026-10-06).
+  // A natural answer to the two options ("a primeira", "o antecipado") is stored too (review of
+  // f657faa): the link waits for a settled path, and an unstored choice was asked again next turn.
+  const choiceToStore = pathChoiceToStore({
+    interpreted: interpretation.payment_choice ?? null,
+    parts,
+    lastOutbound,
+    confirms: parts.some(confirmsAddress),
+  });
+  const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
   if (renewChoice) {
@@ -3107,16 +3091,20 @@ const handleTurn = async (
       body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
-  if (chosenPath !== null) {
+  if (choiceToStore) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        payment_choice: chosenPath,
+        payment_choice: choiceToStore,
         payment_choice_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
     }).catch(() => undefined);
   }
+  // This turn's region, or — when the lookup did not answer — the one stored on the lead: a failed
+  // lookup must not send the delivery link and "não paga nada agora" to a region without delivery
+  // (independent review, finding 8).
+  const knownRegion: Pick<Region, "cod" | "sameDay"> | null = region ?? (codUnavailable ? { cod: false, sameDay: false } : null);
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -3142,56 +3130,23 @@ const handleTurn = async (
   // The refusals are read from the conversation (`refusedAsks`), not stored: an e-mail refused once
   // and a CPF refused twice let the link go without them.
   const cpfRefusals = refusedAsks(recent, "document");
-  // The e-mail refused once is refused for good (review of f657faa): the interpreter's reading
-  // lives one turn and the ask falls out of the window, so the first refusal is stored on the
-  // identity, like `codAvailable` on the address. Index: leads_pkey.
-  const emailRefusedNow = !identityDraft.email && emailRefused(identityDraft as { emailRefused?: unknown }, interpretation.email_unavailable, recent);
-  if (emailRefusedNow && (identityDraft as { emailRefused?: unknown }).emailRefused !== true) {
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ identity: { ...identityDraft, emailRefused: true }, updated_at: new Date().toISOString() }),
-    }).catch(() => undefined);
-  }
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep),
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
     nameKnown: Boolean(identityDraft.name),
-    emailDone: Boolean(identityDraft.email) || emailRefusedNow,
+    emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,
     cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
-  // M-03, over the whole conversation (review of f657faa: three messages let the link go again
-  // after a few questions): the last checkout link sent. One read per checkout host (two today:
-  // Logzz and Coinzz; a kit shares its path's host), newest first — the site's or a tracking URL
-  // never pushes it out (re-review of 35d70c0). A failed read falls back to the twenty messages
-  // already read.
-  // Index: messages_conversation_idx (conversation_id, created_at), read backwards, then a filter on the body.
-  let linkRows: Array<{ body: string | null; created_at: string }> | null = [];
-  for (const host of checkoutHosts(checkoutBases)) {
-    const rows = await db(
-      `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
-        `&body=like.${encodeURIComponent(`*${host}*`)}&select=body,created_at&order=created_at.desc&limit=3`,
-    ).catch(() => null);
-    linkRows = rows === null || linkRows === null ? null : [...linkRows, ...rows];
-  }
-  const lastLink =
-    (linkRows?.sort((a, b) => Date.parse(b.created_at) - Date.parse(a.created_at)) ??
-      recentOutbound.map((body: string) => ({ body })).reverse())
-      .map((m) => m.body ?? "")
-      .find((m) => linkedBase(m, checkoutBases) !== null) ?? null;
-  // Only this path's checkout counts (code review, 2026-09-24): a switch from the delivery checkout
-  // to the prepaid one, or to a kit's, is a different link and still goes out.
+  // M-03: the link this turn would send, if it went out in the last three messages, is
+  // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
+  // from the delivery checkout to the prepaid one is a different link and still goes out.
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
-  const linkNow = linkGoesOut({
-    ...linkData,
-    yesBesideQuestion,
-    sentBefore: lastLink !== null,
-    orderChanged: lastLink !== null && linkedBase(lastLink, checkoutBases) !== (pathBase ?? null),
-    asked: parts.some(asksForLink),
-    withdrew: withdrawsInBurst(parts),
-  });
+  const linkJustSent =
+    !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
+  const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -3208,7 +3163,7 @@ const handleTurn = async (
         : missing === "payment" && linkDue && knownRegion === null
           ? `Ela quer fechar, mas ainda não escolheu como paga: pergunte qual ela prefere antes do link.`
           : null;
-  const linkAlreadySent = lastLink !== null;
+  const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
     ? []
@@ -3227,7 +3182,9 @@ const handleTurn = async (
   // link in its directive like any other turn.
   // A goodbye with the link already in the chat gets the operator's line without the link
   // again (persona round); "vou pensar" keeps the line either way (seventh review).
-  const linkInChat = linkAlreadySent;
+  const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
+  // Set when the fixed "vou pensar" line was already said: the model answers her goodbye, told so.
+  let farewell = false;
   if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
@@ -3241,7 +3198,14 @@ const handleTurn = async (
     // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
     // link — and it is the only message allowed to cite the stock (`postponing`).
     const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
-    const sent = await sendFixed(
+    // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
+    // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
+    // send, the model answers her goodbye instead.
+    const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));
+    farewell = thinkRepeated;
+    // Review of ca51825: a link already built this turn would have its directive say "mande o link".
+    if (farewell) checkoutUrl = null;
+    const sent = thinkRepeated ? null : await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
             (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)
@@ -3258,14 +3222,17 @@ const handleTurn = async (
   // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
   // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
   const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = recentOutbound.some((m) =>
-    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
-  );
+  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
-  const kitOfferNow = kitOfferDue({ units, pathChosen, missing, kitsOnPath: kitsOnPath.length, kitOffered, linkNow });
-  const identityDirective =
-    linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+  const kitOfferNow =
+    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;
+  // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
+  // the CPF again of a woman saying goodbye. Told instead what the turn is.
+  const identityDirective = farewell
+    ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
+      `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
       : identityDirectiveFor(identityDraft, linkData.emailDone, cpfRefusals);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
@@ -3299,13 +3266,15 @@ const handleTurn = async (
       : kitOfferNow
       ? `Ela já escolheu como paga: antes de pedir os dados, ofereça uma vez só, numa frase curta, que` +
         ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
-        ` Diga sempre "peças" junto do preço do kit. Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
+        ` Diga sempre "peças" junto do preço do kit. Nesta mensagem, só a oferta, terminando na pergunta do kit —` +
+        ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
+        ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
   const sizeDirective =
     [
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
-      regionDirectiveFor(knownRegion, paymentChoice, assentsToBoth(lastOutbound, parts, knownRegion?.cod ?? null)),
+      regionDirectiveFor(knownRegion, paymentChoice),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,

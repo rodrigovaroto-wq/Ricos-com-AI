@@ -374,33 +374,6 @@ export const revisionAllowed = (revisions: number, now: number, deadline: number
   revisions < MAX_REVISIONS && now + REVISE_MIN_MS <= deadline;
 
 /**
- * The second look's verdict, right before a reply goes out (grafo §61, review of f657faa).
- * `newer`: a message of hers newer than the one the draft read is stored — null when the read
- * failed or there was nothing to compare. `draftRead`: false for a revision whose read of the
- * burst failed — it answers the old burst, not the message that made it revise.
- * - The sweep's retry sends only when it is sure nothing newer came; else it gives up ("stop").
- * - A draft that did not read the burst never goes out: revise again, or the sweep ("defer").
- * - A failed read never silences a reply that read what she sent: "send".
- * - A newer message: a turn that did not take the conversation leaves it to the newer turn
- *   ("stop"); otherwise revise, and past the limit the whole burst goes to the sweep — never the
- *   draft, which would mark what it did not read as answered.
- */
-export type SecondLook = "send" | "stop" | "revise" | "defer";
-export const secondLook = (s: {
-  retry: boolean;
-  draftRead: boolean;
-  newer: boolean | null;
-  claimFailed: boolean;
-  revisionAllowed: boolean;
-}): SecondLook => {
-  if (s.retry) return s.newer === false ? "send" : "stop";
-  if (!s.draftRead) return s.revisionAllowed ? "revise" : "defer";
-  if (s.newer !== true) return "send";
-  if (s.claimFailed) return "stop";
-  return s.revisionAllowed ? "revise" : "defer";
-};
-
-/**
  * Rides in the system prompt like the rewrite's correction, so the draft never enters the
  * history. The burst itself is already in the history, in order.
  */

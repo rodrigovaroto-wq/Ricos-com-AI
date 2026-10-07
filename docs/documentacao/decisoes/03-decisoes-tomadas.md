@@ -2037,3 +2037,16 @@ gastou nove turnos de modelo com "ta" e "?". Com o tamanho definido, só a pergu
 O critério de pausa de custo (`09-pipeline-ate-producao.md` L3 item 6) sobe junto: custo de API acima
 de **R$ 1,00** por lead em mais de 5% dos últimos 100 (era R$ 0,75; operador, 2026-10-05).
 
+
+## R18.8 — Toques depois do link: só o lembrete de 15 min; a pergunta de ofertas segue esse lembrete
+
+Operador, 2026-10-06, opção 1 da proposta do §61 (a resposta com link terminada em pergunta recebia três
+toques em 30 min). A resposta que **leva o link** arma só o `checkout_reminder` de 15 min na primeira meia
+hora — sem "Ainda está aí?" e sem `silence_1`; o lembrete adiado pelo relógio volta sem eles. Sem link na
+resposta, nada muda: "Ainda está aí?" a 10 min (resposta terminada em pergunta) e `silence_1` a 30 min.
+`silence_2` e `silence_3` seguem em todos os casos.
+
+Junto (operador, mesma data, achado 5 da revisão de `f657faa`): a pergunta de ofertas (R15.1), que só
+seguia o `silence_1`, passa a seguir também o `checkout_reminder` — sem isso, quem pega o link e some
+nunca seria perguntada, e o `silence_3` (cupom, 63–71 h, fora da janela de 24 h) sairia bloqueado.
+`rulerFor` e `optInFollows` em `followups.ts`; grafo §63.

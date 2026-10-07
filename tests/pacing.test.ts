@@ -120,6 +120,15 @@ describe("bolhas curtas, nunca no meio da frase", () => {
     expect(splitBubbles("Acesse encorpa-fashion.com.br pra ver.")).toEqual(["Acesse encorpa-fashion.com.br pra ver."]);
   });
 
+  it("nunca mais de três bolhas, mesmo quando juntar passa de 30 palavras (rodada de 2026-10-07)", () => {
+    const texto = [frase(8), frase(25), frase(25), frase(25)].join("\n\n");
+    const bolhas = splitBubbles(texto);
+    expect(bolhas).toHaveLength(3);
+    // Junta o par vizinho mais curto — a saudação com o balão seguinte —, sem cortar frase.
+    expect(bolhas[0]).toBe(`${frase(8)}\n\n${frase(25)}`);
+    expect(bolhas.join("\n\n")).toBe(texto);
+  });
+
   it("uma frase sozinha acima do limite sai inteira, sem corte", () => {
     const longa = frase(45);
     expect(splitBubbles(longa)).toEqual([longa]);
@@ -131,8 +140,10 @@ describe("bolhas curtas, nunca no meio da frase", () => {
     expect(bolhas).toEqual([`${frase(5)}\n${frase(5)}`, frase(25)]);
   });
 
-  it("junta bolhas curtas do fim só se a junção couber no limite", () => {
+  it("junta bolhas curtas do fim primeiro; longas demais, o limite de três vale mesmo assim (operador, 2026-10-06)", () => {
     const longas = [frase(25), frase(25), frase(25), frase(25)].join("\n\n");
-    expect(splitBubbles(longas)).toHaveLength(4);
+    expect(splitBubbles(longas)).toHaveLength(3);
+    const curtas = [frase(25), frase(25), frase(10), frase(10)].join("\n\n");
+    expect(splitBubbles(curtas)).toEqual([frase(25), frase(25), `${frase(10)}\n\n${frase(10)}`]);
   });
 });

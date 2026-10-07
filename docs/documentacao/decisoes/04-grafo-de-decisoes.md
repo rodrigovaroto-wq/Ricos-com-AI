@@ -1971,122 +1971,89 @@ com `codUnavailable`, o "sim" vetado onde a entrega não chega, fatos e negaçõ
 com tamanho conhecido; `coverage_claim` não veta "No seu CEP dá pra pagar na entrega" antes da consulta;
 prompt +~850 tokens; nada medido contra o modelo ainda.
 
-## 63. O código seguia o prompt antigo: link antes dos dados, uma oferta só, sem kit (código do prompt v2, 2026-10-06/07)
+## 63. O código obedecia o prompt antigo: link antes dos dados, tamanho no complemento (conversa de venda v2, 2026-10-06)
 
-**Sintoma:** depois do §62 o prompt ensinava a conversa v2 e o código ainda mandava o link antes de
-nome, e-mail e CPF (`readyForLink`, `identityDirectiveFor`, `thinkReply`), mandava escrever o
-tamanho no complemento (`checkoutDirectiveFor`), só dizia a região junto do tamanho e não oferecia
-kit. O WIP `f657faa` (link depois dos dados, kits, gates), escrito por uma sessão cortada antes da
-validação, foi revisado NEEDS WORK com oito achados: (1) "a primeira", "a segunda", "pagar quando
-receber", "prefiro receber e pagar" às duas opções não gravavam a escolha (`choosesPath` falso), e
-o turno seguinte perguntava de novo, para sempre; o "sim" à confirmação dependia da frase literal
-"deixo no pagamento na entrega"; (2) o link voltava depois de três perguntas e respostas (a janela
-do M-03 era de 3 mensagens); (3) o `delivery_promise` isentava qualquer "um dia" depois de
-escolher/marcar/agendar e soltava "Pelo pix a entrega é marcada um dia depois do pagamento."; (4)
-`refusedAsks` contava como pedido toda mensagem com "CPF" e "?" ("O CPF é pra nota fiscal. Qual o
-seu nome completo?" + "Maria Souza" = 1 recusa); (5) um toque da régua entre o pedido e a recusa
-zerava a recusa, e a recusa do e-mail lida pelo intérprete vivia um turno; (6) a revisão cuja
-leitura da rajada falhou mandava o rascunho que não leu a mensagem que a fez revisar, e o
-adiamento que falhava também; (7) "sim, quero saber se tem rastreio?" era pergunta de quem compra;
-(8) sem pagamento na entrega, o "ok" à mensagem do antecipado não oferecia o kit.
-**Causa:** cada leitor decidia sobre um pedaço — a escolha só pelas palavras dela, sem a pergunta
-que ela respondia; o link só pela janela das últimas mensagens; a recusa só pela presença da
-palavra; a segunda olhada por ramos `if` cujo caso "leitura falhou" sempre virava "manda".
-**Caminhos descartados:** ensinar mais frases ao `choosesPath` sem ler a mensagem da agente
-("a primeira" só tem sentido relativo a ela); guardar a escolha no "sim" às duas opções (o "não"
-seguinte à confirmação não teria como desfazer — o prompt confirma antes); uma coluna nova para
-"link enviado" (a conversa já diz, numa leitura indexada); uma consulta por checkout como a do
-`orderContext` (até seis por turno); listar os textos da régua para pulá-los em `refusedAsks` (a
-estrutura já diz: duas saídas seguidas sem resposta dela são toque, sem lista para envelhecer);
-handoff permanente quando o adiamento falha (uma falha de escrita não é sobre ela).
-**Correção:** funções puras, espelhadas, chamadas pelo turno. `pathAnswer` lê a resposta contra
-a última mensagem da agente: ordinal na ordem em que ela citou os caminhos, "pagar quando
-receber", "sim" a uma pergunta que oferece um caminho só (qualquer redação), e, sem pagamento na
-entrega, o "sim" à mensagem do antecipado; o "sim" às duas opções sem escolher continua indo à
-confirmação do prompt. `choiceToStore` = escolha explícita (intérprete + `choosesPath`, que
-aprendeu "quando receber" e "receber e pagar") ou `pathAnswer`; gravada uma vez, nunca perguntada
-de novo; `defaultCod` saiu. `kitOfferDue` é a oferta do kit. `linkGoesOut`: a primeira vez com
-todos os dados; depois de um link na conversa inteira (uma leitura `messages` por
-`conversation_id` com `body like *http*`, `limit 10`, índice `messages_conversation_idx`, filtro
-no corpo; falhou → as 20 já lidas), só quando ela pede (`asksForLink`) ou o pedido mudou (outro
-caminho ou kit: `linkedBase`, a base mais longa contida, compara com o checkout deste turno), e
-então nome, e-mail e CPF não seguram — o checkout pede; ela desistiu (`withdrawsInBurst`:
-"desisti", "não quero mais", "deixa pra lá", "mudei de ideia", sem nova decisão depois, negação
-excluída) → sem link. `delivery_promise` só isenta "um dia" depois de escolher/marcar/agendar com
-a oração relativa sobre ela depois ("em que você", "que você"). `refusedAsks` conta o pedido só
-quando a frase da pergunta é sobre o dado (o nomeia, ou pede pra passar logo depois de uma frase
-que o nomeia), e pula as saídas entre o pedido e a primeira resposta dela (toques), a não ser que
-uma delas peça o dado de novo — aí é ela a dona da resposta. `emailRefused`: a primeira recusa do
-e-mail é gravada em `leads.identity.emailRefused` (jsonb, como `address.codAvailable`; índice
-`leads_pkey`) e vale nos turnos seguintes. `secondLook` decide a segunda olhada: rascunho que não
-leu a rajada nunca sai (revisa de novo ou vai à varredura); revisões esgotadas → varredura; a
-varredura que não pode ser agendada → a mensagem de espera, o e-mail do operador e ela continua com
-a agente (`modelFailure(..., reachable)`, sem `handoff_at`); leitura que falha não cala quem foi
-lida. `buyerAsk` exclui "quero saber/ver/entender/perguntar". Comentários e o prompt alinhados ao
-código: "O link só vai quando os dados estiverem completos, e quem decide isso é o sistema".
-**Guarda:** `tests/link-after-data.test.ts` — comportamento: cada resposta das duas opções gravada
-e o turno seguinte seguindo (kit, depois dados), a ordem invertida, a confirmação em três
-redações, as negações (pergunta, dúvida, "sim" a outra pergunta, "sim" às duas, "não",
-"segunda-feira"); sem entrega, "ok/sim/pode ser/tá bom/quero" gravam o antecipado e as negações não;
-link → três respostas → "tá bom" sem link, "me manda o link de novo" com link, 2 peças → link do
-kit, desistência e suas negações; as quatro mentiras do prazo vetadas no antecipado e as três
-frases da oração relativa passando; recusas falsas, toque no meio, toque que pede de novo, e-mail
-guardado; `secondLook` em cada estado; `buyerAsk` com "quero saber". Fiação lida como fonte no fim
-do arquivo e em `tests/burst.test.ts`/`tests/function-drift.test.ts`. `pnpm dev:gates --base=HEAD`:
-0 afrouxados, 4 endurecidos (as quatro mentiras); a linha de `tests/gate-loosen-accepted.txt` que
-era um título de teste saiu (o título foi reescrito sem a frase).
-**Re-revisão de 35d70c0 (6 de 8 corrigidos; NEEDS WORK):** (1) "a do pix", "a da entrega", "a
-primeira mesmo", "Primeira, por favor", "opção 1", "1" às duas opções e "Pagando no pix você ganha
-10% de desconto. Prefere assim?" + "sim" seguiam nulos; (1b) no "sim" às duas opções o prompt
-mandava confirmar a entrega e a diretiva da região mandava perguntar qual das duas — laço; (2)
-"deixa pra lá o kit, só uma", "mudei de ideia, quero o G", "deixa pra lá, manda o link" liam
-desistência e seguravam o link pedido; (3) sem pagamento na entrega, qualquer "sim" gravava o
-antecipado ("…Qual seu tamanho de calça?" + "sim"), e esse antecipado forçado travava a entrega
-num CEP novo que a tem; (4) "Agora só falta o CPF, pra nota fiscal. Consegue?" + "não" contava 0;
-(5) a leitura do último link olhava 10 saídas com qualquer URL. **Correção:** `pathAnswer` lê
-ordinais ("primeira", "opção 1", "1", com "mesmo"/"por favor") e o caminho nomeado ("a do pix", "a
-da entrega") quando a mensagem ofereceu os dois, e uma pergunta curta ("Prefere assim?", "Pode
-ser?") lê a frase de antes; sem entrega, só o "sim" à mensagem do antecipado sem pergunta, ou a uma
-pergunta sobre ele. `assentsToBoth` → `regionDirectiveFor(..., agreedToBoth)` manda confirmar com
-`DEFAULT_COD_CONFIRM`, só no ramo em que a entrega chega, e o "sim" a ela grava a entrega.
-`withdrawsInBurst` lê o resto da linha: compra, pedido do link, kit, tamanho ou quantidade desfazem
-a desistência. `storedChoiceHolds`: antecipado gravado quando a região não tinha entrega não vale
-quando a consulta nova acha entrega, e é apagado (índice `leads_pkey`). `refusedAsks` aceita
-"consegue/pode/pode ser/tudo bem" depois da frase do dado. O último link é lido por host do
-checkout (`checkoutHosts`: Logzz e Coinzz, um `like *host*` cada, `limit 3`, índice
-`messages_conversation_idx`), não por qualquer URL. **Guarda:** comportamento em
-`tests/link-after-data.test.ts` (cada resposta, as negações — "12", pergunta, "Pode ser?" sem
-caminho, os dois caminhos na frase, "1" à pergunta da calça —, a confirmação, desistências de um
-pedaço, "sim" a outra pergunta sem entrega, `storedChoiceHolds` em cada combinação, "Consegue?");
-sete mutações em `src/dev/verify-guards.ts` (`G63-escolha-nao-gravada`, `G63-pergunta-curta`,
-`G63-link-reenviado`, `G63-desistencia-falsa`, `G63-rascunho-sem-leitura`, `G63-recusa-falsa`,
-`G63-toque-no-meio`), cada uma pega pela guarda numa simulação local (rodam de verdade depois do
-commit).
-**Aprovado com resíduos em 697ead2; três corrigidos antes do deploy:** (1) a pergunta curta
-emprestava a frase de antes mesmo sobre outro assunto ("Na entrega você paga só quando receber. O M
-fica bom, tudo bem?" + "sim" gravava a entrega) — agora só empresta no mesmo balão (sem linha em
-branco entre as duas) e se a pergunta não tem assunto próprio (tamanho, kit, quantidade, data, outro
-dado); (2) "pode", "pode ser" e "tudo bem" contavam como pedido do dado, e a concordância dela como
-recusa ("O e-mail é só pra confirmação do pedido. Pode ser?" + "pode" gravava `emailRefused` para
-sempre) — saíram dos verbos do pedido (ficam "consegue/conseguiria"), e uma resposta que só
-concorda ("pode", "sim", "ok", "claro") nunca é recusa; (3) uma palavra de compra negada desfazia a
-desistência ("deixa pra lá, não quero mais o G", "desisti do M") — o objeto da desistência e o
-trecho negado não contam, e cada desistência da linha é testada. Guarda: comportamento em
-`tests/link-after-data.test.ts` com as negações, e três mutações (`G63-pergunta-curta-outro-assunto`,
-`G63-concordar-recusa`, `G63-compra-negada`), pegas numa simulação local; `G63-pergunta-curta` e
-`G63-desistencia-falsa` acompanharam o texto novo.
-**Resíduo:** `pathAnswer` lê só a última saída — um toque ("Ainda está aí?") entre as opções e o
-"a primeira" faz a resposta não ser lida (o intérprete ainda pode ler a escolha explícita);
-uma escolha explícita do antecipado feita numa região sem entrega também é reaberta num CEP novo
-com entrega (o código não distingue a forçada da escolhida — ela escolhe de novo);
-`refusedAsks` do CPF lê só as 20 últimas mensagens — duas recusas separadas por mais de 20
-mensagens pedem o CPF uma terceira vez (depois do primeiro link isso não importa mais: o checkout
-pede); `emailRefused` gravado vale para o lead, também numa conversa nova; a leitura do último
-link pega as 3 mais novas por host; `withdrawsInBurst` e `pathAnswer` são listas de palavras
-("deixa pra lá" com uma letra de tamanho não negada depois — "deixa pra lá, o M é grande" — ainda
-cancela a desistência; uma pergunta curta sobre pagar em balão separado da oferta não é lida);
-"Tudo bem?"/"Pode ser?" depois da frase do CPF + "não" não conta recusa — o CPF é pedido de novo; nada medido contra o
-modelo ainda.
+**Sintoma:** o resíduo do §62 — o prompt v2 pedia os dados antes do link, mas o turno ainda mandava o
+link pela vontade de comprar (`readyForLink`), mandava o tamanho no complemento, a diretiva de região só
+saía com tamanho e três gates vetavam frases que o prompt v2 ensina. Revisão de `7c8bc7c`: "Sim! Como faço
+pra pagar?" perdia o link; sem a 0023 cada rajada era respondida duas vezes.
+**Causa:** R13.4 ("link primeiro, o checkout pede o resto") vivia no código em quatro lugares; o prompt
+mudou sozinho.
+**Caminhos descartados:** guardar recusas numa coluna (a conversa já diz quantas vezes ela recusou —
+`refusedAsks` lê); detectar a oferta do kit só pela redação (revisão: "as duas saem por R$ 239,80" virava
+laço — agora também pelo preço, `kitWasOffered`); aceitar "não faz/trabalha com" antes de qualquer verbo
+em `charge_promise` (revisão: "não faz você pagar mais, você paga na entrega" passava — agora só antes do
+substantivo "pagamento"); isentar "marcar um dia" no antecipado (não há agendamento lá); contar recusa
+por "?" em qualquer ponto da mensagem (revisão: "O CPF vai na nota. Qual tamanho você usa?" + "M" contava,
+"me passa seu CPF" + "não passo" não contava).
+**Correção:** `missingForLink`/`sendLinkNow` (tamanho → CEP → forma de pagamento → nome → e-mail ou uma
+recusa → CPF ou duas recusas); `pathChoiceToStore` grava a escolha natural ("a primeira", "o antecipado")
+e o "sim" ao padrão da entrega, também ao lado de pergunta de compradora (`buyerAsk`, que não lê "quero
+saber" como compra); `refusedAsks` lê o pedido por frase, com o imperativo; "vou pensar" sem link;
+`regionDirectiveFor` independente do tamanho; tamanho escolhido no checkout; Coinzz sem o 55; kit oferecido
+uma vez, depois da escolha; `coverage_claim` veta "No seu CEP dá pra pagar na entrega" e "Aí dá pra pagar
+na entrega" antes da consulta, com a condição "Se no seu CEP der" isenta; `claimFailed` volta ao descarte
+do §59 sem a 0023. Toques depois do link, opção 1 (R18.8): a resposta com link arma só o lembrete de 15 min;
+a pergunta de ofertas segue esse lembrete também (`optInFollows`).
+Segunda revisão (furos dos consertos): a escolha só se grava quando a resposta CURTA dela nomeia o mesmo
+caminho que o intérprete leu (`whichOfTwo`: "a primeira" é a entrega; "é minha primeira compra", "pix
+nunca", "a segunda" lido como entrega não gravam); pedido que nomeia outro campo de identidade não é pedido
+deste ("me passa seu nome, que depois eu te peço o e-mail e o CPF"); a condição isenta do `coverage_claim`
+é só de cobertura ("Se aí tiver alguém em casa, …" segue vetada); `buyerAsk` não lê "quero perguntar/
+conferir/tirar uma dúvida" como compra; "não faz o pagamento" é negação; "Daí dá pra pagar" vetado.
+**Guarda:** `tests/link-after-data.test.ts` (comportamento das funções puras e fiação), `tests/still-there.test.ts`
+(toques depois do link), `tests/opt-in.test.ts`; mutações `toques-depois-do-link` e catorze `R63-*`;
+`WA-envio-desligado` reescrita para o canal ligado (desligar `CANAL_ATIVO` corta todo envio).
+**Resíduo:** nome e CEP não têm saída por recusa — quem recusa os dois nunca recebe o link (regra do
+operador); `answersWhichOfTwo` e `REQUEST` são listas de palavras; nada medido contra o modelo antes da
+rodada de personas.
+
+## 64. Rodadas de personas sobre o código da v10 (2026-10-07): nota interna, balões, preço, nome
+
+**Sintoma:** duas rodadas de 12 personas contra a `turn` do disco. No modelo padrão (R$ 5,23): a Malu
+mandou "Se o CEP dela? Need ask CEP." à Jussara; 5 de 12 primeiras respostas em 4 balões; o e-mail
+recusado pedido três vezes; a oferta do kit colada no pedido do e-mail. No modelo de produção
+(`muse-spark-1.3-contributor`, segredos de 06/10 19:30 UTC; R$ 0,33): Neusa e Sandra pediram o preço e
+ficaram sem ele até o CEP (Neusa, quinze turnos); Rose caiu na resposta pronta por "a maioria chega aqui
+com esse mesmo receio"; Cleide deu "Cleide Barbosa\nRua Paraiba 210, …" e teve o nome pedido de novo.
+**Causa:** nenhum gate olhava texto que não é mensagem; `splitBubbles` desistia de juntar acima de 30
+palavras; a diretiva dizia "falta o CPF" sem dizer que o e-mail estava dispensado, e o prompt manda
+coletar e-mail; o prompt dizia só "antes do CEP… peça o CEP" (o desenho v2 §9.4 q53 dá o preço antes);
+o `coverage_claim` lia qualquer "chega aqui" como entrega; `extractName` só aceitava a mensagem que é
+só o nome.
+**Caminhos descartados:** cortar balão no meio da frase; detectar nota em português na 3ª pessoa
+("Pergunte o CEP dela") — veta fala legítima ("a filha dela"); liberar "gente chega aqui" com a palavra
+"gente" solta — "a gente entrega aí" é a loja prometendo (pego pelo `dev:gates`); ler a 1ª linha como
+nome dentro do `extractName`, sem contexto — bairro e "Segue endereço" virariam nome. **Não eram defeito** (não mexidos): o
+veto de composição do frete na 1ª resposta da Neusa (grafo §32), os "?" repetidos (§60), o tamanho pela
+calça (Marcinha), "não tem expressa" (`expressActive` false), "500 clientes"/loja em São Paulo/12x
+(config), a região nula (Coinzz 302 do container — memória `proxy-sobrescreve-auth-do-supabase`).
+**Correção:** gate `internal_note` (22º, reescrita); `splitBubbles` com teto duro de 3 (junta o par vizinho
+mais curto); diretiva "o e-mail ela não passou e está dispensado"; oferta do kit sozinha;
+`priceBeforeCepMessage` no prompt ("Nunca segure o preço até ela mandar o CEP"); sujeito pessoa
+("maioria", "muita gente", "você"…) isenta o `coverage_claim` só em "chega **aqui**", depois do teste do
+"sim" e nunca atrás de "pra/para/na" (revisão: a 1ª versão reabria "Pra você chega sim aí em Manaus");
+`nameOnFirstLine` (1ª linha acima de linha de rua, sem palavra de lugar) lida pelo turno só logo depois
+de a Malu pedir o nome e sem nome guardado (revisão: dentro do `extractName`, "Parque Dez\nRua …" e
+"Segue endereço\nRua …" iriam para o pacote).
+Rodada final no contribuidor (R$ 0,37, nenhuma resposta pronta, nenhum balão a mais): Jussara recusou o
+CPF três vezes e o link nunca saiu — a Malu, obedecendo "peça de novo com outras palavras", pediu "só os
+números" (sem a palavra CPF) e depois com o motivo "no seu nome", e a contagem viu uma recusa só; Cleide
+recebeu a frase fixa do "vou pensar" duas vezes seguidas. Correção: `refusedAsks` por janela de resposta
+— conta quando a janela não traz o dado e responde a um pedido **ou** recusa o campo nas palavras dela;
+"Tudo bem sem o CPF, tá?" não é pedido; a frase fixa não se repete sem link novo (o modelo responde).
+Três revisões depois, o desenho final: a recusa espontânea só conta com o campo como objeto do verbo
+("não passo o cpf", "cpf não vou passar", "n passo cpf"), nunca condicional ("e se eu não passar…") nem
+com outro objeto ("não passo cartão", "não dou conta"); a diretiva do 2º pedido manda citar o CPF (a causa
+da Jussara: "só os números" não era pedido visível ao código); na despedida o modelo é avisado e o link do
+turno é descartado; frase com endereço de e-mail ("me manda um e-mail pra contato@…") não é pedido do
+e-mail dela. Confirmação no contribuidor: Jussara recusou o CPF duas vezes e recebeu o link sem ele.
+**Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
+`tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
+**Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
+(lista de palavras comuns); o caminho sem pagamento na entrega só se prova pela porta de produção; o
+modelo às vezes junta duas perguntas (caminho e e-mail, Karol) ou reconfirma um nome de duas palavras
+(Cleide) — obediência ao prompt, sem regra quebrada.
 
 ## Lições (valem para qualquer correção futura)
 

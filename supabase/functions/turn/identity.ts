@@ -131,6 +131,21 @@ export const extractName = (text: string): string | null => {
   return name;
 };
 
+/**
+ * Her name on the first line of a message whose other lines are her street (persona round of
+ * 2026-10-07, Cleide: "Cleide Barbosa\nRua Paraiba 210, …" left the name missing, and she was asked it
+ * again). The caller reads it only when the agent's last message asked for the name and none is known:
+ * on its own, the first line above a street is as often her neighbourhood ("Parque Dez\nRua …") or
+ * "Segue endereço" — a name written wrong is on the package (review of dad2ae2).
+ */
+export const nameOnFirstLine = (text: string): string | null => {
+  const lines = text.split("\n").map((l) => l.trim()).filter(Boolean);
+  if (lines.length < 2) return null;
+  if (!lines.slice(1).some((l) => /^(?:rua|r\.|av\.?|avenida|travessa|tv\.|alameda|estrada|rodovia)\s+\S+.*\d/i.test(l))) return null;
+  if (/\b(?:segue|endere[cç]o|completo|cidade|bairro|centro|parque|vila|jardim|condom[ií]nio|residencial|conj(?:unto)?|nova|santa|s[aã]o|dom|ponta|manaus|destinat[aá]rio)\b/i.test(lines[0]!)) return null;
+  return extractName(lines[0]!);
+};
+
 export interface IdentityResult {
   fields: Partial<Identity>;
   missing: IdentityField[];
@@ -197,67 +212,110 @@ export const asksForIdentity = (text: string): boolean =>
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
 
+/** A sentence that asks for something: a question, or a request ("me passa", "me manda", "preciso do"). */
+const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
+
+/**
+ * "Seu nome" / "nome completo" as the thing asked, never as the reason ("pra nota fiscal sair no seu
+ * nome", "emitir em seu nome", "com seu nome", "no seu nome completo"): third to fifth reviews of the
+ * link-after-data work.
+ */
+const NAME_ASK = String.raw`(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?(?:seu\s+)?)nome\s+completo|(?<!\b(?:n[oa]|em|d[oa]|com|pr[oa]|para|pel[oa])\s+(?:o\s+)?)seu\s+nome`;
+
+/**
+ * Whether the agent's message asks for her name, with or without a "?" (review of 6601194: "Me passa
+ * seu nome completo, por favor." and "Pra finalizar: nome completo, CPF e e-mail." are asks too).
+ * Read per sentence; the name as the reason is no ask.
+ */
+export const asksForName = (text: string): boolean =>
+  text
+    .split(/(?<=[.!?\n])\s*/)
+    .map((q) => q.trim())
+    .some((q) => new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(q) && (q.endsWith("?") || REQUEST.test(q) || /\bpor\s+favor\b|:/i.test(q)));
+
+/**
+ * Whether one message asks for the field (review of f657faa, finding 3): read per sentence, as
+ * `asksForIdentity` does. A sentence asks for it when it names the field and is a question or a
+ * request ("Me passa seu e-mail, pra completar o cadastro."), or names it and the very next
+ * sentence is a bare request question ("E por último o CPF, pra nota fiscal. Me passa?"). The
+ * field beside another question ("O CPF vai na nota. Qual tamanho você usa?") or told as a fact
+ * ("…chega no seu e-mail. Ficou alguma dúvida?") is not asked; "não precisa" never is.
+ */
+const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
+  // A sentence ends at a mark followed by a space or a line: "maria@gmail.com" is one word (review of 3c613a4).
+  const sentences = text.split(/(?<=[.!?])\s+|\n+/).map((q) => q.trim()).filter(Boolean);
+  return sentences.some((q, i) => {
+    // Another identity field in the same sentence asks for that one first, or for all at once
+    // ("Me passa seu nome completo, que depois eu te peço o e-mail e o CPF."): her answer to it
+    // refuses nothing of this field (second review of 41757c8).
+    // "Não precisa", and the field let go ("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?",
+    // "Tudo bem sem o CPF, tá?"): a "tá?" at the end asks nothing of her (final persona round).
+    // A request in it is still an ask ("Sem o CPF eu não consigo emitir a nota, pode me passar?").
+    const letGo =
+      /\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q) &&
+      !REQUEST.test(q) &&
+      !/\b(?:pode|consegue)\s+(?:me\s+)?(?:passar|mandar|informar|enviar)\b/i.test(q);
+    // An address in the sentence is the shop's ("me manda um e-mail pra contato@…"), not an ask for hers
+    // (confirmation round on the production model, Jussara: her e-mail went unasked).
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo || (/\S@\S/.test(q) && !/\bseu\s+e-?mail\b/i.test(q))) return false;
+    if (q.endsWith("?") || REQUEST.test(q)) return true;
+    const nextQ = sentences[i + 1] ?? "";
+    return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
+      // Another field asked in it; "no seu nome" is the reason, not the name asked (Jussara).
+      !/\b(?:tamanho|cep|e-?mail|cpf|endere[cç]o)\b/i.test(nextQ) && !new RegExp(String.raw`\b(?:${NAME_ASK})\b`, "i").test(nextQ);
+  });
+};
+
 /**
  * How many times the agent asked for the e-mail or the CPF and her answer did not bring it
  * (operator, 2026-10-06: the link waits for the data; an e-mail refused once and a CPF refused
- * twice are not asked again). Read from the conversation instead of a column. An ask is a
- * question sentence about that datum — it names it ("Qual o seu CPF?"), or asks her to pass
- * something right after a sentence that names it ("E por último o CPF, pra nota fiscal. Me
- * passa?"); a sentence that only explains the datum beside a question about another one ("O CPF
- * é pra nota fiscal. Qual o seu nome completo?") is not (review of f657faa). Her answer is every
- * inbound after the ask until the next outbound; outbound rows before her first answer are the
- * ruler's touches ("Ainda está aí?"), and she answers the ask through them — unless one of them
- * asks for the datum again, and then that one owns the answer. A "pra que?", a refusal, an
- * invalid CPF and a change of subject all count — the script's own steps (design §6). An ask not
- * yet answered does not. `messages` oldest first, as the model reads them.
+ * twice are not asked again). Read from the conversation instead of a column: an ask is an
+ * outbound message naming the field and asking something, and her answer is every
+ * inbound until the next outbound. A "pra que?", a refusal, an invalid CPF and a change of
+ * subject all count — the script's own steps (design §6). An ask not yet answered does not.
+ * `messages` oldest first, as the model reads them.
  */
 export const refusedAsks = (
   messages: ReadonlyArray<{ direction: string; body: string | null }>,
   field: "email" | "document",
 ): number => {
   const word = field === "email" ? /\be-?mail\b/i : /\bcpf\b/i;
+  const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${NAME_ASK})\b`, "i");
   const found = field === "email" ? extractEmail : extractCpf;
-  const asks = (body: string): boolean => {
-    const sentences = body.split(/(?<=[.!?\n])\s*/);
-    return sentences.some(
-      (q, i) =>
-        q.trim().endsWith("?") &&
-        (word.test(q) ||
-          (!/\b(?:e-?mail|cpf|nome|cep|tamanho|cal[cç]a|endere[cç]o)\b/i.test(q) &&
-            /\b(?:passa|passar|manda|mandar|envia|enviar|informa|informar|digita|digitar|consegue|conseguiria)\b/i.test(q) &&
-            word.test(sentences[i - 1] ?? ""))),
-    );
-  };
+  // One answer window per block of her messages between two of the agent's. It counts once when it
+  // brings no valid value and either answers an ask of the field, or refuses the field in her own
+  // words ("nao passo cpf") — however the agent worded the ask (final persona round of 2026-10-07,
+  // Jussara: "Consegue me mandar só os números?" named no CPF, and three refusals counted one).
+  // Her refusal in her own words counts even when the agent re-asked without naming the field (final
+  // persona round of 2026-10-07, Jussara: "Consegue me mandar só os números?" then "nao passo cpf nao").
+  // Only with the field as the refusal verb's object — "não passo o cpf", "cpf não vou passar" — never any
+  // "não" near it ("nao sei se precisa do cpf", "nao passo cartao", "nao dou conta"): reviews of 5383dc5
+  // and ca51825.
+  const F = field === "email" ? "e-?mail" : "cpf";
+  // "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se" ("e se eu nao passar o cpf
+  // tem problema?" is a doubt): review of 6f3a6a6.
+  const VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
+  const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|esse\s+)?(?:meu\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
   let count = 0;
-  messages.forEach((m, i) => {
-    if (m.direction === "inbound" || !asks(m.body ?? "")) return;
-    const next = messages.slice(i + 1);
-    const first = next.findIndex((n) => n.direction === "inbound");
-    if (first === -1 || next.slice(0, first).some((n) => asks(n.body ?? ""))) return;
-    const rest = next.slice(first);
-    const end = rest.findIndex((n) => n.direction !== "inbound");
-    const answer = (end === -1 ? rest : rest.slice(0, end)).map((n) => n.body ?? "");
-    // Agreeing is never refusing (697ead2): "pode", "sim", "ok", "claro" — the datum comes next.
-    const agrees = answer.every((a) =>
-      /^(?:sim|pode|pode\s+ser|ok|okay|claro|ta|ta\s+bom|tudo\s+bem|beleza|certo|isso|combinado)\b[\s!.,]*(?:sim|claro)?[\s!.]*$/.test(
-        a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim(),
-      ),
-    );
-    if (!agrees && !answer.some((a) => found(a) !== null)) count += 1;
-  });
+  let asked = false;
+  let answer: string[] = [];
+  const close = () => {
+    // A question is no refusal ("tem como nao passar o cpf?"): review of 3c613a4.
+    const refused = answer.some((a) => REFUSAL.test(a) && !a.trim().endsWith("?"));
+    if (answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused)) count += 1;
+    answer = [];
+  };
+  for (const m of messages) {
+    if (m.direction === "inbound") {
+      answer.push(m.body ?? "");
+      continue;
+    }
+    close();
+    asked = asksForField(m.body ?? "", word, others);
+  }
+  close();
   return count;
 };
-
-/**
- * The e-mail is refused for good (review of f657faa): stored on the lead's identity
- * (`emailRefused`, written by the turn the first time), said this turn (the interpreter's
- * `email_unavailable`, which nothing else remembers), or an ask she let pass in the window.
- */
-export const emailRefused = (
-  stored: { emailRefused?: unknown } | null,
-  unavailableNow: boolean,
-  messages: ReadonlyArray<{ direction: string; body: string | null }>,
-): boolean => stored?.emailRefused === true || unavailableNow || refusedAsks(messages, "email") > 0;
 
 /**
  * The name as the checkout should show it — applied only when the link is built, the

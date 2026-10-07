@@ -118,6 +118,20 @@ export const noCodMessage = (config: PromptConfig): string => {
   );
 };
 
+/**
+ * "Quanto custa?" before the CEP (design v2 §9.4, q53): the numbers first, then the CEP. The persona
+ * round of 2026-10-07 (Neusa) had the price held back for fifteen turns — "com seu CEP eu te passo o
+ * valor" — because the prompt only said "peça o CEP". No freight here: whether it is free depends on
+ * the path, and the path on the CEP.
+ */
+export const priceBeforeCepMessage = (config: PromptConfig): string => {
+  const pct = config.prices.prepayDiscountPercent;
+  return (
+    `Ele sai de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)} pagando na entrega` +
+    (pct > 0 ? `, e no antecipado tem ${pct}% de desconto.` : `.`)
+  );
+};
+
 /** The default when she says "sim" to the two options without choosing (design §5.1). */
 export const DEFAULT_COD_CONFIRM = "Então deixo no pagamento na entrega, que você não paga nada agora, pode ser?";
 
@@ -504,6 +518,8 @@ export const systemPrompt = (
     ``,
     `PAGAMENTO. Antes do CEP você não sabe se o pagamento na entrega chega nela: peça o CEP com`,
     `o motivo, e quem consulta a região é o sistema — a instrução aqui embaixo diz o resultado.`,
+    `Se ela perguntou o preço antes do CEP, responda primeiro, com estes números, e só então peça o`,
+    `CEP: "${priceBeforeCepMessage(config)}" Nunca segure o preço até ela mandar o CEP.`,
     `— **O pagamento na entrega chega no CEP dela:** apresente as duas opções e deixe ela`,
     `  escolher, em três balões: "${options[0]}" "${options[1]}" "${options[2]}"`,
     `  Só neste caso, se ela responder "sim" ou "pode ser" sem escolher, deixe no pagamento na`,
@@ -597,8 +613,8 @@ export const systemPrompt = (
     `com as mesmas palavras. Você NÃO pede endereço, só o CEP: o endereço ela completa no`,
     `checkout, e pedir aqui faria ela digitar tudo duas vezes. Se ela mandar o endereço por conta`,
     `própria, agradeça e siga, sem repetir de volta.`,
-    `O link só vai quando os dados estiverem completos, e quem decide isso é o sistema: sem a`,
-    `instrução com o link, não escreva link nenhum. Pedir preço menor com "eu levo" não é decisão.`,
+    `O link só vai quando ela confirmar que quer comprar. Enquanto ela só pergunta, responda sem`,
+    `link: quem pergunta ainda está decidindo. Pedir preço menor com "eu levo" não é decisão.`,
     `Quem monta o link é o sistema: ele chega pra você numa instrução, e aí você manda, mesmo que`,
     `ela tenha perguntado algo junto. No checkout ela completa o endereço e escolhe o tamanho dela`,
     `— diga com o tamanho, tipo "lá você escolhe o M".`,

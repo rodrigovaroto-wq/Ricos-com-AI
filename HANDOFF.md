@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-06, noite)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -32,15 +32,47 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Atualização — 2026-10-07, madrugada (mesma sessão)
+### Onde estamos — 2026-10-07, madrugada (sessão `claude/focused-lovelace-ym1coj`, LEIA PRIMEIRO)
 
-**Pronto para a v10, NÃO publicado:** `40231de` na branch (PR #53, CI verde até `697ead2`). Inclui rajada v2
-(`7c8bc7c`), prompt de venda v2 (`e46ddbc`), toques depois do link opção 1 (`9262f4c`, decisão do operador:
-link → só o lembrete de 15 min; sem link → "Ainda está aí?" 10 min + `silence_1`), e o link só depois dos dados
-com todas as revisões fechadas (`35d70c0`, `697ead2`, `40231de`; grafo §63; revisão final APROVADO COM RESSALVA
-e as ressalvas corrigidas). 6544 testes, 1665/1665, `verificar:guardas` com os G63 todos pegando.
-**Falta:** (1) **aplicar a migração 0023 ANTES do deploy**; (2) `pnpm deploy:turn` (v10) com `sbp_` e o "pode
-publicar" do operador; (3) rodada das 12 personas no modelo; (4) teste do operador no WhatsApp.
+**Conferido ao começar:** `turn` no ar = v78 com o pacote da v76 (`agent_version` 9); migrações até 0022
+(**0023 não aplicada**). PR #53 tinha conflito só no título deste quadro — resolvido por merge (`1b8ad71`).
+
+**Feito nesta sessão (tudo na branch, também empurrado para a do PR #53 até `6122dd9`):**
+- "Falta" 1 da sessão anterior **fechado**: o WIP `f657faa` revisado pelo Opus em cinco rodadas (NEEDS WORK
+  ×4 → APPROVED WITH RESIDUALS, resíduos consertados em `c22d187`); grafo §63; decisão R18.8.
+- "Falta" 2 **decidido pelo operador: opção 1** — resposta com link arma só o lembrete de 15 min (sem "Ainda
+  está aí?" nem `silence_1`); a pergunta de ofertas segue também esse lembrete (`optInFollows`).
+- `WA-envio-desligado` reescrita para o canal ligado (operador autorizou).
+- Validação em `c22d187`: `test` 6556, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxamento sem aceite,
+  `dev:regua` 20 000 casos, `typecheck:function` limpo; `verificar:guardas` 342/342 em `a2d1a10` + as duas
+  mutações alteradas depois, pegas em `c22d187`.
+
+**Depois (mesma sessão, 07/10):**
+- **0023 aplicada** em produção (`20261006221247_0023_replying_since`, autorizada pelo operador).
+- **Modelo de produção:** desde 06/10 19:30 UTC a `turn` roda `muse-spark-1.3-contributor` (segredos
+  conferidos pelo hash SHA-256; `CLAUDE.md` corrigido).
+- **Quatro rodadas de 12 personas** contra a `turn` do disco (porta `local`): uma no padrão (R$ 5,23) e três
+  no contribuidor (R$ 0,33 · 0,22 confirmação · 0,37 final). Defeitos reais achados e consertados (grafo §64):
+  nota interna do modelo vazando ("Need ask CEP."), 4 balões, e-mail pedido 3×, kit colado no pedido de dado,
+  preço segurado até o CEP, "a maioria chega aqui" vetado, nome na 1ª linha acima da rua, CPF recusado 3× sem
+  link, frase do "vou pensar" repetida. Cada conserto revisado pelo Opus até aprovar; mutações `P07-*`.
+- Rodada final no contribuidor: 12/12 sem resposta pronta, nenhum balão a mais, nenhuma nota interna;
+  custo ~R$ 0,03 por conversa.
+- Ver a memória `proxy-sobrescreve-auth-do-supabase` antes de rodar personas pelo container.
+
+**No ar desde 2026-10-07 08:17 UTC:** `agent_version` **10** = `turn` v80 = commit `a5d4837`
+([PR #54](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/54), CI verde, `verificar:guardas` 362/362).
+Sonda pela porta `function`: 401 "mensagem sem o selo da entrada" — a v10 sobe e a porta segue fechada a
+quem não vem selado pelo n8n. A prova da conversa em produção é o teste do operador pelo WhatsApp.
+
+**Falta, nesta ordem:**
+1. **O** teste real pelo WhatsApp (a partir das 06:00 de São Paulo — antes disso a resposta é adiada para a
+   abertura). Roteiro mínimo: "quanto custa?" antes do CEP (deve dar o preço), um CEP com pagamento na
+   entrega e um sem (Manaus 69050-000 — só antecipado, com o motivo), o tamanho pela calça, a escolha "a
+   primeira", nome/e-mail/CPF (recusar o CPF duas vezes → o link sai sem ele), "vou pensar".
+   Conferir `turn_outcomes.agent_version = 10`. Apagar o lead de teste depois.
+2. **O** mergear o PR #54 e fechar o #53 (superado).
+3. Depois: devolução guiada, portal, templates na Meta.
 
 ### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
 
