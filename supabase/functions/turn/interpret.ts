@@ -160,8 +160,7 @@ const numberIn = (v: unknown, min: number, max: number): number | null => {
  * The model's JSON, read defensively. Anything that is not exactly the declared shape
  * reads as the neutral value for that field — a `"true"` string is not `true`, a letter
  * outside the table is no letter. `parsed` says whether there was a JSON object at all,
- * because "nothing detected" and "could not read" must not drive the same decision
- * (the clarify ladder, for one, only runs on a real reading).
+ * because "nothing detected" and "could not read" must not drive the same decision.
  */
 export const readInterpretation = (raw: string): { parsed: boolean; interpretation: Interpretation } => {
   const start = raw.indexOf("{");
@@ -240,7 +239,8 @@ const namesCount = (text: string, units: number): boolean =>
   // "quero 2, M e G" and "quero 2." count; "2,5" and "42" do not (second review).
   // Not a count: "2x", "em 2 vezes", "2 dias", "às 3 horas", "2 filhos", "apto 2" (third review).
   (units <= 9 && new RegExp(`(?<!\\d|\\d[.,])${units}(?!\\d|[.,]\\d|\\s*(?:x|vezes|dias?|horas?|h|parcelas?|filh\\w*)\\b)`).test(text) &&
-    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as)\\s*${units}\\b`).test(text)) ||
+    // "a 2", "opção 2" name the second payment option, not two pieces (fourth review).
+    !new RegExp(`\\b(?:uso|visto|numero|n|apto|ap|casa|rua|as|a|o|op[cç][aã]o)\\s*${units}\\b`).test(text)) ||
   new RegExp(`\\b${units}\\s+(?:pecas?|unidades?|coletes?|kits?)\\b`).test(text) ||
   // "um pra mim e um pra minha mãe", "pra mim e pra minha irmã", "eu e minha filha" are two.
   (units === 2 &&
@@ -389,75 +389,6 @@ export const handoffFor = (
 };
 
 /**
- * The three fixed lines of the clarify ladder, word for word from the operator (R13.4),
- * then silence. The step is read back from what was last sent, so there is no counter to
- * store and no schema change: the conversation history IS the state.
- */
-export const CLARIFY_SIZE_REPLIES = [
-  "Desculpa, não entendi, qual o tamanho que deseja?",
-  "Precisa de ajuda para escolher o tamanho?",
-  "Quando decidir é só me falar que prossigo com a criação do seu pedido.",
-] as const;
-
-export type ClarifyDecision = { kind: "none" } | { kind: "reply"; text: string } | { kind: "silent" };
-
-/**
- * What the ladder does with this message.
- *
- * It only runs on a real reading (`interpreted`): a failed call reads as "nothing
- * detected", and silence decided on no information would be the worst failure here.
- * Anything that carries meaning — a size, her own question, a decision, a payment choice,
- * an e-mail — steps off the ladder and the conversation goes on normally.
- */
-export const decideClarify = (args: {
-  interpreted: boolean;
-  interpretation: Interpretation;
-  lastOutbound: string;
-  lastAskedSize: boolean;
-  sizeFound: boolean;
-  /**
-   * She was just told "Sem problemas, estou aqui…" (she will think, or said goodbye). The
-   * ladder does not START again right after that — Neusa got it twice in a row (persona
-   * round 3); a ladder already under way still runs its course.
-   */
-  parked?: boolean;
-  /**
-   * Anything the deterministic readers took from the message — a CEP, an address piece, a
-   * name, an e-mail, a CPF. Data is never "unrelated": silencing "meu cep é 01310-100,
-   * Maria Souza" would throw away exactly what the sale needs (code review, 2026-09-24).
-   */
-  factsFound: boolean;
-  /**
-   * The size is already known (on file or said now). Absent = not known. While it is not, the
-   * ladder starts after ANY question of hers left unanswered, not only the size one (operator,
-   * 2026-10-05, after Neusa's nine model turns of "ta" and "?"); once it is, the lines — all
-   * about the size — start only after the size question.
-   */
-  sizeKnown?: boolean;
-}): ClarifyDecision => {
-  const { interpreted, interpretation: i, lastOutbound, lastAskedSize, sizeFound, factsFound } = args;
-  if (!interpreted) return { kind: "none" };
-  const step = (CLARIFY_SIZE_REPLIES as readonly string[]).indexOf(lastOutbound.trim()) + 1;
-  const meaningful =
-    sizeFound ||
-    factsFound ||
-    i.pending_answer === "answered" ||
-    i.pending_answer === "other_question" ||
-    i.wants_to_buy ||
-    i.wants_to_think ||
-    i.email !== null ||
-    i.email_unavailable ||
-    i.payment_choice !== null;
-  if (meaningful) return { kind: "none" };
-  if (step === CLARIFY_SIZE_REPLIES.length) return { kind: "silent" };
-  if (step === 0 && args.parked === true) return { kind: "none" };
-  if ((lastAskedSize || step > 0 || args.sizeKnown !== true) && i.pending_answer === "unrelated") {
-    return { kind: "reply", text: CLARIFY_SIZE_REPLIES[step]! };
-  }
-  return { kind: "none" };
-};
-
-/**
  * Her words CHOOSE a path, deterministically — the half that decides whether the model's
  * `payment_choice` is stored for the next turns (fourth review). A question compares
  * ("quanto economizo no pix em vez de pagar na entrega?"); a choice decides ("quero no
@@ -503,45 +434,123 @@ export const linkPathFor = (
   region: { cod: boolean } | null,
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
-/**
- * Whether the link goes out this turn without waiting for the rest of her identity
- * (R13.4). E-mail and CPF stopped being a condition: the checkout form asks for whatever
- * the link did not fill. What remains is the signal that she is ready — the three the
- * operator named, plus the complete identity that already sent it before.
- */
-export const sendLinkNow = (args: {
-  identityComplete: boolean;
-  interpretation: Interpretation;
-  /** The agent's last message asked for name, e-mail or CPF... */
-  identityAsked: boolean;
-  /** ...and this message brought none of them. */
-  identityGiven: boolean;
+/** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
+
+export interface LinkData {
   /**
-   * Never a link without a size (code review, 2026-09-24): on the delivery checkout she
-   * types the size herself, and a blank one is picked by the warehouse — a return at the
-   * operator's cost. Without it, the turn asks the size first.
+   * Never a link without a size (code review, 2026-09-24): a piece that does not fit comes
+   * back at the operator's cost.
    */
   sizeKnown: boolean;
-}): boolean => args.sizeKnown && readyForLink(args);
+  /** Her CEP, so the region was looked up and the payment options were said. */
+  cepKnown: boolean;
+  /** She chose the payment path, or her region left only the prepaid one. */
+  pathSettled: boolean;
+  nameKnown: boolean;
+  /** The e-mail is known, or she refused it once (`refusedAsks`, `email_unavailable`). */
+  emailDone: boolean;
+  /** A valid CPF is known, or she refused it twice. */
+  cpfDone: boolean;
+}
 
 /**
- * She is ready for the link — whether or not the size is known yet.
- *
- * Letting the name question pass counts even when she asks something new ("pra que o
- * CPF?"): the agent asks it only after she decided, and the decision is not stored
- * anywhere else — holding the link there strands a customer who already said yes (H-2
- * review, 2026-09-25).
+ * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
+ * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
+ * full name, e-mail and CPF, in this order. The order is the directive's: one thing at a time.
  */
-export const readyForLink = (args: {
-  identityComplete: boolean;
-  interpretation: Interpretation;
-  identityAsked: boolean;
-  identityGiven: boolean;
-}): boolean =>
-  args.identityComplete ||
-  args.interpretation.wants_to_buy ||
-  args.interpretation.email_unavailable ||
-  (args.identityAsked && !args.identityGiven);
+export const missingForLink = (d: LinkData): LinkDatum | null =>
+  !d.sizeKnown ? "size"
+  : !d.cepKnown ? "cep"
+  : !d.pathSettled ? "payment"
+  : !d.nameKnown ? "name"
+  : !d.emailDone ? "email"
+  : !d.cpfDone ? "document"
+  : null;
+
+/**
+ * Whether the link goes out this turn: every datum is in, and her message is not a bare "sim"
+ * beside a question (`yesBesideQuestion`) — the H-2 exception that let an ignored identity ask
+ * send the link is gone with R13.4 (the data now come first).
+ */
+export const sendLinkNow = (d: LinkData & { yesBesideQuestion: boolean }): boolean =>
+  !d.yesBesideQuestion && missingForLink(d) === null;
+
+/**
+ * A question that is itself a buyer's (review of 7c8bc7c): "Sim! Como faço pra pagar?",
+ * "sim, quero. qual o prazo?", "isso mesmo, pode mandar?", "ok, como pago?". A "sim" beside one
+ * of these goes on to the next datum or the link; a "sim" beside any other question
+ * ("tem rastreio?") holds the link until she answers alone. A denied "quero" is no buyer's.
+ */
+export const buyerAsk = (message: string): boolean => {
+  const t = norm(message);
+  return (
+    asksForLink(message) ||
+    /\bpode\s+(?:me\s+)?(?:mandar|enviar)\b/.test(t) ||
+    /\bcomo\s+(?:(?:eu\s+)?(?:faco|faz)\s+(?:pra|para)\s+)?pag/.test(t) ||
+    [...t.matchAll(/\bquero\b/g)].some((m) => !negatedBefore(t, m.index ?? 0) && !/^\s+(?:sabe|saber|entender|ver|perguntar|tirar|confirmar|conferir|uma\s+(?:duvida|informacao))\b/.test(t.slice((m.index ?? 0) + 5)))
+  );
+};
+
+/**
+ * Whether the agent already offered the kit (review of f657faa, finding 6): by the words she
+ * reads ("duas peças", "kit", "levando 2") or by any kit's price in her messages — "as duas saem
+ * por R$ 239,80" names no kit and was offered again every turn, holding the data and the link.
+ */
+export const kitWasOffered = (outbound: readonly string[], kitPrices: readonly number[]): boolean => {
+  const prices = kitPrices.map((p) => p.toFixed(2).replace(".", ","));
+  return outbound.some(
+    (m) =>
+      /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m) ||
+      prices.some((p) => new RegExp(`(?<![\\d.,])${p}(?![\\d])`).test(m)),
+  );
+};
+
+/**
+ * The path her short answer to the two options names, or null (second review of 41757c8): the whole
+ * message is the answer — "a primeira", "vou de pix", "prefiro pagar quando receber", "na entrega
+ * mesmo" — so a word inside another sentence ("é minha primeira compra", "a entrega é pelos
+ * Correios", "minha irmã pagou no pix") names nothing, and a denial or a doubt is no answer.
+ * "A primeira" is the delivery: `twoOptionsMessage` says it first.
+ */
+const whichOfTwo = (message: string): PaymentChoice | null => {
+  // The "?" is read on her raw text, before the trailing marks are cut (third review: "pix?" stored).
+  if (message.includes("?")) return null;
+  const t = norm(message).trim().replace(/[^a-z0-9]+$/, "");
+  if (/\b(?:nao|nunca|jamais|nem|medo|sei|talvez|pensar|tanto\s+faz|qual|quais|quanto|como|diferenca|compensa)\b/.test(t)) return null;
+  const m =
+    /^(?:(?:ok|sim|entao|beleza)[,\s]+)?(?:(?:prefiro|quero|escolho|pode\s+ser|fico\s+com|vou\s+querer|vou\s+de|vou)\s+)?(?:(?:a|o|na|no|pel[ao]|pagar|pagando|pagamento|de|opcao)\s+)*(primeira|primera|segunda|[12]|antecipad\w*|adiantad\w*|pix|entrega|(?:quando|na\s+hora\s+que)\s+(?:receb|cheg)\w*)(?:[,\s]+(?:mesmo|msm|entao|por\s+favor|pfv|sim|opcao|ne|kk+))*$/.exec(t);
+  if (!m) return null;
+  // A digit is the option only alone or after "a/o/opção": "quero 2" is two pieces (fourth review).
+  if (/^[12]$/.test(m[1]!) && !/(?:^(?:(?:ok|sim|entao|beleza)[,\s]+)?|\b(?:a|o|na|no|pel[ao]|opcao)\s+)[12]\b/.test(t)) return null;
+  return /^(?:primeira|primera|1|entrega|quando|na\s+hora)/.test(m[1]!) ? "cod" : "prepay";
+};
+
+/**
+ * The payment path to store for the next turns, or null (review of f657faa, findings 1 and 2).
+ * The link waits for a settled path, so the choice must survive the turn it was made in:
+ * - the interpreter's reading, when her words choose (`choosesPath`) or answer the prompt's
+ *   "Qual das duas fica melhor pra você?" naturally ("a primeira", "o antecipado", "prefiro pagar
+ *   quando receber") — never a question about the two ("qual a diferença das duas?");
+ * - the delivery, when she says "sim" to `DEFAULT_COD_CONFIRM` — also beside a buyer's question
+ *   ("Sim! Como faço pra pagar?"), never beside another one ("sim, tem rastreio?").
+ * `confirms` is `parts.some(confirmsAddress)`, computed by the caller: this file has zero imports.
+ */
+export const pathChoiceToStore = (d: {
+  interpreted: PaymentChoice | null;
+  parts: readonly string[];
+  lastOutbound: string;
+  confirms: boolean;
+}): PaymentChoice | null => {
+  const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
+  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))) return d.interpreted;
+  const defaultCod =
+    d.interpreted !== "prepay" &&
+    /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
+    d.confirms &&
+    (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
+  return defaultCod ? "cod" : null;
+};
 
 /**
  * Whether an opt-out message also asks something (R13.4, Rose): "não me manda mais
@@ -642,6 +651,22 @@ export const decidesToBuy = (message: string): boolean => {
     return true;
   }
   return false;
+};
+
+/**
+ * The decision in a burst of her messages (grafo §59): the newest word wins. True when a line
+ * decides and no later line puts it off or takes it back ("quero o M" / "não, pensando bem vou
+ * esperar"); false when one does; null when no line decides.
+ */
+const RETRACTS =
+  /\b(?:depois|esperar|pensar|pensando\s+bem|desist\w*|mais\s+tarde|outro\s+dia|deixa\s+(?:pra\s+la|pra\s+depois|quieto)|agora\s+nao|melhor\s+nao|nao\s+vou\s+(?:querer|levar|comprar)|nao\s+quero\s+mais)\b/;
+export const decisionInBurst = (messages: readonly string[]): boolean | null => {
+  const lines = messages.flatMap((m) => m.split("\n"));
+  const at = lines.findLastIndex(decidesToBuy);
+  if (at === -1) return null;
+  // A later line that may take it back is not read as "no": "depois de amanhã pode entregar?" is
+  // a buyer (review of 21f2e29). The model, reading the whole burst, decides.
+  return lines.slice(at + 1).some((l) => RETRACTS.test(norm(l))) ? null : true;
 };
 
 /**

@@ -155,3 +155,11 @@ R16.5 | warranty_promise | No antecipado o prazo varia por região, em média 5 
 P-2026-10-05 | shipping_promise | Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, tá? Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
 P-2026-10-05 | shipping_promise | É isso mesmo, você paga só quando receber. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
 P-2026-10-05 | shipping_promise | Você não paga nada adiantado. Pagando na entrega o frete é grátis: você paga só R$ 129,90 quando receber.
+G63 | delivery_promise | delivery_promise: 'escolhe um dia em que você vai estar' não é prazo
+G63 | delivery_promise | Escolhe um dia em que você vai estar em casa.
+G63 | delivery_promise | Dá pra marcar um dia em que você vai estar em casa.
+G63 | delivery_promise | negação (achado 7): no antecipado não existe agendamento — 'marcar um dia' segue vetado
+P07 | coverage_claim | É normal ficar nessa dúvida, porque a maioria chega aqui com esse mesmo receio.
+P07 | coverage_claim | Muita gente chega aqui com essa dúvida.
+P07 | coverage_claim | Toda cliente chega aqui assim, desconfiada.
+P07 | coverage_claim | Quando você chega aqui já sabe o que quer, né?

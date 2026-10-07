@@ -313,10 +313,10 @@ describe("rodada 13 na Edge Function", () => {
     expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
     // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
     const finalInsert = source.indexOf("const outbound = (");
-    const lastCheck = source.lastIndexOf("const gaveUp = await retryGaveUp(rewritesUsed);", finalInsert);
+    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert);
     expect(lastCheck).toBeGreaterThan(-1);
     expect(finalInsert - lastCheck).toBeLessThan(200);
-    expect(source).toContain("const gaveUp = await retryGaveUp(0);");
+    expect(source).toContain("const gaveUp = await lateGuard(0, text);");
     expect(source).toContain("body: JSON.stringify(ticket),");
     expect(source).toContain("`followups?conversation_id=eq.${conversation.id}&kind=eq.${RETRY_TURN_KIND}&status=eq.scheduled`");
   });
@@ -327,16 +327,17 @@ describe("rodada 13 na Edge Function", () => {
 
   it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
     expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
-    expect(source).toContain("isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
-    expect(source).toContain("signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+    expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
+    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
-  // Code review, 2026-09-24: a escada silenciava "meu cep é 01310-100, Maria Souza".
-  it("a escada do tamanho decide depois dos leitores de endereço e identidade", () => {
-    const ladder = source.indexOf("const clarify = decideClarify(");
-    expect(ladder).toBeGreaterThan(source.indexOf("const foundAddress = extractAddress("));
-    expect(ladder).toBeGreaterThan(source.indexOf("const identityDraft = mergeIdentity("));
-    expect(source).toContain("factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0");
+  // Grafo §60 (operador, 2026-10-06): a escada fixa saiu; toda mensagem vai ao modelo, e a
+  // pergunta dela no lugar do tamanho continua respondida primeiro.
+  it("a escada do \"não entendi\" não existe mais no turno", () => {
+    for (const gone of ["decideClarify", "CLARIFY_SIZE_REPLIES", "escada do tamanho", "não entendi, qual o tamanho"]) {
+      expect(source, gone).not.toContain(gone);
+    }
+    expect(source).toContain("lastAskedSize && stated === null && interpretation.pending_answer === \"other_question\"");
   });
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
@@ -360,11 +361,12 @@ describe("rodada 3 na Edge Function", () => {
     expect(source).toContain("nunca diga que chega ou que atende a cidade ou o CEP dela");
   });
 
+  // Grafo §63: a diretiva da região manda ao exemplo do prompt (`noCodMessage`), que lê o frete com
+  // o mesmo `=== true` do gate (tests/prompt.test.ts); "saída boa" saiu.
   it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
     expect(source).not.toContain("frete grátis, e ainda sai mais barato");
-    expect(source).toContain("O frete é calculado no checkout");
-    // O mesmo ramo que o prompt usa: só `true` explícito é grátis.
-    expect(source).toContain("CONFIG.delivery.freeShipping === true ? ` O frete é grátis`");
+    expect(source).not.toContain("saída boa");
+    expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
   });
 
   it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {
@@ -381,15 +383,10 @@ describe("rodada 3 na Edge Function", () => {
   it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
     expect(source).toContain('statesPastPurchase(inbound.body ?? "") ||');
     expect(source).toContain("statesPastPurchase(m.body ?? \"\", false)");
-    expect(source).toContain('if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
+    expect(source).toContain('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
     // A decisão é lida antes da despedida, que a consulta.
     expect(source.indexOf("if (decidesToBuy(")).toBeLessThan(source.indexOf("if (goodbyeParks("));
-    expect(source).toContain('if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };');
-  });
-
-  it("a escada lê o histórico: não recomeça logo depois do \"vou pensar\"", () => {
-    expect(source).toContain("parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),");
-    expect(source.indexOf("const clarify = decideClarify(")).toBeGreaterThan(source.indexOf("const recentOutbound = recent"));
+    expect(source).toContain("if (decided !== null) interpretation = { ...interpretation, wants_to_buy: decided };");
   });
 });
 
@@ -404,7 +401,7 @@ describe("M-03 na Edge Function", () => {
       '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
     );
     expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
-    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
   });
 });
 
@@ -428,7 +425,7 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
     const dedupe = source.indexOf("// 1. Idempotency");
     expect(seal).toBeGreaterThan(-1);
     expect(seal).toBeLessThan(dedupe);
-    expect(source).toContain('    signingSecret !== "" &&\n    !isRetry &&\n    !(await sealIsValid(');
+    expect(source).toContain('    signingSecret !== "" &&\n    !isRetry &&\n    !isRevise &&\n    !(await sealIsValid(');
   });
   it("com TURN_REQUIRE_SERVICE_ROLE, a chave pública não abre a função", () => {
     expect(source).toContain('Deno.env.get("TURN_REQUIRE_SERVICE_ROLE") === "true" && callerRole(request) !== "service_role"');
@@ -457,7 +454,7 @@ describe("a porta do turno: selo, papel e janela (revisão de segurança, 2026-0
 describe("H-2 na Edge Function (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("preço inventado desliga a decisão de compra, depois da leitura determinística", () => {
-    const decide = source.indexOf('if (decidesToBuy(inbound.body ?? "")) interpretation');
+    const decide = source.indexOf("if (decided !== null) interpretation");
     const bargain = source.indexOf(
       'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
     );
@@ -487,10 +484,10 @@ describe("kits: revisão de código (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a nova tentativa não reaplica os tamanhos; a compra zera o kit", () => {
     // The retry reads the clock, not the content: merged after the message arrived = replay.
-    expect(source).toContain("saidSizes.length < units &&\n    retriedInboundAt !== null &&");
+    expect(source).toContain("saidSizes.length < units &&\n    batchFrom !== null &&");
     // Every turn that uses the kit renews its clock.
     expect(source).toContain("  if (quantity || units > 1) {\n    await db(`leads?id=eq.${lead.id}`, {");
-    expect(source).toContain("retriedInboundAt = latest[0].created_at ?? null;");
+    expect(source).toContain("batchFrom = unanswered[0]?.created_at ?? null;");
     expect(source).toContain("replayed ? [] : saidSizes,");
     expect(source).toContain("saysOwnSize(inbound.body");
     // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
@@ -502,14 +499,14 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("interpretation.unit_pants.map(sizeFromDressSize)");
     expect(source).toContain('body: JSON.stringify({ units: null, unit_sizes: null, payment_choice: null, payment_choice_at: null }),');
     // A choice is stored only from a choice, and expires.
-    expect(source).toContain('if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {');
+    expect(source).toContain("if (choiceToStore) {");
     expect(source).toContain("Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS");
     // The ruler speaks of the order, and a deferred reply is re-gated with the kit and path.
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=amount_brl,units,size,payment_method,status,scheduled_for&order=created_at.desc&limit=1");
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
-    expect(source).toContain("thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
     // O10: the sale webhook refuses a forged sale when the secret is set.
     expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
     expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');
@@ -520,11 +517,12 @@ describe("kits: revisão de código (2026-09-25)", () => {
     // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
     expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
     expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
-    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? storedChoice;");
+    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
     expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');
     expect(source).toContain("units > 1 ? null : sizeDirectiveFor(");
-    expect(source).toContain("No complemento do endereço, escreva os tamanhos:");
+    expect(source).toContain("Lá no checkout você escolhe o tamanho de cada peça:");
+    expect(source).not.toMatch(/complemento/i);
   });
 });

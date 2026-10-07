@@ -110,6 +110,9 @@ const contexts = Object.entries(configs).flatMap(([name, c]) =>
     })),
   ),
 );
+// Her message asked nothing about what the agent is (Q10 line 2, grafo §58): the one context where
+// the "não anuncia" veto runs. Without it that veto is invisible to this diff, as askedTestimonial is.
+contexts.push({ label: "teste/cod/sem-regiao/sem-pergunta-de-identidade", ctx: ctx({ config, regionKnown: false, askedIdentity: false }) });
 
 const verdicts = (g: Gates, text: string, c: (typeof contexts)[number]["ctx"]) =>
   new Map<string, Verdict>(g.runGates(text, c).traces.map((t) => [t.gate, t.verdict as Verdict]));

@@ -22,7 +22,7 @@ salvamento e a política de crescimento.
 - [O desfecho do turno não é persistido](desfecho-do-turno-nao-persistido.md) — vai para `turn_outcomes` desde 22/09 (não deployado); conversa anterior ao deploy da v33 não tem desfecho, e nenhuma taxa pode começar antes dessa data.
 - [Guarda testada por mutação](guarda-testada-por-mutacao.md) — toda guarda nova ganha uma mutação em `src/dev/verify-guards.ts` que reinstala o bug de origem; o CI exige que ela fique vermelha.
 - [Grafo de decisões](grafo-de-decisoes.md) — leia antes de mexer em gate, estado da conversa ou handoff: os atalhos óbvios já falharam e o grafo diz por quê.
-- [Não relembrar PAT nem CONVERSATION_MODEL](nao-relembrar-pendencias-do-operador.md) — o operador sabe e faz; pendência já reconhecida não vira fecho de resposta.
+- [Não relembrar PAT nem CONVERSATION_MODEL](nao-relembrar-pendencias-do-operador.md) — o operador sabe e faz; pendência já reconhecida não vira fecho de resposta. O modelo (`CONVERSATION_MODEL`) só o operador troca, à mão (06/10).
 - [Divisão de papéis: Meta é do sócio](divisao-de-papeis-meta.md) — Ads, BM, developer, número e templates são do sócio; o operador cuida do técnico.
 - [Diagnóstico antes de consertar](diagnostico-antes-de-consertar.md) — regra do operador: nada de tentativa e erro; causa e origem exatas primeiro, conserto depois. As 10 rodadas do gate de prazo são o contraexemplo.
 - [Ambiente muda entre sessões](ambiente-aponta-para-outro-projeto.md) — em 28/09 o Supabase do container era de outro projeto, em 29/09 era o da Encorpa; confira `list_projects` antes de tocar produção. O secret `BUSINESS_CONFIG` não é legível pelo conector.
@@ -30,3 +30,4 @@ salvamento e a política de crescimento.
 - [`pnpm dev:n8n` sobrescreve os workflows](dev-n8n-sobrescreve-workflows.md) — grava a versão ativa em `n8n/workflows/`; com o main à frente do n8n, `git add -A` depois dele desfaz o main. Adicione só o workflow publicado.
 - [Editor do n8n tira a senha do formulário](n8n-editor-tira-senha-do-formulario.md) — em 30/09 o "Responder cliente" foi ativado sem basic auth depois do teste pelo editor; ative só com `pnpm dev:n8n` dando ok para ele.
 - [Porta n8n do container bate no proxy](porta-n8n-do-container-bate-no-proxy.md) — do container, turno com modelo pela porta do n8n dá 502 (proxy < ~40 s) e o turno atrasado recria o lead sintético depois da limpeza; apague `5500099*` depois.
+- [Proxy sobrescreve o Authorization do Supabase](proxy-sobrescreve-auth-do-supabase.md) — rodada local de personas: NO_PROXY no host do Supabase + service_role nos dois processos; Coinzz dá 302 daqui (região nula); passe o modelo da produção (hash dos segredos).

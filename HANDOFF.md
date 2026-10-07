@@ -11,7 +11,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-06)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07)
 
 Plano: [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md).
 Achados que o motivam: [`docs/agente-ia/10-auditoria/2026-09-29-auditoria.md`](docs/agente-ia/10-auditoria/2026-09-29-auditoria.md).
@@ -31,6 +31,102 @@ Mapa do repositório: [`docs/README.md`](docs/README.md). Tudo abaixo deste quad
 Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa feita muda de lista.
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
+
+### Onde estamos — 2026-10-07, madrugada (sessão `claude/focused-lovelace-ym1coj`, LEIA PRIMEIRO)
+
+**Conferido ao começar:** `turn` no ar = v78 com o pacote da v76 (`agent_version` 9); migrações até 0022
+(**0023 não aplicada**). PR #53 tinha conflito só no título deste quadro — resolvido por merge (`1b8ad71`).
+
+**Feito nesta sessão (tudo na branch, também empurrado para a do PR #53 até `6122dd9`):**
+- "Falta" 1 da sessão anterior **fechado**: o WIP `f657faa` revisado pelo Opus em cinco rodadas (NEEDS WORK
+  ×4 → APPROVED WITH RESIDUALS, resíduos consertados em `c22d187`); grafo §63; decisão R18.8.
+- "Falta" 2 **decidido pelo operador: opção 1** — resposta com link arma só o lembrete de 15 min (sem "Ainda
+  está aí?" nem `silence_1`); a pergunta de ofertas segue também esse lembrete (`optInFollows`).
+- `WA-envio-desligado` reescrita para o canal ligado (operador autorizou).
+- Validação em `c22d187`: `test` 6556, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxamento sem aceite,
+  `dev:regua` 20 000 casos, `typecheck:function` limpo; `verificar:guardas` 342/342 em `a2d1a10` + as duas
+  mutações alteradas depois, pegas em `c22d187`.
+
+**Depois (mesma sessão, 07/10):**
+- **0023 aplicada** em produção (`20261006221247_0023_replying_since`, autorizada pelo operador).
+- **Modelo de produção:** desde 06/10 19:30 UTC a `turn` roda `muse-spark-1.3-contributor` (segredos
+  conferidos pelo hash SHA-256; `CLAUDE.md` corrigido).
+- **Quatro rodadas de 12 personas** contra a `turn` do disco (porta `local`): uma no padrão (R$ 5,23) e três
+  no contribuidor (R$ 0,33 · 0,22 confirmação · 0,37 final). Defeitos reais achados e consertados (grafo §64):
+  nota interna do modelo vazando ("Need ask CEP."), 4 balões, e-mail pedido 3×, kit colado no pedido de dado,
+  preço segurado até o CEP, "a maioria chega aqui" vetado, nome na 1ª linha acima da rua, CPF recusado 3× sem
+  link, frase do "vou pensar" repetida. Cada conserto revisado pelo Opus até aprovar; mutações `P07-*`.
+- Rodada final no contribuidor: 12/12 sem resposta pronta, nenhum balão a mais, nenhuma nota interna;
+  custo ~R$ 0,03 por conversa.
+- Ver a memória `proxy-sobrescreve-auth-do-supabase` antes de rodar personas pelo container.
+
+**No ar desde 2026-10-07 08:17 UTC:** `agent_version` **10** = `turn` v80 = commit `a5d4837`
+([PR #54](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/54), CI verde, `verificar:guardas` 362/362).
+Sonda pela porta `function`: 401 "mensagem sem o selo da entrada" — a v10 sobe e a porta segue fechada a
+quem não vem selado pelo n8n. A prova da conversa em produção é o teste do operador pelo WhatsApp.
+
+**Falta, nesta ordem:**
+1. **O** teste real pelo WhatsApp (a partir das 06:00 de São Paulo — antes disso a resposta é adiada para a
+   abertura). Roteiro mínimo: "quanto custa?" antes do CEP (deve dar o preço), um CEP com pagamento na
+   entrega e um sem (Manaus 69050-000 — só antecipado, com o motivo), o tamanho pela calça, a escolha "a
+   primeira", nome/e-mail/CPF (recusar o CPF duas vezes → o link sai sem ele), "vou pensar".
+   Conferir `turn_outcomes.agent_version = 10`. Apagar o lead de teste depois.
+2. **O** mergear o PR #54 e fechar o #53 (superado).
+3. Depois: devolução guiada, portal, templates na Meta.
+
+### Onde estamos — 2026-10-06, noite (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
+
+**No ar:** `agent_version` 9 (`turn` v76, commit `1026821`). Canal WhatsApp **ligado e testado de ponta a ponta**
+(webhook da Meta verificado, n8n "WhatsApp envio" com credencial Header Auth "WhatsApp Cloud API",
+`PHONE_NUMBER_ID` 1370670962794717, `CANAL_ATIVO=true`). "Venda confirmada" no n8n com o aviso de status novo
+(versão ativa `23768d23`). Teto R$ 1,00. Modelo: o **operador** troca `CONVERSATION_MODEL` à mão (memória
+`nao-relembrar-pendencias-do-operador`) — nunca o Claude.
+
+**Publicado hoje (v5→v9):** v5 cancelamento por forma de pagamento (§54–§56) e véspera do pago "ninguém para
+receber" (§53); v6 vocabulário de status Logzz/Coinzz + e-mail de status novo (§57); v7 nunca se anuncia
+virtual sem pergunta (§58); v8 rajada de mensagens = uma resposta (§59); v9 sem escada "não entendi" (§60).
+
+**Commitado e NÃO publicado:**
+- `7c8bc7c` rajada v2 (§61): espera 5 s; mensagem que chega enquanto escreve é incorporada (revisão, máx. 2),
+  não descartada; lock `conversations.replying_since` (**migração 0023 — aplicar ANTES do deploy**);
+  "Ainda está aí?" (`still_there`) 10 min após pergunta sem resposta; "sim" ao lado de pergunta não confirma.
+  Revisão: NEEDS WORK — (1) "Sim! Como faço pra pagar?" perdia o link; (2) sem 0023 cada rajada era
+  respondida 2×. As duas correções estão no trabalho em andamento abaixo.
+- `e46ddbc` prompt de venda v2 (§62), do desenho `docs/agente-ia/06-script/05-conversa-de-venda-v2.md`.
+- `d502a70` o desenho (117 perguntas, arco em 8 etapas, Leila reescrita).
+
+**Em andamento (WIP commitado como "wip:" se a sessão acabou no meio — conferir testes):** o código obedecendo o
+prompt v2: link só com tamanho + CEP + forma de pagamento + nome + e-mail + CPF (CPF recusado 2× → link sem
+ele); tamanho escolhido no checkout (sem "complemento"); "vou pensar" sem link; diretiva de região
+independente do tamanho; telefone sem 55 na Coinzz; oferta de kit 2/3 peças UMA vez depois da escolha da
+forma de pagamento, com link do checkout específico do kit; gates `charge_promise` (negação "não faz pagamento
+na entrega"), `delivery_promise` ("um dia em que você vai estar"), `coverage_claim` (antes da consulta do CEP);
++ as 2 correções da revisão de `7c8bc7c`. Arquivo novo `tests/link-after-data.test.ts`. Entrada do grafo §63
+a escrever.
+
+**Decisões do operador hoje (não reabrir):** público do anúncio não convencido → valor e segurança antes do
+preço; duas opções lado a lado só com pagamento na entrega na região (sem: só antecipado + motivo "a
+transportadora ainda não tem pagamento na entrega"); "sim" = entrega só onde existe; até 3 balões, um assunto
+cada — primeiro as perguntas dela na ordem, depois o que ela contou, depois a próxima pergunta; recepção fixa
+NÃO muda; e-mail pedido nos dois caminhos e guardado (Logzz não mostra); Coinzz: tamanho escolhido no checkout;
+pós-parto/gestante fora; "vou pensar" sem link; CPF recusado 2× → link sem CPF.
+**Fatos do produto (operador):** poliéster + elastano, forro de algodão, colchetes que não enrolam, sem
+barbatana; não dá calor; o dia todo; pode dormir; exercício sim; lavar à mão, água fria, secar à sombra (site);
+só preto; "pega o abdômen e as costas por completo, e tem alças"; na entrega ela escolhe como pagar, outra
+pessoa pode receber e pagar, ninguém em casa → volta ao centro e a entrega é frustrada; antecipado por Correios
+ou transportadora conforme a região, com rastreio, sem boleto; confiança: só site e e-mail.
+
+**Falta, nesta ordem:**
+1. **C** terminar o código acima → revisão Opus → `pnpm verificar:guardas` (ids `R10.4-armado`,
+   `R10.4-resposta`, `WA-janela-no-fim`, `G58-fiacao`) → grafo §63.
+2. **O decide:** toques depois do link — proposta (1) com link só o lembrete do link aos 15 min, sem "Ainda
+   está aí?"; sem link "Ainda está aí?" 10 min + `silence_1` 30 min; ou (2) manter os três em 30 min.
+3. **C** aplicar a migração 0023 e `pnpm deploy:turn` (v10) — precisa de `sbp_` e do "pode publicar" do operador.
+4. **C** rodada das 12 personas no modelo (taxa de link, reescritas, balões, as duas opções) antes do teste humano.
+5. **O** teste real pelo WhatsApp (o lead de teste final 5983 está no banco; apagar para testar a abertura).
+6. Depois: ensinar a guiar a devolução; portal (operador decidiu manter, com fluxo n8n + token `ads_read` do
+   sócio); templates na Meta (texto do `encorpa_vespera_entrega_pago` mudou: "Se não tiver ninguém para
+   receber…").
 
 ### Onde estamos
 
@@ -158,11 +254,12 @@ Estado conferido ao começar: PRs #48 e #49 mergeados, `main` `9ee0516`; `turn` 
   rever (o §7 calcula R$ 1.970–2.584 com produto e transação na reserva).
 - **Não deployado:** a `turn` só sobe depois de **0021 e 0022 aplicadas**, por `pnpm deploy:turn`.
 
-**2026-10-06 — feito pelo operador:** PR #51 mergeado (`main` = `agent_version` 4 no ar);
+**2026-10-06, manhã — feito pelo operador** (veio do `main` no merge; a lista "Próxima sessão" abaixo foi
+executada na sessão da noite — o estado vigente é o quadro "Onde estamos — 2026-10-06, noite" acima): PR #51 mergeado (`main` = `agent_version` 4 no ar);
 `cost.conversationCapBrl` 1.0 no `BUSINESS_CONFIG`; checklist da Meta, URL do webhook e
 `WHATSAPP_VERIFY_TOKEN` entregues ao sócio. **O operador traz os valores da Meta na próxima sessão.**
 
-**Próxima sessão — nesta ordem (C = Claude, com os valores na conversa):**
+**Próxima sessão (manhã de 2026-10-06, já executada) — nesta ordem (C = Claude, com os valores na conversa):**
 1. **C** — conferir o estado real: `git log origin/main`, `turn` v57 / `agent_version` 4, função `whatsapp` v1,
    segredos presentes (`INBOUND_SIGNING_SECRET`, `WHATSAPP_VERIFY_TOKEN`, `TURN_REQUIRE_SERVICE_ROLE`), n8n `dev:n8n` ok.
 2. **C** — gravar `WHATSAPP_TOKEN`, `WHATSAPP_PHONE_NUMBER_ID`, `WHATSAPP_APP_SECRET` nos segredos da Supabase

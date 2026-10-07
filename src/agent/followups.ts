@@ -17,7 +17,9 @@ export type OrderKind = "order_confirmed" | "order_shipped" | "order_eve" | "ord
 export type CheckoutKind = "checkout_reminder";
 /** A reply the model already wrote, held back by the clock rather than reworded. */
 export type DeferredKind = "deferred_reply";
-export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind;
+/** "Ainda está aí?" — ten minutes after a reply of hers that ended in a question (operator, 2026-10-06). */
+export type StillThereKind = "still_there";
+export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -139,12 +141,22 @@ export type TouchAction =
  * The touches that chase her silence — the three `silence_*` and the 15-minute checkout
  * touch (§R10.4). Her reply and a sale end all of them; nothing else in the ruler.
  */
+/**
+ * The touches the marketing opt-in question may follow (R15.1): `silence_1`, and since the touches
+ * after the link (option 1, operator 2026-10-06) the 15-minute `checkout_reminder` too — the link
+ * reply no longer arms `silence_1`, and without the question the coupon touch would never reach the
+ * hottest abandonment, the one who got the link and went quiet (review of f657faa, finding 5).
+ */
+export const optInFollows = (kind: string): boolean => kind === "silence_1" || kind === "checkout_reminder";
+
 export const inSilenceRuler = (kind: string): boolean =>
-  kind.startsWith("silence_") || kind === "checkout_reminder";
+  kind.startsWith("silence_") || kind === "checkout_reminder" || kind === "still_there";
 
 export const decideTouch = (kind: FollowupKind, remedy: Remedy | null): TouchAction => {
   if (remedy === null) return { do: "send" };
   if (remedy !== "defer") return { do: "cancel" };
+  // "Ainda está aí?" belongs to the moment: at the reopening it would be a non sequitur.
+  if (kind === "still_there") return { do: "cancel" };
   return { do: "postpone", restartRuler: inSilenceRuler(kind) };
 };
 
@@ -159,6 +171,14 @@ export interface RulerAnchors {
   readonly entry: Date;
   readonly lastInbound: Date;
 }
+
+/** "Ainda está aí?" — exactly this, once per question of hers left open (operator, 2026-10-06). */
+export const STILL_THERE_REPLY = "Ainda está aí?";
+export const STILL_THERE_MS = 10 * MINUTE;
+
+/** The reply ends in a question: the last thing before trailing spaces and emoji is a "?". */
+export const endsWithQuestion = (text: string): boolean =>
+  /\?[\s\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]*$/u.test(text);
 
 /** The latest a touch may go in the entry's window: 71 h, an hour of margin before the 72. */
 const ENTRY_BAND_END = 71 * HOUR;
@@ -233,6 +253,8 @@ export const rulerFor = (
   postponed?: FollowupKind,
   linkInReply = false,
   anchors?: RulerAnchors,
+  /** The reply ended in a question: a fresh ruler opens with "Ainda está aí?" (operator, 2026-10-06). */
+  askedQuestion = false,
 ): ScheduledFollowup[] => {
   // Anchored, `silence_3` keeps the entry's time: postponed, it goes at the reopening while
   // that is still inside the band, and not at all after it (4a).
@@ -240,12 +262,17 @@ export const rulerFor = (
     const at = new Date(Math.max(from.getTime(), silence3At(anchors.entry).getTime()));
     return at.getTime() <= anchors.entry.getTime() + ENTRY_BAND_END ? [{ kind: "silence_3", runAt: at }] : [];
   }
-  const ruler = scheduleSilence(from, stopPoint, anchors).filter(
-    (f) => f.kind !== "checkout_reminder" || postponed !== undefined || linkInReply,
+  // Touches after the link, option 1 (operator, 2026-10-06): the reply that carried the link —
+  // or its 15-minute touch, postponed by the clock — gets only that touch in the first half hour:
+  // no "Ainda está aí?" and no `silence_1` asking again whether she managed to finish.
+  const linkTouch = stopPoint === "link_sent" && (postponed === undefined ? linkInReply : postponed === "checkout_reminder");
+  const ruler = scheduleSilence(from, stopPoint, anchors).filter((f) =>
+    f.kind === "checkout_reminder" ? postponed !== undefined || linkInReply : !(linkTouch && f.kind === "silence_1"),
   );
   const at = ruler.findIndex((f) => f.kind === postponed);
   // A postponed touch the anchored ruler has no time for is not re-armed — nor the ones before it.
   if (at === -1 && postponed !== undefined && anchors) return [];
+  if (postponed === undefined && askedQuestion && !linkTouch) ruler.unshift({ kind: "still_there", runAt: new Date(from.getTime() + STILL_THERE_MS) });
   return at === -1 ? ruler : ruler.slice(at);
 };
 
@@ -367,13 +394,93 @@ export interface ExistingFollowup {
  * deixa R$ 129,90 separado". That is the message that burns the number and the brand at
  * once, and nothing in the system was stopping it.
  *
- * Matched by root rather than by an exact list, because neither platform publishes its
- * status vocabulary and both write in Portuguese with their own wording — "Cancelado",
- * "cancelado pelo cliente", "Recusado na entrega". A root missed here fails the way it
- * failed before, which is the floor, not a new risk.
+ * A status in the vocabulary below (grafo §57) is read from it. One outside it is matched by
+ * root, as before — "cancelado pelo cliente", "Recusado na entrega". A root missed here fails
+ * the way it failed before, which is the floor, not a new risk.
  */
-export const isOrderDead = (status: string | undefined): boolean =>
-  /cancel|recus|devolv|estorn|reembols|refund|refus|return/i.test(status ?? "");
+export const isOrderDead = (status: string | undefined): boolean => {
+  const terms = statusTerms(status);
+  return terms ? terms.includes("dead") : /cancel|recus|devol|estorn|reembols|refund|refus|return/i.test(status ?? "");
+};
+
+/**
+ * The status vocabulary of Logzz and Coinzz, in code (operator, 2026-10-06, grafo §57). Logzz sends
+ * `order_status` bare; Coinzz arrives "payment / shipping" (n8n "Normaliza a venda"), the shipping
+ * part absent before shipping. Every part of a status must be here for it to be known — accents,
+ * case and spacing aside. CONFIRMED (Logzz help center, Coinzz test webhook): Agendado, Reagendado,
+ * A reagendar, Em separação, Em rota, A caminho, Completo, Frustrado, Cancelado, Reembolsado;
+ * Aprovado, Enviado, Sem sucesso. The rest is INFERRED. The words the cancel allowlist already took
+ * (review of da612fd) stay. `created` is n8n's own when no status came.
+ *
+ * Unknown is a status nobody has mapped yet: the sale webhook returns it raw to n8n, which e-mails
+ * the operator to add it here with a test; a cancel on it hears "vou checar" (`cancelReplyFor`);
+ * the ruler keeps reading it by root, as before the vocabulary — that is the floor, not a new risk.
+ */
+// `reschedule` is a failed attempt with another one coming: the ruler reads it as `failed`, but a
+// cancel on delivery still hears the door reply (review of 82b4643).
+type StatusTerm = "unpaid" | "paid" | "pre_ship" | "en_route" | "delivered" | "failed" | "reschedule" | "dead";
+const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
+  // Logzz.
+  ["agendado", "pre_ship"],
+  ["reagendado", "pre_ship"],
+  ["em separacao", "pre_ship"],
+  ["em rota", "en_route"],
+  ["a caminho", "en_route"],
+  ["completo", "delivered"],
+  ["a reagendar", "reschedule"],
+  ["frustrado", "failed"],
+  ["cancelado", "dead"],
+  ["reembolsado", "dead"],
+  // Coinzz, payment.
+  ["aprovado", "paid"],
+  ["aprovada", "paid"],
+  ["pago", "paid"],
+  ["paga", "paid"],
+  ["paid", "paid"],
+  ["approved", "paid"],
+  ["pagamento aprovado", "paid"],
+  ["pagamento confirmado", "paid"],
+  ["pendente", "unpaid"],
+  ["aguardando pagamento", "unpaid"],
+  ["aguardando", "unpaid"],
+  ["em analise", "unpaid"],
+  ["recusado", "dead"],
+  ["estornado", "dead"],
+  ["chargeback", "dead"],
+  // Not dead: a Pix or boleto that expired can be paid on the same order (review of 82b4643).
+  ["expirado", "unpaid"],
+  // Coinzz, shipping.
+  ["aguardando envio", "pre_ship"],
+  ["aguardando coleta", "pre_ship"],
+  ["preparando envio", "pre_ship"],
+  ["enviado", "en_route"],
+  ["em transito", "en_route"],
+  ["postado", "en_route"],
+  ["em transporte", "en_route"],
+  ["saiu para entrega", "en_route"],
+  ["entregue", "delivered"],
+  ["sem sucesso", "failed"],
+  ["nao entregue", "failed"],
+  ["devolvido", "dead"],
+  ["em devolucao", "dead"],
+  // n8n, when the webhook carried no status.
+  ["created", "pre_ship"],
+]);
+
+/** The terms of a status, or null when any part of it is not in the vocabulary. */
+const statusTerms = (status: string | null | undefined): StatusTerm[] | null => {
+  const parts = (status ?? "")
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split("/")
+    .map((t) => t.replace(/\s+/g, " ").trim())
+    .filter(Boolean);
+  const terms = parts.map((t) => ORDER_STATUS_TERMS.get(t));
+  return parts.length > 0 && terms.every((t) => t !== undefined) ? (terms as StatusTerm[]) : null;
+};
+
+export const isKnownOrderStatus = (status: string | null | undefined): boolean => statusTerms(status) !== null;
 
 /**
  * The status an order keeps when a webhook arrives: a dead order stays dead (third review,
@@ -406,8 +513,8 @@ export const orderStatusAfter = (stored: string | null | undefined, incoming: st
  * Where a sale leaves the funnel, from the order status the sale webhook carries (plan v2,
  * 5.8). Until this existed nobody wrote `em_rota`, `entregue_pago` or `recusado`, so the
  * funnel stopped at `pedido_criado` and the one number the operator buys — delivered and
- * paid — did not exist in the database. Read by root, like `isOrderDead`, because neither
- * platform publishes its vocabulary. Paid is not delivered: a prepaid "Pagamento
+ * paid — did not exist in the database. Read from the vocabulary (grafo §57); a status outside
+ * it by root, like `isOrderDead`. Paid is not delivered: a prepaid "Pagamento
  * aprovado" is still an order waiting to ship. A failed attempt ("não entregue",
  * "frustrada") may be retried and `recusado` is terminal, so it moves nothing. Handed to the
  * carrier ("Entregue à transportadora", "entregue aos Correios") is on its way, not at her
@@ -416,13 +523,57 @@ export const orderStatusAfter = (stored: string | null | undefined, incoming: st
 export const stageForOrder = (
   status: string | undefined,
 ): "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null => {
+  // The vocabulary first (grafo §57): dead, then a failed attempt, then the furthest stage reached.
+  const terms = statusTerms(status);
+  if (terms) {
+    if (terms.includes("dead")) return "recusado";
+    if (terms.includes("failed") || terms.includes("reschedule")) return null;
+    if (terms.includes("delivered")) return "entregue_pago";
+    return terms.includes("en_route") ? "em_rota" : "pedido_criado";
+  }
+  // Unknown: read by root, as before the vocabulary.
   const s = (status ?? "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
   if (/\bnao\s+entreg|frustrad|insucess/.test(s)) return null;
   if (isOrderDead(s)) return "recusado";
   if (/\bentregue\s+(?:(?:a|ao|aos|as|o|os|para|pra|pro|pros)\s+)+(?:transportador|correio)/.test(s)) return "em_rota";
   if (/\bentregue\b|\bdelivered\b|\bconclui|\bfinalizad/.test(s)) return "entregue_pago";
-  if (/\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid/.test(s)) return "em_rota";
+  // "Não enviado", "não foi despachado" are not on their way (review of da612fd).
+  if (/(?<!\bnao\s+(?:(?:foi|esta)\s+)?(?:ainda\s+)?(?:em\s+)?)(?:\bem\s+rota\b|transit|\benviad|\bshipped\b|\bdespachad|\bsaiu\s+(?:para|pra)\b|\bcoletad|\bexpedid)/.test(s))
+    return "em_rota";
   return "pedido_criado";
+};
+
+/**
+ * Which reply a cancel gets (operator, 2026-10-06), from her orders as the sale webhook left them —
+ * status and `payment_method`, never the model. Paid at the door, shipped or not: `cod`, she refuses
+ * it at the door. Prepaid and on its way (`em_rota`): `shipped`. Prepaid, paid and not yet on its
+ * way: `prepaid_pending`, a person cancels it — only when every part of the status is paid or
+ * pre-shipment in the vocabulary (review of da612fd, grafo §57). Anything else is null and keeps
+ * the plain order handoff: no live order, a live order in a status outside the vocabulary, mixed
+ * or unknown paths, live orders in different stages, delivered, a failed attempt, prepaid unpaid. Dead orders are ignored. A
+ * region stored without payment at the door makes the door reply a `charge_promise` veto, so null.
+ */
+export const cancelReplyFor = (
+  orders: readonly { status?: string | null; payment_method?: string | null }[],
+  codUnavailable = false,
+): "cod" | "shipped" | "prepaid_pending" | null => {
+  const live = orders.filter((o) => !isOrderDead(o.status ?? undefined));
+  // A live order in a status nobody mapped gets no guess (operator, 2026-10-06, grafo §57).
+  if (live.some((o) => !isKnownOrderStatus(o.status))) return null;
+  const paths = new Set(live.map((o) => o.payment_method));
+  const stages = new Set(live.map((o) => stageForOrder(o.status ?? undefined)));
+  if (live.length === 0 || paths.size !== 1 || stages.size !== 1) return null;
+  const [path] = paths;
+  const [stage] = stages;
+  const rescheduled = live.every((o) => statusTerms(o.status)?.includes("reschedule"));
+  if (path === "cod") return !codUnavailable && (stage === "pedido_criado" || stage === "em_rota" || rescheduled) ? "cod" : null;
+  if (path !== "prepay") return null;
+  if (stage === "em_rota") return "shipped";
+  const paidNotShipped = (status: string | null | undefined): boolean => {
+    const terms = statusTerms(status) ?? [];
+    return terms.includes("paid") && terms.every((t) => t === "paid" || t === "pre_ship");
+  };
+  return stage === "pedido_criado" && live.every((o) => paidNotShipped(o.status)) ? "prepaid_pending" : null;
 };
 
 /**
@@ -787,6 +938,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "checkout_reminder":
       return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
+    case "still_there":
+      return STILL_THERE_REPLY;
+
     case "silence_1":
       return pickVariant(
         ctx.leadId,
@@ -842,7 +996,11 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       return (
         `Oi! Sua entrega está marcada pra **amanhã** 💛\n` +
         (ctx.prepaid ? "" : `Deixa **${price}** separado — pode ser dinheiro ou cartão, na maquininha do entregador.\n`) +
-        `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`
+        // Prepaid, anyone can take it in (the doorman, someone at home); on delivery, whoever
+        // receives is whoever pays (operator, 2026-10-06).
+        (ctx.prepaid
+          ? `Se não tiver ninguém para receber, me avisa que eu tento remarcar.`
+          : `Se você não estiver em casa amanhã, me avisa que eu tento remarcar.`)
       );
 
     case "order_delivered":
@@ -976,6 +1134,9 @@ export const deliveryFor = (
   if (body === null) return null;
 
   if (windowIsOpen(ctx.now ?? new Date(), lastInboundAt)) return { via: "text", body };
+
+  // Text only (operator, 2026-10-06): a nudge is not worth a template, whatever the config holds.
+  if (kind === "still_there") return { via: "blocked", reason: "no_template" };
 
   // `silence_2` and `silence_3` are MARKETING templates: only to someone who said yes (R15.1).
   if ((kind === "silence_2" || kind === "silence_3") && ctx.marketingOptIn !== true) {

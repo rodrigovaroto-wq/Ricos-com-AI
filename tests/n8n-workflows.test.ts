@@ -43,6 +43,13 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     expect(checkWorkflow(sweep({}, "Gemini API")).join()).toContain('credential "Gemini API"');
     expect(checkWorkflow(sweep({}, "Meta API")).join()).toContain('credential "Meta API"');
   });
+  it("envio do WhatsApp sem a credencial da Cloud API (2026-10-06)", () => {
+    const envio = load("whatsapp-envio");
+    const sem = { ...envio, nodes: envio.nodes.map((n) => (n.name === "Envia pela Cloud API" ? (({ credentials: _, ...rest }) => rest)(n) : n)) };
+    expect(checkWorkflow(sem).join()).toContain('credential "none"');
+    const tipo = { ...envio, nodes: envio.nodes.map((n) => (n.name === "Envia pela Cloud API" ? { ...n, parameters: { ...n.parameters, genericAuthType: "httpTemplatedCustomAuth" } } : n)) };
+    expect(checkWorkflow(tipo).join()).toContain("Header Auth");
+  });
   it("neverError ligado", () => {
     expect(checkWorkflow(sweep({ response: { response: { neverError: true } } })).join()).toContain("neverError");
   });

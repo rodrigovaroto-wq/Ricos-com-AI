@@ -166,8 +166,32 @@ export const exchangeReply = (exchange: { feeBrl?: number; checkoutUrl?: string 
     : null;
 
 /**
+ * The reply when she wants to cancel an order that already left for delivery (operator,
+ * 2026-10-06): it cannot be cancelled any more, and the return is asked for once it arrives. A
+ * person still takes the conversation. Nothing here says the agent did or will do anything to the
+ * order (`order_action_claim`), and the days are the config's (`warranty_promise`). The heart is
+ * not after the count: `delivery_promise` reads anything left in the count's sentence as a deadline.
+ */
+export const shippedCancelReply = (warrantyDays: number): string =>
+  `Seu pedido já saiu para entrega 🚚, então não dá mais pra cancelar. Quando ele chegar aí, é só me ` +
+  `chamar aqui pra pedir a devolução 💛 Você tem ${warrantyDays} dias pra devolver depois que receber.`;
+
+/**
+ * The reply when she wants to cancel an order paid at the door (operator, 2026-10-06), shipped or
+ * not: she refuses it at the door and pays nothing. A person still takes the conversation.
+ */
+export const COD_CANCEL_REPLY =
+  "Como o seu pedido é pago na entrega, é só esperar ele chegar aí. Se não quiser receber, é só dizer isso pro entregador na hora 💛";
+
+/**
+ * The reply when she wants to cancel a prepaid order already paid and not yet on its way (operator,
+ * 2026-10-06, his words). The agent cancels nothing: the handoff tells a person to cancel it.
+ */
+export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para a entrega, irei dar início no cancelamento.";
+
+/**
  * "Vou pensar" (R13.4): the operator's opening line. Since 2026-09-29 (R16.5) it is only the
- * opening of `thinkReply`, which the turn sends — and still what `parked` looks for.
+ * opening of `thinkReply`, which the turn sends.
  */
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
 
@@ -185,7 +209,8 @@ const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
  * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
  * back. Now it is the one place the declared stock is said, with the strongest argument of her
- * path, and it ends pointing at the link (or at the size, when there is no link yet):
+ * path, and it ends pointing at the link — only when every datum the link waits for is in
+ * (operator, 2026-10-06); otherwise at the conversation, warmly:
  *
  * - on delivery: nothing paid now, and the days to return at no cost to her (R16.3);
  * - prepaid (she chose it, or delivery does not reach her): the discount and the average
@@ -218,7 +243,8 @@ export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boo
         : avg != null
           ? `No antecipado o prazo varia por região, em média ${avg} dias úteis.`
           : ``,
-    withLink ? `O link pra garantir o seu está aqui embaixo.` : `Quando quiser, me fala o tamanho de calça que você usa que eu te mando o link.`,
+    // Without every datum there is no link (operator, 2026-10-06), and no promise of one either.
+    withLink ? `O link pra garantir o seu está aqui embaixo.` : `Quando quiser seguir, é só me chamar aqui que eu continuo de onde a gente parou.`,
   ];
   return parts.filter((p) => p !== ``).join(" ");
 };
@@ -318,3 +344,54 @@ export const WELCOME_AUTO_REPLY =
  * One minute since 2026-10-02 (operator, R18.1); it was 120 s, against a spec that said 3 min.
  */
 export const WELCOME_RESUME_DELAY_SECONDS = 60;
+
+/**
+ * One answer per burst (grafo §59, first real WhatsApp test, 2026-10-06): a person waits until
+ * she stops typing, reads everything and answers once. The turn of a new message waits this
+ * long after storing it; if a newer one of hers arrived meanwhile, that one's turn answers.
+ * 5 s since grafo §61 (operator, 2026-10-06): what arrives later is folded into the reply.
+ */
+export const QUIET_WINDOW_MS = 5_000;
+
+/**
+ * Grafo §61 (operator, 2026-10-06): one turn answers a conversation at a time, and a message she
+ * sends while it writes is folded into its reply instead of throwing the reply away. The turn
+ * that writes revises its draft with the whole burst at most this many times.
+ */
+export const MAX_REVISIONS = 2;
+/**
+ * From the turn's start, the deadline a revision's reply calls aim for. A revision starts only
+ * with `REVISE_MIN_MS` left (interpreter 8 s + region 2 × 5 s + one 10 s attempt), and each of its
+ * `MAX_REWRITES` past the deadline is one `MIN_ATTEMPT_MS` call: 110 + 2 × 10 + database < 150 s.
+ */
+export const REVISE_DEADLINE_MS = 110_000;
+export const REVISE_MIN_MS = 30_000;
+/** A turn's "replying" mark older than this belongs to a turn the platform already cut (150 s). */
+export const REPLYING_STALE_MS = 150_000;
+
+/** Whether the writing turn may revise once more: revisions left and time for one. */
+export const revisionAllowed = (revisions: number, now: number, deadline: number): boolean =>
+  revisions < MAX_REVISIONS && now + REVISE_MIN_MS <= deadline;
+
+/**
+ * Rides in the system prompt like the rewrite's correction, so the draft never enters the
+ * history. The burst itself is already in the history, in order.
+ */
+export const reviseInstruction = (draft: string): string =>
+  `Você estava escrevendo esta resposta: "${draft}". Ela mandou mais mensagens enquanto você escrevia.` +
+  ` Reescreva uma resposta só, natural, que responda tudo na ordem em que ela mandou, sem virar lista.`;
+
+/**
+ * Her messages the agent has not answered yet, oldest first: the run of inbound rows at the
+ * end of the conversation (`newestFirst`, as the turn reads it). Any outbound row — a reply,
+ * a ruler touch, a person's reply — ends the run, except the fixed welcome, which answers
+ * nothing she asked: the resume after it answers the message that triggered it.
+ */
+export const unansweredInbound = <M extends { direction: string; body?: string | null }>(newestFirst: readonly M[]): M[] => {
+  const run: M[] = [];
+  for (const m of newestFirst) {
+    if (m.direction === "inbound") run.unshift(m);
+    else if (m.body !== WELCOME_AUTO_REPLY) break;
+  }
+  return run;
+};

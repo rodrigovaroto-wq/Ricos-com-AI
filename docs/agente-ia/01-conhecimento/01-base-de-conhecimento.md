@@ -58,6 +58,31 @@ Fonte: `FAQ.tsx` :11–26.
 > está vestido: aperta na medida certa e muda o caimento da roupa na hora. O efeito
 > aparece na mesma hora e acaba quando você tira.
 
+## Fatos do produto e da entrega — confirmados pelo operador (2026-10-06)
+
+Fonte: o operador, na conversa de 2026-10-06 (não é copy da landing page). Estão no prompt em
+`productFacts` (`src/agent/prompt.ts`). O que não está aqui a agente não afirma.
+
+| Assunto | O fato | Frase do operador (quando deu uma) |
+|---|---|---|
+| Material | Essencialmente poliéster e elastano, forro de algodão, colchetes que não ficam enrolando | "É essencialmente de poliéster e elastano, tem forro de algodão e colchetes que não ficam enrolando enquanto você usa." |
+| Barbatana | Não tem nenhuma, nem de metal nem de plástico | — |
+| Calor | Não dá calor | "Não dá calor, ele é feito justamente pra respirar no corpo e não te deixar suando." |
+| Tempo por dia | O quanto ela quiser | "O quanto você quiser, ele é preparado pra aguentar o dia inteiro!" |
+| Dormir | Pode | "Pode sim!" |
+| Exercício | Pode | "Sim, ele é elástico e não limita seus movimentos!" |
+| Lavagem (do site) | À mão, com água fria, secar na sombra; máquina e secadora soltam a elasticidade, e é a elasticidade que faz o trabalho | — |
+| Cor | Só preto, no momento | — |
+| O que cobre | Abdômen, costas e alças | — |
+| Forma de pagar na entrega | Ela escolhe; a agente **não lista** formas não confirmadas | "Você escolhe a forma que deseja pagar" |
+| Outra pessoa recebe e paga | Pode | "Pode sim, sem problemas" |
+| Ninguém em casa | O entregador devolve o pedido ao centro de distribuição e a entrega se frustra; dizer com carinho e sugerir uma data em que ela vai estar em casa | — |
+| Antecipado: transporte | Correios ou transportadora, conforme a região, com rastreio | — |
+| Antecipado: pagamento | Pix ou cartão; **sem boleto** | — |
+| Tamanho no checkout | Escolhido por ela num seletor, na Logzz e na Coinzz (não no complemento do endereço) | "lá você escolhe o M" |
+| Confiança | Só o site e o e-mail de contato. Sem Instagram, Reclame Aqui ou CNPJ para citar | — |
+| Pós-parto, gestante | **Não adicionar** — fica a regra de saúde do gate | — |
+
 ## Como funciona a entrega — os três passos
 
 Fonte: `HowItWorks.tsx` :4–6.

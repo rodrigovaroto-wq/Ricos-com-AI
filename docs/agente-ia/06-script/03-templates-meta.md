@@ -205,8 +205,12 @@ opt-in de marketing.
 
 ```text
 Oi! Sua entrega está marcada pra *amanhã* 💛
-Se você não estiver em casa amanhã, me avisa que eu tento remarcar.
+Se não tiver ninguém para receber, me avisa que eu tento remarcar.
 ```
+
+**Última linha mudou em 2026-10-06 (operador):** já pago, qualquer pessoa recebe — a portaria
+ou alguém da casa —, então a pergunta não é se *ela* está em casa. Na entrega a linha antiga
+fica: quem recebe é quem paga.
 
 **Só sai com data.** Desde 2026-09-29 a véspera só é armada com a data da entrega no pedido, e o
 webhook da Coinzz (o antecipado) não traz data: enquanto isso for verdade, este template não tem

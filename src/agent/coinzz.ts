@@ -209,10 +209,9 @@ export const buildCoinzzRequest = (
  * typed in the checkout, whatever the conversation collected — which is why the agent
  * does not ask for them. The size cannot be sent either.
  *
- * And on the Logzz path the size is not even a selector. The supplier's own product
- * page says it in capitals: "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types
- * it into the complement field when she picks the delivery day, so the agent has to tell
- * her that in words — a customer who leaves it blank gets whatever the warehouse picks.
+ * The size she picks on the checkout page itself, on both paths (operator, 2026-10-06: the
+ * Logzz checkout has a size selector now, and a kit's own checkout one per piece), so the
+ * agent tells her which one to pick — "lá você escolhe o M" — in words.
  *
  * That is the honest shape of this path, and it is why the message that carries the link
  * has to say what is left for her to do instead of implying the order is done.
@@ -260,7 +259,12 @@ export const buildPrefilledCheckoutLink = (
   const query = new URLSearchParams();
   if (filled(customer.name)) query.set("name", customer.name!.trim());
   if (filled(customer.email)) query.set("email", customer.email!.trim().toLowerCase());
-  if (digitsOnly(customer.phone ?? "").length >= 10) query.set("phone", digitsOnly(customer.phone!));
+  // Logzz reads 55 + DDD + number; Coinzz only DDD + number, 10 or 11 digits (research,
+  // 2026-10-06): the country code is dropped on the prepaid path. The e-mail goes to both —
+  // Logzz ignores it unless the offer asks for one, and then it is filled.
+  const phone = digitsOnly(customer.phone ?? "");
+  const local = paymentMethod === "prepay" && /^55\d{10,11}$/.test(phone) ? phone.slice(2) : phone;
+  if (local.length >= 10) query.set("phone", local);
   if (digitsOnly(customer.document ?? "").length >= 11) {
     // Logzz (cash on delivery) reads `cpf`; Coinzz (prepaid) reads `document`.
     query.set(paymentMethod === "cod" ? "cpf" : "document", digitsOnly(customer.document!));

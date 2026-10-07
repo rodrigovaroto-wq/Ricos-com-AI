@@ -2,7 +2,7 @@
   "id": "o5ZULK9Y74l1hReL",
   "name": "Encorpa — Hermes: decisão do operador",
   "active": true,
-  "versionId": "88928b49-8138-4a5d-add4-f73e18d9768a",
+  "versionId": "73c92cd2-3140-4894-800b-8335456d931b",
   "nodes": [
     {
       "id": "cc531da6-14f1-4535-b9d2-874271e47cf7",
@@ -75,6 +75,7 @@
     {
       "id": "212c9b02-26fa-48f2-845f-aa915f08db21",
       "name": "Manda as propostas",
+      "webhookId": "20eeaa1c-9693-46a5-a8d3-4a30726e9633",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
@@ -96,8 +97,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "webhookId": "20eeaa1c-9693-46a5-a8d3-4a30726e9633"
+      }
     },
     {
       "id": "af03865d-faa0-4e70-a727-191348449be1",
@@ -144,6 +144,8 @@
     {
       "id": "35a29d98-9050-4aef-86e9-1775e718ad7b",
       "name": "Formulário de decisão",
+      "webhookId": "f0269990-a0fa-449c-92df-2be085f24c6a",
+      "disabled": true,
       "type": "n8n-nodes-base.formTrigger",
       "typeVersion": 2.6,
       "position": [
@@ -194,15 +196,14 @@
           "appendAttribution": false,
           "ignoreBots": true
         }
-      },
-      "webhookId": "f0269990-a0fa-449c-92df-2be085f24c6a",
-      "disabled": true
+      }
     },
     {
       "id": "2142c7b8-4d6c-48bb-b191-5e0de9b4cf60",
       "name": "Grava a decisão",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "alwaysOutputData": true,
       "position": [
         224,
         320
@@ -238,8 +239,7 @@
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
-      },
-      "alwaysOutputData": true
+      }
     },
     {
       "id": "e0a1b820-2ef7-4724-ba44-81b724f11724",
@@ -274,6 +274,7 @@
     {
       "id": "91866a40-a0a3-40cd-95e8-5b52bda59b7f",
       "name": "Decisão registrada",
+      "webhookId": "bd5e213a-1e88-4080-b810-8016c40da611",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
@@ -285,12 +286,12 @@
         "respondWith": "text",
         "completionTitle": "Decisão registrada",
         "completionMessage": "={{ $('Formulário de decisão').first().json.decisao === 'Aprovar' ? 'Aprovada. A implementação começa na próxima rodada e você recebe o resultado por e-mail.' : 'Recusada. O Hermes lê o seu motivo antes da próxima análise.' }}"
-      },
-      "webhookId": "bd5e213a-1e88-4080-b810-8016c40da611"
+      }
     },
     {
       "id": "dab3c23d-ad23-4ed0-9866-f3593537b28b",
       "name": "Link inválido",
+      "webhookId": "4fa98732-d774-472d-bd22-a0e2cdc25f73",
       "type": "n8n-nodes-base.form",
       "typeVersion": 2.5,
       "position": [
@@ -302,8 +303,7 @@
         "respondWith": "text",
         "completionTitle": "Nada foi registrado",
         "completionMessage": "Este link não vale mais: a proposta já foi decidida, ou o link está incompleto."
-      },
-      "webhookId": "4fa98732-d774-472d-bd22-a0e2cdc25f73"
+      }
     },
     {
       "id": "5a66a736-ee4c-4edb-ae80-7899f093c4db",
@@ -356,6 +356,7 @@
     {
       "id": "3cdbb6bd-3597-4f10-84d9-4554b9d10b35",
       "name": "Manda o resultado",
+      "webhookId": "4fcab60c-fc1f-482a-b64c-17bba0d89664",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "position": [
@@ -377,8 +378,7 @@
           "id": "clsHlXLQ1IwxQpqE",
           "name": "SMTP e-mail"
         }
-      },
-      "webhookId": "4fcab60c-fc1f-482a-b64c-17bba0d89664"
+      }
     },
     {
       "id": "e4a7c690-4677-4519-b26b-943fb360c4a4",
@@ -427,6 +427,9 @@
       "name": "Versão atual da Malu",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
       "position": [
         336,
         160
@@ -454,16 +457,16 @@
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
-      },
-      "executeOnce": true,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     },
     {
       "id": "9c3e5f21-6b84-4d17-8a0c-1f2d3e4b5a69",
       "name": "Versões publicadas",
       "type": "n8n-nodes-base.httpRequest",
       "typeVersion": 4.5,
+      "executeOnce": true,
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput",
       "position": [
         336,
         -224
@@ -491,10 +494,7 @@
           "id": "uNGrb6LchX9rT743",
           "name": "Supabase service_role"
         }
-      },
-      "executeOnce": true,
-      "alwaysOutputData": true,
-      "onError": "continueRegularOutput"
+      }
     }
   ],
   "connections": {

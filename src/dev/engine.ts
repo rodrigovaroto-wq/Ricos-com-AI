@@ -17,6 +17,7 @@
  * a simulator, and it is worth it — the alternative is 300 conversations nobody runs.
  */
 import {
+  asksWhatSheIs,
   classifyOptOut,
   remedyFor,
   runGates,
@@ -254,6 +255,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       now,
       paymentPath: "cod",
       recentOutbound: state.sent,
+      askedIdentity: asksWhatSheIs(turn.from),
     });
     state.costBrl += COST_PER_CALL;
 
@@ -279,6 +281,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
         now,
         paymentPath: "cod",
         recentOutbound: state.sent,
+        askedIdentity: asksWhatSheIs(turn.from),
       });
       action = decideNext({
         remedy: remedyFor(gates),

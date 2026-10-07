@@ -12,7 +12,8 @@
  */
 import {
   asksForTestimonial,
-  classifyOptOut,
+  asksWhatSheIs,
+  classifyOptOutBurst,
   gateBriefing,
   remedyFor,
   runGates,
@@ -33,12 +34,16 @@ import {
   eveIsTomorrow,
   chasesSilence,
   inSilenceRuler,
+  optInFollows,
   orderStatusAfter,
+  isKnownOrderStatus,
+  cancelReplyFor,
   reopensRefused,
   stageForLead,
   renderFollowup,
   rulerFor,
   endsSilenceRuler,
+  endsWithQuestion,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
@@ -51,18 +56,21 @@ import { checkRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
+  extractAddressBurst,
   readBackAddress,
   isComplete,
   mergeAddress,
   type Address,
 } from "./address.ts";
 import {
-  asksForIdentity,
-  extractIdentity,
+  extractIdentityBurst,
+  nameOnFirstLine,
+  asksForName,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
   nextIdentityQuestion,
+  refusedAsks,
   type Identity,
 } from "./identity.ts";
 import {
@@ -86,19 +94,26 @@ import {
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
   exchangeReply,
+  COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
+  PREPAID_CANCEL_REPLY,
+  QUIET_WINDOW_MS,
+  REPLYING_STALE_MS,
+  REVISE_DEADLINE_MS,
   retryIsMoot,
+  reviseInstruction,
+  revisionAllowed,
   SAFE_FALLBACK_REPLY,
-  THINK_REPLY,
+  shippedCancelReply,
   thinkReply,
+  unansweredInbound,
   WELCOME_AUTO_REPLY,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
 import {
   asksSomething,
-  decidesToBuy,
-  decideClarify,
+  decisionInBurst,
   goodbyeParks,
   handoffFor,
   INTERPRET_MAX_COMPLETION_TOKENS,
@@ -107,14 +122,16 @@ import {
   linkSentRecently,
   namesOwnPrice,
   asksForLink,
-  choosesPath,
+  pathChoiceToStore,
+  kitWasOffered,
   closesConversation,
   saysOwnSize,
   mergeUnitSizes,
   NEUTRAL_INTERPRETATION,
   quantityOf,
   readInterpretation,
-  readyForLink,
+  missingForLink,
+  buyerAsk,
   sendLinkNow,
   statesPastPurchase,
   type Interpretation,
@@ -714,22 +731,35 @@ const sizeDirectiveFor = (
       ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
       ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
   }
+  // What the lookup found has its own directive (`regionDirectiveFor`), said with or without a size.
+  return fitting;
+};
+
+/**
+ * What the CEP lookup found, on its own (operator, 2026-10-06): until then it rode on the size
+ * directive, so a kit — or a CEP before the size — never heard it, and the prepaid was only ever
+ * offered as a fallback. Delivery reaches her: the two options and her choice (`twoOptionsMessage`
+ * in the prompt), or her choice kept. It does not: only the prepaid, with the one reason
+ * (`noCodMessage`). The sentences are the prompt's, so prompt and gate stay one promise.
+ */
+const regionDirectiveFor = (
+  region: Pick<Region, "cod" | "sameDay"> | null,
+  choice: "cod" | "prepay" | null,
+): string | null => {
+  if (region === null) return null;
   if (!region.cod) {
-    // Today's truth, from the config (persona round 3 found "mesmo frete grátis" here,
-    // two days after the operator decided the operation has no free shipping).
-    const pct = CONFIG.prices.prepayDiscountPercent;
-    // The gate's reading: the average only while the deadline varies by region.
-    const avg = CONFIG.delivery.prepayVariesByRegion ? CONFIG.delivery.prepayAvgDays : undefined;
-    return `${fitting} A entrega com pagamento na entrega não cobre o CEP dela, então ofereça` +
-      ` o pagamento antecipado como a saída boa que ele é${pct > 0 ? `, com ${pct}% de desconto` : ""}.` +
-      (CONFIG.delivery.freeShipping === true ? ` O frete é grátis` : ` O frete é calculado no checkout`) +
-      `${
-        avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis` : ""
-      }.`;
+    return `A consulta do CEP dela respondeu: ali a transportadora ainda não tem pagamento na entrega.` +
+      ` Ofereça só o pagamento antecipado, com carinho e com esse motivo e nenhum outro, como no PAGAMENTO` +
+      ` ("Não chega"), e nunca diga que ela paga na entrega, ao entregador ou quando receber. Se você` +
+      ` já disse isso nesta conversa, não repita: siga no antecipado.`;
   }
-  return `${fitting} A entrega chega no CEP dela${
+  return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
     region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
-  }. Fale disso como boa notícia, não como confirmação de sistema.`;
+  }.` +
+    (choice === null
+      ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
+        ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
+      : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
 };
 
 /**
@@ -745,23 +775,28 @@ const sizeDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
-  if (isIdentityComplete(draft)) return null;
-  // Nothing collected yet means the model decides *when* to start — the prompt says only
-  // after she has decided to buy. This directive drives the ORDER, not the opening: fired
-  // unconditionally it would have the agent asking a stranger for her full name in reply
-  // to "oi", which is where the conversation ends.
-  if (Object.keys(draft).length === 0) return null;
-  const missing = (["name", "email", "document"] as const).filter((f) => !draft[f]);
+const identityDirectiveFor = (draft: Partial<Identity>, emailDone: boolean, cpfRefusals: number): string | null => {
+  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
+  // link waits for them: an e-mail refused once and a CPF refused twice are not asked again.
+  const missing = (["name", "email", "document"] as const).filter(
+    (f) => !draft[f] && !(f === "email" && emailDone) && !(f === "document" && cpfRefusals >= 2),
+  );
   const topic = nextIdentityQuestion(missing);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
-  // for word, turn after turn. And never a condition — the link goes without it.
+  // for word, turn after turn.
   return topic === null
     ? null
-    : `Para o link do pedido já sair preenchido, falta ${topic}. Se a conversa estiver nesse` +
-      ` ponto, peça isso com as suas palavras, uma coisa só — nunca repita uma pergunta que` +
-      ` você já fez. Se ela não quiser ou não tiver, tudo bem: o link sai assim mesmo e o` +
-      ` checkout pede o resto.`;
+    : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
+      ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
+      (missing[0] === "email" ? ` Se ela não tiver ou não quiser passar, tudo bem, não insista.` : ``) +
+      // Persona round of 2026-10-07 (Jussara): told only "falta o CPF", the model saw no e-mail and
+      // asked it a third time — the prompt says the e-mail is collected. Say it is settled.
+      (!draft.email && emailDone ? ` O e-mail ela não passou e está dispensado: não peça e-mail de novo.` : ``) +
+      (missing[0] === "document" && cpfRefusals === 1
+        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
+          ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+        : ``) +
+      ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
 
 /**
@@ -775,12 +810,10 @@ const identityDirectiveFor = (draft: Partial<Identity>): string | null => {
  *
  * The day is genuinely good news and is said as such: three dates, and she picks.
  *
- * On the cash-on-delivery path the size needs saying out loud, and this is the one
- * instruction that cannot be dropped. That checkout is Logzz's scheduling page, where
- * the size is NOT a selector — the supplier's own product page says it in capitals:
- * "INSIRA O TAMANHO NO COMPLEMENTO DO AGENDAMENTO". She types it into the complement
- * field with the delivery day. Left blank, the warehouse picks for her, and a piece that
- * does not fit comes back at the operator's cost.
+ * The size needs saying out loud on both paths: she picks it on the checkout page (operator,
+ * 2026-10-06 — the Logzz checkout has a size selector now; the old instruction to type it
+ * beside the address predates it), and a wrong pick comes back at the operator's cost. A kit's
+ * checkout is the kit's own, and she picks each piece's size there.
  */
 const checkoutDirectiveFor = (
   url: string | null,
@@ -788,6 +821,7 @@ const checkoutDirectiveFor = (
   path: "cod" | "prepay",
   prefilled = true,
   fact: string | null = null,
+  pieces = 1,
 ): string | null =>
   url === null
     ? null
@@ -795,12 +829,11 @@ const checkoutDirectiveFor = (
       // list of steps came back as "escolhe o dia, que são 3 dias pra escolher").
       `Mande este link para ela agora, exatamente como está, sem encurtar e sem alterar:\n${url}\n` +
       `Junto, UMA frase curta e natural: ${prefilled ? "o que ela já te passou vai preenchido, e " : ""}` +
-      `lá ela completa o endereço e escolhe o dia da entrega${
-        path === "cod"
-          ? `, e escreve o tamanho${size ? ` ${size}` : ""} no campo de complemento — essa parte diga` +
-            ` com todas as letras, porque em branco o depósito escolhe por ela`
-          : `${size ? ` e o tamanho ${size}` : " e o tamanho"}`
-      }. Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
+      `lá ela completa o endereço${path === "cod" ? ", escolhe o dia da entrega" : ""} e escolhe ${
+        pieces > 1 ? `o tamanho de cada peça${size ? ` (${size})` : ""}` : `o tamanho${size ? ` ${size}` : ""}`
+      } — diga com o tamanho, tipo "${
+        pieces > 1 ? "lá você escolhe o tamanho de cada peça" : `lá você escolhe o ${size ?? "seu tamanho"}`
+      }". Não liste passos e não repita o que já disse. NÃO diga que o pedido já está feito: ele` +
       ` nasce quando ela terminar no checkout.` +
       // H-2: the link's own row of the linked facts, for her reasoning — not a line to send.
       (fact
@@ -849,8 +882,8 @@ const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).l
  * Splits a reply into WhatsApp-sized bubbles. A paragraph is a bubble; a paragraph over
  * `maxWords` is cut at sentence ends and the sentences packed back up to the limit. A
  * sentence is NEVER cut — one longer than the limit goes out whole, because half a
- * sentence in a bubble reads as a bug. `max` still caps the count, but only by merging
- * trailing bubbles that fit together under `maxWords`.
+ * sentence in a bubble reads as a bug. `max` is a hard cap: trailing bubbles merge while
+ * they fit `maxWords`, then the shortest neighbouring pair merges.
  */
 const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): string[] => {
   const bubbles: string[] = [];
@@ -879,6 +912,15 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
     if (wordCount(a) + wordCount(b) > maxWords) break;
     bubbles.splice(-2, 2, `${a}\n\n${b}`);
   }
+  // The count is the operator's rule, the words a preference (persona round of 2026-10-07: five of
+  // twelve first replies went out in four bubbles): past it, the shortest neighbouring pair joins.
+  while (bubbles.length > max) {
+    let at = 0;
+    for (let i = 1; i < bubbles.length - 1; i++) {
+      if (wordCount(bubbles[i]!) + wordCount(bubbles[i + 1]!) < wordCount(bubbles[at]!) + wordCount(bubbles[at + 1]!)) at = i;
+    }
+    bubbles.splice(at, 2, `${bubbles[at]}\n\n${bubbles[at + 1]}`);
+  }
   return bubbles;
 };
 
@@ -900,7 +942,7 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
 const cancelScheduled = (conversationId: string, withCheckout = true) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder)" : "kind=like.silence_*"}`, {
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -963,6 +1005,8 @@ const scheduleSilenceTouches = async (
   linkInReply: boolean,
   from: Date = new Date(),
   postponed?: FollowupKind,
+  /** The reply ended in a question: "Ainda está aí?" in 10 minutes (operator, 2026-10-06). */
+  askedQuestion = false,
 ) => {
   // She already bought (`chasesSilence`): every caller routes through here — end of turn,
   // fixed line, deferred reply, re-anchoring — so this is where the ruler stops re-arming.
@@ -979,7 +1023,7 @@ const scheduleSilenceTouches = async (
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
   await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
   const anchors = rulerAnchors(at);
-  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors);
+  const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
@@ -1232,6 +1276,13 @@ const RETRY_REGION_TIMEOUT_MS = 5_000;
  */
 type RetryTicket = { inboundId: string; retries: number };
 
+/**
+ * The turn run again over the whole burst when she wrote while it was writing (grafo §61): the
+ * draft it had, how many revisions came before, the deadline every revision shares, and the spend
+ * when the first turn started — one `turn_outcomes` row prices the whole burst.
+ */
+type ReviseTicket = { draft: string; revisions: number; deadline: number; spentBefore: number };
+
 const readTicket = (body: unknown): RetryTicket | null => {
   try {
     const t = JSON.parse(String(body ?? ""));
@@ -1283,6 +1334,8 @@ const runFollowupSweep = async () => {
   /** Handoffs decided inside a retried turn — n8n mails these like the turn's own. */
   const handoffs: Array<Record<string, unknown>> = [];
   let retriedTurns = 0;
+  /** Conversations that got "Ainda está aí?" in this sweep: their other silence touch waits a sweep. */
+  const nudged = new Set<string>();
 
   // One row at a time, each on its own (second review, 2026-09-28): a throw in one row —
   // the `messages` insert after the claim, typically — aborted the whole sweep, and every
@@ -1312,6 +1365,12 @@ const runFollowupSweep = async () => {
     if (inSilenceRuler(row.kind) && !chasesSilence(row.conversations?.stage, (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "ela já comprou: régua de silêncio encerrada" });
+      return;
+    }
+
+    // Due together — a late sweep — "Ainda está aí?" goes and the other keeps its row for the next.
+    if (inSilenceRuler(row.kind) && row.kind !== "still_there" && nudged.has(row.conversation_id)) {
+      skipped.push({ followupId: row.id, reason: "\"Ainda está aí?\" saiu nesta varredura; este toque fica para a próxima" });
       return;
     }
 
@@ -1601,19 +1660,21 @@ const runFollowupSweep = async () => {
         `messages?conversation_id=eq.${row.conversation_id}&direction=eq.outbound&select=body&order=created_at.desc&limit=3`,
       ).catch(() => null);
       const earlier = (window ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
-      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES));
+      await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text));
     }
     toSend.push(
       delivery.via === "template"
         ? { to: lead.phone, kind, followupId: row.id, via: "template", body: text, name: delivery.name, language: delivery.language, variables: delivery.variables }
         : { to: lead.phone, kind, followupId: row.id, via: "text", body: text },
     );
+    if (kind === "still_there") nudged.add(row.conversation_id);
 
     // The marketing opt-in question (R15.1): its own message, with buttons, after a
-    // `silence_1` — always inside the window. Asked once, and once more per suspension.
+    // `silence_1` or the link's 15-minute touch (`optInFollows`) — always inside the window.
+    // Asked once, and once more per suspension.
     if (
       ASK_OPT_IN &&
-      kind === "silence_1" &&
+      optInFollows(kind) &&
       delivery.via === "text" &&
       mayAskOptIn({
         askedAt: lead.marketing_opt_in_asked_at ?? null,
@@ -1637,7 +1698,8 @@ const runFollowupSweep = async () => {
       }
     }
   };
-  for (const row of due ?? []) {
+  // "Ainda está aí?" first (operator, 2026-10-06): one nudge per conversation per sweep.
+  for (const row of [...(due ?? [])].sort((a, b) => Number(b.kind === "still_there") - Number(a.kind === "still_there"))) {
     await sweepRow(row).catch((error) => {
       skipped.push({
         followupId: row.id,
@@ -1719,7 +1781,16 @@ Deno.serve(async (request: Request): Promise<Response> => {
   if (payload.job === "human_reply" && callerRole(request) !== "service_role") {
     return json(401, { error: "use a chave de serviço" });
   }
-  const response = await handleTurn(payload);
+  // Grafo §61: the "replying" mark this turn took comes off however it ends — its own, by value.
+  const claimed: { id?: string; at?: string } = {};
+  const response = await handleTurn(payload, { claimed }).finally(() =>
+    claimed.id
+      ? db(`conversations?id=eq.${claimed.id}&replying_since=eq.${encodeURIComponent(claimed.at ?? "")}`, {
+          method: "PATCH",
+          body: JSON.stringify({ replying_since: null }),
+        }).catch(() => undefined)
+      : undefined,
+  );
   if (payload.job) return response;
   // `sealed` tells n8n this message really came through the `whatsapp` function (second
   // review): the only signal n8n may send to the customer on. `channel` is the caller's
@@ -1803,7 +1874,10 @@ const sameSecret = (given: string, expected: string): boolean => {
   return diff === 0;
 };
 
-const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket } = {}): Promise<Response> => {
+const handleTurn = async (
+  payload: TurnPayload,
+  internal: { retry?: RetryTicket; revise?: ReviseTicket; claimed?: { id?: string; at?: string } } = {},
+): Promise<Response> => {
   const turnStartedAt = Date.now();
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
@@ -1823,9 +1897,12 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     if (!payload.order) return json(400, { error: "order é obrigatório" });
     const result = await recordOrder(payload.order);
+    // A status not in the vocabulary goes back raw: n8n e-mails the operator to map it (grafo §57).
+    const incoming = payload.order.status ?? "created";
+    const reply = isKnownOrderStatus(incoming) ? result : { ...result, unknownStatus: incoming };
     // A refused order must not answer 200. n8n reads the status, and a green webhook over
     // a sale that was never filed is the silent failure this whole route exists to end.
-    return json("ok" in result && result.ok === false ? 422 : 200, result);
+    return json("ok" in result && result.ok === false ? 422 : 200, reply);
   }
 
   // L0.3: a person answers her from the n8n form "Responder cliente".
@@ -1839,8 +1916,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The sweep's second try at a turn the network failed (R13.4). Like a resume, it
   // carries no fresh message: it re-reads the one already stored.
   const isRetry = internal.retry !== undefined;
-  /** When the message a retry answers arrived — the kit step compares it with `units_at`. */
-  let retriedInboundAt: string | null = null;
+  // The same turn over the whole burst, when she wrote while it was writing (grafo §61): no new
+  // message, no seal, no quiet window — it holds the conversation the first turn took.
+  const isRevise = internal.revise !== undefined;
+  /** When the oldest message this turn answers arrived — the kit step compares it with `units_at`. */
+  let batchFrom: string | null = null;
 
   // The door is public (n8n `encorpa-inbound`): with the secret set, only a message sealed
   // by the `whatsapp` function becomes a turn — a forged "para de me mandar mensagem" on a
@@ -1850,6 +1930,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (
     signingSecret !== "" &&
     !isRetry &&
+    !isRevise &&
     !(await sealIsValid(
       signingSecret,
       { externalId: inbound.externalId, from: inbound.from, body: payload.body ?? "", sentAt: payload.sentAt, reply: payload.reply },
@@ -1862,7 +1943,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // 1. Idempotency: the same channel event never becomes two turns. A resume call is
   // n8n's own clock, not a channel event — it never carries a fresh message to dedupe
   // against, so it gets its own guard below instead (welcomed_at vs. last_outbound_at).
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     const seen = await db(`messages?external_id=eq.${encodeURIComponent(inbound.externalId)}&select=id`);
     if (seen?.length) return json(200, { status: "duplicate" });
   }
@@ -1928,6 +2009,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
 
   /** The stored inbound message this turn answers — what a `retry_turn` ticket names. */
   let inboundId: string | null = null;
+  // The update that takes the conversation failed (grafo §61); see the 2d block.
+  let claimFailed = false;
 
   // 2b. The resume call, opção (a). It never inserts an inbound message — the one that
   // triggered the welcome is already stored — so it re-reads the latest inbound text
@@ -1943,9 +2026,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       return json(200, { status: "resume_moot" });
     }
     const latest = await db(
-      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,body&order=created_at.desc&limit=1`,
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,external_id&order=created_at.desc&limit=1`,
     );
-    inbound = { ...inbound, body: latest?.[0]?.body ?? inbound.body ?? "" };
+    // A message after the one that triggered the welcome has a turn of its own, which answers
+    // the whole burst, this one included (grafo §59) — answering here too is the duplicate.
+    if (latest?.[0] && latest[0].external_id !== inbound.externalId) return json(200, { status: "resume_moot" });
     inboundId = latest?.[0]?.id ?? null;
   }
 
@@ -1962,14 +2047,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     inbound = { ...inbound, body: latest[0].body ?? "" };
     inboundId = latest[0].id;
-    retriedInboundAt = latest[0].created_at ?? null;
   }
 
   // The marketing opt-in (R15.1), written before her message is stored so a failed write is
   // retried with it. Only a tap on our button grants or refuses; her typed text only
   // suspends — and only when there is a question or a consent to suspend, so with the flag
   // off and no consent no 0019 column is touched.
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;
     const answer = optInAnswer(reply, {
       nonce: lead.marketing_opt_in_nonce ?? null,
@@ -1988,7 +2072,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (optIn) await db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify(optIn) });
   }
 
-  if (!isResume && !isRetry) {
+  if (!isResume && !isRetry && !isRevise) {
     inboundId = (await db("messages", {
       method: "POST",
       body: JSON.stringify({
@@ -2083,10 +2167,75 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     body: JSON.stringify({ p_lead_id: lead.id }),
   }).catch(() => undefined);
 
+  // 2d. One answer per burst (grafo §59). A new message waits for her to stop typing; if a
+  // newer one of hers arrived meanwhile, that one's turn answers — this one leaves no reply.
+  // The turn that answers reads every message of hers since the agent last spoke, joined as
+  // one message with line breaks, for the interpreter, the model and the readers that look for
+  // something anywhere in it. A reader whose meaning is per message — an anchored pattern, or a
+  // later message that corrects an earlier one — reads `parts`, one message at a time.
+  // A failed read never leaves her unanswered: the turn answers its own message.
+  // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+  if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
+  const recentRows: Array<{ id: string; direction: string; body: string | null; created_at: string }> | null =
+    await db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
+  // A revision answers through her newest message, the one its second look compares against.
+  if (isRevise) inboundId = recentRows?.find((m: { direction: string }) => m.direction === "inbound")?.id ?? null;
+  if (recentRows !== null && !isRetry && inboundId !== null && retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)) {
+    const reason = "superseded: chegou mensagem mais nova dela, e o turno dela responde a rajada inteira";
+    await recordOutcome(conversation.id, "stopped", reason);
+    return json(200, { status: "superseded", reason });
+  }
+  // One turn writes at a time (grafo §61). Past the quiet window this turn takes the conversation
+  // in one conditional update; when another turn holds it and is not stale, that one is still
+  // writing and folds this message into its reply at its second look — this one leaves no reply.
+  // A failed update never silences her (0023 not applied, network): only an empty answer means
+  // another turn holds it. The resume takes it too; the sweep's retry and a revision do not.
+  // A turn whose update failed holds nothing, so the newer message's turn cannot join it and
+  // answers on its own: its second look discards instead of revising (`claimFailed`, grafo §59),
+  // or the burst is answered twice (review of 7c8bc7c).
+  // Index: conversations_pkey.
+  if (internal.claimed) {
+    const stale = new Date(Date.now() - REPLYING_STALE_MS).toISOString();
+    const won = await db(
+      `conversations?id=eq.${conversation.id}&or=${encodeURIComponent(`(replying_since.is.null,replying_since.lt."${stale}")`)}&select=replying_since`,
+      { method: "PATCH", body: JSON.stringify({ replying_since: new Date().toISOString() }) },
+    ).catch(() => null);
+    if (won?.length === 0) {
+      const reason = "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele";
+      await recordOutcome(conversation.id, "stopped", reason);
+      return json(200, { status: "joined", reason });
+    }
+    if (won?.[0]) Object.assign(internal.claimed, { id: conversation.id, at: won[0].replying_since });
+    claimFailed = won === null;
+  }
+  const unanswered = recentRows === null ? [] : unansweredInbound(recentRows);
+  const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
+  if (unanswered.length > 0) {
+    inbound = { ...inbound, body: parts.join("\n") };
+    batchFrom = unanswered[0]?.created_at ?? null;
+  }
+
   // The spend so far, read before any exit that may call a model. `turn_outcomes`
   // records the delta against `spentBefore`.
-  let spent = Number(conversation.cost_brl ?? 0);
-  const spentBefore = spent;
+  // Read again after the quiet window (grafo §59 review): a turn running alongside may have spent since.
+  // Index: conversations_pkey.
+  const storedCost = async (): Promise<number | null> => {
+    const row = await db(`conversations?id=eq.${conversation.id}&select=cost_brl`).catch(() => null);
+    return row?.[0] ? Number(row[0].cost_brl ?? 0) : null;
+  };
+  let spent = (await storedCost()) ?? Number(conversation.cost_brl ?? 0);
+  const spentBefore = internal.revise?.spentBefore ?? spent;
+  /**
+   * What `cost_brl` should hold now: the stored total plus what this turn spent since its last
+   * write. Writing `spent` itself overwrote what a turn running alongside — one a newer message
+   * discarded — had added, and its spend fell out of the ceiling.
+   */
+  let costWritten = spent;
+  const costTotal = async (): Promise<number> => {
+    const total = ((await storedCost()) ?? costWritten) + (spent - costWritten);
+    costWritten = spent;
+    return total;
+  };
 
   // Which host serves CONVERSATION_MODEL, resolved once — used for every call and for
   // the provider label written to `llm_calls`, so the two never disagree.
@@ -2130,7 +2279,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (spent !== spentBefore) {
       await db(`conversations?id=eq.${conversation.id}`, {
         method: "PATCH",
-        body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+        body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
       }).catch(() => undefined);
     }
     await Promise.all([
@@ -2197,7 +2346,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
         }).catch(() => null);
         await db(`conversations?id=eq.${conversation.id}`, {
           method: "PATCH",
-          body: JSON.stringify({ cost_brl: spent, last_outbound_at: new Date().toISOString() }),
+          body: JSON.stringify({ cost_brl: await costTotal(), last_outbound_at: new Date().toISOString() }),
         }).catch(() => undefined);
         return { text: attempt.text, id: out?.[0]?.id ?? null };
       }
@@ -2215,13 +2364,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     }
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent }),
+      body: JSON.stringify({ cost_brl: await costTotal() }),
     }).catch(() => undefined);
     return null;
   };
 
   // 3. Opt-out is irrevocable and costs nothing to check.
-  const optOut = classifyOptOut(inbound.body ?? "");
+  const optOut = classifyOptOutBurst(parts);
   if (optOut === "explicit") {
     // Written first: nothing below — a model call, a failure — may delay or lose it.
     await db(`leads?id=eq.${lead.id}`, {
@@ -2230,7 +2379,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     // Only on the opt-out itself: a lead already out, or already with a person, gets none.
     const farewell =
-      !lead.opted_out_at && !lead.handoff_at && asksSomething(inbound.body ?? "") ? await optOutFarewell() : null;
+      !lead.opted_out_at && !lead.handoff_at && parts.some(asksSomething) ? await optOutFarewell() : null;
     // `bloqueado` is terminal and irreversible by the agent — only a person undoes it.
     await Promise.all([
       recordOutcome(
@@ -2264,7 +2413,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // costs nothing and never depends on the model noticing — and it runs before any model
   // call, because there is no point paying to generate a reply she already said she does
   // not want. The interpreter (4b) catches the request inside a longer message.
-  if (wantsHuman(inbound.body ?? "")) {
+  // An exact phrase: read message by message, or "oi" + "quero falar com atendente" misses it.
+  if (parts.some(wantsHuman)) {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
@@ -2313,7 +2463,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const modelFailure = async (error: unknown) => {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     /**
      * `handoff_at` is written and never cleared: a lead that gets it is out of the
@@ -2371,10 +2521,22 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * nothing scheduled would be the one outcome worse than a handoff.
    * Index: the unique (conversation_id, kind) of `followups`, as the rulers use.
    */
-  const deferRetry = async (error: unknown, retries: number): Promise<Response | null> => {
-    if (inboundId === null) return null;
+  const deferRetry = async (
+    error: unknown,
+    retries: number,
+    reason = "falha de rede ao chamar o modelo — nova tentativa agendada",
+  ): Promise<Response | null> => {
     const runAt = new Date(Date.now() + DEFERRED_RETRY_DELAY_SECONDS * 1000);
-    const ticket: RetryTicket = { inboundId, retries };
+    // A message that joined this turn (grafo §61) is newer than the one it started on: the retry
+    // answers the whole burst through the newest, or it would be moot and nobody would answer.
+    // Read before giving up on a null `inboundId` (a revision whose read failed): the newest is
+    // the ticket then, and the draft that did not read her never goes out (review of 7c8bc7c).
+    // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
+    const newest: string | null = (
+      await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id&order=created_at.desc&limit=1`).catch(() => null)
+    )?.[0]?.id ?? inboundId;
+    if (newest === null) return null;
+    const ticket: RetryTicket = { inboundId: newest, retries };
     const armed = await db("followups?on_conflict=conversation_id,kind", {
       method: "POST",
       headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -2389,9 +2551,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (!armed) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    const reason = "falha de rede ao chamar o modelo — nova tentativa agendada";
     await Promise.all([
       recordOutcome(conversation.id, "deferred", reason, 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
@@ -2406,30 +2567,60 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   };
 
   /**
-   * The retry's second look, right before it sends (code review, 2026-09-24): its model
-   * calls take seconds, and a message she sends meanwhile starts a turn that owns the
-   * reply. Null means "go ahead"; otherwise the spend is written down and nothing is sent.
+   * The second look, right before a reply is stored and sent (code review, 2026-09-24, for
+   * the retry; every turn since grafo §59): the model calls take seconds, and she may write
+   * meanwhile. Null means "go ahead". The sweep's retry gives up, as before: her new message's
+   * turn answers. Any other turn holds the conversation, and her new message's turn joined it
+   * (grafo §61): the draft is not thrown away — the turn runs again over the whole burst, every
+   * reader, the interpreter and the routes (opt-out, a person, a cancel) included, and the model
+   * rewrites with the draft as context. Past `MAX_REVISIONS` or the deadline, the whole burst goes
+   * to the sweep's retry: a reply that did not read what she sent would mark it answered, and
+   * the turns of those messages already left.
    * Index: messages_conversation_idx (conversation_id, created_at), read backwards.
    */
-  const retryGaveUp = async (rewrites: number): Promise<Response | null> => {
-    if (!isRetry) return null;
+  const lateGuard = async (rewrites: number, draft: string): Promise<Response | null> => {
+    // A revision that could not read the burst does not know what its draft answered: it revises
+    // again or goes to the sweep, never out unread (review of 7c8bc7c).
+    if (inboundId === null && !isRevise) return null;
     const latest = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=id,created_at&order=created_at.desc&limit=1`,
     ).catch(() => null);
-    if (!retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, null)) return null;
+    // A failed read never silences her; the retry keeps its old rule and gives up.
+    if (latest === null && !isRetry) return null;
+    if (inboundId !== null && !retryIsMoot(inboundId, latest?.[0] ?? null, null)) return null;
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
-    const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
-    await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
-    return json(200, { status: "retry_moot", reason, costBrl: spent });
+    if (isRetry) {
+      const reason = "nova tentativa sem objeto: chegou mensagem nova enquanto ela rodava";
+      await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
+      return json(200, { status: "retry_moot", reason, costBrl: spent });
+    }
+    if (claimFailed) {
+      // Nobody joined this turn: her newer message's turn answers the whole burst (grafo §59).
+      const reason = "superseded: chegou mensagem nova antes do envio e a conversa não foi tomada — o turno dela responde a rajada inteira";
+      await recordOutcome(conversation.id, "stopped", reason, rewrites, spent - spentBefore);
+      return json(200, { status: "superseded", reason, costBrl: spent });
+    }
+    const revisions = internal.revise?.revisions ?? 0;
+    const deadline = internal.revise?.deadline ?? turnStartedAt + REVISE_DEADLINE_MS;
+    if (revisionAllowed(revisions, Date.now(), deadline)) {
+      return await handleTurn(
+        { externalId: inbound.externalId, from: inbound.from, body: inbound.body },
+        { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
+      );
+    }
+    return await deferRetry(
+      new Error("mensagem nova depois da última revisão possível"),
+      0,
+      "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
+    );
   };
 
   /**
-   * A fixed line, sent through the chain like anything else (the clarify ladder and the
-   * "vou pensar" reply, R13.4). Null when the chain refuses it — out of hours, typically —
-   * and the caller then falls through to the normal turn, which handles that case.
+   * A fixed line, sent through the chain like anything else (the "vou pensar" reply, R13.4).
+   * Null when the chain refuses it — out of hours, typically — and the caller then falls through to the normal turn, which handles that case.
    */
   const sendFixed = async (
     text: string,
@@ -2453,7 +2644,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
     await recordTraces(conversation.id, gated.traces);
     if (!passed(gated)) return null;
-    const gaveUp = await retryGaveUp(0);
+    const gaveUp = await lateGuard(0, text);
     if (gaveUp) return gaveUp;
     const out = (
       await db("messages", {
@@ -2464,7 +2655,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        cost_brl: spent,
+        cost_brl: await costTotal(),
         last_outbound_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -2474,6 +2665,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       conversation.id,
       extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
       Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES),
+      new Date(),
+      undefined,
+      endsWithQuestion(text),
     );
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
@@ -2492,8 +2686,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     });
   };
 
-  // The agent's last message: what the interpreter compares her answer with, what the
-  // clarify ladder counts from, and what the address read-back is checked against.
+  // The agent's last message: what the interpreter compares her answer with, and what the
+  // address read-back is checked against.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
   const lastOutbound: string =
     (
@@ -2509,18 +2703,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
    * failed call reads as `NEUTRAL_INTERPRETATION` and the deterministic readers still run.
    */
   let interpretation: Interpretation = NEUTRAL_INTERPRETATION;
-  let interpreted = false;
   try {
     const ask = interpretRequest(lastOutbound, inbound.body ?? "");
     const reading = await callConversationModel(
       ask.system,
       [{ role: "user", content: ask.user }],
       INTERPRET_MAX_COMPLETION_TOKENS,
-      isRetry ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS,
+      isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS,
     );
     spent += reading.costBrl;
     await recordCall(conversation.id, "interpret", conversationProvider, CONVERSATION_MODEL, reading);
-    ({ parsed: interpreted, interpretation } = readInterpretation(reading.text));
+    ({ interpretation } = readInterpretation(reading.text));
   } catch {
     // Neutral reading; the turn goes on.
   }
@@ -2528,7 +2721,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // (persona round 3): a goodbye is answered like "vou pensar" (Tati got the size ladder),
   // and a decision in her words sends the link (Marcinha's "vou nesse então").
   // A goodbye never beats a decision: "deixa quieto, quero o G mesmo" is buying.
-  if (decidesToBuy(inbound.body ?? "")) interpretation = { ...interpretation, wants_to_buy: true };
+  // In a burst the newest word wins (grafo §59): "quero o M" then "pensando bem vou esperar" is no decision.
+  const decided = decisionInBurst(parts);
+  if (decided !== null) interpretation = { ...interpretation, wants_to_buy: decided };
   // A purchase on a price the shop does not have is not a decision (H-2): no link on
   // "faz por 100 que eu levo", whichever reading said yes. "Por 116 eu levo" is the real
   // prepaid price and stays a decision.
@@ -2549,7 +2744,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     ...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),
   ];
   if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
-  if (goodbyeParks(inbound.body ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
+  if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
+  // A bare "sim" beside a question holds the link (operator, 2026-10-06): she gets the answer, and
+  // the link waits for a yes that is all she said — unless her own words decide or the question is
+  // a buyer's ("como faço pra pagar?"). It never forces "not buying": the model's reading stands,
+  // and "Sim! Como faço pra pagar?" goes on to the next datum (review of 7c8bc7c).
+  const yesBesideQuestion =
+    decided !== true && parts.some(confirmsAddress) && parts.some(asksSomething) && !parts.some(buyerAsk);
 
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
@@ -2596,6 +2797,29 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   if (exchange !== null) {
     return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);
   }
+  // A cancel reads her orders (operator, 2026-10-06, `cancelReplyFor`): paid at the door, she
+  // refuses it there; prepaid on its way, the return comes after it arrives; prepaid and not yet
+  // shipped, a person cancels it. Anything else keeps "vou checar". A person takes every one.
+  // Index `orders_lead_idx`.
+  const cancelling =
+    handoffKind === "cancel"
+      ? cancelReplyFor(
+          (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? [],
+          codUnavailable,
+        )
+      : null;
+  if (cancelling === "cod") {
+    return await handOff(COD_CANCEL_REPLY, "a cliente quer cancelar um pedido na entrega; foi orientada a recusar na porta");
+  }
+  if (cancelling === "shipped") {
+    return await handOff(shippedCancelReply(CONFIG.delivery.warrantyDays), "a cliente quer cancelar um pedido antecipado que já saiu para entrega");
+  }
+  if (cancelling === "prepaid_pending") {
+    return await handOff(
+      PREPAID_CANCEL_REPLY,
+      "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",
+    );
+  }
   if (handoffKind !== null) {
     return await handOff(
       handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,
@@ -2615,7 +2839,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // and an empty column becomes a dash in a message a customer sees. What counts as
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
-  const stated = statedSize(inbound.body ?? "", interpretation);
+  // The newest message that states a size wins over an earlier one in the same burst (grafo §59).
+  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? inbound.body ?? "", interpretation);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -2650,16 +2875,16 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : stated && units > 1
         ? [stated.size]
         : [];
-  // A retry replays the same message: when the first attempt already merged it (the kit
-  // was written after that message arrived), merging again would add a size she said once.
-  // When it did not, the sizes count — read from the clock, never guessed from content.
+  // A retry, or the turn after one discarded by a newer message (grafo §59), replays the same
+  // messages: when an earlier attempt already merged them (the kit was written after the
+  // burst began), merging again would add a size she said once. When it did not, the sizes
+  // count — read from the clock, never guessed from content.
   // A full list is idempotent, so only a partial one can be dropped as a replay (third review).
   const replayed =
-    isRetry &&
     saidSizes.length < units &&
-    retriedInboundAt !== null &&
+    batchFrom !== null &&
     Number.isFinite(unitsAt) &&
-    unitsAt >= Date.parse(retriedInboundAt);
+    unitsAt >= Date.parse(batchFrom);
   const unitSizes: string[] =
     units > 1
       ? mergeUnitSizes(
@@ -2687,7 +2912,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
 
-  const foundAddress = extractAddress(inbound.body ?? "");
+  // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
+  const foundAddress = { fields: extractAddressBurst(parts) };
   if (Object.keys(foundAddress.fields).length > 0) {
     // What she stated wins over what a previous pass inferred, and a new piece never
     // silently re-confirms an address she has not seen read back.
@@ -2696,7 +2922,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   } else if (
     !addressConfirmed &&
     isComplete(addressDraft) &&
-    confirmsAddress(inbound.body ?? "") &&
+    confirmsAddress(parts[parts.length - 1] ?? "") &&
+    // Nor beside a question in the same burst ("tem rastreio?" + "sim"): she gets the answer first.
+    !parts.some(asksSomething) &&
     // Only when the agent's last message actually read the address back. A bare "sim"
     // answering something else — "quer que eu te mande o link?" — used to set
     // `confirmedAt` and flip the order ready, which is §D2 skipped in silence.
@@ -2728,7 +2956,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     try {
       region = await checkRegion(async (url) => {
         const r = await fetch(url, {
-          signal: AbortSignal.timeout(isRetry ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+          signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         });
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
@@ -2761,7 +2989,15 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
 
   // 5e. Identity accumulates the same way, and for the same reason.
   const storedIdentity = (lead.identity ?? {}) as Partial<Identity>;
-  const foundIdentity = extractIdentity(inbound.body ?? "");
+  // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
+  const burstIdentity = extractIdentityBurst(parts);
+  // The name on the first line above her street, only right after the agent asked for the name and
+  // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
+  const firstLineName =
+    !storedIdentity.name && !burstIdentity.name && asksForName(lastOutbound)
+      ? (parts.map(nameOnFirstLine).find((n: string | null) => n !== null) ?? null)
+      : null;
+  const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
   // The e-mail the interpreter read counts when the strict reader found none.
   const identityFound = {
     ...(interpretation.email ? { email: interpretation.email } : {}),
@@ -2806,39 +3042,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
 
-  // 5f. The clarify ladder (R13.4): the agent asked her something (her size, or anything while
-  // the size is unknown — operator, 2026-10-05) and the answer is about nothing — three fixed lines from the operator, then silence until a message makes
-  // sense. The step is read back from the last outbound, so there is nothing to store.
-  // It runs AFTER the address and identity readers: a CEP, a name or a CPF is data, and a
-  // message carrying data is never answered with a size line or with silence.
+  // No fixed "não entendi" ladder (grafo §60, operator 2026-10-06): every message reaches the
+  // model, which reads it and answers; the prompt teaches what to do with a loose reply.
   const lastAskedSize = asksForSize(lastOutbound);
-  const clarify = decideClarify({
-    interpreted,
-    interpretation,
-    lastOutbound,
-    lastAskedSize,
-    sizeFound: stated !== null,
-    sizeKnown: (stated?.size ?? lead.size ?? null) !== null,
-    factsFound: Object.keys(foundAddress.fields).length > 0 || Object.keys(identityFound).length > 0,
-    // She was just told "Sem problemas, estou aqui…": no fresh ladder right after it.
-    parked: recentOutbound.slice(-3).some((m: string) => m.startsWith(THINK_REPLY)),
-  });
-  if (clarify.kind === "silent") {
-    await db(`conversations?id=eq.${conversation.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ cost_brl: spent, updated_at: new Date().toISOString() }),
-    }).catch(() => undefined);
-    const reason = "escada do tamanho esgotada: sem resposta até a mensagem fazer sentido";
-    await Promise.all([
-      recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore),
-      persistStage(conversation.id, storedStage, reachedSoFar),
-    ]);
-    return json(200, { status: "stopped", reason, costBrl: spent });
-  }
-  if (clarify.kind === "reply") {
-    const sent = await sendFixed(clarify.text, "escada do tamanho");
-    if (sent) return sent;
-  }
   // She asked her own question instead of the size: she gets the answer, and the size
   // comes back at the end of it.
   const backToSize =
@@ -2865,7 +3071,18 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     Number.isFinite(choiceAt) && Date.now() - choiceAt <= KIT_MEMORY_MS
       ? ((lead.payment_choice as "cod" | "prepay" | null) ?? null)
       : null;
-  const paymentChoice = interpretation.payment_choice ?? storedChoice;
+  // "Sim" to the default the prompt teaches (`DEFAULT_COD_CONFIRM`, "Então deixo no pagamento na
+  // entrega…, pode ser?") is her choice too, and the data come after it: unstored, the next turn
+  // would have no path and the link would wait for good (operator, 2026-10-06).
+  // A natural answer to the two options ("a primeira", "o antecipado") is stored too (review of
+  // f657faa): the link waits for a settled path, and an unstored choice was asked again next turn.
+  const choiceToStore = pathChoiceToStore({
+    interpreted: interpretation.payment_choice ?? null,
+    parts,
+    lastOutbound,
+    confirms: parts.some(confirmsAddress),
+  });
+  const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;
   // A choice in use is renewed like the kit, at most once a day (fifth review).
   const renewChoice = !interpretation.payment_choice && storedChoice !== null && Date.now() - choiceAt > 24 * 60 * 60 * 1000;
   if (renewChoice) {
@@ -2874,11 +3091,11 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       body: JSON.stringify({ payment_choice_at: new Date().toISOString() }),
     }).catch(() => undefined);
   }
-  if (interpretation.payment_choice && choosesPath(inbound.body ?? "")) {
+  if (choiceToStore) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
-        payment_choice: interpretation.payment_choice,
+        payment_choice: choiceToStore,
         payment_choice_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       }),
@@ -2896,7 +3113,6 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
     phone: lead.phone,
   };
-  const identityComplete = isIdentityComplete(identityDraft);
   // Kits: every piece needs its size before the link, and the link is the kit's own.
   const sizeKnown = units > 1 ? unitSizes.length >= units : (stated?.size ?? lead.size ?? null) !== null;
   const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
@@ -2910,12 +3126,19 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
   // the link and written to `turn_outcomes.reason`, so the record says what was sent.
   const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
-  const readiness = {
-    identityComplete,
-    interpretation,
-    identityAsked: asksForIdentity(lastOutbound),
-    identityGiven: Object.keys(identityFound).length > 0,
+  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name, e-mail and CPF.
+  // The refusals are read from the conversation (`refusedAsks`), not stored: an e-mail refused once
+  // and a CPF refused twice let the link go without them.
+  const cpfRefusals = refusedAsks(recent, "document");
+  const linkData = {
+    sizeKnown,
+    cepKnown: Boolean(addressDraft.cep),
+    pathSettled: paymentChoice !== null || knownRegion?.cod === false,
+    nameKnown: Boolean(identityDraft.name),
+    emailDone: Boolean(identityDraft.email) || interpretation.email_unavailable || refusedAsks(recent, "email") > 0,
+    cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
   };
+  const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
   // M-03: the link this turn would send, if it went out in the last three messages, is
   // not sent again. Only this path's checkout counts (code review, 2026-09-24): a switch
@@ -2923,16 +3146,23 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);
   const linkJustSent =
     !asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);
-  const linkNow = !linkJustSent && sendLinkNow({ ...readiness, sizeKnown });
-  // Ready for the link and the size still unknown: the size comes first, asked naturally.
+  const linkNow = !linkJustSent && sendLinkNow({ ...linkData, yesBesideQuestion });
+  // She wants the link and something comes first: that one thing, asked naturally. The payment
+  // choice is the region directive's; name, e-mail and CPF are the identity directive's.
+  const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
   const sizeBeforeLink =
-    !sizeKnown && readyForLink(readiness)
+    missing === "size" && (linkDue || units > 1)
       ? units > 1
         ? `Ela quer ${units} peças e ${unitSizes.length === 0 ? "nenhum tamanho foi dito" : `só ${unitSizes.length} tamanho(s) foi dito (${unitSizes.join(", ")})`}:` +
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
-      : null;
+      : missing === "cep" && linkDue
+        ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
+          ` entrega e o pagamento na região dela. Não escreva link nenhum.`
+        : missing === "payment" && linkDue && knownRegion === null
+          ? `Ela quer fechar, mas ainda não escolheu como paga: pergunte qual ela prefere antes do link.`
+          : null;
   const linkAlreadySent = linkSentRecently(recentOutbound, checkoutBases, recentOutbound.length);
   let checkoutUrl: string | null = null;
   let checkoutBlocked: string[] = linkNow
@@ -2953,11 +3183,13 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // A goodbye with the link already in the chat gets the operator's line without the link
   // again (persona round); "vou pensar" keeps the line either way (seventh review).
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
+  // Set when the fixed "vou pensar" line was already said: the model answers her goodbye, told so.
+  let farewell = false;
   if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
-    // Never a link without a size: without one she gets the line alone.
+    // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = sizeKnown && !linkJustSent && !(linkInChat && closesConversation(inbound.body ?? ""))
+      thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? ""))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -2966,10 +3198,17 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
     // link — and it is the only message allowed to cite the stock (`postponing`).
     const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
-    const sent = await sendFixed(
+    // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
+    // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
+    // send, the model answers her goodbye instead.
+    const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));
+    farewell = thinkRepeated;
+    // Review of ca51825: a link already built this turn would have its directive say "mande o link".
+    if (farewell) checkoutUrl = null;
+    const sent = thinkRepeated ? null : await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
-            (units > 1 ? `\n\nNo complemento do endereço, escreva os tamanhos: ${unitSizes.join(" e ")}.` : ``)
+            (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)
         : think,
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
@@ -2980,7 +3219,22 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     if (sent) return sent;
   }
 
-  const identityDirective = linkNow || linkAlreadySent ? null : identityDirectiveFor(identityDraft);
+  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
+  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
+  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // After the size and the CEP too, so the offer never shares a message with another question.
+  const kitOfferNow =
+    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;
+  // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
+  // the CPF again of a woman saying goodbye. Told instead what the turn is.
+  const identityDirective = farewell
+    ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
+      `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+      ? null
+      : identityDirectiveFor(identityDraft, linkData.emailDone, cpfRefusals);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent
@@ -2998,30 +3252,29 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       : null;
   const checkoutDirective = checkoutDirectiveFor(
     checkoutUrl,
-    // A kit carries one size per piece, and she types them all in the complement.
+    // A kit carries one size per piece, and she picks each one on the kit's own checkout.
     units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,
     linkPath,
     Object.keys(identityDraft).length > 0,
     linkFact,
+    units,
   );
-  // The kit: offered once when she decides (operator, 2026-09-25), and when the link is a
-  // kit's, the sizes she gave go in the checkout complement — the only field she types.
-  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = recentOutbound.some((m) =>
-    /\b(?:[23]|duas|tr[eê]s)\s+pe[cç]as\b|\bkits?\b|\blevando\s+(?:[23]|duas|tr[eê]s)\b/i.test(m),
-  );
+  // When the link is a kit's, it is that kit's own checkout, and she picks each size there.
   const kitDirective =
     units > 1 && checkoutUrl !== null
       ? `O link é do kit de ${units} peças, com os tamanhos ${unitSizes.join(" e ")}.`
-      : units === 1 && interpretation.wants_to_buy && kitsOnPath.length > 0 && !kitOffered
-      ? `Na mesma mensagem, ofereça uma vez só, numa frase curta, que levando mais peças o desconto` +
-        ` sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
-        ` Se ela não quiser, siga com uma peça.`
+      : kitOfferNow
+      ? `Ela já escolheu como paga: antes de pedir os dados, ofereça uma vez só, numa frase curta, que` +
+        ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
+        ` Diga sempre "peças" junto do preço do kit. Nesta mensagem, só a oferta, terminando na pergunta do kit —` +
+        ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
+        ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
   const sizeDirective =
     [
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
+      regionDirectiveFor(knownRegion, paymentChoice),
       backToSize,
       sizeBeforeLink,
       coverageUnknown,
@@ -3042,12 +3295,14 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     try {
       // The correction rides in the system prompt, so the vetoed text never enters
       // the conversation history the customer's next turn is built from.
+      // A revision carries its own draft the same way (grafo §61).
+      const revising = internal.revise ? ` ${reviseInstruction(internal.revise.draft)}` : "";
       const system = correction === null
-        ? systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)
-        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)} ${correction}`;
+        ? `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising}`
+        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
-        replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
+        isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
       );
     } catch (error) {
       // The network, still down after the in-call retries: one more try from the sweep
@@ -3090,6 +3345,8 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
       knownTestimonials: CONFIG.testimonials,
       // Testimonials only when she asks for them (R16.7).
       askedTestimonial: asksForTestimonial(inbound.body ?? ""),
+      // Virtual, IA, robô only when she asks what the agent is (Q10, line 2; grafo §58).
+      askedIdentity: parts.some(asksWhatSheIs),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
@@ -3118,7 +3375,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   await db(`conversations?id=eq.${conversation.id}`, {
     method: "PATCH",
     body: JSON.stringify({
-      cost_brl: spent,
+      cost_brl: await costTotal(),
       updated_at: new Date().toISOString(),
     }),
   });
@@ -3136,6 +3393,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   // same cron that runs the rulers sends it when the window opens — the chain runs
   // again then, so a message held overnight is still gated before it goes out.
   if (outcome.kind === "defer") {
+    // She wrote meanwhile (grafo §61): the reply held for the morning folds her new messages in too.
+    const revised = await lateGuard(rewritesUsed, attempt.text);
+    if (revised) return revised;
     const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
     // Upsert, and for the same reason the rulers use one: a second reply written in
     // the same closed window replaces the first. What she asked last is the live
@@ -3212,7 +3472,7 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
   const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
 
-  const gaveUp = await retryGaveUp(rewritesUsed);
+  const gaveUp = await lateGuard(rewritesUsed, replyText);
   if (gaveUp) return gaveUp;
 
   const outbound = (
@@ -3236,6 +3496,9 @@ const handleTurn = async (payload: TurnPayload, internal: { retry?: RetryTicket 
     conversation.id,
     stopPointOf(replyText, recentOutbound),
     linkSentRecently([replyText], CHECKOUT_BASES),
+    new Date(),
+    undefined,
+    endsWithQuestion(replyText),
   );
 
   // O pedido, montado aqui e postado pelo n8n. Regra de negócio é código versionado;

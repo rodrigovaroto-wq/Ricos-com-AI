@@ -1583,6 +1583,478 @@ em `hermes-core.ts` (≥ 200 turnos por versão, z ≥ 1,645); reversão pendent
 **Resíduo:** recalibrar o Hermes (`pnpm hermes:calibrar`) depois da skill 1.2.0; texto do e-mail de
 falha sem aprovação.
 
+## 53. A véspera do pedido já pago perguntava se ela estaria em casa (2026-10-06)
+
+**Sintoma:** revisando os templates antes de submeter, o operador leu na véspera do antecipado
+"Se você não estiver em casa amanhã, me avisa que eu tento remarcar".
+**Causa:** a linha final era uma só para os dois caminhos. Na entrega, quem recebe paga, então
+precisa ser ela; já pago, a portaria ou alguém da casa recebe.
+**Caminhos descartados:** trocar a linha nos dois caminhos (o operador recusou: na entrega a
+pergunta certa continua sendo se ela está em casa).
+**Correção:** `renderFollowup("order_eve")` com `ctx.prepaid` termina em "Se não tiver ninguém
+para receber, me avisa que eu tento remarcar."; template `encorpa_vespera_entrega_pago` (seção 4
+de `03-templates-meta.md`) com o mesmo texto, ainda não submetido.
+**Guarda:** `tests/whatsapp-templates.test.ts` compara o corpo da seção 4 com o texto do código e
+passa os dois pela cadeia de gates (ficou vermelho com a doc trocada antes do código).
+
+## 54. Cancelar um pedido que já saiu para entrega recebia "vou checar" (2026-10-06)
+
+**Sintoma:** o operador pediu que, quando a cliente quer cancelar depois que o pedido saiu para a
+entrega, a Malu diga que já saiu e que ela espera chegar para pedir a devolução. O turno respondia
+`ORDER_HANDOFF_REPLY` ("Vou checar pra você e já te retorno 💛") a todo cancelamento.
+**Causa:** o turno não lia o status do pedido no cancelamento — só sabia que havia um pedido
+(`orders?select=id&limit=1`, e nem isso quando ela dizia "comprei").
+**Caminhos descartados:** deixar o modelo dizer (R11.1: ação e status são código, e o
+`order_action_claim` existe porque o modelo prometeu cancelamento); tirar o handoff (uma pessoa
+ainda confere — o status pode estar atrasado); texto "você tem 7 dias depois de receber 💛" — o
+coração depois da contagem fica na frase e o `delivery_promise` lê como prazo de entrega (vetado nos
+dois caminhos, pego pelo teste antes do código ir para o turno).
+**Correção:** `pastCancelling(statuses)` em `followups.ts` (todo pedido vivo em `em_rota` por
+`stageForOrder`; um ainda em `pedido_criado`, um entregue ou uma tentativa frustrada mantém o
+comportamento de antes) e `shippedCancelReply(warrantyDays)` em `retry.ts`, ligados no turno só
+quando `handoffKind === "cancel"`, com uma consulta `orders?lead_id=eq.…&select=status`
+(`orders_lead_idx`). Continua `handOff`, motivo "a cliente quer cancelar um pedido que já saiu
+para entrega". Os dias vêm de `delivery.warrantyDays`.
+**Guarda:** `tests/shipped-cancel.test.ts` (o texto passa `runGates` como o `handOff` julga, na
+logística, nos dois caminhos e sem pagamento na entrega; dias fora do config vetados; negação: não
+enviado, entregue, frustrado, só morto, sem pedido, um pedido ainda cancelável; sem contexto de
+pedido não há handoff).
+**Achado da revisão (corrigido na raiz):** `isOrderDead` procurava `devolv` e não via "devolução"
+— "Em rota de devolução" lia `em_rota`, e ela ouviria "quando ele chegar aí" com o pacote voltando.
+A raiz virou `devol`, em `isOrderDead` (que a régua e `stageForOrder` também usam), com os dois
+status na negação do teste (vermelho antes, verde depois).
+**Resíduo:** no pagamento na entrega ela pode recusar na porta sem pagar; o texto não diz que não
+pode, mas "espera chegar para pedir a devolução" não lembra essa saída — decisão do operador.
+**Superado em §56** (mesmo dia): `pastCancelling` virou `cancelReplyFor`; na entrega ela é orientada a
+recusar na porta, e `shippedCancelReply` ficou só para o antecipado.
+
+## 55. O nó de envio do WhatsApp não tinha credencial (L1.5, 2026-10-06)
+
+**Sintoma:** ao ligar o canal, a versão ativa de "Encorpa — WhatsApp envio" tinha o nó "Envia pela
+Cloud API" sem credencial nenhuma e pedindo o tipo `httpTemplatedCustomAuth`; a credencial que a
+Parte C manda criar ("WhatsApp Cloud API") é `httpHeaderAuth`. Ligado assim, a Meta recusaria toda
+mensagem (o e-mail de falha avisaria, mas nenhuma cliente receberia nada).
+**Causa:** o workflow foi importado sem credencial (n8n não exporta credencial) e o tipo de
+autenticação ficou no padrão do construtor; nenhuma regra do `dev:n8n` olhava esse nó.
+**Caminhos descartados:** criar uma credencial do tipo que o nó pedia (outro formato para o mesmo
+cabeçalho, e duas credenciais para o mesmo token).
+**Correção:** nó com `genericAuthType: httpHeaderAuth` e a credencial "WhatsApp Cloud API";
+"Monta os envios" com `PHONE_NUMBER_ID` e `CANAL_ATIVO = true` (versão ativa `e85cf497`), com a
+permissão do operador. Fila conferida antes: 0 toques agendados, 1 lead (de teste).
+**Guarda:** regra nova em `src/dev/n8n-rules.ts` (o nó de envio só com "WhatsApp Cloud API" em
+Header Auth), testada em `tests/n8n-workflows.test.ts` e conferida contra a versão antiga (acusa
+`credential "none"`); `tests/n8n-whatsapp-send.test.ts` exige o canal ligado com o ID do número.
+
+## 56. Cancelar pedido pago na entrega mandava pedir devolução (2026-10-06)
+
+**Sintoma:** o operador decidiu que o cancelamento depende do caminho de pagamento. Com §54, um
+pedido na entrega já em rota ouvia "não dá mais pra cancelar… pedir a devolução" — mas na entrega
+ela simplesmente recusa na porta e não paga nada (o resíduo de §54). E um antecipado pago que ainda
+não saiu recebia "vou checar", sem dizer ao operador o que fazer.
+**Causa:** `pastCancelling` só lia o status; o turno consultava `orders?select=status`, sem
+`payment_method`.
+**Caminhos descartados:** deixar o modelo escolher o texto (R11.1); ler "pago" do texto da
+cliente (o caminho é o da plataforma que mandou o webhook: Logzz ou Coinzz `afterpay` = `cod`,
+Coinzz = `prepay`, coluna `orders.payment_method`, not null); afrouxar `order_action_claim` para o
+texto 3 — desnecessário: "irei dar início no cancelamento" passa a cadeia como está (0 gates
+afrouxados); tratar todo `pedido_criado` antecipado como pago — "Aguardando pagamento" também lê
+`pedido_criado` em `stageForOrder`.
+**Correção:** `cancelReplyFor(orders, codUnavailable)` em `followups.ts` (substitui
+`pastCancelling`): pedidos vivos de um só caminho e um só estágio; `cod` em `pedido_criado` ou
+`em_rota` → `COD_CANCEL_REPLY`; `prepay` em `em_rota` → `shippedCancelReply`; `prepay` em
+`pedido_criado` com todo status na allowlist de pago e não enviado (ver o achado da revisão abaixo)
+→ `PREPAID_CANCEL_REPLY`; o resto → null → `ORDER_HANDOFF_REPLY`. No turno,
+uma consulta `orders?lead_id=eq.…&select=status,payment_method` (`orders_lead_idx`), só quando
+`handoffKind === "cancel"`; os três ramos continuam `handOff`, com motivos distintos — o do
+antecipado não saído diz "cancelar manualmente na Coinzz" e chega no e-mail de handoff
+("Motivo:") do workflow "turno-da-agente", desde que `handoff.email` esteja no config.
+**Achado no teste:** `COD_CANCEL_REPLY` ("pago na entrega") é vetado por `charge_promise` quando o
+lead tem `codUnavailable` (região gravada sem entrega) — `handOff` passaria a cliente sem resposta
+nenhuma. Em vez de afrouxar o gate, `cancelReplyFor` devolve null nesse caso e ela ouve "vou checar".
+**Achado da revisão de da612fd (corrigido):** (1) `stageForOrder` lê como `pedido_criado` qualquer
+status que não reconhece, e o "pago" era uma busca por palavra — "Aprovado / Postado", "Pago / Em
+transporte", "Aprovado / Em distribuição", "Aprovado / Aguardando retirada", "Aprovado / Out for
+delivery", "paid / pending", "Aprovado / Chargeback" ouviam "ainda não saiu… irei dar início no
+cancelamento". Correção por allowlist (lição 3): o status é "pagamento / envio" (n8n "Normaliza a
+venda"); `prepaid_pending` só com a parte do pagamento exatamente uma palavra de pago (aprovado,
+pago, paid, approved, pagamento aprovado/confirmado) e a de envio vazia ou "aguardando envio",
+"aguardando coleta", "em separação". O resto vira "vou checar". A lista de `em_rota` de
+`stageForOrder` não ganhou "postado", "em transporte" etc.: mudaria a régua (toques de envio e
+véspera) sem status real da Coinzz que os confirme — a allowlist basta para o cancelamento.
+(2) "Aprovado / Não enviado", "Não despachado", "Não coletado" liam `em_rota` e ouviam "já saiu para
+entrega": lookbehind de negação (`nao`, `nao foi`, `nao esta`) na raiz, em `stageForOrder`, que a
+régua também usa; no caminho na entrega esses status continuam `cod`.
+**Guarda:** `tests/shipped-cancel.test.ts` (textos literais; os três passam `runGates` como o
+`handOff` julga — `cod`, sem estágio e na logística; o mapeamento de cada caso e a negação: vazio,
+só mortos, "Em rota de devolução", entregue, frustrado, antecipado não pago/pendente/reprovado/sem
+status, caminhos misturados ou desconhecidos, estágios diferentes; a fiação de cada ramo no turno).
+**Resíduo:** o turno só conhece o último status que o webhook gravou — nenhuma API da Logzz ou da
+Coinzz é consultada. Um antecipado que já saiu sem o webhook "Enviado" ter chegado ouve "ainda não
+saiu… irei dar início no cancelamento"; por isso o handoff permanece em todos os casos. O
+vocabulário de pago da Coinzz só está confirmado para "Aprovado".
+
+## 57. O status do pedido era lido por palpite de raiz (2026-10-06)
+
+**Sintoma:** "Completo" — o entregue e pago da Logzz — lia `pedido_criado`: a régua nunca
+mandava o toque de depois da entrega e o funil nunca contava a venda paga. "A caminho" (Logzz,
+no roteiro do entregador) lia `pedido_criado`, não `em_rota`; "A reagendar" (Logzz) e "Sem
+sucesso" (Coinzz), tentativas frustradas, liam `pedido_criado` em vez de não mover o estágio. Um
+status que ninguém conhecia virava uma resposta de cancelamento afirmativa.
+**Causa:** `stageForOrder` e `isOrderDead` liam por raiz de palavra, porque "nenhuma plataforma
+publica o vocabulário" — e o que não casava raiz nenhuma virava `pedido_criado`. Os status
+confirmados da Logzz (central de ajuda) e da Coinzz nunca tinham sido escritos em lugar nenhum.
+**Caminhos descartados:** deixar o modelo interpretar o status (R11.1: status é ação, e ação é
+código; decisão do operador de 2026-10-06 mantém isso); só acrescentar raízes ("complet",
+"caminho") — mais palpite, e "A caminho" vs. "a caminho da devolução" é o tipo de colisão que a
+raiz não vê; tratar status desconhecido como morto ou como em rota na régua — os dois mudariam o
+que já roda sem status real que justifique.
+**Correção:** `ORDER_STATUS_TERMS` em `followups.ts` (espelhado): cada termo normalizado (acento,
+caixa e espaço) → pago, não pago, pré-envio, em rota, entregue, tentativa sem sucesso ou morto; o
+status "pagamento / envio" da Coinzz é conhecido só se toda parte estiver na tabela.
+`isKnownOrderStatus` é público. `stageForOrder` e `isOrderDead` leem a tabela primeiro (morto >
+sem sucesso > entregue > em rota > criado) e caem na leitura por raiz de antes só para o
+desconhecido — a régua mantém o comportamento de hoje nesse caso. `cancelReplyFor` devolve null
+(`ORDER_HANDOFF_REPLY`) se algum pedido vivo tiver status desconhecido, e o "pago e não enviado"
+virou leitura da tabela (a allowlist de §56, com as mesmas palavras, mais as da Coinzz). O job
+`order` devolve `unknownStatus` (o status cru que chegou) quando ele não é conhecido; no
+workflow versionado "Venda confirmada", a saída de sucesso de "Grava o pedido" passa por "Status
+novo?" e "Avisa status novo" (mesmo SMTP e destinatário dos outros avisos): "Status novo da
+<Logzz|Coinzz>: X — o que ele significa? (pedido …)". **A versão ativa no n8n não foi alterada**
+— o operador aplica.
+**Muda comportamento além dos três bugs (inferidos, aprovados pelo operador):** "Expirado" e
+"Chargeback" passam a pedido morto (cancelam os toques do pedido e liberam a régua de silêncio);
+"Postado", "Em transporte", "Em trânsito" da Coinzz passam a `em_rota` (toque de envio; no
+cancelamento antecipado, o texto de "já saiu"). Na entrega, um status fora da tabela ("Não
+enviado", "Despachado") agora ouve "vou checar" em vez do texto de recusar na porta.
+**Guarda:** `tests/order-status-vocabulary.test.ts` (todo status confirmado e inferido → estágio,
+morto/vivo, os três bugs, acento/caixa/espaço, negação — "Não entregue", "Não enviado", "Não está
+em trânsito" — desconhecidos inclusive `__proto__`, a resposta de cancelamento de cada um, a
+fiação de `unknownStatus` no job e o IF + e-mail no JSON do n8n). `tests/shipped-cancel.test.ts`
+ajustado nos casos que a decisão mudou.
+**Achados da revisão de 82b4643 (corrigidos):** "Expirado" como morto travava para sempre um
+pedido pago depois na mesma cobrança reemitida (morto fica morto) — virou não pago, o comportamento
+de antes; "A reagendar" na entrega caía em "vou checar", contra a regra do operador (na entrega,
+recusar na porta, saído ou não) — termo próprio `reschedule`, que a régua lê como tentativa frustrada
+e o cancelamento na entrega lê como mais uma tentativa vindo. Os dois nos testes, vermelhos antes.
+**Resíduo:** os inferidos da Coinzz não têm fonte — o e-mail de status novo é o que os corrige. Um
+status desconhecido segue sem toque de envio nem de entrega até entrar na tabela. "Pendente /
+Enviado" (não pago e enviado) lê `em_rota`, como antes.
+
+## 58. A agente abria a conversa se anunciando "assistente virtual" (Q10, 2026-10-06)
+
+**Sintoma:** primeiro teste real no WhatsApp (agent_version 5). Ela escreveu "oi"; depois da
+boas-vindas fixa, a agente abriu com "eu sou a assistente virtual da Encorpa…" e, noutro lead,
+"eu sou a Malu, assistente virtual da Encorpa". Quebra a linha 2 da regra do operador (Q10, R3.5:
+"não mente, não anuncia") — ninguém perguntou o que ela é.
+**Causa:** o prompt dava a identidade como frase pronta em dois lugares — a abertura ("assistente de
+vendas da marca… se perguntarem, diz que é a assistente virtual da marca") e o bloco de tom ("o tom,
+não a identidade: você continua sendo a assistente virtual da marca"), este sem condição nenhuma. E
+nenhum gate conhecia a linha 2: `humanity_claim` só cobria a linha 1 (afirmar ser pessoa, negar ser
+robô) e, de propósito, aprovava "sou a assistente virtual da marca" em qualquer contexto.
+**Caminhos descartados:** só o prompt — prompt e gate são a mesma promessa escrita duas vezes, e o
+prompt sozinho já falhou aqui; vetar "assistente virtual" sempre — deixa a agente sem resposta para
+"você é robô?" (o motivo da isenção de antes, linha 3); um gate novo — a regra é a mesma família de
+`humanity_claim`, e um nome novo espalharia listas de gates; reaproveitar `namesAPerson`/
+`IDENTITY_QUESTION_BEFORE` (interpret.ts) — eles leem o prefixo de uma palavra de pessoa para não
+rotear handoff, não respondem "a mensagem pergunta o que ela é" ("é IA?", "isso é um bot?", "com
+quem eu tô falando?" não têm palavra de pessoa); ler a negação na pergunta — "você não é robô né?"
+é a pergunta.
+**Correção:** `asksWhatSheIs(message)` em `guardrails.ts` (espelhado), largo e cego à negação de
+propósito, como `asksForTestimonial`: robô, bot, máquina, IA, inteligência artificial, virtual,
+automático, humano, "é uma pessoa", "de verdade", "com quem eu tô falando". `GateContext.askedIdentity`
+(opcional) e, em `humanity_claim`, com `layer: "agent"` e `askedIdentity === false`, veto a
+"assistente/atendente… virtual|digital|automática", "inteligência artificial", "sou (uma) IA/robô/
+bot/máquina/programa/virtual", "uma IA/um robô/um bot", "atendimento/mensagem automática" — lido como
+escrito, com negação. `undefined` (varredura, despedida, linhas fixas) deixa o veto ocioso. O turno
+passa `askedIdentity: asksWhatSheIs(inbound.body ?? "")`; o motivo volta ao modelo pela reescrita de
+sempre. O briefing do gate ganhou a linha 2. Prompt: "Você é a {agentName}, da {brand}, e vende pelo
+WhatsApp… Quando se apresenta, é "a {agentName}, da {brand}", e só… Nunca diz por conta própria que
+é virtual, IA, robô, bot ou assistente virtual: só quando a mensagem dela pergunta o que você é…";
+o bloco de tom virou "o tom, não a identidade: você nunca diz que é uma pessoa".
+**Achados da revisão de 5fce1df (corrigidos, testes vermelhos antes):** (1) falsos negativos em
+`asksWhatSheIs` viravam a resposta honesta em veto e empurravam a reescrita para a mentira — "vc é
+real?", "tem alguém aí?" (que estava na lista de não-pergunta: neste contexto é sondar quem responde),
+"é atendente?", "é gpt?", "vc é de carne e osso?", "isso é resposta pronta?", "é gravação?", "isso é um
+sistema?", "vc é programada?", "falo com quem?", "é vc mesma q responde?", "vc é rbo?" — todos cobertos,
+com não-perguntas de venda ("a entrega é programada?", "qual o sistema de entrega?", "custa 129
+reais?") seguindo falsas; (2) a resposta honesta inteira ("não sou uma pessoa/gente…, sou a assistente
+virtual…") nunca é vetada pelo anúncio, perguntada ou não — ela só existe como resposta (resíduo
+aceito pelo operador); (3) buraco da linha 1: "sou de verdade", "sou real", "sou gente", "sou de carne
+e osso", "sou eu mesma, uma pessoa" agora vetam como afirmar ser gente, perguntada ou não, com a
+negação passando ("não sou de verdade uma pessoa", "não sou gente, sou a assistente virtual"); (4)
+"atendimento/mensagem/resposta automática" vetava texto da transportadora ("mensagem automática dos
+Correios") — ancorado em "sou/aqui é/isso (aqui) é/este é…" e com Correios/transportadora/rastreio
+excluídos.
+**Guarda:** `tests/ai-self-disclosure.test.ts` (101 casos: as duas aberturas de produção vetadas
+depois de "oi"; 29 perguntas de identidade, negações e erros de digitação inclusive, liberam a
+resposta honesta; 12 não-perguntas; a resposta honesta inteira passa sem pergunta; texto da
+transportadora passa e "isso aqui é atendimento automático" veta; as afirmações de ser gente vetam
+nos três estados do sinal e as negações passam; nome + marca, "loja virtual", "eu ia" passam; linhas
+fixas passam; fiação no `index.ts` lida como fonte). `tests/prompt.test.ts` prova que a apresentação
+ensinada passa a cadeia e que a frase da produção não. Arco "agente se anuncia virtual sem ela
+perguntar" em `dev:conversas` (o motor passa `askedIdentity`). Mutações `G58-anuncia-virtual` e
+`G58-fiacao` em `verify-guards.ts`. `dev:gates` ganhou um 13º contexto com `askedIdentity: false`
+("sem-pergunta-de-identidade"), para o veto ser visto pelo diff daqui em diante: contra 0d49d9c, 0
+afrouxou e 24 endureceram — anúncios não perguntados, perguntas da cliente e trechos de teste/prompt
+(só nesse contexto), e as cinco afirmações novas de ser gente (nos 13); nenhuma é resposta honesta
+a pergunta de identidade.
+**Resíduo:** "sou a assistente virtual da marca" sem o "não sou uma pessoa" na frente veta quando ela
+não perguntou (é anúncio); a despedida do opt-out e a varredura não leem a pergunta (veto ocioso lá);
+pergunta de identidade feita num turno anterior não libera o turno seguinte; frase de anúncio fora da
+lista (ex.: "aqui quem fala é a IA") passa; `asksWhatSheIs` é largo — "o preço é real?" conta como
+pergunta e só devolve o comportamento de antes de §58.
+
+## 59. Cada mensagem dela virava uma resposta (primeiro teste real no WhatsApp, 2026-10-06)
+
+**Sintoma:** conversa b6933f88 (agent_version 7). "…ela tem quelas barbatanas de metal?" (14:17:51) e
+"Qual o material usado?" (14:17:53) → duas respostas quase iguais, as duas pedindo o CEP. "Mas e se
+eu não estiver em casa?", "Leila", "Leila da Silva Claude" (14:22:27–41) → três respostas, o link duas
+vezes e um "Valeu, Leila…". Balões de duas execuções se intercalaram (uma linha fixa rápida passou na
+frente de uma resposta do modelo em ritmo). Os turnos duplicados foram ~17% do custo da conversa.
+**Causa:** o turno é um por evento do canal. Nada esperava ela parar de digitar, e cada turno lia só
+`inbound.body` — a mensagem que o disparou —, então dois turnos paralelos respondiam a mesma conversa,
+cada um com metade do que ela disse. O guarda "chegou mensagem mais nova" já existia, mas só para a
+nova tentativa da varredura (`retryIsMoot`, R13.4).
+**Caminhos descartados:** debounce no n8n com um Wait por mensagem — o Wait não sabe se chegou outra,
+precisaria de estado no n8n (regra de negócio no cano, R5.2) e cada execução esperando ainda chamaria
+o turno; fila/lock por conversa no Postgres — tabela e varredura novas para o que uma leitura do
+índice `messages_conversation_idx` já responde; responder só a última mensagem — perde a pergunta da
+primeira ("barbatanas de metal?"); juntar só no prompt e deixar os leitores determinísticos na última —
+o intérprete, o handoff, o tamanho, o endereço e a identidade decidiriam sobre metade do que ela disse;
+descartar também os handoffs na segunda olhada — o handoff já gravou `handoff_at`, o turno seguinte
+sai `already_handed_off`, e ela ficaria sem resposta nenhuma.
+**Correção:** um bloco só no `index.ts` (2d), por onde passam mensagem nova, retomada e nova
+tentativa. Depois de gravar a mensagem, o turno de uma mensagem nova espera `QUIET_WINDOW_MS` (8 s,
+`retry.ts`, espelhado) e lê as últimas 20 mensagens da conversa; se a inbound mais nova não é a dele
+(`retryIsMoot`, a mesma função da nova tentativa), sai `superseded`, sem resposta, com
+`turn_outcomes` `stopped` e motivo "superseded: …". O turno que responde lê
+`unansweredInbound(...)` — toda inbound desde a última outbound, sem contar a boas-vindas fixa. Unida
+por quebra de linha (`inbound.body`), vai ao intérprete, ao modelo e aos leitores que procuram algo em
+qualquer ponto do texto (`namesOwnPrice`, `statesPastPurchase`, `handoffFor`, `quantityOf`,
+`saysOwnSize`, `asksForLink`, `closesConversation`, `asksForTestimonial`). Mensagem a mensagem
+(`parts`), corrigido na revisão de 5af3a8b: o que é ancorado no texto inteiro ou em que a mais nova
+corrige a anterior — opt-out (`classifyOptOutBurst`, a mais forte vence: "oi"+"não quero receber mais
+promoção" lia `none`), `asksSomething`, `wantsHuman`, `choosesPath` e `asksWhatSheIs` (qualquer uma);
+a decisão de compra (`decisionInBurst`: a última linha que decide vale, e uma linha depois dela que adia
+ou desiste — "pensando bem vou esperar", "depois eu vejo" — a desfaz, `wants_to_buy: false`); a
+despedida (`goodbyeParks`) e a confirmação do endereço (`confirmsAddress`) só na última mensagem; o
+tamanho na mais nova que diz um; endereço e identidade extraídos um a um, em ordem, a mais nova vence
+(`extractAddressBurst`, `extractIdentityBurst` — "Leila Souza" sozinha numa mensagem volta a ser nome).
+A segunda olhada (`retryGaveUp` → `lateGuard`) vale para todo turno: logo antes de gravar e mandar a
+resposta (e a linha fixa), uma inbound mais nova descarta a resposta — sem linha em `messages`, sem
+régua, `stopped` com o custo — e o turno novo responde tudo; uma leitura que falha nunca cala a
+cliente; a leitura da rajada que falha também não — o turno responde a própria mensagem. O custo
+(`costTotal`) deixou de sobrescrever `cost_brl` com o valor lido no começo do turno: cada gravação relê
+o total e soma só o que o turno gastou desde a gravação anterior, e o turno relê o total depois da
+espera — o gasto de um turno descartado não sai mais do teto. A retomada (`resume: true`) fica moot quando a inbound mais nova não é a que disparou a
+boas-vindas (`external_id`): aquela mensagem tem turno próprio e responde a rajada inteira. O kit:
+`replayed` deixou de ser só da nova tentativa — um `units_at` gravado depois do começo da rajada é de
+um turno descartado, e uma lista parcial não é somada de novo. n8n sem mudança: `superseded` não traz
+`bubbles`, e o "Responde no WhatsApp?" só manda com `sealed` e `bubbles`.
+**Guarda:** `tests/burst.test.ts` — rajada lida da mais antiga para a mais nova; mensagem sozinha
+continua respondida; outbound (régua, pessoa, agente) fecha a rajada, a boas-vindas não; mensagem
+nova derruba o turno anterior e a mesma mensagem não; a espera cabe nos 150 s do n8n; fiação lida
+como fonte (espera só fora de retomada/nova tentativa, consulta por `conversation_id`, posição entre
+a gravação e o primeiro leitor, `wantsHuman` por mensagem, retomada moot por `external_id`,
+`lateGuard` sem `if (!isRetry)` e antes do insert final); os probes da revisão de 5af3a8b (opt-out
+com outra linha antes, desistência depois da decisão, endereço corrigido, nome sozinho) e as negações
+(rajada sem opt-out, decisão seguida de pergunta, "não sei meu CEP" não desiste); a fiação de cada
+leitor por mensagem, a leitura com `.catch` e nenhum `cost_brl: spent` sobrando.
+`tests/function-drift.test.ts`, `tests/ai-self-disclosure.test.ts` e as mutações `WA-janela-no-fim` e
+`G58-fiacao` acompanharam os nomes novos.
+**Resíduo:** ela escrever depois da janela enquanto a resposta está em ritmo no WhatsApp ainda gera
+duas respostas que podem se intercalar (a segunda olhada só vê o que chegou antes do insert); cada
+turno fica 8 s mais lento (no pior caso ~138 s + banco, contra 150 s do n8n e do relógio da Edge
+Function); `costTotal` lê e grava em duas chamadas, então duas gravações no mesmo instante ainda podem
+perder uma (um incremento atômico pediria uma função SQL e uma migração); a lista de desistência de
+`decisionInBurst` é curta e de propósito — "espera, qual o prazo?" não desiste —, e o que ela não
+cobre fica com o intérprete; uma "confirmação" seguida de outra mensagem ("sim"+"obrigada") não confirma
+o endereço, e a agente lê o endereço de novo; fatos (tamanho, endereço,
+identidade) gravados por um turno descartado ficam, e o turno novo os relê da mesma rajada — idem;
+depois de um turno que não respondeu (`stopped`, `deferred`), a rajada seguinte inclui as mensagens
+dele; acima de 20 mensagens sem resposta, só as 20 últimas entram.
+
+## 60. A resposta solta dela recebia "Desculpa, não entendi" (escada do tamanho, 2026-10-06)
+
+**Sintoma:** produção, agent_version 7. Depois da abertura "Tem alguma roupa que você adora e deixou
+de usar?", "Aah ok" recebeu "Desculpa, não entendi, qual o tamanho que deseja?"; "Tem sim, um vestido
+azul lindo que ganhei do meu marido!!" — a resposta exata à pergunta — recebeu "Precisa de ajuda para
+escolher o tamanho?"; "??" recebeu "Quando decidir é só me falar que prossigo com a criação do seu
+pedido." (`turn_outcomes` motivo "escada do tamanho"). Três linhas de robô seguidas, e a terceira
+fecharia a conversa em silêncio até ela dizer algo que o código achasse com sentido.
+**Causa:** a escada fixa de R13.4 (`decideClarify` / `CLARIFY_SIZE_REPLIES`), estendida em R18.7 a
+QUALQUER pergunta da Malu enquanto o tamanho não estava definido. Ela decidia sobre o
+`pending_answer: "unrelated"` do intérprete — e o intérprete leu a história do vestido como não
+relacionada a uma pergunta de abertura. Uma leitura errada de um campo virava três frases fixas sobre
+tamanho e depois silêncio; o modelo, que leria a conversa inteira, nunca era chamado.
+**Caminhos descartados:** ajustar o intérprete para ler a abertura melhor — o erro de leitura muda de
+lugar, e a escada continua respondendo "não entendi" a quem se fez entender; restringir de novo a
+escada só à pergunta do tamanho (desfazer R18.7) — "Aah ok" depois de "qual seu número?" ainda
+receberia "não entendi"; trocar as três frases por outras — o operador recusou o mecanismo, não o
+texto ("um agente de IA, não um robô binário"); não responder ao reconhecimento (C5 do script v2) —
+deixa ela sem resposta, e o operador pediu continuação calorosa.
+**Correção:** a escada saiu inteira. `decideClarify`, `ClarifyDecision` e `CLARIFY_SIZE_REPLIES`
+apagados de `interpret.ts` (espelhado); o bloco 5f do `index.ts` e a saída silenciosa
+"escada do tamanho esgotada" apagados, junto com `parked`, `interpreted` e o import de
+`THINK_REPLY` que só ela usava. Toda mensagem vai ao modelo. A diretiva `backToSize` (ela perguntou
+outra coisa no lugar do tamanho → responde e volta ao tamanho) fica. O prompt ganhou um item na lista
+de táticas: toda resposta dela é conversa; desvio → responde primeiro e volta à pergunta com outras
+palavras; "ah ok"/"hm"/"kkk" → continuação curta e calorosa do assunto aberto; "??" → a última
+mensagem não ficou clara, diga de novo mais simples, sem pôr a culpa nela; nunca "não entendi".
+Custo: nenhuma chamada a mais; cada mensagem que antes levava linha fixa (só a leitura do intérprete)
+passa a levar a resposta do modelo, ~R$ 0,05–0,06 a mais por mensagem que caía na escada.
+**Guarda:** `tests/function-drift.test.ts` — o turno não contém `decideClarify`,
+`CLARIFY_SIZE_REPLIES`, "escada do tamanho" nem a primeira frase, e a diretiva `backToSize` segue;
+`tests/interpret.test.ts` — o módulo não exporta mais a escada, e as três mensagens de produção não
+param em nenhuma saída fixa (despedida, decisão, quantidade, opt-out, pessoa, handoff);
+`tests/prompt.test.ts` — o item novo está no prompt nas seis variantes de config, e as frases
+ensinadas seguem passando a cadeia. `tests/burst.test.ts` conta 8 gravações de custo (a saída
+silenciosa era a nona). Mutação `neusa-escada-em-qualquer-pergunta` removida de `verify-guards.ts`:
+o código que ela mutava não existe. `pnpm dev:gates --base=HEAD`: 0 vereditos mudaram.
+**Resíduo:** nenhum gate veta "não entendi" — a proibição está só no prompt (um gate de texto novo
+pede `dev:gates` e teste de negação próprios); sem a saída silenciosa, a conversa de "ta"/"?" sem fim
+da Neusa volta a gastar um turno de modelo por mensagem até o teto de R$ 1,00 (R18.7), que a manda a
+uma pessoa; o corpus do `dev:conversas` não tinha arco da escada nem gate que a marque como BAD, então
+nada mudou lá; C3 em `05-conversa-de-venda-v2.md` §12 continua listado como conflito.
+
+## 61. A resposta dela era jogada fora quando ela escrevia de novo (rajada v2, operador, 2026-10-06)
+
+**Sintoma:** depois do §59, uma mensagem que chegava enquanto a Malu escrevia descartava a resposta já
+paga (`lateGuard` → `superseded`), e o turno novo começava do zero. O operador: "ela não deve jogar tudo
+fora: deve dar um passo para trás, olhar o que já tem como resposta e contexto, introduzir a nova
+mensagem e a partir daí criar a resposta — natural, não checklist", esperando 5 s, não 8. E duas regras
+novas: "Ainda está aí?" quando a pergunta dela fica 10 min sem resposta, e "sim" no meio de uma pergunta
+não manda o checkout.
+**Causa:** cada mensagem era dona do próprio turno; nada dizia que outro turno já estava escrevendo. A
+confirmação do endereço lia só a última mensagem ("tem rastreio?" + "sim" confirmava).
+**Caminhos descartados:** revisar só o texto sem reler a rajada (opt-out, pessoa, cancelamento, tamanho,
+endereço e link decidiriam sobre metade do que ela disse); o turno novo esperar o anterior (o orçamento
+de 150 s não comporta); mandar o rascunho quando as revisões acabam (as mensagens novas ficariam marcadas
+como respondidas sem resposta); tabela nova de lock (uma coluna basta).
+**Correção:** migração 0023 (`conversations.replying_since`). Depois de `QUIET_WINDOW_MS` 5 s e do
+`superseded`, o turno toma a conversa num PATCH condicional (nulo ou com mais de 150 s); quem não toma sai
+`joined`; quem falha ao tentar responde. O `Deno.serve` solta a marca no `finally`. `lateGuard(rewrites,
+draft)` não descarta: com mensagem nova chama `handleTurn` com `revise`, que relê a rajada inteira, roda
+todos os leitores e rotas, e o modelo reescreve com `reviseInstruction(draft)`; gates iguais. Limite: 2
+revisões e 30 s antes do prazo de 110 s; passado o limite, `deferRetry` manda a rajada para a varredura.
+"Ainda está aí?": toque `still_there` a 10 min depois de resposta terminada em pergunta, cancelado pela
+resposta dela, venda, handoff, opt-out e fora do horário; só texto dentro das 24 h; primeiro na varredura.
+"Sim": a confirmação do endereço exige `!parts.some(asksSomething)`, e um "sim" ao lado de uma pergunta
+zera `wants_to_buy` quando a decisão não vem das palavras dela.
+**Guarda:** `tests/burst.test.ts` (5 s, orçamento, revisão, fiação, migração, "sim"), `tests/still-there.test.ts`;
+`pnpm dev:regua` com dois invariantes novos.
+**Resíduo:** turno morto pela plataforma deixa a marca por 150 s; update que falha pode gerar duas
+respostas; rajada além do limite espera a varredura (1–6 min); resposta com link terminada em pergunta
+recebe três toques em 30 min; `asksSomething` é lista de palavras.
+
+## 62. A conversa empurrava uma oferta só e mandava o link antes dos dados (conversa de venda v2, 2026-10-06)
+
+**Sintoma:** teste real da Leila: preço da entrega dito três vezes e só uma opção; link antes do e-mail e
+do CPF; tamanho no complemento; "não tenho aqui" sobre material e barbatana. O operador: "parece um robô".
+**Causa:** o prompt mandava "Uma oferta só… não pergunte qual ela prefere", "O antecipado é uma SAÍDA, não
+uma opção" (2026-09-24) e "mande o link e NÃO peça nome, e-mail nem CPF antes" (R13.4); os fatos do produto
+não estavam no prompt; o "complemento" vinha de antes de a Logzz ter seletor de tamanho.
+**Caminhos descartados:** afrouxar `charge_promise` para "a transportadora ainda não faz pagamento na
+entrega" (virou "não tem"); prazo do antecipado em frase separada (o grátis vaza, `shipping_promise` veta);
+"escolhe um dia em que você vai estar" no antecipado (lido como prazo de 1 dia; virou "uma data"); dois
+balões (o operador quer até três).
+**Correção:** `prompt.ts` e espelho: `twoOptionsMessage` (só com pagamento na entrega no CEP), `noCodMessage`
+(só antecipado, com o motivo), `DEFAULT_COD_CONFIRM` (o "sim" vira entrega só onde ela existe),
+`productFacts` com os fatos do operador e chave opcional `site`, blocos de público ainda não convencido,
+caminho da conversa e dados antes do link (CPF recusado duas vezes: link sem ele), tamanho escolhido no
+checkout, "vou pensar" sem link, até três balões de um assunto cada. `tests/change-registry.test.ts` M-04
+invertido.
+**Guarda:** `tests/prompt.test.ts` (288 testes): as duas opções nas seis variantes, a mensagem sem entrega
+com `codUnavailable`, o "sim" vetado onde a entrega não chega, fatos e negações, ausência dos textos antigos.
+**Resíduo:** o código ainda manda o link antes dos dados (`readyForLink`, `identityDirectiveFor`,
+`thinkReply`) e ainda manda o tamanho no complemento (`checkoutDirectiveFor`); a diretiva de região só sai
+com tamanho conhecido; `coverage_claim` não veta "No seu CEP dá pra pagar na entrega" antes da consulta;
+prompt +~850 tokens; nada medido contra o modelo ainda.
+
+## 63. O código obedecia o prompt antigo: link antes dos dados, tamanho no complemento (conversa de venda v2, 2026-10-06)
+
+**Sintoma:** o resíduo do §62 — o prompt v2 pedia os dados antes do link, mas o turno ainda mandava o
+link pela vontade de comprar (`readyForLink`), mandava o tamanho no complemento, a diretiva de região só
+saía com tamanho e três gates vetavam frases que o prompt v2 ensina. Revisão de `7c8bc7c`: "Sim! Como faço
+pra pagar?" perdia o link; sem a 0023 cada rajada era respondida duas vezes.
+**Causa:** R13.4 ("link primeiro, o checkout pede o resto") vivia no código em quatro lugares; o prompt
+mudou sozinho.
+**Caminhos descartados:** guardar recusas numa coluna (a conversa já diz quantas vezes ela recusou —
+`refusedAsks` lê); detectar a oferta do kit só pela redação (revisão: "as duas saem por R$ 239,80" virava
+laço — agora também pelo preço, `kitWasOffered`); aceitar "não faz/trabalha com" antes de qualquer verbo
+em `charge_promise` (revisão: "não faz você pagar mais, você paga na entrega" passava — agora só antes do
+substantivo "pagamento"); isentar "marcar um dia" no antecipado (não há agendamento lá); contar recusa
+por "?" em qualquer ponto da mensagem (revisão: "O CPF vai na nota. Qual tamanho você usa?" + "M" contava,
+"me passa seu CPF" + "não passo" não contava).
+**Correção:** `missingForLink`/`sendLinkNow` (tamanho → CEP → forma de pagamento → nome → e-mail ou uma
+recusa → CPF ou duas recusas); `pathChoiceToStore` grava a escolha natural ("a primeira", "o antecipado")
+e o "sim" ao padrão da entrega, também ao lado de pergunta de compradora (`buyerAsk`, que não lê "quero
+saber" como compra); `refusedAsks` lê o pedido por frase, com o imperativo; "vou pensar" sem link;
+`regionDirectiveFor` independente do tamanho; tamanho escolhido no checkout; Coinzz sem o 55; kit oferecido
+uma vez, depois da escolha; `coverage_claim` veta "No seu CEP dá pra pagar na entrega" e "Aí dá pra pagar
+na entrega" antes da consulta, com a condição "Se no seu CEP der" isenta; `claimFailed` volta ao descarte
+do §59 sem a 0023. Toques depois do link, opção 1 (R18.8): a resposta com link arma só o lembrete de 15 min;
+a pergunta de ofertas segue esse lembrete também (`optInFollows`).
+Segunda revisão (furos dos consertos): a escolha só se grava quando a resposta CURTA dela nomeia o mesmo
+caminho que o intérprete leu (`whichOfTwo`: "a primeira" é a entrega; "é minha primeira compra", "pix
+nunca", "a segunda" lido como entrega não gravam); pedido que nomeia outro campo de identidade não é pedido
+deste ("me passa seu nome, que depois eu te peço o e-mail e o CPF"); a condição isenta do `coverage_claim`
+é só de cobertura ("Se aí tiver alguém em casa, …" segue vetada); `buyerAsk` não lê "quero perguntar/
+conferir/tirar uma dúvida" como compra; "não faz o pagamento" é negação; "Daí dá pra pagar" vetado.
+**Guarda:** `tests/link-after-data.test.ts` (comportamento das funções puras e fiação), `tests/still-there.test.ts`
+(toques depois do link), `tests/opt-in.test.ts`; mutações `toques-depois-do-link` e catorze `R63-*`;
+`WA-envio-desligado` reescrita para o canal ligado (desligar `CANAL_ATIVO` corta todo envio).
+**Resíduo:** nome e CEP não têm saída por recusa — quem recusa os dois nunca recebe o link (regra do
+operador); `answersWhichOfTwo` e `REQUEST` são listas de palavras; nada medido contra o modelo antes da
+rodada de personas.
+
+## 64. Rodadas de personas sobre o código da v10 (2026-10-07): nota interna, balões, preço, nome
+
+**Sintoma:** duas rodadas de 12 personas contra a `turn` do disco. No modelo padrão (R$ 5,23): a Malu
+mandou "Se o CEP dela? Need ask CEP." à Jussara; 5 de 12 primeiras respostas em 4 balões; o e-mail
+recusado pedido três vezes; a oferta do kit colada no pedido do e-mail. No modelo de produção
+(`muse-spark-1.3-contributor`, segredos de 06/10 19:30 UTC; R$ 0,33): Neusa e Sandra pediram o preço e
+ficaram sem ele até o CEP (Neusa, quinze turnos); Rose caiu na resposta pronta por "a maioria chega aqui
+com esse mesmo receio"; Cleide deu "Cleide Barbosa\nRua Paraiba 210, …" e teve o nome pedido de novo.
+**Causa:** nenhum gate olhava texto que não é mensagem; `splitBubbles` desistia de juntar acima de 30
+palavras; a diretiva dizia "falta o CPF" sem dizer que o e-mail estava dispensado, e o prompt manda
+coletar e-mail; o prompt dizia só "antes do CEP… peça o CEP" (o desenho v2 §9.4 q53 dá o preço antes);
+o `coverage_claim` lia qualquer "chega aqui" como entrega; `extractName` só aceitava a mensagem que é
+só o nome.
+**Caminhos descartados:** cortar balão no meio da frase; detectar nota em português na 3ª pessoa
+("Pergunte o CEP dela") — veta fala legítima ("a filha dela"); liberar "gente chega aqui" com a palavra
+"gente" solta — "a gente entrega aí" é a loja prometendo (pego pelo `dev:gates`); ler a 1ª linha como
+nome dentro do `extractName`, sem contexto — bairro e "Segue endereço" virariam nome. **Não eram defeito** (não mexidos): o
+veto de composição do frete na 1ª resposta da Neusa (grafo §32), os "?" repetidos (§60), o tamanho pela
+calça (Marcinha), "não tem expressa" (`expressActive` false), "500 clientes"/loja em São Paulo/12x
+(config), a região nula (Coinzz 302 do container — memória `proxy-sobrescreve-auth-do-supabase`).
+**Correção:** gate `internal_note` (22º, reescrita); `splitBubbles` com teto duro de 3 (junta o par vizinho
+mais curto); diretiva "o e-mail ela não passou e está dispensado"; oferta do kit sozinha;
+`priceBeforeCepMessage` no prompt ("Nunca segure o preço até ela mandar o CEP"); sujeito pessoa
+("maioria", "muita gente", "você"…) isenta o `coverage_claim` só em "chega **aqui**", depois do teste do
+"sim" e nunca atrás de "pra/para/na" (revisão: a 1ª versão reabria "Pra você chega sim aí em Manaus");
+`nameOnFirstLine` (1ª linha acima de linha de rua, sem palavra de lugar) lida pelo turno só logo depois
+de a Malu pedir o nome e sem nome guardado (revisão: dentro do `extractName`, "Parque Dez\nRua …" e
+"Segue endereço\nRua …" iriam para o pacote).
+Rodada final no contribuidor (R$ 0,37, nenhuma resposta pronta, nenhum balão a mais): Jussara recusou o
+CPF três vezes e o link nunca saiu — a Malu, obedecendo "peça de novo com outras palavras", pediu "só os
+números" (sem a palavra CPF) e depois com o motivo "no seu nome", e a contagem viu uma recusa só; Cleide
+recebeu a frase fixa do "vou pensar" duas vezes seguidas. Correção: `refusedAsks` por janela de resposta
+— conta quando a janela não traz o dado e responde a um pedido **ou** recusa o campo nas palavras dela;
+"Tudo bem sem o CPF, tá?" não é pedido; a frase fixa não se repete sem link novo (o modelo responde).
+Três revisões depois, o desenho final: a recusa espontânea só conta com o campo como objeto do verbo
+("não passo o cpf", "cpf não vou passar", "n passo cpf"), nunca condicional ("e se eu não passar…") nem
+com outro objeto ("não passo cartão", "não dou conta"); a diretiva do 2º pedido manda citar o CPF (a causa
+da Jussara: "só os números" não era pedido visível ao código); na despedida o modelo é avisado e o link do
+turno é descartado; frase com endereço de e-mail ("me manda um e-mail pra contato@…") não é pedido do
+e-mail dela. Confirmação no contribuidor: Jussara recusou o CPF duas vezes e recebeu o link sem ele.
+**Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
+`tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
+**Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
+(lista de palavras comuns); o caminho sem pagamento na entrega só se prova pela porta de produção; o
+modelo às vezes junta duas perguntas (caminho e e-mail, Karol) ou reconfirma um nome de duas palavras
+(Cleide) — obediência ao prompt, sem regra quebrada.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

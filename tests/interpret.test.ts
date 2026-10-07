@@ -1,8 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   asksSomething,
-  CLARIFY_SIZE_REPLIES,
-  decideClarify,
+  decisionInBurst,
   decidesToBuy,
   goodbyeParks,
   handoffFor,
@@ -12,17 +11,18 @@ import {
   namesAPerson,
   namesOwnPrice,
   NEUTRAL_INTERPRETATION,
+  quantityOf,
   readInterpretation,
   linkSentRecently,
   asksForLink,
-  readyForLink,
+  buyerAsk,
+  missingForLink,
   saysGoodbye,
   sendLinkNow,
   statesPastPurchase,
   type Interpretation,
 } from "@/agent/interpret.js";
-import { classifyOptOut, runGates, wantsHuman } from "@/agent/guardrails.js";
-import { ctx } from "./fixtures.js";
+import { classifyOptOut, wantsHuman } from "@/agent/guardrails.js";
 
 /** A reading with only the fields a case cares about set. */
 const read = (over: Partial<Interpretation> = {}): Interpretation => ({
@@ -233,110 +233,26 @@ describe("quem vai para o humano, e só quem", () => {
 });
 
 /**
- * A escada do tamanho (R13.4): três frases fixas do operador e depois silêncio até a
- * mensagem fazer sentido. O degrau é lido da última mensagem enviada.
+ * Grafo §60 (operador, 2026-10-06): a escada fixa do "não entendi" saiu. As três mensagens
+ * que a receberam em produção (agent_version 7) não param em nenhuma saída fixa: vão ao modelo.
  */
-describe("a escada de esclarecimento do tamanho", () => {
-  const perguntou = "Qual número de calça você usa?";
-  const solto = read({ pending_answer: "unrelated" });
-  const base = { interpreted: true, interpretation: solto, sizeFound: false, factsFound: false };
+describe("sem escada: a resposta solta vai ao modelo", () => {
+  const producao = ["Aah ok", "Tem sim, um vestido azul lindo que ganhei do meu marido!!", "??"];
 
-  it("as três frases são as do operador, palavra por palavra", () => {
-    expect(CLARIFY_SIZE_REPLIES).toEqual([
-      "Desculpa, não entendi, qual o tamanho que deseja?",
-      "Precisa de ajuda para escolher o tamanho?",
-      "Quando decidir é só me falar que prossigo com a criação do seu pedido.",
-    ]);
+  it("as frases da escada não existem mais no módulo", async () => {
+    const mod: Record<string, unknown> = await import("@/agent/interpret.js");
+    expect(mod.CLARIFY_SIZE_REPLIES).toBeUndefined();
+    expect(mod.decideClarify).toBeUndefined();
   });
 
-  it("sobe um degrau por resposta solta, e depois fica em silêncio", () => {
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[0],
-    });
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[1],
-    });
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[1], lastAskedSize: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[2],
-    });
-    // O terceiro degrau não pergunta nada — a leitura pode vir "no_pending", e o silêncio vale.
-    for (const pending of ["unrelated", "no_pending"] as const) {
-      expect(
-        decideClarify({
-          ...base,
-          interpretation: read({ pending_answer: pending }),
-          lastOutbound: CLARIFY_SIZE_REPLIES[2],
-          lastAskedSize: false,
-        }),
-      ).toEqual({ kind: "silent" });
-    }
-  });
-
-  it("uma mensagem que faz sentido sai da escada, em qualquer degrau", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: true, sizeFound: true }).kind).toBe("none");
-      for (const r of [
-        read({ pending_answer: "other_question" }),
-        read({ pending_answer: "answered" }),
-        read({ pending_answer: "unrelated", wants_to_buy: true }),
-        read({ pending_answer: "unrelated", wants_to_think: true }),
-        read({ pending_answer: "unrelated", payment_choice: "cod" }),
-      ]) {
-        expect(decideClarify({ ...base, interpretation: r, lastOutbound: last, lastAskedSize: true }).kind, last).toBe(
-          "none",
-        );
-      }
-    }
-  });
-
-  // Code review, 2026-09-24: "meu cep é 01310-100, Maria Souza" no degrau 3 era silenciada.
-  it("mensagem com dado (CEP, endereço, nome, CPF) nunca é silenciada nem ganha frase da escada", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: true, factsFound: true }).kind, last).toBe("none");
-    }
-    // Sem dado, a mesma mensagem solta continua na escada.
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[2], lastAskedSize: false }).kind).toBe("silent");
-  });
-
-  // Rodada de personas 2026-10-05 (Neusa): "ta" e "?" depois de "o que você quer saber do colete?"
-  // custaram nove turnos de modelo e terminaram no teto. Operador, 2026-10-05: a escada vale em
-  // qualquer pergunta da Malu — enquanto o tamanho não está definido, porque as frases são do tamanho.
-  it("sobe a escada depois de qualquer pergunta, enquanto o tamanho não está definido", () => {
-    for (const last of ["Me passa seu CEP?", "Tô aqui com você, o que você quer saber do colete?"]) {
-      expect(decideClarify({ ...base, lastOutbound: last, lastAskedSize: false, sizeKnown: false }), last).toEqual({
-        kind: "reply",
-        text: CLARIFY_SIZE_REPLIES[0],
-      });
-    }
-  });
-
-  it("com o tamanho já definido, só a pergunta do tamanho começa a escada", () => {
-    expect(decideClarify({ ...base, lastOutbound: "Me passa seu CEP?", lastAskedSize: false, sizeKnown: true }).kind).toBe("none");
-    // Uma escada já em curso segue o seu curso.
-    expect(decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: false, sizeKnown: true })).toEqual({
-      kind: "reply",
-      text: CLARIFY_SIZE_REPLIES[1],
-    });
-  });
-
-  it("sem pergunta da Malu não há escada: \"oi\" depois da recepção é no_pending", () => {
-    expect(
-      decideClarify({ ...base, interpretation: read({ pending_answer: "no_pending" }), lastOutbound: "Oii, tudo bem?", lastAskedSize: false, sizeKnown: false }).kind,
-    ).toBe("none");
-  });
-
-  // Silêncio decidido sem informação seria a pior falha daqui.
-  it("sem leitura do intérprete, nunca silencia nem sobe", () => {
-    for (const last of [perguntou, ...CLARIFY_SIZE_REPLIES]) {
-      expect(decideClarify({ ...base, interpreted: false, lastOutbound: last, lastAskedSize: true }).kind).toBe("none");
-    }
-  });
-
-  it("as três frases passam na cadeia inteira", () => {
-    for (const texto of CLARIFY_SIZE_REPLIES) expect(runGates(texto, ctx()).allowed, texto).toBe(true);
+  it.each(producao)("\"%s\" não é despedida, decisão, quantidade, opt-out, pessoa nem handoff", (msg) => {
+    const solto = read({ pending_answer: "unrelated" });
+    expect(goodbyeParks(msg, solto)).toBe(false);
+    expect(decisionInBurst([msg])).toBeNull();
+    expect(quantityOf(msg, solto)).toBeNull();
+    expect(classifyOptOut(msg)).toBe("none");
+    expect(wantsHuman(msg)).toBe(false);
+    expect(handoffFor(solto, msg, false)).toBeNull();
   });
 });
 
@@ -358,53 +274,71 @@ describe("qual link sai", () => {
   });
 });
 
-/** E-mail e CPF deixaram de travar o link (R13.4). */
-describe("quando o link sai sem esperar a identidade", () => {
-  const args = {
-    identityComplete: false,
-    interpretation: NEUTRAL_INTERPRETATION,
-    identityAsked: false,
-    identityGiven: false,
+/**
+ * Os dados antes do link (operador, 2026-10-06; substitui o R13.4, em que e-mail e CPF deixaram
+ * de travar o link): tamanho, CEP, caminho de pagamento, nome, e-mail (dado ou recusado uma vez)
+ * e CPF (válido ou recusado duas vezes). O H-2 "ela deixou passar o pedido do nome" saiu: um "sim"
+ * ao lado de pergunta nunca manda o link.
+ */
+describe("o link só sai com os dados", () => {
+  const all = {
     sizeKnown: true,
+    cepKnown: true,
+    pathSettled: true,
+    nameKnown: true,
+    emailDone: true,
+    cpfDone: true,
+    yesBesideQuestion: false,
   };
 
-  it("sai quando ela quer comprar, não tem e-mail, ou ignorou o pedido", () => {
-    expect(sendLinkNow({ ...args, interpretation: read({ wants_to_buy: true }) })).toBe(true);
-    expect(sendLinkNow({ ...args, interpretation: read({ email_unavailable: true }) })).toBe(true);
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false })).toBe(true);
-    expect(sendLinkNow({ ...args, identityComplete: true })).toBe(true);
+  it("sai com tudo", () => {
+    expect(missingForLink(all)).toBeNull();
+    expect(sendLinkNow(all)).toBe(true);
   });
 
-  it("não sai quando ela respondeu o que foi pedido — a conversa segue", () => {
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: true })).toBe(false);
+  it.each([
+    ["sizeKnown", "size"],
+    ["cepKnown", "cep"],
+    ["pathSettled", "payment"],
+    ["nameKnown", "name"],
+    ["emailDone", "email"],
+    ["cpfDone", "document"],
+  ] as const)("sem %s não sai, e o que falta é %s", (field, datum) => {
+    expect(sendLinkNow({ ...all, [field]: false })).toBe(false);
+    expect(missingForLink({ ...all, [field]: false })).toBe(datum);
   });
 
-  // Code review, 2026-09-24: no checkout da entrega ela digita o tamanho; em branco, o
-  // depósito escolhe — e volta às custas da operação.
-  it("nunca sai sem tamanho, mesmo pronta para comprar — o tamanho vem antes", () => {
-    for (const pronta of [
-      { ...args, interpretation: read({ wants_to_buy: true }) },
-      { ...args, interpretation: read({ email_unavailable: true }) },
-      { ...args, identityAsked: true },
-      { ...args, identityComplete: true },
-    ]) {
-      expect(sendLinkNow({ ...pronta, sizeKnown: false })).toBe(false);
-      expect(readyForLink(pronta)).toBe(true); // e o turno pede o tamanho
-    }
+  it("falta uma coisa por vez, na ordem da conversa", () => {
+    const nothing = { sizeKnown: false, cepKnown: false, pathSettled: false, nameKnown: false, emailDone: false, cpfDone: false };
+    expect(missingForLink(nothing)).toBe("size");
+    expect(missingForLink({ ...nothing, sizeKnown: true })).toBe("cep");
+    expect(missingForLink({ ...all, nameKnown: false, cpfDone: false })).toBe("name");
+    expect(missingForLink({ ...all, emailDone: false, cpfDone: false })).toBe("email");
   });
 
-  it("não sai numa conversa que ainda não chegou lá", () => {
-    expect(sendLinkNow(args)).toBe(false);
-    expect(sendLinkNow({ ...args, interpretation: read({ pending_answer: "other_question" }) })).toBe(false);
+  it("um \"sim\" ao lado de pergunta não manda o link, nem com os dados completos", () => {
+    expect(sendLinkNow({ ...all, yesBesideQuestion: true })).toBe(false);
   });
+});
 
-  // Revisão do H-2 (2026-09-25): o pedido de identidade só vem depois da decisão, e a
-  // decisão não fica guardada em outro lugar — segurar o link aqui deixa sem link quem já
-  // disse sim ("pra que você precisa do meu CPF?").
-  it("ela ignorou o pedido do nome pra perguntar outra coisa: o link ainda sai", () => {
-    const perguntou = read({ pending_answer: "other_question" });
-    expect(sendLinkNow({ ...args, identityAsked: true, identityGiven: false, interpretation: perguntou })).toBe(true);
-  });
+/**
+ * Revisão de 7c8bc7c: o "sim" ao lado de pergunta zerava a decisão de quem estava comprando. A
+ * pergunta de quem compra não segura nada; qualquer outra ("tem rastreio?") segura o link.
+ */
+describe("a pergunta de quem está comprando", () => {
+  it.each(["Sim! Como faço pra pagar?", "sim, quero. qual o prazo?", "isso mesmo, pode mandar?", "ok, como pago?"])(
+    "%s é de quem compra",
+    (msg) => {
+      expect(asksSomething(msg)).toBe(true);
+      expect(buyerAsk(msg)).toBe(true);
+    },
+  );
+  it.each(["tem rastreio?", "sim", "e chega quando?", "não quero agora, qual o prazo?", "quanto custa o frete?"])(
+    "%s não é",
+    (msg) => {
+      expect(buyerAsk(msg)).toBe(false);
+    },
+  );
 });
 
 /**
@@ -610,18 +544,6 @@ describe("rodada 3: despedida e a escada", () => {
     for (const frase of ["deixa eu ver o cep", "deixa então eu te mandar o CEP", "ta", "obrigada pela explicação"]) {
       expect(saysGoodbye(frase), frase).toBe(false);
     }
-  });
-
-  it("a escada não recomeça logo depois do \"Sem problemas, estou aqui…\"", () => {
-    const solto = read({ pending_answer: "unrelated" });
-    const base = { interpreted: true, interpretation: solto, sizeFound: false, factsFound: false };
-    const perguntou = "Qual número de calça você usa?";
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: true }).kind).toBe("none");
-    expect(decideClarify({ ...base, lastOutbound: perguntou, lastAskedSize: true, parked: false }).kind).toBe("reply");
-    // Uma escada já em curso segue.
-    expect(
-      decideClarify({ ...base, lastOutbound: CLARIFY_SIZE_REPLIES[0], lastAskedSize: true, parked: true }).kind,
-    ).toBe("reply");
   });
 
   it("o intérprete sabe que despedida é \"vou pensar\" e que manequim não é calça", () => {

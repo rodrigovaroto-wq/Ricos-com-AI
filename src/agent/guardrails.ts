@@ -234,6 +234,12 @@ export interface GateContext {
    * mention of them. `undefined` (the sweep, the fixed replies) leaves that check idle, as `regionKnown`.
    */
   askedTestimonial?: boolean;
+  /**
+   * Whether her message asks what the agent is (`asksWhatSheIs`). Q10, line 2: she never announces
+   * she is virtual on her own, so `false` makes `humanity_claim` refuse "assistente virtual", IA,
+   * robô. `undefined` (the sweep, the fixed replies) leaves that check idle, as `askedTestimonial`.
+   */
+  askedIdentity?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -605,6 +611,15 @@ const looksLikeDiscount = (t: string, at: number): boolean => {
  */
 export type OptOutLevel = "explicit" | "ambiguous" | "none";
 
+/**
+ * A burst of her messages (grafo §59): each one is classified on its own — the anchored patterns
+ * break with another line before — and the strongest wins.
+ */
+export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel => {
+  const levels = messages.map(classifyOptOut);
+  return levels.includes("explicit") ? "explicit" : levels.includes("ambiguous") ? "ambiguous" : "none";
+};
+
 export const classifyOptOut = (text: string): OptOutLevel => {
   const t = norm(text);
   const explicit = [
@@ -744,6 +759,17 @@ export const asksForTestimonial = (message: string): boolean =>
     norm(message),
   );
 
+/**
+ * Whether her message asks what the agent is — a person, a robot, an AI (Q10, line 3), which is what
+ * lets the agent say she is the brand's virtual assistant (`GateContext.askedIdentity`). Broad and
+ * blind to negation on purpose, as `asksForTestimonial`: "você não é robô né?" is the question, and
+ * so is "não quero falar com máquina". A false positive only restores the behaviour before §58.
+ */
+export const asksWhatSheIs = (message: string): boolean =>
+  /\b(?:robo|rbo|robbo|robot)\w*|\bbots?\b|\bchat\s*(?:bot|gpt)\b|\bgpt\b|\bcarne\s+e\s+osso\b|\b(?:resposta|mensagem|texto)\s+(?:pront|gravad|automatic)\w*|\bgravac|\b(?:e|eh)\s+(?:um\s+)?(?:sistema|programa)\b|\b(?:voce|vc|ce|tu)\s+(?:e|eh|foi|ta)?\s*programad|\b(?:e|eh|vc|voce)\s+(?:um\s+|uma\s+|a\s+|o\s+)?atendente\b|\b(?:voce|vc|ce|tu|e|eh|pessoa|gente)\s+(?:\S+\s+)?real\b|\btem\s+alguem\s+(?:ai|ae|aqui)\b|\b(?:falo|falando|converso|conversando)\s+com\s+quem\b|\bmesm[ao]\s+(?:q|que)\s+(?:responde|escreve|digita|ta|esta|fala)\b|\bmaquina\b|\binteligencia\s+artificial\b|^\W*ia\b|\b(?:e|eh|com|uma|um|tipo)\s+(?:uma\s+)?ia\b|\bvirtual\b|\bautomatic[oa]s?\b|\bautomatizad|\bhuman[oa]s?\b|\b(?:e|eh|com|sendo)\s+(?:uma?\s+)?(?:pessoa|gente)\b|\b(?:pessoa|gente|alguem|voce|vc|ce|tu|e|eh)\s+(?:\S+\s+)?de\s+verdade\b|\b(?:pessoa|gente)\s+real\b|\bquem\s+(?:e|eh|ta|esta)\s+(?:falando|ai|respondendo|digitando|me\s+atendendo)\b|\bcom\s+quem\s+(?:eu\s+)?(?:falo|to|estou|converso)\b|\bquem\s+(?:e|eh)\s+(?:voce|vc)\b|\b(?:voce|vc|ce|tu)\s+existe|\bartific\w*|\buma\s+assistente\b|\bquem\s+(?:me\s+)?responde\b|\btem\s+gente\s+(?:ai|ae|aqui)\b/.test(
+    norm(message),
+  );
+
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 /** The size exchange's freight, as the briefing teaches it (R17.1). The amount goes only in the fixed reply. */
@@ -795,10 +821,16 @@ interface Gate {
  * passed as honest with the three-word window of the first version (independent review, 2026-09-29;
  * `.claude/memory/negation-blindness.md`).
  */
+// "Faz" and "trabalha com" (2026-10-06, grafo §63): "a transportadora ainda não faz pagamento na
+// entrega" is the reason the script gives where delivery does not reach her, and was vetoed there.
+// Only before the noun "pagamento" (review of f657faa, finding 4): "não faz você pagar mais, você
+// paga na entrega" denies nothing about paying at the door.
 const deniedRightBefore = (t: string, at: number): boolean =>
   /\b(?:nao|nunca|nem)\s+(?:(?:da|pode|podem|consegue|vai|tem\s+como|tem|ha|existe|rola|aceita|aceitamos|temos|oferece|precisa|e\s+possivel|espera|aguarda)\s+(?:(?:pra|para|de)\s+)?)?(?:(?:voce|vc|ela)\s+)?$/.test(
     t.slice(Math.max(0, at - 40), at),
-  );
+  ) ||
+  (/\b(?:nao|nunca|nem)\s+(?:faz|fazemos|trabalha\s+com|trabalhamos\s+com)\s+(?:o\s+)?$/.test(t.slice(Math.max(0, at - 40), at)) &&
+    /^pagamento\b/.test(t.slice(at)));
 /** Trying the vest on, as her act. Never "vista" (also "à vista") nor the noun "prova" alone. */
 const TRY = String.raw`(?:vest(?:e|ir|ia|indo)|experiment\w*|prova(?:r|ndo)?|prove|provou)`;
 /**
@@ -1517,6 +1549,10 @@ const gates: readonly Gate[] = [
         if (!week && /\d\s*(?:a|e|ate)\s*$/.test(before)) continue;
         // "Um dia" with its own qualifier is a day, not a count: "um dia marcado", "num dia de festa".
         if (/^n?uma?$/.test(m[1]!) && /^\s+(?:marcad|agendad|especial|important|de\s+festa)/.test(after)) continue;
+        // Nor is the day she picks (2026-10-06, grafo §63): "escolhe/marca um dia em que você vai estar
+        // em casa" is the object of her choosing — only right after the verb, so "chega em um dia" is a count.
+        // Only where she picks a day at all, the delivery (review of f657faa, finding 7): the prepaid has no scheduling.
+        if (ctx.paymentPath === "cod" && ctx.codUnavailable !== true && /^uma?$/.test(m[1]!) && /\b(?:escolh|marc|agend)\w*\s+$/.test(before)) continue;
         const sentence =
           t.slice(0, at).split(/[.!?\n]/).pop()! + t.slice(at).split(/[.!?\n]/)[0]!;
         const days = (DAY_WORDS[m[1]!] ?? Number(m[1]!.replace(",", "."))) * (week ? 7 : 1);
@@ -1982,7 +2018,9 @@ const gates: readonly Gate[] = [
       `Nunca afirme ser uma pessoa. Dizer "não sou uma pessoa, sou a assistente virtual da marca" ` +
       `é a resposta certa; o proibido é o contrário — negar ser robô. E nunca diga que já ` +
       `chamou, avisou ou passou a conversa para alguém do time, nem que uma pessoa vem falar ` +
-      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame.`,
+      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame. ` +
+      `E não anuncie o que você é: virtual, IA, robô, bot ou assistente virtual só aparece quando a ` +
+      `mensagem dela pergunta o que você é. Sem a pergunta, apresente-se só pelo seu nome e pela marca.`,
     check: (text, ctx) => {
       const t = norm(text);
 
@@ -2027,14 +2065,27 @@ const gates: readonly Gate[] = [
       // Vetoing it left the agent unable to answer "você é um robô?", which is the
       // most predictable question it will ever get.
       const claims = [
-        /\bsou\s+(uma\s+)?(pessoa|humana|gente\s+de\s+verdade)\b/g,
-        /\bpode\s+ficar\s+tranquila,?\s+sou\s+de\s+verdade\b/g,
+        /\bsou\s+(uma\s+)?(pessoa|humana|gente)\b/g,
+        /\bsou\s+(?:eu\s+)?(?:de\s+verdade|real|de\s+carne\s+e\s+osso)\b/g,
+        /\beu\s+mesma\s*,?\s+(?:uma\s+)?(?:pessoa|humana|gente|de\s+verdade|real)\b/g,
       ];
       for (const pattern of claims) {
         for (const m of t.matchAll(pattern)) {
           if (!negatedAt(t, m.index ?? 0)) return "claims to be a human being";
         }
       }
+
+      // Q10, line 2 (grafo §58): she never announces she is virtual unless her message asked what
+      // she is. Read as written, negation included — "não sou uma IA" is line 1's lie anyway. "Loja
+      // virtual" is the shop, not her; "não sou uma pessoa…" only exists as line 3's answer, so the
+      // whole honest sentence passes asked or not. "Mensagem automática dos Correios" is the carrier.
+      if (
+        ctx.layer === "agent" &&
+        ctx.askedIdentity === false &&
+        !/\bnao\s+sou\s+(?:\S+\s+){0,3}?(?:pessoa|humana|gente)\b|\bnao\s+(?:uma\s+)?(?:pessoa|humana|gente)\b|\bnao\s+sou\s+de\s+verdade\b/.test(t) &&
+        /\b(?:assistente|atendente|vendedora|consultora|agente|secretaria)\s+(?:virtual|digital|automatic[ao]|eletronic[ao]|de\s+(?:ia|inteligencia\s+artificial))\b|\binteligencia\s+artificial\b|\bsou\s+(?:uma?\s+|a\s+|o\s+)?(?:ia|robo\w*|bot|chatbot|maquina|programa|virtual)\b|\b(?:uma|um)\s+(?:ia|robo\w*|bot|chatbot)\b|\b(?:sou|aqui\s+e|isso\s+(?:aqui\s+)?e|este\s+e|esta\s+e|esse\s+e|essa\s+e)\s+(?:um\s+|uma\s+|o\s+|a\s+)?(?:atendimento|mensagem|resposta)\s+automatic[ao]\b(?!\s+d[oa]s?\s+(?:correios?|transportadora|entregador\w*|rastreio|logzz|coinzz)\b)/.test(t)
+      )
+        return "announces she is virtual (assistente virtual, IA, robô) when her message did not ask what she is";
       return null;
     },
   },
@@ -2870,6 +2921,22 @@ const gates: readonly Gate[] = [
     },
   },
   {
+    /**
+     * The model's own reasoning, leaked into the reply (persona round of 2026-10-07, Jussara: "Se o
+     * CEP dela? Need ask CEP." in the middle of an answer). Malu only ever writes Portuguese to her;
+     * an English instruction to itself is a note, never a message. Read on the original text: the
+     * markers are English phrases no Portuguese sentence uses ("need ask", "let me", "the user").
+     */
+    name: "internal_note",
+    remedy: "rewrite",
+    briefing: () =>
+      `Escreva só a mensagem para ela, em português — nunca uma anotação sua sobre o que fazer.`,
+    check: (text) =>
+      /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
+        ? "the model's own note leaked into the reply"
+        : null,
+  },
+  {
     name: "identical_template",
     remedy: "rewrite",
     briefing: () =>
@@ -3023,7 +3090,24 @@ const gates: readonly Gate[] = [
           ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\s(?:e|que)\s/).pop() ??
           "";
         if (/\b(se|nao|nem|quando)\s+$/.test(before)) return true;
+        // A sentence opening on the place as its condition: "Se no seu CEP der, dá pra pagar na entrega aí"
+        // (finding 9) — never a bare "Se quiser, …", which conditions nothing about her place.
+        // Only a coverage verb closing the condition (second review of 41757c8): "Se aí tiver alguém em
+        // casa, …" and "Se aí for bom pra você, …" condition nothing about her place.
+        if (/^\s*se\s+(?:n[oa]\s+)?(?:seu\s+cep|sua\s+(?:cidade|regiao)|ai|la)\s+(?:der|atender|tiver\s+(?:o\s+)?(?:pagamento|entrega)(?:\s+na\s+(?:entrega|porta))?)\s*,/.test(t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "")) return true;
         if (/\bsim\b/.test(claim)) return false;
+        // A person arriving HERE, at the shop, is no delivery (persona round of 2026-10-07, Rose: "a maioria
+        // chega aqui com esse mesmo receio" went to the canned reply). Only "aqui", never after "pra/para/
+        // na" ("pra você chega aí" is the delivery to her), never "ele/ela" (the vest or the parcel), and
+        // never "a gente" (the shop): review of dad2ae2.
+        if (
+          /\baqui\b/.test(claim) &&
+          /\b(?:maioria|muita\s+gente|todo\s+mundo|clientes?|mulheres|pessoas?|voce|vc)\s+$/.test(before) &&
+          // Any destination preposition in the phrase (review of 6601194: "Pra todas as clientes chega
+          // aqui", "Pras nossas clientes chega aqui"); never "a/na/no", or "porque a maioria" would fall.
+          !/\b(?:pra|para|pras|pros|nas|nos)\b/.test(before)
+        )
+          return true;
         return (
           /\b(checkout|confirma\w*|digita\w*|ve|mostra\w*)\b/.test(before) ||
           /\b(a|o|da|do|de|na|no|pela|pelo|sua|para|pra|com)\s+$/.test(before)
@@ -3036,6 +3120,14 @@ const gates: readonly Gate[] = [
         /\b(?:atende|atendemos)\s+(?:sim\s+)?(?:ai|la)(?:\s+sim)?\b/g,
         new RegExp(String.raw`\b${VERB}\b[^.!?\n]{0,25}\b(?:seu|teu|esse|nesse|desse)\s+cep\b`, "g"),
         new RegExp(String.raw`\b${VERB}\s+(?:sim\s+)?(?:na|pra|para|em)\s+sua\s+(?:cidade|regiao)\b`, "g"),
+        // Payment at the door affirmed for her place (2026-10-06, grafo §63): the opening of the two
+        // options, "No seu CEP dá pra pagar na entrega", is the lookup's answer and nobody else's.
+        /\b(?:n[oa]|pr[oa]|para\s+[oa]|nesse|nessa)\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\s+(?:(?:ja|tambem)\s+)?(?:da|tem|rola|existe|aceita|funciona|pode)\b[^.!?\n]{0,25}\bentrega\b/g,
+        /\b(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\s+(?:ai|aqui|la|n[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao)))\b/g,
+        // The place before the verb (review of f657faa, finding 9): "Aí dá pra pagar na entrega",
+        // "Aí na sua cidade a entrega com pagamento na hora funciona".
+        /\b(?:ai|dai|aqui|la)\s+(?:(?:ja|tambem|sim)\s+)?(?:da\s+(?:pra|para)\s+pagar|tem\s+(?:o\s+)?pagamento|(?:pode|consegue)\s+pagar)\s+na\s+entrega\b/g,
+        /\bn[oa]\s+(?:seu\s+cep|sua\s+(?:cidade|regiao))\b[^.!?\n]{0,40}\bpagamento\s+na\s+(?:entrega|hora)\s+(?:(?:ja|tambem|sim)\s+)?(?:funciona|existe|rola)\b/g,
       ];
       for (const re of CLAIMS) {
         for (const m of t.matchAll(re)) {
