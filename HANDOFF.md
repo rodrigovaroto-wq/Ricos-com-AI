@@ -32,6 +32,67 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
+### Onde estamos — 2026-10-07, tarde (sessão `claude/hopeful-cori-dlzhvu`, LEIA PRIMEIRO)
+
+**No ar:** `agent_version` **11** = `turn` v82 = código do commit `24e9268`, publicado de `ef521e6` em 2026-10-07 13:37 UTC (sonda sem selo: 400 "externalId e from são obrigatórios", `sealed:false` — a função sobe e recusa o que não vem do n8n).
+Modelo da conversa: `muse-spark-1.3-contributor` (do operador, à mão — **nunca troque**). Teto R$ 1,00.
+
+**O que a v11 mudou sobre a v10** (grafo §65; cinco defeitos que sobraram no código da v10, achados na
+auditoria da conversa da Leila e portados para o desenho do PR #54):
+1. Link não é reenviado depois de 3 mensagens: só se ela pedir ou se o pedido mudar (caminho/kit);
+   a conversa inteira é lida pelos hosts do checkout, não só a janela de 20.
+2. "sim" seco às duas opções (onde há pagamento na entrega) não é escolha: a Malu confirma a entrega
+   com a frase do padrão e o "sim" seguinte grava `cod`. Antecipado lido pelo intérprete ("sim, a com
+   desconto") continua valendo.
+3. Desistência no turno em que os dados fecham ("desisti", "não quero mais", "deixa pra lá") segura o
+   link e a oferta do kit. Recusa de dado ("deixa pra lá o email"), troca de tamanho e "desisti não"
+   não seguram.
+4. Região sem pagamento na entrega: "ok" à mensagem do antecipado grava o antecipado, e o kit é oferecido.
+5. Rascunho nunca sai sem ler o que chegou: leitura que falha em revisão/nova tentativa → resposta de
+   espera e e-mail ao operador.
+
+Revisão Opus em três rodadas (NEEDS WORK ×2 → APPROVED WITH RESIDUALS). Validação em `24e9268`: `test`
+6758, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxado, `typecheck:function` limpo, `dev:regua` 20 000,
+`verificar:guardas` 370/370.
+
+**⚠️ Segundo teste real do operador (07/10, 10:01–10:49, v10 → v11): a compradora deu todos os dados,
+pediu o link 5× e não recebeu; no fim foi descadastrada** por "pare de me mandar confirmações, apenas me
+mande o link do checkout". Auditoria completa, com 8 causas reproduzidas no código e a ordem de conserto:
+[`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md)
+(grafo §66, ABERTO). Em uma linha: opt-out falso; CEP "004710090" (9 dígitos) nunca lido e a Malu dizendo
+"anotei"; CEP só pedido quando ela já quer fechar; promessa "já te mando o link" sem gate; recusa do e-mail
+lida como "vou pensar" (com "restam 12 unidades" — número sem contagem, reavaliar); `asksForLink` não lê
+"checkout"; "o na entrega acho" não gravado; nome completo não gravado. O lead final 5983 ficou
+**bloqueado** — apagar antes do próximo teste.
+
+**Na branch, ainda não publicado:** os dois resíduos de uma linha da revisão — "pode mandar não, desisti"
+já não conta como compra; "nem quero mais" é desistência (mutações `R65-pode-mandar-negado`,
+`R65-nem-quero-mais`). Publicar junto com os consertos do §66.
+
+**Resíduos conhecidos (candidatos ao próximo conserto, com a frase que quebra):**
+- "deixa pra lá" sozinho respondendo ao pedido do CPF conta como desistência (sem link; o modelo responde).
+- "quero fechar" dias depois, sem pedir o link, não reenvia (o modelo é avisado de que ela já o tem).
+- O "sim" seco às duas opções depende do modelo escrever a frase do padrão (`DEFAULT_COD_CONFIRM`).
+- `offersPrepayOnly`: "sim" a "…Quer que eu te explique como funciona o pagamento?" grava prepay.
+
+**Como auditar uma conversa real** (o operador vai mandar 3, de amigos dele):
+[`docs/operacao/auditar-conversa-real.md`](docs/operacao/auditar-conversa-real.md) — SQL por final do
+telefone, as 4 leituras (mensagens, `turn_outcomes`, `gate_traces`, `llm_calls`), checklist de 10 pontos,
+caminho do achado ao deploy. Modelo de relatório:
+[`docs/agente-ia/10-auditoria/2026-10-06-teste-real-leila.md`](docs/agente-ia/10-auditoria/2026-10-06-teste-real-leila.md).
+O lead de teste do operador (final 5983) foi apagado a pedido dele em 07/10, para testar do zero.
+
+**Falta, nesta ordem:**
+1. **O operador abre a próxima sessão mandando a análise que ele mesmo fez desta conversa.** A auditoria
+   `2026-10-07-teste-real-leila-2.md` é só ponto de partida: analisar **junto com ele**, juntando as
+   anotações dele com as dela, e só então consertar (cada defeito → teste com a frase literal → conserto
+   no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar"). **Depois de tudo
+   consertado, apagar esse arquivo de auditoria** (decisão do operador, 07/10); o §66 do grafo fica.
+   Depois, auditar as 3 conversas reais dos amigos do operador pelo mesmo roteiro.
+2. **O** mergear o PR desta branch.
+3. Depois: devolução guiada (a Malu ensina a cliente a pedir a devolução), portal (n8n com o token
+   `ads_read` do sócio), templates na Meta (`encorpa_vespera_entrega_pago` teve o texto trocado).
+
 ### Onde estamos — 2026-10-07, madrugada (sessão `claude/focused-lovelace-ym1coj`, LEIA PRIMEIRO)
 
 **Conferido ao começar:** `turn` no ar = v78 com o pacote da v76 (`agent_version` 9); migrações até 0022

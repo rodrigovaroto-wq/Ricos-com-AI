@@ -132,7 +132,8 @@ describe("tabela de preços da Edge Function", () => {
   it("erro de configuração não tranca o lead fora da agente", () => {
     expect(source).toContain("class ModelConfigError extends Error");
     expect(source).toContain("if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR)");
-    expect(source).toContain("if (!(error instanceof ModelConfigError))");
+    expect(source).toContain("reachable = error instanceof ModelConfigError) => {");
+    expect(source).toContain("    if (!reachable) {\n      await db(`leads?id=eq.${lead.id}`, {");
   });
 
   /**
@@ -397,10 +398,9 @@ describe("M-03 na Edge Function", () => {
   it("o link recente bloqueia o reenvio, na resposta do modelo e no \"vou pensar\"", () => {
     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
-    expect(source).toContain(
-      '!asksForLink(inbound.body ?? "") && linkSentRecently(recentOutbound, pathBase ? [pathBase] : []);',
-    );
-    expect(source).toContain("const linkNow = !linkJustSent && sendLinkNow(");
+    // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
+    expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, inbound.body ?? "");');
+    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
     expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
   });
 });
@@ -517,7 +517,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
     expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
     expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
-    expect(source).toContain("const paymentChoice = interpretation.payment_choice ?? choiceToStore ?? storedChoice;");
+    expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
     expect(source).toContain('units > 1 ? unitSizes.join(" e ") : stated?.size ?? lead.size ?? null,');
