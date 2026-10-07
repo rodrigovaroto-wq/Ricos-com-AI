@@ -392,7 +392,7 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
   });
   it("no antecipado e no kit", () => {
     expect(linkMessage(url, "prepay", "G", "Encorpa")).toContain(
-      "Lá você completa o endereço, escolhe o G, confere o frete da sua região e paga no pix ou no cartão.",
+      "Lá você completa o endereço, escolhe o G, confere o frete e paga no pix ou no cartão.",
     );
     expect(linkMessage(url, "cod", null, "Encorpa", 2)).toContain("escolhe o tamanho de cada peça e o dia da entrega");
   });
@@ -403,7 +403,7 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     }
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
-    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !(parts.some(asksSomething) && !parts.some(buyerAsk))) {");
+    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !parts.some((p: string) => asksSomething(p) && !buyerAsk(p))) {");
     expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
   });
 });
@@ -421,4 +421,29 @@ describe("T6 — noted_claim: sem 'anotei'", () => {
     "não veta: %s",
     (frase) => expect(blocks(frase)).not.toContain("noted_claim"),
   );
+});
+
+describe("revisão 3 do §66", () => {
+  const promise = (t: string) => runGates(t, ctx({ linkInTurn: false })).traces.some((x) => x.gate === "pending_promise" && x.verdict === "block");
+  it.each([
+    "Estou finalizando seu checkout e já te mando em seguida. Só me passa seu nome completo?",
+    "Vou conferir esse CEP com calma. Assim que você me passar o CPF, te mando o link.",
+  ])("a condição de uma frase não libera a promessa da outra: %s", (frase) => expect(promise(frase)).toBe(true));
+
+  it.each(["O colete tem marca registrada.", "Seu pedido fica registrado no checkout."])("'registrado' não é 'anotei': %s", (frase) => {
+    expect(runGates(frase, ctx()).traces.some((x) => x.gate === "noted_claim" && x.verdict === "block")).toBe(false);
+  });
+
+  it("emoji com tom de pele ainda é só saudação", () => expect(onlyGreets(["bom dia!! 🙏🏻"])).toBe(true));
+
+  it("cada balão do link fixo tem até 30 palavras, então o link fica sozinho no balão dele", () => {
+    for (const path of ["cod", "prepay"] as const)
+      for (const pieces of [1, 2])
+        for (const p of linkMessage("https://x.y/z", path, pieces > 1 ? null : "M", "Encorpa Fashion", pieces).split("\n\n"))
+          expect(p.split(/\s+/).length).toBeLessThanOrEqual(30);
+  });
+
+  it("a resposta da primeira mensagem guardada para a abertura leva a saudação da hora em que sai", () => {
+    expect(turn).toContain("body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\\n\\n${attempt.text}`,");
+  });
 });

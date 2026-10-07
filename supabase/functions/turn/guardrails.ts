@@ -2971,10 +2971,9 @@ const gates: readonly Gate[] = [
       `peça o que falta pra ele sair, que a instrução aqui embaixo diz o que é.`,
     check: (text, ctx) => {
       if (ctx.linkInTurn !== false) return null;
-      const t = norm(text);
-      // A true condition is what the link waits for, said: "Já te mando o link assim que você me passar o CPF".
-      if (/\b(?:assim|logo)\s+que\s+(?:voce\s+)?(?:me\s+)?(?:passar|mandar|enviar|disser|escolher)|\bquando\s+voce\s+(?:me\s+)?(?:passar|mandar|enviar)|\bso\s+me\s+passa\b/.test(t)) return null;
-      return /\b(?:ja|logo|em\s+seguida)\s+(?:te\s+)?(?:mando|envio|passo)(?:\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b|\s*(?:[.!?,]|$)|\s+(?:aqui|nesta|em\s+seguida|pra\s+voce))|\b(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b[^.!?]*?\b(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo|logo)\b|\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b|\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto|\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b|(?<!\bnao\s+)\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b(?!\s*:)/.test(t)
+      // Sentence by sentence: a true condition ("Já te mando o link assim que você me passar o CPF") frees
+      // its own sentence, never the promise in the next one (review 3 of §66).
+      return norm(text).split(/(?<=[.!?])\s+|\n+/).some((t) => !/\b(?:assim|logo)\s+que\s+(?:voce\s+)?(?:me\s+)?(?:passar|mandar|enviar|disser|escolher)|\bquando\s+voce\s+(?:me\s+)?(?:passar|mandar|enviar)|\bso\s+me\s+passa\b/.test(t) && /\b(?:ja|logo|em\s+seguida)\s+(?:te\s+)?(?:mando|envio|passo)(?:\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b|\s*(?:[.!?,]|$)|\s+(?:aqui|nesta|em\s+seguida|pra\s+voce))|\b(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b[^.!?]*?\b(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo|logo)\b|\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b|\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto|\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b|(?<!\bnao\s+)\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b(?!\s*:)/.test(t))
         ? "promises to send the link or check something later, in a turn that sends no link"
         : null;
     },
@@ -2989,7 +2988,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () => `Não diga que anotou, registrou ou deixou anotado um dado dela: siga a conversa.`,
     check: (text) =>
-      /\b(?:anotei|anotad[oa]s?|anotand\w*|registrei|registrad[oa]s?|deixei\s+(?:tudo\s+)?(?:anotad|registrad)\w*)\b/.test(norm(text))
+      // Not "registrado": "marca registrada" and "fica registrado no checkout" are no claim (review 3 of §66).
+      /\b(?:anotei|anotad[oa]s?|anotand\w*|registrei|deixei\s+(?:tudo\s+)?anotad\w*)\b/.test(norm(text))
         ? "says it noted down what she sent"
         : null,
   },

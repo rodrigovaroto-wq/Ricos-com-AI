@@ -221,7 +221,7 @@ export const linkMessage = (
   const there =
     path === "cod"
       ? `Lá você completa o endereço, ${choose} e o dia da entrega.`
-      : `Lá você completa o endereço, ${choose}, confere o frete da sua região e paga no pix ou no cartão.`;
+      : `Lá você completa o endereço, ${choose}, confere o frete e paga no pix ou no cartão.`;
   return (
     `Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.` +
     `\n\n${url}\n\n${there} Se precisar de alguma ajuda, estarei aqui.`
@@ -393,7 +393,7 @@ export const isReceipt = (body: string): boolean =>
 export const onlyGreets = (parts: readonly string[]): boolean =>
   parts.length > 0 &&
   parts.every((p) =>
-    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|(?:\p{Extended_Pictographic}|‍|️)+)\s*)+$/iu.test(p.trim()),
+    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f)+)\s*)+$/iu.test(p.trim()),
   );
 
 /**

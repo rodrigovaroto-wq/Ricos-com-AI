@@ -639,11 +639,19 @@ describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
 
   it("a pergunta da roupa é feita no máximo uma vez; quando ela quer, a pergunta leva ao pedido", () => {
     const prompt = flat(build(variant(false, true)));
-    expect(prompt).toContain("A pergunta sobre a roupa ou a história dela é feita no máximo uma vez na conversa inteira");
+    expect(prompt).toContain("A pergunta sobre a roupa que ela deixou de usar é feita no máximo uma vez na conversa inteira");
     expect(prompt).toContain("Quando ela disser que quer, a sua pergunta leva ao pedido");
     // Grafo §66: o gancho nasce do que ela disse, nunca a mesma frase pronta, uma pergunta por mensagem.
     expect(prompt).toContain("nunca a mesma frase pronta pra toda cliente");
     expect(prompt).toContain("Uma pergunta por mensagem.");
+  });
+
+  it("os agregadores de valor leem o config: sem desconto e frete dentro do preço, nenhum dos dois é ensinado (revisão 3 do §66)", () => {
+    const semNada = flat(build({ ...variant(false, true), prices: { ...variant(false, true).prices, prepayDiscountPercent: 0 }, delivery: { ...variant(false, true).delivery, codFreeShipping: false } }));
+    const trecho = semNada.slice(semNada.indexOf("Os agregadores de valor"), semNada.indexOf("Os agregadores de valor") + 300);
+    expect(trecho).not.toMatch(/desconto|frete grátis/);
+    expect(trecho).toContain("dias após o recebimento pra devolver");
+    expect(semNada).toContain("Se a mensagem já pede um dado (tamanho, CEP, nome, CPF), ela não ganha gancho");
   });
 
   it("sem enrolação e sem opinar sobre a roupa (grafo §66)", () => {

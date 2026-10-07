@@ -3294,7 +3294,7 @@ const handleTurn = async (
 
   // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  if (checkoutUrl !== null && !farewell && !(parts.some(asksSomething) && !parts.some(buyerAsk))) {
+  if (checkoutUrl !== null && !farewell && !parts.some((p: string) => asksSomething(p) && !buyerAsk(p))) {
     const sent = await sendFixed(
       linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units),
       linkFact ? `link — ${linkFact}` : "link",
@@ -3514,7 +3514,8 @@ const handleTurn = async (
         kind: "deferred_reply",
         run_at: runAt.toISOString(),
         status: "scheduled",
-        body: attempt.text,
+        // The first reply held for the opening keeps its greeting, of the hour it goes out (review 3 of §66).
+        body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\n\n${attempt.text}`,
       }),
     });
     await Promise.all([

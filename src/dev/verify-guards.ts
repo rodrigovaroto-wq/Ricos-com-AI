@@ -3253,6 +3253,22 @@ const MUTATIONS: Mutation[] = [
     to: "        ? null",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-promessa-por-frase",
+    bug: "a condição de uma frase ('assim que você me passar o CPF') liberava a promessa falsa da outra",
+    files: ["src/agent/guardrails.ts"],
+    from: "return norm(text).split(/(?<=[.!?])\\s+|\\n+/).some((t) =>",
+    to: "return [norm(text)].some((t) =>",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-agregadores-do-config",
+    bug: "o prompt ensinava 'o desconto' e 'o frete grátis' com o config sem desconto e frete dentro do preço",
+    files: ["src/agent/prompt.ts"],
+    from: "    ...(config.prices.prepayDiscountPercent > 0 ? [`o desconto de ${config.prices.prepayDiscountPercent}% no antecipado`] : []),\n",
+    to: "    `o desconto no antecipado`,\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/prompt.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

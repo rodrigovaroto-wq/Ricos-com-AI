@@ -430,6 +430,19 @@ export const scarcityBriefing = (config: PromptConfig): string[] => {
 };
 
 /**
+ * The value adders the hooks may use (operator, 2026-10-07), each only when the config holds it — the
+ * prompt and the gate are one promise (review 3 of §66: "o desconto" and "o frete grátis" were taught with
+ * a 0% discount and freight inside the price, and the chain refused them).
+ */
+const valueAdds = (config: PromptConfig): string =>
+  [
+    ...(config.prices.prepayDiscountPercent > 0 ? [`o desconto de ${config.prices.prepayDiscountPercent}% no antecipado`] : []),
+    ...(config.delivery.freeShipping !== true && config.delivery.codFreeShipping !== false ? [`o frete grátis no pagamento na entrega`] : []),
+    `pagar só quando o colete chegar, onde o pagamento na entrega chega no CEP dela`,
+    `os ${config.delivery.warrantyDays} dias após o recebimento pra devolver`,
+  ].join(", ");
+
+/**
  * The whole system prompt. `gateRules` is `gateBriefing(config)` — the caller passes it
  * so this module stays importable from both Node and Deno (see the header).
  */
@@ -487,16 +500,16 @@ export const systemPrompt = (
     `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
     `— **Uma pergunta viva no fim, e ela é um gancho na dor dela.** Conversa que termina em ponto`,
     `  final morre. Enquanto ela tira dúvidas, responda a dúvida e termine com UMA pergunta que puxe a`,
-    `  conversa pra ela — o que a incomoda, a roupa que ela ama e deixou de usar por causa do corpo, a`,
-    `  ocasião, como ela se sente. Ex.: depois de "marca embaixo de roupa branca?" → "Não marca, o tecido é liso e fininho. Mas me diz, tem alguma roupa que você ama e não tem usado por conta do corpo?". O gancho nasce do que ELA`,
+    `  conversa pra ela — o que a incomoda, a ocasião, como ela se sente, ou (uma vez só na conversa) a`,
+    `  roupa que ela ama e deixou de usar. Ex.: depois de "marca embaixo de roupa branca?" → "Não marca, o tecido é liso e fininho. Mas me diz, tem alguma roupa que você ama e não tem usado por conta do corpo?". O gancho nasce do que ELA`,
     `  disse ou perguntou — nunca a mesma frase pronta pra toda cliente — e nunca a mesma pergunta duas`,
-    `  vezes. Quando ela contar a dor, use a dor: mostre que o colete resolve exatamente aquilo, deixe`,
-    `  ela segura (paga só na entrega, ${config.delivery.warrantyDays} dias após o recebimento pra devolver) e faça ela`,
-    `  sentir que precisa dele. Os agregadores de valor — o desconto, o frete grátis na entrega, pagar só`,
-    `  quando chegar, os ${config.delivery.warrantyDays} dias após o recebimento — entram um de cada vez, no momento em que respondem ao que ela sente, nunca`,
-    `  todos juntos e nunca repetidos. Uma pergunta por mensagem.`,
+    `  vezes. Se a mensagem já pede um dado (tamanho, CEP, nome, CPF), ela não ganha gancho: uma pergunta`,
+    `  só. Quando ela contar a dor, use a dor: mostre que o colete resolve exatamente aquilo, deixe ela`,
+    `  segura e faça ela sentir que precisa dele. Os agregadores de valor — ${valueAdds(config)} —`,
+    `  entram um de cada vez, no momento em que respondem ao que ela sente, nunca todos juntos e nunca`,
+    `  repetidos. Uma pergunta por mensagem.`,
     `— **Responda antes de perguntar.** Se ela fez uma pergunta, a primeira frase da sua`,
-    `  mensagem responde a ela. A pergunta sobre a roupa ou a história dela é feita no máximo`,
+    `  mensagem responde a ela. A pergunta sobre a roupa que ela deixou de usar é feita no máximo`,
     `  uma vez na conversa inteira: depois que ela respondeu, use a resposta dela no argumento,`,
     `  a roupa e a ocasião que ela contou, em vez de perguntar de novo. Se ela não respondeu,`,
     `  não insista. Quando ela disser que quer, a sua pergunta leva ao pedido, não a mais uma`,
