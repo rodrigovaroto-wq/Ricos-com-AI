@@ -3141,6 +3141,22 @@ const MUTATIONS: Mutation[] = [
     also: [{ from: "|sim|acho|eu\\\\s+acho))?", to: "|sim))?" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-nome-com-particula",
+    bug: "'Leila da silva' depois do pedido do sobrenome não era lido e o link saía só com 'Leila'",
+    files: ["src/agent/identity.ts"],
+    from: "COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, \"\") : name)",
+    to: "COMMON_WORDS.test(name)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-escolha-contra-a-palavra",
+    bug: "'o antecipado' lido como entrega pelo intérprete gravava a entrega",
+    files: ["src/agent/interpret.ts"],
+    from: "(d.parts.some((p) => choosesPath(p) && (named(p) ?? d.interpreted) === d.interpreted) ||",
+    to: "(d.parts.some((p) => choosesPath(p)) ||",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -7,7 +7,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
 import { asksForLink, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
-import { refusesAskedDatum } from "@/agent/identity.js";
+import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { ctx } from "./fixtures.js";
 
@@ -197,5 +197,25 @@ describe("C8 — 'o na entrega acho' é escolha", () => {
         confirms: false,
       }),
     ).toBe("cod");
+  });
+});
+
+describe("C9 — o nome completo com partícula substitui o primeiro nome", () => {
+  it("depois do pedido do sobrenome, 'Leila da silva' é o nome", () => {
+    expect(extractIdentityBurst(["Leila da silva"], true).name).toBe("Leila da silva");
+    expect(mergeIdentity({ name: "Leila" }, extractIdentityBurst(["Leila da silva"], true)).fields.name).toBe("Leila da silva");
+  });
+
+  it.each(["Vila da Penha", "Fim de semana", "Centro da cidade", "Hora do almoço"])("sem o pedido do nome, não é nome: %s", (frase) => {
+    expect(extractName(frase)).toBeNull();
+  });
+
+  it("nem com o pedido, o que começa por palavra comum", () => {
+    expect(extractName("tarde da noite", true)).toBeNull();
+    expect(extractName("quero o da entrega", true)).toBeNull();
+  });
+
+  it("o turno passa o pedido do nome e do sobrenome", () => {
+    expect(turn).toContain("extractIdentityBurst(parts, asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound))");
   });
 });

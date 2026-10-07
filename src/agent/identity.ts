@@ -91,7 +91,7 @@ const COMMON_WORDS =
 const NOT_A_FIRST_NAME =
   /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra)$/;
 
-export const extractName = (text: string): string | null => {
+export const extractName = (text: string, askedName = false): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
   const cleaned = text.replace(/[^\S\n]+/g, " ").replace(/ *\n+ */g, "\n").trim();
@@ -126,7 +126,10 @@ export const extractName = (text: string): string | null => {
     if (name.split(" ").length < 2) return null;
     // And neither is any message built out of ordinary words. Without this, the first
     // "boa tarde" of the conversation was filed as who she is.
-    if (COMMON_WORDS.test(name)) return null;
+    // Right after the agent asked her name, the particles inside it are not common words ("Leila da
+    // silva" was dropped and the link went out with "Leila": second real test, grafo §66). Only then:
+    // on its own, "Vila da Penha" and "Fim de semana" would be names.
+    if (COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : name)) return null;
   }
   return name;
 };
@@ -151,9 +154,9 @@ export interface IdentityResult {
   missing: IdentityField[];
 }
 
-export const extractIdentity = (text: string): IdentityResult => {
+export const extractIdentity = (text: string, askedName = false): IdentityResult => {
   const fields: Partial<Identity> = {
-    ...(extractName(text) ? { name: extractName(text)! } : {}),
+    ...(extractName(text, askedName) ? { name: extractName(text, askedName)! } : {}),
     ...(extractCpf(text) ? { document: extractCpf(text)! } : {}),
   };
   return { fields, missing: IDENTITY_FIELDS.filter((f) => !fields[f]) };
@@ -173,8 +176,8 @@ export const mergeIdentity = (
 };
 
 /** A burst of her messages (grafo §59): each read on its own, in order — the newest wins. */
-export const extractIdentityBurst = (messages: readonly string[]): Partial<Identity> =>
-  messages.reduce<Partial<Identity>>((found, m) => mergeIdentity(found, extractIdentity(m).fields).fields, {});
+export const extractIdentityBurst = (messages: readonly string[], askedName = false): Partial<Identity> =>
+  messages.reduce<Partial<Identity>>((found, m) => mergeIdentity(found, extractIdentity(m, askedName).fields).fields, {});
 
 export const isIdentityComplete = (fields: Partial<Identity>): fields is Identity =>
   IDENTITY_FIELDS.every((f) => Boolean(fields[f]));
