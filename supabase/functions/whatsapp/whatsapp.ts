@@ -363,3 +363,36 @@ export const toWav16k = (channels: readonly Float32Array[], sampleRate: number):
   for (let i = 0; i < pcm.length; i++) dv.setInt16(44 + i * 2, pcm[i]!, true);
   return wav;
 };
+
+/**
+ * The Opus packets inside an Ogg file (RFC 3533, RFC 7845), and the two header fields the decoder
+ * needs. WhatsApp voice notes are Ogg/Opus; the decoder takes raw packets. Each page is "OggS", a
+ * 27-byte header, a segment table at byte 26; a 255 segment continues the packet, also across pages.
+ * The first packet is OpusHead (channels at byte 9, pre-skip uint16 LE at 10), the second OpusTags.
+ * Anything that is not Ogg/Opus is null — she then gets the "não consegue ouvir" line.
+ */
+export const oggOpus = (bytes: Uint8Array): { channels: number; preSkip: number; packets: Uint8Array[] } | null => {
+  const packets: Uint8Array[] = [];
+  let pending: number[] = [];
+  let at = 0;
+  while (at + 27 <= bytes.length) {
+    if (bytes[at] !== 0x4f || bytes[at + 1] !== 0x67 || bytes[at + 2] !== 0x67 || bytes[at + 3] !== 0x53) return null;
+    const segments = bytes[at + 26] ?? 0;
+    let body = at + 27 + segments;
+    if (body > bytes.length) return null;
+    for (let s = 0; s < segments; s++) {
+      const size = bytes[at + 27 + s] ?? 0;
+      if (body + size > bytes.length) return null;
+      for (let k = body; k < body + size; k++) pending.push(bytes[k] ?? 0);
+      body += size;
+      if (size < 255) {
+        packets.push(Uint8Array.from(pending));
+        pending = [];
+      }
+    }
+    at = body;
+  }
+  const head = packets[0];
+  if (!head || head.length < 19 || new TextDecoder().decode(head.subarray(0, 8)) !== "OpusHead") return null;
+  return { channels: head[9] ?? 1, preSkip: (head[10] ?? 0) | ((head[11] ?? 0) << 8), packets: packets.slice(2) };
+};

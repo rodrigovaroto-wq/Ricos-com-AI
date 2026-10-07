@@ -2054,8 +2054,10 @@ nunca seria perguntada, e o `silence_3` (cupom, 63–71 h, fora da janela de 24 
 ## R18.9 — Áudio dela transcrito pela Meta, convertido dentro da função (caminho 1)
 
 Operador, 2026-10-07. A função `whatsapp` baixa a mensagem de voz pela Graph API, decodifica o Ogg/Opus
-com `ogg-opus-decoder` (MIT, WebAssembly, fixado em 1.7.5, importado de esm.sh) — **a primeira dependência
-de runtime do projeto**, só nessa função — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
+com o `libopus` em WebAssembly do `opus-decoder` 0.7.12 (MIT; copiado em `supabase/functions/whatsapp/vendor/`
+sem o Web Worker, que o empacotador do Supabase recusa por puxar `node:vm`, e preso por hash num teste; o Ogg
+é desmontado por um leitor de 30 linhas em `whatsapp.ts`) — **a primeira dependência de runtime do projeto**,
+só nessa função, com teto de 2 MB e prazo único de 25 s — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
 Meta Model API (US$ 0,18/h; sem tier de treino). O texto chega à Malu marcado "[áudio da cliente, transcrito
 automaticamente — pode ter erro de transcrição]"; falha em qualquer passo devolve a linha "não consegue
 ouvir" de antes. Custo em `llm_calls` (`purpose: transcribe`). Medido antes de decidir: 50 trechos de fala

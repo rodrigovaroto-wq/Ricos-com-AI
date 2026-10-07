@@ -21,8 +21,8 @@ Stop at the first rung that holds:
    application code; a n8n node for plumbing — but never business rules (n8n is pipe and
    clock, see `CLAUDE.md`).
 5. **An installed dependency does it?** This repository ships **one runtime
-   dependency** — `ogg-opus-decoder`, in the `whatsapp` function only (R18.9: an Opus decoder
-   is not a few lines) — and the Edge Function runs on Deno from a mirrored copy. A new
+   dependency** — the `opus-decoder` WebAssembly build, vendored in
+   `supabase/functions/whatsapp/vendor/` and pinned by hash (R18.9: an Opus decoder is not a few lines) — and the Edge Function runs on Deno from a mirrored copy. A new
    dependency needs a reason a few lines of code cannot meet.
 6. **Can it be one line?** One line.
 7. **Only then:** the minimum code that works.

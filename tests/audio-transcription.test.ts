@@ -3,9 +3,10 @@
  * id, the function decodes the Ogg/Opus and sends a 16 kHz WAV to Meta's transcription, and the turn reads
  * the transcript marked as one. The pure pieces are tested here; the wiring is read from the source.
  */
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseWebhook, toWav16k, transcribedBody } from "@/channel/whatsapp.js";
+import { oggOpus, parseWebhook, toWav16k, transcribedBody } from "@/channel/whatsapp.js";
 import { systemPrompt } from "@/agent/prompt.js";
 import { gateBriefing } from "@/agent/guardrails.js";
 import { config } from "./fixtures.js";
@@ -57,7 +58,14 @@ describe("o áudio dela vira texto", () => {
 
   it("a função baixa, decodifica, transcreve e troca o texto antes de selar; o id nunca sai dela", () => {
     const fn = readFileSync("supabase/functions/whatsapp/index.ts", "utf8");
-    expect(fn).toContain('import { OggOpusDecoder } from "https://esm.sh/ogg-opus-decoder@1.7.5";');
+    expect(fn).toContain('import OpusDecoder from "./vendor/OpusDecoder.js";');
+    expect(fn).not.toContain("https://esm.sh/");
+    // Teto antes de ler, um prazo para tudo, nada de seguir redirecionamento com o token, e o decoder solto.
+    expect(fn).toContain("const MAX_AUDIO_BYTES = 2 * 1024 * 1024;");
+    expect(fn).toContain('Number(file.headers.get("content-length") ?? 0) > MAX_AUDIO_BYTES');
+    expect(fn.match(/redirect: "error", signal: deadline/g)).toHaveLength(2);
+    expect(fn.match(/signal: deadline/g)).toHaveLength(3);
+    expect(fn).toContain("} finally {\n    decoder?.free();");
     expect(fn).toContain("parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, ...parsed }) => {");
     expect(fn).toContain("const heard = audioId ? await transcribe(audioId) : null;");
     expect(fn).toContain("const message = heard ? { ...parsed, body: heard } : parsed;");
@@ -72,5 +80,46 @@ describe("o áudio dela vira texto", () => {
     const p = systemPrompt(config, gateBriefing(config), null).replace(/\s+/g, " ");
     expect(p).toContain("[áudio da cliente, transcrito automaticamente");
     expect(p).toContain("confirme com ela com naturalidade");
+  });
+});
+
+/** One Ogg page (RFC 3533) holding these segments, with a correct-enough header for the demuxer. */
+const page = (lacing: number[], body: number[]): number[] => [
+  ...[0x4f, 0x67, 0x67, 0x53, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
+  lacing.length,
+  ...lacing,
+  ...body,
+];
+const opusHead = [..."OpusHead"].map((c) => c.charCodeAt(0)).concat([1, 2, 0x38, 0x01, 0x80, 0xbb, 0, 0, 0, 0, 0]);
+const opusTags = [..."OpusTags"].map((c) => c.charCodeAt(0));
+
+describe("o Ogg dela vira pacotes Opus", () => {
+  it("lê canais e pre-skip do OpusHead e pula OpusHead e OpusTags", () => {
+    const ogg = oggOpus(Uint8Array.from([...page([19], opusHead), ...page([8], opusTags), ...page([3, 2], [1, 2, 3, 4, 5])]));
+    expect(ogg).toEqual({ channels: 2, preSkip: 312, packets: [Uint8Array.from([1, 2, 3]), Uint8Array.from([4, 5])] });
+  });
+
+  it("um pacote de 255+ bytes continua no segmento seguinte, e na página seguinte", () => {
+    const big = Array.from({ length: 300 }, (_, i) => i % 256);
+    const ogg = oggOpus(Uint8Array.from([...page([19], opusHead), ...page([8], opusTags), ...page([255], big.slice(0, 255)), ...page([45], big.slice(255))]));
+    expect(ogg?.packets).toEqual([Uint8Array.from(big)]);
+  });
+
+  it("não é Ogg/Opus, ou está cortado: nada", () => {
+    expect(oggOpus(new TextEncoder().encode("ID3 isto é um mp3 qualquer, não um ogg"))).toBeNull();
+    expect(oggOpus(Uint8Array.from([...page([8], opusTags)]))).toBeNull();
+    expect(oggOpus(Uint8Array.from(page([19], opusHead).slice(0, 30)))).toBeNull();
+    expect(oggOpus(new Uint8Array(0))).toBeNull();
+  });
+
+  it("o decoder copiado é exatamente o que foi revisado (trocar um arquivo exige trocar o hash)", () => {
+    const pinned = {
+      "EmscriptenWasm.js": "278768f829703b8b443dfc64b8c5d0e29e73f5012ba7edc641b4c211390a1a72",
+      "OpusDecoder.js": "409d57c362fd5451fb9240dcb19e67b02d18e27503c4940ccaecc1a7a2806bec",
+      "WASMAudioDecoderCommon.js": "83aa80c0c251b049046f8b0dfabc020a10f4b79d0a955647cafeff2a71d47d85",
+      "simple-yenc.js": "14680ab2c8dec870ceffc05e79967b7358d31fd96eee6481388f06347a53ac3e",
+    };
+    for (const [file, sha] of Object.entries(pinned))
+      expect(createHash("sha256").update(readFileSync(`supabase/functions/whatsapp/vendor/${file}`)).digest("hex"), file).toBe(sha);
   });
 });

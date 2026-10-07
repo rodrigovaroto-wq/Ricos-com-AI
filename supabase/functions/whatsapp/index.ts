@@ -28,11 +28,12 @@
  * WHATSAPP_TOKEN (the receipt; absent = no receipt), N8N_INBOUND_URL. SUPABASE_URL and
  * SUPABASE_SERVICE_ROLE_KEY are injected by the platform.
  */
-import { deliveryErrors, marketingDeclines, parseWebhook, readAndTyping, toWav16k, transcribedBody, verifyChallenge, verifySignature } from "./whatsapp.ts";
+import { deliveryErrors, marketingDeclines, oggOpus, parseWebhook, readAndTyping, toWav16k, transcribedBody, verifyChallenge, verifySignature } from "./whatsapp.ts";
 import { sealInbound } from "./inbound-signature.ts";
 // The one runtime dependency of the project (operator, 2026-10-07, caminho 1): Meta's transcription takes
-// WAV only and WhatsApp sends Ogg/Opus; the Edge runtime has no ffmpeg. MIT, WebAssembly, pinned.
-import { OggOpusDecoder } from "https://esm.sh/ogg-opus-decoder@1.7.5";
+// WAV only and WhatsApp sends Ogg/Opus; the Edge runtime has no ffmpeg. libopus in WebAssembly, MIT,
+// vendored without its Web Worker (the bundler refuses node:vm) and pinned by hash — see vendor/README.md.
+import OpusDecoder from "./vendor/OpusDecoder.js";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -48,8 +49,10 @@ const META_KEY = Deno.env.get("META_API_KEY") ?? "";
 const TRANSCRIBE_MODEL = "muse-voice-transcribe-1.0";
 /** US$ 0,18 per hour at R$ 5,40 (dev.meta.ai pricing, 2026-10-07), per second billed. Env overrides. */
 const TRANSCRIBE_BRL_PER_SECOND = Number(Deno.env.get("TRANSCRIBE_PRICE_BRL_PER_SECOND") ?? "0.00027");
-/** A voice note this size is ~30 minutes; Meta transcribes up to 10. Bigger is not downloaded. */
-const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
+/** WhatsApp voice is ~16 kbps: 2 MB is ~16 minutes, past Meta's 10. Bigger is not downloaded. */
+const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
+/** All of it — media URL, download, decoding, transcription — or the turn goes without the audio. */
+const TRANSCRIBE_DEADLINE_MS = 25_000;
 /** Meta's payloads are a few KB; anything this big is not Meta, and is refused unread. */
 const MAX_BODY_BYTES = 256 * 1024;
 /**
@@ -86,19 +89,25 @@ const declineMarketing = async (phone: string) => {
 const transcribe = async (mediaId: string): Promise<string | null> => {
   if (!TOKEN || !META_KEY) return null;
   const started = Date.now();
+  const deadline = AbortSignal.timeout(TRANSCRIBE_DEADLINE_MS);
+  let decoder: OpusDecoder | null = null;
   try {
     const auth = { Authorization: `Bearer ${TOKEN}` };
-    const media = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(mediaId)}`, { headers: auth, signal: AbortSignal.timeout(10_000) });
+    const media = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(mediaId)}`, { headers: auth, redirect: "error", signal: deadline });
     const url = media.ok ? String(((await media.json()) as { url?: unknown }).url ?? "") : "";
     // The token only ever goes to Meta's own hosts (the media lives on lookaside.fbsbx.com).
     if (!/^https:\/\/(?:[a-z0-9-]+\.)*(?:fbsbx\.com|facebook\.com|whatsapp\.net)\//i.test(url)) return null;
-    const file = await fetch(url, { headers: auth, signal: AbortSignal.timeout(20_000) });
-    const bytes = file.ok ? new Uint8Array(await file.arrayBuffer()) : null;
-    if (!bytes || bytes.length === 0 || bytes.length > MAX_AUDIO_BYTES) return null;
-    const decoder = new OggOpusDecoder();
-    await decoder.ready;
-    const { channelData, sampleRate } = await decoder.decodeFile(bytes);
-    decoder.free();
+    const file = await fetch(url, { headers: auth, redirect: "error", signal: deadline });
+    if (!file.ok || Number(file.headers.get("content-length") ?? 0) > MAX_AUDIO_BYTES) {
+      await file.body?.cancel();
+      return null;
+    }
+    const bytes = new Uint8Array(await file.arrayBuffer());
+    const ogg = bytes.length > 0 && bytes.length <= MAX_AUDIO_BYTES ? oggOpus(bytes) : null;
+    if (!ogg) return null;
+    decoder = new OpusDecoder({ channels: Math.min(ogg.channels, 2), preSkip: ogg.preSkip, sampleRate: 16000 });
+    await (decoder as unknown as { ready: Promise<void> }).ready; // a getter the JS declares outside the class
+    const { channelData, sampleRate } = decoder.decodeFrames(ogg.packets);
     const form = new FormData();
     form.append(
       "request",
@@ -109,7 +118,7 @@ const transcribe = async (mediaId: string): Promise<string | null> => {
       method: "POST",
       headers: { Authorization: `Bearer ${META_KEY}` },
       body: form,
-      signal: AbortSignal.timeout(30_000),
+      signal: deadline,
     });
     if (!res.ok) {
       console.error(`whatsapp: transcrição recusada HTTP ${res.status}`);
@@ -136,6 +145,8 @@ const transcribe = async (mediaId: string): Promise<string | null> => {
   } catch (error) {
     console.error(`whatsapp: transcrição falhou: ${error instanceof Error ? error.name : "erro"}`);
     return null;
+  } finally {
+    decoder?.free();
   }
 };
 
