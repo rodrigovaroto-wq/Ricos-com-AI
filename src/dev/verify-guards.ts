@@ -2930,6 +2930,14 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-se-eu-nao-passar-e-duvida",
+    bug: "'e se eu nao passar o cpf tem problema?' contava como recusa e o link saía sem CPF com ela ainda perguntando",
+    files: ["src/agent/identity.ts"],
+    from: "(?<!\\bse\\s+(?:eu\\s+)?)(?:n[aã]o|n|nunca|jamais)",
+    to: "(?:n[aã]o|n|nunca|jamais)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

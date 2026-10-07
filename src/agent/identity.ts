@@ -289,8 +289,10 @@ export const refusedAsks = (
   // "não" near it ("nao sei se precisa do cpf", "nao passo cartao", "nao dou conta"): reviews of 5383dc5
   // and ca51825.
   const F = field === "email" ? "e-?mail" : "cpf";
-  const VERB = String.raw`(?:n[aã]o|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
-  const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|meu\s+|esse\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
+  // "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se" ("e se eu nao passar o cpf
+  // tem problema?" is a doubt): review of 6f3a6a6.
+  const VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
+  const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|esse\s+)?(?:meu\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
   let count = 0;
   let asked = false;
   let answer: string[] = [];

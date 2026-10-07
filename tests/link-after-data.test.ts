@@ -632,3 +632,19 @@ describe("recusa: verbo de recusa, não qualquer 'não' perto do campo", () => {
     "Não ter o CPF trava a nota, consegue me mandar?",
   ])("pedido com o motivo 'sem o CPF' segue pedido: %s", (q) => expect(refusedAsks([out(q), inn("não")], "document")).toBe(1));
 });
+
+/** Revisão de 6f3a6a6: dúvida com "se" não é recusa; formas comuns de recusa contam; a ordem da despedida. */
+describe("recusa: condicional e formas do WhatsApp", () => {
+  it.each(["e se eu nao passar o cpf tem problema?", "se eu nao informar o cpf da problema?"])("condicional não é recusa: %s", (m) => {
+    const msgs = [out("Me passa seu CPF?"), inn("pra que?"), out("Consegue me mandar só os números?"), inn(m)];
+    expect(refusedAsks(msgs, "document")).toBe(1);
+  });
+  it.each(["não vou te passar meu cpf", "nao te passo o cpf", "não passo o meu cpf", "n passo cpf", "n vou passar cpf nao"])("recusa conta: %s", (m) =>
+    expect(refusedAsks([inn(m)], "document")).toBe(1),
+  );
+  it.each(["n sei se precisa do cpf", "n tenho o cpf aqui agora"])("negação: %s", (m) => expect(refusedAsks([inn(m)], "document")).toBe(0));
+  it("o link da despedida é descartado antes de a diretiva do checkout ser montada", () => {
+    expect(source.indexOf("if (farewell) checkoutUrl = null;")).toBeGreaterThan(-1);
+    expect(source.indexOf("if (farewell) checkoutUrl = null;")).toBeLessThan(source.indexOf("const checkoutDirective = checkoutDirectiveFor("));
+  });
+});
