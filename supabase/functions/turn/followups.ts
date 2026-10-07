@@ -941,13 +941,18 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "still_there":
       return STILL_THERE_REPLY;
 
-    case "silence_1":
+    case "silence_1": {
+      // The stop point is read from the reply that armed the touch; her size is read now. With the
+      // size known, "me diz que tamanho de calça você usa" asked it of two friends who had given it
+      // (grafo §66): she gets the reassurance touch instead.
+      const point = (ctx.stopPoint ?? "before_size") === "before_size" && ctx.size ? "after_price" : ctx.stopPoint ?? "before_size";
       return pickVariant(
         ctx.leadId,
-        ctx.paymentPath === "prepay" && ctx.stopPoint === "after_price"
+        ctx.paymentPath === "prepay" && point === "after_price"
           ? silence1Prepay(ctx.config)
-          : SILENCE_1(ctx.config.delivery.warrantyDays)[ctx.stopPoint ?? "before_size"],
+          : SILENCE_1(ctx.config.delivery.warrantyDays)[point],
       );
+    }
 
     case "silence_2":
       return pickVariant(

@@ -9,7 +9,8 @@ import { malformedCep } from "@/agent/address.js";
 import { asksForLink, choosesPath, pathChoiceToStore } from "@/agent/interpret.js";
 import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
-import { ctx } from "./fixtures.js";
+import { config, ctx } from "./fixtures.js";
+import { renderFollowup } from "@/agent/followups.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -217,5 +218,20 @@ describe("C9 — o nome completo com partícula substitui o primeiro nome", () =
 
   it("o turno passa o pedido do nome e do sobrenome", () => {
     expect(turn).toContain("extractIdentityBurst(parts, asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound))");
+  });
+});
+
+describe("C10 — o lembrete não pede o tamanho a quem já deu", () => {
+  const base = { leadId: "8064e949-ac93-476d-820f-05c6d6e834bb", config, stopPoint: "before_size" as const };
+  it("com o tamanho conhecido, o lembrete não pergunta a calça", () => {
+    for (const size of ["G", "M"]) {
+      const text = renderFollowup("silence_1", { ...base, size }) ?? "";
+      expect(text).not.toMatch(/tamanho de cal[çc]a/i);
+      expect(text.length).toBeGreaterThan(20);
+    }
+  });
+  it("sem o tamanho, continua perguntando", () => {
+    const texts = ["a", "b", "c", "d"].map((id) => renderFollowup("silence_1", { ...base, leadId: id }) ?? "");
+    expect(texts.every((t) => /cal[çc]a/i.test(t))).toBe(true);
   });
 });

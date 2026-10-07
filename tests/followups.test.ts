@@ -1109,7 +1109,8 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                     ...(order ? {} : { paymentPath }),
                     stopPoint,
                     now,
-                    size: units > 1 ? "M,G" : "M",
+                    // Antes do tamanho, o tamanho não existe: com ele, o toque sai como o de depois do preço (grafo §66).
+                    ...(stopPoint === "before_size" && !order ? {} : { size: units > 1 ? "M,G" : "M" }),
                     address: "Rua das Flores, 10",
                     units,
                     prepaid,

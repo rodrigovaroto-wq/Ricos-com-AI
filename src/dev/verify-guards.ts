@@ -3157,6 +3157,14 @@ const MUTATIONS: Mutation[] = [
     to: "(d.parts.some((p) => choosesPath(p)) ||",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-lembrete-sem-tamanho",
+    bug: "o lembrete de 30 min pedia 'me diz que tamanho de calça você usa' a quem já tinha dado o tamanho",
+    files: ["src/agent/followups.ts"],
+    from: '=== "before_size" && ctx.size ? "after_price"',
+    to: '=== "before_size" && false ? "after_price"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
