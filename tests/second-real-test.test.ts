@@ -515,3 +515,24 @@ describe("revisão 4 do §66 — o link fixo não engole a pergunta da mesma men
     expect(fixed([msg])).toBe(true),
   );
 });
+
+describe("size_claim — o tamanho é da tabela, a medida é dela (personas 2026-10-07, Karol)", () => {
+  const vetoes = (t: string, knownSize: string | null, herWords = "") =>
+    runGates(t, ctx({ knownSize, herWords })).traces.some((x) => x.gate === "size_claim" && x.verdict === "block");
+  it("medida que ela nunca mandou", () => {
+    expect(vetoes("Com 38 de calça o seu é o M, então fica certinho.", "M", "uso M")).toBe(true);
+    expect(vetoes("Com 38 de calça o seu é o M, então fica certinho.", "M", "visto 38")).toBe(false);
+  });
+  it("tamanho que a tabela não deu", () => {
+    expect(vetoes("Ah, pra sua mãe então é o G, que modela super bem.", "M")).toBe(true);
+    expect(vetoes("Então o seu é o M.", null)).toBe(true);
+    expect(vetoes("Então o seu é o M.", "M")).toBe(false);
+  });
+  it.each(["Não é o G, o seu é o M.", "No G tem estoque sim.", "O M é pra cintura de 68 a 76 cm.", "Qual o número da calça que ela veste?"])(
+    "não veta: %s",
+    (frase) => expect(vetoes(frase, "M", "uso M")).toBe(false),
+  );
+  it("sem tamanho conhecido no contexto (kit), não pergunta", () => {
+    expect(runGates("Então o seu é o G.", ctx()).traces.some((x) => x.gate === "size_claim" && x.verdict === "block")).toBe(false);
+  });
+});

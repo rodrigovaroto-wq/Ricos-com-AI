@@ -873,7 +873,8 @@ describe("tamanho: ela ajuda a achar, aceita centímetros e não troca", () => {
     const prompt = own(FULL);
     expect(prompt).not.toContain("nem medida em centímetros");
     expect(prompt).toContain("se ela mandar a medida da cintura em centímetros, aceite: o sistema converte");
-    expect(prompt).toContain("Nunca recuse uma medida que ela deu.");
+    expect(prompt).toContain("Nunca recuse uma medida que ela deu, e nunca cite uma");
+    expect(prompt).toContain("se ela disse só \"uso M\", não fale em número de calça");
   });
 
   it("o tamanho do sistema é fato, e ela não troca depois", () => {

@@ -247,6 +247,12 @@ export interface GateContext {
    * replies, the handoff's waiting line) leaves the check idle.
    */
   linkInTurn?: boolean;
+  /**
+   * The size the table gave her (`null`: none yet), and every message of hers the turn read
+   * (`size_claim`). Absent, the gate is not asked: a kit carries one size per piece.
+   */
+  knownSize?: string | null;
+  herWords?: string;
 }
 
 const norm = (s: string): string =>
@@ -2979,6 +2985,31 @@ const gates: readonly Gate[] = [
       /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
         ? "the model's own note leaked into the reply"
         : null,
+  },
+  {
+    /**
+     * "Uso M" answered "Com 38 de calça o seu é o M", and "é pra minha mãe" answered "pra sua mãe é o G",
+     * with no measure of hers (persona round of 2026-10-07, Karol). The size is the table's, worked out
+     * by code from what she said; the model never picks one, nor cites a measure she never gave.
+     */
+    name: "size_claim",
+    remedy: "rewrite",
+    briefing: () =>
+      `Diga só o tamanho que a instrução aqui embaixo dá; sem ele, pergunte o número da calça que ela veste. ` +
+      `Nunca cite uma medida que ela não mandou.`,
+    check: (text, ctx) => {
+      const t = norm(text);
+      if (ctx.herWords !== undefined) {
+        const her = norm(ctx.herWords);
+        const measures = [...t.matchAll(/\b(\d{2})\s*(?:de\s+)?(?:calca|manequim)\b|\b(?:calca|manequim)\s+(?:numero\s+)?(\d{2})\b/g)];
+        if (measures.some((m) => !new RegExp(`\\b${m[1] ?? m[2]}\\b`).test(her))) return "cites a measurement she never gave";
+      }
+      if (ctx.knownSize === undefined) return null;
+      const named = [...t.matchAll(/(?<!\bnao\s+)\b(?:e|fica|seria|vai\s+ser|indico|recomendo)\s+o\s+(pp|p|m|g|gg|xgg)\b/g)].map((m) => m[1]!.toUpperCase());
+      return named.some((size) => size !== ctx.knownSize)
+        ? `names a size the size table did not give (${ctx.knownSize ?? "none yet"})`
+        : null;
+    },
   },
   {
     /**

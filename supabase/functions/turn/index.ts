@@ -3456,6 +3456,9 @@ const handleTurn = async (
       askedIdentity: parts.some(asksWhatSheIs),
       // A promise to send the link later, in a turn that sends none (grafo §66).
       linkInTurn: checkoutUrl !== null,
+      // The size is the table's, and a measure is hers (persona round of 2026-10-07, Karol).
+      ...(units > 1 ? {} : { knownSize: stated?.size ?? lead.size ?? null }),
+      herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
       ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
