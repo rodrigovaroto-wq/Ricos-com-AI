@@ -369,7 +369,7 @@ export const toWav16k = (channels: readonly Float32Array[], sampleRate: number):
  * needs. WhatsApp voice notes are Ogg/Opus; the decoder takes raw packets. Each page is "OggS", a
  * 27-byte header, a segment table at byte 26; a 255 segment continues the packet, also across pages.
  * The first packet is OpusHead (channels at byte 9, pre-skip uint16 LE at 10), the second OpusTags.
- * Anything that is not Ogg/Opus is null — she then gets the "não consegue ouvir" line.
+ * Anything that is not mono/stereo Ogg/Opus is null — she then gets the "não consegue ouvir" line.
  */
 export const oggOpus = (bytes: Uint8Array): { channels: number; preSkip: number; packets: Uint8Array[] } | null => {
   const packets: Uint8Array[] = [];
@@ -394,5 +394,7 @@ export const oggOpus = (bytes: Uint8Array): { channels: number; preSkip: number;
   }
   const head = packets[0];
   if (!head || head.length < 19 || new TextDecoder().decode(head.subarray(0, 8)) !== "OpusHead") return null;
+  // Mono or stereo with the simple mapping (family 0) only: a voice note is never anything else.
+  if ((head[9] !== 1 && head[9] !== 2) || head[18] !== 0) return null;
   return { channels: head[9] ?? 1, preSkip: (head[10] ?? 0) | ((head[11] ?? 0) << 8), packets: packets.slice(2) };
 };

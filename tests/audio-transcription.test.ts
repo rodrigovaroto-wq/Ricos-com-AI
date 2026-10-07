@@ -64,8 +64,12 @@ describe("o áudio dela vira texto", () => {
     expect(fn).toContain("const MAX_AUDIO_BYTES = 2 * 1024 * 1024;");
     expect(fn).toContain('Number(file.headers.get("content-length") ?? 0) > MAX_AUDIO_BYTES');
     expect(fn.match(/redirect: "error", signal: deadline/g)).toHaveLength(2);
-    expect(fn.match(/signal: deadline/g)).toHaveLength(3);
-    expect(fn).toContain("} finally {\n    decoder?.free();");
+    expect(fn.match(/signal: deadline/g)).toHaveLength(4);
+    expect(fn).toContain("    try {\n      decoder?.free();\n    } catch {");
+    // Pacote a pacote, com o teto de 5 minutos: um arquivo forjado não estoura a memória do worker.
+    expect(fn).toContain("const MAX_AUDIO_SAMPLES = 300 * 16000;");
+    expect(fn).toContain("if (samples > MAX_AUDIO_SAMPLES) return null;");
+    expect(fn).not.toContain("decodeFrames(");
     expect(fn).toContain("parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, ...parsed }) => {");
     expect(fn).toContain("const heard = audioId ? await transcribe(audioId) : null;");
     expect(fn).toContain("const message = heard ? { ...parsed, body: heard } : parsed;");
@@ -110,6 +114,11 @@ describe("o Ogg dela vira pacotes Opus", () => {
     expect(oggOpus(Uint8Array.from([...page([8], opusTags)]))).toBeNull();
     expect(oggOpus(Uint8Array.from(page([19], opusHead).slice(0, 30)))).toBeNull();
     expect(oggOpus(new Uint8Array(0))).toBeNull();
+    // Nem 3+ canais nem outra família de mapeamento: nota de voz é mono ou estéreo.
+    const head = (channels: number, family: number) => opusHead.map((b, i) => (i === 9 ? channels : i === 18 ? family : b));
+    expect(oggOpus(Uint8Array.from([...page([19], head(3, 0)), ...page([8], opusTags)]))).toBeNull();
+    expect(oggOpus(Uint8Array.from([...page([19], head(2, 1)), ...page([8], opusTags)]))).toBeNull();
+    expect(oggOpus(Uint8Array.from([...page([19], head(0, 0)), ...page([8], opusTags)]))).toBeNull();
   });
 
   it("o decoder copiado é exatamente o que foi revisado (trocar um arquivo exige trocar o hash)", () => {

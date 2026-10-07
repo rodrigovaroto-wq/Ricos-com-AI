@@ -2057,7 +2057,7 @@ Operador, 2026-10-07. A função `whatsapp` baixa a mensagem de voz pela Graph A
 com o `libopus` em WebAssembly do `opus-decoder` 0.7.12 (MIT; copiado em `supabase/functions/whatsapp/vendor/`
 sem o Web Worker, que o empacotador do Supabase recusa por puxar `node:vm`, e preso por hash num teste; o Ogg
 é desmontado por um leitor de 30 linhas em `whatsapp.ts`) — **a primeira dependência de runtime do projeto**,
-só nessa função, com teto de 2 MB e prazo único de 25 s — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
+só nessa função, com teto de 2 MB, de 5 min decodificados (~0,5 s de CPU contra os 2 s do Edge) e prazo único de 25 s — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
 Meta Model API (US$ 0,18/h; sem tier de treino). O texto chega à Malu marcado "[áudio da cliente, transcrito
 automaticamente — pode ter erro de transcrição]"; falha em qualquer passo devolve a linha "não consegue
 ouvir" de antes. Custo em `llm_calls` (`purpose: transcribe`). Medido antes de decidir: 50 trechos de fala

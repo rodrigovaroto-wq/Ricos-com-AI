@@ -53,6 +53,11 @@ const TRANSCRIBE_BRL_PER_SECOND = Number(Deno.env.get("TRANSCRIBE_PRICE_BRL_PER_
 const MAX_AUDIO_BYTES = 2 * 1024 * 1024;
 /** All of it — media URL, download, decoding, transcription — or the turn goes without the audio. */
 const TRANSCRIBE_DEADLINE_MS = 25_000;
+/**
+ * 5 minutes at the 16 kHz we decode to: ~0.5 s of CPU against the Edge's 2 s per request (10 minutes
+ * measured ~1 s, 2026-10-07). Longer, or forged 1-byte packets, stop here and get the "não consegue ouvir" line.
+ */
+const MAX_AUDIO_SAMPLES = 300 * 16000;
 /** Meta's payloads are a few KB; anything this big is not Meta, and is refused unread. */
 const MAX_BODY_BYTES = 256 * 1024;
 /**
@@ -105,15 +110,34 @@ const transcribe = async (mediaId: string): Promise<string | null> => {
     const bytes = new Uint8Array(await file.arrayBuffer());
     const ogg = bytes.length > 0 && bytes.length <= MAX_AUDIO_BYTES ? oggOpus(bytes) : null;
     if (!ogg) return null;
-    decoder = new OpusDecoder({ channels: Math.min(ogg.channels, 2), preSkip: ogg.preSkip, sampleRate: 16000 });
+    decoder = new OpusDecoder({ channels: ogg.channels, preSkip: ogg.preSkip, sampleRate: 16000 });
     await (decoder as unknown as { ready: Promise<void> }).ready; // a getter the JS declares outside the class
-    const { channelData, sampleRate } = decoder.decodeFrames(ogg.packets);
+    // Packet by packet, so a forged file of 1-byte packets (hours of audio in 2 MB) stops at the cap
+    // instead of exhausting the worker's memory — no AbortSignal reaches synchronous decoding.
+    const chunks: Float32Array[][] = [];
+    let samples = 0;
+    for (const packet of ogg.packets) {
+      const frame = decoder.decodeFrame(packet);
+      samples += frame.samplesDecoded;
+      if (samples > MAX_AUDIO_SAMPLES) return null;
+      chunks.push(frame.channelData.map((ch: Float32Array) => ch.subarray(0, frame.samplesDecoded)));
+    }
+    const channelData = Array.from({ length: ogg.channels }, (_, c) => {
+      const out = new Float32Array(samples);
+      let at = 0;
+      for (const chunk of chunks) {
+        const ch = chunk[c] ?? new Float32Array(0);
+        out.set(ch, at);
+        at += ch.length;
+      }
+      return out;
+    });
     const form = new FormData();
     form.append(
       "request",
       new Blob([JSON.stringify({ model: TRANSCRIBE_MODEL, audioEncoding: "WAV", languageBias: ["Portuguese"] })], { type: "application/json" }),
     );
-    form.append("audio", new Blob([toWav16k(channelData, sampleRate).buffer as ArrayBuffer], { type: "audio/wav" }), "audio.wav");
+    form.append("audio", new Blob([toWav16k(channelData, 16000).buffer as ArrayBuffer], { type: "audio/wav" }), "audio.wav");
     const res = await fetch("https://api.meta.ai/v1/asr/transcribe", {
       method: "POST",
       headers: { Authorization: `Bearer ${META_KEY}` },
@@ -139,14 +163,18 @@ const transcribe = async (mediaId: string): Promise<string | null> => {
         cost_brl: Number.isFinite(seconds) ? seconds * TRANSCRIBE_BRL_PER_SECOND : 0,
         latency_ms: Date.now() - started,
       }),
-      signal: AbortSignal.timeout(10_000),
+      signal: deadline,
     }).catch(() => undefined);
     return transcribedBody(typeof out.transcript === "string" ? out.transcript : "");
   } catch (error) {
     console.error(`whatsapp: transcrição falhou: ${error instanceof Error ? error.name : "erro"}`);
     return null;
   } finally {
-    decoder?.free();
+    try {
+      decoder?.free();
+    } catch {
+      // Never stops her message from being forwarded.
+    }
   }
 };
 
