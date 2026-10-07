@@ -2102,6 +2102,11 @@ conta como compra, troca de tamanho e negação depois do verbo não desistem (m
 a com desconto") e trocava por confirmação da entrega: só vale sem `prepay` do intérprete e sem
 escolha gravada no turno. (c) link segurado pelo histórico, além da janela, não ligava a diretiva
 `afterLink`: `linkAlreadySent` inclui `linkJustSent`.
+**Segunda revisão (NEEDS WORK, regressão do ajuste (a)):** a exceção "não depois do verbo" aceitava
+vírgula e valia para todo verbo — "desisti, não dá", "não vou levar não" soltavam o link; e `buyerAsk`
+contava o "quero" solto — "quero desistir" virava compra. Corrigido: a exceção vale só para "desisti",
+sem vírgula; compra é `asksForLink` ou "pode mandar"; "pagar" só isenta "pagar (o) frete". Mutações
+`R65-desistencia-nao-depois` e `R65-desistencia-quero-solto`.
 **Resíduo da revisão:** "deixa pra lá" sozinho, respondendo ao pedido do CPF, ainda conta como
 desistência (sem link; o modelo responde); "quero fechar" dias depois, sem pedir o link, não reenvia —
 o modelo é avisado de que ela já o tem.

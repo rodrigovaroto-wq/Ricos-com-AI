@@ -126,6 +126,25 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
     ["não quero mais pagar frete, tem como?"],
   ])("negação: %s", (...burst) => expect(withdrawsInBurst(burst)).toBe(false));
 
+  // revisão do e796416: "não" depois da vírgula, "não X não" enfático, "quero" solto e "pagar" amplo
+  it.each([
+    ["desisti, não dá"],
+    ["desisti, não tenho dinheiro agora"],
+    ["deixa pra lá, não precisa"],
+    ["desisti, não"],
+    ["desisti, nada a ver"],
+    ["não quero mais não"],
+    ["não vou levar não, obrigada"],
+    ["nao vou querer nao"],
+    ["quero desistir"],
+    ["eu quero desistir da compra"],
+    ["desisti, quero cancelar"],
+    ["quero cancelar, desisti"],
+    ["desisti, quero meu dinheiro"],
+    ["não quero mais pagar nada"],
+    ["desisti de pagar isso tudo"],
+  ])("desistiu (revisão): %s", (...burst) => expect(withdrawsInBurst(burst)).toBe(true));
+
   it("fiação: o link e a oferta do kit esperam", () => {
     expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
     // link segurado pelo histórico (além da janela) avisa o modelo que ela já o tem
