@@ -3210,7 +3210,7 @@ const handleTurn = async (
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
-      : missing === "cep" && linkDue
+      : missing === "cep" && (linkDue || paymentChoice !== null)
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
         : missing === "payment" && linkDue && knownRegion === null
@@ -3333,6 +3333,11 @@ const handleTurn = async (
       sizeBeforeLink,
       coverageUnknown,
       cepState,
+      // Name, e-mail and CPF were asked with the CEP missing, and at 10:33 she heard "tá tudo pronto"
+      // (second real test, grafo §66): the order `missingForLink` declares, said to the model.
+      missing === "cep"
+        ? `Falta o CEP: antes dele não peça nome, e-mail nem CPF, e nunca diga que está tudo pronto.`
+        : null,
       afterLink,
     ].filter(Boolean).join(" ") || null;
 

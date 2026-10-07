@@ -69,3 +69,13 @@ describe("C3 — CEP com o número errado de dígitos", () => {
     expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
   });
 });
+
+describe("C4 — nome, e-mail e CPF esperam o CEP", () => {
+  it("com o CEP faltando, o modelo é proibido de pedir os dados e de dizer que está pronto", () => {
+    expect(turn).toContain('missing === "cep"\n        ? `Falta o CEP: antes dele não peça nome, e-mail nem CPF, e nunca diga que está tudo pronto.`');
+  });
+
+  it("o CEP é pedido também quando ela já escolheu como paga, não só quando pede o link", () => {
+    expect(turn).toContain(': missing === "cep" && (linkDue || paymentChoice !== null)');
+  });
+});

@@ -3074,6 +3074,15 @@ const MUTATIONS: Mutation[] = [
     to: "return null;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-cep-antes-dos-dados",
+    bug: "com o CEP faltando a Malu pediu nome, e-mail e CPF e disse 'tá tudo pronto'",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'missing === "cep"\n        ? `Falta o CEP:',
+    to: 'false\n        ? `Falta o CEP:',
+    also: [{ from: ': missing === "cep" && (linkDue || paymentChoice !== null)', to: ': missing === "cep" && linkDue' }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
