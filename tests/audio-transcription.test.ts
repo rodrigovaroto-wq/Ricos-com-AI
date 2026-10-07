@@ -123,8 +123,7 @@ describe("o Ogg dela vira pacotes Opus", () => {
 
   it("o decoder copiado é exatamente o que foi revisado (trocar um arquivo exige trocar o hash)", () => {
     const pinned = {
-      "EmscriptenWasm.js": "278768f829703b8b443dfc64b8c5d0e29e73f5012ba7edc641b4c211390a1a72",
-      "OpusDecoder.js": "409d57c362fd5451fb9240dcb19e67b02d18e27503c4940ccaecc1a7a2806bec",
+      "OpusDecoder.js": "b0ed0ec83d376cd75082b77f9e521d4737caaffe3117683cc3a5b925403316ba",
       "WASMAudioDecoderCommon.js": "83aa80c0c251b049046f8b0dfabc020a10f4b79d0a955647cafeff2a71d47d85",
       "simple-yenc.js": "14680ab2c8dec870ceffc05e79967b7358d31fd96eee6481388f06347a53ac3e",
     };

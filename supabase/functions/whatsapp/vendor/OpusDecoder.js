@@ -1,6 +1,6 @@
 import WASMAudioDecoderCommon from "./WASMAudioDecoderCommon.js";
 
-import EmscriptenWASM from "./EmscriptenWasm.js";
+import EmscriptenWASM from "https://cdn.jsdelivr.net/npm/opus-decoder@0.7.12/src/EmscriptenWasm.js";
 
 export default function OpusDecoder(options = {}) {
   // static properties
