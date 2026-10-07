@@ -343,7 +343,7 @@ describe("rodada 13 na Edge Function", () => {
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
-    expect(source).toContain('handoffFor(interpretation, inbound.body ?? "", orderContext)');
+    expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext)');
   });
 
   it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {
@@ -382,7 +382,7 @@ describe("rodada 3 na Edge Function", () => {
   });
 
   it("compra passada dita por ela conta como pedido; despedida e decisão são lidas pelo código", () => {
-    expect(source).toContain('statesPastPurchase(inbound.body ?? "") ||');
+    expect(source).toContain('statesPastPurchase(spoken(inbound.body ?? "")) ||');
     expect(source).toContain("statesPastPurchase(m.body ?? \"\", false)");
     expect(source).toContain('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };');
     // A decisão é lida antes da despedida, que a consulta.
@@ -399,9 +399,9 @@ describe("M-03 na Edge Function", () => {
     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
-    expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, inbound.body ?? "");');
+    expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
     expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
-    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
   });
 });
 
@@ -456,7 +456,7 @@ describe("H-2 na Edge Function (2026-09-25)", () => {
   it("preço inventado desliga a decisão de compra, depois da leitura determinística", () => {
     const decide = source.indexOf("if (decided !== null) interpretation");
     const bargain = source.indexOf(
-      'if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
+      'if (namesOwnPrice(spoken(inbound.body ?? ""), shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };',
     );
     expect(decide).toBeGreaterThan(-1);
     expect(bargain).toBeGreaterThan(decide);
@@ -470,7 +470,7 @@ describe("H-2 na Edge Function (2026-09-25)", () => {
 describe("kits na Edge Function (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a quantidade escolhe o link do kit, e mais que o maior kit vai para uma pessoa", () => {
-    expect(source).toContain("const quantity = quantityOf(inbound.body ?? \"\", interpretation);");
+    expect(source).toContain("const quantity = quantityOf(spoken(inbound.body ?? \"\"), interpretation);");
     expect(source).toContain("if (units > maxUnits) {");
     expect(source).toContain("kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl");
     expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath, linkCheckout\)/g)).toHaveLength(2);
@@ -489,7 +489,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("  if (quantity || units > 1) {\n    await db(`leads?id=eq.${lead.id}`, {");
     expect(source).toContain("batchFrom = unanswered[0]?.created_at ?? null;");
     expect(source).toContain("replayed ? [] : saidSizes,");
-    expect(source).toContain("saysOwnSize(inbound.body");
+    expect(source).toContain("saysOwnSize(spoken(inbound.body");
     // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
     expect(source).toContain("const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;");
     expect(source).toContain("const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;");
@@ -506,7 +506,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
-    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? \"\"))");
+    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
     // O10: the sale webhook refuses a forged sale when the secret is set.
     expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
     expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');

@@ -457,3 +457,14 @@ export const unansweredInbound = <M extends { direction: string; body?: string |
   }
   return run;
 };
+
+/** The marker the whatsapp function puts before a transcribed voice note (`transcribedBody`, R18.9). */
+export const TRANSCRIBED = "[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] ";
+
+/**
+ * What she said, as the deterministic readers take it: a voice note without its marker and the final
+ * period the transcription adds ("Maria da Silva Souza." was no name, "quero falar com uma pessoa" no
+ * handoff — review of §66). The model still reads the marked text, from the stored message.
+ */
+export const spoken = (body: string): string =>
+  body.startsWith(TRANSCRIBED) ? body.slice(TRANSCRIBED.length).replace(/\.\s*$/, "") : body;

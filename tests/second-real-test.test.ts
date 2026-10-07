@@ -91,7 +91,7 @@ describe("C3 — CEP com o número errado de dígitos", () => {
   });
 
   it("o turno diz ao modelo que o CEP não foi lido, e nunca 'recebi/anotei'", () => {
-    expect(turn).toContain('malformedCep(inbound.body ?? "", /\\bcep\\b/i.test(lastOutbound))');
+    expect(turn).toContain('malformedCep(spoken(inbound.body ?? ""), /\\bcep\\b/i.test(lastOutbound))');
     expect(turn).toContain("Nunca diga que recebeu ou anotou o CEP.");
     expect(turn).toContain("nunca diga que recebeu, anotou ou vai conferir o CEP.");
     expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
@@ -204,7 +204,7 @@ describe("C7 — recusar um dado não é 'vou pensar'", () => {
   });
 
   it("o turno não manda a resposta fixa do 'vou pensar' para a recusa de dado", () => {
-    expect(turn).toContain('!refusesAskedDatum(lastOutbound, inbound.body ?? "")');
+    expect(turn).toContain('!refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))');
   });
 });
 

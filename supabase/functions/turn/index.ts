@@ -117,6 +117,7 @@ import {
   GREETING_ASK,
   isReceipt,
   onlyGreets,
+  spoken,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
@@ -2091,7 +2092,7 @@ const handleTurn = async (
         ? { marketing_opt_in_at: at, marketing_opt_in_message_id: inbound.externalId }
         : answer === "no" && lead.marketing_opt_in_asked_at // a no to a question never asked is not one
           ? { marketing_opt_in_declined_at: at, marketing_opt_in_at: null }
-          : (ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: inbound.body ?? "", reply })
+          : (ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: spoken(inbound.body ?? ""), reply })
             ? { marketing_opt_in_suspended_at: at, marketing_opt_in_at: null }
             : null;
     if (optIn) await db(`leads?id=eq.${lead.id}`, { method: "PATCH", body: JSON.stringify(optIn) });
@@ -2240,7 +2241,7 @@ const handleTurn = async (
     claimFailed = won === null;
   }
   const unanswered = recentRows === null ? [] : unansweredInbound(recentRows);
-  const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
+  const parts: string[] = unanswered.length > 0 ? unanswered.map((m) => spoken(m.body ?? "")) : [spoken(inbound.body ?? "")];
   if (unanswered.length > 0) {
     inbound = { ...inbound, body: parts.join("\n") };
     batchFrom = unanswered[0]?.created_at ?? null;
@@ -2739,7 +2740,7 @@ const handleTurn = async (
    */
   let interpretation: Interpretation = NEUTRAL_INTERPRETATION;
   try {
-    const ask = interpretRequest(lastOutbound, inbound.body ?? "");
+    const ask = interpretRequest(lastOutbound, spoken(inbound.body ?? ""));
     const reading = await callConversationModel(
       ask.system,
       [{ role: "user", content: ask.user }],
@@ -2778,7 +2779,7 @@ const handleTurn = async (
     ...((interpretation.units ?? 1) > 1 ? (CONFIG.kits ?? []).map((k) => k.discountPercent) : []),
     ...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),
   ];
-  if (namesOwnPrice(inbound.body ?? "", shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
+  if (namesOwnPrice(spoken(inbound.body ?? ""), shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
   if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
   // A bare "sim" beside a question holds the link (operator, 2026-10-06): she gets the answer, and
   // the link waits for a yes that is all she said — unless her own words decide or the question is
@@ -2811,7 +2812,7 @@ const handleTurn = async (
     // The bare "comprei" counts only in THIS message; from the history, only the phrases
     // that can only mean an order with us (code review, 2026-09-24).
     orderContext =
-      statesPastPurchase(inbound.body ?? "") ||
+      statesPastPurchase(spoken(inbound.body ?? "")) ||
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
     const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
@@ -2824,7 +2825,7 @@ const handleTurn = async (
       orderContext = (sent?.length ?? 0) > 0;
     }
   }
-  const handoffKind = handoffFor(interpretation, inbound.body ?? "", orderContext);
+  const handoffKind = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext);
   // A size exchange on an order (R17.1): the exchange's freight is hers, so she gets its amount and
   // the Mercado Pago link, and a person takes the exchange from there. Without both in the config,
   // the exchange goes to a person like any other post-sale question.
@@ -2875,7 +2876,7 @@ const handleTurn = async (
   // "stated" is decided by the text itself, not by the old intent classifier — it called
   // "tenho 44 anos" a sizing turn, which is fair, and would have made her a G.
   // The newest message that states a size wins over an earlier one in the same burst (grafo §59).
-  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? inbound.body ?? "", interpretation);
+  const stated = statedSize([...parts].reverse().find((p) => statedSizeOf(p) !== null) ?? spoken(inbound.body ?? ""), interpretation);
   if (stated && stated.size !== lead.size) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -2887,7 +2888,7 @@ const handleTurn = async (
   // so the quantity picks the link, and each piece has its own size. More than the biggest
   // kit has no link at all: a person builds that order (operator's decision).
   const kits = CONFIG.kits ?? [];
-  const quantity = quantityOf(inbound.body ?? "", interpretation);
+  const quantity = quantityOf(spoken(inbound.body ?? ""), interpretation);
   // An abandoned kit expires (loop review, 2026-09-25): nothing closes a conversation, so
   // "quero 2, M e G" twelve days ago would turn today's "quero o M" into the kit-of-2 link.
   const unitsAt = typeof lead.units_at === "string" ? Date.parse(lead.units_at) : NaN;
@@ -2926,7 +2927,7 @@ const handleTurn = async (
           storedSizes,
           replayed ? [] : saidSizes,
           units,
-          saysOwnSize(inbound.body ?? "", interpretation),
+          saysOwnSize(spoken(inbound.body ?? ""), interpretation),
         )
       : [];
   // Written on every turn that uses a kit, not only when it changes: the age is of the last
@@ -3003,7 +3004,7 @@ const handleTurn = async (
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
-  const wrongCep = addressDraft.cep ? null : malformedCep(inbound.body ?? "", /\bcep\b/i.test(lastOutbound));
+  const wrongCep = addressDraft.cep ? null : malformedCep(spoken(inbound.body ?? ""), /\bcep\b/i.test(lastOutbound));
   const cepState = addressDraft.cep
     ? null
     : wrongCep
@@ -3210,7 +3211,7 @@ const handleTurn = async (
             `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=body&order=created_at.desc&limit=1`,
           ).catch(() => null))?.map((m: { body: string | null }) => m.body ?? "") ?? recentOutbound)
       : recentOutbound;
-  const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, inbound.body ?? "");
+  const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
   const linkNow = !linkJustSent && linkReady && !withdrew;
@@ -3257,12 +3258,12 @@ const handleTurn = async (
   if (
     interpretation.wants_to_think &&
     interpretation.pending_answer !== "other_question" &&
-    !refusesAskedDatum(lastOutbound, inbound.body ?? "")
+    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))
   ) {
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = linkNow && !(linkInChat && closesConversation(inbound.body ?? ""))
+      thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -3450,7 +3451,7 @@ const handleTurn = async (
       // every quote she attributed to a customer was read as invented and rewritten.
       knownTestimonials: CONFIG.testimonials,
       // Testimonials only when she asks for them (R16.7).
-      askedTestimonial: asksForTestimonial(inbound.body ?? ""),
+      askedTestimonial: asksForTestimonial(spoken(inbound.body ?? "")),
       // Virtual, IA, robô only when she asks what the agent is (Q10, line 2; grafo §58).
       askedIdentity: parts.some(asksWhatSheIs),
       // A promise to send the link later, in a turn that sends none (grafo §66).

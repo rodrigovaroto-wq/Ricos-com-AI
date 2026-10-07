@@ -8,6 +8,10 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { oggOpus, parseWebhook, toWav16k, transcribedBody } from "@/channel/whatsapp.js";
 import { systemPrompt } from "@/agent/prompt.js";
+import { spoken, TRANSCRIBED } from "@/agent/retry.js";
+import { asksForLink } from "@/agent/interpret.js";
+import { extractName } from "@/agent/identity.js";
+import { wantsHuman } from "@/agent/guardrails.js";
 import { gateBriefing } from "@/agent/guardrails.js";
 import { config } from "./fixtures.js";
 
@@ -137,4 +141,26 @@ describe("o Ogg dela vira pacotes Opus", () => {
     });
   });
 
+});
+
+describe("o que ela disse por áudio chega às regras fixas como texto (revisão do §66)", () => {
+  it("o marcador do turno é o mesmo que a função whatsapp põe", () => {
+    expect(transcribedBody("oi")).toBe(`${TRANSCRIBED}oi`);
+    expect(spoken("me manda o link")).toBe("me manda o link");
+  });
+  it.each([
+    ["pedido de pessoa", (t: string) => wantsHuman(t), "Quero falar com uma pessoa.", true],
+    ["negação do pedido de pessoa", (t: string) => wantsHuman(t), "Não quero falar com uma pessoa.", false],
+    ["pedido de link", (t: string) => asksForLink(t), "Me manda o link.", true],
+    ["negação do link", (t: string) => asksForLink(t), "Não me manda o link.", false],
+    ["nome pedido", (t: string) => extractName(t, true), "Maria da Silva Souza.", "Maria da Silva Souza"],
+  ])("%s", (_, read, fala, esperado) => {
+    expect(read(spoken(transcribedBody(fala)!))).toEqual(esperado);
+  });
+  it("o turno passa o texto falado às regras e guarda a mensagem marcada", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).toContain('unanswered.map((m) => spoken(m.body ?? "")) : [spoken(inbound.body ?? "")]');
+    expect(turn).toContain('        body: inbound.body ?? "",');
+    expect(turn.match(/[^(]inbound\.body \?\? ""/g)).toHaveLength(1);
+  });
 });

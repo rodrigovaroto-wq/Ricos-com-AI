@@ -174,7 +174,7 @@ describe("opt-in de marketing: fiação na Edge Function", () => {
     expect(optIn).toBeLessThan(source.indexOf("inboundId = (await db(\"messages\", {"));
     expect(source).toContain('const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;');
     expect(source).toContain('answer === "no" && lead.marketing_opt_in_asked_at');
-    expect(source).toContain('(ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: inbound.body ?? "", reply })');
+    expect(source).toContain('(ASK_OPT_IN || lead.marketing_opt_in_at) && suspendsMarketingOptIn({ body: spoken(inbound.body ?? ""), reply })');
   });
   it("as duas verificações do selo incluem o toque", () => {
     expect(source.match(/sentAt: payload\.sentAt, reply: payload\.reply \}/g)).toHaveLength(2);
