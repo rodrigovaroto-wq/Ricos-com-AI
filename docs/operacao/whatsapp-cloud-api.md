@@ -46,7 +46,8 @@
    - `WHATSAPP_APP_SECRET` = chave secreta do app (A4)
    - `WHATSAPP_VERIFY_TOKEN` = token de verificação (B1)
    - `WHATSAPP_PHONE_NUMBER_ID` = ID do número (A4)
-   - `WHATSAPP_TOKEN` = token do A3 (só para a confirmação de leitura com "digitando…")
+   - `WHATSAPP_TOKEN` = token do A3 (confirmação de leitura com "digitando…" e download dos áudios dela para a transcrição, R18.9)
+   - `META_API_KEY` = a mesma da `turn` (segredo do projeto): transcreve os áudios dela pelo `muse-voice-transcribe-1.0`. Ausente, o áudio chega como "não consegue ouvir", como antes.
    - `INBOUND_SIGNING_SECRET` = selo da entrada (B1). **Sem ele, a Malu não responde pelo
      WhatsApp**: o n8n só envia quando a função do turno confirma o selo.
 3. **Publicar as duas funções** no Codespace, a partir do `main` atualizado:

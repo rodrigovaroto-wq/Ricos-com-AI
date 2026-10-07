@@ -3277,6 +3277,22 @@ const MUTATIONS: Mutation[] = [
     to: "  const clauses = parts;\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-audio-id",
+    bug: "a mensagem de voz chegava sem o id da mídia, e a função nunca transcrevia",
+    files: ["src/channel/whatsapp.ts"],
+    from: 'const audioId = type === "audio" || type === "voice" ? str(obj(m[type])?.id) : "";',
+    to: 'const audioId = "";',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/audio-transcription.test.ts"],
+  },
+  {
+    id: "G66-audio-fiacao",
+    bug: "a transcrição não substituía o texto do áudio antes de selar e encaminhar",
+    files: ["supabase/functions/whatsapp/index.ts"],
+    from: "      const message = heard ? { ...parsed, body: heard } : parsed;\n",
+    to: "      const message = parsed;\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/audio-transcription.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

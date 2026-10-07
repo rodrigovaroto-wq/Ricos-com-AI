@@ -28,8 +28,11 @@
  * WHATSAPP_TOKEN (the receipt; absent = no receipt), N8N_INBOUND_URL. SUPABASE_URL and
  * SUPABASE_SERVICE_ROLE_KEY are injected by the platform.
  */
-import { deliveryErrors, marketingDeclines, parseWebhook, readAndTyping, verifyChallenge, verifySignature } from "./whatsapp.ts";
+import { deliveryErrors, marketingDeclines, parseWebhook, readAndTyping, toWav16k, transcribedBody, verifyChallenge, verifySignature } from "./whatsapp.ts";
 import { sealInbound } from "./inbound-signature.ts";
+// The one runtime dependency of the project (operator, 2026-10-07, caminho 1): Meta's transcription takes
+// WAV only and WhatsApp sends Ogg/Opus; the Edge runtime has no ffmpeg. MIT, WebAssembly, pinned.
+import { OggOpusDecoder } from "https://esm.sh/ogg-opus-decoder@1.7.5";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
 
@@ -41,6 +44,12 @@ const TOKEN = Deno.env.get("WHATSAPP_TOKEN") ?? "";
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL") ?? "";
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 const INBOUND_URL = Deno.env.get("N8N_INBOUND_URL") ?? "https://encorpa-fashion.pikapod.net/webhook/encorpa-inbound";
+const META_KEY = Deno.env.get("META_API_KEY") ?? "";
+const TRANSCRIBE_MODEL = "muse-voice-transcribe-1.0";
+/** US$ 0,18 per hour at R$ 5,40 (dev.meta.ai pricing, 2026-10-07), per second billed. Env overrides. */
+const TRANSCRIBE_BRL_PER_SECOND = Number(Deno.env.get("TRANSCRIBE_PRICE_BRL_PER_SECOND") ?? "0.00027");
+/** A voice note this size is ~30 minutes; Meta transcribes up to 10. Bigger is not downloaded. */
+const MAX_AUDIO_BYTES = 16 * 1024 * 1024;
 /** Meta's payloads are a few KB; anything this big is not Meta, and is refused unread. */
 const MAX_BODY_BYTES = 256 * 1024;
 /**
@@ -69,6 +78,67 @@ const declineMarketing = async (phone: string) => {
 };
 
 /**
+ * Her voice message, as text (operator, 2026-10-07): the media URL from the Graph API, the Ogg/Opus
+ * bytes, decoded and turned into the WAV Meta's transcription takes, and the transcript. Every step has a
+ * timeout, and any failure is null — she then gets the "não consegue ouvir" line, as before. The cost is
+ * recorded in `llm_calls` (purpose `transcribe`; the conversation is not known here). Logs no text.
+ */
+const transcribe = async (mediaId: string): Promise<string | null> => {
+  if (!TOKEN || !META_KEY) return null;
+  const started = Date.now();
+  try {
+    const auth = { Authorization: `Bearer ${TOKEN}` };
+    const media = await fetch(`https://graph.facebook.com/v21.0/${encodeURIComponent(mediaId)}`, { headers: auth, signal: AbortSignal.timeout(10_000) });
+    const url = media.ok ? String(((await media.json()) as { url?: unknown }).url ?? "") : "";
+    if (!url.startsWith("https://")) return null;
+    const file = await fetch(url, { headers: auth, signal: AbortSignal.timeout(20_000) });
+    const bytes = file.ok ? new Uint8Array(await file.arrayBuffer()) : null;
+    if (!bytes || bytes.length === 0 || bytes.length > MAX_AUDIO_BYTES) return null;
+    const decoder = new OggOpusDecoder();
+    await decoder.ready;
+    const { channelData, sampleRate } = await decoder.decodeFile(bytes);
+    decoder.free();
+    const form = new FormData();
+    form.append(
+      "request",
+      new Blob([JSON.stringify({ model: TRANSCRIBE_MODEL, audioEncoding: "WAV", languageBias: ["Portuguese"] })], { type: "application/json" }),
+    );
+    form.append("audio", new Blob([toWav16k(channelData, sampleRate).buffer as ArrayBuffer], { type: "audio/wav" }), "audio.wav");
+    const res = await fetch("https://api.meta.ai/v1/asr/transcribe", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${META_KEY}` },
+      body: form,
+      signal: AbortSignal.timeout(30_000),
+    });
+    if (!res.ok) {
+      console.error(`whatsapp: transcrição recusada HTTP ${res.status}`);
+      return null;
+    }
+    const out = (await res.json()) as { transcript?: unknown; audioDurationMs?: unknown };
+    const seconds = Math.floor(Number(out.audioDurationMs ?? 0) / 1000);
+    await fetch(`${SUPABASE_URL}/rest/v1/llm_calls`, {
+      method: "POST",
+      headers: { apikey: SERVICE_KEY, Authorization: `Bearer ${SERVICE_KEY}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+      body: JSON.stringify({
+        purpose: "transcribe",
+        provider: "meta",
+        model: TRANSCRIBE_MODEL,
+        input_tokens: 0,
+        output_tokens: 0,
+        cached_tokens: 0,
+        cost_brl: Number.isFinite(seconds) ? seconds * TRANSCRIBE_BRL_PER_SECOND : 0,
+        latency_ms: Date.now() - started,
+      }),
+      signal: AbortSignal.timeout(10_000),
+    }).catch(() => undefined);
+    return transcribedBody(typeof out.transcript === "string" ? out.transcript : "");
+  } catch (error) {
+    console.error(`whatsapp: transcrição falhou: ${error instanceof Error ? error.name : "erro"}`);
+    return null;
+  }
+};
+
+/**
  * Every message of one POST at once — in series, the later ones would outlive the function
  * and vanish. Two messages of hers usually arrive as two POSTs anyway. A failure is logged
  * by message id only (never the phone or the text), since Meta already has its 200.
@@ -77,17 +147,20 @@ const forward = async (payload: unknown) => {
   for (const e of deliveryErrors(payload, PHONE_NUMBER_ID)) console.error(`whatsapp: entrega falhou ${e.id} código ${e.code}`);
   const declines = Promise.all(marketingDeclines(payload, PHONE_NUMBER_ID).map(declineMarketing));
   await Promise.all(
-    parseWebhook(payload, PHONE_NUMBER_ID).map(async (message) => {
+    parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, ...parsed }) => {
       if (TOKEN && PHONE_NUMBER_ID) {
         await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
           method: "POST",
           headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
-          body: JSON.stringify(readAndTyping(message.externalId)),
+          body: JSON.stringify(readAndTyping(parsed.externalId)),
           signal: AbortSignal.timeout(10_000),
         })
-          .then((r) => r.ok || console.error(`whatsapp: leitura recusada ${message.externalId} HTTP ${r.status}`))
-          .catch(() => console.error(`whatsapp: leitura falhou ${message.externalId}`));
+          .then((r) => r.ok || console.error(`whatsapp: leitura recusada ${parsed.externalId} HTTP ${r.status}`))
+          .catch(() => console.error(`whatsapp: leitura falhou ${parsed.externalId}`));
       }
+      // Her voice message as text before it is sealed and forwarded; on failure, the "não ouço" line stays.
+      const heard = audioId ? await transcribe(audioId) : null;
+      const message = heard ? { ...parsed, body: heard } : parsed;
       try {
         const signature = SIGNING_SECRET ? await sealInbound(SIGNING_SECRET, message) : undefined;
         const res = await fetch(INBOUND_URL, {
