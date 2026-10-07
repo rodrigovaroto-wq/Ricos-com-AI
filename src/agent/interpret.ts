@@ -843,10 +843,14 @@ export const linkHeldBack = (
 export const asksForLink = (message: string): boolean => {
   const t = norm(message);
   if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  // Second real test (grafo §66): "você nao vai me mandar o link do checkout????" — the cobrança, in a
+  // question — and "então manda logo" / "sim pode mandar" as the whole message.
+  if (/\b(?:nao\s+)?vai\s+(?:me\s+)?(?:mandar|enviar|passar)\s+(?:o\s+)?(?:link|checkout)\b[^?]*\?/.test(t)) return true;
+  if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
   )) {
     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
     // are not a request for now (second review, 5th round).

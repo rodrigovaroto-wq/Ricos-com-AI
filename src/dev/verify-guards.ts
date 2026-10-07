@@ -3107,6 +3107,23 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-link-checkout",
+    bug: "'sim, me manda o checkout logo' não contava como pedido de link",
+    files: ["src/agent/interpret.ts"],
+    from: "(?:(?:o|um|esse|aquele)\\s+)?(?:link|checkout)\\b/g,",
+    to: "(?:(?:o|um|esse|aquele)\\s+)?link\\b/g,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "G66-link-cobranca",
+    bug: "'você nao vai me mandar o link do checkout????' e 'então manda logo' não contavam como pedido de link",
+    files: ["src/agent/interpret.ts"],
+    from: "  if (/\\b(?:nao\\s+)?vai\\s+(?:me\\s+)?(?:mandar|enviar|passar)\\s+(?:o\\s+)?(?:link|checkout)\\b[^?]*\\?/.test(t)) return true;\n",
+    to: "",
+    also: [{ from: "  if (/^\\s*(?:(?:entao|sim|ok|ta|pode|ah)[\\s,]+)*(?:(?:me\\s+)?(?:manda|mande|envia|envie)\\s+(?:logo|agora|ja|ai|aqui)|pode\\s+(?:me\\s+)?(?:mandar|enviar))\\s*[!.]*\\s*$/.test(t)) return true;\n", to: "" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

@@ -6,6 +6,7 @@
 import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
+import { asksForLink } from "@/agent/interpret.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { ctx } from "./fixtures.js";
 
@@ -116,5 +117,30 @@ describe("C5 — pending_promise: prometer mandar o link depois, num turno sem l
 
   it("o turno passa se o link sai nesta resposta", () => {
     expect(turn).toContain("linkInTurn: checkoutUrl !== null,");
+  });
+});
+
+describe("C6 — pedido de link com 'checkout' e a cobrança", () => {
+  it.each([
+    "sim, me manda o checkout logo",
+    "você nao vai me mandar o link do checkout????",
+    "então manda logo",
+    "sim pode mandar",
+    "pode mandar",
+    "me manda o link",
+  ])("é pedido de link: %s", (frase) => {
+    expect(asksForLink(frase)).toBe(true);
+  });
+
+  it.each([
+    "não me manda o checkout agora",
+    "manda o checkout amanhã",
+    "pode mandar não, desisti",
+    "vou passar o link pro meu marido",
+    "o checkout é seguro?",
+    "manda logo a tabela de medidas pra eu ver",
+    "você vai me mandar o link depois que eu escolher o tamanho, né",
+  ])("não é pedido de link: %s", (frase) => {
+    expect(asksForLink(frase)).toBe(false);
   });
 });
