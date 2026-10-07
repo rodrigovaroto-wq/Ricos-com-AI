@@ -7,6 +7,7 @@ import { describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { malformedCep } from "@/agent/address.js";
 import { asksForLink } from "@/agent/interpret.js";
+import { refusesAskedDatum } from "@/agent/identity.js";
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { ctx } from "./fixtures.js";
 
@@ -142,5 +143,29 @@ describe("C6 — pedido de link com 'checkout' e a cobrança", () => {
     "você vai me mandar o link depois que eu escolher o tamanho, né",
   ])("não é pedido de link: %s", (frase) => {
     expect(asksForLink(frase)).toBe(false);
+  });
+});
+
+describe("C7 — recusar um dado não é 'vou pensar'", () => {
+  const askCpf = "Para a emissão da nota fiscal, me passa seu CPF por favor?";
+  const askEmail = "Pra completar o cadastro do pedido, qual é seu melhor e-mail?";
+
+  it("a frase da conversa, ao pedido do e-mail (forma antiga) e ao do CPF", () => {
+    expect(refusesAskedDatum(askEmail, "nao vou passar não, valeu")).toBe(true);
+    expect(refusesAskedDatum(askCpf, "não vou passar meu cpf, valeu")).toBe(true);
+    expect(refusesAskedDatum(askCpf, "n passo")).toBe(true);
+  });
+
+  it.each([
+    [askCpf, "vou pensar e depois te falo"],
+    [askCpf, "e se eu não passar o cpf?"],
+    ["Qual das duas fica melhor pra você?", "não vou passar não, valeu"],
+    [askCpf, "55138146840"],
+  ])("não é recusa de dado: depois de %s, %s", (ask, answer) => {
+    expect(refusesAskedDatum(ask, answer)).toBe(false);
+  });
+
+  it("o turno não manda a resposta fixa do 'vou pensar' para a recusa de dado", () => {
+    expect(turn).toContain('!refusesAskedDatum(lastOutbound, inbound.body ?? "")');
   });
 });

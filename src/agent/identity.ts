@@ -210,6 +210,21 @@ export const asksForIdentity = (text: string): boolean =>
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
 
+/**
+ * Her answer refuses the datum the agent just asked — "nao vou passar não, valeu" to the e-mail ask
+ * read as putting the purchase off, and she got the fixed "vou pensar" reply with the stock (second
+ * real test, grafo §66). Only right after an ask of name or CPF, and never as a question ("e se eu
+ * não passar?"): a purchase put off still reads as one.
+ */
+export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean => {
+  const t = answer.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return (
+    asksForIdentity(lastOutbound) &&
+    !t.endsWith("?") &&
+    /(?<!\bse\s+(?:eu\s+)?)\b(?:nao|n|nunca)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)\b/.test(t)
+  );
+};
+
 /** A sentence that asks for something: a question, or a request ("me passa", "me manda", "preciso do"). */
 const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
 

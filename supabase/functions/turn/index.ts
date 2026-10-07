@@ -72,6 +72,7 @@ import {
   titleCaseName,
   nextIdentityQuestion,
   refusedAsks,
+  refusesAskedDatum,
   type Identity,
 } from "./identity.ts";
 import {
@@ -3232,7 +3233,12 @@ const handleTurn = async (
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
   // Set when the fixed "vou pensar" line was already said: the model answers her goodbye, told so.
   let farewell = false;
-  if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
+  // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
+  if (
+    interpretation.wants_to_think &&
+    interpretation.pending_answer !== "other_question" &&
+    !refusesAskedDatum(lastOutbound, inbound.body ?? "")
+  ) {
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {

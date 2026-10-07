@@ -3124,6 +3124,14 @@ const MUTATIONS: Mutation[] = [
     also: [{ from: "  if (/^\\s*(?:(?:entao|sim|ok|ta|pode|ah)[\\s,]+)*(?:(?:me\\s+)?(?:manda|mande|envia|envie)\\s+(?:logo|agora|ja|ai|aqui)|pode\\s+(?:me\\s+)?(?:mandar|enviar))\\s*[!.]*\\s*$/.test(t)) return true;\n", to: "" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
+  {
+    id: "G66-recusa-nao-e-pensar",
+    bug: "'nao vou passar não, valeu' ao pedido de um dado disparava a resposta fixa do 'vou pensar', com o estoque",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '    !refusesAskedDatum(lastOutbound, inbound.body ?? "")\n',
+    to: "    true\n",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
