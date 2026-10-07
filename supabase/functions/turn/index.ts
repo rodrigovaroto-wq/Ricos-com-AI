@@ -112,6 +112,10 @@ import {
   thinkReply,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
+  greetingFor,
+  GREETING_ASK,
+  isReceipt,
+  onlyGreets,
   WELCOME_RESUME_DELAY_SECONDS,
   type NextAction,
 } from "./retry.ts";
@@ -3338,8 +3342,19 @@ const handleTurn = async (
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
         ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
+  // Malu's first real reply opens with the greeting of the hour, a fixed bubble (operator, 2026-10-07,
+  // grafo §66); all she wrote was a greeting → the greeting and "Em que posso te ajudar?", no model call.
+  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
+  if (greeting !== null && !farewell && onlyGreets(parts)) {
+    const sent = await sendFixed(`${greeting}\n\n${GREETING_ASK}`, "primeira resposta: saudação");
+    if (sent) return sent;
+  }
   const sizeDirective =
     [
+      greeting
+        ? `A saudação e a sua apresentação já vão num balão antes da sua mensagem: não cumprimente, não diga` +
+          ` seu nome e não pergunte se ela está bem. Comece respondendo o que ela escreveu, em no máximo dois balões.`
+        : null,
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
@@ -3546,9 +3561,11 @@ const handleTurn = async (
    * which is where a gate that keeps firing becomes Hermes' material.
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
-  const replyText = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
+  const body = fallbackReason === null ? attempt.text : SAFE_FALLBACK_REPLY;
+  const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
 
-  const gaveUp = await lateGuard(rewritesUsed, replyText);
+  // The draft a revision rewrites is Malu's own text; the greeting is added again after it.
+  const gaveUp = await lateGuard(rewritesUsed, body);
   if (gaveUp) return gaveUp;
 
   const outbound = (

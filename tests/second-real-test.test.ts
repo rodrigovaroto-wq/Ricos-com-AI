@@ -11,7 +11,7 @@ import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } f
 import { classifyOptOut, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
-import { unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
+import { GREETING_ASK, greetingFor, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -21,11 +21,9 @@ describe("C2 — 'pare de me mandar …' só é descadastro quando o que para s�
   });
 
   it.each([
-    "pare de me mandar confirmações",
     "para de me mandar pergunta, só manda o link",
     "pare de mandar mensagem e me manda o checkout",
-    "parem de me enviar o resumo, quero finalizar",
-  ])("não bloqueia quem compra ou pede outra coisa: %s", (frase) => {
+  ])("não bloqueia quem pede o link na mesma mensagem: %s", (frase) => {
     expect(classifyOptOut(frase)).toBe("none");
   });
 
@@ -318,5 +316,67 @@ describe("T1 — a recepção sem o 'Oii, tudo bem?'", () => {
     expect(WELCOME_AUTO_REPLY.startsWith("Oii")).toBe(false);
     expect(unansweredInbound(novo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
     expect(unansweredInbound(antigo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
+  });
+});
+
+describe("T2 — a primeira resposta da Malu abre com a saudação da hora", () => {
+  const at = (hhmm: string) => new Date(`2026-10-07T${hhmm}:00-03:00`);
+  it.each([
+    ["06:00", "bom dia"],
+    ["11:59", "bom dia"],
+    ["12:00", "boa tarde"],
+    ["18:59", "boa tarde"],
+    ["19:00", "boa noite"],
+    ["23:59", "boa noite"],
+    ["03:00", "bom dia"],
+  ])("às %s é %s", (hora, parte) => {
+    expect(greetingFor(at(hora), "Malu")).toBe(`Oii, ${parte}, tudo bem?! Sou a Malu e darei início ao seu atendimento.`);
+  });
+
+  it("a saudação e o 'Em que posso te ajudar?' passam a cadeia, perguntada ou não a identidade", () => {
+    for (const askedIdentity of [false, true]) {
+      const text = `${greetingFor(at("10:00"), "Malu")}\n\n${GREETING_ASK}`;
+      expect(runGates(text, ctx({ askedIdentity, now: at("10:00") })).traces.filter((t) => t.verdict === "block")).toEqual([]);
+    }
+  });
+
+  it.each([[["oi"]], [["Boa tarde, tudo bem?"]], [["oii", "tudo bem?"]], [["olá 😊"]], [["Oi Malu tudo bem?"]]])(
+    "só saudação: %j",
+    (parts) => expect(onlyGreets(parts)).toBe(true),
+  );
+  it.each([[["oi", "quanto custa?"]], [["Gostaria de saber mais sobre a cinta"]], [["bom dia, quero comprar"]], [["tudo sim"]], [[]]])(
+    "tem pergunta ou pedido: %j",
+    (parts) => expect(onlyGreets(parts)).toBe(false),
+  );
+
+  it("o turno: saudação fixa na primeira resposta; com pergunta, a resposta dela vem depois", () => {
+    expect(turn).toContain("recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName)");
+    expect(turn).toContain("sendFixed(`${greeting}\\n\\n${GREETING_ASK}`");
+    expect(turn).toContain("const replyText = greeting === null ? body : `${greeting}\\n\\n${body}`;");
+    expect(turn).toContain("não cumprimente, não diga");
+  });
+});
+
+describe("C2 — segunda revisão: sem o pedido do link, 'pare de me mandar' bloqueia", () => {
+  it.each([
+    "pare de me mandar confirmações",
+    "parem de me enviar o resumo, quero finalizar",
+    "pare de me mandar o mesmo link toda hora, não vou comprar",
+    "pare de me mandar a mesma mensagem, já disse que não quero",
+    "para de me mandar pergunta, não tenho interesse",
+    "pare de me mandar mensagem. e nem me manda link nenhum",
+    "pare de me mandar mensagem, só me manda o link se eu pedir",
+    "pare de me mandar mensagem, me manda o link quando eu pedir",
+  ])("bloqueia: %s", (frase) => {
+    expect(classifyOptOut(frase)).toBe("explicit");
+  });
+
+  it.each([
+    "Já te mando o link assim que você me passar o CPF.",
+    "Te mando o link logo que você me passar o CPF",
+    "Já te mando o link, só me passa o CPF?",
+  ])("C5: a condição verdadeira não é promessa pendente: %s", (frase) => {
+    const gates = runGates(frase, ctx({ linkInTurn: false })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+    expect(gates).not.toContain("pending_promise");
   });
 });

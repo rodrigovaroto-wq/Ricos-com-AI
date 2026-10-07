@@ -344,6 +344,36 @@ export const WELCOME_AUTO_REPLY =
   "encorpa-fashion.com.br";
 
 /**
+ * Malu's first real reply opens with the greeting of the hour (operator, 2026-10-07, grafo §66):
+ * "bom dia" from 06:00 to 12:00, "boa tarde" to 19:00, "boa noite" to midnight, São Paulo time.
+ * Before 06:00 the reply waits for the opening, so it is "bom dia" too.
+ */
+export const greetingFor = (at: Date, agentName: string): string => {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(at),
+  );
+  const part = hour >= 19 ? "boa noite" : hour >= 12 ? "boa tarde" : "bom dia";
+  return `Oii, ${part}, tudo bem?! Sou a ${agentName} e darei início ao seu atendimento.`;
+};
+
+/** The second bubble when all she wrote was a greeting; with a question, the answer takes its place. */
+export const GREETING_ASK = "Em que posso te ajudar?";
+
+/** The receipt, as sent now or before 2026-10-07 — never a reply of Malu's. */
+export const isReceipt = (body: string): boolean =>
+  body === WELCOME_AUTO_REPLY || body === `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}`;
+
+/**
+ * Every message of hers is a greeting and nothing else ("oi", "Boa tarde, tudo bem?", "olá 😊"): then
+ * the first reply is the greeting and "Em que posso te ajudar?", with no model call.
+ */
+export const onlyGreets = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.every((p) =>
+    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|[\p{Extended_Pictographic}‍️]+)\s*)+$/iu.test(p.trim()),
+  );
+
+/**
  * The wait between the Estágio 0 receipt and Malu's real reply — the operator's call
  * on 2026-09-21, opção (a): n8n sends `WELCOME_AUTO_REPLY`, waits this many seconds with
  * a `Wait` node, then calls the turn endpoint again with `resume: true` for the real
@@ -400,7 +430,7 @@ export const unansweredInbound = <M extends { direction: string; body?: string |
   for (const m of newestFirst) {
     if (m.direction === "inbound") run.unshift(m);
     // The receipt sent before 2026-10-07 opened with "Oii, tudo bem?" — still the receipt.
-    else if (m.body !== WELCOME_AUTO_REPLY && m.body !== `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}`) break;
+    else if (!isReceipt(m.body ?? "")) break;
   }
   return run;
 };

@@ -314,7 +314,7 @@ describe("rodada 13 na Edge Function", () => {
     expect(source).toContain("retryIsMoot(internal.retry!.inboundId, latest?.[0] ?? null, conversation.last_outbound_at ?? null)");
     // E de novo logo antes de mandar: a resposta final e a linha fixa passam pelo mesmo teste.
     const finalInsert = source.indexOf("const outbound = (");
-    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert);
+    const lastCheck = source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, body);", finalInsert);
     expect(lastCheck).toBeGreaterThan(-1);
     expect(finalInsert - lastCheck).toBeLessThan(200);
     expect(source).toContain("const gaveUp = await lateGuard(0, text);");

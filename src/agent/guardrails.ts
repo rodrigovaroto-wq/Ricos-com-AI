@@ -630,15 +630,6 @@ export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel =>
 /** "Para/pare de me mandar …" — the negated "não para de mandar" is read in `classifyOptOut`. */
 const STOP_SENDING = /(?<!\bnao\s+)\b(?:para|pare|parem|pode\s+parar)\s+de\s+(?:me\s+)?(?:mandar|enviar|encher)\b/;
 
-/**
- * What she wants stopped is the conversation's form, not the conversation: "pare de me mandar
- * confirmações, apenas me mande o link do checkout" blocked a buyer for good (second real test, grafo
- * §66). The exception is the enumerated side (lesson 3: the happy path is the allow-list) — the
- * object right after the verb; anything else after "pare de me mandar" still blocks, as before.
- */
-const NOT_STOPPING =
-  /^\s+(?:(?:ess[ae]s?|tant[ao]s?|suas?|seus|as|os|a|o)\s+)?(?:confirma\w*|pergunta\w*|resumo\w*|recapitula\w*|mesm[ao]s?\b|repeti\w*|ficar\s+(?:confirmando|perguntando|repetindo))/;
-
 export const classifyOptOut = (text: string): OptOutLevel => {
   const t = norm(text);
   const explicit = [
@@ -651,10 +642,16 @@ export const classifyOptOut = (text: string): OptOutLevel => {
   if (explicit.some((r) => r.test(t))) return "explicit";
   // A purchase beside it is never a refusal of everything (grafo §66).
   const stop = STOP_SENDING.exec(t);
-  // Asking for the link in the same message is buying ("pare de mandar mensagem e me manda o checkout"):
-  // the request itself, not any purchase word — "não quero comprar" still blocks.
-  const wantsLink = /(?<!\bnao\s+)\b(?:me\s+)?(?:manda|mande|envia|envie|passa|passe)\s+(?:o\s+|s[oó]\s+o\s+)?(?:link|checkout)\b/.test(t);
-  if (stop && !NOT_STOPPING.test(t.slice(stop.index + stop[0].length)) && !wantsLink) return "explicit";
+  // Asking for the link in the same message is buying: "pare de me mandar confirmações, apenas me mande o
+  // link do checkout" blocked a buyer for good (second real test, grafo §66). The request itself, never
+  // denied nor conditional after the stop ("nem me manda link", "me manda o link quando eu pedir"), and
+  // never beside a refusal ("não quero", "não tenho interesse"): everything else still blocks (reviews of
+  // the §66 fixes).
+  const after = stop ? t.slice(stop.index + stop[0].length) : "";
+  const buysNow =
+    /\b(?:me\s+)?(?:manda|mande|envia|envie|passa|passe)\s+(?:o\s+|s[oó]\s+o\s+)?(?:link|checkout)\b/.test(after) &&
+    !/\b(?:nao|nem|nunca|nenhum|se|quando|depois|interesse)\b/.test(after);
+  if (stop && !buysNow) return "explicit";
   // "Vocês não param de mandar mensagem, que saco" is a complaint, as it read until 2026-09-28; the
   // negated form asks for more only beside a liking she says, not denied ("não para de mandar
   // oferta boa não", "tô gostando") (2026-09-29, grafo §31). And only about this shop: no subject, or
@@ -2975,6 +2972,8 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       if (ctx.linkInTurn !== false) return null;
       const t = norm(text);
+      // A true condition is what the link waits for, said: "Já te mando o link assim que você me passar o CPF".
+      if (/\b(?:assim|logo)\s+que\s+(?:voce\s+)?(?:me\s+)?(?:passar|mandar|enviar|disser|escolher)|\bquando\s+voce\s+(?:me\s+)?(?:passar|mandar|enviar)|\bso\s+me\s+passa\b/.test(t)) return null;
       return /\b(?:ja|logo|em\s+seguida)\s+(?:te\s+)?(?:mando|envio|passo)(?:\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b|\s*(?:[.!?,]|$)|\s+(?:aqui|nesta|em\s+seguida|pra\s+voce))|\b(?:te\s+)?(?:mando|envio|passo)\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\b[^.!?]*?\b(?:em\s+seguida|ja\s+ja|daqui\s+a\s+pouco|nesta\s+conversa|aqui\s+mesmo|logo)\b|\b(?:estou|to|tou|vou)\s+(?:so\s+)?(?:deixando|preparando|finalizando|gerando|montando|ajeitando|separando)\s+(?:\S+\s+){0,2}?(?:link|checkout|pedido)\b|\bassim\s+que\s+(?:o\s+|seu\s+)?(?:link|checkout|pedido)\s+(?:ficar|estiver)\s+pronto|\bvou\s+(?:te\s+)?(?:mandar|enviar|passar)\s+(?:o\s+|seu\s+)?(?:link|checkout)\b|(?<!\bnao\s+)\b(?:vou|deixa\s+eu|deixe\s+eu)\s+(?:so\s+)?(?:conferir|verificar|checar|consultar)\b(?!\s*:)/.test(t)
         ? "promises to send the link or check something later, in a turn that sends no link"
         : null;

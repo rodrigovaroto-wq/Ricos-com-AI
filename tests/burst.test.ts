@@ -118,7 +118,7 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(guard.replace(fallback, "")).not.toContain("superseded");
     expect(guard).toContain('status: "retry_moot"');
     const finalInsert = source.indexOf("const outbound = (");
-    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert)).toBeLessThan(200);
+    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, body);", finalInsert)).toBeLessThan(200);
     expect(source).toContain("const gaveUp = await lateGuard(0, text);");
   });
 
