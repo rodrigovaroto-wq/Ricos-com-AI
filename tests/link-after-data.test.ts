@@ -648,3 +648,14 @@ describe("recusa: condicional e formas do WhatsApp", () => {
     expect(source.indexOf("if (farewell) checkoutUrl = null;")).toBeLessThan(source.indexOf("const checkoutDirective = checkoutDirectiveFor("));
   });
 });
+
+/** Confirmação no contribuidor (Jussara): o e-mail da loja na frase não é pedido do e-mail dela. */
+describe("e-mail da loja não é pedido do e-mail dela", () => {
+  it("'me manda um e-mail pra contato@…' + resposta sem e-mail não conta recusa", () => {
+    const q = "Sobre o CNPJ e os dados da empresa, me manda um e-mail pra contato@encorpa-fashion.com.br que por lá o time passa as informações.";
+    expect(refusedAsks([out(q), inn("ta mas se eu nao tiver o dinheiro na hora como e que fica")], "email")).toBe(0);
+  });
+  it("negação: o pedido do e-mail dela segue contando", () => {
+    expect(refusedAsks([out("Me passa seu e-mail? É pro cadastro do pedido."), inn("nao tenho")], "email")).toBe(1);
+  });
+});

@@ -254,7 +254,9 @@ const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
       /\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q) &&
       !REQUEST.test(q) &&
       !/\b(?:pode|consegue)\s+(?:me\s+)?(?:passar|mandar|informar|enviar)\b/i.test(q);
-    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo) return false;
+    // An address in the sentence is the shop's ("me manda um e-mail pra contato@…"), not an ask for hers
+    // (confirmation round on the production model, Jussara: her e-mail went unasked).
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo || /\S@\S/.test(q)) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
     return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&

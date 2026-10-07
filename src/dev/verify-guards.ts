@@ -2938,6 +2938,14 @@ const MUTATIONS: Mutation[] = [
     to: "(?:n[aã]o|n|nunca|jamais)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "P07-email-da-loja-nao-e-pedido",
+    bug: "'me manda um e-mail pra contato@…' contava como pedido do e-mail dela e o e-mail ficava dispensado sem ser pedido (Jussara)",
+    files: ["src/agent/identity.ts"],
+    from: " || letGo || /\\S@\\S/.test(q)) return false;",
+    to: " || letGo) return false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

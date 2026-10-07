@@ -2042,6 +2042,12 @@ números" (sem a palavra CPF) e depois com o motivo "no seu nome", e a contagem 
 recebeu a frase fixa do "vou pensar" duas vezes seguidas. Correção: `refusedAsks` por janela de resposta
 — conta quando a janela não traz o dado e responde a um pedido **ou** recusa o campo nas palavras dela;
 "Tudo bem sem o CPF, tá?" não é pedido; a frase fixa não se repete sem link novo (o modelo responde).
+Três revisões depois, o desenho final: a recusa espontânea só conta com o campo como objeto do verbo
+("não passo o cpf", "cpf não vou passar", "n passo cpf"), nunca condicional ("e se eu não passar…") nem
+com outro objeto ("não passo cartão", "não dou conta"); a diretiva do 2º pedido manda citar o CPF (a causa
+da Jussara: "só os números" não era pedido visível ao código); na despedida o modelo é avisado e o link do
+turno é descartado; frase com endereço de e-mail ("me manda um e-mail pra contato@…") não é pedido do
+e-mail dela. Confirmação no contribuidor: Jussara recusou o CPF duas vezes e recebeu o link sem ele.
 **Guarda:** `tests/internal-note.test.ts`, `tests/pacing.test.ts`, `tests/prompt.test.ts`,
 `tests/link-after-data.test.ts`; mutações `P07-*`; 4 afrouxamentos aceitos (P07).
 **Resíduo:** citação em inglês da cliente custa uma reescrita; nome com "da/de" sozinho segue não lido
