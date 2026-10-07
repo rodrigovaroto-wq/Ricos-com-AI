@@ -249,7 +249,12 @@ const asksForField = (text: string, word: RegExp, others: RegExp): boolean => {
     // refuses nothing of this field (second review of 41757c8).
     // "Não precisa", and the field let go ("Sem problemas não ter e-mail, a gente segue assim mesmo, tá?",
     // "Tudo bem sem o CPF, tá?"): a "tá?" at the end asks nothing of her (final persona round).
-    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b|\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q)) return false;
+    // A request in it is still an ask ("Sem o CPF eu não consigo emitir a nota, pode me passar?").
+    const letGo =
+      /\b(?:sem|n[aã]o\s+ter)\s+(?:o\s+|seu\s+)?(?:e-?mail|cpf)\b/i.test(q) &&
+      !REQUEST.test(q) &&
+      !/\b(?:passa|passar|manda|mandar|consegue|pode)\b/i.test(q);
+    if (!word.test(q) || others.test(q) || /\bn[aã]o\s+precisa\b/i.test(q) || letGo) return false;
     if (q.endsWith("?") || REQUEST.test(q)) return true;
     const nextQ = sentences[i + 1] ?? "";
     return nextQ.endsWith("?") && /\b(?:passa|passar|manda|mandar|informa|informar|envia|enviar)\b/i.test(nextQ) &&
@@ -278,12 +283,19 @@ export const refusedAsks = (
   // brings no valid value and either answers an ask of the field, or refuses the field in her own
   // words ("nao passo cpf") — however the agent worded the ask (final persona round of 2026-10-07,
   // Jussara: "Consegue me mandar só os números?" named no CPF, and three refusals counted one).
+  // A refusal is a refusal verb under the negation ("não passo", "não vou passar", "nunca dou") — never
+  // any "não" near the field ("nao sei se precisa do cpf" is a doubt; review of 5383dc5). It names
+  // the field, or follows a window already counted (the agent re-asking in other words).
+  const REFUSAL = /\b(?:n[aã]o|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)\b/i;
   let count = 0;
   let asked = false;
+  let streak = false;
   let answer: string[] = [];
   const close = () => {
-    const refused = answer.some((a) => word.test(a) && /\b(?:n[aã]o|nunca|jamais|nem)\b/i.test(a));
-    if (answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused)) count += 1;
+    const refused = answer.some((a) => REFUSAL.test(a) && (word.test(a) || asked || streak));
+    const counts = answer.length > 0 && !answer.some((a) => found(a) !== null) && (asked || refused);
+    if (counts) count += 1;
+    if (answer.length > 0) streak = counts;
     answer = [];
   };
   for (const m of messages) {
@@ -293,6 +305,8 @@ export const refusedAsks = (
     }
     close();
     asked = asksForField(m.body ?? "", word, others);
+    // The agent moved on to another field: her next refusal is of that one.
+    if (others.test(m.body ?? "")) streak = false;
   }
   close();
   return count;

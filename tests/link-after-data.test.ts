@@ -97,7 +97,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
 
   it("o kit é oferecido depois da escolha, uma vez, e o link do kit é o checkout do kit", () => {
     expect(source).toContain(
-      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow;',
+      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;',
     );
     expect(source).toContain("linkNow || linkAlreadySent || kitOfferNow ||");
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");
@@ -574,4 +574,36 @@ describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada fi
     expect(source).toContain("const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));");
     expect(source).toContain("const sent = thinkRepeated ? null : await sendFixed(");
   });
+  it("com a frase retida, o modelo sabe que ela se despede: nada de pedir dado, oferta ou link (revisão de 5383dc5)", () => {
+    expect(source).toContain("farewell = thinkRepeated;");
+    expect(source).toContain("const identityDirective = farewell");
+    expect(source).toContain("Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.");
+    expect(source).toContain("!kitOffered && !linkNow && !farewell;");
+  });
+});
+
+/** Revisão de 5383dc5: a recusa espontânea é recusa de verdade, e o pedido com motivo segue pedido. */
+describe("recusa: verbo de recusa, não qualquer 'não' perto do campo", () => {
+  it.each([
+    "nao sei se precisa do cpf",
+    "por que precisa do cpf? nao entendi",
+    "cpf nao é problema, mas e o frete?",
+    "o cpf nao vai aparecer no pacote ne?",
+    "nem sei meu cpf de cabeça, posso mandar depois?",
+  ])("dúvida não é recusa: %s", (m) => expect(refusedAsks([inn(m), out("Claro, te explico."), inn(m)], "document")).toBe(0));
+  it.each(["o email nao chegou", "nao recebi email nenhum de voces"])("e-mail citado não é recusa: %s", (m) =>
+    expect(refusedAsks([inn(m)], "email")).toBe(0),
+  );
+  it("recusa espontânea com verbo conta", () => {
+    expect(refusedAsks([inn("nao passo cpf de jeito nenhum")], "document")).toBe(1);
+  });
+  it.each(["esse dado eu não passo", "não vou passar isso não"])("na sequência do pedido, a recusa sem citar o campo conta: %s", (m) => {
+    const msgs = [out("Me passa seu CPF? É pra nota fiscal."), inn("cpf nao vou passar"), out("Consegue me mandar só os números?"), inn(m)];
+    expect(refusedAsks(msgs, "document")).toBe(2);
+  });
+  it.each([
+    "Sem o CPF eu não consigo emitir a nota, pode me passar?",
+    "Sem seu CPF a nota não sai: me passa só os números?",
+    "Não ter o CPF trava a nota, consegue me mandar?",
+  ])("pedido com o motivo 'sem o CPF' segue pedido: %s", (q) => expect(refusedAsks([out(q), inn("não")], "document")).toBe(1));
 });

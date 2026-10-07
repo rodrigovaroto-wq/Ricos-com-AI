@@ -3183,6 +3183,8 @@ const handleTurn = async (
   // A goodbye with the link already in the chat gets the operator's line without the link
   // again (persona round); "vou pensar" keeps the line either way (seventh review).
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
+  // Set when the fixed "vou pensar" line was already said: the model answers her goodbye, told so.
+  let farewell = false;
   if (interpretation.wants_to_think && interpretation.pending_answer !== "other_question") {
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
@@ -3200,6 +3202,7 @@ const handleTurn = async (
     // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
     // send, the model answers her goodbye instead.
     const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));
+    farewell = thinkRepeated;
     const sent = thinkRepeated ? null : await sendFixed(
       thinkLink
         ? `${think}\n\n${thinkLink}` +
@@ -3221,9 +3224,13 @@ const handleTurn = async (
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =
-    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow;
-  const identityDirective =
-    linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
+    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell;
+  // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
+  // the CPF again of a woman saying goodbye. Told instead what the turn is.
+  const identityDirective = farewell
+    ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
+      `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
       : identityDirectiveFor(identityDraft, linkData.emailDone, cpfRefusals);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
