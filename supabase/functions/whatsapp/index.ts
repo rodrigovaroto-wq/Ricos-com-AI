@@ -32,7 +32,8 @@ import { deliveryErrors, marketingDeclines, oggOpus, parseWebhook, readAndTyping
 import { sealInbound } from "./inbound-signature.ts";
 // The one runtime dependency of the project (operator, 2026-10-07, caminho 1): Meta's transcription takes
 // WAV only and WhatsApp sends Ogg/Opus; the Edge runtime has no ffmpeg. libopus in WebAssembly, MIT,
-// vendored without its Web Worker (the bundler refuses node:vm) and pinned by hash — see vendor/README.md.
+// without its Web Worker (the bundler refuses node:vm); its yEnc files come from jsDelivr, pinned by
+// version and by sha256 in deno.lock, read only at deploy — see vendor/README.md.
 import OpusDecoder from "./vendor/OpusDecoder.js";
 
 declare const EdgeRuntime: { waitUntil(promise: Promise<unknown>): void } | undefined;
