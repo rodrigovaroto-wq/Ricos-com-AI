@@ -2256,8 +2256,13 @@ chama a pessoa aos 5 min); pergunta contada como recusa do e-mail; e-mail e CPF 
 excesso da correção do e-mail (um "não" simples não recusava e o link nunca saía), "certo"/"já já" lidos como
 cobrança, a verificação da varredura presa até as 6h, a oferta lida fora da última pergunta, "paguei ainda não",
 "foi" e condição como pergunta de status, e a corrida do comprovante na espera (`run_at` +1 s). Todos com teste e
-mutação (`G67-*`, 16/16).
-**Resíduo:** imagem com legenda chega só como legenda (não é lida como comprovante); o webhook da Coinzz não foi
+mutação (`G67-*`, 16/16). Mais quatro passadas curtas (terceira a sexta) só acharam variações de frase nas leituras de
+texto do pagamento e da recusa do e-mail ("já paguei ainda não caiu", "não, pode mandar sem?", "vê se o pix caiu e
+confirma?", "ainda não deu baixa", "não tenho, pode ser o do meu filho?") — cada uma com teste nos dois sentidos.
+O ciclo parou na sexta: o que a revisão ainda aponta são variações raras de frase, listadas abaixo.
+**Resíduo:** leitura de texto do pagamento por regex nunca cobre toda frase — "já paguei, ainda não foi liberado" (com
+vírgula) e "não tenho pode ser?" (sem vírgula) ainda escapam; "quando o pix é aprovado vc manda?" lê como pergunta de
+status (inofensivo: só vale com verificação em curso). A resposta de produção é o próximo teste real, não mais regex. imagem com legenda chega só como legenda (não é lida como comprovante); o webhook da Coinzz não foi
 provado (nenhuma execução do "Venda confirmada" até 08/10) e as duas integrações do painel apontam para a mesma URL
 (cada evento chega duas vezes — `recordOrder` é idempotente por `external_id`); "Ainda está aí?" com ajuda por dado
 não passa pelo limite de uma vez por dia.

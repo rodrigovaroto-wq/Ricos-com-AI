@@ -697,11 +697,13 @@ export const saysPaid = (message: string): boolean => {
     const ends = [",", ";", ".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
     const end = ends.length ? Math.min(...ends) : t.length;
     const clause = t.slice(start, end);
-    if (negatedBefore(t, at) || t[end] === "?" || OTHER_STORE.test(clause)) continue;
+    // "paguei?" is a question; "já paguei ainda não deu baixa?" is a statement asking about its fate (sixth review).
+    const asked = t[end] === "?" && t.slice(at + m[0].length, end).trim() === "";
+    if (negatedBefore(t, at) || asked || OTHER_STORE.test(clause)) continue;
     // "paguei não", "paguei nao" (review of the L2 fixes, finding 5); and the door payment is no checkout paid.
     // "ainda não" negates unless what follows is the payment's fate: "já paguei ainda não caiu" is paid
     // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
-    if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|foi\s+(?:aprovad|confirmad|compensad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
+    if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|deu\s+baixa|foi\s+(?:aprovad|confirmad|compensad|liberad|processad|identificad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
     return true;
   }

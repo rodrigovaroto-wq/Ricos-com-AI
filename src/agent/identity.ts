@@ -88,8 +88,15 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
     // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
     // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
     const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";
-    const goOn = /^(?:(?:pode\s+)?(?:manda|mande|mandar|envia|segue)(?:\s+o\s+link)?\s+sem(?:\s+e-?mail)?|pode\s+ser|tudo\s+bem|pode|ok|beleza|blz)\s*\?+$/.test(asked);
+    // Someone else's e-mail offered is no refusal: "não tenho, pode ser o do meu filho?".
+    const offersOther = /\b(?:d[oa]\s+(?:meu|minha)|posso\s+(?:passar|mandar|usar)|outr[oa]|de\s+algu[eé]m)\b/.test(asked);
+    const goOn =
+      !offersOther &&
+      (/\bsem\b(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))/.test(asked) ||
+        /^(?:pode\s+ser|tudo\s+bem|pode|ok|beleza|blz|tem\s+problema|como\s+faz|e\s+agora)\s*\?+$/.test(asked));
     if (goOn && said.some((c) => EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
+    // "Não tenho e-mail" said outright counts unless she offers someone else's (sixth review).
+    if (!offersOther && said.some((c) => EMAIL_NONE.test(c))) return true;
     if (t.endsWith("?")) return false;
     // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
     if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))\b/.test(t)) return true;

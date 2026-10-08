@@ -490,3 +490,19 @@ describe("L2 — quinta revisão Opus", () => {
     for (const t of ["paguei ainda não foi aprovado", "paguei ainda não deu certo"]) expect(saysPaid(t), t).toBe(true);
   });
 });
+
+describe("L2 — sexta revisão Opus", () => {
+  const ask = (answer: string) => [
+    { direction: "outbound", body: "Me passa seu e-mail? Ele vai no link do pagamento." },
+    { direction: "inbound", body: answer },
+  ];
+  it("1. 'não tenho, pode ser sem?' e 'não tenho email, tem problema?' recusam", () => {
+    for (const a of ["não tenho e-mail, pode ser sem?", "não, pode ser sem?", "não tenho, pode ser sem?", "não tenho, dá pra mandar sem?", "nao, tem como mandar sem?", "não, pode seguir sem?", "nao tenho, consegue sem?", "não tenho email, tem problema?", "não tenho email, como faz?"]) {
+      expect(refusedEmail(ask(a)), a).toBe(1);
+    }
+    for (const a of ["não tenho email, pode ser o do meu filho?", "nao uso, posso passar o da minha filha?", "não, manda sem o cpf?"]) expect(refusedEmail(ask(a)), a).toBe(0);
+  });
+  it("2. 'ainda não deu baixa' e 'ainda não foi liberado' são pagamento", () => {
+    for (const t of ["ja paguei ainda nao deu baixa", "já paguei ainda não deu baixa?", "paguei ainda nao foi liberado", "fiz o pix ainda não foi processado"]) expect(saysPaid(t), t).toBe(true);
+  });
+});
