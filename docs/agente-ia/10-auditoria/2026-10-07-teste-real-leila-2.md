@@ -110,3 +110,45 @@ Cada um: teste de comportamento com a frase literal desta conversa + negações 
 mutação → revisão Opus → grafo → publicar com o "pode publicar".
 
 O lead final 5983 está **bloqueado** (opt-out): para testar de novo do zero, apague-o (ver roteiro).
+
+---
+
+## Situação depois do conserto (atualizado 2026-10-08)
+
+> Tudo abaixo está na `turn` **v12** (função v84, publicada em 2026-10-08, commit `87e2922`) e na `whatsapp`
+> v19; o que veio depois está na fila da v13. PR
+> [rodrigovaroto-wq/Ricos-com-AI#56](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/56). Registro completo:
+> [grafo §66](../../documentacao/decisoes/04-grafo-de-decisoes.md). Este arquivo **não se apaga**
+> (operador, 2026-10-08: arquivo de diagnóstico fica).
+
+| Causa | O que resolveu | Guarda (mutação em `src/dev/verify-guards.ts`) |
+|---|---|---|
+| **Causa-raiz que ninguém via:** região nula desde 24/09 | A consulta da Coinzz voltou a mandar `X-Requested-With: XMLHttpRequest`; sem ele vinha 302 e a Malu dizia "o checkout confirma" em vez de dar as duas opções | `G66-cabecalho-coinzz` |
+| §1 Opt-out falso | Pedido de link em qualquer ponto da mensagem, ou em outra mensagem da rajada, é compra; recusa ("não quero", "não tenho interesse") continua bloqueando | `G66-optout-objeto`, `G66-optout-link-negado` |
+| §2 CEP de 9 dígitos | `malformedCep` + diretiva "o sistema não leu, peça de novo"; não lê telefone, CEP negado nem número de casa | `G66-cep-errado` |
+| §3 CEP só no fim | "Falta o CEP" antes de nome e CPF | `G66-cep-antes-dos-dados` |
+| §4 Promessa sem ação | Gates `pending_promise` (frase por frase; condição libera só o envio; negação honesta passa) e `noted_claim` ("anotei") | `G66-promessa-de-link`, `G66-promessa-fiacao`, `G66-promessa-por-frase`, `G66-anotei` |
+| §5 Recusa de e-mail = "vou pensar" | E-mail removido de vez (pergunta, armazenamento, migração 0024); `refusesAskedDatum` separa recusa de adiamento e de desistência | `G66-sem-email`, `G66-sem-email-prompt`, `G66-recusa-nao-e-pensar`, `G66-recusa-com-adiamento` |
+| §6 Pedido de link | `asksForLink` lê "checkout", a cobrança ("quando vai me mandar o link?") e "manda logo"; condição ("se eu…", "quando eu pagar") não conta; link fixo do operador, sem perguntar | `G66-link-checkout`, `G66-link-cobranca`, `G66-link-condicional`, `G66-link-fixo`, `G66-link-por-oracao` |
+| §7 "o na entrega acho" | `choosesPath` aceita artigo e "acho"; a palavra dela vence o intérprete; "antes eu queria…" não é antecipado | `G66-escolha-com-artigo`, `G66-escolha-contra-a-palavra`, `B8-antes-nao-e-antecipado` |
+| §8 Nome completo | Partícula lida depois do pedido do nome; tempo e promessa ("fim de semana te passo") não viram nome; "Maria da Hora" é nome | `G66-nome-com-particula`, `G66-nome-nao-e-hora`, `B3-nome-com-hora` |
+| Menores | Saudação da hora em 2 balões (também na 1ª resposta fixa); régua: "Ainda está aí?" 20 min e lembrete 1 h, 1×/dia; rajada espera 2 s; digitação 30% mais rápida | `G66-saudacao`, `G66-saudacao-hora`, `B2-saudacao-no-link`, `G66-uma-vez-por-dia`, `G66-uma-vez-por-dia-fiacao`, `G66-rajada-sem-espera`, `G66-lembrete-sem-tamanho` |
+
+**Descobertos depois, nas personas e na revisão, e resolvidos no mesmo PR:** áudio da cliente transcrito
+(Meta `muse-voice-transcribe-1.0`; `spoken()` faz as regras fixas lerem o que ela falou: `G66-audio-id`,
+`G66-audio-fiacao`); tamanho inventado (`size_claim`); resposta de reserva vira o preço ou uma pessoa
+(decisão 16); no máximo 2 pedidos de CEP (`D17-cep-no-maximo-2`) e 1 gancho por conversa (`D18-um-gancho`);
+agregadores de valor lidos do config (`G66-agregadores-do-config`).
+
+### O que este caso ensina (para não repetir)
+1. **Um defeito de integração se disfarça de defeito de texto.** Seis dos sintomas ("o checkout confirma",
+   nenhuma opção de pagamento) vinham de um cabeçalho HTTP faltando desde 24/09. Antes de mexer no prompt,
+   confira se a consulta que alimenta a diretiva respondeu (`region` nula em todo turno é alarme).
+2. **Palavra de saída ao lado de pedido de compra é compra.** Bloqueio é terminal; a dúvida vai para "não
+   bloquear", e a negação do pedido ("nem me manda link") é o que mantém o bloqueio.
+3. **Promessa de ação sem código que a cumpra precisa de gate**, frase por frase, com a negação honesta
+   liberada — senão a cliente espera um link que ninguém manda.
+4. **Todo leitor determinístico lê o texto dela, não o marcador do sistema** (áudio): um prefixo ou um
+   ponto final mudam o resultado de uma regex ancorada.
+5. **Mutação que "não se aplicou" não é guarda**: depois de mudar um trecho guardado, rode
+   `pnpm verificar:guardas` e atualize a mutação no mesmo commit.

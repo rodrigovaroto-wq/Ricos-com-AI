@@ -2169,6 +2169,11 @@ mandar o link?" não conta como cobrança; uma rajada de 3+ mensagens custa uma 
 espera); o áudio segue sem transcrição (pesquisa: Meta `muse-voice-transcribe-1.0` exige WAV; decisão do
 operador pendente).
 
+**Diagnóstico de origem e a tabela causa → conserto → guarda:**
+[`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](../../agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md)
+(seção "Situação depois do conserto", com as cinco lições). Status: **consertado e publicado** (`turn` v12,
+2026-10-08); a auditoria fica no repositório (operador, 2026-10-08).
+
 ### §66 — revisão completa (2026-10-07, noite)
 
 Dois revisores Opus (correção e cobertura) e a rodada 2 de personas. Consertado, com teste e negação:

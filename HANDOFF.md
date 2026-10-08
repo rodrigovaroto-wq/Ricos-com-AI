@@ -74,7 +74,7 @@ Revisão Opus em três rodadas (NEEDS WORK ×2 → APPROVED WITH RESIDUALS). Val
 pediu o link 5× e não recebeu; no fim foi descadastrada** por "pare de me mandar confirmações, apenas me
 mande o link do checkout". Auditoria completa, com 8 causas reproduzidas no código e a ordem de conserto:
 [`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md)
-(grafo §66, ABERTO). Em uma linha: opt-out falso; CEP "004710090" (9 dígitos) nunca lido e a Malu dizendo
+(grafo §66, **consertado e publicado na v12**, 2026-10-08 — a auditoria tem a tabela causa → conserto → guarda). Em uma linha: opt-out falso; CEP "004710090" (9 dígitos) nunca lido e a Malu dizendo
 "anotei"; CEP só pedido quando ela já quer fechar; promessa "já te mando o link" sem gate; recusa do e-mail
 lida como "vou pensar" (com "restam 12 unidades" — número sem contagem, reavaliar); `asksForLink` não lê
 "checkout"; "o na entrega acho" não gravado; nome completo não gravado. O lead final 5983 ficou
@@ -101,8 +101,9 @@ O lead de teste do operador (final 5983) foi apagado a pedido dele em 07/10, par
 1. **O operador abre a próxima sessão mandando a análise que ele mesmo fez desta conversa.** A auditoria
    `2026-10-07-teste-real-leila-2.md` é só ponto de partida: analisar **junto com ele**, juntando as
    anotações dele com as dela, e só então consertar (cada defeito → teste com a frase literal → conserto
-   no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar"). **Depois de tudo
-   consertado, apagar esse arquivo de auditoria** (decisão do operador, 07/10); o §66 do grafo fica.
+   no espelho → mutação → revisão Opus → grafo → publicar com o "pode publicar"). ~~Apagar o arquivo
+   de auditoria~~ — **revogado pelo operador em 08/10: arquivo de diagnóstico não se apaga**; ele foi
+   atualizado com o que resolveu cada causa.
    Depois, auditar as 3 conversas reais dos amigos do operador pelo mesmo roteiro.
 2. **O** mergear o PR desta branch.
 3. Depois: devolução guiada (a Malu ensina a cliente a pedir a devolução), portal (n8n com o token
