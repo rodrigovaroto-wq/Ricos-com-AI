@@ -3459,8 +3459,8 @@ const MUTATIONS: Mutation[] = [
     id: "G67-email-nao-simples",
     bug: "um 'não' simples ao pedido do e-mail travava o link do antecipado",
     files: ["src/agent/identity.ts"],
-    from: "      (bareNoCounts && BARE_NO.test(t)) ||\n",
-    to: "",
+    from: "const BARE_NO = /^(?:n|nao|nao\\s+quero|",
+    to: "const BARE_NO = /^(?:nao\\s+quero|",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
   {
