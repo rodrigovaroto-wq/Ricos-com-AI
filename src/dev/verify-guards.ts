@@ -3241,8 +3241,8 @@ const MUTATIONS: Mutation[] = [
     id: "G66-nome-nao-e-hora",
     bug: "depois do pedido do nome, 'fim de semana te passo' virava o nome e apagava o primeiro nome bom",
     files: ["src/agent/identity.ts"],
-    from: "    if (askedName && /(?:^|\\s)(?:te|passo",
-    to: "    if (false && /(?:^|\\s)(?:te|passo",
+    from: "    if (askedName && (/(?:^|\\s)(?:te|passo",
+    to: "    if (false && (/(?:^|\\s)(?:te|passo",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
