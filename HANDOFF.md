@@ -387,6 +387,9 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
 | L0.1, L1.3–L1.5 | Canal no ar: número de produção recebendo e respondendo pelo WhatsApp Cloud API (testes reais do operador e de amigos) | conversas 06/10 ("Leila"), 07/10 ("Leila 2", amigos 7967 e 9393), 08/10 (áudio) |
 | — | `whatsapp` v19: áudio da cliente transcrito (Meta ASR); provado pelo operador com nota de voz | 2026-10-08 |
+| L4 prep | Hermes ganha histórico inicial (`hermes/historico-inicial.md`, lido como `historico.md` depois de `decisoes.md`): ordem de diagnóstico e os casos §60–§66 com causa → conserto → guarda | `1cf59eb`, 2026-10-08 |
+| — | `size_insist`: número da calça no máximo 2× seguidas (Neusa) — **não publicado**, vai na v14 | `4dcf779`, 2026-10-08 |
+| — | Lead do operador (final 5983) e lead sintético de 25/09 apagados para novo teste; amigos (9393, 7967, 7745) mantidos até a auditoria | 2026-10-08 |
 | — | `turn` v13 (agent_version 13, função v86): achados baixos do §66, `cep_insist` em sequência, parcelamento numa frase só; sonda sem selo 401 | `2782249`, 2026-10-08 |
 | — | `turn` v12 (agent_version 12, função v84): segundo teste real consertado (grafo §66), revisão completa, decisões 16–18, migração 0024 (sem e-mail) | `87e2922`, 2026-10-08 |
 
