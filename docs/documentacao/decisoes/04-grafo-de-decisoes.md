@@ -2189,9 +2189,12 @@ Dois revisores Opus (correção e cobertura) e a rodada 2 de personas. Consertad
 
 **Feito depois, no mesmo PR (2026-10-08):** decisão 17 (`cep_insist`: o 3º pedido de CEP sem CEP lido é
 vetado), 18 (`hook_repeat`: o 2º gancho da conversa é vetado) e a rajada já esperando aguarda 2 s
-(`BURST_WINDOW_MS`). **Ainda não feito:** os baixos — link na 1ª resposta
-sem saudação, "Maria da Hora", e-mail vazio no pedido por API, "antes" lido como antecipado, teste de
-desempenho que oscila sob carga, fiação do `index.ts` provada só por texto.
+(`BURST_WINDOW_MS`). Também: "Maria da Hora" é nome (só a palavra de tempo no início barra), "antes eu
+queria…" não nomeia o antecipado, o link fixo e o "vou pensar" da primeira resposta abrem com a saudação, e
+o teste de desempenho mede o melhor de 5 tentativas com o mesmo teto. **Fica como está, de propósito:** o
+pedido pela API da Coinzz exige e-mail e sai bloqueado; o caminho está desligado (o pedido é dela, no
+checkout) e não se sabe se a API aceita sem e-mail — religar exige decidir isso antes. **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
+(saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
 ## Lições (valem para qualquer correção futura)
 

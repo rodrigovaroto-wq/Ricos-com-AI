@@ -132,7 +132,9 @@ export const extractName = (text: string, askedName = false): string | null => {
     if (COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : name)) return null;
     // Nor a time or a promise said in reply ("fim de semana te passo", "hora do almoço te mando"): review
     // of the §66 fixes — it overwrote a good first name.
-    if (askedName && /(?:^|\s)(?:te|passo|mando|envio|falo|fim|semana|hora|almo[cç]o|janta|jantar|manh[aã]|m[eê]s|final|amanh[aã]|depois|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|feriado)(?=\s|$)/i.test(name)) return null;
+    // The verbs anywhere; the time words only opening it — "Maria da Hora" and "Rita Sexta" are names
+    // (review of §66, B3).
+    if (askedName && (/(?:^|\s)(?:te|passo|mando|envio|falo)(?=\s|$)/i.test(name) || /^(?:fim|semana|hora|almo[cç]o|janta|jantar|manh[aã]|m[eê]s|final|amanh[aã]|depois|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|feriado)(?=\s|$)/i.test(name))) return null;
   }
   return name;
 };

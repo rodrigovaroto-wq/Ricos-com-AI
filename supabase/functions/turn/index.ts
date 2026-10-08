@@ -3260,6 +3260,10 @@ const handleTurn = async (
   const linkInChat = recentOutbound.some((m) => checkoutBases.some((base) => m.includes(base)));
   // Set when the fixed "vou pensar" line was already said: the model answers her goodbye, told so.
   let farewell = false;
+  // Malu's first real reply opens with the greeting of the hour, a fixed bubble (operator, 2026-10-07,
+  // grafo §66) — also when that reply is a fixed one, the link or the "vou pensar" (review of §66, B2).
+  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
+  const opening = (text: string): string => (greeting === null ? text : `${greeting}\n\n${text}`);
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
   if (
     interpretation.wants_to_think &&
@@ -3286,10 +3290,12 @@ const handleTurn = async (
     // Review of ca51825: a link already built this turn would have its directive say "mande o link".
     if (farewell) checkoutUrl = null;
     const sent = thinkRepeated ? null : await sendFixed(
-      thinkLink
-        ? `${think}\n\n${thinkLink}` +
-            (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)
-        : think,
+      opening(
+        thinkLink
+          ? `${think}\n\n${thinkLink}` +
+              (units > 1 ? `\n\nLá no checkout você escolhe o tamanho de cada peça: ${unitSizes.join(" e ")}.` : ``)
+          : think,
+      ),
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
@@ -3305,7 +3311,7 @@ const handleTurn = async (
   const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
-      linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units),
+      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units)),
       linkFact ? `link — ${linkFact}` : "link",
       linkPath,
       { checkoutUrl, linkFact },
@@ -3369,9 +3375,7 @@ const handleTurn = async (
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
         ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
-  // Malu's first real reply opens with the greeting of the hour, a fixed bubble (operator, 2026-10-07,
-  // grafo §66); all she wrote was a greeting → the greeting and "Em que posso te ajudar?", no model call.
-  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
+  // all she wrote was a greeting → the greeting and "Em que posso te ajudar?", no model call.
   if (greeting !== null && !farewell && onlyGreets(parts)) {
     const sent = await sendFixed(`${greeting}\n\n${GREETING_ASK}`, "primeira resposta: saudação");
     if (sent) return sent;

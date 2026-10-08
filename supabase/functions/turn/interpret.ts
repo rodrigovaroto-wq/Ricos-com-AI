@@ -536,7 +536,8 @@ export const pathChoiceToStore = (d: {
   const named = (p: string): PaymentChoice | null => {
     const t = norm(p);
     const cod = /\b(?:entrega|na\s+porta|quando\s+cheg\w*)\b/.test(t);
-    const prepay = /\b(?:pix|antecipad\w*|adiantad\w*|cartao|antes|agora)\b/.test(t);
+    // "Pagar antes/agora", not "antes eu queria saber o prazo" (review of §66, B8).
+    const prepay = /\b(?:pix|antecipad\w*|adiantad\w*|cartao)\b|\bpag\w*\s+(?:antes|agora)\b/.test(t);
     return cod === prepay ? null : cod ? "cod" : "prepay";
   };
   if (

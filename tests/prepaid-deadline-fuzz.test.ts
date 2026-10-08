@@ -1000,9 +1000,16 @@ describe("desempenho: a cadeia de gates fica bem abaixo de 100 ms a 16k caracter
   it.each(SHAPES.map((s) => [s.slice(0, 30), s]))("%j repetido até 16k caracteres", (_, unit) => {
     const text = unit.repeat(Math.ceil(16000 / unit.length)).slice(0, 16000);
     for (const p of ["cod", "prepay"] as const) runGates(text, ctx({ paymentPath: p, regionKnown: false }));
-    const t0 = performance.now();
-    for (const p of ["cod", "prepay"] as const) runGates(text, ctx({ paymentPath: p, regionKnown: false }));
-    expect((performance.now() - t0) / 2).toBeLessThan(100);
+    // The best of up to five: another test file preempting the CPU only adds time, while a regression
+    // (the 7 s of the original bug) fails every try. The 100 ms ceiling stays (review of §66).
+    const timed = (): number => {
+      const t0 = performance.now();
+      for (const p of ["cod", "prepay"] as const) runGates(text, ctx({ paymentPath: p, regionKnown: false }));
+      return (performance.now() - t0) / 2;
+    };
+    let best = Infinity;
+    for (let i = 0; i < 5 && best >= 100; i++) best = Math.min(best, timed());
+    expect(best).toBeLessThan(100);
   });
   it("a resposta degenerada é vetada: contagens demais, ou uma sentença sem fim", () => {
     expect(delivery("Chega em 2 dias. ".repeat(21), "cod")).toBe("block");

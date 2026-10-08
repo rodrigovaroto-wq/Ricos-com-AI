@@ -614,3 +614,24 @@ describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por 
     expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
   });
 });
+
+describe("revisão do §66, B3 e B8", () => {
+  it.each(["Maria da Hora", "Rita Sexta"])("o nome com palavra de tempo no meio é nome: %s", (n) => expect(extractName(n, true)).toBe(n));
+  it.each(["fim de semana te passo", "hora do almoço te mando", "sexta feira"])("o tempo dito em resposta não é nome: %s", (n) =>
+    expect(extractName(n, true)).toBeNull(),
+  );
+  it("'antes eu queria saber o prazo' não nomeia o antecipado; 'pagar antes' nomeia", () => {
+    const lastOutbound = "Qual das duas você prefere?";
+    expect(pathChoiceToStore({ interpreted: "prepay", parts: ["vou pagar na entrega, antes eu queria saber o prazo"], lastOutbound, confirms: false })).not.toBe("prepay");
+    expect(pathChoiceToStore({ interpreted: "prepay", parts: ["vou pagar antes, no pix"], lastOutbound, confirms: false })).toBe("prepay");
+  });
+});
+
+describe("revisão do §66, B2 — a primeira resposta fixa também abre com a saudação", () => {
+  it("o link fixo e o 'vou pensar' saem com a saudação quando são a primeira resposta", () => {
+    expect(turn).toContain("const opening = (text: string): string => (greeting === null ? text : `${greeting}\\n\\n${text}`);");
+    expect(turn).toContain("opening(linkMessage(checkoutUrl,");
+    expect(turn).toContain("thinkRepeated ? null : await sendFixed(\n      opening(");
+    expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated ? null : await sendFixed("));
+  });
+});
