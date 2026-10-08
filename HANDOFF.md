@@ -99,10 +99,8 @@ feito; item 8 (portal no Vercel) continua no plano.
    o nome exato e declarar em `channel.templates` do `BUSINESS_CONFIG`.
 5. Mês 1 item 8 (portal no Vercel) continua no plano.
 
-**Credenciais:** `SUPABASE_ACCESS_TOKEN` já é segredo do GitHub Actions (operador: há duas semanas). Nesta
-sessão o operador colou um token `sbp_…` no chat para publicar a v12–v14 — **pedido a ele que revogue e
-gere outro**; sessões futuras recebem o token por variável de ambiente do ambiente cloud (aparece só em
-sessão nova), nunca pelo chat. Modelo da conversa `muse-spark-1.3-contributor` — do operador, nunca troque.
+**Credenciais:** `SUPABASE_ACCESS_TOKEN` já é segredo do GitHub Actions (operador: há duas semanas).
+Modelo da conversa `muse-spark-1.3-contributor` — do operador, nunca troque.
 
 **PR #56:** tudo desta sessão está nele (branch `claude/gracious-hopper-9a79su`); merge na `main` pedido
 pelo operador em 08/10 — feito quando o CI do último commit fechou verde (ver o PR).
