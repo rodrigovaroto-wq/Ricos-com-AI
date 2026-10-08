@@ -2246,6 +2246,17 @@ pergunta no último balão, "dependendo da sua região" antes do CEP, sem detalh
 `NO_FREE_SHIPPING_PREPAY`. C7 sem `typing_indicator`; leitura 2 s depois (`READ_RECEIPT_DELAY_MS`).
 **Guarda:** `tests/l2-real-test.test.ts` (frases literais + negações), `tests/availability.test.ts` (422 literal);
 mutações `G67-*` (12/12 pegas, com as duas `G66-sem-email*` reescritas).
+**Revisões Opus (duas passadas, 2026-10-08):** a primeira achou 8 furos — o "paguei" de madrugada ainda caía no
+handoff (a frase fixa ia na camada `agent`, vetada fora do horário; agora `auto`); status desconhecido ou "created"
+lido como pago (`orderSettled` exige status conhecido e positivo); o link do antecipado preso esperando e-mail depois
+de um link da entrega (`linkBefore`); "ok" a oferta de sim/não silenciado e a oferta de ajuda em laço (`isOffer`);
+"paguei não", "já pago na entrega", "aceita pix?", "e aí, tem G?" lidos como pagamento; qualquer imagem lida como
+comprovante (agora só junto do "paguei" ou durante a espera, e o comprovante na espera vai com a verificação, que
+chama a pessoa aos 5 min); pergunta contada como recusa do e-mail; e-mail e CPF pedidos juntos. A segunda achou o
+excesso da correção do e-mail (um "não" simples não recusava e o link nunca saía), "certo"/"já já" lidos como
+cobrança, a verificação da varredura presa até as 6h, a oferta lida fora da última pergunta, "paguei ainda não",
+"foi" e condição como pergunta de status, e a corrida do comprovante na espera (`run_at` +1 s). Todos com teste e
+mutação (`G67-*`, 16/16).
 **Resíduo:** imagem com legenda chega só como legenda (não é lida como comprovante); o webhook da Coinzz não foi
 provado (nenhuma execução do "Venda confirmada" até 08/10) e as duas integrações do painel apontam para a mesma URL
 (cada evento chega duas vezes — `recordOrder` é idempotente por `external_id`); "Ainda está aí?" com ajuda por dado
