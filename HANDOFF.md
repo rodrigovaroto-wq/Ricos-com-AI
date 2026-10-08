@@ -45,7 +45,18 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-08, noite (sessão `claude/gracious-hopper-9a79su`, PR #56, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-08, fim da noite (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
+
+**L2 auditado, nenhum código mudou:** [`10-auditoria/2026-10-08-teste-real-l2.md`](docs/agente-ia/10-auditoria/2026-10-08-teste-real-l2.md)
+(Leila 5983 e Fabiana 7967, `agent_version` 14). **Achado P0:** a `turn` manda o CEP com hífen à Coinzz,
+que responde 422, e `readAvailability(null)` lê "sem pagamento na entrega" — **toda cliente com CEP ouve
+que a região não tem entrega** desde a v12 (reproduzido: 04710-090 → 422, 04710090 → 3 datas). Também:
+"paguei" vira handoff mudo; zero execuções do "Venda confirmada" (pagamento real? webhook da oferta
+antecipada?); "ok" sozinho ganha resposta; lembrete do checkout cancelado por qualquer mensagem; e-mail
+exigido pelo checkout do antecipado; "digitando" instantâneo. **Próximo:** o operador confirma a lista e a
+ordem da auditoria; conserto da causa 1 primeiro.
+
+### Onde estamos — 2026-10-08, noite (sessão `claude/gracious-hopper-9a79su`, PR #56)
 
 **No ar (conferido pela API de gerência da Supabase em 2026-10-08):**
 - `turn` **`agent_version` 14** = função v88, commit `bed2ee3` publicado, código idêntico ao da árvore `4dcf779`.
