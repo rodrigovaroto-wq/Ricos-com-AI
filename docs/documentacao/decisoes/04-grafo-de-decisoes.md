@@ -2187,8 +2187,9 @@ Dois revisores Opus (correção e cobertura) e a rodada 2 de personas. Consertad
 - **Decisão 16 do operador:** todas as reescritas vetadas → pergunta de preço recebe a frase de preço do
   prompt; o resto vai para uma pessoa com a frase de espera. "Me fala de novo o que você quer saber?" saiu.
 
-**Não feito (o operador mandou parar e abrir o PR):** decisões 17 (no máximo 2 pedidos de CEP seguidos),
-18 (no máximo 1 gancho por conversa) e espera de 2 s na rajada de 3; e os baixos — link na 1ª resposta
+**Feito depois, no mesmo PR (2026-10-08):** decisão 17 (`cep_insist`: o 3º pedido de CEP sem CEP lido é
+vetado), 18 (`hook_repeat`: o 2º gancho da conversa é vetado) e a rajada já esperando aguarda 2 s
+(`BURST_WINDOW_MS`). **Ainda não feito:** os baixos — link na 1ª resposta
 sem saudação, "Maria da Hora", e-mail vazio no pedido por API, "antes" lido como antecipado, teste de
 desempenho que oscila sob carga, fiação do `index.ts` provada só por texto.
 
