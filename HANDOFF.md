@@ -82,18 +82,30 @@ feito; item 8 (portal no Vercel) continua no plano.
 **Leads de teste:** 5983 e 7967 apagados para novos testes. As conversas dos amigos (finais **9393** e
 **7745**) **aguardam auditoria** pelo roteiro de [`docs/operacao/auditar-conversa-real.md`](docs/operacao/auditar-conversa-real.md).
 
-**Falta, nesta ordem:**
-1. **L2 — testes reais do operador e do sócio:** checkout antecipado (Coinzz) e checkout com pagamento na
-   entrega (Logzz). Auditar cada conversa depois.
-2. **Guias de troca de tamanho e de devolução** para a Malu orientar a cliente (rascunho em
-   [`06-script/06-devolucao-guiada.md`](docs/agente-ia/06-script/06-devolucao-guiada.md), não aprovado). O
-   operador perguntou ao suporte da Logzz e da Coinzz se a cliente pode pedir devolução/troca direto com
+**Falta, nesta ordem (para a próxima sessão — comece por aqui):**
+1. **L2 — duas conversas reais do operador e do sócio:** checkout antecipado (Coinzz) e checkout com
+   pagamento na entrega (Logzz). O operador manda um "ok" com o final de cada número quando estiverem
+   prontas; audite cada uma pelo roteiro [`docs/operacao/auditar-conversa-real.md`](docs/operacao/auditar-conversa-real.md)
+   (leituras no Supabase: `messages`, `turn_outcomes`, `gate_traces`, `llm_calls`, `followups`, `leads`;
+   execuções no n8n). **Confira que o link do antecipado chegou** — ele nunca tinha saído em produção.
+   Cada defeito: teste com a frase literal + negações → espelho → mutação → revisão Opus → grafo → publicar
+   só com o "pode publicar". A auditoria vira arquivo em `docs/agente-ia/10-auditoria/` e **não se apaga**.
+2. Auditar as conversas dos amigos **9393** e **7745** (o operador manda os prints/ok).
+3. **Adiado pelo operador (08/10), não esquecer:** guias de troca de tamanho e de devolução para a Malu
+   orientar a cliente (rascunho em [`06-script/06-devolucao-guiada.md`](docs/agente-ia/06-script/06-devolucao-guiada.md),
+   não aprovado). O operador perguntou à Logzz/Coinzz se a cliente pode pedir troca/devolução direto com
    elas — **resposta pendente**; ela decide o desenho.
-3. Auditar as conversas 9393 e 7745.
-4. **O** pôr `SUPABASE_ACCESS_TOKEN` como **segredo do GitHub Actions** (repositório → Settings → Secrets and
-   variables → Actions) para o `deploy-hermes.yml`; separadamente, ele pode ser variável de ambiente do
-   Claude para as sessões publicarem. Se já foi feito: **não verificado nesta sessão**.
-5. **O** mergear o PR #56. Depois: portal, templates na Meta (aprovação do `order_eve`).
+4. Template `order_eve` (e o `_pago`) submetidos à Meta pelo sócio em 08/10 — quando aprovados, conferir
+   o nome exato e declarar em `channel.templates` do `BUSINESS_CONFIG`.
+5. Mês 1 item 8 (portal no Vercel) continua no plano.
+
+**Credenciais:** `SUPABASE_ACCESS_TOKEN` já é segredo do GitHub Actions (operador: há duas semanas). Nesta
+sessão o operador colou um token `sbp_…` no chat para publicar a v12–v14 — **pedido a ele que revogue e
+gere outro**; sessões futuras recebem o token por variável de ambiente do ambiente cloud (aparece só em
+sessão nova), nunca pelo chat. Modelo da conversa `muse-spark-1.3-contributor` — do operador, nunca troque.
+
+**PR #56:** tudo desta sessão está nele (branch `claude/gracious-hopper-9a79su`); merge na `main` pedido
+pelo operador em 08/10 — feito quando o CI do último commit fechou verde (ver o PR).
 
 ### Onde estamos — 2026-10-07, noite (sessão `claude/gracious-hopper-9a79su`; superado pelo bloco acima)
 
