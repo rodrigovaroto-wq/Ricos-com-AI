@@ -384,7 +384,10 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
     ...(installments
       ? [
           `  No antecipado pelo cartão ela pode parcelar em até ${installments}x — diga sempre "no antecipado"`,
-          `  junto do parcelamento: o checkout da entrega não parcela.`,
+          // Persona Tati, 2026-10-08: "…só dá no antecipado, na entrega é à vista" in one sentence was vetoed
+          // three times by installment_promise and the conversation went to a person.
+          `  junto do parcelamento: o checkout da entrega não parcela. O parcelamento vai numa frase só dele,`,
+          `  sem falar da entrega nessa frase.`,
         ]
       : []),
     `  Nunca diga "sem juros" e não fale de juros por conta própria; se ela perguntar, as`,
