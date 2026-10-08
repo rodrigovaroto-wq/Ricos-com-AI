@@ -11,8 +11,12 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-07)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-08)
 
+> **2026-10-08, tarde (sessão `claude/gracious-hopper-9a79su`, PR #56):** `turn` **v13** publicada (ver
+> "Executado"); 12 personas + 4 repetidas, 407/407 mutações, 7010 testes. Próximo: a pergunta do número da
+> calça repetida (mesma regra do CEP), as 3 conversas dos amigos do operador e o L2.
+>
 > **Fim da sessão de 2026-10-07, noite.** `whatsapp` v19 no ar (áudio transcrito; falta a prova real com
 > uma nota de voz — provada pelo operador em 2026-10-08). `turn` v12 **publicada em 2026-10-08** (função v84,
 > commit 87e2922, `pnpm deploy:turn`), com a migração 0024 aplicada antes. Revisão completa do §66 consertada em parte; o que falta está no fim do grafo §66 (decisões 17,
@@ -381,20 +385,23 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 | L0.5 | Teto R$ 0,55 / tolerância 0 colado no `BUSINESS_CONFIG` | operador, 2026-10-05 |
 | — | Rodadas de personas v1 (`function`) e v2 (`local`); `agent_version` 2 (cancelar → pessoa, `order_action_claim`) e 3 (`shipping_promise` ao lado de "isso mesmo", "guardando seu M") | PR #51, `turn` v53 e v55, 2026-10-05 |
 | L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
+| L0.1, L1.3–L1.5 | Canal no ar: número de produção recebendo e respondendo pelo WhatsApp Cloud API (testes reais do operador e de amigos) | conversas 06/10 ("Leila"), 07/10 ("Leila 2", amigos 7967 e 9393), 08/10 (áudio) |
+| — | `whatsapp` v19: áudio da cliente transcrito (Meta ASR); provado pelo operador com nota de voz | 2026-10-08 |
+| — | `turn` v12 (agent_version 12, função v84): segundo teste real consertado (grafo §66), revisão completa, decisões 16–18, migração 0024 (sem e-mail) | `87e2922`, 2026-10-08 |
 
 ### Falta (na ordem do plano)
 
 | Etapa | O quê | Dono | Estado |
 |---|---|---|---|
-| L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ⬜ |
+| L0.1 | Parte A do canal: app, número, nome de exibição, token | S | ✅ canal no ar (testes reais 06–08/10) |
 | L0.2 | Submeter o template `order_eve` (UTILITY) | S | ⬜ |
 | L0.5 | Operador fixa o teto pelo p95 da rodada (R$ 0,546) | O | ✅ R$ 0,55 / tolerância 0 no `BUSINESS_CONFIG`, 2026-10-05 |
 | L1.1 | Importar os workflows do `main` no n8n; `pnpm dev:n8n` passa | C | ✅ 2026-09-30 |
 | L1.2 | `CONVERSATION_MODEL` = modelo padrão | C | ✅ 2026-10-01 |
-| L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | 🔄 selo, token de verificação, `whatsapp` v1 e porta fechada feitos (2026-10-05); faltam os 3 segredos da Meta |
-| L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ⬜ |
-| L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ⬜ |
-| L2 | Três conversas reais: compra na entrega, compra antecipada, troca + handoff respondido | O + C | ⬜ |
+| L1.3 | Parte B do canal: segredos no Supabase, publicar `turn` e `whatsapp` | O | ✅ `turn` v12/v13 e `whatsapp` v19 no ar, 2026-10-08 |
+| L1.4 | Webhook da Meta apontando para a função `whatsapp` | S | ✅ mensagens reais chegando, 06–08/10 |
+| L1.5 | Parte C do canal: credencial, `PHONE_NUMBER_ID`, `CANAL_ATIVO=true`, fechar as portas | C | ✅ na prática (canal respondendo); conferir `CANAL_ATIVO` e portas na próxima sessão |
+| L2 | Três conversas reais: compra na entrega, compra antecipada, troca + handoff respondido | O + C | 🔄 testes reais de 06–08/10 consertados (§65, §66); falta uma compra concluída em cada caminho e a troca + handoff |
 | L3 | Tráfego controlado nas 22 praças; piso de amostra assinado; critérios de pausa | S + O | ⬜ |
 | L4 | Hermes com H1–H5 (instala, segredos, rotina de implementação, vê pedido, piso assinado) | C + O | ⬜ |
 

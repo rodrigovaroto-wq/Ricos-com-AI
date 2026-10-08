@@ -2198,7 +2198,13 @@ vetado), 18 (`hook_repeat`: o 2º gancho da conversa é vetado) e a rajada já e
 queria…" não nomeia o antecipado, o link fixo e o "vou pensar" da primeira resposta abrem com a saudação, e
 o teste de desempenho mede o melhor de 5 tentativas com o mesmo teto. **Fica como está, de propósito:** o
 pedido pela API da Coinzz exige e-mail e sai bloqueado; o caminho está desligado (o pedido é dela, no
-checkout) e não se sabe se a API aceita sem e-mail — religar exige decidir isso antes. **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
+checkout) e não se sabe se a API aceita sem e-mail — religar exige decidir isso antes. **Rodada de personas de 2026-10-08 (12 + 4 de novo):** `cep_insist` contava todo pedido de CEP das
+últimas 20 respostas e vetou o pedido no "vou querer um" (Jussara foi para uma pessoa) → conta só os pedidos
+**seguidos** e libera o turno em que ela decide comprar. "Parcelar só dá no antecipado, na entrega é à vista"
+numa frase só foi vetado 3× por `installment_promise` (Tati para uma pessoa) → o gate fica rígido e o prompt
+ensina o parcelamento numa frase só dele. Depois: 0 passagem a pessoa por veto nas quatro repetidas; 407/407
+mutações. **Próximo, observado na Neusa:** o número da calça pedido ~5× seguidas — mesma regra do CEP.
+**Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
 (saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
 ## Lições (valem para qualquer correção futura)
