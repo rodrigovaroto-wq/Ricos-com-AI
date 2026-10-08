@@ -12,6 +12,27 @@ Dono: **C** = Claude · **O** = operador · **S** = sócio (Meta: Ads, BM, núme
 [`HANDOFF.md`](../../../HANDOFF.md) e é atualizado a cada sessão. Este arquivo é o plano; o quadro é o
 andamento.
 
+## Estado em 2026-10-08
+
+> Escrito em 2026-10-08. "No ar" conferido pela API de gerência da Supabase em 2026-10-08 (função `turn`
+> v88 = `agent_version` 14, `whatsapp` com o hash da publicação de 07/10, migrações 0001–0024, os 19
+> segredos); a próxima sessão confere de novo antes de agir sobre o número.
+> O que foi **conferido no repositório nesta data**: `pnpm test` com 7017 testes em 69 arquivos, todos
+> passando; 28 gates em `src/agent/guardrails.ts`; migrações 0001–0024 em `supabase/migrations/`.
+
+| Etapa | Estado | Evidência / observação |
+|---|---|---|
+| L0 (preparar) | ✅ salvo o template `order_eve` | `order_eve` **submetido à Meta, aguardando aprovação** (operador, 2026-10-08) |
+| L1 (publicar) | ✅ | canal ligado e testado de ponta a ponta (2026-10-06); `turn` `agent_version` 14 = função v88, commit `bed2ee3` (código de `4dcf779`), segundo o `HANDOFF.md`; `whatsapp` com transcrição de voz; migração 0024 aplicada |
+| L2 (provar com dinheiro) | 🔄 **próxima etapa** | testes do operador e do sócio: checkout antecipado, checkout na entrega; depois os guias de troca e de devolução |
+| L3 (tráfego) | ⬜ | verbas e caixa reduzidos em 2026-10-08, ver L3 |
+| L4 (Hermes) | 🔄 | H1 feito, H2 e H3 em parte, H4 e H5 pendentes, ver L4 |
+
+Conversa da agente que o operador testou duas vezes pelo WhatsApp (06/10 e 07/10) e auditou; a segunda
+virou o grafo §66 (28 gates desde então; e-mail fora do fluxo; "Ainda está aí?" aos 20 min e `silence_1`
+a 1 h, cada um no máximo uma vez por dia; áudio transcrito). Os leads de teste 5983 e 7967 foram apagados
+para novos testes; as conversas dos amigos do operador (finais 9393 e 7745) aguardam auditoria.
+
 ## A regra desta versão
 
 **Entra no V1 só o que impede a operação de rodar com lead real, ou o que faz a agente mentir,
@@ -44,7 +65,8 @@ Tudo o mais é paralelo ou posterior.
 
 1. **S** — Parte A de [`docs/operacao/whatsapp-cloud-api.md`](../../operacao/whatsapp-cloud-api.md):
    app Business, número verificado, nome de exibição, token sem expiração.
-2. **S** — submeter **só o template `order_eve` (UTILITY)** de
+2. **S** — submeter **só o template `order_eve` (UTILITY)** — ✅ **submetido à Meta em 2026-10-08;
+   aguardando aprovação** (informado pelo operador; a aprovação ainda não foi vista). Texto de
    [`06-script/03-templates-meta.md`](../06-script/03-templates-meta.md). É o único template que
    mexe em dinheiro no V1: a véspera derruba a recusa na porta (15% × R$ 9,90 + a venda perdida).
    `silence_2` e `silence_3` ficam para depois (L4).
@@ -88,6 +110,13 @@ e-mail e a pessoa responde pelo canal de L0.3.
 
 ## L2 — Provar com dinheiro de verdade (1 dia)
 
+> **Estado em 2026-10-08: 🔄 próxima etapa.** O operador e o sócio fazem os testes: (1) checkout
+> antecipado (Coinzz), (2) checkout com pagamento na entrega (Logzz). Os itens de troca e devolução
+> ficam para depois: **ainda falta o guia que a Malu usa para orientar a cliente** (rascunho em
+> [`06-script/06-devolucao-guiada.md`](../06-script/06-devolucao-guiada.md), não aprovado). O operador
+> perguntou ao suporte da Logzz e da Coinzz se a cliente pode pedir devolução e troca direto com elas —
+> **resposta pendente**; ela decide se a Malu ensina o pedido direto ou passa para uma pessoa.
+
 Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo WhatsApp:
 
 1. **Compra na entrega (Logzz):** conversa → link → pedido → webhook → estágio → véspera → entrega.
@@ -110,18 +139,21 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
    | Fase | Dias | Verba | Estrutura |
    |---|---|---|---|
-   | Copy | 1–5 | R$ 400 (R$ 80/dia) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
-   | Região | 6–10 | R$ 400 (R$ 40/dia por conjunto) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
+   | Copy | 1–5 | R$ 300 (operador, 2026-10-08; ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
+   | Região | 6–10 | R$ 200 (operador, 2026-10-08; ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
    | Leitura | 11–12 | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
 
-   Verba total R$ 800 (operador, 2026-10-02: Copy R$ 300 → R$ 400; Região R$ 500 → R$ 400 e dias
-   6–12 → 6–10). **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
+   **Verba atual (operador, 2026-10-08): Copy R$ 300 e Região R$ 200, total R$ 500.** Os valores de
+   2026-10-02 (R$ 400 + R$ 400 = R$ 800) estão riscados na tabela; o gasto por dia de cada fase não foi
+   redefinido — a confirmar com o operador. (Histórico anterior: em 2026-10-02 Copy R$ 300 → R$ 400; Região R$ 500 →
+   R$ 400 e dias 6–12 → 6–10.) **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
    métricas por criativo/copy e por região que mostrem pontos fortes e fracos de cada um (proposta
    em [`10-execucao-mes-1.md`](10-execucao-mes-1.md) §8). A referência anterior (Copy > 7,5% / CPL
    < R$ 1,50; Região > 10% / CPL < R$ 1,25) fica só como ponto de partida da conversa.
    Os criativos se validam por outro método (CPL/CTR); pedidos e conversão leem a operação inteira.
    A e B se sobrepõem no Sudeste, Centro-Oeste e Sul — a leitura de região é direcional.
-2. **O** — caixa: **R$ 1.200 reservados** para **todo custo de um pedido até a venda virar
+2. **O** — caixa: **R$ 1.500 reservados** (operador, 2026-10-08; eram ~~R$ 1.200~~ — o aumento sustenta
+   a operação no intervalo entre a venda e o dinheiro líquido recebido) para **todo custo de um pedido até a venda virar
    dinheiro** (produto, manuseio, taxa de transação, entrega concluída, recusa, devolução),
    mix 70% na entrega / 30% antecipado, 1 peça por pedido. Recusa na porta 12–17% a R$ 9,99
    (**valor especulado, ainda precisa ser medido**); devolução pós-envio 5–10% a R$ 25,00.
@@ -205,11 +237,14 @@ Para o Hermes fazer os 20% restantes, cinco coisas têm de ser verdade. Hoje nen
 
 | # | Condição | Situação hoje | Dono |
 |---|---|---|---|
-| H1 | A Action instala e roda o Hermes | **5 de 5 execuções falharam** na instalação (A6) | C (L0.7) |
-| H2 | Os segredos da Action existem: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `META_API_KEY`; e `SUPABASE_ACCESS_TOKEN` para publicar a aprovada | não conferido (a instalação quebra antes) | O |
-| H3 | A rotina que implementa a proposta aprovada (`hermes/IMPLEMENTAR.md`) está agendada | **não encontrada** (A9): sem ela, "Aprovar" grava a decisão e nada acontece | C cria, O autoriza |
-| H4 | O Hermes vê se a conversa **virou pedido** | **não vê** (A10): o pacote leva vetos e desfechos do turno, não `eval_funnel` nem pedido/entrega/recusa. Ele acha mentira e tom, mas não o que converte | C, ~2 h |
-| H5 | O piso de amostra está assinado | não (o efeito medido fica "leitura") | O (L3.3) |
+| H1 | A Action instala e roda o Hermes | ~~5 de 5 execuções falharam~~ ✅ **feito** em 2026-09-30 (L0.7, execução 8 verde); Hermes instalado e calibrado desde 2026-09-25 (`hermes/README.md`) | C (L0.7) |
+| H2 | Os segredos da Action existem: `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`, `META_API_KEY`; e `SUPABASE_ACCESS_TOKEN` para publicar a aprovada | `SUPABASE_ACCESS_TOKEN` precisa ser **segredo do GitHub Actions** (repositório → Settings → Secrets and variables → Actions) para o `deploy-hermes.yml`; separadamente, pode ser **variável de ambiente do Claude** para que as sessões publiquem. São dois lugares distintos: um não vale pelo outro. Estado de cada segredo: **não verificado nesta sessão** | O |
+| H3 | A rotina que implementa a proposta aprovada (`hermes/IMPLEMENTAR.md`) está agendada | a rotina **"Hermes – decisão"** (`hermes/DECIDIR.md`) existe desde 2026-10-05 (`trig_01SR8fhPWmJktwR8oVTfd3gV`, sem cron, disparada pelo operador); ela implementa a aprovada na mesma sessão. ~~não encontrada (A9)~~ | C criou, O dispara |
+| H4 | O Hermes vê se a conversa **virou pedido** | ⬜ **pendente** (A10): o pacote leva vetos e desfechos do turno, não `eval_funnel` nem pedido/entrega/recusa. Ele acha mentira e tom, mas não o que converte | C, ~2 h |
+| H5 | O piso de amostra está assinado | ⬜ **pendente** (o efeito medido fica "leitura"); o piso foi assinado em 2026-10-02 (L3.3), mas só vale com leads reais | O (L3 item 4) |
+
+Desde 2026-10-08 o Hermes também lê um **histórico inicial** (`hermes/historico-inicial.md`) e 11
+decisões do §66 semeadas em `hermes_proposals` (ver [`hermes/README.md`](../../../hermes/README.md)).
 
 Com H1–H5, o ciclo é: 50 leads → Hermes lê as conversas marcadas (handoff, veto, custo, resposta
 pronta) mais um controle → propõe → e-mail com link → operador aprova → rotina implementa, prova,

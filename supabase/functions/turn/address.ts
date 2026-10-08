@@ -79,6 +79,24 @@ export const parseCep = (text: string): string | null => {
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
 
+/**
+ * A CEP typed with the wrong number of digits — "004710090", nine, in the second real test (grafo
+ * §66): never read, and the model told her "Recebi seu CEP". Seven or nine digits, read only beside
+ * the word "CEP" or as the answer to the agent asking for it: nine digits alone are as much a phone.
+ */
+export const malformedCep = (text: string, askedCep = false): string | null => {
+  if (parseCep(text)) return null;
+  const digits = text.replace(/(\d)[.\-\s](?=\d)/g, "$1");
+  // Beside the word, not denied ("meu cep não é 004710090"); after the question, only as the whole
+  // message — "moro no 1234567" or a phone in a sentence is no CEP (review of §66, B4).
+  const m = /\bcep\b/i.test(digits)
+    ? digits.match(/\bcep\b(?![^\d]*\bn[aã]o\b)[^\d]{0,20}(?<!\d)(\d{7}|\d{9})(?!\d)/i)
+    : askedCep
+      ? digits.match(/^\s*(\d{7}|\d{9})\s*[.!]*\s*$/)
+      : null;
+  return m ? m[1]! : null;
+};
+
 /** Words that open a Brazilian street line. */
 const STREET_TYPES =
   "rua|r\\.|avenida|av\\.?|travessa|tv\\.?|alameda|al\\.?|rodovia|rod\\.?|estrada|est\\.?|praca|praça|largo|via|quadra|conjunto|linha|servidao|servidão";

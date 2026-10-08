@@ -14,12 +14,12 @@
 
 export interface Identity {
   name: string;
-  email: string;
   /** Digits only, validated. */
   document: string;
 }
 
-export const IDENTITY_FIELDS = ["name", "email", "document"] as const;
+/** No e-mail since 2026-10-07 (operator): not asked, not stored, not waited for — the checkout asks it. */
+export const IDENTITY_FIELDS = ["name", "document"] as const;
 export type IdentityField = (typeof IDENTITY_FIELDS)[number];
 
 const digitsOnly = (s: string): string => s.replace(/\D/g, "");
@@ -91,7 +91,7 @@ const COMMON_WORDS =
 const NOT_A_FIRST_NAME =
   /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra)$/;
 
-export const extractName = (text: string): string | null => {
+export const extractName = (text: string, askedName = false): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must
   // not run on into the address typed on the next line ("nome dela maria jose\nRua...").
   const cleaned = text.replace(/[^\S\n]+/g, " ").replace(/ *\n+ */g, "\n").trim();
@@ -126,7 +126,15 @@ export const extractName = (text: string): string | null => {
     if (name.split(" ").length < 2) return null;
     // And neither is any message built out of ordinary words. Without this, the first
     // "boa tarde" of the conversation was filed as who she is.
-    if (COMMON_WORDS.test(name)) return null;
+    // Right after the agent asked her name, the particles inside it are not common words ("Leila da
+    // silva" was dropped and the link went out with "Leila": second real test, grafo §66). Only then:
+    // on its own, "Vila da Penha" and "Fim de semana" would be names.
+    if (COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : name)) return null;
+    // Nor a time or a promise said in reply ("fim de semana te passo", "hora do almoço te mando"): review
+    // of the §66 fixes — it overwrote a good first name.
+    // The verbs anywhere; the time words only opening it — "Maria da Hora" and "Rita Sexta" are names
+    // (review of §66, B3).
+    if (askedName && (/(?:^|\s)(?:te|passo|mando|envio|falo)(?=\s|$)/i.test(name) || /^(?:fim|semana|hora|almo[cç]o|janta|jantar|manh[aã]|m[eê]s|final|amanh[aã]|depois|segunda|ter[cç]a|quarta|quinta|sexta|s[aá]bado|domingo|feriado)(?=\s|$)/i.test(name))) return null;
   }
   return name;
 };
@@ -151,10 +159,9 @@ export interface IdentityResult {
   missing: IdentityField[];
 }
 
-export const extractIdentity = (text: string): IdentityResult => {
+export const extractIdentity = (text: string, askedName = false): IdentityResult => {
   const fields: Partial<Identity> = {
-    ...(extractName(text) ? { name: extractName(text)! } : {}),
-    ...(extractEmail(text) ? { email: extractEmail(text)! } : {}),
+    ...(extractName(text, askedName) ? { name: extractName(text, askedName)! } : {}),
     ...(extractCpf(text) ? { document: extractCpf(text)! } : {}),
   };
   return { fields, missing: IDENTITY_FIELDS.filter((f) => !fields[f]) };
@@ -174,8 +181,8 @@ export const mergeIdentity = (
 };
 
 /** A burst of her messages (grafo §59): each read on its own, in order — the newest wins. */
-export const extractIdentityBurst = (messages: readonly string[]): Partial<Identity> =>
-  messages.reduce<Partial<Identity>>((found, m) => mergeIdentity(found, extractIdentity(m).fields).fields, {});
+export const extractIdentityBurst = (messages: readonly string[], askedName = false): Partial<Identity> =>
+  messages.reduce<Partial<Identity>>((found, m) => mergeIdentity(found, extractIdentity(m, askedName).fields).fields, {});
 
 export const isIdentityComplete = (fields: Partial<Identity>): fields is Identity =>
   IDENTITY_FIELDS.every((f) => Boolean(fields[f]));
@@ -194,8 +201,7 @@ export const isIdentityComplete = (fields: Partial<Identity>): fields is Identit
 export const nextIdentityQuestion = (missing: readonly IdentityField[]): string | null => {
   const asks: Record<IdentityField, string> = {
     name: "o nome completo dela, pra deixar o pedido no nome dela",
-    email: "o e-mail dela, pra completar o cadastro do pedido",
-    document: "o CPF dela, pra nota fiscal do pedido, que a lei exige",
+    document: "o CPF dela, pra emissão da nota fiscal (sem dizer que a lei exige)",
   };
   const next = IDENTITY_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;
@@ -211,6 +217,29 @@ export const asksForIdentity = (text: string): boolean =>
   text
     .split(/(?<=[.!?\n])\s*/)
     .some((q) => q.trim().endsWith("?") && /\b(e-?mail|cpf|nome\s+completo|seu\s+nome)\b/i.test(q));
+
+/**
+ * Her answer refuses the datum the agent just asked — "nao vou passar não, valeu" to the e-mail ask
+ * read as putting the purchase off, and she got the fixed "vou pensar" reply with the stock (second
+ * real test, grafo §66). Only right after an ask of name or CPF, and never as a question ("e se eu
+ * não passar?"): a purchase put off still reads as one.
+ */
+export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean => {
+  const t = answer.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+  return (
+    asksForIdentity(lastOutbound) &&
+    !t.endsWith("?") &&
+    new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(t) &&
+    // "não passo, vou pensar" is still putting it off (review of the §66 fixes).
+    !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto|deixa\s+(?:pra|para)\s+la|esquece|nao\s+quero\s+mais)\b/.test(t)
+  );
+};
+
+/**
+ * Refusing to give a datum: "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se"
+ * ("e se eu nao passar o cpf tem problema?" is a doubt): review of 6f3a6a6.
+ */
+const REFUSE_VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
 
 /** A sentence that asks for something: a question, or a request ("me passa", "me manda", "preciso do"). */
 const REQUEST = /\b(?:me\s+(?:passa|manda|informa|envia|diz|fala)|pode\s+me\s+(?:passar|mandar|informar|enviar)|preciso\s+d[oa]|qual\s+(?:o|e|é)\s+(?:seu|teu))\b/i;
@@ -292,9 +321,7 @@ export const refusedAsks = (
   // "não" near it ("nao sei se precisa do cpf", "nao passo cartao", "nao dou conta"): reviews of 5383dc5
   // and ca51825.
   const F = field === "email" ? "e-?mail" : "cpf";
-  // "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se" ("e se eu nao passar o cpf
-  // tem problema?" is a doubt): review of 6f3a6a6.
-  const VERB = String.raw`(?<!\bse\s+(?:eu\s+)?)(?:n[aã]o|n|nunca|jamais)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar)`;
+  const VERB = REFUSE_VERB;
   const REFUSAL = new RegExp(String.raw`\b${VERB}\s+(?:o\s+|esse\s+)?(?:meu\s+)?${F}\b|\b${F}\s+(?:eu\s+)?${VERB}\b`, "i");
   let count = 0;
   let asked = false;

@@ -46,8 +46,6 @@ export interface Interpretation {
   wants_exchange: boolean;
   opt_out: boolean;
   size: InterpretedSize;
-  email: string | null;
-  email_unavailable: boolean;
   payment_choice: PaymentChoice | null;
   wants_to_think: boolean;
   wants_to_buy: boolean;
@@ -68,8 +66,6 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   wants_exchange: false,
   opt_out: false,
   size: Object.freeze({ letter: null, pants: null, waist_cm: null, for_other_person: false }),
-  email: null,
-  email_unavailable: false,
   payment_choice: null,
   wants_to_think: false,
   wants_to_buy: false,
@@ -109,8 +105,6 @@ export const INTERPRETER_SYSTEM = [
   "  pessoa (mãe, filha, amiga) }. Só o tamanho que ela AFIRMA usar nesta mensagem; idade,",
   "  peso, sapato e preço não são tamanho. PERGUNTA não é tamanho dito: \"tem GG?\", \"qual",
   "  tamanho pra quem usa 44?\", \"o M serve?\" → tudo null. Se ela corrige o tamanho, use o novo.",
-  '- "email": o e-mail que ela escreveu, ou null.',
-  '- "email_unavailable": true se ela diz que não tem e-mail ou não quer passar.',
   '- "payment_choice": "prepay" se ela escolhe pagar antes (pix, cartão, antecipado),',
   '  "cod" se escolhe pagar na entrega, null se não escolheu.',
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
@@ -178,7 +172,6 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
   const o = value as Record<string, unknown>;
   const s = (typeof o.size === "object" && o.size !== null ? o.size : {}) as Record<string, unknown>;
   const letter = typeof s.letter === "string" ? s.letter.trim().toUpperCase() : "";
-  const email = typeof o.email === "string" ? o.email.trim().toLowerCase() : "";
   return {
     parsed: true,
     interpretation: {
@@ -193,9 +186,6 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
         waist_cm: numberIn(s.waist_cm, 50, 150),
         for_other_person: flag(s.for_other_person),
       },
-      // Same strictness as `extractEmail`: a truncated address is worse than none.
-      email: /^[\w.+-]+@[\w-]+(?:\.[\w-]{2,})+$/.test(email) ? email : null,
-      email_unavailable: flag(o.email_unavailable),
       payment_choice: o.payment_choice === "cod" || o.payment_choice === "prepay" ? o.payment_choice : null,
       wants_to_think: flag(o.wants_to_think),
       wants_to_buy: flag(o.wants_to_buy),
@@ -400,7 +390,7 @@ export const choosesPath = (message: string): boolean => {
   const t = norm(message);
   const m =
     new RegExp(`\\b(?:quero|vou|prefiro|pode\\s+ser|pode\\s+mandar|fecho|fechar|manda|escolho|opto|melhor|pago|pagar)\\b[^.!?]{0,30}?\\b${PATH_WORD}`).exec(t) ??
-    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
+    new RegExp(`^\\s*(?:(?:ok|beleza|entao|sim|pode\\s+ser)[,\\s]+)?(?:(?:o|a)\\s+(?:d[oa]\\s+)?)?(?:no\\s+|na\\s+|pelo\\s+|pela\\s+|de\\s+)?${PATH_WORD}(?:[,\\s]+(?:mesmo|entao|pfv|por\\s+favor|sim|acho|eu\\s+acho))?(?:\\s*[.!]*\\s*$|\\s*,)`).exec(t);
   if (!m) return false;
   // Doubt is not a choice (sixth review): "quero saber se aceita pix", "vou ver se consigo
   // no pix", "pode ser que eu pague no pix", "pix ou cartão, não sei", "pagar na entrega é
@@ -435,7 +425,7 @@ export const linkPathFor = (
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
 /** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
-export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "document";
 
 export interface LinkData {
   /**
@@ -448,8 +438,6 @@ export interface LinkData {
   /** She chose the payment path, or her region left only the prepaid one. */
   pathSettled: boolean;
   nameKnown: boolean;
-  /** The e-mail is known, or she refused it once (`refusedAsks`, `email_unavailable`). */
-  emailDone: boolean;
   /** A valid CPF is known, or she refused it twice. */
   cpfDone: boolean;
 }
@@ -457,14 +445,13 @@ export interface LinkData {
 /**
  * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
  * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
- * full name, e-mail and CPF, in this order. The order is the directive's: one thing at a time.
+ * full name and CPF, in this order — no e-mail since 2026-10-07 (operator). The order is the directive's: one thing at a time.
  */
 export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
   : !d.nameKnown ? "name"
-  : !d.emailDone ? "email"
   : !d.cpfDone ? "document"
   : null;
 
@@ -545,7 +532,20 @@ export const pathChoiceToStore = (d: {
   noCod?: boolean;
 }): PaymentChoice | null => {
   const askedTwo = /\bqual\s+das\s+duas\b/.test(norm(d.lastOutbound));
-  if (d.interpreted && (d.parts.some(choosesPath) || (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))) return d.interpreted;
+  // The path her own words name never contradicts the reading ("o antecipado" read as cod): grafo §66.
+  const named = (p: string): PaymentChoice | null => {
+    const t = norm(p);
+    const cod = /\b(?:entrega|na\s+porta|quando\s+cheg\w*)\b/.test(t);
+    // "Pagar antes/agora", not "antes eu queria saber o prazo" (review of §66, B8).
+    const prepay = /\b(?:pix|antecipad\w*|adiantad\w*|cartao)\b|\bpag\w*\s+(?:antes|agora)\b/.test(t);
+    return cod === prepay ? null : cod ? "cod" : "prepay";
+  };
+  if (
+    d.interpreted &&
+    (d.parts.some((p) => choosesPath(p) && (named(p) ?? d.interpreted) === d.interpreted) ||
+      (askedTwo && d.parts.some((p) => whichOfTwo(p) === d.interpreted)))
+  )
+    return d.interpreted;
   const yes = d.confirms && (!d.parts.some(asksSomething) || d.parts.some(buyerAsk));
   const defaultCod =
     d.interpreted !== "prepay" &&
@@ -856,10 +856,20 @@ export const linkHeldBack = (
 export const asksForLink = (message: string): boolean => {
   const t = norm(message);
   if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  // Second real test (grafo §66): "você nao vai me mandar o link do checkout????" — the cobrança, in a
+  // question — and "então manda logo" / "sim pode mandar" as the whole message.
+  if (
+    /\b(?:nao\s+)?vai\s+(?:me\s+)?(?:mandar|enviar|passar)\s+(?:o\s+)?(?:link|checkout)\b[^?]*\?/.test(t) &&
+    // A condition is no request for now ("se eu escolher pix vai me mandar o link?", "… amanhã?").
+    // "Quando vai me mandar o link?" is the cobrança itself (review of §66, M2); "quando eu pagar" is a condition.
+    !/\bse\b|\b(?:quando|depois)\s+(?:eu|ela|voce|vc|tiver|der|puder|chegar|pagar|escolher)\b|\b(?:amanha|mais\s+tarde)\b/.test(t)
+  )
+    return true;
+  if (/^\s*(?:(?:entao|sim|ok|ta|pode|ah)[\s,]+)*(?:(?:me\s+)?(?:manda|mande|envia|envie)\s+(?:logo|agora|ja|ai|aqui)|pode\s+(?:me\s+)?(?:mandar|enviar))\s*[!.]*\s*$/.test(t)) return true;
   // An allowlist, not a blocklist (second review, three rounds): the imperative opens the
   // clause, after at most a filler ("ah", "sim", "pode", "me"…), and no condition follows.
   for (const m of t.matchAll(
-    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?link\b/g,
+    /(?:^|[,;.!?\n]\s*)(?:(?:ah|sim|entao|ok|por\s+favor)\s+)*(?:(?:me\s+)?(?:manda|mande|envia|envie|passa|passe|reenvia|reenvie)|pode\s+(?:me\s+)?(?:mandar|enviar|passar|reenviar))\s+(?:(?:o|um|esse|aquele)\s+)?(?:link|checkout)\b/g,
   )) {
     // The whole rest of the message: "manda o link, mas só amanhã" and "passa o link, não!"
     // are not a request for now (second review, 5th round).

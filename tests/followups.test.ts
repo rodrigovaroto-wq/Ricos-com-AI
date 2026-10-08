@@ -49,7 +49,7 @@ describe("régua de silêncio", () => {
 
   it("são três toques, espaçados como decidido", () => {
     const [t1, t2, t3] = scheduleSilence(now);
-    expect(t1!.runAt.getTime() - now.getTime()).toBe(30 * 60_000);
+    expect(t1!.runAt.getTime() - now.getTime()).toBe(60 * 60_000); // 1 h desde 2026-10-07 (grafo §66)
     expect(horaEmSP(t2!.runAt)).toBe(9);
     expect(t2!.runAt.getTime()).toBeGreaterThan(now.getTime());
     expect(t3!.runAt.getTime() - now.getTime()).toBe(3 * 24 * 60 * 60_000);
@@ -111,7 +111,7 @@ describe("régua de checkout não finalizado (§R10.4)", () => {
       "silence_3",
     ]);
     expect(touches[0]!.runAt.getTime() - now.getTime()).toBe(15 * 60_000);
-    expect(touches[1]!.runAt.getTime() - now.getTime()).toBe(30 * 60_000);
+    expect(touches[1]!.runAt.getTime() - now.getTime()).toBe(60 * 60_000);
   });
 
   it("o toque de 15 min pergunta por problema ou ajuda, não só lembra", () => {
@@ -1109,7 +1109,8 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                     ...(order ? {} : { paymentPath }),
                     stopPoint,
                     now,
-                    size: units > 1 ? "M,G" : "M",
+                    // Antes do tamanho, o tamanho não existe: com ele, o toque sai como o de depois do preço (grafo §66).
+                    ...(stopPoint === "before_size" && !order ? {} : { size: units > 1 ? "M,G" : "M" }),
                     address: "Rua das Flores, 10",
                     units,
                     prepaid,

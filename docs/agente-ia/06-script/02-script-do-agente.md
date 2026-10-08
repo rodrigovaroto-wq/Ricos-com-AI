@@ -259,7 +259,12 @@ que dissolvia o medo — então recebe **mais** prova, não menos.
 Decidida na rodada 1, com o cupom da rodada 4. Cada toque muda de ângulo — repetir a mesma
 frase é o que faz a cliente bloquear.
 
-**Toque 1 — 30 minutos de silêncio.** Retoma do ponto exato, curto, sem cobrança.
+**Toque 1 — 1 hora de silêncio** (~~30 minutos~~, operador, 2026-10-07; `SILENCE_1_MS` em `src/agent/followups.ts`).
+Retoma do ponto exato, curto, sem cobrança. Antes dele, quando a última resposta da Malu terminou em
+pergunta e sem link, sai um **"Ainda está aí?"** (`still_there`) aos **20 min** (`STILL_THERE_MS`; era 10).
+Os dois saem **no máximo uma vez por dia** cada. Com o link na resposta, só o lembrete do link (15 min)
+é armado. O tamanho é lido na hora do envio: quem já o deu não é perguntada de novo. (Tabela de
+mensagens abaixo: textos de 2026-09, não reconferidos contra o código nesta data.)
 
 | Onde ela parou | Mensagem |
 |---|---|

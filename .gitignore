@@ -55,6 +55,8 @@ config/business.json
 
 # Resíduo do instalador do Deno, usado só por typecheck:function
 deno.lock
+# …menos o da função whatsapp: prende o sha256 dos arquivos do decodificador vindos do jsDelivr (R18.9)
+!supabase/functions/whatsapp/deno.lock
 
 # Git worktrees created for isolated agent tasks (parallel-subagent protocol escape hatch).
 .claude/worktrees/

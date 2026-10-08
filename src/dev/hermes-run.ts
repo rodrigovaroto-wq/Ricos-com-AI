@@ -214,6 +214,8 @@ if (SB) {
   }
 } else writeFileSync(join(bundle, "numeros.md"), "# Números do período\n\n(rodada de personas sem banco: use só placar.md)\n");
 cpSync(join(REPO, "docs/agente-ia/08-mudancas/registro.md"), join(bundle, "registro.md"));
+// The real cases already audited and what fixed them (operator, 2026-10-08): Hermes's initial history.
+cpSync(join(REPO, "hermes/historico-inicial.md"), join(bundle, "historico.md"));
 // The ledger (operator, 2026-09-25): every earlier decision and its reason, so a refused
 // idea is not proposed again. Read from Supabase whenever it is reachable — persona runs
 // included, because the lessons are the same; without it the file says so.
@@ -246,7 +248,7 @@ writeFileSync(
 cpSync(join(REPO, "hermes/skills"), join(home, "skills"), { recursive: true });
 
 const prompt =
-  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
+  "Use a skill encorpa-supervisor. Leia reverter.md primeiro, depois decisoes.md, historico.md, placar.md, numeros.md, prompt.md, regras.md, registro.md e todos os arquivos em conversas/, " +
   "e escreva propostas.json nesta pasta, exatamente no formato da skill. Trecho de evidência só copiado, nunca resumido.";
 const usageFile = join(bundle, "usage.json");
 const started = Date.now();

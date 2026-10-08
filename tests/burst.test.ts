@@ -14,6 +14,7 @@ import {
   reviseInstruction,
   revisionAllowed,
   unansweredInbound,
+  BURST_WINDOW_MS,
 } from "@/agent/retry.js";
 import { MIN_TURN_TIMEOUT_MS } from "@/dev/n8n-rules.js";
 import { classifyOptOutBurst } from "@/agent/guardrails.js";
@@ -86,7 +87,8 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(optOut).toBeGreaterThan(burst);
     const block = source.slice(burst, optOut);
     // Só o turno de uma mensagem nova espera: a retomada já esperou, a nova tentativa é da varredura.
-    expect(block).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    // Grafo §66: com mais de uma mensagem dela já esperando, a rajada chegou — sem os 5 s.
+    expect(block).toContain("await new Promise((resolve) => setTimeout(resolve, waiting <= 1 ? QUIET_WINDOW_MS : BURST_WINDOW_MS));\n    recentRows = await readRecent();");
     // Só mensagens desta conversa contam; linhas da agente não (direction filtrada no find).
     expect(block).toContain("`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`");
     expect(block).toContain('retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)');
@@ -117,7 +119,7 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     expect(guard.replace(fallback, "")).not.toContain("superseded");
     expect(guard).toContain('status: "retry_moot"');
     const finalInsert = source.indexOf("const outbound = (");
-    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, replyText);", finalInsert)).toBeLessThan(200);
+    expect(finalInsert - source.lastIndexOf("const gaveUp = await lateGuard(rewritesUsed, body);", finalInsert)).toBeLessThan(200);
     expect(source).toContain("const gaveUp = await lateGuard(0, text);");
   });
 
@@ -189,7 +191,7 @@ describe("fiação da leitura por mensagem (index.ts lido como fonte)", () => {
     expect(source).toContain("const foundAddress = { fields: extractAddressBurst(parts) };");
     expect(source).toContain("confirmsAddress(parts[parts.length - 1] ?? \"\")");
     expect(source).toContain("!parts.some(asksSomething) &&");
-    expect(source).toContain("const burstIdentity = extractIdentityBurst(parts);");
+    expect(source).toContain("const burstIdentity = extractIdentityBurst(parts, asksForName(lastOutbound)");
     expect(source).toContain("const choiceToStore = pathChoiceToStore({");
     expect(source).toContain("askedIdentity: parts.some(asksWhatSheIs),");
     expect(source).not.toMatch(/classifyOptOut\(inbound\.body|extractAddress\(inbound\.body|extractIdentity\(inbound\.body|confirmsAddress\(inbound\.body|decidesToBuy\(inbound\.body/);
@@ -271,7 +273,8 @@ describe("um turno respondendo por vez, e a resposta revisada com o que chegou",
     expect(source).toContain("const isRevise = internal.revise !== undefined;");
     expect(source).toContain("    !isRetry &&\n    !isRevise &&");
     expect(source).toContain("if (!isResume && !isRetry && !isRevise) {\n    const seen");
-    expect(source).toContain("if (!isResume && !isRetry && !isRevise) await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));");
+    expect(source).toContain("waiting <= 1 ? QUIET_WINDOW_MS : BURST_WINDOW_MS");
+    expect(BURST_WINDOW_MS).toBe(2_000);
     expect(source).toContain("const spentBefore = internal.revise?.spentBefore ?? spent;");
     // O prazo da revisão manda nas chamadas dela.
     expect(source).toContain("isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");

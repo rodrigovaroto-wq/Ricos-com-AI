@@ -2050,3 +2050,22 @@ Junto (operador, mesma data, achado 5 da revisão de `f657faa`): a pergunta de o
 seguia o `silence_1`, passa a seguir também o `checkout_reminder` — sem isso, quem pega o link e some
 nunca seria perguntada, e o `silence_3` (cupom, 63–71 h, fora da janela de 24 h) sairia bloqueado.
 `rulerFor` e `optInFollows` em `followups.ts`; grafo §63.
+
+## R18.9 — Áudio dela transcrito pela Meta, convertido dentro da função (caminho 1)
+
+Operador, 2026-10-07. A função `whatsapp` baixa a mensagem de voz pela Graph API, decodifica o Ogg/Opus
+com o `libopus` em WebAssembly do `opus-decoder` 0.7.12 (MIT; copiado em `supabase/functions/whatsapp/vendor/`
+sem o Web Worker, que o empacotador do Supabase recusa por puxar `node:vm`, e preso por hash num teste; os
+três arquivos com binário em yEnc vêm do jsDelivr na versão exata do npm, lidos só no deploy, porque o
+conector de deploy não os transporta — o operador escolheu isso, opção 2, em vez do deploy pelo terminal; o Ogg
+é desmontado por um leitor de 30 linhas em `whatsapp.ts`) — **a primeira dependência de runtime do projeto**,
+só nessa função, com teto de 2 MB, de 5 min decodificados (~0,5 s de CPU contra os 2 s do Edge) e prazo único de 25 s — e manda um WAV mono de 16 kHz ao `muse-voice-transcribe-1.0` da
+Meta Model API (US$ 0,18/h; sem tier de treino). O texto chega à Malu marcado "[áudio da cliente, transcrito
+automaticamente — pode ter erro de transcrição]"; falha em qualquer passo devolve a linha "não consegue
+ouvir" de antes. Custo em `llm_calls` (`purpose: transcribe`). Medido antes de decidir: 50 trechos de fala
+espontânea com sotaque (CORAA), comprimidos como áudio de WhatsApp — 16,7% de erro de palavras (Minas 11%,
+Recife 17%, interior de SP 30%). Descartados: Gemini gratuito (termos permitem treino e revisão humana; o
+Brasil fica fora da exceção da UE); conversão no n8n (ffmpeg no PikaPods não confirmado); provedor que aceita
+OGG (Azure, OpenAI: segundo provedor e chave). Precisa do segredo `META_API_KEY` e do `WHATSAPP_TOKEN` no
+projeto, e da publicação da função `whatsapp`.
+

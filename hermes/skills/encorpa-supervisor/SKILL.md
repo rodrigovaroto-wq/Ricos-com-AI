@@ -43,6 +43,12 @@ uma. Nada do que você escreve vai para produção sem ele.
   motivo dele e o resultado medido depois. Proposta recusada não volta, nem com outras
   palavras: o motivo é o critério que vale daqui pra frente. Aprovada que não atingiu o
   resultado: diga isso e proponha o ajuste citando o código dela (H-xx).
+- `historico.md` — **leia logo depois de `decisoes.md`.** Os casos reais já auditados (testes do
+  operador, rodadas de personas): sintoma, causa, o que já falhou e o conserto que ficou, mais a
+  **ordem de diagnóstico** que eles ensinaram (integração antes do texto; promessa sem ação; palavra
+  de saída ao lado de compra; repetição; gate que veta a frase honesta) e as decisões do operador
+  que valem como regra. Um defeito que bate com um caso dali: cite o caso e a guarda, e diga por que
+  ela não segurou desta vez em vez de propor o mesmo conserto de novo.
 
 ## Como a Malu funciona (o que você precisa saber para propor certo)
 

@@ -24,6 +24,8 @@
  * Uso: `pnpm dev:estoque 04710090 01310100 …` (sem argumento, roda a lista padrão).
  */
 
+import { AVAILABILITY_HEADERS } from "@/agent/availability.js";
+
 const ENDPOINT = "https://app.coinzz.com.br/checkout/stock-and-delivery-day";
 
 /** O produto-pai e os cinco tamanhos, lidos de `get-variations?product_id=79880`. */
@@ -82,7 +84,7 @@ const checkSize = async (
     check_to_finish: "false",
   });
 
-  const response = await fetch(`${ENDPOINT}?${query}`);
+  const response = await fetch(`${ENDPOINT}?${query}`, { headers: AVAILABILITY_HEADERS });
   const body: unknown = await response.json().catch(() => null);
   const data = (body as { data?: Record<string, unknown> } | null)?.data;
   if (!data) throw new Error(`resposta inesperada para ${size} em ${zip}`);

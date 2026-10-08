@@ -26,6 +26,11 @@ export interface InboundMessage {
    * `id` is sealed (`inbound-signature.ts`): the turn reads it for the marketing opt-in.
    */
   reply?: { id: string; contextId?: string };
+  /**
+   * The media id of a voice message (operator, 2026-10-07): the webhook downloads it, transcribes it and
+   * replaces `body` before forwarding; it never leaves the function (`forward` strips it).
+   */
+  audioId?: string;
 }
 
 /** Compares without leaking where the first difference is. */
@@ -176,7 +181,17 @@ export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessa
       const source = sourceOf(m);
       const sentAt = sentAtOf(m);
       const reply = replyOf(m);
-      out.push({ externalId, from, body, ...(source ? { source } : {}), ...(sentAt ? { sentAt } : {}), ...(reply ? { reply } : {}) });
+      const type = str(m.type);
+      const audioId = type === "audio" || type === "voice" ? str(obj(m[type])?.id) : "";
+      out.push({
+        externalId,
+        from,
+        body,
+        ...(source ? { source } : {}),
+        ...(sentAt ? { sentAt } : {}),
+        ...(reply ? { reply } : {}),
+        ...(audioId ? { audioId } : {}),
+      });
     }
   }
   return out;
@@ -295,3 +310,91 @@ export const readAndTyping = (messageId: string) => ({
   message_id: messageId,
   typing_indicator: { type: "text" },
 });
+
+/**
+ * Her voice message as the agent reads it (operator, 2026-10-07): the transcript, marked as one, so the
+ * model knows a strange word may be the transcription's and confirms instead of guessing. Empty → null,
+ * and the turn gets the "não consegue ouvir" line as before.
+ */
+export const transcribedBody = (transcript: string): string | null => {
+  const t = transcript.replace(/\s+/g, " ").trim().replace(/\.{2,}$/, ".");
+  return t ? `[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] ${t}` : null;
+};
+
+/**
+ * Decoded audio (any rate, any channels) as the WAV Meta's transcription takes: mono, 16 kHz, 16-bit PCM.
+ * The channels are averaged and the rate reduced by averaging each window — enough for speech, which
+ * carries little above 8 kHz. Pure, so it is tested here; the Opus decoding itself is the function's.
+ */
+export const toWav16k = (channels: readonly Float32Array[], sampleRate: number): Uint8Array => {
+  const n = channels[0]?.length ?? 0;
+  const ratio = sampleRate / 16000;
+  const pcm = new Int16Array(ratio > 0 ? Math.floor(n / ratio) : 0);
+  for (let i = 0; i < pcm.length; i++) {
+    let sum = 0;
+    let count = 0;
+    for (let k = Math.floor(i * ratio); k < Math.floor((i + 1) * ratio) && k < n; k++) {
+      for (const ch of channels) {
+        sum += ch[k] ?? 0;
+        count++;
+      }
+    }
+    const v = Math.max(-1, Math.min(1, count ? sum / count : 0));
+    pcm[i] = v < 0 ? Math.round(v * 0x8000) : Math.round(v * 0x7fff);
+  }
+  const wav = new Uint8Array(44 + pcm.length * 2);
+  const dv = new DataView(wav.buffer);
+  const tag = (at: number, text: string) => {
+    for (let i = 0; i < text.length; i++) dv.setUint8(at + i, text.charCodeAt(i));
+  };
+  tag(0, "RIFF");
+  dv.setUint32(4, 36 + pcm.length * 2, true);
+  tag(8, "WAVE");
+  tag(12, "fmt ");
+  dv.setUint32(16, 16, true);
+  dv.setUint16(20, 1, true);
+  dv.setUint16(22, 1, true);
+  dv.setUint32(24, 16000, true);
+  dv.setUint32(28, 32000, true);
+  dv.setUint16(32, 2, true);
+  dv.setUint16(34, 16, true);
+  tag(36, "data");
+  dv.setUint32(40, pcm.length * 2, true);
+  for (let i = 0; i < pcm.length; i++) dv.setInt16(44 + i * 2, pcm[i]!, true);
+  return wav;
+};
+
+/**
+ * The Opus packets inside an Ogg file (RFC 3533, RFC 7845), and the two header fields the decoder
+ * needs. WhatsApp voice notes are Ogg/Opus; the decoder takes raw packets. Each page is "OggS", a
+ * 27-byte header, a segment table at byte 26; a 255 segment continues the packet, also across pages.
+ * The first packet is OpusHead (channels at byte 9, pre-skip uint16 LE at 10), the second OpusTags.
+ * Anything that is not mono/stereo Ogg/Opus is null — she then gets the "não consegue ouvir" line.
+ */
+export const oggOpus = (bytes: Uint8Array): { channels: number; preSkip: number; packets: Uint8Array[] } | null => {
+  const packets: Uint8Array[] = [];
+  let pending: number[] = [];
+  let at = 0;
+  while (at + 27 <= bytes.length) {
+    if (bytes[at] !== 0x4f || bytes[at + 1] !== 0x67 || bytes[at + 2] !== 0x67 || bytes[at + 3] !== 0x53) return null;
+    const segments = bytes[at + 26] ?? 0;
+    let body = at + 27 + segments;
+    if (body > bytes.length) return null;
+    for (let s = 0; s < segments; s++) {
+      const size = bytes[at + 27 + s] ?? 0;
+      if (body + size > bytes.length) return null;
+      for (let k = body; k < body + size; k++) pending.push(bytes[k] ?? 0);
+      body += size;
+      if (size < 255) {
+        packets.push(Uint8Array.from(pending));
+        pending = [];
+      }
+    }
+    at = body;
+  }
+  const head = packets[0];
+  if (!head || head.length < 19 || new TextDecoder().decode(head.subarray(0, 8)) !== "OpusHead") return null;
+  // Mono or stereo with the simple mapping (family 0) only: a voice note is never anything else.
+  if ((head[9] !== 1 && head[9] !== 2) || head[18] !== 0) return null;
+  return { channels: head[9] ?? 1, preSkip: (head[10] ?? 0) | ((head[11] ?? 0) << 8), packets: packets.slice(2) };
+};

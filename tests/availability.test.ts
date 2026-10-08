@@ -1,5 +1,7 @@
+import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import {
+  AVAILABILITY_HEADERS,
   availabilityQuery,
   checkRegion,
   REFERENCE_SIZE,
@@ -212,5 +214,27 @@ describe("região", () => {
       return yes;
     }, "04710-090");
     expect(asked).toContain("/04710090/");
+  });
+
+  // Grafo §66 (C1): since 2026-09-24 the endpoint answers 302 to the home page without the
+  // checkout's XHR header, and production read every region as unknown for two weeks.
+  it("a consulta da Coinzz vai com o cabeçalho de XHR do checkout", async () => {
+    const sent: Array<Readonly<Record<string, string>> | undefined> = [];
+    await checkRegion(async (url, headers) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Centro" };
+      sent.push(headers);
+      return yes;
+    }, "04662-002");
+    expect(sent).toHaveLength(1);
+    expect(sent[0]?.["X-Requested-With"]).toBe("XMLHttpRequest");
+    expect(AVAILABILITY_HEADERS["X-Requested-With"]).toBe("XMLHttpRequest");
+  });
+
+  it("a função de produção repassa o cabeçalho ao fetch, e a varredura de dev também", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).toContain("region = await checkRegion(async (url, headers) => {");
+    expect(turn).toMatch(/region = await checkRegion\(async \(url, headers\) => \{\s+const r = await fetch\(url, \{\s+headers,/);
+    const sweep = readFileSync("src/dev/availability.ts", "utf8");
+    expect(sweep).toContain("{ headers: AVAILABILITY_HEADERS }");
   });
 });

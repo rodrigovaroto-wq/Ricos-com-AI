@@ -69,7 +69,7 @@ describe("o marcador do toque sobrevive ao reagendamento (R17.4, revisão)", () 
   });
 
   it("o upsert da régua de silêncio não escreve sent_at (merge-duplicates preserva o do envio)", () => {
-    const upsert = source.slice(source.indexOf("const ruler = rulerFor("), source.indexOf('await db("followups?on_conflict=conversation_id,kind"'));
+    const upsert = source.slice(source.indexOf("const ruler = oncePerDay(rulerFor("), source.indexOf('await db("followups?on_conflict=conversation_id,kind"'));
     expect(upsert).toContain('status: "scheduled",');
     expect(upsert).not.toContain("sent_at");
   });

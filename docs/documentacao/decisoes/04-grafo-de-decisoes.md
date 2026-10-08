@@ -2117,27 +2117,96 @@ mandar, desisti") não conta como compra; "nem quero mais" é desistência. Muta
 e `R65-nem-quero-mais`.
 
 
-## 66. Segundo teste real ("Leila 2"): compradora com todos os dados não recebe o link e é descadastrada (2026-10-07) — ABERTO
+## 66. Segundo teste real ("Leila 2") e os testes dos amigos: compradora sem link, descadastrada, e a região nula desde 24/09 (2026-10-07)
 
-**Sintoma:** conversa `816795ca-…` (v10 → v11 no meio). Ela escolheu tamanho, pagamento, deu nome e CPF,
-pediu o link cinco vezes; a Malu respondeu quatro vezes "estou deixando seu link prontinho, já te mando" e
-nunca mandou. "pare de me mandar confirmações, apenas me mande o link do checkout" → `opted_out`, conversa
-bloqueada. Auditoria completa: [`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](../../agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md).
-**Causa (reproduzida com `tsx` contra as funções exportadas):**
-(1) `classifyOptOut` — "pare de me mandar …" é `explicit` sem olhar o objeto nem o pedido de link na mesma
-frase. (2) `parseCep` — "004710090" (9 dígitos) → `null`; o turno não diz ao modelo que o CEP não foi lido,
-e ele escreve "Recebi seu CEP"/"Anotei". (3) A diretiva do CEP só existe com `linkDue`; nome, e-mail e CPF
-foram pedidos com o CEP faltando, e às 10:33 ela ouviu "tá tudo pronto". (4) Nenhum gate veta promessa
-futura de link/conferência num turno sem link nem handoff. (5) Recusa do e-mail ("nao vou passar não,
-valeu") → `wants_to_think` → resposta fixa do adiamento, com "restam 12 unidades" (`scarcity.allowUnverified`,
-operador 2026-09-08). (6) `asksForLink` não lê "checkout" nem a cobrança em pergunta. (7) `choosesPath("o na
-entrega acho")` → `false`, `payment_choice` nulo. (8) `identity.name` ficou "Leila", não o nome completo.
-**Caminhos descartados (ainda não tentados, só pesados):** adivinhar o zero a mais do CEP (pode virar o CEP
-de outra pessoa; perguntar custa uma mensagem); afrouxar o opt-out por lista de proibição de palavras de
-compra (o §26 mostrou que só lista de permissão do objeto fecha).
-**Correção:** pendente — ordem e desenho na auditoria (opt-out → CEP + diretiva + gate de promessa →
-recusa ≠ adiamento → `asksForLink` → `choosesPath` → nome).
-**Guarda:** pendente — cada conserto com a frase literal desta conversa como teste e uma mutação.
+**Sintoma:** conversa `816795ca-…` (v10 → v11): ela escolheu tamanho e pagamento, deu nome e CPF, pediu o link
+cinco vezes; a Malu respondeu quatro vezes "estou deixando seu link prontinho, já te mando" e nunca mandou;
+"pare de me mandar confirmações, apenas me mande o link do checkout" → `opted_out`, conversa bloqueada. Nas
+conversas dos amigos (finais 7967 e 9393, mesmo dia): CEP de São Paulo gravado sem região, "o checkout
+confirma" no lugar das duas opções, quatro "Ainda está aí?" e três lembretes em três horas, o lembrete
+pedindo o tamanho a quem já tinha dado, "Que vestido lindo", "modela cintura e quadril", áudio não ouvido.
+Anotações do operador (14 itens) somadas na análise.
+**Causa (reproduzida com `tsx` contra as funções exportadas e com `curl`):**
+(C1) a consulta `stock-and-delivery-day` da Coinzz responde 302 sem o cabeçalho `X-Requested-With:
+XMLHttpRequest` desde 24/09 — em produção a região foi nula em todo lead (O-01 do registro, tida como
+problema do container). (C2) `classifyOptOut` lia "pare de me mandar …" sem olhar o objeto nem o pedido do
+link. (C3) `parseCep` não lê 9 dígitos ("004710090") e o modelo não sabia. (C4) a diretiva do CEP só com
+`linkDue`; nome e CPF foram pedidos sem CEP. (C5) nenhum gate via promessa futura de link. (C6)
+`asksForLink` não lia "checkout" nem a cobrança. (C7) recusa de dado → `wants_to_think` → resposta fixa do
+"vou pensar". (C8) `choosesPath("o na entrega acho")` falso. (C9) "Leila da silva" barrado por "da" ser
+palavra comum. (C10) `silence_1` escolhia o texto pela última resposta da Malu, não pelo tamanho do lead.
+**Caminhos descartados:** adivinhar o zero a mais do CEP (pode ser o CEP de outra pessoa); isentar o
+opt-out por palavra de compra (revisão: "não quero comprar" deixava de bloquear — cegueira a negação ao
+contrário); lista de permissão do objeto no lado do bloqueio (revisão: "pare de me mandar mensagem moça"
+deixava de bloquear); isentar por "forma da conversa" (`NOT_STOPPING`, segunda revisão: "pare de me mandar a
+mesma mensagem, já disse que não quero" deixava de bloquear); partícula de nome isenta sem o pedido do nome
+("Vila da Penha" virava nome); idem com o pedido mas sem palavra de tempo (revisão: "fim de semana te passo"
+apagava o nome bom); Gemini gratuito para áudio (os termos permitem treino e revisão humana; Brasil fora da
+exceção da UE).
+**Correção:** C1 `AVAILABILITY_HEADERS` (turn, `checkSize`, varredura de dev). C2 `STOP_SENDING` bloqueia
+como antes, exceto com pedido do link/checkout depois do verbo, sem negação nem condição (`buysNow`). C3
+`malformedCep` (7/9 dígitos ao lado de "CEP" ou depois do pedido) + `cepState` ("nunca diga que recebeu ou
+anotou o CEP"). C4 "Falta o CEP: antes dele não peça nome nem CPF" e CEP pedido também com caminho
+escolhido. C5 gate `pending_promise` (`linkInTurn`), com condição verdadeira isenta. C6 `asksForLink` com
+checkout, cobrança sem condição e "manda logo"/"pode mandar" inteiros. C7 `refusesAskedDatum` (verbo
+`REFUSE_VERB` compartilhado; adiamento junto segue "vou pensar"). C8 artigo e "acho" em `choosesPath`; a
+palavra dela não contradiz o intérprete. C9 partículas só depois do pedido do nome, sem palavra de tempo.
+C10 o lembrete lê o tamanho na hora do envio. **E-mail fora do fluxo** (operador): não pedido, não guardado
+(o lido é descartado; migração 0024 apaga os guardados), o link não espera. **Texto** (operador): recepção
+sem "Oii, tudo bem?" (`isReceipt` reconhece as duas); 1ª resposta com `greetingFor` (bom dia 06–12, boa tarde
+12–19, boa noite 19–24) e "Em que posso te ajudar?" sem chamar o modelo quando ela só cumprimentou; link fixo
+em 3 balões (`linkMessage`); CPF "Para a emissão da nota fiscal, me passa seu CPF por favor?"; prompt sem
+"anotei"/resumo/permissão, sem opinar sobre a roupa, sem "soltinha ou justinha", sem quadril, foto → site,
+parcelamento com "no antecipado", ganchos na dor dela; gate `noted_claim`. **Ritmo** (operador): 560 ms por
+palavra (era 800); sem os 5 s quando já há mais de uma mensagem dela; "Ainda está aí?" aos 20 min e
+`silence_1` a 1 h, cada um no máximo uma vez por dia (`oncePerDay` sobre `followups.sent_at`).
+**Guarda:** `tests/second-real-test.test.ts` (frase literal de cada conversa + negações, inclusive as que as
+revisões acharam); contagens de gate (24); mutações `G66-*`.
+**Resíduo:** o pedido Coinzz pela API (`buildCoinzzRequest`) recebe `email: ""` e fica sempre bloqueado —
+nenhum workflow lê `orderReady`; `malformedCep` lê um telefone de 9 dígitos como CEP quando o CEP acabou de
+ser pedido; sobrenome que é palavra de tempo ("Maria da Hora") não é lido depois do pedido; "quando vai me
+mandar o link?" não conta como cobrança; uma rajada de 3+ mensagens custa uma revisão a mais (a 2ª já não
+espera); o áudio segue sem transcrição (pesquisa: Meta `muse-voice-transcribe-1.0` exige WAV; decisão do
+operador pendente).
+
+**Diagnóstico de origem e a tabela causa → conserto → guarda:**
+[`docs/agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md`](../../agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md)
+(seção "Situação depois do conserto", com as cinco lições). Status: **consertado e publicado** (`turn` v12,
+2026-10-08); a auditoria fica no repositório (operador, 2026-10-08).
+
+### §66 — revisão completa (2026-10-07, noite)
+
+Dois revisores Opus (correção e cobertura) e a rodada 2 de personas. Consertado, com teste e negação:
+
+- **Descadastro × compra:** o pedido de link em qualquer ponto da mensagem, ou em outra mensagem da
+  rajada, não bloqueia; recusa ("não quero", "não tenho interesse") continua bloqueando.
+- **`pending_promise`:** pega "te mando o link agora", "daqui a pouco", "já vou gerar seu link", "deixa eu
+  ver o estoque"; a condição libera só o envio, nunca a conferência; a promessa negada é honesta.
+  `noted_claim` deixa "ainda não anotei" passar.
+- **Áudio:** `spoken()` tira o marcador e o ponto do ASR antes de toda regra fixa (pedido de pessoa, link,
+  nome); o modelo continua lendo a mensagem marcada.
+- **`size_claim` (25º gate):** veta tamanho diferente do da tabela e medida de calça que ela não mandou
+  (Karol: "Com 38 de calça o seu é o M").
+- "Quando vai me mandar o link?" é cobrança; `malformedCep` não lê telefone, CEP negado nem "moro no
+  1234567"; "deixa pra lá" é desistência; sem CEP, nunca "o checkout confirma".
+- **Decisão 16 do operador:** todas as reescritas vetadas → pergunta de preço recebe a frase de preço do
+  prompt; o resto vai para uma pessoa com a frase de espera. "Me fala de novo o que você quer saber?" saiu.
+
+**Feito depois, no mesmo PR (2026-10-08):** decisão 17 (`cep_insist`: o 3º pedido de CEP sem CEP lido é
+vetado), 18 (`hook_repeat`: o 2º gancho da conversa é vetado) e a rajada já esperando aguarda 2 s
+(`BURST_WINDOW_MS`). Também: "Maria da Hora" é nome (só a palavra de tempo no início barra), "antes eu
+queria…" não nomeia o antecipado, o link fixo e o "vou pensar" da primeira resposta abrem com a saudação, e
+o teste de desempenho mede o melhor de 5 tentativas com o mesmo teto. **Fica como está, de propósito:** o
+pedido pela API da Coinzz exige e-mail e sai bloqueado; o caminho está desligado (o pedido é dela, no
+checkout) e não se sabe se a API aceita sem e-mail — religar exige decidir isso antes. **Rodada de personas de 2026-10-08 (12 + 4 de novo):** `cep_insist` contava todo pedido de CEP das
+últimas 20 respostas e vetou o pedido no "vou querer um" (Jussara foi para uma pessoa) → conta só os pedidos
+**seguidos** e libera o turno em que ela decide comprar. "Parcelar só dá no antecipado, na entrega é à vista"
+numa frase só foi vetado 3× por `installment_promise` (Tati para uma pessoa) → o gate fica rígido e o prompt
+ensina o parcelamento numa frase só dele. Depois: 0 passagem a pessoa por veto nas quatro repetidas; 407/407
+mutações. **Na Neusa:** o número da calça pedido ~5× seguidas → `size_insist` (2026-10-08), mesma regra do CEP: duas
+vezes seguidas no máximo, liberado quando já há tamanho ou ela decide comprar.
+**Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
+(saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
 ## Lições (valem para qualquer correção futura)
 

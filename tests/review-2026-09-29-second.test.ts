@@ -244,6 +244,6 @@ describe("resíduo R16.7: depoimento só quando ela pedir", () => {
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
     const call = /gates = runGates\(attempt\.text, \{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
     expect(call).toContain("knownTestimonials: CONFIG.testimonials");
-    expect(call).toContain('askedTestimonial: asksForTestimonial(inbound.body ?? "")');
+    expect(call).toContain('askedTestimonial: asksForTestimonial(spoken(inbound.body ?? ""))');
   });
 });

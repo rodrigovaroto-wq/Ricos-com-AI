@@ -55,7 +55,7 @@ describe("1. o link não sai de novo depois de três perguntas (linkHeldBack)", 
   });
 
   it("fiação: a conversa inteira é lida pelo host do checkout, só quando a janela não tem link, e falha aberta", () => {
-    expect(source).toContain("const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, inbound.body ?? \"\");");
+    expect(source).toContain("const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
     expect(source).toContain("linkReady && CHECKOUT_HOSTS.length > 0 && lastLinkBase(recentOutbound, CHECKOUT_BASES) === null");
     expect(source).toContain("&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(\",\")})&select=body&order=created_at.desc&limit=1");
     expect(source).toContain(".catch(() => null))?.map((m: { body: string | null }) => m.body ?? \"\") ?? recentOutbound");

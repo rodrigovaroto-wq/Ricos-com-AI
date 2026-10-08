@@ -136,7 +136,7 @@ describe("mensagem comum não é nome", () => {
  */
 describe("a identidade vira assunto, não frase pronta", () => {
   it("devolve o assunto, sem pergunta pronta para copiar", () => {
-    for (const faltando of [["name"], ["email"], ["document"]] as const) {
+    for (const faltando of [["name"], ["document"]] as const) {
       const assunto = nextIdentityQuestion(faltando);
       expect(assunto).not.toBeNull();
       expect(assunto).not.toContain("?");
@@ -144,9 +144,10 @@ describe("a identidade vira assunto, não frase pronta", () => {
     }
   });
 
-  it("a frase fixa antiga não existe mais", () => {
-    expect(nextIdentityQuestion(["email"])).not.toContain("Qual é o seu e-mail");
-    expect(nextIdentityQuestion(["email"])).toContain("e-mail");
+  it("o e-mail não é mais pedido (operador, 2026-10-07): só nome e CPF", () => {
+    expect(nextIdentityQuestion(["name", "document"])).toContain("nome");
+    expect(nextIdentityQuestion(["document"])).toContain("CPF");
+    expect(nextIdentityQuestion(["document"])).not.toMatch(/lei exige(?!\))/);
   });
 
   it("reconhece quando a Malu PERGUNTOU nome, e-mail ou CPF", () => {

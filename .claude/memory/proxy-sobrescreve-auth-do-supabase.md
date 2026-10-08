@@ -1,6 +1,6 @@
 ---
 name: proxy-sobrescreve-auth-do-supabase
-description: No container, o proxy reescreve o Authorization do Supabase (RLS 42501 ou "Invalid API key") — rodada local de personas só anda com NO_PROXY no host do Supabase e a service_role no ambiente; a consulta de região (Coinzz) também falha daqui.
+description: O proxy do container mexe no Authorization do Supabase — às vezes quebra (RLS 42501), às vezes injeta uma chave que escreve; sonde antes. A porta do proxy muda por sessão. O 302 da Coinzz era falta do cabeçalho XHR, não o container.
 metadata:
   type: architecture
 ---
@@ -18,8 +18,14 @@ Em 2026-10-07 a rodada de personas pela porta `local` falhou três vezes antes d
 Teste rápido antes de gastar uma rodada: `curl` em `/rest/v1/leads?select=id&limit=2` com e
 sem `--noproxy '*'` — se só o direto devolve linhas, é o proxy.
 
-Também daqui: `app.coinzz.com.br/checkout/stock-and-delivery-day` responde 302 para qualquer
-CEP (até São Paulo), então `region` fica nula em toda rodada local — o caminho "sem
-pagamento na entrega" (Cleide) só se prova depois do deploy, pela porta de produção.
+**Atualizado em 2026-10-07 (noite):** numa sessão nova o proxy já injetava uma chave que lê e
+escreve (`placeholder` bastou; sondado com POST + DELETE de um lead `5500099…`). Teste antes,
+não suponha nenhum dos dois casos. A porta do proxy muda por sessão: leia `$HTTPS_PROXY` e ponha
+o host:porta dele no `--allow-net` da `turn` local (o runbook cita 44995; foi 46437).
+
+O 302 da Coinzz (`stock-and-delivery-day`) **não era do container**: desde 24/09 o endpoint exige
+o cabeçalho `X-Requested-With: XMLHttpRequest` — sem ele, 302 também em produção, e a região foi
+nula em todo lead por duas semanas (grafo §66, C1). Com o cabeçalho, a rodada local consulta a
+região de verdade.
 E a rodada que mede a produção passa `CONVERSATION_MODEL`/`CONVERSATION_MODEL_PRICE` iguais
 aos segredos (conferíveis pelo hash SHA-256 que `GET /v1/projects/<ref>/secrets` devolve).

@@ -56,7 +56,7 @@ conversation_id = '<CONV>' order by run_at;`
 5. **Contexto perdido:** uma pergunta antiga dela que a resposta nova devia ligar e não ligou.
 6. **Promessa falsa:** comparar com `gate_traces` — o gate barrou? Se a frase saiu, por que passou?
 7. **Fluxo de venda (desenho v2):** valor antes do preço; duas opções só com pagamento na entrega
-   no CEP; tamanho, CEP, forma de pagamento, nome, e-mail e CPF antes do link; kit oferecido uma
+   no CEP; tamanho, CEP, forma de pagamento, nome e CPF antes do link (~~e-mail~~: não se pede nem se guarda desde 2026-10-07, grafo §66); kit oferecido uma
    vez depois da escolha; link uma vez só.
 8. **Identidade:** nunca se anuncia virtual sem pergunta; responde honesto quando perguntada.
 9. **Custo:** custo por turno e total; reescritas caras; teto (R$ 1,00) atingido → handoff.

@@ -33,12 +33,12 @@ describe("a pergunta dela ficou no ar", () => {
 });
 
 describe("o toque na régua", () => {
-  it("a resposta que termina em pergunta arma o toque 10 minutos depois, antes de qualquer outro", () => {
+  it("a resposta que termina em pergunta arma o toque 20 minutos depois, antes de qualquer outro", () => {
     const ruler = rulerFor(now, "before_size", undefined, false, undefined, true);
-    expect(STILL_THERE_MS).toBe(10 * 60_000);
+    expect(STILL_THERE_MS).toBe(20 * 60_000); // 20 min desde 2026-10-07 (grafo §66)
     expect(ruler[0]).toEqual({ kind: "still_there", runAt: new Date(now.getTime() + STILL_THERE_MS) });
     // silence_1 continua na hora dela.
-    expect(ruler.find((f) => f.kind === "silence_1")?.runAt).toEqual(new Date(now.getTime() + 30 * 60_000));
+    expect(ruler.find((f) => f.kind === "silence_1")?.runAt).toEqual(new Date(now.getTime() + 60 * 60_000));
   });
   it("sem pergunta no fim, nenhum toque", () => {
     expect(rulerFor(now, "before_size", undefined, false).some((f) => f.kind === "still_there")).toBe(false);
@@ -86,7 +86,7 @@ describe("fiação (index.ts lido como fonte)", () => {
   it("a resposta da agente, a linha fixa e a resposta adiada armam o toque quando terminam em pergunta", () => {
     expect(source).toContain("endsWithQuestion(replyText)");
     expect(source).toContain("endsWithQuestion(text)");
-    expect(source).toContain("const ruler = rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion);");
+    expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);");
   });
   it("na mesma varredura ele vai primeiro, e o outro toque de silêncio da conversa fica para a próxima", () => {
     expect(sweep).toContain('Number(b.kind === "still_there") - Number(a.kind === "still_there")');

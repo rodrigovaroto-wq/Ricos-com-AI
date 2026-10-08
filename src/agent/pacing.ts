@@ -14,7 +14,8 @@ import { BUSINESS_TZ, nextOpening, offsetMinutes } from "@/agent/followups.js";
  * as `WELCOME_RESUME_DELAY_SECONDS`, which is what production actually waits.
  */
 export const FIRST_REPLY_DELAY_MS = 60_000;
-export const MS_PER_WORD = 800;
+// 30% faster than the 800 of R13 (operator, 2026-10-07, grafo §66): the wait read as slowness.
+export const MS_PER_WORD = 560;
 export const PRESENCE_REFRESH_MS = 15_000;
 
 export const bubbleDelayMs = (bubble: string): number =>

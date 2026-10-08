@@ -206,6 +206,29 @@ export interface ThinkConfig {
 const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
 /**
+ * The link, said the operator's way (2026-10-07, grafo §66): no "quer que eu te mande o link?" — it is
+ * sent, in three bubbles: the line, the link alone, and what is left there, once. Fixed text: the model
+ * asked permission five times and never sent it.
+ */
+export const linkMessage = (
+  url: string,
+  path: "cod" | "prepay",
+  size: string | null,
+  brand: string,
+  pieces = 1,
+): string => {
+  const choose = pieces > 1 ? "escolhe o tamanho de cada peça" : `escolhe o ${size ?? "seu tamanho"}`;
+  const there =
+    path === "cod"
+      ? `Lá você completa o endereço, ${choose} e o dia da entrega.`
+      : `Lá você completa o endereço, ${choose}, confere o frete e paga no pix ou no cartão.`;
+  return (
+    `Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.` +
+    `\n\n${url}\n\n${there} Se precisar de alguma ajuda, estarei aqui.`
+  );
+};
+
+/**
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
  * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
  * back. Now it is the one place the declared stock is said, with the strongest argument of her
@@ -330,7 +353,8 @@ export const networkRetryDelay = (
  * so the hours gate does not apply (R4.4). Approved by the operator on 2026-09-21,
  * spacing included — the paragraph breaks are the approved text, not formatting. The
  * second line changed on 2026-09-24 (R13.5): "fará seu atendimento" became "esclarecerá
- * todas as suas dúvidas".
+ * todas as suas dúvidas". On 2026-10-07 the opening "Oii, tudo bem?" left it (operator, grafo §66):
+ * the greeting is Malu's, in her first real reply.
  *
  * It answers nothing about her message; it exists to be honest that a person has not
  * replied yet, in a channel where silence reads as ignored. Sent once per lead, never
@@ -338,10 +362,39 @@ export const networkRetryDelay = (
  * again on her second message.
  */
 export const WELCOME_AUTO_REPLY =
-  "Oii, tudo bem?\n\n" +
   "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
   "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
   "encorpa-fashion.com.br";
+
+/**
+ * Malu's first real reply opens with the greeting of the hour (operator, 2026-10-07, grafo §66):
+ * "bom dia" from 06:00 to 12:00, "boa tarde" to 19:00, "boa noite" to midnight, São Paulo time.
+ * Before 06:00 the reply waits for the opening, so it is "bom dia" too.
+ */
+export const greetingFor = (at: Date, agentName: string): string => {
+  const hour = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(at),
+  );
+  const part = hour >= 19 ? "boa noite" : hour >= 12 ? "boa tarde" : "bom dia";
+  return `Oii, ${part}, tudo bem?! Sou a ${agentName} e darei início ao seu atendimento.`;
+};
+
+/** The second bubble when all she wrote was a greeting; with a question, the answer takes its place. */
+export const GREETING_ASK = "Em que posso te ajudar?";
+
+/** The receipt, as sent now or before 2026-10-07 — never a reply of Malu's. */
+export const isReceipt = (body: string): boolean =>
+  body === WELCOME_AUTO_REPLY || body === `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}`;
+
+/**
+ * Every message of hers is a greeting and nothing else ("oi", "Boa tarde, tudo bem?", "olá 😊"): then
+ * the first reply is the greeting and "Em que posso te ajudar?", with no model call.
+ */
+export const onlyGreets = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.every((p) =>
+    /^(?:(?:oi+e?|ol[aá]|opa|e\s*a[ií]|eae|hey|hello|bom\s+dia|boa\s+tarde|boa\s+noite|tudo\s+(?:bem|bom|certo|joia|j[oó]ia)|td\s+(?:bem|bom)|tudo\s+bem\s+com\s+voc[eê]|como\s+vai|malu|gente|amiga|moça|moca|[\s,.!?;:]+|(?:\p{Extended_Pictographic}|\p{Emoji_Modifier}|\u200d|\ufe0f)+)\s*)+$/iu.test(p.trim()),
+  );
 
 /**
  * The wait between the Estágio 0 receipt and Malu's real reply — the operator's call
@@ -360,6 +413,12 @@ export const WELCOME_RESUME_DELAY_SECONDS = 60;
  * 5 s since grafo §61 (operator, 2026-10-06): what arrives later is folded into the reply.
  */
 export const QUIET_WINDOW_MS = 5_000;
+
+/**
+ * The wait once a burst of hers is already in (two or more unanswered): 2 s, enough for the third
+ * message, which otherwise arrived after the reply and cost a revision (operator, review of §66).
+ */
+export const BURST_WINDOW_MS = 2_000;
 
 /**
  * Grafo §61 (operator, 2026-10-06): one turn answers a conversation at a time, and a message she
@@ -399,7 +458,19 @@ export const unansweredInbound = <M extends { direction: string; body?: string |
   const run: M[] = [];
   for (const m of newestFirst) {
     if (m.direction === "inbound") run.unshift(m);
-    else if (m.body !== WELCOME_AUTO_REPLY) break;
+    // The receipt sent before 2026-10-07 opened with "Oii, tudo bem?" — still the receipt.
+    else if (!isReceipt(m.body ?? "")) break;
   }
   return run;
 };
+
+/** The marker the whatsapp function puts before a transcribed voice note (`transcribedBody`, R18.9). */
+export const TRANSCRIBED = "[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] ";
+
+/**
+ * What she said, as the deterministic readers take it: a voice note without its marker and the final
+ * period the transcription adds ("Maria da Silva Souza." was no name, "quero falar com uma pessoa" no
+ * handoff — review of §66). The model still reads the marked text, from the stored message.
+ */
+export const spoken = (body: string): string =>
+  body.startsWith(TRANSCRIBED) ? body.slice(TRANSCRIBED.length).replace(/\.\s*$/, "") : body;

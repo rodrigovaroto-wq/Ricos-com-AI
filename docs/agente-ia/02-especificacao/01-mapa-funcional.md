@@ -257,7 +257,7 @@ Referência: DeskcommCRM → `lib/followup/agent-followup-gate.ts` (gatilho `sil
 
 | Toque | Quando | O quê |
 |---|---|---|
-| 1 | 30 min de silêncio | Retomada curta, do ponto exato onde parou |
+| 1 | ~~30 min~~ **1 h de silêncio** (2026-10-07; mais um "Ainda está aí?" aos 20 min, cada um no máx. uma vez por dia) | Retomada curta, do ponto exato onde parou |
 | 2 | Manhã do dia seguinte | Ângulo diferente — não repetir a frase do toque 1 |
 | 3 | 3 dias depois | **Cupom de 20%, moldura "Super + dia da semana"** (rodada 4) — ex.: "Super Quinta! Você ganhou um cupom de 20%...". Último toque, com saída digna |
 

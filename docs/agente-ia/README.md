@@ -27,7 +27,7 @@ conversa em si.
 | 8 | [`07-cobertura/`](07-cobertura/) | Onde há pagamento na entrega (as 22 praças) e como foi medido |
 | 9 | [`08-mudancas/`](08-mudancas/) | Registro de mudanças da agente, propostas do Hermes e a revisão do PR #39 |
 | 10 | [`09-cruzamento/`](09-cruzamento/) | Agente × documentação: divergências e instantâneos do prompt (foto datada, não se atualiza sozinha) |
-| 11 | [`10-auditoria/`](10-auditoria/) | Auditoria do repositório: o que está contraditório, com situação de cada achado |
+| 11 | [`10-auditoria/`](10-auditoria/) | Auditoria do repositório (2026-09-29) e dos testes reais: [`2026-10-06-teste-real-leila.md`](10-auditoria/2026-10-06-teste-real-leila.md), [`2026-10-07-checklist-teste-real.md`](10-auditoria/2026-10-07-checklist-teste-real.md), [`2026-10-07-diagnostico-v12.md`](10-auditoria/2026-10-07-diagnostico-v12.md), [`2026-10-07-teste-real-leila-2.md`](10-auditoria/2026-10-07-teste-real-leila-2.md) (tabela causa → conserto → guarda). Arquivo de diagnóstico não se apaga (operador, 2026-10-08) |
 
 ## Atalho por pergunta
 
@@ -45,6 +45,9 @@ conversa em si.
 - *"O sistema deveria ter Evaluation Layer, Hermes supervisor, RAG, closed loop?"* → [`05-plano/04-analise-de-arquitetura.md`](05-plano/04-analise-de-arquitetura.md)
 - *"Qual era o desenho original do agente, a árvore de funções?"* → [`05-plano/README.md`](05-plano/README.md)
 - *"O que a agente fala, exatamente?"* → [`06-script/02-script-do-agente.md`](06-script/02-script-do-agente.md)
+- *"Como a Malu deve guiar uma troca ou devolução?"* → [`06-script/06-devolucao-guiada.md`](06-script/06-devolucao-guiada.md) (rascunho de 2026-10-07, não aprovado; depende da resposta do suporte da Logzz/Coinzz)
+- *"Como auditar uma conversa real de teste?"* → [`../operacao/auditar-conversa-real.md`](../operacao/auditar-conversa-real.md) e o modelo [`10-auditoria/2026-10-07-teste-real-leila-2.md`](10-auditoria/2026-10-07-teste-real-leila-2.md)
+- *"O que o Hermes sabe de partida?"* → [`../../hermes/historico-inicial.md`](../../hermes/historico-inicial.md)
 - *"Como conectar o Meta Ads / mandar a venda de volta pro Meta?"* → [`../campanhas-e-anuncios/`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-)
 
 ## Relação com o resto do repositório
