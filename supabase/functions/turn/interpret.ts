@@ -699,7 +699,7 @@ export const saysPaid = (message: string): boolean => {
     const clause = t.slice(start, end);
     if (negatedBefore(t, at) || t[end] === "?" || OTHER_STORE.test(clause)) continue;
     // "paguei não", "paguei nao" (review of the L2 fixes, finding 5); and the door payment is no checkout paid.
-    if (/^\s*(?:n|nao)\b/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
+    if (/^\s*(?:ainda\s+)?(?:n|nao|nada)\b/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
     return true;
   }
@@ -715,7 +715,9 @@ export const asksPaymentStatus = (message: string): boolean => {
   return (
     t.includes("?") &&
     /\b(?:pagamento|pix|paguei|pago)\b/.test(t) &&
-    /\b(?:caiu|deu\s+certo|confirm\w*|chegou|entrou|aprovad\w*|foi|passou|compensou)\b/.test(t)
+    /\b(?:caiu|deu\s+certo|confirm\w*|chegou|entrou|aprovad\w*|passou|compensou)\b/.test(t) &&
+    // A condition is no question about her payment: "quando o pagamento for aprovado vcs mandam?" (second review).
+    !/\b(?:quando|se|depois\s+que|assim\s+que)\b/.test(t)
   );
 };
 
@@ -725,9 +727,11 @@ export const asksPaymentStatus = (message: string): boolean => {
  */
 export const nudgesCheck = (message: string): boolean => {
   // The whole message is the nudge (finding 5): "e aí, tem o tamanho G?", "caiu o preço?", "não deu certo" are not.
-  const words = norm(message).split(/[\s,.!?;]+/).filter(Boolean);
-  const NUDGE = new Set(["e", "ai", "eai", "entao", "checou", "conferiu", "verificou", "caiu", "deu", "certo", "confirmou", "ja", "ae", "oi"]);
-  return words.length > 0 && words.length <= 4 && words.every((w) => NUDGE.has(w)) && !/^(?:oi|e|ja)$/.test(words.join(" "));
+  // "certo", "já já", "oi oi" are acknowledgements, not a nudge (second review): only "e aí" / "e então" and a
+  // checking verb, alone or together.
+  const t = norm(message).split(/[\s,.!?;]+/).filter(Boolean).join(" ");
+  const m = /^(?:(e\s?ai|eai|e\s+entao)\s?)?(checou|conferiu|verificou|caiu|deu\s+certo|confirmou)?(?:\s+ja)?$/.exec(t);
+  return m !== null && (m[1] !== undefined || m[2] !== undefined);
 };
 
 /**

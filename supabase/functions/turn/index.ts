@@ -1664,7 +1664,7 @@ const runFollowupSweep = async () => {
 
     const gates = runGates(text, {
       config: CONFIG,
-      layer: "agent",
+      layer: kind === "payment_check" ? "auto" : "agent",
       optedOut: false,
       now: new Date(),
       paymentPath: touchPath,
@@ -2837,7 +2837,7 @@ const handleTurn = async (
     const receipt = parts.some(isPaymentReceipt);
     const nudged = parts.some(nudgesCheck);
     const check = saidPaid || receipt || nudged || parts.some(asksPaymentStatus)
-      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at`).catch(() => null))?.[0] ?? null
+      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at,run_at`).catch(() => null))?.[0] ?? null
       : null;
     const checking = check?.status === "scheduled";
     const receiptAsked = check?.status === "sent" && Date.now() - Date.parse(check.sent_at ?? "") < 24 * 60 * 60_000;
@@ -2890,9 +2890,11 @@ const handleTurn = async (
       if (sent) {
         // The receipt she sent is kept on the check: at 5 minutes it calls a person instead of asking again.
         if (payment === "receipt_during_check") {
+          // `run_at` moves by a second so a sweep that already read the row without the receipt fails its claim.
+          const bumped = new Date(Date.parse(check?.run_at ?? "") + 1000 || Date.now() + PAYMENT_CHECK_MS).toISOString();
           await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&status=eq.scheduled`, {
             method: "PATCH",
-            body: JSON.stringify({ body: "receipt" }),
+            body: JSON.stringify({ body: "receipt", run_at: bumped }),
           }).catch(() => undefined);
         }
         if (payment === "check" || payment === "check_with_receipt") {

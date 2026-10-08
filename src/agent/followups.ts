@@ -195,14 +195,20 @@ export const STILL_THERE_MS = 20 * MINUTE;
  */
 export type AskedDatum = "cep" | "size" | "name" | "cpf" | "email";
 export const ackGoesUnanswered = (bareAck: boolean, lastOutbound: string, datum: AskedDatum | null): boolean =>
-  bareAck && (datum !== null ? !OFFER.test(lastOutbound) : !lastOutbound.includes("?"));
+  bareAck && (datum !== null ? !isOffer(lastOutbound) : !lastOutbound.includes("?"));
 
 /**
  * A yes/no offer or a choice: "ok" to it is her yes (review of the L2 fixes, finding 4) — "Quer que eu
  * confira o seu CEP?", "Posso te ajudar com o tamanho?", "Prefere … ou …?", and the help offer itself,
  * which would otherwise silence its own answer and re-arm in a loop.
  */
-const OFFER = /\b(?:quer\s+que|posso|precisa\s+de|prefere|pode\s+ser|topa|vamos|qual\s+(?:das|dos)\s+dois)\b[^?]*\?/i;
+const OFFER = /\b(?:quer\s+que|posso|precisa\s+de|prefere|pode\s+ser|topa|qual\s+(?:das|dos)\s+dois)\b/i;
+/** Read in the last question only, and a datum asked in it is no offer (second review of the L2 fixes). */
+const isOffer = (text: string): boolean => {
+  const questions = text.split(/(?<=[.!?])\s+|\n+/).filter((q) => q.trim().endsWith("?"));
+  const last = questions[questions.length - 1] ?? "";
+  return OFFER.test(last) && !/\b(?:me\s+(?:passa|manda|diz)|qual\s+(?!das\b|dos\b)|que\s+n[uú]mero)\b/i.test(last);
+};
 
 /** Ten minutes after an unanswered "ok", the offer of help with the datum asked (operator, 2026-10-08). */
 export const ACK_HELP_MS = 10 * MINUTE;

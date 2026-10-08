@@ -362,11 +362,50 @@ describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)"
     }
   });
   it("6. o comprovante mandado durante a espera vai com a verificação, que chama uma pessoa aos 5 min", () => {
-    expect(turn).toContain('JSON.stringify({ body: "receipt" })');
+    expect(turn).toContain('JSON.stringify({ body: "receipt", run_at: bumped })');
     expect(turn).toContain('if (row.kind === "payment_check" && row.body === "receipt") {');
     expect(turn).toContain("toSend.push({ to: lead.phone, via: \"text\", body: PAYMENT_RECEIPT_ESCALATED");
   });
   it("8. o pedido do e-mail não leva junto o pedido do CPF", () => {
     expect(turn).toContain('(!emailNext && missing[0] === "document" && cpfRefusals === 1');
+  });
+});
+
+describe("L2 — segunda revisão Opus", () => {
+  const ask = (answer: string) => [
+    { direction: "outbound", body: "Me passa seu e-mail pra você receber a confirmação do pedido?" },
+    { direction: "inbound", body: answer },
+  ];
+  it("1. um 'não' ao e-mail deixa o link ir sem ele", () => {
+    for (const a of ["não", "n", "não quero", "prefiro não", "não precisa", "não, obrigada", "manda sem", "não vou passar, manda sem?", "não tenho email", "prefiro não passar"]) {
+      expect(refusedEmail(ask(a)), a).toBe(1);
+    }
+  });
+  it("1. negação: dúvida, adiamento e pergunta não são recusa", () => {
+    for (const a of ["e se eu nao passar o email tem problema", "nao tenho tempo agora, depois mando", "pra que precisa do email?", "ok", "já já te mando"]) {
+      expect(refusedEmail(ask(a)), a).toBe(0);
+    }
+  });
+  it("2. confirmação não é cobrança do pagamento", () => {
+    for (const t of ["certo", "Certo!", "já já", "ja ja", "oi oi", "ai", "entao", "deu"]) expect(nudgesCheck(t), t).toBe(false);
+    for (const t of ["e ai deu certo?", "e aí, checou?", "eai??", "deu certo?"]) expect(nudgesCheck(t), t).toBe(true);
+  });
+  it("4. a oferta é lida só na última pergunta, e pedido de dado não é oferta", () => {
+    for (const last of ["Qual tamanho você prefere, P, M ou G?", "Me passa seu CEP pra eu ver se posso entregar aí?", "Vamos ver seu tamanho? Qual você usa?"]) {
+      expect(ackGoesUnanswered(true, last, "size"), last).toBe(true);
+    }
+    expect(ackGoesUnanswered(true, "Prefere pagar na entrega ou no Pix? Se for na entrega, me manda o CEP", "cep")).toBe(false);
+  });
+  it("5. 'paguei ainda não' e 'paguei nada' não são pagamento", () => {
+    for (const t of ["paguei ainda não", "paguei ainda nao", "paguei nada"]) expect(saysPaid(t), t).toBe(false);
+  });
+  it("6. 'foi' e condição não são pergunta do status", () => {
+    for (const t of ["o pix foi gerado?", "pagamento foi na entrega?", "quando o pagamento for aprovado vcs mandam?"]) expect(asksPaymentStatus(t), t).toBe(false);
+    expect(asksPaymentStatus("o pix foi aprovado?")).toBe(true);
+  });
+  it("3 e 7. a verificação da varredura sai de madrugada e o comprovante na espera invalida a leitura antiga", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).toContain('layer: kind === "payment_check" ? "auto" : "agent"');
+    expect(turn).toContain('JSON.stringify({ body: "receipt", run_at: bumped })');
   });
 });
