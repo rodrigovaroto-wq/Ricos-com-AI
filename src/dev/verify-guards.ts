@@ -3435,7 +3435,7 @@ const MUTATIONS: Mutation[] = [
     id: "G67-paguei-nao",
     bug: "'paguei não' e 'já pago na entrega' eram lidos como pagamento feito",
     files: ["src/agent/interpret.ts"],
-    from: "    if (/^\\s*(?:(?:n|nao|nada)\\b|ainda\\s+(?:n|nao)\\b(?!\\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|foi|deu|consta|aparece)\\b))/.test(t.slice(at + m[0].length)) || /\\b(?:entrega|entregador|motoboy)\\b/.test(clause)) continue;\n",
+    from: "    if (/^\\s*(?:(?:n|nao|nada)\\b|ainda\\s+(?:n|nao)\\b(?!\\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\\s+certo|foi\\s+(?:aprovad|confirmad|compensad)\\w*)\\b))/.test(t.slice(at + m[0].length)) || /\\b(?:entrega|entregador|motoboy)\\b/.test(clause)) continue;\n",
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },

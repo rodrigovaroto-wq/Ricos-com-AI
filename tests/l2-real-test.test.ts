@@ -467,3 +467,26 @@ describe("L2 — quarta revisão Opus", () => {
     expect(asksPaymentStatus("o pix ja caiu? se nao caiu eu mando de novo")).toBe(true);
   });
 });
+
+describe("L2 — quinta revisão Opus", () => {
+  it("1. 'vê se o pix caiu e confirma?' pergunta do pagamento", () => {
+    for (const t of ["ve se o pix caiu e confirma pra mim?", "confere se o pix caiu e confirma por favor?", "olha se o pix caiu e confirma?", "ve se o pix entrou e confirma?", "se o pix ja entrou confirma pra mim?"]) {
+      expect(asksPaymentStatus(t), t).toBe(true);
+    }
+    expect(asksPaymentStatus("quando o pix cair me avisa?")).toBe(false);
+  });
+  const ask = (answer: string) => [
+    { direction: "outbound", body: "Me passa seu e-mail? Ele vai no link do pagamento." },
+    { direction: "inbound", body: answer },
+  ];
+  it("2. 'não' seguido de pergunta sobre o e-mail não é recusa", () => {
+    for (const a of ["nao, pra que precisa do email?", "não, é obrigatório?", "não. pq precisa?", "não, qual o email de vcs?", "não tenho, pode ser o do meu filho?", "nao uso, pode ser o da minha filha?", "nao, tenho sim. qual seria?"]) {
+      expect(refusedEmail(ask(a)), a).toBe(0);
+    }
+    for (const a of ["não, pode mandar sem?", "prefiro não, tudo bem?", "não tenho, pode ser?"]) expect(refusedEmail(ask(a)), a).toBe(1);
+  });
+  it("3. 'paguei ainda não deu tempo' não é pagamento; 'ainda não foi aprovado' é", () => {
+    for (const t of ["paguei ainda não deu tempo", "paguei ainda não foi possível", "paguei ainda nao deu"]) expect(saysPaid(t), t).toBe(false);
+    for (const t of ["paguei ainda não foi aprovado", "paguei ainda não deu certo"]) expect(saysPaid(t), t).toBe(true);
+  });
+});

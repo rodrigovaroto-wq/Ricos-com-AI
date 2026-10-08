@@ -701,7 +701,7 @@ export const saysPaid = (message: string): boolean => {
     // "paguei não", "paguei nao" (review of the L2 fixes, finding 5); and the door payment is no checkout paid.
     // "ainda não" negates unless what follows is the payment's fate: "já paguei ainda não caiu" is paid
     // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
-    if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|foi|deu|consta|aparece)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
+    if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|foi\s+(?:aprovad|confirmad|compensad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
     return true;
   }
@@ -720,7 +720,7 @@ export const asksPaymentStatus = (message: string): boolean => {
     /\b(?:cai|caiu|deu\s+certo|confirm\w*|chegou|entrou|aprovad\w*|passou|compensou)\b/.test(t) &&
     // A condition on the payment itself is no question about it: "quando o pagamento for aprovado vcs mandam?"
     // (second review); any other "se"/"quando" in the message is (third review).
-    !/\b(?:quando|se|depois\s+que|assim\s+que)\s+(?:o\s+)?(?:meu\s+)?(?:pagamento|pix)(?:\s+\w+){0,2}?\s+(?:for|cai|cair|entra|entrar|confirma|confirmar|passa|passar|compensa|compensar)\b/.test(t)
+    !/\b(?:quando|se|depois\s+que|assim\s+que)\s+(?:o\s+)?(?:meu\s+)?(?:pagamento|pix)(?:\s+(?!(?:caiu|entrou|passou|compensou|confirmou|chegou|deu|e)\b)\w+){0,2}?\s+(?:for|cai|cair|entra|entrar|confirma|confirmar|passa|passar|compensa|compensar)\b/.test(t)
   );
 };
 

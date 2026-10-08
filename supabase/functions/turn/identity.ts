@@ -84,7 +84,12 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
     // never does ("tem como não passar o email?", review of 3c613a4).
     const said = raw.split(/[,;.!]+/).map((c) => c.trim()).filter((c) => c !== "" && !c.endsWith("?"));
     // Every refusal form, clause by clause: "não, pode mandar sem?" refuses (fourth review).
-    if (said.some((c) => new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(c) || EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
+    if (said.some((c) => new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(c))) return true;
+    // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
+    // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
+    const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";
+    const goOn = /^(?:(?:pode\s+)?(?:manda|mande|mandar|envia|segue)(?:\s+o\s+link)?\s+sem(?:\s+e-?mail)?|pode\s+ser|tudo\s+bem|pode|ok|beleza|blz)\s*\?+$/.test(asked);
+    if (goOn && said.some((c) => EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
     if (t.endsWith("?")) return false;
     // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
     if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))\b/.test(t)) return true;
