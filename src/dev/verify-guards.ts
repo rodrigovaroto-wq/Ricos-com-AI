@@ -3198,6 +3198,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
+    id: "P8-calca-no-maximo-2",
+    bug: "a Neusa recebeu 'qual número de calça você veste?' cinco vezes seguidas",
+    files: ["src/agent/guardrails.ts"],
+    from: "(ctx.sizeAsks ?? 0) >= 2 && asksSize(text)",
+    to: "false && asksSize(text)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
     id: "D18-um-gancho",
     bug: "'tem alguma roupa que você ama…?' saía em toda resposta, até a 'ainda tá aí?'",
     files: ["src/agent/guardrails.ts"],

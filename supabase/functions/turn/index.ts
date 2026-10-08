@@ -14,6 +14,7 @@ import {
   asksForTestimonial,
   asksWhatSheIs,
   asksCep,
+  asksSize,
   classifyOptOutBurst,
   isHook,
   gateBriefing,
@@ -3479,6 +3480,10 @@ const handleTurn = async (
           ? 0
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
       hookSent: recentOutbound.some(isHook),
+      sizeAsks:
+        stated?.size || lead.size || interpretation.wants_to_buy
+          ? 0
+          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksSize(m)),
       herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.

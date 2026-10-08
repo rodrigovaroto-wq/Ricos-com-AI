@@ -255,6 +255,8 @@ export interface GateContext {
   herWords?: string;
   /** How many of the recent replies asked her CEP, while none was read (`cep_insist`, decision 17). */
   cepAsks?: number;
+  /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
+  sizeAsks?: number;
   /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
   hookSent?: boolean;
 }
@@ -643,6 +645,12 @@ export const asksCep = (text: string): boolean =>
   norm(text)
     .split(/(?<=[.!?])\s+|\n+/)
     .some((t) => /\bcep\b/.test(t) && (/\?/.test(t) || /\b(?:passa|passe|manda|mande|diz|digita|escreve|envia)\b/.test(t)));
+
+/** A reply that asks her pants size or which size she wears (`size_insist`). */
+export const asksSize = (text: string): boolean =>
+  norm(text)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((t) => /\?/.test(t) && /\b(?:calca|tamanho\s+(?:voce\s+)?(?:veste|usa))\b/.test(t));
 
 /** A hook question: about the clothes she stopped wearing or what bothers her (decision 18). */
 export const isHook = (text: string): boolean =>
@@ -3015,6 +3023,16 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () => `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo.`,
     check: (text, ctx) => ((ctx.cepAsks ?? 0) >= 2 && asksCep(text) ? "asks the CEP a third time" : null),
+  },
+  {
+    /**
+     * After the CEP, Neusa got "qual número de calça você veste?" five times in a row (persona round of
+     * 2026-10-08). The same rule as `cep_insist`: twice in a row at most.
+     */
+    name: "size_insist",
+    remedy: "rewrite",
+    briefing: () => `Pergunte o número da calça no máximo duas vezes seguidas: se ela não respondeu, responda o que ela disse e siga.`,
+    check: (text, ctx) => ((ctx.sizeAsks ?? 0) >= 2 && asksSize(text) ? "asks her size a third time in a row" : null),
   },
   {
     /**

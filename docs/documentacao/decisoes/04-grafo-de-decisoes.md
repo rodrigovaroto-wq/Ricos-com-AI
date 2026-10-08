@@ -2203,7 +2203,8 @@ checkout) e não se sabe se a API aceita sem e-mail — religar exige decidir is
 **seguidos** e libera o turno em que ela decide comprar. "Parcelar só dá no antecipado, na entrega é à vista"
 numa frase só foi vetado 3× por `installment_promise` (Tati para uma pessoa) → o gate fica rígido e o prompt
 ensina o parcelamento numa frase só dele. Depois: 0 passagem a pessoa por veto nas quatro repetidas; 407/407
-mutações. **Próximo, observado na Neusa:** o número da calça pedido ~5× seguidas — mesma regra do CEP.
+mutações. **Na Neusa:** o número da calça pedido ~5× seguidas → `size_insist` (2026-10-08), mesma regra do CEP: duas
+vezes seguidas no máximo, liberado quando já há tamanho ou ela decide comprar.
 **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
 (saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 

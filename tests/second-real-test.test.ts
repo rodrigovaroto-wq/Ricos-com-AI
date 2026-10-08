@@ -635,3 +635,17 @@ describe("revisão do §66, B2 — a primeira resposta fixa também abre com a s
     expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated ? null : await sendFixed("));
   });
 });
+
+describe("personas 2026-10-08 — o número da calça no máximo 2 vezes seguidas (Neusa)", () => {
+  const blocked = (t: string, sizeAsks: number) =>
+    runGates(t, ctx({ sizeAsks })).traces.some((x) => x.gate === "size_insist" && x.verdict === "block");
+  it("a terceira pergunta seguida é vetada; a segunda não", () => {
+    expect(blocked("Qual número fica confortável em você na calça?", 2)).toBe(true);
+    expect(blocked("Que tamanho você veste?", 2)).toBe(true);
+    expect(blocked("Qual número fica confortável em você na calça?", 1)).toBe(false);
+  });
+  it.each(["O colete vai bem com calça jeans.", "Com 40 de calça o seu é o M."])("não é pergunta: %s", (f) => expect(blocked(f, 3)).toBe(false));
+  it("o turno conta as perguntas seguidas e libera com tamanho ou decisão de compra", () => {
+    expect(turn).toContain("stated?.size || lead.size || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksSize(m)),");
+  });
+});
