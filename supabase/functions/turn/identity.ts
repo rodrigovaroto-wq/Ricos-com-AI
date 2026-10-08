@@ -74,22 +74,34 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
   const others = new RegExp(String.raw`\b(?:cpf|${NAME_ASK})\b`, "i");
   // Second review of the L2 fixes: a bare "não" is the commonest refusal, and the refusal verb keeps its
   // "e se eu não passar" guard (`REFUSE_VERB`); putting it off ("depois mando") is no refusal.
-  const refuses = (a: string): boolean => {
-    const t = a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/[.!,;]+/g, " ").replace(/\s+/g, " ").trim();
+  const refuses = (a: string, bareNoCounts: boolean): boolean => {
+    const raw = a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const t = raw.replace(/[.!,;]+/g, " ").replace(/\s+/g, " ").trim();
     if (/\b(?:depois|mais\s+tarde|amanha|ja\s+ja|daqui\s+a|logo\s+mais|vou\s+ver)\b/.test(t)) return false;
-    if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem\b/.test(t)) return true;
+    // A refusal said before the question still counts ("não vou passar, manda sem?"); the question itself
+    // never does ("tem como não passar o email?", review of 3c613a4).
+    const said = raw.split(/[,;.!]+/).filter((c) => c.trim() !== "" && !c.trim().endsWith("?"));
+    if (said.some((c) => new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(c.trim()))) return true;
     if (t.endsWith("?")) return false;
+    // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
+    if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))\b/.test(t)) return true;
     return (
-      /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho)$/.test(t) ||
-      /\b(?:sem\s+e-?mail|nao\s+tenho\s+(?:e-?mail|email))\b/.test(t) ||
+      // A bare "não" answers the last question asked: only when that was the e-mail's (third review).
+      (bareNoCounts && /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho)$/.test(t)) ||
+      /\b(?:sem\s+e-?mail|nao\s+(?:tenho|uso)\s+(?:e-?mail|email))\b/.test(t) ||
       new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(t)
     );
   };
+  const lastQuestionIsEmail = (text: string): boolean => {
+    const questions = text.split(/(?<=[.!?])\s+|\n+/).filter((q) => q.trim().endsWith("?"));
+    return /\be-?mail\b/i.test(questions[questions.length - 1] ?? "");
+  };
+  let bareNoCounts = false;
   let count = 0;
   let asked = false;
   let answer: string[] = [];
   const close = () => {
-    if (asked && answer.length > 0 && !answer.some((a) => extractEmail(a) !== null) && answer.some(refuses)) count += 1;
+    if (asked && answer.length > 0 && !answer.some((a) => extractEmail(a) !== null) && answer.some((a) => refuses(a, bareNoCounts))) count += 1;
     answer = [];
   };
   for (const m of messages) {
@@ -99,6 +111,7 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
     }
     close();
     asked = asksForField(m.body ?? "", /\be-?mail\b/i, others);
+    bareNoCounts = lastQuestionIsEmail(m.body ?? "");
   }
   close();
   return count;

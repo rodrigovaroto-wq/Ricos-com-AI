@@ -409,3 +409,36 @@ describe("L2 — segunda revisão Opus", () => {
     expect(turn).toContain('JSON.stringify({ body: "receipt", run_at: bumped })');
   });
 });
+
+describe("L2 — terceira revisão Opus", () => {
+  it("1. 'já paguei ainda não caiu' é pagamento; 'paguei ainda não' não é", () => {
+    for (const t of ["já paguei ainda não caiu", "paguei ainda nao recebi nada", "paguei, ainda não caiu"]) expect(saysPaid(t), t).toBe(true);
+    for (const t of ["paguei ainda não", "paguei ainda nao.", "paguei nada"]) expect(saysPaid(t), t).toBe(false);
+  });
+  it("2. só a condição sobre o próprio pagamento tira a pergunta de status", () => {
+    for (const t of ["o pix caiu? pq se não caiu eu pago de novo", "confirmou o pagamento? se precisar mando o comprovante", "o pagamento passou? se não passou me fala", "quando cai o pix?", "se caiu me avisa, o pix chegou?"]) {
+      expect(asksPaymentStatus(t), t).toBe(true);
+    }
+    expect(asksPaymentStatus("quando o pagamento for aprovado vcs mandam?")).toBe(false);
+  });
+  it("3. 'já caiu?' e 'eae' cobram o pagamento", () => {
+    for (const t of ["já caiu?", "e aí já caiu?", "já conferiu?", "e ae", "eae"]) expect(nudgesCheck(t), t).toBe(true);
+    for (const t of ["certo", "já já", "oi oi", "e ai, o colete é bom?"]) expect(nudgesCheck(t), t).toBe(false);
+  });
+  const ask = (answer: string, q = "Me passa seu e-mail pra você receber a confirmação do pedido?") => [
+    { direction: "outbound", body: q },
+    { direction: "inbound", body: answer },
+  ];
+  it("4. 'não uso email' recusa", () => {
+    expect(refusedEmail(ask("não uso email"))).toBe(1);
+  });
+  it("5. 'manda sem o cpf' e 'manda sem email?' não recusam o e-mail", () => {
+    expect(refusedEmail(ask("manda sem o cpf"))).toBe(0);
+    expect(refusedEmail(ask("manda sem email?"))).toBe(0);
+    expect(refusedEmail(ask("manda sem"))).toBe(1);
+  });
+  it("6. o 'não' simples só recusa quando a última pergunta foi a do e-mail", () => {
+    expect(refusedEmail(ask("não", "Me passa seu e-mail? E você prefere o kit de 2?"))).toBe(0);
+    expect(refusedEmail(ask("não"))).toBe(1);
+  });
+});
