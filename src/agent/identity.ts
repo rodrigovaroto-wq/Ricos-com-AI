@@ -65,6 +65,21 @@ export const extractEmail = (text: string): string | null => {
   return m ? m[0].toLowerCase() : null;
 };
 
+/**
+ * Her e-mail as she typed it in the conversation, newest first, from her own messages only (the
+ * shop's address in an agent message is not hers). It is read from the chat each turn and carried
+ * in the prepaid link, never stored on the lead: no e-mail is kept since 2026-10-07 (0024), and the
+ * prepaid checkout requires one (L2, grafo §67).
+ */
+export const emailInChat = (messages: ReadonlyArray<{ direction: string; body: string | null }>): string | null => {
+  for (const m of [...messages].reverse()) {
+    if (m.direction !== "inbound") continue;
+    const found = extractEmail(m.body ?? "");
+    if (found) return found;
+  }
+  return null;
+};
+
 const NOT_A_NAME =
   /\b(rua|avenida|av|travessa|bairro|cep|numero|apto|cpf|email|colete|tamanho|obrigad|quanto|preco|pre[çc]o)\b/i;
 

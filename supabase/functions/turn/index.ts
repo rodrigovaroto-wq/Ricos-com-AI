@@ -91,6 +91,7 @@ import {
   nextIdentityQuestion,
   refusedAsks,
   refusesAskedDatum,
+  emailInChat,
   type Identity,
 } from "./identity.ts";
 import {
@@ -816,21 +817,26 @@ const regionDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number): string | null => {
+const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number, emailNext = false): string | null => {
   // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
-  // link waits for them: a CPF refused twice is not asked again. No e-mail since 2026-10-07 (operator).
+  // link waits for them: a CPF refused twice is not asked again. The e-mail only on the prepaid path,
+  // between the name and the CPF (`missingForLink`, L2): the Coinzz checkout does not go on without it.
   const missing = (["name", "document"] as const).filter(
     (f) => !draft[f] && !(f === "document" && cpfRefusals >= 2),
   );
-  const topic = nextIdentityQuestion(missing);
+  const topic = emailNext
+    ? `o e-mail dela, pra ela receber a confirmação do pedido (o checkout do antecipado pede)`
+    : nextIdentityQuestion(missing);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
   // for word, turn after turn.
   return topic === null
     ? null
     : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
-      // No e-mail (operator, 2026-10-07): said, so the model never asks it on its own.
-      ` Não peça e-mail.` +
+      // E-mail only when it is the one missing (prepaid, L2): said, so the model never asks it on its own.
+      (emailNext
+        ? ` Se ela não quiser passar, tudo bem: o link vai sem ele e ela digita no checkout.`
+        : ` Não peça e-mail.`) +
       (missing[0] === "document" && cpfRefusals === 1
         ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
           ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
@@ -3341,9 +3347,12 @@ const handleTurn = async (
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
+  // Her e-mail, read from the chat and carried in the prepaid link only — never stored (0024; L2).
+  const chatEmail = emailInChat(recent);
   const linkCustomer = {
     ...identityDraft,
     ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
+    ...(linkPath === "prepay" && chatEmail ? { email: chatEmail } : {}),
     phone: lead.phone,
   };
   // Kits: every piece needs its size before the link, and the link is the kit's own.
@@ -3359,8 +3368,8 @@ const handleTurn = async (
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
   // the link and written to `turn_outcomes.reason`, so the record says what was sent.
   const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
-  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name and CPF — no e-mail
-  // since 2026-10-07. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
+  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name, the e-mail on the
+  // prepaid path (L2, 2026-10-08) and CPF. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
   // refused twice lets the link go without it.
   const cpfRefusals = refusedAsks(recent, "document");
   const linkData = {
@@ -3369,6 +3378,8 @@ const handleTurn = async (
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
     nameKnown: Boolean(identityDraft.name),
     cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
+    // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
+    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3506,9 +3517,9 @@ const handleTurn = async (
   const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
-    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "document")
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
-      : identityDirectiveFor(identityDraft, cpfRefusals);
+      : identityDirectiveFor(identityDraft, cpfRefusals, missing === "email");
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent

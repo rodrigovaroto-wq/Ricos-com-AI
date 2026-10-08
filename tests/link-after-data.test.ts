@@ -65,12 +65,13 @@ describe("recusas: o pedido é a frase que pede o campo (achado 3)", () => {
 });
 
 describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
-  it("as cinco condições entram no link e no 'vou pensar' (sem e-mail desde 2026-10-07)", () => {
+  it("as condições entram no link e no 'vou pensar' (e-mail só no antecipado desde 2026-10-08)", () => {
     expect(source).toContain('const cpfRefusals = refusedAsks(recent, "document");');
     expect(source).toContain("cepKnown: Boolean(addressDraft.cep),");
     expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion?.cod === false,");
     expect(source).toContain("nameKnown: Boolean(identityDraft.name),");
-    expect(source).not.toContain("emailDone");
+    // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
+    expect(source).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1,');
     expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,");
     expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
     expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
@@ -459,7 +460,7 @@ describe("quinta revisão", () => {
 /** Rodada de personas de 2026-10-07 (Jussara, Cleide). */
 describe("diretivas depois da rodada de personas", () => {
   it("o e-mail não é pedido (operador, 2026-10-07); a oferta do kit sai sem pedido de dado", () => {
-    expect(source).toContain("` Não peça e-mail.` +");
+    expect(source).toContain("        : ` Não peça e-mail.`) +");
     expect(source).toContain("const { email: _noEmail, ...storedIdentity }");
     expect(source).toContain("Nesta mensagem, só a oferta, terminando na pergunta do kit");
     expect(source).toContain("não peça nome, e-mail nem CPF agora");

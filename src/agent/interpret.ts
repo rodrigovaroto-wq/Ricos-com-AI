@@ -425,7 +425,7 @@ export const linkPathFor = (
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
 /** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
-export type LinkDatum = "size" | "cep" | "payment" | "name" | "document";
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
 
 export interface LinkData {
   /**
@@ -440,18 +440,24 @@ export interface LinkData {
   nameKnown: boolean;
   /** A valid CPF is known, or she refused it twice. */
   cpfDone: boolean;
+  /**
+   * Prepaid only (operator, 2026-10-08, L2: the Coinzz checkout does not go on without it): false while
+   * her e-mail is not in the chat and she has not refused it. Absent on the delivery path, never waited for.
+   */
+  emailDone?: boolean;
 }
 
 /**
  * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
  * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
- * full name and CPF, in this order — no e-mail since 2026-10-07 (operator). The order is the directive's: one thing at a time.
+ * full name, the e-mail on the prepaid path only (L2, 2026-10-08) and CPF, in this order. The order is the directive's: one thing at a time.
  */
 export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
   : !d.nameKnown ? "name"
+  : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"
   : null;
 

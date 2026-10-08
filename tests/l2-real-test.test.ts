@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { asksPaymentStatus, isBareAck, isPaymentReceipt, nudgesCheck, saysPaid } from "@/agent/interpret.js";
+import { asksPaymentStatus, isBareAck, isPaymentReceipt, missingForLink, nudgesCheck, saysPaid } from "@/agent/interpret.js";
+import { emailInChat } from "@/agent/identity.js";
+import { buildPrefilledCheckoutLink } from "@/agent/coinzz.js";
 import {
   ACK_HELP_MS,
   ackGoesUnanswered,
@@ -17,7 +19,9 @@ import {
   renderFollowup,
   rulerFor,
 } from "@/agent/followups.js";
-import { config } from "./fixtures.js";
+import { config, ctx } from "./fixtures.js";
+import { gateBriefing, runGates } from "@/agent/guardrails.js";
+import { NO_FREE_SHIPPING_PREPAY, riskReversalMessage, systemPrompt } from "@/agent/prompt.js";
 
 /**
  * L2, the operator's and the partner's real tests (2026-10-08, grafo §67). Every phrase here is
@@ -218,5 +222,72 @@ describe("L2 — status do pagamento da Coinzz", () => {
     expect(orderUnpaid("Aguardando pagamento / Aguardando envio")).toBe(true);
     expect(orderUnpaid("Aprovado / Aguardando envio")).toBe(false);
     expect(orderUnpaid("Aguardando envio")).toBe(false);
+  });
+});
+
+describe("L2 — e-mail só no antecipado: nome → e-mail → CPF", () => {
+  const all = { sizeKnown: true, cepKnown: true, pathSettled: true, nameKnown: true, cpfDone: false };
+  it("no antecipado, sem e-mail, o e-mail vem depois do nome e antes do CPF", () => {
+    expect(missingForLink({ ...all, nameKnown: false, emailDone: false })).toBe("name");
+    expect(missingForLink({ ...all, emailDone: false })).toBe("email");
+    expect(missingForLink({ ...all, emailDone: true })).toBe("document");
+    expect(missingForLink({ ...all, emailDone: true, cpfDone: true })).toBeNull();
+  });
+  it("negação: na entrega (emailDone ausente) o e-mail nunca é esperado", () => {
+    expect(missingForLink({ ...all })).toBe("document");
+    expect(missingForLink({ ...all, cpfDone: true })).toBeNull();
+  });
+  it("o e-mail que ela digitou na conversa é lido das mensagens dela, o mais novo vence", () => {
+    expect(emailInChat([
+      { direction: "inbound", body: "leila@gmail.com" },
+      { direction: "outbound", body: "fale com contato@encorpa.com.br" },
+      { direction: "inbound", body: "na verdade é leila.silva@hotmail.com" },
+    ])).toBe("leila.silva@hotmail.com");
+    // Negation: the shop's address in the agent's message is not hers.
+    expect(emailInChat([{ direction: "outbound", body: "contato@encorpa.com.br" }])).toBeNull();
+  });
+  it("o link do antecipado leva o e-mail", () => {
+    const url = buildPrefilledCheckoutLink({ name: "Leila da Silva", email: "Leila@Gmail.com", phone: "5511994915983" }, "prepay", { prepayUrl: "https://app.coinzz.com.br/checkout/x" });
+    expect(new URL(url).searchParams.get("email")).toBe("leila@gmail.com");
+  });
+  it("a função de produção pede o e-mail só no antecipado e não o grava no lead", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1');
+    expect(turn).toContain("...(linkPath === \"prepay\" && chatEmail ? { email: chatEmail } : {})");
+    expect(turn).toContain("const { email: _noEmail, ...storedIdentity }");
+  });
+});
+
+describe("L2 — o prompt (anotações 1, 2, 3, 5, 6 e a pergunta no fim)", () => {
+  const prompt = systemPrompt(config, gateBriefing(config), null).replace(/\s+/g, " ");
+
+  it("a reversão de risco, como o operador ditou, passa a cadeia antes do CEP", () => {
+    const line = riskReversalMessage(config);
+    expect(line).toContain("dependendo da sua região você só paga quando o colete chegar na sua mão");
+    expect(line).toContain("pra devolver sem custo nenhum, risco zero pra você!");
+    expect(prompt).toContain(line);
+    expect(runGates(line, ctx()).traces.filter((t) => t.verdict === "block")).toEqual([]);
+    // Negation: where the door payment does not reach her, the gate still refuses it.
+    expect(runGates(line, ctx({ codUnavailable: true })).traces.some((t) => t.verdict === "block")).toBe(true);
+  });
+
+  it("onde não tem entrega, o frete do antecipado é do cliente, dito como o operador quer", () => {
+    expect(NO_FREE_SHIPPING_PREPAY).toBe("No antecipado o frete é por conta do cliente, calculado por região, e aparece no checkout antes de você pagar.");
+    expect(prompt).toContain(NO_FREE_SHIPPING_PREPAY);
+    expect(runGates(NO_FREE_SHIPPING_PREPAY, ctx({ codUnavailable: true, paymentPath: "prepay" })).traces.filter((t) => t.verdict === "block")).toEqual([]);
+  });
+
+  it("a ressalva vira argumento e só quando o assunto chega perto", () => {
+    expect(prompt).not.toContain("Diga isso quando o assunto chegar perto.");
+    expect(prompt).toContain("Nunca solte isso como ressalva numa mensagem sobre outra coisa");
+    expect(prompt).toContain("Ele não promete milagre: modela na hora que você veste");
+  });
+
+  it("variação de palavras, pergunta no último balão, região antes do CEP, devolver se não gostar, sem detalhe do entregador", () => {
+    expect(prompt).toContain("VARIE AS PALAVRAS.");
+    expect(prompt).toContain("a pergunta vai no último balão, nunca no primeiro");
+    expect(prompt).toContain(`diga "dependendo da sua região" ou "na maioria das regiões"`);
+    expect(prompt).toContain("pra devolver se não gostar");
+    expect(prompt).toContain("se toca a campainha");
   });
 });

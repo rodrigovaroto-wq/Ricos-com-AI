@@ -240,7 +240,7 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
     // Tactics block, risk reversal: the delivery named as its condition, so it is true on the
     // prepaid path too, where "ela não paga nada agora" alone is vetoed (operator, 2026-09-29).
     {
-      text: `no pagamento na entrega ela não paga nada agora e tem ${c.delivery.warrantyDays} dias após o recebimento pra devolver.`,
+      text: `no pagamento na entrega ela não paga nada agora e tem ${c.delivery.warrantyDays} dias após o recebimento pra devolver se não gostar.`,
       paths: BOTH,
     },
     // The price paragraph. No payment methods listed (operator, 2026-10-06).
@@ -388,8 +388,11 @@ describe("concordância: a origem do erro sai do prompt e ele manda reler", () =
   // came back as "voltar a usar bonita com ele". The scene stays, the floating word goes.
   it("a cena concreta fica, sem o adjetivo solto que originou o erro", () => {
     const prompt = flat(build(variant(false, true)));
-    expect(prompt).toContain("o vestido que voltou a fechar, a foto da festa");
+    // L2 (grafo §67): the operator's sentence is the example, with variations; "assenta lisinho" was copied 3×.
+    expect(prompt).toContain("com o nosso colete por baixo a blusa cai melhor no corpo");
+    expect(prompt).toContain("o vestido volta a fechar e você vai pra festa");
     expect(prompt).not.toContain("fechar bonito");
+    expect(prompt).not.toContain("assenta lisinho");
   });
 
   // Every question the prompt now teaches passes the chain, on both payment paths and in
@@ -658,7 +661,7 @@ describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
     const prompt = flat(build(variant(false, true)));
     expect(prompt).toContain("Não diga que anotou, registrou ou recebeu um dado");
     expect(prompt).toContain("não pergunte se pode mandar o link");
-    expect(prompt).toContain("Você não viu a roupa: nunca diga que ela é linda, maravilhosa");
+    expect(prompt).toContain("Você não viu a roupa: nunca diga que a roupa é linda, maravilhosa");
     expect(prompt).toContain("A roupa dela aparece no máximo duas vezes na conversa inteira.");
     expect(prompt).toContain("Não modela quadril nem bumbum");
     expect(prompt).toContain("um vídeo de uma cliente usando o colete");
@@ -670,7 +673,9 @@ describe("resposta solta: conversa, nunca \"não entendi\"", () => {
   it.each(corners)("o prompt ensina responder o desvio e voltar à pergunta ($name)", ({ config }) => {
     const prompt = flat(build(config));
     expect(prompt).toContain("responda isso primeiro e depois volte à sua pergunta com outras palavras");
-    expect(prompt).toContain(`Um "ah ok", "hm" ou "kkk" pede uma continuação curta e calorosa do assunto que está aberto`);
+    // L2: an "ok" beside her question is not answered; a bare "ok" never reaches the model.
+    expect(prompt).toContain(`nunca "que bom que fez sentido" nem "que bom" a um "ok"`);
+    expect(prompt).toContain(`"Hm" ou "kkk" pedem uma continuação curta do assunto aberto`);
     expect(prompt).toContain(`"??" quer dizer que a sua última mensagem não ficou clara`);
     expect(prompt).toContain(`Nunca escreva "não entendi"`);
   });
@@ -1050,7 +1055,9 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
   describe("e-mail → não é pedido (operador, 2026-10-07)", () => {
     // The Logzz checkout has no e-mail field (operator, 2026-10-06): "o checkout pede lá" was false.
     it("não pede e-mail, e não diz que o checkout pede", () => {
-      expect(own(FULL)).toContain("Você NÃO pede e-mail, nem se ela oferecer.");
+      // L2 (2026-10-08): only on the prepaid path, whose checkout requires it.
+      expect(own(FULL)).toContain("No pagamento na entrega você NÃO pede e-mail.");
+      expect(own(FULL)).toContain("só no antecipado, o e-mail, entre o nome e o CPF");
       expect(own(FULL)).not.toContain("o checkout pede o e-mail lá");
       expect(own(FULL)).not.toMatch(/o e-mail pra completar o cadastro/);
     });
@@ -1230,7 +1237,7 @@ describe("os dados antes do link, e o tamanho escolhido no checkout", () => {
 
   it("as cinco coisas, a ordem, o CPF recusado duas vezes e o tamanho no checkout", () => {
     const prompt = own(withKits);
-    expect(prompt).toContain("Antes do link você precisa de quatro coisas: o tamanho, o CEP, o nome completo e o CPF.");
+    expect(prompt).toContain("Antes do link você precisa de quatro coisas: o tamanho, o CEP, o nome completo e o CPF — e, só no antecipado, o e-mail");
     expect(prompt).toContain("depois que ela escolher o pagamento, nessa ordem, um por mensagem");
     expect(prompt).toContain("Se ela recusar o CPF duas vezes, não insista: o link vai sem ele e ela digita o CPF no checkout.");
     expect(prompt).toContain(`No checkout ela completa o endereço e escolhe o tamanho dela — diga com o tamanho, tipo "lá você escolhe o M".`);
