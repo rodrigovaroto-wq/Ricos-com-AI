@@ -19,7 +19,9 @@ export type CheckoutKind = "checkout_reminder";
 export type DeferredKind = "deferred_reply";
 /** "Ainda está aí?" — ten minutes after a reply of hers that ended in a question (operator, 2026-10-06). */
 export type StillThereKind = "still_there";
-export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind;
+/** Five minutes after "paguei" with no payment on file: the receipt is asked (L2, operator 2026-10-08). */
+export type PaymentCheckKind = "payment_check";
+export type FollowupKind = SilenceKind | OrderKind | CheckoutKind | DeferredKind | StillThereKind | PaymentCheckKind;
 
 /** Where the conversation stopped decides what the first touch says. */
 export type StopPoint = "before_size" | "after_price" | "link_sent";
@@ -172,10 +174,47 @@ export interface RulerAnchors {
   readonly lastInbound: Date;
 }
 
+/**
+ * The checkout touch: 10 minutes after the LINK, not after her last message (operator, 2026-10-08,
+ * L2). It was 15 minutes after the reply that carried the link, and any message of hers after it
+ * cancelled it for good — both real tests asked something after the link and neither got it. Only
+ * a paid order, a new link or the end of the conversation (opt-out, a person) takes it away.
+ */
+export const CHECKOUT_REMINDER_MS = 10 * MINUTE;
+
 /** "Ainda está aí?" — exactly this, once per question of hers left open (operator, 2026-10-06). */
 export const STILL_THERE_REPLY = "Ainda está aí?";
 // 20 minutes since 2026-10-07 (operator, grafo §66): at 10 it came four times in two hours.
 export const STILL_THERE_MS = 20 * MINUTE;
+
+/**
+ * A bare "ok" (L2, grafo §67): after the agent asked for a datum, or said something that asked
+ * nothing, "aah entendi, ok" means "read it" — answering it repeated the CEP ask ("Que bom que fez
+ * sentido pra você… me diz seu CEP") or thanked an "ok" ("Que bom, aí quando concluir…"). It goes
+ * unanswered. After a yes/no or a choice the "ok" is her answer, and the turn reads it as before.
+ */
+export type AskedDatum = "cep" | "size" | "name" | "cpf" | "email";
+export const ackGoesUnanswered = (bareAck: boolean, lastOutbound: string, datum: AskedDatum | null): boolean =>
+  bareAck && (datum !== null || !lastOutbound.includes("?"));
+
+/** Ten minutes after an unanswered "ok", the offer of help with the datum asked (operator, 2026-10-08). */
+export const ACK_HELP_MS = 10 * MINUTE;
+
+/** The help offer, per datum. Not for the name: nobody needs help with her own name (operator). */
+export const ackHelpText = (datum: AskedDatum | null): string | null => {
+  switch (datum) {
+    case "cep":
+      return "Precisa de alguma ajuda com o CEP?";
+    case "cpf":
+      return "Precisa de alguma ajuda com o CPF?";
+    case "email":
+      return "Precisa de alguma ajuda com o e-mail?";
+    case "size":
+      return "Precisa de alguma ajuda pra achar o seu tamanho?";
+    default:
+      return null;
+  }
+};
 
 /** The reply ends in a question: the last thing before trailing spaces and emoji is a "?". */
 export const endsWithQuestion = (text: string): boolean =>
@@ -233,7 +272,7 @@ export const oncePerDay = (
 export const scheduleSilence = (now: Date, stopPoint?: StopPoint, anchors?: RulerAnchors): ScheduledFollowup[] => {
   const touches: ScheduledFollowup[] = [];
   if (stopPoint === "link_sent") {
-    touches.push({ kind: "checkout_reminder", runAt: new Date(now.getTime() + 15 * MINUTE) });
+    touches.push({ kind: "checkout_reminder", runAt: new Date(now.getTime() + CHECKOUT_REMINDER_MS) });
   }
   // One hour since 2026-10-07 (operator, grafo §66); it was 30 minutes.
   const first = new Date(now.getTime() + SILENCE_1_MS);
@@ -462,6 +501,8 @@ const ORDER_STATUS_TERMS = new Map<string, StatusTerm>([
   ["pagamento aprovado", "paid"],
   ["pagamento confirmado", "paid"],
   ["pendente", "unpaid"],
+  // The first Coinzz status of a prepaid order, before the Pix is paid (webhook config, 2026-10-08).
+  ["pedido criado", "unpaid"],
   ["aguardando pagamento", "unpaid"],
   ["aguardando", "unpaid"],
   ["em analise", "unpaid"],
@@ -502,6 +543,74 @@ const statusTerms = (status: string | null | undefined): StatusTerm[] | null => 
 };
 
 export const isKnownOrderStatus = (status: string | null | undefined): boolean => statusTerms(status) !== null;
+
+/** An order that exists and is not paid yet — the Pix generated and waiting (Coinzz "Aguardando pagamento"). */
+export const orderUnpaid = (status: string | null | undefined): boolean => {
+  // Coinzz joins payment and shipping ("Aguardando pagamento / Aguardando envio"): the payment half
+  // decides, and nothing paid, on its way or delivered may sit beside it.
+  const terms = statusTerms(status);
+  return terms !== null && terms.includes("unpaid") && terms.every((t) => t === "unpaid" || t === "pre_ship");
+};
+
+/**
+ * "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of calling a
+ * person. No paid order yet: she checks, and 5 minutes later the sweep asks for the receipt — unless
+ * the order arrived meanwhile, whose own confirmation then tells her. The receipt is what goes to a
+ * person. Asked again while it is being checked, the answer is that it still is.
+ */
+export const PAYMENT_CHECK_MS = 5 * MINUTE;
+export const PAYMENT_CHECK_REPLY = "Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
+export const PAYMENT_STILL_CHECKING = "Ainda estou verificando aqui, assim que a confirmação aparecer eu te aviso 💛";
+export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, está tudo certo com o seu pedido 💛";
+export const PAYMENT_RECEIPT_ASK =
+  "Ainda não apareceu a confirmação do seu pagamento aqui. Consegue me mandar o comprovante por aqui? Aí eu confiro pra você 💛";
+export const PAYMENT_RECEIPT_HANDOFF = "Recebi o comprovante, vou conferir e já te retorno 💛";
+
+/** Her orders, as the sale webhook left them: a prepaid one paid, or a live one paid at the door. */
+export const paymentFacts = (
+  orders: ReadonlyArray<{ readonly status: string | null; readonly payment_method: string | null }>,
+): { paid: boolean; codOrder: boolean } => {
+  const live = orders.filter((o) => !isOrderDead(o.status ?? undefined));
+  return {
+    paid: live.some((o) => o.payment_method === "prepay" && !orderUnpaid(o.status)),
+    codOrder: live.some((o) => o.payment_method === "cod"),
+  };
+};
+
+export type PaymentRoute = "confirmed" | "check" | "still_checking" | "ask_receipt" | "receipt_handoff";
+export const paymentRoute = (s: {
+  /** "Paguei", "fiz o pix" (`saysPaid`). */
+  readonly saidPaid: boolean;
+  /** "Deu certo meu pagamento?" (`asksPaymentStatus`). */
+  readonly asksStatus: boolean;
+  /** An image, a document or the word "comprovante" (`isPaymentReceipt`). */
+  readonly receipt: boolean;
+  /** A checkout link went out in this conversation. */
+  readonly linkSent: boolean;
+  /** A prepaid order of hers is paid (`prepaidPaid`). */
+  readonly paid: boolean;
+  /** A live order of hers pays at the door: "paguei" is not about a checkout, and the turn reads it as before. */
+  readonly codOrder?: boolean;
+  /** The 5-minute check is waiting. */
+  readonly checking: boolean;
+  /** The check asked her for the receipt. */
+  readonly receiptAsked: boolean;
+}): PaymentRoute | null => {
+  if (s.codOrder || (!s.linkSent && !s.checking && !s.receiptAsked)) return null;
+  const aboutPayment = s.saidPaid || s.asksStatus || s.receipt;
+  if (s.paid) return aboutPayment ? "confirmed" : null;
+  if (s.receiptAsked && s.receipt) return "receipt_handoff";
+  if (s.checking) return aboutPayment ? "still_checking" : null;
+  if (s.receiptAsked) return s.saidPaid || s.asksStatus ? "ask_receipt" : null;
+  return s.saidPaid || s.receipt ? "check" : null;
+};
+
+/**
+ * The checkout is still open: no order, or only dead or unpaid ones (L2). "Vi que seu pedido ainda
+ * não foi finalizado" is true then — and false the moment one is paid or scheduled.
+ */
+export const checkoutStillOpen = (orderStatuses: readonly string[]): boolean =>
+  orderStatuses.every((s) => isOrderDead(s) || orderUnpaid(s));
 
 /**
  * The status an order keeps when a webhook arrives: a dead order stays dead (third review,
@@ -653,6 +762,16 @@ export const onOrderConfirmed = (
   if (isOrderDead(status)) {
     return { cancel: scheduled.filter(theirs).map((f) => f.kind), arm: [], move: [] };
   }
+  // A Pix generated and not paid (Coinzz "Pedido criado" / "Aguardando pagamento", L2): no "Pedido
+  // confirmado! … já pago" — nothing is armed until a paid status comes. The silence stops, as for any
+  // live order; the checkout touch stays, since the checkout is still open.
+  if (orderUnpaid(status)) {
+    return {
+      cancel: scheduled.filter((f) => inSilenceRuler(f.kind) && f.kind !== "checkout_reminder").map((f) => f.kind),
+      arm: [],
+      move: [],
+    };
+  }
   const plan = scheduleOrder({ orderedAt, status, scheduledFor }, now);
 
   // Delivered: the confirmation, the shipping and the eve have nothing left to say — and the
@@ -677,8 +796,11 @@ export const onOrderConfirmed = (
   const held = existing.find((e) => e.kind === "order_eve" && e.status !== "sent" && theirs(e));
 
   return {
-    // Only what is still waiting can be cancelled; a touch already sent is history.
-    cancel: scheduled.filter((f) => inSilenceRuler(f.kind)).map((f) => f.kind),
+    // Only what is still waiting can be cancelled; a touch already sent is history. An unpaid
+    // order keeps the checkout touch: the Pix is generated and not paid, which is what it asks about.
+    cancel: scheduled
+      .filter((f) => inSilenceRuler(f.kind) && !(f.kind === "checkout_reminder" && orderUnpaid(status)))
+      .map((f) => f.kind),
     // Dedupe against EVERY row, not just the scheduled ones. A second webhook arriving
     // after `order_confirmed` already went out would otherwise re-arm a kind the table
     // still holds as `sent`, and `unique (conversation_id, kind)` turns that into a throw
@@ -804,8 +926,8 @@ const silence1Prepay = (c: FollowupConfig): readonly string[] => {
  * lookup the way `SILENCE_1` does: it asks one thing, whether something is in the way.
  */
 const CHECKOUT_REMINDER: readonly string[] = [
-  "Oi! Só passando pra lembrar de finalizar seu pedido 💛 Ficou alguma dúvida ou travou em algum passo? Me conta que eu te ajudo.",
-  "Oi! Vi que o link do pedido ainda está aberto. Precisa de alguma ajuda pra finalizar, ou ficou alguma dúvida?",
+  // Both paths, the operator's wording (2026-10-08, L2).
+  "Vi que seu pedido ainda não foi finalizado, travou em alguma etapa?",
 ];
 
 /**
@@ -959,8 +1081,12 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "checkout_reminder":
       return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
+    case "payment_check":
+      return PAYMENT_RECEIPT_ASK;
+
     case "still_there":
-      return STILL_THERE_REPLY;
+      // The help offer after an unanswered "ok" travels in the row (L2); every other one is the plain line.
+      return ctx.body?.trim() ? ctx.body : STILL_THERE_REPLY;
 
     case "silence_1": {
       // The stop point is read from the reply that armed the touch; her size is read now. With the

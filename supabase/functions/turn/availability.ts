@@ -192,16 +192,29 @@ export const AVAILABILITY_HEADERS: Readonly<Record<string, string>> = {
 
 export type Fetcher = (url: string, headers?: Readonly<Record<string, string>>) => Promise<unknown>;
 
+/**
+ * The raw Coinzz answer for one size. The postcode goes as digits only: "04710-090" is answered
+ * 422 "O CEP não foi encontrado", "04710090" with the delivery days (probe of 2026-10-08, L2,
+ * grafo §67) — the stored CEP keeps its hyphen, so it is stripped here, where every caller passes.
+ */
+const askSize = (fetcher: Fetcher, zip: string, place: Place, size: Size): Promise<unknown> =>
+  fetcher(
+    `${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip.replace(/\D/g, ""), place, SIZE_CODES[size])}`,
+    AVAILABILITY_HEADERS,
+  );
+
+/** A body the endpoint answered with success: anything else is a failed lookup, not a region. */
+const answered = (body: unknown): boolean => {
+  const data = (body as { data?: unknown } | null)?.data;
+  return typeof data === "object" && data !== null;
+};
+
 export const checkSize = async (
   fetcher: Fetcher,
   zip: string,
   place: Place,
   size: Size,
-): Promise<Availability> =>
-  readAvailability(
-    size,
-    await fetcher(`${AVAILABILITY_ENDPOINT}?${availabilityQuery(zip, place, SIZE_CODES[size])}`, AVAILABILITY_HEADERS),
-  );
+): Promise<Availability> => readAvailability(size, await askSize(fetcher, zip, place, size));
 
 /**
  * The size the region query is asked with. Not a business choice — a diagnostic one: G is
@@ -252,7 +265,11 @@ export const checkRegion = async (
 ): Promise<Region | null> => {
   const place = readPlace(await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`));
   if (!place) return null;
-  return toRegion(zip, place, await checkSize(fetcher, zip, place, REFERENCE_SIZE));
+  // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
+  // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
+  const body = await askSize(fetcher, zip, place, REFERENCE_SIZE);
+  if (!answered(body)) return null;
+  return toRegion(zip, place, readAvailability(REFERENCE_SIZE, body));
 };
 
 /**

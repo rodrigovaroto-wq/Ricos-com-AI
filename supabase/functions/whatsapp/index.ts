@@ -28,7 +28,7 @@
  * WHATSAPP_TOKEN (the receipt; absent = no receipt), N8N_INBOUND_URL. SUPABASE_URL and
  * SUPABASE_SERVICE_ROLE_KEY are injected by the platform.
  */
-import { deliveryErrors, marketingDeclines, oggOpus, parseWebhook, readAndTyping, toWav16k, transcribedBody, verifyChallenge, verifySignature } from "./whatsapp.ts";
+import { deliveryErrors, marketingDeclines, oggOpus, parseWebhook, READ_RECEIPT_DELAY_MS, readReceipt, toWav16k, transcribedBody, verifyChallenge, verifySignature } from "./whatsapp.ts";
 import { sealInbound } from "./inbound-signature.ts";
 // The one runtime dependency of the project (operator, 2026-10-07, caminho 1): Meta's transcription takes
 // WAV only and WhatsApp sends Ogg/Opus; the Edge runtime has no ffmpeg. libopus in WebAssembly, MIT,
@@ -189,16 +189,19 @@ const forward = async (payload: unknown) => {
   const declines = Promise.all(marketingDeclines(payload, PHONE_NUMBER_ID).map(declineMarketing));
   await Promise.all(
     parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, ...parsed }) => {
-      if (TOKEN && PHONE_NUMBER_ID) {
-        await fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
-          body: JSON.stringify(readAndTyping(parsed.externalId)),
-          signal: AbortSignal.timeout(10_000),
-        })
-          .then((r) => r.ok || console.error(`whatsapp: leitura recusada ${parsed.externalId} HTTP ${r.status}`))
-          .catch(() => console.error(`whatsapp: leitura falhou ${parsed.externalId}`));
-      }
+      // The blue ticks 2 s after her message, in parallel: the forward to the turn never waits on them.
+      const read = TOKEN && PHONE_NUMBER_ID
+        ? new Promise((wait) => setTimeout(wait, READ_RECEIPT_DELAY_MS)).then(() =>
+          fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json", Authorization: `Bearer ${TOKEN}` },
+            body: JSON.stringify(readReceipt(parsed.externalId)),
+            signal: AbortSignal.timeout(10_000),
+          })
+            .then((r) => r.ok || console.error(`whatsapp: leitura recusada ${parsed.externalId} HTTP ${r.status}`))
+            .catch(() => console.error(`whatsapp: leitura falhou ${parsed.externalId}`))
+        )
+        : Promise.resolve();
       // Her voice message as text before it is sealed and forwarded; on failure, the "não ouço" line stays.
       const heard = audioId ? await transcribe(audioId) : null;
       const message = heard ? { ...parsed, body: heard } : parsed;
@@ -214,6 +217,7 @@ const forward = async (payload: unknown) => {
       } catch (error) {
         console.error(`whatsapp: falha ao entregar ${message.externalId} ao n8n: ${error instanceof Error ? error.name : "erro"}`);
       }
+      await read;
     }),
   );
   await declines;

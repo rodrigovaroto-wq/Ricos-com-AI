@@ -303,13 +303,19 @@ export const replyButtonsMessage = (to: string, body: string, buttons: ReadonlyA
   };
 };
 
-/** Marks her message read and shows "digitando…" while the turn thinks. */
-export const readAndTyping = (messageId: string) => ({
+/**
+ * Marks her message read — and nothing else. Until 2026-10-08 it also turned on "digitando…" the
+ * second her message arrived, and both partners read that as a bot (L2, grafo §67): no typing
+ * indicator, and the read receipt goes `READ_RECEIPT_DELAY_MS` after her message, not on arrival.
+ */
+export const readReceipt = (messageId: string) => ({
   messaging_product: "whatsapp",
   status: "read",
   message_id: messageId,
-  typing_indicator: { type: "text" },
 });
+
+/** The pause before the blue ticks (operator, 2026-10-08). */
+export const READ_RECEIPT_DELAY_MS = 2_000;
 
 /**
  * Her voice message as the agent reads it (operator, 2026-10-07): the transcript, marked as one, so the

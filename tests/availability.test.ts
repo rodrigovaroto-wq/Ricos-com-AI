@@ -230,6 +230,35 @@ describe("região", () => {
     expect(AVAILABILITY_HEADERS["X-Requested-With"]).toBe("XMLHttpRequest");
   });
 
+  // L2 (2026-10-08, grafo §67): the turn sent "04710-090" and Coinzz answered 422 "O CEP não foi
+  // encontrado"; the fetcher's null was read as "no cash on delivery", and both real buyers in São
+  // Paulo were told their region had no delivery. Digits only, and a failed lookup is unknown.
+  it("o CEP vai só com dígitos para a Coinzz (com hífen ela responde 422)", async () => {
+    let asked = "";
+    await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Santo Amaro" };
+      asked = url;
+      return yes;
+    }, "04710-090");
+    expect(new URL(asked).searchParams.get("zip_code")).toBe("04710090");
+  });
+
+  it("consulta da Coinzz que falha é região desconhecida, nunca região sem entrega", async () => {
+    const unprocessable = { message: "O CEP não foi encontrado. Por favor, recarregue a página e tente novamente." };
+    for (const body of [null, undefined, unprocessable, {}, { data: null }, "erro"]) {
+      const r = await checkRegion(async (url) =>
+        url.includes("viacep") ? { localidade: "São Paulo", uf: "SP", bairro: "Santo Amaro" } : body, "04710-090");
+      expect(r).toBeNull();
+    }
+  });
+
+  it("negação: resposta de sucesso sem entrega continua sendo região sem entrega", async () => {
+    const r = await checkRegion(async (url) =>
+      url.includes("viacep") ? { localidade: "Manaus", uf: "AM", bairro: "Centro" } : no, "69005-010");
+    expect(r).not.toBeNull();
+    expect(r?.cod).toBe(false);
+  });
+
   it("a função de produção repassa o cabeçalho ao fetch, e a varredura de dev também", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(turn).toContain("region = await checkRegion(async (url, headers) => {");

@@ -7,7 +7,8 @@ import {
   marketingDeclines,
   marketingPreferences,
   parseWebhook,
-  readAndTyping,
+  READ_RECEIPT_DELAY_MS,
+  readReceipt,
   replyButtonsMessage,
   templateMessage,
   textMessage,
@@ -255,13 +256,22 @@ describe("o que sai pela Cloud API", () => {
     expect(templateMessage("5511", "t", "pt_BR", []).template).toEqual({ name: "t", language: { code: "pt_BR" } });
   });
 
-  it("marca como lida e mostra digitando", () => {
-    expect(readAndTyping("wamid.1")).toEqual({
+  // L2 (grafo §67): "digitando…" on arrival read as a bot to both partners.
+  it("marca como lida sem mostrar digitando", () => {
+    expect(readReceipt("wamid.1")).toEqual({
       messaging_product: "whatsapp",
       status: "read",
       message_id: "wamid.1",
-      typing_indicator: { type: "text" },
     });
+    expect(JSON.stringify(readReceipt("wamid.1"))).not.toContain("typing");
+  });
+
+  it("a função de entrada marca como lida 2 s depois, sem digitando", () => {
+    const fn = readFileSync("supabase/functions/whatsapp/index.ts", "utf8");
+    expect(READ_RECEIPT_DELAY_MS).toBe(2_000);
+    expect(fn).toContain("setTimeout(wait, READ_RECEIPT_DELAY_MS)");
+    expect(fn).toContain("JSON.stringify(readReceipt(parsed.externalId))");
+    expect(fn).not.toContain("typing_indicator");
   });
 });
 

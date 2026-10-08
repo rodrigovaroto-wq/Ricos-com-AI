@@ -36,6 +36,7 @@ import {
   orderTouchDue,
   eveIsTomorrow,
   chasesSilence,
+  checkoutStillOpen,
   inSilenceRuler,
   optInFollows,
   orderStatusAfter,
@@ -48,6 +49,18 @@ import {
   rulerFor,
   endsSilenceRuler,
   endsWithQuestion,
+  ACK_HELP_MS,
+  PAYMENT_CHECK_MS,
+  PAYMENT_CHECK_REPLY,
+  PAYMENT_CONFIRMED_REPLY,
+  PAYMENT_RECEIPT_ASK,
+  PAYMENT_RECEIPT_HANDOFF,
+  PAYMENT_STILL_CHECKING,
+  paymentFacts,
+  paymentRoute,
+  ackGoesUnanswered,
+  ackHelpText,
+  type AskedDatum,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
@@ -71,6 +84,7 @@ import {
   extractIdentityBurst,
   nameOnFirstLine,
   asksForName,
+  asksForIdentity,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
@@ -126,6 +140,11 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
+  asksPaymentStatus,
+  isBareAck,
+  isPaymentReceipt,
+  nudgesCheck,
+  saysPaid,
   decisionInBurst,
   goodbyeParks,
   handoffFor,
@@ -962,8 +981,16 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
  * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
-const cancelScheduled = (conversationId: string, withCheckout = true) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}`, {
+// "keep_checkout" (L2, grafo §67): her messages after the link no longer cancel the checkout touch —
+// it is anchored on the link, and only a paid order, a new link, an opt-out or a person ends it.
+const cancelScheduled = (conversationId: string, scope: "all" | "keep_checkout" | "silence" = "all") =>
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${
+    scope === "all"
+      ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)"
+      : scope === "keep_checkout"
+      ? "or=(kind.like.silence_*,kind.eq.still_there)"
+      : "kind=like.silence_*"
+  }`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -1039,12 +1066,14 @@ const scheduleSilenceTouches = async (
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
   const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at)`).catch(() => null))?.[0];
-  if (at && !chasesSilence(at.stage, (at.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
-    await cancelScheduled(conversationId);
+  const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+  if (at && !chasesSilence(at.stage, orderStatuses)) {
+    // An unpaid Pix is a checkout still open: its touch stays (L2).
+    await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");
     return;
   }
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
-  await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
+  await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder" ? "keep_checkout" : "silence");
   const anchors = rulerAnchors(at);
   // "Ainda está aí?" and `silence_1` at most once a day each (operator, 2026-10-07, grafo §66).
   const sentAt = Object.fromEntries(
@@ -1059,13 +1088,28 @@ const scheduleSilenceTouches = async (
     run_at: f.runAt.toISOString(),
     status: "scheduled",
     stop_point: stopPoint,
+    // The help offer after an unanswered "ok" rides in `still_there`'s body (L2): a ruler armed
+    // later says the plain line, never a stale "ajuda com o CEP" (merge-duplicates keeps a column left out).
+    body: null,
   }));
   await db("followups?on_conflict=conversation_id,kind", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(rows),
   }).catch(() => undefined);
+  // The checkout touch never lands right on top of a reply: within 5 minutes of the agent speaking,
+  // it moves to 5 minutes after (L2). Index: the unique (conversation_id, kind).
+  if (postponed === undefined) {
+    const soon = new Date(from.getTime() + CHECKOUT_AFTER_REPLY_MS).toISOString();
+    await db(
+      `followups?conversation_id=eq.${conversationId}&kind=eq.checkout_reminder&status=eq.scheduled&run_at=lt.${encodeURIComponent(soon)}`,
+      { method: "PATCH", body: JSON.stringify({ run_at: soon }) },
+    ).catch(() => undefined);
+  }
 };
+
+/** How close to a reply the checkout touch may go (L2). */
+const CHECKOUT_AFTER_REPLY_MS = 5 * 60_000;
 
 /**
  * The clock half of the agent. n8n calls this on a cron; everything it decides is
@@ -1391,7 +1435,15 @@ const runFollowupSweep = async () => {
 
     // She bought after this row was armed, or it was armed before the scheduler knew: the
     // silence ruler does not chase a buyer. Not the end of the ruler either — no `perdido`.
-    if (inSilenceRuler(row.kind) && !chasesSilence(row.conversations?.stage, (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
+    // The checkout touch reads the orders alone (L2): an unpaid Pix is the checkout still open.
+    const statuses = (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+    // The payment arrived during the 5-minute check (L2): the order's own confirmation tells her.
+    if (row.kind === "payment_check" && !checkoutStillOpen(statuses)) {
+      await mark("canceled");
+      skipped.push({ followupId: row.id, reason: "o pagamento chegou: a confirmação do pedido avisa" });
+      return;
+    }
+    if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(row.conversations?.stage, statuses))) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "ela já comprou: régua de silêncio encerrada" });
       return;
@@ -2179,8 +2231,9 @@ const handleTurn = async (
     // means she still gets an answer instead of silence.
   }
 
-  // She answered: every touch waiting on her silence is moot.
-  await cancelScheduled(conversation.id);
+  // She answered: every touch waiting on her silence is moot — except the checkout touch, which
+  // waits on the order, not on her silence (L2).
+  await cancelScheduled(conversation.id, "keep_checkout");
   // And a turn waiting to be retried is moot too: this turn answers her, with the failed
   // message still in the history it reads. Index: unique (conversation_id, kind).
   if (!isRetry) {
@@ -2736,6 +2789,124 @@ const handleTurn = async (
           "&select=body&order=created_at.desc&limit=1",
       ).catch(() => null)
     )?.[0]?.body ?? "";
+
+  // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
+  // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
+  // here. Only a receipt, after the check found nothing, goes to a person.
+  // Index: the unique (conversation_id, kind) of `followups`; `orders_lead_idx`.
+  if (!isResume) {
+    const saidPaid = parts.some(saysPaid);
+    const receipt = parts.some(isPaymentReceipt);
+    const nudged = parts.some(nudgesCheck);
+    const check = saidPaid || receipt || nudged || parts.some(asksPaymentStatus)
+      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at`).catch(() => null))?.[0] ?? null
+      : null;
+    const checking = check?.status === "scheduled";
+    const receiptAsked = check?.status === "sent" && Date.now() - Date.parse(check.sent_at ?? "") < 24 * 60 * 60_000;
+    // "Eai??", "checou?" ask about the payment only while it is being checked.
+    const asksStatus = parts.some(asksPaymentStatus) || ((checking || receiptAsked) && nudged);
+    let linkSent = false;
+    for (const base of saidPaid || receipt ? CHECKOUT_BASES : []) {
+      if (linkSent) break;
+      const sent = await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          `&body=like.${encodeURIComponent(`*${base}*`)}&select=id&limit=1`,
+      ).catch(() => null);
+      linkSent = (sent?.length ?? 0) > 0;
+    }
+    const facts = paymentFacts(
+      saidPaid || receipt || asksStatus || checking || receiptAsked
+        ? (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? []
+        : [],
+    );
+    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked });
+    const settle = (status: "scheduled" | "canceled", runAt?: Date) =>
+      db("followups?on_conflict=conversation_id,kind", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          kind: "payment_check",
+          run_at: (runAt ?? new Date()).toISOString(),
+          status,
+        }),
+      }).catch(() => undefined);
+    if (payment === "receipt_handoff") {
+      await settle("canceled");
+      return await handOff(PAYMENT_RECEIPT_HANDOFF, "a cliente mandou o comprovante de pagamento e o pagamento não chegou — conferir na Coinzz");
+    }
+    const line = payment === "confirmed"
+      ? PAYMENT_CONFIRMED_REPLY
+      : payment === "check"
+      ? PAYMENT_CHECK_REPLY
+      : payment === "still_checking"
+      ? PAYMENT_STILL_CHECKING
+      : payment === "ask_receipt"
+      ? PAYMENT_RECEIPT_ASK
+      : null;
+    if (line !== null) {
+      const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay");
+      if (sent) {
+        if (payment === "check") {
+          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS));
+          // She says she paid: "travou em alguma etapa?" would talk over the check (L2).
+          await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.checkout_reminder&status=eq.scheduled`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: "canceled" }),
+          }).catch(() => undefined);
+        }
+        if (payment === "confirmed") await settle("canceled");
+        return sent;
+      }
+    }
+  }
+
+  // 4a. A bare "ok" goes unanswered (L2, grafo §67) — before the interpreter, so it costs nothing.
+  // After a datum ask, ten minutes of silence bring the offer of help with that datum (not the name).
+  const datum: AskedDatum | null = asksCep(lastOutbound)
+    ? "cep"
+    : asksForSize(lastOutbound)
+    ? "size"
+    : asksForIdentity(lastOutbound) && /\bcpf\b/i.test(lastOutbound)
+    ? "cpf"
+    : asksForIdentity(lastOutbound) && /\be-?mail\b/i.test(lastOutbound)
+    ? "email"
+    : asksForName(lastOutbound)
+    ? "name"
+    : null;
+  if (!isRetry && !isResume && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
+    // Her message cancelled the ruler; it comes back as it was armed by the agent's last reply.
+    const earlier = (recentRows ?? [])
+      .filter((m: { direction: string }) => m.direction === "outbound")
+      .map((m: { body: string | null }) => (m.body ?? "").trim())
+      .reverse();
+    await scheduleSilenceTouches(
+      conversation.id,
+      stopPointOf(lastOutbound, earlier),
+      false,
+      new Date(),
+      undefined,
+      false,
+    );
+    const help = ackHelpText(datum);
+    if (help !== null) {
+      await db("followups?on_conflict=conversation_id,kind", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          kind: "still_there",
+          run_at: new Date(Date.now() + ACK_HELP_MS).toISOString(),
+          status: "scheduled",
+          stop_point: stopPointOf(lastOutbound, earlier),
+          body: help,
+        }),
+      }).catch(() => undefined);
+    }
+    const reason = `ok sozinho: sem resposta${help ? ` — ajuda com ${datum} em 10 min` : ""}`;
+    await recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore);
+    return json(200, { status: "acknowledged", reason });
+  }
 
   /**
    * 4b. The interpreter (R13.1). One call, same model, strict JSON: what her message

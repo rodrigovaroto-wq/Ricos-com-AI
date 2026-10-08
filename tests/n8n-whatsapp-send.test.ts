@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { readAndTyping, replyButtonsMessage, templateMessage, textMessage } from "@/channel/whatsapp.js";
+import { readReceipt, replyButtonsMessage, templateMessage, textMessage } from "@/channel/whatsapp.js";
 
 /**
  * WA-3 (2026-09-25): runs the ACTUAL code of the n8n node "Monta os envios" (versioned
@@ -64,8 +64,8 @@ describe("n8n: envio pela Cloud API", () => {
     }
   });
 
-  it("confirmação de leitura com digitando", () => {
-    expect(run(live, [{ to: "5511", markRead: "wamid.1" }])[0]!.json.payload).toEqual(readAndTyping("wamid.1"));
+  it("confirmação de leitura sem digitando", () => {
+    expect(run(live, [{ to: "5511", markRead: "wamid.1" }])[0]!.json.payload).toEqual(readReceipt("wamid.1"));
   });
 
   it("sem telefone, nada", () => {

@@ -3342,6 +3342,22 @@ const MUTATIONS: Mutation[] = [
     to: "      const message = parsed;\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/audio-transcription.test.ts"],
   },
+  {
+    id: "G67-cep-com-hifen",
+    bug: "a consulta de cobertura mandava o CEP com hífen e a Coinzz respondia 422: toda cliente ouvia que a região não tinha entrega",
+    files: ["src/agent/availability.ts"],
+    from: "availabilityQuery(zip.replace(/\\D/g, \"\"), place, SIZE_CODES[size])",
+    to: "availabilityQuery(zip, place, SIZE_CODES[size])",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
+  },
+  {
+    id: "G67-falha-e-desconhecida",
+    bug: "consulta de cobertura que falhava (422) virava 'sem pagamento na entrega' em vez de região desconhecida",
+    files: ["src/agent/availability.ts"],
+    from: "  if (!answered(body)) return null;\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

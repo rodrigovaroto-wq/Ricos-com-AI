@@ -102,7 +102,7 @@ describe("régua de checkout não finalizado (§R10.4)", () => {
     expect(touches.map((t) => t.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
   });
 
-  it("com link_sent, ganha um quarto toque aos 15 minutos, antes do de 30", () => {
+  it("com link_sent, ganha um quarto toque aos 10 minutos do link, antes do de 1 h (L2)", () => {
     const touches = scheduleSilence(now, "link_sent");
     expect(touches.map((t) => t.kind)).toEqual([
       "checkout_reminder",
@@ -110,7 +110,7 @@ describe("régua de checkout não finalizado (§R10.4)", () => {
       "silence_2",
       "silence_3",
     ]);
-    expect(touches[0]!.runAt.getTime() - now.getTime()).toBe(15 * 60_000);
+    expect(touches[0]!.runAt.getTime() - now.getTime()).toBe(10 * 60_000);
     expect(touches[1]!.runAt.getTime() - now.getTime()).toBe(60 * 60_000);
   });
 
@@ -940,9 +940,9 @@ describe("o lembrete de 15 min só no turno que mandou o link", () => {
     const regua = rulerFor(agora, "link_sent", undefined, false);
     expect(regua.map((f) => f.kind)).toEqual(["silence_1", "silence_2", "silence_3"]);
   });
-  it("o turno que mandou o link arma o lembrete aos 15 minutos", () => {
+  it("o turno que mandou o link arma o lembrete aos 10 minutos (L2)", () => {
     const [primeiro] = rulerFor(agora, "link_sent", undefined, true);
-    expect(primeiro).toEqual({ kind: "checkout_reminder", runAt: new Date(agora.getTime() + 15 * 60_000) });
+    expect(primeiro).toEqual({ kind: "checkout_reminder", runAt: new Date(agora.getTime() + 10 * 60_000) });
   });
   it("reancorada, a régua ignora o link desta resposta: só o lembrete adiado volta", () => {
     expect(rulerFor(agora, "link_sent", "silence_1", true).map((f) => f.kind)[0]).toBe("silence_1");
@@ -1133,7 +1133,7 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
 
   it("cobre as duas variantes sorteadas de cada toque que sorteia", () => {
     // silence_1: 2 por ponto de parada, mais 2 do antecipado depois do preço em cada config.
-    for (const [kind, n] of [["checkout_reminder", 2], ["silence_1", 10], ["silence_2", 4]] as const)
+    for (const [kind, n] of [["checkout_reminder", 1], ["silence_1", 10], ["silence_2", 4]] as const)
       expect(new Set(casos.filter((c) => c.rotulo.startsWith(kind + "/")).map((c) => c.texto)).size).toBe(n);
   });
 
