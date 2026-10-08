@@ -54,7 +54,7 @@ checkout aos 10 min do link (só pedido/link novo/opt-out/pessoa cancelam); e-ma
 CPF, não gravado); prompt (variação, ressalva como argumento, reversão de risco, pergunta no fim, região antes do
 CEP, "frete por conta do cliente"); sem "digitando" e tiques azuis 2 s depois. Validação: `pnpm test` 7053,
 `lint`, `typecheck`, `build`, `typecheck:function`, `dev:conversas` 1665/1665, `dev:gates --fail-on-loosen` 0
-sem aceite; depois de duas revisões Opus (8 + 7 achados, todos consertados) `pnpm test` 7069 e mutações `G67-*` 16/16. **Próximo:** "pode publicar" do operador → `pnpm deploy:turn` e a função
+sem aceite; depois de seis passadas de revisão Opus (todos os achados consertados; resíduos de frase no grafo §67) `pnpm test` 7083 e mutações `G67-*` 16/16. **Próximo:** "pode publicar" do operador → `pnpm deploy:turn` e a função
 `whatsapp`; `whatsapp-envio` no n8n (ramo de leitura sem digitando, dormente); prova pela porta de produção (CEP de
 São Paulo com as duas opções) e novo teste real do operador e do sócio, conferindo o webhook da Coinzz.
 
