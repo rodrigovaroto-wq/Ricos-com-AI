@@ -3472,7 +3472,12 @@ const handleTurn = async (
       // The size is the table's, and a measure is hers (persona round of 2026-10-07, Karol).
       ...(units > 1 ? {} : { knownSize: stated?.size ?? lead.size ?? null }),
       // At most two CEP asks and one hook (operator, decisions 17 and 18 of the §66 review).
-      cepAsks: addressDraft.cep ? 0 : recentOutbound.filter(asksCep).length,
+      // In a row (Neusa: ten), and never when she just decided to buy — then the CEP is the next step
+      // (persona round of 2026-10-08, Jussara went to a person at "vou querer um").
+      cepAsks:
+        addressDraft.cep || interpretation.wants_to_buy
+          ? 0
+          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
       hookSent: recentOutbound.some(isHook),
       herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the

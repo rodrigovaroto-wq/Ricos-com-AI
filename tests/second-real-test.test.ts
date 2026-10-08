@@ -610,7 +610,7 @@ describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por 
     expect(blocked("Essa roupa que você ama vai ficar ótima com o colete.", { hookSent: true }, "hook_repeat")).toBe(false);
   });
   it("o turno conta os pedidos de CEP e o gancho nas respostas recentes", () => {
-    expect(turn).toContain("cepAsks: addressDraft.cep ? 0 : recentOutbound.filter(asksCep).length,");
+    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
     expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
   });
 });
