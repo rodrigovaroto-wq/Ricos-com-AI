@@ -15,13 +15,13 @@
 
 | # | Item | Depende de | Quem | Tamanho |
 |---|---|---|---|---|
-| 3 | `askMarketingOptIn: true` no `BUSINESS_CONFIG` | nada (0019 já aplicada) | **O** | 5 min |
+| 3 | ~~`askMarketingOptIn: true` no `BUSINESS_CONFIG`~~ ✅ **feito** (colado pelo operador; registrado no `HANDOFF.md` em 2026-10-05, confirmado pelo operador em 2026-10-08) | nada (0019 já aplicada) | **O** | 5 min |
 | 4a | Régua: `silence_3` a 63–71 h da entrada; `silence_2` dentro de 24 h | nada | C | ~1 dia, com revisão |
 | 4b | Primeira resposta da agente em **1 minuto** (era 3 na doc, 2 no código) | nada | C | ~1 h |
 | 5 | Versão da Malu gravada em cada turno | nada | C (+ **O** aplica a migração) | ~½ dia |
 | 6 | Rotina "Hermes – decisão" + e-mails novos no n8n | 5 (o e-mail cita a versão) | C (+ **O** autoriza a Rotina) | ~½ dia |
 | 7 | Conta de lucro por venda com o custo real | nada | C | ~1 h |
-| 8 | Portal no Vercel | 5 (separa versões), métricas por criativo/região a definir | C (+ **O**/S credenciais) | 2–3 dias |
+| 8 | Portal no Vercel — **segue no plano** (operador, 2026-10-08), nada construído; depende do token `ads_read` do sócio e do fluxo n8n | 5 (separa versões; feito), métricas por criativo/região a definir | C (+ **O**/S credenciais) | 2–3 dias |
 | — | ~~Reverificar API de cancelamento/devolução~~ — fechado em 02/10: não existe (ver fim) | — | — | — |
 
 4a, 4b, 5 e 7 têm arquivos disjuntos e podem ir em paralelo (regra de ondas). 6 vem depois de 5.
@@ -29,6 +29,8 @@
 ---
 
 ## 3. `askMarketingOptIn` no `BUSINESS_CONFIG` — **operador**
+
+> ✅ **Feito** — o operador colou a chave no secret (HANDOFF 2026-10-05; confirmado por ele em 2026-10-08). O texto abaixo fica como registro do que foi feito.
 
 **Onde:** painel da Supabase → projeto `hbmkgakzrqmdlsvszjeo` → **Edge Functions** → **Secrets**
 (Project Settings → Edge Functions → Secrets) → linha **`BUSINESS_CONFIG`** → editar o valor.

@@ -13,9 +13,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-08)
 
-> **2026-10-08, tarde (sessão `claude/gracious-hopper-9a79su`, PR #56):** `turn` **v13** publicada (ver
+> **2026-10-08, noite: a `turn` no ar é a v14 (`agent_version` 14); o bloco "Onde estamos — 2026-10-08,
+> noite" logo abaixo vale, o resto do quadro é histórico.**
+>
+> ~~**2026-10-08, tarde (sessão `claude/gracious-hopper-9a79su`, PR #56):** `turn` **v13** publicada (ver
 > "Executado"); 12 personas + 4 repetidas, 407/407 mutações, 7010 testes. Próximo: a pergunta do número da
-> calça repetida (mesma regra do CEP), as 3 conversas dos amigos do operador e o L2.
+> calça repetida (mesma regra do CEP), as 3 conversas dos amigos do operador e o L2.~~ ✅ a v13 foi
+> superada pela v14 (2026-10-08, noite): a pergunta do número da calça repetida virou o gate `size_insist`.
 >
 > **Fim da sessão de 2026-10-07, noite.** `whatsapp` v19 no ar (áudio transcrito; falta a prova real com
 > uma nota de voz — provada pelo operador em 2026-10-08). `turn` v12 **publicada em 2026-10-08** (função v84,
@@ -41,7 +45,57 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-07, noite (sessão `claude/gracious-hopper-9a79su`, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-08, noite (sessão `claude/gracious-hopper-9a79su`, PR #56, LEIA PRIMEIRO)
+
+**No ar (conferido pela API de gerência da Supabase em 2026-10-08):**
+- `turn` **`agent_version` 14** = função v88, commit `bed2ee3` publicado, código idêntico ao da árvore `4dcf779`.
+  Modelo da conversa `muse-spark-1.3-contributor` (do operador, à mão — **nunca troque**). Teto R$ 1,00.
+- `whatsapp` com **transcrição de voz** (Meta `muse-voice-transcribe-1.0`): decodificação Ogg/Opus pelo
+  `OpusDecoder.js` vendorizado, arquivos yEnc de URLs jsDelivr fixadas por hash em `deno.lock`. Prova real
+  de uma nota de voz feita pelo operador em 2026-10-08. Detalhes e limites em
+  [`docs/operacao/whatsapp-cloud-api.md`](docs/operacao/whatsapp-cloud-api.md).
+- Migração **0024** (apaga e-mail guardado) aplicada.
+
+**Conferido no repositório em 2026-10-08, ao escrever isto:** `pnpm test` = **7017 testes, 69 arquivos,
+todos passando**; **28 gates** em `src/agent/guardrails.ts` (os do §66: `pending_promise`, `noted_claim`,
+`size_claim`, `cep_insist`, `hook_repeat`, `size_insist`); migrações 0001–0024. Não rodei nesta edição
+`typecheck:function`, `dev:conversas`, `dev:gates` nem `verificar:guardas`.
+
+**O que mudou desde o segundo teste real (grafo §66, auditoria com a tabela "Situação depois do conserto"):**
+consulta de cobertura da Coinzz com o cabeçalho XHR (sem ele, região sempre nula); descadastro × pedido de
+link; saudação pela hora em duas bolhas e link fixo em três; **e-mail fora do fluxo** (só se pede tamanho,
+CEP, nome e CPF; a pergunta de pagamento fica: frete grátis na entrega, antecipado com frete por região);
+"Ainda está aí?" aos 20 min e `silence_1` a 1 h, cada um no máximo uma vez por dia; espera de 2 s na rajada
+que já tem mais de uma mensagem; decisão 16 (todas as reescritas vetadas: preço ou pessoa); `spoken()` para
+áudio transcrito.
+
+**Hermes:** `hermes/historico-inicial.md` (lido como `historico.md` depois de `decisoes.md`) e 11 decisões
+do §66 semeadas em `hermes_proposals` com códigos `2026-10-08 §66-1` … `§66-11` (status `published`,
+`published_at` nulo — não são medidas automaticamente — e já notificadas). Conferidas no banco em 2026-10-08.
+**Atenção para o L2:** o link do antecipado nunca saiu em produção (só o da entrega, `entrega.logzz…`,
+que responde 200) — conferir no primeiro teste que o link que chega é o do pix/cartão.
+
+**Decisões do operador em 2026-10-08 (plano):** template `order_eve` **submetido à Meta, aguardando
+aprovação**; verbas L3: Copy R$ 300, Região R$ 200, caixa R$ 1.500; Mês 1 item 3 (`askMarketingOptIn`)
+feito; item 8 (portal no Vercel) continua no plano.
+
+**Leads de teste:** 5983 e 7967 apagados para novos testes. As conversas dos amigos (finais **9393** e
+**7745**) **aguardam auditoria** pelo roteiro de [`docs/operacao/auditar-conversa-real.md`](docs/operacao/auditar-conversa-real.md).
+
+**Falta, nesta ordem:**
+1. **L2 — testes reais do operador e do sócio:** checkout antecipado (Coinzz) e checkout com pagamento na
+   entrega (Logzz). Auditar cada conversa depois.
+2. **Guias de troca de tamanho e de devolução** para a Malu orientar a cliente (rascunho em
+   [`06-script/06-devolucao-guiada.md`](docs/agente-ia/06-script/06-devolucao-guiada.md), não aprovado). O
+   operador perguntou ao suporte da Logzz e da Coinzz se a cliente pode pedir devolução/troca direto com
+   elas — **resposta pendente**; ela decide o desenho.
+3. Auditar as conversas 9393 e 7745.
+4. **O** pôr `SUPABASE_ACCESS_TOKEN` como **segredo do GitHub Actions** (repositório → Settings → Secrets and
+   variables → Actions) para o `deploy-hermes.yml`; separadamente, ele pode ser variável de ambiente do
+   Claude para as sessões publicarem. Se já foi feito: **não verificado nesta sessão**.
+5. **O** mergear o PR #56. Depois: portal, templates na Meta (aprovação do `order_eve`).
+
+### Onde estamos — 2026-10-07, noite (sessão `claude/gracious-hopper-9a79su`; superado pelo bloco acima)
 
 **Conferido ao começar:** `main` = `78b3e74` (PR #55 mergeado); `turn` v82 = `agent_version` 11
 (`ef521e6`, código de `24e9268`); `2c0e9ea` na main, não publicado. Leads no banco: 5983 (operador,

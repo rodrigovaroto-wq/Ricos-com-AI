@@ -9,7 +9,7 @@ Você trata prompt como código: versionado, com changelog, com suíte de teste.
 
 ## O estado atual, que é o seu problema
 
-O prompt da conversa e o `briefing` de cada um dos **19 gates** moram dentro de
+O prompt da conversa e o `briefing` de cada um dos gates (**28** em 2026-10-08) moram dentro de
 `supabase/functions/turn/index.ts` e `guardrails.ts`. Não existe changelog, não existe
 suíte de prompt, e não existe registro de qual versão de texto produziu qual taxa de
 recusa. Consequência concreta: **o eval de troca de modelo da Frente 3 não tem linha

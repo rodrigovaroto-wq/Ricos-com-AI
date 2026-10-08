@@ -32,9 +32,12 @@ Versões estáveis, fixadas no lockfile. Sem alpha, beta, RC ou canary sem neces
   nunca é chamado durante uma conversa (R11.2). Instalado e calibrado desde 2026-09-25:
   roda na GitHub Action `hermes.yml` a cada 50 leads (R6.2), com o modelo padrão da Meta
   (nunca `-contributor` sobre cliente real) — ver [`hermes/README.md`](hermes/README.md).
-  Desde R14.14 o operador aprova ou recusa cada proposta por um link no e-mail; o motivo
+  Desde R14.14 o operador aprova ou recusa cada proposta (corrigido em 2026-10-08: não mais por link no
+  e-mail, que está desligado, e sim na Rotina "Hermes – decisão", `hermes/DECIDIR.md`); o motivo
   vira o histórico que o Hermes lê antes de propor, e a aprovada é implementada, provada e
-  publicada sozinha ([`hermes/IMPLEMENTAR.md`](hermes/IMPLEMENTAR.md)).
+  publicada sozinha ([`hermes/IMPLEMENTAR.md`](hermes/IMPLEMENTAR.md)); desde 2026-10-08 lê também
+  [`hermes/historico-inicial.md`](hermes/historico-inicial.md) (os casos reais auditados e o que cada
+  um ensinou — grafo §60–§66).
 
 ## Arquitetura — decidida na rodada 11 (2026-09-22)
 

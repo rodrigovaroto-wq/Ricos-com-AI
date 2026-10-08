@@ -67,5 +67,5 @@ tudo, e é a diferença entre "vou te conectar com quem resolve" e "não sei".
 - **Nunca culpe a cliente**, nunca peça para ela repetir o que já disse.
 - Interface e fala em **PT-BR**; código, teste e commit em inglês.
 
-Antes de propor frase nova: ela passa nos 19 gates? Se você não sabe, é o
+Antes de propor frase nova: ela passa na cadeia de gates (28 em 2026-10-08)? Se você não sabe, é o
 `test-engineer` que descobre — não o deploy.

@@ -1,7 +1,8 @@
 # Mapa do repositório — onde está cada coisa
 
-Porta de entrada para achar informação sem ler os 2.750 linhas do `HANDOFF.md`. Atualizado em
-2026-09-29 (base: `main` em `5bf5a15`, com os PRs #42 e #43 mergeados).
+Porta de entrada para achar informação sem ler as ~3.200 linhas do `HANDOFF.md`. Atualizado em
+2026-10-08 (branch `claude/gracious-hopper-9a79su`, PR #56; contagens conferidas no repositório nessa data).
+~~Versão de 2026-09-29 (base `5bf5a15`)~~: as seções 3 e 4 estavam desatualizadas e foram refeitas.
 
 ## 1. Qual arquivo manda quando dois discordam
 
@@ -35,7 +36,11 @@ aplica é o do secret.
 | O que o sistema **não** faz de propósito (RAG, tool-calling…) | [`../CLAUDE.md`](../CLAUDE.md) §Arquitetura |
 | O que falta até produção real | [`agente-ia/05-plano/09-pipeline-ate-producao.md`](agente-ia/05-plano/09-pipeline-ate-producao.md) |
 | O que está contraditório hoje | [`agente-ia/10-auditoria/2026-09-29-auditoria.md`](agente-ia/10-auditoria/2026-09-29-auditoria.md) |
-| Como ligar o WhatsApp Cloud API | [`operacao/whatsapp-cloud-api.md`](operacao/whatsapp-cloud-api.md) |
+| Como ligar o WhatsApp Cloud API, e como o áudio é transcrito | [`operacao/whatsapp-cloud-api.md`](operacao/whatsapp-cloud-api.md) |
+| Como auditar uma conversa real (SQL, 4 leituras, checklist) | [`operacao/auditar-conversa-real.md`](operacao/auditar-conversa-real.md) |
+| Os testes reais e o que cada um achou | [`10-auditoria/`](agente-ia/10-auditoria/): [`2026-10-06-teste-real-leila.md`](agente-ia/10-auditoria/2026-10-06-teste-real-leila.md), [`2026-10-07-checklist-teste-real.md`](agente-ia/10-auditoria/2026-10-07-checklist-teste-real.md), [`2026-10-07-diagnostico-v12.md`](agente-ia/10-auditoria/2026-10-07-diagnostico-v12.md), [`2026-10-07-teste-real-leila-2.md`](agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md) (com a tabela "Situação depois do conserto") |
+| Devolução e troca guiadas (rascunho, não aprovado) | [`agente-ia/06-script/06-devolucao-guiada.md`](agente-ia/06-script/06-devolucao-guiada.md) |
+| O que o Hermes já sabe de partida | [`../hermes/historico-inicial.md`](../hermes/historico-inicial.md) |
 | Segredos e onde ficam | [`operacao/segredos-e-codespace.md`](operacao/segredos-e-codespace.md) |
 | Hermes (supervisor offline) | [`../hermes/README.md`](../hermes/README.md) |
 | Meta Ads, CTWA, Conversions API | repositório [`encorpa-campanhas`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) |
@@ -46,20 +51,23 @@ aplica é o do secret.
 |---|---|---|
 | `src/agent/` | Gates, prompt, régua, estado, tamanho, endereço, identidade | Testes (Node); **espelhado byte a byte** em `supabase/functions/turn/` |
 | `supabase/functions/turn/` | A Edge Function do turno (Deno) — o que a produção executa | Supabase |
-| `supabase/functions/whatsapp/` | Entrada/saída do WhatsApp Cloud API (desligada: `CANAL_ATIVO`) | Supabase |
-| `supabase/migrations/` | 0001–0020 (todas aplicadas em produção) | Postgres |
-| `n8n/workflows/` | Cano e relógio: turno, régua, venda confirmada, envio WhatsApp, decisão do Hermes | PikaPods |
+| `supabase/functions/whatsapp/` | Entrada do WhatsApp Cloud API, com transcrição de nota de voz (`vendor/` = decodificador de Opus; `deno.json` + `deno.lock`); canal ligado desde 2026-10-06 | Supabase |
+| `supabase/migrations/` | 0001–0024 em disco (0024 aplicada em produção, segundo o `HANDOFF.md`; as demais não reconferidas no banco hoje) | Postgres |
+| `n8n/workflows/` | Cano e relógio: turno, régua, venda confirmada, envio WhatsApp, responder cliente, decisão do Hermes (6 arquivos) | PikaPods |
 | `src/llm/` | Seam único de modelo, preço, provedores (só Meta em uso na conversa) | — |
 | `src/dev/` | Ferramentas: simulador, personas, `dev:gates`, `dev:n8n`, `verificar:guardas`, Hermes | Local/CI |
-| `tests/` | 49 arquivos, 5.679 casos (2026-09-29) | CI |
+| `tests/` | 69 arquivos `.test.ts`, 7.017 casos (`pnpm test`, 2026-10-08; eram 49 e 5.679 em 2026-09-29) | CI |
 | `hermes/` | Skill e config do supervisor offline | GitHub Action |
 
-## 4. Estado em uma frase (2026-09-29, noite)
+## 4. Estado em uma frase (2026-10-08, noite)
 
-Produção roda a `turn` **v41** (PR #35, 25/09); o `main` tem os PRs #36–#43 sem publicar. O canal
-WhatsApp está desligado, e o Hermes de produção nunca rodou (a instalação falha na Action). O
-andamento do pipeline 80/20 — feito, falta e próximo passo — está no quadro do topo do
-[`HANDOFF.md`](../HANDOFF.md).
+~~Produção roda a `turn` v41; o canal WhatsApp está desligado; o Hermes nunca rodou~~ — **isso era de
+2026-09-29 e deixou de ser verdade.** Hoje, segundo o `HANDOFF.md` (a API de gerência não foi consultada
+nesta edição): a `turn` no ar é a `agent_version` 14 (função v88), o canal WhatsApp está ligado desde
+2026-10-06 e transcreve notas de voz, o Hermes foi instalado e calibrado em 2026-09-25 e roda pela Action. A
+próxima etapa é o L2 (testes reais de checkout pelo operador e pelo sócio). O andamento do pipeline 80/20
+fica no quadro do topo do [`HANDOFF.md`](../HANDOFF.md) e no bloco "Estado em 2026-10-08" de
+[`09-pipeline-ate-producao.md`](agente-ia/05-plano/09-pipeline-ate-producao.md).
 
 ## 5. Pastas com número faltando (não é arquivo perdido)
 
