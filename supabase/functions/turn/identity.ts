@@ -66,6 +66,33 @@ export const extractEmail = (text: string): string | null => {
 };
 
 /**
+ * The e-mail refused in so many words (review of the L2 fixes, finding 7): "pra que precisa do email?",
+ * an "ok" or any answer without one is no refusal — `refusedAsks` counts those for the CPF, where the
+ * link may go without it after two; the e-mail is asked once and only her refusal lets it go.
+ */
+export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: string | null }>): number => {
+  const NO = /\b(?:(?:n[aã]o|n|nunca)\s+(?:vou\s+|quero\s+)?(?:te\s+)?(?:passo|passar|dou|dar|informo|informar|mando|mandar|tenho|uso)|sem\s+e-?mail)\b/i;
+  const others = new RegExp(String.raw`\b(?:cpf|${NAME_ASK})\b`, "i");
+  let count = 0;
+  let asked = false;
+  let answer: string[] = [];
+  const close = () => {
+    if (asked && answer.length > 0 && !answer.some((a) => extractEmail(a) !== null) && answer.some((a) => NO.test(a) && !a.trim().endsWith("?"))) count += 1;
+    answer = [];
+  };
+  for (const m of messages) {
+    if (m.direction === "inbound") {
+      answer.push(m.body ?? "");
+      continue;
+    }
+    close();
+    asked = asksForField(m.body ?? "", /\be-?mail\b/i, others);
+  }
+  close();
+  return count;
+};
+
+/**
  * Her e-mail as she typed it in the conversation, newest first, from her own messages only (the
  * shop's address in an agent message is not hers). It is read from the chat each turn and carried
  * in the prepaid link, never stored on the lead: no e-mail is kept since 2026-10-07 (0024), and the

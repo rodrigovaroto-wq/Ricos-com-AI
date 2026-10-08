@@ -71,7 +71,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion?.cod === false,");
     expect(source).toContain("nameKnown: Boolean(identityDraft.name),");
     // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
-    expect(source).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1,');
+    expect(source).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore,');
     expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,");
     expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
     expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");

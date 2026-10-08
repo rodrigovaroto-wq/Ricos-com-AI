@@ -54,7 +54,9 @@ import {
   PAYMENT_CHECK_REPLY,
   PAYMENT_CONFIRMED_REPLY,
   PAYMENT_RECEIPT_ASK,
+  PAYMENT_RECEIPT_ESCALATED,
   PAYMENT_RECEIPT_HANDOFF,
+  PAYMENT_RECEIPT_KEPT,
   PAYMENT_STILL_CHECKING,
   paymentFacts,
   paymentRoute,
@@ -92,6 +94,7 @@ import {
   refusedAsks,
   refusesAskedDatum,
   emailInChat,
+  refusedEmail,
   type Identity,
 } from "./identity.ts";
 import {
@@ -837,7 +840,7 @@ const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number, ema
       (emailNext
         ? ` Se ela não quiser passar, tudo bem: o link vai sem ele e ela digita no checkout.`
         : ` Não peça e-mail.`) +
-      (missing[0] === "document" && cpfRefusals === 1
+      (!emailNext && missing[0] === "document" && cpfRefusals === 1
         ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
           ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
         : ``) +
@@ -1447,6 +1450,33 @@ const runFollowupSweep = async () => {
     if (row.kind === "payment_check" && !checkoutStillOpen(statuses)) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "o pagamento chegou: a confirmação do pedido avisa" });
+      return;
+    }
+    // She sent the receipt during the wait and the payment did not arrive: a person checks it now, and
+    // she is told so — not asked again for what she already sent (review of the L2 fixes, finding 6).
+    if (row.kind === "payment_check" && row.body === "receipt") {
+      const claimed = await mark("sent");
+      if (!Array.isArray(claimed) || claimed.length === 0) {
+        skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da verificação" });
+        return;
+      }
+      await db(`leads?id=eq.${lead.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+      }).catch(() => undefined);
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: PAYMENT_RECEIPT_ESCALATED }),
+      }).catch(() => undefined);
+      toSend.push({ to: lead.phone, via: "text", body: PAYMENT_RECEIPT_ESCALATED, kind: row.kind, followupId: row.id });
+      handoffs.push({
+        followupId: row.id,
+        reason: "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — conferir na Coinzz",
+        notify: CONFIG.handoff?.email ?? null,
+        leadId: lead.id,
+        phone: lead.phone,
+        conversationId: row.conversation_id,
+      });
       return;
     }
     if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(row.conversations?.stage, statuses))) {
@@ -2730,10 +2760,12 @@ const handleTurn = async (
     postponing = false,
     /** Pieces the text speaks of: a kit's price is judged as the kit's (review finding 9). */
     pieces = 1,
+    /** "auto": the payment lines answer her at any hour, like the handoff receipt (review of the L2 fixes, 2). */
+    layer: "agent" | "auto" = "agent",
   ): Promise<Response | null> => {
     const gated = runGates(text, {
       config: turnConfig,
-      layer: "agent",
+      layer,
       optedOut: false,
       now: new Date(),
       paymentPath: path,
@@ -2826,7 +2858,7 @@ const handleTurn = async (
         : [],
     );
     const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked });
-    const settle = (status: "scheduled" | "canceled", runAt?: Date) =>
+    const settle = (status: "scheduled" | "canceled", runAt?: Date, body: string | null = null) =>
       db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
         headers: { Prefer: "resolution=merge-duplicates,return=representation" },
@@ -2835,6 +2867,7 @@ const handleTurn = async (
           kind: "payment_check",
           run_at: (runAt ?? new Date()).toISOString(),
           status,
+          body,
         }),
       }).catch(() => undefined);
     if (payment === "receipt_handoff") {
@@ -2845,16 +2878,25 @@ const handleTurn = async (
       ? PAYMENT_CONFIRMED_REPLY
       : payment === "check"
       ? PAYMENT_CHECK_REPLY
+      : payment === "check_with_receipt" || payment === "receipt_during_check"
+      ? PAYMENT_RECEIPT_KEPT
       : payment === "still_checking"
       ? PAYMENT_STILL_CHECKING
       : payment === "ask_receipt"
       ? PAYMENT_RECEIPT_ASK
       : null;
     if (line !== null) {
-      const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay");
+      const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
       if (sent) {
-        if (payment === "check") {
-          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS));
+        // The receipt she sent is kept on the check: at 5 minutes it calls a person instead of asking again.
+        if (payment === "receipt_during_check") {
+          await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&status=eq.scheduled`, {
+            method: "PATCH",
+            body: JSON.stringify({ body: "receipt" }),
+          }).catch(() => undefined);
+        }
+        if (payment === "check" || payment === "check_with_receipt") {
+          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS), payment === "check_with_receipt" ? "receipt" : null);
           // She says she paid: "travou em alguma etapa?" would talk over the check (L2).
           await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.checkout_reminder&status=eq.scheduled`, {
             method: "PATCH",
@@ -3372,6 +3414,16 @@ const handleTurn = async (
   // prepaid path (L2, 2026-10-08) and CPF. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
   // refused twice lets the link go without it.
   const cpfRefusals = refusedAsks(recent, "document");
+  // A link already went out (a switch from the delivery link, or the e-mail out of the window): the
+  // after-link directive forbids asking again, so the e-mail is not waited for (review of the L2 fixes, 1).
+  // Index: messages_conversation_idx; only read when the prepaid link would wait on the e-mail.
+  const linkBefore =
+    linkPath === "prepay" && chatEmail === null &&
+    (recentOutbound.some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b))) ||
+      (CHECKOUT_HOSTS.length > 0 &&
+        ((await db(
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
+        ).catch(() => null))?.length ?? 0) > 0));
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep),
@@ -3379,7 +3431,7 @@ const handleTurn = async (
     nameKnown: Boolean(identityDraft.name),
     cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
-    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1,
+    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;

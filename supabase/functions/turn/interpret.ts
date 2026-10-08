@@ -698,24 +698,37 @@ export const saysPaid = (message: string): boolean => {
     const end = ends.length ? Math.min(...ends) : t.length;
     const clause = t.slice(start, end);
     if (negatedBefore(t, at) || t[end] === "?" || OTHER_STORE.test(clause)) continue;
+    // "paguei não", "paguei nao" (review of the L2 fixes, finding 5); and the door payment is no checkout paid.
+    if (/^\s*(?:n|nao)\b/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
     return true;
   }
   return false;
 };
 
-/** She asks whether her payment went through: a question about the payment itself (L2). */
+/**
+ * She asks whether her payment went through: a question naming the payment AND its fate — "deu certo
+ * meu pagamento?", "o pix caiu?" — never "aceita pix?" or "o pagamento é na entrega?" (finding 5).
+ */
 export const asksPaymentStatus = (message: string): boolean => {
   const t = norm(message);
-  return t.includes("?") && /\b(?:pagamento|pix|paguei|pago)\b/.test(t);
+  return (
+    t.includes("?") &&
+    /\b(?:pagamento|pix|paguei|pago)\b/.test(t) &&
+    /\b(?:caiu|deu\s+certo|confirm\w*|chegou|entrou|aprovad\w*|foi|passou|compensou)\b/.test(t)
+  );
 };
 
 /**
  * A nudge that only means "and my payment?" while it is being checked — "eai??", "checou?", "caiu?"
  * (L2). Outside the check it is anything at all, and is not read.
  */
-export const nudgesCheck = (message: string): boolean =>
-  /\b(?:deu\s+certo|caiu|checou|conferiu|verificou|confirmou|e\s?ai|e\s+entao)\b/.test(norm(message));
+export const nudgesCheck = (message: string): boolean => {
+  // The whole message is the nudge (finding 5): "e aí, tem o tamanho G?", "caiu o preço?", "não deu certo" are not.
+  const words = norm(message).split(/[\s,.!?;]+/).filter(Boolean);
+  const NUDGE = new Set(["e", "ai", "eai", "entao", "checou", "conferiu", "verificou", "caiu", "deu", "certo", "confirmou", "ja", "ae", "oi"]);
+  return words.length > 0 && words.length <= 4 && words.every((w) => NUDGE.has(w)) && !/^(?:oi|e|ja)$/.test(words.join(" "));
+};
 
 /**
  * The payment receipt: an image or a document (the channel's placeholder), or the word itself — not
@@ -725,7 +738,13 @@ export const isPaymentReceipt = (message: string): boolean => {
   const t = norm(message);
   if (/^\[a cliente mandou (?:uma imagem|um documento)\b/.test(t)) return true;
   const at = t.search(/\bcomprovante\b/);
-  return at !== -1 && !t.includes("?") && !negatedBefore(t, at);
+  // Not the one she will send or lost: "vou mandar o comprovante", "perdi o comprovante" (finding 6).
+  return (
+    at !== -1 &&
+    !t.includes("?") &&
+    !negatedBefore(t, at) &&
+    !/\b(?:vou|vo|depois|ja\s+ja|daqui|assim\s+que|perdi|sumiu|apaguei|cade|achar|procurar|tirar|mandarei)\b/.test(t.slice(0, at))
+  );
 };
 
 /**

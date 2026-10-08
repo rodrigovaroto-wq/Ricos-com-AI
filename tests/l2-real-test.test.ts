@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { asksPaymentStatus, isBareAck, isPaymentReceipt, missingForLink, nudgesCheck, saysPaid } from "@/agent/interpret.js";
-import { emailInChat } from "@/agent/identity.js";
+import { emailInChat, refusedEmail } from "@/agent/identity.js";
 import { buildPrefilledCheckoutLink } from "@/agent/coinzz.js";
 import {
   ACK_HELP_MS,
@@ -107,10 +107,12 @@ describe("L2 — o lembrete do checkout ancora no link e só o pedido o tira", (
     expect(checkoutStillOpen(["Cancelado"])).toBe(true);
     expect(orderUnpaid("Aguardando pagamento")).toBe(true);
     // Negations: any live, paid or scheduled order closes it.
-    for (const s of ["Aprovado", "Agendado", "created", "Em rota", "Entregue", "Aguardando envio"]) {
+    for (const s of ["Aprovado", "Agendado", "Em rota", "Entregue", "Aguardando envio"]) {
       expect(checkoutStillOpen([s]), s).toBe(false);
       expect(orderUnpaid(s), s).toBe(false);
     }
+    // n8n's "created" (no status in the webhook) settles nothing (review of the L2 fixes, finding 3).
+    expect(checkoutStillOpen(["created"])).toBe(true);
     expect(checkoutStillOpen(["Aguardando pagamento", "Aprovado"])).toBe(false);
     expect(orderUnpaid("status que ninguém conhece")).toBe(false);
   });
@@ -162,7 +164,8 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
   const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false, receiptAsked: false };
   it("paguei sem pagamento confirmado: ela verifica (sem chamar pessoa)", () => {
     expect(paymentRoute({ ...base, saidPaid: true })).toBe("check");
-    expect(paymentRoute({ ...base, receipt: true })).toBe("check");
+    // A picture alone after the link is not a payment (review, finding 6).
+    expect(paymentRoute({ ...base, receipt: true })).toBeNull();
   });
   it("durante os 5 minutos: 'deu certo?' recebe 'ainda estou verificando'", () => {
     expect(paymentRoute({ ...base, checking: true, asksStatus: true })).toBe("still_checking");
@@ -252,7 +255,7 @@ describe("L2 — e-mail só no antecipado: nome → e-mail → CPF", () => {
   });
   it("a função de produção pede o e-mail só no antecipado e não o grava no lead", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedAsks(recent, "email") >= 1');
+    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore');
     expect(turn).toContain("...(linkPath === \"prepay\" && chatEmail ? { email: chatEmail } : {})");
     expect(turn).toContain("const { email: _noEmail, ...storedIdentity }");
   });
@@ -289,5 +292,81 @@ describe("L2 — o prompt (anotações 1, 2, 3, 5, 6 e a pergunta no fim)", () =
     expect(prompt).toContain(`diga "dependendo da sua região" ou "na maioria das regiões"`);
     expect(prompt).toContain("pra devolver se não gostar");
     expect(prompt).toContain("se toca a campainha");
+  });
+});
+
+describe("L2 — revisão Opus (achados 3 a 8)", () => {
+  it("3. status desconhecido ou 'created' sem status não é pago; pago precisa de status conhecido e positivo", () => {
+    for (const s of ["Aguardando pagamento do PIX", "created", "status novo"]) {
+      expect(paymentFacts([{ status: s, payment_method: "prepay" }]).paid, s).toBe(false);
+      expect(checkoutStillOpen([s]), s).toBe(true);
+    }
+    for (const s of ["Aprovado", "Aprovado / Aguardando envio", "Aguardando envio", "Enviado", "Entregue"]) {
+      expect(paymentFacts([{ status: s, payment_method: "prepay" }]).paid, s).toBe(true);
+      expect(checkoutStillOpen([s]), s).toBe(false);
+    }
+    // Logzz scheduled is a settled delivery order.
+    expect(checkoutStillOpen(["Agendado"])).toBe(false);
+  });
+
+  it("4. 'ok' a uma oferta de sim/não ou a uma escolha ganha resposta; a oferta de ajuda não se repete em laço", () => {
+    for (const last of [
+      "Quer que eu confira se a entrega chega no seu CEP?",
+      "Posso te ajudar a escolher o tamanho?",
+      "Prefere pagar na entrega ou no Pix? Se for na entrega, me manda o CEP",
+      "Precisa de alguma ajuda com o CEP?",
+    ]) {
+      expect(ackGoesUnanswered(true, last, "cep"), last).toBe(false);
+    }
+    expect(ackGoesUnanswered(true, "Me passa seu CEP? Aí eu já vejo como fica a entrega", "cep")).toBe(true);
+  });
+
+  it("5. negação e falsos positivos dos leitores de pagamento", () => {
+    for (const t of ["paguei não", "nao consegui, paguei nao", "ja pago na entrega né", "pago ao entregador"]) expect(saysPaid(t), t).toBe(false);
+    for (const t of ["aceita pix?", "posso pagar no pix?", "o pagamento é na entrega?"]) expect(asksPaymentStatus(t), t).toBe(false);
+    for (const t of ["deu certo meu pagamento?", "o pix caiu?", "confirmou o pagamento?"]) expect(asksPaymentStatus(t), t).toBe(true);
+    for (const t of ["e aí, tem o tamanho G?", "caiu o preço?", "não deu certo"]) expect(nudgesCheck(t), t).toBe(false);
+    for (const t of ["eai??", "checou?", "e ai", "e então?", "caiu?", "deu certo?"]) expect(nudgesCheck(t), t).toBe(true);
+  });
+
+  it("6. comprovante: futuro ou perdido não é; imagem solta depois do link não dispara a verificação", () => {
+    for (const t of ["vou mandar o comprovante", "perdi o comprovante", "depois te mando o comprovante"]) expect(isPaymentReceipt(t), t).toBe(false);
+    const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false, receiptAsked: false };
+    expect(paymentRoute({ ...base, receipt: true })).toBeNull();
+    expect(paymentRoute({ ...base, receipt: true, saidPaid: true })).toBe("check_with_receipt");
+    // A receipt during the 5-minute wait is kept for the check, which then calls a person.
+    expect(paymentRoute({ ...base, checking: true, receipt: true })).toBe("receipt_during_check");
+  });
+
+  it("7. pergunta sobre o e-mail não é recusa: só a recusa explícita conta", () => {
+    const msgs = (answer: string) => [
+      { direction: "outbound", body: "Me passa seu e-mail pra você receber a confirmação do pedido?" },
+      { direction: "inbound", body: answer },
+    ];
+    expect(refusedEmail(msgs("pra que precisa do email?"))).toBe(0);
+    expect(refusedEmail(msgs("ok"))).toBe(0);
+    expect(refusedEmail(msgs("não vou passar meu email"))).toBe(1);
+    expect(refusedEmail(msgs("prefiro não passar"))).toBe(1);
+  });
+});
+
+describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)", () => {
+  const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("1. depois de um link, o antecipado não espera o e-mail", () => {
+    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore,");
+  });
+  it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
+    expect(turn).toContain('await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
+    for (const line of [PAYMENT_CHECK_REPLY, PAYMENT_RECEIPT_ASK]) {
+      expect(runGates(line, ctx({ layer: "auto", paymentPath: "prepay", now: new Date("2026-10-08T05:30:00Z") })).traces.filter((t) => t.verdict === "block"), line).toEqual([]);
+    }
+  });
+  it("6. o comprovante mandado durante a espera vai com a verificação, que chama uma pessoa aos 5 min", () => {
+    expect(turn).toContain('JSON.stringify({ body: "receipt" })');
+    expect(turn).toContain('if (row.kind === "payment_check" && row.body === "receipt") {');
+    expect(turn).toContain("toSend.push({ to: lead.phone, via: \"text\", body: PAYMENT_RECEIPT_ESCALATED");
+  });
+  it("8. o pedido do e-mail não leva junto o pedido do CPF", () => {
+    expect(turn).toContain('(!emailNext && missing[0] === "document" && cpfRefusals === 1');
   });
 });

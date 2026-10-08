@@ -195,7 +195,14 @@ export const STILL_THERE_MS = 20 * MINUTE;
  */
 export type AskedDatum = "cep" | "size" | "name" | "cpf" | "email";
 export const ackGoesUnanswered = (bareAck: boolean, lastOutbound: string, datum: AskedDatum | null): boolean =>
-  bareAck && (datum !== null || !lastOutbound.includes("?"));
+  bareAck && (datum !== null ? !OFFER.test(lastOutbound) : !lastOutbound.includes("?"));
+
+/**
+ * A yes/no offer or a choice: "ok" to it is her yes (review of the L2 fixes, finding 4) — "Quer que eu
+ * confira o seu CEP?", "Posso te ajudar com o tamanho?", "Prefere … ou …?", and the help offer itself,
+ * which would otherwise silence its own answer and re-arm in a loop.
+ */
+const OFFER = /\b(?:quer\s+que|posso|precisa\s+de|prefere|pode\s+ser|topa|vamos|qual\s+(?:das|dos)\s+dois)\b[^?]*\?/i;
 
 /** Ten minutes after an unanswered "ok", the offer of help with the datum asked (operator, 2026-10-08). */
 export const ACK_HELP_MS = 10 * MINUTE;
@@ -544,6 +551,18 @@ const statusTerms = (status: string | null | undefined): StatusTerm[] | null => 
 
 export const isKnownOrderStatus = (status: string | null | undefined): boolean => statusTerms(status) !== null;
 
+/**
+ * An order settled: a known status, nothing unpaid in it, and something that says paid, scheduled, on its
+ * way or delivered — never n8n's bare "created" (a webhook with no status) nor a status outside the
+ * vocabulary (review of the L2 fixes, finding 3: read as paid, "paguei" heard "já foi confirmado").
+ */
+export const orderSettled = (status: string | null | undefined): boolean => {
+  const terms = statusTerms(status);
+  if (terms === null || terms.includes("unpaid") || terms.includes("dead")) return false;
+  if ((status ?? "").trim().toLowerCase() === "created") return false;
+  return terms.some((t) => t === "paid" || t === "pre_ship" || t === "en_route" || t === "delivered");
+};
+
 /** An order that exists and is not paid yet — the Pix generated and waiting (Coinzz "Aguardando pagamento"). */
 export const orderUnpaid = (status: string | null | undefined): boolean => {
   // Coinzz joins payment and shipping ("Aguardando pagamento / Aguardando envio"): the payment half
@@ -565,6 +584,11 @@ export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, e
 export const PAYMENT_RECEIPT_ASK =
   "Ainda não apareceu a confirmação do seu pagamento aqui. Consegue me mandar o comprovante por aqui? Aí eu confiro pra você 💛";
 export const PAYMENT_RECEIPT_HANDOFF = "Recebi o comprovante, vou conferir e já te retorno 💛";
+/** At 5 minutes, the payment still absent and her receipt in hand: a person checks it. */
+export const PAYMENT_RECEIPT_ESCALATED =
+  "Ainda não apareceu a confirmação do pagamento aqui, então já passei seu comprovante pro time conferir e já te retornamos 💛";
+/** The receipt arrived while the payment is being checked: kept, and the check finishes the job. */
+export const PAYMENT_RECEIPT_KEPT = "Recebi o comprovante, obrigada! Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
 
 /** Her orders, as the sale webhook left them: a prepaid one paid, or a live one paid at the door. */
 export const paymentFacts = (
@@ -572,12 +596,19 @@ export const paymentFacts = (
 ): { paid: boolean; codOrder: boolean } => {
   const live = orders.filter((o) => !isOrderDead(o.status ?? undefined));
   return {
-    paid: live.some((o) => o.payment_method === "prepay" && !orderUnpaid(o.status)),
+    paid: live.some((o) => o.payment_method === "prepay" && orderSettled(o.status)),
     codOrder: live.some((o) => o.payment_method === "cod"),
   };
 };
 
-export type PaymentRoute = "confirmed" | "check" | "still_checking" | "ask_receipt" | "receipt_handoff";
+export type PaymentRoute =
+  | "confirmed"
+  | "check"
+  | "check_with_receipt"
+  | "still_checking"
+  | "receipt_during_check"
+  | "ask_receipt"
+  | "receipt_handoff";
 export const paymentRoute = (s: {
   /** "Paguei", "fiz o pix" (`saysPaid`). */
   readonly saidPaid: boolean;
@@ -600,9 +631,11 @@ export const paymentRoute = (s: {
   const aboutPayment = s.saidPaid || s.asksStatus || s.receipt;
   if (s.paid) return aboutPayment ? "confirmed" : null;
   if (s.receiptAsked && s.receipt) return "receipt_handoff";
-  if (s.checking) return aboutPayment ? "still_checking" : null;
+  // The receipt sent during the wait is kept: at 5 minutes the check calls a person instead of asking it again.
+  if (s.checking) return s.receipt ? "receipt_during_check" : aboutPayment ? "still_checking" : null;
   if (s.receiptAsked) return s.saidPaid || s.asksStatus ? "ask_receipt" : null;
-  return s.saidPaid || s.receipt ? "check" : null;
+  // A picture alone after the link is not a payment (finding 6): only beside "paguei".
+  return s.saidPaid ? (s.receipt ? "check_with_receipt" : "check") : null;
 };
 
 /**
@@ -610,7 +643,7 @@ export const paymentRoute = (s: {
  * não foi finalizado" is true then — and false the moment one is paid or scheduled.
  */
 export const checkoutStillOpen = (orderStatuses: readonly string[]): boolean =>
-  orderStatuses.every((s) => isOrderDead(s) || orderUnpaid(s));
+  orderStatuses.every((s) => isOrderDead(s) || !orderSettled(s));
 
 /**
  * The status an order keeps when a webhook arrives: a dead order stays dead (third review,

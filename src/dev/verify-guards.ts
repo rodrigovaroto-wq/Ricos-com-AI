@@ -3415,6 +3415,46 @@ const MUTATIONS: Mutation[] = [
     to: "\"No antecipado não tem frete grátis.\"",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
+  {
+    id: "G67-pago-desconhecido",
+    bug: "status desconhecido ou 'created' lido como pago: 'paguei' ouvia 'já foi confirmado'",
+    files: ["src/agent/followups.ts"],
+    from: "  if ((status ?? \"\").trim().toLowerCase() === \"created\") return false;\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
+  },
+  {
+    id: "G67-ok-a-oferta",
+    bug: "'ok' a uma oferta de sim/não ('Quer que eu confira o seu CEP?') ficava sem resposta",
+    files: ["src/agent/followups.ts"],
+    from: "  bareAck && (datum !== null ? !OFFER.test(lastOutbound) : !lastOutbound.includes(\"?\"));",
+    to: "  bareAck && (datum !== null || !lastOutbound.includes(\"?\"));",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
+  },
+  {
+    id: "G67-paguei-nao",
+    bug: "'paguei não' e 'já pago na entrega' eram lidos como pagamento feito",
+    files: ["src/agent/interpret.ts"],
+    from: "    if (/^\\s*(?:n|nao)\\b/.test(t.slice(at + m[0].length)) || /\\b(?:entrega|entregador|motoboy)\\b/.test(clause)) continue;\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
+  },
+  {
+    id: "G67-pagamento-de-madrugada",
+    bug: "de madrugada o 'paguei' caía no handoff do pós-venda",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "await sendFixed(line, `pagamento: ${payment}`, \"prepay\", {}, false, 1, \"auto\")",
+    to: "await sendFixed(line, `pagamento: ${payment}`, \"prepay\")",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
+  },
+  {
+    id: "G67-email-depois-do-link",
+    bug: "depois do link da entrega, o link do antecipado esperava um e-mail que ninguém pedia",
+    files: ["supabase/functions/turn/index.ts"],
+    from: " || refusedEmail(recent) >= 1 || linkBefore,",
+    to: " || refusedEmail(recent) >= 1,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
