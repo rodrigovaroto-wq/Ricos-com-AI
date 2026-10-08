@@ -70,6 +70,8 @@ export const extractEmail = (text: string): string | null => {
  * an "ok" or any answer without one is no refusal — `refusedAsks` counts those for the CPF, where the
  * link may go without it after two; the e-mail is asked once and only her refusal lets it go.
  */
+const BARE_NO = /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho|nao\s+uso)$/;
+const EMAIL_NONE = /\b(?:sem\s+e-?mail|nao\s+(?:tenho|uso)\s+(?:e-?mail|email))\b/;
 export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: string | null }>): number => {
   const others = new RegExp(String.raw`\b(?:cpf|${NAME_ASK})\b`, "i");
   // Second review of the L2 fixes: a bare "não" is the commonest refusal, and the refusal verb keeps its
@@ -80,15 +82,16 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
     if (/\b(?:depois|mais\s+tarde|amanha|ja\s+ja|daqui\s+a|logo\s+mais|vou\s+ver)\b/.test(t)) return false;
     // A refusal said before the question still counts ("não vou passar, manda sem?"); the question itself
     // never does ("tem como não passar o email?", review of 3c613a4).
-    const said = raw.split(/[,;.!]+/).filter((c) => c.trim() !== "" && !c.trim().endsWith("?"));
-    if (said.some((c) => new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(c.trim()))) return true;
+    const said = raw.split(/[,;.!]+/).map((c) => c.trim()).filter((c) => c !== "" && !c.endsWith("?"));
+    // Every refusal form, clause by clause: "não, pode mandar sem?" refuses (fourth review).
+    if (said.some((c) => new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(c) || EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
     if (t.endsWith("?")) return false;
     // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
     if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))\b/.test(t)) return true;
     return (
       // A bare "não" answers the last question asked: only when that was the e-mail's (third review).
-      (bareNoCounts && /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho)$/.test(t)) ||
-      /\b(?:sem\s+e-?mail|nao\s+(?:tenho|uso)\s+(?:e-?mail|email))\b/.test(t) ||
+      (bareNoCounts && BARE_NO.test(t)) ||
+      EMAIL_NONE.test(t) ||
       new RegExp(String.raw`\b${REFUSE_VERB}\b`).test(t)
     );
   };

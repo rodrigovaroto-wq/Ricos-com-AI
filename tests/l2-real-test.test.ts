@@ -442,3 +442,28 @@ describe("L2 — terceira revisão Opus", () => {
     expect(refusedEmail(ask("não"))).toBe(1);
   });
 });
+
+describe("L2 — quarta revisão Opus", () => {
+  it("1. 'paguei ainda não' com qualquer coisa depois continua negado; 'ainda não caiu' é pago", () => {
+    for (const t of ["paguei ainda nao\nvou pagar", "paguei ainda não rs", "paguei ainda nao kkk", "paguei ainda não 😅", "paguei ainda nao mas vou pagar hj", "paguei ainda não pq tava sem saldo", "paguei ainda nao né"]) {
+      expect(saysPaid(t), t).toBe(false);
+    }
+    for (const t of ["já paguei ainda não caiu", "paguei ainda nao recebi nada"]) expect(saysPaid(t), t).toBe(true);
+  });
+  const ask = (answer: string) => [
+    { direction: "outbound", body: "Me passa seu e-mail pra você receber a confirmação do pedido?" },
+    { direction: "inbound", body: answer },
+  ];
+  it("2. recusa simples antes de uma pergunta conta", () => {
+    for (const a of ["não, pode mandar sem?", "Não. Pode mandar sem?", "nao, manda sem?", "não quero, manda sem?", "prefiro não, tudo bem?", "não tenho, pode ser?", "não uso"]) {
+      expect(refusedEmail(ask(a)), a).toBe(1);
+    }
+    for (const a of ["tem como não passar o email?", "e se eu nao passar o email?"]) expect(refusedEmail(ask(a)), a).toBe(0);
+  });
+  it("3. condição sobre o próprio pagamento, com 'meu', palavra no meio ou presente, não é pergunta de status", () => {
+    for (const t of ["se o meu pix for aprovado hoje chega amanha?", "quando o meu pagamento for aprovado vc avisa?", "quando o pagamento via pix for aprovado vc manda?", "assim que o pix cai vc manda?", "depois que o pix confirma vcs mandam?"]) {
+      expect(asksPaymentStatus(t), t).toBe(false);
+    }
+    expect(asksPaymentStatus("o pix ja caiu? se nao caiu eu mando de novo")).toBe(true);
+  });
+});
