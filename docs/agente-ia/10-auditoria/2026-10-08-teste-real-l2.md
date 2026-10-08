@@ -198,3 +198,19 @@ argumento, tamanho certo pela tabela, foto → site, nome e CPF na ordem, link p
 | L12 / sócio | "digitando" instantâneo | ✅ | causa 7 |
 | sócio | pix na entrega confuso | ✅ consequência da causa 1 | causa 1 |
 | sócio | link pré-preenchido e áudio | ✅ manter | — |
+
+## Situação depois do conserto (2026-10-08, noite — decisões do operador; grafo §67)
+
+| Causa | Conserto | Guarda |
+|---|---|---|
+| 1. CEP com hífen → 422 → "sem entrega" | CEP só com dígitos; resposta sem `data` = região desconhecida | `availability.test.ts`, `G67-cep-com-hifen`, `G67-falha-e-desconhecida` |
+| 2. "Paguei" → handoff mudo | verifica, `payment_check` em 5 min, pede o comprovante; só o comprovante vai a uma pessoa; Pix não pago não arma "já pago" | `l2-real-test.test.ts`, `G67-paguei-sem-pessoa`, `G67-pix-nao-pago` |
+| 3. "ok" sozinho respondido | sem resposta; ajuda com o dado em 10 min (não pelo nome) | `G67-ok-sozinho` |
+| 4. Lembrete do checkout cancelado | 10 min do link, texto do operador, só pedido/link novo/opt-out/pessoa cancelam | `G67-checkout-ancorado` |
+| 5. E-mail exigido pelo antecipado | nome → e-mail → CPF só no antecipado, vai no link, não é gravado | `G67-email-antecipado` |
+| 6. Texto e ordem | prompt (variação, ressalva como argumento, reversão de risco, pergunta no fim, região antes do CEP, "frete por conta do cliente") | `l2-real-test.test.ts`, `prompt.test.ts`, `G67-frete-do-cliente` |
+| 7. "Digitando" instantâneo | sem `typing_indicator`; tiques azuis 2 s depois | `G67-digitando` |
+
+**Ainda não publicado:** a `turn` e a `whatsapp` esperam o "pode publicar" do operador. Prova pela porta de
+produção depois: um CEP de São Paulo tem de voltar com as duas opções; o webhook da Coinzz tem de chegar no
+"Venda confirmada".

@@ -45,9 +45,20 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-08, fim da noite (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
 
-**L2 auditado, nenhum código mudou:** [`10-auditoria/2026-10-08-teste-real-l2.md`](docs/agente-ia/10-auditoria/2026-10-08-teste-real-l2.md)
+**Consertos do L2 feitos na branch, NÃO publicados** (grafo §67; decisões do operador em 08/10): cobertura com o
+CEP só em dígitos e falha = região desconhecida; "paguei" verifica, espera 5 min, pede o comprovante e só então
+chama pessoa; Pix não pago não arma "já pago"; "ok" sozinho sem resposta + ajuda com o dado em 10 min; lembrete do
+checkout aos 10 min do link (só pedido/link novo/opt-out/pessoa cancelam); e-mail só no antecipado (nome → e-mail →
+CPF, não gravado); prompt (variação, ressalva como argumento, reversão de risco, pergunta no fim, região antes do
+CEP, "frete por conta do cliente"); sem "digitando" e tiques azuis 2 s depois. Validação: `pnpm test` 7053,
+`lint`, `typecheck`, `build`, `typecheck:function`, `dev:conversas` 1665/1665, `dev:gates --fail-on-loosen` 0
+sem aceite, mutações `G67-*` 12/12. **Próximo:** "pode publicar" do operador → `pnpm deploy:turn` e a função
+`whatsapp`; `whatsapp-envio` no n8n (ramo de leitura sem digitando, dormente); prova pela porta de produção (CEP de
+São Paulo com as duas opções) e novo teste real do operador e do sócio, conferindo o webhook da Coinzz.
+
+**L2 auditado (antes dos consertos):** [`10-auditoria/2026-10-08-teste-real-l2.md`](docs/agente-ia/10-auditoria/2026-10-08-teste-real-l2.md)
 (Leila 5983 e Fabiana 7967, `agent_version` 14). **Achado P0:** a `turn` manda o CEP com hífen à Coinzz,
 que responde 422, e `readAvailability(null)` lê "sem pagamento na entrega" — **toda cliente com CEP ouve
 que a região não tem entrega** desde a v12 (reproduzido: 04710-090 → 422, 04710090 → 3 datas). Também:

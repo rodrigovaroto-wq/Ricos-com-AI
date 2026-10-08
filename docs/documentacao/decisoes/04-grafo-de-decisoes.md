@@ -2208,6 +2208,49 @@ vezes seguidas no máximo, liberado quando já há tamanho ou ela decide comprar
 **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
 (saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
+## 67. L2 — os testes reais do operador e do sócio: a cobertura que dizia "não" a todo mundo, o "paguei" sem resposta (2026-10-08)
+
+**Sintoma:** as duas conversas (Leila 5983, Fabiana 7967, `agent_version` 14) ouviram "na sua região ainda não
+tem pagamento na entrega" em São Paulo, onde a entrega tinha três datas; a Fabiana pediu a entrega duas vezes e
+recebeu o antecipado. A Leila disse "pronto, paguei", ouviu "Vou checar pra você" e ficou 35 min sem resposta.
+"Aah entendi, ok" e "ok" ganharam "Que bom que fez sentido…" e "Que bom, aí quando concluir…". O lembrete do
+checkout não saiu em nenhuma das duas. O checkout do antecipado travou sem e-mail. O "digitando…" aparecia no
+segundo em que a mensagem chegava. Auditoria: [`10-auditoria/2026-10-08-teste-real-l2.md`](../../agente-ia/10-auditoria/2026-10-08-teste-real-l2.md).
+**Causa:** (1) `checkRegion` repassava o CEP guardado com hífen; a Coinzz responde 422 a "04710-090" e 200 a
+"04710090"; o fetcher devolvia `null` e `readAvailability(null)` lê "sem entrega" — a região saía não nula, com
+`cod: false`. A sonda de 07/10 (C1 do §66) usou dígitos, por isso passou. (2) `handoffFor` lia "paguei" como
+pós-venda e o handoff cala a conversa até uma pessoa responder. (3) O prompt mandava responder "ah ok" com
+"continuação calorosa". (4) `rulerFor` só armava o `checkout_reminder` na resposta que levava o link, e toda
+mensagem dela o cancelava. (5) O e-mail saiu do fluxo em 07/10 (§66) e o checkout da Coinzz não segue sem ele.
+(6) `readAndTyping` ligava o "digitando" na chegada. (7) O exemplo "assenta lisinho" do prompt era copiado; "diga
+isso quando o assunto chegar perto" virou ressalva espontânea.
+**Caminhos que não serviram:** deixar a falha da consulta como "sem entrega" porque "custa só margem" (o comentário
+do `availability.ts`) — custou o caminho que converte, nas duas; dizer "Conferi que seu pagamento não foi
+concluído" sem o webhook provado (seria mentira se ela pagou); "frete grátis" no balão de reversão de risco junto
+de outras frases (`shipping_promise` veta — o grátis fica na frase canônica, e só antes do CEP); "No antecipado
+não tem frete grátis" (o operador preferiu "o frete é por conta do cliente").
+**Correção (decisões do operador, 2026-10-08):** C1 CEP só com dígitos para a Coinzz e resposta sem `data` = região
+nula (`checkRegion`). C2 `paymentRoute`: "paguei" com link e sem pedido pago → "Vou verificar o status do seu
+pagamento…" + `payment_check` em 5 min; durante a espera "Ainda estou verificando…"; aos 5 min, sem pagamento,
+o pedido do comprovante; só o comprovante depois disso vai a uma pessoa; antecipado pago → "já foi confirmado";
+pedido na entrega fica fora desse caminho. Pix não pago ("Pedido criado", "Aguardando pagamento") não arma
+"Pedido confirmado! … já pago" (`onOrderConfirmed`). C3 `isBareAck` + `ackGoesUnanswered`: "ok" depois de pedido
+de dado ou de mensagem sem pergunta fica sem resposta, e em 10 min "Precisa de alguma ajuda com o CEP/CPF/e-mail/
+tamanho?" (nada pelo nome); depois de pergunta de sim/não continua sendo decisão. C4 `checkout_reminder` aos 10 min
+do link, "Vi que seu pedido ainda não foi finalizado, travou em alguma etapa?", não cancelado pelas mensagens dela
+(`cancelScheduled(…, "keep_checkout")`), só por pedido pago/agendado, link novo, opt-out ou pessoa; nunca a menos de
+5 min de uma resposta. C5 e-mail só no antecipado (nome → e-mail → CPF), lido do chat (`emailInChat`), no link,
+nunca gravado; uma recusa basta. C6 prompt: frase do operador como exemplo e variações, "varie as palavras",
+ressalva só quando perguntada e como argumento, `riskReversalMessage` antes do CEP, "pra devolver se não gostar",
+pergunta no último balão, "dependendo da sua região" antes do CEP, sem detalhe do entregador,
+`NO_FREE_SHIPPING_PREPAY`. C7 sem `typing_indicator`; leitura 2 s depois (`READ_RECEIPT_DELAY_MS`).
+**Guarda:** `tests/l2-real-test.test.ts` (frases literais + negações), `tests/availability.test.ts` (422 literal);
+mutações `G67-*` (12/12 pegas, com as duas `G66-sem-email*` reescritas).
+**Resíduo:** imagem com legenda chega só como legenda (não é lida como comprovante); o webhook da Coinzz não foi
+provado (nenhuma execução do "Venda confirmada" até 08/10) e as duas integrações do painel apontam para a mesma URL
+(cada evento chega duas vezes — `recordOrder` é idempotente por `external_id`); "Ainda está aí?" com ajuda por dado
+não passa pelo limite de uma vez por dia.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
