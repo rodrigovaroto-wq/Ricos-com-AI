@@ -415,6 +415,12 @@ export const WELCOME_RESUME_DELAY_SECONDS = 60;
 export const QUIET_WINDOW_MS = 5_000;
 
 /**
+ * The wait once a burst of hers is already in (two or more unanswered): 2 s, enough for the third
+ * message, which otherwise arrived after the reply and cost a revision (operator, review of §66).
+ */
+export const BURST_WINDOW_MS = 2_000;
+
+/**
  * Grafo §61 (operator, 2026-10-06): one turn answers a conversation at a time, and a message she
  * sends while it writes is folded into its reply instead of throwing the reply away. The turn
  * that writes revises its draft with the whole burst at most this many times.

@@ -253,6 +253,10 @@ export interface GateContext {
    */
   knownSize?: string | null;
   herWords?: string;
+  /** How many of the recent replies asked her CEP, while none was read (`cep_insist`, decision 17). */
+  cepAsks?: number;
+  /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
+  hookSent?: boolean;
 }
 
 const norm = (s: string): string =>
@@ -633,6 +637,22 @@ export const classifyOptOutBurst = (messages: readonly string[]): OptOutLevel =>
   const levels = messages.map((m) => classifyOptOut(m, messages.join("\n")));
   return levels.includes("explicit") ? "explicit" : levels.includes("ambiguous") ? "ambiguous" : "none";
 };
+
+/** A reply that asks her CEP: a question about it, or the request ("me passa seu CEP"). */
+export const asksCep = (text: string): boolean =>
+  norm(text)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some((t) => /\bcep\b/.test(t) && (/\?/.test(t) || /\b(?:passa|passe|manda|mande|diz|digita|escreve|envia)\b/.test(t)));
+
+/** A hook question: about the clothes she stopped wearing or what bothers her (decision 18). */
+export const isHook = (text: string): boolean =>
+  norm(text)
+    .split(/(?<=[.!?])\s+|\n+/)
+    .some(
+      (t) =>
+        /\?/.test(t) &&
+        /\b(?:roupa\w*\s+que\s+voce\s+(?:ama|mais\s+gosta|adora)|deix\w*\s+de\s+usar|(?:o\s+que|qual\s+parte)\s+(?:mais\s+)?(?:te\s+)?incomoda|o\s+que\s+pesa\s+mais)\b/.test(t),
+    );
 
 /** The condition that makes a send true: it goes the moment she gives what is missing (`pending_promise`). */
 const PROMISE_CONDITION =
@@ -2985,6 +3005,26 @@ const gates: readonly Gate[] = [
       /\b(?:(?:needs?|must|should)\s+(?:to\s+)?(?:ask|check|say|confirm|get)|(?:needs?|get)\s+(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|let\s+me|i\s+(?:should|need|will|must)|the\s+client|(?:the\s+)?(?:user|customer)\s+(?:wants|asked|said|needs)|the\s+(?:user|customer)|ask\s+(?:her\s+)?(?:for\s+)?(?:the\s+|her\s+)?(?:cep|size|e-?mail|cpf|name|price)|ask\s+(?:her|for\s+the)|she\s+(?:wants|asked|said|needs))\b/i.test(text)
         ? "the model's own note leaked into the reply"
         : null,
+  },
+  {
+    /**
+     * Neusa answered "ta", "?", "nao entendi" and got the CEP asked ten times (persona round of
+     * 2026-10-07). Twice at most (operator, decision 17): after that the reply answers her and moves on.
+     */
+    name: "cep_insist",
+    remedy: "rewrite",
+    briefing: () => `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo.`,
+    check: (text, ctx) => ((ctx.cepAsks ?? 0) >= 2 && asksCep(text) ? "asks the CEP a third time" : null),
+  },
+  {
+    /**
+     * "Tem alguma roupa que você ama e deixou de usar?" in almost every conversation, even to "ainda tá
+     * aí?" (persona round of 2026-10-07). One hook per conversation (operator, decision 18).
+     */
+    name: "hook_repeat",
+    remedy: "rewrite",
+    briefing: () => `Faça no máximo uma pergunta sobre a dor dela ou a roupa que deixou de usar por conversa.`,
+    check: (text, ctx) => (ctx.hookSent === true && isHook(text) ? "asks a second hook question" : null),
   },
   {
     /**

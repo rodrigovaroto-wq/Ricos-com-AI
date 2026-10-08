@@ -14,6 +14,7 @@ import {
   reviseInstruction,
   revisionAllowed,
   unansweredInbound,
+  BURST_WINDOW_MS,
 } from "@/agent/retry.js";
 import { MIN_TURN_TIMEOUT_MS } from "@/dev/n8n-rules.js";
 import { classifyOptOutBurst } from "@/agent/guardrails.js";
@@ -87,7 +88,7 @@ describe("fiação no turno (index.ts lido como fonte)", () => {
     const block = source.slice(burst, optOut);
     // Só o turno de uma mensagem nova espera: a retomada já esperou, a nova tentativa é da varredura.
     // Grafo §66: com mais de uma mensagem dela já esperando, a rajada chegou — sem os 5 s.
-    expect(block).toContain("if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {\n    await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));\n    recentRows = await readRecent();");
+    expect(block).toContain("await new Promise((resolve) => setTimeout(resolve, waiting <= 1 ? QUIET_WINDOW_MS : BURST_WINDOW_MS));\n    recentRows = await readRecent();");
     // Só mensagens desta conversa contam; linhas da agente não (direction filtrada no find).
     expect(block).toContain("`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`");
     expect(block).toContain('retryIsMoot(inboundId, recentRows.find((m: { direction: string }) => m.direction === "inbound") ?? null, null)');
@@ -272,7 +273,8 @@ describe("um turno respondendo por vez, e a resposta revisada com o que chegou",
     expect(source).toContain("const isRevise = internal.revise !== undefined;");
     expect(source).toContain("    !isRetry &&\n    !isRevise &&");
     expect(source).toContain("if (!isResume && !isRetry && !isRevise) {\n    const seen");
-    expect(source).toContain("if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {");
+    expect(source).toContain("waiting <= 1 ? QUIET_WINDOW_MS : BURST_WINDOW_MS");
+    expect(BURST_WINDOW_MS).toBe(2_000);
     expect(source).toContain("const spentBefore = internal.revise?.spentBefore ?? spent;");
     // O prazo da revisão manda nas chamadas dela.
     expect(source).toContain("isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");

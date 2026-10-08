@@ -13,7 +13,9 @@
 import {
   asksForTestimonial,
   asksWhatSheIs,
+  asksCep,
   classifyOptOutBurst,
+  isHook,
   gateBriefing,
   remedyFor,
   runGates,
@@ -101,6 +103,7 @@ import {
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
   QUIET_WINDOW_MS,
+  BURST_WINDOW_MS,
   REPLYING_STALE_MS,
   REVISE_DEADLINE_MS,
   retryIsMoot,
@@ -2204,9 +2207,10 @@ const handleTurn = async (
     db(`messages?conversation_id=eq.${conversation.id}&select=id,direction,body,created_at&order=created_at.desc&limit=20`).catch(() => null);
   let recentRows = await readRecent();
   // With more than one message of hers already waiting the burst is in, and the 5 s wait was only
-  // slowness (operator, 2026-10-07, grafo §66). One message alone still waits for the next.
-  if (!isResume && !isRetry && !isRevise && (recentRows === null ? 0 : unansweredInbound(recentRows).length) <= 1) {
-    await new Promise((resolve) => setTimeout(resolve, QUIET_WINDOW_MS));
+  // slowness (operator, 2026-10-07, grafo §66); 2 s still catch the third (review of §66).
+  if (!isResume && !isRetry && !isRevise) {
+    const waiting = recentRows === null ? 0 : unansweredInbound(recentRows).length;
+    await new Promise((resolve) => setTimeout(resolve, waiting <= 1 ? QUIET_WINDOW_MS : BURST_WINDOW_MS));
     recentRows = await readRecent();
   }
   // A revision answers through her newest message, the one its second look compares against.
@@ -3463,6 +3467,9 @@ const handleTurn = async (
       linkInTurn: checkoutUrl !== null,
       // The size is the table's, and a measure is hers (persona round of 2026-10-07, Karol).
       ...(units > 1 ? {} : { knownSize: stated?.size ?? lead.size ?? null }),
+      // At most two CEP asks and one hook (operator, decisions 17 and 18 of the §66 review).
+      cepAsks: addressDraft.cep ? 0 : recentOutbound.filter(asksCep).length,
+      hookSent: recentOutbound.some(isHook),
       herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.

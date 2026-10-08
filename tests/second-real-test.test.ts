@@ -592,3 +592,25 @@ describe("G66 — o link fixo lê oração por oração", () => {
     expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))");
   });
 });
+
+describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por conversa", () => {
+  const blocked = (t: string, c: Record<string, unknown>, gate: string) =>
+    runGates(t, ctx(c)).traces.some((x) => x.gate === gate && x.verdict === "block");
+  it("o terceiro pedido de CEP é vetado; o segundo não", () => {
+    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
+    expect(blocked("Qual é o seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
+    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 1 }, "cep_insist")).toBe(false);
+    expect(blocked("O CEP é aquele número de 8 dígitos do seu endereço.", { cepAsks: 2 }, "cep_insist")).toBe(false);
+  });
+  it("o segundo gancho é vetado; o primeiro passa", () => {
+    const hook = "Mas me diz, tem alguma roupa que você ama e deixou de usar por conta do corpo?";
+    expect(blocked(hook, { hookSent: true }, "hook_repeat")).toBe(true);
+    expect(blocked("Me conta, o que mais te incomoda quando veste uma roupa justa?", { hookSent: true }, "hook_repeat")).toBe(true);
+    expect(blocked(hook, { hookSent: false }, "hook_repeat")).toBe(false);
+    expect(blocked("Essa roupa que você ama vai ficar ótima com o colete.", { hookSent: true }, "hook_repeat")).toBe(false);
+  });
+  it("o turno conta os pedidos de CEP e o gancho nas respostas recentes", () => {
+    expect(turn).toContain("cepAsks: addressDraft.cep ? 0 : recentOutbound.filter(asksCep).length,");
+    expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
+  });
+});
