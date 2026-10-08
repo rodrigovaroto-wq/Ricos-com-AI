@@ -95,8 +95,10 @@ feito; item 8 (portal no Vercel) continua no plano.
    orientar a cliente (rascunho em [`06-script/06-devolucao-guiada.md`](docs/agente-ia/06-script/06-devolucao-guiada.md),
    não aprovado). O operador perguntou à Logzz/Coinzz se a cliente pode pedir troca/devolução direto com
    elas — **resposta pendente**; ela decide o desenho.
-4. Template `order_eve` (e o `_pago`) submetidos à Meta pelo sócio em 08/10 — quando aprovados, conferir
-   o nome exato e declarar em `channel.templates` do `BUSINESS_CONFIG`.
+4. Templates na Meta (08/10): `encorpa_cupom_super_dia` (silence_3) **aprovado, em `en`** por engano do
+   cadastro (usar `"language": "en"`); `encorpa_vespera_entrega` e `_pago` em `pt_BR`. Bloco `channel.templates`
+   entregue ao operador para colar no `BUSINESS_CONFIG` (ver `06-script/03-templates-meta.md`, topo). Conferir
+   na próxima sessão se o operador colou e se as vésperas foram aprovadas.
 5. Mês 1 item 8 (portal no Vercel) continua no plano.
 
 **Credenciais:** `SUPABASE_ACCESS_TOKEN` já é segredo do GitHub Actions (operador: há duas semanas).

@@ -1,5 +1,14 @@
 # Templates da Meta: os três toques fora da janela de 24h
 
+> **Aprovados na Meta (sócio, 2026-10-08):** `encorpa_cupom_super_dia` (o `silence_3`) foi aprovado mas
+> ficou cadastrado em **inglês (`en`)** por engano — o texto é o português certo, e com `pt_BR` o envio
+> falha. `encorpa_vespera_entrega` e `encorpa_vespera_entrega_pago` foram submetidos em `pt_BR`. No
+> `BUSINESS_CONFIG`: `"channel": { "askMarketingOptIn": true, "templates": { "silence_3": { "name":
+> "encorpa_cupom_super_dia", "language": "en", "variables": ["weekday", "couponPercent", "couponCode"] },
+> "order_eve": { "name": "encorpa_vespera_entrega", "language": "pt_BR", "variables": ["price"] },
+> "order_eve_pago": { "name": "encorpa_vespera_entrega_pago", "language": "pt_BR", "variables": [] } } }` —
+> conferido contra `deliveryFor` (os três saem como template com as variáveis resolvidas).
+
 > Redigido em 2026-09-22. **Status:** rascunho pronto para submeter. Nenhum dos três foi
 > enviado para aprovação ainda.
 >
