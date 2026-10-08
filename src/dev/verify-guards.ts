@@ -3363,7 +3363,7 @@ const MUTATIONS: Mutation[] = [
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],
-    from: "  bareAck && (datum !== null || !lastOutbound.includes(\"?\"));",
+    from: "  bareAck && (datum !== null ? !OFFER.test(lastOutbound) : !lastOutbound.includes(\"?\"));",
     to: "  false;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
