@@ -214,3 +214,10 @@ argumento, tamanho certo pela tabela, foto → site, nome e CPF na ordem, link p
 **Ainda não publicado:** a `turn` e a `whatsapp` esperam o "pode publicar" do operador. Prova pela porta de
 produção depois: um CEP de São Paulo tem de voltar com as duas opções; o webhook da Coinzz tem de chegar no
 "Venda confirmada".
+
+## Rodada 2 e publicação (2026-10-09)
+
+Decisões do operador sobre o resumo da primeira rodada, implementadas e publicadas (grafo §67, "rodada 2"):
+CEP em qualquer escrita e CEP inexistente; pagamento pendente aos 5 min → comprovante → e-mail do suporte;
+"ok/tá bom/tranquilo" = sim; nome pedido de novo; e-mail guardado; recusa de dado = "sem problema" e o link diz o
+que preencher; imagem descrita pelo modelo. **No ar:** `turn` `agent_version` 15 (função v90) e `whatsapp` v24.

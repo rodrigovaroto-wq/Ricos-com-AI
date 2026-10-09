@@ -45,7 +45,25 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-09 (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
+
+**No ar desde 2026-10-09:** `turn` **`agent_version` 15** = função v90 (commit `975c9d8`) e **`whatsapp` v24**. Tudo do
+L2 (grafo §67, as duas rodadas): cobertura com CEP em qualquer escrita, CEP inexistente, "paguei" → verificação →
+pendente → comprovante → e-mail do suporte, "ok" sozinho, lembrete do checkout aos 10 min do link, e-mail no
+antecipado (guardado), recusa de dado = "sem problema", prompt, sem "digitando", leitura de imagem. Validação:
+`pnpm test` 7108, `dev:conversas` 1665/1665, `dev:gates` 0 sem aceite, `typecheck:function`, mutações `G67-*` 22/22;
+revisões Opus até "aprovado com ressalvas". Sondas de produção e webhook de venda sintético ok (ver §67).
+**Falta, nesta ordem:**
+1. **"Testar URL" na integração "Encorpa - agente" da Coinzz** (operador) e apagar a "N8N - antecipado": confirmar
+   que o payload do antecipado traz o tamanho onde o n8n lê (complemento) — senão a venda paga não é gravada.
+2. **Teste real completo** do operador e do sócio: um antecipado pagando o Pix de verdade (webhook, "paguei",
+   confirmação) e um com pagamento na entrega; auditar como o L2.
+3. Conversas dos amigos (9393, 7745) — ainda não auditadas.
+4. Guias de troca e devolução — pendente por decisão do operador.
+5. Portal no Vercel — o operador constrói em outra sessão.
+Templates da Meta: todos colados e aprovados (operador, 09/10).
+
+### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`)
 
 **Consertos do L2 feitos na branch, NÃO publicados** (grafo §67; decisões do operador em 08/10): cobertura com o
 CEP só em dígitos e falha = região desconhecida; "paguei" verifica, espera 5 min, pede o comprovante e só então

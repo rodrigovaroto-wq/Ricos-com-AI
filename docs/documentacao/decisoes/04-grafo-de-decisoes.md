@@ -2267,6 +2267,35 @@ provado (nenhuma execução do "Venda confirmada" até 08/10) e as duas integra�
 (cada evento chega duas vezes — `recordOrder` é idempotente por `external_id`); "Ainda está aí?" com ajuda por dado
 não passa pelo limite de uma vez por dia.
 
+### §67 — rodada 2 (decisões do operador de 2026-10-09) e publicação
+
+**Decisões:** CEP em qualquer escrita (hífen, ponto, espaço; `parseCep` lê 8 dígitos, 5+3 e 2+3+3, nunca dentro
+de um número maior — telefone e CPF ficam de fora); CEP que o ViaCEP não conhece → a Malu diz que não conseguiu
+consultar porque o CEP não existe e pede pra conferir (`lookupRegion` `not_found`; o CEP não é guardado). Aos
+5 min o pagamento é dito **pendente** e o comprovante pedido; o comprovante gera mais uma verificação e, sem o
+pagamento, a linha do **e-mail do suporte** (`support.email` do config — no exemplo `contato@encorpa-fashion.com.br`;
+sem `handoff_at`, o operador é avisado). "Ok", "tá bom", "tudo bem", "tranquilo" a uma pergunta de sim/não são
+**sim** (as palavras curtas só como resposta inteira: "tá caro" não é sim). O nome é pedido de novo depois de um
+"ok" sem resposta. **E-mail volta a ser guardado** em `leads.identity`. Qualquer dado recusado em palavras uma vez
+→ "sem problema" e o fluxo segue (`refusedDatum`); a mensagem do link abre com "Sem problema!" e diz o que falta
+preencher no checkout. **Imagem:** a função `whatsapp` baixa a imagem e o modelo da Meta (`VISION_MODEL`, padrão
+`muse-spark-1.3`, `image_url` com `data:`) a descreve; só a descrita como "comprovante" vale como comprovante.
+Achado no caminho: depois do pedido do nome, "prefiro não passar" virava o nome dela (`NOT_A_FIRST_NAME`).
+**Revisões Opus da rodada 2:** reprovada (CEP dentro do endereço não lido, "tá caro" como sim, recusa de outro dado
+atribuída ao pedido, imagem com legenda como comprovante, comprovante pedido de novo depois do suporte, "CEP não
+existe" repetido) → consertado → aprovada com ressalvas (R1–R5 no relatório: CEP bom anterior apagado ao mandar um
+inexistente; CEP inexistente que chega num turno com timeout fica guardado; comprovante reenviado depois do suporte
+reinicia a verificação; recusa de dois dados numa frase; nome que comece com "Sem"/"Pode").
+**Publicado em 2026-10-09:** `turn` `agent_version` 15 = função v90 (commit `975c9d8`); `whatsapp` v24 (sem
+digitando, leitura 2 s depois, imagem). Sondas: `turn` sem selo 401; `whatsapp` verificação errada 403, POST sem
+assinatura 401. Webhook de venda de ponta a ponta com lead sintético (5500099000001, apagado depois): "Aguardando
+pagamento" grava o pedido, mantém o lembrete do checkout e não arma "já pago"; "Aprovado" cancela o lembrete e arma
+a confirmação. `pnpm dev:n8n`: os 6 workflows ok.
+**Resíduo:** o formato real do webhook da Coinzz para o antecipado nunca foi visto — o n8n só grava a venda se o
+tamanho estiver no complemento; se a Coinzz mandar o tamanho em outro campo, a venda volta como recusada (e-mail ao
+operador) e o "paguei" nunca vê o pagamento. Prova: "Testar URL" no painel ou a primeira venda real. O ramo de
+leitura do "WhatsApp envio" no n8n ainda pede "digitando", mas nada o usa (a leitura sai da função `whatsapp`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
