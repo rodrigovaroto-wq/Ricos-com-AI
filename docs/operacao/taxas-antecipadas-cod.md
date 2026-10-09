@@ -106,7 +106,7 @@ entrega do COD em 2 dias (D+1 a D+3), produto devolvido chega em 7 dias sem perd
 1. Imposto da Meta (13,83%): o operador "não sabe", disse para assumir que aparece. Conferir na 1ª fatura.
 2. Frete de retorno real (modelo usa R$ 45, meio da faixa R$ 30–60). Medir nas primeiras devoluções.
 3. Transação do COD: o operador confirmou que sai antes do repasse; o momento exato (pedido ou separação) é assumido.
-4. Se a verba de L3 de 2026-10-08 (R$ 500, caixa R$ 1.500) foi substituída por esta (R$ 675, caixa R$ 1.325): ver
+4. **Piso de amostra.** mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91. O operador confirmou em 2026-10-09 que R$ 675 e R$ 1.325 substituem a verba e o caixa de L3 (R$ 500 e R$ 1.500); ver
    [`09-pipeline-ate-producao.md`](../agente-ia/05-plano/09-pipeline-ate-producao.md) L3.1 e L3.2.
 
 Fontes: [Central Logzz — taxas, prazos e condições](https://ajuda.logzz.com.br/artigos/taxas-prazos-e-condicoes-da-logzz),

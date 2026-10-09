@@ -15,4 +15,5 @@ Operador, 2026-10-09 (R19.1, grafo §67). A conta mora em `docs/operacao/taxas-a
 - **Devolução não é R$ 25,00.** É frete de retorno (R$ 30–60) + manuseio **e** as taxas já pagas não voltam: R$ 86,56 no COD,
   R$ 58,99 no antecipado, com frete de R$ 45. Recusa continua R$ 9,99 = R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio.
   Manuseio é R$ 5,00 (Central Logzz), não R$ 4,99.
+- **R$ 675 e R$ 1.325 substituem a verba (R$ 500) e o caixa (R$ 1.500) de L3** (operador, 09/10). Com CPL R$ 1,50 são 450 leads e 45 pedidos, abaixo do piso de 500 leads / 50 pedidos; passa com CPL perto de R$ 1,25 (pico sobe para R$ 1.055, sobra R$ 20) ou com ~R$ 755 de verba (pico R$ 984, sobra R$ 91).
 - **Menos recusa e devolução aumentam o pico** (mais pedidos entregues, mais custo adiantado), e dobrar a verba falta R$ 684.

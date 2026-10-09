@@ -129,7 +129,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
 **Saída de L2:** os três fluxos fecharam sem intervenção fora do previsto.
 
-## L3 — Tráfego controlado (dias 1–12)
+## L3 — Tráfego controlado (dias 1–14)
 
 > **Reescrito em 2026-10-02 com as respostas do operador** (estrutura do teste, caixa, metas,
 > pausa). A versão anterior (só as 22 praças, R$ 50–100/dia, pausa automática em handoff de 2 h)
@@ -139,13 +139,13 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
    | Fase | Dias | Verba | Estrutura |
    |---|---|---|---|
-   | Copy | 1–5 | R$ 300 (operador, 2026-10-08; ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
-   | Região | 6–10 | R$ 200 (operador, 2026-10-08; ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
-   | Leitura | 11–12 | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
+   | Copy | 1–5 | R$ 375, R$ 75/dia (operador, 2026-10-09; ~~R$ 300~~, ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
+   | Região | 8–12 (depois de 2 dias de pausa) | R$ 300, R$ 60/dia (operador, 2026-10-09; ~~R$ 200~~, ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
+   | Leitura | 13–14 (assumido, 2 dias como antes) | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
 
-   **Verba atual (operador, 2026-10-08): Copy R$ 300 e Região R$ 200, total R$ 500.** Os valores de
-   2026-10-02 (R$ 400 + R$ 400 = R$ 800) estão riscados na tabela; o gasto por dia de cada fase não foi
-   redefinido — a confirmar com o operador. (Histórico anterior: em 2026-10-02 Copy R$ 300 → R$ 400; Região R$ 500 →
+   **Verba atual (operador, 2026-10-09): Copy R$ 375 (R$ 75/dia) e Região R$ 300 (R$ 60/dia), total R$ 675, com 2 dias de
+   pausa entre elas, a partir de 23/10.** Os valores de 2026-10-08 (R$ 300 + R$ 200 = R$ 500) e de
+   2026-10-02 (R$ 400 + R$ 400 = R$ 800) estão riscados na tabela. (Histórico anterior: em 2026-10-02 Copy R$ 300 → R$ 400; Região R$ 500 →
    R$ 400 e dias 6–12 → 6–10.) **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
    métricas por criativo/copy e por região que mostrem pontos fortes e fracos de cada um (proposta
    em [`10-execucao-mes-1.md`](10-execucao-mes-1.md) §8). A referência anterior (Copy > 7,5% / CPL
@@ -153,12 +153,12 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    Os criativos se validam por outro método (CPL/CTR); pedidos e conversão leem a operação inteira.
    A e B se sobrepõem no Sudeste, Centro-Oeste e Sul — a leitura de região é direcional.
 
-   > **Verba modelada em 2026-10-09 (operador, pedido de modelagem de caixa):** R$ 375 em 5 dias (R$ 75/dia), 2 dias de
-   > pausa e R$ 300 em 5 dias (R$ 60/dia) = **R$ 675**, a partir de 23/10. Não é a divisão de 08/10 (Copy R$ 300 +
-   > Região R$ 200); o operador ainda precisa dizer se esta passa a ser a verba de L3. Conta em
+   > **Reconciliado em 2026-10-09 (operador: "Sim, R$ 675 e R$ 1.325 substituem os de L3").** Fase 1 = Copy e fase 2 = Região
+   > (mapeamento assumido; o operador não nomeou as fases). Os dias da Região passam de 6–10 para 8–12 por causa da pausa de 2 dias, e
+   > a Leitura e a decisão (item 7) vão para 13–14 (assumido). Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91. Conta em
    > [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md).
-2. **O** — caixa: **R$ 1.500 reservados** (operador, 2026-10-08; eram ~~R$ 1.200~~ — o aumento sustenta
-   a operação no intervalo entre a venda e o dinheiro líquido recebido) para **todo custo de um pedido até a venda virar
+2. **O** — caixa: **R$ 1.325 em caixa** (operador, 2026-10-09, dos R$ 2.000 investidos; os outros R$ 675 são a verba, no cartão; eram
+   ~~R$ 1.500~~ em 2026-10-08 e ~~R$ 1.200~~ em 2026-10-02 — o caixa sustenta a operação no intervalo entre a venda e o dinheiro líquido recebido) para **todo custo de um pedido até a venda virar
    dinheiro** (produto, manuseio, taxa de transação, entrega concluída, recusa, devolução),
    mix 70% na entrega / 30% antecipado, 1 peça por pedido. Recusa na porta 12–17% a R$ 9,99
    (**valor especulado, ainda precisa ser medido**); devolução pós-envio 5–10% a R$ 25,00.
@@ -167,13 +167,12 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    só é descontada quando a entrega conclui. O antecipado cai no Mercado Pago na hora; a comissão
    do pagamento na entrega libera 14 dias depois do pagamento.
 
-   > **Reserva modelada em 2026-10-09 (operador):** caixa de **R$ 1.325** (dos R$ 2.000 investidos; R$ 675 são a verba, no
-   > cartão) com **R$ 250 de segurança**. Pico de caixa de **R$ 879** para a verba acima, sobra de **R$ 196**. Produto e taxas do
-   > COD saem do **saldo de expedição** (resolve a pergunta "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99
-   > + R$ 5,00; devolução = frete de retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD). Anúncio, API de IA, WhatsApp,
-   > PikaPods e número saem no **cartão** (fatura fecha dia 22, vence dia 29). Os R$ 1.500 de 08/10 e os R$ 1.200 de 02/10 ficam
-   > como histórico até o operador confirmar a reconciliação. Detalhe em
-   > [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
+   > **Reserva reconciliada em 2026-10-09 (operador):** caixa de **R$ 1.325** com **R$ 250 de segurança** (R$ 1.075 utilizáveis). Para a verba
+   > acima o **pico de caixa é R$ 879** (05/11, antes do 1º repasse em 08/11) e **sobram R$ 196**. Produto e taxas do COD saem do
+   > **saldo de expedição** (resolve "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99 + R$ 5,00; devolução = frete de
+   > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD). Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
+   > (fatura fecha dia 22, vence dia 29). Detalhe em [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em
+   > [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
 3. **O** — handoff: o operador responde o mais rápido que conseguir, das 06:00 às 00:00. Fora disso
    vale R4.4 (mensagem automática 24/7, agente a partir das 06:00). A primeira resposta real da
    agente sai **1 minuto** depois da mensagem (operador, 2026-10-02; era 3 min na doc e 120 s no
@@ -215,7 +214,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
      começo o handoff é esperado e é o dado que explica o porquê; operador, 2026-10-02);
    - caixa reservado para custo antecipado (item 2) acabando;
    - número restrito pela Meta ou Cloud API fora → **para toda a operação** até resolver.
-7. **Decidir no dia 12** (a pior das três métricas decide, sobre o piso do item 4):
+7. **Decidir no dia 14** (a pior das três métricas decide, sobre o piso do item 4):
 
    | Decisão | Conversão da agente | CPL | ROI |
    |---|---|---|---|
@@ -241,7 +240,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
      analisada, corrigida, testada internamente e validada**, e só então volta. Nenhuma proposta
      nova entra antes disso.
 
-**Saída de L3:** dia 12 com a decisão da tabela acima. O Hermes roda a cada 50 leads durante o
+**Saída de L3:** dia 14 com a decisão da tabela acima. O Hermes roda a cada 50 leads durante o
 teste (R6.2).
 
 ## L4 — Hermes assume a melhoria contínua (a partir dos 50 leads)

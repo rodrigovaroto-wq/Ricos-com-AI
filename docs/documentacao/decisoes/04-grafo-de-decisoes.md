@@ -2226,8 +2226,8 @@ confirmou que ela sai antes); modelar só a média por pedido (esconde que o pic
 `10-execucao-mes-1.md` e no simulador de `mapa-financeiro.html`. Resultado: pico R$ 879, sobra R$ 196 sobre R$ 1.075 utilizáveis.
 **Guarda:** a planilha reproduz a tabela de lucro por venda de 02/10 com manuseio R$ 4,99 e devolução R$ 25 (R$ 24,31 e R$ 49,50; mix R$ 31,87
 contra R$ 31,86 do doc, por arredondamento; conferido com manuseio 4,99, frete de retorno 20,01, taxas devolvidas e sem imposto da Meta) e o recalculo fecha com zero erros; as premissas não medidas (recusa, devolução, frete de retorno, imposto da
-Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Não resolvido:** o operador ainda precisa dizer se a verba
-de R$ 675 e o caixa de R$ 1.325 substituem os R$ 500 e os R$ 1.500 de L3.
+Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Reconciliado:** o operador confirmou que a verba de R$ 675 e o caixa de R$ 1.325 substituem os R$ 500 e os R$ 1.500 de L3 (09-pipeline L3.1,
+L3.2, itens 7 e saída; 10-execucao-mes-1 metas). **Não resolvido:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91.
 
 ## Lições (valem para qualquer correção futura)
 

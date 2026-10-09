@@ -2094,5 +2094,6 @@ fatos, em ordem:
 
 Resultado: pico de caixa **R$ 879**, sobra **R$ 196**; dobrar a verba falta R$ 684. Conta em
 [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
-[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Não reconcilia** a verba de L3 de 2026-10-08
-(R$ 500) nem os R$ 1.500 reservados: o operador ainda decide. Grafo §67.
+[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Reconciliado no mesmo dia (operador: "Sim, R$ 675 e R$ 1.325 substituem os de L3"):** a verba de L3 passa de R$ 500 (2026-10-08) para
+R$ 675 (Copy R$ 375 em 5 dias, 2 dias de pausa, Região R$ 300 em 5 dias) e o caixa de R$ 1.500 para R$ 1.325; Região 8–12, Leitura e
+decisão no dia 14 (assumido). **Alerta:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91. Grafo §67.

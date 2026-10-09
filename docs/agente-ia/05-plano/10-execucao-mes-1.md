@@ -271,11 +271,14 @@ e ler região por ele mede o funil, não a região.
 | Copy (1–5) | CTR do link | ≥ 1% | ≥ 2% |
 | Copy (1–5) | Taxa de resposta | ≥ 60% | ≥ 75% |
 | Copy (1–5) | % que chega ao preço | ≥ 40% | ≥ 55% |
-| Região (6–10) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
-| Região (6–10) | Conversão em pedido | ≥ 6% | ≥ 10% |
-| Leitura (11–12) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
+| Região (8–12) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
+| Região (8–12) | Conversão em pedido | ≥ 6% | ≥ 10% |
+| Leitura (13–14) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
 
-**Conta que o operador precisa ver antes de assinar:** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
+**Atualizado em 2026-10-09 (verba de R$ 675):** a CPL R$ 1,25–1,50 dão 450–540 leads e 45–54 pedidos a 10%: **só passa o piso
+de 500 leads e 50 pedidos com CPL perto de R$ 1,25**; com CPL R$ 1,50 é preciso cerca de R$ 755 (pico de caixa R$ 984, sobra R$ 91).
+
+**Conta que o operador precisava ver antes de assinar (versão de 2026-10-02, R$ 800):** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
 leads (passa o piso de 500). Pedidos: 53–64 a 10%, mas **32–38 a 6%** — abaixo do piso de 50. Ou
 seja, se a conversão ficar na faixa "ajustar", o teste termina sem amostra para validar nada; a
 decisão do dia 12 vira "estender", não "ajustar".
