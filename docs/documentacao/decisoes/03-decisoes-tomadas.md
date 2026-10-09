@@ -2069,3 +2069,33 @@ Brasil fica fora da exceção da UE); conversão no n8n (ffmpeg no PikaPods não
 OGG (Azure, OpenAI: segundo provedor e chave). Precisa do segredo `META_API_KEY` e do `WHATSAPP_TOKEN` no
 projeto, e da publicação da função `whatsapp`.
 
+
+## R19.1 — Caixa do teste: saldo de expedição, cartão e devolução completa (operador, 2026-10-09)
+
+O operador pediu uma tabela modeladora de quanto de caixa o teste exige, e respondeu às perguntas do modelo. Decisões e
+fatos, em ordem:
+
+- **Verba do teste:** 7 dias de anúncio a R$ 50/dia na Copy, 2 dias de pausa e 7 dias a R$ 50/dia na Região (R$ 350 + R$ 350 = **R$ 700**),
+  início modelado em 23/10. O operador pediu primeiro R$ 375 em 5 dias + R$ 300 em 5 dias (R$ 675), depois "7 dias cada", escolheu R$ 55/dia (R$ 770) e depois baixou para
+  R$ 50/dia (R$ 700), que cabe no caixa mas fica abaixo do piso de amostra com CPL R$ 1,50. Dos R$ 2.000 investidos, **R$ 1.325 são caixa**; a verba vai no cartão e é paga com o
+  repasse do COD; **R$ 250 de margem de segurança**.
+- **Quem paga o quê:** o operador paga o produto (R$ 30 por peça) e as taxas do COD (entrega concluída, manuseio, transação
+  6,99% + R$ 2,49 de antifraude sobre o preço) **antes do repasse**. Todo o caixa fica no **saldo de expedição** da Logzz,
+  de onde saem os custos do pedido quando ele vai para "em separação". O frete de abastecimento do estoque não é do operador.
+- **Manuseio R$ 5,00** (Central Logzz; os docs usavam R$ 4,99). **Recusa R$ 9,99 = R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio.**
+- **Devolução = frete de retorno (R$ 30 a R$ 60, depende do ticket) + manuseio, e as taxas já pagas não voltam.** COD R$ 86,56
+  e antecipado R$ 58,99 com frete de R$ 45. Supera o R$ 25,00 estimado de 2026-09-29. O produto volta ao estoque sem perda,
+  em 7 dias.
+- **Prazos:** COD entregue em D+1 a D+3 (modelo 2), dinheiro liberado 14 dias após o pagamento do cliente (Pix ou cartão),
+  sem antecipação. Antecipado cai **na hora** no Mercado Pago (site e conta do operador); parcelado conta como à vista.
+- **Cartão de crédito:** anúncio Meta (cobra a cada R$ 100 ou no fim do mês), API de IA da Meta (a cada R$ 20), WhatsApp,
+  PikaPods (R$ 18,50) e número do WhatsApp (R$ 35). Fatura **fecha dia 22 e vence dia 29**; limite R$ 4.000. O operador paga
+  sacando do saldo da Logzz (R$ 3,99 por saque, cai em D+1 a D+2). Saldo menor que o limite de cobrança cai na fatura do
+  mês seguinte. O imposto da Meta (13,83%) "deve aparecer".
+- **Impostos do Simples:** fora do modelo por ora.
+
+Resultado: pico de caixa **R$ 752** (07/11), sobra **R$ 323**; dobrar a verba falta R$ 430. Conta em
+[`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
+[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Reconciliado no mesmo dia (operador: R$ 675 e R$ 1.325 "substituem os de L3"; depois,
+"7 dias cada" e o plano escolhido):** a verba de L3 passa de R$ 500 (2026-10-08) para R$ 700 (Copy R$ 350 e Região R$ 350) e o caixa de R$ 1.500
+para R$ 1.325; Região 10–16, Leitura 17–18 e decisão no dia 18 (assumido). **Alerta:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos. Grafo §68.

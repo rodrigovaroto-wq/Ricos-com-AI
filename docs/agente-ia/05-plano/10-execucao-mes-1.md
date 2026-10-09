@@ -193,12 +193,18 @@ simulador `docs/operacao/mapa-financeiro.html` com:
 - **WhatsApp:** R$ 0 por lead (atendimento e régua dentro da janela de 24 h e da janela gratuita
   de 72 h); só os templates UTILITY do pós-venda fora da janela (`order_eve`), US$ 0,0068 cada
   (~R$ 0,04) **por pedido**;
-- **Recusa na porta:** 12–17% (**valor especulado, ainda precisa ser medido**), R$ 9,99 cada;
-- **Devolução pós-envio:** 5–10%, R$ 25,00;
+- **Recusa na porta:** 12–17% (**valor especulado, ainda precisa ser medido**), R$ 9,99 cada (**R$ 4,99 de entrega
+  frustrada + R$ 5,00 de manuseio**, operador, 2026-10-09);
+- **Devolução pós-envio:** 5–10%; custo = frete de retorno (R$ 30–60, o modelo usa R$ 45) + manuseio R$ 5,00 + as taxas já
+  pagas, que não voltam: **R$ 86,56 no COD e R$ 58,99 no antecipado** (operador, 2026-10-09; era R$ 25,00 estimado);
+- **Manuseio:** R$ 5,00 (era R$ 4,99);
+- **Imposto da Meta nos anúncios:** 13,83% sobre a verba, "deve aparecer" na fatura do cartão (a conferir);
 - **Lead:** CPL R$ 1,25–1,50;
 - **Reserva:** todo custo de um pedido até a venda virar dinheiro (produto, manuseio, taxa de
   transação, entrega concluída, recusa, devolução) — o antecipado cai na hora no Mercado Pago; a
-  entrega libera 14 dias depois do pagamento.
+  entrega libera 14 dias depois do pagamento. **Atualizado em 2026-10-09:** produto e taxas do COD saem do saldo de expedição
+  quando o pedido vai para "em separação"; anúncio, API de IA, WhatsApp e fixos saem no cartão (fatura fecha dia 22, vence dia 29);
+  conta completa em [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md).
 
 ---
 
@@ -261,15 +267,19 @@ e ler região por ele mede o funil, não a região.
 
 | Fase | Métrica que decide | Mínima | Ideal |
 |---|---|---|---|
-| Copy (1–5) | CPL do criativo | ≤ R$ 1,75 | ≤ R$ 1,25 |
-| Copy (1–5) | CTR do link | ≥ 1% | ≥ 2% |
-| Copy (1–5) | Taxa de resposta | ≥ 60% | ≥ 75% |
-| Copy (1–5) | % que chega ao preço | ≥ 40% | ≥ 55% |
-| Região (6–10) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
-| Região (6–10) | Conversão em pedido | ≥ 6% | ≥ 10% |
-| Leitura (11–12) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
+| Copy (1–7) | CPL do criativo | ≤ R$ 1,75 | ≤ R$ 1,25 |
+| Copy (1–7) | CTR do link | ≥ 1% | ≥ 2% |
+| Copy (1–7) | Taxa de resposta | ≥ 60% | ≥ 75% |
+| Copy (1–7) | % que chega ao preço | ≥ 40% | ≥ 55% |
+| Região (10–16) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
+| Região (10–16) | Conversão em pedido | ≥ 6% | ≥ 10% |
+| Leitura (17–18) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
 
-**Conta que o operador precisa ver antes de assinar:** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
+**Atualizado em 2026-10-09 (verba de R$ 700, 7 dias a R$ 50/dia em cada fase):** a CPL R$ 1,50 dão 467 leads e 47 pedidos a 10%: **abaixo do piso de
+500 leads e 50 pedidos**; passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos; CPL R$ 1,25: 560 leads e 56 pedidos, pico de
+caixa R$ 903, sobra R$ 172). Pico de caixa R$ 752 e sobra R$ 323 na base.
+
+**Conta que o operador precisava ver antes de assinar (versão de 2026-10-02, R$ 800):** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
 leads (passa o piso de 500). Pedidos: 53–64 a 10%, mas **32–38 a 6%** — abaixo do piso de 50. Ou
 seja, se a conversão ficar na faixa "ajustar", o teste termina sem amostra para validar nada; a
 decisão do dia 12 vira "estender", não "ajustar".

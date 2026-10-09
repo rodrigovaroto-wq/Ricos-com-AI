@@ -13,3 +13,7 @@ outro evento: **R$ 25,00 completos, manuseio incluso, nos dois caminhos**; a tax
 **não volta** (no antecipado o Mercado Pago cobra mesmo assim; no COD não há pagamento). Taxas
 por pedido, não por peça, também nos kits (confirmado). Conta e tabela em
 `06-modelo-economico.md`, caixa de 29/09.
+
+**Revisado em 09/10 (R19.1):** manuseio é R$ 5,00; recusa R$ 9,99 = R$ 4,99 + R$ 5,00; devolução = frete de retorno
+(R$ 30–60) + manuseio **e as taxas já pagas não voltam** (R$ 86,56 no COD, R$ 58,99 no antecipado, frete R$ 45), no lugar dos R$ 25,00 de
+29/09. Ver `modelo-de-caixa-do-teste.md`.

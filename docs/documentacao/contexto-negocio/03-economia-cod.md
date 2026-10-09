@@ -8,6 +8,12 @@ por conversa, quando escalar para humano, quanto insistir num follow-up — se m
 Este arquivo traz a **unidade econômica medida da operação**. A projeção de volume, CPL e
 metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 
+> ### ⚠️ Atualização de 2026-10-09 — valores vigentes
+>
+> Manuseio **R$ 5,00**; recusa **R$ 9,99** (R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio); devolução = frete de retorno
+> (R$ 30–60) + manuseio + taxas já pagas que não voltam. A conta vigente está em
+> [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md). Os valores abaixo são históricos.
+
 > ### ⚠️ Atualização de 2026-09-29 — os números deste arquivo são históricos
 >
 > **Recusa: R$ 9,90** (R15.4, substitui os R$ 9,99 abaixo). **Checkout da entrega: Logzz**
