@@ -207,7 +207,10 @@ describe("job order: o status novo volta para o n8n", () => {
   const node = (name: string) => wf.nodes.find((n) => n.name === name)!;
 
   it("n8n: a saída de sucesso de 'Grava o pedido' passa por um IF que manda o e-mail do status novo", () => {
-    expect(wf.connections["Grava o pedido"]!.main[0]!.map((c) => c.node)).toEqual(["Status novo?"]);
+    // 2026-10-09: the same output also checks for a sale recorded without its size.
+    expect(wf.connections["Grava o pedido"]!.main[0]!.map((c) => c.node)).toEqual(["Status novo?", "Tamanho faltou?"]);
+    expect(JSON.stringify(node("Tamanho faltou?").parameters)).toContain("sizeMissing");
+    expect(wf.connections["Tamanho faltou?"]!.main[0]!.map((c) => c.node)).toEqual(["Avisa tamanho que faltou"]);
     expect(JSON.stringify(node("Status novo?").parameters)).toContain("$json.unknownStatus !== undefined");
     expect(wf.connections["Status novo?"]!.main[0]!.map((c) => c.node)).toEqual(["Avisa status novo"]);
     expect(wf.connections["Status novo?"]!.main[1] ?? []).toEqual([]);
