@@ -3499,8 +3499,8 @@ const MUTATIONS: Mutation[] = [
     id: "G67-ok-e-sim",
     bug: "'tá bom', 'tudo bem', 'tranquilo' a uma pergunta de sim ou não não eram sim",
     files: ["src/agent/address.ts"],
-    from: "|ta\\s+bom|ta|tudo\\s+bem|tranquilo|",
-    to: "|",
+    from: "^(?:ta|tranquilo|beleza|",
+    to: "^(?:beleza|",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-round2.test.ts"],
   },
   {
