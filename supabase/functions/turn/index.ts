@@ -55,7 +55,7 @@ import {
   PAYMENT_CONFIRMED_REPLY,
   PAYMENT_RECEIPT_ASK,
   PAYMENT_RECEIPT_ESCALATED,
-  PAYMENT_RECEIPT_HANDOFF,
+  paymentSupportLine,
   PAYMENT_RECEIPT_KEPT,
   PAYMENT_STILL_CHECKING,
   paymentFacts,
@@ -71,7 +71,7 @@ import {
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { checkRegion, type Region } from "./availability.ts";
+import { lookupRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -94,7 +94,8 @@ import {
   refusedAsks,
   refusesAskedDatum,
   emailInChat,
-  refusedEmail,
+  extractEmail,
+  refusedDatum,
   type Identity,
 } from "./identity.ts";
 import {
@@ -820,29 +821,36 @@ const regionDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number, emailNext = false): string | null => {
-  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
-  // link waits for them: a CPF refused twice is not asked again. The e-mail only on the prepaid path,
-  // between the name and the CPF (`missingForLink`, L2): the Coinzz checkout does not go on without it.
-  const missing = (["name", "document"] as const).filter(
-    (f) => !draft[f] && !(f === "document" && cpfRefusals >= 2),
-  );
-  const topic = emailNext
+const identityDirectiveFor = (
+  next: "name" | "email" | "document",
+  cpfRefusals: number,
+  /** The datum she just refused, in words ("o CPF"): "sem problema", and the flow goes on (operator, 2026-10-09). */
+  justRefused: string | null = null,
+): string | null => {
+  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the link
+  // waits for them — the one `missingForLink` names, so a datum she refused is never the one asked. The
+  // e-mail only on the prepaid path, between the name and the CPF (L2): the Coinzz checkout requires it.
+  const topic = next === "email"
     ? `o e-mail dela, pra ela receber a confirmação do pedido (o checkout do antecipado pede)`
-    : nextIdentityQuestion(missing);
+    : nextIdentityQuestion([next]);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
   // for word, turn after turn.
   return topic === null
     ? null
-    : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
+    : (justRefused
+        ? `Ela acabou de dizer que não quer passar ${justRefused}: comece dizendo que não tem problema, sem insistir` +
+          ` e sem pedir de novo — o que faltar ela preenche no checkout. `
+        : ``) +
+      `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
       // E-mail only when it is the one missing (prepaid, L2): said, so the model never asks it on its own.
-      (emailNext
+      (next === "email"
         ? ` Se ela não quiser passar, tudo bem: o link vai sem ele e ela digita no checkout.`
         : ` Não peça e-mail.`) +
-      (!emailNext && missing[0] === "document" && cpfRefusals === 1
-        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
-          ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+      // Ignored once (not refused — a refusal ends the ask): asked again with the reason.
+      (next === "document" && cpfRefusals === 1
+        ? ` Ela não respondeu o CPF da primeira vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
+          ` outras palavras — se ela não quiser passar, tudo bem, ela digita o CPF no checkout.`
         : ``) +
       ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
@@ -1452,26 +1460,33 @@ const runFollowupSweep = async () => {
       skipped.push({ followupId: row.id, reason: "o pagamento chegou: a confirmação do pedido avisa" });
       return;
     }
-    // She sent the receipt during the wait and the payment did not arrive: a person checks it now, and
-    // she is told so — not asked again for what she already sent (review of the L2 fixes, finding 6).
+    // She sent the receipt and the payment still did not arrive 5 minutes later: she is pointed to the
+    // support e-mail with the receipt (operator, 2026-10-09), and the operator is told. The conversation stays
+    // with the agent (no `handoff_at`). Without a support address in the config, a person takes it, as before.
     if (row.kind === "payment_check" && row.body === "receipt") {
       const claimed = await mark("sent");
       if (!Array.isArray(claimed) || claimed.length === 0) {
         skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da verificação" });
         return;
       }
-      await db(`leads?id=eq.${lead.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-      }).catch(() => undefined);
+      const support = CONFIG.support?.email ?? null;
+      const line = support ? paymentSupportLine(support) : PAYMENT_RECEIPT_ESCALATED;
+      if (!support) {
+        await db(`leads?id=eq.${lead.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+        }).catch(() => undefined);
+      }
       await db("messages", {
         method: "POST",
-        body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: PAYMENT_RECEIPT_ESCALATED }),
+        body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: line }),
       }).catch(() => undefined);
-      toSend.push({ to: lead.phone, via: "text", body: PAYMENT_RECEIPT_ESCALATED, kind: row.kind, followupId: row.id });
+      toSend.push({ to: lead.phone, via: "text", body: line, kind: row.kind, followupId: row.id });
       handoffs.push({
         followupId: row.id,
-        reason: "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — conferir na Coinzz",
+        reason: support
+          ? "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — ela foi orientada a mandar o comprovante pro e-mail do suporte; conferir na Coinzz"
+          : "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — conferir na Coinzz",
         notify: CONFIG.handoff?.email ?? null,
         leadId: lead.id,
         phone: lead.phone,
@@ -2870,15 +2885,11 @@ const handleTurn = async (
           body,
         }),
       }).catch(() => undefined);
-    if (payment === "receipt_handoff") {
-      await settle("canceled");
-      return await handOff(PAYMENT_RECEIPT_HANDOFF, "a cliente mandou o comprovante de pagamento e o pagamento não chegou — conferir na Coinzz");
-    }
     const line = payment === "confirmed"
       ? PAYMENT_CONFIRMED_REPLY
       : payment === "check"
       ? PAYMENT_CHECK_REPLY
-      : payment === "check_with_receipt" || payment === "receipt_during_check"
+      : payment === "check_with_receipt" || payment === "receipt_during_check" || payment === "receipt_check"
       ? PAYMENT_RECEIPT_KEPT
       : payment === "still_checking"
       ? PAYMENT_STILL_CHECKING
@@ -2897,8 +2908,8 @@ const handleTurn = async (
             body: JSON.stringify({ body: "receipt", run_at: bumped }),
           }).catch(() => undefined);
         }
-        if (payment === "check" || payment === "check_with_receipt") {
-          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS), payment === "check_with_receipt" ? "receipt" : null);
+        if (payment === "check" || payment === "check_with_receipt" || payment === "receipt_check") {
+          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS), payment === "check" ? null : "receipt");
           // She says she paid: "travou em alguma etapa?" would talk over the check (L2).
           await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.checkout_reminder&status=eq.scheduled`, {
             method: "PATCH",
@@ -2938,7 +2949,8 @@ const handleTurn = async (
       undefined,
       false,
     );
-    const help = ackHelpText(datum);
+    // Once: an "ok" to the help offer itself does not bring it back in another 10 minutes.
+    const help = lastOutbound.trim() === ackHelpText(datum) ? null : ackHelpText(datum);
     if (help !== null) {
       await db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
@@ -3213,15 +3225,19 @@ const handleTurn = async (
    * failure: silence about the size beats a size she cannot receive.
    */
   let region: Region | null = null;
+  // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
+  let cepNotFound = false;
   if (addressDraft.cep) {
     try {
-      region = await checkRegion(async (url, headers) => {
+      const lookup = await lookupRegion(async (url, headers) => {
         const r = await fetch(url, {
           headers,
           signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         });
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
+      region = lookup.kind === "found" ? lookup.region : null;
+      cepNotFound = lookup.kind === "not_found";
     } catch {
       region = null; // The checkout being down is not a reason to stop selling.
     }
@@ -3233,7 +3249,10 @@ const handleTurn = async (
     spoken(inbound.body ?? ""),
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
-  const cepState = addressDraft.cep
+  const cepState = cepNotFound
+    ? `A consulta não encontrou o CEP que ela mandou (${addressDraft.cep}): diga com gentileza que você não conseguiu consultar porque esse CEP não existe,` +
+      ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
+    : addressDraft.cep
     ? null
     : wrongCep
       ? `Ela mandou um CEP com ${wrongCep.length} números (${wrongCep}), e CEP tem 8: o sistema não conseguiu ler.` +
@@ -3264,7 +3283,10 @@ const handleTurn = async (
 
   // 5e. Identity accumulates the same way, and for the same reason.
   // An e-mail stored before 2026-10-07 is dropped (operator: no e-mail kept), and the next write clears it.
-  const { email: _noEmail, ...storedIdentity } = (lead.identity ?? {}) as Partial<Identity> & { email?: string };
+  // The e-mail is kept on the lead again (operator, 2026-10-09): read from her messages, carried in the link.
+  const { email: storedEmail, ...storedIdentity } = (lead.identity ?? {}) as Partial<Identity> & { email?: string };
+  const burstEmail = [...parts].reverse().map((p) => extractEmail(p)).find((e) => e !== null) ?? null;
+  const leadEmail: string | null = burstEmail ?? storedEmail ?? null;
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
   // Right after the agent asked her name or surname, "Leila da silva" is her name (grafo §66).
   const burstIdentity = extractIdentityBurst(parts, asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound));
@@ -3276,10 +3298,13 @@ const handleTurn = async (
       : null;
   const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
   const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
-  if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity)) {
+  if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity) || leadEmail !== (storedEmail ?? null)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        identity: { ...identityDraft, ...(leadEmail ? { email: leadEmail } : {}) },
+        updated_at: new Date().toISOString(),
+      }),
     }).catch(() => undefined);
   }
 
@@ -3391,8 +3416,8 @@ const handleTurn = async (
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
-  // Her e-mail, read from the chat and carried in the prepaid link only — never stored (0024; L2).
-  const chatEmail = emailInChat(recent);
+  // Her e-mail, from the chat or the lead (stored again since 2026-10-09), carried in the prepaid link.
+  const chatEmail = emailInChat(recent) ?? leadEmail;
   const linkCustomer = {
     ...identityDraft,
     ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
@@ -3416,6 +3441,16 @@ const handleTurn = async (
   // prepaid path (L2, 2026-10-08) and CPF. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
   // refused twice lets the link go without it.
   const cpfRefusals = refusedAsks(recent, "document");
+  // A datum refused in so many words is "sem problema" and the flow goes on (operator, 2026-10-09).
+  const nameRefused = refusedDatum(recent, "name") >= 1;
+  const cpfRefused = refusedDatum(recent, "document") >= 1;
+  // Refused in THIS burst, to the agent's last ask: the reply opens with "sem problema".
+  const justNow = [{ direction: "outbound", body: lastOutbound }, ...parts.map((p) => ({ direction: "inbound", body: p }))];
+  const justRefused =
+    refusedDatum(justNow, "name") >= 1 ? "o nome"
+    : refusedDatum(justNow, "email") >= 1 ? "o e-mail"
+    : refusedDatum(justNow, "document") >= 1 ? "o CPF"
+    : null;
   // A link already went out (a switch from the delivery link, or the e-mail out of the window): the
   // after-link directive forbids asking again, so the e-mail is not waited for (review of the L2 fixes, 1).
   // Index: messages_conversation_idx; only read when the prepaid link would wait on the e-mail.
@@ -3428,12 +3463,12 @@ const handleTurn = async (
         ).catch(() => null))?.length ?? 0) > 0));
   const linkData = {
     sizeKnown,
-    cepKnown: Boolean(addressDraft.cep),
+    cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
-    nameKnown: Boolean(identityDraft.name),
-    cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
+    nameKnown: Boolean(identityDraft.name) || nameRefused,
+    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
-    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore,
+    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3548,7 +3583,11 @@ const handleTurn = async (
   const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
-      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units)),
+      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
+        ...(identityDraft.name ? [] : ["nome completo"]),
+        ...(linkPath === "prepay" && !chatEmail ? ["e-mail"] : []),
+        ...(identityDraft.document ? [] : ["CPF"]),
+      ], justRefused !== null)),
       linkFact ? `link — ${linkFact}` : "link",
       linkPath,
       { checkoutUrl, linkFact },
@@ -3573,7 +3612,7 @@ const handleTurn = async (
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
     : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
-      : identityDirectiveFor(identityDraft, cpfRefusals, missing === "email");
+      : identityDirectiveFor(missing, cpfRefusals, justRefused);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent

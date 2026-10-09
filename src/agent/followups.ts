@@ -224,6 +224,9 @@ export const ackHelpText = (datum: AskedDatum | null): string | null => {
       return "Precisa de alguma ajuda com o e-mail?";
     case "size":
       return "Precisa de alguma ajuda pra achar o seu tamanho?";
+    // The name is just asked again (operator, 2026-10-09).
+    case "name":
+      return "Me passa seu nome completo, por favor? É pra deixar o pedido no seu nome 💛";
     default:
       return null;
   }
@@ -587,9 +590,16 @@ export const PAYMENT_CHECK_MS = 5 * MINUTE;
 export const PAYMENT_CHECK_REPLY = "Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
 export const PAYMENT_STILL_CHECKING = "Ainda estou verificando aqui, assim que a confirmação aparecer eu te aviso 💛";
 export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, está tudo certo com o seu pedido 💛";
+// At 5 minutes, the status is said as it is — pending — and the receipt asked (operator, 2026-10-09).
 export const PAYMENT_RECEIPT_ASK =
-  "Ainda não apareceu a confirmação do seu pagamento aqui. Consegue me mandar o comprovante por aqui? Aí eu confiro pra você 💛";
-export const PAYMENT_RECEIPT_HANDOFF = "Recebi o comprovante, vou conferir e já te retorno 💛";
+  "Conferi aqui e o status do seu pagamento ainda está pendente. Consegue me mandar o comprovante do pagamento pra eu verificar? 💛";
+
+/**
+ * The receipt sent and the payment still absent 5 minutes later: she is pointed to the support e-mail
+ * with the receipt (operator, 2026-10-09) — the address from the config, never typed here.
+ */
+export const paymentSupportLine = (email: string): string =>
+  `Ainda não apareceu a confirmação do seu pagamento aqui. Pra gente resolver rapidinho, manda um e-mail com o comprovante pro nosso suporte: ${email} 💛`;
 /** At 5 minutes, the payment still absent and her receipt in hand: a person checks it. */
 export const PAYMENT_RECEIPT_ESCALATED =
   "Ainda não apareceu a confirmação do pagamento aqui, então já passei seu comprovante pro time conferir e já te retornamos 💛";
@@ -614,7 +624,7 @@ export type PaymentRoute =
   | "still_checking"
   | "receipt_during_check"
   | "ask_receipt"
-  | "receipt_handoff";
+  | "receipt_check";
 export const paymentRoute = (s: {
   /** "Paguei", "fiz o pix" (`saysPaid`). */
   readonly saidPaid: boolean;
@@ -636,7 +646,8 @@ export const paymentRoute = (s: {
   if (s.codOrder || (!s.linkSent && !s.checking && !s.receiptAsked)) return null;
   const aboutPayment = s.saidPaid || s.asksStatus || s.receipt;
   if (s.paid) return aboutPayment ? "confirmed" : null;
-  if (s.receiptAsked && s.receipt) return "receipt_handoff";
+  // The receipt after the ask: checked once more, and then the support e-mail (operator, 2026-10-09).
+  if (s.receiptAsked && s.receipt) return "receipt_check";
   // The receipt sent during the wait is kept: at 5 minutes the check calls a person instead of asking it again.
   if (s.checking) return s.receipt ? "receipt_during_check" : aboutPayment ? "still_checking" : null;
   if (s.receiptAsked) return s.saidPaid || s.asksStatus ? "ask_receipt" : null;

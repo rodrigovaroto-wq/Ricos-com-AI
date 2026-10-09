@@ -72,9 +72,15 @@ const trimConnectors = (s: string): string => {
  * are rejected rather than carried into a delivery attempt.
  */
 export const parseCep = (text: string): string | null => {
-  const match = text.match(/\b(\d{5})-?\s?(\d{3})\b/);
+  // Any way she writes it (operator, 2026-10-09): "04710090", "04710-090", "04.710-090", "04 710 090",
+  // "04710 - 090". Only the shapes a CEP has — 8 digits, 5+3, 2+3+3 — and never inside a longer run of
+  // digits, so a phone ("3456-7890", "99491-5983") or a CPF ("551.381.468-40") is not read as one.
+  const S = String.raw`[\s.\-–]{1,3}`;
+  const match = text.match(
+    new RegExp(String.raw`(?<!\d[\s.\-–]{0,3})(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3}))(?![\s.\-–]{0,3}\d)`),
+  );
   if (!match) return null;
-  const digits = `${match[1]}${match[2]}`;
+  const digits = match.slice(1).filter(Boolean).join("");
   if (/^(\d)\1{7}$/.test(digits)) return null;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
@@ -288,7 +294,8 @@ export const confirmsAddress = (text: string): boolean => {
     .toLowerCase()
     .trim();
   if (/\b(nao|errado|erro|mudou|mudei|troca|trocar|na\s+verdade|corrig)\b/.test(t)) return false;
-  return /^(sim|isso|isso\s+mesmo|correto|ta\s+certo|esta\s+certo|certo|exato|perfeito|pode\s+ser|confirmo|confirmado|ok|okay|isso\s+ai|e\s+isso|pode\s+mandar|pode\s+enviar)\b/.test(
+  // "Ok", "tá bom", "tudo bem", "tranquilo" and the like are a yes to a yes/no question (operator, 2026-10-09).
+  return /^(sim|isso|isso\s+mesmo|correto|ta\s+certo|esta\s+certo|certo|exato|perfeito|pode\s+ser|confirmo|confirmado|ok|okay|okk|isso\s+ai|e\s+isso|pode\s+mandar|pode\s+enviar|ta\s+bom|ta|tudo\s+bem|tranquilo|beleza|blz|claro|com\s+certeza|pode|fechado|combinado|show|bora|uhum|aham|s|ss|positivo|otimo|joia)\b/.test(
     t,
   );
 };

@@ -612,7 +612,7 @@ export const asksSomething = (message: string): boolean => {
  */
 const ACK_WORDS = new Set([
   "ok", "okay", "okk", "okok", "blz", "beleza", "ta", "bom", "certo", "entendi", "entendido",
-  "ah", "aah", "ahh", "aham", "uhum", "hum", "hm", "hmm", "show", "joia", "combinado",
+  "ah", "aah", "ahh", "aham", "uhum", "hum", "hm", "hmm", "show", "joia", "combinado", "tranquilo", "tudo", "bem",
 ]);
 export const isBareAck = (parts: readonly string[]): boolean =>
   parts.length > 0 &&

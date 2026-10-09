@@ -216,14 +216,21 @@ export const linkMessage = (
   size: string | null,
   brand: string,
   pieces = 1,
+  /** What she did not give in the chat and fills in the checkout, said before the link (operator, 2026-10-09). */
+  toFill: readonly string[] = [],
+  /** She just refused a datum: "Sem problema!" opens instead of "Perfeito!" (operator, 2026-10-09). */
+  refusedNow = false,
 ): string => {
   const choose = pieces > 1 ? "escolhe o tamanho de cada peça" : `escolhe o ${size ?? "seu tamanho"}`;
+  const fill = toFill.length === 0
+    ? ""
+    : ` No checkout você vai preencher também ${toFill.length === 1 ? `o seu ${toFill[0]}` : `${toFill.slice(0, -1).map((f) => `o seu ${f}`).join(", ")} e o seu ${toFill[toFill.length - 1]}`}, tá?`;
   const there =
     path === "cod"
       ? `Lá você completa o endereço, ${choose} e o dia da entrega.`
       : `Lá você completa o endereço, ${choose}, confere o frete e paga no pix ou no cartão.`;
   return (
-    `Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.` +
+    `${refusedNow ? "Sem problema!" : "Perfeito!"} É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.${fill}` +
     `\n\n${url}\n\n${there} Se precisar de alguma ajuda, estarei aqui.`
   );
 };

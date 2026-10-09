@@ -3377,10 +3377,10 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "G67-paguei-sem-pessoa",
-    bug: "'paguei' chamava uma pessoa antes de verificar e de pedir o comprovante",
+    bug: "'paguei' pulava a verificação e o pedido do comprovante",
     files: ["src/agent/followups.ts"],
-    from: "  if (s.receiptAsked && s.receipt) return \"receipt_handoff\";",
-    to: "  if (s.receipt) return \"receipt_handoff\";",
+    from: "  if (s.receiptAsked && s.receipt) return \"receipt_check\";",
+    to: "  if (s.receipt) return \"receipt_check\";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
   {

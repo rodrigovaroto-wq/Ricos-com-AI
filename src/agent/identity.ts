@@ -71,9 +71,24 @@ export const extractEmail = (text: string): string | null => {
  * link may go without it after two; the e-mail is asked once and only her refusal lets it go.
  */
 const BARE_NO = /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho|nao\s+uso)$/;
-const EMAIL_NONE = /\b(?:sem\s+e-?mail|nao\s+(?:tenho|uso)\s+(?:e-?mail|email))\b/;
-export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: string | null }>): number => {
-  const others = new RegExp(String.raw`\b(?:cpf|${NAME_ASK})\b`, "i");
+/** What each datum is called, in her words and in the agent's ask. */
+const DATUM_WORD = { email: String.raw`e-?mail`, document: "cpf", name: "nome" } as const;
+/**
+ * Any datum refused in so many words — the e-mail (L2), and since 2026-10-09 the name and the CPF too: the
+ * operator's rule is that a refusal is "sem problema" and the flow goes on, the checkout asking the rest.
+ */
+export const refusedDatum = (
+  messages: ReadonlyArray<{ direction: string; body: string | null }>,
+  field: keyof typeof DATUM_WORD,
+): number => {
+  const W = DATUM_WORD[field];
+  const OTHERS = Object.entries(DATUM_WORD).filter(([k]) => k !== field).map(([, v]) => v).join("|");
+  const EMAIL_NONE = new RegExp(String.raw`\b(?:sem\s+(?:o\s+|meu\s+)?${W}|nao\s+(?:tenho|uso|passo)\s+(?:o\s+|meu\s+)?${W})\b`);
+  const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${NAME_ASK})\b`, "i");
+  const found = (a: string): boolean =>
+    field === "email" ? extractEmail(a) !== null : field === "document" ? extractCpf(a) !== null : false;
+  const asks = (text: string): boolean =>
+    field === "name" ? asksForName(text) : asksForField(text, new RegExp(String.raw`\b${W}\b`, "i"), others);
   // Second review of the L2 fixes: a bare "não" is the commonest refusal, and the refusal verb keeps its
   // "e se eu não passar" guard (`REFUSE_VERB`); putting it off ("depois mando") is no refusal.
   const refuses = (a: string, bareNoCounts: boolean): boolean => {
@@ -92,14 +107,14 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
     const offersOther = /\b(?:d[oa]\s+(?:meu|minha)|posso\s+(?:passar|mandar|usar)|outr[oa]|de\s+algu[eé]m)\b/.test(asked);
     const goOn =
       !offersOther &&
-      (/\bsem\b(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))/.test(asked) ||
+      (new RegExp(String.raw`\bsem\b(?!\s+(?:o\s+|meu\s+)?(?:${OTHERS}))`).test(asked) ||
         /^(?:pode\s+ser|tudo\s+bem|pode|ok|beleza|blz|tem\s+problema|como\s+faz|e\s+agora)\s*\?+$/.test(asked));
     if (goOn && said.some((c) => EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
     // "Não tenho e-mail" said outright counts unless she offers someone else's (sixth review).
     if (!offersOther && said.some((c) => EMAIL_NONE.test(c))) return true;
     if (t.endsWith("?")) return false;
     // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
-    if (/\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:cpf|nome))\b/.test(t)) return true;
+    if (new RegExp(String.raw`\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:${OTHERS}))\b`).test(t)) return true;
     return (
       // A bare "não" answers the last question asked: only when that was the e-mail's (third review).
       (bareNoCounts && BARE_NO.test(t)) ||
@@ -109,14 +124,14 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
   };
   const lastQuestionIsEmail = (text: string): boolean => {
     const questions = text.split(/(?<=[.!?])\s+|\n+/).filter((q) => q.trim().endsWith("?"));
-    return /\be-?mail\b/i.test(questions[questions.length - 1] ?? "");
+    return new RegExp(String.raw`\b${W}\b`, "i").test(questions[questions.length - 1] ?? "");
   };
   let bareNoCounts = false;
   let count = 0;
   let asked = false;
   let answer: string[] = [];
   const close = () => {
-    if (asked && answer.length > 0 && !answer.some((a) => extractEmail(a) !== null) && answer.some((a) => refuses(a, bareNoCounts))) count += 1;
+    if (asked && answer.length > 0 && !answer.some(found) && answer.some((a) => refuses(a, bareNoCounts))) count += 1;
     answer = [];
   };
   for (const m of messages) {
@@ -125,12 +140,16 @@ export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: 
       continue;
     }
     close();
-    asked = asksForField(m.body ?? "", /\be-?mail\b/i, others);
+    asked = asks(m.body ?? "");
     bareNoCounts = lastQuestionIsEmail(m.body ?? "");
   }
   close();
   return count;
 };
+
+/** The e-mail refused (L2): `refusedDatum` for the e-mail. */
+export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: string | null }>): number =>
+  refusedDatum(messages, "email");
 
 /**
  * Her e-mail as she typed it in the conversation, newest first, from her own messages only (the

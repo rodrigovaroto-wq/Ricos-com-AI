@@ -73,7 +73,7 @@ describe("L2 — um 'ok' sozinho não ganha resposta", () => {
     expect(ackHelpText("cpf")).toBe("Precisa de alguma ajuda com o CPF?");
     expect(ackHelpText("email")).toBe("Precisa de alguma ajuda com o e-mail?");
     expect(ackHelpText("size")).toBe("Precisa de alguma ajuda pra achar o seu tamanho?");
-    expect(ackHelpText("name")).toBeNull();
+    expect(ackHelpText("name")).toBe("Me passa seu nome completo, por favor? É pra deixar o pedido no seu nome 💛");
     expect(ackHelpText(null)).toBeNull();
   });
 
@@ -172,7 +172,7 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     expect(paymentRoute({ ...base, checking: true, saidPaid: true })).toBe("still_checking");
   });
   it("depois do pedido do comprovante: o comprovante chama uma pessoa; insistir sem ele pede de novo", () => {
-    expect(paymentRoute({ ...base, receiptAsked: true, receipt: true })).toBe("receipt_handoff");
+    expect(paymentRoute({ ...base, receiptAsked: true, receipt: true })).toBe("receipt_check");
     expect(paymentRoute({ ...base, receiptAsked: true, saidPaid: true })).toBe("ask_receipt");
   });
   it("pago de verdade: ela diz que está confirmado", () => {
@@ -214,7 +214,7 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     const at = turn.indexOf("const payment = paymentRoute({");
     expect(at).toBeGreaterThan(-1);
     expect(at).toBeLessThan(turn.indexOf("const ask = interpretRequest(lastOutbound"));
-    expect(turn).toContain('if (payment === "receipt_handoff")');
+    expect(turn).toContain('payment === "check" ? null : "receipt"');
     expect(turn).toContain('kind === "payment_check"');
   });
 });
@@ -255,9 +255,10 @@ describe("L2 — e-mail só no antecipado: nome → e-mail → CPF", () => {
   });
   it("a função de produção pede o e-mail só no antecipado e não o grava no lead", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore');
+    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore');
     expect(turn).toContain("...(linkPath === \"prepay\" && chatEmail ? { email: chatEmail } : {})");
-    expect(turn).toContain("const { email: _noEmail, ...storedIdentity }");
+    // Stored again since 2026-10-09 (operator).
+    expect(turn).toContain("identity: { ...identityDraft, ...(leadEmail ? { email: leadEmail } : {}) },");
   });
 });
 
@@ -353,7 +354,7 @@ describe("L2 — revisão Opus (achados 3 a 8)", () => {
 describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("1. depois de um link, o antecipado não espera o e-mail", () => {
-    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedEmail(recent) >= 1 || linkBefore,");
+    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore,");
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
     expect(turn).toContain('await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
@@ -364,10 +365,11 @@ describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)"
   it("6. o comprovante mandado durante a espera vai com a verificação, que chama uma pessoa aos 5 min", () => {
     expect(turn).toContain('JSON.stringify({ body: "receipt", run_at: bumped })');
     expect(turn).toContain('if (row.kind === "payment_check" && row.body === "receipt") {');
-    expect(turn).toContain("toSend.push({ to: lead.phone, via: \"text\", body: PAYMENT_RECEIPT_ESCALATED");
+    expect(turn).toContain("const line = support ? paymentSupportLine(support) : PAYMENT_RECEIPT_ESCALATED;");
   });
   it("8. o pedido do e-mail não leva junto o pedido do CPF", () => {
-    expect(turn).toContain('(!emailNext && missing[0] === "document" && cpfRefusals === 1');
+    // The directive asks the one datum `missingForLink` names: never the e-mail and the CPF together.
+    expect(turn).toContain(': identityDirectiveFor(missing, cpfRefusals, justRefused);');
   });
 });
 

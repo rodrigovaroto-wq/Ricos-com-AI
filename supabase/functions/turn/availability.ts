@@ -259,17 +259,29 @@ export const toRegion = (zip: string, place: Place, a: Availability): Region => 
   labelBrl: a.labelBrl,
 });
 
-export const checkRegion = async (
-  fetcher: Fetcher,
-  zip: string,
-): Promise<Region | null> => {
-  const place = readPlace(await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`));
-  if (!place) return null;
+/**
+ * What the lookup found: the region, a CEP the Correios do not know (ViaCEP `erro`, operator 2026-10-09:
+ * she is told it was not found and asked to check it), or a lookup that failed — the network, a Coinzz
+ * answer without `data` — which says nothing about her region.
+ */
+export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed" };
+
+export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<RegionLookup> => {
+  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
+  const erro = (viacep as { erro?: unknown } | null)?.erro;
+  if (erro === true || erro === "true") return { kind: "not_found" };
+  const place = readPlace(viacep);
+  if (!place) return { kind: "failed" };
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
   const body = await askSize(fetcher, zip, place, REFERENCE_SIZE);
-  if (!answered(body)) return null;
-  return toRegion(zip, place, readAvailability(REFERENCE_SIZE, body));
+  if (!answered(body)) return { kind: "failed" };
+  return { kind: "found", region: toRegion(zip, place, readAvailability(REFERENCE_SIZE, body)) };
+};
+
+export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {
+  const lookup = await lookupRegion(fetcher, zip);
+  return lookup.kind === "found" ? lookup.region : null;
 };
 
 /**

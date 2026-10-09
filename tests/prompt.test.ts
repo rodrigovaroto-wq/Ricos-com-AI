@@ -1239,7 +1239,7 @@ describe("os dados antes do link, e o tamanho escolhido no checkout", () => {
     const prompt = own(withKits);
     expect(prompt).toContain("Antes do link você precisa de quatro coisas: o tamanho, o CEP, o nome completo e o CPF — e, só no antecipado, o e-mail");
     expect(prompt).toContain("depois que ela escolher o pagamento, nessa ordem, um por mensagem");
-    expect(prompt).toContain("Se ela recusar o CPF duas vezes, não insista: o link vai sem ele e ela digita o CPF no checkout.");
+    expect(prompt).toContain("Se ela não quiser passar algum dado (nome, e-mail ou CPF), diga que não tem problema, sem insistir, e siga: o que faltar ela preenche no checkout.");
     expect(prompt).toContain(`No checkout ela completa o endereço e escolhe o tamanho dela — diga com o tamanho, tipo "lá você escolhe o M".`);
     expect(prompt).toContain("Você NÃO pede endereço, só o CEP");
   });
