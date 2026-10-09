@@ -1,0 +1,104 @@
+{
+  "query": {
+    "fonte": "logzz",
+    "token": "REDACTED"
+  },
+  "body": {
+    "integration": {
+      "turn": "1/1",
+      "name": "Fake Integration",
+      "link": "https://fakeintegration.com",
+      "level": "standard"
+    },
+    "client_name": "John Doe",
+    "client_email": "johndoe@example.com",
+    "client_document": "123.456.789-00",
+    "client_phone": "555-1234-567",
+    "client_zip_code": "12345-678",
+    "client_address": "Fictional Street",
+    "client_address_number": "42",
+    "client_address_district": "Imaginary District",
+    "client_address_comp": "Apt 101",
+    "client_address_city": "Fantasy City",
+    "client_address_state": "MG",
+    "client_address_country": "Brasil",
+    "date_order": "2026-10-09 09:56:10",
+    "date_order_day": "sexta-feira",
+    "date_delivery": "2026-10-14 09:56:10",
+    "date_delivery_day": "quarta-feira",
+    "delivery_estimate": "09:56",
+    "order_number": "1000S0123P1000",
+    "order_status": "Agendado",
+    "order_status_description": "Your order is being processed.",
+    "order_quantity": "3",
+    "order_final_price": "150,00",
+    "second_order": false,
+    "first_order": true,
+    "products": {
+      "main": {
+        "product_name": "Fictional Product",
+        "product_code": "FP12345",
+        "quantity": "3",
+        "product_image": "https://via.placeholder.com/300",
+        "sale_price": "50,00",
+        "variations": [
+          {
+            "product_name": "Fictional Product - V",
+            "product_code": "FP123451",
+            "quantity": "1",
+            "product_image": "https://via.placeholder.com/300",
+            "sale_price": "25,00"
+          },
+          {
+            "product_name": "Fictional Product - W",
+            "product_code": "FP123452",
+            "quantity": "2",
+            "product_image": "https://via.placeholder.com/300",
+            "sale_price": "25,00"
+          }
+        ]
+      }
+    },
+    "files": {
+      "label": {
+        "a4": "https://exemplo.com/etiqueta-a4.pdf",
+        "thermal": "https://exemplo.com/etiqueta-termica.pdf"
+      }
+    },
+    "logistic_operator": "Logistics Inc.",
+    "delivery_man": "John Courier",
+    "producer_name": "Producer Corp.",
+    "producer_email": "contact@producercorp.com",
+    "producer_phone": "(11) 98765-4321",
+    "producer_document": "123.456.789-00",
+    "producer_zip_code": "01310-000",
+    "producer_address": "Av. Paulista",
+    "producer_address_number": "1000",
+    "producer_address_district": "Bela Vista",
+    "producer_address_city": "São Paulo",
+    "producer_address_state": "SP",
+    "affiliate_name": "Affiliate Partner",
+    "affiliate_email": "partner@affiliate.com",
+    "affiliate_phone": "11-1234-5678",
+    "utm": {
+      "utm_source": "google",
+      "utm_medium": "cpc",
+      "utm_campaign": "summer-sale",
+      "utm_term": "beachwear",
+      "utm_content": "banner-1",
+      "utm_id": "1"
+    },
+    "external_id": "venq000x10",
+    "commission": 10,
+    "financial_fees": {
+      "transaction_fee": "8,99",
+      "antifraud_fee": "2,49",
+      "total": "11,48"
+    },
+    "logistic_fees": {
+      "delivery_fee": "19,99",
+      "handling_fee": "4,99",
+      "total": "24,98"
+    }
+  }
+}
