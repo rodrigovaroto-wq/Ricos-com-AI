@@ -2325,17 +2325,17 @@ a API de IA, o WhatsApp e os fixos saem no cartão (fatura fecha dia 22, vence d
 era R$ 25,00 estimado, quando o operador a paga com frete de retorno (R$ 30–60) + manuseio e perde as taxas já pagas (R$ 86,56 no
 COD); (C3) o manuseio era R$ 4,99 contra R$ 5,00 da Central Logzz; (C4) o imposto da Meta (13,83%) e a taxa de saque (R$ 3,99)
 não estavam em nenhum documento; (C5) produto e taxas saem do saldo de expedição quando o pedido entra em "em separação".
-**Caminhos descartados:** pagar o anúncio no dia do gasto (pico R$ 1.704 contra R$ 828 e erra o cartão do operador); manter a devolução em
-R$ 25 (subestima o custo em R$ 61,56 por devolução COD); tratar a transação como abatida do repasse (pico R$ 523, mas o operador
+**Caminhos descartados:** pagar o anúncio no dia do gasto (pico R$ 1.549 contra R$ 752 e erra o cartão do operador); manter a devolução em
+R$ 25 (subestima o custo em R$ 61,56 por devolução COD); tratar a transação como abatida do repasse (pico R$ 475, mas o operador
 confirmou que ela sai antes); modelar só a média por pedido (esconde que o pico acontece antes do primeiro repasse, no dia 16).
 **Correção:** planilha `docs/operacao/modelo-caixa-anuncios.xlsx` (fluxo diário de 90 dias, premissas editáveis) e o documento
 `docs/operacao/taxas-antecipadas-cod.md`; os valores vigentes entram em `06-modelo-economico.md`, `09-pipeline-ate-producao.md`,
-`10-execucao-mes-1.md` e no simulador de `mapa-financeiro.html`. Resultado: pico R$ 828, sobra R$ 247 sobre R$ 1.075 utilizáveis (verba de R$ 770, 7 dias a R$ 55/dia em cada fase).
+`10-execucao-mes-1.md` e no simulador de `mapa-financeiro.html`. Resultado: pico R$ 752, sobra R$ 323 sobre R$ 1.075 utilizáveis (verba de R$ 700, 7 dias a R$ 50/dia em cada fase).
 **Guarda:** a planilha reproduz a tabela de lucro por venda de 02/10 com manuseio R$ 4,99 e devolução R$ 25 (R$ 24,31 e R$ 49,50; mix R$ 31,87
 contra R$ 31,86 do doc, por arredondamento; conferido com manuseio 4,99, frete de retorno 20,01, taxas devolvidas e sem imposto da Meta) e o recalculo fecha com zero erros; as premissas não medidas (recusa, devolução, frete de retorno, imposto da
-Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Reconciliado:** o operador confirmou que o caixa de R$ 1.325 e uma verba maior que os R$ 500 de L3 substituem os valores de 08/10 e, ao ver que R$ 675 em 5 dias
-ficava abaixo do piso de amostra, escolheu 7 dias a R$ 55/dia em cada fase (R$ 770; 09-pipeline L3.1, L3.2, item 7 e saída; 10-execucao-mes-1 metas).
-**Risco aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 770 (R$ 55/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 513 leads e 51 pedidos: passa por pouco. Com CPL R$ 1,75 são 440 leads e 44 pedidos (abaixo do piso); com CPL R$ 1,25, 616 leads e 62 pedidos (passa, mas o pico sobe para R$ 993 e a sobra cai para R$ 82).
+Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Reconciliado:** o operador confirmou que o caixa de R$ 1.325 e uma verba maior que os R$ 500 de L3 substituem os valores de 08/10; ele escolheu 7 dias a R$ 55/dia em cada fase (R$ 770) e depois
+baixou para R$ 50/dia (R$ 700; 09-pipeline L3.1, L3.2, item 7 e saída; 10-execucao-mes-1 metas).
+**Risco aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos.
 
 ## Lições (valem para qualquer correção futura)
 

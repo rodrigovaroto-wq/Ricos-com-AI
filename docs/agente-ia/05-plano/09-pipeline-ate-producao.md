@@ -139,11 +139,11 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
    | Fase | Dias | Verba | Estrutura |
    |---|---|---|---|
-   | Copy | 1–7 | R$ 385, R$ 55/dia (operador, 2026-10-09; ~~R$ 375 em 5 dias~~, ~~R$ 300~~, ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
-   | Região | 10–16 (depois de 2 dias de pausa) | R$ 385, R$ 55/dia (operador, 2026-10-09; ~~R$ 300 em 5 dias~~, ~~R$ 200~~, ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
+   | Copy | 1–7 | R$ 350, R$ 50/dia (operador, 2026-10-09; ~~R$ 375 em 5 dias~~, ~~R$ 300~~, ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
+   | Região | 10–16 (depois de 2 dias de pausa) | R$ 350, R$ 50/dia (operador, 2026-10-09; ~~R$ 300 em 5 dias~~, ~~R$ 200~~, ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
    | Leitura | 17–18 (assumido, 2 dias como antes) | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
 
-   **Verba atual (operador, 2026-10-09): Copy R$ 385 e Região R$ 385 (7 dias a R$ 55/dia cada), total R$ 770, com 2 dias de
+   **Verba atual (operador, 2026-10-09): Copy R$ 350 e Região R$ 350 (7 dias a R$ 50/dia cada), total R$ 700, com 2 dias de
    pausa entre elas, a partir de 23/10.** Os valores anteriores do mesmo dia (R$ 375 + R$ 300 em 5 dias = R$ 675), de 2026-10-08
    (R$ 300 + R$ 200 = R$ 500) e de 2026-10-02 (R$ 400 + R$ 400 = R$ 800) estão riscados na tabela. (Histórico anterior: em 2026-10-02 Copy R$ 300 → R$ 400; Região R$ 500 →
    R$ 400 e dias 6–12 → 6–10.) **Metas mínima e ideal de cada fase: a definir com o operador**, junto de 8 a 15
@@ -153,11 +153,11 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    Os criativos se validam por outro método (CPL/CTR); pedidos e conversão leem a operação inteira.
    A e B se sobrepõem no Sudeste, Centro-Oeste e Sul — a leitura de região é direcional.
 
-   > **Reconciliado em 2026-10-09 (operador: R$ 675 e R$ 1.325 "substituem os de L3"; depois, "7 dias cada" e o plano de R$ 55/dia).** Fase 1 =
+   > **Reconciliado em 2026-10-09 (operador: R$ 675 e R$ 1.325 "substituem os de L3"; depois, "7 dias cada" e o plano de R$ 50/dia).** Fase 1 =
    > Copy e fase 2 = Região (mapeamento assumido; o operador não nomeou as fases). Os dias da Região passam de 6–10 para 10–16 (7 dias de
-   > cada fase e 2 de pausa), e a Leitura e a decisão (item 7) vão para 17–18 (assumido). Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 770 (R$ 55/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 513 leads e 51 pedidos: passa por pouco. Com CPL R$ 1,75 são 440 leads e 44 pedidos (abaixo do piso); com CPL R$ 1,25, 616 leads e 62 pedidos (passa, mas o pico sobe para R$ 993 e a sobra cai para R$ 82). Conta em
+   > cada fase e 2 de pausa), e a Leitura e a decisão (item 7) vão para 17–18 (assumido). Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos. Conta em
    > [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md).
-2. **O** — caixa: **R$ 1.325 em caixa** (operador, 2026-10-09, dos R$ 2.000 investidos; a verba de R$ 770 vai no cartão e é paga com o repasse; eram
+2. **O** — caixa: **R$ 1.325 em caixa** (operador, 2026-10-09, dos R$ 2.000 investidos; a verba de R$ 700 vai no cartão e é paga com o repasse; eram
    ~~R$ 1.500~~ em 2026-10-08 e ~~R$ 1.200~~ em 2026-10-02 — o caixa sustenta a operação no intervalo entre a venda e o dinheiro líquido recebido) para **todo custo de um pedido até a venda virar
    dinheiro** (produto, manuseio, taxa de transação, entrega concluída, recusa, devolução),
    mix 70% na entrega / 30% antecipado, 1 peça por pedido. Recusa na porta 12–17% a R$ 9,99
@@ -168,7 +168,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    do pagamento na entrega libera 14 dias depois do pagamento.
 
    > **Reserva reconciliada em 2026-10-09 (operador):** caixa de **R$ 1.325** com **R$ 250 de segurança** (R$ 1.075 utilizáveis). Para a verba
-   > acima o **pico de caixa é R$ 828** (07/11, antes do 1º repasse em 08/11) e **sobram R$ 247**. Produto e taxas do COD saem do
+   > acima o **pico de caixa é R$ 752** (07/11, antes do 1º repasse em 08/11) e **sobram R$ 323**. Produto e taxas do COD saem do
    > **saldo de expedição** (resolve "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99 + R$ 5,00; devolução = frete de
    > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD). Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
    > (fatura fecha dia 22, vence dia 29). Detalhe em [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em
