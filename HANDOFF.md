@@ -45,25 +45,50 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-09 (sessão `claude/malu-script-conversion-analysis-3wb9tp`, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-09, fim da sessão `claude/malu-script-conversion-analysis-3wb9tp` (LEIA PRIMEIRO)
 
-**No ar desde 2026-10-09:** `turn` **`agent_version` 15** = função v90 (commit `975c9d8`) e **`whatsapp` v24**. Tudo do
-L2 (grafo §67, as duas rodadas): cobertura com CEP em qualquer escrita, CEP inexistente, "paguei" → verificação →
-pendente → comprovante → e-mail do suporte, "ok" sozinho, lembrete do checkout aos 10 min do link, e-mail no
-antecipado (guardado), recusa de dado = "sem problema", prompt, sem "digitando", leitura de imagem. Validação:
-`pnpm test` 7108, `dev:conversas` 1665/1665, `dev:gates` 0 sem aceite, `typecheck:function`, mutações `G67-*` 22/22;
-revisões Opus até "aprovado com ressalvas". Sondas de produção e webhook de venda sintético ok (ver §67).
+**Próxima sessão: construir o portal de análise de dados e otimização operacional** (decisão do operador:
+antes do próximo teste real). Comece por [`05-plano/11-portal-briefing.md`](docs/agente-ia/05-plano/11-portal-briefing.md)
+e feche as 5 decisões abertas do §8 com o operador na primeira mensagem.
+
+**No ar (conferido em 2026-10-09):**
+- `turn` **`agent_version` 15** = função v90 (commit `975c9d8`); `whatsapp` **v24**.
+- Migração **0025** aplicada (`orders.size` pode ser nulo).
+- n8n: "Venda confirmada" versão ativa `b3a3b90e…` (lê o tamanho pelo código do produto da Coinzz e pelas
+  variações da Logzz; sem tamanho, grava assim mesmo e manda o e-mail "Venda gravada SEM tamanho"); "WhatsApp
+  envio" versão ativa `25ce1447…` (leitura sem "digitando"). `pnpm dev:n8n`: os 6 workflows ok.
+- Modelo da conversa `muse-spark-1.3-contributor` (do operador, nunca troque). E-mail do suporte: o do config
+  (`contato@encorpa-fashion.com.br`, confirmado pelo operador).
+
+**O que entrou nesta sessão (grafo §67, todas as rodadas):**
+- Cobertura com o CEP em qualquer escrita (a Coinzz só aceita dígitos); CEP que não existe é dito e pedido de novo.
+- "Paguei" → verificação → pendente aos 5 min → comprovante → e-mail do suporte.
+- "Ok" sozinho fica sem resposta, com oferta de ajuda depois de 10 min.
+- Lembrete do checkout aos 10 min do link.
+- E-mail no antecipado (guardado); dado recusado = "sem problema" e o link diz o que preencher.
+- Prompt mais vendedor e sem repetição.
+- Sem "digitando"; a Malu lê imagens; a venda é gravada mesmo sem tamanho.
+
+**Validação:**
+- `pnpm test` 7113; `dev:conversas` 1665/1665; `dev:gates` 0 afrouxamentos sem aceite; `typecheck:function` ok.
+- Mutações `G67-*` 22/22.
+- Revisões Opus até "aprovado com ressalvas" (ressalvas no grafo §67).
+- Todas as frentes de webhook/API testadas pela produção: [`docs/operacao/frentes-de-integracao.md`](docs/operacao/frentes-de-integracao.md).
+
 **Falta, nesta ordem:**
-1. **"Testar URL" na integração "Encorpa - agente" da Coinzz** (operador) e apagar a "N8N - antecipado": confirmar
-   que o payload do antecipado traz o tamanho onde o n8n lê (complemento) — senão a venda paga não é gravada.
-2. **Teste real completo** do operador e do sócio: um antecipado pagando o Pix de verdade (webhook, "paguei",
-   confirmação) e um com pagamento na entrega; auditar como o L2.
+1. **Portal** (próxima sessão), pelo briefing acima.
+2. **Teste real completo** do operador e do sócio: um antecipado pagando o Pix de verdade e um com pagamento na
+   entrega. Roteiro no fim de `frentes-de-integracao.md`.
+   - Conferir que as duas vendas entram em `orders` com o tamanho certo; o formato real do tamanho só aparece na
+     primeira venda real.
+   - Auditar as duas conversas como no L2.
 3. Conversas dos amigos (9393, 7745) — ainda não auditadas.
 4. Guias de troca e devolução — pendente por decisão do operador.
-5. Portal no Vercel — o operador constrói em outra sessão.
-Templates da Meta: todos colados e aprovados (operador, 09/10).
 
-### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`)
+Os templates da Meta estão colados e aprovados (operador, 09/10). Os webhooks de teste da Coinzz e da Logzz
+chegaram (09/10); a integração duplicada "N8N - antecipado" foi apagada pelo operador.
+
+### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`; superado pelo bloco acima)
 
 **Consertos do L2 feitos na branch, NÃO publicados** (grafo §67; decisões do operador em 08/10): cobertura com o
 CEP só em dígitos e falha = região desconhecida; "paguei" verifica, espera 5 min, pede o comprovante e só então

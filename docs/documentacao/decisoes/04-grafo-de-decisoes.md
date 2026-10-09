@@ -2296,6 +2296,25 @@ tamanho estiver no complemento; se a Coinzz mandar o tamanho em outro campo, a v
 operador) e o "paguei" nunca vê o pagamento. Prova: "Testar URL" no painel ou a primeira venda real. O ramo de
 leitura do "WhatsApp envio" no n8n ainda pede "digitando", mas nada o usa (a leitura sai da função `whatsapp`).
 
+### §67 — webhooks de venda reais (2026-10-09)
+
+**Sintoma:** os testes do painel ("Testar URL") da Coinzz e da Logzz chegaram ao n8n e foram recusados como "venda
+não mapeada": nenhum dos dois traz o tamanho no complemento do endereço, o único lugar onde o normalizador lia.
+Uma venda paga recusada é um pagamento que a Malu nunca vê ("paguei" sem pagamento, régua de silêncio cobrando
+quem comprou, sem confirmação).
+**Causa:** o mapeamento de 25/09 supunha que a cliente digitava o tamanho no complemento. Os checkouts têm
+seletor de tamanho desde 06/10: a Coinzz manda `order.product_code` (o código do tamanho), a Logzz manda
+`products.main.variations[]`.
+**Correção:** o normalizador lê, nesta ordem: campo explícito, código do produto da Coinzz, variações da Logzz
+(tamanho no fim do nome, repetido pela quantidade), nome do produto e complemento. Sem tamanho em lugar nenhum, a
+venda é gravada sem ele (migração 0025, `orders.size` nulo) e o operador recebe "Venda gravada SEM tamanho" com o
+payload cru. O workflow foi enviado pela API do n8n e conferido por `pnpm dev:n8n`. Teste de ponta a ponta com lead
+sintético: Coinzz com o código do G → gravado G; Logzz sem tamanho → gravado sem tamanho + e-mail.
+**Guarda:** `tests/n8n-sale-mapping.test.ts` com os payloads reais (`tests/fixtures/*-teste-2026-10-09.json`, token
+removido) e as negações; `tests/order-status-vocabulary.test.ts` confere o ramo novo.
+**Resíduo:** o nome das variações da Logzz numa venda real do colete ainda não foi visto (o teste usa produto
+fictício). A primeira venda real confirma: se vier sem tamanho, o e-mail traz o payload para fechar o mapeamento.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
