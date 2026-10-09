@@ -1464,8 +1464,8 @@ const runFollowupSweep = async () => {
     // support e-mail with the receipt (operator, 2026-10-09), and the operator is told. The conversation stays
     // with the agent (no `handoff_at`). Without a support address in the config, a person takes it, as before.
     if (row.kind === "payment_check" && row.body === "receipt") {
-      const claimed = await mark("sent");
-      if (!Array.isArray(claimed) || claimed.length === 0) {
+      const checkClaim = await mark("sent");
+      if (!Array.isArray(checkClaim) || checkClaim.length === 0) {
         skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da verificação" });
         return;
       }

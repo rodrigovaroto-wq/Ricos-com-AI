@@ -482,19 +482,20 @@ const MUTATIONS: Mutation[] = [
   },
   {
     id: "R10.4-resposta",
-    bug: "a resposta dela não cancelava o lembrete de checkout (\"conseguiu finalizar?\" depois de ela falar)",
+    // L2 (grafo §67): her reply keeps the checkout touch (anchored on the link) and still cancels "Ainda está aí?".
+    bug: "a resposta dela não cancelava o \"Ainda está aí?\" (e o lembrete do checkout sim, até 2026-10-08)",
     files: ["supabase/functions/turn/index.ts"],
-    from: '${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}',
-    to: "kind=like.silence_*",
+    from: '      ? "or=(kind.like.silence_*,kind.eq.still_there)"',
+    to: '      ? "kind=like.silence_*"',
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
     id: "R10.4-venda",
     bug: "a venda não cancelava o lembrete de checkout (\"conseguiu finalizar?\" para quem comprou)",
     files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
-    from: "    cancel: scheduled.filter((f) => inSilenceRuler(f.kind)).map((f) => f.kind),",
-    to: '    cancel: scheduled.filter((f) => f.kind.startsWith("silence_")).map((f) => f.kind),',
-    guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
+    from: '      .filter((f) => inSilenceRuler(f.kind) && !(f.kind === "checkout_reminder" && orderUnpaid(status)))',
+    to: '      .filter((f) => f.kind.startsWith("silence_") && !(f.kind === "checkout_reminder" && orderUnpaid(status)))',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
   {
     id: "R10.4-duplicado",
@@ -1547,8 +1548,8 @@ const MUTATIONS: Mutation[] = [
     id: "pos-compra-varredura",
     bug: "a varredura mandava toque de silêncio a quem tem pedido vivo",
     files: ["supabase/functions/turn/index.ts"],
-    from: "    if (inSilenceRuler(row.kind) && !chasesSilence(",
-    to: "    if (false && !chasesSilence(",
+    from: '    if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(',
+    to: '    if (false && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(',
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
