@@ -11,6 +11,31 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
+> ### Atualização de 2026-10-09 — caixa do teste, manuseio R$ 5,00 e devolução completa
+>
+> Respostas do operador de 2026-10-09; conta completa, prazos e fatura do cartão em
+> [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
+> [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
+>
+> | Item | Antes (02/10) | **Vigente (09/10)** |
+> |---|---|---|
+> | Manuseio | R$ 4,99 | **R$ 5,00** (Central Logzz) |
+> | Recusa na porta | R$ 9,99 | R$ 9,99 = **R$ 4,99 (entrega frustrada) + R$ 5,00 (manuseio)**; o resto da logística volta |
+> | Devolução pós-envio | R$ 25,00 (estimativa) | **COD R$ 86,56**: frete de retorno R$ 45 (faixa R$ 30–60) + manuseio R$ 5 + taxas já pagas que não voltam (entrega R$ 19,99, manuseio R$ 5, transação R$ 11,57). **Antecipado R$ 58,99**: frete R$ 45 + manuseio de retorno R$ 5 + manuseio original R$ 5 + taxa do Mercado Pago R$ 3,99 |
+> | Lead (CPL R$ 1,50) | R$ 15,00 por venda | R$ 17,07 com o imposto da Meta (13,83%, "deve aparecer", a conferir na 1ª fatura) |
+> | Produto e taxas do COD | em aberto (do caixa ou da comissão) | **Saem do saldo de expedição** quando o pedido vai para "em separação" (operador); a transação sai antes do repasse |
+> | Antecipado | cai na hora | cai na hora (confirmado no site e na conta do Mercado Pago) |
+> | Custos do sistema | não contados | PikaPods R$ 18,50 + número WhatsApp R$ 35,00 por mês; saque Logzz R$ 3,99; API de IA cobrada a cada R$ 20; tudo no cartão (fatura fecha dia 22, vence dia 29) |
+>
+> **Lucro por venda, 1 peça, ponta pessimista** (recusa 17%, devolução 10%, CPL R$ 1,50, IA R$ 0,27):
+> **COD R$ 16,07 · antecipado R$ 44,41 · mix 70/30 R$ 24,57** (R$ 18,14 / R$ 46,49 / R$ 26,65 sem o imposto da Meta).
+> A tabela de 02/10 logo abaixo dava R$ 24,31 / R$ 49,50 / R$ 31,86; a diferença vem da devolução, do manuseio e do imposto.
+>
+> **Reserva de caixa do teste, no lugar da conta de L3.2 abaixo:** com R$ 675 de verba (R$ 375 em 5 dias, 2 de pausa, R$ 300 em 5
+> dias, a partir de 23/10) e R$ 1.325 de caixa, o **pico é R$ 879** e **sobram R$ 196** sobre os R$ 1.075 utilizáveis (R$ 250 de
+> segurança). O anúncio vence na fatura de 29/11, depois do primeiro repasse (08/11). Dobrar a verba falta R$ 684; antecipado
+> retido por 14 dias falta R$ 1.329. O parágrafo "A conta da reserva de L3 não fecha" da caixa de 02/10 está **superado**.
+
 > ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02)
 >
 > Premissas (plano do mês 1, [`10-execucao-mes-1.md`](../../agente-ia/05-plano/10-execucao-mes-1.md)

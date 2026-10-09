@@ -42,6 +42,7 @@ aplica é o do secret.
 | Devolução e troca guiadas (rascunho, não aprovado) | [`agente-ia/06-script/06-devolucao-guiada.md`](agente-ia/06-script/06-devolucao-guiada.md) |
 | O que o Hermes já sabe de partida | [`../hermes/historico-inicial.md`](../hermes/historico-inicial.md) |
 | Segredos e onde ficam | [`operacao/segredos-e-codespace.md`](operacao/segredos-e-codespace.md) |
+| Quanto de caixa o teste exige, prazos e taxas adiantadas por pedido | [`operacao/taxas-antecipadas-cod.md`](operacao/taxas-antecipadas-cod.md) e a planilha [`operacao/modelo-caixa-anuncios.xlsx`](operacao/modelo-caixa-anuncios.xlsx) |
 | Hermes (supervisor offline) | [`../hermes/README.md`](../hermes/README.md) |
 | Meta Ads, CTWA, Conversions API | repositório [`encorpa-campanhas`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-) |
 

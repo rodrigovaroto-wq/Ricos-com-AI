@@ -193,12 +193,18 @@ simulador `docs/operacao/mapa-financeiro.html` com:
 - **WhatsApp:** R$ 0 por lead (atendimento e régua dentro da janela de 24 h e da janela gratuita
   de 72 h); só os templates UTILITY do pós-venda fora da janela (`order_eve`), US$ 0,0068 cada
   (~R$ 0,04) **por pedido**;
-- **Recusa na porta:** 12–17% (**valor especulado, ainda precisa ser medido**), R$ 9,99 cada;
-- **Devolução pós-envio:** 5–10%, R$ 25,00;
+- **Recusa na porta:** 12–17% (**valor especulado, ainda precisa ser medido**), R$ 9,99 cada (**R$ 4,99 de entrega
+  frustrada + R$ 5,00 de manuseio**, operador, 2026-10-09);
+- **Devolução pós-envio:** 5–10%; custo = frete de retorno (R$ 30–60, o modelo usa R$ 45) + manuseio R$ 5,00 + as taxas já
+  pagas, que não voltam: **R$ 86,56 no COD e R$ 58,99 no antecipado** (operador, 2026-10-09; era R$ 25,00 estimado);
+- **Manuseio:** R$ 5,00 (era R$ 4,99);
+- **Imposto da Meta nos anúncios:** 13,83% sobre a verba, "deve aparecer" na fatura do cartão (a conferir);
 - **Lead:** CPL R$ 1,25–1,50;
 - **Reserva:** todo custo de um pedido até a venda virar dinheiro (produto, manuseio, taxa de
   transação, entrega concluída, recusa, devolução) — o antecipado cai na hora no Mercado Pago; a
-  entrega libera 14 dias depois do pagamento.
+  entrega libera 14 dias depois do pagamento. **Atualizado em 2026-10-09:** produto e taxas do COD saem do saldo de expedição
+  quando o pedido vai para "em separação"; anúncio, API de IA, WhatsApp e fixos saem no cartão (fatura fecha dia 22, vence dia 29);
+  conta completa em [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md).
 
 ---
 

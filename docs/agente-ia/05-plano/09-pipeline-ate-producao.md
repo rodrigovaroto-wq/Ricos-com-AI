@@ -152,6 +152,11 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    < R$ 1,50; Região > 10% / CPL < R$ 1,25) fica só como ponto de partida da conversa.
    Os criativos se validam por outro método (CPL/CTR); pedidos e conversão leem a operação inteira.
    A e B se sobrepõem no Sudeste, Centro-Oeste e Sul — a leitura de região é direcional.
+
+   > **Verba modelada em 2026-10-09 (operador, pedido de modelagem de caixa):** R$ 375 em 5 dias (R$ 75/dia), 2 dias de
+   > pausa e R$ 300 em 5 dias (R$ 60/dia) = **R$ 675**, a partir de 23/10. Não é a divisão de 08/10 (Copy R$ 300 +
+   > Região R$ 200); o operador ainda precisa dizer se esta passa a ser a verba de L3. Conta em
+   > [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md).
 2. **O** — caixa: **R$ 1.500 reservados** (operador, 2026-10-08; eram ~~R$ 1.200~~ — o aumento sustenta
    a operação no intervalo entre a venda e o dinheiro líquido recebido) para **todo custo de um pedido até a venda virar
    dinheiro** (produto, manuseio, taxa de transação, entrega concluída, recusa, devolução),
@@ -161,6 +166,14 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    UTILITY do pós-venda fora da janela custa ~R$ 0,04 por pedido. A taxa de entrega concluída (R$ 19,99)
    só é descontada quando a entrega conclui. O antecipado cai no Mercado Pago na hora; a comissão
    do pagamento na entrega libera 14 dias depois do pagamento.
+
+   > **Reserva modelada em 2026-10-09 (operador):** caixa de **R$ 1.325** (dos R$ 2.000 investidos; R$ 675 são a verba, no
+   > cartão) com **R$ 250 de segurança**. Pico de caixa de **R$ 879** para a verba acima, sobra de **R$ 196**. Produto e taxas do
+   > COD saem do **saldo de expedição** (resolve a pergunta "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99
+   > + R$ 5,00; devolução = frete de retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD). Anúncio, API de IA, WhatsApp,
+   > PikaPods e número saem no **cartão** (fatura fecha dia 22, vence dia 29). Os R$ 1.500 de 08/10 e os R$ 1.200 de 02/10 ficam
+   > como histórico até o operador confirmar a reconciliação. Detalhe em
+   > [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
 3. **O** — handoff: o operador responde o mais rápido que conseguir, das 06:00 às 00:00. Fora disso
    vale R4.4 (mensagem automática 24/7, agente a partir das 06:00). A primeira resposta real da
    agente sai **1 minuto** depois da mensagem (operador, 2026-10-02; era 3 min na doc e 120 s no

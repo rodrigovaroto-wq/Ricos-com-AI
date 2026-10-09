@@ -2069,3 +2069,30 @@ Brasil fica fora da exceção da UE); conversão no n8n (ffmpeg no PikaPods não
 OGG (Azure, OpenAI: segundo provedor e chave). Precisa do segredo `META_API_KEY` e do `WHATSAPP_TOKEN` no
 projeto, e da publicação da função `whatsapp`.
 
+
+## R19.1 — Caixa do teste: saldo de expedição, cartão e devolução completa (operador, 2026-10-09)
+
+O operador pediu uma tabela modeladora de quanto de caixa o teste exige, e respondeu às perguntas do modelo. Decisões e
+fatos, em ordem:
+
+- **Verba do teste:** R$ 375 em 5 dias, 2 dias de pausa e R$ 300 em 5 dias (R$ 675), início modelado em 23/10. Do R$ 2.000
+  investido, **R$ 1.325 são caixa** e R$ 675 são a verba no cartão; **R$ 250 de margem de segurança**.
+- **Quem paga o quê:** o operador paga o produto (R$ 30 por peça) e as taxas do COD (entrega concluída, manuseio, transação
+  6,99% + R$ 2,49 de antifraude sobre o preço) **antes do repasse**. Todo o caixa fica no **saldo de expedição** da Logzz,
+  de onde saem os custos do pedido quando ele vai para "em separação". O frete de abastecimento do estoque não é do operador.
+- **Manuseio R$ 5,00** (Central Logzz; os docs usavam R$ 4,99). **Recusa R$ 9,99 = R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio.**
+- **Devolução = frete de retorno (R$ 30 a R$ 60, depende do ticket) + manuseio, e as taxas já pagas não voltam.** COD R$ 86,56
+  e antecipado R$ 58,99 com frete de R$ 45. Supera o R$ 25,00 estimado de 2026-09-29. O produto volta ao estoque sem perda,
+  em 7 dias.
+- **Prazos:** COD entregue em D+1 a D+3 (modelo 2), dinheiro liberado 14 dias após o pagamento do cliente (Pix ou cartão),
+  sem antecipação. Antecipado cai **na hora** no Mercado Pago (site e conta do operador); parcelado conta como à vista.
+- **Cartão de crédito:** anúncio Meta (cobra a cada R$ 100 ou no fim do mês), API de IA da Meta (a cada R$ 20), WhatsApp,
+  PikaPods (R$ 18,50) e número do WhatsApp (R$ 35). Fatura **fecha dia 22 e vence dia 29**; limite R$ 4.000. O operador paga
+  sacando do saldo da Logzz (R$ 3,99 por saque, cai em D+1 a D+2). Saldo menor que o limite de cobrança cai na fatura do
+  mês seguinte. O imposto da Meta (13,83%) "deve aparecer".
+- **Impostos do Simples:** fora do modelo por ora.
+
+Resultado: pico de caixa **R$ 879**, sobra **R$ 196**; dobrar a verba falta R$ 684. Conta em
+[`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
+[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Não reconcilia** a verba de L3 de 2026-10-08
+(R$ 500) nem os R$ 1.500 reservados: o operador ainda decide. Grafo §67.

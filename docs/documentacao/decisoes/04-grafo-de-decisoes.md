@@ -2208,6 +2208,27 @@ vezes seguidas no máximo, liberado quando já há tamanho ou ela decide comprar
 **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
 (saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
+## 67. A reserva de caixa de L3 não fechava: saldo de expedição, cartão e devolução completa (2026-10-09)
+
+**Sintoma:** a reserva de R$ 1.200 (depois R$ 1.500) de L3.2 não tinha conta que a sustentasse: a caixa de 02/10 dizia que
+"a conta não fecha" (R$ 1.970 a R$ 2.584 necessários) e deixava em aberto se produto e transação saíam do caixa antes da venda.
+O operador pediu uma tabela modeladora de quanto de caixa o teste exige.
+**Causa:** (C1) a reserva multiplicava um custo por pedido pelos dias até o repasse, sem calendário: ignorava que o anúncio,
+a API de IA, o WhatsApp e os fixos saem no cartão (fatura fecha dia 22, vence dia 29) e só no vencimento; (C2) a devolução
+era R$ 25,00 estimado, quando o operador a paga com frete de retorno (R$ 30–60) + manuseio e perde as taxas já pagas (R$ 86,56 no
+COD); (C3) o manuseio era R$ 4,99 contra R$ 5,00 da Central Logzz; (C4) o imposto da Meta (13,83%) e a taxa de saque (R$ 3,99)
+não estavam em nenhum documento; (C5) produto e taxas saem do saldo de expedição quando o pedido entra em "em separação".
+**Caminhos descartados:** pagar o anúncio no dia do gasto (pico R$ 1.648 contra R$ 879 e erra o cartão do operador); manter a devolução em
+R$ 25 (subestima o custo em R$ 61,56 por devolução COD); tratar a transação como abatida do repasse (pico R$ 597, mas o operador
+confirmou que ela sai antes); modelar só a média por pedido (esconde que o pico acontece antes do primeiro repasse, no dia 14).
+**Correção:** planilha `docs/operacao/modelo-caixa-anuncios.xlsx` (fluxo diário de 90 dias, premissas editáveis) e o documento
+`docs/operacao/taxas-antecipadas-cod.md`; os valores vigentes entram em `06-modelo-economico.md`, `09-pipeline-ate-producao.md`,
+`10-execucao-mes-1.md` e no simulador de `mapa-financeiro.html`. Resultado: pico R$ 879, sobra R$ 196 sobre R$ 1.075 utilizáveis.
+**Guarda:** a planilha reproduz a tabela de lucro por venda de 02/10 com manuseio R$ 4,99 e devolução R$ 25 (R$ 24,31 e R$ 49,50; mix R$ 31,87
+contra R$ 31,86 do doc, por arredondamento; conferido com manuseio 4,99, frete de retorno 20,01, taxas devolvidas e sem imposto da Meta) e o recalculo fecha com zero erros; as premissas não medidas (recusa, devolução, frete de retorno, imposto da
+Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Não resolvido:** o operador ainda precisa dizer se a verba
+de R$ 675 e o caixa de R$ 1.325 substituem os R$ 500 e os R$ 1.500 de L3.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

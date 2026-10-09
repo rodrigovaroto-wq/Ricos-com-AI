@@ -11,7 +11,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-08)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-09)
+
+> **2026-10-09 — modelo de caixa do teste (sessão `claude/elegant-cray-sttizw`, só documentação):** a pedido do operador foi
+> criada a planilha [`docs/operacao/modelo-caixa-anuncios.xlsx`](docs/operacao/modelo-caixa-anuncios.xlsx) e o documento
+> [`docs/operacao/taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md) (decisão R19.1, grafo §67). Com verba de
+> R$ 675 (R$ 375 em 5 dias, 2 de pausa, R$ 300 em 5 dias, a partir de 23/10) e caixa de R$ 1.325, o **pico de caixa é R$ 879 e
+> sobram R$ 196** sobre os R$ 1.075 utilizáveis. Valores novos: manuseio R$ 5,00, recusa R$ 9,99 (4,99 + 5,00), devolução
+> R$ 86,56 no COD e R$ 58,99 no antecipado (frete de retorno + manuseio + taxas já pagas), imposto da Meta 13,83% a conferir,
+> anúncio e custos do sistema no cartão (fatura fecha dia 22, vence dia 29). **Não mexeu em código nem em produção.** Pendências do
+> operador: dizer se R$ 675 / R$ 1.325 substituem os R$ 500 / R$ 1.500 de L3 (09-pipeline L3.1 e L3.2), medir o frete de retorno e
+> conferir o imposto da Meta na 1ª fatura.
 
 > **2026-10-08, noite: a `turn` no ar é a v14 (`agent_version` 14); o bloco "Onde estamos — 2026-10-08,
 > noite" logo abaixo vale, o resto do quadro é histórico.**
