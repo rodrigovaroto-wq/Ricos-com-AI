@@ -34,13 +34,17 @@ Liberação do dinheiro do COD: **14 dias** a partir do pagamento do cliente (qu
 
 Dinheiro disponível na hora (operador, 2026-10-09).
 
-## Anúncios e custos do sistema
+## Anúncios e custos do sistema (todos no cartão de crédito)
 
-| Item | Valor | Quando sai |
-|---|---|---|
-| Anúncio Meta | verba + 13,83% de imposto repassado | Fatura do cartão (fecha dia 22, vence dia 29). A Meta cobra a cada R$ 100 e no fim do mês |
-| IA + WhatsApp | R$ 0,27 por lead + R$ 0,04 por pedido | Dia 1 do mês seguinte |
-| PikaPods + número WhatsApp | R$ 18,50 + R$ 35,00 por mês | Dia 1 |
+Fatura do cartão: fecha dia 22 e vence dia 29. O operador saca do saldo da Logzz para a conta no dia de pagar a fatura
+(taxa de saque R$ 3,99 por saque, 1 por fatura).
+
+| Item | Valor | Quando entra no cartão | Quando sai do caixa |
+|---|---|---|---|
+| Anúncio Meta | verba + 13,83% de imposto (conferir na 1ª fatura) | A cada R$ 100 acumulados ou no fim do mês; o saldo menor que R$ 100 cai na fatura do mês seguinte | Vencimento da fatura em que a cobrança caiu |
+| IA + WhatsApp | R$ 0,27 por lead + R$ 0,04 por pedido | Dia 1 do mês seguinte ao consumo | Vencimento dessa fatura (dia 29) |
+| PikaPods + número WhatsApp | R$ 18,50 + R$ 35,00 por mês | Dia 1 | Vencimento (dia 29) |
+| Saque Logzz | R$ 3,99 | Dia de pagar a fatura | Descontado do saque |
 
 ## Devolução do antecipado
 
@@ -48,10 +52,9 @@ R$ 58,99: frete de retorno R$ 45 + manuseio de retorno R$ 5 + manuseio original 
 
 ## O que ainda não está confirmado
 
-1. Antifraude: o operador escreveu R$ 2,99; a Central e os docs dizem R$ 2,49 (o modelo usa R$ 2,49).
+1. O imposto da Meta (13,83%): o operador disse que ele não aparece nas cobranças de R$ 100. O modelo mantém 13,83% até a 1ª fatura real.
 2. Frete de retorno real (modelo usa R$ 45, meio da faixa R$ 30–60).
-3. Se o manuseio é cobrado duas vezes na devolução (original e de retorno).
-4. De onde saem fixos, IA, WhatsApp e saque, já que o caixa fica no saldo de expedição, e se o repasse recarrega o saldo sem taxa de saque.
+3. Prazo do saque do saldo para a conta (modelo assume que cai no mesmo dia).
 
 Fontes: [Central Logzz — taxas, prazos e condições](https://ajuda.logzz.com.br/artigos/taxas-prazos-e-condicoes-da-logzz),
 [blog Coinzz — pagamento na entrega](https://blog.coinzz.com.br/visao-geral/plataforma/como-fazer-vendas-com-pagamento-na-entrega-cash-on-delivery-cod-pela-coinzz/),
