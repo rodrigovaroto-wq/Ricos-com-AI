@@ -31,6 +31,11 @@ export interface InboundMessage {
    * replaces `body` before forwarding; it never leaves the function (`forward` strips it).
    */
   audioId?: string;
+  /**
+   * The media id of an image (operator, 2026-10-09): the webhook downloads it, has it described by the model
+   * and puts the description in `body` (`describedImageBody`); it never leaves the function either.
+   */
+  imageId?: string;
 }
 
 /** Compares without leaking where the first difference is. */
@@ -183,6 +188,7 @@ export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessa
       const reply = replyOf(m);
       const type = str(m.type);
       const audioId = type === "audio" || type === "voice" ? str(obj(m[type])?.id) : "";
+      const imageId = type === "image" ? str(obj(m.image)?.id) : "";
       out.push({
         externalId,
         from,
@@ -191,6 +197,7 @@ export const parseWebhook = (payload: unknown, phoneNumberId = ""): InboundMessa
         ...(sentAt ? { sentAt } : {}),
         ...(reply ? { reply } : {}),
         ...(audioId ? { audioId } : {}),
+        ...(imageId ? { imageId } : {}),
       });
     }
   }
@@ -325,6 +332,18 @@ export const READ_RECEIPT_DELAY_MS = 2_000;
 export const transcribedBody = (transcript: string): string | null => {
   const t = transcript.replace(/\s+/g, " ").trim().replace(/\.{2,}$/, ".");
   return t ? `[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] ${t}` : null;
+};
+
+/**
+ * Her picture as the agent reads it (operator, 2026-10-09): the model's description, marked as one, and the
+ * caption she wrote, if any. Starts like the old placeholder ("[a cliente mandou uma imagem"), so every reader
+ * that knew an image — the payment receipt — still does. Null without a description: the placeholder stays.
+ */
+export const describedImageBody = (description: string, caption: string | null): string | null => {
+  const d = description.replace(/\s+/g, " ").trim().replace(/[[\]]/g, "");
+  if (!d) return null;
+  const c = (caption ?? "").replace(/\s+/g, " ").trim();
+  return `[a cliente mandou uma imagem, descrita automaticamente — pode ter erro: ${d}]${c ? ` Ela escreveu junto: ${c}` : ""}`;
 };
 
 /**
