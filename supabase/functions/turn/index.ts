@@ -2852,7 +2852,7 @@ const handleTurn = async (
     const receipt = parts.some(isPaymentReceipt);
     const nudged = parts.some(nudgesCheck);
     const check = saidPaid || receipt || nudged || parts.some(asksPaymentStatus)
-      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at,run_at`).catch(() => null))?.[0] ?? null
+      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at,run_at,body`).catch(() => null))?.[0] ?? null
       : null;
     const checking = check?.status === "scheduled";
     const receiptAsked = check?.status === "sent" && Date.now() - Date.parse(check.sent_at ?? "") < 24 * 60 * 60_000;
@@ -2872,7 +2872,9 @@ const handleTurn = async (
         ? (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? []
         : [],
     );
-    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked });
+    // The check already ended in the support e-mail: it is said again, the receipt is not asked again.
+    const supportGiven = receiptAsked && check?.body === "receipt" && Boolean(CONFIG.support?.email);
+    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked, supportGiven });
     const settle = (status: "scheduled" | "canceled", runAt?: Date, body: string | null = null) =>
       db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
@@ -2895,6 +2897,8 @@ const handleTurn = async (
       ? PAYMENT_STILL_CHECKING
       : payment === "ask_receipt"
       ? PAYMENT_RECEIPT_ASK
+      : payment === "support_again" && CONFIG.support?.email
+      ? paymentSupportLine(CONFIG.support.email)
       : null;
     if (line !== null) {
       const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
@@ -3227,6 +3231,7 @@ const handleTurn = async (
   let region: Region | null = null;
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
+  let badCep: string | null = null;
   if (addressDraft.cep) {
     try {
       const lookup = await lookupRegion(async (url, headers) => {
@@ -3237,7 +3242,14 @@ const handleTurn = async (
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
       region = lookup.kind === "found" ? lookup.region : null;
-      cepNotFound = lookup.kind === "not_found";
+      // Said in the turn the CEP arrives, not on every message after it (review of round 2).
+      cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
+      // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
+      if (cepNotFound) {
+        badCep = addressDraft.cep ?? null;
+        addressDraft = { ...addressDraft, cep: undefined } as typeof addressDraft;
+        delete (addressDraft as { cep?: string }).cep;
+      }
     } catch {
       region = null; // The checkout being down is not a reason to stop selling.
     }
@@ -3250,7 +3262,7 @@ const handleTurn = async (
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
   const cepState = cepNotFound
-    ? `A consulta não encontrou o CEP que ela mandou (${addressDraft.cep}): diga com gentileza que você não conseguiu consultar porque esse CEP não existe,` +
+    ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque esse CEP não existe,` +
       ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
     : addressDraft.cep
     ? null
@@ -3622,7 +3634,7 @@ const handleTurn = async (
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
-    region === null
+    region === null && !cepNotFound
       ? `A entrega na região dela ainda não foi confirmada${
           addressDraft.cep ? " (a consulta do CEP não respondeu)" : ""
         }: nunca diga que chega ou que atende a cidade ou o CEP dela. Se ela perguntar, ${

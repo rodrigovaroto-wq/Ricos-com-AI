@@ -624,7 +624,8 @@ export type PaymentRoute =
   | "still_checking"
   | "receipt_during_check"
   | "ask_receipt"
-  | "receipt_check";
+  | "receipt_check"
+  | "support_again";
 export const paymentRoute = (s: {
   /** "Paguei", "fiz o pix" (`saysPaid`). */
   readonly saidPaid: boolean;
@@ -642,6 +643,8 @@ export const paymentRoute = (s: {
   readonly checking: boolean;
   /** The check asked her for the receipt. */
   readonly receiptAsked: boolean;
+  /** The receipt was checked and she was pointed to the support e-mail (review of round 2). */
+  readonly supportGiven?: boolean;
 }): PaymentRoute | null => {
   if (s.codOrder || (!s.linkSent && !s.checking && !s.receiptAsked)) return null;
   const aboutPayment = s.saidPaid || s.asksStatus || s.receipt;
@@ -650,6 +653,8 @@ export const paymentRoute = (s: {
   if (s.receiptAsked && s.receipt) return "receipt_check";
   // The receipt sent during the wait is kept: at 5 minutes the check calls a person instead of asking it again.
   if (s.checking) return s.receipt ? "receipt_during_check" : aboutPayment ? "still_checking" : null;
+  // After the support e-mail, the receipt is not asked again: the support e-mail is said again.
+  if (s.receiptAsked && s.supportGiven) return s.saidPaid || s.asksStatus || s.receipt ? "support_again" : null;
   if (s.receiptAsked) return s.saidPaid || s.asksStatus ? "ask_receipt" : null;
   // A picture alone after the link is not a payment (finding 6): only beside "paguei".
   return s.saidPaid ? (s.receipt ? "check_with_receipt" : "check") : null;

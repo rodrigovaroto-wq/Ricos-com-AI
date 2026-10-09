@@ -745,6 +745,9 @@ export const nudgesCheck = (message: string): boolean => {
  */
 export const isPaymentReceipt = (message: string): boolean => {
   const t = norm(message);
+  // A described image is a receipt only when the description says so (review of round 2): a print of a
+  // checkout error or a photo of the colete is not. The bare placeholder (no description) still is.
+  if (/^\[a cliente mandou uma imagem, descrita automaticamente/.test(t)) return /^\[[^:]*:\s*comprovante\b/.test(t);
   if (/^\[a cliente mandou (?:uma imagem|um documento)\b/.test(t)) return true;
   const at = t.search(/\bcomprovante\b/);
   // Not the one she will send or lost: "vou mandar o comprovante", "perdi o comprovante" (finding 6).
