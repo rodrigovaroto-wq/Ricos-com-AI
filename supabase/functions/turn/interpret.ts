@@ -425,7 +425,7 @@ export const linkPathFor = (
 ): PaymentChoice => (choice === "prepay" || (region !== null && !region.cod) ? "prepay" : "cod");
 
 /** What the link waits for, in the order the conversation collects it (operator, 2026-10-06). */
-export type LinkDatum = "size" | "cep" | "payment" | "name" | "document";
+export type LinkDatum = "size" | "cep" | "payment" | "name" | "email" | "document";
 
 export interface LinkData {
   /**
@@ -440,18 +440,24 @@ export interface LinkData {
   nameKnown: boolean;
   /** A valid CPF is known, or she refused it twice. */
   cpfDone: boolean;
+  /**
+   * Prepaid only (operator, 2026-10-08, L2: the Coinzz checkout does not go on without it): false while
+   * her e-mail is not in the chat and she has not refused it. Absent on the delivery path, never waited for.
+   */
+  emailDone?: boolean;
 }
 
 /**
  * The first datum the link still waits for, or null when it may go (operator, 2026-10-06,
  * superseding R13.4's "link first, the checkout asks the rest"): size, CEP, payment path,
- * full name and CPF, in this order — no e-mail since 2026-10-07 (operator). The order is the directive's: one thing at a time.
+ * full name, the e-mail on the prepaid path only (L2, 2026-10-08) and CPF, in this order. The order is the directive's: one thing at a time.
  */
 export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
   : !d.nameKnown ? "name"
+  : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"
   : null;
 
@@ -598,6 +604,27 @@ export const asksSomething = (message: string): boolean => {
   );
 };
 
+/**
+ * Every message of the burst is only an acknowledgment — "ok", "aah entendi, ok", "ta bom", "👍" —
+ * with no question, datum, decision or refusal in it (L2, grafo §67). Thanks are not here: "obrigada"
+ * after the link is warmth worth answering (the partner liked that reply). "Sim" is not here either:
+ * after a question it is a decision.
+ */
+const ACK_WORDS = new Set([
+  "ok", "okay", "okk", "okok", "blz", "beleza", "ta", "bom", "certo", "entendi", "entendido",
+  "ah", "aah", "ahh", "aham", "uhum", "hum", "hm", "hmm", "show", "joia", "combinado", "tranquilo", "tudo", "bem",
+]);
+export const isBareAck = (parts: readonly string[]): boolean =>
+  parts.length > 0 &&
+  parts.every((p) => {
+    const t = norm(p).replace(/[\p{Extended_Pictographic}\p{Emoji_Modifier}\uFE0F\u200D]/gu, " ");
+    if (t.includes("?")) return false;
+    const words = t.split(/[\s,.!;]+/).filter(Boolean);
+    // An emoji alone (👍) is an acknowledgment; an empty message is not.
+    if (words.length === 0) return p.trim() !== "";
+    return words.length <= 5 && words.every((w) => ACK_WORDS.has(w));
+  });
+
 /** The clause before `at` carries a negation: "ainda não comprei", "não vou querer". */
 const negatedBefore = (t: string, at: number): boolean =>
   /\b(nao|nunca|jamais|nem)\b/.test(t.slice(0, at).split(/[,;.!?\n]/).pop() ?? "");
@@ -653,6 +680,83 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
     }
   }
   return false;
+};
+
+/**
+ * She says she paid (L2, grafo §67): "pronto, paguei" handed the operator's test to a person who never
+ * came, and she asked "deu certo meu pagamento?" for 35 minutes. Read per clause: a negation before it
+ * ("ainda não paguei"), a question ("paguei?"), the future ("vou pagar") or another store does not count.
+ */
+const PAID =
+  /\b(?:paguei|(?:ja\s+|ta\s+|esta\s+)pago|fiz\s+(?:o\s+)?(?:pix|pagamento)|pix\s+feito|pagamento\s+(?:feito|realizado|concluido|efetuado)|(?:efetuei|realizei)\s+o\s+pagamento|(?:finalizei|conclui)\s+(?:o\s+pagamento|a\s+compra|o\s+pedido))\b/g;
+export const saysPaid = (message: string): boolean => {
+  const t = norm(message);
+  for (const m of t.matchAll(PAID)) {
+    const at = m.index ?? 0;
+    const start = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
+    const ends = [",", ";", ".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
+    const end = ends.length ? Math.min(...ends) : t.length;
+    const clause = t.slice(start, end);
+    // "paguei?" is a question; "já paguei ainda não deu baixa?" is a statement asking about its fate (sixth review).
+    const asked = t[end] === "?" && t.slice(at + m[0].length, end).trim() === "";
+    if (negatedBefore(t, at) || asked || OTHER_STORE.test(clause)) continue;
+    // "paguei não", "paguei nao" (review of the L2 fixes, finding 5); and the door payment is no checkout paid.
+    // "ainda não" negates unless what follows is the payment's fate: "já paguei ainda não caiu" is paid
+    // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
+    if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|deu\s+baixa|foi\s+(?:aprovad|confirmad|compensad|liberad|processad|identificad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
+    if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
+    return true;
+  }
+  return false;
+};
+
+/**
+ * She asks whether her payment went through: a question naming the payment AND its fate — "deu certo
+ * meu pagamento?", "o pix caiu?" — never "aceita pix?" or "o pagamento é na entrega?" (finding 5).
+ */
+export const asksPaymentStatus = (message: string): boolean => {
+  const t = norm(message);
+  return (
+    t.includes("?") &&
+    /\b(?:pagamento|pix|paguei|pago)\b/.test(t) &&
+    /\b(?:cai|caiu|deu\s+certo|confirm\w*|chegou|entrou|aprovad\w*|passou|compensou)\b/.test(t) &&
+    // A condition on the payment itself is no question about it: "quando o pagamento for aprovado vcs mandam?"
+    // (second review); any other "se"/"quando" in the message is (third review).
+    !/\b(?:quando|se|depois\s+que|assim\s+que)\s+(?:o\s+)?(?:meu\s+)?(?:pagamento|pix)(?:\s+(?!(?:caiu|entrou|passou|compensou|confirmou|chegou|deu|e)\b)\w+){0,2}?\s+(?:for|cai|cair|entra|entrar|confirma|confirmar|passa|passar|compensa|compensar)\b/.test(t)
+  );
+};
+
+/**
+ * A nudge that only means "and my payment?" while it is being checked — "eai??", "checou?", "caiu?"
+ * (L2). Outside the check it is anything at all, and is not read.
+ */
+export const nudgesCheck = (message: string): boolean => {
+  // The whole message is the nudge (finding 5): "e aí, tem o tamanho G?", "caiu o preço?", "não deu certo" are not.
+  // "certo", "já já", "oi oi" are acknowledgements, not a nudge (second review): only "e aí" / "e então" and a
+  // checking verb, alone or together.
+  const t = norm(message).split(/[\s,.!?;]+/).filter(Boolean).join(" ");
+  const m = /^(?:(e\s?ai|eai|e\s?ae|eae|e\s+entao)\s?)?(?:ja\s+)?(checou|conferiu|verificou|caiu|deu\s+certo|confirmou)?(?:\s+ja)?$/.exec(t);
+  return m !== null && (m[1] !== undefined || m[2] !== undefined);
+};
+
+/**
+ * The payment receipt: an image or a document (the channel's placeholder), or the word itself — not
+ * "não tenho o comprovante" nor a question about it (L2).
+ */
+export const isPaymentReceipt = (message: string): boolean => {
+  const t = norm(message);
+  // A described image is a receipt only when the description says so (review of round 2): a print of a
+  // checkout error or a photo of the colete is not. The bare placeholder (no description) still is.
+  if (/^\[a cliente mandou uma imagem, descrita automaticamente/.test(t)) return /^\[[^:]*:\s*comprovante\b/.test(t);
+  if (/^\[a cliente mandou (?:uma imagem|um documento)\b/.test(t)) return true;
+  const at = t.search(/\bcomprovante\b/);
+  // Not the one she will send or lost: "vou mandar o comprovante", "perdi o comprovante" (finding 6).
+  return (
+    at !== -1 &&
+    !t.includes("?") &&
+    !negatedBefore(t, at) &&
+    !/\b(?:vou|vo|depois|ja\s+ja|daqui|assim\s+que|perdi|sumiu|apaguei|cade|achar|procurar|tirar|mandarei)\b/.test(t.slice(0, at))
+  );
 };
 
 /**

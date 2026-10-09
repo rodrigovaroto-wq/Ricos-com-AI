@@ -5,7 +5,7 @@ metadata:
   type: business-rule
 ---
 
-Operador, 2026-10-09 (R19.1, grafo §67). A conta mora em `docs/operacao/taxas-antecipadas-cod.md` e na planilha
+Operador, 2026-10-09 (R19.1, grafo §68). A conta mora em `docs/operacao/taxas-antecipadas-cod.md` e na planilha
 `docs/operacao/modelo-caixa-anuncios.xlsx` (premissas editáveis, fluxo de 90 dias). Três coisas que não saem de ler o código:
 
 - **O pico de caixa vem antes do primeiro repasse do COD** (dia 16 de 90, 07/11), e não do anúncio: produto, entrega concluída,

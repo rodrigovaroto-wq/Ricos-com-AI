@@ -34,15 +34,16 @@ describe("n8n: a venda da Coinzz, no formato real", () => {
     expect(r.order).toMatchObject({ size: "M,G", units: 2, amountBrl: 233.82 });
   });
 
-  it("kit sem os tamanhos todos vai para o operador", () => {
-    const r = normalize(coinzz({ order_quantity: 2 }, "Apto 12, M"));
-    expect(r.ok).toBe(false);
-    expect(r.missing).toContain("pedido de 2 pecas");
+  it("kit sem os tamanhos todos é gravado sem tamanho e vai para o operador (2026-10-09)", () => {
+    const r = normalize(coinzz({ order_quantity: 2 }, "Apto 12, M")) as unknown as { ok: boolean; sizeMissing: string; order: Record<string, unknown> };
+    expect(r.ok).toBe(true);
+    expect(r.order.size).toBeUndefined();
+    expect(r.sizeMissing).toContain("pedido de 2 pecas");
   });
 
   it("número do apartamento não apaga o tamanho, e letra de apartamento não vira tamanho", () => {
     expect(normalize(coinzz({}, "Apto 12, G")).order.size).toBe("G");
-    expect(normalize(coinzz({}, "Bloco B, apto G")).ok).toBe(false);
+    expect(normalize(coinzz({}, "Bloco B, apto G")).order.size).toBeUndefined();
   });
 
   it("pix é antecipado; pagamento e envio viram um status só", () => {
@@ -92,9 +93,57 @@ describe("n8n: a venda da Logzz (entrega, de volta em 25/09)", () => {
     expect(r.order).toMatchObject({ externalId: "venq000x10", paymentMethod: "cod", size: "M,G,GG", amountBrl: 311.76, units: 3, scheduledFor: "2026-09-30" });
   });
 
-  it("o teste da própria Logzz, sem tamanho no complemento, vai para o operador", () => {
-    const r = normalize(logzz({ order_quantity: "3", order_final_price: "150,00" }));
-    expect(r.ok).toBe(false);
-    expect(r.missing).toContain("pedido de 3 pecas");
+  it("o teste da própria Logzz, sem tamanho, é gravado sem tamanho e vai para o operador (2026-10-09)", () => {
+    const r = normalize(logzz({ order_quantity: "3", order_final_price: "150,00" })) as unknown as { ok: boolean; sizeMissing: string; order: Record<string, unknown> };
+    expect(r.ok).toBe(true);
+    expect(r.order.size).toBeUndefined();
+    expect(r.sizeMissing).toContain("pedido de 3 pecas");
+  });
+});
+
+/**
+ * The platforms' own test webhooks of 2026-10-09 (operator, "Testar URL"): neither carries the size in
+ * the complement. Coinzz names the size's product code; Logzz the variations she picked. A sale whose size
+ * nothing names is recorded without it (migration 0025) and the operator is told — never dropped.
+ */
+describe("n8n: os webhooks de teste das plataformas (2026-10-09)", () => {
+  const coinzzReal = JSON.parse(readFileSync("tests/fixtures/coinzz-teste-2026-10-09.json", "utf8"));
+  const logzzReal = JSON.parse(readFileSync("tests/fixtures/logzz-teste-2026-10-09.json", "utf8"));
+
+  it("o exemplo da Coinzz (garrafa, 5 peças, sem tamanho) é gravado sem tamanho e avisado", () => {
+    const r = normalize(coinzzReal) as unknown as { ok: boolean; sizeMissing: string; order: Record<string, unknown> };
+    expect(r.ok).toBe(true);
+    expect(r.order).toMatchObject({ externalId: "ORD123456", paymentMethod: "prepay", units: 5, status: "Aprovado / Enviado" });
+    expect(r.order.size).toBeUndefined();
+    expect(r.sizeMissing).toContain("size");
+  });
+  it("a Coinzz com o código do tamanho do colete grava o tamanho", () => {
+    const body = structuredClone(coinzzReal);
+    Object.assign(body.body.order, { order_quantity: 1, product_code: "pro7ml00", product_name: "Colete Cinta Modeladora" });
+    const r = normalize(body) as unknown as { ok: boolean; sizeMissing: string; order: Record<string, unknown> };
+    expect(r.order.size).toBe("G");
+    expect(r.sizeMissing).toBe("");
+  });
+  it("o exemplo da Logzz (variações V e W) é gravado sem tamanho; com variações de tamanho, grava cada peça", () => {
+    const r = normalize(logzzReal) as unknown as { ok: boolean; sizeMissing: string; order: Record<string, unknown> };
+    expect(r.ok).toBe(true);
+    expect(r.order).toMatchObject({ externalId: "venq000x10", paymentMethod: "cod", units: 3, status: "Agendado", scheduledFor: "2026-10-14" });
+    expect(r.order.size).toBeUndefined();
+    const body = structuredClone(logzzReal);
+    body.body.products.main.variations = [
+      { product_name: "Colete Cinta Modeladora - M", product_code: "x1", quantity: "1" },
+      { product_name: "Colete Cinta Modeladora - GG", product_code: "x2", quantity: "2" },
+    ];
+    expect((normalize(body) as unknown as { order: Record<string, unknown> }).order.size).toBe("M,GG,GG");
+  });
+  it("negação: uma letra no meio do nome do produto não é tamanho", () => {
+    const body = structuredClone(logzzReal);
+    body.body.order_quantity = "1";
+    body.body.products.main.variations = [{ product_name: "Garrafa G térmica", quantity: "1" }];
+    body.body.products.main.product_name = "Produto P de teste";
+    expect((normalize(body) as unknown as { order: Record<string, unknown> }).order.size).toBeUndefined();
+  });
+  it("a coluna aceita o pedido sem tamanho", () => {
+    expect(readFileSync("supabase/migrations/0025_order_size_optional.sql", "utf8")).toContain("alter column size drop not null");
   });
 });

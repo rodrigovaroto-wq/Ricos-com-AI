@@ -15,7 +15,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 > **2026-10-09 — modelo de caixa do teste (sessão `claude/elegant-cray-sttizw`, só documentação):** a pedido do operador foi
 > criada a planilha [`docs/operacao/modelo-caixa-anuncios.xlsx`](docs/operacao/modelo-caixa-anuncios.xlsx) e o documento
-> [`docs/operacao/taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md) (decisão R19.1, grafo §67). Com verba de
+> [`docs/operacao/taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md) (decisão R19.1, grafo §68). Com verba de
 > **R$ 770** (Copy 7 dias a R$ 55/dia, 2 de pausa, Região 7 dias a R$ 55/dia, a partir de 23/10) e caixa de R$ 1.325, o **pico de caixa é R$ 828
 > e sobram R$ 247** sobre os R$ 1.075 utilizáveis. Valores novos: manuseio R$ 5,00, recusa R$ 9,99 (4,99 + 5,00), devolução
 > R$ 86,56 no COD e R$ 58,99 no antecipado (frete de retorno + manuseio + taxas já pagas), imposto da Meta 13,83% a conferir,
@@ -56,7 +56,73 @@ Etapa sem evidência não vai para "executado". Nada de apagar linha: a etapa fe
 
 Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (diz por quê).
 
-### Onde estamos — 2026-10-08, noite (sessão `claude/gracious-hopper-9a79su`, PR #56, LEIA PRIMEIRO)
+### Onde estamos — 2026-10-09, fim da sessão `claude/malu-script-conversion-analysis-3wb9tp` (LEIA PRIMEIRO)
+
+**Próxima sessão: construir o portal de análise de dados e otimização operacional** (decisão do operador:
+antes do próximo teste real). Comece por [`05-plano/11-portal-briefing.md`](docs/agente-ia/05-plano/11-portal-briefing.md)
+— as 5 decisões do §8 já foram tomadas pelo operador em 09/10 (estão no briefing; só falta confirmar Vercel ×
+localhost para o acesso). A sessão abre com os repositórios `Ricos-com-AI` e `portal-encorpa`.
+
+**No ar (conferido em 2026-10-09):**
+- `turn` **`agent_version` 15** = função v90 (commit `975c9d8`); `whatsapp` **v24**.
+- Migração **0025** aplicada (`orders.size` pode ser nulo).
+- n8n: "Venda confirmada" versão ativa `b3a3b90e…` (lê o tamanho pelo código do produto da Coinzz e pelas
+  variações da Logzz; sem tamanho, grava assim mesmo e manda o e-mail "Venda gravada SEM tamanho"); "WhatsApp
+  envio" versão ativa `25ce1447…` (leitura sem "digitando"). `pnpm dev:n8n`: os 6 workflows ok.
+- Modelo da conversa `muse-spark-1.3-contributor` (do operador, nunca troque). E-mail do suporte: o do config
+  (`contato@encorpa-fashion.com.br`, confirmado pelo operador).
+
+**O que entrou nesta sessão (grafo §67, todas as rodadas):**
+- Cobertura com o CEP em qualquer escrita (a Coinzz só aceita dígitos); CEP que não existe é dito e pedido de novo.
+- "Paguei" → verificação → pendente aos 5 min → comprovante → e-mail do suporte.
+- "Ok" sozinho fica sem resposta, com oferta de ajuda depois de 10 min.
+- Lembrete do checkout aos 10 min do link.
+- E-mail no antecipado (guardado); dado recusado = "sem problema" e o link diz o que preencher.
+- Prompt mais vendedor e sem repetição.
+- Sem "digitando"; a Malu lê imagens; a venda é gravada mesmo sem tamanho.
+
+**Validação:**
+- `pnpm test` 7113; `dev:conversas` 1665/1665; `dev:gates` 0 afrouxamentos sem aceite; `typecheck:function` ok.
+- Mutações `G67-*` 22/22.
+- Revisões Opus até "aprovado com ressalvas" (ressalvas no grafo §67).
+- Todas as frentes de webhook/API testadas pela produção: [`docs/operacao/frentes-de-integracao.md`](docs/operacao/frentes-de-integracao.md).
+
+**Falta, nesta ordem:**
+1. **Portal** (próxima sessão), pelo briefing acima.
+2. **Teste real completo** do operador e do sócio: um antecipado pagando o Pix de verdade e um com pagamento na
+   entrega. Roteiro no fim de `frentes-de-integracao.md`.
+   - Conferir que as duas vendas entram em `orders` com o tamanho certo; o formato real do tamanho só aparece na
+     primeira venda real.
+   - Auditar as duas conversas como no L2.
+3. Conversas dos amigos (9393, 7745) — ainda não auditadas.
+4. Guias de troca e devolução — pendente por decisão do operador.
+
+Os templates da Meta estão colados e aprovados (operador, 09/10). Os webhooks de teste da Coinzz e da Logzz
+chegaram (09/10); a integração duplicada "N8N - antecipado" foi apagada pelo operador.
+
+### Onde estamos — 2026-10-08, madrugada (sessão `claude/malu-script-conversion-analysis-3wb9tp`; superado pelo bloco acima)
+
+**Consertos do L2 feitos na branch, NÃO publicados** (grafo §67; decisões do operador em 08/10): cobertura com o
+CEP só em dígitos e falha = região desconhecida; "paguei" verifica, espera 5 min, pede o comprovante e só então
+chama pessoa; Pix não pago não arma "já pago"; "ok" sozinho sem resposta + ajuda com o dado em 10 min; lembrete do
+checkout aos 10 min do link (só pedido/link novo/opt-out/pessoa cancelam); e-mail só no antecipado (nome → e-mail →
+CPF, não gravado); prompt (variação, ressalva como argumento, reversão de risco, pergunta no fim, região antes do
+CEP, "frete por conta do cliente"); sem "digitando" e tiques azuis 2 s depois. Validação: `pnpm test` 7053,
+`lint`, `typecheck`, `build`, `typecheck:function`, `dev:conversas` 1665/1665, `dev:gates --fail-on-loosen` 0
+sem aceite; depois de seis passadas de revisão Opus (todos os achados consertados; resíduos de frase no grafo §67) `pnpm test` 7083 e mutações `G67-*` 16/16. **Próximo:** "pode publicar" do operador → `pnpm deploy:turn` e a função
+`whatsapp`; `whatsapp-envio` no n8n (ramo de leitura sem digitando, dormente); prova pela porta de produção (CEP de
+São Paulo com as duas opções) e novo teste real do operador e do sócio, conferindo o webhook da Coinzz.
+
+**L2 auditado (antes dos consertos):** [`10-auditoria/2026-10-08-teste-real-l2.md`](docs/agente-ia/10-auditoria/2026-10-08-teste-real-l2.md)
+(Leila 5983 e Fabiana 7967, `agent_version` 14). **Achado P0:** a `turn` manda o CEP com hífen à Coinzz,
+que responde 422, e `readAvailability(null)` lê "sem pagamento na entrega" — **toda cliente com CEP ouve
+que a região não tem entrega** desde a v12 (reproduzido: 04710-090 → 422, 04710090 → 3 datas). Também:
+"paguei" vira handoff mudo; zero execuções do "Venda confirmada" (pagamento real? webhook da oferta
+antecipada?); "ok" sozinho ganha resposta; lembrete do checkout cancelado por qualquer mensagem; e-mail
+exigido pelo checkout do antecipado; "digitando" instantâneo. **Próximo:** o operador confirma a lista e a
+ordem da auditoria; conserto da causa 1 primeiro.
+
+### Onde estamos — 2026-10-08, noite (sessão `claude/gracious-hopper-9a79su`, PR #56)
 
 **No ar (conferido pela API de gerência da Supabase em 2026-10-08):**
 - `turn` **`agent_version` 14** = função v88, commit `bed2ee3` publicado, código idêntico ao da árvore `4dcf779`.

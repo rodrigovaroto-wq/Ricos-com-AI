@@ -38,6 +38,8 @@ aplica é o do secret.
 | O que está contraditório hoje | [`agente-ia/10-auditoria/2026-09-29-auditoria.md`](agente-ia/10-auditoria/2026-09-29-auditoria.md) |
 | Como ligar o WhatsApp Cloud API, e como o áudio é transcrito | [`operacao/whatsapp-cloud-api.md`](operacao/whatsapp-cloud-api.md) |
 | Como auditar uma conversa real (SQL, 4 leituras, checklist) | [`operacao/auditar-conversa-real.md`](operacao/auditar-conversa-real.md) |
+| Cada webhook e API que a Malu usa, como se autentica e como provar (2026-10-09) | [`operacao/frentes-de-integracao.md`](operacao/frentes-de-integracao.md) |
+| O portal de análise de dados: o pedido, as decisões abertas e o que o banco já tem | [`agente-ia/05-plano/11-portal-briefing.md`](agente-ia/05-plano/11-portal-briefing.md) |
 | Os testes reais e o que cada um achou | [`10-auditoria/`](agente-ia/10-auditoria/): [`2026-10-06-teste-real-leila.md`](agente-ia/10-auditoria/2026-10-06-teste-real-leila.md), [`2026-10-07-checklist-teste-real.md`](agente-ia/10-auditoria/2026-10-07-checklist-teste-real.md), [`2026-10-07-diagnostico-v12.md`](agente-ia/10-auditoria/2026-10-07-diagnostico-v12.md), [`2026-10-07-teste-real-leila-2.md`](agente-ia/10-auditoria/2026-10-07-teste-real-leila-2.md) (com a tabela "Situação depois do conserto") |
 | Devolução e troca guiadas (rascunho, não aprovado) | [`agente-ia/06-script/06-devolucao-guiada.md`](agente-ia/06-script/06-devolucao-guiada.md) |
 | O que o Hermes já sabe de partida | [`../hermes/historico-inicial.md`](../hermes/historico-inicial.md) |

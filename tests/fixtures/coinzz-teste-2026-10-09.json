@@ -1,0 +1,73 @@
+{
+  "query": {
+    "fonte": "coinzz",
+    "token": "REDACTED"
+  },
+  "body": {
+    "client": {
+      "client_name": "Felipe Santana",
+      "client_phone": "62954544554",
+      "client_documment": "62972194004",
+      "client_email": "cliente@example.com",
+      "client_zip_code": "12345678",
+      "client_address": "Rua Exemplo",
+      "client_address_number": "123",
+      "client_address_district": "Bairro Exemplo",
+      "client_address_comp": "Apartamento 456",
+      "client_address_city": "Cidade Exemplo",
+      "client_address_state": "Estado Exemplo",
+      "client_address_country": "BR"
+    },
+    "order": {
+      "first_order": true,
+      "second_order": false,
+      "date_order": "2023-12-06 14:30:00",
+      "deadline_delivery": "7",
+      "order_number": "ORD123456",
+      "order_status": "Aprovado",
+      "shipping_status": "Enviado",
+      "tracking_code": "1234567890",
+      "order_quantity": 5,
+      "product_code": "prd12345",
+      "product_name": "Garrafa Térmica",
+      "offer_code": "ofr12345",
+      "offer_name": "Oferta Especial",
+      "order_final_price": 150.99,
+      "method_payment": "pix",
+      "total_installments": 1,
+      "qrcode_pix": "00020BR.GOV.BCB.PIX0114+55619997498495204000053039***6304D92A",
+      "url_pix": "00020BR.GOV.BCB.PIX0114+55619997498495204000053039***6304D92A",
+      "url_bank_slip": "00020BR.GOV.BCB.PIX0114+55619997498495204000053039***6304D92A",
+      "terms_and_conditions_file_path": "https://documento.coinzz.com.br/termo-de-compromisso/ordxxxxx",
+      "agency_address": "Praça da Sé, 589 - Sé, São Paulo - CEP: 01001000",
+      "courier_name": "João da Silva",
+      "delivery_time": "15:55:00",
+      "producer_name": "Maria Silva",
+      "producer_email": "maria@produtor.com",
+      "producer_commission": 50.99,
+      "financial_fees": {
+        "transaction_fee": 2.97,
+        "antifraud_fee": 1,
+        "total": 3.97
+      },
+      "logistic_fee": 24.98,
+      "coproducers": [
+        {
+          "name": "Guilherme Coprodutor",
+          "email": "guilherme@coprodutor.com",
+          "commission": 10.99
+        },
+        {
+          "name": "Maria Coprodutora",
+          "email": "maria@coprodutor.com",
+          "commission": 15.5
+        }
+      ],
+      "affiliate_name": "José Pereira",
+      "affiliate_email": "jose@afiliado.com",
+      "affiliate_phone": "5489932313",
+      "affiliate_commission": 20.99,
+      "deleted_at": "2023-12-06 14:30:00"
+    }
+  }
+}

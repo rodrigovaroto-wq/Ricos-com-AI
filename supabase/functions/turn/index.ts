@@ -36,6 +36,7 @@ import {
   orderTouchDue,
   eveIsTomorrow,
   chasesSilence,
+  checkoutStillOpen,
   inSilenceRuler,
   optInFollows,
   orderStatusAfter,
@@ -48,6 +49,20 @@ import {
   rulerFor,
   endsSilenceRuler,
   endsWithQuestion,
+  ACK_HELP_MS,
+  PAYMENT_CHECK_MS,
+  PAYMENT_CHECK_REPLY,
+  PAYMENT_CONFIRMED_REPLY,
+  PAYMENT_RECEIPT_ASK,
+  PAYMENT_RECEIPT_ESCALATED,
+  paymentSupportLine,
+  PAYMENT_RECEIPT_KEPT,
+  PAYMENT_STILL_CHECKING,
+  paymentFacts,
+  paymentRoute,
+  ackGoesUnanswered,
+  ackHelpText,
+  type AskedDatum,
   type FollowupConfig,
   type FollowupKind,
   type RulerAnchors,
@@ -56,7 +71,7 @@ import {
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { checkRegion, type Region } from "./availability.ts";
+import { lookupRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -71,12 +86,16 @@ import {
   extractIdentityBurst,
   nameOnFirstLine,
   asksForName,
+  asksForIdentity,
   isIdentityComplete,
   mergeIdentity,
   titleCaseName,
   nextIdentityQuestion,
   refusedAsks,
   refusesAskedDatum,
+  emailInChat,
+  extractEmail,
+  refusedDatum,
   type Identity,
 } from "./identity.ts";
 import {
@@ -126,6 +145,11 @@ import {
 } from "./retry.ts";
 import {
   asksSomething,
+  asksPaymentStatus,
+  isBareAck,
+  isPaymentReceipt,
+  nudgesCheck,
+  saysPaid,
   decisionInBurst,
   goodbyeParks,
   handoffFor,
@@ -797,24 +821,36 @@ const regionDirectiveFor = (
  * no query parameter for it, so anything collected in the conversation she would type
  * again anyway — five turns spent to make her do the work twice.
  */
-const identityDirectiveFor = (draft: Partial<Identity>, cpfRefusals: number): string | null => {
-  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the
-  // link waits for them: a CPF refused twice is not asked again. No e-mail since 2026-10-07 (operator).
-  const missing = (["name", "document"] as const).filter(
-    (f) => !draft[f] && !(f === "document" && cpfRefusals >= 2),
-  );
-  const topic = nextIdentityQuestion(missing);
+const identityDirectiveFor = (
+  next: "name" | "email" | "document",
+  cpfRefusals: number,
+  /** The datum she just refused, in words ("o CPF"): "sem problema", and the flow goes on (operator, 2026-10-09). */
+  justRefused: string | null = null,
+): string | null => {
+  // The data come after the size, the CEP and her payment choice (operator, 2026-10-06), and the link
+  // waits for them — the one `missingForLink` names, so a datum she refused is never the one asked. The
+  // e-mail only on the prepaid path, between the name and the CPF (L2): the Coinzz checkout requires it.
+  const topic = next === "email"
+    ? `o e-mail dela, pra ela receber a confirmação do pedido (o checkout do antecipado pede)`
+    : nextIdentityQuestion([next]);
   // A topic, never a quoted sentence (R13.4): the quoted e-mail question came back word
   // for word, turn after turn.
   return topic === null
     ? null
-    : `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
+    : (justRefused
+        ? `Ela acabou de dizer que não quer passar ${justRefused}: comece dizendo que não tem problema, sem insistir` +
+          ` e sem pedir de novo — o que faltar ela preenche no checkout. `
+        : ``) +
+      `O link do pedido só sai com os dados dela, e falta ${topic}. Peça isso com as suas palavras e` +
       ` com o motivo, uma coisa só — nunca repita uma pergunta que você já fez.` +
-      // No e-mail (operator, 2026-10-07): said, so the model never asks it on its own.
-      ` Não peça e-mail.` +
-      (missing[0] === "document" && cpfRefusals === 1
-        ? ` Ela já recusou o CPF uma vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
-          ` outras palavras — se ela recusar de novo, o link vai sem ele e ela digita o CPF no checkout.`
+      // E-mail only when it is the one missing (prepaid, L2): said, so the model never asks it on its own.
+      (next === "email"
+        ? ` Se ela não quiser passar, tudo bem: o link vai sem ele e ela digita no checkout.`
+        : ` Não peça e-mail.`) +
+      // Ignored once (not refused — a refusal ends the ask): asked again with the reason.
+      (next === "document" && cpfRefusals === 1
+        ? ` Ela não respondeu o CPF da primeira vez: diga o motivo uma vez, sem drama, e peça de novo citando o CPF, com` +
+          ` outras palavras — se ela não quiser passar, tudo bem, ela digita o CPF no checkout.`
         : ``) +
       ` Não escreva link nenhum e não diga que vai mandar agora.`;
 };
@@ -962,8 +998,16 @@ const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
  * the refusal at the door. `onOrderConfirmed` filters `silence_` on purpose; this had to
  * as well, and did not. The 15-minute checkout touch (§R10.4) is part of the silence ruler.
  */
-const cancelScheduled = (conversationId: string, withCheckout = true) =>
-  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}`, {
+// "keep_checkout" (L2, grafo §67): her messages after the link no longer cancel the checkout touch —
+// it is anchored on the link, and only a paid order, a new link, an opt-out or a person ends it.
+const cancelScheduled = (conversationId: string, scope: "all" | "keep_checkout" | "silence" = "all") =>
+  db(`followups?conversation_id=eq.${conversationId}&status=eq.scheduled&${
+    scope === "all"
+      ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)"
+      : scope === "keep_checkout"
+      ? "or=(kind.like.silence_*,kind.eq.still_there)"
+      : "kind=like.silence_*"
+  }`, {
     method: "PATCH",
     body: JSON.stringify({ status: "canceled" }),
   }).catch(() => undefined);
@@ -1039,12 +1083,14 @@ const scheduleSilenceTouches = async (
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
   const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at)`).catch(() => null))?.[0];
-  if (at && !chasesSilence(at.stage, (at.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
-    await cancelScheduled(conversationId);
+  const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+  if (at && !chasesSilence(at.stage, orderStatuses)) {
+    // An unpaid Pix is a checkout still open: its touch stays (L2).
+    await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");
     return;
   }
   // Re-anchored from a silence touch, the checkout touch is left as it is (`rulerFor`).
-  await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder");
+  await cancelScheduled(conversationId, postponed === undefined || postponed === "checkout_reminder" ? "keep_checkout" : "silence");
   const anchors = rulerAnchors(at);
   // "Ainda está aí?" and `silence_1` at most once a day each (operator, 2026-10-07, grafo §66).
   const sentAt = Object.fromEntries(
@@ -1059,13 +1105,28 @@ const scheduleSilenceTouches = async (
     run_at: f.runAt.toISOString(),
     status: "scheduled",
     stop_point: stopPoint,
+    // The help offer after an unanswered "ok" rides in `still_there`'s body (L2): a ruler armed
+    // later says the plain line, never a stale "ajuda com o CEP" (merge-duplicates keeps a column left out).
+    body: null,
   }));
   await db("followups?on_conflict=conversation_id,kind", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
     body: JSON.stringify(rows),
   }).catch(() => undefined);
+  // The checkout touch never lands right on top of a reply: within 5 minutes of the agent speaking,
+  // it moves to 5 minutes after (L2). Index: the unique (conversation_id, kind).
+  if (postponed === undefined) {
+    const soon = new Date(from.getTime() + CHECKOUT_AFTER_REPLY_MS).toISOString();
+    await db(
+      `followups?conversation_id=eq.${conversationId}&kind=eq.checkout_reminder&status=eq.scheduled&run_at=lt.${encodeURIComponent(soon)}`,
+      { method: "PATCH", body: JSON.stringify({ run_at: soon }) },
+    ).catch(() => undefined);
+  }
 };
+
+/** How close to a reply the checkout touch may go (L2). */
+const CHECKOUT_AFTER_REPLY_MS = 5 * 60_000;
 
 /**
  * The clock half of the agent. n8n calls this on a cron; everything it decides is
@@ -1391,7 +1452,49 @@ const runFollowupSweep = async () => {
 
     // She bought after this row was armed, or it was armed before the scheduler knew: the
     // silence ruler does not chase a buyer. Not the end of the ruler either — no `perdido`.
-    if (inSilenceRuler(row.kind) && !chasesSilence(row.conversations?.stage, (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? ""))) {
+    // The checkout touch reads the orders alone (L2): an unpaid Pix is the checkout still open.
+    const statuses = (lead.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+    // The payment arrived during the 5-minute check (L2): the order's own confirmation tells her.
+    if (row.kind === "payment_check" && !checkoutStillOpen(statuses)) {
+      await mark("canceled");
+      skipped.push({ followupId: row.id, reason: "o pagamento chegou: a confirmação do pedido avisa" });
+      return;
+    }
+    // She sent the receipt and the payment still did not arrive 5 minutes later: she is pointed to the
+    // support e-mail with the receipt (operator, 2026-10-09), and the operator is told. The conversation stays
+    // with the agent (no `handoff_at`). Without a support address in the config, a person takes it, as before.
+    if (row.kind === "payment_check" && row.body === "receipt") {
+      const checkClaim = await mark("sent");
+      if (!Array.isArray(checkClaim) || checkClaim.length === 0) {
+        skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da verificação" });
+        return;
+      }
+      const support = CONFIG.support?.email ?? null;
+      const line = support ? paymentSupportLine(support) : PAYMENT_RECEIPT_ESCALATED;
+      if (!support) {
+        await db(`leads?id=eq.${lead.id}`, {
+          method: "PATCH",
+          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+        }).catch(() => undefined);
+      }
+      await db("messages", {
+        method: "POST",
+        body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: line }),
+      }).catch(() => undefined);
+      toSend.push({ to: lead.phone, via: "text", body: line, kind: row.kind, followupId: row.id });
+      handoffs.push({
+        followupId: row.id,
+        reason: support
+          ? "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — ela foi orientada a mandar o comprovante pro e-mail do suporte; conferir na Coinzz"
+          : "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — conferir na Coinzz",
+        notify: CONFIG.handoff?.email ?? null,
+        leadId: lead.id,
+        phone: lead.phone,
+        conversationId: row.conversation_id,
+      });
+      return;
+    }
+    if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(row.conversations?.stage, statuses))) {
       await mark("canceled");
       skipped.push({ followupId: row.id, reason: "ela já comprou: régua de silêncio encerrada" });
       return;
@@ -1576,7 +1679,7 @@ const runFollowupSweep = async () => {
 
     const gates = runGates(text, {
       config: CONFIG,
-      layer: "agent",
+      layer: kind === "payment_check" ? "auto" : "agent",
       optedOut: false,
       now: new Date(),
       paymentPath: touchPath,
@@ -2179,8 +2282,9 @@ const handleTurn = async (
     // means she still gets an answer instead of silence.
   }
 
-  // She answered: every touch waiting on her silence is moot.
-  await cancelScheduled(conversation.id);
+  // She answered: every touch waiting on her silence is moot — except the checkout touch, which
+  // waits on the order, not on her silence (L2).
+  await cancelScheduled(conversation.id, "keep_checkout");
   // And a turn waiting to be retried is moot too: this turn answers her, with the failed
   // message still in the history it reads. Index: unique (conversation_id, kind).
   if (!isRetry) {
@@ -2671,10 +2775,12 @@ const handleTurn = async (
     postponing = false,
     /** Pieces the text speaks of: a kit's price is judged as the kit's (review finding 9). */
     pieces = 1,
+    /** "auto": the payment lines answer her at any hour, like the handoff receipt (review of the L2 fixes, 2). */
+    layer: "agent" | "auto" = "agent",
   ): Promise<Response | null> => {
     const gated = runGates(text, {
       config: turnConfig,
-      layer: "agent",
+      layer,
       optedOut: false,
       now: new Date(),
       paymentPath: path,
@@ -2736,6 +2842,137 @@ const handleTurn = async (
           "&select=body&order=created_at.desc&limit=1",
       ).catch(() => null)
     )?.[0]?.body ?? "";
+
+  // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
+  // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
+  // here. Only a receipt, after the check found nothing, goes to a person.
+  // Index: the unique (conversation_id, kind) of `followups`; `orders_lead_idx`.
+  if (!isResume) {
+    const saidPaid = parts.some(saysPaid);
+    const receipt = parts.some(isPaymentReceipt);
+    const nudged = parts.some(nudgesCheck);
+    const check = saidPaid || receipt || nudged || parts.some(asksPaymentStatus)
+      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at,run_at,body`).catch(() => null))?.[0] ?? null
+      : null;
+    const checking = check?.status === "scheduled";
+    const receiptAsked = check?.status === "sent" && Date.now() - Date.parse(check.sent_at ?? "") < 24 * 60 * 60_000;
+    // "Eai??", "checou?" ask about the payment only while it is being checked.
+    const asksStatus = parts.some(asksPaymentStatus) || ((checking || receiptAsked) && nudged);
+    let linkSent = false;
+    for (const base of saidPaid || receipt ? CHECKOUT_BASES : []) {
+      if (linkSent) break;
+      const sent = await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
+          `&body=like.${encodeURIComponent(`*${base}*`)}&select=id&limit=1`,
+      ).catch(() => null);
+      linkSent = (sent?.length ?? 0) > 0;
+    }
+    const facts = paymentFacts(
+      saidPaid || receipt || asksStatus || checking || receiptAsked
+        ? (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? []
+        : [],
+    );
+    // The check already ended in the support e-mail: it is said again, the receipt is not asked again.
+    const supportGiven = receiptAsked && check?.body === "receipt" && Boolean(CONFIG.support?.email);
+    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked, supportGiven });
+    const settle = (status: "scheduled" | "canceled", runAt?: Date, body: string | null = null) =>
+      db("followups?on_conflict=conversation_id,kind", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          kind: "payment_check",
+          run_at: (runAt ?? new Date()).toISOString(),
+          status,
+          body,
+        }),
+      }).catch(() => undefined);
+    const line = payment === "confirmed"
+      ? PAYMENT_CONFIRMED_REPLY
+      : payment === "check"
+      ? PAYMENT_CHECK_REPLY
+      : payment === "check_with_receipt" || payment === "receipt_during_check" || payment === "receipt_check"
+      ? PAYMENT_RECEIPT_KEPT
+      : payment === "still_checking"
+      ? PAYMENT_STILL_CHECKING
+      : payment === "ask_receipt"
+      ? PAYMENT_RECEIPT_ASK
+      : payment === "support_again" && CONFIG.support?.email
+      ? paymentSupportLine(CONFIG.support.email)
+      : null;
+    if (line !== null) {
+      const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
+      if (sent) {
+        // The receipt she sent is kept on the check: at 5 minutes it calls a person instead of asking again.
+        if (payment === "receipt_during_check") {
+          // `run_at` moves by a second so a sweep that already read the row without the receipt fails its claim.
+          const bumped = new Date(Date.parse(check?.run_at ?? "") + 1000 || Date.now() + PAYMENT_CHECK_MS).toISOString();
+          await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&status=eq.scheduled`, {
+            method: "PATCH",
+            body: JSON.stringify({ body: "receipt", run_at: bumped }),
+          }).catch(() => undefined);
+        }
+        if (payment === "check" || payment === "check_with_receipt" || payment === "receipt_check") {
+          await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS), payment === "check" ? null : "receipt");
+          // She says she paid: "travou em alguma etapa?" would talk over the check (L2).
+          await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.checkout_reminder&status=eq.scheduled`, {
+            method: "PATCH",
+            body: JSON.stringify({ status: "canceled" }),
+          }).catch(() => undefined);
+        }
+        if (payment === "confirmed") await settle("canceled");
+        return sent;
+      }
+    }
+  }
+
+  // 4a. A bare "ok" goes unanswered (L2, grafo §67) — before the interpreter, so it costs nothing.
+  // After a datum ask, ten minutes of silence bring the offer of help with that datum (not the name).
+  const datum: AskedDatum | null = asksCep(lastOutbound)
+    ? "cep"
+    : asksForSize(lastOutbound)
+    ? "size"
+    : asksForIdentity(lastOutbound) && /\bcpf\b/i.test(lastOutbound)
+    ? "cpf"
+    : asksForIdentity(lastOutbound) && /\be-?mail\b/i.test(lastOutbound)
+    ? "email"
+    : asksForName(lastOutbound)
+    ? "name"
+    : null;
+  if (!isRetry && !isResume && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
+    // Her message cancelled the ruler; it comes back as it was armed by the agent's last reply.
+    const earlier = (recentRows ?? [])
+      .filter((m: { direction: string }) => m.direction === "outbound")
+      .map((m: { body: string | null }) => (m.body ?? "").trim())
+      .reverse();
+    await scheduleSilenceTouches(
+      conversation.id,
+      stopPointOf(lastOutbound, earlier),
+      false,
+      new Date(),
+      undefined,
+      false,
+    );
+    // Once: an "ok" to the help offer itself does not bring it back in another 10 minutes.
+    const help = lastOutbound.trim() === ackHelpText(datum) ? null : ackHelpText(datum);
+    if (help !== null) {
+      await db("followups?on_conflict=conversation_id,kind", {
+        method: "POST",
+        headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+        body: JSON.stringify({
+          conversation_id: conversation.id,
+          kind: "still_there",
+          run_at: new Date(Date.now() + ACK_HELP_MS).toISOString(),
+          status: "scheduled",
+          stop_point: stopPointOf(lastOutbound, earlier),
+          body: help,
+        }),
+      }).catch(() => undefined);
+    }
+    const reason = `ok sozinho: sem resposta${help ? ` — ajuda com ${datum} em 10 min` : ""}`;
+    await recordOutcome(conversation.id, "stopped", reason, 0, spent - spentBefore);
+    return json(200, { status: "acknowledged", reason });
+  }
 
   /**
    * 4b. The interpreter (R13.1). One call, same model, strict JSON: what her message
@@ -2992,15 +3229,27 @@ const handleTurn = async (
    * failure: silence about the size beats a size she cannot receive.
    */
   let region: Region | null = null;
+  // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
+  let cepNotFound = false;
+  let badCep: string | null = null;
   if (addressDraft.cep) {
     try {
-      region = await checkRegion(async (url, headers) => {
+      const lookup = await lookupRegion(async (url, headers) => {
         const r = await fetch(url, {
           headers,
           signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         });
         return r.ok ? await r.json() : null;
       }, addressDraft.cep);
+      region = lookup.kind === "found" ? lookup.region : null;
+      // Said in the turn the CEP arrives, not on every message after it (review of round 2).
+      cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
+      // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
+      if (cepNotFound) {
+        badCep = addressDraft.cep ?? null;
+        addressDraft = { ...addressDraft, cep: undefined } as typeof addressDraft;
+        delete (addressDraft as { cep?: string }).cep;
+      }
     } catch {
       region = null; // The checkout being down is not a reason to stop selling.
     }
@@ -3012,7 +3261,10 @@ const handleTurn = async (
     spoken(inbound.body ?? ""),
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
-  const cepState = addressDraft.cep
+  const cepState = cepNotFound
+    ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque esse CEP não existe,` +
+      ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
+    : addressDraft.cep
     ? null
     : wrongCep
       ? `Ela mandou um CEP com ${wrongCep.length} números (${wrongCep}), e CEP tem 8: o sistema não conseguiu ler.` +
@@ -3043,7 +3295,10 @@ const handleTurn = async (
 
   // 5e. Identity accumulates the same way, and for the same reason.
   // An e-mail stored before 2026-10-07 is dropped (operator: no e-mail kept), and the next write clears it.
-  const { email: _noEmail, ...storedIdentity } = (lead.identity ?? {}) as Partial<Identity> & { email?: string };
+  // The e-mail is kept on the lead again (operator, 2026-10-09): read from her messages, carried in the link.
+  const { email: storedEmail, ...storedIdentity } = (lead.identity ?? {}) as Partial<Identity> & { email?: string };
+  const burstEmail = [...parts].reverse().map((p) => extractEmail(p)).find((e) => e !== null) ?? null;
+  const leadEmail: string | null = burstEmail ?? storedEmail ?? null;
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
   // Right after the agent asked her name or surname, "Leila da silva" is her name (grafo §66).
   const burstIdentity = extractIdentityBurst(parts, asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound));
@@ -3055,10 +3310,13 @@ const handleTurn = async (
       : null;
   const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
   const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
-  if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity)) {
+  if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity) || leadEmail !== (storedEmail ?? null)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
-      body: JSON.stringify({ identity: identityDraft, updated_at: new Date().toISOString() }),
+      body: JSON.stringify({
+        identity: { ...identityDraft, ...(leadEmail ? { email: leadEmail } : {}) },
+        updated_at: new Date().toISOString(),
+      }),
     }).catch(() => undefined);
   }
 
@@ -3170,9 +3428,12 @@ const handleTurn = async (
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
+  // Her e-mail, from the chat or the lead (stored again since 2026-10-09), carried in the prepaid link.
+  const chatEmail = emailInChat(recent) ?? leadEmail;
   const linkCustomer = {
     ...identityDraft,
     ...(identityDraft.name ? { name: titleCaseName(identityDraft.name) } : {}),
+    ...(linkPath === "prepay" && chatEmail ? { email: chatEmail } : {}),
     phone: lead.phone,
   };
   // Kits: every piece needs its size before the link, and the link is the kit's own.
@@ -3188,16 +3449,38 @@ const handleTurn = async (
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
   // the link and written to `turn_outcomes.reason`, so the record says what was sent.
   const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);
-  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name and CPF — no e-mail
-  // since 2026-10-07. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
+  // The data before the link (operator, 2026-10-06): size, CEP, payment path, name, the e-mail on the
+  // prepaid path (L2, 2026-10-08) and CPF. The refusals are read from the conversation (`refusedAsks`), not stored: a CPF
   // refused twice lets the link go without it.
   const cpfRefusals = refusedAsks(recent, "document");
+  // A datum refused in so many words is "sem problema" and the flow goes on (operator, 2026-10-09).
+  const nameRefused = refusedDatum(recent, "name") >= 1;
+  const cpfRefused = refusedDatum(recent, "document") >= 1;
+  // Refused in THIS burst, to the agent's last ask: the reply opens with "sem problema".
+  const justNow = [{ direction: "outbound", body: lastOutbound }, ...parts.map((p) => ({ direction: "inbound", body: p }))];
+  const justRefused =
+    refusedDatum(justNow, "name") >= 1 ? "o nome"
+    : refusedDatum(justNow, "email") >= 1 ? "o e-mail"
+    : refusedDatum(justNow, "document") >= 1 ? "o CPF"
+    : null;
+  // A link already went out (a switch from the delivery link, or the e-mail out of the window): the
+  // after-link directive forbids asking again, so the e-mail is not waited for (review of the L2 fixes, 1).
+  // Index: messages_conversation_idx; only read when the prepaid link would wait on the e-mail.
+  const linkBefore =
+    linkPath === "prepay" && chatEmail === null &&
+    (recentOutbound.some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b))) ||
+      (CHECKOUT_HOSTS.length > 0 &&
+        ((await db(
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
+        ).catch(() => null))?.length ?? 0) > 0));
   const linkData = {
     sizeKnown,
-    cepKnown: Boolean(addressDraft.cep),
+    cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
-    nameKnown: Boolean(identityDraft.name),
-    cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,
+    nameKnown: Boolean(identityDraft.name) || nameRefused,
+    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,
+    // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
+    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3312,7 +3595,11 @@ const handleTurn = async (
   const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
-      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units)),
+      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
+        ...(identityDraft.name ? [] : ["nome completo"]),
+        ...(linkPath === "prepay" && !chatEmail ? ["e-mail"] : []),
+        ...(identityDraft.document ? [] : ["CPF"]),
+      ], justRefused !== null)),
       linkFact ? `link — ${linkFact}` : "link",
       linkPath,
       { checkoutUrl, linkFact },
@@ -3335,9 +3622,9 @@ const handleTurn = async (
   const identityDirective = farewell
     ? `Ela está se despedindo ou vai pensar, e você já respondeu isso com a mensagem de "vou pensar". ` +
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
-    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "document")
+    : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
-      : identityDirectiveFor(identityDraft, cpfRefusals);
+      : identityDirectiveFor(missing, cpfRefusals, justRefused);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
   const afterLink = linkAlreadySent
@@ -3347,7 +3634,7 @@ const handleTurn = async (
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
-    region === null
+    region === null && !cepNotFound
       ? `A entrega na região dela ainda não foi confirmada${
           addressDraft.cep ? " (a consulta do CEP não respondeu)" : ""
         }: nunca diga que chega ou que atende a cidade ou o CEP dela. Se ela perguntar, ${

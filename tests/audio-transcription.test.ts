@@ -67,16 +67,17 @@ describe("o áudio dela vira texto", () => {
     // Teto antes de ler, um prazo para tudo, nada de seguir redirecionamento com o token, e o decoder solto.
     expect(fn).toContain("const MAX_AUDIO_BYTES = 2 * 1024 * 1024;");
     expect(fn).toContain('Number(file.headers.get("content-length") ?? 0) > MAX_AUDIO_BYTES');
-    expect(fn.match(/redirect: "error", signal: deadline/g)).toHaveLength(2);
-    expect(fn.match(/signal: deadline/g)).toHaveLength(4);
+    // The audio's two fetches to Meta and the image's two (2026-10-09), every one with no redirect.
+    expect(fn.match(/redirect: "error", signal: deadline/g)).toHaveLength(4);
+    expect(fn.match(/signal: deadline/g)).toHaveLength(8);
     expect(fn).toContain("    try {\n      decoder?.free();\n    } catch {");
     // Pacote a pacote, com o teto de 5 minutos: um arquivo forjado não estoura a memória do worker.
     expect(fn).toContain("const MAX_AUDIO_SAMPLES = 300 * 16000;");
     expect(fn).toContain("if (samples > MAX_AUDIO_SAMPLES) return null;");
     expect(fn).not.toContain("decodeFrames(");
-    expect(fn).toContain("parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, ...parsed }) => {");
+    expect(fn).toContain("parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, imageId, ...parsed }) => {");
     expect(fn).toContain("const heard = audioId ? await transcribe(audioId) : null;");
-    expect(fn).toContain("const message = heard ? { ...parsed, body: heard } : parsed;");
+    expect(fn).toContain("const message = heard ? { ...parsed, body: heard } : seen ? { ...parsed, body: seen } : parsed;");
     expect(fn.indexOf("const heard =")).toBeLessThan(fn.indexOf("await sealInbound(SIGNING_SECRET, message)"));
     expect(fn).toContain('purpose: "transcribe"');
     // O token do WhatsApp só vai para os domínios da Meta.
