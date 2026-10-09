@@ -16,13 +16,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > **2026-10-09 — modelo de caixa do teste (sessão `claude/elegant-cray-sttizw`, só documentação):** a pedido do operador foi
 > criada a planilha [`docs/operacao/modelo-caixa-anuncios.xlsx`](docs/operacao/modelo-caixa-anuncios.xlsx) e o documento
 > [`docs/operacao/taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md) (decisão R19.1, grafo §67). Com verba de
-> R$ 675 (R$ 375 em 5 dias, 2 de pausa, R$ 300 em 5 dias, a partir de 23/10) e caixa de R$ 1.325, o **pico de caixa é R$ 879 e
-> sobram R$ 196** sobre os R$ 1.075 utilizáveis. Valores novos: manuseio R$ 5,00, recusa R$ 9,99 (4,99 + 5,00), devolução
+> **R$ 770** (Copy 7 dias a R$ 55/dia, 2 de pausa, Região 7 dias a R$ 55/dia, a partir de 23/10) e caixa de R$ 1.325, o **pico de caixa é R$ 828
+> e sobram R$ 247** sobre os R$ 1.075 utilizáveis. Valores novos: manuseio R$ 5,00, recusa R$ 9,99 (4,99 + 5,00), devolução
 > R$ 86,56 no COD e R$ 58,99 no antecipado (frete de retorno + manuseio + taxas já pagas), imposto da Meta 13,83% a conferir,
-> anúncio e custos do sistema no cartão (fatura fecha dia 22, vence dia 29). **Não mexeu em código nem em produção.** Pendências do
-> operador: medir o frete de retorno e conferir o imposto da Meta na 1ª fatura. **O operador confirmou em 2026-10-09 que R$ 675 e R$ 1.325
-> substituem os R$ 500 e os R$ 1.500 de L3** (09-pipeline L3.1 e L3.2 já reconciliados; Região 8–12, Leitura e decisão no dia 14, assumido).
-> **Alerta aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91.
+> anúncio e custos do sistema no cartão (fatura fecha dia 22, vence dia 29). **Não mexeu em código nem em produção.** O operador
+> confirmou que essa verba e esse caixa **substituem os R$ 500 e os R$ 1.500 de L3** (09-pipeline L3.1 e L3.2 reconciliados: Copy 1–7, Região
+> 10–16, Leitura e decisão no dia 18, assumido). Pendências: medir o frete de retorno e conferir o imposto da Meta na 1ª fatura.
+> **Risco aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 770 (R$ 55/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 513 leads e 51 pedidos: passa por pouco. Com CPL R$ 1,75 são 440 leads e 44 pedidos (abaixo do piso); com CPL R$ 1,25, 616 leads e 62 pedidos (passa, mas o pico sobe para R$ 993 e a sobra cai para R$ 82).
 
 > **2026-10-08, noite: a `turn` no ar é a v14 (`agent_version` 14); o bloco "Onde estamos — 2026-10-08,
 > noite" logo abaixo vale, o resto do quadro é histórico.**
@@ -87,7 +87,7 @@ do §66 semeadas em `hermes_proposals` com códigos `2026-10-08 §66-1` … `§6
 que responde 200) — conferir no primeiro teste que o link que chega é o do pix/cartão.
 
 **Decisões do operador em 2026-10-08 (plano):** template `order_eve` **submetido à Meta, aguardando
-aprovação**; verbas L3: Copy R$ 300, Região R$ 200, caixa R$ 1.500 (superadas em 2026-10-09 por R$ 675 e R$ 1.325, R19.1); Mês 1 item 3 (`askMarketingOptIn`)
+aprovação**; verbas L3: Copy R$ 300, Região R$ 200, caixa R$ 1.500 (superadas em 2026-10-09 por R$ 770 e R$ 1.325, R19.1); Mês 1 item 3 (`askMarketingOptIn`)
 feito; item 8 (portal no Vercel) continua no plano.
 
 **Leads de teste:** 5983 e 7967 apagados para novos testes. As conversas dos amigos (finais **9393** e

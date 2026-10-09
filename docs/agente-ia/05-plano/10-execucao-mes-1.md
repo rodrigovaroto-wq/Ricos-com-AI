@@ -267,16 +267,17 @@ e ler região por ele mede o funil, não a região.
 
 | Fase | Métrica que decide | Mínima | Ideal |
 |---|---|---|---|
-| Copy (1–5) | CPL do criativo | ≤ R$ 1,75 | ≤ R$ 1,25 |
-| Copy (1–5) | CTR do link | ≥ 1% | ≥ 2% |
-| Copy (1–5) | Taxa de resposta | ≥ 60% | ≥ 75% |
-| Copy (1–5) | % que chega ao preço | ≥ 40% | ≥ 55% |
-| Região (8–12) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
-| Região (8–12) | Conversão em pedido | ≥ 6% | ≥ 10% |
-| Leitura (13–14) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
+| Copy (1–7) | CPL do criativo | ≤ R$ 1,75 | ≤ R$ 1,25 |
+| Copy (1–7) | CTR do link | ≥ 1% | ≥ 2% |
+| Copy (1–7) | Taxa de resposta | ≥ 60% | ≥ 75% |
+| Copy (1–7) | % que chega ao preço | ≥ 40% | ≥ 55% |
+| Região (10–16) | CPL do conjunto | ≤ R$ 1,50 | ≤ R$ 1,25 |
+| Região (10–16) | Conversão em pedido | ≥ 6% | ≥ 10% |
+| Leitura (17–18) | Entregas concluídas / pedidos na entrega | ≥ 70% | ≥ 83% (recusa ≤ 17%) |
 
-**Atualizado em 2026-10-09 (verba de R$ 675):** a CPL R$ 1,25–1,50 dão 450–540 leads e 45–54 pedidos a 10%: **só passa o piso
-de 500 leads e 50 pedidos com CPL perto de R$ 1,25**; com CPL R$ 1,50 é preciso cerca de R$ 755 (pico de caixa R$ 984, sobra R$ 91).
+**Atualizado em 2026-10-09 (verba de R$ 770, 7 dias a R$ 55/dia em cada fase):** a CPL R$ 1,50 dão 513 leads e 51 pedidos a 10%: **passa o piso de
+500 leads e 50 pedidos, por pouco**; com CPL R$ 1,75 são 440 leads e 44 pedidos (abaixo do piso), com CPL R$ 1,25 são 616 leads e 62 pedidos
+(pico de caixa R$ 993, sobra R$ 82). Pico de caixa R$ 828 e sobra R$ 247 na base.
 
 **Conta que o operador precisava ver antes de assinar (versão de 2026-10-02, R$ 800):** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
 leads (passa o piso de 500). Pedidos: 53–64 a 10%, mas **32–38 a 6%** — abaixo do piso de 50. Ou

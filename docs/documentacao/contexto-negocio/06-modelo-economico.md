@@ -31,10 +31,10 @@ entregue pelo operador em 2026-09-03.
 > **COD R$ 16,07 · antecipado R$ 44,41 · mix 70/30 R$ 24,57** (R$ 18,14 / R$ 46,49 / R$ 26,65 sem o imposto da Meta).
 > A tabela de 02/10 logo abaixo dava R$ 24,31 / R$ 49,50 / R$ 31,86; a diferença vem da devolução, do manuseio e do imposto.
 >
-> **Reserva de caixa do teste, no lugar da conta de L3.2 abaixo:** com R$ 675 de verba (R$ 375 em 5 dias, 2 de pausa, R$ 300 em 5
-> dias, a partir de 23/10) e R$ 1.325 de caixa, o **pico é R$ 879** e **sobram R$ 196** sobre os R$ 1.075 utilizáveis (R$ 250 de
-> segurança). O anúncio vence na fatura de 29/11, depois do primeiro repasse (08/11). Dobrar a verba falta R$ 684; antecipado
-> retido por 14 dias falta R$ 1.329. O parágrafo "A conta da reserva de L3 não fecha" da caixa de 02/10 está **superado**.
+> **Reserva de caixa do teste, no lugar da conta de L3.2 abaixo:** com R$ 770 de verba (7 dias a R$ 55/dia na Copy, 2 dias de pausa e 7 dias a R$ 55/dia
+> na Região, a partir de 23/10) e R$ 1.325 de caixa, o **pico é R$ 828** (07/11) e **sobram R$ 247** sobre os R$ 1.075 utilizáveis (R$ 250 de
+> segurança). O anúncio vence na fatura de 29/11, depois do primeiro repasse (08/11). Dobrar a verba falta R$ 580; antecipado
+> retido por 14 dias falta R$ 1.243. O parágrafo "A conta da reserva de L3 não fecha" da caixa de 02/10 está **superado**.
 
 > ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02)
 >

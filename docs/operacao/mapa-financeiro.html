@@ -297,7 +297,7 @@
         <strong>O saldo de expedição é pré-pago, e trava a venda quando acaba.</strong> Quando o gerente do armazém muda o pedido para “em separação”, a Logzz debita automaticamente o saldo de expedição do produtor. Sem saldo, o pedido fica <em>“saldo insuficiente”</em> — a venda existe e não anda. Recarga por Pix, cartão ou saldo do painel. Se a entrega não acontece, o valor da entrega é estornado.
       </div>
       <div class="note">
-        <strong>O anúncio é financiado pelas vendas.</strong> Anúncio, API de IA, WhatsApp, PikaPods e o número do WhatsApp vão para o cartão de crédito: a fatura fecha dia 22 e vence dia 29, e o operador saca do saldo da Logzz (R$ 3,99, D+1 a D+2) para pagá-la. No teste de 23/10, o primeiro repasse do COD chega em 08/11 e a fatura de R$ 768 só vence em 29/11.
+        <strong>O anúncio é financiado pelas vendas.</strong> Anúncio, API de IA, WhatsApp, PikaPods e o número do WhatsApp vão para o cartão de crédito: a fatura fecha dia 22 e vence dia 29, e o operador saca do saldo da Logzz (R$ 3,99, D+1 a D+2) para pagá-la. No teste de 23/10, o primeiro repasse do COD chega em 08/11 e a fatura de R$ 876 só vence em 29/11 (R$ 814, com o saque 2 dias antes; o resto vence em 29/12).
       </div>
       <div class="note">
         <strong>No antecipado não há intervalo.</strong> O pagamento cai na hora no Mercado Pago (operador, 02/10) e cobre o custo do próprio pedido; por isso ele não entra na reserva de caixa. Só o pagamento na entrega empata dinheiro: produto, transação, entrega concluída, manuseio, recusa e devolução ficam adiantados até a comissão liberar.
@@ -388,7 +388,7 @@
       </div>
     </div>
     <div class="note" style="margin-top:18px">
-      <strong>Como ler a reserva.</strong> É o pico de capital empatado em pedidos: o custo diário dos pedidos na entrega multiplicado pelos dias até a comissão liberar. Por pedido na entrega criado, com 1 peça: <code>(1 − recusa − devolução) × (produto + transação + 19,99 + 5,00) + recusa × 9,99 + devolução × 86,56</code> — R$ 58,95 na ponta pessimista. O antecipado não entra (cai na hora) e o anúncio também não (vai para o cartão). Esta é a conta simples do simulador, sem calendário. A conta com datas, fatura do cartão e repasse está na planilha <code>modelo-caixa-anuncios.xlsx</code>: para R$ 675 de verba (23/10) o pico é R$ 879 e sobram R$ 196 sobre os R$ 1.075 utilizáveis (R$ 1.325 de caixa menos R$ 250 de segurança). O número não inclui imposto de renda nem Simples.
+      <strong>Como ler a reserva.</strong> É o pico de capital empatado em pedidos: o custo diário dos pedidos na entrega multiplicado pelos dias até a comissão liberar. Por pedido na entrega criado, com 1 peça: <code>(1 − recusa − devolução) × (produto + transação + 19,99 + 5,00) + recusa × 9,99 + devolução × 86,56</code> — R$ 58,95 na ponta pessimista. O antecipado não entra (cai na hora) e o anúncio também não (vai para o cartão). Esta é a conta simples do simulador, sem calendário. A conta com datas, fatura do cartão e repasse está na planilha <code>modelo-caixa-anuncios.xlsx</code>: para R$ 770 de verba (7 dias a R$ 55/dia em cada fase, a partir de 23/10) o pico é R$ 828 e sobram R$ 247 sobre os R$ 1.075 utilizáveis (R$ 1.325 de caixa menos R$ 250 de segurança). O número não inclui imposto de renda nem Simples.
     </div>
   </section>
 
@@ -432,7 +432,7 @@
           <tr><td>Em quais praças o Express aparece?</td><td>Não precisa saber: a agente conta que existe e manda conferir no checkout</td><td class="num">nenhum</td></tr>
           <tr><td>Qual a recusa real na porta, e quanto ela custa: R$ 9,90 ou R$ 9,99?</td><td>Os primeiros pedidos na entrega; o extrato da Logzz da primeira recusa</td><td class="num">R$ 0,73 por venda COD a cada ponto</td></tr>
           <tr><td>Qual o frete de retorno real na devolução (hoje R$ 45, faixa R$ 30–60)?</td><td>As primeiras devoluções; extrato da Logzz</td><td class="num">R$ 1,00 por pedido COD a cada R$ 10</td></tr>
-          <tr><td>O imposto da Meta (13,83%) aparece na fatura do cartão?</td><td>A primeira fatura</td><td class="num">R$ 93 em R$ 675 de verba</td></tr>
+          <tr><td>O imposto da Meta (13,83%) aparece na fatura do cartão?</td><td>A primeira fatura</td><td class="num">R$ 106 em R$ 770 de verba</td></tr>
           <tr><td>O checkout aceita endereço por parâmetro?</td><td>Suporte da Coinzz — assumido que não, por ora</td><td class="num">atrito no fechamento</td></tr>
         </tbody>
       </table>

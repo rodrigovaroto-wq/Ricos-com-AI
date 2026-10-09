@@ -2075,8 +2075,10 @@ projeto, e da publicação da função `whatsapp`.
 O operador pediu uma tabela modeladora de quanto de caixa o teste exige, e respondeu às perguntas do modelo. Decisões e
 fatos, em ordem:
 
-- **Verba do teste:** R$ 375 em 5 dias, 2 dias de pausa e R$ 300 em 5 dias (R$ 675), início modelado em 23/10. Do R$ 2.000
-  investido, **R$ 1.325 são caixa** e R$ 675 são a verba no cartão; **R$ 250 de margem de segurança**.
+- **Verba do teste:** 7 dias de anúncio a R$ 55/dia na Copy, 2 dias de pausa e 7 dias a R$ 55/dia na Região (R$ 385 + R$ 385 = **R$ 770**),
+  início modelado em 23/10. O operador pediu primeiro R$ 375 em 5 dias + R$ 300 em 5 dias (R$ 675), depois "7 dias cada", e escolheu o plano de
+  R$ 770 que cabe no caixa e passa o piso de amostra. Dos R$ 2.000 investidos, **R$ 1.325 são caixa**; a verba vai no cartão e é paga com o
+  repasse do COD; **R$ 250 de margem de segurança**.
 - **Quem paga o quê:** o operador paga o produto (R$ 30 por peça) e as taxas do COD (entrega concluída, manuseio, transação
   6,99% + R$ 2,49 de antifraude sobre o preço) **antes do repasse**. Todo o caixa fica no **saldo de expedição** da Logzz,
   de onde saem os custos do pedido quando ele vai para "em separação". O frete de abastecimento do estoque não é do operador.
@@ -2092,8 +2094,8 @@ fatos, em ordem:
   mês seguinte. O imposto da Meta (13,83%) "deve aparecer".
 - **Impostos do Simples:** fora do modelo por ora.
 
-Resultado: pico de caixa **R$ 879**, sobra **R$ 196**; dobrar a verba falta R$ 684. Conta em
+Resultado: pico de caixa **R$ 828** (07/11), sobra **R$ 247**; dobrar a verba falta R$ 580. Conta em
 [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
-[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Reconciliado no mesmo dia (operador: "Sim, R$ 675 e R$ 1.325 substituem os de L3"):** a verba de L3 passa de R$ 500 (2026-10-08) para
-R$ 675 (Copy R$ 375 em 5 dias, 2 dias de pausa, Região R$ 300 em 5 dias) e o caixa de R$ 1.500 para R$ 1.325; Região 8–12, Leitura e
-decisão no dia 14 (assumido). **Alerta:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 675 e CPL R$ 1,50 saem 450 leads e 45 pedidos (abaixo do piso); com CPL R$ 1,25, 540 leads e 54 pedidos (passa, mas o pico sobe para R$ 1.055 e a sobra cai para R$ 20). Para passar o piso com CPL R$ 1,50 a verba precisa de cerca de R$ 755: pico R$ 984, sobra R$ 91. Grafo §67.
+[`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Reconciliado no mesmo dia (operador: R$ 675 e R$ 1.325 "substituem os de L3"; depois,
+"7 dias cada" e o plano escolhido):** a verba de L3 passa de R$ 500 (2026-10-08) para R$ 770 (Copy R$ 385 e Região R$ 385) e o caixa de R$ 1.500
+para R$ 1.325; Região 10–16, Leitura 17–18 e decisão no dia 18 (assumido). **Alerta:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 770 (R$ 55/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 513 leads e 51 pedidos: passa por pouco. Com CPL R$ 1,75 são 440 leads e 44 pedidos (abaixo do piso); com CPL R$ 1,25, 616 leads e 62 pedidos (passa, mas o pico sobe para R$ 993 e a sobra cai para R$ 82). Grafo §67.
