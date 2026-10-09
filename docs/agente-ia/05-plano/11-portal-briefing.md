@@ -12,14 +12,17 @@
 - Seção "Quando pausar" com os seis critérios do L3.
 - Métricas por criativo/copy e por região (proposta de 12 métricas no §8).
 
-## Decisões abertas no §8 (recomendação entre parênteses), para fechar na primeira mensagem
+## Decisões do operador (2026-10-09)
 
-1. Onde mora o código: repositório novo `encorpa-portal`, Next.js no Vercel. Este repositório não tem UI de
-   propósito (`CLAUDE.md`).
-2. Conta e token do Vercel (operador).
-3. Dados do anúncio: token do usuário do sistema do BM com `ads_read` (sócio) e o id da conta de anúncio.
-4. Comissões recebidas: fase 1 estimada a partir de `orders` + taxas do config.
-5. Login: Supabase Auth por link mágico, lista de 2 e-mails; a chave do banco só no servidor.
+1. **Código:** repositório **`portal-encorpa`**, já criado e conectado ao Claude. A sessão do portal abre com
+   os dois repositórios (`Ricos-com-AI` e `portal-encorpa`). Este repositório continua sem UI (`CLAUDE.md`).
+2. **Vercel:** o operador cria uma conta nova (a atual serve outro projeto) e gera o token.
+3. **Dados do anúncio:** o sócio gera o token com `ads_read` do BM e passa o id da conta de anúncio.
+4. **Comissões:** fase 1 estimada a partir de `orders` + taxas do config; se a prática mudar, muda no repositório.
+5. **Acesso:** uma página HTML que só abre para quem tem o link **e** um e-mail e senha cadastrados.
+   **Confirmar na primeira mensagem:** o operador escreveu "HTML em localhost"; o §8 e o item 2 falam em Vercel.
+   Perguntar se é Vercel (link público, protegido por login) ou só na máquina dele. Em qualquer caso, a chave do
+   banco fica no servidor e nunca no navegador.
 
 ## O que o banco já tem (Supabase `hbmkgakzrqmdlsvszjeo`, conferido em 2026-10-09)
 

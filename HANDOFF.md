@@ -49,7 +49,8 @@ Legenda: ✅ feito · 🔄 em andamento · ⬜ não começado · ⛔ bloqueado (
 
 **Próxima sessão: construir o portal de análise de dados e otimização operacional** (decisão do operador:
 antes do próximo teste real). Comece por [`05-plano/11-portal-briefing.md`](docs/agente-ia/05-plano/11-portal-briefing.md)
-e feche as 5 decisões abertas do §8 com o operador na primeira mensagem.
+— as 5 decisões do §8 já foram tomadas pelo operador em 09/10 (estão no briefing; só falta confirmar Vercel ×
+localhost para o acesso). A sessão abre com os repositórios `Ricos-com-AI` e `portal-encorpa`.
 
 **No ar (conferido em 2026-10-09):**
 - `turn` **`agent_version` 15** = função v90 (commit `975c9d8`); `whatsapp` **v24**.
