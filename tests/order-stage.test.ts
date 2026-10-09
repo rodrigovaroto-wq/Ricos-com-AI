@@ -229,9 +229,12 @@ describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a 
     expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
-  it("a resposta dela cancela o lembrete de checkout junto com o silêncio", () => {
-    expect(source).toContain('${withCheckout ? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)" : "kind=like.silence_*"}');
-    expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\");");
+  // L2 (grafo §67): the checkout touch is anchored on the link — her messages after it no longer cancel it.
+  it("a resposta dela cancela o silêncio e mantém o lembrete de checkout", () => {
+    expect(source).toContain('? "or=(kind.like.silence_*,kind.eq.checkout_reminder,kind.eq.still_there)"');
+    expect(source).toContain(': scope === "keep_checkout"\n      ? "or=(kind.like.silence_*,kind.eq.still_there)"');
+    expect(source).toContain('await cancelScheduled(conversation.id, "keep_checkout");');
+    expect(source).toContain("await cancelScheduled(conversationId, postponed === undefined || postponed === \"checkout_reminder\" ? \"keep_checkout\" : \"silence\");");
   });
   it("link_sent só quando o texto leva um dos links de checkout", () => {
     expect(source).toContain('if (linkSentRecently([...earlier, replyText], CHECKOUT_BASES)) return "link_sent";');
@@ -476,13 +479,13 @@ describe("depois da compra, a régua de silêncio não volta", () => {
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
     const bail = schedule.slice(guard, schedule.indexOf("return;", guard));
-    expect(bail).toContain("await cancelScheduled(conversationId);");
+    expect(bail).toContain('await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");');
     expect(schedule.indexOf("rulerFor(")).toBeGreaterThan(guard);
   });
 
   it("a varredura lê os pedidos do lead e cancela o silêncio de quem comprou antes de qualquer envio", () => {
     expect(sweep).toContain(",orders(status)))&limit=50");
-    const guard = sweep.indexOf("if (inSilenceRuler(row.kind) && !chasesSilence(");
+    const guard = sweep.indexOf('if (inSilenceRuler(row.kind) && (row.kind === "checkout_reminder" ? !checkoutStillOpen(statuses) : !chasesSilence(');
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(sweep.indexOf("if (row.kind === RETRY_TURN_KIND)"));
     const bail = sweep.slice(guard, sweep.indexOf("return;", guard));

@@ -65,6 +65,115 @@ export const extractEmail = (text: string): string | null => {
   return m ? m[0].toLowerCase() : null;
 };
 
+/**
+ * The e-mail refused in so many words (review of the L2 fixes, finding 7): "pra que precisa do email?",
+ * an "ok" or any answer without one is no refusal — `refusedAsks` counts those for the CPF, where the
+ * link may go without it after two; the e-mail is asked once and only her refusal lets it go.
+ */
+const BARE_NO = /^(?:n|nao|nao\s+quero|prefiro\s+nao|nao\s+precisa|nao\s+obrigad[ao]|nao\s+tenho|nao\s+uso)$/;
+/** What each datum is called, in her words and in the agent's ask. */
+const DATUM_WORD = { email: String.raw`e-?mail`, document: "cpf", name: "nome" } as const;
+/**
+ * Any datum refused in so many words — the e-mail (L2), and since 2026-10-09 the name and the CPF too: the
+ * operator's rule is that a refusal is "sem problema" and the flow goes on, the checkout asking the rest.
+ */
+export const refusedDatum = (
+  messages: ReadonlyArray<{ direction: string; body: string | null }>,
+  field: keyof typeof DATUM_WORD,
+): number => {
+  const W = DATUM_WORD[field];
+  const OTHERS = Object.entries(DATUM_WORD).filter(([k]) => k !== field).map(([, v]) => v).join("|");
+  const EMAIL_NONE = new RegExp(String.raw`\b(?:sem\s+(?:o\s+|meu\s+)?${W}|nao\s+(?:tenho|uso|passo)\s+(?:o\s+|meu\s+)?${W})\b`);
+  const others = new RegExp(String.raw`\b(?:${field === "email" ? "cpf" : "e-?mail"}|${NAME_ASK})\b`, "i");
+  const found = (a: string): boolean =>
+    field === "email" ? extractEmail(a) !== null : field === "document" ? extractCpf(a) !== null : extractName(a, true) !== null;
+  // A refusal of another datum is not this one's (review of round 2): "Maria Silva, mas o cpf eu não vou
+  // passar" refuses the CPF, not the name.
+  const OTHER_DATUM = new RegExp(String.raw`\b(?:${OTHERS})\b`);
+  const refusal = new RegExp(String.raw`\b${REFUSE_VERB}\b`);
+  // Her refusal naming the field counts even when the agent asked something else ("o cpf eu não passo").
+  const OWN = new RegExp(String.raw`\b${REFUSE_VERB}\s+(?:o\s+|meu\s+)?${W}\b|\b${W}\s+(?:eu\s+)?${REFUSE_VERB}\b`);
+  const asks = (text: string): boolean =>
+    field === "name" ? asksForName(text) : asksForField(text, new RegExp(String.raw`\b${W}\b`, "i"), others);
+  // Second review of the L2 fixes: a bare "não" is the commonest refusal, and the refusal verb keeps its
+  // "e se eu não passar" guard (`REFUSE_VERB`); putting it off ("depois mando") is no refusal.
+  const refuses = (a: string, bareNoCounts: boolean): boolean => {
+    const raw = a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+    const t = raw.replace(/[.!,;]+/g, " ").replace(/\s+/g, " ").trim();
+    if (/\b(?:depois|mais\s+tarde|amanha|ja\s+ja|daqui\s+a|logo\s+mais|vou\s+ver)\b/.test(t)) return false;
+    // A refusal said before the question still counts ("não vou passar, manda sem?"); the question itself
+    // never does ("tem como não passar o email?", review of 3c613a4).
+    const said = raw.split(/[,;.!]+/).map((c) => c.trim()).filter((c) => c !== "" && !c.endsWith("?"));
+    // Every refusal form, clause by clause: "não, pode mandar sem?" refuses (fourth review).
+    if (said.some((c) => refusal.test(c) && !OTHER_DATUM.test(c))) return true;
+    // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
+    // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
+    const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";
+    // Someone else's e-mail offered is no refusal: "não tenho, pode ser o do meu filho?".
+    const offersOther = /\b(?:d[oa]\s+(?:meu|minha)|posso\s+(?:passar|mandar|usar)|outr[oa]|de\s+algu[eé]m)\b/.test(asked);
+    const goOn =
+      !offersOther &&
+      (new RegExp(String.raw`\bsem\b(?!\s+(?:o\s+|meu\s+)?(?:${OTHERS}))`).test(asked) ||
+        /^(?:pode\s+ser|tudo\s+bem|pode|ok|beleza|blz|tem\s+problema|como\s+faz|e\s+agora)\s*\?+$/.test(asked));
+    if (goOn && said.some((c) => EMAIL_NONE.test(c) || (bareNoCounts && BARE_NO.test(c)))) return true;
+    // "Não tenho e-mail" said outright counts unless she offers someone else's (sixth review).
+    if (!offersOther && said.some((c) => EMAIL_NONE.test(c))) return true;
+    if (t.endsWith("?")) return false;
+    // "manda sem" with no other object: "manda sem o cpf" refuses the CPF, not the e-mail (third review).
+    if (new RegExp(String.raw`\b(?:manda|mande|pode\s+mandar|envia|segue)\s+sem(?!\s+(?:o\s+|meu\s+)?(?:${OTHERS}))\b`).test(t)) return true;
+    return (
+      // A bare "não" answers the last question asked: only when that was the e-mail's (third review).
+      (bareNoCounts && BARE_NO.test(t)) ||
+      EMAIL_NONE.test(t) ||
+      (refusal.test(t) && !OTHER_DATUM.test(t))
+    );
+  };
+  const lastQuestionIsEmail = (text: string): boolean => {
+    const questions = text.split(/(?<=[.!?])\s+|\n+/).filter((q) => q.trim().endsWith("?"));
+    return new RegExp(String.raw`\b${W}\b`, "i").test(questions[questions.length - 1] ?? "");
+  };
+  let bareNoCounts = false;
+  let count = 0;
+  let asked = false;
+  let answer: string[] = [];
+  const close = () => {
+    const norm = (a: string) => a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?"));
+    if (answer.length > 0 && !answer.some(found) && ((asked && answer.some((a) => refuses(a, bareNoCounts))) || own)) count += 1;
+    answer = [];
+  };
+  for (const m of messages) {
+    if (m.direction === "inbound") {
+      answer.push(m.body ?? "");
+      continue;
+    }
+    close();
+    asked = asks(m.body ?? "");
+    bareNoCounts = lastQuestionIsEmail(m.body ?? "");
+  }
+  close();
+  return count;
+};
+
+/** The e-mail refused (L2): `refusedDatum` for the e-mail. */
+export const refusedEmail = (messages: ReadonlyArray<{ direction: string; body: string | null }>): number =>
+  refusedDatum(messages, "email");
+
+/**
+ * Her e-mail as she typed it in the conversation, newest first, from her own messages only (the
+ * shop's address in an agent message is not hers). It is read from the chat each turn and carried
+ * in the prepaid link, never stored on the lead: no e-mail is kept since 2026-10-07 (0024), and the
+ * prepaid checkout requires one (L2, grafo §67).
+ */
+export const emailInChat = (messages: ReadonlyArray<{ direction: string; body: string | null }>): string | null => {
+  for (const m of [...messages].reverse()) {
+    if (m.direction !== "inbound") continue;
+    const found = extractEmail(m.body ?? "");
+    if (found) return found;
+  }
+  return null;
+};
+
 const NOT_A_NAME =
   /\b(rua|avenida|av|travessa|bairro|cep|numero|apto|cpf|email|colete|tamanho|obrigad|quanto|preco|pre[çc]o)\b/i;
 
@@ -89,7 +198,8 @@ const COMMON_WORDS =
  */
 /** Words a name never starts with — what follows "nome dela" when it is not a name. */
 const NOT_A_FIRST_NAME =
-  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra)$/;
+  // "prefiro não passar", "pode ser sem", "sem nome" after the name ask are refusals, not names (review of round 2).
+  /^(eu|te|ta|esta|e|eh|igual|mesmo|mesma|passo|vou|vai|ja|nao|sei|depois|o|a|no|na|do|da|de|um|uma|ele|ela|meu|minha|seu|sua|que|com|pra|para|mae|filha|irma|esposa|amiga|tia|avo|sogra|prefiro|prefere|pode|sem|manda|deixa|precisa|obrigada|obrigado)$/;
 
 export const extractName = (text: string, askedName = false): string | null => {
   // Line breaks survive: WhatsApp messages arrive several lines at once, and a name must

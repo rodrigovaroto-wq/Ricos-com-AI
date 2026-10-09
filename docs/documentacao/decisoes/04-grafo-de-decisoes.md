@@ -2208,6 +2208,113 @@ vezes seguidas no máximo, liberado quando já há tamanho ou ela decide comprar
 **Ainda não feito:** parte da fiação do `index.ts` continua provada só por texto
 (saudação adiada, janela de silêncio, `oncePerDay`) — extrair em funções puras é trabalho de outra rodada.
 
+## 67. L2 — os testes reais do operador e do sócio: a cobertura que dizia "não" a todo mundo, o "paguei" sem resposta (2026-10-08)
+
+**Sintoma:** as duas conversas (Leila 5983, Fabiana 7967, `agent_version` 14) ouviram "na sua região ainda não
+tem pagamento na entrega" em São Paulo, onde a entrega tinha três datas; a Fabiana pediu a entrega duas vezes e
+recebeu o antecipado. A Leila disse "pronto, paguei", ouviu "Vou checar pra você" e ficou 35 min sem resposta.
+"Aah entendi, ok" e "ok" ganharam "Que bom que fez sentido…" e "Que bom, aí quando concluir…". O lembrete do
+checkout não saiu em nenhuma das duas. O checkout do antecipado travou sem e-mail. O "digitando…" aparecia no
+segundo em que a mensagem chegava. Auditoria: [`10-auditoria/2026-10-08-teste-real-l2.md`](../../agente-ia/10-auditoria/2026-10-08-teste-real-l2.md).
+**Causa:** (1) `checkRegion` repassava o CEP guardado com hífen; a Coinzz responde 422 a "04710-090" e 200 a
+"04710090"; o fetcher devolvia `null` e `readAvailability(null)` lê "sem entrega" — a região saía não nula, com
+`cod: false`. A sonda de 07/10 (C1 do §66) usou dígitos, por isso passou. (2) `handoffFor` lia "paguei" como
+pós-venda e o handoff cala a conversa até uma pessoa responder. (3) O prompt mandava responder "ah ok" com
+"continuação calorosa". (4) `rulerFor` só armava o `checkout_reminder` na resposta que levava o link, e toda
+mensagem dela o cancelava. (5) O e-mail saiu do fluxo em 07/10 (§66) e o checkout da Coinzz não segue sem ele.
+(6) `readAndTyping` ligava o "digitando" na chegada. (7) O exemplo "assenta lisinho" do prompt era copiado; "diga
+isso quando o assunto chegar perto" virou ressalva espontânea.
+**Caminhos que não serviram:** deixar a falha da consulta como "sem entrega" porque "custa só margem" (o comentário
+do `availability.ts`) — custou o caminho que converte, nas duas; dizer "Conferi que seu pagamento não foi
+concluído" sem o webhook provado (seria mentira se ela pagou); "frete grátis" no balão de reversão de risco junto
+de outras frases (`shipping_promise` veta — o grátis fica na frase canônica, e só antes do CEP); "No antecipado
+não tem frete grátis" (o operador preferiu "o frete é por conta do cliente").
+**Correção (decisões do operador, 2026-10-08):** C1 CEP só com dígitos para a Coinzz e resposta sem `data` = região
+nula (`checkRegion`). C2 `paymentRoute`: "paguei" com link e sem pedido pago → "Vou verificar o status do seu
+pagamento…" + `payment_check` em 5 min; durante a espera "Ainda estou verificando…"; aos 5 min, sem pagamento,
+o pedido do comprovante; só o comprovante depois disso vai a uma pessoa; antecipado pago → "já foi confirmado";
+pedido na entrega fica fora desse caminho. Pix não pago ("Pedido criado", "Aguardando pagamento") não arma
+"Pedido confirmado! … já pago" (`onOrderConfirmed`). C3 `isBareAck` + `ackGoesUnanswered`: "ok" depois de pedido
+de dado ou de mensagem sem pergunta fica sem resposta, e em 10 min "Precisa de alguma ajuda com o CEP/CPF/e-mail/
+tamanho?" (nada pelo nome); depois de pergunta de sim/não continua sendo decisão. C4 `checkout_reminder` aos 10 min
+do link, "Vi que seu pedido ainda não foi finalizado, travou em alguma etapa?", não cancelado pelas mensagens dela
+(`cancelScheduled(…, "keep_checkout")`), só por pedido pago/agendado, link novo, opt-out ou pessoa; nunca a menos de
+5 min de uma resposta. C5 e-mail só no antecipado (nome → e-mail → CPF), lido do chat (`emailInChat`), no link,
+nunca gravado; uma recusa basta. C6 prompt: frase do operador como exemplo e variações, "varie as palavras",
+ressalva só quando perguntada e como argumento, `riskReversalMessage` antes do CEP, "pra devolver se não gostar",
+pergunta no último balão, "dependendo da sua região" antes do CEP, sem detalhe do entregador,
+`NO_FREE_SHIPPING_PREPAY`. C7 sem `typing_indicator`; leitura 2 s depois (`READ_RECEIPT_DELAY_MS`).
+**Guarda:** `tests/l2-real-test.test.ts` (frases literais + negações), `tests/availability.test.ts` (422 literal);
+mutações `G67-*` (12/12 pegas, com as duas `G66-sem-email*` reescritas).
+**Revisões Opus (duas passadas, 2026-10-08):** a primeira achou 8 furos — o "paguei" de madrugada ainda caía no
+handoff (a frase fixa ia na camada `agent`, vetada fora do horário; agora `auto`); status desconhecido ou "created"
+lido como pago (`orderSettled` exige status conhecido e positivo); o link do antecipado preso esperando e-mail depois
+de um link da entrega (`linkBefore`); "ok" a oferta de sim/não silenciado e a oferta de ajuda em laço (`isOffer`);
+"paguei não", "já pago na entrega", "aceita pix?", "e aí, tem G?" lidos como pagamento; qualquer imagem lida como
+comprovante (agora só junto do "paguei" ou durante a espera, e o comprovante na espera vai com a verificação, que
+chama a pessoa aos 5 min); pergunta contada como recusa do e-mail; e-mail e CPF pedidos juntos. A segunda achou o
+excesso da correção do e-mail (um "não" simples não recusava e o link nunca saía), "certo"/"já já" lidos como
+cobrança, a verificação da varredura presa até as 6h, a oferta lida fora da última pergunta, "paguei ainda não",
+"foi" e condição como pergunta de status, e a corrida do comprovante na espera (`run_at` +1 s). Todos com teste e
+mutação (`G67-*`, 16/16). Mais quatro passadas curtas (terceira a sexta) só acharam variações de frase nas leituras de
+texto do pagamento e da recusa do e-mail ("já paguei ainda não caiu", "não, pode mandar sem?", "vê se o pix caiu e
+confirma?", "ainda não deu baixa", "não tenho, pode ser o do meu filho?") — cada uma com teste nos dois sentidos.
+O ciclo parou na sexta: o que a revisão ainda aponta são variações raras de frase, listadas abaixo.
+**Resíduo:** leitura de texto do pagamento por regex nunca cobre toda frase — "já paguei, ainda não foi liberado" (com
+vírgula) e "não tenho pode ser?" (sem vírgula) ainda escapam; "quando o pix é aprovado vc manda?" lê como pergunta de
+status (inofensivo: só vale com verificação em curso). A resposta de produção é o próximo teste real, não mais regex. imagem com legenda chega só como legenda (não é lida como comprovante); o webhook da Coinzz não foi
+provado (nenhuma execução do "Venda confirmada" até 08/10) e as duas integrações do painel apontam para a mesma URL
+(cada evento chega duas vezes — `recordOrder` é idempotente por `external_id`); "Ainda está aí?" com ajuda por dado
+não passa pelo limite de uma vez por dia.
+
+### §67 — rodada 2 (decisões do operador de 2026-10-09) e publicação
+
+**Decisões:** CEP em qualquer escrita (hífen, ponto, espaço; `parseCep` lê 8 dígitos, 5+3 e 2+3+3, nunca dentro
+de um número maior — telefone e CPF ficam de fora); CEP que o ViaCEP não conhece → a Malu diz que não conseguiu
+consultar porque o CEP não existe e pede pra conferir (`lookupRegion` `not_found`; o CEP não é guardado). Aos
+5 min o pagamento é dito **pendente** e o comprovante pedido; o comprovante gera mais uma verificação e, sem o
+pagamento, a linha do **e-mail do suporte** (`support.email` do config — no exemplo `contato@encorpa-fashion.com.br`;
+sem `handoff_at`, o operador é avisado). "Ok", "tá bom", "tudo bem", "tranquilo" a uma pergunta de sim/não são
+**sim** (as palavras curtas só como resposta inteira: "tá caro" não é sim). O nome é pedido de novo depois de um
+"ok" sem resposta. **E-mail volta a ser guardado** em `leads.identity`. Qualquer dado recusado em palavras uma vez
+→ "sem problema" e o fluxo segue (`refusedDatum`); a mensagem do link abre com "Sem problema!" e diz o que falta
+preencher no checkout. **Imagem:** a função `whatsapp` baixa a imagem e o modelo da Meta (`VISION_MODEL`, padrão
+`muse-spark-1.3`, `image_url` com `data:`) a descreve; só a descrita como "comprovante" vale como comprovante.
+Achado no caminho: depois do pedido do nome, "prefiro não passar" virava o nome dela (`NOT_A_FIRST_NAME`).
+**Revisões Opus da rodada 2:** reprovada (CEP dentro do endereço não lido, "tá caro" como sim, recusa de outro dado
+atribuída ao pedido, imagem com legenda como comprovante, comprovante pedido de novo depois do suporte, "CEP não
+existe" repetido) → consertado → aprovada com ressalvas (R1–R5 no relatório: CEP bom anterior apagado ao mandar um
+inexistente; CEP inexistente que chega num turno com timeout fica guardado; comprovante reenviado depois do suporte
+reinicia a verificação; recusa de dois dados numa frase; nome que comece com "Sem"/"Pode").
+**Publicado em 2026-10-09:** `turn` `agent_version` 15 = função v90 (commit `975c9d8`); `whatsapp` v24 (sem
+digitando, leitura 2 s depois, imagem). Sondas: `turn` sem selo 401; `whatsapp` verificação errada 403, POST sem
+assinatura 401. Webhook de venda de ponta a ponta com lead sintético (5500099000001, apagado depois): "Aguardando
+pagamento" grava o pedido, mantém o lembrete do checkout e não arma "já pago"; "Aprovado" cancela o lembrete e arma
+a confirmação. `pnpm dev:n8n`: os 6 workflows ok.
+**Resíduo:** o formato real do webhook da Coinzz para o antecipado nunca foi visto — o n8n só grava a venda se o
+tamanho estiver no complemento; se a Coinzz mandar o tamanho em outro campo, a venda volta como recusada (e-mail ao
+operador) e o "paguei" nunca vê o pagamento. Prova: "Testar URL" no painel ou a primeira venda real. O ramo de
+leitura do "WhatsApp envio" no n8n ainda pede "digitando", mas nada o usa (a leitura sai da função `whatsapp`).
+
+### §67 — webhooks de venda reais (2026-10-09)
+
+**Sintoma:** os testes do painel ("Testar URL") da Coinzz e da Logzz chegaram ao n8n e foram recusados como "venda
+não mapeada": nenhum dos dois traz o tamanho no complemento do endereço, o único lugar onde o normalizador lia.
+Uma venda paga recusada é um pagamento que a Malu nunca vê ("paguei" sem pagamento, régua de silêncio cobrando
+quem comprou, sem confirmação).
+**Causa:** o mapeamento de 25/09 supunha que a cliente digitava o tamanho no complemento. Os checkouts têm
+seletor de tamanho desde 06/10: a Coinzz manda `order.product_code` (o código do tamanho), a Logzz manda
+`products.main.variations[]`.
+**Correção:** o normalizador lê, nesta ordem: campo explícito, código do produto da Coinzz, variações da Logzz
+(tamanho no fim do nome, repetido pela quantidade), nome do produto e complemento. Sem tamanho em lugar nenhum, a
+venda é gravada sem ele (migração 0025, `orders.size` nulo) e o operador recebe "Venda gravada SEM tamanho" com o
+payload cru. O workflow foi enviado pela API do n8n e conferido por `pnpm dev:n8n`. Teste de ponta a ponta com lead
+sintético: Coinzz com o código do G → gravado G; Logzz sem tamanho → gravado sem tamanho + e-mail.
+**Guarda:** `tests/n8n-sale-mapping.test.ts` com os payloads reais (`tests/fixtures/*-teste-2026-10-09.json`, token
+removido) e as negações; `tests/order-status-vocabulary.test.ts` confere o ramo novo.
+**Resíduo:** o nome das variações da Logzz numa venda real do colete ainda não foi visto (o teste usa produto
+fictício). A primeira venda real confirma: se vier sem tamanho, o e-mail traz o payload para fechar o mapeamento.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
