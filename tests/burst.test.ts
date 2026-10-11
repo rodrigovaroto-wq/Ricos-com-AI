@@ -279,7 +279,7 @@ describe("um turno respondendo por vez, e a resposta revisada com o que chegou",
     // O prazo da revisão manda nas chamadas dela.
     expect(source).toContain("isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
     expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
-    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+    expect(source).toContain("regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
   it("o modelo recebe o rascunho no prompt de sistema, não no histórico", () => {

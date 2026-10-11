@@ -2374,6 +2374,24 @@ depois de uma recusa.
 Opus: a 1ª reprovou a leitura sobre `withdraws` (adiamento, troca de parte do pedido e "ela voltou" lidos como recusa) e levou à
 lista fechada; a 2ª achou o "desisti não" (B1) e as recusas comuns que escapavam ("eu desisti, tchau"), consertados.
 
+## 70. Alarme de cobertura do pagamento na entrega (E1.2, 2026-10-11)
+
+**Sintoma:** o pagamento na entrega sumiu duas vezes para todas as clientes sem ninguém saber — o cabeçalho XHR faltou de 24/09
+a 07/10 (§66) e o CEP com hífen deu 422 na Coinzz em 08/10 (§67). Os dois só apareceram em teste real.
+**Causa:** nada consultava a cobertura fora de uma conversa; uma falha na consulta não avisava ninguém.
+**Caminhos que não valiam:** (a) um segundo `fetch` só para o alarme — testaria outro caminho e não o da cliente (o §67 nasceu de o
+script de dev mandar dígitos e a `turn` não); (b) checar dentro da varredura da régua de 5 min — 864 consultas/dia à Coinzz e a
+varredura, que é crítica, ganharia um ponto de falha.
+**Correção:** job `{job:"health"}` na `turn`: `checkCoverage` roda `lookupRegion` em três CEPs de São Paulo com COD na auditoria de
+L2 (01310100, 04710090, 04662002) pelo **mesmo** `regionFetcher` da conversa (o closure inline virou uma função só) e `healthOf`
+devolve `healthy` só se os três forem `cod`; exceção = `failed`. Sem escrita no banco, sem modelo. Responde sempre 200: o n8n
+alerta pelo `status`.
+**Guarda:** `tests/coverage-health.test.ts` (13); mutações `E12-falha-e-saude`, `E12-excecao-derruba-job`, `E12-fetcher-proprio`.
+**Falta (no deploy, com o "pode subir"):** workflow no n8n a cada 15 min, timeout ≥ 30 s, credencial `Supabase service_role`,
+e-mail só quando piora (no máximo 1 a cada 3 h) e aviso de "voltou". ViaCEP fora também acende o alarme (a conversa perde o COD
+do mesmo jeito).
+**Estado (2026-10-11):** implementado na árvore, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

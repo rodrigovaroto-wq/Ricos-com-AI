@@ -285,6 +285,27 @@ export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region
 };
 
 /**
+ * The coverage alarm (E1.2): cash on delivery vanished twice for every customer with nobody told
+ * (grafo §66/§67). Each CEP goes through the conversation's own lookup; a throw is `failed`.
+ */
+export interface CoverageCheck {
+  readonly cep: string;
+  readonly result: "cod" | "no_cod" | "failed" | "not_found";
+}
+
+export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[]): Promise<CoverageCheck[]> =>
+  Promise.all(
+    ceps.map(async (cep): Promise<CoverageCheck> => {
+      const lookup = await lookupRegion(fetcher, cep).catch((): RegionLookup => ({ kind: "failed" }));
+      return { cep, result: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind };
+    }),
+  );
+
+/** Healthy only when every CEP known to have cash on delivery still answers with it. */
+export const healthOf = (checks: readonly CoverageCheck[]): "healthy" | "unhealthy" =>
+  checks.length > 0 && checks.every((c) => c.result === "cod") ? "healthy" : "unhealthy";
+
+/**
  * The label the operator paid, fixed by Logzz at R$ 15,00 (support, 2026-09-09). It was
  * R$ 20,00 with the excess passed on to the customer; both changed at once — the freight
  * became a single value everywhere, paid by the operator on either path.

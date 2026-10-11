@@ -329,7 +329,7 @@ describe("rodada 13 na Edge Function", () => {
   it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
     expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
     expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
-    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+    expect(source).toContain("regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
   // Grafo §60 (operador, 2026-10-06): a escada fixa saiu; toda mensagem vai ao modelo, e a

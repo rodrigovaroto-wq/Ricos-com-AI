@@ -3592,6 +3592,30 @@ const MUTATIONS: Mutation[] = [
     to: "cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
   },
+  {
+    id: "E12-falha-e-saude",
+    bug: "o alarme de cobertura lia consulta falha como saudável: a Coinzz fora do ar e ninguém avisado (grafo §66/§67)",
+    files: ["src/agent/availability.ts"],
+    from: 'checks.every((c) => c.result === "cod")',
+    to: 'checks.every((c) => c.result === "cod" || c.result === "failed")',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
+  },
+  {
+    id: "E12-excecao-derruba-job",
+    bug: "uma resposta HTML (302) da Coinzz derrubava o job health em vez de marcar o CEP como falho",
+    files: ["src/agent/availability.ts"],
+    from: '.catch((): RegionLookup => ({ kind: "failed" }))',
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
+  },
+  {
+    id: "E12-fetcher-proprio",
+    bug: "o alarme consultava com um fetch seu, sem os cabeçalhos da conversa: verde com a conversa quebrada",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS)",
+    to: "checkCoverage(async (url) => { const r = await fetch(url, { signal: AbortSignal.timeout(REGION_TIMEOUT_MS) }); return r.ok ? await r.json() : null; }, COVERAGE_ALARM_CEPS)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

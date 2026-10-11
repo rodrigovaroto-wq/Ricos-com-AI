@@ -71,7 +71,7 @@ import {
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { lookupRegion, type Region } from "./availability.ts";
+import { checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -1365,6 +1365,21 @@ const KIT_MEMORY_MS = 7 * 24 * 60 * 60 * 1000;
 const REGION_TIMEOUT_MS = 10_000;
 const RETRY_REGION_TIMEOUT_MS = 5_000;
 
+/** The one fetcher of every region lookup — the turn's and the coverage alarm's (E1.2), so the alarm sees what she gets. */
+const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
+  const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  return r.ok ? await r.json() : null;
+};
+
+/** São Paulo CEPs the L2 audit (2026-10-08) saw with cash on delivery: one not `cod` is the path gone, not the region. */
+const COVERAGE_ALARM_CEPS = ["01310100", "04710090", "04662002"];
+
+/** `job: "health"` (E1.2): no database write, no model call — n8n alerts the operator on `unhealthy`. */
+const runHealthCheck = async () => {
+  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS);
+  return { status: healthOf(checks), checkedAt: new Date().toISOString(), checks };
+};
+
 /**
  * What the `retry_turn` row carries in `followups.body`: the inbound message the failed
  * turn was answering, and how many times it was already rescheduled. The retry answers
@@ -2021,6 +2036,9 @@ const handleTurn = async (
   // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
   // `retry_turn` rows, which run a whole turn again (R13.4).
   if (payload.job === "followups") return json(200, await runFollowupSweep());
+
+  // E1.2: the coverage alarm — the conversation's own lookup for three CEPs that have cash on delivery.
+  if (payload.job === "health") return json(200, await runHealthCheck());
 
   // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
   // what that does to the schedule lives in `followups.ts`, where a test can hold it.
@@ -3241,13 +3259,10 @@ const handleTurn = async (
   let badCep: string | null = null;
   if (addressDraft.cep) {
     try {
-      const lookup = await lookupRegion(async (url, headers) => {
-        const r = await fetch(url, {
-          headers,
-          signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
-        });
-        return r.ok ? await r.json() : null;
-      }, addressDraft.cep);
+      const lookup = await lookupRegion(
+        regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+        addressDraft.cep,
+      );
       region = lookup.kind === "found" ? lookup.region : null;
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
