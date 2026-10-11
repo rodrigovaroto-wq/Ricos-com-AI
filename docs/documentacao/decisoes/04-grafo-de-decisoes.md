@@ -2392,6 +2392,23 @@ e-mail só quando piora (no máximo 1 a cada 3 h) e aviso de "voltou". ViaCEP fo
 do mesmo jeito).
 **Estado (2026-10-11):** implementado na árvore, não publicado.
 
+## 71. A repetição do n8n que perdia a resposta (E1.3, 2026-10-11)
+
+**Sintoma:** risco achado na análise de 11/10: os nós "Cerebro do turno" e "Resposta de verdade" do workflow "Turno da agente" tinham
+`retryOnFail` (2 tentativas). Um turno que estoura o tempo ou cai depois de gravar a mensagem dela é repetido; a repetição acha a
+mensagem já gravada e volta `{status:"duplicate"}` (ou a guarda da retomada, `welcomed_at` × `last_outbound_at`, não devolve nada).
+**Causa:** para o n8n isso é sucesso: execução verde, nenhum balão, nenhum e-mail. A resposta paga fica em `messages` e nunca sai.
+**Caminhos que não valiam:** (a) devolver no "duplicate" a resposta já gravada — a mesma mensagem reenviada pela Meta seria
+respondida duas vezes, e a função não sabe se o n8n mandou; (b) reproduzir com um turno de 150 s em produção — caro e com cliente
+sintético no banco (memória `porta-n8n-do-container-bate-no-proxy`); o caminho foi lido no código (`index.ts` dedupe, JSON do n8n).
+**Correção:** `retryOnFail: false` nos dois nós, publicado no n8n pela API (versão ativa `b13736eb…`, diff conferido: só esse campo
+nos dois nós). A falha vai para a saída de erro, que já avisa o operador ("Turno recusado"). Falha de rede do modelo continua sendo
+repetida pela própria função (`retry_turn`).
+**Guarda:** regra nova em `src/dev/n8n-rules.ts` (turno da conversa com `retryOnFail` reprova o `pnpm dev:n8n`), teste em
+`tests/n8n-workflows.test.ts`, mutação `E13-retry-no-turno`.
+**Estado (2026-10-11):** no ar no n8n. O `pnpm dev:n8n` não rodou nesta sessão (o classificador de permissão bloqueou); o JSON
+versionado foi atualizado à mão com o mesmo campo.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

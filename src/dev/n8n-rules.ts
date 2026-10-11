@@ -25,6 +25,7 @@ export interface N8nNode {
   parameters?: Record<string, unknown>;
   credentials?: Record<string, { id?: string; name: string }>;
   onError?: string;
+  retryOnFail?: boolean;
   position?: [number, number];
 }
 
@@ -77,6 +78,10 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
     const isConversationTurn = url.endsWith("/functions/v1/turn") && !String(node.parameters?.jsonBody ?? "").includes("job");
     if (isConversationTurn && timeout < MIN_TURN_TIMEOUT_MS)
       problems.push(`${where}: timeout ${timeout} ms is below ${MIN_TURN_TIMEOUT_MS} ms`);
+    // E1.3 (grafo §71): a retried turn finds its own message stored and answers "duplicate" — a green
+    // execution, a reply paid for and never sent, nobody told. The error output is what tells.
+    if (isConversationTurn && node.retryOnFail === true)
+      problems.push(`${where}: retryOnFail on the conversation turn — the retry answers "duplicate" and the reply is lost`);
     // O10: the order call forwards the platform's secret, or every real sale is refused 401.
     if (String(node.parameters?.jsonBody ?? "").includes('job: "order"') && !String(node.parameters?.jsonBody).includes("token"))
       problems.push(`${where}: the order call does not forward the webhook token (O10)`);

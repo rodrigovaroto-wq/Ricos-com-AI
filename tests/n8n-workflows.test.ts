@@ -61,6 +61,13 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     wf.nodes[1]!.parameters!.jsonBody = "={{ JSON.stringify($json.body) }}";
     expect(checkWorkflow(wf).join()).toContain("timeout 60000");
   });
+  it("turno da conversa com retryOnFail: a repetição vira \"duplicate\" e a resposta se perde (E1.3, grafo §71)", () => {
+    const wf = sweep({ timeout: 150000 });
+    wf.nodes[1]!.parameters!.jsonBody = "={{ JSON.stringify($json.body) }}";
+    expect(checkWorkflow(wf).join()).not.toContain("retryOnFail");
+    wf.nodes[1]!.retryOnFail = true;
+    expect(checkWorkflow(wf).join()).toContain("retryOnFail");
+  });
   it("turno sem o Wait e a retomada da recepção (O2)", () => {
     const turno = load("turno-da-agente");
     const semWait = { ...turno, nodes: turno.nodes.filter((n) => n.type !== "n8n-nodes-base.wait") };

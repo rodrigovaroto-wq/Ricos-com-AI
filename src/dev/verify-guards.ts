@@ -3609,6 +3609,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
   {
+    id: "E13-retry-no-turno",
+    bug: "o n8n repetia o turno, a repetição voltava \"duplicate\" e a resposta paga nunca saía, sem aviso (grafo §71)",
+    files: ["src/dev/n8n-rules.ts"],
+    from: "    if (isConversationTurn && node.retryOnFail === true)",
+    to: "    if (false)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
+  {
     id: "E12-fetcher-proprio",
     bug: "o alarme consultava com um fetch seu, sem os cabeçalhos da conversa: verde com a conversa quebrada",
     files: ["supabase/functions/turn/index.ts"],
