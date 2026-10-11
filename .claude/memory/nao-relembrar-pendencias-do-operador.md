@@ -1,6 +1,6 @@
 ---
 name: nao-relembrar-pendencias-do-operador
-description: O operador pediu (2026-09-25) para não ser lembrado de revogar PAT nem de trocar o CONVERSATION_MODEL — ele sabe e faz; não repita isso em resposta nenhuma.
+description: O operador pediu (2026-09-25) para não ser lembrado de revogar PAT nem de trocar o CONVERSATION_MODEL — ele sabe e faz; não repita isso em resposta nenhuma. Desde 11/10 também não se levanta a LGPD do -contributor com cliente real.
 metadata:
   type: feedback
 ---
@@ -18,3 +18,9 @@ Regra geral: pendência que o operador já reconheceu não vira fecho de toda re
 `CONVERSATION_MODEL_PRICE` (padrão ↔ `-contributor` para testes) é o operador, à mão, no painel.
 O Claude nunca grava esses segredos nem escreve código que escolha modelo por número/lead —
 no máximo passa os valores exatos para ele colar.
+
+**O `-contributor` com cliente real e a LGPD: assunto encerrado (2026-10-11).** Na análise de
+arquitetura de 11/10 o ponto foi levantado (o `pricing.ts` e o Hermes dizem que o `-contributor`
+"nunca fala com cliente real"); o operador respondeu que não é necessário e que **não se volta
+nisso**. Não levante em análise, plano, revisão nem fecho de resposta, nem mande ao
+`compliance-reviewer` por conta própria.
