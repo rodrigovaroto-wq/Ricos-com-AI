@@ -20,7 +20,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > Se a árvore tiver mudança não commitada de E1.2, confira com `pnpm test` e revise antes de commitar. Depois: E1.3 (retry do n8n →
 > "duplicate": diagnosticar; preferência por tirar o `retryOnFail` do nó "Cerebro do turno"), E1.4 (operador tira a escassez do
 > `BUSINESS_CONFIG`), E1.5 (gates de quadril/entregador/"afina"). Fim da E1: autoaprimoramento + personas + `/code-review` (R20.9).
-> Análise e plano completos desta sessão: `analise-arquitetura-malu.md` e `plano-pratico-malu.md` (enviados ao operador).
+> Análise e plano completos desta sessão: [`12-analise-arquitetura-conversao.md`](docs/agente-ia/05-plano/12-analise-arquitetura-conversao.md) e [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md).
 
 > **2026-10-11 — análise de arquitetura, decisões E0 e plano prático (sessão `claude/awesome-hopper-x8j8wb`):** a análise de
 > arquitetura foi entregue e o operador **aceitou as decisões da E0** (R20.1–R20.9 em
