@@ -22,10 +22,10 @@ describe("thinkReply", () => {
       it(`${path}, ${withLink ? "com" : "sem"} link: abre com a linha do operador e passa a cadeia no adiamento`, () => {
         const text = thinkReply(example, path, withLink);
         expect(text.startsWith(THINK_REPLY)).toBe(true);
-        expect(text).toContain("restam 12 unidades");
+        // R20.1 (grafo §69): the declared stock never reaches her, even with `unitsLeft` in the config.
+        expect(text).not.toMatch(/restam|unidades|lote/);
         expect(blocked(text, example, path, { postponing: true })).toEqual([]);
-        // Outside the postpone reply the same stock is refused.
-        expect(blocked(text, example, path)).toContain("scarcity_claim");
+        expect(blocked(text, example, path)).toEqual([]);
       });
     }
   }
@@ -54,10 +54,11 @@ describe("thinkReply", () => {
 });
 
 describe("o prompt não ensina mais o estoque", () => {
-  it("nem o número, e diz que o aviso sai pronto", () => {
+  it("nem o número, nem a promessa de um aviso pronto (R20.1)", () => {
     const prompt = systemPrompt(example, gateBriefing(example), null);
     expect(prompt).not.toMatch(/restam 12/);
-    expect(prompt).toMatch(/o sistema manda o aviso de estoque numa mensagem pronta/);
+    expect(prompt).not.toMatch(/aviso de estoque/);
+    expect(prompt).toMatch(/não cite estoque, unidades restantes nem prazo de oferta/);
   });
   it.each(["Só restam 12 unidades!", "Restam 12 unidades.", "São as últimas unidades do lote.", "A promoção acaba hoje!"])(
     "a conversa não cita estoque: %s",

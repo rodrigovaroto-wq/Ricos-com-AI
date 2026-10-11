@@ -436,15 +436,9 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
 export const scarcityBriefing = (config: PromptConfig): string[] => {
   // Since 2026-09-29 (R16.5) the stock is said only in the fixed reply to her putting the
   // purchase off (`thinkReply`); the conversation itself never cites it.
-  const s = config.scarcity;
-  const declared = s?.unitsLeft != null || !!s?.offerEndsAt || !!s?.allowUnverified;
-  return [
-    "",
-    declared
-      ? `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta. Quando ela disser que` +
-        ` vai pensar ou deixar pra depois, o sistema manda o aviso de estoque numa mensagem pronta.`
-      : `URGÊNCIA: não cite estoque nem prazo — a loja não te deu nenhum número.`,
-  ];
+  // Since 2026-10-11 (R20.1) not even that fixed reply cites it: no real count is behind the number.
+  void config;
+  return ["", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];
 };
 
 /**

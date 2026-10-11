@@ -3609,6 +3609,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
   {
+    id: "E14-estoque-no-pensar",
+    bug: "a resposta do \"vou pensar\" dizia \"restam 12 unidades\" sem contagem real por trás (R20.1, grafo §72)",
+    files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
+    from: "    `${THINK_REPLY} 💛`,",
+    to: "    `${THINK_REPLY} 💛`, `Só te aviso que restam 12 unidades desse lote.`,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/think-reply.test.ts"],
+  },
+  {
     id: "E13-retry-no-turno",
     bug: "o n8n repetia o turno, a repetição voltava \"duplicate\" e a resposta paga nunca saía, sem aviso (grafo §71)",
     files: ["src/dev/n8n-rules.ts"],

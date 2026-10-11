@@ -2254,12 +2254,10 @@ const gates: readonly Gate[] = [
      */
     name: "scarcity_claim",
     remedy: "rewrite",
-    briefing: (c) =>
-      c.scarcity?.allowUnverified || c.scarcity?.unitsLeft != null || c.scarcity?.offerEndsAt
-        ? `Urgência: não cite estoque, unidades restantes nem prazo de oferta. O aviso de estoque ` +
-          `sai numa mensagem pronta, só quando ela disser que vai pensar ou deixar pra depois.`
-        : `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
-          `urgência inventada é publicidade enganosa.`,
+    // R20.1 (2026-10-11): no fixed reply cites the stock any more, so none is promised to the model.
+    briefing: () =>
+      `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
+      `urgência inventada é publicidade enganosa.`,
     check: (text, ctx) => {
       const t = norm(text);
 

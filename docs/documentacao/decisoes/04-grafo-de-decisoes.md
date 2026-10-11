@@ -2409,6 +2409,19 @@ repetida pela própria função (`retry_turn`).
 **Estado (2026-10-11):** no ar no n8n. O `pnpm dev:n8n` não rodou nesta sessão (o classificador de permissão bloqueou); o JSON
 versionado foi atualizado à mão com o mesmo campo.
 
+## 72. A escassez sai do "vou pensar" (E1.4, R20.1, 2026-10-11)
+
+**Sintoma:** "restam 12 unidades desse lote… vale garantir o seu logo" saía no "vou pensar" sem contagem real por trás, e chegou a uma
+cliente que tinha recusado (§69). O operador decidiu tirar (R20.1, supera R16.5/R16.8).
+**Caminhos que não valiam:** depender do operador tirar `scarcity` do secret `BUSINESS_CONFIG` — o segredo não é legível daqui, e com
+a chave presente a frase voltaria; a decisão é de produto, então vive no código.
+**Correção:** `thinkReply` não lê mais `scarcity` (a frase saiu, o campo saiu de `ThinkConfig`); o prompt (`scarcityBriefing`) e o
+briefing do gate `scarcity_claim` não prometem mais "aviso de estoque numa mensagem pronta". A checagem do gate fica como estava:
+continua vetando estoque em qualquer frase do modelo.
+**Guarda:** `tests/think-reply.test.ts` (com `unitsLeft` no config, nenhuma frase de estoque; o prompt não fala em aviso de estoque);
+mutação `E14-estoque-no-pensar`. `dev:gates`: 0 afrouxado, 0 endurecido.
+**Estado (2026-10-11):** implementado, não publicado. O bloco `scarcity` do secret ficou sem leitor; o operador pode apagá-lo quando quiser.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
