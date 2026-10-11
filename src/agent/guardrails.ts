@@ -337,6 +337,26 @@ const deniedJustBefore = (t: string, at: number): boolean =>
   );
 
 /**
+ * A denial governing a fact claim (E1.5): within three words before it, or a "não sei"/"não garanto" that
+ * makes it a doubt, in its own comma-bounded phrase — cut at "mas"/"porque" too, so "não sei, mas ele toca
+ * a campainha" and "não se preocupe, ele modela o quadril" stay claims. "Não só" affirms; "sem" denies one word.
+ */
+const deniedNear = (t: string, at: number): boolean => {
+  const phrase =
+    ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\b(?:mas|porem|porque|pois)\b/).pop() ?? "";
+  return (
+    /\b(?:nao(?!\s+so\b)|nunca|jamais|nem)\s+(?:\S+\s+){0,3}$/.test(phrase) ||
+    /\bsem\s+(?:\S+\s+)?$/.test(phrase) ||
+    // A condition, not a claim: "não sei se toca a campainha", "se ele toca ou liga antes".
+    /\bse\s+(?:(?:ele|eles|o\s+entregador)\s+)?$|\bse\s+(?:\S+\s+){1,6}ou\s+$/.test(phrase) ||
+    /\b(?:nao|nem)\s+(?:\S+\s+)?(?:sei|sabe|sabemos|garant\w*|consig\w*\s+(?:te\s+)?(?:dizer|garantir|confirmar|saber)|tenho\s+como|da\s+pra\s+(?:garantir|saber|dizer|confirmar)|posso\s+(?:garantir|dizer|confirmar|afirmar)|tenho\s+(?:essa\s+)?(?:informacao|certeza))\b/.test(phrase)
+  );
+};
+
+/** The claim's own phrase is a question ("ele toca a campainha?"); "Toca sim, quer o link?" is not. */
+const askedAt = (t: string, end: number): boolean => /^[^.!?\n,;:]*\?/.test(t.slice(end));
+
+/**
  * Whether the message hands the same-day question back to the checkout instead of
  * answering it. Telling her the Express modality exists is honest and converts; saying
  * it will happen at her address is a promise only the checkout can make. The difference
@@ -1325,7 +1345,9 @@ const gates: readonly Gate[] = [
         /perd\w*\s+peso/g,
         /queim\w*\s+(?:a\s+)?gordura/g,
         /elimin\w*\s+(?:a\s+)?gordura/g,
-        /afin\w*[^.!?]*(?:para\s+sempre|permanente)/g,
+        /afin\w*[^.!?]*(?:p(?:a)?ra\s+sempre|permanente|de\s+vez\b(?!\s+em\s+quando)|definitiv\w*)/g,
+        // Her body as the subject (E1.5): "você vai afinar". The vest as the subject ("ele afina a cintura") is the fit.
+        /\b(?:voce|vc)\s+(?:(?:ja|tambem|logo)\s+)?(?:vai\s+|ira\s+)?afina(?:r|ra)?\b/g,
         /resultado\s+permanente/g,
       ];
 
@@ -1334,6 +1356,58 @@ const gates: readonly Gate[] = [
           if (match.index !== undefined && !negatedAt(t, match.index)) {
             return "claims the product changes the body, not the fit";
           }
+        }
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * The vest covers abdomen and back, never the hip or the buttocks (prompt `productFacts`). "Modela
+     * cintura e quadril juntinhos" passed every gate in production (2026-10-07) — a fit she buys and
+     * returns. Covering the hip is the claim, so "acompanha o quadril sem marcar" is vetoed too.
+     */
+    name: "hip_claim",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      const GAP = String.raw`(?:\s+(?:o|a|os|as|e|seu|sua|tambem|bem|ate|na|no|nas|nos|da|do|de|cintura|barriga|abdomen|costas|juntinh[oa]s?|todo|toda|inteir[oa]|ja|direitinho|perfeitamente|certinho|essa|esse|diferenca|curvas?|linha|regiao|parte)){0,5}`;
+      const HIP = String.raw`(?:quadril|quadris|bumbum|bunda|gluteos?|culote)`;
+      const claims = [
+        new RegExp(String.raw`\b(?:modela\w*|pega\w*|acompanha\w*|cobre|cobrem|cobrir|abraca\w*|envolve\w*|levanta\w*|empina\w*|contorna\w*|segura\w*|alcanca\w*|vai\s+ate)${GAP}\s+${HIP}\b`, "g"),
+        new RegExp(String.raw`\b${HIP}\s+(?:\S+\s+){0,2}?(?:modelad|empinad|levantad|durinh|redondinh|arrebitad|contornad)\w*`, "g"),
+      ];
+      for (const pattern of claims) {
+        for (const m of t.matchAll(pattern)) {
+          if (!deniedNear(t, m.index ?? 0) && !askedAt(t, (m.index ?? 0) + m[0].length))
+            return "claims the vest shapes or covers the hip or buttocks";
+        }
+      }
+      return null;
+    },
+  },
+  {
+    /**
+     * How the courier behaves — the doorbell, a call before arriving, the hour — the agent does not know
+     * (prompt `productFacts`). "…e toca sim" to "ele toca campainha?" passed every gate (2026-10-08). "Toca
+     * sim" alone is vetoed: the gate sees no customer text, and in this funnel nothing else "toca".
+     */
+    name: "courier_claim",
+    remedy: "rewrite",
+    check: (text) => {
+      const t = norm(text);
+      const W = String.raw`(?:(?!(?:nao|nunca)\b)\S+\s+)`;
+      const claims = [
+        /\b(?:toca\w*|bate\w*|aperta\w*|chama\w*|usa\w*)\s+(?:(?:a|o|na|no)\s+)?(?:campainha|interfone)\b/g,
+        /\b(?:toca|tocam)\s*,?\s+sim\b|\bsim\s*,?\s+(?:ele\s+)?(?:toca|tocam)\b/g,
+        new RegExp(String.raw`(?<!\b(?:me|gente|gente\s+te)\s)\b(?:liga|ligam|avisa|avisam|telefona|telefonam|chama|chamam|manda|mandam)\s+${W}{0,3}?antes\b`, "g"),
+        new RegExp(String.raw`\b(?:entrega|entregam|chega|chegam|passa|passam|vem|vai\s+(?:passar|chegar|entregar)|aparece)\s+${W}{0,3}?(?:(?:de|pela)\s+manha|(?:a|de|pela)\s+(?:tarde|noite)|no\s+(?:periodo|horario|turno)\s+d|(?:entre|as|ate\s+as|a\s+partir\s+das|depois\s+das|antes\s+das)\s+\d{1,2}(?:\s*h\b|\s*horas\b|:\d\d|\s+e\s+\d{1,2}\s*h\b))`, "g"),
+      ];
+      if (/\b(?:entregador|campainha|interfone)\b/.test(t)) claims.push(/\b(?:liga|ligam|avisa|avisam|chama|chamam)\s+sim\b/g);
+      for (const pattern of claims) {
+        for (const m of t.matchAll(pattern)) {
+          if (!deniedNear(t, m.index ?? 0) && !askedAt(t, (m.index ?? 0) + m[0].length))
+            return "claims how the courier behaves, which the agent does not know";
         }
       }
       return null;

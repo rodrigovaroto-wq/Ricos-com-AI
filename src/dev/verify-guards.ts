@@ -3632,6 +3632,38 @@ const MUTATIONS: Mutation[] = [
     to: "checkCoverage(async (url) => { const r = await fetch(url, { signal: AbortSignal.timeout(REGION_TIMEOUT_MS) }); return r.ok ? await r.json() : null; }, COVERAGE_ALARM_CEPS)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
+  {
+    id: "E15-quadril",
+    bug: "\"modela cintura e quadril juntinhos\" passou todo gate: o colete não pega quadril nem bumbum (2026-10-07)",
+    files: ["src/agent/guardrails.ts"],
+    from: '            return "claims the vest shapes or covers the hip or buttocks";',
+    to: "            return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/fact-gates.test.ts"],
+  },
+  {
+    id: "E15-campainha",
+    bug: "\"…e toca sim\" à pergunta da campainha passou todo gate: como o entregador age a Malu não sabe (2026-10-08)",
+    files: ["src/agent/guardrails.ts"],
+    from: '            return "claims how the courier behaves, which the agent does not know";',
+    to: "            return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/fact-gates.test.ts"],
+  },
+  {
+    id: "E15-afina-de-vez",
+    bug: "\"afina a cintura de vez\" e \"afina definitivamente\" passavam: só \"para sempre\"/\"permanente\" eram lidos (E1.5)",
+    files: ["src/agent/guardrails.ts"],
+    from: "(?:p(?:a)?ra\\s+sempre|permanente|de\\s+vez\\b(?!\\s+em\\s+quando)|definitiv\\w*)",
+    to: "(?:para\\s+sempre|permanente)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/fact-gates.test.ts"],
+  },
+  {
+    id: "E15-voce-vai-afinar",
+    bug: "\"com ele você vai afinar\" passava: o corpo dela como sujeito é promessa de emagrecer (E1.5)",
+    files: ["src/agent/guardrails.ts"],
+    from: "        /\\b(?:voce|vc)\\s+(?:(?:ja|tambem|logo)\\s+)?(?:vai\\s+|ira\\s+)?afina(?:r|ra)?\\b/g,\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/fact-gates.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

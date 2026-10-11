@@ -2422,6 +2422,29 @@ continua vetando estoque em qualquer frase do modelo.
 mutação `E14-estoque-no-pensar`. `dev:gates`: 0 afrouxado, 0 endurecido.
 **Estado (2026-10-11):** implementado, não publicado. O bloco `scarcity` do secret ficou sem leitor; o operador pode apagá-lo quando quiser.
 
+## 73. Gates de fato: quadril, entregador e "afina de vez" (E1.5, 2026-10-11)
+
+**Sintoma:** duas mentiras passaram por todos os gates em conversas reais (07–08/10): "ele acompanha bem essa diferença porque modela
+cintura e quadril juntinhos" (o colete não pega quadril nem bumbum) e "…e toca sim" (se o entregador toca a campainha — ela não sabe).
+"Afina de vez/definitivamente" também passava (`weight_loss_claim` só lia "para sempre"/"permanente").
+**Causa:** os dois fatos estavam só no prompt (`productFacts`); regra só no prompt vaza. É a contrapartida da humanização (E3): dar mais
+liberdade de estilo exige gate nos fatos que geram devolução.
+**Caminhos que não valiam:** estender `delivery_promise` (é sobre data, depende de config e estágio) ou `weight_loss_claim` para o
+quadril (é sobre o corpo mudar, não sobre onde a peça chega); dar contexto da mensagem dela ao gate só para o "toca sim" (mexe no
+`GateContext` dos dois lados por um caso).
+**Correção:** gates novos `hip_claim` e `courier_claim` (rewrite, sem briefing: o prompt já ensina os dois fatos) e
+`weight_loss_claim` estendido ("afina de vez/definitivamente/pra sempre", "você vai afinar"). Helpers `deniedNear` (negação até 3
+palavras antes, na mesma oração; dúvida "não sei"; "sem"; condicional "se") e `askedAt` (a oração da afirmação é pergunta).
+Decisões de julgamento: "o tecido acompanha o quadril" é vetado; "toca sim"/"toca, sim" sem contexto é vetado; "você vai afinar na
+hora" é vetado (o gate não separa "na hora" de promessa).
+**Guarda:** `tests/fact-gates.test.ts` (as frases de produção literais, positivos e negações nos dois sentidos); mutações
+`E15-quadril`, `E15-campainha`, `E15-afina-de-vez`, `E15-voce-vai-afinar`. `dev:gates`: 0 afrouxado; os endurecidos são mentiras ou
+pedaços delas. Revisão Opus independente: aprovado com ressalvas (a variante "Toca, sim!" foi consertada).
+**Resíduos:** a negação só é lida antes da afirmação ("Modelar o quadril, ele não modela." e "às vezes liga antes, às vezes não"
+custam uma reescrita); listas fechadas deixam passar "vai te ligar antes", "interfona sim", "valoriza/molda o quadril", "vai afinando
+de verdade", "reduz medidas".
+**Estado (2026-10-11):** implementado, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
