@@ -108,7 +108,8 @@ export const INTERPRETER_SYSTEM = [
   '- "payment_choice": "prepay" se ela escolhe pagar antes (pix, cartão, antecipado),',
   '  "cod" se escolhe pagar na entrega, null se não escolheu.',
   '- "wants_to_think": true se ela diz que vai pensar, ver depois, falar com alguém antes, ou',
-  '  se despede desistindo por agora ("deixa pra lá", "deixa então, vlw").',
+  '  adia ("deixa então, vlw", "fica pra próxima"). Recusa não é adiar: "não quero mais",',
+  '  "desisti", "não tenho interesse" → false.',
   '- "wants_to_buy": true se ela decide comprar: "quero comprar", "vou nesse então", "quero',
   '  então", "vou querer", "pode mandar o link", "quero um G". Pedir preço menor ou desconto',
   '  como condição ("faz por 100 que eu levo", "me dá um desconto que eu levo") não é decisão:',
@@ -338,11 +339,13 @@ export const reportsDone = (message: string): boolean => {
   // Happy only when every word left is a goodbye, a thanks, "já fiz/recebi/chegou" or
   // filler: "obrigada, mas veio o M" and "valeu, recebi só 1 das 2" carry a complaint in
   // words no list of problems can enumerate (eighth review) — so allow, never deny.
-  return norm(message)
+  return onlyDoneWords(message);
+};
+const onlyDoneWords = (message: string): boolean =>
+  norm(message)
     .split(/[^a-z]+/)
     .filter(Boolean)
     .every((w) => DONE_WORDS.test(w));
-};
 const DONE_WORDS =
   /^(?:tchau\w*|brigad[ao]s?|obrigad[ao]s?|valeu|vlw|flw|encerr\w*|finaliz\w*|ja|fiz|fechei|comprei|paguei|recebi|chegou|chegaram|amei|adorei|gostei|certinho|certo|tudo|ok|okay|beleza|blz|sim|entao|por|aqui|ate|mais|logo|boa|bom|tarde|noite|dia|muito|muita|pela|pelo|ajuda|atencao|conversa|voce|vc|te|pra|e|o|a|os|as|meu|minha|pedido|coletes?|bjs|beijos?|abraco|deus|abencoe\w*|k+|rs+|ai|hoje|estou|to|ta|usando|serviu|ficou|otim[oa]|perfeit\w*|lind[oa]|coracao|demais|amor|deu|viu|semana|proxima|fica|com|de|pix|paciencia|atendimento|malu|obg|brigadao|gratidao|tmj|sim|vesti|ja|nossa)$/;
 
@@ -818,7 +821,7 @@ export const decisionInBurst = (messages: readonly string[]): boolean | null => 
  * desistir"). Reviews of 58ba217 and e796416.
  */
 const WITHDRAWS =
-  /\b(?:desist\w*|(?:nao|nem)\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar))\b/g;
+  /\b(?:desist\w*|(?:nao|nem)\s+quero\s+mais|deixa\s+(?:pra\s+la|quieto)|nao\s+vou\s+(?:mais\s+)?(?:querer|levar|comprar)|nao\s+tenho\s+(?:mais\s+)?interesse)\b/g;
 const PART_OF_ORDER =
   /^\s*(?:d?[oa]s?\s+|de\s+|n[oa]\s+)?(?:kit|[23]\b|duas|tres|pecas?|outra|segunda|pix|antecipad|entrega|cartao|esperar|pensar|e-?mail|cpf|nome|tamanho|frete|pagar\s+(?:o\s+)?frete)/;
 const SIZE_SWAP = /\b(?:manda|quero|prefiro|fico\s+com|troca\w*)\s+(?:[oa]\s+)?(?:pp|p|m|g|gg|xgg)\b/;
@@ -826,7 +829,10 @@ const withdraws = (line: string): boolean => {
   const t = norm(line);
   return [...t.matchAll(WITHDRAWS)].some((m) => {
     const rest = t.slice((m.index ?? 0) + m[0].length);
-    return !negatedBefore(t, m.index ?? 0) && !(m[0].startsWith("desist") && /^\s*(?:nao|nada)\b/.test(rest)) && !PART_OF_ORDER.test(rest) && !SIZE_SWAP.test(rest);
+    return !negatedBefore(t, m.index ?? 0) && !(m[0].startsWith("desist") && /^\s*(?:nao|nada)\b/.test(rest)) && !PART_OF_ORDER.test(rest) && !SIZE_SWAP.test(rest) &&
+      // "não quero mais nada" is "nothing else"; "não tenho interesse no kit" has an object (grafo §69).
+      !(m[0].endsWith("quero mais") && /^\s*nada\b/.test(rest)) &&
+      !(m[0].endsWith("interesse") && /^\s+(?!(?:nao|obrigad\w*|valeu|vlw)\b)[a-z]/.test(rest));
   });
 };
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
@@ -837,6 +843,47 @@ export const withdrawsInBurst = (messages: readonly string[]): boolean => {
   const quits = lines.findLastIndex(withdraws);
   return quits > buys;
 };
+
+/**
+ * She turns the sale down (grafo §69). An allow-list (review of E1.1): the whole line is a refusal and
+ * filler, or it is not one — "deixa pra lá por enquanto", "não vou comprar agora", "não quero mais o P",
+ * "não tenho interesse não, tenho certeza que quero" carry a word the list does not have, and the model
+ * answers them. "Mais nada" is no filler: "não quero mais nada" is "nothing else". A "não" after the
+ * refusal that starts with "não" is its spoken echo ("não vou comprar não"); after "desisti" or "deixa pra lá"
+ * it takes the refusal back ("desisti não", second review of E1.1).
+ */
+const DECLINE_FILLER = String.raw`(?:ah|ai|entao|olha|oi|ok|ta|bom|na verdade|pensando bem|moca|malu|obrigad[ao]s?|brigad[ao]|obg|valeu|vlw|tchau|mesmo|msm|de verdade|viu|beleza|blz|kk+|rs+|eu|ja|mas|pela|atencao)`;
+const DECLINE_LINE = new RegExp(
+  String.raw`^(?:${DECLINE_FILLER} )*(?:` +
+    String.raw`(?:(?:nao|n|nem) quero mais(?: comprar| o colete| a cinta)?|nao vou (?:mais )?(?:querer|levar|comprar)|nao tenho (?:mais )?interesse(?: nenhum| (?:no|nesse|neste|em|pelo) (?:produto|colete|cinta|comprar|compra))?)(?: (?:${DECLINE_FILLER}|nao))*` +
+    String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*` +
+    String.raw`)$`,
+);
+const words = (line: string): string => norm(line).replace(/[^a-z0-9]+/g, " ").trim();
+const declineLine = (line: string): boolean => DECLINE_LINE.test(words(line));
+/** After the refusal, the line keeps it closed: another refusal, a goodbye, "ok", or a bare "não". */
+const staysClosed = (line: string): boolean =>
+  declineLine(line) ||
+  (closesConversation(line) && !line.includes("?") && onlyDoneWords(line)) ||
+  /^(?:nao|n)(?: quero| obrigad[ao]| valeu)?$/.test(words(line)) ||
+  isBareAck([line]);
+/**
+ * The newest refusal in her words and nothing after it but lines that keep it closed. Read over the
+ * burst by the turn and over her recent messages by the ruler — one notion of "she came back".
+ */
+export const declinesInBurst = (messages: readonly string[]): boolean => {
+  const lines = messages.flatMap((m) => m.split("\n"));
+  const at = lines.findLastIndex(declineLine);
+  return at !== -1 && lines.slice(at + 1).every(staysClosed);
+};
+
+/**
+ * Her words in a conversation's newest messages (`rows` newest first, as the turn and the ruler read
+ * them), oldest first, cleaned by `clean` (the turn's `spoken`) — a parameter, because a value import
+ * between these mirrored modules is illegal on one side (see prompt.ts).
+ */
+export const herRecent = (rows: ReadonlyArray<{ direction: string; body: string | null }>, clean: (body: string) => string): string[] =>
+  rows.filter((m) => m.direction === "inbound").map((m) => clean(m.body ?? "")).reverse();
 
 /**
  * She names a price the shop does not have (H-2, persona round 2026-09-25, Tati: "faz por

@@ -195,6 +195,9 @@ export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para
  */
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
 
+/** Her refusal's reply (grafo §69): a goodbye — no stock, no argument, no question, no link. */
+export const DECLINE_REPLY = "Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.";
+
 /** What `thinkReply` reads of the config: the stock, the prices and the deadlines. */
 export interface ThinkConfig {
   prices: { prepayBrl: number; prepayDiscountPercent: number };

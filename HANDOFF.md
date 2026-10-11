@@ -11,7 +11,18 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-09)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
+
+> **2026-10-11 — análise de arquitetura, decisões E0 e plano prático (sessão `claude/awesome-hopper-x8j8wb`):** a análise de
+> arquitetura foi entregue e o operador **aceitou as decisões da E0** (R20.1–R20.9 em
+> [`03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md): escassez fora, recibo automático fora, proteção e
+> medição antes do portal, experimentos de L3 por lead 2×2, Hermes congelado no que publica sozinho). Plano prático **E0–E8**: E1
+> proteção, E2 medição, E3 primeiro contato e humanização, E4 eval sintético, E5 ensaio com dinheiro, E6 L3 2×2, E7–E8. **E1.1
+> (a recusa vira estado, grafo §69) está implementada na árvore e NÃO publicada** (espera o "pode subir"; a segunda revisão estava em
+> andamento). Próximo: E1.2 alarme de cobertura, depois E1.3 retry→duplicate, E1.4 escassez fora (operador, no segredo) e E1.5
+> gates de fato. Fim da E1 = autoaperfeiçoamento + personas + `/code-review` (R20.9). **No ar (conferido em
+> `agent_versions` pelo banco de produção, 2026-10-11):** `turn` **`agent_version` 16** (v15 + renomeação de variável, PR #57,
+> publicada 09/10 14:11 UTC); 5 leads e 0 pedidos no total. O bloco "2026-10-08, noite" abaixo (v14) é histórico.
 
 > **2026-10-09 — modelo de caixa do teste (sessão `claude/elegant-cray-sttizw`, só documentação):** a pedido do operador foi
 > criada a planilha [`docs/operacao/modelo-caixa-anuncios.xlsx`](docs/operacao/modelo-caixa-anuncios.xlsx) e o documento

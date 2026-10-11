@@ -132,6 +132,7 @@ import {
   draftMayGo,
   shippedCancelReply,
   thinkReply,
+  DECLINE_REPLY,
   linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
@@ -160,6 +161,8 @@ import {
   lastLinkBase,
   linkHeldBack,
   withdrawsInBurst,
+  declinesInBurst,
+  herRecent,
   agreesWithoutChoosing,
   namesOwnPrice,
   asksForLink,
@@ -1081,9 +1084,12 @@ const scheduleSilenceTouches = async (
   // guess, and a guess can land past the free 72 h window (operator, 2026-10-02). The sweep
   // asks again before anything goes out.
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
-  // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at)`).catch(() => null))?.[0];
+  // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022). Her recent
+  // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+  // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
+  if (at && declinesInBurst(herRecent(at.messages ?? [], spoken))) { await cancelScheduled(conversationId, "all"); return; }
   if (at && !chasesSilence(at.stage, orderStatuses)) {
     // An unpaid Pix is a checkout still open: its touch stays (L2).
     await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");
@@ -2954,7 +2960,8 @@ const handleTurn = async (
       false,
     );
     // Once: an "ok" to the help offer itself does not bring it back in another 10 minutes.
-    const help = lastOutbound.trim() === ackHelpText(datum) ? null : ackHelpText(datum);
+    // Not after her refusal (grafo §69): the help offer would chase her like the ruler.
+    const help = lastOutbound.trim() === ackHelpText(datum) || declinesInBurst(herRecent(recentRows ?? [], spoken)) ? null : ackHelpText(datum);
     if (help !== null) {
       await db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
@@ -3548,6 +3555,11 @@ const handleTurn = async (
   // grafo §66) — also when that reply is a fixed one, the link or the "vou pensar" (review of §66, B2).
   const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
   const opening = (text: string): string => (greeting === null ? text : `${greeting}\n\n${text}`);
+  // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
+  if (declinesInBurst(parts) && !interpretation.wants_to_buy) {
+    const sent = await sendFixed(opening(DECLINE_REPLY), "ela recusou: despedida fixa, sem régua");
+    if (sent) return sent;
+  }
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
   if (
     interpretation.wants_to_think &&

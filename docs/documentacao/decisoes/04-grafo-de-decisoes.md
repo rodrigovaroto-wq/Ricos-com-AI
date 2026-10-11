@@ -2337,6 +2337,43 @@ Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Reconciliado
 baixou para R$ 50/dia (R$ 700; 09-pipeline L3.1, L3.2, item 7 e saída; 10-execucao-mes-1 metas).
 **Risco aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos.
 
+## 69. A recusa lida como "vou pensar" (conversa real de 09/10, 2026-10-11)
+
+**Sintoma:** conversa real de 2026-10-09 (conversa 0a3b51dd; sem nome nem telefone aqui). "nao quero mais, obrigado" recebeu a
+resposta fixa de "vou pensar" com a linha de estoque ("Só te aviso que restam 12 unidades desse lote… vale garantir o seu
+logo"). Depois de um segundo "nao quero", o `silence_1` (21:45) e o `silence_2` (manhã seguinte) saíram mesmo assim.
+**Causa:** o `wants_to_think` do interpretador cobria "se despede desistindo"; `goodbyeParks` transforma toda despedida sem
+compra em `wants_to_think`; a `thinkReply` carrega o estoque (R16.5); e nada registrava a recusa, então cada resposta
+posterior rearmava a régua por `scheduleSilenceTouches`. Era uma **categoria que não existia**, não cegueira a negação.
+**Caminhos que não valiam:** (a) campo novo `declines` no interpretador: um falso positivo do modelo mandaria despedida a
+quem vai comprar e pararia a régua dela; quem decide é o código (R11); (b) apoiar-se em `withdraws`/`WITHDRAWS` (§65): a
+primeira versão, revisada como NEEDS WORK, leu como recusa adiamentos ("deixa pra lá, vou pensar melhor", "não vou comprar
+agora"), mudança parcial de pedido ("não quero mais o P") e retornos ("oi, voltei", "uso 42"), e o custo do falso positivo
+agora é despedida + régua desligada, não só o link retido; (c) coluna `declined_at`: pede migração e uma regra de reengajamento
+de qualquer modo, e o histórico já diz isso.
+**Correção:** lista fechada `declinesInBurst` em `interpret.ts`: a linha só conta se for exatamente um núcleo de recusa mais
+enchimento fechado (núcleos: desisti [da compra/do colete…], desisto, (não|n|nem) quero mais [comprar/o colete], deixa pra lá, deixa quieto, não vou
+(mais) querer/levar/comprar, não tenho (mais) interesse [nenhum / no produto…]; o "não" depois do núcleo só ecoa a recusa nos núcleos
+que começam por "não" — "desisti não" e "deixa pra lá não" desfazem a recusa, achado B1 da segunda revisão); segue sendo recusa enquanto toda linha posterior dela for de encerramento (outra
+recusa, despedida/agradecimento, "não"/"não quero" soltos, ack solto); qualquer outra coisa = ela voltou. Uma função em três
+lugares: o turno envia `DECLINE_REPLY` ("Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.") antes do
+ramo "vou pensar"; `scheduleSilenceTouches` cancela tudo (toque do checkout incluído), lendo as últimas 20 mensagens dela dentro
+da leitura única que já existia; a oferta de ajuda no "ok" solto é pulada. No prompt do interpretador: recusa → `wants_to_think`
+falso. O `WITHDRAWS` também deixa de ler "não quero mais nada" como retirada e passa a ler "não tenho (mais) interesse" sem
+objeto (bloqueia o link).
+**Guarda:** `tests/declined.test.ts` (103 testes: frases de produção, sondas do revisor nos dois sentidos, comportamento do
+`herRecent`, ordem do fonte); 10 mutações em `src/dev/verify-guards.ts` (recusa-regua, recusa-turno, recusa-qualquer-palavra, recusa-desisti-nao,
+recusa-ela-voltou, recusa-historico-ordem, recusa-historico-dela, recusa-ok-ajuda, recusa-quero-mais-nada,
+recusa-interesse-objeto); ordem + limite embutidos do PostgREST conferidos só em leitura contra a produção (200, mais nova
+primeiro, 20 de 34).
+**Resíduos:** "não, obrigada" e "não quero" solto **não** são recusa (as ofertas do kit são sim/não: o modelo responde); uma
+recusa fora da lista com despedida ("tchau") ainda cai no `goodbyeParks` → resposta do "vou pensar" (sem estoque desde R20.1);
+"já paguei"/"já fiz o pix" depois de "desisti" mantêm a régua desligada (o `payment_check` não é tocado); depois de uma recusa, emoji ou "ok" solto mantém a régua desligada; a oferta de ajuda no "ok" solto é pulada
+depois de uma recusa.
+**Estado (2026-10-11):** implementado na árvore, **não publicado** (o deploy espera o "pode subir" do operador). Duas revisões
+Opus: a 1ª reprovou a leitura sobre `withdraws` (adiamento, troca de parte do pedido e "ela voltou" lidos como recusa) e levou à
+lista fechada; a 2ª achou o "desisti não" (B1) e as recusas comuns que escapavam ("eu desisti, tchau"), consertados.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

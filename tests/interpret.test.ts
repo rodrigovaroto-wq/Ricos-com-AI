@@ -543,9 +543,11 @@ describe("rodada 3: despedida e a escada", () => {
     }
   });
 
-  it("o intérprete sabe que despedida é \"vou pensar\" e que manequim não é calça", () => {
+  it("o intérprete sabe que despedida é \"vou pensar\", que recusa não é, e que manequim não é calça", () => {
     const { system } = interpretRequest("", "oi");
-    expect(system).toContain("deixa pra lá");
+    expect(system).toContain("deixa então, vlw");
+    // Grafo §69: a recusa não é adiar.
+    expect(system).toContain('"não quero mais",\n  "desisti", "não tenho interesse" → false');
     expect(system).toContain("manequim");
     expect(system).toContain("vou nesse então");
   });
