@@ -2550,6 +2550,16 @@ documentado:** no braço A sem a espera de 60 s a rajada de abertura é juntada 
 experimento); a saudação de um adiamento só erraria pelo gate de ritmo, que não recebe contexto hoje (morto); `linkMessage` ainda
 recebe `brand` sem usar.
 
+**Medição pela E4 (fim de fase E3, 2026-10-12, porta local, 16 cenários, `--seed=1`, horário aberto só no config local):**
+base (`5a4be11`, sem a E3) duas vezes para o ruído × E3 (`d4d346e`). `pnpm dev:eval --compare`: **APROVADA** — score 17,7 → 25,3
+(ruído 1,9), tiques/conversa 1,56 → 0,25, respostas que copiam o prompt 66% → 51%, palavras por balão ÷ dela 2,8 → 2,0, chegou ao link
+0% → 12,5%, mentiras 0 → 0; ninguém comprou nas duas (limite de 14 turnos); custo por conversa R$ 0,026 → 0,054 (conversas mais
+longas). **Ressalva (defeito da ferramenta, consertar antes da próxima comparação):** durante a conversa o comprador re-roda os gates
+com contexto parcial e encerrou 2 (rodada 1) e 4 (rodada 2) conversas da base como mentira por `shipping_promise` em frases que a
+produção tinha aprovado; isso puxa a base para baixo e infla a diferença. Na E3 o modelo não fala de frete na abertura, então ela não
+caiu nisso. O ganho de naturalidade (tiques, cópia, tamanho) não depende desse defeito. Antes, um primeiro conserto da mesma sessão:
+o detector julgava com o config de teste (sem os 10% do antecipado) e marcava quase tudo como mentira (`5d05c76`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

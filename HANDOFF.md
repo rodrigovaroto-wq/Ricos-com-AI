@@ -34,17 +34,21 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >    cada 3 h) e um aviso quando voltar a `healthy`; rodar `pnpm dev:n8n` depois (as regras de `src/dev/n8n-rules.ts` valem);
 >    (d) prova pela porta de produção: "nao quero mais, obrigado" → só a despedida e nenhum toque agendado; `{"job":"health"}` →
 >    `healthy`; um lead novo recebe a recepção honesta (sem "atendentes").
-> 2. **Construir o experimento B** (R20.6, plano E6): com `armOn(CONFIG.experiments, arm, "B")`, o link sai logo depois da escolha do
+> 2. **Consertar o detector de mentira do comprador da E4** (`src/dev/sales-buyer.ts`, `liesIn` usado em `replay`): hoje ele re-roda os
+>    gates com contexto parcial e encerra como mentira frases que a produção aprovou (`shipping_promise`), o que puxou a base para baixo
+>    na comparação de 12/10 (grafo §77). Caminho: julgar pelos vereditos que a `turn` gravou/devolveu, ou não encerrar a conversa por
+>    "mentira" re-rodada — só contar. Depois, refazer base × E3.
+> 3. **Construir o experimento B** (R20.6, plano E6): com `armOn(CONFIG.experiments, arm, "B")`, o link sai logo depois da escolha do
 >    pagamento (tamanho + CEP + caminho), pré-preenchido com o que já se sabe; nome/CPF/e-mail ficam para o checkout. Mexe em
 >    `missingForLink` (`interpret.ts`) e no ramo do link (`index.ts`); teste de que sem a flag tudo fica igual; personas Tati e Vera.
-> 3. **Fim de fase da E3 completa:** a comparação base × E3 pela E4 está registrada no grafo §77 desta sessão; se a regra de aprovação
->    reprovou algo, o conserto vem antes do deploy da E3. Rodar a E4 de novo depois do experimento B.
-> 4. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
+> 4. **Fim de fase da E3 completa:** a comparação base × E3 pela E4 foi APROVADA com ressalva (grafo §77: score 17,7 → 25,3, ruído 1,9;
+>    tiques −84%) — refazer depois do passo 2. Rodar a E4 de novo depois do experimento B.
+> 5. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
 >    score usa o proxy de naturalidade. Decidir se o cliente simulado continua no mesmo modelo da Malu (R12.1) — viés de auto-preferência.
-> 5. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
-> 6. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
+> 6. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
+> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
 >    n por braço, teste de duas proporções, parada de segurança por braço) e ligar `experiments` no `BUSINESS_CONFIG`.
-> 7. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
+> 8. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
 >    toque); `asksForSize("Qual o número da sua calça?")` dá falso (achado da E4, `src/agent/sizing.ts`); `linkMessage` ainda recebe
 >    `brand` sem usar.
 >

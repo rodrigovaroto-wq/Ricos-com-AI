@@ -26,7 +26,7 @@ Branch `claude/awesome-hopper-x8j8wb`. Grafo de decisões §69–§77. Nada abai
 | E3.1–E3.4 | Recepção honesta, experimento A, abertura do modelo com o anúncio, H2/H4/H5/H7, link, pausa curta | 🟡 | grafo §77 |
 | E4.1/E4.2/E4.4 | Eval de venda: comprador com propensão, métricas, score, comparação | ✅ (ferramenta) | `src/dev/sales-buyer.ts`, `src/dev/scenarios/venda.json`, `pnpm dev:eval --compare` |
 | E4.3 | Juiz LLM calibrado | ⬜ | espera 20 conversas anotadas pelo operador |
-| E3+E4 fim | Base × E3 pela E4 + `/code-review` | ver grafo §77 e `HANDOFF.md` | resultado da comparação registrado no grafo |
+| E3+E4 fim | Base × E3 pela E4 + `/code-review` | ✅ com ressalva | grafo §77: APROVADA (17,7 → 25,3; ruído 1,9); detector de mentira do comprador a consertar |
 | E5 | Ensaio com dinheiro real | ⬜ | depende do deploy |
 | E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
 | E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |
