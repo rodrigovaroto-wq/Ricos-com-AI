@@ -160,7 +160,7 @@ export const liesIn = (text: string, config: BusinessConfig, codUnavailable = fa
     config,
     layer: "agent",
     optedOut: false,
-    now: new Date("2026-09-06T14:00:00"), // midday: the business-hours gate is not what is measured
+    now: new Date("2026-09-06T14:00:00-03:00"), // midday: the business-hours gate is not what is measured
     paymentPath: "cod",
     ...(codUnavailable ? { codUnavailable: true } : {}),
   };

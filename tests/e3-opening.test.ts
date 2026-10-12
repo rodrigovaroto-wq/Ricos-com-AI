@@ -68,8 +68,8 @@ describe("E3.1 — a diretiva da primeira resposta", () => {
 });
 
 describe("E3.2 (H2) — o tamanho e o registro dela, medidos por código", () => {
-  it("feliz: curta e informal → 1 balão de até uns 15 palavras", () => {
-    expect(registerDirective(["oi", "kkk sim", "qual o valor?"])).toMatch(/^Ela escreve curto e informal: responda em 1 balão de até uns 15 palavras/);
+  it("feliz: curta e informal → 1 balão de até umas 15 palavras", () => {
+    expect(registerDirective(["oi", "kkk sim", "qual o valor?"])).toMatch(/^Ela escreve curto e informal: responda em 1 balão de até umas 15 palavras/);
   });
   it("feliz: longa → 2 ou 3 balões", () => {
     const long = "eu queria saber se esse colete serve pra quem tem a barriga mais saliente depois da gravidez e se ele marca na roupa porque eu uso muita roupa justa no trabalho";
@@ -166,5 +166,15 @@ describe("revisão da E3 — primeira mensagem 'ok', ordens em conflito, aviso d
   });
   it("R4: o título do anúncio só entra quando esta conversa veio de um anúncio", () => {
     expect(source).toContain('typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null');
+  });
+});
+
+describe("/code-review da E3", () => {
+  const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
+  it("o anúncio desta mensagem vem primeiro (braço A responde antes de reler a conversa; lead que volta por outro anúncio)", () => {
+    expect(source).toContain('typeof payload.source?.headline === "string"\n              ? payload.source.headline');
+  });
+  it("o relógio do braço A é o do gate de horário", () => {
+    expect(source).toContain("hourIn(new Date(), CONFIG.hours.timeZone ?? BUSINESS_TZ)");
   });
 });

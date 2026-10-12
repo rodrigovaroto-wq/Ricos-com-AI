@@ -507,7 +507,7 @@ export const registerDirective = (herLast: readonly string[]): string | null => 
   const avg = last.reduce((n, m) => n + m.split(/\s+/).length, 0) / last.length;
   const informal = last.some((m) => INFORMAL.test(m));
   if (avg <= 8) {
-    return `Ela escreve curto${informal ? " e informal" : ""}: responda em 1 balão de até uns 15 palavras, a não ser` +
+    return `Ela escreve curto${informal ? " e informal" : ""}: responda em 1 balão de até umas 15 palavras, a não ser` +
       ` que você precise dar o preço, as opções de pagamento ou o link — aí diga o que a instrução pede, sem enfeite.`;
   }
   if (avg >= 25) return `Ela escreve mensagens longas: pode responder em 2 ou 3 balões, cada um com um assunto.`;

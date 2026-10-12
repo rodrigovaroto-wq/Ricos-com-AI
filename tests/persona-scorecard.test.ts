@@ -186,7 +186,7 @@ describe("placar de venda (E4.2) e score comercial (E4.4)", async () => {
   });
 
   it("tiques: conta os da lista, com a pontuação que faz o tique", () => {
-    expect(ticsIn("Perfeito! Que bom que você veio. Certinho, Entendo, sim")).toBe(4);
+    expect(ticsIn("Perfeito! Que bom que você veio. Certinho, Entendo, sim")).toBe(3); // "certinho" is no longer a tic (/code-review of E3: the prompt allows it once, fixed texts use it)
     expect(ticsIn("Não entendo bem a sua dúvida. Ficou perfeito.")).toBe(0);
   });
 

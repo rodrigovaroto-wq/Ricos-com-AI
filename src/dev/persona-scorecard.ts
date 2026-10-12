@@ -218,7 +218,7 @@ export const scoreRun = (conversations: readonly Conversation[]) => {
 // E4.2 — sales and naturalness, per conversation (docs/agente-ia/05-plano/13-plano-pratico-conversao.md)
 
 /** Verbal tics, matched on lowercase text without accents (punctuation is part of the tic). */
-export const TICS = ["que bom que", "darei inicio", "em que posso te ajudar", "perfeito!", "entendo,", "obrigada por escolher", "fico de olho", "certinho"];
+export const TICS = ["que bom que", "darei inicio", "em que posso te ajudar", "perfeito!", "entendo,", "obrigada por escolher", "fico de olho"]; // "certinho" left: the prompt allows it once and fixed texts use it
 export const NGRAM = 6;
 const plain = (t: string): string => t.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
 const tokens = (t: string): string[] => plain(t).replace(/[^a-z0-9$]+/g, " ").split(" ").filter(Boolean);

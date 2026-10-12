@@ -2542,6 +2542,14 @@ longos.
 `dev:gates` 0 afrouxado; `dev:conversas` 1665/1665. **Falta:** o efeito em naturalidade e venda — medido pela E4 (base × E3).
 **Estado (2026-10-12):** no código, não publicado.
 
+**`/code-review` da E3+E4 (fim de fase) — consertado:** o título do anúncio vem primeiro da mensagem atual (no braço A a resposta
+sai na mesma chamada, antes de a conversa ser relida, e uma lead que volta por outro anúncio não ouve o antigo); o relógio do braço A é
+o do gate de horário (`hours.timeZone`); "umas 15 palavras"; o avaliador fixa 14h de São Paulo (`-03:00`) para o gate de horário não
+contar tudo como mentira em outra máquina; "certinho" saiu da lista de tiques (o prompt permite uma vez e os textos fixos usam). **Fica,
+documentado:** no braço A sem a espera de 60 s a rajada de abertura é juntada só pela janela de 5 s (mais revisões, custo do
+experimento); a saudação de um adiamento só erraria pelo gate de ritmo, que não recebe contexto hoje (morto); `linkMessage` ainda
+recebe `brand` sem usar.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -2159,7 +2159,8 @@ const handleTurn = async (
   // lead has no stored arm yet: hers is the same `armOf`, read here. Absent `fastOpening` = nobody.
   const fastOpening = armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "A");
   // The send window is open now: a reply written now goes now (the `business_hours` gate reads the same).
-  const openNow = ((h) => h >= CONFIG.hours.openHour && h < CONFIG.hours.closeHour)(hourIn(new Date(), BUSINESS_TZ));
+  // The business_hours gate's own clock (/code-review of E3): the same time zone, so the two never disagree.
+  const openNow = ((h) => h >= CONFIG.hours.openHour && h < CONFIG.hours.closeHour)(hourIn(new Date(), CONFIG.hours.timeZone ?? BUSINESS_TZ));
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,
@@ -3759,8 +3760,11 @@ const handleTurn = async (
         ? openingDirective(
             CONFIG,
             dayPart(openNow ? new Date() : nextOpening(new Date(), CONFIG.hours.openHour)),
-            // Only when this conversation came from an ad (E3 review, R4): the stored headline is the first ad ever.
-            typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
+            // The ad of THIS message first (arm A answers in the same call, before any re-read; a returning lead may come
+            // from another ad); else the stored first-touch ad, only when this conversation came from an ad (/code-review of E3).
+            typeof payload.source?.headline === "string"
+              ? payload.source.headline
+              : typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
             onlyGreets(parts),
           )
         : null,
@@ -4014,7 +4018,8 @@ const handleTurn = async (
   // Only a fixed fallback gets the short greeting: the model's own first reply already opened (E3.1).
   const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\n\n${body}`;
 
-  // The draft a revision rewrites is Malu's own text; the greeting is added again after it.
+  // The draft a revision rewrites is Malu's own text; since E3.1 a model reply carries its own greeting, and only a fixed
+  // fallback gets `greetingFor` in front of it.
   const gaveUp = await lateGuard(rewritesUsed, body);
   if (gaveUp) return gaveUp;
 
