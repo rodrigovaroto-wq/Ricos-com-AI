@@ -2463,6 +2463,15 @@ continuar a conversa.
 **Fica para a E3 (achado da bateria):** a 1ª resposta a um "oi" (Sandra) teve o frete grátis vetado três vezes e saiu a resposta
 pronta de preço; a recepção automática ainda diz "uma de nossas atendentes" (R20.2).
 
+**`/code-review` da E1 (fim de fase, R20.9) — consertado:** linha vazia ou figurinha depois da recusa desfazia o §69 (filtradas);
+"não tenho interesse nenhum/mesmo" segura o link; no `deniedNear` o "não" de outro verbo ligado por "e" não governa mais a afirmação
+("Ele não aperta e modela o quadril" vetado); o prazo pronto vale só quando toda pergunta dela é de prazo (aberturas "Me diz uma
+coisa," não contam) e, com o antecipado escolhido, diz o prazo do antecipado; `asksDeadline` lê "quanto tempo demora?", "demora
+muito?", "quantos dias", "chega em que dia?" e não lê "demorou pra responder" nem "quanto tempo posso usar"; o "vou pensar" sai
+sem a isenção do `scarcity_claim` (R20.1). **Recusado pela segunda revisão:** aceitar vírgula na lista do `hip_claim` — vetava o
+honesto "Ele modela a barriga, o quadril não"; "Modela a cintura, o quadril e a barriga" fica como resíduo. **Fica:** os 20
+corpos embutidos na leitura da régua (I/O pequeno, sem efeito na cliente); o parâmetro morto de `scarcityBriefing`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

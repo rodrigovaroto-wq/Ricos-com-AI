@@ -832,7 +832,7 @@ const withdraws = (line: string): boolean => {
     return !negatedBefore(t, m.index ?? 0) && !(m[0].startsWith("desist") && /^\s*(?:nao|nada)\b/.test(rest)) && !PART_OF_ORDER.test(rest) && !SIZE_SWAP.test(rest) &&
       // "não quero mais nada" is "nothing else"; "não tenho interesse no kit" has an object (grafo §69).
       !(m[0].endsWith("quero mais") && /^\s*nada\b/.test(rest)) &&
-      !(m[0].endsWith("interesse") && /^\s+(?!(?:nao|obrigad\w*|valeu|vlw)\b)[a-z]/.test(rest));
+      !(m[0].endsWith("interesse") && /^\s+(?!(?:nao|obrigad\w*|valeu|vlw|nenhum|mesmo|msm)\b)[a-z]/.test(rest));
   });
 };
 export const withdrawsInBurst = (messages: readonly string[]): boolean => {
@@ -872,7 +872,8 @@ const staysClosed = (line: string): boolean =>
  * burst by the turn and over her recent messages by the ruler — one notion of "she came back".
  */
 export const declinesInBurst = (messages: readonly string[]): boolean => {
-  const lines = messages.flatMap((m) => m.split("\n"));
+  // A blank line or a sticker (empty body) after the refusal is not her coming back (/code-review of E1).
+  const lines = messages.flatMap((m) => m.split("\n")).filter((l) => l.trim() !== "");
   const at = lines.findLastIndex(declineLine);
   return at !== -1 && lines.slice(at + 1).every(staysClosed);
 };

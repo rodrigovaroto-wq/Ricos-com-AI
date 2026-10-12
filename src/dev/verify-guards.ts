@@ -3612,8 +3612,8 @@ const MUTATIONS: Mutation[] = [
     id: "E1-prazo-vira-handoff",
     bug: "\"me fala o dia certinho??\" com todas as reescritas vetadas ia para uma pessoa em vez do prazo (persona Rafa, grafo §74)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  const asksWhen = !asksPrice && parts.some(asksDeadline);",
-    to: "  const asksWhen = false && parts.some(asksDeadline);",
+    from: "  const asksWhen = !asksPrice && clauses.some(asksDeadline)",
+    to: "  const asksWhen = false && clauses.some(asksDeadline)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/deadline-fallback.test.ts"],
   },
   {

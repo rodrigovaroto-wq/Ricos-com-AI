@@ -344,8 +344,10 @@ const deniedJustBefore = (t: string, at: number): boolean =>
 const deniedNear = (t: string, at: number): boolean => {
   const phrase =
     ((t.slice(0, at).split(/[:;.!?\n]/).pop() ?? "").split(PHRASE_COMMA).pop() ?? "").split(/\b(?:mas|porem|porque|pois)\b/).pop() ?? "";
+  // "Ele não aperta e modela o quadril": the "não" governs "aperta", not the claim after the "e" (/code-review of E1).
+  const own = phrase.split(/\se\s/).pop() ?? "";
   return (
-    /\b(?:nao(?!\s+so\b)|nunca|jamais|nem)\s+(?:\S+\s+){0,3}$/.test(phrase) ||
+    /\b(?:nao(?!\s+so\b)|nunca|jamais|nem)\s+(?:\S+\s+){0,3}$/.test(own) ||
     /\bsem\s+(?:\S+\s+)?$/.test(phrase) ||
     // A condition, not a claim: "não sei se toca a campainha", "se ele toca ou liga antes".
     /\bse\s+(?:(?:ele|eles|o\s+entregador)\s+)?$|\bse\s+(?:\S+\s+){1,6}ou\s+$/.test(phrase) ||

@@ -3590,8 +3590,8 @@ const handleTurn = async (
     } catch {
       thinkLink = null;
     }
-    // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
-    // link — and it is the only message allowed to cite the stock (`postponing`).
+    // The reply sells — her path's strongest argument, then the link. The declared stock left it on
+    // 2026-10-11 (R20.1, grafo §72), and so did its exemption from `scarcity_claim`.
     const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
     // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
     // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
@@ -3610,7 +3610,8 @@ const handleTurn = async (
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
-      true,
+      // R20.1: no exemption — `scarcity_claim` refuses a stock line here like anywhere else.
+      false,
       units,
     );
     if (sent) return sent;
@@ -3882,7 +3883,11 @@ const handleTurn = async (
   // else goes to a person with the holding line.
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
-  const asksWhen = !asksPrice && parts.some(asksDeadline);
+  // Only when every question of hers is about the deadline: "qual o prazo? e serve pra quem fez cirurgia?" still goes to a person.
+  const asksWhen = !asksPrice && clauses.some(asksDeadline) && clauses
+    // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
+    .filter((q: string) => asksSomething(q) && !/^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
+    .every(asksDeadline);
   if (outcome.kind === "fallback" && !asksPrice && !asksWhen) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
 
   if (outcome.kind === "handoff") {
@@ -3935,7 +3940,7 @@ const handleTurn = async (
     fallbackReason === null
       ? attempt.text
       : asksWhen
-        ? deadlineFallbackMessage(CONFIG, codUnavailable, knownRegion !== null)
+        ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
 

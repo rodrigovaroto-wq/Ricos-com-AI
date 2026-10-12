@@ -201,3 +201,16 @@ describe("index.ts — a recusa no turno e na régua", () => {
     expect(ack.indexOf('kind: "still_there"')).toBeGreaterThan(help);
   });
 });
+
+describe("/code-review da E1 — linha vazia e 'interesse nenhum'", () => {
+  it("linha em branco ou figurinha (corpo vazio) depois da recusa não é ela voltando", () => {
+    expect(declinesInBurst(["Não quero mais\n\nObrigada"])).toBe(true);
+    expect(declinesInBurst(["desisti", ""])).toBe(true);
+    expect(declinesInBurst(["desisti", "", "uso 42"])).toBe(false);
+  });
+  it("'não tenho interesse nenhum' segura o link como as outras recusas", () => {
+    expect(withdrawsInBurst(["não tenho interesse nenhum"])).toBe(true);
+    expect(withdrawsInBurst(["não tenho interesse mesmo"])).toBe(true);
+    expect(withdrawsInBurst(["não tenho interesse no kit"])).toBe(false);
+  });
+});

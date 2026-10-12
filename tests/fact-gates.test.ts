@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { ctx } from "./fixtures.js";
+import { config, ctx } from "./fixtures.js";
 
 /**
  * E1.5 — the product facts that cause returns. Two lies passed every gate in production
@@ -121,4 +121,18 @@ describe("weight_loss_claim: afinar de vez é promessa de corpo", () => {
       expect(verdict("weight_loss_claim", frase), frase).toBe("pass");
     }
   });
+});
+
+describe("/code-review da E1 — negação de outro verbo e lista com vírgula", () => {
+  const vetoed = (text: string) => runGates(text, ctx({ config })).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
+  // The comma list ("modela a cintura, o quadril e a barriga") stays a residual: the comma also ends the honest
+  // "Ele modela a barriga, o quadril não", which a comma-aware GAP vetoed (second review, grafo §74).
+  it.each(["Ele não aperta e modela o quadril"])(
+    "veta: %s",
+    (frase) => expect(vetoed(frase)).toContain("hip_claim"),
+  );
+  it.each(["Ele não pega o quadril e nem o bumbum.", "Não garanto que ele toca a campainha.", "Ele modela a cintura e a barriga, o quadril não.", "Ele modela a barriga, o quadril não.", "Ele pega a cintura, o quadril fica de fora", "Não acho que ele modela o quadril", "Não diria que ele pega o quadril"])(
+    "passa: %s",
+    (frase) => expect(vetoed(frase).filter((g) => g === "hip_claim" || g === "courier_claim")).toEqual([]),
+  );
 });
