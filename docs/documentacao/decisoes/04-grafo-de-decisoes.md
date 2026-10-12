@@ -2599,6 +2599,13 @@ incluído; tamanho, CEP e caminho nunca faltam em braço nenhum; a fiação por 
 `armOn`) e `E6-ausente-liga-b` (ausente lido como ligado) — as duas pegas.
 **Estado (2026-10-12):** no código, não publicado. Liga-se escrevendo `experiments.linkAfterChoice: true` no `BUSINESS_CONFIG`.
 
+**Revisão Opus de `9c1053c` (reprovou, consertado):** (1, alta) `pathSettled` vale só pela região sem pagamento na entrega; no braço B
+o link do antecipado saía pelo texto fixo no próprio turno do CEP, antes de ela ouvir o motivo ou dizer sim — o braço B agora exige
+`paymentChoice !== null` (mutação `E6-regiao-solta-o-link`); (2) com o link retido no turno (pergunta ao lado do sim) nada dizia ao
+modelo para não pedir nome/CPF e o braço 1 coletaria dados no chat — a diretiva vale com `missing === null`; (3) no antecipado, o link
+escrito pelo modelo não avisava que o checkout pede o e-mail (o atrito da Leila, §67) — a diretiva manda avisar. O conserto do detector
+da E4 (`5c3eaf2`, §78) foi APROVADO: os envios que não passam a cadeia no turno são constantes de código com teste próprio contra ela.
+
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 
 **Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção

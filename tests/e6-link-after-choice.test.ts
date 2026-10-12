@@ -46,7 +46,7 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   });
 
   it("o turno liga o braço B só por armOn — flag no config E braço 1 do sorteio B", () => {
-    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`);
+    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,`);
     const phone = "5511999990000";
     expect(armOn(undefined, armOf(phone), "B")).toBe(false);
     expect(armOn({ linkAfterChoice: false }, { A: 1, B: 1 }, "B")).toBe(false);
@@ -57,7 +57,21 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   it("no braço B a diretiva de identidade não sai, e o link escrito pelo modelo não pede os dados", () => {
     // `missing` null in arm B: the identity directive only fires on name/email/document.
     expect(turn).toContain(`!(missing === "name" || missing === "email" || missing === "document")`);
-    expect(turn).toContain(`: linkData.identityAtCheckout && checkoutUrl !== null`);
+    expect(turn).toContain(`: linkData.identityAtCheckout && missing === null`);
+  });
+
+  it("modo de falha (revisão de 9c1053c): no braço B a região sem pagamento na entrega não é escolha — o link espera o sim dela", () => {
+    // `pathSettled` is true from the region alone; arm B must wait for `paymentChoice`, or the prepaid link
+    // goes in the CEP's own turn, before she heard why or said yes.
+    expect(turn).toContain(`pathSettled: paymentChoice !== null || knownRegion?.cod === false,`);
+    expect(turn).toMatch(/identityAtCheckout: armOn\([^\n]*\) && paymentChoice !== null,/);
+    // Without her choice the flag is off and the order of today holds: the name is the next datum.
+    expect(missingForLink({ ...afterChoice, identityAtCheckout: false, nameKnown: false })).toBe("name");
+  });
+
+  it("no antecipado do braço B, o modelo que escreve o link avisa do e-mail (§67, Leila)", () => {
+    expect(turn).toContain("Se escrever o link, avise que lá vai pedir o e-mail dela.");
+    expect(turn).toContain(`linkPath === "prepay" && chatEmail === null ?`);
   });
 
   it("o link fixo diz o que ela preenche no checkout (grafo §67)", () => {

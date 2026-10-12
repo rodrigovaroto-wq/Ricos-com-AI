@@ -3397,7 +3397,7 @@ const MUTATIONS: Mutation[] = [
     id: "E6-braco-b-para-todos",
     bug: "o link antes dos dados (experimento B) vazava para quem não está no braço 1 ou com a flag desligada",
     files: ["supabase/functions/turn/index.ts"],
-    from: `identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`,
+    from: `identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,`,
     to: "identityAtCheckout: true,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
   },
@@ -3408,6 +3408,14 @@ const MUTATIONS: Mutation[] = [
     from: ": d.identityAtCheckout === true ? null",
     to: ": d.identityAtCheckout !== false ? null",
     guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts", "tests/interpret.test.ts"],
+  },
+  {
+    id: "E6-regiao-solta-o-link",
+    bug: "braço B: um CEP sem pagamento na entrega soltava o link do antecipado no mesmo turno, sem ela escolher nem ouvir o motivo",
+    files: ["supabase/functions/turn/index.ts"],
+    from: `armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,`,
+    to: `armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
   },
   {
     id: "E4-numero-da-calca",

@@ -3565,7 +3565,9 @@ const handleTurn = async (
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
     emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
     // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
-    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
+    // Her choice, never her region alone: a CEP without cash on delivery settles `pathSettled` before she
+    // heard the prepaid offer, and the link would go in that same turn (review of 9c1053c, 1).
+    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3722,8 +3724,12 @@ const handleTurn = async (
   const afterLink = linkAlreadySent
     ? `O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF — o` +
       ` checkout pede o que faltar.`
-    : linkData.identityAtCheckout && checkoutUrl !== null
-      ? `Com este link, não peça nome, e-mail nem CPF: o checkout pede o que faltar.`
+    : linkData.identityAtCheckout && missing === null
+      // Also when the link is held this turn (a question beside the yes): the prompt's own flow asks
+      // name and CPF, and arm 1 would collect them in the chat (review of 9c1053c, 2). On the prepaid
+      // path the model that writes the link says the e-mail is asked there (§67, Leila; review, 3).
+      ? `No link do pedido o checkout pede o que faltar: não peça nome, e-mail nem CPF aqui.` +
+        (linkPath === "prepay" && chatEmail === null ? ` Se escrever o link, avise que lá vai pedir o e-mail dela.` : "")
       : null;
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
