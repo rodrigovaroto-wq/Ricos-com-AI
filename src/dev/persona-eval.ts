@@ -96,7 +96,7 @@ const median = (xs: number[]) => {
 //
 // THE RULE. The candidate passes when ALL hold:
 //   1. score(candidate) ≥ score(base) − noise;
-//   2. zero barriers in the candidate (no lie re-found by the gates, no opt-out ignored);
+//   2. zero barriers in the candidate (no lie her CEP's truth adds to the gates — `liesIn` —, no opt-out ignored);
 //   3. tics per conversation and the prompt-copy rate are not higher than the base's.
 
 export interface Verdict {
@@ -124,7 +124,7 @@ export const approve = (base: SalesSummary, candidate: SalesSummary, noise: numb
 const COMPARED: Array<[keyof SalesSummary, string]> = [
   ["score", "Score comercial"],
   ["barriers", "Barreiras (conversas)"],
-  ["lies", "Mentiras (gates de novo)"],
+  ["lies", "Mentiras (verdade do CEP)"],
   ["optOutIgnored", "Opt-out ignorado"],
   ["conversion", "Conversão simulada"],
   ["linkRate", "Chegou ao link"],

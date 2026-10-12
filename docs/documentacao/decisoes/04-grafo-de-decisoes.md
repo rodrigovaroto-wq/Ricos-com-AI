@@ -2560,6 +2560,25 @@ produção tinha aprovado; isso puxa a base para baixo e infla a diferença. Na 
 caiu nisso. O ganho de naturalidade (tiques, cópia, tamanho) não depende desse defeito. Antes, um primeiro conserto da mesma sessão:
 o detector julgava com o config de teste (sem os 10% do antecipado) e marcava quase tudo como mentira (`5d05c76`).
 
+## 78. O detector de mentira da E4 re-julgava o que a produção já tinha aprovado (2026-10-12)
+
+**Sintoma:** na comparação base × E3 (§77), o comprador simulado encerrou 2 e 4 conversas da base como "mentira" por
+`shipping_promise` em frases que a `turn` tinha aprovado e enviado — puxou a base para baixo e inflou a diferença.
+**Causa:** `liesIn` re-rodava a cadeia inteira de gates sobre o texto enviado, com contexto mínimo (`paymentPath: "cod"` fixo, sem
+`units`, `recentOutbound`, `cepAsks`…). O comentário dizia "pode perder uma mentira, nunca inventar" — falso: gate cujo veto depende
+do estado (caminho, peças, frase canônica) veta sem ele. E o texto enviado já passou essa mesma cadeia, do mesmo código em disco, com o
+estado inteiro: re-rodar sem o estado só pode discordar por falta de estado.
+**Caminhos descartados:** (a) passar mais contexto ao re-julgamento — o comprador não tem o estado do turno, cada campo seria outro
+palpite; (b) só contar, sem encerrar e sem barreira — joga fora o único sinal real que o eval tem.
+**Correção:** o único fato que o comprador sabe e o turno pode não saber é a verdade do CEP do cenário (sem pagamento na entrega), que
+o turno só aprende por uma consulta que pode falhar. `liesIn` agora conta só os gates que vetam **com** essa verdade e não sem ela;
+sem CEP dado, ou num CEP com entrega, devolve vazio. A mentira assim achada continua encerrando a conversa e sendo barreira na regra
+de aprovação (regra 2 do `--compare`, texto atualizado).
+**Guarda:** `tests/sales-buyer.test.ts` e `tests/persona-scorecard.test.ts` — a frase aprovada pela produção não é re-julgada
+(falhava no código antigo), a promessa de entrega depois de um CEP sem entrega continua mentira, e as duas negações (antes do CEP; CEP
+com entrega). Ferramenta de avaliação (`src/dev/`), sem mutação em `verify-guards.ts` (não é guarda de produção).
+**Falta:** refazer base × E3 com o detector consertado (precisa da porta local com modelo, passo 4 do `HANDOFF.md`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

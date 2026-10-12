@@ -16,7 +16,8 @@
  * - `repeatedQuestion` (−15, each reply): a question sentence she already asked, the size asked
  *   after the customer stated it, or the CEP asked after the customer gave it.
  * - `pressure` (−20, each): urgency or a push to decide ("só hoje", "não perca", "garanta já").
- * - a lie — any gate in `runGates` blocks the sent text — ends the conversation (`left_lie`).
+ * - a lie — a gate that blocks the sent text only once her CEP's truth is known (`liesIn`) — ends the
+ *   conversation (`left_lie`).
  * STOP: bought when propensity > 70 and some reply carried a checkout link; left below 20; on
  * a reply with a negative delta, vanishes with probability `vanishOnBad` (seeded, so the same
  * seed replays the same way).
@@ -156,22 +157,30 @@ export const evalConfig = (env: Record<string, string | undefined> = process.env
       : { config: loadBusinessConfig("config/business.example.json"), source: "config/business.example.json" };
 
 /**
- * Minimal context on purpose: every optional field the turn fills from its own state (region,
- * size checked, testimonial asked) is left undefined, which leaves those checks idle — a re-run
- * without the turn's state may miss a lie, never invent one. Only `codUnavailable` is set,
- * when the customer already gave a CEP that has no delivery-payment.
+ * Every text Malu sent already passed this same chain inside the turn, with the turn's full state (path,
+ * units, recent replies, CEP asks). Re-run here with less, it can only disagree by missing state — the
+ * E4 round of 2026-10-12 ended 2–4 base conversations on `shipping_promise` in sentences production had
+ * approved (grafo §78). The one fact the buyer knows that the turn may not is the ground truth of her CEP:
+ * no delivery-payment there (`codUnavailable`), which the turn only learns from a lookup that can fail.
+ * So a lie is what that truth adds — the gates that block with it and not without it. Empty while she
+ * gave no CEP, or her CEP has delivery-payment.
  */
 export const liesIn = (text: string, config: BusinessConfig, codUnavailable = false): string[] => {
-  const ctx: GateContext = {
-    config,
-    layer: "agent",
-    optedOut: false,
-    now: new Date("2026-09-06T14:00:00-03:00"), // midday: the business-hours gate is not what is measured
-    paymentPath: "cod",
-    ...(codUnavailable ? { codUnavailable: true } : {}),
+  if (!codUnavailable) return [];
+  const blocked = (truth: boolean) => {
+    const ctx: GateContext = {
+      config,
+      layer: "agent",
+      optedOut: false,
+      now: new Date("2026-09-06T14:00:00-03:00"), // midday: the business-hours gate is not what is measured
+      paymentPath: "cod",
+      ...(truth ? { codUnavailable: true } : {}),
+    };
+    return runGates(text, ctx).traces.filter((t) => t.verdict === "block");
   };
-  return runGates(text, ctx)
-    .traces.filter((t) => t.verdict === "block")
+  const approved = new Set(blocked(false).map((t) => t.gate));
+  return blocked(true)
+    .filter((t) => !approved.has(t.gate))
     .map((t) => `${t.gate}${t.detail ? `: ${t.detail}` : ""}`);
 };
 
