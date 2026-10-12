@@ -7,6 +7,36 @@
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
 
+## ▶ Status de execução (atualizado 2026-10-12) — LEIA PRIMEIRO
+
+Legenda: ✅ feito e commitado · 🟡 feito no código, falta publicar/provar em produção · ⬜ não começado · ⛔ bloqueado.
+Branch `claude/awesome-hopper-x8j8wb`. Grafo de decisões §69–§77. Nada abaixo de E1.3 está no ar.
+
+| Etapa | Tarefa | Status | Onde está |
+|---|---|---|---|
+| E0 | 9 decisões do operador | ✅ | R20.1–R20.9 em `03-decisoes-tomadas.md`; D9 encerrado (memória) |
+| E1.1 | Recusa vira estado (`declinesInBurst`, `DECLINE_REPLY`, régua para) | 🟡 | grafo §69, `tests/declined.test.ts` |
+| E1.2 | Alarme de cobertura `job:"health"` | 🟡 | grafo §70; **falta o workflow no n8n** (abaixo) |
+| E1.3 | Sem `retryOnFail` nos nós do turno (n8n) | ✅ no ar | grafo §71, versão ativa `b13736eb` |
+| E1.4 | Escassez fora do "vou pensar", do prompt e do briefing | 🟡 | grafo §72 |
+| E1.5 | Gates `hip_claim`, `courier_claim`, "afina de vez" | 🟡 | grafo §73 |
+| E1 fim | Autoaprimoramento + 13 personas + `/code-review` | ✅ | grafo §74 (prazo pronto no lugar do handoff) |
+| E2.1–E2.4 | Latência, estágios reais, braço A/B, cobertura guardada | 🟡 | grafo §75, migração `0026` (NÃO aplicada) |
+| E2 fim | 461/461 mutações + personas + `/code-review` | ✅ | grafo §76 (1ª resposta nunca vira handoff) |
+| E3.1–E3.4 | Recepção honesta, experimento A, abertura do modelo com o anúncio, H2/H4/H5/H7, link, pausa curta | 🟡 | grafo §77 |
+| E4.1/E4.2/E4.4 | Eval de venda: comprador com propensão, métricas, score, comparação | ✅ (ferramenta) | `src/dev/sales-buyer.ts`, `src/dev/scenarios/venda.json`, `pnpm dev:eval --compare` |
+| E4.3 | Juiz LLM calibrado | ⬜ | espera 20 conversas anotadas pelo operador |
+| E3+E4 fim | Base × E3 pela E4 + `/code-review` | ver grafo §77 e `HANDOFF.md` | resultado da comparação registrado no grafo |
+| E5 | Ensaio com dinheiro real | ⬜ | depende do deploy |
+| E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
+| E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |
+
+**Bloqueio de produção (⛔ para esta sessão):** o classificador de permissão do Claude Code recusou `pnpm deploy:turn` e
+`pnpm dev:n8n`. A ordem para publicar tudo o que está 🟡 está no topo do `HANDOFF.md`.
+
+**Ainda não construído dentro de E3/E6:** o experimento B (`linkAfterChoice`: link logo depois da escolha do pagamento) só tem o
+braço sorteado e a flag (`armOn(…, "B")`); o comportamento entra antes do L3 (ver `HANDOFF.md`, próximos passos).
+
 ## Como ler este plano
 
 O plano tem 8 etapas. Cada etapa tem:

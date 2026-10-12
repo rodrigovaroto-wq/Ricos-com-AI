@@ -13,32 +13,46 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-12, ~03:00 UTC — sessão parada no limite de uso (LEIA PRIMEIRO):** tudo o que foi feito está commitado (último
-> commit de código `a81f18a`). **E1 e E2 fechadas no código, não publicadas.** **E3 e E4 NÃO começaram de fato:** os dois agentes
-> (E3 com `prompt-engineer`, E4 com `test-engineer`) foram despachados e pararam no limite antes de escrever qualquer arquivo — a
-> árvore ficou limpa. Para retomar: (1) publicar E1+E2 — aplicar a migração `0026` e logo depois `NODE_USE_ENV_PROXY=1 pnpm
-> deploy:turn` (o classificador de permissão bloqueou o deploy nesta sessão; precisa do operador ou de regra de permissão), criar o
-> workflow do alarme no n8n e provar pela porta de produção; (2) redespachar E3 e E4 em paralelo (arquivos disjuntos) com os mesmos
-> briefings: E3 = abertura única sem "atendentes" (D2) com o experimento A (`armOn(…, "A")`, controle = aviso honesto + 60 s; teste
-> = resposta direta), diretiva do anúncio de origem, sem frete na 1ª resposta (§76), H2/H4/H5/H7 no prompt, moldura do `linkMessage`,
-> digitação curta no braço A — sem mexer na regra da vírgula (R20.7); E4 = comprador com propensão oculta (16 cenários), métricas
-> de venda e naturalidade no placar, score comercial e comparação de versões (sem o juiz E4.3, que espera 20 conversas anotadas pelo
-> operador). Fim de cada fase: autoaprimoramento + personas + `/code-review` (R20.9).
-
-> **2026-10-12, retomada (LEIA PRIMEIRO): a E1 está fechada no código e NÃO está no ar.** E1.1 recusa como estado (§69), E1.2
-> alarme de cobertura `job:"health"` (§70), E1.3 sem retry no turno do n8n (§71, **já no ar no n8n**, versão `b13736eb`), E1.4
-> estoque fora do "vou pensar" (§72), E1.5 gates de quadril/entregador/"afina de vez" (§73), e o fim de fase (R20.9): bateria de 13
-> personas na porta local (Denise nova), prazo pronto no lugar do handoff, `/code-review` e consertos (§74). 7273 testes, 1665/1665
-> conversas, `dev:gates` 0 afrouxado, 20/20 mutações da E1. Último commit da fase: `676204d`.
-> **E2 (medição) também fechada no código (§75–§76, `a81f18a`):** latência, estágios `cobertura_conhecida → caminho_escolhido →
-> link_enviado`, braço A/B por lead, cobertura guardada; fim de fase feito (461/461 mutações, 13 personas, `/code-review`). **Ordem
-> do deploy agora: aplicar a migração `0026` e LOGO DEPOIS publicar a `turn`** (o `deploy:turn` recusa sem a 0026).
-> **Falta para o portão da E1:** (1) `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2 (grafo §69–§76)"` — o classificador
-> de permissão do Claude Code bloqueou o deploy em produção nesta sessão; precisa do operador (ou de regra de permissão);
-> (2) criar no n8n o workflow do alarme (a cada 15 min, POST `{"job":"health"}` com a credencial `Supabase service_role`, timeout
-> ≥ 30 s, e-mail quando `status` = `unhealthy`, no máximo 1 a cada 3 h, e aviso de "voltou"); (3) prova pela porta de produção:
-> "nao quero mais, obrigado" → só a despedida e nenhum toque agendado; `{"job":"health"}` → `healthy`. O `pnpm dev:n8n` também foi
-> bloqueado; o JSON do turno foi atualizado à mão. Próxima fase: **E2 (medição)**.
+> **2026-10-12 — FIM DA SESSÃO `claude/awesome-hopper-x8j8wb` (LEIA PRIMEIRO; os blocos de 2026-10-11/12 abaixo são histórico).**
+> Plano em execução: [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (quadro de status no
+> topo), análise em [`12-analise-arquitetura-conversao.md`](docs/agente-ia/05-plano/12-analise-arquitetura-conversao.md), decisões do
+> operador R20.1–R20.9, grafo §69–§77. **No ar: só a E1.3 (n8n) e a `turn` v16.** Tudo o mais está no código, testado, revisado e
+> NÃO publicado.
+>
+> **Como esta sessão trabalhou (repita):** cada tarefa vai a um especialista de `.claude/agents/` (Opus quando toca gate, heurística,
+> prompt ou banco), com TDD, espelho byte a byte `src/agent` ↔ `supabase/functions/turn`, mutação em `src/dev/verify-guards.ts` e
+> revisão Opus independente antes do commit; o orquestrador commita. **Ao fim de cada FASE inteira (R20.9):** autoaprimoramento,
+> bateria de personas com subagentes (porta local) e `/code-review` do diff da fase, consertando o que aparecer. O operador autorizou
+> executar sem pedir aprovação; o classificador de permissão ainda barra deploy e `pnpm dev:n8n`.
+>
+> **Próximos passos, nesta ordem:**
+> 1. **Publicar E1+E2+E3 (precisa do operador ou de regra de permissão):** (a) aplicar `supabase/migrations/0026_measurement.sql` no
+>    projeto `hbmkgakzrqmdlsvszjeo`; (b) logo depois `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2+E3 (grafo §69–§77)"` (ele
+>    recusa sem a 0026); (c) criar no n8n o workflow "Encorpa — Alarme de cobertura": gatilho a cada 15 min → HTTP POST
+>    `https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn` corpo `{"job":"health"}`, credencial `Supabase service_role`,
+>    timeout 30 s, saída de erro com e-mail → Code com static data: e-mail ao operador quando `status` = `unhealthy` (no máximo 1 a
+>    cada 3 h) e um aviso quando voltar a `healthy`; rodar `pnpm dev:n8n` depois (as regras de `src/dev/n8n-rules.ts` valem);
+>    (d) prova pela porta de produção: "nao quero mais, obrigado" → só a despedida e nenhum toque agendado; `{"job":"health"}` →
+>    `healthy`; um lead novo recebe a recepção honesta (sem "atendentes").
+> 2. **Construir o experimento B** (R20.6, plano E6): com `armOn(CONFIG.experiments, arm, "B")`, o link sai logo depois da escolha do
+>    pagamento (tamanho + CEP + caminho), pré-preenchido com o que já se sabe; nome/CPF/e-mail ficam para o checkout. Mexe em
+>    `missingForLink` (`interpret.ts`) e no ramo do link (`index.ts`); teste de que sem a flag tudo fica igual; personas Tati e Vera.
+> 3. **Fim de fase da E3 completa:** a comparação base × E3 pela E4 está registrada no grafo §77 desta sessão; se a regra de aprovação
+>    reprovou algo, o conserto vem antes do deploy da E3. Rodar a E4 de novo depois do experimento B.
+> 4. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
+>    score usa o proxy de naturalidade. Decidir se o cliente simulado continua no mesmo modelo da Malu (R12.1) — viés de auto-preferência.
+> 5. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
+> 6. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
+>    n por braço, teste de duas proporções, parada de segurança por braço) e ligar `experiments` no `BUSINESS_CONFIG`.
+> 7. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
+>    toque); `asksForSize("Qual o número da sua calça?")` dá falso (achado da E4, `src/agent/sizing.ts`); `linkMessage` ainda recebe
+>    `brand` sem usar.
+>
+> **Como rodar as personas e a E4 (esta sessão):** `scratchpad` local com o servidor da `turn` do disco (roteiro no topo de
+> `src/dev/persona-run.ts`); para avaliar à noite, ponha `hours: {openHour: 0, closeHour: 24}` no `BUSINESS_CONFIG` local, senão tudo
+> sai `deferred`. E4: `pnpm dev:personas --door=local --suite=venda --all --seed=1` duas vezes na base (ruído) e uma na candidata
+> (`LOCAL_FUNCTION_URL` para outra porta), depois `pnpm dev:placar <pasta>` e `pnpm dev:eval --compare <base> <candidata>
+> --noise-from=<base2>`.
 
 > **2026-10-11 — análise de arquitetura, decisões E0 e plano prático (sessão `claude/awesome-hopper-x8j8wb`):** a análise de
 > arquitetura foi entregue e o operador **aceitou as decisões da E0** (R20.1–R20.9 em
