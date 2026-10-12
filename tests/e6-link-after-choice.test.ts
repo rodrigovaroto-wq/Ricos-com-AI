@@ -1,0 +1,67 @@
+import { readFileSync } from "node:fs";
+import { describe, expect, it } from "vitest";
+import { armOf, armOn } from "@/agent/experiments.js";
+import { missingForLink, sendLinkNow } from "@/agent/interpret.js";
+import { linkMessage } from "@/agent/retry.js";
+
+/**
+ * Experiment B (R20.6, plano 13 §E6): in arm 1 with `experiments.linkAfterChoice`, the link goes right
+ * after the payment choice and the checkout collects name, e-mail and CPF. Arm 0, the flag absent (the
+ * production secret today) or false: the order of grafo §63/§67, untouched.
+ */
+const turn = readFileSync("supabase/functions/turn/index.ts", "utf-8");
+
+const afterChoice = { sizeKnown: true, cepKnown: true, pathSettled: true, nameKnown: false, cpfDone: false };
+
+describe("E6 — experimento B: link logo depois da escolha do pagamento", () => {
+  it("braço B: com tamanho, CEP e caminho, o link sai sem nome, e-mail nem CPF", () => {
+    expect(missingForLink({ ...afterChoice, emailDone: false, identityAtCheckout: true })).toBeNull();
+    expect(missingForLink({ ...afterChoice, identityAtCheckout: true })).toBeNull();
+    expect(sendLinkNow({ ...afterChoice, emailDone: false, identityAtCheckout: true, yesBesideQuestion: false })).toBe(true);
+  });
+
+  it.each([{}, { identityAtCheckout: false }])("negação: %o = a ordem de hoje (nome → e-mail no antecipado → CPF)", (flag) => {
+    const d = { ...afterChoice, ...flag };
+    expect(missingForLink({ ...d, emailDone: false })).toBe("name");
+    expect(missingForLink({ ...d, nameKnown: true, emailDone: false })).toBe("email");
+    expect(missingForLink({ ...d, nameKnown: true, emailDone: true })).toBe("document");
+    expect(missingForLink({ ...d, nameKnown: true })).toBe("document");
+    expect(sendLinkNow({ ...d, emailDone: false, yesBesideQuestion: false })).toBe(false);
+  });
+
+  it.each([
+    ["sizeKnown", "size"],
+    ["cepKnown", "cep"],
+    ["pathSettled", "payment"],
+  ] as const)("nenhum braço: sem %s o link não sai (falta %s)", (field, datum) => {
+    for (const flag of [{ identityAtCheckout: true }, { identityAtCheckout: false }, {}]) {
+      const d = { ...afterChoice, nameKnown: true, cpfDone: true, ...flag, [field]: false };
+      expect(missingForLink(d)).toBe(datum);
+      expect(sendLinkNow({ ...d, yesBesideQuestion: false })).toBe(false);
+    }
+  });
+
+  it("o \"sim\" ao lado de pergunta segura o link também no braço B", () => {
+    expect(sendLinkNow({ ...afterChoice, identityAtCheckout: true, yesBesideQuestion: true })).toBe(false);
+  });
+
+  it("o turno liga o braço B só por armOn — flag no config E braço 1 do sorteio B", () => {
+    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`);
+    const phone = "5511999990000";
+    expect(armOn(undefined, armOf(phone), "B")).toBe(false);
+    expect(armOn({ linkAfterChoice: false }, { A: 1, B: 1 }, "B")).toBe(false);
+    expect(armOn({ linkAfterChoice: true }, { A: 1, B: 0 }, "B")).toBe(false);
+    expect(armOn({ linkAfterChoice: true }, { A: 0, B: 1 }, "B")).toBe(true);
+  });
+
+  it("no braço B a diretiva de identidade não sai, e o link escrito pelo modelo não pede os dados", () => {
+    // `missing` null in arm B: the identity directive only fires on name/email/document.
+    expect(turn).toContain(`!(missing === "name" || missing === "email" || missing === "document")`);
+    expect(turn).toContain(`: linkData.identityAtCheckout && checkoutUrl !== null`);
+  });
+
+  it("o link fixo diz o que ela preenche no checkout (grafo §67)", () => {
+    const text = linkMessage("https://x.test/c", "prepay", "M", "Encorpa", 1, ["nome completo", "e-mail", "CPF"]);
+    expect(text).toContain("No checkout você vai preencher também o seu nome completo, o seu e-mail e o seu CPF");
+  });
+});

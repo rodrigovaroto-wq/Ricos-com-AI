@@ -2579,6 +2579,26 @@ de aprovação (regra 2 do `--compare`, texto atualizado).
 com entrega). Ferramenta de avaliação (`src/dev/`), sem mutação em `verify-guards.ts` (não é guarda de produção).
 **Falta:** refazer base × E3 com o detector consertado (precisa da porta local com modelo, passo 4 do `HANDOFF.md`).
 
+## 79. Experimento B: o link logo depois da escolha do pagamento (E6, R20.6, 2026-10-12)
+
+**Decisão (R20.6):** reabre §62/§63 com motivo novo — a queixa original era o link *antes da decisão*, não antes do CPF. Até aqui o
+experimento B só tinha o braço sorteado e a flag (`armOn(…, "B")`), sem comportamento.
+**Correção:** `LinkData.identityAtCheckout?` (opcional; `=== true`, ausente = a ordem de hoje). Com ele, `missingForLink` para no
+caminho: tamanho → CEP → pagamento → link. O turno liga o campo só por `armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B")`
+— flag `experiments.linkAfterChoice` no config **e** braço 1 do sorteio B; sem `experiments` (o segredo de produção hoje), ninguém.
+Como `missing` volta `null`, a diretiva de identidade não sai; o link leva o que já se sabe (`buildPrefilledCheckoutLink` não exige
+nome nem CPF desde R13.4, só a URL base) e o `linkMessage` fixo já diz o que ela preenche no checkout (§67). Quando o modelo escreve o
+link (pergunta ao lado), uma diretiva nova diz para não pedir nome, e-mail nem CPF — só no braço B com link no turno. Nenhum gate
+precisa saber do braço: `pending_promise` lê `linkInTurn`, que segue o link real.
+**Caminhos descartados:** um ramo próprio de link no turno para o braço B (duplicaria `linkNow`, histórico do link e "vou pensar");
+mexer no prompt (é o mesmo para os dois braços, e a agente fica congelada no L3).
+**Efeito colateral aceito, a medir:** no braço B a oferta do kit (`kitOfferNow`, que exige `!linkNow`) não sai — o link vai no turno
+da escolha. Afeta receita por pedido, não a métrica do B (pedido ÷ lead); o operador decide se o kit entra antes do link no braço B.
+**Guarda:** `tests/e6-link-after-choice.test.ts` (braço B sem os dados; negação com o campo ausente e `false`, e-mail do antecipado
+incluído; tamanho, CEP e caminho nunca faltam em braço nenhum; a fiação por `armOn`). Mutações `E6-braco-b-para-todos` (ignora
+`armOn`) e `E6-ausente-liga-b` (ausente lido como ligado) — as duas pegas.
+**Estado (2026-10-12):** no código, não publicado. Liga-se escrevendo `experiments.linkAfterChoice: true` no `BUSINESS_CONFIG`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

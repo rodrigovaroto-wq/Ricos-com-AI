@@ -3394,6 +3394,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
+    id: "E6-braco-b-para-todos",
+    bug: "o link antes dos dados (experimento B) vazava para quem não está no braço 1 ou com a flag desligada",
+    files: ["supabase/functions/turn/index.ts"],
+    from: `identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`,
+    to: "identityAtCheckout: true,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
+  },
+  {
+    id: "E6-ausente-liga-b",
+    bug: "identityAtCheckout ausente lido como ligado: todo lead fora do experimento B recebia o link sem os dados",
+    files: ["src/agent/interpret.ts"],
+    from: ": d.identityAtCheckout === true ? null",
+    to: ": d.identityAtCheckout !== false ? null",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts", "tests/interpret.test.ts"],
+  },
+  {
     id: "G66-recusa-com-adiamento",
     bug: "'não passo o cpf, vou pensar' perdia a resposta do 'vou pensar' e a Malu pedia o CPF de novo",
     files: ["src/agent/identity.ts"],

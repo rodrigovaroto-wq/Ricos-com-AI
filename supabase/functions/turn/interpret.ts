@@ -448,6 +448,11 @@ export interface LinkData {
    * her e-mail is not in the chat and she has not refused it. Absent on the delivery path, never waited for.
    */
   emailDone?: boolean;
+  /**
+   * Experiment B (R20.6), arm 1 with `experiments.linkAfterChoice`: name, e-mail and CPF are the
+   * checkout's to fill, so the link waits only for size, CEP and path. Absent or false = the order below.
+   */
+  identityAtCheckout?: boolean;
 }
 
 /**
@@ -459,6 +464,7 @@ export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
+  : d.identityAtCheckout === true ? null
   : !d.nameKnown ? "name"
   : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"

@@ -3564,6 +3564,8 @@ const handleTurn = async (
     cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
     emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
+    // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
+    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3720,7 +3722,9 @@ const handleTurn = async (
   const afterLink = linkAlreadySent
     ? `O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF — o` +
       ` checkout pede o que faltar.`
-    : null;
+    : linkData.identityAtCheckout && checkoutUrl !== null
+      ? `Com este link, não peça nome, e-mail nem CPF: o checkout pede o que faltar.`
+      : null;
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
