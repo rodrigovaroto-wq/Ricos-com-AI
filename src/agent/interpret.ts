@@ -453,6 +453,11 @@ export interface LinkData {
    * checkout's to fill, so the link waits only for size, CEP and path. Absent or false = the order below.
    */
   identityAtCheckout?: boolean;
+  /**
+   * She chose the path herself (`payment_choice` stored or said). Experiment B waits for it: a region without
+   * cash on delivery settles `pathSettled` alone, before she heard the prepaid offer (review of 9c1053c, 1).
+   */
+  choiceMade?: boolean;
 }
 
 /**
@@ -464,7 +469,7 @@ export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
   : !d.pathSettled ? "payment"
-  : d.identityAtCheckout === true ? null
+  : d.identityAtCheckout === true && d.choiceMade === true ? null
   : !d.nameKnown ? "name"
   : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"
@@ -567,7 +572,10 @@ export const pathChoiceToStore = (d: {
     /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
     yes;
   if (defaultCod) return "cod";
-  return d.noCod === true && d.interpreted !== "cod" && yes && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
+  // "quero sim" / "manda o link" to the prepaid-only offer is her yes too (second review of the E6 fixes): no other
+  // question beside it but the link itself, and `buyerAsk` already drops "não quero" and "quero saber…".
+  const wants = d.parts.some(buyerAsk) && !d.parts.some((p) => asksSomething(p) && !asksForLink(p));
+  return d.noCod === true && d.interpreted !== "cod" && (yes || wants) && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
 };
 
 /**

@@ -167,6 +167,21 @@ describe("4. região sem entrega: 'ok' ao antecipado é o caminho escolhido (pat
     expect(store(msg, `${noCodMessage(config)} Pode ser no antecipado?`)).toBe("prepay");
   });
 
+  it.each(["quero sim", "quero", "manda o link", "pode mandar o link"])(
+    "'%s' à oferta do antecipado também é a escolha (2ª revisão do E6: o braço B não volta ao fluxo antigo)",
+    (msg) => expect(store(msg, noCodMessage(config))).toBe("prepay"),
+  );
+
+  it.each(["não quero", "quero saber o prazo", "quero, mas chega quando?", "nao quero mais"])(
+    "negação: '%s' não é a escolha do antecipado",
+    (msg) => expect(store(msg, noCodMessage(config))).toBeNull(),
+  );
+
+  it("negação: 'quero' fora da oferta só do antecipado não grava", () => {
+    expect(store("quero sim", "Qual seu tamanho de calça?")).toBeNull();
+    expect(pathChoiceToStore({ interpreted: null, parts: ["quero sim"], lastOutbound: noCodMessage(config), confirms: false })).toBeNull();
+  });
+
   it("negação: o 'sim' que responde outra pergunta não grava", () => {
     expect(store("sim", `${noCodMessage(config)} Qual seu tamanho de calça?`)).toBeNull();
     expect(store("sim", "Qual seu tamanho de calça?")).toBeNull();

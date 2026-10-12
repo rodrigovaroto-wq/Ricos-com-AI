@@ -11,7 +11,7 @@ import { linkMessage } from "@/agent/retry.js";
  */
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf-8");
 
-const afterChoice = { sizeKnown: true, cepKnown: true, pathSettled: true, nameKnown: false, cpfDone: false };
+const afterChoice = { sizeKnown: true, cepKnown: true, pathSettled: true, choiceMade: true, nameKnown: false, cpfDone: false };
 
 describe("E6 — experimento B: link logo depois da escolha do pagamento", () => {
   it("braço B: com tamanho, CEP e caminho, o link sai sem nome, e-mail nem CPF", () => {
@@ -46,7 +46,8 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   });
 
   it("o turno liga o braço B só por armOn — flag no config E braço 1 do sorteio B", () => {
-    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,`);
+    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`);
+    expect(turn).toContain(`choiceMade: paymentChoice !== null,`);
     const phone = "5511999990000";
     expect(armOn(undefined, armOf(phone), "B")).toBe(false);
     expect(armOn({ linkAfterChoice: false }, { A: 1, B: 1 }, "B")).toBe(false);
@@ -64,9 +65,11 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
     // `pathSettled` is true from the region alone; arm B must wait for `paymentChoice`, or the prepaid link
     // goes in the CEP's own turn, before she heard why or said yes.
     expect(turn).toContain(`pathSettled: paymentChoice !== null || knownRegion?.cod === false,`);
-    expect(turn).toMatch(/identityAtCheckout: armOn\([^\n]*\) && paymentChoice !== null,/);
-    // Without her choice the flag is off and the order of today holds: the name is the next datum.
-    expect(missingForLink({ ...afterChoice, identityAtCheckout: false, nameKnown: false })).toBe("name");
+    // Arm B, region settled the path, she chose nothing: the order of today holds — the name, never the link.
+    const regionOnly = { ...afterChoice, choiceMade: false, identityAtCheckout: true };
+    expect(missingForLink(regionOnly)).toBe("name");
+    expect(sendLinkNow({ ...regionOnly, nameKnown: false, yesBesideQuestion: false })).toBe(false);
+    expect(missingForLink({ ...regionOnly, choiceMade: true })).toBeNull();
   });
 
   it("no antecipado do braço B, o modelo que escreve o link avisa do e-mail (§67, Leila)", () => {

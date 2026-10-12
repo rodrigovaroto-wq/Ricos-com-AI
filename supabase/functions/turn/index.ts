@@ -3565,9 +3565,9 @@ const handleTurn = async (
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
     emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
     // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
-    // Her choice, never her region alone: a CEP without cash on delivery settles `pathSettled` before she
-    // heard the prepaid offer, and the link would go in that same turn (review of 9c1053c, 1).
-    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B") && paymentChoice !== null,
+    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
+    // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
+    choiceMade: paymentChoice !== null,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;

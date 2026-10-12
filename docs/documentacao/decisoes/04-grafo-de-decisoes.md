@@ -2606,6 +2606,14 @@ modelo para não pedir nome/CPF e o braço 1 coletaria dados no chat — a diret
 escrito pelo modelo não avisava que o checkout pede o e-mail (o atrito da Leila, §67) — a diretiva manda avisar. O conserto do detector
 da E4 (`5c3eaf2`, §78) foi APROVADO: os envios que não passam a cadeia no turno são constantes de código com teste próprio contra ela.
 
+**Segunda revisão Opus (APROVADO COM RESSALVAS, as duas consertadas):** (1) numa região sem pagamento na entrega, "quero sim" / "manda
+o link" à oferta do antecipado não gravava a escolha (`confirmsAddress` não aceita "quero"), e o braço B ficava no fluxo antigo a
+conversa inteira, diluindo a medida — `pathChoiceToStore` aceita também `buyerAsk` quando nenhuma outra pergunta vem junto (só o
+pedido do link), com negações ("não quero", "quero saber o prazo", "quero, mas chega quando?"), mutação `E6-quero-sim-nao-escolhe`;
+efeito também no braço 0: a escolha passa a ser gravada (estágio `caminho_escolhido`), o caminho do link não muda (a região já o
+fixava). (2) Os testes provavam o texto do fonte: a regra saiu para `missingForLink` (`choiceMade`), com teste de comportamento
+(braço B, região sem COD, sem escolha → `name`), e a mutação `E6-regiao-solta-o-link` passou a mutar a regra.
+
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 
 **Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção
