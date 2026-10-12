@@ -18,7 +18,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > estoque fora do "vou pensar" (§72), E1.5 gates de quadril/entregador/"afina de vez" (§73), e o fim de fase (R20.9): bateria de 13
 > personas na porta local (Denise nova), prazo pronto no lugar do handoff, `/code-review` e consertos (§74). 7273 testes, 1665/1665
 > conversas, `dev:gates` 0 afrouxado, 20/20 mutações da E1. Último commit da fase: `676204d`.
-> **Falta para o portão da E1:** (1) `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1 completa (grafo §69–§74)"` — o classificador
+> **E2 (medição) também fechada no código (§75–§76, `a81f18a`):** latência, estágios `cobertura_conhecida → caminho_escolhido →
+> link_enviado`, braço A/B por lead, cobertura guardada; fim de fase feito (461/461 mutações, 13 personas, `/code-review`). **Ordem
+> do deploy agora: aplicar a migração `0026` e LOGO DEPOIS publicar a `turn`** (o `deploy:turn` recusa sem a 0026).
+> **Falta para o portão da E1:** (1) `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2 (grafo §69–§76)"` — o classificador
 > de permissão do Claude Code bloqueou o deploy em produção nesta sessão; precisa do operador (ou de regra de permissão);
 > (2) criar no n8n o workflow do alarme (a cada 15 min, POST `{"job":"health"}` com a credencial `Supabase service_role`, timeout
 > ≥ 30 s, e-mail quando `status` = `unhealthy`, no máximo 1 a cada 3 h, e aviso de "voltou"); (3) prova pela porta de produção:
