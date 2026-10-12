@@ -543,6 +543,9 @@ const whichOfTwo = (message: string): PaymentChoice | null => {
  *   ("Sim! Como faço pra pagar?"), never beside another one ("sim, tem rastreio?").
  * `confirms` is `parts.some(confirmsAddress)`, computed by the caller: this file has zero imports.
  */
+/** A message that is only "quero" (and its yes): "quero sim", "sim, quero!", "kero", "qro sim". */
+const WANT_ONLY = /^\s*(?:(?:sim|ok|entao|ah)[\s,!]+)*(?:quero|qro|kero)(?:[\s,!]+(?:sim+|quero|qro|kero))*\s*[!.]*\s*$/;
+
 export const pathChoiceToStore = (d: {
   interpreted: PaymentChoice | null;
   parts: readonly string[];
@@ -572,10 +575,12 @@ export const pathChoiceToStore = (d: {
     /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
     yes;
   if (defaultCod) return "cod";
-  // "quero sim" / "manda o link" to the prepaid-only offer is her yes too (second review of the E6 fixes): no other
-  // question beside it but the link itself, and `buyerAsk` already drops "não quero" and "quero saber…".
-  const wants = d.parts.some(buyerAsk) && !d.parts.some((p) => asksSomething(p) && !asksForLink(p));
-  return d.noCod === true && d.interpreted !== "cod" && (yes || wants) && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
+  // "quero sim" / "manda o link" to the prepaid-only offer is her yes too (second review of the E6 fixes). A list of
+  // the WHOLE message, never a loose "quero": "quero pensar", "quero na entrega", "quero cancelar" are not a yes
+  // (third review; grafo lesson 11). Naming the delivery is never a yes to the prepaid, "pode mandar" included.
+  const wants = d.parts.every((p) => WANT_ONLY.test(norm(p)) || asksForLink(p));
+  const namesCod = d.parts.some((p) => named(p) === "cod");
+  return d.noCod === true && d.interpreted !== "cod" && !namesCod && (yes || wants) && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
 };
 
 /**

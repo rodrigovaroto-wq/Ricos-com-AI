@@ -3426,6 +3426,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
   {
+    id: "E6-quero-solto",
+    bug: "um 'quero' solto em qualquer lugar da mensagem ('quero pensar', 'quero na entrega', 'quero cancelar') gravava o antecipado",
+    files: ["src/agent/interpret.ts"],
+    from: "const wants = d.parts.every((p) => WANT_ONLY.test(norm(p)) || asksForLink(p));",
+    to: "const wants = d.parts.some(buyerAsk);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
+  },
+  {
+    id: "E6-entrega-vira-antecipado",
+    bug: "'pode mandar o link mas vou pagar na entrega' gravava o antecipado numa região sem entrega",
+    files: ["src/agent/interpret.ts"],
+    from: "&& !namesCod && (yes || wants)",
+    to: "&& (yes || wants)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
+  },
+  {
     id: "E4-numero-da-calca",
     bug: "\"Qual o número da sua calça?\" e \"me diz o número da sua calça\" não contavam como pergunta do tamanho",
     files: ["src/agent/sizing.ts"],

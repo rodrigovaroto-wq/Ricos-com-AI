@@ -2614,6 +2614,16 @@ efeito também no braço 0: a escolha passa a ser gravada (estágio `caminho_esc
 fixava). (2) Os testes provavam o texto do fonte: a regra saiu para `missingForLink` (`choiceMade`), com teste de comportamento
 (braço B, região sem COD, sem escolha → `name`), e a mutação `E6-regiao-solta-o-link` passou a mutar a regra.
 
+**Terceira revisão Opus (REPROVOU o conserto (1) acima, consertado):** o `buyerAsk` aceita qualquer "quero" não negado sem ler o resto,
+e gravava o antecipado para "quero na entrega", "quero mas só se for na entrega", "quero pensar", "quero cancelar", "quero falar com
+atendente", "quero o boleto", "quero o 46" — e o "pode mandar o link mas vou pagar na entrega" já gravava antes, pelo `yes`. No braço B
+isso soltava o link do antecipado no turno e fixava a escolha por 7 dias. **Correção (lição 11: lista de permissão da mensagem
+inteira):** `WANT_ONLY` ("quero", "sim, quero!", "kero sim") ou o pedido do link, cada parte inteira; e nomear a entrega nunca é sim ao
+antecipado, em todo o ramo `noCod`. Também: `choiceMade` exige que a escolha seja o caminho do link — "na entrega" lido como `cod` onde
+não há entrega não solta o link do antecipado. Mutações `E6-quero-solto`, `E6-entrega-vira-antecipado`; 15 negações novas em
+`tests/v10-defects.test.ts`. **Falta:** "qro"/"kero" sozinhos passam; formas com outras palavras ("bora", "vamos", "fechado") ficam de
+fora (conservador: voltam ao fluxo de hoje).
+
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 
 **Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção

@@ -47,7 +47,7 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
 
   it("o turno liga o braço B só por armOn — flag no config E braço 1 do sorteio B", () => {
     expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`);
-    expect(turn).toContain(`choiceMade: paymentChoice !== null,`);
+    expect(turn).toContain(`choiceMade: paymentChoice !== null && paymentChoice === linkPath,`);
     const phone = "5511999990000";
     expect(armOn(undefined, armOf(phone), "B")).toBe(false);
     expect(armOn({ linkAfterChoice: false }, { A: 1, B: 1 }, "B")).toBe(false);

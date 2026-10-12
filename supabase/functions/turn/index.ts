@@ -3567,7 +3567,8 @@ const handleTurn = async (
     // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
     identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
     // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
-    choiceMade: paymentChoice !== null,
+    // and the link's own path: "na entrega" read as `cod` where there is none is not a choice of the prepaid link (third review).
+    choiceMade: paymentChoice !== null && paymentChoice === linkPath,
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
