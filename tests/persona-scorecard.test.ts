@@ -129,3 +129,94 @@ describe("placar: respostas prontas (M-01) e métricas", () => {
     expect(scoreRun([c]).metrics.replies).toBe(1);
   });
 });
+
+describe("placar de venda (E4.2) e score comercial (E4.4)", async () => {
+  const { salesRow, promptNgrams, scoreConversation, scoreSales, ticsIn, copiedFromPrompt, naturalnessProxy } = await import(
+    "../src/dev/persona-scorecard.js"
+  );
+  const { config } = await import("./fixtures.js");
+  const ngrams = promptNgrams(config);
+  const LINK = "https://entrega.logzz.com.br/pay/encorpa-pa?name=Ana";
+  const sale = (turns: Array<[string, string, string?]>, outcome = "bought"): Conversation => ({
+    ...conv("venda-teste", turns),
+    personaCostBrl: 0.005,
+    buyer: { outcome, propensity: 75, cod: true },
+  });
+
+  it("caminho feliz: funil inteiro, link na 3ª resposta, comprou", () => {
+    const row = salesRow(
+      sale([
+        ["oi, quanto custa?", "O colete sai R$ 129,90 e você paga na entrega. Que número de calça você usa?"],
+        ["uso 42, cep 01310-100", "Seu tamanho é o G. Prefere pagar na entrega?"],
+        ["quero pagar na entrega", `Aqui: ${LINK}`],
+      ]),
+      config,
+      ngrams,
+    );
+    expect(row.reached).toEqual({ price: true, size: true, cep: true, path: true, link: true });
+    expect(row).toMatchObject({ bought: true, repliesToLink: 3, questionRate: 0.67, replies: 3, costBrl: 0.015, lies: [], optOutIgnored: [] });
+    const scored = scoreConversation(row);
+    expect(scored.funnel).toBe(1);
+    expect(scored.efficiency).toBe(1);
+    expect(scored.barrier).toBe(false);
+    expect(scored.score).toBeCloseTo(50 + 20 + 15 * scored.naturalness + 15, 2);
+  });
+
+  it("borda: sem link não tem eficiência nem compra; fora da suíte, `bought` é nulo", () => {
+    const row = salesRow(conv("persona-tati", [["oi", "Oi! Me conta, o que te trouxe?"]]), config, ngrams);
+    expect(row.bought).toBe(null);
+    const scored = scoreConversation(row);
+    expect(scored.efficiency).toBe(0);
+    expect(scored.funnel).toBe(0);
+  });
+
+  it("modo de falha: mentira enviada é barreira, mesmo com venda", () => {
+    const row = salesRow(sale([["tem desconto?", `Te dou 30% de desconto hoje. ${LINK}`]]), config, ngrams);
+    expect(row.lies[0]!.gates.join()).toMatch(/price_promise/);
+    expect(scoreConversation(row).barrier).toBe(true);
+  });
+
+  it("modo de falha: opt-out explícito ignorado é barreira; respeitado, ou só ambíguo, não", () => {
+    const ignored = salesRow(sale([["não quero mais receber nada", "Mas olha, o colete tá R$ 129,90!"]]), config, ngrams);
+    expect(ignored.optOutIgnored).toEqual([1]);
+    const respected = salesRow(sale([["não quero mais receber nada", "Tudo bem, não te mando mais nada.", "opted_out"]]), config, ngrams);
+    expect(respected.optOutIgnored).toEqual([]);
+    const ambiguous = salesRow(sale([["não quero agora, obrigada", "Tudo bem! Fico por aqui."]]), config, ngrams);
+    expect(ambiguous.optOutIgnored).toEqual([]);
+  });
+
+  it("tiques: conta os da lista, com a pontuação que faz o tique", () => {
+    expect(ticsIn("Perfeito! Que bom que você veio. Certinho, Entendo, sim")).toBe(4);
+    expect(ticsIn("Não entendo bem a sua dúvida. Ficou perfeito.")).toBe(0);
+  });
+
+  it("cópia do prompt: 6 palavras seguidas do system prompt contam; 5 não", () => {
+    expect(copiedFromPrompt("Olha, assistente virtual só quando você pergunta, tá?", ngrams)).toBe(null);
+    expect(copiedFromPrompt("Ela quer se olhar no espelho e gostar do que vê.", ngrams)).not.toBe(null);
+  });
+
+  it("razão de palavras usa os balões quando existem", () => {
+    const c: Conversation = {
+      persona: "venda-x",
+      transcript: [
+        { from: "persona", text: "oi tudo bem" },
+        { from: "valen", text: "a b c d e f", status: "ok", bubbles: ["a b c", "d e f"] },
+      ],
+    };
+    expect(salesRow(c, config, ngrams).wordsRatio).toBe(1);
+  });
+
+  it("o juiz (E4.3), quando responde, substitui a naturalidade aproximada", () => {
+    const row = salesRow(sale([["oi", "Oi!"]]), config, ngrams);
+    expect(scoreConversation(row, () => 0).naturalness).toBe(0);
+    expect(scoreConversation(row, () => null).naturalness).toBeCloseTo(naturalnessProxy(row), 3);
+  });
+
+  it("resumo da rodada: barreiras e conversão", () => {
+    const { summary } = scoreSales(
+      [sale([["oi", `Aqui: ${LINK}`]]), sale([["oi", "Te dou 30% de desconto hoje."]], "left_lie")],
+      config,
+    );
+    expect(summary).toMatchObject({ conversations: 2, barriers: 1, lies: 1, conversion: 0.5, linkRate: 0.5, medianRepliesToLink: 1 });
+  });
+});

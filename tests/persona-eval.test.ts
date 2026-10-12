@@ -36,3 +36,26 @@ describe("eval do modelo: uma linha por persona", () => {
     });
   });
 });
+
+describe("comparação de versões (E4.4): a regra escrita antes", async () => {
+  const { approve } = await import("../src/dev/persona-eval.js");
+  const base = {
+    conversations: 16, score: 60, barriers: 0, lies: 0, optOutIgnored: 0, conversion: 0.5, linkRate: 0.7,
+    medianRepliesToLink: 5, ticsPerConversation: 1, promptCopyRate: 0.05, questionRate: 0.6, wordsRatio: 2, costPerConversationBrl: 0.3,
+  };
+
+  it("a mesma versão contra ela mesma passa (ruído zero)", () => {
+    expect(approve(base, base, 0)).toEqual({ pass: true, reasons: [] });
+  });
+  it("queda dentro do ruído passa; além dele, reprova", () => {
+    expect(approve(base, { ...base, score: 57 }, 3).pass).toBe(true);
+    expect(approve(base, { ...base, score: 56.9 }, 3).reasons.join()).toMatch(/ruído/);
+  });
+  it("qualquer barreira reprova, mesmo com score maior", () => {
+    expect(approve(base, { ...base, score: 90, barriers: 1, lies: 1 }, 3).reasons.join()).toMatch(/barreiras/);
+  });
+  it("tiques ou cópia do prompt piores reprovam", () => {
+    expect(approve(base, { ...base, ticsPerConversation: 1.1 }, 3).reasons.join()).toMatch(/tiques/);
+    expect(approve(base, { ...base, promptCopyRate: 0.06 }, 3).reasons.join()).toMatch(/cópia/);
+  });
+});

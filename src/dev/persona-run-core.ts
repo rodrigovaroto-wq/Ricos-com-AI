@@ -87,6 +87,13 @@ export interface RunnerArgs {
    * concurrent conversation.
    */
   concurrency: number;
+  /**
+   * `venda` (E4.1): the 16 buyers with hidden propensity from `src/dev/scenarios/venda.json`
+   * instead of the safety personas; `--persona` then names scenario ids, and none means all.
+   */
+  suite: "venda" | null;
+  /** Seeds the buyer's vanishing draws (`--seed`, default 1): same seed, same exits. */
+  seed: number;
 }
 
 /** Default for `--budget-brl`. The operator pays for every token on both sides. */
@@ -103,6 +110,8 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
   let outDir = "data/persona-runs";
   let budgetBrl = DEFAULT_RUN_BUDGET_BRL;
   let concurrency = 1;
+  let suite: string | null = null;
+  let seed = 1;
 
   for (const arg of argv) {
     const [flag, value] = arg.split(/=(.*)/s, 2) as [string, string | undefined];
@@ -121,6 +130,8 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
     else if (flag === "--out" && value) outDir = value;
     else if (flag === "--budget-brl" && value) budgetBrl = Number(value);
     else if (flag === "--concurrency" && value) concurrency = Number(value);
+    else if (flag === "--suite" && value) suite = value;
+    else if (flag === "--seed" && value) seed = Number(value);
     else throw new Error(`argumento desconhecido: ${arg}`);
   }
 
@@ -136,6 +147,9 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
         "repita com --n8n-does-not-create-orders",
     );
   }
+  if (suite !== null && suite !== "venda") throw new Error(`suíte inválida: ${suite} (só existe venda)`);
+  if (!Number.isInteger(seed)) throw new Error(`--seed inválido: ${seed}`);
+  if (suite && personas.length === 0) all = true;
   if (!all && personas.length === 0) throw new Error("diga qual persona: --persona=<nome> (repetível) ou --all");
   if (!Number.isInteger(maxTurns) || maxTurns < 1) throw new Error(`--max-turns inválido: ${maxTurns}`);
   if (!Number.isFinite(budgetBrl) || budgetBrl <= 0) throw new Error(`--budget-brl inválido: ${budgetBrl}`);
@@ -151,6 +165,8 @@ export const parseArgs = (argv: readonly string[]): RunnerArgs => {
     outDir,
     budgetBrl,
     concurrency,
+    suite: suite as "venda" | null,
+    seed,
   };
 };
 
