@@ -452,7 +452,7 @@ Se algo atrasar, **corta-se de E3, nunca de E1 ou E2**.
 - **Amostra:** ~235 por braço → detecta diferenças de ~12–13 pontos em métricas perto de 50%. **Diferença menor que isso é empate, e no empate fica o mais simples.** Para "B → pedido", a amostra é pequena: o resultado é **indício**, não prova (§11).
 - **Teste:** duas proporções, bilateral, α = 5%, sem olhar no meio para decidir.
 - **Parada de segurança** (por braço): o lead pede pessoa > 10%, opt-out > 2,5%, qualquer mentira confirmada, alarme de cobertura. Os mesmos critérios de pausa do pipeline, agora por braço.
-- **Onde:** `docs/agente-ia/05-plano/12-experimentos-l3.md` (novo).
+- **Onde:** `docs/agente-ia/05-plano/14-experimentos-l3.md` (novo).
 - **Quem:** `technical-writer` + operador assina.
 - **Esforço:** P.
 

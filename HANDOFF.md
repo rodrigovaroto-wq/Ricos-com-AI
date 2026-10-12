@@ -47,7 +47,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > 5. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
 >    score usa o proxy de naturalidade. Decidir se o cliente simulado continua no mesmo modelo da Malu (R12.1) — viés de auto-preferência.
 > 6. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
-> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
+> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/14-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
 >    n por braço, teste de duas proporções, parada de segurança por braço) e ligar `experiments` no `BUSINESS_CONFIG`.
 > 8. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
 >    toque); `asksForSize("Qual o número da sua calça?")` dá falso (achado da E4, `src/agent/sizing.ts`); `linkMessage` ainda recebe
