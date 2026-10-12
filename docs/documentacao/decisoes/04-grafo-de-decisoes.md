@@ -2621,7 +2621,7 @@ isso soltava o link do antecipado no turno e fixava a escolha por 7 dias. **Corr
 inteira):** `WANT_ONLY` ("quero", "sim, quero!", "kero sim") ou o pedido do link, cada parte inteira; e nomear a entrega nunca é sim ao
 antecipado, em todo o ramo `noCod`. Também: `choiceMade` exige que a escolha seja o caminho do link — "na entrega" lido como `cod` onde
 não há entrega não solta o link do antecipado. Mutações `E6-quero-solto`, `E6-entrega-vira-antecipado`; 15 negações novas em
-`tests/v10-defects.test.ts`. **Falta:** "qro"/"kero" sozinhos passam; formas com outras palavras ("bora", "vamos", "fechado") ficam de
+`tests/v10-defects.test.ts`. **Fica:** formas com outras palavras ("bora", "vamos", "fechado") ficam de
 fora (conservador: voltam ao fluxo de hoje).
 
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
