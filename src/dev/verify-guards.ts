@@ -2149,16 +2149,17 @@ const MUTATIONS: Mutation[] = [
     id: "R16.5-prompt",
     bug: "o prompt ensinava o número do estoque para a conversa inteira",
     files: ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
-    from: "      ? `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta. Quando ela disser que`",
-    to: "      ? `URGÊNCIA REAL: restam ${s?.unitsLeft} unidades. Quando ela disser que`",
+    // Since R20.1 (grafo §72) the briefing is one line with no number; the mutation puts the number back.
+    from: "  return [\"\", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];",
+    to: "  return [\"\", `URGÊNCIA REAL: restam 12 unidades.`];",
     guard: ["pnpm", "-s", "vitest", "run", "tests/think-reply.test.ts"],
   },
   {
     id: "R16.5-resposta",
-    bug: "a resposta ao 'vou pensar' não trazia o estoque nem o argumento do caminho",
+    bug: "a resposta ao 'vou pensar' não trazia o argumento do caminho (o estoque saiu em R20.1, grafo §72)",
     files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
-    from: "      ? [`Só te aviso que restam ${units} unidades desse lote, então se fizer sentido pra você, vale garantir o seu logo.`]",
-    to: "      ? []",
+    from: "      ? `Pagando na entrega você não paga nada agora, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`",
+    to: "      ? ``",
     guard: ["pnpm", "-s", "vitest", "run", "tests/think-reply.test.ts"],
   },
   {
