@@ -1628,7 +1628,7 @@ const MUTATIONS: Mutation[] = [
     id: "recusa-interesse-objeto",
     bug: "\"não tenho interesse no kit\" seria lido como recusa da venda (grafo §69)",
     files: ["src/agent/interpret.ts"],
-    from: ' &&\n      !(m[0].endsWith("interesse") && /^\\s+(?!(?:nao|obrigad\\w*|valeu|vlw)\\b)[a-z]/.test(rest));',
+    from: ' &&\n      !(m[0].endsWith("interesse") && /^\\s+(?!(?:nao|obrigad\\w*|valeu|vlw|nenhum|mesmo|msm)\\b)[a-z]/.test(rest));',
     to: ";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/declined.test.ts"],
   },
