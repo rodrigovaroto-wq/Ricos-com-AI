@@ -2445,6 +2445,24 @@ custam uma reescrita); listas fechadas deixam passar "vai te ligar antes", "inte
 de verdade", "reduz medidas".
 **Estado (2026-10-11):** implementado, não publicado.
 
+## 74. Fim da E1: bateria de personas e o prazo que virava handoff (2026-10-11)
+
+**Bateria (porta local, código da árvore, modelo `-contributor`, 13 personas com a Denise nova):** R$ 0,28 no total, leads sintéticos
+apagados. A Denise prova o §69 ("nao quero mais, obrigado" → só a despedida, sem estoque). Os gates novos do §73 (`hip_claim`,
+`courier_claim`) não vetaram nenhuma frase honesta. O job `health` (§70) respondeu `healthy` com os três CEPs contra a Coinzz real.
+**Sintoma achado:** persona Rafa ("me fala o dia certinho??", "tem entrega expressa?") teve quatro promessas de dia vetadas
+(`delivery_promise`) e foi para uma pessoa — a compradora com pressa perdida para o handoff.
+**Causa:** quando todas as reescritas falham, só a pergunta de preço tinha resposta pronta (decisão 16); o resto virava handoff.
+**Correção:** `asksDeadline` (lê "dia certinho", "prazo", "quando chega", "expressa"; não lê "bom dia") e
+`deadlineFallbackMessage` em `prompt.ts`: a janela que o prompt ensina, com o dia deixado ao checkout ("Dependendo da sua região" antes
+do CEP; o prazo médio do antecipado onde não há COD). Passa a cadeia inteira nos três contextos (teste).
+**Guarda:** `tests/deadline-fallback.test.ts`; mutação `E1-prazo-vira-handoff`. Rafa rodada de novo duas vezes: as duas até o fim,
+sem handoff.
+**Também:** o runner de personas não conhecia o status `acknowledged` ("ok" sozinho sem resposta, v15) e derrubava a Neusa; passou a
+continuar a conversa.
+**Fica para a E3 (achado da bateria):** a 1ª resposta a um "oi" (Sandra) teve o frete grátis vetado três vezes e saiu a resposta
+pronta de preço; a recepção automática ainda diz "uma de nossas atendentes" (R20.2).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

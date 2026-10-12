@@ -3609,6 +3609,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
   {
+    id: "E1-prazo-vira-handoff",
+    bug: "\"me fala o dia certinho??\" com todas as reescritas vetadas ia para uma pessoa em vez do prazo (persona Rafa, grafo §74)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  const asksWhen = !asksPrice && parts.some(asksDeadline);",
+    to: "  const asksWhen = false && parts.some(asksDeadline);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/deadline-fallback.test.ts"],
+  },
+  {
     id: "E14-estoque-no-pensar",
     bug: "a resposta do \"vou pensar\" dizia \"restam 12 unidades\" sem contagem real por trás (R20.1, grafo §72)",
     files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],

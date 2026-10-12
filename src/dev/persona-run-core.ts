@@ -418,7 +418,8 @@ export interface Report {
 }
 
 /** The conversation goes on after these. */
-const CONTINUES = new Set(["ok", "fallback", "resume_moot"]);
+// "acknowledged": a bare "ok" left unanswered on purpose (L2, v15) — the conversation goes on.
+const CONTINUES = new Set(["ok", "fallback", "resume_moot", "acknowledged"]);
 /** The conversation is over, and that is a legitimate result, not a runner failure. */
 const ENDS = new Set(["handoff", "stopped", "opted_out", "already_opted_out", "already_handed_off", "deferred"]);
 

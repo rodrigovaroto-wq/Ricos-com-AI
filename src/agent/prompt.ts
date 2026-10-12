@@ -132,6 +132,23 @@ export const priceBeforeCepMessage = (config: PromptConfig): string => {
   );
 };
 
+/**
+ * Her deadline question when every draft was vetoed (persona Rafa, 2026-10-11, grafo §74): "me fala o dia
+ * certinho??" went to a person after four vetoed promises of a day. The deadline the prompt teaches, with
+ * the day left to the checkout — never a date. Before the region is known, "dependendo da sua região".
+ */
+export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: boolean, regionKnown: boolean): string => {
+  const window = prepayWindowLine(config).replace(/,$/, "");
+  if (codUnavailable) return window ? `No antecipado ${window}, e a data aparece pra você no checkout.` : `A data de entrega aparece pra você no checkout.`;
+  return `${regionKnown ? `Na entrega` : `Dependendo da sua região, na entrega`} chega em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias, no dia que você escolhe no checkout.`;
+};
+
+/** A deadline question: the day, the window, the express (not "bom dia"). */
+export const asksDeadline = (text: string): boolean =>
+  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quanto\s+tempo|demora\w*|expressa|chega\s+(?:ate|antes|amanha|sabado|sexta))\b/.test(
+    text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
+  );
+
 /** The default when she says "sim" to the two options without choosing (design §5.1). */
 export const DEFAULT_COD_CONFIRM = "Então deixo no pagamento na entrega, que você não paga nada agora, pode ser?";
 

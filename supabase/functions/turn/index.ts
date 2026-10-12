@@ -180,7 +180,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 
@@ -3881,7 +3881,9 @@ const handleTurn = async (
   // quer saber?" (persona Sandra). Her price question gets the price, in the prompt's own sentence; anything
   // else goes to a person with the holding line.
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
-  if (outcome.kind === "fallback" && !asksPrice) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
+  // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
+  const asksWhen = !asksPrice && parts.some(asksDeadline);
+  if (outcome.kind === "fallback" && !asksPrice && !asksWhen) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
 
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
@@ -3929,7 +3931,12 @@ const handleTurn = async (
    * which is where a gate that keeps firing becomes Hermes' material.
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
-  const body = fallbackReason === null ? attempt.text : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
+  const body =
+    fallbackReason === null
+      ? attempt.text
+      : asksWhen
+        ? deadlineFallbackMessage(CONFIG, codUnavailable, knownRegion !== null)
+        : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
 
   // The draft a revision rewrites is Malu's own text; the greeting is added again after it.
