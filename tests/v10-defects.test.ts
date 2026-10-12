@@ -178,7 +178,7 @@ describe("4. região sem entrega: 'ok' ao antecipado é o caminho escolhido (pat
     "quero o da entrega", "quero na entrega", "quero pagar na entrega", "pix nao, quero na entrega",
     "quero mas so se for na entrega", "quero que entregue na porta", "pode mandar o link mas vou pagar na entrega",
     "quero pensar", "quero esperar", "quero, mas nao tenho dinheiro agora", "quero cancelar",
-    "quero falar com atendente", "quero o boleto", "quero o 46", "quero sim, tem cartão?",
+    "quero falar com atendente", "quero o boleto", "quero o 46", "quero sim, tem cartão?", "quero não", "kero nao",
   ])(
     "negação: '%s' não é a escolha do antecipado",
     (msg) => expect(store(msg, noCodMessage(config))).toBeNull(),

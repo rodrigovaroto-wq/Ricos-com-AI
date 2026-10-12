@@ -2621,7 +2621,11 @@ isso soltava o link do antecipado no turno e fixava a escolha por 7 dias. **Corr
 inteira):** `WANT_ONLY` ("quero", "sim, quero!", "kero sim") ou o pedido do link, cada parte inteira; e nomear a entrega nunca é sim ao
 antecipado, em todo o ramo `noCod`. Também: `choiceMade` exige que a escolha seja o caminho do link — "na entrega" lido como `cod` onde
 não há entrega não solta o link do antecipado. Mutações `E6-quero-solto`, `E6-entrega-vira-antecipado`; 15 negações novas em
-`tests/v10-defects.test.ts`. **Fica:** formas com outras palavras ("bora", "vamos", "fechado") ficam de
+`tests/v10-defects.test.ts`. **Quarta revisão: APROVADO COM RESSALVAS** (todas as recusas, adiamentos e pedidos de entrega dão nulo,
+inclusive os que o `yes` antigo gravava). **Fica:** "pode mandar, quando chega?" não grava (o "quando cheg" do `named` lê entrega; no
+braço B volta à ordem de hoje); "manda o link que eu vou pensar", "manda o link do rastreio" gravam o antecipado — ela pediu o link e o
+antecipado é o único caminho na região; o dano só existe se ela trocar para um CEP com entrega em 7 dias, cenário que o `yes` já tinha
+com "ok, vou pensar"; formas com outras palavras ("bora", "vamos", "fechado") ficam de
 fora (conservador: voltam ao fluxo de hoje).
 
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
