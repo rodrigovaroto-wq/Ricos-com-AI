@@ -13,14 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-11, retomada (LEIA PRIMEIRO):** E1.1 commitada em `c62f3b5` (10/10 mutações pelo `verificar:guardas`, duas revisões
-> Opus), **não publicada**. **E1.2 (alarme de cobertura) commitada (grafo §70), não publicada:** job `{job:"health"}` na `turn` que roda `lookupRegion` em três
-> CEPs de São Paulo com COD (01310100, 04710090, 04662002) pelo MESMO fetcher da conversa e devolve `healthy`/`unhealthy`; o workflow do
-> n8n (a cada 15 min, e-mail só quando piora, no máximo 1 a cada 3 h, e aviso de "voltou") é criado só no deploy, com o "pode subir".
-> Se a árvore tiver mudança não commitada de E1.2, confira com `pnpm test` e revise antes de commitar. Depois: E1.3 (retry do n8n →
-> "duplicate": diagnosticar; preferência por tirar o `retryOnFail` do nó "Cerebro do turno"), E1.4 (operador tira a escassez do
-> `BUSINESS_CONFIG`), E1.5 (gates de quadril/entregador/"afina"). Fim da E1: autoaprimoramento + personas + `/code-review` (R20.9).
-> Análise e plano completos desta sessão: [`12-analise-arquitetura-conversao.md`](docs/agente-ia/05-plano/12-analise-arquitetura-conversao.md) e [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md).
+> **2026-10-12, retomada (LEIA PRIMEIRO): a E1 está fechada no código e NÃO está no ar.** E1.1 recusa como estado (§69), E1.2
+> alarme de cobertura `job:"health"` (§70), E1.3 sem retry no turno do n8n (§71, **já no ar no n8n**, versão `b13736eb`), E1.4
+> estoque fora do "vou pensar" (§72), E1.5 gates de quadril/entregador/"afina de vez" (§73), e o fim de fase (R20.9): bateria de 13
+> personas na porta local (Denise nova), prazo pronto no lugar do handoff, `/code-review` e consertos (§74). 7273 testes, 1665/1665
+> conversas, `dev:gates` 0 afrouxado, 20/20 mutações da E1. Último commit da fase: `676204d`.
+> **Falta para o portão da E1:** (1) `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1 completa (grafo §69–§74)"` — o classificador
+> de permissão do Claude Code bloqueou o deploy em produção nesta sessão; precisa do operador (ou de regra de permissão);
+> (2) criar no n8n o workflow do alarme (a cada 15 min, POST `{"job":"health"}` com a credencial `Supabase service_role`, timeout
+> ≥ 30 s, e-mail quando `status` = `unhealthy`, no máximo 1 a cada 3 h, e aviso de "voltou"); (3) prova pela porta de produção:
+> "nao quero mais, obrigado" → só a despedida e nenhum toque agendado; `{"job":"health"}` → `healthy`. O `pnpm dev:n8n` também foi
+> bloqueado; o JSON do turno foi atualizado à mão. Próxima fase: **E2 (medição)**.
 
 > **2026-10-11 — análise de arquitetura, decisões E0 e plano prático (sessão `claude/awesome-hopper-x8j8wb`):** a análise de
 > arquitetura foi entregue e o operador **aceitou as decisões da E0** (R20.1–R20.9 em
