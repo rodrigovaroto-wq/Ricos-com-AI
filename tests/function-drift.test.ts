@@ -23,6 +23,7 @@ const mirrored = [
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
   ["src/agent/opt-in.ts", "supabase/functions/turn/opt-in.ts"],
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
+  ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],

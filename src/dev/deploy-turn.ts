@@ -49,6 +49,15 @@ const dirty = git("status", "--porcelain", "--", FUNCTION_DIR);
 if (dirty && !dryRun) throw new Error(`${FUNCTION_DIR} difere do HEAD; commite antes, para o git_sha da versão ser o código publicado:\n${dirty}`);
 
 if (proposal !== null && !/^[0-9a-f-]{36}$/.test(proposal)) throw new Error(`--proposal=${proposal}: não é o id (uuid) de hermes_proposals`);
+// Grafo §75: the turn writes turn_outcomes.duration_ms (0026). Published before the migration, every outcome
+// insert fails in silence — the 0021 pattern. Checked here, every publishing path (Hermes included) stops.
+const migrated = await sql<{ n: number }>(
+  "select count(*)::int as n from information_schema.columns where table_schema = 'public' and table_name = 'turn_outcomes' and column_name = 'duration_ms'",
+).catch(() => [{ n: 0 }]);
+if ((migrated[0]?.n ?? 0) === 0) {
+  if (!dryRun) throw new Error("a migração 0026 não está aplicada (turn_outcomes.duration_ms ausente): aplique antes do deploy (grafo §75)");
+  console.log("(a migração 0026 não está aplicada: o deploy de verdade pararia aqui)");
+}
 const last = await sql<{ version: number }>("select version from public.agent_versions order by version desc limit 1").catch(
   (e: Error) => {
     if (!dryRun) throw e;

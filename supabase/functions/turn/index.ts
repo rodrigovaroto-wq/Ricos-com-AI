@@ -71,7 +71,7 @@ import {
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
+import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -183,6 +183,7 @@ import {
 import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
+import { armOf } from "./experiments.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -359,6 +360,8 @@ interface BusinessConfig extends GateConfig {
   support?: { email?: string };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
+  /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
+  experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
   /**
@@ -494,7 +497,9 @@ type TurnOutcome = "send" | "fallback" | "deferred" | "handoff" | "stopped" | "o
  * THIS turn spent, not the conversation's running total — summing the total per turn
  * inflates the price of every gate by the length of the conversation.
  */
-const recordOutcome = async (
+const writeOutcome = async (
+  /** When the turn started (E2.1): `duration_ms` is from there to the reply ready, the wait she feels. */
+  turnStartedAt: number,
   conversationId: string,
   outcome: TurnOutcome,
   reason: string | null = null,
@@ -509,6 +514,8 @@ const recordOutcome = async (
       reason,
       rewrites,
       cost_brl: costBrl,
+      // DEPLOY ORDER: migration 0026 first — without the column this insert 400s and the outcome is lost.
+      duration_ms: Date.now() - turnStartedAt,
       // Only when set: before 0021 the column does not exist and the insert would 400 — every
       // outcome and call lost in silence (review, 2026-10-02).
       ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
@@ -543,6 +550,7 @@ const callLuna = async (
   timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
+  const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
@@ -572,6 +580,7 @@ const callLuna = async (
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
+    latencyMs: Date.now() - startedAt,
   };
 };
 
@@ -594,6 +603,7 @@ const callMuse = async (
   timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
+  const startedAt = Date.now();
   const response = await fetch("https://api.meta.ai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${META_KEY}`, "Content-Type": "application/json" },
@@ -622,6 +632,7 @@ const callMuse = async (
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
+    latencyMs: Date.now() - startedAt,
   };
 };
 
@@ -651,7 +662,8 @@ const withNetworkRetry = async <T>(call: (timeoutMs: number) => Promise<T>, dead
  * written as zero on every row, which makes the stored cost impossible to audit
  * afterwards: a bill that disagrees with the sum has no breakdown to check it against.
  */
-type ModelCall = { text: string; inTok: number; outTok: number; cachedTok: number; costBrl: number };
+/** `latencyMs`: this call's request to its parsed answer (E2.1) — the try that answered, not the retries before it. */
+type ModelCall = { text: string; inTok: number; outTok: number; cachedTok: number; costBrl: number; latencyMs: number };
 
 const recordCall = (
   conversationId: string,
@@ -671,6 +683,7 @@ const recordCall = (
       output_tokens: call.outTok,
       cached_tokens: call.cachedTok,
       cost_brl: call.costBrl,
+      latency_ms: call.latencyMs,
       // Only when set: before 0021 the column does not exist and the insert would 400 — every
       // outcome and call lost in silence (review, 2026-10-02).
       ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
@@ -1814,6 +1827,10 @@ const runFollowupSweep = async () => {
       ).catch(() => null);
       const earlier = (window ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
       await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text));
+      // A held reply that carries the link is the link going out (E2.2): the turn that wrote it stored no `link_enviado`.
+      if (linkSentRecently([text], CHECKOUT_BASES)) {
+        await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "link_enviado");
+      }
     }
     toSend.push(
       delivery.via === "template"
@@ -2032,6 +2049,8 @@ const handleTurn = async (
   internal: { retry?: RetryTicket; revise?: ReviseTicket; claimed?: { id?: string; at?: string } } = {},
 ): Promise<Response> => {
   const turnStartedAt = Date.now();
+  const recordOutcome = (conversationId: string, outcome: TurnOutcome, reason?: string | null, rewrites?: number, costBrl?: number) =>
+    writeOutcome(turnStartedAt, conversationId, outcome, reason, rewrites, costBrl);
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
   // `retry_turn` rows, which run a whole turn again (R13.4).
@@ -2120,6 +2139,14 @@ const handleTurn = async (
         }),
       })
     )[0];
+  // E2.3: her A/B arm, sorted from the phone and written once — `arm=is.null` never overwrites it.
+  // A lead from before 0026 gets hers on her next turn. Index: leads_pkey. Failure costs only the label.
+  if (!lead.arm) {
+    await db(`leads?id=eq.${lead.id}&arm=is.null`, {
+      method: "PATCH",
+      body: JSON.stringify({ arm: armOf(lead.phone) }),
+    }).catch(() => undefined);
+  }
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,
@@ -2158,8 +2185,9 @@ const handleTurn = async (
    */
   let reachedSoFar: Stage = reachedStage({
     size: lead.size ?? null,
-    addressConfirmed: Boolean(lead.address?.confirmedAt),
-    addressComplete: isComplete(lead.address ?? {}),
+    coverageKnown: typeof lead.address?.codAvailable === "boolean",
+    pathChosen: Boolean(lead.payment_choice),
+    linkSent: false,
     orderBuilt: false,
   });
 
@@ -2831,17 +2859,18 @@ const handleTurn = async (
       }),
     });
     // A fixed line that carries the link starts the ruler at `link_sent`.
+    const linkOut = Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES);
     await scheduleSilenceTouches(
       conversation.id,
       extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
-      Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES),
+      linkOut,
       new Date(),
       undefined,
       endsWithQuestion(text),
     );
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
-      persistStage(conversation.id, storedStage, reachedSoFar),
+      persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
       status: "ok",
@@ -3208,11 +3237,16 @@ const handleTurn = async (
   // 5d. The address loop. It accumulates across turns because she says it in pieces,
   // and it is only ever *confirmed* by her saying so — a package sent to an address
   // nobody read back is the failed delivery this costs the most to fix.
-  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string; codAvailable?: boolean };
+  const storedAddress = (lead.address ?? {}) as Partial<Address> & {
+    confirmedAt?: string;
+    codAvailable?: boolean;
+    region?: CachedRegion;
+  };
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
+  delete (addressDraft as { region?: CachedRegion }).region;
 
   // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
   const foundAddress = { fields: extractAddressBurst(parts) };
@@ -3257,13 +3291,18 @@ const handleTurn = async (
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
   let badCep: string | null = null;
-  if (addressDraft.cep) {
+  // E2.4: the same CEP looked up less than an hour ago is not asked again (latency). Only a found region is kept.
+  let freshRegion: CachedRegion | null = null;
+  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now()) : null;
+  if (cached) region = cached;
+  else if (addressDraft.cep) {
     try {
       const lookup = await lookupRegion(
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         addressDraft.cep,
       );
       region = lookup.kind === "found" ? lookup.region : null;
+      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
       // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
@@ -3295,13 +3334,13 @@ const handleTurn = async (
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
-    JSON.stringify({ ...storedAddress, codAvailable: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
+    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
   // Whether her region pays at the door, kept for the sweep (D3): the region is looked up per
   // turn and was never stored, so the silence ruler told a woman with no payment at the door
   // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
   const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
   codUnavailable = codAvailable === false;
-  if (addressChanged || codAvailable !== storedAddress.codAvailable) {
+  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -3309,6 +3348,7 @@ const handleTurn = async (
           ...addressDraft,
           ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
           ...(codAvailable !== undefined ? { codAvailable } : {}),
+          ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
         },
         updated_at: new Date().toISOString(),
       }),
@@ -3341,15 +3381,6 @@ const handleTurn = async (
       }),
     }).catch(() => undefined);
   }
-
-  // This turn's size, address and identity are already stored on the lead; the rung they
-  // support holds for every exit from here on. The order is only built at the end.
-  reachedSoFar = reachedStage({
-    size: stated?.size ?? lead.size ?? null,
-    addressConfirmed,
-    addressComplete: isComplete(addressDraft),
-    orderBuilt: false,
-  });
 
   // 6. History, then the turn that sells.
   const history = await db(
@@ -3447,6 +3478,17 @@ const handleTurn = async (
       }),
     }).catch(() => undefined);
   }
+  // This turn's size, region and payment path are already stored on the lead; the rung they
+  // support holds for every exit from here on. The link and the order come at the end.
+  const coverageKnown = codAvailable !== undefined;
+  const choiceStored = (choiceToStore ?? storedChoice) !== null;
+  reachedSoFar = reachedStage({
+    size: stated?.size ?? lead.size ?? null,
+    coverageKnown,
+    pathChosen: choiceStored,
+    linkSent: false,
+    orderBuilt: false,
+  });
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -4032,8 +4074,9 @@ const handleTurn = async (
       storedStage,
       reachedStage({
         size: stated?.size ?? lead.size ?? null,
-        addressConfirmed,
-        addressComplete: isComplete(addressDraft),
+        coverageKnown,
+        pathChosen: choiceStored,
+        linkSent: linkSentRecently([replyText], CHECKOUT_BASES),
         orderBuilt: order !== null,
       }),
     ),

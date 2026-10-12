@@ -39,3 +39,7 @@ e Coinzz disparam o webhook a cada mudança de status. `perdido` passou a ser es
 pela varredura quando o `silence_3` sai da fila sem venda (grafo §15), **ainda não deployado**.
 Armadilha: com o cupom inativo o `silence_3` renderiza `null` — qualquer lógica de "fim da
 régua" tem de cobrir o ramo vazio, não só o envio.
+
+**2026-10-12 (E2, grafo §75):** a escada mudou — `endereco_coletado` saiu (era inalcançável) e entraram `cobertura_conhecida`,
+`caminho_escolhido` e `link_enviado` entre `tamanho_definido` e `pedido_criado`. A migração 0026 re-deriva as linhas antigas dos fatos
+do lead e tem de ir ANTES da `turn` (o `deploy:turn` confere).

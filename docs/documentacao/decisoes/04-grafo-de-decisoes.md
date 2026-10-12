@@ -2472,6 +2472,29 @@ sem a isenção do `scarcity_claim` (R20.1). **Recusado pela segunda revisão:**
 honesto "Ele modela a barriga, o quadril não"; "Modela a cintura, o quadril e a barriga" fica como resíduo. **Fica:** os 20
 corpos embutidos na leitura da régua (I/O pequeno, sem efeito na cliente); o parâmetro morto de `scarcityBriefing`.
 
+## 75. Medição: latência, estágios reais, braço A/B e cobertura guardada (E2, 2026-10-12)
+
+**Sintoma:** antes do L3 nenhum lead geraria dado útil — `llm_calls.latency_ms` vazio na `turn`, nenhuma duração de turno; o funil
+pulava de `tamanho_definido` para o webhook (`endereco_coletado` era inalcançável: a Malu não pede endereço), justamente onde a
+venda morre; sem braço por lead, antes/depois confundiria a agente com a troca de criativo do L3 (R20.4); e a Coinzz era consultada
+em todo turno com CEP.
+**Correção (migração 0026):** `latency_ms` gravado em `recordCall`; `turn_outcomes.duration_ms`; view `eval_latency` (p50/p90 por dia e
+braço). Escada nova `tamanho_definido → cobertura_conhecida → caminho_escolhido → link_enviado → pedido_criado` (sem regressão pelo
+`furthest`; os `endereco_coletado` existentes são re-derivados dos fatos do lead, o único lugar em que um estágio desce).
+`leads.arm {"A","B"}` por `armOf(telefone)` (dois sorteios independentes, ~50/50); `experiments` opcional no config (ausente =
+ninguém em teste); `armOn` testado e ainda não ligado (E3/E6); views `eval_arm_outcomes`/`eval_arm_funnel`. Cobertura guardada em
+`leads.address.region` por 1 h para o mesmo CEP, só quando a consulta achou a região; a janela do mesmo dia nunca sai do cache.
+**Caminhos que não valiam:** a `turn` repetir o insert sem a coluna nova se a 0026 faltar — transforma um erro de deploy alto em dado
+de latência perdido em silêncio; colunas de braço nas views antigas — o `painel.ts` lê uma linha por dia delas.
+**Regra de deploy (R1 da revisão):** a 0026 vai ANTES da `turn`. O `deploy:turn` agora confere `turn_outcomes.duration_ms` e para se
+faltar — cobre todo caminho que publica, o do Hermes incluído. O contrário (0026 com a `turn` antiga no ar) é seguro.
+**Guarda:** `tests/measurement.test.ts`, `tests/experiments.test.ts`, `tests/state-machine.test.ts`; migração rodada 0001→0026 num
+Postgres descartável (a 0026 duas vezes); mutações da E2 + `E2-deploy-sem-0026` e `E2-mesmo-dia-do-cache`. Revisão Opus: aprovado
+com ressalvas (as duas consertadas).
+**Resíduos:** a varredura grava `link_enviado` ao montar o envio, não na confirmação; `cod` guardado pode ficar até 1 h atrás de uma
+mudança da Coinzz; na revisão (`revise`) a `duration_ms` cobre só a revisão; leads anteriores à 0026 ganham braço no próximo turno.
+**Estado (2026-10-12):** no código, não publicado; a 0026 não aplicada.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

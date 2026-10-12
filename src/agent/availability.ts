@@ -279,6 +279,22 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
   return { kind: "found", region: toRegion(zip, place, readAvailability(REFERENCE_SIZE, body)) };
 };
 
+/**
+ * The region a turn found, kept on `leads.address.region` (E2.4, latency): the next turn reuses it
+ * instead of asking ViaCEP and Coinzz again, for the same CEP and up to an hour. Only a `found`
+ * region is ever kept — a failed lookup stays "unknown region", never "no cash on delivery".
+ */
+export const REGION_CACHE_MS = 60 * 60 * 1000;
+export type CachedRegion = Region & { readonly checkedAt: string };
+
+export const cachedRegion = (cached: CachedRegion | null | undefined, zip: string, now: number): Region | null => {
+  if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
+  // The same-day window closes during the day: never served from the cache (E2 review).
+  if (cached.sameDay) return null;
+  const age = now - Date.parse(cached.checkedAt);
+  return age >= 0 && age < REGION_CACHE_MS ? cached : null;
+};
+
 export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {
   const lookup = await lookupRegion(fetcher, zip);
   return lookup.kind === "found" ? lookup.region : null;
