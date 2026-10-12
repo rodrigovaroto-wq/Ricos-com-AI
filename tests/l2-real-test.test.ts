@@ -79,7 +79,7 @@ describe("L2 — um 'ok' sozinho não ganha resposta", () => {
 
   it("a função de produção para antes do intérprete, sem chamar o modelo, e arma a ajuda", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    const ack = turn.indexOf("if (!isRetry && !isResume && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum))");
+    const ack = turn.indexOf('if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum))');
     expect(ack).toBeGreaterThan(-1);
     expect(ack).toBeLessThan(turn.indexOf("const ask = interpretRequest(lastOutbound"));
     expect(turn).toContain("ackHelpText(datum)");

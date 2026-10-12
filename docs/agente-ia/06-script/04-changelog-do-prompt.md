@@ -5,6 +5,42 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
+### 2026-10-12 — E3: primeiro contato e humanização v1 (não publicado)
+
+- **Mudou (pacote E3 do plano 13, vários itens juntos por decisão do operador; o efeito de
+  cada um não é atribuível sem o eval da E4):**
+  1. **E3.1, abertura (H1):** a saudação fixa "Oii, … Sou a Malu e darei início ao seu
+     atendimento" e o "Em que posso te ajudar?" saíram. A 1ª resposta é do modelo, com a
+     diretiva `openingDirective`: saudação da hora (calculada pela hora em que a resposta sai),
+     "a Malu, da Encorpa" uma vez, a resposta ao que ela escreveu, o anúncio de origem
+     (`leads.source.headline`, limpo de aspas e quebras e cortado em 120 caracteres) e, se ela
+     só cumprimentou, uma frase sobre o anúncio e uma pergunta aberta. Nada de frete na
+     abertura, a não ser que ela pergunte (grafo §76). O texto fixo da 1ª resposta (link, "vou
+     pensar", despedida, preço de reserva) abre com "Oi, boa tarde! Aqui é a Malu, da Encorpa."
+  2. **E3.2, H2:** diretiva de registro calculada por código (`registerDirective`), sobre as
+     3 últimas mensagens dela: média ≤ 8 palavras → 1 balão de até uns 15 palavras ("e
+     informal" com kkk, emoji ou abreviação); média ≥ 25 → 2 ou 3 balões; no meio, nada.
+  3. **H4:** lista de tiques proibidos no "Sem bordão".
+  4. **H5:** saíram o "Ex.: … Que presente especial …", as quatro "outras formas" de COMO ISSO
+     VIRA FRASE e o "Ex.:" do gancho. Entrou `A FORMA, EM TRÊS TROCAS` com "não reuse estas
+     frases". Ficaram as frases canônicas que os gates exigem (frete, duas opções, sem
+     pagamento na entrega, preço antes do CEP) e os "Por exemplo" de loja, frete do antecipado
+     e rajada, que ensinam a frase que passa no gate.
+  5. **H7:** "Pergunta de compra vence o gancho."
+  6. **Fora do prompt:** a recepção virou "Recebi sua mensagem, já te respondo por aqui 💛";
+     o link abre com "Pronto, aqui está o seu link 💛"; experimento A (`fastOpening`).
+- **Por quê:** §19 R1, R2, R5, R8, R10 e R12 da análise 12 (falas reais de 06 a 09/10);
+  decisões D2 e R20.5 do operador.
+- **Medido:** só determinístico. `tests/prompt.test.ts` passa (as três trocas e a saudação
+  passam a cadeia nos 6 cantos do config); `dev:gates` sem nenhum afrouxamento;
+  `dev:conversas` 1665/1665; 9 mutações novas, todas pegas. **Nenhuma medida com modelo:**
+  naturalidade, tiques por conversa, sobreposição de n-gramas com o prompt e taxa de recusa
+  dos gates ficam para o eval mínimo da E4, antes × depois, no `muse-spark-1.3-contributor`.
+- **Regressão:** nenhuma nos casos de negação existentes. Novo caso de negação: o "n" de
+  "não" não conta como abreviação.
+- **Não mudou (de propósito):** a regra "vírgula mais que ponto" (H3, R20.7) e "uma pergunta
+  viva no fim" (H6).
+
 ### 2026-10-06 — conversa de venda v2: duas opções, dados antes do link, fatos do colete
 
 - **Mudou (várias coisas juntas, a pedido do operador; o efeito de cada uma não é atribuível):**

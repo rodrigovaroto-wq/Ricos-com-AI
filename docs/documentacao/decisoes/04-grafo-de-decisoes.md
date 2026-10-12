@@ -2520,6 +2520,28 @@ braço mostram ruído até lá — não ler como resultado); a 0026 aplicada min
 re-derivados (aplicar logo antes do deploy); `payment_choice` vencido levanta o estágio nas saídas antecipadas; o braço numa ida a mais
 ao banco no 1º turno; o simulador do `dev:conversas` não cobre os degraus novos (só os testes de `reachedStage`).
 
+## 77. Primeiro contato e humanização v1 (E3, 2026-10-12)
+
+**Sintoma (§19 da análise, falas reais):** abertura em dobro e de call center (recepção "uma de nossas atendentes… acesse o site" +
+"darei início ao seu atendimento. Em que posso te ajudar?", até para quem disse "Quero comprar"); o exemplo do prompt copiado palavra
+por palavra ("Que presente especial…"); tique "Que bom que…"; parágrafo para quem escreve "Hahah tem sim!"; gancho de dor antes da
+pergunta de compra; frete grátis na 1ª resposta vetado três vezes (§76).
+**Correção:** recepção honesta ("Recebi sua mensagem, já te respondo por aqui 💛"; de madrugada "…a partir das 6h", nunca "já")
+(R20.2); experimento A (`armOn(…, "A")`, R20.5): no braço 1, dentro da janela, sem recepção e sem a espera de 60 s, e pausa de
+digitação de no máximo 3 s / 6 s; sem `experiments.fastOpening`, o ritmo de hoje. A 1ª resposta é do modelo, com `openingDirective`
+(saudação da hora, "a Malu, da Encorpa" uma vez, o título do anúncio quando esta conversa veio de um, sem frete se ela não
+perguntou); `greetingFor` só abre os textos fixos de 1ª resposta. No prompt: `registerDirective` (H2, tamanho e tom dela; não na 1ª
+resposta), lista de tiques (H4), três trocas de forma no lugar das frases-exemplo (H5), pergunta de compra vence o gancho (H7).
+`linkMessage` abre com "Pronto, aqui está o seu link 💛". Fica de fora, por decisão: a regra da vírgula (R20.7, vai ao eval) e H6.
+**Revisão Opus (reprovou, consertado):** no braço 1 um "ok"/"👍" como 1ª mensagem ficava sem resposta (a regra do "ok sozinho" via
+conversa sem nada nosso) — agora só vale com mensagem nossa no chat; a diretiva de tamanho contradizia a apresentação na 1ª resposta;
+"já te respondo" de madrugada; título de anúncio antigo numa conversa nova. **Resíduos:** saudação da hora calculada no começo do
+turno (segundos de diferença só importam com `closeHour` antes da meia-noite); a soma das pausas pode passar de 12 s com três balões
+longos.
+**Guarda:** `tests/e3-opening.test.ts`, `tests/prompt.test.ts` (as três trocas pela cadeia nos quatro cantos), 9 mutações `E3-*`.
+`dev:gates` 0 afrouxado; `dev:conversas` 1665/1665. **Falta:** o efeito em naturalidade e venda — medido pela E4 (base × E3).
+**Estado (2026-10-12):** no código, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

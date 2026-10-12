@@ -94,13 +94,14 @@ describe("recusa de dado: sem problema, segue, e o link diz o que preencher", ()
     expect(refusedDatum(ask("Me passa seu nome completo, por favor?", "Leila da Silva"), "name")).toBe(0);
     expect(refusedDatum(ask("Me passa seu nome completo, por favor?", "depois te passo"), "name")).toBe(0);
   });
-  it("a mensagem do link abre com 'Sem problema!' e diz o que falta preencher", () => {
+  it("a mensagem do link abre com 'Sem problema,' e diz o que falta preencher", () => {
     const m = linkMessage("https://x/checkout", "prepay", "G", "Encorpa", 1, ["e-mail", "CPF"], true);
-    expect(m.startsWith("Sem problema! É só clicar no link do checkout a seguir")).toBe(true);
+    expect(m.startsWith("Sem problema, aqui está o seu link")).toBe(true);
     expect(m).toContain("No checkout você vai preencher também o seu e-mail e o seu CPF, tá?");
     expect(m.indexOf("preencher também")).toBeLessThan(m.indexOf("https://x/checkout"));
     // Negation: nothing missing, the operator's text as before.
-    expect(linkMessage("https://x/checkout", "cod", "G", "Encorpa").startsWith("Perfeito! É só clicar")).toBe(true);
+    expect(linkMessage("https://x/checkout", "cod", "G", "Encorpa").startsWith("Pronto, aqui está o seu link 💛")).toBe(true);
+    expect(linkMessage("https://x/checkout", "cod", "G", "Encorpa")).not.toMatch(/Perfeito|obrigada por escolher/);
     expect(linkMessage("https://x/checkout", "cod", "G", "Encorpa")).not.toContain("preencher também");
   });
 });

@@ -21,6 +21,14 @@ export const PRESENCE_REFRESH_MS = 15_000;
 export const bubbleDelayMs = (bubble: string): number =>
   Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
 
+/**
+ * The pause of bubble `index` of a reply. Experiment A, arm 1 (E3.4): the first bubble waits at most
+ * 3 s and the others 6 s; arm 0 is `bubbleDelayMs`. Copied inline into the Edge Function, held by
+ * `tests/function-drift.test.ts`.
+ */
+export const pacedDelayMs = (bubble: string, index: number, fast: boolean): number =>
+  fast ? Math.min(index === 0 ? 3_000 : 6_000, bubbleDelayMs(bubble)) : bubbleDelayMs(bubble);
+
 /** How many times to re-send "typing" while waiting out a delay. */
 export const presenceRefreshes = (delayMs: number): number =>
   Math.max(1, Math.ceil(delayMs / PRESENCE_REFRESH_MS));

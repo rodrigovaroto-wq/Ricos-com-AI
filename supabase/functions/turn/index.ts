@@ -21,11 +21,13 @@ import {
   remedyFor,
   runGates,
   wantsHuman,
+  hourIn,
   type GateConfig,
 } from "./guardrails.ts";
 import {
   decideTouch,
   deliveryFor,
+  BUSINESS_TZ,
   nextOpening,
   windowIsOpen,
   checkHumanReply,
@@ -136,8 +138,9 @@ import {
   linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
+  welcomeNightReply,
+  dayPart,
   greetingFor,
-  GREETING_ASK,
   isReceipt,
   onlyGreets,
   spoken,
@@ -180,10 +183,10 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
-import { armOf } from "./experiments.ts";
+import { armOf, armOn } from "./experiments.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -948,6 +951,10 @@ const MS_PER_WORD = 560;
 const bubbleDelayMs = (bubble: string): number =>
   Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
 
+// Experiment A, arm 1 (E3.4): first bubble at most 3 s, the others 6 s. Same line as src/agent/pacing.ts.
+const pacedDelayMs = (bubble: string, index: number, fast: boolean): number =>
+  fast ? Math.min(index === 0 ? 3_000 : 6_000, bubbleDelayMs(bubble)) : bubbleDelayMs(bubble);
+
 const MAX_BUBBLE_WORDS = 30;
 
 const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).length;
@@ -1003,8 +1010,8 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
  * the database holds and what a person reads in a handoff mail — and `bubbles` is the
  * same text, split and timed, so the sender never has to reimplement the rhythm.
  */
-const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
-  text === null ? [] : splitBubbles(text).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }));
+const paced = (text: string | null, fast = false): Array<{ text: string; delayMs: number }> =>
+  text === null ? [] : splitBubbles(text).map((b, i) => ({ text: b, delayMs: pacedDelayMs(b, i, fast) }));
 
 /** She answered — every pending touch for this conversation is moot. */
 /**
@@ -2148,6 +2155,11 @@ const handleTurn = async (
       body: JSON.stringify({ arm: armOf(lead.phone) }),
     }).catch(() => undefined);
   }
+  // Experiment A (E3.1/E3.4): arm 1 skips the receipt and the 60 s wait, and types faster. A brand-new
+  // lead has no stored arm yet: hers is the same `armOf`, read here. Absent `fastOpening` = nobody.
+  const fastOpening = armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "A");
+  // The send window is open now: a reply written now goes now (the `business_hours` gate reads the same).
+  const openNow = ((h) => h >= CONFIG.hours.openHour && h < CONFIG.hours.closeHour)(hourIn(new Date(), BUSINESS_TZ));
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,
@@ -2295,9 +2307,13 @@ const handleTurn = async (
   // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
   // call never re-enters here.
   const isNewLead = !existing?.[0];
-  if (isNewLead && !isResume) {
+  // Arm 1 of experiment A answers right away instead — inside the send window only: at night the real
+  // reply waits for the opening, and silence until then reads as ignored, so she still gets the receipt.
+  if (isNewLead && !isResume && !(fastOpening && openNow)) {
+    // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
+    const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
     const welcomedAt = new Date().toISOString();
-    const receipt = runGates(WELCOME_AUTO_REPLY, {
+    const receipt = runGates(receiptText, {
       config: turnConfig,
       layer: "auto",
       optedOut: false,
@@ -2314,7 +2330,7 @@ const handleTurn = async (
           body: JSON.stringify({
             conversation_id: conversation.id,
             direction: "outbound",
-            body: WELCOME_AUTO_REPLY,
+            body: receiptText,
           }),
         })
       )[0];
@@ -2324,8 +2340,8 @@ const handleTurn = async (
       });
       return json(200, {
         status: "welcomed",
-        reply: WELCOME_AUTO_REPLY,
-        bubbles: paced(WELCOME_AUTO_REPLY),
+        reply: receiptText,
+        bubbles: paced(receiptText),
         messageId: out.id,
         resumeInSeconds: WELCOME_RESUME_DELAY_SECONDS,
       });
@@ -2483,7 +2499,7 @@ const handleTurn = async (
       status: "handoff",
       reason,
       reply: sendable ? reply : null,
-      bubbles: paced(sendable ? reply : null),
+      bubbles: paced(sendable ? reply : null, fastOpening),
       blocked: receipt.traces.filter((t) => t.verdict === "block"),
       messageId: asked?.id ?? null,
       ...notification(lead, conversation),
@@ -2588,7 +2604,7 @@ const handleTurn = async (
     return json(200, {
       status: "opted_out",
       reply: farewell?.text ?? null,
-      bubbles: paced(farewell?.text ?? null),
+      bubbles: paced(farewell?.text ?? null, fastOpening),
       messageId: farewell?.id ?? null,
       costBrl: spent,
     });
@@ -2638,7 +2654,7 @@ const handleTurn = async (
       status: "handoff",
       reason: "teto de custo da conversa",
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: ceilingHold.id,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -2699,7 +2715,7 @@ const handleTurn = async (
       // third party's log has to be rotated, not masked.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: held?.[0]?.id ?? null,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -2877,7 +2893,7 @@ const handleTurn = async (
       status: "ok",
       reason,
       reply: text,
-      bubbles: paced(text),
+      bubbles: paced(text, fastOpening),
       messageId: out.id,
       rewrites: 0,
       ...extra,
@@ -2993,7 +3009,8 @@ const handleTurn = async (
     : asksForName(lastOutbound)
     ? "name"
     : null;
-  if (!isRetry && !isResume && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
+  // E3 review (B1): with nothing of ours in the chat yet (arm A, no receipt), her "ok"/"👍" is a first message and gets an answer.
+  if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
     // Her message cancelled the ruler; it comes back as it was armed by the agent's last reply.
     const earlier = (recentRows ?? [])
       .filter((m: { direction: string }) => m.direction === "outbound")
@@ -3611,7 +3628,8 @@ const handleTurn = async (
   let farewell = false;
   // Malu's first real reply opens with the greeting of the hour, a fixed bubble (operator, 2026-10-07,
   // grafo §66) — also when that reply is a fixed one, the link or the "vou pensar" (review of §66, B2).
-  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
+  // E3.1: the model writes the opening of a reply of its own; this short line opens only a fixed one.
+  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName, CONFIG.brand);
   const opening = (text: string): string => (greeting === null ? text : `${greeting}\n\n${text}`);
   // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
   if (declinesInBurst(parts) && !interpretation.wants_to_buy) {
@@ -3734,17 +3752,21 @@ const handleTurn = async (
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
         ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
-  // all she wrote was a greeting → the greeting and "Em que posso te ajudar?", no model call.
-  if (greeting !== null && !farewell && onlyGreets(parts)) {
-    const sent = await sendFixed(`${greeting}\n\n${GREETING_ASK}`, "primeira resposta: saudação");
-    if (sent) return sent;
-  }
   const sizeDirective =
     [
+      // E3.1: her first real reply opens with the model's own greeting, of the hour it goes out.
       greeting
-        ? `A saudação e a sua apresentação já vão num balão antes da sua mensagem: não cumprimente, não diga` +
-          ` seu nome e não pergunte se ela está bem. Comece respondendo o que ela escreveu, em no máximo dois balões.`
+        ? openingDirective(
+            CONFIG,
+            dayPart(openNow ? new Date() : nextOpening(new Date(), CONFIG.hours.openHour)),
+            // Only when this conversation came from an ad (E3 review, R4): the stored headline is the first ad ever.
+            typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
+            onlyGreets(parts),
+          )
         : null,
+      // E3.2 (H2): her size and register, over her last three messages.
+      // Not on her first reply (E3 review, R1): the opening's greeting and question outrank "1 balão de 15 palavras".
+      greeting ? null : registerDirective(recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? ""))),
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
@@ -3904,8 +3926,8 @@ const handleTurn = async (
         kind: "deferred_reply",
         run_at: runAt.toISOString(),
         status: "scheduled",
-        // The first reply held for the opening keeps its greeting, of the hour it goes out (review 3 of §66).
-        body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\n\n${attempt.text}`,
+        // The model already greeted with the hour it goes out (E3.1: the opening directive reads `openNow`).
+        body: attempt.text,
       }),
     });
     await Promise.all([
@@ -3965,7 +3987,7 @@ const handleTurn = async (
       status: "handoff",
       reason,
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: holding.id,
       rewrites: rewritesUsed,
       blockedText: attempt.text,
@@ -3989,7 +4011,8 @@ const handleTurn = async (
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
-  const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
+  // Only a fixed fallback gets the short greeting: the model's own first reply already opened (E3.1).
+  const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\n\n${body}`;
 
   // The draft a revision rewrites is Malu's own text; the greeting is added again after it.
   const gaveUp = await lateGuard(rewritesUsed, body);
@@ -4097,7 +4120,7 @@ const handleTurn = async (
           blocked: gates.traces.filter((t) => t.verdict === "block"),
         }),
     reply: replyText,
-    bubbles: paced(replyText),
+    bubbles: paced(replyText, fastOpening),
     messageId: outbound.id,
     rewrites: rewritesUsed,
     order,

@@ -210,7 +210,8 @@ const reais = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
 /**
  * The link, said the operator's way (2026-10-07, grafo §66): no "quer que eu te mande o link?" — it is
  * sent, in three bubbles: the line, the link alone, and what is left there, once. Fixed text: the model
- * asked permission five times and never sent it.
+ * asked permission five times and never sent it. E3.3 (§19 R10): the first line is short and warm, no
+ * "Perfeito! … obrigada por escolher a marca"; `brand` is kept in the signature for the callers.
  */
 export const linkMessage = (
   url: string,
@@ -220,7 +221,7 @@ export const linkMessage = (
   pieces = 1,
   /** What she did not give in the chat and fills in the checkout, said before the link (operator, 2026-10-09). */
   toFill: readonly string[] = [],
-  /** She just refused a datum: "Sem problema!" opens instead of "Perfeito!" (operator, 2026-10-09). */
+  /** She just refused a datum: "Sem problema," opens instead of "Pronto," (operator, 2026-10-09). */
   refusedNow = false,
 ): string => {
   const choose = pieces > 1 ? "escolhe o tamanho de cada peça" : `escolhe o ${size ?? "seu tamanho"}`;
@@ -232,7 +233,7 @@ export const linkMessage = (
       ? `Lá você completa o endereço, ${choose} e o dia da entrega.`
       : `Lá você completa o endereço, ${choose}, confere o frete e paga no pix ou no cartão.`;
   return (
-    `${refusedNow ? "Sem problema!" : "Perfeito!"} É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a ${brand}.${fill}` +
+    `${refusedNow ? "Sem problema," : "Pronto,"} aqui está o seu link 💛${fill}` +
     `\n\n${url}\n\n${there} Se precisar de alguma ajuda, estarei aqui.`
   );
 };
@@ -355,45 +356,54 @@ export const networkRetryDelay = (
 /**
  * Estágio 0 — the receipt every brand-new lead gets, 24/7, before the agent has said a
  * word. Same class as the two replies above: fixed text, never the model, layer "auto"
- * so the hours gate does not apply (R4.4). Approved by the operator on 2026-09-21,
- * spacing included — the paragraph breaks are the approved text, not formatting. The
- * second line changed on 2026-09-24 (R13.5): "fará seu atendimento" became "esclarecerá
- * todas as suas dúvidas". On 2026-10-07 the opening "Oii, tudo bem?" left it (operator, grafo §66):
- * the greeting is Malu's, in her first real reply.
+ * so the hours gate does not apply (R4.4). Since E3.1 (operator, D2) it is one honest line: no
+ * "atendentes", no site, no promise of a person. Arm 1 of experiment A (`fastOpening`) skips it
+ * inside the send window and gets Malu's real reply right away.
  *
- * It answers nothing about her message; it exists to be honest that a person has not
- * replied yet, in a channel where silence reads as ignored. Sent once per lead, never
+ * It answers nothing about her message; it exists so silence does not read as ignored. Sent once per lead, never
  * repeated — a lead that already has a conversation is not new, and does not see it
  * again on her second message.
  */
-export const WELCOME_AUTO_REPLY =
+export const WELCOME_AUTO_REPLY = "Recebi sua mensagem, já te respondo por aqui 💛";
+/** The receipt outside the send window (E3 review, R2): it says when the reply comes, never "já". */
+export const welcomeNightReply = (openHour: number): string => `Recebi sua mensagem 💛 Te respondo por aqui a partir das ${openHour}h.`;
+
+/**
+ * The receipt sent until E3 (2026-10): it promised "uma de nossas atendentes" and sent her to the site
+ * (§19 R1, operator D2). Kept only so `isReceipt` still recognises it in the history of older conversations.
+ */
+const LEGACY_RECEIPT =
   "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
   "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
   "encorpa-fashion.com.br";
 
 /**
- * Malu's first real reply opens with the greeting of the hour (operator, 2026-10-07, grafo §66):
- * "bom dia" from 06:00 to 12:00, "boa tarde" to 19:00, "boa noite" to midnight, São Paulo time.
- * Before 06:00 the reply waits for the opening, so it is "bom dia" too.
+ * The greeting of the hour (operator, 2026-10-07, grafo §66): "bom dia" from 06:00 to 12:00, "boa tarde"
+ * to 19:00, "boa noite" to midnight, São Paulo time. Before 06:00 the reply waits for the opening, so
+ * it is "bom dia" too.
  */
-export const greetingFor = (at: Date, agentName: string): string => {
+export const dayPart = (at: Date): string => {
   const hour = Number(
     new Intl.DateTimeFormat("en-US", { timeZone: "America/Sao_Paulo", hour: "numeric", hourCycle: "h23" }).format(at),
   );
-  const part = hour >= 19 ? "boa noite" : hour >= 12 ? "boa tarde" : "bom dia";
-  return `Oii, ${part}, tudo bem?! Sou a ${agentName} e darei início ao seu atendimento.`;
+  return hour >= 19 ? "boa noite" : hour >= 12 ? "boa tarde" : "bom dia";
 };
 
-/** The second bubble when all she wrote was a greeting; with a question, the answer takes its place. */
-export const GREETING_ASK = "Em que posso te ajudar?";
+/**
+ * Since E3.1 the model writes the opening of her first real reply. This short line opens only a FIXED
+ * text sent as that first reply (the link, "vou pensar", the goodbye, the price fallback) — no
+ * "darei início ao seu atendimento" (§19 R1).
+ */
+export const greetingFor = (at: Date, agentName: string, brand: string): string =>
+  `Oi, ${dayPart(at)}! Aqui é a ${agentName}, da ${brand}.`;
 
-/** The receipt, as sent now or before 2026-10-07 — never a reply of Malu's. */
+/** The receipt, as sent now or before — never a reply of Malu's. */
 export const isReceipt = (body: string): boolean =>
-  body === WELCOME_AUTO_REPLY || body === `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}`;
+  body === WELCOME_AUTO_REPLY || /^Recebi sua mensagem 💛 Te respondo por aqui a partir das \d{1,2}h\.$/.test(body) || body === LEGACY_RECEIPT || body === `Oii, tudo bem?\n\n${LEGACY_RECEIPT}`;
 
 /**
  * Every message of hers is a greeting and nothing else ("oi", "Boa tarde, tudo bem?", "olá 😊"): then
- * the first reply is the greeting and "Em que posso te ajudar?", with no model call.
+ * her first reply's directive asks for one sentence about the ad and one open question (E3.1).
  */
 export const onlyGreets = (parts: readonly string[]): boolean =>
   parts.length > 0 &&
