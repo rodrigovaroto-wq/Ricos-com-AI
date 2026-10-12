@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
+import { config } from "./fixtures.js";
 import {
+  evalConfig,
   affirmsCod,
   buyerModel,
   buyerSystem,
@@ -214,5 +216,16 @@ describe("buyerModel", () => {
       { from: "valen", text: "", status: "acknowledged" },
     ]);
     expect(fromTranscript).toEqual(fromHistory);
+  });
+});
+
+describe("evalConfig — o detector de mentira julga com o config da turn avaliada (2026-10-12)", () => {
+  it("BUSINESS_CONFIG primeiro; sem ele, o config de exemplo do roteiro (não o de teste)", () => {
+    const fromEnv = evalConfig({ BUSINESS_CONFIG: JSON.stringify({ ...config, prices: { ...config.prices, prepayDiscountPercent: 7 } }) });
+    expect(fromEnv.source).toBe("BUSINESS_CONFIG");
+    expect(fromEnv.config.prices.prepayDiscountPercent).toBe(7);
+    const fallback = evalConfig({});
+    expect(["config/business.json", "config/business.example.json"]).toContain(fallback.source);
+    expect(fallback.source).not.toBe("tests/fixtures.ts");
   });
 });

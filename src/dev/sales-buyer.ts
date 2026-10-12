@@ -143,11 +143,17 @@ export const givesCep = (text: string): boolean => CEP.test(text);
 // ---------------------------------------------------------------------------
 // The lie check: the gate chain over the sent text — the same function the turn runs.
 
-/** `config/business.json` when present (the operator's machine), the test config otherwise. */
-export const evalConfig = (): { config: BusinessConfig; source: string } =>
-  existsSync("config/business.json")
-    ? { config: loadBusinessConfig(), source: "config/business.json" }
-    : { config: fixtureConfig, source: "tests/fixtures.ts" };
+/**
+ * The config the evaluated turn runs with — or the lie check judges Malu by other numbers (2026-10-12: with the
+ * test config, which has no prepaid discount, every "10% no antecipado" read as a lie and the round was useless).
+ * `BUSINESS_CONFIG` (what the local turn reads), else `config/business.json`, else the example config of the runbook.
+ */
+export const evalConfig = (env: Record<string, string | undefined> = process.env): { config: BusinessConfig; source: string } =>
+  env.BUSINESS_CONFIG
+    ? { config: JSON.parse(env.BUSINESS_CONFIG) as BusinessConfig, source: "BUSINESS_CONFIG" }
+    : existsSync("config/business.json")
+      ? { config: loadBusinessConfig(), source: "config/business.json" }
+      : { config: loadBusinessConfig("config/business.example.json"), source: "config/business.example.json" };
 
 /**
  * Minimal context on purpose: every optional field the turn fills from its own state (region,
