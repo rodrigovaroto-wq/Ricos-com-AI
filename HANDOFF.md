@@ -13,6 +13,18 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-12, ~03:00 UTC — sessão parada no limite de uso (LEIA PRIMEIRO):** tudo o que foi feito está commitado (último
+> commit de código `a81f18a`). **E1 e E2 fechadas no código, não publicadas.** **E3 e E4 NÃO começaram de fato:** os dois agentes
+> (E3 com `prompt-engineer`, E4 com `test-engineer`) foram despachados e pararam no limite antes de escrever qualquer arquivo — a
+> árvore ficou limpa. Para retomar: (1) publicar E1+E2 — aplicar a migração `0026` e logo depois `NODE_USE_ENV_PROXY=1 pnpm
+> deploy:turn` (o classificador de permissão bloqueou o deploy nesta sessão; precisa do operador ou de regra de permissão), criar o
+> workflow do alarme no n8n e provar pela porta de produção; (2) redespachar E3 e E4 em paralelo (arquivos disjuntos) com os mesmos
+> briefings: E3 = abertura única sem "atendentes" (D2) com o experimento A (`armOn(…, "A")`, controle = aviso honesto + 60 s; teste
+> = resposta direta), diretiva do anúncio de origem, sem frete na 1ª resposta (§76), H2/H4/H5/H7 no prompt, moldura do `linkMessage`,
+> digitação curta no braço A — sem mexer na regra da vírgula (R20.7); E4 = comprador com propensão oculta (16 cenários), métricas
+> de venda e naturalidade no placar, score comercial e comparação de versões (sem o juiz E4.3, que espera 20 conversas anotadas pelo
+> operador). Fim de cada fase: autoaprimoramento + personas + `/code-review` (R20.9).
+
 > **2026-10-12, retomada (LEIA PRIMEIRO): a E1 está fechada no código e NÃO está no ar.** E1.1 recusa como estado (§69), E1.2
 > alarme de cobertura `job:"health"` (§70), E1.3 sem retry no turno do n8n (§71, **já no ar no n8n**, versão `b13736eb`), E1.4
 > estoque fora do "vou pensar" (§72), E1.5 gates de quadril/entregador/"afina de vez" (§73), e o fim de fase (R20.9): bateria de 13
