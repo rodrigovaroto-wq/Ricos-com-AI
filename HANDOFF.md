@@ -14,6 +14,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
 > **2026-10-12 — FIM DA SESSÃO `claude/awesome-hopper-x8j8wb` (LEIA PRIMEIRO; os blocos de 2026-10-11/12 abaixo são histórico).**
+> **PR: [rodrigovaroto-wq/Ricos-com-AI#59](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/59)** — tudo desta sessão está nele.
 > Plano em execução: [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (quadro de status no
 > topo), análise em [`12-analise-arquitetura-conversao.md`](docs/agente-ia/05-plano/12-analise-arquitetura-conversao.md), decisões do
 > operador R20.1–R20.9, grafo §69–§77. **No ar: só a E1.3 (n8n) e a `turn` v16.** Tudo o mais está no código, testado, revisado e
