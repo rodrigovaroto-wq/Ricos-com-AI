@@ -581,7 +581,7 @@ describe("personas 2026-10-07 — sem CEP, nada de 'o checkout confirma'", () =>
 describe("decisão 16 (operador, 2026-10-07) — reserva: o preço, ou uma pessoa", () => {
   it("pergunta de preço recebe a frase de preço do prompt; o resto vira atendimento humano", () => {
     // Grafo §74: the deadline question joins the price one; everything else still goes to a person.
-    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen) outcome = { kind: "handoff"');
+    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff"');
     expect(turn).toContain("codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG)");
     expect(turn).not.toContain("SAFE_FALLBACK_REPLY");
   });

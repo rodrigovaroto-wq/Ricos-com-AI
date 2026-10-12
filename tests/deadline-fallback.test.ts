@@ -41,8 +41,15 @@ describe("o turno usa a resposta de prazo no lugar do handoff", () => {
     expect(turn).toContain("const asksWhen = !asksPrice && clauses.some(asksDeadline) && clauses");
     expect(turn).toContain(".filter((q: string) => asksSomething(q) && !/^\\s*(?:me\\s+(?:diz|fala|conta|explica)");
     expect(turn).toContain("    .every(asksDeadline);");
-    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen) outcome = { kind: "handoff"');
+    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff"');
     // Prepaid chosen: her own path's deadline, never the delivery's (/code-review of E1).
     expect(turn).toContain('deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)');
+  });
+});
+
+describe("a primeira resposta nunca vira handoff (grafo §76)", () => {
+  it("com todas as reescritas vetadas no primeiro contato, sai a saudação e a frase de preço", () => {
+    expect(turn).toContain("const firstReply = greeting !== null;");
+    expect(turn.indexOf("const firstReply = greeting !== null;")).toBeGreaterThan(turn.indexOf("const greeting = recentOutbound"));
   });
 });

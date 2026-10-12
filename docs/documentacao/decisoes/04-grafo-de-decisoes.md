@@ -2495,6 +2495,22 @@ com ressalvas (as duas consertadas).
 mudança da Coinzz; na revisão (`revise`) a `duration_ms` cobre só a revisão; leads anteriores à 0026 ganham braço no próximo turno.
 **Estado (2026-10-12):** no código, não publicado; a 0026 não aplicada.
 
+## 76. Fim da E2: mutações, personas e a primeira resposta que virava handoff (2026-10-12)
+
+**Mutações:** a suíte inteira rodou depois da E2 — 461/461. Antes disso duas (`R16.5-prompt`, `R16.5-resposta`) não se aplicavam
+mais desde a E1.4 (o texto do estoque saiu) e foram atualizadas para os textos da R20.1.
+**Bateria (porta local, 13 personas, R$ 0,31):** Lu, Vera (pedido existente) e Sandra (pediu pessoa) saíram para uma pessoa com motivo
+certo; Denise segue provando o §69. A 0026 não está no banco de produção, então duração/braço/estágios novos falharam em silêncio na
+rodada (previsto, §75).
+**Sintoma achado:** Marcinha ("oi vi o anuncio do colete modelador no insta") — a 1ª resposta citou o frete grátis fora da frase
+canônica, foi vetada três vezes pelo `shipping_promise` e foi para uma pessoa. Sandra teve o mesmo veto na bateria da E1 (lá saiu a
+resposta de preço). Tráfego frio entregue a uma pessoa no "oi" é lead perdida na porta.
+**Correção:** a primeira resposta (sem resposta real anterior, `greeting !== null`) nunca vira handoff: com todas as reescritas
+vetadas, sai a saudação + a frase de preço (a mesma resposta pronta da pergunta de preço, que passa a cadeia). Mutação
+`E2-primeira-resposta-handoff`.
+**Causa de fundo, para a E3:** o modelo põe o frete grátis na abertura (o prompt lista o frete grátis entre os "agregadores de valor"
+e o `shipping_promise` só aceita a frase canônica isolada). A reescrita da abertura (E3.1) resolve na origem.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

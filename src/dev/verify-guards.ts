@@ -3610,6 +3610,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
   {
+    id: "E2-primeira-resposta-handoff",
+    bug: "a primeira resposta a \"oi, vi o anúncio\" com o frete vetado ia para uma pessoa: lead fria perdida na porta (grafo §76)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  const firstReply = greeting !== null;",
+    to: "  const firstReply = false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/deadline-fallback.test.ts"],
+  },
+  {
     id: "E1-prazo-vira-handoff",
     bug: "\"me fala o dia certinho??\" com todas as reescritas vetadas ia para uma pessoa em vez do prazo (persona Rafa, grafo §74)",
     files: ["supabase/functions/turn/index.ts"],

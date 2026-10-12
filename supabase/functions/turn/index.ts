@@ -3930,7 +3930,10 @@ const handleTurn = async (
     // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
     .filter((q: string) => asksSomething(q) && !/^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
     .every(asksDeadline);
-  if (outcome.kind === "fallback" && !asksPrice && !asksWhen) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
+  // Her first reply never goes to a person (personas Marcinha and Sandra, grafo §76): cold traffic handed off at
+  // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
+  const firstReply = greeting !== null;
+  if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
 
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
