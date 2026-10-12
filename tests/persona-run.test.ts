@@ -578,3 +578,20 @@ describe("segurança", () => {
     await expect(deliver({ externalId: "e", from: PHONE, body: "oi" })).rejects.toThrow(/400.*obrigatórios/);
   });
 });
+
+describe("parseArgs: a suíte de venda (E4.1)", () => {
+  it("--suite=venda sem --persona roda todos os cenários, semente 1", () => {
+    expect(parseArgs(["--suite=venda"])).toMatchObject({ suite: "venda", personas: "all", seed: 1 });
+  });
+  it("--persona escolhe cenários; --seed muda a semente", () => {
+    expect(parseArgs(["--suite=venda", "--persona=curiosa", "--seed=2"])).toMatchObject({ personas: ["curiosa"], seed: 2 });
+  });
+  it("recusa suíte desconhecida e semente que não é inteira", () => {
+    expect(() => parseArgs(["--suite=seguranca"])).toThrow(/suíte/);
+    expect(() => parseArgs(["--suite=venda", "--seed=1.5"])).toThrow(/seed/);
+  });
+  it("sem a suíte, nada muda: ainda exige persona", () => {
+    expect(parseArgs(["--all"]).suite).toBe(null);
+    expect(() => parseArgs([])).toThrow(/persona/);
+  });
+});

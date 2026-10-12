@@ -279,10 +279,50 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
   return { kind: "found", region: toRegion(zip, place, readAvailability(REFERENCE_SIZE, body)) };
 };
 
+/**
+ * The region a turn found, kept on `leads.address.region` (E2.4, latency): the next turn reuses it
+ * instead of asking ViaCEP and Coinzz again, for the same CEP and up to an hour. Only a `found`
+ * region is ever kept — a failed lookup stays "unknown region", never "no cash on delivery".
+ */
+export const REGION_CACHE_MS = 60 * 60 * 1000;
+export type CachedRegion = Region & { readonly checkedAt: string };
+
+export const cachedRegion = (cached: CachedRegion | null | undefined, zip: string, now: number): Region | null => {
+  if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
+  const age = now - Date.parse(cached.checkedAt);
+  if (!(age >= 0 && age < REGION_CACHE_MS)) return null;
+  // The dates shift at midnight: only the same São Paulo day (UTC−3) is served (/code-review of E2).
+  const day = (ms: number) => new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (day(Date.parse(cached.checkedAt)) !== day(now)) return null;
+  // The same-day window closes during the day: served, but never as "hoje" (E2 review, /code-review).
+  return cached.sameDay ? { ...cached, sameDay: false } : cached;
+};
+
 export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {
   const lookup = await lookupRegion(fetcher, zip);
   return lookup.kind === "found" ? lookup.region : null;
 };
+
+/**
+ * The coverage alarm (E1.2): cash on delivery vanished twice for every customer with nobody told
+ * (grafo §66/§67). Each CEP goes through the conversation's own lookup; a throw is `failed`.
+ */
+export interface CoverageCheck {
+  readonly cep: string;
+  readonly result: "cod" | "no_cod" | "failed" | "not_found";
+}
+
+export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[]): Promise<CoverageCheck[]> =>
+  Promise.all(
+    ceps.map(async (cep): Promise<CoverageCheck> => {
+      const lookup = await lookupRegion(fetcher, cep).catch((): RegionLookup => ({ kind: "failed" }));
+      return { cep, result: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind };
+    }),
+  );
+
+/** Healthy only when every CEP known to have cash on delivery still answers with it. */
+export const healthOf = (checks: readonly CoverageCheck[]): "healthy" | "unhealthy" =>
+  checks.length > 0 && checks.every((c) => c.result === "cod") ? "healthy" : "unhealthy";
 
 /**
  * The label the operator paid, fixed by Logzz at R$ 15,00 (support, 2026-09-09). It was

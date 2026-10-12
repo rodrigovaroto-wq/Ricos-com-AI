@@ -77,7 +77,10 @@
  * Flags: --door=local|function|n8n (default local) · --persona=<nome> (repeatable, only
  * a-z and -) or --all · --max-turns=N (default 20) · --keep-data (skip the cleanup) ·
  * --out=<dir> (default data/persona-runs, git-ignored) · --budget-brl=N (default 5) ·
- * --concurrency=N (1–3, default 1: how many personas talk at the same time).
+ * --concurrency=N (1–3, default 1: how many personas talk at the same time) ·
+ * --suite=venda (E4.1: the buyers with hidden propensity of src/dev/scenarios/venda.json; then
+ * --persona=<id> picks scenarios and none means all 16) · --seed=N (default 1: the buyer's
+ * vanishing draws; the same seed replays the same exits, the model's own text still varies).
  *
  * SPEND IS CAPPED TWICE, and the operator pays for both sides. Per persona, the persona
  * model's own seam refuses to call past PERSONA_BUDGET_BRL. For the whole run,
@@ -104,6 +107,7 @@ import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { createSeam } from "../llm/seam.js";
 import { metaProvider } from "../llm/providers/meta.js";
+import { buyerModel, buyerSystem, evalConfig, exchangesFromTranscript, parseScenarios, replay, type Scenario } from "./sales-buyer.js";
 import {
   cleanupAfter,
   deliverOver,
@@ -128,16 +132,26 @@ const PERSONA_MODEL = "muse-spark-1.3-contributor";
 const args = parseArgs(process.argv.slice(2));
 const env = requireEnv(process.env, args.door);
 
-const names =
-  args.personas === "all"
+const SCENARIOS_FILE = "src/dev/scenarios/venda.json";
+const scenarios = new Map<string, Scenario>(
+  args.suite ? parseScenarios(await readFile(SCENARIOS_FILE, "utf8")).map((s) => [`venda-${s.id}`, s]) : [],
+);
+const { config: gateConfig, source: gateConfigSource } = evalConfig();
+
+const names = args.suite
+  ? args.personas === "all"
+    ? [...scenarios.keys()]
+    : args.personas.map((p) => (p.startsWith("venda-") ? p : `venda-${p}`))
+  : args.personas === "all"
     ? (await readdir(AGENTS_DIR)).filter((f) => /^persona-.+\.md$/.test(f)).map((f) => f.slice(0, -3))
     : args.personas.map((p) => (p.startsWith("persona-") ? p : `persona-${p}`));
 if (names.length === 0) throw new Error(`nenhum arquivo persona-*.md em ${AGENTS_DIR}`);
+for (const n of names) if (args.suite && !scenarios.has(n)) throw new Error(`cenário desconhecido: ${n} (veja ${SCENARIOS_FILE})`);
 
 const db = postgrestDb({ url: env.supabaseUrl, key: env.serviceKey });
 const deliver = deliverOver(doorTarget(args.door, env), fetch, process.env.INBOUND_SIGNING_SECRET ?? "");
 const stamp = new Date().toISOString().replace(/[:.]/g, "-");
-const outDir = join(args.outDir, `${stamp}-${args.door}`);
+const outDir = join(args.outDir, `${stamp}-${args.door}${args.suite ? `-${args.suite}-seed${args.seed}` : ""}`);
 await mkdir(outDir, { recursive: true });
 
 let failures = 0;
@@ -151,7 +165,10 @@ const runOne = async (name: string): Promise<void> => {
     summary.push({ persona: name, endReason: "skipped_budget", failure: null, personaCostBrl: 0, agentCostBrl: null, orderReady: false, cleanup: "none" });
     return;
   }
-  const persona = parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
+  const scenario = scenarios.get(name);
+  const persona = scenario
+    ? { name, system: buyerSystem(scenario, replay(scenario, [], args.seed, gateConfig)) }
+    : parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
 
   let spent = 0;
   const provider = metaProvider({ apiKey: env.metaKey, model: PERSONA_MODEL });
@@ -161,13 +178,14 @@ const runOne = async (name: string): Promise<void> => {
     ceilingBrl: PERSONA_BUDGET_BRL,
     record: () => undefined,
   });
-  const model: PersonaModel = {
+  const plainModel: PersonaModel = {
     async next(system, messages) {
       const result = await seam.call("cheap", { purpose: "persona", system, messages, maxOutputTokens: 400 }, spent);
       spent += result.costBrl;
       return result.text;
     },
   };
+  const model = scenario ? buyerModel(scenario, args.seed, plainModel, gateConfig) : plainModel;
 
   const runId = `persona-${stamp}-${name}`;
   const report = await runPersona({
@@ -199,7 +217,11 @@ const runOne = async (name: string): Promise<void> => {
   }
   if (report.orderReady) keptOrderReady.push(report.phone);
 
-  const full = { ...report, personaCostBrl: spent, cleanup };
+  // The buyer's final state, replayed from the saved transcript: the same function the model wrapper ran.
+  const buyer = scenario
+    ? { ...replay(scenario, exchangesFromTranscript(report.transcript), args.seed, gateConfig), cod: scenario.cod, seed: args.seed, gateConfig: gateConfigSource }
+    : undefined;
+  const full = { ...report, personaCostBrl: spent, cleanup, ...(buyer ? { buyer } : {}) };
   await writeFile(join(outDir, `${name}.json`), JSON.stringify(full, null, 2));
   await writeFile(
     join(outDir, `${name}.md`),
@@ -219,6 +241,7 @@ const runOne = async (name: string): Promise<void> => {
   console.log(
     `${report.failure ? "FALHOU" : "ok    "} ${name} — ${report.endReason}` +
       `${report.orderReady ? " — ORDER_READY" : ""}${report.failure ? `: ${report.failure}` : ""}` +
+      `${buyer ? ` — comprador: ${buyer.outcome} (${buyer.propensity})` : ""}` +
       ` — limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}` +
       ` — R$ ${(spent + (report.costBrl ?? 0)).toFixed(4)} (persona ${spent.toFixed(4)} + Malu ${(report.costBrl ?? 0).toFixed(4)})`,
   );

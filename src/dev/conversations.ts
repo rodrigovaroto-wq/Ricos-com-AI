@@ -711,7 +711,7 @@ export const ARCS: Arc[] = [
       size: p.size,
       addressComplete: true,
       addressConfirmed: true,
-      stage: "endereco_coletado",
+      stage: "tamanho_definido",
       sent: 7,
       touches: 3,
     }),

@@ -11,7 +11,7 @@ import { extractIdentityBurst, extractName, mergeIdentity, refusesAskedDatum } f
 import { classifyOptOut, classifyOptOutBurst, runGates } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 import { oncePerDay, renderFollowup, rulerFor } from "@/agent/followups.js";
-import { GREETING_ASK, greetingFor, linkMessage, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
+import { greetingFor, isReceipt, linkMessage, onlyGreets, unansweredInbound, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 
@@ -348,12 +348,19 @@ describe("revisão dos consertos do §66 — os furos que o Opus achou", () => {
 });
 
 describe("T1 — a recepção sem o 'Oii, tudo bem?'", () => {
-  it("a recepção nova e a antiga fecham a rajada do mesmo jeito: nenhuma das duas é resposta", () => {
-    const novo = [{ direction: "inbound", body: "quanto custa?" }, { direction: "outbound", body: WELCOME_AUTO_REPLY }, { direction: "inbound", body: "oi" }];
-    const antigo = [{ direction: "inbound", body: "quanto custa?" }, { direction: "outbound", body: `Oii, tudo bem?\n\n${WELCOME_AUTO_REPLY}` }, { direction: "inbound", body: "oi" }];
+  // E3.1: three receipts live in stored histories — today's, the "atendentes" one and that one with "Oii".
+  const LEGACY =
+    "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\n" +
+    "Enquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\n" +
+    "encorpa-fashion.com.br";
+  it.each([WELCOME_AUTO_REPLY, LEGACY, `Oii, tudo bem?\n\n${LEGACY}`])("a recepção fecha a rajada como não-resposta: %j", (receipt) => {
+    const rows = [{ direction: "inbound", body: "quanto custa?" }, { direction: "outbound", body: receipt }, { direction: "inbound", body: "oi" }];
+    expect(isReceipt(receipt)).toBe(true);
+    expect(unansweredInbound(rows).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
+  });
+  it("uma resposta de verdade não é recepção", () => {
+    expect(isReceipt("Oi, boa tarde! Aqui é a Malu, da Encorpa.")).toBe(false);
     expect(WELCOME_AUTO_REPLY.startsWith("Oii")).toBe(false);
-    expect(unansweredInbound(novo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
-    expect(unansweredInbound(antigo).map((m) => m.body)).toEqual(["oi", "quanto custa?"]);
   });
 });
 
@@ -368,12 +375,14 @@ describe("T2 — a primeira resposta da Malu abre com a saudação da hora", () 
     ["23:59", "boa noite"],
     ["03:00", "bom dia"],
   ])("às %s é %s", (hora, parte) => {
-    expect(greetingFor(at(hora), "Malu")).toBe(`Oii, ${parte}, tudo bem?! Sou a Malu e darei início ao seu atendimento.`);
+    expect(greetingFor(at(hora), "Malu", "Encorpa")).toBe(`Oi, ${parte}! Aqui é a Malu, da Encorpa.`);
   });
 
-  it("a saudação e o 'Em que posso te ajudar?' passam a cadeia, perguntada ou não a identidade", () => {
+  // E3.1: sem "darei início ao seu atendimento" (§19 R1); a saudação curta abre só o texto fixo.
+  it("a saudação curta, antes do preço fixo, passa a cadeia, perguntada ou não a identidade", () => {
+    expect(greetingFor(at("10:00"), "Malu", "Encorpa")).not.toMatch(/darei início|atendimento|Em que posso/);
     for (const askedIdentity of [false, true]) {
-      const text = `${greetingFor(at("10:00"), "Malu")}\n\n${GREETING_ASK}`;
+      const text = `${greetingFor(at("10:00"), "Malu", "Encorpa")}\n\nO colete sai por R$ 129,90.`;
       expect(runGates(text, ctx({ askedIdentity, now: at("10:00") })).traces.filter((t) => t.verdict === "block")).toEqual([]);
     }
   });
@@ -387,11 +396,12 @@ describe("T2 — a primeira resposta da Malu abre com a saudação da hora", () 
     (parts) => expect(onlyGreets(parts)).toBe(false),
   );
 
-  it("o turno: saudação fixa na primeira resposta; com pergunta, a resposta dela vem depois", () => {
-    expect(turn).toContain("recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName)");
-    expect(turn).toContain("sendFixed(`${greeting}\\n\\n${GREETING_ASK}`");
-    expect(turn).toContain("const replyText = greeting === null ? body : `${greeting}\\n\\n${body}`;");
-    expect(turn).toContain("não cumprimente, não diga");
+  it("o turno (E3.1): o modelo abre a própria resposta; a saudação fixa só abre o texto fixo", () => {
+    expect(turn).toContain("recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName, CONFIG.brand)");
+    expect(turn).not.toContain("GREETING_ASK");
+    expect(turn).toContain("const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\\n\\n${body}`;");
+    expect(turn).toContain("openingDirective(");
+    expect(turn).toContain("onlyGreets(parts),");
   });
 });
 
@@ -422,8 +432,9 @@ describe("C2 — segunda revisão: sem o pedido do link, 'pare de me mandar' blo
 describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
   const url = "https://entrega.logzz.com.br/pay/ccm-1-unidade?name=Leila%20da%20Silva&phone=5511900000000";
   it("na entrega: a frase, o link sozinho e o que falta, uma vez", () => {
+    // E3.3 (§19 R10): curta, sem "Perfeito!" nem "obrigada por escolher".
     expect(linkMessage(url, "cod", "M", "Encorpa")).toBe(
-      "Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a Encorpa." +
+      "Pronto, aqui está o seu link 💛" +
         `\n\n${url}\n\n` +
         "Lá você completa o endereço, escolhe o M e o dia da entrega. Se precisar de alguma ajuda, estarei aqui.",
     );
@@ -500,7 +511,9 @@ describe("revisão 3 do §66", () => {
   });
 
   it("a resposta da primeira mensagem guardada para a abertura leva a saudação da hora em que sai", () => {
-    expect(turn).toContain("body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\\n\\n${attempt.text}`,");
+    // E3.1: the model greets; the directive reads the hour the reply goes out.
+    expect(turn).toContain("dayPart(openNow ? new Date() : nextOpening(new Date(), CONFIG.hours.openHour))");
+    expect(turn).toContain("        body: attempt.text,");
   });
 });
 
@@ -580,7 +593,8 @@ describe("personas 2026-10-07 — sem CEP, nada de 'o checkout confirma'", () =>
 
 describe("decisão 16 (operador, 2026-10-07) — reserva: o preço, ou uma pessoa", () => {
   it("pergunta de preço recebe a frase de preço do prompt; o resto vira atendimento humano", () => {
-    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice) outcome = { kind: "handoff"');
+    // Grafo §74: the deadline question joins the price one; everything else still goes to a person.
+    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff"');
     expect(turn).toContain("codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG)");
     expect(turn).not.toContain("SAFE_FALLBACK_REPLY");
   });

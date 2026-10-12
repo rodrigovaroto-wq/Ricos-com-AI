@@ -372,8 +372,10 @@ describe("ritmo: vendedora brasileira no WhatsApp, não frase telegráfica", () 
 
 describe("concordância: a origem do erro sai do prompt e ele manda reler", () => {
   const QUESTIONS = [
-    // Os ganchos na dor dela (operador, 2026-10-07, grafo §66).
-    "Não marca, o tecido é liso e fininho. Mas me diz, tem alguma roupa que você ama e não tem usado por conta do corpo?",
+    // As três trocas que mostram a forma (E3.2, H5), no lugar das frases-exemplo que o modelo copiava.
+    "É por aqui mesmo, eu te ajudo! Que tamanho de calça você veste e fica confortável?",
+    "Não marca, o tecido é fininho e fica liso por baixo da roupa. Você pensou em usar com qual peça?",
+    "Faz sentido querer ter certeza. Ele modela na hora que você veste, então a diferença aparece no espelho. Tem alguma roupa que você gosta e anda deixando no armário?",
   ];
 
   it.each(corners)("o prompt manda reler concordância e pronome antes de mandar ($name)", ({ config }) => {
@@ -388,9 +390,13 @@ describe("concordância: a origem do erro sai do prompt e ele manda reler", () =
   // came back as "voltar a usar bonita com ele". The scene stays, the floating word goes.
   it("a cena concreta fica, sem o adjetivo solto que originou o erro", () => {
     const prompt = flat(build(variant(false, true)));
-    // L2 (grafo §67): the operator's sentence is the example, with variations; "assenta lisinho" was copied 3×.
-    expect(prompt).toContain("com o nosso colete por baixo a blusa cai melhor no corpo");
-    expect(prompt).toContain("o vestido volta a fechar e você vai pra festa");
+    // E3.2 (H5, §19 R5): "Que presente especial…" saiu palavra por palavra do prompt numa conversa real.
+    // A regra da cena fica; as frases prontas saem, e as trocas dizem para não reusar.
+    expect(prompt).toContain("Junte a cena concreta ao que ela vai sentir");
+    expect(prompt).toContain("não reuse estas frases");
+    expect(prompt).not.toContain("Que presente especial");
+    expect(prompt).not.toContain("o vestido volta a fechar e você vai pra festa");
+    expect(prompt).not.toContain("Ex.:");
     expect(prompt).not.toContain("fechar bonito");
     expect(prompt).not.toContain("assenta lisinho");
   });

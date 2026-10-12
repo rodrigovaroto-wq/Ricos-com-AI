@@ -11,7 +11,64 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-09)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
+
+> **2026-10-12 — FIM DA SESSÃO `claude/awesome-hopper-x8j8wb` (LEIA PRIMEIRO; os blocos de 2026-10-11/12 abaixo são histórico).**
+> **PR: [rodrigovaroto-wq/Ricos-com-AI#59](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/59)** — tudo desta sessão está nele.
+> Plano em execução: [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (quadro de status no
+> topo), análise em [`12-analise-arquitetura-conversao.md`](docs/agente-ia/05-plano/12-analise-arquitetura-conversao.md), decisões do
+> operador R20.1–R20.9, grafo §69–§77. **No ar: só a E1.3 (n8n) e a `turn` v16.** Tudo o mais está no código, testado, revisado e
+> NÃO publicado.
+>
+> **Como esta sessão trabalhou (repita):** cada tarefa vai a um especialista de `.claude/agents/` (Opus quando toca gate, heurística,
+> prompt ou banco), com TDD, espelho byte a byte `src/agent` ↔ `supabase/functions/turn`, mutação em `src/dev/verify-guards.ts` e
+> revisão Opus independente antes do commit; o orquestrador commita. **Ao fim de cada FASE inteira (R20.9):** autoaprimoramento,
+> bateria de personas com subagentes (porta local) e `/code-review` do diff da fase, consertando o que aparecer. O operador autorizou
+> executar sem pedir aprovação; o classificador de permissão ainda barra deploy e `pnpm dev:n8n`.
+>
+> **Próximos passos, nesta ordem:**
+> 1. **Publicar E1+E2+E3 (precisa do operador ou de regra de permissão):** (a) aplicar `supabase/migrations/0026_measurement.sql` no
+>    projeto `hbmkgakzrqmdlsvszjeo`; (b) logo depois `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2+E3 (grafo §69–§77)"` (ele
+>    recusa sem a 0026); (c) criar no n8n o workflow "Encorpa — Alarme de cobertura": gatilho a cada 15 min → HTTP POST
+>    `https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn` corpo `{"job":"health"}`, credencial `Supabase service_role`,
+>    timeout 30 s, saída de erro com e-mail → Code com static data: e-mail ao operador quando `status` = `unhealthy` (no máximo 1 a
+>    cada 3 h) e um aviso quando voltar a `healthy`; rodar `pnpm dev:n8n` depois (as regras de `src/dev/n8n-rules.ts` valem);
+>    (d) prova pela porta de produção: "nao quero mais, obrigado" → só a despedida e nenhum toque agendado; `{"job":"health"}` →
+>    `healthy`; um lead novo recebe a recepção honesta (sem "atendentes").
+> 2. **Consertar o detector de mentira do comprador da E4** (`src/dev/sales-buyer.ts`, `liesIn` usado em `replay`): hoje ele re-roda os
+>    gates com contexto parcial e encerra como mentira frases que a produção aprovou (`shipping_promise`), o que puxou a base para baixo
+>    na comparação de 12/10 (grafo §77). Caminho: julgar pelos vereditos que a `turn` gravou/devolveu, ou não encerrar a conversa por
+>    "mentira" re-rodada — só contar. Depois, refazer base × E3.
+> 3. **Construir o experimento B** (R20.6, plano E6): com `armOn(CONFIG.experiments, arm, "B")`, o link sai logo depois da escolha do
+>    pagamento (tamanho + CEP + caminho), pré-preenchido com o que já se sabe; nome/CPF/e-mail ficam para o checkout. Mexe em
+>    `missingForLink` (`interpret.ts`) e no ramo do link (`index.ts`); teste de que sem a flag tudo fica igual; personas Tati e Vera.
+> 4. **Fim de fase da E3 completa:** a comparação base × E3 pela E4 foi APROVADA com ressalva (grafo §77: score 17,7 → 25,3, ruído 1,9;
+>    tiques −84%) — refazer depois do passo 2. Rodar a E4 de novo depois do experimento B.
+> 5. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
+>    score usa o proxy de naturalidade. Decidir se o cliente simulado continua no mesmo modelo da Malu (R12.1) — viés de auto-preferência.
+> 6. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
+> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
+>    n por braço, teste de duas proporções, parada de segurança por braço) e ligar `experiments` no `BUSINESS_CONFIG`.
+> 8. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
+>    toque); `asksForSize("Qual o número da sua calça?")` dá falso (achado da E4, `src/agent/sizing.ts`); `linkMessage` ainda recebe
+>    `brand` sem usar.
+>
+> **Como rodar as personas e a E4 (esta sessão):** `scratchpad` local com o servidor da `turn` do disco (roteiro no topo de
+> `src/dev/persona-run.ts`); para avaliar à noite, ponha `hours: {openHour: 0, closeHour: 24}` no `BUSINESS_CONFIG` local, senão tudo
+> sai `deferred`. E4: `pnpm dev:personas --door=local --suite=venda --all --seed=1` duas vezes na base (ruído) e uma na candidata
+> (`LOCAL_FUNCTION_URL` para outra porta), depois `pnpm dev:placar <pasta>` e `pnpm dev:eval --compare <base> <candidata>
+> --noise-from=<base2>`.
+
+> **2026-10-11 — análise de arquitetura, decisões E0 e plano prático (sessão `claude/awesome-hopper-x8j8wb`):** a análise de
+> arquitetura foi entregue e o operador **aceitou as decisões da E0** (R20.1–R20.9 em
+> [`03-decisoes-tomadas.md`](docs/documentacao/decisoes/03-decisoes-tomadas.md): escassez fora, recibo automático fora, proteção e
+> medição antes do portal, experimentos de L3 por lead 2×2, Hermes congelado no que publica sozinho). Plano prático **E0–E8**: E1
+> proteção, E2 medição, E3 primeiro contato e humanização, E4 eval sintético, E5 ensaio com dinheiro, E6 L3 2×2, E7–E8. **E1.1
+> (a recusa vira estado, grafo §69) está implementada na árvore e NÃO publicada** (espera o "pode subir"; a segunda revisão estava em
+> andamento). Próximo: E1.2 alarme de cobertura, depois E1.3 retry→duplicate, E1.4 escassez fora (operador, no segredo) e E1.5
+> gates de fato. Fim da E1 = autoaperfeiçoamento + personas + `/code-review` (R20.9). **No ar (conferido em
+> `agent_versions` pelo banco de produção, 2026-10-11):** `turn` **`agent_version` 16** (v15 + renomeação de variável, PR #57,
+> publicada 09/10 14:11 UTC); 5 leads e 0 pedidos no total. O bloco "2026-10-08, noite" abaixo (v14) é histórico.
 
 > **2026-10-09 — modelo de caixa do teste (sessão `claude/elegant-cray-sttizw`, só documentação):** a pedido do operador foi
 > criada a planilha [`docs/operacao/modelo-caixa-anuncios.xlsx`](docs/operacao/modelo-caixa-anuncios.xlsx) e o documento

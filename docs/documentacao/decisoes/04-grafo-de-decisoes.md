@@ -2337,6 +2337,229 @@ Meta) estão amareladas na aba Premissas e listadas em Perguntas. **Reconciliado
 baixou para R$ 50/dia (R$ 700; 09-pipeline L3.1, L3.2, item 7 e saída; 10-execucao-mes-1 metas).
 **Risco aberto:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos.
 
+## 69. A recusa lida como "vou pensar" (conversa real de 09/10, 2026-10-11)
+
+**Sintoma:** conversa real de 2026-10-09 (conversa 0a3b51dd; sem nome nem telefone aqui). "nao quero mais, obrigado" recebeu a
+resposta fixa de "vou pensar" com a linha de estoque ("Só te aviso que restam 12 unidades desse lote… vale garantir o seu
+logo"). Depois de um segundo "nao quero", o `silence_1` (21:45) e o `silence_2` (manhã seguinte) saíram mesmo assim.
+**Causa:** o `wants_to_think` do interpretador cobria "se despede desistindo"; `goodbyeParks` transforma toda despedida sem
+compra em `wants_to_think`; a `thinkReply` carrega o estoque (R16.5); e nada registrava a recusa, então cada resposta
+posterior rearmava a régua por `scheduleSilenceTouches`. Era uma **categoria que não existia**, não cegueira a negação.
+**Caminhos que não valiam:** (a) campo novo `declines` no interpretador: um falso positivo do modelo mandaria despedida a
+quem vai comprar e pararia a régua dela; quem decide é o código (R11); (b) apoiar-se em `withdraws`/`WITHDRAWS` (§65): a
+primeira versão, revisada como NEEDS WORK, leu como recusa adiamentos ("deixa pra lá, vou pensar melhor", "não vou comprar
+agora"), mudança parcial de pedido ("não quero mais o P") e retornos ("oi, voltei", "uso 42"), e o custo do falso positivo
+agora é despedida + régua desligada, não só o link retido; (c) coluna `declined_at`: pede migração e uma regra de reengajamento
+de qualquer modo, e o histórico já diz isso.
+**Correção:** lista fechada `declinesInBurst` em `interpret.ts`: a linha só conta se for exatamente um núcleo de recusa mais
+enchimento fechado (núcleos: desisti [da compra/do colete…], desisto, (não|n|nem) quero mais [comprar/o colete], deixa pra lá, deixa quieto, não vou
+(mais) querer/levar/comprar, não tenho (mais) interesse [nenhum / no produto…]; o "não" depois do núcleo só ecoa a recusa nos núcleos
+que começam por "não" — "desisti não" e "deixa pra lá não" desfazem a recusa, achado B1 da segunda revisão); segue sendo recusa enquanto toda linha posterior dela for de encerramento (outra
+recusa, despedida/agradecimento, "não"/"não quero" soltos, ack solto); qualquer outra coisa = ela voltou. Uma função em três
+lugares: o turno envia `DECLINE_REPLY` ("Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.") antes do
+ramo "vou pensar"; `scheduleSilenceTouches` cancela tudo (toque do checkout incluído), lendo as últimas 20 mensagens dela dentro
+da leitura única que já existia; a oferta de ajuda no "ok" solto é pulada. No prompt do interpretador: recusa → `wants_to_think`
+falso. O `WITHDRAWS` também deixa de ler "não quero mais nada" como retirada e passa a ler "não tenho (mais) interesse" sem
+objeto (bloqueia o link).
+**Guarda:** `tests/declined.test.ts` (103 testes: frases de produção, sondas do revisor nos dois sentidos, comportamento do
+`herRecent`, ordem do fonte); 10 mutações em `src/dev/verify-guards.ts` (recusa-regua, recusa-turno, recusa-qualquer-palavra, recusa-desisti-nao,
+recusa-ela-voltou, recusa-historico-ordem, recusa-historico-dela, recusa-ok-ajuda, recusa-quero-mais-nada,
+recusa-interesse-objeto); ordem + limite embutidos do PostgREST conferidos só em leitura contra a produção (200, mais nova
+primeiro, 20 de 34).
+**Resíduos:** "não, obrigada" e "não quero" solto **não** são recusa (as ofertas do kit são sim/não: o modelo responde); uma
+recusa fora da lista com despedida ("tchau") ainda cai no `goodbyeParks` → resposta do "vou pensar" (sem estoque desde R20.1);
+"já paguei"/"já fiz o pix" depois de "desisti" mantêm a régua desligada (o `payment_check` não é tocado); depois de uma recusa, emoji ou "ok" solto mantém a régua desligada; a oferta de ajuda no "ok" solto é pulada
+depois de uma recusa.
+**Estado (2026-10-11):** implementado na árvore, **não publicado** (o deploy espera o "pode subir" do operador). Duas revisões
+Opus: a 1ª reprovou a leitura sobre `withdraws` (adiamento, troca de parte do pedido e "ela voltou" lidos como recusa) e levou à
+lista fechada; a 2ª achou o "desisti não" (B1) e as recusas comuns que escapavam ("eu desisti, tchau"), consertados.
+
+## 70. Alarme de cobertura do pagamento na entrega (E1.2, 2026-10-11)
+
+**Sintoma:** o pagamento na entrega sumiu duas vezes para todas as clientes sem ninguém saber — o cabeçalho XHR faltou de 24/09
+a 07/10 (§66) e o CEP com hífen deu 422 na Coinzz em 08/10 (§67). Os dois só apareceram em teste real.
+**Causa:** nada consultava a cobertura fora de uma conversa; uma falha na consulta não avisava ninguém.
+**Caminhos que não valiam:** (a) um segundo `fetch` só para o alarme — testaria outro caminho e não o da cliente (o §67 nasceu de o
+script de dev mandar dígitos e a `turn` não); (b) checar dentro da varredura da régua de 5 min — 864 consultas/dia à Coinzz e a
+varredura, que é crítica, ganharia um ponto de falha.
+**Correção:** job `{job:"health"}` na `turn`: `checkCoverage` roda `lookupRegion` em três CEPs de São Paulo com COD na auditoria de
+L2 (01310100, 04710090, 04662002) pelo **mesmo** `regionFetcher` da conversa (o closure inline virou uma função só) e `healthOf`
+devolve `healthy` só se os três forem `cod`; exceção = `failed`. Sem escrita no banco, sem modelo. Responde sempre 200: o n8n
+alerta pelo `status`.
+**Guarda:** `tests/coverage-health.test.ts` (13); mutações `E12-falha-e-saude`, `E12-excecao-derruba-job`, `E12-fetcher-proprio`.
+**Falta (no deploy, com o "pode subir"):** workflow no n8n a cada 15 min, timeout ≥ 30 s, credencial `Supabase service_role`,
+e-mail só quando piora (no máximo 1 a cada 3 h) e aviso de "voltou". ViaCEP fora também acende o alarme (a conversa perde o COD
+do mesmo jeito).
+**Estado (2026-10-11):** implementado na árvore, não publicado.
+
+## 71. A repetição do n8n que perdia a resposta (E1.3, 2026-10-11)
+
+**Sintoma:** risco achado na análise de 11/10: os nós "Cerebro do turno" e "Resposta de verdade" do workflow "Turno da agente" tinham
+`retryOnFail` (2 tentativas). Um turno que estoura o tempo ou cai depois de gravar a mensagem dela é repetido; a repetição acha a
+mensagem já gravada e volta `{status:"duplicate"}` (ou a guarda da retomada, `welcomed_at` × `last_outbound_at`, não devolve nada).
+**Causa:** para o n8n isso é sucesso: execução verde, nenhum balão, nenhum e-mail. A resposta paga fica em `messages` e nunca sai.
+**Caminhos que não valiam:** (a) devolver no "duplicate" a resposta já gravada — a mesma mensagem reenviada pela Meta seria
+respondida duas vezes, e a função não sabe se o n8n mandou; (b) reproduzir com um turno de 150 s em produção — caro e com cliente
+sintético no banco (memória `porta-n8n-do-container-bate-no-proxy`); o caminho foi lido no código (`index.ts` dedupe, JSON do n8n).
+**Correção:** `retryOnFail: false` nos dois nós, publicado no n8n pela API (versão ativa `b13736eb…`, diff conferido: só esse campo
+nos dois nós). A falha vai para a saída de erro, que já avisa o operador ("Turno recusado"). Falha de rede do modelo continua sendo
+repetida pela própria função (`retry_turn`).
+**Guarda:** regra nova em `src/dev/n8n-rules.ts` (turno da conversa com `retryOnFail` reprova o `pnpm dev:n8n`), teste em
+`tests/n8n-workflows.test.ts`, mutação `E13-retry-no-turno`.
+**Estado (2026-10-11):** no ar no n8n. O `pnpm dev:n8n` não rodou nesta sessão (o classificador de permissão bloqueou); o JSON
+versionado foi atualizado à mão com o mesmo campo.
+
+## 72. A escassez sai do "vou pensar" (E1.4, R20.1, 2026-10-11)
+
+**Sintoma:** "restam 12 unidades desse lote… vale garantir o seu logo" saía no "vou pensar" sem contagem real por trás, e chegou a uma
+cliente que tinha recusado (§69). O operador decidiu tirar (R20.1, supera R16.5/R16.8).
+**Caminhos que não valiam:** depender do operador tirar `scarcity` do secret `BUSINESS_CONFIG` — o segredo não é legível daqui, e com
+a chave presente a frase voltaria; a decisão é de produto, então vive no código.
+**Correção:** `thinkReply` não lê mais `scarcity` (a frase saiu, o campo saiu de `ThinkConfig`); o prompt (`scarcityBriefing`) e o
+briefing do gate `scarcity_claim` não prometem mais "aviso de estoque numa mensagem pronta". A checagem do gate fica como estava:
+continua vetando estoque em qualquer frase do modelo.
+**Guarda:** `tests/think-reply.test.ts` (com `unitsLeft` no config, nenhuma frase de estoque; o prompt não fala em aviso de estoque);
+mutação `E14-estoque-no-pensar`. `dev:gates`: 0 afrouxado, 0 endurecido.
+**Estado (2026-10-11):** implementado, não publicado. O bloco `scarcity` do secret ficou sem leitor; o operador pode apagá-lo quando quiser.
+
+## 73. Gates de fato: quadril, entregador e "afina de vez" (E1.5, 2026-10-11)
+
+**Sintoma:** duas mentiras passaram por todos os gates em conversas reais (07–08/10): "ele acompanha bem essa diferença porque modela
+cintura e quadril juntinhos" (o colete não pega quadril nem bumbum) e "…e toca sim" (se o entregador toca a campainha — ela não sabe).
+"Afina de vez/definitivamente" também passava (`weight_loss_claim` só lia "para sempre"/"permanente").
+**Causa:** os dois fatos estavam só no prompt (`productFacts`); regra só no prompt vaza. É a contrapartida da humanização (E3): dar mais
+liberdade de estilo exige gate nos fatos que geram devolução.
+**Caminhos que não valiam:** estender `delivery_promise` (é sobre data, depende de config e estágio) ou `weight_loss_claim` para o
+quadril (é sobre o corpo mudar, não sobre onde a peça chega); dar contexto da mensagem dela ao gate só para o "toca sim" (mexe no
+`GateContext` dos dois lados por um caso).
+**Correção:** gates novos `hip_claim` e `courier_claim` (rewrite, sem briefing: o prompt já ensina os dois fatos) e
+`weight_loss_claim` estendido ("afina de vez/definitivamente/pra sempre", "você vai afinar"). Helpers `deniedNear` (negação até 3
+palavras antes, na mesma oração; dúvida "não sei"; "sem"; condicional "se") e `askedAt` (a oração da afirmação é pergunta).
+Decisões de julgamento: "o tecido acompanha o quadril" é vetado; "toca sim"/"toca, sim" sem contexto é vetado; "você vai afinar na
+hora" é vetado (o gate não separa "na hora" de promessa).
+**Guarda:** `tests/fact-gates.test.ts` (as frases de produção literais, positivos e negações nos dois sentidos); mutações
+`E15-quadril`, `E15-campainha`, `E15-afina-de-vez`, `E15-voce-vai-afinar`. `dev:gates`: 0 afrouxado; os endurecidos são mentiras ou
+pedaços delas. Revisão Opus independente: aprovado com ressalvas (a variante "Toca, sim!" foi consertada).
+**Resíduos:** a negação só é lida antes da afirmação ("Modelar o quadril, ele não modela." e "às vezes liga antes, às vezes não"
+custam uma reescrita); listas fechadas deixam passar "vai te ligar antes", "interfona sim", "valoriza/molda o quadril", "vai afinando
+de verdade", "reduz medidas".
+**Estado (2026-10-11):** implementado, não publicado.
+
+## 74. Fim da E1: bateria de personas e o prazo que virava handoff (2026-10-11)
+
+**Bateria (porta local, código da árvore, modelo `-contributor`, 13 personas com a Denise nova):** R$ 0,28 no total, leads sintéticos
+apagados. A Denise prova o §69 ("nao quero mais, obrigado" → só a despedida, sem estoque). Os gates novos do §73 (`hip_claim`,
+`courier_claim`) não vetaram nenhuma frase honesta. O job `health` (§70) respondeu `healthy` com os três CEPs contra a Coinzz real.
+**Sintoma achado:** persona Rafa ("me fala o dia certinho??", "tem entrega expressa?") teve quatro promessas de dia vetadas
+(`delivery_promise`) e foi para uma pessoa — a compradora com pressa perdida para o handoff.
+**Causa:** quando todas as reescritas falham, só a pergunta de preço tinha resposta pronta (decisão 16); o resto virava handoff.
+**Correção:** `asksDeadline` (lê "dia certinho", "prazo", "quando chega", "expressa"; não lê "bom dia") e
+`deadlineFallbackMessage` em `prompt.ts`: a janela que o prompt ensina, com o dia deixado ao checkout ("Dependendo da sua região" antes
+do CEP; o prazo médio do antecipado onde não há COD). Passa a cadeia inteira nos três contextos (teste).
+**Guarda:** `tests/deadline-fallback.test.ts`; mutação `E1-prazo-vira-handoff`. Rafa rodada de novo duas vezes: as duas até o fim,
+sem handoff.
+**Também:** o runner de personas não conhecia o status `acknowledged` ("ok" sozinho sem resposta, v15) e derrubava a Neusa; passou a
+continuar a conversa.
+**Fica para a E3 (achado da bateria):** a 1ª resposta a um "oi" (Sandra) teve o frete grátis vetado três vezes e saiu a resposta
+pronta de preço; a recepção automática ainda diz "uma de nossas atendentes" (R20.2).
+
+**`/code-review` da E1 (fim de fase, R20.9) — consertado:** linha vazia ou figurinha depois da recusa desfazia o §69 (filtradas);
+"não tenho interesse nenhum/mesmo" segura o link; no `deniedNear` o "não" de outro verbo ligado por "e" não governa mais a afirmação
+("Ele não aperta e modela o quadril" vetado); o prazo pronto vale só quando toda pergunta dela é de prazo (aberturas "Me diz uma
+coisa," não contam) e, com o antecipado escolhido, diz o prazo do antecipado; `asksDeadline` lê "quanto tempo demora?", "demora
+muito?", "quantos dias", "chega em que dia?" e não lê "demorou pra responder" nem "quanto tempo posso usar"; o "vou pensar" sai
+sem a isenção do `scarcity_claim` (R20.1). **Recusado pela segunda revisão:** aceitar vírgula na lista do `hip_claim` — vetava o
+honesto "Ele modela a barriga, o quadril não"; "Modela a cintura, o quadril e a barriga" fica como resíduo. **Fica:** os 20
+corpos embutidos na leitura da régua (I/O pequeno, sem efeito na cliente); o parâmetro morto de `scarcityBriefing`.
+
+## 75. Medição: latência, estágios reais, braço A/B e cobertura guardada (E2, 2026-10-12)
+
+**Sintoma:** antes do L3 nenhum lead geraria dado útil — `llm_calls.latency_ms` vazio na `turn`, nenhuma duração de turno; o funil
+pulava de `tamanho_definido` para o webhook (`endereco_coletado` era inalcançável: a Malu não pede endereço), justamente onde a
+venda morre; sem braço por lead, antes/depois confundiria a agente com a troca de criativo do L3 (R20.4); e a Coinzz era consultada
+em todo turno com CEP.
+**Correção (migração 0026):** `latency_ms` gravado em `recordCall`; `turn_outcomes.duration_ms`; view `eval_latency` (p50/p90 por dia e
+braço). Escada nova `tamanho_definido → cobertura_conhecida → caminho_escolhido → link_enviado → pedido_criado` (sem regressão pelo
+`furthest`; os `endereco_coletado` existentes são re-derivados dos fatos do lead, o único lugar em que um estágio desce).
+`leads.arm {"A","B"}` por `armOf(telefone)` (dois sorteios independentes, ~50/50); `experiments` opcional no config (ausente =
+ninguém em teste); `armOn` testado e ainda não ligado (E3/E6); views `eval_arm_outcomes`/`eval_arm_funnel`. Cobertura guardada em
+`leads.address.region` por 1 h para o mesmo CEP, só quando a consulta achou a região; a janela do mesmo dia nunca sai do cache.
+**Caminhos que não valiam:** a `turn` repetir o insert sem a coluna nova se a 0026 faltar — transforma um erro de deploy alto em dado
+de latência perdido em silêncio; colunas de braço nas views antigas — o `painel.ts` lê uma linha por dia delas.
+**Regra de deploy (R1 da revisão):** a 0026 vai ANTES da `turn`. O `deploy:turn` agora confere `turn_outcomes.duration_ms` e para se
+faltar — cobre todo caminho que publica, o do Hermes incluído. O contrário (0026 com a `turn` antiga no ar) é seguro.
+**Guarda:** `tests/measurement.test.ts`, `tests/experiments.test.ts`, `tests/state-machine.test.ts`; migração rodada 0001→0026 num
+Postgres descartável (a 0026 duas vezes); mutações da E2 + `E2-deploy-sem-0026` e `E2-mesmo-dia-do-cache`. Revisão Opus: aprovado
+com ressalvas (as duas consertadas).
+**Resíduos:** a varredura grava `link_enviado` ao montar o envio, não na confirmação; `cod` guardado pode ficar até 1 h atrás de uma
+mudança da Coinzz; na revisão (`revise`) a `duration_ms` cobre só a revisão; leads anteriores à 0026 ganham braço no próximo turno.
+**Estado (2026-10-12):** no código, não publicado; a 0026 não aplicada.
+
+## 76. Fim da E2: mutações, personas e a primeira resposta que virava handoff (2026-10-12)
+
+**Mutações:** a suíte inteira rodou depois da E2 — 461/461. Antes disso duas (`R16.5-prompt`, `R16.5-resposta`) não se aplicavam
+mais desde a E1.4 (o texto do estoque saiu) e foram atualizadas para os textos da R20.1.
+**Bateria (porta local, 13 personas, R$ 0,31):** Lu, Vera (pedido existente) e Sandra (pediu pessoa) saíram para uma pessoa com motivo
+certo; Denise segue provando o §69. A 0026 não está no banco de produção, então duração/braço/estágios novos falharam em silêncio na
+rodada (previsto, §75).
+**Sintoma achado:** Marcinha ("oi vi o anuncio do colete modelador no insta") — a 1ª resposta citou o frete grátis fora da frase
+canônica, foi vetada três vezes pelo `shipping_promise` e foi para uma pessoa. Sandra teve o mesmo veto na bateria da E1 (lá saiu a
+resposta de preço). Tráfego frio entregue a uma pessoa no "oi" é lead perdida na porta.
+**Correção:** a primeira resposta (sem resposta real anterior, `greeting !== null`) nunca vira handoff: com todas as reescritas
+vetadas, sai a saudação + a frase de preço (a mesma resposta pronta da pergunta de preço, que passa a cadeia). Mutação
+`E2-primeira-resposta-handoff`.
+**Causa de fundo, para a E3:** o modelo põe o frete grátis na abertura (o prompt lista o frete grátis entre os "agregadores de valor"
+e o `shipping_promise` só aceita a frase canônica isolada). A reescrita da abertura (E3.1) resolve na origem.
+
+**`/code-review` da E2 (fim de fase) — consertado:** a regra da 1ª resposta vale só sem pergunta dela (pergunta médica ou reclamação
+no primeiro contato continua indo para uma pessoa); o cache da cobertura só serve o mesmo dia de São Paulo (as datas viram na
+meia-noite) e serve a janela do mesmo dia com `sameDay: false` (a capital não paga mais duas consultas por turno); o `deploy:turn`
+não lê mais erro de consulta como "0026 ausente" e confere `duration_ms` e `leads.arm`; o comentário do `duration_ms` diz o que ele
+mede (a parte do servidor até o desfecho gravado). **Fica, documentado:** `armOn`/`experiments` sem leitor até a E3/E6 (as views por
+braço mostram ruído até lá — não ler como resultado); a 0026 aplicada minutos antes do deploy congela por esse tempo os estágios
+re-derivados (aplicar logo antes do deploy); `payment_choice` vencido levanta o estágio nas saídas antecipadas; o braço numa ida a mais
+ao banco no 1º turno; o simulador do `dev:conversas` não cobre os degraus novos (só os testes de `reachedStage`).
+
+## 77. Primeiro contato e humanização v1 (E3, 2026-10-12)
+
+**Sintoma (§19 da análise, falas reais):** abertura em dobro e de call center (recepção "uma de nossas atendentes… acesse o site" +
+"darei início ao seu atendimento. Em que posso te ajudar?", até para quem disse "Quero comprar"); o exemplo do prompt copiado palavra
+por palavra ("Que presente especial…"); tique "Que bom que…"; parágrafo para quem escreve "Hahah tem sim!"; gancho de dor antes da
+pergunta de compra; frete grátis na 1ª resposta vetado três vezes (§76).
+**Correção:** recepção honesta ("Recebi sua mensagem, já te respondo por aqui 💛"; de madrugada "…a partir das 6h", nunca "já")
+(R20.2); experimento A (`armOn(…, "A")`, R20.5): no braço 1, dentro da janela, sem recepção e sem a espera de 60 s, e pausa de
+digitação de no máximo 3 s / 6 s; sem `experiments.fastOpening`, o ritmo de hoje. A 1ª resposta é do modelo, com `openingDirective`
+(saudação da hora, "a Malu, da Encorpa" uma vez, o título do anúncio quando esta conversa veio de um, sem frete se ela não
+perguntou); `greetingFor` só abre os textos fixos de 1ª resposta. No prompt: `registerDirective` (H2, tamanho e tom dela; não na 1ª
+resposta), lista de tiques (H4), três trocas de forma no lugar das frases-exemplo (H5), pergunta de compra vence o gancho (H7).
+`linkMessage` abre com "Pronto, aqui está o seu link 💛". Fica de fora, por decisão: a regra da vírgula (R20.7, vai ao eval) e H6.
+**Revisão Opus (reprovou, consertado):** no braço 1 um "ok"/"👍" como 1ª mensagem ficava sem resposta (a regra do "ok sozinho" via
+conversa sem nada nosso) — agora só vale com mensagem nossa no chat; a diretiva de tamanho contradizia a apresentação na 1ª resposta;
+"já te respondo" de madrugada; título de anúncio antigo numa conversa nova. **Resíduos:** saudação da hora calculada no começo do
+turno (segundos de diferença só importam com `closeHour` antes da meia-noite); a soma das pausas pode passar de 12 s com três balões
+longos.
+**Guarda:** `tests/e3-opening.test.ts`, `tests/prompt.test.ts` (as três trocas pela cadeia nos quatro cantos), 9 mutações `E3-*`.
+`dev:gates` 0 afrouxado; `dev:conversas` 1665/1665. **Falta:** o efeito em naturalidade e venda — medido pela E4 (base × E3).
+**Estado (2026-10-12):** no código, não publicado.
+
+**`/code-review` da E3+E4 (fim de fase) — consertado:** o título do anúncio vem primeiro da mensagem atual (no braço A a resposta
+sai na mesma chamada, antes de a conversa ser relida, e uma lead que volta por outro anúncio não ouve o antigo); o relógio do braço A é
+o do gate de horário (`hours.timeZone`); "umas 15 palavras"; o avaliador fixa 14h de São Paulo (`-03:00`) para o gate de horário não
+contar tudo como mentira em outra máquina; "certinho" saiu da lista de tiques (o prompt permite uma vez e os textos fixos usam). **Fica,
+documentado:** no braço A sem a espera de 60 s a rajada de abertura é juntada só pela janela de 5 s (mais revisões, custo do
+experimento); a saudação de um adiamento só erraria pelo gate de ritmo, que não recebe contexto hoje (morto); `linkMessage` ainda
+recebe `brand` sem usar.
+
+**Medição pela E4 (fim de fase E3, 2026-10-12, porta local, 16 cenários, `--seed=1`, horário aberto só no config local):**
+base (`5a4be11`, sem a E3) duas vezes para o ruído × E3 (`d4d346e`). `pnpm dev:eval --compare`: **APROVADA** — score 17,7 → 25,3
+(ruído 1,9), tiques/conversa 1,56 → 0,25, respostas que copiam o prompt 66% → 51%, palavras por balão ÷ dela 2,8 → 2,0, chegou ao link
+0% → 12,5%, mentiras 0 → 0; ninguém comprou nas duas (limite de 14 turnos); custo por conversa R$ 0,026 → 0,054 (conversas mais
+longas). **Ressalva (defeito da ferramenta, consertar antes da próxima comparação):** durante a conversa o comprador re-roda os gates
+com contexto parcial e encerrou 2 (rodada 1) e 4 (rodada 2) conversas da base como mentira por `shipping_promise` em frases que a
+produção tinha aprovado; isso puxa a base para baixo e infla a diferença. Na E3 o modelo não fala de frete na abertura, então ela não
+caiu nisso. O ganho de naturalidade (tiques, cópia, tamanho) não depende desse defeito. Antes, um primeiro conserto da mesma sessão:
+o detector julgava com o config de teste (sem os 10% do antecipado) e marcava quase tudo como mentira (`5d05c76`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -89,6 +89,11 @@ export interface BusinessConfig {
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
   /**
+   * E2.3: which A/B experiment is live (`src/agent/experiments.ts`). OPTIONAL — absent in the
+   * secret means nobody is in a test, today's behaviour.
+   */
+  experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
+  /**
    * Os templates que a Meta já aprovou, um por toque da régua. OPCIONAL, e ausente
    * significa que nenhum foi aprovado ainda — o que barra todo toque que caia fora da
    * janela de 24h em vez de mandar texto livre que a Cloud API recusaria. Ver

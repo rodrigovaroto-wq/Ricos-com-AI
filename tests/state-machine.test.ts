@@ -25,7 +25,10 @@ describe("máquina de estados", () => {
   it("avança pelo caminho feliz", () => {
     expect(canTransition("novo", "conversando")).toBe(true);
     expect(canTransition("conversando", "tamanho_definido")).toBe(true);
-    expect(canTransition("endereco_coletado", "pedido_criado")).toBe(true);
+    expect(canTransition("tamanho_definido", "cobertura_conhecida")).toBe(true);
+    expect(canTransition("cobertura_conhecida", "caminho_escolhido")).toBe(true);
+    expect(canTransition("caminho_escolhido", "link_enviado")).toBe(true);
+    expect(canTransition("link_enviado", "pedido_criado")).toBe(true);
     expect(canTransition("em_rota", "entregue_pago")).toBe(true);
   });
 
@@ -64,8 +67,8 @@ describe("furthest — o estágio que fica gravado", () => {
 
   it("permite salto de mais de um degrau", () => {
     // "oi, uso 42, meu CEP é 13010-100" numa mensagem só.
-    expect(furthest("novo", "endereco_coletado")).toBe("endereco_coletado");
-    expect(canTransition("novo", "endereco_coletado")).toBe(false);
+    expect(furthest("novo", "cobertura_conhecida")).toBe("cobertura_conhecida");
+    expect(canTransition("novo", "cobertura_conhecida")).toBe(false);
   });
 
   it("nunca regride", () => {
@@ -90,7 +93,7 @@ describe("furthest — o estágio que fica gravado", () => {
    * endereco_coletado ou perdido — o pedido existiu e morreu, e o funil não contava a recusa.
    * `recusado` vem do webhook de venda, que é a prova de que houve pedido.
    */
-  it.each(["novo", "conversando", "tamanho_definido", "endereco_coletado", "pedido_criado", "em_rota", "perdido"] as const)(
+  it.each(["novo", "conversando", "tamanho_definido", "cobertura_conhecida", "caminho_escolhido", "link_enviado", "pedido_criado", "em_rota", "perdido"] as const)(
     "pedido morto chegando primeiro: %s → recusado",
     (stored) => {
       expect(furthest(stored, "recusado")).toBe("recusado");
@@ -111,7 +114,7 @@ describe("furthest — o estágio que fica gravado", () => {
 
   it("perdido é reentrável: ela voltou", () => {
     expect(furthest("perdido", "conversando")).toBe("conversando");
-    expect(furthest("perdido", "endereco_coletado")).toBe("endereco_coletado");
+    expect(furthest("perdido", "link_enviado")).toBe("link_enviado");
     expect(furthest("perdido", "bloqueado")).toBe("bloqueado");
   });
 
@@ -144,9 +147,9 @@ describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => 
     }
   });
 
-  it("pedido_criado não é sobrescrito por endereco_coletado atrasado", () => {
-    expect(overwritableBy("endereco_coletado")).not.toContain("pedido_criado");
-    expect(overwritableBy("endereco_coletado")).toEqual(
+  it("pedido_criado não é sobrescrito por link_enviado atrasado", () => {
+    expect(overwritableBy("link_enviado")).not.toContain("pedido_criado");
+    expect(overwritableBy("link_enviado")).toEqual(
       expect.arrayContaining(["novo", "conversando", "tamanho_definido", "perdido"]),
     );
   });
@@ -156,7 +159,9 @@ describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => 
       "novo",
       "conversando",
       "tamanho_definido",
-      "endereco_coletado",
+      "cobertura_conhecida",
+      "caminho_escolhido",
+      "link_enviado",
       "pedido_criado",
       "em_rota",
       "perdido",
@@ -168,7 +173,9 @@ describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => 
       "novo",
       "conversando",
       "tamanho_definido",
-      "endereco_coletado",
+      "cobertura_conhecida",
+      "caminho_escolhido",
+      "link_enviado",
       "pedido_criado",
       "em_rota",
       "perdido",
@@ -188,7 +195,7 @@ describe("overwritableBy — os estágios que o PATCH pode sobrescrever", () => 
  * as saídas do turno. `pedido_criado` exige o pedido MONTADO, não a vontade de comprar.
  */
 describe("reachedStage — onde o turno chegou", () => {
-  const none = { size: null, addressConfirmed: false, addressComplete: false, orderBuilt: false };
+  const none = { size: null, coverageKnown: false, pathChosen: false, linkSent: false, orderBuilt: false };
 
   it("sem fato nenhum, está conversando", () => {
     expect(reachedStage(none)).toBe("conversando");
@@ -198,17 +205,40 @@ describe("reachedStage — onde o turno chegou", () => {
     expect(reachedStage({ ...none, size: "G" })).toBe("tamanho_definido");
   });
 
-  it("endereço só conta completo E confirmado", () => {
-    expect(reachedStage({ ...none, size: "G", addressComplete: true })).toBe("tamanho_definido");
-    expect(reachedStage({ ...none, size: "G", addressConfirmed: true })).toBe("tamanho_definido");
-    expect(reachedStage({ ...none, size: "G", addressComplete: true, addressConfirmed: true })).toBe(
-      "endereco_coletado",
-    );
+  /** E2.2: os três degraus que a conversa atravessa de fato, no lugar do endereco_coletado que nunca era alcançado. */
+  it("cobertura, caminho e link sobem um degrau cada, nesta ordem", () => {
+    const sized = { ...none, size: "G" };
+    expect(reachedStage({ ...sized, coverageKnown: true })).toBe("cobertura_conhecida");
+    expect(reachedStage({ ...sized, coverageKnown: true, pathChosen: true })).toBe("caminho_escolhido");
+    expect(reachedStage({ ...sized, coverageKnown: true, pathChosen: true, linkSent: true })).toBe("link_enviado");
+    expect(rankOf("tamanho_definido")).toBeLessThan(rankOf("cobertura_conhecida"));
+    expect(rankOf("cobertura_conhecida")).toBeLessThan(rankOf("caminho_escolhido"));
+    expect(rankOf("caminho_escolhido")).toBeLessThan(rankOf("link_enviado"));
+    expect(rankOf("link_enviado")).toBeLessThan(rankOf("pedido_criado"));
+  });
+
+  it("o fato mais alto vale sozinho, e nenhum degrau novo regride o gravado", () => {
+    expect(reachedStage({ ...none, linkSent: true })).toBe("link_enviado");
+    expect(furthest("link_enviado", reachedStage({ ...none, size: "G", coverageKnown: true }))).toBe("link_enviado");
+    expect(furthest("pedido_criado", "link_enviado")).toBe("pedido_criado");
+  });
+
+  it("negação: sem resposta da região, sem caminho e sem link, nenhum degrau novo", () => {
+    expect(reachedStage({ ...none, size: "G" })).not.toMatch(/cobertura|caminho|link/);
+  });
+
+  it("os três degraus novos são vivos e aceitam perdido e bloqueado", () => {
+    for (const s of ["cobertura_conhecida", "caminho_escolhido", "link_enviado"] as const) {
+      expect(isLive(s)).toBe(true);
+      expect(furthest(s, "perdido")).toBe("perdido");
+      expect(furthest(s, "bloqueado")).toBe("bloqueado");
+    }
+    expect(STAGES).not.toContain("endereco_coletado");
   });
 
   it("pedido_criado só com o pedido montado", () => {
-    const ready = { size: "G", addressConfirmed: true, addressComplete: true };
-    expect(reachedStage({ ...ready, orderBuilt: false })).toBe("endereco_coletado");
+    const ready = { ...none, size: "G", coverageKnown: true, pathChosen: true, linkSent: true };
+    expect(reachedStage({ ...ready, orderBuilt: false })).toBe("link_enviado");
     expect(reachedStage({ ...ready, orderBuilt: true })).toBe("pedido_criado");
   });
 
@@ -240,8 +270,9 @@ describe("reachedStage — onde o turno chegou", () => {
       expect(isIdentityComplete(identity)).toBe(true);
       return reachedStage({
         size: "G",
-        addressConfirmed: true,
-        addressComplete: true,
+        coverageKnown: true,
+        pathChosen: true,
+        linkSent: true,
         orderBuilt: build(identity, config) !== null,
       });
     };
@@ -253,11 +284,11 @@ describe("reachedStage — onde o turno chegou", () => {
     });
 
     it("config sem offerHash (o fallback do index.ts) nunca é pedido_criado", () => {
-      expect(stageFor(identity, { codPaymentMethod: "afterpay" })).toBe("endereco_coletado");
+      expect(stageFor(identity, { codPaymentMethod: "afterpay" })).toBe("link_enviado");
     });
 
     it("CPF com menos de 11 dígitos nunca é pedido_criado", () => {
-      expect(stageFor({ ...identity, document: "529.982" }, config)).toBe("endereco_coletado");
+      expect(stageFor({ ...identity, document: "529.982" }, config)).toBe("link_enviado");
     });
   });
 });

@@ -547,7 +547,7 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
 
   it("o turno grava a praça no lead quando a consulta respondeu", () => {
     expect(source).toContain("const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;");
-    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable) {");
+    expect(source).toContain("if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {");
     expect(source).toContain("...(codAvailable !== undefined ? { codAvailable } : {}),");
     // Fora do rascunho: a praça não viaja para o pedido da Coinzz nem para a leitura do endereço.
     expect(source).toContain("delete (addressDraft as { codAvailable?: boolean }).codAvailable;");

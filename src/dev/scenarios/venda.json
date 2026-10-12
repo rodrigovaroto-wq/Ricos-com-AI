@@ -1,0 +1,193 @@
+[
+  {
+    "id": "curiosa", "name": "Patrícia", "age": 34, "city": "São Paulo (SP)", "cep": "01310100", "cod": true, "pants": 42,
+    "headline": "Colete que afina a cintura na hora — pague só na entrega",
+    "brief": "Você clicou por curiosidade, sem intenção definida. Pergunta como funciona, se aperta, se aparece por baixo da roupa. Escreve informal, frases curtas.",
+    "propensity": 45,
+    "objections": [
+      { "text": "mas aperta muito? fico o dia todo em pé", "when": "start" },
+      { "text": "aparece por baixo de blusa fina?", "when": "price" },
+      { "text": "e se não servir?", "when": "size" }
+    ]
+  },
+  {
+    "id": "desconfiada-golpe", "name": "Rosângela", "age": 52, "city": "Belo Horizonte (MG)", "cep": "30510670", "cod": true, "pants": 46,
+    "headline": "Pague só quando chegar na sua casa",
+    "brief": "Você já caiu num golpe de loja de Instagram e desconfia de tudo. Quer saber se a loja existe, se tem CNPJ, e não passa CPF antes de ter certeza. Escreve com pontuação certinha e um pouco seca.",
+    "propensity": 30,
+    "objections": [
+      { "text": "isso não é golpe não? já perdi dinheiro assim", "when": "start" },
+      { "text": "pra que vocês querem meu CPF?", "when": "link" },
+      { "text": "e se o entregador cobrar e não deixar eu ver o produto?", "when": "cod" }
+    ],
+    "rules": { "codProof": 30, "pressure": -30 },
+    "vanishOnBad": 0.2
+  },
+  {
+    "id": "sensivel-preco", "name": "Jéssica", "age": 29, "city": "Campinas (SP)", "cep": "13067356", "cod": true, "pants": 40,
+    "headline": "Modele a cintura sem academia",
+    "brief": "Você gostou mas o orçamento está apertado. Pesa cada real e quer saber o que está incluso. Escreve abreviado (vc, pq, tbm).",
+    "propensity": 40,
+    "objections": [
+      { "text": "achei salgado pra um colete", "when": "price" },
+      { "text": "o frete é à parte?", "when": "cep" },
+      { "text": "parcela?", "when": "link" }
+    ],
+    "rules": { "priceUnasked": 15 }
+  },
+  {
+    "id": "decidida", "name": "Fernanda", "age": 38, "city": "Rio de Janeiro (RJ)", "cep": "21011718", "cod": true, "pants": 44,
+    "headline": "O colete que viralizou — pague na entrega",
+    "brief": "Você já decidiu comprar: viu o anúncio três vezes e quer o link. Responde direto o que pedirem. Fica impaciente com conversa comprida.",
+    "propensity": 72,
+    "objections": [
+      { "text": "chega rápido?", "when": "cep" },
+      { "text": "dá pra trocar o tamanho se não servir?", "when": "size" },
+      { "text": "só manda o link, por favor", "when": "price" }
+    ],
+    "rules": { "tooLong": -15, "repeatedQuestion": -20 }
+  },
+  {
+    "id": "indecisa", "name": "Camila", "age": 31, "city": "Guarulhos (SP)", "cep": "07230370", "cod": true, "pants": 42,
+    "headline": "Volte a usar a roupa que você ama",
+    "brief": "Você quer, mas sempre adia. Diz que vai pensar, pergunta a opinião da loja, volta atrás. Escreve com reticências.",
+    "propensity": 50,
+    "objections": [
+      { "text": "não sei se é pra mim...", "when": "start" },
+      { "text": "vou pensar e te falo", "when": "price" },
+      { "text": "e se eu me arrepender?", "when": "link" }
+    ],
+    "vanishOnBad": 0.15
+  },
+  {
+    "id": "com-pressa", "name": "Aline", "age": 27, "city": "Osasco (SP)", "cep": "06149290", "cod": true, "pants": 38,
+    "headline": "Colete modelador — entrega rápida, pague na entrega",
+    "brief": "Você tem uma festa no sábado e está no intervalo do trabalho. Quer respostas curtas e rápidas. Se a mensagem for longa, você não lê.",
+    "propensity": 60,
+    "objections": [
+      { "text": "chega até sábado?", "when": "start" },
+      { "text": "resume pra mim, to sem tempo", "when": "price" },
+      { "text": "qual tamanho eu pego, rápido", "when": "size" }
+    ],
+    "rules": { "tooLong": -20 },
+    "vanishOnBad": 0.3
+  },
+  {
+    "id": "dificil", "name": "Sueli", "age": 58, "city": "Porto Alegre (RS)", "cep": "91250373", "cod": true, "pants": 50,
+    "headline": "Afine a cintura com conforto",
+    "brief": "Você é ríspida, já comprou cinta que não serviu e acha que ninguém faz roupa pro seu corpo. Responde com uma palavra às vezes, contesta o que dizem.",
+    "propensity": 25,
+    "objections": [
+      { "text": "isso aí não serve em mulher de verdade", "when": "start" },
+      { "text": "já comprei uma dessas e enrolou toda", "when": "size" },
+      { "text": "tá caro pra quem nem sabe se serve", "when": "price" }
+    ],
+    "rules": { "repeatedQuestion": -20, "pressure": -25 },
+    "vanishOnBad": 0.25
+  },
+  {
+    "id": "sem-dinheiro", "name": "Daiane", "age": 33, "city": "Salvador (BA)", "cep": "41500620", "cod": true, "pants": 48,
+    "headline": "Pague só quando receber",
+    "brief": "Você quer muito, mas o salário só cai dia 5. Pergunta se dá pra pagar depois, se dá pra reservar. Escreve carinhosa, com 'amiga'.",
+    "propensity": 55,
+    "objections": [
+      { "text": "amiga, to sem dinheiro agora, só dia 5", "when": "price" },
+      { "text": "dá pra deixar reservado?", "when": "link" },
+      { "text": "se eu pedir hoje pago quando chegar mesmo?", "when": "cod" }
+    ],
+    "rules": { "pressure": -30 }
+  },
+  {
+    "id": "insegura", "name": "Luana", "age": 36, "city": "Fortaleza (CE)", "cep": "60176210", "cod": true, "pants": 52,
+    "headline": "Sinta-se linda de novo na sua roupa",
+    "brief": "Você tem vergonha do próprio corpo, acha que nada fica bom. Fala pouco de si e se fecha se sentir julgamento. Escreve baixinho, sem exclamação.",
+    "propensity": 45,
+    "objections": [
+      { "text": "acho que no meu corpo não vai fazer diferença", "when": "start" },
+      { "text": "tem tamanho pra mim? sou grande", "when": "size" },
+      { "text": "e se eu ficar ridícula?", "when": "price" }
+    ],
+    "vanishOnBad": 0.2
+  },
+  {
+    "id": "comparadora-shopee", "name": "Bruna", "age": 26, "city": "Natal (RN)", "cep": "59073817", "cod": true, "pants": 40,
+    "headline": "Colete original Encorpa — pague na entrega",
+    "brief": "Você viu um parecido na Shopee por bem menos e quer saber por que pagar mais aqui. Manda print mental: 'lá tá 59'. Escreve rápido, com kkk.",
+    "propensity": 40,
+    "objections": [
+      { "text": "na shopee tem um igualzinho por 59 kkk", "when": "price" },
+      { "text": "qual a diferença pro da shopee?", "when": "start" },
+      { "text": "lá tem frete grátis", "when": "cep" }
+    ]
+  },
+  {
+    "id": "some", "name": "Kelly", "age": 30, "city": "Curitiba (PR)", "cep": "81580480", "cod": false, "pants": 42,
+    "headline": "Modele o corpo na hora",
+    "brief": "Você responde entre uma tarefa e outra e perde o interesse fácil. Se a conversa ficar chata, você simplesmente para de responder.",
+    "propensity": 40,
+    "objections": [
+      { "text": "como funciona?", "when": "start" },
+      { "text": "ah tenho que pagar antes?", "when": "cep" },
+      { "text": "depois eu vejo isso", "when": "link" }
+    ],
+    "vanishOnBad": 0.5
+  },
+  {
+    "id": "quer-desconto", "name": "Tainá", "age": 28, "city": "Recife (PE)", "cep": "51021080", "cod": false, "pants": 38,
+    "headline": "Colete modelador com preço especial",
+    "brief": "Você nunca paga preço cheio. Pede cupom, pede desconto no pix, pergunta se tem promoção. Se a loja ceder um pouco, você pede mais.",
+    "propensity": 45,
+    "objections": [
+      { "text": "tem cupom?", "when": "price" },
+      { "text": "no pix sai mais barato?", "when": "cep" },
+      { "text": "faz por 99 que eu fecho agora", "when": "link" }
+    ]
+  },
+  {
+    "id": "preco-primeiro", "name": "Simone", "age": 41, "city": "São Paulo (SP)", "cep": "01310100", "cod": true, "pants": 44,
+    "headline": "Afina na hora — pague na entrega",
+    "brief": "Sua primeira mensagem é só 'quanto custa?'. Você não quer conversa antes de saber o preço. Se enrolarem pra dizer o preço, você pergunta de novo, mais seca.",
+    "propensity": 50,
+    "objections": [
+      { "text": "quanto custa?", "when": "start" },
+      { "text": "e o frete?", "when": "price" },
+      { "text": "qual o prazo?", "when": "cep" }
+    ],
+    "rules": { "priceUnasked": 15, "repeatedQuestion": -20 }
+  },
+  {
+    "id": "compra-forte", "name": "Renata", "age": 35, "city": "Belo Horizonte (MG)", "cep": "30510670", "cod": true, "pants": 46,
+    "headline": "O colete que todo mundo está usando",
+    "brief": "Você chega dizendo que quer comprar. Já sabe o que quer, só precisa do tamanho certo e do link.",
+    "propensity": 80,
+    "objections": [
+      { "text": "quero comprar, como faço?", "when": "start" },
+      { "text": "uso 46, qual tamanho?", "when": "size" },
+      { "text": "pago na entrega mesmo né?", "when": "cep" }
+    ],
+    "rules": { "tooLong": -15, "repeatedQuestion": -25 }
+  },
+  {
+    "id": "recusa-educada", "name": "Márcia", "age": 47, "city": "Manaus (AM)", "cep": "69005010", "cod": false, "pants": 44,
+    "headline": "Pague só na entrega",
+    "brief": "Você clicou sem querer, ou mudou de ideia. Diz com educação que não quer: 'obrigada, mas não quero'. Se insistirem, repete com mais firmeza que não tem interesse.",
+    "propensity": 22,
+    "objections": [
+      { "text": "obrigada, mas não quero", "when": "start" },
+      { "text": "não tenho interesse, obrigada", "when": "price" },
+      { "text": "já disse que não quero", "when": "size" }
+    ],
+    "rules": { "pressure": -30, "repeatedQuestion": -20 }
+  },
+  {
+    "id": "ajuda-tamanho", "name": "Gisele", "age": 39, "city": "Brasília (DF)", "cep": "72615002", "cod": false, "pants": 48,
+    "headline": "Encontre o tamanho certo pro seu corpo",
+    "brief": "Você quer comprar mas morre de medo de errar o tamanho. Usa 48 de calça mas diz que a cintura é mais fina que o quadril. Pergunta de novo se a resposta não for clara.",
+    "propensity": 55,
+    "objections": [
+      { "text": "minha cintura é mais fina que o quadril, qual pego?", "when": "size" },
+      { "text": "e se ficar apertado, troca?", "when": "price" },
+      { "text": "tenho que pagar antes então?", "when": "cep" }
+    ]
+  }
+]

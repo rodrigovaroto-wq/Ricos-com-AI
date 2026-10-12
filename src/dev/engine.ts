@@ -231,7 +231,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
       state.addressConfirmed = true;
       advance("conversando");
       advance("tamanho_definido");
-      advance("endereco_coletado");
+      // No `endereco_coletado` since E2.2: the simulator has no region lookup, payment path or link.
     }
     advance("conversando");
 

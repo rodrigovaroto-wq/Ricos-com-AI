@@ -2099,3 +2099,33 @@ Resultado: pico de caixa **R$ 752** (07/11), sobra **R$ 323**; dobrar a verba fa
 [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx). **Reconciliado no mesmo dia (operador: R$ 675 e R$ 1.325 "substituem os de L3"; depois,
 "7 dias cada" e o plano escolhido):** a verba de L3 passa de R$ 500 (2026-10-08) para R$ 700 (Copy R$ 350 e Região R$ 350) e o caixa de R$ 1.500
 para R$ 1.325; Região 10–16, Leitura 17–18 e decisão no dia 18 (assumido). **Alerta:** Piso de amostra (L3 item 4): mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos. Grafo §68.
+
+## R20 — Plano prático de conversão: decisões da E0 (operador, 2026-10-11)
+
+Depois da análise de arquitetura e do plano prático desta sessão (etapas E0–E8), o operador aceitou, em
+2026-10-11, as decisões abaixo. São **decisões dele**; nenhuma está implementada nem no ar por ter sido aceita.
+Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fim de fase.
+
+- **R20.1 (D1) — Sai a linha de escassez "restam 12 unidades".** Não há contagem real por trás dela
+  (`scarcity.allowUnverified` / `unitsLeft` no `BUSINESS_CONFIG`), e ela chegou a ser enviada a uma cliente que
+  tinha recusado (grafo §69). **Supera R16.5 e R16.8.** O operador a tira do segredo (E1.4).
+- **R20.2 (D2) — Sai o recibo automático** ("uma de nossas atendentes… acesse o site"): promete uma pessoa e
+  manda o lead para fora da conversa. A primeira resposta passa a ser da Malu, rápida (E3.1). **Supera o D8 de**
+  [`09-cruzamento/divergencias.md`](../../agente-ia/09-cruzamento/divergencias.md).
+- **R20.3 (D3) — Proteção (E1) e medição (E2) vêm antes do portal de dados.**
+- **R20.4 (D4) — Os experimentos de L3 rodam por lead** (2×2, hash independente por experimento), não
+  antes/depois.
+- **R20.5 (D5) — Experimento A:** abertura rápida (primeira resposta em até 15 s + pausas curtas de digitação)
+  contra a atual.
+- **R20.6 (D6) — Experimento B:** link do checkout logo depois da escolha do pagamento, contra coletar nome e CPF
+  no chat primeiro. **Reabre os §62/§63 com motivo novo:** a queixa original era o link *antes da decisão*, não
+  antes do CPF.
+- **R20.7 (D7) — Trocar a regra de escrita "vírgula mais que ponto"** (R13 / §66) é testado primeiro no eval
+  sintético.
+- **R20.8 (D8) — Congelar o caminho do Hermes que implementa e publica sozinho** (`hermes/IMPLEMENTAR.md`,
+  `.github/workflows/deploy-hermes.yml`) até haver **≥ 1.000 leads reais e ≥ 100 pedidos**. O Hermes continua
+  propondo. *(Só a decisão está registrada; esses arquivos não foram editados.)*
+- **R20.9 — Regra do operador:** ao fim de cada fase **inteira** do plano (E1, E2…, nunca cada E1.x), roda-se um
+  ciclo de autoaperfeiçoamento, a bateria de personas com subagentes e o `/code-review`; só então a fase conta
+  como feita. Memória:
+  [`fim-de-fase-personas-e-code-review.md`](../../../.claude/memory/fim-de-fase-personas-e-code-review.md).

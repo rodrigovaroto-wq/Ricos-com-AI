@@ -12,7 +12,9 @@ export const STAGES = [
   "novo",
   "conversando",
   "tamanho_definido",
-  "endereco_coletado",
+  "cobertura_conhecida",
+  "caminho_escolhido",
+  "link_enviado",
   "pedido_criado",
   "em_rota",
   "entregue_pago",
@@ -26,8 +28,10 @@ export type Stage = (typeof STAGES)[number];
 const TRANSITIONS: Readonly<Record<Stage, readonly Stage[]>> = {
   novo: ["conversando", "perdido", "bloqueado"],
   conversando: ["tamanho_definido", "perdido", "bloqueado"],
-  tamanho_definido: ["endereco_coletado", "perdido", "bloqueado"],
-  endereco_coletado: ["pedido_criado", "perdido", "bloqueado"],
+  tamanho_definido: ["cobertura_conhecida", "perdido", "bloqueado"],
+  cobertura_conhecida: ["caminho_escolhido", "perdido", "bloqueado"],
+  caminho_escolhido: ["link_enviado", "perdido", "bloqueado"],
+  link_enviado: ["pedido_criado", "perdido", "bloqueado"],
   pedido_criado: ["em_rota", "recusado", "bloqueado"],
   em_rota: ["entregue_pago", "recusado", "bloqueado"],
   entregue_pago: [],
@@ -62,7 +66,7 @@ export const transition = (from: Stage, to: Stage, evidence: string, at = new Da
 
 /** Stages where spending more model tokens still has a chance of producing an order. */
 export const isLive = (stage: Stage): boolean =>
-  ["novo", "conversando", "tamanho_definido", "endereco_coletado"].includes(stage);
+  ["novo", "conversando", "tamanho_definido", "cobertura_conhecida", "caminho_escolhido", "link_enviado"].includes(stage);
 
 /**
  * The linear part of the funnel, in order. The terminal stages — `recusado`, `perdido`,
@@ -73,7 +77,9 @@ const LADDER: readonly Stage[] = [
   "novo",
   "conversando",
   "tamanho_definido",
-  "endereco_coletado",
+  "cobertura_conhecida",
+  "caminho_escolhido",
+  "link_enviado",
   "pedido_criado",
   "em_rota",
   "entregue_pago",
@@ -122,8 +128,12 @@ export const overwritableBy = (next: Stage): Stage[] =>
 /** The facts a turn has established, as far as the funnel is concerned. */
 export interface ReachedFacts {
   size: string | null;
-  addressConfirmed: boolean;
-  addressComplete: boolean;
+  /** Her region lookup answered (E2.2): whether cash on delivery reaches her is known, yes or no. */
+  coverageKnown: boolean;
+  /** Her payment path is stored (`leads.payment_choice`). */
+  pathChosen: boolean;
+  /** A checkout link went out to her in this turn's reply. */
+  linkSent: boolean;
   /** The order body actually built — not identity complete, not "she wants to buy". */
   orderBuilt: boolean;
 }
@@ -140,8 +150,12 @@ export interface ReachedFacts {
 export const reachedStage = (facts: ReachedFacts): Stage =>
   facts.orderBuilt
     ? "pedido_criado"
-    : facts.addressConfirmed && facts.addressComplete
-      ? "endereco_coletado"
-      : facts.size
-        ? "tamanho_definido"
-        : "conversando";
+    : facts.linkSent
+      ? "link_enviado"
+      : facts.pathChosen
+        ? "caminho_escolhido"
+        : facts.coverageKnown
+          ? "cobertura_conhecida"
+          : facts.size
+            ? "tamanho_definido"
+            : "conversando";

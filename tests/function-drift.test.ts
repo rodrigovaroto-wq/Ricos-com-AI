@@ -23,6 +23,7 @@ const mirrored = [
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
   ["src/agent/opt-in.ts", "supabase/functions/turn/opt-in.ts"],
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
+  ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],
@@ -329,7 +330,7 @@ describe("rodada 13 na Edge Function", () => {
   it("o prazo da resposta conta do fim do intérprete, e a região tem tempo-limite", () => {
     expect(source).toContain("replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS)");
     expect(source).toContain("isRetry || isRevise ? RETRY_INTERPRET_TIMEOUT_MS : INTERPRET_TIMEOUT_MS");
-    expect(source).toContain("signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
+    expect(source).toContain("regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS)");
   });
 
   // Grafo §60 (operador, 2026-10-06): a escada fixa saiu; toda mensagem vai ao modelo, e a

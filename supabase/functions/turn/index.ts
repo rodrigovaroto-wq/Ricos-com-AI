@@ -21,11 +21,13 @@ import {
   remedyFor,
   runGates,
   wantsHuman,
+  hourIn,
   type GateConfig,
 } from "./guardrails.ts";
 import {
   decideTouch,
   deliveryFor,
+  BUSINESS_TZ,
   nextOpening,
   windowIsOpen,
   checkHumanReply,
@@ -71,7 +73,7 @@ import {
 import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { lookupRegion, type Region } from "./availability.ts";
+import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -132,11 +134,13 @@ import {
   draftMayGo,
   shippedCancelReply,
   thinkReply,
+  DECLINE_REPLY,
   linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
+  welcomeNightReply,
+  dayPart,
   greetingFor,
-  GREETING_ASK,
   isReceipt,
   onlyGreets,
   spoken,
@@ -160,6 +164,8 @@ import {
   lastLinkBase,
   linkHeldBack,
   withdrawsInBurst,
+  declinesInBurst,
+  herRecent,
   agreesWithoutChoosing,
   namesOwnPrice,
   asksForLink,
@@ -177,9 +183,10 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, priceBeforeCepMessage, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
+import { armOf, armOn } from "./experiments.ts";
 
 const SUPABASE_URL = Deno.env.get("SUPABASE_URL")!;
 const SERVICE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
@@ -356,6 +363,8 @@ interface BusinessConfig extends GateConfig {
   support?: { email?: string };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
+  /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
+  experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
   handoff?: { email: string };
   /**
@@ -491,7 +500,10 @@ type TurnOutcome = "send" | "fallback" | "deferred" | "handoff" | "stopped" | "o
  * THIS turn spent, not the conversation's running total — summing the total per turn
  * inflates the price of every gate by the length of the conversation.
  */
-const recordOutcome = async (
+const writeOutcome = async (
+  /** When the turn started (E2.1): `duration_ms` runs from there to the outcome recorded — the server's share of her
+   * wait (plus the post-reply writes); a retry or a revision measures from its own start. */
+  turnStartedAt: number,
   conversationId: string,
   outcome: TurnOutcome,
   reason: string | null = null,
@@ -506,6 +518,8 @@ const recordOutcome = async (
       reason,
       rewrites,
       cost_brl: costBrl,
+      // DEPLOY ORDER: migration 0026 first — without the column this insert 400s and the outcome is lost.
+      duration_ms: Date.now() - turnStartedAt,
       // Only when set: before 0021 the column does not exist and the insert would 400 — every
       // outcome and call lost in silence (review, 2026-10-02).
       ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
@@ -540,6 +554,7 @@ const callLuna = async (
   timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
+  const startedAt = Date.now();
   const response = await fetch("https://api.openai.com/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${OPENAI_KEY}`, "Content-Type": "application/json" },
@@ -569,6 +584,7 @@ const callLuna = async (
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
+    latencyMs: Date.now() - startedAt,
   };
 };
 
@@ -591,6 +607,7 @@ const callMuse = async (
   timeoutMs = MODEL_CALL_TIMEOUT_MS,
 ) => {
   if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR);
+  const startedAt = Date.now();
   const response = await fetch("https://api.meta.ai/v1/chat/completions", {
     method: "POST",
     headers: { Authorization: `Bearer ${META_KEY}`, "Content-Type": "application/json" },
@@ -619,6 +636,7 @@ const callMuse = async (
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
+    latencyMs: Date.now() - startedAt,
   };
 };
 
@@ -648,7 +666,8 @@ const withNetworkRetry = async <T>(call: (timeoutMs: number) => Promise<T>, dead
  * written as zero on every row, which makes the stored cost impossible to audit
  * afterwards: a bill that disagrees with the sum has no breakdown to check it against.
  */
-type ModelCall = { text: string; inTok: number; outTok: number; cachedTok: number; costBrl: number };
+/** `latencyMs`: this call's request to its parsed answer (E2.1) — the try that answered, not the retries before it. */
+type ModelCall = { text: string; inTok: number; outTok: number; cachedTok: number; costBrl: number; latencyMs: number };
 
 const recordCall = (
   conversationId: string,
@@ -668,6 +687,7 @@ const recordCall = (
       output_tokens: call.outTok,
       cached_tokens: call.cachedTok,
       cost_brl: call.costBrl,
+      latency_ms: call.latencyMs,
       // Only when set: before 0021 the column does not exist and the insert would 400 — every
       // outcome and call lost in silence (review, 2026-10-02).
       ...(AGENT_VERSION !== null ? { agent_version: AGENT_VERSION } : {}),
@@ -931,6 +951,10 @@ const MS_PER_WORD = 560;
 const bubbleDelayMs = (bubble: string): number =>
   Math.max(1_000, bubble.trim().split(/\s+/).length * MS_PER_WORD);
 
+// Experiment A, arm 1 (E3.4): first bubble at most 3 s, the others 6 s. Same line as src/agent/pacing.ts.
+const pacedDelayMs = (bubble: string, index: number, fast: boolean): number =>
+  fast ? Math.min(index === 0 ? 3_000 : 6_000, bubbleDelayMs(bubble)) : bubbleDelayMs(bubble);
+
 const MAX_BUBBLE_WORDS = 30;
 
 const wordCount = (s: string): number => s.trim().split(/\s+/).filter(Boolean).length;
@@ -986,8 +1010,8 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
  * the database holds and what a person reads in a handoff mail — and `bubbles` is the
  * same text, split and timed, so the sender never has to reimplement the rhythm.
  */
-const paced = (text: string | null): Array<{ text: string; delayMs: number }> =>
-  text === null ? [] : splitBubbles(text).map((b) => ({ text: b, delayMs: bubbleDelayMs(b) }));
+const paced = (text: string | null, fast = false): Array<{ text: string; delayMs: number }> =>
+  text === null ? [] : splitBubbles(text).map((b, i) => ({ text: b, delayMs: pacedDelayMs(b, i, fast) }));
 
 /** She answered — every pending touch for this conversation is moot. */
 /**
@@ -1081,9 +1105,12 @@ const scheduleSilenceTouches = async (
   // guess, and a guess can land past the free 72 h window (operator, 2026-10-02). The sweep
   // asks again before anything goes out.
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
-  // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at)`).catch(() => null))?.[0];
+  // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022). Her recent
+  // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
+  // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
+  if (at && declinesInBurst(herRecent(at.messages ?? [], spoken))) { await cancelScheduled(conversationId, "all"); return; }
   if (at && !chasesSilence(at.stage, orderStatuses)) {
     // An unpaid Pix is a checkout still open: its touch stays (L2).
     await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");
@@ -1358,6 +1385,21 @@ const KIT_MEMORY_MS = 7 * 24 * 60 * 60 * 1000;
 /** Each postcode lookup (ViaCEP, then the checkout's availability) is cut here. */
 const REGION_TIMEOUT_MS = 10_000;
 const RETRY_REGION_TIMEOUT_MS = 5_000;
+
+/** The one fetcher of every region lookup — the turn's and the coverage alarm's (E1.2), so the alarm sees what she gets. */
+const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
+  const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  return r.ok ? await r.json() : null;
+};
+
+/** São Paulo CEPs the L2 audit (2026-10-08) saw with cash on delivery: one not `cod` is the path gone, not the region. */
+const COVERAGE_ALARM_CEPS = ["01310100", "04710090", "04662002"];
+
+/** `job: "health"` (E1.2): no database write, no model call — n8n alerts the operator on `unhealthy`. */
+const runHealthCheck = async () => {
+  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS);
+  return { status: healthOf(checks), checkedAt: new Date().toISOString(), checks };
+};
 
 /**
  * What the `retry_turn` row carries in `followups.body`: the inbound message the failed
@@ -1793,6 +1835,10 @@ const runFollowupSweep = async () => {
       ).catch(() => null);
       const earlier = (window ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
       await scheduleSilenceTouches(row.conversation_id, stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text));
+      // A held reply that carries the link is the link going out (E2.2): the turn that wrote it stored no `link_enviado`.
+      if (linkSentRecently([text], CHECKOUT_BASES)) {
+        await persistStage(row.conversation_id, (row.conversations?.stage as Stage | null) ?? "novo", "link_enviado");
+      }
     }
     toSend.push(
       delivery.via === "template"
@@ -2011,10 +2057,15 @@ const handleTurn = async (
   internal: { retry?: RetryTicket; revise?: ReviseTicket; claimed?: { id?: string; at?: string } } = {},
 ): Promise<Response> => {
   const turnStartedAt = Date.now();
+  const recordOutcome = (conversationId: string, outcome: TurnOutcome, reason?: string | null, rewrites?: number, costBrl?: number) =>
+    writeOutcome(turnStartedAt, conversationId, outcome, reason, rewrites, costBrl);
 
   // The cron half: sweep the follow-up rulers. Deterministic, no model call — except the
   // `retry_turn` rows, which run a whole turn again (R13.4).
   if (payload.job === "followups") return json(200, await runFollowupSweep());
+
+  // E1.2: the coverage alarm — the conversation's own lookup for three CEPs that have cash on delivery.
+  if (payload.job === "health") return json(200, await runHealthCheck());
 
   // The sale half. n8n posts here when Logzz or Coinzz confirms an order; the rule of
   // what that does to the schedule lives in `followups.ts`, where a test can hold it.
@@ -2096,6 +2147,20 @@ const handleTurn = async (
         }),
       })
     )[0];
+  // E2.3: her A/B arm, sorted from the phone and written once — `arm=is.null` never overwrites it.
+  // A lead from before 0026 gets hers on her next turn. Index: leads_pkey. Failure costs only the label.
+  if (!lead.arm) {
+    await db(`leads?id=eq.${lead.id}&arm=is.null`, {
+      method: "PATCH",
+      body: JSON.stringify({ arm: armOf(lead.phone) }),
+    }).catch(() => undefined);
+  }
+  // Experiment A (E3.1/E3.4): arm 1 skips the receipt and the 60 s wait, and types faster. A brand-new
+  // lead has no stored arm yet: hers is the same `armOf`, read here. Absent `fastOpening` = nobody.
+  const fastOpening = armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "A");
+  // The send window is open now: a reply written now goes now (the `business_hours` gate reads the same).
+  // The business_hours gate's own clock (/code-review of E3): the same time zone, so the two never disagree.
+  const openNow = ((h) => h >= CONFIG.hours.openHour && h < CONFIG.hours.closeHour)(hourIn(new Date(), CONFIG.hours.timeZone ?? BUSINESS_TZ));
 
   const openConversations = await db(
     `conversations?lead_id=eq.${lead.id}&closed_at=is.null&select=*&order=created_at.desc&limit=1`,
@@ -2134,8 +2199,9 @@ const handleTurn = async (
    */
   let reachedSoFar: Stage = reachedStage({
     size: lead.size ?? null,
-    addressConfirmed: Boolean(lead.address?.confirmedAt),
-    addressComplete: isComplete(lead.address ?? {}),
+    coverageKnown: typeof lead.address?.codAvailable === "boolean",
+    pathChosen: Boolean(lead.payment_choice),
+    linkSent: false,
     orderBuilt: false,
   });
 
@@ -2242,9 +2308,13 @@ const handleTurn = async (
   // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
   // call never re-enters here.
   const isNewLead = !existing?.[0];
-  if (isNewLead && !isResume) {
+  // Arm 1 of experiment A answers right away instead — inside the send window only: at night the real
+  // reply waits for the opening, and silence until then reads as ignored, so she still gets the receipt.
+  if (isNewLead && !isResume && !(fastOpening && openNow)) {
+    // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
+    const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
     const welcomedAt = new Date().toISOString();
-    const receipt = runGates(WELCOME_AUTO_REPLY, {
+    const receipt = runGates(receiptText, {
       config: turnConfig,
       layer: "auto",
       optedOut: false,
@@ -2261,7 +2331,7 @@ const handleTurn = async (
           body: JSON.stringify({
             conversation_id: conversation.id,
             direction: "outbound",
-            body: WELCOME_AUTO_REPLY,
+            body: receiptText,
           }),
         })
       )[0];
@@ -2271,8 +2341,8 @@ const handleTurn = async (
       });
       return json(200, {
         status: "welcomed",
-        reply: WELCOME_AUTO_REPLY,
-        bubbles: paced(WELCOME_AUTO_REPLY),
+        reply: receiptText,
+        bubbles: paced(receiptText),
         messageId: out.id,
         resumeInSeconds: WELCOME_RESUME_DELAY_SECONDS,
       });
@@ -2430,7 +2500,7 @@ const handleTurn = async (
       status: "handoff",
       reason,
       reply: sendable ? reply : null,
-      bubbles: paced(sendable ? reply : null),
+      bubbles: paced(sendable ? reply : null, fastOpening),
       blocked: receipt.traces.filter((t) => t.verdict === "block"),
       messageId: asked?.id ?? null,
       ...notification(lead, conversation),
@@ -2535,7 +2605,7 @@ const handleTurn = async (
     return json(200, {
       status: "opted_out",
       reply: farewell?.text ?? null,
-      bubbles: paced(farewell?.text ?? null),
+      bubbles: paced(farewell?.text ?? null, fastOpening),
       messageId: farewell?.id ?? null,
       costBrl: spent,
     });
@@ -2585,7 +2655,7 @@ const handleTurn = async (
       status: "handoff",
       reason: "teto de custo da conversa",
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: ceilingHold.id,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -2646,7 +2716,7 @@ const handleTurn = async (
       // third party's log has to be rotated, not masked.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: held?.[0]?.id ?? null,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -2807,23 +2877,24 @@ const handleTurn = async (
       }),
     });
     // A fixed line that carries the link starts the ruler at `link_sent`.
+    const linkOut = Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES);
     await scheduleSilenceTouches(
       conversation.id,
       extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
-      Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES),
+      linkOut,
       new Date(),
       undefined,
       endsWithQuestion(text),
     );
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
-      persistStage(conversation.id, storedStage, reachedSoFar),
+      persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
       status: "ok",
       reason,
       reply: text,
-      bubbles: paced(text),
+      bubbles: paced(text, fastOpening),
       messageId: out.id,
       rewrites: 0,
       ...extra,
@@ -2939,7 +3010,8 @@ const handleTurn = async (
     : asksForName(lastOutbound)
     ? "name"
     : null;
-  if (!isRetry && !isResume && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
+  // E3 review (B1): with nothing of ours in the chat yet (arm A, no receipt), her "ok"/"👍" is a first message and gets an answer.
+  if (!isRetry && !isResume && lastOutbound !== "" && ackGoesUnanswered(isBareAck(parts), lastOutbound, datum)) {
     // Her message cancelled the ruler; it comes back as it was armed by the agent's last reply.
     const earlier = (recentRows ?? [])
       .filter((m: { direction: string }) => m.direction === "outbound")
@@ -2954,7 +3026,8 @@ const handleTurn = async (
       false,
     );
     // Once: an "ok" to the help offer itself does not bring it back in another 10 minutes.
-    const help = lastOutbound.trim() === ackHelpText(datum) ? null : ackHelpText(datum);
+    // Not after her refusal (grafo §69): the help offer would chase her like the ruler.
+    const help = lastOutbound.trim() === ackHelpText(datum) || declinesInBurst(herRecent(recentRows ?? [], spoken)) ? null : ackHelpText(datum);
     if (help !== null) {
       await db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
@@ -3183,11 +3256,16 @@ const handleTurn = async (
   // 5d. The address loop. It accumulates across turns because she says it in pieces,
   // and it is only ever *confirmed* by her saying so — a package sent to an address
   // nobody read back is the failed delivery this costs the most to fix.
-  const storedAddress = (lead.address ?? {}) as Partial<Address> & { confirmedAt?: string; codAvailable?: boolean };
+  const storedAddress = (lead.address ?? {}) as Partial<Address> & {
+    confirmedAt?: string;
+    codAvailable?: boolean;
+    region?: CachedRegion;
+  };
   let addressConfirmed = Boolean(storedAddress.confirmedAt);
   let addressDraft: Partial<Address> = { ...storedAddress };
   delete (addressDraft as { confirmedAt?: string }).confirmedAt;
   delete (addressDraft as { codAvailable?: boolean }).codAvailable;
+  delete (addressDraft as { region?: CachedRegion }).region;
 
   // Message by message, in order: a later correction wins ("Rua das Flores 10" / "não, Rua das Rosas 12").
   const foundAddress = { fields: extractAddressBurst(parts) };
@@ -3232,16 +3310,18 @@ const handleTurn = async (
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
   let badCep: string | null = null;
-  if (addressDraft.cep) {
+  // E2.4: the same CEP looked up less than an hour ago is not asked again (latency). Only a found region is kept.
+  let freshRegion: CachedRegion | null = null;
+  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now()) : null;
+  if (cached) region = cached;
+  else if (addressDraft.cep) {
     try {
-      const lookup = await lookupRegion(async (url, headers) => {
-        const r = await fetch(url, {
-          headers,
-          signal: AbortSignal.timeout(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
-        });
-        return r.ok ? await r.json() : null;
-      }, addressDraft.cep);
+      const lookup = await lookupRegion(
+        regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
+        addressDraft.cep,
+      );
       region = lookup.kind === "found" ? lookup.region : null;
+      if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
       // Not kept either: a CEP that does not exist never counts for the link, in this turn or the next.
@@ -3273,13 +3353,13 @@ const handleTurn = async (
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
-    JSON.stringify({ ...storedAddress, codAvailable: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
+    JSON.stringify({ ...storedAddress, codAvailable: undefined, region: undefined, confirmedAt: Boolean(storedAddress.confirmedAt) });
   // Whether her region pays at the door, kept for the sweep (D3): the region is looked up per
   // turn and was never stored, so the silence ruler told a woman with no payment at the door
   // "você não paga nada agora". A new CEP whose lookup failed drops the old region's answer.
   const codAvailable = region !== null ? region.cod : addressDraft.cep === storedAddress.cep ? storedAddress.codAvailable : undefined;
   codUnavailable = codAvailable === false;
-  if (addressChanged || codAvailable !== storedAddress.codAvailable) {
+  if (addressChanged || codAvailable !== storedAddress.codAvailable || freshRegion) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({
@@ -3287,6 +3367,7 @@ const handleTurn = async (
           ...addressDraft,
           ...(addressConfirmed ? { confirmedAt: new Date().toISOString() } : {}),
           ...(codAvailable !== undefined ? { codAvailable } : {}),
+          ...(freshRegion ?? storedAddress.region ? { region: freshRegion ?? storedAddress.region } : {}),
         },
         updated_at: new Date().toISOString(),
       }),
@@ -3319,15 +3400,6 @@ const handleTurn = async (
       }),
     }).catch(() => undefined);
   }
-
-  // This turn's size, address and identity are already stored on the lead; the rung they
-  // support holds for every exit from here on. The order is only built at the end.
-  reachedSoFar = reachedStage({
-    size: stated?.size ?? lead.size ?? null,
-    addressConfirmed,
-    addressComplete: isComplete(addressDraft),
-    orderBuilt: false,
-  });
 
   // 6. History, then the turn that sells.
   const history = await db(
@@ -3425,6 +3497,17 @@ const handleTurn = async (
       }),
     }).catch(() => undefined);
   }
+  // This turn's size, region and payment path are already stored on the lead; the rung they
+  // support holds for every exit from here on. The link and the order come at the end.
+  const coverageKnown = codAvailable !== undefined;
+  const choiceStored = (choiceToStore ?? storedChoice) !== null;
+  reachedSoFar = reachedStage({
+    size: stated?.size ?? lead.size ?? null,
+    coverageKnown,
+    pathChosen: choiceStored,
+    linkSent: false,
+    orderBuilt: false,
+  });
   const linkPath = linkPathFor(paymentChoice, knownRegion);
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
@@ -3546,8 +3629,14 @@ const handleTurn = async (
   let farewell = false;
   // Malu's first real reply opens with the greeting of the hour, a fixed bubble (operator, 2026-10-07,
   // grafo §66) — also when that reply is a fixed one, the link or the "vou pensar" (review of §66, B2).
-  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName);
+  // E3.1: the model writes the opening of a reply of its own; this short line opens only a fixed one.
+  const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName, CONFIG.brand);
   const opening = (text: string): string => (greeting === null ? text : `${greeting}\n\n${text}`);
+  // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
+  if (declinesInBurst(parts) && !interpretation.wants_to_buy) {
+    const sent = await sendFixed(opening(DECLINE_REPLY), "ela recusou: despedida fixa, sem régua");
+    if (sent) return sent;
+  }
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
   if (
     interpretation.wants_to_think &&
@@ -3563,8 +3652,8 @@ const handleTurn = async (
     } catch {
       thinkLink = null;
     }
-    // R16.5/R16.8: the reply sells — the declared stock, her path's strongest argument, then the
-    // link — and it is the only message allowed to cite the stock (`postponing`).
+    // The reply sells — her path's strongest argument, then the link. The declared stock left it on
+    // 2026-10-11 (R20.1, grafo §72), and so did its exemption from `scarcity_claim`.
     const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
     // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
     // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
@@ -3583,7 +3672,8 @@ const handleTurn = async (
       thinkLink && linkFact ? `ela vai pensar: resposta fixa e link — ${linkFact}` : "ela vai pensar: resposta fixa e link",
       linkPath,
       { checkoutUrl: thinkLink, linkFact: thinkLink ? linkFact : null },
-      true,
+      // R20.1: no exemption — `scarcity_claim` refuses a stock line here like anywhere else.
+      false,
       units,
     );
     if (sent) return sent;
@@ -3663,17 +3753,24 @@ const handleTurn = async (
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
         ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
       : null;
-  // all she wrote was a greeting → the greeting and "Em que posso te ajudar?", no model call.
-  if (greeting !== null && !farewell && onlyGreets(parts)) {
-    const sent = await sendFixed(`${greeting}\n\n${GREETING_ASK}`, "primeira resposta: saudação");
-    if (sent) return sent;
-  }
   const sizeDirective =
     [
+      // E3.1: her first real reply opens with the model's own greeting, of the hour it goes out.
       greeting
-        ? `A saudação e a sua apresentação já vão num balão antes da sua mensagem: não cumprimente, não diga` +
-          ` seu nome e não pergunte se ela está bem. Comece respondendo o que ela escreveu, em no máximo dois balões.`
+        ? openingDirective(
+            CONFIG,
+            dayPart(openNow ? new Date() : nextOpening(new Date(), CONFIG.hours.openHour)),
+            // The ad of THIS message first (arm A answers in the same call, before any re-read; a returning lead may come
+            // from another ad); else the stored first-touch ad, only when this conversation came from an ad (/code-review of E3).
+            typeof payload.source?.headline === "string"
+              ? payload.source.headline
+              : typeof lead.source?.headline === "string" && conversation.entry_at ? lead.source.headline : null,
+            onlyGreets(parts),
+          )
         : null,
+      // E3.2 (H2): her size and register, over her last three messages.
+      // Not on her first reply (E3 review, R1): the opening's greeting and question outrank "1 balão de 15 palavras".
+      greeting ? null : registerDirective(recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? ""))),
       kitDirective,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
@@ -3833,8 +3930,8 @@ const handleTurn = async (
         kind: "deferred_reply",
         run_at: runAt.toISOString(),
         status: "scheduled",
-        // The first reply held for the opening keeps its greeting, of the hour it goes out (review 3 of §66).
-        body: greeting === null ? attempt.text : `${greetingFor(runAt, CONFIG.agentName)}\n\n${attempt.text}`,
+        // The model already greeted with the hour it goes out (E3.1: the opening directive reads `openNow`).
+        body: attempt.text,
       }),
     });
     await Promise.all([
@@ -3854,7 +3951,17 @@ const handleTurn = async (
   // quer saber?" (persona Sandra). Her price question gets the price, in the prompt's own sentence; anything
   // else goes to a person with the holding line.
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
-  if (outcome.kind === "fallback" && !asksPrice) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
+  // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
+  // Only when every question of hers is about the deadline: "qual o prazo? e serve pra quem fez cirurgia?" still goes to a person.
+  const asksWhen = !asksPrice && clauses.some(asksDeadline) && clauses
+    // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
+    .filter((q: string) => asksSomething(q) && !/^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
+    .every(asksDeadline);
+  // Her first reply never goes to a person (personas Marcinha and Sandra, grafo §76): cold traffic handed off at
+  // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
+  // Only a first message with no question of hers: a medical question or a complaint still goes to a person.
+  const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));
+  if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
 
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
@@ -3884,7 +3991,7 @@ const handleTurn = async (
       status: "handoff",
       reason,
       reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY),
+      bubbles: paced(HOLDING_REPLY, fastOpening),
       messageId: holding.id,
       rewrites: rewritesUsed,
       blockedText: attempt.text,
@@ -3902,10 +4009,17 @@ const handleTurn = async (
    * which is where a gate that keeps firing becomes Hermes' material.
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
-  const body = fallbackReason === null ? attempt.text : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
-  const replyText = greeting === null ? body : `${greeting}\n\n${body}`;
+  const body =
+    fallbackReason === null
+      ? attempt.text
+      : asksWhen
+        ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
+        : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
+  // Only a fixed fallback gets the short greeting: the model's own first reply already opened (E3.1).
+  const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\n\n${body}`;
 
-  // The draft a revision rewrites is Malu's own text; the greeting is added again after it.
+  // The draft a revision rewrites is Malu's own text; since E3.1 a model reply carries its own greeting, and only a fixed
+  // fallback gets `greetingFor` in front of it.
   const gaveUp = await lateGuard(rewritesUsed, body);
   if (gaveUp) return gaveUp;
 
@@ -3993,8 +4107,9 @@ const handleTurn = async (
       storedStage,
       reachedStage({
         size: stated?.size ?? lead.size ?? null,
-        addressConfirmed,
-        addressComplete: isComplete(addressDraft),
+        coverageKnown,
+        pathChosen: choiceStored,
+        linkSent: linkSentRecently([replyText], CHECKOUT_BASES),
         orderBuilt: order !== null,
       }),
     ),
@@ -4010,7 +4125,7 @@ const handleTurn = async (
           blocked: gates.traces.filter((t) => t.verdict === "block"),
         }),
     reply: replyText,
-    bubbles: paced(replyText),
+    bubbles: paced(replyText, fastOpening),
     messageId: outbound.id,
     rewrites: rewritesUsed,
     order,

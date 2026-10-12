@@ -188,7 +188,9 @@ território é agente que inventa trabalho.
 ## Pipeline em execução
 
 O plano até produção é [`docs/agente-ia/05-plano/09-pipeline-ate-producao.md`](docs/agente-ia/05-plano/09-pipeline-ate-producao.md)
-(versão 80/20). O andamento vive no **quadro do topo do [`HANDOFF.md`](HANDOFF.md)**: toda sessão
+(versão 80/20). Desde 2026-10-11 a execução segue o plano prático de conversão
+[`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (E0–E8, quadro de status no topo; decisões
+R20); ao fim de cada fase inteira: autoaprimoramento, personas e `/code-review` (R20.9). O andamento vive no **quadro do topo do [`HANDOFF.md`](HANDOFF.md)**: toda sessão
 que continua o pipeline confere o estado real, atualiza o quadro (onde estamos, executado, falta)
 ao começar e ao terminar, e diz ao operador em que etapa está.
 
