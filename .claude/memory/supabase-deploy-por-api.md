@@ -14,7 +14,9 @@ errar um caractere numa regex que só a produção descobriria.
 **Desde 2026-10-02 use `NODE_USE_ENV_PROXY=1 pnpm deploy:turn`** (`--dry-run` primeiro): lista
 os `.ts` do diretório (nunca uma lista escrita à mão), grava a versão em `agent_versions` e no
 segredo `AGENT_VERSION` antes de publicar (R18.5), e desfaz os dois se o deploy falhar. **Só depois
-das migrações 0021 e 0022 aplicadas.** O `curl` abaixo fica como referência do que o script faz.
+das migrações 0021 e 0022 aplicadas.** **Em 12/10 o proxy do container NÃO injetava `api.supabase.com`** (só
+`*.supabase.co`): `deploy:turn` deu 401 "No access token provided" — confira `--dry-run` no começo da sessão e, se falhar, peça
+ao operador o `SUPABASE_ACCESS_TOKEN` nos segredos do ambiente (nunca no chat); o MCP não serve (a função passou de 770 KB). O `curl` abaixo fica como referência do que o script faz.
 
 Use a API de gerência, que envia os arquivos **do disco**:
 

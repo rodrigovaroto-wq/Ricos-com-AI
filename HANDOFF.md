@@ -13,6 +13,37 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-12, noite — SESSÃO `claude/pipeline-e4-fix-exp-b` (LEIA PRIMEIRO; o bloco seguinte, do PR #59, é histórico).**
+> Continuou os próximos passos do PR #59 (mergeado em 12/10 22:05 UTC). **No ar:** `turn` **v16** (sem mudança), **migração 0026
+> APLICADA** em produção nesta sessão (12/10; a v16 continua funcionando com ela — não escreve as colunas novas), E1.3 no n8n.
+>
+> **Executado nesta sessão (branch `claude/pipeline-e4-fix-exp-b`, tudo testado; nada de código publicado):**
+> - Passo 2 ✅ detector de mentira da E4 consertado (grafo §78): conta só o que a verdade do CEP do cenário acrescenta aos gates; a
+>   frase que a produção aprovou não é re-julgada. Revisão Opus: APROVADO.
+> - Passo 3 ✅ experimento B construído (grafo §79): `identityAtCheckout` em `missingForLink`; no braço 1 com
+>   `experiments.linkAfterChoice`, o link sai depois de tamanho + CEP + **escolha dela** do pagamento; nome/CPF/e-mail ficam para o
+>   checkout. Primeira revisão Opus reprovou (a região sem COD soltava o link do antecipado no turno do CEP) — consertado, 3 mutações
+>   `E6-*` pegas; segunda revisão no fim do grafo §79. **Efeito aceito, decisão do operador:** no braço 1 a oferta do kit não sai.
+> - Passo 7 ✅ (rascunho) regras do L3 em [`14-experimentos-l3.md`](docs/agente-ia/05-plano/14-experimentos-l3.md) — **falta a
+>   assinatura do operador** e as duas flags no `BUSINESS_CONFIG` antes de 23/10.
+> - Passo 8 (parte) ✅ `asksForSize("Qual o número da sua calça?")` (grafo §80, mutação `E4-numero-da-calca`).
+> - E1.2: workflow **"Encorpa — Alarme de cobertura"** (id `QQI8CX25LK7TsoKg`) criado no n8n **DESLIGADO** (a v16 não tem o
+>   `job:"health"`); `pnpm dev:n8n` agora o confere e fica vermelho ("not published") até ser ativado.
+> - Validação: `pnpm test` 7414/7414, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxado, `deno check` ok, mutações novas 4/4.
+>
+> **Próximos passos, nesta ordem:**
+> 1. **Deploy da `turn` (bloqueado):** o container não tem credencial da API de gerência do Supabase (`deploy:turn` → 401 "No access
+>    token provided"; o proxy só injeta `*.supabase.co`). O operador põe `SUPABASE_ACCESS_TOKEN` nas variáveis/segredos do ambiente
+>    (nova sessão lê) e roda-se `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2+E3+B (grafo §69–§80)"` — a 0026 já está aplicada.
+>    Logo depois: **ativar** o alarme no n8n e rodar `pnpm dev:n8n`; provas pela porta de produção (recusa → despedida sem toque;
+>    `{"job":"health"}` → `healthy`; lead novo recebe a recepção honesta).
+> 2. **Refazer base × E3 pela E4** com o detector consertado (roteiro abaixo, "Como rodar as personas e a E4"), e rodar a E4 com o
+>    braço B ligado no config local (`experiments.linkAfterChoice: true`) + personas Tati e Vera.
+> 3. Operador: assinar `14-experimentos-l3.md`; decidir o kit no braço B; gravar `experiments` no `BUSINESS_CONFIG` antes de 23/10.
+> 4. Pendências: apagar o lead sintético `5500099491074` (sem conversa/toque/pedido; o `delete` pelo conector expira — rode no SQL
+>    editor: `delete from leads where phone = '5500099491074';`); `linkMessage` ainda recebe `brand` sem usar.
+> 5. Seguem do bloco anterior: E4.3 (juiz), E5 (ensaio com dinheiro 20–21/10), E6 (L3 23/10).
+
 > **2026-10-12 — FIM DA SESSÃO `claude/awesome-hopper-x8j8wb` (LEIA PRIMEIRO; os blocos de 2026-10-11/12 abaixo são histórico).**
 > **PR: [rodrigovaroto-wq/Ricos-com-AI#59](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/59)** — tudo desta sessão está nele.
 > Plano em execução: [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (quadro de status no

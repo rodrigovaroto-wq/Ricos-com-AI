@@ -2,7 +2,7 @@
 
 > Baseado em `analise-arquitetura-malu.md` (§0–§22). Nada aqui foi implementado.
 >
-> **Hoje:** sáb. 11/10/2026.
+> **Escrito em:** sáb. 11/10/2026 (status atualizado em 12/10, noite).
 > - **No ar:** `turn` v16, `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
@@ -26,7 +26,10 @@ Branch `claude/awesome-hopper-x8j8wb`. Grafo de decisões §69–§77. Nada abai
 | E3.1–E3.4 | Recepção honesta, experimento A, abertura do modelo com o anúncio, H2/H4/H5/H7, link, pausa curta | 🟡 | grafo §77 |
 | E4.1/E4.2/E4.4 | Eval de venda: comprador com propensão, métricas, score, comparação | ✅ (ferramenta) | `src/dev/sales-buyer.ts`, `src/dev/scenarios/venda.json`, `pnpm dev:eval --compare` |
 | E4.3 | Juiz LLM calibrado | ⬜ | espera 20 conversas anotadas pelo operador |
-| E3+E4 fim | Base × E3 pela E4 + `/code-review` | ✅ com ressalva | grafo §77: APROVADA (17,7 → 25,3; ruído 1,9); detector de mentira do comprador a consertar |
+| E3+E4 fim | Base × E3 pela E4 + `/code-review` | ✅ com ressalva | grafo §77: APROVADA (17,7 → 25,3; ruído 1,9); detector de mentira consertado em 12/10 (§78) — refazer a comparação |
+| E2 deploy | Migração `0026` | ✅ aplicada 12/10 | produção `hbmkgakzrqmdlsvszjeo`; a `turn` com E1–E3 ainda não (falta token da API de gerência) |
+| E6 B | Experimento B (`linkAfterChoice`) | 🟡 | grafo §79, `tests/e6-link-after-choice.test.ts`; revisado (reprovou → consertado) |
+| E6.1 | Regras do L3 | 🟡 rascunho | `14-experimentos-l3.md`, falta a assinatura do operador |
 | E5 | Ensaio com dinheiro real | ⬜ | depende do deploy |
 | E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
 | E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |
@@ -34,8 +37,8 @@ Branch `claude/awesome-hopper-x8j8wb`. Grafo de decisões §69–§77. Nada abai
 **Bloqueio de produção (⛔ para esta sessão):** o classificador de permissão do Claude Code recusou `pnpm deploy:turn` e
 `pnpm dev:n8n`. A ordem para publicar tudo o que está 🟡 está no topo do `HANDOFF.md`.
 
-**Ainda não construído dentro de E3/E6:** o experimento B (`linkAfterChoice`: link logo depois da escolha do pagamento) só tem o
-braço sorteado e a flag (`armOn(…, "B")`); o comportamento entra antes do L3 (ver `HANDOFF.md`, próximos passos).
+**Experimento B construído em 12/10 (grafo §79):** no braço 1 com `linkAfterChoice`, o link sai depois de tamanho + CEP + a escolha dela
+do pagamento; nome/CPF/e-mail ficam para o checkout. No braço 1 a oferta do kit não sai (decisão do operador pendente).
 
 ## Como ler este plano
 
