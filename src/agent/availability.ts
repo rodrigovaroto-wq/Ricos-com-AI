@@ -289,10 +289,13 @@ export type CachedRegion = Region & { readonly checkedAt: string };
 
 export const cachedRegion = (cached: CachedRegion | null | undefined, zip: string, now: number): Region | null => {
   if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
-  // The same-day window closes during the day: never served from the cache (E2 review).
-  if (cached.sameDay) return null;
   const age = now - Date.parse(cached.checkedAt);
-  return age >= 0 && age < REGION_CACHE_MS ? cached : null;
+  if (!(age >= 0 && age < REGION_CACHE_MS)) return null;
+  // The dates shift at midnight: only the same São Paulo day (UTC−3) is served (/code-review of E2).
+  const day = (ms: number) => new Date(ms - 3 * 60 * 60 * 1000).toISOString().slice(0, 10);
+  if (day(Date.parse(cached.checkedAt)) !== day(now)) return null;
+  // The same-day window closes during the day: served, but never as "hoje" (E2 review, /code-review).
+  return cached.sameDay ? { ...cached, sameDay: false } : cached;
 };
 
 export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {

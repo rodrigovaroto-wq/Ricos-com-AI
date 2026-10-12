@@ -2511,6 +2511,15 @@ vetadas, sai a saudação + a frase de preço (a mesma resposta pronta da pergun
 **Causa de fundo, para a E3:** o modelo põe o frete grátis na abertura (o prompt lista o frete grátis entre os "agregadores de valor"
 e o `shipping_promise` só aceita a frase canônica isolada). A reescrita da abertura (E3.1) resolve na origem.
 
+**`/code-review` da E2 (fim de fase) — consertado:** a regra da 1ª resposta vale só sem pergunta dela (pergunta médica ou reclamação
+no primeiro contato continua indo para uma pessoa); o cache da cobertura só serve o mesmo dia de São Paulo (as datas viram na
+meia-noite) e serve a janela do mesmo dia com `sameDay: false` (a capital não paga mais duas consultas por turno); o `deploy:turn`
+não lê mais erro de consulta como "0026 ausente" e confere `duration_ms` e `leads.arm`; o comentário do `duration_ms` diz o que ele
+mede (a parte do servidor até o desfecho gravado). **Fica, documentado:** `armOn`/`experiments` sem leitor até a E3/E6 (as views por
+braço mostram ruído até lá — não ler como resultado); a 0026 aplicada minutos antes do deploy congela por esse tempo os estágios
+re-derivados (aplicar logo antes do deploy); `payment_choice` vencido levanta o estágio nas saídas antecipadas; o braço numa ida a mais
+ao banco no 1º turno; o simulador do `dev:conversas` não cobre os degraus novos (só os testes de `reachedStage`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

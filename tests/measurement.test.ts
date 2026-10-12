@@ -100,8 +100,14 @@ describe("E2.4 cobertura guardada por CEP", () => {
     expect(cachedRegion(region, "04710-090", now)).toBe(region);
     expect(cachedRegion(region, "04710090", now)).toBe(region);
   });
-  it("janela do mesmo dia não sai do cache: ela fecha durante o dia (revisão da E2)", () => {
-    expect(cachedRegion({ ...region, sameDay: true }, "04710-090", now)).toBeNull();
+  it("janela do mesmo dia sai do cache, mas nunca como 'hoje' (revisão e /code-review da E2)", () => {
+    expect(cachedRegion({ ...region, sameDay: true }, "04710-090", now)?.sameDay).toBe(false);
+  });
+  it("as datas viram na meia-noite: só o mesmo dia de São Paulo sai do cache (/code-review da E2)", () => {
+    // 23:40 em São Paulo (02:40 UTC) guardado; 00:20 do dia seguinte (03:20 UTC) consulta de novo.
+    const at = Date.parse("2026-10-13T03:20:00Z");
+    expect(cachedRegion({ ...region, checkedAt: "2026-10-13T02:40:00.000Z" }, "04710-090", at)).toBeNull();
+    expect(cachedRegion({ ...region, checkedAt: "2026-10-13T03:10:00.000Z" }, "04710-090", at)).not.toBeNull();
   });
   it("CEP novo: consulta de novo", () => {
     expect(cachedRegion(region, "01310-100", now)).toBeNull();
@@ -128,5 +134,7 @@ describe("revisão da E2 — ordem do deploy e janela do mesmo dia", () => {
     expect(guard).toBeGreaterThan(-1);
     expect(guard).toBeLessThan(deploy.indexOf("insert into public.agent_versions"));
     expect(deploy).toContain("if (!dryRun) throw new Error(\"a migração 0026 não está aplicada");
+    expect(deploy).toContain("column_name = 'arm'");
+    expect(deploy).not.toMatch(/column_name = 'duration_ms'[^;]*\.catch\(/s);
   });
 });

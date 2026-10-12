@@ -51,10 +51,11 @@ if (dirty && !dryRun) throw new Error(`${FUNCTION_DIR} difere do HEAD; commite a
 if (proposal !== null && !/^[0-9a-f-]{36}$/.test(proposal)) throw new Error(`--proposal=${proposal}: não é o id (uuid) de hermes_proposals`);
 // Grafo §75: the turn writes turn_outcomes.duration_ms (0026). Published before the migration, every outcome
 // insert fails in silence — the 0021 pattern. Checked here, every publishing path (Hermes included) stops.
+// A failed query is its own error (token, network), never read as "not applied" (/code-review of E2).
 const migrated = await sql<{ n: number }>(
-  "select count(*)::int as n from information_schema.columns where table_schema = 'public' and table_name = 'turn_outcomes' and column_name = 'duration_ms'",
-).catch(() => [{ n: 0 }]);
-if ((migrated[0]?.n ?? 0) === 0) {
+  "select count(*)::int as n from information_schema.columns where table_schema = 'public' and ((table_name = 'turn_outcomes' and column_name = 'duration_ms') or (table_name = 'leads' and column_name = 'arm'))",
+);
+if ((migrated[0]?.n ?? 0) < 2) {
   if (!dryRun) throw new Error("a migração 0026 não está aplicada (turn_outcomes.duration_ms ausente): aplique antes do deploy (grafo §75)");
   console.log("(a migração 0026 não está aplicada: o deploy de verdade pararia aqui)");
 }

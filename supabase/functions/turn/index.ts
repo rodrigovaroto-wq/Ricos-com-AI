@@ -498,7 +498,8 @@ type TurnOutcome = "send" | "fallback" | "deferred" | "handoff" | "stopped" | "o
  * inflates the price of every gate by the length of the conversation.
  */
 const writeOutcome = async (
-  /** When the turn started (E2.1): `duration_ms` is from there to the reply ready, the wait she feels. */
+  /** When the turn started (E2.1): `duration_ms` runs from there to the outcome recorded — the server's share of her
+   * wait (plus the post-reply writes); a retry or a revision measures from its own start. */
   turnStartedAt: number,
   conversationId: string,
   outcome: TurnOutcome,
@@ -3932,7 +3933,8 @@ const handleTurn = async (
     .every(asksDeadline);
   // Her first reply never goes to a person (personas Marcinha and Sandra, grafo §76): cold traffic handed off at
   // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
-  const firstReply = greeting !== null;
+  // Only a first message with no question of hers: a medical question or a complaint still goes to a person.
+  const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));
   if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
 
   if (outcome.kind === "handoff") {

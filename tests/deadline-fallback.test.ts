@@ -49,7 +49,7 @@ describe("o turno usa a resposta de prazo no lugar do handoff", () => {
 
 describe("a primeira resposta nunca vira handoff (grafo §76)", () => {
   it("com todas as reescritas vetadas no primeiro contato, sai a saudação e a frase de preço", () => {
-    expect(turn).toContain("const firstReply = greeting !== null;");
-    expect(turn.indexOf("const firstReply = greeting !== null;")).toBeGreaterThan(turn.indexOf("const greeting = recentOutbound"));
+    expect(turn).toContain("const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));");
+    expect(turn.indexOf("const firstReply = greeting !== null")).toBeGreaterThan(turn.indexOf("const greeting = recentOutbound"));
   });
 });
