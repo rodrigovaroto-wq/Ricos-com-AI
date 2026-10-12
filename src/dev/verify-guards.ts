@@ -3410,6 +3410,15 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts", "tests/interpret.test.ts"],
   },
   {
+    id: "E4-numero-da-calca",
+    bug: "\"Qual o número da sua calça?\" e \"me diz o número da sua calça\" não contavam como pergunta do tamanho",
+    files: ["src/agent/sizing.ts"],
+    from: "    ).test(q) || unnegated(new RegExp(String.raw`\\b${PANTS_NUMBER}`, \"i\"), q),",
+    to: "    ).test(q),",
+    also: [{ from: "  if (unnegated(SIZE_REQUEST, text)) return true;\n", to: "" }],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/sizing.test.ts"],
+  },
+  {
     id: "G66-recusa-com-adiamento",
     bug: "'não passo o cpf, vou pensar' perdia a resposta do 'vou pensar' e a Malu pedia o CPF de novo",
     files: ["src/agent/identity.ts"],

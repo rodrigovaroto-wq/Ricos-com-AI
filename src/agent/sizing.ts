@@ -231,7 +231,23 @@ export const statedSizeOf = (
  */
 const NUMBER = String.raw`n[u\u00fa]mero(?=\s*(?:\?|d[ea]\s+cal[c\u00e7]a|que\s+(?:voc|vc)|(?:voc|vc)\S*\s+(?:usa|veste)))`;
 
+/**
+ * "Qual o número da sua calça?" and "me diz o número da sua calça" (E4, 2026-10-12): the
+ * possessive between "da" and "calça" hid the question, and the request has no "?". Both
+ * skip a negated ask ("não precisa me dizer o número da sua calça agora, tá?").
+ */
+const PANTS_NUMBER = String.raw`n[u\u00fa]mero\s+d[ea]\s+(?:sua\s+)?cal[c\u00e7]a\b`;
+const SIZE_REQUEST = new RegExp(
+  String.raw`\bme\s+(?:diz|diga|fala|fale|conta|conte|passa|passe|manda|mande)\s+(?:(?:o|a|seu|sua)\s+)?(?:tamanho|numera[c\u00e7][a\u00e3]o|${PANTS_NUMBER})`,
+  "i",
+);
+const unnegated = (pattern: RegExp, text: string): boolean => {
+  const match = pattern.exec(text);
+  return match !== null && !NEGATED_CUE.test(text.slice(0, match.index));
+};
+
 export const asksForSize = (text: string): boolean => {
+  if (unnegated(SIZE_REQUEST, text)) return true;
   const questions = text.split(/(?<=[.!?\n])\s*/).filter((q) => q.trim().endsWith("?"));
   // The question has to be ABOUT her size — "qual/que tamanho", "que número de calça",
   // "você veste" — not merely mention it: "fico por aqui pra ajudar com tamanho ou pedido,
@@ -242,7 +258,7 @@ export const asksForSize = (text: string): boolean => {
         String.raw`|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))` +
         String.raw`|\b(seu|sua)\s+(tamanho|${NUMBER}|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b`,
       "i",
-    ).test(q),
+    ).test(q) || unnegated(new RegExp(String.raw`\b${PANTS_NUMBER}`, "i"), q),
   );
 };
 

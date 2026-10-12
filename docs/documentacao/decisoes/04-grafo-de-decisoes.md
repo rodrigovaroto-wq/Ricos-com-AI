@@ -2599,6 +2599,28 @@ incluído; tamanho, CEP e caminho nunca faltam em braço nenhum; a fiação por 
 `armOn`) e `E6-ausente-liga-b` (ausente lido como ligado) — as duas pegas.
 **Estado (2026-10-12):** no código, não publicado. Liga-se escrevendo `experiments.linkAfterChoice: true` no `BUSINESS_CONFIG`.
 
+## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
+
+**Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção
+`size` nem punia a repetição, e em produção o mesmo predicado decide o dado pendente do "ok" solto (§67) e a diretiva "responda e volte
+ao tamanho" (`lastAskedSize`), mudas nessa forma.
+**Causa:** "número" só valia como tamanho pelo lookahead `NUMBER`, que exigia "de/da calça" colado; o possessivo ("da **sua** calça")
+quebrava o casamento, "E o número…?" não tinha porta de entrada, e o imperativo sem "?" ("me diz o número da sua calça") saía pelo
+filtro `endsWith("?")` antes da regex.
+**Caminhos descartados:** (1) afrouxar o lookahead para `d[ea]\s+(sua\s+)?calça` — não cobre "E o número…?" nem o imperativo, e herda a
+falta de checagem de negação da regex antiga; (2) tirar o filtro do "?" — "O número da sua calça é 44…" viraria pergunta, e foi esse
+filtro que fechou a rodada 3 (Neusa); (3) qualquer oração começando com "me conta/diz" — "Me conta, o número da sua calça é 44." viraria
+pergunta.
+**Correção:** duas portas novas em `src/agent/sizing.ts` (espelho em `supabase/functions/turn/sizing.ts`), a regex antiga intacta:
+`PANTS_NUMBER` (número de/da [sua] calça) em oração com "?", e `SIZE_REQUEST` (me + diz/fala/conta/passa/manda, sem vírgula, + tamanho/
+numeração/número da calça), que vale sem "?". As duas passam pelo `NEGATED_CUE` do arquivo: "não precisa me dizer o número da sua calça
+agora, tá?" continua falso.
+**Guarda:** `tests/sizing.test.ts` ("E4: o número da sua calça é pergunta do tamanho": 8 formas reais verdadeiras, 9 negações falsas);
+mutação `E4-numero-da-calca`. `asksForSize` não é gate: `dev:gates` 0 afrouxado, 0 endurecido. **Risco aberto:** `SIZE_REQUEST` vale em
+qualquer posição do texto (uma afirmação longa com "me fala o tamanho" contaria); a lista de verbos é fechada e nenhuma frase do corpus
+faz isso.
+**Estado (2026-10-12):** no código, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
