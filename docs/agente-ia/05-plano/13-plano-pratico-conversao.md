@@ -2,40 +2,41 @@
 
 > Baseado em `analise-arquitetura-malu.md` (§0–§22). Nada aqui foi implementado.
 >
-> **Escrito em:** sáb. 11/10/2026 (status atualizado em 12/10, noite).
-> - **No ar:** `turn` v16, `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
+> **Escrito em:** sáb. 11/10/2026 (status atualizado em 13/10, noite).
+> - **No ar:** `turn` v21 (v22 na branch com os resíduos da revisão, ver HANDOFF), `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
 
-## ▶ Status de execução (atualizado 2026-10-12) — LEIA PRIMEIRO
+## ▶ Status de execução (atualizado 2026-10-13) — LEIA PRIMEIRO
 
 Legenda: ✅ feito e commitado · 🟡 feito no código, falta publicar/provar em produção · ⬜ não começado · ⛔ bloqueado.
-Branch `claude/awesome-hopper-x8j8wb`. Grafo de decisões §69–§77. Nada abaixo de E1.3 está no ar.
+Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, E6 B e o pós-venda R21 estão no ar desde a `turn` v17–v21.
 
 | Etapa | Tarefa | Status | Onde está |
 |---|---|---|---|
 | E0 | 9 decisões do operador | ✅ | R20.1–R20.9 em `03-decisoes-tomadas.md`; D9 encerrado (memória) |
-| E1.1 | Recusa vira estado (`declinesInBurst`, `DECLINE_REPLY`, régua para) | 🟡 | grafo §69, `tests/declined.test.ts` |
-| E1.2 | Alarme de cobertura `job:"health"` | 🟡 | grafo §70; **falta o workflow no n8n** (abaixo) |
+| E1.1 | Recusa vira estado (`declinesInBurst`, `DECLINE_REPLY`, régua para) | ✅ no ar | grafo §69, `tests/declined.test.ts` |
+| E1.2 | Alarme de cobertura `job:"health"` | ✅ no ar | grafo §70; workflow n8n `QQI8CX25LK7TsoKg` ativo |
 | E1.3 | Sem `retryOnFail` nos nós do turno (n8n) | ✅ no ar | grafo §71, versão ativa `b13736eb` |
-| E1.4 | Escassez fora do "vou pensar", do prompt e do briefing | 🟡 | grafo §72 |
-| E1.5 | Gates `hip_claim`, `courier_claim`, "afina de vez" | 🟡 | grafo §73 |
+| E1.4 | Escassez fora do "vou pensar", do prompt e do briefing | ✅ no ar | grafo §72 |
+| E1.5 | Gates `hip_claim`, `courier_claim`, "afina de vez" | ✅ no ar | grafo §73 |
 | E1 fim | Autoaprimoramento + 13 personas + `/code-review` | ✅ | grafo §74 (prazo pronto no lugar do handoff) |
-| E2.1–E2.4 | Latência, estágios reais, braço A/B, cobertura guardada | 🟡 | grafo §75, migração `0026` (NÃO aplicada) |
+| E2.1–E2.4 | Latência, estágios reais, braço A/B, cobertura guardada | ✅ no ar | grafo §75, migração `0026` aplicada |
 | E2 fim | 461/461 mutações + personas + `/code-review` | ✅ | grafo §76 (1ª resposta nunca vira handoff) |
-| E3.1–E3.4 | Recepção honesta, experimento A, abertura do modelo com o anúncio, H2/H4/H5/H7, link, pausa curta | 🟡 | grafo §77 |
+| E3.1–E3.4 | Recepção honesta, experimento A, abertura do modelo com o anúncio, H2/H4/H5/H7, link, pausa curta | ✅ no ar | grafo §77 |
 | E4.1/E4.2/E4.4 | Eval de venda: comprador com propensão, métricas, score, comparação | ✅ (ferramenta) | `src/dev/sales-buyer.ts`, `src/dev/scenarios/venda.json`, `pnpm dev:eval --compare` |
 | E4.3 | Juiz LLM calibrado | ⬜ | espera 20 conversas anotadas pelo operador |
 | E3+E4 fim | Base × E3 pela E4 + `/code-review` | ✅ com ressalva | grafo §77: APROVADA (17,7 → 25,3; ruído 1,9); detector de mentira consertado em 12/10 (§78) — refazer a comparação |
-| E2 deploy | Migração `0026` | ✅ aplicada 12/10 | produção `hbmkgakzrqmdlsvszjeo`; a `turn` com E1–E3 ainda não (falta token da API de gerência) |
-| E6 B | Experimento B (`linkAfterChoice`) | 🟡 | grafo §79, `tests/e6-link-after-choice.test.ts`; revisado (reprovou → consertado) |
-| E6.1 | Regras do L3 | 🟡 rascunho | `14-experimentos-l3.md`, falta a assinatura do operador |
-| E5 | Ensaio com dinheiro real | ⬜ | depende do deploy |
+| E2 deploy | Migração `0026` + `turn` com E1–E3 | ✅ no ar | produção `hbmkgakzrqmdlsvszjeo` |
+| E6 B | Experimento B (`linkAfterChoice`) | ✅ no ar (flag ligada) | grafo §79, `tests/e6-link-after-choice.test.ts`; revisado (reprovou → consertado) |
+| E6.1 | Regras do L3 | ✅ assinado 12/10 | `14-experimentos-l3.md` |
+| R21 | Pós-venda resolve sozinha, troca/devolução pela Logzz só quando pedida, R$ 27 apagado | ✅ no ar (v21) | grafo §78–§88, R21.1–R21.5 |
+| Testes reais | Rodada de 3 (operador, sócio, mãe) | ⬜ próximo | `docs/operacao/roteiro-testes-reais.md`, `pnpm dev:arquivar-teste` |
+| E5 | Ensaio com dinheiro real | ⬜ | 20–21/10, depois da rodada de testes reais |
 | E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
 | E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |
 
-**Bloqueio de produção (⛔ para esta sessão):** o classificador de permissão do Claude Code recusou `pnpm deploy:turn` e
-`pnpm dev:n8n`. A ordem para publicar tudo o que está 🟡 está no topo do `HANDOFF.md`.
+**Bloqueio de produção:** resolvido em 12–13/10 (token da API de gerência liberado pelo operador; revogar ao fim).
 
 **Experimento B construído em 12/10 (grafo §79):** no braço 1 com `linkAfterChoice`, o link sai depois de tamanho + CEP + a escolha dela
 do pagamento; nome/CPF/e-mail ficam para o checkout. No braço 1 a oferta do kit não sai (decisão do operador pendente).

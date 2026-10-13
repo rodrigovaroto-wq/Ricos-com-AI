@@ -261,3 +261,6 @@ Não leva nada e chega hoje.
 Não atrasa e chega amanhã.
 Não chega amanhã e nem hoje, leva de 1 a 3 dias.
 Não consigo garantir que chega amanhã e nem sexta.
+Não sei dizer quando chega, mas chega amanhã.
+Não tem como não chegar amanhã, chega amanhã.
+Não sei quando entrega, mas você recebe amanhã.

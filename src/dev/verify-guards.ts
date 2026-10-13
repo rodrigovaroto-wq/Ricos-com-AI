@@ -3594,6 +3594,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r21-4-exchange-gate.test.ts"],
   },
   {
+    id: "v21-verbo-mais-perto-do-prazo",
+    bug: "'Não sei dizer quando chega, mas chega amanhã' passava: o trecho guloso começava no primeiro 'chega', negado, e engolia o segundo (revisão da v21)",
+    files: ["src/agent/guardrails.ts"],
+    from: "/(chega|entrega|recebe|receber)(?:(?!chega|entrega|recebe).){0,24}(amanha",
+    to: "/(chega|entrega|recebe|receber).{0,24}(amanha",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/v20-residuals-que-dash-contact.test.ts"],
+  },
+  {
+    id: "v21-responsavel-pela-entrega",
+    bug: "'quero falar com o responsável pela entrega' virava pedido de pessoa — é pergunta de entrega, que a Malu responde (revisão da v21)",
+    files: ["src/agent/interpret.ts"],
+    from: "responsavel(?!\\s+pel[ao]\\s+(?:entrega|envio|frete|transportadora|correios?)\\b)",
+    to: "responsavel",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r21-post-sale-decisions.test.ts"],
+  },
+  {
     id: "v21-virgula-fecha-a-recusa",
     bug: "'não me passa pra atendente, quanto custa?' lido como pedido de pessoa: a pergunta depois da vírgula desfazia a recusa (revisão da v21)",
     files: ["src/agent/interpret.ts"],

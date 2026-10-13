@@ -297,7 +297,7 @@ export const mergeUnitSizes = (
  * "de verdade". "Alguém" alone is not a person — "preciso falar com alguém sobre meu pedido" is the Malu's
  * — and a person-word with no request is not a request ("uma pessoa me indicou", "vc é humano?").
  */
-const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|atendimento\s+humano|vendedora?|responsavel|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
+const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|atendimento\s+humano|vendedora?|responsavel(?!\s+pel[ao]\s+(?:entrega|envio|frete|transportadora|correios?)\b)|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
 const PERSON_REQUESTS = [
   // "quero falar com uma pessoa", "posso falar com um atendente?", "dá pra falar com alguém de verdade?"
   new RegExp(String.raw`\b(?:quero|queria|gostaria\s+de|preciso|precisava|posso|prefiro|da\s+pra|tem\s+como|deixa\s+eu)\s+(?:\S+\s+){0,2}?(?:(?:falar|conversar)\s+com|ser\s+atendid[ao]\s+(?:por|com))\s+${PERSON}`, "g"),

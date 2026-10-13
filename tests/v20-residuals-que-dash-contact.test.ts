@@ -63,6 +63,11 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Nada disso: chega em 1 a 5 dias.",
     "Não precisa se preocupar — chega de 2 a 6 dias.",
     "Não se preocupa que chega em uma semana.",
+    // v21 review: the span stopped past a denied first verb and swallowed the promising second one.
+    "Não sei dizer quando chega, mas chega amanhã.",
+    "Não tem como não chegar amanhã, chega amanhã.",
+    "Não sei quando entrega, mas você recebe amanhã.",
+    "Não consigo garantir quando chega e se chega hoje, mas recebe amanhã.",
   ])("veta: %s", (t) => {
     for (const [p, rk] of CTXS) expect(blocks(t, p, rk)).toContain("delivery_promise");
   });
@@ -93,6 +98,7 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não é verdade que chega amanhã.",
     "Não chega amanhã e nem hoje, leva de 1 a 3 dias.",
     "Não consigo garantir que chega amanhã e nem sexta.",
+    "Não sei quando chega, não consigo garantir que chega amanhã.",
   ])("passa: %s", (t) => {
     // The 1-3 day range is the delivery's: on the prepaid path the range rule vetoes it, rightly.
     for (const [p, rk] of /\d a \d/.test(t) ? CTXS.slice(0, 2) : CTXS) expect(blocks(t, p, rk)).not.toContain("delivery_promise");

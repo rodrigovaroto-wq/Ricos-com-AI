@@ -2885,9 +2885,17 @@ No gate de prazo: `DENIED_SAY` ("não posso dizer/garantir/assegurar que…") e 
 amanhã" vetava errado / passava). A revisão Opus final: **aprovado com resíduos** — 34 frases de prazo testadas, nenhuma afrouxada.
 Uma regressão consertada antes de publicar: "não me passa pra atendente, quanto custa?" virava pedido de pessoa porque a pergunta
 depois da vírgula desfazia a recusa → a vírgula fecha a oração da recusa. **Guarda:** testes em `tests/r21-post-sale-decisions.test.ts`
-e as mutações `R21-*`, `v21-*` (35/35 pegas). **Fica (antigo, não regressão):** o `.{0,24}` guloso deixa passar "Não sei dizer quando
-chega, mas chega amanhã." e "Não tem como não chegar amanhã, chega amanhã."; "quero falar com o responsável pela entrega" conta como
-pedido de pessoa. Próxima leva.
+e as mutações `R21-*`, `v21-*` (35/35 pegas). Publicado na v21.
+
+**Resíduos fechados (2026-10-13, noite, pedido do operador antes dos testes reais).** (1) O trecho `.{0,24}` entre o verbo de chegada
+e o prazo era guloso: começava no primeiro "chega", coberto pela negação, e engolia o segundo — "Não sei dizer quando chega, mas chega
+amanhã." e "Não tem como não chegar amanhã, chega amanhã." passavam. **Correção:** o trecho para no próximo verbo de chegada
+(`(?:(?!chega|entrega|recebe).){0,24}`), então a promessa é lida pelo verbo mais perto do prazo. **Caminho descartado:** `.{0,24}?`
+preguiçoso — o `matchAll` ainda começa no primeiro verbo e acha o prazo do segundo. (2) "quero falar com o responsável pela entrega" virava
+pedido de pessoa; é pergunta de entrega, que a Malu responde (R21.5). **Correção:** `responsavel` não conta seguido de "pelo/pela
+entrega/envio/frete/transportadora/correio"; "o responsável pela loja" continua pedido. **Guarda:** `tests/v20-residuals-que-dash-contact.test.ts`,
+`tests/r21-post-sale-decisions.test.ts`, as 3 frases no `tests/gate-corpus.txt`, mutações `v21-verbo-mais-perto-do-prazo` e
+`v21-responsavel-pela-entrega`. **Estado:** publicar na v22.
 
 ## Lições (valem para qualquer correção futura)
 

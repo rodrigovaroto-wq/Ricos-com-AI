@@ -48,6 +48,7 @@ describe("1. pedido de pessoa: só o explícito", () => {
     "quero falar com o atendimento humano",
     "quero falar com a vendedora",
     "quero falar com o responsável",
+    "quero falar com o responsável pela loja",
   ])("pede: %s", (msg) => {
     expect(namesAPerson(msg)).toBe(true);
     expect(handoffFor({ ...NEUTRAL_INTERPRETATION, asks_human: true }, msg, false)).toBe("human");
@@ -78,6 +79,9 @@ describe("1. pedido de pessoa: só o explícito", () => {
     "não me passa pra atendente, quanto custa?",
     "não chama atendente, qual o prazo?",
     "não me transfere pra atendente, você mesma resolve?",
+    // The courier's person is a delivery question, which the Malu answers (R21.5).
+    "quero falar com o responsável pela entrega",
+    "quem é o responsável pelo frete?",
   ])("não pede: %s", (msg) => {
     expect(namesAPerson(msg)).toBe(false);
     // Even with the model reading a request, the text decides.
