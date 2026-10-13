@@ -30,8 +30,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **Análise completa, mensagem por mensagem** (13/10, noite) nos dois arquivos da rodada; resumo no grafo §89. Lista de consertos:
 >   (1) pós-venda sem pedido não vai a pessoa; (2) resposta fixa de preço/parcela quando as reescritas esgotam; (3) "ok" depois do link:
 >   tirar URLs antes de procurar "?" em `ackGoesUnanswered`; (4) falsos positivos de `installment_promise` ("também") e `price_promise`
->   ("Por R$ 100 eu não consigo") — esperam a frase real (R21.6). **Perguntas ao operador:** horário de entrega e "não vem pelo correio"
->   são verdade na Logzz? Gravar o rascunho vetado (mascarado) para a R21.6 poder ser cumprida?
+>   ("Por R$ 100 eu não consigo") — esperam a frase real (R21.6); (5) gravar o rascunho vetado mascarado no trace (**R21.8**, aprovado);
+>   (6) pôr no prompt os dois fatos confirmados (**R21.7**: horário não se escolhe, chega ao longo do dia; a entrega não vem pelo correio),
+>   já na base.
 > - **Próximo:** terminar a rodada (sócio e mãe) → arquivar → consertar os achados de uma vez (teste, espelho, mutação, revisão Opus,
 >   grafo) → publicar v23 → `--delete` dos números.
 

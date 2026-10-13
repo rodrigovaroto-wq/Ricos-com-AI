@@ -2926,10 +2926,11 @@ reescritas vetadas (preço, parcela) e foi a uma pessoa — falta a resposta fix
 - *Fim das reescritas vira pessoa*: "parcelam ou fazem por 100 no pix?" teve 3 rascunhos vetados → handoff. Só prazo tem resposta fixa
   (§87); falta a de preço/parcela. Prioridade 1. Contra o config de produção, frases **verdadeiras** são vetadas: `installment_promise`
   lê "e no cartão **também** dá pra parcelar" como parcela no Pix; `price_promise` lê "Por R$ 100 eu **não** consigo" como preço. Pela
-  R21.6 os gates esperam a frase real — que não está gravada (o vetado não é guardado): **decisão do operador** se o rascunho vetado
-  passa a ser gravado mascarado no `gate_traces`.
+  R21.6 os gates esperam a frase real — que não está gravada (o vetado não é guardado): o operador decidiu gravá-lo mascarado no trace,
+  sem entrar no histórico (**R21.8**).
 - *"Ok" depois do link ganhou resposta*: `ackGoesUnanswered` (`followups.ts:197`) lê o "?" da query do link como pergunta. Reproduzido.
-- *Fatos fora da base*: "o horário não dá pra escolher porque chega ao longo do dia", "não vem pelo correio" — pergunta ao operador.
+- *Fatos fora da base*: "o horário não dá pra escolher porque chega ao longo do dia", "não vem pelo correio" — os dois são verdade
+  (operador, **R21.7**); entraram na base, e entram no prompt na próxima leva.
 - *Base desatualizada*: o texto do site "você vê o produto e paga na hora" contradiz a R16.4; nota posta na base (a Malu estava certa).
 - *Custo e espera*: 7 respostas do modelo e 1 reescrita descartadas numa conversa por mensagens que chegam no meio do turno; 18 s de
   mediana, 48 s no pior — observar no lote da rodada antes de mexer.

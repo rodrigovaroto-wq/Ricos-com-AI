@@ -70,6 +70,8 @@ Fonte: o operador, na conversa de 2026-10-06 (não é copy da landing page). Est
 | Forma de pagar na entrega | Ela escolhe; a agente **não lista** formas não confirmadas | "Você escolhe a forma que deseja pagar" |
 | Outra pessoa recebe e paga | Pode | "Pode sim, sem problemas" |
 | Ninguém em casa | O entregador devolve o pedido ao centro de distribuição e a entrega se frustra; dizer com carinho e sugerir uma data em que ela vai estar em casa | — |
+| Horário da entrega | Ela escolhe o **dia** no checkout; o horário não se escolhe — chega ao longo do dia (R21.7, operador, 2026-10-13) | "Você escolhe o dia no checkout; o horário não dá pra escolher, chega ao longo do dia." |
+| Quem leva, na entrega | O entregador da Logzz, **não** os Correios (R21.7) | "Você paga direto ao entregador quando receber, não vem pelo correio." |
 | Antecipado: transporte | Correios ou transportadora, conforme a região, com rastreio | — |
 | Antecipado: pagamento | Pix ou cartão; **sem boleto** | — |
 | Tamanho no checkout | Escolhido por ela num seletor, na Logzz e na Coinzz (não no complemento do endereço) | "lá você escolhe o M" |
