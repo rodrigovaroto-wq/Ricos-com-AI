@@ -3,14 +3,14 @@
 > Baseado em `analise-arquitetura-malu.md` (§0–§22). Nada aqui foi implementado.
 >
 > **Escrito em:** sáb. 11/10/2026 (status atualizado em 13/10, noite).
-> - **No ar:** `turn` v21 (v22 na branch com os resíduos da revisão, ver HANDOFF), `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
+> - **No ar:** `turn` v22, `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
 
 ## ▶ Status de execução (atualizado 2026-10-13) — LEIA PRIMEIRO
 
 Legenda: ✅ feito e commitado · 🟡 feito no código, falta publicar/provar em produção · ⬜ não começado · ⛔ bloqueado.
-Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, E6 B e o pós-venda R21 estão no ar desde a `turn` v17–v21.
+Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, E6 B e o pós-venda R21 estão no ar desde a `turn` v17–v22.
 
 | Etapa | Tarefa | Status | Onde está |
 |---|---|---|---|
@@ -30,7 +30,7 @@ Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, 
 | E2 deploy | Migração `0026` + `turn` com E1–E3 | ✅ no ar | produção `hbmkgakzrqmdlsvszjeo` |
 | E6 B | Experimento B (`linkAfterChoice`) | ✅ no ar (flag ligada) | grafo §79, `tests/e6-link-after-choice.test.ts`; revisado (reprovou → consertado) |
 | E6.1 | Regras do L3 | ✅ assinado 12/10 | `14-experimentos-l3.md` |
-| R21 | Pós-venda resolve sozinha, troca/devolução pela Logzz só quando pedida, R$ 27 apagado | ✅ no ar (v21) | grafo §78–§88, R21.1–R21.5 |
+| R21 | Pós-venda resolve sozinha, troca/devolução pela Logzz só quando pedida, R$ 27 apagado | ✅ no ar (v21–v22) | grafo §78–§88, R21.1–R21.5 |
 | Testes reais | Rodada de 3 (operador, sócio, mãe) | ⬜ próximo | `docs/operacao/roteiro-testes-reais.md`, `pnpm dev:arquivar-teste` |
 | E5 | Ensaio com dinheiro real | ⬜ | 20–21/10, depois da rodada de testes reais |
 | E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |

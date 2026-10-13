@@ -2906,7 +2906,7 @@ conta como pedido (o "ou" quebra a leitura); depois da exceção, "o responsáve
 **Pergunta do operador (13/10): por que não só o prompt?** Dado de produção: 81 turnos, **0** vetos de `delivery_promise` — o prompt já
 segura o prazo, e as frases deste item foram escritas por revisores, não pelo modelo. O gate fica (o modelo não segue o prompt 100%, e
 prazo prometido custa o frete inteiro), mas a regra passa a ser: **gate só se mexe por frase vista em conversa real ou de persona**;
-variação hipotética de revisor vai para o grafo como resíduo, não para o código.
+variação hipotética de revisor vai para o grafo como resíduo, não para o código (proposta do Claude; aguarda o operador).
 
 ## Lições (valem para qualquer correção futura)
 

@@ -13,13 +13,23 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-13, ~18h30 UTC — `turn` v21 no ar (LEIA PRIMEIRO).** `agent_version` 21, função v106, commit `be9a3da`. Entrou: R21.4–R21.5
-> (pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min, entregue resolvido pela Malu,
-> Logzz só quando ela pede, prazo + outra pergunta), os consertos do `/code-review` e da revisão Opus final (grafo §88 + adendo).
-> `BUSINESS_CONFIG` regravado **sem** a chave `exchange` (R$ 27 e link do Mercado Pago fora; sha `7392bbd1…`), `job:"health"` → healthy.
-> Validação: 7870 testes, 1665/1665 conversas, `dev:gates` sem afrouxamento não aceito, 35/35 mutações v21 pegas, deno check ok.
-> **Próximo:** a rodada de testes reais (`docs/operacao/roteiro-testes-reais.md`, operador/sócio/mãe) → `pnpm dev:arquivar-teste` →
-> análise e consertos → `--delete`. Depois E5 (20–21/10), congelamento (22/10), L3 (23/10). Resíduos no adendo do §88.
+> **2026-10-13, ~19h UTC — `turn` v22 no ar (LEIA PRIMEIRO — próxima sessão começa aqui).** `agent_version` 22, função v109, commit `4dc8aa7`.
+> - **v21** (18h30): R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min,
+>   entregue resolvido pela Malu, troca/devolução pela Logzz só quando ela pede, prazo + outra pergunta; consertos do `/code-review`.
+> - **v22** (19h): resíduos da revisão fechados (grafo §88, "Resíduos fechados") — o gate de prazo lê também um segundo verbo de chegada
+>   em outra oração ("Não sei dizer quando chega, mas chega amanhã." vetada), sem afrouxar nada contra a v21 (`dev:gates --base=be9a3da`:
+>   0 afrouxamentos); "responsável pela entrega" deixou de ser pedido de pessoa. Duas revisões Opus (1ª reprovou, 2ª aprovou com resíduos,
+>   fechados).
+> - `BUSINESS_CONFIG` sem a chave `exchange` (R$ 27 e link do Mercado Pago fora; sha `7392bbd1…`), `job:"health"` → healthy.
+> - Validação: 7895 testes, 1665/1665 conversas, deno check ok, mutações v21 todas pegas.
+> - **Decisão aberta para o operador** (grafo §88, "Pergunta do operador"): produção teve 81 turnos e **0** vetos de prazo — o prompt já
+>   segura. Proposta: gate só muda por frase vista em conversa real ou de persona; variação hipotética de revisor vira resíduo no grafo.
+> - Resíduos conhecidos: "quero falar com você ou um atendente" não conta como pedido de pessoa (antigo); status desconhecido ou entrega
+>   frustrada ainda vão a uma pessoa; não confirmado se a Logzz entrega pedido antecipado; as 3 chamadas novas ao modelo (entregue, outra
+>   pergunta, adiamento) só têm teste de código — a rodada real é a prova.
+> - **Próximo:** rodada de testes reais (`docs/operacao/roteiro-testes-reais.md`: operador COD + pós-venda, sócio Pix + prazo, mãe dúvidas +
+>   recusa) → o operador manda os 3 números → `pnpm dev:arquivar-teste` → análise e consertos → `--delete`. Depois E5 (20–21/10),
+>   congelamento (22/10), L3 (23/10). O operador revoga o token `sbp_` ao fim.
 
 > **2026-10-13, ~13h45 UTC — `turn` v20 no ar (histórico)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
 > pós-venda lê o pedido e responde a situação sem pessoa (§86); troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3, §86);
