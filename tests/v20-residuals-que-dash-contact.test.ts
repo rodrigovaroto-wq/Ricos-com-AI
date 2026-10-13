@@ -68,6 +68,12 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não tem como não chegar amanhã, chega amanhã.",
     "Não sei quando entrega, mas você recebe amanhã.",
     "Não consigo garantir quando chega e se chega hoje, mas recebe amanhã.",
+    // The spans are read as before: the nearest verb alone loosened these (second review of the residuals).
+    "A entrega não demora pois chega amanhã.",
+    "A entrega não falha chega amanhã.",
+    "Entrega não cobra nada chega amanhã.",
+    "Recebe não importa onde chega amanhã.",
+    "Não sei quando chega. Chega amanhã.",
   ])("veta: %s", (t) => {
     for (const [p, rk] of CTXS) expect(blocks(t, p, rk)).toContain("delivery_promise");
   });
@@ -99,6 +105,12 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não chega amanhã e nem hoje, leva de 1 a 3 dias.",
     "Não consigo garantir que chega amanhã e nem sexta.",
     "Não sei quando chega, não consigo garantir que chega amanhã.",
+    "Não consigo garantir que a entrega chega amanhã.",
+    "Não posso confirmar que a entrega chega hoje.",
+    "Não posso prometer que a sua entrega chega amanhã.",
+    "Não posso garantir que você recebe a entrega amanhã.",
+    "Não prometo que chega hoje e entrega amanhã.",
+    "Não sei quando chega, nem se chega amanhã.",
   ])("passa: %s", (t) => {
     // The 1-3 day range is the delivery's: on the prepaid path the range rule vetoes it, rightly.
     for (const [p, rk] of /\d a \d/.test(t) ? CTXS.slice(0, 2) : CTXS) expect(blocks(t, p, rk)).not.toContain("delivery_promise");

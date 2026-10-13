@@ -264,3 +264,10 @@ Não consigo garantir que chega amanhã e nem sexta.
 Não sei dizer quando chega, mas chega amanhã.
 Não tem como não chegar amanhã, chega amanhã.
 Não sei quando entrega, mas você recebe amanhã.
+A entrega não demora pois chega amanhã.
+A entrega não falha chega amanhã.
+Recebe não importa onde chega amanhã.
+Não consigo garantir que a entrega chega amanhã.
+Não posso prometer que a sua entrega chega amanhã.
+Não prometo que chega hoje e entrega amanhã.
+Não consigo garantir que chega amanhã, nem que chega hoje.

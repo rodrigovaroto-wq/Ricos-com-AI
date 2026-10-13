@@ -82,6 +82,8 @@ describe("1. pedido de pessoa: só o explícito", () => {
     // The courier's person is a delivery question, which the Malu answers (R21.5).
     "quero falar com o responsável pela entrega",
     "quem é o responsável pelo frete?",
+    "o responsável pela minha entrega sumiu?",
+    "quero falar com o responsável pelas entregas",
   ])("não pede: %s", (msg) => {
     expect(namesAPerson(msg)).toBe(false);
     // Even with the model reading a request, the text decides.

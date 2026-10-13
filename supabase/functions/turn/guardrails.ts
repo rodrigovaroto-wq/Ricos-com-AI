@@ -1938,24 +1938,33 @@ const gates: readonly Gate[] = [
       // courier already agreed to — and the strongest sentence this funnel owns.
       if (ctx.stage !== "logistics") {
         const express = ctx.config.delivery.expressActive === true;
+        // Overlapping, so a second arrival verb inside a span is read too — only when a clause boundary separates it from
+        // the verb that opened the span: "não sei dizer quando chega, mas chega amanhã" hid its promise behind the first,
+        // denied "chega". The spans themselves are read exactly as before (v21 review: reading only the nearest verb
+        // loosened "a entrega não demora pois chega amanhã").
+        let spanStart = 0;
+        let spanEnd = -1;
         for (const m of t.matchAll(
-          /(chega|entrega|recebe|receber)(?:(?!chega|entrega|recebe).){0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
+          /(?=((chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)))/g,
         )) {
+          const at = m.index ?? 0;
+          if (at >= spanEnd) {
+            spanStart = at;
+            spanEnd = at + (m[1] ?? "").length;
+          } else if (!/(?<!\d)[,.]|[,.](?!\d)|[;:!?]|\b(?:mas|porem)\b/.test(t.slice(spanStart, at))) continue;
           // The denial in the claim's own phrase (v20 review): `negatedAt` reads past the comma, and "não posso
           // garantir, chega amanhã" / "não se preocupa, chega amanhã" are the promise itself. A dash and a "que" cut it
           // too ("não sei - chega amanhã", "não esquenta que chega amanhã"), except the "que" a denied knowing, saying or
           // guaranteeing takes ("não consigo garantir que", "não tenho como informar que", "não acho que chega amanhã") —
           // read whole, because its "não" may sit past `negatedAt`'s 30 characters. An "e" right before the arrival verb
           // cuts too: "não demora nada e chega amanhã" denies the wait, not the arrival.
-          // The span stops at the next arrival verb, so the claim is read from the verb nearest the deadline: "não sei
-          // dizer quando chega, mas chega amanhã" no longer hides its promise behind the first, denied "chega".
           const DENIED_SAY = String.raw`\b(?:nao|nunca|jamais)\s+(?:(?:posso|podemos|pode|consigo|conseguimos|consegue|tenho|temos|tem|da\s+pra|da\s+para|vou|vai|sei|e)\s+(?:como\s+)?(?:eu\s+)?)?(?:(?:te|lhe)\s+)?(?:(?:garant|promet|assegur|inform|crav|afirm|confirm|acredit|imagin|confer|prev|sab|ach|pens)\w*|diz\w*|dig\w*|diss\w*|fal(?:ar|o|amos)|sei|ver|vejo|cre(?:io|r|mos)|cert[oa]|certeza|verdade|cont(?:ar|o))(?:\s+(?:com\s+certeza|ainda|agora|exatamente|isso|pra\s+voce|para\s+voce))*(?:\s+de)?\s+`;
           const own =
             (t.slice(0, m.index ?? 0).split(PHRASE_COMMA).pop() ?? "")
               .split(new RegExp(String.raw`\b(?:mas|porem|so\s+que|entao)\b|\se\s+(?:(?:voce|ele|o\s+colete|ja)\s+)*$|(?:^|\s)-|-(?:\s|$)|[–—]|(?<!${DENIED_SAY})\bque\b`))
               .pop() ?? "";
           if (negatedAt(own, own.length) || new RegExp(String.raw`${DENIED_SAY}que\s*$`).test(own)) continue;
-          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
+          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[3] ?? "");
           if (sameDay && express && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
         }

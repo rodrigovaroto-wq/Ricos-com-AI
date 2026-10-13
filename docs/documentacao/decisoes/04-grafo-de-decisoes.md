@@ -2888,14 +2888,21 @@ depois da vírgula desfazia a recusa → a vírgula fecha a oração da recusa. 
 e as mutações `R21-*`, `v21-*` (35/35 pegas). Publicado na v21.
 
 **Resíduos fechados (2026-10-13, noite, pedido do operador antes dos testes reais).** (1) O trecho `.{0,24}` entre o verbo de chegada
-e o prazo era guloso: começava no primeiro "chega", coberto pela negação, e engolia o segundo — "Não sei dizer quando chega, mas chega
-amanhã." e "Não tem como não chegar amanhã, chega amanhã." passavam. **Correção:** o trecho para no próximo verbo de chegada
-(`(?:(?!chega|entrega|recebe).){0,24}`), então a promessa é lida pelo verbo mais perto do prazo. **Caminho descartado:** `.{0,24}?`
-preguiçoso — o `matchAll` ainda começa no primeiro verbo e acha o prazo do segundo. (2) "quero falar com o responsável pela entrega" virava
-pedido de pessoa; é pergunta de entrega, que a Malu responde (R21.5). **Correção:** `responsavel` não conta seguido de "pelo/pela
-entrega/envio/frete/transportadora/correio"; "o responsável pela loja" continua pedido. **Guarda:** `tests/v20-residuals-que-dash-contact.test.ts`,
-`tests/r21-post-sale-decisions.test.ts`, as 3 frases no `tests/gate-corpus.txt`, mutações `v21-verbo-mais-perto-do-prazo` e
-`v21-responsavel-pela-entrega`. **Estado:** publicar na v22.
+e o prazo começava no primeiro verbo, coberto pela negação, e engolia o segundo — "Não sei dizer quando chega, mas chega amanhã." e
+"Não tem como não chegar amanhã, chega amanhã." passavam. **Caminhos que falharam:** `.{0,24}?` preguiçoso (o `matchAll` ainda começa
+no primeiro verbo); o trecho parando no próximo verbo (`(?:(?!chega|entrega|recebe).){0,24}`) — **reprovado na revisão Opus**: lido
+pelo verbo mais perto, o "não" de outra coisa entrava na oração da promessa e afrouxava ("A entrega não demora pois chega amanhã."),
+e o substantivo "a entrega" separava o "que" da garantia negada do verbo e vetava a recusa certa ("Não consigo garantir que a entrega
+chega amanhã."). **Correção:** a busca é sobreposta (`(?=(…))`); os trechos de antes são lidos exatamente como antes, e um segundo verbo
+dentro de um trecho só é lido também quando uma fronteira de oração (vírgula, ponto, `;:!?`, "mas", "porém") o separa do primeiro —
+só endurece. `pnpm dev:gates --base=be9a3da` (a v21 no ar): 0 afrouxamentos, 5 endurecimentos. **Falso positivo aceito:** "Não consigo
+garantir que chega amanhã, nem que chega hoje." passa a ser vetada (custa uma reescrita; deixar o "que" depois de "nem" ler a negação
+afrouxava "Não esquenta, nem que chega amanhã."). (2) "quero falar com o responsável pela entrega" virava pedido de pessoa; é pergunta
+de entrega, que a Malu responde (R21.5). **Correção:** `responsavel` não conta seguido de "pelo(s)/pela(s) [minha/sua…] entrega/envio/
+frete/transportadora/correio"; "o responsável pela loja" continua pedido. **Fica (antigo):** "quero falar com você ou um atendente" não
+conta como pedido (o "ou" quebra a leitura); depois da exceção, "o responsável pela entrega ou um atendente" também não. **Guarda:**
+`tests/v20-residuals-que-dash-contact.test.ts`, `tests/r21-post-sale-decisions.test.ts`, 10 frases no `tests/gate-corpus.txt`, mutações
+`v21-verbo-mais-perto-do-prazo` e `v21-responsavel-pela-entrega`. **Estado:** publicar na v22.
 
 ## Lições (valem para qualquer correção futura)
 
