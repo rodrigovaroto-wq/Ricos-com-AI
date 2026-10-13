@@ -635,14 +635,14 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 |---|---|---|
 | — | Auditoria do repositório (revisões 1 e 2) e pipeline 80/20 | PR desta branch (`claude/eager-sagan-qn74um`), 2026-09-29 |
 | — | Troca de tamanho não é grátis (R17.1), no código | PR #42 mergeado (`75c22c8`), 2026-09-29 |
-| — | Valor da troca: R$ 27,00 fixo, cobrado da cliente — na documentação | `05-decisoes-firmes.md` §9, 2026-09-29 |
+| — | ~~Valor da troca cobrado da cliente~~ — superado: troca/devolução pelo suporte da Logzz, sem custo (R21.2–R21.4, 2026-10-13) | `03-decisoes-tomadas.md` R21 |
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
 | L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
 | L0.3 | `turn` v44 publicada; "Responder cliente" importado e ativo com senha; teste com telefone inexistente voltou "Nenhuma conversa com esse telefone" (operador); `dev:n8n` `ok` | v44, workflow `3Q18SjoW0UUXrTPI` versão ativa `d5659dab`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` colado pelo operador | operador, 2026-09-30 |
-| L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca R$ 27,00 fixa) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
+| L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca cobrada da cliente, superada pela R21.2–R21.4) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
 | — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | — | R17.4 mergeado (PR #47) e publicado: `turn` v46 do `41203ba`, mesmo `ezbr_sha256` da v45 | `41203ba`, CI run 117 `success`, v46 21:00:08 UTC, 2026-09-30 |
@@ -655,7 +655,7 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 | L3 prep | Rotina "Hermes – decisão" criada | `trig_01SR8fhPWmJktwR8oVTfd3gV`, 2026-10-05 |
 | L0.5 | Teto R$ 0,55 / tolerância 0 colado no `BUSINESS_CONFIG` | operador, 2026-10-05 |
 | — | Rodadas de personas v1 (`function`) e v2 (`local`); `agent_version` 2 (cancelar → pessoa, `order_action_claim`) e 3 (`shipping_promise` ao lado de "isso mesmo", "guardando seu M") | PR #51, `turn` v53 e v55, 2026-10-05 |
-| L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
+| L0.4 | ~~Cobrança da troca por link~~ — superada: troca/devolução pelo suporte da Logzz, sem custo; link e valor apagados (R21.4, 2026-10-13) | operador, 2026-09-30 |
 | L0.1, L1.3–L1.5 | Canal no ar: número de produção recebendo e respondendo pelo WhatsApp Cloud API (testes reais do operador e de amigos) | conversas 06/10 ("Leila"), 07/10 ("Leila 2", amigos 7967 e 9393), 08/10 (áudio) |
 | — | `whatsapp` v19: áudio da cliente transcrito (Meta ASR); provado pelo operador com nota de voz | 2026-10-08 |
 | L4 prep | Hermes ganha histórico inicial (`hermes/historico-inicial.md`, lido como `historico.md` depois de `decisoes.md`): ordem de diagnóstico e os casos §60–§66 com causa → conserto → guarda | `1cf59eb`, 2026-10-08 |
@@ -689,9 +689,8 @@ PR #40 mergeado. Nesta branch (grafo §39–§40, R17.1): troca de tamanho não 
 cancelar `order_shipped`/`order_delivered` agendadas.
 1. **C** — CI do PR novo verde → **O** merge → **O** publica a `turn` → **C** sonda pela porta do n8n.
 2. **O** — reimportar `n8n/workflows/venda-confirmada.json` e rodar `pnpm dev:n8n` (adiado pelo operador).
-3. **O — PENDENTE: preço da troca de tamanho.** O operador vai perguntar à Logzz/Coinzz (provavelmente
-   varia por região). Até lá `exchange` fica fora do secret: a troca de um pedido vai para uma pessoa,
-   e a agente nunca diz que é grátis. Com a resposta, **C** decide o cálculo (hoje `feeBrl` é fixo).
+3. ~~**O — PENDENTE: preço da troca de tamanho.**~~ Resolvido em 2026-10-13 (R21.2–R21.4): troca/devolução pelo suporte da
+   Logzz, sem custo para a cliente.
 4. **O — adiado até configurar o WhatsApp:** conferir no WhatsApp Manager se o `silence_2` antigo foi
    submetido; se sim, submeter o novo (`03-templates-meta.md`).
 5. **C — resíduos:** véspera do antecipado (Coinzz sem data — polling da API no n8n);
