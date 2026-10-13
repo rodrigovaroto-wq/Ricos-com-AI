@@ -169,7 +169,7 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
   for (const n of wf.nodes) {
     if (n.disabled) continue;
     for (const [key, value] of Object.entries(n.parameters ?? {}))
-      if (typeof value === "string" && /JSON\.stringify\(\s*(?:\$json|body)\.error\s*(?:\?\?|\))/.test(value))
+      if (typeof value === "string" && /JSON\.stringify\(\s*(?:\$json|body)\.error\s*(?:\?\?|\)|,)/.test(value))
         problems.push(`${wf.name} › ${n.name}: ${key} stringifies the whole error object (request headers, the credential)`);
   }
   if (inbound) {

@@ -152,6 +152,7 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     });
     expect(checkWorkflow(withText("=Erro: {{ JSON.stringify($json.error ?? $json) }}")).join()).toContain("stringifies the whole error object");
     expect(checkWorkflow(withText("x = JSON.stringify(body.error ?? body).slice(0, 500)")).join()).toContain("stringifies the whole error object");
+    expect(checkWorkflow(withText("=Erro: {{ JSON.stringify($json.error, null, 2) }}")).join()).toContain("stringifies the whole error object");
     expect(checkWorkflow(withText('=Erro: {{ String($json.error?.message ?? "erro sem mensagem") }}'))).toEqual([]);
   });
   it("o ramo falso de um IF não é saída de erro", () => {

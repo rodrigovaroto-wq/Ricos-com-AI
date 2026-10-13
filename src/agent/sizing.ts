@@ -259,7 +259,7 @@ export const asksForSize = (text: string): boolean => {
         String.raw`|\b(seu|sua)\s+(tamanho|${NUMBER}|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b`,
       "i",
     // "O número da sua calça é 44?" confirms the number she gave; it does not ask it (/code-review of §80).
-    ).test(q) || unnegated(new RegExp(String.raw`\b${PANTS_NUMBER}(?!\s+(?:[e\u00e9]|era)\s+\d)`, "i"), q),
+    ).test(q) || unnegated(new RegExp(String.raw`\b${PANTS_NUMBER}(?!\s+(?:[e\u00e9]|era)\s+\d+(?!\d|\s*ou\s+\d))`, "i"), q),
   );
 };
 

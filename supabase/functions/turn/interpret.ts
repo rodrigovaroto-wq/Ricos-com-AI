@@ -216,7 +216,7 @@ const norm = (text: string): string =>
  * quantity; this is the deterministic half, so an invented `units: 2` on "quero o M" does
  * not swap her link for a kit she never asked for. One piece, or sizes alone, need no cue.
  */
-const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+(?:de\s+)?uma?)\b/;
 const COUNT_WORDS: Record<number, string> = {
   2: "duas|dois", 3: "tres", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
 };
@@ -607,7 +607,7 @@ export const pathChoiceToStore = (d: {
  * (grafo §65): "ok" to "Aí na sua região … tem o antecipado" chooses it; "sim" to "… Qual seu tamanho
  * de calça?" or "… Ficou alguma dúvida?" answers that question.
  */
-const offersPrepayOnly = (lastOutbound: string): boolean => {
+export const offersPrepayOnly = (lastOutbound: string): boolean => {
   const t = norm(lastOutbound);
   if (!/\bantecipad/.test(t)) return false;
   const q = t.lastIndexOf("?");
@@ -709,6 +709,8 @@ const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
  */
 const KIND_OF_PRODUCT = /\b(?:um|uma)\s+(?:dess|dest)[ae]s?\b/;
 const OUR_ORDER_SIGN = /\b(cheg\w*|entreg\w*|rastrei\w*|pedido|daqui|por\s+aqui|pix|ate\s+agora)\b/;
+/** Past the comma only a LATE order counts — "…enrolou, quero saber da entrega" asks about ours, it reports nothing (review of §85). */
+const LATE_ORDER_SIGN = /\b(nao\s+chegou|ate\s+agora|ainda\s+nao|rastrei\w*|pedido|pix)\b/;
 /**
  * The sign is read in the whole sentence, not the comma clause (/code-review of §82): "já comprei uma dessas, até agora nada" and
  * "comprei uma dessas semana passada, não chegou" are a late order of ours.
@@ -732,7 +734,7 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
       const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
       if (negatedBefore(t, at) || OTHER_STORE.test(clause)) continue;
       if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
-      if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(sentenceAt(t, at))) continue;
+      if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause) && !LATE_ORDER_SIGN.test(sentenceAt(t, at))) continue;
       return true;
     }
   }
@@ -762,7 +764,7 @@ export const saysPaid = (message: string): boolean => {
     // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
     if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|deu\s+baixa|foi\s+(?:aprovad|confirmad|compensad|liberad|processad|identificad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
-    if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(sentenceAt(t, at))) continue;
+    if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause) && !LATE_ORDER_SIGN.test(sentenceAt(t, at))) continue;
     return true;
   }
   return false;

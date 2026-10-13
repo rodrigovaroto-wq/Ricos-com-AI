@@ -54,3 +54,22 @@ describe("braço B: a oferta do kit que segura o link é fixa", () => {
     expect(kitHoldsLink(b)).toBe(false);
   });
 });
+
+describe("revisão dos candidatos da v19", async () => {
+  const { kitOfferMessage } = await import("@/agent/retry.js");
+  const { readInterpretation, offersPrepayOnly } = await import("@/agent/interpret.js");
+  const { readFileSync } = await import("node:fs");
+  const kits = [
+    { units: 2, priceBrl: 233.82, discountPercent: 10 },
+    { units: 3, priceBrl: 311.76, discountPercent: 20 },
+  ];
+  it("A: a oferta termina numa contagem que ela responde, e 'mais de uma' guarda a quantidade do modelo", () => {
+    expect(kitOfferMessage(kits)).toMatch(/Quer de 2, de 3 ou só uma peça\?$/);
+    expect(typeof readInterpretation).toBe("function");
+  });
+  it("2: braço B em região sem pagamento na entrega — o 'manda o link' depois da oferta do antecipado é a escolha dela", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn).toContain("(knownRegion?.cod === false && interpretation.wants_to_buy && recentOutbound.some((m: string) => offersPrepayOnly(m))),");
+    expect(offersPrepayOnly("Aí na sua região o pagamento na entrega não chega, mas dá pra fazer no antecipado. Pode ser no antecipado?")).toBe(true);
+  });
+});

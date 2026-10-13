@@ -246,7 +246,8 @@ export const linkMessage = (
 export const kitOfferMessage = (kits: readonly { units: number; priceBrl: number; discountPercent: number }[]): string =>
   `Antes do link, uma dica: levando mais peças o desconto sobe 💛\n\n` +
   kits.map((k) => `Com ${k.units} peças fica R$ ${k.priceBrl.toFixed(2).replace(".", ",")}, ${k.discountPercent}% de desconto.`).join("\n") +
-  `\n\nQuer levar mais de uma ou sigo com uma peça só?`;
+  // A count she can answer with ("de 2"): "quer levar mais de uma?" got "sim" back, which no reader turns into units (review).
+  `\n\nQuer de ${kits.map((k) => k.units).join(", de ")} ou só uma peça?`;
 
 /**
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,

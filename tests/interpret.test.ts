@@ -685,6 +685,10 @@ describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => 
       "comprei um desses e não serviu",
       "já comprei uma parecida",
       "comprei uma dessas na feira",
+      // review of §85: past the comma she asks about OUR delivery — that reports no order of hers
+      "já comprei uma dessas e enrolou, quero saber da entrega",
+      "já comprei uma dessas e enrolou, quanto tempo chega a de vocês?",
+      "comprei uma dessas e enrolou, quero ver o prazo de entrega",
     ]) {
       expect(statesPastPurchase(frase), frase).toBe(false);
       expect(statesPastPurchase(frase, false), frase).toBe(false);

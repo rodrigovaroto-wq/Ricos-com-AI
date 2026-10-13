@@ -2773,6 +2773,14 @@ não consigo te garantir" vetado como promessa de dia (negação) — **aberto**
 "Antes do link, uma dica: levando mais peças o desconto sobe 💛 / Com 2 peças fica R$ …, 10% de desconto. …") por `sendFixed`, com a cadeia
 inteira — conferida sem veto com os kits REAIS do `BUSINESS_CONFIG` nos dois caminhos, e reconhecida por `kitWasOffered` no turno
 seguinte; com pergunta dela ao lado o link não espera (o modelo responde com o link, como no braço 0). Mutação `E6-kit-oferta-fixa`.
+**Revisão Opus dos candidatos da v19 (REPROVOU, consertado):** (a) braço B, região sem pagamento na entrega, oferta do antecipado já
+feita e "ok, me manda o link" depois de outra resposta: `choiceMade` falso → `missing = payment` que ninguém pergunta → link nunca
+saía. `choiceMade` aceita também `cod === false && wants_to_buy` quando a oferta só do antecipado já está no histórico (nunca no próprio
+turno do CEP). (b) A oferta fixa terminava em "Quer levar mais de uma…?" e o "sim" não virava quantidade: agora "Quer de 2, de 3 ou só
+uma peça?", e "mais de uma" entrou no `QUANTITY_CUE`. Mutação `E6-kit-pergunta-contavel`. (c) O sinal na frase inteira transformava
+"já comprei uma dessas e enrolou, quero saber da entrega" (pergunta sobre a NOSSA entrega) em pedido: depois da vírgula só conta sinal
+de pedido atrasado (`LATE_ORDER_SIGN`); mutação `E4-entrega-depois-da-virgula`. (d) "O número da sua calça é 44 ou 46?" volta a ser
+pergunta; (e) a regra do n8n pega também `JSON.stringify($json.error, null, 2)`.
 **Estado:** publicar na v19.
 
 ## Lições (valem para qualquer correção futura)

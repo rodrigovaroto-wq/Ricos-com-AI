@@ -180,6 +180,7 @@ import {
   readInterpretation,
   kitHoldsLink,
   missingForLink,
+  offersPrepayOnly,
   buyerAsk,
   sendLinkNow,
   statesPastPurchase,
@@ -3570,7 +3571,11 @@ const handleTurn = async (
     identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
     // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
     // and the link's own path: "na entrega" read as `cod` where there is none is not a choice of the prepaid link (third review).
-    choiceMade: paymentChoice !== null && paymentChoice === linkPath,
+    choiceMade:
+      (paymentChoice !== null && paymentChoice === linkPath) ||
+      // A no-COD region where she already heard the prepaid offer and wants to buy ("ok, me manda o link" after another
+      // answer): her choice, or arm B waits for a "payment" nobody asks (review of the v19 candidates, 2).
+      (knownRegion?.cod === false && interpretation.wants_to_buy && recentOutbound.some((m: string) => offersPrepayOnly(m))),
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
