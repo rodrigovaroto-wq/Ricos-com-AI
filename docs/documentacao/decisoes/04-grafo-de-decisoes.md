@@ -2635,7 +2635,10 @@ Mutação `E6-kit-depois-do-link`. **Revisão Opus (reprovou, consertado):** (1)
 kit estava pendente — o "vou pensar" lê `linkUnheld` (o link sem a espera do kit); (2) o kit segurava o link num turno em que a oferta não
 saía (região só antecipado, sem `pathChosen`: nem link nem kit) — `kitHoldsLink` exige `pathChosen`, o mesmo que `kitOfferNow` lê;
 (3) depois de 20 mensagens a oferta saía da janela e o kit voltava, atrasando o reenvio pedido — nunca segura depois de um link
-(`lastLinkBase(linkHistory)`, que alcança além da janela). Mutações `E6-kit-segura-sem-oferta`, `E6-pensar-sem-link`.
+(`lastLinkBase(linkHistory)`, que alcança além da janela). Mutações `E6-kit-segura-sem-oferta`, `E6-pensar-sem-link`. Segunda revisão:
+APROVADO COM RESSALVAS — braço 0 provado inalterado; **fica** (só braço B): com `CoinzzIncompleteError` num "vou pensar" repetido a oferta
+do kit se perde no turno (o link também não sairia no braço 0); com a leitura do banco falhando, o kit pode ser oferecido uma vez a mais
+depois de um link antigo (nunca perde o link).
 
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 

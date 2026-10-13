@@ -4,7 +4,7 @@
 > regras e nenhuma outra. Mudar uma regra depois de 23/10 invalida o experimento que ela toca.
 > Plano: [`13-plano-pratico-conversao.md`](13-plano-pratico-conversao.md) §E6. Decisões: R20.4–R20.6.
 >
-> **Status: rascunho, falta a assinatura do operador** (linha no fim).
+> **Status: ASSINADO pelo operador em 2026-10-12** (na sessão `claude/pipeline-e4-fix-exp-b`).
 
 ## 1. O que está sendo testado
 
@@ -15,7 +15,7 @@ Os dois usam **todas** as leads. O teste de criativo e de região do L3 (por an�
 | Exp. | Braço 0 (controle) | Braço 1 (teste) | Flag no `BUSINESS_CONFIG` |
 |---|---|---|---|
 | **A** | Recepção + espera de 60 s + digitação de hoje | Sem recepção, sem a espera, digitação curta (≤ 3 s / 6 s) | `experiments.fastOpening: true` |
-| **B** | Nome, CPF (e e-mail no antecipado) pedidos no chat antes do link | Link logo após tamanho + CEP + caminho; o resto o checkout pede | `experiments.linkAfterChoice: true` |
+| **B** | Nome, CPF (e e-mail no antecipado) pedidos no chat antes do link | Link logo após tamanho + CEP + a escolha dela do pagamento, depois de uma oferta do kit com os descontos progressivos; o resto o checkout pede | `experiments.linkAfterChoice: true` |
 
 Sem a flag, ninguém está no teste, seja qual for o braço gravado. **As duas flags são gravadas pelo
 operador no segredo antes de 23/10, e não mudam até 09/11.**
@@ -103,4 +103,4 @@ O z das duas proporções: `p = (x0 + x1) / (n0 + n1)`, `z = (x1/n1 − x0/n0) /
 - [ ] As duas flags no `BUSINESS_CONFIG`; uma lead de teste de cada braço provada pela porta de produção.
 - [ ] Alarme de cobertura ativo e `pnpm dev:n8n` ok.
 - [ ] Ensaio com dinheiro (E5) feito.
-- [ ] Assinatura do operador: ______________________ (data: __/10/2026)
+- [x] Assinatura do operador: Rodrigo Varoto (data: 12/10/2026)
