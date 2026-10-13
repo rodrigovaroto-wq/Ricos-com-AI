@@ -233,3 +233,13 @@ TROCA-LOGZZ | warranty_promise | Pagando no pix ou na entrega, a troca de tamanh
 TROCA-LOGZZ | warranty_promise | a troca grátis não abre o frete: 'No pix a troca é grátis e o frete também.' veta
 TROCA-LOGZZ | warranty_promise | No pix a troca é grátis e o frete também.
 TROCA-LOGZZ | warranty_promise | Aceita troca sim, sem custo pra você.
+TROCA-LOGZZ | warranty_promise | produção: troca pela Logzz, sem custo
+V20-RESIDUOS | warranty_promise | Pode me mandar mensagem a qualquer momento se precisar trocar.
+V20-RESIDUOS | warranty_promise | Se precisar trocar, pode me chamar aqui a qualquer momento.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do produto.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após o recebimento do produto pra trocar.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do colete.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após o recebimento da peça pra trocar ou devolver.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do pedido.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após a entrega do colete pra trocar.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após a entrega do produto.

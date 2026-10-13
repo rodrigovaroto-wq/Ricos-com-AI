@@ -58,7 +58,6 @@ depende dela não sai** (a mesma regra do prompt).
 | `{{warrantyDays}}` | `delivery.warrantyDays` | 7 | contados do recebimento |
 | `{{kit2Cod}}`, `{{kit3Cod}}` (+ `{{kit2CodDiscount}}`…) | `kits[path=cod].priceBrl` / `.discountPercent` | R$ 233,82 (10%), R$ 311,76 (20%) | ausente = não fala de kit |
 | `{{kit2Prepay}}`, `{{kit3Prepay}}` | `kits[path=prepay]` | R$ 207,84 (20%), R$ 272,79 (30%) | idem |
-| `{{exchangeFee}}` | `exchange.feeBrl` | R$ 27,00 | **só depois da compra**, na resposta fixa de troca (R17.1) |
 | `{{couponCode}}` / `{{couponPercent}}` | `coupon.*` | SUPER20 / 20 | **só depois do `silence_3`** (R17.4) |
 | `{{supportEmail}}` | `support.email` | contato@… | CNPJ e dados da empresa |
 | `{{satisfiedCustomers}}` | `socialProof.satisfiedCustomers` | 500 | "mais de N clientes satisfeitas", nenhum outro número |
@@ -655,12 +654,9 @@ colar.
 
 ### 9.7 Troca, devolução, garantia, arrependimento
 
-89. **"Se não servir, troca?"** — Troca sim: você tem {{warrantyDays}} dias depois de receber
-    pra trocar ou devolver. ‖ A devolução é sem custo, e na troca de tamanho o envio fica por
-    sua conta. (Os dias e o "envio" no mesmo balão o `delivery_promise` lê como prazo de entrega
-    de 7 dias — dois balões.)
-90. **"A troca é grátis?"** — A devolução é sem custo; a troca de tamanho tem o envio por sua
-    conta. (O valor, `{{exchangeFee}}`, só sai depois da compra, na resposta fixa.)
+89. **"Se não servir, troca?"** — Troca sim: você tem {{warrantyDays}} dias após o recebimento
+    pra trocar ou devolver, pelo suporte da Logzz. Só quando ela pergunta (R21.4).
+90. **"A troca é grátis?"** — Troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3).
 91. **"E se eu não gostar?"** — Na entrega, se não for o que você esperava, você não fica com
     ele. E depois de receber, tem {{warrantyDays}} dias pra devolver, e a gente devolve o seu
     dinheiro sem custo nenhum.
@@ -717,8 +713,8 @@ colar.
 115. **"Quero cancelar."** — Resposta fixa por caminho e status (`cancelReplyFor`); a Malu
      nunca diz que cancelou (gate `order_action_claim`).
 116. **"Quero mudar o dia da entrega."** — `[F16]` Handoff padrão.
-117. **"Quero trocar o tamanho do pedido."** — Resposta fixa de troca com `{{exchangeFee}}` e o
-     link do Mercado Pago, depois handoff (R17.1).
+117. **"Quero trocar o tamanho do pedido."** — Troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3); o número do suporte
+     da Logzz, sem pessoa (R21.4).
 
 ---
 

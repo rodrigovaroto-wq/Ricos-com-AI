@@ -148,24 +148,6 @@ export const HUMAN_HANDOFF_REPLY = "Claro! Já avisei o time e alguém te chama 
 export const ORDER_HANDOFF_REPLY = "Vou checar pra você e já te retorno 💛";
 
 /**
- * The reply to a size exchange on an order (R17.1): the exchange's freight is hers, paid through a
- * Mercado Pago link outside the Coinzz and Logzz checkouts, and a person takes the exchange from
- * there. Null until the operator writes both the amount and the link in `exchange`; the exchange
- * then goes to a person with `ORDER_HANDOFF_REPLY`, as every post-sale question did before.
- */
-export const exchangeReply = (exchange: { feeBrl?: number; checkoutUrl?: string } | undefined): string | null =>
-  // Read from the BUSINESS_CONFIG secret, typed by hand: a "20" string or a link that is not https
-  // stays null instead of throwing in the turn or sending a broken link.
-  typeof exchange?.feeBrl === "number" &&
-  Number.isFinite(exchange.feeBrl) &&
-  exchange.feeBrl > 0 &&
-  typeof exchange.checkoutUrl === "string" &&
-  /^https:\/\/\S+$/.test(exchange.checkoutUrl)
-    ? `Dá pra trocar de tamanho, sim 💛 O envio da troca fica por sua conta: R$ ${exchange.feeBrl.toFixed(2).replace(".", ",")}. ` +
-      `É só pagar por este link: ${exchange.checkoutUrl}\nAssim que pagar, uma pessoa do time te chama pra combinar a troca.`
-    : null;
-
-/**
  * Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
  * agent sends its number — the config's, validated by `logzzSupportPhone` — and nobody is called. The
  * exchange said free only with `freeExchange` (`returns.freeExchange === true`, operator, 2026-10-13);
@@ -192,32 +174,85 @@ export interface OrderView {
   scheduledFor: string | null;
 }
 
-/**
- * The reply to a question about her order (operator, 2026-10-13): the agent reads its status instead of
- * calling a person. `orders` newest first; the newest LIVE one is the one she asks about, and "cancelado"
- * only when every one is dead (v20 review: a newer refused order hid one on its way). Fixed text per
- * stage; a date only when the order holds one from today on, never a day of our own — alive and not
- * delivered, "logo mais deve chegar", with no day. Null — and a person, as before — when there is
- * nothing to say for sure: no order, a status outside the vocabulary, a failed attempt, a prepaid order
- * not settled (n8n's bare "created", review L2), or a delivered one: what she asks of a parcel she
- * already has is a problem ("o rastreio diz entregue mas não recebi"), not a status (v20 review).
- */
-export const orderStatusReply = (orders: readonly OrderView[], now: Date): string | null => {
-  const order = orders.find((o) => !o.dead);
-  if (order === undefined)
-    return orders.length > 0 ? "Esse pedido aparece aqui como cancelado. Se quiser fazer um novo, é só me falar 💛" : null;
-  if (order.stage === null || order.stage === "recusado" || order.stage === "entregue_pago") return null;
-  // At the door "aguardando pagamento" is the payment on delivery, not a Pix waiting.
-  if (order.unpaid && order.paymentMethod === "prepay")
-    return "Seu pedido foi criado e está aguardando o pagamento 💛 Assim que o pagamento for confirmado, ele segue pra entrega.";
-  if (order.paymentMethod === "prepay" && !order.settled) return null;
+/** `DD/MM` of an order's delivery day from today on, or null: never a day of our own. */
+const dayOf = (order: OrderView, now: Date): string | null => {
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(now);
   const date = /^\d{4}-\d{2}-\d{2}/.test(order.scheduledFor ?? "") && order.scheduledFor!.slice(0, 10) >= today ? order.scheduledFor!.slice(0, 10) : null;
-  const day = date === null ? null : `${date.slice(8, 10)}/${date.slice(5, 7)}`;
-  return order.stage === "em_rota"
-    ? `Seu pedido já está a caminho 🚚${day ? ` Ele está agendado para ${day}.` : ""} Logo mais ele deve chegar aí 💛`
-    : `Seu pedido está confirmado${day ? ` e agendado para ${day}` : ""} 💛 Logo mais ele deve chegar aí.`;
+  return date === null ? null : `${date.slice(8, 10)}/${date.slice(5, 7)}`;
 };
+
+/**
+ * What can be said for sure of one order, as the end of "Seu pedido …" — or null. Prepaid and not settled
+ * (n8n's bare "created" included) is waiting for the payment's confirmation, never "confirmado" (operator,
+ * 2026-10-13); at the door, confirmed and paid on arrival. A date only from `scheduled_for`.
+ */
+const statusOf = (order: OrderView, now: Date): string | null => {
+  if (order.dead) return "aparece aqui como cancelado";
+  if (order.stage === "entregue_pago") return "aparece aqui como entregue";
+  if (order.stage !== "pedido_criado" && order.stage !== "em_rota") return null;
+  if (order.paymentMethod === "prepay" && !order.settled) return "está aguardando a confirmação do pagamento";
+  const day = dayOf(order, now);
+  const atDoor = order.paymentMethod === "prepay" ? "" : ", e você paga quando receber";
+  return order.stage === "em_rota"
+    ? `já está a caminho${day ? `, agendado para ${day}` : ""}${atDoor}`
+    : `está confirmado${day ? ` e agendado para ${day}` : ""}${atDoor}`;
+};
+
+/**
+ * The reply to a question about her order (operator, 2026-10-13): the agent reads its status instead of
+ * calling a person. `orders` newest first; the NEWEST is the one she asks about, and another one is said
+ * beside it when it matters — a live one not delivered, or anything live when the newest is dead ("o mais
+ * recente aparece como cancelado, o anterior já está a caminho"). Fixed text, the status only, a date only
+ * from `scheduled_for`. Null — and a person, as before — when there is nothing to say for sure: no order, a
+ * status outside the vocabulary or a failed attempt. Null too for a delivered newest order: what she asks
+ * of a parcel she has is a problem, answered by the model with the order's facts (`deliveredDirective`).
+ */
+export const orderStatusReply = (orders: readonly OrderView[], now: Date): string | null => {
+  const [order, ...older] = orders;
+  if (order === undefined || order.stage === "entregue_pago") return null;
+  const status = statusOf(order, now);
+  if (status === null) return null;
+  const other = older.find((o) => !o.dead && statusOf(o, now) !== null && (order.dead || o.stage !== "entregue_pago"));
+  if (other !== undefined) return `Seu pedido mais recente ${status}. O anterior ${statusOf(other, now)} 💛`;
+  if (order.dead) return "Esse pedido aparece aqui como cancelado. Se quiser fazer um novo, é só me falar 💛";
+  if (order.paymentMethod === "prepay" && !order.settled)
+    return "Seu pedido está aguardando a confirmação do pagamento 💛 Assim que o pagamento for confirmado, ele segue pra entrega.";
+  return `Seu pedido ${status} 💛`;
+};
+
+/**
+ * Her newest order was delivered and she writes about it (operator, 2026-10-13, R21.1): "veio com defeito",
+ * "não serviu", "o rastreio diz entregue mas não recebi". Each problem is different, so the model answers,
+ * told the order's facts — and the gates still judge it. The Logzz number only for what the Logzz does: the
+ * delivery it made. The exchange line goes only when she asks for it (the turn sends `logzzReturnReply`).
+ */
+export const deliveredDirective = (orders: readonly OrderView[], now: Date, logzzPhone: string): string => {
+  const facts = orders
+    .slice(0, 3)
+    .map((o, n) => {
+      const day = dayOf(o, now);
+      const path = o.paymentMethod === "prepay" ? "pago antecipado" : o.paymentMethod === "cod" ? "pago na entrega" : "pagamento não informado";
+      return `${n === 0 ? "pedido mais recente" : "pedido anterior"}: ${statusOf(o, now) ?? "status não informado"}, ${path}${day ? `, data de entrega ${day}` : ""}`;
+    })
+    .join("; ");
+  return (
+    `Ela escreve sobre um pedido que já consta como entregue. Fatos do sistema (não invente outros): ${facts}. ` +
+    `Responda à dúvida dela com esses fatos, curto, com acolhimento, e resolva o que puder. Você não cancela, não troca, ` +
+    `não estorna e não chama ninguém: não diga que alguém do time vai falar com ela. Troca ou devolução só se ela pedir, e aí ` +
+    `ela fala com o suporte da Logzz no ${logzzPhone}; nunca ofereça por conta própria. Se ela disser que consta entregue mas não recebeu, peça para ela ` +
+    `conferir com vizinhos ou portaria e oriente a falar com o suporte da Logzz, que é quem faz a entrega e consegue ` +
+    `verificar, no ${logzzPhone}. Sem data nova e sem prazo.`
+  );
+};
+
+/**
+ * Her deadline question and another one in the same message, and every draft fell on the deadline or the
+ * coverage veto (R21.1): the deadline gets the fixed answer, and the model answers only the other question.
+ */
+export const otherQuestionDirective = (deadlineAnswer: string, questions: readonly string[]): string =>
+  `O prazo de entrega já foi respondido nesta mesma mensagem, com este texto: "${deadlineAnswer}". ` +
+  `Escreva só a continuação, respondendo apenas a esta outra pergunta dela: "${questions.join(" ")}". ` +
+  `Não fale de prazo, entrega, dia, data nem cobertura, não repita o texto do prazo e não cumprimente.`;
 
 /** A cancel is a return only when she has a live order and every live one was delivered (v20 review). */
 export const returnsOnly = (orders: readonly OrderView[]): boolean =>

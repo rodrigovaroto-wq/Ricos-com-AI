@@ -208,8 +208,7 @@ decisões R18.1–R18.8 e o `CLAUDE.md`.
 
 99. Todo número citado é o do `BUSINESS_CONFIG` no ar (preços, desconto, prazos, garantia, kits,
     clientes satisfeitas)? Confiro contra o segredo, não contra o exemplo do desenho.
-100. A troca foi dita como grátis, ou com o valor R$ 27,00 antes da compra? (os dois são
-     proibidos; a devolução é sem custo)
+100. A troca foi oferecida sem ela perguntar? (proibido, R21.4; troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3))
 101. Apareceu cupom (SUPER20) antes do `silence_3`?
 102. Parcelamento: só no antecipado e só se ela perguntou?
 103. Prometeu prazo exato, "chega amanhã", entrega expressa ou no mesmo dia?

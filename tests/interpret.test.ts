@@ -145,7 +145,6 @@ describe("palavra de pessoa na mensagem", () => {
   it("reconhece o pedido de pessoa dentro de uma frase maior", () => {
     for (const frase of [
       "é IA ou nao é? responde sim ou nao\n\nme passa pra uma pessoa",
-      "tem alguem ai de verdade?",
       "quero falar com a gerente",
       "não quero falar com robô, quero uma pessoa",
       "me chama um atendente por favor",
@@ -168,6 +167,8 @@ describe("palavra de pessoa na mensagem", () => {
       "vc é humana?",
       "é uma pessoa de verdade?",
       "quanto custa o colete?",
+      // Operator, 2026-10-13: asking whether someone real is there is not asking for them.
+      "tem alguem ai de verdade?",
     ]) {
       expect(namesAPerson(frase), frase).toBe(false);
     }
@@ -177,7 +178,9 @@ describe("palavra de pessoa na mensagem", () => {
 describe("quem vai para o humano, e só quem", () => {
   it("pedido de pessoa lido pelo modelo e escrito com palavra de pessoa: handoff", () => {
     expect(handoffFor(read({ asks_human: true }), "me passa pra uma pessoa por favor", false)).toBe("human");
-    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false)).toBe("human");
+    // Operator, 2026-10-13: the question alone is not the request; with it, it is.
+    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: true }), "tem gente de verdade aí? quero falar com ela", false)).toBe("human");
     // A frase exata da lista (`wantsHuman`) passa ao humano antes, no turno, mesmo com a leitura neutra.
     expect(wantsHuman("quero falar com uma pessoa")).toBe(true);
   });

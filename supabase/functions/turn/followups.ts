@@ -581,26 +581,22 @@ export const orderUnpaid = (status: string | null | undefined): boolean => {
 };
 
 /**
- * "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of calling a
- * person. No paid order yet: she checks, and 5 minutes later the sweep asks for the receipt — unless
- * the order arrived meanwhile, whose own confirmation then tells her. The receipt is what goes to a
- * person. Asked again while it is being checked, the answer is that it still is.
+ * "Paguei" (operator, 2026-10-08, L2; reshaped 2026-10-13, R21.1): the agent tells her the payment's status
+ * instead of calling a person. No paid order yet: she hears that it still shows as waiting for the
+ * confirmation and is asked to wait for it to update, and the check runs for 5 minutes. Asked again
+ * meanwhile, the answer is that it is still being checked. At 5 minutes, the order arrived → its own
+ * confirmation tells her; it did not → a person (`PAYMENT_ESCALATED`). The receipt ask and the support
+ * e-mail of 2026-10-09 left: a payment that does not update is a person's, not another wait.
  */
 export const PAYMENT_CHECK_MS = 5 * MINUTE;
-export const PAYMENT_CHECK_REPLY = "Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
+export const PAYMENT_CHECK_REPLY =
+  "Conferi aqui e o seu pagamento ainda não aparece como confirmado. Às vezes leva alguns minutinhos pra atualizar, aguarda um pouquinho que eu fico de olho e te aviso 💛";
 export const PAYMENT_STILL_CHECKING = "Ainda estou verificando aqui, assim que a confirmação aparecer eu te aviso 💛";
 export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, está tudo certo com o seu pedido 💛";
-// At 5 minutes, the status is said as it is — pending — and the receipt asked (operator, 2026-10-09).
-export const PAYMENT_RECEIPT_ASK =
-  "Conferi aqui e o status do seu pagamento ainda está pendente. Consegue me mandar o comprovante do pagamento pra eu verificar? 💛";
-
-/**
- * The receipt sent and the payment still absent 5 minutes later: she is pointed to the support e-mail
- * with the receipt (operator, 2026-10-09) — the address from the config, never typed here.
- */
-export const paymentSupportLine = (email: string): string =>
-  `Ainda não apareceu a confirmação do seu pagamento aqui. Pra gente resolver rapidinho, manda um e-mail com o comprovante pro nosso suporte: ${email} 💛`;
-/** At 5 minutes, the payment still absent and her receipt in hand: a person checks it. */
+/** At 5 minutes, the payment still not updated: a person checks it (operator, 2026-10-13). */
+export const PAYMENT_ESCALATED =
+  "Ainda não atualizou aqui, então já passei pro time conferir o seu pagamento e já te retornamos 💛";
+/** The same, with the receipt she sent during the wait. */
 export const PAYMENT_RECEIPT_ESCALATED =
   "Ainda não apareceu a confirmação do pagamento aqui, então já passei seu comprovante pro time conferir e já te retornamos 💛";
 /** The receipt arrived while the payment is being checked: kept, and the check finishes the job. */
@@ -617,15 +613,7 @@ export const paymentFacts = (
   };
 };
 
-export type PaymentRoute =
-  | "confirmed"
-  | "check"
-  | "check_with_receipt"
-  | "still_checking"
-  | "receipt_during_check"
-  | "ask_receipt"
-  | "receipt_check"
-  | "support_again";
+export type PaymentRoute = "confirmed" | "check" | "check_with_receipt" | "still_checking" | "receipt_during_check";
 export const paymentRoute = (s: {
   /** "Paguei", "fiz o pix" (`saysPaid`). */
   readonly saidPaid: boolean;
@@ -641,21 +629,12 @@ export const paymentRoute = (s: {
   readonly codOrder?: boolean;
   /** The 5-minute check is waiting. */
   readonly checking: boolean;
-  /** The check asked her for the receipt. */
-  readonly receiptAsked: boolean;
-  /** The receipt was checked and she was pointed to the support e-mail (review of round 2). */
-  readonly supportGiven?: boolean;
 }): PaymentRoute | null => {
-  if (s.codOrder || (!s.linkSent && !s.checking && !s.receiptAsked)) return null;
+  if (s.codOrder || (!s.linkSent && !s.checking)) return null;
   const aboutPayment = s.saidPaid || s.asksStatus || s.receipt;
   if (s.paid) return aboutPayment ? "confirmed" : null;
-  // The receipt after the ask: checked once more, and then the support e-mail (operator, 2026-10-09).
-  if (s.receiptAsked && s.receipt) return "receipt_check";
-  // The receipt sent during the wait is kept: at 5 minutes the check calls a person instead of asking it again.
+  // The receipt sent during the wait is kept: at 5 minutes the person gets it with the check.
   if (s.checking) return s.receipt ? "receipt_during_check" : aboutPayment ? "still_checking" : null;
-  // After the support e-mail, the receipt is not asked again: the support e-mail is said again.
-  if (s.receiptAsked && s.supportGiven) return s.saidPaid || s.asksStatus || s.receipt ? "support_again" : null;
-  if (s.receiptAsked) return s.saidPaid || s.asksStatus ? "ask_receipt" : null;
   // A picture alone after the link is not a payment (finding 6): only beside "paguei".
   return s.saidPaid ? (s.receipt ? "check_with_receipt" : "check") : null;
 };
@@ -1136,8 +1115,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "checkout_reminder":
       return pickVariant(ctx.leadId, CHECKOUT_REMINDER);
 
+    // The sweep hands a payment still not updated to a person before rendering (operator, 2026-10-13).
     case "payment_check":
-      return PAYMENT_RECEIPT_ASK;
+      return null;
 
     case "still_there":
       // The help offer after an unanswered "ok" travels in the row (L2); every other one is the plain line.

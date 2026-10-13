@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { lookupRegion } from "@/agent/availability.js";
-import { ackHelpText, PAYMENT_RECEIPT_ASK, paymentRoute, paymentSupportLine } from "@/agent/followups.js";
+import { ackHelpText, PAYMENT_ESCALATED, PAYMENT_RECEIPT_ESCALATED, paymentRoute } from "@/agent/followups.js";
 import { confirmsAddress, parseCep } from "@/agent/address.js";
 import { isBareAck, isPaymentReceipt } from "@/agent/interpret.js";
 import { describedImageBody, parseWebhook } from "@/channel/whatsapp.js";
@@ -44,21 +44,18 @@ describe("CEP que não existe", () => {
   });
 });
 
-describe("pagamento: pendente aos 5 min, comprovante, depois o e-mail do suporte", () => {
-  it("aos 5 min diz que está pendente e pede o comprovante", () => {
-    expect(PAYMENT_RECEIPT_ASK).toBe("Conferi aqui e o status do seu pagamento ainda está pendente. Consegue me mandar o comprovante do pagamento pra eu verificar? 💛");
-  });
-  it("o comprovante depois do pedido gera mais uma verificação, não uma pessoa", () => {
-    const base = { saidPaid: false, asksStatus: false, receipt: true, linkSent: true, paid: false, checking: false, receiptAsked: true };
-    expect(paymentRoute(base)).toBe("receipt_check");
-  });
-  it("sem o pagamento depois do comprovante: o e-mail do suporte vem do config", () => {
-    expect(paymentSupportLine("contato@encorpa-fashion.com.br")).toContain("contato@encorpa-fashion.com.br");
-    for (const line of [PAYMENT_RECEIPT_ASK, paymentSupportLine("contato@encorpa-fashion.com.br")]) {
+describe("pagamento: aos 5 min sem atualizar, uma pessoa (operador, 2026-10-13; superou o comprovante e o e-mail de 2026-10-09)", () => {
+  it("as linhas da pessoa passam a cadeia a qualquer hora (camada auto)", () => {
+    for (const line of [PAYMENT_ESCALATED, PAYMENT_RECEIPT_ESCALATED]) {
       expect(runGates(line, ctx({ layer: "auto", paymentPath: "prepay" })).traces.filter((t) => t.verdict === "block"), line).toEqual([]);
     }
+  });
+  it("negação: o comprovante depois da verificação não gera outra verificação, e o e-mail do suporte saiu", () => {
+    const base = { saidPaid: false, asksStatus: false, receipt: true, linkSent: true, paid: false, checking: false };
+    // A picture alone, no check running: not a payment.
+    expect(paymentRoute(base)).toBeNull();
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain("const support = CONFIG.support?.email ?? null;");
+    expect(turn).not.toContain("CONFIG.support?.email");
     expect(turn).not.toContain('if (payment === "receipt_handoff")');
   });
 });
@@ -158,10 +155,9 @@ describe("revisão Opus da rodada 2", () => {
     expect(isPaymentReceipt(describedImageBody("uma mulher vestindo um colete preto", "chegou, amei!")!)).toBe(false);
     expect(isPaymentReceipt("[a cliente mandou uma imagem sem texto]")).toBe(true);
   });
-  it("5. depois do e-mail do suporte, 'paguei' recebe o e-mail do suporte de novo, não o pedido do comprovante", () => {
-    const base = { saidPaid: true, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false, receiptAsked: true, supportGiven: true };
-    expect(paymentRoute(base)).toBe("support_again");
-    expect(paymentRoute({ ...base, supportGiven: false })).toBe("ask_receipt");
+  it("5. depois dos 5 minutos a conversa está com uma pessoa: o turno para antes do pagamento (operador, 2026-10-13)", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    expect(turn.indexOf("if (lead.handoff_at) {")).toBeLessThan(turn.indexOf("const payment = paymentRoute({"));
   });
   it("6. o 'CEP não existe' só no turno em que o CEP chega, e sem a diretiva de cobertura junto", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");

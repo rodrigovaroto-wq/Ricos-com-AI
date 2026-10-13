@@ -88,16 +88,19 @@ export const INTERPRETER_SYSTEM = [
   "responde a cliente. Você só diz o que a mensagem contém.",
   "",
   "Campos (use exatamente estes nomes):",
-  '- "asks_human": true só se ela pede para falar com uma PESSOA/atendente/humano no lugar',
-  '  da assistente ("me passa pra uma pessoa", "quero falar com alguém de verdade"). false',
-  '  para "você é robô?", "é IA?", "tem alguém aí?" (só conferindo se alguém responde),',
-  '  "não quero falar com atendente" e qualquer negação.',
+  '- "asks_human": true só se ela pede EXPLICITAMENTE para falar com uma PESSOA/um humano/um',
+  '  atendente/alguém de verdade no lugar da assistente ("me passa pra um atendente", "quero falar',
+  '  com uma pessoa", "quero falar com alguém de verdade"). false para "preciso falar com alguém',
+  '  sobre meu pedido" ("alguém" sozinho não é pessoa), "você é robô?", "vc é humano?", "é IA?",',
+  '  "tem alguém aí?" (só conferindo se alguém responde), "uma pessoa me indicou", "não quero',
+  '  falar com atendente" e qualquer negação.',
   '- "wants_cancel": true só se ela quer cancelar um pedido que JÁ FEZ.',
   '- "post_sale": true se ela fala de um pedido que JÁ FEZ (onde está, quando chega, troca,',
   "  devolução, problema com a entrega).",
-  '- "wants_exchange": true só se ela quer TROCAR o tamanho de um colete que JÁ COMPROU',
-  '  ("ficou pequeno, quero trocar pelo G", "dá pra trocar o tamanho?"). Pergunta antes de comprar',
-  '  ("e se não servir, dá pra trocar?"), devolução e cancelamento: false.',
+  '- "wants_exchange": true só se ela pede para TROCAR ou DEVOLVER um colete que JÁ COMPROU',
+  '  ("ficou pequeno, quero trocar pelo G", "dá pra trocar o tamanho?", "quero devolver"). Pergunta',
+  '  antes de comprar ("e se não servir, dá pra trocar?"), reclamação sem pedir troca ou devolução',
+  '  ("veio com defeito") e cancelamento de pedido que ainda não chegou: false.',
   '- "opt_out": true se ela pede para não receber mais mensagens.',
   '- "size": { "letter": "P"|"M"|"G"|"GG"|"XGG"|null, "pants": número da CALÇA ou null',
   '  (manequim, número de vestido, de blusa ou de sapato NÃO é calça: pants null),',
@@ -289,42 +292,63 @@ export const mergeUnitSizes = (
   return [...stored, ...said].slice(0, units);
 };
 
-/** The words the operator listed as naming a person (R13.2). */
-const PERSON_WORD =
-  /\b(pessoa|atendente|humano|humana|alguem|gente de verdade|vendedora?|responsavel|gerente|suporte)\b/g;
+/**
+ * Who she may ask for, named outright (operator, 2026-10-13): a person, a human, an attendant, someone
+ * "de verdade". "Alguém" alone is not a person — "preciso falar com alguém sobre meu pedido" is the Malu's
+ * — and a person-word with no request is not a request ("uma pessoa me indicou", "vc é humano?").
+ */
+const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
+const PERSON_REQUESTS = [
+  // "quero falar com uma pessoa", "posso falar com um atendente?", "dá pra falar com alguém de verdade?"
+  new RegExp(String.raw`\b(?:quero|queria|gostaria\s+de|preciso|precisava|posso|prefiro|da\s+pra|tem\s+como|deixa\s+eu)\s+(?:\S+\s+){0,2}?(?:falar|conversar|ser\s+atendid[ao])\s+com\s+${PERSON}`, "g"),
+  // "quero uma pessoa", "quero atendimento humano"
+  new RegExp(String.raw`\b(?:quero|queria|preciso\s+de|prefiro)\s+(?:(?:um|uma)\s+)?(?:atendimento\s+humano|${PERSON})`, "g"),
+  // "me passa pra um atendente", "chama uma pessoa", "pode me transferir pra um humano?"
+  new RegExp(String.raw`\b(?:passa|passe|passar|transfere|transfira|transferir|encaminha|encaminhe|encaminhar|coloca|coloque|colocar)\s+(?:\S+\s+){0,2}?(?:pra|para|com)\s+${PERSON}|\b(?:chama|chame|chamar)\s+(?:\S+\s+)?${PERSON}`, "g"),
+  // "(não) tem um humano aí pra me ajudar?" — someone to help her, not a check on what the agent is.
+  // The "não" is inside the match: here it asks, it does not refuse.
+  new RegExp(String.raw`\b(?:nao\s+)?tem\s+(?:\S+\s+)?${PERSON}\s+(?:(?:ai|ae|aqui)\s+)?(?:pra|para)\s+(?:me\s+)?(?:ajudar|atender|falar|conversar)`, "g"),
+];
+/** "Tem gente de verdade aí? quero falar com ela": the pronoun counts only beside a person named outright. */
+const PRONOUN_REQUEST =
+  /\b(?:quero|queria|gostaria\s+de|preciso)\s+(?:\S+\s+){0,2}?(?:falar|conversar)\s+com\s+(?:ela|ele|essa\s+pessoa|esse\s+atendente|essa\s+atendente)\b/g;
+const PERSON_NAMED = /\b(?:de\s+verdade|real|humano|humana|atendente)\b/;
 
 /**
- * A refusal cancels the request only when it is ATTACHED to the person-word: between the
- * refusal and the word there may be only the connecting words of that same refusal —
- * "não quero falar com atendente", "não precisa chamar atendente", "nao preciso de ajuda de
- * atendente", "não quero que me passe pra atendente", "dispenso atendente". A refusal of
- * something else does not: in "não quero robô quero uma pessoa" and "nao quero esperar
- * quero atendente", "robô" and "esperar" are not connecting words, so the request stands
- * (code reviews, 2026-09-24). "Não tem um atendente?" is no refusal at all.
+ * A refusal cancels the request only when it is ATTACHED to it: between the refusal and the request there
+ * may be only connecting words — "não quero falar com atendente", "não precisa me passar pra atendente",
+ * "dispenso atendente". A refusal of something else does not: in "não quero robô quero uma pessoa", "robô"
+ * is no connecting word, so the request stands (code reviews, 2026-09-24).
  */
 const REFUSED_BEFORE =
-  /\b(?:(?:nao|nunca|jamais)\s+(?:quero|queria|preciso|precisa|precisava)|dispenso|dispensa)\s+(?:(?:falar|conversar|com|de|ajuda|chamar|chama|que|me|passe|passar|passa|transferir|transfira|pra|para|por|ser|atendida|atendido|um|uma|o|a|do|da|nenhum|nenhuma)\s+)*$/;
-
-/** "Você é uma pessoa?" asks what she is talking to — it is not a request for someone else. */
-const IDENTITY_QUESTION_BEFORE = /\b(voce|vc|ce|tu)?\s*(e|eh)\s+(um|uma)?\s*$/;
+  /\b(?:nao|nunca|jamais|nem|dispenso|dispensa)\s+(?:(?:quero|queria|preciso|precisa|precisava|me|te|que|vou|vai|pra|para|ser)\s+)*$/;
 
 /**
- * Whether the message itself names a person being asked for — the deterministic half of
- * the human-request rule, so a model that hallucinates `asks_human` on "você é robô?" does
- * not end a sale. The clause is what the negation is read against (the lesson of
- * `negation-blindness`): "não quero falar com robô, quero uma pessoa" still names one.
+ * Whether the message itself asks for a person — the deterministic half of the human-request rule, so a
+ * model that hallucinates `asks_human` on "você é robô?" or on "preciso falar com alguém" does not take the
+ * conversation from the Malu (R21.1: the person is the last resort). The clause is what the refusal is
+ * read against (the lesson of `negation-blindness`): "não quero falar com robô, quero uma pessoa" asks.
  */
 export const namesAPerson = (message: string): boolean => {
   const t = norm(message);
-  for (const m of t.matchAll(PERSON_WORD)) {
-    const at = m.index ?? 0;
-    const clauseStart = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
-    const clause = t.slice(clauseStart, at);
-    if (REFUSED_BEFORE.test(clause) || IDENTITY_QUESTION_BEFORE.test(clause)) continue;
-    return true;
+  for (const request of PERSON_NAMED.test(t) ? [...PERSON_REQUESTS, PRONOUN_REQUEST] : PERSON_REQUESTS) {
+    for (const m of t.matchAll(request)) {
+      const at = m.index ?? 0;
+      const clauseStart = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
+      if (REFUSED_BEFORE.test(t.slice(clauseStart, at))) continue;
+      return true;
+    }
   }
   return false;
 };
+
+/**
+ * Her own words ask for an exchange or a return — the deterministic half of `wants_exchange`, so the Logzz
+ * line never goes out on a complaint the model read as one ("veio com defeito", operator, 2026-10-13). Blind
+ * to negation on purpose: the model's reading is the other half, and both must agree.
+ */
+export const namesExchangeOrReturn = (message: string): boolean =>
+  /\b(?:troc(?:a|ar|o|aria|ou|ando|ado)|trocas|devolv\w*|devoluc\w*|reembols\w*|estorn\w*|dinheiro\s+de\s+volta)\b/.test(norm(message));
 
 export type HandoffKind = "cancel" | "post_sale" | "human";
 

@@ -49,6 +49,7 @@ const corners = [
   { name: "frete pago nos dois, sem desconto", config: variant(false, false, false) },
   { name: "frete grátis, com desconto", config: variant(true, true) },
   { name: "frete grátis, sem desconto", config: variant(true, false) },
+  { name: "produção: troca pela Logzz, sem custo", config: { ...variant(false, true), returns: { logzzSupportPhone: "+55 11 91132-7877", freeExchange: true } } },
 ] as const;
 
 /** Free on neither path: the only corner where the prompt may not say "frete é grátis" at all. */
@@ -726,6 +727,8 @@ const FULL: PromptConfig = {
 const FULL_CORNERS = [
   { name: "grátis só na entrega", config: FULL },
   { name: "frete grátis", config: { ...FULL, delivery: { ...FULL.delivery, freeShipping: true } } },
+  // The production secret's `returns` (2026-10-13), which the example does not carry.
+  { name: "produção", config: { ...FULL, returns: { logzzSupportPhone: "+55 11 91132-7877", freeExchange: true } } },
 ] as const;
 
 /** The prompt without the gate briefing: what THIS file teaches, apart from guardrails.ts. */
@@ -1319,5 +1322,44 @@ describe("o kit depois da escolha do pagamento e antes dos dados", () => {
     const facts = productFacts(withKits).join(" ");
     expect(facts).toContain("Pega o abdômen e as costas por completo, e tem alças.");
     expect(facts).not.toContain("Pega o abdômen e as costas, e tem alças.");
+  });
+});
+
+/**
+ * R21.4 (operator, 2026-10-13): the Logzz support message only when she asks or asks for it, never as a
+ * sales argument; then the warranty's days after receipt, through the Logzz, at no cost with
+ * `freeExchange`. The R17.1 fee and Mercado Pago link were removed from the agent.
+ */
+describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
+  const PHONE = "+55 11 91132-7877";
+  const PROD: PromptConfig = { ...FULL, returns: { logzzSupportPhone: PHONE, freeExchange: true } };
+  const LOGZZ = `A garantia é de 7 dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${PHONE} e pedir lá a troca ou a devolução, que eles resolvem pra você.`;
+  const ONLY_ASKED = `Da troca e da devolução você só fala quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando): nunca ofereça a troca por conta própria, nem como argumento de venda.`;
+
+  it("produção: ensina a frase com os dias e o sem custo, e ela passa a cadeia nos dois caminhos", () => {
+    const text = `${LOGZZ} A troca é sem custo pra você.`;
+    expect(own(PROD)).toContain(`"${text}"`);
+    for (const paymentPath of BOTH) expect({ paymentPath, blocked: blockedOn(text, PROD, paymentPath) }).toEqual({ paymentPath, blocked: [] });
+  });
+
+  it("com o número e sem freeExchange: a frase não diz sem custo, e passa a cadeia", () => {
+    const c: PromptConfig = { ...FULL, returns: { logzzSupportPhone: PHONE } };
+    expect(own(c)).toContain(`"${LOGZZ}"`);
+    expect(own(c)).not.toContain("A troca é sem custo");
+    for (const paymentPath of BOTH) expect(blockedOn(LOGZZ, c, paymentPath)).toEqual([]);
+  });
+
+  it.each([FULL, PROD, { ...FULL, returns: { logzzSupportPhone: PHONE } }] as PromptConfig[])("só quando ela pede, em todo config (%#)", (c) =>
+    expect(own(c)).toContain(ONLY_ASKED),
+  );
+
+  // Negation: no fee, no link, no "por conta dela" in any config — the R17.1 text is gone.
+  it.each([FULL, PROD, { ...FULL, returns: { freeExchange: false } }] as PromptConfig[])("nem valor nem link da troca (%#)", (c) => {
+    expect(own(c)).not.toMatch(/R\$ ?27|27,00|mpago|mercado pago|envio é por conta dela|o valor e o link/i);
+  });
+
+  it("sem o número, nada de Logzz como suporte, e do envio da troca não se fala", () => {
+    expect(own(FULL)).not.toContain("suporte da Logzz");
+    expect(own(FULL)).toContain("Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.");
   });
 });

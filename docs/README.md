@@ -27,7 +27,7 @@ aplica é o do secret.
 
 | Quero saber… | Abra |
 |---|---|
-| Preço, kits, frete por caminho, prazo, garantia, **troca (R$ 27,00)** | [`contexto-negocio/01-produto-e-oferta.md`](documentacao/contexto-negocio/01-produto-e-oferta.md) |
+| Preço, kits, frete por caminho, prazo, garantia, **troca (Logzz, sem custo)** | [`contexto-negocio/01-produto-e-oferta.md`](documentacao/contexto-negocio/01-produto-e-oferta.md) |
 | O que a agente nunca pode prometer | [`05-decisoes-firmes.md`](documentacao/contexto-negocio/05-decisoes-firmes.md) + [`agente-ia/02-especificacao/04-guardrails.md`](agente-ia/02-especificacao/04-guardrails.md) |
 | Quanto se ganha por venda (1/2/3 peças, COD × antecipado) | [`contexto-negocio/06-modelo-economico.md`](documentacao/contexto-negocio/06-modelo-economico.md), caixa de 2026-09-29 (as caixas mais antigas são histórico) |
 | Onde tem pagamento na entrega | [`agente-ia/07-cobertura/`](agente-ia/07-cobertura/) |

@@ -2843,6 +2843,38 @@ dia/na data, e reembolso/estorno/dinheiro excluem; mutação `v20-asksdeadline-c
 "o colete novo" e "até devolver" (`v20-fica-com-colete-novo`). `dev:gates`: 0 afrouxamento novo; 6 endurecimentos, todos mentiras.
 **Estado:** publicado na `turn` v20 (2026-10-13).
 
+## 88. Pós-venda que resolve sozinha e o R$ 27 apagado (R21.4–R21.5, 2026-10-13)
+
+**Sintoma (achados do operador sobre a v20):** "preciso falar com alguém sobre meu pedido" ia para uma pessoa; o status mostrava só
+um pedido; antecipado sem pagamento confirmado podia ouvir "confirmado"; pedido entregue com problema e "paguei" sem confirmação iam para
+uma pessoa (o "paguei" pedia comprovante e e-mail do suporte e nunca chegava a uma pessoa); "quando chega? e se eu pedir reembolso?"
+recebia só o prazo; a mensagem da Logzz podia sair sem ela pedir; o R$ 27 e o link do Mercado Pago ainda existiam no agente.
+**Causa:** `namesAPerson` aceitava qualquer palavra de pessoa; `orderStatusReply` olhava só um pedido; o entregue devolvia null e caía em
+handoff; o fluxo de pagamento de 09/10 trocou a pessoa por comprovante + e-mail; o fallback de prazo é texto fixo; o prompt ensinava a
+frase da Logzz sem a condição "só quando ela pede"; o R17.1 sobrevivia como ramo de config ausente.
+**Caminhos descartados:** texto fixo por problema de pedido entregue (cada problema é diferente — usa o modelo com fatos do pedido);
+reescrita na chamada da outra pergunta (latência e custo); cortar o "que" só depois de uma lista de frases de tranquilizar (lista de
+proibição — "não tem problema que", "não precisa ter medo que" escapariam).
+**Correção:** (a) pedido de pessoa só explícito (verbo de pedido + pessoa/humano/atendente/gerente/"alguém de verdade"; recusa colada
+cancela; "alguém", "vc é humano?", "minha amiga comprou" não contam); (b) o pedido mais novo é a referência e o outro relevante é
+mencionado; data só de `scheduled_for`; (c) antecipado sem `orderSettled` → "aguardando a confirmação do pagamento"; na entrega
+"confirmado, você paga quando receber"; (d) "paguei" → "ainda não aparece como confirmado, aguarda que eu fico de olho"; 5 min sem
+atualizar → pessoa ("conferir na Coinzz"); comprovante e e-mail do suporte saíram; (e) entregue com problema → o modelo responde com os
+fatos do pedido (`draftWith`, seam único de chamada dirigida, com teto, gates, `llm_calls` e adiamento; "consta entregue mas não recebi" →
+vizinhos/portaria e o suporte da Logzz); a Logzz só com pedido de troca/devolução (`namesExchangeOrReturn`); (f) prazo + outra pergunta →
+a fixa de prazo + uma chamada a mais só para a outra; (g) o prompt diz troca/devolução só quando ela pede, "a garantia é de 7 dias após o
+recebimento"; o tipo `exchange`, o `exchangeReply`, o preço permitido de R$ 27 e o briefing do R17.1 saíram; docs limpos; (h) gate: o
+"que" e o travessão cortam a oração da promessa (menos o "que" de garantir/achar), a isenção de contato "a qualquer momento" só para
+chamar/falar/perguntar/responder/escrever, "após o recebimento do produto" é marco da garantia.
+**Guarda:** `tests/r21-post-sale-decisions.test.ts`, `tests/post-sale-logzz.test.ts`, `tests/l2-*.test.ts`, `tests/exchange-freight.test.ts`,
+`tests/v20-residuals-que-dash-contact.test.ts`, `tests/r21-4-exchange-gate.test.ts`, `tests/prompt.test.ts` (config de produção em todas as
+frases ensinadas), `tests/deadline-fallback.test.ts`; 20 mutações `R21-*`/`r21-*`/`v21-*`; mutações superadas saíram (`R17-*`,
+`posvenda-mais-novo-morto`, `entregue-status-fixo`) e as que perderam âncora foram atualizadas (`M-08-*` desde o §83, `R65`, `G67-paguei-
+sem-pessoa`, `antecipado-created-confirmado`, `posvenda-aguardando-na-porta`).
+**Fica:** as três chamadas novas ao modelo (entregue, outra pergunta, adiamento) só têm teste de código — o teste real é a prova; não
+confirmado se a Logzz atende a entrega de pedido antecipado; status desconhecido ou entrega frustrada seguem indo a uma pessoa.
+**Estado:** no código; publicar na v21.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

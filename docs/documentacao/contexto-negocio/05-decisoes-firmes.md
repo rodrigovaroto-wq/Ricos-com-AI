@@ -77,26 +77,11 @@ Momentos que a sequência precisa cobrir:
 | Véspera da entrega | Avisar o dia, lembrar do valor e das formas de pagamento |
 | Depois de receber | Perguntar se serviu, ensinar o primeiro uso, pedir foto/depoimento |
 
-## 9. Troca de tamanho: R$ 27,00 fixo, cobrado da cliente
+## 9. Troca de tamanho: pelo suporte da Logzz, sem custo
 
-Decisão do operador em 2026-09-29. **A troca de tamanho custa R$ 27,00 à cliente, valor fixo** —
-o mesmo em qualquer região, para qualquer caminho de pagamento (entrega ou antecipado) e qualquer
-número de peças do pedido.
-
-- **Quem paga:** a cliente, por um link do Mercado Pago fora da Coinzz e da Logzz (R17.1, PR #42).
-- **O que não muda:** a devolução continua sem custo para ela (R16.3); a garantia continua 7 dias a
-  partir do recebimento.
-- **O que a agente diz:** nunca que a troca é grátis. Depois da compra, quando ela pede a troca,
-  manda o valor e o link e passa para uma pessoa combinar a troca (PR #42). Antes da compra, o
-  PR #42 ensina "o envio da troca é seu" **sem número** — o `price_promise` veta R$ 27,00 fora da
-  resposta de troca. Citar o valor já na pré-venda é mudança de prompt e gate juntos, ainda não
-  decidida (item do pipeline).
-- **Onde vira código:** `exchange.feeBrl = 27` no secret `BUSINESS_CONFIG`, junto com
-  `exchange.checkoutUrl` (o link do Mercado Pago). O campo só existe depois do merge do PR #42; até
-  lá a agente no `main` não conhece a taxa — ver o pipeline em
-  [`../../agente-ia/05-plano/09-pipeline-ate-producao.md`](../../agente-ia/05-plano/09-pipeline-ate-producao.md).
-- **Supera:** a pergunta aberta da R16.9 (troca grátis × R$ 20 da política pública da Logzz) e o
-  "preço pendente, provavelmente regional" do PR #42. Não é R$ 20, não é grátis, não é regional.
+Troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3), em até 7 dias após o recebimento; a
+agente só fala dela quando a cliente pergunta ou pede (R21.4, operador, 2026-10-13). Supera a taxa
+fixa de 2026-09-29 (R17.2).
 
 ## Pendências do operador que travam decisões técnicas
 

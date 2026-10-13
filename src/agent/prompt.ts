@@ -159,11 +159,14 @@ export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: bo
 
 /** A deadline question: the day, the window, the express (not "bom dia"). */
 export const asksDeadline = (text: string): boolean =>
-  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|(?:cheg|receb)\w*\s+(?:ate|antes|amanha|sabado|sexta)|da\s+tempo\s+de\s+(?:cheg|receb|entreg)\w*|se\s+nao\s+chegar\s+(?:ate|a\s+tempo|antes|no\s+dia|na\s+data))\b/.test(
-    text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
-  ) &&
-  // The refund's deadline is not the delivery's (v20 review): "recebo até sexta o reembolso?".
-  !/\b(?:reembols|estorn|dinheiro)/i.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  // Per sentence (R21.5h): the refund's deadline is not the delivery's (v20 review), "recebo até sexta o
+  // reembolso?", but "quando chega? e se eu pedir reembolso?" still asks when the vest arrives.
+  text
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .toLowerCase()
+    .split(/[.!?;\n]+/)
+    .some((c) => /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|(?:cheg|receb)\w*\s+(?:ate|antes|amanha|sabado|sexta)|da\s+tempo\s+de\s+(?:cheg|receb|entreg)\w*|se\s+nao\s+chegar\s+(?:ate|a\s+tempo|antes|no\s+dia|na\s+data))\b/.test(c) && !/\b(?:reembols|estorn|dinheiro)/.test(c));
 
 /** The default when she says "sim" to the two options without choosing (design §5.1). */
 export const DEFAULT_COD_CONFIRM = "Então deixo no pagamento na entrega, que você não paga nada agora, pode ser?";
@@ -717,21 +720,19 @@ export const systemPrompt = (
     `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     ...(expressLine(config) ? [expressLine(config)] : []),
     `${config.delivery.warrantyDays} dias após o recebimento para trocar ou devolver. A devolução é`,
-    // Operator, 2026-10-13: the exchange is free only with `freeExchange === true`; with the Logzz number
-    // and without it, its freight is not said at all; with neither, today's truth (R17.1).
+    // Operator, 2026-10-13: the exchange is free only with `freeExchange === true`; otherwise its freight
+    // is not said at all (the R17.1 fee and link were removed, R21.4).
     ...(config.returns?.freeExchange === true
       ? [`sem custo, e a troca de tamanho também: "A troca é sem custo pra você."`]
-      : logzzSupportPhone(config)
-        ? [`sem custo. Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`]
-        : [
-            `sem custo; na troca de tamanho o envio é por conta dela — nunca diga que a troca é grátis, e o`,
-            `valor e o link vão numa mensagem à parte quando ela pedir a troca de um pedido.`,
-          ]),
+      : [`sem custo. Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`]),
+    // R21.4: only on her request — "e se não servir?" is her asking; she never offers it unasked.
+    `Da troca e da devolução você só fala quando ela perguntar ou pedir (um "e se não servir?" é ela`,
+    `  perguntando): nunca ofereça a troca por conta própria, nem como argumento de venda.`,
     ...(logzzSupportPhone(config)
       ? [
           // Operator, 2026-10-13: the Logzz support serves her directly.
-          `A troca e a devolução são com o suporte da Logzz, que atende ela direto: diga assim,`,
-          `"É só mandar uma mensagem pro suporte da Logzz no ${logzzSupportPhone(config)} e pedir lá a troca ou a devolução, que eles resolvem pra você."`,
+          `A troca e a devolução são com o suporte da Logzz, que atende ela direto. Quando ela perguntar ou`,
+          `  pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${logzzSupportPhone(config)} e pedir lá a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
         ]
       : []),
     ...kitsBriefing(config),
