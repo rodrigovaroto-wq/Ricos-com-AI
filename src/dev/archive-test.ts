@@ -11,7 +11,7 @@
  * `pnpm deploy:turn`.
  */
 import { existsSync, mkdirSync, readFileSync, writeFileSync } from "node:fs";
-import { leadFacts, phoneTail, renderRound, type TesterRows } from "./archive-test-core.js";
+import { maskRows, phoneTail, renderRound, type TesterRows } from "./archive-test-core.js";
 
 const args = process.argv.slice(2);
 const flag = (name: string) => args.find((a) => a.startsWith(`--${name}=`))?.split("=").slice(1).join("=");
@@ -70,9 +70,9 @@ if (!remove) {
   if (existsSync(md)) throw new Error(`${md} já existe: escolha outro --round (a análise escrita nele não pode ser sobrescrita)`);
   const scripts = scriptFile ? readFileSync(scriptFile, "utf8") : null;
   writeFileSync(md, renderRound(round, found, scripts));
-  // The raw rows, without identity: the lead's identity, address, name and phone stay out; message bodies keep the
-  // conversation (the Markdown masks CPF, e-mail, CEP and phone in them).
-  writeFileSync(json, JSON.stringify(found.map((r) => ({ ...r, phone: phoneTail(r.phone), lead: leadFacts(r.lead) })), null, 2) + "\n");
+  // The raw rows, without identity: the lead's identity, address, name and phone stay out, and the free text is masked
+  // as in the Markdown (a checkout link in a message carries her name and CPF).
+  writeFileSync(json, JSON.stringify(found.map(maskRows), null, 2) + "\n");
 } else if (!existsSync(md) || !existsSync(json)) {
   throw new Error(`${md} não existe: arquive (sem --delete) e escreva a análise antes de apagar`);
 }

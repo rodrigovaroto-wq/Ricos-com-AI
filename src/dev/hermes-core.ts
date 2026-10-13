@@ -14,6 +14,9 @@ import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
  * sentence, never the phone, CPF, CEP or e-mail in it. */
 export function maskPii(text: string): string {
   return text
+    // A checkout link carries her name, phone and CPF in its query string (?name=…&document=…).
+    .replace(/\?[\w%-]+=\S*/g, "?[dados]")
+    .replace(/\b(meu\s+nome\s+(?:é|e|eh)\s*:?)\s*[^\n.,;!?/]+/gi, "$1 [nome]")
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]")
     .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[cpf]")
     .replace(/\b\d{5}-?\d{3}\b/g, "[cep]")

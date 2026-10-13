@@ -11,7 +11,7 @@ export interface TesterRows {
   lead: Record<string, unknown> & { id: string; created_at: string };
   conversations: Array<{ id: string; stage: string | null; created_at: string }>;
   messages: Array<{ conversation_id: string; direction: string; body: string | null; created_at: string }>;
-  outcomes: Array<{ conversation_id: string; outcome: string; reason: string | null; rewrites: number | null; cost_brl: number | null; duration_ms: number | null; agent_version: number | null; created_at: string }>;
+  outcomes: Array<{ conversation_id: string; outcome: string; reason: string | null; rewrites: number | null; cost_brl: number | string | null; duration_ms: number | null; agent_version: number | null; created_at: string }>;
   vetoes: Array<{ conversation_id: string; gate: string; verdict: string; detail: unknown; created_at: string }>;
   followups: Array<{ conversation_id: string; kind: string; status: string; run_at: string; sent_at: string | null }>;
   orders: Array<{ status: string; payment_method: string | null; size: string | null; units: number | null; amount_brl: number | null; created_at: string }>;
@@ -30,8 +30,35 @@ export const leadFacts = (lead: TesterRows["lead"]): Record<string, unknown> => 
   return { ...rest, region: { codAvailable: a.codAvailable ?? null, city: a.city ?? null, state: a.state ?? null } };
 };
 
+/** `maskPii` plus the lead's own name, wherever she typed it ("é Leila", "Leila da Silva"). */
+export const maskFor = (lead: TesterRows["lead"]) => {
+  const names = [lead.name, (lead.identity as { name?: unknown } | null | undefined)?.name]
+    .flatMap((n) => (typeof n === "string" ? n.split(/\s+/) : []))
+    .filter((w) => w.length >= 3 && !/^(?:da|de|do|das|dos)$/i.test(w))
+    .map((w) => w.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"));
+  const re = names.length ? new RegExp(`(?<![\\p{L}])(?:${names.join("|")})(?![\\p{L}])`, "giu") : null;
+  return (text: string): string => {
+    const masked = maskPii(text);
+    return re ? masked.replace(re, "[nome]") : masked;
+  };
+};
+
+/** The rows that go to the `.json`: identity out, every free text masked like the Markdown. */
+export const maskRows = (r: TesterRows) => {
+  const mask = maskFor(r.lead);
+  return {
+    ...r,
+    phone: phoneTail(r.phone),
+    lead: leadFacts(r.lead),
+    messages: r.messages.map((m) => ({ ...m, body: mask(m.body ?? "") })),
+    outcomes: r.outcomes.map((o) => ({ ...o, reason: o.reason == null ? null : mask(o.reason) })),
+    vetoes: r.vetoes.map((v) => ({ ...v, detail: mask(typeof v.detail === "string" ? v.detail : JSON.stringify(v.detail ?? "")) })),
+  };
+};
+
 /** One tester's whole test as Markdown: messages and, under each Malu turn, its outcome and the vetoes it took. */
 export const renderTester = (r: TesterRows): string => {
+  const maskPii = maskFor(r.lead);
   const lines = [`## ${r.label} (${phoneTail(r.phone)})`, ""];
   const f = leadFacts(r.lead);
   lines.push(
@@ -56,7 +83,7 @@ export const renderTester = (r: TesterRows): string => {
       } else {
         const o = e.o;
         lines.push(
-          `  - desfecho \`${o.outcome}\`${o.reason ? ` — ${maskPii(o.reason)}` : ""} · reescritas ${o.rewrites ?? 0} · R$ ${(o.cost_brl ?? 0).toFixed(4)}` +
+          `  - desfecho \`${o.outcome}\`${o.reason ? ` — ${maskPii(o.reason)}` : ""} · reescritas ${o.rewrites ?? 0} · R$ ${Number(o.cost_brl ?? 0).toFixed(4)}` +
             `${o.duration_ms != null ? ` · ${(o.duration_ms / 1000).toFixed(1)} s` : ""} · v${o.agent_version ?? "?"}`,
         );
       }
@@ -67,7 +94,8 @@ export const renderTester = (r: TesterRows): string => {
       for (const t of touches) lines.push(`- ${t.kind}: ${t.status} · marcado ${spTime(t.run_at)}${t.sent_at ? ` · enviado ${spTime(t.sent_at)}` : ""}`);
     }
   }
-  const cost = r.outcomes.reduce((s, o) => s + (o.cost_brl ?? 0), 0);
+  // Postgres `numeric` comes back from the management API as a string.
+  const cost = r.outcomes.reduce((s, o) => s + Number(o.cost_brl ?? 0), 0);
   lines.push("", `Custo total da Malu: R$ ${cost.toFixed(4)}`, "");
   return lines.join("\n");
 };

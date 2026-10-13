@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { leadFacts, phoneTail, renderRound, renderTester, type TesterRows } from "../src/dev/archive-test-core.js";
+import { leadFacts, maskRows, phoneTail, renderRound, renderTester, type TesterRows } from "../src/dev/archive-test-core.js";
 
 const rows: TesterRows = {
   label: "Rodrigo",
@@ -30,6 +30,30 @@ describe("arquivo de teste real (operador, 2026-10-13)", () => {
     expect(md).toContain("veto `delivery_promise`");
     expect(md).toContain("desfecho `send`");
     expect(md).toContain("Pedido: created");
+  });
+  it("o link do checkout com nome, telefone e CPF sai mascarado no .md e no .json", () => {
+    const link = "https://checkout.example/pay/1?name=Maria+Souza&phone=5511987654321&document=12345678909";
+    const r = { ...rows, messages: [{ ...rows.messages[0]!, body: `segue: ${link} / pronto` }] };
+    for (const out of [renderTester(r), JSON.stringify(maskRows(r))]) {
+      expect(out).not.toMatch(/Maria|5511987654321|12345678909|987654321/);
+      expect(out).toContain("https://checkout.example/pay/1?[dados]");
+    }
+  });
+  it("o nome que ela digita sai mascarado, com ou sem 'meu nome é'", () => {
+    const r = { ...rows, label: "Operador", messages: [
+      { ...rows.messages[0]!, body: "meu nome é Rodrigo Teste" },
+      { ...rows.messages[1]!, body: "Obrigada, Rodrigo! Pode confirmar, rodrigo teste?" },
+      { ...rows.messages[1]!, body: "meu nome e Ana Paula Souza, cpf depois" },
+    ] };
+    for (const out of [renderTester(r), JSON.stringify(maskRows(r))]) {
+      expect(out).not.toMatch(/Rodrigo|rodrigo|Teste|Ana Paula|Souza/);
+      expect(out).toContain("[nome]");
+    }
+  });
+  it("o custo vindo do banco como texto (numeric) soma como número", () => {
+    const md = renderTester({ ...rows, outcomes: [rows.outcomes[0]!, { ...rows.outcomes[0]!, cost_brl: "0.0200" }] });
+    expect(md).toContain("R$ 0.0200");
+    expect(md).toContain("Custo total da Malu: R$ 0.0323");
   });
   it("a rodada traz as seções da análise para preencher", () => {
     const md = renderRound("2026-10-20-r1", [rows], null);

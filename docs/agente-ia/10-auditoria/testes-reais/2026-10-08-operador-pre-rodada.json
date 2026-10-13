@@ -1,0 +1,3809 @@
+[
+  {
+    "label": "Operador",
+    "phone": "…5983",
+    "lead": {
+      "id": "84e892d4-7312-4c85-af89-13ddbaf7bf61",
+      "size": "G",
+      "source": null,
+      "opted_out_at": null,
+      "handoff_at": "2026-10-08 20:23:37.093+00",
+      "created_at": "2026-10-08 20:03:01.396025+00",
+      "updated_at": "2026-10-13 19:17:00.268373+00",
+      "expires_at": "2027-01-11 19:17:00.268373+00",
+      "units": null,
+      "unit_sizes": null,
+      "units_at": null,
+      "payment_choice": null,
+      "payment_choice_at": null,
+      "marketing_opt_in_asked_at": null,
+      "marketing_opt_in_nonce": null,
+      "marketing_opt_in_at": null,
+      "marketing_opt_in_message_id": null,
+      "marketing_opt_in_suspended_at": "2026-10-13 19:16:58.224+00",
+      "marketing_opt_in_declined_at": null,
+      "arm": {
+        "A": 1,
+        "B": 0
+      },
+      "region": {
+        "codAvailable": false,
+        "city": null,
+        "state": null
+      }
+    },
+    "conversations": [
+      {
+        "id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "stage": "tamanho_definido",
+        "created_at": "2026-10-08 20:03:02.276503+00"
+      }
+    ],
+    "messages": [
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "oii",
+        "created_at": "2026-10-08 20:03:02.629857+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Recebemos sua mensagem, em poucos minutos uma de nossas atendentes esclarecerá todas as suas dúvidas.\n\nEnquanto espera, aproveite para entender melhor sobre nosso produto acessando nosso site:\nencorpa-fashion.com.br",
+        "created_at": "2026-10-08 20:03:03.957168+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Oii, boa tarde, tudo bem?! Sou a Malu e darei início ao seu atendimento.\n\nEm que posso te ajudar?",
+        "created_at": "2026-10-08 20:04:12.166221+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "vi seu anuncio no ista e queria saber mais sobre a cinta",
+        "created_at": "2026-10-08 20:06:02.987983+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "insta*",
+        "created_at": "2026-10-08 20:06:13.734172+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Que bom que você viu por lá, ele é o Colete Cinta Modeladora, que modela a cintura e as costas enquanto você está vestindo e deixa a roupa caindo lisinha\n\nEle é confortável, não marca embaixo da roupa e ainda dá aquele apoio na postura, o efeito é só enquanto está vestido, tá?\n\nMas me conta, tem alguma roupa que você ama e deixou de usar porque não se sentiu bem nela?",
+        "created_at": "2026-10-08 20:06:41.558852+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "aah tem sim, uma blusa linda que ganhei de aniversário da minha mãe",
+        "created_at": "2026-10-08 20:08:16.286745+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Que presente especial, com o colete por baixo a blusa assenta lisinha no corpo e você consegue usar ela se sentindo bem de novo\n\nE pra eu te indicar o tamanho certo, que número de calça você veste e fica confortável?",
+        "created_at": "2026-10-08 20:08:34.510522+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "uso tamanho 44 de calça",
+        "created_at": "2026-10-08 20:09:41.65073+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "mas é de qualidade essa cinta ai?",
+        "created_at": "2026-10-08 20:09:57.76114+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "ja comprei uma, uma vez e era bem ruinzinha",
+        "created_at": "2026-10-08 20:10:11.223503+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "É sim, o tecido é poliéster com elastano e forro de algodão, lisinho e fininho pra não marcar, e a gente já tem mais de 500 clientes satisfeitas usando\n\nCom 44 de calça o seu é o G, que é pra cintura de 76 a 84 cm\n\nMe passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí na sua região",
+        "created_at": "2026-10-08 20:10:34.110694+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "aah entendi, ok",
+        "created_at": "2026-10-08 20:12:02.712476+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Que bom que fez sentido pra você, e pra gente seguir me diz qual é seu CEP pra eu ver as opções aí pra você?",
+        "created_at": "2026-10-08 20:12:15.608406+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "teria como me mandar foto dele?",
+        "created_at": "2026-10-08 20:12:19.084325+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Não consigo mandar foto por aqui, mas no site encorpa-fashion.com.br tem o catálogo completo e um vídeo de uma cliente vestindo o colete",
+        "created_at": "2026-10-08 20:12:37.734884+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "ta bom",
+        "created_at": "2026-10-08 20:14:13.237245+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "meu cep é [cep]",
+        "created_at": "2026-10-08 20:14:21.382677+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Aí na sua região a transportadora ainda não tem pagamento na entrega, mas tem o antecipado, que sai com 10% de desconto: R$ 116,91\n\nNo antecipado o frete é calculado por região no checkout, o prazo varia por região, em média 5 dias úteis, e você tem 7 dias após o recebimento pra devolver\n\nPra deixar o pedido no seu nome, me passa seu nome completo por favor?",
+        "created_at": "2026-10-08 20:14:40.010511+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "gostei desse descontinho ai em kkkk mas quanto que é o frete?",
+        "created_at": "2026-10-08 20:16:03.756999+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "meu nome é  [nome]",
+        "created_at": "2026-10-08 20:16:12.082892+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "No antecipado o frete é calculado por região, e o valor aparece pra você no checkout, antes de pagar\n\nPara a emissão da nota fiscal, me passa seu CPF por favor?",
+        "created_at": "2026-10-08 20:16:47.752847+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "[cpf]",
+        "created_at": "2026-10-08 20:17:40.357422+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Perfeito! É só clicar no link do checkout a seguir e concluir sua compra, obrigada por escolher a Encorpa.\n\nhttps://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0?[dados]\n\nLá você completa o endereço, escolhe o G, confere o frete e paga no pix ou no cartão. Se precisar de alguma ajuda, estarei aqui.",
+        "created_at": "2026-10-08 20:17:52.13708+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "ta pedindo meu email lá também, preciso coloca?Nao to conseguindo avançar sem adicionar email",
+        "created_at": "2026-10-08 20:20:59.913421+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "É isso mesmo, lá no checkout ele pede o e-mail pra concluir, aí é só colocar o seu que ele libera pra avançar\n\nQualquer coisa que travar me fala aqui que eu te ajudo",
+        "created_at": "2026-10-08 20:21:15.317663+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "ok",
+        "created_at": "2026-10-08 20:22:40.578098+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Que bom, aí quando concluir me avisa aqui que eu já fico de olho pra você",
+        "created_at": "2026-10-08 20:22:55.706531+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "pronto, paguei",
+        "created_at": "2026-10-08 20:23:26.276543+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "outbound",
+        "body": "Vou checar pra você e já te retorno 💛",
+        "created_at": "2026-10-08 20:23:38.087887+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "ta bom",
+        "created_at": "2026-10-08 20:24:05.95506+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "eai??",
+        "created_at": "2026-10-08 20:58:20.991222+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "deu certo meu pagamento?",
+        "created_at": "2026-10-08 20:58:30.310754+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "checou?",
+        "created_at": "2026-10-08 20:58:30.593562+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "direction": "inbound",
+        "body": "Oii, vi seu anúncio e me interessei pelo produto.",
+        "created_at": "2026-10-13 19:16:58.737507+00"
+      }
+    ],
+    "outcomes": [
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": "primeira resposta: saudação",
+        "rewrites": 0,
+        "cost_brl": "0.000809",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:04:13.696761+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:06:18.343102+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.007617",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:06:42.39737+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.005779",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:08:35.890385+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:10:02.970343+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:10:16.249545+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.006741",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:10:35.398153+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.005857",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:12:16.628222+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.006014",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:12:38.760988+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:14:24.943108+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.012657",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:14:41.314138+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "joined: um turno anterior está escrevendo e junta esta mensagem à resposta dele",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:16:16.445366+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.012800",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:16:48.807776+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": "link — pagamento antecipado | 1 peça | R$ 116,91 pagos antes, no checkout | o prazo varia por região, em média 5 dias úteis | link do checkout do antecipado",
+        "rewrites": 0,
+        "cost_brl": "0.000922",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:17:53.172651+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.006439",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:21:16.426075+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "send",
+        "reason": null,
+        "rewrites": 0,
+        "cost_brl": "0.005934",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:22:56.755157+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "handoff",
+        "reason": "a cliente pergunta sobre um pedido existente",
+        "rewrites": 0,
+        "cost_brl": "0.001047",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:23:38.809543+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "outcome": "stopped",
+        "reason": "superseded: chegou mensagem mais nova dela, e o turno dela responde a rajada inteira",
+        "rewrites": 0,
+        "cost_brl": "0.000000",
+        "duration_ms": null,
+        "agent_version": 14,
+        "created_at": "2026-10-08 20:58:34.049159+00"
+      }
+    ],
+    "vetoes": [
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:03:03.515769+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:04:11.572203+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:21.473809+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:06:39.914068+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:08:33.574822+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:09.249603+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:10:32.983396+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:14.486714+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:12:36.808238+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:30.923498+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "warn",
+        "detail": "gives a delivery window for one path while offering both, leaving the other blank",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:14:38.931583+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:17.314078+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:16:46.862154+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:17:51.786579+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:21:14.129656+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:22:54.551458+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "price_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coupon_exists",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "weight_loss_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "delivery_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "invented_testimonial",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "humanity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "opt_out",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "order_action_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "health_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "scarcity_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "warranty_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "shipping_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unavailable_offer",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "installment_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "coverage_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "business_hours",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pacing",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "internal_note",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "cep_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_insist",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "hook_repeat",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "size_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "pending_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "noted_claim",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "identical_template",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unattributed_window",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "unverified_size",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "gate": "charge_promise",
+        "verdict": "pass",
+        "detail": "\"\"",
+        "created_at": "2026-10-08 20:23:37.836724+00"
+      }
+    ],
+    "followups": [
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "kind": "checkout_reminder",
+        "status": "canceled",
+        "run_at": "2026-10-08 20:32:52.554+00",
+        "sent_at": null
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "kind": "still_there",
+        "status": "canceled",
+        "run_at": "2026-10-08 20:36:48.233+00",
+        "sent_at": null
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "kind": "silence_1",
+        "status": "canceled",
+        "run_at": "2026-10-08 21:22:55.928+00",
+        "sent_at": null
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "kind": "silence_2",
+        "status": "canceled",
+        "run_at": "2026-10-09 12:00:00+00",
+        "sent_at": null
+      },
+      {
+        "conversation_id": "e50c80b9-4dfc-4498-90a3-27b2532de520",
+        "kind": "silence_3",
+        "status": "canceled",
+        "run_at": "2026-10-11 19:03:02.276+00",
+        "sent_at": null
+      }
+    ],
+    "orders": []
+  }
+]
