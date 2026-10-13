@@ -20,7 +20,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   [`2026-10-13-r1-operador.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md). Venda até o link certa; **falhou no
 >   fim**: "moro sozinha, não tenho quem receber" (antes de existir pedido) virou pessoa — o pós-venda sem pedido gravado cai no `handOff`
 >   (`turn/index.ts` ~3258). Prioridade 1 da próxima leva.
-> - Achados abertos do `…7967` (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
+> - **Teste do `…7967` (novo, braços A=1 B=1)** arquivado e analisado, número **ainda no banco**:
+>   [`2026-10-13-r1-testador-7967.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-testador-7967.md). Até o kit, certo; **falhou**
+>   em "parcelam ou fazem por 100 no pix?": 3 rascunhos vetados (preço, parcela) → pessoa. Precisa de resposta fixa de preço/parcela, como a de
+>   prazo do §87. Prioridade 1 junto com o "moro sozinha" do operador.
+> - Achados abertos do `…7967` antigo (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
 >   oferta não chama; "Chega quando?" engolido pela resposta de Pix pendente; "Paguei ja 116" sem pedido no banco (**operador confere na Coinzz**).
 > - Ferramenta de arquivo: agora mascara link com dados e nome digitado (`maskPii` na raiz, vale para o Hermes) e lê o custo `numeric`.
 > - **Próximo:** terminar a rodada (sócio e mãe) → arquivar → consertar os achados de uma vez (teste, espelho, mutação, revisão Opus,
