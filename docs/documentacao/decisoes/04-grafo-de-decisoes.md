@@ -2726,6 +2726,20 @@ verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coord
 conferidas). **Fica:** "o frete e a garantia pra trocar é de 7 dias" passa ("frete é de" lê como preço; anterior a este conserto).
 **Estado:** publicado na `turn` v18 (2026-10-13).
 
+## 84. E4 refeita com o detector consertado: base × v18 (2026-10-13)
+
+**Rodadas (porta local, 16 cenários, `--seed=1`, config de produção com horário 0–24h):** base `5a4be11` (antes da E3) duas vezes;
+candidata v17 uma vez (antes dos §82/§83) e v18 uma vez. Falhas de conexão do proxy do container com o Supabase (HTTP 500 no servidor
+local) tiraram 2 cenários da 2ª rodada da base; os outros completos. Custo total ≈ R$ 2,40.
+**`pnpm dev:eval --compare base1 v18 --noise-from=base2`: REPROVADA, só pela regra 3** (cópia do prompt 0,545 → 0,556). Score 18,7 → 24,0
+(ruído 0,7; a v17 deu 27,0), tiques por conversa 1,56 → 0,06, chegou ao link 6% → 12,5%, mentiras 0 → 0, opt-out ignorado 0 → 0,
+custo/conversa R$ 0,041 → 0,051. A v17 teve a primeira compra simulada (compra-forte); a v18 não (14 turnos).
+**Leitura:** a cópia do prompt variou 11 pontos entre as duas rodadas da MESMA base (0,545 × 0,655) — a diferença de 1 ponto está dentro
+do ruído, e contra a 2ª base a v18 é melhor. A regra 3 compara tiques e cópia sem ruído; ela fica como foi escrita (não se muda regra
+depois do resultado). **Para a próxima comparação, decidido ANTES de rodar:** medir o ruído também da cópia do prompt e dos tiques e
+aplicá-lo como na regra 1.
+**Achados da rodada que viraram conserto:** §82 ("uma dessas") e §83 (garantia lida como prazo) — ambos na v18.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

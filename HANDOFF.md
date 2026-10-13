@@ -13,7 +13,15 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-13, madrugada — continuação da mesma sessão: PUBLICADO (LEIA PRIMEIRO).**
+> **2026-10-13, ~02h UTC — `turn` v18 no ar (LEIA PRIMEIRO)** (`agent_version` 18, função v99, branch `claude/pipeline-e4-fix-exp-b`):
+> os dois achados da E4 refeita — garantia de troca lida como prazo de entrega (§83, 3 revisões Opus, a última APROVADA) e "já comprei
+> uma dessas" lido como pedido (§82). `BUSINESS_CONFIG` novo no ar (escassez fora, `experiments` A e B ligados, `channel.templates`,
+> `askMarketingOptIn: true`), conferido por hash e `job:"health"`. E4 base × v18: score 18,7 → 24,0, tiques −96%, link 6% → 12,5%;
+> REPROVADA só pela cópia do prompt (+1 ponto, dentro do ruído de 11 pontos entre rodadas da mesma base) — grafo §84.
+> **Próximo:** prova de conversa pelo celular do operador (recepção honesta; "nao quero mais, obrigado" → despedida sem toque); E5
+> (ensaio com dinheiro, 20–21/10); congelamento 22/10; L3 23/10. Operador revoga o token `sbp_` usado nos deploys.
+
+> **2026-10-13, madrugada — continuação da mesma sessão: PUBLICADO.**
 > - **`turn` v17 no ar** (`agent_version` 17, função v94, commit `396adb7`, `pnpm deploy:turn` com o token do operador): E1+E2+E3, o
 >   experimento B (com o kit antes do link, decisão do operador) e o §80. As flags `experiments` **não** estão no `BUSINESS_CONFIG`:
 >   ninguém está em experimento até o operador gravá-las (antes de 23/10).
