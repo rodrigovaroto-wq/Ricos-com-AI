@@ -159,9 +159,11 @@ export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: bo
 
 /** A deadline question: the day, the window, the express (not "bom dia"). */
 export const asksDeadline = (text: string): boolean =>
-  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|(?:cheg|receb)\w*\s+(?:ate|antes|amanha|sabado|sexta)|da\s+tempo\s+de\s+(?:cheg|receb|entreg)\w*|(?:e\s+)?se\s+nao\s+chegar)\b/.test(
+  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|(?:cheg|receb)\w*\s+(?:ate|antes|amanha|sabado|sexta)|da\s+tempo\s+de\s+(?:cheg|receb|entreg)\w*|se\s+nao\s+chegar\s+(?:ate|a\s+tempo|antes|no\s+dia|na\s+data))\b/.test(
     text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
-  );
+  ) &&
+  // The refund's deadline is not the delivery's (v20 review): "recebo até sexta o reembolso?".
+  !/\b(?:reembols|estorn|dinheiro)/i.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
 
 /** The default when she says "sim" to the two options without choosing (design §5.1). */
 export const DEFAULT_COD_CONFIRM = "Então deixo no pagamento na entrega, que você não paga nada agora, pode ser?";

@@ -28,6 +28,8 @@ describe("delivery_promise: a recusa depois do dia", () => {
     "Não consigo te garantir que chega até sexta.",
     "Até sexta eu não consigo garantir.",
     "Não dá pra garantir sexta.",
+    "Não consigo garantir que chega amanhã.",
+    "Não chega amanhã, leva de 1 a 3 dias.",
   ])("passa: %s", (t) => expect(blocks(t, false)).not.toContain("delivery_promise"));
   it.each([
     "Chega até sexta.",
@@ -44,6 +46,14 @@ describe("delivery_promise: a recusa depois do dia", () => {
     "Chegar até sexta eu não tenho dúvida.",
     "Chegar até sexta é certeza, não consigo garantir o horário.",
     "Chegar até sexta eu não consigo te garantir mais que isso.",
+    // v20 review: the refusal of one day does not cover the next claim
+    "Chegar até sexta eu não posso garantir, chega amanhã.",
+    "Chegar até sexta eu não posso garantir, mas chega amanhã.",
+    "Chegar até sexta eu não posso garantir, chega na quinta.",
+    "Chegar até sexta eu não posso garantir; mas sexta chega.",
+    "Eu não posso garantir, chega amanhã.",
+    "Não, chega amanhã.",
+    "Não se preocupa, chega amanhã.",
     "Chegar até sexta eu não consigo prometer menos, chega até sexta.",
   ])("veta: %s", (t) => expect(blocks(t, false)).toContain("delivery_promise"));
 });

@@ -44,6 +44,8 @@ import {
   orderStatusAfter,
   isKnownOrderStatus,
   orderUnpaid,
+  orderSettled,
+  isOrderDead,
   stageForOrder,
   cancelReplyFor,
   reopensRefused,
@@ -125,6 +127,8 @@ import {
   exchangeReply,
   logzzReturnReply,
   orderStatusReply,
+  returnsOnly,
+  type OrderView,
   COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
@@ -162,6 +166,7 @@ import {
   decisionInBurst,
   goodbyeParks,
   handoffFor,
+  namesAPerson,
   INTERPRET_MAX_COMPLETION_TOKENS,
   interpretRequest,
   linkPathFor,
@@ -3154,7 +3159,10 @@ const handleTurn = async (
   // A reply the chain refuses falls through to what came before it.
   const logzzPhone = logzzSupportPhone(CONFIG);
   const returnsLine = logzzPhone === null ? null : logzzReturnReply(logzzPhone, CONFIG.delivery.warrantyDays, CONFIG.returns?.freeExchange === true);
-  if (returnsLine !== null && handoffKind === "post_sale" && interpretation.wants_exchange) {
+  // A person asked for in so many words beside the order goes to a person, and a fixed line already sent
+  // is not sent again: the second time she asks, a person (v20 review — the post-sale reading came first).
+  const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? ""));
+  if (returnsLine !== null && returnsLine !== lastOutbound && !asksPerson && handoffKind === "post_sale" && interpretation.wants_exchange) {
     const sent = await sendFixed(returnsLine, "troca: número do suporte da Logzz", "cod", {}, false, 1, "auto");
     if (sent) return sent;
   }
@@ -3189,20 +3197,23 @@ const handleTurn = async (
     );
   }
   // Post-sale without a person (operator, 2026-10-13): a question about her order hears its status, read
-  // from her newest order, and a cancel of a delivered one — a return — the Logzz support. No `handoff_at`:
-  // the conversation stays with the agent. Nothing to say for sure (no order on file, a status outside
-  // the vocabulary, a failed attempt) keeps the person. Index `orders_lead_idx`, then her few rows sorted.
-  if ((handoffKind === "post_sale" && !interpretation.wants_exchange) || handoffKind === "cancel") {
-    const order = (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc&limit=1`).catch(() => null))?.[0] ?? null;
-    const stage = order !== null && isKnownOrderStatus(order.status) ? stageForOrder(order.status) : null;
-    const reply = handoffKind === "cancel"
-      ? (stage === "entregue_pago" ? returnsLine : null)
-      : orderStatusReply(
-        stage === null ? null : { stage, unpaid: orderUnpaid(order.status), paymentMethod: order.payment_method, scheduledFor: order.scheduled_for },
-        new Date(),
-        returnsLine,
-      );
-    const sent = reply === null ? null : await sendFixed(reply, `pós-venda: ${handoffKind === "cancel" ? "devolução pela Logzz" : `status do pedido (${stage})`}`, order?.payment_method === "prepay" ? "prepay" : "cod", {}, false, 1, "auto");
+  // from her newest live order, and a cancel when every live order was delivered — a return — the Logzz
+  // support. No `handoff_at`: the conversation stays with the agent. Nothing to say for sure (no order on
+  // file, a status outside the vocabulary, a failed attempt, a delivered order, a prepaid one not settled),
+  // a person asked for, or the same line again keeps the person. Index `orders_lead_idx`, then her few rows sorted.
+  if (((handoffKind === "post_sale" && !interpretation.wants_exchange) || handoffKind === "cancel") && !asksPerson) {
+    const orders: OrderView[] = ((await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`).catch(() => null)) ?? [])
+      .map((o: { status: string; payment_method: string | null; scheduled_for: string | null }) => ({
+        stage: isKnownOrderStatus(o.status) ? stageForOrder(o.status) : null,
+        dead: isOrderDead(o.status),
+        unpaid: orderUnpaid(o.status),
+        settled: orderSettled(o.status),
+        paymentMethod: o.payment_method,
+        scheduledFor: o.scheduled_for,
+      }));
+    const reply = handoffKind === "cancel" ? (cancelling === null && returnsOnly(orders) ? returnsLine : null) : orderStatusReply(orders, new Date());
+    const path = orders.find((o) => !o.dead)?.paymentMethod === "prepay" ? "prepay" : "cod";
+    const sent = reply === null || reply === lastOutbound ? null : await sendFixed(reply, `pós-venda: ${handoffKind === "cancel" ? "devolução pela Logzz" : "status do pedido"}`, path, {}, false, 1, "auto");
     if (sent) return sent;
   }
   if (handoffKind !== null) {
@@ -4024,7 +4035,8 @@ const handleTurn = async (
   // else goes to a person with the holding line.
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
-  // Only when every question of hers is about the deadline: "qual o prazo? e serve pra quem fez cirurgia?" still goes to a person.
+  // Beside another question ("qual o prazo? e serve pra quem fez cirurgia?") it goes to a person, unless every draft fell
+  // on the deadline or the coverage veto (`deadlineVetoOnly`, below).
   // Every draft fell on the deadline or the coverage (persona Rafa, 2026-10-13, R21.1): her deadline gets the fixed answer even
   // beside another question, never a person. `gates` holds the last attempt's traces.
   const deadlineVetoOnly =

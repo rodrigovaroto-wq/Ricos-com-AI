@@ -178,12 +178,15 @@ export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchan
   `Você tem ${warrantyDays} dias pra trocar ou devolver depois que receber.`;
 
 /**
- * Her newest order, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary
- * (null for a failed attempt), whether it is unpaid (`orderUnpaid`), its path and its delivery day.
+ * One order of hers, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary
+ * (null outside it or for a failed attempt), whether it is dead (`isOrderDead`), unpaid (`orderUnpaid`)
+ * or settled (`orderSettled`), its path and its delivery day.
  */
 export interface OrderView {
   stage: "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null;
+  dead: boolean;
   unpaid: boolean;
+  settled: boolean;
   paymentMethod: string | null;
   /** `orders.scheduled_for`, a `YYYY-MM-DD` date, or null. */
   scheduledFor: string | null;
@@ -191,18 +194,23 @@ export interface OrderView {
 
 /**
  * The reply to a question about her order (operator, 2026-10-13): the agent reads its status instead of
- * calling a person. Fixed text per stage; a date only when the order holds one from today on, never a
- * day of our own — alive and not delivered, "logo mais deve chegar", with no day. Null — and a person,
- * as before — when there is nothing to say for sure: no order read, a status outside the vocabulary,
- * a failed attempt, or a delivered order without the Logzz number (`returnsLine`).
+ * calling a person. `orders` newest first; the newest LIVE one is the one she asks about, and "cancelado"
+ * only when every one is dead (v20 review: a newer refused order hid one on its way). Fixed text per
+ * stage; a date only when the order holds one from today on, never a day of our own — alive and not
+ * delivered, "logo mais deve chegar", with no day. Null — and a person, as before — when there is
+ * nothing to say for sure: no order, a status outside the vocabulary, a failed attempt, a prepaid order
+ * not settled (n8n's bare "created", review L2), or a delivered one: what she asks of a parcel she
+ * already has is a problem ("o rastreio diz entregue mas não recebi"), not a status (v20 review).
  */
-export const orderStatusReply = (order: OrderView | null, now: Date, returnsLine: string | null): string | null => {
-  if (order === null || order.stage === null) return null;
-  if (order.stage === "recusado") return "Esse pedido aparece aqui como cancelado. Se quiser fazer um novo, é só me falar 💛";
-  if (order.stage === "entregue_pago") return returnsLine === null ? null : `Aqui consta que o seu pedido já foi entregue. ${returnsLine}`;
+export const orderStatusReply = (orders: readonly OrderView[], now: Date): string | null => {
+  const order = orders.find((o) => !o.dead);
+  if (order === undefined)
+    return orders.length > 0 ? "Esse pedido aparece aqui como cancelado. Se quiser fazer um novo, é só me falar 💛" : null;
+  if (order.stage === null || order.stage === "recusado" || order.stage === "entregue_pago") return null;
   // At the door "aguardando pagamento" is the payment on delivery, not a Pix waiting.
   if (order.unpaid && order.paymentMethod === "prepay")
     return "Seu pedido foi criado e está aguardando o pagamento 💛 Assim que o pagamento for confirmado, ele segue pra entrega.";
+  if (order.paymentMethod === "prepay" && !order.settled) return null;
   const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(now);
   const date = /^\d{4}-\d{2}-\d{2}/.test(order.scheduledFor ?? "") && order.scheduledFor!.slice(0, 10) >= today ? order.scheduledFor!.slice(0, 10) : null;
   const day = date === null ? null : `${date.slice(8, 10)}/${date.slice(5, 7)}`;
@@ -210,6 +218,10 @@ export const orderStatusReply = (order: OrderView | null, now: Date, returnsLine
     ? `Seu pedido já está a caminho 🚚${day ? ` Ele está agendado para ${day}.` : ""} Logo mais ele deve chegar aí 💛`
     : `Seu pedido está confirmado${day ? ` e agendado para ${day}` : ""} 💛 Logo mais ele deve chegar aí.`;
 };
+
+/** A cancel is a return only when she has a live order and every live one was delivered (v20 review). */
+export const returnsOnly = (orders: readonly OrderView[]): boolean =>
+  orders.some((o) => !o.dead) && orders.every((o) => o.dead || o.stage === "entregue_pago");
 
 /**
  * The reply when she wants to cancel an order that already left for delivery (operator,

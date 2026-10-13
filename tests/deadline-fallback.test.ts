@@ -14,13 +14,15 @@ const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 describe("pergunta de prazo", () => {
   it.each(["mas me fala o dia certinho??", "tem entrega expressa?", "qual o prazo?", "quando chega?", "demora muito pra chegar?", "quanto tempo demora?", "demora muito?", "quantos dias demora?", "demora quanto tempo?", "quanto tempo leva pra chegar?", "chega em que dia?", "chega ate sabado?", "quanto tempo pra chegar",
     // Rafa (2026-10-13)
-    "consigo receber ate sexta??", "e se nao chegar ate sexta?", "da tempo de chegar ate sexta?", "chegaria ate sexta?"])(
+    "consigo receber ate sexta??", "e se nao chegar ate sexta?", "da tempo de chegar ate sexta?", "chegaria ate sexta?", "e se nao chegar a tempo?", "e se não chegar antes do casamento?"])(
     "lê: %s",
     (frase) => expect(asksDeadline(frase)).toBe(true),
   );
   it.each(["bom dia", "oi, tudo bem?", "uso 42", "quanto custa?", "pode mandar o link", "dia 10 eu recebo meu salario", "nossa, demorou pra responder hein", "quanto tempo posso usar por dia?", "que dia lindo",
     // negations of the new readings
-    "da tempo de pensar?", "recebi seu audio", "se nao servir eu troco?", "chegando em casa te respondo"])(
+    "da tempo de pensar?", "recebi seu audio", "se nao servir eu troco?", "chegando em casa te respondo",
+    // v20 review (2026-10-13): a size doubt and a refund are not the delivery's deadline
+    "e se nao chegar a servir?", "e se não chegar a fechar?", "recebo até sexta o reembolso?", "o estorno chega ate sexta?", "recebo o dinheiro antes de sexta?"])(
     "não lê: %s",
     (frase) => expect(asksDeadline(frase)).toBe(false),
   );

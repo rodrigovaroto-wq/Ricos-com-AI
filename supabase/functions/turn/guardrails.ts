@@ -1959,7 +1959,10 @@ const gates: readonly Gate[] = [
         for (const m of t.matchAll(
           /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
         )) {
-          if (negatedAt(t, m.index ?? 0)) continue;
+          // The denial in the claim's own phrase (v20 review): `negatedAt` reads past the comma, and "não posso
+          // garantir, chega amanhã" / "não se preocupa, chega amanhã" are the promise itself.
+          const own = (t.slice(0, m.index ?? 0).split(PHRASE_COMMA).pop() ?? "").split(/\b(?:mas|porem|so\s+que|entao)\b/).pop() ?? "";
+          if (negatedAt(own, own.length)) continue;
           const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
           if (sameDay && express && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
@@ -2456,8 +2459,15 @@ const gates: readonly Gate[] = [
       const t = norm(text);
       if (/\b(sem\s+prazo|qualquer\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
         return "promises a warranty with no limit";
+      // Unlimited in other words, in a sentence about the exchange or the return (v20 review): "a qualquer momento"
+      // and "à vontade" alone are "me chama a qualquer momento" / "fique à vontade", never a warranty.
+      for (const s of t.split(/[.!?\n]/).filter((s) => /\b(?:troc|devol|garantia|reembols)/.test(s)))
+        for (const m of s.matchAll(/\b(?:a\s+qualquer\s+(?:momento|hora)|quantas\s+vezes\s+(?:precisar|for\s+preciso)|(?<!\bfi(?:que|ca|quem)\s)a\s+vontade|(?:mesmo\s+)?depois\s+de\s+(?:ser\s+)?usad\w*|mesmo\s+usad\w*)\b/g))
+          // "Depois de usado não dá pra trocar": the denial right after the topic, and only for that one.
+          if (!deniedNear(s, m.index ?? 0) && !(/usad/.test(m[0]) && /^\s+(?:nao|nunca|nem)\b/.test(s.slice((m.index ?? 0) + m[0].length))) && !/\b(?:me|nos|gente)\s+(?:\S+\s+)?$/.test(s.slice(0, m.index ?? 0)))
+            return "promises a warranty with no limit";
       // The refund takes the vest back: "devolve o dinheiro e você fica com o colete" is a gift nobody offered.
-      if (/\b(?:dinheiro|reembols\w*|estorn\w*)\b[^.!?\n]*(?<!\b(?:nao|nem)\s+(?:\S+\s+)?)\bfica\w*\s+com\s+(?:o\s+|a\s+)?(?:colete|peca|produto|cinta)\b/.test(t))
+      if (/\b(?:dinheiro|reembols\w*|estorn\w*)\b[^.!?\n]*(?<!\b(?:nao|nem)\s+(?:\S+\s+)?)\bfica\w*\s+com\s+(?:o\s+|a\s+)?(?:colete|peca|produto|cinta)\b(?!\s+(?:novo|nova)\b)(?![^.!?\n]*\bate\s+(?:devolver|a\s+devolucao)\b)/.test(t))
         return "promises a refund that leaves her the vest";
       // Exchange through the Logzz at no cost to her (operator, 2026-10-13): only an explicit `true`; absent, R17.1.
       if (ctx.config.returns?.freeExchange !== true)

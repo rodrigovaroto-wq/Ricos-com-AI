@@ -2806,7 +2806,14 @@ afrouxamentos só nele, aceitos como `TROCA-LOGZZ`), e passou a vetar em qualque
 `troca-gratis-sem-flag-*`, `TROCA-LOGZZ-*`. **Fica:** reclamação ("veio com defeito") num pedido entregue vai ao suporte da Logzz,
 não a uma pessoa — observar; não confirmado se a Logzz atende também os pedidos antecipados (Coinzz); "O frete da troca é por nossa
 conta" segue vetado pelo `shipping_promise` enquanto "a gente paga o frete da troca" passa (inconsistência menor).
-**Estado:** no código; publicar na v20 com `returns` no `BUSINESS_CONFIG`.
+**Revisão Opus da v20 (REPROVOU, consertado):** (1) `handoffFor` lê `post_sale` antes de `human`: "me passa pra um atendente, meu
+pedido não chegou" recebia o status fixo, e de novo a cada mensagem — os blocos novos exigem `!asksPerson` (o mesmo teste do
+`handoffFor`) e nunca reenviam `lastOutbound`; (2) só o pedido mais novo era lido — um recusado mais novo escondia o vivo em trânsito:
+agora o vivo mais novo responde, "cancelado" só com todos mortos, e a devolução pela Logzz no cancelamento só com todos os vivos
+entregues; (3) antecipado `created` ouvia "confirmado" — agora exige `orderSettled`; (4) pedido entregue vai a uma pessoa ("o rastreio
+diz entregue mas não recebi" é problema, não status). Mutações `posvenda-pessoa-engolida`, `posvenda-laco`, `posvenda-mais-novo-morto`,
+`devolucao-com-vivo-nao-entregue`, `antecipado-created-confirmado`, `entregue-status-fixo` (a `posvenda-entregue-sem-logzz` saiu, superada).
+**Estado:** publicar na v20 com `returns` no `BUSINESS_CONFIG`.
 
 ## 87. "Sobre chegar até sexta eu não consigo te garantir" foi a uma pessoa (persona Rafa, 2026-10-13)
 
@@ -2822,7 +2829,15 @@ pergunta junto (R21.1: veto vira resposta segura, não pessoa); (3) `asksDeadlin
 "e se não chegar", com negações ("dá tempo de pensar?", "recebi seu áudio").
 **Guarda:** `tests/e4-postposed-deadline-denial.test.ts`, `tests/deadline-fallback.test.ts`; 5 afrouxamentos verdadeiros aceitos
 (`E4-rafa`); mutações `E4-rafa-recusa-depois`, `rafa-prazo-vetado-vira-pessoa`, `rafa-asksdeadline-cego`.
-**Estado:** no código; publicar na v20.
+**Revisão Opus da v20 (REPROVOU, consertado):** (a) a regra de mesmo dia/dia seguinte usava `negatedAt` atravessando a vírgula — "Eu não
+posso garantir, chega amanhã", "Não se preocupa, chega amanhã" passavam desde antes, e a exceção da Rafa herdava isso; a negação agora só
+vale na oração da promessa (vírgula, mas, porém, então); mutação `v20-mesmo-dia-virgula`. (b) Com `freeExchange`, a garantia ilimitada
+só era vetada por acaso: "a qualquer momento/hora", "quantas vezes precisar", "à vontade", "(mesmo) depois de usada" são vetadas em frase
+de troca/devolução, com e sem a flag ("fique à vontade pra me chamar a qualquer momento" passa); mutação `v20-garantia-ilimitada`. (c)
+`asksDeadline` lia "e se não chegar a servir?" e "recebo até sexta o reembolso?" como prazo — "se não chegar" exige até/a tempo/antes/no
+dia/na data, e reembolso/estorno/dinheiro excluem; mutação `v20-asksdeadline-chegar-a-servir`. O veto "fica com o colete" deixou de pegar
+"o colete novo" e "até devolver" (`v20-fica-com-colete-novo`). `dev:gates`: 0 afrouxamento novo; 6 endurecimentos, todos mentiras.
+**Estado:** publicar na v20.
 
 ## Lições (valem para qualquer correção futura)
 

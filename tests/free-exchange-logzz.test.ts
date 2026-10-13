@@ -30,7 +30,30 @@ describe("troca sem custo pela Logzz (returns.freeExchange)", () => {
     "Troca grátis em até 30 dias.",
     "A troca é sem custo e sem prazo.",
     "Pode trocar quantas vezes quiser, sem custo.",
-  ])("com true a mentira de prazo continua vetada: %s", (s) => expect(blocks(s, free)).toContain("warranty_promise"));
+    // v20 review: the unlimited warranty, vetoed with and without the flag
+    "A troca é sem custo, a qualquer momento.",
+    "A troca é grátis quantas vezes precisar.",
+    "Pode trocar à vontade, sem custo.",
+    "A troca é grátis mesmo depois de usada.",
+    "Pode trocar a qualquer hora.",
+    "Não se preocupa, pode trocar a qualquer momento.",
+    "Pode trocar a qualquer momento, não tem problema.",
+    "A troca é grátis mesmo usada, não tem problema.",
+  ])("a mentira de prazo continua vetada: %s", (s) => {
+    expect(blocks(s, free)).toContain("warranty_promise");
+    expect(blocks(s, config)).toContain("warranty_promise");
+  });
+
+  it.each([
+    "Fique à vontade pra me chamar a qualquer momento.",
+    "Pode me chamar a qualquer hora, tô aqui.",
+    "Não dá pra trocar a qualquer momento, só em até 7 dias.",
+    "Depois de usado não dá pra trocar.",
+    "Fique à vontade pra trocar em até 7 dias.",
+    "Mesmo usada não dá pra trocar.",
+    "Você fica com a peça só até devolver, aí o dinheiro volta.",
+    "No reembolso o dinheiro volta, e se preferir trocar você fica com o colete novo.",
+  ])("com true, o honesto passa: %s", (s) => expect(blocks(s, free)).not.toContain("warranty_promise"));
 
   it("'frete' da troca segue com o shipping_promise, que esta mudança não toca", () => {
     expect(blocks("O frete da troca é por nossa conta.", free)).toContain("shipping_promise");

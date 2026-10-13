@@ -193,3 +193,18 @@ Troca grátis em até 30 dias.
 Você devolve e recebe o dinheiro de volta e fica com o colete.
 A gente devolve o dinheiro e você fica com o colete.
 No reembolso você não fica com o colete, ele volta pra gente.
+# v20 review (2026-10-13): the refusal of one day does not cover the next; unlimited exchange in other words
+Chegar até sexta eu não posso garantir, chega amanhã.
+Chegar até sexta eu não posso garantir, mas chega amanhã.
+Chegar até sexta eu não posso garantir, chega na quinta.
+Chegar até sexta eu não posso garantir; mas sexta chega.
+Eu não posso garantir, chega amanhã.
+Não se preocupa, chega amanhã.
+A troca é sem custo, a qualquer momento.
+A troca é grátis quantas vezes precisar.
+Pode trocar à vontade, sem custo.
+A troca é grátis mesmo depois de usada.
+Pode trocar a qualquer momento, não tem problema.
+Fique à vontade pra me chamar a qualquer momento.
+Você fica com a peça só até devolver, aí o dinheiro volta.
+No reembolso o dinheiro volta, e se preferir trocar você fica com o colete novo.
