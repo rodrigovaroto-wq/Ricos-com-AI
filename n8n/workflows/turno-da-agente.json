@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "b13736eb-5c4f-473b-a6f4-5969643c147a",
+  "versionId": "5dd93613-25d1-44d7-914e-90dfb9299754",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -190,7 +190,7 @@
       ],
       "parameters": {
         "respondWith": "json",
-        "responseBody": "={{ JSON.stringify({ status: \"error\", error: $json.error ?? $json }) }}",
+        "responseBody": "={{ JSON.stringify({ status: \"error\", error: String($json.error?.message ?? \"erro no turno\") }) }}",
         "options": {}
       }
     },

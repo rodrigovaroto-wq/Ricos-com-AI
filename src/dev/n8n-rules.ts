@@ -150,6 +150,16 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
           if (other !== respond && reachesWait(other.name) && !((respond.position?.[1] ?? Infinity) < (other.position?.[1] ?? -Infinity)))
             problems.push(`${wf.name} › ${respond.name}: runs after "${other.name}", which reaches a Wait — the webhook answers only after the pause`);
     }
+  // 2026-10-13: the public webhook's refusal answered `$json.error ?? $json` — the HTTP node's whole error object,
+  // its request headers included: anyone posting an unsealed message got the service_role key back. A response fed
+  // by an error output says the message only.
+  const errorFed = new Set(Object.values(wf.connections ?? {}).flatMap((o) => (o.main?.[1] ?? []).map((t) => t.node)));
+  for (const n of wf.nodes) {
+    if (n.type !== "n8n-nodes-base.respondToWebhook" || n.disabled || !errorFed.has(n.name)) continue;
+    const body = String(n.parameters?.responseBody ?? "");
+    if (/\$json\.error(?!\??\.message)|\?\?\s*\$json\b|JSON\.stringify\(\s*\$json\s*\)/.test(body))
+      problems.push(`${wf.name} › ${n.name}: answers the public caller with the whole error object (request headers, the credential)`);
+  }
   if (inbound) {
     if (!wf.nodes.some((n) => n.type === "n8n-nodes-base.wait" && !n.disabled))
       problems.push(`${wf.name}: no Wait node after the welcome (O2)`);

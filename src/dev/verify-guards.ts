@@ -64,6 +64,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
   },
   {
+    id: "N8N-recusa-devolve-a-chave",
+    bug: "o webhook público devolvia o objeto de erro inteiro do HTTP, com o cabeçalho Authorization (chave service_role), a quem mandasse mensagem sem selo (2026-10-13)",
+    files: ["n8n/workflows/turno-da-agente.json"],
+    from: 'error: String($json.error?.message ?? \\"erro no turno\\")',
+    to: "error: $json.error ?? $json",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/n8n-workflows.test.ts"],
+  },
+  {
     id: "WA-1-janela",
     bug: "a régua mandava texto livre fora da janela de 24h, que a Meta recusa",
     files: ["supabase/functions/turn/index.ts"],

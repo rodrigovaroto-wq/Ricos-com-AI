@@ -2662,6 +2662,21 @@ qualquer posição do texto (uma afirmação longa com "me fala o tamanho" conta
 faz isso.
 **Estado (2026-10-12):** no código, não publicado.
 
+## 81. O webhook público devolvia a chave `service_role` na recusa (2026-10-13)
+
+**Sintoma:** na prova pela porta de produção depois do deploy da v17, uma mensagem sem selo ao `encorpa-inbound` voltou com o objeto de
+erro inteiro do nó HTTP "Cerebro do turno" — `options.headers.Authorization: Bearer <service_role>`. Qualquer um que postasse na URL
+pública uma mensagem sem selo recebia a chave que escreve no banco inteiro.
+**Causa:** o nó "Devolve a recusa" (saída de erro do turno) respondia `JSON.stringify({ status: "error", error: $json.error ?? $json })`;
+o `error` do n8n é o `AxiosError` com a requisição feita, cabeçalhos incluídos. Nasceu com o "n8n achata o status" (a recusa viaja no
+corpo, memória `n8n-achata-o-status`), antes de existir o selo — que passou a fazer toda mensagem forjada cair nesse ramo.
+**Correção:** o nó devolve só `String($json.error?.message ?? "erro no turno")` (publicado: versão ativa `5dd93613`); prova pela mesma
+porta: a recusa agora traz só "401 - {mensagem sem o selo da entrada}", nenhum `Bearer`/`eyJ`. O operador confirmou que a chave não foi
+acessada por terceiros (ele audita os acessos) e decidiu não rotacioná-la.
+**Guarda:** regra em `src/dev/n8n-rules.ts` — resposta de webhook alimentada por saída de erro não pode devolver `$json.error` sem
+`.message`, `?? $json` nem `JSON.stringify($json)`; teste em `tests/n8n-workflows.test.ts` (três formas do vazamento + a forma certa);
+mutação `N8N-recusa-devolve-a-chave`. `pnpm dev:n8n`: 7/7 ok.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

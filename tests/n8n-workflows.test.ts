@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente", "alarme-de-cobertura"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });
@@ -130,6 +130,20 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     expect(checkWorkflow(semOnError).join()).toContain("no wired error output");
     const desligada = { ...sweep({}), connections: { "Varre a regua": { main: [[], []] } } };
     expect(checkWorkflow(desligada).join()).toContain("no wired error output");
+  });
+  it("resposta de erro do webhook público com o objeto de erro inteiro (2026-10-13: devolvia a chave service_role)", () => {
+    const wf = (responseBody: string): N8nWorkflow => ({
+      ...sweep({}),
+      nodes: [...sweep({}).nodes, { name: "Devolve a recusa", type: "n8n-nodes-base.respondToWebhook", parameters: { responseBody } }],
+      connections: { "Varre a regua": { main: [[], [{ node: "Avisa a falha" }, { node: "Devolve a recusa" }]] } },
+    });
+    for (const leak of [
+      '={{ JSON.stringify({ status: "error", error: $json.error ?? $json }) }}',
+      "={{ JSON.stringify($json) }}",
+      '={{ JSON.stringify({ error: $json.error }) }}',
+    ])
+      expect(checkWorkflow(wf(leak)).join()).toContain("whole error object");
+    expect(checkWorkflow(wf('={{ JSON.stringify({ status: "error", error: String($json.error?.message ?? "erro no turno") }) }}'))).toEqual([]);
   });
   it("a régua correta passa", () => {
     expect(checkWorkflow(sweep({}))).toEqual([]);

@@ -13,6 +13,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-13, madrugada — continuação da mesma sessão: PUBLICADO (LEIA PRIMEIRO).**
+> - **`turn` v17 no ar** (`agent_version` 17, função v94, commit `396adb7`, `pnpm deploy:turn` com o token do operador): E1+E2+E3, o
+>   experimento B (com o kit antes do link, decisão do operador) e o §80. As flags `experiments` **não** estão no `BUSINESS_CONFIG`:
+>   ninguém está em experimento até o operador gravá-las (antes de 23/10).
+> - `{"job":"health"}` em produção → `healthy` nos 3 CEPs; **alarme de cobertura ATIVO** no n8n; `pnpm dev:n8n` 7/7 ok.
+> - **Vazamento consertado (grafo §81):** a recusa do webhook público devolvia a chave `service_role`; o nó agora devolve só a mensagem
+>   (provado pela porta). O operador confirmou que não houve acesso e não vai rotacionar a chave.
+> - Regras do L3 **assinadas** (12/10); lead sintético apagado.
+> - **Falta:** (1) prova de conversa pela porta de produção ("nao quero mais, obrigado" → despedida sem toque; lead novo → recepção
+>   honesta) — exige mensagem selada (rodar `pnpm dev:personas --door=n8n` com o segredo do selo, ou o operador manda do celular);
+>   (2) operador gravar `experiments: {fastOpening: true, linkAfterChoice: true}` no `BUSINESS_CONFIG` antes de 23/10; (3) refazer base ×
+>   E3 pela E4; (4) E5 ensaio com dinheiro 20–21/10; (5) o operador revogar o token `sbp_` usado no deploy.
+
 > **2026-10-12, noite — SESSÃO `claude/pipeline-e4-fix-exp-b` (LEIA PRIMEIRO; o bloco seguinte, do PR #59, é histórico).**
 > Continuou os próximos passos do PR #59 (mergeado em 12/10 22:05 UTC). **No ar:** `turn` **v16** (sem mudança), **migração 0026
 > APLICADA** em produção nesta sessão (12/10; a v16 continua funcionando com ela — não escreve as colunas novas), E1.3 no n8n.
