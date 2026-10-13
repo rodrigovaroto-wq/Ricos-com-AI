@@ -1827,14 +1827,19 @@ const gates: readonly Gate[] = [
             new RegExp(
               String.raw`\b(?:prazo|garantia)\s+(?:pra|para|de)\s+${RETV}${OBJECT}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
             ).exec(sb);
-          const takenAfterReturn = !!taken && !ARRIVAL.test(notDelivery(sb.slice(0, taken.index).split(/\d/).pop()!));
+          // Where the warranty starts counting is no arrival, before the anchor or in the count's own
+          // clause: "depois que chegar, o prazo pra trocar é de", "se chegar e não servir você pode
+          // devolver em até" (code review and personas v18, 2026-10-13). Never with a count of its own:
+          // "se chegar em 7 dias…" is a deadline.
+          const MARK = new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|(?:quando|assim\s+que|se)\s+${WHO})\b(?!\s+(?:em|de|ate|dentro|daqui)\b)`, "g");
+          const takenAfterReturn = !!taken && !ARRIVAL.test(notDelivery(sb.slice(0, taken.index).split(/\d/).pop()!.replace(MARK, " ")));
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
           // quando chegar é de 7 dias pra trocar").
           const own = sb
             .split(/[,;:]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)|\s(?:porque|pois)\s|(?<!\b(?:depois|dia|em))\sque\s/)
             .pop()!
-            .replace(new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|quando\s+${WHO})`, "g"), " ");
+            .replace(MARK, " ");
           // "Você tem 7 dias contando de quando recebeu": a count she has, starting at her receiving
           // it, is never the carrier's — only "você tem", never "são / é / o prazo é de".
           const hers = startHer && /\bvoce\s+(?:tem|tera)\s+(?:ate\s+)?$/.test(sb);

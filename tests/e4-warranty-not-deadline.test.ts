@@ -20,6 +20,13 @@ const HONEST = [
   "você tem 7 dias pra trocar",
   "7 dias após o recebimento pra pedir a troca",
   "prazo de troca de 7 dias",
+  // /code-review (13/10): o marco de início da garantia antes da âncora não é chegada.
+  "Depois que chegar, o prazo pra trocar é de 7 dias.",
+  "Quando chegar aí, o prazo pra trocar é de 7 dias.",
+  "Assim que receber, o prazo pra trocar é de 7 dias.",
+  "Depois de receber, a garantia pra trocar o tamanho é de 7 dias.",
+  // Personas v18, Marcinha (foi para uma pessoa): devolução por arrependimento, grátis (R16.3).
+  "E não precisa ter medo de errar, se chegar e não servir você pode devolver em até 7 dias após o recebimento, com o dinheiro de volta sem custo nenhum",
 ];
 
 const LIES = [
@@ -41,6 +48,15 @@ const LIES = [
   "a entrega e o prazo pra trocar o tamanho é de 7 dias",
   "o tempo de entrega e a garantia pra trocar é de 7 dias",
   "o tempo de entrega e o prazo pra trocar é de 7 dias",
+  "Chega em 7 dias e o prazo pra trocar é de 7 dias",
+  "Depois que chegar, a entrega e o prazo pra trocar é de 7 dias.",
+  // O marco de início não isenta uma contagem própria nem a entrega depois dele.
+  "Se chegar em 7 dias pra trocar, ótimo.",
+  "Quando chegar em 7 dias pra trocar, você vê.",
+  "Se o colete chegar em 7 dias, o prazo pra trocar é de 7 dias.",
+  "Assim que receber, a entrega e o prazo pra trocar é de 7 dias.",
+  "Se chegar e não servir você pode devolver em até 7 dias, e chega rapidinho.",
+  "Se chegar e não servir você pode devolver, chega em até 7 dias.",
   // …e a velocidade depois de quem paga o envio é chegada.
   "a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta, rapidinho",
   "a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta e é rapidinho",

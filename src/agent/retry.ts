@@ -239,6 +239,16 @@ export const linkMessage = (
 };
 
 /**
+ * Arm B's kit offer, fixed (/code-review of experiment B): the link waits for it once, so it is
+ * written here and not by the model — its "N peças" is what `kitWasOffered` reads on the next turn,
+ * and the link goes then. One sentence per kit, so each discount sits beside its own offer.
+ */
+export const kitOfferMessage = (kits: readonly { units: number; priceBrl: number; discountPercent: number }[]): string =>
+  `Antes do link, uma dica: levando mais peças o desconto sobe 💛\n\n` +
+  kits.map((k) => `Com ${k.units} peças fica R$ ${k.priceBrl.toFixed(2).replace(".", ",")}, ${k.discountPercent}% de desconto.`).join("\n") +
+  `\n\nQuer levar mais de uma ou sigo com uma peça só?`;
+
+/**
  * The reply when she puts the purchase off — "vou pensar", "depois eu compro" (operator,
  * 2026-09-29, R16.5). It used to be the opening line alone: no pressure and no reason to come
  * back. Now it carries the strongest argument of her path — the declared stock left it on 2026-10-11

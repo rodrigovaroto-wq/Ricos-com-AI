@@ -2725,6 +2725,13 @@ verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coord
 (mentiras da 2ª, chegada depois do número, pontuação antes da âncora, dígito que não é prazo — todas vetadas; as 5 verdades aceitas
 conferidas). **Fica:** "o frete e a garantia pra trocar é de 7 dias" passa ("frete é de" lê como preço; anterior a este conserto).
 **Estado:** publicado na `turn` v18 (2026-10-13).
+**/code-review + personas v18 (13/10):** o conserto do sujeito coordenado testava chegada antes da âncora sem tirar o marco de início
+da garantia — "Depois que chegar / Quando chegar aí, o prazo pra trocar é de 7 dias" voltou a ser vetada; e o `own` não tirava "se
+chegar", o que vetou a devolução verdadeira da Marcinha ("se chegar e não servir você pode devolver em até 7 dias…") e a mandou a uma
+pessoa. **Correção:** um `MARK` (`START` | quando/assim que/se + receber/chegar), nunca seguido de contagem própria (lookahead
+`em|de|até|dentro|daqui`), tirado no trecho antes da âncora e no `own` — fechou também a mentira antiga "Quando chegar em 7 dias pra
+trocar". 79 casos no teste, +13 no corpus, 2 afrouxamentos verdadeiros aceitos, 4 endurecimentos (mentiras da base). Mutação
+`E4-marco-de-inicio`. **Estado:** publicar na v19.
 
 ## 84. E4 refeita com o detector consertado: base × v18 (2026-10-13)
 
@@ -2761,7 +2768,11 @@ Branch `claude/pipeline-e4-fix-exp-b` contra `main`, nível alto. Consertados aq
 **Achados da bateria de 13 personas na v18 (porta local):** Denise provou a recusa (despedida fixa, sem régua); Marcinha foi a uma pessoa
 pela garantia "se chegar e não servir você pode devolver em até 7 dias" (mesma família do item 2, §83); Rafa: "Sobre chegar até sexta eu
 não consigo te garantir" vetado como promessa de dia (negação) — **aberto**.
-**Estado:** no código; publicar na v19 junto com os itens 2 e 7.
+**Item 7 (kit no braço B), consertado:** no turno em que `kitFirst` segura o link, a oferta sai fixa (`kitOfferMessage`, `retry.ts`:
+"Antes do link, uma dica: levando mais peças o desconto sobe 💛 / Com 2 peças fica R$ …, 10% de desconto. …") por `sendFixed`, com a cadeia
+inteira — conferida sem veto com os kits REAIS do `BUSINESS_CONFIG` nos dois caminhos, e reconhecida por `kitWasOffered` no turno
+seguinte; com pergunta dela ao lado o link não espera (o modelo responde com o link, como no braço 0). Mutação `E6-kit-oferta-fixa`.
+**Estado:** publicar na v19.
 
 ## Lições (valem para qualquer correção futura)
 

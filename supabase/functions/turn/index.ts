@@ -135,6 +135,7 @@ import {
   shippedCancelReply,
   thinkReply,
   DECLINE_REPLY,
+  kitOfferMessage,
   linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
@@ -3598,7 +3599,11 @@ const handleTurn = async (
   const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
   const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // Read clause by clause: "me manda o link, aceita cartão?" has a real question beside the request (review 4).
+  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   // Experiment B: the kit comes before the link too (operator, 2026-10-12). `linkHistory` reaches past the window.
+  // With her question beside it the link does not wait: the fixed offer has no room for the answer, and an offer
+  // left to the model may be one `kitWasOffered` cannot read — the link held turn after turn (/code-review).
   const kitFirst = kitHoldsLink({
     identityAtCheckout: linkData.identityAtCheckout,
     units,
@@ -3606,7 +3611,7 @@ const handleTurn = async (
     kitOffered,
     pathChosen,
     linkSentBefore: lastLinkBase(linkHistory, CHECKOUT_BASES) !== null,
-  });
+  }) && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
   const linkUnheld = !linkJustSent && linkReady && !withdrew;
   const linkNow = linkUnheld && !kitFirst;
   // She wants the link and something comes first: that one thing, asked naturally. The payment
@@ -3703,8 +3708,6 @@ const handleTurn = async (
 
   // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  // Read clause by clause: "me manda o link, aceita cartão?" has a real question beside the request (review 4).
-  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
       opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
@@ -3718,6 +3721,13 @@ const handleTurn = async (
       false,
       units,
     );
+    if (sent) return sent;
+  }
+
+  // Arm B: the link waited for the kit, so the offer goes fixed — its "N peças" is what `kitWasOffered`
+  // reads next turn, and the link goes then. Vetoed, the model offers it under `kitDirective` as before.
+  if (linkUnheld && kitFirst && !farewell) {
+    const sent = await sendFixed(opening(kitOfferMessage(kitsOnPath)), "braço B: oferta fixa do kit antes do link", linkPath);
     if (sent) return sent;
   }
 
