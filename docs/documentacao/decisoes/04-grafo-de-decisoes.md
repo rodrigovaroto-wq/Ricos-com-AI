@@ -2908,6 +2908,19 @@ segura o prazo, e as frases deste item foram escritas por revisores, não pelo m
 prazo prometido custa o frete inteiro), mas a regra passa a ser: **gate só se mexe por frase vista em conversa real ou de persona**;
 variação hipotética de revisor vai para o grafo como resíduo, não para o código — **aceita pelo operador como R21.6**.
 
+## 89. Primeira rodada de testes reais e o arquivo que vazaria dado (2026-10-13)
+
+**Sintoma:** (a) a Malu calou para o número do operador (`handoff_at` de 08/10 é permanente); (b) ao arquivar, o `.json` levava o
+link do checkout com nome, telefone e CPF na query, e o `.md` levava o nome que a cliente digitou ("meu nome é …"); (c) o custo vinha
+como texto (`numeric`) e derrubava o arquivo. **Correção:** números de teste com histórico arquivados e apagados com o "pode" do
+operador; `maskPii` (a raiz, também usada pelo Hermes ao mandar conversa ao modelo) troca query de link por `?[dados]` e "meu nome é …"
+por `[nome]`; o arquivo mascara também o nome guardado do lead e passa o `.json` pela mesma máscara do `.md`; custo lido com `Number`.
+**Guarda:** `tests/archive-test.test.ts` (link com dados, nome digitado, custo em texto); conferência manual de PII antes de cada commit
+de rodada. **Fica:** nome digitado solto, sem "meu nome é" e sem nome guardado no lead, ainda passa — por isso a conferência manual.
+**Achados da conversa (R21.6 — frase real):** em `docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md` e
+`2026-10-13-tester-7967-pre-rodada.md`; o principal: dúvida de entrega antes do pedido ("moro sozinha, não tenho quem receber") cai no
+pós-venda sem pedido gravado e vai a uma pessoa. **Estado:** ferramenta no ar (PR #60); achados abertos para a próxima leva.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
