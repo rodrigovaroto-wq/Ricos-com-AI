@@ -2143,3 +2143,14 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R21.3 — A troca é sem custo para a cliente, e a Malu pode dizer isso** (operador, mesmo dia): "é menos lucro no final, mas é
   menos possibilidade de problema no agente e problemas judiciais". Config `returns.freeExchange: true` (ausente = a verdade
   anterior, troca paga); o gate `warranty_promise` e o prompt leem o mesmo campo.
+- **R21.4 — Troca/devolução só quando ela pede** (operador, 2026-10-13, depois da v20): o número do suporte da Logzz não é mandado
+  espontaneamente; quando ela pede troca ou devolução, a Malu diz explicitamente que a garantia é de 7 dias após o recebimento, pelo
+  suporte da Logzz, sem custo. O link de pagamento de R$ 27 da troca (Mercado Pago, R17.1) foi apagado do agente e do repositório;
+  esta linha é o único registro da decisão.
+- **R21.5 — Pós-venda, regras finas** (mesmo dia): (a) pedido de pessoa só quando explícito — "alguém", "humano" num outro sentido,
+  "minha amiga comprou" não contam; (b) a resposta usa o contexto de todos os pedidos, com o último como referência; (c) "confirmado"
+  só com o pagamento confirmado — antes disso, "aguardando a confirmação do pagamento"; (d) Pix sem confirmação não vai a pessoa: a
+  Malu informa o status, pede para esperar se ela insistir que pagou, e só passa a uma pessoa se em 5 minutos o status não atualizar;
+  (e) pedido entregue com problema não vai a pessoa: a Malu resolve as dúvidas e, se ela pedir para trocar ou devolver, manda o
+  suporte da Logzz; (f) sem data de entrega no pedido, nada de data — só o status; (g) nunca prometer prazo; (h) pergunta de prazo junto
+  com outra pergunta recebe resposta coerente com as duas.
