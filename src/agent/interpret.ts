@@ -478,9 +478,18 @@ export const missingForLink = (d: LinkData): LinkDatum | null =>
 /**
  * Experiment B (operator, 2026-10-12): the link waits once for the kit offer — with the progressive discounts —
  * when she is on one piece and her path has kits not yet offered. Arm 0 offers the kit before the data anyway.
+ * Only when the offer goes in this same turn (`pathChosen`: review of 2695b80, 2 — otherwise neither goes), and
+ * never once a link went out (3: the offer came before it, and may have left the 20-message window).
  */
-export const kitHoldsLink = (d: { identityAtCheckout?: boolean; units: number; kitsOnPath: number; kitOffered: boolean }): boolean =>
-  d.identityAtCheckout === true && d.units === 1 && d.kitsOnPath > 0 && !d.kitOffered;
+export const kitHoldsLink = (d: {
+  identityAtCheckout?: boolean;
+  units: number;
+  kitsOnPath: number;
+  kitOffered: boolean;
+  pathChosen: boolean;
+  linkSentBefore: boolean;
+}): boolean =>
+  d.identityAtCheckout === true && d.units === 1 && d.kitsOnPath > 0 && !d.kitOffered && d.pathChosen && !d.linkSentBefore;
 
 /**
  * Whether the link goes out this turn: every datum is in, and her message is not a bare "sim"

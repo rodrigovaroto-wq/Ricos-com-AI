@@ -83,14 +83,22 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   });
 
   it("braço B: o kit é oferecido uma vez, com os descontos, antes do link (operador, 2026-10-12)", () => {
-    const b = { identityAtCheckout: true, units: 1, kitsOnPath: 2, kitOffered: false };
+    const b = { identityAtCheckout: true, units: 1, kitsOnPath: 2, kitOffered: false, pathChosen: true, linkSentBefore: false };
     expect(kitHoldsLink(b)).toBe(true);
     expect(kitHoldsLink({ ...b, kitOffered: true })).toBe(false); // offered once, then the link
     expect(kitHoldsLink({ ...b, units: 2 })).toBe(false); // she took a kit: its own link
     expect(kitHoldsLink({ ...b, kitsOnPath: 0 })).toBe(false); // no kit on her path
     expect(kitHoldsLink({ ...b, identityAtCheckout: false })).toBe(false); // arm 0: the kit comes before the data
-    expect(kitHoldsLink({ units: 1, kitsOnPath: 2, kitOffered: false })).toBe(false);
-    expect(turn).toContain("const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;");
+    expect(kitHoldsLink({ ...b, identityAtCheckout: undefined })).toBe(false);
+    // Review of 2695b80: hold only when the offer goes this same turn, and never after a link went out.
+    expect(kitHoldsLink({ ...b, pathChosen: false })).toBe(false);
+    expect(kitHoldsLink({ ...b, linkSentBefore: true })).toBe(false);
+    expect(turn).toContain("const linkNow = linkUnheld && !kitFirst;");
     expect(turn).toContain("levando mais peças o desconto sobe");
+    // the "vou pensar" gets the link even while the kit is pending (review of 2695b80, 1)
+    expect(turn).toContain("thinkLink = linkUnheld && !(linkInChat");
+    // pathChosen is the same one kitOfferNow reads, computed once before both
+    expect(turn.indexOf("const pathChosen =")).toBeLessThan(turn.indexOf("const kitFirst = kitHoldsLink("));
+    expect(turn.match(/const pathChosen =/g)).toHaveLength(1);
   });
 });

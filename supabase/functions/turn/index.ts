@@ -3597,9 +3597,18 @@ const handleTurn = async (
   // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
   const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
   const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
-  // Experiment B: the kit comes before the link too (operator, 2026-10-12).
-  const kitFirst = kitHoldsLink({ identityAtCheckout: linkData.identityAtCheckout, units, kitsOnPath: kitsOnPath.length, kitOffered });
-  const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;
+  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // Experiment B: the kit comes before the link too (operator, 2026-10-12). `linkHistory` reaches past the window.
+  const kitFirst = kitHoldsLink({
+    identityAtCheckout: linkData.identityAtCheckout,
+    units,
+    kitsOnPath: kitsOnPath.length,
+    kitOffered,
+    pathChosen,
+    linkSentBefore: lastLinkBase(linkHistory, CHECKOUT_BASES) !== null,
+  });
+  const linkUnheld = !linkJustSent && linkReady && !withdrew;
+  const linkNow = linkUnheld && !kitFirst;
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -3658,7 +3667,8 @@ const handleTurn = async (
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
+      // Arm B: the "vou pensar" gets the link, not the kit offer (review of 2695b80, 1).
+      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -3711,7 +3721,6 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =
     units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;

@@ -2631,7 +2631,11 @@ fora (conservador: voltam ao fluxo de hoje).
 **Decisão do operador (2026-10-12, noite): o kit aparece no braço B.** O link espera uma vez a oferta do kit, com os descontos
 progressivos (a mesma diretiva do braço 0: "levando mais peças o desconto sobe: 2 peças R$ … (…%)"), quando ela está em uma peça e o
 caminho dela tem kit ainda não oferecido (`kitHoldsLink`); recusou ou ignorou, o link sai no turno seguinte; aceitou, sai o link do kit.
-Mutação `E6-kit-depois-do-link`.
+Mutação `E6-kit-depois-do-link`. **Revisão Opus (reprovou, consertado):** (1) o "vou pensar" com tudo pronto perdia o link enquanto o
+kit estava pendente — o "vou pensar" lê `linkUnheld` (o link sem a espera do kit); (2) o kit segurava o link num turno em que a oferta não
+saía (região só antecipado, sem `pathChosen`: nem link nem kit) — `kitHoldsLink` exige `pathChosen`, o mesmo que `kitOfferNow` lê;
+(3) depois de 20 mensagens a oferta saía da janela e o kit voltava, atrasando o reenvio pedido — nunca segura depois de um link
+(`lastLinkBase(linkHistory)`, que alcança além da janela). Mutações `E6-kit-segura-sem-oferta`, `E6-pensar-sem-link`.
 
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 
