@@ -2693,6 +2693,26 @@ vencendo. Efeito em `saysPaid`: "paguei uma dessas" deixa de contar como pago (c
 ontem, quando chega?" sem pedido em `orders` nem link enviado não vai mais para uma pessoa (as outras duas redes seguram quem tem pedido).
 **Estado:** no código; publicar na v18.
 
+## 83. A garantia de troca vetada como prazo de entrega (E4, 2026-10-13)
+
+**Sintoma:** E4 de 13/10 (porta local, a mesma `turn` v17 no ar): "Dá sim, a garantia pra trocar o tamanho é de 7 dias após o
+recebimento, e na troca o envio da peça fica por sua conta" — verdade (`warrantyDays` 7) — vetada 3 vezes pelo `delivery_promise`
+("delivery window of 7 days contradicts the configured 1-3"; no antecipado "prepaid average of 7 days is not the configured 5"); a
+compradora decidida foi para uma pessoa. 6 vetos assim em 2 rodadas.
+**Causa:** a isenção da garantia (só o número `warrantyDays`) exige uma forma de troca governando a contagem e a cauda sem chegada. (1)
+"a garantia pra trocar o tamanho **é de**" não casava nenhuma forma: `takenAfterReturn` só lia "prazo pra trocar é de", sem `garantia` e
+sem objeto; (2) "o **envio** da peça fica por sua conta" casava `envi\w*` do `ARRIVAL` — quem paga o frete da troca virava chegada.
+**Caminhos descartados:** isentar qualquer contagem perto de "garantia/troca" (M-07/M-08: libera "a troca é grátis e no pix chega em 2
+dias"); tirar `envi\w*` do `ARRIVAL` (libera "e o envio é rapidinho"); vírgula opcional no ramo "pra trocar, é de" ("é" sem acento vira
+conjunção).
+**Correção:** `takenAfterReturn` aceita `(prazo|garantia) (pra|de) <troca><objeto> é de`; `notDelivery` remove só "(o)
+envio/reenvio/postagem (da troca/peça/devolução) (fica|é) por (sua|nossa) conta". O resto da isenção intacto.
+**Guarda:** `tests/e4-warranty-not-deadline.test.ts` (8 verdades e 11 mentiras nos dois caminhos, incluindo as que a isenção nova
+liberaria: "…é de 7 dias pra chegar", "…e o envio é rapidinho", "…envio fica por nossa conta e chega em 7 dias"; garantia de 30 dias
+continua vetada); +14 frases no `gate-corpus.txt`; 4 afrouxamentos verdadeiros aceitos em `gate-loosen-accepted.txt`; mutações
+`E4-garantia-pra-trocar` e `E4-envio-por-sua-conta`.
+**Estado:** no código; publicar na v18 depois da segunda revisão.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -3434,6 +3434,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
   {
+    id: "E4-garantia-pra-trocar",
+    bug: "a garantia de troca verdadeira ('a garantia pra trocar o tamanho é de 7 dias') vetada como prazo de entrega de 7 dias (E4, 13/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: "String.raw`\\b(?:prazo|garantia)\\s+(?:pra|para|de)\\s+${RETV}${OBJECT}\\s+${TAKES}|",
+    to: "String.raw`\\bprazo\\s+(?:pra|para|de)\\s+${RETV}\\s+${TAKES}|",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e4-warranty-not-deadline.test.ts"],
+  },
+  {
+    id: "E4-envio-por-sua-conta",
+    bug: "'o envio da peça fica por sua conta' (quem paga o frete da troca) lido como chegada: a garantia verdadeira vetada (E4, 13/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: String.raw`.replace(/\b(?:o\s+)?(?:envio|reenvio|postagem)(?:\s+d[aeo]\s+(?:troca|peca|devolucao))?\s+(?:fica|e)\s+por\s+(?:sua|nossa)\s+conta\b/g, " ")`,
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e4-warranty-not-deadline.test.ts"],
+  },
+  {
     id: "E4-uma-dessas-nao-e-pedido",
     bug: "\"já comprei uma dessas e enrolou\" (objeção, outro produto) lido como pedido conosco → handoff post_sale (E4, 13/10)",
     files: ["src/agent/interpret.ts"],

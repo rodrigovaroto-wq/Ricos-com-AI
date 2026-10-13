@@ -163,3 +163,7 @@ P07 | coverage_claim | É normal ficar nessa dúvida, porque a maioria chega aqu
 P07 | coverage_claim | Muita gente chega aqui com essa dúvida.
 P07 | coverage_claim | Toda cliente chega aqui assim, desconfiada.
 P07 | coverage_claim | Quando você chega aqui já sabe o que quer, né?
+E4 | delivery_promise | Dá sim, a garantia pra trocar o tamanho é de 7 dias após o recebimento, e na troca o envio da peça fica por sua conta
+E4 | delivery_promise | A garantia pra trocar o tamanho é de 7 dias após o recebimento.
+E4 | delivery_promise | O prazo pra trocar o tamanho é de 7 dias.
+E4 | delivery_promise | Você tem 7 dias após o recebimento pra trocar, e o envio da troca é por sua conta.

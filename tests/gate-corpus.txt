@@ -140,3 +140,18 @@ Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, 
 # Karol: holding a size before any check
 Que bom te ver de volta, tava guardando seu M aqui.
 Guarda essa dica: o M veste justinho.
+# E4 (2026-10-13): the exchange warranty read as a delivery deadline — honest and lies
+Dá sim, a garantia pra trocar o tamanho é de 7 dias após o recebimento, e na troca o envio da peça fica por sua conta
+A garantia pra trocar o tamanho é de 7 dias após o recebimento.
+O prazo pra trocar o tamanho é de 7 dias.
+Você tem 7 dias após o recebimento pra trocar, e o envio da troca é por sua conta.
+A garantia pra trocar o tamanho é de 7 dias pra chegar.
+A garantia pra trocar é de 7 dias, e chega em 7 dias.
+A garantia pra trocar chega em 7 dias.
+Você tem 7 dias pra trocar, e o envio é rapidinho.
+Você tem 7 dias pra trocar, e o envio da peça é rápido.
+Você tem 7 dias pra trocar, e o envio fica por nossa conta e chega em 7 dias.
+Você tem 7 dias pra trocar e o envio da peça chega em casa.
+A garantia pra trocar o tamanho é de 30 dias após o recebimento.
+em até 7 dias você recebe, e a troca é grátis
+chega em 7 dias e você tem 7 dias pra trocar

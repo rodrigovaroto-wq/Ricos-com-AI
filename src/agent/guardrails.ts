@@ -1754,6 +1754,9 @@ const gates: readonly Gate[] = [
             x
               .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
+              // E4 (2026-10-13): who pays the exchange's freight — "e na troca o envio da peça fica por sua
+              // conta" — is not an arrival. Only with that predicate: "e o envio é rapidinho" still is.
+              .replace(/\b(?:o\s+)?(?:envio|reenvio|postagem)(?:\s+d[aeo]\s+(?:troca|peca|devolucao))?\s+(?:fica|e)\s+por\s+(?:sua|nossa)\s+conta\b/g, " ")
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
           // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
@@ -1810,6 +1813,7 @@ const gates: readonly Gate[] = [
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
           const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
+          // E4 (2026-10-13): "a garantia pra trocar o tamanho é de" governs it the same way as the prazo.
           // Only when the return word governs the count (eighth review): "o prazo pra trocar (ou
           // devolver) é de", "pra trocar, o prazo é de", "se precisar trocar, são", "é só trocar:
           // você tem". A return word loose in another clause takes nothing: "a troca é fácil, e o
@@ -1819,7 +1823,7 @@ const gates: readonly Gate[] = [
           const takenAfterReturn =
             lastRet != null &&
             new RegExp(
-              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
+              String.raw`\b(?:prazo|garantia)\s+(?:pra|para|de)\s+${RETV}${OBJECT}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
             ).test(sb);
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
