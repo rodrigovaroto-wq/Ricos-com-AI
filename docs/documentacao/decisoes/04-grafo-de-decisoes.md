@@ -2677,6 +2677,22 @@ acessada por terceiros (ele audita os acessos) e decidiu não rotacioná-la.
 `.message`, `?? $json` nem `JSON.stringify($json)`; teste em `tests/n8n-workflows.test.ts` (três formas do vazamento + a forma certa);
 mutação `N8N-recusa-devolve-a-chave`. `pnpm dev:n8n`: 7/7 ok.
 
+## 82. "Já comprei uma dessas" entregue como pedido existente (E4, 2026-10-13)
+
+**Sintoma:** E4 de 13/10 (porta local, a mesma `turn` v17 no ar): uma lead fria escreveu "Uso 50. E já comprei uma dessas e enrolou
+tudo na barriga" — objeção sobre um produto parecido de outra loja — e foi entregue a uma pessoa como "a cliente pergunta sobre um
+pedido existente".
+**Causa:** `handoffFor` exige `orderContext && post_sale`; o modelo leu `post_sale` por engano, e o `orderContext` veio de
+`statesPastPurchase` na mensagem atual: `BARE_PURCHASE` casou "comprei" e `OTHER_PURCHASE` não reconhecia o demonstrativo
+"uma dessas/um desses", que nomeia o tipo de produto, não o pedido.
+**Caminhos descartados:** mexer na leitura `post_sale` do modelo (não determinística; a barreira é o `orderContext`); tirar o "comprei"
+solto (perde a Lu: "já fez 3 dias que comprei, quando chega?"); exigir marcador de tempo (especulativo).
+**Correção:** `(?:um|uma)\s+(?:dess|dest)[ae]s?` em `OTHER_PURCHASE`, por oração; `ABOUT_US` ("com/de vocês", "colete") continua
+vencendo. Efeito em `saysPaid`: "paguei uma dessas" deixa de contar como pago (coerente).
+**Guarda:** `tests/interpret.test.ts` (4 objeções, 5 pedidos nossos); mutação `E4-uma-dessas-nao-e-pedido`. **Fica:** "comprei uma dessa
+ontem, quando chega?" sem pedido em `orders` nem link enviado não vai mais para uma pessoa (as outras duas redes seguram quem tem pedido).
+**Estado:** no código; publicar na v18.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

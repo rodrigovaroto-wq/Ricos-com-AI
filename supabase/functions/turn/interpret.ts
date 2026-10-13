@@ -680,8 +680,9 @@ const negatedBefore = (t: string, at: number): boolean =>
  * never in a clause about another product, another store, the past or someone else. Only
  * the phrases that can only mean an order with us count from the history.
  */
+// "uma dessas", "um desses" names the kind of product, not her order (E4, 2026-10-13).
 const OTHER_PURCHASE =
-  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|shopee|mercado|cinta|ano\s+passado|loja|internet|site|online|ultima\s+vez)\b/;
+  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|(?:um|uma)\s+(?:dess|dest)[ae]s?|shopee|mercado|cinta|ano\s+passado|loja|internet|site|online|ultima\s+vez)\b/;
 /**
  * A store that is not us wins over everything, "colete" included: "comprei um colete
  * parecido em outra loja" is an objection (code review, 2026-09-24). "Site" is left out on

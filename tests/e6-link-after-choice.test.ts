@@ -89,7 +89,8 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
     expect(kitHoldsLink({ ...b, units: 2 })).toBe(false); // she took a kit: its own link
     expect(kitHoldsLink({ ...b, kitsOnPath: 0 })).toBe(false); // no kit on her path
     expect(kitHoldsLink({ ...b, identityAtCheckout: false })).toBe(false); // arm 0: the kit comes before the data
-    expect(kitHoldsLink({ ...b, identityAtCheckout: undefined })).toBe(false);
+    const { identityAtCheckout: _absent, ...noFlag } = b;
+    expect(kitHoldsLink(noFlag)).toBe(false);
     // Review of 2695b80: hold only when the offer goes this same turn, and never after a link went out.
     expect(kitHoldsLink({ ...b, pathChosen: false })).toBe(false);
     expect(kitHoldsLink({ ...b, linkSentBefore: true })).toBe(false);

@@ -676,6 +676,33 @@ describe("compra passada: outra loja e medo antigo", () => {
   });
 });
 
+/** E4, 2026-10-13: "uma dessas" é o tipo de produto, não o pedido — objeção fria foi a uma pessoa. */
+describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => {
+  it("não é compra conosco", () => {
+    for (const frase of [
+      "Uso 50. E já comprei uma dessas e enrolou tudo na barriga",
+      "comprei um desses e não serviu",
+      "já comprei uma parecida",
+      "comprei uma dessas na feira",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+      expect(statesPastPurchase(frase, false), frase).toBe(false);
+    }
+  });
+
+  it("pedido conosco continua valendo", () => {
+    for (const frase of [
+      "comprei o colete de vocês semana passada e não chegou",
+      "já comprei uma dessas com vocês, cadê?",
+      "comprei ontem, quando chega?",
+      "comprei uma dessas de vocês e enrolou",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+    }
+    expect(statesPastPurchase("fiz o pedido ontem", false)).toBe(true);
+  });
+});
+
 describe("decisão adiada para o mês ou a semana que vem", () => {
   it("não é decisão", () => {
     for (const frase of ["vou levar sim, mas só mês que vem", "quero comprar semana que vem", "vou querer mes que vem"]) {

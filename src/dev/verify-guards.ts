@@ -3434,6 +3434,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
   {
+    id: "E4-uma-dessas-nao-e-pedido",
+    bug: "\"já comprei uma dessas e enrolou\" (objeção, outro produto) lido como pedido conosco → handoff post_sale (E4, 13/10)",
+    files: ["src/agent/interpret.ts"],
+    from: String.raw`|parecid\w*|(?:um|uma)\s+(?:dess|dest)[ae]s?|shopee|`,
+    to: String.raw`|parecid\w*|shopee|`,
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
     id: "E6-kit-depois-do-link",
     bug: "braço B: o link saía no turno da escolha e a oferta do kit, com os descontos progressivos, nunca aparecia (operador, 2026-10-12)",
     files: ["supabase/functions/turn/index.ts"],
