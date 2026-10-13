@@ -75,7 +75,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
     // 2026-10-09: one refusal in words is enough; two unanswered asks still are.
     expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,");
     expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
-    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
+    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;");
     expect(source).toContain("thinkLink = linkNow && !(linkInChat");
     // The old exits are gone: wanting to buy, no e-mail, or an ignored ask no longer send it.
     expect(source).not.toContain("readyForLink");

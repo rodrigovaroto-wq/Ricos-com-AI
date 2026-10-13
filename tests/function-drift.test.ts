@@ -401,7 +401,7 @@ describe("M-03 na Edge Function", () => {
     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
     expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
-    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
+    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;");
     expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
   });
 });

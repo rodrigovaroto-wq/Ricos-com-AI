@@ -3426,6 +3426,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/v10-defects.test.ts"],
   },
   {
+    id: "E6-kit-depois-do-link",
+    bug: "braço B: o link saía no turno da escolha e a oferta do kit, com os descontos progressivos, nunca aparecia (operador, 2026-10-12)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;",
+    to: "const linkNow = !linkJustSent && linkReady && !withdrew;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
+  },
+  {
     id: "E6-quero-solto",
     bug: "um 'quero' solto em qualquer lugar da mensagem ('quero pensar', 'quero na entrega', 'quero cancelar') gravava o antecipado",
     files: ["src/agent/interpret.ts"],

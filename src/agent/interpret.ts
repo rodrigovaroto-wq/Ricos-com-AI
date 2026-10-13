@@ -476,6 +476,13 @@ export const missingForLink = (d: LinkData): LinkDatum | null =>
   : null;
 
 /**
+ * Experiment B (operator, 2026-10-12): the link waits once for the kit offer — with the progressive discounts —
+ * when she is on one piece and her path has kits not yet offered. Arm 0 offers the kit before the data anyway.
+ */
+export const kitHoldsLink = (d: { identityAtCheckout?: boolean; units: number; kitsOnPath: number; kitOffered: boolean }): boolean =>
+  d.identityAtCheckout === true && d.units === 1 && d.kitsOnPath > 0 && !d.kitOffered;
+
+/**
  * Whether the link goes out this turn: every datum is in, and her message is not a bare "sim"
  * beside a question (`yesBesideQuestion`) — the H-2 exception that let an ignored identity ask
  * send the link is gone with R13.4 (the data now come first).

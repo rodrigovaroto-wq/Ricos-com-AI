@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { armOf, armOn } from "@/agent/experiments.js";
-import { missingForLink, sendLinkNow } from "@/agent/interpret.js";
+import { kitHoldsLink, missingForLink, sendLinkNow } from "@/agent/interpret.js";
 import { linkMessage } from "@/agent/retry.js";
 
 /**
@@ -80,5 +80,17 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   it("o link fixo diz o que ela preenche no checkout (grafo §67)", () => {
     const text = linkMessage("https://x.test/c", "prepay", "M", "Encorpa", 1, ["nome completo", "e-mail", "CPF"]);
     expect(text).toContain("No checkout você vai preencher também o seu nome completo, o seu e-mail e o seu CPF");
+  });
+
+  it("braço B: o kit é oferecido uma vez, com os descontos, antes do link (operador, 2026-10-12)", () => {
+    const b = { identityAtCheckout: true, units: 1, kitsOnPath: 2, kitOffered: false };
+    expect(kitHoldsLink(b)).toBe(true);
+    expect(kitHoldsLink({ ...b, kitOffered: true })).toBe(false); // offered once, then the link
+    expect(kitHoldsLink({ ...b, units: 2 })).toBe(false); // she took a kit: its own link
+    expect(kitHoldsLink({ ...b, kitsOnPath: 0 })).toBe(false); // no kit on her path
+    expect(kitHoldsLink({ ...b, identityAtCheckout: false })).toBe(false); // arm 0: the kit comes before the data
+    expect(kitHoldsLink({ units: 1, kitsOnPath: 2, kitOffered: false })).toBe(false);
+    expect(turn).toContain("const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;");
+    expect(turn).toContain("levando mais peças o desconto sobe");
   });
 });

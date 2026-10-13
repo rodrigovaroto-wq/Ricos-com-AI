@@ -2628,6 +2628,11 @@ antecipado é o único caminho na região; o dano só existe se ela trocar para 
 com "ok, vou pensar"; formas com outras palavras ("bora", "vamos", "fechado") ficam de
 fora (conservador: voltam ao fluxo de hoje).
 
+**Decisão do operador (2026-10-12, noite): o kit aparece no braço B.** O link espera uma vez a oferta do kit, com os descontos
+progressivos (a mesma diretiva do braço 0: "levando mais peças o desconto sobe: 2 peças R$ … (…%)"), quando ela está em uma peça e o
+caminho dela tem kit ainda não oferecido (`kitHoldsLink`); recusou ou ignorou, o link sai no turno seguinte; aceitou, sai o link do kit.
+Mutação `E6-kit-depois-do-link`.
+
 ## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
 
 **Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção

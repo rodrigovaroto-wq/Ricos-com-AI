@@ -177,6 +177,7 @@ import {
   NEUTRAL_INTERPRETATION,
   quantityOf,
   readInterpretation,
+  kitHoldsLink,
   missingForLink,
   buyerAsk,
   sendLinkNow,
@@ -3592,7 +3593,13 @@ const handleTurn = async (
   const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
-  const linkNow = !linkJustSent && linkReady && !withdrew;
+  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
+  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
+  // Experiment B: the kit comes before the link too (operator, 2026-10-12).
+  const kitFirst = kitHoldsLink({ identityAtCheckout: linkData.identityAtCheckout, units, kitsOnPath: kitsOnPath.length, kitOffered });
+  const linkNow = !linkJustSent && linkReady && !withdrew && !kitFirst;
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -3704,10 +3711,6 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
-  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
-  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
   const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =
@@ -3762,7 +3765,9 @@ const handleTurn = async (
         ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
         ` Diga sempre "peças" junto do preço do kit. Nesta mensagem, só a oferta, terminando na pergunta do kit —` +
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
-        ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
+        (linkData.identityAtCheckout
+          ? ` Se ela não quiser, siga com uma peça e o link sai em seguida, e não volte ao kit.`
+          : ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`)
       : null;
   const sizeDirective =
     [
