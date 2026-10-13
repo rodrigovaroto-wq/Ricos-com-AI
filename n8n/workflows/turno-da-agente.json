@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "5dd93613-25d1-44d7-914e-90dfb9299754",
+  "versionId": "aaf00892-340e-4a3b-9d88-aef633feca9f",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -213,7 +213,7 @@
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "=Turno recusado — a agente não respondeu {{ $('Mensagem recebida').first().json.body.from }}",
         "emailFormat": "text",
-        "text": "=A Edge Function recusou o turno. A cliente NÃO foi respondida.\n\nDe: {{ $('Mensagem recebida').first().json.body.from }}\nexternalId: {{ $('Mensagem recebida').first().json.body.externalId }}\nO que ela escreveu: {{ $('Mensagem recebida').first().json.body.body }}\n\nAbrir no WhatsApp: https://wa.me/{{ $('Mensagem recebida').first().json.body.from }}\n\nErro: {{ JSON.stringify($json.error ?? $json) }}",
+        "text": "=A Edge Function recusou o turno. A cliente NÃO foi respondida.\n\nDe: {{ $('Mensagem recebida').first().json.body.from }}\nexternalId: {{ $('Mensagem recebida').first().json.body.externalId }}\nO que ela escreveu: {{ $('Mensagem recebida').first().json.body.body }}\n\nAbrir no WhatsApp: https://wa.me/{{ $('Mensagem recebida').first().json.body.from }}\n\nErro: {{ String($json.error?.message ?? \"erro sem mensagem\") }}",
         "options": {
           "appendAttribution": false
         }

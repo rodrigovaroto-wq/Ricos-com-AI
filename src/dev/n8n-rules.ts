@@ -153,12 +153,24 @@ export function checkWorkflow(wf: N8nWorkflow): string[] {
   // 2026-10-13: the public webhook's refusal answered `$json.error ?? $json` — the HTTP node's whole error object,
   // its request headers included: anyone posting an unsealed message got the service_role key back. A response fed
   // by an error output says the message only.
-  const errorFed = new Set(Object.values(wf.connections ?? {}).flatMap((o) => (o.main?.[1] ?? []).map((t) => t.node)));
+  // Only a real error output (onError continueErrorOutput) — an IF's false branch is main[1] too (/code-review).
+  const errorOutputs = new Set(wf.nodes.filter((n) => n.onError === "continueErrorOutput").map((n) => n.name));
+  const errorFed = new Set(
+    Object.entries(wf.connections ?? {}).flatMap(([from, o]) => (errorOutputs.has(from) ? (o.main?.[1] ?? []).map((t) => t.node) : [])),
+  );
   for (const n of wf.nodes) {
     if (n.type !== "n8n-nodes-base.respondToWebhook" || n.disabled || !errorFed.has(n.name)) continue;
     const body = String(n.parameters?.responseBody ?? "");
     if (/\$json\.error(?!\??\.message)|\?\?\s*\$json\b|JSON\.stringify\(\s*\$json\s*\)/.test(body))
       problems.push(`${wf.name} › ${n.name}: answers the public caller with the whole error object (request headers, the credential)`);
+  }
+  // Same leak by e-mail, form page or Code node (/code-review, 2026-10-13: six nodes stringified `$json.error ?? $json`; the
+  // WhatsApp send would have mailed the Meta token). Any node, any text parameter.
+  for (const n of wf.nodes) {
+    if (n.disabled) continue;
+    for (const [key, value] of Object.entries(n.parameters ?? {}))
+      if (typeof value === "string" && /JSON\.stringify\(\s*(?:\$json|body)\.error\s*(?:\?\?|\))/.test(value))
+        problems.push(`${wf.name} › ${n.name}: ${key} stringifies the whole error object (request headers, the credential)`);
   }
   if (inbound) {
     if (!wf.nodes.some((n) => n.type === "n8n-nodes-base.wait" && !n.disabled))

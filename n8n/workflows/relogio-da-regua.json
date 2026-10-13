@@ -2,7 +2,7 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
-  "versionId": "3d3cd9d6-6a45-4410-9182-c1732a0cd70b",
+  "versionId": "3565c503-288a-4bcc-936b-63523a19596e",
   "nodes": [
     {
       "id": "ba5ae99a-298d-4fe2-a9a2-248025dba571",
@@ -213,7 +213,7 @@
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "Varredura da régua falhou — nenhum toque saiu nesta rodada",
         "emailFormat": "text",
-        "text": "=A Edge Function recusou a varredura da régua. Nesta rodada nenhum lembrete foi enviado, nenhum toque vencido foi fechado e nenhum lead foi marcado como perdido.\n\nO relógio tenta de novo em 5 minutos. Se a falha for de código ou de banco (coluna ausente, migração não aplicada), ela se repete a cada rodada até ser corrigida.\n\nErro: {{ JSON.stringify($json.error ?? $json) }}",
+        "text": "=A Edge Function recusou a varredura da régua. Nesta rodada nenhum lembrete foi enviado, nenhum toque vencido foi fechado e nenhum lead foi marcado como perdido.\n\nO relógio tenta de novo em 5 minutos. Se a falha for de código ou de banco (coluna ausente, migração não aplicada), ela se repete a cada rodada até ser corrigida.\n\nErro: {{ String($json.error?.message ?? \"erro sem mensagem\") }}",
         "options": {
           "appendAttribution": false
         }

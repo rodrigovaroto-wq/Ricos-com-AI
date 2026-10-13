@@ -2740,6 +2740,29 @@ depois do resultado). **Para a próxima comparação, decidido ANTES de rodar:**
 aplicá-lo como na regra 1.
 **Achados da rodada que viraram conserto:** §82 ("uma dessas") e §83 (garantia lida como prazo) — ambos na v18.
 
+## 85. `/code-review` do fim de fase (E3+E4+E6, 2026-10-13): 10 achados
+
+Branch `claude/pipeline-e4-fix-exp-b` contra `main`, nível alto. Consertados aqui (os itens 2 e 7 têm entrada própria, §83 e §79):
+1. **"Já comprei uma dessas, até agora nada" perdia o pós-venda** (§82): o sinal do pedido depois da vírgula ficava fora da oração. O
+   sinal agora é lido na frase inteira (até `.`/`!`/`?`), e "até agora" entrou nos sinais. Mutação `E4-uma-dessas-virgula`.
+3. **O detector da E4 não pega gate afrouxado na versão testada** (§78): aceito — o `dev:gates` (CI) barra afrouxamento de gate antes
+   de qualquer comparação; o detector mede só o que a verdade do CEP acrescenta.
+4. **O detector comparava por nome de gate:** um gate que já vetava por outro motivo escondia a mentira nova. Agora compara por veto
+   (gate + detalhe).
+5–6. **Seis nós do n8n mandavam o objeto de erro inteiro** (com os cabeçalhos — o do WhatsApp levaria o token da Meta): e-mails da
+   régua, do turno, da venda e do envio; o formulário "Responder cliente"; o Code do alarme. Todos passam só a mensagem (publicados; `dev:n8n`
+   7/7, o formulário mantém a senha). A regra do §81 vale para qualquer nó e parâmetro, e o ramo falso de um IF deixou de contar como saída
+   de erro. Mutação `N8N-erro-inteiro-em-qualquer-no`.
+8. **Braço B, região sem pagamento na entrega e sem a escolha dela** pedia nome/CPF como o braço 0: agora `missingForLink` devolve
+   `payment` (espera o sim dela à oferta). Mutação `E6-braco-b-pede-nome`.
+9. **`asksForSize`:** "O número da sua calça é 44?" (confirmação) deixou de ser pergunta; "Me diz o seu tamanho", "Me passa a sua
+   numeração" passaram a ser. Mutação `E4-confirma-numero-nao-pergunta`.
+10. Comentário desatualizado do alarme em `n8n-sync.ts`.
+**Achados da bateria de 13 personas na v18 (porta local):** Denise provou a recusa (despedida fixa, sem régua); Marcinha foi a uma pessoa
+pela garantia "se chegar e não servir você pode devolver em até 7 dias" (mesma família do item 2, §83); Rafa: "Sobre chegar até sexta eu
+não consigo te garantir" vetado como promessa de dia (negação) — **aberto**.
+**Estado:** no código; publicar na v19 junto com os itens 2 e 7.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

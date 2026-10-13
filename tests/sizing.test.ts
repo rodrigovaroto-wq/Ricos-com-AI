@@ -358,6 +358,9 @@ describe("E4: o número da sua calça é pergunta do tamanho", () => {
       "Me diz o número da sua calça?",
       "Me diz o número da sua calça",
       "Me fala o número da calça que você usa",
+      // /code-review: "o seu" / "a sua" before the noun
+      "Me diz o seu tamanho que eu confiro",
+      "Me passa a sua numeração",
     ]) {
       expect(asksForSize(q), q).toBe(true);
     }
@@ -374,6 +377,9 @@ describe("E4: o número da sua calça é pergunta do tamanho", () => {
       "Não precisa me dizer o número da sua calça agora, tá?",
       "Me diz seu CEP",
       "Me conta, o número da sua calça é 44.",
+      // /code-review: confirming the number she gave is not asking it
+      "O número da sua calça é 44?",
+      "O número da sua calça é 44 mesmo?",
     ]) {
       expect(asksForSize(q), q).toBe(false);
     }

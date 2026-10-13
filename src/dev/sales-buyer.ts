@@ -178,10 +178,10 @@ export const liesIn = (text: string, config: BusinessConfig, codUnavailable = fa
     };
     return runGates(text, ctx).traces.filter((t) => t.verdict === "block");
   };
-  const approved = new Set(blocked(false).map((t) => t.gate));
-  return blocked(true)
-    .filter((t) => !approved.has(t.gate))
-    .map((t) => `${t.gate}${t.detail ? `: ${t.detail}` : ""}`);
+  // By veto, not by gate (/code-review of §78): a gate that already blocked for another reason must not hide the new one.
+  const veto = (t: { gate: string; detail?: string | null }) => `${t.gate}${t.detail ? `: ${t.detail}` : ""}`;
+  const approved = new Set(blocked(false).map(veto));
+  return blocked(true).map(veto).filter((v) => !approved.has(v));
 };
 
 // ---------------------------------------------------------------------------

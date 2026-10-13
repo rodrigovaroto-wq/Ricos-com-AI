@@ -2,7 +2,7 @@
   "id": "3Q18SjoW0UUXrTPI",
   "name": "Encorpa — Responder cliente",
   "active": true,
-  "versionId": "d5659dab-5b47-41a4-9525-571c9c56bc67",
+  "versionId": "1ea8c9fc-9786-4305-93d2-96baf298b1f9",
   "nodes": [
     {
       "id": "a1f0c001-0000-4000-8000-000000000001",
@@ -182,7 +182,7 @@
       "parameters": {
         "operation": "completion",
         "completionTitle": "Nada foi enviado",
-        "completionMessage": "={{ 'A Edge Function recusou a chamada. Tente de novo em 1 minuto; se repetir, responda pelo link https://wa.me/' + ($('Formulário do operador').first().json.telefone ?? '') + ' e avise o Claude. Erro: ' + JSON.stringify($json.error ?? $json) }}",
+        "completionMessage": "={{ 'A Edge Function recusou a chamada. Tente de novo em 1 minuto; se repetir, responda pelo link https://wa.me/' + ($('Formulário do operador').first().json.telefone ?? '') + ' e avise o Claude. Erro: ' + String($json.error?.message ?? \"erro sem mensagem\") }}",
         "options": {}
       }
     }

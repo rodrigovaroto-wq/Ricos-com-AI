@@ -238,7 +238,7 @@ const NUMBER = String.raw`n[u\u00fa]mero(?=\s*(?:\?|d[ea]\s+cal[c\u00e7]a|que\s+
  */
 const PANTS_NUMBER = String.raw`n[u\u00fa]mero\s+d[ea]\s+(?:sua\s+)?cal[c\u00e7]a\b`;
 const SIZE_REQUEST = new RegExp(
-  String.raw`\bme\s+(?:diz|diga|fala|fale|conta|conte|passa|passe|manda|mande)\s+(?:(?:o|a|seu|sua)\s+)?(?:tamanho|numera[c\u00e7][a\u00e3]o|${PANTS_NUMBER})`,
+  String.raw`\bme\s+(?:diz|diga|fala|fale|conta|conte|passa|passe|manda|mande)\s+(?:(?:o|a)\s+)?(?:(?:seu|sua)\s+)?(?:tamanho|numera[c\u00e7][a\u00e3]o|${PANTS_NUMBER})`,
   "i",
 );
 const unnegated = (pattern: RegExp, text: string): boolean => {
@@ -258,7 +258,8 @@ export const asksForSize = (text: string): boolean => {
         String.raw`|\b(voc[e\u00ea]|vc)\s+(usa|veste|visto)\b(?!\s+(?:o\s+)?(?:cart|pix|dinheiro|boleto|whats))` +
         String.raw`|\b(seu|sua)\s+(tamanho|${NUMBER}|manequim|cintura)\b|\bqual\s+a\s+(sua\s+)?cintura\b|\bescolher\s+o\s+tamanho\b`,
       "i",
-    ).test(q) || unnegated(new RegExp(String.raw`\b${PANTS_NUMBER}`, "i"), q),
+    // "O número da sua calça é 44?" confirms the number she gave; it does not ask it (/code-review of §80).
+    ).test(q) || unnegated(new RegExp(String.raw`\b${PANTS_NUMBER}(?!\s+(?:[e\u00e9]|era)\s+\d)`, "i"), q),
   );
 };
 

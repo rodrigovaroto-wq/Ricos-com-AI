@@ -67,7 +67,7 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
     expect(turn).toContain(`pathSettled: paymentChoice !== null || knownRegion?.cod === false,`);
     // Arm B, region settled the path, she chose nothing: the order of today holds — the name, never the link.
     const regionOnly = { ...afterChoice, choiceMade: false, identityAtCheckout: true };
-    expect(missingForLink(regionOnly)).toBe("name");
+    expect(missingForLink(regionOnly)).toBe("payment"); // /code-review: arm B waits for her choice, never asks the name first
     expect(sendLinkNow({ ...regionOnly, nameKnown: false, yesBesideQuestion: false })).toBe(false);
     expect(missingForLink({ ...regionOnly, choiceMade: true })).toBeNull();
   });

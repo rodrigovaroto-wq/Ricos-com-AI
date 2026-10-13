@@ -698,6 +698,9 @@ describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => 
       "comprei ontem, quando chega?",
       "comprei uma dessas de vocês e enrolou",
       "comprei uma dessas ontem e ainda não chegou",
+      // /code-review: the sign after a comma, in the same sentence
+      "já comprei uma dessas, até agora nada",
+      "comprei uma dessas semana passada, não chegou",
       "comprei uma dessas daqui ontem",
     ]) {
       expect(statesPastPurchase(frase), frase).toBe(true);
