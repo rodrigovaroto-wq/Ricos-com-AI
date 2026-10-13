@@ -2129,3 +2129,14 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   ciclo de autoaperfeiçoamento, a bateria de personas com subagentes e o `/code-review`; só então a fase conta
   como feita. Memória:
   [`fim-de-fase-personas-e-code-review.md`](../../../.claude/memory/fim-de-fase-personas-e-code-review.md).
+
+## Rodada 21 — operador, 2026-10-13
+
+- **R21.1 — Meta do agente: resolver sem pessoa.** A Malu deve ser o mais eficiente possível e delegar o mínimo ao operador:
+  adaptar-se a cada caso e contornar corretamente qualquer situação sem passar para um humano. É meta de construção, não
+  mudança de estrutura: a ação segue em código determinístico (R11.1), os gates seguem valendo, e quem pede uma pessoa
+  continua sendo atendida. Aplicações imediatas: pergunta sobre pedido existente → a Malu lê o status e responde (não "vou
+  checar"); veto de prazo/cobertura → resposta fixa segura (não handoff). Registrado no `CLAUDE.md`.
+- **R21.2 — Troca e devolução pela Logzz.** Dentro dos 7 dias, a Malu passa o número do suporte da Logzz e pede para a cliente
+  solicitar lá a troca ou o cancelamento; a Logzz resolve. O R$ 27 da troca deixa de ser cobrado da cliente (o operador aceitou
+  não recuperar). Supera R17.1 no fluxo da troca. O número é valor de negócio: mora no `BUSINESS_CONFIG`.

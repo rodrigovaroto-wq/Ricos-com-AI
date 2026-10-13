@@ -51,6 +51,12 @@ toda ação — tamanho, endereço, identidade, cobertura, checkout, régua — 
 determinístico em volta da chamada. Quando um gate veta, o motivo volta ao modelo e ele
 reescreve; o texto vetado nunca entra no histórico da conversa.
 
+**Meta do agente como um todo (operador, 2026-10-13, R21.1):** a Malu resolve sozinha — o máximo de eficiência e o
+mínimo delegado ao operador. Toda situação deve ter um contorno correto e eficiente sem passar para uma pessoa; a pessoa
+é o último recurso, não o caminho padrão. É a régua de toda construção (um veto vira resposta segura, não handoff; um dado
+que o sistema tem vira resposta, não "vou checar"), sem mudar a arquitetura acima: a ação continua em código
+determinístico, e os gates e o pedido explícito de pessoa continuam valendo.
+
 **Cinco coisas que este projeto decidiu NÃO fazer** — reabrir exige motivo novo, não
 preferência:
 
