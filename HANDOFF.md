@@ -26,6 +26,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   prazo do §87. Prioridade 1 junto com o "moro sozinha" do operador.
 > - Achados abertos do `…7967` antigo (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
 >   oferta não chama; "Chega quando?" engolido pela resposta de Pix pendente; "Paguei ja 116" sem pedido no banco (**operador confere na Coinzz**).
+> - **CI em 4,5 min** (era 24): mutações em 8 máquinas paralelas (`GUARDS_SHARD`, grafo §90), sem tirar nenhuma verificação.
 > - Ferramenta de arquivo: agora mascara link com dados e nome digitado (`maskPii` na raiz, vale para o Hermes) e lê o custo `numeric`.
 > - **Análise completa, mensagem por mensagem** (13/10, noite) nos dois arquivos da rodada; resumo no grafo §89. Lista de consertos:
 >   (1) pós-venda sem pedido não vai a pessoa; (2) resposta fixa de preço/parcela quando as reescritas esgotam; (3) "ok" depois do link:

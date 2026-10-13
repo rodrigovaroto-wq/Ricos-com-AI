@@ -2936,6 +2936,17 @@ reescritas vetadas (preço, parcela) e foi a uma pessoa — falta a resposta fix
   mediana, 48 s no pior — observar no lote da rodada antes de mexer.
 **Estado:** ferramenta no ar (PR #60); análise no PR #61; consertos na próxima leva, depois da rodada.
 
+## 90. CI de 24 para 4,5 minutos sem tirar nenhuma verificação (2026-10-13)
+
+**Sintoma:** cada push esperava ~24 min de CI; o operador pediu para acelerar sem perder eficiência. **Causa:** as mutações das guardas
+(`pnpm verificar:guardas`, 548) levavam 21,5 dos 24 min num runner só de 4 núcleos (já paralelas por núcleo desde 30/09); o resto
+(lint, typecheck, testes, `dev:gates`, régua, `typecheck:function`) cabe em ~3 min. **Caminho descartado:** runner próprio na máquina do
+operador — esta sessão roda na nuvem, sem acesso a ela, e o ganho viria do mesmo lugar (mais núcleos). **Correção:** `GUARDS_SHARD=i/n`
+em `src/dev/verify-guards.ts` (a fatia i pega toda n-ésima mutação a partir da i-ésima; a união das n é a lista inteira) e um job
+`guards` em matriz de 8 no `.github/workflows/ci.yml`, ao lado do `check`. **Medido:** fatia local de 92 mutações em 3m19s; no CI do
+commit `7732634`, 9 jobs ao mesmo tempo, verde em 4m29s, 548/548. **Custo:** mais minutos de runner por push (9 máquinas em vez de 1).
+**Guarda:** a soma das fatias é a lista inteira (conferido 548/548); uma mutação que escapa em qualquer fatia deixa o CI vermelho.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
