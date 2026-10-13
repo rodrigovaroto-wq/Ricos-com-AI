@@ -680,9 +680,8 @@ const negatedBefore = (t: string, at: number): boolean =>
  * never in a clause about another product, another store, the past or someone else. Only
  * the phrases that can only mean an order with us count from the history.
  */
-// "uma dessas", "um desses" names the kind of product, not her order (E4, 2026-10-13).
 const OTHER_PURCHASE =
-  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|(?:um|uma)\s+(?:dess|dest)[ae]s?|shopee|mercado|cinta|ano\s+passado|loja|internet|site|online|ultima\s+vez)\b/;
+  /\b(outra|outro|outras|outros|antes(?!\s+de\s+ontem)|parecid\w*|shopee|mercado|cinta|ano\s+passado|loja|internet|site|online|ultima\s+vez)\b/;
 /**
  * A store that is not us wins over everything, "colete" included: "comprei um colete
  * parecido em outra loja" is an objection (code review, 2026-09-24). "Site" is left out on
@@ -701,6 +700,13 @@ const OTHER_STORE = /\b(outra\s+loja|outras\s+lojas|shopee|mercado(\s+livre)?|in
  * is still the pre-sale question — and so is the "já": "quando sai pra entrega?" is not.
  */
 const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
+/**
+ * "uma dessas", "um desses" names the kind of product, not her order (E4, 2026-10-13: "já comprei
+ * uma dessas e enrolou" went to a person) — unless the clause carries the fate of an order with us:
+ * "comprei uma dessas ontem e não chegou", "…daqui", "paguei uma dessas no pix" (second review, §82).
+ */
+const KIND_OF_PRODUCT = /\b(?:um|uma)\s+(?:dess|dest)[ae]s?\b/;
+const OUR_ORDER_SIGN = /\b(cheg\w*|entreg\w*|rastrei\w*|pedido|daqui|por\s+aqui|pix)\b/;
 const ORDER_WITH_US =
   /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz|(?:quero|queria|preciso|gostaria\s+de)\s+cancelar\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|cancela\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|ja\s+saiu\s+(?:pra|para)\s+(?:a\s+)?entrega)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
@@ -715,6 +721,7 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
       const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
       if (negatedBefore(t, at) || OTHER_STORE.test(clause)) continue;
       if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
+      if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause)) continue;
       return true;
     }
   }
@@ -744,6 +751,7 @@ export const saysPaid = (message: string): boolean => {
     // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
     if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|deu\s+baixa|foi\s+(?:aprovad|confirmad|compensad|liberad|processad|identificad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
+    if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause)) continue;
     return true;
   }
   return false;

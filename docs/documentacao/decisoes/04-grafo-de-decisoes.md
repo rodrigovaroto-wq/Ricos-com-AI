@@ -2691,6 +2691,11 @@ solto (perde a Lu: "já fez 3 dias que comprei, quando chega?"); exigir marcador
 vencendo. Efeito em `saysPaid`: "paguei uma dessas" deixa de contar como pago (coerente).
 **Guarda:** `tests/interpret.test.ts` (4 objeções, 5 pedidos nossos); mutação `E4-uma-dessas-nao-e-pedido`. **Fica:** "comprei uma dessa
 ontem, quando chega?" sem pedido em `orders` nem link enviado não vai mais para uma pessoa (as outras duas redes seguram quem tem pedido).
+**Segunda revisão (ressalva, consertada):** dentro de `OTHER_PURCHASE`, "comprei uma dessas ontem e ainda não chegou", "comprei uma
+dessas daqui ontem" e "paguei uma dessas no pix agora" deixavam de ser pedido nosso. "Uma dessas" virou `KIND_OF_PRODUCT` e cede a
+`ABOUT_US` e a `OUR_ORDER_SIGN` (chegou, entrega, rastreio, pedido, daqui, por aqui, pix) na mesma oração; descartado contar só com outra
+loja/tempo (reabre a frase do E4). Mutação nova `E4-uma-dessas-pedido-nosso`. Resíduo: "comprei uma dessas na feira e não chegou" conta
+como pedido nosso.
 **Estado:** no código; publicar na v18.
 
 ## 83. A garantia de troca vetada como prazo de entrega (E4, 2026-10-13)

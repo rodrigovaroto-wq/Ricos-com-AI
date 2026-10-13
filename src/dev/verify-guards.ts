@@ -3453,8 +3453,16 @@ const MUTATIONS: Mutation[] = [
     id: "E4-uma-dessas-nao-e-pedido",
     bug: "\"já comprei uma dessas e enrolou\" (objeção, outro produto) lido como pedido conosco → handoff post_sale (E4, 13/10)",
     files: ["src/agent/interpret.ts"],
-    from: String.raw`|parecid\w*|(?:um|uma)\s+(?:dess|dest)[ae]s?|shopee|`,
-    to: String.raw`|parecid\w*|shopee|`,
+    from: String.raw`const KIND_OF_PRODUCT = /\b(?:um|uma)\s+(?:dess|dest)[ae]s?\b/;`,
+    to: "const KIND_OF_PRODUCT = /(?!)/;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
+  },
+  {
+    id: "E4-uma-dessas-pedido-nosso",
+    bug: "\"comprei uma dessas ontem e ainda não chegou\" deixava de ser pedido nosso — sem o handoff de pós-venda (segunda revisão, §82)",
+    files: ["src/agent/interpret.ts"],
+    from: String.raw`const OUR_ORDER_SIGN = /\b(cheg\w*|entreg\w*|rastrei\w*|pedido|daqui|por\s+aqui|pix)\b/;`,
+    to: "const OUR_ORDER_SIGN = /(?!)/;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/interpret.test.ts"],
   },
   {

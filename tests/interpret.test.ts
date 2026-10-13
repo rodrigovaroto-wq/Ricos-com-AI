@@ -19,6 +19,7 @@ import {
   missingForLink,
   saysGoodbye,
   sendLinkNow,
+  saysPaid,
   statesPastPurchase,
   type Interpretation,
 } from "@/agent/interpret.js";
@@ -696,10 +697,14 @@ describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => 
       "já comprei uma dessas com vocês, cadê?",
       "comprei ontem, quando chega?",
       "comprei uma dessas de vocês e enrolou",
+      "comprei uma dessas ontem e ainda não chegou",
+      "comprei uma dessas daqui ontem",
     ]) {
       expect(statesPastPurchase(frase), frase).toBe(true);
     }
     expect(statesPastPurchase("fiz o pedido ontem", false)).toBe(true);
+    // Segunda revisão (§82): "uma dessas" com sinal do pedido nosso é o colete do anúncio.
+    expect(saysPaid("paguei uma dessas no pix agora")).toBe(true);
   });
 });
 
