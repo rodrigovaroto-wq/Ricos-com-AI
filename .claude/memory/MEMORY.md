@@ -35,3 +35,4 @@ salvamento e a política de crescimento.
 - [Coinzz só aceita CEP em dígitos](coinzz-cep-so-digitos.md) — com hífen a consulta de cobertura dá 422; falha de consulta nunca é "sem entrega" (L2, 08/10); sonde com o formato que o código manda.
 - [Fim de fase: personas e /code-review](fim-de-fase-personas-e-code-review.md) — ao terminar uma FASE inteira do plano (E1, E2…; não cada E1.x): loop de autoaprimoramento, personas com subagentes, depois /code-review (operador, 11/10).
 - [Caixa do teste de L3](modelo-de-caixa-do-teste.md) — verba no cartão (fecha 22, vence 29), produto e taxas do COD no saldo de expedição, devolução = frete + manuseio + taxas já pagas (R$ 86,56); pico R$ 752, sobra R$ 323 com R$ 700 de verba (09/10).
+- [`BUSINESS_CONFIG` pelo agente](business-config-pelo-agente.md) — operador autorizou gravar o segredo sem consultar (13/10); sempre JSON validado + hash + `job:"health"`: JSON errado derruba a `turn` no boot.
