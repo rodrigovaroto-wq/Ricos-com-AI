@@ -3645,8 +3645,8 @@ const MUTATIONS: Mutation[] = [
     id: "R21-papel-explicito",
     bug: "'atendimento humano', 'vendedora', 'responsável' não contavam como pedido explícito",
     files: ["src/agent/interpret.ts"],
-    from: "|atendimento\\s+humano|vendedora?|responsavel|gerente|",
-    to: "|gerente|",
+    from: "|atendimento\\s+humano|vendedora?|responsavel(?!",
+    to: "|zzatendimento\\s+humano|zzvendedora?|zzresponsavel(?!",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r21-post-sale-decisions.test.ts"],
   },
   {
