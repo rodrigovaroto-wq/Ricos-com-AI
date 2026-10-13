@@ -150,7 +150,7 @@
         "toEmail": "={{ $json.notify }}",
         "subject": "=Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}",
         "emailFormat": "text",
-        "text": "=Aviso, não precisa responder no WhatsApp: a Malu continua atendendo essa cliente e responde a próxima mensagem dela. Este e-mail só mostra o que ela não resolveu sozinha (ninguém chama a cliente).\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\nO que ela ouviu: {{ $json.reply }}\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}\ncusto até aqui: R$ {{ $json.costBrl }}",
+        "text": "={{ $json.silenced ? 'ATENÇÃO: esta conversa ficou PARADA (teto de custo ou falha do provedor): a Malu não responde mais a essa cliente até alguém limpar o handoff_at do lead.' : 'Aviso, não precisa responder no WhatsApp: a Malu continua atendendo essa cliente e responde a próxima mensagem dela.' }} Este e-mail mostra o que ela não resolveu sozinha; se o motivo pedir ação no painel (Coinzz, Logzz), ela é sua.\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\nO que ela ouviu: {{ $json.reply }}\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}\ncusto até aqui: R$ {{ $json.costBrl }}",
         "options": {
           "appendAttribution": false
         }

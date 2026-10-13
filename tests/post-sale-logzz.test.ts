@@ -217,11 +217,11 @@ describe("o turno liga as duas decisões", () => {
 
   it("o pós-venda lê os pedidos, do mais novo ao mais velho, e responde pelo sendFixed, sem marcar handoff_at", () => {
     expect(block).toContain("orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`");
-    expect(block).toContain('if (((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") && !asksPerson) {');
+    expect(block).toContain('if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {');
     expect(block).toContain("cancelling === null && returnsOnly(orders) ? returnsLine : null");
     // The same fixed line twice is a loop: the second time, a person.
     expect(block).toContain("reply === null || reply === lastOutbound ? null : await sendFixed(reply, ");
-    const postSale = block.slice(block.indexOf('if (((handoffKind === "post_sale"'), block.indexOf("if (handoffKind !== null) {"));
+    const postSale = block.slice(block.indexOf('if ((handoffKind === "post_sale" && !asksReturn)'), block.indexOf("if (handoffKind !== null) {"));
     // The slice must exist: the v20 version sliced from an anchor that never matched and passed empty.
     expect(postSale.length).toBeGreaterThan(200);
     expect(postSale).not.toContain("handoff_at:");
@@ -231,7 +231,7 @@ describe("o turno liga as duas decisões", () => {
   });
 
   it("entregue: o modelo responde com os fatos do pedido, pela cadeia, e fora de hora fica para a abertura", () => {
-    const postSale = block.slice(block.indexOf('if (((handoffKind === "post_sale"'), block.indexOf("if (handoffKind !== null) {"));
+    const postSale = block.slice(block.indexOf('if ((handoffKind === "post_sale" && !asksReturn)'), block.indexOf("if (handoffKind !== null) {"));
     expect(postSale).toContain('if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {');
     expect(postSale).toContain("await draftWith(deliveredDirective(orders, new Date(), logzzPhone), \"post_sale\", gate, replyDeadline);");
     expect(postSale).toContain("if (draft?.deferred) return await deferDraft(");

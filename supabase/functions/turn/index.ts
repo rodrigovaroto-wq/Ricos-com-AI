@@ -756,9 +756,10 @@ const maskDraft = (text: string, names: readonly string[] = []): string => {
     .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]")
     .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[cpf]")
     .replace(/\b\d{5}-?\d{3}\b/g, "[cep]")
-    .replace(/(?:\+?55\s?)?\(?\b\d{2}\)?\s?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]");
+    .replace(/\+?\d(?:[\s().-]?\d){8,}/g, "[telefone]")
+    .replace(/\b(?:rua|r\.|avenida|av\.?|travessa|alameda|estrada|rodovia)\s+[^,\n.]{2,40}(?:,\s*\d+)?/gi, "[endereço]");
   for (const word of names.filter((n) => n.length >= 3)) {
-    out = out.replace(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), "[nome]");
+    out = out.replace(new RegExp(`(?<![\\p{L}])${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\p{L}])`, "giu"), "[nome]");
   }
   return out.slice(0, 700);
 };
@@ -2581,6 +2582,7 @@ const handleTurn = async (
     };
     const base = `${extra.system ?? systemPrompt(turnConfig, null)} ${directive}`;
     let correction = "";
+    const earlier: string[] = [];
     let result: { text: string; deferred: boolean } | null = null;
     for (let rewrites = 0; rewrites <= maxRewrites && spent < ceilingBrl; rewrites += 1) {
       let attempt: ModelCall;
@@ -2617,9 +2619,11 @@ const handleTurn = async (
         reasons: gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
         vetoedText: attempt.text,
         maxRewrites,
+        earlierReasons: earlier,
       });
+      earlier.push(...gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate).filter((r: string) => !earlier.includes(r)));
       if (next.kind === "defer") result = { text: attempt.text, deferred: true };
-      if (next.kind !== "rewrite") break;
+      if (next.kind !== "rewrite" || Date.now() >= deadline) break;
       correction = ` ${next.instruction}`;
     }
     await db(`conversations?id=eq.${conversation.id}`, {
@@ -2727,6 +2731,8 @@ const handleTurn = async (
     ]);
     return json(200, {
       status: "handoff",
+      // Tells the e-mail that this conversation IS stopped (cost ceiling): the template says so (R22 review).
+      silenced: true,
       reason: "teto de custo da conversa",
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY, fastOpening),
@@ -2782,6 +2788,7 @@ const handleTurn = async (
     ]);
     return json(200, {
       status: "handoff",
+      silenced: !reachable,
       reason,
       // The Gemini key used to ride in the URL query string, and Deno's network error
       // carries the whole URL in `message` — which leaves here in the JSON body and lands
@@ -3236,7 +3243,8 @@ const handleTurn = async (
   }
   // A person asked for twice in a row: the same line again would be a loop, so the model answers (R22.1).
   const handoffRead = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly);
-  const handoffKind = handoffRead === "human" && lastOutbound === HUMAN_HANDOFF_REPLY ? null : handoffRead;
+  // The same goes for the order line: a second "meu pedido não chegou" after "não consegui ver o andamento" is the model's.
+  const handoffKind = (handoffRead === "human" && lastOutbound === HUMAN_HANDOFF_REPLY) || (handoffRead !== null && handoffRead !== "human" && lastOutbound === ORDER_HANDOFF_REPLY) ? null : handoffRead;
   // Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
   // agent sends its number and nobody is called. Without a valid number in the config, as before.
   // A reply the chain refuses falls through to what came before it.
@@ -3280,7 +3288,7 @@ const handleTurn = async (
   // order's facts. No `handoff_at`: the conversation stays with the agent. Nothing to say for sure (no order on
   // file, a status outside the vocabulary, a failed attempt), a person asked for, or the same line again keeps
   // the person. Index `orders_lead_idx`, then her few rows sorted.
-  if (((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") && !asksPerson) {
+  if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {
     const orders: OrderView[] = ((await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`).catch(() => null)) ?? [])
       .map((o: { status: string; payment_method: string | null; scheduled_for: string | null }) => ({
         stage: isKnownOrderStatus(o.status) ? stageForOrder(o.status) : null,
@@ -3341,10 +3349,13 @@ const handleTurn = async (
   // "quero 2, M e G" twelve days ago would turn today's "quero o M" into the kit-of-2 link.
   const unitsAt = typeof lead.units_at === "string" ? Date.parse(lead.units_at) : NaN;
   const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;
-  const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;
+  const unitsAsked: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;
   const maxUnits = Math.max(1, ...kits.map((k) => k.units));
-  if (units > maxUnits) {
-    const limited = await sendFixed(kitLimitReply(maxUnits), `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`, "cod", {}, false, maxUnits, "auto");
+  // She insists after the limit line: the biggest kit is what she gets (the same line twice is a loop, R22 review).
+  const insisted = unitsAsked > maxUnits && lastOutbound === kitLimitReply(maxUnits);
+  const units: number = insisted ? maxUnits : unitsAsked;
+  if (unitsAsked > maxUnits && !insisted) {
+    const limited = await sendFixed(kitLimitReply(maxUnits), `a cliente quer ${unitsAsked} peças, mais que o maior kit (${maxUnits})`, "cod", {}, false, maxUnits, "auto");
     if (limited) return limited;
   }
   const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);
@@ -3657,7 +3668,7 @@ const handleTurn = async (
   const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
   if (units > 1 && !kitUrl) {
     const pathMax = Math.max(1, ...kits.filter((k) => k.path === linkPath).map((k) => k.units));
-    const limited = await sendFixed(
+    const limited = lastOutbound === kitLimitReply(pathMax) ? null : await sendFixed(
       kitLimitReply(pathMax),
       `a cliente quer ${units} peças no ${linkPath === "cod" ? "pagamento na entrega" : "antecipado"}, e não há kit de ${units} nesse caminho`,
       linkPath, {}, false, pathMax, "auto",
@@ -4069,6 +4080,9 @@ const handleTurn = async (
     });
     triedReasons.push(...blockedNow.filter((r: string) => !triedReasons.includes(r)));
 
+    // Out of time (R22.2 review): five attempts must still fit the 150 s of the platform, so a rewrite starts only
+    // before the reply's deadline; past it, the turn ends on the safe reply instead of a 504 with nothing sent.
+    if (outcome.kind === "rewrite" && Date.now() >= replyDeadline) outcome = { kind: "fallback", reason: `sem tempo para reescrever: ${blockedNow.join("; ")}` };
     if (outcome.kind !== "rewrite") break;
     correction = outcome.instruction;
     rewritesUsed += 1;
@@ -4134,7 +4148,7 @@ const handleTurn = async (
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(plain(p)));
   // Her haggle or installments ("parcelam ou fazem por 100 no pix?", real test 2026-10-13, R22.1) gets what is
   // true about the prepaid, never a person.
-  const asksOffer = parts.some((p) => /\b(?:parcel\w*|descont\w*|pix|cartao|credito|vezes)\b|\b\d{2,4}\s*(?:reais|real|conto)\b/.test(plain(p)));
+  const asksOffer = parts.some((p) => /\b(?:parcel\w*|descont\w*|credito)\b|\b\d{2,4}\s*(?:reais|real|conto)\b|\bpix\b[^.!?]{0,30}\b(?:menos|barat\w*)\b/.test(plain(p)));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
   // Beside another question ("qual o prazo? e serve pra quem fez cirurgia?") it goes to a person, unless every draft fell
   // on the deadline or the coverage veto (`deadlineVetoOnly`, below).
@@ -4183,6 +4197,7 @@ const handleTurn = async (
     ]);
     return json(200, {
       status: "handoff",
+      silenced: true,
       reason,
       reply: HOLDING_REPLY,
       bubbles: paced(HOLDING_REPLY, fastOpening),

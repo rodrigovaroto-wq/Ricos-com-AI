@@ -54,9 +54,10 @@ describe("pós-venda sem pedido (teste real 2026-10-13: 'moro sozinha, não tenh
     expect(handoffFor(post, "Mas eu moro sozinha moça, nao tenho quem receber por mim", true, true)).toBeNull();
     expect(handoffFor(post, "Mas eu moro sozinha moça, nao tenho quem receber por mim", true, false)).toBe("post_sale");
   });
-  it("um cancelamento com o link no chat continua lido (o pedido pode estar chegando)", () => {
+  it("cancelar só com o link no chat também não é cancelamento (não há pedido a cancelar); com pedido, é", () => {
     const cancel = { ...post, post_sale: false, wants_cancel: true } as Interpretation;
-    expect(handoffFor(cancel, "quero cancelar", true, true)).toBe("cancel");
+    expect(handoffFor(cancel, "desisti, pode cancelar", true, true)).toBeNull();
+    expect(handoffFor(cancel, "quero cancelar", true, false)).toBe("cancel");
   });
 });
 
@@ -140,5 +141,60 @@ describe("R21.8 — o rascunho vetado é gravado mascarado e nunca lido de volta
   it("nenhuma leitura de histórico toca gate_traces (o vetado não volta ao modelo)", () => {
     expect(turn.match(/gate_traces/g)?.length).toBeLessThanOrEqual(4); // the table's name in recordTraces and in comments only
     expect(turn).not.toMatch(/db\([^)]*gate_traces\?/);
+  });
+});
+
+describe("revisão do R22 — laços, prazo e falsos positivos", () => {
+  it("o time de terceiros (Logzz, entrega) não é oferta de pessoa da loja", () => {
+    for (const text of [
+      "Se precisar trocar, a equipe da Logzz te atende pelo 11 99999-9999.",
+      "Se precisar de troca, o time da Logzz te ajuda.",
+      "Se preferir pagar na entrega, nosso time de entrega fala com você antes.",
+    ]) expect(blocked(text), text).not.toContain("humanity_claim");
+    // Negação: a oferta da própria loja continua vetada.
+    expect(blocked("Se precisar, o time te atende por aqui.")).toContain("humanity_claim");
+  });
+
+  it("a mesma frase fixa não se repete: pedido, pessoa e limite de peças pulam a frase se ela foi a última", () => {
+    expect(turn).toContain("lastOutbound === ORDER_HANDOFF_REPLY");
+    expect(turn).toContain("lastOutbound === HUMAN_HANDOFF_REPLY");
+    expect(turn).toContain("const insisted = unitsAsked > maxUnits && lastOutbound === kitLimitReply(maxUnits);");
+    expect(turn).toContain("lastOutbound === kitLimitReply(pathMax) ? null");
+  });
+
+  it("a resposta do status do pedido também sai para quem pediu uma pessoa", () => {
+    expect(turn).toContain('if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {');
+    expect(turn).not.toContain('handoffKind === "cancel") && !asksPerson) {');
+  });
+
+  it("cinco tentativas cabem no prazo: o laço principal e o draftWith param ao passar do prazo da resposta", () => {
+    expect(turn).toContain("outcome.kind === \"rewrite\" && Date.now() >= replyDeadline");
+    expect(turn).toContain("if (next.kind !== \"rewrite\" || Date.now() >= deadline) break;");
+    // O draftWith também acumula os motivos (R22.2).
+    expect(turn).toContain("earlierReasons: earlier,");
+  });
+
+  it("o e-mail diz a verdade: conversa parada (teto, provedor) leva silenced; a que continua não", () => {
+    expect(turn.match(/silenced: true/g)?.length).toBe(2);
+    expect(turn).toContain("silenced: !reachable,");
+    const email = readFileSync("n8n/workflows/turno-da-agente.json", "utf8");
+    expect(email).toContain("$json.silenced ?");
+  });
+
+  it("o desconto/parcela só pega barganha de verdade: 'às vezes eu suo' e 'aceita pix na entrega?' não", () => {
+    const re = turn.match(/const asksOffer = parts\.some\(\(p\) => (\/.*?\/)\.test\(plain\(p\)\)\);/s)?.[1];
+    expect(re).toBeDefined();
+    const rx = new RegExp(re!.slice(1, re!.lastIndexOf("/")));
+    expect(rx.test("parcelam ou fazem por 100 no pix?")).toBe(true);
+    expect(rx.test("tem desconto no pix?")).toBe(true);
+    expect(rx.test("as vezes eu suo muito, ele esquenta?")).toBe(false);
+    expect(rx.test("aceita pix na entrega?")).toBe(false);
+  });
+
+  it("a máscara do rascunho cobre nome com acento, telefone com espaços e rua", () => {
+    const mask = turn.slice(turn.indexOf("const maskDraft ="), turn.indexOf("return out.slice(0, 700);"));
+    expect(mask).toContain("\\p{L}");
+    expect(mask).toContain("[endereço]");
+    expect(mask).toContain("{8,}");
   });
 });

@@ -401,7 +401,7 @@ export const closesConversation = (message: string): boolean =>
  * Cancel and post-sale need an order to be about (`orderContext`): an order on file for the lead, or a
  * checkout link already sent in the conversation. "E se eu não gostar, consigo cancelar depois?" before any
  * purchase is a pre-sale question the agent answers. A link alone (`linkOnly`: no order on file, no purchase
- * said) makes a cancel, never a post-sale: "moro sozinha, não tenho quem receber" after the link is a sale's
+ * said) is neither a cancel nor a post-sale ("desisti, pode cancelar" before any order has nothing to cancel): "moro sozinha, não tenho quem receber" after the link is a sale's
  * doubt (real test 2026-10-13).
  */
 export const handoffFor = (
@@ -410,7 +410,7 @@ export const handoffFor = (
   orderContext: boolean,
   linkOnly = false,
 ): HandoffKind | null => {
-  if (orderContext && i.wants_cancel) return "cancel";
+  if (orderContext && !linkOnly && i.wants_cancel) return "cancel";
   // Everything about an order goes to a person EXCEPT a happy close: "obrigada, já
   // finalizei" handed the buyer to a person (persona round). Requiring a question instead
   // lost "ficou pequeno", "me cobraram frete" (seventh review) — exclude, never require.

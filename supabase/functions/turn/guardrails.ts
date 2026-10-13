@@ -2250,7 +2250,9 @@ const gates: readonly Gate[] = [
         ];
         for (const r of offers) {
           const m = r.exec(t);
-          if (m && !deniedJustBefore(t, m.index)) return "offers to call a person, and nobody can come";
+          // Somebody else's team is not the shop's person: "a equipe da Logzz te atende" is the exchange line the
+          // post-sale itself teaches (R22 review).
+          if (m && !deniedJustBefore(t, m.index) && !/\b(?:logzz|coinzz|entrega|entregador\w*|correios|transportadora|suporte)\b/.test(m[0])) return "offers to call a person, and nobody can come";
         }
       }
 

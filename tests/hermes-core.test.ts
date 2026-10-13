@@ -47,7 +47,7 @@ describe("hermes: o pacote de evidência", () => {
   });
   it("mostra o veto que a resposta levou", () => {
     expect(conversa).toContain("price_promise — promises a discount with no number behind it");
-    expect(conversa).toContain("veto num rascunho anterior (o texto vetado não foi gravado; o texto acima passou)");
+    expect(conversa).toContain("veto num rascunho anterior (o texto acima passou; o rascunho vetado, quando gravado, vem mascarado abaixo)");
   });
 });
 
