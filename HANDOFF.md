@@ -13,6 +13,30 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-13, ~20h30 UTC — rodada de testes reais começou (LEIA PRIMEIRO).** PR #60 (v21–v22, R21.6) **mergeado** na `main`.
+> - Os números `…5983` (operador) e `…7967` tinham histórico de 08/10 que calava ou confundia a Malu: arquivados com análise e apagados
+>   (`docs/agente-ia/10-auditoria/testes-reais/2026-10-08-operador-pre-rodada.md`, `2026-10-13-tester-7967-pre-rodada.md`).
+> - **Teste 1 (operador, `…5983`, novo)** arquivado e analisado, número **ainda no banco**:
+>   [`2026-10-13-r1-operador.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md). Venda até o link certa; **falhou no
+>   fim**: "moro sozinha, não tenho quem receber" (antes de existir pedido) virou pessoa — o pós-venda sem pedido gravado cai no `handOff`
+>   (`turn/index.ts` ~3258). Prioridade 1 da próxima leva.
+> - **Teste do `…7967` (novo, braços A=1 B=1)** arquivado e analisado, número **ainda no banco**:
+>   [`2026-10-13-r1-testador-7967.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-testador-7967.md). Até o kit, certo; **falhou**
+>   em "parcelam ou fazem por 100 no pix?": 3 rascunhos vetados (preço, parcela) → pessoa. Precisa de resposta fixa de preço/parcela, como a de
+>   prazo do §87. Prioridade 1 junto com o "moro sozinha" do operador.
+> - Achados abertos do `…7967` antigo (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
+>   oferta não chama; "Chega quando?" engolido pela resposta de Pix pendente; "Paguei ja 116" sem pedido no banco (**operador confere na Coinzz**).
+> - **CI em 4,5 min** (era 24): mutações em 8 máquinas paralelas (`GUARDS_SHARD`, grafo §90), sem tirar nenhuma verificação.
+> - Ferramenta de arquivo: agora mascara link com dados e nome digitado (`maskPii` na raiz, vale para o Hermes) e lê o custo `numeric`.
+> - **Análise completa, mensagem por mensagem** (13/10, noite) nos dois arquivos da rodada; resumo no grafo §89. Lista de consertos:
+>   (1) pós-venda sem pedido não vai a pessoa; (2) resposta fixa de preço/parcela quando as reescritas esgotam; (3) "ok" depois do link:
+>   tirar URLs antes de procurar "?" em `ackGoesUnanswered`; (4) falsos positivos de `installment_promise` ("também") e `price_promise`
+>   ("Por R$ 100 eu não consigo") — esperam a frase real (R21.6); (5) gravar o rascunho vetado mascarado no trace (**R21.8**, aprovado);
+>   (6) pôr no prompt os dois fatos confirmados (**R21.7**: horário não se escolhe, chega ao longo do dia; a entrega não vem pelo correio),
+>   já na base.
+> - **Próximo:** terminar a rodada (sócio e mãe) → arquivar → consertar os achados de uma vez (teste, espelho, mutação, revisão Opus,
+>   grafo) → publicar v23 → `--delete` dos números.
+
 > **2026-10-13, ~19h UTC — `turn` v22 no ar (LEIA PRIMEIRO — próxima sessão começa aqui).** `agent_version` 22, função v109, commit `4dc8aa7`.
 > - **v21** (18h30): R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min,
 >   entregue resolvido pela Malu, troca/devolução pela Logzz só quando ela pede, prazo + outra pergunta; consertos do `/code-review`.

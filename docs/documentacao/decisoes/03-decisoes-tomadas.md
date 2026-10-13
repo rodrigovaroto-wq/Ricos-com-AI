@@ -2160,3 +2160,10 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   código. Motivo: 81 turnos em produção, **0** vetos de prazo — as frases que a v21/v22 perseguiam foram inventadas na revisão, e
   cada conserto de uma abria outra (grafo §88). Vale também para as revisões: um achado de gate sem frase real é registrado, não
   consertado, salvo afrouxamento que o próprio conserto em curso introduziu.
+- **R21.7 — Dois fatos da entrega confirmados** (operador, 2026-10-13, na análise da rodada 1): na entrega (Logzz) **não se escolhe
+  horário** — ela escolhe o dia, e o pedido chega ao longo do dia; e o pagamento na entrega **não vem pelo correio** (vem pelo
+  entregador da Logzz). Os dois eram ditos pelo modelo sem estar na base; agora estão na base e entram no prompt na próxima leva, com
+  `tests/prompt.test.ts`.
+- **R21.8 — O rascunho vetado é gravado, mascarado** (operador, mesmo dia): para a R21.6 poder ser cumprida num veto (a frase real é
+  a prova), o texto que o gate barrou passa a ser gravado com `maskPii` no trace do gate. Ele **nunca** entra no histórico da conversa
+  (a regra de R11 continua: o vetado não é lido pelo modelo depois). Implementado na próxima leva, com teste de que o histórico não o lê.

@@ -4544,7 +4544,12 @@ const check = async (mu: Mutation): Promise<Result> => {
   }
 };
 
-const todo = MUTATIONS.filter((m) => wanted.length === 0 || wanted.includes(m.id));
+// `GUARDS_SHARD=i/n` (CI, 2026-10-13): this run takes every n-th mutation from the i-th, so n machines split the list
+// with nothing left out; the union of the n shards is the whole list.
+const shard = /^(\d+)\/(\d+)$/.exec(process.env.GUARDS_SHARD ?? "");
+const [shardIndex, shardCount] = shard ? [Number(shard[1]), Number(shard[2])] : [0, 1];
+if (shardCount < 1 || shardIndex >= shardCount) throw new Error(`GUARDS_SHARD inválido: ${process.env.GUARDS_SHARD}`);
+const todo = MUTATIONS.filter((m, i) => (wanted.length === 0 || wanted.includes(m.id)) && i % shardCount === shardIndex);
 const results: Result[] = new Array(todo.length);
 let next = 0;
 await Promise.all(
@@ -4555,7 +4560,7 @@ await Promise.all(
     }
   }),
 );
-console.log(`# ${jobs} em paralelo`);
+console.log(`# ${jobs} em paralelo${shard ? ` · fatia ${shardIndex + 1} de ${shardCount}` : ""}`);
 
 console.log("# Mutação das guardas — cada bug histórico reinstalado precisa ser pego\n");
 for (const r of results) console.log(`- ${r.caught ? "pegou   " : "ESCAPOU "} ${r.id}: ${r.bug}${r.note ? ` (${r.note})` : ""}`);

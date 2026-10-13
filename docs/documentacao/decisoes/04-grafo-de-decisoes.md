@@ -2908,6 +2908,45 @@ segura o prazo, e as frases deste item foram escritas por revisores, não pelo m
 prazo prometido custa o frete inteiro), mas a regra passa a ser: **gate só se mexe por frase vista em conversa real ou de persona**;
 variação hipotética de revisor vai para o grafo como resíduo, não para o código — **aceita pelo operador como R21.6**.
 
+## 89. Primeira rodada de testes reais e o arquivo que vazaria dado (2026-10-13)
+
+**Sintoma:** (a) a Malu calou para o número do operador (`handoff_at` de 08/10 é permanente); (b) ao arquivar, o `.json` levava o
+link do checkout com nome, telefone e CPF na query, e o `.md` levava o nome que a cliente digitou ("meu nome é …"); (c) o custo vinha
+como texto (`numeric`) e derrubava o arquivo. **Correção:** números de teste com histórico arquivados e apagados com o "pode" do
+operador; `maskPii` (a raiz, também usada pelo Hermes ao mandar conversa ao modelo) troca query de link por `?[dados]` e "meu nome é …"
+por `[nome]`; o arquivo mascara também o nome guardado do lead e passa o `.json` pela mesma máscara do `.md`; custo lido com `Number`.
+**Guarda:** `tests/archive-test.test.ts` (link com dados, nome digitado, custo em texto); conferência manual de PII antes de cada commit
+de rodada. **Fica:** nome digitado solto, sem "meu nome é" e sem nome guardado no lead, ainda passa — por isso a conferência manual.
+**Achados da conversa (R21.6 — frase real):** em `docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md` e
+`2026-10-13-tester-7967-pre-rodada.md`; o principal: dúvida de entrega antes do pedido ("moro sozinha, não tenho quem receber") cai no
+pós-venda sem pedido gravado e vai a uma pessoa; e (`2026-10-13-r1-testador-7967.md`) "parcelam ou fazem por 100 no pix?" teve as 3
+reescritas vetadas (preço, parcela) e foi a uma pessoa — falta a resposta fixa de preço/parcela, o mesmo padrão do §87 para prazo.
+**Análise completa (13/10, noite), mensagem por mensagem, com a origem de cada erro** — nos dois arquivos da rodada:
+- *Pós-venda sem pedido* (`turn/index.ts` ~3258): "moro sozinha, não tenho quem receber" antes de existir pedido → pessoa. Prioridade 1.
+- *Fim das reescritas vira pessoa*: "parcelam ou fazem por 100 no pix?" teve 3 rascunhos vetados → handoff. Só prazo tem resposta fixa
+  (§87); falta a de preço/parcela. Prioridade 1. Contra o config de produção, frases **verdadeiras** são vetadas: `installment_promise`
+  lê "e no cartão **também** dá pra parcelar" como parcela no Pix; `price_promise` lê "Por R$ 100 eu **não** consigo" como preço. Pela
+  R21.6 os gates esperam a frase real — que não está gravada (o vetado não é guardado): o operador decidiu gravá-lo mascarado no trace,
+  sem entrar no histórico (**R21.8**).
+- *"Ok" depois do link ganhou resposta*: `ackGoesUnanswered` (`followups.ts:197`) lê o "?" da query do link como pergunta. Reproduzido.
+- *Fatos fora da base*: "o horário não dá pra escolher porque chega ao longo do dia", "não vem pelo correio" — os dois são verdade
+  (operador, **R21.7**); entraram na base, e entram no prompt na próxima leva.
+- *Base desatualizada*: o texto do site "você vê o produto e paga na hora" contradiz a R16.4; nota posta na base (a Malu estava certa).
+- *Custo e espera*: 7 respostas do modelo e 1 reescrita descartadas numa conversa por mensagens que chegam no meio do turno; 18 s de
+  mediana, 48 s no pior — observar no lote da rodada antes de mexer.
+**Estado:** ferramenta no ar (PR #60); análise no PR #61; consertos na próxima leva, depois da rodada.
+
+## 90. CI de 24 para 4,5 minutos sem tirar nenhuma verificação (2026-10-13)
+
+**Sintoma:** cada push esperava ~24 min de CI; o operador pediu para acelerar sem perder eficiência. **Causa:** as mutações das guardas
+(`pnpm verificar:guardas`, 548) levavam 21,5 dos 24 min num runner só de 4 núcleos (já paralelas por núcleo desde 30/09); o resto
+(lint, typecheck, testes, `dev:gates`, régua, `typecheck:function`) cabe em ~3 min. **Caminho descartado:** runner próprio na máquina do
+operador — esta sessão roda na nuvem, sem acesso a ela, e o ganho viria do mesmo lugar (mais núcleos). **Correção:** `GUARDS_SHARD=i/n`
+em `src/dev/verify-guards.ts` (a fatia i pega toda n-ésima mutação a partir da i-ésima; a união das n é a lista inteira) e um job
+`guards` em matriz de 8 no `.github/workflows/ci.yml`, ao lado do `check`. **Medido:** fatia local de 92 mutações em 3m19s; no CI do
+commit `7732634`, 9 jobs ao mesmo tempo, verde em 4m29s, 548/548. **Custo:** mais minutos de runner por push (9 máquinas em vez de 1).
+**Guarda:** a soma das fatias é a lista inteira (conferido 548/548); uma mutação que escapa em qualquer fatia deixa o CI vermelho.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
