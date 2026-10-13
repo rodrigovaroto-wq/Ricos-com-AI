@@ -607,6 +607,14 @@ export const pathChoiceToStore = (d: {
  * (grafo §65): "ok" to "Aí na sua região … tem o antecipado" chooses it; "sim" to "… Qual seu tamanho
  * de calça?" or "… Ficou alguma dúvida?" answers that question.
  */
+/**
+ * She was told her region has no payment at the door (`noCodMessage`, or the model's own words): "ainda não tem pagamento na
+ * entrega", "aí não chega o pagamento na entrega". A mere mention of the prepaid ("no antecipado você paga no pix") is not it
+ * (review of the v19 candidates: it let the link out in the CEP's own turn).
+ */
+export const toldNoCod = (message: string): boolean =>
+  /\bnao\s+(?:tem|chega|aceita|faz|atende|existe)\s+(?:o\s+)?pagamento\s+na\s+entrega\b/.test(norm(message));
+
 export const offersPrepayOnly = (lastOutbound: string): boolean => {
   const t = norm(lastOutbound);
   if (!/\bantecipad/.test(t)) return false;
@@ -710,7 +718,7 @@ const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
 const KIND_OF_PRODUCT = /\b(?:um|uma)\s+(?:dess|dest)[ae]s?\b/;
 const OUR_ORDER_SIGN = /\b(cheg\w*|entreg\w*|rastrei\w*|pedido|daqui|por\s+aqui|pix|ate\s+agora)\b/;
 /** Past the comma only a LATE order counts — "…enrolou, quero saber da entrega" asks about ours, it reports nothing (review of §85). */
-const LATE_ORDER_SIGN = /\b(nao\s+chegou|ate\s+agora|ainda\s+nao|rastrei\w*|pedido|pix)\b/;
+const LATE_ORDER_SIGN = /\b(nao\s+chegou|ate\s+agora|ainda\s+nao\s+(?:chegou|veio)|rastrei\w*|pedido|pix)\b/;
 /**
  * The sign is read in the whole sentence, not the comma clause (/code-review of §82): "já comprei uma dessas, até agora nada" and
  * "comprei uma dessas semana passada, não chegou" are a late order of ours.

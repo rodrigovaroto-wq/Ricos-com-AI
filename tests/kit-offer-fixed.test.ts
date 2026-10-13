@@ -57,7 +57,9 @@ describe("braço B: a oferta do kit que segura o link é fixa", () => {
 
 describe("revisão dos candidatos da v19", async () => {
   const { kitOfferMessage } = await import("@/agent/retry.js");
-  const { readInterpretation, offersPrepayOnly } = await import("@/agent/interpret.js");
+  const { readInterpretation, toldNoCod } = await import("@/agent/interpret.js");
+  const { noCodMessage } = await import("@/agent/prompt.js");
+  const { config: fixtureConfig } = await import("./fixtures.js");
   const { readFileSync } = await import("node:fs");
   const kits = [
     { units: 2, priceBrl: 233.82, discountPercent: 10 },
@@ -69,7 +71,12 @@ describe("revisão dos candidatos da v19", async () => {
   });
   it("2: braço B em região sem pagamento na entrega — o 'manda o link' depois da oferta do antecipado é a escolha dela", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain("(knownRegion?.cod === false && interpretation.wants_to_buy && recentOutbound.some((m: string) => offersPrepayOnly(m))),");
-    expect(offersPrepayOnly("Aí na sua região o pagamento na entrega não chega, mas dá pra fazer no antecipado. Pode ser no antecipado?")).toBe(true);
+    expect(turn).toContain("(knownRegion?.cod === false && (interpretation.wants_to_buy || parts.some(asksForLink)) && recentOutbound.some(toldNoCod)),");
+    // the explanation of the region — the fixed text or the model's words
+    expect(toldNoCod(noCodMessage(fixtureConfig))).toBe(true);
+    expect(toldNoCod("Aí na sua região não chega o pagamento na entrega, mas tem o antecipado.")).toBe(true);
+    // negation: a mere mention of the prepaid before the CEP is not it (it let the link out in the CEP's own turn)
+    for (const m of ["No antecipado você paga no pix ou cartão.", "Prefere na entrega ou no antecipado?", "O antecipado é pelo pix ou cartão.", "Tem sim! No antecipado você paga no pix ou cartão."])
+      expect(toldNoCod(m), m).toBe(false);
   });
 });

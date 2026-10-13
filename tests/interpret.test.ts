@@ -689,6 +689,7 @@ describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => 
       "já comprei uma dessas e enrolou, quero saber da entrega",
       "já comprei uma dessas e enrolou, quanto tempo chega a de vocês?",
       "comprei uma dessas e enrolou, quero ver o prazo de entrega",
+      "já comprei uma dessas e enrolou, ainda não sei se quero",
     ]) {
       expect(statesPastPurchase(frase), frase).toBe(false);
       expect(statesPastPurchase(frase, false), frase).toBe(false);

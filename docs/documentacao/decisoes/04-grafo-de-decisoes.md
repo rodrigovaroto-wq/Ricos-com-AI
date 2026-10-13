@@ -2731,7 +2731,7 @@ chegar", o que vetou a devolução verdadeira da Marcinha ("se chegar e não ser
 pessoa. **Correção:** um `MARK` (`START` | quando/assim que/se + receber/chegar), nunca seguido de contagem própria (lookahead
 `em|de|até|dentro|daqui`), tirado no trecho antes da âncora e no `own` — fechou também a mentira antiga "Quando chegar em 7 dias pra
 trocar". 79 casos no teste, +13 no corpus, 2 afrouxamentos verdadeiros aceitos, 4 endurecimentos (mentiras da base). Mutação
-`E4-marco-de-inicio`. **Estado:** publicar na v19.
+`E4-marco-de-inicio`. **Estado:** publicado na `turn` v19 (2026-10-13).
 
 ## 84. E4 refeita com o detector consertado: base × v18 (2026-10-13)
 
@@ -2780,8 +2780,12 @@ turno do CEP). (b) A oferta fixa terminava em "Quer levar mais de uma…?" e o "
 uma peça?", e "mais de uma" entrou no `QUANTITY_CUE`. Mutação `E6-kit-pergunta-contavel`. (c) O sinal na frase inteira transformava
 "já comprei uma dessas e enrolou, quero saber da entrega" (pergunta sobre a NOSSA entrega) em pedido: depois da vírgula só conta sinal
 de pedido atrasado (`LATE_ORDER_SIGN`); mutação `E4-entrega-depois-da-virgula`. (d) "O número da sua calça é 44 ou 46?" volta a ser
-pergunta; (e) a regra do n8n pega também `JSON.stringify($json.error, null, 2)`.
-**Estado:** publicar na v19.
+pergunta; (e) a regra do n8n pega também `JSON.stringify($json.error, null, 2)`. **Conferência (aprovado com ressalva, consertada):**
+`offersPrepayOnly` sobre o histórico pegava qualquer menção ao antecipado ("No antecipado você paga no pix") e soltava o link no
+próprio turno do CEP — agora `toldNoCod` (a explicação de que ali não tem pagamento na entrega, no texto fixo ou nas palavras do modelo),
+e o pedido do link vale como `wants_to_buy` (`asksForLink`). "Ainda não" sozinho saiu do `LATE_ORDER_SIGN` ("ainda não sei se quero").
+Mutação `E6-qualquer-antecipado-e-oferta`.
+**Estado:** publicado na `turn` v19 (2026-10-13).
 
 ## Lições (valem para qualquer correção futura)
 

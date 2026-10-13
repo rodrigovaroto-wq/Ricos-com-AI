@@ -3474,6 +3474,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/kit-offer-fixed.test.ts"],
   },
   {
+    id: "E6-qualquer-antecipado-e-oferta",
+    bug: "braço B: 'no antecipado você paga no pix' antes do CEP contava como a oferta só do antecipado, e o link saía no próprio turno do CEP sem dizer que ali não tem pagamento na entrega (revisão dos candidatos da v19)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "recentOutbound.some(toldNoCod)),",
+    to: "recentOutbound.some((m: string) => /antecipad/i.test(m))),",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/kit-offer-fixed.test.ts"],
+  },
+  {
     id: "E4-entrega-depois-da-virgula",
     bug: "'já comprei uma dessas e enrolou, quero saber da entrega' (pergunta sobre a NOSSA entrega) virava pedido nosso → pós-venda (revisão dos candidatos da v19)",
     files: ["src/agent/interpret.ts"],

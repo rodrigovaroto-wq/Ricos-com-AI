@@ -180,7 +180,7 @@ import {
   readInterpretation,
   kitHoldsLink,
   missingForLink,
-  offersPrepayOnly,
+  toldNoCod,
   buyerAsk,
   sendLinkNow,
   statesPastPurchase,
@@ -3575,7 +3575,7 @@ const handleTurn = async (
       (paymentChoice !== null && paymentChoice === linkPath) ||
       // A no-COD region where she already heard the prepaid offer and wants to buy ("ok, me manda o link" after another
       // answer): her choice, or arm B waits for a "payment" nobody asks (review of the v19 candidates, 2).
-      (knownRegion?.cod === false && interpretation.wants_to_buy && recentOutbound.some((m: string) => offersPrepayOnly(m))),
+      (knownRegion?.cod === false && (interpretation.wants_to_buy || parts.some(asksForLink)) && recentOutbound.some(toldNoCod)),
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
