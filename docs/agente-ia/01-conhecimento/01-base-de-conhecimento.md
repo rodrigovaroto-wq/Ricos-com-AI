@@ -84,6 +84,11 @@ Fonte: `HowItWorks.tsx` :4–6.
 2. **Recebe no seu endereço** — A gente envia e avisa o dia da entrega. Você não fica em casa esperando sem saber.
 3. **Paga na entrega** — O entregador chega, você vê o produto e paga na hora. Não gostou? Não fica com ele.
 
+> **Vale a R16.4, não o texto do site acima** (operador, 2026-09-29; anotado em 2026-10-13 pela rodada de testes reais): o entregador
+> não espera ela vestir nem provar — em nenhum caminho ela experimenta antes de pagar. O que ela tem é a garantia de 7 dias após o
+> recebimento. O gate `courier_claim` veta o contrário; a Malu disse certo ("Ele não espera na porta, você recebe e paga ali na hora,
+> sem provar antes") e esta linha do site é que estava desatualizada.
+
 ## O que chega na caixa
 
 Fonte: `WhatsInBox.tsx` :5–8.

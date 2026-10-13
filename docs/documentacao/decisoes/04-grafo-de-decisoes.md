@@ -2921,7 +2921,19 @@ de rodada. **Fica:** nome digitado solto, sem "meu nome é" e sem nome guardado 
 `2026-10-13-tester-7967-pre-rodada.md`; o principal: dúvida de entrega antes do pedido ("moro sozinha, não tenho quem receber") cai no
 pós-venda sem pedido gravado e vai a uma pessoa; e (`2026-10-13-r1-testador-7967.md`) "parcelam ou fazem por 100 no pix?" teve as 3
 reescritas vetadas (preço, parcela) e foi a uma pessoa — falta a resposta fixa de preço/parcela, o mesmo padrão do §87 para prazo.
-**Estado:** ferramenta no ar (PR #60); achados abertos para a próxima leva.
+**Análise completa (13/10, noite), mensagem por mensagem, com a origem de cada erro** — nos dois arquivos da rodada:
+- *Pós-venda sem pedido* (`turn/index.ts` ~3258): "moro sozinha, não tenho quem receber" antes de existir pedido → pessoa. Prioridade 1.
+- *Fim das reescritas vira pessoa*: "parcelam ou fazem por 100 no pix?" teve 3 rascunhos vetados → handoff. Só prazo tem resposta fixa
+  (§87); falta a de preço/parcela. Prioridade 1. Contra o config de produção, frases **verdadeiras** são vetadas: `installment_promise`
+  lê "e no cartão **também** dá pra parcelar" como parcela no Pix; `price_promise` lê "Por R$ 100 eu **não** consigo" como preço. Pela
+  R21.6 os gates esperam a frase real — que não está gravada (o vetado não é guardado): **decisão do operador** se o rascunho vetado
+  passa a ser gravado mascarado no `gate_traces`.
+- *"Ok" depois do link ganhou resposta*: `ackGoesUnanswered` (`followups.ts:197`) lê o "?" da query do link como pergunta. Reproduzido.
+- *Fatos fora da base*: "o horário não dá pra escolher porque chega ao longo do dia", "não vem pelo correio" — pergunta ao operador.
+- *Base desatualizada*: o texto do site "você vê o produto e paga na hora" contradiz a R16.4; nota posta na base (a Malu estava certa).
+- *Custo e espera*: 7 respostas do modelo e 1 reescrita descartadas numa conversa por mensagens que chegam no meio do turno; 18 s de
+  mediana, 48 s no pior — observar no lote da rodada antes de mexer.
+**Estado:** ferramenta no ar (PR #60); análise no PR #61; consertos na próxima leva, depois da rodada.
 
 ## Lições (valem para qualquer correção futura)
 

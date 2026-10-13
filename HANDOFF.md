@@ -27,6 +27,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - Achados abertos do `…7967` antigo (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
 >   oferta não chama; "Chega quando?" engolido pela resposta de Pix pendente; "Paguei ja 116" sem pedido no banco (**operador confere na Coinzz**).
 > - Ferramenta de arquivo: agora mascara link com dados e nome digitado (`maskPii` na raiz, vale para o Hermes) e lê o custo `numeric`.
+> - **Análise completa, mensagem por mensagem** (13/10, noite) nos dois arquivos da rodada; resumo no grafo §89. Lista de consertos:
+>   (1) pós-venda sem pedido não vai a pessoa; (2) resposta fixa de preço/parcela quando as reescritas esgotam; (3) "ok" depois do link:
+>   tirar URLs antes de procurar "?" em `ackGoesUnanswered`; (4) falsos positivos de `installment_promise` ("também") e `price_promise`
+>   ("Por R$ 100 eu não consigo") — esperam a frase real (R21.6). **Perguntas ao operador:** horário de entrega e "não vem pelo correio"
+>   são verdade na Logzz? Gravar o rascunho vetado (mascarado) para a R21.6 poder ser cumprida?
 > - **Próximo:** terminar a rodada (sócio e mãe) → arquivar → consertar os achados de uma vez (teste, espelho, mutação, revisão Opus,
 >   grafo) → publicar v23 → `--delete` dos números.
 
