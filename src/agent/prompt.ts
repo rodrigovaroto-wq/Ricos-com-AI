@@ -32,7 +32,21 @@ export interface PromptConfig extends GateConfig {
   store?: { physicalStorePlanCity?: string };
   /** The shop's site, cited for trust (operator, 2026-10-06). Absent: "o nosso site". */
   site?: string;
+  /**
+   * Exchange and return through the Logzz support (operator, 2026-10-13). Absent: as before.
+   * `freeExchange`: only `true` says the exchange costs her nothing — the gate's own test.
+   */
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
 }
+
+/**
+ * The Logzz support number, or null when absent or not a phone (a `{{PLACEHOLDER}}`, a typo in the
+ * secret): then exchange and return stay as before. Read by the prompt and by the turn alike.
+ */
+export const logzzSupportPhone = (config: { returns?: { logzzSupportPhone?: unknown } }): string | null => {
+  const phone = config.returns?.logzzSupportPhone;
+  return typeof phone === "string" && /^\+?\d[\d ().-]{7,19}$/.test(phone.trim()) ? phone.trim() : null;
+};
 
 /**
  * The prepaid deadline, and the only shape it may take. Logzz varies it by region, so a
@@ -701,8 +715,23 @@ export const systemPrompt = (
     `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     ...(expressLine(config) ? [expressLine(config)] : []),
     `${config.delivery.warrantyDays} dias após o recebimento para trocar ou devolver. A devolução é`,
-    `sem custo; na troca de tamanho o envio é por conta dela — nunca diga que a troca é grátis, e o`,
-    `valor e o link vão numa mensagem à parte quando ela pedir a troca de um pedido.`,
+    // Operator, 2026-10-13: the exchange is free only with `freeExchange === true`; with the Logzz number
+    // and without it, its freight is not said at all; with neither, today's truth (R17.1).
+    ...(config.returns?.freeExchange === true
+      ? [`sem custo, e a troca de tamanho também: "A troca é sem custo pra você."`]
+      : logzzSupportPhone(config)
+        ? [`sem custo. Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`]
+        : [
+            `sem custo; na troca de tamanho o envio é por conta dela — nunca diga que a troca é grátis, e o`,
+            `valor e o link vão numa mensagem à parte quando ela pedir a troca de um pedido.`,
+          ]),
+    ...(logzzSupportPhone(config)
+      ? [
+          // Operator, 2026-10-13: the Logzz support serves her directly.
+          `A troca e a devolução são com o suporte da Logzz, que atende ela direto: diga assim,`,
+          `"É só mandar uma mensagem pro suporte da Logzz no ${logzzSupportPhone(config)} e pedir lá a troca ou a devolução, que eles resolvem pra você."`,
+        ]
+      : []),
     ...kitsBriefing(config),
     ...linkFactsBriefing(config),
     ``,

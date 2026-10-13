@@ -166,6 +166,52 @@ export const exchangeReply = (exchange: { feeBrl?: number; checkoutUrl?: string 
     : null;
 
 /**
+ * Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
+ * agent sends its number — the config's, validated by `logzzSupportPhone` — and nobody is called. The
+ * exchange said free only with `freeExchange` (`returns.freeExchange === true`, operator, 2026-10-13);
+ * otherwise no word on its freight, neither free nor hers. The heart is not after the count:
+ * `delivery_promise` reads anything left in the count's sentence as a deadline.
+ */
+export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchange = false): string =>
+  `Pra trocar de tamanho ou devolver, é só mandar uma mensagem pro suporte da Logzz no ${phone} 💛 ` +
+  `Lá você pede a troca ou a devolução, e eles resolvem pra você.${freeExchange ? ` A troca é sem custo pra você.` : ``} ` +
+  `Você tem ${warrantyDays} dias pra trocar ou devolver depois que receber.`;
+
+/**
+ * Her newest order, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary
+ * (null for a failed attempt), whether it is unpaid (`orderUnpaid`), its path and its delivery day.
+ */
+export interface OrderView {
+  stage: "pedido_criado" | "em_rota" | "entregue_pago" | "recusado" | null;
+  unpaid: boolean;
+  paymentMethod: string | null;
+  /** `orders.scheduled_for`, a `YYYY-MM-DD` date, or null. */
+  scheduledFor: string | null;
+}
+
+/**
+ * The reply to a question about her order (operator, 2026-10-13): the agent reads its status instead of
+ * calling a person. Fixed text per stage; a date only when the order holds one from today on, never a
+ * day of our own — alive and not delivered, "logo mais deve chegar", with no day. Null — and a person,
+ * as before — when there is nothing to say for sure: no order read, a status outside the vocabulary,
+ * a failed attempt, or a delivered order without the Logzz number (`returnsLine`).
+ */
+export const orderStatusReply = (order: OrderView | null, now: Date, returnsLine: string | null): string | null => {
+  if (order === null || order.stage === null) return null;
+  if (order.stage === "recusado") return "Esse pedido aparece aqui como cancelado. Se quiser fazer um novo, é só me falar 💛";
+  if (order.stage === "entregue_pago") return returnsLine === null ? null : `Aqui consta que o seu pedido já foi entregue. ${returnsLine}`;
+  // At the door "aguardando pagamento" is the payment on delivery, not a Pix waiting.
+  if (order.unpaid && order.paymentMethod === "prepay")
+    return "Seu pedido foi criado e está aguardando o pagamento 💛 Assim que o pagamento for confirmado, ele segue pra entrega.";
+  const today = new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo" }).format(now);
+  const date = /^\d{4}-\d{2}-\d{2}/.test(order.scheduledFor ?? "") && order.scheduledFor!.slice(0, 10) >= today ? order.scheduledFor!.slice(0, 10) : null;
+  const day = date === null ? null : `${date.slice(8, 10)}/${date.slice(5, 7)}`;
+  return order.stage === "em_rota"
+    ? `Seu pedido já está a caminho 🚚${day ? ` Ele está agendado para ${day}.` : ""} Logo mais ele deve chegar aí 💛`
+    : `Seu pedido está confirmado${day ? ` e agendado para ${day}` : ""} 💛 Logo mais ele deve chegar aí.`;
+};
+
+/**
  * The reply when she wants to cancel an order that already left for delivery (operator,
  * 2026-10-06): it cannot be cancelled any more, and the return is asked for once it arrives. A
  * person still takes the conversation. Nothing here says the agent did or will do anything to the

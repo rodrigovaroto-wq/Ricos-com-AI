@@ -177,3 +177,19 @@ Se o colete chegar em 7 dias, o prazo pra trocar é de 7 dias.
 Assim que receber, a entrega e o prazo pra trocar é de 7 dias.
 Se chegar e não servir você pode devolver em até 7 dias, e chega rapidinho.
 Se chegar e não servir você pode devolver, chega em até 7 dias.
+# E4, persona Rafa on v19-candidate (2026-10-13): the denial after the day
+Sobre chegar até sexta eu não consigo te garantir por aqui, a data exata aparece no checkout, me passa seu CEP pra eu ver as opções aí na sua região?
+Chegar até sexta eu não consigo te garantir mais que isso.
+Chegar até sexta eu não consigo garantir, só até sábado.
+Chegar até sexta eu não consigo te garantir, mas chega no sábado.
+Chegar até sexta não tem como não chegar.
+Chegar até sexta é certeza, não consigo garantir o horário.
+Chega até sexta, eu não consigo te garantir mais rápido que isso.
+Não tem como não chegar até sexta.
+Isso mesmo, na maioria das regiões dá pra pagar na entrega, você só paga quando o colete chegar na sua mão.
+# Troca sem custo pela Logzz (2026-10-13): lies that stay vetoed with returns.freeExchange
+A troca é grátis em qualquer prazo.
+Troca grátis em até 30 dias.
+Você devolve e recebe o dinheiro de volta e fica com o colete.
+A gente devolve o dinheiro e você fica com o colete.
+No reembolso você não fica com o colete, ele volta pra gente.

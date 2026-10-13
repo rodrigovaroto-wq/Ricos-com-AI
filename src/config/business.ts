@@ -86,6 +86,13 @@ export interface BusinessConfig {
   support?: { email?: string };
   /** Size exchange freight, hers (R17.1): amount and Mercado Pago link. Absent = no amount, no link. */
   exchange?: { feeBrl?: number; checkoutUrl?: string };
+  /**
+   * Exchange and return through the Logzz support, which serves her directly (operator, 2026-10-13):
+   * the agent sends this number instead of `exchange`'s link or a person. OPTIONAL — absent (or not a
+   * phone) in the secret, exchange and return stay as before. `freeExchange` (operator, 2026-10-13): only
+   * an explicit `true` lets her say the exchange costs her nothing; absent, today's truth — the freight is hers.
+   */
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
   /**

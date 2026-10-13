@@ -43,6 +43,8 @@ import {
   optInFollows,
   orderStatusAfter,
   isKnownOrderStatus,
+  orderUnpaid,
+  stageForOrder,
   cancelReplyFor,
   reopensRefused,
   stageForLead,
@@ -121,6 +123,8 @@ import {
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
   exchangeReply,
+  logzzReturnReply,
+  orderStatusReply,
   COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
@@ -186,7 +190,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -366,6 +370,8 @@ interface BusinessConfig extends GateConfig {
   support?: { email?: string };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
+  /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
   experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
@@ -3143,6 +3149,15 @@ const handleTurn = async (
     }
   }
   const handoffKind = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext);
+  // Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
+  // agent sends its number and nobody is called. Without a valid number in the config, as before.
+  // A reply the chain refuses falls through to what came before it.
+  const logzzPhone = logzzSupportPhone(CONFIG);
+  const returnsLine = logzzPhone === null ? null : logzzReturnReply(logzzPhone, CONFIG.delivery.warrantyDays, CONFIG.returns?.freeExchange === true);
+  if (returnsLine !== null && handoffKind === "post_sale" && interpretation.wants_exchange) {
+    const sent = await sendFixed(returnsLine, "troca: número do suporte da Logzz", "cod", {}, false, 1, "auto");
+    if (sent) return sent;
+  }
   // A size exchange on an order (R17.1): the exchange's freight is hers, so she gets its amount and
   // the Mercado Pago link, and a person takes the exchange from there. Without both in the config,
   // the exchange goes to a person like any other post-sale question.
@@ -3172,6 +3187,23 @@ const handleTurn = async (
       PREPAID_CANCEL_REPLY,
       "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",
     );
+  }
+  // Post-sale without a person (operator, 2026-10-13): a question about her order hears its status, read
+  // from her newest order, and a cancel of a delivered one — a return — the Logzz support. No `handoff_at`:
+  // the conversation stays with the agent. Nothing to say for sure (no order on file, a status outside
+  // the vocabulary, a failed attempt) keeps the person. Index `orders_lead_idx`, then her few rows sorted.
+  if ((handoffKind === "post_sale" && !interpretation.wants_exchange) || handoffKind === "cancel") {
+    const order = (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc&limit=1`).catch(() => null))?.[0] ?? null;
+    const stage = order !== null && isKnownOrderStatus(order.status) ? stageForOrder(order.status) : null;
+    const reply = handoffKind === "cancel"
+      ? (stage === "entregue_pago" ? returnsLine : null)
+      : orderStatusReply(
+        stage === null ? null : { stage, unpaid: orderUnpaid(order.status), paymentMethod: order.payment_method, scheduledFor: order.scheduled_for },
+        new Date(),
+        returnsLine,
+      );
+    const sent = reply === null ? null : await sendFixed(reply, `pós-venda: ${handoffKind === "cancel" ? "devolução pela Logzz" : `status do pedido (${stage})`}`, order?.payment_method === "prepay" ? "prepay" : "cod", {}, false, 1, "auto");
+    if (sent) return sent;
   }
   if (handoffKind !== null) {
     return await handOff(

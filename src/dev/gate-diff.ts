@@ -115,6 +115,8 @@ const contexts = Object.entries(configs).flatMap(([name, c]) =>
 contexts.push({ label: "teste/cod/sem-regiao/sem-pergunta-de-identidade", ctx: ctx({ config, regionKnown: false, askedIdentity: false }) });
 // A turn that sends no link (grafo §66): the one context where `pending_promise` runs.
 contexts.push({ label: "teste/cod/sem-regiao/sem-link-no-turno", ctx: ctx({ config, regionKnown: false, linkInTurn: false }) });
+// The exchange at no cost through the Logzz (operator, 2026-10-13): the one context where `returns.freeExchange` is on.
+contexts.push({ label: "teste/cod/sem-regiao/troca-sem-custo", ctx: ctx({ config: { ...config, returns: { freeExchange: true } }, regionKnown: false }) });
 
 const verdicts = (g: Gates, text: string, c: (typeof contexts)[number]["ctx"]) =>
   new Map<string, Verdict>(g.runGates(text, c).traces.map((t) => [t.gate, t.verdict as Verdict]));

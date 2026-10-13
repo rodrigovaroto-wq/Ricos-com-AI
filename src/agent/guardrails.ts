@@ -105,6 +105,11 @@ export interface GateConfig {
    */
   exchange?: { feeBrl?: number; checkoutUrl?: string };
   /**
+   * The size exchange through the Logzz, at no cost to her (operator, 2026-10-13). OPTIONAL: only an
+   * explicit `true` lets "a troca é sem custo" through; absent (the secret), R17.1's veto stands.
+   */
+  returns?: { freeExchange?: boolean };
+  /**
    * A customer count the operation can back. Absent, no customer count may be said;
    * present, only this one ("mais de N clientes satisfeitas").
    */
@@ -2026,6 +2031,11 @@ const gates: readonly Gate[] = [
           if (
             // "O entregador não trabalha domingo": the denial sits between verb and day.
             /\b(?:nao|nunca)\b/.test(m[0]) ||
+            // The topic first, its denial right after and closing the clause (persona Rafa, 2026-10-13): "sobre
+            // chegar até sexta eu não consigo te garantir (por aqui)". Never "…garantir mais que isso".
+            (negations === 0 &&
+              /^(?:(?:cheg|entreg)ar|receber)\b/.test(m[0]) &&
+              /^\s*(?:(?:eu|a\s+gente|nos)\s+)?(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como)\s+)?(?:(?:te|lhe)\s+)?(?:garant|promet)\w*(?:\s+(?:isso|agora|por\s+aqui|pra\s+voce))*\s*(?:[,.;:!?\n]|$)/.test(td.slice(at + m[0].length))) ||
             (negations === 1 &&
             (new RegExp(String.raw`\b(?:nao|nunca|jamais|nem)\s+(?:${CLITIC}|(?:tem|ha|existe|faz|fazemos)\s+)$`).test(phrase) ||
               new RegExp(
@@ -2440,13 +2450,18 @@ const gates: readonly Gate[] = [
       `A garantia é de ${c.delivery.warrantyDays} dias após o recebimento para trocar ou ` +
       `devolver, e na devolução o dinheiro volta sem custo nenhum pra ela. Nenhum outro ` +
       `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.` +
-      ` ${EXCHANGE_FREIGHT_LINE}` +
+      ` ${c.returns?.freeExchange === true ? `A troca de tamanho, pela Logzz, também é sem custo pra ela.` : EXCHANGE_FREIGHT_LINE}` +
       (c.support?.email ? ` Para trocar ou devolver, ela escreve para ${c.support.email}.` : ``),
     check: (text, ctx) => {
       const t = norm(text);
-      if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
+      if (/\b(sem\s+prazo|qualquer\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
         return "promises a warranty with no limit";
-      if (claimsExchangeFree(t)) return "says the size exchange is free, and its freight is hers";
+      // The refund takes the vest back: "devolve o dinheiro e você fica com o colete" is a gift nobody offered.
+      if (/\b(?:dinheiro|reembols\w*|estorn\w*)\b[^.!?\n]*(?<!\b(?:nao|nem)\s+(?:\S+\s+)?)\bfica\w*\s+com\s+(?:o\s+|a\s+)?(?:colete|peca|produto|cinta)\b/.test(t))
+        return "promises a refund that leaves her the vest";
+      // Exchange through the Logzz at no cost to her (operator, 2026-10-13): only an explicit `true`; absent, R17.1.
+      if (ctx.config.returns?.freeExchange !== true)
+        if (claimsExchangeFree(t)) return "says the size exchange is free, and its freight is hers";
 
       /**
        * The delivery window's own numbers, and where they sit.
