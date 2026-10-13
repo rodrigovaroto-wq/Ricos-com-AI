@@ -2,7 +2,6 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
 import { NEUTRAL_INTERPRETATION, readInterpretation } from "@/agent/interpret.js";
-import { exchangeReply } from "@/agent/retry.js";
 import { ctx } from "./fixtures.js";
 
 /**
@@ -51,53 +50,19 @@ describe("troca de tamanho: o envio é da cliente (R17.1)", () => {
   });
 });
 
-describe("troca de tamanho num pedido: valor e link do Mercado Pago (R17.1)", () => {
-  const base = ctx();
-  const exchange = { feeBrl: 20, checkoutUrl: "https://mpago.la/troca123" };
-  const config = { ...base.config, exchange };
-  const receipt = (text: string, exchanging: boolean) =>
-    runGates(text, { ...base, config, layer: "auto", paymentPath: "cod", exchanging } as never);
-
-  it("a resposta fixa cita o valor e o link, e passa a cadeia só como resposta da troca", () => {
-    const reply = exchangeReply(exchange)!;
-    expect(reply).toContain("R$ 20,00");
-    expect(reply).toContain("https://mpago.la/troca123");
-    expect(receipt(reply, true).traces.filter((t) => t.verdict === "block")).toEqual([]);
-    // Anywhere else the amount is a price the shop does not have.
-    expect(receipt(reply, false).traces.find((t) => t.gate === "price_promise")?.verdict).toBe("block");
-  });
-
-  it("sem valor e link válidos no config não há resposta: a troca vai para uma pessoa", () => {
-    for (const e of [
-      undefined,
-      {},
-      { feeBrl: 20 },
-      { checkoutUrl: "https://mpago.la/x" },
-      { feeBrl: 0, checkoutUrl: "https://mpago.la/x" },
-      { feeBrl: "20", checkoutUrl: "https://mpago.la/x" },
-      { feeBrl: 20, checkoutUrl: "{{EXCHANGE_MERCADO_PAGO_URL}}" },
-      { feeBrl: 20, checkoutUrl: "http://mpago.la/x" },
-    ])
-      expect(exchangeReply(e as never), JSON.stringify(e)).toBeNull();
-  });
-
+describe("R$ 27 fora do agente (operador, 2026-10-13): nem valor, nem link do Mercado Pago na troca", () => {
   it("o intérprete lê wants_exchange; ausente é false", () => {
     expect(readInterpretation('{"post_sale": true, "wants_exchange": true}').interpretation.wants_exchange).toBe(true);
     expect(readInterpretation('{"post_sale": true}').interpretation.wants_exchange).toBe(false);
     expect(NEUTRAL_INTERPRETATION.wants_exchange).toBe(false);
   });
-});
 
-describe("o turno liga a troca (R17.1)", () => {
-  const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
-  it("só num pedido (post_sale), só quando ela quer trocar, e o recibo é julgado como a resposta da troca", () => {
-    expect(source).toContain(
-      'const exchange = handoffKind === "post_sale" && interpretation.wants_exchange ? exchangeReply(CONFIG.exchange) : null;',
-    );
-    expect(source).toContain('return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);');
-    expect(source).toContain("      codUnavailable,\n      exchanging,\n    });");
-    // Only the exchange reply is judged with `exchanging`.
-    expect(source.match(/exchanging/g)?.length).toBe(2);
+  it("o turno não tem mais o ramo do link da troca", () => {
+    const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
+    const retry = readFileSync(new URL("../src/agent/retry.ts", import.meta.url), "utf8");
+    for (const gone of ["exchangeReply", "CONFIG.exchange", "exchanging", "o link do envio da troca foi enviado"]) expect(source, gone).not.toContain(gone);
+    expect(retry).not.toContain("exchangeReply");
+    expect(retry).not.toContain("Mercado Pago link");
   });
 });
 

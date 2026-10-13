@@ -151,7 +151,8 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
   ])("desistiu (revisão): %s", (...burst) => expect(withdrawsInBurst(burst)).toBe(true));
 
   it("fiação: o link e a oferta do kit esperam", () => {
-    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
+    expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
+    expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
     // link segurado pelo histórico (além da janela) avisa o modelo que ela já o tem
     expect(source).toContain("const linkAlreadySent = linkJustSent || linkSentRecently(");
     expect(source).toContain("!kitOffered && !linkNow && !farewell && !withdrew;");
@@ -165,6 +166,28 @@ describe("4. região sem entrega: 'ok' ao antecipado é o caminho escolhido (pat
   it.each(["ok", "sim", "pode ser"])("'%s' à mensagem do antecipado grava o antecipado", (msg) => {
     expect(store(msg, noCodMessage(config))).toBe("prepay");
     expect(store(msg, `${noCodMessage(config)} Pode ser no antecipado?`)).toBe("prepay");
+  });
+
+  it.each(["quero sim", "quero", "manda o link", "pode mandar o link", "kero sim", "sim, quero!", "manda ai"])(
+    "'%s' à oferta do antecipado também é a escolha (2ª revisão do E6: o braço B não volta ao fluxo antigo)",
+    (msg) => expect(store(msg, noCodMessage(config))).toBe("prepay"),
+  );
+
+  it.each([
+    "não quero", "quero saber o prazo", "quero, mas chega quando?", "nao quero mais",
+    // third review: a loose "quero" read the whole message as a yes to the prepaid
+    "quero o da entrega", "quero na entrega", "quero pagar na entrega", "pix nao, quero na entrega",
+    "quero mas so se for na entrega", "quero que entregue na porta", "pode mandar o link mas vou pagar na entrega",
+    "quero pensar", "quero esperar", "quero, mas nao tenho dinheiro agora", "quero cancelar",
+    "quero falar com atendente", "quero o boleto", "quero o 46", "quero sim, tem cartão?", "quero não", "kero nao",
+  ])(
+    "negação: '%s' não é a escolha do antecipado",
+    (msg) => expect(store(msg, noCodMessage(config))).toBeNull(),
+  );
+
+  it("negação: 'quero' fora da oferta só do antecipado não grava", () => {
+    expect(store("quero sim", "Qual seu tamanho de calça?")).toBeNull();
+    expect(pathChoiceToStore({ interpreted: null, parts: ["quero sim"], lastOutbound: noCodMessage(config), confirms: false })).toBeNull();
   });
 
   it("negação: o 'sim' que responde outra pergunta não grava", () => {

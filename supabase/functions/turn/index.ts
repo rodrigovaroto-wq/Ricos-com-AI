@@ -43,6 +43,10 @@ import {
   optInFollows,
   orderStatusAfter,
   isKnownOrderStatus,
+  orderUnpaid,
+  orderSettled,
+  isOrderDead,
+  stageForOrder,
   cancelReplyFor,
   reopensRefused,
   stageForLead,
@@ -55,9 +59,8 @@ import {
   PAYMENT_CHECK_MS,
   PAYMENT_CHECK_REPLY,
   PAYMENT_CONFIRMED_REPLY,
-  PAYMENT_RECEIPT_ASK,
+  PAYMENT_ESCALATED,
   PAYMENT_RECEIPT_ESCALATED,
-  paymentSupportLine,
   PAYMENT_RECEIPT_KEPT,
   PAYMENT_STILL_CHECKING,
   paymentFacts,
@@ -120,7 +123,13 @@ import {
   MIN_ATTEMPT_MS,
   MODEL_CALL_TIMEOUT_MS,
   networkRetryDelay,
-  exchangeReply,
+  deliveredDirective,
+  logzzReturnReply,
+  orderStatusReply,
+  otherQuestionDirective,
+  otherQuestionTail,
+  returnsOnly,
+  type OrderView,
   COD_CANCEL_REPLY,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
@@ -135,6 +144,7 @@ import {
   shippedCancelReply,
   thinkReply,
   DECLINE_REPLY,
+  kitOfferMessage,
   linkMessage,
   unansweredInbound,
   WELCOME_AUTO_REPLY,
@@ -157,6 +167,8 @@ import {
   decisionInBurst,
   goodbyeParks,
   handoffFor,
+  namesAPerson,
+  namesExchangeOrReturn,
   INTERPRET_MAX_COMPLETION_TOKENS,
   interpretRequest,
   linkPathFor,
@@ -177,13 +189,15 @@ import {
   NEUTRAL_INTERPRETATION,
   quantityOf,
   readInterpretation,
+  kitHoldsLink,
   missingForLink,
+  toldNoCod,
   buyerAsk,
   sendLinkNow,
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -363,6 +377,8 @@ interface BusinessConfig extends GateConfig {
   support?: { email?: string };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
+  /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
   experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
@@ -1425,6 +1441,8 @@ const readTicket = (body: unknown): RetryTicket | null => {
     return null;
   }
 };
+/** An extra model call after the main loop only with this much of the turn's deadline left (/code-review of v21). */
+const EXTRA_CALL_MIN_MS = 20_000;
 /** The last reply to an opt-out that also asked something — budget from turn start. */
 const OPT_OUT_FAREWELL_BUDGET_MS = 60_000;
 const OPT_OUT_FAREWELL_DIRECTIVE =
@@ -1502,23 +1520,20 @@ const runFollowupSweep = async () => {
       skipped.push({ followupId: row.id, reason: "o pagamento chegou: a confirmação do pedido avisa" });
       return;
     }
-    // She sent the receipt and the payment still did not arrive 5 minutes later: she is pointed to the
-    // support e-mail with the receipt (operator, 2026-10-09), and the operator is told. The conversation stays
-    // with the agent (no `handoff_at`). Without a support address in the config, a person takes it, as before.
-    if (row.kind === "payment_check" && row.body === "receipt") {
+    // She said she paid and the payment still did not update 5 minutes later: now a person checks it
+    // (operator, 2026-10-13) — no receipt ask, no support e-mail. The receipt she sent meanwhile goes with it.
+    if (row.kind === "payment_check") {
       const checkClaim = await mark("sent");
       if (!Array.isArray(checkClaim) || checkClaim.length === 0) {
         skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da verificação" });
         return;
       }
-      const support = CONFIG.support?.email ?? null;
-      const line = support ? paymentSupportLine(support) : PAYMENT_RECEIPT_ESCALATED;
-      if (!support) {
-        await db(`leads?id=eq.${lead.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-        }).catch(() => undefined);
-      }
+      const receipt = row.body === "receipt";
+      const line = receipt ? PAYMENT_RECEIPT_ESCALATED : PAYMENT_ESCALATED;
+      await db(`leads?id=eq.${lead.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
+      }).catch(() => undefined);
       await db("messages", {
         method: "POST",
         body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: line }),
@@ -1526,9 +1541,9 @@ const runFollowupSweep = async () => {
       toSend.push({ to: lead.phone, via: "text", body: line, kind: row.kind, followupId: row.id });
       handoffs.push({
         followupId: row.id,
-        reason: support
-          ? "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — ela foi orientada a mandar o comprovante pro e-mail do suporte; conferir na Coinzz"
-          : "a cliente mandou o comprovante e o pagamento não chegou em 5 minutos — conferir na Coinzz",
+        reason: receipt
+          ? "a cliente diz que pagou, mandou o comprovante, e o pagamento não atualizou em 5 minutos — conferir na Coinzz"
+          : "a cliente diz que pagou e o pagamento não atualizou em 5 minutos — conferir na Coinzz",
         notify: CONFIG.handoff?.email ?? null,
         leadId: lead.id,
         phone: lead.phone,
@@ -2461,7 +2476,7 @@ const handleTurn = async (
    * dropping the alert would be the worse half of the two. The e-mail goes the way it
    * always did: `notification(...)` in the body, sent by n8n.
    */
-  const handOff = async (reply: string, reason: string, exchanging = false): Promise<Response> => {
+  const handOff = async (reply: string, reason: string): Promise<Response> => {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
       body: JSON.stringify({ handoff_at: new Date().toISOString() }),
@@ -2474,7 +2489,6 @@ const handleTurn = async (
       now: new Date(),
       paymentPath: "cod",
       codUnavailable,
-      exchanging,
     });
     await recordTraces(conversation.id, receipt.traces);
     const sendable = passed(receipt);
@@ -2509,15 +2523,23 @@ const handleTurn = async (
   };
 
   /**
-   * She opted out and asked something in the same message (R13.4, Rose: "não me manda
-   * mais mensagem... só me diz o preço antes"). One last reply — the answer and the
-   * confirmation — through the whole chain, with the same rewrites any reply gets. The
-   * opt-out gate is told `optedOut: false` for this one message only: it is the reply to
-   * the opt-out itself, and the opt-out is already written. Anything that goes wrong
-   * returns null, and she gets the plain opt-out — never a retry, never a handoff.
+   * One reply the model writes under a directive of the turn's own, outside the main loop: the opt-out's
+   * last answer, a delivered order's problem, the other question beside the fixed deadline. The same chain
+   * and the same rewrite policy as the main loop (not a copy of it, code ladder, 2026-09-24), and the
+   * cost ceiling before every call; the conversation's cost is written either way. `deferred`: the text
+   * passed every gate but the clock. Null when no draft passed, the provider failed or the ceiling was
+   * reached — the caller then does what it did before.
    */
-  const optOutFarewell = async (): Promise<{ text: string; id: string | null } | null> => {
-    if (spent >= ceilingBrl) return null;
+  const draftWith = async (
+    directive: string,
+    purpose: string,
+    gate: Partial<Parameters<typeof runGates>[1]> = {},
+    deadline = turnStartedAt + OPT_OUT_FAREWELL_BUDGET_MS,
+    maxRewrites = MAX_REWRITES,
+    /** The main loop's own system prompt (its size directive); `tail`: her words as one more user message, never as instruction. */
+    extra: { system?: string; tail?: string } = {},
+  ): Promise<{ text: string; deferred: boolean } | null> => {
+    // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
     const history = await db(
       `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.desc&limit=20`,
     ).catch(() => null);
@@ -2525,10 +2547,25 @@ const handleTurn = async (
       role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
       content: m.body ?? "",
     }));
-    const base = `${systemPrompt(turnConfig, null)} ${OPT_OUT_FAREWELL_DIRECTIVE}`;
+    if (extra.tail) turns.push({ role: "user" as const, content: extra.tail });
+    // What the main loop reads from the history, read here from this one (/code-review of v21): repetition, the CEP
+    // and size asks in a row, the hook, her words for `size_claim`. A caller with the main loop's context overrides it.
+    const outbound = turns.filter((m) => m.role === "assistant").map((m) => m.content.trim());
+    const historyGate = {
+      recentOutbound: outbound,
+      herWords: [...turns.filter((m) => m.role === "user").map((m) => spoken(m.content)), ...parts].join("\n"),
+      hookSent: outbound.some(isHook),
+      cepAsks: outbound.length - 1 - outbound.findLastIndex((m: string) => !asksCep(m)),
+      sizeAsks: outbound.length - 1 - outbound.findLastIndex((m: string) => !asksSize(m)),
+      knownTestimonials: CONFIG.testimonials,
+      // One line: the main loop's own `askedTestimonial`/`askedIdentity` lines are mutation anchors.
+      askedTestimonial: asksForTestimonial(spoken(inbound.body ?? "")), askedIdentity: parts.some(asksWhatSheIs),
+      linkInTurn: false,
+    };
+    const base = `${extra.system ?? systemPrompt(turnConfig, null)} ${directive}`;
     let correction = "";
-    const deadline = turnStartedAt + OPT_OUT_FAREWELL_BUDGET_MS;
-    for (let rewrites = 0; rewrites <= MAX_REWRITES; rewrites += 1) {
+    let result: { text: string; deferred: boolean } | null = null;
+    for (let rewrites = 0; rewrites <= maxRewrites && spent < ceilingBrl; rewrites += 1) {
       let attempt: ModelCall;
       try {
         attempt = await withNetworkRetry(
@@ -2539,28 +2576,22 @@ const handleTurn = async (
         break;
       }
       spent += attempt.costBrl;
-      await recordCall(conversation.id, "farewell", conversationProvider, CONVERSATION_MODEL, attempt);
+      await recordCall(conversation.id, purpose, conversationProvider, CONVERSATION_MODEL, attempt);
       const gated = runGates(attempt.text, {
         config: turnConfig,
         layer: "agent",
         optedOut: false,
-        now: new Date(),
         paymentPath: "cod",
         codUnavailable,
+        ...historyGate,
+        ...gate,
+        now: new Date(),
       });
       await recordTraces(conversation.id, gated.traces);
       if (passed(gated)) {
-        const out = await db("messages", {
-          method: "POST",
-          body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: attempt.text }),
-        }).catch(() => null);
-        await db(`conversations?id=eq.${conversation.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ cost_brl: await costTotal(), last_outbound_at: new Date().toISOString() }),
-        }).catch(() => undefined);
-        return { text: attempt.text, id: out?.[0]?.id ?? null };
+        result = { text: attempt.text, deferred: false };
+        break;
       }
-      // The same rewrite policy as the main loop, not a copy of it (code ladder, 2026-09-24).
       const next = decideNext({
         remedy: remedyFor(gated),
         rewritesUsed: rewrites,
@@ -2568,7 +2599,9 @@ const handleTurn = async (
         ceilingBrl,
         reasons: gated.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
         vetoedText: attempt.text,
+        maxRewrites,
       });
+      if (next.kind === "defer") result = { text: attempt.text, deferred: true };
       if (next.kind !== "rewrite") break;
       correction = ` ${next.instruction}`;
     }
@@ -2576,7 +2609,29 @@ const handleTurn = async (
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal() }),
     }).catch(() => undefined);
-    return null;
+    return result;
+  };
+
+  /**
+   * She opted out and asked something in the same message (R13.4, Rose: "não me manda
+   * mais mensagem... só me diz o preço antes"). One last reply — the answer and the
+   * confirmation — through the whole chain, with the same rewrites any reply gets. The
+   * opt-out gate is told `optedOut: false` for this one message only: it is the reply to
+   * the opt-out itself, and the opt-out is already written. Anything that goes wrong
+   * returns null, and she gets the plain opt-out — never a retry, never a handoff.
+   */
+  const optOutFarewell = async (): Promise<{ text: string; id: string | null } | null> => {
+    const draft = await draftWith(OPT_OUT_FAREWELL_DIRECTIVE, "farewell");
+    if (draft === null || draft.deferred) return null;
+    const out = await db("messages", {
+      method: "POST",
+      body: JSON.stringify({ conversation_id: conversation.id, direction: "outbound", body: draft.text }),
+    }).catch(() => null);
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: await costTotal(), last_outbound_at: new Date().toISOString() }),
+    }).catch(() => undefined);
+    return { text: draft.text, id: out?.[0]?.id ?? null };
   };
 
   // 3. Opt-out is irrevocable and costs nothing to check.
@@ -2847,8 +2902,10 @@ const handleTurn = async (
     pieces = 1,
     /** "auto": the payment lines answer her at any hour, like the handoff receipt (review of the L2 fixes, 2). */
     layer: "agent" | "auto" = "agent",
+    /** A `draftWith` text, already judged with more context than this chain would have (/code-review of v21). */
+    judged = false,
   ): Promise<Response | null> => {
-    const gated = runGates(text, {
+    const gated = judged ? { traces: [] } : runGates(text, {
       config: turnConfig,
       layer,
       optedOut: false,
@@ -2903,6 +2960,25 @@ const handleTurn = async (
     });
   };
 
+  /**
+   * A `draftWith` reply that passed every gate but the clock: held for the window's opening, as the main
+   * loop holds its own (`deferred_reply`, gated again by the sweep before it goes out).
+   * Index: the unique (conversation_id, kind) of `followups`.
+   */
+  const deferDraft = async (text: string, reason: string): Promise<Response> => {
+    const gaveUp = await lateGuard(0, text);
+    if (gaveUp) return gaveUp;
+    const runAt = nextOpening(new Date(), CONFIG.hours.openHour);
+    await db("followups?on_conflict=conversation_id,kind", {
+      method: "POST",
+      headers: { Prefer: "resolution=merge-duplicates,return=representation" },
+      // The main loop's own row, written the same way (the kind last: `burst.test.ts` reads the main loop's).
+      body: JSON.stringify({ conversation_id: conversation.id, run_at: runAt.toISOString(), status: "scheduled", body: text, kind: "deferred_reply" }),
+    });
+    await recordOutcome(conversation.id, "deferred", reason, 0, spent - spentBefore);
+    return json(200, { status: "deferred", reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });
+  };
+
   // The agent's last message: what the interpreter compares her answer with, and what the
   // address read-back is checked against.
   // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
@@ -2923,12 +2999,11 @@ const handleTurn = async (
     const receipt = parts.some(isPaymentReceipt);
     const nudged = parts.some(nudgesCheck);
     const check = saidPaid || receipt || nudged || parts.some(asksPaymentStatus)
-      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,sent_at,run_at,body`).catch(() => null))?.[0] ?? null
+      ? (await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.payment_check&select=status,run_at`).catch(() => null))?.[0] ?? null
       : null;
     const checking = check?.status === "scheduled";
-    const receiptAsked = check?.status === "sent" && Date.now() - Date.parse(check.sent_at ?? "") < 24 * 60 * 60_000;
     // "Eai??", "checou?" ask about the payment only while it is being checked.
-    const asksStatus = parts.some(asksPaymentStatus) || ((checking || receiptAsked) && nudged);
+    const asksStatus = parts.some(asksPaymentStatus) || (checking && nudged);
     let linkSent = false;
     for (const base of saidPaid || receipt ? CHECKOUT_BASES : []) {
       if (linkSent) break;
@@ -2939,13 +3014,11 @@ const handleTurn = async (
       linkSent = (sent?.length ?? 0) > 0;
     }
     const facts = paymentFacts(
-      saidPaid || receipt || asksStatus || checking || receiptAsked
+      saidPaid || receipt || asksStatus || checking
         ? (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? []
         : [],
     );
-    // The check already ended in the support e-mail: it is said again, the receipt is not asked again.
-    const supportGiven = receiptAsked && check?.body === "receipt" && Boolean(CONFIG.support?.email);
-    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking, receiptAsked, supportGiven });
+    const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking });
     const settle = (status: "scheduled" | "canceled", runAt?: Date, body: string | null = null) =>
       db("followups?on_conflict=conversation_id,kind", {
         method: "POST",
@@ -2962,14 +3035,10 @@ const handleTurn = async (
       ? PAYMENT_CONFIRMED_REPLY
       : payment === "check"
       ? PAYMENT_CHECK_REPLY
-      : payment === "check_with_receipt" || payment === "receipt_during_check" || payment === "receipt_check"
+      : payment === "check_with_receipt" || payment === "receipt_during_check"
       ? PAYMENT_RECEIPT_KEPT
       : payment === "still_checking"
       ? PAYMENT_STILL_CHECKING
-      : payment === "ask_receipt"
-      ? PAYMENT_RECEIPT_ASK
-      : payment === "support_again" && CONFIG.support?.email
-      ? paymentSupportLine(CONFIG.support.email)
       : null;
     if (line !== null) {
       const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
@@ -2983,7 +3052,7 @@ const handleTurn = async (
             body: JSON.stringify({ body: "receipt", run_at: bumped }),
           }).catch(() => undefined);
         }
-        if (payment === "check" || payment === "check_with_receipt" || payment === "receipt_check") {
+        if (payment === "check" || payment === "check_with_receipt") {
           await settle("scheduled", new Date(Date.now() + PAYMENT_CHECK_MS), payment === "check" ? null : "receipt");
           // She says she paid: "travou em alguma etapa?" would talk over the check (L2).
           await db(`followups?conversation_id=eq.${conversation.id}&kind=eq.checkout_reminder&status=eq.scheduled`, {
@@ -3105,6 +3174,9 @@ const handleTurn = async (
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
   const replyBudgetFrom = Date.now();
+  // The reply's deadline, the main loop's and any extra call's after it (/code-review of v21: an extra call with a
+  // fresh budget could outlive the Edge Function and lose even the fixed reply).
+  const replyDeadline = isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS);
 
   // 4c. The only other doors to a person (R13.2): an order she wants cancelled, a
   // question about an order that exists, or a person asked for inside a longer message
@@ -3140,12 +3212,19 @@ const handleTurn = async (
     }
   }
   const handoffKind = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext);
-  // A size exchange on an order (R17.1): the exchange's freight is hers, so she gets its amount and
-  // the Mercado Pago link, and a person takes the exchange from there. Without both in the config,
-  // the exchange goes to a person like any other post-sale question.
-  const exchange = handoffKind === "post_sale" && interpretation.wants_exchange ? exchangeReply(CONFIG.exchange) : null;
-  if (exchange !== null) {
-    return await handOff(exchange, "a cliente quer trocar de tamanho; o link do envio da troca foi enviado", true);
+  // Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
+  // agent sends its number and nobody is called. Without a valid number in the config, as before.
+  // A reply the chain refuses falls through to what came before it.
+  const logzzPhone = logzzSupportPhone(CONFIG);
+  const returnsLine = logzzPhone === null ? null : logzzReturnReply(logzzPhone, CONFIG.delivery.warrantyDays, CONFIG.returns?.freeExchange === true);
+  // A person asked for in so many words beside the order goes to a person, and a fixed line already sent
+  // is not sent again: the second time she asks, a person (v20 review — the post-sale reading came first).
+  const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? ""));
+  // Only when she asks for the exchange or the return in her own words, never on a complaint (operator, 2026-10-13).
+  const asksReturn = interpretation.wants_exchange && namesExchangeOrReturn(spoken(inbound.body ?? ""));
+  if (returnsLine !== null && returnsLine !== lastOutbound && !asksPerson && handoffKind === "post_sale" && asksReturn) {
+    const sent = await sendFixed(returnsLine, "troca: número do suporte da Logzz", "cod", {}, false, 1, "auto");
+    if (sent) return sent;
   }
   // A cancel reads her orders (operator, 2026-10-06, `cancelReplyFor`): paid at the door, she
   // refuses it there; prepaid on its way, the return comes after it arrives; prepaid and not yet
@@ -3169,6 +3248,36 @@ const handleTurn = async (
       PREPAID_CANCEL_REPLY,
       "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",
     );
+  }
+  // Post-sale without a person (operator, 2026-10-13): a question about her order hears its status, read
+  // from her newest order with another one beside it when it matters, and a cancel when every live order was
+  // delivered — a return — the Logzz support. A delivered newest order is answered by the model with the
+  // order's facts. No `handoff_at`: the conversation stays with the agent. Nothing to say for sure (no order on
+  // file, a status outside the vocabulary, a failed attempt), a person asked for, or the same line again keeps
+  // the person. Index `orders_lead_idx`, then her few rows sorted.
+  if (((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") && !asksPerson) {
+    const orders: OrderView[] = ((await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`).catch(() => null)) ?? [])
+      .map((o: { status: string; payment_method: string | null; scheduled_for: string | null }) => ({
+        stage: isKnownOrderStatus(o.status) ? stageForOrder(o.status) : null,
+        dead: isOrderDead(o.status),
+        unpaid: orderUnpaid(o.status),
+        settled: orderSettled(o.status),
+        paymentMethod: o.payment_method,
+        scheduledFor: o.scheduled_for,
+      }));
+    const reply = handoffKind === "cancel" ? (cancelling === null && returnsOnly(orders) ? returnsLine : null) : orderStatusReply(orders, new Date());
+    const path = orders.find((o) => !o.dead)?.paymentMethod === "prepay" ? "prepay" : "cod";
+    const sent = reply === null || reply === lastOutbound ? null : await sendFixed(reply, `pós-venda: ${handoffKind === "cancel" ? "devolução pela Logzz" : "status do pedido"}`, path, {}, false, 1, "auto");
+    if (sent) return sent;
+    // Delivered: each problem is different, so the model answers with the order's facts, through the gates.
+    if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {
+      // Her stored size: a size said here is the table's (`size_claim`), never the model's guess.
+      const gate: Parameters<typeof draftWith>[2] = { paymentPath: path, knownSize: lead.size ?? null };
+      const draft = await draftWith(deliveredDirective(orders, new Date(), logzzPhone), "post_sale", gate, replyDeadline);
+      if (draft?.deferred) return await deferDraft(draft.text, "pós-venda: pedido entregue, fora da janela de envio");
+      const answered = draft === null ? null : await sendFixed(draft.text, "pós-venda: pedido entregue, resposta do modelo com os fatos do pedido", path, {}, false, 1, "agent", true);
+      if (answered) return answered;
+    }
   }
   if (handoffKind !== null) {
     return await handOff(
@@ -3564,6 +3673,15 @@ const handleTurn = async (
     cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
     emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
+    // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
+    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
+    // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
+    // and the link's own path: "na entrega" read as `cod` where there is none is not a choice of the prepaid link (third review).
+    choiceMade:
+      (paymentChoice !== null && paymentChoice === linkPath) ||
+      // A no-COD region where she already heard the prepaid offer and wants to buy ("ok, me manda o link" after another
+      // answer): her choice, or arm B waits for a "payment" nobody asks (review of the v19 candidates, 2).
+      (knownRegion?.cod === false && (interpretation.wants_to_buy || parts.some(asksForLink)) && recentOutbound.some(toldNoCod)),
   };
   const missing = missingForLink(linkData);
   const checkoutBases = CHECKOUT_BASES;
@@ -3587,7 +3705,26 @@ const handleTurn = async (
   const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
-  const linkNow = !linkJustSent && linkReady && !withdrew;
+  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
+  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
+  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
+  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
+  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // Read clause by clause: "me manda o link, aceita cartão?" has a real question beside the request (review 4).
+  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
+  // Experiment B: the kit comes before the link too (operator, 2026-10-12). `linkHistory` reaches past the window.
+  // With her question beside it the link does not wait: the fixed offer has no room for the answer, and an offer
+  // left to the model may be one `kitWasOffered` cannot read — the link held turn after turn (/code-review).
+  const kitFirst = kitHoldsLink({
+    identityAtCheckout: linkData.identityAtCheckout,
+    units,
+    kitsOnPath: kitsOnPath.length,
+    kitOffered,
+    pathChosen,
+    linkSentBefore: lastLinkBase(linkHistory, CHECKOUT_BASES) !== null,
+  }) && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
+  const linkUnheld = !linkJustSent && linkReady && !withdrew;
+  const linkNow = linkUnheld && !kitFirst;
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
@@ -3646,7 +3783,8 @@ const handleTurn = async (
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;
     try {
-      thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
+      // Arm B: the "vou pensar" gets the link, not the kit offer (review of 2695b80, 1).
+      thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? "")))
         ? buildPrefilledCheckoutLink(linkCustomer, linkPath, linkCheckout)
         : null;
     } catch {
@@ -3681,8 +3819,6 @@ const handleTurn = async (
 
   // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  // Read clause by clause: "me manda o link, aceita cartão?" has a real question beside the request (review 4).
-  const clauses = parts.flatMap((p: string) => p.split(/(?<=[.!?,;])\s+|\n+/));
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
     const sent = await sendFixed(
       opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
@@ -3699,11 +3835,13 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
-  // "cada kit vendido é mais margem"); her path is chosen, or forced by her region and she said yes.
-  const kitsOnPath = kits.filter((k) => k.path === linkPath).sort((a, b) => a.units - b.units);
-  const kitOffered = kitWasOffered(recentOutbound, kitsOnPath.map((k) => k.priceBrl));
-  const pathChosen = paymentChoice !== null || (knownRegion?.cod === false && interpretation.wants_to_buy);
+  // Arm B: the link waited for the kit, so the offer goes fixed — its "N peças" is what `kitWasOffered`
+  // reads next turn, and the link goes then. Vetoed, the model offers it under `kitDirective` as before.
+  if (linkUnheld && kitFirst && !farewell) {
+    const sent = await sendFixed(opening(kitOfferMessage(kitsOnPath)), "braço B: oferta fixa do kit antes do link", linkPath);
+    if (sent) return sent;
+  }
+
   // After the size and the CEP too, so the offer never shares a message with another question.
   const kitOfferNow =
     units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
@@ -3720,7 +3858,13 @@ const handleTurn = async (
   const afterLink = linkAlreadySent
     ? `O link do pedido já foi enviado nesta conversa: não peça e-mail, nome nem CPF — o` +
       ` checkout pede o que faltar.`
-    : null;
+    : linkData.identityAtCheckout && missing === null
+      // Also when the link is held this turn (a question beside the yes): the prompt's own flow asks
+      // name and CPF, and arm 1 would collect them in the chat (review of 9c1053c, 2). On the prepaid
+      // path the model that writes the link says the e-mail is asked there (§67, Leila; review, 3).
+      ? `No link do pedido o checkout pede o que faltar: não peça nome, e-mail nem CPF aqui.` +
+        (linkPath === "prepay" && chatEmail === null ? ` Se escrever o link, avise que lá vai pedir o e-mail dela.` : "")
+      : null;
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
@@ -3751,7 +3895,9 @@ const handleTurn = async (
         ` levando mais peças o desconto sobe: ${kitsOnPath.map((k) => `${k.units} peças R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}%)`).join(", ")}.` +
         ` Diga sempre "peças" junto do preço do kit. Nesta mensagem, só a oferta, terminando na pergunta do kit —` +
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
-        ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`
+        (linkData.identityAtCheckout
+          ? ` Se ela não quiser, siga com uma peça e o link sai em seguida, e não volte ao kit.`
+          : ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`)
       : null;
   const sizeDirective =
     [
@@ -3795,6 +3941,8 @@ const handleTurn = async (
   let rewritesUsed = 0;
   let correction: string | null = null;
   let outcome: NextAction = { kind: "send" };
+  // The last attempt's gate context: an extra call after the loop is judged by the same one (/code-review of v21).
+  let gateContext: Parameters<typeof runGates>[1] | null = null;
 
   while (true) {
     try {
@@ -3807,7 +3955,7 @@ const handleTurn = async (
         : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
-        isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
+        replyDeadline,
       );
     } catch (error) {
       // The network, still down after the in-call retries: one more try from the sweep
@@ -3832,7 +3980,7 @@ const handleTurn = async (
       attempt,
     );
 
-    gates = runGates(attempt.text, {
+    gates = runGates(attempt.text, gateContext = {
       config: turnConfig,
       layer: "agent",
       optedOut: false,
@@ -3952,11 +4100,19 @@ const handleTurn = async (
   // else goes to a person with the holding line.
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
-  // Only when every question of hers is about the deadline: "qual o prazo? e serve pra quem fez cirurgia?" still goes to a person.
-  const asksWhen = !asksPrice && clauses.some(asksDeadline) && clauses
-    // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
-    .filter((q: string) => asksSomething(q) && !/^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
-    .every(asksDeadline);
+  // Beside another question ("qual o prazo? e serve pra quem fez cirurgia?") it goes to a person, unless every draft fell
+  // on the deadline or the coverage veto (`deadlineVetoOnly`, below).
+  // Every draft fell on the deadline or the coverage (persona Rafa, 2026-10-13, R21.1): her deadline gets the fixed answer even
+  // beside another question, never a person. `gates` holds the last attempt's traces.
+  const deadlineVetoOnly =
+    gates.traces.some((t) => t.verdict === "block") &&
+    gates.traces.every((t) => t.verdict !== "block" || t.gate === "delivery_promise" || t.gate === "coverage_claim");
+  // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
+  const leadsIn = (q: string): boolean =>
+    /^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, ""));
+  const asksWhen = !asksPrice && clauses.some(asksDeadline) && (deadlineVetoOnly || clauses
+    .filter((q: string) => asksSomething(q) && !leadsIn(q))
+    .every(asksDeadline));
   // Her first reply never goes to a person (personas Marcinha and Sandra, grafo §76): cold traffic handed off at
   // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
   // Only a first message with no question of hers: a medical question or a complaint still goes to a person.
@@ -4009,12 +4165,27 @@ const handleTurn = async (
    * which is where a gate that keeps firing becomes Hermes' material.
    */
   const fallbackReason = outcome.kind === "fallback" ? outcome.reason : null;
-  const body =
+  const fixedOrDraft =
     fallbackReason === null
       ? attempt.text
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
+  // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):
+  // one more call, told the deadline is answered, answers only the other one — gated, under the ceiling, no
+  // rewrite. Vetoed or failed, the fixed deadline goes alone, as before.
+  const otherQuestions = fallbackReason !== null && asksWhen
+    ? clauses.filter((q: string) => asksSomething(q) && !leadsIn(q) && !asksDeadline(q))
+    : [];
+  // Judged by the main loop's own gate context and prompt, inside what is left of the turn's deadline; her
+  // question goes as her message, never inside the system prompt (/code-review of v21).
+  const other = otherQuestions.length === 0 || gateContext === null || replyDeadline - Date.now() < EXTRA_CALL_MIN_MS
+    ? null
+    : await draftWith(otherQuestionDirective(fixedOrDraft), "other_question", { ...gateContext, linkInTurn: false }, replyDeadline, 0, {
+      system: systemPrompt(turnConfig, sizeDirective, identityDirective, null),
+      tail: otherQuestionTail(otherQuestions),
+    });
+  const body = other === null || other.deferred ? fixedOrDraft : `${fixedOrDraft}\n\n${other.text}`;
   // Only a fixed fallback gets the short greeting: the model's own first reply already opened (E3.1).
   const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\n\n${body}`;
 

@@ -79,9 +79,7 @@ Tudo o mais é paralelo ou posterior.
      sem código novo.
    - (c) Chatwoot (a decisão Q12 original) — caixa de entrada completa, mais um serviço para
      manter. Fica para quando o volume de handoff pedir.
-4. **O** — criar o link do Mercado Pago de **R$ 27,00** (troca de tamanho) e escrever no
-   `BUSINESS_CONFIG`: `exchange: { feeBrl: 27, checkoutUrl: "<link>" }`; conferir
-   `cost.conversationCapBrl` (A3).
+4. **O** — conferir `cost.conversationCapBrl` (A3). Troca: troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3).
 5. ✅ **C** — medir o modelo padrão (2026-09-30, R17.5: p50 R$ 0,268 · p95 R$ 0,546 · 3/12 no teto; falta **O** fixar o teto): uma rodada das 12 personas com
    `CONVERSATION_MODEL=muse-spark-1.3` (sem `-contributor`, sem `CONVERSATION_MODEL_PRICE`),
    `pnpm dev:personas`, e a tabela com `pnpm dev:eval <rodada>`. Saída: custo p50/p95 por conversa e quantas bateriam no teto.
@@ -89,10 +87,10 @@ Tudo o mais é paralelo ou posterior.
 6. ✅ **O** — merge do PR #43 (`5bf5a15`, 2026-09-29; a `0020` já estava aplicada em produção).
 7. ✅ **C** — logo depois do merge (mexe no mesmo `hermes.yml`; execução 8 verde, 2026-09-30): trocar a instalação do Hermes na
    Action pelo instalador oficial (A6) e rodar a Action uma vez à mão com `force` para provar que
-   instala; registrar a troca de R$ 27,00 como R17.2 no grafo (pendência da revisão 1).
+   instala.
 
 **Saída de L0:** número verificado, canal humano escolhido e (se for a) construído, custo do
-modelo padrão medido e teto decidido, `BUSINESS_CONFIG` com `exchange`.
+modelo padrão medido e teto decidido.
 
 ## L1 — Publicar (1 dia, depois de L0)
 
@@ -121,8 +119,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
 1. **Compra na entrega (Logzz):** conversa → link → pedido → webhook → estágio → véspera → entrega.
 2. **Compra antecipada (Coinzz):** conversa → link → pagamento → webhook → estágio.
-3. **Troca e handoff:** com o pedido 1, pedir troca de tamanho → R$ 27,00 + link + handoff → a
-   pessoa responde.
+3. **Troca:** com o pedido 1, pedir troca de tamanho → troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3), só quando ela pede (R21.4).
 
 **C** confere cada passo no banco (`conversations.stage`, `followups`, `turn_outcomes`,
 `llm_calls`). Nada de bateria de personas aqui: a rodada de L0.5 já cobriu mentira e custo.

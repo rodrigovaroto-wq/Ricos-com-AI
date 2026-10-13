@@ -163,3 +163,90 @@ P07 | coverage_claim | É normal ficar nessa dúvida, porque a maioria chega aqu
 P07 | coverage_claim | Muita gente chega aqui com essa dúvida.
 P07 | coverage_claim | Toda cliente chega aqui assim, desconfiada.
 P07 | coverage_claim | Quando você chega aqui já sabe o que quer, né?
+E4 | delivery_promise | Dá sim, a garantia pra trocar o tamanho é de 7 dias após o recebimento, e na troca o envio da peça fica por sua conta
+E4 | delivery_promise | A garantia pra trocar o tamanho é de 7 dias após o recebimento.
+E4 | delivery_promise | O prazo pra trocar o tamanho é de 7 dias.
+E4 | delivery_promise | Você tem 7 dias após o recebimento pra trocar, e o envio da troca é por sua conta.
+E4 | delivery_promise | chega em 1 a 3 dias e a garantia pra trocar é de 7 dias
+E4 | delivery_promise | Depois de receber, a garantia pra trocar o tamanho é de 7 dias.
+E4 | delivery_promise | E não precisa ter medo de errar, se chegar e não servir você pode devolver em até 7 dias após o recebimento, com o dinheiro de volta sem custo nenhum
+E4-rafa | delivery_promise | Sobre chegar até sexta eu não consigo te garantir por aqui, a data exata aparece no checkout, me passa seu CEP pra eu ver as opções aí na sua região?
+E4-rafa | delivery_promise | Sobre chegar até sexta eu não consigo te garantir.
+E4-rafa | delivery_promise | Chegar até sexta não dá pra garantir, a data aparece no checkout.
+E4-rafa | delivery_promise | Receber até sábado eu não posso prometer.
+E4-rafa | delivery_promise | Entregar na sexta a gente não garante.
+# Troca sem custo pela Logzz (operador, 2026-10-13): só no contexto returns.freeExchange === true; ausente/false segue vetado
+TROCA-LOGZZ | warranty_promise | Pode trocar ou devolver em até 7 dias, e o frete da troca é por nossa conta.
+TROCA-LOGZZ | warranty_promise | a troca é grátis em até 7 dias
+TROCA-LOGZZ | warranty_promise | Se o tamanho não servir, a troca é grátis em até 7 dias.
+TROCA-LOGZZ | warranty_promise | A troca é gratuita em até 7 dias.
+TROCA-LOGZZ | warranty_promise | No antecipado a troca é grátis e o prazo fica 7 dias.
+TROCA-LOGZZ | warranty_promise | No pix tem troca grátis e o prazo é de 7 dias.
+TROCA-LOGZZ | warranty_promise | em até 7 dias você recebe, e a troca é grátis
+TROCA-LOGZZ | warranty_promise | Você tem 7 dias pra trocar, e o envio fica por nossa conta e chega em 7 dias.
+TROCA-LOGZZ | warranty_promise | a troca é grátis
+TROCA-LOGZZ | warranty_promise | vetada: a troca dita grátis ou sem custo
+TROCA-LOGZZ | warranty_promise | A troca é grátis.
+TROCA-LOGZZ | warranty_promise | A primeira troca do colete é grátis.
+TROCA-LOGZZ | warranty_promise | O colete é grátis pra trocar em 7 dias.
+TROCA-LOGZZ | warranty_promise | A troca de tamanho sai de graça.
+TROCA-LOGZZ | warranty_promise | Pode trocar de tamanho sem custo nenhum.
+TROCA-LOGZZ | warranty_promise | Você tem 7 dias pra trocar ou devolver, sem custo nenhum.
+TROCA-LOGZZ | warranty_promise | Se não servir, a troca não tem custo pra você.
+TROCA-LOGZZ | warranty_promise | Na troca a gente paga o frete.
+TROCA-LOGZZ | warranty_promise | A gente paga o frete da troca.
+TROCA-LOGZZ | warranty_promise | O frete da troca é por nossa conta.
+TROCA-LOGZZ | warranty_promise | Você não paga nada pela troca.
+TROCA-LOGZZ | warranty_promise | Não precisa pagar nada na troca de tamanho.
+TROCA-LOGZZ | warranty_promise | A devolução é sem custo, e a troca também.
+TROCA-LOGZZ | warranty_promise | Na devolução ou na troca é sem custo.
+TROCA-LOGZZ | warranty_promise | Trocar de tamanho? Pode sim, custa nada.
+TROCA-LOGZZ | warranty_promise | passam: a devolução grátis, a troca negada como grátis, a troca sem falar de custo
+TROCA-LOGZZ | warranty_promise | a troca é sem custo
+TROCA-LOGZZ | warranty_promise | A troca é sem custo pra você.
+TROCA-LOGZZ | warranty_promise | Trocar o tamanho não custa nada.
+TROCA-LOGZZ | warranty_promise | A Logzz faz a troca sem custo.
+TROCA-LOGZZ | warranty_promise | troca sem custo pela Logzz (returns.freeExchange)
+TROCA-LOGZZ | warranty_promise | A troca de tamanho, pela Logzz, também é sem custo pra ela.
+TROCA-LOGZZ | warranty_promise | deixar de vetar troca grátis
+TROCA-LOGZZ | warranty_promise | Troca grátis e chega em 7 dias.
+TROCA-LOGZZ | warranty_promise | kits: sétima passada — troca grátis e pagar uma vez são verdade (2026-09-25)
+TROCA-LOGZZ | warranty_promise | kits: oitava passada — peça grátis escondida atrás da troca (2026-09-25)
+TROCA-LOGZZ | warranty_promise | A troca é grátis e a segunda peça também.
+TROCA-LOGZZ | warranty_promise | A troca é grátis, e a segunda sai de graça.
+TROCA-LOGZZ | warranty_promise | A troca sai de graça e a outra peça também sai de graça.
+TROCA-LOGZZ | warranty_promise | Se trocar, a outra fica de graça.
+TROCA-LOGZZ | warranty_promise | troca e devolução: o número da Logzz, sem custo da troca
+TROCA-LOGZZ | warranty_promise | negação: não fala de custo da troca, nem grátis nem pago, nem de link ou valor
+TROCA-LOGZZ | warranty_promise | troca sem custo só com returns.freeExchange === true (operador, 2026-10-13)
+TROCA-LOGZZ | warranty_promise | ligado: o prompt e a resposta fixa dizem que a troca é sem custo, e passam a cadeia
+TROCA-LOGZZ | warranty_promise | "A troca é sem custo pra você."
+TROCA-LOGZZ | warranty_promise | negação: ausente, false ou "true" em texto, nada de troca sem custo
+TROCA-LOGZZ | warranty_promise | A troca é sem custo
+TROCA-LOGZZ | warranty_promise | na troca de tamanho o envio é por conta dela — nunca diga que a troca é grátis
+TROCA-LOGZZ | warranty_promise | tem troca grátis
+TROCA-LOGZZ | warranty_promise | A troca é grátis em até 7 dias; no pix chega em média 5 dias úteis, varia por região.
+TROCA-LOGZZ | warranty_promise | A troca é grátis em até 7 dias; no pix chega em média 5 dias úteis, varia por região, e chega junto.
+TROCA-LOGZZ | warranty_promise | A troca é grátis em até 7 dias; no pix chega em 7 dias.
+TROCA-LOGZZ | warranty_promise | No pix a troca é grátis.
+TROCA-LOGZZ | warranty_promise | Pagando no pix ou na entrega, a troca de tamanho é grátis.
+TROCA-LOGZZ | warranty_promise | a troca grátis não abre o frete: 'No pix a troca é grátis e o frete também.' veta
+TROCA-LOGZZ | warranty_promise | No pix a troca é grátis e o frete também.
+TROCA-LOGZZ | warranty_promise | Aceita troca sim, sem custo pra você.
+TROCA-LOGZZ | warranty_promise | produção: troca pela Logzz, sem custo
+V20-RESIDUOS | warranty_promise | Pode me mandar mensagem a qualquer momento se precisar trocar.
+V20-RESIDUOS | warranty_promise | Se precisar trocar, pode me chamar aqui a qualquer momento.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do produto.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após o recebimento do produto pra trocar.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do colete.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após o recebimento da peça pra trocar ou devolver.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do pedido.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após a entrega do colete pra trocar.
+R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após a entrega do produto.
+V21-NEGA-DIZER-QUE | delivery_promise | Não posso assegurar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não tenho como informar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não dá pra cravar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não consigo te falar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não posso afirmar com certeza que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não tem como eu te garantir que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não consigo prever que chega amanhã.

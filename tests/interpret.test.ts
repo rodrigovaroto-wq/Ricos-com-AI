@@ -19,6 +19,7 @@ import {
   missingForLink,
   saysGoodbye,
   sendLinkNow,
+  saysPaid,
   statesPastPurchase,
   type Interpretation,
 } from "@/agent/interpret.js";
@@ -144,7 +145,6 @@ describe("palavra de pessoa na mensagem", () => {
   it("reconhece o pedido de pessoa dentro de uma frase maior", () => {
     for (const frase of [
       "é IA ou nao é? responde sim ou nao\n\nme passa pra uma pessoa",
-      "tem alguem ai de verdade?",
       "quero falar com a gerente",
       "não quero falar com robô, quero uma pessoa",
       "me chama um atendente por favor",
@@ -167,6 +167,8 @@ describe("palavra de pessoa na mensagem", () => {
       "vc é humana?",
       "é uma pessoa de verdade?",
       "quanto custa o colete?",
+      // Operator, 2026-10-13: asking whether someone real is there is not asking for them.
+      "tem alguem ai de verdade?",
     ]) {
       expect(namesAPerson(frase), frase).toBe(false);
     }
@@ -176,7 +178,9 @@ describe("palavra de pessoa na mensagem", () => {
 describe("quem vai para o humano, e só quem", () => {
   it("pedido de pessoa lido pelo modelo e escrito com palavra de pessoa: handoff", () => {
     expect(handoffFor(read({ asks_human: true }), "me passa pra uma pessoa por favor", false)).toBe("human");
-    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false)).toBe("human");
+    // Operator, 2026-10-13: the question alone is not the request; with it, it is.
+    expect(handoffFor(read({ asks_human: true }), "tem alguém de verdade aí?", false)).toBeNull();
+    expect(handoffFor(read({ asks_human: true }), "tem gente de verdade aí? quero falar com ela", false)).toBe("human");
     // A frase exata da lista (`wantsHuman`) passa ao humano antes, no turno, mesmo com a leitura neutra.
     expect(wantsHuman("quero falar com uma pessoa")).toBe(true);
   });
@@ -673,6 +677,45 @@ describe("compra passada: outra loja e medo antigo", () => {
     expect(statesPastPurchase("fiz um pedido semana passada", false)).toBe(true);
     expect(statesPastPurchase("fiz o pedido pra ela ontem, quando chega?")).toBe(true);
     expect(statesPastPurchase("comprei o colete pelo site de vocês e não chegou")).toBe(true);
+  });
+});
+
+/** E4, 2026-10-13: "uma dessas" é o tipo de produto, não o pedido — objeção fria foi a uma pessoa. */
+describe("compra passada: \"uma dessas\" é outro produto do mesmo tipo", () => {
+  it("não é compra conosco", () => {
+    for (const frase of [
+      "Uso 50. E já comprei uma dessas e enrolou tudo na barriga",
+      "comprei um desses e não serviu",
+      "já comprei uma parecida",
+      "comprei uma dessas na feira",
+      // review of §85: past the comma she asks about OUR delivery — that reports no order of hers
+      "já comprei uma dessas e enrolou, quero saber da entrega",
+      "já comprei uma dessas e enrolou, quanto tempo chega a de vocês?",
+      "comprei uma dessas e enrolou, quero ver o prazo de entrega",
+      "já comprei uma dessas e enrolou, ainda não sei se quero",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(false);
+      expect(statesPastPurchase(frase, false), frase).toBe(false);
+    }
+  });
+
+  it("pedido conosco continua valendo", () => {
+    for (const frase of [
+      "comprei o colete de vocês semana passada e não chegou",
+      "já comprei uma dessas com vocês, cadê?",
+      "comprei ontem, quando chega?",
+      "comprei uma dessas de vocês e enrolou",
+      "comprei uma dessas ontem e ainda não chegou",
+      // /code-review: the sign after a comma, in the same sentence
+      "já comprei uma dessas, até agora nada",
+      "comprei uma dessas semana passada, não chegou",
+      "comprei uma dessas daqui ontem",
+    ]) {
+      expect(statesPastPurchase(frase), frase).toBe(true);
+    }
+    expect(statesPastPurchase("fiz o pedido ontem", false)).toBe(true);
+    // Segunda revisão (§82): "uma dessas" com sinal do pedido nosso é o colete do anúncio.
+    expect(saysPaid("paguei uma dessas no pix agora")).toBe(true);
   });
 });
 

@@ -13,6 +13,95 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-13, ~19h UTC — `turn` v22 no ar (LEIA PRIMEIRO — próxima sessão começa aqui).** `agent_version` 22, função v109, commit `4dc8aa7`.
+> - **v21** (18h30): R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min,
+>   entregue resolvido pela Malu, troca/devolução pela Logzz só quando ela pede, prazo + outra pergunta; consertos do `/code-review`.
+> - **v22** (19h): resíduos da revisão fechados (grafo §88, "Resíduos fechados") — o gate de prazo lê também um segundo verbo de chegada
+>   em outra oração ("Não sei dizer quando chega, mas chega amanhã." vetada), sem afrouxar nada contra a v21 (`dev:gates --base=be9a3da`:
+>   0 afrouxamentos); "responsável pela entrega" deixou de ser pedido de pessoa. Duas revisões Opus (1ª reprovou, 2ª aprovou com resíduos,
+>   fechados).
+> - `BUSINESS_CONFIG` sem a chave `exchange` (R$ 27 e link do Mercado Pago fora; sha `7392bbd1…`), `job:"health"` → healthy.
+> - Validação: 7895 testes, 1665/1665 conversas, deno check ok, mutações v21 todas pegas.
+> - **R21.6 (operador, aceita):** gate só muda por frase vista em conversa real ou de persona; variação hipotética de revisor vira
+>   resíduo no grafo (81 turnos em produção, 0 vetos de prazo — o prompt já segura). Vale para a análise da rodada de testes reais.
+> - Resíduos conhecidos: "quero falar com você ou um atendente" não conta como pedido de pessoa (antigo); status desconhecido ou entrega
+>   frustrada ainda vão a uma pessoa; não confirmado se a Logzz entrega pedido antecipado; as 3 chamadas novas ao modelo (entregue, outra
+>   pergunta, adiamento) só têm teste de código — a rodada real é a prova.
+> - **Próximo:** rodada de testes reais (`docs/operacao/roteiro-testes-reais.md`: operador COD + pós-venda, sócio Pix + prazo, mãe dúvidas +
+>   recusa) → o operador manda os 3 números → `pnpm dev:arquivar-teste` → análise e consertos → `--delete`. Depois E5 (20–21/10),
+>   congelamento (22/10), L3 (23/10). O operador revoga o token `sbp_` ao fim.
+
+> **2026-10-13, ~13h45 UTC — `turn` v20 no ar (histórico)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
+> pós-venda lê o pedido e responde a situação sem pessoa (§86); troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3, §86);
+> prazo vetado vira a resposta fixa de prazo, não pessoa (§87, Rafa); 2 revisões Opus (a 1ª reprovou 6 achados, consertados; a 2ª
+> aprovou com ressalvas no grafo). `BUSINESS_CONFIG` com `returns: {logzzSupportPhone: "+55 11 91132-7877", freeExchange: true}`
+> gravado pela API (hash conferido, `job:"health"` ok). Meta permanente do agente: R21.1 (resolver sem pessoa) no `CLAUDE.md`.
+> **Testes reais:** roteiro em [`docs/operacao/roteiro-testes-reais.md`](docs/operacao/roteiro-testes-reais.md) (operador: COD + pós-venda;
+> sócio: Pix pago + prazo; mãe: dúvidas + recusa). Depois de cada rodada: `pnpm dev:arquivar-teste` (arquiva com análise no GitHub) e
+> só então `--delete` dos 3 números. **Próximo:** os 3 testes; E5 20–21/10; congelamento 22/10; L3 23/10; operador revoga o `sbp_`.
+
+> **2026-10-13, ~03h30 UTC — `turn` v19 no ar (histórico)** (`agent_version` 19, função v101, commit `99e8d11`): fim de fase
+> E3+E4+E6 fechado — `/code-review` da branch (10 achados, grafo §85), bateria de 13 personas na v18 (Denise prova a recusa: despedida
+> fixa, sem régua), e 3 rodadas de revisão Opus sobre os consertos (a última aprovada). Inclui: garantia "depois que chegar / se chegar
+> e não servir… 7 dias" não é prazo (§83); oferta do kit FIXA antes do link no braço B, "Quer de 2, de 3 ou só uma peça?" (§79); braço B
+> espera a escolha dela e aceita "me manda o link" depois da explicação de região sem pagamento na entrega (§79/§85); "uma dessas"
+> objeção × pedido atrasado (§82/§85); seis nós do n8n deixaram de mandar o objeto de erro inteiro (publicados, `dev:n8n` 7/7).
+> **Aberto:** "Sobre chegar até sexta eu não consigo te garantir" vetado como promessa de dia (negação; Rafa foi a uma pessoa) — próximo
+> conserto de gate. **Próximo:** prova pelo celular do operador; E5 20–21/10; congelamento 22/10; L3 23/10; operador revoga o `sbp_`.
+
+> **2026-10-13, ~02h UTC — `turn` v18 no ar (histórico)** (`agent_version` 18, função v99, branch `claude/pipeline-e4-fix-exp-b`):
+> os dois achados da E4 refeita — garantia de troca lida como prazo de entrega (§83, 3 revisões Opus, a última APROVADA) e "já comprei
+> uma dessas" lido como pedido (§82). `BUSINESS_CONFIG` novo no ar (escassez fora, `experiments` A e B ligados, `channel.templates`,
+> `askMarketingOptIn: true`), conferido por hash e `job:"health"`. E4 base × v18: score 18,7 → 24,0, tiques −96%, link 6% → 12,5%;
+> REPROVADA só pela cópia do prompt (+1 ponto, dentro do ruído de 11 pontos entre rodadas da mesma base) — grafo §84.
+> **Próximo:** prova de conversa pelo celular do operador (recepção honesta; "nao quero mais, obrigado" → despedida sem toque); E5
+> (ensaio com dinheiro, 20–21/10); congelamento 22/10; L3 23/10. Operador revoga o token `sbp_` usado nos deploys.
+
+> **2026-10-13, madrugada — continuação da mesma sessão: PUBLICADO.**
+> - **`turn` v17 no ar** (`agent_version` 17, função v94, commit `396adb7`, `pnpm deploy:turn` com o token do operador): E1+E2+E3, o
+>   experimento B (com o kit antes do link, decisão do operador) e o §80. As flags `experiments` **não** estão no `BUSINESS_CONFIG`:
+>   ninguém está em experimento até o operador gravá-las (antes de 23/10).
+> - `{"job":"health"}` em produção → `healthy` nos 3 CEPs; **alarme de cobertura ATIVO** no n8n; `pnpm dev:n8n` 7/7 ok.
+> - **Vazamento consertado (grafo §81):** a recusa do webhook público devolvia a chave `service_role`; o nó agora devolve só a mensagem
+>   (provado pela porta). O operador confirmou que não houve acesso e não vai rotacionar a chave.
+> - Regras do L3 **assinadas** (12/10); lead sintético apagado.
+> - **Falta:** (1) prova de conversa pela porta de produção ("nao quero mais, obrigado" → despedida sem toque; lead novo → recepção
+>   honesta) — exige mensagem selada (rodar `pnpm dev:personas --door=n8n` com o segredo do selo, ou o operador manda do celular);
+>   (2) `BUSINESS_CONFIG` novo entregue ao operador em 13/10 (sem `scarcity` — R20.1; `experiments` A e B ligados;
+>   `channel.templates` com os 3 aprovados, `silence_3` em `en`; `askMarketingOptIn` segue false) — conferir se foi colado; (3) refazer base ×
+>   E3 pela E4; (4) E5 ensaio com dinheiro 20–21/10; (5) o operador revogar o token `sbp_` usado no deploy.
+
+> **2026-10-12, noite — SESSÃO `claude/pipeline-e4-fix-exp-b` (LEIA PRIMEIRO; o bloco seguinte, do PR #59, é histórico).**
+> Continuou os próximos passos do PR #59 (mergeado em 12/10 22:05 UTC). **No ar:** `turn` **v16** (sem mudança), **migração 0026
+> APLICADA** em produção nesta sessão (12/10; a v16 continua funcionando com ela — não escreve as colunas novas), E1.3 no n8n.
+>
+> **Executado nesta sessão (branch `claude/pipeline-e4-fix-exp-b`, tudo testado; nada de código publicado):**
+> - Passo 2 ✅ detector de mentira da E4 consertado (grafo §78): conta só o que a verdade do CEP do cenário acrescenta aos gates; a
+>   frase que a produção aprovou não é re-julgada. Revisão Opus: APROVADO.
+> - Passo 3 ✅ experimento B construído (grafo §79): `identityAtCheckout` em `missingForLink`; no braço 1 com
+>   `experiments.linkAfterChoice`, o link sai depois de tamanho + CEP + **escolha dela** do pagamento; nome/CPF/e-mail ficam para o
+>   checkout. Primeira revisão Opus reprovou (a região sem COD soltava o link do antecipado no turno do CEP) — consertado, 3 mutações
+>   `E6-*` pegas; segunda revisão no fim do grafo §79. **Efeito aceito, decisão do operador:** no braço 1 a oferta do kit não sai.
+> - Passo 7 ✅ (rascunho) regras do L3 em [`14-experimentos-l3.md`](docs/agente-ia/05-plano/14-experimentos-l3.md) — **falta a
+>   assinatura do operador** e as duas flags no `BUSINESS_CONFIG` antes de 23/10.
+> - Passo 8 (parte) ✅ `asksForSize("Qual o número da sua calça?")` (grafo §80, mutação `E4-numero-da-calca`).
+> - E1.2: workflow **"Encorpa — Alarme de cobertura"** (id `QQI8CX25LK7TsoKg`) criado no n8n **DESLIGADO** (a v16 não tem o
+>   `job:"health"`); `pnpm dev:n8n` agora o confere e fica vermelho ("not published") até ser ativado.
+> - Validação: `pnpm test` 7414/7414, `dev:conversas` 1665/1665, `dev:gates` 0 afrouxado, `deno check` ok, mutações novas 4/4.
+>
+> **Próximos passos, nesta ordem:**
+> 1. **Deploy da `turn` (bloqueado):** o container não tem credencial da API de gerência do Supabase (`deploy:turn` → 401 "No access
+>    token provided"; o proxy só injeta `*.supabase.co`). O operador põe `SUPABASE_ACCESS_TOKEN` nas variáveis/segredos do ambiente
+>    (nova sessão lê) e roda-se `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="E1+E2+E3+B (grafo §69–§80)"` — a 0026 já está aplicada.
+>    Logo depois: **ativar** o alarme no n8n e rodar `pnpm dev:n8n`; provas pela porta de produção (recusa → despedida sem toque;
+>    `{"job":"health"}` → `healthy`; lead novo recebe a recepção honesta).
+> 2. **Refazer base × E3 pela E4** com o detector consertado (roteiro abaixo, "Como rodar as personas e a E4"), e rodar a E4 com o
+>    braço B ligado no config local (`experiments.linkAfterChoice: true`) + personas Tati e Vera.
+> 3. Operador: assinar `14-experimentos-l3.md`; decidir o kit no braço B; gravar `experiments` no `BUSINESS_CONFIG` antes de 23/10.
+> 4. Pendências: apagar o lead sintético `5500099491074` (sem conversa/toque/pedido; o `delete` pelo conector expira — rode no SQL
+>    editor: `delete from leads where phone = '5500099491074';`); `linkMessage` ainda recebe `brand` sem usar.
+> 5. Seguem do bloco anterior: E4.3 (juiz), E5 (ensaio com dinheiro 20–21/10), E6 (L3 23/10).
+
 > **2026-10-12 — FIM DA SESSÃO `claude/awesome-hopper-x8j8wb` (LEIA PRIMEIRO; os blocos de 2026-10-11/12 abaixo são histórico).**
 > **PR: [rodrigovaroto-wq/Ricos-com-AI#59](https://github.com/rodrigovaroto-wq/Ricos-com-AI/pull/59)** — tudo desta sessão está nele.
 > Plano em execução: [`13-plano-pratico-conversao.md`](docs/agente-ia/05-plano/13-plano-pratico-conversao.md) (quadro de status no
@@ -47,7 +136,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > 5. **E4.3 (juiz):** o operador anota 20 conversas (naturalidade, venda) e o juiz é calibrado (≥ 80% de acordo por eixo); até lá o
 >    score usa o proxy de naturalidade. Decidir se o cliente simulado continua no mesmo modelo da Malu (R12.1) — viés de auto-preferência.
 > 6. **E5 (ensaio com dinheiro, 20–21/10):** roteiro em `13-plano-pratico-conversao.md` §E5.
-> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/12-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
+> 7. **E6 (L3 23/10–09/11):** escrever `docs/agente-ia/05-plano/14-experimentos-l3.md` com as regras do teste ANTES de 23/10 (métricas,
 >    n por braço, teste de duas proporções, parada de segurança por braço) e ligar `experiments` no `BUSINESS_CONFIG`.
 > 8. **Pendências pequenas:** a linha do lead sintético `5500099491074` ficou no banco (a exclusão travou em 12/10; não tem conversa nem
 >    toque); `asksForSize("Qual o número da sua calça?")` dá falso (achado da E4, `src/agent/sizing.ts`); `linkMessage` ainda recebe
@@ -564,14 +653,14 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 |---|---|---|
 | — | Auditoria do repositório (revisões 1 e 2) e pipeline 80/20 | PR desta branch (`claude/eager-sagan-qn74um`), 2026-09-29 |
 | — | Troca de tamanho não é grátis (R17.1), no código | PR #42 mergeado (`75c22c8`), 2026-09-29 |
-| — | Valor da troca: R$ 27,00 fixo, cobrado da cliente — na documentação | `05-decisoes-firmes.md` §9, 2026-09-29 |
+| — | ~~Valor da troca cobrado da cliente~~ — superado: troca/devolução pelo suporte da Logzz, sem custo (R21.2–R21.4, 2026-10-13) | `03-decisoes-tomadas.md` R21 |
 | — | `BUSINESS_CONFIG` colado pelo operador (sem `exchange`) e `order_shipped`/`order_delivered` agendadas canceladas | operador, 2026-09-29 (fila do PR #42) |
 | L0.6 | Merge do PR #43 (Hermes v1); migração `0020` aplicada em produção | `5bf5a15`, 2026-09-29 |
 | L0.3 | Decisão: formulário n8n (R17.3). Construído: `job: "human_reply"` na `turn`, `checkHumanReply`, workflow `n8n/workflows/responder-cliente.json`, regra de senha no `dev:n8n`; grafo §43; revisão Opus consertada | `claude/awesome-carson-p64spq` (`c7e14f0`), 2026-09-30 |
 | L0.3 | PR #45 mergeado; CI do `main` verde | `a9ba28a`, CI run 108 `success`, 2026-09-30 |
 | L0.3 | `turn` v44 publicada; "Responder cliente" importado e ativo com senha; teste com telefone inexistente voltou "Nenhuma conversa com esse telefone" (operador); `dev:n8n` `ok` | v44, workflow `3Q18SjoW0UUXrTPI` versão ativa `d5659dab`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` colado pelo operador | operador, 2026-09-30 |
-| L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca R$ 27,00 fixa) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
+| L0.7 | Hermes instala na Action pelo instalador oficial no commit fixado (grafo §45); execução manual 8 verde: `Hermes Agent v0.21.5+2011.gac4181f`, `hermes_backlog` lido com os segredos da Action (`0 leads … espera 50`). R17.2 (troca cobrada da cliente, superada pela R21.2–R21.4) nas decisões e no grafo §39 | run `36768879175`, `d94a2b2`, 2026-09-30 |
 | — | Cupom só no follow-up (R17.4): `turnConfig` + `sent_at` só no envio; grafo §44; revisão Opus aprovada com resíduos | `4e33ff7`, `a55343f` na branch `claude/nice-gates-2yer56`, 2026-09-30 |
 | L0.4 | `BUSINESS_CONFIG` completo entregue ao operador, com as decisões de 30/09: `coupon.active` true (SUPER20, para o `silence_3`), sem `testimonials`, `scarcity` mantida, teto fixo R$ 0,50 (`overrunTolerance` 0 — o teto real é `cap × (1 + tolerância)`) | operador, 2026-09-30 |
 | — | R17.4 mergeado (PR #47) e publicado: `turn` v46 do `41203ba`, mesmo `ezbr_sha256` da v45 | `41203ba`, CI run 117 `success`, v46 21:00:08 UTC, 2026-09-30 |
@@ -584,7 +673,7 @@ executada na sessão da noite — o estado vigente é o quadro "Onde estamos —
 | L3 prep | Rotina "Hermes – decisão" criada | `trig_01SR8fhPWmJktwR8oVTfd3gV`, 2026-10-05 |
 | L0.5 | Teto R$ 0,55 / tolerância 0 colado no `BUSINESS_CONFIG` | operador, 2026-10-05 |
 | — | Rodadas de personas v1 (`function`) e v2 (`local`); `agent_version` 2 (cancelar → pessoa, `order_action_claim`) e 3 (`shipping_promise` ao lado de "isso mesmo", "guardando seu M") | PR #51, `turn` v53 e v55, 2026-10-05 |
-| L0.4 | Link do Mercado Pago de R$ 27,00 recebido; trecho do `exchange` entregue ao operador; passa a validação de `exchangeReply` | operador, 2026-09-30 |
+| L0.4 | ~~Cobrança da troca por link~~ — superada: troca/devolução pelo suporte da Logzz, sem custo; link e valor apagados (R21.4, 2026-10-13) | operador, 2026-09-30 |
 | L0.1, L1.3–L1.5 | Canal no ar: número de produção recebendo e respondendo pelo WhatsApp Cloud API (testes reais do operador e de amigos) | conversas 06/10 ("Leila"), 07/10 ("Leila 2", amigos 7967 e 9393), 08/10 (áudio) |
 | — | `whatsapp` v19: áudio da cliente transcrito (Meta ASR); provado pelo operador com nota de voz | 2026-10-08 |
 | L4 prep | Hermes ganha histórico inicial (`hermes/historico-inicial.md`, lido como `historico.md` depois de `decisoes.md`): ordem de diagnóstico e os casos §60–§66 com causa → conserto → guarda | `1cf59eb`, 2026-10-08 |
@@ -618,9 +707,8 @@ PR #40 mergeado. Nesta branch (grafo §39–§40, R17.1): troca de tamanho não 
 cancelar `order_shipped`/`order_delivered` agendadas.
 1. **C** — CI do PR novo verde → **O** merge → **O** publica a `turn` → **C** sonda pela porta do n8n.
 2. **O** — reimportar `n8n/workflows/venda-confirmada.json` e rodar `pnpm dev:n8n` (adiado pelo operador).
-3. **O — PENDENTE: preço da troca de tamanho.** O operador vai perguntar à Logzz/Coinzz (provavelmente
-   varia por região). Até lá `exchange` fica fora do secret: a troca de um pedido vai para uma pessoa,
-   e a agente nunca diz que é grátis. Com a resposta, **C** decide o cálculo (hoje `feeBrl` é fixo).
+3. ~~**O — PENDENTE: preço da troca de tamanho.**~~ Resolvido em 2026-10-13 (R21.2–R21.4): troca/devolução pelo suporte da
+   Logzz, sem custo para a cliente.
 4. **O — adiado até configurar o WhatsApp:** conferir no WhatsApp Manager se o `silence_2` antigo foi
    submetido; se sim, submeter o novo (`03-templates-meta.md`).
 5. **C — resíduos:** véspera do antecipado (Coinzz sem data — polling da API no n8n);

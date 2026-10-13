@@ -84,8 +84,13 @@ export interface BusinessConfig {
    * customer count, no store plan is cited. They may only be filled with what is true.
    */
   support?: { email?: string };
-  /** Size exchange freight, hers (R17.1): amount and Mercado Pago link. Absent = no amount, no link. */
-  exchange?: { feeBrl?: number; checkoutUrl?: string };
+  /**
+   * Exchange and return through the Logzz support, which serves her directly (operator, 2026-10-13):
+   * the agent sends this number, only when she asks (R21.4), instead of a person. OPTIONAL — absent (or not
+   * a phone) in the secret, exchange and return stay as before. `freeExchange` (operator, 2026-10-13): only
+   * an explicit `true` lets her say the exchange costs her nothing; absent, its freight is not said at all.
+   */
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
   /**

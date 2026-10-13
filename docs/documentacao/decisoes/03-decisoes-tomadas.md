@@ -2129,3 +2129,34 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   ciclo de autoaperfeiçoamento, a bateria de personas com subagentes e o `/code-review`; só então a fase conta
   como feita. Memória:
   [`fim-de-fase-personas-e-code-review.md`](../../../.claude/memory/fim-de-fase-personas-e-code-review.md).
+
+## Rodada 21 — operador, 2026-10-13
+
+- **R21.1 — Meta do agente: resolver sem pessoa.** A Malu deve ser o mais eficiente possível e delegar o mínimo ao operador:
+  adaptar-se a cada caso e contornar corretamente qualquer situação sem passar para um humano. É meta de construção, não
+  mudança de estrutura: a ação segue em código determinístico (R11.1), os gates seguem valendo, e quem pede uma pessoa
+  continua sendo atendida. Aplicações imediatas: pergunta sobre pedido existente → a Malu lê o status e responde (não "vou
+  checar"); veto de prazo/cobertura → resposta fixa segura (não handoff). Registrado no `CLAUDE.md`.
+- **R21.2 — Troca e devolução pela Logzz.** Dentro dos 7 dias, a Malu passa o número do suporte da Logzz e pede para a cliente
+  solicitar lá a troca ou o cancelamento; a Logzz resolve. O R$ 27 da troca deixa de ser cobrado da cliente (o operador aceitou
+  não recuperar). Supera R17.1 no fluxo da troca. O número é valor de negócio: mora no `BUSINESS_CONFIG`.
+- **R21.3 — A troca é sem custo para a cliente, e a Malu pode dizer isso** (operador, mesmo dia): "é menos lucro no final, mas é
+  menos possibilidade de problema no agente e problemas judiciais". Config `returns.freeExchange: true` (ausente = a verdade
+  anterior, troca paga); o gate `warranty_promise` e o prompt leem o mesmo campo.
+- **R21.4 — Troca/devolução só quando ela pede** (operador, 2026-10-13, depois da v20): o número do suporte da Logzz não é mandado
+  espontaneamente; quando ela pede troca ou devolução, a Malu diz explicitamente que a garantia é de 7 dias após o recebimento, pelo
+  suporte da Logzz, sem custo. O link de pagamento de R$ 27 da troca (Mercado Pago, R17.1) foi apagado do agente e do repositório;
+  esta linha é o único registro da decisão.
+- **R21.5 — Pós-venda, regras finas** (mesmo dia): (a) pedido de pessoa só quando explícito — "alguém", "humano" num outro sentido,
+  "minha amiga comprou" não contam; (b) a resposta usa o contexto de todos os pedidos, com o último como referência; (c) "confirmado"
+  só com o pagamento confirmado — antes disso, "aguardando a confirmação do pagamento"; (d) Pix sem confirmação não vai a pessoa: a
+  Malu informa o status, pede para esperar se ela insistir que pagou, e só passa a uma pessoa se em 5 minutos o status não atualizar;
+  (e) pedido entregue com problema não vai a pessoa: a Malu resolve as dúvidas e, se ela pedir para trocar ou devolver, manda o
+  suporte da Logzz; (f) sem data de entrega no pedido, nada de data — só o status; (g) nunca prometer prazo; (h) pergunta de prazo junto
+  com outra pergunta recebe resposta coerente com as duas.
+- **R21.6 — Gate só muda por frase real** (operador, 2026-10-13, depois da v22): o prompt é a primeira linha (ensina a frase
+  certa) e o gate é a rede para o raro que escapa — nenhum dos dois sai. Mas um gate só é alterado por uma frase que apareceu numa
+  conversa real ou numa rodada de personas; variação hipotética escrita por revisor (humano ou modelo) vira resíduo no grafo, não
+  código. Motivo: 81 turnos em produção, **0** vetos de prazo — as frases que a v21/v22 perseguiam foram inventadas na revisão, e
+  cada conserto de uma abria outra (grafo §88). Vale também para as revisões: um achado de gate sem frase real é registrado, não
+  consertado, salvo afrouxamento que o próprio conserto em curso introduziu.

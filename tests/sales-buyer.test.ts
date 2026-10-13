@@ -8,6 +8,7 @@ import {
   buyerSystem,
   exchangesFromHistory,
   exchangesFromTranscript,
+  liesIn,
   parseScenarios,
   pressures,
   replay,
@@ -117,16 +118,32 @@ describe("replay: a propensão é contabilidade, não opinião", () => {
     expect(s.outcome).toBe("talking");
   });
 
-  it("modo de falha: mentira encerra, e não conta como compra", () => {
+  it("o que a produção já aprovou não é re-julgado: sem a verdade do CEP, nada é mentira (grafo §78)", () => {
+    // The turn ran this same chain with its full state before sending; re-run with less, a block is missing state.
     const s = replay(scenario({ propensity: 90 }), ex(["tem desconto?", `Te dou 30% de desconto hoje. ${LINK}`]), 1);
+    expect(s.lies).toEqual([]);
+    expect(s.outcome).not.toBe("left_lie");
+  });
+
+  it("mentira encerra, e não conta como compra", () => {
+    const s = replay(scenario({ propensity: 90, cod: false, cep: "69005010" }), ex(["cep 69005-010", `Você paga só na entrega, quando chegar. ${LINK}`]), 1);
     expect(s.outcome).toBe("left_lie");
-    expect(s.lies[0]).toMatch(/price_promise/);
   });
 
   it("modo de falha: prometer entrega onde não tem, depois do CEP, é mentira", () => {
     const s = replay(scenario({ cod: false, cep: "69005010" }), ex(["meu cep é 69005-010", "Você paga só na entrega, quando chegar."]), 1);
     expect(s.outcome).toBe("left_lie");
     expect(s.lies[0]).toMatch(/charge_promise/);
+  });
+
+  it("negação: a mesma promessa antes do CEP, ou num CEP com entrega, não é mentira", () => {
+    expect(replay(scenario({ cod: false, cep: "69005010" }), ex(["oi", "Você paga só na entrega, quando chegar."]), 1).lies).toEqual([]);
+    expect(replay(scenario({ cod: true }), ex(["meu cep é 01310-100", "Você paga só na entrega, quando chegar."]), 1).lies).toEqual([]);
+  });
+
+  it("só conta o que a verdade do CEP acrescenta: um veto que já vale sem ela fica de fora", () => {
+    expect(liesIn("Te dou 30% de desconto hoje.", config, true)).toEqual([]);
+    expect(liesIn("Você paga só na entrega, quando chegar.", config, true).join()).toMatch(/charge_promise/);
   });
 
   it("modo de falha: pressão derruba abaixo de 20 → sai", () => {

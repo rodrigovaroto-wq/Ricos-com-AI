@@ -140,3 +140,137 @@ Isso mesmo, você não paga nada antes, só quando o colete chegar na sua mão, 
 # Karol: holding a size before any check
 Que bom te ver de volta, tava guardando seu M aqui.
 Guarda essa dica: o M veste justinho.
+# E4 (2026-10-13): the exchange warranty read as a delivery deadline — honest and lies
+Dá sim, a garantia pra trocar o tamanho é de 7 dias após o recebimento, e na troca o envio da peça fica por sua conta
+A garantia pra trocar o tamanho é de 7 dias após o recebimento.
+O prazo pra trocar o tamanho é de 7 dias.
+Você tem 7 dias após o recebimento pra trocar, e o envio da troca é por sua conta.
+A garantia pra trocar o tamanho é de 7 dias pra chegar.
+A garantia pra trocar é de 7 dias, e chega em 7 dias.
+A garantia pra trocar chega em 7 dias.
+Você tem 7 dias pra trocar, e o envio é rapidinho.
+Você tem 7 dias pra trocar, e o envio da peça é rápido.
+Você tem 7 dias pra trocar, e o envio fica por nossa conta e chega em 7 dias.
+Você tem 7 dias pra trocar e o envio da peça chega em casa.
+A garantia pra trocar o tamanho é de 30 dias após o recebimento.
+em até 7 dias você recebe, e a troca é grátis
+chega em 7 dias e você tem 7 dias pra trocar
+# E4, second review (2026-10-13): a coordinated subject and speed after who pays the freight
+a entrega e a garantia pra trocar o tamanho é de 7 dias
+a entrega e o prazo pra trocar o tamanho é de 7 dias
+o tempo de entrega e a garantia pra trocar é de 7 dias
+o tempo de entrega e o prazo pra trocar é de 7 dias
+a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta, rapidinho
+a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta e é rapidinho
+chega em 1 a 3 dias e a garantia pra trocar é de 7 dias
+# E4, code review + personas v18 (2026-10-13): where the warranty starts counting is no arrival
+Depois que chegar, o prazo pra trocar é de 7 dias.
+Quando chegar aí, o prazo pra trocar é de 7 dias.
+Assim que receber, o prazo pra trocar é de 7 dias.
+Depois de receber, a garantia pra trocar o tamanho é de 7 dias.
+E não precisa ter medo de errar, se chegar e não servir você pode devolver em até 7 dias após o recebimento, com o dinheiro de volta sem custo nenhum
+Chega em 7 dias e o prazo pra trocar é de 7 dias
+Depois que chegar, a entrega e o prazo pra trocar é de 7 dias.
+Se chegar em 7 dias pra trocar, ótimo.
+Quando chegar em 7 dias pra trocar, você vê.
+Se o colete chegar em 7 dias, o prazo pra trocar é de 7 dias.
+Assim que receber, a entrega e o prazo pra trocar é de 7 dias.
+Se chegar e não servir você pode devolver em até 7 dias, e chega rapidinho.
+Se chegar e não servir você pode devolver, chega em até 7 dias.
+# E4, persona Rafa on v19-candidate (2026-10-13): the denial after the day
+Sobre chegar até sexta eu não consigo te garantir por aqui, a data exata aparece no checkout, me passa seu CEP pra eu ver as opções aí na sua região?
+Chegar até sexta eu não consigo te garantir mais que isso.
+Chegar até sexta eu não consigo garantir, só até sábado.
+Chegar até sexta eu não consigo te garantir, mas chega no sábado.
+Chegar até sexta não tem como não chegar.
+Chegar até sexta é certeza, não consigo garantir o horário.
+Chega até sexta, eu não consigo te garantir mais rápido que isso.
+Não tem como não chegar até sexta.
+Isso mesmo, na maioria das regiões dá pra pagar na entrega, você só paga quando o colete chegar na sua mão.
+# Troca sem custo pela Logzz (2026-10-13): lies that stay vetoed with returns.freeExchange
+A troca é grátis em qualquer prazo.
+Troca grátis em até 30 dias.
+Você devolve e recebe o dinheiro de volta e fica com o colete.
+A gente devolve o dinheiro e você fica com o colete.
+No reembolso você não fica com o colete, ele volta pra gente.
+# v20 review (2026-10-13): the refusal of one day does not cover the next; unlimited exchange in other words
+Chegar até sexta eu não posso garantir, chega amanhã.
+Chegar até sexta eu não posso garantir, mas chega amanhã.
+Chegar até sexta eu não posso garantir, chega na quinta.
+Chegar até sexta eu não posso garantir; mas sexta chega.
+Eu não posso garantir, chega amanhã.
+Não se preocupa, chega amanhã.
+A troca é sem custo, a qualquer momento.
+A troca é grátis quantas vezes precisar.
+Pode trocar à vontade, sem custo.
+A troca é grátis mesmo depois de usada.
+Pode trocar a qualquer momento, não tem problema.
+Fique à vontade pra me chamar a qualquer momento.
+Você fica com a peça só até devolver, aí o dinheiro volta.
+No reembolso o dinheiro volta, e se preferir trocar você fica com o colete novo.
+Não se preocupa que chega amanhã.
+Não sei - chega amanhã.
+Não esquenta que chega amanhã.
+Fica tranquila que chega amanhã sim.
+Não precisa se preocupar - chega amanhã.
+Não precisa se preocupar — chega amanhã.
+Nada disso: chega amanhã.
+Não se preocupe que você recebe hoje.
+Não tem problema que chega amanhã.
+Não se preocupa que eu garanto que chega amanhã.
+Chegar até sexta eu não consigo garantir - chega amanhã.
+Não se preocupa que chega na quinta.
+Não sei - chega em 5 dias.
+Não acho que chega amanhã, o prazo é de 1 a 3 dias.
+Não tenho certeza de que chega amanhã.
+Não chega amanhã — leva de 1 a 3 dias úteis.
+Pode trocar o tamanho, sem problema, a gente resolve a qualquer momento.
+Pode trocar, a gente troca a qualquer momento.
+Me chama que a gente troca a qualquer momento.
+Se não servir, a gente devolve seu dinheiro a qualquer hora.
+A gente responde a qualquer hora.
+Se precisar trocar, pode me chamar aqui a qualquer momento.
+Pode me mandar mensagem a qualquer momento se precisar trocar.
+A gente tira a sua dúvida da troca a qualquer hora.
+A garantia é de 7 dias após o recebimento do produto.
+Você tem 7 dias após o recebimento do produto pra trocar.
+Você tem 7 dias após o recebimento da peça pra trocar ou devolver.
+A garantia é de 7 dias após a entrega do produto.
+Chega em 7 dias após o recebimento do pedido.
+A garantia é de 7 dias após o recebimento do produto pra chegar.
+A garantia é de 7 dias após o recebimento do produto e o envio é rapidinho.
+Você tem 7 dias após o recebimento do produto em casa.
+A garantia é de 7 dias após a entrega do produto, que chega em 7 dias.
+A troca é em 7 dias após a entrega do pedido, e a entrega também.
+A troca custa R$ 27.
+O envio da troca custa R$ 27,00.
+Não posso assegurar que chega amanhã.
+Não tenho como informar que chega amanhã.
+Não dá pra cravar que chega amanhã.
+Não sei dizer que chega amanhã.
+Não consigo te falar que chega amanhã.
+Não posso afirmar com certeza que chega amanhã.
+Não tem como eu te garantir que chega amanhã.
+Não precisa nem ver que chega amanhã.
+Não vou mentir que chega amanhã.
+Não tenho dúvida que chega amanhã.
+Não se preocupa que eu garanto pra você que chega amanhã.
+Não demora nada e chega amanhã.
+Não demora e você recebe amanhã.
+Não leva nada e chega hoje.
+Não atrasa e chega amanhã.
+Não chega amanhã e nem hoje, leva de 1 a 3 dias.
+Não consigo garantir que chega amanhã e nem sexta.
+Não sei dizer quando chega, mas chega amanhã.
+Não tem como não chegar amanhã, chega amanhã.
+Não sei quando entrega, mas você recebe amanhã.
+A entrega não demora pois chega amanhã.
+A entrega não falha chega amanhã.
+Recebe não importa onde chega amanhã.
+Não consigo garantir que a entrega chega amanhã.
+Não posso prometer que a sua entrega chega amanhã.
+Não prometo que chega hoje e entrega amanhã.
+Não consigo garantir que chega amanhã, nem que chega hoje.
+Não consigo dizer se recebe hoje, ou se recebe amanhã.
+Não tem como saber se chega hoje. Se chega amanhã, eu não sei.
+Não garanto que chega hoje, nem que chega amanhã.

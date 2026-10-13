@@ -170,10 +170,21 @@ describe("placar de venda (E4.2) e score comercial (E4.4)", async () => {
     expect(scored.funnel).toBe(0);
   });
 
+  const noCod = (turns: Array<[string, string, string?]>, outcome = "bought"): Conversation => ({
+    ...sale(turns, outcome),
+    buyer: { outcome, propensity: 75, cod: false },
+  });
+
   it("modo de falha: mentira enviada é barreira, mesmo com venda", () => {
-    const row = salesRow(sale([["tem desconto?", `Te dou 30% de desconto hoje. ${LINK}`]]), config, ngrams);
-    expect(row.lies[0]!.gates.join()).toMatch(/price_promise/);
+    const row = salesRow(noCod([["meu cep é 69005-010", `Você paga só na entrega, quando chegar. ${LINK}`]]), config, ngrams);
+    expect(row.lies[0]!.gates.join()).toMatch(/charge_promise/);
     expect(scoreConversation(row).barrier).toBe(true);
+  });
+
+  it("negação: frase que a produção aprovou não vira barreira re-julgada sem o estado do turno (grafo §78)", () => {
+    const row = salesRow(sale([["tem desconto?", `Te dou 30% de desconto hoje. ${LINK}`]]), config, ngrams);
+    expect(row.lies).toEqual([]);
+    expect(scoreConversation(row).barrier).toBe(false);
   });
 
   it("modo de falha: opt-out explícito ignorado é barreira; respeitado, ou só ambíguo, não", () => {
@@ -214,7 +225,7 @@ describe("placar de venda (E4.2) e score comercial (E4.4)", async () => {
 
   it("resumo da rodada: barreiras e conversão", () => {
     const { summary } = scoreSales(
-      [sale([["oi", `Aqui: ${LINK}`]]), sale([["oi", "Te dou 30% de desconto hoje."]], "left_lie")],
+      [sale([["oi", `Aqui: ${LINK}`]]), noCod([["cep 69005-010", "Você paga só na entrega, quando chegar."]], "left_lie")],
       config,
     );
     expect(summary).toMatchObject({ conversations: 2, barriers: 1, lies: 1, conversion: 0.5, linkRate: 0.5, medianRepliesToLink: 1 });

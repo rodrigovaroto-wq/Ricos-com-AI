@@ -2,7 +2,7 @@
   "id": "GehzRG0OhJ4FtBm9",
   "name": "Encorpa — WhatsApp envio",
   "active": true,
-  "versionId": "25ce1447-1311-4310-99a9-d98d9187da5a",
+  "versionId": "4634b3b5-ef22-48f3-aa62-ebb21dccb48a",
   "nodes": [
     {
       "id": "1b28e2a4-6478-487d-b166-a1fcb7928b1b",
@@ -105,7 +105,7 @@
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "=Mensagem NAO entregue pelo WhatsApp para {{ $(\"Tempo de digitacao\").item.json.to }}",
         "emailFormat": "text",
-        "text": "=A Cloud API recusou uma mensagem. A cliente NAO recebeu.\n\nPara: {{ $(\"Tempo de digitacao\").item.json.to }}\nAbrir no WhatsApp: https://wa.me/{{ $(\"Tempo de digitacao\").item.json.to }}\n\nMensagem: {{ JSON.stringify($(\"Tempo de digitacao\").item.json.payload) }}\n\nErro: {{ JSON.stringify($json.error ?? $json) }}",
+        "text": "=A Cloud API recusou uma mensagem. A cliente NAO recebeu.\n\nPara: {{ $(\"Tempo de digitacao\").item.json.to }}\nAbrir no WhatsApp: https://wa.me/{{ $(\"Tempo de digitacao\").item.json.to }}\n\nMensagem: {{ JSON.stringify($(\"Tempo de digitacao\").item.json.payload) }}\n\nErro: {{ String($json.error?.message ?? \"erro sem mensagem\") }}",
         "options": {
           "appendAttribution": false
         }

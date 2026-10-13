@@ -6,8 +6,7 @@ Só especificação. Nenhum código muda até o operador aprovar este texto e o 
 
 - Cancelamento e devolução **não têm API** na Coinzz nem na Logzz (R16.9, reconfirmado em 02/10). A
   agente não executa nada: ela **guia e passa para uma pessoa** com o briefing pronto.
-- Devolução é sem custo à cliente (R16.3). Troca de tamanho custa R$ 27,00, pagos por link do Mercado
-  Pago, e a agente nunca diz que a troca é grátis (R17.1, gate `warranty_promise`).
+- Troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3).
 - Prazo: 7 dias contados do recebimento (base de conhecimento, objeção 3).
 - Caminho da Logzz: formulário, e-mail (trocasereembolsos@logzz.com.br) ou WhatsApp, com etiqueta
   pré-paga; reembolso em até 72 h úteis após a inspeção (R16.9).

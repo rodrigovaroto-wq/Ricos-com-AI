@@ -88,16 +88,19 @@ export const INTERPRETER_SYSTEM = [
   "responde a cliente. Você só diz o que a mensagem contém.",
   "",
   "Campos (use exatamente estes nomes):",
-  '- "asks_human": true só se ela pede para falar com uma PESSOA/atendente/humano no lugar',
-  '  da assistente ("me passa pra uma pessoa", "quero falar com alguém de verdade"). false',
-  '  para "você é robô?", "é IA?", "tem alguém aí?" (só conferindo se alguém responde),',
-  '  "não quero falar com atendente" e qualquer negação.',
+  '- "asks_human": true só se ela pede EXPLICITAMENTE para falar com uma PESSOA/um humano/um',
+  '  atendente/alguém de verdade no lugar da assistente ("me passa pra um atendente", "quero falar',
+  '  com uma pessoa", "quero falar com alguém de verdade"). false para "preciso falar com alguém',
+  '  sobre meu pedido" ("alguém" sozinho não é pessoa), "você é robô?", "vc é humano?", "é IA?",',
+  '  "tem alguém aí?" (só conferindo se alguém responde), "uma pessoa me indicou", "não quero',
+  '  falar com atendente" e qualquer negação.',
   '- "wants_cancel": true só se ela quer cancelar um pedido que JÁ FEZ.',
   '- "post_sale": true se ela fala de um pedido que JÁ FEZ (onde está, quando chega, troca,',
   "  devolução, problema com a entrega).",
-  '- "wants_exchange": true só se ela quer TROCAR o tamanho de um colete que JÁ COMPROU',
-  '  ("ficou pequeno, quero trocar pelo G", "dá pra trocar o tamanho?"). Pergunta antes de comprar',
-  '  ("e se não servir, dá pra trocar?"), devolução e cancelamento: false.',
+  '- "wants_exchange": true só se ela pede para TROCAR ou DEVOLVER um colete que JÁ COMPROU',
+  '  ("ficou pequeno, quero trocar pelo G", "dá pra trocar o tamanho?", "quero devolver"). Pergunta',
+  '  antes de comprar ("e se não servir, dá pra trocar?"), reclamação sem pedir troca ou devolução',
+  '  ("veio com defeito") e cancelamento de pedido que ainda não chegou: false.',
   '- "opt_out": true se ela pede para não receber mais mensagens.',
   '- "size": { "letter": "P"|"M"|"G"|"GG"|"XGG"|null, "pants": número da CALÇA ou null',
   '  (manequim, número de vestido, de blusa ou de sapato NÃO é calça: pants null),',
@@ -216,7 +219,7 @@ const norm = (text: string): string =>
  * quantity; this is the deterministic half, so an invented `units: 2` on "quero o M" does
  * not swap her link for a kit she never asked for. One piece, or sizes alone, need no cue.
  */
-const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+uma?)\b/;
+const QUANTITY_CUE = /\b(?:kit|par|cada|outr[oa]s?|mais\s+(?:de\s+)?uma?)\b/;
 const COUNT_WORDS: Record<number, string> = {
   2: "duas|dois", 3: "tres", 4: "quatro", 5: "cinco", 6: "seis", 7: "sete", 8: "oito", 9: "nove", 10: "dez",
 };
@@ -289,42 +292,73 @@ export const mergeUnitSizes = (
   return [...stored, ...said].slice(0, units);
 };
 
-/** The words the operator listed as naming a person (R13.2). */
-const PERSON_WORD =
-  /\b(pessoa|atendente|humano|humana|alguem|gente de verdade|vendedora?|responsavel|gerente|suporte)\b/g;
-
 /**
- * A refusal cancels the request only when it is ATTACHED to the person-word: between the
- * refusal and the word there may be only the connecting words of that same refusal —
- * "não quero falar com atendente", "não precisa chamar atendente", "nao preciso de ajuda de
- * atendente", "não quero que me passe pra atendente", "dispenso atendente". A refusal of
- * something else does not: in "não quero robô quero uma pessoa" and "nao quero esperar
- * quero atendente", "robô" and "esperar" are not connecting words, so the request stands
- * (code reviews, 2026-09-24). "Não tem um atendente?" is no refusal at all.
+ * Who she may ask for, named outright (operator, 2026-10-13): a person, a human, an attendant, someone
+ * "de verdade". "Alguém" alone is not a person — "preciso falar com alguém sobre meu pedido" is the Malu's
+ * — and a person-word with no request is not a request ("uma pessoa me indicou", "vc é humano?").
  */
-const REFUSED_BEFORE =
-  /\b(?:(?:nao|nunca|jamais)\s+(?:quero|queria|preciso|precisa|precisava)|dispenso|dispensa)\s+(?:(?:falar|conversar|com|de|ajuda|chamar|chama|que|me|passe|passar|passa|transferir|transfira|pra|para|por|ser|atendida|atendido|um|uma|o|a|do|da|nenhum|nenhuma)\s+)*$/;
-
-/** "Você é uma pessoa?" asks what she is talking to — it is not a request for someone else. */
-const IDENTITY_QUESTION_BEFORE = /\b(voce|vc|ce|tu)?\s*(e|eh)\s+(um|uma)?\s*$/;
+const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|atendimento\s+humano|vendedora?|responsavel(?!\s+pel[ao]s?\s+(?:(?:minha|sua|meu|seu|minhas|suas|meus|seus)\s+)?(?:entrega|envio|frete|transportadora|correio)s?\b)|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
+const PERSON_REQUESTS = [
+  // "quero falar com uma pessoa", "posso falar com um atendente?", "dá pra falar com alguém de verdade?"
+  new RegExp(String.raw`\b(?:quero|queria|gostaria\s+de|preciso|precisava|posso|prefiro|da\s+pra|tem\s+como|deixa\s+eu)\s+(?:\S+\s+){0,2}?(?:(?:falar|conversar)\s+com|ser\s+atendid[ao]\s+(?:por|com))\s+${PERSON}`, "g"),
+  // "quero uma pessoa", "quero atendimento humano"
+  new RegExp(String.raw`\b(?:quero|queria|preciso\s+de|prefiro)\s+(?:(?:um|uma)\s+)?(?:atendimento\s+humano|${PERSON})`, "g"),
+  // "me passa pra um atendente", "chama uma pessoa", "pode me transferir pra um humano?"
+  new RegExp(String.raw`\b(?:passa|passe|passar|transfere|transfira|transferir|encaminha|encaminhe|encaminhar|coloca|coloque|colocar)\s+(?:\S+\s+){0,2}?(?:pra|para|com)\s+${PERSON}|\b(?:chama|chame|chamar)\s+(?:\S+\s+)?${PERSON}`, "g"),
+  // "(não) tem um humano aí pra me ajudar?" — someone to help her, not a check on what the agent is.
+  // The "não" is inside the match: here it asks, it does not refuse.
+  new RegExp(String.raw`\b(?:nao\s+)?tem\s+(?:\S+\s+)?${PERSON}\s+(?:(?:ai|ae|aqui)\s+)?(?:pra|para)\s+(?:me\s+)?(?:ajudar|atender|falar|conversar)`, "g"),
+];
+/** "Tem gente de verdade aí? quero falar com ela": the pronoun counts only beside a person named outright. */
+const PRONOUN_REQUEST =
+  /\b(?:quero|queria|gostaria\s+de|preciso)\s+(?:\S+\s+){0,2}?(?:falar|conversar)\s+com\s+(?:ela|ele|essa\s+pessoa|esse\s+atendente|essa\s+atendente)\b/g;
+const PERSON_NAMED = /\b(?:de\s+verdade|real|humano|humana|atendente)\b/;
 
 /**
- * Whether the message itself names a person being asked for — the deterministic half of
- * the human-request rule, so a model that hallucinates `asks_human` on "você é robô?" does
- * not end a sale. The clause is what the negation is read against (the lesson of
- * `negation-blindness`): "não quero falar com robô, quero uma pessoa" still names one.
+ * A refusal cancels the request only when it is ATTACHED to it: between the negation and the request there
+ * may be only connecting words — "não quero falar com atendente", "não precisa me passar pra atendente". A
+ * refusal of something else does not: in "não quero robô quero uma pessoa", "robô" is no connecting word
+ * (code reviews, 2026-09-24). A negation with no wanting in it is a refusal only when it is not a question:
+ * "não me passa pra atendente, só me fala o preço" refuses, "você não vai chamar um atendente?" and "por que
+ * você não me passa pra uma pessoa?" ask (/code-review of v21).
+ */
+const NEGATED_BEFORE =
+  /\b(?:nao|nunca|jamais|nem)\s+(?:(?:quero|queria|preciso|precisa|precisava|vou|vai|me|te|que|pra|para|ser|de)\s+)*$/;
+const WANTING = /\b(?:quero|queria|preciso|precisa|precisava|gostaria|prefiro)\b/;
+const refused = (t: string, clauseStart: number, at: number, match: string): boolean => {
+  const negation = NEGATED_BEFORE.exec(t.slice(clauseStart, at));
+  if (negation === null) return false;
+  if (WANTING.test(`${negation[0]}${match}`)) return true;
+  const rest = t.slice(at);
+  return !rest.slice(0, rest.search(/[,.;!\n]|$/)).includes("?");
+};
+
+/**
+ * Whether the message itself asks for a person — the deterministic half of the human-request rule, so a
+ * model that hallucinates `asks_human` on "você é robô?" or on "preciso falar com alguém" does not take the
+ * conversation from the Malu (R21.1: the person is the last resort). The clause is what the refusal is
+ * read against (the lesson of `negation-blindness`): "não quero falar com robô, quero uma pessoa" asks.
  */
 export const namesAPerson = (message: string): boolean => {
   const t = norm(message);
-  for (const m of t.matchAll(PERSON_WORD)) {
-    const at = m.index ?? 0;
-    const clauseStart = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
-    const clause = t.slice(clauseStart, at);
-    if (REFUSED_BEFORE.test(clause) || IDENTITY_QUESTION_BEFORE.test(clause)) continue;
-    return true;
+  for (const request of PERSON_NAMED.test(t) ? [...PERSON_REQUESTS, PRONOUN_REQUEST] : PERSON_REQUESTS) {
+    for (const m of t.matchAll(request)) {
+      const at = m.index ?? 0;
+      const clauseStart = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
+      if (refused(t, clauseStart, at, m[0])) continue;
+      return true;
+    }
   }
   return false;
 };
+
+/**
+ * Her own words ask for an exchange or a return — the deterministic half of `wants_exchange`, so the Logzz
+ * line never goes out on a complaint the model read as one ("veio com defeito", operator, 2026-10-13). Blind
+ * to negation on purpose: the model's reading is the other half, and both must agree.
+ */
+export const namesExchangeOrReturn = (message: string): boolean =>
+  /\b(?:troc(?:a|ar|o|aria|ou|ando|ado)|trocas|devolv\w*|devoluc\w*|reembols\w*|estorn\w*|dinheiro\s+de\s+volta)\b/.test(norm(message));
 
 export type HandoffKind = "cancel" | "post_sale" | "human";
 
@@ -448,6 +482,16 @@ export interface LinkData {
    * her e-mail is not in the chat and she has not refused it. Absent on the delivery path, never waited for.
    */
   emailDone?: boolean;
+  /**
+   * Experiment B (R20.6), arm 1 with `experiments.linkAfterChoice`: name, e-mail and CPF are the
+   * checkout's to fill, so the link waits only for size, CEP and path. Absent or false = the order below.
+   */
+  identityAtCheckout?: boolean;
+  /**
+   * She chose the path herself (`payment_choice` stored or said). Experiment B waits for it: a region without
+   * cash on delivery settles `pathSettled` alone, before she heard the prepaid offer (review of 9c1053c, 1).
+   */
+  choiceMade?: boolean;
 }
 
 /**
@@ -458,11 +502,30 @@ export interface LinkData {
 export const missingForLink = (d: LinkData): LinkDatum | null =>
   !d.sizeKnown ? "size"
   : !d.cepKnown ? "cep"
-  : !d.pathSettled ? "payment"
+  // Arm B waits for HER choice: a region without cash on delivery settles the path alone, and asking her name then
+  // would run arm 0's flow inside arm 1 (/code-review of the E6 fixes).
+  : !d.pathSettled || (d.identityAtCheckout === true && d.choiceMade !== true) ? "payment"
+  : d.identityAtCheckout === true ? null
   : !d.nameKnown ? "name"
   : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"
   : null;
+
+/**
+ * Experiment B (operator, 2026-10-12): the link waits once for the kit offer — with the progressive discounts —
+ * when she is on one piece and her path has kits not yet offered. Arm 0 offers the kit before the data anyway.
+ * Only when the offer goes in this same turn (`pathChosen`: review of 2695b80, 2 — otherwise neither goes), and
+ * never once a link went out (3: the offer came before it, and may have left the 20-message window).
+ */
+export const kitHoldsLink = (d: {
+  identityAtCheckout?: boolean;
+  units: number;
+  kitsOnPath: number;
+  kitOffered: boolean;
+  pathChosen: boolean;
+  linkSentBefore: boolean;
+}): boolean =>
+  d.identityAtCheckout === true && d.units === 1 && d.kitsOnPath > 0 && !d.kitOffered && d.pathChosen && !d.linkSentBefore;
 
 /**
  * Whether the link goes out this turn: every datum is in, and her message is not a bare "sim"
@@ -532,6 +595,9 @@ const whichOfTwo = (message: string): PaymentChoice | null => {
  *   ("Sim! Como faço pra pagar?"), never beside another one ("sim, tem rastreio?").
  * `confirms` is `parts.some(confirmsAddress)`, computed by the caller: this file has zero imports.
  */
+/** A message that is only "quero" (and its yes): "quero sim", "sim, quero!", "kero", "qro sim". */
+const WANT_ONLY = /^\s*(?:(?:sim|ok|entao|ah)[\s,!]+)*(?:quero|qro|kero)(?:[\s,!]+(?:sim+|quero|qro|kero))*\s*[!.]*\s*$/;
+
 export const pathChoiceToStore = (d: {
   interpreted: PaymentChoice | null;
   parts: readonly string[];
@@ -561,7 +627,12 @@ export const pathChoiceToStore = (d: {
     /\bdeixo\s+no\s+pagamento\s+na\s+entrega\b/.test(norm(d.lastOutbound)) &&
     yes;
   if (defaultCod) return "cod";
-  return d.noCod === true && d.interpreted !== "cod" && yes && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
+  // "quero sim" / "manda o link" to the prepaid-only offer is her yes too (second review of the E6 fixes). A list of
+  // the WHOLE message, never a loose "quero": "quero pensar", "quero na entrega", "quero cancelar" are not a yes
+  // (third review; grafo lesson 11). Naming the delivery is never a yes to the prepaid, "pode mandar" included.
+  const wants = d.parts.every((p) => WANT_ONLY.test(norm(p)) || asksForLink(p));
+  const namesCod = d.parts.some((p) => named(p) === "cod");
+  return d.noCod === true && d.interpreted !== "cod" && !namesCod && (yes || wants) && offersPrepayOnly(d.lastOutbound) ? "prepay" : null;
 };
 
 /**
@@ -570,7 +641,15 @@ export const pathChoiceToStore = (d: {
  * (grafo §65): "ok" to "Aí na sua região … tem o antecipado" chooses it; "sim" to "… Qual seu tamanho
  * de calça?" or "… Ficou alguma dúvida?" answers that question.
  */
-const offersPrepayOnly = (lastOutbound: string): boolean => {
+/**
+ * She was told her region has no payment at the door (`noCodMessage`, or the model's own words): "ainda não tem pagamento na
+ * entrega", "aí não chega o pagamento na entrega". A mere mention of the prepaid ("no antecipado você paga no pix") is not it
+ * (review of the v19 candidates: it let the link out in the CEP's own turn).
+ */
+export const toldNoCod = (message: string): boolean =>
+  /\bnao\s+(?:tem|chega|aceita|faz|atende|existe)\s+(?:o\s+)?pagamento\s+na\s+entrega\b/.test(norm(message));
+
+export const offersPrepayOnly = (lastOutbound: string): boolean => {
   const t = norm(lastOutbound);
   if (!/\bantecipad/.test(t)) return false;
   const q = t.lastIndexOf("?");
@@ -665,6 +744,24 @@ const OTHER_STORE = /\b(outra\s+loja|outras\s+lojas|shopee|mercado(\s+livre)?|in
  * is still the pre-sale question — and so is the "já": "quando sai pra entrega?" is not.
  */
 const ABOUT_US = /\b(colete|com\s+voces|de\s+voces)\b/;
+/**
+ * "uma dessas", "um desses" names the kind of product, not her order (E4, 2026-10-13: "já comprei
+ * uma dessas e enrolou" went to a person) — unless the clause carries the fate of an order with us:
+ * "comprei uma dessas ontem e não chegou", "…daqui", "paguei uma dessas no pix" (second review, §82).
+ */
+const KIND_OF_PRODUCT = /\b(?:um|uma)\s+(?:dess|dest)[ae]s?\b/;
+const OUR_ORDER_SIGN = /\b(cheg\w*|entreg\w*|rastrei\w*|pedido|daqui|por\s+aqui|pix|ate\s+agora)\b/;
+/** Past the comma only a LATE order counts — "…enrolou, quero saber da entrega" asks about ours, it reports nothing (review of §85). */
+const LATE_ORDER_SIGN = /\b(nao\s+chegou|ate\s+agora|ainda\s+nao\s+(?:chegou|veio)|rastrei\w*|pedido|pix)\b/;
+/**
+ * The sign is read in the whole sentence, not the comma clause (/code-review of §82): "já comprei uma dessas, até agora nada" and
+ * "comprei uma dessas semana passada, não chegou" are a late order of ours.
+ */
+const sentenceAt = (t: string, at: number): string => {
+  const start = Math.max(...[".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
+  const ends = [".", "!", "?", "\n"].map((c) => t.indexOf(c, at)).filter((i) => i !== -1);
+  return t.slice(start, ends.length ? Math.min(...ends) : t.length);
+};
 const ORDER_WITH_US =
   /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz|(?:quero|queria|preciso|gostaria\s+de)\s+cancelar\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|cancela\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|ja\s+saiu\s+(?:pra|para)\s+(?:a\s+)?entrega)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
@@ -679,6 +776,7 @@ export const statesPastPurchase = (message: string, current = true): boolean => 
       const clause = t.slice(start, ends.length ? Math.min(...ends) : t.length);
       if (negatedBefore(t, at) || OTHER_STORE.test(clause)) continue;
       if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
+      if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause) && !LATE_ORDER_SIGN.test(sentenceAt(t, at))) continue;
       return true;
     }
   }
@@ -708,6 +806,7 @@ export const saysPaid = (message: string): boolean => {
     // (third review); "paguei ainda não rs", "…\nvou pagar" are not (fourth review).
     if (/^\s*(?:(?:n|nao|nada)\b|ainda\s+(?:n|nao)\b(?!\s+(?:caiu|chegou|entrou|apareceu|confirmou|compensou|recebi|recebeu|veio|consta|aparece|deu\s+certo|deu\s+baixa|foi\s+(?:aprovad|confirmad|compensad|liberad|processad|identificad)\w*)\b))/.test(t.slice(at + m[0].length)) || /\b(?:entrega|entregador|motoboy)\b/.test(clause)) continue;
     if (OTHER_PURCHASE.test(clause) && !ABOUT_US.test(clause)) continue;
+    if (KIND_OF_PRODUCT.test(clause) && !ABOUT_US.test(clause) && !OUR_ORDER_SIGN.test(clause) && !LATE_ORDER_SIGN.test(sentenceAt(t, at))) continue;
     return true;
   }
   return false;

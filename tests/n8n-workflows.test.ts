@@ -11,7 +11,7 @@ const load = (file: string) => JSON.parse(readFileSync(`n8n/workflows/${file}.js
  * contra a cópia versionada.
  */
 describe("n8n: a versão ativa versionada respeita as regras", () => {
-  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente"])("%s", (file) => {
+  it.each(["turno-da-agente", "relogio-da-regua", "venda-confirmada", "hermes-decisao", "whatsapp-envio", "responder-cliente", "alarme-de-cobertura"])("%s", (file) => {
     expect(checkWorkflow(load(file))).toEqual([]);
   });
 });
@@ -130,6 +130,41 @@ describe("n8n: as regras pegam as falhas que já aconteceram", () => {
     expect(checkWorkflow(semOnError).join()).toContain("no wired error output");
     const desligada = { ...sweep({}), connections: { "Varre a regua": { main: [[], []] } } };
     expect(checkWorkflow(desligada).join()).toContain("no wired error output");
+  });
+  it("resposta de erro do webhook público com o objeto de erro inteiro (2026-10-13: devolvia a chave service_role)", () => {
+    const wf = (responseBody: string): N8nWorkflow => ({
+      ...sweep({}),
+      nodes: [...sweep({}).nodes, { name: "Devolve a recusa", type: "n8n-nodes-base.respondToWebhook", parameters: { responseBody } }],
+      connections: { "Varre a regua": { main: [[], [{ node: "Avisa a falha" }, { node: "Devolve a recusa" }]] } },
+    });
+    for (const leak of [
+      '={{ JSON.stringify({ status: "error", error: $json.error ?? $json }) }}',
+      "={{ JSON.stringify($json) }}",
+      '={{ JSON.stringify({ error: $json.error }) }}',
+    ])
+      expect(checkWorkflow(wf(leak)).join()).toContain("whole error object");
+    expect(checkWorkflow(wf('={{ JSON.stringify({ status: "error", error: String($json.error?.message ?? "erro no turno") }) }}'))).toEqual([]);
+  });
+  it("e-mail, formulário ou Code com o objeto de erro inteiro (2026-10-13, /code-review: seis nós)", () => {
+    const withText = (text: string): N8nWorkflow => ({
+      ...sweep({}),
+      nodes: sweep({}).nodes.map((n) => (n.name === "Avisa a falha" ? { ...n, parameters: { text } } : n)),
+    });
+    expect(checkWorkflow(withText("=Erro: {{ JSON.stringify($json.error ?? $json) }}")).join()).toContain("stringifies the whole error object");
+    expect(checkWorkflow(withText("x = JSON.stringify(body.error ?? body).slice(0, 500)")).join()).toContain("stringifies the whole error object");
+    expect(checkWorkflow(withText("=Erro: {{ JSON.stringify($json.error, null, 2) }}")).join()).toContain("stringifies the whole error object");
+    expect(checkWorkflow(withText('=Erro: {{ String($json.error?.message ?? "erro sem mensagem") }}'))).toEqual([]);
+  });
+  it("o ramo falso de um IF não é saída de erro", () => {
+    const wf: N8nWorkflow = {
+      id: "x", name: "If", active: true,
+      nodes: [
+        { name: "Se", type: "n8n-nodes-base.if" },
+        { name: "Responde", type: "n8n-nodes-base.respondToWebhook", parameters: { responseBody: "={{ JSON.stringify($json) }}" } },
+      ],
+      connections: { Se: { main: [[], [{ node: "Responde" }]] } },
+    };
+    expect(checkWorkflow(wf)).toEqual([]);
   });
   it("a régua correta passa", () => {
     expect(checkWorkflow(sweep({}))).toEqual([]);

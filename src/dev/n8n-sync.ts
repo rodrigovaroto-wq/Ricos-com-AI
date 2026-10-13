@@ -19,6 +19,8 @@ const WORKFLOWS: Record<string, string> = {
   o5ZULK9Y74l1hReL: "hermes-decisao",
   GehzRG0OhJ4FtBm9: "whatsapp-envio",
   "3Q18SjoW0UUXrTPI": "responder-cliente",
+  // E1.2 (grafo §70): the coverage alarm, active since 2026-10-13 (turn v17 has job "health").
+  QQI8CX25LK7TsoKg: "alarme-de-cobertura",
 };
 
 interface ApiWorkflow {

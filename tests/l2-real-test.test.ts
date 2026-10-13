@@ -13,7 +13,8 @@ import {
   orderUnpaid,
   PAYMENT_CHECK_MS,
   PAYMENT_CHECK_REPLY,
-  PAYMENT_RECEIPT_ASK,
+  PAYMENT_ESCALATED,
+  PAYMENT_RECEIPT_ESCALATED,
   paymentFacts,
   paymentRoute,
   renderFollowup,
@@ -161,7 +162,7 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     expect(isPaymentReceipt("o que é comprovante?")).toBe(false);
   });
 
-  const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false, receiptAsked: false };
+  const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false };
   it("paguei sem pagamento confirmado: ela verifica (sem chamar pessoa)", () => {
     expect(paymentRoute({ ...base, saidPaid: true })).toBe("check");
     // A picture alone after the link is not a payment (review, finding 6).
@@ -171,9 +172,16 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     expect(paymentRoute({ ...base, checking: true, asksStatus: true })).toBe("still_checking");
     expect(paymentRoute({ ...base, checking: true, saidPaid: true })).toBe("still_checking");
   });
-  it("depois do pedido do comprovante: o comprovante chama uma pessoa; insistir sem ele pede de novo", () => {
-    expect(paymentRoute({ ...base, receiptAsked: true, receipt: true })).toBe("receipt_check");
-    expect(paymentRoute({ ...base, receiptAsked: true, saidPaid: true })).toBe("ask_receipt");
+  it("aos 5 minutos sem atualizar: uma pessoa, sem pedir comprovante nem mandar e-mail (operador, 2026-10-13)", () => {
+    const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
+    const sweep = turn.slice(turn.indexOf('if (row.kind === "payment_check") {'), turn.indexOf("if (inSilenceRuler(row.kind) && (row.kind ==="));
+    expect(sweep).toContain("const line = receipt ? PAYMENT_RECEIPT_ESCALATED : PAYMENT_ESCALATED;");
+    expect(sweep).toContain("handoff_at: new Date().toISOString()");
+    expect(sweep).toContain("o pagamento não atualizou em 5 minutos — conferir na Coinzz");
+    // Negation: the receipt ask and the support e-mail left the flow.
+    expect(turn).not.toContain("paymentSupportLine");
+    expect(turn).not.toContain("PAYMENT_RECEIPT_ASK");
+    expect(turn).not.toContain("receiptAsked");
   });
   it("pago de verdade: ela diz que está confirmado", () => {
     expect(paymentRoute({ ...base, paid: true, saidPaid: true })).toBe("confirmed");
@@ -195,11 +203,14 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     expect(paymentRoute({ ...base, asksStatus: true })).toBeNull();
   });
 
-  it("aos 5 minutos sem pagamento, o pedido do comprovante; os textos são fixos", () => {
+  it("o 'paguei' ouve o status e o pedido de esperar; aos 5 minutos nada é renderizado (a varredura chama a pessoa)", () => {
     expect(PAYMENT_CHECK_MS).toBe(5 * 60_000);
-    expect(renderFollowup("payment_check", { leadId: "x", config })).toBe(PAYMENT_RECEIPT_ASK);
-    expect(PAYMENT_RECEIPT_ASK).toContain("comprovante");
-    expect(PAYMENT_CHECK_REPLY).toContain("verificar o status do seu pagamento");
+    expect(renderFollowup("payment_check", { leadId: "x", config })).toBeNull();
+    expect(PAYMENT_CHECK_REPLY).toContain("ainda não aparece como confirmado");
+    expect(PAYMENT_CHECK_REPLY).toContain("aguarda um pouquinho");
+    // Negation: no receipt asked, nobody called at the first "paguei".
+    expect(PAYMENT_CHECK_REPLY).not.toMatch(/comprovante|time|pessoa/);
+    expect(PAYMENT_ESCALATED).toContain("já passei pro time");
   });
 
   it("pedido criado ou Pix aguardando pagamento não arma 'Pedido confirmado! … já pago'", () => {
@@ -332,7 +343,7 @@ describe("L2 — revisão Opus (achados 3 a 8)", () => {
 
   it("6. comprovante: futuro ou perdido não é; imagem solta depois do link não dispara a verificação", () => {
     for (const t of ["vou mandar o comprovante", "perdi o comprovante", "depois te mando o comprovante"]) expect(isPaymentReceipt(t), t).toBe(false);
-    const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false, receiptAsked: false };
+    const base = { saidPaid: false, asksStatus: false, receipt: false, linkSent: true, paid: false, checking: false };
     expect(paymentRoute({ ...base, receipt: true })).toBeNull();
     expect(paymentRoute({ ...base, receipt: true, saidPaid: true })).toBe("check_with_receipt");
     // A receipt during the 5-minute wait is kept for the check, which then calls a person.
@@ -358,14 +369,15 @@ describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)"
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
     expect(turn).toContain('await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
-    for (const line of [PAYMENT_CHECK_REPLY, PAYMENT_RECEIPT_ASK]) {
+    for (const line of [PAYMENT_CHECK_REPLY, PAYMENT_ESCALATED, PAYMENT_RECEIPT_ESCALATED]) {
       expect(runGates(line, ctx({ layer: "auto", paymentPath: "prepay", now: new Date("2026-10-08T05:30:00Z") })).traces.filter((t) => t.verdict === "block"), line).toEqual([]);
     }
   });
   it("6. o comprovante mandado durante a espera vai com a verificação, que chama uma pessoa aos 5 min", () => {
     expect(turn).toContain('JSON.stringify({ body: "receipt", run_at: bumped })');
-    expect(turn).toContain('if (row.kind === "payment_check" && row.body === "receipt") {');
-    expect(turn).toContain("const line = support ? paymentSupportLine(support) : PAYMENT_RECEIPT_ESCALATED;");
+    expect(turn).toContain('if (row.kind === "payment_check") {');
+    expect(turn).toContain('const receipt = row.body === "receipt";');
+    expect(turn).toContain("const line = receipt ? PAYMENT_RECEIPT_ESCALATED : PAYMENT_ESCALATED;");
   });
   it("8. o pedido do e-mail não leva junto o pedido do CPF", () => {
     // The directive asks the one datum `missingForLink` names: never the e-mail and the CPF together.

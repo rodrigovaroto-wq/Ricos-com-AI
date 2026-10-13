@@ -51,6 +51,12 @@ toda ação — tamanho, endereço, identidade, cobertura, checkout, régua — 
 determinístico em volta da chamada. Quando um gate veta, o motivo volta ao modelo e ele
 reescreve; o texto vetado nunca entra no histórico da conversa.
 
+**Meta do agente como um todo (operador, 2026-10-13, R21.1):** a Malu resolve sozinha — o máximo de eficiência e o
+mínimo delegado ao operador. Toda situação deve ter um contorno correto e eficiente sem passar para uma pessoa; a pessoa
+é o último recurso, não o caminho padrão. É a régua de toda construção (um veto vira resposta segura, não handoff; um dado
+que o sistema tem vira resposta, não "vou checar"), sem mudar a arquitetura acima: a ação continua em código
+determinístico, e os gates e o pedido explícito de pessoa continuam valendo.
+
 **Cinco coisas que este projeto decidiu NÃO fazer** — reabrir exige motivo novo, não
 preferência:
 
@@ -78,6 +84,9 @@ passou doze dias se contradizendo sobre desconto. Desde então `tests/prompt.tes
 que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou gate, esse
 teste roda**. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
+
+**Gate só muda por frase real** (R21.6, operador, 2026-10-13): o prompt ensina a frase certa, o gate pega o raro que escapa.
+Gate se altera por frase vista em conversa real ou de persona; variação hipotética de revisor vira resíduo no grafo, não código.
 
 **Provedor de modelo — só a Meta** (§R12.1, 2026-09-23; supera §R7.1): `muse-spark-1.3`
 pela Meta Model API (`api.meta.ai`, [dev.meta.ai](https://dev.meta.ai/)) é o único provedor

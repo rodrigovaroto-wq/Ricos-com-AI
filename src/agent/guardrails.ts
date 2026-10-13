@@ -97,13 +97,10 @@ export interface GateConfig {
   /** Where she writes to exchange or return. Absent, the briefing names no address. */
   support?: { email?: string };
   /**
-   * A size exchange's freight is hers (operator, 2026-09-29, R17.1): she pays it through a Mercado
-   * Pago link, outside the Coinzz and Logzz checkouts. OPTIONAL, and absent reads as today's truth
-   * — the exchange is never free — with no amount and no link: the agent says the freight is hers
-   * and an order's exchange goes to a person. Both present, the agent quotes `feeBrl` and sends the
-   * link. The return stays free (R16.3).
+   * The size exchange through the Logzz, at no cost to her (operator, 2026-10-13). OPTIONAL: only an
+   * explicit `true` lets "a troca é sem custo" through; absent (the secret), R17.1's veto stands.
    */
-  exchange?: { feeBrl?: number; checkoutUrl?: string };
+  returns?: { freeExchange?: boolean };
   /**
    * A customer count the operation can back. Absent, no customer count may be said;
    * present, only this one ("mais de N clientes satisfeitas").
@@ -222,12 +219,6 @@ export interface GateContext {
    * then `scarcity_claim` refuses any stock or deadline, declared or not.
    */
   postponing?: boolean;
-  /**
-   * The fixed reply to a size exchange on an order (R17.1), the only place the exchange's freight
-   * (`exchange.feeBrl`) may be said. Absent everywhere else, and then that amount is one more price
-   * the shop does not have.
-   */
-  exchanging?: boolean;
   /**
    * Whether her message asks for testimonials or proof from other customers (`asksForTestimonial`).
    * Testimonials are said only when she asks (R16.7): `false` makes `invented_testimonial` refuse any
@@ -872,11 +863,8 @@ export const asksWhatSheIs = (message: string): boolean =>
 
 /** The one place money is written for a human to read inside this file. */
 const money = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
-/** The size exchange's freight, as the briefing teaches it (R17.1). The amount goes only in the fixed reply. */
-const EXCHANGE_FREIGHT_LINE =
-  `Na troca de tamanho o envio é por conta dela: o valor e o link de pagamento vão numa mensagem ` +
-  `à parte, quando ela pedir a troca de um pedido. Nunca diga que a troca é grátis ou sem custo, e ` +
-  `não cite valor da troca. A devolução, sim, é sem custo.`;
+/** The size exchange's freight without `freeExchange`, as the prompt teaches it: not said at all (R21.4). */
+const EXCHANGE_FREIGHT_LINE = `Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`;
 const savingOf = (c: GateConfig): number => +(c.prices.codBrl - c.prices.prepayBrl).toFixed(2);
 /** The prepaid card's installment ceiling, or undefined when installments are off. */
 const maxInstallments = (c: GateConfig): number | undefined => {
@@ -1084,8 +1072,6 @@ const gates: readonly Gate[] = [
       const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
-      const exchangeFee = ctx.exchanging === true ? ctx.config.exchange?.feeBrl : undefined;
-      if (exchangeFee !== undefined) allowedPrices.add(exchangeFee);
       const t = norm(text);
 
       // Exit A (operator decision 2026-09-22, Frente 4 item 6): the saving in reais — the
@@ -1733,11 +1719,12 @@ const gates: readonly Gate[] = [
           // it, or a return word taking it right before it — and nothing after it says anything
           // but "corridos/úteis", the purpose, or when the warranty starts counting.
           // "Quando chega aí você tem 7 dias pra trocar": the place of the arrival is part of it.
-          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa))?`;
+          // "Após o recebimento do produto": the noun's own object, only after "recebimento" (2026-10-13).
+          const WHO = String.raw`(?:(?:o\s+colete|o|voce|ele|a\s+senhora)\s+)?(?:receb|cheg)\w*(?:\s+(?:ai|la|em\s+casa|na\s+sua\s+casa)|(?<=recebimento)\s+d[oa]\s+(?:produto|colete|peca|pedido))?`;
           // When the warranty starts counting: "depois que receber", "a partir do recebimento",
           // "contados de quando ele chegar", "a contar do dia que receber", "após a entrega" — and
           // the script's own "contando do dia que receber / da data em que você recebe" (fifth review).
-          const START = String.raw`(?:(?:depois\s+que|apos|depois\s+d[aeo]|(?:a\s+partir|contad[oa]s?(?:\s+a\s+partir)?|contando(?:\s+a\s+partir)?|a\s+contar)\s+d[aeo](?:\s+quando|\s+(?:dia|data)\s+(?:em\s+)?que)?|de\s+quando)\s+${WHO}|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae]|contad[oa]s?\s+d[ae]|contando\s+d[ae]|a\s+contar\s+d[ae])\s+(?:a\s+)?entrega)`;
+          const START = String.raw`(?:(?:depois\s+que|apos|depois\s+d[aeo]|(?:a\s+partir|contad[oa]s?(?:\s+a\s+partir)?|contando(?:\s+a\s+partir)?|a\s+contar)\s+d[aeo](?:\s+quando|\s+(?:dia|data)\s+(?:em\s+)?que)?|de\s+quando)\s+${WHO}|(?:apos|depois\s+d[ae]|a\s+partir\s+d[ae]|contad[oa]s?\s+d[ae]|contando\s+d[ae]|a\s+contar\s+d[ae])\s+(?:a\s+)?entrega(?:\s+d[oa]\s+(?:produto|colete|peca|pedido))?)`;
           // The return verb may carry its object: "pra trocar de tamanho", "pra devolver o produto",
           // "trocar pelo tamanho certo" (2026-09-28: without "pelo" and the adjective, "pode trocar
           // pelo tamanho certo em até 7 dias após o recebimento" was not governed, and its anchor's
@@ -1754,6 +1741,9 @@ const gates: readonly Gate[] = [
             x
               .replace(/\b(?:(?:no\s+)?pag\w*\s+)?na\s+entrega\b|\bpag\w*\s+na\s+(?:porta|mao(?:\s+do\s+entregador)?)\b/g, " ")
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
+              // E4 (2026-10-13): who pays the exchange's freight — "e na troca o envio da peça fica por sua
+              // conta" — is not an arrival. Only with that predicate: "e o envio é rapidinho" still is.
+              .replace(/\b(?:o\s+)?(?:envio|reenvio|postagem)(?:\s+d[aeo]\s+(?:troca|peca|devolucao))?\s+(?:fica|e)\s+por\s+(?:sua|nossa)\s+conta\b(?![^.!?]*\b(?:rapid\w*|cheg\w*|leva\w*|demor\w*|dias?)\b)/g, " ")
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
           // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
@@ -1810,24 +1800,33 @@ const gates: readonly Gate[] = [
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
           const lastRet = [...sb.matchAll(/\b(?:troc|devol|desist|arrepend|garantia)\w*/g)].pop();
+          // E4 (2026-10-13): "a garantia pra trocar o tamanho é de" governs it the same way as the prazo.
           // Only when the return word governs the count (eighth review): "o prazo pra trocar (ou
           // devolver) é de", "pra trocar, o prazo é de", "se precisar trocar, são", "é só trocar:
           // você tem". A return word loose in another clause takes nothing: "a troca é fácil, e o
           // prazo é 7 dias", "tem garantia e são 7 dias", "com direito a troca, são 7 dias".
           const RETV = String.raw`(?:troc|devol|desist|arrepend|garantia)\w*(?:\s+ou\s+(?:troc|devol)\w*)?`;
           const TAKES = String.raw`(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$`;
-          const takenAfterReturn =
+          // Second review of E4: what comes before the anchor, back to the last number, is no subject of
+          // it either — "a entrega e a garantia pra trocar é de 7 dias"; "chega em 1 a 3 dias e a garantia…" passes.
+          const taken =
             lastRet != null &&
             new RegExp(
-              String.raw`\bprazo\s+(?:pra|para|de)\s+${RETV}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
-            ).test(sb);
+              String.raw`\b(?:prazo|garantia)\s+(?:pra|para|de)\s+${RETV}${OBJECT}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
+            ).exec(sb);
+          // Where the warranty starts counting is no arrival, before the anchor or in the count's own
+          // clause: "depois que chegar, o prazo pra trocar é de", "se chegar e não servir você pode
+          // devolver em até" (code review and personas v18, 2026-10-13). Never with a count of its own:
+          // "se chegar em 7 dias…" is a deadline.
+          const MARK = new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|(?:quando|assim\s+que|se)\s+${WHO})\b(?!\s+(?:em|de|ate|dentro|daqui)\b)`, "g");
+          const takenAfterReturn = !!taken && !ARRIVAL.test(notDelivery(sb.slice(0, taken.index).split(/\d/).pop()!.replace(MARK, " ")));
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
           // quando chegar é de 7 dias pra trocar").
           const own = sb
             .split(/[,;:]|\s(?:e|mas)\s+(?=(?:voce|ela|eu|a|o|no|na|se|tem)\b)|\s(?:porque|pois)\s|(?<!\b(?:depois|dia|em))\sque\s/)
             .pop()!
-            .replace(new RegExp(String.raw`(?<!\b(?:ate|pra|para|prazo|tempo)\s)\b(?:${START}|quando\s+${WHO})`, "g"), " ");
+            .replace(MARK, " ");
           // "Você tem 7 dias contando de quando recebeu": a count she has, starting at her receiving
           // it, is never the carrier's — only "você tem", never "são / é / o prazo é de".
           const hers = startHer && /\bvoce\s+(?:tem|tera)\s+(?:ate\s+)?$/.test(sb);
@@ -1939,11 +1938,37 @@ const gates: readonly Gate[] = [
       // courier already agreed to — and the strongest sentence this funnel owns.
       if (ctx.stage !== "logistics") {
         const express = ctx.config.delivery.expressActive === true;
+        // Overlapping, so a second arrival verb inside a span is read too — only when a clause boundary separates it from
+        // the verb that opened the span: "não sei dizer quando chega, mas chega amanhã" hid its promise behind the first,
+        // denied "chega". The spans themselves are read exactly as before (v21 review: reading only the nearest verb
+        // loosened "a entrega não demora pois chega amanhã").
+        let spanStart = 0;
+        let spanEnd = -1;
         for (const m of t.matchAll(
-          /(chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)/g,
+          /(?=((chega|entrega|recebe|receber).{0,24}(amanha|hoje|24\s*h|no\s+mesmo\s+dia)))/g,
         )) {
-          if (negatedAt(t, m.index ?? 0)) continue;
-          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
+          const at = m.index ?? 0;
+          if (at >= spanEnd) {
+            spanStart = at;
+            spanEnd = at + (m[1] ?? "").length;
+          } else if (
+            !/(?<!\d)[,.]|[,.](?!\d)|[;:!?]|\b(?:mas|porem)\b/.test(t.slice(spanStart, at)) ||
+            // "…, ou se recebe amanhã" / "…, nem que chega amanhã" go on with the denied clause, not a new claim.
+            /\b(?:se|nem\s+que)\s+$/.test(t.slice(0, at))
+          ) continue;
+          // The denial in the claim's own phrase (v20 review): `negatedAt` reads past the comma, and "não posso
+          // garantir, chega amanhã" / "não se preocupa, chega amanhã" are the promise itself. A dash and a "que" cut it
+          // too ("não sei - chega amanhã", "não esquenta que chega amanhã"), except the "que" a denied knowing, saying or
+          // guaranteeing takes ("não consigo garantir que", "não tenho como informar que", "não acho que chega amanhã") —
+          // read whole, because its "não" may sit past `negatedAt`'s 30 characters. An "e" right before the arrival verb
+          // cuts too: "não demora nada e chega amanhã" denies the wait, not the arrival.
+          const DENIED_SAY = String.raw`\b(?:nao|nunca|jamais)\s+(?:(?:posso|podemos|pode|consigo|conseguimos|consegue|tenho|temos|tem|da\s+pra|da\s+para|vou|vai|sei|e)\s+(?:como\s+)?(?:eu\s+)?)?(?:(?:te|lhe)\s+)?(?:(?:garant|promet|assegur|inform|crav|afirm|confirm|acredit|imagin|confer|prev|sab|ach|pens)\w*|diz\w*|dig\w*|diss\w*|fal(?:ar|o|amos)|sei|ver|vejo|cre(?:io|r|mos)|cert[oa]|certeza|verdade|cont(?:ar|o))(?:\s+(?:com\s+certeza|ainda|agora|exatamente|isso|pra\s+voce|para\s+voce))*(?:\s+de)?\s+`;
+          const own =
+            (t.slice(0, m.index ?? 0).split(PHRASE_COMMA).pop() ?? "")
+              .split(new RegExp(String.raw`\b(?:mas|porem|so\s+que|entao)\b|\se\s+(?:(?:voce|ele|o\s+colete|ja)\s+)*$|(?:^|\s)-|-(?:\s|$)|[–—]|(?<!${DENIED_SAY})\bque\b`))
+              .pop() ?? "";
+          if (negatedAt(own, own.length) || new RegExp(String.raw`${DENIED_SAY}que\s*$`).test(own)) continue;
+          const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[3] ?? "");
           if (sameDay && express && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";
         }
@@ -2014,6 +2039,11 @@ const gates: readonly Gate[] = [
           if (
             // "O entregador não trabalha domingo": the denial sits between verb and day.
             /\b(?:nao|nunca)\b/.test(m[0]) ||
+            // The topic first, its denial right after and closing the clause (persona Rafa, 2026-10-13): "sobre
+            // chegar até sexta eu não consigo te garantir (por aqui)". Never "…garantir mais que isso".
+            (negations === 0 &&
+              /^(?:(?:cheg|entreg)ar|receber)\b/.test(m[0]) &&
+              /^\s*(?:(?:eu|a\s+gente|nos)\s+)?(?:nao|nunca|jamais)\s+(?:(?:consigo|conseguimos|posso|podemos|da\s+pra|tem\s+como|tenho\s+como|temos\s+como)\s+)?(?:(?:te|lhe)\s+)?(?:garant|promet)\w*(?:\s+(?:isso|agora|por\s+aqui|pra\s+voce))*\s*(?:[,.;:!?\n]|$)/.test(td.slice(at + m[0].length))) ||
             (negations === 1 &&
             (new RegExp(String.raw`\b(?:nao|nunca|jamais|nem)\s+(?:${CLITIC}|(?:tem|ha|existe|faz|fazemos)\s+)$`).test(phrase) ||
               new RegExp(
@@ -2428,13 +2458,26 @@ const gates: readonly Gate[] = [
       `A garantia é de ${c.delivery.warrantyDays} dias após o recebimento para trocar ou ` +
       `devolver, e na devolução o dinheiro volta sem custo nenhum pra ela. Nenhum outro ` +
       `prazo, e nada de "quantas vezes quiser", troca ilimitada ou garantia sem prazo.` +
-      ` ${EXCHANGE_FREIGHT_LINE}` +
+      ` ${c.returns?.freeExchange === true ? `A troca de tamanho, pela Logzz, também é sem custo pra ela.` : EXCHANGE_FREIGHT_LINE}` +
       (c.support?.email ? ` Para trocar ou devolver, ela escreve para ${c.support.email}.` : ``),
     check: (text, ctx) => {
       const t = norm(text);
-      if (/\b(sem\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
+      if (/\b(sem\s+prazo|qualquer\s+prazo|quantas\s+vezes\s+quiser|troca\s+ilimitada|garantia\s+vitalicia|pode\s+devolver\s+quando\s+quiser)\b/.test(t))
         return "promises a warranty with no limit";
-      if (claimsExchangeFree(t)) return "says the size exchange is free, and its freight is hers";
+      // Unlimited in other words, in a sentence about the exchange or the return (v20 review): "a qualquer momento"
+      // and "à vontade" alone are "me chama a qualquer momento" / "fique à vontade", never a warranty.
+      for (const s of t.split(/[.!?\n]/).filter((s) => /\b(?:troc|devol|garantia|reembols)/.test(s)))
+        for (const m of s.matchAll(/\b(?:a\s+qualquer\s+(?:momento|hora)|quantas\s+vezes\s+(?:precisar|for\s+preciso)|(?<!\bfi(?:que|ca|quem)\s)a\s+vontade|(?:mesmo\s+)?depois\s+de\s+(?:ser\s+)?usad\w*|mesmo\s+usad\w*)\b/g))
+          // "Depois de usado não dá pra trocar": the denial right after the topic, and only for that one. Contact is
+          // exempt ("me chama / a gente responde a qualquer hora"), never the exchange ("a gente resolve/troca a qualquer momento").
+          if (!deniedNear(s, m.index ?? 0) && !(/usad/.test(m[0]) && /^\s+(?:nao|nunca|nem)\b/.test(s.slice((m.index ?? 0) + m[0].length))) && !/\b(?:me|nos|gente)\s+(?:(?:cham|fal|pergunt|respond|escrev)\w*|mand\w*\s+(?:uma\s+)?mensage\w*)(?:\s+(?:(?:a|as|sua|suas)\s+)?duvidas?)?(?:\s+aqui)?\s+$/.test(s.slice(0, m.index ?? 0)))
+            return "promises a warranty with no limit";
+      // The refund takes the vest back: "devolve o dinheiro e você fica com o colete" is a gift nobody offered.
+      if (/\b(?:dinheiro|reembols\w*|estorn\w*)\b[^.!?\n]*(?<!\b(?:nao|nem)\s+(?:\S+\s+)?)\bfica\w*\s+com\s+(?:o\s+|a\s+)?(?:colete|peca|produto|cinta)\b(?!\s+(?:novo|nova)\b)(?![^.!?\n]*\bate\s+(?:devolver|a\s+devolucao)\b)/.test(t))
+        return "promises a refund that leaves her the vest";
+      // Exchange through the Logzz at no cost to her (operator, 2026-10-13): only an explicit `true`; absent, R17.1.
+      if (ctx.config.returns?.freeExchange !== true)
+        if (claimsExchangeFree(t)) return "says the size exchange is free, and its freight is hers";
 
       /**
        * The delivery window's own numbers, and where they sit.

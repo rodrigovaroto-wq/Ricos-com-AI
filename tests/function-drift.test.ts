@@ -401,8 +401,9 @@ describe("M-03 na Edge Function", () => {
     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
     expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
-    expect(source).toContain("const linkNow = !linkJustSent && linkReady && !withdrew;");
-    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
+    expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
+    expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
+    expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
   });
 });
 
@@ -507,7 +508,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("      paymentPath: touchPath,\n      units: touchUnits,");
     expect(source).toContain("...(order && Number(order.amount_brl) > 0 ? { amountBrl: Number(order.amount_brl) } : {}),");
     // A goodbye after the link is in the chat does not resend it.
-    expect(source).toContain("thinkLink = linkNow && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
+    expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");
     // O10: the sale webhook refuses a forged sale when the secret is set.
     expect(source).toContain('if (saleToken !== "" && !sameSecret(String(payload.token ?? ""), saleToken)) {');
     expect(source).toContain('return json(401, { error: "token do webhook de venda inválido" });');

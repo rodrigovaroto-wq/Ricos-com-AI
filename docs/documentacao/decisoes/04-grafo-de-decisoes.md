@@ -2560,6 +2560,354 @@ produção tinha aprovado; isso puxa a base para baixo e infla a diferença. Na 
 caiu nisso. O ganho de naturalidade (tiques, cópia, tamanho) não depende desse defeito. Antes, um primeiro conserto da mesma sessão:
 o detector julgava com o config de teste (sem os 10% do antecipado) e marcava quase tudo como mentira (`5d05c76`).
 
+## 78. O detector de mentira da E4 re-julgava o que a produção já tinha aprovado (2026-10-12)
+
+**Sintoma:** na comparação base × E3 (§77), o comprador simulado encerrou 2 e 4 conversas da base como "mentira" por
+`shipping_promise` em frases que a `turn` tinha aprovado e enviado — puxou a base para baixo e inflou a diferença.
+**Causa:** `liesIn` re-rodava a cadeia inteira de gates sobre o texto enviado, com contexto mínimo (`paymentPath: "cod"` fixo, sem
+`units`, `recentOutbound`, `cepAsks`…). O comentário dizia "pode perder uma mentira, nunca inventar" — falso: gate cujo veto depende
+do estado (caminho, peças, frase canônica) veta sem ele. E o texto enviado já passou essa mesma cadeia, do mesmo código em disco, com o
+estado inteiro: re-rodar sem o estado só pode discordar por falta de estado.
+**Caminhos descartados:** (a) passar mais contexto ao re-julgamento — o comprador não tem o estado do turno, cada campo seria outro
+palpite; (b) só contar, sem encerrar e sem barreira — joga fora o único sinal real que o eval tem.
+**Correção:** o único fato que o comprador sabe e o turno pode não saber é a verdade do CEP do cenário (sem pagamento na entrega), que
+o turno só aprende por uma consulta que pode falhar. `liesIn` agora conta só os gates que vetam **com** essa verdade e não sem ela;
+sem CEP dado, ou num CEP com entrega, devolve vazio. A mentira assim achada continua encerrando a conversa e sendo barreira na regra
+de aprovação (regra 2 do `--compare`, texto atualizado).
+**Guarda:** `tests/sales-buyer.test.ts` e `tests/persona-scorecard.test.ts` — a frase aprovada pela produção não é re-julgada
+(falhava no código antigo), a promessa de entrega depois de um CEP sem entrega continua mentira, e as duas negações (antes do CEP; CEP
+com entrega). Ferramenta de avaliação (`src/dev/`), sem mutação em `verify-guards.ts` (não é guarda de produção).
+**Falta:** refazer base × E3 com o detector consertado (precisa da porta local com modelo, passo 4 do `HANDOFF.md`).
+
+## 79. Experimento B: o link logo depois da escolha do pagamento (E6, R20.6, 2026-10-12)
+
+**Decisão (R20.6):** reabre §62/§63 com motivo novo — a queixa original era o link *antes da decisão*, não antes do CPF. Até aqui o
+experimento B só tinha o braço sorteado e a flag (`armOn(…, "B")`), sem comportamento.
+**Correção:** `LinkData.identityAtCheckout?` (opcional; `=== true`, ausente = a ordem de hoje). Com ele, `missingForLink` para no
+caminho: tamanho → CEP → pagamento → link. O turno liga o campo só por `armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B")`
+— flag `experiments.linkAfterChoice` no config **e** braço 1 do sorteio B; sem `experiments` (o segredo de produção hoje), ninguém.
+Como `missing` volta `null`, a diretiva de identidade não sai; o link leva o que já se sabe (`buildPrefilledCheckoutLink` não exige
+nome nem CPF desde R13.4, só a URL base) e o `linkMessage` fixo já diz o que ela preenche no checkout (§67). Quando o modelo escreve o
+link (pergunta ao lado), uma diretiva nova diz para não pedir nome, e-mail nem CPF — só no braço B com link no turno. Nenhum gate
+precisa saber do braço: `pending_promise` lê `linkInTurn`, que segue o link real.
+**Caminhos descartados:** um ramo próprio de link no turno para o braço B (duplicaria `linkNow`, histórico do link e "vou pensar");
+mexer no prompt (é o mesmo para os dois braços, e a agente fica congelada no L3).
+**Efeito colateral aceito, a medir:** no braço B a oferta do kit (`kitOfferNow`, que exige `!linkNow`) não sai — o link vai no turno
+da escolha. Afeta receita por pedido, não a métrica do B (pedido ÷ lead); o operador decide se o kit entra antes do link no braço B.
+**Guarda:** `tests/e6-link-after-choice.test.ts` (braço B sem os dados; negação com o campo ausente e `false`, e-mail do antecipado
+incluído; tamanho, CEP e caminho nunca faltam em braço nenhum; a fiação por `armOn`). Mutações `E6-braco-b-para-todos` (ignora
+`armOn`) e `E6-ausente-liga-b` (ausente lido como ligado) — as duas pegas.
+**Estado (2026-10-12):** no código, não publicado. Liga-se escrevendo `experiments.linkAfterChoice: true` no `BUSINESS_CONFIG`.
+
+**Revisão Opus de `9c1053c` (reprovou, consertado):** (1, alta) `pathSettled` vale só pela região sem pagamento na entrega; no braço B
+o link do antecipado saía pelo texto fixo no próprio turno do CEP, antes de ela ouvir o motivo ou dizer sim — o braço B agora exige
+`paymentChoice !== null` (mutação `E6-regiao-solta-o-link`); (2) com o link retido no turno (pergunta ao lado do sim) nada dizia ao
+modelo para não pedir nome/CPF e o braço 1 coletaria dados no chat — a diretiva vale com `missing === null`; (3) no antecipado, o link
+escrito pelo modelo não avisava que o checkout pede o e-mail (o atrito da Leila, §67) — a diretiva manda avisar. O conserto do detector
+da E4 (`5c3eaf2`, §78) foi APROVADO: os envios que não passam a cadeia no turno são constantes de código com teste próprio contra ela.
+
+**Segunda revisão Opus (APROVADO COM RESSALVAS, as duas consertadas):** (1) numa região sem pagamento na entrega, "quero sim" / "manda
+o link" à oferta do antecipado não gravava a escolha (`confirmsAddress` não aceita "quero"), e o braço B ficava no fluxo antigo a
+conversa inteira, diluindo a medida — `pathChoiceToStore` aceita também `buyerAsk` quando nenhuma outra pergunta vem junto (só o
+pedido do link), com negações ("não quero", "quero saber o prazo", "quero, mas chega quando?"), mutação `E6-quero-sim-nao-escolhe`;
+efeito também no braço 0: a escolha passa a ser gravada (estágio `caminho_escolhido`), o caminho do link não muda (a região já o
+fixava). (2) Os testes provavam o texto do fonte: a regra saiu para `missingForLink` (`choiceMade`), com teste de comportamento
+(braço B, região sem COD, sem escolha → `name`), e a mutação `E6-regiao-solta-o-link` passou a mutar a regra.
+
+**Terceira revisão Opus (REPROVOU o conserto (1) acima, consertado):** o `buyerAsk` aceita qualquer "quero" não negado sem ler o resto,
+e gravava o antecipado para "quero na entrega", "quero mas só se for na entrega", "quero pensar", "quero cancelar", "quero falar com
+atendente", "quero o boleto", "quero o 46" — e o "pode mandar o link mas vou pagar na entrega" já gravava antes, pelo `yes`. No braço B
+isso soltava o link do antecipado no turno e fixava a escolha por 7 dias. **Correção (lição 11: lista de permissão da mensagem
+inteira):** `WANT_ONLY` ("quero", "sim, quero!", "kero sim") ou o pedido do link, cada parte inteira; e nomear a entrega nunca é sim ao
+antecipado, em todo o ramo `noCod`. Também: `choiceMade` exige que a escolha seja o caminho do link — "na entrega" lido como `cod` onde
+não há entrega não solta o link do antecipado. Mutações `E6-quero-solto`, `E6-entrega-vira-antecipado`; 15 negações novas em
+`tests/v10-defects.test.ts`. **Quarta revisão: APROVADO COM RESSALVAS** (todas as recusas, adiamentos e pedidos de entrega dão nulo,
+inclusive os que o `yes` antigo gravava). **Fica:** "pode mandar, quando chega?" não grava (o "quando cheg" do `named` lê entrega; no
+braço B volta à ordem de hoje); "manda o link que eu vou pensar", "manda o link do rastreio" gravam o antecipado — ela pediu o link e o
+antecipado é o único caminho na região; o dano só existe se ela trocar para um CEP com entrega em 7 dias, cenário que o `yes` já tinha
+com "ok, vou pensar"; formas com outras palavras ("bora", "vamos", "fechado") ficam de
+fora (conservador: voltam ao fluxo de hoje).
+
+**Decisão do operador (2026-10-12, noite): o kit aparece no braço B.** O link espera uma vez a oferta do kit, com os descontos
+progressivos (a mesma diretiva do braço 0: "levando mais peças o desconto sobe: 2 peças R$ … (…%)"), quando ela está em uma peça e o
+caminho dela tem kit ainda não oferecido (`kitHoldsLink`); recusou ou ignorou, o link sai no turno seguinte; aceitou, sai o link do kit.
+Mutação `E6-kit-depois-do-link`. **Revisão Opus (reprovou, consertado):** (1) o "vou pensar" com tudo pronto perdia o link enquanto o
+kit estava pendente — o "vou pensar" lê `linkUnheld` (o link sem a espera do kit); (2) o kit segurava o link num turno em que a oferta não
+saía (região só antecipado, sem `pathChosen`: nem link nem kit) — `kitHoldsLink` exige `pathChosen`, o mesmo que `kitOfferNow` lê;
+(3) depois de 20 mensagens a oferta saía da janela e o kit voltava, atrasando o reenvio pedido — nunca segura depois de um link
+(`lastLinkBase(linkHistory)`, que alcança além da janela). Mutações `E6-kit-segura-sem-oferta`, `E6-pensar-sem-link`. Segunda revisão:
+APROVADO COM RESSALVAS — braço 0 provado inalterado; **fica** (só braço B): com `CoinzzIncompleteError` num "vou pensar" repetido a oferta
+do kit se perde no turno (o link também não sairia no braço 0); com a leitura do banco falhando, o kit pode ser oferecido uma vez a mais
+depois de um link antigo (nunca perde o link).
+
+## 80. "Qual o número da sua calça?" não era pergunta do tamanho (E4, 2026-10-12)
+
+**Sintoma:** achado da E4 — `asksForSize("Qual o número da sua calça?")` dava falso: o comprador simulado não disparava a objeção
+`size` nem punia a repetição, e em produção o mesmo predicado decide o dado pendente do "ok" solto (§67) e a diretiva "responda e volte
+ao tamanho" (`lastAskedSize`), mudas nessa forma.
+**Causa:** "número" só valia como tamanho pelo lookahead `NUMBER`, que exigia "de/da calça" colado; o possessivo ("da **sua** calça")
+quebrava o casamento, "E o número…?" não tinha porta de entrada, e o imperativo sem "?" ("me diz o número da sua calça") saía pelo
+filtro `endsWith("?")` antes da regex.
+**Caminhos descartados:** (1) afrouxar o lookahead para `d[ea]\s+(sua\s+)?calça` — não cobre "E o número…?" nem o imperativo, e herda a
+falta de checagem de negação da regex antiga; (2) tirar o filtro do "?" — "O número da sua calça é 44…" viraria pergunta, e foi esse
+filtro que fechou a rodada 3 (Neusa); (3) qualquer oração começando com "me conta/diz" — "Me conta, o número da sua calça é 44." viraria
+pergunta.
+**Correção:** duas portas novas em `src/agent/sizing.ts` (espelho em `supabase/functions/turn/sizing.ts`), a regex antiga intacta:
+`PANTS_NUMBER` (número de/da [sua] calça) em oração com "?", e `SIZE_REQUEST` (me + diz/fala/conta/passa/manda, sem vírgula, + tamanho/
+numeração/número da calça), que vale sem "?". As duas passam pelo `NEGATED_CUE` do arquivo: "não precisa me dizer o número da sua calça
+agora, tá?" continua falso.
+**Guarda:** `tests/sizing.test.ts` ("E4: o número da sua calça é pergunta do tamanho": 8 formas reais verdadeiras, 9 negações falsas);
+mutação `E4-numero-da-calca`. `asksForSize` não é gate: `dev:gates` 0 afrouxado, 0 endurecido. **Risco aberto:** `SIZE_REQUEST` vale em
+qualquer posição do texto (uma afirmação longa com "me fala o tamanho" contaria); a lista de verbos é fechada e nenhuma frase do corpus
+faz isso.
+**Estado (2026-10-12):** no código, não publicado.
+
+## 81. O webhook público devolvia a chave `service_role` na recusa (2026-10-13)
+
+**Sintoma:** na prova pela porta de produção depois do deploy da v17, uma mensagem sem selo ao `encorpa-inbound` voltou com o objeto de
+erro inteiro do nó HTTP "Cerebro do turno" — `options.headers.Authorization: Bearer <service_role>`. Qualquer um que postasse na URL
+pública uma mensagem sem selo recebia a chave que escreve no banco inteiro.
+**Causa:** o nó "Devolve a recusa" (saída de erro do turno) respondia `JSON.stringify({ status: "error", error: $json.error ?? $json })`;
+o `error` do n8n é o `AxiosError` com a requisição feita, cabeçalhos incluídos. Nasceu com o "n8n achata o status" (a recusa viaja no
+corpo, memória `n8n-achata-o-status`), antes de existir o selo — que passou a fazer toda mensagem forjada cair nesse ramo.
+**Correção:** o nó devolve só `String($json.error?.message ?? "erro no turno")` (publicado: versão ativa `5dd93613`); prova pela mesma
+porta: a recusa agora traz só "401 - {mensagem sem o selo da entrada}", nenhum `Bearer`/`eyJ`. O operador confirmou que a chave não foi
+acessada por terceiros (ele audita os acessos) e decidiu não rotacioná-la.
+**Guarda:** regra em `src/dev/n8n-rules.ts` — resposta de webhook alimentada por saída de erro não pode devolver `$json.error` sem
+`.message`, `?? $json` nem `JSON.stringify($json)`; teste em `tests/n8n-workflows.test.ts` (três formas do vazamento + a forma certa);
+mutação `N8N-recusa-devolve-a-chave`. `pnpm dev:n8n`: 7/7 ok.
+
+## 82. "Já comprei uma dessas" entregue como pedido existente (E4, 2026-10-13)
+
+**Sintoma:** E4 de 13/10 (porta local, a mesma `turn` v17 no ar): uma lead fria escreveu "Uso 50. E já comprei uma dessas e enrolou
+tudo na barriga" — objeção sobre um produto parecido de outra loja — e foi entregue a uma pessoa como "a cliente pergunta sobre um
+pedido existente".
+**Causa:** `handoffFor` exige `orderContext && post_sale`; o modelo leu `post_sale` por engano, e o `orderContext` veio de
+`statesPastPurchase` na mensagem atual: `BARE_PURCHASE` casou "comprei" e `OTHER_PURCHASE` não reconhecia o demonstrativo
+"uma dessas/um desses", que nomeia o tipo de produto, não o pedido.
+**Caminhos descartados:** mexer na leitura `post_sale` do modelo (não determinística; a barreira é o `orderContext`); tirar o "comprei"
+solto (perde a Lu: "já fez 3 dias que comprei, quando chega?"); exigir marcador de tempo (especulativo).
+**Correção:** `(?:um|uma)\s+(?:dess|dest)[ae]s?` em `OTHER_PURCHASE`, por oração; `ABOUT_US` ("com/de vocês", "colete") continua
+vencendo. Efeito em `saysPaid`: "paguei uma dessas" deixa de contar como pago (coerente).
+**Guarda:** `tests/interpret.test.ts` (4 objeções, 5 pedidos nossos); mutação `E4-uma-dessas-nao-e-pedido`. **Fica:** "comprei uma dessa
+ontem, quando chega?" sem pedido em `orders` nem link enviado não vai mais para uma pessoa (as outras duas redes seguram quem tem pedido).
+**Segunda revisão (ressalva, consertada):** dentro de `OTHER_PURCHASE`, "comprei uma dessas ontem e ainda não chegou", "comprei uma
+dessas daqui ontem" e "paguei uma dessas no pix agora" deixavam de ser pedido nosso. "Uma dessas" virou `KIND_OF_PRODUCT` e cede a
+`ABOUT_US` e a `OUR_ORDER_SIGN` (chegou, entrega, rastreio, pedido, daqui, por aqui, pix) na mesma oração; descartado contar só com outra
+loja/tempo (reabre a frase do E4). Mutação nova `E4-uma-dessas-pedido-nosso`. Resíduo: "comprei uma dessas na feira e não chegou" conta
+como pedido nosso.
+**Estado:** publicado na `turn` v18 (2026-10-13).
+
+## 83. A garantia de troca vetada como prazo de entrega (E4, 2026-10-13)
+
+**Sintoma:** E4 de 13/10 (porta local, a mesma `turn` v17 no ar): "Dá sim, a garantia pra trocar o tamanho é de 7 dias após o
+recebimento, e na troca o envio da peça fica por sua conta" — verdade (`warrantyDays` 7) — vetada 3 vezes pelo `delivery_promise`
+("delivery window of 7 days contradicts the configured 1-3"; no antecipado "prepaid average of 7 days is not the configured 5"); a
+compradora decidida foi para uma pessoa. 6 vetos assim em 2 rodadas.
+**Causa:** a isenção da garantia (só o número `warrantyDays`) exige uma forma de troca governando a contagem e a cauda sem chegada. (1)
+"a garantia pra trocar o tamanho **é de**" não casava nenhuma forma: `takenAfterReturn` só lia "prazo pra trocar é de", sem `garantia` e
+sem objeto; (2) "o **envio** da peça fica por sua conta" casava `envi\w*` do `ARRIVAL` — quem paga o frete da troca virava chegada.
+**Caminhos descartados:** isentar qualquer contagem perto de "garantia/troca" (M-07/M-08: libera "a troca é grátis e no pix chega em 2
+dias"); tirar `envi\w*` do `ARRIVAL` (libera "e o envio é rapidinho"); vírgula opcional no ramo "pra trocar, é de" ("é" sem acento vira
+conjunção).
+**Correção:** `takenAfterReturn` aceita `(prazo|garantia) (pra|de) <troca><objeto> é de`; `notDelivery` remove só "(o)
+envio/reenvio/postagem (da troca/peça/devolução) (fica|é) por (sua|nossa) conta". O resto da isenção intacto.
+**Guarda:** `tests/e4-warranty-not-deadline.test.ts` (8 verdades e 11 mentiras nos dois caminhos, incluindo as que a isenção nova
+liberaria: "…é de 7 dias pra chegar", "…e o envio é rapidinho", "…envio fica por nossa conta e chega em 7 dias"; garantia de 30 dias
+continua vetada); +14 frases no `gate-corpus.txt`; 4 afrouxamentos verdadeiros aceitos em `gate-loosen-accepted.txt`; mutações
+`E4-garantia-pra-trocar` e `E4-envio-por-sua-conta`.
+**Segunda revisão (Opus) reprovou `8cd229f`, consertado:** a âncora nova liberava sujeito coordenado ("a entrega e a garantia pra trocar o
+tamanho é de 7 dias"; a base já liberava "o tempo de entrega e o prazo pra trocar é de 7 dias"), porque o `own` corta em " e a/o" e a
+entrega ficava fora da cláusula; e o replace do "envio por sua conta" apagava a velocidade depois ("…, rapidinho"). `takenAfterReturn`
+recusa quando o trecho entre o último dígito e a âncora tem chegada ("chega em 1 a 3 dias e a garantia pra trocar é de 7 dias" segue
+passando no cod); o replace ganhou o lookahead de velocidade, como o do CEP. +6 mentiras no teste e no corpus; `dev:gates`: 5 afrouxados
+verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coordenado`, `E4-envio-rapidinho`. **Terceira revisão: APROVADO**
+(mentiras da 2ª, chegada depois do número, pontuação antes da âncora, dígito que não é prazo — todas vetadas; as 5 verdades aceitas
+conferidas). **Fica:** "o frete e a garantia pra trocar é de 7 dias" passa ("frete é de" lê como preço; anterior a este conserto).
+**Estado:** publicado na `turn` v18 (2026-10-13).
+**/code-review + personas v18 (13/10):** o conserto do sujeito coordenado testava chegada antes da âncora sem tirar o marco de início
+da garantia — "Depois que chegar / Quando chegar aí, o prazo pra trocar é de 7 dias" voltou a ser vetada; e o `own` não tirava "se
+chegar", o que vetou a devolução verdadeira da Marcinha ("se chegar e não servir você pode devolver em até 7 dias…") e a mandou a uma
+pessoa. **Correção:** um `MARK` (`START` | quando/assim que/se + receber/chegar), nunca seguido de contagem própria (lookahead
+`em|de|até|dentro|daqui`), tirado no trecho antes da âncora e no `own` — fechou também a mentira antiga "Quando chegar em 7 dias pra
+trocar". 79 casos no teste, +13 no corpus, 2 afrouxamentos verdadeiros aceitos, 4 endurecimentos (mentiras da base). Mutação
+`E4-marco-de-inicio`. **Estado:** publicado na `turn` v19 (2026-10-13).
+
+## 84. E4 refeita com o detector consertado: base × v18 (2026-10-13)
+
+**Rodadas (porta local, 16 cenários, `--seed=1`, config de produção com horário 0–24h):** base `5a4be11` (antes da E3) duas vezes;
+candidata v17 uma vez (antes dos §82/§83) e v18 uma vez. Falhas de conexão do proxy do container com o Supabase (HTTP 500 no servidor
+local) tiraram 2 cenários da 2ª rodada da base; os outros completos. Custo total ≈ R$ 2,40.
+**`pnpm dev:eval --compare base1 v18 --noise-from=base2`: REPROVADA, só pela regra 3** (cópia do prompt 0,545 → 0,556). Score 18,7 → 24,0
+(ruído 0,7; a v17 deu 27,0), tiques por conversa 1,56 → 0,06, chegou ao link 6% → 12,5%, mentiras 0 → 0, opt-out ignorado 0 → 0,
+custo/conversa R$ 0,041 → 0,051. A v17 teve a primeira compra simulada (compra-forte); a v18 não (14 turnos).
+**Leitura:** a cópia do prompt variou 11 pontos entre as duas rodadas da MESMA base (0,545 × 0,655) — a diferença de 1 ponto está dentro
+do ruído, e contra a 2ª base a v18 é melhor. A regra 3 compara tiques e cópia sem ruído; ela fica como foi escrita (não se muda regra
+depois do resultado). **Para a próxima comparação, decidido ANTES de rodar:** medir o ruído também da cópia do prompt e dos tiques e
+aplicá-lo como na regra 1.
+**Achados da rodada que viraram conserto:** §82 ("uma dessas") e §83 (garantia lida como prazo) — ambos na v18.
+
+## 85. `/code-review` do fim de fase (E3+E4+E6, 2026-10-13): 10 achados
+
+Branch `claude/pipeline-e4-fix-exp-b` contra `main`, nível alto. Consertados aqui (os itens 2 e 7 têm entrada própria, §83 e §79):
+1. **"Já comprei uma dessas, até agora nada" perdia o pós-venda** (§82): o sinal do pedido depois da vírgula ficava fora da oração. O
+   sinal agora é lido na frase inteira (até `.`/`!`/`?`), e "até agora" entrou nos sinais. Mutação `E4-uma-dessas-virgula`.
+3. **O detector da E4 não pega gate afrouxado na versão testada** (§78): aceito — o `dev:gates` (CI) barra afrouxamento de gate antes
+   de qualquer comparação; o detector mede só o que a verdade do CEP acrescenta.
+4. **O detector comparava por nome de gate:** um gate que já vetava por outro motivo escondia a mentira nova. Agora compara por veto
+   (gate + detalhe).
+5–6. **Seis nós do n8n mandavam o objeto de erro inteiro** (com os cabeçalhos — o do WhatsApp levaria o token da Meta): e-mails da
+   régua, do turno, da venda e do envio; o formulário "Responder cliente"; o Code do alarme. Todos passam só a mensagem (publicados; `dev:n8n`
+   7/7, o formulário mantém a senha). A regra do §81 vale para qualquer nó e parâmetro, e o ramo falso de um IF deixou de contar como saída
+   de erro. Mutação `N8N-erro-inteiro-em-qualquer-no`.
+8. **Braço B, região sem pagamento na entrega e sem a escolha dela** pedia nome/CPF como o braço 0: agora `missingForLink` devolve
+   `payment` (espera o sim dela à oferta). Mutação `E6-braco-b-pede-nome`, que substitui a `E6-regiao-solta-o-link` (a condição
+   `&& choiceMade === true` da linha do `null` ficou morta e saiu; a mutação antiga escapava por isso).
+9. **`asksForSize`:** "O número da sua calça é 44?" (confirmação) deixou de ser pergunta; "Me diz o seu tamanho", "Me passa a sua
+   numeração" passaram a ser. Mutação `E4-confirma-numero-nao-pergunta`.
+10. Comentário desatualizado do alarme em `n8n-sync.ts`.
+**Achados da bateria de 13 personas na v18 (porta local):** Denise provou a recusa (despedida fixa, sem régua); Marcinha foi a uma pessoa
+pela garantia "se chegar e não servir você pode devolver em até 7 dias" (mesma família do item 2, §83); Rafa: "Sobre chegar até sexta eu
+não consigo te garantir" vetado como promessa de dia (negação) — **aberto**.
+**Item 7 (kit no braço B), consertado:** no turno em que `kitFirst` segura o link, a oferta sai fixa (`kitOfferMessage`, `retry.ts`:
+"Antes do link, uma dica: levando mais peças o desconto sobe 💛 / Com 2 peças fica R$ …, 10% de desconto. …") por `sendFixed`, com a cadeia
+inteira — conferida sem veto com os kits REAIS do `BUSINESS_CONFIG` nos dois caminhos, e reconhecida por `kitWasOffered` no turno
+seguinte; com pergunta dela ao lado o link não espera (o modelo responde com o link, como no braço 0). Mutação `E6-kit-oferta-fixa`.
+**Revisão Opus dos candidatos da v19 (REPROVOU, consertado):** (a) braço B, região sem pagamento na entrega, oferta do antecipado já
+feita e "ok, me manda o link" depois de outra resposta: `choiceMade` falso → `missing = payment` que ninguém pergunta → link nunca
+saía. `choiceMade` aceita também `cod === false && wants_to_buy` quando a oferta só do antecipado já está no histórico (nunca no próprio
+turno do CEP). (b) A oferta fixa terminava em "Quer levar mais de uma…?" e o "sim" não virava quantidade: agora "Quer de 2, de 3 ou só
+uma peça?", e "mais de uma" entrou no `QUANTITY_CUE`. Mutação `E6-kit-pergunta-contavel`. (c) O sinal na frase inteira transformava
+"já comprei uma dessas e enrolou, quero saber da entrega" (pergunta sobre a NOSSA entrega) em pedido: depois da vírgula só conta sinal
+de pedido atrasado (`LATE_ORDER_SIGN`); mutação `E4-entrega-depois-da-virgula`. (d) "O número da sua calça é 44 ou 46?" volta a ser
+pergunta; (e) a regra do n8n pega também `JSON.stringify($json.error, null, 2)`. **Conferência (aprovado com ressalva, consertada):**
+`offersPrepayOnly` sobre o histórico pegava qualquer menção ao antecipado ("No antecipado você paga no pix") e soltava o link no
+próprio turno do CEP — agora `toldNoCod` (a explicação de que ali não tem pagamento na entrega, no texto fixo ou nas palavras do modelo),
+e o pedido do link vale como `wants_to_buy` (`asksForLink`). "Ainda não" sozinho saiu do `LATE_ORDER_SIGN` ("ainda não sei se quero").
+Mutação `E6-qualquer-antecipado-e-oferta`.
+**Estado:** publicado na `turn` v19 (2026-10-13).
+
+## 86. Pós-venda sem pessoa e troca/devolução pela Logzz (operador, 2026-10-13, R21.1–R21.3)
+
+**Sintoma:** toda pergunta sobre pedido existente ia para uma pessoa ("Vou checar pra você e já te retorno 💛" + `handoff_at`),
+mesmo com a resposta em `orders`; a troca cobrava R$ 27 por link do Mercado Pago e ia para uma pessoa (R17.1); devolução de pedido
+entregue ia para uma pessoa.
+**Causa:** R13.2 é de quando a agente não lia pedidos; a Logzz agora atende a cliente direto na troca e na devolução.
+**Caminhos descartados:** o modelo escrever o status (o operador: "LLM só se for necessário de fato"; e prometeria datas); "não achei
+pedido no seu número" sem linha em `orders` (falso com webhook atrasado ou outro número).
+**Correção:** `orderStatusReply` (`retry.ts`): texto fixo por estágio do pedido mais recente (`orders_lead_idx`), por `sendFixed`,
+sem `handoff_at`; a data só de `scheduled_for`, de hoje em diante; vivo e não entregue → "logo mais deve chegar", sem dia. A pessoa
+fica só sem linha em `orders`, com status fora do vocabulário ou tentativa de entrega frustrada; um veto volta ao handoff de antes.
+Config opcional `returns: { logzzSupportPhone, freeExchange }` (telefone validado): troca e cancelamento de pedido entregue recebem
+`logzzReturnReply` (o número, "a troca é sem custo pra você" só com `freeExchange === true`, 7 dias); o prompt ensina a frase da Logzz;
+o `warranty_promise` aceita a troca sem custo só com `freeExchange === true` (o `gate-diff` ganhou o contexto `troca-sem-custo`; 57
+afrouxamentos só nele, aceitos como `TROCA-LOGZZ`), e passou a vetar em qualquer config "devolve o dinheiro e você fica com o colete".
+**Guarda:** `tests/post-sale-logzz.test.ts`, `tests/free-exchange-logzz.test.ts`; mutações `posvenda-*`, `logzz-placeholder`,
+`troca-gratis-sem-flag-*`, `TROCA-LOGZZ-*`. **Fica:** reclamação ("veio com defeito") num pedido entregue vai ao suporte da Logzz,
+não a uma pessoa — observar; não confirmado se a Logzz atende também os pedidos antecipados (Coinzz); "O frete da troca é por nossa
+conta" segue vetado pelo `shipping_promise` enquanto "a gente paga o frete da troca" passa (inconsistência menor).
+**Revisão Opus da v20 (REPROVOU, consertado):** (1) `handoffFor` lê `post_sale` antes de `human`: "me passa pra um atendente, meu
+pedido não chegou" recebia o status fixo, e de novo a cada mensagem — os blocos novos exigem `!asksPerson` (o mesmo teste do
+`handoffFor`) e nunca reenviam `lastOutbound`; (2) só o pedido mais novo era lido — um recusado mais novo escondia o vivo em trânsito:
+agora o vivo mais novo responde, "cancelado" só com todos mortos, e a devolução pela Logzz no cancelamento só com todos os vivos
+entregues; (3) antecipado `created` ouvia "confirmado" — agora exige `orderSettled`; (4) pedido entregue vai a uma pessoa ("o rastreio
+diz entregue mas não recebi" é problema, não status). Mutações `posvenda-pessoa-engolida`, `posvenda-laco`, `posvenda-mais-novo-morto`,
+`devolucao-com-vivo-nao-entregue`, `antecipado-created-confirmado`, `entregue-status-fixo` (a `posvenda-entregue-sem-logzz` saiu, superada).
+**Segunda revisão: APROVADO COM RESSALVAS.** **Fica:** `[entregue mais novo, em rota mais velho]` vai a uma pessoa (conservador);
+"quando chega? e se eu pedir reembolso?" perde a resposta fixa de prazo (a exclusão de reembolso olha a mensagem inteira) e vai a uma
+pessoa; "Não se preocupa que chega amanhã.", "Não sei - chega amanhã." e "a gente resolve a qualquer momento" passam — já passavam antes
+da v20 (o "que" e o travessão não cortam a oração; "a gente" isenta) — próximas frases de corpus.
+**Estado:** publicado na `turn` v20 (2026-10-13), com `returns` no `BUSINESS_CONFIG`.
+
+## 87. "Sobre chegar até sexta eu não consigo te garantir" foi a uma pessoa (persona Rafa, 2026-10-13)
+
+**Sintoma:** a recusa honesta de garantir o prazo foi vetada pelo `delivery_promise` em todas as reescritas, e a conversa da noiva com
+casamento no sábado foi para uma pessoa.
+**Causa:** (1) a regra do dia da semana só lia negação ANTES do verbo; aqui a recusa vem depois do dia, com o assunto no começo. (2) A
+resposta fixa de prazo exigia que TODAS as perguntas dela fossem de prazo — ela perguntou do pagamento junto. (3) `asksDeadline` era
+cego a "consigo receber até sexta?", "dá tempo de chegar", "e se não chegar".
+**Caminho descartado:** ler negação em qualquer lugar da frase (libera "chega até sexta, não consigo garantir o horário").
+**Correção:** (1) recusa logo depois do dia só com o verbo no infinitivo, sem negação antes e a oração terminando no garantir/
+prometer; (2) quando a última tentativa caiu só por `delivery_promise`/`coverage_claim`, sai a resposta fixa de prazo mesmo com outra
+pergunta junto (R21.1: veto vira resposta segura, não pessoa); (3) `asksDeadline` lê "receb/cheg… até", "dá tempo de chegar/receber",
+"e se não chegar", com negações ("dá tempo de pensar?", "recebi seu áudio").
+**Guarda:** `tests/e4-postposed-deadline-denial.test.ts`, `tests/deadline-fallback.test.ts`; 5 afrouxamentos verdadeiros aceitos
+(`E4-rafa`); mutações `E4-rafa-recusa-depois`, `rafa-prazo-vetado-vira-pessoa`, `rafa-asksdeadline-cego`.
+**Revisão Opus da v20 (REPROVOU, consertado):** (a) a regra de mesmo dia/dia seguinte usava `negatedAt` atravessando a vírgula — "Eu não
+posso garantir, chega amanhã", "Não se preocupa, chega amanhã" passavam desde antes, e a exceção da Rafa herdava isso; a negação agora só
+vale na oração da promessa (vírgula, mas, porém, então); mutação `v20-mesmo-dia-virgula`. (b) Com `freeExchange`, a garantia ilimitada
+só era vetada por acaso: "a qualquer momento/hora", "quantas vezes precisar", "à vontade", "(mesmo) depois de usada" são vetadas em frase
+de troca/devolução, com e sem a flag ("fique à vontade pra me chamar a qualquer momento" passa); mutação `v20-garantia-ilimitada`. (c)
+`asksDeadline` lia "e se não chegar a servir?" e "recebo até sexta o reembolso?" como prazo — "se não chegar" exige até/a tempo/antes/no
+dia/na data, e reembolso/estorno/dinheiro excluem; mutação `v20-asksdeadline-chegar-a-servir`. O veto "fica com o colete" deixou de pegar
+"o colete novo" e "até devolver" (`v20-fica-com-colete-novo`). `dev:gates`: 0 afrouxamento novo; 6 endurecimentos, todos mentiras.
+**Estado:** publicado na `turn` v20 (2026-10-13).
+
+## 88. Pós-venda que resolve sozinha e o R$ 27 apagado (R21.4–R21.5, 2026-10-13)
+
+**Sintoma (achados do operador sobre a v20):** "preciso falar com alguém sobre meu pedido" ia para uma pessoa; o status mostrava só
+um pedido; antecipado sem pagamento confirmado podia ouvir "confirmado"; pedido entregue com problema e "paguei" sem confirmação iam para
+uma pessoa (o "paguei" pedia comprovante e e-mail do suporte e nunca chegava a uma pessoa); "quando chega? e se eu pedir reembolso?"
+recebia só o prazo; a mensagem da Logzz podia sair sem ela pedir; o R$ 27 e o link do Mercado Pago ainda existiam no agente.
+**Causa:** `namesAPerson` aceitava qualquer palavra de pessoa; `orderStatusReply` olhava só um pedido; o entregue devolvia null e caía em
+handoff; o fluxo de pagamento de 09/10 trocou a pessoa por comprovante + e-mail; o fallback de prazo é texto fixo; o prompt ensinava a
+frase da Logzz sem a condição "só quando ela pede"; o R17.1 sobrevivia como ramo de config ausente.
+**Caminhos descartados:** texto fixo por problema de pedido entregue (cada problema é diferente — usa o modelo com fatos do pedido);
+reescrita na chamada da outra pergunta (latência e custo); cortar o "que" só depois de uma lista de frases de tranquilizar (lista de
+proibição — "não tem problema que", "não precisa ter medo que" escapariam).
+**Correção:** (a) pedido de pessoa só explícito (verbo de pedido + pessoa/humano/atendente/gerente/"alguém de verdade"; recusa colada
+cancela; "alguém", "vc é humano?", "minha amiga comprou" não contam); (b) o pedido mais novo é a referência e o outro relevante é
+mencionado; data só de `scheduled_for`; (c) antecipado sem `orderSettled` → "aguardando a confirmação do pagamento"; na entrega
+"confirmado, você paga quando receber"; (d) "paguei" → "ainda não aparece como confirmado, aguarda que eu fico de olho"; 5 min sem
+atualizar → pessoa ("conferir na Coinzz"); comprovante e e-mail do suporte saíram; (e) entregue com problema → o modelo responde com os
+fatos do pedido (`draftWith`, seam único de chamada dirigida, com teto, gates, `llm_calls` e adiamento; "consta entregue mas não recebi" →
+vizinhos/portaria e o suporte da Logzz); a Logzz só com pedido de troca/devolução (`namesExchangeOrReturn`); (f) prazo + outra pergunta →
+a fixa de prazo + uma chamada a mais só para a outra; (g) o prompt diz troca/devolução só quando ela pede, "a garantia é de 7 dias após o
+recebimento"; o tipo `exchange`, o `exchangeReply`, o preço permitido de R$ 27 e o briefing do R17.1 saíram; docs limpos; (h) gate: o
+"que" e o travessão cortam a oração da promessa (menos o "que" de garantir/achar), a isenção de contato "a qualquer momento" só para
+chamar/falar/perguntar/responder/escrever, "após o recebimento do produto" é marco da garantia.
+**Guarda:** `tests/r21-post-sale-decisions.test.ts`, `tests/post-sale-logzz.test.ts`, `tests/l2-*.test.ts`, `tests/exchange-freight.test.ts`,
+`tests/v20-residuals-que-dash-contact.test.ts`, `tests/r21-4-exchange-gate.test.ts`, `tests/prompt.test.ts` (config de produção em todas as
+frases ensinadas), `tests/deadline-fallback.test.ts`; 20 mutações `R21-*`/`r21-*`/`v21-*`; mutações superadas saíram (`R17-*`,
+`posvenda-mais-novo-morto`, `entregue-status-fixo`) e as que perderam âncora foram atualizadas (`M-08-*` desde o §83, `R65`, `G67-paguei-
+sem-pessoa`, `antecipado-created-confirmado`, `posvenda-aguardando-na-porta`).
+**Fica:** as três chamadas novas ao modelo (entregue, outra pergunta, adiamento) só têm teste de código — o teste real é a prova; não
+confirmado se a Logzz atende a entrega de pedido antecipado; status desconhecido ou entrega frustrada seguem indo a uma pessoa.
+**Estado:** no código; publicar na v21.
+
+**Adendo (2026-10-13, tarde) — `/code-review` e a revisão Opus final.** O `/code-review` achou: as chamadas extras ao modelo (outra
+pergunta, entregue) sem o contexto de gate do laço e com prazo próprio; o texto da cliente dentro do prompt de sistema; "você não vai
+chamar um atendente?" lido como recusa; "atendimento humano/vendedora/responsável" não lidos como pedido; o prompt dizendo o
+procedimento de troca sem ela perguntar. **Correção:** `draftWith` lê o contexto de gate do histórico e a chamada extra herda o do laço
+(`linkInTurn: false`); um prazo só (`replyDeadline`, nada de chamada extra com menos de 20 s); o texto dela vai como mensagem de usuário
+entre aspas triplas removidas; `refused()` lê querer negado e pergunta frustrada; o prompt só ensina o procedimento quando perguntado.
+No gate de prazo: `DENIED_SAY` ("não posso dizer/garantir/assegurar que…") e o corte em "e" antes da chegada ("não demora nada e chega
+amanhã" vetava errado / passava). A revisão Opus final: **aprovado com resíduos** — 34 frases de prazo testadas, nenhuma afrouxada.
+Uma regressão consertada antes de publicar: "não me passa pra atendente, quanto custa?" virava pedido de pessoa porque a pergunta
+depois da vírgula desfazia a recusa → a vírgula fecha a oração da recusa. **Guarda:** testes em `tests/r21-post-sale-decisions.test.ts`
+e as mutações `R21-*`, `v21-*` (35/35 pegas). Publicado na v21.
+
+**Resíduos fechados (2026-10-13, noite, pedido do operador antes dos testes reais).** (1) O trecho `.{0,24}` entre o verbo de chegada
+e o prazo começava no primeiro verbo, coberto pela negação, e engolia o segundo — "Não sei dizer quando chega, mas chega amanhã." e
+"Não tem como não chegar amanhã, chega amanhã." passavam. **Caminhos que falharam:** `.{0,24}?` preguiçoso (o `matchAll` ainda começa
+no primeiro verbo); o trecho parando no próximo verbo (`(?:(?!chega|entrega|recebe).){0,24}`) — **reprovado na revisão Opus**: lido
+pelo verbo mais perto, o "não" de outra coisa entrava na oração da promessa e afrouxava ("A entrega não demora pois chega amanhã."),
+e o substantivo "a entrega" separava o "que" da garantia negada do verbo e vetava a recusa certa ("Não consigo garantir que a entrega
+chega amanhã."). **Correção:** a busca é sobreposta (`(?=(…))`); os trechos de antes são lidos exatamente como antes, e um segundo verbo
+dentro de um trecho só é lido também quando uma fronteira de oração (vírgula, ponto, `;:!?`, "mas", "porém") o separa do primeiro —
+só endurece; e a leitura extra pula quando a oração dela começa por "se"/"nem que", que continuam a negada ("Não consigo dizer se
+recebe hoje, ou se recebe amanhã.", "Não garanto que chega hoje, nem que chega amanhã." — falsos positivos achados na 2ª revisão, que
+aprovou com resíduos). `pnpm dev:gates --base=be9a3da` (a v21 no ar): 0 afrouxamentos, 4 endurecimentos, todos os pretendidos. (2) "quero falar com o responsável pela entrega" virava pedido de pessoa; é pergunta
+de entrega, que a Malu responde (R21.5). **Correção:** `responsavel` não conta seguido de "pelo(s)/pela(s) [minha/sua…] entrega/envio/
+frete/transportadora/correio"; "o responsável pela loja" continua pedido. **Fica (antigo):** "quero falar com você ou um atendente" não
+conta como pedido (o "ou" quebra a leitura); depois da exceção, "o responsável pela entrega ou um atendente" também não. **Guarda:**
+`tests/v20-residuals-que-dash-contact.test.ts`, `tests/r21-post-sale-decisions.test.ts`, 10 frases no `tests/gate-corpus.txt`, mutações
+`v21-verbo-mais-perto-do-prazo`, `v21-se-continua-a-negacao` e `v21-responsavel-pela-entrega`. **Estado:** publicado na v22.
+**Pergunta do operador (13/10): por que não só o prompt?** Dado de produção: 81 turnos, **0** vetos de `delivery_promise` — o prompt já
+segura o prazo, e as frases deste item foram escritas por revisores, não pelo modelo. O gate fica (o modelo não segue o prompt 100%, e
+prazo prometido custa o frete inteiro), mas a regra passa a ser: **gate só se mexe por frase vista em conversa real ou de persona**;
+variação hipotética de revisor vai para o grafo como resíduo, não para o código — **aceita pelo operador como R21.6**.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

@@ -345,3 +345,45 @@ describe("\"o G dela\" é tamanho dito (rodada de personas, 2026-09-25)", () => 
     expect(statedSizeOf("o G é bonito")).toBeNull();
   });
 });
+
+/** E4 (2026-10-12): "número da sua calça" — o possessivo entre "da" e "calça" escondia a pergunta. */
+describe("E4: o número da sua calça é pergunta do tamanho", () => {
+  it("as formas reais da pergunta contam", () => {
+    for (const q of [
+      "Qual o número da sua calça?",
+      "Qual é o número da sua calça?",
+      "E o número da sua calça?",
+      "Qual número de calça você usa?",
+      "que número vc veste?",
+      "Me diz o número da sua calça?",
+      "Me diz o número da sua calça",
+      "Me fala o número da calça que você usa",
+      // /code-review: "o seu" / "a sua" before the noun
+      "Me diz o seu tamanho que eu confiro",
+      "Me passa a sua numeração",
+      // review: two numbers are a choice, still the size question
+      "O número da sua calça é 44 ou 46?",
+    ]) {
+      expect(asksForSize(q), q).toBe(true);
+    }
+  });
+
+  it("número que não é da calça, tamanho dito e a negação continuam fora", () => {
+    for (const q of [
+      "O número do pedido é 123",
+      "Qual o número da sua casa?",
+      "Qual o número do seu pedido?",
+      "Seu tamanho é o G.",
+      "O número da sua calça é 44, então o seu é o G.",
+      "Você não precisa me dizer o número da calça agora",
+      "Não precisa me dizer o número da sua calça agora, tá?",
+      "Me diz seu CEP",
+      "Me conta, o número da sua calça é 44.",
+      // /code-review: confirming the number she gave is not asking it
+      "O número da sua calça é 44?",
+      "O número da sua calça é 44 mesmo?",
+    ]) {
+      expect(asksForSize(q), q).toBe(false);
+    }
+  });
+});

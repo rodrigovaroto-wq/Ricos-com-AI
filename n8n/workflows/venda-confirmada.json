@@ -2,7 +2,7 @@
   "id": "gS72LhYGOnmyALRq",
   "name": "Encorpa — Venda confirmada",
   "active": true,
-  "versionId": "b3a3b90e-4005-47b0-a03d-1f1888f3d14a",
+  "versionId": "0b760eea-68e9-41e0-b833-03cad2e7854d",
   "nodes": [
     {
       "id": "e5e3a933-4d47-4bbf-9175-5a864da3244a",
@@ -123,7 +123,7 @@
         "toEmail": "rodrigo.varoto@gmail.com",
         "subject": "=Venda recusada pela Edge Function — pedido {{ $(\"Normaliza a venda\").first().json.order.externalId }}",
         "emailFormat": "text",
-        "text": "=A venda foi mapeada mas a Edge Function recusou gravar. A regua de pos-pedido nao\narmou, e a regua de silencio pode seguir cobrando uma cliente que ja comprou.\n\nFonte: {{ $(\"Normaliza a venda\").first().json.fonte }}\nTelefone: {{ $(\"Normaliza a venda\").first().json.order.phone }}\nPedido: {{ $(\"Normaliza a venda\").first().json.order.externalId }}\n\nErro: {{ JSON.stringify($json.error ?? $json) }}\n\nPayload cru:\n{{ $(\"Normaliza a venda\").first().json.raw }}",
+        "text": "=A venda foi mapeada mas a Edge Function recusou gravar. A regua de pos-pedido nao\narmou, e a regua de silencio pode seguir cobrando uma cliente que ja comprou.\n\nFonte: {{ $(\"Normaliza a venda\").first().json.fonte }}\nTelefone: {{ $(\"Normaliza a venda\").first().json.order.phone }}\nPedido: {{ $(\"Normaliza a venda\").first().json.order.externalId }}\n\nErro: {{ String($json.error?.message ?? \"erro sem mensagem\") }}\n\nPayload cru:\n{{ $(\"Normaliza a venda\").first().json.raw }}",
         "options": {
           "appendAttribution": false
         }
