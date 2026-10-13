@@ -13,6 +13,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-13, ~20h30 UTC — rodada de testes reais começou (LEIA PRIMEIRO).** PR #60 (v21–v22, R21.6) **mergeado** na `main`.
+> - Os números `…5983` (operador) e `…7967` tinham histórico de 08/10 que calava ou confundia a Malu: arquivados com análise e apagados
+>   (`docs/agente-ia/10-auditoria/testes-reais/2026-10-08-operador-pre-rodada.md`, `2026-10-13-tester-7967-pre-rodada.md`).
+> - **Teste 1 (operador, `…5983`, novo)** arquivado e analisado, número **ainda no banco**:
+>   [`2026-10-13-r1-operador.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md). Venda até o link certa; **falhou no
+>   fim**: "moro sozinha, não tenho quem receber" (antes de existir pedido) virou pessoa — o pós-venda sem pedido gravado cai no `handOff`
+>   (`turn/index.ts` ~3258). Prioridade 1 da próxima leva.
+> - Achados abertos do `…7967` (conversa real, valem pela R21.6): link "que te mandei" não reenviado; a Malu oferece pessoa; o "sim" à
+>   oferta não chama; "Chega quando?" engolido pela resposta de Pix pendente; "Paguei ja 116" sem pedido no banco (**operador confere na Coinzz**).
+> - Ferramenta de arquivo: agora mascara link com dados e nome digitado (`maskPii` na raiz, vale para o Hermes) e lê o custo `numeric`.
+> - **Próximo:** terminar a rodada (sócio e mãe) → arquivar → consertar os achados de uma vez (teste, espelho, mutação, revisão Opus,
+>   grafo) → publicar v23 → `--delete` dos números.
+
 > **2026-10-13, ~19h UTC — `turn` v22 no ar (LEIA PRIMEIRO — próxima sessão começa aqui).** `agent_version` 22, função v109, commit `4dc8aa7`.
 > - **v21** (18h30): R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min,
 >   entregue resolvido pela Malu, troca/devolução pela Logzz só quando ela pede, prazo + outra pergunta; consertos do `/code-review`.
