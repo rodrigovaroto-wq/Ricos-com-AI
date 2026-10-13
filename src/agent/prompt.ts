@@ -725,9 +725,11 @@ export const systemPrompt = (
     ...(config.returns?.freeExchange === true
       ? [`sem custo, e a troca de tamanho também: "A troca é sem custo pra você."`]
       : [`sem custo. Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.`]),
-    // R21.4: only on her request — "e se não servir?" is her asking; she never offers it unasked.
-    `Da troca e da devolução você só fala quando ela perguntar ou pedir (um "e se não servir?" é ela`,
-    `  perguntando): nunca ofereça a troca por conta própria, nem como argumento de venda.`,
+    // R21.4: the PROCEDURE only on her request — "e se não servir?" is her asking. The days to return stay the
+    // risk reversal the prompt teaches as a sales argument (/code-review of v21: the old line forbade it).
+    `O procedimento da troca e da devolução — como trocar ou devolver, com quem falar, o número do suporte —`,
+    `  você só diz quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando); nunca por conta`,
+    `  própria. Os ${config.delivery.warrantyDays} dias após o recebimento pra devolver se não gostar continuam sendo argumento de venda.`,
     ...(logzzSupportPhone(config)
       ? [
           // Operator, 2026-10-13: the Logzz support serves her directly.

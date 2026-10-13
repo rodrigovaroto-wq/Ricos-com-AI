@@ -243,3 +243,10 @@ R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após o recebim
 R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após o recebimento do pedido.
 R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | Você tem 7 dias após a entrega do colete pra trocar.
 R21-RECEBIMENTO-DO-PRODUTO | delivery_promise | A garantia é de 7 dias após a entrega do produto.
+V21-NEGA-DIZER-QUE | delivery_promise | Não posso assegurar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não tenho como informar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não dá pra cravar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não consigo te falar que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não posso afirmar com certeza que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não tem como eu te garantir que chega amanhã.
+V21-NEGA-DIZER-QUE | delivery_promise | Não consigo prever que chega amanhã.

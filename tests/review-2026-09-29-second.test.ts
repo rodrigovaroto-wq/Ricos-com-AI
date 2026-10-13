@@ -242,7 +242,7 @@ describe("resíduo R16.7: depoimento só quando ela pedir", () => {
   it("o turno de produção passa o sinal no runGates da conversa, lido da mensagem dela", () => {
     // `index.ts` is Deno and outside the tsconfig: its wiring is read as source, as in function-drift.
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    const call = /gates = runGates\(attempt\.text, \{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
+    const call = /gates = runGates\(attempt\.text, (?:gateContext = )?\{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
     expect(call).toContain("knownTestimonials: CONFIG.testimonials");
     expect(call).toContain('askedTestimonial: asksForTestimonial(spoken(inbound.body ?? ""))');
   });

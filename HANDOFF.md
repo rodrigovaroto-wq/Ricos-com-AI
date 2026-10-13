@@ -13,7 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-13, ~13h45 UTC — `turn` v20 no ar (LEIA PRIMEIRO)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
+> **2026-10-13, tarde — PAROU NO LIMITE DO OPERADOR (LEIA PRIMEIRO).** No ar: `turn` v20. Na branch, commitado e NÃO publicado: a v21
+> (grafo §88: R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min, entregue
+> resolvido pela Malu, Logzz só quando ela pede, R$ 27 apagado, prazo + outra pergunta, gates "que/travessão/e antes da chegada/não posso
+> assegurar") + os consertos do `/code-review` (contexto de gate nas chamadas extras, prazo único, texto dela fora do sistema, pedidos
+> frustrados de pessoa, prompt sem contradição). **Falta, nesta ordem:** (1) `pnpm test`, `pnpm dev:conversas`, `pnpm dev:gates`, deno check
+> e `pnpm verificar:guardas` das mutações R21-*/r21-*/v21-* (as últimas não rodaram depois do commit); (2) revisão Opus curta do último
+> lote (gate `DENIED_SAY`/"e antes da chegada" e os consertos do /code-review); (3) `pnpm deploy:turn` da v21; (4) tirar a chave
+> `exchange` do `BUSINESS_CONFIG` (gravar pelo JSON validado, conferir hash e `job:"health"`); (5) dar o ok ao operador para os 3 testes
+> do roteiro. Resíduos no grafo §88.
+
+> **2026-10-13, ~13h45 UTC — `turn` v20 no ar (histórico)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
 > pós-venda lê o pedido e responde a situação sem pessoa (§86); troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3, §86);
 > prazo vetado vira a resposta fixa de prazo, não pessoa (§87, Rafa); 2 revisões Opus (a 1ª reprovou 6 achados, consertados; a 2ª
 > aprovou com ressalvas no grafo). `BUSINESS_CONFIG` com `returns: {logzzSupportPhone: "+55 11 91132-7877", freeExchange: true}`

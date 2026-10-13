@@ -1943,13 +1943,16 @@ const gates: readonly Gate[] = [
         )) {
           // The denial in the claim's own phrase (v20 review): `negatedAt` reads past the comma, and "não posso
           // garantir, chega amanhã" / "não se preocupa, chega amanhã" are the promise itself. A dash and a "que" cut it
-          // too ("não sei - chega amanhã", "não esquenta que chega amanhã"), except the "que" a guarantee or belief takes
-          // ("não consigo garantir que chega amanhã", "não acho que chega amanhã").
+          // too ("não sei - chega amanhã", "não esquenta que chega amanhã"), except the "que" a denied knowing, saying or
+          // guaranteeing takes ("não consigo garantir que", "não tenho como informar que", "não acho que chega amanhã") —
+          // read whole, because its "não" may sit past `negatedAt`'s 30 characters. An "e" right before the arrival verb
+          // cuts too: "não demora nada e chega amanhã" denies the wait, not the arrival.
+          const DENIED_SAY = String.raw`\b(?:nao|nunca|jamais)\s+(?:(?:posso|podemos|pode|consigo|conseguimos|consegue|tenho|temos|tem|da\s+pra|da\s+para|vou|vai|sei|e)\s+(?:como\s+)?(?:eu\s+)?)?(?:(?:te|lhe)\s+)?(?:(?:garant|promet|assegur|inform|crav|afirm|confirm|acredit|imagin|confer|prev|sab|ach|pens)\w*|diz\w*|dig\w*|diss\w*|fal(?:ar|o|amos)|sei|ver|vejo|cre(?:io|r|mos)|cert[oa]|certeza|verdade|cont(?:ar|o))(?:\s+(?:com\s+certeza|ainda|agora|exatamente|isso|pra\s+voce|para\s+voce))*(?:\s+de)?\s+`;
           const own =
             (t.slice(0, m.index ?? 0).split(PHRASE_COMMA).pop() ?? "")
-              .split(/\b(?:mas|porem|so\s+que|entao)\b|(?:^|\s)-|-(?:\s|$)|[–—]|(?<!\b(?:garant\w*|promet\w*|dizer|digo|disse|afirm\w*|confirm\w*|acho|achamos|creio|acredit\w*|penso|imagin\w*|cert[oa]|certeza|verdade)(?:\s+de)?\s+)\bque\b/)
+              .split(new RegExp(String.raw`\b(?:mas|porem|so\s+que|entao)\b|\se\s+(?:(?:voce|ele|o\s+colete|ja)\s+)*$|(?:^|\s)-|-(?:\s|$)|[–—]|(?<!${DENIED_SAY})\bque\b`))
               .pop() ?? "";
-          if (negatedAt(own, own.length)) continue;
+          if (negatedAt(own, own.length) || new RegExp(String.raw`${DENIED_SAY}que\s*$`).test(own)) continue;
           const sameDay = /hoje|no\s+mesmo\s+dia/.test(m[2] ?? "");
           if (sameDay && express && (ctx.sameDayWindow || defersToCheckout(t))) continue;
           return "promises same-day or next-day delivery";

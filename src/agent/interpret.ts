@@ -297,10 +297,10 @@ export const mergeUnitSizes = (
  * "de verdade". "Alguém" alone is not a person — "preciso falar com alguém sobre meu pedido" is the Malu's
  * — and a person-word with no request is not a request ("uma pessoa me indicou", "vc é humano?").
  */
-const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
+const PERSON = String.raw`(?:(?:um|uma|o|a|algum|alguma|outr[oa])\s+)?(?:pessoa|humano|humana|ser\s+humano|atendente|atendimento\s+humano|vendedora?|responsavel|gerente|supervisora?|alguem\s+(?:de\s+verdade|real|do\s+time|da\s+equipe|da\s+loja)|gente\s+(?:de\s+verdade|real))\b`;
 const PERSON_REQUESTS = [
   // "quero falar com uma pessoa", "posso falar com um atendente?", "dá pra falar com alguém de verdade?"
-  new RegExp(String.raw`\b(?:quero|queria|gostaria\s+de|preciso|precisava|posso|prefiro|da\s+pra|tem\s+como|deixa\s+eu)\s+(?:\S+\s+){0,2}?(?:falar|conversar|ser\s+atendid[ao])\s+com\s+${PERSON}`, "g"),
+  new RegExp(String.raw`\b(?:quero|queria|gostaria\s+de|preciso|precisava|posso|prefiro|da\s+pra|tem\s+como|deixa\s+eu)\s+(?:\S+\s+){0,2}?(?:(?:falar|conversar)\s+com|ser\s+atendid[ao]\s+(?:por|com))\s+${PERSON}`, "g"),
   // "quero uma pessoa", "quero atendimento humano"
   new RegExp(String.raw`\b(?:quero|queria|preciso\s+de|prefiro)\s+(?:(?:um|uma)\s+)?(?:atendimento\s+humano|${PERSON})`, "g"),
   // "me passa pra um atendente", "chama uma pessoa", "pode me transferir pra um humano?"
@@ -315,13 +315,23 @@ const PRONOUN_REQUEST =
 const PERSON_NAMED = /\b(?:de\s+verdade|real|humano|humana|atendente)\b/;
 
 /**
- * A refusal cancels the request only when it is ATTACHED to it: between the refusal and the request there
- * may be only connecting words — "não quero falar com atendente", "não precisa me passar pra atendente",
- * "dispenso atendente". A refusal of something else does not: in "não quero robô quero uma pessoa", "robô"
- * is no connecting word, so the request stands (code reviews, 2026-09-24).
+ * A refusal cancels the request only when it is ATTACHED to it: between the negation and the request there
+ * may be only connecting words — "não quero falar com atendente", "não precisa me passar pra atendente". A
+ * refusal of something else does not: in "não quero robô quero uma pessoa", "robô" is no connecting word
+ * (code reviews, 2026-09-24). A negation with no wanting in it is a refusal only when it is not a question:
+ * "não me passa pra atendente, só me fala o preço" refuses, "você não vai chamar um atendente?" and "por que
+ * você não me passa pra uma pessoa?" ask (/code-review of v21).
  */
-const REFUSED_BEFORE =
-  /\b(?:nao|nunca|jamais|nem|dispenso|dispensa)\s+(?:(?:quero|queria|preciso|precisa|precisava|me|te|que|vou|vai|pra|para|ser)\s+)*$/;
+const NEGATED_BEFORE =
+  /\b(?:nao|nunca|jamais|nem)\s+(?:(?:quero|queria|preciso|precisa|precisava|vou|vai|me|te|que|pra|para|ser|de)\s+)*$/;
+const WANTING = /\b(?:quero|queria|preciso|precisa|precisava|gostaria|prefiro)\b/;
+const refused = (t: string, clauseStart: number, at: number, match: string): boolean => {
+  const negation = NEGATED_BEFORE.exec(t.slice(clauseStart, at));
+  if (negation === null) return false;
+  if (WANTING.test(`${negation[0]}${match}`)) return true;
+  const rest = t.slice(at);
+  return !rest.slice(0, rest.search(/[.;!\n]|$/)).includes("?");
+};
 
 /**
  * Whether the message itself asks for a person — the deterministic half of the human-request rule, so a
@@ -335,7 +345,7 @@ export const namesAPerson = (message: string): boolean => {
     for (const m of t.matchAll(request)) {
       const at = m.index ?? 0;
       const clauseStart = Math.max(...[",", ";", ".", "!", "?", "\n"].map((c) => t.lastIndexOf(c, at - 1))) + 1;
-      if (REFUSED_BEFORE.test(t.slice(clauseStart, at))) continue;
+      if (refused(t, clauseStart, at, m[0])) continue;
       return true;
     }
   }

@@ -190,7 +190,7 @@ describe("humanity_claim: não anuncia que é virtual sem ela perguntar (Q10 lin
   it("o turno de produção passa o sinal no runGates da conversa, lido da mensagem dela", () => {
     // `index.ts` is Deno and outside the tsconfig: its wiring is read as source, as in function-drift.
     const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    const call = /gates = runGates\(attempt\.text, \{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
+    const call = /gates = runGates\(attempt\.text, (?:gateContext = )?\{[^]*?\n {4}\}\);/.exec(source)?.[0] ?? "";
     expect(call).toContain("askedIdentity: parts.some(asksWhatSheIs),");
   });
 });

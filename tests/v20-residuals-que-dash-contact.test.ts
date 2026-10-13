@@ -37,6 +37,20 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não precisa ter medo que chega amanhã.",
     "Não se preocupa que eu garanto que chega amanhã.",
     "Chegar até sexta eu não consigo garantir - chega amanhã.",
+    // The exception needs the denial right before the verb: these deny nothing about the arrival.
+    "Não precisa nem ver que chega amanhã.",
+    "Não vou mentir que chega amanhã.",
+    "Não nego que chega amanhã.",
+    "Não duvido que chega amanhã.",
+    "Não tenho dúvida que chega amanhã.",
+    "Não se preocupa que eu garanto pra você que chega amanhã.",
+    "Não esquenta que eu te confirmo que chega amanhã.",
+    // An "e" right before the arrival verb cuts the clause too.
+    "Não demora nada e chega amanhã.",
+    "Não demora e você recebe amanhã.",
+    "Não leva nada e chega hoje.",
+    "Não atrasa e chega amanhã.",
+    "Não demora e já chega amanhã.",
     // The other branches, same constructions (already vetoed; kept so they stay that way).
     "Não se preocupa que chega na quinta.",
     "Não esquenta que chega na sexta.",
@@ -65,6 +79,20 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não chega amanhã — leva de 1 a 3 dias úteis.",
     "Não sei se chega amanhã, depende da região.",
     "Não consigo garantir que chega na quinta-feira.",
+    // /code-review: any denied knowing, saying or guaranteeing takes its "que".
+    "Não posso assegurar que chega amanhã.",
+    "Não tenho como informar que chega amanhã.",
+    "Não dá pra cravar que chega amanhã.",
+    "Não sei dizer que chega amanhã.",
+    "Não sei dizer se chega amanhã.",
+    "Não consigo te falar que chega amanhã.",
+    "Não posso afirmar com certeza que chega amanhã.",
+    "Não tem como eu te garantir que chega amanhã.",
+    "Não consigo prever que chega amanhã.",
+    "Não consigo confirmar que chega amanhã.",
+    "Não é verdade que chega amanhã.",
+    "Não chega amanhã e nem hoje, leva de 1 a 3 dias.",
+    "Não consigo garantir que chega amanhã e nem sexta.",
   ])("passa: %s", (t) => {
     // The 1-3 day range is the delivery's: on the prepaid path the range rule vetoes it, rightly.
     for (const [p, rk] of /\d a \d/.test(t) ? CTXS.slice(0, 2) : CTXS) expect(blocks(t, p, rk)).not.toContain("delivery_promise");

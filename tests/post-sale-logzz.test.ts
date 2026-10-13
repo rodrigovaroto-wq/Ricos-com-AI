@@ -233,7 +233,7 @@ describe("o turno liga as duas decisões", () => {
   it("entregue: o modelo responde com os fatos do pedido, pela cadeia, e fora de hora fica para a abertura", () => {
     const postSale = block.slice(block.indexOf('if (((handoffKind === "post_sale"'), block.indexOf("if (handoffKind !== null) {"));
     expect(postSale).toContain('if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {');
-    expect(postSale).toContain("await draftWith(deliveredDirective(orders, new Date(), logzzPhone), \"post_sale\", gate);");
+    expect(postSale).toContain("await draftWith(deliveredDirective(orders, new Date(), logzzPhone), \"post_sale\", gate, replyDeadline);");
     expect(postSale).toContain("if (draft?.deferred) return await deferDraft(");
     expect(postSale).toContain("await sendFixed(draft.text, ");
   });

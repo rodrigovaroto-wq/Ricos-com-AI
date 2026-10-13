@@ -1334,7 +1334,7 @@ describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
   const PHONE = "+55 11 91132-7877";
   const PROD: PromptConfig = { ...FULL, returns: { logzzSupportPhone: PHONE, freeExchange: true } };
   const LOGZZ = `A garantia é de 7 dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${PHONE} e pedir lá a troca ou a devolução, que eles resolvem pra você.`;
-  const ONLY_ASKED = `Da troca e da devolução você só fala quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando): nunca ofereça a troca por conta própria, nem como argumento de venda.`;
+  const ONLY_ASKED = `O procedimento da troca e da devolução — como trocar ou devolver, com quem falar, o número do suporte — você só diz quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando); nunca por conta própria. Os 7 dias após o recebimento pra devolver se não gostar continuam sendo argumento de venda.`;
 
   it("produção: ensina a frase com os dias e o sem custo, e ela passa a cadeia nos dois caminhos", () => {
     const text = `${LOGZZ} A troca é sem custo pra você.`;
@@ -1352,6 +1352,13 @@ describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
   it.each([FULL, PROD, { ...FULL, returns: { logzzSupportPhone: PHONE } }] as PromptConfig[])("só quando ela pede, em todo config (%#)", (c) =>
     expect(own(c)).toContain(ONLY_ASKED),
   );
+
+  // /code-review of v21: the risk reversal (the days to return, "use quando ela hesitar") is a sales argument;
+  // only the procedure waits for her question. The prompt never forbids the argument it teaches.
+  it.each([FULL, PROD] as PromptConfig[])("negação: a garantia como argumento não é proibida (%#)", (c) => {
+    expect(own(c)).toContain("use quando ela hesitar");
+    expect(own(c)).not.toMatch(/nem como argumento de venda|Da troca e da devolução você só fala/);
+  });
 
   // Negation: no fee, no link, no "por conta dela" in any config — the R17.1 text is gone.
   it.each([FULL, PROD, { ...FULL, returns: { freeExchange: false } }] as PromptConfig[])("nem valor nem link da troca (%#)", (c) => {

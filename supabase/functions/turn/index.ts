@@ -127,6 +127,7 @@ import {
   logzzReturnReply,
   orderStatusReply,
   otherQuestionDirective,
+  otherQuestionTail,
   returnsOnly,
   type OrderView,
   COD_CANCEL_REPLY,
@@ -1440,6 +1441,8 @@ const readTicket = (body: unknown): RetryTicket | null => {
     return null;
   }
 };
+/** An extra model call after the main loop only with this much of the turn's deadline left (/code-review of v21). */
+const EXTRA_CALL_MIN_MS = 20_000;
 /** The last reply to an opt-out that also asked something — budget from turn start. */
 const OPT_OUT_FAREWELL_BUDGET_MS = 60_000;
 const OPT_OUT_FAREWELL_DIRECTIVE =
@@ -2533,6 +2536,8 @@ const handleTurn = async (
     gate: Partial<Parameters<typeof runGates>[1]> = {},
     deadline = turnStartedAt + OPT_OUT_FAREWELL_BUDGET_MS,
     maxRewrites = MAX_REWRITES,
+    /** The main loop's own system prompt (its size directive); `tail`: her words as one more user message, never as instruction. */
+    extra: { system?: string; tail?: string } = {},
   ): Promise<{ text: string; deferred: boolean } | null> => {
     // Index: messages_conversation_idx (conversation_id, created_at), read backwards.
     const history = await db(
@@ -2542,7 +2547,22 @@ const handleTurn = async (
       role: m.direction === "inbound" ? ("user" as const) : ("assistant" as const),
       content: m.body ?? "",
     }));
-    const base = `${systemPrompt(turnConfig, null)} ${directive}`;
+    if (extra.tail) turns.push({ role: "user" as const, content: extra.tail });
+    // What the main loop reads from the history, read here from this one (/code-review of v21): repetition, the CEP
+    // and size asks in a row, the hook, her words for `size_claim`. A caller with the main loop's context overrides it.
+    const outbound = turns.filter((m) => m.role === "assistant").map((m) => m.content.trim());
+    const historyGate = {
+      recentOutbound: outbound,
+      herWords: [...turns.filter((m) => m.role === "user").map((m) => spoken(m.content)), ...parts].join("\n"),
+      hookSent: outbound.some(isHook),
+      cepAsks: outbound.length - 1 - outbound.findLastIndex((m: string) => !asksCep(m)),
+      sizeAsks: outbound.length - 1 - outbound.findLastIndex((m: string) => !asksSize(m)),
+      knownTestimonials: CONFIG.testimonials,
+      // One line: the main loop's own `askedTestimonial`/`askedIdentity` lines are mutation anchors.
+      askedTestimonial: asksForTestimonial(spoken(inbound.body ?? "")), askedIdentity: parts.some(asksWhatSheIs),
+      linkInTurn: false,
+    };
+    const base = `${extra.system ?? systemPrompt(turnConfig, null)} ${directive}`;
     let correction = "";
     let result: { text: string; deferred: boolean } | null = null;
     for (let rewrites = 0; rewrites <= maxRewrites && spent < ceilingBrl; rewrites += 1) {
@@ -2561,10 +2581,11 @@ const handleTurn = async (
         config: turnConfig,
         layer: "agent",
         optedOut: false,
-        now: new Date(),
         paymentPath: "cod",
         codUnavailable,
+        ...historyGate,
         ...gate,
+        now: new Date(),
       });
       await recordTraces(conversation.id, gated.traces);
       if (passed(gated)) {
@@ -2881,8 +2902,10 @@ const handleTurn = async (
     pieces = 1,
     /** "auto": the payment lines answer her at any hour, like the handoff receipt (review of the L2 fixes, 2). */
     layer: "agent" | "auto" = "agent",
+    /** A `draftWith` text, already judged with more context than this chain would have (/code-review of v21). */
+    judged = false,
   ): Promise<Response | null> => {
-    const gated = runGates(text, {
+    const gated = judged ? { traces: [] } : runGates(text, {
       config: turnConfig,
       layer,
       optedOut: false,
@@ -3151,6 +3174,9 @@ const handleTurn = async (
   // The reply's retry budget starts here, after the interpreter, so a slow reading does
   // not eat into it; the interpreter's own timeout bounds what came before.
   const replyBudgetFrom = Date.now();
+  // The reply's deadline, the main loop's and any extra call's after it (/code-review of v21: an extra call with a
+  // fresh budget could outlive the Edge Function and lose even the fixed reply).
+  const replyDeadline = isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS);
 
   // 4c. The only other doors to a person (R13.2): an order she wants cancelled, a
   // question about an order that exists, or a person asked for inside a longer message
@@ -3245,10 +3271,11 @@ const handleTurn = async (
     if (sent) return sent;
     // Delivered: each problem is different, so the model answers with the order's facts, through the gates.
     if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {
-      const gate: Parameters<typeof draftWith>[2] = { paymentPath: path, askedIdentity: parts.some(asksWhatSheIs), linkInTurn: false };
-      const draft = await draftWith(deliveredDirective(orders, new Date(), logzzPhone), "post_sale", gate);
+      // Her stored size: a size said here is the table's (`size_claim`), never the model's guess.
+      const gate: Parameters<typeof draftWith>[2] = { paymentPath: path, knownSize: lead.size ?? null };
+      const draft = await draftWith(deliveredDirective(orders, new Date(), logzzPhone), "post_sale", gate, replyDeadline);
       if (draft?.deferred) return await deferDraft(draft.text, "pós-venda: pedido entregue, fora da janela de envio");
-      const answered = draft === null ? null : await sendFixed(draft.text, "pós-venda: pedido entregue, resposta do modelo com os fatos do pedido", path);
+      const answered = draft === null ? null : await sendFixed(draft.text, "pós-venda: pedido entregue, resposta do modelo com os fatos do pedido", path, {}, false, 1, "agent", true);
       if (answered) return answered;
     }
   }
@@ -3914,6 +3941,8 @@ const handleTurn = async (
   let rewritesUsed = 0;
   let correction: string | null = null;
   let outcome: NextAction = { kind: "send" };
+  // The last attempt's gate context: an extra call after the loop is judged by the same one (/code-review of v21).
+  let gateContext: Parameters<typeof runGates>[1] | null = null;
 
   while (true) {
     try {
@@ -3926,7 +3955,7 @@ const handleTurn = async (
         : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
-        isRevise ? internal.revise!.deadline : replyBudgetFrom + (isRetry ? RETRY_TURN_BUDGET_MS : IN_CALL_RETRY_BUDGET_MS),
+        replyDeadline,
       );
     } catch (error) {
       // The network, still down after the in-call retries: one more try from the sweep
@@ -3951,7 +3980,7 @@ const handleTurn = async (
       attempt,
     );
 
-    gates = runGates(attempt.text, {
+    gates = runGates(attempt.text, gateContext = {
       config: turnConfig,
       layer: "agent",
       optedOut: false,
@@ -4148,13 +4177,14 @@ const handleTurn = async (
   const otherQuestions = fallbackReason !== null && asksWhen
     ? clauses.filter((q: string) => asksSomething(q) && !leadsIn(q) && !asksDeadline(q))
     : [];
-  const other = otherQuestions.length === 0
+  // Judged by the main loop's own gate context and prompt, inside what is left of the turn's deadline; her
+  // question goes as her message, never inside the system prompt (/code-review of v21).
+  const other = otherQuestions.length === 0 || gateContext === null || replyDeadline - Date.now() < EXTRA_CALL_MIN_MS
     ? null
-    : await draftWith(otherQuestionDirective(fixedOrDraft, otherQuestions), "other_question", {
-      paymentPath: linkPath, units, codUnavailable, recentOutbound, knownTestimonials: CONFIG.testimonials,
-      askedTestimonial: asksForTestimonial(spoken(inbound.body ?? "")), askedIdentity: parts.some(asksWhatSheIs),
-      linkInTurn: false, regionKnown: region !== null, sameDayWindow: region?.sameDay ?? false,
-    }, Date.now() + RETRY_TURN_BUDGET_MS, 0);
+    : await draftWith(otherQuestionDirective(fixedOrDraft), "other_question", { ...gateContext, linkInTurn: false }, replyDeadline, 0, {
+      system: systemPrompt(turnConfig, sizeDirective, identityDirective, null),
+      tail: otherQuestionTail(otherQuestions),
+    });
   const body = other === null || other.deferred ? fixedOrDraft : `${fixedOrDraft}\n\n${other.text}`;
   // Only a fixed fallback gets the short greeting: the model's own first reply already opened (E3.1).
   const replyText = greeting === null || fallbackReason === null ? body : `${greeting}\n\n${body}`;
