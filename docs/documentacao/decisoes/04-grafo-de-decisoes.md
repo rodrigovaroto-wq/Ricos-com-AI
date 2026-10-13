@@ -2919,7 +2919,9 @@ por `[nome]`; o arquivo mascara também o nome guardado do lead e passa o `.json
 de rodada. **Fica:** nome digitado solto, sem "meu nome é" e sem nome guardado no lead, ainda passa — por isso a conferência manual.
 **Achados da conversa (R21.6 — frase real):** em `docs/agente-ia/10-auditoria/testes-reais/2026-10-13-r1-operador.md` e
 `2026-10-13-tester-7967-pre-rodada.md`; o principal: dúvida de entrega antes do pedido ("moro sozinha, não tenho quem receber") cai no
-pós-venda sem pedido gravado e vai a uma pessoa. **Estado:** ferramenta no ar (PR #60); achados abertos para a próxima leva.
+pós-venda sem pedido gravado e vai a uma pessoa; e (`2026-10-13-r1-testador-7967.md`) "parcelam ou fazem por 100 no pix?" teve as 3
+reescritas vetadas (preço, parcela) e foi a uma pessoa — falta a resposta fixa de preço/parcela, o mesmo padrão do §87 para prazo.
+**Estado:** ferramenta no ar (PR #60); achados abertos para a próxima leva.
 
 ## Lições (valem para qualquer correção futura)
 
