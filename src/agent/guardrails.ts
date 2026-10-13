@@ -1951,7 +1951,11 @@ const gates: readonly Gate[] = [
           if (at >= spanEnd) {
             spanStart = at;
             spanEnd = at + (m[1] ?? "").length;
-          } else if (!/(?<!\d)[,.]|[,.](?!\d)|[;:!?]|\b(?:mas|porem)\b/.test(t.slice(spanStart, at))) continue;
+          } else if (
+            !/(?<!\d)[,.]|[,.](?!\d)|[;:!?]|\b(?:mas|porem)\b/.test(t.slice(spanStart, at)) ||
+            // "…, ou se recebe amanhã" / "…, nem que chega amanhã" go on with the denied clause, not a new claim.
+            /\b(?:se|nem\s+que)\s+$/.test(t.slice(0, at))
+          ) continue;
           // The denial in the claim's own phrase (v20 review): `negatedAt` reads past the comma, and "não posso
           // garantir, chega amanhã" / "não se preocupa, chega amanhã" are the promise itself. A dash and a "que" cut it
           // too ("não sei - chega amanhã", "não esquenta que chega amanhã"), except the "que" a denied knowing, saying or

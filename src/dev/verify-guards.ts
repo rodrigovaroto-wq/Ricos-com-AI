@@ -3597,8 +3597,16 @@ const MUTATIONS: Mutation[] = [
     id: "v21-verbo-mais-perto-do-prazo",
     bug: "'Não sei dizer quando chega, mas chega amanhã' passava: o trecho guloso começava no primeiro 'chega', negado, e engolia o segundo (revisão da v21)",
     files: ["src/agent/guardrails.ts"],
-    from: "          } else if (!/(?<!\\d)[,.]|[,.](?!\\d)|[;:!?]|\\b(?:mas|porem)\\b/.test(t.slice(spanStart, at))) continue;",
-    to: "          } else continue;",
+    from: "            !/(?<!\\d)[,.]|[,.](?!\\d)|[;:!?]|\\b(?:mas|porem)\\b/.test(t.slice(spanStart, at)) ||",
+    to: "            true ||",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/v20-residuals-que-dash-contact.test.ts"],
+  },
+  {
+    id: "v21-se-continua-a-negacao",
+    bug: "'Não consigo dizer se recebe hoje, ou se recebe amanhã.' vetada: a leitura extra depois da vírgula perdia o 'não' da oração que o 'se' continua (revisão dos resíduos)",
+    files: ["src/agent/guardrails.ts"],
+    from: "            /\\b(?:se|nem\\s+que)\\s+$/.test(t.slice(0, at))",
+    to: "            false",
     guard: ["pnpm", "-s", "vitest", "run", "tests/v20-residuals-que-dash-contact.test.ts"],
   },
   {

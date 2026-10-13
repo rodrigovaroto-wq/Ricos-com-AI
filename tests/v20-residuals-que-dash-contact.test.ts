@@ -111,6 +111,10 @@ describe("delivery_promise: 'que' after a reassurance, dashes and the colon cut 
     "Não posso garantir que você recebe a entrega amanhã.",
     "Não prometo que chega hoje e entrega amanhã.",
     "Não sei quando chega, nem se chega amanhã.",
+    "Não consigo dizer se recebe hoje, ou se recebe amanhã.",
+    "Não tem como saber se chega hoje. Se chega amanhã, eu não sei.",
+    "Não garanto que chega hoje, nem que chega amanhã.",
+    "Não consigo garantir que chega amanhã, nem que chega hoje.",
   ])("passa: %s", (t) => {
     // The 1-3 day range is the delivery's: on the prepaid path the range rule vetoes it, rightly.
     for (const [p, rk] of /\d a \d/.test(t) ? CTXS.slice(0, 2) : CTXS) expect(blocks(t, p, rk)).not.toContain("delivery_promise");

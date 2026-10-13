@@ -2895,14 +2895,18 @@ pelo verbo mais perto, o "não" de outra coisa entrava na oração da promessa e
 e o substantivo "a entrega" separava o "que" da garantia negada do verbo e vetava a recusa certa ("Não consigo garantir que a entrega
 chega amanhã."). **Correção:** a busca é sobreposta (`(?=(…))`); os trechos de antes são lidos exatamente como antes, e um segundo verbo
 dentro de um trecho só é lido também quando uma fronteira de oração (vírgula, ponto, `;:!?`, "mas", "porém") o separa do primeiro —
-só endurece. `pnpm dev:gates --base=be9a3da` (a v21 no ar): 0 afrouxamentos, 5 endurecimentos. **Falso positivo aceito:** "Não consigo
-garantir que chega amanhã, nem que chega hoje." passa a ser vetada (custa uma reescrita; deixar o "que" depois de "nem" ler a negação
-afrouxava "Não esquenta, nem que chega amanhã."). (2) "quero falar com o responsável pela entrega" virava pedido de pessoa; é pergunta
+só endurece; e a leitura extra pula quando a oração dela começa por "se"/"nem que", que continuam a negada ("Não consigo dizer se
+recebe hoje, ou se recebe amanhã.", "Não garanto que chega hoje, nem que chega amanhã." — falsos positivos achados na 2ª revisão, que
+aprovou com resíduos). `pnpm dev:gates --base=be9a3da` (a v21 no ar): 0 afrouxamentos, 4 endurecimentos, todos os pretendidos. (2) "quero falar com o responsável pela entrega" virava pedido de pessoa; é pergunta
 de entrega, que a Malu responde (R21.5). **Correção:** `responsavel` não conta seguido de "pelo(s)/pela(s) [minha/sua…] entrega/envio/
 frete/transportadora/correio"; "o responsável pela loja" continua pedido. **Fica (antigo):** "quero falar com você ou um atendente" não
 conta como pedido (o "ou" quebra a leitura); depois da exceção, "o responsável pela entrega ou um atendente" também não. **Guarda:**
 `tests/v20-residuals-que-dash-contact.test.ts`, `tests/r21-post-sale-decisions.test.ts`, 10 frases no `tests/gate-corpus.txt`, mutações
-`v21-verbo-mais-perto-do-prazo` e `v21-responsavel-pela-entrega`. **Estado:** publicar na v22.
+`v21-verbo-mais-perto-do-prazo`, `v21-se-continua-a-negacao` e `v21-responsavel-pela-entrega`. **Estado:** publicado na v22.
+**Pergunta do operador (13/10): por que não só o prompt?** Dado de produção: 81 turnos, **0** vetos de `delivery_promise` — o prompt já
+segura o prazo, e as frases deste item foram escritas por revisores, não pelo modelo. O gate fica (o modelo não segue o prompt 100%, e
+prazo prometido custa o frete inteiro), mas a regra passa a ser: **gate só se mexe por frase vista em conversa real ou de persona**;
+variação hipotética de revisor vai para o grafo como resíduo, não para o código.
 
 ## Lições (valem para qualquer correção futura)
 

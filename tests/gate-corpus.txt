@@ -271,3 +271,6 @@ Não consigo garantir que a entrega chega amanhã.
 Não posso prometer que a sua entrega chega amanhã.
 Não prometo que chega hoje e entrega amanhã.
 Não consigo garantir que chega amanhã, nem que chega hoje.
+Não consigo dizer se recebe hoje, ou se recebe amanhã.
+Não tem como saber se chega hoje. Se chega amanhã, eu não sei.
+Não garanto que chega hoje, nem que chega amanhã.
