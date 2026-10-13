@@ -2140,3 +2140,6 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R21.2 — Troca e devolução pela Logzz.** Dentro dos 7 dias, a Malu passa o número do suporte da Logzz e pede para a cliente
   solicitar lá a troca ou o cancelamento; a Logzz resolve. O R$ 27 da troca deixa de ser cobrado da cliente (o operador aceitou
   não recuperar). Supera R17.1 no fluxo da troca. O número é valor de negócio: mora no `BUSINESS_CONFIG`.
+- **R21.3 — A troca é sem custo para a cliente, e a Malu pode dizer isso** (operador, mesmo dia): "é menos lucro no final, mas é
+  menos possibilidade de problema no agente e problemas judiciais". Config `returns.freeExchange: true` (ausente = a verdade
+  anterior, troca paga); o gate `warranty_promise` e o prompt leem o mesmo campo.
