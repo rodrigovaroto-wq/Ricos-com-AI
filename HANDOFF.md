@@ -13,15 +13,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-13, tarde — PAROU NO LIMITE DO OPERADOR (LEIA PRIMEIRO).** No ar: `turn` v20. Na branch, commitado e NÃO publicado: a v21
-> (grafo §88: R21.4–R21.5 — pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min, entregue
-> resolvido pela Malu, Logzz só quando ela pede, R$ 27 apagado, prazo + outra pergunta, gates "que/travessão/e antes da chegada/não posso
-> assegurar") + os consertos do `/code-review` (contexto de gate nas chamadas extras, prazo único, texto dela fora do sistema, pedidos
-> frustrados de pessoa, prompt sem contradição). **Falta, nesta ordem:** (1) `pnpm test`, `pnpm dev:conversas`, `pnpm dev:gates`, deno check
-> e `pnpm verificar:guardas` das mutações R21-*/r21-*/v21-* (as últimas não rodaram depois do commit); (2) revisão Opus curta do último
-> lote (gate `DENIED_SAY`/"e antes da chegada" e os consertos do /code-review); (3) `pnpm deploy:turn` da v21; (4) tirar a chave
-> `exchange` do `BUSINESS_CONFIG` (gravar pelo JSON validado, conferir hash e `job:"health"`); (5) dar o ok ao operador para os 3 testes
-> do roteiro. Resíduos no grafo §88.
+> **2026-10-13, ~18h30 UTC — `turn` v21 no ar (LEIA PRIMEIRO).** `agent_version` 21, função v106, commit `be9a3da`. Entrou: R21.4–R21.5
+> (pedido de pessoa só explícito, último pedido como referência, "confirmado" só pago, Pix espera 5 min, entregue resolvido pela Malu,
+> Logzz só quando ela pede, prazo + outra pergunta), os consertos do `/code-review` e da revisão Opus final (grafo §88 + adendo).
+> `BUSINESS_CONFIG` regravado **sem** a chave `exchange` (R$ 27 e link do Mercado Pago fora; sha `7392bbd1…`), `job:"health"` → healthy.
+> Validação: 7870 testes, 1665/1665 conversas, `dev:gates` sem afrouxamento não aceito, 35/35 mutações v21 pegas, deno check ok.
+> **Próximo:** a rodada de testes reais (`docs/operacao/roteiro-testes-reais.md`, operador/sócio/mãe) → `pnpm dev:arquivar-teste` →
+> análise e consertos → `--delete`. Depois E5 (20–21/10), congelamento (22/10), L3 (23/10). Resíduos no adendo do §88.
 
 > **2026-10-13, ~13h45 UTC — `turn` v20 no ar (histórico)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
 > pós-venda lê o pedido e responde a situação sem pessoa (§86); troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3, §86);

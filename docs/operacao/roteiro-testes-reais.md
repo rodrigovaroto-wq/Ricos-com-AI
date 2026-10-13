@@ -1,6 +1,6 @@
 # Roteiro dos testes reais (rodada de 3: operador, sócio e mãe)
 
-> Escrito em 2026-10-13 para a `turn` v20. Cada pessoa faz **um** caminho, do primeiro "oi" ao objetivo final, pelo
+> Escrito em 2026-10-13 para a `turn` v20; vale para a v21 (no ar desde 13/10, ~18h30 UTC). Cada pessoa faz **um** caminho, do primeiro "oi" ao objetivo final, pelo
 > WhatsApp do próprio celular, de preferência entrando pelo anúncio (CTWA). Escreva como cliente de verdade escreveria —
 > as frases abaixo são o **conteúdo** a cobrir, não um texto para copiar palavra por palavra.
 >
