@@ -4025,10 +4025,15 @@ const handleTurn = async (
   const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
   // Only when every question of hers is about the deadline: "qual o prazo? e serve pra quem fez cirurgia?" still goes to a person.
-  const asksWhen = !asksPrice && clauses.some(asksDeadline) && clauses
+  // Every draft fell on the deadline or the coverage (persona Rafa, 2026-10-13, R21.1): her deadline gets the fixed answer even
+  // beside another question, never a person. `gates` holds the last attempt's traces.
+  const deadlineVetoOnly =
+    gates.traces.some((t) => t.verdict === "block") &&
+    gates.traces.every((t) => t.verdict !== "block" || t.gate === "delivery_promise" || t.gate === "coverage_claim");
+  const asksWhen = !asksPrice && clauses.some(asksDeadline) && (deadlineVetoOnly || clauses
     // "Me diz uma coisa," and "Me fala," lead into the question; they are not a second one.
     .filter((q: string) => asksSomething(q) && !/^\s*(?:me\s+(?:diz|fala|conta|explica)(?:\s+uma\s+coisa)?|deixa\s+eu\s+te\s+perguntar|uma\s+duvida|outra\s+coisa)[\s,:.!]*$/i.test(q.normalize("NFD").replace(/[\u0300-\u036f]/g, "")))
-    .every(asksDeadline);
+    .every(asksDeadline));
   // Her first reply never goes to a person (personas Marcinha and Sandra, grafo §76): cold traffic handed off at
   // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
   // Only a first message with no question of hers: a medical question or a complaint still goes to a person.

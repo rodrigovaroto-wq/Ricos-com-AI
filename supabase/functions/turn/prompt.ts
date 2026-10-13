@@ -159,7 +159,7 @@ export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: bo
 
 /** A deadline question: the day, the window, the express (not "bom dia"). */
 export const asksDeadline = (text: string): boolean =>
-  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|chega\s+(?:ate|antes|amanha|sabado|sexta))\b/.test(
+  /\b(?:prazo|quando\s+(?:chega|entrega|vem|recebo)|chega\s+quando|(?:em\s+)?que\s+dia\s+(?:chega|entrega|vem|recebo)|chega\s+em\s+que\s+dia|dia\s+cert\w*|data\s+(?:da\s+)?entrega|quantos\s+dias|quanto\s+tempo(?!\s+(?:posso|pode|dura|usar|de\s+uso|por\s+dia))|demora(?!u\b)\w*|leva\s+(?:pra|para)\s+chegar|expressa|(?:cheg|receb)\w*\s+(?:ate|antes|amanha|sabado|sexta)|da\s+tempo\s+de\s+(?:cheg|receb|entreg)\w*|(?:e\s+)?se\s+nao\s+chegar)\b/.test(
     text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
   );
 

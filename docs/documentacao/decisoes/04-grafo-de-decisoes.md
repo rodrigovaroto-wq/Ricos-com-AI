@@ -2787,6 +2787,43 @@ e o pedido do link vale como `wants_to_buy` (`asksForLink`). "Ainda não" sozinh
 Mutação `E6-qualquer-antecipado-e-oferta`.
 **Estado:** publicado na `turn` v19 (2026-10-13).
 
+## 86. Pós-venda sem pessoa e troca/devolução pela Logzz (operador, 2026-10-13, R21.1–R21.3)
+
+**Sintoma:** toda pergunta sobre pedido existente ia para uma pessoa ("Vou checar pra você e já te retorno 💛" + `handoff_at`),
+mesmo com a resposta em `orders`; a troca cobrava R$ 27 por link do Mercado Pago e ia para uma pessoa (R17.1); devolução de pedido
+entregue ia para uma pessoa.
+**Causa:** R13.2 é de quando a agente não lia pedidos; a Logzz agora atende a cliente direto na troca e na devolução.
+**Caminhos descartados:** o modelo escrever o status (o operador: "LLM só se for necessário de fato"; e prometeria datas); "não achei
+pedido no seu número" sem linha em `orders` (falso com webhook atrasado ou outro número).
+**Correção:** `orderStatusReply` (`retry.ts`): texto fixo por estágio do pedido mais recente (`orders_lead_idx`), por `sendFixed`,
+sem `handoff_at`; a data só de `scheduled_for`, de hoje em diante; vivo e não entregue → "logo mais deve chegar", sem dia. A pessoa
+fica só sem linha em `orders`, com status fora do vocabulário ou tentativa de entrega frustrada; um veto volta ao handoff de antes.
+Config opcional `returns: { logzzSupportPhone, freeExchange }` (telefone validado): troca e cancelamento de pedido entregue recebem
+`logzzReturnReply` (o número, "a troca é sem custo pra você" só com `freeExchange === true`, 7 dias); o prompt ensina a frase da Logzz;
+o `warranty_promise` aceita a troca sem custo só com `freeExchange === true` (o `gate-diff` ganhou o contexto `troca-sem-custo`; 57
+afrouxamentos só nele, aceitos como `TROCA-LOGZZ`), e passou a vetar em qualquer config "devolve o dinheiro e você fica com o colete".
+**Guarda:** `tests/post-sale-logzz.test.ts`, `tests/free-exchange-logzz.test.ts`; mutações `posvenda-*`, `logzz-placeholder`,
+`troca-gratis-sem-flag-*`, `TROCA-LOGZZ-*`. **Fica:** reclamação ("veio com defeito") num pedido entregue vai ao suporte da Logzz,
+não a uma pessoa — observar; não confirmado se a Logzz atende também os pedidos antecipados (Coinzz); "O frete da troca é por nossa
+conta" segue vetado pelo `shipping_promise` enquanto "a gente paga o frete da troca" passa (inconsistência menor).
+**Estado:** no código; publicar na v20 com `returns` no `BUSINESS_CONFIG`.
+
+## 87. "Sobre chegar até sexta eu não consigo te garantir" foi a uma pessoa (persona Rafa, 2026-10-13)
+
+**Sintoma:** a recusa honesta de garantir o prazo foi vetada pelo `delivery_promise` em todas as reescritas, e a conversa da noiva com
+casamento no sábado foi para uma pessoa.
+**Causa:** (1) a regra do dia da semana só lia negação ANTES do verbo; aqui a recusa vem depois do dia, com o assunto no começo. (2) A
+resposta fixa de prazo exigia que TODAS as perguntas dela fossem de prazo — ela perguntou do pagamento junto. (3) `asksDeadline` era
+cego a "consigo receber até sexta?", "dá tempo de chegar", "e se não chegar".
+**Caminho descartado:** ler negação em qualquer lugar da frase (libera "chega até sexta, não consigo garantir o horário").
+**Correção:** (1) recusa logo depois do dia só com o verbo no infinitivo, sem negação antes e a oração terminando no garantir/
+prometer; (2) quando a última tentativa caiu só por `delivery_promise`/`coverage_claim`, sai a resposta fixa de prazo mesmo com outra
+pergunta junto (R21.1: veto vira resposta segura, não pessoa); (3) `asksDeadline` lê "receb/cheg… até", "dá tempo de chegar/receber",
+"e se não chegar", com negações ("dá tempo de pensar?", "recebi seu áudio").
+**Guarda:** `tests/e4-postposed-deadline-denial.test.ts`, `tests/deadline-fallback.test.ts`; 5 afrouxamentos verdadeiros aceitos
+(`E4-rafa`); mutações `E4-rafa-recusa-depois`, `rafa-prazo-vetado-vira-pessoa`, `rafa-asksdeadline-cego`.
+**Estado:** no código; publicar na v20.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
