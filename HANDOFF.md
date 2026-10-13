@@ -23,7 +23,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - Regras do L3 **assinadas** (12/10); lead sintético apagado.
 > - **Falta:** (1) prova de conversa pela porta de produção ("nao quero mais, obrigado" → despedida sem toque; lead novo → recepção
 >   honesta) — exige mensagem selada (rodar `pnpm dev:personas --door=n8n` com o segredo do selo, ou o operador manda do celular);
->   (2) operador gravar `experiments: {fastOpening: true, linkAfterChoice: true}` no `BUSINESS_CONFIG` antes de 23/10; (3) refazer base ×
+>   (2) `BUSINESS_CONFIG` novo entregue ao operador em 13/10 (sem `scarcity` — R20.1; `experiments` A e B ligados;
+>   `channel.templates` com os 3 aprovados, `silence_3` em `en`; `askMarketingOptIn` segue false) — conferir se foi colado; (3) refazer base ×
 >   E3 pela E4; (4) E5 ensaio com dinheiro 20–21/10; (5) o operador revogar o token `sbp_` usado no deploy.
 
 > **2026-10-12, noite — SESSÃO `claude/pipeline-e4-fix-exp-b` (LEIA PRIMEIRO; o bloco seguinte, do PR #59, é histórico).**
