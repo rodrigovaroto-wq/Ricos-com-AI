@@ -70,8 +70,7 @@
     "email": "contato@encorpa-fashion.com.br"
   },
   "returns": {
-    "logzzSupportPhone": "{{LOGZZ_SUPPORT_PHONE}}",
-    "freeExchange": true
+    "logzzSupportPhone": "{{LOGZZ_SUPPORT_PHONE}}"
   },
   "socialProof": {
     "satisfiedCustomers": 500
