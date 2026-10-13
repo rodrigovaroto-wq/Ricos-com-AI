@@ -2813,7 +2813,11 @@ agora o vivo mais novo responde, "cancelado" só com todos mortos, e a devoluç�
 entregues; (3) antecipado `created` ouvia "confirmado" — agora exige `orderSettled`; (4) pedido entregue vai a uma pessoa ("o rastreio
 diz entregue mas não recebi" é problema, não status). Mutações `posvenda-pessoa-engolida`, `posvenda-laco`, `posvenda-mais-novo-morto`,
 `devolucao-com-vivo-nao-entregue`, `antecipado-created-confirmado`, `entregue-status-fixo` (a `posvenda-entregue-sem-logzz` saiu, superada).
-**Estado:** publicar na v20 com `returns` no `BUSINESS_CONFIG`.
+**Segunda revisão: APROVADO COM RESSALVAS.** **Fica:** `[entregue mais novo, em rota mais velho]` vai a uma pessoa (conservador);
+"quando chega? e se eu pedir reembolso?" perde a resposta fixa de prazo (a exclusão de reembolso olha a mensagem inteira) e vai a uma
+pessoa; "Não se preocupa que chega amanhã.", "Não sei - chega amanhã." e "a gente resolve a qualquer momento" passam — já passavam antes
+da v20 (o "que" e o travessão não cortam a oração; "a gente" isenta) — próximas frases de corpus.
+**Estado:** publicado na `turn` v20 (2026-10-13), com `returns` no `BUSINESS_CONFIG`.
 
 ## 87. "Sobre chegar até sexta eu não consigo te garantir" foi a uma pessoa (persona Rafa, 2026-10-13)
 
@@ -2837,7 +2841,7 @@ de troca/devolução, com e sem a flag ("fique à vontade pra me chamar a qualqu
 `asksDeadline` lia "e se não chegar a servir?" e "recebo até sexta o reembolso?" como prazo — "se não chegar" exige até/a tempo/antes/no
 dia/na data, e reembolso/estorno/dinheiro excluem; mutação `v20-asksdeadline-chegar-a-servir`. O veto "fica com o colete" deixou de pegar
 "o colete novo" e "até devolver" (`v20-fica-com-colete-novo`). `dev:gates`: 0 afrouxamento novo; 6 endurecimentos, todos mentiras.
-**Estado:** publicar na v20.
+**Estado:** publicado na `turn` v20 (2026-10-13).
 
 ## Lições (valem para qualquer correção futura)
 
