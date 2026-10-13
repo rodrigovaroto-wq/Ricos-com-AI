@@ -62,15 +62,15 @@ jobs:
 
   # The guards guard themselves: each historical bug is put back in a throwaway
   # worktree and the guard written for it must fail. A guard edited into something
-  # toothless turns this red. It was ~15 of the ~24 minutes of one runner (2026-10-13),
-  # so the list is split across machines that run at once: shard i takes every 6th
-  # mutation from the i-th, and the six together are the whole list.
+  # toothless turns this red. It was 21.5 of the 24 minutes of one runner (2026-10-13),
+  # so the list is split across machines that run at once: shard i takes every 8th
+  # mutation from the i-th, and the eight together are the whole list.
   guards:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
-        shard: [0, 1, 2, 3, 4, 5]
+        shard: [0, 1, 2, 3, 4, 5, 6, 7]
     steps:
       - uses: actions/checkout@v4
 
@@ -87,4 +87,4 @@ jobs:
 
       - run: pnpm verificar:guardas
         env:
-          GUARDS_SHARD: ${{ matrix.shard }}/6
+          GUARDS_SHARD: ${{ matrix.shard }}/8
