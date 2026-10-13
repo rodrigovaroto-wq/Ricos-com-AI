@@ -13,7 +13,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-13, ~03h30 UTC — `turn` v19 no ar (LEIA PRIMEIRO)** (`agent_version` 19, função v101, commit `99e8d11`): fim de fase
+> **2026-10-13, ~13h45 UTC — `turn` v20 no ar (LEIA PRIMEIRO)** (`agent_version` 20, função v103, commit `70a77b9`+grafo):
+> pós-venda lê o pedido e responde a situação sem pessoa (§86); troca/devolução pelo suporte da Logzz, sem custo (R21.2/R21.3, §86);
+> prazo vetado vira a resposta fixa de prazo, não pessoa (§87, Rafa); 2 revisões Opus (a 1ª reprovou 6 achados, consertados; a 2ª
+> aprovou com ressalvas no grafo). `BUSINESS_CONFIG` com `returns: {logzzSupportPhone: "+55 11 91132-7877", freeExchange: true}`
+> gravado pela API (hash conferido, `job:"health"` ok). Meta permanente do agente: R21.1 (resolver sem pessoa) no `CLAUDE.md`.
+> **Testes reais:** roteiro em [`docs/operacao/roteiro-testes-reais.md`](docs/operacao/roteiro-testes-reais.md) (operador: COD + pós-venda;
+> sócio: Pix pago + prazo; mãe: dúvidas + recusa). Depois de cada rodada: `pnpm dev:arquivar-teste` (arquiva com análise no GitHub) e
+> só então `--delete` dos 3 números. **Próximo:** os 3 testes; E5 20–21/10; congelamento 22/10; L3 23/10; operador revoga o `sbp_`.
+
+> **2026-10-13, ~03h30 UTC — `turn` v19 no ar (histórico)** (`agent_version` 19, função v101, commit `99e8d11`): fim de fase
 > E3+E4+E6 fechado — `/code-review` da branch (10 achados, grafo §85), bateria de 13 personas na v18 (Denise prova a recusa: despedida
 > fixa, sem régua), e 3 rodadas de revisão Opus sobre os consertos (a última aprovada). Inclui: garantia "depois que chegar / se chegar
 > e não servir… 7 dias" não é prazo (§83); oferta do kit FIXA antes do link no braço B, "Quer de 2, de 3 ou só uma peça?" (§79); braço B
