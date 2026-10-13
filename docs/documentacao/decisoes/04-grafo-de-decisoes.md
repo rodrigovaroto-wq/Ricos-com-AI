@@ -2875,6 +2875,20 @@ sem-pessoa`, `antecipado-created-confirmado`, `posvenda-aguardando-na-porta`).
 confirmado se a Logzz atende a entrega de pedido antecipado; status desconhecido ou entrega frustrada seguem indo a uma pessoa.
 **Estado:** no código; publicar na v21.
 
+**Adendo (2026-10-13, tarde) — `/code-review` e a revisão Opus final.** O `/code-review` achou: as chamadas extras ao modelo (outra
+pergunta, entregue) sem o contexto de gate do laço e com prazo próprio; o texto da cliente dentro do prompt de sistema; "você não vai
+chamar um atendente?" lido como recusa; "atendimento humano/vendedora/responsável" não lidos como pedido; o prompt dizendo o
+procedimento de troca sem ela perguntar. **Correção:** `draftWith` lê o contexto de gate do histórico e a chamada extra herda o do laço
+(`linkInTurn: false`); um prazo só (`replyDeadline`, nada de chamada extra com menos de 20 s); o texto dela vai como mensagem de usuário
+entre aspas triplas removidas; `refused()` lê querer negado e pergunta frustrada; o prompt só ensina o procedimento quando perguntado.
+No gate de prazo: `DENIED_SAY` ("não posso dizer/garantir/assegurar que…") e o corte em "e" antes da chegada ("não demora nada e chega
+amanhã" vetava errado / passava). A revisão Opus final: **aprovado com resíduos** — 34 frases de prazo testadas, nenhuma afrouxada.
+Uma regressão consertada antes de publicar: "não me passa pra atendente, quanto custa?" virava pedido de pessoa porque a pergunta
+depois da vírgula desfazia a recusa → a vírgula fecha a oração da recusa. **Guarda:** testes em `tests/r21-post-sale-decisions.test.ts`
+e as mutações `R21-*`, `v21-*` (35/35 pegas). **Fica (antigo, não regressão):** o `.{0,24}` guloso deixa passar "Não sei dizer quando
+chega, mas chega amanhã." e "Não tem como não chegar amanhã, chega amanhã."; "quero falar com o responsável pela entrega" conta como
+pedido de pessoa. Próxima leva.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

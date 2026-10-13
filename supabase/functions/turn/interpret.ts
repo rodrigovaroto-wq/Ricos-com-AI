@@ -330,7 +330,7 @@ const refused = (t: string, clauseStart: number, at: number, match: string): boo
   if (negation === null) return false;
   if (WANTING.test(`${negation[0]}${match}`)) return true;
   const rest = t.slice(at);
-  return !rest.slice(0, rest.search(/[.;!\n]|$/)).includes("?");
+  return !rest.slice(0, rest.search(/[,.;!\n]|$/)).includes("?");
 };
 
 /**

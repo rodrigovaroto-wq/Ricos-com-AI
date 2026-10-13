@@ -74,6 +74,10 @@ describe("1. pedido de pessoa: só o explícito", () => {
     "não me passa pra atendente, só me fala o preço",
     "a vendedora da loja me indicou",
     "o responsável pela entrega é a Logzz?",
+    // A question after the comma is another subject; the refusal stands (review of v21).
+    "não me passa pra atendente, quanto custa?",
+    "não chama atendente, qual o prazo?",
+    "não me transfere pra atendente, você mesma resolve?",
   ])("não pede: %s", (msg) => {
     expect(namesAPerson(msg)).toBe(false);
     // Even with the model reading a request, the text decides.
