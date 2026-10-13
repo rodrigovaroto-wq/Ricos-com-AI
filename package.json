@@ -25,6 +25,7 @@
     "hermes": "tsx src/dev/hermes-run.ts",
     "hermes:calibrar": "tsx src/dev/hermes-calibrate.ts",
     "dev:eval": "tsx src/dev/persona-eval.ts",
+    "dev:arquivar-teste": "tsx src/dev/archive-test.ts",
     "verificar:guardas": "tsx src/dev/verify-guards.ts"
   },
   "devDependencies": {
