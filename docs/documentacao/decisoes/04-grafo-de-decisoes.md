@@ -2696,7 +2696,7 @@ dessas daqui ontem" e "paguei uma dessas no pix agora" deixavam de ser pedido no
 `ABOUT_US` e a `OUR_ORDER_SIGN` (chegou, entrega, rastreio, pedido, daqui, por aqui, pix) na mesma oração; descartado contar só com outra
 loja/tempo (reabre a frase do E4). Mutação nova `E4-uma-dessas-pedido-nosso`. Resíduo: "comprei uma dessas na feira e não chegou" conta
 como pedido nosso.
-**Estado:** no código; publicar na v18.
+**Estado:** publicado na `turn` v18 (2026-10-13).
 
 ## 83. A garantia de troca vetada como prazo de entrega (E4, 2026-10-13)
 
@@ -2721,8 +2721,10 @@ tamanho é de 7 dias"; a base já liberava "o tempo de entrega e o prazo pra tro
 entrega ficava fora da cláusula; e o replace do "envio por sua conta" apagava a velocidade depois ("…, rapidinho"). `takenAfterReturn`
 recusa quando o trecho entre o último dígito e a âncora tem chegada ("chega em 1 a 3 dias e a garantia pra trocar é de 7 dias" segue
 passando no cod); o replace ganhou o lookahead de velocidade, como o do CEP. +6 mentiras no teste e no corpus; `dev:gates`: 5 afrouxados
-verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coordenado`, `E4-envio-rapidinho`.
-**Estado:** no código; publicar na v18.
+verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coordenado`, `E4-envio-rapidinho`. **Terceira revisão: APROVADO**
+(mentiras da 2ª, chegada depois do número, pontuação antes da âncora, dígito que não é prazo — todas vetadas; as 5 verdades aceitas
+conferidas). **Fica:** "o frete e a garantia pra trocar é de 7 dias" passa ("frete é de" lê como preço; anterior a este conserto).
+**Estado:** publicado na `turn` v18 (2026-10-13).
 
 ## Lições (valem para qualquer correção futura)
 
