@@ -85,6 +85,9 @@ que toda frase que o prompt ensina passa a cadeia de gates; **mudou prompt ou ga
 teste roda**. Ver
 [`.claude/memory/prompt-nao-e-coberto-por-teste.md`](.claude/memory/prompt-nao-e-coberto-por-teste.md).
 
+**Gate só muda por frase real** (R21.6, operador, 2026-10-13): o prompt ensina a frase certa, o gate pega o raro que escapa.
+Gate se altera por frase vista em conversa real ou de persona; variação hipotética de revisor vira resíduo no grafo, não código.
+
 **Provedor de modelo — só a Meta** (§R12.1, 2026-09-23; supera §R7.1): `muse-spark-1.3`
 pela Meta Model API (`api.meta.ai`, [dev.meta.ai](https://dev.meta.ai/)) é o único provedor
 (o código chamava `api.llama.com` até 24/09). **Desde 2026-10-06, 19:30 UTC, a `turn` no ar roda

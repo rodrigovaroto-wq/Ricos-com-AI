@@ -22,8 +22,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   fechados).
 > - `BUSINESS_CONFIG` sem a chave `exchange` (R$ 27 e link do Mercado Pago fora; sha `7392bbd1…`), `job:"health"` → healthy.
 > - Validação: 7895 testes, 1665/1665 conversas, deno check ok, mutações v21 todas pegas.
-> - **Decisão aberta para o operador** (grafo §88, "Pergunta do operador"): produção teve 81 turnos e **0** vetos de prazo — o prompt já
->   segura. Proposta: gate só muda por frase vista em conversa real ou de persona; variação hipotética de revisor vira resíduo no grafo.
+> - **R21.6 (operador, aceita):** gate só muda por frase vista em conversa real ou de persona; variação hipotética de revisor vira
+>   resíduo no grafo (81 turnos em produção, 0 vetos de prazo — o prompt já segura). Vale para a análise da rodada de testes reais.
 > - Resíduos conhecidos: "quero falar com você ou um atendente" não conta como pedido de pessoa (antigo); status desconhecido ou entrega
 >   frustrada ainda vão a uma pessoa; não confirmado se a Logzz entrega pedido antecipado; as 3 chamadas novas ao modelo (entregue, outra
 >   pergunta, adiamento) só têm teste de código — a rodada real é a prova.

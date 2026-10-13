@@ -2154,3 +2154,9 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   (e) pedido entregue com problema não vai a pessoa: a Malu resolve as dúvidas e, se ela pedir para trocar ou devolver, manda o
   suporte da Logzz; (f) sem data de entrega no pedido, nada de data — só o status; (g) nunca prometer prazo; (h) pergunta de prazo junto
   com outra pergunta recebe resposta coerente com as duas.
+- **R21.6 — Gate só muda por frase real** (operador, 2026-10-13, depois da v22): o prompt é a primeira linha (ensina a frase
+  certa) e o gate é a rede para o raro que escapa — nenhum dos dois sai. Mas um gate só é alterado por uma frase que apareceu numa
+  conversa real ou numa rodada de personas; variação hipotética escrita por revisor (humano ou modelo) vira resíduo no grafo, não
+  código. Motivo: 81 turnos em produção, **0** vetos de prazo — as frases que a v21/v22 perseguiam foram inventadas na revisão, e
+  cada conserto de uma abria outra (grafo §88). Vale também para as revisões: um achado de gate sem frase real é registrado, não
+  consertado, salvo afrouxamento que o próprio conserto em curso introduziu.
