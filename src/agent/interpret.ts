@@ -391,26 +391,30 @@ export const closesConversation = (message: string): boolean =>
   /\b(?:tchau\w*|brigad[ao]|brigadao|obrigad[ao]+|obg|gratidao|tmj|abencoe\w*|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
 
 /**
- * The three reasons that hand a conversation to a person, and the only three (R13.2):
- * an order she wants to cancel, a question about an order that exists, or a person asked
- * for in so many words. The last needs BOTH the reading and a person-word in her text;
- * the exact phrase list (`wantsHuman`) hands off earlier in the turn, before this runs. Nothing else — a vetoed
- * reply, a failed rewrite, a confused customer — ever returns non-null here.
+ * The three readings that flag the operator, and the only three (R13.2): an order she wants to cancel,
+ * a question about an order that exists, or a person asked for in so many words. Since R22.1 none of them
+ * silences the agent or promises her a call: the answer is the agent's own, the e-mail is a flag. The last
+ * needs BOTH the reading and a person-word in her text; the exact phrase list (`wantsHuman`) comes earlier
+ * in the turn, before this runs. Nothing else — a vetoed reply, a failed rewrite, a confused customer —
+ * ever returns non-null here.
  *
- * Cancel and post-sale need an order to be about (`orderContext`): an order on file for
- * the lead, or a checkout link already sent in the conversation. "E se eu não gostar,
- * consigo cancelar depois?" before any purchase is a pre-sale question the agent answers.
+ * Cancel and post-sale need an order to be about (`orderContext`): an order on file for the lead, or a
+ * checkout link already sent in the conversation. "E se eu não gostar, consigo cancelar depois?" before any
+ * purchase is a pre-sale question the agent answers. A link alone (`linkOnly`: no order on file, no purchase
+ * said) makes a cancel, never a post-sale: "moro sozinha, não tenho quem receber" after the link is a sale's
+ * doubt (real test 2026-10-13).
  */
 export const handoffFor = (
   i: Interpretation,
   message: string,
   orderContext: boolean,
+  linkOnly = false,
 ): HandoffKind | null => {
   if (orderContext && i.wants_cancel) return "cancel";
   // Everything about an order goes to a person EXCEPT a happy close: "obrigada, já
   // finalizei" handed the buyer to a person (persona round). Requiring a question instead
   // lost "ficou pequeno", "me cobraram frete" (seventh review) — exclude, never require.
-  if (orderContext && i.post_sale && !reportsDone(message)) return "post_sale";
+  if (orderContext && !linkOnly && i.post_sale && !reportsDone(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };

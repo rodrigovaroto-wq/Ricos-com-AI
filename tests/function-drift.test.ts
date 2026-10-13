@@ -290,7 +290,7 @@ describe("rodada 13 na Edge Function", () => {
     expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
     for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
       const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
-      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===)/);
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = handoffRead)/);
     }
   });
 
@@ -344,7 +344,7 @@ describe("rodada 13 na Edge Function", () => {
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
-    expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext)');
+    expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly)');
   });
 
   it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {

@@ -95,7 +95,7 @@ describe("humanity_claim: não anuncia que é virtual sem ela perguntar (Q10 lin
   it.each(IDENTITY_QUESTIONS)("passa quando ela pergunta \"%s\"", (question) => {
     const asked = { askedIdentity: asksWhatSheIs(question) };
     expect(blockedBy("Não sou uma pessoa, sou a assistente virtual da Encorpa, e sigo te ajudando aqui.", asked)).toEqual([]);
-    expect(blockedBy("Sou a assistente virtual da marca, posso chamar alguém do time.", asked)).toEqual([]);
+    expect(blockedBy("Sou a assistente virtual da marca, posso te ajudar com o que precisar.", asked)).toEqual([]);
     expect(blockedBy(OPENINGS[1], asked)).toEqual([]);
   });
 

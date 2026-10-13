@@ -353,7 +353,8 @@ export const ARCS: Arc[] = [
   {
     name: "pede humano de cara",
     turns: (p) => [{ from: p.style("quero falar com uma pessoa") }],
-    expect: () => ({ handoff: true, sent: 1, touches: 0 }),
+    // R22.1: the receipt is sent, the agent is not stopped.
+    expect: () => ({ handoff: false, sent: 1 }),
   },
   {
     name: "pede humano no meio da venda",
@@ -363,12 +364,12 @@ export const ARCS: Arc[] = [
       { from: p.style("quero falar com um humano") },
       { from: p.style("alô?") },
     ],
-    expect: (p) => ({ size: p.size, handoff: true, sent: 3, touches: 0 }),
+    expect: (p) => ({ size: p.size, handoff: false, sent: 4 }),
   },
   {
     name: "recusa o robô",
     turns: (p) => [{ from: p.style("não quero falar com uma máquina") }],
-    expect: () => ({ handoff: true, sent: 1 }),
+    expect: () => ({ handoff: false, sent: 1 }),
   },
   {
     // Perguntar se há alguém disponível é perguntar se há alguém ouvindo — e há. Antes
@@ -623,13 +624,14 @@ export const ARCS: Arc[] = [
     expect: () => ({ handoff: false }),
   },
   {
-    name: "volta depois do handoff",
+    // R22.1: asking for a person flags the operator and never silences the agent.
+    name: "continua atendida depois de pedir uma pessoa",
     turns: (p) => [
       { from: p.style("quero falar com uma pessoa") },
       { from: p.style(p.saysSize) },
       { from: p.style("alguém aí?") },
     ],
-    expect: () => ({ handoff: true, size: null, sent: 1 }),
+    expect: (p) => ({ handoff: false, size: p.size, sent: 3 }),
   },
   {
     name: "opt-out e tenta voltar",

@@ -55,7 +55,9 @@ reescreve; o texto vetado nunca entra no histórico da conversa.
 mínimo delegado ao operador. Toda situação deve ter um contorno correto e eficiente sem passar para uma pessoa; a pessoa
 é o último recurso, não o caminho padrão. É a régua de toda construção (um veto vira resposta segura, não handoff; um dado
 que o sistema tem vira resposta, não "vou checar"), sem mudar a arquitetura acima: a ação continua em código
-determinístico, e os gates e o pedido explícito de pessoa continuam valendo.
+determinístico, e os gates continuam valendo. **Desde R22.1 (2026-10-13) a Malu nunca chama uma pessoa** (ninguém responde pelo
+número da API): o que ela não resolve vira e-mail ao operador, sem calar a conversa (`handoff_at` só no teto de custo e na falha de
+configuração); os gates têm cinco tentativas (R22.2).
 
 **Cinco coisas que este projeto decidiu NÃO fazer** — reabrir exige motivo novo, não
 preferência:

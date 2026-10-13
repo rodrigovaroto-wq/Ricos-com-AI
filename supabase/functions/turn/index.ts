@@ -116,6 +116,7 @@ import {
   decideNext,
   DEFERRED_RETRY_DELAY_SECONDS,
   HOLDING_REPLY,
+  SAFE_FALLBACK_REPLY,
   HUMAN_HANDOFF_REPLY,
   afterRetryFailure,
   IN_CALL_RETRY_BUDGET_MS,
@@ -131,6 +132,7 @@ import {
   returnsOnly,
   type OrderView,
   COD_CANCEL_REPLY,
+  kitLimitReply,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
   QUIET_WINDOW_MS,
@@ -197,7 +199,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -727,6 +729,8 @@ const passed = (result: { traces: ReadonlyArray<{ verdict: string }> }): boolean
 const recordTraces = (
   conversationId: string,
   traces: ReadonlyArray<{ gate: string; verdict: string; detail?: string }>,
+  /** The vetoed draft and the customer's name words (R21.8, R22): stored masked beside the veto, never read back. */
+  vetoed?: { draft: string; names?: readonly string[] },
 ) =>
   db("gate_traces", {
     method: "POST",
@@ -735,10 +739,29 @@ const recordTraces = (
         conversation_id: conversationId,
         gate: t.gate,
         verdict: t.verdict,
-        detail: t.detail ?? null,
+        detail: t.verdict === "block" && vetoed ? `${t.detail ?? t.gate} | rascunho vetado: ${maskDraft(vetoed.draft, vetoed.names)}` : (t.detail ?? null),
       })),
     ),
   }).catch(() => undefined);
+
+/**
+ * A vetoed draft as it is stored (R21.8, operator 2026-10-13): R21.6 ("a gate changes only for a real sentence")
+ * needs the sentence, and the draft carries what the customer gave — the link's query string, phone, CPF, CEP,
+ * e-mail, her name. Masked like `maskPii` of the archive tool. The only reader is the operator's audit and Hermes
+ * (through the masked views): the conversation history is built from `messages`, which never holds it.
+ */
+const maskDraft = (text: string, names: readonly string[] = []): string => {
+  let out = text
+    .replace(/\?[\w%-]+=\S*/g, "?[dados]")
+    .replace(/[\w.+-]+@[\w-]+\.[\w.-]+/g, "[email]")
+    .replace(/\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b/g, "[cpf]")
+    .replace(/\b\d{5}-?\d{3}\b/g, "[cep]")
+    .replace(/(?:\+?55\s?)?\(?\b\d{2}\)?\s?9?\d{4}[-\s]?\d{4}\b/g, "[telefone]");
+  for (const word of names.filter((n) => n.length >= 3)) {
+    out = out.replace(new RegExp(`\\b${word.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\b`, "gi"), "[nome]");
+  }
+  return out.slice(0, 700);
+};
 
 /**
  * The prompt lives in `./prompt.ts` since 2026-09-22, where `tests/prompt.test.ts` can
@@ -1530,10 +1553,7 @@ const runFollowupSweep = async () => {
       }
       const receipt = row.body === "receipt";
       const line = receipt ? PAYMENT_RECEIPT_ESCALATED : PAYMENT_ESCALATED;
-      await db(`leads?id=eq.${lead.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-      }).catch(() => undefined);
+      // No stop flag (R22.1): the operator checks the payment on the Coinzz, and she stays with the agent.
       await db("messages", {
         method: "POST",
         body: JSON.stringify({ conversation_id: row.conversation_id, direction: "outbound", body: line }),
@@ -1585,14 +1605,11 @@ const runFollowupSweep = async () => {
           skipped.push({ followupId: row.id, reason: "ela escreveu de novo antes da nova tentativa" });
           return;
         }
-        // A real handoff, as the e-mail says: the agent stops answering her (second review).
-        await db(`leads?id=eq.${lead.id}`, {
-          method: "PATCH",
-          body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-        }).catch(() => undefined);
+        // The e-mail flags it; the agent is not stopped (R22.1): her next message reopens the window, and it is
+        // answered. Nobody answers from the Cloud API number, so "responda você" became a flag, not an order.
         handoffs.push({
           followupId: row.id,
-          reason: "nova tentativa passou da janela de 24h do WhatsApp: responda você",
+          reason: "nova tentativa passou da janela de 24h do WhatsApp: a resposta a ela não saiu; a próxima mensagem dela é respondida",
           notify: CONFIG.handoff?.email ?? null,
           leadId: lead.id,
           phone: lead.phone,
@@ -2468,19 +2485,16 @@ const handleTurn = async (
   const callConversationModel = conversationProvider === "meta" ? callMuse : callLuna;
 
   /**
-   * The conversation goes to a person (R13.2) — for the three reasons that are hers, never
-   * for a reply the agent phrased badly. The handoff is recorded first; only the receipt
-   * is gated, as `layer: "auto"` (R4.4), so every content gate still applies while the
-   * hours gate does not: someone who asks for a person at 2am deserves the confirmation
-   * then. If the chain ever vetoes the receipt, the operator is still called — silently
-   * dropping the alert would be the worse half of the two. The e-mail goes the way it
-   * always did: `notification(...)` in the body, sent by n8n.
+   * The operator is told, the agent is NOT stopped (R22.1, 2026-10-13). Nobody can answer from the WhatsApp
+   * number on the Cloud API, so a `handoff_at` here silenced her for good while the promised person never
+   * came (real test: "Eae?" and "Malu?" unanswered). The e-mail is a flag for the operator's back office
+   * (cancel on the Coinzz, check a payment), never a promise to her: every line sent through here says what
+   * the agent itself does. The rulers stop (`cancelScheduled`) and wake again with her next message. Only
+   * the receipt is gated, as `layer: "auto"` (R4.4), so every content gate still applies while the hours
+   * gate does not. If the chain ever vetoes the receipt, the operator is still told. The e-mail goes the
+   * way it always did: `notification(...)` in the body, sent by n8n.
    */
   const handOff = async (reply: string, reason: string): Promise<Response> => {
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-    });
     await cancelScheduled(conversation.id);
     const receipt = runGates(reply, {
       config: turnConfig,
@@ -2521,6 +2535,9 @@ const handleTurn = async (
       costBrl: spent,
     });
   };
+
+  // The words of her name, masked in a stored vetoed draft (R21.8); filled from the lead, then from what the chat gave.
+  let nameWords: string[] = String((lead.identity as { name?: string } | null)?.name ?? "").split(/\s+/).filter(Boolean);
 
   /**
    * One reply the model writes under a directive of the turn's own, outside the main loop: the opt-out's
@@ -2587,7 +2604,7 @@ const handleTurn = async (
         ...gate,
         now: new Date(),
       });
-      await recordTraces(conversation.id, gated.traces);
+      await recordTraces(conversation.id, gated.traces, { draft: attempt.text, names: nameWords });
       if (passed(gated)) {
         result = { text: attempt.text, deferred: false };
         break;
@@ -2679,8 +2696,10 @@ const handleTurn = async (
   // call, because there is no point paying to generate a reply she already said she does
   // not want. The interpreter (4b) catches the request inside a longer message.
   // An exact phrase: read message by message, or "oi" + "quero falar com atendente" misses it.
+  // The second time in a row the same line would be a loop: the model answers instead (R22.1).
   if (parts.some(wantsHuman)) {
-    return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
+    const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1`).catch(() => null);
+    if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
   // 4. The ceiling is checked before a byte leaves for any provider.
@@ -3191,6 +3210,9 @@ const handleTurn = async (
   // She saying she already bought is context too (persona round 3, Lu and Vera) — in
   // this message or any recent one of hers (index `messages_conversation_idx`).
   let orderContext = false;
+  // Only a link sent, no order and no purchase said: a delivery question there is a sale's, not a post-sale's
+  // (real test 2026-10-13: "moro sozinha, não tenho quem receber" after the link was called a post-sale).
+  let linkOnly = false;
   if (interpretation.wants_cancel || interpretation.post_sale) {
     const mine = await db(
       `messages?conversation_id=eq.${conversation.id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`,
@@ -3209,9 +3231,12 @@ const handleTurn = async (
           `&body=like.${encodeURIComponent(`*${base}*`)}&select=id&limit=1`,
       ).catch(() => null);
       orderContext = (sent?.length ?? 0) > 0;
+      linkOnly = orderContext;
     }
   }
-  const handoffKind = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext);
+  // A person asked for twice in a row: the same line again would be a loop, so the model answers (R22.1).
+  const handoffRead = handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly);
+  const handoffKind = handoffRead === "human" && lastOutbound === HUMAN_HANDOFF_REPLY ? null : handoffRead;
   // Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
   // agent sends its number and nobody is called. Without a valid number in the config, as before.
   // A reply the chain refuses falls through to what came before it.
@@ -3319,10 +3344,8 @@ const handleTurn = async (
   const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;
   const maxUnits = Math.max(1, ...kits.map((k) => k.units));
   if (units > maxUnits) {
-    return await handOff(
-      `Pra levar ${units} peças eu chamo uma pessoa do time pra montar seu pedido 💛`,
-      `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`,
-    );
+    const limited = await sendFixed(kitLimitReply(maxUnits), `a cliente quer ${units} peças, mais que o maior kit (${maxUnits})`, "cod", {}, false, maxUnits, "auto");
+    if (limited) return limited;
   }
   const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);
   // Pants numbers go through the same deterministic table as one piece's: the model never
@@ -3500,6 +3523,7 @@ const handleTurn = async (
       : null;
   const foundIdentity = { fields: { ...burstIdentity, ...(firstLineName ? { name: firstLineName } : {}) } };
   const identityDraft = mergeIdentity(storedIdentity, foundIdentity.fields).fields;
+  nameWords = (identityDraft.name ?? "").split(/\s+/).filter(Boolean);
   if (JSON.stringify(identityDraft) !== JSON.stringify(storedIdentity) || leadEmail !== (storedEmail ?? null)) {
     await db(`leads?id=eq.${lead.id}`, {
       method: "PATCH",
@@ -3632,10 +3656,13 @@ const handleTurn = async (
   const sizeKnown = units > 1 ? unitSizes.length >= units : (stated?.size ?? lead.size ?? null) !== null;
   const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;
   if (units > 1 && !kitUrl) {
-    return await handOff(
-      `Pra montar esse pedido de ${units} peças eu chamo uma pessoa do time 💛`,
+    const pathMax = Math.max(1, ...kits.filter((k) => k.path === linkPath).map((k) => k.units));
+    const limited = await sendFixed(
+      kitLimitReply(pathMax),
       `a cliente quer ${units} peças no ${linkPath === "cod" ? "pagamento na entrega" : "antecipado"}, e não há kit de ${units} nesse caminho`,
+      linkPath, {}, false, pathMax, "auto",
     );
+    if (limited) return limited;
   }
   const linkCheckout = kitUrl ? { codUrl: kitUrl, prepayUrl: kitUrl } : (CONFIG.checkout ?? {});
   // The row of the linked facts this turn's link belongs to (H-2): told to the agent with
@@ -3940,6 +3967,8 @@ const handleTurn = async (
   let gates: ReturnType<typeof runGates>;
   let rewritesUsed = 0;
   let correction: string | null = null;
+  // Every reason the turn's vetoed drafts fell on, so the next rewrite avoids all of them (R22.2).
+  const triedReasons: string[] = [];
   let outcome: NextAction = { kind: "send" };
   // The last attempt's gate context: an extra call after the loop is judged by the same one (/code-review of v21).
   let gateContext: Parameters<typeof runGates>[1] | null = null;
@@ -4026,16 +4055,19 @@ const handleTurn = async (
 
     // Every attempt is traced, not just the last: a gate that keeps firing across
     // rewrites is a prompt problem, and the trace is what lets Hermes see it.
-    await recordTraces(conversation.id, gates.traces);
+    await recordTraces(conversation.id, gates.traces, { draft: attempt.text, names: nameWords });
 
+    const blockedNow = gates.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate);
     outcome = decideNext({
       remedy: remedyFor(gates),
       rewritesUsed,
       spentBrl: spent,
       ceilingBrl,
-      reasons: gates.traces.filter((t) => t.verdict === "block").map((t) => t.detail ?? t.gate),
+      reasons: blockedNow,
       vetoedText: attempt.text,
+      earlierReasons: triedReasons,
     });
+    triedReasons.push(...blockedNow.filter((r: string) => !triedReasons.includes(r)));
 
     if (outcome.kind !== "rewrite") break;
     correction = outcome.instruction;
@@ -4098,7 +4130,11 @@ const handleTurn = async (
   // Every draft vetoed (operator, 2026-10-07, decision 16): "quanto que é" got "me fala de novo o que você
   // quer saber?" (persona Sandra). Her price question gets the price, in the prompt's own sentence; anything
   // else goes to a person with the holding line.
-  const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase()));
+  const plain = (p: string): string => p.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  const asksPrice = parts.some((p) => /\b(?:quanto|valor|preco|custa)\b/.test(plain(p)));
+  // Her haggle or installments ("parcelam ou fazem por 100 no pix?", real test 2026-10-13, R22.1) gets what is
+  // true about the prepaid, never a person.
+  const asksOffer = parts.some((p) => /\b(?:parcel\w*|descont\w*|pix|cartao|credito|vezes)\b|\b\d{2,4}\s*(?:reais|real|conto)\b/.test(plain(p)));
   // Her deadline question gets the deadline, the day left to the checkout (persona Rafa, grafo §74).
   // Beside another question ("qual o prazo? e serve pra quem fez cirurgia?") it goes to a person, unless every draft fell
   // on the deadline or the coverage veto (`deadlineVetoOnly`, below).
@@ -4117,7 +4153,9 @@ const handleTurn = async (
   // "oi, vi o anúncio" is a lead lost at the door. She gets the greeting and the price line instead.
   // Only a first message with no question of hers: a medical question or a complaint still goes to a person.
   const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));
-  if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff", reason: `nenhuma reescrita passou: ${outcome.reason}` };
+  // R22.1: no draft that passed is no handoff either — nobody can answer from the number, and `handoff_at` silenced her
+  // for good. A question that is none of those gets the safe reply, with a live question in it.
+  const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply;
 
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
@@ -4170,6 +4208,8 @@ const handleTurn = async (
       ? attempt.text
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
+        : asksOffer ? offerFallbackMessage(CONFIG)
+        : fallbackIsGeneric ? SAFE_FALLBACK_REPLY
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):
   // one more call, told the deadline is answered, answers only the other one — gated, under the ceiling, no
@@ -4287,13 +4327,17 @@ const handleTurn = async (
   ]);
 
   return json(200, {
-    status: fallbackReason === null ? "ok" : "fallback",
+    // R22.1/R22.2: the agent could not go on with five attempts. It never calls a person: the generic fallback
+    // reply goes to her with the operator's e-mail flag (status "handoff" is what n8n e-mails on), and her next
+    // message is answered as always — no `handoff_at`.
+    status: fallbackReason === null ? "ok" : fallbackIsGeneric ? "handoff" : "fallback",
     ...(fallbackReason === null
       ? {}
       : {
           reason: fallbackReason,
           blockedText: attempt.text,
           blocked: gates.traces.filter((t) => t.verdict === "block"),
+          ...(fallbackIsGeneric ? notification(lead, conversation) : {}),
         }),
     reply: replyText,
     bubbles: paced(replyText, fastOpening),

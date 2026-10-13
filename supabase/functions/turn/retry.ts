@@ -36,11 +36,12 @@
 export type Remedy = "rewrite" | "defer" | "stop";
 
 /**
- * Two shots at correcting itself (operator, 2026-09-24 — was one since 2026-09-08). Each
- * attempt is a paid model call (~R$ 0,001) the customer never sees; the fallback it
- * replaces is a reply that ignores her question, which cost more in the persona runs.
+ * Four shots at correcting itself, five attempts in all (operator, 2026-10-13, R22.2 — was two since
+ * 2026-09-24, one since 2026-09-08). Each attempt is a paid model call (~R$ 0,001) the customer never sees; the
+ * fallback it replaces is a reply that ignores her question, which cost more in the persona runs. The
+ * instruction (`rewriteInstruction`) carries every reason found so far, so the next draft avoids them all.
  */
-export const MAX_REWRITES = 2;
+export const MAX_REWRITES = 4;
 
 export type NextAction =
   | { kind: "send" }
@@ -62,6 +63,8 @@ export interface TurnState {
   reasons: readonly string[];
   /** The reply that was vetoed, so the rewrite corrects it instead of starting over. */
   vetoedText: string;
+  /** Reasons of the earlier attempts of this turn (R22.2): the rewrite must not fall on them again. */
+  earlierReasons?: readonly string[];
   maxRewrites?: number;
 }
 
@@ -70,13 +73,16 @@ export interface TurnState {
  * earned it, and it forbids the two ways a rewrite goes wrong: telling the customer
  * that something was blocked, and apologising instead of answering.
  */
-export const rewriteInstruction = (reasons: readonly string[], vetoedText: string): string =>
+export const rewriteInstruction = (reasons: readonly string[], vetoedText: string, earlierReasons: readonly string[] = []): string =>
   [
     `A sua resposta anterior foi vetada pela verificação da loja e NÃO foi enviada.`,
     `Texto vetado: "${vetoedText}".`,
     `Motivo: ${reasons.join("; ")}.`,
-    `Escreva a resposta de novo, respondendo a mesma coisa à cliente, corrigindo exatamente`,
-    `esse ponto. Não mencione a verificação, não peça desculpas e não repita o trecho vetado.`,
+    ...(earlierReasons.length > 0 ? [`Tentativas anteriores desta mesma resposta já caíram em: ${earlierReasons.join("; ")}. Não caia nelas de novo.`] : []),
+    `Entenda por que foi vetada, corrija exatamente esse ponto e, antes de escrever, releia as regras da loja`,
+    `no seu prompt e confira que o texto novo não cai em outra delas (preço, prazo, parcela, pessoa, promessa).`,
+    `Se a regra impede o que ela pediu, diga com franqueza o que é possível, em vez de prometer.`,
+    `Responda a mesma coisa à cliente. Não mencione a verificação, não peça desculpas e não repita o trecho vetado.`,
   ].join(" ");
 
 /**
@@ -104,7 +110,7 @@ export const decideNext = (state: TurnState): NextAction => {
       reason: `${maxRewrites} reescrita(s) e nenhuma passou na cadeia: ${reasons.join("; ")}`,
     };
   }
-  return { kind: "rewrite", instruction: rewriteInstruction(reasons, vetoedText) };
+  return { kind: "rewrite", instruction: rewriteInstruction(reasons, vetoedText, state.earlierReasons) };
 };
 
 /**
@@ -131,21 +137,30 @@ export const HOLDING_REPLY =
   "Deixa eu confirmar isso certinho pra você e já te respondo por aqui 💛";
 
 /**
- * When she asks for a person (§Q12, R13.2). It confirms without pretending: nobody is on
- * the line yet, so it says the team was told — true the moment this goes out, because the
- * notification rides in the same response — and leaves the door open rather than closing
- * the conversation. Same constraint as the holding reply — no price, deadline or coupon —
- * so the one message the agent must always be able to send can never be vetoed. Wording
- * from the operator, 2026-09-24.
+ * When she asks for a person (§Q12, R13.2). Since R22.1 (operator, 2026-10-13) it promises no call: nobody
+ * can answer from the number on the Cloud API, and "alguém te chama por aqui" left her waiting for a person
+ * who never came while the agent stayed silent. The agent keeps the conversation and says so, and asks what
+ * she needs. It does not say what the agent is (`humanity_claim`). Same constraint as the holding reply —
+ * no price, deadline or coupon — so the one message the agent must always be able to send can never be
+ * vetoed.
  */
-export const HUMAN_HANDOFF_REPLY = "Claro! Já avisei o time e alguém te chama por aqui 💛";
+export const HUMAN_HANDOFF_REPLY = "Por aqui quem te atende sou eu, a Malu 💛 Me conta o que você precisa que eu resolvo agora.";
 
 /**
- * When she wants to cancel, or asks about an order that already exists (R13.2). The
- * agent has no access to orders, and on 2026-09-24 it pretended to check one and invented
- * an "área do pedido" (Lu). A person checks; this says so. Operator's wording.
+ * A question about an order whose status the agent cannot read (no row in the vocabulary, a failed
+ * attempt), or a cancel it has no line for (R13.2). Since R22.1 it promises no return: "vou checar e já
+ * te retorno" was a promise nobody kept (Lu, 2026-09-24; the operator test of 2026-10-13). It says what
+ * is true — the status is not readable now — and asks for the problem so the agent can answer it.
  */
-export const ORDER_HANDOFF_REPLY = "Vou checar pra você e já te retorno 💛";
+export const ORDER_HANDOFF_REPLY = "Não consegui ver o andamento do seu pedido por aqui agora 💛 Me conta o que aconteceu que eu te ajudo no que der.";
+
+/**
+ * More pieces than any kit has, or a kit that her payment path does not have (R22.1): the agent says the most it
+ * closes in one order and asks for that, instead of calling a person "to build the order" — nobody could.
+ * The count only, no price: `kit_price` judges any number near "peças".
+ */
+export const kitLimitReply = (max: number): string =>
+  max <= 1 ? "Por aqui eu fecho 1 peça por pedido 💛 Quer seguir com 1 peça?" : `Por aqui eu fecho pedidos de até ${max} peças 💛 Quer levar ${max} peças?`;
 
 /**
  * Exchange and return go to the Logzz support, which serves her directly (operator, 2026-10-13): the
@@ -557,9 +572,9 @@ export const MAX_REVISIONS = 2;
 /**
  * From the turn's start, the deadline a revision's reply calls aim for. A revision starts only
  * with `REVISE_MIN_MS` left (interpreter 8 s + region 2 × 5 s + one 10 s attempt), and each of its
- * `MAX_REWRITES` past the deadline is one `MIN_ATTEMPT_MS` call: 110 + 2 × 10 + database < 150 s.
+ * `MAX_REWRITES` past the deadline is one `MIN_ATTEMPT_MS` call: 95 + 4 × 10 + database < 150 s.
  */
-export const REVISE_DEADLINE_MS = 110_000;
+export const REVISE_DEADLINE_MS = 95_000;
 export const REVISE_MIN_MS = 30_000;
 /** A turn's "replying" mark older than this belongs to a turn the platform already cut (150 s). */
 export const REPLYING_STALE_MS = 150_000;

@@ -147,6 +147,22 @@ export const priceBeforeCepMessage = (config: PromptConfig): string => {
 };
 
 /**
+ * "Parcela? Faz por 100 no pix?" when every draft was vetoed (real test 2026-10-13, R22.1): the price she
+ * asked for is not given, and what is true is said — the prepaid's discount and the card's installments, in
+ * ONE sentence naming the prepaid path (`installment_promise` reads the path where the installments are).
+ * Only the configured numbers; the installments clause only when the config has them. No "também".
+ */
+export const offerFallbackMessage = (config: PromptConfig): string => {
+  const pct = config.prices.prepayDiscountPercent;
+  const n = config.prices.prepayMaxInstallments;
+  return (
+    `Esse valor eu não consigo mexer 💛 No antecipado ` +
+    (pct > 0 ? `você ganha ${pct}% de desconto, ${money(config.prices.prepayBrl)}` : `você paga ${money(config.prices.prepayBrl)}`) +
+    (n != null && n >= 2 ? `, e no cartão dá pra parcelar em até ${n}x no checkout.` : `.`)
+  );
+};
+
+/**
  * Her deadline question when every draft was vetoed (persona Rafa, 2026-10-11, grafo §74): "me fala o dia
  * certinho??" went to a person after four vetoed promises of a day. The deadline the prompt teaches, with
  * the day left to the checkout — never a date. Before the region is known, "dependendo da sua região".
@@ -208,7 +224,7 @@ export const productFacts = (config: PromptConfig): string[] => [
   `— Calor: "Não dá calor, ele é feito justamente pra respirar no corpo e não te deixar suando."`,
   `— Quanto tempo por dia: "O quanto você quiser, ele é preparado pra aguentar o dia inteiro!" Dormir com o colete: "Pode sim!" Exercício: "Sim, ele é elástico e não limita seus movimentos!"`,
   `— Lavagem: à mão, com água fria, secando na sombra; máquina e secadora soltam a elasticidade, e é a elasticidade que faz o trabalho.`,
-  `— Na entrega ela paga do jeito que preferir ("Você escolhe a forma que deseja pagar"); não liste formas de pagamento. Outra pessoa pode receber e pagar por ela ("Pode sim, sem problemas"). Se ninguém estiver em casa, o entregador leva o pedido de volta pro centro de distribuição e a entrega não acontece: diga isso com carinho e sugira escolher uma data em que ela vai estar em casa. Como o entregador age (se toca a campainha, se liga antes, o horário) você não sabe: diga que a entrega é no endereço dela, sem detalhe do entregador.`,
+  `— Na entrega ela paga do jeito que preferir ("Você escolhe a forma que deseja pagar"); não liste formas de pagamento. Outra pessoa pode receber e pagar por ela ("Pode sim, sem problemas"). Se ninguém estiver em casa, o entregador leva o pedido de volta pro centro de distribuição e a entrega não acontece: diga isso com carinho e sugira escolher uma data em que ela vai estar em casa. Horário não se escolhe: ela escolhe o dia no checkout, e o pedido chega ao longo do dia. O pagamento na entrega não vem pelo correio: quem entrega e recebe é o entregador. Como o entregador age (se toca a campainha, se liga antes) você não sabe: diga que a entrega é no endereço dela, sem detalhe do entregador.`,
   `— No antecipado o envio é pelos Correios ou por transportadora, conforme a região, com código de rastreio, e o pagamento é no pix ou no cartão; boleto não tem.`,
   `— Fotos ou vídeo: você não manda foto. Diga que no site ${config.site ? `(${config.site}) ` : ``}tem o catálogo completo e um vídeo de uma cliente usando o colete.`,
   `— Confiança: o que você cita é ${config.site ? `o site, ${config.site}` : `o nosso site`}${config.support?.email ? `, e o e-mail ${config.support.email}` : ``}. Não cite Instagram, Reclame Aqui nem dado de empresa que não está aqui.`,
@@ -245,8 +261,8 @@ export const kitsBriefing = (config: PromptConfig): string[] => {
     `por exemplo: ${examples.join(" ou ")}`,
     `Se ela não quiser, siga com uma peça e não volte ao assunto. Se ela quiser mais de uma,`,
     `pergunte o tamanho de cada peça (podem ser diferentes): o link é o checkout do kit, e lá ela`,
-    `escolhe o tamanho de cada peça. Mais de ${max} peças não tem link: nunca prometa, uma pessoa do`,
-    `time monta esse pedido.`,
+    `escolhe o tamanho de cada peça. Mais de ${max} peças não tem link: diga que por aqui o máximo são`,
+    `${max} peças por pedido e pergunte se ela quer levar ${max}; nunca prometa que uma pessoa monta esse pedido.`,
   ];
 };
 

@@ -148,9 +148,9 @@
       "parameters": {
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "={{ $json.notify }}",
-        "subject": "=Handoff — a cliente {{ $json.phone }} está esperando uma pessoa",
+        "subject": "=Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}",
         "emailFormat": "text",
-        "text": "=A agente passou uma conversa para você e não volta a responder essa cliente.\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\nO que ela ouviu: {{ $json.reply }}\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}\ncusto até aqui: R$ {{ $json.costBrl }}",
+        "text": "=Aviso, não precisa responder no WhatsApp: a Malu continua atendendo essa cliente e responde a próxima mensagem dela. Este e-mail só mostra o que ela não resolveu sozinha (ninguém chama a cliente).\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\nO que ela ouviu: {{ $json.reply }}\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}\ncusto até aqui: R$ {{ $json.costBrl }}",
         "options": {
           "appendAttribution": false
         }

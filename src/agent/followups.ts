@@ -194,8 +194,9 @@ export const STILL_THERE_MS = 20 * MINUTE;
  * unanswered. After a yes/no or a choice the "ok" is her answer, and the turn reads it as before.
  */
 export type AskedDatum = "cep" | "size" | "name" | "cpf" | "email";
+// The "?" that opens a link's query string is no question (real test 2026-10-13: "Ok" after the checkout link).
 export const ackGoesUnanswered = (bareAck: boolean, lastOutbound: string, datum: AskedDatum | null): boolean =>
-  bareAck && (datum !== null ? !isOffer(lastOutbound) : !lastOutbound.includes("?"));
+  bareAck && (datum !== null ? !isOffer(lastOutbound) : !lastOutbound.replace(/https?:\/\/\S+/gi, " ").includes("?"));
 
 /**
  * A yes/no offer or a choice: "ok" to it is her yes (review of the L2 fixes, finding 4) — "Quer que eu
@@ -593,12 +594,16 @@ export const PAYMENT_CHECK_REPLY =
   "Conferi aqui e o seu pagamento ainda não aparece como confirmado. Às vezes leva alguns minutinhos pra atualizar, aguarda um pouquinho que eu fico de olho e te aviso 💛";
 export const PAYMENT_STILL_CHECKING = "Ainda estou verificando aqui, assim que a confirmação aparecer eu te aviso 💛";
 export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, está tudo certo com o seu pedido 💛";
-/** At 5 minutes, the payment still not updated: a person checks it (operator, 2026-10-13). */
+/**
+ * At 5 minutes, the payment still not updated: the operator checks it on the Coinzz (operator, 2026-10-13). She is
+ * promised only what the system does by itself — the order's confirmation arrives here when the payment does
+ * (R22.1: no "já te retornamos", nobody answers from this number) — and the agent stays with her.
+ */
 export const PAYMENT_ESCALATED =
-  "Ainda não atualizou aqui, então já passei pro time conferir o seu pagamento e já te retornamos 💛";
+  "Ainda não atualizou aqui, então já pedi pro time conferir o seu pagamento. Assim que ele aparecer, a confirmação do seu pedido chega por aqui 💛";
 /** The same, with the receipt she sent during the wait. */
 export const PAYMENT_RECEIPT_ESCALATED =
-  "Ainda não apareceu a confirmação do pagamento aqui, então já passei seu comprovante pro time conferir e já te retornamos 💛";
+  "Ainda não apareceu a confirmação do pagamento aqui, então já pedi pro time conferir o seu comprovante. Assim que o pagamento aparecer, a confirmação do seu pedido chega por aqui 💛";
 /** The receipt arrived while the payment is being checked: kept, and the check finishes the job. */
 export const PAYMENT_RECEIPT_KEPT = "Recebi o comprovante, obrigada! Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
 

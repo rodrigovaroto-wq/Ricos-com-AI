@@ -2947,6 +2947,39 @@ em `src/dev/verify-guards.ts` (a fatia i pega toda n-ésima mutação a partir d
 commit `7732634`, 9 jobs ao mesmo tempo, verde em 4m29s, 548/548. **Custo:** mais minutos de runner por push (9 máquinas em vez de 1).
 **Guarda:** a soma das fatias é a lista inteira (conferido 548/548); uma mutação que escapa em qualquer fatia deixa o CI vermelho.
 
+## 91. A Malu nunca chama uma pessoa, e cinco tentativas nos gates (operador, 2026-10-13, R22.1–R22.2)
+
+**Sintoma:** nas três conversas da rodada 1 a Malu foi calada por `handoff_at` e a cliente ficou sem resposta ("Eae?", "Malu?", "Ent mas não
+tá dando para escolher outro dia…"). **Causa:** o número da WhatsApp Cloud API não abre no aplicativo; **ninguém consegue responder dali**.
+Toda porta de handoff prometia "alguém te chama" / "já te retorno" a uma pessoa que não existe e, ao gravar `handoff_at`, tirava a única
+que respondia. As portas eram nove: pedido explícito de pessoa (frase exata e leitura do modelo), pós-venda, cancelamento, mais peças que
+o maior kit, kit que o caminho não tem, fim das reescritas, pagamento que não atualizou em 5 min, nova tentativa fora da janela de 24 h, e o
+teto de custo / falha de configuração. **Caminhos descartados:** (a) só apertar o pedido explícito — o "último recurso" da R21.1 continuava
+prometendo um retorno impossível; (b) manter `handoff_at` e só trocar o texto — ela seguiria calada. **Correção (R22.1):** `handOff` **não
+grava `handoff_at`** — cancela a régua e avisa o operador por e-mail (status `handoff` + `notify`, o único sinal), e a próxima mensagem dela é
+respondida normalmente. Os textos deixam de prometer retorno: `HUMAN_HANDOFF_REPLY` ("Por aqui quem te atende sou eu…"),
+`ORDER_HANDOFF_REPLY` (diz que o status não está legível e pede o problema), `PAYMENT_ESCALATED` (a confirmação chega por aqui quando o
+pagamento aparecer), `kitLimitReply` (o máximo de peças por pedido, no lugar de "chamo uma pessoa"). Dois pedidos de pessoa seguidos: o
+modelo responde na segunda (a mesma frase duas vezes seria um laço). **Pós-venda sem pedido** (achado 1): só o link no chat, sem pedido
+nem compra dita, não é pós-venda (`handoffFor(…, linkOnly)`): "moro sozinha, não tenho quem receber" é dúvida de venda. **Fim das
+reescritas**: nunca vira pessoa — preço/parcela/desconto/Pix recebe `offerFallbackMessage` (só números do config, uma frase que nomeia o
+antecipado para o `installment_promise`), prazo a resposta de prazo, o resto `SAFE_FALLBACK_REPLY`; a genérica volta com status `handoff` só
+para o e-mail sair. **Gate:** `humanity_claim` passa a vetar também a *oferta* ("quer que alguém do time te chame?", frases reais da
+rodada, R21.6) e os briefings/prompt deixam de ensiná-la. **Mantidos** (proteção, não conversa): o teto de custo e a falha de
+configuração/provedor continuam gravando `handoff_at`. **R22.2:** `MAX_REWRITES` 2 → 4 (cinco tentativas); a instrução da reescrita
+carrega os motivos de **todas** as tentativas anteriores e manda conferir as outras regras antes de escrever; `REVISE_DEADLINE_MS`
+110 → 95 s para as cinco tentativas caberem nos 150 s. **Mais:** `ackGoesUnanswered` tira URLs antes de procurar "?" (achado 3); rascunho
+vetado gravado mascarado no `gate_traces.detail`, nunca lido de volta (**R21.8**); os dois fatos da entrega no prompt (**R21.7**).
+**Guarda:** `tests/r22-no-person.test.ts`; `dev:gates` sem afrouxamento (6 endurecimentos, todos a oferta de pessoa); testes antigos que
+fixavam "alguém te chama", "duas reescritas" e a conversa que "volta depois do handoff" foram reescritos para a regra nova.
+**Fica / residual:** os gates `installment_promise` ("também") e `price_promise` ("Por R$ 100 eu não consigo") **não foram mexidos** —
+R21.6 exige a frase real, e com a resposta fixa + cinco tentativas + o rascunho gravado a próxima ocorrência a trará. Leads antigos com
+`handoff_at` seguem calados até o operador limpá-los. Nada disto está publicado: `turn` v23 e a mudança dos dois e-mails do n8n
+(texto do aviso) esperam deploy. **Crítica à análise da rodada** (feita nesta sessão): a lista de seis consertos omitia os achados do `…7967`
+antigo — pessoa oferecida sem pedido (fechado aqui), link não reenviado quando ela diz que não recebeu, "Chega quando?" engolido pela
+resposta de Pix pendente, tamanho de 08/10 sobrepondo o "36" novo — e tratava "pessoa" como destino válido quando nenhuma pessoa
+responde; o conserto 4 (gates) era conjectura sem a frase real.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

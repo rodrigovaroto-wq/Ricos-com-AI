@@ -352,7 +352,9 @@ describe("segunda revisão: varredura e webhook de venda", () => {
     const owned = retry.indexOf("if (!Array.isArray(closed) || closed.length === 0) {");
     expect(retry).toContain('const closed = await mark("canceled");');
     expect(owned).toBeGreaterThan(-1);
-    expect(retry.indexOf("handoff_at: new Date().toISOString()")).toBeGreaterThan(owned);
+    // R22.1: o e-mail avisa, mas ninguém é calado — nenhum handoff_at na varredura.
+    expect(retry.slice(0, retry.indexOf("const claimed = await mark(\"sent\")"))).not.toContain("handoff_at");
+    expect(retry.indexOf("handoffs.push({")).toBeGreaterThan(owned);
   });
 
   it("uma linha que lança não derruba a varredura", () => {

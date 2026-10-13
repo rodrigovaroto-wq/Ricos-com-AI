@@ -13,6 +13,18 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-13, noite — R22 implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).** Decisão executiva do
+> operador: **a Malu nunca chama uma pessoa** (só e-mail) e os gates têm **cinco tentativas**. Grafo §91, decisões R22.1–R22.2.
+> - Feito (7900+ testes, `dev:conversas`, `dev:gates` sem afrouxar, `deno check`): `handOff` não grava `handoff_at`; textos sem promessa de retorno;
+>   pós-venda só com o link no chat é venda; fim das reescritas nunca é pessoa (resposta fixa de preço/parcela/prazo ou a segura, com e-mail);
+>   kits sem pessoa; pagamento que não atualiza e janela de 24 h sem `handoff_at`; gate veta *oferecer* pessoa; `MAX_REWRITES` 4 com motivos
+>   acumulados; "ok" depois do link; rascunho vetado gravado mascarado (R21.8); fatos R21.7 no prompt.
+> - **Falta publicar:** `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23), aplicar os textos novos dos dois e-mails do n8n
+>   (`n8n/workflows/turno-da-agente.json`, `relogio-da-regua.json`) e `pnpm dev:n8n`; limpar `handoff_at` dos leads antigos que o operador quiser
+>   reativar (`update leads set handoff_at = null where …`).
+> - **Não feito de propósito:** gates `installment_promise`/`price_promise` (R21.6 — esperam a frase real, agora gravada). **Abertos** do `…7967`:
+>   reenviar o link quando ela diz que não recebeu; "Chega quando?" engolido pela resposta de Pix pendente; tamanho velho sobrepondo o novo.
+
 > **2026-10-13, ~20h30 UTC — rodada de testes reais começou (LEIA PRIMEIRO).** PR #60 (v21–v22, R21.6) **mergeado** na `main`.
 > - Os números `…5983` (operador) e `…7967` tinham histórico de 08/10 que calava ou confundia a Malu: arquivados com análise e apagados
 >   (`docs/agente-ia/10-auditoria/testes-reais/2026-10-08-operador-pre-rodada.md`, `2026-10-13-tester-7967-pre-rodada.md`).
