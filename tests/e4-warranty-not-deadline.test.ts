@@ -36,6 +36,14 @@ const LIES = [
   "Você tem 7 dias pra trocar, e o envio da peça é rápido.",
   "Você tem 7 dias pra trocar, e o envio fica por nossa conta e chega em 7 dias.",
   "Você tem 7 dias pra trocar e o envio da peça chega em casa.",
+  // Segunda revisão (Opus, 13/10): o sujeito coordenado traz a entrega para a mesma contagem…
+  "a entrega e a garantia pra trocar o tamanho é de 7 dias",
+  "a entrega e o prazo pra trocar o tamanho é de 7 dias",
+  "o tempo de entrega e a garantia pra trocar é de 7 dias",
+  "o tempo de entrega e o prazo pra trocar é de 7 dias",
+  // …e a velocidade depois de quem paga o envio é chegada.
+  "a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta, rapidinho",
+  "a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta e é rapidinho",
 ];
 
 describe("E4 — a garantia de troca não é prazo de entrega", () => {
@@ -48,6 +56,10 @@ describe("E4 — a garantia de troca não é prazo de entrega", () => {
 
   it("a frase mista com a janela certa passa na entrega", () =>
     expect(gates("chega em 1 a 3 dias e você tem 7 dias pra trocar", "cod")).not.toContain("delivery_promise"));
+
+  // A janela certa antes da âncora não é sujeito da contagem (segunda revisão): só a chegada é.
+  it("a janela certa antes da garantia passa na entrega", () =>
+    expect(gates("chega em 1 a 3 dias e a garantia pra trocar é de 7 dias", "cod")).not.toContain("delivery_promise"));
 
   it("garantia errada continua com o warranty_promise (e não vira garantia aqui)", () => {
     for (const path of ["cod", "prepay"] as const) {

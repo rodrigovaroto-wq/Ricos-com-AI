@@ -155,3 +155,11 @@ Você tem 7 dias pra trocar e o envio da peça chega em casa.
 A garantia pra trocar o tamanho é de 30 dias após o recebimento.
 em até 7 dias você recebe, e a troca é grátis
 chega em 7 dias e você tem 7 dias pra trocar
+# E4, second review (2026-10-13): a coordinated subject and speed after who pays the freight
+a entrega e a garantia pra trocar o tamanho é de 7 dias
+a entrega e o prazo pra trocar o tamanho é de 7 dias
+o tempo de entrega e a garantia pra trocar é de 7 dias
+o tempo de entrega e o prazo pra trocar é de 7 dias
+a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta, rapidinho
+a garantia pra trocar o tamanho é de 7 dias, e o envio da troca é por sua conta e é rapidinho
+chega em 1 a 3 dias e a garantia pra trocar é de 7 dias

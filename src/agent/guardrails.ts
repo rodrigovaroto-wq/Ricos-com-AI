@@ -1756,7 +1756,7 @@ const gates: readonly Gate[] = [
               .replace(/\breceb\w*\s+(?:(?:o|a|seu|sua)\s+){0,2}(?:dinheiro(?:\s+de\s+volta)?|reembols\w*|estorno)\b/g, " ")
               // E4 (2026-10-13): who pays the exchange's freight — "e na troca o envio da peça fica por sua
               // conta" — is not an arrival. Only with that predicate: "e o envio é rapidinho" still is.
-              .replace(/\b(?:o\s+)?(?:envio|reenvio|postagem)(?:\s+d[aeo]\s+(?:troca|peca|devolucao))?\s+(?:fica|e)\s+por\s+(?:sua|nossa)\s+conta\b/g, " ")
+              .replace(/\b(?:o\s+)?(?:envio|reenvio|postagem)(?:\s+d[aeo]\s+(?:troca|peca|devolucao))?\s+(?:fica|e)\s+por\s+(?:sua|nossa)\s+conta\b(?![^.!?]*\b(?:rapid\w*|cheg\w*|leva\w*|demor\w*|dias?)\b)/g, " ")
               .replace(/\b(?:cep|endereco)\b[^.!?]{0,20}?\b(?:ver|conferir|checar|consultar|calcular)\s+(?:como\s+fica\s+)?(?:a\s+)?entrega\b(?:\s+ai\b)?(?![^.!?]*\b(?:cheg\w*|leva\w*|demor\w*|dias?|tempo|prazo)\b)/g, " ");
           // After the count: "corridos/úteis", the purpose and the start, in any order; a bare
           // "quando receber" only after the purpose ("7 dias pra trocar, quando receber").
@@ -1820,11 +1820,14 @@ const gates: readonly Gate[] = [
           // prazo é 7 dias", "tem garantia e são 7 dias", "com direito a troca, são 7 dias".
           const RETV = String.raw`(?:troc|devol|desist|arrepend|garantia)\w*(?:\s+ou\s+(?:troc|devol)\w*)?`;
           const TAKES = String.raw`(?:voce\s+)?(?:tem|tera|sao|e|fica)\s+(?:(?:ate|de)\s+)?$`;
-          const takenAfterReturn =
+          // Second review of E4: what comes before the anchor, back to the last number, is no subject of
+          // it either — "a entrega e a garantia pra trocar é de 7 dias"; "chega em 1 a 3 dias e a garantia…" passes.
+          const taken =
             lastRet != null &&
             new RegExp(
               String.raw`\b(?:prazo|garantia)\s+(?:pra|para|de)\s+${RETV}${OBJECT}\s+${TAKES}|(?:\bse\s+(?:(?!\b(?:cheg|receb|entreg|lev[ae]|demor|envi|despach|post)\w*)[^,;:])*?|\b(?:pra|para)\s+|\be\s+so\s+)${RETV}${OBJECT}\s*[,:]\s*(?:(?:o|seu)\s+prazo\s+)?${TAKES}`,
-            ).test(sb);
+            ).exec(sb);
+          const takenAfterReturn = !!taken && !ARRIVAL.test(notDelivery(sb.slice(0, taken.index).split(/\d/).pop()!));
           // The count's own clause before it says nothing about arrival, except where the warranty
           // starts counting — and never "até / o prazo / o tempo" up to the arrival ("o prazo até
           // quando chegar é de 7 dias pra trocar").

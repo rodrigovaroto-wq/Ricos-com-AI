@@ -167,3 +167,4 @@ E4 | delivery_promise | Dá sim, a garantia pra trocar o tamanho é de 7 dias ap
 E4 | delivery_promise | A garantia pra trocar o tamanho é de 7 dias após o recebimento.
 E4 | delivery_promise | O prazo pra trocar o tamanho é de 7 dias.
 E4 | delivery_promise | Você tem 7 dias após o recebimento pra trocar, e o envio da troca é por sua conta.
+E4 | delivery_promise | chega em 1 a 3 dias e a garantia pra trocar é de 7 dias

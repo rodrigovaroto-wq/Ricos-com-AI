@@ -2716,7 +2716,13 @@ envio/reenvio/postagem (da troca/peça/devolução) (fica|é) por (sua|nossa) co
 liberaria: "…é de 7 dias pra chegar", "…e o envio é rapidinho", "…envio fica por nossa conta e chega em 7 dias"; garantia de 30 dias
 continua vetada); +14 frases no `gate-corpus.txt`; 4 afrouxamentos verdadeiros aceitos em `gate-loosen-accepted.txt`; mutações
 `E4-garantia-pra-trocar` e `E4-envio-por-sua-conta`.
-**Estado:** no código; publicar na v18 depois da segunda revisão.
+**Segunda revisão (Opus) reprovou `8cd229f`, consertado:** a âncora nova liberava sujeito coordenado ("a entrega e a garantia pra trocar o
+tamanho é de 7 dias"; a base já liberava "o tempo de entrega e o prazo pra trocar é de 7 dias"), porque o `own` corta em " e a/o" e a
+entrega ficava fora da cláusula; e o replace do "envio por sua conta" apagava a velocidade depois ("…, rapidinho"). `takenAfterReturn`
+recusa quando o trecho entre o último dígito e a âncora tem chegada ("chega em 1 a 3 dias e a garantia pra trocar é de 7 dias" segue
+passando no cod); o replace ganhou o lookahead de velocidade, como o do CEP. +6 mentiras no teste e no corpus; `dev:gates`: 5 afrouxados
+verdadeiros aceitos, 1 endurecido (o furo da base). Mutações `E4-sujeito-coordenado`, `E4-envio-rapidinho`.
+**Estado:** no código; publicar na v18.
 
 ## Lições (valem para qualquer correção futura)
 
