@@ -2761,7 +2761,8 @@ Branch `claude/pipeline-e4-fix-exp-b` contra `main`, nível alto. Consertados aq
    7/7, o formulário mantém a senha). A regra do §81 vale para qualquer nó e parâmetro, e o ramo falso de um IF deixou de contar como saída
    de erro. Mutação `N8N-erro-inteiro-em-qualquer-no`.
 8. **Braço B, região sem pagamento na entrega e sem a escolha dela** pedia nome/CPF como o braço 0: agora `missingForLink` devolve
-   `payment` (espera o sim dela à oferta). Mutação `E6-braco-b-pede-nome`.
+   `payment` (espera o sim dela à oferta). Mutação `E6-braco-b-pede-nome`, que substitui a `E6-regiao-solta-o-link` (a condição
+   `&& choiceMade === true` da linha do `null` ficou morta e saiu; a mutação antiga escapava por isso).
 9. **`asksForSize`:** "O número da sua calça é 44?" (confirmação) deixou de ser pergunta; "Me diz o seu tamanho", "Me passa a sua
    numeração" passaram a ser. Mutação `E4-confirma-numero-nao-pergunta`.
 10. Comentário desatualizado do alarme em `n8n-sync.ts`.

@@ -471,7 +471,7 @@ export const missingForLink = (d: LinkData): LinkDatum | null =>
   // Arm B waits for HER choice: a region without cash on delivery settles the path alone, and asking her name then
   // would run arm 0's flow inside arm 1 (/code-review of the E6 fixes).
   : !d.pathSettled || (d.identityAtCheckout === true && d.choiceMade !== true) ? "payment"
-  : d.identityAtCheckout === true && d.choiceMade === true ? null
+  : d.identityAtCheckout === true ? null
   : !d.nameKnown ? "name"
   : d.emailDone === false ? "email"
   : !d.cpfDone ? "document"
