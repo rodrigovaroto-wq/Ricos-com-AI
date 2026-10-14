@@ -266,9 +266,9 @@ describe("o que sai pela Cloud API", () => {
     expect(JSON.stringify(readReceipt("wamid.1"))).not.toContain("typing");
   });
 
-  it("a função de entrada marca como lida 2 s depois, sem digitando", () => {
+  it("a função de entrada marca como lida 5 s depois, sem digitando", () => {
     const fn = readFileSync("supabase/functions/whatsapp/index.ts", "utf8");
-    expect(READ_RECEIPT_DELAY_MS).toBe(2_000);
+    expect(READ_RECEIPT_DELAY_MS).toBe(5_000);
     expect(fn).toContain("setTimeout(wait, READ_RECEIPT_DELAY_MS)");
     expect(fn).toContain("JSON.stringify(readReceipt(parsed.externalId))");
     expect(fn).not.toContain("typing_indicator");

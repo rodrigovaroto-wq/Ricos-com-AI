@@ -293,7 +293,7 @@ const forward = async (payload: unknown) => {
   const declines = Promise.all(marketingDeclines(payload, PHONE_NUMBER_ID).map(declineMarketing));
   await Promise.all(
     parseWebhook(payload, PHONE_NUMBER_ID).map(async ({ audioId, imageId, ...parsed }) => {
-      // The blue ticks 2 s after her message, in parallel: the forward to the turn never waits on them.
+      // The blue ticks 5 s after her message, in parallel: the forward to the turn never waits on them.
       const read = TOKEN && PHONE_NUMBER_ID
         ? new Promise((wait) => setTimeout(wait, READ_RECEIPT_DELAY_MS)).then(() =>
           fetch(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`, {
