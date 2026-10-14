@@ -4638,6 +4638,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
+    id: "R23-o-resto-no-link",
+    bug: "\"Patrícia Lima, o resto te passo no link\" esperava o CPF que ninguém pediu e o link não saía (venda-curiosa, 14/10)",
+    files: ["src/agent/identity.ts"],
+    from: "      answer.some((a) => /\\bo\\s+rest(?:o|ante)\\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)));",
+    to: "      false;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
     id: "R23-kit-repetido",
     bug: "a pergunta do kit fechou quatro respostas seguidas (…3720)",
     files: ["supabase/functions/turn/index.ts"],

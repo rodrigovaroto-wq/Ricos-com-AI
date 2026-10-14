@@ -153,7 +153,10 @@ export const refusedDatum = (
   let answer: string[] = [];
   const close = () => {
     const norm = (a: string) => a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?"));
+    const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?")) ||
+      // "Patrícia Lima, o resto te passo no link" (persona venda-curiosa, 2026-10-14): every datum still missing goes to the
+      // checkout, asked or not — the one she just gave is `found` and does not count.
+      answer.some((a) => /\bo\s+rest(?:o|ante)\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)));
     if (answer.length > 0 && !answer.some(found) && ((asked && answer.some((a) => refuses(a, bareNoCounts))) || own)) count += 1;
     answer = [];
   };

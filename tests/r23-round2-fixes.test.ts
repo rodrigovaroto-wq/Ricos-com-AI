@@ -298,3 +298,16 @@ describe("persona venda-curiosa (14/10): escolha com ponto final e nome no come�
     expect(extractName("Patrícia Lima, o resto te passo no link")).toBeNull();
   });
 });
+
+describe("persona venda-curiosa (14/10): \"o resto te passo no link\" na resposta do nome", () => {
+  const askName = { direction: "outbound", body: "Pra deixar o pedido no seu nome, me passa seu nome completo por favor?" };
+  it("solta o CPF e o e-mail ainda não pedidos; o nome dado não conta como recusa", () => {
+    const m = [askName, { direction: "inbound", body: "Patrícia Lima, o resto te passo no link" }];
+    expect(refusedDatum(m, "document")).toBe(1);
+    expect(refusedDatum(m, "email")).toBe(1);
+    expect(refusedDatum(m, "name")).toBe(0);
+  });
+  it("\"o resto\" sem o checkout não solta nada", () => {
+    expect(refusedDatum([askName, { direction: "inbound", body: "o resto do endereço eu completo depois" }], "document")).toBe(0);
+  });
+});
