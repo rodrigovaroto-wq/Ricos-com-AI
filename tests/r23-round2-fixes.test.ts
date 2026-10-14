@@ -2,7 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { deliveryFor, renderFollowup, type RenderContext } from "@/agent/followups.js";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
-import { refusedDatum } from "@/agent/identity.js";
+import { refusedDatum, sentInvalidCpf } from "@/agent/identity.js";
 import { asksForLink } from "@/agent/interpret.js";
 import { paidDeadlineLine, priceBeforeCepMessage, systemPrompt } from "@/agent/prompt.js";
 import { noFitReply, saidNoFit } from "@/agent/retry.js";
@@ -186,5 +186,30 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
     expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
     expect(turn).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,");
     expect(turn).toContain("refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
+  });
+});
+
+describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondido, não carimbado", () => {
+  it("o turno não manda mais a frase fixa: o modelo recebe a diretiva e responde também a troca, a ausência em casa e a devolução", () => {
+    expect(turn).toContain("if (handoffKind !== null) orderUnreadable = true;");
+    expect(turn).toContain("Ela fala de um pedido que o sistema não consegue ler agora");
+    expect(turn).toContain("depois responda o que mais ela");
+    // Negação: o pedido de pessoa continua com a frase honesta.
+    expect(turn).toContain('return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");');
+  });
+});
+
+describe("persona Vera (14/10): CPF que não fecha os dígitos não é agradecido", () => {
+  it("lê o número de CPF inválido; o válido e o texto sem número não", () => {
+    expect(sentInvalidCpf("111.111.111-11")).toBe(true);
+    expect(sentInvalidCpf("12345678900")).toBe(true);
+    expect(sentInvalidCpf("529.982.247-25")).toBe(false);
+    expect(sentInvalidCpf("meu cep é 50030-230")).toBe(false);
+    expect(sentInvalidCpf("opa, mandei errado, o certo é 529.982.247-25")).toBe(false);
+  });
+  it("o turno pede para conferir, sem agradecer nem prometer o link", () => {
+    expect(turn).toContain('missing === "document" && parts.some(sentInvalidCpf)');
+    expect(turn).toContain("O CPF que ela mandou não confere");
+    expect(turn).toContain("não diga que está tudo certo");
   });
 });

@@ -56,6 +56,13 @@ export const extractCpf = (text: string): string | null => {
 };
 
 /**
+ * A CPF-shaped number whose check digits do not close, and no valid one beside it (persona Vera, 2026-10-14:
+ * "111.111.111-11" was thanked as if it were hers). `extractCpf` drops it silently, so the turn has to be told.
+ */
+export const sentInvalidCpf = (text: string): boolean =>
+  extractCpf(text) === null && /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{11}\b/.test(text);
+
+/**
  * The e-mail, if there is exactly one thing that looks like one. Deliberately strict
  * about the tail: `joao@gmail` is what people send when the keyboard swallowed the
  * rest, and accepting it produces an order whose confirmation goes nowhere.

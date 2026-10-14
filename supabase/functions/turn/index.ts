@@ -101,6 +101,7 @@ import {
   emailInChat,
   extractEmail,
   refusedDatum,
+  sentInvalidCpf,
   type Identity,
 } from "./identity.ts";
 import {
@@ -3326,16 +3327,15 @@ const handleTurn = async (
       if (answered) return answered;
     }
   }
-  if (handoffKind !== null) {
-    return await handOff(
-      handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,
-      handoffKind === "cancel"
-        ? "a cliente quer cancelar um pedido"
-        : handoffKind === "post_sale"
-        ? "a cliente pergunta sobre um pedido existente"
-        : "a cliente pediu para falar com uma pessoa",
-    );
+  // A person asked for in so many words hears the honest line. A question about an order the system cannot read (none on file, a
+  // status outside the vocabulary) is answered by the model with that fact told to it, and her other questions answered too
+  // (personas Lu and Vera, 2026-10-14: "e se eu não estiver em casa?" got "não consegui ver o andamento" twice, R22.1).
+  let orderUnreadable = false;
+  const { email: supportEmail = null } = CONFIG.support ?? {};
+  if (handoffKind === "human") {
+    return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
+  if (handoffKind !== null) orderUnreadable = true;
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
@@ -3918,6 +3918,11 @@ const handleTurn = async (
       `Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.`
     : linkNow || linkAlreadySent || kitOfferNow || !(missing === "name" || missing === "email" || missing === "document")
       ? null
+      : missing === "document" && parts.some(sentInvalidCpf)
+      ? // Persona Vera (2026-10-14): the invalid number was thanked as if it were hers, and the link never came.
+        `O CPF que ela mandou não confere (algum dígito está errado, pode ser um erro de digitação): diga isso com gentileza, sem` +
+        ` acusar, e peça pra ela conferir e mandar de novo. Não agradeça como se tivesse recebido e não diga que está tudo certo` +
+        ` nem que o link vai sair. Se ela preferir, tudo bem, ela digita o CPF no checkout.`
       : identityDirectiveFor(missing, cpfRefusals, justRefused);
   // Once the link is in the chat the checkout collects the rest (persona round 3, Cleide
   // was asked her e-mail after it). Said outright, because the prompt's own flow asks.
@@ -3989,6 +3994,13 @@ const handleTurn = async (
       // Not on her first reply (E3 review, R1): the opening's greeting and question outrank "1 balão de 15 palavras".
       greeting ? null : registerDirective(recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? ""))),
       kitDirective,
+      orderUnreadable
+        ? `Ela fala de um pedido que o sistema não consegue ler agora (não há pedido dela aqui, ou o status não é legível): não invente` +
+          ` status, prazo, rastreio nem diga que vai conferir. Diga numa frase, com acolhimento, que por aqui você não vê o andamento` +
+          ` desse pedido${supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}; depois responda o que mais ela` +
+          ` perguntou (troca, devolução, não estar em casa) com o que está no prompt. Você não cancela pedido: se ela quer cancelar e` +
+          ` ainda não recebeu, é recusar na porta; se já recebeu, são os dias de devolução.`
+        : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
       backToSize,
