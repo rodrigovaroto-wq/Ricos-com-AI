@@ -2975,7 +2975,7 @@ fixavam "alguém te chama", "duas reescritas" e a conversa que "volta depois do 
 **Fica / residual:** os gates `installment_promise` ("também") e `price_promise` ("Por R$ 100 eu não consigo") **não foram mexidos** —
 R21.6 exige a frase real, e com a resposta fixa + cinco tentativas + o rascunho gravado a próxima ocorrência a trará. Leads antigos com
 `handoff_at` seguem calados até o operador limpá-los. Nada disto está publicado: `turn` v23 e a mudança dos dois e-mails do n8n
-(texto do aviso) esperam deploy. **Crítica à análise da rodada** (feita nesta sessão): a lista de seis consertos omitia os achados do `…7967`
+(texto do aviso) esperam deploy (publicados em 14/10 na v23 — ver o estado no §93). **Crítica à análise da rodada** (feita nesta sessão): a lista de seis consertos omitia os achados do `…7967`
 antigo — pessoa oferecida sem pedido (fechado aqui), link não reenviado quando ela diz que não recebeu, "Chega quando?" engolido pela
 resposta de Pix pendente, tamanho de 08/10 sobrepondo o "36" novo — e tratava "pessoa" como destino válido quando nenhuma pessoa
 responde; o conserto 4 (gates) era conjectura sem a frase real.
@@ -3028,6 +3028,10 @@ ver `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md` (tabela por volta).
 ela pedisse — quebra a regra do operador (dados antes do link, 06/10); ficou `pressed` (dois pedidos explícitos do link). **Guarda:**
 `tests/r23-round2-fixes.test.ts` (frase real + negação de cada um), mutações `R23-*` (todas pegas), três revisões Opus.
 **Fica:** os resíduos listados no relatório.
+**Estado:** publicado em 14/10 — `turn` v23 (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida); os dois e-mails do n8n
+publicados e ativos (Turno da agente `972c1637`, Relógio da régua `883fc037`; `pnpm dev:n8n` ok nos sete workflows); `handoff_at` limpo
+dos números de teste …5983, …7967 e …3720. Validação antes do deploy: suíte inteira de mutações 567/571 com as quatro reancoradas
+(98/98 no subconjunto), `dev:conversas` 1655/1655, `dev:gates` sem afrouxar, `deno check` ok.
 
 ## Lições (valem para qualquer correção futura)
 

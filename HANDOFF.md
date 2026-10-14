@@ -13,6 +13,17 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (LEIA PRIMEIRO).**
+> - `turn` v23 publicada (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida). A Malu não chama mais pessoa; os gates têm
+>   cinco tentativas; consertos da rodada 2 e do loop de personas (grafo §91–§93, `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md`).
+> - n8n: os dois e-mails novos ("Avisa o operador") publicados e ativos — Turno da agente `972c1637`, Relógio da régua `883fc037`;
+>   `pnpm dev:n8n` ok nos sete workflows.
+> - `handoff_at` limpo dos números de teste …5983, …7967 e …3720: os três voltam a ser atendidos.
+> - Validação: suíte inteira de mutações (567/571 + as 4 reancoradas, 98/98 no subconjunto), `dev:conversas` 1655/1655, `dev:gates` sem
+>   afrouxar, `deno check` ok.
+> - **Falta:** PR da branch `claude/nice-bardeen-ewbfs7` para a `main`; rodada 3 de testes reais sobre a v23; resíduos do grafo §92–§93
+>   esperam frase real (R21.6). O bloco abaixo ("NÃO publicado") é histórico.
+
 > **2026-10-14 — R23 (rodada 2 de testes reais) implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).**
 > - Rodada 2 arquivada e analisada mensagem por mensagem: `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-3720.md` e
 >   `-1632.md` (grafo §92, decisão R23). Os 8 consertos aprovados pelo operador estão no código, com teste da frase real e da negação,
