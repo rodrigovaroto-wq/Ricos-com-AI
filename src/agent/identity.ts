@@ -159,7 +159,7 @@ export const refusedDatum = (
       // checkout, asked or not — the one she just gave is `found` and does not count.
       // Only after an identity ask, and never about the address or naming a datum she gives here (Opus review).
       (identityAsked && answer.some((a) => /\bo\s+rest(?:o|ante)\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)) &&
-        !/\b(?:endereco|numero|complemento|rua|bairro|cep|cpf|e-?mail|nome)\b/.test(norm(a))));
+        !/\b(?:endereco|numero|complemento|rua|bairro|cep|cpf|e-?mail)\b/.test(norm(a))));
     if (answer.length > 0 && !answer.some(found) && ((asked && answer.some((a) => refuses(a, bareNoCounts))) || own)) count += 1;
     answer = [];
   };
@@ -238,12 +238,16 @@ export const extractName = (text: string, askedName = false): string | null => {
   // Almeida": personas of 2026-10-14) — its first clause, past a "pode ser", goes through every check below.
   // Only when the rest of the message is about the data or the checkout (Opus review: "Antes disso, qual o prazo?", "Pera ai, vou
   // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
+  // And written like a name — every word capitalised but the particles (third Opus review: "Antes disso, me manda o link", "Pera ai,
+  // cadê o link?", "Vixe maria, esqueci o cpf" kept passing every word list).
   const [head = "", ...tail] = cleaned.split(/[,\n]/);
   const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
+  const written = (t: string): boolean => t.split(" ").filter(Boolean).every((w) => /^(?:da|de|do|das|dos|e)$/.test(w) || /^[A-ZÀ-Ý]/.test(w));
   const opening = !askedName ? ""
     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
     : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
     : "";
+  if (opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 

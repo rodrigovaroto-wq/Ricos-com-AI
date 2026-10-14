@@ -4381,7 +4381,8 @@ const handleTurn = async (
   await Promise.all([
     recordOutcome(
       conversation.id,
-      notifyOrder ? "handoff" : fallbackReason === null ? "send" : "fallback",
+      // A fallback stays a fallback in the record (the evaluation views and Hermes count it); the e-mail rides on the status.
+      fallbackReason !== null ? "fallback" : notifyOrder ? "handoff" : "send",
       // The order's mark leads (the once-per-conversation read is a prefix match), and what else happened stays beside it (H-2).
       [notifyOrder ? ORDER_UNREADABLE_REASON : null, fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
         .filter((r): r is string => r !== null).join(" | ") || null,
@@ -4417,7 +4418,7 @@ const handleTurn = async (
           ...(fallbackIsGeneric ? notification(lead, conversation) : {}),
         }),
     // The operator's e-mail for an order the system could not read, once per conversation (R22.1: told, not called).
-    ...(notifyOrder ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {}),
+    ...(notifyOrder ? { reason: [ORDER_UNREADABLE_REASON, fallbackReason].filter(Boolean).join(" | "), ...notification(lead, conversation) } : {}),
     reply: replyText,
     bubbles: paced(replyText, fastOpening),
     messageId: outbound.id,

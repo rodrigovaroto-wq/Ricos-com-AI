@@ -243,7 +243,7 @@ describe("revisão Opus do loop de personas (14/10)", () => {
   });
 
   it("pedido que o sistema não lê: o operador recebe o e-mail (status handoff com notify), uma vez por conversa", () => {
-    expect(turn).toContain("...(notifyOrder ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {})");
+    expect(turn).toContain("...(notifyOrder ? { reason: [ORDER_UNREADABLE_REASON, fallbackReason]");
   });
   it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
     const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
@@ -343,5 +343,32 @@ describe("segunda revisão Opus do loop de personas (14/10)", () => {
     expect(turn).toContain('reason=like.${encodeURIComponent(`${ORDER_UNREADABLE_REASON}*`)}');
     expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
     expect(turn).toContain(".filter((r): r is string => r !== null).join(\" | \") || null,");
+  });
+});
+
+describe("terceira revisão Opus (14/10)", () => {
+  it.each(["Antes disso, me manda o link", "Pera ai, cadê o link?", "Nossa senhora, o link não abre", "Vixe maria, esqueci o cpf", "Só um minuto, o link chegou?"])(
+    "interjeição antes de uma frase sobre o link não vira nome: %s",
+    (t) => expect(extractName(t, true)).toBeNull(),
+  );
+  it("o nome escrito como nome continua lido", () => {
+    expect(extractName("Patrícia Lima, o resto te passo no link", true)).toBe("Patrícia Lima");
+    expect(extractName("Maria da Silva, o cpf eu passo no link", true)).toBe("Maria da Silva");
+  });
+  it("\"meu nome é …, o resto te passo no link\" solta CPF e e-mail", () => {
+    const askName = { direction: "outbound", body: "Pra deixar o pedido no seu nome, me passa seu nome completo por favor?" };
+    const m = [askName, { direction: "inbound", body: "meu nome é Patrícia Lima, o resto te passo no link" }];
+    expect(refusedDatum(m, "document")).toBe(1);
+    expect(refusedDatum(m, "email")).toBe(1);
+  });
+  it("escolha seguida de pergunta de logística continua escolha; a dúvida sobre o caminho não", () => {
+    expect(choosesPath("prefiro na entrega. qual o melhor horário pra receber?")).toBe(true);
+    expect(choosesPath("vou na entrega. é garantido que chega amanhã?")).toBe(true);
+    expect(choosesPath("prefiro na entrega. é seguro?")).toBe(false);
+    expect(choosesPath("quero na entrega. sera que compensa?")).toBe(false);
+  });
+  it("o turno de fallback continua gravado como fallback; o e-mail leva os dois motivos", () => {
+    expect(turn).toContain('fallbackReason !== null ? "fallback" : notifyOrder ? "handoff" : "send",');
+    expect(turn).toContain('reason: [ORDER_UNREADABLE_REASON, fallbackReason].filter(Boolean).join(" | ")');
   });
 });

@@ -4641,8 +4641,8 @@ const MUTATIONS: Mutation[] = [
     id: "R23-o-resto-no-link",
     bug: "\"Patrícia Lima, o resto te passo no link\" esperava o CPF que ninguém pediu e o link não saía (venda-curiosa, 14/10)",
     files: ["src/agent/identity.ts"],
-    from: "      answer.some((a) => /\\bo\\s+rest(?:o|ante)\\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)));",
-    to: "      false;",
+    from: "      (identityAsked && answer.some((a) => /\\bo\\s+rest(?:o|ante)\\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)) &&",
+    to: "      (false && answer.some((a) => /\\bo\\s+rest(?:o|ante)\\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)) &&",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
