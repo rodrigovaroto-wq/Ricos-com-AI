@@ -4622,6 +4622,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
+    id: "R23-escolha-com-ponto",
+    bug: "\"prefiro na entrega. quanto fica no total?\" não guardava a escolha e o link nunca saía (venda-curiosa, 14/10)",
+    files: ["src/agent/interpret.ts"],
+    from: "!(/^\\s*(?:sim|mesmo|entao)?\\s*[,.;!]/.test(after)",
+    to: "!(/^\\s*(?:sim|mesmo|entao)?\\s*,/.test(after)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
+    id: "R23-nome-no-comeco",
+    bug: "\"Patrícia Lima, o resto te passo no link\" não guardava o nome (venda-curiosa, 14/10)",
+    files: ["src/agent/identity.ts"],
+    from: "(askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null)",
+    to: "(lettersOnly(cleaned) ? cleaned : null)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
     id: "R23-kit-repetido",
     bug: "a pergunta do kit fechou quatro respostas seguidas (…3720)",
     files: ["supabase/functions/turn/index.ts"],

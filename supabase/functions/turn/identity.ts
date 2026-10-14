@@ -226,7 +226,11 @@ export const extractName = (text: string, askedName = false): string | null => {
   const introduced = cleaned.match(
     /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s+d[ae]l[ae](?:\s+(?:é|e|eh))?\s*:?|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60})/i,
   );
-  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(cleaned) ? cleaned : null);
+  const lettersOnly = (t: string): boolean => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(t);
+  // Right after the ask, the name may open a longer message ("Patrícia Lima, o resto te passo no link", "pode ser Jessica
+  // Almeida": personas of 2026-10-14) — its first clause, past a "pode ser", goes through every check below.
+  const opening = askedName ? (cleaned.split(/[,\n]/)[0] ?? "").replace(/^pode\s+ser\s+/i, "").trim() : "";
+  const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
   const name = candidate

@@ -452,7 +452,8 @@ export const choosesPath = (message: string): boolean => {
   // mais barato?" is not).
   const after = t.slice(m.index + m[0].length);
   const questionAfter =
-    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*,/.test(after) && !new RegExp(PATH_WORD).test(after));
+    // A full stop works like the comma (persona venda-curiosa, 2026-10-14: "prefiro na entrega. quanto fica no total?").
+    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*[,.;!]/.test(after) && !new RegExp(PATH_WORD).test(after) && !/\b(?:mas|ou)\b/.test(after));
   return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;
 };
 

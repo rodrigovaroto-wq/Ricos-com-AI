@@ -2,8 +2,8 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { deliveryFor, renderFollowup, type RenderContext } from "@/agent/followups.js";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
-import { refusedDatum, sentInvalidCpf } from "@/agent/identity.js";
-import { asksForLink } from "@/agent/interpret.js";
+import { extractName, refusedDatum, sentInvalidCpf } from "@/agent/identity.js";
+import { asksForLink, choosesPath } from "@/agent/interpret.js";
 import { paidDeadlineLine, priceBeforeCepMessage, systemPrompt } from "@/agent/prompt.js";
 import { noFitReply, saidNoFit } from "@/agent/retry.js";
 import { extractDressSize, sizeBeyondTable, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "@/agent/sizing.js";
@@ -277,5 +277,24 @@ describe("persona venda-sem-dinheiro (14/10): a pergunta ao lado do \"vou pensar
     const block = turn.slice(at, at + 700);
     expect(block).toContain("interpretation.wants_to_think &&");
     expect(block).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))");
+  });
+});
+
+describe("persona venda-curiosa (14/10): escolha com ponto final e nome no começo de frase maior", () => {
+  it("\"prefiro na entrega. quanto fica no total?\" é escolha; com outro caminho, \"mas\" ou \"ou\" depois, não", () => {
+    expect(choosesPath("prefiro na entrega. quanto fica no total?")).toBe(true);
+    expect(choosesPath("quero no pix, qual a chave?")).toBe(true);
+    expect(choosesPath("pode ser na entrega. mas no pix sai mais barato?")).toBe(false);
+    expect(choosesPath("prefiro na entrega, mas é seguro?")).toBe(false);
+    expect(choosesPath("prefiro na entrega. ou no pix é melhor?")).toBe(false);
+  });
+  it("o nome que abre a resposta ao pedido do nome é lido; o que não é nome continua fora", () => {
+    expect(extractName("Patrícia Lima, o resto te passo no link", true)).toBe("Patrícia Lima");
+    expect(extractName("pode ser Jessica Almeida", true)).toBe("Jessica Almeida");
+    for (const t of ["Rua das Flores, 10", "prefiro não passar, pode ser sem?", "vou pensar, depois te passo", "boa tarde, Maria Silva", "Sim, pode mandar", "Centro, Recife"]) {
+      expect(extractName(t, true), t).toBeNull();
+    }
+    // Sem o pedido do nome, nada muda.
+    expect(extractName("Patrícia Lima, o resto te passo no link")).toBeNull();
   });
 });
