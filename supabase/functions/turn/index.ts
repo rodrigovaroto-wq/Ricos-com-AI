@@ -134,6 +134,7 @@ import {
   COD_CANCEL_REPLY,
   kitLimitReply,
   noFitReply,
+  saidNoFit,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
   QUIET_WINDOW_MS,
@@ -1148,10 +1149,16 @@ const scheduleSilenceTouches = async (
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022). Her recent
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   if (at && declinesInBurst(herRecent(at.messages ?? [], spoken))) { await cancelScheduled(conversationId, "all"); return; }
+  // She was told the vest does not fit and has no size of the table since (R23 review): her "obrigada" does not re-arm the
+  // ruler that would ask her pants size again. A size she gives later (`leads.size`) re-arms it.
+  if (at && !at.leads?.size && (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? ""))) {
+    await cancelScheduled(conversationId, "all");
+    return;
+  }
   if (at && !chasesSilence(at.stage, orderStatuses)) {
     // An unpaid Pix is a checkout still open: its touch stays (L2).
     await cancelScheduled(conversationId, checkoutStillOpen(orderStatuses) ? "keep_checkout" : "all");
@@ -1729,7 +1736,8 @@ const runFollowupSweep = async () => {
       scheduledFor: order?.scheduled_for ?? null,
       paymentPath: touchPath,
       // Nobody looked her region up and nothing settled the path: the touches do not promise the door (real test 2026-10-14).
-      regionKnown: Boolean(order) || typeof lead.address?.codAvailable === "boolean" || (fresh(lead.payment_choice_at) && lead.payment_choice != null),
+      // A choice alone is not a region (R23 review: "quero pagar na entrega" before any CEP); a prepaid choice is `touchPath` already.
+      regionKnown: Boolean(order) || typeof lead.address?.codAvailable === "boolean",
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -3071,7 +3079,8 @@ const handleTurn = async (
       : null;
     if (line !== null) {
       // Her deadline question in the same burst is answered too, never swallowed (pre-round test 2026-10-13).
-      const deadline = payment !== "confirmed" && parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";
+      // Confirmed too (R23 review): "paguei, quando chega?" with the payment in is when the deadline matters most.
+      const deadline = parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";
       const sent = await sendFixed(deadline ? `${line}\n\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
       if (sent) {
         // The receipt she sent is kept on the check: at 5 minutes it calls a person instead of asking again.
@@ -3816,7 +3825,7 @@ const handleTurn = async (
   // ruler had asked her size again the hour after. A size of the table in the same burst wins (she may correct it).
   const beyond = stated === null && lead.size == null ? parts.map((p: string) => sizeBeyondTable(p, asksSize(lastOutbound))).find((n) => n !== null) ?? null : null;
   if (beyond !== null) {
-    const sent = await sendFixed(opening(noFitReply(beyond, TABLE_TOP_DRESS, TABLE_TOP_WAIST)), `tamanho ${beyond} fora da tabela: a verdade, sem régua`);
+    const sent = await sendFixed(opening(noFitReply(beyond, TABLE_TOP_DRESS, TABLE_TOP_WAIST, interpretation.size?.for_other_person === true)), `tamanho ${beyond} fora da tabela: a verdade, sem régua`);
     if (sent) {
       await cancelScheduled(conversation.id, "all");
       return sent;
@@ -3952,7 +3961,7 @@ const handleTurn = async (
           ? ` Se ela não quiser, siga com uma peça e o link sai em seguida, e não volte ao kit.`
           : ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`) +
         ` A pergunta cita todas as quantidades que você ofereceu ("1, 2 ou 3 peças?").`
-      : kitOffered && units === 1 && quantity === null && !linkNow
+      : kitOffered && units === 1 && quantity === null && !linkNow && !parts.some((p: string) => /\b(?:pe[cç]as?|kit)\b/i.test(p))
       ? // Real test 2026-10-14 (…3720): the kit question closed four replies in a row while she asked other things.
         `Você já ofereceu o kit. Ela não escolheu quantidade e falou de outra coisa: responda o que ela perguntou e siga com` +
         ` uma peça. Não pergunte de novo sobre o kit nem sobre quantas peças.`

@@ -211,9 +211,9 @@ dependem do histórico.
 
 | # | Achado (frase literal) | Causa | Conserto | Guarda | Estado |
 |---|---|---|---|---|---|
-| 1 | "pelo que você me passou o seu é o XGG" a quem disse "uso 36" (depois corrigido para P) | provável: tamanho de 08/10 guardado no lead sobrepôs o "36" novo | investigar `size`/`units_at` com dado velho | — | ⬜ aberto |
-| 2 | "Usa o link que te mandei aqui" — nenhum link novo foi mandado; ela não achou, a Malu insistiu 4 vezes ("rolar pra cima", "sair e entrar no zap") | provável: estágio/link de 08/10 tomado como enviado; pedido de "novo link" não reenvia | reenviar o link quando ela diz que não recebeu / pede de novo | — | ⬜ aberto |
-| 3 | "quer que alguém do time te chame pra ajudar?" | a Malu oferece pessoa sem pedido (contra R21.1) | prompt + gate/regra: não oferecer pessoa | — | ⬜ aberto |
-| 4 | "Quero sim, por favor chame" → "sigo aqui com você…" | o "sim" à oferta de pessoa não conta como pedido explícito | se a Malu oferecer (não deveria), o "sim" é pedido | — | ⬜ aberto |
-| 5 | "Chega quando?" / "Queria saber quando chega meu pedido" sem resposta de prazo | a resposta fixa de pagamento pendente engole a pergunta de prazo | responder prazo médio do antecipado junto | — | ⬜ aberto |
+| 1 | "pelo que você me passou o seu é o XGG" a quem disse "uso 36" (depois corrigido para P) | provável: tamanho de 08/10 guardado no lead sobrepôs o "36" novo | **causa real (14/10):** não era dado velho — "tamanho, peso 52" era lido como calça 52; `WEIGHT_CUE` em `extractDressSize` | `tests/r23-round2-fixes.test.ts`, mutação `R23-peso-nao-e-tamanho` | ✅ R23 |
+| 2 | "Usa o link que te mandei aqui" — nenhum link novo foi mandado; ela não achou, a Malu insistiu 4 vezes ("rolar pra cima", "sair e entrar no zap") | provável: estágio/link de 08/10 tomado como enviado; pedido de "novo link" não reenvia | `asksForLink` lê "N recebi link", "Nao tem LINK", "gerar um novo link/pagamento" → o link sai de novo | `tests/r23-round2-fixes.test.ts`, mutação `R23-link-de-novo` | ✅ R23 |
+| 3 | "quer que alguém do time te chame pra ajudar?" | a Malu oferece pessoa sem pedido (contra R21.1) | `humanity_claim` veta a oferta; prompt e briefings deixam de ensiná-la (R22.1) | `tests/r22-no-person.test.ts`, mutação `R22-oferta-pessoa` | ✅ R22 |
+| 4 | "Quero sim, por favor chame" → "sigo aqui com você…" | o "sim" à oferta de pessoa não conta como pedido explícito | sem oferta (R22.1), não há "sim" a ler | — | ✅ R22 |
+| 5 | "Chega quando?" / "Queria saber quando chega meu pedido" sem resposta de prazo | a resposta fixa de pagamento pendente engole a pergunta de prazo | `paidDeadlineLine` junto da linha de pagamento | `tests/r23-round2-fixes.test.ts`, mutação `R23-paguei-prazo` | ✅ R23 |
 | 6 | "Paguei ja 116" e pagamento não confirmado | provável: pagou pelo link antigo de 08/10 (outro pedido) | conferir na Coinzz antes de apagar mais nada | — | ⬜ aberto |

@@ -2980,6 +2980,38 @@ antigo — pessoa oferecida sem pedido (fechado aqui), link não reenviado quand
 resposta de Pix pendente, tamanho de 08/10 sobrepondo o "36" novo — e tratava "pessoa" como destino válido quando nenhuma pessoa
 responde; o conserto 4 (gates) era conjectura sem a frase real.
 
+## 92. Rodada 2 de testes reais: a régua que pergunta o tamanho a quem não serve, e o kit perguntado quatro vezes (2026-10-14, R23)
+
+**Sintoma (conversas reais, `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-1632.md` e `-3720.md`):** (a) a Malu disse,
+certo, que o colete não veste na calça 65 — e uma hora depois a régua perguntou "me diz que tamanho de calça você usa", pediu para mandar
+ofertas e, às 9h, prometeu "só paga ao entregador" a quem nunca mandou CEP; (b) a pergunta "1 ou 2 peças?" fechou quatro respostas seguidas
+enquanto ela perguntava "é robô?", "é IA?" e "qual seu nome?" — e a oferta tinha 3 peças; (c) segundo gancho emocional depois da dor contada;
+(d) "Ele sai de R$ 216,50" na primeira mensagem. Da rodada anterior (`…7967`, 13/10), com frase real: "tamanho, peso 52 e uso 36" virou XGG;
+"N recebi link" / "Nao tem LINK" / "Consegue gerar um novo link?" não reenviavam o link; "Chega quando?" junto do "paguei" ficou sem prazo.
+**Nenhum gate vetou nada nas duas conversas novas:** tudo saiu do prompt, de linha fixa ou da régua. **Causa:** nada no código sabia de
+"fora da tabela" (só o modelo); a varredura lia região desconhecida como `cod`; nenhuma diretiva depois de `kitWasOffered`; o prompt mandava
+"uma pergunta viva, um gancho na dor" sem dizer que a dor contada é a hora do tamanho; `priceBeforeCepMessage` começava por "Ele";
+`extractDressSize` aceitava o número logo depois de "peso" quando "tamanho" vinha antes; `asksForLink` só lia "não recebi o link" com "não" por
+extenso. **Correção (R23, aprovada pelo operador):** `sizeBeyondTable` (calça 57–80 com deixa de tamanho; não peso, idade nem sapato) →
+`noFitReply` fixa, gentil, com porta aberta, e a régua toda cancelada (volta com a próxima mensagem dela); `regionKnown` no
+`RenderContext` → `SILENCE_2_UNKNOWN`/`SILENCE_1_UNKNOWN` ("dependendo da sua região") e template do `silence_2`/`silence_3` bloqueado;
+diretiva de kit já oferecido ("responda o que ela perguntou, siga com uma peça, não pergunte de novo") e a oferta citando todas as quantidades;
+prompt (dor → tamanho; "é IA?" confirmado direto com palavras novas; a tabela vai até o XGG, 52 de calça; responder o "tudo bem?" da
+abertura; o parágrafo "quem chama uma pessoa é o sistema" trocado pelo R22); "O colete sai de"; CEP que "parece" não existir;
+`WEIGHT_CUE`; `asksForLink` com as três frases reais; `paidDeadlineLine` junto da resposta de pagamento. **Guarda:**
+`tests/r23-round2-fixes.test.ts` (frase real e negação de cada um) e 11 mutações novas (R22 e R23) em `src/dev/verify-guards.ts`,
+11/11 pegas. **Fica:** calça 53–56 continua virando XGG (a tabela vai até 52; sem frase real, R21.6); a resposta de desconto cita o preço de
+uma peça numa conversa de kit (sem frase real); "Pode ser … sim, sem problema!" (tique) — observar.
+**Revisão Opus (reprovou a 1ª versão, 14/10):** (A1) a deixa de tamanho aceitava "número 65" da casa, "sou de 62" e o "entre" de
+"entrega 65?" — e aqui um erro recusa a venda: `sizeBeyondTable` ganhou deixa própria, mais estreita (`BEYOND_CUE`), e ignora medida do
+corpo depois do número ("uso 60 de cintura"); (A2) o "obrigada" dela rearmava a régua com `before_size`: `scheduleSilenceTouches` lê o
+`noFitReply` nas últimas mensagens (`saidNoFit`) e não arma enquanto `leads.size` for nulo; (A3) a escolha sem CEP não marca a região como
+conhecida; (A4) o cupom do `silence_3` em texto livre também não diz "pagando na entrega" sem região; (A5) o prazo vai junto também com o
+pagamento já confirmado; (A6) o tamanho de outra pessoa ganha a frase sem "te vestir". Resíduos tratados: "não tem link de pix?" não é
+pedido de link; a diretiva do kit não sai quando ela fala de peças/kit. **Fica (R21.6):** se o intérprete ler "Tamanho 65" como cintura
+65 cm ou XGG, `stated` deixa de ser nulo e o "não serve" não sai — sem frase real. Mutações novas `R23-regua-depois-do-nao-serve` e
+`R23-escolha-nao-e-regiao`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

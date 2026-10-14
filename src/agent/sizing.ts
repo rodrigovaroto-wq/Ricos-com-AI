@@ -162,15 +162,19 @@ export const extractDressSize = (text: string): number | null => {
  */
 export const TABLE_TOP_DRESS = RANGES[RANGES.length - 1]!.dressMax;
 export const TABLE_TOP_WAIST = RANGES[RANGES.length - 1]!.max;
+// Stricter than `SIZE_CUE` (R23 review): "número 65" of the house, "sou de 62" and the "entre" inside "entrega 65?" are not a
+// pants size, and here a wrong read refuses the sale. A body measure after the number is a waist, not pants ("uso 60 de cintura").
+const BEYOND_CUE = /\b(tamanho|veste|visto|uso|usa|cal[c\u00e7]a)\b\D{0,10}$/i;
+const BODY_AFTER = /^\s*(?:de\s+)?(?:cintura|quadril|busto|barriga)\b/i;
 export const sizeBeyondTable = (text: string, askedSize = false): number | null => {
   const bare = /^\s*(\d{2})\s*$/.exec(text);
   if (bare) return askedSize && Number(bare[1]) > 56 && Number(bare[1]) <= 80 ? Number(bare[1]) : null;
   for (const match of text.matchAll(/\b(5[7-9]|[67]\d|80)\b/g)) {
     const at = match.index ?? 0;
     const before = text.slice(0, at);
-    if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
+    if (NOT_A_SIZE.test(text.slice(at + match[0]!.length)) || BODY_AFTER.test(text.slice(at + match[0]!.length))) continue;
     if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
-    if (SIZE_CUE.test(before)) return Number(match[1]);
+    if (BEYOND_CUE.test(before)) return Number(match[1]);
   }
   return null;
 };

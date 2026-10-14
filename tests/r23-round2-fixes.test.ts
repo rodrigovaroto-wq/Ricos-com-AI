@@ -4,7 +4,7 @@ import { deliveryFor, renderFollowup, type RenderContext } from "@/agent/followu
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
 import { asksForLink } from "@/agent/interpret.js";
 import { paidDeadlineLine, priceBeforeCepMessage, systemPrompt } from "@/agent/prompt.js";
-import { noFitReply } from "@/agent/retry.js";
+import { noFitReply, saidNoFit } from "@/agent/retry.js";
 import { extractDressSize, sizeBeyondTable, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "@/agent/sizing.js";
 import { config, ctx } from "./fixtures.js";
 
@@ -23,7 +23,11 @@ describe("1. calça acima da tabela (…1632: \"Tamanho 65\")", () => {
     expect(sizeBeyondTable("uso 60 de calça")).toBe(60);
     expect(sizeBeyondTable("65", true)).toBe(65);
   });
-  it.each(["Estou pesando 200kg", "peso 70", "tenho 62 anos", "calço 60", "uso 52", "nao uso 60, uso 44", "65"])("não lê: %s", (t) => {
+  it.each([
+    "Estou pesando 200kg", "peso 70", "tenho 62 anos", "calço 60", "uso 52", "nao uso 60, uso 44", "65",
+    // R23 review: the house number, the birth year, the "entre" inside "entrega", and a waist in cm are not pants.
+    "Rua das Flores, número 65", "Av Brasil numero 72 apto 3", "sou de 62", "sou nascida em 59", "a entrega fica 65?", "uso 60 de cintura",
+  ])("não lê: %s", (t) => {
     expect(sizeBeyondTable(t)).toBeNull();
   });
   it("a resposta é a verdade, gentil, com a porta aberta, e passa a cadeia", () => {
@@ -33,10 +37,23 @@ describe("1. calça acima da tabela (…1632: \"Tamanho 65\")", () => {
     expect(text).not.toContain("?");
     expect(blocked(text)).toEqual([]);
   });
+  it("para outra pessoa, a frase não diz \"te vestir\"", () => {
+    const text = noFitReply(60, TABLE_TOP_DRESS, TABLE_TOP_WAIST, true);
+    expect(text).not.toContain("te vestir");
+    expect(blocked(text)).toEqual([]);
+    expect(turn).toContain("interpretation.size?.for_other_person === true");
+  });
+  it("a régua não volta a perguntar o tamanho depois do \"não serve\" enquanto ela não tem tamanho da tabela", () => {
+    expect(saidNoFit(noFitReply(65, TABLE_TOP_DRESS, TABLE_TOP_WAIST))).toBe(true);
+    expect(saidNoFit(noFitReply(60, TABLE_TOP_DRESS, TABLE_TOP_WAIST, true))).toBe(true);
+    expect(saidNoFit("Com 40 de calça o seu é o M")).toBe(false);
+    expect(turn).toContain("if (at && !at.leads?.size && (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === \"outbound\" && saidNoFit(m.body ?? \"\"))) {");
+    expect(turn).toContain("select=*,leads(size,orders(status))");
+  });
   it("o turno manda a frase e cancela toda a régua", () => {
     const at = turn.indexOf("const beyond = ");
     const block = turn.slice(at, turn.indexOf("// She turns the sale down (grafo §69)", at));
-    expect(block).toContain("noFitReply(beyond, TABLE_TOP_DRESS, TABLE_TOP_WAIST)");
+    expect(block).toContain("noFitReply(beyond, TABLE_TOP_DRESS, TABLE_TOP_WAIST, ");
     expect(block).toContain('await cancelScheduled(conversation.id, "all");');
   });
 });
@@ -60,8 +77,14 @@ describe("2. régua com a região desconhecida (…1632 nunca mandou CEP)", () =
     const old = new Date("2026-09-01T10:00:00");
     expect(deliveryFor("silence_2", render({ config: tpl, marketingOptIn: true, regionKnown: false }), old)).toEqual({ via: "blocked", reason: "no_template" });
   });
-  it("a varredura diz se a região é conhecida", () => {
-    expect(turn).toContain("regionKnown: Boolean(order) || typeof lead.address?.codAvailable === \"boolean\"");
+  it("a varredura diz se a região é conhecida — a escolha sozinha não é região", () => {
+    expect(turn).toContain("regionKnown: Boolean(order) || typeof lead.address?.codAvailable === \"boolean\",");
+    expect(turn).not.toContain("regionKnown: Boolean(order) || typeof lead.address?.codAvailable === \"boolean\" ||");
+  });
+  it("o cupom do silence_3 não promete \"pagando na entrega\" a quem tem região desconhecida", () => {
+    const c = { ...config, coupon: { ...config.coupon, active: true, code: "SUPER10", percent: 10 } } as never;
+    expect(renderFollowup("silence_3", render({ config: c, regionKnown: false }))).not.toContain("na entrega");
+    expect(renderFollowup("silence_3", render({ config: c }))).toContain("pagando na entrega");
   });
 });
 
@@ -81,7 +104,7 @@ describe("3. prompt: dor contada vira tamanho, IA confirmada direto, tabela até
 
 describe("4. kit oferecido não volta (…3720: quatro vezes \"1 ou 2 peças?\")", () => {
   it("depois da oferta sem resposta, a instrução manda seguir com uma peça e não perguntar de novo", () => {
-    expect(turn).toContain("kitOffered && units === 1 && quantity === null && !linkNow");
+    expect(turn).toContain("kitOffered && units === 1 && quantity === null && !linkNow && !parts.some((p: string) => /\\b(?:pe[cç]as?|kit)\\b/i.test(p))");
     expect(turn).toContain("Não pergunte de novo sobre o kit nem sobre quantas peças.");
   });
   it("a oferta pergunta por todas as quantidades oferecidas", () => {
@@ -114,7 +137,7 @@ describe("7. pedir o link de novo (…7967: \"N recebi link\", \"Nao tem LINK\",
   it.each(["N recebi link", "Nao tem LINK", "Nao tem link moça", "Consegue gerar um novo link?", "Por favor consegue me gerar o pagamento? Vou levar so 1"])("pede: %s", (t) => {
     expect(asksForLink(t)).toBe(true);
   });
-  it.each(["não precisa gerar outro link", "já recebi o link, obrigada", "gera o link amanhã", "Qual?"])("não pede: %s", (t) => {
+  it.each(["não precisa gerar outro link", "já recebi o link, obrigada", "gera o link amanhã", "Qual?", "nao tem link de pix?"])("não pede: %s", (t) => {
     expect(asksForLink(t)).toBe(false);
   });
 });
@@ -128,7 +151,7 @@ describe("8. \"paguei\" com \"chega quando?\" (…7967)", () => {
     // Negação: sem a média no config, nada é dito.
     expect(paidDeadlineLine({ ...config, delivery: { ...config.delivery, prepayAvgDays: undefined } } as never)).toBe("");
   });
-  it("o turno junta o prazo à linha do pagamento, nunca ao pagamento já confirmado", () => {
-    expect(turn).toContain('const deadline = payment !== "confirmed" && parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";');
+  it("o turno junta o prazo à linha do pagamento, também ao pagamento já confirmado", () => {
+    expect(turn).toContain('const deadline = parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";');
   });
 });

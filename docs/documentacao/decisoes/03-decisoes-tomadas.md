@@ -2174,3 +2174,6 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   configuração/provedor. Grafo §91.
 - **R22.2 — Cinco tentativas nos gates** (operador, mesmo dia): de três para cinco (quatro reescritas). O agente lê por que foi barrado, e
   a reescrita recebe os motivos de todas as tentativas anteriores e a ordem de conferir as outras regras. Grafo §91.
+- **R23 — Consertos da rodada 2 de testes reais** (operador, 2026-10-14: "pode seguir com os 8 consertos"): fora da tabela pela calça
+  (resposta fixa e régua parada), régua sem promessa de entrega com região desconhecida, kit perguntado uma vez, prompt (dor → tamanho, IA,
+  topo da tabela, "tudo bem?"), "O colete sai de", peso não é tamanho, link pedido de novo, prazo junto do "paguei". Grafo §92.

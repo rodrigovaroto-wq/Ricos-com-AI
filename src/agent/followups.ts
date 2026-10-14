@@ -1182,6 +1182,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         // Where she only has the prepaid path, "nos dois jeitos" names one she cannot use (R16.2).
         (ctx.paymentPath === "prepay"
           ? `pra você, e ele vale no pagamento antecipado.\n\n`
+          : ctx.regionKnown === false
+          ? // Nobody knows if the door reaches her (R23 review): no "pagando na entrega".
+            `pra você.\n\n`
           : `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n`) +
         // Logzz and Coinzz take the code at checkout; nobody applies it for her (R17.4 a).
         `É só usar o código **${code}** no checkout — se quiser, te mando o link agora. E se não for o momento, ` +

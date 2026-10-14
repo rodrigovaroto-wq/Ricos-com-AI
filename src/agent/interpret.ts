@@ -1112,7 +1112,8 @@ export const asksForLink = (message: string): boolean => {
   const t = norm(message);
   // Pre-round test 2026-10-13 (…7967): "N recebi link", "Nao tem LINK", "Nao tem link moça" — she never got one, and the
   // agent sent her up the chat four times.
-  if (/\b(?:nao|n)\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei|tem|apareceu|aparece)\s+(?:o\s+|nenhum\s+)?link\b/.test(t)) return true;
+  // "Não tem link de pix?" asks about a way to pay, not for the link (R23 review).
+  if (/\b(?:nao|n)\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei|tem|apareceu|aparece)\s+(?:o\s+|nenhum\s+)?link\b(?!\s+(?:de|do|da|pra|pro|para|no|na)\b)/.test(t)) return true;
   // "Consegue gerar um novo link?", "consegue me gerar o pagamento?" (same conversation): a new link asked for. A refusal or
   // a condition after it is not a request ("não precisa gerar outro link", "gera o link amanhã").
   const generate = /\b(?:gera|gerar|gere)\s+(?:me\s+)?(?:um\s+|o\s+|outro\s+)?(?:novo\s+)?(?:link|pagamento)\b/.exec(t);

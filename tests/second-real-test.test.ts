@@ -294,7 +294,7 @@ describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no m�
     expect(oncePerDay(ruler, {}).map((f) => f.kind)).toEqual(ruler.map((f) => f.kind));
   });
   it("o turno lê o envio de cada toque antes de armar", () => {
-    expect(turn).toContain("select=*,leads(orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,orders(status)),followups(kind,sent_at)");
   });
 });
 
