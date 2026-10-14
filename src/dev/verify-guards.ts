@@ -3195,8 +3195,8 @@ const MUTATIONS: Mutation[] = [
     id: "G66-recusa-nao-e-pensar",
     bug: "'nao vou passar não, valeu' ao pedido de um dado disparava a resposta fixa do 'vou pensar', com o estoque",
     files: ["supabase/functions/turn/index.ts"],
-    from: '    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))\n',
-    to: "    true\n",
+    from: '    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&\n',
+    to: "    true &&\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
@@ -4216,8 +4216,8 @@ const MUTATIONS: Mutation[] = [
     id: "G67-email-depois-do-link",
     bug: "depois do link da entrega, o link do antecipado esperava um e-mail que ninguém pedia",
     files: ["supabase/functions/turn/index.ts"],
-    from: " || refusedDatum(recent, \"email\") >= 1 || linkBefore,",
-    to: " || refusedDatum(recent, \"email\") >= 1,",
+    from: " || refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,",
+    to: " || refusedDatum(recent, \"email\") >= 1 || pressed,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
   {
@@ -4577,8 +4577,9 @@ const MUTATIONS: Mutation[] = [
     id: "R23-passo-la-no-link",
     bug: "\"te passo lá no link\" não era lido como recusa do CPF e o link ficava preso (persona venda-decidida, 14/10)",
     files: ["src/agent/identity.ts", "supabase/functions/turn/identity.ts"],
-    from: "if (said.some((c) => DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;",
+    from: "if (raw.split(/[,;.!?]+/).map((c) => c.trim()).some((c) => c !== \"\" && DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;",
     to: "",
+    also: [{ from: "(identityAsked && answer.some(", to: "(false && answer.some(" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {

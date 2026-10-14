@@ -385,3 +385,10 @@ describe("quarta revisão Opus (14/10)", () => {
     expect(choosesPath("prefiro na entrega. qual o melhor horário pra receber?")).toBe(true);
   });
 });
+
+describe("adiamento em pergunta, sem vírgula nem \"o resto\"", () => {
+  it("\"posso passar o cpf no link?\" é a recusa do CPF", () => {
+    const ask = { direction: "outbound", body: "Para a emissão da nota fiscal, me passa seu CPF por favor?" };
+    expect(refusedDatum([ask, { direction: "inbound", body: "posso passar o cpf no link?" }], "document")).toBe(1);
+  });
+});
