@@ -3717,14 +3717,18 @@ const handleTurn = async (
         ((await db(
           `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
         ).catch(() => null))?.length ?? 0) > 0));
+  // She asked for the link at least twice in her last five messages and still has none (persona venda-decidida, 2026-10-14:
+  // nine requests, no link): what is left of name, CPF and e-mail is asked at the checkout, and the flow goes on.
+  const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? ""))).length >= 2
+    && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
     pathSettled: paymentChoice !== null || knownRegion?.cod === false,
-    nameKnown: Boolean(identityDraft.name) || nameRefused,
-    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2,
+    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,
+    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,
     // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
-    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore,
+    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore || pressed,
     // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
     identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
     // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.

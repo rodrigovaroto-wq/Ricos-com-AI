@@ -106,6 +106,9 @@ export const refusedDatum = (
     const said = raw.split(/[,;.!]+/).map((c) => c.trim()).filter((c) => c !== "" && !c.endsWith("?"));
     // Every refusal form, clause by clause: "não, pode mandar sem?" refuses (fourth review).
     if (said.some((c) => refusal.test(c) && !OTHER_DATUM.test(c))) return true;
+    // Sending it at the checkout instead is the same answer for the link ("te passo lá no link, só me manda o link",
+    // "manda o link que eu completo lá" — persona venda-decidida, 2026-10-14, who asked for the link nine times).
+    if (said.some((c) => DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;
     // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
     // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
     const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";
@@ -344,6 +347,10 @@ export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean
     !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto|deixa\s+(?:pra|para)\s+la|esquece|nao\s+quero\s+mais)\b/.test(t)
   );
 };
+
+/** "Eu passo/completo/preencho lá (no link, no checkout)": the datum is given there, not here. */
+const DEFER_TO_CHECKOUT =
+  /\b(?:passo|passar|mando|informo|preencho|preencher|completo|completar|coloco|digito|ponho)\b[^,;.!?]{0,20}\b(?:la|ali)\b|\b(?:passo|mando|informo|preencho|completo|coloco|digito)\b[^,;.!?]{0,20}\b(?:no|pelo|na)\s+(?:link|checkout|site|pagina|formulario)\b/;
 
 /**
  * Refusing to give a datum: "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se"

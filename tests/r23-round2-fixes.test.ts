@@ -2,6 +2,7 @@ import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { deliveryFor, renderFollowup, type RenderContext } from "@/agent/followups.js";
 import { gateBriefing, runGates } from "@/agent/guardrails.js";
+import { refusedDatum } from "@/agent/identity.js";
 import { asksForLink } from "@/agent/interpret.js";
 import { paidDeadlineLine, priceBeforeCepMessage, systemPrompt } from "@/agent/prompt.js";
 import { noFitReply, saidNoFit } from "@/agent/retry.js";
@@ -168,5 +169,22 @@ describe("personas 2026-10-14 (Beatriz, Tati): o \"vou pensar\" antes do CEP nã
   });
   it("o turno passa a região conhecida", () => {
     expect(turn).toContain("thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null)");
+  });
+});
+
+describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu", () => {
+  const ask = { direction: "outbound", body: "Para a emissão da nota fiscal, me passa seu CPF por favor?" };
+  const refuses = (t: string) => refusedDatum([ask, { direction: "inbound", body: t }], "document");
+  it.each(["te passo lá no link, só me manda o link", "Silva. Manda o link que eu completo lá", "eu preencho o resto lá"])("passar lá no checkout é a recusa do CPF: %s", (t) => {
+    expect(refuses(t)).toBeGreaterThanOrEqual(1);
+  });
+  it.each(["vou passar o cpf depois lá no link", "e se eu passar o cpf lá?", "529.982.247-25", "meu cpf é 529.982.247-25, completo o endereço lá", "não sei o cpf"])("não é recusa: %s", (t) => {
+    expect(refuses(t)).toBe(0);
+  });
+  it("pedir o link duas vezes nas últimas cinco mensagens, sem link no chat, solta o que falta de nome, CPF e e-mail", () => {
+    expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\"))).length >= 2");
+    expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
+    expect(turn).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,");
+    expect(turn).toContain("refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
   });
 });

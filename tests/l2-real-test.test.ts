@@ -366,7 +366,7 @@ describe("L2 — revisão Opus (achados 3 a 8)", () => {
 describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("1. depois de um link, o antecipado não espera o e-mail", () => {
-    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore,");
+    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
     expect(turn).toContain('await sendFixed(deadline ? `${line}\\n\\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
