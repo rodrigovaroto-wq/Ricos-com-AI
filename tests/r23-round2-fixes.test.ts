@@ -270,3 +270,12 @@ describe("cenários de venda (14/10): link de mentira e deferimento em pergunta"
     expect(refusedDatum([ask, { direction: "inbound", body: "e se eu passar o cpf lá?" }], "document")).toBe(0);
   });
 });
+
+describe("persona venda-sem-dinheiro (14/10): a pergunta ao lado do \"vou pensar\" é respondida", () => {
+  it("o \"vou pensar\" só manda a frase fixa quando ela não perguntou nada além", () => {
+    const at = turn.indexOf("A real question beside it is answered by the model");
+    const block = turn.slice(at, at + 700);
+    expect(block).toContain("interpretation.wants_to_think &&");
+    expect(block).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))");
+  });
+});

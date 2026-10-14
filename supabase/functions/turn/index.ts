@@ -3849,10 +3849,13 @@ const handleTurn = async (
     if (sent) return sent;
   }
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
+  // A real question beside it is answered by the model, never swallowed by the fixed line (persona venda-sem-dinheiro,
+  // 2026-10-14: "meu salário só cai dia 5, dá pra reservar e pagar depois?" got "Sem problemas, estou aqui…").
   if (
     interpretation.wants_to_think &&
     interpretation.pending_answer !== "other_question" &&
-    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))
+    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
+    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))
   ) {
     // Never a link before the data (operator, 2026-10-06): without them she gets the line alone.
     let thinkLink: string | null = null;

@@ -4614,6 +4614,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
+    id: "R23-pergunta-ao-lado-do-pensar",
+    bug: "\"dá pra reservar e pagar depois?\" recebeu a frase fixa do \"vou pensar\" sem resposta (venda-sem-dinheiro, 14/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? \"\")) &&\n    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))\n  ) {",
+    to: "    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? \"\"))\n  ) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
     id: "R23-kit-repetido",
     bug: "a pergunta do kit fechou quatro respostas seguidas (…3720)",
     files: ["supabase/functions/turn/index.ts"],
