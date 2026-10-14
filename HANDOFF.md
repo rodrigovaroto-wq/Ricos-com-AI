@@ -17,7 +17,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - Rodada 2 arquivada e analisada mensagem por mensagem: `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-3720.md` e
 >   `-1632.md` (grafo §92, decisão R23). Os 8 consertos aprovados pelo operador estão no código, com teste da frase real e da negação,
 >   revisão Opus (reprovou a 1ª versão; os 6 achados consertados) e 13/13 mutações novas (R22 e R23) pegas.
-> - **Falta:** suíte inteira de mutações verde → `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23) → e-mails do n8n (`turno-da-agente.json`,
+> - **Suíte inteira de mutações verde (560/560, 14/10).** No ar continua a v22 (função v109 = commit `4dc8aa7`, conferido).
+> - **Falta (barrado nesta sessão pelo classificador de permissão, precisa do operador):** `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23) → e-mails do n8n (`turno-da-agente.json`,
 >   `relogio-da-regua.json`) → limpar `handoff_at` dos números de teste (…5983, …7967, …3720) → rodada de personas.
 > - **Rodada de personas bloqueada nesta sessão:** a porta `local` precisa ler e escrever no Supabase de dados, e o proxy não injetou a
 >   chave (`No API key found`); buscar a chave pela API de gerência foi barrado pelo classificador. Precisa de `SUPABASE_SERVICE_ROLE_KEY`
