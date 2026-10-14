@@ -13,6 +13,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-14 — R23 (rodada 2 de testes reais) implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).**
+> - Rodada 2 arquivada e analisada mensagem por mensagem: `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-3720.md` e
+>   `-1632.md` (grafo §92, decisão R23). Os 8 consertos aprovados pelo operador estão no código, com teste da frase real e da negação,
+>   revisão Opus (reprovou a 1ª versão; os 6 achados consertados) e 13/13 mutações novas (R22 e R23) pegas.
+> - **Falta:** suíte inteira de mutações verde → `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23) → e-mails do n8n (`turno-da-agente.json`,
+>   `relogio-da-regua.json`) → limpar `handoff_at` dos números de teste (…5983, …7967, …3720) → rodada de personas.
+> - **Rodada de personas bloqueada nesta sessão:** a porta `local` precisa ler e escrever no Supabase de dados, e o proxy não injetou a
+>   chave (`No API key found`); buscar a chave pela API de gerência foi barrado pelo classificador. Precisa de `SUPABASE_SERVICE_ROLE_KEY`
+>   nas variáveis do ambiente (sessão nova).
+
 > **2026-10-13, noite — R22 implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).** Decisão executiva do
 > operador: **a Malu nunca chama uma pessoa** (só e-mail) e os gates têm **cinco tentativas**. Grafo §91, decisões R22.1–R22.2.
 > - Feito (7900+ testes, `dev:conversas`, `dev:gates` sem afrouxar, `deno check`): `handOff` não grava `handoff_at`; textos sem promessa de retorno;
