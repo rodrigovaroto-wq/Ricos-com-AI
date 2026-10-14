@@ -182,7 +182,7 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
     expect(refuses(t)).toBe(0);
   });
   it("pedir o link duas vezes nas últimas cinco mensagens, sem link no chat, solta o que falta de nome, CPF e e-mail", () => {
-    expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\"))).length >= 2");
+    expect(turn).toContain(".slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? \"\")) && ");
     expect(turn).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
     expect(turn).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,");
     expect(turn).toContain("refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
@@ -191,8 +191,8 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
 
 describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondido, não carimbado", () => {
   it("o turno não manda mais a frase fixa: o modelo recebe a diretiva e responde também a troca, a ausência em casa e a devolução", () => {
-    expect(turn).toContain("if (handoffKind !== null) orderUnreadable = true;");
-    expect(turn).toContain("Ela fala de um pedido que o sistema não consegue ler agora");
+    expect(turn).toContain("orderUnreadable = (said?.length ?? 0) === 0;");
+    expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
     expect(turn).toContain('return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");');
@@ -211,5 +211,46 @@ describe("persona Vera (14/10): CPF que não fecha os dígitos não é agradecid
     expect(turn).toContain('missing === "document" && parts.some(sentInvalidCpf)');
     expect(turn).toContain("O CPF que ela mandou não confere");
     expect(turn).toContain("não diga que está tudo certo");
+  });
+});
+
+describe("revisão Opus do loop de personas (14/10)", () => {
+  const askCpf = { direction: "outbound", body: "Para a emissão da nota fiscal, me passa seu CPF por favor?" };
+  const cpfRefusal = (t: string) => refusedDatum([askCpf, { direction: "inbound", body: t }], "document");
+  it.each([
+    "peraí que vou passar lá no quarto pegar meu documento",
+    "meu marido que sabe, vou passar la no trabalho dele",
+    "coloco ali na carteira e ja te mando",
+    "o nome completo ta la em cima",
+  ])("passar \"lá\" fora do checkout não é recusa do CPF: %s", (t) => {
+    expect(cpfRefusal(t)).toBe(0);
+  });
+  it.each(["te passo lá no link, só me manda o link", "eu preencho o resto lá", "Manda o link que eu completo lá"])("continua sendo recusa: %s", (t) => {
+    expect(cpfRefusal(t)).toBeGreaterThanOrEqual(1);
+  });
+
+  it("telefone de 11 dígitos não é CPF inválido; o número com pontuação de CPF que não fecha é", () => {
+    expect(sentInvalidCpf("meu whats é 11987654321")).toBe(false);
+    expect(sentInvalidCpf("meu cpf 123.456.789-00")).toBe(true);
+    expect(sentInvalidCpf("111.111.111-11")).toBe(true);
+  });
+
+  it("o \"pode mandar\" a uma oferta não solta nome, CPF e e-mail: o pedido do link tem de nomear link, checkout ou pagamento", () => {
+    expect(turn).toContain("/\\b(?:link|checkout|pagamento)\\b/i.test(spoken(m.body ?? \"\"))");
+    expect(asksForLink("pode mandar")).toBe(true); // a leitura geral não muda…
+    // …mas só entra em `pressed` com a palavra do link, e "manda aí" não a tem.
+    expect(/\b(?:link|checkout|pagamento)\b/i.test("manda aí")).toBe(false);
+  });
+
+  it("pedido que o sistema não lê: o operador recebe o e-mail (status handoff com notify), uma vez por conversa", () => {
+    expect(turn).toContain('status: fallbackReason === null ? (orderUnreadable ? "handoff" : "ok")');
+    expect(turn).toContain("...(orderUnreadable ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {})");
+    expect(turn).toContain('turn_outcomes?conversation_id=eq.${conversation.id}&reason=eq.${encodeURIComponent(ORDER_UNREADABLE_REASON)}');
+  });
+  it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
+    const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
+    const directive = turn.slice(at, at + 900);
+    expect(directive).toContain("não oriente recusar na porta nem devolver por conta própria");
+    expect(directive).not.toContain("é recusar na porta;");
   });
 });

@@ -60,7 +60,10 @@ export const extractCpf = (text: string): string | null => {
  * "111.111.111-11" was thanked as if it were hers). `extractCpf` drops it silently, so the turn has to be told.
  */
 export const sentInvalidCpf = (text: string): boolean =>
-  extractCpf(text) === null && /\b\d{3}\.?\d{3}\.?\d{3}-?\d{2}\b|\b\d{11}\b/.test(text);
+  extractCpf(text) === null &&
+  // A bare run of 11 digits shaped like a mobile phone (DDD + 9…) is her phone, not a CPF (R23 review).
+  (/\b\d{3}[.]\d{3}[.]\d{3}-?\d{2}\b|\b\d{9}-\d{2}\b/.test(text) ||
+    [...text.matchAll(/\b\d{11}\b/g)].some((m) => !/^[1-9]{2}9\d{8}$/.test(m[0])));
 
 /**
  * The e-mail, if there is exactly one thing that looks like one. Deliberately strict
@@ -356,8 +359,10 @@ export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean
 };
 
 /** "Eu passo/completo/preencho lá (no link, no checkout)": the datum is given there, not here. */
+// A checkout word is required, or "completo/preencho (o resto) lá": "vou passar lá no quarto pegar o documento" and "o nome
+// completo tá lá em cima" are not a deferral (R23 review).
 const DEFER_TO_CHECKOUT =
-  /\b(?:passo|passar|mando|informo|preencho|preencher|completo|completar|coloco|digito|ponho)\b[^,;.!?]{0,20}\b(?:la|ali)\b|\b(?:passo|mando|informo|preencho|completo|coloco|digito)\b[^,;.!?]{0,20}\b(?:no|pelo|na)\s+(?:link|checkout|site|pagina|formulario)\b/;
+  /\b(?:passo|passar|mando|informo|preencho|completo|coloco|digito|ponho)\b[^,;.!?]{0,20}\b(?:no|pelo|na)\s+(?:link|checkout|site|pagina|formulario)\b|\b(?:completo|preencho|resolvo)\s+(?:o\s+resto\s+|o\s+restante\s+|tudo\s+)?(?:la|ali)\b/;
 
 /**
  * Refusing to give a datum: "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se"

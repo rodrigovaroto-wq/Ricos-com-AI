@@ -176,7 +176,7 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
     expect(source).toContain(
       'if (cancelling === "prepaid_pending") {\n    return await handOff(\n      PREPAID_CANCEL_REPLY,\n      "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",\n    );',
     );
-    expect(source).toContain("if (handoffKind !== null) orderUnreadable = true;"); // R22.1: a pedido que o sistema não lê é respondido pelo modelo, não por frase fixa
+    expect(source).toContain("orderUnreadable = (said?.length ?? 0) === 0;"); // R22.1: a pedido que o sistema não lê é respondido pelo modelo, não por frase fixa
     expect(ORDER_HANDOFF_REPLY).not.toMatch(/retorn/); // R22.1: sem promessa de retorno
   });
 });

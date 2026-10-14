@@ -206,7 +206,12 @@ describe("pedido de pessoa ao lado do pedido: só o pedido explícito (operador,
 
 describe("o turno liga as duas decisões", () => {
   const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
-  const block = source.slice(source.indexOf("const logzzPhone = logzzSupportPhone(CONFIG);"), source.indexOf('handoffKind === "human" ? HUMAN_HANDOFF_REPLY : ORDER_HANDOFF_REPLY,'));
+  const block = source.slice(source.indexOf("const logzzPhone = logzzSupportPhone(CONFIG);"), source.indexOf("let orderUnreadable = false;"));
+  // The slice must exist: an anchor that stops matching makes indexOf -1 and the slice swallows the file (R23 review).
+  it("a âncora do bloco do pós-venda existe", () => {
+    expect(source.indexOf("let orderUnreadable = false;")).toBeGreaterThan(source.indexOf("const logzzPhone = logzzSupportPhone(CONFIG);"));
+    expect(block.length).toBeGreaterThan(500);
+  });
 
   it("a troca com o número vai pelo sendFixed, só quando ela pede nas palavras dela", () => {
     expect(block).toContain("const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? \"\"));");

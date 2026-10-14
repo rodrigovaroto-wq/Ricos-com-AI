@@ -4585,8 +4585,8 @@ const MUTATIONS: Mutation[] = [
     id: "R23-pedido-ilegivel",
     bug: "a pergunta sobre um pedido que o sistema não lê recebia a frase fixa e as outras perguntas ficavam sem resposta (personas Lu e Vera, 14/10)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "if (handoffKind !== null) orderUnreadable = true;",
-    to: "",
+    from: "orderUnreadable = (said?.length ?? 0) === 0;",
+    to: "orderUnreadable = false;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {

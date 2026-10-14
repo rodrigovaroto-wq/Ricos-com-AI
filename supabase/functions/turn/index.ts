@@ -966,6 +966,9 @@ const checkoutDirectiveFor = (
  * the business config (R9.2); null there means nothing is configured yet, which the
  * flow should surface rather than swallow.
  */
+/** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
+const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+
 const notification = (
   lead: { id: string; phone: string },
   conversation: { id: string },
@@ -3335,7 +3338,12 @@ const handleTurn = async (
   if (handoffKind === "human") {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
-  if (handoffKind !== null) orderUnreadable = true;
+  // Said once per conversation (R23 review): the second question about the same unreadable order is the model's, with its own
+  // earlier words in the history, and the operator is not e-mailed twice.
+  if (handoffKind !== null) {
+    const said = await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=eq.${encodeURIComponent(ORDER_UNREADABLE_REASON)}&select=id&limit=1`).catch(() => null);
+    orderUnreadable = (said?.length ?? 0) === 0;
+  }
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
@@ -3719,7 +3727,7 @@ const handleTurn = async (
         ).catch(() => null))?.length ?? 0) > 0));
   // She asked for the link at least twice in her last five messages and still has none (persona venda-decidida, 2026-10-14:
   // nine requests, no link): what is left of name, CPF and e-mail is asked at the checkout, and the flow goes on.
-  const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? ""))).length >= 2
+  const pressed = recent.filter((m: { direction: string }) => m.direction === "inbound").slice(-5).filter((m: { body: string }) => asksForLink(spoken(m.body ?? "")) && /\b(?:link|checkout|pagamento)\b/i.test(spoken(m.body ?? ""))).length >= 2
     && !recentOutbound.slice(-3).some((m: string) => CHECKOUT_BASES.some((b) => m.includes(b)));
   const linkData = {
     sizeKnown,
@@ -3995,11 +4003,11 @@ const handleTurn = async (
       greeting ? null : registerDirective(recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? ""))),
       kitDirective,
       orderUnreadable
-        ? `Ela fala de um pedido que o sistema não consegue ler agora (não há pedido dela aqui, ou o status não é legível): não invente` +
-          ` status, prazo, rastreio nem diga que vai conferir. Diga numa frase, com acolhimento, que por aqui você não vê o andamento` +
-          ` desse pedido${supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}; depois responda o que mais ela` +
-          ` perguntou (troca, devolução, não estar em casa) com o que está no prompt. Você não cancela pedido: se ela quer cancelar e` +
-          ` ainda não recebeu, é recusar na porta; se já recebeu, são os dias de devolução.`
+        ? `Ela fala de um pedido sobre o qual você não tem informação confiável aqui: não invente status, prazo, rastreio nem diga que` +
+          ` vai conferir. Diga numa frase, com acolhimento, que por aqui você não vê o andamento desse pedido` +
+          `${supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}; depois responda o que mais ela perguntou (troca,` +
+          ` devolução, não estar em casa) com o que está no prompt. Você não cancela, não estorna e não altera pedido: se ela quer` +
+          ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
@@ -4368,8 +4376,8 @@ const handleTurn = async (
   await Promise.all([
     recordOutcome(
       conversation.id,
-      fallbackReason === null ? "send" : "fallback",
-      fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),
+      fallbackReason === null ? (orderUnreadable ? "handoff" : "send") : "fallback",
+      fallbackReason ?? (orderUnreadable ? ORDER_UNREADABLE_REASON : checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),
       rewritesUsed,
       spent - spentBefore,
     ),
@@ -4390,7 +4398,9 @@ const handleTurn = async (
     // R22.1/R22.2: the agent could not go on with five attempts. It never calls a person: the generic fallback
     // reply goes to her with the operator's e-mail flag (status "handoff" is what n8n e-mails on), and her next
     // message is answered as always — no `handoff_at`.
-    status: fallbackReason === null ? "ok" : fallbackIsGeneric ? "handoff" : "fallback",
+    status: fallbackReason === null ? (orderUnreadable ? "handoff" : "ok") : fallbackIsGeneric ? "handoff" : "fallback",
+    // The operator's e-mail for an order the system could not read (R22.1: the person is told, not called).
+    ...(orderUnreadable ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {}),
     ...(fallbackReason === null
       ? {}
       : {

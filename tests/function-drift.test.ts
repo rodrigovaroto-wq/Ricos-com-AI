@@ -465,7 +465,7 @@ describe("H-2 na Edge Function (2026-09-25)", () => {
   });
   it("o link leva a linha dos fatos ligados, e o registro do turno a guarda", () => {
     expect(source).toContain("const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);");
-    expect(source).toContain('fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),');
+    expect(source).toContain("fallbackReason ?? (orderUnreadable ? ORDER_UNREADABLE_REASON : checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),");
   });
 });
 
