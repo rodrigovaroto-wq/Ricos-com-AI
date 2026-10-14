@@ -455,7 +455,7 @@ export const choosesPath = (message: string): boolean => {
     // A full stop works like the comma (persona venda-curiosa, 2026-10-14: "prefiro na entrega. quanto fica no total?").
     after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*[,.;!]/.test(after) && !new RegExp(PATH_WORD).test(after) &&
       // Doubt about the path, never a logistics question with "melhor" in it ("qual o melhor horário?", third Opus review).
-      !/\b(?:mas|ou|compensa|sera|vale\s+a\s+pena)\b|\b(?:e|eh|seria|fica)\s+(?:melhor|seguro|confiavel|garantido)\s*\?/.test(after));
+      !/\b(?:mas|ou|compensa|sera|vale\s+a\s+pena)\b|\b(?:e|eh|seria|fica)\s+(?:mais\s+|menos\s+)?(?:melhor|seguro|confiavel|garantido)\s*\?|^\s*[,.;!]?\s*melhor\s+assim\b/.test(after));
   return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;
 };
 

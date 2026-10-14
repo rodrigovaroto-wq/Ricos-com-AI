@@ -372,3 +372,16 @@ describe("terceira revisão Opus (14/10)", () => {
     expect(turn).toContain('reason: [ORDER_UNREADABLE_REASON, fallbackReason].filter(Boolean).join(" | ")');
   });
 });
+
+describe("quarta revisão Opus (14/10)", () => {
+  it("\"meu nome é …, o resto no link\" e \"me chamo …\" continuam lendo o nome", () => {
+    expect(extractName("meu nome é Patrícia Lima, o resto te passo no link", true)).toBe("Patrícia Lima");
+    expect(extractName("Meu nome é Patrícia Lima, o cpf te passo no link", true)).toBe("Patrícia Lima");
+    expect(extractName("me chamo Ana Souza, o resto no link", true)).toBe("Ana Souza");
+  });
+  it("a dúvida com advérbio ou \"melhor assim?\" não é escolha", () => {
+    expect(choosesPath("prefiro na entrega. é mais seguro?")).toBe(false);
+    expect(choosesPath("prefiro na entrega. melhor assim?")).toBe(false);
+    expect(choosesPath("prefiro na entrega. qual o melhor horário pra receber?")).toBe(true);
+  });
+});

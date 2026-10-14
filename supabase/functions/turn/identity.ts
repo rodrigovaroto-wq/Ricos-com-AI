@@ -247,7 +247,7 @@ export const extractName = (text: string, askedName = false): string | null => {
     : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
     : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
     : "";
-  if (opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
+  if (introduced === null && opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
