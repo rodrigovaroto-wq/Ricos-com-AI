@@ -231,6 +231,17 @@ describe("desfechos do corpo", () => {
     },
   );
 
+  it("handoff com resposta e e-mail só avisa o operador: a conversa continua (R22.1); o do teto de custo encerra", async () => {
+    const model = scripted("oi", "tchau\n[FIM]");
+    const report = await run("function", model, fakeDoor({ status: "handoff", reply: "Entendo 💛", reason: "a cliente pediu para falar com uma pessoa" }).deliver);
+    expect(model.calls).toBe(2);
+    expect(report.failure).toBeNull();
+    const held = scripted("oi", "tchau\n[FIM]");
+    const ceiling = await run("function", held, fakeDoor({ status: "handoff", reply: "Deixa eu confirmar", reason: "teto de custo da conversa" }).deliver);
+    expect(held.calls).toBe(1);
+    expect(ceiling.endReason).toBe("handoff");
+  });
+
   it("fallback continua a conversa, com o texto seguro entregue à persona", async () => {
     const model = scripted("oi", "tchau\n[FIM]");
     const report = await run(

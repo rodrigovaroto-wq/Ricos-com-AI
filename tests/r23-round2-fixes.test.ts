@@ -155,3 +155,18 @@ describe("8. \"paguei\" com \"chega quando?\" (…7967)", () => {
     expect(turn).toContain('const deadline = parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";');
   });
 });
+
+describe("personas 2026-10-14 (Beatriz, Tati): o \"vou pensar\" antes do CEP não promete o entregador", () => {
+  const think = { prices: { prepayBrl: 116.91, prepayDiscountPercent: 10 }, delivery: { warrantyDays: 7 } };
+  it("com a região desconhecida diz \"dependendo da sua região\"; conhecida, como antes", async () => {
+    const { thinkReply } = await import("@/agent/retry.js");
+    const unknown = thinkReply(think, "cod", false, 1, false);
+    expect(unknown).toContain("Dependendo da sua região");
+    expect(unknown).not.toContain("Pagando na entrega você não paga nada agora");
+    expect(thinkReply(think, "cod", false, 1, true)).toContain("Pagando na entrega você não paga nada agora");
+    expect(blocked(unknown, { layer: "agent", postponing: true })).toEqual([]);
+  });
+  it("o turno passa a região conhecida", () => {
+    expect(turn).toContain("thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null)");
+  });
+});

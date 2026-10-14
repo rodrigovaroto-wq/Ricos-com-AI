@@ -140,11 +140,13 @@ export const HOLDING_REPLY =
  * When she asks for a person (§Q12, R13.2). Since R22.1 (operator, 2026-10-13) it promises no call: nobody
  * can answer from the number on the Cloud API, and "alguém te chama por aqui" left her waiting for a person
  * who never came while the agent stayed silent. The agent keeps the conversation and says so, and asks what
- * she needs. It does not say what the agent is (`humanity_claim`). Same constraint as the holding reply —
+ * she needs. Told the truth (persona Sandra, 2026-10-14: "quem te atende sou eu, a Malu" read as a person to someone who
+ * had just asked if it was an AI): she asked for a person, so what the agent is and that no person comes are both said. Same constraint as the holding reply —
  * no price, deadline or coupon — so the one message the agent must always be able to send can never be
  * vetoed.
  */
-export const HUMAN_HANDOFF_REPLY = "Por aqui quem te atende sou eu, a Malu 💛 Me conta o que você precisa que eu resolvo agora.";
+export const HUMAN_HANDOFF_REPLY =
+  "Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.";
 
 /**
  * A question about an order whose status the agent cannot read (no row in the vocabulary, a failed
@@ -396,7 +398,14 @@ export const kitOfferMessage = (kits: readonly { units: number; priceBrl: number
  * through the whole gate chain with `postponing: true` — the only context where
  * `scarcity_claim` lets the stock through.
  */
-export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boolean, pieces = 1): string => {
+export const thinkReply = (
+  c: ThinkConfig,
+  path: "cod" | "prepay",
+  withLink: boolean,
+  pieces = 1,
+  /** False before any CEP: payment at the door is "dependendo da sua região" (personas Beatriz and Tati, 2026-10-14). */
+  regionKnown = true,
+): string => {
   // A kit's own price and discount: the link is the kit's, and the 1-piece R$ 116,91 next to it is a
   // price the checkout does not show (independent review, finding 9). A kit the config lacks says
   // no price at all rather than the wrong one.
@@ -408,7 +417,9 @@ export const thinkReply = (c: ThinkConfig, path: "cod" | "prepay", withLink: boo
   const parts = [
     `${THINK_REPLY} 💛`,
     path === "cod"
-      ? `Pagando na entrega você não paga nada agora, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`
+      ? regionKnown
+        ? `Pagando na entrega você não paga nada agora, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`
+        : `Dependendo da sua região, dá pra pagar só quando o colete chegar, e depois de receber ainda tem ${c.delivery.warrantyDays} dias pra devolver sem custo nenhum.`
       : pct > 0
         ? `No antecipado você ganha ${pct}% de desconto: ${reais(price)}` +
           (avg != null ? `, e o prazo varia por região, em média ${avg} dias úteis.` : `.`)

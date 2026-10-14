@@ -125,7 +125,7 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
 
   it("são as frases do operador, palavra por palavra (R13.2, 2026-09-24)", () => {
     // R22.1 (operador, 2026-10-13): nenhuma das duas promete retorno de pessoa — ninguém responde pelo número da API.
-    expect(HUMAN_HANDOFF_REPLY).toBe("Por aqui quem te atende sou eu, a Malu 💛 Me conta o que você precisa que eu resolvo agora.");
+    expect(HUMAN_HANDOFF_REPLY).toBe("Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.");
     expect(ORDER_HANDOFF_REPLY).toBe("Não consegui ver o andamento do seu pedido por aqui agora 💛 Me conta o que aconteceu que eu te ajudo no que der.");
     for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY]) expect(texto).not.toMatch(/retorn|te chama|avisei|time/i);
     expect(THINK_REPLY).toBe("Sem problemas, estou aqui se tiver mais alguma dúvida");

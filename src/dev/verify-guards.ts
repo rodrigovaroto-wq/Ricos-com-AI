@@ -2350,7 +2350,7 @@ const MUTATIONS: Mutation[] = [
     id: "R16.8-porta",
     bug: "o 'vou pensar' voltou a ser só a linha de abertura, sem estoque nem argumento",
     files: ["supabase/functions/turn/index.ts"],
-    from: "    const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);",
+    from: "    const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null);",
     to: "    const think = THINK_REPLY;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/think-reply.test.ts"],
   },
@@ -4554,6 +4554,14 @@ const MUTATIONS: Mutation[] = [
     files: ["supabase/functions/turn/index.ts"],
     from: "      regionKnown: Boolean(order) || typeof lead.address?.codAvailable === \"boolean\",",
     to: "      regionKnown: Boolean(order) || typeof lead.address?.codAvailable === \"boolean\" || lead.payment_choice != null,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
+    id: "R23-pensar-antes-do-cep",
+    bug: "o \"vou pensar\" antes do CEP prometia pagar só na entrega (personas Beatriz e Tati, 14/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null)",
+    to: "thinkReply(CONFIG, linkPath, thinkLink !== null, units)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {

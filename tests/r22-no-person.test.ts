@@ -101,7 +101,7 @@ describe("gate: oferecer uma pessoa que não vem", () => {
     expect(blocked(text)).not.toContain("humanity_claim");
   });
   it("a linha fixa da camada auto não é vetada", () => {
-    expect(blocked("Por aqui quem te atende sou eu, a Malu 💛 Me conta o que você precisa que eu resolvo agora.", "auto")).toEqual([]);
+    expect(blocked("Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.", "auto")).toEqual([]);
   });
 });
 

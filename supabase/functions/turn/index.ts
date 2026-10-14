@@ -3854,7 +3854,7 @@ const handleTurn = async (
     }
     // The reply sells — her path's strongest argument, then the link. The declared stock left it on
     // 2026-10-11 (R20.1, grafo §72), and so did its exemption from `scarcity_claim`.
-    const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);
+    const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null);
     // Said already, with nothing new to add (final persona round of 2026-10-07, Cleide: "faz sem isso ou
     // deixa" then "entao deixa, obrigada" got the same fixed line twice in a row). Without a link to
     // send, the model answers her goodbye instead.

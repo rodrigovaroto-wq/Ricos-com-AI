@@ -489,6 +489,9 @@ export const runPersona = async (options: RunOptions): Promise<Report> => {
     if (body.orderReady === true || (body.order !== undefined && body.order !== null)) orderReady = true;
     const status = body.status;
     if (status && CONTINUES.has(status)) return "continue";
+    // R22.1: a handoff is an e-mail flag, not the end — the conversation goes on unless it was held by the cost ceiling
+    // or a provider failure (the only handoffs that still silence the lead).
+    if (status === "handoff" && typeof body.reply === "string" && !/teto de custo|falha ao chamar o modelo|falha de rede/.test(String(body.reason ?? ""))) return "continue";
     if (status && ENDS.has(status)) return "end";
     if (status === "error") throw new RunFailure(`status error no corpo: ${JSON.stringify(body.error ?? body)}`);
     if (status === "duplicate") throw new RunFailure("status duplicate: o runner reenviou um externalId");
