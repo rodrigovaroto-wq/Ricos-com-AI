@@ -3016,6 +3016,19 @@ pedido de link; a diretiva do kit não sai quando ela fala de peças/kit. **Fica
 `posvenda-pessoa-engolida` saiu: ela reinstalava a resposta de status a quem pede pessoa ao lado do pedido, que desde o R22 é o comportamento
 certo (quem pede pessoa ouve o status, já que ninguém vem).
 
+## 93. Loop de autoaprimoramento com personas sobre o R22/R23 (2026-10-14)
+
+**Sintoma:** com a v23 pronta, a rodada de personas (13 adversariais + 11 compradoras simuladas, quatro voltas, porta `local` contra o
+banco de produção) achou defeitos que nenhum teste unitário via: o pedido de pessoa respondido com "quem te atende sou eu" (soava gente);
+o "vou pensar" prometendo o entregador antes do CEP e engolindo a pergunta ao lado; a compradora decidida pedindo o link nove vezes; CPF
+inválido agradecido; pergunta sobre pedido sem resposta às outras dúvidas; o modelo escrevendo "[link do checkout]"; escolha e nome não
+lidos em frases reais. **Causa comum:** heurísticas e linhas fixas escritas para a frase "limpa", não para a frase que a compradora
+escreve com pressa; e o runner das personas parava em todo `handoff`, então Lu, Sandra e Vera nunca passavam do 1º turno. **Correção:**
+ver `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md` (tabela por volta). **Caminho descartado:** soltar o link sem CPF sempre que
+ela pedisse — quebra a regra do operador (dados antes do link, 06/10); ficou `pressed` (dois pedidos explícitos do link). **Guarda:**
+`tests/r23-round2-fixes.test.ts` (frase real + negação de cada um), mutações `R23-*` (todas pegas), três revisões Opus.
+**Fica:** os resíduos listados no relatório.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
