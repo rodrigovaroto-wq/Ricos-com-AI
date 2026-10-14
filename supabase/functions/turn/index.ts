@@ -3338,11 +3338,13 @@ const handleTurn = async (
   if (handoffKind === "human") {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
-  // Said once per conversation (R23 review): the second question about the same unreadable order is the model's, with its own
-  // earlier words in the history, and the operator is not e-mailed twice.
+  // The directive every time she asks about it; the operator's e-mail once per conversation (Opus review: one flag for both left
+  // the second question without the directive).
+  let notifyOrder = false;
   if (handoffKind !== null) {
-    const said = await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=eq.${encodeURIComponent(ORDER_UNREADABLE_REASON)}&select=id&limit=1`).catch(() => null);
-    orderUnreadable = (said?.length ?? 0) === 0;
+    orderUnreadable = true;
+    const said = await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`${ORDER_UNREADABLE_REASON}*`)}&select=id&limit=1`).catch(() => null);
+    notifyOrder = (said?.length ?? 0) === 0;
   }
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
@@ -4379,8 +4381,10 @@ const handleTurn = async (
   await Promise.all([
     recordOutcome(
       conversation.id,
-      fallbackReason === null ? (orderUnreadable ? "handoff" : "send") : "fallback",
-      fallbackReason ?? (orderUnreadable ? ORDER_UNREADABLE_REASON : checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),
+      notifyOrder ? "handoff" : fallbackReason === null ? "send" : "fallback",
+      // The order's mark leads (the once-per-conversation read is a prefix match), and what else happened stays beside it (H-2).
+      [notifyOrder ? ORDER_UNREADABLE_REASON : null, fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]
+        .filter((r): r is string => r !== null).join(" | ") || null,
       rewritesUsed,
       spent - spentBefore,
     ),
@@ -4401,9 +4405,9 @@ const handleTurn = async (
     // R22.1/R22.2: the agent could not go on with five attempts. It never calls a person: the generic fallback
     // reply goes to her with the operator's e-mail flag (status "handoff" is what n8n e-mails on), and her next
     // message is answered as always — no `handoff_at`.
-    status: fallbackReason === null ? (orderUnreadable ? "handoff" : "ok") : fallbackIsGeneric ? "handoff" : "fallback",
+    status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff" : fallbackReason === null ? "ok" : "fallback",
     // The operator's e-mail for an order the system could not read (R22.1: the person is told, not called).
-    ...(orderUnreadable ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {}),
+
     ...(fallbackReason === null
       ? {}
       : {
@@ -4412,6 +4416,8 @@ const handleTurn = async (
           blocked: gates.traces.filter((t) => t.verdict === "block"),
           ...(fallbackIsGeneric ? notification(lead, conversation) : {}),
         }),
+    // The operator's e-mail for an order the system could not read, once per conversation (R22.1: told, not called).
+    ...(notifyOrder ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {}),
     reply: replyText,
     bubbles: paced(replyText, fastOpening),
     messageId: outbound.id,

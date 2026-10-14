@@ -191,7 +191,7 @@ describe("persona venda-decidida (14/10): pediu o link nove vezes, nunca recebeu
 
 describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondido, não carimbado", () => {
   it("o turno não manda mais a frase fixa: o modelo recebe a diretiva e responde também a troca, a ausência em casa e a devolução", () => {
-    expect(turn).toContain("orderUnreadable = (said?.length ?? 0) === 0;");
+    expect(turn).toContain("notifyOrder = (said?.length ?? 0) === 0;");
     expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
@@ -243,9 +243,7 @@ describe("revisão Opus do loop de personas (14/10)", () => {
   });
 
   it("pedido que o sistema não lê: o operador recebe o e-mail (status handoff com notify), uma vez por conversa", () => {
-    expect(turn).toContain('status: fallbackReason === null ? (orderUnreadable ? "handoff" : "ok")');
-    expect(turn).toContain("...(orderUnreadable ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {})");
-    expect(turn).toContain('turn_outcomes?conversation_id=eq.${conversation.id}&reason=eq.${encodeURIComponent(ORDER_UNREADABLE_REASON)}');
+    expect(turn).toContain("...(notifyOrder ? { reason: ORDER_UNREADABLE_REASON, ...notification(lead, conversation) } : {})");
   });
   it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
     const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
@@ -309,5 +307,41 @@ describe("persona venda-curiosa (14/10): \"o resto te passo no link\" na respost
   });
   it("\"o resto\" sem o checkout não solta nada", () => {
     expect(refusedDatum([askName, { direction: "inbound", body: "o resto do endereço eu completo depois" }], "document")).toBe(0);
+  });
+});
+
+describe("segunda revisão Opus do loop de personas (14/10)", () => {
+  it.each([
+    "Antes disso, qual o prazo de entrega?",
+    "Primeiro me diz, quanto tempo demora?",
+    "Pera ai, vou pegar o documento",
+    "Nossa senhora, que demora",
+    "Vixe maria, esqueci",
+  ])("o começo de uma frase que não é nome não vira nome: %s", (t) => {
+    expect(extractName(t, true)).toBeNull();
+  });
+  it("o nome que abre uma frase sobre os dados ou o checkout continua lido", () => {
+    expect(extractName("Patrícia Lima, o resto te passo no link", true)).toBe("Patrícia Lima");
+    expect(extractName("Ana Souza, o cpf eu passo depois", true)).toBe("Ana Souza");
+  });
+  it("\"o resto\" do endereço, ou com um dado dado ali, não solta nome, CPF nem e-mail", () => {
+    const askHouse = { direction: "outbound", body: "Me passa o número da casa e o complemento?" };
+    for (const t of ["Rua das Flores 10, o resto do endereço eu completo lá", "o resto do endereço preencho no site"]) {
+      for (const f of ["name", "document", "email"] as const) expect(refusedDatum([askHouse, { direction: "inbound", body: t }], f), `${t} ${f}`).toBe(0);
+    }
+    const askName = { direction: "outbound", body: "Pra deixar o pedido no seu nome, me passa seu nome completo por favor?" };
+    expect(refusedDatum([askName, { direction: "inbound", body: "o resto eu passo no link, mas o cpf te mando agora" }], "document")).toBe(0);
+  });
+  it("dúvida depois do ponto não é escolha", () => {
+    expect(choosesPath("quero na entrega. sera que compensa?")).toBe(false);
+    expect(choosesPath("prefiro na entrega. é seguro?")).toBe(false);
+    expect(choosesPath("prefiro na entrega. quanto fica no total?")).toBe(true);
+  });
+  it("pedido ilegível: diretiva sempre, e-mail uma vez, também no fallback, e o motivo do link fica ao lado", () => {
+    expect(turn).toContain("orderUnreadable = true;");
+    expect(turn).toContain("notifyOrder = (said?.length ?? 0) === 0;");
+    expect(turn).toContain('reason=like.${encodeURIComponent(`${ORDER_UNREADABLE_REASON}*`)}');
+    expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
+    expect(turn).toContain(".filter((r): r is string => r !== null).join(\" | \") || null,");
   });
 });

@@ -30,7 +30,7 @@ describe("R22.1 — o handoff não cala a Malu", () => {
 
   it("esgotar as tentativas não vira pessoa: resposta segura e e-mail de aviso", () => {
     expect(turn).not.toContain("nenhuma reescrita passou");
-    expect(turn).toContain('fallbackIsGeneric ? "handoff" : "fallback"');
+    expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
   });
 
   it("nenhuma linha fixa promete retorno de pessoa", () => {

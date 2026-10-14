@@ -148,6 +148,7 @@ export const refusedDatum = (
     return new RegExp(String.raw`\b${W}\b`, "i").test(questions[questions.length - 1] ?? "");
   };
   let bareNoCounts = false;
+  let identityAsked = false;
   let count = 0;
   let asked = false;
   let answer: string[] = [];
@@ -156,7 +157,9 @@ export const refusedDatum = (
     const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?")) ||
       // "Patrícia Lima, o resto te passo no link" (persona venda-curiosa, 2026-10-14): every datum still missing goes to the
       // checkout, asked or not — the one she just gave is `found` and does not count.
-      answer.some((a) => /\bo\s+rest(?:o|ante)\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)));
+      // Only after an identity ask, and never about the address or naming a datum she gives here (Opus review).
+      (identityAsked && answer.some((a) => /\bo\s+rest(?:o|ante)\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)) &&
+        !/\b(?:endereco|numero|complemento|rua|bairro|cep|cpf|e-?mail|nome)\b/.test(norm(a))));
     if (answer.length > 0 && !answer.some(found) && ((asked && answer.some((a) => refuses(a, bareNoCounts))) || own)) count += 1;
     answer = [];
   };
@@ -167,6 +170,7 @@ export const refusedDatum = (
     }
     close();
     asked = asks(m.body ?? "");
+    identityAsked = asksForIdentity(m.body ?? "") || asksForName(m.body ?? "");
     bareNoCounts = lastQuestionIsEmail(m.body ?? "");
   }
   close();
@@ -232,7 +236,14 @@ export const extractName = (text: string, askedName = false): string | null => {
   const lettersOnly = (t: string): boolean => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(t);
   // Right after the ask, the name may open a longer message ("Patrícia Lima, o resto te passo no link", "pode ser Jessica
   // Almeida": personas of 2026-10-14) — its first clause, past a "pode ser", goes through every check below.
-  const opening = askedName ? (cleaned.split(/[,\n]/)[0] ?? "").replace(/^pode\s+ser\s+/i, "").trim() : "";
+  // Only when the rest of the message is about the data or the checkout (Opus review: "Antes disso, qual o prazo?", "Pera ai, vou
+  // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
+  const [head = "", ...tail] = cleaned.split(/[,\n]/);
+  const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
+  const opening = !askedName ? ""
+    : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
+    : "";
   const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
