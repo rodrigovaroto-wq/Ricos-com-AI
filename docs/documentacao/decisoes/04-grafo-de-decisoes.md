@@ -3011,6 +3011,10 @@ pagamento já confirmado; (A6) o tamanho de outra pessoa ganha a frase sem "te v
 pedido de link; a diretiva do kit não sai quando ela fala de peças/kit. **Fica (R21.6):** se o intérprete ler "Tamanho 65" como cintura
 65 cm ou XGG, `stated` deixa de ser nulo e o "não serve" não sai — sem frase real. Mutações novas `R23-regua-depois-do-nao-serve` e
 `R23-escolha-nao-e-regiao`.
+**Suíte inteira de mutações (14/10):** 555/561 na primeira passada; as 6 que "não se aplicaram" tinham a âncora mudada pelos consertos
+(`ja-finalizei`, `T6c-silencio-2-sem-caminho`, `G67-ok-sozinho`, `G67-ok-a-oferta`, `G67-pagamento-de-madrugada`) e foram reancoradas;
+`posvenda-pessoa-engolida` saiu: ela reinstalava a resposta de status a quem pede pessoa ao lado do pedido, que desde o R22 é o comportamento
+certo (quem pede pessoa ouve o status, já que ninguém vem).
 
 ## Lições (valem para qualquer correção futura)
 
