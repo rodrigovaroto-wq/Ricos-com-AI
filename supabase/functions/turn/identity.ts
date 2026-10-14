@@ -118,7 +118,9 @@ export const refusedDatum = (
     if (said.some((c) => refusal.test(c) && !OTHER_DATUM.test(c))) return true;
     // Sending it at the checkout instead is the same answer for the link ("te passo lá no link, só me manda o link",
     // "manda o link que eu completo lá" — persona venda-decidida, 2026-10-14, who asked for the link nine times).
-    if (said.some((c) => DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;
+    // Asked as a question too ("o resto eu preencho no link, pode ser?", persona venda-curiosa, 2026-10-14): a checkout word is
+    // required, so "e se eu passar o cpf lá?" stays a doubt.
+    if (raw.split(/[,;.!?]+/).map((c) => c.trim()).some((c) => c !== "" && DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;
     // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
     // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
     const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";

@@ -3235,6 +3235,17 @@ const gates: readonly Gate[] = [
   },
   {
     /**
+     * A link written as a placeholder ("Aqui pra finalizar 1 peça no M pagando na entrega: [link do checkout da entrega]", persona
+     * venda-sensivel-preco, 2026-10-14): the model wrote where the link would go, and no link went. Only the code puts a link in
+     * a message; a bracketed stand-in is never one. Read in her text's words only (`[` … link/checkout/url … `]`).
+     */
+    name: "placeholder_link",
+    remedy: "rewrite",
+    briefing: () => `Nunca escreva um marcador no lugar do link, como "[link]" ou "[link do checkout]": o link só aparece quando o sistema manda.`,
+    check: (text) => (/\[[^\]\n]{0,40}\b(?:link|url|checkout)\b[^\]\n]{0,40}\]/i.test(text) ? "writes a placeholder where a link would be" : null),
+  },
+  {
+    /**
      * "Anotei seu CEP", "já deixei anotado aqui", "anotei o CPF pra nota fiscal": five times in the second
      * real test (grafo §66), once about a CEP the system never read. She sent it and got an answer — she
      * knows. The words, not a reading of intent: no sentence Malu needs uses them.

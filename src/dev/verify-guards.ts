@@ -4598,6 +4598,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
+    id: "R23-link-de-mentira",
+    bug: "o modelo escreveu \"[link do checkout da entrega]\" no lugar do link e nenhum link saiu (venda-sensivel-preco, 14/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: "? \"writes a placeholder where a link would be\" : null",
+    to: "? null : null",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
+    id: "R23-preencho-no-link-pergunta",
+    bug: "\"o resto eu preencho no link, pode ser?\" não soltava o CPF e o link ficava preso (venda-curiosa, 14/10)",
+    files: ["src/agent/identity.ts"],
+    from: "if (raw.split(/[,;.!?]+/).map((c) => c.trim()).some((c) => c !== \"\" && DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;",
+    to: "if (said.some((c) => DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
+  },
+  {
     id: "R23-kit-repetido",
     bug: "a pergunta do kit fechou quatro respostas seguidas (…3720)",
     files: ["supabase/functions/turn/index.ts"],

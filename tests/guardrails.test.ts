@@ -17,7 +17,7 @@ describe("a cadeia inteira", () => {
     // vigésimo terceiro, `pending_promise`, e o vigésimo quarto, `noted_claim`, no segundo teste real
     // (grafo §66: "já te mando o link" 4×, "anotei" 5×); o vigésimo quinto, `size_claim`, na revisão do §66
     // (Karol: "Com 38 de calça o seu é o M" sem ela dar a medida); `hip_claim` e `courier_claim` no E1.5.
-    expect(gateNames).toHaveLength(30);
+    expect(gateNames).toHaveLength(31);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -30,7 +30,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(30);
+    expect(result.traces).toHaveLength(31);
   });
 });
 

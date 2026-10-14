@@ -254,3 +254,19 @@ describe("revisão Opus do loop de personas (14/10)", () => {
     expect(directive).not.toContain("é recusar na porta;");
   });
 });
+
+describe("cenários de venda (14/10): link de mentira e deferimento em pergunta", () => {
+  it("o marcador no lugar do link é vetado; o link real e a palavra link em texto não", () => {
+    const veto = (t: string) => runGates(t, ctx({ layer: "agent" })).traces.filter((x) => x.verdict === "block").map((x) => x.gate);
+    expect(veto("Aqui pra finalizar 1 peça no M pagando na entrega: [link do checkout da entrega]")).toContain("placeholder_link");
+    expect(veto("Segue: [link]")).toContain("placeholder_link");
+    expect(veto("Lá no link você escolhe o M e o dia da entrega.")).not.toContain("placeholder_link");
+    expect(veto("O colete [o modelo preto] é o nosso.")).not.toContain("placeholder_link");
+  });
+  it("\"o resto eu preencho no link, pode ser?\" é a recusa do CPF; \"e se eu passar o cpf lá?\" não", () => {
+    const ask = { direction: "outbound", body: "Para a emissão da nota fiscal, me passa seu CPF por favor?" };
+    expect(refusedDatum([ask, { direction: "inbound", body: "Patrícia Souza, o resto eu preencho no link pode ser?" }], "document")).toBeGreaterThanOrEqual(1);
+    expect(refusedDatum([ask, { direction: "inbound", body: "cpf prefiro passar no link, pode ser?" }], "document")).toBeGreaterThanOrEqual(1);
+    expect(refusedDatum([ask, { direction: "inbound", body: "e se eu passar o cpf lá?" }], "document")).toBe(0);
+  });
+});
