@@ -2953,7 +2953,7 @@ commit `7732634`, 9 jobs ao mesmo tempo, verde em 4m29s, 548/548. **Custo:** mai
 (§67, 08/10). **Caminho descartado:** atraso diferente por tipo de mensagem — o pedido é "toda mensagem", e um valor único mantém o
 espelho simples. **Correção:** 5 s em `src/channel/whatsapp.ts` e no espelho `supabase/functions/whatsapp/whatsapp.ts`; o envio continua em
 paralelo com o encaminhamento ao `turn`, então a primeira resposta (1 min) e o tempo do turno não mudam. **Guarda:** `tests/whatsapp-channel.test.ts`
-fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Pendente:** publicar a função `whatsapp` (o operador, ou a sessão com autorização).
+fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Publicado em 2026-10-14:** função `whatsapp` v37 (MCP, arquivos conferidos byte a byte com o disco; `verify_jwt` continua falso; GET sem token devolve 403, como deve).
 
 ## Lições (valem para qualquer correção futura)
 
