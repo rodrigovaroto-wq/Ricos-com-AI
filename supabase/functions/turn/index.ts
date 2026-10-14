@@ -73,7 +73,7 @@ import {
   type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, sizeFromDressSize, statedSizeOf } from "./sizing.ts";
+import { asksForSize, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
@@ -133,6 +133,7 @@ import {
   type OrderView,
   COD_CANCEL_REPLY,
   kitLimitReply,
+  noFitReply,
   ORDER_HANDOFF_REPLY,
   PREPAID_CANCEL_REPLY,
   QUIET_WINDOW_MS,
@@ -199,7 +200,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -1727,6 +1728,8 @@ const runFollowupSweep = async () => {
       prepaid: order?.payment_method === "prepay",
       scheduledFor: order?.scheduled_for ?? null,
       paymentPath: touchPath,
+      // Nobody looked her region up and nothing settled the path: the touches do not promise the door (real test 2026-10-14).
+      regionKnown: Boolean(order) || typeof lead.address?.codAvailable === "boolean" || (fresh(lead.payment_choice_at) && lead.payment_choice != null),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -3067,7 +3070,9 @@ const handleTurn = async (
       ? PAYMENT_STILL_CHECKING
       : null;
     if (line !== null) {
-      const sent = await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
+      // Her deadline question in the same burst is answered too, never swallowed (pre-round test 2026-10-13).
+      const deadline = payment !== "confirmed" && parts.some(asksDeadline) ? paidDeadlineLine(CONFIG) : "";
+      const sent = await sendFixed(deadline ? `${line}\n\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto");
       if (sent) {
         // The receipt she sent is kept on the check: at 5 minutes it calls a person instead of asking again.
         if (payment === "receipt_during_check") {
@@ -3485,7 +3490,7 @@ const handleTurn = async (
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
   const cepState = cepNotFound
-    ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque esse CEP não existe,` +
+    ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque parece que esse CEP não existe (pode ter sido um número trocado),` +
       ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
     : addressDraft.cep
     ? null
@@ -3807,6 +3812,16 @@ const handleTurn = async (
   // E3.1: the model writes the opening of a reply of its own; this short line opens only a fixed one.
   const greeting = recentOutbound.some((m: string) => !isReceipt(m)) ? null : greetingFor(new Date(), CONFIG.agentName, CONFIG.brand);
   const opening = (text: string): string => (greeting === null ? text : `${greeting}\n\n${text}`);
+  // Her pants size past the whole table (real test 2026-10-14): the truth once, and nothing chased after it — the
+  // ruler had asked her size again the hour after. A size of the table in the same burst wins (she may correct it).
+  const beyond = stated === null && lead.size == null ? parts.map((p: string) => sizeBeyondTable(p, asksSize(lastOutbound))).find((n) => n !== null) ?? null : null;
+  if (beyond !== null) {
+    const sent = await sendFixed(opening(noFitReply(beyond, TABLE_TOP_DRESS, TABLE_TOP_WAIST)), `tamanho ${beyond} fora da tabela: a verdade, sem régua`);
+    if (sent) {
+      await cancelScheduled(conversation.id, "all");
+      return sent;
+    }
+  }
   // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
   if (declinesInBurst(parts) && !interpretation.wants_to_buy) {
     const sent = await sendFixed(opening(DECLINE_REPLY), "ela recusou: despedida fixa, sem régua");
@@ -3935,7 +3950,12 @@ const handleTurn = async (
         ` não peça nome, e-mail nem CPF agora (rodada de 2026-10-07: a oferta saía colada no pedido do e-mail).` +
         (linkData.identityAtCheckout
           ? ` Se ela não quiser, siga com uma peça e o link sai em seguida, e não volte ao kit.`
-          : ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`)
+          : ` Se ela não quiser, siga com uma peça e com os dados, e não volte ao kit.`) +
+        ` A pergunta cita todas as quantidades que você ofereceu ("1, 2 ou 3 peças?").`
+      : kitOffered && units === 1 && quantity === null && !linkNow
+      ? // Real test 2026-10-14 (…3720): the kit question closed four replies in a row while she asked other things.
+        `Você já ofereceu o kit. Ela não escolheu quantidade e falou de outra coisa: responda o que ela perguntou e siga com` +
+        ` uma peça. Não pergunte de novo sobre o kit nem sobre quantas peças.`
       : null;
   const sizeDirective =
     [

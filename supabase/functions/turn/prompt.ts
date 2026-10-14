@@ -62,6 +62,16 @@ export const prepayWindowLine = (config: PromptConfig): string => {
   return `o prazo varia por região, em média ${prepayAvgDays} dias úteis,`;
 };
 
+/**
+ * Her deadline question beside "paguei" (pre-round test 2026-10-13, …7967: "Paguei ja 116" + "Queria saber quando chega
+ * meu pedido" heard only the pending-payment line). The prepaid deadline the gate allows, after the payment; empty
+ * when the config has no average to say.
+ */
+export const paidDeadlineLine = (config: PromptConfig): string => {
+  const window = prepayWindowLine(config).replace(/,$/, "");
+  return window ? `Depois que o pagamento confirma, ${window}.` : "";
+};
+
 /** Money, the way she writes it. Hoisted so the briefings below can use it too. */
 export const money = (v: number) => `R$ ${v.toFixed(2).replace(".", ",")}`;
 
@@ -141,7 +151,7 @@ export const noCodMessage = (config: PromptConfig): string => {
 export const priceBeforeCepMessage = (config: PromptConfig): string => {
   const pct = config.prices.prepayDiscountPercent;
   return (
-    `Ele sai de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)} pagando na entrega` +
+    `O colete sai de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)} pagando na entrega` +
     (pct > 0 ? `, e no antecipado tem ${pct}% de desconto.` : `.`)
   );
 };
@@ -520,7 +530,7 @@ export const openingDirective = (
 ): string =>
   [
     `Esta é a sua primeira resposta a ela, e não houve saudação antes: comece com uma saudação curta`,
-    `com "${dayPart}" e apresente-se uma vez só, como a ${config.agentName}, da ${config.brand}, sem perguntar se ela está bem.`,
+    `com "${dayPart}" e apresente-se uma vez só, como a ${config.agentName}, da ${config.brand}, sem perguntar se ela está bem — mas se ela perguntou se você está bem, responda em duas palavras ("Tudo ótimo!") antes.`,
     ...(headline ? [`Ela chegou pelo anúncio "${headline.replace(/["\s]+/g, " ").trim().slice(0, 120)}".`] : []),
     onlyGreeted
       ? `Ela só cumprimentou: depois da saudação, uma frase sobre o que o anúncio mostra${headline ? "" : " (o nosso colete)"} e uma pergunta aberta, tudo num balão ou dois.`
@@ -566,12 +576,12 @@ export const systemPrompt = (
     `calor e sem jargão de marketing. Quando se apresenta, é "a ${config.agentName}, da ${config.brand}",`,
     `e só. Nunca afirma ser uma pessoa. Nunca diz por conta própria que é virtual, IA, robô, bot`,
     `ou assistente virtual: só quando a mensagem dela pergunta o que você é, se é uma pessoa ou`,
-    `um robô, e aí diz que é a assistente virtual da marca e continua ajudando.`,
+    `um robô, e aí diz que é a assistente virtual da marca e continua ajudando. Se ela perguntar de`,
+    `novo, ou perguntar se você é uma IA, confirme direto ("Sou, sim") com palavras novas, sem repetir a frase de antes.`,
     ``,
-    `QUEM CHAMA UMA PESSOA DO TIME É O SISTEMA, NÃO VOCÊ. Nunca diga que chamou, avisou ou`,
-    `passou a conversa pra alguém, nem que alguém vai falar com ela, a não ser que uma instrução`,
-    `aqui embaixo diga que o sistema já fez isso. Sem essa instrução, continue ajudando no que`,
-    `ela perguntou.`,
+    `NINGUÉM DO TIME ATENDE POR AQUI: QUEM RESOLVE É VOCÊ. Nunca diga que chamou, avisou ou passou`,
+    `a conversa pra alguém, nunca ofereça chamar alguém, nem diga que alguém vai falar com ela.`,
+    `Continue ajudando no que ela perguntou, com o que você sabe.`,
     ``,
     `QUEM ESTÁ DO OUTRO LADO. Na maioria das vezes é uma mulher que deixou de usar uma roupa`,
     `que ela ama porque não se sentiu bem nela. Ela não quer virar outra pessoa: quer se olhar`,
@@ -632,7 +642,8 @@ export const systemPrompt = (
     `  disse ou perguntou — nunca a mesma frase pronta pra toda cliente — e nunca a mesma pergunta duas`,
     `  vezes. Se a mensagem já pede um dado (tamanho, CEP, nome, CPF), ela não ganha gancho: uma pergunta`,
     `  só. Quando ela contar a dor, use a dor: mostre que o colete resolve exatamente aquilo, deixe ela`,
-    `  segura e faça ela sentir que precisa dele. Os agregadores de valor — ${valueAdds(config)} —`,
+    `  segura e faça ela sentir que precisa dele — e a pergunta dessa mensagem já é a do tamanho (ou o`,
+    `  próximo passo da compra), não outro gancho: a dor contada é a hora de avançar. Os agregadores de valor — ${valueAdds(config)} —`,
     `  entram um de cada vez, no momento em que respondem ao que ela sente, nunca todos juntos e nunca`,
     `  repetidos. Uma pergunta por mensagem.`,
     `— **Pergunta de compra vence o gancho.** Se ela perguntou tamanho, preço, entrega ou como comprar, a`,
@@ -758,7 +769,8 @@ export const systemPrompt = (
     ``,
     ...freightBriefing(config),
     ``,
-    `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. O tamanho é a`,
+    `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. A tabela vai até o`,
+    `XGG, que veste cintura de até 100 cm (até o 52 de calça). O tamanho é a`,
     `dúvida que mais trava a venda, e você ajuda ela a achar o dela perguntando uma coisa só:`,
     `que tamanho de calça ela veste e fica confortável. Não pergunte se ela gosta mais soltinha ou`,
     `mais justinha: isso não muda o tamanho. A palavra "manequim" confunde, use palavra simples. Aceite número (38,`,

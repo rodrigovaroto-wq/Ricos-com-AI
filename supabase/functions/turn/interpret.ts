@@ -1110,7 +1110,13 @@ export const linkHeldBack = (
  */
 export const asksForLink = (message: string): boolean => {
   const t = norm(message);
-  if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  // Pre-round test 2026-10-13 (…7967): "N recebi link", "Nao tem LINK", "Nao tem link moça" — she never got one, and the
+  // agent sent her up the chat four times.
+  if (/\b(?:nao|n)\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei|tem|apareceu|aparece)\s+(?:o\s+|nenhum\s+)?link\b/.test(t)) return true;
+  // "Consegue gerar um novo link?", "consegue me gerar o pagamento?" (same conversation): a new link asked for. A refusal or
+  // a condition after it is not a request ("não precisa gerar outro link", "gera o link amanhã").
+  const generate = /\b(?:gera|gerar|gere)\s+(?:me\s+)?(?:um\s+|o\s+|outro\s+)?(?:novo\s+)?(?:link|pagamento)\b/.exec(t);
+  if (generate && !/\b(?:nao|precisa)\s+(?:\S+\s+){0,2}$/.test(t.slice(0, generate.index)) && !/\b(?:se|quando|depois|amanha|mais\s+tarde)\b/.test(t.slice(generate.index + generate[0].length))) return true;
   // Second real test (grafo §66): "você nao vai me mandar o link do checkout????" — the cobrança, in a
   // question — and "então manda logo" / "sim pode mandar" as the whole message.
   if (

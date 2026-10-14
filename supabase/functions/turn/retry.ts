@@ -312,6 +312,15 @@ export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para
  */
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
 
+/**
+ * Her pants size is past the whole table (real test 2026-10-14, …1632, "Tamanho 65"): the truth, kindly, once, and
+ * the door left open for someone else — no question, no offer. The turn stops the ruler after it: the hour after,
+ * "me diz que tamanho de calça você usa" asked her the size she had given and been told did not fit.
+ */
+export const noFitReply = (dress: number, topDress: number, topWaist: number): string =>
+  `Poxa, com o ${dress} de calça o nosso colete não vai te vestir bem: a tabela vai até o ${topDress} (cintura de até ${topWaist} cm). ` +
+  `Prefiro te falar a verdade do que te vender algo que não serve 💛 Se um dia quiser pra alguém da família, é só me chamar.`;
+
 /** Her refusal's reply (grafo §69): a goodbye — no stock, no argument, no question, no link. */
 export const DECLINE_REPLY = "Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.";
 

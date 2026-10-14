@@ -988,6 +988,22 @@ const SILENCE_2 = (days: number) =>
     `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga quando ele chegar na sua mão — e, depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
   ] as const;
 
+/**
+ * The same angles when her region is unknown (no CEP): payment at the door is only "dependendo da sua região" — the
+ * wording `riskReversalMessage` already uses before the CEP.
+ */
+const SILENCE_2_UNKNOWN = (days: number) =>
+  [
+    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber você ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
+    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
+  ] as const;
+
+/** `after_price` with her region unknown: no "paga quando chegar", the CEP asked instead. */
+const SILENCE_1_UNKNOWN: readonly string[] = [
+  "Qualquer coisa é só chamar! Me passa seu CEP quando quiser que eu te digo como fica a entrega e o pagamento aí na sua região.",
+  "Fico por aqui se precisar! Com o seu CEP eu te mostro as opções de entrega e de pagamento que chegam até você.",
+];
+
 /** The same angles on the prepaid path: she pays first, so nothing about paying at the door. */
 const SILENCE_2_PREPAY = (days: number) =>
   [
@@ -1077,6 +1093,12 @@ export interface RenderContext {
    * no payment at the door. Absent reads "cod", the truth for a region nobody looked up.
    */
   paymentPath?: "cod" | "prepay";
+  /**
+   * False when nobody knows whether payment at the door reaches her (no CEP looked up, no order, no choice): the
+   * touches then say "dependendo da sua região", never "só paga ao entregador" (real test 2026-10-14, …1632, who never
+   * sent a CEP and heard it at 9am). Absent = known, as before.
+   */
+  regionKnown?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
   /**
@@ -1137,6 +1159,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         ctx.leadId,
         ctx.paymentPath === "prepay" && point === "after_price"
           ? silence1Prepay(ctx.config)
+          : ctx.regionKnown === false && point === "after_price"
+          ? SILENCE_1_UNKNOWN
           : SILENCE_1(ctx.config.delivery.warrantyDays)[point],
       );
     }
@@ -1144,7 +1168,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "silence_2":
       return pickVariant(
         ctx.leadId,
-        (ctx.paymentPath === "prepay" ? SILENCE_2_PREPAY : SILENCE_2)(ctx.config.delivery.warrantyDays),
+        (ctx.paymentPath === "prepay" ? SILENCE_2_PREPAY : ctx.regionKnown === false ? SILENCE_2_UNKNOWN : SILENCE_2)(ctx.config.delivery.warrantyDays),
       );
 
     case "silence_3": {
@@ -1338,6 +1362,8 @@ export const deliveryFor = (
   // The `silence_2` template is the delivery path's text ("só paga ao entregador"): on the
   // prepaid path there is no template, so the touch is blocked rather than sent that one (D3).
   if (kind === "silence_2" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
+  // Nor to a woman whose region nobody looked up: the door may not reach her (real test 2026-10-14).
+  if ((kind === "silence_2" || kind === "silence_3") && ctx.regionKnown === false) return { via: "blocked", reason: "no_template" };
   // Same for the coupon: its template says "nos dois jeitos: pagando na entrega ou antecipado".
   if (kind === "silence_3" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
 

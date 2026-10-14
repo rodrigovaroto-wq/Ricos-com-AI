@@ -544,7 +544,8 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
   it("a varredura julga e escreve o silêncio no caminho antecipado quando a praça não tem entrega", () => {
     expect(sweep).toContain(",payment_choice,payment_choice_at,address");
     expect(sweep).toContain('fresh(lead.payment_choice_at) && lead.payment_choice === "prepay") || lead.address?.codAvailable === false');
-    expect(sweep).toContain("      paymentPath: touchPath,\n      body:");
+    expect(sweep).toContain("      paymentPath: touchPath,\n");
+    expect(sweep).toContain("      body: row.body ?? undefined,");
   });
 
   it("o turno grava a praça no lead quando a consulta respondeu", () => {

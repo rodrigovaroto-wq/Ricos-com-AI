@@ -369,7 +369,7 @@ describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)"
     expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore,");
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
-    expect(turn).toContain('await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
+    expect(turn).toContain('await sendFixed(deadline ? `${line}\\n\\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
     for (const line of [PAYMENT_CHECK_REPLY, PAYMENT_ESCALATED, PAYMENT_RECEIPT_ESCALATED]) {
       expect(runGates(line, ctx({ layer: "auto", paymentPath: "prepay", now: new Date("2026-10-08T05:30:00Z") })).traces.filter((t) => t.verdict === "block"), line).toEqual([]);
     }

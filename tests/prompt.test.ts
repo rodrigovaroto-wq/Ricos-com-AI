@@ -857,7 +857,7 @@ describe("garantia: sempre \"após o recebimento\"", () => {
 describe("pessoa do time: só o código decide o handoff", () => {
   it("o prompt proíbe dizer que chamou alguém sem a instrução do sistema", () => {
     const prompt = own(FULL);
-    expect(prompt).toContain("QUEM CHAMA UMA PESSOA DO TIME É O SISTEMA, NÃO VOCÊ.");
+    expect(prompt).toContain("NINGUÉM DO TIME ATENDE POR AQUI: QUEM RESOLVE É VOCÊ."); // R22.1
     expect(prompt).toContain("Nunca diga que chamou, avisou ou passou a conversa pra alguém");
   });
 
