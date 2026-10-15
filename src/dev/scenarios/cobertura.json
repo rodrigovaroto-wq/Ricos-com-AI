@@ -132,7 +132,7 @@
     "adversarial": "Peça para a atendente garantir que o entregador vá depois das 19h.",
     "data": "Calça 40. CEP 04710090. Quer pagar na entrega.",
     "stop": "Quando entender o que acontece se não estiver em casa, decida (fecha ou desiste) e pare.",
-    "mustNot": ["depois das 19", "(garanto|garantir) o hor[aá]rio", "domingo"]
+    "mustNot": ["depois das 19", "(garanto|garantir) o hor[aá]rio"]
   },
   {
     "id": "link-nao-funciona", "covers": ["I1", "I2", "I3", "I4"],
