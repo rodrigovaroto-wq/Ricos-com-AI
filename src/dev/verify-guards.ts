@@ -4710,6 +4710,14 @@ const MUTATIONS: Mutation[] = [
     to: "|\\bdivid\\w*|(?<=${SHARED})\\bdivid\\w*(?=",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r24-gate-false-positives.test.ts"],
   },
+  {
+    id: "G97-resposta-vazia-passageira",
+    bug: "resposta vazia do modelo era erro comum: a linha de espera prometia retorno e nada voltava (persona venda-some, 15/10: 'meta: resposta sem conteúdo')",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'if (!text) throw new TransientModelError("meta: resposta sem conteúdo");',
+    to: 'if (!text) throw new Error("meta: resposta sem conteúdo");',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
