@@ -50,6 +50,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - O classificador de permissão bloqueou nesta sessão: escrita no cofre de segredos pela API (o operador colou o `BUSINESS_CONFIG`) e
 >   `delete` de produção pela API de gerência. O `deploy:turn` passou.
 >
+> **CI do PR #63 verde em `864218b` (15/10, 16:37 UTC):** `check` (8070 testes, typecheck, lint, `deno check`, `dev:gates` com 0 sem
+> aceite) e os 8 lotes `guards` (todas as mutações da lista, inclusive `G96` e `R24-*`) passaram; PR "mergeable: clean". Isso cobre os
+> passos 5–7 abaixo **para o código de hoje**; refaça-os só se a revisão do passo 3 ou a mutação do passo 4 mudarem código — o CI do
+> push roda tudo de novo.
+>
 > ### Roteiro da próxima sessão — nesta ordem; não pule passo; cada um com o resultado esperado
 >
 > 1. **Ambiente** (5 min). `git fetch origin && git checkout claude/adoring-fermat-k02201 && git pull` (se o PR já foi mergeado, use a
