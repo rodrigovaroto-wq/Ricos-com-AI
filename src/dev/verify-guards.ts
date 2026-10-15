@@ -4866,8 +4866,16 @@ const MUTATIONS: Mutation[] = [
     id: "R26-link-sem-valor-uma-vez",
     bug: "a correção do link da entrega se repetia todo turno quando o modelo a dizia com outras palavras (revisão Opus do R26)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "codUnavailable && storedAddress.codAvailable !== false && codLinkAt",
+    from: "codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt",
     to: "codUnavailable && codLinkAt",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
+  },
+  {
+    id: "R26-link-sem-valor-na-retentativa",
+    bug: "a nova tentativa (resposta vazia, 5xx) e a revisão perdiam a correção do link da entrega: o lead já tinha sido gravado sem entrega (2ª revisão Opus do R26)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "(storedAddress.codAvailable !== false || isRetry || isRevise)",
+    to: "storedAddress.codAvailable !== false",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
   },
 ];

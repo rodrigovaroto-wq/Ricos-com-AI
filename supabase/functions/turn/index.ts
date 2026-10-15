@@ -4008,9 +4008,11 @@ const handleTurn = async (
   // R26.3 (persona Jussara, 15/10): the delivery link went out while her region was unknown, and now the lookup says no
   // delivery there — said as the correction it is, once, not as news ("aí no seu CEP não tem" after the link). Once: only
   // in the turn the lookup finds it (the stored region did not say it yet), whatever words the model used (review of R26).
+  // A retry or a revision answers for a turn whose reply never went out — the lead was stored with `codAvailable: false`
+  // before the model call (an empty answer, a 5xx), so the correction still belongs to it (second review of R26).
   const codBases = [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)].filter((u): u is string => !!u);
   const codLinkAt = recentOutbound.findLastIndex((m: string) => codBases.some((b) => m.includes(b)));
-  const codLinkVoid = codUnavailable && storedAddress.codAvailable !== false && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
+  const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =

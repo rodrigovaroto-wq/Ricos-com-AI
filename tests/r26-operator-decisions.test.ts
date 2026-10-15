@@ -126,7 +126,7 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("depois do link da entrega, o 'não tem na entrega' vem como a correção que é, uma vez", () => {
     expect(turn).toContain(SENTENCE);
     expect(turn).toContain(
-      "const codLinkVoid = codUnavailable && storedAddress.codAvailable !== false && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
+      "const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
     );
   });
 
