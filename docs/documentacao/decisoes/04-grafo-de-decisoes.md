@@ -3033,6 +3033,14 @@ publicados e ativos (Turno da agente `972c1637`, Relógio da régua `883fc037`; 
 dos números de teste …5983, …7967 e …3720. Validação antes do deploy: suíte inteira de mutações 567/571 com as quatro reancoradas
 (98/98 no subconjunto), `dev:conversas` 1655/1655, `dev:gates` sem afrouxar, `deno check` ok.
 
+## 94. Visto azul 5 s depois de toda mensagem dela (operador, 2026-10-14)
+
+**Sintoma:** o operador achou o "lido" rápido demais — a Malu visualiza a mensagem quase na hora. **Causa:** `READ_RECEIPT_DELAY_MS` era 2 s
+(§67, 08/10). **Caminho descartado:** atraso diferente por tipo de mensagem — o pedido é "toda mensagem", e um valor único mantém o
+espelho simples. **Correção:** 5 s em `src/channel/whatsapp.ts` e no espelho `supabase/functions/whatsapp/whatsapp.ts`; o envio continua em
+paralelo com o encaminhamento ao `turn`, então a primeira resposta (1 min) e o tempo do turno não mudam. **Guarda:** `tests/whatsapp-channel.test.ts`
+fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Publicado em 2026-10-14:** função `whatsapp` v37 (MCP, arquivos conferidos byte a byte com o disco; `verify_jwt` continua falso; GET sem token devolve 403, como deve).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
