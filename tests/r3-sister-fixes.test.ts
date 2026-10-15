@@ -53,6 +53,20 @@ describe("A2. o opt-in pergunta só ofertas, e o 'não' recebe uma linha fixa se
   });
 });
 
+describe("§96. sendFixed antes do histórico (personas de 15/10: 500 em 'quero 4 peças' e na troca pela Logzz)", () => {
+  it("sendFixed não lê recentOutbound, que nasce depois de cinco das suas chamadas", () => {
+    const body = turn.slice(turn.indexOf("  const sendFixed = async ("), turn.indexOf("  const deferDraft = async ("));
+    expect(body.length).toBeGreaterThan(500);
+    expect(body).not.toMatch(/\brecentOutbound\b/);
+    expect(body).toContain("stopPointOf(text, await outboundBefore())");
+  });
+  it("depois do histórico, a janela é a do turno", () => {
+    const at = turn.indexOf("  const recentOutbound = recent");
+    expect(turn.indexOf("  recentOutboundRead = recentOutbound;")).toBeGreaterThan(at);
+    expect(turn.indexOf("  recentOutboundRead = recentOutbound;") - at).toBeLessThan(250);
+  });
+});
+
 describe("3. sem anúncio de origem, a Malu diz o que vende (…6682: \"Que isso\", \"Oque você faz\")", () => {
   it("a primeira resposta sem anúncio não supõe anúncio e diz o produto numa frase", () => {
     const noAd = openingDirective(config, "boa tarde", null, false);

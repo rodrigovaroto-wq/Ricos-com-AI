@@ -185,7 +185,9 @@ const runOne = async (name: string): Promise<void> => {
       : parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
 
   let spent = 0;
-  const provider = metaProvider({ apiKey: env.metaKey, model: PERSONA_MODEL });
+  // Longer waits on a 429 than the default 2 s and 5 s: three suites at once put ~28 conversations on the Meta API, and one
+  // persona died of "rate_limit_exceeded" (2026-10-15). Only the customer's model: the agent's calls keep production's own.
+  const provider = metaProvider({ apiKey: env.metaKey, model: PERSONA_MODEL, retryDelaysMs: [2_000, 5_000, 15_000, 30_000] });
   const seam = createSeam({
     providers: { conversation: provider, cheap: provider },
     usdToBrl: Number(process.env["USD_TO_BRL"] ?? "5.4"),

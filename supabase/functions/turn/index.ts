@@ -2936,6 +2936,16 @@ const handleTurn = async (
    * A fixed line, sent through the chain like anything else (the "vou pensar" reply, R13.4).
    * Null when the chain refuses it — out of hours, typically — and the caller then falls through to the normal turn, which handles that case.
    */
+  // The agent's earlier messages, for the ruler's stop point. `sendFixed` runs before the turn reads its history (payment
+  // lines, the kit limit, the Logzz exchange, the order status): reading `recentOutbound` there threw "Cannot access before
+  // initialization" and the turn died with a 500 (personas of 2026-10-15, grafo §96). Before the history, the last three are
+  // read, the way the sweep does, the text just stored excluded.
+  let recentOutboundRead: readonly string[] | null = null;
+  const outboundBefore = async (): Promise<readonly string[]> =>
+    recentOutboundRead ??
+    ((await db(
+      `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=3`,
+    ).catch(() => null)) ?? []).slice(1).reverse().map((m: { body: string | null }) => m.body ?? "");
   const sendFixed = async (
     text: string,
     reason: string,
@@ -2982,7 +2992,7 @@ const handleTurn = async (
     const linkOut = Boolean(extra.checkoutUrl) || linkSentRecently([text], CHECKOUT_BASES);
     await scheduleSilenceTouches(
       conversation.id,
-      extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),
+      extra.checkoutUrl ? "link_sent" : stopPointOf(text, await outboundBefore()),
       linkOut,
       new Date(),
       undefined,
@@ -3594,6 +3604,7 @@ const handleTurn = async (
   const recentOutbound = recent
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
+  recentOutboundRead = recentOutbound;
 
   // Her tap on "Não" to the offers question, and nothing else (operator, 2026-10-15, A2): a fixed line that promises only
   // what she refused — the model wrote "não mando mais nada" and the ruler sent a reminder the next morning (grafo §95).

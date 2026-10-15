@@ -4679,6 +4679,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
   },
   {
+    id: "G96-sendfixed-antes-do-historico",
+    bug: "sendFixed lia recentOutbound antes de ele existir: 500 em 'quero 4 peças', na troca, no status do pedido e no 'paguei' (personas, 15/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "stopPointOf(text, await outboundBefore())",
+    to: "stopPointOf(text, recentOutbound)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
+  {
     id: "R3-abertura-sem-anuncio",
     bug: "sem anúncio de origem, a primeira resposta supôs um anúncio e não disse o produto (…6682, 14/10)",
     files: ["src/agent/prompt.ts"],
