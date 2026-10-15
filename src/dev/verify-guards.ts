@@ -4694,6 +4694,22 @@ const MUTATIONS: Mutation[] = [
     to: "      : []),",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
   },
+  {
+    id: "R24-troca-sem-custo-governa",
+    bug: "'você troca sem custo em até 7 dias após o recebimento' (garantia) vetada como prazo do antecipado: o 'sem custo' entre o verbo e a contagem desgovernava a garantia (personas, 15/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: "${OBJECT})(?:\\s+(?:sem\\s+(?:nenhum\\s+)?custo(?:\\s+nenhum)?|gratis|de\\s+graca))?\\s+(?:(?:em|ate|dentro\\s+de|no\\s+prazo\\s+de)\\s+)+$`",
+    to: "${OBJECT})\\s+(?:(?:em|ate|dentro\\s+de|no\\s+prazo\\s+de)\\s+)+$`",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r24-gate-false-positives.test.ts"],
+  },
+  {
+    id: "R24-com-quem-sao-divididos",
+    bug: "'com quem são divididos' (dados compartilhados, LGPD) lido como parcelamento: installment_promise vetou a resposta 4 vezes (personas, 15/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: "|(?<!${SHARED})\\bdivid\\w*|(?<=${SHARED})\\bdivid\\w*(?=",
+    to: "|\\bdivid\\w*|(?<=${SHARED})\\bdivid\\w*(?=",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r24-gate-false-positives.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);
