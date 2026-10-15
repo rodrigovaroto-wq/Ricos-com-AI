@@ -1270,7 +1270,7 @@ describe("os dados antes do link, e o tamanho escolhido no checkout", () => {
 describe("público ainda não convencido: valor e segurança antes da oferta", () => {
   it("o prompt diz a ordem e o que afasta", () => {
     const prompt = own(FULL);
-    expect(prompt).toContain("Ela veio do anúncio e AINDA NÃO ESTÁ CONVENCIDA.");
+    expect(prompt).toContain("Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA.");
     expect(prompt).toContain("só depois vêm a oferta, o preço e os dados");
     expect(prompt).toContain("O CAMINHO DA CONVERSA, que é caminho e não trilho");
   });

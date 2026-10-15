@@ -26,6 +26,11 @@ describe("1. uma pergunta com acento não é o nome dela (…6682: \"Oque você 
   ])("negação: o nome com acento continua aceito — %s", (t, name) => {
     expect(extractName(t, true)).toBe(name);
   });
+  // Revisão Opus: o `\b` ASCII cortava a palavra no acento — "Simão" lia "Sim", "Noé" lia "No" — e recusava nomes reais.
+  it.each(["Simão Pedro", "Noé Silva", "Mônica Simões"])("nome real que a lista recusava pelo acento agora passa: %s", (t) => {
+    expect(extractName(t, true)).toBe(t);
+    expect(extractName(t)).toBe(t);
+  });
 });
 
 describe("A2. o opt-in pergunta só ofertas, e o 'não' recebe uma linha fixa sem promessa (…6682)", () => {
@@ -54,6 +59,10 @@ describe("3. sem anúncio de origem, a Malu diz o que vende (…6682: \"Que isso
     expect(noAd).toContain("não diga que ela veio por um anúncio");
     expect(noAd).toContain("o Colete Cinta Modeladora");
     expect(openingDirective(config, "boa tarde", null, true)).toContain("não diga que ela veio por um anúncio");
+  });
+  it("negação (revisão Opus): sem anúncio, nada na diretiva fala do anúncio como se existisse", () => {
+    for (const greeted of [true, false]) expect(openingDirective(config, "boa tarde", null, greeted)).not.toMatch(/anúncio mostra|chegou pelo anúncio/);
+    expect(systemPrompt(config, [], null)).not.toContain("Ela veio do anúncio e");
   });
   it("negação: com anúncio, nada muda", () => {
     const withAd = openingDirective(config, "boa tarde", "Colete que afina a cintura na hora", false);

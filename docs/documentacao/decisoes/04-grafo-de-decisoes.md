@@ -3073,8 +3073,15 @@ vazias de `leads`/`conversations` ficam para o SQL editor (o `delete` pelo conec
 `R3-optin-lembretes`, `R3-optin-nao-pelo-modelo`, `R3-abertura-sem-anuncio` (4/4 pegas). Regressão: 8030/8030 testes, `dev:conversas`
 1655/1655, `deno check`, lint, `dev:gates --base=origin/main` sem afrouxar nem endurecer.
 
-**Fica:** o toque no "não" num retry ou numa retomada do turno não marca `optInRefused` e cai no modelo (raro: o toque é a mensagem
-inteira); o opt-in segue colado no `silence_1` de quem nunca engajou (B2). **Estado:** no código, não publicado.
+**Revisão Opus (NEEDS WORK → consertado):** sem anúncio e só com um "oi", a diretiva ainda dizia "uma frase sobre o que o anúncio
+mostra (o nosso colete)" ao lado de "não diga que ela veio por um anúncio" — virou "uma frase sobre o nosso colete"; e o prompt geral
+afirmava "Ela veio do anúncio" em todo turno — virou "Quase sempre ela vem do anúncio". Negações no teste. A revisão mostrou também um
+ganho: o `\b` ASCII cortava a palavra no acento e recusava nomes reais ("Simão Pedro" lia "Sim", "Noé Silva" lia "No"); agora passam,
+travado no teste. Nomes que passam a ser recusados: só formas inexistentes como "Ana Só", "Lia Até".
+
+**Fica:** o toque no "não" junto de outra mensagem ainda sem resposta (`["ok", "Não, obrigada"]`), num turno "joined", num retry ou numa
+retomada vai ao modelo, sem a linha fixa; o teste do ramo é de texto no `index.ts`, nenhum roda o turno com um toque de botão; o opt-in
+segue colado no `silence_1` de quem nunca engajou (B2). **Estado:** no código, não publicado.
 
 ## Lições (valem para qualquer correção futura)
 
