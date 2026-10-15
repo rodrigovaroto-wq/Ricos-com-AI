@@ -4,8 +4,9 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { CORREIOS_CEP_URL, forgetsCep } from "@/agent/address.js";
-import { runGates } from "@/agent/guardrails.js";
-import { ctx } from "./fixtures.js";
+import { renderFollowup } from "@/agent/followups.js";
+import { asksCep, runGates } from "@/agent/guardrails.js";
+import { config, ctx } from "./fixtures.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 const blocked = (text: string, over: Parameters<typeof ctx>[0]) =>
@@ -31,6 +32,10 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
     "não lembro se o cep é esse",
     "não lembro o número da casa, mas o cep é 01310-100",
     "não sei qual tamanho, me passa o cep de vocês?",
+    // Revisão Opus do R26: o "não" é de outra coisa, ou ela nega o esquecer.
+    "nao lembro o numero mas o cep eu sei",
+    "não sei pq vcs precisam do meu cep",
+    "não esqueci o cep não",
   ])("não é esquecer o CEP: %s", (text) => {
     expect(forgetsCep(text)).toBe(false);
   });
@@ -60,12 +65,29 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
     expect(turn).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten)");
     expect(turn).toContain("if (cepForgotten) return fitting;");
     expect(turn).toContain("missing === \"cep\" && (linkDue || paymentChoice !== null) && cepForgotten");
+    // A diretiva do link não convida "me manda" (que o cep_insist veta).
+    expect(turn).toContain("assim que ela tiver o CEP, o link sai — sem pedir que ela mande.");
     expect(turn).toContain("Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar");
   });
 
   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
     expect(turn).toContain('missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0');
     expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
+  });
+});
+
+describe("R26.1 na régua — o toque depois do preço não pede o CEP que ela não lembra (revisão Opus do R26)", () => {
+  const leads = Array.from({ length: 40 }, (_, i) => `lead-${i}`);
+  const touch = (leadId: string, cepForgotten?: boolean) =>
+    renderFollowup("silence_1", { leadId, config, stopPoint: "after_price", regionKnown: false, ...(cepForgotten ? { cepForgotten } : {}) });
+  it("nenhuma linha que a régua manda nesse estado pede o CEP", () => {
+    for (const id of leads) expect(asksCep(touch(id, true) ?? "")).toBe(false);
+  });
+  it("negação: sem o 'não lembro', a variante que pede o CEP continua no sorteio", () => {
+    expect(leads.some((id) => asksCep(touch(id) ?? ""))).toBe(true);
+  });
+  it("a varredura lê o 'não lembro' só para o silence_1, sem CEP e sem pedido", () => {
+    expect(turn).toContain('cepForgotten: kind === "silence_1" && !lead.address?.cep && !order &&');
   });
 });
 
@@ -87,7 +109,11 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("a consulta que falha (ou lança, 'fetch failed') é tentada de novo, curta, antes do link com a ressalva", () => {
     const lookup = turn.slice(turn.indexOf("else if (addressDraft.cep) {"), turn.indexOf("region = lookup.kind === \"found\" ? lookup.region : null;"));
     expect(lookup).toContain('.catch((): RegionLookup => ({ kind: "failed" }))');
-    expect(lookup).toContain('.then((first) => (first.kind === "failed" ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));');
+    expect(lookup).toContain('.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));');
+  });
+
+  it("negação (revisão Opus): na nova tentativa da varredura e na revisão, sem a segunda consulta — o orçamento é do modelo", () => {
+    expect(turn).not.toContain('.then((first) => (first.kind === "failed" ? lookupRegion(');
   });
 
   it("negação (L2 mantida): ainda falhando, a cobertura fica desconhecida e o link sai com a ressalva", () => {
@@ -100,8 +126,13 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("depois do link da entrega, o 'não tem na entrega' vem como a correção que é, uma vez", () => {
     expect(turn).toContain(SENTENCE);
     expect(turn).toContain(
-      "const codLinkVoid = codUnavailable && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
+      "const codLinkVoid = codUnavailable && storedAddress.codAvailable !== false && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
     );
+  });
+
+  it("a correção sai só no turno em que a consulta descobre a falta de entrega (revisão Opus: o modelo pode dizer de outro jeito)", () => {
+    // `storedAddress` é o lead do começo do turno: o turno seguinte já o lê com `codAvailable: false` e a diretiva não volta.
+    expect(turn.indexOf("const storedAddress = (lead.address ?? {})")).toBeLessThan(turn.indexOf("const codLinkVoid ="));
     expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly\),\n\s+codLinkVoid/);
   });
 

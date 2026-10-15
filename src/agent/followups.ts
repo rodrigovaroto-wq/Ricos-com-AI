@@ -1099,6 +1099,8 @@ export interface RenderContext {
    * sent a CEP and heard it at 9am). Absent = known, as before.
    */
   regionKnown?: boolean;
+  /** She said she does not remember her CEP and sent none since (R26.1): no touch asks it. Absent = not said. */
+  cepForgotten?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
   /**
@@ -1160,7 +1162,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         ctx.paymentPath === "prepay" && point === "after_price"
           ? silence1Prepay(ctx.config)
           : ctx.regionKnown === false && point === "after_price"
-          ? SILENCE_1_UNKNOWN
+          ? // R26.1: after her "não lembro o CEP", only the variant that does not ask it.
+            ctx.cepForgotten === true ? SILENCE_1_UNKNOWN.slice(1) : SILENCE_1_UNKNOWN
           : SILENCE_1(ctx.config.delivery.warrantyDays)[point],
       );
     }

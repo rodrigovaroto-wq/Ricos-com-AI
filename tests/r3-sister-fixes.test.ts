@@ -49,7 +49,7 @@ describe("A2. o opt-in pergunta só ofertas, e o 'não' recebe uma linha fixa se
     const branch = turn.indexOf("if (optInRefused && parts.length === 1) {");
     expect(branch).toBeGreaterThan(turn.indexOf("const recentOutbound = recent"));
     expect(turn.slice(branch, branch + 300)).toContain("sendFixed(OPT_IN_DECLINED_REPLY");
-    expect(turn.indexOf("if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken)) && !interpretation.wants_to_buy) {")).toBeGreaterThan(branch);
+    expect(turn.indexOf("if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken), codUnavailable || recentOutbound.some(toldNoCod)) && !interpretation.wants_to_buy) {")).toBeGreaterThan(branch);
   });
 });
 

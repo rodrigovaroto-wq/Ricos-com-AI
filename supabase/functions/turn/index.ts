@@ -1171,7 +1171,8 @@ const scheduleSilenceTouches = async (
   const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
-  if (at && declinesInBurst(herRecent(at.messages ?? [], spoken))) { await cancelScheduled(conversationId, "all"); return; }
+  // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
+  if (at && declinesInBurst(herRecent(at.messages ?? [], spoken), [], (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && toldNoCod(m.body ?? "")))) { await cancelScheduled(conversationId, "all"); return; }
   // She was told the vest does not fit and has no size of the table since (R23 review): her "obrigada" does not re-arm the
   // ruler that would ask her pants size again. A size she gives later (`leads.size`) re-arms it.
   if (at && !at.leads?.size && (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? ""))) {
@@ -1757,6 +1758,11 @@ const runFollowupSweep = async () => {
       // Nobody looked her region up and nothing settled the path: the touches do not promise the door (real test 2026-10-14).
       // A choice alone is not a region (R23 review: "quero pagar na entrega" before any CEP); a prepaid choice is `touchPath` already.
       regionKnown: Boolean(order) || typeof lead.address?.codAvailable === "boolean",
+      // R26.1 (review): after her "não lembro o CEP", the after-price touch never asks it. Read only for this touch, with no
+      // CEP and no order. Index: messages_conversation_idx (conversation_id, created_at), her 20 newest.
+      cepForgotten: kind === "silence_1" && !lead.address?.cep && !order &&
+        ((await db(`messages?conversation_id=eq.${row.conversation_id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`).catch(() => null)) ?? [])
+          .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -3520,7 +3526,8 @@ const handleTurn = async (
         zip,
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
-        .then((first) => (first.kind === "failed" ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));
+        // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
@@ -3848,7 +3855,7 @@ const handleTurn = async (
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : missing === "cep" && (linkDue || paymentChoice !== null) && cepForgotten
         ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; diga numa frase que,` +
-          ` assim que ela tiver o CEP, o link sai. Não escreva link nenhum.`
+          ` assim que ela tiver o CEP, o link sai — sem pedir que ela mande. Não escreva link nenhum.`
       : missing === "cep" && (linkDue || paymentChoice !== null)
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
@@ -3894,7 +3901,7 @@ const handleTurn = async (
     }
   }
   // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
-  if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken)) && !interpretation.wants_to_buy) {
+  if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken), codUnavailable || recentOutbound.some(toldNoCod)) && !interpretation.wants_to_buy) {
     const sent = await sendFixed(opening(DECLINE_REPLY), "ela recusou: despedida fixa, sem régua");
     if (sent) return sent;
   }
@@ -3999,10 +4006,11 @@ const handleTurn = async (
         (linkPath === "prepay" && chatEmail === null ? ` Se escrever o link, avise que lá vai pedir o e-mail dela.` : "")
       : null;
   // R26.3 (persona Jussara, 15/10): the delivery link went out while her region was unknown, and now the lookup says no
-  // delivery there — said as the correction it is, once, not as news ("aí no seu CEP não tem" after the link).
+  // delivery there — said as the correction it is, once, not as news ("aí no seu CEP não tem" after the link). Once: only
+  // in the turn the lookup finds it (the stored region did not say it yet), whatever words the model used (review of R26).
   const codBases = [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)].filter((u): u is string => !!u);
   const codLinkAt = recentOutbound.findLastIndex((m: string) => codBases.some((b) => m.includes(b)));
-  const codLinkVoid = codUnavailable && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
+  const codLinkVoid = codUnavailable && storedAddress.codAvailable !== false && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
