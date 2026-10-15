@@ -294,7 +294,7 @@ describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no m�
     expect(oncePerDay(ruler, {}).map((f) => f.kind)).toEqual(ruler.map((f) => f.kind));
   });
   it("o turno lê o envio de cada toque antes de armar", () => {
-    expect(turn).toContain("select=*,leads(orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,orders(status)),followups(kind,sent_at)");
   });
 });
 
@@ -592,11 +592,10 @@ describe("personas 2026-10-07 — sem CEP, nada de 'o checkout confirma'", () =>
 });
 
 describe("decisão 16 (operador, 2026-10-07) — reserva: o preço, ou uma pessoa", () => {
-  it("pergunta de preço recebe a frase de preço do prompt; o resto vira atendimento humano", () => {
-    // Grafo §74: the deadline question joins the price one; everything else still goes to a person.
-    expect(turn).toContain('if (outcome.kind === "fallback" && !asksPrice && !asksWhen && !firstReply) outcome = { kind: "handoff"');
+  it("pergunta de preço recebe a frase de preço do prompt; o resto, a resposta segura — nunca uma pessoa (R22.1)", () => {
+    expect(turn).not.toContain('outcome = { kind: "handoff", reason: `nenhuma reescrita passou');
     expect(turn).toContain("codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG)");
-    expect(turn).not.toContain("SAFE_FALLBACK_REPLY");
+    expect(turn).toContain("fallbackIsGeneric ? SAFE_FALLBACK_REPLY");
   });
 });
 

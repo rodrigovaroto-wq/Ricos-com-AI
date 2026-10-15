@@ -56,6 +56,16 @@ export const extractCpf = (text: string): string | null => {
 };
 
 /**
+ * A CPF-shaped number whose check digits do not close, and no valid one beside it (persona Vera, 2026-10-14:
+ * "111.111.111-11" was thanked as if it were hers). `extractCpf` drops it silently, so the turn has to be told.
+ */
+export const sentInvalidCpf = (text: string): boolean =>
+  extractCpf(text) === null &&
+  // A bare run of 11 digits shaped like a mobile phone (DDD + 9…) is her phone, not a CPF (R23 review).
+  (/\b\d{3}[.]\d{3}[.]\d{3}-?\d{2}\b|\b\d{9}-\d{2}\b/.test(text) ||
+    [...text.matchAll(/\b\d{11}\b/g)].some((m) => !/^[1-9]{2}9\d{8}$/.test(m[0])));
+
+/**
  * The e-mail, if there is exactly one thing that looks like one. Deliberately strict
  * about the tail: `joao@gmail` is what people send when the keyboard swallowed the
  * rest, and accepting it produces an order whose confirmation goes nowhere.
@@ -106,6 +116,11 @@ export const refusedDatum = (
     const said = raw.split(/[,;.!]+/).map((c) => c.trim()).filter((c) => c !== "" && !c.endsWith("?"));
     // Every refusal form, clause by clause: "não, pode mandar sem?" refuses (fourth review).
     if (said.some((c) => refusal.test(c) && !OTHER_DATUM.test(c))) return true;
+    // Sending it at the checkout instead is the same answer for the link ("te passo lá no link, só me manda o link",
+    // "manda o link que eu completo lá" — persona venda-decidida, 2026-10-14, who asked for the link nine times).
+    // Asked as a question too ("o resto eu preencho no link, pode ser?", persona venda-curiosa, 2026-10-14): a checkout word is
+    // required, so "e se eu passar o cpf lá?" stays a doubt.
+    if (raw.split(/[,;.!?]+/).map((c) => c.trim()).some((c) => c !== "" && DEFER_TO_CHECKOUT.test(c) && !OTHER_DATUM.test(c))) return true;
     // A bare "não" before a question refuses only when the question asks to go on without it — "não, pode
     // mandar sem?", "não tenho, pode ser?" — never "não, pra que precisa?" or "pode ser o do meu filho?" (fifth review).
     const asked = raw.split(/[,;.!]+/).map((c) => c.trim()).filter(Boolean).pop() ?? "";
@@ -133,12 +148,18 @@ export const refusedDatum = (
     return new RegExp(String.raw`\b${W}\b`, "i").test(questions[questions.length - 1] ?? "");
   };
   let bareNoCounts = false;
+  let identityAsked = false;
   let count = 0;
   let asked = false;
   let answer: string[] = [];
   const close = () => {
     const norm = (a: string) => a.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?"));
+    const own = answer.some((a) => OWN.test(norm(a)) && !a.trim().endsWith("?")) ||
+      // "Patrícia Lima, o resto te passo no link" (persona venda-curiosa, 2026-10-14): every datum still missing goes to the
+      // checkout, asked or not — the one she just gave is `found` and does not count.
+      // Only after an identity ask, and never about the address or naming a datum she gives here (Opus review).
+      (identityAsked && answer.some((a) => /\bo\s+rest(?:o|ante)\b/.test(norm(a)) && DEFER_TO_CHECKOUT.test(norm(a)) &&
+        !/\b(?:endereco|numero|complemento|rua|bairro|cep|cpf|e-?mail)\b/.test(norm(a))));
     if (answer.length > 0 && !answer.some(found) && ((asked && answer.some((a) => refuses(a, bareNoCounts))) || own)) count += 1;
     answer = [];
   };
@@ -149,6 +170,7 @@ export const refusedDatum = (
     }
     close();
     asked = asks(m.body ?? "");
+    identityAsked = asksForIdentity(m.body ?? "") || asksForName(m.body ?? "");
     bareNoCounts = lastQuestionIsEmail(m.body ?? "");
   }
   close();
@@ -211,7 +233,22 @@ export const extractName = (text: string, askedName = false): string | null => {
   const introduced = cleaned.match(
     /\b(?:meu\s+nome\s+(?:é|e|eh)|me\s+chamo|nome\s+d[ae]l[ae](?:\s+(?:é|e|eh))?\s*:?|nome\s*[:=]|sou\s+a|aqui\s+é\s+a?)\s+([A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60})/i,
   );
-  const candidate = introduced?.[1] ?? (/^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(cleaned) ? cleaned : null);
+  const lettersOnly = (t: string): boolean => /^[A-Za-zÀ-ÿ][A-Za-zÀ-ÿ'´` ]{1,60}$/.test(t);
+  // Right after the ask, the name may open a longer message ("Patrícia Lima, o resto te passo no link", "pode ser Jessica
+  // Almeida": personas of 2026-10-14) — its first clause, past a "pode ser", goes through every check below.
+  // Only when the rest of the message is about the data or the checkout (Opus review: "Antes disso, qual o prazo?", "Pera ai, vou
+  // pegar o documento" and "Nossa senhora, que demora" opened with no name in them).
+  // And written like a name — every word capitalised but the particles (third Opus review: "Antes disso, me manda o link", "Pera ai,
+  // cadê o link?", "Vixe maria, esqueci o cpf" kept passing every word list).
+  const [head = "", ...tail] = cleaned.split(/[,\n]/);
+  const podeSer = /^pode\s+ser\s+/i.test(cleaned) && tail.length === 0;
+  const written = (t: string): boolean => t.split(" ").filter(Boolean).every((w) => /^(?:da|de|do|das|dos|e)$/.test(w) || /^[A-ZÀ-Ý]/.test(w));
+  const opening = !askedName ? ""
+    : podeSer ? cleaned.replace(/^pode\s+ser\s+/i, "").trim()
+    : tail.length > 0 && /\b(?:resto|restante|link|checkout|cpf|e-?mail)\b/i.test(tail.join(" ")) ? head.trim()
+    : "";
+  if (introduced === null && opening !== "" && !written(opening) && !lettersOnly(cleaned)) return null;
+  const candidate = introduced?.[1] ?? (askedName && lettersOnly(opening) ? opening : lettersOnly(cleaned) ? cleaned : null);
   if (candidate === null) return null;
 
   const name = candidate
@@ -344,6 +381,12 @@ export const refusesAskedDatum = (lastOutbound: string, answer: string): boolean
     !/\b(?:pens\w*|depois|desist\w*|ver\s+com|mais\s+tarde|amanha|volto|deixa\s+(?:pra|para)\s+la|esquece|nao\s+quero\s+mais)\b/.test(t)
   );
 };
+
+/** "Eu passo/completo/preencho lá (no link, no checkout)": the datum is given there, not here. */
+// A checkout word is required, or "completo/preencho (o resto) lá": "vou passar lá no quarto pegar o documento" and "o nome
+// completo tá lá em cima" are not a deferral (R23 review).
+const DEFER_TO_CHECKOUT =
+  /\b(?:passo|passar|mando|informo|preencho|completo|coloco|digito|ponho)\b[^,;.!?]{0,20}\b(?:no|pelo|na)\s+(?:link|checkout|site|pagina|formulario)\b|\b(?:completo|preencho|resolvo)\s+(?:o\s+resto\s+|o\s+restante\s+|tudo\s+)?(?:la|ali)\b/;
 
 /**
  * Refusing to give a datum: "n" is the WhatsApp "não"; "te" may sit before the verb; never after "se"

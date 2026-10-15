@@ -119,13 +119,15 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
     for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY]) {
       expect(runGates(texto, ctx({ layer: "auto" })).allowed, texto).toBe(true);
     }
-    // A mesma frase escrita pelo modelo continua vetada — o time não foi avisado por ele.
-    expect(runGates(HUMAN_HANDOFF_REPLY, ctx()).allowed).toBe(false);
+    // R22.1: a frase não promete mais ninguém, então nem o modelo a escrevendo é vetado por isso.
+    expect(runGates(HUMAN_HANDOFF_REPLY, ctx()).allowed).toBe(true);
   });
 
   it("são as frases do operador, palavra por palavra (R13.2, 2026-09-24)", () => {
-    expect(HUMAN_HANDOFF_REPLY).toBe("Claro! Já avisei o time e alguém te chama por aqui 💛");
-    expect(ORDER_HANDOFF_REPLY).toBe("Vou checar pra você e já te retorno 💛");
+    // R22.1 (operador, 2026-10-13): nenhuma das duas promete retorno de pessoa — ninguém responde pelo número da API.
+    expect(HUMAN_HANDOFF_REPLY).toBe("Entendo 💛 Por aqui o atendimento é todo comigo, a assistente virtual da Encorpa, e não tenho como te passar pra uma pessoa. Me conta o que você precisa que eu resolvo agora.");
+    expect(ORDER_HANDOFF_REPLY).toBe("Não consegui ver o andamento do seu pedido por aqui agora 💛 Me conta o que aconteceu que eu te ajudo no que der.");
+    for (const texto of [HUMAN_HANDOFF_REPLY, ORDER_HANDOFF_REPLY]) expect(texto).not.toMatch(/retorn|te chama|avisei|time/i);
     expect(THINK_REPLY).toBe("Sem problemas, estou aqui se tiver mais alguma dúvida");
   });
 
@@ -163,7 +165,7 @@ describe("as respostas que o sistema precisa sempre conseguir mandar", () => {
 describe("o briefing que vai no prompt", () => {
   it("todo gate de reescrita tem uma linha, e nenhuma vem vazia", () => {
     const linhas = gateBriefing(config);
-    expect(linhas.length).toBe(25);
+    expect(linhas.length).toBe(26);
     for (const linha of linhas) expect(linha.trim().length).toBeGreaterThan(20);
   });
 

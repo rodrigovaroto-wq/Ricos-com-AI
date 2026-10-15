@@ -13,6 +13,40 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (LEIA PRIMEIRO).**
+> - `turn` v23 publicada (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida). A Malu não chama mais pessoa; os gates têm
+>   cinco tentativas; consertos da rodada 2 e do loop de personas (grafo §91–§93, `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md`).
+> - n8n: os dois e-mails novos ("Avisa o operador") publicados e ativos — Turno da agente `972c1637`, Relógio da régua `883fc037`;
+>   `pnpm dev:n8n` ok nos sete workflows.
+> - `handoff_at` limpo dos números de teste …5983, …7967 e …3720: os três voltam a ser atendidos.
+> - Validação: suíte inteira de mutações (567/571 + as 4 reancoradas, 98/98 no subconjunto), `dev:conversas` 1655/1655, `dev:gates` sem
+>   afrouxar, `deno check` ok.
+> - **Falta:** PR da branch `claude/nice-bardeen-ewbfs7` para a `main`; rodada 3 de testes reais sobre a v23; resíduos do grafo §92–§93
+>   esperam frase real (R21.6). O bloco abaixo ("NÃO publicado") é histórico.
+
+> **2026-10-14 — R23 (rodada 2 de testes reais) implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).**
+> - Rodada 2 arquivada e analisada mensagem por mensagem: `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-3720.md` e
+>   `-1632.md` (grafo §92, decisão R23). Os 8 consertos aprovados pelo operador estão no código, com teste da frase real e da negação,
+>   revisão Opus (reprovou a 1ª versão; os 6 achados consertados) e 13/13 mutações novas (R22 e R23) pegas.
+> - **Suíte inteira de mutações verde (560/560, 14/10).** No ar continua a v22 (função v109 = commit `4dc8aa7`, conferido).
+> - **Falta (barrado nesta sessão pelo classificador de permissão, precisa do operador):** `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23) → e-mails do n8n (`turno-da-agente.json`,
+>   `relogio-da-regua.json`) → limpar `handoff_at` dos números de teste (…5983, …7967, …3720) → rodada de personas.
+> - **Rodada de personas bloqueada nesta sessão:** a porta `local` precisa ler e escrever no Supabase de dados, e o proxy não injetou a
+>   chave (`No API key found`); buscar a chave pela API de gerência foi barrado pelo classificador. Precisa de `SUPABASE_SERVICE_ROLE_KEY`
+>   nas variáveis do ambiente (sessão nova).
+
+> **2026-10-13, noite — R22 implementado na branch `claude/nice-bardeen-ewbfs7`, NÃO publicado (LEIA PRIMEIRO).** Decisão executiva do
+> operador: **a Malu nunca chama uma pessoa** (só e-mail) e os gates têm **cinco tentativas**. Grafo §91, decisões R22.1–R22.2.
+> - Feito (7900+ testes, `dev:conversas`, `dev:gates` sem afrouxar, `deno check`): `handOff` não grava `handoff_at`; textos sem promessa de retorno;
+>   pós-venda só com o link no chat é venda; fim das reescritas nunca é pessoa (resposta fixa de preço/parcela/prazo ou a segura, com e-mail);
+>   kits sem pessoa; pagamento que não atualiza e janela de 24 h sem `handoff_at`; gate veta *oferecer* pessoa; `MAX_REWRITES` 4 com motivos
+>   acumulados; "ok" depois do link; rascunho vetado gravado mascarado (R21.8); fatos R21.7 no prompt.
+> - **Falta publicar:** `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v23), aplicar os textos novos dos dois e-mails do n8n
+>   (`n8n/workflows/turno-da-agente.json`, `relogio-da-regua.json`) e `pnpm dev:n8n`; limpar `handoff_at` dos leads antigos que o operador quiser
+>   reativar (`update leads set handoff_at = null where …`).
+> - **Não feito de propósito:** gates `installment_promise`/`price_promise` (R21.6 — esperam a frase real, agora gravada). **Abertos** do `…7967`:
+>   reenviar o link quando ela diz que não recebeu; "Chega quando?" engolido pela resposta de Pix pendente; tamanho velho sobrepondo o novo.
+
 > **2026-10-13, ~20h30 UTC — rodada de testes reais começou (LEIA PRIMEIRO).** PR #60 (v21–v22, R21.6) **mergeado** na `main`.
 > - Os números `…5983` (operador) e `…7967` tinham histórico de 08/10 que calava ou confundia a Malu: arquivados com análise e apagados
 >   (`docs/agente-ia/10-auditoria/testes-reais/2026-10-08-operador-pre-rodada.md`, `2026-10-13-tester-7967-pre-rodada.md`).

@@ -2,7 +2,7 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
-  "versionId": "3565c503-288a-4bcc-936b-63523a19596e",
+  "versionId": "883fc037-8b2b-41b6-bd01-f936129bfebd",
   "nodes": [
     {
       "id": "ba5ae99a-298d-4fe2-a9a2-248025dba571",
@@ -105,9 +105,9 @@
       "parameters": {
         "fromEmail": "Malu da Encorpa <rodrigo.varoto@gmail.com>",
         "toEmail": "={{ $json.notify }}",
-        "subject": "=Handoff — a cliente {{ $json.phone }} está esperando uma pessoa",
+        "subject": "=Aviso — a régua não conseguiu responder a cliente {{ $json.phone }}",
         "emailFormat": "text",
-        "text": "=A agente passou uma conversa para você e não volta a responder essa cliente.\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\n(Veio da varredura da régua: uma nova tentativa de turno terminou em handoff.)\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}",
+        "text": "=Aviso, não precisa responder no WhatsApp: a Malu continua atendendo essa cliente e responde a próxima mensagem dela.\n\nMotivo: {{ $json.reason }}\nTelefone: {{ $json.phone }}\nAbrir no WhatsApp: https://wa.me/{{ $json.phone }}\n\n(Veio da varredura da régua: uma nova tentativa de turno terminou em handoff.)\n\nlead: {{ $json.leadId }}\nconversa: {{ $json.conversationId }}",
         "options": {
           "appendAttribution": false
         }

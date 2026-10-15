@@ -235,7 +235,7 @@ for (const [angle, reply, esperado] of [
 // ─────────────────────────────────────────────────────────────────────────────
 for (const [angle, reply, esperado] of [
   ["a resposta que o prompt exige", "Não sou uma pessoa, sou a assistente virtual da Encorpa.", "envia"],
-  ["assistente virtual", "Sou a assistente virtual da marca, posso chamar alguém do time.", "envia"],
+  ["assistente virtual", "Sou a assistente virtual da marca, posso te ajudar com o que precisar.", "envia"],
   ["afirma ser gente", "Pode ficar tranquila, sou uma pessoa de verdade.", "barra(humanity_claim)"],
   ["nega ser robô", "Não sou um robô, viu?", "barra(humanity_claim)"],
   ["afirma ser humana", "Sou humana sim!", "barra(humanity_claim)"],
@@ -368,8 +368,9 @@ for (const [angle, got, esperado] of [
   // a resposta de saída e a conversa continua com a agente. Handoff ficou para o que não é
   // questão de redação.
   ["segunda reescrita", turn("rewrite", 1, 0), "rewrite"],
-  ["esgotou a reescrita", turn("rewrite", 2, 0), "fallback"],
-  ["esgotou de novo", turn("rewrite", 3, 0), "fallback"],
+  ["quarta reescrita", turn("rewrite", 3, 0), "rewrite"],
+  ["esgotou a reescrita", turn("rewrite", 4, 0), "fallback"],
+  ["esgotou de novo", turn("rewrite", 5, 0), "fallback"],
   ["sem orçamento pra reescrever", turn("rewrite", 0, 1.5), "handoff"],
   ["opt-out nunca reescreve", turn("stop", 0, 0), "stop"],
   ["hora errada adia", turn("defer", 0, 0), "defer"],

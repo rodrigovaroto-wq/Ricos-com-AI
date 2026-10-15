@@ -109,6 +109,12 @@ const RANGE_ANSWER = /\b(entre|ou|a|e)\s+\d{2}\b/i;
 const NEGATED_CUE = /\b(nao|não|nunca|jamais)\b[^,;.!?]*$/i;
 
 /**
+ * Her weight named right before the number (pre-round test, 2026-10-13: "tamanho, peso 52 e uso 36 de calca" was
+ * read as 52 — XGG — because "tamanho" sits a few letters before "peso 52"). The weight is never the size.
+ */
+const WEIGHT_CUE = /\b(peso|pesando|pesava|pesa)\b\D{0,4}$/i;
+
+/**
  * Pulls a dress size out of free text, so it can be resolved through
  * `sizeFromDressSize` instead of left for the model to eyeball.
  *
@@ -135,7 +141,7 @@ export const extractDressSize = (text: string): number | null => {
     const at = match.index ?? 0;
     if (NOT_A_SIZE.test(text.slice(at + match[0]!.length))) continue;
     const before = text.slice(0, at);
-    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before)) continue;
+    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
     if (OTHER_GARMENT_AFTER.test(text.slice(at + match[0]!.length))) continue;
     plausible.push(Number(match[1]));
     if (SIZE_CUE.test(before)) cued.push(Number(match[1]));
@@ -146,6 +152,31 @@ export const extractDressSize = (text: string): number | null => {
   // does not know which. The larger wins, the same rule the table itself follows —
   // loose is worn, tight comes back.
   return RANGE_ANSWER.test(text) ? Math.max(...plausible) : cued[0]!;
+};
+
+/**
+ * A pants size past the whole table (real test 2026-10-14, …1632: "Tamanho 65"). The model said, rightly, that
+ * the vest would not fit — and the ruler then asked her pants size again the next hour. The number has to be cued
+ * like any size ("tamanho 65", "uso 60", "calça 58"), not a weight or another unit; a bare number counts only as
+ * the answer to the size question (`askedSize`). Past `TABLE_TOP_DRESS` + 4 (56 still reads as the XGG, as before).
+ */
+export const TABLE_TOP_DRESS = RANGES[RANGES.length - 1]!.dressMax;
+export const TABLE_TOP_WAIST = RANGES[RANGES.length - 1]!.max;
+// Stricter than `SIZE_CUE` (R23 review): "número 65" of the house, "sou de 62" and the "entre" inside "entrega 65?" are not a
+// pants size, and here a wrong read refuses the sale. A body measure after the number is a waist, not pants ("uso 60 de cintura").
+const BEYOND_CUE = /\b(tamanho|veste|visto|uso|usa|cal[c\u00e7]a)\b\D{0,10}$/i;
+const BODY_AFTER = /^\s*(?:de\s+)?(?:cintura|quadril|busto|barriga)\b/i;
+export const sizeBeyondTable = (text: string, askedSize = false): number | null => {
+  const bare = /^\s*(\d{2})\s*$/.exec(text);
+  if (bare) return askedSize && Number(bare[1]) > 56 && Number(bare[1]) <= 80 ? Number(bare[1]) : null;
+  for (const match of text.matchAll(/\b(5[7-9]|[67]\d|80)\b/g)) {
+    const at = match.index ?? 0;
+    const before = text.slice(0, at);
+    if (NOT_A_SIZE.test(text.slice(at + match[0]!.length)) || BODY_AFTER.test(text.slice(at + match[0]!.length))) continue;
+    if (NEGATED_CUE.test(before) || SHOE_CUE.test(before) || OTHER_GARMENT.test(before) || WEIGHT_CUE.test(before)) continue;
+    if (BEYOND_CUE.test(before)) return Number(match[1]);
+  }
+  return null;
 };
 
 /**

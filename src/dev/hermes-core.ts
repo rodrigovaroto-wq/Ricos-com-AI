@@ -44,7 +44,7 @@ export function renderConversation(c: Conversation, versions: readonly number[] 
     lines.push(`**Malu ${n}${e.status && e.status !== "replied" ? ` (${e.status})` : ""}:** ${text}`);
     // The vetoed drafts are not stored — only which gate refused them. Saying so matters:
     // the first calibration read the vetoes as aimed at the final text, which had passed.
-    for (const v of e.vetoes ?? []) lines.push(`  - veto num rascunho anterior (o texto vetado não foi gravado; o texto acima passou): ${v.gate}${v.detail ? ` — ${v.detail}` : ""}`);
+    for (const v of e.vetoes ?? []) lines.push(`  - veto num rascunho anterior (o texto acima passou; o rascunho vetado, quando gravado, vem mascarado abaixo): ${v.gate}${v.detail ? ` — ${maskPii(v.detail)}` : ""}`);
     lines.push("");
   }
   return lines.join("\n");

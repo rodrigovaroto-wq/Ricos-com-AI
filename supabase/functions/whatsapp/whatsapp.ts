@@ -321,8 +321,8 @@ export const readReceipt = (messageId: string) => ({
   message_id: messageId,
 });
 
-/** The pause before the blue ticks (operator, 2026-10-08). */
-export const READ_RECEIPT_DELAY_MS = 2_000;
+/** The pause before the blue ticks (operator, 2026-10-08: 2 s; 2026-10-14: 5 s, for every message of hers). */
+export const READ_RECEIPT_DELAY_MS = 5_000;
 
 /**
  * Her voice message as the agent reads it (operator, 2026-10-07): the transcript, marked as one, so the

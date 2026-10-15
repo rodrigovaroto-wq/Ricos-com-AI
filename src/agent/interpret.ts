@@ -391,26 +391,30 @@ export const closesConversation = (message: string): boolean =>
   /\b(?:tchau\w*|brigad[ao]|brigadao|obrigad[ao]+|obg|gratidao|tmj|abencoe\w*|valeu|vlw|encerr\w*|finaliz\w*|ja\s+(?:fiz|fechei|comprei|paguei)|ate\s+(?:mais|logo)|boa\s+(?:tarde|noite))\b/.test(norm(message));
 
 /**
- * The three reasons that hand a conversation to a person, and the only three (R13.2):
- * an order she wants to cancel, a question about an order that exists, or a person asked
- * for in so many words. The last needs BOTH the reading and a person-word in her text;
- * the exact phrase list (`wantsHuman`) hands off earlier in the turn, before this runs. Nothing else — a vetoed
- * reply, a failed rewrite, a confused customer — ever returns non-null here.
+ * The three readings that flag the operator, and the only three (R13.2): an order she wants to cancel,
+ * a question about an order that exists, or a person asked for in so many words. Since R22.1 none of them
+ * silences the agent or promises her a call: the answer is the agent's own, the e-mail is a flag. The last
+ * needs BOTH the reading and a person-word in her text; the exact phrase list (`wantsHuman`) comes earlier
+ * in the turn, before this runs. Nothing else — a vetoed reply, a failed rewrite, a confused customer —
+ * ever returns non-null here.
  *
- * Cancel and post-sale need an order to be about (`orderContext`): an order on file for
- * the lead, or a checkout link already sent in the conversation. "E se eu não gostar,
- * consigo cancelar depois?" before any purchase is a pre-sale question the agent answers.
+ * Cancel and post-sale need an order to be about (`orderContext`): an order on file for the lead, or a
+ * checkout link already sent in the conversation. "E se eu não gostar, consigo cancelar depois?" before any
+ * purchase is a pre-sale question the agent answers. A link alone (`linkOnly`: no order on file, no purchase
+ * said) is neither a cancel nor a post-sale ("desisti, pode cancelar" before any order has nothing to cancel): "moro sozinha, não tenho quem receber" after the link is a sale's
+ * doubt (real test 2026-10-13).
  */
 export const handoffFor = (
   i: Interpretation,
   message: string,
   orderContext: boolean,
+  linkOnly = false,
 ): HandoffKind | null => {
-  if (orderContext && i.wants_cancel) return "cancel";
+  if (orderContext && !linkOnly && i.wants_cancel) return "cancel";
   // Everything about an order goes to a person EXCEPT a happy close: "obrigada, já
   // finalizei" handed the buyer to a person (persona round). Requiring a question instead
   // lost "ficou pequeno", "me cobraram frete" (seventh review) — exclude, never require.
-  if (orderContext && i.post_sale && !reportsDone(message)) return "post_sale";
+  if (orderContext && !linkOnly && i.post_sale && !reportsDone(message)) return "post_sale";
   if (i.asks_human && namesAPerson(message)) return "human";
   return null;
 };
@@ -448,7 +452,10 @@ export const choosesPath = (message: string): boolean => {
   // mais barato?" is not).
   const after = t.slice(m.index + m[0].length);
   const questionAfter =
-    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*,/.test(after) && !new RegExp(PATH_WORD).test(after));
+    // A full stop works like the comma (persona venda-curiosa, 2026-10-14: "prefiro na entrega. quanto fica no total?").
+    after.includes("?") && !(/^\s*(?:sim|mesmo|entao)?\s*[,.;!]/.test(after) && !new RegExp(PATH_WORD).test(after) &&
+      // Doubt about the path, never a logistics question with "melhor" in it ("qual o melhor horário?", third Opus review).
+      !/\b(?:mas|ou|compensa|sera|vale\s+a\s+pena)\b|\b(?:e|eh|seria|fica)\s+(?:mais\s+|menos\s+)?(?:melhor|seguro|confiavel|garantido)\s*\?|^\s*[,.;!]?\s*melhor\s+assim\b/.test(after));
   return !upTo.includes("?") && !/\b(?:quanto|qual|se\s+eu|e\s+se|compensa|diferenca)\b/.test(upTo) && !questionAfter;
 };
 
@@ -1106,7 +1113,14 @@ export const linkHeldBack = (
  */
 export const asksForLink = (message: string): boolean => {
   const t = norm(message);
-  if (/\bnao\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei)\s+(?:o\s+)?link\b/.test(t)) return true;
+  // Pre-round test 2026-10-13 (…7967): "N recebi link", "Nao tem LINK", "Nao tem link moça" — she never got one, and the
+  // agent sent her up the chat four times.
+  // "Não tem link de pix?" asks about a way to pay, not for the link (R23 review).
+  if (/\b(?:nao|n)\s+(?:achei|acho|abriu|abre|chegou|veio|vi|recebi|encontrei|tem|apareceu|aparece)\s+(?:o\s+|nenhum\s+)?link\b(?!\s+(?:de|do|da|pra|pro|para|no|na)\b)/.test(t)) return true;
+  // "Consegue gerar um novo link?", "consegue me gerar o pagamento?" (same conversation): a new link asked for. A refusal or
+  // a condition after it is not a request ("não precisa gerar outro link", "gera o link amanhã").
+  const generate = /\b(?:gera|gerar|gere)\s+(?:me\s+)?(?:um\s+|o\s+|outro\s+)?(?:novo\s+)?(?:link|pagamento)\b/.exec(t);
+  if (generate && !/\b(?:nao|precisa)\s+(?:\S+\s+){0,2}$/.test(t.slice(0, generate.index)) && !/\b(?:se|quando|depois|amanha|mais\s+tarde)\b/.test(t.slice(generate.index + generate[0].length))) return true;
   // Second real test (grafo §66): "você nao vai me mandar o link do checkout????" — the cobrança, in a
   // question — and "então manda logo" / "sim pode mandar" as the whole message.
   if (

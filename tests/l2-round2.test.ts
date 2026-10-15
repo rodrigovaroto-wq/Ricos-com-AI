@@ -39,7 +39,7 @@ describe("CEP que não existe", () => {
   it("a função de produção diz que não conseguiu consultar porque o CEP não existe, e pede pra conferir", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(turn).toContain('lookup.kind === "not_found"');
-    expect(turn).toContain("não conseguiu consultar porque esse CEP não existe");
+    expect(turn).toContain("não conseguiu consultar porque parece que esse CEP não existe");
     expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
   });
 });

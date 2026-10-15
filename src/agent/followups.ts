@@ -194,8 +194,9 @@ export const STILL_THERE_MS = 20 * MINUTE;
  * unanswered. After a yes/no or a choice the "ok" is her answer, and the turn reads it as before.
  */
 export type AskedDatum = "cep" | "size" | "name" | "cpf" | "email";
+// The "?" that opens a link's query string is no question (real test 2026-10-13: "Ok" after the checkout link).
 export const ackGoesUnanswered = (bareAck: boolean, lastOutbound: string, datum: AskedDatum | null): boolean =>
-  bareAck && (datum !== null ? !isOffer(lastOutbound) : !lastOutbound.includes("?"));
+  bareAck && (datum !== null ? !isOffer(lastOutbound) : !lastOutbound.replace(/https?:\/\/\S+/gi, " ").includes("?"));
 
 /**
  * A yes/no offer or a choice: "ok" to it is her yes (review of the L2 fixes, finding 4) — "Quer que eu
@@ -593,12 +594,16 @@ export const PAYMENT_CHECK_REPLY =
   "Conferi aqui e o seu pagamento ainda não aparece como confirmado. Às vezes leva alguns minutinhos pra atualizar, aguarda um pouquinho que eu fico de olho e te aviso 💛";
 export const PAYMENT_STILL_CHECKING = "Ainda estou verificando aqui, assim que a confirmação aparecer eu te aviso 💛";
 export const PAYMENT_CONFIRMED_REPLY = "Seu pagamento já foi confirmado aqui, está tudo certo com o seu pedido 💛";
-/** At 5 minutes, the payment still not updated: a person checks it (operator, 2026-10-13). */
+/**
+ * At 5 minutes, the payment still not updated: the operator checks it on the Coinzz (operator, 2026-10-13). She is
+ * promised only what the system does by itself — the order's confirmation arrives here when the payment does
+ * (R22.1: no "já te retornamos", nobody answers from this number) — and the agent stays with her.
+ */
 export const PAYMENT_ESCALATED =
-  "Ainda não atualizou aqui, então já passei pro time conferir o seu pagamento e já te retornamos 💛";
+  "Ainda não atualizou aqui, então já pedi pro time conferir o seu pagamento. Assim que ele aparecer, a confirmação do seu pedido chega por aqui 💛";
 /** The same, with the receipt she sent during the wait. */
 export const PAYMENT_RECEIPT_ESCALATED =
-  "Ainda não apareceu a confirmação do pagamento aqui, então já passei seu comprovante pro time conferir e já te retornamos 💛";
+  "Ainda não apareceu a confirmação do pagamento aqui, então já pedi pro time conferir o seu comprovante. Assim que o pagamento aparecer, a confirmação do seu pedido chega por aqui 💛";
 /** The receipt arrived while the payment is being checked: kept, and the check finishes the job. */
 export const PAYMENT_RECEIPT_KEPT = "Recebi o comprovante, obrigada! Vou verificar o status do seu pagamento e em alguns minutinhos te falo 💛";
 
@@ -983,6 +988,22 @@ const SILENCE_2 = (days: number) =>
     `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga quando ele chegar na sua mão — e, depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
   ] as const;
 
+/**
+ * The same angles when her region is unknown (no CEP): payment at the door is only "dependendo da sua região" — the
+ * wording `riskReversalMessage` already uses before the CEP.
+ */
+const SILENCE_2_UNKNOWN = (days: number) =>
+  [
+    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber você ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
+    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
+  ] as const;
+
+/** `after_price` with her region unknown: no "paga quando chegar", the CEP asked instead. */
+const SILENCE_1_UNKNOWN: readonly string[] = [
+  "Qualquer coisa é só chamar! Me passa seu CEP quando quiser que eu te digo como fica a entrega e o pagamento aí na sua região.",
+  "Fico por aqui se precisar! Com o seu CEP eu te mostro as opções de entrega e de pagamento que chegam até você.",
+];
+
 /** The same angles on the prepaid path: she pays first, so nothing about paying at the door. */
 const SILENCE_2_PREPAY = (days: number) =>
   [
@@ -1072,6 +1093,12 @@ export interface RenderContext {
    * no payment at the door. Absent reads "cod", the truth for a region nobody looked up.
    */
   paymentPath?: "cod" | "prepay";
+  /**
+   * False when nobody knows whether payment at the door reaches her (no CEP looked up, no order, no choice): the
+   * touches then say "dependendo da sua região", never "só paga ao entregador" (real test 2026-10-14, …1632, who never
+   * sent a CEP and heard it at 9am). Absent = known, as before.
+   */
+  regionKnown?: boolean;
   /** The already-written text, for a deferred reply. */
   body?: string;
   /**
@@ -1132,6 +1159,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         ctx.leadId,
         ctx.paymentPath === "prepay" && point === "after_price"
           ? silence1Prepay(ctx.config)
+          : ctx.regionKnown === false && point === "after_price"
+          ? SILENCE_1_UNKNOWN
           : SILENCE_1(ctx.config.delivery.warrantyDays)[point],
       );
     }
@@ -1139,7 +1168,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     case "silence_2":
       return pickVariant(
         ctx.leadId,
-        (ctx.paymentPath === "prepay" ? SILENCE_2_PREPAY : SILENCE_2)(ctx.config.delivery.warrantyDays),
+        (ctx.paymentPath === "prepay" ? SILENCE_2_PREPAY : ctx.regionKnown === false ? SILENCE_2_UNKNOWN : SILENCE_2)(ctx.config.delivery.warrantyDays),
       );
 
     case "silence_3": {
@@ -1153,6 +1182,9 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
         // Where she only has the prepaid path, "nos dois jeitos" names one she cannot use (R16.2).
         (ctx.paymentPath === "prepay"
           ? `pra você, e ele vale no pagamento antecipado.\n\n`
+          : ctx.regionKnown === false
+          ? // Nobody knows if the door reaches her (R23 review): no "pagando na entrega".
+            `pra você.\n\n`
           : `pra você — e ele vale nos dois jeitos: pagando na entrega ou antecipado.\n\n`) +
         // Logzz and Coinzz take the code at checkout; nobody applies it for her (R17.4 a).
         `É só usar o código **${code}** no checkout — se quiser, te mando o link agora. E se não for o momento, ` +
@@ -1333,6 +1365,8 @@ export const deliveryFor = (
   // The `silence_2` template is the delivery path's text ("só paga ao entregador"): on the
   // prepaid path there is no template, so the touch is blocked rather than sent that one (D3).
   if (kind === "silence_2" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
+  // Nor to a woman whose region nobody looked up: the door may not reach her (real test 2026-10-14).
+  if ((kind === "silence_2" || kind === "silence_3") && ctx.regionKnown === false) return { via: "blocked", reason: "no_template" };
   // Same for the coupon: its template says "nos dois jeitos: pagando na entrega ou antecipado".
   if (kind === "silence_3" && ctx.paymentPath === "prepay") return { via: "blocked", reason: "no_template" };
 

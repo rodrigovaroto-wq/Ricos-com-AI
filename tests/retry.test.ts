@@ -67,11 +67,10 @@ describe("os limites do laço", () => {
 
   // Duas desde 2026-09-24 (R13.4): um falso veto na primeira versão e outro na reescrita
   // mandavam a resposta de saída, que ignora a pergunta dela.
-  it("duas reescritas antes da saída segura, não uma nem três", () => {
-    expect(MAX_REWRITES).toBe(2);
-    expect(decideNext(state({ rewritesUsed: 0 })).kind).toBe("rewrite");
-    expect(decideNext(state({ rewritesUsed: 1 })).kind).toBe("rewrite");
-    expect(decideNext(state({ rewritesUsed: 2 })).kind).toBe("fallback");
+  it("quatro reescritas (cinco tentativas) antes da saída segura (R22.2, operador, 2026-10-13)", () => {
+    expect(MAX_REWRITES).toBe(4);
+    for (const used of [0, 1, 2, 3]) expect(decideNext(state({ rewritesUsed: used })).kind).toBe("rewrite");
+    expect(decideNext(state({ rewritesUsed: 4 })).kind).toBe("fallback");
   });
 
   it("a segunda reescrita também respeita o teto de custo", () => {

@@ -352,7 +352,9 @@ describe("segunda revisão: varredura e webhook de venda", () => {
     const owned = retry.indexOf("if (!Array.isArray(closed) || closed.length === 0) {");
     expect(retry).toContain('const closed = await mark("canceled");');
     expect(owned).toBeGreaterThan(-1);
-    expect(retry.indexOf("handoff_at: new Date().toISOString()")).toBeGreaterThan(owned);
+    // R22.1: o e-mail avisa, mas ninguém é calado — nenhum handoff_at na varredura.
+    expect(retry.slice(0, retry.indexOf("const claimed = await mark(\"sent\")"))).not.toContain("handoff_at");
+    expect(retry.indexOf("handoffs.push({")).toBeGreaterThan(owned);
   });
 
   it("uma linha que lança não derruba a varredura", () => {
@@ -474,7 +476,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
@@ -542,7 +544,8 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
   it("a varredura julga e escreve o silêncio no caminho antecipado quando a praça não tem entrega", () => {
     expect(sweep).toContain(",payment_choice,payment_choice_at,address");
     expect(sweep).toContain('fresh(lead.payment_choice_at) && lead.payment_choice === "prepay") || lead.address?.codAvailable === false');
-    expect(sweep).toContain("      paymentPath: touchPath,\n      body:");
+    expect(sweep).toContain("      paymentPath: touchPath,\n");
+    expect(sweep).toContain("      body: row.body ?? undefined,");
   });
 
   it("o turno grava a praça no lead quando a consulta respondeu", () => {

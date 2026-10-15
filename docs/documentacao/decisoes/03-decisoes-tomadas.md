@@ -2167,3 +2167,13 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R21.8 — O rascunho vetado é gravado, mascarado** (operador, mesmo dia): para a R21.6 poder ser cumprida num veto (a frase real é
   a prova), o texto que o gate barrou passa a ser gravado com `maskPii` no trace do gate. Ele **nunca** entra no histórico da conversa
   (a regra de R11 continua: o vetado não é lido pelo modelo depois). Implementado na próxima leva, com teste de que o histórico não o lê.
+
+- **R22.1 — A Malu nunca chama uma pessoa** (operador, 2026-10-13, decisão executiva, supera R21.1 no pedido explícito e R13.2): ninguém
+  responde pelo número da API, então prometer pessoa ou gravar `handoff_at` só deixava a cliente sem resposta. Quando não dá para seguir, o
+  aviso é **só o e-mail** ao operador; a conversa continua com a Malu. Os únicos `handoff_at` que restam são o teto de custo e a falha de
+  configuração/provedor. Grafo §91.
+- **R22.2 — Cinco tentativas nos gates** (operador, mesmo dia): de três para cinco (quatro reescritas). O agente lê por que foi barrado, e
+  a reescrita recebe os motivos de todas as tentativas anteriores e a ordem de conferir as outras regras. Grafo §91.
+- **R23 — Consertos da rodada 2 de testes reais** (operador, 2026-10-14: "pode seguir com os 8 consertos"): fora da tabela pela calça
+  (resposta fixa e régua parada), régua sem promessa de entrega com região desconhecida, kit perguntado uma vez, prompt (dor → tamanho, IA,
+  topo da tabela, "tudo bem?"), "O colete sai de", peso não é tamanho, link pedido de novo, prazo junto do "paguei". Grafo §92.

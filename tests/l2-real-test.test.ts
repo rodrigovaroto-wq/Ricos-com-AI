@@ -176,7 +176,7 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
     const sweep = turn.slice(turn.indexOf('if (row.kind === "payment_check") {'), turn.indexOf("if (inSilenceRuler(row.kind) && (row.kind ==="));
     expect(sweep).toContain("const line = receipt ? PAYMENT_RECEIPT_ESCALATED : PAYMENT_ESCALATED;");
-    expect(sweep).toContain("handoff_at: new Date().toISOString()");
+    expect(sweep).not.toContain("handoff_at"); // R22.1: o pagamento é conferido pelo operador, e a Malu segue respondendo
     expect(sweep).toContain("o pagamento não atualizou em 5 minutos — conferir na Coinzz");
     // Negation: the receipt ask and the support e-mail left the flow.
     expect(turn).not.toContain("paymentSupportLine");
@@ -210,7 +210,8 @@ describe("L2 — 'paguei': a Malu verifica, espera 5 min, pede o comprovante e s
     expect(PAYMENT_CHECK_REPLY).toContain("aguarda um pouquinho");
     // Negation: no receipt asked, nobody called at the first "paguei".
     expect(PAYMENT_CHECK_REPLY).not.toMatch(/comprovante|time|pessoa/);
-    expect(PAYMENT_ESCALATED).toContain("já passei pro time");
+    expect(PAYMENT_ESCALATED).toContain("já pedi pro time conferir");
+    expect(PAYMENT_ESCALATED).not.toMatch(/retornamos|te chama/);
   });
 
   it("pedido criado ou Pix aguardando pagamento não arma 'Pedido confirmado! … já pago'", () => {
@@ -365,10 +366,10 @@ describe("L2 — revisão Opus (achados 3 a 8)", () => {
 describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("1. depois de um link, o antecipado não espera o e-mail", () => {
-    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore,");
+    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
-    expect(turn).toContain('await sendFixed(line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
+    expect(turn).toContain('await sendFixed(deadline ? `${line}\\n\\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');
     for (const line of [PAYMENT_CHECK_REPLY, PAYMENT_ESCALATED, PAYMENT_RECEIPT_ESCALATED]) {
       expect(runGates(line, ctx({ layer: "auto", paymentPath: "prepay", now: new Date("2026-10-08T05:30:00Z") })).traces.filter((t) => t.verdict === "block"), line).toEqual([]);
     }

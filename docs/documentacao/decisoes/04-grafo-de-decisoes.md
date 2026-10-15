@@ -2947,6 +2947,100 @@ em `src/dev/verify-guards.ts` (a fatia i pega toda n-ésima mutação a partir d
 commit `7732634`, 9 jobs ao mesmo tempo, verde em 4m29s, 548/548. **Custo:** mais minutos de runner por push (9 máquinas em vez de 1).
 **Guarda:** a soma das fatias é a lista inteira (conferido 548/548); uma mutação que escapa em qualquer fatia deixa o CI vermelho.
 
+## 91. A Malu nunca chama uma pessoa, e cinco tentativas nos gates (operador, 2026-10-13, R22.1–R22.2)
+
+**Sintoma:** nas três conversas da rodada 1 a Malu foi calada por `handoff_at` e a cliente ficou sem resposta ("Eae?", "Malu?", "Ent mas não
+tá dando para escolher outro dia…"). **Causa:** o número da WhatsApp Cloud API não abre no aplicativo; **ninguém consegue responder dali**.
+Toda porta de handoff prometia "alguém te chama" / "já te retorno" a uma pessoa que não existe e, ao gravar `handoff_at`, tirava a única
+que respondia. As portas eram nove: pedido explícito de pessoa (frase exata e leitura do modelo), pós-venda, cancelamento, mais peças que
+o maior kit, kit que o caminho não tem, fim das reescritas, pagamento que não atualizou em 5 min, nova tentativa fora da janela de 24 h, e o
+teto de custo / falha de configuração. **Caminhos descartados:** (a) só apertar o pedido explícito — o "último recurso" da R21.1 continuava
+prometendo um retorno impossível; (b) manter `handoff_at` e só trocar o texto — ela seguiria calada. **Correção (R22.1):** `handOff` **não
+grava `handoff_at`** — cancela a régua e avisa o operador por e-mail (status `handoff` + `notify`, o único sinal), e a próxima mensagem dela é
+respondida normalmente. Os textos deixam de prometer retorno: `HUMAN_HANDOFF_REPLY` ("Por aqui quem te atende sou eu…"),
+`ORDER_HANDOFF_REPLY` (diz que o status não está legível e pede o problema), `PAYMENT_ESCALATED` (a confirmação chega por aqui quando o
+pagamento aparecer), `kitLimitReply` (o máximo de peças por pedido, no lugar de "chamo uma pessoa"). Dois pedidos de pessoa seguidos: o
+modelo responde na segunda (a mesma frase duas vezes seria um laço). **Pós-venda sem pedido** (achado 1): só o link no chat, sem pedido
+nem compra dita, não é pós-venda (`handoffFor(…, linkOnly)`): "moro sozinha, não tenho quem receber" é dúvida de venda. **Fim das
+reescritas**: nunca vira pessoa — preço/parcela/desconto/Pix recebe `offerFallbackMessage` (só números do config, uma frase que nomeia o
+antecipado para o `installment_promise`), prazo a resposta de prazo, o resto `SAFE_FALLBACK_REPLY`; a genérica volta com status `handoff` só
+para o e-mail sair. **Gate:** `humanity_claim` passa a vetar também a *oferta* ("quer que alguém do time te chame?", frases reais da
+rodada, R21.6) e os briefings/prompt deixam de ensiná-la. **Mantidos** (proteção, não conversa): o teto de custo e a falha de
+configuração/provedor continuam gravando `handoff_at`. **R22.2:** `MAX_REWRITES` 2 → 4 (cinco tentativas); a instrução da reescrita
+carrega os motivos de **todas** as tentativas anteriores e manda conferir as outras regras antes de escrever; `REVISE_DEADLINE_MS`
+110 → 95 s para as cinco tentativas caberem nos 150 s. **Mais:** `ackGoesUnanswered` tira URLs antes de procurar "?" (achado 3); rascunho
+vetado gravado mascarado no `gate_traces.detail`, nunca lido de volta (**R21.8**); os dois fatos da entrega no prompt (**R21.7**).
+**Guarda:** `tests/r22-no-person.test.ts`; `dev:gates` sem afrouxamento (6 endurecimentos, todos a oferta de pessoa); testes antigos que
+fixavam "alguém te chama", "duas reescritas" e a conversa que "volta depois do handoff" foram reescritos para a regra nova.
+**Fica / residual:** os gates `installment_promise` ("também") e `price_promise` ("Por R$ 100 eu não consigo") **não foram mexidos** —
+R21.6 exige a frase real, e com a resposta fixa + cinco tentativas + o rascunho gravado a próxima ocorrência a trará. Leads antigos com
+`handoff_at` seguem calados até o operador limpá-los. Nada disto está publicado: `turn` v23 e a mudança dos dois e-mails do n8n
+(texto do aviso) esperam deploy (publicados em 14/10 na v23 — ver o estado no §93). **Crítica à análise da rodada** (feita nesta sessão): a lista de seis consertos omitia os achados do `…7967`
+antigo — pessoa oferecida sem pedido (fechado aqui), link não reenviado quando ela diz que não recebeu, "Chega quando?" engolido pela
+resposta de Pix pendente, tamanho de 08/10 sobrepondo o "36" novo — e tratava "pessoa" como destino válido quando nenhuma pessoa
+responde; o conserto 4 (gates) era conjectura sem a frase real.
+
+## 92. Rodada 2 de testes reais: a régua que pergunta o tamanho a quem não serve, e o kit perguntado quatro vezes (2026-10-14, R23)
+
+**Sintoma (conversas reais, `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r2-testador-1632.md` e `-3720.md`):** (a) a Malu disse,
+certo, que o colete não veste na calça 65 — e uma hora depois a régua perguntou "me diz que tamanho de calça você usa", pediu para mandar
+ofertas e, às 9h, prometeu "só paga ao entregador" a quem nunca mandou CEP; (b) a pergunta "1 ou 2 peças?" fechou quatro respostas seguidas
+enquanto ela perguntava "é robô?", "é IA?" e "qual seu nome?" — e a oferta tinha 3 peças; (c) segundo gancho emocional depois da dor contada;
+(d) "Ele sai de R$ 216,50" na primeira mensagem. Da rodada anterior (`…7967`, 13/10), com frase real: "tamanho, peso 52 e uso 36" virou XGG;
+"N recebi link" / "Nao tem LINK" / "Consegue gerar um novo link?" não reenviavam o link; "Chega quando?" junto do "paguei" ficou sem prazo.
+**Nenhum gate vetou nada nas duas conversas novas:** tudo saiu do prompt, de linha fixa ou da régua. **Causa:** nada no código sabia de
+"fora da tabela" (só o modelo); a varredura lia região desconhecida como `cod`; nenhuma diretiva depois de `kitWasOffered`; o prompt mandava
+"uma pergunta viva, um gancho na dor" sem dizer que a dor contada é a hora do tamanho; `priceBeforeCepMessage` começava por "Ele";
+`extractDressSize` aceitava o número logo depois de "peso" quando "tamanho" vinha antes; `asksForLink` só lia "não recebi o link" com "não" por
+extenso. **Correção (R23, aprovada pelo operador):** `sizeBeyondTable` (calça 57–80 com deixa de tamanho; não peso, idade nem sapato) →
+`noFitReply` fixa, gentil, com porta aberta, e a régua toda cancelada (volta com a próxima mensagem dela); `regionKnown` no
+`RenderContext` → `SILENCE_2_UNKNOWN`/`SILENCE_1_UNKNOWN` ("dependendo da sua região") e template do `silence_2`/`silence_3` bloqueado;
+diretiva de kit já oferecido ("responda o que ela perguntou, siga com uma peça, não pergunte de novo") e a oferta citando todas as quantidades;
+prompt (dor → tamanho; "é IA?" confirmado direto com palavras novas; a tabela vai até o XGG, 52 de calça; responder o "tudo bem?" da
+abertura; o parágrafo "quem chama uma pessoa é o sistema" trocado pelo R22); "O colete sai de"; CEP que "parece" não existir;
+`WEIGHT_CUE`; `asksForLink` com as três frases reais; `paidDeadlineLine` junto da resposta de pagamento. **Guarda:**
+`tests/r23-round2-fixes.test.ts` (frase real e negação de cada um) e 11 mutações novas (R22 e R23) em `src/dev/verify-guards.ts`,
+11/11 pegas. **Fica:** calça 53–56 continua virando XGG (a tabela vai até 52; sem frase real, R21.6); a resposta de desconto cita o preço de
+uma peça numa conversa de kit (sem frase real); "Pode ser … sim, sem problema!" (tique) — observar.
+**Revisão Opus (reprovou a 1ª versão, 14/10):** (A1) a deixa de tamanho aceitava "número 65" da casa, "sou de 62" e o "entre" de
+"entrega 65?" — e aqui um erro recusa a venda: `sizeBeyondTable` ganhou deixa própria, mais estreita (`BEYOND_CUE`), e ignora medida do
+corpo depois do número ("uso 60 de cintura"); (A2) o "obrigada" dela rearmava a régua com `before_size`: `scheduleSilenceTouches` lê o
+`noFitReply` nas últimas mensagens (`saidNoFit`) e não arma enquanto `leads.size` for nulo; (A3) a escolha sem CEP não marca a região como
+conhecida; (A4) o cupom do `silence_3` em texto livre também não diz "pagando na entrega" sem região; (A5) o prazo vai junto também com o
+pagamento já confirmado; (A6) o tamanho de outra pessoa ganha a frase sem "te vestir". Resíduos tratados: "não tem link de pix?" não é
+pedido de link; a diretiva do kit não sai quando ela fala de peças/kit. **Fica (R21.6):** se o intérprete ler "Tamanho 65" como cintura
+65 cm ou XGG, `stated` deixa de ser nulo e o "não serve" não sai — sem frase real. Mutações novas `R23-regua-depois-do-nao-serve` e
+`R23-escolha-nao-e-regiao`.
+**Suíte inteira de mutações (14/10):** 555/561 na primeira passada; as 6 que "não se aplicaram" tinham a âncora mudada pelos consertos
+(`ja-finalizei`, `T6c-silencio-2-sem-caminho`, `G67-ok-sozinho`, `G67-ok-a-oferta`, `G67-pagamento-de-madrugada`) e foram reancoradas;
+`posvenda-pessoa-engolida` saiu: ela reinstalava a resposta de status a quem pede pessoa ao lado do pedido, que desde o R22 é o comportamento
+certo (quem pede pessoa ouve o status, já que ninguém vem).
+
+## 93. Loop de autoaprimoramento com personas sobre o R22/R23 (2026-10-14)
+
+**Sintoma:** com a v23 pronta, a rodada de personas (13 adversariais + 11 compradoras simuladas, quatro voltas, porta `local` contra o
+banco de produção) achou defeitos que nenhum teste unitário via: o pedido de pessoa respondido com "quem te atende sou eu" (soava gente);
+o "vou pensar" prometendo o entregador antes do CEP e engolindo a pergunta ao lado; a compradora decidida pedindo o link nove vezes; CPF
+inválido agradecido; pergunta sobre pedido sem resposta às outras dúvidas; o modelo escrevendo "[link do checkout]"; escolha e nome não
+lidos em frases reais. **Causa comum:** heurísticas e linhas fixas escritas para a frase "limpa", não para a frase que a compradora
+escreve com pressa; e o runner das personas parava em todo `handoff`, então Lu, Sandra e Vera nunca passavam do 1º turno. **Correção:**
+ver `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md` (tabela por volta). **Caminho descartado:** soltar o link sem CPF sempre que
+ela pedisse — quebra a regra do operador (dados antes do link, 06/10); ficou `pressed` (dois pedidos explícitos do link). **Guarda:**
+`tests/r23-round2-fixes.test.ts` (frase real + negação de cada um), mutações `R23-*` (todas pegas), três revisões Opus.
+**Fica:** os resíduos listados no relatório.
+**Estado:** publicado em 14/10 — `turn` v23 (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida); os dois e-mails do n8n
+publicados e ativos (Turno da agente `972c1637`, Relógio da régua `883fc037`; `pnpm dev:n8n` ok nos sete workflows); `handoff_at` limpo
+dos números de teste …5983, …7967 e …3720. Validação antes do deploy: suíte inteira de mutações 567/571 com as quatro reancoradas
+(98/98 no subconjunto), `dev:conversas` 1655/1655, `dev:gates` sem afrouxar, `deno check` ok.
+
+## 94. Visto azul 5 s depois de toda mensagem dela (operador, 2026-10-14)
+
+**Sintoma:** o operador achou o "lido" rápido demais — a Malu visualiza a mensagem quase na hora. **Causa:** `READ_RECEIPT_DELAY_MS` era 2 s
+(§67, 08/10). **Caminho descartado:** atraso diferente por tipo de mensagem — o pedido é "toda mensagem", e um valor único mantém o
+espelho simples. **Correção:** 5 s em `src/channel/whatsapp.ts` e no espelho `supabase/functions/whatsapp/whatsapp.ts`; o envio continua em
+paralelo com o encaminhamento ao `turn`, então a primeira resposta (1 min) e o tempo do turno não mudam. **Guarda:** `tests/whatsapp-channel.test.ts`
+fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Publicado em 2026-10-14:** função `whatsapp` v37 (MCP, arquivos conferidos byte a byte com o disco; `verify_jwt` continua falso; GET sem token devolve 403, como deve).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

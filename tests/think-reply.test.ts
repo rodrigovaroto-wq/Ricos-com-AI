@@ -90,7 +90,7 @@ describe("garantir o seu não é garantia (R16.5)", () => {
 describe("a porta de produção usa a resposta nova (index.ts)", () => {
   const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
   it("o 'vou pensar' sai por thinkReply, no caminho do link, e desde R20.1 sem a isenção do estoque", () => {
-    expect(source).toContain("const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units);");
+    expect(source).toContain("const think = thinkReply(CONFIG, linkPath, thinkLink !== null, units, knownRegion !== null);");
     expect(source).toContain("      false,\n      units,\n    );\n    if (sent) return sent;");
     expect(source).not.toMatch(/sendFixed\([^;]*\btrue,\s+units,/s);
     // The gate knows the pieces: a kit's price is judged as the kit's (independent review, finding 9).

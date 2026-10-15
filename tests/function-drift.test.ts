@@ -290,7 +290,7 @@ describe("rodada 13 na Edge Function", () => {
     expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
     for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
       const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
-      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===)/);
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = \(handoffRead)/);
     }
   });
 
@@ -344,7 +344,7 @@ describe("rodada 13 na Edge Function", () => {
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
     expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
-    expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext)');
+    expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly)');
   });
 
   it("a pergunta fixa de e-mail não existe mais em lugar nenhum do turno", () => {
@@ -465,7 +465,7 @@ describe("H-2 na Edge Function (2026-09-25)", () => {
   });
   it("o link leva a linha dos fatos ligados, e o registro do turno a guarda", () => {
     expect(source).toContain("const linkFact = linkFactLine(CONFIG, linkPath, units > 1 ? units : 1);");
-    expect(source).toContain('fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null),');
+    expect(source).toContain("fallbackReason ?? (checkoutUrl && linkFact && replyText.includes(checkoutUrl) ? `link — ${linkFact}` : null)]");
   });
 });
 
@@ -473,7 +473,7 @@ describe("kits na Edge Function (2026-09-25)", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a quantidade escolhe o link do kit, e mais que o maior kit vai para uma pessoa", () => {
     expect(source).toContain("const quantity = quantityOf(spoken(inbound.body ?? \"\"), interpretation);");
-    expect(source).toContain("if (units > maxUnits) {");
+    expect(source).toContain("if (unitsAsked > maxUnits && !insisted) {");
     expect(source).toContain("kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl");
     expect(source.match(/buildPrefilledCheckoutLink\(linkCustomer, linkPath, linkCheckout\)/g)).toHaveLength(2);
   });
@@ -494,7 +494,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("saysOwnSize(spoken(inbound.body");
     // An abandoned kit expires by time (nothing closes a conversation), and every write stamps it.
     expect(source).toContain("const kitStale = !Number.isFinite(unitsAt) || Date.now() - unitsAt > KIT_MEMORY_MS;");
-    expect(source).toContain("const units: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;");
+    expect(source).toContain("const unitsAsked: number = quantity?.units ?? (kitStale ? null : (lead.units as number | null)) ?? 1;");
     expect(source).toContain("const storedSizes = kitStale ? [] : ((lead.unit_sizes as string[] | null) ?? []);");
     expect(source).toContain("units_at: new Date().toISOString(),");
     expect(readFileSync("supabase/migrations/0011_units_at.sql", "utf8")).toContain("add column if not exists units_at timestamptz");

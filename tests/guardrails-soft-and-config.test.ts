@@ -305,10 +305,7 @@ describe("humanity_claim: dizer que chamou uma pessoa, sem ter chamado (2026-09-
   });
 
   it.each([
-    "Quer que eu chame alguém do time pra falar com você?",
-    "Se quiser, alguém do time te chama por aqui.",
-    "Posso chamar uma pessoa do time, se você preferir.",
-    "Não chamei ninguém ainda: quer que eu chame?",
+    "Não chamei ninguém, e não tenho como chamar: eu mesma resolvo isso por aqui.",
     "Tô passando o link pra você agora.",
     "Não sou uma pessoa, sou a assistente virtual da marca.",
   ])("passa: %s", (text) => {

@@ -174,8 +174,8 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
     }
 
     // 3. She asked for a person (§Q12) — deterministic, before any model call.
+    // R22.1: the operator is flagged and the agent is NOT stopped (`handoff` stays false).
     if (wantsHuman(turn.from)) {
-      state.handoff = true;
       state.handoffReason = "a cliente pediu para falar com uma pessoa";
       const receipt = runGates(HUMAN_HANDOFF_REPLY, {
         config,
@@ -185,7 +185,7 @@ export const runConversation = (turns: readonly TurnScript[], options: EngineOpt
         paymentPath: "cod",
       });
       if (receipt.allowed) send(HUMAN_HANDOFF_REPLY);
-      // The handoff cancels the rulers: a person owns the conversation now.
+      // The rulers stop and wake with her next message.
       state.scheduledTouches = 0;
       record({
         status: "handoff",

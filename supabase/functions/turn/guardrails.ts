@@ -2202,7 +2202,8 @@ const gates: readonly Gate[] = [
       `Nunca afirme ser uma pessoa. Dizer "não sou uma pessoa, sou a assistente virtual da marca" ` +
       `é a resposta certa; o proibido é o contrário — negar ser robô. E nunca diga que já ` +
       `chamou, avisou ou passou a conversa para alguém do time, nem que uma pessoa vem falar ` +
-      `com ela: você não tem como fazer isso. Pode perguntar se ela quer que alguém do time a chame. ` +
+      `com ela: você não tem como fazer isso, e ninguém assume a conversa por aqui. Também não ofereça ` +
+      `chamar ninguém ("quer que alguém do time te chame?"): quem resolve é você, com o que você sabe. ` +
       `E não anuncie o que você é: virtual, IA, robô, bot ou assistente virtual só aparece quando a ` +
       `mensagem dela pergunta o que você é. Sem a pergunta, apresente-se só pelo seu nome e pela marca.`,
     check: (text, ctx) => {
@@ -2236,6 +2237,22 @@ const gates: readonly Gate[] = [
           if (/\b(?:se\s+(?:quiser|preferir|precisar)|quer\s+que|posso|prefere\s+que)\b[^.!?]*$/.test(before)) continue;
           if (deniedJustBefore(t, m.index)) continue;
           return "claims a person was called, and nobody was";
+        }
+        // The OFFER is as empty (R22.1, real test 2026-10-13: "quer que alguém do time te chame pra ajudar?" and
+        // "Quer que alguém do time te chame pra te ajudar com esse segundo pedido?"): nobody answers from this
+        // number, so a "yes" to it asks for a person who does not come. Only the team's words — "se quiser, uma pessoa
+        // da sua família te ajuda" and "outra pessoa pode receber" are not offers of the shop's people.
+        const TEAM = String.raw`(?:atendente|humano|time|equipe|colega|supervisor\w*|gerente|responsavel)`;
+        const IF = String.raw`(?:quer\s+que|se\s+(?:voce\s+)?(?:quiser|preferir|precisar)|posso|prefere\s+que|gostaria\s+que)`;
+        const offers = [
+          new RegExp(String.raw`\b${IF}\b[^.!?]{0,60}?\b(?:chama\w*|acion\w*|avis\w*|pass\w*|encaminh\w*|transfer\w*)\b[^.!?]{0,40}?\b${TEAM}\b`),
+          new RegExp(String.raw`\b${IF}\b[^.!?]{0,30}?\b${TEAM}\b[^.!?]{0,25}?\b(?:chame|chama|ajude|ajuda|atenda|atende|fale|fala|responda|responde|retorne|retorna|entre|contate)\b`),
+        ];
+        for (const r of offers) {
+          const m = r.exec(t);
+          // Somebody else's team is not the shop's person: "a equipe da Logzz te atende" is the exchange line the
+          // post-sale itself teaches (R22 review).
+          if (m && !deniedJustBefore(t, m.index) && !/\b(?:logzz|coinzz|entrega|entregador\w*|correios|transportadora|suporte)\b/.test(m[0])) return "offers to call a person, and nobody can come";
         }
       }
 
@@ -2285,8 +2302,9 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Você não cancela, não estorna e não altera pedido nenhum. Nunca diga que cancelou, que ` +
-      `vai cancelar, que deixou cancelado, que estornou ou que mudou algo no pedido dela. Pode ` +
-      `perguntar se ela quer que alguém do time a chame para isso.`,
+      `vai cancelar, que deixou cancelado, que estornou ou que mudou algo no pedido dela. Não ` +
+      `ofereça chamar ninguém do time para isso: diga o que ela mesma faz (recusar na porta, pedir ` +
+      `a devolução depois de receber).`,
     check: (text, ctx) => {
       if (ctx.layer !== "agent") return null;
       const t = norm(text);
@@ -3214,6 +3232,17 @@ const gates: readonly Gate[] = [
         ? "promises to send the link or check something later, in a turn that sends no link"
         : null;
     },
+  },
+  {
+    /**
+     * A link written as a placeholder ("Aqui pra finalizar 1 peça no M pagando na entrega: [link do checkout da entrega]", persona
+     * venda-sensivel-preco, 2026-10-14): the model wrote where the link would go, and no link went. Only the code puts a link in
+     * a message; a bracketed stand-in is never one. Read in her text's words only (`[` … link/checkout/url … `]`).
+     */
+    name: "placeholder_link",
+    remedy: "rewrite",
+    briefing: () => `Nunca escreva um marcador no lugar do link, como "[link]" ou "[link do checkout]": o link só aparece quando o sistema manda.`,
+    check: (text) => (/\[[^\]\n]{0,40}\b(?:link|url|checkout)\b[^\]\n]{0,40}\]/i.test(text) ? "writes a placeholder where a link would be" : null),
   },
   {
     /**
