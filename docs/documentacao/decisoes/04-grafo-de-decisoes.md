@@ -3202,6 +3202,13 @@ rodada v25, saíram os 7 negados).
 digita o nome da rua e aparece o seu CEP" é vetada pelo `asksCep` ("digita"); o "não lembro" sai da janela de 20 mensagens numa conversa
 longa; numa revisão do mesmo turno a correção do link vazio se perde (o lead já foi gravado); o teto só corta entre chamadas, não dentro
 de `withNetworkRetry`.
+**Estado:** publicado em 15/10 na `turn` **v26** (`agent_versions` 26, função v119, commit `21fd916`), `health` → `healthy` nos 3 CEPs.
+Validação: três revisões Opus (a 1ª e a 2ª pediram consertos, todos feitos: recusa só sem entrega, régua sem pedir o CEP esquecido,
+`forgetsCep` parando em "mas/por que", sem 2ª consulta numa nova tentativa, correção do link vazio que sobrevive à nova tentativa);
+`pnpm test` 8142, `typecheck`, `lint`, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates` 3 afrouxamentos aceitos
+(`R26-GARANTIA-COM-N-DIAS`) e 0 endurecimentos; mutações 598/598 + 2/2 depois do último conserto. **Não feito:** a rodada das 55
+personas sobre a v26 — o classificador de permissão barrou, e o operador pediu (15/10) não gastar mais tokens da API do modelo depois
+desta rodada: fica para ele decidir.
 
 ## Lições (valem para qualquer correção futura)
 

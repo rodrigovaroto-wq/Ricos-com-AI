@@ -13,7 +13,24 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-15, ~17h45 UTC, sessão `claude/admiring-bohr-wp0yzp` — v25 NO AR (LEIA PRIMEIRO).** O roteiro de 10 passos abaixo foi
+> **2026-10-15, ~20h35 UTC, sessão `claude/admiring-bohr-wp0yzp` — v26 NO AR (LEIA PRIMEIRO).**
+>
+> - **No ar:** `turn` **v26** (`agent_versions` 26, função v119, commit `21fd916`), `health` → `healthy` nos 3 CEPs. n8n: "Turno da agente"
+>   versão ativa `ef1cb608` (e-mail do ramo que cala diz só "teto de custo"); `dev:n8n` ok nos 7.
+> - **O que a v26 traz (decisão R26, grafo §100):** depois do "não lembro o CEP" a Malu aponta o buscador dos Correios e não pede o CEP de
+>   novo (nem a régua); "então deixa" depois de "só pago na entrega", onde não há entrega, é recusa (despedida, sem régua); a consulta de
+>   cobertura que falha é tentada de novo e um link da entrega já mandado é corrigido quando a região não tem entrega; garantia "com 7
+>   dias" passa; o custo de resposta vazia do modelo conta no teto. O alerta das personas lê negação (23 → 16 na rodada v25).
+> - **Validação:** três revisões Opus (consertos feitos), 8142 testes, 1655/1655 conversas, gates sem afrouxamento não aceito, mutações
+>   598/598 + 2/2.
+> - **Impacto do 500 do §96 em produção:** medido — nenhum cliente real (grafo §96).
+> - **Não feito:** a rodada das 55 personas sobre a v26 (barrada pelo classificador de permissão). **O operador pediu em 15/10: não rodar
+>   personas nem nada que gaste tokens da API do modelo sem ele pedir** (memória `sem-gasto-de-api-sem-pedido`).
+> - **Limpeza dos dois leads sintéticos `5500099…`:** barrada pelo classificador (apagamento em produção). Os dois não têm mensagens,
+>   toques, chamadas nem pedidos. O operador roda no SQL editor do Supabase: `delete from leads where phone like '5500099%';`
+> - **Resíduos (R21.6, sem código):** grafo §100 (fim).
+
+> **2026-10-15, ~17h45 UTC, sessão `claude/admiring-bohr-wp0yzp` — v25 NO AR (histórico).** O roteiro de 10 passos abaixo foi
 > executado; o bloco seguinte, da sessão anterior, vira histórico.
 >
 > - **No ar:** `turn` **v25** (`agent_versions` 25, função v117, commit `8dce6c9`: §97 + §98), `health` → `healthy` nos 3 CEPs.
