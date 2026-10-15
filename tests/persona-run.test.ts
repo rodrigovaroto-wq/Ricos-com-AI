@@ -402,7 +402,7 @@ describe("orçamento", () => {
   it("--budget-brl: padrão R$ 5, aceita outro valor, recusa zero, negativo ou lixo", () => {
     expect(parseArgs(["--all"]).concurrency).toBe(1);
     expect(parseArgs(["--all", "--concurrency=2"]).concurrency).toBe(2);
-    for (const bad of ["0", "4", "1.5", "x"]) {
+    for (const bad of ["0", "17", "1.5", "x"]) {
       expect(() => parseArgs(["--all", `--concurrency=${bad}`]), bad).toThrow(/concurrency/);
     }
     expect(parseArgs(["--all"]).budgetBrl).toBe(5);
@@ -599,6 +599,8 @@ describe("parseArgs: a suíte de venda (E4.1)", () => {
   });
   it("recusa suíte desconhecida e semente que não é inteira", () => {
     expect(() => parseArgs(["--suite=seguranca"])).toThrow(/suíte/);
+    expect(parseArgs(["--suite=cobertura"])).toMatchObject({ suite: "cobertura", personas: "all" });
+    expect(parseArgs(["--all", "--concurrency=16"]).concurrency).toBe(16);
     expect(() => parseArgs(["--suite=venda", "--seed=1.5"])).toThrow(/seed/);
   });
   it("sem a suíte, nada muda: ainda exige persona", () => {

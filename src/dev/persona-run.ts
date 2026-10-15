@@ -77,7 +77,7 @@
  * Flags: --door=local|function|n8n (default local) · --persona=<nome> (repeatable, only
  * a-z and -) or --all · --max-turns=N (default 20) · --keep-data (skip the cleanup) ·
  * --out=<dir> (default data/persona-runs, git-ignored) · --budget-brl=N (default 5) ·
- * --concurrency=N (1–3, default 1: how many personas talk at the same time) ·
+ * --concurrency=N (1–16, default 1: how many personas talk at the same time) ·
  * --suite=venda (E4.1: the buyers with hidden propensity of src/dev/scenarios/venda.json; then
  * --persona=<id> picks scenarios and none means all 16) · --seed=N (default 1: the buyer's
  * vanishing draws; the same seed replays the same exits, the model's own text still varies).
@@ -110,6 +110,10 @@ import { metaProvider } from "../llm/providers/meta.js";
 import { buyerModel, buyerSystem, evalConfig, exchangesFromTranscript, parseScenarios, replay, type Scenario } from "./sales-buyer.js";
 import {
   cleanupAfter,
+  conversationFlags,
+  coverageSystem,
+  parseCoverageCards,
+  type CoverageCard,
   deliverOver,
   doorTarget,
   parseArgs,
@@ -134,19 +138,26 @@ const env = requireEnv(process.env, args.door);
 
 const SCENARIOS_FILE = "src/dev/scenarios/venda.json";
 const scenarios = new Map<string, Scenario>(
-  args.suite ? parseScenarios(await readFile(SCENARIOS_FILE, "utf8")).map((s) => [`venda-${s.id}`, s]) : [],
+  args.suite === "venda" ? parseScenarios(await readFile(SCENARIOS_FILE, "utf8")).map((s) => [`venda-${s.id}`, s]) : [],
 );
+// --suite=cobertura (2026-10-15): the compact cards of `docs/agente-ia/05-plano/15-cobertura-personas.md`.
+const CARDS_FILE = "src/dev/scenarios/cobertura.json";
+const cards = new Map<string, CoverageCard>(
+  args.suite === "cobertura" ? parseCoverageCards(await readFile(CARDS_FILE, "utf8")).map((c) => [`cob-${c.id}`, c]) : [],
+);
+const suiteNames = args.suite === "venda" ? scenarios : cards;
+const suitePrefix = args.suite === "venda" ? "venda-" : "cob-";
 const { config: gateConfig, source: gateConfigSource } = evalConfig();
 
 const names = args.suite
   ? args.personas === "all"
-    ? [...scenarios.keys()]
-    : args.personas.map((p) => (p.startsWith("venda-") ? p : `venda-${p}`))
+    ? [...suiteNames.keys()]
+    : args.personas.map((p) => (p.startsWith(suitePrefix) ? p : `${suitePrefix}${p}`))
   : args.personas === "all"
     ? (await readdir(AGENTS_DIR)).filter((f) => /^persona-.+\.md$/.test(f)).map((f) => f.slice(0, -3))
     : args.personas.map((p) => (p.startsWith("persona-") ? p : `persona-${p}`));
 if (names.length === 0) throw new Error(`nenhum arquivo persona-*.md em ${AGENTS_DIR}`);
-for (const n of names) if (args.suite && !scenarios.has(n)) throw new Error(`cenário desconhecido: ${n} (veja ${SCENARIOS_FILE})`);
+for (const n of names) if (args.suite && !suiteNames.has(n)) throw new Error(`cenário desconhecido: ${n} (veja ${args.suite === "venda" ? SCENARIOS_FILE : CARDS_FILE})`);
 
 const db = postgrestDb({ url: env.supabaseUrl, key: env.serviceKey });
 const deliver = deliverOver(doorTarget(args.door, env), fetch, process.env.INBOUND_SIGNING_SECRET ?? "");
@@ -158,17 +169,20 @@ let failures = 0;
 const keptOrderReady: string[] = [];
 /** Persona model + Malu, over every persona already finished. */
 let runSpentBrl = 0;
-const summary: Array<{ persona: string; endReason: string; failure: string | null; personaCostBrl: number; agentCostBrl: number | null; orderReady: boolean; cleanup: string }> = [];
+const summary: Array<{ persona: string; endReason: string; failure: string | null; personaCostBrl: number; agentCostBrl: number | null; orderReady: boolean; cleanup: string; flags: string[] }> = [];
 const runOne = async (name: string): Promise<void> => {
   if (runSpentBrl >= args.budgetBrl) {
     console.log(`orçamento da execução esgotado (R$ ${runSpentBrl.toFixed(4)} de R$ ${args.budgetBrl}) — ${name} não roda`);
-    summary.push({ persona: name, endReason: "skipped_budget", failure: null, personaCostBrl: 0, agentCostBrl: null, orderReady: false, cleanup: "none" });
+    summary.push({ persona: name, endReason: "skipped_budget", failure: null, personaCostBrl: 0, agentCostBrl: null, orderReady: false, cleanup: "none", flags: [] });
     return;
   }
   const scenario = scenarios.get(name);
+  const card = cards.get(name);
   const persona = scenario
     ? { name, system: buyerSystem(scenario, replay(scenario, [], args.seed, gateConfig)) }
-    : parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
+    : card
+      ? { name, system: coverageSystem(card) }
+      : parsePersonaFile(await readFile(join(AGENTS_DIR, `${name}.md`), "utf8"));
 
   let spent = 0;
   const provider = metaProvider({ apiKey: env.metaKey, model: PERSONA_MODEL });
@@ -221,12 +235,14 @@ const runOne = async (name: string): Promise<void> => {
   const buyer = scenario
     ? { ...replay(scenario, exchangesFromTranscript(report.transcript), args.seed, gateConfig), cod: scenario.cod, seed: args.seed, gateConfig: gateConfigSource }
     : undefined;
-  const full = { ...report, personaCostBrl: spent, cleanup, ...(buyer ? { buyer } : {}) };
+  const flags = conversationFlags(report.transcript, card?.mustNot ?? []);
+  const full = { ...report, personaCostBrl: spent, cleanup, flags, ...(buyer ? { buyer } : {}) };
   await writeFile(join(outDir, `${name}.json`), JSON.stringify(full, null, 2));
   await writeFile(
     join(outDir, `${name}.md`),
     `${renderMarkdown(report)}\nCusto da persona (${PERSONA_MODEL}): R$ ${spent.toFixed(4)}\n` +
-      `Limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}\n`,
+      `Limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}\n` +
+      `${flags.length ? `\n## Alertas\n\n${flags.map((f) => `- ${f}`).join("\n")}\n` : ""}`,
   );
   if (report.failure) failures += 1;
   summary.push({
@@ -237,13 +253,15 @@ const runOne = async (name: string): Promise<void> => {
     agentCostBrl: report.costBrl,
     orderReady: report.orderReady,
     cleanup: cleanup.action,
+    flags,
   });
   console.log(
     `${report.failure ? "FALHOU" : "ok    "} ${name} — ${report.endReason}` +
       `${report.orderReady ? " — ORDER_READY" : ""}${report.failure ? `: ${report.failure}` : ""}` +
       `${buyer ? ` — comprador: ${buyer.outcome} (${buyer.propensity})` : ""}` +
       ` — limpeza: ${cleanup.action}${"error" in cleanup ? ` (${cleanup.error})` : ""}` +
-      ` — R$ ${(spent + (report.costBrl ?? 0)).toFixed(4)} (persona ${spent.toFixed(4)} + Malu ${(report.costBrl ?? 0).toFixed(4)})`,
+      ` — R$ ${(spent + (report.costBrl ?? 0)).toFixed(4)} (persona ${spent.toFixed(4)} + Malu ${(report.costBrl ?? 0).toFixed(4)})` +
+      `${flags.length ? ` — ${flags.length} alerta(s)` : ""}`,
   );
 };
 
@@ -267,13 +285,13 @@ await writeFile(
     "",
     `Gasto total: R$ ${runSpentBrl.toFixed(4)} de R$ ${args.budgetBrl} (persona + Malu)`,
     "",
-    "| Persona | Fim | Persona R$ | Malu R$ | ORDER_READY | Limpeza |",
-    "|---|---|---|---|---|---|",
+    "| Persona | Fim | Persona R$ | Malu R$ | ORDER_READY | Limpeza | Alertas |",
+    "|---|---|---|---|---|---|---|",
     ...summary.map(
       (s) =>
         `| [${s.persona}](${s.persona}.md) | \`${s.endReason}\`${s.failure ? ` — ${s.failure.replace(/\|/g, "/")}` : ""} | ` +
         `${s.personaCostBrl.toFixed(4)} | ${s.agentCostBrl === null ? "—" : s.agentCostBrl.toFixed(4)} | ` +
-        `${s.orderReady ? "**sim**" : "não"} | ${s.cleanup} |`,
+        `${s.orderReady ? "**sim**" : "não"} | ${s.cleanup} | ${s.flags.length ? s.flags.join("; ").replace(/\|/g, "/") : "—"} |`,
     ),
     "",
   ].join("\n"),
