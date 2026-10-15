@@ -3,7 +3,7 @@
 > Baseado em `analise-arquitetura-malu.md` (§0–§22). Nada aqui foi implementado.
 >
 > **Escrito em:** sáb. 11/10/2026 (status atualizado em 13/10, noite).
-> - **No ar (15/10):** `turn` v24, `whatsapp` v38, modelo `muse-spark-1.3-contributor`. v25 (§97, §98) no código, não publicada — roteiro no HANDOFF.
+> - **No ar (15/10):** `turn` v25 (§97, §98; função v117), `whatsapp` v38, modelo `muse-spark-1.3-contributor`. Validada: mutações 579/579, 55/55 personas (grafo §99).
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
 

@@ -3148,6 +3148,19 @@ dividido o valor em 3x?", "divide em 3x sem juros", "No antecipado chega em até
 acidente (gate de prazo) e agora passa; "Seus dados não são divididos com ninguém" e "com quem são divididos os dados do cartão"
 continuam vetadas pelo `installment_promise`. **Estado:** publicado em 15/10 na `turn` v25 (função v117).
 
+## 99. A v25 no ar e as 55 personas sobre ela (2026-10-15)
+
+**Feito** (sessão `claude/admiring-bohr-wp0yzp`, roteiro do HANDOFF): revisão Opus focada em §97/§98 e revisão generalista do diff
+`d1d4030..HEAD`, as duas APROVADAS; mutação `G97-resposta-vazia-passageira`; regressão (8070 testes, `typecheck`, `lint`, `deno check`,
+1655/1655 conversas); mutações **579/579**; `deploy:turn` → `agent_versions` 25, função `turn` v117 (commit `8dce6c9`), `health` →
+`healthy` nos 3 CEPs; as 55 personas sobre a v25: 55/55, 0 `silenced`, 0 `Cannot access`, R$ 1,25, nenhum turno com 5 reescritas
+(`docs/agente-ia/10-auditoria/2026-10-15-personas-v25.md`). O §98 se provou: `tudo-de-uma-vez` saiu de 4 vetos e resposta fixa para
+resposta completa aprovada com 2 reescritas; `lgpd-dados` sem veto. **Não feito:** a medida do impacto do 500 do §96 em produção (o
+`select` em `messages` foi barrado pelo classificador de permissão, leitura de produção) — fica para o operador rodar no SQL editor.
+**Resíduos (sem código, R21.6 permite só quando a frase repetir):** a garantia "a troca é sem custo pra você, **com** 7 dias após o
+recebimento" ainda acende `delivery_promise` (a preposição "com" não está na lista do §98); a reescrita resolveu. O alerta `mustNot` /
+"diz ser pessoa" do relatório de personas não lê negação (9 dos 23 alertas).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
