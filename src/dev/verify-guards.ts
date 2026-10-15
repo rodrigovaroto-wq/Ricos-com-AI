@@ -4682,7 +4682,7 @@ const MUTATIONS: Mutation[] = [
     id: "R3-abertura-sem-anuncio",
     bug: "sem anúncio de origem, a primeira resposta supôs um anúncio e não disse o produto (…6682, 14/10)",
     files: ["src/agent/prompt.ts"],
-    from: "      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),",
+    from: "      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e, se ela ainda não falou do colete nem de um pedido, diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),",
     to: "      : []),",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
   },

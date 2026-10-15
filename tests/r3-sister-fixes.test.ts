@@ -58,6 +58,8 @@ describe("3. sem anúncio de origem, a Malu diz o que vende (…6682: \"Que isso
     const noAd = openingDirective(config, "boa tarde", null, false);
     expect(noAd).toContain("não diga que ela veio por um anúncio");
     expect(noAd).toContain("o Colete Cinta Modeladora");
+    // Personas de 15/10 (Lu: "já saiu pra entrega?"): quem já falou do colete ou de um pedido não ouve a frase de venda.
+    expect(noAd).toContain("se ela ainda não falou do colete nem de um pedido");
     expect(openingDirective(config, "boa tarde", null, true)).toContain("não diga que ela veio por um anúncio");
   });
   it("negação (revisão Opus): sem anúncio, nada na diretiva fala do anúncio como se existisse", () => {

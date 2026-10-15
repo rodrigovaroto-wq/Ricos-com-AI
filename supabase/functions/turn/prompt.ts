@@ -535,7 +535,7 @@ export const openingDirective = (
       ? [`Ela chegou pelo anúncio "${headline.replace(/["\s]+/g, " ").trim().slice(0, 120)}".`]
       // No ad behind her (real test …6682, grafo §95): "Vi seu oi, você veio pelo anúncio do nosso colete, né?" left
       // "Que isso" and "Oque você faz" without the product for two turns.
-      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),
+      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e, se ela ainda não falou do colete nem de um pedido, diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),
     onlyGreeted
       ? `Ela só cumprimentou: depois da saudação, uma frase sobre ${headline ? "o que o anúncio mostra" : "o nosso colete"} e uma pergunta aberta, tudo num balão ou dois.`
       : `Depois da saudação, responda o que ela escreveu, no assunto dela, em no máximo dois balões.`,
