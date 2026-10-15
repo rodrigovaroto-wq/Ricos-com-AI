@@ -3041,6 +3041,104 @@ espelho simples. **Correção:** 5 s em `src/channel/whatsapp.ts` e no espelho `
 paralelo com o encaminhamento ao `turn`, então a primeira resposta (1 min) e o tempo do turno não mudam. **Guarda:** `tests/whatsapp-channel.test.ts`
 fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Publicado em 2026-10-14:** função `whatsapp` v37 (MCP, arquivos conferidos byte a byte com o disco; `verify_jwt` continua falso; GET sem token devolve 403, como deve).
 
+## 95. Teste real da irmã do operador: um nome que era pergunta, uma promessa que a régua quebrou e o produto que não foi dito (2026-10-15, R24)
+
+**Sintoma** (conversa `…6682`, 14/10, v22, sem anúncio de origem; análise em
+`docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r3-irma-6682.md`): (1) "Oque você faz" foi gravado em `leads.identity.name` —
+iria pré-preenchido no checkout e no pacote, e o arquivo da auditoria trocou todo "você" da Malu por `[nome]`; (2) ao toque em "Não,
+obrigada" na pergunta "Posso te mandar lembretes e ofertas…", o modelo respondeu "Sem problemas, não mando mais nada", e o
+`silence_2` saiu na manhã seguinte; (3) "Que isso" e "Oque você faz" ficaram duas respostas sem o produto ("Vi seu oi por aqui, você
+veio pelo anúncio do nosso colete, né?" — anúncio que não houve).
+
+**Causa:** (1) `COMMON_WORDS` em `identity.ts` é escrita sem acento (`voce`, `nao`, `entao`) e era testada contra o nome com acento:
+"você" não casava e a frase passava como nome de três palavras. (2) A recusa do opt-in (`marketing_opt_in_declined_at`) só bloqueia o
+template de marketing; a régua de texto livre segue, e a resposta ao toque era do modelo, que leu "lembretes e ofertas" como "tudo".
+(3) `openingDirective` sem anúncio só pedia "responda o que ela escreveu"; nada pedia o produto a quem não sabe o que é.
+
+**Caminhos descartados:** (1) acrescentar as formas acentuadas à lista — duplicaria cada palavra e o próximo acento esquecido
+reabriria o furo; normalizar o nome uma vez fecha a classe inteira. (2) A1, cancelar a régua inteira no "não" (recomendação inicial):
+o operador preferiu manter os lembretes, que são a alavanca de venda, e tirar "lembretes" da pergunta (A2). Deixar o modelo responder
+com uma regra no prompt foi descartado: é a mesma promessa escrita duas vezes, e o toque num botão tem resposta conhecida — linha fixa.
+(3) Gate contra "você veio pelo anúncio" — R21.6: uma frase só, e o conserto certo é a instrução que faltava.
+
+**Correção:** (1) `extractName` testa `COMMON_WORDS` sobre o nome sem acento (NFD); o nome errado foi apagado do lead. (2)
+`optInMessage` pergunta "Posso te mandar ofertas da Encorpa por aqui?"; o toque no "não" marca `optInRefused` e, sozinho na rajada,
+recebe `OPT_IN_DECLINED_REPLY` = "Tudo bem, não te mando ofertas 💛" por `sendFixed` (camada `auto`), antes de qualquer outro ramo
+fixo. (3) Sem anúncio, a abertura diz "não diga que ela veio por um anúncio, e diga numa frase que a Encorpa vende o Colete Cinta
+Modeladora"; o prompt manda a primeira frase dizer o produto quando ela pergunta o que é, o que você faz ou o que a loja vende. (4)
+Leads sintéticos `…091576` e `…284318` (loop de personas de 14/10, sem limpeza): toques, traces, chamadas e mensagens apagados; as linhas
+vazias de `leads`/`conversations` ficam para o SQL editor (o `delete` pelo conector expira).
+
+**Guarda:** `tests/r3-sister-fixes.test.ts` (frase real e negação: nomes com acento seguem aceitos); mutações `R3-nome-com-acento`,
+`R3-optin-lembretes`, `R3-optin-nao-pelo-modelo`, `R3-abertura-sem-anuncio` (4/4 pegas). Regressão: 8030/8030 testes, `dev:conversas`
+1655/1655, `deno check`, lint, `dev:gates --base=origin/main` sem afrouxar nem endurecer.
+
+**Revisão Opus (NEEDS WORK → consertado):** sem anúncio e só com um "oi", a diretiva ainda dizia "uma frase sobre o que o anúncio
+mostra (o nosso colete)" ao lado de "não diga que ela veio por um anúncio" — virou "uma frase sobre o nosso colete"; e o prompt geral
+afirmava "Ela veio do anúncio" em todo turno — virou "Quase sempre ela vem do anúncio". Negações no teste. A revisão mostrou também um
+ganho: o `\b` ASCII cortava a palavra no acento e recusava nomes reais ("Simão Pedro" lia "Sim", "Noé Silva" lia "No"); agora passam,
+travado no teste. Nomes que passam a ser recusados: só formas inexistentes como "Ana Só", "Lia Até".
+
+**Fica:** o toque no "não" junto de outra mensagem ainda sem resposta (`["ok", "Não, obrigada"]`), num turno "joined", num retry ou numa
+retomada vai ao modelo, sem a linha fixa; o teste do ramo é de texto no `index.ts`, nenhum roda o turno com um toque de botão; o opt-in
+segue colado no `silence_1` de quem nunca engajou (B2).
+
+**Personas (13, porta local, `docs/agente-ia/10-auditoria/2026-10-15-personas-r24.md`):** a frase do produto saía também para quem
+perguntou de um pedido (Lu) ou já tinha falado do colete — regressão deste conserto, fechada no mesmo dia: só sai "se ela ainda não
+falou do colete nem de um pedido" (R24-b, 4 personas conferidas). Abertos para o operador: CEP pedido cinco vezes depois de "não lembro"
+(Marcinha), "entao deixa, obrigada" lido como "vou pensar" (Cleide), link da entrega com a cobertura desconhecida por falha de consulta
+(Jussara, rede do container). **Estado:** publicado em 15/10 — `turn` v24 (`agent_versions` 24, função v115, commit `d1d4030`, `job:"health"` → `healthy`).
+
+## 96. Cobertura de 138 situações com 55 personas ao mesmo tempo, e o 500 que ela achou (2026-10-15)
+
+**Pedido do operador:** personas que cubram mais de 95% das conversas possíveis — as reais e as que a escala vai trazer — rodando
+todas ao mesmo tempo, com o mínimo de máquina, tokens e tempo. **Feito:** taxonomia de 138 situações
+(`src/dev/scenarios/cobertura-taxonomia.json`, das 9 conversas reais arquivadas, do histórico das personas e dos fluxos futuros);
+26 fichas compactas (`cobertura.json`, `--suite=cobertura`) montadas com as regras comuns por código; 135/138 cobertas (97,8%; as três
+de fora exigem madrugada ou pedido real e dizem onde são provadas); `conversationFlags` marca o turno a ler; `--concurrency` até 16 e
+`pnpm dev:personas:todas` roda as três suítes juntas. **Caminhos descartados:** 26 arquivos novos em `.claude/agents/` — pesariam
+na lista de agentes de toda sessão do Claude; ler cada transcrição inteira — os alertas apontam o turno.
+
+**Sintoma achado:** três personas morreram com 500 da `turn` local: `ReferenceError: Cannot access 'recentOutbound' before
+initialization` em `sendFixed`. **Causa:** desde `ac56e82` (12/10) `sendFixed` passa `recentOutbound` ao ponto de parada da régua,
+mas cinco chamadas vêm antes de o turno ler o histórico — limite do kit, troca pela Logzz, status do pedido, entregue e a resposta
+fixa ao "paguei". Em produção desde a v17. A revisão Opus do §95 conferiu só a chamada nova, que fica depois. **Correção:**
+`sendFixed` lê a própria janela (as 3 últimas mensagens dela, a recém-gravada fora, como a varredura faz) enquanto o histórico do
+turno não existe, e a do turno depois. **Guarda:** teste de texto em `tests/r3-sister-fixes.test.ts`, mutação
+`G96-sendfixed-antes-do-historico`; as três personas rodaram sem 500. O 429 da Meta no modelo da persona ganhou esperas de 15 e 30 s.
+
+**Abertos para o operador** (`docs/agente-ia/10-auditoria/2026-10-15-personas-cobertura.md`): falha do modelo que não é de
+configuração ainda grava `handoff_at` e promete "já te respondo" (contra R22.1); dois falsos positivos de gate com frase de persona
+("troca sem custo em até 7 dias" como prazo do antecipado; "com quem são divididos" como parcela); a Malu supôs entrega no domingo.
+**Estado:** publicado em 15/10 na `turn` v24 (função v115), com o §95.
+
+## 97. Falha do provedor nunca cala a cliente (operador, 2026-10-15, R25)
+
+**Sintoma** (persona venda-some, rodada de cobertura de 15/10): a Meta devolveu resposta vazia ("meta: resposta sem conteúdo"); a Malu
+mandou "Deixa eu confirmar isso certinho pra você e já te respondo por aqui 💛" e gravou `handoff_at` (`silenced: true`) — a lead
+ficaria calada para sempre, e ninguém responde pelo número da API. **Causa:** resposta vazia era `Error` comum, não passageira, e
+`modelFailure` gravava `handoff_at` em toda falha que não fosse de configuração. Contraria a R22.1. **Correção (aprovada pelo
+operador):** resposta vazia é `TransientModelError` (entra na nova tentativa de 5 minutos, como um 5xx); `modelFailure` não grava mais
+`handoff_at`; a falha de configuração mantém a linha de espera, qualquer outra recebe `SAFE_FALLBACK_REPLY` ("me fala de novo o que
+você quer saber?"), e o e-mail ao operador sai nos dois casos. **Guarda:** `tests/r3-sister-fixes.test.ts` §97, testes de fiação
+atualizados (`function-drift`, `v10-defects`, `r22-no-person`). **Falta:** mutação própria; regressão inteira; revisão Opus.
+**Estado:** commit `f3b4bb0`, não publicado (vai na v25).
+
+## 98. Dois falsos positivos de gate achados pelas personas de cobertura (2026-10-15, R25)
+
+**Sintoma:** (1) `delivery_promise` vetou quatro vezes, no antecipado, "No antecipado dá pra parcelar em até 12x no cartão, e se não
+servir você troca sem custo em até 7 dias após o recebimento" como "prepaid average of 7 days is not the configured 5"; a resposta fixa
+que sobrou respondeu só a parcela de uma cliente que tinha feito cinco perguntas (persona tudo-de-uma-vez). (2) `installment_promise`
+vetou quatro vezes "Sobre onde ficam guardados, com quem são divididos e por quanto tempo…" (os dados dela, persona lgpd-dados).
+**Causa:** (1) a garantia "troc… em até N dias" só era reconhecida com o verbo colado na contagem; "sem custo" no meio a desgovernava
+e a frase, por nomear o antecipado, entregava a contagem ao prazo. (2) `\bdivid\w*` sozinho era palavra de parcela. **Correção**
+(especialista em Opus, R21.6 — frase de persona): (1) "sem custo / sem nenhum custo / grátis / de graça" pode ficar entre o verbo da
+troca e a contagem; (2) "com quem (os dados) são divididos" não é parcela, a não ser que a oração fale de pagamento (valor, pix, cartão,
+vezes…). **Guarda:** `tests/r24-gate-false-positives.test.ts` (26 casos: os rascunhos reais passam a cadeia inteira; negações — "No
+antecipado chega em 7 dias", "dá pra dividir em 3x na entrega", garantia de 30 dias mal configurada — continuam vetadas); mutações
+`R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). `dev:gates --fail-on-loosen` (CI do PR #63): 5 afrouxamentos, todos desta classe, aceitos como `R25-GARANTIA-SEM-CUSTO` e
+`R25-DADOS-DIVIDIDOS`; nada endureceu. **Falta:** regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

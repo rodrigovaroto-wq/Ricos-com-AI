@@ -276,7 +276,10 @@ export const extractName = (text: string, askedName = false): string | null => {
     // Right after the agent asked her name, the particles inside it are not common words ("Leila da
     // silva" was dropped and the link went out with "Leila": second real test, grafo §66). Only then:
     // on its own, "Vila da Penha" and "Fim de semana" would be names.
-    if (COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : name)) return null;
+    // The list is written without accents, so it reads the name without them: "Oque você faz" was filed as
+    // her name (real test …6682, grafo §95).
+    const plain = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+    if (COMMON_WORDS.test(askedName ? plain.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : plain)) return null;
     // Nor a time or a promise said in reply ("fim de semana te passo", "hora do almoço te mando"): review
     // of the §66 fixes — it overwrote a good first name.
     // The verbs anywhere; the time words only opening it — "Maria da Hora" and "Rita Sexta" are names

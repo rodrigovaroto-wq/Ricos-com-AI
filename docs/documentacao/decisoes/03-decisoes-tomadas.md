@@ -2177,3 +2177,13 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 - **R23 — Consertos da rodada 2 de testes reais** (operador, 2026-10-14: "pode seguir com os 8 consertos"): fora da tabela pela calça
   (resposta fixa e régua parada), régua sem promessa de entrega com região desconhecida, kit perguntado uma vez, prompt (dor → tamanho, IA,
   topo da tabela, "tudo bem?"), "O colete sai de", peso não é tamanho, link pedido de novo, prazo junto do "paguei". Grafo §92.
+- **R24 — Consertos do teste real da irmã do operador (…6682, 14/10)** (operador, 2026-10-15: "A2; B2; ok 1, 3, 4"): (1) frase com
+  acento não vira nome; (A2) o opt-in pergunta só "ofertas", e o "não" recebe a linha fixa "Tudo bem, não te mando ofertas 💛" — a régua
+  de lembretes segue (A1, cancelar a régua no "não", recusada); (B2) o opt-in continua saindo junto do `silence_1`, também para quem nunca
+  engajou; (3) sem anúncio de origem, a abertura diz o produto e "o que é isso" começa por ele; (4) os dois leads sintéticos de 14/10
+  são apagados. Grafo §95.
+- **R25 — Consertos da rodada de cobertura** (operador, 2026-10-15: "Falha do modelo → sim; os dois gates → sim; domingo → sim; pode
+  subir a v24"): falha do provedor nunca grava `handoff_at` e a resposta vazia é tentada de novo em 5 min (grafo §97); os dois falsos
+  positivos de gate (§98); a Logzz entrega no domingo, então a Malu sugerir o domingo está certo (nada muda). A v24 (R24 + o conserto do
+  500 do §96) foi publicada no mesmo dia. Regressão, mutações, revisão, v25 e a nova rodada das 55 personas ficaram para outra sessão
+  (pedido do operador).

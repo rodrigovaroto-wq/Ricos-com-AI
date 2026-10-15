@@ -1795,7 +1795,8 @@ const gates: readonly Gate[] = [
             // One copula at most: "a garantia também é de", "a troca é grátis em até" — never "tem
             // garantia e são 7 dias", where "e" is "and" (eighth review).
             /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|vale|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*(?:\s+(?:e|sao|fica)(?:\s+(?:tambem|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*)?\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
-            new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$`).test(sb);
+            // R24 (personas, 2026-10-15): "você troca sem custo em até 7 dias" — what it costs her sits between them.
+            new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})(?:\s+(?:sem\s+(?:nenhum\s+)?custo(?:\s+nenhum)?|gratis|de\s+graca))?\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$`).test(sb);
           // "(você) tem / são / é 7 dias" after a return word, with nothing about arrival between:
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
@@ -3029,8 +3030,10 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       const t = norm(text);
       const NUM = String.raw`(\d{1,2}|duas|dois|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|dezoito|vinte\s+e\s+quatro|vinte)`;
+      const SHARED = String.raw`\bcom\s+quem\s+(?:(?:os|as|seus|suas|meus|minhas|dados|informacoes)\s+)*(?:sao|e|foram|serao|ficam)\s+`;
       const TOKEN = new RegExp(
-        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|\bdivid\w*`,
+        // R24 (personas, 2026-10-15): "com quem (os dados) são divididos" is her data shared, not the price — with nothing of payment in the clause.
+        String.raw`\b(\d{1,2})\s*x\b|\b(?:em\s+(?:ate\s+)?${NUM}\s+(?:vezes|parcel\w*)|${NUM}\s+parcel\w*)\b|\bparcel\w*|\bdivid\w*\s+em\s+${NUM}\b|(?<!${SHARED})\bdivid\w*|(?<=${SHARED})\bdivid\w*(?=[^,;.!?]*\b(?:valor|preco|pag\w*|cartao|pix|boleto|credito|entrega|checkout|vezes|parcel\w*|\d{1,2}\s*x)\b)`,
         "g",
       );
       if (

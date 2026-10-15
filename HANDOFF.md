@@ -13,7 +13,105 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (LEIA PRIMEIRO).**
+> **2026-10-15, fim da sessão `claude/adoring-fermat-k02201` — v24 NO AR; v25 no código, NÃO verificada e NÃO publicada (LEIA PRIMEIRO).**
+>
+> O operador pediu, ao fim desta sessão: **não** rodar mutações, regressão, v25 nem personas aqui — tudo isso é da **próxima sessão**,
+> pelo roteiro abaixo. Esta sessão commitou tudo, documentou e abriu o PR da branch `claude/adoring-fermat-k02201` → `main`.
+>
+> ### Onde está cada coisa (nada desta sessão ficou fora do Git)
+>
+> | O quê | Onde |
+> |---|---|
+> | Teste real da irmã do operador (`…6682`), mensagem por mensagem | `docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r3-irma-6682.md` (+ `.json`) |
+> | Consertos R24 (nome com acento, opt-in "ofertas" + linha fixa, abertura sem anúncio) | grafo §95, decisão R24, `tests/r3-sister-fixes.test.ts`, mutações `R3-*` |
+> | 500 do `sendFixed` (estava no ar da v17 à v23) | grafo §96, mutação `G96-sendfixed-antes-do-historico`, memória `turn-closure-antes-da-declaracao` |
+> | Falha do provedor nunca cala (R25) | grafo §97, commit `f3b4bb0`, testes §97 em `tests/r3-sister-fixes.test.ts` |
+> | Dois falsos positivos de gate (R25) | grafo §98, commit `08bb8ae`, `tests/r24-gate-false-positives.test.ts`, mutações `R24-*` |
+> | Taxonomia de 138 situações (97,8% coberta), 26 fichas, alertas, `dev:personas:todas` | `docs/agente-ia/05-plano/15-cobertura-personas.md`, `src/dev/scenarios/cobertura*.json`, `src/dev/persona-all.ts`, `tests/persona-coverage.test.ts` |
+> | Análises das rodadas de personas | `docs/agente-ia/10-auditoria/2026-10-15-personas-r24.md` e `2026-10-15-personas-cobertura.md` |
+> | Os 99 relatórios legíveis das 6 rodadas de 15/10 | `docs/agente-ia/10-auditoria/personas-2026-10-15/` (índice no `README.md` da pasta) |
+> | `BUSINESS_CONFIG` exato em produção (o segredo não se lê de volta) | `docs/operacao/business-config-2026-10-15.md` + `.min.json` (SHA-256 `67430235…e27310`, igual ao do segredo) |
+> | Decisões do operador de 15/10 | R24 e R25 em `docs/documentacao/decisoes/03-decisoes-tomadas.md` |
+> | Merge da branch do visto azul no PR #62 (os dois §91 → o do visto azul virou §94) | commit `84dddf6`, já na `main` |
+>
+> ### O que está no ar (conferido em 15/10)
+>
+> - `turn` **v24**: `agent_versions` 24, função v115, publicada do commit `d1d4030` (R24 + §96), `{"job":"health"}` → `healthy` nos 3 CEPs.
+> - `whatsapp` v38. n8n: 7 workflows ativos, 0 execuções com erro desde 13/10; alarme de cobertura (`QQI8CX25LK7TsoKg`) rodando a cada 15 min.
+> - `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-15.min.json` (`experiments` A e B, `askMarketingOptIn: true`, teto R$ 1,00).
+> - Commits **depois** da v24, só no código: `f3b4bb0` (§97), `08bb8ae` (§98), e documentação.
+>
+> ### Contexto do operador (não pergunte de novo)
+>
+> - Os anúncios de teste começam em 16/10: R$ 100 em 2 dias, 5 criativos. Meta Ads é do sócio — não mexa. As compras do ensaio vêm dos
+>   leads, não do operador nem do sócio.
+> - A Logzz **entrega no domingo** (R25): a Malu sugerir domingo está certo.
+> - Token `sbp_` antigo revogado; as variáveis `SUPABASE_ACCESS_TOKEN` e `SUPABASE_SERVICE_ROLE_KEY` estão no ambiente (confira).
+> - O classificador de permissão bloqueou nesta sessão: escrita no cofre de segredos pela API (o operador colou o `BUSINESS_CONFIG`) e
+>   `delete` de produção pela API de gerência. O `deploy:turn` passou.
+>
+> **CI do PR #63 verde em `864218b` (15/10, 16:37 UTC):** `check` (8070 testes, typecheck, lint, `deno check`, `dev:gates` com 0 sem
+> aceite) e os 8 lotes `guards` (todas as mutações da lista, inclusive `G96` e `R24-*`) passaram; PR "mergeable: clean". Isso cobre os
+> passos 5–7 abaixo **para o código de hoje**; refaça-os só se a revisão do passo 3 ou a mutação do passo 4 mudarem código — o CI do
+> push roda tudo de novo.
+>
+> ### Roteiro da próxima sessão — nesta ordem; não pule passo; cada um com o resultado esperado
+>
+> 1. **Ambiente** (5 min). `git fetch origin && git checkout claude/adoring-fermat-k02201 && git pull` (se o PR já foi mergeado, use a
+>    `main` e confira com `git log --oneline -1 -- supabase/functions/turn/index.ts` que `f3b4bb0`/`08bb8ae` estão nela). `pnpm install`.
+>    `[ -n "$SUPABASE_ACCESS_TOKEN" ] && [ -n "$SUPABASE_SERVICE_ROLE_KEY" ] && echo ok`. Deno: `deno --version || npm install -g deno`.
+>    **Esperado:** `ok` e uma versão do Deno.
+> 2. **Impacto do 500 em produção** (10 min; nada a consertar, só medir). No SQL do Supabase: mensagens dela sem resposta da Malu depois,
+>    desde 12/10 — `select m.conversation_id, m.created_at, left(m.body,80) from messages m where m.direction='inbound' and m.created_at >
+>    '2026-10-12' and not exists (select 1 from messages o where o.conversation_id=m.conversation_id and o.direction='outbound' and
+>    o.created_at > m.created_at) order by m.created_at;` — ignore números `5500099…`. **Esperado:** lista curta; para cada conversa real,
+>    veja se a última mensagem dela é "quero N peças" (N>3), troca, status de pedido ou "paguei". Registre no grafo §96 ("Impacto em
+>    produção") e conte ao operador.
+> 3. **Revisão Opus independente** do diff `d1d4030..HEAD -- src supabase tests` (agente `code-reviewer`, `model: "opus"`). Peça
+>    explicitamente: (a) §97 — nenhum caminho de falha do provedor grava `handoff_at`; resposta vazia entra em `deferRetry`; a linha de
+>    espera só no `ModelConfigError`; o que acontece num retry que falha de novo; (b) §98 — as duas regex novas de `guardrails.ts`, com
+>    negação nos dois sentidos (memória `negation-blindness`), e se a do "divididos" deixa passar uma parcela real ("com quem é
+>    dividido o valor em 3x?"). **Esperado:** APROVADO; se NEEDS WORK, conserte com teste (frase + negação) e mutação, e peça a segunda
+>    revisão antes de seguir.
+> 4. **Mutação do §97** (falta): no fim da lista `MUTATIONS` de `src/dev/verify-guards.ts`, uma entrada que reinstala
+>    `throw new Error("meta: resposta sem conteúdo")` no lugar de `throw new TransientModelError("meta: resposta sem conteúdo")` em
+>    `supabase/functions/turn/index.ts`, com guarda `["pnpm","-s","vitest","run","tests/r3-sister-fixes.test.ts"]` (igual às `R3-*`).
+> 5. **Regressão** (~5 min): `pnpm test && pnpm typecheck && pnpm lint && pnpm typecheck:function && pnpm dev:conversas`.
+>    **Esperado:** tudo verde; última medida antes de §98: 8044 testes, 1655/1655 conversas (o §98 soma 26 testes).
+> 6. **Gates:** ✅ feito em 15/10 pelo CI do PR #63 — `dev:gates --fail-on-loosen` contra a `main` mostrou 5 afrouxamentos, todos da
+>    classe do §98 (aceitos em `tests/gate-loosen-accepted.txt` como `R25-GARANTIA-SEM-CUSTO` e `R25-DADOS-DIVIDIDOS`) e "Endureceu: 0".
+>    Rode de novo só se a revisão do passo 3 mudar um gate: **esperado** o mesmo resultado, "(0 sem aceite)".
+> 7. **Commite** (o `verificar:guardas` recusa árvore suja) e rode as **mutações**: `pnpm verificar:guardas` (~20 min; ou 8 fatias com
+>    `GUARDS_SHARD=1/8` … `8/8`). **Esperado:** "579/579 guardas pegaram o próprio bug" (575 até as `R3-*` + `G96` + 2 `R24` + a do §97).
+>    Uma que "ESCAPOU" com "a mutação não se aplicou": o texto de origem mudou — reancore a mutação (`from`) no texto atual.
+> 8. **Publique a v25** (o operador autorizou subir as versões desta frente em 15/10; se for outro dia, confirme com ele numa linha):
+>    `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="v25: §97 provider failure never silences + §98 two gate false positives"`.
+>    **Esperado:** "agent_versions: v24 → v25" e "publicada: agent_version 25 · função turn v116" (ou a seguinte). Depois:
+>    `curl -sS -m 60 -X POST -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"job":"health"}'
+>    https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn` → `"status":"healthy"` (memória `edge-function-warm-isolate`: por uns
+>    minutos parte das chamadas cai na versão anterior).
+> 9. **As 55 personas** sobre a v25: siga `docs/agente-ia/05-plano/15-cobertura-personas.md` §Como rodar (passo 2 sobe a `turn` local com
+>    `docs/operacao/business-config-2026-10-15.min.json`; passo 3 roda `pnpm dev:personas:todas --door=local --max-turns=12`).
+>    **Esperado:** ~6–7 min, < R$ 1, 55/55 sem `FALHOU`; `grep -c "Cannot access" /tmp/turn-local.log` = 0; nenhum "Deixa eu confirmar
+>    isso certinho" com `silenced: true`; tudo-de-uma-vez e lgpd-dados sem os vetos `delivery_promise`/`installment_promise` do §98.
+>    Leia só os **Alertas** (o ruído conhecido está no fim do doc 15). Copie os `.md` para `docs/agente-ia/10-auditoria/personas-<data>/`,
+>    escreva a análise em `docs/agente-ia/10-auditoria/<data>-personas-v25.md`, e registre no grafo.
+> 10. **Feche:** atualize este quadro (o que foi feito, os números) e o grafo §97/§98 ("Falta" → feito; "Estado" → publicado v25), commite,
+>    abra o PR e diga ao operador em que etapa está.
+>
+> ### Esperam o operador (não decida sozinho)
+>
+> - **Marcinha:** o CEP foi pedido 5 vezes depois de "meu cep não lembro de cabeça agora" (`cep_insist` vetou só uma). Proposta: depois do
+>   "não lembro", não pedir o CEP de novo até ela mandar.
+> - **Cleide:** "so pago na entrega / entao deixa, obrigada" (região sem pagamento na entrega) recebeu a linha do "vou pensar" com o
+>   antecipado, não a despedida da recusa; a régua seguiria. Proposta: tratar como recusa (despedida fixa, sem régua).
+> - **Jussara:** com a consulta de cobertura falhando num turno, o link da entrega saiu com a ressalva "o checkout confirma" e, no turno
+>   seguinte, "aí no seu CEP não tem pagamento na entrega". Hoje vale a regra L2 (falha de consulta nunca é "sem entrega"); a alternativa é
+>   segurar o link até a consulta responder.
+> - **Limpeza:** no SQL editor do Supabase, `delete from leads where phone like '5500099%';` — dois leads sintéticos vazios de 14/10
+>   (toques, mensagens e traces já apagados; o `delete` pelo conector expira e a API foi barrada).
+
+> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (histórico).**
 > - `turn` v23 publicada (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida). A Malu não chama mais pessoa; os gates têm
 >   cinco tentativas; consertos da rodada 2 e do loop de personas (grafo §91–§93, `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md`).
 > - n8n: os dois e-mails novos ("Avisa o operador") publicados e ativos — Turno da agente `972c1637`, Relógio da régua `883fc037`;

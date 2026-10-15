@@ -335,7 +335,8 @@ describe("segunda revisão: varredura e webhook de venda", () => {
     expect(source).toContain(
       "  await scheduleSilenceTouches(\n    conversation.id,\n    stopPointOf(replyText, recentOutbound),\n    linkSentRecently([replyText], CHECKOUT_BASES),\n    new Date(),\n    undefined,\n    endsWithQuestion(replyText),\n  );",
     );
-    expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, recentOutbound),');
+    // The window read by itself before the turn's history exists (grafo §96).
+    expect(source).toContain('extra.checkoutUrl ? "link_sent" : stopPointOf(text, await outboundBefore()),');
     expect(sweep).toContain("stopPointOf(text, earlier), linkSentRecently([text], CHECKOUT_BASES), new Date(), undefined, endsWithQuestion(text)");
   });
 

@@ -39,7 +39,7 @@ describe("opt-in de marketing: a pergunta", () => {
   it("passa a cadeia de gates; a contraprova com cupom é vetada", () => {
     const at = new Date("2026-09-10T10:00:00");
     expect(runGates(msg.body, gateCtx({ now: at, stage: "presale" })).traces.filter((t) => t.verdict === "block")).toEqual([]);
-    const withCoupon = msg.body.replace("lembretes e ofertas", "lembretes e um cupom de 20%");
+    const withCoupon = msg.body.replace("ofertas", "um cupom de 20%");
     expect(runGates(withCoupon, gateCtx({ now: at, stage: "presale" })).traces.filter((t) => t.verdict === "block").map((t) => t.gate)).toContain(
       "coupon_exists",
     );

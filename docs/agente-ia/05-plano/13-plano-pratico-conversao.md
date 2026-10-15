@@ -3,7 +3,7 @@
 > Baseado em `analise-arquitetura-malu.md` (§0–§22). Nada aqui foi implementado.
 >
 > **Escrito em:** sáb. 11/10/2026 (status atualizado em 13/10, noite).
-> - **No ar:** `turn` v22, `whatsapp` v24, modelo `muse-spark-1.3-contributor`.
+> - **No ar (15/10):** `turn` v24, `whatsapp` v38, modelo `muse-spark-1.3-contributor`. v25 (§97, §98) no código, não publicada — roteiro no HANDOFF.
 > - **Volume:** 5 leads, 0 pedidos.
 > - **Anúncios (L3):** começam **qui. 23/10**. Copy de 23 a 29/10, pausa de 30 a 31/10, Região de 01 a 07/11, leitura e decisão de 08 a 09/11.
 
@@ -32,6 +32,8 @@ Branch `claude/pipeline-e4-fix-exp-b`. Grafo de decisões §69–§88. E1–E3, 
 | E6.1 | Regras do L3 | ✅ assinado 12/10 | `14-experimentos-l3.md` |
 | R21 | Pós-venda resolve sozinha, troca/devolução pela Logzz só quando pedida, R$ 27 apagado | ✅ no ar (v21–v22) | grafo §78–§88, R21.1–R21.5 |
 | Testes reais | Rodada de 3 (operador, sócio, mãe) | ⬜ próximo | `docs/operacao/roteiro-testes-reais.md`, `pnpm dev:arquivar-teste` |
+| Testes reais r2–r3 | Testadores …3720, …1632 e a irmã do operador (…6682) | ✅ analisados e consertados (R23, R24, v23–v24) | grafo §92, §95 |
+| Cobertura | 138 situações, 55 personas ao mesmo tempo (`dev:personas:todas`) | ✅ ferramenta; v25 a verificar | grafo §96–§98, doc 15 |
 | E5 | Ensaio com dinheiro real | ⬜ | 20–21/10, depois da rodada de testes reais |
 | E6 | L3 2×2 (23/10–09/11) | ⬜ | ligar `experiments.fastOpening` e (depois de construído) `linkAfterChoice` |
 | E7–E8 | Otimização e escala | ⬜ | ver seções abaixo |

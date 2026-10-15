@@ -332,6 +332,12 @@ export const saidNoFit = (outbound: string): boolean => /colete não vai (?:te )
 /** Her refusal's reply (grafo §69): a goodbye — no stock, no argument, no question, no link. */
 export const DECLINE_REPLY = "Tudo bem, obrigada por me avisar 💛 Se um dia quiser, é só me chamar aqui.";
 
+/**
+ * Her "no" to the offers question (operator, 2026-10-15, A2): it promises only what she refused — the model wrote "não mando
+ * mais nada" and the ruler sent a reminder the next morning (real test …6682, grafo §95).
+ */
+export const OPT_IN_DECLINED_REPLY = "Tudo bem, não te mando ofertas 💛";
+
 /** What `thinkReply` reads of the config: the prices and the deadlines (no stock since R20.1). */
 export interface ThinkConfig {
   prices: { prepayBrl: number; prepayDiscountPercent: number };

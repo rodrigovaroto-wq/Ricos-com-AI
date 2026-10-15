@@ -45,7 +45,8 @@ export const optInMessage = (
   const blank = (s: string) => s.replace(/[\s\u200b-\u200d\ufeff]/g, "") === "";
   if (blank(brand) || blank(nonce)) return null;
   return {
-    body: `Posso te mandar lembretes e ofertas da ${brand.trim()} por aqui?`,
+    // Offers only (operator, 2026-10-15, A2): the reminders go on after a "no", so the question does not offer to stop them.
+    body: `Posso te mandar ofertas da ${brand.trim()} por aqui?`,
     buttons: [
       { id: `${YES_PREFIX}${nonce}`, title: "Quero ofertas" },
       { id: `${NO_PREFIX}${nonce}`, title: "Não, obrigada" },

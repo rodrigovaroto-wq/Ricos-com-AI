@@ -250,3 +250,8 @@ V21-NEGA-DIZER-QUE | delivery_promise | Não consigo te falar que chega amanhã.
 V21-NEGA-DIZER-QUE | delivery_promise | Não posso afirmar com certeza que chega amanhã.
 V21-NEGA-DIZER-QUE | delivery_promise | Não tem como eu te garantir que chega amanhã.
 V21-NEGA-DIZER-QUE | delivery_promise | Não consigo prever que chega amanhã.
+R25-GARANTIA-SEM-CUSTO | delivery_promise | No antecipado dá pra parcelar em até 12x no cartão, e se não servir você troca sem custo em até 7 dias após o recebimento.\n\n
+R25-GARANTIA-SEM-CUSTO | delivery_promise | No antecipado dá pra parcelar em até 12x no cartão, e se não servir você troca sem custo em até 7 dias após o recebimento.
+R25-DADOS-DIVIDIDOS | installment_promise | Sobre onde ficam guardados, com quem são divididos e por quanto tempo, são informações detalhadas da empresa que eu não tenho aqui, manda um e-mail pra contato@encorpa-fashion.com.br que o time te passa tudo por lá, combinado?\n\n
+R25-DADOS-DIVIDIDOS | installment_promise | com quem os seus dados são divididos
+R25-DADOS-DIVIDIDOS | installment_promise | com quem são divididos e por quanto tempo, eu não tenho aqui

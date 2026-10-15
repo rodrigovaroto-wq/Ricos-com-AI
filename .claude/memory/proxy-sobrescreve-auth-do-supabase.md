@@ -29,3 +29,8 @@ nula em todo lead por duas semanas (grafo §66, C1). Com o cabeçalho, a rodada 
 região de verdade.
 E a rodada que mede a produção passa `CONVERSATION_MODEL`/`CONVERSATION_MODEL_PRICE` iguais
 aos segredos (conferíveis pelo hash SHA-256 que `GET /v1/projects/<ref>/secrets` devolve).
+
+**2026-10-15:** a receita que rodou 55 personas de uma vez (chave de serviço real + host do Supabase em `NO_PROXY` nos dois processos,
+porta do proxy lida de `$HTTPS_PROXY`, Deno instalado por `npm install -g deno`) está, comando por comando, em
+`docs/agente-ia/05-plano/15-cobertura-personas.md` §Como rodar.
+

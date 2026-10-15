@@ -133,8 +133,10 @@ describe("tabela de preços da Edge Function", () => {
   it("erro de configuração não tranca o lead fora da agente", () => {
     expect(source).toContain("class ModelConfigError extends Error");
     expect(source).toContain("if (MODEL_CONFIG_ERROR) throw new ModelConfigError(MODEL_CONFIG_ERROR)");
-    expect(source).toContain("reachable = error instanceof ModelConfigError) => {");
-    expect(source).toContain("    if (!reachable) {\n      await db(`leads?id=eq.${lead.id}`, {");
+    // §97: no model failure writes `handoff_at` any more; the configuration error keeps the holding line.
+    const failure = source.slice(source.indexOf("const modelFailure = async"), source.indexOf("const deferRetry = async"));
+    expect(failure).not.toContain("handoff_at: new Date");
+    expect(failure).toContain("const line = error instanceof ModelConfigError ? HOLDING_REPLY : SAFE_FALLBACK_REPLY;");
   });
 
   /**

@@ -37,8 +37,8 @@ describe("E3.1 — a diretiva da primeira resposta", () => {
   });
 
   it("borda: ela só cumprimentou — uma frase do anúncio e uma pergunta aberta", () => {
-    expect(openingDirective(config, "bom dia", null, true)).toContain("uma frase sobre o que o anúncio mostra (o nosso colete) e uma pergunta aberta");
-    expect(openingDirective(config, "bom dia", "Anúncio X", true)).not.toContain("(o nosso colete)");
+    expect(openingDirective(config, "bom dia", null, true)).toContain("uma frase sobre o nosso colete e uma pergunta aberta");
+    expect(openingDirective(config, "bom dia", "Anúncio X", true)).toContain("uma frase sobre o que o anúncio mostra e uma pergunta aberta");
   });
 
   it("falha: o título do anúncio vem de fora — aspas e quebras não fecham a citação, e o tamanho é limitado", () => {

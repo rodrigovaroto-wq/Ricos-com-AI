@@ -176,7 +176,8 @@ describe("revisão do R22 — laços, prazo e falsos positivos", () => {
 
   it("o e-mail diz a verdade: conversa parada (teto, provedor) leva silenced; a que continua não", () => {
     expect(turn.match(/silenced: true/g)?.length).toBe(2);
-    expect(turn).toContain("silenced: !reachable,");
+    // §97: a provider failure never silences her (the safe line, or the holding one on a configuration error).
+    expect(turn).toContain("      silenced: false,\n      reason,");
     const email = readFileSync("n8n/workflows/turno-da-agente.json", "utf8");
     expect(email).toContain("$json.silenced ?");
   });

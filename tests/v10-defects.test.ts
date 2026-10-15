@@ -226,8 +226,9 @@ describe("5. rascunho que não leu a rajada não sai (draftMayGo)", () => {
   it("fiação: sem revisão possível e sem nova tentativa gravada, a resposta de espera, sem handoff_at", () => {
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
     expect(guard).toContain("if (draftMayGo(latest === null, inboundId === null || retryIsMoot(inboundId, latest?.[0] ?? null, null), { isRetry, isRevise })) return null;");
-    expect(guard).toContain(") ?? (await modelFailure(new Error(\"rascunho sem ler a rajada\"), \"rascunho não leu a rajada e a nova tentativa não foi agendada\", true))");
-    expect(source).toContain("const modelFailure = async (error: unknown, reason = \"falha ao chamar o modelo\", reachable = error instanceof ModelConfigError) => {");
-    expect(source).toContain("    if (!reachable) {\n      await db(`leads?id=eq.${lead.id}`, {");
+    expect(guard).toContain(") ?? (await modelFailure(new Error(\"rascunho sem ler a rajada\"), \"rascunho não leu a rajada e a nova tentativa não foi agendada\"))");
+    // §97: modelFailure never writes `handoff_at`.
+    const failure = source.slice(source.indexOf("const modelFailure = async"), source.indexOf("const deferRetry = async"));
+    expect(failure).not.toContain("handoff_at: new Date");
   });
 });
