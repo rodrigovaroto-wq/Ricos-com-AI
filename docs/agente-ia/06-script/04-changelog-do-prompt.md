@@ -5,7 +5,7 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
-### 2026-10-15 — R24: o produto dito a quem não veio de anúncio (não publicado)
+### 2026-10-15 — R24: o produto dito a quem não veio de anúncio (publicado na v24, 15/10)
 
 - **Mudou:** (1) `openingDirective` sem anúncio de origem acrescenta "Não sabemos de onde ela veio: não diga que ela veio por
   um anúncio, e diga numa frase que a Encorpa vende o Colete Cinta Modeladora."; (2) o prompt, logo depois da regra de IA,

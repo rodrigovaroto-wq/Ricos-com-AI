@@ -13,17 +13,56 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-15 — R24 no código, NÃO publicado (LEIA PRIMEIRO; branch `claude/adoring-fermat-k02201`).**
-> - Produção conferida: `turn` v23 (função v111), `whatsapp` v38, PR #62 mergeado (com a branch do visto azul); `BUSINESS_CONFIG` novo
->   colado pelo operador (hash `67430235…`: `experiments` A e B ligados, `askMarketingOptIn: true`, teto R$ 1,00, cupom SUPER20 ativo,
->   templates aprovados), `job:"health"` → `healthy`; alarme de cobertura com 172 execuções sem erro.
-> - Teste real da irmã do operador (`…6682`, 14/10, v22) analisado mensagem por mensagem:
->   [`2026-10-14-r3-irma-6682.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r3-irma-6682.md). Consertos R24 (grafo §95): frase com
->   acento não vira nome; opt-in só "ofertas" e linha fixa no "não" (A2); abertura sem anúncio diz o produto. Regressão: 8030/8030,
->   `dev:conversas` 1655/1655, `deno check`, lint, `dev:gates` 0 afrouxado, mutações `R3-*` 4/4.
-> - Os leads sintéticos `…091576`/`…284318` (loop de 14/10) tiveram toques e mensagens apagados; falta no SQL editor:
->   `delete from leads where phone like '5500099%';` (o conector expira).
-> - **Próximo:** "pode subir" do operador → `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v24) → anúncios de teste (R$ 100, 2 dias, 5 criativos).
+> **2026-10-15, fim da sessão `claude/adoring-fermat-k02201` — v24 NO AR; v25 no código, NÃO verificada (LEIA PRIMEIRO).**
+> PR desta sessão: ver a lista de PRs abertos da branch `claude/adoring-fermat-k02201`. O operador pediu que a verificação e a
+> publicação da v25 sejam feitas **numa sessão nova**, seguindo o roteiro abaixo.
+>
+> **No ar (conferido):** `turn` **v24** (`agent_versions` 24, função v115, commit `d1d4030`, `job:"health"` → `healthy` nos 3 CEPs),
+> `whatsapp` v38. `BUSINESS_CONFIG` (hash `67430235…`): `experiments` A e B ligados, `askMarketingOptIn: true`, teto R$ 1,00, cupom
+> SUPER20 ativo, templates aprovados, `returns` da Logzz. A v24 leva o R24 (grafo §95: nome com acento, opt-in "ofertas" com linha fixa
+> no "não", abertura sem anúncio diz o produto) e o conserto do **500 do §96** (`sendFixed` lia `recentOutbound` antes de existir:
+> quebrava "quero 4 peças", a troca pela Logzz, o status do pedido e a resposta ao "paguei" — estava no ar desde a v17).
+>
+> **No código, depois da v24, sem regressão inteira nem revisão** (commits `f3b4bb0` e `08bb8ae`):
+> - §97: falha do provedor nunca grava `handoff_at`; resposta vazia da Meta é tentada de novo em 5 min; segunda falha → linha segura +
+>   e-mail (`supabase/functions/turn/index.ts`, `modelFailure`, `callMuse`/`callLuna`).
+> - §98: dois falsos positivos de gate (`src/agent/guardrails.ts` + espelho): "troca sem custo em até 7 dias" (garantia) e "com quem são
+>   divididos" (dados). Testes em `tests/r24-gate-false-positives.test.ts` (26/26 passam), mutações `R24-*` pegas pelo especialista.
+>
+> **Novo na ferramenta de personas** (doc [`15-cobertura-personas.md`](docs/agente-ia/05-plano/15-cobertura-personas.md)): taxonomia de
+> 138 situações (97,8% cobertas), 26 fichas compactas (`--suite=cobertura`), alertas por conversa, `--concurrency` até 16 e
+> `pnpm dev:personas:todas` (55 personas em ~6,5 min, ~R$ 0,75). Relatórios: `docs/agente-ia/10-auditoria/2026-10-15-personas-*.md`.
+>
+> **Roteiro da próxima sessão — nesta ordem, cada passo com o resultado esperado:**
+> 1. **Ambiente.** Confira `SUPABASE_ACCESS_TOKEN` e `SUPABASE_SERVICE_ROLE_KEY` nas variáveis (`[ -n "$SUPABASE_ACCESS_TOKEN" ]`); instale o
+>    Deno se faltar (`npm install -g deno`) — `typecheck:function` e a `turn` local precisam dele. `pnpm install`.
+> 2. **Revisão Opus independente** do diff `d1d4030..HEAD -- src supabase tests` (agente `code-reviewer`, `model: "opus"`): §97 (nenhum
+>    caminho de falha do provedor grava `handoff_at`; a resposta vazia entra em `deferRetry`; a linha de espera só no erro de configuração)
+>    e §98 (as duas regex novas em `guardrails.ts` — cegueira a negação nos dois sentidos, ver `.claude/memory/negation-blindness.md`).
+>    **Esperado:** APROVADO, ou achados consertados com teste e nova mutação antes de seguir.
+> 3. **Regressão:** `pnpm test && pnpm typecheck && pnpm lint && pnpm typecheck:function && pnpm dev:conversas`. **Esperado:** tudo verde
+>    (na última medida, 8044 testes e 1655/1655 conversas, antes dos 26 testes de §98).
+> 4. **`pnpm dev:gates --base=d1d4030`** (a v24). **Esperado:** "Endureceu: 0" e afrouxamento só da classe das duas frases do §98; se
+>    afrouxar outra coisa, conserte ou justifique em `tests/gate-loosen-accepted.txt`.
+> 5. **Mutações:** com a árvore limpa, `pnpm verificar:guardas` (ou em fatias, `GUARDS_SHARD=i/8`). **Esperado:** "578/578 guardas
+>    pegaram o próprio bug" (575 + `G96-sendfixed-antes-do-historico` + `R24-troca-sem-custo-governa` + `R24-com-quem-sao-divididos`).
+>    Falta uma mutação do §97 — escreva-a (reinstalar `throw new Error("meta: resposta sem conteúdo")` ou o `handoff_at` em
+>    `modelFailure`, guarda `tests/r3-sister-fixes.test.ts`).
+> 6. **Registro:** grafo §97/§98 ("Falta" → feito, com os números) e este quadro.
+> 7. **Publicar a v25** (o operador já autorizou subir as versões desta frente; confirme com ele se a sessão for outro dia):
+>    `NODE_USE_ENV_PROXY=1 pnpm deploy:turn --note="v25: §97 provider failure never silences + §98 two gate false positives"`. Depois:
+>    `curl -sS -X POST -H "Authorization: Bearer $SUPABASE_SERVICE_ROLE_KEY" -H "Content-Type: application/json" -d '{"job":"health"}'
+>    https://hbmkgakzrqmdlsvszjeo.supabase.co/functions/v1/turn`. **Esperado:** `agent_version` 25 e `"status":"healthy"`.
+> 8. **As 55 personas** sobre o código publicado: suba a `turn` local (roteiro no topo de `src/dev/persona-run.ts`; `BUSINESS_CONFIG`
+>    local = o de produção com `hours: {openHour: 0, closeHour: 24}`; `NO_PROXY` com o host do Supabase; porta do proxy em `$HTTPS_PROXY`),
+>    depois `NODE_USE_ENV_PROXY=1 pnpm dev:personas:todas --door=local --max-turns=12`. **Esperado:** 55/55 sem `FALHOU`, nenhum
+>    "Cannot access" no log da `turn`, nenhum "já te respondo" seguido de `silenced`, os rascunhos do §98 sem veto. Leia só os
+>    **Alertas** de cada `.md` e registre em `docs/agente-ia/10-auditoria/` + grafo.
+>
+> **Esperam o operador (não decidido):** Marcinha (CEP pedido 5 vezes depois de "não lembro"), Cleide ("então deixa, obrigada" lido
+> como "vou pensar"), Jussara (link da entrega com a cobertura desconhecida por falha de consulta). E no SQL editor do Supabase:
+> `delete from leads where phone like '5500099%';` (dois leads sintéticos vazios de 14/10; o conector expira).
+> **Fato do operador (R25):** a Logzz entrega no domingo — a Malu sugerir o domingo está certo.
 
 > **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (histórico).**
 > - `turn` v23 publicada (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida). A Malu não chama mais pessoa; os gates têm

@@ -3087,7 +3087,7 @@ segue colado no `silence_1` de quem nunca engajou (B2).
 perguntou de um pedido (Lu) ou já tinha falado do colete — regressão deste conserto, fechada no mesmo dia: só sai "se ela ainda não
 falou do colete nem de um pedido" (R24-b, 4 personas conferidas). Abertos para o operador: CEP pedido cinco vezes depois de "não lembro"
 (Marcinha), "entao deixa, obrigada" lido como "vou pensar" (Cleide), link da entrega com a cobertura desconhecida por falha de consulta
-(Jussara, rede do container). **Estado:** no código, não publicado.
+(Jussara, rede do container). **Estado:** publicado em 15/10 — `turn` v24 (`agent_versions` 24, função v115, commit `d1d4030`, `job:"health"` → `healthy`).
 
 ## 96. Cobertura de 138 situações com 55 personas ao mesmo tempo, e o 500 que ela achou (2026-10-15)
 
@@ -3110,7 +3110,34 @@ turno não existe, e a do turno depois. **Guarda:** teste de texto em `tests/r3-
 **Abertos para o operador** (`docs/agente-ia/10-auditoria/2026-10-15-personas-cobertura.md`): falha do modelo que não é de
 configuração ainda grava `handoff_at` e promete "já te respondo" (contra R22.1); dois falsos positivos de gate com frase de persona
 ("troca sem custo em até 7 dias" como prazo do antecipado; "com quem são divididos" como parcela); a Malu supôs entrega no domingo.
-**Estado:** no código, não publicado.
+**Estado:** publicado em 15/10 na `turn` v24 (função v115), com o §95.
+
+## 97. Falha do provedor nunca cala a cliente (operador, 2026-10-15, R25)
+
+**Sintoma** (persona venda-some, rodada de cobertura de 15/10): a Meta devolveu resposta vazia ("meta: resposta sem conteúdo"); a Malu
+mandou "Deixa eu confirmar isso certinho pra você e já te respondo por aqui 💛" e gravou `handoff_at` (`silenced: true`) — a lead
+ficaria calada para sempre, e ninguém responde pelo número da API. **Causa:** resposta vazia era `Error` comum, não passageira, e
+`modelFailure` gravava `handoff_at` em toda falha que não fosse de configuração. Contraria a R22.1. **Correção (aprovada pelo
+operador):** resposta vazia é `TransientModelError` (entra na nova tentativa de 5 minutos, como um 5xx); `modelFailure` não grava mais
+`handoff_at`; a falha de configuração mantém a linha de espera, qualquer outra recebe `SAFE_FALLBACK_REPLY` ("me fala de novo o que
+você quer saber?"), e o e-mail ao operador sai nos dois casos. **Guarda:** `tests/r3-sister-fixes.test.ts` §97, testes de fiação
+atualizados (`function-drift`, `v10-defects`, `r22-no-person`). **Falta:** mutação própria; regressão inteira; revisão Opus.
+**Estado:** commit `f3b4bb0`, não publicado (vai na v25).
+
+## 98. Dois falsos positivos de gate achados pelas personas de cobertura (2026-10-15, R25)
+
+**Sintoma:** (1) `delivery_promise` vetou quatro vezes, no antecipado, "No antecipado dá pra parcelar em até 12x no cartão, e se não
+servir você troca sem custo em até 7 dias após o recebimento" como "prepaid average of 7 days is not the configured 5"; a resposta fixa
+que sobrou respondeu só a parcela de uma cliente que tinha feito cinco perguntas (persona tudo-de-uma-vez). (2) `installment_promise`
+vetou quatro vezes "Sobre onde ficam guardados, com quem são divididos e por quanto tempo…" (os dados dela, persona lgpd-dados).
+**Causa:** (1) a garantia "troc… em até N dias" só era reconhecida com o verbo colado na contagem; "sem custo" no meio a desgovernava
+e a frase, por nomear o antecipado, entregava a contagem ao prazo. (2) `\bdivid\w*` sozinho era palavra de parcela. **Correção**
+(especialista em Opus, R21.6 — frase de persona): (1) "sem custo / sem nenhum custo / grátis / de graça" pode ficar entre o verbo da
+troca e a contagem; (2) "com quem (os dados) são divididos" não é parcela, a não ser que a oração fale de pagamento (valor, pix, cartão,
+vezes…). **Guarda:** `tests/r24-gate-false-positives.test.ts` (26 casos: os rascunhos reais passam a cadeia inteira; negações — "No
+antecipado chega em 7 dias", "dá pra dividir em 3x na entrega", garantia de 30 dias mal configurada — continuam vetadas); mutações
+`R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). **Falta:** `dev:gates --base=origin/main` (dizer o que afrouxou),
+regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
 
 ## Lições (valem para qualquer correção futura)
 
