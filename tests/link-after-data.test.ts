@@ -101,7 +101,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
 
   it("o kit é oferecido depois da escolha, uma vez, e o link do kit é o checkout do kit", () => {
     expect(source).toContain(
-      'units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;',
+      'units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;',
     );
     expect(source).toContain("linkNow || linkAlreadySent || kitOfferNow ||");
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");

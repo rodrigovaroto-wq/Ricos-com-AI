@@ -96,3 +96,34 @@ describe("R24 — 'com quem são divididos' (dados compartilhados) não é parce
     expect(gates(text, "cod")).toContain("installment_promise");
   });
 });
+
+describe("R26 — garantia 'com N dias' (persona tudo-de-uma-vez, v25, 15/10)", () => {
+  const REAL =
+    "Boa tarde, sou a Malu, da Encorpa! Com 42 o seu é o G, pra cintura de 76 a 84 cm\n\n" +
+    "No antecipado o frete é calculado por região e aparece no checkout antes de pagar. No cartão antecipado parcela em até 12x. " +
+    "O prazo varia por região, em média 5 dias úteis, e a data certinha você confere no checkout\n\n" +
+    "Se não servir a troca é sem custo pra você, com 7 dias após o recebimento. Levando 2 peças o desconto sobe para 20%:" +
+    " R$ 207,84 no antecipado, e 3 peças R$ 272,79, fica com 1, 2 ou 3 peças?";
+
+  it("o rascunho real não acende delivery_promise no antecipado", () => {
+    expect(gates(REAL, "prepay")).not.toContain("delivery_promise");
+  });
+
+  it.each([
+    "Se não servir a troca é sem custo pra você, com 7 dias após o recebimento.",
+    "No antecipado, se não servir você troca sem custo, com 7 dias após o recebimento.",
+  ])("verdade passa: %s", (text) => {
+    for (const p of ["cod", "prepay"] as const) expect(gates(text, p)).not.toContain("delivery_promise");
+  });
+
+  it.each([
+    "No antecipado chega com 7 dias",
+    "No antecipado chega em até 7 dias",
+    "No antecipado ele chega com 7 dias após o pagamento.",
+    "No antecipado a troca é sem custo pra você, com 7 dias pra chegar.",
+    "No antecipado você troca sem custo, com 7 dias de entrega.",
+    "No antecipado a entrega é sem custo pra você, com 7 dias.",
+  ])("prazo do antecipado continua vetado: %s", (text) => {
+    expect(gates(text, "prepay")).toContain("delivery_promise");
+  });
+});

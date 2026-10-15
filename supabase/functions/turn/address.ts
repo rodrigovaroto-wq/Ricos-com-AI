@@ -105,6 +105,18 @@ export const malformedCep = (text: string, askedCep = false): string | null => {
   return m ? m[1]! : null;
 };
 
+/** The Correios' own CEP search, by street (R26.1): where she finds the CEP she does not remember. */
+export const CORREIOS_CEP_URL = "https://buscacepinter.correios.com.br";
+
+/**
+ * She does not remember her CEP (R26.1, persona Marcinha 15/10: "e meu cep nao lembro de cabeça agora", then asked five
+ * more times). Negation both ways: "lembro sim, meu cep é…" is no forgetting, nor is "não sei se meu cep tem entrega".
+ */
+const FORGOT = String.raw`(?:(?:nao|n)\s+(?:me\s+)?(?:lembro|sei|recordo)|esqueci)\b(?!\s+se\b)`;
+const FORGOT_CEP = new RegExp(String.raw`\b${FORGOT}[^.!?,;\n]{0,25}\bcep\b|\bcep\b[^.!?,;\n]{0,25}\b${FORGOT}`);
+export const forgetsCep = (text: string): boolean =>
+  FORGOT_CEP.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+
 /** Words that open a Brazilian street line. */
 const STREET_TYPES =
   "rua|r\\.|avenida|av\\.?|travessa|tv\\.?|alameda|al\\.?|rodovia|rod\\.?|estrada|est\\.?|praca|praça|largo|via|quadra|conjunto|linha|servidao|servidão";

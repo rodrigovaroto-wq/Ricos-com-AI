@@ -963,6 +963,8 @@ const DECLINE_LINE = new RegExp(
   String.raw`^(?:${DECLINE_FILLER} )*(?:` +
     String.raw`(?:(?:nao|n|nem) quero mais(?: comprar| o colete| a cinta)?|nao vou (?:mais )?(?:querer|levar|comprar)|nao tenho (?:mais )?interesse(?: nenhum| (?:no|nesse|neste|em|pelo) (?:produto|colete|cinta|comprar|compra))?)(?: (?:${DECLINE_FILLER}|nao))*` +
     String.raw`|(?:desisti(?: d[ao] (?:compra|colete|cinta|pedido))?|desisto|deixa pra la|deixa quieto)(?: ${DECLINE_FILLER})*` +
+    // R26.2 (persona cob-paga-na-porta-como, 15/10): the refusal and its condition in one line — "então deixa se não tem na entrega não quero não".
+    String.raw`|(?:deixa se nao (?:tem|tiver|da) na entrega(?: (?:nao|n) quero)?|se nao (?:tem|tiver|da) na entrega (?:nao|n) quero)(?: ${DECLINE_FILLER}| nao)*` +
     String.raw`)$`,
 );
 const words = (line: string): string => norm(line).replace(/[^a-z0-9]+/g, " ").trim();
@@ -977,10 +979,18 @@ const staysClosed = (line: string): boolean =>
  * The newest refusal in her words and nothing after it but lines that keep it closed. Read over the
  * burst by the turn and over her recent messages by the ruler — one notion of "she came back".
  */
-export const declinesInBurst = (messages: readonly string[]): boolean => {
+/**
+ * R26.2 (persona Cleide, 15/10): "só pago na entrega" and then "então deixa, obrigada". A bare "então deixa" also answers
+ * a smaller question ("quer o kit de 2?" — leave it), so it refuses the sale only right after her own "só pago na
+ * entrega": her line just before it, in the burst or, through `earlier` (her messages before the burst), a turn before.
+ */
+const ONLY_COD = /(?<!\bnao\s)\b(?:so|somente|apenas)\s+(?:pago|compro|aceito)\s+(?:na|pela)\s+entrega\b/;
+const DROP_LINE = new RegExp(String.raw`^(?:${DECLINE_FILLER} )*deixa(?! eu)(?: ${DECLINE_FILLER})*$`);
+export const declinesInBurst = (messages: readonly string[], earlier: readonly string[] = []): boolean => {
   // A blank line or a sticker (empty body) after the refusal is not her coming back (/code-review of E1).
   const lines = messages.flatMap((m) => m.split("\n")).filter((l) => l.trim() !== "");
-  const at = lines.findLastIndex(declineLine);
+  const before = earlier.flatMap((m) => m.split("\n")).filter((l) => l.trim() !== "");
+  const at = lines.findLastIndex((l, i) => declineLine(l) || (DROP_LINE.test(words(l)) && ONLY_COD.test(norm([...before, ...lines.slice(0, i)].at(-1) ?? ""))));
   return at !== -1 && lines.slice(at + 1).every(staysClosed);
 };
 

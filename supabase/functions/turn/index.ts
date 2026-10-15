@@ -76,11 +76,13 @@ import {
 import { asksForSize, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region } from "./availability.ts";
+import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
   extractAddressBurst,
+  CORREIOS_CEP_URL,
+  forgetsCep,
   malformedCep,
   readBackAddress,
   isComplete,
@@ -562,7 +564,12 @@ class ModelConfigError extends Error {}
  * `TimeoutError` from the abort signal) as the only failures worth trying again
  * (R13.4). A 4xx is the request, and sending it again sends the same mistake.
  */
-class TransientModelError extends Error {}
+class TransientModelError extends Error {
+  /** An empty answer is still billed (R26.5): its cost rides here, for the turn to count and record it. */
+  constructor(message: string, readonly wasted?: ModelCall) {
+    super(message);
+  }
+}
 
 const isTransient = (error: unknown): boolean =>
   error instanceof TransientModelError ||
@@ -595,20 +602,21 @@ const callLuna = async (
   const body = await response.json();
   if (body.error) throw new Error(`openai: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
-  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97).
-  if (!text) throw new TransientModelError("openai: resposta sem conteúdo");
   const usage = body.usage ?? {};
   const inTok = usage.prompt_tokens ?? 0;
   const outTok = usage.completion_tokens ?? 0;
   const cachedTok = usage.prompt_tokens_details?.cached_tokens ?? 0;
-  return {
-    text: text as string,
+  const call = {
+    text: (text ?? "") as string,
     inTok,
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
     latencyMs: Date.now() - startedAt,
   };
+  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97) — and billed (R26.5).
+  if (!text) throw new TransientModelError("openai: resposta sem conteúdo", call);
+  return call;
 };
 
 /**
@@ -648,20 +656,21 @@ const callMuse = async (
   const body = await response.json();
   if (body.error) throw new Error(`meta: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
-  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97).
-  if (!text) throw new TransientModelError("meta: resposta sem conteúdo");
   const usage = body.usage ?? {};
   const inTok = usage.prompt_tokens ?? 0;
   const outTok = usage.completion_tokens ?? 0;
   const cachedTok = usage.prompt_tokens_details?.cached_tokens ?? 0;
-  return {
-    text: text as string,
+  const call = {
+    text: (text ?? "") as string,
     inTok,
     outTok,
     cachedTok,
     costBrl: costOf(CONVERSATION_MODEL, inTok, outTok, cachedTok),
     latencyMs: Date.now() - startedAt,
   };
+  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97) — and billed (R26.5).
+  if (!text) throw new TransientModelError("meta: resposta sem conteúdo", call);
+  return call;
 };
 
 /**
@@ -818,6 +827,7 @@ const sizeDirectiveFor = (
   known: string | null,
   region: Pick<Region, "cod" | "sameDay"> | null,
   linkGoing = false,
+  cepForgotten = false,
 ): string | null => {
   // The size survives the turn it was said in. Reading only what THIS message contained
   // left the turn where she sends her postcode with no size at all, and the agent hedged
@@ -834,6 +844,8 @@ const sizeDirectiveFor = (
     // She decided and the link goes in this message: the CEP is typed in the checkout,
     // which is also where coverage is confirmed (persona round 3, Marcinha).
     if (linkGoing) return `${fitting} Não peça o CEP agora: o link vai nesta mensagem.`;
+    // She said she does not remember it (R26.1): the CEP waits for her.
+    if (cepForgotten) return fitting;
     return `${fitting} Depois de responder, puxe o CEP dela na mesma mensagem, do jeito` +
       ` que uma pessoa puxaria: você quer ver como fica a entrega na região dela. É um` +
       ` favor que você está fazendo, não um cadastro — nunca peça o endereço inteiro.`;
@@ -2504,7 +2516,19 @@ const handleTurn = async (
   // Which host serves CONVERSATION_MODEL, resolved once — used for every call and for
   // the provider label written to `llm_calls`, so the two never disagree.
   const conversationProvider = MUSE_FAMILY.test(CONVERSATION_MODEL) ? "meta" : "openai";
-  const callConversationModel = conversationProvider === "meta" ? callMuse : callLuna;
+  // R26.5: an empty answer was billed and never counted — with the retry of §97, up to ~10 calls past the ceiling and out
+  // of `llm_calls`. Counted and recorded here, the one door every conversation call goes through, then retried as before.
+  const callConversationModel = async (...args: Parameters<typeof callMuse>): Promise<ModelCall> => {
+    try {
+      return await (conversationProvider === "meta" ? callMuse : callLuna)(...args);
+    } catch (error) {
+      if (error instanceof TransientModelError && error.wasted) {
+        spent += error.wasted.costBrl;
+        await recordCall(conversation.id, "empty", conversationProvider, CONVERSATION_MODEL, error.wasted);
+      }
+      throw error;
+    }
+  };
 
   /**
    * The operator is told, the agent is NOT stopped (R22.1, 2026-10-13). Nobody can answer from the WhatsApp
@@ -3488,10 +3512,15 @@ const handleTurn = async (
   if (cached) region = cached;
   else if (addressDraft.cep) {
     try {
+      const zip = addressDraft.cep;
+      // R26.3 (persona Jussara, 15/10): a lookup that failed ("fetch failed") sent the delivery link with the checkout's
+      // caveat, and the next turn's lookup said no delivery. One short second try first; still failing, L2 holds.
       const lookup = await lookupRegion(
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
-        addressDraft.cep,
-      );
+        zip,
+      )
+        .catch((): RegionLookup => ({ kind: "failed" }))
+        .then((first) => (first.kind === "failed" ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
@@ -3522,6 +3551,9 @@ const handleTurn = async (
       ? `Ela mandou um CEP com ${wrongCep.length} números (${wrongCep}), e CEP tem 8: o sistema não conseguiu ler.` +
         ` Peça com gentileza pra ela conferir e mandar de novo. Nunca diga que recebeu ou anotou o CEP.`
       : `O CEP dela ainda não foi recebido: nunca diga que recebeu, anotou ou vai conferir o CEP.`;
+  // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", then the CEP asked five more times. From her
+  // recent messages, while no CEP was read: pointed once to the Correios search, and never asked until she sends one.
+  const cepForgotten = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep);
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
@@ -3814,6 +3846,9 @@ const handleTurn = async (
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
+      : missing === "cep" && (linkDue || paymentChoice !== null) && cepForgotten
+        ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; diga numa frase que,` +
+          ` assim que ela tiver o CEP, o link sai. Não escreva link nenhum.`
       : missing === "cep" && (linkDue || paymentChoice !== null)
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
@@ -3859,7 +3894,7 @@ const handleTurn = async (
     }
   }
   // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
-  if (declinesInBurst(parts) && !interpretation.wants_to_buy) {
+  if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken)) && !interpretation.wants_to_buy) {
     const sent = await sendFixed(opening(DECLINE_REPLY), "ela recusou: despedida fixa, sem régua");
     if (sent) return sent;
   }
@@ -3934,9 +3969,10 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // After the size and the CEP too, so the offer never shares a message with another question.
+  // After the size and the CEP too, so the offer never shares a message with another question — or with the CEP she said
+  // she does not remember, which is not asked (R26.1: the conversation goes on, kit included).
   const kitOfferNow =
-    units === 1 && pathChosen && missing !== "size" && missing !== "cep" && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
+    units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
   const identityDirective = farewell
@@ -3962,6 +3998,11 @@ const handleTurn = async (
       ? `No link do pedido o checkout pede o que faltar: não peça nome, e-mail nem CPF aqui.` +
         (linkPath === "prepay" && chatEmail === null ? ` Se escrever o link, avise que lá vai pedir o e-mail dela.` : "")
       : null;
+  // R26.3 (persona Jussara, 15/10): the delivery link went out while her region was unknown, and now the lookup says no
+  // delivery there — said as the correction it is, once, not as news ("aí no seu CEP não tem" after the link).
+  const codBases = [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)].filter((u): u is string => !!u);
+  const codLinkAt = recentOutbound.findLastIndex((m: string) => codBases.some((b) => m.includes(b)));
+  const codLinkVoid = codUnavailable && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
@@ -4027,12 +4068,26 @@ const handleTurn = async (
           ` devolução, não estar em casa) com o que está no prompt. Você não cancela, não estorna e não altera pedido: se ela quer` +
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
-      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null),
+      units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
+      codLinkVoid
+        ? `O link que você mandou antes era do pagamento na entrega, mandado quando a consulta do CEP dela ainda não tinha respondido.` +
+          ` Diga primeiro, numa frase, que aquele link não serve — por exemplo:` +
+          ` "Aquele link que te mandei é da entrega e não serve aí: a consulta do seu CEP agora respondeu que aí a transportadora ainda não tem pagamento na entrega."` +
+          ` — e ofereça o antecipado.` +
+          ` Não diga como se fosse a primeira vez que vocês falam da entrega.`
+        : null,
       backToSize,
       sizeBeforeLink,
       coverageUnknown,
       cepState,
+      cepForgotten
+        ? `Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar; siga a conversa (tamanho, kit) e retome o CEP só` +
+          ` quando ela trouxer.` +
+          (recentOutbound.some((m: string) => m.includes(CORREIOS_CEP_URL))
+            ? ""
+            : ` Diga numa frase, sem pedir que ela mande, que ela acha o CEP pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}`)
+        : null,
       // Name, e-mail and CPF were asked with the CEP missing, and at 10:33 she heard "tá tudo pronto"
       // (second real test, grafo §66): the order `missingForLink` declares, said to the model.
       missing === "cep"
@@ -4122,6 +4177,8 @@ const handleTurn = async (
         addressDraft.cep || interpretation.wants_to_buy
           ? 0
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
+      // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
+      cepForgotten,
       hookSent: recentOutbound.some(isHook),
       sizeAsks:
         stated?.size || lead.size || interpretation.wants_to_buy

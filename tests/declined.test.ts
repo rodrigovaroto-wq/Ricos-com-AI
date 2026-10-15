@@ -177,7 +177,7 @@ describe("DECLINE_REPLY — a despedida da recusa", () => {
 
 describe("index.ts — a recusa no turno e na régua", () => {
   it("o ramo da recusa vem antes do 'vou pensar' e manda a despedida fixa", () => {
-    const decline = turn.indexOf("if (declinesInBurst(parts) && !interpretation.wants_to_buy) {");
+    const decline = turn.indexOf("if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken)) && !interpretation.wants_to_buy) {");
     const think = turn.indexOf("    interpretation.wants_to_think &&\n    interpretation.pending_answer");
     expect(decline).toBeGreaterThan(-1);
     expect(think).toBeGreaterThan(decline);
@@ -199,6 +199,49 @@ describe("index.ts — a recusa no turno e na régua", () => {
     const help = ack.indexOf("const help = lastOutbound.trim() === ackHelpText(datum) || declinesInBurst(herRecent(recentRows ?? [], spoken)) ? null : ackHelpText(datum);");
     expect(help).toBeGreaterThan(-1);
     expect(ack.indexOf('kind: "still_there"')).toBeGreaterThan(help);
+  });
+});
+
+describe("R26.2 — 'então deixa' depois de recusar o caminho (Cleide, personas 15/10)", () => {
+  it.each([
+    // Frases reais: persona-cleide (r24, v25) e cob-paga-na-porta-como.
+    [["so pago na entrega", "entao deixa, obrigada"], []],
+    [["so pago na entrega\n\nentao deixa, obrigada"], []],
+    [["então deixa se nao tem na entrega nao quero nao obrigada"], []],
+    // O "só pago na entrega" num turno anterior: lido nas mensagens recentes dela.
+    [["entao deixa, obrigada"], ["ué nao entendi", "so pago na entrega"]],
+    [["ah então deixa"], ["só pago na entrega"]],
+  ] as Array<[string[], string[]]>)("recusa: %j (antes: %j)", (burst, earlier) => {
+    expect(declinesInBurst(burst, earlier)).toBe(true);
+  });
+
+  it.each([
+    // "Então deixa" a seco, sem ela ter recusado o caminho: responde outra pergunta ("quer que eu troque pro M?").
+    [["entao deixa, obrigada"], []],
+    [["então deixa"], ["uso 42", "quero o G"]],
+    // Negações da frase real.
+    [["so pago na entrega", "então deixa eu ver"], []],
+    [["so pago na entrega", "deixa eu pensar"], []],
+    [["so pago na entrega", "deixa no antecipado então"], []],
+    [["so pago na entrega", "não, deixa que eu pago no pix"], []],
+    [["so pago na entrega", "entao deixa eu"], []],
+    [["não só pago na entrega, pago no pix também", "entao deixa"], []],
+    // Ela escolheu outro caminho depois do "só na entrega": o "então deixa" responde outra coisa.
+    [["entao deixa"], ["so pago na entrega", "ok, vou no pix entao"]],
+    // O "só na entrega" de muitas mensagens atrás: o "então deixa" de agora responde outra pergunta (o kit).
+    [["então deixa"], ["so pago na entrega", "uso 42", "pode ser no pix"]],
+    [["so pago na entrega", "uso 42", "entao deixa"], []],
+    // Ela voltou depois.
+    [["so pago na entrega", "entao deixa", "pensando bem, quero no pix"], []],
+    // A condição sem a recusa é pergunta ou ressalva, não recusa.
+    [["se nao tem na entrega como faz?"], []],
+    [["então deixa se nao tem na entrega eu pago no pix"], []],
+  ] as Array<[string[], string[]]>)("não é recusa: %j (antes: %j)", (burst, earlier) => {
+    expect(declinesInBurst(burst, earlier)).toBe(false);
+  });
+
+  it("o turno lê as mensagens recentes dela para o 'só pago na entrega' de antes", () => {
+    expect(turn).toContain("if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken)) && !interpretation.wants_to_buy) {");
   });
 });
 

@@ -520,7 +520,7 @@ describe("kits: revisão de código (2026-09-25)", () => {
     expect(source).toContain("const linkPath = linkPathFor(paymentChoice, knownRegion);");
     // A failed lookup this turn falls back to the region stored on the lead (independent review, finding 8).
     expect(source).toContain("region ?? (codUnavailable ? { cod: false, sameDay: false } : null);");
-    expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null)");
+    expect(source).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten)");
     expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });
   it("no link do kit, as instruções de tamanho usam os tamanhos do kit", () => {
