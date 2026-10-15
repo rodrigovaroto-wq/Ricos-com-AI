@@ -3136,8 +3136,8 @@ e a frase, por nomear o antecipado, entregava a contagem ao prazo. (2) `\bdivid\
 troca e a contagem; (2) "com quem (os dados) são divididos" não é parcela, a não ser que a oração fale de pagamento (valor, pix, cartão,
 vezes…). **Guarda:** `tests/r24-gate-false-positives.test.ts` (26 casos: os rascunhos reais passam a cadeia inteira; negações — "No
 antecipado chega em 7 dias", "dá pra dividir em 3x na entrega", garantia de 30 dias mal configurada — continuam vetadas); mutações
-`R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). **Falta:** `dev:gates --base=origin/main` (dizer o que afrouxou),
-regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
+`R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). `dev:gates --fail-on-loosen` (CI do PR #63): 5 afrouxamentos, todos desta classe, aceitos como `R25-GARANTIA-SEM-CUSTO` e
+`R25-DADOS-DIVIDIDOS`; nada endureceu. **Falta:** regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
 
 ## Lições (valem para qualquer correção futura)
 

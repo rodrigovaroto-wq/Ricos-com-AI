@@ -73,9 +73,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >    `supabase/functions/turn/index.ts`, com guarda `["pnpm","-s","vitest","run","tests/r3-sister-fixes.test.ts"]` (igual às `R3-*`).
 > 5. **Regressão** (~5 min): `pnpm test && pnpm typecheck && pnpm lint && pnpm typecheck:function && pnpm dev:conversas`.
 >    **Esperado:** tudo verde; última medida antes de §98: 8044 testes, 1655/1655 conversas (o §98 soma 26 testes).
-> 6. **Gates:** `pnpm dev:gates --base=d1d4030`. **Esperado:** "Endureceu: 0"; afrouxamento só de frases da classe do §98 (garantia "troca
->    sem custo em até N dias"; "com quem são divididos" sem pagamento na oração). Outro afrouxamento: conserte, ou justifique e acrescente
->    em `tests/gate-loosen-accepted.txt`.
+> 6. **Gates:** ✅ feito em 15/10 pelo CI do PR #63 — `dev:gates --fail-on-loosen` contra a `main` mostrou 5 afrouxamentos, todos da
+>    classe do §98 (aceitos em `tests/gate-loosen-accepted.txt` como `R25-GARANTIA-SEM-CUSTO` e `R25-DADOS-DIVIDIDOS`) e "Endureceu: 0".
+>    Rode de novo só se a revisão do passo 3 mudar um gate: **esperado** o mesmo resultado, "(0 sem aceite)".
 > 7. **Commite** (o `verificar:guardas` recusa árvore suja) e rode as **mutações**: `pnpm verificar:guardas` (~20 min; ou 8 fatias com
 >    `GUARDS_SHARD=1/8` … `8/8`). **Esperado:** "579/579 guardas pegaram o próprio bug" (575 até as `R3-*` + `G96` + 2 `R24` + a do §97).
 >    Uma que "ESCAPOU" com "a mutação não se aplicou": o texto de origem mudou — reancore a mutação (`from`) no texto atual.
