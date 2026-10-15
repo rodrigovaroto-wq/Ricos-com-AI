@@ -3089,6 +3089,29 @@ falou do colete nem de um pedido" (R24-b, 4 personas conferidas). Abertos para o
 (Marcinha), "entao deixa, obrigada" lido como "vou pensar" (Cleide), link da entrega com a cobertura desconhecida por falha de consulta
 (Jussara, rede do container). **Estado:** no código, não publicado.
 
+## 96. Cobertura de 138 situações com 55 personas ao mesmo tempo, e o 500 que ela achou (2026-10-15)
+
+**Pedido do operador:** personas que cubram mais de 95% das conversas possíveis — as reais e as que a escala vai trazer — rodando
+todas ao mesmo tempo, com o mínimo de máquina, tokens e tempo. **Feito:** taxonomia de 138 situações
+(`src/dev/scenarios/cobertura-taxonomia.json`, das 9 conversas reais arquivadas, do histórico das personas e dos fluxos futuros);
+26 fichas compactas (`cobertura.json`, `--suite=cobertura`) montadas com as regras comuns por código; 135/138 cobertas (97,8%; as três
+de fora exigem madrugada ou pedido real e dizem onde são provadas); `conversationFlags` marca o turno a ler; `--concurrency` até 16 e
+`pnpm dev:personas:todas` roda as três suítes juntas. **Caminhos descartados:** 26 arquivos novos em `.claude/agents/` — pesariam
+na lista de agentes de toda sessão do Claude; ler cada transcrição inteira — os alertas apontam o turno.
+
+**Sintoma achado:** três personas morreram com 500 da `turn` local: `ReferenceError: Cannot access 'recentOutbound' before
+initialization` em `sendFixed`. **Causa:** desde `ac56e82` (12/10) `sendFixed` passa `recentOutbound` ao ponto de parada da régua,
+mas cinco chamadas vêm antes de o turno ler o histórico — limite do kit, troca pela Logzz, status do pedido, entregue e a resposta
+fixa ao "paguei". Em produção desde a v17. A revisão Opus do §95 conferiu só a chamada nova, que fica depois. **Correção:**
+`sendFixed` lê a própria janela (as 3 últimas mensagens dela, a recém-gravada fora, como a varredura faz) enquanto o histórico do
+turno não existe, e a do turno depois. **Guarda:** teste de texto em `tests/r3-sister-fixes.test.ts`, mutação
+`G96-sendfixed-antes-do-historico`; as três personas rodaram sem 500. O 429 da Meta no modelo da persona ganhou esperas de 15 e 30 s.
+
+**Abertos para o operador** (`docs/agente-ia/10-auditoria/2026-10-15-personas-cobertura.md`): falha do modelo que não é de
+configuração ainda grava `handoff_at` e promete "já te respondo" (contra R22.1); dois falsos positivos de gate com frase de persona
+("troca sem custo em até 7 dias" como prazo do antecipado; "com quem são divididos" como parcela); a Malu supôs entrega no domingo.
+**Estado:** no código, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
