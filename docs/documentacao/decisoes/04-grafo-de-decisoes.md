@@ -3081,7 +3081,13 @@ travado no teste. Nomes que passam a ser recusados: só formas inexistentes como
 
 **Fica:** o toque no "não" junto de outra mensagem ainda sem resposta (`["ok", "Não, obrigada"]`), num turno "joined", num retry ou numa
 retomada vai ao modelo, sem a linha fixa; o teste do ramo é de texto no `index.ts`, nenhum roda o turno com um toque de botão; o opt-in
-segue colado no `silence_1` de quem nunca engajou (B2). **Estado:** no código, não publicado.
+segue colado no `silence_1` de quem nunca engajou (B2).
+
+**Personas (13, porta local, `docs/agente-ia/10-auditoria/2026-10-15-personas-r24.md`):** a frase do produto saía também para quem
+perguntou de um pedido (Lu) ou já tinha falado do colete — regressão deste conserto, fechada no mesmo dia: só sai "se ela ainda não
+falou do colete nem de um pedido" (R24-b, 4 personas conferidas). Abertos para o operador: CEP pedido cinco vezes depois de "não lembro"
+(Marcinha), "entao deixa, obrigada" lido como "vou pensar" (Cleide), link da entrega com a cobertura desconhecida por falha de consulta
+(Jussara, rede do container). **Estado:** no código, não publicado.
 
 ## Lições (valem para qualquer correção futura)
 
