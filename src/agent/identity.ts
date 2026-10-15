@@ -278,7 +278,7 @@ export const extractName = (text: string, askedName = false): string | null => {
     // on its own, "Vila da Penha" and "Fim de semana" would be names.
     // The list is written without accents, so it reads the name without them: "Oque você faz" was filed as
     // her name (real test …6682, grafo §95).
-    const plain = name.normalize("NFD").replace(/[̀-ͯ]/g, "");
+    const plain = name.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
     if (COMMON_WORDS.test(askedName ? plain.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, "") : plain)) return null;
     // Nor a time or a promise said in reply ("fim de semana te passo", "hora do almoço te mando"): review
     // of the §66 fixes — it overwrote a good first name.
