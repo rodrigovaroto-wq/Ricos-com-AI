@@ -3112,6 +3112,12 @@ configuração ainda grava `handoff_at` e promete "já te respondo" (contra R22.
 ("troca sem custo em até 7 dias" como prazo do antecipado; "com quem são divididos" como parcela); a Malu supôs entrega no domingo.
 **Estado:** publicado em 15/10 na `turn` v24 (função v115), com o §95.
 
+**Impacto em produção** (medido em 15/10, sessão `claude/admiring-bohr-wp0yzp`, `select` do roteiro do HANDOFF): **nenhum cliente real.**
+Desde 12/10 só existem os leads dos testadores (…5983, …7967, …3720, …1632, …6682) e os dois sintéticos `5500099…`. Ficaram 4 mensagens
+sem resposta, todas de testador, e nenhuma por causa do 500: as quatro chegaram logo depois de um `handoff` da v22 (…5983 "pedido
+existente" 13/10 20:07; …7967 "nenhuma reescrita passou" 20:18; …3720 "6 peças, mais que o maior kit" 14/10 00:33), quando o
+`handoff_at` ainda calava o lead. Isso foi consertado pelo R22 na v23 (§91), e o `handoff_at` dos três foi limpo em 14/10.
+
 ## 97. Falha do provedor nunca cala a cliente (operador, 2026-10-15, R25)
 
 **Sintoma** (persona venda-some, rodada de cobertura de 15/10): a Meta devolveu resposta vazia ("meta: resposta sem conteúdo"); a Malu
