@@ -550,8 +550,8 @@ const writeOutcome = async (
 };
 
 /**
- * Marca um erro que é da CONFIGURAÇÃO, não desta cliente. A diferença decide se o lead
- * fica permanentemente fora da agente — ver `modelFailure`.
+ * Marca um erro que é da CONFIGURAÇÃO, não desta cliente. A diferença decide a linha que ela
+ * recebe (a de espera, só aqui) — ver `modelFailure`.
  */
 class ModelConfigError extends Error {}
 
@@ -2768,8 +2768,8 @@ const handleTurn = async (
    * inbound message is already persisted, so the retry n8n sends next is answered
    * `duplicate` and the customer waits forever for a reply nobody is writing — silent,
    * permanent, and invisible in the logs. So the same rule as every other dead end
-   * applies: she hears the holding reply, a person is called, and the spend up to the
-   * failure is written down instead of lost.
+   * applies: she hears a line (see below), the operator gets the e-mail, and the spend up
+   * to the failure is written down instead of lost.
    */
   const modelFailure = async (error: unknown, reason = "falha ao chamar o modelo") => {
     await db(`conversations?id=eq.${conversation.id}`, {
@@ -2912,7 +2912,7 @@ const handleTurn = async (
         { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
       );
     }
-    // Nothing scheduled either (grafo §65): never the draft that did not read her — the holding reply and
+    // Nothing scheduled either (grafo §65): never the draft that did not read her — the safe line (§97) and
     // the operator's e-mail, and she stays reachable (no `handoff_at`).
     return (
       (await deferRetry(
