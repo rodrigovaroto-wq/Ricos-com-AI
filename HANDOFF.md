@@ -13,7 +13,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (LEIA PRIMEIRO).**
+> **2026-10-15 — R24 no código, NÃO publicado (LEIA PRIMEIRO; branch `claude/adoring-fermat-k02201`).**
+> - Produção conferida: `turn` v23 (função v111), `whatsapp` v38, PR #62 mergeado (com a branch do visto azul); `BUSINESS_CONFIG` novo
+>   colado pelo operador (hash `67430235…`: `experiments` A e B ligados, `askMarketingOptIn: true`, teto R$ 1,00, cupom SUPER20 ativo,
+>   templates aprovados), `job:"health"` → `healthy`; alarme de cobertura com 172 execuções sem erro.
+> - Teste real da irmã do operador (`…6682`, 14/10, v22) analisado mensagem por mensagem:
+>   [`2026-10-14-r3-irma-6682.md`](docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r3-irma-6682.md). Consertos R24 (grafo §95): frase com
+>   acento não vira nome; opt-in só "ofertas" e linha fixa no "não" (A2); abertura sem anúncio diz o produto. Regressão: 8030/8030,
+>   `dev:conversas` 1655/1655, `deno check`, lint, `dev:gates` 0 afrouxado, mutações `R3-*` 4/4.
+> - Os leads sintéticos `…091576`/`…284318` (loop de 14/10) tiveram toques e mensagens apagados; falta no SQL editor:
+>   `delete from leads where phone like '5500099%';` (o conector expira).
+> - **Próximo:** "pode subir" do operador → `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v24) → anúncios de teste (R$ 100, 2 dias, 5 criativos).
+
+> **2026-10-14 — v23 NO AR (R22 + R23 + loop de personas) (histórico).**
 > - `turn` v23 publicada (`agent_versions` 23, função v111, commit `74dde77`, saúde conferida). A Malu não chama mais pessoa; os gates têm
 >   cinco tentativas; consertos da rodada 2 e do loop de personas (grafo §91–§93, `docs/agente-ia/10-auditoria/2026-10-14-personas-r23.md`).
 > - n8n: os dois e-mails novos ("Avisa o operador") publicados e ativos — Turno da agente `972c1637`, Relógio da régua `883fc037`;

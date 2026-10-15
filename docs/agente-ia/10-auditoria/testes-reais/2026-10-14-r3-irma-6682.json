@@ -61,19 +61,19 @@
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "outbound",
-        "body": "Boa tarde, sou a Malu, da Encorpa!\n\nVi seu oi por aqui, [nome] veio pelo anúncio do nosso colete, né?",
+        "body": "Boa tarde, sou a Malu, da Encorpa!\n\nVi seu oi por aqui, você veio pelo anúncio do nosso colete, né?",
         "created_at": "2026-10-14 16:27:45.621146+00"
       },
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "inbound",
-        "body": "[nome] [nome] [nome]",
+        "body": "Oque você faz",
         "created_at": "2026-10-14 16:28:07.767261+00"
       },
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "outbound",
-        "body": "Eu te ajudo com o nosso colete por aqui, do tamanho ao pedido. Qual roupa [nome] queria voltar a usar?",
+        "body": "Eu te ajudo com o nosso colete por aqui, do tamanho ao pedido. Qual roupa você queria voltar a usar?",
         "created_at": "2026-10-14 16:28:28.652947+00"
       },
       {
@@ -85,7 +85,7 @@
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "outbound",
-        "body": "É o nosso Colete Cinta Modeladora, que modela na hora que [nome] veste e deixa a roupa caindo alinhada, além de ajudar na postura\n\nEle é liso e fininho por baixo da roupa, com forro de algodão e só em preto por enquanto. O que te incomoda na hora de se vestir hoje?",
+        "body": "É o nosso Colete Cinta Modeladora, que modela na hora que você veste e deixa a roupa caindo alinhada, além de ajudar na postura\n\nEle é liso e fininho por baixo da roupa, com forro de algodão e só em preto por enquanto. O que te incomoda na hora de se vestir hoje?",
         "created_at": "2026-10-14 16:29:30.017672+00"
       },
       {
@@ -97,7 +97,7 @@
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "outbound",
-        "body": "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça [nome] usa que eu já te falo o certinho pra [nome] 💛",
+        "body": "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛",
         "created_at": "2026-10-14 17:30:09.878276+00"
       },
       {
@@ -121,7 +121,7 @@
       {
         "conversation_id": "c929c01b-edf7-4186-bfbd-152a9f5de42f",
         "direction": "outbound",
-        "body": "Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: [nome] não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber [nome] ainda tem 7 dias pra devolver, sem custo nenhum pra [nome]. Se ainda fizer sentido pra [nome], é só me chamar.",
+        "body": "Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber você ainda tem 7 dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.",
         "created_at": "2026-10-15 12:00:25.056664+00"
       }
     ],

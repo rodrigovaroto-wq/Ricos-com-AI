@@ -5,6 +5,15 @@ O prompt é `src/agent/prompt.ts`, espelhado byte a byte em
 Git desse arquivo (`git log -- src/agent/prompt.ts`). Toda entrada daqui para a frente diz o
 que foi **medido**, e diz quando nada foi medido.
 
+### 2026-10-15 — R24: o produto dito a quem não veio de anúncio (não publicado)
+
+- **Mudou:** (1) `openingDirective` sem anúncio de origem acrescenta "Não sabemos de onde ela veio: não diga que ela veio por
+  um anúncio, e diga numa frase que a Encorpa vende o Colete Cinta Modeladora."; (2) o prompt, logo depois da regra de IA,
+  acrescenta "Se ela perguntar o que é isso, o que você faz ou o que a loja vende, a primeira frase diz o produto…".
+- **Por quê:** teste real `…6682` (grafo §95): "Que isso" e "Oque você faz" ficaram duas respostas sem o produto.
+- **Medido:** testes do prompt (`tests/r3-sister-fixes.test.ts`, `tests/e3-opening.test.ts`), `dev:conversas` 1655/1655, rodada
+  de 13 personas na porta local depois do conserto. O efeito sobre conversas reais ainda não foi medido.
+
 ### 2026-10-12 — E3: primeiro contato e humanização v1 (não publicado)
 
 - **Mudou (pacote E3 do plano 13, vários itens juntos por decisão do operador; o efeito de

@@ -3041,6 +3041,41 @@ espelho simples. **Correção:** 5 s em `src/channel/whatsapp.ts` e no espelho `
 paralelo com o encaminhamento ao `turn`, então a primeira resposta (1 min) e o tempo do turno não mudam. **Guarda:** `tests/whatsapp-channel.test.ts`
 fixa 5 000 ms e o `setTimeout`; `function-drift` cobre o espelho. **Publicado em 2026-10-14:** função `whatsapp` v37 (MCP, arquivos conferidos byte a byte com o disco; `verify_jwt` continua falso; GET sem token devolve 403, como deve).
 
+## 95. Teste real da irmã do operador: um nome que era pergunta, uma promessa que a régua quebrou e o produto que não foi dito (2026-10-15, R24)
+
+**Sintoma** (conversa `…6682`, 14/10, v22, sem anúncio de origem; análise em
+`docs/agente-ia/10-auditoria/testes-reais/2026-10-14-r3-irma-6682.md`): (1) "Oque você faz" foi gravado em `leads.identity.name` —
+iria pré-preenchido no checkout e no pacote, e o arquivo da auditoria trocou todo "você" da Malu por `[nome]`; (2) ao toque em "Não,
+obrigada" na pergunta "Posso te mandar lembretes e ofertas…", o modelo respondeu "Sem problemas, não mando mais nada", e o
+`silence_2` saiu na manhã seguinte; (3) "Que isso" e "Oque você faz" ficaram duas respostas sem o produto ("Vi seu oi por aqui, você
+veio pelo anúncio do nosso colete, né?" — anúncio que não houve).
+
+**Causa:** (1) `COMMON_WORDS` em `identity.ts` é escrita sem acento (`voce`, `nao`, `entao`) e era testada contra o nome com acento:
+"você" não casava e a frase passava como nome de três palavras. (2) A recusa do opt-in (`marketing_opt_in_declined_at`) só bloqueia o
+template de marketing; a régua de texto livre segue, e a resposta ao toque era do modelo, que leu "lembretes e ofertas" como "tudo".
+(3) `openingDirective` sem anúncio só pedia "responda o que ela escreveu"; nada pedia o produto a quem não sabe o que é.
+
+**Caminhos descartados:** (1) acrescentar as formas acentuadas à lista — duplicaria cada palavra e o próximo acento esquecido
+reabriria o furo; normalizar o nome uma vez fecha a classe inteira. (2) A1, cancelar a régua inteira no "não" (recomendação inicial):
+o operador preferiu manter os lembretes, que são a alavanca de venda, e tirar "lembretes" da pergunta (A2). Deixar o modelo responder
+com uma regra no prompt foi descartado: é a mesma promessa escrita duas vezes, e o toque num botão tem resposta conhecida — linha fixa.
+(3) Gate contra "você veio pelo anúncio" — R21.6: uma frase só, e o conserto certo é a instrução que faltava.
+
+**Correção:** (1) `extractName` testa `COMMON_WORDS` sobre o nome sem acento (NFD); o nome errado foi apagado do lead. (2)
+`optInMessage` pergunta "Posso te mandar ofertas da Encorpa por aqui?"; o toque no "não" marca `optInRefused` e, sozinho na rajada,
+recebe `OPT_IN_DECLINED_REPLY` = "Tudo bem, não te mando ofertas 💛" por `sendFixed` (camada `auto`), antes de qualquer outro ramo
+fixo. (3) Sem anúncio, a abertura diz "não diga que ela veio por um anúncio, e diga numa frase que a Encorpa vende o Colete Cinta
+Modeladora"; o prompt manda a primeira frase dizer o produto quando ela pergunta o que é, o que você faz ou o que a loja vende. (4)
+Leads sintéticos `…091576` e `…284318` (loop de personas de 14/10, sem limpeza): toques, traces, chamadas e mensagens apagados; as linhas
+vazias de `leads`/`conversations` ficam para o SQL editor (o `delete` pelo conector expira).
+
+**Guarda:** `tests/r3-sister-fixes.test.ts` (frase real e negação: nomes com acento seguem aceitos); mutações `R3-nome-com-acento`,
+`R3-optin-lembretes`, `R3-optin-nao-pelo-modelo`, `R3-abertura-sem-anuncio` (4/4 pegas). Regressão: 8030/8030 testes, `dev:conversas`
+1655/1655, `deno check`, lint, `dev:gates --base=origin/main` sem afrouxar nem endurecer.
+
+**Fica:** o toque no "não" num retry ou numa retomada do turno não marca `optInRefused` e cai no modelo (raro: o toque é a mensagem
+inteira); o opt-in segue colado no `silence_1` de quem nunca engajou (B2). **Estado:** no código, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
