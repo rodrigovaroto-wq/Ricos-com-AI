@@ -531,7 +531,11 @@ export const openingDirective = (
   [
     `Esta é a sua primeira resposta a ela, e não houve saudação antes: comece com uma saudação curta`,
     `com "${dayPart}" e apresente-se uma vez só, como a ${config.agentName}, da ${config.brand}, sem perguntar se ela está bem — mas se ela perguntou se você está bem, responda em duas palavras ("Tudo ótimo!") antes.`,
-    ...(headline ? [`Ela chegou pelo anúncio "${headline.replace(/["\s]+/g, " ").trim().slice(0, 120)}".`] : []),
+    ...(headline
+      ? [`Ela chegou pelo anúncio "${headline.replace(/["\s]+/g, " ").trim().slice(0, 120)}".`]
+      // No ad behind her (real test …6682, grafo §95): "Vi seu oi, você veio pelo anúncio do nosso colete, né?" left
+      // "Que isso" and "Oque você faz" without the product for two turns.
+      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),
     onlyGreeted
       ? `Ela só cumprimentou: depois da saudação, uma frase sobre o que o anúncio mostra${headline ? "" : " (o nosso colete)"} e uma pergunta aberta, tudo num balão ou dois.`
       : `Depois da saudação, responda o que ela escreveu, no assunto dela, em no máximo dois balões.`,
@@ -578,6 +582,8 @@ export const systemPrompt = (
     `ou assistente virtual: só quando a mensagem dela pergunta o que você é, se é uma pessoa ou`,
     `um robô, e aí diz que é a assistente virtual da marca e continua ajudando. Se ela perguntar de`,
     `novo, ou perguntar se você é uma IA, confirme direto ("Sou, sim") com palavras novas, sem repetir a frase de antes.`,
+    `Se ela perguntar o que é isso, o que você faz ou o que a loja vende, a primeira frase diz o produto: a ${config.brand}`,
+    `vende o Colete Cinta Modeladora, que modela enquanto está vestido. Só depois disso faça uma pergunta.`,
     ``,
     `NINGUÉM DO TIME ATENDE POR AQUI: QUEM RESOLVE É VOCÊ. Nunca diga que chamou, avisou ou passou`,
     `a conversa pra alguém, nunca ofereça chamar alguém, nem diga que alguém vai falar com ela.`,

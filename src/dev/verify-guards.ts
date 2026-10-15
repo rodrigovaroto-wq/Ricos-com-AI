@@ -4654,6 +4654,38 @@ const MUTATIONS: Mutation[] = [
     to: "      : false",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
+  {
+    id: "R3-nome-com-acento",
+    bug: "\"Oque você faz\" foi gravado como o nome dela: a lista de palavras comuns não tem acento (…6682, 14/10)",
+    files: ["src/agent/identity.ts"],
+    from: "    const plain = name.normalize(\"NFD\").replace(/[\\u0300-\\u036f]/g, \"\");",
+    to: "    const plain = name;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
+  {
+    id: "R3-optin-lembretes",
+    bug: "a pergunta de opt-in oferecia parar os lembretes, que continuam depois do não (…6682, 14/10)",
+    files: ["src/agent/opt-in.ts"],
+    from: "    body: `Posso te mandar ofertas da ${brand.trim()} por aqui?`,",
+    to: "    body: `Posso te mandar lembretes e ofertas da ${brand.trim()} por aqui?`,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
+  {
+    id: "R3-optin-nao-pelo-modelo",
+    bug: "o não ao opt-in ia ao modelo, que prometeu \"não mando mais nada\" (…6682, 14/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  if (optInRefused && parts.length === 1) {",
+    to: "  if (false && optInRefused && parts.length === 1) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
+  {
+    id: "R3-abertura-sem-anuncio",
+    bug: "sem anúncio de origem, a primeira resposta supôs um anúncio e não disse o produto (…6682, 14/10)",
+    files: ["src/agent/prompt.ts"],
+    from: "      : [`Não sabemos de onde ela veio: não diga que ela veio por um anúncio, e diga numa frase que a ${config.brand} vende o Colete Cinta Modeladora.`]),",
+    to: "      : []),",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r3-sister-fixes.test.ts"],
+  },
 ];
 
 const wanted = process.argv.slice(2);

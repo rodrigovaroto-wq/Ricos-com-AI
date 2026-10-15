@@ -149,6 +149,7 @@ import {
   shippedCancelReply,
   thinkReply,
   DECLINE_REPLY,
+  OPT_IN_DECLINED_REPLY,
   kitOfferMessage,
   linkMessage,
   unansweredInbound,
@@ -2299,6 +2300,8 @@ const handleTurn = async (
   // retried with it. Only a tap on our button grants or refuses; her typed text only
   // suspends — and only when there is a question or a consent to suspend, so with the flag
   // off and no consent no 0019 column is touched.
+  // Her tap on "Não" gets a fixed line below, once the reply helpers exist (A2, grafo §95).
+  let optInRefused = false;
   if (!isResume && !isRetry && !isRevise) {
     const reply = typeof payload.reply?.id === "string" ? { id: payload.reply.id } : undefined;
     const answer = optInAnswer(reply, {
@@ -2306,6 +2309,7 @@ const handleTurn = async (
       askedAt: lead.marketing_opt_in_asked_at ?? null,
       now: new Date(),
     });
+    if (answer === "no" && lead.marketing_opt_in_asked_at) optInRefused = true;
     const at = new Date().toISOString();
     const optIn =
       answer === "yes"
@@ -3590,6 +3594,13 @@ const handleTurn = async (
   const recentOutbound = recent
     .filter((m: { direction: string }) => m.direction === "outbound")
     .map((m: { body: string }) => (m.body ?? "").trim());
+
+  // Her tap on "Não" to the offers question, and nothing else (operator, 2026-10-15, A2): a fixed line that promises only
+  // what she refused — the model wrote "não mando mais nada" and the ruler sent a reminder the next morning (grafo §95).
+  if (optInRefused && parts.length === 1) {
+    const sent = await sendFixed(OPT_IN_DECLINED_REPLY, "ela recusou as ofertas: linha fixa, sem promessa", "cod", {}, false, 1, "auto");
+    if (sent) return sent;
+  }
 
   // No fixed "não entendi" ladder (grafo §60, operator 2026-10-06): every message reaches the
   // model, which reads it and answers; the prompt teaches what to do with a loose reply.
