@@ -3121,8 +3121,13 @@ ficaria calada para sempre, e ninguém responde pelo número da API. **Causa:** 
 operador):** resposta vazia é `TransientModelError` (entra na nova tentativa de 5 minutos, como um 5xx); `modelFailure` não grava mais
 `handoff_at`; a falha de configuração mantém a linha de espera, qualquer outra recebe `SAFE_FALLBACK_REPLY` ("me fala de novo o que
 você quer saber?"), e o e-mail ao operador sai nos dois casos. **Guarda:** `tests/r3-sister-fixes.test.ts` §97, testes de fiação
-atualizados (`function-drift`, `v10-defects`, `r22-no-person`). **Falta:** mutação própria; regressão inteira; revisão Opus.
-**Estado:** commit `f3b4bb0`, não publicado (vai na v25).
+atualizados (`function-drift`, `v10-defects`, `r22-no-person`); mutação `G97-resposta-vazia-passageira` (pega). Revisão Opus
+independente (15/10, sessão `claude/admiring-bohr-wp0yzp`): APROVADO — nenhum caminho de falha do provedor grava `handoff_at`; o
+retry que falha de novo manda a linha segura e o e-mail, sem `handoff_at`; três comentários do `index.ts` que diziam o contrário foram
+corrigidos. **Resíduos (sem código, R21.6):** o custo de uma resposta vazia não entra em `spent` nem em `llm_calls` (o `throw` vem antes
+do custo) e, agora que é passageira, pode repetir até ~10 chamadas fora do teto — desprezível no preço do `-contributor`, conserto é ler
+`usage` antes do `throw`; o texto do e-mail em `n8n/workflows/turno-da-agente.json` ainda cita "falha do provedor" no ramo `silenced`,
+que hoje só o teto de custo dispara. **Estado:** publicado em 15/10 na `turn` v25 (função v117), saúde `healthy` nos 3 CEPs.
 
 ## 98. Dois falsos positivos de gate achados pelas personas de cobertura (2026-10-15, R25)
 
@@ -3137,7 +3142,11 @@ troca e a contagem; (2) "com quem (os dados) são divididos" não é parcela, a 
 vezes…). **Guarda:** `tests/r24-gate-false-positives.test.ts` (26 casos: os rascunhos reais passam a cadeia inteira; negações — "No
 antecipado chega em 7 dias", "dá pra dividir em 3x na entrega", garantia de 30 dias mal configurada — continuam vetadas); mutações
 `R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). `dev:gates --fail-on-loosen` (CI do PR #63): 5 afrouxamentos, todos desta classe, aceitos como `R25-GARANTIA-SEM-CUSTO` e
-`R25-DADOS-DIVIDIDOS`; nada endureceu. **Falta:** regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
+`R25-DADOS-DIVIDIDOS`; nada endureceu. Duas revisões Opus (focada e generalista, 15/10): APROVADO; continuam vetadas "com quem é
+dividido o valor em 3x?", "divide em 3x sem juros", "No antecipado chega em até 7 dias", "ele chega sem custo nenhum em até 7 dias".
+**Resíduos (hipotéticos, sem código até frase real, R21.6):** "No antecipado você não troca sem custo em até 7 dias" vetava por
+acidente (gate de prazo) e agora passa; "Seus dados não são divididos com ninguém" e "com quem são divididos os dados do cartão"
+continuam vetadas pelo `installment_promise`. **Estado:** publicado em 15/10 na `turn` v25 (função v117).
 
 ## Lições (valem para qualquer correção futura)
 
