@@ -3167,6 +3167,42 @@ resposta completa aprovada com 2 reescritas; `lgpd-dados` sem veto. **Não feito
 recebimento" ainda acende `delivery_promise` (a preposição "com" não está na lista do §98); a reescrita resolveu. O alerta `mustNot` /
 "diz ser pessoa" do relatório de personas não lê negação (9 dos 23 alertas).
 
+## 100. Os três casos abertos das personas e os resíduos da v25 (operador, 2026-10-15, R26)
+
+**R26.1 — CEP depois do "não lembro"** (persona Marcinha, "e meu cep nao lembro de cabeça agora"). **Sintoma:** o CEP foi pedido em
+cinco respostas depois; o `cep_insist` vetou uma. **Causa:** nada lia o "não lembro" — o gate só contava pedidos seguidos (no máximo
+dois). **Correção:** `forgetsCep` (`address.ts`) lê "não lembro/não sei/esqueci … cep" na mesma oração, sem atravessar "mas", "por que",
+vírgula, e sem contar "lembro sim" nem "não esqueci"; o turno calcula `cepForgotten` das 20 últimas mensagens dela enquanto nenhum CEP
+foi lido (sem coluna nova); a diretiva aponta o buscador dos Correios (`CORREIOS_CEP_URL`) e manda seguir com tamanho e kit; o
+`cep_insist` veta qualquer pedido de CEP nesse estado; a oferta do kit não espera o CEP (o link continua exigindo). **Caminho
+descartado:** só a diretiva — a 1ª revisão Opus achou a régua (`silence_1` em `after_price`) pedindo "Me passa seu CEP" a metade dos
+leads: agora usa só a variante que não pede.
+
+**R26.2 — "então deixa" sem pagamento na entrega** (persona Cleide, "so pago na entrega / entao deixa, obrigada"; cob-paga-na-porta-como,
+"então deixa se nao tem na entrega nao quero nao obrigada"). **Sintoma:** recebia a linha do "vou pensar" com o antecipado e a régua
+seguia. **Correção:** `declinesInBurst(messages, earlier, noCod)` — o "então deixa" logo depois de "só pago na entrega" (sem "?") e as
+duas linhas "se não tem na entrega não quero" são recusa (`DECLINE_REPLY`, sem régua) **só com `noCod`**: a região sem pagamento na
+entrega, ou a Malu já tendo dito isso. **Caminho descartado:** valer sempre — a 1ª revisão mostrou "só pago na entrega" → oferta do kit
+→ "ah deixa" virando despedida onde há entrega (venda perdida num "não" ao kit).
+
+**R26.3 — consulta de cobertura que falha** (persona Jussara). **Correção:** a consulta que lança ou volta `failed` é tentada de novo
+uma vez (5 s), nunca numa nova tentativa da varredura nem numa revisão (comeria o orçamento do modelo); se falhar de novo, L2 vale (o
+link sai com a ressalva). `codLinkVoid`: quando um link da entrega já foi mandado e a consulta agora diz que não há pagamento na
+entrega, a diretiva manda dizer que aquele link não serve e oferecer o antecipado — só no turno em que descobre
+(`storedAddress.codAvailable !== false`).
+
+**R26.4 — resíduos da v25.** Garantia "a troca é sem custo pra você, com 7 dias após o recebimento" passa o `delivery_promise` (aceite
+`R26-GARANTIA-COM-N-DIAS`; "No antecipado chega com 7 dias" segue vetada). Resposta vazia do modelo: `TransientModelError.wasted` leva
+o custo, somado em `spent` e gravado em `llm_calls` (`purpose: "empty"`). E-mail do n8n: o ramo que cala diz só "teto de custo da
+conversa" (publicado, versão ativa `ef1cb608`). Alerta das personas lê negação (`src/dev/persona-run-core.ts`: 23 → 16 alertas na
+rodada v25, saíram os 7 negados).
+
+**Guarda:** `tests/r26-operator-decisions.test.ts`, `tests/declined.test.ts`, `tests/r24-gate-false-positives.test.ts`,
+`tests/persona-coverage.test.ts`; 19 mutações `R26-*` e 6 reancoradas; duas revisões Opus. **Resíduos (R21.6, sem código):** "Lá você
+digita o nome da rua e aparece o seu CEP" é vetada pelo `asksCep` ("digita"); o "não lembro" sai da janela de 20 mensagens numa conversa
+longa; numa revisão do mesmo turno a correção do link vazio se perde (o lead já foi gravado); o teto só corta entre chamadas, não dentro
+de `withNetworkRetry`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
