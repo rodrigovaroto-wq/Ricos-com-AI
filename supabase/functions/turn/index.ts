@@ -595,7 +595,8 @@ const callLuna = async (
   const body = await response.json();
   if (body.error) throw new Error(`openai: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
-  if (!text) throw new Error("openai: resposta sem conteúdo");
+  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97).
+  if (!text) throw new TransientModelError("openai: resposta sem conteúdo");
   const usage = body.usage ?? {};
   const inTok = usage.prompt_tokens ?? 0;
   const outTok = usage.completion_tokens ?? 0;
@@ -647,7 +648,8 @@ const callMuse = async (
   const body = await response.json();
   if (body.error) throw new Error(`meta: ${body.error.message}`);
   const text = body.choices?.[0]?.message?.content;
-  if (!text) throw new Error("meta: resposta sem conteúdo");
+  // An empty answer is the provider stumbling, not the request: tried again like a 5xx (grafo §97).
+  if (!text) throw new TransientModelError("meta: resposta sem conteúdo");
   const usage = body.usage ?? {};
   const inTok = usage.prompt_tokens ?? 0;
   const outTok = usage.completion_tokens ?? 0;
@@ -2769,36 +2771,25 @@ const handleTurn = async (
    * applies: she hears the holding reply, a person is called, and the spend up to the
    * failure is written down instead of lost.
    */
-  const modelFailure = async (error: unknown, reason = "falha ao chamar o modelo", reachable = error instanceof ModelConfigError) => {
+  const modelFailure = async (error: unknown, reason = "falha ao chamar o modelo") => {
     await db(`conversations?id=eq.${conversation.id}`, {
       method: "PATCH",
       body: JSON.stringify({ cost_brl: await costTotal(), updated_at: new Date().toISOString() }),
     }).catch(() => undefined);
     /**
-     * `handoff_at` is written and never cleared: a lead that gets it is out of the
-     * agent's hands for good (the turn skips her, and the sweep cancels her follow-ups).
-     * That is right for a conversation the agent genuinely cannot carry — and wrong for
-     * an operator-side misconfiguration, which is not about her at all.
-     *
-     * It is the difference between reversible and not. Point `CONVERSATION_MODEL` at a
-     * model the endpoint does not serve, or let a key rotate, or run the quota out as on
-     * 2026-09-09, and every customer who wrote during the window used to be locked out
-     * permanently — undoing the variable did not undo the damage. So a configuration
-     * failure gets the holding reply and the operator's email, and leaves her reachable:
-     * fix the variable and the next message is answered normally.
+     * She stays reachable, always (operator, 2026-10-15, R22.1): `handoff_at` silenced a lead for good when the provider
+     * stumbled — "meta: resposta sem conteúdo" in the persona round of 2026-10-15 — and the holding line promised a reply
+     * nobody writes, since nobody answers from the API number. A configuration failure keeps the holding line (the operator
+     * fixes the variable and the next message is answered); any other gets the safe line, which asks her to say it again.
+     * The operator's e-mail goes either way (`notification`).
      */
-    if (!reachable) {
-      await db(`leads?id=eq.${lead.id}`, {
-        method: "PATCH",
-        body: JSON.stringify({ handoff_at: new Date().toISOString() }),
-      }).catch(() => undefined);
-    }
+    const line = error instanceof ModelConfigError ? HOLDING_REPLY : SAFE_FALLBACK_REPLY;
     const held = await db("messages", {
       method: "POST",
       body: JSON.stringify({
         conversation_id: conversation.id,
         direction: "outbound",
-        body: HOLDING_REPLY,
+        body: line,
       }),
     }).catch(() => null);
     await Promise.all([
@@ -2807,7 +2798,7 @@ const handleTurn = async (
     ]);
     return json(200, {
       status: "handoff",
-      silenced: !reachable,
+      silenced: false,
       reason,
       // The Gemini key used to ride in the URL query string, and Deno's network error
       // carries the whole URL in `message` — which leaves here in the JSON body and lands
@@ -2815,8 +2806,8 @@ const handleTurn = async (
       // defence in depth for the keys still in use. A key that already circulated in a
       // third party's log has to be rotated, not masked.
       detail: redactKeys(error instanceof Error ? error.message : String(error)),
-      reply: HOLDING_REPLY,
-      bubbles: paced(HOLDING_REPLY, fastOpening),
+      reply: line,
+      bubbles: paced(line, fastOpening),
       messageId: held?.[0]?.id ?? null,
       ...notification(lead, conversation),
       costBrl: spent,
@@ -2928,7 +2919,7 @@ const handleTurn = async (
         new Error("mensagem nova depois da última revisão possível"),
         0,
         "chegou mensagem nova depois da última revisão possível — a rajada inteira vai para a nova tentativa",
-      )) ?? (await modelFailure(new Error("rascunho sem ler a rajada"), "rascunho não leu a rajada e a nova tentativa não foi agendada", true))
+      )) ?? (await modelFailure(new Error("rascunho sem ler a rajada"), "rascunho não leu a rajada e a nova tentativa não foi agendada"))
     );
   };
 

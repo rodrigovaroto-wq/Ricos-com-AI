@@ -90,3 +90,16 @@ describe("3. sem anúncio de origem, a Malu diz o que vende (…6682: \"Que isso
     );
   });
 });
+
+describe("§97. falha do provedor nunca cala a cliente (persona venda-some, 15/10: 'meta: resposta sem conteúdo')", () => {
+  it("resposta vazia é passageira: entra na nova tentativa de 5 minutos, como um 5xx", () => {
+    expect(turn).toContain('if (!text) throw new TransientModelError("meta: resposta sem conteúdo");');
+    expect(turn).not.toContain('throw new Error("meta: resposta sem conteúdo")');
+  });
+  it("modelFailure não grava handoff_at e manda a linha segura (a de espera só no erro de configuração)", () => {
+    const failure = turn.slice(turn.indexOf("const modelFailure = async"), turn.indexOf("const deferRetry = async"));
+    expect(failure).not.toContain("handoff_at: new Date");
+    expect(failure).toContain("const line = error instanceof ModelConfigError ? HOLDING_REPLY : SAFE_FALLBACK_REPLY;");
+    expect(failure).toContain("silenced: false,");
+  });
+});
