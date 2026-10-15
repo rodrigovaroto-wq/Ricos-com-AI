@@ -3212,8 +3212,8 @@ const MUTATIONS: Mutation[] = [
     id: "G66-nome-com-particula",
     bug: "'Leila da silva' depois do pedido do sobrenome não era lido e o link saía só com 'Leila'",
     files: ["src/agent/identity.ts"],
-    from: "COMMON_WORDS.test(askedName ? name.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, \"\") : name)",
-    to: "COMMON_WORDS.test(name)",
+    from: "COMMON_WORDS.test(askedName ? plain.replace(/ (?:da|de|do|das|dos|e)(?= )/gi, \"\") : plain)",
+    to: "COMMON_WORDS.test(plain)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
