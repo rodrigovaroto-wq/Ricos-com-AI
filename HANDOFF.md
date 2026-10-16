@@ -11,7 +11,36 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > §Separação de repositórios. Se um dia divergirem sobre negócio, **este
 > repositório é a fonte**.
 
-## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
+## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-16)
+
+> **2026-10-16, sessão `claude/sleepy-mayer-6pcu70` — o plano perdeu as datas; próximo é o ensaio (LEIA PRIMEIRO).**
+>
+> **Decisão R27 (operador):** o ensaio (E5) é **na prática: R$ 100 em anúncios por 2 dias, e ver o que acontece**. As compras vêm dos
+> leads do anúncio; não há compra forçada nem braço forçado. Nenhuma etapa tem data: cada uma começa quando a anterior fecha.
+>
+> **No ar (sem mudança desde 15/10):** `turn` v26 (função v119), `whatsapp` v38, n8n 7/7 ativos, alarme de cobertura a cada 15 min,
+> `experiments` A e B ligados, 3 templates no `channel.templates`. Total: 5 leads, 0 pedidos; o "Venda confirmada" nunca rodou com
+> pagamento real.
+>
+> **Sequência até operar (nesta ordem):**
+>
+> | # | Etapa | Dono | Estado |
+> |---|---|---|---|
+> | 1 | **Ensaio:** R$ 100 em anúncios por 2 dias; a Malu atende sozinha, ninguém mexe nela | sócio (Ads) | ⬜ próximo |
+> | 2 | **Conferir:** `orders` + "Venda confirmada" (se houve compra), `conversations.stage`, `leads.arm`, `turn_outcomes.duration_ms`, `leads.source.headline`, recusas sem escassez e com régua cancelada, alarme sem falso positivo | Claude | ⬜ |
+> | 3 | **Auditar** cada conversa (`docs/operacao/auditar-conversa-real.md` → `docs/agente-ia/10-auditoria/`) e consertar o que perde venda ou mente (R21.6: só frase real), com o "pode subir" do operador | Claude + operador | ⬜ |
+> | 4 | **Congelamento:** nada de prompt, gate ou config de venda sobe | — | ⬜ |
+> | 5 | **L3** pelas regras assinadas (`14-experimentos-l3.md`); acompanhamento diário sem mexer; leitura e decisão de escala no fim | sócio + operador | ⬜ |
+>
+> **Pendências pequenas do operador:** apagar os 2 leads sintéticos no SQL editor (`delete from leads where phone like '5500099%';`);
+> a rodada das 55 personas sobre a v26 só se ele pedir (memória `sem-gasto-de-api-sem-pedido`).
+>
+> **Risco aberto:** o piso de amostra do L3 (> 500 leads e > 50 pedidos) só fecha com CPL abaixo de ~R$ 1,40 com R$ 700 de verba; o
+> ensaio dá o primeiro CPL real para conferir.
+>
+> **Nota:** `14-experimentos-l3.md` (assinado em 12/10) ainda cita as datas antigas do L3; as regras valem, as datas não (R27).
+>
+> As datas de ensaio, congelamento e L3 nos blocos abaixo são histórico.
 
 > **2026-10-15, ~20h35 UTC, sessão `claude/admiring-bohr-wp0yzp` — v26 NO AR (LEIA PRIMEIRO).**
 >

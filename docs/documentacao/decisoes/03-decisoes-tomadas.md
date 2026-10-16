@@ -2198,3 +2198,7 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   - **R26.4 — resíduos da v25, todos aprovados:** o custo de uma resposta vazia do modelo conta no teto e no registro; a garantia "troca
     sem custo, com 7 dias após o recebimento" passa o `delivery_promise`; o e-mail do n8n deixa de citar "falha do provedor" no ramo que
     cala a conversa (publicado em 15/10); o alerta das personas lê negação.
+- **R27 — Ensaio sem data, na prática** (operador, 2026-10-16: "tire datas. Os ensaios serão na prática gastando 100 reais em anúncios
+  por 2 dias e vendo o que acontece"): o E5 deixa de ser a compra forçada do operador e do sócio em 20–21/10 e vira R$ 100 em anúncios
+  por 2 dias, com leads reais, e a leitura do que acontecer. O plano perde as datas: ensaio → consertos → congelamento → L3, cada etapa
+  começa quando a anterior fecha. Plano 13 §Sequência e §E5; `HANDOFF.md`. Sem mudança de código.
