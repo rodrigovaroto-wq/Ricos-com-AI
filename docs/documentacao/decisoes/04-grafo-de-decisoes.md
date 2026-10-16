@@ -3112,6 +3112,12 @@ configuração ainda grava `handoff_at` e promete "já te respondo" (contra R22.
 ("troca sem custo em até 7 dias" como prazo do antecipado; "com quem são divididos" como parcela); a Malu supôs entrega no domingo.
 **Estado:** publicado em 15/10 na `turn` v24 (função v115), com o §95.
 
+**Impacto em produção** (medido em 15/10, sessão `claude/admiring-bohr-wp0yzp`, `select` do roteiro do HANDOFF): **nenhum cliente real.**
+Desde 12/10 só existem os leads dos testadores (…5983, …7967, …3720, …1632, …6682) e os dois sintéticos `5500099…`. Ficaram 4 mensagens
+sem resposta, todas de testador, e nenhuma por causa do 500: as quatro chegaram logo depois de um `handoff` da v22 (…5983 "pedido
+existente" 13/10 20:07; …7967 "nenhuma reescrita passou" 20:18; …3720 "6 peças, mais que o maior kit" 14/10 00:33), quando o
+`handoff_at` ainda calava o lead. Isso foi consertado pelo R22 na v23 (§91), e o `handoff_at` dos três foi limpo em 14/10.
+
 ## 97. Falha do provedor nunca cala a cliente (operador, 2026-10-15, R25)
 
 **Sintoma** (persona venda-some, rodada de cobertura de 15/10): a Meta devolveu resposta vazia ("meta: resposta sem conteúdo"); a Malu
@@ -3121,8 +3127,13 @@ ficaria calada para sempre, e ninguém responde pelo número da API. **Causa:** 
 operador):** resposta vazia é `TransientModelError` (entra na nova tentativa de 5 minutos, como um 5xx); `modelFailure` não grava mais
 `handoff_at`; a falha de configuração mantém a linha de espera, qualquer outra recebe `SAFE_FALLBACK_REPLY` ("me fala de novo o que
 você quer saber?"), e o e-mail ao operador sai nos dois casos. **Guarda:** `tests/r3-sister-fixes.test.ts` §97, testes de fiação
-atualizados (`function-drift`, `v10-defects`, `r22-no-person`). **Falta:** mutação própria; regressão inteira; revisão Opus.
-**Estado:** commit `f3b4bb0`, não publicado (vai na v25).
+atualizados (`function-drift`, `v10-defects`, `r22-no-person`); mutação `G97-resposta-vazia-passageira` (pega). Revisão Opus
+independente (15/10, sessão `claude/admiring-bohr-wp0yzp`): APROVADO — nenhum caminho de falha do provedor grava `handoff_at`; o
+retry que falha de novo manda a linha segura e o e-mail, sem `handoff_at`; três comentários do `index.ts` que diziam o contrário foram
+corrigidos. **Resíduos (sem código, R21.6):** o custo de uma resposta vazia não entra em `spent` nem em `llm_calls` (o `throw` vem antes
+do custo) e, agora que é passageira, pode repetir até ~10 chamadas fora do teto — desprezível no preço do `-contributor`, conserto é ler
+`usage` antes do `throw`; o texto do e-mail em `n8n/workflows/turno-da-agente.json` ainda cita "falha do provedor" no ramo `silenced`,
+que hoje só o teto de custo dispara. **Estado:** publicado em 15/10 na `turn` v25 (função v117), saúde `healthy` nos 3 CEPs.
 
 ## 98. Dois falsos positivos de gate achados pelas personas de cobertura (2026-10-15, R25)
 
@@ -3137,7 +3148,67 @@ troca e a contagem; (2) "com quem (os dados) são divididos" não é parcela, a 
 vezes…). **Guarda:** `tests/r24-gate-false-positives.test.ts` (26 casos: os rascunhos reais passam a cadeia inteira; negações — "No
 antecipado chega em 7 dias", "dá pra dividir em 3x na entrega", garantia de 30 dias mal configurada — continuam vetadas); mutações
 `R24-troca-sem-custo-governa` e `R24-com-quem-sao-divididos` (pegas). `dev:gates --fail-on-loosen` (CI do PR #63): 5 afrouxamentos, todos desta classe, aceitos como `R25-GARANTIA-SEM-CUSTO` e
-`R25-DADOS-DIVIDIDOS`; nada endureceu. **Falta:** regressão inteira, revisão Opus independente. **Estado:** commit `08bb8ae`, não publicado (vai na v25).
+`R25-DADOS-DIVIDIDOS`; nada endureceu. Duas revisões Opus (focada e generalista, 15/10): APROVADO; continuam vetadas "com quem é
+dividido o valor em 3x?", "divide em 3x sem juros", "No antecipado chega em até 7 dias", "ele chega sem custo nenhum em até 7 dias".
+**Resíduos (hipotéticos, sem código até frase real, R21.6):** "No antecipado você não troca sem custo em até 7 dias" vetava por
+acidente (gate de prazo) e agora passa; "Seus dados não são divididos com ninguém" e "com quem são divididos os dados do cartão"
+continuam vetadas pelo `installment_promise`. **Estado:** publicado em 15/10 na `turn` v25 (função v117).
+
+## 99. A v25 no ar e as 55 personas sobre ela (2026-10-15)
+
+**Feito** (sessão `claude/admiring-bohr-wp0yzp`, roteiro do HANDOFF): revisão Opus focada em §97/§98 e revisão generalista do diff
+`d1d4030..HEAD`, as duas APROVADAS; mutação `G97-resposta-vazia-passageira`; regressão (8070 testes, `typecheck`, `lint`, `deno check`,
+1655/1655 conversas); mutações **579/579**; `deploy:turn` → `agent_versions` 25, função `turn` v117 (commit `8dce6c9`), `health` →
+`healthy` nos 3 CEPs; as 55 personas sobre a v25: 55/55, 0 `silenced`, 0 `Cannot access`, R$ 1,25, nenhum turno com 5 reescritas
+(`docs/agente-ia/10-auditoria/2026-10-15-personas-v25.md`). O §98 se provou: `tudo-de-uma-vez` saiu de 4 vetos e resposta fixa para
+resposta completa aprovada com 2 reescritas; `lgpd-dados` sem veto. **Não feito:** a medida do impacto do 500 do §96 em produção (o
+`select` em `messages` foi barrado pelo classificador de permissão, leitura de produção) — fica para o operador rodar no SQL editor.
+**Resíduos (sem código, R21.6 permite só quando a frase repetir):** a garantia "a troca é sem custo pra você, **com** 7 dias após o
+recebimento" ainda acende `delivery_promise` (a preposição "com" não está na lista do §98); a reescrita resolveu. O alerta `mustNot` /
+"diz ser pessoa" do relatório de personas não lê negação (9 dos 23 alertas).
+
+## 100. Os três casos abertos das personas e os resíduos da v25 (operador, 2026-10-15, R26)
+
+**R26.1 — CEP depois do "não lembro"** (persona Marcinha, "e meu cep nao lembro de cabeça agora"). **Sintoma:** o CEP foi pedido em
+cinco respostas depois; o `cep_insist` vetou uma. **Causa:** nada lia o "não lembro" — o gate só contava pedidos seguidos (no máximo
+dois). **Correção:** `forgetsCep` (`address.ts`) lê "não lembro/não sei/esqueci … cep" na mesma oração, sem atravessar "mas", "por que",
+vírgula, e sem contar "lembro sim" nem "não esqueci"; o turno calcula `cepForgotten` das 20 últimas mensagens dela enquanto nenhum CEP
+foi lido (sem coluna nova); a diretiva aponta o buscador dos Correios (`CORREIOS_CEP_URL`) e manda seguir com tamanho e kit; o
+`cep_insist` veta qualquer pedido de CEP nesse estado; a oferta do kit não espera o CEP (o link continua exigindo). **Caminho
+descartado:** só a diretiva — a 1ª revisão Opus achou a régua (`silence_1` em `after_price`) pedindo "Me passa seu CEP" a metade dos
+leads: agora usa só a variante que não pede.
+
+**R26.2 — "então deixa" sem pagamento na entrega** (persona Cleide, "so pago na entrega / entao deixa, obrigada"; cob-paga-na-porta-como,
+"então deixa se nao tem na entrega nao quero nao obrigada"). **Sintoma:** recebia a linha do "vou pensar" com o antecipado e a régua
+seguia. **Correção:** `declinesInBurst(messages, earlier, noCod)` — o "então deixa" logo depois de "só pago na entrega" (sem "?") e as
+duas linhas "se não tem na entrega não quero" são recusa (`DECLINE_REPLY`, sem régua) **só com `noCod`**: a região sem pagamento na
+entrega, ou a Malu já tendo dito isso. **Caminho descartado:** valer sempre — a 1ª revisão mostrou "só pago na entrega" → oferta do kit
+→ "ah deixa" virando despedida onde há entrega (venda perdida num "não" ao kit).
+
+**R26.3 — consulta de cobertura que falha** (persona Jussara). **Correção:** a consulta que lança ou volta `failed` é tentada de novo
+uma vez (5 s), nunca numa nova tentativa da varredura nem numa revisão (comeria o orçamento do modelo); se falhar de novo, L2 vale (o
+link sai com a ressalva). `codLinkVoid`: quando um link da entrega já foi mandado e a consulta agora diz que não há pagamento na
+entrega, a diretiva manda dizer que aquele link não serve e oferecer o antecipado — só no turno em que descobre
+(`storedAddress.codAvailable !== false`).
+
+**R26.4 — resíduos da v25.** Garantia "a troca é sem custo pra você, com 7 dias após o recebimento" passa o `delivery_promise` (aceite
+`R26-GARANTIA-COM-N-DIAS`; "No antecipado chega com 7 dias" segue vetada). Resposta vazia do modelo: `TransientModelError.wasted` leva
+o custo, somado em `spent` e gravado em `llm_calls` (`purpose: "empty"`). E-mail do n8n: o ramo que cala diz só "teto de custo da
+conversa" (publicado, versão ativa `ef1cb608`). Alerta das personas lê negação (`src/dev/persona-run-core.ts`: 23 → 16 alertas na
+rodada v25, saíram os 7 negados).
+
+**Guarda:** `tests/r26-operator-decisions.test.ts`, `tests/declined.test.ts`, `tests/r24-gate-false-positives.test.ts`,
+`tests/persona-coverage.test.ts`; 19 mutações `R26-*` e 6 reancoradas; duas revisões Opus. **Resíduos (R21.6, sem código):** "Lá você
+digita o nome da rua e aparece o seu CEP" é vetada pelo `asksCep` ("digita"); o "não lembro" sai da janela de 20 mensagens numa conversa
+longa; numa revisão do mesmo turno a correção do link vazio se perde (o lead já foi gravado); o teto só corta entre chamadas, não dentro
+de `withNetworkRetry`.
+**Estado:** publicado em 15/10 na `turn` **v26** (`agent_versions` 26, função v119, commit `21fd916`), `health` → `healthy` nos 3 CEPs.
+Validação: três revisões Opus (a 1ª e a 2ª pediram consertos, todos feitos: recusa só sem entrega, régua sem pedir o CEP esquecido,
+`forgetsCep` parando em "mas/por que", sem 2ª consulta numa nova tentativa, correção do link vazio que sobrevive à nova tentativa);
+`pnpm test` 8142, `typecheck`, `lint`, `typecheck:function`, `dev:conversas` 1655/1655, `dev:gates` 3 afrouxamentos aceitos
+(`R26-GARANTIA-COM-N-DIAS`) e 0 endurecimentos; mutações 598/598 + 2/2 depois do último conserto. **Não feito:** a rodada das 55
+personas sobre a v26 — o classificador de permissão barrou, e o operador pediu (15/10) não gastar mais tokens da API do modelo depois
+desta rodada: fica para ele decidir.
 
 ## Lições (valem para qualquer correção futura)
 

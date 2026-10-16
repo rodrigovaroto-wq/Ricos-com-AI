@@ -13,7 +13,39 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-15, fim da sessão `claude/adoring-fermat-k02201` — v24 NO AR; v25 no código, NÃO verificada e NÃO publicada (LEIA PRIMEIRO).**
+> **2026-10-15, ~20h35 UTC, sessão `claude/admiring-bohr-wp0yzp` — v26 NO AR (LEIA PRIMEIRO).**
+>
+> - **No ar:** `turn` **v26** (`agent_versions` 26, função v119, commit `21fd916`), `health` → `healthy` nos 3 CEPs. n8n: "Turno da agente"
+>   versão ativa `ef1cb608` (e-mail do ramo que cala diz só "teto de custo"); `dev:n8n` ok nos 7.
+> - **O que a v26 traz (decisão R26, grafo §100):** depois do "não lembro o CEP" a Malu aponta o buscador dos Correios e não pede o CEP de
+>   novo (nem a régua); "então deixa" depois de "só pago na entrega", onde não há entrega, é recusa (despedida, sem régua); a consulta de
+>   cobertura que falha é tentada de novo e um link da entrega já mandado é corrigido quando a região não tem entrega; garantia "com 7
+>   dias" passa; o custo de resposta vazia do modelo conta no teto. O alerta das personas lê negação (23 → 16 na rodada v25).
+> - **Validação:** três revisões Opus (consertos feitos), 8142 testes, 1655/1655 conversas, gates sem afrouxamento não aceito, mutações
+>   598/598 + 2/2.
+> - **Impacto do 500 do §96 em produção:** medido — nenhum cliente real (grafo §96).
+> - **Não feito:** a rodada das 55 personas sobre a v26 (barrada pelo classificador de permissão). **O operador pediu em 15/10: não rodar
+>   personas nem nada que gaste tokens da API do modelo sem ele pedir** (memória `sem-gasto-de-api-sem-pedido`).
+> - **Limpeza dos dois leads sintéticos `5500099…`:** barrada pelo classificador (apagamento em produção). Os dois não têm mensagens,
+>   toques, chamadas nem pedidos. O operador roda no SQL editor do Supabase: `delete from leads where phone like '5500099%';`
+> - **Resíduos (R21.6, sem código):** grafo §100 (fim).
+
+> **2026-10-15, ~17h45 UTC, sessão `claude/admiring-bohr-wp0yzp` — v25 NO AR (histórico).** O roteiro de 10 passos abaixo foi
+> executado; o bloco seguinte, da sessão anterior, vira histórico.
+>
+> - **No ar:** `turn` **v25** (`agent_versions` 25, função v117, commit `8dce6c9`: §97 + §98), `health` → `healthy` nos 3 CEPs.
+> - **Validação:** duas revisões Opus (focada em §97/§98 e generalista do diff desde a v24), as duas APROVADAS; mutação nova
+>   `G97-resposta-vazia-passageira`; `pnpm test` 8070, `typecheck`, `lint`, `typecheck:function`, `dev:conversas` 1655/1655; mutações
+>   **579/579**; as 55 personas sobre a v25: 55/55, nenhum `silenced`, nenhum 500, R$ 1,25
+>   (`docs/agente-ia/10-auditoria/2026-10-15-personas-v25.md`, relatórios em `personas-2026-10-15/06-v25-*`). Grafo §97–§99.
+> - **Não feito:** passo 2 (impacto do 500 do §96 em produção). O classificador de permissão barrou a leitura de `messages` em produção.
+>   O operador roda o `select` do passo 2 no SQL editor do Supabase e anota o resultado no grafo §96.
+> - **Resíduos registrados, sem código (R21.6):** custo de resposta vazia fora do teto (§97); texto do e-mail do n8n que ainda cita "falha
+>   do provedor" no ramo `silenced` (§97); frases negadas hipotéticas do §98; a variante "troca sem custo, com 7 dias" (§99).
+> - **Continuam esperando o operador:** Marcinha (CEP depois do "não lembro"), Cleide ("então deixa" sem pagamento na entrega), Jussara
+>   (link com cobertura falhando) e a limpeza dos leads `5500099%` — ver a lista no fim do bloco abaixo.
+
+> **2026-10-15, fim da sessão `claude/adoring-fermat-k02201` — v24 NO AR; v25 no código, NÃO verificada e NÃO publicada (histórico: o roteiro abaixo foi executado na sessão seguinte).**
 >
 > O operador pediu, ao fim desta sessão: **não** rodar mutações, regressão, v25 nem personas aqui — tudo isso é da **próxima sessão**,
 > pelo roteiro abaixo. Esta sessão commitou tudo, documentou e abriu o PR da branch `claude/adoring-fermat-k02201` → `main`.

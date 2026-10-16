@@ -49,7 +49,7 @@ describe("A2. o opt-in pergunta só ofertas, e o 'não' recebe uma linha fixa se
     const branch = turn.indexOf("if (optInRefused && parts.length === 1) {");
     expect(branch).toBeGreaterThan(turn.indexOf("const recentOutbound = recent"));
     expect(turn.slice(branch, branch + 300)).toContain("sendFixed(OPT_IN_DECLINED_REPLY");
-    expect(turn.indexOf("if (declinesInBurst(parts) && !interpretation.wants_to_buy) {")).toBeGreaterThan(branch);
+    expect(turn.indexOf("if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken), codUnavailable || recentOutbound.some(toldNoCod)) && !interpretation.wants_to_buy) {")).toBeGreaterThan(branch);
   });
 });
 
@@ -93,7 +93,7 @@ describe("3. sem anúncio de origem, a Malu diz o que vende (…6682: \"Que isso
 
 describe("§97. falha do provedor nunca cala a cliente (persona venda-some, 15/10: 'meta: resposta sem conteúdo')", () => {
   it("resposta vazia é passageira: entra na nova tentativa de 5 minutos, como um 5xx", () => {
-    expect(turn).toContain('if (!text) throw new TransientModelError("meta: resposta sem conteúdo");');
+    expect(turn).toContain('if (!text) throw new TransientModelError("meta: resposta sem conteúdo", call);');
     expect(turn).not.toContain('throw new Error("meta: resposta sem conteúdo")');
   });
   it("modelFailure não grava handoff_at e manda a linha segura (a de espera só no erro de configuração)", () => {

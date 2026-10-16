@@ -37,3 +37,4 @@ salvamento e a política de crescimento.
 - [Caixa do teste de L3](modelo-de-caixa-do-teste.md) — verba no cartão (fecha 22, vence 29), produto e taxas do COD no saldo de expedição, devolução = frete + manuseio + taxas já pagas (R$ 86,56); pico R$ 752, sobra R$ 323 com R$ 700 de verba (09/10).
 - [`BUSINESS_CONFIG` pelo agente](business-config-pelo-agente.md) — operador autorizou gravar o segredo sem consultar (13/10); sempre JSON validado + hash + `job:"health"`: JSON errado derruba a `turn` no boot.
 - [Closure antes da declaração na `turn`](turn-closure-antes-da-declaracao.md) — função definida cedo em `index.ts` que lê const declarada depois dá 500 só no caminho que a chama cedo; ache todas as chamadas antes de usar uma variável nela.
+- [Sem gasto de API sem pedido](sem-gasto-de-api-sem-pedido.md) — operador, 15/10: depois da v26, nada de personas, Hermes ou chamada ao modelo da Meta sem ele pedir de novo; vence a regra de fim de fase.

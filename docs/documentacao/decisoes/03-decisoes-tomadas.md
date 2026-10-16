@@ -2187,3 +2187,14 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   positivos de gate (§98); a Logzz entrega no domingo, então a Malu sugerir o domingo está certo (nada muda). A v24 (R24 + o conserto do
   500 do §96) foi publicada no mesmo dia. Regressão, mutações, revisão, v25 e a nova rodada das 55 personas ficaram para outra sessão
   (pedido do operador).
+- **R26 — Os três casos abertos das personas e os resíduos da v25** (operador, 2026-10-15, respondendo às perguntas da sessão
+  `claude/admiring-bohr-wp0yzp`; grafo §100):
+  - **R26.1 — CEP depois do "não lembro"** (Marcinha): a Malu diz para ela pesquisar no buscador de CEP dos Correios e não pede o CEP de
+    novo até ela mandar; a conversa segue (tamanho, kit) e o CEP volta só quando ela trouxer.
+  - **R26.2 — "então deixa" sem pagamento na entrega é recusa** (Cleide): a despedida fixa, sem régua — não a linha do "vou pensar".
+  - **R26.3 — consulta de cobertura que falha** (Jussara): a Malu consulta de novo antes de mandar o link; se ainda falhar, o link sai com
+    a ressalva do checkout (L2 mantida). A contradição do turno seguinte ("no seu CEP não tem pagamento na entrega" depois do link) é
+    corrigida.
+  - **R26.4 — resíduos da v25, todos aprovados:** o custo de uma resposta vazia do modelo conta no teto e no registro; a garantia "troca
+    sem custo, com 7 dias após o recebimento" passa o `delivery_promise`; o e-mail do n8n deixa de citar "falha do provedor" no ramo que
+    cala a conversa (publicado em 15/10); o alerta das personas lê negação.

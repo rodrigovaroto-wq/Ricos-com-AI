@@ -977,10 +977,25 @@ const staysClosed = (line: string): boolean =>
  * The newest refusal in her words and nothing after it but lines that keep it closed. Read over the
  * burst by the turn and over her recent messages by the ruler — one notion of "she came back".
  */
-export const declinesInBurst = (messages: readonly string[]): boolean => {
+/**
+ * R26.2 (persona Cleide, 15/10): "só pago na entrega" and then "então deixa, obrigada". A bare "então deixa" also answers
+ * a smaller question ("quer o kit de 2?" — leave it), so it refuses the sale only where her region has no payment at the
+ * door (`noCod`) and right after her own "só pago na entrega" — not a question ("só pago na entrega?") — her line just
+ * before it, in the burst or, through `earlier` (her messages before the burst), a turn before. The refusal and its
+ * condition in one line (persona cob-paga-na-porta-como: "então deixa se não tem na entrega não quero não") likewise.
+ */
+const ONLY_COD = /(?<!\bnao\s)\b(?:so|somente|apenas)\s+(?:pago|compro|aceito)\s+(?:na|pela)\s+entrega\b/;
+const DROP_LINE = new RegExp(String.raw`^(?:${DECLINE_FILLER} )*deixa(?! eu)(?: ${DECLINE_FILLER})*$`);
+const NO_COD_LINE = new RegExp(
+  String.raw`^(?:${DECLINE_FILLER} )*(?:deixa se nao (?:tem|tiver|da) na entrega(?: (?:nao|n) quero)?|se nao (?:tem|tiver|da) na entrega (?:nao|n) quero)(?: ${DECLINE_FILLER}| nao)*$`,
+);
+const refusesPath = (line: string, before: readonly string[]): boolean =>
+  NO_COD_LINE.test(words(line)) || (DROP_LINE.test(words(line)) && !(before.at(-1) ?? "").includes("?") && ONLY_COD.test(norm(before.at(-1) ?? "")));
+export const declinesInBurst = (messages: readonly string[], earlier: readonly string[] = [], noCod = false): boolean => {
   // A blank line or a sticker (empty body) after the refusal is not her coming back (/code-review of E1).
   const lines = messages.flatMap((m) => m.split("\n")).filter((l) => l.trim() !== "");
-  const at = lines.findLastIndex(declineLine);
+  const before = earlier.flatMap((m) => m.split("\n")).filter((l) => l.trim() !== "");
+  const at = lines.findLastIndex((l, i) => declineLine(l) || (noCod && refusesPath(l, [...before, ...lines.slice(0, i)])));
   return at !== -1 && lines.slice(at + 1).every(staysClosed);
 };
 

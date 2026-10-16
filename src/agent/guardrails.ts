@@ -246,6 +246,8 @@ export interface GateContext {
   herWords?: string;
   /** How many of the recent replies asked her CEP, while none was read (`cep_insist`, decision 17). */
   cepAsks?: number;
+  /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
+  cepForgotten?: boolean;
   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
   sizeAsks?: number;
   /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
@@ -1796,7 +1798,8 @@ const gates: readonly Gate[] = [
             // garantia e são 7 dias", where "e" is "and" (eighth review).
             /\b(?:troca|devolucao|garantia|arrependimento|desistencia)(?:\s+(?:no\s+\w+|tambem|pode\s+ser\s+\w+|vale|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*(?:\s+(?:e|sao|fica)(?:\s+(?:tambem|a\s+mesma|o\s+mesmo|gratis|gratuita|igual))*)?\s*:?\s+(?:(?:de|em|ate|dentro\s+de|no\s+prazo\s+de)\s+)*$/.test(sb) ||
             // R24 (personas, 2026-10-15): "você troca sem custo em até 7 dias" — what it costs her sits between them.
-            new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})(?:\s+(?:sem\s+(?:nenhum\s+)?custo(?:\s+nenhum)?|gratis|de\s+graca))?\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de)\s+)+$`).test(sb);
+            // R26 (persona v25): "a troca é sem custo pra você, com 7 dias" — "com" only here, with the return word governing.
+            new RegExp(String.raw`\b(?:troc|devolv|desist|arrepend)\w*(?:\s+(?:o\s+colete|ele|ela)|${OBJECT})(?:\s+(?:e\s+)?(?:sem\s+(?:nenhum\s+)?custo(?:\s+nenhum)?|gratis|de\s+graca)(?:\s+(?:pra|para)\s+voce)?,?)?\s+(?:(?:em|ate|dentro\s+de|no\s+prazo\s+de|com)\s+)+$`).test(sb);
           // "(você) tem / são / é 7 dias" after a return word, with nothing about arrival between:
           // "se precisar trocar, são 7 dias a partir de quando receber", "é só trocar: você tem
           // 7 dias". "Pode trocar, o prazo até quando chegar é de 7 dias" is a deadline.
@@ -3159,8 +3162,15 @@ const gates: readonly Gate[] = [
      */
     name: "cep_insist",
     remedy: "rewrite",
-    briefing: () => `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo.`,
-    check: (text, ctx) => ((ctx.cepAsks ?? 0) >= 2 && asksCep(text) ? "asks the CEP a third time" : null),
+    briefing: () =>
+      `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo. ` +
+      `Se ela disse que não lembra o CEP, não peça de novo até ela mandar.`,
+    check: (text, ctx) =>
+      !asksCep(text) ? null
+      // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
+      : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
+      : (ctx.cepAsks ?? 0) >= 2 ? "asks the CEP a third time"
+      : null,
   },
   {
     /**

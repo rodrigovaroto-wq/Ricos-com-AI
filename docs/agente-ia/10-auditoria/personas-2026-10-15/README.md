@@ -11,5 +11,6 @@ na porta `local`, contra o banco de produção, com números sintéticos `550009
 | `03-r24b-abertura-4-personas` | R24-b | Lu, Neusa, Beatriz, Sandra: a frase do produto só para quem não falou do colete | `../2026-10-15-personas-r24.md` |
 | `04-cobertura-*` | R24-b, antes do §96 | as 55 ao mesmo tempo (26 fichas, 13 de segurança, 16 de venda): 3 morreram no 500 do §96 e 1 no 429 | `../2026-10-15-personas-cobertura.md` |
 | `05-reexecucao-pos-500-*` | com o conserto do §96 | as 4 que tinham falhado, limpas | `../2026-10-15-personas-cobertura.md` |
+| `06-v25-*` | v25 (§97 + §98, `turn` v117) | as 55 ao mesmo tempo sobre a v25: 55/55, nenhum `silenced`, nenhum 500 | `../2026-10-15-personas-v25.md` |
 
 Cada `.md` traz, no fim, a seção **Alertas** (desde a rodada `04`): leia só os turnos marcados.
