@@ -287,6 +287,17 @@ export function renderLedger(rows: readonly LedgerRow[]): string {
 
 const REDACTED = "(trecho guardado só em hermes_proposals, expira em 90 dias)";
 /** Every quoted span of a free text replaced by the marker (the model's summary quotes too). */
+/**
+ * How many conversations of the batch Hermes saw an undue premise in (L3 pause criterion, read by the operator's portal).
+ * Hermes lists the conversation names in `premissa_indevida`; only names in this batch count, once each, so a made-up
+ * name cannot inflate the rate. Null when the field is absent or not a list — a run of the older skill, not "zero".
+ */
+export function premiseCount(raw: unknown, conversations: ReadonlyMap<string, string>): number | null {
+  const list = (raw as { premissa_indevida?: unknown } | null)?.premissa_indevida;
+  if (!Array.isArray(list)) return null;
+  return new Set(list.filter((name): name is string => typeof name === "string" && conversations.has(name))).size;
+}
+
 export const unquote = (s: unknown) => (typeof s === "string" ? s.replace(/"[^"]*"|“[^”]*”|'[^']*'|‘[^’]*’/g, `"${REDACTED}"`) : s);
 
 /**

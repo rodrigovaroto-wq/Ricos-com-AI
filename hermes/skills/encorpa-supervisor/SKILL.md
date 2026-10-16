@@ -104,6 +104,7 @@ Escreva **um arquivo `propostas.json`** na pasta atual, e nada mais. Formato exa
 ```json
 {
   "resumo": "duas ou três frases sobre a rodada",
+  "premissa_indevida": ["persona-jussara"],
   "propostas": [
     {
       "alvo": "gate:<nome> | prompt | config:<chave> | regua | interpretador | tamanho | n8n:<workflow> | operador | reverter:v<N>",
@@ -125,6 +126,10 @@ Escreva **um arquivo `propostas.json`** na pasta atual, e nada mais. Formato exa
 ```
 
 Regras do arquivo:
+
+- **`premissa_indevida`** lista o nome de **toda** conversa do pacote em que a Malu partiu de algo que a cliente
+  não disse ou que a operação não faz (a definição de "Reverter a versão nova"), mesmo sem proposta para ela.
+  Nenhuma: `[]`. É o critério de pausa do teste (acima de 5% das conversas) e só conta nome que existe em `conversas/`.
 
 - **Todo `trecho` é cópia exata** de uma linha de `conversas/`. Trecho que não existe na
   conversa derruba a proposta inteira na validação — não resuma, não traduza, não corrija.

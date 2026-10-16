@@ -3210,6 +3210,19 @@ Validação: três revisões Opus (a 1ª e a 2ª pediram consertos, todos feitos
 personas sobre a v26 — o classificador de permissão barrou, e o operador pediu (15/10) não gastar mais tokens da API do modelo depois
 desta rodada: fica para ele decidir.
 
+## 101. Premissa indevida passa a ter número por rodada do Hermes (operador, 2026-10-16)
+
+**Sintoma:** o critério de pausa "premissa indevida acima de 5% das conversas" (L3) não tinha número em lugar nenhum: o portal do
+operador mostrava "sem número" para sempre. **Causa:** a premissa indevida era só julgamento do Hermes dentro da proposta de reversão
+(skill, "Reverter a versão nova"); nenhuma rodada gravava em quantas conversas a viu. **Caminho descartado:** pedir um número solto ao
+modelo — não dá para conferir e um número inventado inflaria ou zeraria a taxa. **Correção (operador liberou mexer no Hermes):** o
+`propostas.json` ganha `premissa_indevida`, a lista dos nomes das conversas do pacote em que a Malu partiu de algo que a cliente não
+disse ou que a operação não faz; `premiseCount` (`src/dev/hermes-core.ts`) conta só nomes que existem no lote, uma vez cada, e o
+`hermes-run.ts` grava em `hermes_runs.premise_conversations` (migração 0027, coluna anulável: rodada antiga = sem número, não zero).
+O portal lê a última rodada contra `conversations_seen`. Não muda gate, prompt nem o turno. **Guarda:** `tests/hermes-core.test.ts`
+(`premiseCount`: repetido conta uma vez, nome fora do lote não conta, lista vazia é zero, campo ausente é nulo). **Estado:** na
+branch `claude/eager-bohr-qdxkov`; a migração 0027 precisa ser aplicada no banco antes da primeira rodada que grava a coluna.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

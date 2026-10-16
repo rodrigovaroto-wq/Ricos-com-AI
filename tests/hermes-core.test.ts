@@ -3,6 +3,7 @@ import {
   annotateWithGates,
   checkProposals,
   maskPii,
+  premiseCount,
   renderConversation,
   renderLedger,
   rowsToConversations,
@@ -438,5 +439,23 @@ describe("hermes: o e-mail mostra o trecho e o veredito de hoje", () => {
     const { storedEvidence } = await import("../src/dev/hermes-core.js");
     const [c] = annotateWithGates(checkProposals(proposta(), conversas), () => ["price_promise"]);
     expect(storedEvidence(c!).evidencias[0]).toEqual({ conversa: "persona-jussara", mensagem: 1, trecho: "tiro mais alguma dúvida antes?", hoje: ["price_promise"] });
+  });
+});
+
+describe("premiseCount", () => {
+  const batch = new Map([["a", ""], ["b", ""], ["c", ""]]);
+  it("counts each listed conversation of the batch once", () => {
+    expect(premiseCount({ premissa_indevida: ["a", "b", "a"] }, batch)).toBe(2);
+  });
+  it("ignores names that are not in the batch, so a made-up one cannot inflate the rate", () => {
+    expect(premiseCount({ premissa_indevida: ["a", "inventada", 7, null] }, batch)).toBe(1);
+  });
+  it("an empty list is zero", () => {
+    expect(premiseCount({ premissa_indevida: [] }, batch)).toBe(0);
+  });
+  it("an absent or malformed field is null (older skill), never zero", () => {
+    expect(premiseCount({ propostas: [] }, batch)).toBeNull();
+    expect(premiseCount({ premissa_indevida: "a" }, batch)).toBeNull();
+    expect(premiseCount(null, batch)).toBeNull();
   });
 });
