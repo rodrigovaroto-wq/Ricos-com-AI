@@ -2,7 +2,7 @@
   "id": "SVDtFUi2N9oOskkx",
   "name": "Encorpa — Relógio da régua",
   "active": true,
-  "versionId": "883fc037-8b2b-41b6-bd01-f936129bfebd",
+  "versionId": "b2f82821-69f3-475f-b6cf-e811bffabe8c",
   "nodes": [
     {
       "id": "ba5ae99a-298d-4fe2-a9a2-248025dba571",
@@ -93,6 +93,7 @@
       "id": "af55552a-fd63-487c-aaaa-790d9c9cc2fc",
       "name": "Avisa o operador",
       "webhookId": "89074296-4350-402b-a66d-0c8304bdc033",
+      "disabled": true,
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,
       "retryOnFail": true,

@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { RETURN_GREETING, WELCOME_AUTO_REPLY } from "@/agent/retry.js";
 import {
   annotateWithGates,
   checkProposals,
@@ -156,7 +157,7 @@ describe("hermes: a fonte de produção", () => {
     conversations: [{ id: "c1aaaaaaaa", lead_id: "l1", welcomed_at: t(1), cost_brl: "0.0123", leads: { phone: "5511987654321" } }],
     messages: [
       { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "oi", created_at: t(0) },
-      { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Oi! Já te respondo.", created_at: t(2) },
+      { conversation_id: "c1aaaaaaaa", direction: "outbound", body: WELCOME_AUTO_REPLY, created_at: t(2) },
       { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "tem desconto?", created_at: t(10) },
       { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Deixa eu confirmar isso direitinho e já te respondo, tá?", created_at: t(20) },
       { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "quero falar com uma pessoa", created_at: t(30) },
@@ -175,6 +176,31 @@ describe("hermes: a fonte de produção", () => {
     expect(conversations[0]?.transcript.filter((e) => e.from !== "persona").map((e) => e.status)).toEqual(["welcomed", "fallback", "handoff"]);
   });
 
+  it("a recepção é marcada pelo texto, não por welcomed_at: a volta do dia seguinte é recepção, e a abertura do braço 1 não (§103)", () => {
+    const { conversations } = rowsToConversations(
+      rows({
+        messages: [
+          { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "oi", created_at: t(0) },
+          { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Oi, boa tarde! Aqui é a Malu, da Encorpa.", created_at: t(2) },
+          { conversation_id: "c1aaaaaaaa", direction: "inbound", body: "oi, voltei", created_at: t(30) },
+          { conversation_id: "c1aaaaaaaa", direction: "outbound", body: RETURN_GREETING, created_at: t(31) },
+          { conversation_id: "c1aaaaaaaa", direction: "outbound", body: "Que bom! Qual o seu CEP?", created_at: t(40) },
+        ],
+        traces: [],
+        outcomes: [
+          { conversation_id: "c1aaaaaaaa", outcome: "send", created_at: t(3) },
+          { conversation_id: "c1aaaaaaaa", outcome: "send", created_at: t(41) },
+        ],
+      }),
+    );
+    expect(conversations[0]?.transcript.filter((e) => e.from !== "persona").map((e) => e.status)).toEqual(["replied", "welcomed", "replied"]);
+  });
+
+  it("negação: a recepção sem welcomed_at gravado continua recepção", () => {
+    const { conversations } = rowsToConversations(rows({ conversations: [{ ...rows().conversations[0]!, welcomed_at: null }] }));
+    expect(conversations[0]?.transcript.find((e) => e.text === WELCOME_AUTO_REPLY)?.status).toBe("welcomed");
+  });
+
   it("o placar de produção conta a resposta pronta e o handoff, e não conta a boas-vindas como resposta", () => {
     const { metrics, checks } = scoreRun(rowsToConversations(rows()).conversations);
     expect(metrics.fallbacks).toBe(1);
@@ -191,7 +217,7 @@ describe("hermes: a fonte de produção", () => {
 
   it("resposta sem desfecho gravado (toque da régua, conversa anterior à v33) fica sem status — nunca vira fallback", () => {
     const { conversations } = rowsToConversations(rows({ outcomes: [], conversations: [{ ...rows().conversations[0]!, welcomed_at: null }] }));
-    expect(conversations[0]?.transcript.filter((e) => e.from !== "persona").map((e) => e.status)).toEqual([undefined, undefined, undefined]);
+    expect(conversations[0]?.transcript.filter((e) => e.from !== "persona" && e.text !== WELCOME_AUTO_REPLY).map((e) => e.status)).toEqual([undefined, undefined]);
   });
 
   it("um desfecho sem mensagem (deferred, stopped) não rouba o status da resposta anterior", () => {

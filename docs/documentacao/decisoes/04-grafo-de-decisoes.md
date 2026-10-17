@@ -3223,6 +3223,60 @@ O portal lê a última rodada contra `conversations_seen`. Não muda gate, promp
 (`premiseCount`: repetido conta uma vez, nome fora do lote não conta, lista vazia é zero, campo ausente é nulo). **Estado:** na
 branch `claude/eager-bohr-qdxkov`; a migração 0027 precisa ser aplicada no banco antes da primeira rodada que grava a coluna.
 
+## 102. O e-mail de conversa não resolvida passa a mandar o operador ao portal (operador, 2026-10-17)
+
+**Sintoma:** o aviso "a Malu não conseguiu resolver sozinha" (Turno da agente) e o da régua diziam "não precisa responder no
+WhatsApp" e só saíam na passagem ao operador; a resposta pronta, que o portal também conta como "não resolvida", não avisava ninguém.
+Desde 16/10 o operador responde pelo portal (encorpa-portal, `api/chat.js`), que pausa a Malu na conversa com `handoff_at`.
+**Correção (operador):** o portal ganhou o workflow "Encorpa — Portal: conversa não resolvida" (cópia em `encorpa-portal/n8n/`):
+a cada 5 min, um e-mail por conversa que vira não resolvida pela regra do portal (passagem ou resposta pronta, sem compra), com o link
+da conversa no portal. Os dois nós "Avisa o operador" (Turno da agente e Relógio da régua) ficam **desligados** (`disabled`), para não
+mandar dois e-mails contraditórios do mesmo fato. Nada muda no turno, nos gates nem no prompt. **Caminho descartado:** reescrever o
+texto do e-mail antigo — ele não cobre a resposta pronta. **Guarda:** `pnpm dev:n8n` passa com os dois nós desligados; o teste do
+texto `$json.silenced ?` continua valendo sobre o arquivo. **Estado:** aplicado no n8n em 2026-10-17.
+
+## 103. A volta no dia seguinte: "Oii, tudo bem? Deseja continuar com seu pedido?" (operador, 2026-10-17)
+
+**Sintoma (pedido do operador):** "se a cliente mandar uma mensagem no dia seguinte a Malu deve recepcionar com 'Oii, tudo bem?
+Deseja continuar com seu pedido?' e em seguida a mensagem que ela já iria mandar". Hoje a lead que volta noutro dia recebe direto a
+resposta do modelo, sem nada que retome a conversa de ontem. **Causa:** a única recepção fixa era a do Estágio 0, só para lead novo.
+**Correção:** o mesmo mecanismo do Estágio 0 (`2c-bis` no `index.ts`): texto fixo `RETURN_GREETING` (`src/agent/retry.ts`, espelhado),
+pela cadeia como `layer: "auto"`, gravado como saída, `welcomed_at` = agora, `status: "welcomed"` com `resumeInSeconds:
+RETURN_RESUME_DELAY_SECONDS` (5 s, a janela de silêncio de toda mensagem nova: a rajada que ela ainda digita entra na resposta, e a
+resposta vem "em seguida", não no minuto da recepção). O n8n não muda: "É recepção?" → espera → retomada, que escreve a resposta de
+sempre. Sai só quando: lead que já existe, mensagem de verdade (não retomada, nova tentativa nem revisão), sem toque de botão (o "Não"
+do opt-in tem a linha dele, §95), janela de envio aberta, sem `opted_out_at` nem `handoff_at` (o portal pausa com ele, §102), estágio
+antes da compra (`chasesSilence(stage, [])` — pedido_criado, em_rota, entregue_pago ficam de fora), a mensagem dela não é parada, pedido
+de pessoa nem recusa (os leitores de sempre: `classifyOptOutBurst`, `wantsHuman`, `declinesInBurst`), nem pagamento ou "ok" seco
+(`saysPaid`, `isPaymentReceipt`, `asksPaymentStatus`, `isBareAck` — a retomada pula o 4a0 e a regra do "ok", então esses ficam com o
+turno de sempre: sem isso, um "paguei" no dia seguinte perdia `PAYMENT_CHECK_REPLY`, a linha `payment_check` e o cancelamento do
+`checkout_reminder`, e um "ok" virava resposta do modelo em vez de silêncio + régua), e a última mensagem da conversa
+antes desta, nos dois sentidos, é de um dia anterior em São Paulo (`onEarlierDay`, `Intl` com `America/Sao_Paulo`; lida por último,
+pelo `messages_conversation_idx`). Vetada pela cadeia, cai no turno de sempre. Junto: (1) `isReceipt` reconhece o texto, para a
+rajada dela atravessar a saudação até a última resposta de verdade (sem isso, "oi" + "tem G?" perdia o "oi" — a retomada dele fica
+`resume_moot`); (2) o `lastOutbound` do turno pula a saudação no banco (`body=neq.`, limit 1 — o primeiro corte filtrava no código as 2
+últimas e duas saudações seguidas o deixavam vazio), e a trava de laço do pedido de pessoa (R22.1) lê com o mesmo filtro: a retomada lia "Deseja continuar…" como a última pergunta,
+e o "Qual o seu nome?"/"Qual o seu CEP?" de ontem — de que dependem nome, CEP, tamanho, leitura do endereço e o intérprete —
+sumia; (3) o placar do Hermes (`rowsToConversations`) marca a recepção pelo texto (`isReceipt`), não por `welcomed_at`: a saudação da
+volta é recepção, e a abertura do braço 1 do experimento A deixa de ser rotulada `welcomed`. O primeiro corte cancelava a régua dentro
+do ramo; a revisão tirou: a retomada já cancela, e se a retomada se perder a régua armada é o que ainda chega nela.
+**Caminhos descartados:** mandar a saudação de madrugada — a resposta de quem volta fora da janela fica guardada para a abertura
+(`deferred_reply`), e "Deseja continuar…" às 3 h seguido de horas de silêncio lê como ignorada; uma coluna nova em vez de reusar
+`welcomed_at` — nenhum leitor depende do valor antigo (a retomada compara com `last_outbound_at`; as views não leem a coluna; o Hermes
+só lê se é nula); uma regex nova para "pare"/"não quero" — os leitores do turno já são os que valem. **Guarda:**
+`tests/return-greeting.test.ts` (texto exato e limpo na cadeia; `onEarlierDay` com 23:50→00:10, mesmo dia, meia-noite UTC no mesmo
+dia de São Paulo, nulo, futuro; os leitores que vetam, "paguei" e "ok" incluídos; a fiação do ramo, do `lastOutbound` com duas
+saudações seguidas e da trava do pedido de pessoa); `tests/hermes-core.test.ts` (a volta é recepção, a abertura do braço 1 não, recepção
+sem `welcomed_at` continua recepção); mutações `G103-volta-de-madrugada`, `G103-pagamento-e-ok`, `G103-ultima-da-agente` e
+`hermes-fonte-boas-vindas` (atualizada) — todas pegas, aplicadas à mão (`verificar:guardas` exige árvore commitada); contagem de
+`runGates(` em `order-stage.test.ts` de 6 para 7. **Resíduos:** (a) quem volta de madrugada recebe na abertura só a resposta guardada,
+sem a saudação; (b) `recusado` e `perdido` recebem a saudação; (c) o "e aí?"/"checou?" (`nudgesCheck`) não exclui a saudação — só
+conta no 4a0 com um `payment_check` agendado, que dura minutos, não um dia; (d) o tipo `SupabaseRows` e a consulta do
+`hermes-run.ts` ainda trazem `welcomed_at`, que o placar não lê mais; (e) sem o `cancelScheduled` no ramo (a régua fica armada como
+rede se a retomada se perder), um toque vencido pode sair entre a saudação e a resposta se a varredura de 5 min cair nos ~5–10 s do
+intervalo — raro, e a resposta sai do mesmo jeito. Revisão independente: aprovado com resíduos. **Estado:** na branch
+`claude/quirky-fermi-gkyybh`, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

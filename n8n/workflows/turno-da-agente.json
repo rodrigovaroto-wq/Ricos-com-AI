@@ -2,7 +2,7 @@
   "id": "HnGrxquQLpfbXWLH",
   "name": "Encorpa — Turno da agente",
   "active": true,
-  "versionId": "ef1cb608-85ee-4d33-a5f0-2d8b90c28888",
+  "versionId": "da076492-542b-4c4d-884f-a44ad631f36d",
   "nodes": [
     {
       "id": "1544475c-4c0b-4802-944d-9bb7b25fa055",
@@ -135,6 +135,7 @@
       "id": "5fd6af1b-535e-4da2-88fb-7b22b6eb5326",
       "name": "Avisa o operador",
       "webhookId": "a4734286-71ae-41b7-834d-7d8bf41a37bd",
+      "disabled": true,
       "notes": "FALTA ANEXAR A CREDENCIAL SMTP. O fromEmail tem de ser o mesmo endereco da conta que autentica no SMTP, senao o provedor recusa.",
       "type": "n8n-nodes-base.emailSend",
       "typeVersion": 2.1,

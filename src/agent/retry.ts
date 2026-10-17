@@ -557,9 +557,26 @@ export const dayPart = (at: Date): string => {
 export const greetingFor = (at: Date, agentName: string, brand: string): string =>
   `Oi, ${dayPart(at)}! Aqui é a ${agentName}, da ${brand}.`;
 
-/** The receipt, as sent now or before — never a reply of Malu's. */
+/**
+ * She writes again on a later day (operator, 2026-10-17, grafo §103): this fixed line first, then Malu's real reply,
+ * the way the Estágio 0 receipt is sent — `status: "welcomed"`, and n8n's resume writes the answer.
+ */
+export const RETURN_GREETING = "Oii, tudo bem? Deseja continuar com seu pedido?";
+/** The wait before that answer: the quiet window of any new message, so a burst she is still typing joins it. */
+export const RETURN_RESUME_DELAY_SECONDS = 5;
+
+const saoPauloDay = (at: Date): string =>
+  new Intl.DateTimeFormat("en-CA", { timeZone: "America/Sao_Paulo", year: "numeric", month: "2-digit", day: "2-digit" }).format(at);
+
+/** The previous message of the conversation is from an earlier calendar day than `now`, São Paulo time. */
+export const onEarlierDay = (previous: string | null, now: Date): boolean => {
+  const at = new Date(previous ?? "");
+  return !Number.isNaN(at.getTime()) && saoPauloDay(at) < saoPauloDay(now);
+};
+
+/** The receipt, as sent now or before — never a reply of Malu's. The return greeting answers nothing either. */
 export const isReceipt = (body: string): boolean =>
-  body === WELCOME_AUTO_REPLY || /^Recebi sua mensagem 💛 Te respondo por aqui a partir das \d{1,2}h\.$/.test(body) || body === LEGACY_RECEIPT || body === `Oii, tudo bem?\n\n${LEGACY_RECEIPT}`;
+  body === WELCOME_AUTO_REPLY || body === RETURN_GREETING || /^Recebi sua mensagem 💛 Te respondo por aqui a partir das \d{1,2}h\.$/.test(body) || body === LEGACY_RECEIPT || body === `Oii, tudo bem?\n\n${LEGACY_RECEIPT}`;
 
 /**
  * Every message of hers is a greeting and nothing else ("oi", "Boa tarde, tudo bem?", "olá 😊"): then
