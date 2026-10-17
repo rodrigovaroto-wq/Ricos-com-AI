@@ -18,9 +18,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > 180,53** (1 / 2 / 3 peças; era R$ 63,35 / 130,01 / 172,50); antecipado sem mudança (R$ 77,92 / 136,14 / 169,15); recusa R$ 9,99 sem
 > mudança; **devolução −R$ 30 no COD e −R$ 50 no antecipado** (eram R$ 86,56 e R$ 58,99). Esperado por pedido no mix 70/30: **R$ 51,74**
 > (R$ 51,70 com o WhatsApp); equilíbrio de conversão **3,3% (CPL R$ 1,25) e 3,8% (CPL R$ 1,50)**; fase Copy do teste com **5 criativos**.
-> **Pendente:** `docs/operacao/modelo-caixa-anuncios.xlsx` (binário, não editado) e o cálculo interativo do `mapa-financeiro.html` ainda
-> têm a conta antiga; o **pico R$ 752 e a sobra R$ 323** abaixo (R19.1) **não foram recalculados e não valem como atuais**. Células a
-> refazer: ver o aviso no topo de [`taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md). **Versão no ar (conferida em
+> **Planilha e simulador refeitos em 17/10:** `modelo-caixa-anuncios.xlsx` e o `mapa-financeiro.html` usam a conta do R27; **pico de
+> caixa R$ 571 (07/11), sobra R$ 504** (os R$ 752 / R$ 323 abaixo são do R19.1). Detalhe em [`taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md). **Versão no ar (conferida em
 > `agent_versions` em 17/10):** `turn` **v27** (função v121, PR #66, saudação do dia seguinte, grafo §103); o bloco abaixo é o estado da v26.
 > **Dados de teste zerados em 17/10** (8 leads de teste arquivados em `docs/agente-ia/10-auditoria/testes-reais/2026-10-17-zerar-antes-da-campanha.md`
 > e apagados com o "pode" do operador; contador do Hermes em 0 de 50).

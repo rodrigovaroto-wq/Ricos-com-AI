@@ -1,6 +1,6 @@
 ---
 name: modelo-de-caixa-do-teste
-description: Caixa do teste de L3 (R$ 700 de verba no cartão, 7 dias a R$ 50/dia por fase, R$ 1.325 em caixa, 23/10): produto e taxas do COD saem do saldo de expedição, o resto no cartão (fecha 22, vence 29); devolução = frete + manuseio + taxas já pagas (R$ 86,56 COD). Pico R$ 752, sobra R$ 323.
+description: Caixa do teste de L3 (R$ 700 de verba no cartão, 7 dias a R$ 50/dia por fase, R$ 1.325 em caixa, 23/10): produto e taxas do COD saem do saldo de expedição, o resto no cartão (fecha 22, vence 29); devolução fechada R$ 30 COD / R$ 50 antecipado (R27, 17/10). Pico R$ 571, sobra R$ 504.
 metadata:
   type: business-rule
 ---
@@ -13,7 +13,7 @@ Operador, 2026-10-09 (R19.1, grafo §68). A conta mora em `docs/operacao/taxas-a
   do pagamento na porta. Anúncio, API de IA, WhatsApp e fixos vão para o cartão (fatura fecha dia 22, vence dia 29) e o operador
   paga sacando do saldo (R$ 3,99, D+1 a D+2) — por isso o anúncio é financiado pelas vendas.
 - **Devolução não é R$ 25,00.** ~~É frete de retorno (R$ 30–60) + manuseio **e** as taxas já pagas não voltam: R$ 86,56 no COD,
-  R$ 58,99 no antecipado, com frete de R$ 45.~~ **Superado em 17/10 (R27): valores fixos do operador, R$ 30 no COD e R$ 50 no antecipado; a transação do COD é 6,99% da comissão (margem do COD entregue R$ 67,18). O pico R$ 752 e a sobra R$ 323 abaixo foram calculados com a conta antiga e NÃO foram recalculados.** Recusa continua R$ 9,99 = R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio.
+  R$ 58,99 no antecipado, com frete de R$ 45.~~ **Superado em 17/10 (R27): valores fixos do operador, R$ 30 no COD e R$ 50 no antecipado; a transação do COD é 6,99% da comissão (margem do COD entregue R$ 67,18). Planilha refeita em 17/10: pico R$ 571 (07/11) e sobra R$ 504.** Recusa continua R$ 9,99 = R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio.
   Manuseio é R$ 5,00 (Central Logzz), não R$ 4,99.
 - **R$ 700 (7 dias a R$ 50/dia em cada fase) e R$ 1.325 substituem a verba (R$ 500) e o caixa (R$ 1.500) de L3** (operador, 09/10). Fica **abaixo** do piso de 500 leads / 50 pedidos com CPL R$ 1,50 (467 / 47); passa só com CPL abaixo de ~R$ 1,40. Os R$ 675 que sobravam dos R$ 2.000 não cobrem a verba: a diferença sai do repasse do COD.
-- **Menos recusa e devolução aumentam o pico** (mais pedidos entregues, mais custo adiantado), e dobrar a verba falta R$ 430.
+- **Menos recusa e devolução aumentam o pico** (mais pedidos entregues, mais custo adiantado), e dobrar a verba falta R$ 66 (R27; era R$ 430).

@@ -26,9 +26,9 @@ entregue pelo operador em 2026-09-03.
 > | Esperado por pedido, mix 70/30, 1 peça, recusa 17%, devolução 10% | — (R$ 52,03 em 21/09, com premissas velhas) | COD R$ 46,00 · antecipado R$ 65,13 · **mix R$ 51,74 (R$ 51,70 depois do WhatsApp)** |
 > | Equilíbrio de conversão | 3,47% / 3,58% (CPL R$ 1,25), "pendente de recálculo" desde 21/09 | **3,3% (CPL R$ 1,25) e 3,8% (CPL R$ 1,50)** = (CPL × 1,1383 + 0,27) ÷ 51,70 |
 >
-> Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Não recalculados nesta data (não valem como
-> atuais):** o "lucro por venda" de R$ 16,07 / R$ 44,41 / R$ 24,57 e a tabela de 02/10 (R$ 24,31 / R$ 49,50 / R$ 31,86), o pico R$ 752 e a
-> sobra R$ 323, e os cenários de lucro por dia — dependem da planilha `modelo-caixa-anuncios.xlsx`, ainda com os números antigos.
+> Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Recalculados na planilha em 17/10:** lucro por
+> venda **COD R$ 26,18 · antecipado R$ 45,31 · mix 70/30 R$ 31,92** (R$ 33,99 sem o imposto da Meta); **pico de caixa R$ 571 (07/11) e
+> sobra R$ 504**; dobrar a verba falta R$ 66 (ver `docs/operacao/taxas-antecipadas-cod.md`). Os números de 09/10 abaixo ficam como história.
 
 > ### Atualização de 2026-10-09 — caixa do teste, manuseio R$ 5,00 e devolução completa (devolução, transação e margem do COD superadas por R27, 17/10)
 >

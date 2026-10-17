@@ -3300,16 +3300,16 @@ Os números vivos passaram a apontar para o R27 (`taxas-antecipadas-cod.md`, `03
 estático, `HANDOFF.md` e duas memórias). **Guarda:** os números moram **num lugar só**, a rodada R27; o `lib/build.mjs` do `encorpa-portal`
 calcula da mesma fórmula (comissão → transação → margem), então o portal e este repositório devem dar os mesmos R$ 67,18 / 51,74; se
 divergirem, vale a fórmula acima (conferida à mão em 17/10, não por teste automatizado — **não há teste que cruze os dois**).
-**Pendente (não verificado nesta sessão):** (a) `modelo-caixa-anuncios.xlsx` continua com a conta antiga — aba **Premissas** B32 (6,99% "do
-preço"), B40/B41 (frete de retorno R$ 45 e retorno R$ 50); aba **Taxas antecipadas** C8/F8 (transação R$ 11,57), C11 (R$ 86,56), C13
-(R$ 58,99); as fórmulas de pico e sobra nas abas **Resumo** e **Fluxo diário**; os textos de apoio de **Docs x Fontes** — e, por isso, o
-**pico R$ 752 e a sobra R$ 323** (R19.1) não valem como atuais; (b) o script do `mapa-financeiro.html` foi refeito no mesmo dia (transação sobre a comissão, `DEV_COD`/`DEV_PRE` 30/50
+**Feito depois, no mesmo dia:** (a) `modelo-caixa-anuncios.xlsx` refeita — Premissas B32 vira % da comissão (Unitário B6), B40/B41 viram a
+devolução fechada R$ 30 / R$ 50, B62 = 0 (taxas já incluídas), devolução só sobre os entregues (Unitário B11/B21/B26, Resumo B27, Fluxo
+diário K e O); 2.551 fórmulas sem erro; dá os mesmos 67,18 · 46,00 · 65,13 · 51,74 do portal; **pico R$ 571 (07/11), sobra R$ 504**
+(eram R$ 752 / R$ 323), sensibilidade refeita cenário a cenário em `taxas-antecipadas-cod.md`; (b) o script do `mapa-financeiro.html` foi refeito no mesmo dia (transação sobre a comissão, `DEV_COD`/`DEV_PRE` 30/50
 sobre o que foi entregue) e dá os mesmos números do portal (67,18 · 46,00 · 77,92 · 65,13 · mix 51,74), mas pico e sobra do caixa não
 foram relidos; (c) o "lucro por
-venda" de R$ 16,07 / R$ 44,41 / R$ 24,57 (09/10) e a tabela de 02/10 não foram refeitos; (d) os documentos de pesquisa
+venda" refeito: COD R$ 26,18 · antecipado R$ 45,31 · mix R$ 31,92 (a tabela de 02/10 fica como história); (d) os documentos de pesquisa
 (`03-pesquisa/02`, `03`, `04`) e `decisoes/01-lacunas.md` citam R$ 63,35 como a margem da época e foram deixados como história; (e) a
 aritmética do R27 foi conferida na sessão, mas nenhum teste do repositório a cobre. **Estado (2026-10-17):** decidido pelo operador;
-documentado; simulador do mapa financeiro refeito; **planilha `.xlsx` pendente**; nada a deployar (sem mudança de código nem de `BUSINESS_CONFIG`).
+documentado; simulador do mapa financeiro e planilha refeitos; nada a deployar (sem mudança de código nem de `BUSINESS_CONFIG`).
 
 ## Lições (valem para qualquer correção futura)
 

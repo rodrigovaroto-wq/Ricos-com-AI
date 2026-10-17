@@ -277,7 +277,8 @@ e ler região por ele mede o funil, não a região.
 
 **Atualizado em 2026-10-09 (verba de R$ 700, 7 dias a R$ 50/dia em cada fase):** a CPL R$ 1,50 dão 467 leads e 47 pedidos a 10%: **abaixo do piso de
 500 leads e 50 pedidos**; passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos; CPL R$ 1,25: 560 leads e 56 pedidos, pico de
-caixa R$ 903, sobra R$ 172). Pico de caixa R$ 752 e sobra R$ 323 na base.
+caixa R$ 903, sobra R$ 172). Pico de caixa R$ 752 e sobra R$ 323 na base. **Recalculado em 17/10 (R27):** base pico R$ 571 e sobra
+R$ 504; CPL R$ 1,25 pico R$ 685 e sobra R$ 390.
 
 **Conta que o operador precisava ver antes de assinar (versão de 2026-10-02, R$ 800):** R$ 800 a CPL R$ 1,25–1,50 dão 530–640
 leads (passa o piso de 500). Pedidos: 53–64 a 10%, mas **32–38 a 6%** — abaixo do piso de 50. Ou
