@@ -11,7 +11,26 @@ entregue pelo operador em 2026-09-03.
 > **Os cenários sem COD não são premissa nossa.** A operação é COD. Eles ficam registrados
 > só como referencial comparativo do estudo.
 
-> ### Atualização de 2026-10-09 — caixa do teste, manuseio R$ 5,00 e devolução completa
+> ### Atualização de 2026-10-17 (R27) — o que vale agora para margem do COD, devolução e equilíbrio
+>
+> Decisão do operador (confirmada em 15 e 17/10; [`03-decisoes-tomadas.md` §R27](../decisoes/03-decisoes-tomadas.md), grafo §104). **Onde
+> as tabelas abaixo (02/10 e 09/10) e o resto do arquivo divergirem, vale esta:**
+>
+> | Item | Antes (até 09/10) | **Vigente (17/10)** |
+> |---|---|---|
+> | Transação do COD | 6,99% do preço + R$ 2,49 (R$ 11,57 em 1 peça) | **6,99% da comissão + R$ 2,49** (R$ 7,73 em 1 peça); comissão = preço − R$ 30/peça − R$ 19,99 − R$ 5,00 |
+> | Margem do COD se entregue (1 / 2 / 3 peças) | 63,35 / 130,01 / 172,50 | **67,18 / 135,94 / 180,53** |
+> | Margem do antecipado se entregue | 77,93 / 136,15 / 169,16 | 77,92 / 136,14 / 169,15 (sem mudança real; R$ 0,01 de arredondamento do manuseio) |
+> | Recusa na porta (só COD) | R$ 9,99 | R$ 9,99 (sem mudança) |
+> | Devolução depois de entregue | COD R$ 86,56 · antecipado R$ 58,99 (R$ 25,00 até 09/10) | **COD R$ 30 · antecipado R$ 50** (valores fixos do operador) |
+> | Esperado por pedido, mix 70/30, 1 peça, recusa 17%, devolução 10% | — (R$ 52,03 em 21/09, com premissas velhas) | COD R$ 46,00 · antecipado R$ 65,13 · **mix R$ 51,74 (R$ 51,70 depois do WhatsApp)** |
+> | Equilíbrio de conversão | 3,47% / 3,58% (CPL R$ 1,25), "pendente de recálculo" desde 21/09 | **3,3% (CPL R$ 1,25) e 3,8% (CPL R$ 1,50)** = (CPL × 1,1383 + 0,27) ÷ 51,70 |
+>
+> Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Não recalculados nesta data (não valem como
+> atuais):** o "lucro por venda" de R$ 16,07 / R$ 44,41 / R$ 24,57 e a tabela de 02/10 (R$ 24,31 / R$ 49,50 / R$ 31,86), o pico R$ 752 e a
+> sobra R$ 323, e os cenários de lucro por dia — dependem da planilha `modelo-caixa-anuncios.xlsx`, ainda com os números antigos.
+
+> ### Atualização de 2026-10-09 — caixa do teste, manuseio R$ 5,00 e devolução completa (devolução, transação e margem do COD superadas por R27, 17/10)
 >
 > Respostas do operador de 2026-10-09; conta completa, prazos e fatura do cartão em
 > [`docs/operacao/taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e na planilha
@@ -36,7 +55,7 @@ entregue pelo operador em 2026-09-03.
 > segurança). O anúncio vence na fatura de 29/11, depois do primeiro repasse (08/11). Dobrar a verba falta R$ 430; antecipado
 > retido por 14 dias falta R$ 1.032. O parágrafo "A conta da reserva de L3 não fecha" da caixa de 02/10 está **superado**.
 
-> ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02)
+> ### Lucro por venda com o custo real — 1, 2 e 3 peças (2026-10-02) — histórico: margem do COD e devolução superadas por R27 (17/10)
 >
 > Premissas (plano do mês 1, [`10-execucao-mes-1.md`](../../agente-ia/05-plano/10-execucao-mes-1.md)
 > §7, e L3 itens 2 e 7 de [`09-pipeline-ate-producao.md`](../../agente-ia/05-plano/09-pipeline-ate-producao.md);
@@ -411,7 +430,7 @@ uma nova decisão do operador, sem justificativa registrada aqui além da decis�
 | Diferença de preço (conta do operador; a agente não diz) | R$ 13,00 | R$ 19,49 | **R$ 12,99** |
 | Contribuição do antecipado | R$ 76,24 | R$ 70,21 / R$ 45,22 (corrigido) | **R$ 51,27** |
 | Média com mix 70/30 | R$ 58,99 | R$ 57,18 / R$ 50,21 (corrigido) | **R$ 52,03** |
-| Equilíbrio (CPL R$ 1,25) | 3,47% | 3,58% | **pendente de recálculo** |
+| Equilíbrio (CPL R$ 1,25) | 3,47% | 3,58% | ~~**pendente de recálculo**~~ ✅ recalculado em 17/10 (R27) com a economia nova: **3,3%** (CPL R$ 1,25) e **3,8%** (CPL R$ 1,50); a coluna de 10% de desconto deixou de ser a base |
 
 Cenários de lucro/dia e 30 dias: **pendentes de recálculo** com os números vigentes — a
 fórmula original não está registrada aqui com detalhe suficiente para refazer com

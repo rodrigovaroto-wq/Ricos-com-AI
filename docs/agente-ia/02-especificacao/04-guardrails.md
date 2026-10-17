@@ -80,7 +80,7 @@ lista de datas é conteúdo mantido pelo operador, não lógica de código.
 **Gate do vazamento de desconto.** O desconto do toque 3 existe **só** no toque 3, **só**
 para quem silenciou por três dias, e **nunca** para quem já aceitou o preço cheio. Sem essa
 trava, o desconto migra para dentro da conversa normal e derruba a contribuição de todo
-mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de ~29%.
+mundo: com 15% off, o COD entregue cai de R$ 63,35 para ~R$ 45,23, uma queda de ~29% (conta de 2026-09; a margem é R$ 67,18 desde R27, 17/10, e esta queda não foi refeita).
 
 **Gate do preço antecipado.**
 
@@ -156,6 +156,6 @@ não recurso.
 
 ## Teto de custo como guardrail
 
-Com R$ 63,35 de margem por entrega paga, uma conversa que foge do controle come o lucro.
+Com R$ 67,18 de margem por entrega paga (R$ 63,35 até R27, 17/10), uma conversa que foge do controle come o lucro.
 Referência: DeskcommCRM → `inbound-turn.ts` :432 — ao estourar o teto, a conversa **vira
 handoff humano**, não degrada em silêncio nem continua gastando.

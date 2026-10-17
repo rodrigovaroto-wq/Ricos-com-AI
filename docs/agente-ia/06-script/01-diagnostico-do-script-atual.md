@@ -24,7 +24,7 @@ Encorpa sem reescrita:
 
 1. **Promete o que a operação não cumpre.** Entrega para o dia seguinte, frete grátis, 12x,
    R$ 119,90 — nenhum dos quatro corresponde à operação da Encorpa. Em COD, promessa quebrada
-   não vira reclamação: vira **recusa na porta**, o evento que custa R$ 14,98 a R$ 54,98 por
+   não vira reclamação: vira **recusa na porta**, o evento que custa ~~R$ 14,98~~ R$ 9,99 (desde 21/09, R10.2; confirmado em R27, 17/10) a R$ 54,98 por
    pedido ([`03-economia-cod.md`](../../documentacao/contexto-negocio/03-economia-cod.md)).
 2. **Nunca nomeia o medo de golpe.** A objeção dominante deste público não é preço — é medo de
    ser enganada. O script tem o melhor antídoto que existe (pagar na entrega) e o usa como
