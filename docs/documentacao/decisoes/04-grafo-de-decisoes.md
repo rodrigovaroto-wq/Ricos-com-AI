@@ -3274,8 +3274,8 @@ sem a saudação; (b) `recusado` e `perdido` recebem a saudação; (c) o "e aí?
 conta no 4a0 com um `payment_check` agendado, que dura minutos, não um dia; (d) o tipo `SupabaseRows` e a consulta do
 `hermes-run.ts` ainda trazem `welcomed_at`, que o placar não lê mais; (e) sem o `cancelScheduled` no ramo (a régua fica armada como
 rede se a retomada se perder), um toque vencido pode sair entre a saudação e a resposta se a varredura de 5 min cair nos ~5–10 s do
-intervalo — raro, e a resposta sai do mesmo jeito. Revisão independente: aprovado com resíduos. **Estado:** na branch
-`claude/quirky-fermi-gkyybh`, não publicado.
+intervalo — raro, e a resposta sai do mesmo jeito. Revisão independente: aprovado com resíduos. **Estado:** publicado em 2026-10-17 como agent_version 27 (PR #66, função turn v121);
+sonda pela porta do n8n respondeu.
 
 ## Lições (valem para qualquer correção futura)
 
