@@ -3223,6 +3223,18 @@ O portal lê a última rodada contra `conversations_seen`. Não muda gate, promp
 (`premiseCount`: repetido conta uma vez, nome fora do lote não conta, lista vazia é zero, campo ausente é nulo). **Estado:** na
 branch `claude/eager-bohr-qdxkov`; a migração 0027 precisa ser aplicada no banco antes da primeira rodada que grava a coluna.
 
+## 102. O e-mail de conversa não resolvida passa a mandar o operador ao portal (operador, 2026-10-17)
+
+**Sintoma:** o aviso "a Malu não conseguiu resolver sozinha" (Turno da agente) e o da régua diziam "não precisa responder no
+WhatsApp" e só saíam na passagem ao operador; a resposta pronta, que o portal também conta como "não resolvida", não avisava ninguém.
+Desde 16/10 o operador responde pelo portal (encorpa-portal, `api/chat.js`), que pausa a Malu na conversa com `handoff_at`.
+**Correção (operador):** o portal ganhou o workflow "Encorpa — Portal: conversa não resolvida" (cópia em `encorpa-portal/n8n/`):
+a cada 5 min, um e-mail por conversa que vira não resolvida pela regra do portal (passagem ou resposta pronta, sem compra), com o link
+da conversa no portal. Os dois nós "Avisa o operador" (Turno da agente e Relógio da régua) ficam **desligados** (`disabled`), para não
+mandar dois e-mails contraditórios do mesmo fato. Nada muda no turno, nos gates nem no prompt. **Caminho descartado:** reescrever o
+texto do e-mail antigo — ele não cobre a resposta pronta. **Guarda:** `pnpm dev:n8n` passa com os dois nós desligados; o teste do
+texto `$json.silenced ?` continua valendo sobre o arquivo. **Estado:** aplicado no n8n em 2026-10-17.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
