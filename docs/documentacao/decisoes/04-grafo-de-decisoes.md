@@ -3272,7 +3272,9 @@ sem `welcomed_at` continua recepção); mutações `G103-volta-de-madrugada`, `G
 `runGates(` em `order-stage.test.ts` de 6 para 7. **Resíduos:** (a) quem volta de madrugada recebe na abertura só a resposta guardada,
 sem a saudação; (b) `recusado` e `perdido` recebem a saudação; (c) o "e aí?"/"checou?" (`nudgesCheck`) não exclui a saudação — só
 conta no 4a0 com um `payment_check` agendado, que dura minutos, não um dia; (d) o tipo `SupabaseRows` e a consulta do
-`hermes-run.ts` ainda trazem `welcomed_at`, que o placar não lê mais. **Estado:** na branch
+`hermes-run.ts` ainda trazem `welcomed_at`, que o placar não lê mais; (e) sem o `cancelScheduled` no ramo (a régua fica armada como
+rede se a retomada se perder), um toque vencido pode sair entre a saudação e a resposta se a varredura de 5 min cair nos ~5–10 s do
+intervalo — raro, e a resposta sai do mesmo jeito. Revisão independente: aprovado com resíduos. **Estado:** na branch
 `claude/quirky-fermi-gkyybh`, não publicado.
 
 ## Lições (valem para qualquer correção futura)
