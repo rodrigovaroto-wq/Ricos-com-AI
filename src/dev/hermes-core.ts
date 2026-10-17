@@ -9,6 +9,7 @@
  */
 import { scoreRun, type Conversation, type Entry } from "./persona-scorecard.js";
 import { SYNTHETIC_PHONE_PREFIX } from "./persona-run-core.js";
+import { isReceipt } from "../agent/retry.js";
 
 /** LGPD: what leaves the database for a model is masked first — the supervisor needs the
  * sentence, never the phone, CPF, CEP or e-mail in it. */
@@ -67,9 +68,9 @@ const STATUS_OF: Record<string, string> = { send: "replied", fallback: "fallback
  * column, so the turn's outcome is joined here: the turn writes its message first and the
  * outcome right after (supabase/functions/turn/index.ts), so an outcome belongs to the
  * latest reply before it — and never to one from before the previous outcome, because
- * `deferred` and `stopped` write no message and must not take the last turn's. The welcome
- * is the first reply of a conversation with `welcomed_at`. Persona conversations
- * (SYNTHETIC_PHONE_PREFIX) are dropped: they are tests, not customers.
+ * `deferred` and `stopped` write no message and must not take the last turn's. A welcome is
+ * any reply whose text is a receipt (`isReceipt`): the Estágio 0 one and the return greeting.
+ * Persona conversations (SYNTHETIC_PHONE_PREFIX) are dropped: they are tests, not customers.
  */
 export function rowsToConversations(rows: SupabaseRows): { conversations: Conversation[]; leads: number } {
   const at = (s: string) => Date.parse(s);
@@ -86,7 +87,8 @@ export function rowsToConversations(rows: SupabaseRows): { conversations: Conver
       replies.push({ entry, t: at(m.created_at) });
       return entry;
     });
-    if (c.welcomed_at && replies[0]) replies[0].entry.status = "welcomed";
+    // By the text, not `welcomed_at` (grafo §103): the return greeting is a receipt too, and arm 1's opening is not.
+    for (const r of replies) if (isReceipt(r.entry.text ?? "")) r.entry.status = "welcomed";
     // A turn answers an inbound message: its reply is after the latest one she sent before
     // the outcome. Without this bound, a handoff that wrote no message (vetoed receipt, a
     // hold that failed) would take a ruler touch sent while she was silent.

@@ -3247,23 +3247,32 @@ resposta vem "em seguida", não no minuto da recepção). O n8n não muda: "É r
 sempre. Sai só quando: lead que já existe, mensagem de verdade (não retomada, nova tentativa nem revisão), sem toque de botão (o "Não"
 do opt-in tem a linha dele, §95), janela de envio aberta, sem `opted_out_at` nem `handoff_at` (o portal pausa com ele, §102), estágio
 antes da compra (`chasesSilence(stage, [])` — pedido_criado, em_rota, entregue_pago ficam de fora), a mensagem dela não é parada, pedido
-de pessoa nem recusa (os leitores de sempre: `classifyOptOutBurst`, `wantsHuman`, `declinesInBurst`), e a última mensagem da conversa
+de pessoa nem recusa (os leitores de sempre: `classifyOptOutBurst`, `wantsHuman`, `declinesInBurst`), nem pagamento ou "ok" seco
+(`saysPaid`, `isPaymentReceipt`, `asksPaymentStatus`, `isBareAck` — a retomada pula o 4a0 e a regra do "ok", então esses ficam com o
+turno de sempre: sem isso, um "paguei" no dia seguinte perdia `PAYMENT_CHECK_REPLY`, a linha `payment_check` e o cancelamento do
+`checkout_reminder`, e um "ok" virava resposta do modelo em vez de silêncio + régua), e a última mensagem da conversa
 antes desta, nos dois sentidos, é de um dia anterior em São Paulo (`onEarlierDay`, `Intl` com `America/Sao_Paulo`; lida por último,
 pelo `messages_conversation_idx`). Vetada pela cadeia, cai no turno de sempre. Junto: (1) `isReceipt` reconhece o texto, para a
 rajada dela atravessar a saudação até a última resposta de verdade (sem isso, "oi" + "tem G?" perdia o "oi" — a retomada dele fica
-`resume_moot`); (2) o `lastOutbound` do turno pula a saudação (limit 2): a retomada lia "Deseja continuar…" como a última pergunta,
+`resume_moot`); (2) o `lastOutbound` do turno pula a saudação no banco (`body=neq.`, limit 1 — o primeiro corte filtrava no código as 2
+últimas e duas saudações seguidas o deixavam vazio), e a trava de laço do pedido de pessoa (R22.1) lê com o mesmo filtro: a retomada lia "Deseja continuar…" como a última pergunta,
 e o "Qual o seu nome?"/"Qual o seu CEP?" de ontem — de que dependem nome, CEP, tamanho, leitura do endereço e o intérprete —
-sumia; (3) a régua é cancelada antes de responder, como o turno faz logo depois, para nenhum toque cair entre a saudação e a resposta.
+sumia; (3) o placar do Hermes (`rowsToConversations`) marca a recepção pelo texto (`isReceipt`), não por `welcomed_at`: a saudação da
+volta é recepção, e a abertura do braço 1 do experimento A deixa de ser rotulada `welcomed`. O primeiro corte cancelava a régua dentro
+do ramo; a revisão tirou: a retomada já cancela, e se a retomada se perder a régua armada é o que ainda chega nela.
 **Caminhos descartados:** mandar a saudação de madrugada — a resposta de quem volta fora da janela fica guardada para a abertura
 (`deferred_reply`), e "Deseja continuar…" às 3 h seguido de horas de silêncio lê como ignorada; uma coluna nova em vez de reusar
 `welcomed_at` — nenhum leitor depende do valor antigo (a retomada compara com `last_outbound_at`; as views não leem a coluna; o Hermes
 só lê se é nula); uma regex nova para "pare"/"não quero" — os leitores do turno já são os que valem. **Guarda:**
 `tests/return-greeting.test.ts` (texto exato e limpo na cadeia; `onEarlierDay` com 23:50→00:10, mesmo dia, meia-noite UTC no mesmo
-dia de São Paulo, nulo, futuro; os leitores que vetam; a fiação do ramo e do `lastOutbound`); mutações `G103-volta-de-madrugada` e
-`G103-ultima-da-agente` (pegas, aplicadas à mão — `verificar:guardas` exige commit); contagem de `runGates(` em `order-stage.test.ts`
-de 6 para 7. **Resíduos:** (a) quem volta de madrugada recebe na abertura só a resposta guardada, sem a saudação; (b) no braço 1 do
-experimento A (sem recepção), a volta grava `welcomed_at` e o `rowsToConversations` do Hermes passa a rotular a primeira resposta
-daquela conversa como `welcomed` — só rótulo do placar offline; (c) `recusado` e `perdido` recebem a saudação. **Estado:** na branch
+dia de São Paulo, nulo, futuro; os leitores que vetam, "paguei" e "ok" incluídos; a fiação do ramo, do `lastOutbound` com duas
+saudações seguidas e da trava do pedido de pessoa); `tests/hermes-core.test.ts` (a volta é recepção, a abertura do braço 1 não, recepção
+sem `welcomed_at` continua recepção); mutações `G103-volta-de-madrugada`, `G103-pagamento-e-ok`, `G103-ultima-da-agente` e
+`hermes-fonte-boas-vindas` (atualizada) — todas pegas, aplicadas à mão (`verificar:guardas` exige árvore commitada); contagem de
+`runGates(` em `order-stage.test.ts` de 6 para 7. **Resíduos:** (a) quem volta de madrugada recebe na abertura só a resposta guardada,
+sem a saudação; (b) `recusado` e `perdido` recebem a saudação; (c) o "e aí?"/"checou?" (`nudgesCheck`) não exclui a saudação — só
+conta no 4a0 com um `payment_check` agendado, que dura minutos, não um dia; (d) o tipo `SupabaseRows` e a consulta do
+`hermes-run.ts` ainda trazem `welcomed_at`, que o placar não lê mais. **Estado:** na branch
 `claude/quirky-fermi-gkyybh`, não publicado.
 
 ## Lições (valem para qualquer correção futura)

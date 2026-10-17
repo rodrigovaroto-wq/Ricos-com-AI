@@ -2430,7 +2430,8 @@ const handleTurn = async (
   // 2c-bis. She comes back on a later day (operator, 2026-10-17, grafo §103): "Oii, tudo bem? Deseja continuar com seu
   // pedido?", then the reply she would get anyway — the receipt's own contract, so n8n's resume writes it. Inside the send
   // window only: at night her reply waits for the opening, and the question with nothing after it reads as ignored. Never
-  // to a tap on a button, to a lead out or with the operator, after a purchase, or over a stop, a person or a no.
+  // to a tap on a button, to a lead out or with the operator, after a purchase, or over a stop, a person or a no. Nor over
+  // a payment ("paguei", a receipt, "caiu?") or a bare "ok": the resume skips 4a0 and the "ok" rule, and those answer as today.
   // Read last: the newest message before this one, either direction. Index: messages_conversation_idx, read backwards.
   const spokenNow = spoken(inbound.body ?? "");
   if (
@@ -2447,6 +2448,10 @@ const handleTurn = async (
     classifyOptOutBurst([spokenNow]) === "none" &&
     !wantsHuman(spokenNow) &&
     !declinesInBurst([spokenNow]) &&
+    !saysPaid(spokenNow) &&
+    !isPaymentReceipt(spokenNow) &&
+    !asksPaymentStatus(spokenNow) &&
+    !isBareAck([spokenNow]) &&
     onEarlierDay(
       (await db(`messages?conversation_id=eq.${conversation.id}&id=neq.${inboundId}&select=created_at&order=created_at.desc&limit=1`).catch(() => null))?.[0]?.created_at ?? null,
       new Date(),
@@ -2463,8 +2468,7 @@ const handleTurn = async (
     await recordTraces(conversation.id, back.traces);
     // Vetoed, it falls through: she still gets her reply, without the greeting.
     if (passed(back)) {
-      // She answered: no ruler touch may land between the greeting and the reply.
-      await cancelScheduled(conversation.id, "keep_checkout");
+      // The ruler stays armed: the resume cancels it, and if the resume is lost it is what still reaches her.
       const out = (
         await db("messages", {
           method: "POST",
@@ -2814,7 +2818,7 @@ const handleTurn = async (
   // An exact phrase: read message by message, or "oi" + "quero falar com atendente" misses it.
   // The second time in a row the same line would be a loop: the model answers instead (R22.1).
   if (parts.some(wantsHuman)) {
-    const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1`).catch(() => null);
+    const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1&body=neq.${encodeURIComponent(RETURN_GREETING)}`).catch(() => null);
     if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
   }
 
@@ -3123,9 +3127,9 @@ const handleTurn = async (
     (
       await db(
         `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound` +
-          "&select=body&order=created_at.desc&limit=2",
+          "&select=body&order=created_at.desc&limit=1" + `&body=neq.${encodeURIComponent(RETURN_GREETING)}`,
       ).catch(() => null)
-    )?.find((m: { body: string | null }) => m.body !== RETURN_GREETING)?.body ?? "";
+    )?.[0]?.body ?? "";
 
   // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
   // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires

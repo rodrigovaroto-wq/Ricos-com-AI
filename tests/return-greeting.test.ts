@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { classifyOptOutBurst, runGates, wantsHuman } from "@/agent/guardrails.js";
-import { declinesInBurst } from "@/agent/interpret.js";
+import { asksPaymentStatus, declinesInBurst, isBareAck, isPaymentReceipt, saysPaid } from "@/agent/interpret.js";
 import {
   isReceipt,
   onEarlierDay,
@@ -80,11 +80,19 @@ describe("os leitores que vetam a volta já pegam o que ela não quer ouvir", ()
     expect(wantsHuman("quero falar com uma pessoa")).toBe(true);
     expect(declinesInBurst(["não quero mais, obrigada"])).toBe(true);
   });
+  it("pagamento e 'ok' seco ficam com o turno de sempre: a retomada pula o 4a0 e a regra do 'ok' (revisão de 315d04c)", () => {
+    expect(saysPaid("paguei")).toBe(true);
+    expect(isPaymentReceipt("[imagem: comprovante de pagamento Pix]")).toBe(true);
+    expect(asksPaymentStatus("meu pagamento caiu?")).toBe(true);
+    expect(isBareAck(["ok"])).toBe(true);
+  });
   it("negação: um 'oi' e uma pergunta seguem para a volta", () => {
     for (const t of ["oi", "Bom dia! ainda tem o G?"]) {
       expect(classifyOptOutBurst([t])).toBe("none");
       expect(wantsHuman(t)).toBe(false);
       expect(declinesInBurst([t])).toBe(false);
+      expect(saysPaid(t) || isPaymentReceipt(t) || asksPaymentStatus(t)).toBe(false);
+      expect(isBareAck([t])).toBe(false);
     }
   });
 });
@@ -112,6 +120,16 @@ describe("index.ts: o ramo da volta", () => {
     expect(branch).toContain('classifyOptOutBurst([spokenNow]) === "none" &&\n    !wantsHuman(spokenNow) &&\n    !declinesInBurst([spokenNow]) &&');
   });
 
+  it("nunca sobre 'paguei', comprovante, pergunta do pagamento ou 'ok' seco — os leitores do 4a0 e da regra do 'ok'", () => {
+    expect(branch).toContain(
+      "!saysPaid(spokenNow) &&\n    !isPaymentReceipt(spokenNow) &&\n    !asksPaymentStatus(spokenNow) &&\n    !isBareAck([spokenNow]) &&",
+    );
+  });
+
+  it("não cancela a régua: a retomada cancela; se a retomada se perder, a régua é a rede", () => {
+    expect(branch).not.toContain("cancelScheduled");
+  });
+
   it("a última mensagem antes desta, nos dois sentidos, é de um dia anterior — lida por último, pelo índice da conversa", () => {
     expect(branch).toContain(
       "onEarlierDay(\n      (await db(`messages?conversation_id=eq.${conversation.id}&id=neq.${inboundId}&select=created_at&order=created_at.desc&limit=1`).catch(() => null))?.[0]?.created_at ?? null,",
@@ -129,9 +147,23 @@ describe("index.ts: o ramo da volta", () => {
     expect(branch).toContain("resumeInSeconds: RETURN_RESUME_DELAY_SECONDS,");
   });
 
-  it("a retomada lê a última mensagem da agente antes da volta: 'Qual o seu nome?' de ontem continua sendo a pergunta", () => {
+  // O banco filtra a saudação (body=neq.), e não o código sobre as 2 últimas: duas saudações seguidas (retomada perdida,
+  // volta no outro dia) deixavam o `lastOutbound` vazio.
+  const notGreeting = "&body=neq.${encodeURIComponent(RETURN_GREETING)}";
+  it("a retomada lê a última mensagem da agente antes da volta, mesmo depois de duas saudações seguidas", () => {
     expect(turn).toContain(
-      '"&select=body&order=created_at.desc&limit=2",\n      ).catch(() => null)\n    )?.find((m: { body: string | null }) => m.body !== RETURN_GREETING)?.body ?? "";',
+      '"&select=body&order=created_at.desc&limit=1" + `' + notGreeting + '`,\n      ).catch(() => null)\n    )?.[0]?.body ?? "";',
+    );
+    expect(turn).not.toContain("m.body !== RETURN_GREETING");
+    // O que o filtro faz no banco, sobre o histórico com duas saudações: sobra a pergunta de ontem.
+    const newestFirst = [RETURN_GREETING, RETURN_GREETING, "Qual o seu nome completo?", "Oi! Aqui é a Malu."];
+    expect(newestFirst.filter((b) => b !== RETURN_GREETING)[0]).toBe("Qual o seu nome completo?");
+    expect(decodeURIComponent(encodeURIComponent(RETURN_GREETING))).toBe(RETURN_GREETING);
+  });
+
+  it("a trava de laço do pedido de pessoa (R22.1) lê a mesma última mensagem que o handoffKind", () => {
+    expect(turn).toContain(
+      "const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1" + notGreeting + "`).catch(() => null);",
     );
   });
 });
