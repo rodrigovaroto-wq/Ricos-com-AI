@@ -2219,6 +2219,6 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   - **Equilíbrio de conversão** = (CPL × 1,1383 + 0,27) ÷ 51,70: **3,3% com CPL R$ 1,25** e **3,8% com CPL R$ 1,50** (cálculo
     conferido em 17/10). Substitui os 3,47% / 3,58% antigos, que já estavam velhos desde 21/09.
   - **Teste de tráfego, fase Copy: 5 criativos, não 6** (operador, 2026-10-17).
-  - **Pendente (não feito nesta rodada):** a planilha `docs/operacao/modelo-caixa-anuncios.xlsx` (binário) continua com os números
-    antigos — ver a lista no grafo §104 — e, por isso, o **pico de caixa R$ 752 e a sobra R$ 323** do R19.1, calculados com a devolução
-    de R$ 86,56 / R$ 58,99 e a transação sobre o preço cheio, **não foram recalculados** e não valem como atuais.
+  - **Planilha refeita no mesmo dia** (`docs/operacao/modelo-caixa-anuncios.xlsx`): transação sobre a comissão, devolução fechada
+    R$ 30 / R$ 50 sobre os entregues. Resultado: **pico de caixa R$ 571 (07/11), sobra R$ 504** sobre R$ 1.075 (eram R$ 752 / R$ 323);
+    lucro por venda COD R$ 26,18 · antecipado R$ 45,31 · mix R$ 31,92; dobrar a verba falta R$ 66 (era R$ 430).

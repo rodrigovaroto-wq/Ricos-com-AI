@@ -18,14 +18,10 @@ Docs x Fontes, Perguntas). Se este texto e a planilha divergirem, vale a planilh
 > 70/30: **R$ 51,74** (R$ 51,70 depois do WhatsApp); equilíbrio de conversão **3,3% (CPL R$ 1,25) / 3,8% (CPL R$ 1,50)**. Conta completa
 > em [`03-decisoes-tomadas.md` §R27](../documentacao/decisoes/03-decisoes-tomadas.md) e grafo §104.
 >
-> **Não verificado nesta sessão / pendente:** o **pico R$ 752, a sobra R$ 323, o dia 90 e a tabela de sensibilidade** das seções 1 e 2,
-> o "lucro esperado por venda" (R$ 24,57) e o "total adiantado" (R$ 66,56) foram calculados com a devolução antiga e a transação sobre
-> o preço cheio; **são do R19.1 (09/10) e não valem como atuais** até a planilha ser refeita. A planilha `modelo-caixa-anuncios.xlsx`
-> (binário, não editada) guarda os números antigos em: aba **Premissas** B32 (6,99% "do preço"), B40 (frete de retorno R$ 45) e B41
-> (retorno R$ 50); aba **Taxas antecipadas** C8/F8 (transação R$ 11,57 "sobre o preço"), C11 (devolução COD R$ 86,56) e C13 (devolução
-> antecipado R$ 58,99); as fórmulas de pico e sobra nas abas **Resumo** e **Fluxo diário**, que leem essas células; e os textos de apoio
-> das abas **Docs x Fontes** e **Taxas antecipadas** ("6,99% × preço", "operador: sobre o preço") — a própria aba Docs x Fontes já
-> registrava que a Central Logzz diz "sobre o valor da comissão".
+> **Planilha refeita em 17/10 (R27):** `modelo-caixa-anuncios.xlsx` agora calcula a transação sobre a comissão (Premissas B32, Unitário B6),
+> usa a devolução fechada de R$ 30 no COD (Premissas B40) e R$ 50 no antecipado (B41), com as taxas já incluídas (B62 = 0) e só sobre os
+> pedidos entregues; recalculada sem erro (2.551 fórmulas). Ela dá os mesmos números do portal: COD entregue R$ 67,18, esperado R$ 46,00 no
+> COD e R$ 65,13 no antecipado, mix R$ 51,74. As seções 1 e 2 abaixo saem dela (antes: pico R$ 752, sobra R$ 323, lucro por venda R$ 24,57).
 
 ## 1. Resultado para o teste de L3
 
@@ -39,35 +35,35 @@ sobravam dos R$ 2.000, e a diferença sai do repasse.
 |---|---:|
 | Leads e pedidos criados | 467 leads e 47 pedidos (33 COD e 14 antecipado) |
 | Piso de amostra (mais de 500 leads e 50 pedidos) | **Abaixo do piso** |
-| **Pico de caixa necessário** (07/11, antes do 1º repasse em 08/11) | **R$ 752** |
-| **Sobra** sobre os R$ 1.075 utilizáveis | **R$ 323** |
-| Caixa acumulado volta a zero | 12/11 |
-| Caixa acumulado no dia 90 (21/01/2027) | R$ 1.032 |
+| **Pico de caixa necessário** (07/11, antes do 1º repasse em 08/11) | **R$ 571** |
+| **Sobra** sobre os R$ 1.075 utilizáveis | **R$ 504** |
+| Caixa acumulado volta a zero | 11/11 |
+| Caixa acumulado no dia 90 (21/01/2027) | R$ 1.375 |
 | Fatura da Meta (R$ 700 + 13,83% de imposto) | R$ 797 (R$ 740 vence 29/11 com saque em 27/11; R$ 57 vence 29/12) |
-| Lucro esperado por venda no mix 70/30 | R$ 24,57 (R$ 26,65 sem o imposto da Meta) |
-| Escala que o caixa sustenta | 1,4× (dobrar a verba falta R$ 430) |
+| Lucro esperado por venda no mix 70/30 | R$ 31,92 (COD R$ 26,18, antecipado R$ 45,31; R$ 33,99 sem o imposto da Meta) |
+| Escala que o caixa sustenta | 1,9× (dobrar a verba falta R$ 66) |
 
 O pico acontece **antes** de qualquer repasse: é produto, taxas e frete que saem do saldo de expedição enquanto o
 COD ainda não liberou (D+2 de entrega + 14 dias = 16 dias). A fatura do cartão só vence depois do primeiro repasse,
-então o anúncio é financiado pelas vendas. Se ele fosse pago no dia do gasto, o pico seria R$ 1.549.
+então o anúncio é financiado pelas vendas. Se ele fosse pago no dia do gasto, o pico seria R$ 1.368.
 
 ## 2. Sensibilidade (pico / sobra / caixa no dia 90)
 
 | Cenário | Pico | Sobra | Dia 90 |
 |---|---:|---:|---:|
-| Base | R$ 752 | R$ 323 | R$ 1.032 |
-| Frete de retorno R$ 30 | R$ 717 | R$ 358 | R$ 1.102 |
-| Frete de retorno R$ 60 | R$ 787 | R$ 288 | R$ 962 |
-| Devolução sem perder as taxas já pagas | R$ 689 | R$ 386 | R$ 1.158 |
-| Transação COD abatida do repasse | R$ 475 | R$ 600 | R$ 1.032 |
-| Sem o imposto da Meta | R$ 752 | R$ 323 | R$ 1.129 |
-| Recusa 12% e devolução 5% | R$ 767 | R$ 308 | R$ 1.492 |
-| CPL R$ 1,25 (56 pedidos, passa o piso) | R$ 903 | R$ 172 | R$ 1.420 |
-| CPL R$ 1,35 (52 pedidos, passa o piso) | R$ 836 | R$ 239 | R$ 1.248 |
-| CPL R$ 1,75 (40 pedidos, abaixo do piso) | R$ 645 | R$ 430 | R$ 754 |
-| CPL R$ 2,00 e conversão 7% (24 pedidos, abaixo do piso) | R$ 395 | R$ 680 | R$ 80 |
-| Liberação do COD em 30 dias | R$ 1.057 | R$ 18 | R$ 1.032 |
-| Dobrar a verba (R$ 1.400) | R$ 1.505 | −R$ 430 | R$ 2.178 |
+| Base | R$ 571 | R$ 504 | R$ 1.375 |
+| Transação COD abatida do repasse | R$ 384 | R$ 691 | R$ 1.375 |
+| Sem o imposto da Meta | R$ 571 | R$ 504 | R$ 1.472 |
+| Recusa 12% e devolução 5% | R$ 621 | R$ 454 | R$ 1.714 |
+| CPL R$ 1,25 (56 pedidos, passa o piso) | R$ 685 | R$ 390 | R$ 1.832 |
+| CPL R$ 1,35 (52 pedidos, passa o piso) | R$ 634 | R$ 441 | R$ 1.629 |
+| CPL R$ 1,75 (40 pedidos, abaixo do piso) | R$ 489 | R$ 586 | R$ 1.048 |
+| CPL R$ 2,00 e conversão 7% (24 pedidos, abaixo do piso) | R$ 300 | R$ 775 | R$ 260 |
+| Liberação do COD em 30 dias | R$ 765 | R$ 310 | R$ 1.375 |
+| Dobrar a verba (R$ 1.400) | R$ 1.141 | −R$ 66 | R$ 2.864 |
+
+Recalculada em 17/10 (R27) na própria planilha, cenário a cenário. As linhas de "frete de retorno R$ 30 / R$ 60" e "devolução sem perder as
+taxas" saíram: desde o R27 a devolução é um valor fechado do operador.
 | Antecipado retido 14 dias | R$ 2.107 | −R$ 1.032 | R$ 1.032 |
 
 Menos recusa e devolução **aumentam** o pico (mais pedidos entregues, mais custo adiantado) e o lucro; CPL melhor também (mais pedidos).

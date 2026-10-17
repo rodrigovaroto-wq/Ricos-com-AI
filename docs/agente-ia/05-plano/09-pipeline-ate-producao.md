@@ -167,7 +167,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    > **Reserva reconciliada em 2026-10-09 (operador):** caixa de **R$ 1.325** com **R$ 250 de segurança** (R$ 1.075 utilizáveis). Para a verba
    > acima o **pico de caixa é R$ 752** (07/11, antes do 1º repasse em 08/11) e **sobram R$ 323**. Produto e taxas do COD saem do
    > **saldo de expedição** (resolve "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99 + R$ 5,00; devolução = frete de
-   > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD) — **superado em 17/10 (R27): devolução R$ 30 no COD e R$ 50 no antecipado; margem do COD entregue R$ 67,18; pico e sobra aqui não foram recalculados**. Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
+   > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD) — **superado em 17/10 (R27): devolução R$ 30 no COD e R$ 50 no antecipado; margem do COD entregue R$ 67,18; recalculados na planilha: pico R$ 571, sobra R$ 504**. Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
    > (fatura fecha dia 22, vence dia 29). Detalhe em [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em
    > [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
 3. **O** — handoff: o operador responde o mais rápido que conseguir, das 06:00 às 00:00. Fora disso
