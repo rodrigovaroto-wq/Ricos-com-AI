@@ -136,7 +136,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
 
    | Fase | Dias | Verba | Estrutura |
    |---|---|---|---|
-   | Copy | 1–7 | R$ 350, R$ 50/dia (operador, 2026-10-09; ~~R$ 375 em 5 dias~~, ~~R$ 300~~, ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, 6 vídeos (6 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
+   | Copy | 1–7 | R$ 350, R$ 50/dia (operador, 2026-10-09; ~~R$ 375 em 5 dias~~, ~~R$ 300~~, ~~R$ 400, R$ 80/dia~~) | 1 conjunto aberto no Brasil, mulheres de 18 a 55, ~~6 vídeos (6 ganchos/formatos~~ **5 criativos** (operador, 2026-10-17, R27; 5 ganchos/formatos, 1 por criativo, copy sem nada além do que a agente sabe) |
    | Região | 10–16 (depois de 2 dias de pausa) | R$ 350, R$ 50/dia (operador, 2026-10-09; ~~R$ 300 em 5 dias~~, ~~R$ 200~~, ~~R$ 400, R$ 40/dia por conjunto~~) | só as 2 copies vencedoras, mesmo post. **A** = todos os estados com mais de 5 cidades atendidas pelo pagamento na entrega; **B** = Sudeste + Centro-Oeste + Sul |
    | Leitura | 17–18 (assumido, 2 dias como antes) | R$ 0 | os pedidos na entrega dos últimos dias chegam à porta |
 
@@ -167,7 +167,7 @@ Três conversas reais, feitas pelo operador ou por alguém de confiança, pelo W
    > **Reserva reconciliada em 2026-10-09 (operador):** caixa de **R$ 1.325** com **R$ 250 de segurança** (R$ 1.075 utilizáveis). Para a verba
    > acima o **pico de caixa é R$ 752** (07/11, antes do 1º repasse em 08/11) e **sobram R$ 323**. Produto e taxas do COD saem do
    > **saldo de expedição** (resolve "do caixa ou da comissão?"); manuseio R$ 5,00; recusa R$ 9,99 = R$ 4,99 + R$ 5,00; devolução = frete de
-   > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD). Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
+   > retorno (R$ 30–60) + manuseio + taxas já pagas (R$ 86,56 no COD) — **superado em 17/10 (R27): devolução R$ 30 no COD e R$ 50 no antecipado; margem do COD entregue R$ 67,18; pico e sobra aqui não foram recalculados**. Anúncio, API de IA, WhatsApp, PikaPods e número saem no **cartão**
    > (fatura fecha dia 22, vence dia 29). Detalhe em [`taxas-antecipadas-cod.md`](../../operacao/taxas-antecipadas-cod.md) e em
    > [`modelo-caixa-anuncios.xlsx`](../../operacao/modelo-caixa-anuncios.xlsx).
 3. **O** — handoff: o operador responde o mais rápido que conseguir, das 06:00 às 00:00. Fora disso

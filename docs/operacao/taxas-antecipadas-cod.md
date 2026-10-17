@@ -9,6 +9,24 @@ Docs x Fontes, Perguntas). Se este texto e a planilha divergirem, vale a planilh
 > e que a devolução custa **frete de retorno + manuseio**, mais as taxas já pagas, que não voltam.
 > A recusa continua em R$ 9,99, agora lida como **R$ 4,99 (entrega frustrada) + R$ 5,00 (manuseio)**.
 
+> ### ⚠️ Atualização de 2026-10-17 (R27) — a transação e a devolução deste documento estão superadas; o caixa NÃO foi recalculado
+>
+> O operador confirmou (15 e 17/10) a economia da Central Logzz: a transação do COD é **6,99% da comissão** + R$ 2,49 (não do preço
+> cheio), o que dá margem do COD entregue de **R$ 67,18 / 135,94 / 180,53** (1 / 2 / 3 peças) e transação de **R$ 7,73** em 1 peça (era
+> R$ 11,57). A devolução depois de entregue passa a ser **−R$ 30 no COD e −R$ 50 no antecipado** (valores fixos do operador), no lugar dos
+> R$ 86,56 e R$ 58,99 das seções 3 e 4. Recusa R$ 9,99 e antecipado R$ 77,92 / 136,14 / 169,15 não mudaram. Esperado por pedido no mix
+> 70/30: **R$ 51,74** (R$ 51,70 depois do WhatsApp); equilíbrio de conversão **3,3% (CPL R$ 1,25) / 3,8% (CPL R$ 1,50)**. Conta completa
+> em [`03-decisoes-tomadas.md` §R27](../documentacao/decisoes/03-decisoes-tomadas.md) e grafo §104.
+>
+> **Não verificado nesta sessão / pendente:** o **pico R$ 752, a sobra R$ 323, o dia 90 e a tabela de sensibilidade** das seções 1 e 2,
+> o "lucro esperado por venda" (R$ 24,57) e o "total adiantado" (R$ 66,56) foram calculados com a devolução antiga e a transação sobre
+> o preço cheio; **são do R19.1 (09/10) e não valem como atuais** até a planilha ser refeita. A planilha `modelo-caixa-anuncios.xlsx`
+> (binário, não editada) guarda os números antigos em: aba **Premissas** B32 (6,99% "do preço"), B40 (frete de retorno R$ 45) e B41
+> (retorno R$ 50); aba **Taxas antecipadas** C8/F8 (transação R$ 11,57 "sobre o preço"), C11 (devolução COD R$ 86,56) e C13 (devolução
+> antecipado R$ 58,99); as fórmulas de pico e sobra nas abas **Resumo** e **Fluxo diário**, que leem essas células; e os textos de apoio
+> das abas **Docs x Fontes** e **Taxas antecipadas** ("6,99% × preço", "operador: sobre o preço") — a própria aba Docs x Fontes já
+> registrava que a Central Logzz diz "sobre o valor da comissão".
+
 ## 1. Resultado para o teste de L3
 
 Verba: **7 dias de anúncio a R$ 50/dia na Copy (R$ 350), 2 dias de pausa e 7 dias a R$ 50/dia na Região (R$ 350) = R$ 700**, a partir de
@@ -65,11 +83,11 @@ para "em separação" (assumido 1 dia após o pedido; se o saldo acaba, o pedido
 | Produto | R$ 30,00 por peça | "Em separação" (após a venda) | Saldo de expedição | Volta ao estoque, sem perda |
 | Entrega concluída | R$ 19,99 | "Em separação" | Saldo de expedição | Estornada se a entrega falha |
 | Manuseio | R$ 5,00 | "Em separação" | Saldo de expedição | Fica (recusa e devolução) |
-| Transação (6,99% do preço + R$ 2,49 antifraude) | R$ 11,57 | Antes do repasse | Valor em caixa | Volta na recusa; **não volta na devolução** |
-| **Total adiantado por pedido** | **R$ 66,56** | | | |
+| Transação (~~6,99% do preço + R$ 2,49 antifraude~~ → **6,99% da comissão + R$ 2,49 antifraude, R27 17/10**) | ~~R$ 11,57~~ **R$ 7,73** | Antes do repasse | Valor em caixa | Volta na recusa; **não volta na devolução** |
+| **Total adiantado por pedido** | **R$ 66,56** (R19.1, 09/10; com a transação de R$ 7,73 seria R$ 62,72 — não conferido contra a planilha) | | | |
 | Entrega frustrada | R$ 4,99 | Na recusa (~D+2) | Caixa | Só existe na recusa |
 | **Custo total da recusa** | **R$ 9,99** | ~D+2 | Caixa | Logística e transação voltam |
-| **Custo total da devolução** | **R$ 86,56** | Produto chega ao centro (~D+9) | Caixa | Frete de retorno R$ 45 (faixa R$ 30–60) + manuseio R$ 5 + taxas já pagas (entrega R$ 19,99, manuseio R$ 5, transação R$ 11,57) |
+| **Custo total da devolução** | ~~R$ 86,56~~ **R$ 30,00 (R27, 17/10)** | Produto chega ao centro (~D+9) | Caixa | Frete de retorno R$ 45 (faixa R$ 30–60) + manuseio R$ 5 + taxas já pagas (entrega R$ 19,99, manuseio R$ 5, transação R$ 11,57) |
 
 Liberação do dinheiro do COD: **14 dias** a partir do pagamento do cliente (Pix ou cartão), que acontece na entrega.
 Sem antecipação do recebível (a Logzz cobraria 4,99%).
@@ -82,7 +100,7 @@ Sem antecipação do recebível (a Logzz cobraria 4,99%).
 | Manuseio | R$ 5,00 | "Em separação", do saldo de expedição | Na devolução não volta |
 | Taxa Mercado Pago | R$ 3,99 | Descontada na entrada | 50% Pix (0,99% + R$ 1,00) e 50% cartão à vista (4,98%); parcelado conta como à vista; não volta no estorno |
 | Entrega concluída | — | Não existe no antecipado | Suporte Logzz/Coinzz, 29/09 |
-| **Custo total da devolução** | **R$ 58,99** | Produto chega ao centro (~D+9) | Frete R$ 45 + manuseio de retorno R$ 5 + manuseio original R$ 5 + taxa do Mercado Pago R$ 3,99; o preço é devolvido à cliente |
+| **Custo total da devolução** | ~~R$ 58,99~~ **R$ 50,00 (R27, 17/10)** | Produto chega ao centro (~D+9) | Frete R$ 45 + manuseio de retorno R$ 5 + manuseio original R$ 5 + taxa do Mercado Pago R$ 3,99; o preço é devolvido à cliente |
 
 O dinheiro do antecipado está disponível **na hora** (operador, no site e na conta, 2026-10-09).
 
@@ -109,7 +127,7 @@ entrega do COD em 2 dias (D+1 a D+3), produto devolvido chega em 7 dias sem perd
 ## 7. O que ainda não está confirmado
 
 1. Imposto da Meta (13,83%): o operador "não sabe", disse para assumir que aparece. Conferir na 1ª fatura.
-2. Frete de retorno real (modelo usa R$ 45, meio da faixa R$ 30–60). Medir nas primeiras devoluções.
+2. ~~Frete de retorno real (modelo usa R$ 45, meio da faixa R$ 30–60). Medir nas primeiras devoluções.~~ Superado em 17/10 (R27): o operador fixou a devolução em R$ 30 (COD) e R$ 50 (antecipado); medir nas primeiras devoluções continua valendo para confirmar.
 3. Transação do COD: o operador confirmou que sai antes do repasse; o momento exato (pedido ou separação) é assumido.
 4. **Piso de amostra.** mais de 500 leads e mais de 50 pedidos. Com R$ 700 (R$ 50/dia por 7 dias em cada fase) e CPL R$ 1,50 saem 467 leads e 47 pedidos: **abaixo do piso**. Passa só com CPL abaixo de ~R$ 1,40 (CPL R$ 1,35: 519 leads e 52 pedidos, pico R$ 836, sobra R$ 239; CPL R$ 1,25: 560 leads e 56 pedidos, pico R$ 903, sobra R$ 172); com CPL R$ 1,75 são 400 leads e 40 pedidos. O operador confirmou em 2026-10-09 que o plano de 7 dias a R$ 50/dia
    (R$ 700) e o caixa de R$ 1.325 substituem a verba e o caixa de L3 (R$ 500 e R$ 1.500); ver

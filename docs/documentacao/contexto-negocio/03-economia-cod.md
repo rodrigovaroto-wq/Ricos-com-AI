@@ -8,7 +8,14 @@ por conversa, quando escalar para humano, quanto insistir num follow-up — se m
 Este arquivo traz a **unidade econômica medida da operação**. A projeção de volume, CPL e
 metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 
-> ### ⚠️ Atualização de 2026-10-09 — valores vigentes
+> ### ⚠️ Atualização de 2026-10-17 (R27) — margem do COD e devolução mudam
+>
+> Pela Central Logzz, a transação é **6,99% da comissão** + R$ 2,49, não do preço cheio: **entrega paga = + R$ 67,18** (1 peça; 135,94
+> com 2 e 180,53 com 3), no lugar dos R$ 63,35 abaixo. Recusa **−R$ 9,99** (o valor vigente; ver as notas de 09/10 e 29/09 abaixo
+> sobre R$ 9,90) e devolução depois de entregue **−R$ 30** no COD (era R$ 86,56). Esperado por pedido no mix 70/30: R$ 51,74. Fonte
+> única dos números: [`03-decisoes-tomadas.md` §R27](../decisoes/03-decisoes-tomadas.md), grafo §104.
+
+> ### ⚠️ Atualização de 2026-10-09 — valores vigentes (devolução superada por R27, 17/10)
 >
 > Manuseio **R$ 5,00**; recusa **R$ 9,99** (R$ 4,99 de entrega frustrada + R$ 5,00 de manuseio); devolução = frete de retorno
 > (R$ 30–60) + manuseio + taxas já pagas que não voltam. A conta vigente está em
@@ -37,7 +44,7 @@ metas do canal está em [`06-modelo-economico.md`](06-modelo-economico.md).
 
 | Evento | Resultado |
 |---|---|
-| Entrega concluída e paga | **+ R$ 63,35** |
+| Entrega concluída e paga | ~~**+ R$ 63,35**~~ **+ R$ 67,18** (R27, 17/10) |
 | Entrega recusada, com `Físico na entrega` ativo (o entregador cobra) | **− R$ 9,99** |
 | Entrega recusada, pós-pago (entrega-depois-cobra) | **− R$ 54,98** |
 
@@ -54,7 +61,7 @@ acima.
 1. **A recusa na porta é o evento mais caro**, e acontece *depois* de tudo parecer ter
    dado certo. A dúvida que vira recusa nasce nas primeiras horas após o pedido, quando
    o entusiasmo passa e sobra "será que isso é sério?".
-2. **Custo de IA sai da margem.** Com R$ 63,35 por entrega paga, uma conversa que gasta
+2. **Custo de IA sai da margem.** Com R$ 67,18 por entrega paga (R$ 63,35 até 17/10, R27), uma conversa que gasta
    R$ 3 em modelo já comeu quase 5% do lucro. Teto por conversa não é refinamento.
 3. **Errar tamanho ou endereço é caro duas vezes** — frete perdido e produto perdido.
    Recomendação de tamanho não deveria ser improviso do modelo.

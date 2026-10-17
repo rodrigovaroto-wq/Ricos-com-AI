@@ -339,4 +339,4 @@ Referência: DeskcommCRM → `before-send.ts` :694–701 (`GateTraceEntry`).
 **H8. Cache de prompt.** Prefixo estável (identidade + índice de skills + tools ordenadas
 por nome) antes do breakpoint; o que varia por lead depois dele.
 Referência: DeskcommCRM → `edge/llm/stable-prefix.ts` :29–45.
-**[INFERÊNCIA]** com margem de R$ 63,35, isto é lucro, não elegância.
+**[INFERÊNCIA]** com margem de R$ 67,18 (R$ 63,35 até R27, 17/10), isto é lucro, não elegância.

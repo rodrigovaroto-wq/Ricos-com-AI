@@ -27,7 +27,7 @@ Não é preferência de estilo. São três razões da própria operação:
 2. **Mídia sob demanda custa menos e converte mais.** Um áudio de 36 segundos enviado a quem
    não pediu é 36 segundos de silêncio dela. O mesmo áudio, mandado depois de ela dizer que
    tem dúvida de conforto, é resposta.
-3. **A conversa é o produto.** A margem é R$ 63,35 e o custo de IA da conversa inteira é de
+3. **A conversa é o produto.** A margem é R$ 67,18 (R$ 63,35 até R27, 17/10) e o custo de IA da conversa inteira é de
    centavos. Vale muito mais uma pergunta a mais do que uma chamada de modelo a menos.
 
 **A ordem nova, em uma linha:** ouvir → espelhar → provar o que ela duvidou → tamanho →
@@ -310,7 +310,7 @@ para quem já estava fechando a preço cheio.
 ## Estágio 9 — Pós-pedido (a régua que salva a margem)
 
 Quatro mensagens entre o pedido e a entrega. É a função nº 3 em prioridade e a mais valiosa
-das quatro: cada recusa evitada vale R$ 63,35 de diferença.
+das quatro: cada recusa evitada vale R$ 67,18 de diferença (R$ 63,35 até R27, 17/10).
 
 **9.1 — Mesmo dia, pedido confirmado.**
 

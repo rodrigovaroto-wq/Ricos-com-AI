@@ -13,7 +13,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-15, ~20h35 UTC, sessão `claude/admiring-bohr-wp0yzp` — v26 NO AR (LEIA PRIMEIRO).**
+> **2026-10-17 — economia por pedido atualizada (R27, grafo §104; só documentação, sem código nem deploy).** Decisão do operador
+> (confirmada em 15 e 17/10): a transação do COD é 6,99% **da comissão** + R$ 2,49, então a margem do COD entregue é **R$ 67,18 / 135,94 /
+> 180,53** (1 / 2 / 3 peças; era R$ 63,35 / 130,01 / 172,50); antecipado sem mudança (R$ 77,92 / 136,14 / 169,15); recusa R$ 9,99 sem
+> mudança; **devolução −R$ 30 no COD e −R$ 50 no antecipado** (eram R$ 86,56 e R$ 58,99). Esperado por pedido no mix 70/30: **R$ 51,74**
+> (R$ 51,70 com o WhatsApp); equilíbrio de conversão **3,3% (CPL R$ 1,25) e 3,8% (CPL R$ 1,50)**; fase Copy do teste com **5 criativos**.
+> **Pendente:** `docs/operacao/modelo-caixa-anuncios.xlsx` (binário, não editado) e o cálculo interativo do `mapa-financeiro.html` ainda
+> têm a conta antiga; o **pico R$ 752 e a sobra R$ 323** abaixo (R19.1) **não foram recalculados e não valem como atuais**. Células a
+> refazer: ver o aviso no topo de [`taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md). **Versão no ar (conferida em
+> `agent_versions` em 17/10):** `turn` **v27** (função v121, PR #66, saudação do dia seguinte, grafo §103); o bloco abaixo é o estado da v26.
+> **Dados de teste zerados em 17/10** (8 leads de teste arquivados em `docs/agente-ia/10-auditoria/testes-reais/2026-10-17-zerar-antes-da-campanha.md`
+> e apagados com o "pode" do operador; contador do Hermes em 0 de 50).
+>
+> **2026-10-15, ~20h35 UTC, sessão `claude/admiring-bohr-wp0yzp` — v26 NO AR (LEIA PRIMEIRO).** *(Estado de 15/10; superado pela v27, ver acima.)*
 >
 > - **No ar:** `turn` **v26** (`agent_versions` 26, função v119, commit `21fd916`), `health` → `healthy` nos 3 CEPs. n8n: "Turno da agente"
 >   versão ativa `ef1cb608` (e-mail do ramo que cala diz só "teto de custo"); `dev:n8n` ok nos 7.
@@ -352,7 +364,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > [`docs/operacao/taxas-antecipadas-cod.md`](docs/operacao/taxas-antecipadas-cod.md) (decisão R19.1, grafo §68). Com verba de
 > **R$ 700** (Copy 7 dias a R$ 50/dia, 2 de pausa, Região 7 dias a R$ 50/dia, a partir de 23/10) e caixa de R$ 1.325, o **pico de caixa é R$ 752
 > e sobram R$ 323** sobre os R$ 1.075 utilizáveis. Valores novos: manuseio R$ 5,00, recusa R$ 9,99 (4,99 + 5,00), devolução
-> R$ 86,56 no COD e R$ 58,99 no antecipado (frete de retorno + manuseio + taxas já pagas), imposto da Meta 13,83% a conferir,
+> ~~R$ 86,56 no COD e R$ 58,99 no antecipado~~ (superado em 17/10, R27: R$ 30 e R$ 50) (frete de retorno + manuseio + taxas já pagas), imposto da Meta 13,83% a conferir,
 > anúncio e custos do sistema no cartão (fatura fecha dia 22, vence dia 29). **Não mexeu em código nem em produção.** O operador
 > confirmou que essa verba e esse caixa **substituem os R$ 500 e os R$ 1.500 de L3** (09-pipeline L3.1 e L3.2 reconciliados: Copy 1–7, Região
 > 10–16, Leitura e decisão no dia 18, assumido). Pendências: medir o frete de retorno e conferir o imposto da Meta na 1ª fatura.
@@ -2231,7 +2243,7 @@ teste. Mexeu num, copia no outro **antes** de rodar o teste.
 1. ~~**Um preço só: R$ 129,90 nos dois caminhos.**~~ **Reaberto em 2026-09-10 — volta a
    existir desconto no antecipado.** O raciocínio que zerou o desconto em 09-09 continua de
    pé e não foi refutado, só aceito como custo consciente: o antecipado paga frete que o COD
-   não paga, então ao mesmo preço rende R$ 48,35 contra R$ 63,35 do COD, e mesmo desconto
+   não paga, então ao mesmo preço rende R$ 48,35 contra R$ 63,35 do COD (histórico de 09/2026; R$ 67,18 desde R27, 17/10), e mesmo desconto
    zero perdia R$ 4,00 contra o COD. A diferença agora é que **quem paga o frete extra é a
    cliente, não mais a operação** — o que muda a conta original. Ver Frente 4.
 2. **O antecipado não é opção, é saída.** A agente só o apresenta quando o COD não alcança:

@@ -41,8 +41,8 @@ novo
   → endereco_coletado    (endereço completo e confirmado)
   → pedido_criado        (existe order_id na operação)
   → em_rota              (despachado pela Logzz)
-  → entregue_pago        ✅ + R$ 63,35
-  → recusado             ❌ − R$ 14,98 ou − R$ 54,98
+  → entregue_pago        ✅ + R$ 67,18 (1 peça; era R$ 63,35 até R27, 17/10)
+  → recusado             ❌ − R$ 9,99 (era R$ 14,98 até 21/09, R10.2) ou − R$ 54,98 (pós-pago)
   → perdido              (sumiu antes do pedido — custa só o clique)
   → bloqueado            (opt-out inequívoco, irreversível pelo agente)
 ```

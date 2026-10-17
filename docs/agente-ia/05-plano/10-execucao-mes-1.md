@@ -196,7 +196,7 @@ simulador `docs/operacao/mapa-financeiro.html` com:
 - **Recusa na porta:** 12–17% (**valor especulado, ainda precisa ser medido**), R$ 9,99 cada (**R$ 4,99 de entrega
   frustrada + R$ 5,00 de manuseio**, operador, 2026-10-09);
 - **Devolução pós-envio:** 5–10%; custo = frete de retorno (R$ 30–60, o modelo usa R$ 45) + manuseio R$ 5,00 + as taxas já
-  pagas, que não voltam: **R$ 86,56 no COD e R$ 58,99 no antecipado** (operador, 2026-10-09; era R$ 25,00 estimado);
+  pagas, que não voltam: ~~**R$ 86,56 no COD e R$ 58,99 no antecipado** (operador, 2026-10-09; era R$ 25,00 estimado)~~ → **R$ 30 no COD e R$ 50 no antecipado** (operador, 2026-10-17, R27);
 - **Manuseio:** R$ 5,00 (era R$ 4,99);
 - **Imposto da Meta nos anúncios:** 13,83% sobre a verba, "deve aparecer" na fatura do cartão (a conferir);
 - **Lead:** CPL R$ 1,25–1,50;

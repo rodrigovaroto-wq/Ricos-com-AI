@@ -2198,3 +2198,27 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   - **R26.4 — resíduos da v25, todos aprovados:** o custo de uma resposta vazia do modelo conta no teto e no registro; a garantia "troca
     sem custo, com 7 dias após o recebimento" passa o `delivery_promise`; o e-mail do n8n deixa de citar "falha do provedor" no ramo que
     cala a conversa (publicado em 15/10); o alerta das personas lê negação.
+- **R27 — Economia por pedido: a transação do COD sai da comissão, devolução em valor fixo, equilíbrio recalculado** (operador,
+  confirmado em 2026-10-15 no `encorpa-portal` e reconfirmado em 2026-10-17; grafo §104). **Supera** os números do R19.1 (09/10) onde
+  diferem, a margem do COD entregue de R$ 63,35 (R2.1 e todo o histórico de 03–29/09), o equilíbrio de 3,58% (R2.1, "pendente de
+  recálculo" desde 21/09) e os 6 criativos do teste de tráfego. O texto das rodadas antigas fica como está (é história); o que vale
+  agora é esta tabela, e os documentos vivos apontam para cá.
+  - **Margem do COD se entregue**, pela Central Logzz ("Taxas, prazos e condições", ajuda.logzz.com.br): comissão = preço − R$ 30 por
+    peça − entrega R$ 19,99 − manuseio R$ 5,00; transação = **6,99% da comissão** + R$ 2,49 de antifraude (não do preço cheio). Margem
+    = comissão − transação: **1 peça R$ 67,18 · 2 peças R$ 135,94 · 3 peças R$ 180,53** (preços 129,90 / 233,82 / 311,76). Antes:
+    R$ 63,34–63,35 / 130,00–130,01 / 172,49–172,50, com 6,99% sobre o preço cheio.
+  - **Antecipado se entregue: não mudou**, R$ 77,92 / 136,14 / 169,15 (os documentos antigos trazem 77,93 / 136,15 / 169,16, de
+    quando o manuseio era R$ 4,99; a diferença de R$ 0,01 é do manuseio de R$ 5,00 e não muda nenhuma conta).
+  - **Recusa na porta (só COD): −R$ 9,99** (entrega frustrada R$ 4,99 + manuseio R$ 5,00), sem mudança.
+  - **Devolução depois de entregue: −R$ 30 no COD e −R$ 50 no antecipado**, valores fixos do operador. Substituem os R$ 86,56 (COD) e
+    R$ 58,99 (antecipado) do R19.1, que somavam frete de retorno R$ 45 + manuseio + taxas já pagas.
+  - **Sem mudança:** imposto da Meta 13,83% sobre a verba; WhatsApp R$ 0,04 por pedido; IA R$ 0,27 por lead.
+  - **Esperado por pedido** (mix 70% COD / 30% antecipado, 1 peça, recusa 17%, devolução 10%): COD = 0,83 × (0,9 × 67,18 − 0,1 × 30) −
+    0,17 × 9,99 = **R$ 46,00**; antecipado = 0,9 × 77,92 − 0,1 × 50 = **R$ 65,13**; mix = **R$ 51,74** por pedido (**R$ 51,70** depois
+    do WhatsApp). Esse é o teto de custo de aquisição por pedido: ~R$ 51,70.
+  - **Equilíbrio de conversão** = (CPL × 1,1383 + 0,27) ÷ 51,70: **3,3% com CPL R$ 1,25** e **3,8% com CPL R$ 1,50** (cálculo
+    conferido em 17/10). Substitui os 3,47% / 3,58% antigos, que já estavam velhos desde 21/09.
+  - **Teste de tráfego, fase Copy: 5 criativos, não 6** (operador, 2026-10-17).
+  - **Pendente (não feito nesta rodada):** a planilha `docs/operacao/modelo-caixa-anuncios.xlsx` (binário) continua com os números
+    antigos — ver a lista no grafo §104 — e, por isso, o **pico de caixa R$ 752 e a sobra R$ 323** do R19.1, calculados com a devolução
+    de R$ 86,56 / R$ 58,99 e a transação sobre o preço cheio, **não foram recalculados** e não valem como atuais.

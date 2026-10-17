@@ -14,7 +14,7 @@ amostra"). Quem olha o número primeiro escolhe o piso que confirma o que já vi
 
 | Decisão | Métrica | View (`0018_evaluation_views.sql`) | Base no repositório |
 |---|---|---|---|
-| **A agente vende** | pedido criado ÷ leads | `eval_attribution`: `sum(leads_ordered) / sum(leads)` (ou `eval_funnel`, estágio ≥ `pedido_criado`) | **Meta de 10%** conversa → pedido criado (D3, [`06-modelo-economico.md`](../../documentacao/contexto-negocio/06-modelo-economico.md) e [`03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md)). Equilíbrio de **3,47%** com CPL R$ 1,25 — **histórico, pendente de recálculo** no próprio modelo. É projeção de estudo, não medida |
+| **A agente vende** | pedido criado ÷ leads | `eval_attribution`: `sum(leads_ordered) / sum(leads)` (ou `eval_funnel`, estágio ≥ `pedido_criado`) | **Meta de 10%** conversa → pedido criado (D3, [`06-modelo-economico.md`](../../documentacao/contexto-negocio/06-modelo-economico.md) e [`03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md)). Equilíbrio de ~~**3,47%** com CPL R$ 1,25 — histórico, pendente de recálculo~~ ✅ recalculado em 17/10 (R27): **3,3%** com CPL R$ 1,25 e **3,8%** com CPL R$ 1,50. É projeção de estudo, não medida |
 | **Recusa COD na porta** | `recusado` ÷ (`entregue_pago` + `recusado`) | `eval_funnel` | **15%** (modelo); Logzz declara frustração de **13% a 16%** (mesmo arquivo). Ressalva: a view não separa COD de antecipado — o antecipado, que não é recusado, dilui a taxa. A fonte direta é o painel da Logzz |
 | **Fallback aceitável** | `fallback_rate` (resposta pronta ÷ send+fallback+handoff) | `eval_turn_outcomes` | **Sem base de tráfego real.** Só sintético: 0 em 61 respostas no eval da Muse ([`06-eval-muse-2026-09-25.md`](06-eval-muse-2026-09-25.md)); 1 resposta pronta na R3 das personas ([`05-rodada-personas-2026-09-24.md`](05-rodada-personas-2026-09-24.md)). Persona adversarial não é cliente |
 | **Handoff aceitável** | `handoff_rate` | `eval_turn_outcomes` | **Sem base no repositório** |
@@ -46,7 +46,7 @@ opt-out; **pedidos que chegaram à porta** para recusa; turnos com envio para fa
 handoff; tentativas julgadas para `block_rate`.
 
 Leitura rápida para a meta de 10%: com 139 leads, "10%" quer dizer "entre 5% e 15%" —
-já fica acima do equilíbrio histórico (3,47%), mas não separa a meta de 7% ou de 13%. Com
+já fica acima do equilíbrio (3,3% com CPL R$ 1,25, 3,8% com R$ 1,50; R27, 17/10 — eram 3,47% históricos), mas não separa a meta de 7% ou de 13%. Com
 385, entre 7% e 13%.
 
 ### 2.2 Zero eventos — a regra de três

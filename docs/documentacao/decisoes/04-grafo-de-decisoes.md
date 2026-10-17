@@ -3277,6 +3277,40 @@ rede se a retomada se perder), um toque vencido pode sair entre a saudação e a
 intervalo — raro, e a resposta sai do mesmo jeito. Revisão independente: aprovado com resíduos. **Estado:** publicado em 2026-10-17 como agent_version 27 (PR #66, função turn v121);
 sonda pela porta do n8n respondeu.
 
+## 104. Economia por pedido: duas fontes discordavam e o equilíbrio estava velho desde 21/09 (operador, 2026-10-17, R27)
+
+**Sintoma:** três números do repositório não fechavam com o que o operador e a Central Logzz dizem. (1) A margem do COD entregue era R$ 63,34–63,35,
+com a transação de 6,99% sobre o **preço cheio**; a Central Logzz ("Taxas, prazos e condições") diz 6,99% **sobre a comissão** + R$ 2,49 —
+a própria aba "Docs x Fontes" da planilha já registrava a divergência ("operador: sobre o preço" contra "Central Logzz: sobre o valor da
+comissão"). (2) A devolução estava em R$ 86,56 (COD) e R$ 58,99 (antecipado), somas de frete de retorno estimado + manuseio + taxas já pagas; o
+operador usa valores fixos, R$ 30 e R$ 50. (3) O equilíbrio de conversão, 3,47% / 3,58%, estava marcado "pendente de recálculo" desde
+21/09, e o texto da recusa em `03-maquina-de-estados.md` ainda citava R$ 14,98 (corrigido para R$ 9,99 em 21/09, R10.2).
+**Causa:** (1) a regra da Logzz foi lida de um relato do operador ("sobre o preço") e nunca conferida na fonte; (2) a devolução foi
+modelada por componente, com uma estimativa de frete (R$ 45, meio da faixa) que o operador nunca usou na conta dele; (3) a fórmula do
+equilíbrio não estava registrada com detalhe para refazer, e o "pendente" ficou em três documentos sem dono.
+**Caminhos descartados:** manter a transação sobre o preço "por prudência" — erra a margem de todo kit, e a diferença cresce com o kit (transação de
+R$ 11,57 para R$ 7,73 em 1 peça; de R$ 24,28 para R$ 16,24 em 3); reescrever o texto das rodadas antigas — é história e fica; recalcular
+o pico de caixa e a planilha na mesma sessão — `modelo-caixa-anuncios.xlsx` é binário, fora do escopo de uma sessão só de documentação.
+**Correção (só documentação):** nova rodada **R27** em `03-decisoes-tomadas.md` com a conta inteira: margem do COD entregue **R$ 67,18 / 135,94 /
+180,53** (comissão = preço − R$ 30/peça − R$ 19,99 − R$ 5,00; transação = 6,99% da comissão + R$ 2,49), antecipado R$ 77,92 / 136,14 / 169,15 sem
+mudança, recusa R$ 9,99 sem mudança, devolução R$ 30 / R$ 50; esperado por pedido no mix 70/30 (recusa 17%, devolução 10%, 1 peça) **R$ 51,74**
+(R$ 51,70 com o WhatsApp); equilíbrio **3,3% (CPL R$ 1,25) e 3,8% (CPL R$ 1,50)** = (CPL × 1,1383 + 0,27) ÷ 51,70; fase Copy do teste com 5 criativos.
+Os números vivos passaram a apontar para o R27 (`taxas-antecipadas-cod.md`, `03-economia-cod.md`, `06-modelo-economico.md`, `08-piso-de-amostra.md`,
+`09-pipeline-ate-producao.md`, `10-execucao-mes-1.md`, `03-maquina-de-estados.md`, script, guardrails, mapa funcional, `mapa-financeiro.html`
+estático, `HANDOFF.md` e duas memórias). **Guarda:** os números moram **num lugar só**, a rodada R27; o `lib/build.mjs` do `encorpa-portal`
+calcula da mesma fórmula (comissão → transação → margem), então o portal e este repositório devem dar os mesmos R$ 67,18 / 51,74; se
+divergirem, vale a fórmula acima (conferida à mão em 17/10, não por teste automatizado — **não há teste que cruze os dois**).
+**Pendente (não verificado nesta sessão):** (a) `modelo-caixa-anuncios.xlsx` continua com a conta antiga — aba **Premissas** B32 (6,99% "do
+preço"), B40/B41 (frete de retorno R$ 45 e retorno R$ 50); aba **Taxas antecipadas** C8/F8 (transação R$ 11,57), C11 (R$ 86,56), C13
+(R$ 58,99); as fórmulas de pico e sobra nas abas **Resumo** e **Fluxo diário**; os textos de apoio de **Docs x Fontes** — e, por isso, o
+**pico R$ 752 e a sobra R$ 323** (R19.1) não valem como atuais; (b) o script do `mapa-financeiro.html` foi refeito no mesmo dia (transação sobre a comissão, `DEV_COD`/`DEV_PRE` 30/50
+sobre o que foi entregue) e dá os mesmos números do portal (67,18 · 46,00 · 77,92 · 65,13 · mix 51,74), mas pico e sobra do caixa não
+foram relidos; (c) o "lucro por
+venda" de R$ 16,07 / R$ 44,41 / R$ 24,57 (09/10) e a tabela de 02/10 não foram refeitos; (d) os documentos de pesquisa
+(`03-pesquisa/02`, `03`, `04`) e `decisoes/01-lacunas.md` citam R$ 63,35 como a margem da época e foram deixados como história; (e) a
+aritmética do R27 foi conferida na sessão, mas nenhum teste do repositório a cobre. **Estado (2026-10-17):** decidido pelo operador;
+documentado; simulador do mapa financeiro refeito; **planilha `.xlsx` pendente**; nada a deployar (sem mudança de código nem de `BUSINESS_CONFIG`).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
