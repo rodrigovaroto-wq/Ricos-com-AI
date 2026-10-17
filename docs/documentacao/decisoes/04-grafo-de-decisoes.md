@@ -3235,6 +3235,37 @@ mandar dois e-mails contraditórios do mesmo fato. Nada muda no turno, nos gates
 texto do e-mail antigo — ele não cobre a resposta pronta. **Guarda:** `pnpm dev:n8n` passa com os dois nós desligados; o teste do
 texto `$json.silenced ?` continua valendo sobre o arquivo. **Estado:** aplicado no n8n em 2026-10-17.
 
+## 103. A volta no dia seguinte: "Oii, tudo bem? Deseja continuar com seu pedido?" (operador, 2026-10-17)
+
+**Sintoma (pedido do operador):** "se a cliente mandar uma mensagem no dia seguinte a Malu deve recepcionar com 'Oii, tudo bem?
+Deseja continuar com seu pedido?' e em seguida a mensagem que ela já iria mandar". Hoje a lead que volta noutro dia recebe direto a
+resposta do modelo, sem nada que retome a conversa de ontem. **Causa:** a única recepção fixa era a do Estágio 0, só para lead novo.
+**Correção:** o mesmo mecanismo do Estágio 0 (`2c-bis` no `index.ts`): texto fixo `RETURN_GREETING` (`src/agent/retry.ts`, espelhado),
+pela cadeia como `layer: "auto"`, gravado como saída, `welcomed_at` = agora, `status: "welcomed"` com `resumeInSeconds:
+RETURN_RESUME_DELAY_SECONDS` (5 s, a janela de silêncio de toda mensagem nova: a rajada que ela ainda digita entra na resposta, e a
+resposta vem "em seguida", não no minuto da recepção). O n8n não muda: "É recepção?" → espera → retomada, que escreve a resposta de
+sempre. Sai só quando: lead que já existe, mensagem de verdade (não retomada, nova tentativa nem revisão), sem toque de botão (o "Não"
+do opt-in tem a linha dele, §95), janela de envio aberta, sem `opted_out_at` nem `handoff_at` (o portal pausa com ele, §102), estágio
+antes da compra (`chasesSilence(stage, [])` — pedido_criado, em_rota, entregue_pago ficam de fora), a mensagem dela não é parada, pedido
+de pessoa nem recusa (os leitores de sempre: `classifyOptOutBurst`, `wantsHuman`, `declinesInBurst`), e a última mensagem da conversa
+antes desta, nos dois sentidos, é de um dia anterior em São Paulo (`onEarlierDay`, `Intl` com `America/Sao_Paulo`; lida por último,
+pelo `messages_conversation_idx`). Vetada pela cadeia, cai no turno de sempre. Junto: (1) `isReceipt` reconhece o texto, para a
+rajada dela atravessar a saudação até a última resposta de verdade (sem isso, "oi" + "tem G?" perdia o "oi" — a retomada dele fica
+`resume_moot`); (2) o `lastOutbound` do turno pula a saudação (limit 2): a retomada lia "Deseja continuar…" como a última pergunta,
+e o "Qual o seu nome?"/"Qual o seu CEP?" de ontem — de que dependem nome, CEP, tamanho, leitura do endereço e o intérprete —
+sumia; (3) a régua é cancelada antes de responder, como o turno faz logo depois, para nenhum toque cair entre a saudação e a resposta.
+**Caminhos descartados:** mandar a saudação de madrugada — a resposta de quem volta fora da janela fica guardada para a abertura
+(`deferred_reply`), e "Deseja continuar…" às 3 h seguido de horas de silêncio lê como ignorada; uma coluna nova em vez de reusar
+`welcomed_at` — nenhum leitor depende do valor antigo (a retomada compara com `last_outbound_at`; as views não leem a coluna; o Hermes
+só lê se é nula); uma regex nova para "pare"/"não quero" — os leitores do turno já são os que valem. **Guarda:**
+`tests/return-greeting.test.ts` (texto exato e limpo na cadeia; `onEarlierDay` com 23:50→00:10, mesmo dia, meia-noite UTC no mesmo
+dia de São Paulo, nulo, futuro; os leitores que vetam; a fiação do ramo e do `lastOutbound`); mutações `G103-volta-de-madrugada` e
+`G103-ultima-da-agente` (pegas, aplicadas à mão — `verificar:guardas` exige commit); contagem de `runGates(` em `order-stage.test.ts`
+de 6 para 7. **Resíduos:** (a) quem volta de madrugada recebe na abertura só a resposta guardada, sem a saudação; (b) no braço 1 do
+experimento A (sem recepção), a volta grava `welcomed_at` e o `rowsToConversations` do Hermes passa a rotular a primeira resposta
+daquela conversa como `welcomed` — só rótulo do placar offline; (c) `recusado` e `perdido` recebem a saudação. **Estado:** na branch
+`claude/quirky-fermi-gkyybh`, não publicado.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

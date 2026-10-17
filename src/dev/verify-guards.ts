@@ -3313,6 +3313,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/e3-opening.test.ts"],
   },
   {
+    id: "G103-volta-de-madrugada",
+    bug: "a volta do dia seguinte mandava 'Deseja continuar com seu pedido?' de madrugada, e a resposta só saía na abertura",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "    !isRevise &&\n    openNow &&\n    !payload.reply &&",
+    to: "    !isRevise &&\n    !payload.reply &&",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/return-greeting.test.ts"],
+  },
+  {
+    id: "G103-ultima-da-agente",
+    bug: "a retomada da volta lia a saudação como a última pergunta da agente, e o 'Qual o seu nome?' de ontem se perdia",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '"&select=body&order=created_at.desc&limit=2",\n      ).catch(() => null)\n    )?.find((m: { body: string | null }) => m.body !== RETURN_GREETING)?.body ?? "";',
+    to: '"&select=body&order=created_at.desc&limit=1",\n      ).catch(() => null)\n    )?.[0]?.body ?? "";',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/return-greeting.test.ts"],
+  },
+  {
     id: "E3-link-perfeito",
     bug: "o link saía com 'Perfeito! … obrigada por escolher a Encorpa' (§19 R10)",
     files: ["src/agent/retry.ts"],
