@@ -4144,8 +4144,16 @@ const MUTATIONS: Mutation[] = [
     id: "G67-falha-e-desconhecida",
     bug: "consulta de cobertura que falhava (422) virava 'sem pagamento na entrega' em vez de região desconhecida",
     files: ["src/agent/availability.ts"],
-    from: "  if (!answered(body)) return { kind: \"failed\" };\n",
+    from: "  if (answers.length === 0) return { kind: \"failed\" };\n",
     to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
+  },
+  {
+    id: "R28-regiao-so-pelo-g",
+    bug: "a consulta de cobertura perguntava só pelo G; com o G só no estoque de BH, toda cliente de São Paulo ouviu que não tinha entrega",
+    files: ["src/agent/availability.ts"],
+    from: "answers.find((a) => a.cod) ?? answers[0]!",
+    to: "answers[0]!",
     guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
   {

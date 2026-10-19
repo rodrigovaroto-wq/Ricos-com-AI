@@ -217,11 +217,18 @@ export const checkSize = async (
 ): Promise<Availability> => readAvailability(size, await askSize(fetcher, zip, place, size));
 
 /**
- * The size the region query is asked with. Not a business choice — a diagnostic one: G is
- * mapped correctly on the Coinzz side, so it answers for the region instead of answering
- * for the mapping. Asking with the M would report every praça as closed.
+ * The size the region query trusts first. Not a business choice — a diagnostic one: G is
+ * mapped correctly on the Coinzz side. The M is not (404 for every postcode), so it never
+ * decides a region alone.
  */
 export const REFERENCE_SIZE: Size = "G";
+
+/**
+ * Every size, asked at once (R28, 2026-10-19). The G alone stopped answering for the region when stock
+ * split by warehouse: G only in Belo Horizonte, GG and XGG in São Paulo, so São Paulo read "no delivery"
+ * for every customer. The region has delivery when any size has it; the size is chosen in the Logzz checkout.
+ */
+const REGION_SIZES: readonly Size[] = [REFERENCE_SIZE, "GG", "XGG", "P", "M"];
 
 /** What the region actually offers her, with no claim about which size she gets. */
 export interface Region {
@@ -274,9 +281,10 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
   if (!place) return { kind: "failed" };
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
-  const body = await askSize(fetcher, zip, place, REFERENCE_SIZE);
-  if (!answered(body)) return { kind: "failed" };
-  return { kind: "found", region: toRegion(zip, place, readAvailability(REFERENCE_SIZE, body)) };
+  const bodies = await Promise.all(REGION_SIZES.map((size) => askSize(fetcher, zip, place, size)));
+  const answers = REGION_SIZES.flatMap((size, i) => (answered(bodies[i]) ? [readAvailability(size, bodies[i])] : []));
+  if (answers.length === 0) return { kind: "failed" };
+  return { kind: "found", region: toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!) };
 };
 
 /**

@@ -182,18 +182,41 @@ describe("Express", () => {
 describe("região", () => {
   const place = { city: "São Paulo", state: "SP", district: "Centro" };
 
-  it("pergunta com o tamanho que está mapeado certo", async () => {
-    let asked = "";
+  // R28 (2026-10-19): stock split by warehouse — G only in Belo Horizonte, GG and XGG in São Paulo — and the G
+  // alone told every São Paulo customer there was no delivery. All five sizes are asked; any one with delivery counts.
+  it("pergunta os cinco tamanhos", async () => {
+    const asked: string[] = [];
     await checkRegion(async (url) => {
-      asked = url;
-      return url.includes("viacep")
-        ? { localidade: "São Paulo", uf: "SP", bairro: "Centro" }
-        : yes;
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Centro" };
+      asked.push(new URL(url).searchParams.get("products[0][code]") ?? "");
+      return yes;
     }, "04710-090");
-    expect(asked).toContain(SIZE_CODES[REFERENCE_SIZE]);
-    // O M é justamente o que não pode ser usado: a Coinzz responde por ele como se a
-    // praça inteira estivesse fechada.
-    expect(asked).not.toContain(SIZE_CODES.M);
+    expect(asked.sort()).toEqual(Object.values(SIZE_CODES).sort());
+  });
+
+  it("o G sem entrega e o GG com entrega: a região tem entrega, com as datas do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) ? yes : no;
+    }, "01310-100");
+    expect(r?.cod).toBe(true);
+    expect(r?.dates).toEqual(["2026-09-10", "2026-09-11"]);
+  });
+
+  it("negação: nenhum tamanho com entrega é região sem entrega", async () => {
+    const r = await checkRegion(async (url) =>
+      url.includes("viacep") ? { localidade: "Abaeté", uf: "MG", bairro: "Centro" } : no, "35620-000");
+    expect(r?.cod).toBe(false);
+  });
+
+  it("o M, que a Coinzz não reconhece (404), não apaga a resposta dos outros tamanhos", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.M) ? { type: "error", status: 404 } : yes;
+    }, "30130-010");
+    expect(r?.cod).toBe(true);
+    // O tamanho de referência continua sendo o primeiro a decidir.
+    expect(REFERENCE_SIZE).toBe("G");
   });
 
   it("traz cobertura, datas e Express, e o custo da etiqueta", () => {
@@ -225,8 +248,8 @@ describe("região", () => {
       sent.push(headers);
       return yes;
     }, "04662-002");
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.["X-Requested-With"]).toBe("XMLHttpRequest");
+    expect(sent).toHaveLength(5);
+    expect(sent.every((h) => h?.["X-Requested-With"] === "XMLHttpRequest")).toBe(true);
     expect(AVAILABILITY_HEADERS["X-Requested-With"]).toBe("XMLHttpRequest");
   });
 
