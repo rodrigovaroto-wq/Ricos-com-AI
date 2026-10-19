@@ -3337,6 +3337,7 @@ pedido (`askedSize`). O `sizeChecked` dos gates só vem do tamanho respondido.
 `R28-regiao-so-pelo-g`, `R28-tamanho-que-lanca`, `R28-tamanho-dela-decide`, `R28-hoje-de-outro-tamanho`, `R28-cache-do-m`,
 `R28-timeout-do-tamanho-dela`, `R28-429-nao-e-sem-estoque`; `G67-falha-e-desconhecida` e `R26-cobertura-segunda-tentativa` apontam para
 as linhas novas. 9/9 pegaram.
+**Publicado** em 19/10 como `turn` v28 (função v123); `job:"health"` → `healthy` nos 3 CEPs de São Paulo, três sondas seguidas.
 **Resíduo:** a cliente que veste M ouve a entrega de qualquer tamanho, porque a Coinzz não responde pelo M; o checkout da Logzz decide.
 
 
