@@ -3341,6 +3341,41 @@ as linhas novas. 9/9 pegaram.
 **Resíduo:** a cliente que veste M ouve a entrega de qualquer tamanho, porque a Coinzz não responde pelo M; o checkout da Logzz decide.
 
 
+## 106. Roteiro v3: a Malu passa a vender primeiro e pedir depois (operador, 2026-10-19, R28)
+
+**Sintoma:** primeiro teste com anúncio (16 a 19/10): 33 conversas, 0 links, 0 pedidos. 13 de 33 pararam na 1ª resposta ("me
+passa seu CEP"); depois do CEP a mensagem abria com "não tem pagamento na entrega" e "frete calculado no checkout"; 7 pediram foto
+ou vídeo e ouviram "vê no site"; as duas que decidiram comprar travaram no CPF e na pergunta do tamanho de cada peça; a régua mandava
+"Ainda está aí?", "Posso te mandar ofertas?" e um texto pronto às 9h para todo mundo; a Malu disse que o colete "não tem zíper".
+Análise completa em `docs/agente-ia/06-script/07-script-v3-funil-validado.md`.
+**Causa:** o roteiro pedia dados antes de mostrar valor, e o canal só mandava texto. O funil validado do operador (Drive "FLUXO
+CINTA COLETE MODELADORA") faz o contrário: mostra o produto com voz, vídeo e prova, e fecha uma vez.
+**Caminhos descartados:**
+- Regravar os áudios: o operador manteve os gravados (R28).
+- Passar os textos fixos pelos gates: as regras de prazo e frete só aceitam as frases canônicas do modelo, e afrouxá-las para caber
+  um texto fixo abriria brecha para o modelo. Os textos fixos vêm do config e da consulta de região, e ficam presos pelos testes de
+  `tests/funnel.test.ts`.
+- Pedir o tamanho de cada peça e o CPF antes do link.
+**Correção:**
+- **Abertura fixa** no lugar do recibo: saudação, áudios 1 e 2, vídeo, avaliações, tabela, e só então "o número da calça". O modelo
+  responde depois só se a primeira mensagem pediu algo (`firstMessageNeedsAnswer`).
+- **Oferta fixa** na primeira vez que a região é conhecida. Na entrega: preço, frete grátis, a primeira data da consulta, quem recebe
+  (dinheiro, Pix ou cartão) e o áudio 4. No antecipado: Correios, 10%, 12x e o frete no checkout. Depois, só o nome completo.
+- **Dois checkouts** (🟢 entrega, 🔵 antecipado) quando a cidade está na lista da Logzz do operador (`cod.likelyCities`, 169 cidades)
+  e a consulta diz não ou falha. Fora da lista, só o antecipado.
+- **Link só com nome:** CPF, e-mail e endereço ficam para o checkout. O kit vai na mensagem do link. Sem experimento B, sem
+  "Ainda está aí?", sem a pergunta de ofertas (`askMarketingOptIn: false`).
+- **Mídia no envio do n8n:** áudio, imagem e vídeo por link público (Storage, bucket `funil`).
+- **Prompt:** zíper e colchetes; pagamento ao entregador; foto e vídeo já enviados; "enquanto você usa, emagrece e pode reduzir até 3
+  números de calça". O gate `weight_loss_claim` aceita só essa forma (afrouxamento aceito, `R28` em `tests/gate-loosen-accepted.txt`).
+- **Prova social:** `invented_testimonial` aceita o número de avaliações do config. Os depoimentos reais vão em `testimonials`.
+**Guarda:** `tests/funnel.test.ts`, `tests/r28-script-v3.test.ts`, testes do n8n de mídia; mutações `R28-emagrece-sem-amarre`,
+`R28-emagrece-solto`, `R28-avaliacoes-de-qualquer-numero`, `R28-dois-links-fora-da-lista`, `R28-audio-4-sem-entrega`.
+**Resíduos:**
+- O áudio 1 diz "sem barriga", "febre nos Estados Unidos" e "sem academia", e o áudio 4 diz "amanhã mesmo". Sem gate, por decisão do
+  operador.
+- Uma pergunta junto do CEP fica sem resposta no turno da oferta fixa.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
