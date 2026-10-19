@@ -3567,6 +3567,26 @@ secret já não é o do arquivo do repositório (o operador o editou): ele não 
 - pior caso de tempo: 75 s, que termina na resposta segura;
 - se o operador trocar a oferta da Logzz, falta a chave `checkout.logzz` no secret.
 
+## 109. O suporte de troca, devolução e mudança de endereço passa a ser a Gizele (operador, 2026-10-19)
+
+**Decisão:** o novo número é +55 11 97727-9391, e o nome dela é Gizele. A Malu diz à cliente para chamar a Gizele no WhatsApp, que dá todo
+o suporte da troca, da devolução e da mudança de endereço do pedido.
+
+**Mudança:** chave opcional `returns.supportName` no config (sem ela, a frase de antes: "o suporte da Logzz").
+- A resposta fixa de troca e devolução diz "chamar a Gizele no WhatsApp", com o número.
+- O prompt ensina a mesma frase e manda a mudança de endereço de um pedido feito para ela.
+- A orientação do pedido entregue com problema cita a Gizele.
+- Só vale um nome simples: um placeholder ou texto estranho cai na frase de antes.
+
+**Guarda:** `tests/support-gizele.test.ts` (23, com negações), mutações `GZ-*`, e as frases passam a cadeia nos dois caminhos.
+
+**Fora do código:** o secret de produção precisa de duas chaves em `returns`: `"logzzSupportPhone": "+55 11 97727-9391"` e
+`"supportName": "Gizele"`. O número antigo (+55 11 91132-7877) continua no secret até lá. Quem edita o secret é o operador; ele não foi
+sobrescrito, porque já não bate com o arquivo do repositório.
+
+**Resíduo:** a mudança de endereço de um pedido é ensinada no prompt (a Malu escreve a frase, e os gates julgam), mas não tem resposta fixa
+nem leitura própria do pedido de mudança. Fica para uma frase real em conversa de cliente (R21.6).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

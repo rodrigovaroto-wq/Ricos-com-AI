@@ -98,7 +98,7 @@ export interface BusinessConfig {
    * a phone) in the secret, exchange and return stay as before. `freeExchange` (operator, 2026-10-13): only
    * an explicit `true` lets her say the exchange costs her nothing; absent, its freight is not said at all.
    */
-  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
+  returns?: { logzzSupportPhone?: string; supportName?: string; freeExchange?: boolean };
   socialProof?: { satisfiedCustomers?: number };
   store?: { physicalStorePlanCity?: string };
   /**
