@@ -294,7 +294,11 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | n
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
   // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).
-  const bodies = await Promise.all(REGION_SIZES.map((s) => askSize(fetcher, zip, place, s).catch(() => null)));
+  // `undefined` = it threw; `null` = it answered nothing (the M's 404 reaches here as null, `!r.ok`).
+  const bodies = await Promise.all(REGION_SIZES.map((s) => askSize(fetcher, zip, place, s).catch(() => undefined)));
+  // Her own size failing in transit is an unknown region, as before: another size's delivery is never kept for her
+  // for an hour on a timeout (third review). The short second try and L2 take it from there.
+  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === undefined) return { kind: "failed" };
   const answers = REGION_SIZES.flatMap((s, i) => (answered(bodies[i]) ? [readAvailability(s, bodies[i])] : []));
   if (answers.length === 0) return { kind: "failed" };
   // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).

@@ -4160,7 +4160,7 @@ const MUTATIONS: Mutation[] = [
     id: "R28-tamanho-que-lanca",
     bug: "um dos cinco tamanhos que lançava (timeout, rede) derrubava a consulta da região inteira",
     files: ["src/agent/availability.ts"],
-    from: "askSize(fetcher, zip, place, s).catch(() => null)",
+    from: "askSize(fetcher, zip, place, s).catch(() => undefined)",
     to: "askSize(fetcher, zip, place, s)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
@@ -4187,6 +4187,14 @@ const MUTATIONS: Mutation[] = [
     from: "if ((cached.askedSize ?? cached.size ?? null) !== size) return null;",
     to: "if ((cached.size ?? null) !== size) return null;",
     guard: ["pnpm", "-s", "vitest", "run", "tests/measurement.test.ts"],
+  },
+  {
+    id: "R28-timeout-do-tamanho-dela",
+    bug: "o G dela que estourava o tempo guardava por uma hora a entrega do GG como se fosse dela",
+    files: ["src/agent/availability.ts"],
+    from: "  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === undefined) return { kind: \"failed\" };\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
   {
     id: "G67-ok-sozinho",

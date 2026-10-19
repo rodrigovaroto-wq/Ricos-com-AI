@@ -281,6 +281,15 @@ describe("região", () => {
     expect(r?.sameDay).toBe(true);
   });
 
+  it("o G dela que estoura o tempo é região desconhecida, nunca a entrega do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      if (url.includes(SIZE_CODES.G)) throw new Error("TimeoutError");
+      return yes;
+    }, "01310-100", "G");
+    expect(r).toBeNull();
+  });
+
   it("sem tamanho, o G decide primeiro quando G e GG entregam em datas diferentes", async () => {
     const later = structuredClone(yes);
     later.data.local_operation_cash_on_delivery.delivery_days_available[0]!.dates = [{ date: "2026-09-20" }];
