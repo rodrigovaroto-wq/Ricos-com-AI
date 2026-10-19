@@ -4193,7 +4193,7 @@ const MUTATIONS: Mutation[] = [
     id: "R28-429-nao-e-sem-estoque",
     bug: "um 429 ou 5xx no tamanho dela virava 'tamanho sem resposta', e a entrega de outro tamanho ficava no cache dela por uma hora",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);\n",
+    from: "  if (!r.ok && r.status !== 404) throw Object.assign(new Error(`region lookup HTTP ${r.status}`), { status: r.status, body: await r.json().catch(() => null) });\n",
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
