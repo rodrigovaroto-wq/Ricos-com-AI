@@ -3311,6 +3311,26 @@ venda" refeito: COD R$ 26,18 · antecipado R$ 45,31 · mix R$ 31,92 (a tabela de
 aritmética do R27 foi conferida na sessão, mas nenhum teste do repositório a cobre. **Estado (2026-10-17):** decidido pelo operador;
 documentado; simulador do mapa financeiro e planilha refeitos; nada a deployar (sem mudança de código nem de `BUSINESS_CONFIG`).
 
+## 105. A consulta de cobertura perguntava só pelo G, e o G saiu do estoque de São Paulo (operador, 2026-10-19, R28)
+
+**Sintoma:** no primeiro teste com anúncio (16 a 19/10), os 12 CEPs consultados deram "sem pagamento na entrega", inclusive Campinas/SP.
+O `job:"health"` estava `unhealthy` em 19/10, com os 3 CEPs de São Paulo em `no_cod`; o alarme do n8n rodava normalmente a cada 15 min.
+**Causa:** `lookupRegion` perguntava à Coinzz só pelo `REFERENCE_SIZE` (G), escolhido em 2026-09 como "diagnóstico": o G respondia pela
+região inteira. Em 19/10 o estoque estava dividido por galpão. Sonda com 5 tamanhos: São Paulo e Campinas têm entrega no GG e no XGG e não
+no G; Goiânia no GG e no XGG; Rio no XGG; o G só em Belo Horizonte; o M responde 404 em todo CEP. A resposta da Coinzz para o G em São
+Paulo vinha com `local_operation` "Belo Horizonte" e sem `delivery_days_available`.
+**Impacto no teste:** só Campinas perdeu a entrega por causa do bug. As outras 11 cidades (interior de MG, PE, PR e SP) não têm entrega em
+nenhum tamanho: o anúncio trouxe público fora das praças com pagamento na entrega.
+**Caminho descartado:** consultar só o tamanho dela. O M não responde (404), e o tamanho é escolhido no checkout da Logzz, como os testes
+de região já registravam.
+**Correção:** `lookupRegion` pergunta os 5 tamanhos em paralelo, na ordem G, GG, XGG, P, M. A região tem entrega quando algum tamanho
+tem, com as datas desse tamanho. Nenhum tamanho respondido continua sendo região desconhecida (L2). **Guarda:** testes em
+`tests/availability.test.ts` (G sem e GG com entrega; a negação, nenhum tamanho com entrega; o M em 404); mutação
+`R28-regiao-so-pelo-g`; a mutação `G67-falha-e-desconhecida` passou a apontar para a linha nova. 3/3 pegaram.
+**Resíduo:** a cliente que veste G em São Paulo ouve que tem entrega, e o checkout da Logzz decide se o G chega ali. Era o desenho
+original da consulta por região; fica registrado para a revisão.
+
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

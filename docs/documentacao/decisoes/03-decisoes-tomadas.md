@@ -2235,3 +2235,13 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   - **Produto:** o colete tem **colchetes e zíper** (a base de conhecimento falava só de colchetes, e a Malu chegou a dizer "não tem zíper").
   - **Frete do antecipado:** continua cobrado por região no checkout.
   - **Taxa de entrega da Logzz:** o checkout de 1 peça mostra R$ 26,90; o operador manteve os R$ 19,99 do R27 no modelo de margem.
+  - **Respostas do operador no mesmo dia:**
+    - **Pagamento ao entregador:** dinheiro, Pix ou cartão.
+    - **Áudio 4:** sai sempre que o CEP tem pagamento na entrega, sem condição de data; a primeira data é o dia seguinte em ~90% dos
+      casos (operador).
+    - **Prova social:** "mais de 500 clientes satisfeitas" e "124 avaliações positivas", juntas.
+    - **Mensagem pronta do anúncio:** "Olá, tenho interesse no colete cinta modeladora!" (o sócio troca no Meta Ads).
+    - **"Reduz até 3 tamanhos":** a Malu diz que o colete reduz até 3 tamanhos na hora; só quando a cliente perguntar se emagrece
+      mesmo, ela diz que emagrece enquanto você usa. **Supera** a regra 1 de "As três coisas que você nunca inventa" do prompt
+      (Emagrecimento) e os gates que vetam promessa de redução de medida. A troca do gate segue o R21.6 (frase real) e o
+      `pnpm dev:gates`, com o afrouxamento aceito em `tests/gate-loosen-accepted.txt`.
