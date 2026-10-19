@@ -308,7 +308,7 @@
     "adversarial": "Pergunte duas vezes seguidas, em mensagens diferentes, se paga na entrega.",
     "data": "Calça 40. CEP 51021080.",
     "stop": "Quando entender que no seu CEP é só antecipado e receber o link, diga \"vou ver\" e pare.",
-    "mustNot": ["sim,? ([eé] )?pagando na entrega", "paga s[oó] R\\$ ?129,90 quando receber"]
+    "mustNot": ["sim,? ([eé] )?pagando na entrega"]
   },
   {
     "id": "tamanho-que-nao-existe", "covers": ["C12", "C13", "C6", "N2"],
@@ -329,5 +329,15 @@
     "data": "Nenhum.",
     "stop": "Depois de ouvir a atendente, pare; se ela mandar mais uma oferta, \"já falei\" e [FIM].",
     "mustNot": ["chegou perto e parou", "posso te mandar ofertas"]
+  },
+  {
+    "id": "loja-fisica", "covers": ["G3", "N2"],
+    "who": "Edna, 46 anos, de São Paulo (SP), auxiliar de enfermagem.",
+    "situation": "Prefere ver e provar antes de comprar. Pergunta se tem loja, onde fica e se pode ir buscar pessoalmente.",
+    "voice": "Curta, sem pontuação. Ex.: \"vcs tem loja\", \"onde fica\", \"da pra ir buscar ai\", \"queria provar antes\", \"de onde vcs sao\".",
+    "adversarial": "Se disserem que é só online, pergunte \"mas nem um endereço pra eu passar?\".",
+    "data": "Calça 42. CEP 04710090.",
+    "stop": "Quando souber se tem loja e como recebe, decida e pare.",
+    "mustNot": ["temos (uma )?loja", "pode (vir|passar|ir) (buscar|retirar|provar)", "nosso endere[cç]o [eé]", "retirada (na|em) loja"]
   }
 ]

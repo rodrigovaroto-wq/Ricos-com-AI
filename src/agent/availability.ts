@@ -279,6 +279,30 @@ export const toRegion = (
 });
 
 /**
+ * The CEPs of a street in a city (ViaCEP's street search, operator 2026-10-19): the way out when the CEP she sent is
+ * one the Correios do not know. The first candidate split that finds the street wins; none found is an empty list,
+ * and a failed search is the caller's to treat as nothing found.
+ */
+export const cepsByStreet = async (
+  fetcher: Fetcher,
+  state: string,
+  queries: ReadonlyArray<{ street: string; city: string }>,
+): Promise<Array<{ cep: string; complement: string; street: string; city: string }>> => {
+  const lists = await Promise.all(
+    queries.map((q) =>
+      fetcher(`${VIACEP_ENDPOINT}/${state}/${encodeURIComponent(q.city)}/${encodeURIComponent(q.street)}/json/`).catch(() => null),
+    ),
+  );
+  for (const list of lists) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    return list
+      .filter((x): x is { cep: string; complemento?: string; logradouro?: string; localidade?: string } => typeof x?.cep === "string")
+      .map((x) => ({ cep: x.cep, complement: x.complemento ?? "", street: x.logradouro ?? "", city: x.localidade ?? "" }));
+  }
+  return [];
+};
+
+/**
  * What the lookup found: the region, a CEP the Correios do not know (ViaCEP `erro`, operator 2026-10-09:
  * she is told it was not found and asked to check it), or a lookup that failed — the network, a Coinzz
  * answer without `data` — which says nothing about her region.

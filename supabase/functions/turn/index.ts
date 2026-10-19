@@ -76,12 +76,16 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
   extractAddressBurst,
   remarkBesideCep,
+  parseCep,
+  pickStreetCep,
+  streetQueries,
+  ufOfCep,
   CORREIOS_CEP_URL,
   forgetsCep,
   refusesCep,
@@ -3699,6 +3703,27 @@ const handleTurn = async (
     addressConfirmed = true;
   }
 
+  // Operator, 2026-10-19: her street and city find the CEP the lookup could not ("confere o CEP" four times to a CEP the
+  // Correios do not know, card idosa-desabafo). The state is the one she wrote, or the first digits of a CEP she sent before;
+  // a bare house number answers the street she sent last. One CEP for her street and number becomes her CEP.
+  const herEarlier = herRecent(recentRows ?? [], spoken);
+  const bareNumber = parts.join(" ").match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1] ?? null;
+  // Only answering the agent's own talk of a CEP or a street: "fui na rua comprar" is no address.
+  const streetAsk = addressDraft.cep || !/\b(?:cep|rua)\b/i.test(lastOutbound)
+    ? []
+    : bareNumber === null
+    ? streetQueries(parts.join("\n"))
+    : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
+  const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
+  const streetFound = streetAsk.length > 0 && streetState
+    ? await cepsByStreet(regionFetcher(REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
+    : null;
+  const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;
+  if (streetCep) {
+    addressDraft = { ...addressDraft, cep: streetCep };
+    foundAddress.fields.cep = streetCep;
+  }
+
   /**
    * 5d-bis. The region, the moment a postcode exists.
    *
@@ -3770,9 +3795,13 @@ const handleTurn = async (
     ? `O CEP que ela mandou (${badCep}) termina em 000 e a consulta não acha esse: diga com gentileza que esse pode ser o CEP geral da cidade, e que pra ver a` +
       ` entrega você precisa do CEP da rua dela, e que ela acha pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente outro` +
       ` motivo (dígito a mais, número trocado) e não fale de entrega nem de pagamento na região dela.`
+    // `herEarlier` holds this burst too: the same CEP twice is her sending it again.
+    : cepNotFound && herEarlier.filter((m: string) => parseCep(m) === badCep).length >= 2
+    ? `Ela mandou de novo o mesmo CEP (${badCep}), que a consulta não acha: não peça pra ela conferir de novo. Peça só o nome` +
+      ` da rua e a cidade dela, que você acha o CEP certo pra ela. Não fale de entrega nem de pagamento na região dela.`
     : cepNotFound
     ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque parece que esse CEP não existe (pode ter sido um número trocado),` +
-      ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
+      ` e peça pra ela conferir o CEP ou, se preferir, mandar o nome da rua e a cidade, que você acha o CEP pra ela. Não fale de entrega nem de pagamento na região dela.`
     : addressDraft.cep
     ? null
     : wrongCep
@@ -4381,6 +4410,21 @@ const handleTurn = async (
       sizeBeforeLink,
       coverageUnknown,
       cepState,
+      streetFound === null || streetAsk.length === 0
+        ? null
+        : streetCep
+        ? `Pelo nome da rua que ela mandou, o CEP dela é ${streetCep}: diga numa frase que você achou o CEP dela, sem pedir CEP.`
+        : streetFound.length > 0 && streetAsk[0]!.number === null
+        ? `A rua dela (${streetFound[0]!.street}, ${streetFound[0]!.city}) tem mais de um CEP, conforme o número da casa: pergunte só` +
+          ` o número da casa dela, sem pedir o CEP.`
+        : streetFound.length > 0 && streetFound.length <= 5
+        ? `Achei estes CEPs da rua dela: ${streetFound.map((f) => `${f.cep}${f.complement ? ` (${f.complement})` : ""}`).join("; ")}.` +
+          ` Mostre as opções e peça que ela diga qual é o da casa dela. Não invente outro.`
+        : streetFound.length > 0
+        ? `A rua dela tem muitos CEPs e o número não fechou um só: diga que ela acha o dela pelo endereço no buscador dos Correios:` +
+          ` ${CORREIOS_CEP_URL}. Não invente CEP.`
+        : `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
+          ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`,
       cepRefused
         ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
           ` a dúvida).` +
