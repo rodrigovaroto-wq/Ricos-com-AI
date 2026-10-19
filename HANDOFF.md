@@ -29,6 +29,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   `docs/agente-ia/10-auditoria/parecer-conformidade-2026-10-19.md` (agente em segundo plano; se o arquivo não existir, refazer com o `compliance-reviewer`);
 >   (f) tópico 6: quem responde (Gizele no WhatsApp; e-mail do operador `contato@encorpa-fashion.com.br` para o que a Malu não resolve, R22.1); (g) tópico 7: textos
 >   aprovados x realidade (M sem estoque em SP na Logzz: decisão do operador); (h) tópico 8: estoque do kit de 2/3 peças por quantidade (ofertas de kit na Logzz, vendas 82749/82750).
+> - **Tópico 5 — parecer de conformidade pronto:** `docs/agente-ia/10-auditoria/parecer-conformidade-2026-10-19.md` (22 achados; é opinião de agente, não de advogado; nada foi aplicado). Bloqueios apontados,
+>   para o operador decidir: (1) a resposta "emagrece enquanto você usa" e a frase do áudio 1 ("reduz até três tamanhos… imediatamente", "febre nos Estados Unidos") sem prova; (2) a `turn` roda
+>   `muse-spark-1.3-contributor` (treina com dados) e não há política de privacidade publicada — decisão do operador sobre o segredo `CONVERSATION_MODEL`; (3) `HUMAN_HANDOFF_REPLY` sem canal alternativo,
+>   `shippedCancelReply` ("não dá mais pra cancelar") e a prova social (500 e 124) sem prova arquivada. Itens para advogado: prazo de garantia de vestuário, alegação de saúde ("ajuda na postura"), encarregado.
 > - **Local:** a `turn` local de teste usa o script do scratchpad (não está no repositório); refazer com `deno` e `BUSINESS_CONFIG` = arquivo 19b se precisar.
 
 > **2026-10-19 (noite) — consulta de cobertura pela Logzz: NO AR NA `turn` v34 (função v136). PR #70 ainda aberto, só o CI das mutações em ajuste.**
