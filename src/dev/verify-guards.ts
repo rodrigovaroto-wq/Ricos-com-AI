@@ -778,7 +778,7 @@ const MUTATIONS: Mutation[] = [
   {
     id: "hermes-retencao",
     bug: "a citação de cliente em hermes_proposals.evidence sobrevivia à retenção de 90 dias",
-    files: ["supabase/migrations/0020_hermes_retention.sql"],
+    files: ["supabase/migrations/0028_coverage_lookups.sql"],
     from: "set evidence = evidence - 'evidencias', evidence_redacted_at = now()",
     to: "set evidence_redacted_at = now()",
     guard: ["pnpm", "-s", "vitest", "run", "tests/migrations.test.ts"],
