@@ -262,6 +262,25 @@ describe("região", () => {
     expect(r?.size).toBeNull();
   });
 
+  it("o M dela sem resposta não promete o Express de outro tamanho", async () => {
+    const express = structuredClone(yes);
+    express.data.local_operation_cash_on_delivery.delivery_days_available[0]!.deliverySameDay = 1;
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.M) ? null : express;
+    }, "01310-100", "M");
+    expect(r?.sameDay).toBe(false);
+    expect(r?.askedSize).toBe("M");
+  });
+
+  it("negação: sem tamanho conhecido, o Express da região continua valendo", async () => {
+    const express = structuredClone(yes);
+    express.data.local_operation_cash_on_delivery.delivery_days_available[0]!.deliverySameDay = 1;
+    const r = await checkRegion(async (url) =>
+      url.includes("viacep") ? { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" } : express, "01310-100");
+    expect(r?.sameDay).toBe(true);
+  });
+
   it("sem tamanho, o G decide primeiro quando G e GG entregam em datas diferentes", async () => {
     const later = structuredClone(yes);
     later.data.local_operation_cash_on_delivery.delivery_days_available[0]!.dates = [{ date: "2026-09-20" }];

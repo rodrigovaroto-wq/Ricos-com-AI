@@ -114,6 +114,8 @@ describe("E2.4 cobertura guardada por CEP", () => {
     expect(cachedRegion({ ...region, size: "GG" }, "04710-090", now, "G")).toBeNull();
     expect(cachedRegion(region, "04710-090", now, "G")).toBeNull();
     expect(cachedRegion({ ...region, size: "G" }, "04710-090", now, "G")).not.toBeNull();
+    // The M never answers: the answer asked for her M is still hers to reuse, or every turn asks the five sizes again.
+    expect(cachedRegion({ ...region, size: null, askedSize: "M" }, "04710-090", now, "M")).not.toBeNull();
     expect(cachedRegion(region, "01310-100", now)).toBeNull();
   });
   it("vencido (1 h ou mais), data inválida ou futura: consulta de novo", () => {

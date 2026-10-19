@@ -244,6 +244,8 @@ export interface Region {
   readonly labelBrl: number | null;
   /** The size this answer is for: hers when it was asked and answered, null when it is any size's (R28). */
   readonly size?: Size | null;
+  /** The size it was asked for, answered or not: the cache's key, so an M that never answers is not asked every turn. */
+  readonly askedSize?: Size | null;
 }
 
 /**
@@ -259,7 +261,13 @@ export const readPlace = (body: unknown): Place | null => {
   return { city: j.localidade, state: j.uf, district: j.bairro || "Centro" };
 };
 
-export const toRegion = (zip: string, place: Place, a: Availability, size: Size | null = null): Region => ({
+export const toRegion = (
+  zip: string,
+  place: Place,
+  a: Availability,
+  size: Size | null = null,
+  askedSize: Size | null = size,
+): Region => ({
   zip,
   place,
   cod: a.cod,
@@ -267,6 +275,7 @@ export const toRegion = (zip: string, place: Place, a: Availability, size: Size 
   sameDay: a.express !== null,
   labelBrl: a.labelBrl,
   size,
+  askedSize,
 });
 
 /**
@@ -291,7 +300,9 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | n
   // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
   const hers = answers.find((a) => a.size === size);
   if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };
-  return { kind: "found", region: toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!) };
+  const any = toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!, null, size);
+  // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
+  return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
 };
 
 /**
@@ -310,7 +321,7 @@ export const cachedRegion = (
 ): Region | null => {
   if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
   // An answer for another size (or for any size, now that hers is known) is asked again (R28).
-  if ((cached.size ?? null) !== size) return null;
+  if ((cached.askedSize ?? cached.size ?? null) !== size) return null;
   const age = now - Date.parse(cached.checkedAt);
   if (!(age >= 0 && age < REGION_CACHE_MS)) return null;
   // The dates shift at midnight: only the same São Paulo day (UTC−3) is served (/code-review of E2).

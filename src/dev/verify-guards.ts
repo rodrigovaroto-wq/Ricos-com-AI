@@ -4173,6 +4173,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
   {
+    id: "R28-hoje-de-outro-tamanho",
+    bug: "a cliente de M em São Paulo ouvia 'chega hoje' pelo Express do GG",
+    files: ["src/agent/availability.ts"],
+    from: "region: size === null ? any : { ...any, sameDay: false } };",
+    to: "region: any };",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
+  },
+  {
+    id: "R28-cache-do-m",
+    bug: "para quem veste M o cache da região nunca acertava, e cada turno refazia as cinco consultas",
+    files: ["src/agent/availability.ts"],
+    from: "if ((cached.askedSize ?? cached.size ?? null) !== size) return null;",
+    to: "if ((cached.size ?? null) !== size) return null;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/measurement.test.ts"],
+  },
+  {
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],
