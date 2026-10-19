@@ -450,8 +450,10 @@ const COD_NAME = /\bna\s+entrega\b|\bpag\w*\s+(?:(?:so|tudo|apenas|r\$\s*[\d.,]+
  * exists; "não cobrado à parte" says it is included, not free, and stays out.
  */
 const FREE_WORD = /\b(?:gratis|gratuit[oa]|zero|free|por\s+nossa\s+conta|de\s+gra[cs]a|custa\s+nada)\b/g;
+// "Nem pagando frete a mais" refuses a faster delivery for more money (persona Rafa, 2026-10-19): paying MORE freight,
+// denied, is no claim that there is none — the lookaheads after `frete` in the two "pay" alternatives.
 const FREIGHT_DENIAL =
-  /\b(?:sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b|(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b|\bnem\b[^.!?,]{0,20}?\b(?:tem|ha|existe|cobr\w*|pag\w*)\s+(?:o\s+|de\s+|nenhum\s+)?frete\b|\b(?:nao|nunca|sem)\s+(?:(?!esquec|deix)[a-z]+\s+){0,2}?(?:cobr|pag)\w*\s+(?:o\s+|de\s+|nenhum\s+)?frete\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora))|\bfrete\b(?:\s+[a-z]+){0,3}?\s+(?:nao|nunca)\s+(?:e\s+|sera\s+|vai\s+ser\s+|esta\s+sendo\s+)?cobrad[oa]\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora))/g;
+  /\b(?:sem|nao\s+tem|nao\s+ha|zero\s+de)\s+frete\b|(?<!\bnao\s+(?:se\s+)?)\b(?:nada\s+de|nenhum|zero|livre\s+de|isent\w*\s+de|esquec\w*)\s+(?:o\s+)?frete\b|\bnem\b[^.!?,]{0,20}?\b(?:tem|ha|existe|cobr\w*|pag\w*)\s+(?:o\s+|de\s+|nenhum\s+)?frete\b(?!\s+(?:a\s+mais|extra|adicional))|\b(?:nao|nunca|sem)\s+(?:(?!esquec|deix)[a-z]+\s+){0,2}?(?:cobr|pag)\w*\s+(?:o\s+|de\s+|nenhum\s+)?frete\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora|a\s+mais|extra|adicional))|\bfrete\b(?:\s+[a-z]+){0,3}?\s+(?:nao|nunca)\s+(?:e\s+|sera\s+|vai\s+ser\s+|esta\s+sendo\s+)?cobrad[oa]\b(?!\s+(?:a\s+parte|separad\w*|por\s+fora))/g;
 /**
  * The free claim denied, which is the honest prepaid answer: "o frete (do pix) não é grátis",
  * "no pix não tem frete grátis", "nem no pix tem frete grátis". Not when "só" follows ("não é

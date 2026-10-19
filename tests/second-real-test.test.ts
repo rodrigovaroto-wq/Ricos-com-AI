@@ -254,7 +254,7 @@ describe("C9 — o nome completo com partícula substitui o primeiro nome", () =
   });
 
   it("o turno passa o pedido do nome e do sobrenome", () => {
-    expect(turn).toContain("extractIdentityBurst(parts, asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound))");
+    expect(turn).toContain("const askedNameNow = asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound);");
   });
 });
 

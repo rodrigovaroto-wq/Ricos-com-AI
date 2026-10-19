@@ -79,7 +79,8 @@ export const parseCep = (text: string): string | null => {
   const match = text.match(
     // Glued only by punctuation without a space: "Rua X, 55 - 04710-090" and the street number on the next
     // line still read (review of round 2); "551.381.468-40" and "99491-5983" still do not.
-    new RegExp(String.raw`(?<!\d[.\-–]?)(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3}))(?![.\-–]?\d)`),
+    // "306 72000" (real lead, 2026-10-19: sent four times, never read): 3+5 too — no phone is written that way.
+    new RegExp(String.raw`(?<!\d[.\-–]?)(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3})|(\d{3})${S}(\d{5}))(?![.\-–]?\d)`),
   );
   if (!match) return null;
   const digits = match.slice(1).filter(Boolean).join("");
@@ -118,6 +119,21 @@ const MID = String.raw`(?:(?!\b(?:mas|porem|pq|porque|por\s+que)\b)[^.!?,;\n]){0
 const FORGOT_CEP = new RegExp(String.raw`\b${FORGOT}${MID}\bcep\b|\bcep\b${MID}\b${FORGOT}`);
 export const forgetsCep = (text: string): boolean =>
   FORGOT_CEP.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+
+/**
+ * She will not give the CEP yet (persona Marcinha, 2026-10-19: "nao vou passar cep ainda nao sem saber tamanho certo", and
+ * the CEP was asked four times more). Read like the forgotten CEP: no ask until she sends one. Negation both ways: "vou te
+ * passar o cep", "não sei se passo o cep certo" and "por que não passar o cep?" are no refusal.
+ */
+const REFUSE_CEP = new RegExp(
+  String.raw`\b(?:nao|n)\s+(?:(?:vou|quero|vo|irei|posso|consigo)\s+)?(?:passar|dar|informar|mandar|enviar|falar|passo|dou|mando|informo)\s+(?:o\s+|meu\s+|nenhum\s+)?cep\b(?!\s+(?:errad|cert|de\s+novo))` +
+    String.raw`|\bcep\b\s+(?:eu\s+)?(?:nao|n)\s+(?:vou\s+)?(?:passo|passar|dou|dar|mando|mandar|informo|informar)\b` +
+    String.raw`|\bprefiro\s+(?:nao|n)\s+(?:passar|dar|informar|mandar)\s+(?:o\s+|meu\s+)?cep\b`,
+);
+export const refusesCep = (text: string): boolean => {
+  const t = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return REFUSE_CEP.test(t) && !/\b(?:por\s*que|pq|porque)\b[^.!?\n]*\?/.test(t);
+};
 
 /** Words that open a Brazilian street line. */
 const STREET_TYPES =

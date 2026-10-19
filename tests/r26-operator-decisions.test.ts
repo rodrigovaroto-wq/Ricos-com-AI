@@ -57,7 +57,7 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
   });
 
   it("o turno lê o 'não lembro' das mensagens dela, só enquanto nenhum CEP foi lido, e passa ao gate", () => {
-    expect(turn).toContain("const cepForgotten = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep);");
+    expect(turn).toContain("const cepForgotten = cepRefused || (!addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep));");
     expect(turn).toMatch(/cepForgotten,\n\s+hookSent: recentOutbound\.some\(isHook\)/);
   });
 

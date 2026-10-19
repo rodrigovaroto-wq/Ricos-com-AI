@@ -83,6 +83,7 @@ import {
   extractAddressBurst,
   CORREIOS_CEP_URL,
   forgetsCep,
+  refusesCep,
   malformedCep,
   readBackAddress,
   isComplete,
@@ -162,6 +163,7 @@ import {
   isReceipt,
   onlyGreets,
   spoken,
+  TRANSCRIBED,
   WELCOME_RESUME_DELAY_SECONDS,
   RETURN_GREETING,
   RETURN_RESUME_DELAY_SECONDS,
@@ -1836,7 +1838,7 @@ const runFollowupSweep = async () => {
       // CEP and no order. Index: messages_conversation_idx (conversation_id, created_at), her 20 newest.
       cepForgotten: kind === "silence_1" && !lead.address?.cep && !order &&
         ((await db(`messages?conversation_id=eq.${row.conversation_id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`).catch(() => null)) ?? [])
-          .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? ""))),
+          .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? "")) || refusesCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -3761,7 +3763,13 @@ const handleTurn = async (
     spoken(inbound.body ?? ""),
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
-  const cepState = cepNotFound
+  // A CEP ending in 000 is the town's general one, which the lookup often does not know (real lead, 2026-10-19: "62.930.000",
+  // and the model invented "veio com um dígito a mais"): the street's CEP is asked, with the Correios search.
+  const cepState = cepNotFound && /000$/.test((badCep ?? "").replace(/\D/g, ""))
+    ? `O CEP que ela mandou (${badCep}) é o CEP geral da cidade, e a consulta não acha esse: diga com gentileza que pra ver a entrega` +
+      ` você precisa do CEP da rua dela, e que ela acha pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente outro` +
+      ` motivo (dígito a mais, número trocado) e não fale de entrega nem de pagamento na região dela.`
+    : cepNotFound
     ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque parece que esse CEP não existe (pode ter sido um número trocado),` +
       ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
     : addressDraft.cep
@@ -3772,7 +3780,9 @@ const handleTurn = async (
       : `O CEP dela ainda não foi recebido: nunca diga que recebeu, anotou ou vai conferir o CEP.`;
   // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", then the CEP asked five more times. From her
   // recent messages, while no CEP was read: pointed once to the Correios search, and never asked until she sends one.
-  const cepForgotten = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep);
+  // Persona Marcinha (2026-10-19): "não vou passar cep ainda" is read like the forgotten CEP — no ask until she sends it.
+  const cepRefused = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(refusesCep);
+  const cepForgotten = cepRefused || (!addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep));
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
@@ -3805,7 +3815,13 @@ const handleTurn = async (
   const leadEmail: string | null = burstEmail ?? storedEmail ?? null;
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
   // Right after the agent asked her name or surname, "Leila da silva" is her name (grafo §66).
-  const burstIdentity = extractIdentityBurst(parts, asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound));
+  const askedNameNow = asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound);
+  // A name is never read from a transcribed audio unless the agent just asked it (Terezinha, 19/10: "daí daí eu disse deixa"
+  // became her name and opened the link message). The CPF still is: its check digits vouch for it.
+  const rawParts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
+  const { name: anyName, ...burstRest } = extractIdentityBurst(parts, askedNameNow);
+  const typedName = askedNameNow ? anyName : extractIdentityBurst(parts.filter((_, i) => !rawParts[i]?.startsWith(TRANSCRIBED)), false).name;
+  const burstIdentity = { ...burstRest, ...(typedName ? { name: typedName } : {}) };
   // The name on the first line above her street, only right after the agent asked for the name and
   // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
   const firstLineName =
@@ -4358,7 +4374,10 @@ const handleTurn = async (
       sizeBeforeLink,
       coverageUnknown,
       cepState,
-      cepForgotten
+      cepRefused
+        ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
+          ` a dúvida) e, uma vez só na conversa, diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`
+        : cepForgotten
         ? `Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar; siga a conversa (tamanho, kit) e retome o CEP só` +
           ` quando ela trouxer.` +
           (recentOutbound.some((m: string) => m.includes(CORREIOS_CEP_URL))
