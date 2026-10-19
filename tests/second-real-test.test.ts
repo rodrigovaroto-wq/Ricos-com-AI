@@ -612,10 +612,12 @@ describe("G66 — o link fixo lê oração por oração", () => {
 describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por conversa", () => {
   const blocked = (t: string, c: Record<string, unknown>, gate: string) =>
     runGates(t, ctx(c)).traces.some((x) => x.gate === gate && x.verdict === "block");
-  it("o terceiro pedido de CEP é vetado; o segundo não", () => {
+  // Since 2026-10-19 (operator, "a insistência no CEP"; persona Marcinha): never two in a row.
+  it("o segundo pedido seguido de CEP é vetado; o primeiro não", () => {
     expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
-    expect(blocked("Qual é o seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
-    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 1 }, "cep_insist")).toBe(false);
+    expect(blocked("Qual é o seu CEP?", { cepAsks: 1 }, "cep_insist")).toBe(true);
+    expect(blocked("Me passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí na sua região.", { cepAsks: 1 }, "cep_insist")).toBe(true);
+    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 0 }, "cep_insist")).toBe(false);
     expect(blocked("O CEP é aquele número de 8 dígitos do seu endereço.", { cepAsks: 2 }, "cep_insist")).toBe(false);
   });
   it("o segundo gancho é vetado; o primeiro passa", () => {
@@ -626,7 +628,7 @@ describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por 
     expect(blocked("Essa roupa que você ama vai ficar ótima com o colete.", { hookSent: true }, "hook_repeat")).toBe(false);
   });
   it("o turno conta os pedidos de CEP e o gancho nas respostas recentes", () => {
-    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
+    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy || wrongCep || cepNotFound\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
     expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
   });
 });

@@ -183,6 +183,31 @@ export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: bo
   return `${regionKnown ? `Na entrega` : `Dependendo da sua região, na entrega`} chega em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias, no dia que você escolhe no checkout.`;
 };
 
+/**
+ * Her payment question when every draft was vetoed (personas venda-curiosa and pago-na-entrega-sim, 2026-10-19): "me
+ * explica de novo o pagamento" and "não apareceu dia nenhum, vocês não mandam pelo correio?" heard "me fala de novo o que
+ * você quer saber?". The way she pays where she is, from the config: the delivery where it is known, the prepaid where it
+ * is not there, the two links where the lookup could not confirm, and before the CEP both, "dependendo da sua região".
+ */
+export const paymentFallbackMessage = (config: PromptConfig, where: "cod" | "prepay" | "both" | null): string => {
+  const pct = config.prices.prepayDiscountPercent;
+  const prepay = pct > 0 ? `com ${pct}% de desconto: ${money(config.prices.prepayBrl)}` : `por ${money(config.prices.prepayBrl)}`;
+  if (where === "prepay") return noCodMessage(config);
+  if (where === "both") {
+    return `Se no link 🟢 não aparecer o dia pra escolher, aí ainda não tem pagamento na entrega, e você leva pelo link 🔵 do antecipado, ${prepay}.`;
+  }
+  if (where === "cod") {
+    return `Aí na sua região você paga só na entrega, ${money(config.prices.codBrl)}: não paga nada agora, e paga ao entregador no dinheiro, Pix ou cartão.`;
+  }
+  return `Dependendo da sua região, dá pra pagar só na entrega, ${money(config.prices.codBrl)} ao entregador, ou no antecipado ${prepay}.`;
+};
+
+/** Her question about how she pays or how it is sent (not the price, not the day). */
+export const asksPayment = (text: string): boolean =>
+  /\b(?:pagamento|pagar|pago|paga|correios?|mandam|envia[mr]?|antecipad\w*|entregador)\b/.test(
+    text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
+  );
+
 /** A deadline question: the day, the window, the express (not "bom dia"). */
 export const asksDeadline = (text: string): boolean =>
   // Per sentence (R21.5h): the refund's deadline is not the delivery's (v20 review), "recebo até sexta o
@@ -694,7 +719,8 @@ export const systemPrompt = (
     `pelos Correios no antecipado) — você nunca apresenta "as duas opções" nem pergunta qual ela prefere; siga no`,
     `caminho que a instrução da região disser. Antes do CEP você não sabe se o pagamento na entrega chega nela: quando explicar como ele`,
     `funciona antes do CEP, diga "dependendo da sua região" ou "na maioria das regiões", nunca como certo pra ela. Peça o CEP com`,
-    `o motivo, e quem consulta a região é o sistema — a instrução aqui embaixo diz o resultado.`,
+    `o motivo, e quem consulta a região é o sistema — a instrução aqui embaixo diz o resultado. Se a sua última mensagem já`,
+    `pediu o CEP e ela não mandou, esta resposta não pede de novo: responda o que ela disse e siga a conversa (2026-10-19).`,
     `Se ela perguntou o preço antes do CEP, responda primeiro, com estes números: "${priceBeforeCepMessage(config)}"`,
     `Se ela perguntar se chega até um dia (a festa, o sábado), peça o CEP como o jeito de responder: "me passa seu CEP que eu já`,
     `vejo a primeira data de entrega aí" — sem prometer o dia antes da consulta.`,

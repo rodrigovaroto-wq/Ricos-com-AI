@@ -92,3 +92,10 @@ describe("a turn: ressalvas da revisão (index.ts lido como fonte)", () => {
   it("a explicação da recusa do CEP sai uma vez só, conferida pela turn", () =>
     expect(turn).toContain("/\\bcep\\b[^.!?]*(?<!\\p{L})(?:serve|s[oó])(?!\\p{L})[^.!?]*entrega/iu.test(m)"));
 });
+
+describe("o CEP não sai duas mensagens seguidas (persona Marcinha, 19/10)", () => {
+  it("a turn zera a conta quando o CEP dela não leu ou não foi achado, e o prompt diz a mesma regra", () => {
+    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy || wrongCep || cepNotFound");
+    expect(readFileSync("src/agent/prompt.ts", "utf8")).toContain("pediu o CEP e ela não mandou, esta resposta não pede de novo");
+  });
+});

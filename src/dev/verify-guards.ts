@@ -3260,8 +3260,8 @@ const MUTATIONS: Mutation[] = [
     id: "D17-cep-no-maximo-2",
     bug: "a Neusa recebeu o pedido do CEP dez vezes seguidas",
     files: ["src/agent/guardrails.ts"],
-    from: ": (ctx.cepAsks ?? 0) >= 2 ? \"asks the CEP a third time\"",
-    to: ": false ? \"asks the CEP a third time\"",
+    from: ": (ctx.cepAsks ?? 0) >= 1 ? \"asks the CEP twice in a row\"",
+    to: ": false ? \"asks the CEP twice in a row\"",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
@@ -4315,6 +4315,22 @@ const MUTATIONS: Mutation[] = [
     from: "/^55\\d{2}[6-9]\\d{7}$/.test(raw)",
     to: "false",
     guard: ["pnpm", "-s", "vitest", "run", "tests/coinzz.test.ts"],
+  },
+  {
+    id: "R28-pagamento-me-fala-de-novo",
+    bug: "'me explica de novo o pagamento' com as reescritas vetadas ouvia 'me fala de novo o que você quer saber?' (personas, 19/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment);",
+    to: "const asksHowToPay = false && parts.some(asksPayment);",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/payment-fallback.test.ts"],
+  },
+  {
+    id: "R28-cep-duas-seguidas",
+    bug: "o CEP saía duas mensagens seguidas a quem não tinha mandado (persona Marcinha, 19/10)",
+    files: ["src/agent/guardrails.ts"],
+    from: ": (ctx.cepAsks ?? 0) >= 1 ? \"asks the CEP twice in a row\"",
+    to: ": (ctx.cepAsks ?? 0) >= 2 ? \"asks the CEP twice in a row\"",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
     id: "G67-ok-sozinho",

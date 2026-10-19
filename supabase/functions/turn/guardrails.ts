@@ -3180,18 +3180,19 @@ const gates: readonly Gate[] = [
   {
     /**
      * Neusa answered "ta", "?", "nao entendi" and got the CEP asked ten times (persona round of
-     * 2026-10-07). Twice at most (operator, decision 17): after that the reply answers her and moves on.
+     * 2026-10-07). Twice at most (operator, decision 17): after that the reply answers her and moves on. Never two in a
+     * row since 2026-10-19 (operator: "a insistência no CEP"; persona Marcinha heard it four times, two of them in a row).
      */
     name: "cep_insist",
     remedy: "rewrite",
     briefing: () =>
-      `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo. ` +
+      `Sua última mensagem já pediu o CEP e ela não mandou: responda o que ela disse e siga a conversa sem pedir o CEP de novo. ` +
       `Se ela disse que não lembra o CEP, não peça de novo até ela mandar.`,
     check: (text, ctx) =>
       !asksCep(text) ? null
       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
       : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
-      : (ctx.cepAsks ?? 0) >= 2 ? "asks the CEP a third time"
+      : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
       : null,
   },
   {
