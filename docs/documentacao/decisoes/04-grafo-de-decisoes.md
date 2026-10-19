@@ -3407,6 +3407,61 @@ config: abertura, oferta, dois links e link.
 - A Malu repete o pedido de CEP depois de "não vou passar o CEP ainda" (Marcinha, 4 vezes).
 - Quem manda tudo na primeira mensagem junto com uma pergunta (oferta e link no resume) fica com a pergunta sem resposta.
 
+## 107. Frete a mais, CEP em pedaços e o nono dígito: o que as conversas de 19/10 mostraram (operador, 2026-10-19)
+
+**Sintoma:** nas conversas reais e de persona de 19/10:
+- "306 72000" foi mandado quatro vezes e nunca foi lido; a cliente de BH recebeu o link do antecipado;
+- "62.930.000" (CEP geral da cidade) não foi achado e o modelo inventou "dígito a mais";
+- um nome foi tirado de lixo de áudio ("daí daí eu disse deixa") e a Malu respondeu "Prontinho, daí!";
+- "nem pagando frete a mais" era vetado como promessa de frete grátis;
+- a Marcinha ouviu o pedido do CEP mais quatro vezes depois de recusar;
+- a objeção dita ao lado do CEP ficou sem resposta;
+- o link do checkout ia com o telefone sem o nono dígito, que o WhatsApp tira de 32 das 41 leads reais. O pedido nasceria com
+  um número que não toca, e o entregador do pagamento na entrega liga para esse número.
+
+**Causa:**
+- `parseCep` só conhecia 8, 5+3 e 2+3+3;
+- a diretiva do CEP não-achado não sabia do CEP geral;
+- o nome vinha também do áudio transcrito;
+- `FREIGHT_DENIAL` não distinguia pagar a MAIS;
+- nada segurava o CEP depois de uma recusa;
+- a resposta depois da oferta só disparava com pergunta;
+- `buildPrefilledCheckoutLink` repassava o número do canal como veio.
+
+**Caminhos que falharam:**
+1. Lookahead `(?!\s+(?:a\s+mais|extra|adicional))` nas duas alternativas de pagar. A revisão Opus mostrou "No pix você não paga
+   frete a mais" passando.
+2. Apagar `pag(ar|ando) frete a mais` antes do casamento. A segunda revisão mostrou "não vai pagar frete a mais" passando.
+3. Ler o 3+5 dentro da alternância. "Rua das Flores 123 04710 090" virava 12304-710, e "031 99123 4567" virava CEP.
+4. Chamar de comentário quatro palavras ao lado do CEP. Saudação, endereço, agradecimento e "quero o kit" disparavam uma chamada
+   de modelo a mais.
+
+**Correção:**
+- apaga só "nem / não dá pra" + "pagar/pagando frete a mais|extra|adicional" antes do `FREIGHT_DENIAL`;
+- o 3+5 é recurso final, sem dígito vizinho;
+- `remarkBesideCep` exige dúvida ou um "não" na mensagem do CEP, sem palavra de endereço;
+- `refusesCep` segura o pedido do CEP, com o motivo dito uma vez (a turn confere);
+- o CEP terminado em 000 "pode ser o geral da cidade", com o buscador dos Correios;
+- o nome vem só de texto digitado, salvo quando ela acabou de ser perguntada;
+- o celular (6–9 depois do DDD) ganha o 9 de volta no link; o fixo, não. O webhook do pedido já casava pelos 8 finais.
+
+**Guarda:**
+- `tests/r28-real-fixes.test.ts` e `tests/coinzz.test.ts`, com negações nos dois sentidos;
+- mutações `R28-frete-a-mais`, `-largo`, `R28-cep-3-mais-5`, `-com-vizinho`, `R28-comentario-ao-lado-do-cep`,
+  `R28-recusa-do-cep` e `R28-nono-digito`: 7/7 pegas;
+- `dev:gates` sem afrouxamento não aceito;
+- `turn` v31 no ar.
+
+**Links de pagamento (revisados em 19/10):** os 6 abrem (HTTP 200). O produto e a quantidade de cada um batem com o config: Logzz
+R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,84 / 272,79 com frete R$ 0,00 e até 12x.
+
+**Personas:** reescritas com a voz das 41 conversas reais, com 8 fichas novas de situações reais.
+
+**Resíduos:**
+- `"pedido 123 45678"` lê como CEP (hipotético, R21.6);
+- a ficha "loja física" espera decisão do operador;
+- só a oferta de 3 peças da Logzz tem "entrega garantida" ligada.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
