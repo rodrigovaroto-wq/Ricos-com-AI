@@ -898,8 +898,8 @@ const regionDirectiveFor = (
 ): string | null => {
   if (region === null) return null;
   if (offerPending) {
-    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda quando souber o` +
-      ` tamanho dela. Peça o número da calça, com o motivo, e ainda não fale de pagamento na entrega, de frete nem de prazo.`;
+    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda em seguida. Ainda não` +
+      ` fale de pagamento na entrega, de frete nem de prazo; se o tamanho dela ainda não foi dito, peça o número da calça.`;
   }
   if (!region.cod && unconfirmed) {
     return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter, e a consulta está` +
@@ -4215,7 +4215,7 @@ const handleTurn = async (
         ],
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
         checkoutUrl ? { checkoutUrl, linkFact } : {},
-        askedBeside && !checkoutUrl,
+        askedBeside,
       );
       if (sent) return sent;
     }
@@ -4339,7 +4339,7 @@ const handleTurn = async (
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities), offerNow !== null && offerNow !== offerBefore && !pastLink && !sizeKnown),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities), offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
       failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
