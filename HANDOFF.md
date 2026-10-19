@@ -13,27 +13,27 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-19 (noite) — EM ANDAMENTO: consulta de cobertura pela Logzz (não publicada, WIP commitado).**
+> **2026-10-19 (noite) — consulta de cobertura pela Logzz: PRONTA E TESTADA, NÃO PUBLICADA (PR #70, rascunho).**
 >
-> - **Causa:** a consulta perguntava à Coinzz (`stock-and-delivery-day`), que dizia "sem entrega" para o G em São Paulo.
->   O operador conferiu 180 G em estoque lá. O pagamento na entrega é vendido no checkout da Logzz, então a fonte certa
->   é a Logzz.
-> - **Fonte certa (sondada em 19/10, pública e só leitura):**
->   - `GET entrega.logzz.com.br/ajax/get-available-stock-for-schedule?product_id=165378&city&uf&cep&neighborhood&sale_id=75567`
->     devolve o estoque por tamanho e por operação, ou `status:error` ("bloqueado"/"não faz parte") quando não entrega.
->   - `GET .../ajax/get-delivery-days-options-by-operations-ids?operation_ids[]=9&city&uf&cep&sale_id=75567` devolve as datas.
->   - O XG da Logzz é o XGG da tabela.
-> - **Feito (WIP):**
->   - `lookupLogzz` e `readLogzzStock` em `src/agent/availability.ts` (espelho copiado);
->   - `lookupRegion(fetcher, zip, size, logzz)`: com o 4º parâmetro usa a Logzz, sem ele a Coinzz como antes;
->   - a BrasilAPI vira segunda base de CEP quando o ViaCEP não acha. Ela achou "62930000" (Limoeiro do Norte), que o
->     ViaCEP não achava.
-> - **Falta:**
->   1. campo opcional `checkout.logzz {productId, saleId}` no `BusinessConfig`, no example e no secret;
->   2. passar os ids nas chamadas da turn (`lookupRegion` e a segunda tentativa) e no `checkCoverage` (health);
->   3. testes (leitura do estoque, erro = sem entrega, tamanho dela sem estoque, falha das datas, BrasilAPI) e mutações;
->   4. revisão Opus, grafo §108, deploy e sonda: SP G deve dar entrega, Manaus e Cruz Alta não;
->   5. no deno local, `--allow-net` precisa de `entrega.logzz.com.br` e `brasilapi.com.br`.
+> - **Causa:** a consulta perguntava só à Coinzz, que dizia "sem entrega" para o G em São Paulo (a Logzz tem 180). O pagamento na
+>   entrega é vendido no checkout da Logzz, então ela é a fonte certa.
+> - **Desenho (`src/agent/availability.ts`, espelho copiado):** `lookupRegion(fetcher, zip, size, logzz)` nunca lança e segue uma escada:
+>   1. CEP → cidade: ViaCEP, depois BrasilAPI (que achou o "62930000");
+>   2. Logzz, as duas consultas públicas do próprio checkout: estoque por tamanho e operação, depois os dias de entrega. O 400
+>      da Logzz com uma das três mensagens conhecidas ("bloqueado", "fora da lista", "sem estoque") é "sem entrega". Qualquer outra
+>      coisa que não se entenda é consulta que falhou, nunca "não";
+>   3. se a Logzz falhar: a consulta da Coinzz como segunda fonte. O "sim" dela vale, o "não" dela nunca vira negação;
+>   4. se tudo falhar: `failed` com a cidade guardada. A turn manda os dois links se a cidade está na lista, senão o antecipado.
+> - **Os ids da oferta:** `checkout.logzz {productId 165378, saleId 75567}` no config (opcional, no example). Sem a chave, vale a oferta
+>   conhecida pelo slug `ccm-1-unidade`, então **o secret não precisa mudar**. O hash do secret de produção
+>   (`eadf2c2f…`) já não é o do arquivo `business-config-2026-10-19.min.json` (`8a5005eb…`): o operador o editou depois. **Não
+>   sobrescreva o secret com esse arquivo.**
+> - **Provas:** 8415 testes, incluindo `tests/logzz-region.test.ts` (47, com fuzz de corpo torto); 11 mutações novas, todas pegas; varredura
+>   real de 75 CEPs em 25 cidades; teste de caos com as 4 fontes caindo em 16 combinações contra dados reais: 0 negações falsas, 0
+>   "sim" falsos, 0 exceções; sonda a partir do Edge da Supabase (ViaCEP, BrasilAPI e Logzz respondem de lá).
+> - **Falta:** revisão Opus final, deploy da `turn` v34, sonda (SP com G dá entrega; Manaus, Cruz Alta e Recife não), grafo §108.
+> - **Resíduos conhecidos:** o estoque do kit de 2 e 3 peças não é consultado por quantidade; o tamanho M em São Paulo está sem estoque
+>   na Logzz (fora de BH, só o G e o GG têm); uma cidade que o ViaCEP grafe diferente da Logzz cai em "fora da lista".
 
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >
