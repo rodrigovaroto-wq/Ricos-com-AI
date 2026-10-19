@@ -189,10 +189,12 @@ export const deadlineFallbackMessage = (config: PromptConfig, codUnavailable: bo
  * você quer saber?". The way she pays where she is, from the config: the delivery where it is known, the prepaid where it
  * is not there, the two links where the lookup could not confirm, and before the CEP both, "dependendo da sua região".
  */
-export const paymentFallbackMessage = (config: PromptConfig, where: "cod" | "prepay" | "both" | null): string => {
+export const paymentFallbackMessage = (config: PromptConfig, where: "cod" | "no_cod" | "prepay" | "both" | null): string => {
   const pct = config.prices.prepayDiscountPercent;
   const prepay = pct > 0 ? `com ${pct}% de desconto: ${money(config.prices.prepayBrl)}` : `por ${money(config.prices.prepayBrl)}`;
-  if (where === "prepay") return noCodMessage(config);
+  if (where === "no_cod") return noCodMessage(config);
+  // She chose the prepaid where the delivery may exist: never "não tem pagamento na entrega" (review of the fix).
+  if (where === "prepay") return `No antecipado você paga no checkout, no Pix ou no cartão, ${prepay}, e recebe em casa.`;
   if (where === "both") {
     return `Se no link 🟢 não aparecer o dia pra escolher, aí ainda não tem pagamento na entrega, e você leva pelo link 🔵 do antecipado, ${prepay}.`;
   }
@@ -204,7 +206,8 @@ export const paymentFallbackMessage = (config: PromptConfig, where: "cod" | "pre
 
 /** Her question about how she pays or how it is sent (not the price, not the day). */
 export const asksPayment = (text: string): boolean =>
-  /\b(?:pagamento|pagar|pago|paga|correios?|mandam|envia[mr]?|antecipad\w*|entregador)\b/.test(
+  // Not "mandam"/"envia" alone: "vocês mandam foto?", "me envia o link" are no payment question (review of the fix).
+  /\b(?:pagamento|pagar|pago|paga|correios?|antecipad\w*|entregador)\b/.test(
     text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase(),
   );
 

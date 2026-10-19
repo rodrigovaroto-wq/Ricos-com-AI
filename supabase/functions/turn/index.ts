@@ -4075,6 +4075,9 @@ const handleTurn = async (
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
+  // Her payment chosen and the CEP still missing asks the CEP — but not twice in a row (`cep_insist`, 2026-10-19): when the
+  // last reply already asked and she did not send it, only her wanting the link asks again (review of the fix).
+  const cepDue = linkDue || (paymentChoice !== null && !asksCep(recentOutbound.at(-1) ?? ""));
   const sizeBeforeLink =
     missing === "size" && (linkDue || units > 1)
       ? units > 1
@@ -4082,10 +4085,10 @@ const handleTurn = async (
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
-      : missing === "cep" && (linkDue || paymentChoice !== null) && cepForgotten
+      : missing === "cep" && cepDue && cepForgotten
         ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; diga numa frase que,` +
           ` assim que ela tiver o CEP, o link sai — sem pedir que ela mande. Não escreva link nenhum.`
-      : missing === "cep" && (linkDue || paymentChoice !== null)
+      : missing === "cep" && cepDue
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
         : missing === "payment" && linkDue && knownRegion === null
@@ -4479,7 +4482,7 @@ const handleTurn = async (
       // (persona round of 2026-10-08, Jussara went to a person at "vou querer um").
       cepAsks:
         // A CEP she sent that did not read or was not found is asked again right away: that is the answer, not insisting.
-        addressDraft.cep || interpretation.wants_to_buy || wrongCep || cepNotFound
+        addressDraft.cep || linkDue || wrongCep || cepNotFound
           ? 0
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
       // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
@@ -4603,7 +4606,7 @@ const handleTurn = async (
   const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));
   // R22.1: no draft that passed is no handoff either — nobody can answer from the number, and `handoff_at` silenced her
   // for good. A question that is none of those gets the safe reply, with a live question in it.
-  const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment);
+  const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment) && !parts.some(asksPaymentStatus);
   const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply && !asksHowToPay;
 
   if (outcome.kind === "handoff") {
@@ -4661,7 +4664,7 @@ const handleTurn = async (
         : asksOffer ? offerFallbackMessage(CONFIG)
         // "me explica de novo o pagamento" (persona, 2026-10-19): how she pays where she is, never "me fala de novo".
         : asksHowToPay
-        ? paymentFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay" ? "prepay" : knownRegion?.cod ? "cod" : offerBefore === "both" ? "both" : null)
+        ? paymentFallbackMessage(CONFIG, codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay" : knownRegion?.cod ? "cod" : offerBefore === "both" ? "both" : null)
         : fallbackIsGeneric ? SAFE_FALLBACK_REPLY
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):

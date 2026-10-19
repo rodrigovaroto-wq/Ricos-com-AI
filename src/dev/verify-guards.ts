@@ -3155,7 +3155,7 @@ const MUTATIONS: Mutation[] = [
     files: ["supabase/functions/turn/index.ts"],
     from: 'missing === "cep"\n        ? `Falta o CEP:',
     to: 'false\n        ? `Falta o CEP:',
-    also: [{ from: ': missing === "cep" && (linkDue || paymentChoice !== null)', to: ': missing === "cep" && linkDue' }],
+    also: [{ from: 'const cepDue = linkDue || (paymentChoice !== null && ', to: 'const cepDue = linkDue || (false && ' }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
@@ -4320,8 +4320,8 @@ const MUTATIONS: Mutation[] = [
     id: "R28-pagamento-me-fala-de-novo",
     bug: "'me explica de novo o pagamento' com as reescritas vetadas ouvia 'me fala de novo o que você quer saber?' (personas, 19/10)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment);",
-    to: "const asksHowToPay = false && parts.some(asksPayment);",
+    from: "const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment)",
+    to: "const asksHowToPay = false && parts.some(asksPayment)",
     guard: ["pnpm", "-s", "vitest", "run", "tests/payment-fallback.test.ts"],
   },
   {
@@ -4331,6 +4331,22 @@ const MUTATIONS: Mutation[] = [
     from: ": (ctx.cepAsks ?? 0) >= 1 ? \"asks the CEP twice in a row\"",
     to: ": (ctx.cepAsks ?? 0) >= 2 ? \"asks the CEP twice in a row\"",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
+  },
+  {
+    id: "R28-antecipado-sem-negar-entrega",
+    bug: "quem escolheu o antecipado ouviria 'aí na sua região não tem pagamento na entrega' (revisão, 19/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay"',
+    to: 'codUnavailable || paymentChoice === "prepay" ? "no_cod" : false ? "prepay"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/payment-fallback.test.ts"],
+  },
+  {
+    id: "R28-diretiva-cep-duas-seguidas",
+    bug: "a diretiva 'peça o CEP' com o pagamento escolhido batia no cep_insist e ela ouvia 'me fala de novo' (revisão, 19/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '(paymentChoice !== null && !asksCep(recentOutbound.at(-1) ?? ""))',
+    to: '(paymentChoice !== null)',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/r28-real-fixes.test.ts"],
   },
   {
     id: "G67-ok-sozinho",

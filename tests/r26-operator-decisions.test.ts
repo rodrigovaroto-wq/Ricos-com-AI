@@ -64,7 +64,7 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
   it("as diretivas não mandam pedir o CEP: a do tamanho, a do link e a do estado do CEP", () => {
     expect(turn).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten)");
     expect(turn).toContain("if (cepForgotten) return fitting;");
-    expect(turn).toContain("missing === \"cep\" && (linkDue || paymentChoice !== null) && cepForgotten");
+    expect(turn).toContain("missing === \"cep\" && cepDue && cepForgotten");
     // A diretiva do link não convida "me manda" (que o cep_insist veta).
     expect(turn).toContain("assim que ela tiver o CEP, o link sai — sem pedir que ela mande.");
     expect(turn).toContain("Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar");

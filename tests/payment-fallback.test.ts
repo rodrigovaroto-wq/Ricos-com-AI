@@ -16,13 +16,14 @@ describe("pergunta de como paga ou como chega", () => {
     "lê: %s",
     (t) => expect(asksPayment(t)).toBe(true),
   );
-  it.each(["bom dia", "uso 42", "aperta muito?", "tem preto?", "vou pensar", "pagina nao abre"])("negação — não lê: %s", (t) => expect(asksPayment(t)).toBe(false));
+  it.each(["bom dia", "uso 42", "aperta muito?", "tem preto?", "vou pensar", "pagina nao abre", "pode me enviar uma foto?", "vocês mandam foto?", "me envia o link de novo"])("negação — não lê: %s", (t) => expect(asksPayment(t)).toBe(false));
 });
 
 describe("a resposta pronta de pagamento passa a cadeia inteira", () => {
   const cases = [
     ["cod", { paymentPath: "cod", regionKnown: true }],
-    ["prepay", { paymentPath: "prepay", codUnavailable: true, regionKnown: true }],
+    ["no_cod", { paymentPath: "prepay", codUnavailable: true, regionKnown: true }],
+    ["prepay", { paymentPath: "prepay", regionKnown: true }],
     ["both", { paymentPath: "prepay", regionKnown: false }],
     [null, { paymentPath: "cod", regionKnown: false }],
   ] as const;
@@ -35,13 +36,16 @@ describe("a resposta pronta de pagamento passa a cadeia inteira", () => {
   it("cada número vem do config, e o antecipado nunca promete pagar na porta", () => {
     expect(paymentFallbackMessage(config, "cod")).toContain(money(config.prices.codBrl));
     expect(paymentFallbackMessage(config, "both")).toContain(money(config.prices.prepayBrl));
-    expect(paymentFallbackMessage(config, "prepay")).not.toMatch(/entregador|não paga nada agora/);
+    expect(paymentFallbackMessage(config, "no_cod")).not.toMatch(/entregador|não paga nada agora/);
+    // She chose the prepaid: the delivery is never denied to her.
+    expect(paymentFallbackMessage(config, "prepay")).not.toMatch(/não tem pagamento na entrega|entregador|não paga nada agora/);
   });
 });
 
 describe("o turno usa a resposta de pagamento no lugar do 'me fala de novo'", () => {
   it("antes do genérico, depois do prazo e da oferta", () => {
-    expect(turn).toContain("const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment);");
+    expect(turn).toContain("const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment) && !parts.some(asksPaymentStatus);");
+    expect(turn).toContain('paymentFallbackMessage(CONFIG, codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay"');
     expect(turn).toContain("const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply && !asksHowToPay;");
     expect(turn.indexOf("? paymentFallbackMessage(CONFIG,")).toBeLessThan(turn.indexOf(": fallbackIsGeneric ? SAFE_FALLBACK_REPLY"));
   });

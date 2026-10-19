@@ -104,7 +104,8 @@ describe("C4 — nome, e-mail e CPF esperam o CEP", () => {
   });
 
   it("o CEP é pedido também quando ela já escolheu como paga, não só quando pede o link", () => {
-    expect(turn).toContain(': missing === "cep" && (linkDue || paymentChoice !== null)');
+    expect(turn).toContain(': missing === "cep" && cepDue');
+    expect(turn).toContain('const cepDue = linkDue || (paymentChoice !== null && ');
   });
 });
 
@@ -628,7 +629,7 @@ describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por 
     expect(blocked("Essa roupa que você ama vai ficar ótima com o colete.", { hookSent: true }, "hook_repeat")).toBe(false);
   });
   it("o turno conta os pedidos de CEP e o gancho nas respostas recentes", () => {
-    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy || wrongCep || cepNotFound\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
+    expect(turn).toContain("addressDraft.cep || linkDue || wrongCep || cepNotFound\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
     expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
   });
 });
