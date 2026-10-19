@@ -4393,8 +4393,9 @@ const MUTATIONS: Mutation[] = [
     id: "R28-numero-do-apto",
     bug: "'Rua X, 800, apto 12' lia 12 como número da casa e escolhia a faixa errada da rua (2ª revisão, 19/10)",
     files: ["src/agent/address.ts"],
-    from: "    .replace(/\\b(?:apto?|apartamento|casa|bloco|bl|lote|lt|qd|quadra|sala|andar)\\.?\\s*\\d+[a-z]?\\b/gi, \" \");",
-    to: "    ;",
+    from: "const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;",
+    to: "const number = [...rest.matchAll(HOUSE)].at(-1)?.[1] ?? null;",
+    also: [{ from: "    .replace(/\\b(?:apto?|apartamento|casa|bloco|bl|lote|lt|qd|quadra|sala|andar)\\.?\\s*\\d+[a-z]?\\b/gi, \" \");", to: "    ;" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
   },
   {
