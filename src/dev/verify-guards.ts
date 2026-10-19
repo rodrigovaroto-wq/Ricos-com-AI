@@ -4794,7 +4794,7 @@ const MUTATIONS: Mutation[] = [
     files: ["supabase/functions/turn/index.ts"],
     from: "    nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,",
     to: "    nameKnown: Boolean(identityDraft.name) || nameRefused,",
-    also: [{ from: "cpfRefusals >= 2 || pressed,", to: "cpfRefusals >= 2," }],
+    // The CPF layer is gone since the script v3 (R28: the link waits only for the name, `cpfDone: true`).
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
@@ -5022,14 +5022,8 @@ const MUTATIONS: Mutation[] = [
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
   },
-  {
-    id: "R26-cep-esquecido-kit-segue",
-    bug: "com o CEP esquecido (não pedido de novo), a oferta do kit esperava o CEP e a conversa parava no link (R26.1)",
-    files: ["supabase/functions/turn/index.ts"],
-    from: '(missing !== "cep" || cepForgotten) && kitsOnPath.length > 0',
-    to: 'missing !== "cep" && kitsOnPath.length > 0',
-    guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
-  },
+  // R26-cep-esquecido-kit-segue retired with the script v3 (R28, 2026-10-19): the separate kit offer that waited on the CEP
+  // no longer exists (`kitOfferNow = false`); the kits ride the fixed offer after the CEP and the two checkouts.
   {
     id: "R26-recusa-so-sem-entrega",
     bug: "'ah deixa' (o não ao kit) depois de 'só pago na entrega' virava recusa onde há entrega ou com a região desconhecida: a venda e a régua paravam (revisão Opus do R26)",
@@ -5090,8 +5084,8 @@ const MUTATIONS: Mutation[] = [
     id: "R26-link-sem-valor-uma-vez",
     bug: "a correção do link da entrega se repetia todo turno quando o modelo a dizia com outras palavras (revisão Opus do R26)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt",
-    to: "codUnavailable && codLinkAt",
+    from: "codUnavailable && offerBefore !== \"both\" && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt",
+    to: "codUnavailable && offerBefore !== \"both\" && codLinkAt",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
   },
   {
