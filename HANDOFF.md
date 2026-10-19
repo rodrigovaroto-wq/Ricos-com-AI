@@ -15,7 +15,14 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >
-> - **No ar:** `turn` **v31**; esta parte será substituída pela versão desta rodada depois do deploy.
+> - **No ar:** `turn` **v32** (função v132), saudável.
+> - **Validação:**
+>   - quatro revisões Opus, até o aprovado;
+>   - 8329 testes; conversas 1655/1655;
+>   - gates sem afrouxamento não aceito;
+>   - mutações novas todas pegas;
+>   - personas 63/63, sem "me fala de novo" e sem CEP pedido duas vezes seguidas (fora o pedido depois de CEP não achado);
+>   - 41 leads reais intactas.
 > - **Corrigido:**
 >   - "nem pagando frete a mais" não é mais vetado;
 >   - o CEP escrito "306 72000" é lido;
@@ -30,7 +37,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **Abertas com o operador:**
 >   - falar do pagamento na entrega antes do CEP;
 >   - ficha "loja física";
->   - "entrega garantida" ligada só no kit de 3 da Logzz.
+>   - "entrega garantida" ligada só no kit de 3 da Logzz;
+>   - a cliente que repete um CEP não encontrado ouve "confere o CEP" de novo a cada mensagem; falta outra saída (busca por rua?).
 
 > **2026-10-19 — roteiro v3 NO AR (R28, grafo §105–§106; sessão `claude/vibrant-faraday-kcxtt1`).**
 >
