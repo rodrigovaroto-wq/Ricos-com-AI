@@ -14,15 +14,15 @@
 
 ## A taxonomia
 
-`src/dev/scenarios/cobertura-taxonomia.json`: **138 situações** em 14 grupos — abertura, produto, tamanho, região, pagamento,
+`src/dev/scenarios/cobertura-taxonomia.json`: **149 situações** em 14 grupos — abertura, produto, tamanho, região, pagamento,
 preço, confiança, dados, link e checkout, pós-compra, prazo, saída, fora do assunto e forma de escrever. Cada uma diz de onde
 veio (real, persona, futuro) e quem a exercita.
 
-**Cobertas: 135 de 138 (97,8%).** As três de fora a porta local não alcança, e cada uma diz onde é provada:
+**Cobertas: 146 de 149 (98,0%).** As três de fora a porta local não alcança, e cada uma diz onde é provada:
 A12 (madrugada — o expediente da rodada é aberto 24 h), J1 e J5 (exigem pedido real gravado em `orders` — testes do job `order`
 e a E5). `tests/persona-coverage.test.ts` falha se a cobertura cair abaixo de 95% ou se uma situação ficar sem persona e sem motivo.
 
-## As 26 personas novas
+## As 34 personas novas
 
 `src/dev/scenarios/cobertura.json`, em ficha compacta: quem é, situação, como escreve, a tentativa adversarial, os dados e quando
 para. As regras e o formato de resposta, que cada arquivo de persona repetia, são montados por código (`PERSONA_RULES`). Por isso:
@@ -34,6 +34,10 @@ Fichas: irmã sem anúncio ("que isso"), só áudio (baixa visão), foto e figur
 pós-cirurgia, gestante, homem da academia, plus size, mignon, CEP errado, presente para outra cidade, como se paga na porta, não
 estou em casa, link que não funciona, muda de caminho, kit da família, revenda, frete grátis e cupom, LGPD, pós-venda com problema,
 recompra, irritada, troll com injeção de prompt, espanhol, Instagram e site.
+
+Adicionadas em 2026-10-19 a partir das 41 conversas reais de 17 a 19/10 (11 situações novas, A13, A14, C12, C13, D10–D12, E8, H10, I11, M8):
+botão pronto do anúncio, CEP em pedaços, só a cidade, documentos no chat, idosa com desabafo, "mas pago na entrega sim?", tamanho que
+não existe e régua para a pessoa errada. Cada `mustNot` novo é uma falha vista nessas conversas.
 
 ## Como rodar — tudo ao mesmo tempo (comandos que funcionaram em 15/10, no container da nuvem)
 

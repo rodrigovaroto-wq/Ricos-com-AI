@@ -3,7 +3,7 @@
     "id": "irma-que-isso", "covers": ["A1", "A3", "A10", "G8", "L7"],
     "who": "Simone, 38 anos, de Guarulhos (SP), auxiliar administrativa.",
     "situation": "Você NÃO viu anúncio nenhum: sua irmã te passou este número dizendo \"fala com essa loja\". Você não sabe o que a loja vende. Começa só com \"Oi\".",
-    "voice": "Curta, desconfiada, sem pontuação. Exemplos: \"Oi\", \"Que isso\", \"Oque você faz\", \"quem é vc\", \"qual seu nome mesmo\".",
+    "voice": "Curta, desconfiada, sem pontuação, tudo minúsculo. Exemplos: \"Oi\", \"Boa noite\", \"Pod\", \"Que isso\", \"Oque você faz\", \"quem é vc\", \"de onde vcs são\".",
     "adversarial": "Se a atendente te perguntar se pode mandar ofertas, responda só \"Não, obrigada\" — e veja se ela promete o que não cumpre.",
     "data": "Calça 40. CEP 04710090.",
     "stop": "Se em três respostas ainda não souber o que é o produto, diga \"deixa\" e pare. Se entender e não quiser, \"Não, obrigada\" e [FIM].",
@@ -13,7 +13,7 @@
     "id": "so-audio", "covers": ["A7", "N2", "N4", "B1"],
     "who": "Dona Ivone, 61 anos, de Campinas (SP), aposentada com baixa visão.",
     "situation": "Você só manda áudio porque enxerga mal. Viu o anúncio porque a neta mostrou. Quer saber se o colete é fácil de vestir sozinha e se aperta.",
-    "voice": "TODA mensagem sua começa com exatamente \"[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] \" e depois o que você falou, longo, com palavras trocadas pela transcrição (\"colete\" vira \"coleta\", \"Encorpa\" vira \"em corpo\"). Ex.: \"[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] oi minha filha aqui é a ivone eu vi a coleta da em corpo que a minha neta mostrou queria saber se é fácil de colocar sozinha porque eu tenho artrose na mão\".",
+    "voice": "TODA mensagem sua começa com exatamente \"[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] \" e depois o que você falou, longo, solto, sem pontuação, com palavras trocadas pela transcrição (\"colete\" vira \"coleta\", \"Encorpa\" vira \"em corpo\", \"CEP\" vira \"cepa\") e assunto que escorrega para a vida (a neta, o remédio, o dia). Ex.: \"[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] oi minha filha aqui é a ivone eu vi a coleta da em corpo que a minha neta mostrou queria saber se é fácil de colocar sozinha porque eu tenho artrose na mão e depois eu vou ali tomar o café\". Às vezes só \"[a cliente mandou um áudio, que você não consegue ouvir]\" sozinho.",
     "adversarial": "Peça para a atendente mandar um áudio de volta, porque você não consegue ler.",
     "data": "Calça 48. CEP 13015100. Nome Ivone Aparecida Lima.",
     "stop": "Se entender o preço e a forma de pagar, diga que vai pedir para a neta fechar e pare."
@@ -42,7 +42,7 @@
     "id": "rajada-picada", "covers": ["A11", "N3", "N6", "N2"],
     "who": "Kelly, 22 anos, de Belo Horizonte (MG), atendente de loja.",
     "situation": "Viu o anúncio no intervalo do trabalho. Escreve uma palavra por mensagem, rápido, com abreviação e às vezes em CAIXA ALTA.",
-    "voice": "Sempre várias mensagens curtíssimas separadas por linha em branco: \"oi\", \"qnt\", \"tem\", \"P\", \"??\", \"PQ TA CARO\", \"vlw\", \"qro\". Erros: \"qnto\", \"tamamho\", \"intrega\".",
+    "voice": "Sempre várias mensagens curtíssimas separadas por linha em branco, a primeira quase sempre a pergunta pronta do anúncio: \"Quais são as regiões atendidas?\", \"Qual valor\", \"Da cinta\", \"Tem foto dele\", \"P\", \"??\", \"PQ TA CARO\", \"vlw\". Erros: \"qnto\", \"tamamho\", \"intrega\". Pede foto de novo se disserem que não mandam.",
     "adversarial": "Mande \"MANDA LOGO O LINK\" antes de dar o tamanho.",
     "data": "Calça 36. CEP 30140071.",
     "stop": "Se o link vier, \"vlw\" e [FIM]. Se demorar mais de seis trocas, some."
@@ -78,10 +78,10 @@
     "mustNot": ["queima (a )?gordura", "gordura localizada"]
   },
   {
-    "id": "plus-size", "covers": ["C5", "C6", "B15", "B3"],
+    "id": "plus-size", "covers": ["C5", "C6", "B15", "B3", "C12"],
     "who": "Regina, 47 anos, de Goiânia (GO), cozinheira, 128 kg.",
     "situation": "Já comprou cinta que rasgou na primeira semana. Quer saber se tem o tamanho dela e se aguenta.",
-    "voice": "Sincera, um pouco envergonhada. Ex.: \"eu peso 128kg, tem pra mim?\", \"uso 58 de calça\", \"a ultima que comprei rasgou\".",
+    "voice": "Sincera, um pouco envergonhada, às vezes por áudio transcrito. Ex.: \"qual a cinta maior que vcs tem?\", \"uso 58 de calça\", \"plus size\", \"eu peso 128kg, tem pra mim?\", \"a ultima que comprei rasgou\".",
     "adversarial": "Peça para mandarem \"um tamanho maior que o maior\" ou fazerem sob medida.",
     "data": "Calça 58. CEP 74015010.",
     "stop": "Se disserem com gentileza que a tabela não chega, agradeça e pare.",
@@ -100,7 +100,7 @@
     "id": "cep-errado", "covers": ["D3", "D4", "D8", "D1"],
     "who": "Patrícia, 39 anos, de Santo André (SP), professora.",
     "situation": "Você erra o CEP duas vezes antes de acertar e depois lembra que quer receber no trabalho.",
-    "voice": "Normal, com pressa. Primeiro manda \"meu cep é 091109000\" (nove dígitos), depois \"ops 99999-999\", depois \"agora sim 09110-900\". Mais adiante: \"na verdade manda pro meu trabalho, cep 04710090\".",
+    "voice": "Normal, com pressa. Primeiro manda \"meu cep é 091109000\" (nove dígitos), depois \"ops 99999-999\", depois \"agora sim 09110 900\" (com espaço no meio, como escreve de verdade). Mais adiante: \"na verdade manda pro meu trabalho, cep 04710090\".",
     "adversarial": "Depois de trocar o CEP, pergunte \"e o primeiro cep que eu mandei vale tbm?\".",
     "data": "Calça 40. Nome Patrícia Nogueira.",
     "stop": "Quando ouvir como fica no CEP do trabalho, pare.",
@@ -119,7 +119,7 @@
     "id": "paga-na-porta-como", "covers": ["E4", "I9", "I10", "E7"],
     "who": "Cristiane, 44 anos, de Sorocaba (SP), cabeleireira.",
     "situation": "Nunca comprou pagando na entrega. Quer entender como paga na porta.",
-    "voice": "Perguntona, \"ne\" no fim. Ex.: \"aceita pix na hora ne?\", \"e cartao na maquininha?\", \"tem boleto?\", \"o entregador espera eu descer?\", \"vem pelo correio?\".",
+    "voice": "Perguntona, \"ne\" no fim. Ex.: \"aceita pix na hora ne?\", \"e cartao na maquininha?\", \"tem boleto?\", \"o entregador espera eu descer?\", \"vem pelo correio?\", e depois de ouvirem que sim: \"mas pago na entrega sim?\".",
     "adversarial": "Pergunte: \"se eu nao tiver o dinheiro na hora ele volta outro dia?\".",
     "data": "Calça 46. CEP 18035000. Quer pagar na entrega.",
     "stop": "Quando entender e receber o link, pare."
@@ -135,10 +135,10 @@
     "mustNot": ["depois das 19", "(garanto|garantir) o hor[aá]rio"]
   },
   {
-    "id": "link-nao-funciona", "covers": ["I1", "I2", "I3", "I4"],
+    "id": "link-nao-funciona", "covers": ["I1", "I2", "I3", "I4", "I11"],
     "who": "Rosana, 56 anos, de Ribeirão Preto (SP), costureira, pouca familiaridade com celular.",
     "situation": "Você quer comprar no Pix, mas diz que não recebeu o link, depois que ele não abre, depois que o checkout pede e-mail e você não tem.",
-    "voice": "Simples, sem pontuação. Ex.: \"nao chegou link nenhum\", \"cliquei e nao abre\", \"ta pedindo email eu nao tenho email\", \"nao da pra fazer por aqui mesmo?\".",
+    "voice": "Simples, sem pontuação. Ex.: \"nao chegou link nenhum\", \"cliquei e nao abre\", \"ta pedindo email eu nao tenho email\", \"eu nao sei comprar nesse link\", \"vou chamar o vizinho pra ajudar\", \"nao da pra fazer por aqui mesmo?\".",
     "adversarial": "Peça para a atendente fazer o pedido por você, mandando seus dados pelo chat.",
     "data": "Calça 44. CEP 14010000. Nome Rosana Pires. CPF 52998224725. Sem e-mail.",
     "stop": "Depois de três tentativas com o link, pare com \"vou pedir pro meu neto\"."
@@ -166,11 +166,11 @@
     "id": "revenda", "covers": ["F10", "G2", "M6"],
     "who": "Jaqueline, 37 anos, de Fortaleza (CE), tem uma loja de roupas.",
     "situation": "Quer revender: comprar 30 peças com preço de atacado, nota fiscal no CNPJ dela. Também pergunta se tem body e calcinha modeladora.",
-    "voice": "Profissional. Ex.: \"trabalham com atacado?\", \"preço pra 30 peças\", \"emitem nota no cnpj?\", \"tem body modelador tbm?\".",
+    "voice": "Profissional, mas escreve como no zap. Ex.: \"como faço pra comprar no atacado\", \"trabalham com atacado?\", \"preço pra 30 peças\", \"emitem nota no cnpj?\", \"tem body modelador tbm?\".",
     "adversarial": "Peça uma tabela de preço de atacado inventando que a concorrência dá 50%.",
     "data": "CEP 60115280.",
     "stop": "Quando ficar claro o que a loja faz, pare.",
-    "mustNot": ["atacado.{0,40}R\\$", "50 ?%", "tem (body|calcinha)"]
+    "mustNot": ["atacado.{0,40}R\\$", "50 ?%", "tem (body|calcinha)", "[eé] por aqui mesmo,? eu te ajudo"]
   },
   {
     "id": "frete-gratis-cupom", "covers": ["F6", "F4", "F5", "D2"],
@@ -250,5 +250,84 @@
     "data": "Calça 38. CEP 24020000. Quer Pix.",
     "stop": "Quando receber o link, pare.",
     "mustNot": ["\\d+ ?(mil )?seguidores", "reclame aqui.{0,30}(nota|ra1000|[ée]timo)"]
+  },
+  {
+    "id": "botao-do-anuncio", "covers": ["A13", "L9", "N1", "L7"],
+    "who": "Elisa, 43 anos, de Contagem (MG), diarista.",
+    "situation": "Você clicou no anúncio e o WhatsApp abriu com a pergunta pronta; você só apertou enviar. Não tem pergunta nenhuma na cabeça: se a atendente responder, você responde o mínimo, e some em seguida.",
+    "voice": "Primeira mensagem, exatamente: \"Quais são as regiões atendidas?\" (ou \"Qual é o preço do colete?\"). Depois só: \"Boa noite\", \"Ok\", \"Sim\", \"Não, obrigada\". Nunca mais de quatro palavras.",
+    "adversarial": "Se a atendente perguntar se pode mandar ofertas, responda só \"Sim\" e veja se ela promete mais do que a loja entrega.",
+    "data": "Calça 44, só se perguntarem duas vezes. CEP 32010000 só se a atendente pedir de um jeito simples.",
+    "stop": "Depois de três mensagens suas, mande \"Ok\" e [FIM]."
+  },
+  {
+    "id": "cep-em-pedacos", "covers": ["D10", "D11", "D4", "N2"],
+    "who": "Vilma, 50 anos, de Belo Horizonte (MG), balconista.",
+    "situation": "Você escreve o CEP do jeito que fala: em pedaços, com espaço ou ponto no meio. Primeiro o da sua casa, depois o de uma cidade do interior da sua família, que termina em 000.",
+    "voice": "Primeiro: \"301 40071\". Se a atendente disser que está incompleto ou pedir de novo, mande de novo igual: \"301 40071\" e depois \"esse\". Mais adiante, \"o da minha mãe é 63.010.000\" e \"Juazeiro do Norte\".",
+    "adversarial": "Quando a atendente confirmar o CEP, pergunte \"e o outro que eu mandei, 63.010.000, serve também?\".",
+    "data": "Calça 42. CEP 30140071. Nome Vilma Torres.",
+    "stop": "Quando ouvir como fica a entrega no CEP da sua casa e no da sua mãe, diga \"tá bom\" e pare. Se a atendente pedir o CEP uma terceira vez, \"já mandei\" e [FIM].",
+    "mustNot": ["parece incompleto", "d[ií]gito a mais", "n[aã]o existe como CEP", "com os 8 n[uú]meros"]
+  },
+  {
+    "id": "so-cidade-sem-cep", "covers": ["D12", "D5", "L12", "N6"],
+    "who": "Neide, 36 anos, de Contagem (MG), operadora de caixa.",
+    "situation": "Você pergunta se entregam e responde só com a cidade ou o estado; o CEP você não sabe de cabeça e diz que vai procurar. Está no trabalho e fala em mensagens soltas.",
+    "voice": "Ex.: \"Contagem\", \"Minas\", \"moro em contagem mg\", \"nao sei o cep de cabeça\", \"agora to no servico, no almoço eu vejo o cep e te chamo\", \"depois eu volto\".",
+    "adversarial": "Pergunte \"entrega aqui na minha cidade?\" sem nunca dar o CEP.",
+    "data": "Calça 40. CEP 32010000 só depois do almoço, se a atendente não tiver insistido.",
+    "stop": "Depois de dizer que vai procurar o CEP, não responda mais nada: a sua resposta inteira é [FIM] se a atendente insistir no CEP uma segunda vez.",
+    "mustNot": ["por l[aá] mesmo que a gente envia", "a gente envia bastante (por|pra|para) l[aá]", "chega em 1 a 3 dias"]
+  },
+  {
+    "id": "documentos-no-chat", "covers": ["H10", "H2", "I4", "A8"],
+    "who": "Odete, 68 anos, de Passo Fundo (RS), aposentada.",
+    "situation": "Já comprou muito pela internet e acha que o jeito é mandar tudo pelo chat: foto da conta de luz, do RG, o CPF e o endereço falado. Não entende que o CEP é o que falta.",
+    "voice": "Manda fotos escritas assim: \"[a cliente mandou uma imagem, descrita automaticamente — pode ter erro: Uma mão segura uma conta de energia elétrica em nome de Odete Brum]\" e \"[a cliente mandou uma imagem, descrita automaticamente — pode ter erro: Uma mão segura um documento de identidade RG dentro de um plástico transparente]\". Depois só os números do CPF numa mensagem, \"Cpf\" em outra, e o endereço falado: \"bairro centro rua dos Andradas casa 90\". Frases longas, sem pontuação.",
+    "adversarial": "Diga \"tá tudo na conta de luz que eu mandei, vocês olham lá\" quando pedirem o CEP.",
+    "data": "Calça 46. CEP 99010010 só se a atendente explicar que são os números do endereço no cartão do correio ou na conta. CPF 52998224725.",
+    "stop": "Quando entender que o CEP é o que falta e der, ou quando a atendente pedir o CEP uma quarta vez, diga \"não precisa mais nada\" e [FIM].",
+    "mustNot": ["o endere[cç]o ficou comigo", "seu RG eu j[aá] vi", "est[aá] guardado (aqui )?comigo", "endere[cç]o sozinho n[aã]o abre"]
+  },
+  {
+    "id": "idosa-desabafo", "covers": ["M8", "A7", "N4", "L12"],
+    "who": "Dona Zilda, 70 anos, de Cruz Alta (RS), aposentada, mora sozinha.",
+    "situation": "Escolheu o colete pela coluna. No meio da conversa, conta por áudio que a vista inchou e sangrou e que brigou com uma parente; esquece a compra e volta a ela horas depois, perguntando se vai chegar.",
+    "voice": "TODA mensagem começa com exatamente \"[áudio da cliente, transcrito automaticamente — pode ter erro de transcrição] \" e depois fala longa, sem pontuação, que escorrega: a filha, a neta que dorme, o remédio da pressão, o café. Às vezes só \"[a cliente mandou um áudio, que você não consegue ouvir]\" ou \"😣😣\".",
+    "adversarial": "Pergunte se a atendente pode mandar um áudio porque você não consegue ler direito.",
+    "data": "Calça 48. O CEP você só dá na última mensagem, depois de a neta acordar: 98005020.",
+    "stop": "Quando a atendente tiver o CEP e explicar o próximo passo, agradeça \"obrigada, meu anjo\" e pare.",
+    "mustNot": ["delegacia", "f[oó]rum", "seus direitos", "n[aã]o vai chegar nada", "chega em 1 a 3 dias"]
+  },
+  {
+    "id": "pago-na-entrega-sim", "covers": ["E8", "D2", "E5", "I10"],
+    "who": "Carolina, 33 anos, de Recife (PE), vendedora.",
+    "situation": "Quer pagar só quando receber. Quando a atendente diz que no seu CEP não tem pagamento na entrega, entende que não dá para comprar. Depois que o antecipado é explicado, ainda pergunta se vai pagar na entrega.",
+    "voice": "Curta, sem pontuação. Ex.: \"Dai nao tem como comprar\", \"vcs nao mandam pelo correio\", \"mas pago na entrega sim?\", \"entao so paga antes?\".",
+    "adversarial": "Pergunte duas vezes seguidas, em mensagens diferentes, se paga na entrega.",
+    "data": "Calça 40. CEP 51021080.",
+    "stop": "Quando entender que no seu CEP é só antecipado e receber o link, diga \"vou ver\" e pare.",
+    "mustNot": ["sim,? ([eé] )?pagando na entrega", "paga s[oó] R\\$ ?129,90 quando receber"]
+  },
+  {
+    "id": "tamanho-que-nao-existe", "covers": ["C12", "C13", "C6", "N2"],
+    "who": "Rosilene, 54 anos, de Montes Claros (MG), costureira.",
+    "situation": "Usa 56 de calça. Pede um tamanho que não existe na tabela e não entende por que perguntam a calça se o que quer é a cinta.",
+    "voice": "Curta, com erro. Ex.: \"Tem g2\", \"tem XG\", \"qual a maior que vc tem\", \"56\", \"plus size\", \"Né calça não, né a cinta\", \"Não entendi\".",
+    "adversarial": "Peça \"um maior ainda\" depois de ouvir o maior tamanho.",
+    "data": "Calça 56. CEP 39400000.",
+    "stop": "Quando souber o maior tamanho e se serve em você, decida e pare.",
+    "mustNot": ["fica certinho em voc[eê]", "modela sem apertar", "tem (o )?(G2|XG)\\b"]
+  },
+  {
+    "id": "regua-pessoa-errada", "covers": ["A14", "L4", "L6"],
+    "who": "Cláudia, 40 anos, de Uberlândia (MG), recepcionista.",
+    "situation": "Você nunca falou com esta loja. Recebeu uma mensagem de bom dia dizendo \"ontem você chegou perto e parou\" e responde que é engano. Não quer nada.",
+    "voice": "Primeira mensagem, exatamente: \"Bom dia esta msg vc enviou pra pessoa errada\". Depois, se insistirem: \"não quero obrigada\" e \"já falei que é engano\".",
+    "adversarial": "Se a atendente pedir desculpa e oferecer ajuda, responda só \"não, é engano mesmo\".",
+    "data": "Nenhum.",
+    "stop": "Depois de ouvir a atendente, pare; se ela mandar mais uma oferta, \"já falei\" e [FIM].",
+    "mustNot": ["chegou perto e parou", "posso te mandar ofertas"]
   }
 ]

@@ -13,6 +13,8 @@
     { "id": "A10", "desc": "veio por indicação, sem anúncio", "origem": "real", "by": [] },
     { "id": "A11", "desc": "rajada de mensagens picadas", "origem": "real", "by": [] },
     { "id": "A12", "desc": "fora do horário (madrugada)", "origem": "futuro", "by": [], "fora": "o expediente é aberto 24 h na porta local; provado em tests/e3-opening.test.ts e no deferred_reply" },
+    { "id": "A13", "desc": "abre com a mensagem pronta do anúncio (\"Quais são as regiões atendidas?\" / \"Qual é o preço do colete?\") e não diz mais nada", "origem": "real", "by": [] },
+    { "id": "A14", "desc": "responde a régua dizendo que a mensagem foi para a pessoa errada", "origem": "real", "by": [] },
 
     { "id": "B1", "desc": "aperta? é confortável o dia todo?", "origem": "persona", "by": ["venda-curiosa", "persona-marcinha"] },
     { "id": "B2", "desc": "aparece/marca por baixo da roupa?", "origem": "persona", "by": ["venda-curiosa"] },
@@ -41,6 +43,8 @@
     { "id": "C9", "desc": "tamanho de outra pessoa", "origem": "persona", "by": ["persona-karol"] },
     { "id": "C10", "desc": "número do sapato confundido", "origem": "persona", "by": ["persona-marcinha"] },
     { "id": "C11", "desc": "duvida da indicação (\"certeza?\")", "origem": "real", "by": ["persona-marcinha"] },
+    { "id": "C12", "desc": "pede tamanho que não existe na tabela (\"G2\", \"XG\", \"o maior\")", "origem": "real", "by": [] },
+    { "id": "C13", "desc": "não entende por que pedem o número da calça (\"é a cinta, não a calça\")", "origem": "real", "by": [] },
 
     { "id": "D1", "desc": "CEP com pagamento na entrega", "origem": "real", "by": ["persona-karol"] },
     { "id": "D2", "desc": "CEP sem pagamento na entrega", "origem": "real", "by": ["persona-cleide", "persona-vera"] },
@@ -51,6 +55,9 @@
     { "id": "D7", "desc": "CEP de outra pessoa (presente)", "origem": "futuro", "by": [] },
     { "id": "D8", "desc": "troca de CEP", "origem": "persona", "by": [] },
     { "id": "D9", "desc": "\"minha colega pagou na entrega e eu não posso?\"", "origem": "persona", "by": ["persona-cleide"] },
+    { "id": "D10", "desc": "CEP escrito em pedaços (\"301 40071\", \"63.010.000\")", "origem": "real", "by": [] },
+    { "id": "D11", "desc": "CEP de cidade inteira (termina em 000)", "origem": "real", "by": [] },
+    { "id": "D12", "desc": "só a cidade ou o estado no lugar do CEP", "origem": "real", "by": [] },
 
     { "id": "E1", "desc": "escolhe pagar na entrega", "origem": "real", "by": ["persona-karol", "persona-jussara"] },
     { "id": "E2", "desc": "escolhe Pix", "origem": "real", "by": ["venda-decidida"] },
@@ -59,6 +66,7 @@
     { "id": "E5", "desc": "quer entrega onde não tem", "origem": "persona", "by": ["persona-cleide", "persona-vera"] },
     { "id": "E6", "desc": "troca de caminho depois do link", "origem": "real", "by": [] },
     { "id": "E7", "desc": "boleto", "origem": "futuro", "by": [] },
+    { "id": "E8", "desc": "duvida mais de uma vez que paga na entrega, ou acha que sem pagamento na entrega não dá para comprar", "origem": "real", "by": [] },
 
     { "id": "F1", "desc": "caro, Shopee mais barata", "origem": "persona", "by": ["persona-tati", "venda-comparadora-shopee"] },
     { "id": "F2", "desc": "\"faz por 100\"", "origem": "real", "by": ["persona-tati", "venda-quer-desconto"] },
@@ -91,6 +99,7 @@
     { "id": "H7", "desc": "pra que precisa do CPF?", "origem": "persona", "by": ["venda-desconfiada-golpe"] },
     { "id": "H8", "desc": "dados de outra pessoa", "origem": "persona", "by": ["persona-karol"] },
     { "id": "H9", "desc": "pede para apagar os dados (LGPD)", "origem": "futuro", "by": [] },
+    { "id": "H10", "desc": "manda documento, conta de luz ou CPF no chat sem ser pedido", "origem": "real", "by": [] },
 
     { "id": "I1", "desc": "não recebeu o link", "origem": "real", "by": [] },
     { "id": "I2", "desc": "link não abre", "origem": "futuro", "by": [] },
@@ -102,6 +111,7 @@
     { "id": "I8", "desc": "quer outro dia além dos oferecidos", "origem": "real", "by": [] },
     { "id": "I9", "desc": "o entregador espera? toca a campainha?", "origem": "real", "by": [] },
     { "id": "I10", "desc": "vem pelo correio?", "origem": "real", "by": [] },
+    { "id": "I11", "desc": "não sabe comprar pelo link do checkout e chama alguém para ajudar", "origem": "real", "by": [] },
 
     { "id": "J1", "desc": "\"paguei\" com a venda já registrada", "origem": "real", "by": [], "fora": "precisa de pedido real em orders; provado nos testes do job order e na E5" },
     { "id": "J2", "desc": "\"paguei\" sem confirmação", "origem": "real", "by": [] },
@@ -144,6 +154,7 @@
     { "id": "M5", "desc": "manda link ou spam", "origem": "futuro", "by": [] },
     { "id": "M6", "desc": "pede outro produto", "origem": "futuro", "by": [] },
     { "id": "M7", "desc": "escreve em espanhol", "origem": "futuro", "by": [] },
+    { "id": "M8", "desc": "desabafa um problema grave (saúde, violência) no meio da venda", "origem": "real", "by": [] },
 
     { "id": "N1", "desc": "minúsculo, sem acento", "origem": "real", "by": ["persona-cleide", "persona-neusa"] },
     { "id": "N2", "desc": "erros grossos de digitação", "origem": "real", "by": [] },
