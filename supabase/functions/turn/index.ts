@@ -4188,6 +4188,8 @@ const handleTurn = async (
         `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
       ).catch(() => null))?.length ?? 0) > 0);
   const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
+  // A second "welcomed" is never answered: n8n's resume branch does not wait again (persona cob-tudo-de-uma-vez, 19/10).
+  const answerAfterOffer = askedBeside && !isResume;
   if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
     if (offerNow === "both") {
       const pieces = units > 1 ? units : 1;
@@ -4200,7 +4202,7 @@ const handleTurn = async (
           bothLinksBubbles(CONFIG, likelyPlace!.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null, pieces),
           "roteiro v3: entrega não confirmada, dois links",
           { checkoutUrl: prepay, linkFact },
-          askedBeside,
+          answerAfterOffer,
         );
         if (sent) return sent;
       } catch {
@@ -4215,7 +4217,7 @@ const handleTurn = async (
         ],
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
         checkoutUrl ? { checkoutUrl, linkFact } : {},
-        askedBeside,
+        answerAfterOffer,
       );
       if (sent) return sent;
     }
