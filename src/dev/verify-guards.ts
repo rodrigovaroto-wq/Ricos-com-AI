@@ -4507,7 +4507,7 @@ const MUTATIONS: Mutation[] = [
     id: "LZ-tamanho-ilegivel",
     bug: "o tamanho dela renomeado pela Logzz (os outros lidos) era lido como 'sem estoque' (2ª revisão, 19/10)",
     files: ["src/agent/availability.ts"],
-    from: '(stock.seen.has(size) ? { kind: "found", region: none } : { kind: "failed", place })',
+    from: '(stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place })',
     to: '{ kind: "found", region: none }',
     guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
   },
