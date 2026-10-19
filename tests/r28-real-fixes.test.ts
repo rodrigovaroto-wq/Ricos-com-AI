@@ -51,3 +51,10 @@ describe("a turn: nome só de texto digitado, e o CEP geral da cidade (index.ts 
     expect(turn).toContain("Não invente outro` +");
   });
 });
+
+/** Persona venda-dificil (2026-10-19): "isso não serve em mulher de verdade, meu cep é …" got the offer and no answer. */
+describe("o que ela disse junto do CEP é respondido depois da oferta", () => {
+  it("quatro palavras ou mais, fora os dígitos, chamam o resume", () => {
+    expect(turn).toContain("const answerAfterOffer = (askedBeside || saidBeside) && !isResume;");
+  });
+});

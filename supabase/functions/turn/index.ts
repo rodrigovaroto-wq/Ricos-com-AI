@@ -4205,7 +4205,10 @@ const handleTurn = async (
       ).catch(() => null))?.length ?? 0) > 0);
   const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
   // A second "welcomed" is never answered: n8n's resume branch does not wait again (persona cob-tudo-de-uma-vez, 19/10).
-  const answerAfterOffer = askedBeside && !isResume;
+  // Not only a question: something she said beside the CEP ("isso não serve em mulher de verdade, meu cep é …", persona
+  // venda-dificil, 19/10) gets its answer after the offer too — four words or more once the digits are gone.
+  const saidBeside = parts.some((p: string) => p.replace(/\b(?:meu\s+)?cep\b|[\d.\-–]+/gi, " ").trim().split(/\s+/).filter((w: string) => w.length > 1).length >= 4);
+  const answerAfterOffer = (askedBeside || saidBeside) && !isResume;
   if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
     if (offerNow === "both") {
       const pieces = units > 1 ? units : 1;

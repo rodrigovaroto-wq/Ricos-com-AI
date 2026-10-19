@@ -696,6 +696,8 @@ export const systemPrompt = (
     `funciona antes do CEP, diga "dependendo da sua região" ou "na maioria das regiões", nunca como certo pra ela. Peça o CEP com`,
     `o motivo, e quem consulta a região é o sistema — a instrução aqui embaixo diz o resultado.`,
     `Se ela perguntou o preço antes do CEP, responda primeiro, com estes números: "${priceBeforeCepMessage(config)}"`,
+    `Se ela perguntar se chega até um dia (a festa, o sábado), peça o CEP como o jeito de responder: "me passa seu CEP que eu já`,
+    `vejo a primeira data de entrega aí" — sem prometer o dia antes da consulta.`,
     `Nunca segure o preço até ela mandar o CEP. Depois do preço, peça o que falta na ordem do caminho: o número da calça`,
     `se o tamanho dela ainda não foi dito, e só depois dele o CEP (R28).`,
     `— **O pagamento na entrega chega no CEP dela:** a oferta já foi do sistema, com o quadro e o áudio. Se ela`,
