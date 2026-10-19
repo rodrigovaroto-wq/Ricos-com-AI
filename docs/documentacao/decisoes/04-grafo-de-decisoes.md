@@ -3467,6 +3467,14 @@ config: abertura, oferta, dois links e link.
   A guarda: `tests/payment-fallback.test.ts`, todas as variantes passando a cadeia, e as mutações `R28-cep-duas-seguidas` e
   `R28-pagamento-me-fala-de-novo`.
 
+**Mutações e o roteiro v3 (CI do PR, 19/10):** o `verificar:guardas` completo achou 12 mutações cujo texto de origem o
+roteiro v3 mudou. Oito passaram a apontar para o texto novo, todas pegas. Quatro foram retiradas, porque guardavam código
+que o v3 removeu de propósito:
+- `E6-braco-b-para-todos`: o link espera só o nome, para todos;
+- `G67-email-depois-do-link`: o e-mail não é mais pedido;
+- `G67-recusa-do-cpf`: o CPF não é mais pedido;
+- `R26-cep-esquecido-kit-segue`: o kit vai na oferta fixa.
+
 **Links de pagamento (revisados em 19/10):** os 6 abrem (HTTP 200). O produto e a quantidade de cada um batem com o config: Logzz
 R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,84 / 272,79 com frete R$ 0,00 e até 12x.
 
