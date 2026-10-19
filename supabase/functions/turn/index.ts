@@ -1125,8 +1125,9 @@ const sendFunnel = async (
     body: JSON.stringify({ last_outbound_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
   }).catch(() => undefined);
   return {
-    bubbles: bubbles.map((b) =>
-      b.media ? { text: "", delayMs: MEDIA_DELAY_MS, media: b.media } : { text: b.text, delayMs: bubbleDelayMs(b.text) }
+    bubbles: bubbles.map((b, i) =>
+      // The fast pacing of experiment A: the whole opening in about half a minute, never a minute of typing.
+      b.media ? { text: "", delayMs: MEDIA_DELAY_MS, media: b.media } : { text: b.text, delayMs: pacedDelayMs(b.text, i, true) }
     ),
     lastId: out[out.length - 1].id,
   };
