@@ -3717,7 +3717,8 @@ const handleTurn = async (
     : bareNumber === null
     // Only the message with the street; a number alone beside it is her house only when the agent asked it ("rua…, cruz
     // alta" + "42" answering the pants' number is no house number, third review).
-    ? streetQueries(parts.find((p: string) => streetQueries(p).length > 0) ?? "").map((q) => {
+    // The last street she wrote: a correction in the same burst wins, as in the address above (fourth review).
+    ? streetQueries(parts.findLast((p: string) => streetQueries(p).length > 0) ?? "").map((q) => {
       const lone = parts.map((p: string) => p.match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1]).find(Boolean) ?? null;
       return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;
     })

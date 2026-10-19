@@ -4407,6 +4407,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
   },
   {
+    id: "R28-rua-corrigida-na-rajada",
+    bug: "'Rua Pinheiro Machado 500' + 'não, errei, é Rua Marechal Floriano 800' gravava o CEP da rua errada (4ª revisão, 19/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "? streetQueries(parts.findLast((p: string) => streetQueries(p).length > 0)",
+    to: "? streetQueries(parts.find((p: string) => streetQueries(p).length > 0)",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
+  },
+  {
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],

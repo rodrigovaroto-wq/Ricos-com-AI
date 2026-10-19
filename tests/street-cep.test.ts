@@ -84,7 +84,7 @@ describe("a turn (index.ts lido como fonte)", () => {
     expect(turn).toContain("const askedHouse = /\\bn[uú]mero\\s+da\\s+(?:sua\\s+)?casa\\b/i.test(lastOutbound) && !/\\b(?:cal[cç]a|tamanho)\\b/i.test(lastOutbound);");
     expect(turn).toContain("|| (bareNumber !== null && !askedHouse)");
     // Third review: the street is read from its own message; a lone number beside it is the house only when asked.
-    expect(turn).toContain("? streetQueries(parts.find((p: string) => streetQueries(p).length > 0) ?? \"\").map((q) => {");
+    expect(turn).toContain("? streetQueries(parts.findLast((p: string) => streetQueries(p).length > 0) ?? \"\").map((q) => {");
     expect(turn).toContain("return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;");
     expect(turn).toContain("const streetFound = streetRaw === null || streetRaw.length >= 50");
     expect(turn).toContain(".filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)))");
