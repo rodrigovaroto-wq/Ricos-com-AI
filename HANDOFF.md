@@ -13,6 +13,30 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-19 (noite) — consulta de cobertura pela Logzz: NO AR NA `turn` v34 (função v136). PR #70 ainda aberto, só o CI das mutações em ajuste.**
+>
+> - **Causa:** a consulta perguntava só à Coinzz, que dizia "sem entrega" para o G em São Paulo (a Logzz tem 180). O pagamento na
+>   entrega é vendido no checkout da Logzz, então ela é a fonte certa.
+> - **Desenho (`src/agent/availability.ts`, espelho copiado):** `lookupRegion(fetcher, zip, size, logzz)` nunca lança e segue uma escada:
+>   1. CEP → cidade: ViaCEP, depois BrasilAPI (que achou o "62930000");
+>   2. Logzz, as duas consultas públicas do próprio checkout: estoque por tamanho e operação, depois os dias de entrega. O 400
+>      da Logzz com uma das três mensagens conhecidas ("bloqueado", "fora da lista", "sem estoque") é "sem entrega". Qualquer outra
+>      coisa que não se entenda é consulta que falhou, nunca "não";
+>   3. se a Logzz falhar: a consulta da Coinzz como segunda fonte. O "sim" dela vale, o "não" dela nunca vira negação;
+>   4. se tudo falhar: `failed` com a cidade guardada. A turn manda os dois links se a cidade está na lista, senão o antecipado.
+> - **Os ids da oferta:** `checkout.logzz {productId 165378, saleId 75567}` no config (opcional, no example). Sem a chave, vale a oferta
+>   conhecida pelo slug `ccm-1-unidade`, então **o secret não precisa mudar**. O hash do secret de produção
+>   (`eadf2c2f…`) já não é o do arquivo `business-config-2026-10-19.min.json` (`8a5005eb…`): o operador o editou depois. **Não
+>   sobrescreva o secret com esse arquivo.**
+> - **Provas:** 8415 testes, incluindo `tests/logzz-region.test.ts` (47, com fuzz de corpo torto); 11 mutações novas, todas pegas; varredura
+>   real de 75 CEPs em 25 cidades; teste de caos com as 4 fontes caindo em 16 combinações contra dados reais: 0 negações falsas, 0
+>   "sim" falsos, 0 exceções; sonda a partir do Edge da Supabase (ViaCEP, BrasilAPI e Logzz respondem de lá).
+> - **Conferido em produção (v34):** SP com G entrega (amanhã), BH entrega, Cruz Alta só antecipado, Manaus e SP com M os dois links.
+>   Sonda de saúde saudável. Grafo §108.
+> - **Falta:** o CI do PR #70 (lotes de mutação com texto desatualizado, o `verificar:guardas` completo local mostra todos), e o merge.
+> - **Resíduos conhecidos:** o estoque do kit de 2 e 3 peças não é consultado por quantidade; o tamanho M em São Paulo está sem estoque
+>   na Logzz (fora de BH, só o G e o GG têm); uma cidade que o ViaCEP grafe diferente da Logzz cai em "fora da lista".
+
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >
 > - **No ar:** `turn` **v33** (função v134), saudável.

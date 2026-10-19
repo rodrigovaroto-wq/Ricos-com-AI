@@ -310,12 +310,148 @@ export const cepsByStreet = async (
 /** A failed lookup keeps the place when ViaCEP answered: a city where the Logzz delivers gets both checkouts (2026-10-19). */
 export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed"; place?: Place };
 
-export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<RegionLookup> => {
-  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
-  const erro = (viacep as { erro?: unknown } | null)?.erro;
-  if (erro === true || erro === "true") return { kind: "not_found" };
-  const place = readPlace(viacep);
-  if (!place) return { kind: "failed" };
+/**
+ * The second CEP base (2026-10-19): ViaCEP does not know every CEP the Correios do — "62.930.000", a real lead's town
+ * CEP, was "not found" there and found here (BrasilAPI asks the Correios, ViaCEP and others, like the Logzz checkout's
+ * own CEP lookup). Asked only when ViaCEP did not answer with a place.
+ */
+export const BRASILAPI_CEP_ENDPOINT = "https://brasilapi.com.br/api/cep/v1";
+const readBrasilPlace = (body: unknown): { place: Place; neighborhood: string } | null => {
+  const j = body as { city?: string; state?: string; neighborhood?: string } | null;
+  return j?.city && j.state ? { place: { city: j.city, state: j.state, district: j.neighborhood || "Centro" }, neighborhood: j.neighborhood ?? "" } : null;
+};
+
+/**
+ * The Logzz scheduling checkout's own two queries (operator, 2026-10-19: São Paulo had 180 G while the Coinzz query said
+ * "no delivery" for the G there). Cash on delivery is sold on this checkout, so this is the answer she meets: the stock
+ * per size in the local operations that serve her city, then the days those operations deliver. Public, read-only,
+ * no cookie — the checkout's own XHR, asked with the offer's product and sale ids from the config.
+ */
+export const LOGZZ_BASE = "https://entrega.logzz.com.br";
+export interface LogzzIds {
+  readonly productId: string;
+  readonly saleId: string;
+}
+/** The checkout's size names; its "XG" is the table's XGG. */
+const LOGZZ_SIZE: Readonly<Record<string, Size>> = { P: "P", M: "M", G: "G", GG: "GG", XG: "XGG", XGG: "XGG" };
+
+/** The operations holding each size, from the stock answer. `null`: it did not answer (a failed lookup). */
+/**
+ * The Logzz answers "we do not deliver there" as HTTP 400 with `status: "error"` and one of three messages ("bloqueado para
+ * entrega nessa cidade", "não faz parte da lista de disponibilidade de entregas", "Produto sem estoque disponível para
+ * agendamento nessa cidade") — a region answer, not a failure (real sweep of 2026-10-19: Manaus, Cruz Alta, Recife,
+ * Curitiba). Any other error, validation included, is a failed lookup: an unknown message never reads as "no delivery".
+ */
+const NOT_SERVED = /bloqueado para entrega|n[aã]o faz parte da lista de disponibilidade|sem estoque dispon[ií]vel/i;
+/** A non-2xx the fetcher threw, with the parsed body it carries (`status`, `body`): the Logzz 400 is read from it. */
+const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.body;
+
+/** What the stock answer says: the operations holding each size, the sizes it spoke of clearly, and whether any product was unreadable. */
+export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlySet<Size>; unreadable: boolean } | null;
+
+export const readLogzzStock = (body: unknown): LogzzStock => {
+  const b = body as {
+    status?: string;
+    msg?: string;
+    data?: {
+      groups?: Array<{ variations?: Array<{ variation_id?: number; variation_name?: string }> }>;
+      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
+    };
+  } | null;
+  if (b?.status === "error") return NOT_SERVED.test(typeof b.msg === "string" ? b.msg : "") ? { cod: false } : null;
+  if (b?.status !== "success" || !Array.isArray(b.data?.products)) return null;
+  // The size of a product: by its variation (the answer carries the id → name table), else by the name's last piece.
+  const variation = new Map<number, string>();
+  for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
+  const bySize: Partial<Record<Size, number[]>> = {};
+  const seen = new Set<Size>();
+  let unreadable = false;
+  for (const p of b.data!.products!) {
+    const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
+    const size = LOGZZ_SIZE[label.trim().toUpperCase()];
+    // A product is understood only whole: its size, a list of operations, and for each a whole operation id and a quantity.
+    // A number, or a text that holds one: an empty field is not a zero (`Number("")` and `Number(null)` are 0, review).
+    const num = (x: unknown): number => (typeof x === "number" ? x : typeof x === "string" && x.trim() !== "" ? Number(x) : NaN);
+    const stock = Array.isArray(p?.stock_per_operations) ? p.stock_per_operations.map((o) => ({ op: num(o?.operation_id), qty: num(o?.quantity) })) : null;
+    if (!size || stock === null || stock.some((o) => !Number.isInteger(o.op) || !Number.isFinite(o.qty))) {
+      unreadable = true;
+      continue;
+    }
+    seen.add(size);
+    const ops = stock.filter((o) => o.qty > 0).map((o) => o.op);
+    if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
+  }
+  // An answer nothing of which could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
+  // tell the whole country there is no delivery. Unknown is a failed lookup; the health probe says so within 15 minutes.
+  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable };
+};
+
+/**
+ * The Logzz ids of the configured offer. `checkout.logzz` wins; absent, the one offer this shop runs is known by its checkout
+ * slug, so the live secret needs no edit for the lookup to ask the right source (the secret's hash moved from the repository
+ * file on 2026-10-19: the operator edits it, and overwriting it would revert them). shortcut: one offer, add a row for a new one.
+ */
+const KNOWN_LOGZZ_OFFERS: Readonly<Record<string, LogzzIds>> = { "ccm-1-unidade": { productId: "165378", saleId: "75567" } };
+export const logzzIdsOf = (checkout: { codUrl?: string; logzz?: LogzzIds } | undefined): LogzzIds | null =>
+  checkout?.logzz ?? KNOWN_LOGZZ_OFFERS[(checkout?.codUrl ?? "").split("?")[0]!.replace(/\/+$/, "").split("/").pop() ?? ""] ?? null;
+
+/**
+ * The delivery days of the operations that hold her size. `null`: an answer not understood. `dates: []`: a window that is
+ * explicitly closed (an empty list, or every window with an empty list of days). A window whose days are not a list is not
+ * "closed", it is unknown, unless another window gives days (review, 19/10).
+ */
+const readLogzzDays = (body: unknown): { dates: string[]; sameDay: boolean } | null => {
+  const b = body as { status?: string; data?: unknown } | null;
+  if (b?.status !== "success" || !Array.isArray(b.data)) return null;
+  const windows = b.data.filter((w): w is RawWindow => typeof w === "object" && w !== null);
+  if (windows.length !== b.data.length) return null;
+  const datesOf = (w: RawWindow): string[] => (Array.isArray(w.dates) ? w.dates.flatMap((d) => (typeof d?.date === "string" && d.date ? [d.date] : [])) : []);
+  const withDays = windows.filter((w) => datesOf(w).length > 0);
+  if (withDays.length === 0) return windows.some((w) => !Array.isArray(w.dates) || w.dates.length > 0) ? null : { dates: [], sameDay: false };
+  return { dates: datesOf(withDays[0]!), sameDay: withDays.some((w) => Boolean(w.deliverySameDay)) };
+};
+
+const lookupLogzzUnsafe = async (
+  fetcher: Fetcher,
+  zip: string,
+  place: Place,
+  neighborhood: string,
+  size: Size | null,
+  ids: LogzzIds,
+): Promise<RegionLookup> => {
+  const where = { city: place.city, uf: place.state, cep: zip.replace(/\D/g, ""), ...(neighborhood ? { neighborhood } : {}), sale_id: ids.saleId };
+  const stock = await fetcher(
+    `${LOGZZ_BASE}/ajax/get-available-stock-for-schedule?${new URLSearchParams({ product_id: ids.productId, ...where })}`,
+    AVAILABILITY_HEADERS,
+  )
+    .then(readLogzzStock)
+    .catch((e) => readLogzzStock(errorBody(e)));
+  if (stock === null) return { kind: "failed", place };
+  const none: Region = { zip, place, cod: false, dates: [], sameDay: false, labelBrl: null, size, askedSize: size };
+  if (!stock.cod) return { kind: "found", region: none };
+  // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold. But
+  // "no stock" is said only of a size the answer spoke of clearly: hers unreadable (renamed, malformed) is an unknown.
+  const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
+  if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  const q = new URLSearchParams(where);
+  for (const id of ops) q.append("operation_ids[]", String(id));
+  // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not
+  // a denial either: unless the Logzz itself says it does not serve the address, an unknown is a failed lookup.
+  const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS)
+    .then(readLogzzDays)
+    .catch((e) => (NOT_SERVED.test(String((errorBody(e) as { msg?: unknown } | null)?.msg ?? "")) ? { dates: [], sameDay: false, closed: true } : null));
+  if (days === null) return { kind: "failed", place };
+  if ("closed" in days || days.dates.length === 0) return { kind: "found", region: none };
+  return { kind: "found", region: { zip, place, cod: true, dates: days.dates, sameDay: days.sameDay, labelBrl: null, size, askedSize: size } };
+};
+
+/** Never throws, whatever the Logzz sends: a failure keeps the place, so a likely city still gets both checkouts. It never falls
+ * back to the Coinzz query, the one that said "no delivery" in São Paulo (operator, 2026-10-19). */
+const lookupLogzz = (...a: Parameters<typeof lookupLogzzUnsafe>): Promise<RegionLookup> =>
+  lookupLogzzUnsafe(...a).catch((): RegionLookup => ({ kind: "failed", place: a[2] }));
+
+/** The Coinzz query, per size, for a place already known. */
+const lookupCoinzz = async (fetcher: Fetcher, zip: string, place: Place, size: Size | null): Promise<RegionLookup> => {
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
   // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).
@@ -333,6 +469,33 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | n
   // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
   return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
 };
+
+const lookupRegionUnsafe = async (fetcher: Fetcher, zip: string, size: Size | null, logzz: LogzzIds | null): Promise<RegionLookup> => {
+  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`).catch(() => null);
+  const erro = (viacep as { erro?: unknown } | null)?.erro;
+  let place = readPlace(viacep);
+  let neighborhood = (viacep as { bairro?: string } | null)?.bairro ?? "";
+  if (!place) {
+    const brasil = readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\D/g, "")}`).catch(() => null));
+    if (brasil) ({ place, neighborhood } = brasil);
+  }
+  if (!place) return erro === true || erro === "true" ? { kind: "not_found" } : { kind: "failed" };
+  if (!logzz) return lookupCoinzz(fetcher, zip, place, size);
+  const first = await lookupLogzz(fetcher, zip, place, neighborhood, size, logzz);
+  if (first.kind !== "failed") return first;
+  // The Logzz could not answer (down, challenged, an answer not understood): the second legitimate source is the Coinzz query.
+  // Its "yes" is evidence (BH answers cod on both); its "no" is the answer that was wrong in São Paulo, so it is never a denial.
+  const second = await lookupCoinzz(fetcher, zip, place, size).catch((): RegionLookup => first);
+  // Evidence for HER size, with days: another size's delivery lent to her, or a window with no day, is not a "yes".
+  return second.kind === "found" && second.region.cod && second.region.dates.length > 0 && second.region.size === size ? second : first;
+};
+
+/**
+ * The region of a CEP. NEVER throws, whatever any source sends: the worst outcome is `failed`, which the turn answers with the
+ * place kept (both checkouts for a likely city, the prepaid otherwise) and the health probe reports to the operator.
+ */
+export const lookupRegion = (fetcher: Fetcher, zip: string, size: Size | null = null, logzz: LogzzIds | null = null): Promise<RegionLookup> =>
+  lookupRegionUnsafe(fetcher, zip, size, logzz).catch((): RegionLookup => ({ kind: "failed" }));
 
 /**
  * The region a turn found, kept on `leads.address.region` (E2.4, latency): the next turn reuses it
@@ -374,10 +537,10 @@ export interface CoverageCheck {
   readonly result: "cod" | "no_cod" | "failed" | "not_found";
 }
 
-export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[]): Promise<CoverageCheck[]> =>
+export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[], logzz: LogzzIds | null = null): Promise<CoverageCheck[]> =>
   Promise.all(
     ceps.map(async (cep): Promise<CoverageCheck> => {
-      const lookup = await lookupRegion(fetcher, cep).catch((): RegionLookup => ({ kind: "failed" }));
+      const lookup = await lookupRegion(fetcher, cep, null, logzz).catch((): RegionLookup => ({ kind: "failed" }));
       return { cep, result: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind };
     }),
   );

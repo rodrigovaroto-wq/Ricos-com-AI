@@ -108,7 +108,7 @@ describe("checkCoverage — o mesmo caminho da conversa", () => {
 describe("R28: o fetcher da região", () => {
   it("só o 404 é 'nada aqui'; 429 e 5xx lançam e viram consulta que falhou", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain("if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);");
+    expect(turn).toContain("if (!r.ok && r.status !== 404) throw Object.assign(new Error(`region lookup HTTP ${r.status}`), { status: r.status, body: await r.json().catch(() => null) });");
   });
 });
 
