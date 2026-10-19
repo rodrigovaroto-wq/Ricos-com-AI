@@ -217,7 +217,8 @@
   },
   "checkout": {
     "codUrl": "https://entrega.logzz.com.br/pay/ccm-1-unidade",
-    "prepayUrl": "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0"
+    "prepayUrl": "https://app.coinzz.com.br/checkout/encorpa-pagamento-antecipado-0",
+    "logzz": { "productId": "165378", "saleId": "75567" }
   },
   "handoff": {
     "email": "{{EMAIL}}"

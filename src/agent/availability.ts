@@ -336,13 +336,22 @@ export interface LogzzIds {
 const LOGZZ_SIZE: Readonly<Record<string, Size>> = { P: "P", M: "M", G: "G", GG: "GG", XG: "XGG", XGG: "XGG" };
 
 /** The operations holding each size, from the stock answer. `null`: it did not answer (a failed lookup). */
+/**
+ * The Logzz answers "we do not deliver there" as HTTP 400 with `status: "error"` and one of three messages ("bloqueado para
+ * entrega nessa cidade", "não faz parte da lista de disponibilidade de entregas", "Produto sem estoque disponível para
+ * agendamento nessa cidade") — a region answer, not a failure (real sweep of 2026-10-19: Manaus, Cruz Alta, Recife,
+ * Curitiba). Any other error, validation included, is a failed lookup: an unknown message never reads as "no delivery".
+ */
+const NOT_SERVED = /bloqueado para entrega|n[aã]o faz parte da lista de disponibilidade|sem estoque dispon[ií]vel/i;
+/** A non-2xx the fetcher threw, with the parsed body it carries (`status`, `body`): the Logzz 400 is read from it. */
+const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.body;
+
 export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>> } | null => {
   const b = body as {
     status?: string;
     data?: { products?: Array<{ product_name?: string; stock_per_operations?: Array<{ operation_id?: number; quantity?: number }> }> };
   } | null;
-  // "bloqueado para entrega nessa cidade", "não faz parte da lista de disponibilidade": the region answered no.
-  if (b?.status === "error") return { cod: false };
+  if (b?.status === "error") return NOT_SERVED.test((b as { msg?: string }).msg ?? "") ? { cod: false } : null;
   if (b?.status !== "success" || !Array.isArray(b.data?.products)) return null;
   const bySize: Partial<Record<Size, number[]>> = {};
   for (const p of b.data.products) {
@@ -363,9 +372,14 @@ const lookupLogzz = async (
   ids: LogzzIds,
 ): Promise<RegionLookup> => {
   const where = { city: place.city, uf: place.state, cep: zip.replace(/\D/g, ""), ...(neighborhood ? { neighborhood } : {}), sale_id: ids.saleId };
-  const stock = readLogzzStock(
-    await fetcher(`${LOGZZ_BASE}/ajax/get-available-stock-for-schedule?${new URLSearchParams({ product_id: ids.productId, ...where })}`, AVAILABILITY_HEADERS),
-  );
+  // Never throws: a Logzz that is down, challenged or confused is "unknown region" with the place kept, so a likely
+  // city still gets both checkouts. It never falls back to the Coinzz query, the one that said "no delivery" in São Paulo.
+  const stock = await fetcher(
+    `${LOGZZ_BASE}/ajax/get-available-stock-for-schedule?${new URLSearchParams({ product_id: ids.productId, ...where })}`,
+    AVAILABILITY_HEADERS,
+  )
+    .then(readLogzzStock)
+    .catch((e) => readLogzzStock(errorBody(e)));
   if (stock === null) return { kind: "failed", place };
   const none: Region = { zip, place, cod: false, dates: [], sameDay: false, labelBrl: null, size, askedSize: size };
   if (!stock.cod) return { kind: "found", region: none };
@@ -464,10 +478,10 @@ export interface CoverageCheck {
   readonly result: "cod" | "no_cod" | "failed" | "not_found";
 }
 
-export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[]): Promise<CoverageCheck[]> =>
+export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[], logzz: LogzzIds | null = null): Promise<CoverageCheck[]> =>
   Promise.all(
     ceps.map(async (cep): Promise<CoverageCheck> => {
-      const lookup = await lookupRegion(fetcher, cep).catch((): RegionLookup => ({ kind: "failed" }));
+      const lookup = await lookupRegion(fetcher, cep, null, logzz).catch((): RegionLookup => ({ kind: "failed" }));
       return { cep, result: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind };
     }),
   );

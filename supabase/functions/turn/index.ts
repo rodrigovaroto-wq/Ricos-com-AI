@@ -1538,7 +1538,8 @@ const RETRY_REGION_TIMEOUT_MS = 5_000;
 const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
   const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
   // Only a 404 is "nothing here" (the M's, R28); a 429 or a 5xx is a lookup that failed, never a size without stock.
-  if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);
+  // The error carries the parsed body: the Logzz says "no delivery there" as a 400 with a JSON body (2026-10-19).
+  if (!r.ok && r.status !== 404) throw Object.assign(new Error(`region lookup HTTP ${r.status}`), { status: r.status, body: await r.json().catch(() => null) });
   return r.ok ? await r.json() : null;
 };
 
@@ -1547,7 +1548,7 @@ const COVERAGE_ALARM_CEPS = ["01310100", "04710090", "04662002"];
 
 /** `job: "health"` (E1.2): no database write, no model call — n8n alerts the operator on `unhealthy`. */
 const runHealthCheck = async () => {
-  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS);
+  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS, CONFIG.checkout?.logzz ?? null);
   return { status: healthOf(checks), checkedAt: new Date().toISOString(), checks };
 };
 
@@ -3777,10 +3778,11 @@ const handleTurn = async (
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
         regionSize,
+        CONFIG.checkout?.logzz ?? null,
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, CONFIG.checkout?.logzz ?? null) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };

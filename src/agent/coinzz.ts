@@ -221,6 +221,8 @@ export interface CheckoutLinkConfig {
   codUrl: string;
   /** Full checkout URL of the prepaid offer. */
   prepayUrl?: string;
+  /** The Logzz offer behind `codUrl`, for the coverage lookup (2026-10-19). Absent: the lookup asks Coinzz. */
+  logzz?: { productId: string; saleId: string };
 }
 
 /**

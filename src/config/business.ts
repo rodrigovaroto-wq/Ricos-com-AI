@@ -57,7 +57,15 @@ export interface BusinessConfig {
    * Logzz, o antecipado é da Coinzz. Era `baseUrl` — um só —, o que já não descrevia a
    * operação e divergia do tipo que a Edge Function usa de verdade.
    */
-  checkout: { codUrl: string; prepayUrl?: string };
+  checkout: {
+    codUrl: string;
+    prepayUrl?: string;
+    /**
+     * The Logzz offer behind `codUrl`, for the coverage lookup (operator, 2026-10-19: São Paulo has 180 G on the Logzz
+     * while the Coinzz query said "no delivery"). OPTIONAL: absent, the lookup asks Coinzz as before.
+     */
+    logzz?: { productId: string; saleId: string };
+  };
   /**
    * Kits of 2 and 3 pieces, one Coinzz checkout per quantity (operator, 2026-09-25).
    * OPTIONAL: absent, one piece only — every kit price is refused by the gate.
