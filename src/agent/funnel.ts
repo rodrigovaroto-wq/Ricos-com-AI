@@ -57,14 +57,17 @@ export const FUNNEL_LABELS = {
   video: "[vídeo da Malu: uma cliente vestindo o colete, fechando os colchetes e o zíper]",
   reviews: "[imagem da Malu: avaliações reais de clientes, nota 5]",
   sizes: "[imagem da Malu: tabela de tamanhos pela calça — P 34 a 36, M 38 a 40, G 42 a 44, GG 46 a 48, XGG 50 a 52; ficou entre dois, pegue o maior]",
-  price: "[imagem da Malu: o colete de R$ 216,50 por R$ 129,90, com 7 dias pra trocar ou devolver]",
 } as const;
+
+/** The price image's history row, from the config: the history never says a price the config does not. */
+export const priceLabel = (config: FunnelConfig): string =>
+  `[imagem da Malu: o colete de ${money(config.prices.anchorBrl)} por ${money(config.prices.codBrl)}, com ${config.delivery.warrantyDays} dias pra trocar ou devolver]`;
 
 const media = (url: string | undefined, kind: MediaKind, text: string): FunnelBubble[] =>
   url ? [{ text, media: { kind, url } }] : [];
 
 /** The question that closes the opening, and the one asked again when the size is still missing at the offer. */
-export const SIZE_ASK = "Pra eu te indicar o tamanho certinho, me diz o número da calça que você veste 😉";
+export const SIZE_ASK = "Qual o número da calça que você veste? Assim eu te indico o tamanho certinho 😉";
 
 /** The social proof line, only with the numbers the config holds (absent: no number is cited). */
 const proofLine = (config: FunnelConfig): string => {
@@ -107,11 +110,22 @@ export const firstMessageNeedsAnswer = (message: string): boolean => {
     .replace(/\s+/g, " ")
     .trim();
   if (t === "" || t.includes("?")) return t !== "";
+  // A datum in it — a number (pants size, CEP, pieces) or a size letter — is read by the turn that answers (review of v3).
+  if (/\d|\b(?:pp|p|m|g|gg|xg|xgg|eg|g[1-4])\b/.test(t)) return true;
   if (/\b(?:quanto|qual|quais|valor|preco|como|onde|quando|frete|entrega|tamanho|cep|pagamento|pix|cartao|boleto|parcel|foto|video|tem\b)/.test(t)) return true;
   // "não tenho interesse" is an answer to give, not an opening to skip.
   if (/\b(?:nao|nem|nunca)\b/.test(t)) return true;
   return !/^(?:(?:ola|oi+|oie|bom dia|boa tarde|boa noite|tudo bem|eu)\s*)*(?:(?:tenho|tive|estou com|to com|fiquei com)\s+interesse|quero (?:saber|conhecer|mais|ver|comprar)|gostaria de saber|me interessei|interesse)?\b.{0,60}$/.test(t)
     || t.split(" ").length > 14;
+};
+
+/**
+ * A first message the opening must not answer: she asks to stop, says it is the wrong number, or asks for a person. The
+ * old receipt goes instead, and the turn that answers classifies it like any other (review of v3, 1).
+ */
+export const skipsOpening = (message: string): boolean => {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /\b(?:errad[oa]|engano|pare\b|parar|para de|sair\b|me tir[ae]|remov\w*|descadastr\w*|bloque\w*|denunci\w*|spam|atendente|humano|pessoa de verdade|falar com (?:alguem|uma pessoa))/.test(t);
 };
 
 /** "Hoje é 2026-10-19 em São Paulo": the day a date is said against, never the UTC one. */
@@ -174,16 +188,32 @@ export const offerBubbles = (
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
-    ...media(m.price, "image", FUNNEL_LABELS.price),
+    ...media(m.price, "image", priceLabel(config)),
     { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config) },
     ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];
 };
 
+/** Which offer a history row is: the delivery box, the prepaid box, or the two checkouts. */
+export type OfferKind = "cod" | "prepay" | "both";
+export const BOTH_MARKER = "costuma ter pagamento na entrega";
+export const offerKindOf = (m: string, config: FunnelConfig): OfferKind | null =>
+  m.startsWith(PREPAY_HEADLINE) ? "prepay"
+  : m.startsWith(OFFER_HEADLINE(config)) ? (m.includes(BOTH_MARKER) ? "both" : "cod")
+  : null;
+
+/** The newest offer in the history (oldest first), or null. */
+export const lastOfferKind = (outbound: readonly string[], config: FunnelConfig): OfferKind | null => {
+  for (let i = outbound.length - 1; i >= 0; i--) {
+    const k = offerKindOf(outbound[i]!, config);
+    if (k) return k;
+  }
+  return null;
+};
+
 /** The offer went out already: its first line is in the history (either path). */
-export const offerWasSent = (outbound: readonly string[], config: FunnelConfig): boolean =>
-  outbound.some((m) => m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(PREPAY_HEADLINE));
+export const offerWasSent = (outbound: readonly string[], config: FunnelConfig): boolean => lastOfferKind(outbound, config) !== null;
 
 /** The opening went out already: its last line is in the history. */
 export const openingWasSent = (outbound: readonly string[]): boolean => outbound.some((m) => m === SIZE_ASK);
@@ -202,9 +232,13 @@ export const funnelLinkMessage = (
     ? config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl
     : path === "cod" ? config.prices.codBrl : config.prices.prepayBrl;
   const what = pieces > 1 ? `Suas ${pieces} peças` : `Seu ${size ?? "colete"}`;
+  const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
+  const n = config.prices.prepayMaxInstallments;
   const head =
     `Prontinho${first ? `, ${first}` : ""}! 🎉 ${what}${price ? ` por ${money(price)}` : ""}` +
-    (path === "cod" ? ", com frete grátis, e você só paga quando receber. Escolhe aqui o dia da entrega:" : `, no Pix${config.prices.prepayMaxInstallments ? ` ou em até ${config.prices.prepayMaxInstallments}x no cartão` : ""}:`);
+    (path === "cod"
+      ? `${free ? ", com frete grátis," : ""} e você só paga quando receber. Escolhe aqui o dia da entrega:`
+      : `, no Pix${n && n > 1 ? ` ou em até ${n}x no cartão` : " ou no cartão"}:`);
   const kits = pieces > 1 ? [] : (config.kits ?? []).filter((k) => k.path === path).sort((a, b) => a.units - b.units);
   const kitLine = kits.length
     ? ` E se quiser levar mais: ${kits.map((k) => `${k.units} peças saem por ${money(k.priceBrl)}`).join(", e ")} 💛`
@@ -235,23 +269,30 @@ export const bothLinksBubbles = (
   codUrl: string,
   prepayUrl: string,
   size: string | null,
+  pieces = 1,
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   const n = config.prices.prepayMaxInstallments;
+  // A kit's checkouts charge the kit's price (review of v3, 5): the box says what the link charges.
+  const kit = (path: "cod" | "prepay") => config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl;
+  const codPrice = pieces > 1 ? kit("cod") ?? config.prices.codBrl * pieces : config.prices.codBrl;
+  const prepayPrice = pieces > 1 ? kit("prepay") ?? config.prices.prepayBrl * pieces : config.prices.prepayBrl;
+  const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
+  const what = pieces > 1 ? ` das ${pieces} peças` : size ? ` do ${size}` : "";
   return [
-    ...media(m.price, "image", FUNNEL_LABELS.price),
+    ...media(m.price, "image", priceLabel(config)),
     {
       text: [
         OFFER_HEADLINE(config),
         `${city} costuma ter pagamento na entrega, mas a nossa consulta de CEP está instável agora e não conseguiu confirmar pra você 😕`,
-        `Por isso vou te mandar os dois links${size ? ` do ${size}` : ""}, e você confere direto no checkout 💛`,
+        `Por isso vou te mandar os dois links${what}, e você confere direto no checkout 💛`,
       ].join("\n"),
     },
     {
-      text: `🟢 1) PAGAR SÓ NA ENTREGA · ${money(config.prices.codBrl)} · frete grátis\nVocê não paga nada agora: paga ao entregador, no dinheiro, Pix ou cartão\n${codUrl}`,
+      text: `🟢 1) PAGAR SÓ NA ENTREGA · ${money(codPrice)}${free ? " · frete grátis" : ""}\nVocê não paga nada agora: paga ao entregador, no dinheiro, Pix ou cartão\n${codUrl}`,
     },
     {
-      text: `🔵 2) PAGAR AGORA NO PIX OU CARTÃO · ${money(config.prices.prepayBrl)} (${config.prices.prepayDiscountPercent}% de desconto)${n && n > 1 ? ` · até ${n}x` : ""}\nVai pelos Correios, com rastreio\n${prepayUrl}`,
+      text: `🔵 2) PAGAR AGORA NO PIX OU CARTÃO · ${money(prepayPrice)}${pieces > 1 ? "" : ` (${config.prices.prepayDiscountPercent}% de desconto)`}${n && n > 1 ? ` · até ${n}x` : ""}\nVai pelos Correios, com rastreio\n${prepayUrl}`,
     },
     {
       text: `Abre primeiro o link 🟢: se aparecer o dia da entrega pra escolher, é só finalizar por lá. Se não aparecer a entrega pra sua região, usa o link 🔵: o colete chega no conforto da sua casa do mesmo jeito, com a mesma segurança e ${config.delivery.warrantyDays} dias pra trocar ou devolver 💛`,

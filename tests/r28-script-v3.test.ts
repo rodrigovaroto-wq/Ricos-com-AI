@@ -23,6 +23,11 @@ describe("R28: 'emagrece enquanto você usa'", () => {
     "Com ele vestido você emagrece de vez.",
     "Enquanto você usa, emagrece e queima gordura.",
     "Ele emagrece até depois que tira.",
+    // Review of v3 (11): the noun "vestido" is no wearing, and time is the body changing.
+    "Você emagrece e entra no vestido de festa",
+    "Usando todo dia você emagrece e volta a caber naquele vestido justinho",
+    "Enquanto você usa todo dia, ele emagrece de verdade com o tempo",
+    "Enquanto você usa, emagrece aos poucos",
   ])("negação — continua vetado: %s", (t) => expect(blocked(t)).toContain("weight_loss_claim"));
 });
 
@@ -35,6 +40,8 @@ describe("R28: as avaliações do config", () => {
     ["outro número", "Já são 300 avaliações positivas"],
     ["sem a chave no config", "Já são 124 avaliações positivas"],
     ["nota inventada", "124 avaliações positivas, nota 4,9"],
+    ["com relógio", "Já são 124 avaliações positivas só esta semana"],
+    ["recebidas hoje", "Recebemos 124 avaliações positivas hoje"],
   ])("negação — %s é veto", (_, t) => {
     const cfg = _ === "sem a chave no config" ? base : withReviews;
     expect(blocked(t, { config: cfg })).toContain("invented_testimonial");
@@ -43,12 +50,12 @@ describe("R28: as avaliações do config", () => {
 
 describe("R28: a fiação do roteiro v3 na turn (index.ts lido como fonte)", () => {
   it("toda lead nova recebe a abertura no lugar do recibo, e o modelo só responde se ela perguntou algo", () => {
-    expect(turn).toContain("if (isNewLead && !isResume) {\n    const opening = openingBubbles(CONFIG);");
+    expect(turn).toContain("if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? \"\"))) {\n    const opening = openingBubbles(CONFIG);");
     expect(turn).toContain("const answer = firstMessageNeedsAnswer(spoken(inbound.body ?? \"\"));");
     expect(turn.indexOf("const opening = openingBubbles(CONFIG);")).toBeLessThan(turn.indexOf("const receiptText = openNow ? WELCOME_AUTO_REPLY"));
   });
   it("a oferta fixa sai na primeira vez que a região é conhecida, e o link sai só com o nome", () => {
-    expect(turn).toContain("if (region !== null && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {");
+    expect(turn).toContain("const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);");
     expect(turn).toContain("cpfDone: true,");
     expect(turn).toContain("emailDone: true,");
     expect(turn).toContain("pathSettled: paymentChoice !== null || knownRegion !== null,");

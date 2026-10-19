@@ -982,10 +982,12 @@ const CHECKOUT_REMINDER: readonly string[] = [
  * what is not what she expected, and after receiving has the warranty days to return it, at
  * no cost to her — the store pays the return (Q3).
  */
+// Script v3 (R28): the second angle no longer says "ontem você chegou perto e parou… promessa demais" — it went to women who
+// had only seen the opening, and the slimming-while-worn is now said, not denied. One open question instead.
 const SILENCE_2 = (days: number) =>
   [
     `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E você só paga quando ele chegar na sua mão — e, depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
+    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 E lembra: você só paga quando ele chegar na sua mão, e depois de receber ainda tem ${days} dias pra devolver sem custo nenhum.`,
   ] as const;
 
 /**
@@ -995,7 +997,7 @@ const SILENCE_2 = (days: number) =>
 const SILENCE_2_UNKNOWN = (days: number) =>
   [
     `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber você ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E depois de receber, ainda tem ${days} dias pra devolver sem custo nenhum se achar que não valeu. É só me chamar.`,
+    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 E lembra: depois de receber, você ainda tem ${days} dias pra devolver sem custo nenhum.`,
   ] as const;
 
 /** `after_price` with her region unknown: no "paga quando chegar", the CEP asked instead. */
@@ -1008,7 +1010,7 @@ const SILENCE_1_UNKNOWN: readonly string[] = [
 const SILENCE_2_PREPAY = (days: number) =>
   [
     `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: comprar sem ver dá um frio na barriga, eu sei. Então fica tranquila: depois que o colete chega na sua casa, você tem ${days} dias pra devolver se não for o que você esperava, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ontem você chegou perto e parou — e eu entendo, promessa demais já foi feita pra você. Então vou ser direta: o colete não muda o seu corpo, ele muda como a roupa cai enquanto você usa. É a roupa que você já tem, caindo do jeito que você queria. E se, com ele na mão, você achar que não valeu, tem ${days} dias pra devolver sem custo nenhum. É só me chamar.`,
+    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 Depois que ele chega na sua casa, você ainda tem ${days} dias pra devolver sem custo nenhum.`,
   ] as const;
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;

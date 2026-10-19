@@ -155,7 +155,7 @@ describe("3. desistência no turno em que os dados fecham não leva link (withdr
     expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
     // link segurado pelo histórico (além da janela) avisa o modelo que ela já o tem
     expect(source).toContain("const linkAlreadySent = linkJustSent || linkSentRecently(");
-    expect(source).toContain("!kitOffered && !linkNow && !farewell && !withdrew;");
+    expect(source).toContain("const kitOfferNow = false;");
   });
 });
 

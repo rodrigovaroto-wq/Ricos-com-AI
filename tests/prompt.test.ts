@@ -434,7 +434,9 @@ describe("fechamento por escolha: as duas opções, ela escolhe", () => {
     expect(prompt).not.toContain("O pagamento na entrega é O caminho");
     expect(prompt).not.toContain("continua sendo a saída");
     expect(prompt).toContain("nenhuma delas é um dia marcado ou um tamanho separado");
-    expect(prompt).toContain("apresente as duas opções e deixe ela escolher");
+    // R28: the offer is the system's; the model never presents the two options on its own.
+    expect(prompt).not.toContain("apresente as duas opções e deixe ela escolher");
+    expect(prompt).toContain("a oferta já foi do sistema, com o quadro e o áudio");
   });
 
   describe.each(corners)("$name", ({ config }) => {
@@ -530,7 +532,7 @@ describe("pagamento: duas opções onde a entrega chega, o antecipado onde não 
     expect(cod).toBeGreaterThan(-1);
     expect(confirm).toBeGreaterThan(cod);
     expect(confirm).toBeLessThan(noCod);
-    expect(prompt).toContain("Só neste caso, se ela responder \"sim\" ou \"pode ser\" sem escolher");
+    expect(prompt).toContain("responder \"sim\" ou \"pode ser\", siga no pagamento na entrega e confirme");
     expect(prompt).toContain(`Aqui o "sim" é o antecipado: siga pros dados, sem oferecer nem supor pagamento na entrega`);
     // What she says on that "sim" where delivery does not reach passes; the delivery default is vetoed.
     for (const { config } of corners) {

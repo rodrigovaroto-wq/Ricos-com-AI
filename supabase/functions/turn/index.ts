@@ -172,12 +172,16 @@ import {
   bothLinksBubbles,
   firstMessageNeedsAnswer,
   isLikelyCodCity,
+  lastOfferKind,
+  type OfferKind,
+  PREPAY_HEADLINE,
+  SIZE_ASK,
+  skipsOpening,
   funnelLinkMessage,
   type FunnelBubble,
   type FunnelMedia,
   offerAsk,
   offerBubbles,
-  offerWasSent,
   openingBubbles,
 } from "./funnel.ts";
 import {
@@ -889,9 +893,14 @@ const regionDirectiveFor = (
   agreedOnly = false,
   /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
   unconfirmed = false,
+  /** The offer that fits her region has not gone yet (her size missing, night, a link): never claim it did (review of v3, 9). */
+  offerPending = false,
 ): string | null => {
   if (region === null) return null;
-  void agreedOnly;
+  if (offerPending) {
+    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda quando souber o` +
+      ` tamanho dela. Peça o número da calça, com o motivo, e ainda não fale de pagamento na entrega, de frete nem de prazo.`;
+  }
   if (!region.cod && unconfirmed) {
     return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter, e a consulta está` +
       ` instável: o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela perguntar, peça` +
@@ -1256,7 +1265,6 @@ const scheduleSilenceTouches = async (
       .map((f) => [f.kind, new Date(f.sent_at!)]),
   ) as Partial<Record<FollowupKind, Date>>;
   // Script v3 (R28): no "Ainda está aí?" twenty minutes after a question — it read as a robot chasing her.
-  void askedQuestion;
   const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
@@ -2449,7 +2457,7 @@ const handleTurn = async (
   // Script v3 (R28, operator, 2026-10-19): every new lead gets the opening — the product shown before any
   // question, three recorded audios, the video, the reviews, the size table — instead of the receipt. The model
   // answers after it only when her first message asked something the opening does not answer.
-  if (isNewLead && !isResume) {
+  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? ""))) {
     const opening = openingBubbles(CONFIG);
     const sent = await sendFunnel(conversation.id, opening);
     if (sent) {
@@ -3196,6 +3204,8 @@ const handleTurn = async (
     bubbles: readonly FunnelBubble[],
     reason: string,
     extra: { checkoutUrl?: string | null; linkFact?: string | null } = {},
+    /** She asked something beside the CEP: the offer goes, then n8n's resume lets the model answer it (review of v3, 4). */
+    answerAfter = false,
   ): Promise<Response | null> => {
     const last = bubbles[bubbles.length - 1]?.text ?? "";
     const gaveUp = await lateGuard(0, last);
@@ -3207,19 +3217,26 @@ const handleTurn = async (
       body: JSON.stringify({ cost_brl: await costTotal() }),
     }).catch(() => undefined);
     const linkOut = Boolean(extra.checkoutUrl);
-    await scheduleSilenceTouches(conversation.id, linkOut ? "link_sent" : "after_price", linkOut, new Date(), undefined, false);
+    await scheduleSilenceTouches(conversation.id, linkOut ? "link_sent" : last === SIZE_ASK ? "before_size" : "after_price", linkOut, new Date(), undefined, false);
+    if (answerAfter) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ welcomed_at: new Date(Date.now() + 1).toISOString() }),
+      }).catch(() => undefined);
+    }
     await Promise.all([
       recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
-      status: "ok",
+      status: answerAfter ? "welcomed" : "ok",
       reason,
       reply: bubbles.map((b) => b.text).join("\n\n"),
       bubbles: sent.bubbles,
       messageId: sent.lastId,
       rewrites: 0,
       ...extra,
+      ...(answerAfter ? { resumeInSeconds: Math.ceil(sent.bubbles.reduce((n, b) => n + b.delayMs, 0) / 1000) + 15 } : {}),
       costBrl: spent,
       ceilingBrl,
     });
@@ -4146,46 +4163,67 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // Script v3 (R28): the first time the region is known, the offer goes fixed — the price image, the box of the path
-  // her CEP has, the recorded audio 4 where the delivery reaches her — and then her name (or the size, if it is still
-  // missing). With the name already in, the link goes with it. The model never presents "the two options" any more.
+  // Script v3 (R28): when the region is known — or failed where the Logzz delivers — and the offer that fits it has not gone
+  // yet, the offer goes fixed: the delivery box with the audio 4, the prepaid box, or the two checkouts (operator, 2026-10-19).
+  // Read from the whole history (review of v3, 2), never after a link or a sale, inside the send window, and the two
+  // checkouts only with her size known (6). A question beside the CEP is answered right after it, by n8n's resume (4).
   const v3Link = (url: string) =>
     funnelLinkMessage(CONFIG, url, linkPath, identityDraft.name ?? null, units > 1 ? null : stated?.size ?? lead.size ?? null, units > 1 ? units : 1);
-  // The lookup said no — or failed — where the Logzz delivers as a rule: both checkouts, right after the CEP (operator,
-  // 2026-10-19). Outside the list, a "no" is the prepaid offer below, and a failure is the model's unknown region.
-  const unconfirmedPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;
-  if (unconfirmedPlace !== null && isLikelyCodCity(unconfirmedPlace, CONFIG.cod.likelyCities) && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {
-    const pieces = units > 1 ? units : 1;
-    const urlOf = (path: "cod" | "prepay") =>
-      pieces > 1 ? kits.find((k) => k.path === path && k.units === pieces)?.checkoutUrl : path === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
-    try {
-      const cod = buildPrefilledCheckoutLink(linkCustomer, "cod", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
-      const prepay = buildPrefilledCheckoutLink(linkCustomer, "prepay", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+  const likelyPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;
+  const likely = likelyPlace !== null && isLikelyCodCity(likelyPlace, CONFIG.cod.likelyCities);
+  const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : likely ? "both" : "prepay") : likely ? "both" : null;
+  const offerHistory: string[] =
+    offerNow === null
+      ? []
+      : ((await db(
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(body.like.${encodeURIComponent(`${"⭐ DE R$ "}*`)},body.like.${encodeURIComponent(`${PREPAY_HEADLINE.slice(0, 40)}*`)})&select=body&order=created_at.asc`,
+        ).catch(() => null)) ?? []).map((m: { body: string | null }) => m.body ?? "");
+  const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);
+  // A link anywhere in the history ends the offers: past the window too (index: messages_conversation_idx).
+  const pastLink =
+    ["link_enviado", "pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) ||
+    linkAlreadySent ||
+    (offerNow !== null && offerNow !== offerBefore && CHECKOUT_HOSTS.length > 0 &&
+      ((await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
+      ).catch(() => null))?.length ?? 0) > 0);
+  const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
+  if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
+    if (offerNow === "both") {
+      const pieces = units > 1 ? units : 1;
+      const urlOf = (path: "cod" | "prepay") =>
+        pieces > 1 ? kits.find((k) => k.path === path && k.units === pieces)?.checkoutUrl : path === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+      try {
+        const cod = buildPrefilledCheckoutLink(linkCustomer, "cod", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+        const prepay = buildPrefilledCheckoutLink(linkCustomer, "prepay", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+        const sent = await sendFunnelTurn(
+          bothLinksBubbles(CONFIG, likelyPlace!.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null, pieces),
+          "roteiro v3: entrega não confirmada, dois links",
+          { checkoutUrl: prepay, linkFact },
+          askedBeside,
+        );
+        if (sent) return sent;
+      } catch {
+        // A checkout URL missing from the config: the model answers, as before.
+      }
+    } else if (region !== null) {
+      const cod = offerNow === "cod";
       const sent = await sendFunnelTurn(
-        bothLinksBubbles(CONFIG, unconfirmedPlace.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null),
-        "roteiro v3: entrega não confirmada, dois links",
-        { checkoutUrl: prepay, linkFact },
+        [
+          ...offerBubbles(CONFIG, { cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
+          ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
+        ],
+        checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
+        checkoutUrl ? { checkoutUrl, linkFact } : {},
+        askedBeside && !checkoutUrl,
       );
       if (sent) return sent;
-    } catch {
-      // A checkout URL missing from the config: the offer below goes as for a region without delivery.
     }
-  }
-  if (region !== null && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {
-    const sent = await sendFunnelTurn(
-      [
-        ...offerBubbles(CONFIG, { cod: !codUnavailable && region.cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(!codUnavailable && region.cod, sizeKnown)),
-        ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
-      ],
-      checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
-      checkoutUrl ? { checkoutUrl, linkFact } : {},
-    );
-    if (sent) return sent;
   }
 
   // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
+  if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {
     const sent = await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
     if (sent) return sent;
   }
@@ -4200,8 +4238,7 @@ const handleTurn = async (
   // After the size and the CEP too, so the offer never shares a message with another question — or with the CEP she said
   // she does not remember, which is not asked (R26.1: the conversation goes on, kit included).
   // Script v3 (R28): the kits ride in the link message, never as a question before it.
-  const kitOfferNow =
-    false && units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
+  const kitOfferNow = false;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
   const identityDirective = farewell
@@ -4234,7 +4271,8 @@ const handleTurn = async (
   // before the model call (an empty answer, a 5xx), so the correction still belongs to it (second review of R26).
   const codBases = [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)].filter((u): u is string => !!u);
   const codLinkAt = recentOutbound.findLastIndex((m: string) => codBases.some((b) => m.includes(b)));
-  const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
+  // Not after the two checkouts (review of v3, 7): their 🟢 link already says to check the delivery there.
+  const codLinkVoid = codUnavailable && offerBefore !== "both" && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
@@ -4301,7 +4339,7 @@ const handleTurn = async (
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities)),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities), offerNow !== null && offerNow !== offerBefore && !pastLink && !sizeKnown),
       failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +

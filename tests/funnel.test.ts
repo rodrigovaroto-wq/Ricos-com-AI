@@ -8,6 +8,9 @@ import {
   firstMessageNeedsAnswer,
   funnelLinkMessage,
   isLikelyCodCity,
+  lastOfferKind,
+  priceLabel,
+  skipsOpening,
   offerAsk,
   offerBubbles,
   offerWasSent,
@@ -182,9 +185,51 @@ describe("a mensagem do link", () => {
 describe("a turn: dois links quando a consulta diz não ou falha numa cidade da lista (index.ts lido como fonte)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("o lugar sem confirmação é o da região sem entrega, ou o da consulta que falhou", () => {
-    expect(turn).toContain("const unconfirmedPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;");
+    expect(turn).toContain("const likelyPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;");
     expect(turn).toContain("failedPlace = lookup.kind === \"failed\" ? lookup.place ?? null : null;");
-    expect(turn).toContain("if (unconfirmedPlace !== null && isLikelyCodCity(unconfirmedPlace, CONFIG.cod.likelyCities) && !offerWasSent(");
+    expect(turn).toContain('const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : likely ? "both" : "prepay") : likely ? "both" : null;');
+    // Never after a link or a sale, only inside the window, and the two checkouts only with her size (review of v3).
+    expect(turn).toContain('if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {');
+  });
+});
+
+describe("revisão do v3: os furos que ela achou", () => {
+  it.each(["me tira dessa lista", "Número errado", "PARE", "quero falar com atendente", "Msg vc enviou pra pessoa errada"])(
+    "1. sem abertura para quem pede pra parar, errou o número ou quer uma pessoa: %s",
+    (m) => expect(skipsOpening(m)).toBe(true),
+  );
+  it.each(["Olá, tenho interesse no colete cinta modeladora!", "Qual é o preço do colete?", "oi"])(
+    "1. negação — a abertura segue: %s",
+    (m) => expect(skipsOpening(m)).toBe(false),
+  );
+  it.each(["Oi, uso 42", "13010-000", "Boa noite, visto GG", "quero 2", "tenho interesse, sou M"])(
+    "3. um dado na primeira mensagem é respondido depois da abertura: %s",
+    (m) => expect(firstMessageNeedsAnswer(m)).toBe(true),
+  );
+  it("5. os dois links de um kit dizem o preço do kit", () => {
+    const all = bothLinksBubbles(config, "Campinas", "https://e/k", "https://c/k", null, 2).map((b) => b.text).join("\n");
+    expect(all).toContain("🟢 1) PAGAR SÓ NA ENTREGA · R$ 233,82");
+    expect(all).toContain("🔵 2) PAGAR AGORA NO PIX OU CARTÃO · R$ 207,84");
+    expect(all).toContain("os dois links das 2 peças");
+    expect(all).not.toContain("R$ 129,90 ·");
+  });
+  it("9. o CEP que muda de região muda a oferta: o histórico diz qual foi a última", () => {
+    const cod = codOfferText(config, undefined, now);
+    const both = bothLinksBubbles(config, "Campinas", "https://e", "https://c", "G").find((b) => !b.media)!.text;
+    expect(lastOfferKind([cod], config)).toBe("cod");
+    expect(lastOfferKind([cod, "oi", prepayOfferText(config)], config)).toBe("prepay");
+    expect(lastOfferKind([both], config)).toBe("both");
+    expect(lastOfferKind(["Com 46 o seu é o GG"], config)).toBeNull();
+  });
+  it("8. frete grátis e parcela no link só como o config diz", () => {
+    const paid = { ...config, delivery: { ...config.delivery, codFreeShipping: false } };
+    expect(funnelLinkMessage(paid, "https://e", "cod", null, "G", 1)).not.toMatch(/gr[aá]tis/i);
+    const one = { ...config, prices: { ...config.prices, prepayMaxInstallments: 1 } };
+    expect(funnelLinkMessage(one, "https://c", "prepay", null, "G", 1)).not.toContain("1x");
+    expect(priceLabel({ ...config, prices: { ...config.prices, codBrl: 139.9 } })).toContain("R$ 139,90");
+  });
+  it("13. a pergunta da abertura termina em '?'", () => {
+    expect(SIZE_ASK).toContain("?");
   });
 });
 

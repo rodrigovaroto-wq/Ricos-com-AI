@@ -102,9 +102,8 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("o kit é oferecido depois da escolha, uma vez, e o link do kit é o checkout do kit", () => {
-    expect(source).toContain(
-      'units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;',
-    );
+    // R28: the kits ride in the link message; the model never offers them before it.
+    expect(source).toContain("const kitOfferNow = false;");
     expect(source).toContain("linkNow || linkAlreadySent || kitOfferNow ||");
     expect(source).toContain("const kitUrl = units > 1 ? kits.find((k) => k.path === linkPath && k.units === units)?.checkoutUrl : undefined;");
   });
@@ -589,7 +588,7 @@ describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada fi
     expect(source).toContain("farewell = thinkRepeated;");
     expect(source).toContain("const identityDirective = farewell");
     expect(source).toContain("Responda curto e gentil, sem pedir dado nenhum, sem oferta e sem link.");
-    expect(source).toContain("!kitOffered && !linkNow && !farewell && !withdrew;");
+    expect(source).toContain("const kitOfferNow = false;");
     expect(source).toContain("if (farewell) checkoutUrl = null;");
   });
 });

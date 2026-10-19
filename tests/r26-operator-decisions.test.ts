@@ -71,7 +71,8 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
   });
 
   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
-    expect(turn).toContain('missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0');
+    // R28: no kit offer before the link at all; the link waits for the CEP she forgot.
+    expect(turn).toContain("const kitOfferNow = false;");
     expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
   });
 });
@@ -126,14 +127,14 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("depois do link da entrega, o 'não tem na entrega' vem como a correção que é, uma vez", () => {
     expect(turn).toContain(SENTENCE);
     expect(turn).toContain(
-      "const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
+      "const codLinkVoid = codUnavailable && offerBefore !== \"both\" && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
     );
   });
 
   it("a correção sai só no turno em que a consulta descobre a falta de entrega (revisão Opus: o modelo pode dizer de outro jeito)", () => {
     // `storedAddress` é o lead do começo do turno: o turno seguinte já o lê com `codAvailable: false` e a diretiva não volta.
     expect(turn.indexOf("const storedAddress = (lead.address ?? {})")).toBeLessThan(turn.indexOf("const codLinkVoid ="));
-    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity\(region\.place, CONFIG\.cod\.likelyCities\)\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
+    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity\(region\.place, CONFIG\.cod\.likelyCities\), [^\n]*\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
   });
 
   it("a frase que a diretiva ensina passa a cadeia de gates sem entrega na região, nos dois caminhos", () => {

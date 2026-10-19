@@ -1344,8 +1344,9 @@ const gates: readonly Gate[] = [
       // R28 (operator, 2026-10-19): the recorded audio says the vest slims while worn, and the agent confirms it in those
       // words — "enquanto você usa, emagrece e pode reduzir até 3 números de calça". Only "emagrec" with the wearing in
       // the same sentence; never beside weight, fat or permanence, which stay the lie of a body that changes.
-      const WORN = /\b(?:enquanto\s+(?:voce\s+|vc\s+)?(?:usa|usar|estiver?\s+(?:com\s+ele|usando|vestida)|esta\s+(?:com\s+ele|usando|vestida)|veste|vestir)|na\s+hora\s+que\s+(?:voce\s+|vc\s+)?(?:veste|vestir|coloca|colocar|usa|usar)|vestid[ao])\b/;
-      const BODY = /\b(?:peso|quilos?|kg|gordura|pra\s+sempre|para\s+sempre|permanente\w*|definitiv\w*|de\s+vez\b(?!\s+em\s+quando)|depois\s+que\s+tira\w*|sem\s+ele)\b/;
+      const WORN = /\b(?:enquanto\s+(?:voce\s+|vc\s+)?(?:usa|usar|estiver?\s+(?:com\s+ele|usando|vestida)|esta\s+(?:com\s+ele|usando|vestida)|veste|vestir)|na\s+hora\s+que\s+(?:voce\s+|vc\s+)?(?:veste|vestir|coloca|colocar|usa|usar)|(?:com\s+ele|com\s+o\s+colete)\s+vestido)\b/;
+      // Time is the body changing too: "com o tempo", "aos poucos", "todo dia", "por semana" (review of v3, 11).
+      const BODY = /\b(?:peso|quilos?|kg|gordura|pra\s+sempre|para\s+sempre|permanente\w*|definitiv\w*|de\s+vez\b(?!\s+em\s+quando)|de\s+verdade|depois\s+que\s+tira\w*|sem\s+ele|com\s+o\s+tempo|aos\s+poucos|todo\s+dia|todos\s+os\s+dias|por\s+(?:dia|semana|mes)|semanas?|mes(?:es)?|dietas?|academia)\b/;
       for (const pattern of claims) {
         for (const match of t.matchAll(pattern)) {
           if (match.index === undefined || negatedAt(t, match.index)) continue;
@@ -2180,7 +2181,11 @@ const gates: readonly Gate[] = [
       // people, orders or sales is not a claim ("os seus 2 pedidos"), so those need "mil".
       // R28: the configured review count passes as "N avaliações positivas", and only so — any other count stays a claim.
       const reviews = ctx.config.socialProof?.reviews;
-      const t = reviews != null ? norm(text).replace(new RegExp(String.raw`\b${reviews}\s+avaliacoes\s+positivas\b`, "g"), " ") : norm(text);
+      // Never with a clock beside it ("124 avaliações positivas só esta semana", "recebemos … hoje"): velocity again (review of v3, 12).
+      const t = reviews != null
+        ? norm(text).replace(new RegExp(String.raw`[^.!?\n]*\b${reviews}\s+avaliacoes\s+positivas\b[^.!?\n]*`, "g"), (sentence) =>
+          /\b(?:hoje|ontem|agora|semana|mes|ano|recebe\w*|chegar\w*)\b|\d\s*%/.test(sentence) ? sentence : sentence.replace(/\b\d+\s+avaliacoes\s+positivas\b/, " "))
+        : norm(text);
       const allowed = ctx.config.socialProof?.satisfiedCustomers;
       // The configured number passes only as "N clientes satisfeitas" — never as sales
       // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
