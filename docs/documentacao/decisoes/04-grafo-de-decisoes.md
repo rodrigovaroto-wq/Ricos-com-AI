@@ -3598,6 +3598,14 @@ saúde lê a última hora: com pelo menos 5 consultas e um terço ou mais `faile
 lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha ao gravar ou ler nunca derruba o turno nem acusa degradação.
 **Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*`.
 
+## 112. A consulta da Malu contra o checkout real, via Playwright (pré-lançamento, tópico 2, 2026-10-19)
+
+**Pergunta:** o que a Malu diz de cobertura é o que o checkout da Logzz oferece? **Método:** Playwright no checkout real, 35 CEPs, só GET (nenhum pedido
+ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupRegion` ([`docs/operacao/playwright-checkout-2026-10-19/`](../../operacao/playwright-checkout-2026-10-19/README.md)).
+**Resultado:** 175/175 iguais. **Armadilha da própria prova:** a primeira comparação usou "XG" (nome do checkout) e deu 26 "divergências" `failed`; o tamanho
+interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
+da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
