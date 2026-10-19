@@ -226,7 +226,7 @@ export const REFERENCE_SIZE: Size = "G";
 /**
  * Every size, asked at once (R28, 2026-10-19). The G alone stopped answering for the region when stock
  * split by warehouse: G only in Belo Horizonte, GG and XGG in São Paulo, so São Paulo read "no delivery"
- * for every customer. The region has delivery when any size has it; the size is chosen in the Logzz checkout.
+ * for every customer. Her size, when known and answered, decides; otherwise any size with delivery does.
  */
 const REGION_SIZES: readonly Size[] = [REFERENCE_SIZE, "GG", "XGG", "P", "M"];
 
@@ -242,6 +242,8 @@ export interface Region {
   readonly sameDay: boolean;
   /** The carrier quote on the prepaid path — the OPERATOR's cost, never her price. */
   readonly labelBrl: number | null;
+  /** The size this answer is for: hers when it was asked and answered, null when it is any size's (R28). */
+  readonly size?: Size | null;
 }
 
 /**
@@ -257,13 +259,14 @@ export const readPlace = (body: unknown): Place | null => {
   return { city: j.localidade, state: j.uf, district: j.bairro || "Centro" };
 };
 
-export const toRegion = (zip: string, place: Place, a: Availability): Region => ({
+export const toRegion = (zip: string, place: Place, a: Availability, size: Size | null = null): Region => ({
   zip,
   place,
   cod: a.cod,
   dates: a.dates,
   sameDay: a.express !== null,
   labelBrl: a.labelBrl,
+  size,
 });
 
 /**
@@ -273,7 +276,7 @@ export const toRegion = (zip: string, place: Place, a: Availability): Region => 
  */
 export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed" };
 
-export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<RegionLookup> => {
+export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<RegionLookup> => {
   const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
   const erro = (viacep as { erro?: unknown } | null)?.erro;
   if (erro === true || erro === "true") return { kind: "not_found" };
@@ -281,9 +284,13 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
   if (!place) return { kind: "failed" };
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
-  const bodies = await Promise.all(REGION_SIZES.map((size) => askSize(fetcher, zip, place, size)));
-  const answers = REGION_SIZES.flatMap((size, i) => (answered(bodies[i]) ? [readAvailability(size, bodies[i])] : []));
+  // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).
+  const bodies = await Promise.all(REGION_SIZES.map((s) => askSize(fetcher, zip, place, s).catch(() => null)));
+  const answers = REGION_SIZES.flatMap((s, i) => (answered(bodies[i]) ? [readAvailability(s, bodies[i])] : []));
   if (answers.length === 0) return { kind: "failed" };
+  // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
+  const hers = answers.find((a) => a.size === size);
+  if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };
   return { kind: "found", region: toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!) };
 };
 
@@ -295,8 +302,15 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
 export const REGION_CACHE_MS = 60 * 60 * 1000;
 export type CachedRegion = Region & { readonly checkedAt: string };
 
-export const cachedRegion = (cached: CachedRegion | null | undefined, zip: string, now: number): Region | null => {
+export const cachedRegion = (
+  cached: CachedRegion | null | undefined,
+  zip: string,
+  now: number,
+  size: Size | null = null,
+): Region | null => {
   if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
+  // An answer for another size (or for any size, now that hers is known) is asked again (R28).
+  if ((cached.size ?? null) !== size) return null;
   const age = now - Date.parse(cached.checkedAt);
   if (!(age >= 0 && age < REGION_CACHE_MS)) return null;
   // The dates shift at midnight: only the same São Paulo day (UTC−3) is served (/code-review of E2).
@@ -306,8 +320,8 @@ export const cachedRegion = (cached: CachedRegion | null | undefined, zip: strin
   return cached.sameDay ? { ...cached, sameDay: false } : cached;
 };
 
-export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {
-  const lookup = await lookupRegion(fetcher, zip);
+export const checkRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<Region | null> => {
+  const lookup = await lookupRegion(fetcher, zip, size);
   return lookup.kind === "found" ? lookup.region : null;
 };
 

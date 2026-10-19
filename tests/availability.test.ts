@@ -4,7 +4,6 @@ import {
   AVAILABILITY_HEADERS,
   availabilityQuery,
   checkRegion,
-  REFERENCE_SIZE,
   toRegion,
   hasPendingCod,
   readAvailability,
@@ -215,8 +214,63 @@ describe("região", () => {
       return url.includes(SIZE_CODES.M) ? { type: "error", status: 404 } : yes;
     }, "30130-010");
     expect(r?.cod).toBe(true);
-    // O tamanho de referência continua sendo o primeiro a decidir.
-    expect(REFERENCE_SIZE).toBe("G");
+  });
+
+  // R28 review: one size that throws (timeout, network, HTML) is one size unanswered, never the whole region.
+  it("um tamanho que lança não derruba a região", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      if (url.includes(SIZE_CODES.XGG)) throw new Error("TimeoutError");
+      return url.includes(SIZE_CODES.G) ? yes : no;
+    }, "30130-010");
+    expect(r?.cod).toBe(true);
+  });
+
+  it("todos os tamanhos lançando é região desconhecida, nunca região sem entrega", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      throw new Error("fetch failed");
+    }, "30130-010");
+    expect(r).toBeNull();
+  });
+
+  // R28 review: she wears G in São Paulo, where only the GG and the XGG have delivery. Her size decides.
+  it("o tamanho dela decide: G sem entrega em SP, mesmo com o GG entregando", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) || url.includes(SIZE_CODES.XGG) ? yes : no;
+    }, "01310-100", "G");
+    expect(r?.cod).toBe(false);
+    expect(r?.size).toBe("G");
+  });
+
+  it("negação: o GG dela em SP tem entrega, e a resposta é do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) ? yes : no;
+    }, "01310-100", "GG");
+    expect(r?.cod).toBe(true);
+    expect(r?.size).toBe("GG");
+  });
+
+  it("o M dela sem resposta: vale qualquer tamanho, e a resposta não fala pelo M", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.M) ? null : yes;
+    }, "30130-010", "M");
+    expect(r?.cod).toBe(true);
+    expect(r?.size).toBeNull();
+  });
+
+  it("sem tamanho, o G decide primeiro quando G e GG entregam em datas diferentes", async () => {
+    const later = structuredClone(yes);
+    later.data.local_operation_cash_on_delivery.delivery_days_available[0]!.dates = [{ date: "2026-09-20" }];
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.G) ? yes : later;
+    }, "30130-010");
+    expect(r?.dates).toEqual(["2026-09-10", "2026-09-11"]);
+    expect(r?.size).toBeNull();
   });
 
   it("traz cobertura, datas e Express, e o custo da etiqueta", () => {

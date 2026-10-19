@@ -73,7 +73,7 @@ import {
   type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
+import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
 import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
@@ -3579,7 +3579,9 @@ const handleTurn = async (
   let badCep: string | null = null;
   // E2.4: the same CEP looked up less than an hour ago is not asked again (latency). Only a found region is kept.
   let freshRegion: CachedRegion | null = null;
-  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now()) : null;
+  // The region is asked for her size when she has one (R28 review): the G in São Paulo is not the GG's stock.
+  const regionSize = (SIZES as readonly string[]).includes(stated?.size ?? lead.size ?? "") ? (stated?.size ?? lead.size) as Size : null;
+  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;
   if (cached) region = cached;
   else if (addressDraft.cep) {
     try {
@@ -3589,10 +3591,11 @@ const handleTurn = async (
       const lookup = await lookupRegion(
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
+        regionSize,
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
@@ -4262,7 +4265,8 @@ const handleTurn = async (
       herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
-      ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
+      // Only the size the lookup answered for (R28 review): any size's delivery never vouches for hers.
+      ...(region?.size ? { sizeChecked: region.size } : {}),
       sameDayWindow: region?.sameDay ?? false,
       regionKnown: region !== null,
     });
