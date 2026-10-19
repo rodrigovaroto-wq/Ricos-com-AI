@@ -60,83 +60,140 @@ O funil validado faz o contrário do que a Malu faz hoje:
 
 Em resumo: **o funil vende primeiro e pede depois; a Malu pede primeiro e nunca vende.**
 
-## 3. O fluxo novo proposto
+## 3. O script adaptado aos nossos valores
 
-A arquitetura continua a mesma (R11.1): **a sequência de mídia é código determinístico**, igual para toda cliente, e
-o modelo só escreve texto nas respostas às perguntas dela. Os áudios e imagens gravados não passam pelo modelo, então
-**não passam pelos gates**: o conteúdo deles precisa estar aprovado antes (§5).
+Valores conferidos em 19/10 nas páginas de checkout no ar (Logzz e Coinzz) e no `BUSINESS_CONFIG`
+(`docs/operacao/business-config-2026-10-15.min.json`):
+
+| | Na entrega (Logzz) | Antecipado (Coinzz) |
+|---|---|---|
+| 1 peça | **R$ 129,90** (de R$ 216,50), frete grátis | **R$ 116,91** (10% off), frete por região |
+| 2 peças | R$ 233,82 (10% off) | R$ 207,84 (20% off) |
+| 3 peças | R$ 311,76 (20% off) | R$ 272,79 (30% off) |
+| Como paga | ao entregador, quando recebe | Pix, ou cartão em até 12x (12x de R$ 12,85, com juros) |
+| Prazo | 1 a 3 dias, no dia que ela escolhe no checkout | em média 5 dias úteis, Correios ou transportadora com rastreio |
+| Onde vale | só onde a consulta de cobertura confirma | em todo o Brasil |
+
+Os dois caminhos têm 7 dias depois do recebimento para trocar ou devolver, sem custo. São 5 tamanhos (P a XGG), só
+na cor preta. O material é poliéster com elastano, com forro de algodão, colchetes e nenhuma barbatana. O config
+registra 500 clientes satisfeitas. Não existe entrega no mesmo dia (`expressActive: false`), e o 12x vale **só no
+antecipado**: não se promete parcelamento na entrega.
 
 ### Etapa 1: abertura (automática, na primeira mensagem dela, qualquer que seja)
 
 | # | Tipo | Conteúdo |
 |---|---|---|
-| 1 | texto | "Oi, tudo bem? Eu sou a Malu, da Encorpa! Vou te mostrar tudo sobre o nosso colete modelador 🥰" |
-| 2 | áudio 1 | Apresentação (36 s), gravado |
-| 3 | áudio 2 | Benefícios, conforto e material (34 s), gravado |
-| 4 | texto | "Olha como é simples de vestir: fecha os colchetes, sobe o zíper e pronto, o corpo fica modelado em segundos 😍" |
-| 5 | vídeo | Vídeo 1 (6 s, vestindo) |
-| 6 | texto | "Dá pra usar embaixo de qualquer roupa: não enrola, não dobra e não machuca. Olha o que as clientes falam ❤️" |
-| 7 | imagem | Avaliações (só se forem reais, §5) |
+| 1 | texto | "Oi, tudo bem? Eu sou a Malu, da Encorpa! Vou te mostrar tudinho sobre o nosso colete modelador 🥰" |
+| 2 | áudio A | Apresentação (texto na §3.1) |
+| 3 | áudio B | Conforto e material (§3.1) |
+| 4 | texto | "Olha como é simples de vestir: fecha os colchetes, ajusta e pronto, a roupa já cai diferente 😍" |
+| 5 | vídeo | Vídeo 1 do Drive (6 s, vestindo) |
+| 6 | texto | "Dá pra usar embaixo de qualquer roupa: é fininho, não enrola e não marca. Já são mais de 500 clientes satisfeitas ❤️" |
+| 7 | imagem | Avaliações, **só se forem reais** (§5) |
 
-Se ela já perguntou alguma coisa (preço, região), a sequência sai igual; o modelo responde a pergunta dela **no fim**,
-numa frase só.
+Se ela já perguntou alguma coisa (preço, região), a sequência sai igual, e no fim o modelo responde a pergunta dela
+numa frase.
 
 ### Etapa 2: tamanho (automática, logo depois)
 
 | # | Tipo | Conteúdo |
 |---|---|---|
-| 8 | áudio 3 | Como escolher o tamanho (29 s), gravado |
-| 9 | imagem | Tabela de tamanhos (a que valer, §5) |
+| 8 | áudio C | Como escolher o tamanho (§3.1) |
+| 9 | imagem | Tabela **nova**, com a nossa (abaixo) |
 | 10 | texto | "Me diz o número da calça que você veste que eu te falo o tamanho certinho 😉" |
 
-Esta é a primeira pergunta da conversa, depois de 9 mensagens de valor.
+A tabela que vai na imagem é a do repositório (`02-tabela-de-medidas.md` e `sizing.ts`). A imagem do Drive (G a 3XG)
+não serve:
 
-### Etapa 3: oferta e fechamento (quando ela responde o tamanho, ou pergunta preço ou como comprar)
+| Tamanho | Calça | Cintura |
+|---|---|---|
+| P | 34 a 36 | 60 a 68 cm |
+| M | 38 a 40 | 68 a 76 cm |
+| G | 42 a 44 | 76 a 84 cm |
+| GG | 46 a 48 | 84 a 92 cm |
+| XGG | 50 a 52 | 92 a 100 cm |
+
+"Ficou entre dois? Pegue o maior."
+
+### Etapa 3: oferta e fechamento (quando ela diz o tamanho, ou pergunta preço ou como comprar)
 
 | # | Tipo | Conteúdo |
 |---|---|---|
-| 11 | texto (modelo) | O tamanho dela, numa frase |
-| 12 | imagem | Imagem de preço (a do preço que valer) |
+| 11 | texto (modelo) | O tamanho dela, numa frase ("Com 46 o seu é o GG 😊") |
+| 12 | imagem | Preço **novo**: "De R$ 216,50 por R$ 129,90". A imagem "129" do Drive diz "12x de R$ 13,16", que não existe (§5) |
 | 13 | texto | O quadro de oferta (abaixo) |
-| 14 | áudio 4 | Fechamento (20 s), **só se o pagamento na entrega estiver confirmado** (ver abaixo) |
-| 15 | texto | "Vamos fazer seu pedido? 😊 Me manda só: ✅ seu nome completo ✅ seu CEP" |
+| 14 | texto | "Vamos fazer seu pedido? 😊 Me manda só: ✅ seu nome completo ✅ seu CEP, que eu já vejo o dia da entrega aí" |
 
-O quadro de oferta, **antes do CEP**, não pode afirmar o que depende da região. Duas versões:
+O quadro de oferta, antes do CEP, não pode afirmar o que depende da região:
 
-**Versão A (antes do CEP):**
-> ⭐ COLETE MODELADOR por R$ {preço} ⭐
-> 💰 Na maioria das cidades você paga só quando receber, direto ao entregador, com frete grátis
-> 🔁 7 dias pra trocar ou devolver depois de receber
-> 💳 No Pix ou no cartão, em até 12x
-
-**Versão B (depois do CEP, com pagamento na entrega):**
-> 🚛 FRETE GRÁTIS, chega {primeira data}
-> 💰 PAGUE SÓ NA ENTREGA, nada agora
-> + o link, com o dia escolhido no checkout
+> ⭐ DE R$ 216,50 POR R$ 129,90 ⭐
+>
+> 💰 Na maioria das cidades você paga só quando receber, direto ao entregador, e o frete é grátis
+>
+> 🚚 Chega em 1 a 3 dias, no dia que você escolher
+>
+> 🔁 7 dias pra trocar ou devolver depois de receber, sem custo
 
 ### Etapa 4: nome + CEP → link (código)
 
 Ela manda nome completo e CEP (juntos ou separados). O código consulta a cobertura **com todos os tamanhos** (conserto
 do bug) e:
 
-- **Tem pagamento na entrega:** "Perfeito, {nome}! Aí na sua cidade você paga só quando receber, com frete grátis 🚛
-  Chega {data}. Aqui seu link pra escolher o dia: {link}". O link vai na hora, sem e-mail, CPF ou pergunta de kit.
-- **Não tem:** a notícia vem como solução, nunca como "não": "Pra sua cidade o envio é pelos Correios, com rastreio,
-  e você ainda ganha 10% de desconto: R$ {preço antecipado}, no Pix ou em até 12x no cartão. E tem 7 dias pra
-  devolver depois de receber. Aqui seu link: {link}". O valor do frete precisa estar resolvido antes (§5, item 4).
+- **Tem pagamento na entrega:** áudio D (§3.1), depois:
+  > Perfeito, {nome}! 🎉 Aí na sua cidade você paga só quando receber, com frete grátis: R$ 129,90 no {tamanho}.
+  > Chega a partir de {primeira data}, você escolhe o dia aqui: {link}
+  >
+  > Se quiser aproveitar: 2 peças saem por R$ 233,82 e 3 por R$ 311,76 💛
+- **Não tem:** a notícia vem como solução, nunca como "não":
+  > {nome}, pra sua cidade o colete vai pelos Correios, com código de rastreio 📦 E pagando agora você ganha 10% de
+  > desconto: R$ 116,91 no {tamanho}, no Pix ou em até 12x no cartão. Chega em média em 5 dias úteis, e você tem 7 dias
+  > depois de receber pra devolver se não gostar. Seu link: {link}
+  >
+  > 2 peças saem por R$ 207,84 e 3 por R$ 272,79 💛
+
+O frete do antecipado é cobrado no checkout e muda por região; a Malu não sabe o valor (§5).
 
 **O link sai logo depois do nome e do CEP.** E-mail, CPF e endereço completo ela preenche no checkout (decisão do
-operador, 19/10). O kit de 2 ou 3 peças aparece **dentro** da mensagem do link, como opção, nunca como pergunta antes
-dele.
+operador, 19/10). O kit vai dentro da mensagem do link, nunca como pergunta antes dele.
 
 ### Etapa 5: depois do link e régua
 
 - **Uma lembrança por momento**, nunca duas mensagens seguidas. Saem do ar "Recebi sua mensagem, já te respondo",
   "Ainda está aí?" aos 20 minutos e o "Posso te mandar ofertas?" emendado no lembrete.
 - **O lembrete do dia seguinte fala do que ela viu**, não de uma objeção que ela não fez: para quem parou antes do
-  tamanho, o vídeo ou a avaliação; para quem parou depois do link, "seu pedido ficou separado aqui, quer que eu
-  guarde?".
+  tamanho, o vídeo; para quem parou depois do link, "seu pedido ficou separado aqui, quer que eu guarde?".
 - **"Número errado" e "não, obrigada" encerram a régua.**
+
+### 3.1 Os áudios: o que está gravado, o que serve, e o texto para regravar
+
+Transcritos em 19/10 com a mesma transcrição que a Malu usa (`muse-voice-transcribe-1.0`). O que foi dito bate com o
+texto do Google Doc.
+
+| Áudio | Duração | Dá pra usar? | O que impede |
+|---|---|---|---|
+| 1 | 36 s | **Não** | "Meu nome é Maria Luiza" (a Malu nunca afirma ser uma pessoa), "sem barriga", "febre nos Estados Unidos", "reduz até três tamanhos de cintura imediatamente", "sem precisar passar horas na academia" |
+| 2 | 34 s | **Em parte** | "seios mais levantados e a barriga retinha" é promessa de corpo; "ajustar ao seu zíper" depende de o colete ter zíper (§5). O resto está certo |
+| 3 | 29 s | **Não** | "corrige até a postura" (a regra é "dá um apoio enquanto está vestido, não trata coluna"); medir com fita "na altura do umbigo" contraria a tabela por calça (decisão de 04/09). Os "cinco tamanhos, todos na cor preta" estão certos |
+| 4 | 20 s | **Não** | "frete grátis" e "paga ao entregador" valem só onde há entrega e saem antes do CEP; "agendar pra amanhã mesmo" não é garantido (1 a 3 dias) |
+
+Texto proposto para regravar, mantendo o tom e a duração dos originais:
+
+- **Áudio A (apresentação, ~30 s):** "Oi, tudo bem? Aqui é a Malu, da Encorpa! Vou te contar rapidinho sobre o nosso
+  colete modelador. Sabe aquela roupa que você ama, mas deixou no armário porque marca a barriguinha ou as costas?
+  Com o colete ela volta a cair do jeito que você quer: ele modela a cintura e alinha a silhueta na hora que você
+  veste. Dá pra usar blusinha de alcinha, vestido mais justinho, calça de cintura alta, sem marcar nada."
+- **Áudio B (conforto, ~30 s):** "E o melhor é que é confortável de verdade. Ele tem forro de algodão por dentro, não
+  tem barbatana, não enrola e não marca embaixo da roupa. Você fecha os colchetes e deixa do seu jeito, mais
+  justinho ou mais soltinho. Já são mais de quinhentas clientes satisfeitas, e eu sempre recebo mensagem de cliente
+  feliz com o caimento da roupa."
+- **Áudio C (tamanho, ~20 s):** "Pra acertar o seu tamanho é bem fácil: é só me dizer o número da calça que você
+  veste. A gente tem do P ao XGG, todos no preto. Vou te mandar a tabelinha aqui embaixo, e se ficar entre dois,
+  pega o maior, que fica mais confortável."
+- **Áudio D (fechamento, só onde há entrega, ~20 s):** "Que bom! Aí na sua cidade você não paga nada agora: o
+  entregador leva o colete até a sua casa e você paga só quando receber, com frete grátis. E se não gostar, tem sete
+  dias pra devolver. Te mandei o link pra você escolher o melhor dia da entrega, tá bom?"
+
+Os áudios não passam pela checagem automática da Malu: o texto aprovado aqui é a única guarda deles.
 
 ## 4. A mensagem pronta do anúncio (Meta Ads, do sócio)
 
@@ -147,35 +204,21 @@ da simulação validada:
 
 Ela não pede nada, convida a abertura da Etapa 1 e não leva a conversa para logística.
 
-## 5. Decisões do operador antes de construir
+## 5. O que ainda depende do operador
 
-O material do Drive conflita com o que está no ar e com decisões já registradas. Nada disto é técnico; é do operador.
-
-1. **Preço.** O script e as imagens dizem R$ 119,90 (12x de R$ 12,16). O ar diz R$ 129,90 na entrega e R$ 116,91 no
-   antecipado. Há imagens de R$ 89, R$ 99, R$ 119 e R$ 129. Qual vale, e para qual caminho?
-2. **Tabela de tamanhos.** Há três tabelas diferentes:
-   - **A da Malu:** P a XGG por cintura em cm (P 60–68 a XGG 92–100).
-   - **A imagem do Drive:** G 40–44, XG 44–48, XXG 48–52, 3XG 52+ pela calça.
-   - **A simulação:** M, L, XL, 2XL, 3XL.
-
-   O checkout tem 5 SKUs: P, M, G, GG e XGG. Qual tabela é a verdadeira? E o XGG serve em quem veste 54 ou 56?
-3. **Promessas dos áudios gravados**, que não passam por gate. Elas contrariam regras que o projeto já decidiu (R11, as
-   "três coisas que você nunca inventa", compliance de anúncio com apelo de corpo):
-   - **Áudio 1:** "reduz até três tamanhos de cintura imediatamente", "sem barriga", "febre nos Estados Unidos", "sem
-     precisar passar horas na academia".
-   - **Áudio 3:** "corrige até a postura".
-   - **Texto de preço:** "Receba amanhã mesmo" e "FRETE GRÁTIS" valem só onde há entrega; "parcele em até 12x pagando
-     ao entregador no crédito": a Logzz aceita cartão parcelado na porta?
-
-   Manter os áudios como estão, regravar só esses trechos, ou cortar?
-4. **Frete do antecipado.** É o caminho de 11 de 12 clientes. Hoje o checkout cobra o frete por região, e a Malu não
-   sabe o valor: a cotação vai de cerca de R$ 28 (MG e SP) a cerca de R$ 93 (interior de PE). Frete grátis no
-   antecipado (a margem absorve), um valor fixo, ou continua por região?
-5. **Depoimentos.** As avaliações (124, nota 5) e as duas capturas ("Brenda", "Regina", de 2024) são de clientes reais
-   deste colete? A Malu só pode mostrar depoimento real (`testimonials` está vazio no config). Se forem de outra loja
-   ou de outro produto, não entram.
-6. **Zíper.** O produto atual tem colchetes **e** zíper, como na foto e no vídeo? Se sim, entra na base de
-   conhecimento, e "não tem zíper" vira proibido.
+1. **Os áudios:** quem regrava os textos da §3.1, e com qual voz? Uma voz humana dizendo "aqui é a Malu" é aceitável,
+   ou precisa ser voz sintética? A regra hoje é que a Malu nunca afirma ser uma pessoa.
+2. **As imagens novas:** a de preço (R$ 129,90, sem o 12x) e a tabela P a XGG. Posso gerar as duas aqui, no estilo das
+   do Drive, se quiser.
+3. **Frete do antecipado**, o caminho de 11 de 12 clientes do teste: hoje é cobrado por região no checkout, e a Malu
+   não sabe o valor. Frete grátis no antecipado, um valor fixo, ou continua por região?
+4. **Depoimentos:** as avaliações (124 com nota 5) e as capturas "Brenda" e "Regina" (2024) são de clientes reais deste
+   colete? Se não forem, a imagem 7 sai.
+5. **Zíper:** o colete atual tem só colchetes (como diz a base de conhecimento) ou colchetes e zíper (como a foto e o
+   vídeo do Drive)?
+6. **Custo na Logzz:** a oferta de 1 peça no ar mostra taxa de entrega de **R$ 26,90** e `tax` de R$ 10,35; as de 2 e
+   3 peças mostram R$ 19,99 e R$ 0,08. O modelo de margem (R27) conta R$ 19,99 nas três. Se R$ 26,90 for o custo real
+   da peça única, a margem do COD de 1 peça cai cerca de R$ 6,40.
 
 ## 6. O que precisa ser construído (depois da §5)
 
