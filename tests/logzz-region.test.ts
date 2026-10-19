@@ -4,7 +4,7 @@
  * Fixtures are real answers of that day; the 400s are what the Logzz really sends for a city it does not serve.
  */
 import { describe, expect, it } from "vitest";
-import { AVAILABILITY_ENDPOINT, checkCoverage, lookupRegion, readLogzzStock } from "@/agent/availability.js";
+import { AVAILABILITY_ENDPOINT, checkCoverage, logzzIdsOf, lookupRegion, readLogzzStock } from "@/agent/availability.js";
 
 const IDS = { productId: "165378", saleId: "75567" };
 const prod = (name: string, qty: number, op = 9) => ({ product_name: `Cinta Colete Modeladora-${name}`, stock_per_operations: [{ operation_id: op, quantity: qty }] });
@@ -142,4 +142,15 @@ describe("a sonda de saúde pela Logzz", () => {
   it("negação — a Logzz fora do ar é failed, e a sonda não cai", async () => {
     expect(await checkCoverage(world({ stock: http(503, null) }).fetcher, ["04710090"], IDS)).toEqual([{ cep: "04710090", result: "failed" }]);
   });
+});
+
+describe("os ids da oferta da Logzz", () => {
+  const COD = "https://entrega.logzz.com.br/pay/ccm-1-unidade";
+  it("a chave do config vence", () => expect(logzzIdsOf({ codUrl: COD, logzz: { productId: "1", saleId: "2" } })).toEqual({ productId: "1", saleId: "2" }));
+  it("sem a chave, a oferta conhecida pelo slug do checkout (o secret não precisa mudar)", () => {
+    expect(logzzIdsOf({ codUrl: COD })).toEqual(IDS);
+    expect(logzzIdsOf({ codUrl: `${COD}/?phone=5511999999999` })).toEqual(IDS);
+  });
+  it.each([["outra oferta", "https://entrega.logzz.com.br/pay/outra-oferta"], ["sem checkout", ""]])("negação — %s: sem ids, a Coinzz como antes", (_, codUrl) =>
+    expect(logzzIdsOf(codUrl ? { codUrl } : undefined)).toBeNull());
 });

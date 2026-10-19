@@ -76,7 +76,7 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -1548,7 +1548,7 @@ const COVERAGE_ALARM_CEPS = ["01310100", "04710090", "04662002"];
 
 /** `job: "health"` (E1.2): no database write, no model call — n8n alerts the operator on `unhealthy`. */
 const runHealthCheck = async () => {
-  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS, CONFIG.checkout?.logzz ?? null);
+  const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS, logzzIdsOf(CONFIG.checkout));
   return { status: healthOf(checks), checkedAt: new Date().toISOString(), checks };
 };
 
@@ -3778,11 +3778,11 @@ const handleTurn = async (
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
         regionSize,
-        CONFIG.checkout?.logzz ?? null,
+        logzzIdsOf(CONFIG.checkout),
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, CONFIG.checkout?.logzz ?? null) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };

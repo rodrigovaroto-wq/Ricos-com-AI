@@ -363,6 +363,15 @@ export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; byS
   return { cod: true, bySize };
 };
 
+/**
+ * The Logzz ids of the configured offer. `checkout.logzz` wins; absent, the one offer this shop runs is known by its checkout
+ * slug, so the live secret needs no edit for the lookup to ask the right source (the secret's hash moved from the repository
+ * file on 2026-10-19: the operator edits it, and overwriting it would revert them). shortcut: one offer, add a row for a new one.
+ */
+const KNOWN_LOGZZ_OFFERS: Readonly<Record<string, LogzzIds>> = { "ccm-1-unidade": { productId: "165378", saleId: "75567" } };
+export const logzzIdsOf = (checkout: { codUrl?: string; logzz?: LogzzIds } | undefined): LogzzIds | null =>
+  checkout?.logzz ?? KNOWN_LOGZZ_OFFERS[(checkout?.codUrl ?? "").split("?")[0]!.replace(/\/+$/, "").split("/").pop() ?? ""] ?? null;
+
 const lookupLogzz = async (
   fetcher: Fetcher,
   zip: string,
