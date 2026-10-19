@@ -1,6 +1,6 @@
 # Script v3: o funil validado do operador aplicado à Malu
 
-> **Data:** 2026-10-19. **Status:** proposta, nada no ar. **Origem:** o primeiro teste com anúncio (16 a 19/10:
+> **Data:** 2026-10-19. **Status:** no ar desde 19/10 (`turn` v30, R28, grafo §106). **Origem:** o primeiro teste com anúncio (16 a 19/10:
 > 33 conversas, 0 links, 0 pedidos) e o material que o operador mandou no Drive "FLUXO CINTA COLETE
 > MODELADORA" (script, simulação, 4 áudios, 1 vídeo, imagens, depoimentos e preços).
 > **Antes de virar código:** as decisões da §5 são do operador; depois disso, cada frase nova passa pela
