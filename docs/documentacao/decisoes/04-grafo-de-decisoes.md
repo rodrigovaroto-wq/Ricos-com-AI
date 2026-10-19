@@ -3371,10 +3371,41 @@ CINTA COLETE MODELADORA") faz o contrário: mostra o produto com voz, vídeo e p
 - **Prova social:** `invented_testimonial` aceita o número de avaliações do config. Os depoimentos reais vão em `testimonials`.
 **Guarda:** `tests/funnel.test.ts`, `tests/r28-script-v3.test.ts`, testes do n8n de mídia; mutações `R28-emagrece-sem-amarre`,
 `R28-emagrece-solto`, `R28-avaliacoes-de-qualquer-numero`, `R28-dois-links-fora-da-lista`, `R28-audio-4-sem-entrega`.
+**Revisões Opus:** a 1ª achou 15 pontos, todos consertados com teste. Os principais:
+- opt-out, número errado e pedido de pessoa recebendo a abertura;
+- oferta repetida fora da janela e depois do link;
+- dado da primeira mensagem perdido;
+- pergunta junto do CEP sem resposta, agora respondida pelo resume do n8n;
+- preço de kit nos dois links;
+- dois links antes do tamanho;
+- instruções contraditórias;
+- frete grátis e parcela fixos no texto;
+- CEP que muda de região;
+- prompt contraditório sobre as duas opções;
+- dois furos de gate: o substantivo "vestido" e o tempo; as avaliações com relógio.
+
+A 2ª aprovou, com duas notas consertadas (a oferta pendente de madrugada; a pergunta junto da oferta com link).
+**Personas (55, contra a `turn` local com o config de produção):**
+- **1ª rodada:** uma falha. `cob-tudo-de-uma-vez`: um segundo "welcomed" no resume, que o n8n não espera; corrigido.
+- **Depois do conserto:** a resposta logo após a abertura não repete a pergunta da calça.
+- **2ª rodada:** 55/55, R$ 1,21. 24 conversas chegaram ao link; nenhuma caiu no "me fala de novo". Relatórios em
+  `docs/agente-ia/10-auditoria/personas-2026-10-19/`.
+
+**Publicado em 19/10:**
+- `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-19.min.json` (SHA-256 `8a5005eb…`);
+- n8n "WhatsApp envio" com mídia (versão ativa `2b401580`);
+- `turn` v29 (função v126) e v30 (função v128), `job:"health"` → `healthy`.
+
+A porta de produção exige o selo do WhatsApp, então a prova de ponta a ponta foi na `turn` local com o mesmo código e o mesmo
+config: abertura, oferta, dois links e link.
 **Resíduos:**
 - O áudio 1 diz "sem barriga", "febre nos Estados Unidos" e "sem academia", e o áudio 4 diz "amanhã mesmo". Sem gate, por decisão do
   operador.
-- Uma pergunta junto do CEP fica sem resposta no turno da oferta fixa.
+- **`shipping_promise` veta "nem pagando frete a mais"** (persona Rafa, 1ª rodada) e o rascunho com a frase canônica antes do CEP
+  (Jussara). As duas vezes a resposta caiu no "me fala de novo". É anterior ao v3: os mesmos vereditos na base `e56ad18`. Fica para
+  conserto com frase real (R21.6).
+- A Malu repete o pedido de CEP depois de "não vou passar o CEP ainda" (Marcinha, 4 vezes).
+- Quem manda tudo na primeira mensagem junto com uma pergunta (oferta e link no resume) fica com a pergunta sem resposta.
 
 ## Lições (valem para qualquer correção futura)
 
