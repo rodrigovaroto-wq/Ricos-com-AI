@@ -3323,12 +3323,21 @@ Paulo vinha com `local_operation` "Belo Horizonte" e sem `delivery_days_availabl
 nenhum tamanho: o anúncio trouxe público fora das praças com pagamento na entrega.
 **Caminho descartado:** consultar só o tamanho dela. O M não responde (404), e o tamanho é escolhido no checkout da Logzz, como os testes
 de região já registravam.
-**Correção:** `lookupRegion` pergunta os 5 tamanhos em paralelo, na ordem G, GG, XGG, P, M. A região tem entrega quando algum tamanho
-tem, com as datas desse tamanho. Nenhum tamanho respondido continua sendo região desconhecida (L2). **Guarda:** testes em
-`tests/availability.test.ts` (G sem e GG com entrega; a negação, nenhum tamanho com entrega; o M em 404); mutação
-`R28-regiao-so-pelo-g`; a mutação `G67-falha-e-desconhecida` passou a apontar para a linha nova. 3/3 pegaram.
-**Resíduo:** a cliente que veste G em São Paulo ouve que tem entrega, e o checkout da Logzz decide se o G chega ali. Era o desenho
-original da consulta por região; fica registrado para a revisão.
+**Correção (cinco revisões Opus até o aprovado):** `lookupRegion(fetcher, zip, size)` pergunta os 5 tamanhos em paralelo (G, GG, XGG,
+P, M). Com o tamanho dela conhecido e respondido, a região é a do tamanho dela. Sem tamanho conhecido, a região tem entrega quando
+algum tamanho tem, com as datas desse tamanho. O que cada revisão pegou:
+- **1ª:** um tamanho que lançava derrubava a região inteira (`Promise.all`); a cliente G em São Paulo ouviria a entrega do GG.
+- **2ª:** o "hoje" do Express de outro tamanho; o cache que nunca acertava para quem veste M.
+- **3ª:** um timeout no tamanho dela guardava por uma hora a entrega de outro tamanho. Agora o tamanho dela que lança é região desconhecida.
+- **4ª:** um 429 ou 5xx ainda chegava como "sem resposta". Agora o `regionFetcher` lança em todo status que não seja 2xx ou 404.
+
+O M, que responde HTTP 404 em todo CEP, usa a região de qualquer tamanho, sem o "hoje" (`sameDay: false`). O cache guarda o tamanho
+pedido (`askedSize`). O `sizeChecked` dos gates só vem do tamanho respondido.
+**Guarda:** testes em `tests/availability.test.ts`, `tests/measurement.test.ts` e `tests/coverage-health.test.ts`; mutações
+`R28-regiao-so-pelo-g`, `R28-tamanho-que-lanca`, `R28-tamanho-dela-decide`, `R28-hoje-de-outro-tamanho`, `R28-cache-do-m`,
+`R28-timeout-do-tamanho-dela`, `R28-429-nao-e-sem-estoque`; `G67-falha-e-desconhecida` e `R26-cobertura-segunda-tentativa` apontam para
+as linhas novas. 9/9 pegaram.
+**Resíduo:** a cliente que veste M ouve a entrega de qualquer tamanho, porque a Coinzz não responde pelo M; o checkout da Logzz decide.
 
 
 ## Lições (valem para qualquer correção futura)
