@@ -4539,8 +4539,8 @@ const MUTATIONS: Mutation[] = [
     id: "G67-cep-inexistente",
     bug: "o CEP que não existe virava região desconhecida, sem pedir pra ela conferir",
     files: ["src/agent/availability.ts"],
-    from: "  if (erro === true || erro === \"true\") return { kind: \"not_found\" };\n",
-    to: "",
+    from: "return erro === true || erro === \"true\" ? { kind: \"not_found\" } : { kind: \"failed\" };",
+    to: "return { kind: \"failed\" };",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-round2.test.ts"],
   },
   {
