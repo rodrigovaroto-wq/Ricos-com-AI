@@ -41,6 +41,7 @@ describe("a resposta pronta de pagamento passa a cadeia inteira", () => {
 
 describe("o turno usa a resposta de pagamento no lugar do 'me fala de novo'", () => {
   it("antes do genérico, depois do prazo e da oferta", () => {
+    expect(turn).toContain("const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment);");
     expect(turn).toContain("const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply && !asksHowToPay;");
     expect(turn.indexOf("? paymentFallbackMessage(CONFIG,")).toBeLessThan(turn.indexOf(": fallbackIsGeneric ? SAFE_FALLBACK_REPLY"));
   });
