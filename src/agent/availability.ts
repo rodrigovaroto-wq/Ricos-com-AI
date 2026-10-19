@@ -310,12 +310,102 @@ export const cepsByStreet = async (
 /** A failed lookup keeps the place when ViaCEP answered: a city where the Logzz delivers gets both checkouts (2026-10-19). */
 export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed"; place?: Place };
 
-export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<RegionLookup> => {
-  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
+/**
+ * The second CEP base (2026-10-19): ViaCEP does not know every CEP the Correios do — "62.930.000", a real lead's town
+ * CEP, was "not found" there and found here (BrasilAPI asks the Correios, ViaCEP and others, like the Logzz checkout's
+ * own CEP lookup). Asked only when ViaCEP did not answer with a place.
+ */
+export const BRASILAPI_CEP_ENDPOINT = "https://brasilapi.com.br/api/cep/v1";
+const readBrasilPlace = (body: unknown): { place: Place; neighborhood: string } | null => {
+  const j = body as { city?: string; state?: string; neighborhood?: string } | null;
+  return j?.city && j.state ? { place: { city: j.city, state: j.state, district: j.neighborhood || "Centro" }, neighborhood: j.neighborhood ?? "" } : null;
+};
+
+/**
+ * The Logzz scheduling checkout's own two queries (operator, 2026-10-19: São Paulo had 180 G while the Coinzz query said
+ * "no delivery" for the G there). Cash on delivery is sold on this checkout, so this is the answer she meets: the stock
+ * per size in the local operations that serve her city, then the days those operations deliver. Public, read-only,
+ * no cookie — the checkout's own XHR, asked with the offer's product and sale ids from the config.
+ */
+export const LOGZZ_BASE = "https://entrega.logzz.com.br";
+export interface LogzzIds {
+  readonly productId: string;
+  readonly saleId: string;
+}
+/** The checkout's size names; its "XG" is the table's XGG. */
+const LOGZZ_SIZE: Readonly<Record<string, Size>> = { P: "P", M: "M", G: "G", GG: "GG", XG: "XGG", XGG: "XGG" };
+
+/** The operations holding each size, from the stock answer. `null`: it did not answer (a failed lookup). */
+export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>> } | null => {
+  const b = body as {
+    status?: string;
+    data?: { products?: Array<{ product_name?: string; stock_per_operations?: Array<{ operation_id?: number; quantity?: number }> }> };
+  } | null;
+  // "bloqueado para entrega nessa cidade", "não faz parte da lista de disponibilidade": the region answered no.
+  if (b?.status === "error") return { cod: false };
+  if (b?.status !== "success" || !Array.isArray(b.data?.products)) return null;
+  const bySize: Partial<Record<Size, number[]>> = {};
+  for (const p of b.data.products) {
+    const size = LOGZZ_SIZE[(p.product_name ?? "").split("-").pop()?.trim().toUpperCase() ?? ""];
+    if (!size) continue;
+    const ops = (p.stock_per_operations ?? []).filter((o) => (o.quantity ?? 0) > 0 && typeof o.operation_id === "number").map((o) => o.operation_id!);
+    if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
+  }
+  return { cod: true, bySize };
+};
+
+const lookupLogzz = async (
+  fetcher: Fetcher,
+  zip: string,
+  place: Place,
+  neighborhood: string,
+  size: Size | null,
+  ids: LogzzIds,
+): Promise<RegionLookup> => {
+  const where = { city: place.city, uf: place.state, cep: zip.replace(/\D/g, ""), ...(neighborhood ? { neighborhood } : {}), sale_id: ids.saleId };
+  const stock = readLogzzStock(
+    await fetcher(`${LOGZZ_BASE}/ajax/get-available-stock-for-schedule?${new URLSearchParams({ product_id: ids.productId, ...where })}`, AVAILABILITY_HEADERS),
+  );
+  if (stock === null) return { kind: "failed", place };
+  const none: Region = { zip, place, cod: false, dates: [], sameDay: false, labelBrl: null, size, askedSize: size };
+  if (!stock.cod) return { kind: "found", region: none };
+  // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold.
+  const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
+  if (ops.length === 0) return { kind: "found", region: none };
+  const q = new URLSearchParams(where);
+  for (const id of ops) q.append("operation_ids[]", String(id));
+  // The days are the second question: stock confirmed and the days failing is delivery without a date to promise.
+  const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS).catch(() => null);
+  const windows = (days as { status?: string; data?: RawWindow[] } | null)?.status === "success"
+    ? ((days as { data?: RawWindow[] }).data ?? [])
+    : [];
+  const first = windows[0];
+  return {
+    kind: "found",
+    region: {
+      zip,
+      place,
+      cod: true,
+      dates: (first?.dates ?? []).flatMap((d) => (d.date ? [d.date] : [])),
+      sameDay: windows.some((w) => Boolean(w.deliverySameDay)),
+      labelBrl: null,
+      size,
+      askedSize: size,
+    },
+  };
+};
+
+export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null, logzz: LogzzIds | null = null): Promise<RegionLookup> => {
+  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`).catch(() => null);
   const erro = (viacep as { erro?: unknown } | null)?.erro;
-  if (erro === true || erro === "true") return { kind: "not_found" };
-  const place = readPlace(viacep);
-  if (!place) return { kind: "failed" };
+  let place = readPlace(viacep);
+  let neighborhood = (viacep as { bairro?: string } | null)?.bairro ?? "";
+  if (!place) {
+    const brasil = readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\D/g, "")}`).catch(() => null));
+    if (brasil) ({ place, neighborhood } = brasil);
+  }
+  if (!place) return erro === true || erro === "true" ? { kind: "not_found" } : { kind: "failed" };
+  if (logzz) return lookupLogzz(fetcher, zip, place, neighborhood, size, logzz);
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
   // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).

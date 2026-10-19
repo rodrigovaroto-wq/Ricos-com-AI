@@ -13,6 +13,28 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-19 (noite) — EM ANDAMENTO: consulta de cobertura pela Logzz (não publicada, WIP commitado).**
+>
+> - **Causa:** a consulta perguntava à Coinzz (`stock-and-delivery-day`), que dizia "sem entrega" para o G em São Paulo.
+>   O operador conferiu 180 G em estoque lá. O pagamento na entrega é vendido no checkout da Logzz, então a fonte certa
+>   é a Logzz.
+> - **Fonte certa (sondada em 19/10, pública e só leitura):**
+>   - `GET entrega.logzz.com.br/ajax/get-available-stock-for-schedule?product_id=165378&city&uf&cep&neighborhood&sale_id=75567`
+>     devolve o estoque por tamanho e por operação, ou `status:error` ("bloqueado"/"não faz parte") quando não entrega.
+>   - `GET .../ajax/get-delivery-days-options-by-operations-ids?operation_ids[]=9&city&uf&cep&sale_id=75567` devolve as datas.
+>   - O XG da Logzz é o XGG da tabela.
+> - **Feito (WIP):**
+>   - `lookupLogzz` e `readLogzzStock` em `src/agent/availability.ts` (espelho copiado);
+>   - `lookupRegion(fetcher, zip, size, logzz)`: com o 4º parâmetro usa a Logzz, sem ele a Coinzz como antes;
+>   - a BrasilAPI vira segunda base de CEP quando o ViaCEP não acha. Ela achou "62930000" (Limoeiro do Norte), que o
+>     ViaCEP não achava.
+> - **Falta:**
+>   1. campo opcional `checkout.logzz {productId, saleId}` no `BusinessConfig`, no example e no secret;
+>   2. passar os ids nas chamadas da turn (`lookupRegion` e a segunda tentativa) e no `checkCoverage` (health);
+>   3. testes (leitura do estoque, erro = sem entrega, tamanho dela sem estoque, falha das datas, BrasilAPI) e mutações;
+>   4. revisão Opus, grafo §108, deploy e sonda: SP G deve dar entrega, Manaus e Cruz Alta não;
+>   5. no deno local, `--allow-net` precisa de `entrega.logzz.com.br` e `brasilapi.com.br`.
+
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >
 > - **No ar:** `turn` **v33** (função v134), saudável.
