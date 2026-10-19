@@ -3517,6 +3517,56 @@ R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,
 - a ficha "loja física" espera decisão do operador;
 - só a oferta de 3 peças da Logzz tem "entrega garantida" ligada.
 
+## 108. A consulta de cobertura passa a perguntar à Logzz (operador, 2026-10-19)
+
+**Sintoma:** o operador conferiu 180 unidades do G em São Paulo na Logzz, e a Malu dizia "sem entrega" para o G em São Paulo. A
+consulta de CEP era o que mais travava a operação.
+
+**Causa:** a consulta perguntava só à Coinzz (`stock-and-delivery-day`). O pagamento na entrega é vendido no checkout da Logzz, que decide
+com o próprio estoque por tamanho e por operação. As duas fontes não coincidem: a Coinzz disse "não" para São Paulo inteira.
+
+**Caminhos que falharam:**
+1. Consultar a Coinzz com os cinco tamanhos (R28): corrigiu BH, não São Paulo.
+2. Ler o 400 da Logzz como falha: Manaus, Cruz Alta e Recife (que a Logzz não atende) recebiam os dois links como se a consulta
+   tivesse caído.
+3. Cada revisão Opus achou uma resposta torta que virava "sem entrega": produto com nome diferente, id de operação em texto,
+   datas fora de lista, campo vazio lido como zero (`Number("")` é 0), tamanho dela renomeado.
+
+**Correção** (`src/agent/availability.ts` e o espelho): `lookupRegion` nunca lança e segue uma escada.
+1. CEP → cidade: ViaCEP, depois BrasilAPI (que achou o "62930000").
+2. Logzz, as duas consultas públicas do checkout: estoque (`get-available-stock-for-schedule`) e dias
+   (`get-delivery-days-options-by-operations-ids`). O 400 com uma das três mensagens conhecidas é "sem entrega".
+3. Se a Logzz falhar: a Coinzz como segunda fonte, e só o "sim" dela vale, para o tamanho dela e com um dia. Nunca vira negação.
+4. Se tudo falhar: `failed` com a cidade guardada (dois links na cidade provável, o antecipado nas demais).
+
+Os ids vêm de `checkout.logzz`, e sem a chave valem pelo slug `ccm-1-unidade`, então o secret de produção não precisa mudar. O hash do
+secret já não é o do arquivo do repositório (o operador o editou): ele não foi sobrescrito.
+
+**Regra:** só se nega o que se entendeu. Resposta que não se entendeu é "não sei" (`failed`), nunca "não".
+
+**Guarda:**
+- `tests/logzz-region.test.ts` (65 testes: respostas reais, 400 conhecidos, respostas tortas, fuzz, segunda fonte);
+- 17 mutações `LZ-*`;
+- varredura real de 75 CEPs em 25 cidades, sem exceção;
+- teste de caos com as 4 fontes caindo em 16 combinações contra dados reais: 0 negações falsas, 0 "sim" falsos, 0 exceções;
+- sonda a partir do Edge da Supabase: as três fontes respondem de lá.
+
+**Prova em produção (v34, 19/10):** conversa de teste com o código publicado.
+
+| CEP | Tamanho | Resultado |
+|---|---|---|
+| São Paulo | G | entrega, com o dia de amanhã (era "sem entrega") |
+| BH | GG | entrega |
+| Cruz Alta | G | só o antecipado |
+| Manaus | G | os dois links (cidade da lista) |
+| São Paulo | M | os dois links (sem estoque de M na Logzz) |
+
+**Resíduos:**
+- o estoque do kit de 2 e 3 peças não é consultado por quantidade;
+- o texto "consulta instável" também sai quando a Logzz respondeu "não" (texto aprovado pelo operador);
+- pior caso de tempo: 75 s, que termina na resposta segura;
+- se o operador trocar a oferta da Logzz, falta a chave `checkout.logzz` no secret.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

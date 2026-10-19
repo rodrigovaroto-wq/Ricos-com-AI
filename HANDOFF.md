@@ -13,7 +13,7 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-19 (noite) — consulta de cobertura pela Logzz: PRONTA E TESTADA, NÃO PUBLICADA (PR #70, rascunho).**
+> **2026-10-19 (noite) — consulta de cobertura pela Logzz: NO AR NA `turn` v34 (função v136). PR #70 ainda aberto, só o CI das mutações em ajuste.**
 >
 > - **Causa:** a consulta perguntava só à Coinzz, que dizia "sem entrega" para o G em São Paulo (a Logzz tem 180). O pagamento na
 >   entrega é vendido no checkout da Logzz, então ela é a fonte certa.
@@ -31,7 +31,9 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **Provas:** 8415 testes, incluindo `tests/logzz-region.test.ts` (47, com fuzz de corpo torto); 11 mutações novas, todas pegas; varredura
 >   real de 75 CEPs em 25 cidades; teste de caos com as 4 fontes caindo em 16 combinações contra dados reais: 0 negações falsas, 0
 >   "sim" falsos, 0 exceções; sonda a partir do Edge da Supabase (ViaCEP, BrasilAPI e Logzz respondem de lá).
-> - **Falta:** revisão Opus final, deploy da `turn` v34, sonda (SP com G dá entrega; Manaus, Cruz Alta e Recife não), grafo §108.
+> - **Conferido em produção (v34):** SP com G entrega (amanhã), BH entrega, Cruz Alta só antecipado, Manaus e SP com M os dois links.
+>   Sonda de saúde saudável. Grafo §108.
+> - **Falta:** o CI do PR #70 (lotes de mutação com texto desatualizado, o `verificar:guardas` completo local mostra todos), e o merge.
 > - **Resíduos conhecidos:** o estoque do kit de 2 e 3 peças não é consultado por quantidade; o tamanho M em São Paulo está sem estoque
 >   na Logzz (fora de BH, só o G e o GG têm); uma cidade que o ViaCEP grafe diferente da Logzz cai em "fora da lista".
 
