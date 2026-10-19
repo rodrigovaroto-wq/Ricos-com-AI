@@ -257,3 +257,59 @@ describe("o caminho que não deixa a consulta falhar: Logzz, depois a Coinzz, de
     expect(await lookupRegion(world({ viacep: poisoned }).fetcher, "04710090", "G", null)).toEqual({ kind: "failed" });
   });
 });
+
+describe("só se nega o que se entendeu (2ª revisão Opus)", () => {
+  const stockOf = (products: unknown[]) => ({ status: "success", data: { products } });
+  const failedSP = { kind: "failed", place: { city: "São Paulo" } };
+
+  it.each([
+    ["operation_id como texto vira número", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "9", quantity: "180" }] }]), { kind: "found", region: { cod: true } }],
+    ["campo de estoque renomeado", stockOf([{ product_name: "Cinta-G", stocks: [{ operation_id: 9, quantity: 180 }] }]), failedSP],
+    ["operation_id que não é número", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "x", quantity: 180 }] }]), failedSP],
+    ["quantidade ilegível", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: "muito" }] }]), failedSP],
+    ["o tamanho dela renomeado e os outros lidos (XGG → EXG)", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: 5 }] }, { product_name: "Cinta-EXG", stock_per_operations: [{ operation_id: 9, quantity: 5 }] }]), { kind: "failed" }],
+  ])("estoque: %s", async (name, stock, want) => {
+    const size = name.startsWith("o tamanho dela") ? "XGG" : "G";
+    expect(await lookupRegion(world({ stock }).fetcher, "04710090", size, IDS)).toMatchObject(want);
+  });
+
+  it("estoque zero lido com clareza é sem entrega, e é o único jeito de dizer isso pelo estoque", async () => {
+    const stock = stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: 0 }] }]);
+    expect(await lookupRegion(world({ stock }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "found", region: { cod: false } });
+  });
+
+  it.each([
+    ["datas como texto", { status: "success", data: [{ dates: "2026-10-20" }] }],
+    ["campo de datas renomeado", { status: "success", data: [{ deliveryTypeCode: "x", available_dates: ["2026-10-20"] }] }],
+    ["uma janela torta e a outra vazia", { status: "success", data: [{ dates: "x" }, { dates: [] }] }],
+  ])("dias: %s é consulta que falhou, nunca 'janela fechada'", async (_, days) => {
+    expect(await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS)).toMatchObject(failedSP);
+  });
+
+  it("dias: o expresso sem datas e o padrão com datas — vale o padrão, sem 'hoje'", async () => {
+    const days = { status: "success", data: [{ deliverySameDay: 1, dates: [] }, { deliverySameDay: 0, dates: [{ date: "2026-10-20" }] }] };
+    expect(await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "found", region: { cod: true, dates: ["2026-10-20"], sameDay: false } });
+  });
+
+  it("dias: toda janela com lista vazia é janela fechada, dita com clareza", async () => {
+    const days = { status: "success", data: [{ dates: [] }, { dates: [] }] };
+    expect(await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "found", region: { cod: false } });
+  });
+
+  // The second source: evidence for HER size, with a day.
+  const down = http(503, null);
+  const COINZZ = (dates: string[]) => ({ data: { local_operation_cash_on_delivery: { delivery_days_available: [{ deliveryTypeCode: "x", deliveryTypeName: "Padrão", deliveryPrice: 0, deliverySameDay: 0, dates: dates.map((date) => ({ date })) }] } } });
+  it("negação — a Coinzz 'sim' sem nenhum dia não é evidência", async () => {
+    expect(await lookupRegion(world({ stock: down, coinzz: COINZZ([]) }).fetcher, "30140071", "G", IDS)).toMatchObject({ kind: "failed" });
+  });
+  it("negação — o tamanho dela (M) sem resposta da Coinzz não empresta a entrega de outro tamanho", async () => {
+    const coinzz = (url: string) => (url.includes("65ptrlc") ? null : COINZZ(["2026-10-20"]));
+    const fetcher = async (url: string) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      if (url.includes("entrega.logzz")) throw down;
+      // M's code is the one that answers 404 in production: null for it, a yes for the others.
+      return url.includes("products%5B0%5D%5Bcode%5D=proqvqmj") ? null : coinzz("x");
+    };
+    expect(await lookupRegion(fetcher, "30140071", "M", IDS)).toMatchObject({ kind: "failed" });
+  });
+});

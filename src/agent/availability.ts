@@ -346,13 +346,16 @@ const NOT_SERVED = /bloqueado para entrega|n[aã]o faz parte da lista de disponi
 /** A non-2xx the fetcher threw, with the parsed body it carries (`status`, `body`): the Logzz 400 is read from it. */
 const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.body;
 
-export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>> } | null => {
+/** What the stock answer says: the operations holding each size, the sizes it spoke of clearly, and whether any product was unreadable. */
+export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlySet<Size>; unreadable: boolean } | null;
+
+export const readLogzzStock = (body: unknown): LogzzStock => {
   const b = body as {
     status?: string;
     msg?: string;
     data?: {
       groups?: Array<{ variations?: Array<{ variation_id?: number; variation_name?: string }> }>;
-      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number; quantity?: number }> }>;
+      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number | string; quantity?: number | string }> }>;
     };
   } | null;
   if (b?.status === "error") return NOT_SERVED.test(typeof b.msg === "string" ? b.msg : "") ? { cod: false } : null;
@@ -361,20 +364,24 @@ export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; byS
   const variation = new Map<number, string>();
   for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
   const bySize: Partial<Record<Size, number[]>> = {};
-  let understood = 0;
+  const seen = new Set<Size>();
+  let unreadable = false;
   for (const p of b.data!.products!) {
     const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
     const size = LOGZZ_SIZE[label.trim().toUpperCase()];
-    if (!size) continue;
-    understood++;
-    const ops = (Array.isArray(p.stock_per_operations) ? p.stock_per_operations : [])
-      .filter((o) => Number(o?.quantity) > 0 && typeof o.operation_id === "number")
-      .map((o) => o.operation_id!);
+    // A product is understood only whole: its size, a list of operations, and for each a whole operation id and a quantity.
+    const stock = Array.isArray(p?.stock_per_operations) ? p.stock_per_operations.map((o) => ({ op: Number(o?.operation_id), qty: Number(o?.quantity) })) : null;
+    if (!size || stock === null || stock.some((o) => !Number.isInteger(o.op) || !Number.isFinite(o.qty))) {
+      unreadable = true;
+      continue;
+    }
+    seen.add(size);
+    const ops = stock.filter((o) => o.qty > 0).map((o) => o.op);
     if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
   }
-  // An answer none of whose products could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
+  // An answer nothing of which could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
   // tell the whole country there is no delivery. Unknown is a failed lookup; the health probe says so within 15 minutes.
-  return understood === 0 ? null : { cod: true, bySize };
+  return seen.size === 0 ? null : { cod: true, bySize, seen, unreadable };
 };
 
 /**
@@ -386,16 +393,20 @@ const KNOWN_LOGZZ_OFFERS: Readonly<Record<string, LogzzIds>> = { "ccm-1-unidade"
 export const logzzIdsOf = (checkout: { codUrl?: string; logzz?: LogzzIds } | undefined): LogzzIds | null =>
   checkout?.logzz ?? KNOWN_LOGZZ_OFFERS[(checkout?.codUrl ?? "").split("?")[0]!.replace(/\/+$/, "").split("/").pop() ?? ""] ?? null;
 
-/** The delivery days of the operations that hold her size: `null` is an answer not understood, `[]` a window that is closed. */
+/**
+ * The delivery days of the operations that hold her size. `null`: an answer not understood. `dates: []`: a window that is
+ * explicitly closed (an empty list, or every window with an empty list of days). A window whose days are not a list is not
+ * "closed", it is unknown, unless another window gives days (review, 19/10).
+ */
 const readLogzzDays = (body: unknown): { dates: string[]; sameDay: boolean } | null => {
   const b = body as { status?: string; data?: unknown } | null;
   if (b?.status !== "success" || !Array.isArray(b.data)) return null;
   const windows = b.data.filter((w): w is RawWindow => typeof w === "object" && w !== null);
-  const first = windows[0];
-  return {
-    dates: (Array.isArray(first?.dates) ? first!.dates : []).flatMap((d) => (typeof d?.date === "string" && d.date ? [d.date] : [])),
-    sameDay: windows.some((w) => Boolean(w.deliverySameDay)),
-  };
+  if (windows.length !== b.data.length) return null;
+  const datesOf = (w: RawWindow): string[] => (Array.isArray(w.dates) ? w.dates.flatMap((d) => (typeof d?.date === "string" && d.date ? [d.date] : [])) : []);
+  const withDays = windows.filter((w) => datesOf(w).length > 0);
+  if (withDays.length === 0) return windows.some((w) => !Array.isArray(w.dates) || w.dates.length > 0) ? null : { dates: [], sameDay: false };
+  return { dates: datesOf(withDays[0]!), sameDay: withDays.some((w) => Boolean(w.deliverySameDay)) };
 };
 
 const lookupLogzzUnsafe = async (
@@ -416,9 +427,10 @@ const lookupLogzzUnsafe = async (
   if (stock === null) return { kind: "failed", place };
   const none: Region = { zip, place, cod: false, dates: [], sameDay: false, labelBrl: null, size, askedSize: size };
   if (!stock.cod) return { kind: "found", region: none };
-  // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold.
+  // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold. But
+  // "no stock" is said only of a size the answer spoke of clearly: hers unreadable (renamed, malformed) is an unknown.
   const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
-  if (ops.length === 0) return { kind: "found", region: none };
+  if (ops.length === 0) return size !== null ? (stock.seen.has(size) ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
   const q = new URLSearchParams(where);
   for (const id of ops) q.append("operation_ids[]", String(id));
   // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not
@@ -472,7 +484,8 @@ const lookupRegionUnsafe = async (fetcher: Fetcher, zip: string, size: Size | nu
   // The Logzz could not answer (down, challenged, an answer not understood): the second legitimate source is the Coinzz query.
   // Its "yes" is evidence (BH answers cod on both); its "no" is the answer that was wrong in São Paulo, so it is never a denial.
   const second = await lookupCoinzz(fetcher, zip, place, size).catch((): RegionLookup => first);
-  return second.kind === "found" && second.region.cod ? second : first;
+  // Evidence for HER size, with days: another size's delivery lent to her, or a window with no day, is not a "yes".
+  return second.kind === "found" && second.region.cod && second.region.dates.length > 0 && second.region.size === size ? second : first;
 };
 
 /**
