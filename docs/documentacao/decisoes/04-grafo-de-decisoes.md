@@ -3452,6 +3452,21 @@ config: abertura, oferta, dois links e link.
 - `dev:gates` sem afrouxamento não aceito;
 - `turn` v31 no ar.
 
+**Segunda rodada, depois das personas (operador: "corrija os dois problemas antes do PR"):**
+- **Insistência no CEP.** A Marcinha não recusou o CEP, só perguntou outra coisa, e ouviu o pedido quatro vezes, duas delas
+  seguidas. Correção: `cep_insist` agora veta o segundo pedido seguido, não mais só o terceiro. Recomeça a contar quando o CEP
+  dela não leu ou não foi achado, e o prompt diz a mesma regra.
+- **Pergunta de pagamento com todas as reescritas vetadas.** "me explica de novo o pagamento" e "vocês não mandam pelo
+  correio?" ouviam "me fala de novo o que você quer saber?". Correção: `paymentFallbackMessage`, montada do config conforme a
+  situação dela:
+  - pagamento na entrega confirmado;
+  - só antecipado;
+  - os dois links;
+  - ainda sem CEP.
+
+  A guarda: `tests/payment-fallback.test.ts`, todas as variantes passando a cadeia, e as mutações `R28-cep-duas-seguidas` e
+  `R28-pagamento-me-fala-de-novo`.
+
 **Links de pagamento (revisados em 19/10):** os 6 abrem (HTTP 200). O produto e a quantidade de cada um batem com o config: Logzz
 R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,84 / 272,79 com frete R$ 0,00 e até 12x.
 

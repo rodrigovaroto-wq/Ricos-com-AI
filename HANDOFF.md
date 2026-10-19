@@ -13,6 +13,25 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
+>
+> - **No ar:** `turn` **v31**; esta parte será substituída pela versão desta rodada depois do deploy.
+> - **Corrigido:**
+>   - "nem pagando frete a mais" não é mais vetado;
+>   - o CEP escrito "306 72000" é lido;
+>   - o CEP terminado em 000 "pode ser o geral da cidade";
+>   - a recusa do CEP é respeitada;
+>   - o CEP nunca é pedido duas mensagens seguidas;
+>   - a dúvida de pagamento com todas as reescritas vetadas recebe resposta fixa do config, e não "me fala de novo";
+>   - o nome vem só de texto digitado;
+>   - o telefone do link de checkout ganha o nono dígito que o WhatsApp tira (32 de 41 leads reais).
+> - **Links de pagamento:** os 6 abrem e batem com o config (§107).
+> - **Personas:** reescritas com a voz das 41 conversas reais, mais 8 fichas novas.
+> - **Abertas com o operador:**
+>   - falar do pagamento na entrega antes do CEP;
+>   - ficha "loja física";
+>   - "entrega garantida" ligada só no kit de 3 da Logzz.
+
 > **2026-10-19 — roteiro v3 NO AR (R28, grafo §105–§106; sessão `claude/vibrant-faraday-kcxtt1`).**
 >
 > - **No ar:** `turn` **v30** (função v128); n8n "WhatsApp envio" com mídia (versão ativa `2b401580`); `BUSINESS_CONFIG` =
