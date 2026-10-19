@@ -3587,6 +3587,25 @@ sobrescrito, porque já não bate com o arquivo do repositório.
 **Resíduo:** a mudança de endereço de um pedido é ensinada no prompt (a Malu escreve a frase, e os gates julgam), mas não tem resposta fixa
 nem leitura própria do pedido de mudança. Fica para uma frase real em conversa de cliente (R21.6).
 
+## 110. Antes de vender de verdade: o que a Malu ainda não provou (2026-10-19, noite)
+
+**Situação:** a Malu v35 passa em todos os testes, mas nenhuma cliente real falou com o roteiro v3. A última lead real chegou às 12h15 UTC,
+antes da publicação, e a tabela `orders` está vazia. Os testes e as personas provam a lógica, não o caminho real: WhatsApp, mídia,
+checkout, pedido e Gizele.
+
+**Lista, em ordem de risco** (cada item com o que prova):
+1. **Mensagem real pelo número da Malu, de um celular do operador:** abertura com áudios 1 e 2, vídeo, avaliações e tabela. Prova que a
+   Cloud API entrega mídia por link. Nunca foi provado.
+2. **Compra de teste de ponta a ponta nos dois checkouts:** link da Logzz (entrega) e da Coinzz (antecipado), com nome e telefone
+   preenchidos. Prova o nono dígito, o pedido e o webhook que casa o pedido com a lead.
+3. **Rodada completa de personas na v35:** a última foi na v32, antes da Logzz e da Gizele.
+4. **Alarme de consulta falha:** o health job só avisa quando SP deixa de entregar; falta contar os `failed` da conversa.
+5. **Revisão de conformidade dos áudios e do anúncio:** o áudio diz que "reduz até três tamanhos de cintura imediatamente". Risco de
+   política de anúncio de saúde da Meta; a decisão é do operador, mas vale um parecer.
+6. **Quem responde e em quanto tempo:** a Gizele e o e-mail do operador quando a Malu não resolve (R22.1).
+7. **Textos aprovados que não batem com a realidade:** "consulta instável" quando a Logzz disse "não"; M sem estoque em SP.
+8. **Estoque do kit de 2 e 3 peças:** hoje é o da oferta de 1 peça.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
