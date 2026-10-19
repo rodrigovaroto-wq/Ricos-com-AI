@@ -4399,6 +4399,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
   },
   {
+    id: "R28-calca-na-rajada-da-rua",
+    bug: "na rajada 'rua…, cruz alta' + '42', o número da calça virava o da casa e o CEP saía de outra faixa (3ª revisão, 19/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;",
+    to: "return q.number === null && lone ? { ...q, number: lone } : q;",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
+  },
+  {
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],

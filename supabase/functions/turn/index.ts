@@ -3715,7 +3715,12 @@ const handleTurn = async (
   const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse) || (bareNumber !== null && !askedHouse)
     ? []
     : bareNumber === null
-    ? streetQueries(parts.join(" "))
+    // Only the message with the street; a number alone beside it is her house only when the agent asked it ("rua…, cruz
+    // alta" + "42" answering the pants' number is no house number, third review).
+    ? streetQueries(parts.find((p: string) => streetQueries(p).length > 0) ?? "").map((q) => {
+      const lone = parts.map((p: string) => p.match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1]).find(Boolean) ?? null;
+      return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;
+    })
     : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
   const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
   const streetRaw = streetAsk.length > 0 && streetState
