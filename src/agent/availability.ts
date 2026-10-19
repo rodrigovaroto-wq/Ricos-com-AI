@@ -436,17 +436,8 @@ const lookupLogzzUnsafe = async (
 const lookupLogzz = (...a: Parameters<typeof lookupLogzzUnsafe>): Promise<RegionLookup> =>
   lookupLogzzUnsafe(...a).catch((): RegionLookup => ({ kind: "failed", place: a[2] }));
 
-export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null, logzz: LogzzIds | null = null): Promise<RegionLookup> => {
-  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`).catch(() => null);
-  const erro = (viacep as { erro?: unknown } | null)?.erro;
-  let place = readPlace(viacep);
-  let neighborhood = (viacep as { bairro?: string } | null)?.bairro ?? "";
-  if (!place) {
-    const brasil = readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\D/g, "")}`).catch(() => null));
-    if (brasil) ({ place, neighborhood } = brasil);
-  }
-  if (!place) return erro === true || erro === "true" ? { kind: "not_found" } : { kind: "failed" };
-  if (logzz) return lookupLogzz(fetcher, zip, place, neighborhood, size, logzz);
+/** The Coinzz query, per size, for a place already known. */
+const lookupCoinzz = async (fetcher: Fetcher, zip: string, place: Place, size: Size | null): Promise<RegionLookup> => {
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
   // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).
@@ -464,6 +455,32 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | n
   // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
   return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
 };
+
+const lookupRegionUnsafe = async (fetcher: Fetcher, zip: string, size: Size | null, logzz: LogzzIds | null): Promise<RegionLookup> => {
+  const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`).catch(() => null);
+  const erro = (viacep as { erro?: unknown } | null)?.erro;
+  let place = readPlace(viacep);
+  let neighborhood = (viacep as { bairro?: string } | null)?.bairro ?? "";
+  if (!place) {
+    const brasil = readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\D/g, "")}`).catch(() => null));
+    if (brasil) ({ place, neighborhood } = brasil);
+  }
+  if (!place) return erro === true || erro === "true" ? { kind: "not_found" } : { kind: "failed" };
+  if (!logzz) return lookupCoinzz(fetcher, zip, place, size);
+  const first = await lookupLogzz(fetcher, zip, place, neighborhood, size, logzz);
+  if (first.kind !== "failed") return first;
+  // The Logzz could not answer (down, challenged, an answer not understood): the second legitimate source is the Coinzz query.
+  // Its "yes" is evidence (BH answers cod on both); its "no" is the answer that was wrong in São Paulo, so it is never a denial.
+  const second = await lookupCoinzz(fetcher, zip, place, size).catch((): RegionLookup => first);
+  return second.kind === "found" && second.region.cod ? second : first;
+};
+
+/**
+ * The region of a CEP. NEVER throws, whatever any source sends: the worst outcome is `failed`, which the turn answers with the
+ * place kept (both checkouts for a likely city, the prepaid otherwise) and the health probe reports to the operator.
+ */
+export const lookupRegion = (fetcher: Fetcher, zip: string, size: Size | null = null, logzz: LogzzIds | null = null): Promise<RegionLookup> =>
+  lookupRegionUnsafe(fetcher, zip, size, logzz).catch((): RegionLookup => ({ kind: "failed" }));
 
 /**
  * The region a turn found, kept on `leads.address.region` (E2.4, latency): the next turn reuses it

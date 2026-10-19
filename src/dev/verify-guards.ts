@@ -4466,8 +4466,8 @@ const MUTATIONS: Mutation[] = [
     id: "LZ-nunca-lanca",
     bug: 'um corpo torto da Logzz lançava e a cliente de São Paulo ficava sem oferta e sem os dois links (revisão, 19/10)',
     files: ["src/agent/availability.ts"],
-    from: 'lookupLogzzUnsafe(...a).catch((): RegionLookup => ({ kind: "failed", place: a[2] }));',
-    to: 'lookupLogzzUnsafe(...a);',
+    from: '  lookupRegionUnsafe(fetcher, zip, size, logzz).catch((): RegionLookup => ({ kind: "failed" }));',
+    to: '  lookupRegionUnsafe(fetcher, zip, size, logzz);',
     guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
   },
   {
@@ -4476,6 +4476,7 @@ const MUTATIONS: Mutation[] = [
     files: ["src/agent/availability.ts"],
     from: '  if (days === null) return { kind: "failed", place };\n',
     to: '',
+    also: [{ from: "lookupLogzzUnsafe(...a).catch((): RegionLookup => ({ kind: \"failed\", place: a[2] }));", to: "lookupLogzzUnsafe(...a);" }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
   },
   {
@@ -4484,6 +4485,22 @@ const MUTATIONS: Mutation[] = [
     files: ["src/agent/availability.ts"],
     from: 'const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(',
     to: 'const label = String(',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
+  },
+  {
+    id: "LZ-coinzz-nao-nega",
+    bug: "a Logzz fora do ar e a Coinzz dizendo 'não' mandavam a cliente de São Paulo ao antecipado (a Coinzz errou em SP)",
+    files: ["src/agent/availability.ts"],
+    from: 'return second.kind === "found" && second.region.cod ? second : first;',
+    to: 'return second.kind === "found" ? second : first;',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
+  },
+  {
+    id: "LZ-segunda-fonte",
+    bug: 'a Logzz fora do ar deixava a consulta falhar mesmo com a Coinzz confirmando a entrega',
+    files: ["src/agent/availability.ts"],
+    from: 'return second.kind === "found" && second.region.cod ? second : first;',
+    to: 'return first;',
     guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
   },
   {

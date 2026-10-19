@@ -20,7 +20,7 @@ const NOT_IN_LIST = { status: "error", msg: "Essa cidade não faz parte da lista
 const NO_STOCK = { status: "error", msg: "Produto sem estoque disponível para agendamento nessa cidade." };
 
 /** A fetcher over canned answers by endpoint; every URL it was asked is recorded. */
-const world = (over: { viacep?: unknown; brasil?: unknown; stock?: unknown; days?: unknown } = {}) => {
+const world = (over: { viacep?: unknown; brasil?: unknown; stock?: unknown; days?: unknown; coinzz?: unknown } = {}) => {
   const asked: string[] = [];
   const answer = (v: unknown) => { if (v instanceof Error) throw v; return v; };
   const fetcher = async (url: string) => {
@@ -29,6 +29,7 @@ const world = (over: { viacep?: unknown; brasil?: unknown; stock?: unknown; days
     if (url.includes("brasilapi")) return answer(over.brasil ?? null);
     if (url.includes("get-available-stock")) return answer(over.stock ?? SP_STOCK);
     if (url.includes("get-delivery-days")) return answer(over.days ?? DAYS);
+    if (url.startsWith(AVAILABILITY_ENDPOINT) && over.coinzz !== undefined) return answer(over.coinzz);
     throw new Error(`unexpected ${url}`);
   };
   return { fetcher, asked };
@@ -221,5 +222,38 @@ describe("a garantia: o que a Logzz mandar, a consulta resolve e nunca lança", 
         }
       }
     }
+  });
+});
+
+describe("o caminho que não deixa a consulta falhar: Logzz, depois a Coinzz, depois o estado seguro", () => {
+  const COINZZ_COD = { data: { local_operation_cash_on_delivery: { delivery_days_available: [{ deliveryTypeCode: "x", deliveryTypeName: "Padrão", deliveryPrice: 0, deliverySameDay: 0, dates: [{ date: "2026-10-20" }] }] } } };
+  const COINZZ_NO = { data: { local_operation: [], local_operation_cash_on_delivery: { delivery_days_available: [] } } };
+  const down = http(503, null);
+
+  it("a Logzz não responde e a Coinzz confirma a entrega: segue com a entrega (a segunda fonte)", async () => {
+    const l = await lookupRegion(world({ stock: down, coinzz: COINZZ_COD }).fetcher, "30140071", "G", IDS);
+    expect(l).toMatchObject({ kind: "found", region: { cod: true, dates: ["2026-10-20"] } });
+  });
+
+  it("negação — a Logzz não responde e a Coinzz diz 'não': nunca vira 'sem entrega' (a Coinzz errou em São Paulo)", async () => {
+    const l = await lookupRegion(world({ stock: down, coinzz: COINZZ_NO }).fetcher, "04710090", "G", IDS);
+    expect(l).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
+  });
+
+  it("negação — as duas fontes fora: consulta que falhou, com a cidade guardada", async () => {
+    const l = await lookupRegion(world({ stock: down, coinzz: down }).fetcher, "04710090", "G", IDS);
+    expect(l).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
+  });
+
+  it("a Logzz responde: a Coinzz nem é perguntada", async () => {
+    const { fetcher, asked } = world({ coinzz: COINZZ_NO });
+    await lookupRegion(fetcher, "04710090", "G", IDS);
+    expect(asked.some((u) => u.startsWith(AVAILABILITY_ENDPOINT))).toBe(false);
+  });
+
+  it("nunca lança, nem com um corpo que lança ao ser lido", async () => {
+    const poisoned = { localidade: "São Paulo", uf: "SP", get bairro(): string { throw new Error("boom"); } };
+    expect(await lookupRegion(world({ viacep: poisoned }).fetcher, "04710090", "G", IDS)).toEqual({ kind: "failed" });
+    expect(await lookupRegion(world({ viacep: poisoned }).fetcher, "04710090", "G", null)).toEqual({ kind: "failed" });
   });
 });
