@@ -3497,6 +3497,13 @@ que o v3 removeu de propósito:
     - o número mandado sozinho não era ligado à rua.
   - *Guarda:* `tests/street-cep.test.ts`, mais as mutações `R28-rua-so-na-conversa-de-cep`, `R28-cep-repetido-pede-rua`,
     `R28-faixa-de-numero`, `R28-rua-de-prefixo`, `R28-lado-par-impar` e `R28-lista-cortada`.
+  - *Mais três revisões Opus, cada uma com um caminho que gravaria CEP errado:*
+    - apto, casa e bloco eram lidos como o número da casa: agora saem antes, e vale o primeiro número;
+    - o "42" da calça, mandado na rajada, completava a rua: agora um número solto só completa quando a Malu pediu
+      "o número da casa";
+    - na correção dentro da mesma rajada valia a primeira rua: agora vale a última.
+
+    Mutações `R28-numero-do-apto`, `R28-calca-na-rajada-da-rua` e `R28-rua-corrigida-na-rajada`. No ar na `turn` v33.
   - *Resíduos:* um CEP e a rua na mesma rajada ainda ouvem "confere" primeiro; "Rua A, 10, Cruz Alta" lê a cidade errada e
     não acha nada (não gera CEP errado).
 

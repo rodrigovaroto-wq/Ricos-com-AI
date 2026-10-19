@@ -15,7 +15,12 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >
-> - **No ar:** `turn` **v32** (função v132), saudável.
+> - **No ar:** `turn` **v33** (função v134), saudável.
+> - **v33:** o CEP que os Correios não acham é encontrado pela rua e pela cidade, pela busca do ViaCEP, e o número da casa escolhe a
+>   faixa (grafo §107, terceira rodada). Decisões do operador:
+>   - pode falar do pagamento na entrega antes do CEP, sempre condicionado à região;
+>   - a resposta sobre loja física já vem do config;
+>   - a "entrega garantida" do kit de 3 o operador corrige na Logzz.
 > - **Validação:**
 >   - quatro revisões Opus, até o aprovado;
 >   - 8329 testes; conversas 1655/1655;
@@ -38,7 +43,8 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   - falar do pagamento na entrega antes do CEP;
 >   - ficha "loja física";
 >   - "entrega garantida" ligada só no kit de 3 da Logzz;
->   - a cliente que repete um CEP não encontrado ouve "confere o CEP" de novo a cada mensagem; falta outra saída (busca por rua?).
+>   - o tamanho G em São Paulo está sem estoque de entrega na Coinzz (consulta de 19/10, 17h30), e lá a Malu manda os dois links;
+>   - o texto aprovado para os dois links diz "consulta instável" também quando a consulta respondeu "não".
 
 > **2026-10-19 — roteiro v3 NO AR (R28, grafo §105–§106; sessão `claude/vibrant-faraday-kcxtt1`).**
 >
