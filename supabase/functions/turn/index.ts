@@ -169,6 +169,16 @@ import {
   type NextAction,
 } from "./retry.ts";
 import {
+  firstMessageNeedsAnswer,
+  funnelLinkMessage,
+  type FunnelBubble,
+  type FunnelMedia,
+  offerAsk,
+  offerBubbles,
+  offerWasSent,
+  openingBubbles,
+} from "./funnel.ts";
+import {
   asksSomething,
   asksPaymentStatus,
   isBareAck,
@@ -386,8 +396,10 @@ interface BusinessConfig extends GateConfig {
    * today's truth until someone writes the real value down.
    */
   support?: { email?: string };
-  socialProof?: { satisfiedCustomers?: number };
+  socialProof?: { satisfiedCustomers?: number; reviews?: number };
   store?: { physicalStorePlanCity?: string };
+  /** Script v3 (R28): the public URLs of the recorded audios, the video and the images. OPTIONAL — absent: text only. */
+  funnel?: { media?: FunnelMedia };
   /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
   returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
@@ -871,22 +883,18 @@ const regionDirectiveFor = (
 ): string | null => {
   if (region === null) return null;
   if (!region.cod) {
-    return `A consulta do CEP dela respondeu: ali a transportadora ainda não tem pagamento na entrega.` +
-      ` Ofereça só o pagamento antecipado, com carinho e com esse motivo e nenhum outro, como no PAGAMENTO` +
-      ` ("Não chega"), e nunca diga que ela paga na entrega, ao entregador ou quando receber. Se você` +
-      ` já disse isso nesta conversa, não repita: siga no antecipado.`;
+    return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
+      ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema, com o desconto: não repita a oferta,` +
+      ` siga no antecipado, e nunca diga que ela paga na entrega, ao entregador ou quando receber.`;
   }
-  return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
-    region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
-  }.` +
-    // Grafo §65: "sim" to the two options without choosing is the delivery, confirmed — not the question again.
-    (agreedOnly
-      ? ` Ela disse sim às duas opções sem escolher uma: deixe no pagamento na entrega e confirme com estas palavras:` +
-        ` "${DEFAULT_COD_CONFIRM}" Não apresente as duas opções de novo.`
-      : choice === null
-      ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
-        ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
-      : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
+  // Script v3 (R28): the delivery offer went fixed, with the audio; she is not asked to choose between two options.
+  const today = region.sameDay ? ` Existe a opção de receber HOJE, em até 4 horas — não guarde isso.` : "";
+  return choice === "prepay"
+    ? `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, mas ela escolheu o antecipado: siga no` +
+      ` antecipado, com o desconto, sem reabrir a comparação.`
+    : `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, com frete grátis, e a oferta já foi enviada` +
+      ` pelo sistema (o quadro do preço e o áudio).${today} Não apresente duas opções nem repita a oferta: siga no` +
+      ` pagamento na entrega. Se ela perguntar do antecipado, diga o desconto do antecipado e deixe ela escolher.`;
 };
 
 /**
@@ -1074,6 +1082,40 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
  * the database holds and what a person reads in a handoff mail — and `bubbles` is the
  * same text, split and timed, so the sender never has to reimplement the rhythm.
  */
+/**
+ * Script v3 (R28): a fixed sequence, media included, written to the history one row per message — a media row holds
+ * its transcript or description, so the model reads back what she heard and saw. The operator's script: it does not
+ * pass the gates (the recorded audios cannot), and `tests/funnel.test.ts` pins every number in it to the config.
+ */
+type OutBubble = { text: string; delayMs: number; media?: { kind: string; url: string } };
+const MEDIA_DELAY_MS = 2_000;
+const sendFunnel = async (
+  conversationId: string,
+  bubbles: readonly FunnelBubble[],
+): Promise<{ bubbles: OutBubble[]; lastId: string } | null> => {
+  if (bubbles.length === 0) return null;
+  const start = Date.now();
+  // One millisecond apart: rows written together keep their order when read back by `created_at`.
+  const rows = bubbles.map((b, i) => ({
+    conversation_id: conversationId,
+    direction: "outbound",
+    body: b.text,
+    created_at: new Date(start + i).toISOString(),
+  }));
+  const out = await db("messages", { method: "POST", body: JSON.stringify(rows) }).catch(() => null);
+  if (!Array.isArray(out) || out.length === 0) return null;
+  await db(`conversations?id=eq.${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ last_outbound_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+  }).catch(() => undefined);
+  return {
+    bubbles: bubbles.map((b) =>
+      b.media ? { text: "", delayMs: MEDIA_DELAY_MS, media: b.media } : { text: b.text, delayMs: bubbleDelayMs(b.text) }
+    ),
+    lastId: out[out.length - 1].id,
+  };
+};
+
 const paced = (text: string | null, fast = false): Array<{ text: string; delayMs: number }> =>
   text === null ? [] : splitBubbles(text).map((b, i) => ({ text: b, delayMs: pacedDelayMs(b, i, fast) }));
 
@@ -1196,7 +1238,9 @@ const scheduleSilenceTouches = async (
       .filter((f) => f.sent_at)
       .map((f) => [f.kind, new Date(f.sent_at!)]),
   ) as Partial<Record<FollowupKind, Date>>;
-  const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);
+  // Script v3 (R28): no "Ainda está aí?" twenty minutes after a question — it read as a robot chasing her.
+  void askedQuestion;
+  const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
@@ -2385,8 +2429,32 @@ const handleTurn = async (
   // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
   // call never re-enters here.
   const isNewLead = !existing?.[0];
-  // Arm 1 of experiment A answers right away instead — inside the send window only: at night the real
-  // reply waits for the opening, and silence until then reads as ignored, so she still gets the receipt.
+  // Script v3 (R28, operator, 2026-10-19): every new lead gets the opening — the product shown before any
+  // question, three recorded audios, the video, the reviews, the size table — instead of the receipt. The model
+  // answers after it only when her first message asked something the opening does not answer.
+  if (isNewLead && !isResume) {
+    const opening = openingBubbles(CONFIG);
+    const sent = await sendFunnel(conversation.id, opening);
+    if (sent) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ welcomed_at: new Date().toISOString() }),
+      });
+      const answer = firstMessageNeedsAnswer(spoken(inbound.body ?? ""));
+      if (!answer) {
+        await scheduleSilenceTouches(conversation.id, "before_size", false);
+        await recordOutcome(conversation.id, "send", "roteiro v3: abertura", 0, 0);
+      }
+      return json(200, {
+        status: answer ? "welcomed" : "ok",
+        reply: opening.map((b) => b.text).join("\n\n"),
+        bubbles: sent.bubbles,
+        messageId: sent.lastId,
+        ...(answer ? { resumeInSeconds: Math.ceil(sent.bubbles.reduce((n, b) => n + b.delayMs, 0) / 1000) + 20 } : {}),
+      });
+    }
+  }
+  // The receipt stays only where the opening could not be written (a database error): she is never left unanswered.
   if (isNewLead && !isResume && !(fastOpening && openNow)) {
     // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
     const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
@@ -3096,6 +3164,43 @@ const handleTurn = async (
       reply: text,
       bubbles: paced(text, fastOpening),
       messageId: out.id,
+      rewrites: 0,
+      ...extra,
+      costBrl: spent,
+      ceilingBrl,
+    });
+  };
+
+  /**
+   * Script v3 (R28): the offer after the CEP, and the link with it when the name is already in — a fixed sequence
+   * with media, ending the turn the way `sendFixed` does (ruler, outcome, stage, cost).
+   */
+  const sendFunnelTurn = async (
+    bubbles: readonly FunnelBubble[],
+    reason: string,
+    extra: { checkoutUrl?: string | null; linkFact?: string | null } = {},
+  ): Promise<Response | null> => {
+    const last = bubbles[bubbles.length - 1]?.text ?? "";
+    const gaveUp = await lateGuard(0, last);
+    if (gaveUp) return gaveUp;
+    const sent = await sendFunnel(conversation.id, bubbles);
+    if (!sent) return null;
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: await costTotal() }),
+    }).catch(() => undefined);
+    const linkOut = Boolean(extra.checkoutUrl);
+    await scheduleSilenceTouches(conversation.id, linkOut ? "link_sent" : "after_price", linkOut, new Date(), undefined, false);
+    await Promise.all([
+      recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
+    ]);
+    return json(200, {
+      status: "ok",
+      reason,
+      reply: bubbles.map((b) => b.text).join("\n\n"),
+      bubbles: sent.bubbles,
+      messageId: sent.lastId,
       rewrites: 0,
       ...extra,
       costBrl: spent,
@@ -3856,13 +3961,13 @@ const handleTurn = async (
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
-    pathSettled: paymentChoice !== null || knownRegion?.cod === false,
+    // Script v3 (R28): her region settles the path — the delivery where it reaches her, the prepaid elsewhere — and only
+    // her full name is asked; the e-mail, the CPF and the address are the checkout's. No A/B arm any more.
+    pathSettled: paymentChoice !== null || knownRegion !== null,
     nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,
-    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,
-    // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
-    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore || pressed,
-    // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
-    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
+    cpfDone: true,
+    emailDone: true,
+    identityAtCheckout: false,
     // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
     // and the link's own path: "na entrega" read as `cod` where there is none is not a choice of the prepaid link (third review).
     choiceMade:
@@ -4021,21 +4126,27 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
+  // Script v3 (R28): the first time the region is known, the offer goes fixed — the price image, the box of the path
+  // her CEP has, the recorded audio 4 where the delivery reaches her — and then her name (or the size, if it is still
+  // missing). With the name already in, the link goes with it. The model never presents "the two options" any more.
+  const v3Link = (url: string) =>
+    funnelLinkMessage(CONFIG, url, linkPath, identityDraft.name ?? null, units > 1 ? null : stated?.size ?? lead.size ?? null, units > 1 ? units : 1);
+  if (region !== null && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {
+    const sent = await sendFunnelTurn(
+      [
+        ...offerBubbles(CONFIG, { cod: !codUnavailable && region.cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(!codUnavailable && region.cod, sizeKnown)),
+        ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
+      ],
+      checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
+      checkoutUrl ? { checkoutUrl, linkFact } : {},
+    );
+    if (sent) return sent;
+  }
+
+  // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
   if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
-    const sent = await sendFixed(
-      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
-        ...(identityDraft.name ? [] : ["nome completo"]),
-        ...(linkPath === "prepay" && !chatEmail ? ["e-mail"] : []),
-        ...(identityDraft.document ? [] : ["CPF"]),
-      ], justRefused !== null)),
-      linkFact ? `link — ${linkFact}` : "link",
-      linkPath,
-      { checkoutUrl, linkFact },
-      false,
-      units,
-    );
+    const sent = await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
     if (sent) return sent;
   }
 
@@ -4048,8 +4159,9 @@ const handleTurn = async (
 
   // After the size and the CEP too, so the offer never shares a message with another question — or with the CEP she said
   // she does not remember, which is not asked (R26.1: the conversation goes on, kit included).
+  // Script v3 (R28): the kits ride in the link message, never as a question before it.
   const kitOfferNow =
-    units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
+    false && units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
   const identityDirective = farewell

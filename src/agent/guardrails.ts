@@ -105,7 +105,7 @@ export interface GateConfig {
    * A customer count the operation can back. Absent, no customer count may be said;
    * present, only this one ("mais de N clientes satisfeitas").
    */
-  socialProof?: { satisfiedCustomers?: number };
+  socialProof?: { satisfiedCustomers?: number; reviews?: number };
   /** There is no store. Present, the agent may say one is planned in this city. */
   store?: { physicalStorePlanCity?: string };
   /**
@@ -2125,7 +2125,10 @@ const gates: readonly Gate[] = [
       (c.socialProof?.satisfiedCustomers != null
         ? `O único número de clientes que existe é "mais de ${c.socialProof.satisfiedCustomers} ` +
           `clientes satisfeitas"; nenhum outro.`
-        : `Não cite número de clientes nem de vendas.`),
+        : `Não cite número de clientes nem de vendas.`) +
+      (c.socialProof?.reviews != null
+        ? ` O único número de avaliações é "${c.socialProof.reviews} avaliações positivas".`
+        : ``),
     // A quote is only a testimonial when someone is credited with saying it. Reading
     // every quoted string as one made the gate veto ordinary writing — repeating the
     // customer's own question back to her, naming the product the way the page does —
@@ -2167,7 +2170,9 @@ const gates: readonly Gate[] = [
       // A customer count is social proof too, and an invented one is the same lie as an
       // invented quote. Only the configured number passes (2026-09-24). A small count of
       // people, orders or sales is not a claim ("os seus 2 pedidos"), so those need "mil".
-      const t = norm(text);
+      // R28: the configured review count passes as "N avaliações positivas", and only so — any other count stays a claim.
+      const reviews = ctx.config.socialProof?.reviews;
+      const t = reviews != null ? norm(text).replace(new RegExp(String.raw`\b${reviews}\s+avaliacoes\s+positivas\b`, "g"), " ") : norm(text);
       const allowed = ctx.config.socialProof?.satisfiedCustomers;
       // The configured number passes only as "N clientes satisfeitas" — never as sales
       // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
