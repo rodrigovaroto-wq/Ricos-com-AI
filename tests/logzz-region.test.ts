@@ -140,7 +140,9 @@ describe("Logzz: a região pelo estoque e pelos dias do próprio checkout", () =
     ["lista de produtos vazia", { status: "success", data: { products: [] } }],
     ["produtos nulos", { status: "success", data: { products: [null, 5] } }],
   ])("negação — estoque que não deu pra entender (%s) é consulta que falhou, nunca 'sem entrega'", async (_, stock) => {
-    expect(await lookupRegion(world({ stock }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
+    for (const size of ["G", null] as const) {
+      expect(await lookupRegion(world({ stock }).fetcher, "04710090", size, IDS)).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
+    }
   });
 
   it("o expresso do dia só vale quando a Logzz diz que é do mesmo dia", async () => {
