@@ -5190,7 +5190,7 @@ const MUTATIONS: Mutation[] = [
     id: "R26-cobertura-segunda-tentativa",
     bug: "a consulta de cobertura falhou uma vez ('fetch failed') e o link da entrega saiu com a ressalva; no turno seguinte, 'aí não tem na entrega' (persona Jussara, 15/10)",
     files: ["supabase/functions/turn/index.ts"],
-    from: '.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));',
+    from: '.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));',
     to: ".then((first) => first);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r26-operator-decisions.test.ts"],
   },
