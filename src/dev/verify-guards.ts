@@ -412,8 +412,8 @@ const MUTATIONS: Mutation[] = [
     id: "R10.4-armado",
     bug: "o lembrete de 15 minutos depois do link nunca era agendado (a régua não recebia o ponto de parada)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);",
-    to: "const ruler = oncePerDay(rulerFor(from, \"before_size\", postponed, linkInReply, anchors, askedQuestion), sentAt);",
+    from: "const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);",
+    to: "const ruler = oncePerDay(rulerFor(from, \"before_size\", postponed, linkInReply, anchors, false), sentAt);",
     guard: ["pnpm", "-s", "vitest", "run", "tests/order-stage.test.ts"],
   },
   {
@@ -2905,7 +2905,7 @@ const MUTATIONS: Mutation[] = [
     id: "G66-sem-email-prompt",
     bug: "o prompt ensinava pedir o e-mail, que o operador tirou do fluxo em 2026-10-07",
     files: ["src/agent/prompt.ts"],
-    from: "No pagamento na entrega voc\u00ea NÃO pede e-mail. ",
+    from: "NUNCA peça CPF nem e-mail: ",
     to: "",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prompt.test.ts"],
   },
@@ -2913,8 +2913,8 @@ const MUTATIONS: Mutation[] = [
     id: "P07-preco-antes-do-cep",
     bug: "o prompt só dizia 'peça o CEP' e a Malu segurou o preço por quinze turnos (Neusa, Sandra)",
     files: ["src/agent/prompt.ts"],
-    from: "    `CEP: \"${priceBeforeCepMessage(config)}\" Nunca segure o preço até ela mandar o CEP.`,\n",
-    to: "    `CEP.`,\n",
+    from: "`Nunca segure o preço até ela mandar o CEP. Depois",
+    to: "`Depois",
     guard: ["pnpm", "-s", "vitest", "run", "tests/prompt.test.ts"],
   },
   {
@@ -3300,8 +3300,8 @@ const MUTATIONS: Mutation[] = [
     id: "B2-saudacao-no-link",
     bug: "o link fixo da primeira resposta saía sem a saudação",
     files: ["supabase/functions/turn/index.ts"],
-    from: "opening(linkMessage(",
-    to: "(linkMessage(",
+    from: "opening(v3Link(",
+    to: "(v3Link(",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
@@ -3401,14 +3401,7 @@ const MUTATIONS: Mutation[] = [
     to: "const replyText = greeting === null ? body",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
-  {
-    id: "E6-braco-b-para-todos",
-    bug: "o link antes dos dados (experimento B) vazava para quem não está no braço 1 ou com a flag desligada",
-    files: ["supabase/functions/turn/index.ts"],
-    from: `identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`,
-    to: "identityAtCheckout: true,",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/e6-link-after-choice.test.ts"],
-  },
+  // E6-braco-b-para-todos retired with the script v3 (R28, 2026-10-19): the link waits only for the name for everyone (`identityAtCheckout: false`); no arm decides it.
   {
     id: "E6-ausente-liga-b",
     bug: "identityAtCheckout ausente lido como ligado: todo lead fora do experimento B recebia o link sem os dados",
@@ -4080,7 +4073,7 @@ const MUTATIONS: Mutation[] = [
     id: "G66-link-fixo",
     bug: "o modelo perguntava 'quer que eu te mande o link?' em vez de mandar",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {",
+    from: "  if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {",
     to: "  if (false) {",
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
@@ -4436,14 +4429,7 @@ const MUTATIONS: Mutation[] = [
     to: "await sendFixed(deadline ? `${line}\\n\\n${deadline}` : line, `pagamento: ${payment}`, \"prepay\")",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
   },
-  {
-    id: "G67-email-depois-do-link",
-    bug: "depois do link da entrega, o link do antecipado esperava um e-mail que ninguém pedia",
-    files: ["supabase/functions/turn/index.ts"],
-    from: " || refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,",
-    to: " || refusedDatum(recent, \"email\") >= 1 || pressed,",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/l2-real-test.test.ts"],
-  },
+  // G67-email-depois-do-link retired with the script v3 (R28, 2026-10-19): the e-mail is never asked (`emailDone: true`).
   {
     id: "G67-email-nao-simples",
     bug: "um 'não' simples ao pedido do e-mail travava o link do antecipado",
@@ -4492,14 +4478,7 @@ const MUTATIONS: Mutation[] = [
     to: "^(?:beleza|",
     guard: ["pnpm", "-s", "vitest", "run", "tests/l2-round2.test.ts"],
   },
-  {
-    id: "G67-recusa-do-cpf",
-    bug: "o CPF recusado uma vez em palavras era pedido de novo",
-    files: ["supabase/functions/turn/index.ts"],
-    from: "cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,",
-    to: "cpfDone: Boolean(identityDraft.document) || cpfRefusals >= 2,",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/link-after-data.test.ts"],
-  },
+  // G67-recusa-do-cpf retired with the script v3 (R28, 2026-10-19): the CPF is never asked (`cpfDone: true`).
   {
     id: "E12-falha-e-saude",
     bug: "o alarme de cobertura lia consulta falha como saudável: a Coinzz fora do ar e ninguém avisado (grafo §66/§67)",
@@ -4634,6 +4613,8 @@ const MUTATIONS: Mutation[] = [
     files: ["supabase/functions/turn/index.ts"],
     from: "linkOut ? furthest(reachedSoFar, \"link_enviado\") : reachedSoFar),",
     to: "reachedSoFar),",
+    // The second copy is the funnel's (the v3 link goes by `sendFunnelTurn`): both, or the test still finds one.
+    also: [{ from: "linkOut ? furthest(reachedSoFar, \"link_enviado\") : reachedSoFar),", to: "reachedSoFar)," }],
     guard: ["pnpm", "-s", "vitest", "run", "tests/measurement.test.ts"],
   },
   {
