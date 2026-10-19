@@ -80,12 +80,28 @@ export const parseCep = (text: string): string | null => {
     // Glued only by punctuation without a space: "Rua X, 55 - 04710-090" and the street number on the next
     // line still read (review of round 2); "551.381.468-40" and "99491-5983" still do not.
     new RegExp(String.raw`(?<!\d[.\-–]?)(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3}))(?![.\-–]?\d)`),
-  );
+  ) ??
+    // "306 72000" (real lead, 2026-10-19: sent four times, never read): 3+5 only when no other shape reads and no
+    // digit run sits beside it, so "Rua X 123 04710 090" and a phone "031 99123 4567" are not read as one (review).
+    text.match(new RegExp(String.raw`(?<!\d${S})(?<!\d)(\d{3})${S}(\d{5})(?!${S}\d)(?!\d)`));
   if (!match) return null;
   const digits = match.slice(1).filter(Boolean).join("");
   if (/^(\d)\1{7}$/.test(digits)) return null;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
+
+/**
+ * Something she said beside the CEP that wants an answer ("isso não serve em mulher de verdade, meu cep é …", persona
+ * venda-dificil, 2026-10-19): four words or more in the message holding the CEP once the digits, greetings and thanks
+ * are gone. An address beside it is no remark (review: one more model call for nothing).
+ */
+export const remarkBesideCep = (part: string): boolean =>
+  parseCep(part) !== null &&
+  // A doubt or a "no" is what wants an answer; "quero o kit, meu cep é …" or thanks do not (second review).
+  /(?<!\p{L})(?:n[aã]o|nunca|ser[aá]|medo|golpe|caro|d[uú]vida|confi\p{L}*)(?!\p{L})/iu.test(part) &&
+  !/(?<!\p{L})(?:rua|av|avenida|travessa|bairro|numero|número|casa|apto|apartamento|quadra|lote|bloco|n[º°])(?!\p{L})/iu.test(part) &&
+  part.replace(/(?<!\p{L})(?:oi|ol[aá]|bom\s+dia|boa\s+(?:tarde|noite)|tudo\s+bem|com\s+voc[eê]|obrigad\p{L}*|segue|aqui|meu|o|[eé]|cep)(?!\p{L})|[\d.\-–,!?:]+/giu, " ")
+    .trim().split(/\s+/).filter((w) => w.length > 1).length >= 4;
 
 /**
  * A CEP typed with the wrong number of digits — "004710090", nine, in the second real test (grafo
@@ -118,6 +134,21 @@ const MID = String.raw`(?:(?!\b(?:mas|porem|pq|porque|por\s+que)\b)[^.!?,;\n]){0
 const FORGOT_CEP = new RegExp(String.raw`\b${FORGOT}${MID}\bcep\b|\bcep\b${MID}\b${FORGOT}`);
 export const forgetsCep = (text: string): boolean =>
   FORGOT_CEP.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
+
+/**
+ * She will not give the CEP yet (persona Marcinha, 2026-10-19: "nao vou passar cep ainda nao sem saber tamanho certo", and
+ * the CEP was asked four times more). Read like the forgotten CEP: no ask until she sends one. Negation both ways: "vou te
+ * passar o cep", "não sei se passo o cep certo" and "por que não passar o cep?" are no refusal.
+ */
+const REFUSE_CEP = new RegExp(
+  String.raw`\b(?:nao|n)\s+(?:(?:vou|quero|vo|irei|posso|consigo)\s+)?(?:passar|dar|informar|mandar|enviar|falar|passo|dou|mando|informo)\s+(?:o\s+|meu\s+|nenhum\s+)?cep\b(?!\s+(?:errad|cert|de\s+novo))` +
+    String.raw`|\bcep\b\s+(?:eu\s+)?(?:nao|n)\s+(?:vou\s+)?(?:passo|passar|dou|dar|mando|mandar|informo|informar)\b` +
+    String.raw`|\bprefiro\s+(?:nao|n)\s+(?:passar|dar|informar|mandar)\s+(?:o\s+|meu\s+)?cep\b`,
+);
+export const refusesCep = (text: string): boolean => {
+  const t = text.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+  return REFUSE_CEP.test(t) && !/\b(?:por\s*que|pq|porque)\b[^.!?\n]*\?/.test(t);
+};
 
 /** Words that open a Brazilian street line. */
 const STREET_TYPES =
@@ -329,4 +360,106 @@ export const nextQuestion = (missing: readonly RequiredField[]): string | null =
   };
   const next = REQUIRED_FIELDS.find((f) => missing.includes(f));
   return next ? asks[next] : null;
+};
+
+/**
+ * The state a CEP belongs to, by the Correios' ranges (first three digits). Where she lives when the CEP she sent is
+ * one the lookup does not know: the street search below needs the state, and the CEP's first digits still carry it.
+ */
+const UF_BY_PREFIX: ReadonlyArray<readonly [number, number, State]> = [
+  [10, 199, "SP"], [200, 289, "RJ"], [290, 299, "ES"], [300, 399, "MG"], [400, 489, "BA"], [490, 499, "SE"],
+  [500, 569, "PE"], [570, 579, "AL"], [580, 589, "PB"], [590, 599, "RN"], [600, 639, "CE"], [640, 649, "PI"],
+  [650, 659, "MA"], [660, 688, "PA"], [689, 689, "AP"], [690, 692, "AM"], [693, 693, "RR"], [694, 698, "AM"],
+  [699, 699, "AC"], [700, 727, "DF"], [728, 729, "GO"], [730, 736, "DF"], [737, 767, "GO"], [768, 769, "RO"],
+  [770, 779, "TO"], [780, 788, "MT"], [790, 799, "MS"], [800, 879, "PR"], [880, 899, "SC"], [900, 999, "RS"],
+];
+export const ufOfCep = (cep: string): State | null => {
+  const digits = cep.replace(/\D/g, "");
+  if (digits.length !== 8) return null;
+  const p = Number(digits.slice(0, 3));
+  return UF_BY_PREFIX.find(([lo, hi]) => p >= lo && p <= hi)?.[2] ?? null;
+};
+
+/** One way to read "rua …, cidade": the street, the city, her house number and the state when she wrote them. */
+export interface StreetQuery { street: string; city: string; number: string | null; state: State | null }
+
+const STREET_KIND: Record<string, string> = { r: "rua", av: "avenida", tv: "travessa", trav: "travessa", al: "alameda", est: "estrada", pca: "praça" };
+
+/**
+ * Her street and city read for the Correios street search (operator, 2026-10-19: a CEP the lookup cannot find gets
+ * another way out than "confere o CEP"). Only a message naming a street kind (rua, avenida…). With a comma, " em " or
+ * " - " the city is the last piece; without one ("rua marechal floriano cruz alta") the city is one of the last three
+ * words, so each split is a candidate and the search keeps the one that finds the street. Never a CEP itself.
+ */
+export const streetQueries = (text: string): StreetQuery[] => {
+  const m = text.match(/\b(rua|r\.|avenida|av\.?|travessa|trav\.?|tv\.?|alameda|al\.|estrada|est\.|rodovia|pra[cç]a|p[cç]a\.?)\s+([^\n]{3,120})/i);
+  if (!m) return [];
+  const kindKey = m[1]!.toLowerCase().replace(/\.$/, "").replace("ç", "c");
+  const kind = STREET_KIND[kindKey] ?? m[1]!.toLowerCase().replace(/\.$/, "");
+  // The flat, the house in the lot, the block are not the street number ("800, apto 12", second review): out first.
+  let rest = m[2]!
+    .replace(/\b\d{5}[-.\s]?\d{3}\b/g, " ")
+    .replace(/\b(?:apto?|apartamento|casa|bloco|bl|lote|lt|qd|quadra|sala|andar)\.?\s*\d+[a-z]?\b/gi, " ");
+  // A number before "de" is the street's name ("Rua 7 de Setembro", review): the house number is the first other one.
+  const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
+  const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;
+  let state: State | null = null;
+  // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
+  const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
+  if (uf && (STATES as readonly string[]).includes(uf[1]!.toUpperCase())) {
+    state = uf[1]!.toUpperCase() as State;
+    rest = rest.slice(0, uf.index);
+  }
+  const pieces = rest
+    .split(new RegExp(String.raw`\s*,\s*|\s+-\s+|\s+em\s+|${HOUSE.source}`, "i"))
+    .filter((p): p is string => typeof p === "string" && !/^\d+$/.test(p))
+    .map((p) => clean(p.replace(/\b(?:bairro|cidade(?:\s+de)?|moro|na|no)\b/gi, " ")))
+    .filter((p) => p.length > 1);
+  if (pieces.length === 0) return [];
+  const words = (s: string) => s.split(/\s+/).filter(Boolean);
+  if (pieces.length >= 2) {
+    return [{ street: `${kind} ${pieces[0]}`, city: pieces[pieces.length - 1]!, number, state }];
+  }
+  const w = words(pieces[0]!);
+  const out: StreetQuery[] = [];
+  for (let k = 1; k <= 3 && k < w.length; k++) {
+    out.push({ street: `${kind} ${w.slice(0, w.length - k).join(" ")}`, city: w.slice(w.length - k).join(" "), number, state });
+  }
+  return out;
+};
+
+/**
+ * The one CEP of her street for her house number, from the Correios' ranges ("até 227/228", "de 229/230 a 1524/1525",
+ * "de 1526/1527 ao fim", "lado par/ímpar"; a building's own CEP is its number), never from a list cut at 50 (the other
+ * side of the avenue may be past the cut, review). The caller keeps only her street first (`sameStreet`: the search
+ * matches by prefix, "rua sete" found "Rua Setembrino"). A street with one CEP needs no number. Anything that does
+ * not narrow to one is null: the agent shows the options instead of guessing a CEP.
+ */
+const plainWords = (s: string): string[] =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !/^(?:rua|avenida|travessa|alameda|estrada|rodovia|praca|dos|das)$/.test(w));
+export const sameStreet = (typed: string, found: string): boolean => {
+  const have = new Set(plainWords(found));
+  return plainWords(typed).every((w) => have.has(w));
+};
+export const pickStreetCep = (
+  found: ReadonlyArray<{ cep: string; complement: string }>,
+  number: string | null,
+): string | null => {
+  if (found.length >= 50) return null;
+  const ceps = [...new Set(found.map((f) => f.cep))];
+  if (ceps.length === 1) return ceps[0]!;
+  if (number === null) return null;
+  const n = Number(number);
+  const fits = found.filter(({ complement: c }) => {
+    const t = c.toLowerCase();
+    if (/lado\s+par\b/.test(t) && n % 2 !== 0) return false;
+    if (/lado\s+[ií]mpar\b/.test(t) && n % 2 === 0) return false;
+    const nums = [...t.matchAll(/\d+/g)].map((x) => Number(x[0]));
+    if (/^\s*at[eé]\s+\d/.test(t)) return n <= nums[0]!;
+    if (/^\s*de\s+\d[^a]*\bao\s+fim\b/.test(t)) return n >= nums[0]!;
+    if (/^\s*de\s+\d/.test(t) && nums.length >= 2) return n >= nums[0]! && n <= nums[nums.length - 1]!;
+    return /^\s*\d+\s*$/.test(t) && Number(t) === n;
+  });
+  const picked = [...new Set(fits.map((f) => f.cep))];
+  return picked.length === 1 ? picked[0]! : null;
 };

@@ -217,11 +217,18 @@ export const checkSize = async (
 ): Promise<Availability> => readAvailability(size, await askSize(fetcher, zip, place, size));
 
 /**
- * The size the region query is asked with. Not a business choice — a diagnostic one: G is
- * mapped correctly on the Coinzz side, so it answers for the region instead of answering
- * for the mapping. Asking with the M would report every praça as closed.
+ * The size the region query trusts first. Not a business choice — a diagnostic one: G is
+ * mapped correctly on the Coinzz side. The M is not (404 for every postcode), so it never
+ * decides a region alone.
  */
 export const REFERENCE_SIZE: Size = "G";
+
+/**
+ * Every size, asked at once (R28, 2026-10-19). The G alone stopped answering for the region when stock
+ * split by warehouse: G only in Belo Horizonte, GG and XGG in São Paulo, so São Paulo read "no delivery"
+ * for every customer. Her size, when known and answered, decides; otherwise any size with delivery does.
+ */
+const REGION_SIZES: readonly Size[] = [REFERENCE_SIZE, "GG", "XGG", "P", "M"];
 
 /** What the region actually offers her, with no claim about which size she gets. */
 export interface Region {
@@ -235,6 +242,10 @@ export interface Region {
   readonly sameDay: boolean;
   /** The carrier quote on the prepaid path — the OPERATOR's cost, never her price. */
   readonly labelBrl: number | null;
+  /** The size this answer is for: hers when it was asked and answered, null when it is any size's (R28). */
+  readonly size?: Size | null;
+  /** The size it was asked for, answered or not: the cache's key, so an M that never answers is not asked every turn. */
+  readonly askedSize?: Size | null;
 }
 
 /**
@@ -250,23 +261,56 @@ export const readPlace = (body: unknown): Place | null => {
   return { city: j.localidade, state: j.uf, district: j.bairro || "Centro" };
 };
 
-export const toRegion = (zip: string, place: Place, a: Availability): Region => ({
+export const toRegion = (
+  zip: string,
+  place: Place,
+  a: Availability,
+  size: Size | null = null,
+  askedSize: Size | null = size,
+): Region => ({
   zip,
   place,
   cod: a.cod,
   dates: a.dates,
   sameDay: a.express !== null,
   labelBrl: a.labelBrl,
+  size,
+  askedSize,
 });
+
+/**
+ * The CEPs of a street in a city (ViaCEP's street search, operator 2026-10-19): the way out when the CEP she sent is
+ * one the Correios do not know. The first candidate split that finds the street wins; none found is an empty list,
+ * and a failed search is the caller's to treat as nothing found.
+ */
+export const cepsByStreet = async (
+  fetcher: Fetcher,
+  state: string,
+  queries: ReadonlyArray<{ street: string; city: string }>,
+): Promise<Array<{ cep: string; complement: string; street: string; city: string }>> => {
+  const lists = await Promise.all(
+    queries.map((q) =>
+      fetcher(`${VIACEP_ENDPOINT}/${state}/${encodeURIComponent(q.city)}/${encodeURIComponent(q.street)}/json/`).catch(() => null),
+    ),
+  );
+  for (const list of lists) {
+    if (!Array.isArray(list) || list.length === 0) continue;
+    return list
+      .filter((x): x is { cep: string; complemento?: string; logradouro?: string; localidade?: string } => typeof x?.cep === "string")
+      .map((x) => ({ cep: x.cep, complement: x.complemento ?? "", street: x.logradouro ?? "", city: x.localidade ?? "" }));
+  }
+  return [];
+};
 
 /**
  * What the lookup found: the region, a CEP the Correios do not know (ViaCEP `erro`, operator 2026-10-09:
  * she is told it was not found and asked to check it), or a lookup that failed — the network, a Coinzz
  * answer without `data` — which says nothing about her region.
  */
-export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed" };
+/** A failed lookup keeps the place when ViaCEP answered: a city where the Logzz delivers gets both checkouts (2026-10-19). */
+export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed"; place?: Place };
 
-export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<RegionLookup> => {
+export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<RegionLookup> => {
   const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
   const erro = (viacep as { erro?: unknown } | null)?.erro;
   if (erro === true || erro === "true") return { kind: "not_found" };
@@ -274,9 +318,20 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
   if (!place) return { kind: "failed" };
   // A failed lookup (422, a redirect, a timeout's null) is "unknown region", never "no cash on
   // delivery": read as "no", it told every buyer in São Paulo that delivery did not reach her (L2).
-  const body = await askSize(fetcher, zip, place, REFERENCE_SIZE);
-  if (!answered(body)) return { kind: "failed" };
-  return { kind: "found", region: toRegion(zip, place, readAvailability(REFERENCE_SIZE, body)) };
+  // One size that throws (timeout, network, HTML) is one size unanswered, never the whole region (R28 review).
+  // `undefined` = it threw; `null` = it answered nothing (the M's 404 reaches here as null, `!r.ok`).
+  const bodies = await Promise.all(REGION_SIZES.map((s) => askSize(fetcher, zip, place, s).catch(() => undefined)));
+  // Her own size failing in transit is an unknown region, as before: another size's delivery is never kept for her
+  // for an hour on a timeout (third review). The short second try and L2 take it from there.
+  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === undefined) return { kind: "failed", place };
+  const answers = REGION_SIZES.flatMap((s, i) => (answered(bodies[i]) ? [readAvailability(s, bodies[i])] : []));
+  if (answers.length === 0) return { kind: "failed", place };
+  // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
+  const hers = answers.find((a) => a.size === size);
+  if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };
+  const any = toRegion(zip, place, answers.find((a) => a.cod) ?? answers[0]!, null, size);
+  // Her size known and not answered: another size's delivery may stand, its "hoje" never does (second review).
+  return { kind: "found", region: size === null ? any : { ...any, sameDay: false } };
 };
 
 /**
@@ -287,8 +342,15 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string): Promise<Regio
 export const REGION_CACHE_MS = 60 * 60 * 1000;
 export type CachedRegion = Region & { readonly checkedAt: string };
 
-export const cachedRegion = (cached: CachedRegion | null | undefined, zip: string, now: number): Region | null => {
+export const cachedRegion = (
+  cached: CachedRegion | null | undefined,
+  zip: string,
+  now: number,
+  size: Size | null = null,
+): Region | null => {
   if (!cached || cached.zip.replace(/\D/g, "") !== zip.replace(/\D/g, "")) return null;
+  // An answer for another size (or for any size, now that hers is known) is asked again (R28).
+  if ((cached.askedSize ?? cached.size ?? null) !== size) return null;
   const age = now - Date.parse(cached.checkedAt);
   if (!(age >= 0 && age < REGION_CACHE_MS)) return null;
   // The dates shift at midnight: only the same São Paulo day (UTC−3) is served (/code-review of E2).
@@ -298,8 +360,8 @@ export const cachedRegion = (cached: CachedRegion | null | undefined, zip: strin
   return cached.sameDay ? { ...cached, sameDay: false } : cached;
 };
 
-export const checkRegion = async (fetcher: Fetcher, zip: string): Promise<Region | null> => {
-  const lookup = await lookupRegion(fetcher, zip);
+export const checkRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<Region | null> => {
+  const lookup = await lookupRegion(fetcher, zip, size);
   return lookup.kind === "found" ? lookup.region : null;
 };
 

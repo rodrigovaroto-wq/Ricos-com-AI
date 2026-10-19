@@ -258,3 +258,10 @@ R25-DADOS-DIVIDIDOS | installment_promise | com quem são divididos e por quanto
 R26-GARANTIA-COM-N-DIAS | delivery_promise | Se não servir a troca é sem custo pra você, com 7 dias após o recebimento. Levando 2 peças o desconto sobe para 20%:
 R26-GARANTIA-COM-N-DIAS | delivery_promise | Se não servir a troca é sem custo pra você, com 7 dias após o recebimento.
 R26-GARANTIA-COM-N-DIAS | delivery_promise | No antecipado, se não servir você troca sem custo, com 7 dias após o recebimento.
+R28 | weight_loss_claim | Enquanto você usa, emagrece e pode reduzir até 3 números de calça
+R28 | weight_loss_claim | R28: 'emagrece enquanto você usa'
+R28 | weight_loss_claim | Sim! Enquanto você está com ele, emagrece e pode reduzir até 3 números de calça.
+R28 | weight_loss_claim | Emagrece na hora que você veste, até 3 números de calça a menos 😍
+R28-rafa | shipping_promise | Faz todo sentido querer garantir antes do casamento, e sendo bem direta não consigo te prometer que chega até sexta e não tem como chegar hoje, nem pagando frete a mais.
+R28-rafa | shipping_promise | Não tem como adiantar, nem pagando frete extra.
+R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar antes.

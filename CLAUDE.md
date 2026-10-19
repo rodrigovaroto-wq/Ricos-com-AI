@@ -187,6 +187,10 @@ território é agente que inventa trabalho.
 
 ## Regras adicionais
 
+- **Silêncio durante a execução** (operador, 2026-10-19): enquanto executa, não mande mensagens ao operador narrando
+  passos, comandos ou resultados intermediários — só execute. Ao terminar, uma única mensagem: a conclusão, um resumo
+  curto e claro do que foi feito e os achados. Pergunta só quando bloqueado numa decisão que é dele.
+
 - **Toda decisão ou alteração entra no grafo de decisões**
   ([`docs/documentacao/decisoes/04-grafo-de-decisoes.md`](docs/documentacao/decisoes/04-grafo-de-decisoes.md)):
   sintoma → causa → caminhos tentados que falharam (e por quê) → correção → guarda. Leia o

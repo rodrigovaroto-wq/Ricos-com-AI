@@ -162,6 +162,8 @@ describe("o que ela disse por áudio chega às regras fixas como texto (revisão
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
     expect(turn).toContain('unanswered.map((m) => spoken(m.body ?? "")) : [spoken(inbound.body ?? "")]');
     expect(turn).toContain('        body: inbound.body ?? "",');
-    expect(turn.match(/[^(]inbound\.body \?\? ""/g)).toHaveLength(1);
+    // The second raw read only checks the transcription mark, so a name is never taken from an audio (R28, 19/10).
+    expect(turn.match(/[^(]inbound\.body \?\? ""/g)).toHaveLength(2);
+    expect(turn).toContain('const rawParts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];');
   });
 });

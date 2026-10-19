@@ -73,16 +73,23 @@ import {
   type RulerAnchors,
   type StopPoint,
 } from "./followups.ts";
-import { asksForSize, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
+import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
   extractAddressBurst,
+  remarkBesideCep,
+  parseCep,
+  pickStreetCep,
+  sameStreet,
+  streetQueries,
+  ufOfCep,
   CORREIOS_CEP_URL,
   forgetsCep,
+  refusesCep,
   malformedCep,
   readBackAddress,
   isComplete,
@@ -162,12 +169,29 @@ import {
   isReceipt,
   onlyGreets,
   spoken,
+  TRANSCRIBED,
   WELCOME_RESUME_DELAY_SECONDS,
   RETURN_GREETING,
   RETURN_RESUME_DELAY_SECONDS,
   onEarlierDay,
   type NextAction,
 } from "./retry.ts";
+import {
+  bothLinksBubbles,
+  firstMessageNeedsAnswer,
+  isLikelyCodCity,
+  lastOfferKind,
+  type OfferKind,
+  PREPAY_HEADLINE,
+  SIZE_ASK,
+  skipsOpening,
+  funnelLinkMessage,
+  type FunnelBubble,
+  type FunnelMedia,
+  offerAsk,
+  offerBubbles,
+  openingBubbles,
+} from "./funnel.ts";
 import {
   asksSomething,
   asksPaymentStatus,
@@ -208,7 +232,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -386,8 +410,15 @@ interface BusinessConfig extends GateConfig {
    * today's truth until someone writes the real value down.
    */
   support?: { email?: string };
-  socialProof?: { satisfiedCustomers?: number };
+  socialProof?: { satisfiedCustomers?: number; reviews?: number };
   store?: { physicalStorePlanCity?: string };
+  /**
+   * `likelyCities` ("Campinas/SP"): where the Logzz delivers as a rule. A lookup that says no there sends both checkouts
+   * (operator, 2026-10-19). OPTIONAL — absent: the lookup's answer stands.
+   */
+  cod: GateConfig["cod"] & { likelyCities?: string[] };
+  /** Script v3 (R28): the public URLs of the recorded audios, the video and the images. OPTIONAL — absent: text only. */
+  funnel?: { media?: FunnelMedia };
   /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
   returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
@@ -868,25 +899,35 @@ const regionDirectiveFor = (
   region: Pick<Region, "cod" | "sameDay"> | null,
   choice: "cod" | "prepay" | null,
   agreedOnly = false,
+  /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
+  unconfirmed = false,
+  /** The offer that fits her region has not gone yet (her size missing, night, a link): never claim it did (review of v3, 9). */
+  offerPending = false,
 ): string | null => {
   if (region === null) return null;
-  if (!region.cod) {
-    return `A consulta do CEP dela respondeu: ali a transportadora ainda não tem pagamento na entrega.` +
-      ` Ofereça só o pagamento antecipado, com carinho e com esse motivo e nenhum outro, como no PAGAMENTO` +
-      ` ("Não chega"), e nunca diga que ela paga na entrega, ao entregador ou quando receber. Se você` +
-      ` já disse isso nesta conversa, não repita: siga no antecipado.`;
+  if (offerPending) {
+    return `O CEP dela já foi consultado, mas a oferta da região ainda não foi enviada: o sistema manda em seguida. Ainda não` +
+      ` fale de pagamento na entrega, de frete nem de prazo; se o tamanho dela ainda não foi dito, peça o número da calça.`;
   }
-  return `A consulta do CEP dela respondeu: o pagamento na entrega chega ali${
-    region.sameDay ? `, e existe a opção de receber HOJE, em até 4 horas — não guarde isso` : ""
-  }.` +
-    // Grafo §65: "sim" to the two options without choosing is the delivery, confirmed — not the question again.
-    (agreedOnly
-      ? ` Ela disse sim às duas opções sem escolher uma: deixe no pagamento na entrega e confirme com estas palavras:` +
-        ` "${DEFAULT_COD_CONFIRM}" Não apresente as duas opções de novo.`
-      : choice === null
-      ? ` Ela ainda não escolheu como paga: apresente as duas opções, como no PAGAMENTO, e deixe ela` +
-        ` escolher — uma vez só; se você já apresentou, pergunte só qual das duas ela prefere.`
-      : ` Ela já escolheu ${choice === "cod" ? "o pagamento na entrega" : "o antecipado"}: não reabra a comparação.`);
+  if (!region.cod && unconfirmed) {
+    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter, e a consulta está` +
+      ` instável: o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela perguntar, peça` +
+      ` pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do mesmo jeito,` +
+      ` com a mesma segurança. Não mande os links de novo, a não ser que ela peça.`;
+  }
+  if (!region.cod) {
+    return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
+      ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema, com o desconto: não repita a oferta,` +
+      ` siga no antecipado, e nunca diga que ela paga na entrega, ao entregador ou quando receber.`;
+  }
+  // Script v3 (R28): the delivery offer went fixed, with the audio; she is not asked to choose between two options.
+  const today = region.sameDay ? ` Existe a opção de receber HOJE, em até 4 horas — não guarde isso.` : "";
+  return choice === "prepay"
+    ? `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, mas ela escolheu o antecipado: siga no` +
+      ` antecipado, com o desconto, sem reabrir a comparação.`
+    : `A consulta do CEP dela respondeu: o pagamento na entrega chega ali, com frete grátis, e a oferta já foi enviada` +
+      ` pelo sistema (o quadro do preço e o áudio).${today} Não apresente duas opções nem repita a oferta: siga no` +
+      ` pagamento na entrega. Se ela perguntar do antecipado, diga o desconto do antecipado e deixe ela escolher.`;
 };
 
 /**
@@ -1074,6 +1115,41 @@ const splitBubbles = (text: string, max = 3, maxWords = MAX_BUBBLE_WORDS): strin
  * the database holds and what a person reads in a handoff mail — and `bubbles` is the
  * same text, split and timed, so the sender never has to reimplement the rhythm.
  */
+/**
+ * Script v3 (R28): a fixed sequence, media included, written to the history one row per message — a media row holds
+ * its transcript or description, so the model reads back what she heard and saw. The operator's script: it does not
+ * pass the gates (the recorded audios cannot), and `tests/funnel.test.ts` pins every number in it to the config.
+ */
+type OutBubble = { text: string; delayMs: number; media?: { kind: string; url: string } };
+const MEDIA_DELAY_MS = 2_000;
+const sendFunnel = async (
+  conversationId: string,
+  bubbles: readonly FunnelBubble[],
+): Promise<{ bubbles: OutBubble[]; lastId: string } | null> => {
+  if (bubbles.length === 0) return null;
+  const start = Date.now();
+  // One millisecond apart: rows written together keep their order when read back by `created_at`.
+  const rows = bubbles.map((b, i) => ({
+    conversation_id: conversationId,
+    direction: "outbound",
+    body: b.text,
+    created_at: new Date(start + i).toISOString(),
+  }));
+  const out = await db("messages", { method: "POST", body: JSON.stringify(rows) }).catch(() => null);
+  if (!Array.isArray(out) || out.length === 0) return null;
+  await db(`conversations?id=eq.${conversationId}`, {
+    method: "PATCH",
+    body: JSON.stringify({ last_outbound_at: new Date().toISOString(), updated_at: new Date().toISOString() }),
+  }).catch(() => undefined);
+  return {
+    bubbles: bubbles.map((b, i) =>
+      // The fast pacing of experiment A: the whole opening in about half a minute, never a minute of typing.
+      b.media ? { text: "", delayMs: MEDIA_DELAY_MS, media: b.media } : { text: b.text, delayMs: pacedDelayMs(b.text, i, true) }
+    ),
+    lastId: out[out.length - 1].id,
+  };
+};
+
 const paced = (text: string | null, fast = false): Array<{ text: string; delayMs: number }> =>
   text === null ? [] : splitBubbles(text).map((b, i) => ({ text: b, delayMs: pacedDelayMs(b, i, fast) }));
 
@@ -1196,7 +1272,8 @@ const scheduleSilenceTouches = async (
       .filter((f) => f.sent_at)
       .map((f) => [f.kind, new Date(f.sent_at!)]),
   ) as Partial<Record<FollowupKind, Date>>;
-  const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);
+  // Script v3 (R28): no "Ainda está aí?" twenty minutes after a question — it read as a robot chasing her.
+  const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);
   const rows = (anchors ? ruler : ruler.filter((f) => f.kind !== "silence_3")).map((f) => ({
     conversation_id: conversationId,
     kind: f.kind,
@@ -1460,6 +1537,8 @@ const RETRY_REGION_TIMEOUT_MS = 5_000;
 /** The one fetcher of every region lookup — the turn's and the coverage alarm's (E1.2), so the alarm sees what she gets. */
 const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
   const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  // Only a 404 is "nothing here" (the M's, R28); a 429 or a 5xx is a lookup that failed, never a size without stock.
+  if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);
   return r.ok ? await r.json() : null;
 };
 
@@ -1765,7 +1844,7 @@ const runFollowupSweep = async () => {
       // CEP and no order. Index: messages_conversation_idx (conversation_id, created_at), her 20 newest.
       cepForgotten: kind === "silence_1" && !lead.address?.cep && !order &&
         ((await db(`messages?conversation_id=eq.${row.conversation_id}&direction=eq.inbound&select=body&order=created_at.desc&limit=20`).catch(() => null)) ?? [])
-          .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? ""))),
+          .some((m: { body: string | null }) => forgetsCep(spoken(m.body ?? "")) || refusesCep(spoken(m.body ?? ""))),
       body: row.body ?? undefined,
       marketingOptIn: ASK_OPT_IN && !!lead.marketing_opt_in_at && !lead.marketing_opt_in_declined_at,
     };
@@ -2383,8 +2462,32 @@ const handleTurn = async (
   // answer (opção a, 2026-09-21). A lead already in `existing` is not new, so a resume
   // call never re-enters here.
   const isNewLead = !existing?.[0];
-  // Arm 1 of experiment A answers right away instead — inside the send window only: at night the real
-  // reply waits for the opening, and silence until then reads as ignored, so she still gets the receipt.
+  // Script v3 (R28, operator, 2026-10-19): every new lead gets the opening — the product shown before any
+  // question, three recorded audios, the video, the reviews, the size table — instead of the receipt. The model
+  // answers after it only when her first message asked something the opening does not answer.
+  if (isNewLead && !isResume && !skipsOpening(spoken(inbound.body ?? ""))) {
+    const opening = openingBubbles(CONFIG);
+    const sent = await sendFunnel(conversation.id, opening);
+    if (sent) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ welcomed_at: new Date().toISOString() }),
+      });
+      const answer = firstMessageNeedsAnswer(spoken(inbound.body ?? ""));
+      if (!answer) {
+        await scheduleSilenceTouches(conversation.id, "before_size", false);
+        await recordOutcome(conversation.id, "send", "roteiro v3: abertura", 0, 0);
+      }
+      return json(200, {
+        status: answer ? "welcomed" : "ok",
+        reply: opening.map((b) => b.text).join("\n\n"),
+        bubbles: sent.bubbles,
+        messageId: sent.lastId,
+        ...(answer ? { resumeInSeconds: Math.ceil(sent.bubbles.reduce((n, b) => n + b.delayMs, 0) / 1000) + 20 } : {}),
+      });
+    }
+  }
+  // The receipt stays only where the opening could not be written (a database error): she is never left unanswered.
   if (isNewLead && !isResume && !(fastOpening && openNow)) {
     // At night the reply waits for the opening: the receipt says when, never "já" (E3 review, R2).
     const receiptText = openNow ? WELCOME_AUTO_REPLY : welcomeNightReply(CONFIG.hours.openHour);
@@ -3102,6 +3205,52 @@ const handleTurn = async (
   };
 
   /**
+   * Script v3 (R28): the offer after the CEP, and the link with it when the name is already in — a fixed sequence
+   * with media, ending the turn the way `sendFixed` does (ruler, outcome, stage, cost).
+   */
+  const sendFunnelTurn = async (
+    bubbles: readonly FunnelBubble[],
+    reason: string,
+    extra: { checkoutUrl?: string | null; linkFact?: string | null } = {},
+    /** She asked something beside the CEP: the offer goes, then n8n's resume lets the model answer it (review of v3, 4). */
+    answerAfter = false,
+  ): Promise<Response | null> => {
+    const last = bubbles[bubbles.length - 1]?.text ?? "";
+    const gaveUp = await lateGuard(0, last);
+    if (gaveUp) return gaveUp;
+    const sent = await sendFunnel(conversation.id, bubbles);
+    if (!sent) return null;
+    await db(`conversations?id=eq.${conversation.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ cost_brl: await costTotal() }),
+    }).catch(() => undefined);
+    const linkOut = Boolean(extra.checkoutUrl);
+    await scheduleSilenceTouches(conversation.id, linkOut ? "link_sent" : last === SIZE_ASK ? "before_size" : "after_price", linkOut, new Date(), undefined, false);
+    if (answerAfter) {
+      await db(`conversations?id=eq.${conversation.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ welcomed_at: new Date(Date.now() + 1).toISOString() }),
+      }).catch(() => undefined);
+    }
+    await Promise.all([
+      recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
+      persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
+    ]);
+    return json(200, {
+      status: answerAfter ? "welcomed" : "ok",
+      reason,
+      reply: bubbles.map((b) => b.text).join("\n\n"),
+      bubbles: sent.bubbles,
+      messageId: sent.lastId,
+      rewrites: 0,
+      ...extra,
+      ...(answerAfter ? { resumeInSeconds: Math.ceil(sent.bubbles.reduce((n, b) => n + b.delayMs, 0) / 1000) + 15 } : {}),
+      costBrl: spent,
+      ceilingBrl,
+    });
+  };
+
+  /**
    * A `draftWith` reply that passed every gate but the clock: held for the window's opening, as the main
    * loop holds its own (`deferred_reply`, gated again by the sweep before it goes out).
    * Index: the unique (conversation_id, kind) of `followups`.
@@ -3555,6 +3704,40 @@ const handleTurn = async (
     addressConfirmed = true;
   }
 
+  // Operator, 2026-10-19: her street and city find the CEP the lookup could not ("confere o CEP" four times to a CEP the
+  // Correios do not know, card idosa-desabafo). The state is the one she wrote, or the first digits of a CEP she sent before;
+  // a bare house number answers the street she sent last. One CEP for her street and number becomes her CEP.
+  const herEarlier = herRecent(recentRows ?? [], spoken);
+  const bareNumber = parts.join(" ").match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1] ?? null;
+  // Only answering the agent's own talk of a CEP or a street: "fui na rua comprar" is no address.
+  // A bare number answers only "o número da sua casa", never the pants' number asked beside it (second review).
+  const askedHouse = /\bn[uú]mero\s+da\s+(?:sua\s+)?casa\b/i.test(lastOutbound) && !/\b(?:cal[cç]a|tamanho)\b/i.test(lastOutbound);
+  const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse) || (bareNumber !== null && !askedHouse)
+    ? []
+    : bareNumber === null
+    // Only the message with the street; a number alone beside it is her house only when the agent asked it ("rua…, cruz
+    // alta" + "42" answering the pants' number is no house number, third review).
+    // The last street she wrote: a correction in the same burst wins, as in the address above (fourth review).
+    ? streetQueries(parts.findLast((p: string) => streetQueries(p).length > 0) ?? "").map((q) => {
+      const lone = parts.map((p: string) => p.match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1]).find(Boolean) ?? null;
+      return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;
+    })
+    : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
+  const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
+  const streetRaw = streetAsk.length > 0 && streetState
+    ? await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
+    : null;
+  // Only her street: the search matches by prefix ("rua sete" found "Rua Setembrino", review). A list cut at 50 stays
+  // whole, so `pickStreetCep` sees the cut and picks nothing (second review).
+  const streetFound = streetRaw === null || streetRaw.length >= 50
+    ? streetRaw
+    : streetRaw.filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)));
+  const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;
+  if (streetCep) {
+    addressDraft = { ...addressDraft, cep: streetCep };
+    foundAddress.fields.cep = streetCep;
+  }
+
   /**
    * 5d-bis. The region, the moment a postcode exists.
    *
@@ -3574,12 +3757,16 @@ const handleTurn = async (
    * failure: silence about the size beats a size she cannot receive.
    */
   let region: Region | null = null;
+  // The city of a CEP whose lookup failed (ViaCEP answered, Coinzz did not): where the Logzz delivers, both checkouts.
+  let failedPlace: { city: string; state: string } | null = null;
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
   let badCep: string | null = null;
   // E2.4: the same CEP looked up less than an hour ago is not asked again (latency). Only a found region is kept.
   let freshRegion: CachedRegion | null = null;
-  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now()) : null;
+  // The region is asked for her size when she has one (R28 review): the G in São Paulo is not the GG's stock.
+  const regionSize = (SIZES as readonly string[]).includes(stated?.size ?? lead.size ?? "") ? (stated?.size ?? lead.size) as Size : null;
+  const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;
   if (cached) region = cached;
   else if (addressDraft.cep) {
     try {
@@ -3589,11 +3776,13 @@ const handleTurn = async (
       const lookup = await lookupRegion(
         regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS),
         zip,
+        regionSize,
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));
       region = lookup.kind === "found" ? lookup.region : null;
+      failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
@@ -3614,9 +3803,19 @@ const handleTurn = async (
     spoken(inbound.body ?? ""),
     /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
-  const cepState = cepNotFound
+  // A CEP ending in 000 is the town's general one, which the lookup often does not know (real lead, 2026-10-19: "62.930.000",
+  // and the model invented "veio com um dígito a mais"): the street's CEP is asked, with the Correios search.
+  const cepState = cepNotFound && /000$/.test((badCep ?? "").replace(/\D/g, ""))
+    ? `O CEP que ela mandou (${badCep}) termina em 000 e a consulta não acha esse: diga com gentileza que esse pode ser o CEP geral da cidade, e que pra ver a` +
+      ` entrega você precisa do CEP da rua dela, e que ela acha pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente outro` +
+      ` motivo (dígito a mais, número trocado) e não fale de entrega nem de pagamento na região dela.`
+    // `herEarlier` holds this burst too: the same CEP twice is her sending it again.
+    : cepNotFound && herEarlier.filter((m: string) => parseCep(m) === badCep).length >= 2
+    ? `Ela mandou de novo o mesmo CEP (${badCep}), que a consulta não acha: não peça pra ela conferir de novo. Peça só o nome` +
+      ` da rua e a cidade dela, que você acha o CEP certo pra ela. Não fale de entrega nem de pagamento na região dela.`
+    : cepNotFound
     ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque parece que esse CEP não existe (pode ter sido um número trocado),` +
-      ` e peça pra ela conferir se o CEP está certo e mandar de novo. Não fale de entrega nem de pagamento na região dela.`
+      ` e peça pra ela conferir o CEP ou, se preferir, mandar o nome da rua e a cidade, que você acha o CEP pra ela. Não fale de entrega nem de pagamento na região dela.`
     : addressDraft.cep
     ? null
     : wrongCep
@@ -3625,7 +3824,9 @@ const handleTurn = async (
       : `O CEP dela ainda não foi recebido: nunca diga que recebeu, anotou ou vai conferir o CEP.`;
   // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", then the CEP asked five more times. From her
   // recent messages, while no CEP was read: pointed once to the Correios search, and never asked until she sends one.
-  const cepForgotten = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep);
+  // Persona Marcinha (2026-10-19): "não vou passar cep ainda" is read like the forgotten CEP — no ask until she sends it.
+  const cepRefused = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(refusesCep);
+  const cepForgotten = cepRefused || (!addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep));
 
   const addressChanged =
     JSON.stringify({ ...addressDraft, confirmedAt: addressConfirmed }) !==
@@ -3658,7 +3859,13 @@ const handleTurn = async (
   const leadEmail: string | null = burstEmail ?? storedEmail ?? null;
   // Message by message: a name alone in its own message ("Leila Souza") is read as before the burst.
   // Right after the agent asked her name or surname, "Leila da silva" is her name (grafo §66).
-  const burstIdentity = extractIdentityBurst(parts, asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound));
+  const askedNameNow = asksForName(lastOutbound) || /\bsobrenome\b/i.test(lastOutbound);
+  // A name is never read from a transcribed audio unless the agent just asked it (Terezinha, 19/10: "daí daí eu disse deixa"
+  // became her name and opened the link message). The CPF still is: its check digits vouch for it.
+  const rawParts: string[] = unanswered.length > 0 ? unanswered.map((m) => m.body ?? "") : [inbound.body ?? ""];
+  const { name: anyName, ...burstRest } = extractIdentityBurst(parts, askedNameNow);
+  const typedName = askedNameNow ? anyName : extractIdentityBurst(parts.filter((_, i) => !rawParts[i]?.startsWith(TRANSCRIBED)), false).name;
+  const burstIdentity = { ...burstRest, ...(typedName ? { name: typedName } : {}) };
   // The name on the first line above her street, only right after the agent asked for the name and
   // with none known (persona round of 2026-10-07, Cleide; review of dad2ae2: never on its own).
   const firstLineName =
@@ -3851,13 +4058,13 @@ const handleTurn = async (
   const linkData = {
     sizeKnown,
     cepKnown: Boolean(addressDraft.cep) && !cepNotFound,
-    pathSettled: paymentChoice !== null || knownRegion?.cod === false,
+    // Script v3 (R28): her region settles the path — the delivery where it reaches her, the prepaid elsewhere — and only
+    // her full name is asked; the e-mail, the CPF and the address are the checkout's. No A/B arm any more.
+    pathSettled: paymentChoice !== null || knownRegion !== null,
     nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,
-    cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,
-    // Prepaid only, after the name, before the CPF; refused once, the link goes without it (L2).
-    emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore || pressed,
-    // Experiment B (R20.6): arm 1 with `linkAfterChoice` gets the link right after the path; absent = nobody.
-    identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),
+    cpfDone: true,
+    emailDone: true,
+    identityAtCheckout: false,
     // Her choice, never her region alone (review of 9c1053c, 1): `missingForLink` waits for it in arm B.
     // and the link's own path: "na entrega" read as `cod` where there is none is not a choice of the prepaid link (third review).
     choiceMade:
@@ -3911,6 +4118,9 @@ const handleTurn = async (
   // She wants the link and something comes first: that one thing, asked naturally. The payment
   // choice is the region directive's; name, e-mail and CPF are the identity directive's.
   const linkDue = interpretation.wants_to_buy || parts.some(asksForLink);
+  // Her payment chosen and the CEP still missing asks the CEP — but not twice in a row (`cep_insist`, 2026-10-19): when the
+  // last reply already asked and she did not send it, only her wanting the link asks again (review of the fix).
+  const cepDue = linkDue || (paymentChoice !== null && !asksCep(recentOutbound.at(-1) ?? ""));
   const sizeBeforeLink =
     missing === "size" && (linkDue || units > 1)
       ? units > 1
@@ -3918,10 +4128,10 @@ const handleTurn = async (
           ` antes do link, pergunte o tamanho de cada peça que falta — podem ser diferentes.`
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
-      : missing === "cep" && (linkDue || paymentChoice !== null) && cepForgotten
+      : missing === "cep" && cepDue && cepForgotten
         ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; diga numa frase que,` +
           ` assim que ela tiver o CEP, o link sai — sem pedir que ela mande. Não escreva link nenhum.`
-      : missing === "cep" && (linkDue || paymentChoice !== null)
+      : missing === "cep" && cepDue
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
         : missing === "payment" && linkDue && knownRegion === null
@@ -4016,21 +4226,73 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
-  // The link goes the operator's way, fixed and in three bubbles (2026-10-07, grafo §66) — unless she
+  // Script v3 (R28): when the region is known — or failed where the Logzz delivers — and the offer that fits it has not gone
+  // yet, the offer goes fixed: the delivery box with the audio 4, the prepaid box, or the two checkouts (operator, 2026-10-19).
+  // Read from the whole history (review of v3, 2), never after a link or a sale, inside the send window, and the two
+  // checkouts only with her size known (6). A question beside the CEP is answered right after it, by n8n's resume (4).
+  const v3Link = (url: string) =>
+    funnelLinkMessage(CONFIG, url, linkPath, identityDraft.name ?? null, units > 1 ? null : stated?.size ?? lead.size ?? null, units > 1 ? units : 1);
+  const likelyPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;
+  const likely = likelyPlace !== null && isLikelyCodCity(likelyPlace, CONFIG.cod.likelyCities);
+  const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : likely ? "both" : "prepay") : likely ? "both" : null;
+  const offerHistory: string[] =
+    offerNow === null
+      ? []
+      : ((await db(
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(body.like.${encodeURIComponent(`${"⭐ DE R$ "}*`)},body.like.${encodeURIComponent(`${PREPAY_HEADLINE.slice(0, 40)}*`)})&select=body&order=created_at.asc`,
+        ).catch(() => null)) ?? []).map((m: { body: string | null }) => m.body ?? "");
+  const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);
+  // A link anywhere in the history ends the offers: past the window too (index: messages_conversation_idx).
+  const pastLink =
+    ["link_enviado", "pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) ||
+    linkAlreadySent ||
+    (offerNow !== null && offerNow !== offerBefore && CHECKOUT_HOSTS.length > 0 &&
+      ((await db(
+        `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=id&limit=1`,
+      ).catch(() => null))?.length ?? 0) > 0);
+  const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
+  // A second "welcomed" is never answered: n8n's resume branch does not wait again (persona cob-tudo-de-uma-vez, 19/10).
+  // Not only a question: something she said beside the CEP ("isso não serve em mulher de verdade, meu cep é …", persona
+  // venda-dificil, 19/10) gets its answer after the offer too.
+  const saidBeside = parts.some(remarkBesideCep);
+  const answerAfterOffer = (askedBeside || saidBeside) && !isResume;
+  if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
+    if (offerNow === "both") {
+      const pieces = units > 1 ? units : 1;
+      const urlOf = (path: "cod" | "prepay") =>
+        pieces > 1 ? kits.find((k) => k.path === path && k.units === pieces)?.checkoutUrl : path === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+      try {
+        const cod = buildPrefilledCheckoutLink(linkCustomer, "cod", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+        const prepay = buildPrefilledCheckoutLink(linkCustomer, "prepay", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+        const sent = await sendFunnelTurn(
+          bothLinksBubbles(CONFIG, likelyPlace!.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null, pieces),
+          "roteiro v3: entrega não confirmada, dois links",
+          { checkoutUrl: prepay, linkFact },
+          answerAfterOffer,
+        );
+        if (sent) return sent;
+      } catch {
+        // A checkout URL missing from the config: the model answers, as before.
+      }
+    } else if (region !== null) {
+      const cod = offerNow === "cod";
+      const sent = await sendFunnelTurn(
+        [
+          ...offerBubbles(CONFIG, { cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
+          ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
+        ],
+        checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
+        checkoutUrl ? { checkoutUrl, linkFact } : {},
+        answerAfterOffer,
+      );
+      if (sent) return sent;
+    }
+  }
+
+  // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
-  if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {
-    const sent = await sendFixed(
-      opening(linkMessage(checkoutUrl, linkPath, units > 1 ? null : stated?.size ?? lead.size ?? null, CONFIG.brand, units, [
-        ...(identityDraft.name ? [] : ["nome completo"]),
-        ...(linkPath === "prepay" && !chatEmail ? ["e-mail"] : []),
-        ...(identityDraft.document ? [] : ["CPF"]),
-      ], justRefused !== null)),
-      linkFact ? `link — ${linkFact}` : "link",
-      linkPath,
-      { checkoutUrl, linkFact },
-      false,
-      units,
-    );
+  if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {
+    const sent = await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
     if (sent) return sent;
   }
 
@@ -4043,8 +4305,8 @@ const handleTurn = async (
 
   // After the size and the CEP too, so the offer never shares a message with another question — or with the CEP she said
   // she does not remember, which is not asked (R26.1: the conversation goes on, kit included).
-  const kitOfferNow =
-    units === 1 && pathChosen && missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0 && !kitOffered && !linkNow && !farewell && !withdrew;
+  // Script v3 (R28): the kits ride in the link message, never as a question before it.
+  const kitOfferNow = false;
   // Review of 5383dc5: with the fixed line held back, the identity directive would have the model ask
   // the CPF again of a woman saying goodbye. Told instead what the turn is.
   const identityDirective = farewell
@@ -4077,7 +4339,8 @@ const handleTurn = async (
   // before the model call (an empty answer, a 5xx), so the correction still belongs to it (second review of R26).
   const codBases = [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)].filter((u): u is string => !!u);
   const codLinkAt = recentOutbound.findLastIndex((m: string) => codBases.some((b) => m.includes(b)));
-  const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
+  // Not after the two checkouts (review of v3, 7): their 🟢 link already says to check the delivery there.
+  const codLinkVoid = codUnavailable && offerBefore !== "both" && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);
   // Nothing answered for her region (no CEP, or the lookup failed): coverage is unknown,
   // and the `coverage_claim` gate refuses any sentence that affirms it.
   const coverageUnknown =
@@ -4144,7 +4407,12 @@ const handleTurn = async (
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities), offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
+      failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
+        ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
+          ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
+          ` mesmo jeito. Não mande os links de novo, a não ser que ela peça.`
+        : null,
       codLinkVoid
         ? `O link que você mandou antes era do pagamento na entrega, mandado quando a consulta do CEP dela ainda não tinha respondido.` +
           ` Diga primeiro, numa frase, que aquele link não serve — por exemplo:` +
@@ -4156,7 +4424,33 @@ const handleTurn = async (
       sizeBeforeLink,
       coverageUnknown,
       cepState,
-      cepForgotten
+      streetFound === null || streetAsk.length === 0
+        ? null
+        : streetCep
+        ? `Pelo nome da rua que ela mandou, o CEP dela é ${streetCep} (${streetFound.find((f) => f.cep === streetCep)?.street ?? ""},` +
+          ` ${streetFound.find((f) => f.cep === streetCep)?.city ?? ""}): diga numa frase que achou o CEP dela, com o nome da rua e a cidade, sem pedir CEP.`
+        : streetFound.length > 0 && streetAsk[0]!.number === null
+        ? `A rua dela (${streetFound[0]!.street}, ${streetFound[0]!.city}) tem mais de um CEP, conforme o número da casa: pergunte só` +
+          ` o número da casa dela, sem pedir o CEP.`
+        : streetFound.length > 0 && streetFound.length <= 5
+        ? `Achei estes CEPs da rua dela: ${streetFound.map((f) => `${f.cep}${f.complement ? ` (${f.complement})` : ""}`).join("; ")}.` +
+          ` Mostre as opções e peça que ela diga qual é o da casa dela. Não invente outro.`
+        : streetFound.length > 0
+        ? `A rua dela tem muitos CEPs e o número não fechou um só: diga que ela acha o dela pelo endereço no buscador dos Correios:` +
+          ` ${CORREIOS_CEP_URL}. Não invente CEP.`
+        // Only when the agent asked her street: "moro na rua de baixo" after a CEP talk is no street to look for (review).
+        : /\brua\b/i.test(lastOutbound)
+        ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
+          ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`
+        : null,
+      cepRefused
+        ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
+          ` a dúvida).` +
+          // Said once (review): the turn checks it, not the model's memory of "uma vez só".
+          (recentOutbound.some((m: string) => /\bcep\b[^.!?]*(?<!\p{L})(?:serve|s[oó])(?!\p{L})[^.!?]*entrega/iu.test(m))
+            ? ""
+            : ` Diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`)
+        : cepForgotten
         ? `Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar; siga a conversa (tamanho, kit) e retome o CEP só` +
           ` quando ela trouxer.` +
           (recentOutbound.some((m: string) => m.includes(CORREIOS_CEP_URL))
@@ -4249,7 +4543,8 @@ const handleTurn = async (
       // In a row (Neusa: ten), and never when she just decided to buy — then the CEP is the next step
       // (persona round of 2026-10-08, Jussara went to a person at "vou querer um").
       cepAsks:
-        addressDraft.cep || interpretation.wants_to_buy
+        // A CEP she sent that did not read or was not found is asked again right away: that is the answer, not insisting.
+        addressDraft.cep || linkDue || wrongCep || cepNotFound
           ? 0
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
       // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
@@ -4262,7 +4557,8 @@ const handleTurn = async (
       herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
       // The two the region unlocks. Without a postcode both stay undefined, and the
       // chain refuses a size and refuses "hoje" — which is the correct silence.
-      ...(region ? { sizeChecked: stated?.size ?? lead.size ?? undefined } : {}),
+      // Only the size the lookup answered for (R28 review): any size's delivery never vouches for hers.
+      ...(region?.size ? { sizeChecked: region.size } : {}),
       sameDayWindow: region?.sameDay ?? false,
       regionKnown: region !== null,
     });
@@ -4372,7 +4668,8 @@ const handleTurn = async (
   const firstReply = greeting !== null && !clauses.some((q: string) => asksSomething(q));
   // R22.1: no draft that passed is no handoff either — nobody can answer from the number, and `handoff_at` silenced her
   // for good. A question that is none of those gets the safe reply, with a live question in it.
-  const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply;
+  const asksHowToPay = !asksPrice && !asksOffer && !asksWhen && !firstReply && parts.some(asksPayment) && !parts.some(asksPaymentStatus);
+  const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply && !asksHowToPay;
 
   if (outcome.kind === "handoff") {
     const reason = outcome.reason;
@@ -4427,6 +4724,9 @@ const handleTurn = async (
       : asksWhen
         ? deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)
         : asksOffer ? offerFallbackMessage(CONFIG)
+        // "me explica de novo o pagamento" (persona, 2026-10-19): how she pays where she is, never "me fala de novo".
+        : asksHowToPay
+        ? paymentFallbackMessage(CONFIG, codUnavailable ? "no_cod" : paymentChoice === "prepay" ? "prepay" : knownRegion?.cod ? "cod" : offerBefore === "both" ? "both" : null)
         : fallbackIsGeneric ? SAFE_FALLBACK_REPLY
         : codUnavailable ? noCodMessage(CONFIG) : priceBeforeCepMessage(CONFIG);
   // Her other question beside the fixed deadline ("quando chega? e se eu pedir reembolso?", operator, 2026-10-13):

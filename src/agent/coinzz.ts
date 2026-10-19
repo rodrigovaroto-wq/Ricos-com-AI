@@ -262,7 +262,10 @@ export const buildPrefilledCheckoutLink = (
   // Logzz reads 55 + DDD + number; Coinzz only DDD + number, 10 or 11 digits (research,
   // 2026-10-06): the country code is dropped on the prepaid path. The e-mail goes to both —
   // Logzz ignores it unless the offer asks for one, and then it is filled.
-  const phone = digitsOnly(customer.phone ?? "");
+  // WhatsApp hands most Brazilian mobiles over without the ninth digit ("5531 9649 2777", 32 of the first 41 real leads,
+  // 2026-10-19): the checkout got a number that rings nowhere. A mobile (6–9 after the DDD) gets its 9 back; a landline not.
+  const raw = digitsOnly(customer.phone ?? "");
+  const phone = /^55\d{2}[6-9]\d{7}$/.test(raw) ? `${raw.slice(0, 4)}9${raw.slice(4)}` : raw;
   const local = paymentMethod === "prepay" && /^55\d{10,11}$/.test(phone) ? phone.slice(2) : phone;
   if (local.length >= 10) query.set("phone", local);
   if (digitsOnly(customer.document ?? "").length >= 11) {

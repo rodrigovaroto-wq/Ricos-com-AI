@@ -4,7 +4,7 @@ import {
   AVAILABILITY_HEADERS,
   availabilityQuery,
   checkRegion,
-  REFERENCE_SIZE,
+  lookupRegion,
   toRegion,
   hasPendingCod,
   readAvailability,
@@ -182,18 +182,138 @@ describe("Express", () => {
 describe("região", () => {
   const place = { city: "São Paulo", state: "SP", district: "Centro" };
 
-  it("pergunta com o tamanho que está mapeado certo", async () => {
-    let asked = "";
+  // R28 (2026-10-19): stock split by warehouse — G only in Belo Horizonte, GG and XGG in São Paulo — and the G
+  // alone told every São Paulo customer there was no delivery. All five sizes are asked; any one with delivery counts.
+  it("pergunta os cinco tamanhos", async () => {
+    const asked: string[] = [];
     await checkRegion(async (url) => {
-      asked = url;
-      return url.includes("viacep")
-        ? { localidade: "São Paulo", uf: "SP", bairro: "Centro" }
-        : yes;
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Centro" };
+      asked.push(new URL(url).searchParams.get("products[0][code]") ?? "");
+      return yes;
     }, "04710-090");
-    expect(asked).toContain(SIZE_CODES[REFERENCE_SIZE]);
-    // O M é justamente o que não pode ser usado: a Coinzz responde por ele como se a
-    // praça inteira estivesse fechada.
-    expect(asked).not.toContain(SIZE_CODES.M);
+    expect(asked.sort()).toEqual(Object.values(SIZE_CODES).sort());
+  });
+
+  it("o G sem entrega e o GG com entrega: a região tem entrega, com as datas do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) ? yes : no;
+    }, "01310-100");
+    expect(r?.cod).toBe(true);
+    expect(r?.dates).toEqual(["2026-09-10", "2026-09-11"]);
+  });
+
+  it("negação: nenhum tamanho com entrega é região sem entrega", async () => {
+    const r = await checkRegion(async (url) =>
+      url.includes("viacep") ? { localidade: "Abaeté", uf: "MG", bairro: "Centro" } : no, "35620-000");
+    expect(r?.cod).toBe(false);
+  });
+
+  it("o M, que a Coinzz não reconhece (404), não apaga a resposta dos outros tamanhos", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.M) ? { type: "error", status: 404 } : yes;
+    }, "30130-010");
+    expect(r?.cod).toBe(true);
+  });
+
+  // R28 review: one size that throws (timeout, network, HTML) is one size unanswered, never the whole region.
+  it("um tamanho que lança não derruba a região", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      if (url.includes(SIZE_CODES.XGG)) throw new Error("TimeoutError");
+      return url.includes(SIZE_CODES.G) ? yes : no;
+    }, "30130-010");
+    expect(r?.cod).toBe(true);
+  });
+
+  it("todos os tamanhos lançando é região desconhecida, nunca região sem entrega", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      throw new Error("fetch failed");
+    }, "30130-010");
+    expect(r).toBeNull();
+  });
+
+  // R28 review: she wears G in São Paulo, where only the GG and the XGG have delivery. Her size decides.
+  it("o tamanho dela decide: G sem entrega em SP, mesmo com o GG entregando", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) || url.includes(SIZE_CODES.XGG) ? yes : no;
+    }, "01310-100", "G");
+    expect(r?.cod).toBe(false);
+    expect(r?.size).toBe("G");
+  });
+
+  it("negação: o GG dela em SP tem entrega, e a resposta é do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.GG) ? yes : no;
+    }, "01310-100", "GG");
+    expect(r?.cod).toBe(true);
+    expect(r?.size).toBe("GG");
+  });
+
+  it("o M dela sem resposta: vale qualquer tamanho, e a resposta não fala pelo M", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.M) ? null : yes;
+    }, "30130-010", "M");
+    expect(r?.cod).toBe(true);
+    expect(r?.size).toBeNull();
+  });
+
+  it("o M dela sem resposta não promete o Express de outro tamanho", async () => {
+    const express = structuredClone(yes);
+    express.data.local_operation_cash_on_delivery.delivery_days_available[0]!.deliverySameDay = 1;
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      return url.includes(SIZE_CODES.M) ? null : express;
+    }, "01310-100", "M");
+    expect(r?.sameDay).toBe(false);
+    expect(r?.askedSize).toBe("M");
+  });
+
+  it("negação: sem tamanho conhecido, o Express da região continua valendo", async () => {
+    const express = structuredClone(yes);
+    express.data.local_operation_cash_on_delivery.delivery_days_available[0]!.deliverySameDay = 1;
+    const r = await checkRegion(async (url) =>
+      url.includes("viacep") ? { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" } : express, "01310-100");
+    expect(r?.sameDay).toBe(true);
+  });
+
+  it("o G dela que estoura o tempo é região desconhecida, nunca a entrega do GG", async () => {
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "São Paulo", uf: "SP", bairro: "Bela Vista" };
+      if (url.includes(SIZE_CODES.G)) throw new Error("TimeoutError");
+      return yes;
+    }, "01310-100", "G");
+    expect(r).toBeNull();
+  });
+
+  // Operator, 2026-10-19: a failed lookup in a city where the Logzz delivers still sends both checkouts — the city is kept.
+  it("a consulta que falha guarda a cidade do ViaCEP", async () => {
+    const r = await lookupRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Campinas", uf: "SP", bairro: "Centro" };
+      throw new Error("fetch failed");
+    }, "13060-789");
+    expect(r).toEqual({ kind: "failed", place: { city: "Campinas", state: "SP", district: "Centro" } });
+  });
+
+  it("negação: sem o ViaCEP, a falha não inventa cidade", async () => {
+    const r = await lookupRegion(async () => null, "13060-789");
+    expect(r).toEqual({ kind: "failed" });
+  });
+
+  it("sem tamanho, o G decide primeiro quando G e GG entregam em datas diferentes", async () => {
+    const later = structuredClone(yes);
+    later.data.local_operation_cash_on_delivery.delivery_days_available[0]!.dates = [{ date: "2026-09-20" }];
+    const r = await checkRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Belo Horizonte", uf: "MG", bairro: "Centro" };
+      return url.includes(SIZE_CODES.G) ? yes : later;
+    }, "30130-010");
+    expect(r?.dates).toEqual(["2026-09-10", "2026-09-11"]);
+    expect(r?.size).toBeNull();
   });
 
   it("traz cobertura, datas e Express, e o custo da etiqueta", () => {
@@ -225,8 +345,8 @@ describe("região", () => {
       sent.push(headers);
       return yes;
     }, "04662-002");
-    expect(sent).toHaveLength(1);
-    expect(sent[0]?.["X-Requested-With"]).toBe("XMLHttpRequest");
+    expect(sent).toHaveLength(5);
+    expect(sent.every((h) => h?.["X-Requested-With"] === "XMLHttpRequest")).toBe(true);
     expect(AVAILABILITY_HEADERS["X-Requested-With"]).toBe("XMLHttpRequest");
   });
 

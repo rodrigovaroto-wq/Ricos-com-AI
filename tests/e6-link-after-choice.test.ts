@@ -46,7 +46,8 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   });
 
   it("o turno liga o braço B só por armOn — flag no config E braço 1 do sorteio B", () => {
-    expect(turn).toContain(`identityAtCheckout: armOn(CONFIG.experiments, lead.arm ?? armOf(lead.phone), "B"),`);
+    // R28 (2026-10-19): the script v3 ended the A/B arms — nobody waits for name, e-mail or CPF before the link.
+    expect(turn).toContain(`identityAtCheckout: false,`);
     expect(turn).toContain(`(paymentChoice !== null && paymentChoice === linkPath) ||`);
     const phone = "5511999990000";
     expect(armOn(undefined, armOf(phone), "B")).toBe(false);
@@ -64,7 +65,8 @@ describe("E6 — experimento B: link logo depois da escolha do pagamento", () =>
   it("modo de falha (revisão de 9c1053c): no braço B a região sem pagamento na entrega não é escolha — o link espera o sim dela", () => {
     // `pathSettled` is true from the region alone; arm B must wait for `paymentChoice`, or the prepaid link
     // goes in the CEP's own turn, before she heard why or said yes.
-    expect(turn).toContain(`pathSettled: paymentChoice !== null || knownRegion?.cod === false,`);
+    // R28: her region settles the path (the fixed offer said it); arm B is off in the turn.
+    expect(turn).toContain(`pathSettled: paymentChoice !== null || knownRegion !== null,`);
     // Arm B, region settled the path, she chose nothing: the order of today holds — the name, never the link.
     const regionOnly = { ...afterChoice, choiceMade: false, identityAtCheckout: true };
     expect(missingForLink(regionOnly)).toBe("payment"); // /code-review: arm B waits for her choice, never asks the name first

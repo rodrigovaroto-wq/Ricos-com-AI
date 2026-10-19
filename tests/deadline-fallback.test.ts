@@ -55,7 +55,7 @@ describe("o turno usa a resposta de prazo no lugar do handoff", () => {
     // Rafa (2026-10-13): a deadline-only veto answers with the fixed deadline even beside another question
     expect(turn).toContain('gates.traces.every((t) => t.verdict !== "block" || t.gate === "delivery_promise" || t.gate === "coverage_claim");');
     // R22.1: nothing that is not a ceiling goes to a person any more; the generic fallback is the safe reply.
-    expect(turn).toContain("const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply;");
+    expect(turn).toContain("const fallbackIsGeneric = !asksPrice && !asksOffer && !asksWhen && !firstReply && !asksHowToPay;");
     // Prepaid chosen: her own path's deadline, never the delivery's (/code-review of E1).
     expect(turn).toContain('deadlineFallbackMessage(CONFIG, codUnavailable || paymentChoice === "prepay", knownRegion !== null)');
   });

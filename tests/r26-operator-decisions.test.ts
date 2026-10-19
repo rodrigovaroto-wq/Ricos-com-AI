@@ -57,21 +57,22 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
   });
 
   it("o turno lê o 'não lembro' das mensagens dela, só enquanto nenhum CEP foi lido, e passa ao gate", () => {
-    expect(turn).toContain("const cepForgotten = !addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep);");
+    expect(turn).toContain("const cepForgotten = cepRefused || (!addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep));");
     expect(turn).toMatch(/cepForgotten,\n\s+hookSent: recentOutbound\.some\(isHook\)/);
   });
 
   it("as diretivas não mandam pedir o CEP: a do tamanho, a do link e a do estado do CEP", () => {
     expect(turn).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten)");
     expect(turn).toContain("if (cepForgotten) return fitting;");
-    expect(turn).toContain("missing === \"cep\" && (linkDue || paymentChoice !== null) && cepForgotten");
+    expect(turn).toContain("missing === \"cep\" && cepDue && cepForgotten");
     // A diretiva do link não convida "me manda" (que o cep_insist veta).
     expect(turn).toContain("assim que ela tiver o CEP, o link sai — sem pedir que ela mande.");
     expect(turn).toContain("Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar");
   });
 
   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
-    expect(turn).toContain('missing !== "size" && (missing !== "cep" || cepForgotten) && kitsOnPath.length > 0');
+    // R28: no kit offer before the link at all; the link waits for the CEP she forgot.
+    expect(turn).toContain("const kitOfferNow = false;");
     expect(turn).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
   });
 });
@@ -109,7 +110,7 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("a consulta que falha (ou lança, 'fetch failed') é tentada de novo, curta, antes do link com a ressalva", () => {
     const lookup = turn.slice(turn.indexOf("else if (addressDraft.cep) {"), turn.indexOf("region = lookup.kind === \"found\" ? lookup.region : null;"));
     expect(lookup).toContain('.catch((): RegionLookup => ({ kind: "failed" }))');
-    expect(lookup).toContain('.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip) : first));');
+    expect(lookup).toContain('.then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));');
   });
 
   it("negação (revisão Opus): na nova tentativa da varredura e na revisão, sem a segunda consulta — o orçamento é do modelo", () => {
@@ -126,14 +127,14 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("depois do link da entrega, o 'não tem na entrega' vem como a correção que é, uma vez", () => {
     expect(turn).toContain(SENTENCE);
     expect(turn).toContain(
-      "const codLinkVoid = codUnavailable && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
+      "const codLinkVoid = codUnavailable && offerBefore !== \"both\" && (storedAddress.codAvailable !== false || isRetry || isRevise) && codLinkAt !== -1 && !recentOutbound.slice(codLinkAt + 1).some(toldNoCod);",
     );
   });
 
   it("a correção sai só no turno em que a consulta descobre a falta de entrega (revisão Opus: o modelo pode dizer de outro jeito)", () => {
     // `storedAddress` é o lead do começo do turno: o turno seguinte já o lê com `codAvailable: false` e a diretiva não volta.
     expect(turn.indexOf("const storedAddress = (lead.address ?? {})")).toBeLessThan(turn.indexOf("const codLinkVoid ="));
-    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly\),\n\s+codLinkVoid/);
+    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity\(region\.place, CONFIG\.cod\.likelyCities\), [^\n]*\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
   });
 
   it("a frase que a diretiva ensina passa a cadeia de gates sem entrega na região, nos dois caminhos", () => {

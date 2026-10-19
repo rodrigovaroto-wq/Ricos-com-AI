@@ -105,7 +105,7 @@ export interface GateConfig {
    * A customer count the operation can back. Absent, no customer count may be said;
    * present, only this one ("mais de N clientes satisfeitas").
    */
-  socialProof?: { satisfiedCustomers?: number };
+  socialProof?: { satisfiedCustomers?: number; reviews?: number };
   /** There is no store. Present, the agent may say one is planned in this city. */
   store?: { physicalStorePlanCity?: string };
   /**
@@ -1324,9 +1324,9 @@ const gates: readonly Gate[] = [
     name: "weight_loss_claim",
     remedy: "rewrite",
     briefing: () =>
-      `Nunca diga que o produto emagrece, queima ou elimina gordura, nem que o resultado é ` +
-      `permanente. Ele modela enquanto está vestido. Dizer isso em voz alta é permitido e vende: ` +
-      `ela já ouviu promessa de emagrecimento antes e reconhece quem não mente.`,
+      `Nunca diga que o produto emagrece por si, que ela perde peso, queima ou elimina gordura, nem que o ` +
+      `resultado é permanente. O que é verdade, e você confirma quando ela perguntar se emagrece (R28): ` +
+      `"enquanto você usa, emagrece e pode reduzir até 3 números de calça" — sempre amarrado ao uso.`,
     check: (text) => {
       const t = norm(text);
       // Verb endings vary ("queima", "queimar", "queimando"), so match the stem.
@@ -1341,11 +1341,20 @@ const gates: readonly Gate[] = [
         /resultado\s+permanente/g,
       ];
 
+      // R28 (operator, 2026-10-19): the recorded audio says the vest slims while worn, and the agent confirms it in those
+      // words — "enquanto você usa, emagrece e pode reduzir até 3 números de calça". Only "emagrec" with the wearing in
+      // the same sentence; never beside weight, fat or permanence, which stay the lie of a body that changes.
+      const WORN = /\b(?:enquanto\s+(?:voce\s+|vc\s+)?(?:usa|usar|estiver?\s+(?:com\s+ele|usando|vestida)|esta\s+(?:com\s+ele|usando|vestida)|veste|vestir)|na\s+hora\s+que\s+(?:voce\s+|vc\s+)?(?:veste|vestir|coloca|colocar|usa|usar)|(?:com\s+ele|com\s+o\s+colete)\s+vestido)\b/;
+      // Time is the body changing too: "com o tempo", "aos poucos", "todo dia", "por semana" (review of v3, 11).
+      const BODY = /\b(?:peso|quilos?|kg|gordura|pra\s+sempre|para\s+sempre|permanente\w*|definitiv\w*|de\s+vez\b(?!\s+em\s+quando)|de\s+verdade|depois\s+que\s+tira\w*|sem\s+ele|com\s+o\s+tempo|aos\s+poucos|todo\s+dia|todos\s+os\s+dias|por\s+(?:dia|semana|mes)|semanas?|mes(?:es)?|dietas?|academia)\b/;
       for (const pattern of claims) {
         for (const match of t.matchAll(pattern)) {
-          if (match.index !== undefined && !negatedAt(t, match.index)) {
-            return "claims the product changes the body, not the fit";
+          if (match.index === undefined || negatedAt(t, match.index)) continue;
+          if (pattern === claims[0]) {
+            const sentence = sentenceAt(t, match.index);
+            if (WORN.test(sentence) && !BODY.test(sentence)) continue;
           }
+          return "claims the product changes the body, not the fit";
         }
       }
       return null;
@@ -2125,7 +2134,10 @@ const gates: readonly Gate[] = [
       (c.socialProof?.satisfiedCustomers != null
         ? `O único número de clientes que existe é "mais de ${c.socialProof.satisfiedCustomers} ` +
           `clientes satisfeitas"; nenhum outro.`
-        : `Não cite número de clientes nem de vendas.`),
+        : `Não cite número de clientes nem de vendas.`) +
+      (c.socialProof?.reviews != null
+        ? ` O único número de avaliações é "${c.socialProof.reviews} avaliações positivas".`
+        : ``),
     // A quote is only a testimonial when someone is credited with saying it. Reading
     // every quoted string as one made the gate veto ordinary writing — repeating the
     // customer's own question back to her, naming the product the way the page does —
@@ -2167,7 +2179,13 @@ const gates: readonly Gate[] = [
       // A customer count is social proof too, and an invented one is the same lie as an
       // invented quote. Only the configured number passes (2026-09-24). A small count of
       // people, orders or sales is not a claim ("os seus 2 pedidos"), so those need "mil".
-      const t = norm(text);
+      // R28: the configured review count passes as "N avaliações positivas", and only so — any other count stays a claim.
+      const reviews = ctx.config.socialProof?.reviews;
+      // Never with a clock beside it ("124 avaliações positivas só esta semana", "recebemos … hoje"): velocity again (review of v3, 12).
+      const t = reviews != null
+        ? norm(text).replace(new RegExp(String.raw`[^.!?\n]*\b${reviews}\s+avaliacoes\s+positivas\b[^.!?\n]*`, "g"), (sentence) =>
+          /\b(?:hoje|ontem|agora|semana|mes|ano|recebe\w*|chegar\w*)\b|\d\s*%/.test(sentence) ? sentence : sentence.replace(/\b\d+\s+avaliacoes\s+positivas\b/, " "))
+        : norm(text);
       const allowed = ctx.config.socialProof?.satisfiedCustomers;
       // The configured number passes only as "N clientes satisfeitas" — never as sales
       // velocity ("500 clientes compraram hoje"), which R13.6 forbids.
@@ -2720,7 +2738,11 @@ const gates: readonly Gate[] = [
           )
             claims.push({ at });
         }
-        for (const m of t.matchAll(FREIGHT_DENIAL)) claims.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
+        // "Nem pagando frete a mais" refuses a faster delivery for more money (persona Rafa, 2026-10-19): only the infinitive
+        // or gerund of paying MORE after "nem" / "não dá pra" is blanked, so "você não paga / não vai pagar frete a mais" stays the claim it is
+        // (two reviews of the fix).
+        const extraBlanked = t.replace(/\b(?:nem|nao\s+da\s+(?:pra|para))\s+pag(?:ar|ando)\s+(?:o\s+|um\s+)?frete\s+(?:a\s+mais|extra|adicional)\b/g, (x) => " ".repeat(x.length));
+        for (const m of extraBlanked.matchAll(FREIGHT_DENIAL)) claims.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
         // Sentence boundaries once, as `sentenceAt` draws them: a long reply with hundreds of
         // claims cost one scan of its sentence per claim (990 ms at 16k characters, 2026-09-29).
         const stop = (i: number): boolean =>
@@ -3158,18 +3180,19 @@ const gates: readonly Gate[] = [
   {
     /**
      * Neusa answered "ta", "?", "nao entendi" and got the CEP asked ten times (persona round of
-     * 2026-10-07). Twice at most (operator, decision 17): after that the reply answers her and moves on.
+     * 2026-10-07). Twice at most (operator, decision 17): after that the reply answers her and moves on. Never two in a
+     * row since 2026-10-19 (operator: "a insistência no CEP"; persona Marcinha heard it four times, two of them in a row).
      */
     name: "cep_insist",
     remedy: "rewrite",
     briefing: () =>
-      `Peça o CEP no máximo duas vezes: se ela não mandou, responda o que ela disse e siga a conversa sem pedir de novo. ` +
+      `Sua última mensagem já pediu o CEP e ela não mandou: responda o que ela disse e siga a conversa sem pedir o CEP de novo. ` +
       `Se ela disse que não lembra o CEP, não peça de novo até ela mandar.`,
     check: (text, ctx) =>
       !asksCep(text) ? null
       // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", and the CEP asked five more times.
       : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
-      : (ctx.cepAsks ?? 0) >= 2 ? "asks the CEP a third time"
+      : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
       : null,
   },
   {

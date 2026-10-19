@@ -3311,6 +3311,212 @@ venda" refeito: COD R$ 26,18 · antecipado R$ 45,31 · mix R$ 31,92 (a tabela de
 aritmética do R27 foi conferida na sessão, mas nenhum teste do repositório a cobre. **Estado (2026-10-17):** decidido pelo operador;
 documentado; simulador do mapa financeiro e planilha refeitos; nada a deployar (sem mudança de código nem de `BUSINESS_CONFIG`).
 
+## 105. A consulta de cobertura perguntava só pelo G, e o G saiu do estoque de São Paulo (operador, 2026-10-19, R28)
+
+**Sintoma:** no primeiro teste com anúncio (16 a 19/10), os 12 CEPs consultados deram "sem pagamento na entrega", inclusive Campinas/SP.
+O `job:"health"` estava `unhealthy` em 19/10, com os 3 CEPs de São Paulo em `no_cod`; o alarme do n8n rodava normalmente a cada 15 min.
+**Causa:** `lookupRegion` perguntava à Coinzz só pelo `REFERENCE_SIZE` (G), escolhido em 2026-09 como "diagnóstico": o G respondia pela
+região inteira. Em 19/10 o estoque estava dividido por galpão. Sonda com 5 tamanhos: São Paulo e Campinas têm entrega no GG e no XGG e não
+no G; Goiânia no GG e no XGG; Rio no XGG; o G só em Belo Horizonte; o M responde 404 em todo CEP. A resposta da Coinzz para o G em São
+Paulo vinha com `local_operation` "Belo Horizonte" e sem `delivery_days_available`.
+**Impacto no teste:** só Campinas perdeu a entrega por causa do bug. As outras 11 cidades (interior de MG, PE, PR e SP) não têm entrega em
+nenhum tamanho: o anúncio trouxe público fora das praças com pagamento na entrega.
+**Caminho descartado:** consultar só o tamanho dela. O M não responde (404), e o tamanho é escolhido no checkout da Logzz, como os testes
+de região já registravam.
+**Correção (cinco revisões Opus até o aprovado):** `lookupRegion(fetcher, zip, size)` pergunta os 5 tamanhos em paralelo (G, GG, XGG,
+P, M). Com o tamanho dela conhecido e respondido, a região é a do tamanho dela. Sem tamanho conhecido, a região tem entrega quando
+algum tamanho tem, com as datas desse tamanho. O que cada revisão pegou:
+- **1ª:** um tamanho que lançava derrubava a região inteira (`Promise.all`); a cliente G em São Paulo ouviria a entrega do GG.
+- **2ª:** o "hoje" do Express de outro tamanho; o cache que nunca acertava para quem veste M.
+- **3ª:** um timeout no tamanho dela guardava por uma hora a entrega de outro tamanho. Agora o tamanho dela que lança é região desconhecida.
+- **4ª:** um 429 ou 5xx ainda chegava como "sem resposta". Agora o `regionFetcher` lança em todo status que não seja 2xx ou 404.
+
+O M, que responde HTTP 404 em todo CEP, usa a região de qualquer tamanho, sem o "hoje" (`sameDay: false`). O cache guarda o tamanho
+pedido (`askedSize`). O `sizeChecked` dos gates só vem do tamanho respondido.
+**Guarda:** testes em `tests/availability.test.ts`, `tests/measurement.test.ts` e `tests/coverage-health.test.ts`; mutações
+`R28-regiao-so-pelo-g`, `R28-tamanho-que-lanca`, `R28-tamanho-dela-decide`, `R28-hoje-de-outro-tamanho`, `R28-cache-do-m`,
+`R28-timeout-do-tamanho-dela`, `R28-429-nao-e-sem-estoque`; `G67-falha-e-desconhecida` e `R26-cobertura-segunda-tentativa` apontam para
+as linhas novas. 9/9 pegaram.
+**Publicado** em 19/10 como `turn` v28 (função v123); `job:"health"` → `healthy` nos 3 CEPs de São Paulo, três sondas seguidas.
+**Resíduo:** a cliente que veste M ouve a entrega de qualquer tamanho, porque a Coinzz não responde pelo M; o checkout da Logzz decide.
+
+
+## 106. Roteiro v3: a Malu passa a vender primeiro e pedir depois (operador, 2026-10-19, R28)
+
+**Sintoma:** primeiro teste com anúncio (16 a 19/10): 33 conversas, 0 links, 0 pedidos. 13 de 33 pararam na 1ª resposta ("me
+passa seu CEP"); depois do CEP a mensagem abria com "não tem pagamento na entrega" e "frete calculado no checkout"; 7 pediram foto
+ou vídeo e ouviram "vê no site"; as duas que decidiram comprar travaram no CPF e na pergunta do tamanho de cada peça; a régua mandava
+"Ainda está aí?", "Posso te mandar ofertas?" e um texto pronto às 9h para todo mundo; a Malu disse que o colete "não tem zíper".
+Análise completa em `docs/agente-ia/06-script/07-script-v3-funil-validado.md`.
+**Causa:** o roteiro pedia dados antes de mostrar valor, e o canal só mandava texto. O funil validado do operador (Drive "FLUXO
+CINTA COLETE MODELADORA") faz o contrário: mostra o produto com voz, vídeo e prova, e fecha uma vez.
+**Caminhos descartados:**
+- Regravar os áudios: o operador manteve os gravados (R28).
+- Passar os textos fixos pelos gates: as regras de prazo e frete só aceitam as frases canônicas do modelo, e afrouxá-las para caber
+  um texto fixo abriria brecha para o modelo. Os textos fixos vêm do config e da consulta de região, e ficam presos pelos testes de
+  `tests/funnel.test.ts`.
+- Pedir o tamanho de cada peça e o CPF antes do link.
+**Correção:**
+- **Abertura fixa** no lugar do recibo: saudação, áudios 1 e 2, vídeo, avaliações, tabela, e só então "o número da calça". O modelo
+  responde depois só se a primeira mensagem pediu algo (`firstMessageNeedsAnswer`).
+- **Oferta fixa** na primeira vez que a região é conhecida. Na entrega: preço, frete grátis, a primeira data da consulta, quem recebe
+  (dinheiro, Pix ou cartão) e o áudio 4. No antecipado: Correios, 10%, 12x e o frete no checkout. Depois, só o nome completo.
+- **Dois checkouts** (🟢 entrega, 🔵 antecipado) quando a cidade está na lista da Logzz do operador (`cod.likelyCities`, 169 cidades)
+  e a consulta diz não ou falha. Fora da lista, só o antecipado.
+- **Link só com nome:** CPF, e-mail e endereço ficam para o checkout. O kit vai na mensagem do link. Sem experimento B, sem
+  "Ainda está aí?", sem a pergunta de ofertas (`askMarketingOptIn: false`).
+- **Mídia no envio do n8n:** áudio, imagem e vídeo por link público (Storage, bucket `funil`).
+- **Prompt:** zíper e colchetes; pagamento ao entregador; foto e vídeo já enviados; "enquanto você usa, emagrece e pode reduzir até 3
+  números de calça". O gate `weight_loss_claim` aceita só essa forma (afrouxamento aceito, `R28` em `tests/gate-loosen-accepted.txt`).
+- **Prova social:** `invented_testimonial` aceita o número de avaliações do config. Os depoimentos reais vão em `testimonials`.
+**Guarda:** `tests/funnel.test.ts`, `tests/r28-script-v3.test.ts`, testes do n8n de mídia; mutações `R28-emagrece-sem-amarre`,
+`R28-emagrece-solto`, `R28-avaliacoes-de-qualquer-numero`, `R28-dois-links-fora-da-lista`, `R28-audio-4-sem-entrega`.
+**Revisões Opus:** a 1ª achou 15 pontos, todos consertados com teste. Os principais:
+- opt-out, número errado e pedido de pessoa recebendo a abertura;
+- oferta repetida fora da janela e depois do link;
+- dado da primeira mensagem perdido;
+- pergunta junto do CEP sem resposta, agora respondida pelo resume do n8n;
+- preço de kit nos dois links;
+- dois links antes do tamanho;
+- instruções contraditórias;
+- frete grátis e parcela fixos no texto;
+- CEP que muda de região;
+- prompt contraditório sobre as duas opções;
+- dois furos de gate: o substantivo "vestido" e o tempo; as avaliações com relógio.
+
+A 2ª aprovou, com duas notas consertadas (a oferta pendente de madrugada; a pergunta junto da oferta com link).
+**Personas (55, contra a `turn` local com o config de produção):**
+- **1ª rodada:** uma falha. `cob-tudo-de-uma-vez`: um segundo "welcomed" no resume, que o n8n não espera; corrigido.
+- **Depois do conserto:** a resposta logo após a abertura não repete a pergunta da calça.
+- **2ª rodada:** 55/55, R$ 1,21. 24 conversas chegaram ao link; nenhuma caiu no "me fala de novo". Relatórios em
+  `docs/agente-ia/10-auditoria/personas-2026-10-19/`.
+
+**Publicado em 19/10:**
+- `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-19.min.json` (SHA-256 `8a5005eb…`);
+- n8n "WhatsApp envio" com mídia (versão ativa `2b401580`);
+- `turn` v29 (função v126) e v30 (função v128), `job:"health"` → `healthy`.
+
+A porta de produção exige o selo do WhatsApp, então a prova de ponta a ponta foi na `turn` local com o mesmo código e o mesmo
+config: abertura, oferta, dois links e link.
+**Resíduos:**
+- O áudio 1 diz "sem barriga", "febre nos Estados Unidos" e "sem academia", e o áudio 4 diz "amanhã mesmo". Sem gate, por decisão do
+  operador.
+- **`shipping_promise` veta "nem pagando frete a mais"** (persona Rafa, 1ª rodada) e o rascunho com a frase canônica antes do CEP
+  (Jussara). As duas vezes a resposta caiu no "me fala de novo". É anterior ao v3: os mesmos vereditos na base `e56ad18`. Fica para
+  conserto com frase real (R21.6).
+- A Malu repete o pedido de CEP depois de "não vou passar o CEP ainda" (Marcinha, 4 vezes).
+- Quem manda tudo na primeira mensagem junto com uma pergunta (oferta e link no resume) fica com a pergunta sem resposta.
+
+## 107. Frete a mais, CEP em pedaços e o nono dígito: o que as conversas de 19/10 mostraram (operador, 2026-10-19)
+
+**Sintoma:** nas conversas reais e de persona de 19/10:
+- "306 72000" foi mandado quatro vezes e nunca foi lido; a cliente de BH recebeu o link do antecipado;
+- "62.930.000" (CEP geral da cidade) não foi achado e o modelo inventou "dígito a mais";
+- um nome foi tirado de lixo de áudio ("daí daí eu disse deixa") e a Malu respondeu "Prontinho, daí!";
+- "nem pagando frete a mais" era vetado como promessa de frete grátis;
+- a Marcinha ouviu o pedido do CEP mais quatro vezes depois de recusar;
+- a objeção dita ao lado do CEP ficou sem resposta;
+- o link do checkout ia com o telefone sem o nono dígito, que o WhatsApp tira de 32 das 41 leads reais. O pedido nasceria com
+  um número que não toca, e o entregador do pagamento na entrega liga para esse número.
+
+**Causa:**
+- `parseCep` só conhecia 8, 5+3 e 2+3+3;
+- a diretiva do CEP não-achado não sabia do CEP geral;
+- o nome vinha também do áudio transcrito;
+- `FREIGHT_DENIAL` não distinguia pagar a MAIS;
+- nada segurava o CEP depois de uma recusa;
+- a resposta depois da oferta só disparava com pergunta;
+- `buildPrefilledCheckoutLink` repassava o número do canal como veio.
+
+**Caminhos que falharam:**
+1. Lookahead `(?!\s+(?:a\s+mais|extra|adicional))` nas duas alternativas de pagar. A revisão Opus mostrou "No pix você não paga
+   frete a mais" passando.
+2. Apagar `pag(ar|ando) frete a mais` antes do casamento. A segunda revisão mostrou "não vai pagar frete a mais" passando.
+3. Ler o 3+5 dentro da alternância. "Rua das Flores 123 04710 090" virava 12304-710, e "031 99123 4567" virava CEP.
+4. Chamar de comentário quatro palavras ao lado do CEP. Saudação, endereço, agradecimento e "quero o kit" disparavam uma chamada
+   de modelo a mais.
+
+**Correção:**
+- apaga só "nem / não dá pra" + "pagar/pagando frete a mais|extra|adicional" antes do `FREIGHT_DENIAL`;
+- o 3+5 é recurso final, sem dígito vizinho;
+- `remarkBesideCep` exige dúvida ou um "não" na mensagem do CEP, sem palavra de endereço;
+- `refusesCep` segura o pedido do CEP, com o motivo dito uma vez (a turn confere);
+- o CEP terminado em 000 "pode ser o geral da cidade", com o buscador dos Correios;
+- o nome vem só de texto digitado, salvo quando ela acabou de ser perguntada;
+- o celular (6–9 depois do DDD) ganha o 9 de volta no link; o fixo, não. O webhook do pedido já casava pelos 8 finais.
+
+**Guarda:**
+- `tests/r28-real-fixes.test.ts` e `tests/coinzz.test.ts`, com negações nos dois sentidos;
+- mutações `R28-frete-a-mais`, `-largo`, `R28-cep-3-mais-5`, `-com-vizinho`, `R28-comentario-ao-lado-do-cep`,
+  `R28-recusa-do-cep` e `R28-nono-digito`: 7/7 pegas;
+- `dev:gates` sem afrouxamento não aceito;
+- `turn` v31 no ar.
+
+**Segunda rodada, depois das personas (operador: "corrija os dois problemas antes do PR"):**
+- **Insistência no CEP.** A Marcinha não recusou o CEP, só perguntou outra coisa, e ouviu o pedido quatro vezes, duas delas
+  seguidas. Correção: `cep_insist` agora veta o segundo pedido seguido, não mais só o terceiro. Recomeça a contar quando o CEP
+  dela não leu ou não foi achado, e o prompt diz a mesma regra.
+- **Pergunta de pagamento com todas as reescritas vetadas.** "me explica de novo o pagamento" e "vocês não mandam pelo
+  correio?" ouviam "me fala de novo o que você quer saber?". Correção: `paymentFallbackMessage`, montada do config conforme a
+  situação dela:
+  - pagamento na entrega confirmado;
+  - só antecipado;
+  - os dois links;
+  - ainda sem CEP.
+
+  A guarda: `tests/payment-fallback.test.ts`, todas as variantes passando a cadeia, e as mutações `R28-cep-duas-seguidas` e
+  `R28-pagamento-me-fala-de-novo`.
+
+**Mutações e o roteiro v3 (CI do PR, 19/10):** o `verificar:guardas` completo achou 12 mutações cujo texto de origem o
+roteiro v3 mudou. Oito passaram a apontar para o texto novo, todas pegas. Quatro foram retiradas, porque guardavam código
+que o v3 removeu de propósito:
+- `E6-braco-b-para-todos`: o link espera só o nome, para todos;
+- `G67-email-depois-do-link`: o e-mail não é mais pedido;
+- `G67-recusa-do-cpf`: o CPF não é mais pedido;
+- `R26-cep-esquecido-kit-segue`: o kit vai na oferta fixa.
+
+**Terceira rodada (decisões do operador, 19/10, noite):**
+- **Pagamento na entrega antes do CEP:** pode ser mencionado, sempre condicionado à região ("dependendo da sua região"). A
+  ficha `pago-na-entrega-sim` deixou de proibir a frase canônica.
+- **Loja física:** a resposta já existia (`store.physicalStorePlanCity` no config e `storeBriefing` no prompt). Ganhou a ficha
+  `loja-fisica`.
+- **"Entrega garantida" só no kit de 3 da Logzz:** o operador corrige na plataforma.
+- **CEP que os Correios não conhecem.**
+  - *Sintoma:* "confere o CEP" quatro vezes à mesma cliente (ficha `idosa-desabafo`).
+  - *Correção:* a busca de rua do ViaCEP.
+    - O estado vem do que ela escreveu, ou dos três primeiros dígitos de um CEP anterior.
+    - Ficam só os resultados com o nome da rua dela.
+    - O número da casa escolhe a faixa, respeitando lado par e ímpar.
+    - Um CEP único vira o dela, e a Malu diz qual rua e cidade achou.
+    - Com vários CEPs, ela pergunta o número da casa. Sem a rua na base, sugere o buscador dos Correios.
+    - O mesmo CEP inexistente mandado de novo faz a Malu pedir rua e cidade, não "confere".
+  - *Caminhos que falharam* (revisão Opus):
+    - a busca casa por prefixo e "rua sete" achou a "Rua Setembrino";
+    - a escolha ignorava "lado par/ímpar";
+    - a lista do ViaCEP vem cortada em 50 e o outro lado da avenida pode ficar fora;
+    - o número mandado sozinho não era ligado à rua.
+  - *Guarda:* `tests/street-cep.test.ts`, mais as mutações `R28-rua-so-na-conversa-de-cep`, `R28-cep-repetido-pede-rua`,
+    `R28-faixa-de-numero`, `R28-rua-de-prefixo`, `R28-lado-par-impar` e `R28-lista-cortada`.
+  - *Mais três revisões Opus, cada uma com um caminho que gravaria CEP errado:*
+    - apto, casa e bloco eram lidos como o número da casa: agora saem antes, e vale o primeiro número;
+    - o "42" da calça, mandado na rajada, completava a rua: agora um número solto só completa quando a Malu pediu
+      "o número da casa";
+    - na correção dentro da mesma rajada valia a primeira rua: agora vale a última.
+
+    Mutações `R28-numero-do-apto`, `R28-calca-na-rajada-da-rua` e `R28-rua-corrigida-na-rajada`. No ar na `turn` v33.
+  - *Resíduos:* um CEP e a rua na mesma rajada ainda ouvem "confere" primeiro; "Rua A, 10, Cruz Alta" lê a cidade errada e
+    não acha nada (não gera CEP errado).
+
+**Links de pagamento (revisados em 19/10):** os 6 abrem (HTTP 200). O produto e a quantidade de cada um batem com o config: Logzz
+R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,84 / 272,79 com frete R$ 0,00 e até 12x.
+
+**Personas:** reescritas com a voz das 41 conversas reais, com 8 fichas novas de situações reais.
+
+**Resíduos:**
+- `"pedido 123 45678"` lê como CEP (hipotético, R21.6);
+- a ficha "loja física" espera decisão do operador;
+- só a oferta de 3 peças da Logzz tem "entrega garantida" ligada.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

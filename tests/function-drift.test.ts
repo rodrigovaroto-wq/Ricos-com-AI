@@ -24,6 +24,7 @@ const mirrored = [
   ["src/agent/opt-in.ts", "supabase/functions/turn/opt-in.ts"],
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
   ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
+  ["src/agent/funnel.ts", "supabase/functions/turn/funnel.ts"],
   ["src/channel/whatsapp.ts", "supabase/functions/whatsapp/whatsapp.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/whatsapp/inbound-signature.ts"],
   ["src/channel/inbound-signature.ts", "supabase/functions/turn/inbound-signature.ts"],
@@ -265,7 +266,8 @@ describe("ritmo humano da Edge Function", () => {
       .filter(({ linha }) => /^\s+reply: /.test(linha));
     expect(comReply.length).toBeGreaterThan(0);
     for (const { linha, i } of comReply) {
-      expect(`${linha} -> ${linhas[i + 1]}`).toContain("bubbles: paced(");
+      // R28: the script v3 sequences carry their own bubbles, media included (`sendFunnel`).
+      expect(`${linha} -> ${linhas[i + 1]}`).toMatch(/bubbles: (?:paced\(|sent\.bubbles)/);
     }
   });
 });
@@ -370,7 +372,9 @@ describe("rodada 3 na Edge Function", () => {
   it("sem pagamento na entrega, a diretiva diz a verdade de hoje — nada de frete grátis", () => {
     expect(source).not.toContain("frete grátis, e ainda sai mais barato");
     expect(source).not.toContain("saída boa");
-    expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
+    // R28: the no-delivery directive says the Correios path, and never that she pays at the door.
+    expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
+    expect(source).toContain("nunca diga que ela paga na entrega, ao entregador ou quando receber.");
   });
 
   it("o nome vai no link em caixa de nome, e o guardado fica como ela escreveu", () => {

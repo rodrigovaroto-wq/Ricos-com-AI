@@ -86,7 +86,8 @@ describe("fiação (index.ts lido como fonte)", () => {
   it("a resposta da agente, a linha fixa e a resposta adiada armam o toque quando terminam em pergunta", () => {
     expect(source).toContain("endsWithQuestion(replyText)");
     expect(source).toContain("endsWithQuestion(text)");
-    expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);");
+    // R28 (2026-10-19): the script v3 dropped "Ainda está aí?" — the flag still travels, and the ruler gets false.
+    expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);");
   });
   it("na mesma varredura ele vai primeiro, e o outro toque de silêncio da conversa fica para a próxima", () => {
     expect(sweep).toContain('Number(b.kind === "still_there") - Number(a.kind === "still_there")');

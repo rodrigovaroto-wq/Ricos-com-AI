@@ -42,6 +42,29 @@ describe("n8n: envio pela Cloud API", () => {
     expect(out[0]!.json.url).toBe(`https://graph.facebook.com/v21.0/${PHONE_NUMBER_ID}/messages`);
   });
 
+  // Script v3 (R28): the opening and the offer carry the recorded audios, the video and the images.
+  it("balão com mídia vira áudio, vídeo ou imagem pelo link, na ordem, e o texto vira legenda (nunca no áudio)", () => {
+    const out = run(live, [{ to: "5511", bubbles: [
+      { text: "Olá!", delayMs: 0 },
+      { text: "", delayMs: 2000, media: { kind: "audio", url: "https://x/funil/audio-1.ogg" } },
+      { text: "", delayMs: 2000, media: { kind: "video", url: "https://x/funil/video-1.mp4" } },
+      { text: "legenda", delayMs: 0, media: { kind: "image", url: "https://x/funil/preco.png" } },
+    ] }]) as Array<{ json: { payload: Record<string, unknown>; delaySec: number } }>;
+    expect(out.map((o) => o.json.payload.type)).toEqual(["text", "audio", "video", "image"]);
+    expect(out[1]!.json.payload.audio).toEqual({ link: "https://x/funil/audio-1.ogg" });
+    expect(out[3]!.json.payload.image).toEqual({ link: "https://x/funil/preco.png", caption: "legenda" });
+    expect(out[1]!.json.delaySec).toBe(2);
+  });
+
+  it("negação: mídia de tipo estranho ou link que não é https não sai como mídia", () => {
+    const out = run(live, [{ to: "5511", bubbles: [
+      { text: "", delayMs: 0, media: { kind: "document", url: "https://x/a.pdf" } },
+      { text: "", delayMs: 0, media: { kind: "image", url: "http://x/a.png" } },
+      { text: "só o texto", delayMs: 0, media: { kind: "sticker", url: "https://x/s.webp" } },
+    ] }]) as Array<{ json: { payload: Record<string, unknown> } }>;
+    expect(out.map((o) => o.json.payload.type)).toEqual(["text"]);
+  });
+
   it("toque da régua como template leva o nome, o idioma e as variáveis", () => {
     const [o] = run(live, [{ to: "5511", via: "template", name: "encorpa_retomada", language: "pt_BR", variables: ["R$ 129,90", 7] }]);
     expect(o!.json.payload).toEqual(templateMessage("5511", "encorpa_retomada", "pt_BR", ["R$ 129,90", "7"]));

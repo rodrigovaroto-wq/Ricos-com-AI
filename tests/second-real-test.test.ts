@@ -104,7 +104,8 @@ describe("C4 — nome, e-mail e CPF esperam o CEP", () => {
   });
 
   it("o CEP é pedido também quando ela já escolheu como paga, não só quando pede o link", () => {
-    expect(turn).toContain(': missing === "cep" && (linkDue || paymentChoice !== null)');
+    expect(turn).toContain(': missing === "cep" && cepDue');
+    expect(turn).toContain('const cepDue = linkDue || (paymentChoice !== null && ');
   });
 });
 
@@ -254,7 +255,7 @@ describe("C9 — o nome completo com partícula substitui o primeiro nome", () =
   });
 
   it("o turno passa o pedido do nome e do sobrenome", () => {
-    expect(turn).toContain("extractIdentityBurst(parts, asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound))");
+    expect(turn).toContain("const askedNameNow = asksForName(lastOutbound) || /\\bsobrenome\\b/i.test(lastOutbound);");
   });
 });
 
@@ -452,8 +453,11 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     }
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
-    expect(turn).toContain("if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {");
-    expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
+    expect(turn).toContain("const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));");
+    expect(turn).toContain("if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
+    // R28: the script v3 link message (`funnelLinkMessage`), fixed.
+    expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
+    expect(turn).toContain("sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }]");
   });
 });
 
@@ -609,10 +613,12 @@ describe("G66 — o link fixo lê oração por oração", () => {
 describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por conversa", () => {
   const blocked = (t: string, c: Record<string, unknown>, gate: string) =>
     runGates(t, ctx(c)).traces.some((x) => x.gate === gate && x.verdict === "block");
-  it("o terceiro pedido de CEP é vetado; o segundo não", () => {
+  // Since 2026-10-19 (operator, "a insistência no CEP"; persona Marcinha): never two in a row.
+  it("o segundo pedido seguido de CEP é vetado; o primeiro não", () => {
     expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
-    expect(blocked("Qual é o seu CEP?", { cepAsks: 2 }, "cep_insist")).toBe(true);
-    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 1 }, "cep_insist")).toBe(false);
+    expect(blocked("Qual é o seu CEP?", { cepAsks: 1 }, "cep_insist")).toBe(true);
+    expect(blocked("Me passa seu CEP? Aí eu já vejo como fica a entrega e o pagamento aí na sua região.", { cepAsks: 1 }, "cep_insist")).toBe(true);
+    expect(blocked("Tô aqui sim, me passa seu CEP?", { cepAsks: 0 }, "cep_insist")).toBe(false);
     expect(blocked("O CEP é aquele número de 8 dígitos do seu endereço.", { cepAsks: 2 }, "cep_insist")).toBe(false);
   });
   it("o segundo gancho é vetado; o primeiro passa", () => {
@@ -623,7 +629,7 @@ describe("decisões 17 e 18 (operador) — CEP no máximo 2 vezes, 1 gancho por 
     expect(blocked("Essa roupa que você ama vai ficar ótima com o colete.", { hookSent: true }, "hook_repeat")).toBe(false);
   });
   it("o turno conta os pedidos de CEP e o gancho nas respostas recentes", () => {
-    expect(turn).toContain("addressDraft.cep || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
+    expect(turn).toContain("addressDraft.cep || linkDue || wrongCep || cepNotFound\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),");
     expect(turn).toContain("hookSent: recentOutbound.some(isHook),");
   });
 });
@@ -643,7 +649,7 @@ describe("revisão do §66, B3 e B8", () => {
 describe("revisão do §66, B2 — a primeira resposta fixa também abre com a saudação", () => {
   it("o link fixo e o 'vou pensar' saem com a saudação quando são a primeira resposta", () => {
     expect(turn).toContain("const opening = (text: string): string => (greeting === null ? text : `${greeting}\\n\\n${text}`);");
-    expect(turn).toContain("opening(linkMessage(checkoutUrl,");
+    expect(turn).toContain("opening(v3Link(checkoutUrl))");
     expect(turn).toContain("thinkRepeated ? null : await sendFixed(\n      opening(");
     expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated ? null : await sendFixed("));
   });

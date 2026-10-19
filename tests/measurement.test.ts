@@ -110,6 +110,12 @@ describe("E2.4 cobertura guardada por CEP", () => {
     expect(cachedRegion({ ...region, checkedAt: "2026-10-13T03:10:00.000Z" }, "04710-090", at)).not.toBeNull();
   });
   it("CEP novo: consulta de novo", () => {
+    // R28: an answer for another size, or for any size once hers is known, is asked again.
+    expect(cachedRegion({ ...region, size: "GG" }, "04710-090", now, "G")).toBeNull();
+    expect(cachedRegion(region, "04710-090", now, "G")).toBeNull();
+    expect(cachedRegion({ ...region, size: "G" }, "04710-090", now, "G")).not.toBeNull();
+    // The M never answers: the answer asked for her M is still hers to reuse, or every turn asks the five sizes again.
+    expect(cachedRegion({ ...region, size: null, askedSize: "M" }, "04710-090", now, "M")).not.toBeNull();
     expect(cachedRegion(region, "01310-100", now)).toBeNull();
   });
   it("vencido (1 h ou mais), data inválida ou futura: consulta de novo", () => {
@@ -120,7 +126,7 @@ describe("E2.4 cobertura guardada por CEP", () => {
   });
   it("a turn só guarda região encontrada, nunca a consulta que falhou", () => {
     expect(source).toContain("if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };");
-    expect(source).toContain("const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now()) : null;");
+    expect(source).toContain("const cached = addressDraft.cep ? cachedRegion(storedAddress.region, addressDraft.cep, Date.now(), regionSize) : null;");
     expect(source).toMatch(/if \(cached\) region = cached;\n\s+else if \(addressDraft\.cep\) \{/);
     // The cache never travels into the order body or the link with the address.
     expect(source).toContain("delete (addressDraft as { region?: CachedRegion }).region;");

@@ -13,6 +13,59 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
+>
+> - **No ar:** `turn` **v33** (função v134), saudável.
+> - **v33:** o CEP que os Correios não acham é encontrado pela rua e pela cidade, pela busca do ViaCEP, e o número da casa escolhe a
+>   faixa (grafo §107, terceira rodada). Decisões do operador:
+>   - pode falar do pagamento na entrega antes do CEP, sempre condicionado à região;
+>   - a resposta sobre loja física já vem do config;
+>   - a "entrega garantida" do kit de 3 o operador corrige na Logzz.
+> - **Validação:**
+>   - quatro revisões Opus, até o aprovado;
+>   - 8329 testes; conversas 1655/1655;
+>   - gates sem afrouxamento não aceito;
+>   - mutações novas todas pegas;
+>   - personas 63/63, sem "me fala de novo" e sem CEP pedido duas vezes seguidas (fora o pedido depois de CEP não achado);
+>   - 41 leads reais intactas.
+> - **Corrigido:**
+>   - "nem pagando frete a mais" não é mais vetado;
+>   - o CEP escrito "306 72000" é lido;
+>   - o CEP terminado em 000 "pode ser o geral da cidade";
+>   - a recusa do CEP é respeitada;
+>   - o CEP nunca é pedido duas mensagens seguidas;
+>   - a dúvida de pagamento com todas as reescritas vetadas recebe resposta fixa do config, e não "me fala de novo";
+>   - o nome vem só de texto digitado;
+>   - o telefone do link de checkout ganha o nono dígito que o WhatsApp tira (32 de 41 leads reais).
+> - **Links de pagamento:** os 6 abrem e batem com o config (§107).
+> - **Personas:** reescritas com a voz das 41 conversas reais, mais 8 fichas novas.
+> - **Abertas com o operador:**
+>   - falar do pagamento na entrega antes do CEP;
+>   - ficha "loja física";
+>   - "entrega garantida" ligada só no kit de 3 da Logzz;
+>   - o tamanho G em São Paulo está sem estoque de entrega na Coinzz (consulta de 19/10, 17h30), e lá a Malu manda os dois links;
+>   - o texto aprovado para os dois links diz "consulta instável" também quando a consulta respondeu "não".
+
+> **2026-10-19 — roteiro v3 NO AR (R28, grafo §105–§106; sessão `claude/vibrant-faraday-kcxtt1`).**
+>
+> - **No ar:** `turn` **v30** (função v128); n8n "WhatsApp envio" com mídia (versão ativa `2b401580`); `BUSINESS_CONFIG` =
+>   `docs/operacao/business-config-2026-10-19.min.json` (SHA-256 `8a5005eb…`); mídias no Storage, bucket público `funil`.
+> - **Origem:** o primeiro teste com anúncio (16 a 19/10) teve 33 conversas, 0 links e 0 pedidos. A análise está em
+>   `docs/agente-ia/06-script/07-script-v3-funil-validado.md`.
+> - **Cobertura (v28):** a consulta perguntava só pelo G, que saiu do estoque de SP, e toda cliente de capital ouvia "não tem
+>   entrega". Agora pergunta os 5 tamanhos e vale o tamanho dela.
+> - **Roteiro v3:**
+>   - abertura fixa com os áudios 1 e 2, o vídeo, as avaliações e a tabela;
+>   - oferta fixa depois do CEP (com o áudio 4 onde há entrega);
+>   - os dois checkouts quando a cidade está na lista da Logzz e a consulta diz não ou falha;
+>   - link só com o nome;
+>   - sem "Ainda está aí?" e sem a pergunta de ofertas.
+> - **Validação:** duas revisões Opus no v3 e cinco na cobertura, até o aprovado; 8258 testes; conversas 1655/1655; gates sem afrouxamento
+>   não aceito; 16/16 mutações R28; personas 55/55 (relatórios em `docs/agente-ia/10-auditoria/personas-2026-10-19/`).
+> - **Resíduos:** grafo §106, fim. O principal é o `shipping_promise` vetando "nem pagando frete a mais", anterior ao v3.
+> - **Fora do código:** o sócio troca a mensagem pronta do anúncio para "Olá, tenho interesse no colete cinta modeladora!" e
+>   segmenta o anúncio para as cidades da lista. No teste, 11 de 12 CEPs estavam fora da entrega.
+
 > **2026-10-17 — economia por pedido atualizada (R27, grafo §104; só documentação, sem código nem deploy).** Decisão do operador
 > (confirmada em 15 e 17/10): a transação do COD é 6,99% **da comissão** + R$ 2,49, então a margem do COD entregue é **R$ 67,18 / 135,94 /
 > 180,53** (1 / 2 / 3 peças; era R$ 63,35 / 130,01 / 172,50); antecipado sem mudança (R$ 77,92 / 136,14 / 169,15); recusa R$ 9,99 sem
