@@ -4653,12 +4653,12 @@ const MUTATIONS: Mutation[] = [
     id: "E12-excecao-derruba-job",
     bug: "uma resposta HTML (302) da Coinzz derrubava o job health em vez de marcar o CEP como falho",
     files: ["src/agent/availability.ts"],
-    // Two layers since the BrasilAPI fallback (2026-10-19): the lookup absorbs a throwing CEP base, and the sweep still catches.
-    from: '.catch((): RegionLookup => ({ kind: "failed" }))',
-    to: "",
+    // Four layers since the BrasilAPI/Logzz work (2026-10-19): the sweep, `lookupRegion`, the per-size ask and the CEP bases.
+    from: 'lookupRegion(fetcher, cep, null, logzz).catch((): RegionLookup => ({ kind: "failed" }))',
+    to: "lookupRegion(fetcher, cep, null, logzz)",
     also: [
-      { from: 'const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\\D/g, "")}/json/`).catch(() => null);', to: 'const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\\D/g, "")}/json/`);' },
-      { from: 'readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\\D/g, "")}`).catch(() => null))', to: 'readBrasilPlace(await fetcher(`${BRASILAPI_CEP_ENDPOINT}/${zip.replace(/\\D/g, "")}`))' },
+      { from: "  lookupRegionUnsafe(fetcher, zip, size, logzz).catch((): RegionLookup => ({ kind: \"failed\" }));", to: "  lookupRegionUnsafe(fetcher, zip, size, logzz);" },
+      { from: "askSize(fetcher, zip, place, s).catch(() => undefined)", to: "askSize(fetcher, zip, place, s)" },
     ],
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
