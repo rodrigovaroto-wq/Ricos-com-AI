@@ -3839,8 +3839,8 @@ const MUTATIONS: Mutation[] = [
     id: "troca-gratis-sem-flag-turno",
     bug: "a resposta fixa dizia troca sem custo com a chave ausente",
     files: ["supabase/functions/turn/index.ts"],
-    from: "CONFIG.returns?.freeExchange === true)",
-    to: "CONFIG.returns?.freeExchange !== false)",
+    from: "CONFIG.returns?.freeExchange === true, supportName(CONFIG))",
+    to: "CONFIG.returns?.freeExchange !== false, supportName(CONFIG))",
     guard: ["pnpm", "-s", "vitest", "run", "tests/post-sale-logzz.test.ts"],
   },
   {
