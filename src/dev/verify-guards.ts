@@ -4754,8 +4754,8 @@ const MUTATIONS: Mutation[] = [
     id: "E12-fetcher-proprio",
     bug: "o alarme consultava com um fetch seu, sem os cabeçalhos da conversa: verde com a conversa quebrada",
     files: ["supabase/functions/turn/index.ts"],
-    from: "checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS)",
-    to: "checkCoverage(async (url) => { const r = await fetch(url, { signal: AbortSignal.timeout(REGION_TIMEOUT_MS) }); return r.ok ? await r.json() : null; }, COVERAGE_ALARM_CEPS)",
+    from: "checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS, logzzIdsOf(CONFIG.checkout))",
+    to: "checkCoverage(async (url) => { const r = await fetch(url, { signal: AbortSignal.timeout(REGION_TIMEOUT_MS) }); return r.ok ? await r.json() : null; }, COVERAGE_ALARM_CEPS, logzzIdsOf(CONFIG.checkout))",
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
   },
   {
