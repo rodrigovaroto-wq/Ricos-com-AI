@@ -4536,6 +4536,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
   },
   {
+    id: "LZ-campo-vazio-nao-e-zero",
+    bug: "um campo vazio da Logzz virava 'estoque zero' (Number('') é 0) e dizia 'sem entrega' (3ª revisão, 19/10)",
+    files: ["src/agent/availability.ts"],
+    from: 'typeof x === "string" && x.trim() !== "" ? Number(x) : NaN',
+    to: 'Number(x)',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/logzz-region.test.ts"],
+  },
+  {
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],

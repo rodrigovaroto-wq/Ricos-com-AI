@@ -370,7 +370,9 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
     const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
     const size = LOGZZ_SIZE[label.trim().toUpperCase()];
     // A product is understood only whole: its size, a list of operations, and for each a whole operation id and a quantity.
-    const stock = Array.isArray(p?.stock_per_operations) ? p.stock_per_operations.map((o) => ({ op: Number(o?.operation_id), qty: Number(o?.quantity) })) : null;
+    // A number, or a text that holds one: an empty field is not a zero (`Number("")` and `Number(null)` are 0, review).
+    const num = (x: unknown): number => (typeof x === "number" ? x : typeof x === "string" && x.trim() !== "" ? Number(x) : NaN);
+    const stock = Array.isArray(p?.stock_per_operations) ? p.stock_per_operations.map((o) => ({ op: num(o?.operation_id), qty: num(o?.quantity) })) : null;
     if (!size || stock === null || stock.some((o) => !Number.isInteger(o.op) || !Number.isFinite(o.qty))) {
       unreadable = true;
       continue;
@@ -430,7 +432,7 @@ const lookupLogzzUnsafe = async (
   // Her size decides when known: no stock of hers where she lives is no delivery for her, whatever the other sizes hold. But
   // "no stock" is said only of a size the answer spoke of clearly: hers unreadable (renamed, malformed) is an unknown.
   const ops = [...new Set(size !== null ? stock.bySize[size] ?? [] : Object.values(stock.bySize).flat())];
-  if (ops.length === 0) return size !== null ? (stock.seen.has(size) ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
+  if (ops.length === 0) return size !== null ? (stock.seen.has(size) && !stock.unreadable ? { kind: "found", region: none } : { kind: "failed", place }) : stock.unreadable ? { kind: "failed", place } : { kind: "found", region: none };
   const q = new URLSearchParams(where);
   for (const id of ops) q.append("operation_ids[]", String(id));
   // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not

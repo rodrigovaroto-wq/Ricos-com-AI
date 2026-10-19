@@ -269,6 +269,11 @@ describe("só se nega o que se entendeu (2ª revisão Opus)", () => {
     ["campo de estoque renomeado", stockOf([{ product_name: "Cinta-G", stocks: [{ operation_id: 9, quantity: 180 }] }]), failedSP],
     ["operation_id que não é número", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "x", quantity: 180 }] }]), failedSP],
     ["quantidade ilegível", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: "muito" }] }]), failedSP],
+    ["quantidade vazia", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: null }] }]), failedSP],
+    ["quantidade em branco", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: "" }] }]), failedSP],
+    ["operação vazia", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: null, quantity: 180 }] }]), failedSP],
+    ["operação em branco", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: "", quantity: 180 }] }]), failedSP],
+    ["o mesmo tamanho em dois produtos, um ilegível", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: 0 }] }, { product_name: "Cinta-G", stocks: [{ operation_id: 4, quantity: 50 }] }]), failedSP],
     ["o tamanho dela renomeado e os outros lidos (XGG → EXG)", stockOf([{ product_name: "Cinta-G", stock_per_operations: [{ operation_id: 9, quantity: 5 }] }, { product_name: "Cinta-EXG", stock_per_operations: [{ operation_id: 9, quantity: 5 }] }]), { kind: "failed" }],
   ])("estoque: %s", async (name, stock, want) => {
     const size = name.startsWith("o tamanho dela") ? "XGG" : "G";
