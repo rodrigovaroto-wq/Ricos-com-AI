@@ -1460,6 +1460,8 @@ const RETRY_REGION_TIMEOUT_MS = 5_000;
 /** The one fetcher of every region lookup — the turn's and the coverage alarm's (E1.2), so the alarm sees what she gets. */
 const regionFetcher = (timeoutMs: number): Fetcher => async (url, headers) => {
   const r = await fetch(url, { headers, signal: AbortSignal.timeout(timeoutMs) });
+  // Only a 404 is "nothing here" (the M's, R28); a 429 or a 5xx is a lookup that failed, never a size without stock.
+  if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);
   return r.ok ? await r.json() : null;
 };
 

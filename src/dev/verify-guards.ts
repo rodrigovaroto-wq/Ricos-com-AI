@@ -4197,6 +4197,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/availability.test.ts"],
   },
   {
+    id: "R28-429-nao-e-sem-estoque",
+    bug: "um 429 ou 5xx no tamanho dela virava 'tamanho sem resposta', e a entrega de outro tamanho ficava no cache dela por uma hora",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "  if (!r.ok && r.status !== 404) throw new Error(`region lookup HTTP ${r.status}`);\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-health.test.ts"],
+  },
+  {
     id: "G67-ok-sozinho",
     bug: "um 'ok' sozinho ganhava resposta ('Que bom que fez sentido…', 'Que bom, aí quando concluir…')",
     files: ["src/agent/followups.ts"],
