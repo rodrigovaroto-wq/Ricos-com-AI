@@ -2241,7 +2241,8 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
       casos (operador).
     - **Prova social:** "mais de 500 clientes satisfeitas" e "124 avaliações positivas", juntas.
     - **Mensagem pronta do anúncio:** "Olá, tenho interesse no colete cinta modeladora!" (o sócio troca no Meta Ads).
-    - **"Reduz até 3 tamanhos":** a Malu diz que o colete reduz até 3 tamanhos na hora; só quando a cliente perguntar se emagrece
-      mesmo, ela diz que emagrece enquanto você usa. **Supera** a regra 1 de "As três coisas que você nunca inventa" do prompt
+    - **"Reduz até 3 tamanhos"** (ajustado pelo operador no mesmo dia): a Malu confirma o que o áudio 1 diz, sempre amarrado ao uso:
+      "enquanto você usa, emagrece e pode reduzir até 3 números de calça". Ela **não** escreve que o colete emagrece por si nem que a
+      cliente perde peso. **Supera** a regra 1 de "As três coisas que você nunca inventa" do prompt
       (Emagrecimento) e os gates que vetam promessa de redução de medida. A troca do gate segue o R21.6 (frase real) e o
       `pnpm dev:gates`, com o afrouxamento aceito em `tests/gate-loosen-accepted.txt`.
