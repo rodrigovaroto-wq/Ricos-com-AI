@@ -4,6 +4,7 @@ import {
   AVAILABILITY_HEADERS,
   availabilityQuery,
   checkRegion,
+  lookupRegion,
   toRegion,
   hasPendingCod,
   readAvailability,
@@ -288,6 +289,20 @@ describe("região", () => {
       return yes;
     }, "01310-100", "G");
     expect(r).toBeNull();
+  });
+
+  // Operator, 2026-10-19: a failed lookup in a city where the Logzz delivers still sends both checkouts — the city is kept.
+  it("a consulta que falha guarda a cidade do ViaCEP", async () => {
+    const r = await lookupRegion(async (url) => {
+      if (url.includes("viacep")) return { localidade: "Campinas", uf: "SP", bairro: "Centro" };
+      throw new Error("fetch failed");
+    }, "13060-789");
+    expect(r).toEqual({ kind: "failed", place: { city: "Campinas", state: "SP", district: "Centro" } });
+  });
+
+  it("negação: sem o ViaCEP, a falha não inventa cidade", async () => {
+    const r = await lookupRegion(async () => null, "13060-789");
+    expect(r).toEqual({ kind: "failed" });
   });
 
   it("sem tamanho, o G decide primeiro quando G e GG entregam em datas diferentes", async () => {

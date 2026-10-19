@@ -226,7 +226,8 @@ describe("§4a: sem âncora (leitura falhou), a régua sai sem silence_3", () =>
 describe("§R10.4: o lembrete de checkout é armado e morre com a venda e com a resposta", () => {
   const source = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("a régua recebe o ponto de parada e, no adiamento, o toque adiado", () => {
-    expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, askedQuestion), sentAt);");
+    // R28: no "Ainda está aí?" — the question flag no longer arms it.
+    expect(source).toContain("const ruler = oncePerDay(rulerFor(from, stopPoint, postponed, linkInReply, anchors, false), sentAt);");
     expect(source).toContain("            opening,\n            kind,\n          );");
   });
   // L2 (grafo §67): the checkout touch is anchored on the link — her messages after it no longer cancel it.

@@ -267,7 +267,8 @@ describe("L2 — e-mail só no antecipado: nome → e-mail → CPF", () => {
   });
   it("a função de produção pede o e-mail só no antecipado e não o grava no lead", () => {
     const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-    expect(turn).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore');
+    // R28 (2026-10-19): no e-mail on either path — the checkout asks it.
+    expect(turn).toContain("emailDone: true,");
     expect(turn).toContain("...(linkPath === \"prepay\" && chatEmail ? { email: chatEmail } : {})");
     // Stored again since 2026-10-09 (operator).
     expect(turn).toContain("identity: { ...identityDraft, ...(leadEmail ? { email: leadEmail } : {}) },");
@@ -295,8 +296,8 @@ describe("L2 — o prompt (anotações 1, 2, 3, 5, 6 e a pergunta no fim)", () =
 
   it("a ressalva vira argumento e só quando o assunto chega perto", () => {
     expect(prompt).not.toContain("Diga isso quando o assunto chegar perto.");
-    expect(prompt).toContain("Nunca solte isso como ressalva numa mensagem sobre outra coisa");
-    expect(prompt).toContain("Ele não promete milagre: modela na hora que você veste");
+    // R28: the slimming while worn is confirmed, never a caveat.
+    expect(prompt).toContain("Diga isso com confiança: é o resultado que ela vê no espelho na hora.");
   });
 
   it("variação de palavras, pergunta no último balão, região antes do CEP, devolver se não gostar, sem detalhe do entregador", () => {
@@ -366,7 +367,7 @@ describe("L2 — revisão Opus (achados 3 a 8)", () => {
 describe("L2 — revisão Opus (achados 1, 2, 6 e 8, na função de produção)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
   it("1. depois de um link, o antecipado não espera o e-mail", () => {
-    expect(turn).toContain("emailDone: linkPath !== \"prepay\" || chatEmail !== null || refusedDatum(recent, \"email\") >= 1 || linkBefore || pressed,");
+    expect(turn).toContain("emailDone: true,");
   });
   it("2. as frases do pagamento saem a qualquer hora (camada auto), sem cair no handoff do pós-venda", () => {
     expect(turn).toContain('await sendFixed(deadline ? `${line}\\n\\n${deadline}` : line, `pagamento: ${payment}`, "prepay", {}, false, 1, "auto")');

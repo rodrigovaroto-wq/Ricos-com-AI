@@ -212,3 +212,49 @@ export const funnelLinkMessage = (
   const there = path === "cod" ? "Lá você só completa o endereço." : "Lá você completa o endereço e vê o frete.";
   return `${head}\n\n${url}\n\n${there}${kitLine}`;
 };
+
+// "Santa Bárbara d'Oeste", "Ceará-Mirim": accents, apostrophes and hyphens never decide a match.
+const plain = (s: string): string =>
+  s.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[^a-z0-9/]+/g, " ").replace(/\s*\/\s*/g, "/").trim();
+
+/**
+ * Where the Logzz delivers, by the operator's list ("Campinas/SP"): the lookup said no delivery, but the city has it as a
+ * rule, so the "no" may be the lookup's (operator, 2026-10-19). Absent or empty list: never.
+ */
+export const isLikelyCodCity = (place: { city: string; state: string } | undefined, list: readonly string[] | undefined): boolean =>
+  !!place && !!list?.some((c) => plain(c) === plain(`${place.city}/${place.state}`));
+
+/**
+ * The lookup said no, the city usually has it: both checkouts, told apart at a glance — green for the door, blue for paying
+ * now — and she checks in the first one whether the delivery shows up for her (operator, 2026-10-19). No audio 4: the
+ * delivery is not confirmed. Sent right after the CEP, before her name.
+ */
+export const bothLinksBubbles = (
+  config: FunnelConfig,
+  city: string,
+  codUrl: string,
+  prepayUrl: string,
+  size: string | null,
+): FunnelBubble[] => {
+  const m = config.funnel?.media ?? {};
+  const n = config.prices.prepayMaxInstallments;
+  return [
+    ...media(m.price, "image", FUNNEL_LABELS.price),
+    {
+      text: [
+        OFFER_HEADLINE(config),
+        `${city} costuma ter pagamento na entrega, mas a nossa consulta de CEP está instável agora e não conseguiu confirmar pra você 😕`,
+        `Por isso vou te mandar os dois links${size ? ` do ${size}` : ""}, e você confere direto no checkout 💛`,
+      ].join("\n"),
+    },
+    {
+      text: `🟢 1) PAGAR SÓ NA ENTREGA · ${money(config.prices.codBrl)} · frete grátis\nVocê não paga nada agora: paga ao entregador, no dinheiro, Pix ou cartão\n${codUrl}`,
+    },
+    {
+      text: `🔵 2) PAGAR AGORA NO PIX OU CARTÃO · ${money(config.prices.prepayBrl)} (${config.prices.prepayDiscountPercent}% de desconto)${n && n > 1 ? ` · até ${n}x` : ""}\nVai pelos Correios, com rastreio\n${prepayUrl}`,
+    },
+    {
+      text: `Abre primeiro o link 🟢: se aparecer o dia da entrega pra escolher, é só finalizar por lá. Se não aparecer a entrega pra sua região, usa o link 🔵: o colete chega no conforto da sua casa do mesmo jeito, com a mesma segurança e ${config.delivery.warrantyDays} dias pra trocar ou devolver 💛`,
+    },
+  ];
+};

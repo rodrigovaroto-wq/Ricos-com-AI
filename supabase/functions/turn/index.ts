@@ -169,7 +169,9 @@ import {
   type NextAction,
 } from "./retry.ts";
 import {
+  bothLinksBubbles,
   firstMessageNeedsAnswer,
+  isLikelyCodCity,
   funnelLinkMessage,
   type FunnelBubble,
   type FunnelMedia,
@@ -398,6 +400,11 @@ interface BusinessConfig extends GateConfig {
   support?: { email?: string };
   socialProof?: { satisfiedCustomers?: number; reviews?: number };
   store?: { physicalStorePlanCity?: string };
+  /**
+   * `likelyCities` ("Campinas/SP"): where the Logzz delivers as a rule. A lookup that says no there sends both checkouts
+   * (operator, 2026-10-19). OPTIONAL — absent: the lookup's answer stands.
+   */
+  cod: GateConfig["cod"] & { likelyCities?: string[] };
   /** Script v3 (R28): the public URLs of the recorded audios, the video and the images. OPTIONAL — absent: text only. */
   funnel?: { media?: FunnelMedia };
   /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
@@ -880,8 +887,17 @@ const regionDirectiveFor = (
   region: Pick<Region, "cod" | "sameDay"> | null,
   choice: "cod" | "prepay" | null,
   agreedOnly = false,
+  /** The lookup said no where the Logzz delivers as a rule: both checkouts went (operator, 2026-10-19). */
+  unconfirmed = false,
 ): string | null => {
   if (region === null) return null;
+  void agreedOnly;
+  if (!region.cod && unconfirmed) {
+    return `A consulta do CEP dela não confirmou o pagamento na entrega, mas a cidade dela costuma ter, e a consulta está` +
+      ` instável: o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela perguntar, peça` +
+      ` pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do mesmo jeito,` +
+      ` com a mesma segurança. Não mande os links de novo, a não ser que ela peça.`;
+  }
   if (!region.cod) {
     return `A consulta do CEP dela respondeu: ali o colete vai pelos Correios, no pagamento antecipado (não existe pagamento na` +
       ` entrega na região dela). A oferta do antecipado já foi enviada pelo sistema, com o desconto: não repita a oferta,` +
@@ -3681,6 +3697,8 @@ const handleTurn = async (
    * failure: silence about the size beats a size she cannot receive.
    */
   let region: Region | null = null;
+  // The city of a CEP whose lookup failed (ViaCEP answered, Coinzz did not): where the Logzz delivers, both checkouts.
+  let failedPlace: { city: string; state: string } | null = null;
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
   let cepNotFound = false;
   let badCep: string | null = null;
@@ -3704,6 +3722,7 @@ const handleTurn = async (
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
         .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize) : first));
       region = lookup.kind === "found" ? lookup.region : null;
+      failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);
@@ -4131,6 +4150,26 @@ const handleTurn = async (
   // missing). With the name already in, the link goes with it. The model never presents "the two options" any more.
   const v3Link = (url: string) =>
     funnelLinkMessage(CONFIG, url, linkPath, identityDraft.name ?? null, units > 1 ? null : stated?.size ?? lead.size ?? null, units > 1 ? units : 1);
+  // The lookup said no — or failed — where the Logzz delivers as a rule: both checkouts, right after the CEP (operator,
+  // 2026-10-19). Outside the list, a "no" is the prepaid offer below, and a failure is the model's unknown region.
+  const unconfirmedPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;
+  if (unconfirmedPlace !== null && isLikelyCodCity(unconfirmedPlace, CONFIG.cod.likelyCities) && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {
+    const pieces = units > 1 ? units : 1;
+    const urlOf = (path: "cod" | "prepay") =>
+      pieces > 1 ? kits.find((k) => k.path === path && k.units === pieces)?.checkoutUrl : path === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl;
+    try {
+      const cod = buildPrefilledCheckoutLink(linkCustomer, "cod", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+      const prepay = buildPrefilledCheckoutLink(linkCustomer, "prepay", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
+      const sent = await sendFunnelTurn(
+        bothLinksBubbles(CONFIG, unconfirmedPlace.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null),
+        "roteiro v3: entrega não confirmada, dois links",
+        { checkoutUrl: prepay, linkFact },
+      );
+      if (sent) return sent;
+    } catch {
+      // A checkout URL missing from the config: the offer below goes as for a region without delivery.
+    }
+  }
   if (region !== null && !offerWasSent(recentOutbound, CONFIG) && !farewell && !withdrew) {
     const sent = await sendFunnelTurn(
       [
@@ -4261,7 +4300,12 @@ const handleTurn = async (
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities)),
+      failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
+        ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
+          ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
+          ` mesmo jeito. Não mande os links de novo, a não ser que ela peça.`
+        : null,
       codLinkVoid
         ? `O link que você mandou antes era do pagamento na entrega, mandado quando a consulta do CEP dela ainda não tinha respondido.` +
           ` Diga primeiro, numa frase, que aquele link não serve — por exemplo:` +

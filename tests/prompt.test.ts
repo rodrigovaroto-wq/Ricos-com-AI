@@ -671,7 +671,9 @@ describe("sem bordão e sem a mesma pergunta em toda mensagem", () => {
     expect(prompt).toContain("Você não viu a roupa: nunca diga que a roupa é linda, maravilhosa");
     expect(prompt).toContain("A roupa dela aparece no máximo duas vezes na conversa inteira.");
     expect(prompt).toContain("Não modela quadril nem bumbum");
-    expect(prompt).toContain("um vídeo de uma cliente usando o colete");
+    // R28: the opening sent the video; she is never told "não mando foto".
+    expect(prompt).toContain("o vídeo de uma cliente vestindo o colete");
+    expect(prompt).toContain("Nunca diga que não manda foto.");
   });
 });
 
@@ -1046,18 +1048,14 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
     });
   });
 
-  describe("CPF → nota fiscal, e nada inventado sobre o dado", () => {
-    // Operator, 2026-10-07: no "como a lei pede", and the reason once.
-    const CPF = "Para a emissão da nota fiscal, me passa seu CPF por favor?";
-    it("ensina a frase e ela passa a cadeia", () => {
-      teachesAndPasses(CPF);
+  describe("CPF → não é pedido (R28, operador, 2026-10-19)", () => {
+    it("nunca pede CPF nem e-mail, e o CPF mandado por conta própria vai pro checkout", () => {
+      expect(own(FULL)).toContain("NUNCA peça CPF nem e-mail: o checkout pede o que faltar.");
+      expect(own(FULL)).not.toContain("Para a emissão da nota fiscal, me passa seu CPF por favor?\" O CPF é o último");
     });
-    it("proíbe outro motivo e afirmação sobre onde o dado fica", () => {
+    it("se ela perguntar por que o CPF, o motivo é um só e nada inventado", () => {
       expect(own(FULL)).toContain("motivo uma vez só, não invente outro e não diga onde o dado fica ou deixa de ficar guardado.");
       expect(own(FULL)).not.toMatch(/como a (?:lei|legisla)/);
-    });
-    it("a linha existe mesmo sem nenhuma chave nova no config", () => {
-      expect(own(base)).toContain(`"${CPF}"`);
     });
   });
 
@@ -1065,8 +1063,8 @@ describe("as perguntas que mais aparecem, cada uma lendo o config", () => {
     // The Logzz checkout has no e-mail field (operator, 2026-10-06): "o checkout pede lá" was false.
     it("não pede e-mail, e não diz que o checkout pede", () => {
       // L2 (2026-10-08): only on the prepaid path, whose checkout requires it.
-      expect(own(FULL)).toContain("No pagamento na entrega você NÃO pede e-mail.");
-      expect(own(FULL)).toContain("só no antecipado, o e-mail, entre o nome e o CPF");
+      // R28: no e-mail on either path.
+      expect(own(FULL)).toContain("NUNCA peça CPF nem e-mail");
       expect(own(FULL)).not.toContain("o checkout pede o e-mail lá");
       expect(own(FULL)).not.toMatch(/o e-mail pra completar o cadastro/);
     });
@@ -1102,7 +1100,9 @@ describe("verdades de dinheiro que não mudam com a adaptação", () => {
   it.each(corners)("preço, desconto, frete e emagrecimento seguem no prompt ($name)", ({ config }) => {
     const prompt = flat(build(config));
     expect(prompt).toContain(`Preço: ${money(config.prices.codBrl)} pago na entrega ao entregador`);
-    expect(prompt).toContain("NÃO emagrece");
+    // R28: slims while worn, up to 3 pants sizes; never weight loss, never after taking it off.
+    expect(prompt).toContain("Enquanto você usa, emagrece e pode reduzir até 3 números de calça");
+    expect(prompt).toContain("Nunca diga que o colete emagrece por si");
     expect(prompt).toContain("Preço, desconto ou cupom que não existem.");
     if (freeNowhere(config)) expect(prompt).not.toMatch(AFFIRMS_FREE_SHIPPING);
     else if (config.delivery.freeShipping !== true) expect(freeOnlyOnDelivery(prompt)).toBe(true);
@@ -1214,7 +1214,8 @@ describe("fatos do colete (operador, 2026-10-06)", () => {
     expect(prompt).toContain("Barbatana não tem nenhuma, nem de metal nem de plástico.");
     expect(prompt).toContain("Cor: só preto, por enquanto.");
     expect(prompt).toContain("boleto não tem");
-    expect(prompt).toContain("não liste formas de pagamento");
+    // R28: the courier takes cash, Pix or card (operator, 2026-10-19).
+    expect(prompt).toContain("no dinheiro, no Pix ou no cartão");
     // The unconfirmed methods are gone from the price line (F14).
     expect(prompt).not.toContain("em dinheiro ou cartão");
   });
@@ -1246,9 +1247,9 @@ describe("os dados antes do link, e o tamanho escolhido no checkout", () => {
 
   it("as cinco coisas, a ordem, o CPF recusado duas vezes e o tamanho no checkout", () => {
     const prompt = own(withKits);
-    expect(prompt).toContain("Antes do link você precisa de quatro coisas: o tamanho, o CEP, o nome completo e o CPF — e, só no antecipado, o e-mail");
-    expect(prompt).toContain("depois que ela escolher o pagamento, nessa ordem, um por mensagem");
-    expect(prompt).toContain("Se ela não quiser passar algum dado (nome, e-mail ou CPF), diga que não tem problema, sem insistir, e siga: o que faltar ela preenche no checkout.");
+    // R28: size, CEP and full name — nothing else.
+    expect(prompt).toContain("Antes do link você precisa de três coisas: o tamanho, o CEP e o nome completo.");
+    expect(prompt).toContain("diga que não tem problema, sem insistir: ela preenche no checkout.");
     expect(prompt).toContain(`No checkout ela completa o endereço e escolhe o tamanho dela — diga com o tamanho, tipo "lá você escolhe o M".`);
     expect(prompt).toContain("Você NÃO pede endereço, só o CEP");
   });
@@ -1285,16 +1286,14 @@ describe("público ainda não convencido: valor e segurança antes da oferta", (
 describe("o kit depois da escolha do pagamento e antes dos dados", () => {
   const withKits: PromptConfig = { ...variant(false, true), kits: EXAMPLE_KITS };
 
-  it("o caminho ensina pagamento → kit → dados, e sem kit no config o kit não aparece", () => {
+  // R28: the kits ride in the link message; the path is size → CEP → (offer) → name → (link).
+  it("o caminho do v3 e o kit na mensagem do link; sem kit no config o kit não aparece", () => {
     const prompt = flat(build(withKits));
-    const choice = prompt.indexOf("a escolha dela → o kit, oferecido uma vez → nome completo e CPF");
-    expect(choice).toBeGreaterThan(-1);
-    expect(prompt).toContain("logo depois que ela escolher como paga e antes de pedir os dados");
+    expect(prompt).toContain("o número da calça e o tamanho → o CEP → (o sistema manda");
+    expect(prompt).toContain("O sistema já oferece os kits na mensagem do link");
     expect(prompt).toContain("o link é o checkout do kit, e lá ela escolhe o tamanho de cada peça");
     const none = flat(build({ ...withKits, kits: [] }));
-    expect(none).not.toContain("o kit, oferecido uma vez");
     expect(none).not.toContain("KITS —");
-    expect(none).toContain("a escolha dela → nome completo e CPF → o link");
   });
 
   it.each([

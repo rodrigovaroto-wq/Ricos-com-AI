@@ -133,7 +133,7 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("a correção sai só no turno em que a consulta descobre a falta de entrega (revisão Opus: o modelo pode dizer de outro jeito)", () => {
     // `storedAddress` é o lead do começo do turno: o turno seguinte já o lê com `codAvailable: false` e a diretiva não volta.
     expect(turn.indexOf("const storedAddress = (lead.address ?? {})")).toBeLessThan(turn.indexOf("const codLinkVoid ="));
-    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly\),\n\s+codLinkVoid/);
+    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity\(region\.place, CONFIG\.cod\.likelyCities\)\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
   });
 
   it("a frase que a diretiva ensina passa a cadeia de gates sem entrega na região, nos dois caminhos", () => {

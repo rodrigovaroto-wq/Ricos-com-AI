@@ -283,7 +283,8 @@ export const toRegion = (
  * she is told it was not found and asked to check it), or a lookup that failed — the network, a Coinzz
  * answer without `data` — which says nothing about her region.
  */
-export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed" };
+/** A failed lookup keeps the place when ViaCEP answered: a city where the Logzz delivers gets both checkouts (2026-10-19). */
+export type RegionLookup = { kind: "found"; region: Region } | { kind: "not_found" } | { kind: "failed"; place?: Place };
 
 export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null): Promise<RegionLookup> => {
   const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`);
@@ -298,9 +299,9 @@ export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | n
   const bodies = await Promise.all(REGION_SIZES.map((s) => askSize(fetcher, zip, place, s).catch(() => undefined)));
   // Her own size failing in transit is an unknown region, as before: another size's delivery is never kept for her
   // for an hour on a timeout (third review). The short second try and L2 take it from there.
-  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === undefined) return { kind: "failed" };
+  if (size !== null && bodies[REGION_SIZES.indexOf(size)] === undefined) return { kind: "failed", place };
   const answers = REGION_SIZES.flatMap((s, i) => (answered(bodies[i]) ? [readAvailability(s, bodies[i])] : []));
-  if (answers.length === 0) return { kind: "failed" };
+  if (answers.length === 0) return { kind: "failed", place };
   // Her size, answered, is the truth for her: the G in São Paulo is not promised on the GG's stock (R28 review).
   const hers = answers.find((a) => a.size === size);
   if (hers) return { kind: "found", region: toRegion(zip, place, hers, size) };

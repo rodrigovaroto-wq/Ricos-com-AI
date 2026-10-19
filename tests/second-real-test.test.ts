@@ -453,7 +453,9 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
     expect(turn).toContain("if (checkoutUrl !== null && !farewell && !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q))) {");
-    expect(turn).toContain("linkMessage(checkoutUrl, linkPath,");
+    // R28: the script v3 link message (`funnelLinkMessage`), fixed.
+    expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
+    expect(turn).toContain("sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }]");
   });
 });
 
@@ -643,7 +645,7 @@ describe("revisão do §66, B3 e B8", () => {
 describe("revisão do §66, B2 — a primeira resposta fixa também abre com a saudação", () => {
   it("o link fixo e o 'vou pensar' saem com a saudação quando são a primeira resposta", () => {
     expect(turn).toContain("const opening = (text: string): string => (greeting === null ? text : `${greeting}\\n\\n${text}`);");
-    expect(turn).toContain("opening(linkMessage(checkoutUrl,");
+    expect(turn).toContain("opening(v3Link(checkoutUrl))");
     expect(turn).toContain("thinkRepeated ? null : await sendFixed(\n      opening(");
     expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated ? null : await sendFixed("));
   });

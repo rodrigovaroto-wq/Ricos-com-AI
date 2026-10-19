@@ -68,12 +68,12 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   it("as condições entram no link e no 'vou pensar' (e-mail só no antecipado desde 2026-10-08)", () => {
     expect(source).toContain('const cpfRefusals = refusedAsks(recent, "document");');
     expect(source).toContain("cepKnown: Boolean(addressDraft.cep) && !cepNotFound,");
-    expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion?.cod === false,");
+    // R28: the region settles the path; only the full name is asked.
+    expect(source).toContain("pathSettled: paymentChoice !== null || knownRegion !== null,");
     expect(source).toContain("nameKnown: Boolean(identityDraft.name) || nameRefused || pressed,");
     // L2 (2026-10-08): the e-mail is waited for on the prepaid path only, refused once is enough.
-    expect(source).toContain('emailDone: linkPath !== "prepay" || chatEmail !== null || refusedDatum(recent, "email") >= 1 || linkBefore || pressed,');
-    // 2026-10-09: one refusal in words is enough; two unanswered asks still are.
-    expect(source).toContain("cpfDone: Boolean(identityDraft.document) || cpfRefused || cpfRefusals >= 2 || pressed,");
+    expect(source).toContain("emailDone: true,");
+    expect(source).toContain("cpfDone: true,");
     expect(source).toContain("const linkReady = sendLinkNow({ ...linkData, yesBesideQuestion });");
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
     expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
@@ -93,9 +93,11 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),");
-    expect(source).toContain("ali a transportadora ainda não tem pagamento na entrega");
-    expect(source).toContain("apresente as duas opções, como no PAGAMENTO");
+    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
+    // R28: the offer is fixed; the model never presents two options.
+    expect(source).toContain("Não apresente duas opções nem repita a oferta");
+    expect(source).not.toContain("apresente as duas opções, como no PAGAMENTO");
     expect(source).not.toContain("saída boa");
   });
 

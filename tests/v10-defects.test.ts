@@ -93,9 +93,9 @@ describe("2. 'sim' às duas opções sem escolher: confirma a entrega (agreesWit
     // agreesWithoutChoosing não lê "a com desconto"; a fiação acima é quem guarda o prepay do intérprete
     expect(agrees("sim, a com desconto", "Qual das duas fica melhor pra você?")).toBe(true);
     expect(source.indexOf("const choiceToStore = pathChoiceToStore(")).toBeLessThan(source.indexOf("const agreedOnly ="));
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly),");
-    expect(source).toContain("deixe no pagamento na entrega e confirme com estas palavras:");
-    expect(source).toContain("` \"${DEFAULT_COD_CONFIRM}\" Não apresente as duas opções de novo.`");
+    // R28: the two options are no longer presented, so there is no "sim" to them to confirm; the prepaid choice still holds.
+    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain("mas ela escolheu o antecipado: siga no");
     expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });
 });

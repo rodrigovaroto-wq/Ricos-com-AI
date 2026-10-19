@@ -1324,9 +1324,9 @@ const gates: readonly Gate[] = [
     name: "weight_loss_claim",
     remedy: "rewrite",
     briefing: () =>
-      `Nunca diga que o produto emagrece, queima ou elimina gordura, nem que o resultado é ` +
-      `permanente. Ele modela enquanto está vestido. Dizer isso em voz alta é permitido e vende: ` +
-      `ela já ouviu promessa de emagrecimento antes e reconhece quem não mente.`,
+      `Nunca diga que o produto emagrece por si, que ela perde peso, queima ou elimina gordura, nem que o ` +
+      `resultado é permanente. O que é verdade, e você confirma quando ela perguntar se emagrece (R28): ` +
+      `"enquanto você usa, emagrece e pode reduzir até 3 números de calça" — sempre amarrado ao uso.`,
     check: (text) => {
       const t = norm(text);
       // Verb endings vary ("queima", "queimar", "queimando"), so match the stem.
@@ -1341,11 +1341,19 @@ const gates: readonly Gate[] = [
         /resultado\s+permanente/g,
       ];
 
+      // R28 (operator, 2026-10-19): the recorded audio says the vest slims while worn, and the agent confirms it in those
+      // words — "enquanto você usa, emagrece e pode reduzir até 3 números de calça". Only "emagrec" with the wearing in
+      // the same sentence; never beside weight, fat or permanence, which stay the lie of a body that changes.
+      const WORN = /\b(?:enquanto\s+(?:voce\s+|vc\s+)?(?:usa|usar|estiver?\s+(?:com\s+ele|usando|vestida)|esta\s+(?:com\s+ele|usando|vestida)|veste|vestir)|na\s+hora\s+que\s+(?:voce\s+|vc\s+)?(?:veste|vestir|coloca|colocar|usa|usar)|vestid[ao])\b/;
+      const BODY = /\b(?:peso|quilos?|kg|gordura|pra\s+sempre|para\s+sempre|permanente\w*|definitiv\w*|de\s+vez\b(?!\s+em\s+quando)|depois\s+que\s+tira\w*|sem\s+ele)\b/;
       for (const pattern of claims) {
         for (const match of t.matchAll(pattern)) {
-          if (match.index !== undefined && !negatedAt(t, match.index)) {
-            return "claims the product changes the body, not the fit";
+          if (match.index === undefined || negatedAt(t, match.index)) continue;
+          if (pattern === claims[0]) {
+            const sentence = sentenceAt(t, match.index);
+            if (WORN.test(sentence) && !BODY.test(sentence)) continue;
           }
+          return "claims the product changes the body, not the fit";
         }
       }
       return null;
