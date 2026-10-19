@@ -92,11 +92,54 @@ describe("Logzz: a região pelo estoque e pelos dias do próprio checkout", () =
     expect(l).toMatchObject({ kind: "failed", place: { city: "São Paulo", state: "SP" } });
   });
 
-  it("estoque confirmado e os dias falhando: há entrega, sem data pra prometer", async () => {
-    for (const days of [new TypeError("fetch failed"), http(500, null), { status: "error" }, { status: "success", data: [] }]) {
-      const l = await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS);
-      expect(l).toMatchObject({ kind: "found", region: { cod: true, dates: [] } });
+  // Stock without a confirmed window is no promise and no denial: an unknown is a failed lookup, with the place kept.
+  it.each([
+    ["rede caída", new TypeError("fetch failed")],
+    ["500", http(500, null)],
+    ["erro desconhecido", { status: "error", msg: "Erro interno." }],
+    ["dados como objeto (array PHP sem array_values)", { status: "success", data: { "0": { dates: [{ date: "2026-10-20" }] } } }],
+    ["dados sem status", { data: [] }],
+  ])("negação — estoque confirmado e os dias com '%s': consulta que falhou", async (_, days) => {
+    const l = await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS);
+    expect(l).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
+  });
+
+  it("os dias: janela fechada ou o 'não atende' da Logzz é sem entrega", async () => {
+    for (const days of [{ status: "success", data: [] }, http(400, NOT_IN_LIST)]) {
+      expect(await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "found", region: { cod: false } });
     }
+  });
+
+  it.each([
+    ["janela nula", { status: "success", data: [null] }],
+    ["datas que não são lista", { status: "success", data: [{ dates: "2026-10-20" }] }],
+    ["datas nulas", { status: "success", data: [{ dates: [null, { date: 5 }] }] }],
+  ])("negação — resposta torta dos dias (%s) nunca lança", async (_, days) => {
+    const l = await lookupRegion(world({ days }).fetcher, "04710090", "G", IDS);
+    expect(["found", "failed"]).toContain(l.kind);
+  });
+
+  it("o tamanho vem da variação quando o nome do produto muda", async () => {
+    const stock = {
+      status: "success",
+      data: {
+        groups: [{ variations: [{ variation_id: 1, variation_name: "G" }, { variation_id: 2, variation_name: "GG" }] }],
+        products: [
+          { product_name: "Colete Tamanho G", variations_combination: [1], stock_per_operations: [{ operation_id: 9, quantity: 5 }] },
+          { product_name: "Colete Tamanho GG", variations_combination: [2], stock_per_operations: [{ operation_id: 9, quantity: 0 }] },
+        ],
+      },
+    };
+    expect(await lookupRegion(world({ stock }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "found", region: { cod: true } });
+    expect(await lookupRegion(world({ stock }).fetcher, "04710090", "GG", IDS)).toMatchObject({ kind: "found", region: { cod: false } });
+  });
+
+  it.each([
+    ["nenhum produto reconhecido", { status: "success", data: { products: [{ product_name: "Colete Modelador", stock_per_operations: [{ operation_id: 9, quantity: 9 }] }] } }],
+    ["lista de produtos vazia", { status: "success", data: { products: [] } }],
+    ["produtos nulos", { status: "success", data: { products: [null, 5] } }],
+  ])("negação — estoque que não deu pra entender (%s) é consulta que falhou, nunca 'sem entrega'", async (_, stock) => {
+    expect(await lookupRegion(world({ stock }).fetcher, "04710090", "G", IDS)).toMatchObject({ kind: "failed", place: { city: "São Paulo" } });
   });
 
   it("o expresso do dia só vale quando a Logzz diz que é do mesmo dia", async () => {
@@ -153,4 +196,30 @@ describe("os ids da oferta da Logzz", () => {
   });
   it.each([["outra oferta", "https://entrega.logzz.com.br/pay/outra-oferta"], ["sem checkout", ""]])("negação — %s: sem ids, a Coinzz como antes", (_, codUrl) =>
     expect(logzzIdsOf(codUrl ? { codUrl } : undefined)).toBeNull());
+});
+
+describe("a garantia: o que a Logzz mandar, a consulta resolve e nunca lança", () => {
+  // Garbage in every slot of both answers, deterministic: strings, numbers, nulls, lists, objects, PHP-style index objects.
+  const junk = (n: number): unknown[] => [
+    null, undefined, 0, 1, -1, NaN, "", "x", "<html>403</html>", true, [], [null], [{}], {}, { status: "success" }, { status: "error" },
+    { status: "success", data: null }, { status: "success", data: "x" }, { status: "success", data: { products: "x" } },
+    { status: "success", data: { products: [{ product_name: 5, stock_per_operations: "x" }] } },
+    { status: "success", data: { groups: "x", products: [{ variations_combination: "x", stock_per_operations: [null, { quantity: "9" }] }] } },
+    { status: "success", data: { products: [{ product_name: "x-G", stock_per_operations: [{ operation_id: "9", quantity: 5 }] }] } },
+    { status: "success", data: [{ dates: [{}] }, 7] }, { status: "error", msg: 5 }, { status: "error", msg: { a: 1 } },
+    http(400, "x"), http(400, { status: "error" }), http(0, null), new Error("x"), new DOMException("t", "TimeoutError"),
+  ].slice(n % 3, undefined);
+  it("estoque e dias com lixo: sempre found ou failed, nunca exceção", async () => {
+    for (const stock of junk(0)) {
+      for (const days of junk(1)) {
+        for (const viacep of [{ localidade: "São Paulo", uf: "SP" }, { erro: true }, "x", null, 5, [], new Error("x")]) {
+          for (const size of [null, "G", "XGG"] as const) {
+            const w = world({ stock: stock instanceof Error ? stock : stock ?? { status: "success", data: { products: [] } }, days, viacep, brasil: stock });
+            const l = await lookupRegion(w.fetcher, "04710090", size, IDS);
+            expect(["found", "failed", "not_found"]).toContain(l.kind);
+          }
+        }
+      }
+    }
+  });
 });

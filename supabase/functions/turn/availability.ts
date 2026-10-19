@@ -349,18 +349,32 @@ const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.bod
 export const readLogzzStock = (body: unknown): { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>> } | null => {
   const b = body as {
     status?: string;
-    data?: { products?: Array<{ product_name?: string; stock_per_operations?: Array<{ operation_id?: number; quantity?: number }> }> };
+    msg?: string;
+    data?: {
+      groups?: Array<{ variations?: Array<{ variation_id?: number; variation_name?: string }> }>;
+      products?: Array<{ product_name?: string; variations_combination?: number[]; stock_per_operations?: Array<{ operation_id?: number; quantity?: number }> }>;
+    };
   } | null;
-  if (b?.status === "error") return NOT_SERVED.test((b as { msg?: string }).msg ?? "") ? { cod: false } : null;
+  if (b?.status === "error") return NOT_SERVED.test(typeof b.msg === "string" ? b.msg : "") ? { cod: false } : null;
   if (b?.status !== "success" || !Array.isArray(b.data?.products)) return null;
+  // The size of a product: by its variation (the answer carries the id → name table), else by the name's last piece.
+  const variation = new Map<number, string>();
+  for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
   const bySize: Partial<Record<Size, number[]>> = {};
-  for (const p of b.data.products) {
-    const size = LOGZZ_SIZE[(p.product_name ?? "").split("-").pop()?.trim().toUpperCase() ?? ""];
+  let understood = 0;
+  for (const p of b.data!.products!) {
+    const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
+    const size = LOGZZ_SIZE[label.trim().toUpperCase()];
     if (!size) continue;
-    const ops = (p.stock_per_operations ?? []).filter((o) => (o.quantity ?? 0) > 0 && typeof o.operation_id === "number").map((o) => o.operation_id!);
+    understood++;
+    const ops = (Array.isArray(p.stock_per_operations) ? p.stock_per_operations : [])
+      .filter((o) => Number(o?.quantity) > 0 && typeof o.operation_id === "number")
+      .map((o) => o.operation_id!);
     if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
   }
-  return { cod: true, bySize };
+  // An answer none of whose products could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
+  // tell the whole country there is no delivery. Unknown is a failed lookup; the health probe says so within 15 minutes.
+  return understood === 0 ? null : { cod: true, bySize };
 };
 
 /**
@@ -372,7 +386,19 @@ const KNOWN_LOGZZ_OFFERS: Readonly<Record<string, LogzzIds>> = { "ccm-1-unidade"
 export const logzzIdsOf = (checkout: { codUrl?: string; logzz?: LogzzIds } | undefined): LogzzIds | null =>
   checkout?.logzz ?? KNOWN_LOGZZ_OFFERS[(checkout?.codUrl ?? "").split("?")[0]!.replace(/\/+$/, "").split("/").pop() ?? ""] ?? null;
 
-const lookupLogzz = async (
+/** The delivery days of the operations that hold her size: `null` is an answer not understood, `[]` a window that is closed. */
+const readLogzzDays = (body: unknown): { dates: string[]; sameDay: boolean } | null => {
+  const b = body as { status?: string; data?: unknown } | null;
+  if (b?.status !== "success" || !Array.isArray(b.data)) return null;
+  const windows = b.data.filter((w): w is RawWindow => typeof w === "object" && w !== null);
+  const first = windows[0];
+  return {
+    dates: (Array.isArray(first?.dates) ? first!.dates : []).flatMap((d) => (typeof d?.date === "string" && d.date ? [d.date] : [])),
+    sameDay: windows.some((w) => Boolean(w.deliverySameDay)),
+  };
+};
+
+const lookupLogzzUnsafe = async (
   fetcher: Fetcher,
   zip: string,
   place: Place,
@@ -381,8 +407,6 @@ const lookupLogzz = async (
   ids: LogzzIds,
 ): Promise<RegionLookup> => {
   const where = { city: place.city, uf: place.state, cep: zip.replace(/\D/g, ""), ...(neighborhood ? { neighborhood } : {}), sale_id: ids.saleId };
-  // Never throws: a Logzz that is down, challenged or confused is "unknown region" with the place kept, so a likely
-  // city still gets both checkouts. It never falls back to the Coinzz query, the one that said "no delivery" in São Paulo.
   const stock = await fetcher(
     `${LOGZZ_BASE}/ajax/get-available-stock-for-schedule?${new URLSearchParams({ product_id: ids.productId, ...where })}`,
     AVAILABILITY_HEADERS,
@@ -397,26 +421,20 @@ const lookupLogzz = async (
   if (ops.length === 0) return { kind: "found", region: none };
   const q = new URLSearchParams(where);
   for (const id of ops) q.append("operation_ids[]", String(id));
-  // The days are the second question: stock confirmed and the days failing is delivery without a date to promise.
-  const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS).catch(() => null);
-  const windows = (days as { status?: string; data?: RawWindow[] } | null)?.status === "success"
-    ? ((days as { data?: RawWindow[] }).data ?? [])
-    : [];
-  const first = windows[0];
-  return {
-    kind: "found",
-    region: {
-      zip,
-      place,
-      cod: true,
-      dates: (first?.dates ?? []).flatMap((d) => (d.date ? [d.date] : [])),
-      sameDay: windows.some((w) => Boolean(w.deliverySameDay)),
-      labelBrl: null,
-      size,
-      askedSize: size,
-    },
-  };
+  // The days are the second question. Stock without a confirmed window is not a delivery to promise (a date, "amanhã") and not
+  // a denial either: unless the Logzz itself says it does not serve the address, an unknown is a failed lookup.
+  const days = await fetcher(`${LOGZZ_BASE}/ajax/get-delivery-days-options-by-operations-ids?${q}`, AVAILABILITY_HEADERS)
+    .then(readLogzzDays)
+    .catch((e) => (NOT_SERVED.test(String((errorBody(e) as { msg?: unknown } | null)?.msg ?? "")) ? { dates: [], sameDay: false, closed: true } : null));
+  if (days === null) return { kind: "failed", place };
+  if ("closed" in days || days.dates.length === 0) return { kind: "found", region: none };
+  return { kind: "found", region: { zip, place, cod: true, dates: days.dates, sameDay: days.sameDay, labelBrl: null, size, askedSize: size } };
 };
+
+/** Never throws, whatever the Logzz sends: a failure keeps the place, so a likely city still gets both checkouts. It never falls
+ * back to the Coinzz query, the one that said "no delivery" in São Paulo (operator, 2026-10-19). */
+const lookupLogzz = (...a: Parameters<typeof lookupLogzzUnsafe>): Promise<RegionLookup> =>
+  lookupLogzzUnsafe(...a).catch((): RegionLookup => ({ kind: "failed", place: a[2] }));
 
 export const lookupRegion = async (fetcher: Fetcher, zip: string, size: Size | null = null, logzz: LogzzIds | null = null): Promise<RegionLookup> => {
   const viacep = await fetcher(`${VIACEP_ENDPOINT}/${zip.replace(/\D/g, "")}/json/`).catch(() => null);

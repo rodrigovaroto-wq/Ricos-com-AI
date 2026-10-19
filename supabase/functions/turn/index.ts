@@ -3782,7 +3782,7 @@ const handleTurn = async (
       )
         .catch((): RegionLookup => ({ kind: "failed" }))
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
-        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)) : first));
+        .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
