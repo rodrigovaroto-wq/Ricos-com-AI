@@ -4206,6 +4206,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-lookups.test.ts"],
   },
   {
+    id: "LK-uma-linha-por-conversa",
+    bug: "uma linha por mensagem: um só cliente com CEP que falha, escrevendo cinco vezes, dispararia o alarme da cobertura",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'await db("coverage_lookups?on_conflict=conversation_id", {',
+    to: 'await db("coverage_lookups", {',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-lookups.test.ts"],
+  },
+  {
+    id: "LK-purge-da-tabela",
+    bug: "a tabela das consultas cresceria para sempre, sem leitor depois da primeira hora",
+    files: ["supabase/migrations/0028_coverage_lookups.sql"],
+    from: "  delete from public.coverage_lookups where created_at < now() - interval '1 day';\n",
+    to: "",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-lookups.test.ts"],
+  },
+  {
     id: "LK-alarme-minimo",
     bug: "uma única consulta falha na hora seria alarme falso: sem o mínimo de cinco, o e-mail dispara por ruído",
     files: ["src/agent/availability.ts"],
