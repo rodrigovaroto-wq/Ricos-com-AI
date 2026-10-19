@@ -3796,9 +3796,15 @@ const handleTurn = async (
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
       if (!isRetry && !isRevise) {
-        await db("coverage_lookups", {
+        // One row per conversation, the last answer wins: a lead whose CEP keeps failing is one failure, not one per message (review of §111).
+        await db("coverage_lookups?on_conflict=conversation_id", {
           method: "POST",
-          body: JSON.stringify({ outcome: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind }),
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            outcome: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind,
+            created_at: new Date().toISOString(),
+          }),
         }).catch(() => undefined);
       }
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };

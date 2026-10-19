@@ -25,8 +25,14 @@ describe("lookupsDegraded (grafo §111)", () => {
 import { readFileSync } from "node:fs";
 describe("turn records and reads the lookups", () => {
   const src = readFileSync("supabase/functions/turn/index.ts", "utf8");
-  it("inserts one row per real lookup, not per retry or revision", () => {
-    expect(src).toMatch(/if \(!isRetry && !isRevise\) \{\s*await db\("coverage_lookups"/);
+  it("upserts one row per conversation, not per retry, revision or message", () => {
+    expect(src).toMatch(/if \(!isRetry && !isRevise\) \{[^}]*?await db\("coverage_lookups\?on_conflict=conversation_id"/s);
+    expect(src).toContain("conversation_id: conversation.id");
+  });
+  it("the migration keys the table by conversation and purges it", () => {
+    const sql = readFileSync("supabase/migrations/0028_coverage_lookups.sql", "utf8");
+    expect(sql).toMatch(/conversation_id uuid primary key/);
+    expect(sql).toContain("delete from public.coverage_lookups where created_at < now() - interval '1 day'");
   });
   it("health job reads the last hour and folds it into the status", () => {
     expect(src).toContain("coverage_lookups?created_at=gte.");
