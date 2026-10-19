@@ -3475,6 +3475,31 @@ que o v3 removeu de propósito:
 - `G67-recusa-do-cpf`: o CPF não é mais pedido;
 - `R26-cep-esquecido-kit-segue`: o kit vai na oferta fixa.
 
+**Terceira rodada (decisões do operador, 19/10, noite):**
+- **Pagamento na entrega antes do CEP:** pode ser mencionado, sempre condicionado à região ("dependendo da sua região"). A
+  ficha `pago-na-entrega-sim` deixou de proibir a frase canônica.
+- **Loja física:** a resposta já existia (`store.physicalStorePlanCity` no config e `storeBriefing` no prompt). Ganhou a ficha
+  `loja-fisica`.
+- **"Entrega garantida" só no kit de 3 da Logzz:** o operador corrige na plataforma.
+- **CEP que os Correios não conhecem.**
+  - *Sintoma:* "confere o CEP" quatro vezes à mesma cliente (ficha `idosa-desabafo`).
+  - *Correção:* a busca de rua do ViaCEP.
+    - O estado vem do que ela escreveu, ou dos três primeiros dígitos de um CEP anterior.
+    - Ficam só os resultados com o nome da rua dela.
+    - O número da casa escolhe a faixa, respeitando lado par e ímpar.
+    - Um CEP único vira o dela, e a Malu diz qual rua e cidade achou.
+    - Com vários CEPs, ela pergunta o número da casa. Sem a rua na base, sugere o buscador dos Correios.
+    - O mesmo CEP inexistente mandado de novo faz a Malu pedir rua e cidade, não "confere".
+  - *Caminhos que falharam* (revisão Opus):
+    - a busca casa por prefixo e "rua sete" achou a "Rua Setembrino";
+    - a escolha ignorava "lado par/ímpar";
+    - a lista do ViaCEP vem cortada em 50 e o outro lado da avenida pode ficar fora;
+    - o número mandado sozinho não era ligado à rua.
+  - *Guarda:* `tests/street-cep.test.ts`, mais as mutações `R28-rua-so-na-conversa-de-cep`, `R28-cep-repetido-pede-rua`,
+    `R28-faixa-de-numero`, `R28-rua-de-prefixo`, `R28-lado-par-impar` e `R28-lista-cortada`.
+  - *Resíduos:* um CEP e a rua na mesma rajada ainda ouvem "confere" primeiro; "Rua A, 10, Cruz Alta" lê a cidade errada e
+    não acha nada (não gera CEP errado).
+
 **Links de pagamento (revisados em 19/10):** os 6 abrem (HTTP 200). O produto e a quantidade de cada um batem com o config: Logzz
 R$ 129,90 / 233,82 / 311,76 com frete a cargo da loja, e Coinzz R$ 116,91 / 207,84 / 272,79 com frete R$ 0,00 e até 12x.
 

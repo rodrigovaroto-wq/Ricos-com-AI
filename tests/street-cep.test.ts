@@ -4,7 +4,7 @@
  */
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { pickStreetCep, streetQueries, ufOfCep } from "@/agent/address.js";
+import { pickStreetCep, sameStreet, streetQueries, ufOfCep } from "@/agent/address.js";
 import { cepsByStreet } from "@/agent/availability.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
@@ -31,6 +31,12 @@ describe("a rua e a cidade dela", () => {
   it("sem separador, cada divisão é uma candidata", () =>
     expect(streetQueries("rua marechal floriano cruz alta").map((q) => q.city)).toContain("cruz alta"));
   it.each(["meu cep é 98005020", "tá bom", "uso 42", ""])("negação — sem rua: %s", (t) => expect(streetQueries(t)).toEqual([]));
+  // Review of the street search (2026-10-19).
+  it("a rajada rua + número lida junta acha o número", () =>
+    expect(streetQueries(["rua marechal floriano, cruz alta", "120"].join(" "))[0]).toMatchObject({ street: "rua marechal floriano", city: "cruz alta", number: "120" }));
+  it("o número antes de 'de' é o nome da rua", () =>
+    expect(streetQueries("Rua 7 de Setembro 450, Natal RN")[0]).toMatchObject({ street: "rua 7 de Setembro", number: "450", state: "RN" }));
+  it("negação — 'ap' depois do número é o apartamento, não o Amapá", () => expect(streetQueries("Rua Augusta 100 ap")[0]?.state).toBeNull());
 });
 
 describe("o CEP da casa dela pela faixa de número", () => {
@@ -40,6 +46,15 @@ describe("o CEP da casa dela pela faixa de número", () => {
   );
   it("negação — sem número, uma rua de vários CEPs não vira CEP nenhum", () => expect(pickStreetCep(MARECHAL, null)).toBeNull());
   it("uma rua de um CEP só não precisa de número", () => expect(pickStreetCep([{ cep: "98005-200", complement: "" }], null)).toBe("98005-200"));
+  it.each([["301", "01311-000"], ["300", "01310-000"]])("lado par e ímpar: %s → %s", (n, cep) =>
+    expect(pickStreetCep([{ cep: "01310-000", complement: "até 610 - lado par" }, { cep: "01311-000", complement: "até 609 - lado ímpar" }], n)).toBe(cep));
+  it("negação — lista cortada em 50 nunca vira CEP", () =>
+    expect(pickStreetCep(Array.from({ length: 50 }, (_, i) => ({ cep: `01310-${String(i).padStart(3, "0")}`, complement: `de ${i * 10} a ${i * 10 + 9}` })), "305")).toBeNull());
+  it("só a rua dela: a busca por prefixo não troca a rua", () => {
+    expect(sameStreet("rua sete", "Rua Setembrino Faria da Rosa")).toBe(false);
+    expect(sameStreet("rua marechal floriano", "Rua Marechal Floriano Peixoto")).toBe(true);
+    expect(sameStreet("avenida paulista", "Avenida Paulista")).toBe(true);
+  });
   it("negação — prédio com CEP próprio só pelo número exato", () =>
     expect(pickStreetCep([{ cep: "01311-921", complement: "1159" }, { cep: "01311-925", complement: "1415" }], "1000")).toBeNull());
 });
@@ -62,7 +77,8 @@ describe("a busca no ViaCEP", () => {
 
 describe("a turn (index.ts lido como fonte)", () => {
   it("só busca respondendo à conversa de CEP ou rua, e o CEP achado vira o dela", () => {
-    expect(turn).toContain('const streetAsk = addressDraft.cep || !/\\b(?:cep|rua)\\b/i.test(lastOutbound)');
+    expect(turn).toContain('const streetAsk = addressDraft.cep || !/\\b(?:cep|rua|n[uú]mero)\\b/i.test(lastOutbound)');
+    expect(turn).toContain(".filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)))");
     expect(turn).toContain("const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;");
     expect(turn).toContain("foundAddress.fields.cep = streetCep;");
   });

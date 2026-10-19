@@ -84,6 +84,7 @@ import {
   remarkBesideCep,
   parseCep,
   pickStreetCep,
+  sameStreet,
   streetQueries,
   ufOfCep,
   CORREIOS_CEP_URL,
@@ -3709,14 +3710,16 @@ const handleTurn = async (
   const herEarlier = herRecent(recentRows ?? [], spoken);
   const bareNumber = parts.join(" ").match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1] ?? null;
   // Only answering the agent's own talk of a CEP or a street: "fui na rua comprar" is no address.
-  const streetAsk = addressDraft.cep || !/\b(?:cep|rua)\b/i.test(lastOutbound)
+  const streetAsk = addressDraft.cep || !/\b(?:cep|rua|n[uú]mero)\b/i.test(lastOutbound)
     ? []
     : bareNumber === null
-    ? streetQueries(parts.join("\n"))
+    ? streetQueries(parts.join(" "))
     : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
   const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
   const streetFound = streetAsk.length > 0 && streetState
-    ? await cepsByStreet(regionFetcher(REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
+    ? (await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => []))
+      // Only her street: the search matches by prefix ("rua sete" found "Rua Setembrino", review).
+      .filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)))
     : null;
   const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;
   if (streetCep) {
@@ -4413,7 +4416,8 @@ const handleTurn = async (
       streetFound === null || streetAsk.length === 0
         ? null
         : streetCep
-        ? `Pelo nome da rua que ela mandou, o CEP dela é ${streetCep}: diga numa frase que você achou o CEP dela, sem pedir CEP.`
+        ? `Pelo nome da rua que ela mandou, o CEP dela é ${streetCep} (${streetFound.find((f) => f.cep === streetCep)?.street ?? ""},` +
+          ` ${streetFound.find((f) => f.cep === streetCep)?.city ?? ""}): diga numa frase que achou o CEP dela, com o nome da rua e a cidade, sem pedir CEP.`
         : streetFound.length > 0 && streetAsk[0]!.number === null
         ? `A rua dela (${streetFound[0]!.street}, ${streetFound[0]!.city}) tem mais de um CEP, conforme o número da casa: pergunte só` +
           ` o número da casa dela, sem pedir o CEP.`
@@ -4423,8 +4427,11 @@ const handleTurn = async (
         : streetFound.length > 0
         ? `A rua dela tem muitos CEPs e o número não fechou um só: diga que ela acha o dela pelo endereço no buscador dos Correios:` +
           ` ${CORREIOS_CEP_URL}. Não invente CEP.`
-        : `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
-          ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`,
+        // Only when the agent asked her street: "moro na rua de baixo" after a CEP talk is no street to look for (review).
+        : /\brua\b/i.test(lastOutbound)
+        ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
+          ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`
+        : null,
       cepRefused
         ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
           ` a dúvida).` +

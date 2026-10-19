@@ -397,15 +397,19 @@ export const streetQueries = (text: string): StreetQuery[] => {
   const kindKey = m[1]!.toLowerCase().replace(/\.$/, "").replace("ç", "c");
   const kind = STREET_KIND[kindKey] ?? m[1]!.toLowerCase().replace(/\.$/, "");
   let rest = m[2]!.replace(/\b\d{5}[-.\s]?\d{3}\b/g, " ");
-  const number = rest.match(/(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b/i)?.[1] ?? null;
+  // A number before "de" is the street's name ("Rua 7 de Setembro", review): the house number is the last other one.
+  const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
+  const number = [...rest.matchAll(HOUSE)].at(-1)?.[1] ?? null;
   let state: State | null = null;
-  const uf = rest.match(/(?:[\s,/\-–]+)([A-Za-z]{2})\s*[.!]*\s*$/);
+  // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
+  const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
   if (uf && (STATES as readonly string[]).includes(uf[1]!.toUpperCase())) {
     state = uf[1]!.toUpperCase() as State;
     rest = rest.slice(0, uf.index);
   }
   const pieces = rest
-    .split(/\s*,\s*|\s+-\s+|\s+em\s+|(?:\bn[º°o.]?\s*)?\b\d{1,5}\b/i)
+    .split(new RegExp(String.raw`\s*,\s*|\s+-\s+|\s+em\s+|${HOUSE.source}`, "i"))
+    .filter((p): p is string => typeof p === "string" && !/^\d+$/.test(p))
     .map((p) => clean(p.replace(/\b(?:bairro|cidade(?:\s+de)?|moro|na|no)\b/gi, " ")))
     .filter((p) => p.length > 1);
   if (pieces.length === 0) return [];
@@ -423,16 +427,30 @@ export const streetQueries = (text: string): StreetQuery[] => {
 
 /**
  * The one CEP of her street for her house number, from the Correios' ranges ("até 227/228", "de 229/230 a 1524/1525",
- * "de 1526/1527 ao fim"; a building's own CEP is its number). A street with one CEP needs no number. Anything that
- * does not narrow to one is null: the agent shows the options instead of guessing a CEP.
+ * "de 1526/1527 ao fim", "lado par/ímpar"; a building's own CEP is its number), never from a list cut at 50 (the other
+ * side of the avenue may be past the cut, review). The caller keeps only her street first (`sameStreet`: the search
+ * matches by prefix, "rua sete" found "Rua Setembrino"). A street with one CEP needs no number. Anything that does
+ * not narrow to one is null: the agent shows the options instead of guessing a CEP.
  */
-export const pickStreetCep = (found: ReadonlyArray<{ cep: string; complement: string }>, number: string | null): string | null => {
+const plainWords = (s: string): string[] =>
+  s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase().split(/[^a-z0-9]+/).filter((w) => w.length > 2 && !/^(?:rua|avenida|travessa|alameda|estrada|rodovia|praca|dos|das)$/.test(w));
+export const sameStreet = (typed: string, found: string): boolean => {
+  const have = new Set(plainWords(found));
+  return plainWords(typed).every((w) => have.has(w));
+};
+export const pickStreetCep = (
+  found: ReadonlyArray<{ cep: string; complement: string }>,
+  number: string | null,
+): string | null => {
+  if (found.length >= 50) return null;
   const ceps = [...new Set(found.map((f) => f.cep))];
   if (ceps.length === 1) return ceps[0]!;
   if (number === null) return null;
   const n = Number(number);
   const fits = found.filter(({ complement: c }) => {
     const t = c.toLowerCase();
+    if (/lado\s+par\b/.test(t) && n % 2 !== 0) return false;
+    if (/lado\s+[ií]mpar\b/.test(t) && n % 2 === 0) return false;
     const nums = [...t.matchAll(/\d+/g)].map((x) => Number(x[0]));
     if (/^\s*at[eé]\s+\d/.test(t)) return n <= nums[0]!;
     if (/^\s*de\s+\d[^a]*\bao\s+fim\b/.test(t)) return n >= nums[0]!;
