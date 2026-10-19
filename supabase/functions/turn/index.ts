@@ -4382,7 +4382,7 @@ const handleTurn = async (
         ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
           ` a dúvida).` +
           // Said once (review): the turn checks it, not the model's memory of "uma vez só".
-          (recentOutbound.some((m: string) => /\bcep\b[^.!?]*\b(?:serve|s[oó])\b[^.!?]*entrega/i.test(m))
+          (recentOutbound.some((m: string) => /\bcep\b[^.!?]*(?<!\p{L})(?:serve|s[oó])(?!\p{L})[^.!?]*entrega/iu.test(m))
             ? ""
             : ` Diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`)
         : cepForgotten

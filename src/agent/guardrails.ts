@@ -2739,8 +2739,9 @@ const gates: readonly Gate[] = [
             claims.push({ at });
         }
         // "Nem pagando frete a mais" refuses a faster delivery for more money (persona Rafa, 2026-10-19): only the infinitive
-        // or gerund of paying MORE is blanked, so "você não paga frete a mais" stays the claim it is (review of the fix).
-        const extraBlanked = t.replace(/\bpag(?:ar|ando)\s+(?:o\s+|um\s+)?frete\s+(?:a\s+mais|extra|adicional)\b/g, (x) => " ".repeat(x.length));
+        // or gerund of paying MORE after "nem" / "não dá pra" is blanked, so "você não paga / não vai pagar frete a mais" stays the claim it is
+        // (two reviews of the fix).
+        const extraBlanked = t.replace(/\b(?:nem|nao\s+da\s+(?:pra|para))\s+pag(?:ar|ando)\s+(?:o\s+|um\s+)?frete\s+(?:a\s+mais|extra|adicional)\b/g, (x) => " ".repeat(x.length));
         for (const m of extraBlanked.matchAll(FREIGHT_DENIAL)) claims.push({ at: m.index ?? 0, end: (m.index ?? 0) + m[0].length });
         // Sentence boundaries once, as `sentenceAt` draws them: a long reply with hundreds of
         // claims cost one scan of its sentence per claim (990 ms at 16k characters, 2026-09-29).

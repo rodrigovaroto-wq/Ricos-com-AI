@@ -232,6 +232,19 @@ describe("link de checkout pré-preenchido", () => {
     },
   );
 
+  it.each([
+    // Real leads (2026-10-19): WhatsApp drops the ninth digit of most mobiles.
+    ["cod", "553196492777", "5531996492777"],
+    ["prepay", "553196492777", "31996492777"],
+    ["cod", "5511988887777", "5511988887777"],
+    // Negation: a landline (2–5 after the DDD) keeps its eight digits.
+    ["cod", "551132654321", "551132654321"],
+    ["prepay", "551132654321", "1132654321"],
+  ] as const)("telefone no %s: %s → %s", (path, phone, expected) => {
+    const url = new URL(buildPrefilledCheckoutLink({ phone }, path, config));
+    expect(url.searchParams.get("phone")).toBe(expected);
+  });
+
   it("o CPF vai em `cpf` na entrega (Logzz) e em `document` no antecipado (Coinzz)", () => {
     // Mandar o nome errado é silencioso: a página abre, três campos vêm preenchidos, e
     // ela redigita o CPF sem entender por quê. A entrega voltou para a Logzz em 25/09.

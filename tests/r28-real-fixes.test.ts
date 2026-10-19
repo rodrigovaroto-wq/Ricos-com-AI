@@ -22,6 +22,8 @@ describe("shipping_promise: pagar frete A MAIS, negado, não é frete grátis", 
     "No pix você não paga frete a mais.",
     "Aqui você nem paga frete extra, só o produto.",
     "Não cobramos frete adicional, só o valor do kit.",
+    "No pix você não vai pagar frete a mais.",
+    "Você não precisa pagar frete extra.",
   ])(
     "negação — a promessa de frete grátis continua vetada: %s",
     (t) => expect(blocked(t)).toContain("shipping_promise"),
@@ -80,11 +82,13 @@ describe("o que ela disse ao lado do CEP (remarkBesideCep)", () => {
     "oi tudo bem com você 30672-000",
     "30672-000",
     "isso não serve em mulher de verdade",
+    "Boa noite, quero o kit de 3, meu cep é 30672000",
+    "Bom dia Malu tudo bem? O meu cep é 30672000 muito obrigada pela atenção",
   ])("negação — não é comentário: %s", (t) => expect(remarkBesideCep(t)).toBe(false));
 });
 
 describe("a turn: ressalvas da revisão (index.ts lido como fonte)", () => {
   it("o CEP 000 'pode ser' o geral da cidade, sem afirmar", () => expect(turn).toContain("esse pode ser o CEP geral da cidade"));
   it("a explicação da recusa do CEP sai uma vez só, conferida pela turn", () =>
-    expect(turn).toContain("/\\bcep\\b[^.!?]*\\b(?:serve|s[oó])\\b[^.!?]*entrega/i.test(m)"));
+    expect(turn).toContain("/\\bcep\\b[^.!?]*(?<!\\p{L})(?:serve|s[oó])(?!\\p{L})[^.!?]*entrega/iu.test(m)"));
 });

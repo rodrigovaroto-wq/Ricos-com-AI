@@ -97,8 +97,10 @@ export const parseCep = (text: string): string | null => {
  */
 export const remarkBesideCep = (part: string): boolean =>
   parseCep(part) !== null &&
-  !/\b(?:rua|av|avenida|travessa|bairro|numero|número|casa|apto|apartamento|quadra|lote|bloco)\b|\bn[º°]/i.test(part) &&
-  part.replace(/\b(?:oi|ol[aá]|bom\s+dia|boa\s+(?:tarde|noite)|tudo\s+bem|com\s+voc[eê]|obrigad\w*|segue|aqui|meu|o|[eé]|cep)\b|[\d.\-–,!?:]+/gi, " ")
+  // A doubt or a "no" is what wants an answer; "quero o kit, meu cep é …" or thanks do not (second review).
+  /(?<!\p{L})(?:n[aã]o|nunca|ser[aá]|medo|golpe|caro|d[uú]vida|confi\p{L}*)(?!\p{L})/iu.test(part) &&
+  !/(?<!\p{L})(?:rua|av|avenida|travessa|bairro|numero|número|casa|apto|apartamento|quadra|lote|bloco|n[º°])(?!\p{L})/iu.test(part) &&
+  part.replace(/(?<!\p{L})(?:oi|ol[aá]|bom\s+dia|boa\s+(?:tarde|noite)|tudo\s+bem|com\s+voc[eê]|obrigad\p{L}*|segue|aqui|meu|o|[eé]|cep)(?!\p{L})|[\d.\-–,!?:]+/giu, " ")
     .trim().split(/\s+/).filter((w) => w.length > 1).length >= 4;
 
 /**
