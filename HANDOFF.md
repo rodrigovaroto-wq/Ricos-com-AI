@@ -17,12 +17,11 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >
 > - **No ar:** `turn` v35 (secret = `business-config-2026-10-19b.min.json`). Nada foi publicado nesta etapa.
 > - **Feito:** Malu x checkout real da Logzz via Playwright, 35 CEPs x 5 tamanhos: **175/175 iguais** (grafo §112, `docs/operacao/playwright-checkout-2026-10-19/`).
-> - **Commitado e NÃO publicado (tópico 4, alarme das consultas reais, grafo §111):** migração `0028_coverage_lookups.sql` (**não aplicada** em produção),
->   `lookupsDegraded`, gravação no turno e leitura no job de saúde, testes e mutações `LK-*` (4/4 pegam). O revisor Opus **reprovou**: (1) uma `failed` não
->   fica em cache, então o mesmo lead grava uma linha por mensagem e **um só cliente dispara o alarme** (5 mensagens = 5 `failed`) — contar uma vez por
->   conversa (ex.: `conversation_id` único por hora, sem guardar CEP) e testar o caso repetido; (2) nada apaga a tabela — estender `purge_expired()`
->   (como a 0020) para apagar com mais de 1 dia. **Só depois disso:** aplicar a 0028, `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v36), sonda de saúde.
-> - **Falta, nesta ordem:** (a) corrigir os dois achados acima, rodar `pnpm test`, `pnpm verificar:guardas` (completo), `pnpm dev:gates`, `pnpm typecheck:function`, publicar;
+> - **Tópico 4 (alarme das consultas reais, grafo §111): corrigido e testado, NÃO publicado.** A revisão Opus reprovou duas coisas, ambas corrigidas: uma linha por conversa
+>   (`conversation_id` chave primária, upsert) e a tabela apagada pelo `purge_expired()` com mais de 1 dia. Regressão: `pnpm test` 8464 verdes, `typecheck`, `typecheck:function`, `lint`,
+>   `dev:conversas` 1655/1655, 6 mutações `LK-*` pegas. **Para publicar:** aplicar `supabase/migrations/0028_coverage_lookups.sql` (migração, antes do deploy), depois
+>   `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v36) e a sonda de saúde (a `lookups` aparece na resposta). Sem a migração o turno só engole o erro (o alarme fica cego, nada quebra).
+> - **Falta, nesta ordem:** (a) aplicar a 0028 e publicar a v36 (acima), depois conferir a sonda;
 >   (b) Playwright no checkout da Coinzz (antecipado: prefill com a regra do nono dígito, frete por região, "Pedido principal R$", parcelas), só GET;
 >   (c) tópico 1: teste real de WhatsApp pelo número da Malu (precisa do telefone do operador) provando entrega de mídia; (d) tópico 3: personas completas na v35
 >   (~R$ 1,5; só apagar sintéticos `5500099`+6 dígitos); (e) tópico 5: ler o parecer de conformidade

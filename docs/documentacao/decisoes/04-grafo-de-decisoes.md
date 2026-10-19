@@ -3615,7 +3615,11 @@ erro de digitação da cliente, não fonte caída); disparar com uma única falh
 (só `outcome` e hora, RLS ligado sem política); o turno grava uma linha por consulta real (não por nova tentativa ou revisão) e o job de
 saúde lê a última hora: com pelo menos 5 consultas e um terço ou mais `failed` (`lookupsDegraded`), o status vira `unhealthy` e o e-mail do n8n
 lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha ao gravar ou ler nunca derruba o turno nem acusa degradação.
-**Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*`.
+**Revisão Opus (REPROVADO) e correção, mesmo dia:** (1) uma `failed` não vai para o cache, então o mesmo lead gravava uma linha por mensagem e um só
+cliente com CEP que falha disparava o alarme (5 mensagens = 5 `failed`) — a tabela passou a ter **uma linha por conversa** (`conversation_id` chave primária, upsert
+`merge-duplicates`, vale a última resposta; só o id interno, nenhum CEP ou telefone); (2) nada apagava a tabela — `purge_expired()` (corpo da 0020 mais um passo) apaga com mais
+de 1 dia, e a conversa apagada leva a linha junto (`on delete cascade`). **Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*` (6, todas pegas).
+**Estado:** commitado; a migração 0028 **ainda não foi aplicada** em produção e a v36 **ainda não foi publicada**.
 
 ## 112. A consulta da Malu contra o checkout real, via Playwright (pré-lançamento, tópico 2, 2026-10-19)
 
