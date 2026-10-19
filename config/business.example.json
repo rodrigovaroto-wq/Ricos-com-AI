@@ -228,8 +228,11 @@
     "allowUnverified": true
   },
   "testimonials": [
-    "{{DEPOIMENTO_REAL_1}}",
-    "{{DEPOIMENTO_REAL_2}}"
+    "Material muito agradável ao toque e com a compressão na medida certa. Comprime bastante sem ser desconfortável",
+    "Detalhes e costuras muito bem feitas. Recomendo",
+    "Original finalmente! Comprei em outra loja e veio falsificada. Obrigada pelo atendimento",
+    "Não imaginava que a qualidade do tecido fosse assim! É excelente! Nunca pensei que encontraria uma Modeladora dessa qualidade! Eu recomendo com os olhos fechados.",
+    "O material é agradável, não esquenta. E não tem cortes em lugares indesejáveis."
   ],
   "coinzz": {
     "offerHash": "{{OFFER_HASH_ENTREGA}}",
