@@ -3710,17 +3710,22 @@ const handleTurn = async (
   const herEarlier = herRecent(recentRows ?? [], spoken);
   const bareNumber = parts.join(" ").match(/^\s*(?:n[º°o.]?\s*)?(\d{1,5})\s*$/i)?.[1] ?? null;
   // Only answering the agent's own talk of a CEP or a street: "fui na rua comprar" is no address.
-  const streetAsk = addressDraft.cep || !/\b(?:cep|rua|n[uú]mero)\b/i.test(lastOutbound)
+  // A bare number answers only "o número da sua casa", never the pants' number asked beside it (second review).
+  const askedHouse = /\bn[uú]mero\s+da\s+(?:sua\s+)?casa\b/i.test(lastOutbound) && !/\b(?:cal[cç]a|tamanho)\b/i.test(lastOutbound);
+  const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse) || (bareNumber !== null && !askedHouse)
     ? []
     : bareNumber === null
     ? streetQueries(parts.join(" "))
     : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
   const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
-  const streetFound = streetAsk.length > 0 && streetState
-    ? (await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => []))
-      // Only her street: the search matches by prefix ("rua sete" found "Rua Setembrino", review).
-      .filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)))
+  const streetRaw = streetAsk.length > 0 && streetState
+    ? await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
     : null;
+  // Only her street: the search matches by prefix ("rua sete" found "Rua Setembrino", review). A list cut at 50 stays
+  // whole, so `pickStreetCep` sees the cut and picks nothing (second review).
+  const streetFound = streetRaw === null || streetRaw.length >= 50
+    ? streetRaw
+    : streetRaw.filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)));
   const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;
   if (streetCep) {
     addressDraft = { ...addressDraft, cep: streetCep };

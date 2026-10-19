@@ -37,6 +37,10 @@ describe("a rua e a cidade dela", () => {
   it("o número antes de 'de' é o nome da rua", () =>
     expect(streetQueries("Rua 7 de Setembro 450, Natal RN")[0]).toMatchObject({ street: "rua 7 de Setembro", number: "450", state: "RN" }));
   it("negação — 'ap' depois do número é o apartamento, não o Amapá", () => expect(streetQueries("Rua Augusta 100 ap")[0]?.state).toBeNull());
+  it.each(["Rua Marechal Floriano, 800, apto 12, Cruz Alta", "Rua Marechal Floriano 800 casa 2, Cruz Alta RS", "rua marechal floriano 800 bloco 3 cruz alta"])(
+    "o número da casa não é o do apartamento, da casa ou do bloco: %s",
+    (t) => expect(streetQueries(t)[0]?.number).toBe("800"),
+  );
 });
 
 describe("o CEP da casa dela pela faixa de número", () => {
@@ -77,7 +81,9 @@ describe("a busca no ViaCEP", () => {
 
 describe("a turn (index.ts lido como fonte)", () => {
   it("só busca respondendo à conversa de CEP ou rua, e o CEP achado vira o dela", () => {
-    expect(turn).toContain('const streetAsk = addressDraft.cep || !/\\b(?:cep|rua|n[uú]mero)\\b/i.test(lastOutbound)');
+    expect(turn).toContain("const askedHouse = /\\bn[uú]mero\\s+da\\s+(?:sua\\s+)?casa\\b/i.test(lastOutbound) && !/\\b(?:cal[cç]a|tamanho)\\b/i.test(lastOutbound);");
+    expect(turn).toContain("|| (bareNumber !== null && !askedHouse)");
+    expect(turn).toContain("const streetFound = streetRaw === null || streetRaw.length >= 50");
     expect(turn).toContain(".filter((f) => streetAsk.some((q) => sameStreet(q.street, f.street)))");
     expect(turn).toContain("const streetCep = streetFound ? pickStreetCep(streetFound, streetAsk[0]!.number) : null;");
     expect(turn).toContain("foundAddress.fields.cep = streetCep;");

@@ -396,10 +396,13 @@ export const streetQueries = (text: string): StreetQuery[] => {
   if (!m) return [];
   const kindKey = m[1]!.toLowerCase().replace(/\.$/, "").replace("ç", "c");
   const kind = STREET_KIND[kindKey] ?? m[1]!.toLowerCase().replace(/\.$/, "");
-  let rest = m[2]!.replace(/\b\d{5}[-.\s]?\d{3}\b/g, " ");
-  // A number before "de" is the street's name ("Rua 7 de Setembro", review): the house number is the last other one.
+  // The flat, the house in the lot, the block are not the street number ("800, apto 12", second review): out first.
+  let rest = m[2]!
+    .replace(/\b\d{5}[-.\s]?\d{3}\b/g, " ")
+    .replace(/\b(?:apto?|apartamento|casa|bloco|bl|lote|lt|qd|quadra|sala|andar)\.?\s*\d+[a-z]?\b/gi, " ");
+  // A number before "de" is the street's name ("Rua 7 de Setembro", review): the house number is the first other one.
   const HOUSE = /(?:\bn[º°o.]?\s*)?\b(\d{1,5})\b(?!\s+de\b)/gi;
-  const number = [...rest.matchAll(HOUSE)].at(-1)?.[1] ?? null;
+  const number = [...rest.matchAll(HOUSE)][0]?.[1] ?? null;
   let state: State | null = null;
   // The state after a separator, or after a word ("cruz alta rs") — never after a number ("100 ap" is the flat, review).
   const uf = rest.match(/(?:\s*[,/\-–]\s*|(?<=[A-Za-zÀ-ſ])\s+)([A-Za-z]{2})\s*[.!]*\s*$/);
