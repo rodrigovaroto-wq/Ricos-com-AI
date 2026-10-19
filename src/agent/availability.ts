@@ -545,6 +545,19 @@ export const checkCoverage = (fetcher: Fetcher, ceps: readonly string[], logzz: 
     }),
   );
 
+/**
+ * The lookups of real conversations in the last hour (`coverage_lookups`): a source that is down shows here before anyone
+ * counts the sales that did not happen. Degraded when at least `LOOKUPS_MIN` of them were answered and a third or more
+ * were "could not tell" (`failed`). A CEP nobody knows (`not_found`) is the customer's typo, not a source failing.
+ */
+export const LOOKUPS_MIN = 5;
+export const LOOKUPS_FAILED_SHARE = 1 / 3;
+export const lookupsDegraded = (rows: ReadonlyArray<{ outcome?: unknown }>): { degraded: boolean; total: number; failed: number } => {
+  const known = rows.filter((r) => r.outcome === "cod" || r.outcome === "no_cod" || r.outcome === "failed");
+  const failed = known.filter((r) => r.outcome === "failed").length;
+  return { degraded: known.length >= LOOKUPS_MIN && failed / known.length >= LOOKUPS_FAILED_SHARE, total: known.length, failed };
+};
+
 /** Healthy only when every CEP known to have cash on delivery still answers with it. */
 export const healthOf = (checks: readonly CoverageCheck[]): "healthy" | "unhealthy" =>
   checks.length > 0 && checks.every((c) => c.result === "cod") ? "healthy" : "unhealthy";

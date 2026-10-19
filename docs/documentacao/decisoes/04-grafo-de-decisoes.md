@@ -3587,6 +3587,17 @@ sobrescrito, porque já não bate com o arquivo do repositório.
 **Resíduo:** a mudança de endereço de um pedido é ensinada no prompt (a Malu escreve a frase, e os gates julgam), mas não tem resposta fixa
 nem leitura própria do pedido de mudança. Fica para uma frase real em conversa de cliente (R21.6).
 
+## 111. Alarme das consultas de CEP reais (pré-lançamento, tópico 4, 2026-10-19)
+
+**Sintoma/risco:** o alarme de cobertura (`health`) só testava três CEPs fixos. Uma fonte (Logzz, ViaCEP) que falhasse para CEPs de clientes
+reais, e não para esses três, só seria vista pelas vendas que não aconteceram. **Causa:** nada registrava o que as consultas reais respondiam.
+**Caminhos descartados:** guardar o CEP/telefone da consulta (dado pessoal sem necessidade — LGPD); contar `not_found` como falha (é o
+erro de digitação da cliente, não fonte caída); disparar com uma única falha (ruído). **Correção:** migração `0028_coverage_lookups.sql`
+(só `outcome` e hora, RLS ligado sem política); o turno grava uma linha por consulta real (não por nova tentativa ou revisão) e o job de
+saúde lê a última hora: com pelo menos 5 consultas e um terço ou mais `failed` (`lookupsDegraded`), o status vira `unhealthy` e o e-mail do n8n
+lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha ao gravar ou ler nunca derruba o turno nem acusa degradação.
+**Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
