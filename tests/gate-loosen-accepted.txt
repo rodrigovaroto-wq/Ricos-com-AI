@@ -258,3 +258,4 @@ R25-DADOS-DIVIDIDOS | installment_promise | com quem são divididos e por quanto
 R26-GARANTIA-COM-N-DIAS | delivery_promise | Se não servir a troca é sem custo pra você, com 7 dias após o recebimento. Levando 2 peças o desconto sobe para 20%:
 R26-GARANTIA-COM-N-DIAS | delivery_promise | Se não servir a troca é sem custo pra você, com 7 dias após o recebimento.
 R26-GARANTIA-COM-N-DIAS | delivery_promise | No antecipado, se não servir você troca sem custo, com 7 dias após o recebimento.
+R28 | weight_loss_claim | Enquanto você usa, emagrece e pode reduzir até 3 números de calça
