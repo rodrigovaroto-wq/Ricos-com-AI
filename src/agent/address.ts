@@ -79,14 +79,27 @@ export const parseCep = (text: string): string | null => {
   const match = text.match(
     // Glued only by punctuation without a space: "Rua X, 55 - 04710-090" and the street number on the next
     // line still read (review of round 2); "551.381.468-40" and "99491-5983" still do not.
-    // "306 72000" (real lead, 2026-10-19: sent four times, never read): 3+5 too — no phone is written that way.
-    new RegExp(String.raw`(?<!\d[.\-–]?)(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3})|(\d{3})${S}(\d{5}))(?![.\-–]?\d)`),
-  );
+    new RegExp(String.raw`(?<!\d[.\-–]?)(?<!\d)(?:(\d{8})|(\d{5})${S}(\d{3})|(\d{2})${S}(\d{3})${S}(\d{3}))(?![.\-–]?\d)`),
+  ) ??
+    // "306 72000" (real lead, 2026-10-19: sent four times, never read): 3+5 only when no other shape reads and no
+    // digit run sits beside it, so "Rua X 123 04710 090" and a phone "031 99123 4567" are not read as one (review).
+    text.match(new RegExp(String.raw`(?<!\d${S})(?<!\d)(\d{3})${S}(\d{5})(?!${S}\d)(?!\d)`));
   if (!match) return null;
   const digits = match.slice(1).filter(Boolean).join("");
   if (/^(\d)\1{7}$/.test(digits)) return null;
   return `${digits.slice(0, 5)}-${digits.slice(5)}`;
 };
+
+/**
+ * Something she said beside the CEP that wants an answer ("isso não serve em mulher de verdade, meu cep é …", persona
+ * venda-dificil, 2026-10-19): four words or more in the message holding the CEP once the digits, greetings and thanks
+ * are gone. An address beside it is no remark (review: one more model call for nothing).
+ */
+export const remarkBesideCep = (part: string): boolean =>
+  parseCep(part) !== null &&
+  !/\b(?:rua|av|avenida|travessa|bairro|numero|número|casa|apto|apartamento|quadra|lote|bloco)\b|\bn[º°]/i.test(part) &&
+  part.replace(/\b(?:oi|ol[aá]|bom\s+dia|boa\s+(?:tarde|noite)|tudo\s+bem|com\s+voc[eê]|obrigad\w*|segue|aqui|meu|o|[eé]|cep)\b|[\d.\-–,!?:]+/gi, " ")
+    .trim().split(/\s+/).filter((w) => w.length > 1).length >= 4;
 
 /**
  * A CEP typed with the wrong number of digits — "004710090", nine, in the second real test (grafo

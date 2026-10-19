@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { parseCep, refusesCep } from "@/agent/address.js";
+import { remarkBesideCep, parseCep, refusesCep } from "@/agent/address.js";
 import { runGates } from "@/agent/guardrails.js";
 import { ctx } from "./fixtures.js";
 
@@ -14,7 +14,15 @@ describe("shipping_promise: pagar frete A MAIS, negado, não é frete grátis", 
     "Não tem como adiantar, nem pagando frete extra.",
     "Não dá pra pagar frete adicional pra chegar antes.",
   ])("passa: %s", (t) => expect(blocked(t)).not.toContain("shipping_promise"));
-  it.each(["Aqui você nem paga frete.", "Você não paga o frete.", "Sem frete a mais pra você."])(
+  it.each([
+    "Aqui você nem paga frete.",
+    "Você não paga o frete.",
+    "Sem frete a mais pra você.",
+    // Review of the fix: the claim in the present tense stays a claim.
+    "No pix você não paga frete a mais.",
+    "Aqui você nem paga frete extra, só o produto.",
+    "Não cobramos frete adicional, só o valor do kit.",
+  ])(
     "negação — a promessa de frete grátis continua vetada: %s",
     (t) => expect(blocked(t)).toContain("shipping_promise"),
   );
@@ -39,7 +47,9 @@ describe("ela não quer passar o CEP agora", () => {
 /** Real lead (2026-10-19): "306 72000" sent four times and never read; a Belo Horizonte buyer got the prepaid link. */
 describe("CEP escrito 3+5", () => {
   it("lê", () => expect(parseCep("306 72000")).toBe("30672-000"));
-  it.each(["meu tel 3456-7890", "99491-5983", "551.381.468-40"])("negação — telefone e CPF continuam fora: %s", (t) => expect(parseCep(t)).toBeNull());
+  it("lê o 5+3 do endereço, não o número da casa colado no 3+5", () => expect(parseCep("Rua das Flores 123 04710 090")).toBe("04710-090"));
+  it("lê no meio da frase", () => expect(parseCep("meu cep é 306 72000 obrigada")).toBe("30672-000"));
+  it.each(["meu tel 3456-7890", "99491-5983", "551.381.468-40", "031 99123 4567"])("negação — telefone e CPF continuam fora: %s", (t) => expect(parseCep(t)).toBeNull());
 });
 
 describe("a turn: nome só de texto digitado, e o CEP geral da cidade (index.ts lido como fonte)", () => {
@@ -57,4 +67,24 @@ describe("o que ela disse junto do CEP é respondido depois da oferta", () => {
   it("quatro palavras ou mais, fora os dígitos, chamam o resume", () => {
     expect(turn).toContain("const answerAfterOffer = (askedBeside || saidBeside) && !isResume;");
   });
+});
+
+describe("o que ela disse ao lado do CEP (remarkBesideCep)", () => {
+  it.each(["isso não serve em mulher de verdade, meu cep é 30672-000", "tenho medo de ser golpe 30672000 mas vou tentar"])(
+    "comentário pede resposta: %s",
+    (t) => expect(remarkBesideCep(t)).toBe(true),
+  );
+  it.each([
+    "Boa tarde, segue meu cep 30672-000 obrigada",
+    "Rua das Flores 123 bairro Centro 30672-000",
+    "oi tudo bem com você 30672-000",
+    "30672-000",
+    "isso não serve em mulher de verdade",
+  ])("negação — não é comentário: %s", (t) => expect(remarkBesideCep(t)).toBe(false));
+});
+
+describe("a turn: ressalvas da revisão (index.ts lido como fonte)", () => {
+  it("o CEP 000 'pode ser' o geral da cidade, sem afirmar", () => expect(turn).toContain("esse pode ser o CEP geral da cidade"));
+  it("a explicação da recusa do CEP sai uma vez só, conferida pela turn", () =>
+    expect(turn).toContain("/\\bcep\\b[^.!?]*\\b(?:serve|s[oó])\\b[^.!?]*entrega/i.test(m)"));
 });

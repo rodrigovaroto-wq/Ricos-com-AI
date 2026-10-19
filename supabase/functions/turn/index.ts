@@ -81,6 +81,7 @@ import {
   confirmsAddress,
   extractAddress,
   extractAddressBurst,
+  remarkBesideCep,
   CORREIOS_CEP_URL,
   forgetsCep,
   refusesCep,
@@ -3766,8 +3767,8 @@ const handleTurn = async (
   // A CEP ending in 000 is the town's general one, which the lookup often does not know (real lead, 2026-10-19: "62.930.000",
   // and the model invented "veio com um dígito a mais"): the street's CEP is asked, with the Correios search.
   const cepState = cepNotFound && /000$/.test((badCep ?? "").replace(/\D/g, ""))
-    ? `O CEP que ela mandou (${badCep}) é o CEP geral da cidade, e a consulta não acha esse: diga com gentileza que pra ver a entrega` +
-      ` você precisa do CEP da rua dela, e que ela acha pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente outro` +
+    ? `O CEP que ela mandou (${badCep}) termina em 000 e a consulta não acha esse: diga com gentileza que esse pode ser o CEP geral da cidade, e que pra ver a` +
+      ` entrega você precisa do CEP da rua dela, e que ela acha pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente outro` +
       ` motivo (dígito a mais, número trocado) e não fale de entrega nem de pagamento na região dela.`
     : cepNotFound
     ? `A consulta não encontrou o CEP que ela mandou (${badCep}): diga com gentileza que você não conseguiu consultar porque parece que esse CEP não existe (pode ter sido um número trocado),` +
@@ -4206,8 +4207,8 @@ const handleTurn = async (
   const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));
   // A second "welcomed" is never answered: n8n's resume branch does not wait again (persona cob-tudo-de-uma-vez, 19/10).
   // Not only a question: something she said beside the CEP ("isso não serve em mulher de verdade, meu cep é …", persona
-  // venda-dificil, 19/10) gets its answer after the offer too — four words or more once the digits are gone.
-  const saidBeside = parts.some((p: string) => p.replace(/\b(?:meu\s+)?cep\b|[\d.\-–]+/gi, " ").trim().split(/\s+/).filter((w: string) => w.length > 1).length >= 4);
+  // venda-dificil, 19/10) gets its answer after the offer too.
+  const saidBeside = parts.some(remarkBesideCep);
   const answerAfterOffer = (askedBeside || saidBeside) && !isResume;
   if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
     if (offerNow === "both") {
@@ -4379,7 +4380,11 @@ const handleTurn = async (
       cepState,
       cepRefused
         ? `Ela disse que não quer passar o CEP agora: não peça o CEP de novo até ela mandar. Responda o que ela quer saber (o tamanho,` +
-          ` a dúvida) e, uma vez só na conversa, diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`
+          ` a dúvida).` +
+          // Said once (review): the turn checks it, not the model's memory of "uma vez só".
+          (recentOutbound.some((m: string) => /\bcep\b[^.!?]*\b(?:serve|s[oó])\b[^.!?]*entrega/i.test(m))
+            ? ""
+            : ` Diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`)
         : cepForgotten
         ? `Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar; siga a conversa (tamanho, kit) e retome o CEP só` +
           ` quando ela trouxer.` +
