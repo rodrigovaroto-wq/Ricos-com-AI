@@ -2222,3 +2222,16 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   - **Planilha refeita no mesmo dia** (`docs/operacao/modelo-caixa-anuncios.xlsx`): transação sobre a comissão, devolução fechada
     R$ 30 / R$ 50 sobre os entregues. Resultado: **pico de caixa R$ 571 (07/11), sobra R$ 504** sobre R$ 1.075 (eram R$ 752 / R$ 323);
     lucro por venda COD R$ 26,18 · antecipado R$ 45,31 · mix R$ 31,92; dobrar a verba falta R$ 66 (era R$ 430).
+- **R28 — Script v3: o funil do operador adaptado à Encorpa** (operador, 2026-10-19; proposta em
+  [`07-script-v3-funil-validado.md`](../../agente-ia/06-script/07-script-v3-funil-validado.md), nada no ar ainda). Origem: o primeiro teste
+  com anúncio (16 a 19/10, 33 conversas, 0 links, 0 pedidos).
+  - **Dados:** a Malu pede só **nome completo e CEP**; e-mail, CPF e endereço a cliente preenche no checkout. Supera o "nome completo e CPF"
+    da seção "OS DADOS E O LINK" do prompt.
+  - **Mídia:** a Malu envia áudio, vídeo e imagem. Os áudios **1, 2 e 4** do Drive vão **como estão gravados**, com voz humana, sem
+    regravação. O áudio 3 sai: o tamanho vai em texto e na tabela nova (P a XGG pela calça). O conteúdo gravado não passa pelos gates; a
+    responsabilidade é do operador.
+  - **Imagens:** avaliações (124, nota 5) e as capturas "Brenda" e "Regina" são de clientes reais e entram; o texto delas vai para
+    `testimonials` no `BUSINESS_CONFIG`. Preço e tabela de tamanhos em imagens novas, com os valores do repositório.
+  - **Produto:** o colete tem **colchetes e zíper** (a base de conhecimento falava só de colchetes, e a Malu chegou a dizer "não tem zíper").
+  - **Frete do antecipado:** continua cobrado por região no checkout.
+  - **Taxa de entrega da Logzz:** o checkout de 1 peça mostra R$ 26,90; o operador manteve os R$ 19,99 do R27 no modelo de margem.
