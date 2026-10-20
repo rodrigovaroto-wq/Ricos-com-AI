@@ -3682,6 +3682,13 @@ dia 5 (`fixedPayments`, `fixedDue`); nada de rateio por dia; o que já estava pa
 de caixa (`cashPlan`) é só para rodar a operação: **sem custos fixos** e **sem comparar com o caixa utilizável de R$ 1.075** (sai `CASH_LIMIT`;
 o critério de pausa "Caixa necessário" vira informativo). (3) CPL e conversão digitáveis em Financeiro › Caixa para simular (vazio = premissa
 ideal). (4) **IA por lead esperada: R$ 0,05** (era R$ 0,27) em toda premissa e simulação; o equilíbrio vira 2,5% (CPL R$ 1,25) e 3,0% (CPL R$ 1,50).
+**Auditoria das fórmulas do portal (20/10, depois do merge do PR #3 do portal):** uma conta independente (`encorpa-portal/tests/oracle.test.mjs`,
+fórmulas reescritas do zero) achou um defeito: "Pedidos", conversão, "Entregas ÷ pedidos", % antecipado, WhatsApp por pedido, estados e as roscas
+do Painel contavam só o pedido que hoje é venda; o recusado ou devolvido sumia depois (10 pedidos na entrega, 2 recusados e 8 entregues davam
+8/8 = 100% em vez de 80%, e a conversão caía para trás), enquanto a premissa de R$ 51,70 por pedido já desconta recusa e devolução e a atribuição
+por anúncio (`eval_attribution`) conta todo pedido. **Correção:** pedido = venda, recusa na porta ou devolução (`placed`); faturamento continua só
+das vendas. **Guarda:** o teste falha no código anterior e passa no novo. **Resíduos sem correção no portal:** por anúncio, o gasto é do período
+e os leads e pedidos são o total do anúncio (a view não tem data); o "tempo até entregar" usa a última atualização do pedido como data de entrega.
 
 ## Lições (valem para qualquer correção futura)
 
