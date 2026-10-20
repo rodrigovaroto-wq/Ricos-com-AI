@@ -3672,6 +3672,10 @@ US$ 9,46 em 20/10 e recarga automática de US$ 10 abaixo de US$ 1 (`pikapods` ca
 "Investido até agora" deixa de ter valor digitado (sai `SPENT`): Meta, `llm_calls` e pedidos ao vivo, fixos pelas regras de cobrança, a cada
 leitura do portal (cache de 5 min). **Resíduo:** o WhatsApp continua estimado em R$ 0,04 por pedido — o banco não grava qual mensagem saiu
 como template cobrado.
+**Encontro com o PR #1 do portal (stoic-faraday, 19/10):** ele levou a economia para `src/lib/economics.js` e criou o `cashPlan` (caixa pelo
+orçamento dos anúncios), que ainda somava 13,83% ao anúncio. Mesclado no PR #2: sem imposto por cima, com os fixos do período no caixa;
+`PIKAPODS`, `WA_NUMBER`, `pikapods` e `waNumber` foram para `economics.js`; o `dropSynthetic` do PR #1 passou a filtrar também `llm_calls`
+(a chamada da persona existe enquanto a rodada está no ar; a limpeza apaga em cascata). Teste do `cashPlan` corrigido e 6 testes novos de custo.
 
 ## Lições (valem para qualquer correção futura)
 
