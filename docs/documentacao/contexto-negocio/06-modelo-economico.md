@@ -31,6 +31,8 @@ entregue pelo operador em 2026-09-03.
 > (CPL R$ 1,50)** = (CPL + R$ 0,27) ÷ R$ 51,70, e o lucro do mix 70/30 é o "sem o imposto" abaixo (R$ 33,99). Fixos pela planilha
 > `Gastos_Encorpa` e o operador (20/10): PikaPods **US$ 3,73/mês** cobrado por hora (~R$ 20,14 a R$ 5,40; não R$ 18,50/mês), em recargas
 > automáticas de US$ 10, e número **R$ 35/mês** (vence dia 5; R$ 55 no primeiro pagamento), ~R$ 55,14/mês.
+> **IA por lead esperada: R$ 0,05** (operador, 20/10; era R$ 0,27): equilíbrio **2,5% (CPL R$ 1,25) e 3,0% (CPL R$ 1,50)** = (CPL + R$ 0,05)
+> ÷ R$ 51,70. Os fixos entram no resultado só quando vencem, e a necessidade de caixa é só da operação (sem fixos, sem o teto de R$ 1.075).
 >
 > Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Recalculados na planilha em 17/10:** lucro por
 > venda **COD R$ 26,18 · antecipado R$ 45,31 · mix 70/30 R$ 31,92** (R$ 33,99 sem o imposto da Meta); **pico de caixa R$ 571 (07/11) e
