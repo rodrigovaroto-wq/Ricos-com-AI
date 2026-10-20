@@ -3664,6 +3664,14 @@ períodos longos (cobraria meses sem operação; o pago antes do primeiro lead f
 (US$ 8) inclui personas e testes que o banco não grava — depois de 20/10 o portal só soma o custo gravado; atualizar `SPENT` a cada fatura.
 O câmbio do portal para o Hermes continua 5,40 (o do banco); a planilha usa 5,50. **Guarda:** a soma das linhas do demonstrativo fecha com
 `net_profit` (conferido com o fixture e os dados de exemplo).
+**Revisão do operador no mesmo dia (substitui parte do acima):** (1) IA = só as chamadas de modelo dos leads — soma de `llm_calls`
+(resposta, reescrita, interpretação, áudio e imagem); personas, testes e Hermes fora; o "por lead" passa a ser essa soma ÷ leads, porque
+áudio e imagem não têm `conversation_id` e ficavam fora de `eval_conversation_cost`. (2) PikaPods cobra por hora: US$ 3,73/mês; saldo
+US$ 9,46 em 20/10 e recarga automática de US$ 10 abaixo de US$ 1 (`pikapods` calcula as recargas pela data). (3) Dólar a R$ 5,40 em tudo.
+(4) ROI sem os fixos: margem dos pedidos ÷ (anúncio + IA + WhatsApp). (6) Número: R$ 55 no início e depois R$ 35 a cada dia 5 (`waNumber`).
+"Investido até agora" deixa de ter valor digitado (sai `SPENT`): Meta, `llm_calls` e pedidos ao vivo, fixos pelas regras de cobrança, a cada
+leitura do portal (cache de 5 min). **Resíduo:** o WhatsApp continua estimado em R$ 0,04 por pedido — o banco não grava qual mensagem saiu
+como template cobrado.
 
 ## Lições (valem para qualquer correção futura)
 

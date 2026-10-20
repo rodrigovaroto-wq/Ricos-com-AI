@@ -29,7 +29,8 @@ entregue pelo operador em 2026-09-03.
 > **Corrigido em 2026-10-20 (operador, grafo §114):** o imposto da Meta é pago junto com o anúncio e **já está dentro** do gasto que a
 > Meta mostra (os R$ 77,38 da conta em 20/10 incluem o imposto). Não se soma 13,83% por cima: o equilíbrio vira **2,9% (CPL R$ 1,25) e 3,4%
 > (CPL R$ 1,50)** = (CPL + R$ 0,27) ÷ R$ 51,70, e o lucro do mix 70/30 é o "sem o imposto" abaixo (R$ 33,99). Fixos pela planilha
-> `Gastos_Encorpa` (20/10): PikaPods **R$ 55 a cada ~80 dias** (não R$ 18,50/mês) e número **R$ 35/mês** (vence dia 5), ~R$ 55,93/mês.
+> `Gastos_Encorpa` e o operador (20/10): PikaPods **US$ 3,73/mês** cobrado por hora (~R$ 20,14 a R$ 5,40; não R$ 18,50/mês), em recargas
+> automáticas de US$ 10, e número **R$ 35/mês** (vence dia 5; R$ 55 no primeiro pagamento), ~R$ 55,14/mês.
 >
 > Imposto da Meta 13,83%, WhatsApp R$ 0,04 por pedido e IA R$ 0,27 por lead não mudaram. **Recalculados na planilha em 17/10:** lucro por
 > venda **COD R$ 26,18 · antecipado R$ 45,31 · mix 70/30 R$ 31,92** (R$ 33,99 sem o imposto da Meta); **pico de caixa R$ 571 (07/11) e
