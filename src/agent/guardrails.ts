@@ -3510,6 +3510,16 @@ const gates: readonly Gate[] = [
         const prefix = norm(text.slice(0, m.index));
         if (!exempt(prefix.length, norm(m[0]))) return "affirms delivery reaches her city before the region lookup answered";
       }
+      // "Pagando na entrega chega em 1 a 3 dias" to a lead whose CEP was never read (real lead, 2026-10-20, Siqueira Campos/PR):
+      // the delivery's deadline said as hers. Before the lookup it carries its condition (operator, 2026-10-19: the delivery
+      // before the CEP is "sempre condicionado à região"), as `deadlineFallbackMessage` says it.
+      const { codDaysMin, codDaysMax } = ctx.config.delivery;
+      const RANGE = new RegExp(String.raw`\b${codDaysMin}\s+(?:a|ate)\s+${codDaysMax}\s+dias\b`);
+      const CONDITION =
+        /\b(?:dependendo|depende|maioria|onde\s+(?:tem|tiver|houver|chega)|nas\s+(?:regioes|cidades)|se\s+(?:(?:a|o|n[oa])\s+)?(?:sua\s+(?:regiao|cidade)|seu\s+cep|ai|tiver|tem|der|chegar|for|houver)|caso\s+(?:tenha|tiver|chegue)|nao\s+sei\s+se|consult\w*)\b/;
+      for (const s of t.split(/[.!?;\n]+/)) {
+        if (RANGE.test(s) && /\bentrega\b/.test(s) && !CONDITION.test(s)) return "says the delivery's deadline as hers before the region lookup answered";
+      }
       return null;
     },
   },

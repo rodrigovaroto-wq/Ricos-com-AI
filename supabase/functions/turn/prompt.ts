@@ -796,7 +796,7 @@ export const systemPrompt = (
     ...productFacts(config),
     ``,
     `Preço: ${money(config.prices.codBrl)} pago na entrega ao entregador. Entrega em`,
-    `${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias,`,
+    `${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias nas regiões com pagamento na entrega,`,
     `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     ...(expressLine(config) ? [expressLine(config)] : []),
     `${config.delivery.warrantyDays} dias após o recebimento para trocar ou devolver. A devolução é`,

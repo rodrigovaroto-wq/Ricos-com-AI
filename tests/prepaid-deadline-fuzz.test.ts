@@ -976,7 +976,8 @@ describe("terceira revisão do PR #37: antecipado negado com posse, garantia com
     expect(unnamedPossession.filter((s) => delivery(s, "cod") !== "block" || delivery(s, "prepay") !== "block")).toEqual([]);
   });
   it("2) a garantia com a janela da entrega ao lado passa na entrega; a janela que se amarra ao 7, não", () => {
-    expect(warrantyThenCodWindow.filter((s) => !allowed(s, "cod"))).toEqual([]);
+    // With her region read: before it, the delivery's window carries the region's condition (coverage_claim, grafo §113).
+    expect(warrantyThenCodWindow.filter((s) => !runGates(s, ctx({ paymentPath: "cod", regionKnown: true })).allowed)).toEqual([]);
     expect(delivery(warrantyThenCodCount, "cod")).toBe("pass");
     expect(warrantyThenCodWindowLies.filter((s) => allowed(s, "cod"))).toEqual([]);
   });

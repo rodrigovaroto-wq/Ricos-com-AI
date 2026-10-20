@@ -3825,7 +3825,9 @@ const handleTurn = async (
   // CEP" and "Anotei" (second real test, grafo §66). Without a CEP read, the model is told so.
   const wrongCep = addressDraft.cep ? null : malformedCep(
     spoken(inbound.body ?? ""),
-    /\bcep\b[^.!?\n]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
+    // The re-ask after a CEP not found names the CEP a sentence before its "?" ("…esse CEP não existe… Confere pra mim e manda de
+    // novo?", real lead 2026-10-19).
+    /\bcep\b[^?]*\?/i.test(lastOutbound) && !/\b(?:cpf|nome)\b[^.!?\n]*\?/i.test(lastOutbound),
   );
   // A CEP ending in 000 is the town's general one, which the lookup often does not know (real lead, 2026-10-19: "62.930.000",
   // and the model invented "veio com um dígito a mais"): the street's CEP is asked, with the Correios search.
@@ -3844,6 +3846,7 @@ const handleTurn = async (
     ? null
     : wrongCep
       ? `Ela mandou um CEP com ${wrongCep.length} números (${wrongCep}), e CEP tem 8: o sistema não conseguiu ler.` +
+        (wrongCep.length === 5 ? ` Parece só o começo do CEP: peça os 8 números, ou o nome da rua e a cidade, que você acha o CEP pra ela.` : ``) +
         ` Peça com gentileza pra ela conferir e mandar de novo. Nunca diga que recebeu ou anotou o CEP.`
       : `O CEP dela ainda não foi recebido: nunca diga que recebeu, anotou ou vai conferir o CEP.`;
   // R26.1 (persona Marcinha, 15/10): "meu cep nao lembro de cabeça agora", then the CEP asked five more times. From her

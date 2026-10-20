@@ -247,7 +247,7 @@ const exemplars = (c: PromptConfig): Array<{ text: string; paths: readonly Path[
     // The price paragraph. No payment methods listed (operator, 2026-10-06).
     { text: `Preço: ${cod} pago na entrega ao entregador.`, paths: COD },
     {
-      text: `Entrega em ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias, agendada — quem escolhe o dia é ela, no checkout.`,
+      text: `Entrega em ${c.delivery.codDaysMin} a ${c.delivery.codDaysMax} dias nas regiões com pagamento na entrega, agendada — quem escolhe o dia é ela, no checkout.`,
       paths: COD,
     },
     { text: `${c.delivery.warrantyDays} dias após o recebimento para trocar ou devolver.`, paths: BOTH },

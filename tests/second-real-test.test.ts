@@ -91,7 +91,7 @@ describe("C3 — CEP com o número errado de dígitos", () => {
   });
 
   it("o turno diz ao modelo que o CEP não foi lido, e nunca 'recebi/anotei'", () => {
-    expect(turn).toContain("/\\bcep\\b[^.!?\\n]*\\?/i.test(lastOutbound) && !/\\b(?:cpf|nome)\\b[^.!?\\n]*\\?/i.test(lastOutbound)");
+    expect(turn).toContain("/\\bcep\\b[^?]*\\?/i.test(lastOutbound) && !/\\b(?:cpf|nome)\\b[^.!?\\n]*\\?/i.test(lastOutbound)");
     expect(turn).toContain("Nunca diga que recebeu ou anotou o CEP.");
     expect(turn).toContain("nunca diga que recebeu, anotou ou vai conferir o CEP.");
     expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
@@ -667,4 +667,18 @@ describe("personas 2026-10-08 — o número da calça no máximo 2 vezes seguida
   it("o turno conta as perguntas seguidas e libera com tamanho ou decisão de compra", () => {
     expect(turn).toContain("stated?.size || lead.size || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksSize(m)),");
   });
+});
+
+describe("lead real de 2026-10-19 — CEP com 5 números", () => {
+  it.each([
+    ["só o começo, depois da pergunta", "84 940", true, "84940"],
+    ["com ponto, depois da pergunta", "84.940", true, "84940"],
+    ["ao lado da palavra", "meu cep é 84940", false, "84940"],
+  ])("lê como CEP errado: %s", (_, frase, asked, cep) => expect(malformedCep(frase, asked)).toBe(cep));
+  it.each([
+    ["sem a pergunta, solto", "84940", false],
+    ["número de casa depois da pergunta, numa frase", "moro no 84940", true],
+    ["CEP completo", "84940-000", true],
+    ["CEP negado", "meu cep não é 84940", false],
+  ])("não lê como CEP errado: %s", (_, frase, asked) => expect(malformedCep(frase, asked)).toBeNull());
 });
