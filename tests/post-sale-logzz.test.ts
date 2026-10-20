@@ -221,7 +221,7 @@ describe("o turno liga as duas decisões", () => {
   });
 
   it("o pós-venda lê os pedidos, do mais novo ao mais velho, e responde pelo sendFixed, sem marcar handoff_at", () => {
-    expect(block).toContain("orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`");
+    expect(block).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`");
     expect(block).toContain('if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {');
     expect(block).toContain("cancelling === null && returnsOnly(orders) ? returnsLine : null");
     // The same fixed line twice is a loop: the second time, a person.

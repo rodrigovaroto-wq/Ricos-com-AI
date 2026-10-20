@@ -94,7 +94,7 @@ describe("2. 'sim' às duas opções sem escolher: confirma a entrega (agreesWit
     expect(agrees("sim, a com desconto", "Qual das duas fica melhor pra você?")).toBe(true);
     expect(source.indexOf("const choiceToStore = pathChoiceToStore(")).toBeLessThan(source.indexOf("const agreedOnly ="));
     // R28: the two options are no longer presented, so there is no "sim" to them to confirm; the prepaid choice still holds.
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     expect(source).toContain("mas ela escolheu o antecipado: siga no");
     expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });

@@ -118,9 +118,9 @@ describe("o job health na turn", () => {
   it("a conversa e o alarme usam o mesmo fetcher, e não há segundo fetch de região", () => {
     expect(turn).toMatch(/lookupRegion\(\s*regionFetcher\(/);
     expect(turn).toMatch(/checkCoverage\(\s*regionFetcher\(/);
-    // R26.3: the second, short try of the same lookup — through the same fetcher.
-    expect(turn.match(/lookupRegion\(/g)).toHaveLength(2);
-    expect(turn.match(/lookupRegion\(\s*regionFetcher\(/g)).toHaveLength(2);
+    // R26.3: the second, short try of the same lookup; §117: each other size of a kit — all through the same fetcher.
+    expect(turn.match(/lookupRegion\(/g)).toHaveLength(3);
+    expect(turn.match(/lookupRegion\(\s*regionFetcher\(/g)).toHaveLength(3);
     // The only fetch that reads `headers` from its caller is the extracted one.
     expect(turn.match(/fetch\(url, \{\s*headers,/g)).toHaveLength(1);
   });

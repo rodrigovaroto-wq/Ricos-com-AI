@@ -136,6 +136,7 @@ import {
   networkRetryDelay,
   deliveredDirective,
   logzzReturnReply,
+  orderNotFoundReply,
   orderStatusReply,
   otherQuestionDirective,
   otherQuestionTail,
@@ -3493,6 +3494,17 @@ const handleTurn = async (
   //
   // She saying she already bought is context too (persona round 3, Lu and Vera) — in
   // this message or any recent one of hers (index `messages_conversation_idx`).
+  // Her orders by every way the system ties one to her (operator, 2026-10-20, grafo §117): her lead, and the lead of the same number
+  // written with or without the ninth digit — a checkout phone the order webhook filed under another row. Same DDD and the same 8
+  // digits, never a suffix alone: another woman's order is never read to her.
+  let herIds: string[] | null = null;
+  const herLeadIds = async (): Promise<string[]> => {
+    if (herIds) return herIds;
+    const m = /^55(\d{2})9?(\d{8})$/.exec(digits(String(lead.phone ?? "")));
+    const twins = m ? ((await db(`leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id`).catch(() => null)) ?? []) : [];
+    herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
+    return herIds;
+  };
   let orderContext = false;
   // Only a link sent, no order and no purchase said: a delivery question there is a sale's, not a post-sale's
   // (real test 2026-10-13: "moro sozinha, não tenho quem receber" after the link was called a post-sale).
@@ -3506,7 +3518,7 @@ const handleTurn = async (
     orderContext =
       statesPastPurchase(spoken(inbound.body ?? "")) ||
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
-    const orders = orderContext ? [] : await db(`orders?lead_id=eq.${lead.id}&select=id&limit=1`).catch(() => null);
+    const orders = orderContext ? [] : await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null);
     orderContext = orderContext || (orders?.length ?? 0) > 0;
     for (const base of CHECKOUT_BASES) {
       if (orderContext) continue;
@@ -3543,7 +3555,7 @@ const handleTurn = async (
   const cancelling =
     handoffKind === "cancel"
       ? cancelReplyFor(
-          (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? [],
+          (await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,payment_method`).catch(() => null)) ?? [],
           codUnavailable,
         )
       : null;
@@ -3566,7 +3578,7 @@ const handleTurn = async (
   // file, a status outside the vocabulary, a failed attempt), a person asked for, or the same line again keeps
   // the person. Index `orders_lead_idx`, then her few rows sorted.
   if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {
-    const orders: OrderView[] = ((await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`).catch(() => null)) ?? [])
+    const orders: OrderView[] = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,payment_method,scheduled_for&order=created_at.desc`).catch(() => null)) ?? [])
       .map((o: { status: string; payment_method: string | null; scheduled_for: string | null }) => ({
         stage: isKnownOrderStatus(o.status) ? stageForOrder(o.status) : null,
         dead: isOrderDead(o.status),
@@ -3596,6 +3608,13 @@ const handleTurn = async (
   const { email: supportEmail = null } = CONFIG.support ?? {};
   if (handoffKind === "human") {
     return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");
+  }
+  // No order of hers the system can read, by every path above (operator, 2026-10-20, grafo §117): she is told it is the system's
+  // problem and sent to the customer service, number right after. The same line twice is a loop: the second time, the model answers.
+  if (handoffKind !== null && logzzPhone !== null && orderNotFoundReply(logzzPhone) !== lastOutbound) {
+    const readable = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status`).catch(() => null)) ?? [])
+      .some((o: { status: string }) => isKnownOrderStatus(o.status) && stageForOrder(o.status) !== null);
+    if (!readable) return await handOff(orderNotFoundReply(logzzPhone), `${ORDER_UNREADABLE_REASON}: mandada ao atendimento ao cliente`);
   }
   // The directive every time she asks about it; the operator's e-mail once per conversation (Opus review: one flag for both left
   // the second question without the directive).
@@ -3818,6 +3837,19 @@ const handleTurn = async (
       }
     } catch {
       region = null; // The checkout being down is not a reason to stop selling.
+    }
+  }
+  // A kit is delivered only when every size she chose is (operator, 2026-10-20, grafo §117): the Logzz kit checkout with an M where the M
+  // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer.
+  if (region?.cod && units > 1 && addressDraft.cep) {
+    for (const s of [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize)) {
+      const other = await lookupRegion(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, s, logzzIdsOf(CONFIG.checkout))
+        .catch((): RegionLookup => ({ kind: "failed" }));
+      if (other.kind === "found" && other.region.cod) continue;
+      // Hers has no stock there: the prepaid. Not known: the lookup failed for the kit, and a likely city gets both checkouts.
+      if (other.kind === "found") region = { ...region, cod: false, dates: [], sameDay: false, size: s };
+      else { failedPlace = region.place; region = null; }
+      break;
     }
   }
 
@@ -4259,9 +4291,11 @@ const handleTurn = async (
   // checkouts only with her size known (6). A question beside the CEP is answered right after it, by n8n's resume (4).
   const v3Link = (url: string) =>
     funnelLinkMessage(CONFIG, url, linkPath, identityDraft.name ?? null, units > 1 ? null : stated?.size ?? lead.size ?? null, units > 1 ? units : 1);
-  const likelyPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;
+  // Operator, 2026-10-20 (grafo §117): the Logzz's "no" for her size is its stock, not an unstable lookup (175/175 against the real
+  // checkout, §112) — the two checkouts only when the lookup failed, never with "consulta instável" over a real "no".
+  const likelyPlace = region !== null ? null : failedPlace;
   const likely = likelyPlace !== null && isLikelyCodCity(likelyPlace, CONFIG.cod.likelyCities);
-  const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : likely ? "both" : "prepay") : likely ? "both" : null;
+  const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : "prepay") : likely ? "both" : null;
   const offerHistory: string[] =
     offerNow === null
       ? []
@@ -4305,6 +4339,8 @@ const handleTurn = async (
       const cod = offerNow === "cod";
       const sent = await sendFunnelTurn(
         [
+          // The delivery offer went before her size, and her size has no delivery there (grafo §117): said before the prepaid box.
+          ...(offerBefore === "cod" && !cod && region.size ? [{ text: `No ${region.size} o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛` }] : []),
           ...offerBubbles(CONFIG, { cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
         ],
@@ -4434,7 +4470,7 @@ const handleTurn = async (
           ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
-      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(region.place, CONFIG.cod.likelyCities), offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
+      regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
       failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +

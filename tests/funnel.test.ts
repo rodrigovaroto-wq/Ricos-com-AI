@@ -182,12 +182,14 @@ describe("a mensagem do link", () => {
   });
 });
 
-describe("a turn: dois links quando a consulta diz não ou falha numa cidade da lista (index.ts lido como fonte)", () => {
+describe("a turn: dois links só quando a consulta falha numa cidade da lista (index.ts lido como fonte)", () => {
   const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
-  it("o lugar sem confirmação é o da região sem entrega, ou o da consulta que falhou", () => {
-    expect(turn).toContain("const likelyPlace = region !== null ? (region.cod ? null : region.place) : failedPlace;");
+  it("o \"não\" da Logzz para o tamanho dela é estoque, e vai o antecipado; os dois links só na consulta que falhou (operador, 20/10)", () => {
+    expect(turn).toContain("const likelyPlace = region !== null ? null : failedPlace;");
     expect(turn).toContain("failedPlace = lookup.kind === \"failed\" ? lookup.place ?? null : null;");
-    expect(turn).toContain('const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : likely ? "both" : "prepay") : likely ? "both" : null;');
+    expect(turn).toContain('const offerNow: OfferKind | null = region !== null ? (region.cod ? "cod" : "prepay") : likely ? "both" : null;');
+    // The directive about the two links only where they went (never over a real "no").
+    expect(turn).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     // Never after a link or a sale, only inside the window, and the two checkouts only with her size (review of v3).
     expect(turn).toContain('if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {');
   });

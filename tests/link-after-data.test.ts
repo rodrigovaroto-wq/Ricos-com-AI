@@ -93,7 +93,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
     // R28: the offer is fixed; the model never presents two options.
     expect(source).toContain("Não apresente duas opções nem repita a oferta");

@@ -178,6 +178,13 @@ export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchan
   `Você tem ${warrantyDays} dias pra trocar ou devolver depois que receber.`;
 
 /**
+ * Her order is not found by any path the system has (operator, 2026-10-20): the system's fault, said so, and the customer service's
+ * number right after.
+ */
+export const orderNotFoundReply = (phone: string): string =>
+  `Não estou encontrando o seu pedido aqui por um problema no sistema 😕 Manda uma mensagem pra nossa equipe de atendimento ao cliente no WhatsApp ${phone}, que eles conferem pra você 💛`;
+
+/**
  * One order of hers, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary
  * (null outside it or for a failed attempt), whether it is dead (`isOrderDead`), unpaid (`orderUnpaid`)
  * or settled (`orderSettled`), its path and its delivery day.
