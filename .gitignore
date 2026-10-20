@@ -60,3 +60,6 @@ deno.lock
 
 # Git worktrees created for isolated agent tasks (parallel-subagent protocol escape hatch).
 .claude/worktrees/
+
+# graphify — derived graph, rebuilt each session with `graphify update .`
+graphify-out/

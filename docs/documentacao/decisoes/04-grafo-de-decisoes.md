@@ -3629,6 +3629,26 @@ ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupReg
 interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
 da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
 
+## 113. Graphify: onde o grafo de código encaixa (operador, 2026-10-20)
+
+**Pergunta:** usar o [Graphify](https://github.com/Graphify-Labs/graphify) para a Malu e o Hermes consultarem grafos de conhecimento.
+**Análise:** lido em código, commit `86c57be` ([`08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md)); instalado e medido no mesmo dia,
+com a autorização do operador (§5 do documento). **Caminhos descartados:** a Malu consultar o grafo no turno (é recuperação, R11.4, e escolha de ferramenta, R11.1;
+Python fora da Edge Function); o Hermes pela skill oficial (pede terminal, e o Hermes só tem `file,skills,todo` — a barreira do R11.6); o
+Graphify ligar gate a seção do grafo (gates são `name: "…"`, string; ele só liga menção a função ou classe); `graphify claude install` (reescreve
+este `CLAUDE.md` e intercepta toda leitura); `save-result`/`reflect` (segunda memória). **Achado que muda o uso:** o espelho byte a byte põe toda
+função exportada duas vezes no corpus, e o Graphify descarta menção ambígua — sem tratar, `stageForOrder` não recebia nenhuma ligação daqui.
+**Primeira correção, desfeita pela medição:** tirar a cópia de `supabase/functions/` — os testes ligavam, mas `handleTurn()` (o turno de produção)
+deixava de chamar qualquer gate no grafo. **Correção:** `.graphifyignore` tira `src/agent/` (o grafo fica com a cópia que a produção roda; quem edita
+continua em `src/agent/`), as transcrições de persona e de teste real (≈ 1 000 menções `ok` ligadas a um helper de teste) e `src/dev/simulate.ts` (seu
+`turn()` capturava as 124 menções à Edge Function); `graphify-out/` no `.gitignore`. **Medido:** build em 10–11 s, sem modelo; 251 ligações deste
+grafo para código, 68 das 118 seções com ao menos uma; `explain` de uma função em ~2,3 KB contra ~10–13 KB de `git grep`; `query` em português é inútil
+(casa palavra). Gate por nome (`delivery_promise`) e closure de `handleTurn` (`handOff`) não viram nó — continuam no `git grep`. **Guarda/estado:**
+ligado no mesmo dia, a pedido do operador (§6 do documento): instalação pelo script de setup do ambiente; regra no `CLAUDE.md` (explain antes de
+mexer em gate, estado ou handoff; função citada pelo nome exato em crase); uma linha em `backend-specialist`, `code-reviewer`, `prompt-engineer`,
+`test-engineer`, `technical-writer` e `orchestrator`. O tutorial genérico
+`tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

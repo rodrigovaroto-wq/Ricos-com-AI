@@ -40,6 +40,9 @@ Reprove sem discutir quando aparecer:
    não testada é onde mora o defeito.
 4. **Um bug fica um teste que reproduz antes do conserto.** Vermelho primeiro, e o
    vermelho tem que ser pela razão certa.
+5. **As frases que já quebraram essa função entram como caso.** `graphify explain "<função>()"`
+   lista as seções do grafo de decisões que a citam; cada frase real registrada ali é um caso.
+   Os testes que já a cobrem não estão no grafo: `git grep -l <função> tests/`.
 
 ## Comandos
 

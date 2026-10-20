@@ -56,3 +56,6 @@ Os dois `.html` em `docs/operacao/` são relatório estático do operador, não 
 - Nunca despache quem não vai mudar nada. Uma tarefa sem arquivo para tocar é uma
   pergunta ao operador, não um agente.
 - Não deixe onda aberta: ou commita, ou diz por que não commitou.
+- Antes de despachar, `graphify explain "<função>()"` de cada função que a tarefa toca, e
+  ponha no brief as seções do grafo de decisões que ele lista — o especialista começa sabendo
+  o que já falhou ali.

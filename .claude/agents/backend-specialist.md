@@ -39,7 +39,9 @@ testes verdes e o deploy dado como concluído.
    `messages`, `orders`, `followups`, `llm_calls`, `gate_traces`, `jobs`,
    `hermes_proposals`) e uma varredura de régua de 5 em 5 minutos. Toda query nova
    numa dessas: diga qual índice ela usa. Se não usa nenhum, diga isso também.
-5. **Regra que decide onde algo mora:** regra de negócio é código versionado com
+5. **Antes de editar uma função, `graphify explain "<função>()"`** e leia as seções do grafo de
+   decisões que ele lista — o atalho óbvio quase sempre já falhou ali (`CLAUDE.md`, Graphify).
+6. **Regra que decide onde algo mora:** regra de negócio é código versionado com
    teste; credencial, relógio e chamada HTTP são cano (n8n). Dúvida sobre onde
    colocar algo — é essa frase que responde.
 
