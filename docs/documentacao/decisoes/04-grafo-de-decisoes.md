@@ -3676,6 +3676,12 @@ como template cobrado.
 orçamento dos anúncios), que ainda somava 13,83% ao anúncio. Mesclado no PR #2: sem imposto por cima, com os fixos do período no caixa;
 `PIKAPODS`, `WA_NUMBER`, `pikapods` e `waNumber` foram para `economics.js`; o `dropSynthetic` do PR #1 passou a filtrar também `llm_calls`
 (a chamada da persona existe enquanto a rodada está no ar; a limpeza apaga em cascata). Teste do `cashPlan` corrigido e 6 testes novos de custo.
+**Segunda revisão do operador (20/10, depois do merge dos PRs #1 e #2 do portal; substitui o rateio acima):** (1) os fixos entram no resultado
+**só quando vencem e são pagos de novo** — cada recarga automática de US$ 10 da PikaPods (R$ 54) e cada mensalidade de R$ 35 do número no
+dia 5 (`fixedPayments`, `fixedDue`); nada de rateio por dia; o que já estava pago em 20/10 fica só no "Investido até agora". (2) A necessidade
+de caixa (`cashPlan`) é só para rodar a operação: **sem custos fixos** e **sem comparar com o caixa utilizável de R$ 1.075** (sai `CASH_LIMIT`;
+o critério de pausa "Caixa necessário" vira informativo). (3) CPL e conversão digitáveis em Financeiro › Caixa para simular (vazio = premissa
+ideal). (4) **IA por lead esperada: R$ 0,05** (era R$ 0,27) em toda premissa e simulação; o equilíbrio vira 2,5% (CPL R$ 1,25) e 3,0% (CPL R$ 1,50).
 
 ## Lições (valem para qualquer correção futura)
 
