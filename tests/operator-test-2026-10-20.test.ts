@@ -64,6 +64,9 @@ describe("revisão Opus da v38 (copy v4)", () => {
   it("o e-mail do operador sai em todo caminho (noite, linha fixa, rascunho), uma vez por conversa", () => {
     expect(turn).toContain("const notifyOnce = async (): Promise<Record<string, unknown>> => {");
     expect(turn.match(/const once = await notifyOnce\(\);/g)?.length).toBe(3);
+    expect(turn).toContain('return json(200, { status: "deferred", ...once, reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });');
+    expect(turn).toContain('      status: "ok",\n      ...once,\n      reason,');
+    expect(turn).toContain('      status: "deferred",\n      ...once,');
     expect(turn).toContain("  await notifyOnce();\n  await Promise.all([\n    recordOutcome(");
     expect(turn).toContain("    if (guideReasons.includes(reason)) return;");
   });

@@ -5180,8 +5180,8 @@ const MUTATIONS: Mutation[] = [
     id: "R23-regua-depois-do-nao-serve",
     bug: "o \"obrigada\" depois do \"não serve\" rearmava a régua que pergunta o tamanho de novo (revisão do R23)",
     files: ["supabase/functions/turn/index.ts"],
-    from: "  if (at && !at.leads?.size && (at.messages ?? [])",
-    to: "  if (false && at && !at.leads?.size && (at.messages ?? [])",
+    from: "  if (at && !at.leads?.size && ((at.messages ?? [])",
+    to: "  if (false && at && !at.leads?.size && ((at.messages ?? [])",
     guard: ["pnpm", "-s", "vitest", "run", "tests/r23-round2-fixes.test.ts"],
   },
   {
