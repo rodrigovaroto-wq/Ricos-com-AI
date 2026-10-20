@@ -194,8 +194,22 @@ território é agente que inventa trabalho.
 - **Toda decisão ou alteração entra no grafo de decisões**
   ([`docs/documentacao/decisoes/04-grafo-de-decisoes.md`](docs/documentacao/decisoes/04-grafo-de-decisoes.md)):
   sintoma → causa → caminhos tentados que falharam (e por quê) → correção → guarda. Leia o
-  grafo antes de mexer em gate, estado da conversa ou handoff. Sem registro no grafo, a
-  mudança não está pronta.
+  grafo antes de mexer em gate, estado da conversa ou handoff — as seções que o `graphify explain`
+  da função aponta (abaixo). Sem registro no grafo, a mudança não está pronta. Cite toda função
+  pelo nome exato do código, em crase (`` `lookupRegion` ``, não "a consulta de CEP"; nunca um
+  nome genérico como `turn`) — no grafo, na memória e no `HANDOFF.md`: é isso que liga a entrada à
+  função para a próxima sessão.
+
+- **Grafo de código — Graphify** (grafo §113,
+  [`08-graphify.md`](docs/agente-ia/03-pesquisa/08-graphify.md)): o script de setup do ambiente põe
+  `graphify` no PATH. Sem `graphify-out/`, rode `graphify update .` (10 s, sem modelo); de novo depois
+  de editar código ou doc, antes de consultar. Antes de mexer numa função de gate, estado ou handoff:
+  `graphify explain "<função>()"` e leia só as seções e linhas que ele lista; ligação entre duas funções:
+  `graphify path "<A>()" "<B>()"` (`--undirected` se não achar). O grafo usa a cópia de produção
+  (`supabase/functions/turn/`) — a edição continua em `src/agent/` com o espelho. Teste que cobre a
+  função, gate pelo nome (`delivery_promise`) e closure de `handleTurn` não estão no grafo: `git grep`.
+  Não use `graphify query` (casa palavra, não sentido), `/graphify`, `graphify extract` nem
+  `graphify claude install` (reescreve este arquivo). Sem `graphify` no PATH, siga com `git grep`.
 
 - [`.claude/rules/parallel-subagent-driven-development.md`](.claude/rules/parallel-subagent-driven-development.md) — protocolo de ondas paralelas: quando é seguro despachar subagentes ao mesmo tempo e quem pode commitar.
 - [`.claude/rules/code-ladder.md`](.claude/rules/code-ladder.md) — a escada de sete degraus que todo código novo sobe antes de ser escrito, e o que ela nunca corta. Importada acima, na diretriz 2.

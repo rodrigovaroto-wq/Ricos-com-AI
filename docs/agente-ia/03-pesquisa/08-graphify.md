@@ -133,23 +133,22 @@ as transcrições de `10-auditoria/personas-*` e `testes-reais/` (conversa, não
 | `asksForLink` → `handleTurn` | 65 linhas, 9,4 KB | `path`: 1 salto, `handleTurn` chama direto (`index.ts:4080`); `explain`: §65, §85, M-03, M-09 |
 | "o que decide o handoff" (`query`) | — | 6,7 KB de títulos do `HANDOFF.md` casados pela palavra; inútil |
 
-## 6. Como implementar (proposta; nada abaixo está ligado ainda)
+## 6. Como foi implementado (2026-10-20)
 
 **Princípio:** o grafo responde *onde olhar*; a leitura continua no arquivo, na linha que ele apontou. Nada muda na Malu, nos gates
 nem no Hermes.
 
-1. **Instalação na sessão.** `.claude/hooks/graphify.sh` (`SessionStart`): instala `graphifyy[sql]==0.9.92` num venv em `~/.cache` se
-   faltar e roda `graphify update .` em segundo plano; falha aberta (sem rede, a sessão segue sem grafo). **Pré-requisito:** hoje o
-   `.claude/settings.json` é ignorado pelo git e as sessões na nuvem não têm hook nenhum — ou se versiona um `settings.json` sem `env`,
-   ou se põe o comando no script de setup do ambiente da nuvem. Decisão do operador.
+1. **Instalação:** o operador pôs no script de setup do ambiente da nuvem (2026-10-20) a criação de um venv com `graphifyy[sql]==0.9.92` e
+   o link para `/usr/local/bin/graphify`. Sem hook no repositório: o `.claude/settings.json` é ignorado pelo git, e o setup do ambiente
+   já cobre as sessões novas. Numa máquina sem o comando, a regra manda seguir com `git grep`.
 2. **Regra no `CLAUDE.md`** (três linhas, na seção do grafo de decisões): antes de mexer numa função de gate, estado ou handoff,
    `graphify explain "<função>()"` e ler **as seções que ele lista**; relação entre duas funções, `graphify path`; teste que cobre,
    `git grep -l <nome> tests/`; gate por nome (`delivery_promise`), `git grep`. Substitui "leia o grafo" por "leia estas seções".
-3. **Subagentes.** A mesma linha nos agentes que mexem em código ou revisam (`backend-specialist`, `prompt-engineer`, `code-reviewer`,
-   `test-engineer`, `orchestrator`): o revisor ganha "o que esta função já quebrou antes" sem o implementador ter contado.
+3. **Subagentes.** Uma linha nos agentes que mexem em código, revisam ou escrevem doc (`backend-specialist`, `prompt-engineer`,
+   `code-reviewer`, `test-engineer`, `technical-writer`, `orchestrator`): o revisor ganha "o que esta função já quebrou antes" sem o implementador ter contado.
 4. **Escrita que alimenta o grafo.** Toda entrada nova do grafo de decisões, da memória e do `HANDOFF.md` cita a função em crase, com o
    nome exato do código (`` `lookupRegion` ``). Nome genérico (`turn`, `ok`) não vira aresta útil — cite a função de verdade
    (`` `handleTurn` ``). É o que transforma o registro do erro em algo que a próxima sessão encontra pela função que vai mexer.
 5. **Depois de editar:** `graphify update .` (10 s) antes de consultar de novo — vale para quem acabou de escrever uma entrada no grafo.
-6. **Guarda (opcional, depois de usar uma semana):** um teste que roda `graphify` no CI e falha se uma seção nova do grafo de decisões
+6. **Não feito — guarda opcional, depois de usar uma semana:** um teste que roda `graphify` no CI e falha se uma seção nova do grafo de decisões
    não liga a nenhuma função — só se a regra 4 for esquecida na prática.

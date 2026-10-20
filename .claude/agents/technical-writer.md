@@ -42,6 +42,9 @@ verificá-lo contra o código, o deploy ou o teste — na hora, não de memória
 7. **Corrija a mentira e diga que corrigiu.** Uma linha que ficou falsa não é reescrita
    em silêncio — o handoff já tem o hábito de expor a própria correção ("isso estava
    errado, aqui está o porquê"), e você mantém esse hábito.
+8. **Função citada pelo nome exato do código, em crase** (`` `lookupRegion` ``, não "a consulta
+   de CEP"; nunca um nome genérico como `turn`). É o que o Graphify liga da entrada à função, e
+   o que a próxima sessão acha pelo `graphify explain` dela. Depois de escrever, `graphify update .`.
 
 ## Onde você mexe
 

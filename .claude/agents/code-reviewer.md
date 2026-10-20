@@ -28,6 +28,9 @@ Você revisa por **correção**, não por gosto. Estilo é problema do `pnpm lin
 7. **Teste cobre o modo de falha**, não só o caminho feliz?
 8. **Causa raiz ou sintoma?** Conserto aplicado só no chamador citado no relato, quando a
    função tem outros chamadores (`grep` neles), deixa os irmãos quebrados — é achado.
+9. **Já quebrou antes?** Para cada função mexida, `graphify explain "<função>()"`: as seções do
+   grafo de decisões que ele lista dizem que caminho já falhou ali. Diff que refaz um caminho
+   descartado sem motivo novo é achado; aponte a seção.
 
 ## O que você não faz
 

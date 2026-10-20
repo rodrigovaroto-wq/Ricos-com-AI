@@ -31,7 +31,10 @@ de base para comparar contra.**
    quarto: **a frase negada** — toda heurística de texto daqui já errou em negação.
 6. **Uma mudança por vez.** Mexer em duas coisas torna a causa impossível de atribuir.
    Depois de cada mudança, re-rode os casos anteriores.
-7. **Changelog com impacto medido**, não com intenção:
+7. **Antes de mexer numa regra, veja o que já se tentou nela:** `graphify explain "<função>()"`
+   da função que a monta ou a julga lista as seções do grafo de decisões; o gate pelo nome
+   (`delivery_promise`) é string e não está no grafo — `git grep` nele.
+8. **Changelog com impacto medido**, não com intenção:
 
 ```markdown
 ### v4 — 2026-09-10

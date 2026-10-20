@@ -3644,7 +3644,9 @@ continua em `src/agent/`), as transcrições de persona e de teste real (≈ 1 0
 `turn()` capturava as 124 menções à Edge Function); `graphify-out/` no `.gitignore`. **Medido:** build em 10–11 s, sem modelo; 251 ligações deste
 grafo para código, 68 das 118 seções com ao menos uma; `explain` de uma função em ~2,3 KB contra ~10–13 KB de `git grep`; `query` em português é inútil
 (casa palavra). Gate por nome (`delivery_promise`) e closure de `handleTurn` (`handOff`) não viram nó — continuam no `git grep`. **Guarda/estado:**
-nada ligado (hook, regra no `CLAUDE.md`, agentes) — o plano está no §6 do documento e espera o operador; o tutorial genérico
+ligado no mesmo dia, a pedido do operador (§6 do documento): instalação pelo script de setup do ambiente; regra no `CLAUDE.md` (explain antes de
+mexer em gate, estado ou handoff; função citada pelo nome exato em crase); uma linha em `backend-specialist`, `code-reviewer`, `prompt-engineer`,
+`test-engineer`, `technical-writer` e `orchestrator`. O tutorial genérico
 `tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
 
 ## Lições (valem para qualquer correção futura)
