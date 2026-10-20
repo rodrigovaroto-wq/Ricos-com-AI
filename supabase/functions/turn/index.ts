@@ -76,7 +76,7 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -1549,7 +1549,16 @@ const COVERAGE_ALARM_CEPS = ["01310100", "04710090", "04662002"];
 /** `job: "health"` (E1.2): no database write, no model call — n8n alerts the operator on `unhealthy`. */
 const runHealthCheck = async () => {
   const checks = await checkCoverage(regionFetcher(REGION_TIMEOUT_MS), COVERAGE_ALARM_CEPS, logzzIdsOf(CONFIG.checkout));
-  return { status: healthOf(checks), checkedAt: new Date().toISOString(), checks };
+  // The real conversations of the last hour (grafo §111): a source that fails for her and not for the three CEPs above is seen here.
+  // A read that fails says nothing, never "degraded"; the e-mail lists it as one more line, so the alarm workflow needs no change.
+  const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+  const rows = (await db(`coverage_lookups?created_at=gte.${encodeURIComponent(since)}&select=outcome&limit=1000`).catch(() => null)) ?? [];
+  const real = lookupsDegraded(rows);
+  const lines: Array<{ cep: string; result: string }> = [
+    ...checks,
+    ...(real.degraded ? [{ cep: "conversas reais da última hora", result: `failed (${real.failed} de ${real.total} consultas não souberam responder)` }] : []),
+  ];
+  return { status: healthOf(checks) === "healthy" && !real.degraded ? "healthy" : "unhealthy", checkedAt: new Date().toISOString(), checks: lines, lookups: real };
 };
 
 /**
@@ -3785,6 +3794,19 @@ const handleTurn = async (
         .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
+      // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
+      if (!isRetry && !isRevise) {
+        // One row per conversation, the last answer wins: a lead whose CEP keeps failing is one failure, not one per message (review of §111).
+        await db("coverage_lookups?on_conflict=conversation_id", {
+          method: "POST",
+          headers: { Prefer: "resolution=merge-duplicates,return=minimal" },
+          body: JSON.stringify({
+            conversation_id: conversation.id,
+            outcome: lookup.kind === "found" ? (lookup.region.cod ? "cod" : "no_cod") : lookup.kind,
+            created_at: new Date().toISOString(),
+          }),
+        }).catch(() => undefined);
+      }
       if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };
       // Said in the turn the CEP arrives, not on every message after it (review of round 2).
       cepNotFound = lookup.kind === "not_found" && Boolean(foundAddress.fields.cep);

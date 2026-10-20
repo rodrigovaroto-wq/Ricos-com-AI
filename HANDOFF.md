@@ -13,29 +13,41 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
-> **2026-10-19 (noite) — consulta de cobertura pela Logzz: NO AR NA `turn` v34 (função v136). PR #70 ainda aberto, só o CI das mutações em ajuste.**
+> **2026-10-19 (fim da noite) — pré-lançamento: 8 tópicos, só o tópico 2 (Playwright, parte Logzz) fechado; troca de sessão pedida pelo operador.**
 >
-> - **Causa:** a consulta perguntava só à Coinzz, que dizia "sem entrega" para o G em São Paulo (a Logzz tem 180). O pagamento na
->   entrega é vendido no checkout da Logzz, então ela é a fonte certa.
-> - **Desenho (`src/agent/availability.ts`, espelho copiado):** `lookupRegion(fetcher, zip, size, logzz)` nunca lança e segue uma escada:
->   1. CEP → cidade: ViaCEP, depois BrasilAPI (que achou o "62930000");
->   2. Logzz, as duas consultas públicas do próprio checkout: estoque por tamanho e operação, depois os dias de entrega. O 400
->      da Logzz com uma das três mensagens conhecidas ("bloqueado", "fora da lista", "sem estoque") é "sem entrega". Qualquer outra
->      coisa que não se entenda é consulta que falhou, nunca "não";
->   3. se a Logzz falhar: a consulta da Coinzz como segunda fonte. O "sim" dela vale, o "não" dela nunca vira negação;
->   4. se tudo falhar: `failed` com a cidade guardada. A turn manda os dois links se a cidade está na lista, senão o antecipado.
-> - **Os ids da oferta:** `checkout.logzz {productId 165378, saleId 75567}` no config (opcional, no example). Sem a chave, vale a oferta
->   conhecida pelo slug `ccm-1-unidade`, então **o secret não precisa mudar**. O hash do secret de produção
->   (`eadf2c2f…`) já não é o do arquivo `business-config-2026-10-19.min.json` (`8a5005eb…`): o operador o editou depois. **Não
->   sobrescreva o secret com esse arquivo.**
-> - **Provas:** 8415 testes, incluindo `tests/logzz-region.test.ts` (47, com fuzz de corpo torto); 11 mutações novas, todas pegas; varredura
->   real de 75 CEPs em 25 cidades; teste de caos com as 4 fontes caindo em 16 combinações contra dados reais: 0 negações falsas, 0
->   "sim" falsos, 0 exceções; sonda a partir do Edge da Supabase (ViaCEP, BrasilAPI e Logzz respondem de lá).
-> - **Conferido em produção (v34):** SP com G entrega (amanhã), BH entrega, Cruz Alta só antecipado, Manaus e SP com M os dois links.
->   Sonda de saúde saudável. Grafo §108.
-> - **Falta:** o CI do PR #70 (lotes de mutação com texto desatualizado, o `verificar:guardas` completo local mostra todos), e o merge.
-> - **Resíduos conhecidos:** o estoque do kit de 2 e 3 peças não é consultado por quantidade; o tamanho M em São Paulo está sem estoque
->   na Logzz (fora de BH, só o G e o GG têm); uma cidade que o ViaCEP grafe diferente da Logzz cai em "fora da lista".
+> - **No ar:** `turn` v35 (secret = `business-config-2026-10-19b.min.json`). Nada foi publicado nesta etapa.
+> - **Feito:** Malu x checkout real da Logzz via Playwright, 35 CEPs x 5 tamanhos: **175/175 iguais** (grafo §112, `docs/operacao/playwright-checkout-2026-10-19/`).
+> - **Tópico 4 (alarme das consultas reais, grafo §111): corrigido e testado, NÃO publicado.** A revisão Opus reprovou duas coisas, ambas corrigidas: uma linha por conversa
+>   (`conversation_id` chave primária, upsert) e a tabela apagada pelo `purge_expired()` com mais de 1 dia. Regressão: `pnpm test` 8464 verdes, `typecheck`, `typecheck:function`, `lint`,
+>   `dev:conversas` 1655/1655, 6 mutações `LK-*` pegas. **Para publicar:** aplicar `supabase/migrations/0028_coverage_lookups.sql` (migração, antes do deploy), depois
+>   `NODE_USE_ENV_PROXY=1 pnpm deploy:turn` (v36) e a sonda de saúde (a `lookups` aparece na resposta). Sem a migração o turno só engole o erro (o alarme fica cego, nada quebra).
+> - **Falta, nesta ordem:** (a) aplicar a 0028 e publicar a v36 (acima), depois conferir a sonda;
+>   (b) Playwright no checkout da Coinzz (antecipado: prefill com a regra do nono dígito, frete por região, "Pedido principal R$", parcelas), só GET;
+>   (c) tópico 1: teste real de WhatsApp pelo número da Malu (precisa do telefone do operador) provando entrega de mídia; (d) tópico 3: personas completas na v35
+>   (~R$ 1,5; só apagar sintéticos `5500099`+6 dígitos); (e) tópico 5: ler o parecer de conformidade
+>   `docs/agente-ia/10-auditoria/parecer-conformidade-2026-10-19.md` (agente em segundo plano; se o arquivo não existir, refazer com o `compliance-reviewer`);
+>   (f) tópico 6: quem responde (Gizele no WhatsApp; e-mail do operador `contato@encorpa-fashion.com.br` para o que a Malu não resolve, R22.1); (g) tópico 7: textos
+>   aprovados x realidade (M sem estoque em SP na Logzz: decisão do operador); (h) tópico 8: estoque do kit de 2/3 peças por quantidade (ofertas de kit na Logzz, vendas 82749/82750).
+> - **Tópico 5 — parecer de conformidade pronto:** `docs/agente-ia/10-auditoria/parecer-conformidade-2026-10-19.md` (22 achados; é opinião de agente, não de advogado; nada foi aplicado). Bloqueios apontados,
+>   para o operador decidir: (1) a resposta "emagrece enquanto você usa" e a frase do áudio 1 ("reduz até três tamanhos… imediatamente", "febre nos Estados Unidos") sem prova; (2) a `turn` roda
+>   `muse-spark-1.3-contributor` (treina com dados) e não há política de privacidade publicada — decisão do operador sobre o segredo `CONVERSATION_MODEL`; (3) `HUMAN_HANDOFF_REPLY` sem canal alternativo,
+>   `shippedCancelReply` ("não dá mais pra cancelar") e a prova social (500 e 124) sem prova arquivada. Itens para advogado: prazo de garantia de vestuário, alegação de saúde ("ajuda na postura"), encarregado.
+> - **Local:** a `turn` local de teste usa o script do scratchpad (não está no repositório); refazer com `deno` e `BUSINESS_CONFIG` = arquivo 19b se precisar.
+
+> **2026-10-19 (noite) — consulta de cobertura pela Logzz: NO AR NA `turn` v34 (função v136). PR #70 ainda aberto, só o CI das mutações em ajuste.**
+
+> **2026-10-19 (noite) — NO AR: `turn` v35 (função v138). PR #70 mergeado na `main`.**
+>
+> - **Cobertura pela Logzz (grafo §108):** a consulta pergunta ao checkout da Logzz (estoque por tamanho e dias de entrega), com a
+>   BrasilAPI como segunda base de CEP e a Coinzz como segunda fonte (só o "sim" dela vale). Nunca lança; o que não se entende é
+>   "não sei", nunca "sem entrega". Conferido em produção: SP com G entrega, BH entrega, Cruz Alta só antecipado, Manaus e SP com M os
+>   dois links.
+> - **CEP que os Correios não acham:** achado pela rua e cidade (ViaCEP), com o número da casa escolhendo a faixa (§107).
+> - **Suporte (§109):** a Gizele, +55 11 97727-9391, para troca, devolução e mudança de endereço (`returns.supportName`).
+> - **Secret `BUSINESS_CONFIG`:** o operador colou `docs/operacao/business-config-2026-10-19b.min.json` inteiro em 19/10, 19h49 UTC. O hash
+>   (`46544277…`) bate com o arquivo, então **o arquivo `19b` é o que está no ar**. O `8a5005eb…` do arquivo antigo não vale mais.
+> - **Nenhuma lead real depois das 12h15 UTC de 19/10, e nenhum pedido (`orders` vazia):** o roteiro v3, o envio de mídia pelo WhatsApp
+>   e os dois checkouts ainda não foram exercitados por uma cliente real. Ver "antes de vender de verdade" no grafo §110.
 
 > **2026-10-19 (tarde) — correções das conversas de 19/10 (grafo §107; mesma sessão).**
 >

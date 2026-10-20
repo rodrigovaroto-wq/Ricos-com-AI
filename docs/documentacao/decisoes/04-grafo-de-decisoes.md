@@ -3587,6 +3587,48 @@ sobrescrito, porque já não bate com o arquivo do repositório.
 **Resíduo:** a mudança de endereço de um pedido é ensinada no prompt (a Malu escreve a frase, e os gates julgam), mas não tem resposta fixa
 nem leitura própria do pedido de mudança. Fica para uma frase real em conversa de cliente (R21.6).
 
+## 110. Antes de vender de verdade: o que a Malu ainda não provou (2026-10-19, noite)
+
+**Situação:** a Malu v35 passa em todos os testes, mas nenhuma cliente real falou com o roteiro v3. A última lead real chegou às 12h15 UTC,
+antes da publicação, e a tabela `orders` está vazia. Os testes e as personas provam a lógica, não o caminho real: WhatsApp, mídia,
+checkout, pedido e Gizele.
+
+**Lista, em ordem de risco** (cada item com o que prova):
+1. **Mensagem real pelo número da Malu, de um celular do operador:** abertura com áudios 1 e 2, vídeo, avaliações e tabela. Prova que a
+   Cloud API entrega mídia por link. Nunca foi provado.
+2. **Compra de teste de ponta a ponta nos dois checkouts:** link da Logzz (entrega) e da Coinzz (antecipado), com nome e telefone
+   preenchidos. Prova o nono dígito, o pedido e o webhook que casa o pedido com a lead.
+3. **Rodada completa de personas na v35:** a última foi na v32, antes da Logzz e da Gizele.
+4. **Alarme de consulta falha:** o health job só avisa quando SP deixa de entregar; falta contar os `failed` da conversa.
+5. **Revisão de conformidade dos áudios e do anúncio:** o áudio diz que "reduz até três tamanhos de cintura imediatamente". Risco de
+   política de anúncio de saúde da Meta; a decisão é do operador, mas vale um parecer.
+6. **Quem responde e em quanto tempo:** a Gizele e o e-mail do operador quando a Malu não resolve (R22.1).
+7. **Textos aprovados que não batem com a realidade:** "consulta instável" quando a Logzz disse "não"; M sem estoque em SP.
+8. **Estoque do kit de 2 e 3 peças:** hoje é o da oferta de 1 peça.
+
+## 111. Alarme das consultas de CEP reais (pré-lançamento, tópico 4, 2026-10-19)
+
+**Sintoma/risco:** o alarme de cobertura (`health`) só testava três CEPs fixos. Uma fonte (Logzz, ViaCEP) que falhasse para CEPs de clientes
+reais, e não para esses três, só seria vista pelas vendas que não aconteceram. **Causa:** nada registrava o que as consultas reais respondiam.
+**Caminhos descartados:** guardar o CEP/telefone da consulta (dado pessoal sem necessidade — LGPD); contar `not_found` como falha (é o
+erro de digitação da cliente, não fonte caída); disparar com uma única falha (ruído). **Correção:** migração `0028_coverage_lookups.sql`
+(só `outcome` e hora, RLS ligado sem política); o turno grava uma linha por consulta real (não por nova tentativa ou revisão) e o job de
+saúde lê a última hora: com pelo menos 5 consultas e um terço ou mais `failed` (`lookupsDegraded`), o status vira `unhealthy` e o e-mail do n8n
+lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha ao gravar ou ler nunca derruba o turno nem acusa degradação.
+**Revisão Opus (REPROVADO) e correção, mesmo dia:** (1) uma `failed` não vai para o cache, então o mesmo lead gravava uma linha por mensagem e um só
+cliente com CEP que falha disparava o alarme (5 mensagens = 5 `failed`) — a tabela passou a ter **uma linha por conversa** (`conversation_id` chave primária, upsert
+`merge-duplicates`, vale a última resposta; só o id interno, nenhum CEP ou telefone); (2) nada apagava a tabela — `purge_expired()` (corpo da 0020 mais um passo) apaga com mais
+de 1 dia, e a conversa apagada leva a linha junto (`on delete cascade`). **Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*` (6, todas pegas).
+**Estado:** commitado; a migração 0028 **ainda não foi aplicada** em produção e a v36 **ainda não foi publicada**.
+
+## 112. A consulta da Malu contra o checkout real, via Playwright (pré-lançamento, tópico 2, 2026-10-19)
+
+**Pergunta:** o que a Malu diz de cobertura é o que o checkout da Logzz oferece? **Método:** Playwright no checkout real, 35 CEPs, só GET (nenhum pedido
+ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupRegion` ([`docs/operacao/playwright-checkout-2026-10-19/`](../../operacao/playwright-checkout-2026-10-19/README.md)).
+**Resultado:** 175/175 iguais. **Armadilha da própria prova:** a primeira comparação usou "XG" (nome do checkout) e deu 26 "divergências" `failed`; o tamanho
+interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
+da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
