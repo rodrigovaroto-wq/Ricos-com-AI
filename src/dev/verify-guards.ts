@@ -4238,7 +4238,7 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/coverage-lookups.test.ts"],
   },
   {
-    id: "G113-nome-com-a-cidade",
+    id: "G114-nome-com-a-cidade",
     bug: "'me chamo Rosa moro em Ponte Nova' voltaria a ir no link do checkout como 'Rosa Moro Em Ponte Nova' (lead real, 20/10)",
     files: ["src/agent/identity.ts"],
     from: "    .replace(/(?:\\s+e)?\\s+(?:moro|mora|sou|tenho|estou|t[oô]|quero|queria|gostaria|preciso|vi|vim|como|qual|quanto|quais|pra|para|em|no|na|aqui|daqui)(?=\\s|$).*$/i, \"\")\n",
@@ -4246,7 +4246,7 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/identity.test.ts"],
   },
   {
-    id: "G113-cep-de-cinco-numeros",
+    id: "G114-cep-de-cinco-numeros",
     bug: "'84 940' depois da pergunta do CEP passaria calado, e a conversa seguiria sem a região (lead real, 19/10)",
     files: ["src/agent/address.ts"],
     from: "? digits.match(/^\\s*(\\d{5}|\\d{7}|\\d{9})\\s*[.!]*\\s*$/)",
@@ -4254,7 +4254,7 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/second-real-test.test.ts"],
   },
   {
-    id: "G113-prazo-da-entrega-sem-regiao",
+    id: "G114-prazo-da-entrega-sem-regiao",
     bug: "'Pagando na entrega chega em 1 a 3 dias' passaria para quem ainda não tem região consultada (lead real, 20/10)",
     files: ["src/agent/guardrails.ts"],
     from: "if (RANGE.test(s) && /\\bentrega\\b/.test(s) && !CONDITION.test(s)) return",

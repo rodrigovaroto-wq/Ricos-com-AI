@@ -16,16 +16,16 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > **2026-10-20 — sessão `claude/intelligent-edison-0geis2`, plano aprovado pelo operador (etapas 1 a 7, uma aprovação por etapa).**
 >
 > - **No ar:** `turn` v35, sem mudança. A 0028 continua **não aplicada**.
-> - **Etapa 1 (feita):** as conversas reais desde 19/10, 20h. Achadas três falhas, corrigidas e testadas, **não publicadas** (grafo §113):
+> - **Etapa 1 (feita):** as conversas reais desde 19/10, 20h. Achadas três falhas, corrigidas e testadas, **não publicadas** (grafo §114):
 >   - o nome apresentado engolia a cidade: "Rosa moro em Ponte Nova" foi no link;
 >   - "84 940" (CEP de 5 números) passava calado;
 >   - "Pagando na entrega chega em 1 a 3 dias" saía sem região consultada.
 > - **Validação:**
 >   - `pnpm test`, `typecheck`, `lint` e `typecheck:function` verdes; `dev:conversas` 1655/1655;
 >   - `dev:gates`: 175 endurecimentos, só `coverage_claim`; nenhum afrouxamento;
->   - mutações `G113-*` 3/3 pegas;
+>   - mutações `G114-*` 3/3 pegas;
 >   - as duas conversas reais reencenadas na `turn` local (R$ 0,08).
-> - **Próximo (etapa 2, depende do "pode" do operador):** aplicar a 0028 e publicar a v36 (alarme §111 + §113), depois a sonda.
+> - **Próximo (etapa 2, depende do "pode" do operador):** aplicar a 0028 e publicar a v36 (alarme §111 + §114 + §115), depois a sonda.
 >   Depois: (b) Playwright na Coinzz; (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador. (c) e (d) seguem bloqueados.
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (não está no repositório; o comando está no topo de `src/dev/persona-run.ts`).
 

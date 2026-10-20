@@ -3629,7 +3629,27 @@ ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupReg
 interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
 da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
 
-## 113. Três falhas das conversas reais de 19 e 20/10 (pré-lançamento, etapa 1, 2026-10-20)
+## 113. Graphify: onde o grafo de código encaixa (operador, 2026-10-20)
+
+**Pergunta:** usar o [Graphify](https://github.com/Graphify-Labs/graphify) para a Malu e o Hermes consultarem grafos de conhecimento.
+**Análise:** lido em código, commit `86c57be` ([`08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md)); instalado e medido no mesmo dia,
+com a autorização do operador (§5 do documento). **Caminhos descartados:** a Malu consultar o grafo no turno (é recuperação, R11.4, e escolha de ferramenta, R11.1;
+Python fora da Edge Function); o Hermes pela skill oficial (pede terminal, e o Hermes só tem `file,skills,todo` — a barreira do R11.6); o
+Graphify ligar gate a seção do grafo (gates são `name: "…"`, string; ele só liga menção a função ou classe); `graphify claude install` (reescreve
+este `CLAUDE.md` e intercepta toda leitura); `save-result`/`reflect` (segunda memória). **Achado que muda o uso:** o espelho byte a byte põe toda
+função exportada duas vezes no corpus, e o Graphify descarta menção ambígua — sem tratar, `stageForOrder` não recebia nenhuma ligação daqui.
+**Primeira correção, desfeita pela medição:** tirar a cópia de `supabase/functions/` — os testes ligavam, mas `handleTurn()` (o turno de produção)
+deixava de chamar qualquer gate no grafo. **Correção:** `.graphifyignore` tira `src/agent/` (o grafo fica com a cópia que a produção roda; quem edita
+continua em `src/agent/`), as transcrições de persona e de teste real (≈ 1 000 menções `ok` ligadas a um helper de teste) e `src/dev/simulate.ts` (seu
+`turn()` capturava as 124 menções à Edge Function); `graphify-out/` no `.gitignore`. **Medido:** build em 10–11 s, sem modelo; 251 ligações deste
+grafo para código, 68 das 118 seções com ao menos uma; `explain` de uma função em ~2,3 KB contra ~10–13 KB de `git grep`; `query` em português é inútil
+(casa palavra). Gate por nome (`delivery_promise`) e closure de `handleTurn` (`handOff`) não viram nó — continuam no `git grep`. **Guarda/estado:**
+ligado no mesmo dia, a pedido do operador (§6 do documento): instalação pelo script de setup do ambiente; regra no `CLAUDE.md` (explain antes de
+mexer em gate, estado ou handoff; função citada pelo nome exato em crase); uma linha em `backend-specialist`, `code-reviewer`, `prompt-engineer`,
+`test-engineer`, `technical-writer` e `orchestrator`. O tutorial genérico
+`tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
+
+## 114. Três falhas das conversas reais de 19 e 20/10 (pré-lançamento, etapa 1, 2026-10-20)
 
 **Sintomas (conversas reais, `turn` v35 e v27):** (1) "me chamo Rosa moro em Ponte Nova MG como faço pra comprar no atacado" virou o nome
 "Rosa moro em Ponte Nova" em `leads.identity` e foi no link da Coinzz como `name=Rosa+Moro+Em+Ponte+Nova`; (2) "84 940", mandado depois do
@@ -3650,7 +3670,7 @@ instruído a pedir os 8 números ou a rua e a cidade, e a pergunta do CEP conta 
 condição ("dependendo", "na maioria", "se a sua região/cidade", "onde tem", "nas regiões", "não sei se", "consulto…"); a linha de fatos do
 prompt passou a dizer "nas regiões com pagamento na entrega".
 **Guarda:** `tests/identity.test.ts`, `tests/second-real-test.test.ts`, `tests/coverage-claim.test.ts` (com negação e a frase que não
-nega), `tests/prompt.test.ts`; mutações `G113-*` (3/3 pegas). `pnpm dev:gates`: 175 endurecimentos, todos `coverage_claim` sobre o
+nega), `tests/prompt.test.ts`; mutações `G114-*` (3/3 pegas). `pnpm dev:gates`: 175 endurecimentos, todos `coverage_claim` sobre o
 intervalo da entrega sem região; nenhum afrouxamento.
 **Prova prática:** as duas conversas reais reencenadas, mensagem por mensagem, na `turn` local (do disco, com o `BUSINESS_CONFIG` 19b e o
 modelo da produção, R$ 0,08, leads sintéticos apagados): Rosa é chamada de "Rosa", e o atacado é respondido ("não temos atacado"); "84 940"
@@ -3663,14 +3683,14 @@ duas frases como teste de negação. Ficam como resíduo (R21.6, hipotéticas): 
 condição na frase anterior ("Depende da sua região. Na entrega…") custa uma reescrita; o pedido de CEP lido até o "?" de qualquer frase seguinte.
 **Estado:** commitado; **não publicado** (vai junto com a v36 da etapa 2).
 
-## 114. O suporte é "o atendimento ao cliente", +55 11 98819-4261, sem nome (operador, 2026-10-20)
+## 115. O suporte é "o atendimento ao cliente", +55 11 98819-4261, sem nome (operador, 2026-10-20)
 
 **Decisão do operador:** o número de troca, devolução e mudança de endereço é **+55 11 98819-4261** (o +55 11 97727-9391 do §109 foi engano) e a
 Malu nunca cita nome de quem atende: diz "o atendimento ao cliente". **Correção:** `supportName` saiu do código (prompt, `logzzReturnReply`,
 `deliveredDirective`, tipos do config); com o número no config, as três falas mandam ao "atendimento ao cliente no WhatsApp <número>", e o
 prompt diz "Nunca diga o nome de quem atende"; o ramo antigo "suporte da Logzz" saiu junto (a Logzz não é mais quem atende). Novo segredo:
 `docs/operacao/business-config-2026-10-20.min.json` (o 19b com `returns` = número novo e `freeExchange`, sem `supportName`). **Guarda:**
-`tests/support-atendimento.test.ts` (substitui `support-gizele`), mutações `AC-*`. **Revisão do §113 (pedida pelo operador antes dos leads
+`tests/support-atendimento.test.ts` (substitui `support-gizele`), mutações `AC-*`. **Revisão do §114 (pedida pelo operador antes dos leads
 reais):** o briefing do veto do `coverage_claim` não ensinava a condição do prazo — a reescrita ficava às cegas; passou a ensinar
 "dependendo da sua região, na entrega chega em …". Conferido que o veto novo não alcança a régua (`regionKnown` indefinido), a oferta da
 entrega (só com região) nem os dois links (sem o intervalo). **Prova prática:** `turn` local com o config novo — troca antes da compra

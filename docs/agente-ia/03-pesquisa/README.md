@@ -10,6 +10,7 @@ Cada afirmação aponta arquivo e, quando aplicável, linha — para abrir no Gi
 | [`03-extracao-por-necessidade.md`](03-extracao-por-necessidade.md) | Reorganização por necessidade nossa (N1–N8) e correções à primeira passagem |
 | [`04-varredura-profunda.md`](04-varredura-profunda.md) | Varredura mecânica sobre o corpus inteiro; 11 peças novas |
 | [`05-corpus-de-agentes-agency.md`](05-corpus-de-agentes-agency.md) | Nona referência, de outra natureza: os 209 agentes de prompt do `agency-agents-app`, triados em quatro tiers de utilidade e com as regras críticas a enxertar |
+| [`08-graphify.md`](08-graphify.md) | O Graphify (grafo de código e docs) lido em código: serve às sessões do Claude Code; não à Malu (R11.1, R11.4) nem ao Hermes (R11.6) |
 
 O lado "campanha" (Meta Ads, Conversions API, atribuição) não fica aqui — ver
 [`../../campanhas-e-anuncios/02-analise-meta-ads-e-conversoes.md`](https://github.com/rodrigovaroto-wq/encorpa-campanhas-/blob/main/docs/02-analise-meta-ads-e-conversoes.md).
