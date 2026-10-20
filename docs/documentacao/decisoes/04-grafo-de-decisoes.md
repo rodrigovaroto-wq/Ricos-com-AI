@@ -3619,7 +3619,9 @@ lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha a
 cliente com CEP que falha disparava o alarme (5 mensagens = 5 `failed`) — a tabela passou a ter **uma linha por conversa** (`conversation_id` chave primária, upsert
 `merge-duplicates`, vale a última resposta; só o id interno, nenhum CEP ou telefone); (2) nada apagava a tabela — `purge_expired()` (corpo da 0020 mais um passo) apaga com mais
 de 1 dia, e a conversa apagada leva a linha junto (`on delete cascade`). **Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*` (6, todas pegas).
-**Estado:** commitado; a migração 0028 **ainda não foi aplicada** em produção e a v36 **ainda não foi publicada**.
+**Estado:** a 0028 foi aplicada em 2026-10-20, 12h UTC (tabela e RLS pelo SQL do MCP; o `purge_expired()` pela API de gerência — o MCP trava
+numa consulta com `delete`, esperando confirmação), e a `turn` **v36** (função v142) publicada: `job:"health"` devolve `lookups`, e uma consulta
+real grava a linha (`outcome: "cod"`, conferido e apagado com o lead sintético).
 
 ## 112. A consulta da Malu contra o checkout real, via Playwright (pré-lançamento, tópico 2, 2026-10-19)
 
@@ -3681,7 +3683,7 @@ o nome errado da Rosa continua no lead real até ela mandar o nome de novo (o pr
 1 a 3 dias" passava, e era a reescrita mais barata depois do veto: a condição agora exige o lugar ("se a sua região/cidade", "seu CEP"), com as
 duas frases como teste de negação. Ficam como resíduo (R21.6, hipotéticas): "Moro" como sobrenome ("Ana Moro" vira "Ana", corte e não troca); a
 condição na frase anterior ("Depende da sua região. Na entrega…") custa uma reescrita; o pedido de CEP lido até o "?" de qualquer frase seguinte.
-**Estado:** commitado; **não publicado** (vai junto com a v36 da etapa 2).
+**Estado:** no ar na `turn` **v36** (2026-10-20, 12h UTC). O nome da Rosa no lead real foi corrigido para "Rosa" (pedido do operador).
 
 ## 115. O suporte é "o atendimento ao cliente", +55 11 98819-4261, sem nome (operador, 2026-10-20)
 
@@ -3696,6 +3698,7 @@ reais):** o briefing do veto do `coverage_claim` não ensinava a condição do p
 entrega (só com região) nem os dois links (sem o intervalo). **Prova prática:** `turn` local com o config novo — troca antes da compra
 responde com o número novo e sem nome; CEP de SP com o tamanho dá a oferta e "Chega em 1 a 3 dias"; "84 940" pede os 8 números e o prazo
 sai condicionado (R$ 0,05).
+**Estado:** segredo `BUSINESS_CONFIG` = arquivo 2026-10-20 (sha256 `3749c32b…`, conferido pela API) e `turn` **v36**, no ar em 2026-10-20, 12h UTC.
 
 ## Lições (valem para qualquer correção futura)
 

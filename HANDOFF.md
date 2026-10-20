@@ -15,19 +15,23 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 > **2026-10-20 — sessão `claude/intelligent-edison-0geis2`, plano aprovado pelo operador (etapas 1 a 7, uma aprovação por etapa).**
 >
-> - **No ar:** `turn` v35, sem mudança. A 0028 continua **não aplicada**.
-> - **Etapa 1 (feita):** as conversas reais desde 19/10, 20h. Achadas três falhas, corrigidas e testadas, **não publicadas** (grafo §114):
->   - o nome apresentado engolia a cidade: "Rosa moro em Ponte Nova" foi no link;
->   - "84 940" (CEP de 5 números) passava calado;
->   - "Pagando na entrega chega em 1 a 3 dias" saía sem região consultada.
+> - **No ar:** `turn` **v36** (função v142, 12h UTC); `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-20.min.json`
+>   (sha256 `3749c32b…`); migração 0028 aplicada. `job:"health"` → `healthy`, com `lookups`.
+> - **Etapa 1:** três falhas das conversas reais corrigidas (grafo §114): o nome em `extractName`, o CEP de 5 números em `malformedCep` e
+>   o prazo da entrega sem região em `coverage_claim`. O nome da Rosa no lead real foi corrigido para "Rosa".
+> - **Revisão pedida pelo operador:** o briefing do `coverage_claim` passou a ensinar a condição do prazo (§115).
+> - **Suporte (§115):** "o atendimento ao cliente", +55 11 98819-4261, sem nome; `supportName` saiu do código.
+> - **Etapa 2:** 0028 + segredo novo + v36, sonda ok. A gravação em `coverage_lookups` foi provada com um lead sintético, apagado depois.
 > - **Validação:**
->   - `pnpm test`, `typecheck`, `lint` e `typecheck:function` verdes; `dev:conversas` 1655/1655;
->   - `dev:gates`: 175 endurecimentos, só `coverage_claim`; nenhum afrouxamento;
->   - mutações `G114-*` 3/3 pegas;
->   - as duas conversas reais reencenadas na `turn` local (R$ 0,08).
-> - **Próximo (etapa 2, depende do "pode" do operador):** aplicar a 0028 e publicar a v36 (alarme §111 + §114 + §115), depois a sonda.
->   Depois: (b) Playwright na Coinzz; (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador. (c) e (d) seguem bloqueados.
-> - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (não está no repositório; o comando está no topo de `src/dev/persona-run.ts`).
+>   - `pnpm test` 8467, `typecheck`, `lint`, `typecheck:function` e `dev:conversas` 1655/1655;
+>   - `dev:gates`: 0 afrouxamentos;
+>   - mutações `G114-*`, `AC-*` e `troca-gratis-sem-flag-turno` pegas;
+>   - reencenação na `turn` local, idêntica à v36 (R$ 0,18 no total).
+> - **Teste pela porta de produção:** não feito. A `turn` exige o selo `INBOUND_SIGNING_SECRET`, que não está no container.
+>   A primeira conversa real na v36 é a prova; confira `turn_outcomes.agent_version = 36`.
+> - **Falta:** (b) Playwright na Coinzz; (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador.
+>   (c) e (d) seguem bloqueados. `graphify` não instalado: a instalação foi barrada pelo classificador de permissão.
+> - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
 > **2026-10-19 (fim da noite) — pré-lançamento: 8 tópicos, só o tópico 2 (Playwright, parte Logzz) fechado; troca de sessão pedida pelo operador.**
 >
