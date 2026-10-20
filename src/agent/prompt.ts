@@ -806,8 +806,10 @@ export const systemPrompt = (
           // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name; it also takes the change of an order's address.
           `A troca, a devolução e a mudança de endereço de um pedido são com o atendimento ao cliente, direto no WhatsApp. Nunca diga o nome de quem atende.`,
           `  Quando ela perguntar ou pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só chamar o nosso atendimento ao cliente no WhatsApp ${logzzSupportPhone(config)} e pedir a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
-          `  Se ela quiser mudar o endereço de um pedido que já fez, ou trocar o endereço da entrega, mande ela chamar o atendimento ao cliente no`,
-          `  WhatsApp ${logzzSupportPhone(config)}, que eles mudam pra ela. Você não muda o endereço de um pedido feito.`,
+          `  Se ela quiser mudar o endereço de um pedido que já fez, ou trocar o endereço da entrega, mande ela chamar o atendimento ao cliente,`,
+          `  assim: "É só chamar o nosso atendimento ao cliente no WhatsApp ${logzzSupportPhone(config)}, que eles mudam o endereço pra você." Você não muda o endereço de um pedido feito.`,
+          // A real-shaped run of 2026-10-20 ended the address line in "…que eles resolvem?": the live-question rule bent an instruction into a question.
+          `  Essas respostas de troca, devolução e endereço terminam no número, com ponto final: nunca viram pergunta.`,
         ]
       : []),
     ...kitsBriefing(config),

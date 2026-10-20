@@ -35,6 +35,9 @@ describe("o prompt e o pós-venda", () => {
     expect(prompt).toContain(EXEMPLAR);
     expect(prompt).toContain("Nunca diga o nome de quem atende.");
     expect(prompt).toContain("Você não muda o endereço de um pedido feito.");
+    expect(prompt).toContain(`"É só chamar o nosso atendimento ao cliente no WhatsApp ${PHONE}, que eles mudam o endereço pra você."`);
+    expect(prompt).toContain("terminam no número, com ponto final: nunca viram pergunta.");
+    for (const p of ["cod", "prepay"] as const) expect(blocked(`É só chamar o nosso atendimento ao cliente no WhatsApp ${PHONE}, que eles mudam o endereço pra você.`, p)).toEqual([]);
     expect(prompt).not.toMatch(/Gizele|suporte da Logzz/);
     for (const p of ["cod", "prepay"] as const) expect(blocked(EXEMPLAR, p)).toEqual([]);
   });
