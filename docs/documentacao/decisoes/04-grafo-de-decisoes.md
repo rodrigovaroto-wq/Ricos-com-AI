@@ -3716,6 +3716,31 @@ antecipado do tamanho antes do link. **Outros achados para o operador:** "em at�
 CEP e a Malu não avisa; o checkout não mostra prazo (os "5 dias úteis" da Malu não se conferem ali).
 **Estado:** só teste; nenhum código mudou.
 
+## 117. A entrega pelo tamanho dela, e o pedido que o sistema não acha (operador, 2026-10-20, v37)
+
+**Sintomas (§116 e simulação na `turn` local):** em São Paulo o M não tem estoque na Logzz; a cliente M recebia os dois links com "a nossa
+consulta de CEP está instável", e nenhum dos dois vendia (Logzz sem M, Coinzz sem M no antecipado). O kit M+G+GG em SP recebia a oferta da
+entrega, porque só um tamanho era consultado. E o pedido sem registro ia ao modelo com o e-mail do suporte.
+**Causas:** `offerNow` mandava `"both"` também quando `lookupRegion` respondeu "não" numa cidade da lista (regra do R28, de quando a consulta era
+a da Coinzz e o "não" dela era errado em SP); desde o §108 o "não" vem da Logzz, igual ao checkout real em 175/175 (§112). O kit consultava
+só `regionSize`. O pós-venda lia pedidos só por `lead.id`.
+**Decisões do operador:** (1) consultar o pagamento na entrega junto do tamanho escolhido; no antecipado não é preciso; (2) "em até 12x",
+nunca juros (já era assim: o prompt e o `installment_promise` proíbem "sem juros" e falar de juros); (3) pedido não encontrado: procurar
+por todos os caminhos e, sem achar, dizer que é problema no sistema e mandar à equipe de atendimento ao cliente, com o número logo depois;
+(4) publicar a v37.
+**Correção:** `offerNow` = `"both"` só com a consulta falhada numa cidade da lista; o "não" leva ao antecipado. O kit pergunta cada outro
+tamanho (`lookupRegion` por tamanho); um sem entrega torna o kit antecipado, uma consulta falha torna desconhecido. Quando a oferta da
+entrega já foi antes do tamanho, sai "No M o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛" antes do
+quadro do antecipado. `regionDirectiveFor` fala dos dois links só se eles foram (`offerBefore === "both"`). O pós-venda, o cancelamento e o
+contexto de pedido leem pedidos por `herLeadIds` (o lead dela e o do mesmo número com ou sem o nono dígito, mesmo DDD e mesmos 8 dígitos);
+sem pedido legível, `orderNotFoundReply` pelo `handOff` (e-mail ao operador, conversa não calada); a segunda vez, o modelo responde.
+**Caminhos descartados:** consultar o estoque do antecipado (o operador disse que não é preciso — a cliente M fora de BH continua sem como
+comprar, ver §116); procurar pedido pelo sufixo do telefone sem o DDD (pedido de outra mulher lido para ela).
+**Guarda:** `tests/order-and-size-2026-10-20.test.ts`, `tests/funnel.test.ts`; mutações `G117-*` (4/4 pegas).
+**Prova prática:** `turn` local com o config no ar — M em SP antes e depois do CEP: antecipado (com a linha do tamanho quando a entrega já
+tinha sido oferecida); M em BH: entrega; kit M+G+GG em SP: antecipado; kit G+GG em SP: entrega; "comprei ontem e meu pedido não chegou":
+a linha fixa com o número.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
