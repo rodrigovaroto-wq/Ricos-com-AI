@@ -232,7 +232,7 @@ import {
   statesPastPurchase,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, supportName, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -420,7 +420,7 @@ interface BusinessConfig extends GateConfig {
   /** Script v3 (R28): the public URLs of the recorded audios, the video and the images. OPTIONAL — absent: text only. */
   funnel?: { media?: FunnelMedia };
   /** Exchange and return through the Logzz support (operator, 2026-10-13). OPTIONAL — absent: as before. */
-  returns?: { logzzSupportPhone?: string; supportName?: string; freeExchange?: boolean };
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
   /** E2.3: which A/B experiment is live. OPTIONAL — absent in the secret = nobody in a test. */
   experiments?: { fastOpening?: boolean; linkAfterChoice?: boolean };
   /** Where the handoff alert goes while there is no WhatsApp number (R9.2). */
@@ -3526,14 +3526,14 @@ const handleTurn = async (
   // agent sends its number and nobody is called. Without a valid number in the config, as before.
   // A reply the chain refuses falls through to what came before it.
   const logzzPhone = logzzSupportPhone(CONFIG);
-  const returnsLine = logzzPhone === null ? null : logzzReturnReply(logzzPhone, CONFIG.delivery.warrantyDays, CONFIG.returns?.freeExchange === true, supportName(CONFIG));
+  const returnsLine = logzzPhone === null ? null : logzzReturnReply(logzzPhone, CONFIG.delivery.warrantyDays, CONFIG.returns?.freeExchange === true);
   // A person asked for in so many words beside the order goes to a person, and a fixed line already sent
   // is not sent again: the second time she asks, a person (v20 review — the post-sale reading came first).
   const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? ""));
   // Only when she asks for the exchange or the return in her own words, never on a complaint (operator, 2026-10-13).
   const asksReturn = interpretation.wants_exchange && namesExchangeOrReturn(spoken(inbound.body ?? ""));
   if (returnsLine !== null && returnsLine !== lastOutbound && !asksPerson && handoffKind === "post_sale" && asksReturn) {
-    const sent = await sendFixed(returnsLine, "troca: número do suporte da Logzz", "cod", {}, false, 1, "auto");
+    const sent = await sendFixed(returnsLine, "troca: número do atendimento ao cliente", "cod", {}, false, 1, "auto");
     if (sent) return sent;
   }
   // A cancel reads her orders (operator, 2026-10-06, `cancelReplyFor`): paid at the door, she
@@ -3583,7 +3583,7 @@ const handleTurn = async (
     if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {
       // Her stored size: a size said here is the table's (`size_claim`), never the model's guess.
       const gate: Parameters<typeof draftWith>[2] = { paymentPath: path, knownSize: lead.size ?? null };
-      const draft = await draftWith(deliveredDirective(orders, new Date(), logzzPhone, supportName(CONFIG)), "post_sale", gate, replyDeadline);
+      const draft = await draftWith(deliveredDirective(orders, new Date(), logzzPhone), "post_sale", gate, replyDeadline);
       if (draft?.deferred) return await deferDraft(draft.text, "pós-venda: pedido entregue, fora da janela de envio");
       const answered = draft === null ? null : await sendFixed(draft.text, "pós-venda: pedido entregue, resposta do modelo com os fatos do pedido", path, {}, false, 1, "agent", true);
       if (answered) return answered;

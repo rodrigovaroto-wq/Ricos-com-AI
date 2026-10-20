@@ -36,25 +36,16 @@ export interface PromptConfig extends GateConfig {
    * Exchange and return through the Logzz support (operator, 2026-10-13). Absent: as before.
    * `freeExchange`: only `true` says the exchange costs her nothing — the gate's own test.
    */
-  returns?: { logzzSupportPhone?: string; supportName?: string; freeExchange?: boolean };
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
 }
 
 /**
- * The Logzz support number, or null when absent or not a phone (a `{{PLACEHOLDER}}`, a typo in the
+ * The customer-service number (`returns.logzzSupportPhone`, the key's name from when it was the Logzz's), or null when absent or not a phone (a `{{PLACEHOLDER}}`, a typo in the
  * secret): then exchange and return stay as before. Read by the prompt and by the turn alike.
  */
 export const logzzSupportPhone = (config: { returns?: { logzzSupportPhone?: unknown } }): string | null => {
   const phone = config.returns?.logzzSupportPhone;
   return typeof phone === "string" && /^\+?\d[\d ().-]{7,19}$/.test(phone.trim()) ? phone.trim() : null;
-};
-
-/**
- * The name of the person at that number (operator, 2026-10-19: "Gizele", who now gives the exchange, return and address-change
- * support). OPTIONAL: absent, or anything but a plain first name, the line stays as before ("o suporte da Logzz").
- */
-export const supportName = (config: { returns?: { supportName?: unknown } }): string | null => {
-  const name = config.returns?.supportName;
-  return typeof name === "string" && /^\p{L}[\p{L} .'-]{1,39}$/u.test(name.trim()) ? name.trim() : null;
 };
 
 /**
@@ -810,19 +801,13 @@ export const systemPrompt = (
     `O procedimento da troca e da devolução — como trocar ou devolver, com quem falar, o número do suporte —`,
     `  você só diz quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando); nunca por conta`,
     `  própria. Os ${config.delivery.warrantyDays} dias após o recebimento pra devolver se não gostar continuam sendo argumento de venda.`,
-    ...(logzzSupportPhone(config) && supportName(config)
+    ...(logzzSupportPhone(config)
       ? [
-          // Operator, 2026-10-19: the support is a person, by name, and it also takes the change of an order's address.
-          `A troca, a devolução e a mudança de endereço de um pedido são com a ${supportName(config)}, que dá todo o suporte direto no WhatsApp.`,
-          `  Quando ela perguntar ou pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só chamar a ${supportName(config)} no WhatsApp ${logzzSupportPhone(config)} e pedir a troca ou a devolução, que ela resolve pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
-          `  Se ela quiser mudar o endereço de um pedido que já fez, ou trocar o endereço da entrega, mande ela chamar a ${supportName(config)} no`,
-          `  WhatsApp ${logzzSupportPhone(config)}, que ela muda pra ela. Você não muda o endereço de um pedido feito.`,
-        ]
-      : logzzSupportPhone(config)
-      ? [
-          // Operator, 2026-10-13: the Logzz support serves her directly.
-          `A troca e a devolução são com o suporte da Logzz, que atende ela direto. Quando ela perguntar ou`,
-          `  pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${logzzSupportPhone(config)} e pedir lá a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
+          // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name; it also takes the change of an order's address.
+          `A troca, a devolução e a mudança de endereço de um pedido são com o atendimento ao cliente, direto no WhatsApp. Nunca diga o nome de quem atende.`,
+          `  Quando ela perguntar ou pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só chamar o nosso atendimento ao cliente no WhatsApp ${logzzSupportPhone(config)} e pedir a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
+          `  Se ela quiser mudar o endereço de um pedido que já fez, ou trocar o endereço da entrega, mande ela chamar o atendimento ao cliente no`,
+          `  WhatsApp ${logzzSupportPhone(config)}, que eles mudam pra ela. Você não muda o endereço de um pedido feito.`,
         ]
       : []),
     ...kitsBriefing(config),

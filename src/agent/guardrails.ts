@@ -3431,7 +3431,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Enquanto a região dela não foi consultada, nunca afirme que a entrega alcança a cidade ` +
-      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP.`,
+      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP. O prazo da entrega, antes disso, vem ` +
+      `condicionado na mesma frase: "dependendo da sua região, na entrega chega em …".`,
     check: (text, ctx) => {
       if (ctx.regionKnown !== false) return null;
       const t = norm(text);

@@ -3663,6 +3663,20 @@ duas frases como teste de negação. Ficam como resíduo (R21.6, hipotéticas): 
 condição na frase anterior ("Depende da sua região. Na entrega…") custa uma reescrita; o pedido de CEP lido até o "?" de qualquer frase seguinte.
 **Estado:** commitado; **não publicado** (vai junto com a v36 da etapa 2).
 
+## 114. O suporte é "o atendimento ao cliente", +55 11 98819-4261, sem nome (operador, 2026-10-20)
+
+**Decisão do operador:** o número de troca, devolução e mudança de endereço é **+55 11 98819-4261** (o +55 11 97727-9391 do §109 foi engano) e a
+Malu nunca cita nome de quem atende: diz "o atendimento ao cliente". **Correção:** `supportName` saiu do código (prompt, `logzzReturnReply`,
+`deliveredDirective`, tipos do config); com o número no config, as três falas mandam ao "atendimento ao cliente no WhatsApp <número>", e o
+prompt diz "Nunca diga o nome de quem atende"; o ramo antigo "suporte da Logzz" saiu junto (a Logzz não é mais quem atende). Novo segredo:
+`docs/operacao/business-config-2026-10-20.min.json` (o 19b com `returns` = número novo e `freeExchange`, sem `supportName`). **Guarda:**
+`tests/support-atendimento.test.ts` (substitui `support-gizele`), mutações `AC-*`. **Revisão do §113 (pedida pelo operador antes dos leads
+reais):** o briefing do veto do `coverage_claim` não ensinava a condição do prazo — a reescrita ficava às cegas; passou a ensinar
+"dependendo da sua região, na entrega chega em …". Conferido que o veto novo não alcança a régua (`regionKnown` indefinido), a oferta da
+entrega (só com região) nem os dois links (sem o intervalo). **Prova prática:** `turn` local com o config novo — troca antes da compra
+responde com o número novo e sem nome; CEP de SP com o tamanho dá a oferta e "Chega em 1 a 3 dias"; "84 940" pede os 8 números e o prazo
+sai condicionado (R$ 0,05).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

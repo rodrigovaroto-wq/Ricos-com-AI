@@ -1334,7 +1334,7 @@ describe("o kit depois da escolha do pagamento e antes dos dados", () => {
 describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
   const PHONE = "+55 11 91132-7877";
   const PROD: PromptConfig = { ...FULL, returns: { logzzSupportPhone: PHONE, freeExchange: true } };
-  const LOGZZ = `A garantia é de 7 dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${PHONE} e pedir lá a troca ou a devolução, que eles resolvem pra você.`;
+  const LOGZZ = `A garantia é de 7 dias após o recebimento. É só chamar o nosso atendimento ao cliente no WhatsApp ${PHONE} e pedir a troca ou a devolução, que eles resolvem pra você.`;
   const ONLY_ASKED = `O procedimento da troca e da devolução — como trocar ou devolver, com quem falar, o número do suporte — você só diz quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando); nunca por conta própria. Os 7 dias após o recebimento pra devolver se não gostar continuam sendo argumento de venda.`;
 
   it("produção: ensina a frase com os dias e o sem custo, e ela passa a cadeia nos dois caminhos", () => {
@@ -1367,7 +1367,7 @@ describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
   });
 
   it("sem o número, nada de Logzz como suporte, e do envio da troca não se fala", () => {
-    expect(own(FULL)).not.toContain("suporte da Logzz");
+    expect(own(FULL)).not.toContain("atendimento ao cliente no WhatsApp");
     expect(own(FULL)).toContain("Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.");
   });
 });
