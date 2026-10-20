@@ -1,5 +1,10 @@
 # Graphify
 
+> **Neste repositório, não siga a instalação abaixo à risca** (medido em 2026-10-20, grafo §113): não rode `graphify claude install`
+> (reescreve o `CLAUDE.md`) nem `graphify extract .`/`/graphify .` (manda os docs a um modelo); use `graphify update .` com
+> `GRAPHIFY_BACKEND=none` e o `.graphifyignore` da raiz. O porquê e os números estão em
+> [`docs/agente-ia/03-pesquisa/08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md). Este tutorial é o genérico da ferramenta.
+
 Graphify é uma CLI (interface de linha de comando — um programa que você controla digitando comandos no terminal, sem tela gráfica) standalone escrita em Python. O pacote no PyPI (o repositório oficial de pacotes Python — de lá vem o `pip install`) se chama `graphifyy`, com dois "y" mesmo — não é erro de digitação neste documento. O comando que fica disponível no seu terminal depois de instalado, porém, tem só um "y": `graphify`.
 
 **Graphify não é um plugin do Claude Code.** É uma ferramenta separada e funciona do mesmo jeito não importa qual agente de IA (Claude Code, Cursor, Codex CLI, Gemini CLI, ou nenhum agente — só você, no terminal) está por trás do comando.

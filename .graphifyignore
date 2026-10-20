@@ -1,11 +1,20 @@
 # graphify (docs/agente-ia/03-pesquisa/08-graphify.md). Same syntax as .gitignore.
 #
-# The byte-for-byte mirror of src/ (tests/function-drift.test.ts). With both copies every
-# exported function exists twice, and graphify drops a doc mention that matches more than one
-# function — the decision graph would link to no code at all. src/ is the canonical side.
-supabase/functions/turn/*.ts
-!supabase/functions/turn/index.ts
+# The byte-for-byte mirror (tests/function-drift.test.ts) puts every exported function in the
+# corpus twice, and graphify drops a doc mention that matches more than one function. Keep the
+# copy production runs: then `handleTurn()` in turn/index.ts links to every gate it calls.
+# src/agent/ stays the side you edit (CLAUDE.md); tests importing it are found with `git grep`.
+src/agent/
+src/channel/whatsapp.ts
+src/channel/inbound-signature.ts
 supabase/functions/whatsapp/whatsapp.ts
-supabase/functions/whatsapp/inbound-signature.ts
 # Vendored Opus decoder (R18.9): not ours, only noise in the graph.
 supabase/functions/whatsapp/vendor/
+# Conversation transcripts (persona rounds and real tests): turns, not knowledge. Every `ok`
+# a status line prints would resolve to a test helper named ok(). The round summaries stay.
+docs/agente-ia/10-auditoria/personas-*/
+docs/agente-ia/10-auditoria/testes-reais/
+# Docs say `turn` for the Edge Function; with this file in, all 124 of them resolved to the local
+# simulator's turn() and made it the second hub of the graph. The simulator (`pnpm dev`) is not
+# what a decision is about.
+src/dev/simulate.ts

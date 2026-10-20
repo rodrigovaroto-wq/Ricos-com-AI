@@ -3632,15 +3632,20 @@ da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
 ## 113. Graphify: onde o grafo de código encaixa (operador, 2026-10-20)
 
 **Pergunta:** usar o [Graphify](https://github.com/Graphify-Labs/graphify) para a Malu e o Hermes consultarem grafos de conhecimento.
-**Análise:** lido em código, commit `86c57be` ([`08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md)); não executado (instalar do PyPI foi
-barrado pela permissão da sessão). **Caminhos descartados:** a Malu consultar o grafo no turno (é recuperação, R11.4, e escolha de ferramenta, R11.1;
+**Análise:** lido em código, commit `86c57be` ([`08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md)); instalado e medido no mesmo dia,
+com a autorização do operador (§5 do documento). **Caminhos descartados:** a Malu consultar o grafo no turno (é recuperação, R11.4, e escolha de ferramenta, R11.1;
 Python fora da Edge Function); o Hermes pela skill oficial (pede terminal, e o Hermes só tem `file,skills,todo` — a barreira do R11.6); o
 Graphify ligar gate a seção do grafo (gates são `name: "…"`, string; ele só liga menção a função ou classe); `graphify claude install` (reescreve
 este `CLAUDE.md` e intercepta toda leitura); `save-result`/`reflect` (segunda memória). **Achado que muda o uso:** o espelho byte a byte põe toda
-função exportada duas vezes no corpus, e o Graphify descarta menção ambígua — sem tratar, nenhuma seção deste grafo ligaria a código.
-**Correção:** `.graphifyignore` tira as cópias de `supabase/functions/` (fica `turn/index.ts`); `graphify-out/` no `.gitignore`. **Uso decidido como
-recomendação:** só nas sessões do Claude Code, por `graphify update .` com `GRAPHIFY_BACKEND=none` (AST, sem modelo). **Guarda/estado:** nenhuma
-regra no `CLAUDE.md` nem hook até a medição do §4 do documento, que espera o operador autorizar a instalação.
+função exportada duas vezes no corpus, e o Graphify descarta menção ambígua — sem tratar, `stageForOrder` não recebia nenhuma ligação daqui.
+**Primeira correção, desfeita pela medição:** tirar a cópia de `supabase/functions/` — os testes ligavam, mas `handleTurn()` (o turno de produção)
+deixava de chamar qualquer gate no grafo. **Correção:** `.graphifyignore` tira `src/agent/` (o grafo fica com a cópia que a produção roda; quem edita
+continua em `src/agent/`), as transcrições de persona e de teste real (≈ 1 000 menções `ok` ligadas a um helper de teste) e `src/dev/simulate.ts` (seu
+`turn()` capturava as 124 menções à Edge Function); `graphify-out/` no `.gitignore`. **Medido:** build em 10–11 s, sem modelo; 251 ligações deste
+grafo para código, 68 das 118 seções com ao menos uma; `explain` de uma função em ~2,3 KB contra ~10–13 KB de `git grep`; `query` em português é inútil
+(casa palavra). Gate por nome (`delivery_promise`) e closure de `handleTurn` (`handOff`) não viram nó — continuam no `git grep`. **Guarda/estado:**
+nada ligado (hook, regra no `CLAUDE.md`, agentes) — o plano está no §6 do documento e espera o operador; o tutorial genérico
+`tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
 
 ## Lições (valem para qualquer correção futura)
 
