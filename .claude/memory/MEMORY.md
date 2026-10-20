@@ -38,3 +38,4 @@ salvamento e a política de crescimento.
 - [`BUSINESS_CONFIG` pelo agente](business-config-pelo-agente.md) — operador autorizou gravar o segredo sem consultar (13/10); sempre JSON validado + hash + `job:"health"`: JSON errado derruba a `turn` no boot.
 - [Closure antes da declaração na `turn`](turn-closure-antes-da-declaracao.md) — função definida cedo em `index.ts` que lê const declarada depois dá 500 só no caminho que a chama cedo; ache todas as chamadas antes de usar uma variável nela.
 - [Sem gasto de API sem pedido](sem-gasto-de-api-sem-pedido.md) — operador, 15/10: depois da v26, nada de personas, Hermes ou chamada ao modelo da Meta sem ele pedir de novo; vence a regra de fim de fase.
+- [MCP SQL trava com `delete`](mcp-sql-trava-com-delete.md) — `apply_migration`/`execute_sql` do MCP dá timeout sem aplicar quando o SQL tem `delete`; use a API de gerência (`database/query`) com `SUPABASE_ACCESS_TOKEN`.
