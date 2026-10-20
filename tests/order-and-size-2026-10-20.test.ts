@@ -48,3 +48,9 @@ describe("kit: a entrega só com todos os tamanhos dela", () => {
     expect(turn).toContain('...(offerBefore === "cod" && !cod && region.size ? [{ text: `No ${region.size} o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛` }] : []),');
   });
 });
+
+describe("a segunda pergunta do pedido não achado", () => {
+  it("a diretiva manda ao atendimento ao cliente pelo número, e ao e-mail só sem ele", () => {
+    expect(turn).toContain("${logzzPhone ? ` e que a nossa equipe de atendimento ao cliente confere pra ela no WhatsApp ${logzzPhone}` : supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}");
+  });
+});

@@ -4470,9 +4470,10 @@ const handleTurn = async (
       orderUnreadable
         ? `Ela fala de um pedido sobre o qual você não tem informação confiável aqui: não invente status, prazo, rastreio nem diga que` +
           ` vai conferir. Diga numa frase, com acolhimento, que por aqui você não vê o andamento desse pedido` +
-          `${supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}; depois responda o que mais ela perguntou (troca,` +
+          // Operator, 2026-10-20 (§117): the customer service, by its number, where the config has it; the e-mail only without it.
+          `${logzzPhone ? ` e que a nossa equipe de atendimento ao cliente confere pra ela no WhatsApp ${logzzPhone}` : supportEmail ? ` e que o e-mail ${supportEmail} confere pra ela` : ``}; depois responda o que mais ela perguntou (troca,` +
           ` devolução, não estar em casa) com o que está no prompt. Você não cancela, não estorna e não altera pedido: se ela quer` +
-          ` cancelar, diga isso e que o e-mail acima resolve; não oriente recusar na porta nem devolver por conta própria.`
+          ` cancelar, diga isso e que ${logzzPhone ? `o atendimento ao cliente` : `o e-mail acima`} resolve; não oriente recusar na porta nem devolver por conta própria.`
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),

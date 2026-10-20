@@ -248,7 +248,7 @@ describe("revisão Opus do loop de personas (14/10)", () => {
   });
   it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
     const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
-    const directive = turn.slice(at, at + 900);
+    const directive = turn.slice(at, at + 1300);
     expect(directive).toContain("não oriente recusar na porta nem devolver por conta própria");
     expect(directive).not.toContain("é recusar na porta;");
   });
