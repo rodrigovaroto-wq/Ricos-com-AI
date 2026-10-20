@@ -135,6 +135,9 @@ describe("coverage_claim: prazo da entrega antes do CEP", () => {
       `Pagando na entrega chega em ${range}, no antecipado varia por região, em média 5 dias úteis`,
       `Na entrega chega em ${range}, no dia que você escolhe.`,
       `A entrega leva de ${range}.`,
+      // Review: a condition on the payment or on someone at home is none on her region.
+      `Se for pagar na entrega, chega em ${range}.`,
+      `Se tiver alguém em casa, a entrega chega em ${range}.`,
     ]) {
       expect(verdict(texto, false), texto).toBe("block");
     }

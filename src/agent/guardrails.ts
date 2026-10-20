@@ -3515,8 +3515,9 @@ const gates: readonly Gate[] = [
       // before the CEP is "sempre condicionado à região"), as `deadlineFallbackMessage` says it.
       const { codDaysMin, codDaysMax } = ctx.config.delivery;
       const RANGE = new RegExp(String.raw`\b${codDaysMin}\s+(?:a|ate)\s+${codDaysMax}\s+dias\b`);
+      // Only the place conditions it: "Se for pagar na entrega, …" and "Se tiver alguém em casa, …" condition nothing about her region (review).
       const CONDITION =
-        /\b(?:dependendo|depende|maioria|onde\s+(?:tem|tiver|houver|chega)|nas\s+(?:regioes|cidades)|se\s+(?:(?:a|o|n[oa])\s+)?(?:sua\s+(?:regiao|cidade)|seu\s+cep|ai|tiver|tem|der|chegar|for|houver)|caso\s+(?:tenha|tiver|chegue)|nao\s+sei\s+se|consult\w*)\b/;
+        /\b(?:dependendo|depende|maioria|onde\s+(?:tem|tiver|houver|chega)|nas\s+(?:regioes|cidades)|se\s+(?:(?:a|o|n[oa])\s+)?(?:sua\s+(?:regiao|cidade)|seu\s+cep)|nao\s+sei\s+se|consult\w*)\b/;
       for (const s of t.split(/[.!?;\n]+/)) {
         if (RANGE.test(s) && /\bentrega\b/.test(s) && !CONDITION.test(s)) return "says the delivery's deadline as hers before the region lookup answered";
       }

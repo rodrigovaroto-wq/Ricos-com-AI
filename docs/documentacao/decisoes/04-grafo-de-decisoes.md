@@ -3657,6 +3657,10 @@ modelo da produção, R$ 0,08, leads sintéticos apagados): Rosa é chamada de "
 ouve "faltam uns números"; o prazo sai "Depende da região, na entrega é de 1 a 3 dias".
 **Resíduo (R21.6, sem código):** "Quase lá, faltam uns números, e qual calça você veste?" junta o CEP incompleto e o tamanho numa mensagem;
 o nome errado da Rosa continua no lead real até ela mandar o nome de novo (o próximo link sairia errado).
+**Revisão Opus (aprovado com ressalva), mesmo dia:** (1) "se tiver/for/der…" sem lugar contava como condição — "Se for pagar na entrega, chega em
+1 a 3 dias" passava, e era a reescrita mais barata depois do veto: a condição agora exige o lugar ("se a sua região/cidade", "seu CEP"), com as
+duas frases como teste de negação. Ficam como resíduo (R21.6, hipotéticas): "Moro" como sobrenome ("Ana Moro" vira "Ana", corte e não troca); a
+condição na frase anterior ("Depende da sua região. Na entrega…") custa uma reescrita; o pedido de CEP lido até o "?" de qualquer frase seguinte.
 **Estado:** commitado; **não publicado** (vai junto com a v36 da etapa 2).
 
 ## Lições (valem para qualquer correção futura)
