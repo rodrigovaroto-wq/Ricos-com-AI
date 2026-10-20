@@ -3629,6 +3629,36 @@ ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupReg
 interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
 da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
 
+## 113. Três falhas das conversas reais de 19 e 20/10 (pré-lançamento, etapa 1, 2026-10-20)
+
+**Sintomas (conversas reais, `turn` v35 e v27):** (1) "me chamo Rosa moro em Ponte Nova MG como faço pra comprar no atacado" virou o nome
+"Rosa moro em Ponte Nova" em `leads.identity` e foi no link da Coinzz como `name=Rosa+Moro+Em+Ponte+Nova`; (2) "84 940", mandado depois do
+"esse CEP não existe", passou sem ser lido (5 números, nem CEP nem CEP errado) e a conversa seguiu para o tamanho sem região; (3) no dia
+seguinte, "Quantos dias demora pra chegar" ouviu "Pagando na entrega chega em 1 a 3 dias", sem região consultada (o CEP geral 84940-000 é
+Siqueira Campos/PR), contra a decisão de 19/10 (a entrega antes do CEP é "sempre condicionada à região").
+**Causas:** (1) `extractName` corta o nome apresentado só na pontuação e no " e o/a/meu"; o resto da frase, até 5 palavras, entrava;
+(2) `malformedCep` só conhecia 7 e 9 dígitos, e a pergunta do CEP só contava com "cep" e "?" na mesma frase — o re-pedido do CEP não
+achado tem o "?" na frase seguinte; (3) o prompt já mandava condicionar, mas nenhum gate lia o prazo da entrega antes da consulta, e a linha
+de fatos do prompt ("Entrega em 1 a 3 dias, agendada") ensinava o prazo sem condição.
+**Caminhos descartados:** completar "84940" com "000" e consultar (o começo de um CEP de rua de capital viraria outra rua; pedir os 8 números
+custa uma mensagem e não erra); vetar qualquer "1 a 3 dias" antes do CEP (a resposta pronta do prazo, `deadlineFallbackMessage`, já diz
+"Dependendo da sua região" e tem de passar).
+**Correção:** (1) o nome apresentado acaba no primeiro verbo ou pergunta que segue ("moro", "sou", "quero", "como", "pra", "em"…), nunca
+nas partículas "de/da/do"; (2) 5 números sozinhos depois da pergunta do CEP (ou ao lado da palavra "cep") são CEP incompleto, o modelo é
+instruído a pedir os 8 números ou a rua e a cidade, e a pergunta do CEP conta com o "?" em qualquer frase depois de "cep"; (3)
+`coverage_claim`, com a região não consultada, veta a frase que tem o intervalo da entrega (`codDaysMin` a `codDaysMax` dias) sem
+condição ("dependendo", "na maioria", "se a sua região/cidade", "onde tem", "nas regiões", "não sei se", "consulto…"); a linha de fatos do
+prompt passou a dizer "nas regiões com pagamento na entrega".
+**Guarda:** `tests/identity.test.ts`, `tests/second-real-test.test.ts`, `tests/coverage-claim.test.ts` (com negação e a frase que não
+nega), `tests/prompt.test.ts`; mutações `G113-*` (3/3 pegas). `pnpm dev:gates`: 175 endurecimentos, todos `coverage_claim` sobre o
+intervalo da entrega sem região; nenhum afrouxamento.
+**Prova prática:** as duas conversas reais reencenadas, mensagem por mensagem, na `turn` local (do disco, com o `BUSINESS_CONFIG` 19b e o
+modelo da produção, R$ 0,08, leads sintéticos apagados): Rosa é chamada de "Rosa", e o atacado é respondido ("não temos atacado"); "84 940"
+ouve "faltam uns números"; o prazo sai "Depende da região, na entrega é de 1 a 3 dias".
+**Resíduo (R21.6, sem código):** "Quase lá, faltam uns números, e qual calça você veste?" junta o CEP incompleto e o tamanho numa mensagem;
+o nome errado da Rosa continua no lead real até ela mandar o nome de novo (o próximo link sairia errado).
+**Estado:** commitado; **não publicado** (vai junto com a v36 da etapa 2).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
