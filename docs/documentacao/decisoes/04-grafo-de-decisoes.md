@@ -3749,6 +3749,26 @@ linha só sai sem nenhum pedido por nenhum caminho; (4) a linha e o e-mail repet
 `G117-*` 6/6 pegas.
 **Estado:** no ar na `turn` **v37** (função v144), 2026-10-20, 18h52 UTC; `job:"health"` → `healthy`.
 
+## 118. O teste real do operador na v37 (2026-10-20, noite)
+
+**Sintomas (conversa real do operador, …5983, e reencenação na `turn` local):** (1) a tabela de tamanhos ia na abertura sem ela pedir;
+(2) mensagens prontas densas, com emoji e "gatilho de vendedor" (proposta de reescrita em
+[`06-script/08-copy-v4-proposta.md`](../../agente-ia/06-script/08-copy-v4-proposta.md), para aprovação); (3) as opções de 2 e 3 peças no
+link sem o desconto, numa linha só; (4) "Quero mudar meu endereço" (antes do pedido) recebeu o número do atendimento ao cliente, e depois
+"o checkout diz que não tem entrega pro meu endereço" também — a Malu deveria consultar o CEP novo.
+**Causas:** (1) `openingBubbles` mandava `FUNNEL_LABELS.sizes`; (3) `funnelLinkMessage` juntava os kits sem `discountPercent`; (4) a linha
+do prompt dizia "Se ela quiser mudar o endereço de um pedido que já fez, **ou trocar o endereço da entrega**, mande ela chamar o atendimento
+ao cliente" — o modelo copiou a frase entre aspas mesmo com a diretiva nova (reencenação).
+**Correção:** (1) a tabela sai só a pedido (`asksSizeTable` → `sizeTableBubbles`, depois o modelo responde); (3) uma linha por kit:
+"• 2 peças: R$ 233,82 (10% de desconto)"; (4) `changesAddress` + nenhum pedido por `herLeadIds` → `NEW_ADDRESS_ASK` fixo (o endereço novo
+pode estar fora da rede, CEP novo ou rua e cidade); o prompt manda ao atendimento ao cliente só com o pedido JÁ CRIADO; e quando um link
+da entrega já foi e o endereço novo não tem entrega, o link do antecipado vem com "Nesse endereço o pagamento na entrega não chega…".
+**Caminhos descartados:** só a diretiva ao modelo (ele seguiu a frase do prompt); mandar a tabela junto da resposta do modelo no mesmo turno
+(o envio fixo e o resume do n8n já fazem isso).
+**Outros achados das conversas de 20/10 (sem código, para a reescrita):** a saudação do dia seguinte e a resposta do modelo saem juntas (…9446:
+"Oii, tudo bem? Deseja continuar…" e "Bom dia! O que travou…"); a régua manda "Com o seu CEP eu te mostro…" a quem disse "eu não sei o cep"
+(…5787). **Guarda:** `tests/operator-test-2026-10-20.test.ts`; mutações `G118-*` (5/5 pegas). **Estado:** commitado, **não publicado**.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

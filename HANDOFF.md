@@ -38,7 +38,12 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   - linha da mudança de endereço (§115).
 >   Validação: 8476 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G117-*` 6/6, simulação na `turn` local.
 > - **Fica com o operador:** o M no antecipado (Coinzz sem estoque em todo CEP, §116) — fora de BH a cliente M não compra.
-> - **Falta:** teste real do operador no WhatsApp (roteiro na mensagem de 20/10); (f) quem responde; (e) parecer de conformidade.
+> - **Teste real do operador (20/10, noite, grafo §118):** corrigidos e testados, **não publicados**:
+>   - tabela de tamanhos só a pedido;
+>   - kits uma linha por opção, com o desconto;
+>   - endereço novo antes do pedido = CEP novo, e não o atendimento ao cliente.
+>   Reescrita das mensagens prontas proposta em `docs/agente-ia/06-script/08-copy-v4-proposta.md`, esperando a aprovação do operador.
+> - **Falta:** aprovação da reescrita, depois publicar a v38; (f) quem responde; (e) parecer de conformidade.
 >   (c) e (d) seguem bloqueados. `graphify` não instalado: a instalação foi barrada pelo classificador de permissão.
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
