@@ -109,6 +109,10 @@ export const asksSizeTable = (message: string): boolean => {
   return /\btabela\b|\bmedidas\b|\bquais\s+(?:sao\s+)?(?:os\s+)?tamanhos\b|\btamanhos\s+(?:que\s+)?(?:tem|disponiveis)\b/.test(t);
 };
 
+/** The history's media rows ("[imagem da Malu: …]", "[áudio da Malu] …", "[vídeo da Malu: …]") out of a model reply (replay of 2026-10-20). */
+export const stripMediaLabels = (text: string): string =>
+  text.replace(/\[(?:imagem|vídeo|video) da Malu:[^\]]*\]/gi, "").replace(/\[áudio da Malu\][^\n]*/gi, "").replace(/\n{3,}/g, "\n\n").trim();
+
 /** The size table, sent when she asks for it. Empty without the file in the config. */
 export const sizeTableBubbles = (config: FunnelConfig): FunnelBubble[] => media(config.funnel?.media?.sizes, "image", FUNNEL_LABELS.sizes);
 

@@ -200,6 +200,7 @@ import {
   offerBubbles,
   openingBubbles,
   sizeTableBubbles,
+  stripMediaLabels,
   asksSizeTable,
 } from "./funnel.ts";
 import {
@@ -1037,6 +1038,10 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+// The person request's example for the model (copy v4): the old fixed line says "assistente virtual", which `humanity_claim` vetoes
+// when she did not ask what Malu is (replay of 2026-10-20).
+const PERSON_ASK_EXAMPLE = "Entendo 💛 Por aqui o atendimento é todo comigo, e eu resolvo tudo pra você. Me conta o que você precisa?";
+
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
 const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
 
@@ -2688,7 +2693,10 @@ const handleTurn = async (
   // of `llm_calls`. Counted and recorded here, the one door every conversation call goes through, then retried as before.
   const callConversationModel = async (...args: Parameters<typeof callMuse>): Promise<ModelCall> => {
     try {
-      return await (conversationProvider === "meta" ? callMuse : callLuna)(...args);
+      const call = await (conversationProvider === "meta" ? callMuse : callLuna)(...args);
+      // The history keeps what a media bubble showed as "[imagem da Malu: …]"; the model once copied that label into its reply
+      // (replay of 2026-10-20, the size table): it never reaches her.
+      return { ...call, text: stripMediaLabels(call.text) };
     } catch (error) {
       if (error instanceof TransientModelError && error.wasted) {
         spent += error.wasted.costBrl;
@@ -2940,7 +2948,7 @@ const handleTurn = async (
   // The second time in a row the same line would be a loop: the model answers instead (R22.1).
   if (parts.some(wantsHuman)) {
     const sentLast = await db(`messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&select=body&order=created_at.desc&limit=1&body=neq.${encodeURIComponent(RETURN_GREETING)}`).catch(() => null);
-    if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) guide("Ela pediu pra falar com uma pessoa.", HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa", true);
+    if (sentLast?.[0]?.body !== HUMAN_HANDOFF_REPLY) guide("Ela pediu pra falar com uma pessoa.", PERSON_ASK_EXAMPLE, "a cliente pediu para falar com uma pessoa", true);
   }
 
   // 4. The ceiling is checked before a byte leaves for any provider.
@@ -3612,7 +3620,7 @@ const handleTurn = async (
   let orderUnreadable = false;
   const { email: supportEmail = null } = CONFIG.support ?? {};
   if (handoffKind === "human") {
-    guide("Ela pediu pra falar com uma pessoa.", HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa", true);
+    guide("Ela pediu pra falar com uma pessoa.", PERSON_ASK_EXAMPLE, "a cliente pediu para falar com uma pessoa", true);
   }
   // No order of hers the system can read, by every path above (operator, 2026-10-20, grafo §117): she is told it is the system's
   // problem and sent to the customer service, number right after. The same line twice is a loop: the second time, the model answers.

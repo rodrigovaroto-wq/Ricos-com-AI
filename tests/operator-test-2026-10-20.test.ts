@@ -78,3 +78,17 @@ describe("revisão Opus da v38 (copy v4)", () => {
     expect(turn).toContain("herRecent(at.messages ?? [], spoken).some((m: string) => sizeBeyondTable(m, true) !== null))) {");
   });
 });
+
+describe("replay de 20/10: o rótulo da mídia nunca chega à cliente", () => {
+  it("tira a descrição da imagem, do vídeo e do áudio que o modelo copiou do histórico", async () => {
+    const { stripMediaLabels } = await import("@/agent/funnel.js");
+    expect(stripMediaLabels("Tem sim, te mando aqui! 💛\n\n[imagem da Malu: tabela de tamanhos pela calça — P 34 a 36]\n\nQue número você veste?"))
+      .toBe("Tem sim, te mando aqui! 💛\n\nQue número você veste?");
+    expect(stripMediaLabels("[áudio da Malu] Olá, tudo bem?\nOi!")).toBe("Oi!");
+    // Negation: her own words in brackets, or a reply without labels, pass untouched.
+    expect(stripMediaLabels("Com 42 o seu é o G [cintura 76 a 84]")).toBe("Com 42 o seu é o G [cintura 76 a 84]");
+  });
+  it("a turn limpa toda resposta do modelo na porta única da chamada", () => {
+    expect(turn).toContain("return { ...call, text: stripMediaLabels(call.text) };");
+  });
+});
