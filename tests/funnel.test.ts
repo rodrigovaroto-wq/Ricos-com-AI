@@ -3,6 +3,10 @@ import { describe, expect, it } from "vitest";
 import {
   AUDIO_TRANSCRIPTS,
   bothLinksBubbles,
+  openingWasSent,
+  bothPrepayBubbles,
+  saysNoDeliveryDay,
+  LEGACY_SIZE_ASK,
   codOfferText,
   firstDayLine,
   firstMessageNeedsAnswer,
@@ -39,8 +43,8 @@ describe("roteiro v3: a abertura (R28)", () => {
     const b = openingBubbles(config);
     expect(b.map((x) => x.media?.kind ?? "text")).toEqual(["text", "audio", "audio", "text", "video", "text", "image", "text"]);
     expect(b.at(-1)?.text).toBe(SIZE_ASK);
-    expect(b[0]!.text).toContain("Meu nome é Malu");
-    // "Olá, tudo bem?" is the greeting; between it and the size ask, nothing asks her anything.
+    expect(b[0]!.text).toContain("Aqui é a Malu");
+    // "Oi, tudo bem?" is the greeting; between it and the size ask, nothing asks her anything.
     expect(b.slice(1, -1).filter((x) => !x.media && x.text.includes("?")).length).toBe(0);
   });
 
@@ -51,7 +55,7 @@ describe("roteiro v3: a abertura (R28)", () => {
   });
 
   it("os números de prova social vêm do config, e a chave ausente some", () => {
-    expect(openingBubbles(config).map((b) => b.text).join(" ")).toContain("mais de 500 clientes satisfeitas e 124 avaliações positivas");
+    expect(openingBubbles(config).map((b) => b.text).join(" ")).toContain("*Mais de 500 Clientes Satisfeitas* e 124 avaliações positivas!!");
     const none = openingBubbles({ ...config, socialProof: {} }).map((b) => b.text).join(" ");
     expect(none).not.toMatch(/\d+ (?:clientes|avalia)/);
   });
@@ -84,17 +88,22 @@ describe("a primeira mensagem dela pede resposta depois da abertura?", () => {
 
 describe("a oferta depois do CEP", () => {
   it("na entrega: o preço do config, frete grátis, quem recebe e a data da consulta", () => {
+    // Copy v4 (operator, 2026-10-20): "Menos de 24 Horas" only when the checkout's first day is tomorrow.
     const t = codOfferText(config, "2026-10-20", now);
-    expect(t).toContain("DE R$ 216,50 POR R$ 129,90");
-    expect(t).toContain("FRETE GRÁTIS");
-    expect(t).toContain("amanhã, terça (20/10)");
+    expect(t).toContain("⭐*DE ~R$ 216,50~ POR R$ 129,90*⭐");
+    expect(t).toContain("*FRETE GRÁTIS*");
+    expect(t).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
     expect(t).toContain("no dinheiro, Pix ou cartão");
-    expect(t).toContain("7 dias pra trocar ou devolver");
+    expect(t).toContain("*7 Dias de Garantia* pra trocar ou devolver");
+    const later = codOfferText(config, "2026-10-22", now);
+    expect(later).toContain("Seu Pedido Chegará já *quinta (22/10)!!*");
+    expect(later).not.toContain("24 Horas");
   });
 
   it("sem data na consulta, a faixa do config; nunca 'hoje'", () => {
     const t = codOfferText(config, undefined, now);
-    expect(t).toContain("chega em 1 a 3 dias");
+    expect(t).toContain("Seu Pedido Chegará em *1 a 3 dias!!*");
+    expect(t).not.toContain("24 Horas");
     expect(t).not.toMatch(/\bhoje\b/);
   });
 
@@ -109,9 +118,9 @@ describe("a oferta depois do CEP", () => {
   it("no antecipado: o desconto e as parcelas do config, e nunca frete grátis", () => {
     const t = prepayOfferText(config);
     expect(t).toContain("R$ 116,91");
-    expect(t).toContain("10% de desconto");
-    expect(t).toContain("em até 12x no cartão");
-    expect(t).toContain("o frete aparece no checkout");
+    expect(t).toContain("Desconto Adicional de *10%!!!*");
+    expect(t).toContain("em até *12x no cartão!*");
+    expect(t).toContain("pelos Correios, com código de rastreio");
     expect(t).not.toMatch(/gr[aá]tis/i);
   });
 
@@ -149,24 +158,31 @@ describe("entrega não confirmada numa cidade da Logzz: os dois links (operador,
     expect(isLikelyCodCity({ city: "Campinas", state: "SC" }, list)).toBe(false);
   });
   it("os dois links, diferentes de bater o olho, sem o áudio 4, e o aviso da consulta", () => {
+    // Copy v4, section 4: the delivery link first; the prepaid one when she says no day showed up.
     const b = bothLinksBubbles(config, "Campinas", "https://entrega/x", "https://coinzz/y", "GG");
     const all = b.map((x) => x.text).join("\n");
-    expect(all).toContain("🟢 1) PAGAR SÓ NA ENTREGA · R$ 129,90");
-    expect(all).toContain("🔵 2) PAGAR AGORA NO PIX OU CARTÃO · R$ 116,91");
-    expect(all).toContain("consulta de CEP está instável");
-    expect(all).toContain("no conforto da sua casa do mesmo jeito, com a mesma segurança");
+    expect(all).toContain("🟢 *Pagar SÓ Quando Receber*");
+    expect(all).toContain("⭐*DE ~R$ 216,50~ POR R$ 129,90*⭐");
+    expect(all).toContain("https://entrega/x");
+    expect(all).not.toContain("https://coinzz/y");
+    expect(all).toContain("Se não aparecer me fala aqui");
     expect(b.some((x) => x.media?.kind === "audio")).toBe(false);
-    expect(offerWasSent([b.find((x) => !x.media)!.text], config)).toBe(true);
+    expect(lastOfferKind([b.find((x) => !x.media)!.text], config)).toBe("both");
+    const second = bothPrepayBubbles(config, "Ana Lima", "https://coinzz/y").map((x) => x.text).join("\n");
+    expect(second).toContain("Ah que pena Ana...");
+    expect(second).toContain("*Você Ganhou Mais 10% de Desconto!!*");
+    expect(second).toContain("⭐*DE ~R$ 216,50~ POR R$ 116,91*⭐");
+    expect(second).toContain("https://coinzz/y");
   });
 });
 
 describe("a mensagem do link", () => {
   it("na entrega: o preço, o endereço no checkout e os kits como opção", () => {
     const t = funnelLinkMessage(config, "https://entrega/x", "cod", "Cláudia Ferreira Lima", "GG", 1);
-    expect(t).toContain("Prontinho, Cláudia!");
-    expect(t).toContain("Seu GG por R$ 129,90");
-    expect(t).toContain("Se quiser levar mais de uma:\n• 2 peças: R$ 233,82");
-    expect(t).toContain("• 3 peças: R$ 311,76");
+    expect(t).toContain("Pronto, Cláudia! 🎉");
+    expect(t).toContain("Seu Colete no GG por R$ 129,90");
+    expect(t).toContain("Se quiser levar mais de uma:\n• 2 peças saem por R$ 233,82");
+    expect(t).toContain("• 3 peças por R$ 311,76");
     expect(t).not.toMatch(/cpf|e-?mail/i);
   });
   it("no antecipado: o preço do antecipado e os kits do antecipado, nunca os da entrega", () => {
@@ -178,8 +194,8 @@ describe("a mensagem do link", () => {
   });
   it("no kit, o preço do kit e nenhuma oferta de kit de novo", () => {
     const t = funnelLinkMessage(config, "https://entrega/k", "cod", "Ana", null, 2);
-    expect(t).toContain("Suas 2 peças por R$ 233,82");
-    expect(t).not.toContain("E se quiser levar mais");
+    expect(t).toContain("Seu Kit com 2 peças por R$ 233,82");
+    expect(t).not.toContain("Se quiser levar mais");
   });
 });
 
@@ -192,7 +208,7 @@ describe("a turn: dois links só quando a consulta falha numa cidade da lista (i
     // The directive about the two links only where they went (never over a real "no").
     expect(turn).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     // Never after a link or a sale, only inside the window, and the two checkouts only with her size (review of v3).
-    expect(turn).toContain('if (offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {');
+    expect(turn).toContain('if (guides.length === 0 && offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {');
   });
 });
 
@@ -211,10 +227,9 @@ describe("revisão do v3: os furos que ela achou", () => {
   );
   it("5. os dois links de um kit dizem o preço do kit", () => {
     const all = bothLinksBubbles(config, "Campinas", "https://e/k", "https://c/k", null, 2).map((b) => b.text).join("\n");
-    expect(all).toContain("🟢 1) PAGAR SÓ NA ENTREGA · R$ 233,82");
-    expect(all).toContain("🔵 2) PAGAR AGORA NO PIX OU CARTÃO · R$ 207,84");
-    expect(all).toContain("os dois links das 2 peças");
-    expect(all).not.toContain("R$ 129,90 ·");
+    expect(all).toContain("⭐*2 PEÇAS POR R$ 233,82*⭐");
+    expect(bothPrepayBubbles(config, null, "https://c/k", 2).map((b) => b.text).join("\n")).toContain("⭐*2 PEÇAS POR R$ 207,84*⭐");
+    expect(all).not.toContain("POR R$ 129,90");
   });
   it("9. o CEP que muda de região muda a oferta: o histórico diz qual foi a última", () => {
     const cod = codOfferText(config, undefined, now);
@@ -236,3 +251,16 @@ describe("revisão do v3: os furos que ela achou", () => {
   });
 });
 
+
+describe("copy v4 (operador, 2026-10-20): o que já estava no ar continua reconhecido", () => {
+  it("a abertura e as ofertas de antes ainda contam como mandadas", () => {
+    expect(openingWasSent([LEGACY_SIZE_ASK])).toBe(true);
+    expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\n🚛 FRETE GRÁTIS: …"], config)).toBe("cod");
+    expect(lastOfferKind(["Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦\n…"], config)).toBe("prepay");
+    expect(lastOfferKind(["⭐ DE R$ 216,50 POR R$ 129,90 ⭐\nCampinas costuma ter pagamento na entrega, mas…"], config)).toBe("both");
+  });
+  it.each(["não apareceu nada", "não aparece dia nenhum", "nenhuma data", "não tem entrega pra mim, sem dia"])("ela diz que não apareceu dia: %s", (m) =>
+    expect(saysNoDeliveryDay(m)).toBe(true));
+  it.each(["apareceu sim", "já apareceu o dia, finalizei", "ainda vou abrir", "não sei ainda", "não tem como eu ver agora", "não deu tempo de abrir"])("negação — apareceu, ou ainda não viu: %s", (m) =>
+    expect(saysNoDeliveryDay(m)).toBe(false));
+});

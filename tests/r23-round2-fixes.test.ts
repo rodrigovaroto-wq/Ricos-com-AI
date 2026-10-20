@@ -196,7 +196,7 @@ describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondid
     expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
-    expect(turn).toContain('return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");');
+    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa", true);');
   });
 });
 
@@ -244,7 +244,7 @@ describe("revisão Opus do loop de personas (14/10)", () => {
   });
 
   it("pedido que o sistema não lê: o operador recebe o e-mail (status handoff com notify), uma vez por conversa", () => {
-    expect(turn).toContain("...(notifyOrder ? { reason: [ORDER_UNREADABLE_REASON, fallbackReason]");
+    expect(turn).toContain("...(notifyOrder || extraNotify ? { reason: [notifyOrder ? ORDER_UNREADABLE_REASON : null, extraNotify, fallbackReason]");
   });
   it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
     const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
@@ -342,7 +342,7 @@ describe("segunda revisão Opus do loop de personas (14/10)", () => {
     expect(turn).toContain("orderUnreadable = true;");
     expect(turn).toContain("notifyOrder = (said?.length ?? 0) === 0;");
     expect(turn).toContain('reason=like.${encodeURIComponent(`${ORDER_UNREADABLE_REASON}*`)}');
-    expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
+    expect(turn).toContain('status: notifyOrder || extraNotify || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
     expect(turn).toContain(".filter((r): r is string => r !== null).join(\" | \") || null,");
   });
 });
@@ -369,8 +369,8 @@ describe("terceira revisão Opus (14/10)", () => {
     expect(choosesPath("quero na entrega. sera que compensa?")).toBe(false);
   });
   it("o turno de fallback continua gravado como fallback; o e-mail leva os dois motivos", () => {
-    expect(turn).toContain('fallbackReason !== null ? "fallback" : notifyOrder ? "handoff" : "send",');
-    expect(turn).toContain('reason: [ORDER_UNREADABLE_REASON, fallbackReason].filter(Boolean).join(" | ")');
+    expect(turn).toContain('fallbackReason !== null ? "fallback" : notifyOrder || extraNotify ? "handoff" : "send",');
+    expect(turn).toContain('reason: [notifyOrder ? ORDER_UNREADABLE_REASON : null, extraNotify, fallbackReason].filter(Boolean).join(" | ")');
   });
 });
 

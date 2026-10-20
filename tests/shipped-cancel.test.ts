@@ -169,13 +169,10 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
   it("o turno: só no cancelamento, ainda passa para uma pessoa, e o resto mantém ORDER_HANDOFF_REPLY", () => {
     expect(source).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method");
     expect(source).toContain('handoffKind === "cancel"\n      ? cancelReplyFor(');
-    expect(source).toContain('if (cancelling === "cod") {\n    return await handOff(COD_CANCEL_REPLY, "a cliente quer cancelar um pedido na entrega; foi orientada a recusar na porta");');
-    expect(source).toContain(
-      'if (cancelling === "shipped") {\n    return await handOff(shippedCancelReply(CONFIG.delivery.warrantyDays), "a cliente quer cancelar um pedido antecipado que já saiu para entrega");',
-    );
-    expect(source).toContain(
-      'if (cancelling === "prepaid_pending") {\n    return await handOff(\n      PREPAID_CANCEL_REPLY,\n      "a cliente quer cancelar um pedido antecipado que ainda não saiu para entrega — cancelar manualmente na Coinzz",\n    );',
-    );
+    // Copy v4 (operator, 2026-10-20): each cancel answer is the model's, on the fixed line as its example, and still e-mails.
+    expect(source).toContain('guide("Ela quer cancelar um pedido pago na entrega.", COD_CANCEL_REPLY,');
+    expect(source).toContain('guide("Ela quer cancelar um pedido antecipado que já saiu para entrega.", shippedCancelReply(CONFIG.delivery.warrantyDays),');
+    expect(source).toContain('guide("Ela quer cancelar um pedido antecipado que ainda não saiu.", PREPAID_CANCEL_REPLY,');
     expect(source).toContain("orderUnreadable = true;"); // R22.1: a pedido que o sistema não lê é respondido pelo modelo, não por frase fixa
     expect(ORDER_HANDOFF_REPLY).not.toMatch(/retorn/); // R22.1: sem promessa de retorno
   });

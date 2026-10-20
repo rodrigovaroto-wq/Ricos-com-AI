@@ -915,20 +915,18 @@ const brl = (v: number): string => `R$ ${v.toFixed(2).replace(".", ",")}`;
  * cron generates and then refuses is a touch the customer never gets.
  */
 const SILENCE_1 = (days: number): Record<StopPoint, readonly string[]> => ({
+  // Copy v4 (operator, 2026-10-20, grafo §119): 6.2, 6.3 and 6.6.
   before_size: [
-    "Oi! Ficou alguma dúvida sobre o colete? Se quiser, me diz que tamanho de calça você usa que eu já te falo o certinho pra você 💛",
-    "Oi! Pensa naquela roupa que está parada no armário esperando um dia bom. Me fala o tamanho de calça que você usa e eu te digo qual colete deixa ela caindo do jeito que você gosta 💛",
+    "Sabe aquela roupa parada no armário? Me fala o seu número de calça que eu te digo qual tamanho vai te deixar linda nela de novo!",
   ],
   after_price: [
-    "Qualquer coisa é só chamar! Lembrando que você não paga nada agora — o pagamento é só quando o colete chegar na sua mão.",
-    // The courier does not wait for her to try it on (Q4, operator, 2026-09-29): she sees it,
-    // pays at the door, and what is not what she expected she does not keep. The return after
-    // receiving is at the store's cost (Q3).
-    `Fico por aqui se precisar! E lembra: não sai nada do seu bolso agora. Você vê o colete na hora da entrega e paga ali mesmo, ao entregador — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem ${days} dias pra devolver, sem custo nenhum pra você.`,
+    "Fico por aqui se precisar.\n\nLembrando: você não paga nada agora, só quando o colete chegar.",
+    // The courier does not wait for her to try it on (Q4, operator, 2026-09-29): she sees it and pays at the door; the return
+    // after receiving is at the store's cost (Q3).
+    `Qualquer dúvida, é só chamar.\n\nVocê vê o colete na entrega e paga ali mesmo, e ainda tem ${days} dias pra devolver se não gostar.`,
   ],
   link_sent: [
-    "Conseguiu finalizar seu pedido? Se travou em algum passo, é só me falar que eu te ajudo por aqui mesmo 😊",
-    "Passando pra ver: deu certo de fechar o pedido? Se preferir, eu monto o link de novo pra você.",
+    "Deu certo de finalizar? Se quiser, te mando o link de novo.",
   ],
 });
 
@@ -953,10 +951,8 @@ const silence1Prepay = (c: FollowupConfig): readonly string[] => {
   const price =
     prepayBrl == null ? "" : (prepayDiscountPercent ?? 0) > 0 ? `com ${prepayDiscountPercent}% de desconto: ${brl(prepayBrl)}` : `por ${brl(prepayBrl)}`;
   const avg = prepayAvgLine(c) ? ` ${prepayAvgLine(c)}` : "";
-  return [
-    `Qualquer coisa é só chamar!${price ? ` Lembrando que no pagamento antecipado você leva o colete ${price}.` : ""}${avg}`,
-    `Fico por aqui se precisar!${price ? ` E lembra: pagando antecipado, o colete sai ${price}.` : ""}${avg}`,
-  ];
+  // Copy v4, 6.5.
+  return [`Fico por aqui se precisar.${price ? `\n\nNo antecipado o colete sai ${price}.` : ""}${avg ? `\n\n${avg.trim()}` : ""}`];
 };
 
 /**
@@ -965,8 +961,8 @@ const silence1Prepay = (c: FollowupConfig): readonly string[] => {
  * lookup the way `SILENCE_1` does: it asks one thing, whether something is in the way.
  */
 const CHECKOUT_REMINDER: readonly string[] = [
-  // Both paths, the operator's wording (2026-10-08, L2).
-  "Vi que seu pedido ainda não foi finalizado, travou em alguma etapa?",
+  // Both paths, the operator's wording (copy v4, 6.1, 2026-10-20).
+  "Conseguiu finalizar? Se travou em alguma parte, me conta que eu te ajudo.",
 ];
 
 /**
@@ -986,8 +982,8 @@ const CHECKOUT_REMINDER: readonly string[] = [
 // had only seen the opening, and the slimming-while-worn is now said, not denied. One open question instead.
 const SILENCE_2 = (days: number) =>
   [
-    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 E lembra: você só paga quando ele chegar na sua mão, e depois de receber ainda tem ${days} dias pra devolver sem custo nenhum.`,
+    // Copy v4, 6.7.
+    `Bom dia! Passando pra lembrar que você não precisa confiar no escuro: o colete chega, você vê e só paga ao entregador na hora.\n\nE ainda tem ${days} dias pra devolver, sem custo nenhum.`,
   ] as const;
 
 /**
@@ -996,21 +992,20 @@ const SILENCE_2 = (days: number) =>
  */
 const SILENCE_2_UNKNOWN = (days: number) =>
   [
-    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. Dependendo da sua região, dá pra pagar só quando o colete chegar na sua mão, e depois de receber você ainda tem ${days} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 E lembra: depois de receber, você ainda tem ${days} dias pra devolver sem custo nenhum.`,
+    `Bom dia! Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo.\n\nDepois de receber, você ainda tem ${days} dias pra devolver, sem custo.`,
   ] as const;
 
 /** `after_price` with her region unknown: no "paga quando chegar", the CEP asked instead. */
 const SILENCE_1_UNKNOWN: readonly string[] = [
-  "Qualquer coisa é só chamar! Me passa seu CEP quando quiser que eu te digo como fica a entrega e o pagamento aí na sua região.",
-  "Fico por aqui se precisar! Com o seu CEP eu te mostro as opções de entrega e de pagamento que chegam até você.",
+  "Fico por aqui se precisar. Quando quiser, me passa seu CEP que eu te mostro como fica a entrega aí.",
+  // After "eu não sei o cep" (real lead …5787, 2026-10-19): the street and the city instead of the CEP.
+  "Fico por aqui se precisar. Se quiser, me fala a rua e a cidade que eu encontro pra você.",
 ];
 
 /** The same angles on the prepaid path: she pays first, so nothing about paying at the door. */
 const SILENCE_2_PREPAY = (days: number) =>
   [
-    `Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: comprar sem ver dá um frio na barriga, eu sei. Então fica tranquila: depois que o colete chega na sua casa, você tem ${days} dias pra devolver se não for o que você esperava, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.`,
-    `Bom dia! 💛 Ficou alguma dúvida sobre o colete? Me conta que eu te ajudo 😊 Depois que ele chega na sua casa, você ainda tem ${days} dias pra devolver sem custo nenhum.`,
+    `Bom dia! Se ficou alguma dúvida, me conta.\n\nDepois que o colete chegar, você tem ${days} dias pra devolver se não for o que esperava, sem custo nenhum.`,
   ] as const;
 
 const SILENCE_3_DAYS = ["Segunda", "Terça", "Quarta", "Quinta", "Sexta", "Sábado", "Domingo"] as const;
@@ -1165,7 +1160,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
           ? silence1Prepay(ctx.config)
           : ctx.regionKnown === false && point === "after_price"
           ? // R26.1: after her "não lembro o CEP", only the variant that does not ask it.
-            ctx.cepForgotten === true ? SILENCE_1_UNKNOWN.slice(1) : SILENCE_1_UNKNOWN
+            ctx.cepForgotten === true ? SILENCE_1_UNKNOWN.slice(1) : SILENCE_1_UNKNOWN.slice(0, 1)
           : SILENCE_1(ctx.config.delivery.warrantyDays)[point],
       );
     }
@@ -1202,11 +1197,12 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
       // or the regional average. On delivery she chose the day herself, in the checkout.
       const day = /^\d{4}-(\d{2})-(\d{2})$/.exec(ctx.scheduledFor ?? "");
       const eta = !ctx.prepaid ? "" : day ? `Sua entrega está prevista para ${day[2]}/${day[1]}.` : prepayAvgLine(ctx.config);
+      // Copy v4, 6.8.
       return (
-        `Pedido confirmado! 🎉 ${item}, ${ctx.prepaid ? `${price}, já pago` : `${price} na entrega`}` +
-        `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n` +
-        (eta ? `${eta}\n` : "") +
-        `Eu vou acompanhar sua entrega do começo ao fim — qualquer coisa, é só me chamar aqui mesmo.`
+        `Pedido confirmado! 🎉 ${item}, ${ctx.prepaid ? `${price}, já pago` : `${price} pra pagar na entrega`}` +
+        `${ctx.address ? `, indo pra ${ctx.address}` : ""}.\n\n` +
+        (eta ? `${eta}\n\n` : "") +
+        `Qualquer dúvida sobre a entrega, é só me chamar aqui.`
       );
     }
 
@@ -1214,7 +1210,7 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
     // (D2): on delivery she chose the day herself, in the checkout. Nor "na véspera eu te
     // aviso": a prepaid order has no date and gets no eve, and "Saiu para entrega" is the day.
     case "order_shipped":
-      return "Oi! Seu colete já está a caminho 🚚 Qualquer dúvida sobre a entrega, é só me chamar aqui mesmo.";
+      return "Seu colete já saiu pra entrega! 🚚 Qualquer dúvida, me chama aqui.";
 
     case "order_eve":
       return (
@@ -1229,9 +1225,8 @@ export const renderFollowup = (kind: FollowupKind, ctx: RenderContext): string |
 
     case "order_delivered":
       return (
-        "Chegou?! 😍 Me conta: já vestiu com aquela roupa que você tinha em mente?\n" +
-        "Dica de primeira vez: feche os colchetes na fileira mais folgada e vá apertando com o uso — é bem mais confortável assim.\n" +
-        "E se quiser mandar uma foto do antes e depois com a roupa, eu adoro ver (e ninguém publica nada sem sua autorização)."
+        "Chegou? Me conta o que achou! 😍\n\n" +
+        "Dica: nos primeiros dias, feche os colchetes na fileira mais folgada e vá apertando com o uso. Fica bem mais confortável."
       );
   }
 };

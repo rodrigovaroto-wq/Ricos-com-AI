@@ -14,8 +14,9 @@ const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 describe("pedido não encontrado", () => {
   const line = orderNotFoundReply(PHONE);
   it("diz que é problema no sistema e passa o número do atendimento ao cliente logo em seguida", () => {
-    expect(line).toMatch(/^Não estou encontrando o seu pedido aqui por um problema no sistema/);
-    expect(line).toContain(`atendimento ao cliente no WhatsApp ${PHONE}`);
+    // Copy v4, 5.2: the model's example.
+    expect(line).toMatch(/^Não estou conseguindo achar o seu pedido aqui, por um problema no sistema/);
+    expect(line).toContain(`atendimento ao cliente, que eles conferem pra você: ${PHONE}`);
     expect(line).not.toMatch(/Logzz|Gizele|e-?mail/i);
   });
   it.each(["cod", "prepay"] as const)("passa a cadeia (camada auto) no caminho %s", (p) =>
@@ -27,8 +28,9 @@ describe("pedido não encontrado", () => {
   });
   it("só sem nenhum pedido por nenhum caminho (o pedido de status desconhecido existe), e uma vez por conversa", () => {
     expect(turn).toContain("const found = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=id&limit=1`).catch(() => null)) ?? [null]).length > 0;");
-    expect(turn).toContain("turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`${ORDER_NOT_FOUND_REASON}*`)}");
-    expect(turn).toContain("if (!found && sentBefore.length === 0) return await handOff(orderNotFoundReply(logzzPhone), ORDER_NOT_FOUND_REASON);");
+    // Copy v4, 5.2: the model answers on the example; the operator's e-mail once (`notifyOrder`).
+    expect(turn).toContain("orderMissing = !found;");
+    expect(turn).toContain("Ela fala de um pedido que o sistema não encontrou por nenhum caminho. Responda no seu jeito, com este modelo: \"${orderNotFoundReply(logzzPhone)}\"");
   });
   it("o \"paguei\" também lê os pedidos pelos mesmos caminhos", () => {
     expect(turn).toContain("? (await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method`).catch(() => null)) ?? []");
@@ -44,8 +46,8 @@ describe("kit: a entrega só com todos os tamanhos dela", () => {
     expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
     expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };");
   });
-  it("a oferta da entrega que já foi diz o tamanho antes do antecipado", () => {
-    expect(turn).toContain('...(offerBefore === "cod" && !cod && region.size ? [{ text: `No ${region.size} o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛` }] : []),');
+  it("a oferta da entrega que já foi pergunta se pode ir pelos Correios antes do antecipado (copy v4, 2.5)", () => {
+    expect(turn).toContain('} else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {');
   });
 });
 

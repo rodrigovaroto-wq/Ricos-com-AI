@@ -294,7 +294,8 @@ describe("rodada 13 na Edge Function", () => {
     expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
     for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
       const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
-      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = \(handoffRead)/);
+      // Copy v4: the line is the model's example (`guide`), never a fixed send.
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = \(handoffRead|guide\()/);
     }
   });
 

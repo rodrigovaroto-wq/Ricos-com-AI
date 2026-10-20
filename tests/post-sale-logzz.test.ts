@@ -216,7 +216,8 @@ describe("o turno liga as duas decisões", () => {
   it("a troca com o número vai pelo sendFixed, só quando ela pede nas palavras dela", () => {
     expect(block).toContain("const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? \"\"));");
     expect(block).toContain('const asksReturn = interpretation.wants_exchange && namesExchangeOrReturn(spoken(inbound.body ?? ""));');
-    expect(block).toContain('if (returnsLine !== null && returnsLine !== lastOutbound && !asksPerson && handoffKind === "post_sale" && asksReturn) {');
+    // Copy v4, 5.3: the model answers on `returnsLine` as its example.
+    expect(block).toContain('const returnsAsked = returnsLine !== null && !asksPerson && handoffKind === "post_sale" && asksReturn;');
     expect(block).toContain("CONFIG.returns?.freeExchange === true");
   });
 
@@ -224,8 +225,8 @@ describe("o turno liga as duas decisões", () => {
     expect(block).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`");
     expect(block).toContain('if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {');
     expect(block).toContain("cancelling === null && returnsOnly(orders) ? returnsLine : null");
-    // The same fixed line twice is a loop: the second time, a person.
-    expect(block).toContain("reply === null || reply === lastOutbound ? null : await sendFixed(reply, ");
+    // Copy v4: the status is the model's answer, on the fixed line as its example.
+    expect(block).toContain("if (reply !== null) guide(");
     const postSale = block.slice(block.indexOf('if ((handoffKind === "post_sale" && !asksReturn)'), block.indexOf("let orderUnreadable = false;"));
     // The slice must exist: the v20 version sliced from an anchor that never matched and passed empty.
     expect(postSale.length).toBeGreaterThan(200);

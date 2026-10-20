@@ -172,9 +172,9 @@ export const kitLimitReply = (max: number): string =>
  * `delivery_promise` reads anything left in the count's sentence as a deadline.
  */
 export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchange = false): string =>
-  // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name.
-  `Pra trocar, devolver ou mudar o endereço do pedido, é só chamar o nosso atendimento ao cliente no WhatsApp ${phone} 💛 ` +
-  `Lá você pede o que precisa, e eles resolvem pra você.${freeExchange ? ` A troca é sem custo pra você.` : ``} ` +
+  // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name. Copy v4, 5.3: the model's example.
+  `Pra trocar, devolver ou mudar o endereço do pedido, é só chamar o nosso atendimento ao cliente no WhatsApp ${phone} 💛\n\n` +
+  `Lá você pede o que precisa, e eles resolvem.${freeExchange ? ` A troca é sem custo pra você.` : ``} ` +
   `Você tem ${warrantyDays} dias pra trocar ou devolver depois que receber.`;
 
 /**
@@ -182,7 +182,7 @@ export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchan
  * number right after.
  */
 export const orderNotFoundReply = (phone: string): string =>
-  `Não estou encontrando o seu pedido aqui por um problema no sistema 😕 Manda uma mensagem pra nossa equipe de atendimento ao cliente no WhatsApp ${phone}, que eles conferem pra você 💛`;
+  `Não estou conseguindo achar o seu pedido aqui, por um problema no sistema.\n\nManda uma mensagem pra nossa equipe de atendimento ao cliente, que eles conferem pra você: ${phone}`;
 
 /**
  * One order of hers, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary

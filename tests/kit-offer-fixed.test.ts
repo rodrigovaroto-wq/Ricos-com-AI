@@ -38,7 +38,7 @@ describe("braço B: a oferta do kit que segura o link é fixa", () => {
   });
 
   it("o turno manda a oferta fixa exatamente quando o kit segura o link, e só sem pergunta ao lado", () => {
-    expect(turn).toContain("  if (linkUnheld && kitFirst && !farewell) {");
+    expect(turn).toContain("  if (guides.length === 0 && linkUnheld && kitFirst && !farewell) {");
     expect(turn).toContain("opening(kitOfferMessage(kitsOnPath))");
     // Her question beside it: the link does not wait (the model's offer is what looped).
     expect(turn).toMatch(/linkSentBefore: lastLinkBase\(linkHistory, CHECKOUT_BASES\) !== null,\n {2}\}\) && !clauses\.some\(\(q: string\) => asksSomething\(q\) && !buyerAsk\(q\)\);/);

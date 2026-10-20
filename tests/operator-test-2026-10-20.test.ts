@@ -29,7 +29,11 @@ describe("kits: uma linha por opção, com preço e desconto", () => {
   it.each(["cod", "prepay"] as const)("no link do caminho %s", (path) => {
     const msg = funnelLinkMessage(prod as FunnelConfig, "https://x/y", path, "Ana", "G", 1);
     const kits = (prod.kits as Array<{ path: string; units: number; priceBrl: number; discountPercent: number }>).filter((k) => k.path === path);
-    for (const k of kits) expect(msg).toContain(`• ${k.units} peças: R$ ${k.priceBrl.toFixed(2).replace(".", ",")} (${k.discountPercent}% de desconto)`);
+    // Copy v4 (operator, 2026-10-20): each path its own line shape, price and discount in both.
+    for (const k of kits) {
+      const brl = `R$ ${k.priceBrl.toFixed(2).replace(".", ",")}`;
+      expect(msg).toContain(path === "cod" ? `${brl} (*${k.discountPercent}% de desconto*)` : `com *${k.discountPercent}% de desconto* por apenas ${brl}!`);
+    }
     expect(msg).toContain("Se quiser levar mais de uma:\n");
   });
 });
@@ -40,13 +44,12 @@ describe("endereço novo antes do pedido", () => {
   it.each(["não quero mudar o endereço", "o endereço tá certo", "meu endereço é rua x 10", "qual o endereço da loja?"])("negação: %s", (m) => expect(changesAddress(m)).toBe(false));
   it("a turn, sem pedido por nenhum caminho, manda consultar o CEP novo e nunca o atendimento ao cliente", () => {
     expect(turn).toContain("const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&");
-    expect(turn).toContain("Não mande ela ao atendimento ao cliente e não peça pra ela conferir o CEP no checkout.");
-    // Fixed, not the model's: the model copied the customer-service line from the prompt (replay of the operator's test).
-    expect(turn).toContain('if (newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {');
-    expect(turn).toContain("o endereço novo pode estar fora da nossa rede de entrega, então preciso consultar de novo");
+    // Copy v4, 5.1 (operator, 2026-10-20): the model answers on the example, not a fixed line.
+    expect(turn).toContain("o atendimento e peça o CEP novo, no seu jeito, com este modelo: \"${NEW_ADDRESS_ASK}\" Não mande ela ao atendimento ao cliente");
+    expect(turn).toContain("porque o endereço novo pode estar fora da nossa rede de entrega.\\n\\nMe passa o CEP novo ou a rua e a cidade?");
   });
-  it("o link novo, depois de um link da entrega, diz por que mudou para o antecipado", () => {
-    expect(turn).toContain('const why = codBefore ? "Nesse endereço o pagamento na entrega não chega, então o seu vai pelo antecipado 💛\\n\\n" : "";');
+  it("depois de um link da entrega, o endereço novo sem entrega pergunta antes de mandar o antecipado (copy v4, 3.3)", () => {
+    expect(turn).toContain("const sent = codBefore && lastOutbound !== ADDRESS_NO_COD_ASK");
   });
   it("o prompt manda ao atendimento ao cliente só com o pedido já criado", () => {
     const p = systemPrompt(prod as PromptConfig, gateBriefing(prod as PromptConfig), null).replace(/\s+/g, " ");

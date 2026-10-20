@@ -136,15 +136,12 @@ describe("index.ts: o ramo da volta", () => {
     );
   });
 
-  it("passa pela cadeia como layer auto; vetada, cai no turno de sempre", () => {
-    expect(branch).toContain('const back = runGates(RETURN_GREETING, {\n      config: turnConfig,\n      layer: "auto",');
-    expect(branch).toContain("if (passed(back)) {");
-  });
-
-  it("devolve o mesmo contrato da recepção: o n8n espera e chama a retomada", () => {
-    expect(branch).toContain("body: JSON.stringify({ welcomed_at: new Date().toISOString() }),");
-    expect(branch).toContain('status: "welcomed",');
-    expect(branch).toContain("resumeInSeconds: RETURN_RESUME_DELAY_SECONDS,");
+  // Copy v4, 5.4 (operator, 2026-10-20, grafo §119): no fixed greeting — one reply, the model's, greets her on the example.
+  it("a volta vira uma diretiva do modelo: uma saudação só, com o nome, e o convite do operador", () => {
+    expect(branch).toContain("const cameBack =");
+    expect(branch).not.toContain("runGates(RETURN_GREETING");
+    expect(turn).toContain("Comece com uma saudação só, no seu jeito, com este modelo: \"Oii, tudo bem");
+    expect(turn).toContain("\"Vamos agendar sua transformação e recuperar essa autoestima hoje?!\"");
   });
 
   // O banco filtra a saudação (body=neq.), e não o código sobre as 2 últimas: duas saudações seguidas (retomada perdida,

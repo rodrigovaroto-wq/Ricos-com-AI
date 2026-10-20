@@ -67,29 +67,32 @@ const media = (url: string | undefined, kind: MediaKind, text: string): FunnelBu
   url ? [{ text, media: { kind, url } }] : [];
 
 /** The question that closes the opening, and the one asked again when the size is still missing at the offer. */
-export const SIZE_ASK = "Qual o número da calça que você veste? Assim eu te indico o tamanho certinho 😉";
+export const SIZE_ASK = "Qual o número da calça que você veste?\nAssim eu te indico o tamanho certinho 😉";
+/** The size ask before the copy v4 (2026-10-20): conversations already open carry it. */
+export const LEGACY_SIZE_ASK = "Qual o número da calça que você veste? Assim eu te indico o tamanho certinho 😉";
 
 /** The social proof line, only with the numbers the config holds (absent: no number is cited). */
 const proofLine = (config: FunnelConfig): string => {
   const customers = config.socialProof?.satisfiedCustomers;
   const reviews = config.socialProof?.reviews;
   const parts = [
-    ...(customers ? [`mais de ${customers} clientes satisfeitas`] : []),
+    ...(customers ? [`*Mais de ${customers} Clientes Satisfeitas*`] : []),
     ...(reviews ? [`${reviews} avaliações positivas`] : []),
   ];
-  return parts.length ? ` Já são ${parts.join(" e ")} ❤️` : " ❤️";
+  return parts.length ? `\n\nJá são ${parts.join(" e ")}!! ❤️` : " ❤️";
 };
 
 /** Etapas 1 e 2 do script v3: the opening, the same for every new lead, whatever her first message said. */
 export const openingBubbles = (config: FunnelConfig): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
-    { text: `Olá, tudo bem?\nMeu nome é ${config.agentName}, vou te explicar tudo sobre a nossa cinta modeladora 🥰` },
+    // Copy v4 (operator, 2026-10-20, grafo §119).
+    { text: `Oi, tudo bem? Aqui é a ${config.agentName}..\nVou te mostrar rapidinho como o colete funciona 💛` },
     ...media(m.audio1, "audio", FUNNEL_LABELS.audio1),
     ...media(m.audio2, "audio", FUNNEL_LABELS.audio2),
-    { text: "Veja como é simples de usar: é só vestir, fechar os colchetes e o zíper e ajustar a alça, o corpo fica modelado em segundos 😍" },
+    { text: "É só vestir, fechar os colchetes e o zíper e ajustar a alça, o corpo fica *Fininho em Segundos!!*" },
     ...media(m.video, "video", FUNNEL_LABELS.video),
-    { text: `Você pode usar embaixo de qualquer roupa: ela é super confortável, não enrola, não dobra e não machuca.${proofLine(config)}` },
+    { text: `Você pode usar embaixo de qualquer roupa, ela é super confortável, não enrola, não dobra e não machuca.${proofLine(config)}` },
     ...media(m.reviews, "image", FUNNEL_LABELS.reviews),
     // The size table only when she asks for it (operator, 2026-10-20): `sizeTableBubbles`.
     { text: SIZE_ASK },
@@ -155,42 +158,49 @@ export const firstDayLine = (isoDate: string | undefined, now: Date): string | n
   return isoDate === tomorrow.toISOString().slice(0, 10) ? `amanhã, ${label}` : label;
 };
 
-/** The fixed offer's first line: also what `offerWasSent` reads back from the history. */
+/** The fixed offer's first line: also what `offerWasSent` reads back from the history. Copy v4 (operator, 2026-10-20, grafo §119). */
 export const OFFER_HEADLINE = (config: FunnelConfig): string =>
+  `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.codBrl)}*⭐`;
+export const PREPAY_HEADLINE = (config: FunnelConfig): string =>
+  `Você Ganhou um Desconto Adicional de *${config.prices.prepayDiscountPercent}%!!!*`;
+/** The headlines before the copy v4: conversations already open carry them, and an offer sent is never offered again. */
+export const LEGACY_OFFER_HEADLINE = (config: FunnelConfig): string =>
   `⭐ DE ${money(config.prices.anchorBrl)} POR ${money(config.prices.codBrl)} ⭐`;
-export const PREPAY_HEADLINE = "Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦";
+export const LEGACY_PREPAY_HEADLINE = "Pra sua cidade o colete vai pelos Correios, com código de rastreio 📦";
 
-/** Etapa 3, where cash on delivery reaches her CEP. */
+/** Etapa 3, where cash on delivery reaches her CEP. "Menos de 24 horas" only when the checkout's first day is tomorrow. */
 export const codOfferText = (config: FunnelConfig, firstDate: string | undefined, now: Date): string => {
   const day = firstDayLine(firstDate, now);
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
+  const freeLead = free ? "*FRETE GRÁTIS* e " : "";
+  const when = day?.startsWith("amanhã")
+    ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\nOu se preferir outro dia, é só escolher lá no checkout.`
+    : day
+      ? `${freeLead}Seu Pedido Chegará já *${day}!!*\nOu se preferir outro dia, é só escolher lá no checkout.`
+      : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\nVocê escolhe o dia lá no checkout.`;
   return [
     OFFER_HEADLINE(config),
-    `🚛 ${free ? "FRETE GRÁTIS: " : ""}${day ? `a primeira data de entrega é ${day}, ou o dia que você escolher` : `chega em ${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias, no dia que você escolher`}`,
-    `💰 PAGUE SÓ NA ENTREGA: não precisa pagar nada agora, você paga direto ao entregador, no dinheiro, Pix ou cartão`,
-    `🔁 ${config.delivery.warrantyDays} dias pra trocar ou devolver depois de receber`,
-  ].join("\n");
+    when,
+    `*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!`,
+    `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar.`,
+  ].join("\n\n");
 };
 
 /** Etapa 3, where cash on delivery does not reach her: the prepaid as the way, never a "não". */
 export const prepayOfferText = (config: FunnelConfig): string => {
   const n = config.prices.prepayMaxInstallments;
-  const avg = config.delivery.prepayAvgDays;
   return [
-    PREPAY_HEADLINE,
-    `⭐ Pagando agora você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)} ⭐ no Pix${n && n > 1 ? ` ou em até ${n}x no cartão` : " ou no cartão"}`,
-    `🚚 ${avg ? `Chega em média em ${avg} dias úteis, e o` : "O"} frete aparece no checkout pelo seu CEP`,
-    `🔁 ${config.delivery.warrantyDays} dias pra trocar ou devolver depois de receber`,
-  ].join("\n");
+    PREPAY_HEADLINE(config),
+    `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
+    `🚚 Seu colete vai pelos Correios, com código de rastreio.`,
+    `⭐ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
+    `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar`,
+  ].join("\n\n");
 };
 
-/** The question after the offer: the size if it is still missing, else her full name. */
-export const offerAsk = (cod: boolean, sizeKnown: boolean): string =>
-  !sizeKnown
-    ? SIZE_ASK
-    : cod
-      ? "Vamos agendar seu pedido? 😊 Só me manda seu nome completo"
-      : "Me manda seu nome completo que eu já te passo o link? 😊";
+/** The question after the offer: the size if it is still missing, else her full name (2.2 and 2.4 of the copy v4). */
+export const NAME_ASK = "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊\n\nSó preciso do seu nome completo pra deixar tudo prontinho pra você.";
+export const offerAsk = (_cod: boolean, sizeKnown: boolean): string => (!sizeKnown ? SIZE_ASK : NAME_ASK);
 
 /** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
 export const offerBubbles = (
@@ -211,9 +221,12 @@ export const offerBubbles = (
 /** Which offer a history row is: the delivery box, the prepaid box, or the two checkouts. */
 export type OfferKind = "cod" | "prepay" | "both";
 export const BOTH_MARKER = "costuma ter pagamento na entrega";
+/** The two checkouts' first bubble since the copy v4: it opens the "both" offer. */
+export const BOTH_HEADLINE = "Infelizmente não consegui confirmar a entrega no seu CEP agora";
 export const offerKindOf = (m: string, config: FunnelConfig): OfferKind | null =>
-  m.startsWith(PREPAY_HEADLINE) ? "prepay"
-  : m.startsWith(OFFER_HEADLINE(config)) ? (m.includes(BOTH_MARKER) ? "both" : "cod")
+  m.startsWith(PREPAY_HEADLINE(config)) || m.startsWith(LEGACY_PREPAY_HEADLINE) ? "prepay"
+  : m.startsWith(BOTH_HEADLINE) ? "both"
+  : m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(LEGACY_OFFER_HEADLINE(config)) ? (m.includes(BOTH_MARKER) ? "both" : "cod")
   : null;
 
 /** The newest offer in the history (oldest first), or null. */
@@ -229,7 +242,7 @@ export const lastOfferKind = (outbound: readonly string[], config: FunnelConfig)
 export const offerWasSent = (outbound: readonly string[], config: FunnelConfig): boolean => lastOfferKind(outbound, config) !== null;
 
 /** The opening went out already: its last line is in the history. */
-export const openingWasSent = (outbound: readonly string[]): boolean => outbound.some((m) => m === SIZE_ASK);
+export const openingWasSent = (outbound: readonly string[]): boolean => outbound.some((m) => m === SIZE_ASK || m === LEGACY_SIZE_ASK);
 
 /** Etapa 4, the link: the address is the checkout's, and the kits ride along as an option, never a question before it. */
 export const funnelLinkMessage = (
@@ -244,22 +257,34 @@ export const funnelLinkMessage = (
   const price = pieces > 1
     ? config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl
     : path === "cod" ? config.prices.codBrl : config.prices.prepayBrl;
-  const what = pieces > 1 ? `Suas ${pieces} peças` : `Seu ${size ?? "colete"}`;
+  // Copy v4 (operator, 2026-10-20, grafo §119): 3.1 and 3.2.
+  const what = pieces > 1 ? `Seu Kit com ${pieces} peças` : size ? `Seu Colete no ${size}` : "Seu Colete";
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
   const n = config.prices.prepayMaxInstallments;
   const head =
-    `Prontinho${first ? `, ${first}` : ""}! 🎉 ${what}${price ? ` por ${money(price)}` : ""}` +
+    `Pronto${first ? `, ${first}` : ""}! 🎉\n${what}${price ? ` por ${money(price)}` : ""}` +
     (path === "cod"
-      ? `${free ? ", com frete grátis," : ""} e você só paga quando receber. Escolhe aqui o dia da entrega:`
-      : `, no Pix${n && n > 1 ? ` ou em até ${n}x no cartão` : " ou no cartão"}:`);
+      ? `${free ? ", com frete grátis," : ""} e você só paga quando receber!!`
+      : `, no Pix${n && n > 1 ? ` ou em até ${n}x no cartão` : " ou no cartão"}.`);
+  const there = path === "cod"
+    ? `É só abrir o link, completar o endereço e escolher o dia da entrega que preferir: ${url}`
+    : `No link você preenche seus dados e o endereço, aí é só ser feliz: ${url}`;
+  // One line per kit, with its price and its discount (operator, 2026-10-20).
   const kits = pieces > 1 ? [] : (config.kits ?? []).filter((k) => k.path === path).sort((a, b) => a.units - b.units);
-  // One line per kit, with its price and its discount (operator, 2026-10-20: "1 linha para cada opção, com preço e o desconto").
+  const off = (k: { discountPercent?: number }) => (k.discountPercent ? `*${k.discountPercent}% de desconto*` : "");
   const kitLines = kits.length
-    ? `\n\nSe quiser levar mais de uma:\n${kits.map((k) => `• ${k.units} peças: ${money(k.priceBrl)}${k.discountPercent ? ` (${k.discountPercent}% de desconto)` : ""}`).join("\n")}`
+    ? `\n\nSe quiser levar mais de uma:\n${kits.map((k, i) => path === "cod"
+      ? `• ${k.units} peças ${i === 0 ? "saem " : ""}por ${money(k.priceBrl)}${off(k) ? ` (${off(k)})` : ""}`
+      : `• ${k.units} peças${off(k) ? ` com ${off(k)}` : ""} por apenas ${money(k.priceBrl)}!`).join("\n")}`
     : "";
-  const there = path === "cod" ? "Lá você só completa o endereço." : "Lá você completa o endereço e vê o frete.";
-  return `${head}\n\n${url}\n\n${there}${kitLines}`;
+  return `${head}\n\n${there}${kitLines}`;
 };
+
+/** 2.5 of the copy v4: her size has no delivery there after the delivery offer went. A question: the prepaid box goes on her yes. */
+export const sizeNoCodAsk = (size: string): string =>
+  `No ${size}, o pagamento na entrega infelizmente não está disponível na sua região agora... posso te enviar via correios? 💛`;
+/** 3.3 of the copy v4: a delivery link went and the new address has none. The prepaid link goes on her yes. */
+export const ADDRESS_NO_COD_ASK = "Nesse endereço infelizmente não tem entrega com pagamento na hora... posso te enviar por correios? 💛";
 
 // "Santa Bárbara d'Oeste", "Ceará-Mirim": accents, apostrophes and hyphens never decide a match.
 const plain = (s: string): string =>
@@ -279,37 +304,56 @@ export const isLikelyCodCity = (place: { city: string; state: string } | undefin
  */
 export const bothLinksBubbles = (
   config: FunnelConfig,
-  city: string,
+  _city: string,
   codUrl: string,
-  prepayUrl: string,
-  size: string | null,
+  _prepayUrl: string,
+  _size: string | null,
   pieces = 1,
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
-  const n = config.prices.prepayMaxInstallments;
   // A kit's checkouts charge the kit's price (review of v3, 5): the box says what the link charges.
   const kit = (path: "cod" | "prepay") => config.kits?.find((k) => k.path === path && k.units === pieces)?.priceBrl;
   const codPrice = pieces > 1 ? kit("cod") ?? config.prices.codBrl * pieces : config.prices.codBrl;
-  const prepayPrice = pieces > 1 ? kit("prepay") ?? config.prices.prepayBrl * pieces : config.prices.prepayBrl;
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
-  const what = pieces > 1 ? ` das ${pieces} peças` : size ? ` do ${size}` : "";
+  // Copy v4, section 4 (operator, 2026-10-20, grafo §119): the delivery link first; the prepaid one only when she says no day
+  // showed up (`bothPrepayBubbles`).
   return [
     ...media(m.price, "image", priceLabel(config)),
+    { text: `${BOTH_HEADLINE}, mas a sua cidade costuma ter disponibilidade sim. Vou te mandar as duas opções para escolher a sua preferida:` },
     {
-      text: [
-        OFFER_HEADLINE(config),
-        `${city} costuma ter pagamento na entrega, mas a nossa consulta de CEP está instável agora e não conseguiu confirmar pra você 😕`,
-        `Por isso vou te mandar os dois links${what}, e você confere direto no checkout 💛`,
-      ].join("\n"),
+      text: `🟢 *Pagar SÓ Quando Receber*\n\n` +
+        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(codPrice)}*⭐` : `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(codPrice)}*⭐`) +
+        `${free ? "\n\nE o Melhor, com *FRETE GRÁTIS!!*" : ""}\n\n${codUrl}`,
     },
+    { text: "Abre esse primeiro. Se aparecer um dia de entrega pra escolher, é só finalizar e ser feliz!" },
+    { text: "Se não aparecer me fala aqui que a gente utiliza outro método, tudo bem?" },
+  ];
+};
+
+/** The second half of section 4: she says no delivery day showed up in the first link. */
+export const bothPrepayBubbles = (config: FunnelConfig, name: string | null, prepayUrl: string, pieces = 1): FunnelBubble[] => {
+  const first = name?.trim().split(/\s+/)[0];
+  const n = config.prices.prepayMaxInstallments;
+  const kit = config.kits?.find((k) => k.path === "prepay" && k.units === pieces)?.priceBrl;
+  const price = pieces > 1 ? kit ?? config.prices.prepayBrl * pieces : config.prices.prepayBrl;
+  return [
+    { text: `${BOTH_PREPAY_HEADLINE}${first ? ` ${first}` : ""}...\nMas não desanima não porque eu tenho uma oferta especial para você!!` },
     {
-      text: `🟢 1) PAGAR SÓ NA ENTREGA · ${money(codPrice)}${free ? " · frete grátis" : ""}\nVocê não paga nada agora: paga ao entregador, no dinheiro, Pix ou cartão\n${codUrl}`,
-    },
-    {
-      text: `🔵 2) PAGAR AGORA NO PIX OU CARTÃO · ${money(prepayPrice)}${pieces > 1 ? "" : ` (${config.prices.prepayDiscountPercent}% de desconto)`}${n && n > 1 ? ` · até ${n}x` : ""}\nVai pelos Correios, com rastreio\n${prepayUrl}`,
-    },
-    {
-      text: `Abre primeiro o link 🟢: se aparecer o dia da entrega pra escolher, é só finalizar por lá. Se não aparecer a entrega pra sua região, usa o link 🔵: o colete chega no conforto da sua casa do mesmo jeito, com a mesma segurança e ${config.delivery.warrantyDays} dias pra trocar ou devolver 💛`,
+      text: `🔵 Pagar Agora\n\n*Você Ganhou Mais ${config.prices.prepayDiscountPercent}% de Desconto!!*\n` +
+        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(price)}*⭐` : `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(price)}*⭐`) +
+        `\n\nPode pagar no Pix${n && n > 1 ? ` ou em até ${n}x no cartão!!` : " ou no cartão!!"}\n\n${prepayUrl}`,
     },
   ];
+};
+/** What opens the second half: it says the prepaid link of the two went already. */
+export const BOTH_PREPAY_HEADLINE = "Ah que pena";
+
+/**
+ * She says the delivery link showed no day for her (copy v4, section 4): "não apareceu", "não tem dia", "nenhuma data". Negation:
+ * "apareceu sim", "já apareceu o dia", and her not knowing yet ("ainda não abri").
+ */
+export const saysNoDeliveryDay = (message: string): boolean => {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  return /\b(?:nao|n)\s+(?:me\s+)?(?:apareceu|aparece|apareceram|aparecem|mostrou|mostra)\b(?!\s+(?:sim|duvida))|\b(?:nao|n)\s+(?:tem|tinha|deu)\s+(?:\S+\s+){0,2}?(?:dia|data|entrega|opcao|nada)\b/.test(t) ||
+    /\b(?:nenhum|nenhuma)\s+(?:dia|data|opcao)\b/.test(t) || /\bsem\s+(?:dia|data|entrega)\b/.test(t);
 };

@@ -562,8 +562,8 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
     const turn = source.slice(source.indexOf("const handleTurn"));
     const declared = turn.indexOf("let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;");
     expect(declared).toBeGreaterThan(-1);
-    // Sete chamadas, contando a da varredura; as seis do turno leem a variável (a sexta é a volta do dia seguinte, §103).
-    expect(source.match(/runGates\(/g)?.length).toBe(7);
+    // Seis chamadas, contando a da varredura; as cinco do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119).
+    expect(source.match(/runGates\(/g)?.length).toBe(6);
     for (const call of turn.split("runGates(").slice(1)) expect(call.slice(0, call.indexOf("});"))).toContain("codUnavailable");
     // A consulta desta volta vence o que estava gravado.
     expect(turn.indexOf("  codUnavailable = codAvailable === false;\n")).toBeGreaterThan(turn.indexOf("const codAvailable = region !== null"));
