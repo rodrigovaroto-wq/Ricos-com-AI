@@ -1031,6 +1031,8 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+// Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
+const NEW_ADDRESS_ASK = "Claro! Só que o endereço novo pode estar fora da nossa rede de entrega, então preciso consultar de novo 😊 Me passa o CEP novo, ou a rua e a cidade?";
 const ORDER_NOT_FOUND_REASON = `${ORDER_UNREADABLE_REASON}: mandada ao atendimento ao cliente`;
 
 const notification = (
@@ -3634,6 +3636,11 @@ const handleTurn = async (
   // A new address before any order of hers (by every path): the agent looks the new CEP up, the customer service is for orders.
   const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
     ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
+  // Fixed, not the model's (real replay of the operator's test: the model copied the customer-service line from the prompt).
+  if (newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {
+    const sent = await sendFixed(NEW_ADDRESS_ASK, "endereço novo antes do pedido: o CEP novo é consultado");
+    if (sent) return sent;
+  }
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on

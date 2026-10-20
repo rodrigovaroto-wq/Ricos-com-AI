@@ -4326,6 +4326,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-20.test.ts"],
   },
   {
+    id: "G118-endereco-novo-pelo-modelo",
+    bug: "o pedido de endereço novo antes do pedido voltaria ao modelo, que copia a linha do atendimento ao cliente do prompt (replay, 20/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "if (newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {",
+    to: "if (false && newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-20.test.ts"],
+  },
+  {
     id: "G118-endereco-novo-vai-ao-atendimento",
     bug: "o endereço novo antes do pedido voltaria a ser mandado ao atendimento ao cliente, sem consultar o CEP novo (operador, 20/10)",
     files: ["src/agent/prompt.ts"],

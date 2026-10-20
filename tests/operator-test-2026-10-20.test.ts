@@ -41,6 +41,9 @@ describe("endereço novo antes do pedido", () => {
   it("a turn, sem pedido por nenhum caminho, manda consultar o CEP novo e nunca o atendimento ao cliente", () => {
     expect(turn).toContain("const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&");
     expect(turn).toContain("Não mande ela ao atendimento ao cliente e não peça pra ela conferir o CEP no checkout.");
+    // Fixed, not the model's: the model copied the customer-service line from the prompt (replay of the operator's test).
+    expect(turn).toContain('if (newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {');
+    expect(turn).toContain("o endereço novo pode estar fora da nossa rede de entrega, então preciso consultar de novo");
   });
   it("o prompt manda ao atendimento ao cliente só com o pedido já criado", () => {
     const p = systemPrompt(prod as PromptConfig, gateBriefing(prod as PromptConfig), null).replace(/\s+/g, " ");
