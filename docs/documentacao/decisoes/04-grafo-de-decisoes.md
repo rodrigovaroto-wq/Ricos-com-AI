@@ -3740,6 +3740,14 @@ comprar, ver §116); procurar pedido pelo sufixo do telefone sem o DDD (pedido d
 **Prova prática:** `turn` local com o config no ar — M em SP antes e depois do CEP: antecipado (com a linha do tamanho quando a entrega já
 tinha sido oferecida); M em BH: entrega; kit M+G+GG em SP: antecipado; kit G+GG em SP: entrega; "comprei ontem e meu pedido não chegou":
 a linha fixa com o número.
+**Revisão Opus (NEEDS WORK) e correção, mesmo dia:** (1) um tamanho do kit sem resposta virava os dois links (link da entrega para um tamanho
+sem estoque, e ofertas trocando a cada turno): agora sem entrega **ou** sem resposta, o kit vai pelo antecipado; (2) as consultas dos outros
+tamanhos rodam em paralelo; (3) um pedido que existe com status que a Malu não lê (tentativa frustrada) era dito "não encontrado": agora a
+linha só sai sem nenhum pedido por nenhum caminho; (4) a linha e o e-mail repetiam a cada duas mensagens: agora uma vez por conversa
+(`ORDER_NOT_FOUND_REASON` em `turn_outcomes`), depois o modelo, que também manda ao atendimento ao cliente pelo número (e ao e-mail só sem ele);
+(5) o "paguei" também lê os pedidos por `herLeadIds`. Fica de fora: a régua pós-pedido (`order_*`) lê só o pedido do próprio lead. Mutações
+`G117-*` 6/6 pegas.
+**Estado:** no ar na `turn` **v37** (função v144), 2026-10-20, 18h52 UTC; `job:"health"` → `healthy`.
 
 ## Lições (valem para qualquer correção futura)
 

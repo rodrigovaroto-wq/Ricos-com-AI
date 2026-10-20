@@ -32,7 +32,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 > - **Revisão da etapa 2 (Opus):** aprovada. Linha de mudança de endereço passou a ser ensinada entre aspas e termina no número (`df9705e`, **não publicado**).
 > - **Etapa 3 (Playwright na Coinzz, grafo §116):** 56 checkouts antecipados. Link, frete e preços batem (1 centavo de arredondamento). **O tamanho M não se
 >   compra no antecipado em nenhum CEP**, e no pagamento na entrega só em BH: decisão do operador. 12x é com juros; o checkout pede e-mail e CPF antes do CEP.
-> - **Falta:** (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador.
+> - **v37 NO AR** (função v144, 18h52 UTC, `healthy`), grafo §117:
+>   - a entrega é consultada com o tamanho dela e com cada tamanho do kit; o "não" da Logzz leva ao antecipado e não aos dois links;
+>   - pedido não achado por nenhum caminho (`herLeadIds`): `orderNotFoundReply` com o número do atendimento ao cliente;
+>   - linha da mudança de endereço (§115).
+>   Validação: 8476 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G117-*` 6/6, simulação na `turn` local.
+> - **Fica com o operador:** o M no antecipado (Coinzz sem estoque em todo CEP, §116) — fora de BH a cliente M não compra.
+> - **Falta:** teste real do operador no WhatsApp (roteiro na mensagem de 20/10); (f) quem responde; (e) parecer de conformidade.
 >   (c) e (d) seguem bloqueados. `graphify` não instalado: a instalação foi barrada pelo classificador de permissão.
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
