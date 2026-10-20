@@ -3769,6 +3769,30 @@ da entrega já foi e o endereço novo não tem entrega, o link do antecipado vem
 "Oii, tudo bem? Deseja continuar…" e "Bom dia! O que travou…"); a régua manda "Com o seu CEP eu te mostro…" a quem disse "eu não sei o cep"
 (…5787). **Guarda:** `tests/operator-test-2026-10-20.test.ts`; mutações `G118-*` (5/5 pegas). **Estado:** commitado, **não publicado**.
 
+## 119. Copy v4 e o agente adaptativo: só a abertura, as ofertas, os links e a régua são fixos (operador, 2026-10-20, noite)
+
+**Decisões do operador:** (1) os textos dele para a abertura, as ofertas, os links e a régua
+([`06-script/08-copy-v4-proposta.md`](../../agente-ia/06-script/08-copy-v4-proposta.md), com as respostas dele), com gatilho em caixa alta e
+*negrito*, no máximo um emoji por bloco; (2) "a Malu não usa nenhuma mensagem automática a não ser as de follow-up, as de oferta, as com o
+link de pagamento e a abertura" — todo o resto é do modelo, com os textos dele como modelo de tom; (3) o prompt na voz dele, de campanha
+Black, "no limite sem forçar a barra".
+**Correção:** `funnel.ts` (abertura, `codOfferText`, `prepayOfferText`, `NAME_ASK`, `funnelLinkMessage`, `bothLinksBubbles` +
+`bothPrepayBubbles`, `sizeNoCodAsk`, `ADDRESS_NO_COD_ASK`), `followups.ts` (6.1–6.8), `retry.ts` (`orderNotFoundReply`, `logzzReturnReply` como
+modelos). Na `turn`: `guide()` junta a situação e o modelo do operador numa diretiva, e um guia no turno cala o funil fixo para o modelo responder;
+viraram guia o pedido de pessoa, os três cancelamentos, o status do pedido, a devolução, o limite de peças, a calça fora da tabela, a recusa, o
+"vou pensar" sem link, o endereço novo, o pedido não encontrado, a troca e a volta do dia seguinte (`RETURN_GREETING` fixo saiu: a resposta
+do modelo cumprimenta uma vez só). O que dava `handOff` continua mandando o e-mail (`extraNotify`). Os dois links: primeiro só o da entrega;
+"não apareceu" (`saysNoDeliveryDay`) traz o do antecipado ("Ah que pena…"). O M sem entrega depois da oferta da entrega, e o endereço novo sem
+entrega depois do link, perguntam "posso te enviar via correios?" antes do antecipado. "Menos de 24 Horas" só quando a primeira data do
+checkout é amanhã; outra data vai como "Chegará já *<dia>*". Os textos antigos continuam reconhecidos (`LEGACY_*`): conversa aberta não recebe
+abertura nem oferta de novo.
+**Ficam fixos, de propósito:** as linhas de pagamento ("paguei", comprovante, confirmação: respondem a qualquer hora, com o agendamento do
+`payment_check`), a recepção da noite, e as respostas seguras depois de cinco vetos (R22.2).
+**Guarda:** `tests/funnel.test.ts`, `tests/followups.test.ts`, `tests/return-greeting.test.ts` e os testes de fonte de cada guia; mutações
+`G119-*` e as retomadas para o texto novo (15/15). `pnpm dev:gates`: nenhum afrouxamento.
+**Prova prática:** `turn` local com o config no ar — compra na entrega em SP até o link; M em SP com a pergunta dos Correios e o antecipado;
+pessoa, recusa, "vou pensar", 5 peças, calça 60, pedido sumido e troca respondidos pelo modelo no tom dos modelos (R$ 0,10).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
