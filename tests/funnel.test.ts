@@ -35,9 +35,9 @@ const config: FunnelConfig = { ...prod, socialProof: { satisfiedCustomers: 500, 
 const now = new Date("2026-10-19T15:00:00Z"); // 12h in São Paulo
 
 describe("roteiro v3: a abertura (R28)", () => {
-  it("mostra o produto antes de perguntar: 2 áudios, vídeo, avaliações, tabela, e só então a calça", () => {
+  it("mostra o produto antes de perguntar: 2 áudios, vídeo, avaliações (a tabela só a pedido, 20/10), e só então a calça", () => {
     const b = openingBubbles(config);
-    expect(b.map((x) => x.media?.kind ?? "text")).toEqual(["text", "audio", "audio", "text", "video", "text", "image", "image", "text"]);
+    expect(b.map((x) => x.media?.kind ?? "text")).toEqual(["text", "audio", "audio", "text", "video", "text", "image", "text"]);
     expect(b.at(-1)?.text).toBe(SIZE_ASK);
     expect(b[0]!.text).toContain("Meu nome é Malu");
     // "Olá, tudo bem?" is the greeting; between it and the size ask, nothing asks her anything.
@@ -165,7 +165,8 @@ describe("a mensagem do link", () => {
     const t = funnelLinkMessage(config, "https://entrega/x", "cod", "Cláudia Ferreira Lima", "GG", 1);
     expect(t).toContain("Prontinho, Cláudia!");
     expect(t).toContain("Seu GG por R$ 129,90");
-    expect(t).toContain("2 peças saem por R$ 233,82, e 3 peças saem por R$ 311,76");
+    expect(t).toContain("Se quiser levar mais de uma:\n• 2 peças: R$ 233,82");
+    expect(t).toContain("• 3 peças: R$ 311,76");
     expect(t).not.toMatch(/cpf|e-?mail/i);
   });
   it("no antecipado: o preço do antecipado e os kits do antecipado, nunca os da entrega", () => {

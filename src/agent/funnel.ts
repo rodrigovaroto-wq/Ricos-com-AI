@@ -33,7 +33,7 @@ export interface FunnelConfig {
   readonly prices: { readonly codBrl: number; readonly prepayBrl: number; readonly prepayDiscountPercent: number; readonly anchorBrl: number; readonly prepayMaxInstallments?: number };
   readonly delivery: { readonly codDaysMin: number; readonly codDaysMax: number; readonly warrantyDays: number; readonly prepayAvgDays?: number; readonly codFreeShipping?: boolean; readonly freeShipping?: boolean };
   readonly socialProof?: { readonly satisfiedCustomers?: number; readonly reviews?: number };
-  readonly kits?: ReadonlyArray<{ readonly path: "cod" | "prepay"; readonly units: number; readonly priceBrl: number }>;
+  readonly kits?: ReadonlyArray<{ readonly path: "cod" | "prepay"; readonly units: number; readonly priceBrl: number; readonly discountPercent?: number }>;
   readonly funnel?: { readonly media?: FunnelMedia };
 }
 
@@ -91,10 +91,23 @@ export const openingBubbles = (config: FunnelConfig): FunnelBubble[] => {
     ...media(m.video, "video", FUNNEL_LABELS.video),
     { text: `Você pode usar embaixo de qualquer roupa: ela é super confortável, não enrola, não dobra e não machuca.${proofLine(config)}` },
     ...media(m.reviews, "image", FUNNEL_LABELS.reviews),
-    ...media(m.sizes, "image", FUNNEL_LABELS.sizes),
+    // The size table only when she asks for it (operator, 2026-10-20): `sizeTableBubbles`.
     { text: SIZE_ASK },
   ];
 };
+
+/**
+ * She asks for the size table or the measurements (operator, 2026-10-20: the table goes only on request). Negation: "não precisa
+ * da tabela", "sem tabela".
+ */
+export const asksSizeTable = (message: string): boolean => {
+  const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
+  if (/\b(?:nao|sem)\s+(?:\S+\s+){0,2}(?:tabela|medidas)\b/.test(t)) return false;
+  return /\btabela\b|\bmedidas\b|\bquais\s+(?:sao\s+)?(?:os\s+)?tamanhos\b|\btamanhos\s+(?:que\s+)?(?:tem|disponiveis)\b/.test(t);
+};
+
+/** The size table, sent when she asks for it. Empty without the file in the config. */
+export const sizeTableBubbles = (config: FunnelConfig): FunnelBubble[] => media(config.funnel?.media?.sizes, "image", FUNNEL_LABELS.sizes);
 
 /**
  * Whether her first message asks something the opening does not answer, so the model answers after it.
@@ -240,11 +253,12 @@ export const funnelLinkMessage = (
       ? `${free ? ", com frete grátis," : ""} e você só paga quando receber. Escolhe aqui o dia da entrega:`
       : `, no Pix${n && n > 1 ? ` ou em até ${n}x no cartão` : " ou no cartão"}:`);
   const kits = pieces > 1 ? [] : (config.kits ?? []).filter((k) => k.path === path).sort((a, b) => a.units - b.units);
-  const kitLine = kits.length
-    ? ` E se quiser levar mais: ${kits.map((k) => `${k.units} peças saem por ${money(k.priceBrl)}`).join(", e ")} 💛`
+  // One line per kit, with its price and its discount (operator, 2026-10-20: "1 linha para cada opção, com preço e o desconto").
+  const kitLines = kits.length
+    ? `\n\nSe quiser levar mais de uma:\n${kits.map((k) => `• ${k.units} peças: ${money(k.priceBrl)}${k.discountPercent ? ` (${k.discountPercent}% de desconto)` : ""}`).join("\n")}`
     : "";
   const there = path === "cod" ? "Lá você só completa o endereço." : "Lá você completa o endereço e vê o frete.";
-  return `${head}\n\n${url}\n\n${there}${kitLine}`;
+  return `${head}\n\n${url}\n\n${there}${kitLines}`;
 };
 
 // "Santa Bárbara d'Oeste", "Ceará-Mirim": accents, apostrophes and hyphens never decide a match.

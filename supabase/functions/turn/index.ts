@@ -192,6 +192,8 @@ import {
   offerAsk,
   offerBubbles,
   openingBubbles,
+  sizeTableBubbles,
+  asksSizeTable,
 } from "./funnel.ts";
 import {
   asksSomething,
@@ -231,6 +233,7 @@ import {
   buyerAsk,
   sendLinkNow,
   statesPastPurchase,
+  changesAddress,
   type Interpretation,
 } from "./interpret.ts";
 import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
@@ -3628,6 +3631,10 @@ const handleTurn = async (
     notifyOrder = (said?.length ?? 0) === 0;
   }
 
+  // A new address before any order of hers (by every path): the agent looks the new CEP up, the customer service is for orders.
+  const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
+    ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
+
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
   // 2026-09-23, R12.1: Meta is the only model provider.)
@@ -4290,6 +4297,14 @@ const handleTurn = async (
     if (sent) return sent;
   }
 
+  // The size table on request (operator, 2026-10-20): the image goes, then n8n's resume lets the model answer the rest. Not on the
+  // resume itself, and not twice in a row.
+  const tableBubbles = sizeTableBubbles(CONFIG);
+  if (tableBubbles.length > 0 && !isResume && openNow && !farewell && parts.some((p: string) => asksSizeTable(spoken(p))) && !recentOutbound.slice(-3).includes(tableBubbles[0]!.text)) {
+    const sent = await sendFunnelTurn(tableBubbles, "tabela de tamanhos, a pedido dela", {}, true);
+    if (sent) return sent;
+  }
+
   // Script v3 (R28): when the region is known — or failed where the Logzz delivers — and the offer that fits it has not gone
   // yet, the offer goes fixed: the delivery box with the audio 4, the prepaid box, or the two checkouts (operator, 2026-10-19).
   // Read from the whole history (review of v3, 2), never after a link or a sale, inside the send window, and the two
@@ -4467,6 +4482,12 @@ const handleTurn = async (
       // Not on her first reply (E3 review, R1): the opening's greeting and question outrank "1 balão de 15 palavras".
       greeting ? null : registerDirective(recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? ""))),
       kitDirective,
+      // Operator, 2026-10-20: before an order exists, a new address is a new CEP to look up — never the customer service.
+      newAddressBeforeOrder
+        ? `Ela quer receber em outro endereço, ou o checkout disse que não entrega no endereço dela, e ela ainda não tem pedido: continue` +
+          ` o atendimento. Explique numa frase que o novo endereço pode estar fora da nossa rede de entrega e peça o CEP novo (ou a rua e` +
+          ` a cidade) pra consultar de novo. Não mande ela ao atendimento ao cliente e não peça pra ela conferir o CEP no checkout.`
+        : null,
       orderUnreadable
         ? `Ela fala de um pedido sobre o qual você não tem informação confiável aqui: não invente status, prazo, rastreio nem diga que` +
           ` vai conferir. Diga numa frase, com acolhimento, que por aqui você não vê o andamento desse pedido` +
