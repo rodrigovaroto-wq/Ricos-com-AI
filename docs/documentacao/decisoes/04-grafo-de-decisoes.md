@@ -3700,6 +3700,22 @@ responde com o número novo e sem nome; CEP de SP com o tamanho dá a oferta e "
 sai condicionado (R$ 0,05).
 **Estado:** segredo `BUSINESS_CONFIG` = arquivo 2026-10-20 (sha256 `3749c32b…`, conferido pela API) e `turn` **v36**, no ar em 2026-10-20, 12h UTC.
 
+## 116. A Malu contra o checkout real da Coinzz, via Playwright (pré-lançamento, etapa 3, 2026-10-20)
+
+**Pergunta:** o que a Malu diz no pagamento antecipado é o que o checkout da Coinzz mostra? **Método:** Playwright nos 3 checkouts antecipados, 8 CEPs,
+os 5 tamanhos na oferta de 1 peça e os kits sem o M; todo POST abortado, menos cinco leituras sem dado pessoal (CEP, opções de entrega,
+calculadoras do carrinho) — nenhum lead ou pedido criado ([`docs/operacao/playwright-coinzz-2026-10-20/`](../../operacao/playwright-coinzz-2026-10-20/README.md)).
+O pagamento na entrega usa só os 3 checkouts da Logzz (operador, 2026-10-20), já provados no §112.
+**Resultado:** o link de `buildPrefilledCheckoutLink` chega preenchido (nome e telefone com o nono dígito) em todos; o frete aparece por região; o
+"Pedido principal" fica 1 centavo abaixo do preço que a Malu diz (arredondamento da Coinzz); 12x existe, com juros (+32% em 12x).
+**Achado grave:** o tamanho **M não se compra no antecipado em nenhum CEP** — `stock-and-delivery-day` (venda antecipada) responde 404 e o checkout
+mostra "CEP não encontrado — informe outro destino". No pagamento na entrega, `lookupRegion` para o M só achou entrega em BH (SP, POA, Salvador,
+Manaus sem). Então a cliente M fora de BH recebe o link antecipado e não consegue pagar, com uma mensagem que culpa o CEP dela. A Malu não pergunta
+o estoque do antecipado por tamanho. **Decisão do operador**, antes de código: repor o M na Coinzz, ou a Malu passar a consultar o estoque
+antecipado do tamanho antes do link. **Outros achados para o operador:** "em até 12x" sem dizer dos juros; o checkout pede e-mail e CPF antes do
+CEP e a Malu não avisa; o checkout não mostra prazo (os "5 dias úteis" da Malu não se conferem ali).
+**Estado:** só teste; nenhum código mudou.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

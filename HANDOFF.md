@@ -29,7 +29,10 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   - reencenação na `turn` local, idêntica à v36 (R$ 0,18 no total).
 > - **Teste pela porta de produção:** não feito. A `turn` exige o selo `INBOUND_SIGNING_SECRET`, que não está no container.
 >   A primeira conversa real na v36 é a prova; confira `turn_outcomes.agent_version = 36`.
-> - **Falta:** (b) Playwright na Coinzz; (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador.
+> - **Revisão da etapa 2 (Opus):** aprovada. Linha de mudança de endereço passou a ser ensinada entre aspas e termina no número (`df9705e`, **não publicado**).
+> - **Etapa 3 (Playwright na Coinzz, grafo §116):** 56 checkouts antecipados. Link, frete e preços batem (1 centavo de arredondamento). **O tamanho M não se
+>   compra no antecipado em nenhum CEP**, e no pagamento na entrega só em BH: decisão do operador. 12x é com juros; o checkout pede e-mail e CPF antes do CEP.
+> - **Falta:** (h) estoque do kit; (f) quem responde; (e)/(g) decisões do operador.
 >   (c) e (d) seguem bloqueados. `graphify` não instalado: a instalação foi barrada pelo classificador de permissão.
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
