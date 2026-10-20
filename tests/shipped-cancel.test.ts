@@ -167,7 +167,7 @@ describe("cancelar pedido: a resposta depende do caminho de pagamento e de ter s
 
   const source = readFileSync(new URL("../supabase/functions/turn/index.ts", import.meta.url), "utf8");
   it("o turno: só no cancelamento, ainda passa para uma pessoa, e o resto mantém ORDER_HANDOFF_REPLY", () => {
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=status,payment_method");
+    expect(source).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method");
     expect(source).toContain('handoffKind === "cancel"\n      ? cancelReplyFor(');
     expect(source).toContain('if (cancelling === "cod") {\n    return await handOff(COD_CANCEL_REPLY, "a cliente quer cancelar um pedido na entrega; foi orientada a recusar na porta");');
     expect(source).toContain(

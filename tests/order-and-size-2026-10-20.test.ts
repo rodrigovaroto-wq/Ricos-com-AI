@@ -25,20 +25,24 @@ describe("pedido não encontrado", () => {
     expect(turn).toContain("leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id");
     expect(turn).toContain("const orders: OrderView[] = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`)");
   });
-  it("só sem nenhum pedido legível, e nunca a mesma linha duas vezes seguidas", () => {
-    expect(turn).toContain("if (handoffKind !== null && logzzPhone !== null && orderNotFoundReply(logzzPhone) !== lastOutbound) {");
-    expect(turn).toContain(".some((o: { status: string }) => isKnownOrderStatus(o.status) && stageForOrder(o.status) !== null);");
-    expect(turn).toContain("if (!readable) return await handOff(orderNotFoundReply(logzzPhone), `${ORDER_UNREADABLE_REASON}: mandada ao atendimento ao cliente`);");
+  it("só sem nenhum pedido por nenhum caminho (o pedido de status desconhecido existe), e uma vez por conversa", () => {
+    expect(turn).toContain("const found = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=id&limit=1`).catch(() => null)) ?? [null]).length > 0;");
+    expect(turn).toContain("turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`${ORDER_NOT_FOUND_REASON}*`)}");
+    expect(turn).toContain("if (!found && sentBefore.length === 0) return await handOff(orderNotFoundReply(logzzPhone), ORDER_NOT_FOUND_REASON);");
+  });
+  it("o \"paguei\" também lê os pedidos pelos mesmos caminhos", () => {
+    expect(turn).toContain("? (await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method`).catch(() => null)) ?? []");
+    expect(turn.indexOf("const herLeadIds = async")).toBeLessThan(turn.indexOf('// 4a0. "Paguei"'));
   });
 });
 
 describe("kit: a entrega só com todos os tamanhos dela", () => {
-  it("pergunta cada tamanho do kit além do já consultado, e um \"não\" leva ao antecipado", () => {
+  it("pergunta os outros tamanhos do kit em paralelo; sem entrega ou sem resposta, o kit vai pelo antecipado (nunca os dois links)", () => {
     expect(turn).toContain("if (region?.cod && units > 1 && addressDraft.cep) {");
-    expect(turn).toContain("for (const s of [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize)) {");
-    expect(turn).toContain('if (other.kind === "found") region = { ...region, cod: false, dates: [], sameDay: false, size: s };');
-    // Not known is not "no": the lookup failed for the kit.
-    expect(turn).toContain("else { failedPlace = region.place; region = null; }");
+    expect(turn).toContain("const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);");
+    expect(turn).toContain("const answers = await Promise.all(others.map((s) =>");
+    expect(turn).toContain('const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));');
+    expect(turn).toContain("if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };");
   });
   it("a oferta da entrega que já foi diz o tamanho antes do antecipado", () => {
     expect(turn).toContain('...(offerBefore === "cod" && !cod && region.size ? [{ text: `No ${region.size} o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛` }] : []),');

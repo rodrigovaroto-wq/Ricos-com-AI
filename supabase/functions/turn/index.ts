@@ -1028,6 +1028,7 @@ const checkoutDirectiveFor = (
  */
 /** The turn_outcomes reason of a question about an order the system cannot read: written once, read to e-mail the operator once. */
 const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não lê";
+const ORDER_NOT_FOUND_REASON = `${ORDER_UNREADABLE_REASON}: mandada ao atendimento ao cliente`;
 
 const notification = (
   lead: { id: string; phone: string },
@@ -3291,6 +3292,17 @@ const handleTurn = async (
       ).catch(() => null)
     )?.[0]?.body ?? "";
 
+  // Her orders by every way the system ties one to her (operator, 2026-10-20, grafo §117): her lead, and the lead of the same number
+  // written with or without the ninth digit — a checkout phone the order webhook filed under another row. Same DDD and the same 8
+  // digits, never a suffix alone: another woman's order is never read to her.
+  let herIds: string[] | null = null;
+  const herLeadIds = async (): Promise<string[]> => {
+    if (herIds) return herIds;
+    const m = /^55(\d{2})9?(\d{8})$/.exec(digits(String(lead.phone ?? "")));
+    const twins = m ? ((await db(`leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id`).catch(() => null)) ?? []) : [];
+    herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
+    return herIds;
+  };
   // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
   // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
   // here. Only a receipt, after the check found nothing, goes to a person.
@@ -3316,7 +3328,7 @@ const handleTurn = async (
     }
     const facts = paymentFacts(
       saidPaid || receipt || asksStatus || checking
-        ? (await db(`orders?lead_id=eq.${lead.id}&select=status,payment_method`).catch(() => null)) ?? []
+        ? (await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status,payment_method`).catch(() => null)) ?? []
         : [],
     );
     const payment = paymentRoute({ saidPaid, asksStatus, receipt, linkSent, ...facts, checking });
@@ -3494,17 +3506,6 @@ const handleTurn = async (
   //
   // She saying she already bought is context too (persona round 3, Lu and Vera) — in
   // this message or any recent one of hers (index `messages_conversation_idx`).
-  // Her orders by every way the system ties one to her (operator, 2026-10-20, grafo §117): her lead, and the lead of the same number
-  // written with or without the ninth digit — a checkout phone the order webhook filed under another row. Same DDD and the same 8
-  // digits, never a suffix alone: another woman's order is never read to her.
-  let herIds: string[] | null = null;
-  const herLeadIds = async (): Promise<string[]> => {
-    if (herIds) return herIds;
-    const m = /^55(\d{2})9?(\d{8})$/.exec(digits(String(lead.phone ?? "")));
-    const twins = m ? ((await db(`leads?phone=in.(55${m[1]}${m[2]},55${m[1]}9${m[2]})&select=id`).catch(() => null)) ?? []) : [];
-    herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
-    return herIds;
-  };
   let orderContext = false;
   // Only a link sent, no order and no purchase said: a delivery question there is a sale's, not a post-sale's
   // (real test 2026-10-13: "moro sozinha, não tenho quem receber" after the link was called a post-sale).
@@ -3611,10 +3612,12 @@ const handleTurn = async (
   }
   // No order of hers the system can read, by every path above (operator, 2026-10-20, grafo §117): she is told it is the system's
   // problem and sent to the customer service, number right after. The same line twice is a loop: the second time, the model answers.
-  if (handoffKind !== null && logzzPhone !== null && orderNotFoundReply(logzzPhone) !== lastOutbound) {
-    const readable = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=status`).catch(() => null)) ?? [])
-      .some((o: { status: string }) => isKnownOrderStatus(o.status) && stageForOrder(o.status) !== null);
-    if (!readable) return await handOff(orderNotFoundReply(logzzPhone), `${ORDER_UNREADABLE_REASON}: mandada ao atendimento ao cliente`);
+  // An order that exists with a status the agent does not read (a failed attempt) is found, not lost: the model answers it (review).
+  // Once per conversation, like the operator's e-mail: after it, the model answers (review — line and e-mail every other turn).
+  if (handoffKind !== null && logzzPhone !== null) {
+    const found = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length > 0;
+    const sentBefore = found ? [] : (await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`${ORDER_NOT_FOUND_REASON}*`)}&select=id&limit=1`).catch(() => null)) ?? [null];
+    if (!found && sentBefore.length === 0) return await handOff(orderNotFoundReply(logzzPhone), ORDER_NOT_FOUND_REASON);
   }
   // The directive every time she asks about it; the operator's e-mail once per conversation (Opus review: one flag for both left
   // the second question without the directive).
@@ -3842,15 +3845,17 @@ const handleTurn = async (
   // A kit is delivered only when every size she chose is (operator, 2026-10-20, grafo §117): the Logzz kit checkout with an M where the M
   // has no stock does not schedule. The other sizes are asked each turn — the cache keeps one size's answer.
   if (region?.cod && units > 1 && addressDraft.cep) {
-    for (const s of [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize)) {
-      const other = await lookupRegion(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), addressDraft.cep, s, logzzIdsOf(CONFIG.checkout))
-        .catch((): RegionLookup => ({ kind: "failed" }));
-      if (other.kind === "found" && other.region.cod) continue;
-      // Hers has no stock there: the prepaid. Not known: the lookup failed for the kit, and a likely city gets both checkouts.
-      if (other.kind === "found") region = { ...region, cod: false, dates: [], sameDay: false, size: s };
-      else { failedPlace = region.place; region = null; }
-      break;
-    }
+    const cep = addressDraft.cep;
+    const others = [...new Set(unitSizes)].filter((x): x is Size => (SIZES as readonly string[]).includes(x) && x !== regionSize);
+    // In parallel, inside the region's own timeout: the model's budget is not theirs (review).
+    const answers = await Promise.all(others.map((s) =>
+      lookupRegion(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), cep, s, logzzIdsOf(CONFIG.checkout))
+        .catch((): RegionLookup => ({ kind: "failed" }))
+        .then((r) => ({ s, r }))));
+    // A size without delivery, or one the lookup could not answer, makes the kit prepaid: a delivery link with a size the Logzz may
+    // not schedule never goes, and a failure never turns a known answer into the two links (review: the offers flip-flopped).
+    const missing = answers.find(({ r }) => !(r.kind === "found" && r.region.cod));
+    if (missing) region = { ...region, cod: false, dates: [], sameDay: false, size: missing.s };
   }
 
   // A CEP she typed with the wrong number of digits is never read, and the model told her "Recebi seu
