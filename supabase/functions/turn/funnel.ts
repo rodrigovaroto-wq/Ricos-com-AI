@@ -354,6 +354,8 @@ export const BOTH_PREPAY_HEADLINE = "Ah que pena";
  */
 export const saysNoDeliveryDay = (message: string): boolean => {
   const t = message.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "");
-  return /\b(?:nao|n)\s+(?:me\s+)?(?:apareceu|aparece|apareceram|aparecem|mostrou|mostra)\b(?!\s+(?:sim|duvida))|\b(?:nao|n)\s+(?:tem|tinha|deu)\s+(?:\S+\s+){0,2}?(?:dia|data|entrega|opcao|nada)\b/.test(t) ||
+  // She has not opened it yet (review of v38): "sem dia ainda, nem abri", "vou abrir depois".
+  if (/\b(?:nem|nao|ainda\s+nao)\s+abri\b|\bvou\s+abrir\b|\bainda\s+vou\b/.test(t)) return false;
+  return /\b(?:nao|n)\s+(?:me\s+)?(?:apareceu|aparece|apareceram|aparecem|mostrou|mostra)\b(?!\s+(?:sim|duvida))|\b(?:nao|n)\s+(?:tem|tinha|deu)\s+(?:nenhum\w*\s+)?(?:dia|data|entrega|opcao)\b/.test(t) ||
     /\b(?:nenhum|nenhuma)\s+(?:dia|data|opcao)\b/.test(t) || /\bsem\s+(?:dia|data|entrega)\b/.test(t);
 };

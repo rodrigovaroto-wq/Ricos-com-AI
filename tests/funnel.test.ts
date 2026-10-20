@@ -261,6 +261,6 @@ describe("copy v4 (operador, 2026-10-20): o que já estava no ar continua reconh
   });
   it.each(["não apareceu nada", "não aparece dia nenhum", "nenhuma data", "não tem entrega pra mim, sem dia"])("ela diz que não apareceu dia: %s", (m) =>
     expect(saysNoDeliveryDay(m)).toBe(true));
-  it.each(["apareceu sim", "já apareceu o dia, finalizei", "ainda vou abrir", "não sei ainda", "não tem como eu ver agora", "não deu tempo de abrir"])("negação — apareceu, ou ainda não viu: %s", (m) =>
+  it.each(["apareceu sim", "já apareceu o dia, finalizei", "ainda vou abrir", "não sei ainda", "não tem como eu ver agora", "não deu tempo de abrir", "não tem nada a ver", "ainda não tem nada pra hoje, vou abrir depois", "sem dia ainda, nem abri"])("negação — apareceu, ou ainda não viu: %s", (m) =>
     expect(saysNoDeliveryDay(m)).toBe(false));
 });

@@ -1266,7 +1266,9 @@ const scheduleSilenceTouches = async (
   if (at && declinesInBurst(herRecent(at.messages ?? [], spoken), [], (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && toldNoCod(m.body ?? "")))) { await cancelScheduled(conversationId, "all"); return; }
   // She was told the vest does not fit and has no size of the table since (R23 review): her "obrigada" does not re-arm the
   // ruler that would ask her pants size again. A size she gives later (`leads.size`) re-arms it.
-  if (at && !at.leads?.size && (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? ""))) {
+  // Copy v4: the model writes the no-fit answer in its own words, so her own pants number past the table is read too (review of v38).
+  if (at && !at.leads?.size && ((at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === "outbound" && saidNoFit(m.body ?? "")) ||
+    herRecent(at.messages ?? [], spoken).some((m: string) => sizeBeyondTable(m, true) !== null))) {
     await cancelScheduled(conversationId, "all");
     return;
   }
@@ -2913,9 +2915,21 @@ const handleTurn = async (
   const guideReasons: string[] = [];
   let extraNotify: string | null = null;
   const guide = (situation: string, example: string, reason: string, notify = false): void => {
+    if (guideReasons.includes(reason)) return;
     guides.push(`${situation} Responda no seu jeito, com este modelo: "${example}"`);
     guideReasons.push(reason);
     if (notify) extraNotify = extraNotify ?? reason;
+  };
+  // The operator's e-mail for what used to hand off, on whatever path answers (review of v38: the night's deferred reply, the
+  // payment line and the delivered-order draft returned before it) — once per conversation, read from `turn_outcomes`.
+  const notifyOnce = async (): Promise<Record<string, unknown>> => {
+    if (!extraNotify) return {};
+    const seen = await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${extraNotify}*`)}&select=id&limit=1`).catch(() => null);
+    if ((seen?.length ?? 0) > 0) {
+      extraNotify = null;
+      return {};
+    }
+    return { status: "handoff", ...notification(lead, conversation) };
   };
 
   // 3b. She asked for a person (§Q12), in one of the exact phrases. Deterministic, so it
@@ -3191,12 +3205,14 @@ const handleTurn = async (
       undefined,
       endsWithQuestion(text),
     );
+    const once = await notifyOnce();
     await Promise.all([
-      recordOutcome(conversation.id, "send", reason, 0, spent - spentBefore),
+      recordOutcome(conversation.id, "send", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore),
       persistStage(conversation.id, storedStage, linkOut ? furthest(reachedSoFar, "link_enviado") : reachedSoFar),
     ]);
     return json(200, {
       status: "ok",
+      ...once,
       reason,
       reply: text,
       bubbles: paced(text, fastOpening),
@@ -3269,8 +3285,9 @@ const handleTurn = async (
       // The main loop's own row, written the same way (the kind last: `burst.test.ts` reads the main loop's).
       body: JSON.stringify({ conversation_id: conversation.id, run_at: runAt.toISOString(), status: "scheduled", body: text, kind: "deferred_reply" }),
     });
-    await recordOutcome(conversation.id, "deferred", reason, 0, spent - spentBefore);
-    return json(200, { status: "deferred", reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });
+    const once = await notifyOnce();
+    await recordOutcome(conversation.id, "deferred", [reason, extraNotify].filter(Boolean).join(" | "), 0, spent - spentBefore);
+    return json(200, { status: "deferred", ...once, reason, runAt: runAt.toISOString(), rewrites: 0, costBrl: spent });
   };
 
   // The agent's last message: what the interpreter compares her answer with, and what the
@@ -4345,6 +4362,9 @@ const handleTurn = async (
       } catch {
         // A checkout URL missing from the config: the model answers, as before.
       }
+    } else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound === sizeNoCodAsk(region.size) && !parts.some((p: string) => confirmsAddress(spoken(p)) || interpretation.wants_to_buy)) {
+      // She did not say yes to the Correios (review of v38: the prepaid box went after her "não"): the model answers her.
+      guide("Ela não aceitou ir pelos Correios, ou respondeu outra coisa.", "Tudo bem! Se mudar de ideia, é só me chamar que eu te mando o link 💛", "não aceitou o antecipado depois da pergunta");
     } else if (region !== null && offerBefore === "cod" && offerNow === "prepay" && region.size && lastOutbound !== sizeNoCodAsk(region.size)) {
       // The delivery offer went before her size, and her size has no delivery there (grafo §117): asked first (copy v4, 2.5), and the
       // prepaid box goes on her answer, the next turn.
@@ -4372,7 +4392,9 @@ const handleTurn = async (
     const codBefore = linkPath === "prepay" && codUnavailable && [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)]
       .filter((u): u is string => typeof u === "string" && u.length > 0).some((u) => recentOutbound.some((m: string) => m.includes(u.split("?")[0]!)));
     // Copy v4, 3.3: asked first; the prepaid link goes on her answer, the next turn.
-    const sent = codBefore && lastOutbound !== ADDRESS_NO_COD_ASK
+    const refusedCorreios = codBefore && lastOutbound === ADDRESS_NO_COD_ASK && !parts.some((p: string) => confirmsAddress(spoken(p))) && !interpretation.wants_to_buy;
+    if (refusedCorreios) guide("Ela não aceitou ir pelos Correios, ou respondeu outra coisa.", "Tudo bem! Se mudar de ideia, é só me chamar que eu te mando o link 💛", "não aceitou o antecipado depois da pergunta");
+    const sent = refusedCorreios ? null : codBefore && lastOutbound !== ADDRESS_NO_COD_ASK
       ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado")
       : await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
     if (sent) return sent;
@@ -4510,7 +4532,7 @@ const handleTurn = async (
         : null,
       units > 1 ? null : sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten),
       regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", offerNow !== null && offerNow !== offerBefore && !pastLink && (!sizeKnown || !openNow)),
-      failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA") || m.startsWith("🟢 *Pagar SÓ Quando Receber*"))
+      failedPlace !== null && region === null && isLikelyCodCity(failedPlace, CONFIG.cod.likelyCities) && recentOutbound.some((m: string) => m.includes("🟢 1) PAGAR SÓ NA ENTREGA"))
         ? `A consulta do CEP dela falhou, e o sistema já mandou os dois links (🟢 1, pagar na entrega; 🔵 2, pagar agora). Se ela` +
           ` perguntar, peça pra ela abrir o link 🟢 e ver se aparece o dia da entrega; se não aparecer, o link 🔵 leva o colete do` +
           ` mesmo jeito. Não mande os links de novo, a não ser que ela peça.`
@@ -4729,12 +4751,14 @@ const handleTurn = async (
         body: attempt.text,
       }),
     });
+    const once = await notifyOnce();
     await Promise.all([
-      recordOutcome(conversation.id, "deferred", "fora da janela de envio", rewritesUsed, spent - spentBefore),
+      recordOutcome(conversation.id, "deferred", ["fora da janela de envio", extraNotify].filter(Boolean).join(" | "), rewritesUsed, spent - spentBefore),
       persistStage(conversation.id, storedStage, reachedSoFar),
     ]);
     return json(200, {
       status: "deferred",
+      ...once,
       reason: "fora da janela de envio",
       runAt: runAt.toISOString(),
       rewrites: rewritesUsed,
@@ -4925,6 +4949,8 @@ const handleTurn = async (
    * create the order" with no order to create. What is missing stays in `orderBlocked`.
    */
   const orderReady = order !== null;
+  // Once per conversation (review of v38): a second "quero falar com uma pessoa" does not e-mail again.
+  await notifyOnce();
   await Promise.all([
     recordOutcome(
       conversation.id,

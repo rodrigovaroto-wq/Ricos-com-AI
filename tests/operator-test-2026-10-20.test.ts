@@ -49,7 +49,7 @@ describe("endereço novo antes do pedido", () => {
     expect(turn).toContain("porque o endereço novo pode estar fora da nossa rede de entrega.\\n\\nMe passa o CEP novo ou a rua e a cidade?");
   });
   it("depois de um link da entrega, o endereço novo sem entrega pergunta antes de mandar o antecipado (copy v4, 3.3)", () => {
-    expect(turn).toContain("const sent = codBefore && lastOutbound !== ADDRESS_NO_COD_ASK");
+    expect(turn).toContain("const sent = refusedCorreios ? null : codBefore && lastOutbound !== ADDRESS_NO_COD_ASK");
   });
   it("o prompt manda ao atendimento ao cliente só com o pedido já criado", () => {
     const p = systemPrompt(prod as PromptConfig, gateBriefing(prod as PromptConfig), null).replace(/\s+/g, " ");
@@ -59,3 +59,19 @@ describe("endereço novo antes do pedido", () => {
   });
 });
 void config;
+
+describe("revisão Opus da v38 (copy v4)", () => {
+  it("o e-mail do operador sai em todo caminho (noite, linha fixa, rascunho), uma vez por conversa", () => {
+    expect(turn).toContain("const notifyOnce = async (): Promise<Record<string, unknown>> => {");
+    expect(turn.match(/const once = await notifyOnce\(\);/g)?.length).toBe(3);
+    expect(turn).toContain("  await notifyOnce();\n  await Promise.all([\n    recordOutcome(");
+    expect(turn).toContain("    if (guideReasons.includes(reason)) return;");
+  });
+  it("o antecipado depois da pergunta dos Correios só vai com o sim dela", () => {
+    expect(turn).toContain("lastOutbound === sizeNoCodAsk(region.size) && !parts.some((p: string) => confirmsAddress(spoken(p)) || interpretation.wants_to_buy)) {");
+    expect(turn).toContain("const refusedCorreios = codBefore && lastOutbound === ADDRESS_NO_COD_ASK && !parts.some((p: string) => confirmsAddress(spoken(p))) && !interpretation.wants_to_buy;");
+  });
+  it("a calça fora da tabela, dita por ela, para a régua mesmo com a resposta do modelo", () => {
+    expect(turn).toContain("herRecent(at.messages ?? [], spoken).some((m: string) => sizeBeyondTable(m, true) !== null))) {");
+  });
+});
