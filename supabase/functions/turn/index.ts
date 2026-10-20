@@ -4382,7 +4382,11 @@ const handleTurn = async (
   // The link goes the operator's way, fixed (2026-10-07, grafo §66; script v3 text since R28) — unless she
   // asked something beside it, and then the model answers with the link in its directive.
   if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {
-    const sent = await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
+    // A delivery link went before and the new address has no delivery (operator's test, 2026-10-20): the reason before the new link.
+    const codBefore = linkPath === "prepay" && codUnavailable && [CONFIG.checkout?.codUrl, ...kits.filter((k) => k.path === "cod").map((k) => k.checkoutUrl)]
+      .filter((u): u is string => typeof u === "string" && u.length > 0).some((u) => recentOutbound.some((m: string) => m.includes(u.split("?")[0]!)));
+    const why = codBefore ? "Nesse endereço o pagamento na entrega não chega, então o seu vai pelo antecipado 💛\n\n" : "";
+    const sent = await sendFunnelTurn([{ text: opening(why + v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
     if (sent) return sent;
   }
 

@@ -4334,6 +4334,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-20.test.ts"],
   },
   {
+    id: "G118-link-novo-sem-motivo",
+    bug: "o link do antecipado chegaria depois do link da entrega sem dizer que o endereço novo não tem entrega (replay, 20/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'const why = codBefore ? "Nesse endereço o pagamento na entrega não chega, então o seu vai pelo antecipado 💛\\n\\n" : "";',
+    to: 'const why = "";',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-20.test.ts"],
+  },
+  {
     id: "G118-endereco-novo-vai-ao-atendimento",
     bug: "o endereço novo antes do pedido voltaria a ser mandado ao atendimento ao cliente, sem consultar o CEP novo (operador, 20/10)",
     files: ["src/agent/prompt.ts"],

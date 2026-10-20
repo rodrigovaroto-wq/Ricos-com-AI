@@ -45,6 +45,9 @@ describe("endereço novo antes do pedido", () => {
     expect(turn).toContain('if (newAddressBeforeOrder && openNow && lastOutbound !== NEW_ADDRESS_ASK) {');
     expect(turn).toContain("o endereço novo pode estar fora da nossa rede de entrega, então preciso consultar de novo");
   });
+  it("o link novo, depois de um link da entrega, diz por que mudou para o antecipado", () => {
+    expect(turn).toContain('const why = codBefore ? "Nesse endereço o pagamento na entrega não chega, então o seu vai pelo antecipado 💛\\n\\n" : "";');
+  });
   it("o prompt manda ao atendimento ao cliente só com o pedido já criado", () => {
     const p = systemPrompt(prod as PromptConfig, gateBriefing(prod as PromptConfig), null).replace(/\s+/g, " ");
     expect(p).toContain("mudança de endereço de um pedido JÁ CRIADO são com o atendimento ao cliente");
