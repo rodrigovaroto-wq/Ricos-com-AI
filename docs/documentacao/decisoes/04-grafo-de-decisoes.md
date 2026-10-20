@@ -3649,6 +3649,22 @@ mexer em gate, estado ou handoff; função citada pelo nome exato em crase); uma
 `test-engineer`, `technical-writer` e `orchestrator`. O tutorial genérico
 `tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
 
+## 114. Custos do projeto no Financeiro do portal; o imposto da Meta já está dentro do gasto (operador, 2026-10-20)
+
+**Sintoma:** o Financeiro do `encorpa-portal` somava 13,83% de imposto em cima do gasto da Meta (`profit` em `lib/build.mjs` e o
+`Result` de `Finance.jsx`), e o resultado não tinha custo fixo nenhum. **Causa:** a premissa de 09/10 ("o imposto deve aparecer", a
+conferir na 1ª fatura) virou multiplicador; a conferência veio em 20/10: a conta "Encorpa anuncios" mostra R$ 77,38 gastos, o mesmo
+número que a API de insights devolve ao portal, e o operador confirmou que o imposto é pago junto e está dentro desse valor.
+**Correção (portal):** anúncio entra pelo gasto da Meta, sem acréscimo; custos fixos da planilha `Gastos_Encorpa` (PikaPods R$ 55 a cada
+~80 dias, número R$ 35/mês) rateados por dia a partir do primeiro lead (`fixedCost`); IA do período = conversas + rodadas do Hermes;
+`net_profit`, `op_margin` e `roi` descontam anúncio, IA, WhatsApp e fixos (ROI ≥ 1 ⇔ lucro ≥ 0); nova métrica `fixed_cost`; quadro
+"Investido até agora" (`invested`): gastos pagos até 20/10 (R$ 231,38) mais o medido e o rateado depois, contra a margem dos pedidos.
+Premissas (`REF`) com equilíbrio recalculado (2,9% e 3,4%) e a tabela de custos. **Caminho descartado:** rateio dos fixos desde 01/01 nos
+períodos longos (cobraria meses sem operação; o pago antes do primeiro lead fica no "Investido até agora"). **Resíduo:** a fatura de IA
+(US$ 8) inclui personas e testes que o banco não grava — depois de 20/10 o portal só soma o custo gravado; atualizar `SPENT` a cada fatura.
+O câmbio do portal para o Hermes continua 5,40 (o do banco); a planilha usa 5,50. **Guarda:** a soma das linhas do demonstrativo fecha com
+`net_profit` (conferido com o fixture e os dados de exemplo).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
