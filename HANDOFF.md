@@ -43,8 +43,13 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   - kits uma linha por opção, com o desconto;
 >   - endereço novo antes do pedido = CEP novo, e não o atendimento ao cliente.
 >   Reescrita das mensagens prontas proposta em `docs/agente-ia/06-script/08-copy-v4-proposta.md`, esperando a aprovação do operador.
-> - **Falta:** aprovação da reescrita, depois publicar a v38; (f) quem responde; (e) parecer de conformidade.
->   (c) e (d) seguem bloqueados. `graphify` não instalado: a instalação foi barrada pelo classificador de permissão.
+> - **v38 NO AR** (função v146, ~22h50 UTC, `healthy`, commit `9c890f7`), grafo §119: copy v4 aprovada pelo operador.
+>   Fixos só a abertura, as ofertas, os links e a régua; todo o resto o modelo responde com os textos do operador como modelo (`guide()`),
+>   na voz de campanha Black. Ficam fixos de propósito: as linhas de pagamento, a recepção da noite e as respostas seguras depois de 5 vetos.
+>   Revisão Opus: `notifyOnce`, o sim antes do antecipado, a régua parada na calça fora da tabela, `saysNoDeliveryDay`, `stripMediaLabels`.
+>   Validação: 8517 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G119-*` 15/15, reencenação na `turn` local.
+> - **Falta:** o teste real do operador no WhatsApp na v38 (conferir `turn_outcomes.agent_version = 38`); (f) quem responde; (e) parecer de conformidade.
+>   (c) e (d) seguem bloqueados. `graphify` 0.9.92 instalado em `~/.graphify` (some com o container; o setup do ambiente o reinstala).
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
 > **2026-10-19 (fim da noite) — pré-lançamento: 8 tópicos, só o tópico 2 (Playwright, parte Logzz) fechado; troca de sessão pedida pelo operador.**

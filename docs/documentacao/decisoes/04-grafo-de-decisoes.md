@@ -3792,6 +3792,13 @@ abertura nem oferta de novo.
 `G119-*` e as retomadas para o texto novo (15/15). `pnpm dev:gates`: nenhum afrouxamento.
 **Prova prática:** `turn` local com o config no ar — compra na entrega em SP até o link; M em SP com a pergunta dos Correios e o antecipado;
 pessoa, recusa, "vou pensar", 5 peças, calça 60, pedido sumido e troca respondidos pelo modelo no tom dos modelos (R$ 0,10).
+**Revisão Opus (antes de publicar):** o e-mail do operador se perdia nos retornos antecipados e saía repetido — `notifyOnce` manda uma vez
+por conversa em todo caminho (linha fixa, noite, rascunho, final); o antecipado depois da pergunta dos Correios só vai com o sim dela
+(`confirmsAddress` ou `wants_to_buy`); a calça fora da tabela para a régua mesmo quando o modelo responde (`sizeBeyondTable` no histórico dela);
+`saysNoDeliveryDay` não lê "nem abri"/"ainda vou abrir" e exige dia, data, entrega ou opção junto de "tem/tinha/deu".
+**Reencenação:** o modelo copiou o rótulo "[imagem da Malu: tabela…]" do histórico — `stripMediaLabels` limpa toda resposta na porta única
+(`callConversationModel`); o exemplo do pedido de pessoa era vetado pelo `humanity_claim` — virou `PERSON_ASK_EXAMPLE`, limpo nos gates.
+**Estado:** publicado em 20/10 (~22h50 UTC) na `turn` **v38** (`agent_versions` 38, função v146, commit `9c890f7`), `health` → `healthy`.
 
 ## Lições (valem para qualquer correção futura)
 
