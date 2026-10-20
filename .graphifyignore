@@ -1,0 +1,11 @@
+# graphify (docs/agente-ia/03-pesquisa/08-graphify.md). Same syntax as .gitignore.
+#
+# The byte-for-byte mirror of src/ (tests/function-drift.test.ts). With both copies every
+# exported function exists twice, and graphify drops a doc mention that matches more than one
+# function — the decision graph would link to no code at all. src/ is the canonical side.
+supabase/functions/turn/*.ts
+!supabase/functions/turn/index.ts
+supabase/functions/whatsapp/whatsapp.ts
+supabase/functions/whatsapp/inbound-signature.ts
+# Vendored Opus decoder (R18.9): not ours, only noise in the graph.
+supabase/functions/whatsapp/vendor/

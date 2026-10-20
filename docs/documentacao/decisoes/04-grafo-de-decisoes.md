@@ -3629,6 +3629,19 @@ ou lead criado), tamanhos habilitados e dias por tamanho comparados a `lookupReg
 interno é `XGG` (`LOGZZ_SIZE` traduz o de dentro do checkout, não o que se passa a `lookupRegion`) — erro do script, não da Malu. **Não coberto:** o checkout
 da Coinzz (antecipado) via Playwright; o fluxo até o pedido e o webhook.
 
+## 113. Graphify: onde o grafo de código encaixa (operador, 2026-10-20)
+
+**Pergunta:** usar o [Graphify](https://github.com/Graphify-Labs/graphify) para a Malu e o Hermes consultarem grafos de conhecimento.
+**Análise:** lido em código, commit `86c57be` ([`08-graphify.md`](../../agente-ia/03-pesquisa/08-graphify.md)); não executado (instalar do PyPI foi
+barrado pela permissão da sessão). **Caminhos descartados:** a Malu consultar o grafo no turno (é recuperação, R11.4, e escolha de ferramenta, R11.1;
+Python fora da Edge Function); o Hermes pela skill oficial (pede terminal, e o Hermes só tem `file,skills,todo` — a barreira do R11.6); o
+Graphify ligar gate a seção do grafo (gates são `name: "…"`, string; ele só liga menção a função ou classe); `graphify claude install` (reescreve
+este `CLAUDE.md` e intercepta toda leitura); `save-result`/`reflect` (segunda memória). **Achado que muda o uso:** o espelho byte a byte põe toda
+função exportada duas vezes no corpus, e o Graphify descarta menção ambígua — sem tratar, nenhuma seção deste grafo ligaria a código.
+**Correção:** `.graphifyignore` tira as cópias de `supabase/functions/` (fica `turn/index.ts`); `graphify-out/` no `.gitignore`. **Uso decidido como
+recomendação:** só nas sessões do Claude Code, por `graphify update .` com `GRAPHIFY_BACKEND=none` (AST, sem modelo). **Guarda/estado:** nenhuma
+regra no `CLAUDE.md` nem hook até a medição do §4 do documento, que espera o operador autorizar a instalação.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
