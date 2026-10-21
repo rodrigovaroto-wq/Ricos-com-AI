@@ -251,8 +251,8 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, stockScarcityLine, countTriggerUses, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
-import { isAudioBody, mergeProfile, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { isAudioBody, mergeProfile, profileFold, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -1607,7 +1607,7 @@ type RetryTicket = { inboundId: string; retries: number };
  * draft it had, how many revisions came before, the deadline every revision shares, and the spend
  * when the first turn started — one `turn_outcomes` row prices the whole burst.
  */
-type ReviseTicket = { draft: string; revisions: number; deadline: number; spentBefore: number };
+type ReviseTicket = { draft: string; revisions: number; deadline: number; spentBefore: number; profileBase: Partial<LeadProfile> | null };
 
 const readTicket = (body: unknown): RetryTicket | null => {
   try {
@@ -3148,7 +3148,8 @@ const handleTurn = async (
     if (revisionAllowed(revisions, Date.now(), deadline)) {
       return await handleTurn(
         { externalId: inbound.externalId, from: inbound.from, body: inbound.body },
-        { revise: { draft, revisions: revisions + 1, deadline, spentBefore } },
+        // The profile the first turn read, before its fold: the revision folds the whole burst into it (`profileFold`).
+        { revise: { draft, revisions: revisions + 1, deadline, spentBefore, profileBase: isRevise ? internal.revise!.profileBase : storedProfileOf(lead) } },
       );
     }
     // Nothing scheduled either (grafo §65): never the draft that did not read her — the safe line (§97) and
@@ -4007,7 +4008,8 @@ const handleTurn = async (
     // The LAST twenty, not the first: ascending order meant that past ten exchanges the
     // model was reading the opening of the conversation and never the turn it was
     // answering — and `recentOutbound` fed the repetition gate a slice from an hour ago.
-    `messages?conversation_id=eq.${conversation.id}&select=direction,body&order=created_at.desc&limit=20`,
+    // `created_at` for the trigger count (`triggerUsesSoFar`). Index: messages_conversation_idx.
+    `messages?conversation_id=eq.${conversation.id}&select=direction,body,created_at&order=created_at.desc&limit=20`,
   );
   // The query returns newest first so the window is the END of the conversation; the
   // model reads it oldest first, like a person scrolling up.
@@ -4121,11 +4123,15 @@ const handleTurn = async (
   // Plan 16 §4.6–4.7: what this turn's lookups read, taught in the prompt and let through by the gates with the same values. Only
   // inside the send window: a reply held for the morning is gated again by the sweep, which has neither, and would be lost.
   // The stock of her size on the delivery path, one piece, said once: any "restam só" already sent is the line said.
-  const stockLine = openNow && region?.cod && region.size && units === 1 && !recentOutbound.some((m: string) => /\brestam\s+s[oó]\b/i.test(m.replace(/[*_~]/g, "")))
-    ? stockScarcityLine(CONFIG, region.size, region.stockQty)
-    : null;
-  const stockLeft = stockLine !== null && region?.size && typeof region.stockQty === "number" ? { size: region.size, qty: region.stockQty } : null;
-  const prepayFreightBrl = openNow && linkPath === "prepay" && typeof region?.prepayFreightBrl === "number" ? region.prepayFreightBrl : null;
+  // Only from a region looked up in this turn (`freshRegion`), and the freight of one piece without free shipping (`regionTurnFacts`).
+  const { stockLine, stockLeft, prepayFreightBrl } = regionTurnFacts(CONFIG, {
+    openNow,
+    fresh: freshRegion !== null,
+    region,
+    units,
+    linkPath,
+    stockSaid: recentOutbound.some((m: string) => /\brestam\s+s[oó]\b/i.test(m.replace(/[*_~]/g, ""))),
+  });
   const turnFacts = { stockLine, prepayFreightBrl };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
@@ -4316,7 +4322,7 @@ const handleTurn = async (
   // sent, or its reason in `turn_outcomes` (turn_outcomes_conversation_idx, read only when everything else says ask): after it, her
   // "vou pensar" again is today's reply. A refusal is never one, nor a datum refused, a question beside it or a decision.
   const vagueObjection = !declined && !interpretation.wants_to_buy &&
-    (putsOff || interpretation.price_signal === "complaint" || interpretation.price_signal === "discount_ask") &&
+    (putsOff || interpretation.price_signal === "complaint") &&
     interpretation.pending_answer !== "other_question" && !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
     !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && !askedVagueQuestion(recentOutbound) &&
     ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) === 0;
@@ -4335,11 +4341,23 @@ const handleTurn = async (
   // A retry or a revision replays messages an earlier attempt already folded (its `score_at` is past the burst's start, the
   // kit's `replayed` rule): read again, never added twice. Before 0029 `lead.profile` is absent and reads empty.
   const audioParts = rawParts.filter(isAudioBody).length;
-  const scoredAt = typeof lead.score_at === "string" ? Date.parse(lead.score_at) : NaN;
-  const profileReplayed = batchFrom !== null && Number.isFinite(scoredAt) && scoredAt >= Date.parse(batchFrom);
-  const storedProfile = lead.profile !== null && typeof lead.profile === "object" && !Array.isArray(lead.profile) ? lead.profile : null;
-  const folded = mergeProfile(storedProfile, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });
-  const profile: LeadProfile = profileReplayed ? folded : { ...folded, audio_count: folded.audio_count + Math.max(audioParts - 1, 0) };
+  const { base: profileBase, replayed: profileReplayed } = profileFold({
+    stored: storedProfileOf(lead),
+    reviseBase: internal.revise?.profileBase,
+    isResume,
+    scoredAt: typeof lead.score_at === "string" ? Date.parse(lead.score_at) : NaN,
+    batchTo: unanswered.at(-1)?.created_at ?? null,
+  });
+  const folded = mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });
+  // Plan 16 §4.4: what she told, up to three uses in what Malu sent over the whole conversation — stored, plus what was sent since.
+  const triggerCount = triggerUsesSoFar((history ?? []).filter((m: { direction: string }) => m.direction === "outbound"), folded);
+  const triggerUses = triggerCount.uses;
+  const profile: LeadProfile = {
+    ...folded,
+    audio_count: folded.audio_count + (profileReplayed ? 0 : Math.max(audioParts - 1, 0)),
+    trigger_uses: triggerUses,
+    trigger_counted_at: triggerCount.countedAt,
+  };
   // Plan 16 §4.2: her readiness score from what this turn settled, with the profile, in one write of its own — before 0029 the
   // columns do not exist, PostgREST refuses the PATCH with 400, and nothing else goes with it (the `entry_at` rule of 0022).
   // Written before any reply, so the ruler armed at the end of the turn reads this band. Index: leads_pkey.
@@ -4366,8 +4384,7 @@ const handleTurn = async (
     method: "PATCH",
     body: JSON.stringify({ profile, score, score_band: scoreBand, score_at: new Date().toISOString() }),
   }).then(() => Object.assign(lead, { score, score_band: scoreBand }), () => undefined);
-  // Plan 16 §4.4: what she told, up to three uses in what Malu sent — "use it now" in the reply right after she told it, then free.
-  const triggerUses = countTriggerUses(recentOutbound, profile);
+  // "Use it now" in the reply right after she told it, then free.
   const triggerDirective = declined ? null : personalTriggerDirective(profile, triggerUses, interpretation.occasion !== null || interpretation.pain !== null ? "next_reply" : "free");
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
   // A real question beside it is answered by the model, never swallowed by the fixed line (persona venda-sem-dinheiro,
@@ -4471,7 +4488,7 @@ const handleTurn = async (
   }
   // Plan 16 §4.4, her trigger's second use: the interpreter's hook in a bubble of its own right before the operator's offer text, only
   // with uses left and only if the turn's gate chain passes it — the main loop's context, built here for this one text. Sent, it
-  // counts as a use by itself (`countTriggerUses` reads what was sent). Never after a link or an order: `pastLink` holds the branch.
+  // counts as a use by itself (`triggerUsesSoFar` reads what was sent). Never after a link or an order: `pastLink` holds the branch.
   const withHook = async (bubbles: FunnelBubble[]): Promise<FunnelBubble[]> => {
     const hook = profile.hook;
     const at = bubbles.findIndex((b) => !b.media);

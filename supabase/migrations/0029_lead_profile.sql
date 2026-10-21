@@ -28,7 +28,8 @@ select
   l.score,
   l.score_band,
   l.score_at,
-  l.profile,
+  -- `pain` and `hook` are her free text, possibly health data: never out through the view (compliance review of plan 16).
+  l.profile - 'pain' - 'hook' as profile,
   l.units,
   l.payment_choice
 from public.leads l

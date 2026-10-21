@@ -7,13 +7,77 @@ import {
   bandOf,
   isAudioBody,
   mergeProfile,
+  profileFold,
   scoreOf,
+  storedProfileOf,
   type LeadProfile,
   type ScoreFacts,
 } from "@/agent/profile.js";
 
 const said = (over: Partial<Interpretation> = {}): Interpretation => ({ ...NEUTRAL_INTERPRETATION, ...over });
 const text = { audio: false };
+
+/** O gatilho pessoal contado na conversa inteira (§4.4), não só na janela de 20 mensagens: guardado no perfil. */
+describe("perfil: trigger_uses", () => {
+  it("nasce zerado e atravessa a leitura de cada mensagem sem mudar", () => {
+    expect(EMPTY_PROFILE).toMatchObject({ trigger_uses: 0, trigger_counted_at: null });
+    const stored = { ...EMPTY_PROFILE, trigger_uses: 2, trigger_counted_at: "2026-10-21T15:00:00Z" };
+    expect(mergeProfile(stored, said({ occasion: "casamento", buying_question: true }), text)).toMatchObject({ trigger_uses: 2, trigger_counted_at: "2026-10-21T15:00:00Z" });
+  });
+  it("perfil antigo, sem a chave: zero", () => {
+    expect(mergeProfile({ occasion: "casamento" }, NEUTRAL_INTERPRETATION, text)).toMatchObject({ trigger_uses: 0, trigger_counted_at: null });
+  });
+});
+
+/** Qual perfil o turno soma, e se a leitura é repetição (revisão de código do plano 16, achados 7 e 8). */
+describe("profileFold", () => {
+  const stored = { ...EMPTY_PROFILE, occasion: "casamento", buying_questions: 1 };
+  const base = { ...EMPTY_PROFILE };
+  const T = Date.parse("2026-10-21T15:00:10Z");
+
+  it("normal: a rajada nova (mensagem depois do último score) soma no guardado", () => {
+    expect(profileFold({ stored, isResume: false, scoredAt: T, batchTo: "2026-10-21T15:05:00Z" })).toEqual({ base: stored, replayed: false });
+    expect(profileFold({ stored: null, isResume: false, scoredAt: NaN, batchTo: "2026-10-21T15:05:00Z" })).toEqual({ base: null, replayed: false });
+    expect(profileFold({ stored, isResume: false, scoredAt: T, batchTo: null })).toEqual({ base: stored, replayed: false });
+  });
+
+  it("nova tentativa da varredura: a mesma mensagem, já somada pela tentativa que falhou, não soma de novo", () => {
+    expect(profileFold({ stored, isResume: false, scoredAt: T, batchTo: "2026-10-21T15:00:00Z" })).toEqual({ base: stored, replayed: true });
+  });
+
+  it("rajada [m1, m2] depois de um turno que desistiu com m1 somado: m2 não se perde", () => {
+    // m1 15:00:00 somada às 15:00:10; m2 15:00:30 chegou durante o modelo (retry_moot / superseded).
+    expect(profileFold({ stored, isResume: false, scoredAt: T, batchTo: "2026-10-21T15:00:30Z" }).replayed).toBe(false);
+  });
+
+  it("resume do n8n: a mensagem já somada pelo turno da oferta não soma de novo; a da abertura (nunca pontuada) soma", () => {
+    expect(profileFold({ stored, isResume: true, scoredAt: T, batchTo: null })).toEqual({ base: stored, replayed: true });
+    expect(profileFold({ stored: null, isResume: true, scoredAt: NaN, batchTo: null })).toEqual({ base: null, replayed: false });
+  });
+
+  it("revisão: a rajada inteira soma no perfil que o primeiro turno leu, mesmo com o score dele depois de m2", () => {
+    // m2 chegou durante o intérprete do primeiro turno, antes do score dele: a regra da varredura leria tudo como repetição.
+    const late = { stored, isResume: false, scoredAt: T, batchTo: "2026-10-21T15:00:05Z" };
+    expect(profileFold(late).replayed).toBe(true);
+    expect(profileFold({ ...late, reviseBase: base })).toEqual({ base, replayed: false });
+    expect(profileFold({ ...late, reviseBase: null })).toEqual({ base: null, replayed: false });
+    expect(profileFold({ ...late, isResume: true, reviseBase: base })).toEqual({ base, replayed: false });
+  });
+
+  it("revisão sobre a rajada: soma uma vez, do perfil de antes", () => {
+    const burst = said({ buying_question: true, occasion: "formatura" });
+    const firstTurn = mergeProfile(base, said({ buying_question: true }), text);
+    const { base: from, replayed } = profileFold({ stored: firstTurn, reviseBase: base, isResume: false, scoredAt: T, batchTo: "2026-10-21T15:00:05Z" });
+    expect(replayed).toBe(false);
+    expect(mergeProfile(from, burst, text)).toMatchObject({ buying_questions: 1, occasion: "formatura" });
+  });
+
+  it("storedProfileOf: só o objeto jsonb", () => {
+    expect(storedProfileOf({ profile: { occasion: "x" } })).toEqual({ occasion: "x" });
+    for (const v of [null, undefined, [], "x", 3]) expect(storedProfileOf({ profile: v })).toBeNull();
+    expect(storedProfileOf({})).toBeNull();
+  });
+});
 
 /** O perfil do lead (plano 16 §4.1, §4.3): cada mensagem lida se soma ao `leads.profile`. */
 describe("mergeProfile", () => {
@@ -184,6 +248,10 @@ describe("lead_profiles_v", () => {
     for (const col of ["l.id", "l.created_at", "as stage", "l.score", "l.score_band", "l.score_at", "l.profile"]) {
       expect(view).toContain(col);
     }
+  });
+  it("o perfil sai sem a dor e o gancho: texto livre dela, que pode ser dado de saúde (revisão de compliance)", () => {
+    expect(view).toContain("l.profile - 'pain' - 'hook' as profile");
+    expect(view).not.toMatch(/\bl\.profile\s*,/);
   });
   it("nunca expõe telefone, nome, identidade ou endereço", () => {
     const select = view.slice(0, view.indexOf("where l.phone"));

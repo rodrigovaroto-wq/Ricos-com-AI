@@ -197,11 +197,11 @@ export const codOfferText = (config: FunnelConfig, firstDate: string | undefined
 /**
  * Etapa 3, where cash on delivery does not reach her: the prepaid as the way, never a "não". `freightBrl` is the prepaid
  * freight the checkout read at her CEP (`prepayFreight`, plan 16 §4.7): said under the Correios line; absent or not a
- * positive amount, the box of today.
+ * positive amount, or free shipping on both paths, the box of today.
  */
 export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null = null): string => {
   const n = config.prices.prepayMaxInstallments;
-  const freight = freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? `\nFrete pra sua região: *${money(freightBrl)}*` : "";
+  const freight = config.delivery.freeShipping !== true && freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? `\nFrete pra sua região: *${money(freightBrl)}*` : "";
   return [
     PREPAY_HEADLINE(config),
     `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,

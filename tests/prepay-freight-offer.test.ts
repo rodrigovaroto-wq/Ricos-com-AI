@@ -23,6 +23,11 @@ describe("prepayOfferText com o frete", () => {
     for (const f of [null, 0, -1, Number.NaN]) expect(prepayOfferText(config, f)).toBe(today);
     expect(today).not.toContain("Frete pra sua região");
   });
+  it("com frete grátis nos dois caminhos, a caixa nunca diz um valor de frete (revisão do plano 16)", () => {
+    const free = { ...config, delivery: { ...config.delivery, freeShipping: true } };
+    expect(prepayOfferText(free, 18.9)).toBe(prepayOfferText(free));
+    expect(offerBubbles(free, { cod: false, dates: [], prepayFreightBrl: 18.9 }, new Date("2026-10-21T14:00:00Z"), null).map((b) => b.text).join("\n")).not.toContain("18,90");
+  });
   it("offerBubbles leva o frete da região à caixa do antecipado, e não à da entrega", () => {
     const now = new Date("2026-10-21T14:00:00Z");
     const box = (cod: boolean) => offerBubbles(config, { cod, dates: [], prepayFreightBrl: 18.9 }, now, null).map((b) => b.text).join("\n");

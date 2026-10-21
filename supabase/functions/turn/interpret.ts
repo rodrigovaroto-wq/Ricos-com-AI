@@ -179,7 +179,10 @@ export const INTERPRETER_SYSTEM = [
   '  resultado. Fale só do que o colete faz enquanto está vestido (modela, assenta, dá firmeza e',
   '  apoio à postura). Nunca diga que ajuda, alivia ou trata a dor, nem fale de quilos, kg,',
   '  medidas ou centímetros: "Ele vai ajudar na sua dor nas costas." e "Você vai perder 5 quilos."',
-  '  são proibidas. Sem ocasião e sem dor: null.',
+  '  são proibidas. Nunca fale de pós-parto, cesárea, cirurgia, diástase nem de recuperação, e',
+  '  nunca diga que o colete reduz ou diminui alguma coisa: "Ele ajuda na recuperação do seu',
+  '  pós-parto." e "Pro seu casamento ele vai reduzir sua barriga." são proibidas. Sem ocasião e',
+  '  sem dor: null.',
 ].join("\n");
 
 /**
@@ -187,7 +190,10 @@ export const INTERPRETER_SYSTEM = [
  * ajudar na sua dor nas costas." and "Você vai perder 5 quilos." passing every gate: relief, weight and measurement
  * wording drops the hook here, whatever the model wrote. Dropping costs one bubble; a negated mention drops it too.
  */
-const HOOK_PROMISE = /\b(?:dor|dores|alivi\w*|quilos?|kg|emagrec\w*|medidas?|cent[ií]metros?|perd\w*|sec[ao]|secar|trat\w*|cur[ao]|curar)\b|\d\s*(?:kg|cm)\b/i;
+// Since the compliance review of plan 16: recovery, diástase, reduction and the pós-parto or a surgery named, which passed too.
+// `\b` is ASCII here: an accented letter is a boundary, so "recuperação" and "pós-operatório" end where the `\w*` stops.
+const HOOK_PROMISE =
+  /\b(?:dor|dores|alivi\w*|quilos?|kg|emagrec\w*|medidas?|cent[ií]metros?|perd\w*|sec[ao]|secar|trat\w*|cur[ao]|curar|recupera\w*|di[aá]stase|reduz\w*|diminu\w*|ces[aá]rea|cirurg\w*|p[oó]s[\s-]?(?:parto|operat\w*))\b|\d\s*(?:kg|cm)\b/i;
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
 export const interpretRequest = (

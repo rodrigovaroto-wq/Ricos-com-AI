@@ -357,9 +357,9 @@ export const vagueObjectionSituation = (
     ...(facts.codAvailable && facts.firstDateIsTomorrow ? ["A primeira data que aparece no checkout pra sua região é amanhã."] : []),
     ...(facts.codAvailable ? ["Você não paga nada agora: paga só quando o colete chegar."] : []),
     `Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`,
-    facts.codAvailable
-      ? `Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`
-      : `Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.prepayBrl)} no antecipado.`,
+    // The anchor only with the delivery price: on the prepaid the freight is charged on top, by region, and the prompt says the
+    // prepaid as a percent and a price beside the freight, never as the anchor's "de… por" (plan 16 review).
+    ...(facts.codAvailable ? [`Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`] : []),
     ...(facts.scarcityLine ? [facts.scarcityLine] : []),
   ];
   return (

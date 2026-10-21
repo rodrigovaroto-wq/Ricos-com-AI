@@ -5,7 +5,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { countTriggerUses, MAX_TRIGGER_USES, personalTriggerDirective, systemPrompt } from "@/agent/prompt.js";
+import { countTriggerUses, MAX_TRIGGER_USES, personalTriggerDirective, systemPrompt, triggerUsesSoFar } from "@/agent/prompt.js";
 import { gateBriefing } from "@/agent/guardrails.js";
 import { config, ctx } from "./fixtures.js";
 
@@ -110,5 +110,44 @@ describe("o balão do gancho passa pela cadeia antes da oferta", () => {
     expect(blocked("Ele reduz 3 tamanhos de cintura.")).toEqual([]);
     expect(blocked("Ele vai ajudar na sua dor nas costas.")).toEqual([]);
     expect(blocked("Você vai perder 5 quilos.")).toEqual([]);
+  });
+});
+
+/** Review of plan 16, finding 10: the cap over the whole conversation, not only the last 20 messages. */
+describe("triggerUsesSoFar: guardado mais o que saiu depois", () => {
+  const sent = (at: string, body: string) => ({ body, created_at: at });
+  const w1 = [sent("2026-10-21T15:00:00Z", "Pro seu casamento ele fica perfeito!"), sent("2026-10-21T15:01:00Z", "Qual o número da calça?")];
+
+  it("feliz: o primeiro turno conta a janela e guarda até onde contou", () => {
+    expect(triggerUsesSoFar(w1, casamento)).toEqual({ uses: 1, countedAt: "2026-10-21T15:01:00Z" });
+  });
+
+  it("a mesma janela lida de novo (nova tentativa, revisão) não conta duas vezes", () => {
+    const stored = { ...casamento, trigger_uses: 1, trigger_counted_at: "2026-10-21T15:01:00Z" };
+    expect(triggerUsesSoFar(w1, stored)).toEqual({ uses: 1, countedAt: "2026-10-21T15:01:00Z" });
+  });
+
+  it("uso que saiu da janela de 20 mensagens continua contado", () => {
+    // Three uses stored, none left in the window: the cap holds (before, the window alone read 0 and allowed three more).
+    const stored = { ...casamento, trigger_uses: 3, trigger_counted_at: "2026-10-21T15:10:00Z" };
+    const window = [sent("2026-10-21T16:00:00Z", "Qual o número da calça?")];
+    expect(countTriggerUses(window.map((m) => m.body), casamento)).toBe(0);
+    expect(triggerUsesSoFar(window, stored).uses).toBe(MAX_TRIGGER_USES);
+    expect(personalTriggerDirective(casamento, triggerUsesSoFar(window, stored).uses, "free")).toContain("não cite mais");
+  });
+
+  it("o que saiu depois do último contado se soma, o balão do gancho incluído", () => {
+    const stored = { ...casamento, trigger_uses: 1, trigger_counted_at: "2026-10-21T15:01:00Z" };
+    const window = [...w1, sent("2026-10-21T15:05:00Z", "Pro seu casamento ele vai deixar o vestido assentadinho 😍"), sent("2026-10-21T15:05:01Z", "Vamos agendar?")];
+    expect(triggerUsesSoFar(window, stored)).toEqual({ uses: 2, countedAt: "2026-10-21T15:05:01Z" });
+  });
+
+  it("nunca abaixo da contagem da janela (perfil de antes da chave)", () => {
+    expect(triggerUsesSoFar([...w1, sent("2026-10-21T15:05:00Z", "No casamento você vai arrasar")], { ...casamento, trigger_uses: 0, trigger_counted_at: "2026-10-21T15:01:00Z" }).uses).toBe(2);
+  });
+
+  it("sem nada contado e sem nada a contar", () => {
+    expect(triggerUsesSoFar([], { occasion: null, pain: null })).toEqual({ uses: 0, countedAt: null });
+    expect(triggerUsesSoFar([], { ...casamento, trigger_uses: 2, trigger_counted_at: "2026-10-21T15:01:00Z" })).toEqual({ uses: 2, countedAt: "2026-10-21T15:01:00Z" });
   });
 });

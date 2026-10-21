@@ -8,6 +8,8 @@ import { readFileSync } from "node:fs";
 import { rulerFor, rulerForBand, type ScheduledFollowup } from "@/agent/followups.js";
 import { scoreTag } from "@/agent/profile.js";
 import { INTERPRETER_SYSTEM, readInterpretation } from "@/agent/interpret.js";
+import { regionTurnFacts } from "@/agent/prompt.js";
+import { config as base } from "./fixtures.js";
 
 const turn = readFileSync("supabase/functions/turn/index.ts", "utf8");
 const kinds = (r: readonly ScheduledFollowup[]) => r.map((f) => f.kind);
@@ -67,7 +69,7 @@ describe("a faixa no assunto do e-mail (§4.2)", () => {
 
 describe("o gancho do intérprete nunca promete alívio, peso nem medida", () => {
   it("o prompt proíbe com exemplos", () => {
-    for (const s of ["Ele vai ajudar na sua dor nas costas.", "Você vai perder 5 quilos.", "alivia", "quilos", "medidas", "centímetros"]) {
+    for (const s of ["Ele vai ajudar na sua dor nas costas.", "Você vai perder 5 quilos.", "alivia", "quilos", "medidas", "centímetros", "pós-parto, cesárea, cirurgia, diástase nem de recuperação", "reduz ou diminui"]) {
       expect(INTERPRETER_SYSTEM).toContain(s);
     }
   });
@@ -85,6 +87,15 @@ describe("o gancho do intérprete nunca promete alívio, peso nem medida", () =>
       "Reduz as medidas pro casamento",
       "Pro casamento você emagrece rapidinho",
       "Trata a diástase do pós-parto",
+      // The compliance review of plan 16: these passed the reader and every gate.
+      "Ele ajuda na recuperação do seu pós-parto 💛",
+      "Ele vai firmar sua diástase no pós-parto 💛",
+      "Pro seu casamento ele vai reduzir sua barriga 😍",
+      "Diminui a cintura pro casamento",
+      "Depois da cesárea ele dá firmeza",
+      "No pós operatório ele segura tudo",
+      "Na cirurgia plástica ajuda",
+      "No pós-parto ele dá aquela firmeza enquanto você usa 💛",
     ]) expect(hook(h), h).toBeNull();
   });
 
@@ -92,8 +103,10 @@ describe("o gancho do intérprete nunca promete alívio, peso nem medida", () =>
     for (const h of [
       "Pro seu casamento ele vai deixar o vestido assentadinho 😍",
       "Ajuda a postura no dia a dia",
-      "No pós-parto ele dá aquela firmeza enquanto você usa 💛",
       "Com ele o vestido não marca a barriga",
+      "Ele dá aquela firmeza enquanto você usa 💛",
+      "Pro trabalho ele fica perfeito por baixo da roupa",
+      "Pra posar nas fotos do casamento, fica lindo",
       "Perfeito pra formatura, a cintura fica marcadinha",
     ]) expect(hook(h), h).toBe(h);
   });
@@ -102,8 +115,8 @@ describe("o gancho do intérprete nunca promete alívio, peso nem medida", () =>
 /**
  * The wiring in `handleTurn`, read from the source: the closure does not run in a unit test. Reenactment note — the proof
  * on the local `turn` (`supabase functions serve`, the production config, a lead with 0029 applied): (1) "uso 42" + a CEP of
- * São Paulo with the G at 12 units and `scarcity.lowStock` 20 → the reply may carry "O *G* está acabando: restam só *12* no
- * estoque 😮" and it passes; (2) a CEP without delivery and a size → the prepaid box carries "Frete pra sua região: *R$ …*";
+ * São Paulo with the G at 12 units and `scarcity.lowStock` 20 → the reply may carry "O *G* está acabando pra entrega na sua região: restam só *12* 😮"
+ * and it passes; (2) a CEP without delivery and a size → the prepaid box carries "Frete pra sua região: *R$ …*";
  * (3) "tá caro" → the operator's question, once; again → today's answer; (4) "é pro meu casamento" then the CEP → the hook
  * bubble before the box; (5) `leads.score`/`score_band` written every turn, and a "fria" gets only `silence_1`.
  */
@@ -115,8 +128,8 @@ describe("index.ts — a fiação do plano 16", () => {
   };
 
   it("estoque: a linha só com a entrega, uma peça, dentro da janela, uma vez; e o mesmo valor no prompt e nos gates", () => {
-    expect(turn).toContain("const stockLine = openNow && region?.cod && region.size && units === 1 && !recentOutbound.some(");
-    expect(turn).toContain("? stockScarcityLine(CONFIG, region.size, region.stockQty)");
+    // The decision is `regionTurnFacts` (tested below); the turn passes it this turn's lookup, never the cache's.
+    expect(turn).toContain("const { stockLine, stockLeft, prepayFreightBrl } = regionTurnFacts(CONFIG, {\n    openNow,\n    fresh: freshRegion !== null,\n    region,\n    units,\n    linkPath,\n");
     expect(turn).toContain("const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };");
     // The main loop's two prompts and its gate context, the extra call (which spreads the main loop's context), and the hook.
     expect(turn.split("systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective, turnFacts)").length - 1).toBe(2);
@@ -130,7 +143,6 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn).toContain("prepayFreightBrl: await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), zip, region.place, regionSize)");
     // Read before the region is cached on the lead, so the next turn's cache carries it.
     expect(at("prepayFreightBrl: await prepayFreight(")).toBeLessThan(at("if (region) freshRegion = { ...region, checkedAt: new Date().toISOString() };"));
-    expect(turn).toContain('const prepayFreightBrl = openNow && linkPath === "prepay" && typeof region?.prepayFreightBrl === "number" ? region.prepayFreightBrl : null;');
     expect(turn).toContain("offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl }, new Date(),");
   });
 
@@ -140,7 +152,9 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(vague).toBeGreaterThan(decline);
     expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && !askedVagueQuestion(recentOutbound) &&");
     // The interpreter's own "vou pensar", read before a bare goodbye is parked as one: "obrigada, tchau" gets no question.
-    expect(turn).toContain('(putsOff || interpretation.price_signal === "complaint" || interpretation.price_signal === "discount_ask") &&');
+    // Not the discount ask (§4.5 lists only "tá caro", "achei mais barato", "vou ver", "vou pensar"): "Claro!" to it reads as a yes.
+    expect(turn).toContain('(putsOff || interpretation.price_signal === "complaint") &&');
+    expect(turn.slice(at("const vagueObjection = "), at("if (vagueObjection) {"))).not.toContain("discount_ask");
     expect(at("const putsOff = interpretation.wants_to_think;")).toBeLessThan(at('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation))'));
     expect(turn).toContain("reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}");
     expect(turn).toContain("      VAGUE_OBJECTION_QUESTION,\n      VAGUE_OBJECTION_REASON,\n    );");
@@ -150,8 +164,15 @@ describe("index.ts — a fiação do plano 16", () => {
   });
 
   it("perfil e score: uma escrita própria por turno, antes de qualquer resposta, sem somar duas vezes a mesma rajada", () => {
-    expect(turn).toContain("const profileReplayed = batchFrom !== null && Number.isFinite(scoredAt) && scoredAt >= Date.parse(batchFrom);");
-    expect(turn).toContain("mergeProfile(storedProfile, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });");
+    // The decision is `profileFold` (tests/profile.test.ts): the revision's base, the resume, the newest message of the burst.
+    expect(turn).toContain("reviseBase: internal.revise?.profileBase,\n    isResume,\n");
+    expect(turn).toContain("batchTo: unanswered.at(-1)?.created_at ?? null,");
+    expect(turn).toContain("profileBase: isRevise ? internal.revise!.profileBase : storedProfileOf(lead) } },");
+    expect(turn).toContain("mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });");
+    // The trigger count over the whole conversation goes in the same write (`triggerUsesSoFar`).
+    expect(turn).toContain("const triggerCount = triggerUsesSoFar((history ?? []).filter(");
+    expect(turn).toContain("trigger_uses: triggerUses,\n    trigger_counted_at: triggerCount.countedAt,");
+    expect(at("const triggerCount = triggerUsesSoFar(")).toBeLessThan(at("body: JSON.stringify({ profile, score, score_band: scoreBand"));
     expect(turn).toContain("const audioParts = rawParts.filter(isAudioBody).length;");
     expect(turn).toContain("body: JSON.stringify({ profile, score, score_band: scoreBand, score_at: new Date().toISOString() }),\n  }).then(() => Object.assign(lead, { score, score_band: scoreBand }), () => undefined);");
     const write = at("body: JSON.stringify({ profile, score, score_band: scoreBand");
@@ -176,5 +197,50 @@ describe("index.ts — a fiação do plano 16", () => {
     // Only the offer branch that never runs after a link or an order.
     expect(turn.split("await withHook(").length - 1).toBe(2);
     expect(at("const withHook = async")).toBeLessThan(at("if (guides.length === 0 && offerNow !== null && offerNow !== offerBefore && !pastLink"));
+  });
+});
+
+/** Review of plan 16, findings 1 and 3: what this turn's lookups let the prompt and the gates say. */
+describe("regionTurnFacts", () => {
+  const config = { ...base, scarcity: { lowStock: 20 } };
+  const cod = { cod: true, size: "G", stockQty: 12 };
+  const noCod = { cod: false, size: "G", prepayFreightBrl: 18.9 };
+  const turn1 = { openNow: true, fresh: true, units: 1, stockSaid: false };
+
+  it("feliz: o estoque da consulta deste turno, uma peça, na entrega", () => {
+    expect(regionTurnFacts(config, { ...turn1, region: cod, linkPath: "cod" })).toEqual({
+      stockLine: "O *G* está acabando pra entrega na sua região: restam só *12* 😮",
+      stockLeft: { size: "G", qty: 12 },
+      prepayFreightBrl: null,
+    });
+  });
+
+  it("estoque do cache de até 1 h: nenhum (estoque velho)", () => {
+    expect(regionTurnFacts(config, { ...turn1, fresh: false, region: cod, linkPath: "cod" })).toMatchObject({ stockLine: null, stockLeft: null });
+  });
+
+  it("estoque: fora da janela, kit, já dito, sem entrega — nenhum", () => {
+    for (const over of [{ openNow: false }, { units: 2 }, { stockSaid: true }]) expect(regionTurnFacts(config, { ...turn1, ...over, region: cod, linkPath: "cod" }).stockLine).toBeNull();
+    expect(regionTurnFacts(config, { ...turn1, region: { ...cod, cod: false }, linkPath: "prepay" }).stockLine).toBeNull();
+  });
+
+  it("frete: uma peça no antecipado, também do cache (o frete não muda na hora)", () => {
+    expect(regionTurnFacts(config, { ...turn1, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBe(18.9);
+    expect(regionTurnFacts(config, { ...turn1, fresh: false, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBe(18.9);
+  });
+
+  it("frete: o kit nunca leva o frete de uma peça (G+GG em São Paulo é R$ 33,17)", () => {
+    for (const units of [2, 3]) expect(regionTurnFacts(config, { ...turn1, units, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBeNull();
+  });
+
+  it("frete: nunca na entrega, fora da janela, nem com frete grátis nos dois caminhos", () => {
+    expect(regionTurnFacts(config, { ...turn1, region: noCod, linkPath: "cod" }).prepayFreightBrl).toBeNull();
+    expect(regionTurnFacts(config, { ...turn1, openNow: false, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBeNull();
+    const free = { ...config, delivery: { ...config.delivery, freeShipping: true } };
+    expect(regionTurnFacts(free, { ...turn1, region: noCod, linkPath: "prepay" }).prepayFreightBrl).toBeNull();
+  });
+
+  it("sem região, nada", () => {
+    expect(regionTurnFacts(config, { ...turn1, region: null, linkPath: "prepay" })).toEqual({ stockLine: null, stockLeft: null, prepayFreightBrl: null });
   });
 });

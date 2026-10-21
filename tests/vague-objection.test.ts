@@ -8,7 +8,7 @@ import { askedVagueQuestion, THINK_REPLY, VAGUE_OBJECTION_QUESTION, vagueObjecti
 import { config as base, ctx } from "./fixtures.js";
 
 const config = { ...base, prices: { ...base.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 }, scarcity: { lowStock: 20 } };
-const LINE = "O *GG* está acabando: restam só *12* no estoque 😮";
+const LINE = "O *GG* está acabando pra entrega na sua região: restam só *12* 😮";
 const all = { codAvailable: true, firstDateIsTomorrow: true, scarcityLine: LINE };
 const quoted = (s: string) => [...s.matchAll(/"([^"]+)"/g)].map((m) => m[1]!);
 
@@ -42,12 +42,20 @@ describe("vagueObjectionSituation: só os gatilhos verdadeiros", () => {
     expect(s).toContain("Você não paga nada agora");
   });
 
-  it("falha: sem entrega na porta — nada de pagar na entrega nem de amanhã, a âncora com o preço do antecipado", () => {
+  it("falha: sem entrega na porta — nada de pagar na entrega nem de amanhã, e nenhum preço (o frete do antecipado vem por cima)", () => {
     const s = vagueObjectionSituation(config, { codAvailable: false, firstDateIsTomorrow: true, scarcityLine: null });
     expect(s).not.toMatch(/não paga nada agora|amanhã|na entrega\./);
-    expect(s).toContain(`"Ele sai de R$ 216,50 por R$ 116,91 no antecipado."`);
-    const verdict = runGates("Ele sai de R$ 216,50 por R$ 116,91 no antecipado.", ctx({ config, paymentPath: "prepay", codUnavailable: true }));
-    expect(verdict.allowed).toBe(true);
+    // The review's sentence: the anchor with the prepaid price, the freight left out.
+    expect(s).not.toContain("Ele sai de R$ 216,50 por R$ 116,91 no antecipado.");
+    expect(s).not.toMatch(/R\$/);
+    expect(quoted(s)).toEqual(["Você tem 7 dias após o recebimento pra trocar ou devolver."]);
+    for (const r of quoted(s)) expect(runGates(`${r} ${VAGUE_OBJECTION_QUESTION}`, ctx({ config, paymentPath: "prepay", codUnavailable: true })).allowed).toBe(true);
+  });
+
+  it("com entrega na porta, a âncora vai com o preço da entrega", () => {
+    const s = vagueObjectionSituation(config, { codAvailable: true, firstDateIsTomorrow: false, scarcityLine: null });
+    expect(quoted(s)).toContain("Ele sai de R$ 216,50 por R$ 129,90 na entrega.");
+    expect(s).not.toContain("no antecipado");
   });
 
   it("nunca prazo de oferta nem link", () => {

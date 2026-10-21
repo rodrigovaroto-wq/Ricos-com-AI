@@ -558,7 +558,36 @@ export const stockScarcityLine = (
   const low = config.scarcity?.lowStock;
   if (typeof low !== "number" || typeof stockQty !== "number" || !Number.isInteger(stockQty)) return null;
   if (stockQty <= 0 || stockQty >= low || !/^(?:PP|P|M|G|GG|XG|XGG)$/i.test(size.trim())) return null;
-  return `O *${size.trim().toUpperCase()}* está acabando: restam só *${stockQty}* no estoque 😮`;
+  // The count is the stock that delivers in her region (the Logzz operations serving her city), not the store's.
+  return `O *${size.trim().toUpperCase()}* está acabando pra entrega na sua região: restam só *${stockQty}* 😮`;
+};
+
+/**
+ * Plan 16 §4.6–4.7: the stock line and the prepaid freight this turn may teach, the same values to the prompt and the gates.
+ * Only inside the send window: a reply held for the morning is gated again by the sweep, which has neither. The stock only
+ * from a region looked up in THIS turn (`fresh`; the up-to-an-hour cache is stale stock), on the delivery path, one piece,
+ * said once (`stockSaid`). The freight only for one piece (a kit's freight is not this lookup's: G+GG in São Paulo is
+ * R$ 33,17, docs/operacao/playwright-frete-2026-10-21), on the prepaid path, and never with free shipping on both paths.
+ */
+export const regionTurnFacts = (
+  config: Pick<PromptConfig, "scarcity" | "delivery">,
+  t: {
+    openNow: boolean;
+    fresh: boolean;
+    region: { cod: boolean; size?: string | null; stockQty?: number | null; prepayFreightBrl?: number | null } | null;
+    units: number;
+    linkPath: "cod" | "prepay";
+    stockSaid: boolean;
+  },
+): { stockLine: string | null; stockLeft: { size: string; qty: number } | null; prepayFreightBrl: number | null } => {
+  const r = t.region;
+  const stockLine = t.openNow && t.fresh && r?.cod && r.size && t.units === 1 && !t.stockSaid ? stockScarcityLine(config, r.size, r.stockQty) : null;
+  return {
+    stockLine,
+    stockLeft: stockLine !== null && r?.size && typeof r.stockQty === "number" ? { size: r.size, qty: r.stockQty } : null,
+    prepayFreightBrl:
+      t.openNow && t.units === 1 && t.linkPath === "prepay" && config.delivery.freeShipping !== true && typeof r?.prepayFreightBrl === "number" ? r.prepayFreightBrl : null,
+  };
 };
 
 /**
@@ -618,6 +647,25 @@ export const countTriggerUses = (
 ): number => {
   const told = [toldText(profile.occasion), toldText(profile.pain)].filter(Boolean);
   return told.length === 0 ? 0 : outboundTexts.filter((m) => told.some((p) => citesTold(m, p))).length;
+};
+
+/**
+ * Her trigger uses over the whole conversation (plan 16 §4.4), not only the history window: the stored count plus the uses in
+ * what was sent after the newest message it counted (`trigger_counted_at`), never below the window's own count. Keyed on the
+ * messages' times, so a retry or a revision reading the same window counts nothing twice. The reply this turn sends is counted
+ * by the next turn, the hook bubble included.
+ */
+export const triggerUsesSoFar = (
+  outbound: ReadonlyArray<{ body: string | null; created_at: string }>,
+  profile: { occasion?: string | null; pain?: string | null; trigger_uses?: number; trigger_counted_at?: string | null },
+): { uses: number; countedAt: string | null } => {
+  const after = profile.trigger_counted_at ? Date.parse(profile.trigger_counted_at) : -Infinity;
+  const fresh = outbound.filter((m) => Date.parse(m.created_at) > after).map((m) => m.body ?? "");
+  const newest = outbound.map((m) => m.created_at).filter((at) => Date.parse(at) > after).sort().at(-1);
+  return {
+    uses: Math.max((profile.trigger_uses ?? 0) + countTriggerUses(fresh, profile), countTriggerUses(outbound.map((m) => m.body ?? ""), profile)),
+    countedAt: newest ?? profile.trigger_counted_at ?? null,
+  };
 };
 
 /**

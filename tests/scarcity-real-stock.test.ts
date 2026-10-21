@@ -9,7 +9,7 @@ import { scarcityBriefing, stockScarcityLine, systemPrompt } from "@/agent/promp
 import { config as base, ctx } from "./fixtures.js";
 
 const config = { ...base, scarcity: { lowStock: 20 } };
-const LINE = "O *GG* está acabando: restam só *12* no estoque 😮";
+const LINE = "O *GG* está acabando pra entrega na sua região: restam só *12* 😮";
 const real = (over: Partial<GateContext> = {}) => ctx({ config, stockLeft: { size: "GG", qty: 12 }, knownSize: "GG", ...over });
 const blocked = (text: string, c: GateContext) => runGates(text, c).traces.filter((t) => t.verdict === "block").map((t) => t.gate);
 
@@ -94,7 +94,7 @@ describe("prompt e gate: a mesma promessa", () => {
   it("para todo estoque de 0 a 30, a frase sai se e só se o gate deixa passar", () => {
     for (let qty = 0; qty <= 30; qty++) {
       const line = stockScarcityLine(config, "GG", qty);
-      const said = line ?? `O *GG* está acabando: restam só *${qty}* no estoque 😮`;
+      const said = line ?? `O *GG* está acabando pra entrega na sua região: restam só *${qty}* 😮`;
       const passes = !blocked(said, real({ stockLeft: { size: "GG", qty } })).includes("scarcity_claim");
       expect({ qty, passes }).toEqual({ qty, passes: line !== null });
     }

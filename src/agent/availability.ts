@@ -468,7 +468,8 @@ const lookupLogzzUnsafe = async (
     .catch((e) => (NOT_SERVED.test(String((errorBody(e) as { msg?: unknown } | null)?.msg ?? "")) ? { dates: [], sameDay: false, closed: true } : null));
   if (days === null) return { kind: "failed", place };
   if ("closed" in days || days.dates.length === 0) return { kind: "found", region: none };
-  const stockQty = size !== null ? stock.seen.get(size) ?? null : null;
+  // A product left unreadable may be more of her size: a partial count is a false "restam só" (plan 16 review), so none.
+  const stockQty = size !== null && !stock.unreadable ? stock.seen.get(size) ?? null : null;
   return { kind: "found", region: { zip, place, cod: true, dates: days.dates, sameDay: days.sameDay, labelBrl: null, size, askedSize: size, stockQty } };
 };
 

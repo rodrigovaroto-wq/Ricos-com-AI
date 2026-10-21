@@ -33,6 +33,10 @@ export interface LeadProfile {
   discount_asks: number;
   /** Messages read as "vou pensar" (`wants_to_think`). */
   think_count: number;
+  /** Sent replies that cited her occasion or pain, over the whole conversation (§4.4, `triggerUsesSoFar`). */
+  trigger_uses: number;
+  /** The newest sent message `trigger_uses` counted: what comes after it is counted next. */
+  trigger_counted_at: string | null;
 }
 
 export const EMPTY_PROFILE: LeadProfile = Object.freeze({
@@ -46,6 +50,8 @@ export const EMPTY_PROFILE: LeadProfile = Object.freeze({
   buying_questions: 0,
   discount_asks: 0,
   think_count: 0,
+  trigger_uses: 0,
+  trigger_counted_at: null,
 }) as LeadProfile;
 
 const LEVEL: Record<PriceSensitivity, number> = { baixa: 0, media: 1, alta: 2 };
@@ -79,7 +85,40 @@ export const mergeProfile = (
     buying_questions: p.buying_questions + (i.buying_question ? 1 : 0),
     discount_asks: p.discount_asks + (i.price_signal === "discount_ask" ? 1 : 0),
     think_count: p.think_count + (i.wants_to_think ? 1 : 0),
+    // Counted by the turn on what was sent, not read from her message: carried as stored.
+    trigger_uses: p.trigger_uses,
+    trigger_counted_at: p.trigger_counted_at,
   };
+};
+
+/** `leads.profile` as stored: the jsonb object, or null (absent before 0029, or any other shape). */
+export const storedProfileOf = (lead: { profile?: unknown }): Partial<LeadProfile> | null =>
+  lead.profile !== null && typeof lead.profile === "object" && !Array.isArray(lead.profile) ? (lead.profile as Partial<LeadProfile>) : null;
+
+/**
+ * What this turn folds its reading into, and whether the reading is a replay to leave out (plan 16 §4.1).
+ * - A revision (`reviseBase` given) folds the whole burst into the profile its first turn read: that turn's fold covered
+ *   only the first messages, and its `score_at` would read the later ones as replayed (code review: m2 of [m1, m2] lost).
+ * - n8n's resume answers the message the turn before it already folded (the offer with a question beside it), unless no turn
+ *   ever scored this lead (the opening's resume: the opening turn returns before the profile).
+ * - Any other turn (the sweep's retry included) is a replay when the last score is past the NEWEST message of its burst: every
+ *   message of it was read by the turn that scored. A burst with a message newer than the score (her m2 after a turn that gave
+ *   up as `retry_moot` or `superseded` once m1 was folded) folds whole.
+ *   shortcut: there the counters of m1 count twice (one interpretation per burst, it cannot be split); a per-message fold would fix it.
+ */
+export const profileFold = (t: {
+  stored: Partial<LeadProfile> | null;
+  /** `ReviseTicket.profileBase`; undefined when this turn is no revision. */
+  reviseBase?: Partial<LeadProfile> | null;
+  isResume: boolean;
+  /** `leads.score_at` in ms, NaN when never scored. */
+  scoredAt: number;
+  /** The newest message of the burst this turn answers, null when it answers no stored burst. */
+  batchTo: string | null;
+}): { base: Partial<LeadProfile> | null; replayed: boolean } => {
+  if (t.reviseBase !== undefined) return { base: t.reviseBase, replayed: false };
+  if (t.isResume) return { base: t.stored, replayed: Number.isFinite(t.scoredAt) };
+  return { base: t.stored, replayed: t.batchTo !== null && Number.isFinite(t.scoredAt) && t.scoredAt >= Date.parse(t.batchTo) };
 };
 
 /**

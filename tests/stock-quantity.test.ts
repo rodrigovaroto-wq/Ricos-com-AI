@@ -74,6 +74,14 @@ describe("stockQty: as unidades do tamanho dela", () => {
     expect(await qty(down, "G", COINZZ_YES)).toBeNull();
   });
 
+  it("um produto ilegível pode ser mais do tamanho dela: a soma parcial não é quantidade (escassez falsa, revisão do plano 16)", async () => {
+    const partial = { status: "success", data: { products: [prod("GG", [[9, 12]]), prod("GG", [[4, "x"]])] } };
+    expect(await qty(partial, "GG")).toBeNull();
+    // The delivery itself still holds: the readable product has stock where she lives.
+    const l = await lookupRegion(world(partial), "04710-090", "GG", IDS);
+    expect(l.kind === "found" && l.region.cod).toBe(true);
+  });
+
   it("resposta ilegível: não é quantidade", async () => {
     expect(await qty({ status: "success", data: { products: [prod("G", [[9, ""]])] } }, "G")).toBe("failed");
   });

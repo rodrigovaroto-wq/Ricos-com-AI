@@ -1378,13 +1378,13 @@ describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
  * today's, byte for byte.
  */
 describe("turnFacts: o estoque e o frete lidos no turno, a mesma promessa no prompt e no gate", () => {
-  const facts = { stockLine: "O *GG* está acabando: restam só *12* no estoque 😮", prepayFreightBrl: 18.9 };
+  const facts = { stockLine: "O *GG* está acabando pra entrega na sua região: restam só *12* 😮", prepayFreightBrl: 18.9 };
   const taught = (c: PromptConfig) => [...flat(systemPrompt(c, gateBriefing(c), null, null, null, facts)).matchAll(/"([^"]{12,}(?:[.?!]|😮))"/g)].map((m) => m[1]!);
 
   it.each(corners.filter((c) => c.config.delivery.freeShipping !== true))("toda frase nova passa a cadeia no antecipado ($name)", ({ config }) => {
     const c = { ...config, scarcity: { lowStock: 20 } };
     const before = taught(config);
-    const fresh = taught(c).filter((s) => !before.includes(s) || /18,90|estoque/.test(s));
+    const fresh = taught(c).filter((s) => !before.includes(s) || /18,90|restam/.test(s));
     expect(fresh).toEqual(expect.arrayContaining(["No antecipado o frete pra sua região é R$ 18,90.", facts.stockLine]));
     for (const s of fresh) {
       const verdict = runGates(s, ctx({ config: c, paymentPath: "prepay", codUnavailable: true, prepayFreightBrl: 18.9, stockLeft: { size: "GG", qty: 12 }, knownSize: "GG" }));

@@ -262,7 +262,7 @@ describe("um turno respondendo por vez, e a resposta revisada com o que chegou",
     const guard = source.slice(source.indexOf("const lateGuard = async"), source.indexOf("const sendFixed = async"));
     expect(guard).toContain("revisionAllowed(revisions, Date.now(), deadline)");
     expect(guard).toContain("handleTurn(");
-    expect(guard).toContain("revise: { draft, revisions: revisions + 1, deadline, spentBefore }");
+    expect(guard).toContain("revise: { draft, revisions: revisions + 1, deadline, spentBefore, profileBase: isRevise ? internal.revise!.profileBase : storedProfileOf(lead) }");
     // Sem revisão possível, a rajada inteira vai para a varredura — nunca uma resposta que não leu o que chegou.
     expect(guard).toContain("deferRetry(");
     // O custo do rascunho é gravado antes de a revisão reler o total.
