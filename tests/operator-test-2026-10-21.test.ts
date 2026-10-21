@@ -24,7 +24,7 @@ describe("a rua dela acha o CEP", () => {
     // Negation: a number that is no Brazilian phone gives no state.
     expect(ufOfPhone("12025550123")).toBe(null);
     expect(ufOfPhone("5520991234567")).toBe(null);
-    expect(turn).toContain('ufOfPhone(lead.phone ?? "");');
+    expect(turn).toContain('?? ufOfPhone(lead.phone ?? "");');
   });
 });
 
@@ -56,7 +56,7 @@ describe("não sei meu CEP: a rua e a cidade, uma vez", () => {
     expect(turn).toContain("Ela não sabe o CEP: não peça o CEP. Peça o nome da rua, o número da casa e a cidade dela, que você encontra pra ela");
     expect(turn).toContain("sem escrever a palavra CEP nessa pergunta. Não fale do buscador dos Correios.");
     expect(turn).not.toContain("siga a conversa (tamanho, kit) e retome o CEP só");
-    expect(turn).toContain("peça a rua, o número da` +\n          ` casa e a cidade, que você encontra pra ela, sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.`");
+    expect(turn).toContain("` casa e a cidade, que você encontra pra ela, sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.`");
   });
 });
 
@@ -74,7 +74,11 @@ describe("support_before_order: sem pedido, endereço novo nunca vai ao atendime
     runGates(text, ctx({ addressBeforeOrder })).traces.find((t) => t.gate === "support_before_order")?.verdict;
   it("veta a frase do replay", () => {
     expect(v("É só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261, que eles mudam o endereço pra você.", true)).toBe("block");
-    expect(v("Fala com o suporte que eles trocam.", true)).toBe("block");
+    expect(v("Fala com o suporte que eles trocam o endereço.", true)).toBe("block");
+  });
+  it("negação (revisão do §120): a troca de tamanho e o 'não precisa chamar o atendimento' passam", () => {
+    expect(v("Se não servir, é só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261 e pedir a troca.", true)).toBe("pass");
+    expect(v("Não precisa chamar o atendimento ao cliente, me passa o CEP novo do endereço?", true)).toBe("pass");
   });
   it("negação: com pedido criado, ou pedindo o CEP novo, passa", () => {
     expect(v("É só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261, que eles mudam o endereço pra você.", false)).toBe("pass");
@@ -83,7 +87,19 @@ describe("support_before_order: sem pedido, endereço novo nunca vai ao atendime
   it("a turn liga o gate e confirma o CEP novo antes do link", () => {
     expect(turn).toContain("      addressBeforeOrder: newAddressBeforeOrder,");
     expect(turn).toContain('const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊');
-    expect(turn).toContain('...(cepMoved && linkPath === "cod" ? [{ text: opening(CEP_MOVED_COD) }] : []),');
+    expect(turn).toContain('...(cepMoved && linkPath === "cod" && region?.cod === true ? [{ text: opening(CEP_MOVED_COD) }] : []),');
+  });
+  it("revisão do §120: o CEP novo só solta o link depois de um link, antes de qualquer pedido", () => {
+    expect(turn).toContain('!["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&');
+    expect(turn).toContain("const newAddressBeforeOrder = handoffKind === null && ");
+  });
+  it("revisão do §120: a rua pedida uma vez não é pedida de novo, e a recusa não vira 'não lembra'", () => {
+    expect(turn).toContain("? cepRefused || recentOutbound.some(asksStreet)");
+  });
+  it("revisão do §120: o estado do DDD é dito com o CEP achado, e a rua não achada pede o estado", () => {
+    expect(turn).toContain("const streetState = typedState ?? ufOfPhone(lead.phone ?? \"\");");
+    expect(turn).toContain("no estado do DDD dela (${streetState}): peça a rua, a");
+    expect(turn).toContain("${streetFound.find((f) => f.cep === streetCep)?.city ?? \"\"} - ${streetState})");
   });
 });
 

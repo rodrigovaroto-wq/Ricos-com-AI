@@ -3823,6 +3823,12 @@ novo…"), e sem entrega no endereço novo segue a pergunta dos Correios de ante
 e a oferta saiu; o CEP novo foi consultado e o link voltou com "Conferi o endereço novo"; o pedido de troca de endereço sem pedido pediu o
 CEP novo (o rascunho com o atendimento foi vetado e reescrito).
 **Fica com o operador:** o áudio 4 diz "Eu acabei de te enviar os tamanhos", e a tabela agora só vai a pedido.
+**Revisão Opus (reprovada, corrigida):** `cepMoved` mandaria o link de novo depois do pedido (segundo pedido) — agora só depois de um link,
+antes de `pedido_criado` e sem pedido em `herLeadIds`, falhando fechado; `CEP_MOVED_COD` sairia com a consulta falhada — só com
+`region.cod === true`; a diretiva do link com o CEP esquecido pedia a rua toda vez e lia a recusa como esquecimento — `asksStreet` e
+`cepRefused`; `support_before_order` vetava a linha da troca e "não precisa chamar o atendimento" — só a frase com endereço, sem negação, e
+`newAddressBeforeOrder` exige `handoffKind === null` (o pedido não achado manda ao atendimento de propósito); o estado do DDD é palpite:
+o CEP achado é dito com a UF, e a rua não achada pede "rua, cidade - UF" em vez de "confere". Mutações `G120-*` 9/9.
 
 ## Lições (valem para qualquer correção futura)
 

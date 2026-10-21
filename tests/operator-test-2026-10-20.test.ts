@@ -43,7 +43,7 @@ describe("endereço novo antes do pedido", () => {
     "lê: %s", (m) => expect(changesAddress(m)).toBe(true));
   it.each(["não quero mudar o endereço", "o endereço tá certo", "meu endereço é rua x 10", "qual o endereço da loja?"])("negação: %s", (m) => expect(changesAddress(m)).toBe(false));
   it("a turn, sem pedido por nenhum caminho, manda consultar o CEP novo e nunca o atendimento ao cliente", () => {
-    expect(turn).toContain("const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&");
+    expect(turn).toContain("const newAddressBeforeOrder = handoffKind === null && !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&");
     // Copy v4, 5.1 (operator, 2026-10-20): the model answers on the example, not a fixed line.
     expect(turn).toContain("o atendimento e peça o CEP novo, no seu jeito, com este modelo: \"${NEW_ADDRESS_ASK}\" Não mande ela ao atendimento ao cliente");
     expect(turn).toContain("porque o endereço novo pode estar fora da nossa rede de entrega.\\n\\nMe passa o CEP novo ou a rua e a cidade?");

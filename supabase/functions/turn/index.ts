@@ -3645,7 +3645,8 @@ const handleTurn = async (
   }
 
   // A new address before any order of hers (by every path): the agent looks the new CEP up, the customer service is for orders.
-  const newAddressBeforeOrder = !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
+  // Not when she says she bought (review of §120): the order-not-found answer sends her to the customer service on purpose.
+  const newAddressBeforeOrder = handoffKind === null && !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
     ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
@@ -3776,8 +3777,9 @@ const handleTurn = async (
       return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;
     })
     : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
-  const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "") ??
-    ufOfPhone(lead.phone ?? "");
+  const typedState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
+  // Her DDD's state is a guess (she may have moved): said with the CEP found, and a miss asks the state instead of "confere" (review).
+  const streetState = typedState ?? ufOfPhone(lead.phone ?? "");
   const streetRaw = streetAsk.length > 0 && streetState
     ? await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
     : null;
@@ -4175,7 +4177,10 @@ const handleTurn = async (
       : recentOutbound;
   // A new CEP after the link (operator's test, 2026-10-21: "usa o CEP novo lá no mesmo link"): the region was looked up again,
   // so the link goes again, filled with the new address — or, without delivery there, the Correios question (`codBefore`).
-  const cepMoved = Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "");
+  // Only after a link went, before any order (review of §120: a new CEP after the order would bring a second order), and fail-closed.
+  const cepMoved = Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "") &&
+    !["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&
+    ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
   const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
@@ -4213,8 +4218,12 @@ const handleTurn = async (
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : missing === "cep" && cepDue && cepForgotten
-        ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; peça a rua, o número da` +
-          ` casa e a cidade, que você encontra pra ela, sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.`
+        // Refused is not forgotten, and the street asked once is not asked again (review of §120).
+        ? cepRefused || recentOutbound.some(asksStreet)
+          ? `Ela quer fechar, mas o link só sai com o endereço dela: diga numa frase que o link sai assim que ela mandar o CEP, ou a` +
+            ` rua e a cidade — sem pedir de novo. Não escreva link nenhum.`
+          : `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; peça a rua, o número da` +
+            ` casa e a cidade, que você encontra pra ela, sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.`
       : missing === "cep" && cepDue
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
@@ -4414,8 +4423,9 @@ const handleTurn = async (
       : await sendFunnelTurn(
         [
           // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
-          ...(cepMoved && linkPath === "cod" ? [{ text: opening(CEP_MOVED_COD) }] : []),
-          { text: cepMoved && linkPath === "cod" ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
+          // Only with the new CEP's delivery answered yes (review of §120: a failed lookup kept the stored "cod" path).
+          ...(cepMoved && linkPath === "cod" && region?.cod === true ? [{ text: opening(CEP_MOVED_COD) }] : []),
+          { text: cepMoved && linkPath === "cod" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
         ],
         linkFact ? `link — ${linkFact}` : "link",
         { checkoutUrl, linkFact },
@@ -4575,7 +4585,8 @@ const handleTurn = async (
         ? null
         : streetCep
         ? `Pelo nome da rua que ela mandou, o CEP dela é ${streetCep} (${streetFound.find((f) => f.cep === streetCep)?.street ?? ""},` +
-          ` ${streetFound.find((f) => f.cep === streetCep)?.city ?? ""}): diga numa frase que achou o CEP dela, com o nome da rua e a cidade, sem pedir CEP.`
+          ` ${streetFound.find((f) => f.cep === streetCep)?.city ?? ""} - ${streetState}): diga numa frase que achou o CEP dela, com o nome da rua, a cidade` +
+          ` e o estado, sem pedir CEP.`
         : streetFound.length > 0 && streetAsk[0]!.number === null
         ? `A rua dela (${streetFound[0]!.street}, ${streetFound[0]!.city}) tem mais de um CEP, conforme o número da casa: pergunte só` +
           ` o número da casa dela, sem pedir o CEP.`
@@ -4586,6 +4597,10 @@ const handleTurn = async (
         ? `A rua dela tem muitos CEPs e o número não fechou um só: diga que ela acha o dela pelo endereço no buscador dos Correios:` +
           ` ${CORREIOS_CEP_URL}. Não invente CEP.`
         // Only when the agent asked her street: "moro na rua de baixo" after a CEP talk is no street to look for (review).
+        : /\brua\b/i.test(lastOutbound) && typedState === null
+        ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city} no estado do DDD dela (${streetState}): peça a rua, a` +
+          ` cidade e o estado juntos numa mensagem só (assim: "Rua tal, cidade - UF"), ou o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}.` +
+          ` Não diga que o endereço dela está errado e não invente CEP.`
         : /\brua\b/i.test(lastOutbound)
         ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
           ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`

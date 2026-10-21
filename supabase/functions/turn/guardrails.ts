@@ -3209,8 +3209,13 @@ const gates: readonly Gate[] = [
     briefing: () =>
       `Se ela quer mudar o endereço e ainda não tem pedido, endereço novo é CEP novo: não mande ela ao atendimento ao cliente;` +
       ` peça o CEP novo, ou a rua e a cidade, pra consultar a entrega de novo.`,
+    // The sentence that sends her there for the address: the exchange line ("…e pedir a troca") and "não precisa chamar o
+    // atendimento" pass (review of §120).
     check: (text, ctx) =>
-      ctx.addressBeforeOrder === true && /\batendimento\s+(?:ao|do|de)\s+cliente|\bsuporte\b/.test(norm(text))
+      ctx.addressBeforeOrder === true &&
+      norm(text).split(/(?<=[.!?])\s+|\n+/).some((t) =>
+        /\bendereco\b/.test(t) && /\b(?:atendimento\s+(?:ao|do|de)\s+cliente|suporte)\b/.test(t) &&
+        !/\b(?:nao|nem)\b[^.!?]{0,30}\b(?:atendimento|suporte)\b/.test(t))
         ? "sends her to the customer service to change an address with no order yet"
         : null,
   },
