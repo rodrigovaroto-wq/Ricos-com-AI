@@ -1180,7 +1180,8 @@ const MUTATIONS: Mutation[] = [
     to: "          false &&\n          !talksDelivery(sentence) &&",
     // 2026-09-28: the prepaid fallback now needs delivery talk too, so the bug is both layers.
     also: [{ from: "(!named && ctx.paymentPath === \"prepay\" && (deadlineTalk || averageWord))", to: "(!named && ctx.paymentPath === \"prepay\")" }],
-    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts"],
+    // The copy v4 ruler no longer says "um dia bom" (20/10): the sentence lives on in the prepaid fuzz corpus.
+    guard: ["pnpm", "-s", "vitest", "run", "tests/followups.test.ts", "tests/prepaid-deadline-fuzz.test.ts"],
   },
   {
     id: "um-artigo-largo",
