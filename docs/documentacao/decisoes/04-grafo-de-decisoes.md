@@ -3984,7 +3984,11 @@ acabando"); (2) o perfil lê `putsOff`, não o `wants_to_think` reescrito por `g
 score; (3) `askedVagueQuestion` exige "alguma dúvida" numa pergunta (com "?") e dois assuntos: "Qualquer dúvida sobre o tamanho ou a entrega,
 me chama" não cala mais a pergunta, e "Ficou com alguma dúvida…?" continua contando (a 1ª correção ficou estreita demais e a 2ª rodada pegou);
 (4) a régua lê só `leads(size,score_band,…)`, não a linha inteira (endereço e texto do perfil); (5) `prepayFreight` devolve null, nunca NaN,
-para preço em notação exponencial. Mutações `P16-estoque-dito-sem-u`, `P16-perfil-despedida`, `P16-pergunta-vaga-ampla`, `P16-frete-nan`.
+para preço em notação exponencial. **Rodada 3:** ajustar o "já disse o estoque" à mão não convergia (cada regex nova pegava umas formas e
+errava outras), então o leitor do gate `scarcity_claim` virou `claimsStock` (exportado de `guardrails.ts`) e o turno pergunta a ele: uma
+regra só, com as exclusões que o gate já tinha ("resta 1 dia pra devolver" não é estoque). `askedVagueQuestion` passou a exigir que a dúvida
+e os dois assuntos estejam na mesma frase que termina em "?" (o emoji fecha frase): "…me chama 💛 Quer que eu separe?" não é a pergunta.
+Mutações `P16-estoque-dito-pelo-gate`, `P16-perfil-despedida`, `P16-pergunta-vaga-ampla`, `P16-frete-nan`.
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
 no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
 cache (fica "aparece no checkout"); a linha do estoque lida há mais de 20 mensagens pode sair uma segunda vez.

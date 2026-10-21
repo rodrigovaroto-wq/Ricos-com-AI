@@ -336,9 +336,13 @@ export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 export const askedVagueQuestion = (outbound: readonly string[]): boolean =>
   outbound.some((m) => {
     const t = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    // A question ("alguma dúvida…?"), in any of the model's words: "Qualquer dúvida sobre o tamanho ou a entrega, me chama" is
-    // no question asked, "Ficou com alguma dúvida sobre o tamanho ou a entrega?" is (two /code-review rounds of PR 77).
-    return /\balguma\s+duvida\b/.test(t) && t.includes("?") && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(t)).length >= 2;
+    // The doubt asked as a question, the "?" closing that same sentence and two subjects in it: "Qualquer dúvida sobre o
+    // tamanho ou a entrega, me chama… Quer que eu separe?" is no question asked; "Ficou com algumas dúvidas sobre o tamanho ou a
+    // entrega?" is (three /code-review rounds of PR 77).
+    // An emoji ends a sentence on WhatsApp as a full stop does ("…me chama 💛 Quer que eu separe?").
+    return (t.match(/[^.!?\n\p{Extended_Pictographic}]*\?/gu) ?? []).some(
+      (q) => /\bduvidas?\b/.test(q) && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(q)).length >= 2,
+    );
   });
 
 /** What the vague objection's reasons read: the prices and the warranty. */

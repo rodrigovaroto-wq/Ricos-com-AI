@@ -1019,6 +1019,31 @@ const DENIED_AFTER =
 const COD_CONDITION =
   /\b(?:pagando|no\s+pagamento|com\s+(?:o\s+)?pagamento|se\s+(?:voce\s+|vc\s+)?(?:pagar|escolher\s+pagar|preferir\s+pagar|optar\s+por\s+pagar))\s+na\s+entrega\b/;
 
+/**
+ * The stock claims of `scarcity_claim`, read on `norm`-ed text with the WhatsApp marks off. Exported (/code-review of PR 77):
+ * the turn asks this same reader whether the stock line went out already, so a second copy cannot drift from the gate.
+ */
+// A superset of the claims below (independent review, finding 11), plus the forms the review
+// passed on the production config (finding 12). A count only when it is of stock: "resta 1 dia
+// pra devolver" and "restam 2 tamanhos" are not (finding 17).
+const NOT_STOCK = String.raw`(?!\s*(?:dias?\s+(?:pra|para)\s+(?:(?:voce|vc)\s+)?(?:devolver|trocar)|tamanhos?|cores?|opc\w*|formas?|duvidas?)\b)`;
+// "Só tenho 2 perguntas" and "só tem 1 jeito de pagar" are not stock (second review, finding
+// 6): after "só tenho/tem", and after a count in words, only a stock noun, a size, or the end
+// of the sentence makes it one ("tenho só mais 12.", "restam apenas doze unidades").
+const STOCK = String.raw`(?=\s*(?:(?:unidades?|pecas?|coletes?|cintas?|kits?|(?:em|no)\s+estoque|(?:d[oa]s?|n[oa]s?)\s+(?:tamanho\s+)?(?:p|m|g|gg|xgg)|(?:no|do)\s+tamanho|pra\s+pronta\s+entrega|disponive\w*|sobrando|restando|aqui|hoje|agora|separad\w*)\b|[.!?]|$))`;
+const WORDS = String.raw`(?:uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|qu?atorze|catorze|quinze|dezesseis|dezessete|dezoito|dezenove|vinte)\b`;
+// The stock claims, which the real count of her size can back (§4.6)…
+const stockIn = (t: string): boolean =>
+  new RegExp(String.raw`\b(?:resta|restam|restando|sobra|sobram|sobrou|sobraram|sobrando)\s+(?:(?:so|apenas|somente)\s+)?(?:mais\s+)?(?:\d{1,4}\b${NOT_STOCK}|${WORDS}${STOCK})`).test(t) ||
+  new RegExp(String.raw`\b(?:(?:so|apenas|somente)\s+(?:tem|temos|tenho)|(?:tem|temos|tenho)\s+(?:so|apenas|somente))\s+(?:mais\s+)?(?:\d{1,4}\b|${WORDS})${STOCK}`).test(t) ||
+  new RegExp(String.raw`\bultim[ao]s?\s+(?:(?:\d{1,4}|${WORDS})\s+)?(?:unidades?|pecas?|coletes?|cintas?|kits?)\b`).test(t) ||
+  /\bpoucas?\s+(?:unidades?|pecas?|coletes?)\b/.test(t) ||
+  /\b(?:estoque|lote|unidades|pecas)\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,20}?\b(?:acaband\w*|esgot\w*|no\s+fim|limitad\w*|quase|baixo|voando)\b/.test(t) ||
+  // The verb before the noun: "tá acabando o estoque" (finding 7).
+  /\b(?:acaband\w*|esgotand\w*|no\s+fim)\s+(?:(?:o|a|os|as|nosso|nossa|do|da)\s+)?(?:estoque|lote|unidades|pecas|coletes)\b/.test(t) ||
+  /\besgotad\w*\b/.test(t);
+export const claimsStock = (text: string): boolean => stockIn(norm(text).replace(/[*_~]/g, ""));
+
 const gates: readonly Gate[] = [
   {
     name: "opt_out",
@@ -2460,25 +2485,6 @@ const gates: readonly Gate[] = [
       // The stock is said only when she puts the purchase off (R16.5): anywhere else a count, the
       // last units or an ending offer is refused, even the declared ones.
       if (ctx.postponing !== true) {
-        // A superset of the claims below (independent review, finding 11), plus the forms the review
-        // passed on the production config (finding 12). A count only when it is of stock: "resta 1 dia
-        // pra devolver" and "restam 2 tamanhos" are not (finding 17).
-        const NOT_STOCK = String.raw`(?!\s*(?:dias?\s+(?:pra|para)\s+(?:(?:voce|vc)\s+)?(?:devolver|trocar)|tamanhos?|cores?|opc\w*|formas?|duvidas?)\b)`;
-        // "Só tenho 2 perguntas" and "só tem 1 jeito de pagar" are not stock (second review, finding
-        // 6): after "só tenho/tem", and after a count in words, only a stock noun, a size, or the end
-        // of the sentence makes it one ("tenho só mais 12.", "restam apenas doze unidades").
-        const STOCK = String.raw`(?=\s*(?:(?:unidades?|pecas?|coletes?|cintas?|kits?|(?:em|no)\s+estoque|(?:d[oa]s?|n[oa]s?)\s+(?:tamanho\s+)?(?:p|m|g|gg|xgg)|(?:no|do)\s+tamanho|pra\s+pronta\s+entrega|disponive\w*|sobrando|restando|aqui|hoje|agora|separad\w*)\b|[.!?]|$))`;
-        const WORDS = String.raw`(?:uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|qu?atorze|catorze|quinze|dezesseis|dezessete|dezoito|dezenove|vinte)\b`;
-        // The stock claims, which the real count of her size can back (§4.6)…
-        const stockIn = (t: string): boolean =>
-          new RegExp(String.raw`\b(?:resta|restam|restando|sobra|sobram|sobrou|sobraram|sobrando)\s+(?:(?:so|apenas|somente)\s+)?(?:mais\s+)?(?:\d{1,4}\b${NOT_STOCK}|${WORDS}${STOCK})`).test(t) ||
-          new RegExp(String.raw`\b(?:(?:so|apenas|somente)\s+(?:tem|temos|tenho)|(?:tem|temos|tenho)\s+(?:so|apenas|somente))\s+(?:mais\s+)?(?:\d{1,4}\b|${WORDS})${STOCK}`).test(t) ||
-          new RegExp(String.raw`\bultim[ao]s?\s+(?:(?:\d{1,4}|${WORDS})\s+)?(?:unidades?|pecas?|coletes?|cintas?|kits?)\b`).test(t) ||
-          /\bpoucas?\s+(?:unidades?|pecas?|coletes?)\b/.test(t) ||
-          /\b(?:estoque|lote|unidades|pecas)\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,20}?\b(?:acaband\w*|esgot\w*|no\s+fim|limitad\w*|quase|baixo|voando)\b/.test(t) ||
-          // The verb before the noun: "tá acabando o estoque" (finding 7).
-          /\b(?:acaband\w*|esgotand\w*|no\s+fim)\s+(?:(?:o|a|os|as|nosso|nossa|do|da)\s+)?(?:estoque|lote|unidades|pecas|coletes)\b/.test(t) ||
-          /\besgotad\w*\b/.test(t);
         // …and the deadlines, which nothing backs: the offer has no end date (operator, 2026-10-21).
         const deadlineIn = (t: string): boolean =>
           // "Últimos dias/horas" is a deadline unless it looks back ("nos últimos dias muita gente

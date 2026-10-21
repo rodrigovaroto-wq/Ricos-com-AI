@@ -247,18 +247,15 @@ describe("regionTurnFacts", () => {
 });
 
 describe("/code-review do PR 77", () => {
-  it("a linha do estoque enviada é reconhecida (o \\b sem u não casava o \"só\")", async () => {
-    const { stockLineSaid, stockScarcityLine } = await import("@/agent/prompt.js");
+  it("a linha do estoque enviada é reconhecida pelo leitor do próprio gate (claimsStock)", async () => {
+    const { stockScarcityLine } = await import("@/agent/prompt.js");
+    const { claimsStock } = await import("@/agent/guardrails.js");
     const line = stockScarcityLine({ scarcity: { lowStock: 20 } }, "GG", 12)!;
-    expect(stockLineSaid([line])).toBe(true);
-    expect(stockLineSaid(["restam so 3 no GG"])).toBe(true);
-    expect(stockLineSaid(["O GG veste cintura de 84 a 92 cm"])).toBe(false);
-    expect(stockLineSaid(["restam sobretudo dúvidas"])).toBe(false);
-    // The model's own words for the same line (round 2).
-    expect(stockLineSaid(["Só restam apenas 12 no GG"])).toBe(true);
-    expect(stockLineSaid(["O seu GG está acabando por aqui"])).toBe(true);
-    expect(stockLineSaid(["restam 7 dias pra trocar"])).toBe(true); // shortcut: a count of days reads as said — the safe side (one scarcity line less)
-    expect(turn).toContain("stockSaid: stockLineSaid(recentOutbound),");
+    // The gate's own reader: the taught line and the model's words for it count…
+    for (const said of [line, "restam so 3 no GG", "Só restam apenas 12 no GG", "restam somente doze unidades", "tá acabando o estoque do GG", "últimas 12 unidades"]) expect({ said, r: claimsStock(said) }).toEqual({ said, r: true });
+    // …and what is not stock does not (the gate's exclusions, round 3).
+    for (const not of ["O GG veste cintura de 84 a 92 cm", "restam sobretudo dúvidas", "resta 1 dia pra devolver", "restam 2 tamanhos", "Você tem 7 dias pra trocar"]) expect({ not, r: claimsStock(not) }).toEqual({ not, r: false });
+    expect(turn).toContain("stockSaid: recentOutbound.some((m: string) => claimsStock(m)),");
   });
 
   it("a despedida não vira 'vou pensar' no perfil: o perfil lê putsOff, não o goodbyeParks", () => {

@@ -5968,13 +5968,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
-    id: "P16-estoque-dito-sem-u",
-    bug: "o \"só\" acentuado nunca casava com \\b sem a flag u: a linha do estoque saía em todo turno (/code-review do PR 77)",
-    files: ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
-    from: "/\\b(?:restam|resta|sobraram|sobrou)\\s+(?:s[oó]\\s+|apenas\\s+)?\\d+|\\best[aá]\\s+acaband/iu",
-    to: "/\\brestam\\s+s[oó]\\b/i",
+    id: "P16-estoque-dito-pelo-gate",
+    bug: "o 'já disse o estoque' usava uma cópia fraca do leitor do gate: o \"só\" acentuado nunca casava e a linha saía em todo turno (/code-review do PR 77)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: "stockSaid: recentOutbound.some((m: string) => claimsStock(m)),",
+    to: "stockSaid: false,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
+
   {
     id: "P16-perfil-despedida",
     bug: "a despedida reescrita por goodbyeParks contava como 'vou pensar' no score (/code-review do PR 77)",
@@ -5987,8 +5988,8 @@ const MUTATIONS: Mutation[] = [
     id: "P16-pergunta-vaga-ampla",
     bug: "'Qualquer dúvida sobre o tamanho ou a entrega' calava a pergunta da objeção vaga (/code-review do PR 77)",
     files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
-    from: "/\\balguma\\s+duvida\\b/.test(t) && t.includes(\"?\")",
-    to: "/\\bduvida\\b/.test(t)",
+    from: "(q) => /\\bduvidas?\\b/.test(q) && [/\\btamanho\\b/, /\\bentrega\\b/, /\\b(?:valor|preco)\\b/].filter((r) => r.test(q)).length >= 2,",
+    to: "(q) => /\\bduvidas?\\b/.test(t) && [/\\btamanho\\b/, /\\bentrega\\b/, /\\b(?:valor|preco)\\b/].filter((r) => r.test(t)).length >= 2,",
     guard: ["pnpm", "-s", "vitest", "run", "tests/vague-objection.test.ts"],
   },
   {

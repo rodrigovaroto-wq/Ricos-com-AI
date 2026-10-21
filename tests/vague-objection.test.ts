@@ -115,3 +115,12 @@ describe("askedVagueQuestion reconhece a pergunta nas palavras do modelo (/code-
     expect(askedVagueQuestion(["Se ficar alguma dúvida sobre o tamanho ou a entrega, me chama 💛"])).toBe(false);
   });
 });
+
+describe("askedVagueQuestion: a dúvida é a pergunta, na mesma frase (/code-review, rodada 3)", () => {
+  it("um recado com outra pergunta depois não conta; plural e 'com dúvida' contam", () => {
+    expect(askedVagueQuestion(["Se ficar alguma dúvida sobre o tamanho ou a entrega, me chama 💛 Quer que eu já separe o seu?"])).toBe(false);
+    expect(askedVagueQuestion(["O GG serve e a entrega é amanhã. Ficou alguma dúvida?"])).toBe(false);
+    expect(askedVagueQuestion(["Ficou com algumas dúvidas sobre o tamanho ou a entrega?"])).toBe(true);
+    expect(askedVagueQuestion(["Ficou com dúvida sobre o tamanho ou o valor?"])).toBe(true);
+  });
+});

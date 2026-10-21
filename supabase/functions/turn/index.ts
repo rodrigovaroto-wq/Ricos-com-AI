@@ -15,6 +15,7 @@ import {
   asksWhatSheIs,
   asksCep,
   asksSize,
+  claimsStock,
   classifyOptOutBurst,
   isHook,
   gateBriefing,
@@ -252,7 +253,7 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, stockLineSaid, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { isAudioBody, mergeProfile, profileFold, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
@@ -4132,7 +4133,8 @@ const handleTurn = async (
     region,
     units,
     linkPath,
-    stockSaid: stockLineSaid(recentOutbound),
+    // The gate's own stock reader (`claimsStock`): the taught line or the model's words for it, the gate's exclusions included.
+    stockSaid: recentOutbound.some((m: string) => claimsStock(m)),
   });
   const turnFacts = { stockLine, prepayFreightBrl };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
