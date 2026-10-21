@@ -162,6 +162,7 @@ import {
   shippedCancelReply,
   thinkReply,
   VAGUE_OBJECTION_QUESTION,
+  VAGUE_PRICE_QUESTION,
   VAGUE_OBJECTION_REASON,
   askedVagueQuestion,
   vagueObjectionSituation,
@@ -4332,8 +4333,9 @@ const handleTurn = async (
         codAvailable: knownRegion?.cod === true,
         firstDateIsTomorrow: region?.cod === true && eveIsTomorrow(region.dates[0], new Date()),
         scarcityLine: stockLine,
+        price: interpretation.price_signal === "complaint",
       }),
-      VAGUE_OBJECTION_QUESTION,
+      interpretation.price_signal === "complaint" ? VAGUE_PRICE_QUESTION : VAGUE_OBJECTION_QUESTION,
       VAGUE_OBJECTION_REASON,
     );
   }

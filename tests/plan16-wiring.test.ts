@@ -157,7 +157,8 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn.slice(at("const vagueObjection = "), at("if (vagueObjection) {"))).not.toContain("discount_ask");
     expect(at("const putsOff = interpretation.wants_to_think;")).toBeLessThan(at('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation))'));
     expect(turn).toContain("reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}");
-    expect(turn).toContain("      VAGUE_OBJECTION_QUESTION,\n      VAGUE_OBJECTION_REASON,\n    );");
+    expect(turn).toContain('      interpretation.price_signal === "complaint" ? VAGUE_PRICE_QUESTION : VAGUE_OBJECTION_QUESTION,\n      VAGUE_OBJECTION_REASON,\n    );');
+    expect(turn).toContain('        price: interpretation.price_signal === "complaint",');
     expect(turn).toContain("firstDateIsTomorrow: region?.cod === true && eveIsTomorrow(region.dates[0], new Date()),");
     expect(turn).toContain("  if (\n    !vagueObjection &&\n    interpretation.wants_to_think &&");
     expect(at("    !vagueObjection &&\n    interpretation.wants_to_think &&")).toBeGreaterThan(vague);

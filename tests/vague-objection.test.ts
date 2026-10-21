@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { askedVagueQuestion, THINK_REPLY, VAGUE_OBJECTION_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
+import { askedVagueQuestion, THINK_REPLY, VAGUE_OBJECTION_QUESTION, VAGUE_PRICE_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
 import { config as base, ctx } from "./fixtures.js";
 
 const config = { ...base, prices: { ...base.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 }, scarcity: { lowStock: 20 } };
@@ -76,5 +76,26 @@ describe("askedVagueQuestion: a pergunta já foi, nas palavras do modelo", () =>
   });
   it("negação: \"sem dúvida, o tamanho e a entrega estão certos\" conta (custo: a segunda pergunta não sai, o lado seguro)", () => {
     expect(askedVagueQuestion(["Sem dúvida, o tamanho e a entrega estão certos."])).toBe(true);
+  });
+});
+
+describe("a reclamação de preço não ouve \"Claro!\" (personas, 2026-10-21: \"nem compensa pra mim\" → \"Claro!\")", () => {
+  it("a pergunta de preço abre com Entendo!, passa a cadeia e conta como já feita", () => {
+    expect(VAGUE_PRICE_QUESTION.startsWith("Entendo!")).toBe(true);
+    expect(VAGUE_PRICE_QUESTION.slice("Entendo!".length)).toBe(VAGUE_OBJECTION_QUESTION.slice("Claro!".length));
+    for (const paymentPath of ["cod", "prepay"] as const) expect(runGates(VAGUE_PRICE_QUESTION, ctx({ config, paymentPath })).allowed).toBe(true);
+    expect(askedVagueQuestion([VAGUE_PRICE_QUESTION])).toBe(true);
+  });
+
+  it("preço: acolhe sem concordar; adiamento: Claro!; nos dois, o motivo antes e a pergunta por último", () => {
+    const price = vagueObjectionSituation(config, { ...all, price: true });
+    expect(price).toContain("nunca com Claro");
+    expect(price).toContain("reclamou do valor");
+    const putoff = vagueObjectionSituation(config, all);
+    expect(putoff).toContain("comece com Claro!");
+    expect(putoff).not.toContain("nunca com Claro");
+    for (const s of [price, putoff]) expect(s.indexOf("motivos")).toBeLessThan(s.indexOf("por último a pergunta"));
+    // The reasons are the same true ones either way.
+    expect(quoted(price)).toEqual(quoted(putoff));
   });
 });

@@ -327,6 +327,8 @@ export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvi
  * reply of today (`thinkReply`), no second question.
  */
 export const VAGUE_OBJECTION_QUESTION = "Claro! Ficou alguma dúvida que eu possa resolver, sobre o tamanho, a entrega ou o valor? 💛";
+/** The same question when she complains of the price: "Claro!" after "nem compensa" reads as agreeing (personas, 2026-10-21). */
+export const VAGUE_PRICE_QUESTION = "Entendo! Ficou alguma dúvida que eu possa resolver, sobre o tamanho, a entrega ou o valor? 💛";
 /** The guide's reason, as `turn_outcomes.reason` records it: what tells the turn the question was asked already. */
 export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 
@@ -351,7 +353,7 @@ export interface VagueObjectionConfig {
  */
 export const vagueObjectionSituation = (
   c: VagueObjectionConfig,
-  facts: { codAvailable: boolean; firstDateIsTomorrow: boolean; scarcityLine: string | null },
+  facts: { codAvailable: boolean; firstDateIsTomorrow: boolean; scarcityLine: string | null; price?: boolean },
 ): string => {
   const reasons = [
     ...(facts.codAvailable && facts.firstDateIsTomorrow ? ["A primeira data que aparece no checkout pra sua região é amanhã."] : []),
@@ -362,10 +364,14 @@ export const vagueObjectionSituation = (
     ...(facts.codAvailable ? [`Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`] : []),
     ...(facts.scarcityLine ? [facts.scarcityLine] : []),
   ];
+  // Personas, 2026-10-21: with the reason "before" the question the model always led with the warranty and put "Claro!" in
+  // the middle; the opener goes first, then one reason that fits what she said, the question last.
   return (
-    `Ela fez uma objeção vaga (tá caro, achei mais barato, vou ver ou vou pensar). Responda com uma pergunta só, a do modelo,` +
-    ` e antes dela no máximo UM destes motivos verdadeiros pra comprar agora, com estas palavras, sem pressão: ` +
-    `${reasons.map((r) => `"${r}"`).join(" ou ")} Nenhum outro motivo, nenhum prazo de oferta e nenhum link.`
+    `Ela ${facts.price ? "reclamou do valor" : "adiou a compra"} (objeção vaga). Responda numa mensagem só, nesta ordem: ` +
+    `${facts.price ? "acolha sem concordar que está caro, começando com Entendo! (nunca com Claro)" : "comece com Claro!"}; ` +
+    `depois no máximo UM destes motivos verdadeiros pra comprar agora, o que mais combina com o que ela disse, com estas ` +
+    `palavras, sem pressão: ${reasons.map((r) => `"${r}"`).join(" ou ")}; e por último a pergunta do modelo, uma só. ` +
+    `Nenhum outro motivo, nenhum prazo de oferta e nenhum link.`
   );
 };
 

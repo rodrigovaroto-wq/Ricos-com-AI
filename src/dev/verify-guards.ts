@@ -5968,6 +5968,22 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
+    id: "P16-objecao-preco-claro",
+    bug: "\"nem compensa pra mim\" ouvia \"Claro!\", lido como concordar que está caro (personas, 2026-10-21)",
+    files: ["src/agent/retry.ts", "supabase/functions/turn/retry.ts"],
+    from: '"acolha sem concordar que está caro, começando com Entendo! (nunca com Claro)"',
+    to: '"comece com Claro!"',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/vague-objection.test.ts"],
+  },
+  {
+    id: "P16-objecao-preco-claro-fiacao",
+    bug: "a reclamação de preço recebia o modelo com \"Claro!\" (personas, 2026-10-21)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: 'interpretation.price_signal === "complaint" ? VAGUE_PRICE_QUESTION : VAGUE_OBJECTION_QUESTION,',
+    to: "VAGUE_OBJECTION_QUESTION,",
+    guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
+  },
+  {
     id: "P16-gatilho-so-na-janela",
     bug: "o teto de 3 usos do gatilho contaria só as últimas 20 mensagens (revisão do plano 16, 10)",
     files: ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
