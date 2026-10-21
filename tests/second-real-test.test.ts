@@ -264,7 +264,8 @@ describe("C10 — o lembrete não pede o tamanho a quem já deu", () => {
   it("com o tamanho conhecido, o lembrete não pergunta a calça", () => {
     for (const size of ["G", "M"]) {
       const text = renderFollowup("silence_1", { ...base, size }) ?? "";
-      expect(text).not.toMatch(/tamanho de cal[çc]a/i);
+      // Copy v4 asks "o seu número de calça": any pants question, not only the old wording (CI escape, 21/10).
+      expect(text).not.toMatch(/cal[çc]a/i);
       expect(text.length).toBeGreaterThan(20);
     }
   });
