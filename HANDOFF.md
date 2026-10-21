@@ -13,6 +13,73 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-21 (noite) — `turn` v40 NO AR (plano 16). Corrige o bloco da tarde logo abaixo, que dizia "NÃO publicado" e "v39 no ar".**
+>
+> - **No ar:** `turn` **v40** = `agent_versions` 40, função `turn` v150, commit `fbb6f19`, 21/10 ~21h11 UTC, via `pnpm deploy:turn`. A v39 que
+>   estava no ar era o commit `3f04911`, sem diferença em `supabase/functions/turn` para `origin/main` (sem deriva). Sonda `job:"health"` →
+>   `healthy` (3 CEPs de SP, pagamento na entrega). Fatos conferidos pela sessão principal; esta escrita de documentação **não reconsultou** a API.
+> - **O que mudou na v40:** perfil e score do lead, frete do antecipado na oferta, objeção vaga, gatilho pessoal, régua por faixa (lista
+>   completa no bloco da tarde e no grafo [§123](docs/documentacao/decisoes/04-grafo-de-decisoes.md)). Desenho final do /code-review do PR #77
+>   (7 rodadas: `55dc790`, `c95d20c`, `fd05031`, `97bca1d`, `32bc160`, `076ff0d`, `fbb6f19`): as marcas de uma vez por conversa
+>   `profile.stock_offered` e `profile.vague_asked` saem no mesmo `Promise.all` de `recordOutcome`, só quando a resposta do modelo foi
+>   (`fallbackReason === null`); `claimsStock` exportado de `guardrails.ts`; `askedVagueQuestion` e a consulta de `turn_outcomes` pelo motivo
+>   saíram. 8736 testes verdes, `dev:gates` 0 afrouxamentos, `dev:conversas` 1655/1655.
+> - **n8n:** workflow "Encorpa — Turno da agente" (`HnGrxquQLpfbXWLH`), nó "Avisa o operador": o assunto agora leva `$json.scoreTag`
+>   (`={{ $json.scoreTag ? $json.scoreTag + ' — ' : '' }}Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`),
+>   publicado, versão ativa `dd79bfca-d337-4303-a19e-916e6c9e79f0`, `pnpm dev:n8n` ok nos 7 workflows; arquivo do repositório
+>   `n8n/workflows/turno-da-agente.json` atualizado (`66a29c5`).
+> - **Migração `0029`:** aplicada em produção (ver o bloco da tarde).
+> - **`BUSINESS_CONFIG`:** o segredo vivo é `docs/operacao/business-config-2026-10-20.min.json` (sha256 `3749c32b…`, lido pela API de segredos).
+>   O arquivo novo `docs/operacao/business-config-2026-10-21.min.json` (sha256 `ead94034cd63ac4907f5706d44c7e53e8a4604b0c1538e676fea13b5c3125020`,
+>   commit `9b52a7f`) é esse mais `"scarcity":{"lowStock":20}` e nada mais; validado (prompt monta, `scarcity_claim` só passa a linha com a
+>   consulta, `turn` local sobe `healthy`). **Ainda NÃO está no segredo: até lá não há escassez** (ausente = sem escassez).
+> - **O operador precisa:** (1) colar o `BUSINESS_CONFIG` de 2026-10-21 no segredo do Supabase e rodar `job:"health"`; (2) mesclar o PR #77 deste
+>   repositório e o PR #5 do `encorpa-portal`.
+> - **Na primeira conversa real na v40, conferir:** `turn_outcomes.agent_version = 40`; `leads.score` e `score_band` gravados (prova da gravação
+>   do score); o balão do gancho (`withHook`) antes da oferta. **Nenhum dos dois foi provado ao vivo** (o balão nem nas personas).
+> - **Decisões do operador na noite (R29.12–R29.14):** a âncora de R$ 216,50 foi praticada de verdade (fecha a pergunta do CDC); a frase do áudio 1
+>   "enquanto você usa, emagrece e reduz até 3 números" fica; o dado de saúde (dor) fica no Supabase como gatilho de conversão (risco da LGPD
+>   art. 11 apresentado, operador decidiu).
+> - **Resíduos:** os do bloco da tarde, mais os do grafo §123 (linha de estoque oferecida e não usada pelo modelo não volta; caminhos que
+>   respondem e retornam antes não gravam a marca; a marca grava o perfil inteiro do turno).
+> - **Perguntas ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; tirar `allowUnverified`
+>   do segredo. ~~Âncora de R$ 216,50 já praticada?~~ ✅ respondida 21/10. ~~LGPD art. 11~~ ✅ decidida 21/10.
+
+> *(Histórico, tarde de 21/10; as linhas "No ar" e "Para publicar" abaixo estão superadas pelo bloco acima.)*
+> **2026-10-21 (tarde) — plano 16 implementado na branch `claude/inspiring-carson-hctijy`, NÃO publicado.**
+>
+> - **No ar (inalterado):** `turn` **v39** (função v148, 21/10 ~12h48 UTC, segundo o bloco de baixo). **Não reconferi na API de gerência
+>   nesta sessão** (o acesso à produção foi negado pelo classificador); confira `turn_outcomes.agent_version` antes de agir sobre "v39".
+> - **Na branch (commits `403a60f`..`5f445f9`), `pnpm test` 8732 verdes em 21/10:**
+>   - perfil e score do lead (`mergeProfile`, `scoreOf`, `bandOf`, `profileFold`, `scoreTag`; migração `0029` com a view `lead_profiles_v`
+>     sem telefone, nome, dor nem gancho);
+>   - escassez de estoque real (`stockScarcityLine`, `scarcity_claim` com `stockLeft`);
+>   - frete do antecipado na oferta (`prepayFreight`, `regionTurnFacts`, `prepayOfferText`), **87/87 iguais ao checkout real da Coinzz**;
+>   - pergunta da objeção vaga (`VAGUE_OBJECTION_QUESTION`, `vagueObjectionSituation`, `askedVagueQuestion`), sem âncora de R$ 216,50;
+>   - gatilho pessoal ≤3 usos (`personalTriggerDirective`, `countTriggerUses`, `triggerUsesSoFar`, `withHook`, `HOOK_PROMISE`);
+>   - régua por faixa (`rulerForBand`); `scoreTag` no `notification()`; persona Gisele; página de Leads no portal (branch
+>     `claude/lead-score-profile`, repo `encorpa-portal`).
+>   - Duas revisões (Opus: 1 bloqueante, o frete do kit; conformidade) corrigidas em `5f445f9`. Grafo [§123](docs/documentacao/decisoes/04-grafo-de-decisoes.md),
+>     decisões R29 em `docs/documentacao/decisoes/03-decisoes-tomadas.md`, plano 16 com o status no topo.
+> - **Migração `0029` APLICADA em produção** (21/10, ~19h15 UTC, pelo MCP do Supabase, projeto `hbmkgakzrqmdlsvszjeo`): só acrescenta 4 colunas
+>   opcionais em `leads` e a view `lead_profiles_v`; a v39 no ar não lê nem escreve nelas. A leitura de conferência depois dela foi barrada pelo
+>   classificador de permissões da sessão (não reconferido). Desfazer: `drop view public.lead_profiles_v; alter table public.leads drop column profile,
+>   drop column score, drop column score_band, drop column score_at;`.
+> - **Personas (21/10, `turn` local da branch, OK de custo do operador):** 3 rodadas da branch × 3 da `main` (v39), ~65 conversas cada, R$ ~4,4 no
+>   total. Sem regressão detectável: vetos 101 × 96 (média), resposta pronta 1 × 1, pedido de pessoa ~3 × ~4, links 8,7 × 10,7 (variação entre
+>   rodadas do mesmo lado: 6 a 13). Custo do modelo ~35% maior (o prompt do interpretador cresceu). A Gisele não arrancou concessão.
+>   A rodada 1 achou a objeção vaga com o motivo antes do "Claro!" e "Claro!" depois de "nem compensa": corrigido em `1708485`
+>   (`VAGUE_PRICE_QUESTION`). **Não provado ao vivo:** o balão da frase pessoal antes da oferta (nenhuma persona chegou à oferta depois de contar
+>   a ocasião) e a gravação do score (leitura do banco barrada). Fora do plano 16, visto na Beatriz: a Malu diz "enquanto você usa, emagrece e
+>   pode reduzir até 3 números de calça" (texto do operador, já no parecer de conformidade de 19/10).
+> - **Para publicar:** `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n ainda sem o `scoreTag`**
+>   (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
+> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2).
+> - **Resíduos deixados de propósito (R21.6):** "O GG está acabando 😮" passa o `scarcity_claim` sem consulta; "esgota amanhã" passa com estoque
+>   real; contadores do perfil podem dobrar no caso parcial de turno substituído; a varredura não aplica o −10 do toque sem resposta; frete do kit não lido.
+> - **Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?; ANVISA em "pós-parto"/"postura"; Logzz e desconto por
+>   quantidade com pedido pendente; LGPD art. 11 (consentimento e aviso de privacidade); tirar `allowUnverified` do segredo.
+
 > **2026-10-20 — sessão `claude/intelligent-edison-0geis2`, plano aprovado pelo operador (etapas 1 a 7, uma aprovação por etapa).**
 >
 > - **No ar:** `turn` **v36** (função v142, 12h UTC); `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-20.min.json`

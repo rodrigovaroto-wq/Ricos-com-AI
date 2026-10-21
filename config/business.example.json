@@ -226,7 +226,8 @@
   "scarcity": {
     "unitsLeft": 12,
     "offerEndsAt": null,
-    "allowUnverified": true
+    "allowUnverified": true,
+    "lowStock": 20
   },
   "testimonials": [
     "Material muito agradável ao toque e com a compressão na medida certa. Comprime bastante sem ser desconfortável",

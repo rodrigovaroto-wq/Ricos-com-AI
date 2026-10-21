@@ -1371,3 +1371,28 @@ describe("troca e devolução: só quando ela pede, pela Logzz (R21.4)", () => {
     expect(own(FULL)).toContain("Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.");
   });
 });
+
+/**
+ * Plan 16 §4.6–4.7 (2026-10-21): what a turn's lookups read reaches the prompt (`turnFacts`) and the gate context alike.
+ * Every sentence the prompt teaches with them passes the chain with that context — and, built without them, the prompt is
+ * today's, byte for byte.
+ */
+describe("turnFacts: o estoque e o frete lidos no turno, a mesma promessa no prompt e no gate", () => {
+  const facts = { stockLine: "O *GG* está acabando pra entrega na sua região: restam só *12* 😮", prepayFreightBrl: 18.9 };
+  const taught = (c: PromptConfig) => [...flat(systemPrompt(c, gateBriefing(c), null, null, null, facts)).matchAll(/"([^"]{12,}(?:[.?!]|😮))"/g)].map((m) => m[1]!);
+
+  it.each(corners.filter((c) => c.config.delivery.freeShipping !== true))("toda frase nova passa a cadeia no antecipado ($name)", ({ config }) => {
+    const c = { ...config, scarcity: { lowStock: 20 } };
+    const before = taught(config);
+    const fresh = taught(c).filter((s) => !before.includes(s) || /18,90|restam/.test(s));
+    expect(fresh).toEqual(expect.arrayContaining(["No antecipado o frete pra sua região é R$ 18,90.", facts.stockLine]));
+    for (const s of fresh) {
+      const verdict = runGates(s, ctx({ config: c, paymentPath: "prepay", codUnavailable: true, prepayFreightBrl: 18.9, stockLeft: { size: "GG", qty: 12 }, knownSize: "GG" }));
+      expect({ s, blocked: verdict.traces.filter((t) => t.verdict === "block") }).toEqual({ s, blocked: [] });
+    }
+  });
+
+  it.each(corners)("sem turnFacts, o prompt é o de hoje ($name)", ({ config }) => {
+    expect(systemPrompt(config, gateBriefing(config), null, null, null, {})).toBe(build(config));
+  });
+});

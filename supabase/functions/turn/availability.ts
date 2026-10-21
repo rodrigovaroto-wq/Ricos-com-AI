@@ -209,6 +209,25 @@ const answered = (body: unknown): boolean => {
   return typeof data === "object" && data !== null;
 };
 
+/**
+ * The prepaid freight for one piece of her size at her CEP (4.7). The 1-piece prepaid checkout charges this query's
+ * `local_operation[0].price` — `labelBrl` — rounded to the cent (Playwright, 2026-10-20: São Paulo GG 19.345 → "Frete: R$ 19,35",
+ * XGG 17,78; grafo §116), so since the freight became hers (2026-09-10) the "operator's cost" is her price on that path.
+ * Only the placeholders of `availabilityQuery` go, never her name, phone or CPF. `null` on any failure, timeout, 404 (the M)
+ * or a price not read: the reply keeps "aparece no checkout". shortcut: one piece only, the kits' freight is not this query's.
+ */
+export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, size: Size): Promise<number | null> =>
+  Promise.resolve()
+    .then(() => askSize(fetcher, zip, place, size))
+    .then((body) => {
+      const p = readAvailability(size, body).labelBrl;
+      // Decimal half-up, as the page shows it: 19.345 * 100 is 1934.4999… in binary.
+      // `${p}e2` is NaN for a price JSON writes in exponent form (5e-7): null, never NaN (/code-review).
+      const cents = typeof p === "number" ? Math.round(Number(`${p}e2`)) : NaN;
+      return Number.isFinite(cents) && cents > 0 ? cents / 100 : null;
+    })
+    .catch(() => null);
+
 export const checkSize = async (
   fetcher: Fetcher,
   zip: string,
@@ -246,6 +265,11 @@ export interface Region {
   readonly size?: Size | null;
   /** The size it was asked for, answered or not: the cache's key, so an M that never answers is not asked every turn. */
   readonly askedSize?: Size | null;
+  /**
+   * Units of her size in the Logzz operations that serve her city (`stock_per_operations[].quantity`, summed over the operations
+   * `lookupLogzz` asks the days of), for scarcity (4.6). Absent or null: unknown. Never from the Coinzz `stock`, which is "1" always.
+   */
+  readonly stockQty?: number | null;
 }
 
 /**
@@ -350,7 +374,8 @@ const NOT_SERVED = /bloqueado para entrega|n[aã]o faz parte da lista de disponi
 const errorBody = (e: unknown): unknown => (e as { body?: unknown } | null)?.body;
 
 /** What the stock answer says: the operations holding each size, the sizes it spoke of clearly, and whether any product was unreadable. */
-export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlySet<Size>; unreadable: boolean } | null;
+/** `seen` maps each such size to its units summed over the operations holding it (0: it spoke of the size, none in stock). */
+export type LogzzStock = { cod: false } | { cod: true; bySize: Partial<Record<Size, number[]>>; seen: ReadonlyMap<Size, number>; unreadable: boolean } | null;
 
 export const readLogzzStock = (body: unknown): LogzzStock => {
   const b = body as {
@@ -367,7 +392,7 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
   const variation = new Map<number, string>();
   for (const g of Array.isArray(b.data?.groups) ? b.data!.groups! : []) for (const v of Array.isArray(g?.variations) ? g.variations : []) if (typeof v?.variation_id === "number") variation.set(v.variation_id, String(v.variation_name ?? ""));
   const bySize: Partial<Record<Size, number[]>> = {};
-  const seen = new Set<Size>();
+  const seen = new Map<Size, number>();
   let unreadable = false;
   for (const p of b.data!.products!) {
     const label = variation.get(Array.isArray(p?.variations_combination) ? p.variations_combination[0]! : NaN) ?? String(p?.product_name ?? "").split("-").pop() ?? "";
@@ -380,8 +405,8 @@ export const readLogzzStock = (body: unknown): LogzzStock => {
       unreadable = true;
       continue;
     }
-    seen.add(size);
     const ops = stock.filter((o) => o.qty > 0).map((o) => o.op);
+    seen.set(size, (seen.get(size) ?? 0) + stock.reduce((t, o) => t + (o.qty > 0 ? o.qty : 0), 0));
     if (ops.length > 0) bySize[size] = [...(bySize[size] ?? []), ...ops];
   }
   // An answer nothing of which could be read is not "no stock" (review, 19/10): a renamed variation would otherwise
@@ -445,7 +470,9 @@ const lookupLogzzUnsafe = async (
     .catch((e) => (NOT_SERVED.test(String((errorBody(e) as { msg?: unknown } | null)?.msg ?? "")) ? { dates: [], sameDay: false, closed: true } : null));
   if (days === null) return { kind: "failed", place };
   if ("closed" in days || days.dates.length === 0) return { kind: "found", region: none };
-  return { kind: "found", region: { zip, place, cod: true, dates: days.dates, sameDay: days.sameDay, labelBrl: null, size, askedSize: size } };
+  // A product left unreadable may be more of her size: a partial count is a false "restam só" (plan 16 review), so none.
+  const stockQty = size !== null && !stock.unreadable ? stock.seen.get(size) ?? null : null;
+  return { kind: "found", region: { zip, place, cod: true, dates: days.dates, sameDay: days.sameDay, labelBrl: null, size, askedSize: size, stockQty } };
 };
 
 /** Never throws, whatever the Logzz sends: a failure keeps the place, so a likely city still gets both checkouts. It never falls

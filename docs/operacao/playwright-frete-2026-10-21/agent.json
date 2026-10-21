@@ -1,0 +1,882 @@
+[
+ {
+  "cep": "01310100",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Bela Vista"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "01310100",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Bela Vista"
+  },
+  "freight": null
+ },
+ {
+  "cep": "01310100",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Bela Vista"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "01310100",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Bela Vista"
+  },
+  "freight": 19.35
+ },
+ {
+  "cep": "01310100",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Bela Vista"
+  },
+  "freight": 17.78
+ },
+ {
+  "cep": "04710090",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Santo Amaro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "04710090",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Santo Amaro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "04710090",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Santo Amaro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "04710090",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Santo Amaro"
+  },
+  "freight": 19.35
+ },
+ {
+  "cep": "04710090",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "São Paulo",
+   "state": "SP",
+   "district": "Santo Amaro"
+  },
+  "freight": 17.78
+ },
+ {
+  "cep": "35430535",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Ponte Nova",
+   "state": "MG",
+   "district": "Fortaleza"
+  },
+  "freight": 33.32
+ },
+ {
+  "cep": "35430535",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Ponte Nova",
+   "state": "MG",
+   "district": "Fortaleza"
+  },
+  "freight": null
+ },
+ {
+  "cep": "35430535",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Ponte Nova",
+   "state": "MG",
+   "district": "Fortaleza"
+  },
+  "freight": 28.25
+ },
+ {
+  "cep": "35430535",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Ponte Nova",
+   "state": "MG",
+   "district": "Fortaleza"
+  },
+  "freight": 28.25
+ },
+ {
+  "cep": "35430535",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Ponte Nova",
+   "state": "MG",
+   "district": "Fortaleza"
+  },
+  "freight": 25.93
+ },
+ {
+  "cep": "69005010",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Manaus",
+   "state": "AM",
+   "district": "Centro"
+  },
+  "freight": 40.5
+ },
+ {
+  "cep": "69005010",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Manaus",
+   "state": "AM",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "69005010",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Manaus",
+   "state": "AM",
+   "district": "Centro"
+  },
+  "freight": 44.45
+ },
+ {
+  "cep": "69005010",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Manaus",
+   "state": "AM",
+   "district": "Centro"
+  },
+  "freight": 44.45
+ },
+ {
+  "cep": "69005010",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Manaus",
+   "state": "AM",
+   "district": "Centro"
+  },
+  "freight": 34.59
+ },
+ {
+  "cep": "90010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Porto Alegre",
+   "state": "RS",
+   "district": "Centro Histórico"
+  },
+  "freight": 31.53
+ },
+ {
+  "cep": "90010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Porto Alegre",
+   "state": "RS",
+   "district": "Centro Histórico"
+  },
+  "freight": null
+ },
+ {
+  "cep": "90010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Porto Alegre",
+   "state": "RS",
+   "district": "Centro Histórico"
+  },
+  "freight": 37.89
+ },
+ {
+  "cep": "90010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Porto Alegre",
+   "state": "RS",
+   "district": "Centro Histórico"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "90010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Porto Alegre",
+   "state": "RS",
+   "district": "Centro Histórico"
+  },
+  "freight": 18.32
+ },
+ {
+  "cep": "40010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Salvador",
+   "state": "BA",
+   "district": "Comércio"
+  },
+  "freight": 34.59
+ },
+ {
+  "cep": "40010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Salvador",
+   "state": "BA",
+   "district": "Comércio"
+  },
+  "freight": null
+ },
+ {
+  "cep": "40010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Salvador",
+   "state": "BA",
+   "district": "Comércio"
+  },
+  "freight": 34.47
+ },
+ {
+  "cep": "40010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Salvador",
+   "state": "BA",
+   "district": "Comércio"
+  },
+  "freight": 19.96
+ },
+ {
+  "cep": "40010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Salvador",
+   "state": "BA",
+   "district": "Comércio"
+  },
+  "freight": 31.53
+ },
+ {
+  "cep": "98005000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Cruz Alta",
+   "state": "RS",
+   "district": "Centro"
+  },
+  "freight": 39.27
+ },
+ {
+  "cep": "98005000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Cruz Alta",
+   "state": "RS",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "98005000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Cruz Alta",
+   "state": "RS",
+   "district": "Centro"
+  },
+  "freight": 68.98
+ },
+ {
+  "cep": "98005000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Cruz Alta",
+   "state": "RS",
+   "district": "Centro"
+  },
+  "freight": 36.47
+ },
+ {
+  "cep": "98005000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Cruz Alta",
+   "state": "RS",
+   "district": "Centro"
+  },
+  "freight": 25.93
+ },
+ {
+  "cep": "30130000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Belo Horizonte",
+   "state": "MG",
+   "district": "Centro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "30130000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Belo Horizonte",
+   "state": "MG",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "30130000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Belo Horizonte",
+   "state": "MG",
+   "district": "Centro"
+  },
+  "freight": 19.96
+ },
+ {
+  "cep": "30130000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Belo Horizonte",
+   "state": "MG",
+   "district": "Centro"
+  },
+  "freight": 19.96
+ },
+ {
+  "cep": "30130000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Belo Horizonte",
+   "state": "MG",
+   "district": "Centro"
+  },
+  "freight": 18.32
+ },
+ {
+  "cep": "20040002",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Rio de Janeiro",
+   "state": "RJ",
+   "district": "Centro"
+  },
+  "freight": 18.07
+ },
+ {
+  "cep": "20040002",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Rio de Janeiro",
+   "state": "RJ",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "20040002",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Rio de Janeiro",
+   "state": "RJ",
+   "district": "Centro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "20040002",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Rio de Janeiro",
+   "state": "RJ",
+   "district": "Centro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "20040002",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Rio de Janeiro",
+   "state": "RJ",
+   "district": "Centro"
+  },
+  "freight": 18.07
+ },
+ {
+  "cep": "80010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Curitiba",
+   "state": "PR",
+   "district": "Centro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "80010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Curitiba",
+   "state": "PR",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "80010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Curitiba",
+   "state": "PR",
+   "district": "Centro"
+  },
+  "freight": 34.47
+ },
+ {
+  "cep": "80010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Curitiba",
+   "state": "PR",
+   "district": "Centro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "80010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Curitiba",
+   "state": "PR",
+   "district": "Centro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "50010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Recife",
+   "state": "PE",
+   "district": "Santo Antônio"
+  },
+  "freight": 40.5
+ },
+ {
+  "cep": "50010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Recife",
+   "state": "PE",
+   "district": "Santo Antônio"
+  },
+  "freight": null
+ },
+ {
+  "cep": "50010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Recife",
+   "state": "PE",
+   "district": "Santo Antônio"
+  },
+  "freight": 44.45
+ },
+ {
+  "cep": "50010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Recife",
+   "state": "PE",
+   "district": "Santo Antônio"
+  },
+  "freight": 34.47
+ },
+ {
+  "cep": "50010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Recife",
+   "state": "PE",
+   "district": "Santo Antônio"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "60010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Fortaleza",
+   "state": "CE",
+   "district": "Moura Brasil"
+  },
+  "freight": 40.5
+ },
+ {
+  "cep": "60010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Fortaleza",
+   "state": "CE",
+   "district": "Moura Brasil"
+  },
+  "freight": null
+ },
+ {
+  "cep": "60010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Fortaleza",
+   "state": "CE",
+   "district": "Moura Brasil"
+  },
+  "freight": 44.45
+ },
+ {
+  "cep": "60010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Fortaleza",
+   "state": "CE",
+   "district": "Moura Brasil"
+  },
+  "freight": 37.89
+ },
+ {
+  "cep": "60010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Fortaleza",
+   "state": "CE",
+   "district": "Moura Brasil"
+  },
+  "freight": 18.32
+ },
+ {
+  "cep": "74003010",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Goiânia",
+   "state": "GO",
+   "district": "Setor Central"
+  },
+  "freight": 31.53
+ },
+ {
+  "cep": "74003010",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Goiânia",
+   "state": "GO",
+   "district": "Setor Central"
+  },
+  "freight": null
+ },
+ {
+  "cep": "74003010",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Goiânia",
+   "state": "GO",
+   "district": "Setor Central"
+  },
+  "freight": 34.47
+ },
+ {
+  "cep": "74003010",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Goiânia",
+   "state": "GO",
+   "district": "Setor Central"
+  },
+  "freight": 19.96
+ },
+ {
+  "cep": "74003010",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Goiânia",
+   "state": "GO",
+   "district": "Setor Central"
+  },
+  "freight": 18.32
+ },
+ {
+  "cep": "66010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Belém",
+   "state": "PA",
+   "district": "Campina"
+  },
+  "freight": 40.5
+ },
+ {
+  "cep": "66010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Belém",
+   "state": "PA",
+   "district": "Campina"
+  },
+  "freight": null
+ },
+ {
+  "cep": "66010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Belém",
+   "state": "PA",
+   "district": "Campina"
+  },
+  "freight": 44.45
+ },
+ {
+  "cep": "66010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Belém",
+   "state": "PA",
+   "district": "Campina"
+  },
+  "freight": 37.89
+ },
+ {
+  "cep": "66010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Belém",
+   "state": "PA",
+   "district": "Campina"
+  },
+  "freight": 31.53
+ },
+ {
+  "cep": "88010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Florianópolis",
+   "state": "SC",
+   "district": "Centro"
+  },
+  "freight": 31.53
+ },
+ {
+  "cep": "88010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Florianópolis",
+   "state": "SC",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "88010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Florianópolis",
+   "state": "SC",
+   "district": "Centro"
+  },
+  "freight": 34.47
+ },
+ {
+  "cep": "88010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Florianópolis",
+   "state": "SC",
+   "district": "Centro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "88010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Florianópolis",
+   "state": "SC",
+   "district": "Centro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "13010000",
+  "size": "P",
+  "lookup": "found",
+  "place": {
+   "city": "Campinas",
+   "state": "SP",
+   "district": "Centro"
+  },
+  "freight": 28.67
+ },
+ {
+  "cep": "13010000",
+  "size": "M",
+  "lookup": "found",
+  "place": {
+   "city": "Campinas",
+   "state": "SP",
+   "district": "Centro"
+  },
+  "freight": null
+ },
+ {
+  "cep": "13010000",
+  "size": "G",
+  "lookup": "found",
+  "place": {
+   "city": "Campinas",
+   "state": "SP",
+   "district": "Centro"
+  },
+  "freight": 31.29
+ },
+ {
+  "cep": "13010000",
+  "size": "GG",
+  "lookup": "found",
+  "place": {
+   "city": "Campinas",
+   "state": "SP",
+   "district": "Centro"
+  },
+  "freight": 19.35
+ },
+ {
+  "cep": "13010000",
+  "size": "XGG",
+  "lookup": "found",
+  "place": {
+   "city": "Campinas",
+   "state": "SP",
+   "district": "Centro"
+  },
+  "freight": 17.78
+ }
+]

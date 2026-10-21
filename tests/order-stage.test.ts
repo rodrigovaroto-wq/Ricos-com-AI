@@ -478,7 +478,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
@@ -562,8 +562,9 @@ describe("revisão do PR #39: pós-pedido por status e data, e a praça gravada"
     const turn = source.slice(source.indexOf("const handleTurn"));
     const declared = turn.indexOf("let codUnavailable = (lead.address as { codAvailable?: boolean } | null)?.codAvailable === false;");
     expect(declared).toBeGreaterThan(-1);
-    // Seis chamadas, contando a da varredura; as cinco do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119).
-    expect(source.match(/runGates\(/g)?.length).toBe(6);
+    // Sete chamadas, contando a da varredura; as seis do turno leem a variável (a volta do dia seguinte saiu do texto fixo, §119;
+    // o gancho do perfil antes da oferta entrou no plano 16 §4.4).
+    expect(source.match(/runGates\(/g)?.length).toBe(7);
     for (const call of turn.split("runGates(").slice(1)) expect(call.slice(0, call.indexOf("});"))).toContain("codUnavailable");
     // A consulta desta volta vence o que estava gravado.
     expect(turn.indexOf("  codUnavailable = codAvailable === false;\n")).toBeGreaterThan(turn.indexOf("const codAvailable = region !== null"));

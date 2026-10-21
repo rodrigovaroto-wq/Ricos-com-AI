@@ -354,6 +354,15 @@ export const rulerFor = (
 };
 
 /**
+ * The ruler by the lead's readiness band (plan 16 §4.2, operator, 2026-10-21): a cold lead ("fria", score < 30) gets only
+ * the first silence touch, and the ruler stops there; "morna" and "quente" keep today's ruler. `band` is the stored
+ * `leads.score_band`: absent (an old lead, or migration 0029 not applied) is today's ruler. Only `silence_2` and
+ * `silence_3` go — the checkout touch, "Ainda está aí?", the order touches and the payment check are not the band's.
+ */
+export const rulerForBand = <T extends { readonly kind: string }>(ruler: readonly T[], band: string | null | undefined): T[] =>
+  band === "fria" ? ruler.filter((f) => f.kind !== "silence_2" && f.kind !== "silence_3") : [...ruler];
+
+/**
  * The touch that closes the silence ruler: once it leaves the queue — sent, or cancelled
  * by a gate or the 24-hour window — with no order, the conversation is `perdido` (plan v2,
  * 7.4; operator, 2026-09-26). She can still come back: `furthest` gives way to the stage

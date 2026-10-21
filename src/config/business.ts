@@ -82,6 +82,8 @@ export interface BusinessConfig {
     offerEndsAt?: string | null;
     /** Operator's switch: urgency without a counted number behind it. Off by default. */
     allowUnverified?: boolean;
+    /** Below this many units of her size in the Logzz stock, the real count may be said (§4.6). Absent: no scarcity. */
+    lowStock?: number;
   };
   /** Real reviews, word for word. Anything she quotes has to be in here. */
   testimonials?: readonly string[];

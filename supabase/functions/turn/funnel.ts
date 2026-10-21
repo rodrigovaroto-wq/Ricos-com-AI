@@ -194,13 +194,18 @@ export const codOfferText = (config: FunnelConfig, firstDate: string | undefined
   ].join("\n\n");
 };
 
-/** Etapa 3, where cash on delivery does not reach her: the prepaid as the way, never a "não". */
-export const prepayOfferText = (config: FunnelConfig): string => {
+/**
+ * Etapa 3, where cash on delivery does not reach her: the prepaid as the way, never a "não". `freightBrl` is the prepaid
+ * freight the checkout read at her CEP (`prepayFreight`, plan 16 §4.7): said under the Correios line; absent or not a
+ * positive amount, or free shipping on both paths, the box of today.
+ */
+export const prepayOfferText = (config: FunnelConfig, freightBrl: number | null = null): string => {
   const n = config.prices.prepayMaxInstallments;
+  const freight = config.delivery.freeShipping !== true && freightBrl !== null && Number.isFinite(freightBrl) && freightBrl > 0 ? `\nFrete pra sua região: *${money(freightBrl)}*` : "";
   return [
     PREPAY_HEADLINE(config),
     `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
-    `🚚 Seu colete vai pelos Correios, com código de rastreio.`,
+    `🚚 Seu colete vai pelos Correios, com código de rastreio.${freight}`,
     `✅ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar`,
   ].join("\n\n");
@@ -213,14 +218,14 @@ export const offerAsk = (_cod: boolean, sizeKnown: boolean): string => (!sizeKno
 /** The whole offer: the price image, the box, the recorded audio 4 on the delivery path only, and the ask. */
 export const offerBubbles = (
   config: FunnelConfig,
-  region: { cod: boolean; dates: readonly string[] },
+  region: { cod: boolean; dates: readonly string[]; prepayFreightBrl?: number | null },
   now: Date,
   ask: string | null,
 ): FunnelBubble[] => {
   const m = config.funnel?.media ?? {};
   return [
     ...media(m.price, "image", priceLabel(config)),
-    { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config) },
+    { text: region.cod ? codOfferText(config, region.dates[0], now) : prepayOfferText(config, region.prepayFreightBrl ?? null) },
     ...(region.cod ? media(m.audio4, "audio", FUNNEL_LABELS.audio4) : []),
     ...(ask ? [{ text: ask }] : []),
   ];

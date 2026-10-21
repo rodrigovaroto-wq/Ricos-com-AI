@@ -205,7 +205,8 @@ describe("C7 — recusar um dado não é 'vou pensar'", () => {
   });
 
   it("o turno não manda a resposta fixa do 'vou pensar' para a recusa de dado", () => {
-    expect(turn).toContain('!refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))');
+    // The fixed "vou pensar" line itself (since plan 16 the vague-objection guard has the same check on another line).
+    expect(turn).toContain('interpretation.pending_answer !== "other_question" &&\n    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&\n    !clauses.some(');
   });
 });
 
@@ -296,7 +297,7 @@ describe("R3 — 'Ainda está aí?' aos 20 min e o lembrete a 1 h, cada um no m�
     expect(oncePerDay(ruler, {}).map((f) => f.kind)).toEqual(ruler.map((f) => f.kind));
   });
   it("o turno lê o envio de cada toque antes de armar", () => {
-    expect(turn).toContain("select=*,leads(size,orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,score_band,orders(status)),followups(kind,sent_at)");
   });
 });
 
