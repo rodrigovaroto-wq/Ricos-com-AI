@@ -30,6 +30,10 @@
 export type SizeLetter = "P" | "M" | "G" | "GG" | "XGG";
 export type PendingAnswer = "answered" | "other_question" | "unrelated" | "no_pending";
 export type PaymentChoice = "cod" | "prepay";
+/** What holds her back in this message (plan 16 §4.1). */
+export type Objection = "preco" | "confianca" | "tamanho" | "entrega" | "pagamento" | "conforto" | "resultado" | "outra";
+/** How she talks about the price (plan 16 §4.3): the first two read as high sensitivity, the last two as medium. */
+export type PriceSignal = "complaint" | "discount_ask" | "installments" | "discount_question";
 
 export interface InterpretedSize {
   letter: SizeLetter | null;
@@ -56,6 +60,17 @@ export interface Interpretation {
   unit_sizes: SizeLetter[];
   /** The pants number of each piece, when she gives numbers ("uso 42, ela 46" → 42, 46). */
   unit_pants: number[];
+  /** What she wants it for ("casamento", "pós-parto"), ≤ 40 characters, or null (plan 16 §4.1). */
+  occasion: string | null;
+  /** What bothers her ("barriga marca no vestido"), ≤ 80 characters, or null. */
+  pain: string | null;
+  /** Only the objections said in THIS message. */
+  objections: Objection[];
+  price_signal: PriceSignal | null;
+  /** A question from someone who is buying: price, delivery time, payment, kit, how to buy. */
+  buying_question: boolean;
+  /** One short sentence tying the colete to her occasion or pain, ≤ 90 characters; null without either. */
+  hook: string | null;
 }
 
 /** What a failed or garbled interpretation reads as: nothing detected. */
@@ -73,6 +88,12 @@ export const NEUTRAL_INTERPRETATION: Interpretation = Object.freeze({
   units: null,
   unit_sizes: Object.freeze([]) as unknown as SizeLetter[],
   unit_pants: Object.freeze([]) as unknown as number[],
+  occasion: null,
+  pain: null,
+  objections: Object.freeze([]) as unknown as Objection[],
+  price_signal: null,
+  buying_question: false,
+  hook: null,
 }) as Interpretation;
 
 /**
@@ -130,6 +151,32 @@ export const INTERPRETER_SYSTEM = [
   '  "as duas G" → ["G","G"]; só "G" respondendo o tamanho de uma peça → ["G"]); [] se não disser.',
   '- "unit_pants": quando ela quer mais de uma peça e diz o número de CALÇA de cada pessoa, os',
   '  números na ordem ("uso 42, ela 46" → [42,46]); [] se não disser. Só calça, nunca manequim.',
+  '- "occasion": pra que ELA diz que quer o colete, em poucas palavras (até 40 letras): "casamento",',
+  '  "pós-parto", "trabalho", "dia a dia", "formatura". null se ela não disse nesta mensagem.',
+  '- "pain": o que ELA diz que incomoda, em poucas palavras (até 80 letras): "barriga marca no',
+  '  vestido", "dor nas costas", "postura". null se ela não disse. Pergunta ("serve pra dor nas',
+  '  costas?") não é dor dita: null.',
+  '- "objections": lista do que a segura NESTA mensagem, só destes valores: "preco" (acha caro,',
+  '  quer pagar menos), "confianca" (medo de golpe, "é confiável?"), "tamanho" (medo de não servir),',
+  '  "entrega" (prazo, frete, se chega), "pagamento" (forma de pagar), "conforto" (aperta, calor,',
+  '  dá pra usar o dia todo), "resultado" (se funciona, se aparece), "outra". Negação não é',
+  '  objeção ("não achei caro", "confio sim") → []. [] se não houver.',
+  '- "price_signal": como ela fala do preço nesta mensagem, ou null:',
+  '  "complaint" = reclama do preço ("tá caro", "achei mais barato em outro lugar",',
+  '  "não tenho esse dinheiro agora");',
+  '  "discount_ask" = pede um preço menor ("faz por 100?", "me dá um desconto", "deixa por 120 que eu levo");',
+  '  "installments" = pergunta de parcelar ("parcela?", "dá pra dividir?", "em quantas vezes?");',
+  '  "discount_question" = só pergunta se existe desconto ("tem desconto?", "tem cupom?",',
+  '  "tem desconto no pix?"). Negação não é sinal: "não achei caro", "o preço tá ótimo",',
+  '  "não precisa de desconto" → null.',
+  '- "buying_question": true se ela faz pergunta de quem está comprando: preço, prazo de entrega,',
+  '  forma de pagamento, kit, como compra ("quanto fica?", "chega quando?", "como faço pra',
+  '  comprar?", "aceita pix?", "quanto sai o kit?"). Pergunta sobre o produto em si, cumprimento',
+  '  ou afirmação: false.',
+  '- "hook": SÓ quando "occasion" ou "pain" não é null, uma frase curta e calorosa (até 90 letras)',
+  '  ligando o colete a isso, como a assistente diria ("Pro seu casamento ele vai deixar o vestido',
+  '  assentadinho 😍"). NUNCA promessa de saúde, de emagrecer, de "reduzir medidas" ou de',
+  '  resultado. Sem ocasião e sem dor: null.',
 ].join("\n");
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
@@ -145,8 +192,16 @@ export const interpretRequest = (
 
 const LETTERS: readonly SizeLetter[] = ["P", "M", "G", "GG", "XGG"];
 const PENDING: readonly PendingAnswer[] = ["answered", "other_question", "unrelated", "no_pending"];
+const OBJECTIONS: readonly Objection[] = ["preco", "confianca", "tamanho", "entrega", "pagamento", "conforto", "resultado", "outra"];
+const PRICE_SIGNALS: readonly PriceSignal[] = ["complaint", "discount_ask", "installments", "discount_question"];
 
 const flag = (v: unknown): boolean => v === true;
+
+/** Free text the model wrote, trimmed and cut to `max` characters (code points, so an emoji is never split). */
+const textUpTo = (v: unknown, max: number): string | null => {
+  const t = typeof v === "string" ? v.trim() : "";
+  return t === "" ? null : [...t].slice(0, max).join("").trim();
+};
 
 /** A number the model may have written as a string; anything outside the range is noise. */
 const numberIn = (v: unknown, min: number, max: number): number | null => {
@@ -176,6 +231,8 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
   const o = value as Record<string, unknown>;
   const s = (typeof o.size === "object" && o.size !== null ? o.size : {}) as Record<string, unknown>;
   const letter = typeof s.letter === "string" ? s.letter.trim().toUpperCase() : "";
+  const occasion = textUpTo(o.occasion, 40);
+  const pain = textUpTo(o.pain, 80);
   return {
     parsed: true,
     interpretation: {
@@ -206,6 +263,15 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       unit_pants: (Array.isArray(o.unit_pants) ? o.unit_pants : [])
         .map((x) => numberIn(x, 34, 56))
         .filter((x): x is number => x !== null),
+      occasion,
+      pain,
+      // A hook without an occasion or a pain ties the colete to nothing she said.
+      hook: occasion !== null || pain !== null ? textUpTo(o.hook, 90) : null,
+      objections: [...new Set(Array.isArray(o.objections) ? o.objections : [])].filter((x): x is Objection =>
+        (OBJECTIONS as readonly unknown[]).includes(x),
+      ),
+      price_signal: (PRICE_SIGNALS as readonly unknown[]).includes(o.price_signal) ? (o.price_signal as PriceSignal) : null,
+      buying_question: flag(o.buying_question),
     },
   };
 };

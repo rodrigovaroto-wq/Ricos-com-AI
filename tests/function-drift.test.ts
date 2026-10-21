@@ -21,6 +21,7 @@ const mirrored = [
   ["src/agent/state-machine.ts", "supabase/functions/turn/state-machine.ts"],
   ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
   ["src/agent/interpret.ts", "supabase/functions/turn/interpret.ts"],
+  ["src/agent/profile.ts", "supabase/functions/turn/profile.ts"],
   ["src/agent/opt-in.ts", "supabase/functions/turn/opt-in.ts"],
   ["src/agent/agent-version.ts", "supabase/functions/turn/agent-version.ts"],
   ["src/agent/experiments.ts", "supabase/functions/turn/experiments.ts"],
