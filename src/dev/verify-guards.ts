@@ -2450,8 +2450,9 @@ const MUTATIONS: Mutation[] = [
     id: "REV-12-estoque-acabando",
     bug: "'O estoque tá acabando', 'quase esgotado' passavam fora do adiamento",
     files: ["src/agent/guardrails.ts", "supabase/functions/turn/guardrails.ts"],
-    from: "          /\\b(?:estoque|lote|unidades|pecas)\\b(?:(?!",
-    to: "          /\\b(?:xestoque)\\b(?:(?!",
+    // Since the PR 77 review the stock reader sits at module level (`claimsStock`), two spaces deep.
+    from: "  /\\b(?:estoque|lote|unidades|pecas)\\b(?:(?!",
+    to: "  /\\b(?:xestoque)\\b(?:(?!",
     guard: ["pnpm", "-s", "vitest", "run", "tests/review-2026-09-29-gates.test.ts"],
   },
   {
