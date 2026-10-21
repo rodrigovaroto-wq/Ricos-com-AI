@@ -1822,8 +1822,9 @@ const MUTATIONS: Mutation[] = [
     id: "R15.3-valor-no-frete",
     bug: "valor atribuído ao frete passava na frase do frete grátis da entrega",
     files: ["src/agent/guardrails.ts"],
-    from: "[...t.matchAll(ATTRIBUTED_TO_SHIPPING)].some((m) => !freeOnDelivery.has(startOf(m.index ?? 0)))",
-    to: "[...t.matchAll(ATTRIBUTED_TO_SHIPPING)].some(() => false)",
+    // Since §4.7 (2026-10-21) the matches are filtered, then checked against the freight read this turn.
+    from: "...[...t.matchAll(ATTRIBUTED_TO_SHIPPING)].filter((m) => !freeOnDelivery.has(startOf(m.index ?? 0))),",
+    to: "...[...t.matchAll(ATTRIBUTED_TO_SHIPPING)].filter(() => false),",
     guard: ["pnpm", "-s", "vitest", "run", "tests/honest-sales-lines.test.ts"],
   },
   {
@@ -2151,8 +2152,9 @@ const MUTATIONS: Mutation[] = [
     bug: "o prompt ensinava o número do estoque para a conversa inteira",
     files: ["src/agent/prompt.ts", "supabase/functions/turn/prompt.ts"],
     // Since R20.1 (grafo §72) the briefing is one line with no number; the mutation puts the number back.
-    from: "  return [\"\", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];",
-    to: "  return [\"\", `URGÊNCIA REAL: restam 12 unidades.`];",
+    // Since §4.6 (2026-10-21) the no-number line is the `:` branch of the real-stock ternary.
+    from: "    : [\"\", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];",
+    to: "    : [\"\", `URGÊNCIA REAL: restam 12 unidades.`];",
     guard: ["pnpm", "-s", "vitest", "run", "tests/think-reply.test.ts"],
   },
   {

@@ -205,7 +205,8 @@ describe("C7 — recusar um dado não é 'vou pensar'", () => {
   });
 
   it("o turno não manda a resposta fixa do 'vou pensar' para a recusa de dado", () => {
-    expect(turn).toContain('!refusesAskedDatum(lastOutbound, spoken(inbound.body ?? ""))');
+    // The fixed "vou pensar" line itself (since plan 16 the vague-objection guard has the same check on another line).
+    expect(turn).toContain('interpretation.pending_answer !== "other_question" &&\n    !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&\n    !clauses.some(');
   });
 });
 
