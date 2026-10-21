@@ -3992,11 +3992,16 @@ e os dois assuntos estejam na mesma frase que termina em "?" (o emoji fecha fras
 acabando por aqui", "Ficou com alguma dúvida… 🤔?", a pergunta quebrada em duas linhas). Caminho que funcionou: não ler o texto de volta.
 O perfil guarda `stock_offered` e `vague_asked`, marcados pelo que o turno DECIDIU (linha do estoque oferecida, pergunta dada) e nunca
 desmarcados; `askedVagueQuestion` saiu (código morto). O `claimsStock` fica só para a linha dita antes de existir a marca.
-Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-estoque-dito-pelo-gate`,
+**Rodada 5:** a primeira versão marcava ANTES do modelo, e uma revisão ou nova tentativa do mesmo turno lia a própria marca e perdia a
+linha ou a pergunta (e a revisão, juntando sobre o perfil anterior, desmarcava). Agora a marca sai ao lado de `recordOutcome`, do que vai
+na resposta: `saidStock` = a linha do estoque estava na resposta (`claimsStock(replyText)`), `askedVague` = a instrução da pergunta foi
+usada nesta resposta. **Resíduos atualizados:** se essa escrita falhar, a linha ou a pergunta pode sair uma vez a mais; a resposta da
+noite (adiada) não marca (o turno da manhã reavalia).
+Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-perfil-marca-da-pergunta-perdida`, `P16-estoque-dito-pelo-gate`,
 `P16-perfil-despedida`, `P16-frete-nan`.
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
 no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
-cache (fica "aparece no checkout"); a linha do estoque lida há mais de 20 mensagens pode sair uma segunda vez.
+cache (fica "aparece no checkout").
 
 ## Lições (valem para qualquer correção futura)
 

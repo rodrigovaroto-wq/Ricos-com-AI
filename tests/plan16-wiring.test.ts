@@ -278,8 +278,18 @@ describe("uma vez por conversa, pelo que o turno decidiu (/code-review do PR 77,
     expect(after.stock_offered).toBe(true);
     expect(after.vague_asked).toBe(true);
     // A stored profile older than the flags reads them false.
-    expect(mergeProfile({ occasion: "casamento" }, NEUTRAL_INTERPRETATION, { audio: false }).stock_offered).toBe(false);
-    expect(turn).toContain("    stock_offered: folded.stock_offered || stockLine !== null,\n    vague_asked: folded.vague_asked || vagueObjection,");
+    const old = mergeProfile({ occasion: "casamento" }, NEUTRAL_INTERPRETATION, { audio: false });
+    expect(old.stock_offered).toBe(false);
+    expect(old.vague_asked).toBe(false);
+    // Only true carries true: a leaked undefined or a reset is caught (round 5).
+    expect(mergeProfile({ ...EMPTY_PROFILE, vague_asked: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(true);
+    expect(mergeProfile({ ...EMPTY_PROFILE, stock_offered: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(false);
+    // Marked where the reply goes out, never before the model (round 5): a revision or retry must not read its own early mark.
+    expect(turn).toContain("  const saidStock = stockLine !== null && claimsStock(replyText);\n  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON);");
+    expect(turn).toContain("stock_offered: profile.stock_offered || saidStock, vague_asked: profile.vague_asked || askedVague");
+    expect(turn).not.toContain("stock_offered: folded.stock_offered || stockLine !== null");
+    expect(turn.indexOf("const saidStock")).toBeGreaterThan(turn.indexOf("const replyText ="));
+    expect(turn.indexOf("const saidStock")).toBeLessThan(turn.indexOf("  await notifyOnce();\n  await Promise.all(["));
     expect(turn).not.toContain("askedVagueQuestion");
   });
 });

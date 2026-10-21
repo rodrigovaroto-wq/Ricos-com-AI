@@ -4132,8 +4132,8 @@ const handleTurn = async (
     region,
     units,
     linkPath,
-    // Offered once per conversation (`profile.stock_offered`, set below when this turn offers it); the gate's own reader catches a
-    // stock line said before the flag existed.
+    // Once per conversation: `profile.stock_offered`, marked where the reply goes out with the line in it (below, beside
+    // `recordOutcome`); the gate's own reader catches a line said before the mark existed.
     stockSaid: storedProfileOf(lead)?.stock_offered === true || recentOutbound.some((m: string) => claimsStock(m)),
   });
   const turnFacts = { stockLine, prepayFreightBrl };
@@ -4363,8 +4363,6 @@ const handleTurn = async (
     audio_count: folded.audio_count + (profileReplayed ? 0 : Math.max(audioParts - 1, 0)),
     trigger_uses: triggerUses,
     trigger_counted_at: triggerCount.countedAt,
-    stock_offered: folded.stock_offered || stockLine !== null,
-    vague_asked: folded.vague_asked || vagueObjection,
   };
   // Plan 16 §4.2: her readiness score from what this turn settled, with the profile, in one write of its own — before 0029 the
   // columns do not exist, PostgREST refuses the PATCH with 400, and nothing else goes with it (the `entry_at` rule of 0022).
@@ -5150,6 +5148,17 @@ const handleTurn = async (
    * create the order" with no order to create. What is missing stays in `orderBlocked`.
    */
   const orderReady = order !== null;
+  // Plan 16 §4.5/§4.6: the once-per-conversation marks, from what goes out — the stock line in the reply, the vague question's
+  // guide in this reply. Marked here and not before the model (round 5 of the PR 77 review: a revision or a retry of the same turn
+  // read its own early mark and lost the line or the question). Failure swallowed: at worst the line may go once more.
+  const saidStock = stockLine !== null && claimsStock(replyText);
+  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON);
+  if ((saidStock && !profile.stock_offered) || (askedVague && !profile.vague_asked)) {
+    await db(`leads?id=eq.${lead.id}`, {
+      method: "PATCH",
+      body: JSON.stringify({ profile: { ...profile, stock_offered: profile.stock_offered || saidStock, vague_asked: profile.vague_asked || askedVague } }),
+    }).catch(() => undefined);
+  }
   // Once per conversation (review of v38): a second "quero falar com uma pessoa" does not e-mail again.
   await notifyOnce();
   await Promise.all([
