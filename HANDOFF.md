@@ -48,7 +48,18 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >   na voz de campanha Black. Ficam fixos de propósito: as linhas de pagamento, a recepção da noite e as respostas seguras depois de 5 vetos.
 >   Revisão Opus: `notifyOnce`, o sim antes do antecipado, a régua parada na calça fora da tabela, `saysNoDeliveryDay`, `stripMediaLabels`.
 >   Validação: 8517 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G119-*` 15/15, reencenação na `turn` local.
-> - **Falta:** o teste real do operador no WhatsApp na v38 (conferir `turn_outcomes.agent_version = 38`); (f) quem responde; (e) parecer de conformidade.
+> - **Teste real do operador na v38 (21/10, grafo §120):** a rua não achava o CEP (sem estado; "dr" ≠ "doutor"; CEP de empresa), o
+>   "não sei meu CEP" deixava a venda seguir sem região, e o CEP novo depois do link ouvia "usa lá no mesmo link".
+> - **v39 NO AR** (função v148, 21/10 ~12h48 UTC, `healthy`), grafos §120 e §121:
+>   - a rua acha o CEP: `ufOfPhone` (estado pelo DDD), `STREET_TITLE`, sem CEP de empresa, "até 99/100" cobre o 100, rua lida depois de outra pergunta;
+>   - "não sei o CEP" pede a rua, o número e a cidade uma vez; o CEP novo depois do link é consultado e o link volta com "Conferi o endereço novo";
+>   - gate `support_before_order`: sem pedido, endereço novo nunca vai ao atendimento ao cliente;
+>   - oferta e link no texto final do operador, nos dois caminhos ("Valores dos Kits", preço por peça).
+>   Validação: 8551 testes, conversas 1655/1655, gates com 2 afrouxamentos aceitos (o buscador dos Correios), mutações `G120-*`/`G121-*`,
+>   reencenação do roteiro do operador na `turn` local. Revisão Opus e `/code-review` com achados corrigidos.
+> - **Falta:** novo teste real do operador na v39 (conferir `turn_outcomes.agent_version = 39`); (f) quem responde; (e) parecer de conformidade.
+>   Os arquivos das conversas de 20/10 e 21/10 (`docs/agente-ia/10-auditoria/testes-reais/2026-10-2*-operador-*`) estão fora do commit: o
+>   classificador barrou o envio de conversa real; decisão do operador.
 >   (c) e (d) seguem bloqueados. `graphify` 0.9.92 instalado em `~/.graphify` (some com o container; o setup do ambiente o reinstala).
 > - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
 
