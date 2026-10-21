@@ -368,8 +368,22 @@ export const linkFactsBriefing = (config: PromptConfig): string[] => {
  * (`canonicalFree`, grafo §32), the first of which this paragraph teaches word for word: since
  * §32, naming the path in the sentence is no longer enough to let "frete grátis" through.
  */
-export const freightBriefing = (config: PromptConfig): string[] =>
-  config.delivery.freeShipping === true
+export const freightBriefing = (
+  config: PromptConfig,
+  /**
+   * The prepaid freight the checkout read at her CEP this turn (`prepayFreight`, plan 16 §4.7). Pass it only on the
+   * prepaid path, the same value as `GateContext.prepayFreightBrl`: the gates let it through there and nowhere else.
+   */
+  prepayFreightBrl: number | null = null,
+): string[] => {
+  const f = prepayFreightBrl !== null && Number.isFinite(prepayFreightBrl) && prepayFreightBrl > 0 ? prepayFreightBrl : null;
+  const knownFreight = (f: number) => [
+    `NO ANTECIPADO o frete pra região dela é ${money(f)}: é o que o checkout cobra no CEP dela, lido agora.`,
+    `Diga esse valor, e só ele, numa frase só dele: "No antecipado o frete pra sua região é ${money(f)}."`,
+    `Nunca outro número de frete, nunca diga que é grátis. Nunca cite a economia em reais (a`,
+    `diferença entre os dois preços): diga o percentual e o preço do antecipado.`,
+  ];
+  return config.delivery.freeShipping === true
     ? [
         `O FRETE É GRÁTIS nos dois caminhos, e isso é verdade: o valor que você diz é o valor`,
         `final, sem nada somado na porta nem no checkout. Diga isso — é o argumento mais forte`,
@@ -398,23 +412,33 @@ export const freightBriefing = (config: PromptConfig): string[] =>
                 `é calculado por região no checkout, e você ganha ${config.prices.prepayDiscountPercent}% de desconto: ${money(config.prices.prepayBrl)}."`,
               ]
             : []),
-          `NO ANTECIPADO o frete é calculado por região dentro do checkout, e você NÃO sabe o valor:`,
-          `nunca diga um número de frete, nunca diga que é grátis, nunca prometa que é barato —`,
-          `cada caminho na sua frase. Se ela perguntar quanto é, o valor aparece pra ela dentro do`,
-          `checkout, antes de pagar. Por exemplo: "No antecipado o frete é calculado por região, e o`,
-          `valor aparece pra você no checkout, antes de pagar." Nunca cite a economia em reais (a`,
-          `diferença entre os dois preços): diga o percentual e o preço do antecipado.`,
+          ...(f !== null
+            ? knownFreight(f)
+            : [
+                `NO ANTECIPADO o frete é calculado por região dentro do checkout, e você NÃO sabe o valor:`,
+                `nunca diga um número de frete, nunca diga que é grátis, nunca prometa que é barato —`,
+                `cada caminho na sua frase. Se ela perguntar quanto é, o valor aparece pra ela dentro do`,
+                `checkout, antes de pagar. Por exemplo: "No antecipado o frete é calculado por região, e o`,
+                `valor aparece pra você no checkout, antes de pagar." Nunca cite a economia em reais (a`,
+                `diferença entre os dois preços): diga o percentual e o preço do antecipado.`,
+              ]),
         ]
       : [
           `FRETE. Os dois caminhos são diferentes aqui, e confundir os dois é a mentira que custa`,
           `mais caro. NO PAGAMENTO NA ENTREGA o frete já está dentro do preço: ela paga`,
           `${money(config.prices.codBrl)} na mão do entregador e mais nada. Pode dizer que não tem`,
-          `nada somado na porta — é verdade. NO ANTECIPADO o frete é calculado por região dentro`,
-          `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
-          `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
-          `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
-          `os dois preços): diga o percentual e o preço do antecipado.`,
+          `nada somado na porta — é verdade.`,
+          ...(f !== null
+            ? knownFreight(f)
+            : [
+                `NO ANTECIPADO o frete é calculado por região dentro`,
+                `do checkout, e você NÃO sabe o valor: nunca diga um número de frete, nunca diga que é`,
+                `grátis, nunca prometa que é barato. Se ela perguntar quanto é, o valor aparece pra ela`,
+                `dentro do checkout, antes de pagar. Nunca cite a economia em reais (a diferença entre`,
+                `os dois preços): diga o percentual e o preço do antecipado.`,
+              ]),
         ];
+};
 
 /**
  * The Express (same-day) delivery, only when the operator says it is running. Round 1 with
@@ -471,7 +495,8 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
     `Diga com as suas palavras, do tamanho que a pergunta pede, e volte pra conversa dela. Em`,
     `toda objeção, nesta ordem: acolha sem discutir, entenda com uma pergunta quando a objeção`,
     `pode esconder outra, reenquadre, prove com um fato daqui e dê o próximo passo, sem pressão.`,
-    `— **"Vou pensar" ou "depois eu vejo".** Não insista e não emende outra pergunta: responda`,
+    `— **"Vou pensar" ou "depois eu vejo".** Quando a instrução do turno trouxer a pergunta da dúvida, faça`,
+    `  só ela, do jeito que a instrução diz. Fora isso, não insista e não emende outra pergunta: responda`,
     `  com carinho, tipo "Sem problemas, estou aqui se tiver mais alguma dúvida." Não escreva`,
     `  link nenhum: o link só vai com os dados dela.`,
     `— **Desconfiança ou medo de golpe.** "É justo desconfiar", e a prova é o pagamento na`,
@@ -519,17 +544,103 @@ export const objectionBriefing = (config: PromptConfig): string[] => {
 };
 
 /**
- * What the agent says about urgency: nothing, in the conversation. Until 2026-09-29 a declared
- * count went into the prompt and she used it whenever she judged right; the operator restricted
- * it to her putting the purchase off (R16.5), and that reply is fixed (`thinkReply`), so the
- * model is told the system handles it and `scarcity_claim` refuses it anywhere else.
+ * Real scarcity (operator, 2026-10-21, plan 16 §4.6): the line that says her size is running out, with the units the
+ * Logzz stock read for it (`Region.stockQty`). Null unless `scarcity.lowStock` is set (absent: no scarcity, today's
+ * truth) and 0 < stockQty < lowStock. The same test as `realStock` in guardrails.ts (a value import is not legal here,
+ * see the header): `tests/scarcity-real-stock.test.ts` holds the two to each other. Never a deadline: the offer has no
+ * end date.
  */
-export const scarcityBriefing = (config: PromptConfig): string[] => {
-  // Since 2026-09-29 (R16.5) the stock is said only in the fixed reply to her putting the
-  // purchase off (`thinkReply`); the conversation itself never cites it.
-  // Since 2026-10-11 (R20.1) not even that fixed reply cites it: no real count is behind the number.
+export const stockScarcityLine = (
+  config: Pick<PromptConfig, "scarcity">,
+  size: string,
+  stockQty: number | null | undefined,
+): string | null => {
+  const low = config.scarcity?.lowStock;
+  if (typeof low !== "number" || typeof stockQty !== "number" || !Number.isInteger(stockQty)) return null;
+  if (stockQty <= 0 || stockQty >= low || !/^(?:PP|P|M|G|GG|XG|XGG)$/i.test(size.trim())) return null;
+  return `O *${size.trim().toUpperCase()}* está acabando: restam só *${stockQty}* no estoque 😮`;
+};
+
+/**
+ * What the agent says about urgency. Until 2026-09-29 a declared count went into the prompt and she used it whenever she
+ * judged right; R16.5 restricted it to the fixed "vou pensar" reply and R20.1 (2026-10-11) took even that out: no real
+ * count was behind the number. Since §4.6 (2026-10-21) the turn may carry a real one — `stockScarcityLine`, from the stock
+ * lookup of her size — and then, only then, she may say that line; `scarcity_claim` lets it through with the same
+ * lookup in its context (`GateContext.stockLeft`).
+ */
+export const scarcityBriefing = (config: PromptConfig, stockLine: string | null = null): string[] => {
   void config;
-  return ["", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];
+  return stockLine
+    ? [
+        "",
+        `URGÊNCIA: a consulta de estoque desta conversa leu poucas unidades no tamanho dela. Você pode dizer isso uma vez,`,
+        `numa frase só dela, com estas palavras: "${stockLine}" Fora essa frase, não cite estoque, unidades restantes nem`,
+        `prazo: a oferta não tem data de fim, então nada de "só hoje", "tempo limitado" ou "corre".`,
+      ]
+    : ["", `URGÊNCIA: não cite estoque, unidades restantes nem prazo de oferta — a loja não te deu nenhum número.`];
+};
+
+/** Up to how many sent replies may cite what she told (plan 16 §4.4, operator, 2026-10-21). */
+export const MAX_TRIGGER_USES = 3;
+
+// Accents, case and the hyphen of "pós-parto" never decide a match; "pós parto" is one word too.
+const triggerWords = (s: string): string[] =>
+  s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().replace(/\bpos[\s-]+/g, "pos").replace(/-/g, "").split(/[^a-z0-9]+/).filter(Boolean);
+// The plural and the last vowel: "vestidos" is "vestido", "costas" is "costa"; "vestir" and "parte" stay apart.
+const triggerStem = (w: string): string => w.replace(/s$/, "").replace(/[aeo]$/, "");
+// Words that every sales reply carries, or that carry nothing: they never prove she was cited.
+const TRIGGER_FILLER = new Set(
+  "para pela pelo pelos pelas minha minhas meus suas seus quando porque muito muita sempre fica ficar fico esse essa isso este esta tenho estou quero como mais depois antes ainda todo toda tudo coisa usar uso barriga cintura corpo colete cinta roupa tamanho modela modelar"
+    .split(" "),
+);
+const triggerTerms = (phrase: string): string[] =>
+  [...new Set(triggerWords(phrase).filter((w) => w.length >= 4 && !TRIGGER_FILLER.has(w)).map(triggerStem))];
+
+/**
+ * Whether a sent reply cites what she told: every key term of a one-term phrase ("casamento", "pós-parto"), two of a
+ * longer one ("barriga marca no vestido" needs "marca" and "vestido": "barriga" is in every reply). A phrase with no
+ * key term ("dia a dia") counts when it is said whole.
+ */
+const citesTold = (reply: string, phrase: string): boolean => {
+  const terms = triggerTerms(phrase);
+  if (terms.length === 0) return ` ${triggerWords(reply).join(" ")} `.includes(` ${triggerWords(phrase).join(" ")} `);
+  const said = new Set(triggerWords(reply).map(triggerStem));
+  return terms.filter((t) => said.has(t)).length >= Math.min(2, terms.length);
+};
+
+/** The told occasion and pain, as data: no quote or line break of hers reaches the directive. */
+const toldText = (s: string | null | undefined): string => (s ?? "").replace(/["\r\n]+/g, " ").replace(/\s+/g, " ").trim().slice(0, 80);
+
+/** How many of the replies Malu sent cite her occasion or her pain (plan 16 §4.4: counted on what was SENT). */
+export const countTriggerUses = (
+  outboundTexts: readonly string[],
+  profile: { occasion?: string | null; pain?: string | null },
+): number => {
+  const told = [toldText(profile.occasion), toldText(profile.pain)].filter(Boolean);
+  return told.length === 0 ? 0 : outboundTexts.filter((m) => told.some((p) => citesTold(m, p))).length;
+};
+
+/**
+ * Her personal trigger (plan 16 §4.4): the occasion or the pain she told, used up to three times in what Malu sends.
+ * `next_reply` is the reply right after the message she told it in ("use isso agora"); `free` is any later turn ("pode
+ * usar mais uma vez se encaixar"); from the third use on, "não cite mais". Null when she told nothing. The second use is
+ * the offer's hook bubble, which the turn sends; this directive only speaks to the model's own replies.
+ */
+export const personalTriggerDirective = (
+  profile: { occasion?: string | null; pain?: string | null },
+  usesSoFar: number,
+  moment: "next_reply" | "free",
+): string | null => {
+  const occasion = toldText(profile.occasion);
+  const pain = toldText(profile.pain);
+  if (!occasion && !pain) return null;
+  const told = `Ela contou ${[occasion ? `pra que quer o colete ("${occasion}")` : "", pain ? `o que a incomoda ("${pain}")` : ""].filter(Boolean).join(" e ")}.`;
+  if (usesSoFar >= MAX_TRIGGER_USES) return `${told} Você já citou isso ${MAX_TRIGGER_USES} vezes: não cite mais.`;
+  return moment === "next_reply"
+    ? `${told} Use isso nesta resposta, numa frase com as palavras dela, ligando ao que o colete faz enquanto está vestido.` +
+        ` Sem prometer que trata dor, emagrece ou muda o corpo.`
+    : `${told} Pode citar isso mais uma vez, se encaixar no que ela perguntou; não é obrigatório.` +
+        ` Nunca com a mesma frase de antes, e sem prometer que trata dor, emagrece ou muda o corpo.`;
 };
 
 /**
@@ -602,6 +713,12 @@ export const systemPrompt = (
   sizeDirective: string | null,
   identityDirective: string | null = null,
   checkoutDirective: string | null = null,
+  /**
+   * What this turn's lookups read (plan 16 §4.6–4.7), the same values the turn puts in the gate context:
+   * `stockLine` is `stockScarcityLine`'s (and `GateContext.stockLeft` carries its size and count), and
+   * `prepayFreightBrl` goes only on the prepaid path (`GateContext.prepayFreightBrl`). Absent: today's prompt.
+   */
+  turnFacts: { stockLine?: string | null; prepayFreightBrl?: number | null } = {},
 ): string => {
   const options = twoOptionsMessage(config);
   return [
@@ -693,6 +810,12 @@ export const systemPrompt = (
     `  converte mais que "quer comprar?".`,
     `— **Espelhe:** use as palavras dela. Se ela disse "barriguinha", não corrija para`,
     `  "abdômen". Se ela disse o nome da festa, use o nome da festa.`,
+    // Plan 16 §4.4 (operator, 2026-10-21): her occasion or pain, up to three times, said naturally.
+    `— **O que ela contou é o seu melhor argumento, até três vezes na conversa.** A ocasião ou o`,
+    `  incômodo que ela contou: a instrução do turno diz quando usar e quando parar. Cada vez com palavras`,
+    `  novas, ligado ao que ela perguntou, nunca a mesma frase de antes e nunca em toda mensagem. Ligue ao`,
+    `  que o colete faz enquanto está vestido (modela a cintura, dá apoio à postura); nunca prometa que`,
+    `  trata dor, emagrece ou muda o corpo.`,
     `— **Uma pergunta viva no fim, e ela é um gancho na dor dela.** Conversa que termina em ponto`,
     `  final morre. Enquanto ela tira dúvidas, responda a dúvida e termine com UMA pergunta que puxe a`,
     `  conversa pra ela — o que a incomoda, a ocasião, como ela se sente, ou (uma vez só na conversa) a`,
@@ -835,7 +958,7 @@ export const systemPrompt = (
     ...kitsBriefing(config),
     ...linkFactsBriefing(config),
     ``,
-    ...freightBriefing(config),
+    ...freightBriefing(config, turnFacts.prepayFreightBrl ?? null),
     ``,
     `Tamanhos P, M, G, GG, XGG por cintura: 60-68, 68-76, 76-84, 84-92, 92-100 cm. A tabela vai até o`,
     `XGG, que veste cintura de até 100 cm (até o 52 de calça). O tamanho é a`,
@@ -861,7 +984,7 @@ export const systemPrompt = (
     `3. **Estoque ou prazo**, do jeito que a loja mandar — ver o bloco de urgência abaixo.`,
     ``,
     `Fora dessas, o campo é seu.`,
-    ...scarcityBriefing(config),
+    ...scarcityBriefing(config, turnFacts.stockLine ?? null),
     ...(config.testimonials?.length
       ? [
           `DEPOIMENTOS REAIS que você pode citar entre aspas, palavra por palavra, sem inventar`,

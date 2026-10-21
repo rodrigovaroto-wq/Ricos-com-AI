@@ -322,6 +322,54 @@ export const PREPAID_CANCEL_REPLY = "Conferi que seu pedido ainda não saiu para
 export const THINK_REPLY = "Sem problemas, estou aqui se tiver mais alguma dúvida";
 
 /**
+ * Her vague objection ("tá caro", "achei mais barato", "vou ver", "vou pensar"): one question, the operator's
+ * (plan 16 §4.5, 2026-10-21), with one TRUE reason to buy now. Asked once: if she says again that she will think, the
+ * reply of today (`thinkReply`), no second question.
+ */
+export const VAGUE_OBJECTION_QUESTION = "Claro! Ficou alguma dúvida que eu possa resolver, sobre o tamanho, a entrega ou o valor? 💛";
+/** The guide's reason, as `turn_outcomes.reason` records it: what tells the turn the question was asked already. */
+export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
+
+/** The question went out already, in the model's words (it answers "no seu jeito"): a doubt and two of its three subjects. */
+export const askedVagueQuestion = (outbound: readonly string[]): boolean =>
+  outbound.some((m) => {
+    const t = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+    return /\bduvida\b/.test(t) && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(t)).length >= 2;
+  });
+
+/** What the vague objection's reasons read: the prices and the warranty. */
+export interface VagueObjectionConfig {
+  prices: { codBrl: number; prepayBrl: number; anchorBrl: number };
+  delivery: { warrantyDays: number };
+}
+
+/**
+ * The guide's situation for her vague objection: the question, and only the reasons true in this turn, each in a
+ * sentence the gate chain passes (`tests/vague-objection.test.ts`). "Chega em menos de 24 horas" is what
+ * `delivery_promise` vetoes, so the next-day reason is the checkout's first date, said as a fact; never a deadline
+ * of the offer, which has no end date.
+ */
+export const vagueObjectionSituation = (
+  c: VagueObjectionConfig,
+  facts: { codAvailable: boolean; firstDateIsTomorrow: boolean; scarcityLine: string | null },
+): string => {
+  const reasons = [
+    ...(facts.codAvailable && facts.firstDateIsTomorrow ? ["A primeira data que aparece no checkout pra sua região é amanhã."] : []),
+    ...(facts.codAvailable ? ["Você não paga nada agora: paga só quando o colete chegar."] : []),
+    `Você tem ${c.delivery.warrantyDays} dias após o recebimento pra trocar ou devolver.`,
+    facts.codAvailable
+      ? `Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.codBrl)} na entrega.`
+      : `Ele sai de ${reais(c.prices.anchorBrl)} por ${reais(c.prices.prepayBrl)} no antecipado.`,
+    ...(facts.scarcityLine ? [facts.scarcityLine] : []),
+  ];
+  return (
+    `Ela fez uma objeção vaga (tá caro, achei mais barato, vou ver ou vou pensar). Responda com uma pergunta só, a do modelo,` +
+    ` e antes dela no máximo UM destes motivos verdadeiros pra comprar agora, com estas palavras, sem pressão: ` +
+    `${reasons.map((r) => `"${r}"`).join(" ou ")} Nenhum outro motivo, nenhum prazo de oferta e nenhum link.`
+  );
+};
+
+/**
  * Her pants size is past the whole table (real test 2026-10-14, …1632, "Tamanho 65"): the truth, kindly, once, and
  * the door left open for someone else — no question, no offer. The turn stops the ruler after it: the hour after,
  * "me diz que tamanho de calça você usa" asked her the size she had given and been told did not fit.

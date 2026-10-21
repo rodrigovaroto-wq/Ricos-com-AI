@@ -131,6 +131,13 @@ export interface GateConfig {
      * the customer who kept the screenshot is the one who complains.
      */
     allowUnverified?: boolean;
+    /**
+     * Real scarcity (operator, 2026-10-21, plan 16 §4.6): below this many units of HER size in the Logzz stock
+     * (`Region.stockQty`), the agent may say that size is running out, with the real number. OPTIONAL, and absent
+     * means no scarcity at all — today's truth, since the secret does not carry the key. Never a deadline: the
+     * offer has no end date.
+     */
+    lowStock?: number;
   };
 }
 
@@ -254,7 +261,34 @@ export interface GateContext {
   sizeAsks?: number;
   /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
   hookSent?: boolean;
+  /**
+   * Her size and its units in the Logzz stock, read this turn (`Region.stockQty`, plan 16 §4.6). Only with
+   * `scarcity.lowStock` set and 0 < qty < lowStock may `scarcity_claim` let a stock sentence through, and only one
+   * that names her size and no other count. Absent (every other turn, the sweep, the fixed replies): today's veto.
+   */
+  stockLeft?: { size: string; qty: number };
+  /**
+   * The prepaid freight the checkout charges at her CEP, read this turn (`prepayFreight`, plan 16 §4.7). On the
+   * prepaid path only, `price_promise` and `shipping_promise` let exactly this amount be said as the freight's.
+   * Absent: no freight number, as before.
+   */
+  prepayFreightBrl?: number;
 }
+
+/** The stock the agent may cite this turn (`GateContext.stockLeft` under `scarcity.lowStock`), or null. */
+const realStock = (ctx: GateContext): { size: string; qty: number } | null => {
+  const low = ctx.config.scarcity?.lowStock;
+  const s = ctx.stockLeft;
+  return s && typeof low === "number" && Number.isInteger(s.qty) && s.qty > 0 && s.qty < low ? s : null;
+};
+
+/** The prepaid freight the agent may cite this turn: the lookup's, on the prepaid path only, never where both ship free. */
+const realFreight = (ctx: GateContext): number | null => {
+  const f = ctx.prepayFreightBrl;
+  return ctx.paymentPath === "prepay" && ctx.config.delivery.freeShipping !== true && typeof f === "number" && Number.isFinite(f) && f > 0
+    ? Math.round(f * 100) / 100
+    : null;
+};
 
 const norm = (s: string): string =>
   s.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
@@ -1232,8 +1266,11 @@ const gates: readonly Gate[] = [
       // funnel, and the answer to it — "não consigo oferecer 30% de desconto" — used
       // to be vetoed, burning two rewrites and ending in a handoff for a turn the
       // agent had already got right.
+      // The prepaid freight the checkout read at her CEP this turn (§4.7): that amount, in a sentence about the freight.
+      const freight = realFreight(ctx);
       for (const m of moneyMatches(t)) {
         if (allowedPrices.has(m.value) || negatedAt(t, m.at)) continue;
+        if (freight !== null && m.value === freight && (/\bfrete\b(?:[^.!?\n]|\.(?=\d))*$/.test(t.slice(0, m.at)) || /^(?:[^.!?\n]|\.(?=\d))*\bfrete\b/.test(t.slice(m.at)))) continue;
         return `price ${m.value} is not one of the configured values`;
       }
 
@@ -2404,11 +2441,17 @@ const gates: readonly Gate[] = [
     name: "scarcity_claim",
     remedy: "rewrite",
     // R20.1 (2026-10-11): no fixed reply cites the stock any more, so none is promised to the model.
-    briefing: () =>
-      `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
-      `urgência inventada é publicidade enganosa.`,
+    // §4.6 (2026-10-21): with `lowStock` set, the turn's own stock line is the one exception the prompt names.
+    briefing: (c) =>
+      typeof c.scarcity?.lowStock === "number"
+        ? `Não cite estoque acabando nem prazo de oferta, a não ser a frase de estoque real que a instrução de ` +
+          `urgência te der, com o número dela e o tamanho dela. A oferta não tem data de fim: nada de "só hoje" ` +
+          `nem "tempo limitado". Urgência inventada é publicidade enganosa.`
+        : `Não cite estoque acabando nem prazo de oferta: a loja não te deu número nenhum, e ` +
+          `urgência inventada é publicidade enganosa.`,
     check: (text, ctx) => {
-      const t = norm(text);
+      // "Restam só *12*": the bold of the WhatsApp hid the count from every pattern below (§4.6 teaches it bold).
+      const t = norm(text).replace(/[*_~]/g, "");
 
       // Real urgency is allowed to be said. A declared unit count lets her name that
       // number, and a declared end date lets her say the offer ends — the gate exists
@@ -2426,19 +2469,22 @@ const gates: readonly Gate[] = [
         // of the sentence makes it one ("tenho só mais 12.", "restam apenas doze unidades").
         const STOCK = String.raw`(?=\s*(?:(?:unidades?|pecas?|coletes?|cintas?|kits?|(?:em|no)\s+estoque|(?:d[oa]s?|n[oa]s?)\s+(?:tamanho\s+)?(?:p|m|g|gg|xgg)|(?:no|do)\s+tamanho|pra\s+pronta\s+entrega|disponive\w*|sobrando|restando|aqui|hoje|agora|separad\w*)\b|[.!?]|$))`;
         const WORDS = String.raw`(?:uma?|dois|duas|tres|quatro|cinco|seis|sete|oito|nove|dez|onze|doze|treze|qu?atorze|catorze|quinze|dezesseis|dezessete|dezoito|dezenove|vinte)\b`;
-        const anyStock =
+        // The stock claims, which the real count of her size can back (§4.6)…
+        const stockIn = (t: string): boolean =>
           new RegExp(String.raw`\b(?:resta|restam|restando|sobra|sobram|sobrou|sobraram|sobrando)\s+(?:(?:so|apenas|somente)\s+)?(?:mais\s+)?(?:\d{1,4}\b${NOT_STOCK}|${WORDS}${STOCK})`).test(t) ||
           new RegExp(String.raw`\b(?:(?:so|apenas|somente)\s+(?:tem|temos|tenho)|(?:tem|temos|tenho)\s+(?:so|apenas|somente))\s+(?:mais\s+)?(?:\d{1,4}\b|${WORDS})${STOCK}`).test(t) ||
           new RegExp(String.raw`\bultim[ao]s?\s+(?:(?:\d{1,4}|${WORDS})\s+)?(?:unidades?|pecas?|coletes?|cintas?|kits?)\b`).test(t) ||
-          // "Últimos dias/horas" is a deadline unless it looks back ("nos últimos dias muita gente
-          // pediu", "e nos últimos dias também vale") with no offer in its sentence (finding 6).
-          /(?<!\bn[oa]s\s+)\bultim[ao]s?\s+(?:dias?|horas?)\b/.test(t) ||
-          sentencesIn(t).some((s) => /\bultim[ao]s?\s+(?:dias?|horas?)\b/.test(s) && /\b(?:promoc\w*|ofertas?|precos?|descontos?|condic\w*|cupom)\b/.test(s)) ||
           /\bpoucas?\s+(?:unidades?|pecas?|coletes?)\b/.test(t) ||
           /\b(?:estoque|lote|unidades|pecas)\b(?:(?!\b(?:nao|nunca)\b)[^.!?]){0,20}?\b(?:acaband\w*|esgot\w*|no\s+fim|limitad\w*|quase|baixo|voando)\b/.test(t) ||
           // The verb before the noun: "tá acabando o estoque" (finding 7).
           /\b(?:acaband\w*|esgotand\w*|no\s+fim)\s+(?:(?:o|a|os|as|nosso|nossa|do|da)\s+)?(?:estoque|lote|unidades|pecas|coletes)\b/.test(t) ||
-          /\besgotad\w*\b/.test(t) ||
+          /\besgotad\w*\b/.test(t);
+        // …and the deadlines, which nothing backs: the offer has no end date (operator, 2026-10-21).
+        const deadlineIn = (t: string): boolean =>
+          // "Últimos dias/horas" is a deadline unless it looks back ("nos últimos dias muita gente
+          // pediu", "e nos últimos dias também vale") with no offer in its sentence (finding 6).
+          /(?<!\bn[oa]s\s+)\bultim[ao]s?\s+(?:dias?|horas?)\b/.test(t) ||
+          sentencesIn(t).some((s) => /\bultim[ao]s?\s+(?:dias?|horas?)\b/.test(s) && /\b(?:promoc\w*|ofertas?|precos?|descontos?|condic\w*|cupom)\b/.test(s)) ||
           /\b(?:promocao|oferta|desconto|condicao|preco)\s+(?:acaba|termina|expira|vence)\b/.test(t) ||
           // "Esse desconto é só hoje", "o preço vale só até amanhã" (finding 7).
           sentencesIn(t).some((s) => /\b(?:so|apenas|somente)\s+(?:(?:por|pra|para)\s+)?(?:hoje|amanha|essa\s+semana|este\s+fim\s+de\s+semana|ate\s+(?:hoje|amanha|meia|o\s+fim|domingo|sexta|sabado))\b/.test(s) && /\b(?:promoc\w*|ofertas?|precos?|descontos?|condic\w*|cupom|valor|kits?)\b/.test(s)) ||
@@ -2446,7 +2492,25 @@ const gates: readonly Gate[] = [
           /\bacaba\s+em\s+\d/.test(t) ||
           /\bcorre\s+que\s+(?:acaba|vai\s+acabar)\b/.test(t) ||
           /\bvagas?\s+limitad[ao]s?\b/.test(t);
-        return anyStock ? "cites stock or a deadline outside the reply to her putting the purchase off" : null;
+        const real = realStock(ctx);
+        if (real === null) return stockIn(t) || deadlineIn(t) ? "cites stock or a deadline outside the reply to her putting the purchase off" : null;
+        // §4.6: the lookup read her size below `lowStock`. A stock sentence passes when it names her size, and every
+        // count in it is the one the lookup read; a deadline never does.
+        if (deadlineIn(t)) return "cites a deadline, and the offer has no end date";
+        const size = norm(real.size);
+        let judged = false;
+        for (const s of sentencesIn(t)) {
+          if (!stockIn(s)) continue;
+          judged = true;
+          if ([...s.matchAll(/\d+/g)].some((m) => Number(m[0]) !== real.qty)) return `cites a stock count other than the ${real.qty} the lookup read`;
+          if (new RegExp(String.raw`\b(?:resta|restam|restando|sobra\w*|ultim[ao]s?|(?:tem|temos|tenho)\s+(?:so|apenas|somente))\s+(?:(?:so|apenas|somente)\s+)?(?:mais\s+)?${WORDS}`).test(s))
+            return `cites a stock count in words, and only the ${real.qty} the lookup read may be said`;
+          const sizes = [...s.matchAll(/\b(?:o|do|no|tamanho)\s+(pp|p|m|g|gg|xg|xgg)\b/g)].map((m) => m[1]);
+          const hers = sizes.length > 0 ? sizes.every((z) => z === size) : /\bseu\s+tamanho\b/.test(s);
+          if (!hers) return `cites the stock of another size than her ${real.size}`;
+        }
+        // A claim only the whole text shows (across a line break) is judged by no sentence: refused, as before.
+        return stockIn(t) && !judged ? "cites stock outside a sentence that names her size" : null;
       }
       if (declared?.allowUnverified) return null;
       const unitsLeft = declared?.unitsLeft ?? undefined;
@@ -2904,9 +2968,15 @@ const gates: readonly Gate[] = [
         // free claim passed as cash on delivery, the amount beside `frete` is the product's —
         // "pagando na entrega, levando 2 peças o frete é grátis e sai R$ 233,82". `price_promise`
         // still holds it to a delivery price, and "R$ 15 de frete" is vetoed everywhere.
-        const attributedToShipping =
-          [...t.matchAll(ATTRIBUTED_TO_SHIPPING)].some((m) => !freeOnDelivery.has(startOf(m.index ?? 0))) ||
-          /\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/.test(t);
+        // §4.7: on the prepaid path the freight the checkout read at her CEP this turn is citable — that amount only.
+        const freight = realFreight(ctx);
+        const attributedToShipping = [
+          ...[...t.matchAll(ATTRIBUTED_TO_SHIPPING)].filter((m) => !freeOnDelivery.has(startOf(m.index ?? 0))),
+          ...t.matchAll(/\br\$\s*[\d.,]+\s*(reais)?\s*de\s+frete\b/g),
+        ].some((m) => {
+          const said = moneyMatches(m[0]);
+          return freight === null || said.length === 0 || !said.every((a) => a.value === freight);
+        });
         if (attributedToShipping) {
           return "names a shipping amount, and neither offer has a citable one";
         }
