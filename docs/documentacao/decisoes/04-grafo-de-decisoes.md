@@ -3800,6 +3800,30 @@ por conversa em todo caminho (linha fixa, noite, rascunho, final); o antecipado 
 (`callConversationModel`); o exemplo do pedido de pessoa era vetado pelo `humanity_claim` — virou `PERSON_ASK_EXAMPLE`, limpo nos gates.
 **Estado:** publicado em 20/10 (~22h50 UTC) na `turn` **v38** (`agent_versions` 38, função v146, commit `9c890f7`), `health` → `healthy`.
 
+## 120. O teste real do operador na v38 (2026-10-21): a rua, o "não sei o CEP" e o CEP novo depois do link
+
+**Sintomas** (conversa arquivada em `docs/agente-ia/10-auditoria/testes-reais/2026-10-21-operador-v38.md`):
+(1) "Mas não sei meu cep / So minha rua" recebeu o buscador dos Correios e "Você pensou em usar com qual peça?", e por três turnos a venda
+seguiu sem a região ("deixa isso de lado por agora", "Vamos seguir assim?", "assim que você tiver o CEP por perto");
+(2) "Me manda sua rua e a cidade que eu vejo pra você?" e, com a rua dada, "Pela rua sozinha não consigo ver";
+(3) o CEP novo depois do link recebeu "Usa o CEP lá no mesmo link", sem consulta da entrega no endereço novo.
+Na reencenação: (4) "quero trocar meu endereço", sem pedido, foi ao atendimento ao cliente (a linha do prompt para pedido criado, copiada
+contra a diretiva); (5) o `unavailable_offer` vetava "buscador dos Correios … aqui/endereço" como retirada na loja.
+**Causas:** (1) a diretiva do `cepForgotten` mandava "siga a conversa (tamanho, kit)"; (2) `streetQueries` sem estado e sem CEP anterior não
+dava estado a `cepsByStreet`, que não buscava; e "dr" não acha "Doutor" na busca dos Correios; e um CEP de empresa ("unidade") na mesma rua
+fazia `pickStreetCep` pedir o número da casa; (3) `linkHeldBack` segurava o mesmo link sem olhar o CEP; (4) só a diretiva, sem gate;
+(5) `busca\w*` casava "buscador".
+**Correção:** `ufOfPhone` (estado pelo DDD) como último recurso do estado da rua; `STREET_TITLE` em `streetQueries` (dr → doutor…);
+`cepsByStreet` tira o CEP de empresa; a diretiva do `cepForgotten` pede a rua, o número e a cidade uma vez (`asksStreet`), sem a palavra CEP
+(que o `cep_insist` veta), e o buscador só se ela não achar; `cepMoved` solta o link e manda antes `CEP_MOVED_COD` ("Conferi o endereço
+novo…"), e sem entrega no endereço novo segue a pergunta dos Correios de antes; gate `support_before_order` (rewrite) com
+`addressBeforeOrder`; `busca(?!dor)` no `unavailable_offer` (afrouxamento aceito em `tests/gate-loosen-accepted.txt`).
+**Guarda:** `tests/operator-test-2026-10-21.test.ts`; mutações `G120-*`; `pnpm dev:gates`: 2 afrouxamentos, ambos aceitos.
+**Prova prática:** reencenação na `turn` local com o roteiro dela (telefone de teste com DDD 11, apagado depois): a rua achou 04710-090
+e a oferta saiu; o CEP novo foi consultado e o link voltou com "Conferi o endereço novo"; o pedido de troca de endereço sem pedido pediu o
+CEP novo (o rascunho com o atendimento foi vetado e reescrito).
+**Fica com o operador:** o áudio 4 diz "Eu acabei de te enviar os tamanhos", e a tabela agora só vai a pedido.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

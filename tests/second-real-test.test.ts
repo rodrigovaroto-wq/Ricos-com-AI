@@ -457,7 +457,7 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
     expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
     // R28: the script v3 link message (`funnelLinkMessage`), fixed.
     expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
-    expect(turn).toContain("await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }]");
+    expect(turn).toContain("{ text: cepMoved && linkPath === \"cod\" ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
   });
 });
 

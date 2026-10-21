@@ -296,7 +296,10 @@ export const cepsByStreet = async (
   for (const list of lists) {
     if (!Array.isArray(list) || list.length === 0) continue;
     return list
-      .filter((x): x is { cep: string; complemento?: string; logradouro?: string; localidade?: string } => typeof x?.cep === "string")
+      .filter((x): x is { cep: string; complemento?: string; logradouro?: string; localidade?: string; unidade?: string } => typeof x?.cep === "string")
+      // A company's own CEP ("unidade": "Rheen Empreendimentos…") is no home's: kept, her one-CEP street asked the house number
+      // for nothing (operator's test, 2026-10-21).
+      .filter((x) => !x.unidade)
       .map((x) => ({ cep: x.cep, complement: x.complemento ?? "", street: x.logradouro ?? "", city: x.localidade ?? "" }));
   }
   return [];

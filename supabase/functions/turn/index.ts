@@ -87,6 +87,8 @@ import {
   sameStreet,
   streetQueries,
   ufOfCep,
+  ufOfPhone,
+  asksStreet,
   CORREIOS_CEP_URL,
   forgetsCep,
   refusesCep,
@@ -1043,6 +1045,7 @@ const ORDER_UNREADABLE_REASON = "a cliente fala de um pedido que o sistema não 
 const PERSON_ASK_EXAMPLE = "Entendo 💛 Por aqui o atendimento é todo comigo, e eu resolvo tudo pra você. Me conta o que você precisa?";
 
 // Before the order, a new address is looked up again (operator, 2026-10-20): it may be outside the delivery network.
+const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento na entrega 😊\n\nÉ só usar esse endereço no checkout.";
 const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
 
 const notification = (
@@ -3773,7 +3776,8 @@ const handleTurn = async (
       return q.number === null && askedHouse && lone ? { ...q, number: lone } : q;
     })
     : ([...herEarlier].reverse().map(streetQueries).find((q) => q.length > 0) ?? []).map((q) => ({ ...q, number: bareNumber }));
-  const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "");
+  const streetState = streetAsk[0]?.state ?? ufOfCep([...herEarlier, ...parts].map(parseCep).filter((c): c is string => c !== null).at(-1) ?? "") ??
+    ufOfPhone(lead.phone ?? "");
   const streetRaw = streetAsk.length > 0 && streetState
     ? await cepsByStreet(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), streetState, streetAsk).catch(() => [])
     : null;
@@ -4169,7 +4173,10 @@ const handleTurn = async (
             `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(",")})&select=body&order=created_at.desc&limit=1`,
           ).catch(() => null))?.map((m: { body: string | null }) => m.body ?? "") ?? recentOutbound)
       : recentOutbound;
-  const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
+  // A new CEP after the link (operator's test, 2026-10-21: "usa o CEP novo lá no mesmo link"): the region was looked up again,
+  // so the link goes again, filled with the new address — or, without delivery there, the Correios question (`codBefore`).
+  const cepMoved = Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "");
+  const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
   // The kit, offered once after she chooses how to pay and before the data (operator, 2026-10-06:
@@ -4206,8 +4213,8 @@ const handleTurn = async (
         : `Ela quer fechar, mas o tamanho ainda não foi definido: antes do link, pergunte com` +
           ` naturalidade que número de calça ela usa — o link só vai depois do tamanho.`
       : missing === "cep" && cepDue && cepForgotten
-        ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; diga numa frase que,` +
-          ` assim que ela tiver o CEP, o link sai — sem pedir que ela mande. Não escreva link nenhum.`
+        ? `Ela quer fechar, mas o link só sai com o CEP dela, e ela disse que não lembra: não peça o CEP; peça a rua, o número da` +
+          ` casa e a cidade, que você encontra pra ela, sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.`
       : missing === "cep" && cepDue
         ? `Ela quer fechar, mas o link só sai com o CEP dela: peça o CEP com o motivo, ver como fica a` +
           ` entrega e o pagamento na região dela. Não escreva link nenhum.`
@@ -4404,7 +4411,15 @@ const handleTurn = async (
     if (refusedCorreios) guide("Ela não aceitou ir pelos Correios, ou respondeu outra coisa.", "Tudo bem! Se mudar de ideia, é só me chamar que eu te mando o link 💛", "não aceitou o antecipado depois da pergunta");
     const sent = refusedCorreios ? null : codBefore && lastOutbound !== ADDRESS_NO_COD_ASK
       ? await sendFunnelTurn([{ text: opening(ADDRESS_NO_COD_ASK) }], "endereço novo sem entrega: pergunta do antecipado")
-      : await sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }], linkFact ? `link — ${linkFact}` : "link", { checkoutUrl, linkFact });
+      : await sendFunnelTurn(
+        [
+          // The new CEP checked before the link goes again (operator's test, 2026-10-21): said, so the same link is no puzzle.
+          ...(cepMoved && linkPath === "cod" ? [{ text: opening(CEP_MOVED_COD) }] : []),
+          { text: cepMoved && linkPath === "cod" ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },
+        ],
+        linkFact ? `link — ${linkFact}` : "link",
+        { checkoutUrl, linkFact },
+      );
     if (sent) return sent;
   }
 
@@ -4582,12 +4597,15 @@ const handleTurn = async (
           (recentOutbound.some((m: string) => /\bcep\b[^.!?]*(?<!\p{L})(?:serve|s[oó])(?!\p{L})[^.!?]*entrega/iu.test(m))
             ? ""
             : ` Diga numa frase que o CEP serve só pra ver se o pagamento na entrega chega na casa dela.`)
-        : cepForgotten
-        ? `Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar; siga a conversa (tamanho, kit) e retome o CEP só` +
-          ` quando ela trouxer.` +
-          (recentOutbound.some((m: string) => m.includes(CORREIOS_CEP_URL))
-            ? ""
-            : ` Diga numa frase, sem pedir que ela mande, que ela acha o CEP pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}`)
+        : cepForgotten && streetAsk.length === 0
+        // Operator's test, 2026-10-21: "não sei meu cep / só minha rua" got the Correios site and the sale went on without the
+        // region three turns running. The turn finds the CEP from the street (`cepsByStreet`): the street is asked, once.
+        ? recentOutbound.some(asksStreet)
+          ? `Ela não sabe o CEP e você já pediu a rua e a cidade: não peça de novo. Responda o que ela disse. Só se ela disser que não` +
+            ` sabe a rua ou não achou, diga que ela acha o CEP pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}`
+          // Without the word CEP in the ask: `cep_insist` reads any "CEP" beside a question as the CEP asked again.
+          : `Ela não sabe o CEP: não peça o CEP. Peça o nome da rua, o número da casa e a cidade dela, que você encontra pra ela` +
+            ` e já vê a entrega na região dela — sem escrever a palavra CEP nessa pergunta. Não fale do buscador dos Correios.`
         : null,
       // Name, e-mail and CPF were asked with the CEP missing, and at 10:33 she heard "tá tudo pronto"
       // (second real test, grafo §66): the order `missingForLink` declares, said to the model.
@@ -4681,6 +4699,7 @@ const handleTurn = async (
           : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksCep(m)),
       // R26.1: after her "não lembro o CEP", no CEP ask at all until she sends one — her wanting to buy included.
       cepForgotten,
+      addressBeforeOrder: newAddressBeforeOrder,
       hookSent: recentOutbound.some(isHook),
       sizeAsks:
         stated?.size || lead.size || interpretation.wants_to_buy

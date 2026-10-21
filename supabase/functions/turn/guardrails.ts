@@ -248,6 +248,8 @@ export interface GateContext {
   cepAsks?: number;
   /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
   cepForgotten?: boolean;
+  /** She asked to change the address and has no order yet (`support_before_order`): a new CEP, never the customer service. */
+  addressBeforeOrder?: boolean;
   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
   sizeAsks?: number;
   /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
@@ -2978,7 +2980,8 @@ const gates: readonly Gate[] = [
       for (const m of t.matchAll(
         new RegExp(
           [
-            String.raw`\b(?:retir\w*|busca\w*)\b[^.!?,;:]{0,24}\b${PLACE}\b`,
+            // "o buscador dos Correios, pelo endereço" is the CEP search the turn teaches, no pickup (replay of 2026-10-21).
+            String.raw`\b(?:retir\w*|busca(?!dor)\w*)\b[^.!?,;:]{0,24}\b${PLACE}\b`,
             String.raw`\bpega\w*\s+(?:aqui|la|com\s+a\s+gente|no\s+nosso|na\s+nossa)\b`,
             String.raw`\bretirad\w*\s+(?:em|no|na)\b`,
             String.raw`\b(?:pode|podem|da\s+pra)\s+(?:buscar|retirar)\b`,
@@ -3194,6 +3197,22 @@ const gates: readonly Gate[] = [
       : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
       : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
       : null,
+  },
+  {
+    /**
+     * Replay of the operator's real test (2026-10-21, grafo §120): "quero trocar meu endereço", with the link sent and no order,
+     * got "É só chamar o nosso atendimento ao cliente…, que eles mudam o endereço" — the prompt's line for an order already
+     * created, copied under the turn's directive saying the opposite. Before the order the address is hers to change.
+     */
+    name: "support_before_order",
+    remedy: "rewrite",
+    briefing: () =>
+      `Se ela quer mudar o endereço e ainda não tem pedido, endereço novo é CEP novo: não mande ela ao atendimento ao cliente;` +
+      ` peça o CEP novo, ou a rua e a cidade, pra consultar a entrega de novo.`,
+    check: (text, ctx) =>
+      ctx.addressBeforeOrder === true && /\batendimento\s+(?:ao|do|de)\s+cliente|\bsuporte\b/.test(norm(text))
+        ? "sends her to the customer service to change an address with no order yet"
+        : null,
   },
   {
     /**
