@@ -108,3 +108,10 @@ describe("askedVagueQuestion não confunde resposta comum com a pergunta (/code-
     expect(askedVagueQuestion(["Tem alguma dúvida que eu possa resolver sobre o valor ou o tamanho?"])).toBe(true);
   });
 });
+
+describe("askedVagueQuestion reconhece a pergunta nas palavras do modelo (/code-review, rodada 2)", () => {
+  it("formas da mesma pergunta contam; recado sem pergunta não", () => {
+    for (const q of ["Ficou com alguma dúvida sobre o tamanho ou a entrega?", "Tem mais alguma dúvida sobre o valor ou o tamanho?", "Alguma dúvida sobre o tamanho, a entrega ou o valor?"]) expect(askedVagueQuestion([q])).toBe(true);
+    expect(askedVagueQuestion(["Se ficar alguma dúvida sobre o tamanho ou a entrega, me chama 💛"])).toBe(false);
+  });
+});

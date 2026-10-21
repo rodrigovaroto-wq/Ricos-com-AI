@@ -41,7 +41,7 @@ describe("a régua pela faixa do score (§4.2)", () => {
     expect(rulerForBand(rulerFor(from, "after_price", "silence_2"), "fria")).toEqual([]);
   });
 
-  it("o turno lê a faixa guardada ao armar a régua, por `*` (antes da 0029 a coluna não existe)", () => {
+  it("o turno lê a faixa guardada ao armar a régua: só o tamanho e a faixa do lead (0029 aplicada em 21/10)", () => {
     expect(turn).toContain("select=*,leads(size,score_band,orders(status)),followups(kind,sent_at)");
     expect(turn).toContain("body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),");
   });
@@ -254,6 +254,10 @@ describe("/code-review do PR 77", () => {
     expect(stockLineSaid(["restam so 3 no GG"])).toBe(true);
     expect(stockLineSaid(["O GG veste cintura de 84 a 92 cm"])).toBe(false);
     expect(stockLineSaid(["restam sobretudo dúvidas"])).toBe(false);
+    // The model's own words for the same line (round 2).
+    expect(stockLineSaid(["Só restam apenas 12 no GG"])).toBe(true);
+    expect(stockLineSaid(["O seu GG está acabando por aqui"])).toBe(true);
+    expect(stockLineSaid(["restam 7 dias pra trocar"])).toBe(true); // shortcut: a count of days reads as said — the safe side (one scarcity line less)
     expect(turn).toContain("stockSaid: stockLineSaid(recentOutbound),");
   });
 

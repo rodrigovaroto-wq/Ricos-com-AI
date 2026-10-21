@@ -3978,6 +3978,17 @@ reclamação de preço abre com `VAGUE_PRICE_QUESTION` ("Entendo!"); mutações 
 porque o texto de origem mudou (`R15.3-valor-no-frete`, `R16.5-prompt`) ou porque a mesma checagem passou a existir em duas linhas
 (`G66-recusa-nao-e-pensar`): atualizadas, 738/738. A migração `0029` foi aplicada em produção (só acréscimo) para a rodada exercitar o perfil.
 
+**/code-review do PR #77 (21/10, noite, duas rodadas):** (1) `stockLineSaid` — o "já disse o estoque" usava `\b` sem a flag `u` e nunca
+casava o "só" acentuado: a linha de escassez sairia em todo turno; agora reconhece também as palavras do modelo ("restam apenas 12", "está
+acabando"); (2) o perfil lê `putsOff`, não o `wants_to_think` reescrito por `goodbyeParks`: um "obrigada, tchau" não é mais "vou pensar" no
+score; (3) `askedVagueQuestion` exige "alguma dúvida" numa pergunta (com "?") e dois assuntos: "Qualquer dúvida sobre o tamanho ou a entrega,
+me chama" não cala mais a pergunta, e "Ficou com alguma dúvida…?" continua contando (a 1ª correção ficou estreita demais e a 2ª rodada pegou);
+(4) a régua lê só `leads(size,score_band,…)`, não a linha inteira (endereço e texto do perfil); (5) `prepayFreight` devolve null, nunca NaN,
+para preço em notação exponencial. Mutações `P16-estoque-dito-sem-u`, `P16-perfil-despedida`, `P16-pergunta-vaga-ampla`, `P16-frete-nan`.
+**Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
+no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
+cache (fica "aparece no checkout"); a linha do estoque lida há mais de 20 mensagens pode sair uma segunda vez.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

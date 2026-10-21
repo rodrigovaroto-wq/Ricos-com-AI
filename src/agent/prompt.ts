@@ -562,9 +562,13 @@ export const stockScarcityLine = (
   return `O *${size.trim().toUpperCase()}* está acabando pra entrega na sua região: restam só *${stockQty}* 😮`;
 };
 
-/** The stock line went out already: said once per conversation. `u`, or `\b` after "só" never matches (/code-review of plan 16). */
+/**
+ * The stock line went out already: said once per conversation. The taught line or the model's own words for it ("restam
+ * apenas 12", "o GG está acabando") — `u`, or `\b` after "só" never matches (two /code-review rounds of PR 77).
+ * shortcut: reads the turn's recent window (20 messages), a line said earlier than that may go once more.
+ */
 export const stockLineSaid = (outbound: readonly string[]): boolean =>
-  outbound.some((m) => /\brestam\s+s[oó](?![\p{L}\d])/iu.test(m.replace(/[*_~]/g, "")));
+  outbound.some((m) => /\b(?:restam|resta|sobraram|sobrou)\s+(?:s[oó]\s+|apenas\s+)?\d+|\best[aá]\s+acaband/iu.test(m.replace(/[*_~]/g, "")));
 
 /**
  * Plan 16 §4.6–4.7: the stock line and the prepaid freight this turn may teach, the same values to the prompt and the gates.
