@@ -284,12 +284,15 @@ describe("uma vez por conversa, pelo que o turno decidiu (/code-review do PR 77,
     // Only true carries true: a leaked undefined or a reset is caught (round 5).
     expect(mergeProfile({ ...EMPTY_PROFILE, vague_asked: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(true);
     expect(mergeProfile({ ...EMPTY_PROFILE, stock_offered: true }, NEUTRAL_INTERPRETATION, { audio: false }).vague_asked).toBe(false);
-    // Marked where the reply goes out, never before the model (round 5): a revision or retry must not read its own early mark.
-    expect(turn).toContain("  const saidStock = stockLine !== null && claimsStock(replyText);\n  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON);");
-    expect(turn).toContain("stock_offered: profile.stock_offered || saidStock, vague_asked: profile.vague_asked || askedVague");
+    // Marked past lateGuard and the outbound row, by what the turn gave the model, never the safe fixed reply (rounds 5 and 6).
+    expect(turn).toContain("  const offeredStock = stockLine !== null && fallbackReason === null;\n  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;");
+    expect(turn).toContain("stock_offered: profile.stock_offered || offeredStock, vague_asked: profile.vague_asked || askedVague");
+    expect(turn).not.toContain("claimsStock(replyText)");
     expect(turn).not.toContain("stock_offered: folded.stock_offered || stockLine !== null");
-    expect(turn.indexOf("const saidStock")).toBeGreaterThan(turn.indexOf("const replyText ="));
-    expect(turn.indexOf("const saidStock")).toBeLessThan(turn.indexOf("  await notifyOnce();\n  await Promise.all(["));
+    const marksAt = turn.indexOf("const offeredStock");
+    expect(marksAt).toBeGreaterThan(turn.indexOf("const gaveUp = await lateGuard(rewritesUsed, body);"));
+    expect(marksAt).toBeGreaterThan(turn.indexOf('direction: "outbound",', turn.indexOf("const gaveUp = await lateGuard(rewritesUsed, body);")));
+    expect(marksAt).toBeLessThan(turn.indexOf("  await notifyOnce();\n  await Promise.all(["));
     expect(turn).not.toContain("askedVagueQuestion");
   });
 });

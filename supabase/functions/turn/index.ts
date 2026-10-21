@@ -5148,17 +5148,12 @@ const handleTurn = async (
    * create the order" with no order to create. What is missing stays in `orderBlocked`.
    */
   const orderReady = order !== null;
-  // Plan 16 §4.5/§4.6: the once-per-conversation marks, from what goes out — the stock line in the reply, the vague question's
-  // guide in this reply. Marked here and not before the model (round 5 of the PR 77 review: a revision or a retry of the same turn
-  // read its own early mark and lost the line or the question). Failure swallowed: at worst the line may go once more.
-  const saidStock = stockLine !== null && claimsStock(replyText);
-  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON);
-  if ((saidStock && !profile.stock_offered) || (askedVague && !profile.vague_asked)) {
-    await db(`leads?id=eq.${lead.id}`, {
-      method: "PATCH",
-      body: JSON.stringify({ profile: { ...profile, stock_offered: profile.stock_offered || saidStock, vague_asked: profile.vague_asked || askedVague } }),
-    }).catch(() => undefined);
-  }
+  // Plan 16 §4.5/§4.6: the once-per-conversation marks. Past `lateGuard` and the outbound row, so a revision or a retry of this
+  // turn never reads its own early mark (round 5 of the PR 77 review); by what the turn gave the model and the model's reply going
+  // out — never the safe fixed reply after five vetoes, and never by reading the text back (round 6: a paraphrase missed it).
+  const offeredStock = stockLine !== null && fallbackReason === null;
+  const askedVague = guideReasons.includes(VAGUE_OBJECTION_REASON) && fallbackReason === null;
+  const marks = (offeredStock && !profile.stock_offered) || (askedVague && !profile.vague_asked);
   // Once per conversation (review of v38): a second "quero falar com uma pessoa" does not e-mail again.
   await notifyOnce();
   await Promise.all([
@@ -5183,6 +5178,14 @@ const handleTurn = async (
         orderBuilt: order !== null,
       }),
     ),
+    // shortcut: the whole profile as this turn built it — a concurrent write to it in between would be undone; the conversation's
+    // claim keeps turns apart, so this waits for a jsonb-merge RPC until it shows up in practice. Failure swallowed (the line may go once more).
+    marks
+      ? db(`leads?id=eq.${lead.id}`, {
+        method: "PATCH",
+        body: JSON.stringify({ profile: { ...profile, stock_offered: profile.stock_offered || offeredStock, vague_asked: profile.vague_asked || askedVague } }),
+      }).catch(() => undefined)
+      : Promise.resolve(),
   ]);
 
   return json(200, {

@@ -3995,9 +3995,14 @@ desmarcados; `askedVagueQuestion` saiu (código morto). O `claimsStock` fica só
 **Rodada 5:** a primeira versão marcava ANTES do modelo, e uma revisão ou nova tentativa do mesmo turno lia a própria marca e perdia a
 linha ou a pergunta (e a revisão, juntando sobre o perfil anterior, desmarcava). Agora a marca sai ao lado de `recordOutcome`, do que vai
 na resposta: `saidStock` = a linha do estoque estava na resposta (`claimsStock(replyText)`), `askedVague` = a instrução da pergunta foi
-usada nesta resposta. **Resíduos atualizados:** se essa escrita falhar, a linha ou a pergunta pode sair uma vez a mais; a resposta da
-noite (adiada) não marca (o turno da manhã reavalia).
-Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-perfil-marca-da-pergunta-perdida`, `P16-estoque-dito-pelo-gate`,
+usada nesta resposta. **Rodada 6:** o `saidStock` da rodada 5 voltava a ler o texto (`claimsStock(replyText)`) e a resposta pronta depois
+de cinco vetos marcava a pergunta sem ela ter saído. Final: `offeredStock` = a linha foi dada ao modelo e a resposta DELE saiu
+(`fallbackReason === null`); `askedVague` igual para a instrução da pergunta; a escrita vai no mesmo `Promise.all` de `recordOutcome`,
+depois de `lateGuard` e da linha de saída. **Resíduos atualizados:** se o modelo não usar a linha oferecida, ela não volta (oferecida uma
+vez); os caminhos que respondem e retornam antes (resposta fixa, recepção da noite, linha de pagamento) não marcam, e aí só o `claimsStock`
+da janela de 20 mensagens evita a repetição; a marca grava o perfil inteiro do turno (uma escrita concorrente no meio seria desfeita; o
+claim da conversa separa os turnos; `shortcut:` no código); se a escrita falhar, a linha ou a pergunta pode sair uma vez a mais.
+Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-perfil-marca-da-pergunta-perdida`, `P16-pergunta-marcada-na-resposta-pronta`, `P16-estoque-dito-pelo-gate`,
 `P16-perfil-despedida`, `P16-frete-nan`.
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
 no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
