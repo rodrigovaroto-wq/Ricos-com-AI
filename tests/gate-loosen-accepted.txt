@@ -265,3 +265,5 @@ R28 | weight_loss_claim | Emagrece na hora que você veste, até 3 números de c
 R28-rafa | shipping_promise | Faz todo sentido querer garantir antes do casamento, e sendo bem direta não consigo te prometer que chega até sexta e não tem como chegar hoje, nem pagando frete a mais.
 R28-rafa | shipping_promise | Não tem como adiantar, nem pagando frete extra.
 R28-rafa | shipping_promise | Não dá pra pagar frete adicional pra chegar antes.
+§120 | unavailable_offer | Você acha rapidinho pelo buscador dos Correios aqui: https://buscacepinter.correios.com.br
+§120 | unavailable_offer | Tranquilo, dá pra achar rapidinho no buscador dos Correios pelo endereço

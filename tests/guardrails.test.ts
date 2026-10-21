@@ -16,8 +16,9 @@ describe("a cadeia inteira", () => {
     // vigésimo segundo, `internal_note`, na rodada de 2026-10-07 (Jussara: "Need ask CEP."); o
     // vigésimo terceiro, `pending_promise`, e o vigésimo quarto, `noted_claim`, no segundo teste real
     // (grafo §66: "já te mando o link" 4×, "anotei" 5×); o vigésimo quinto, `size_claim`, na revisão do §66
-    // (Karol: "Com 38 de calça o seu é o M" sem ela dar a medida); `hip_claim` e `courier_claim` no E1.5.
-    expect(gateNames).toHaveLength(31);
+    // (Karol: "Com 38 de calça o seu é o M" sem ela dar a medida); `hip_claim` e `courier_claim` no E1.5;
+    // `support_before_order` no teste real de 21/10 (grafo §120).
+    expect(gateNames).toHaveLength(32);
   });
 
   it("deixa passar a mensagem correta do funil", () => {
@@ -30,7 +31,7 @@ describe("a cadeia inteira", () => {
 
   it("devolve o trace de todos os gates, não só do primeiro que vetou", () => {
     const result = runGates("qualquer coisa", ctx({ optedOut: true }));
-    expect(result.traces).toHaveLength(31);
+    expect(result.traces).toHaveLength(32);
   });
 });
 

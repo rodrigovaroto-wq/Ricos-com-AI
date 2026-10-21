@@ -115,7 +115,7 @@ describe("5. troca/devolução só quando ela pede; entregue com problema → o 
 
   it("as respostas que a diretiva pede passam a cadeia do agente", () => {
     for (const text of [
-      `Poxa, sinto muito! Confere com os vizinhos ou com a portaria, por favor. Se não estiver lá, fala com o suporte da Logzz, que é quem faz a entrega e consegue verificar, no ${PHONE} 💛`,
+      `Poxa, sinto muito! Confere com os vizinhos ou com a portaria, por favor. Se não estiver lá, fala com o atendimento ao cliente, que consegue verificar, no WhatsApp ${PHONE} 💛`,
       "Que pena que veio com defeito! Me conta o que aconteceu com o colete?",
     ])
       for (const p of ["cod", "prepay"] as const)

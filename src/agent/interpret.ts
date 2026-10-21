@@ -773,6 +773,19 @@ const ORDER_WITH_US =
   /\b(fiz\s+(?:o\s+)?(o|um|meu)\s+pedido|ja\s+pedi\s+(o|um)\s+(colete|pedido)|meu\s+pedido\s+(ja|nao|ainda|chegou|saiu|foi|esta|ta|de|da)|o\s+pedido\s+que\s+(eu\s+)?fiz|(?:quero|queria|preciso|gostaria\s+de)\s+cancelar\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|cancela\s+(?:o\s+|o\s+meu\s+|meu\s+)pedido|ja\s+saiu\s+(?:pra|para)\s+(?:a\s+)?entrega)\b/g;
 const BARE_PURCHASE = /\b(comprei|paguei)\b/g;
 
+/**
+ * She wants the delivery somewhere else, or says the checkout refused her address (real test of the operator, 2026-10-20: "Quero
+ * mudar meu endereço", "La no checkout eu tentei mudar e ta falando que não tem entrega pro meu endereço"). Before an order this is a
+ * new CEP to look up, never the customer service. Negation: "não quero mudar o endereço", "o endereço tá certo".
+ */
+export const changesAddress = (message: string): boolean => {
+  const t = norm(message);
+  if (/\b(?:nao|nem)\s+(?:\S+\s+){0,2}(?:mudar|trocar|alterar)\b[^.!?\n]{0,20}\bendereco\b/.test(t)) return false;
+  return /\b(?:mudar|muda|trocar|troca|alterar|altera|corrigir|outro|novo|diferente)\b[^.!?\n]{0,25}\bendereco\b/.test(t) ||
+    /\bendereco\b[^.!?\n]{0,20}\b(?:novo|outro|diferente|errado)\b/.test(t) ||
+    /\b(?:nao\s+tem|sem)\s+entrega\s+(?:pro|pra|para\s+o|no|nesse|neste)\s+(?:meu\s+|esse\s+|novo\s+)?endereco\b/.test(t);
+};
+
 export const statesPastPurchase = (message: string, current = true): boolean => {
   const t = norm(message);
   for (const re of current ? [ORDER_WITH_US, BARE_PURCHASE] : [ORDER_WITH_US]) {

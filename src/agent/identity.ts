@@ -255,6 +255,9 @@ export const extractName = (text: string, askedName = false): string | null => {
     .replace(/[.,;!?].*$/, "")
     // "o nome dele é João e o meu é Ana": the name ends where the next clause starts.
     .replace(/\s+e\s+(o|a|meu|minha)\b.*$/i, "")
+    // "me chamo Rosa moro em Ponte Nova MG como faço…" went into the checkout link as "Rosa Moro Em Ponte Nova" (real lead,
+    // 2026-10-20): nor where she lives or what she asks next. Never "de/da/do", the particles of a name.
+    .replace(/(?:\s+e)?\s+(?:moro|mora|sou|tenho|estou|t[oô]|quero|queria|gostaria|preciso|vi|vim|como|qual|quanto|quais|pra|para|em|no|na|aqui|daqui)(?=\s|$).*$/i, "")
     .trim()
     .split(" ")
     .filter((w) => w.length > 0)

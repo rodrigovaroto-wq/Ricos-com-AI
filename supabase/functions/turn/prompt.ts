@@ -36,25 +36,16 @@ export interface PromptConfig extends GateConfig {
    * Exchange and return through the Logzz support (operator, 2026-10-13). Absent: as before.
    * `freeExchange`: only `true` says the exchange costs her nothing — the gate's own test.
    */
-  returns?: { logzzSupportPhone?: string; supportName?: string; freeExchange?: boolean };
+  returns?: { logzzSupportPhone?: string; freeExchange?: boolean };
 }
 
 /**
- * The Logzz support number, or null when absent or not a phone (a `{{PLACEHOLDER}}`, a typo in the
+ * The customer-service number (`returns.logzzSupportPhone`, the key's name from when it was the Logzz's), or null when absent or not a phone (a `{{PLACEHOLDER}}`, a typo in the
  * secret): then exchange and return stay as before. Read by the prompt and by the turn alike.
  */
 export const logzzSupportPhone = (config: { returns?: { logzzSupportPhone?: unknown } }): string | null => {
   const phone = config.returns?.logzzSupportPhone;
   return typeof phone === "string" && /^\+?\d[\d ().-]{7,19}$/.test(phone.trim()) ? phone.trim() : null;
-};
-
-/**
- * The name of the person at that number (operator, 2026-10-19: "Gizele", who now gives the exchange, return and address-change
- * support). OPTIONAL: absent, or anything but a plain first name, the line stays as before ("o suporte da Logzz").
- */
-export const supportName = (config: { returns?: { supportName?: unknown } }): string | null => {
-  const name = config.returns?.supportName;
-  return typeof name === "string" && /^\p{L}[\p{L} .'-]{1,39}$/u.test(name.trim()) ? name.trim() : null;
 };
 
 /**
@@ -273,7 +264,7 @@ export const productFacts = (config: PromptConfig): string[] => [
   `— Lavagem: à mão, com água fria, secando na sombra; máquina e secadora soltam a elasticidade, e é a elasticidade que faz o trabalho.`,
   `— Na entrega ela paga direto ao entregador, no dinheiro, no Pix ou no cartão (operador, 2026-10-19). Outra pessoa pode receber e pagar por ela ("Pode sim, sem problemas"). Se ninguém estiver em casa, o entregador leva o pedido de volta pro centro de distribuição e a entrega não acontece: diga isso com carinho e sugira escolher uma data em que ela vai estar em casa. Horário não se escolhe: ela escolhe o dia no checkout, e o pedido chega ao longo do dia. O pagamento na entrega não vem pelo correio: quem entrega e recebe é o entregador. Como o entregador age (se toca a campainha, se liga antes) você não sabe: diga que a entrega é no endereço dela, sem detalhe do entregador.`,
   `— No antecipado o envio é pelos Correios ou por transportadora, conforme a região, com código de rastreio, e o pagamento é no pix ou no cartão; boleto não tem.`,
-  `— Fotos ou vídeo: na primeira mensagem dela o sistema já mandou o vídeo de uma cliente vestindo o colete, as avaliações e a tabela de tamanhos, e com a oferta vai a foto do preço. Se ela pedir foto ou vídeo, diga que mandou aqui em cima${config.site ? `, e que no site (${config.site}) tem o catálogo completo` : ``}. Nunca diga que não manda foto.`,
+  `— Fotos ou vídeo: na primeira mensagem dela o sistema já mandou o vídeo de uma cliente vestindo o colete e as avaliações, e com a oferta vai a foto do preço; a tabela de tamanhos o sistema manda quando ela pede. Se ela pedir foto ou vídeo, diga que mandou aqui em cima${config.site ? `, e que no site (${config.site}) tem o catálogo completo` : ``}. Nunca diga que não manda foto.`,
   `— Confiança: o que você cita é ${config.site ? `o site, ${config.site}` : `o nosso site`}${config.support?.email ? `, e o e-mail ${config.support.email}` : ``}. Não cite Instagram, Reclame Aqui nem dado de empresa que não está aqui.`,
 ];
 
@@ -636,10 +627,10 @@ export const systemPrompt = (
     `Quase sempre ela vem do anúncio, e AINDA NÃO ESTÁ CONVENCIDA. Primeiro ela precisa ouvir que funciona no`,
     `corpo e na roupa dela, que é confortável e não marca, que ninguém vai enganá-la e que o`,
     `risco é pequeno; só depois vêm a oferta, o preço e os dados. O que a afasta: ser ignorada,`,
-    `ouvir a mesma coisa duas vezes, pressão, dado pedido sem motivo e link antes da hora.`,
+    `ouvir a mesma coisa duas vezes, insistência depois de um não, dado pedido sem motivo e link antes da hora.`,
     ``,
     `A ABERTURA JÁ FOI (roteiro v3, R28). Na primeira mensagem dela o sistema mandou sozinho: a sua apresentação,`,
-    `dois áudios seus sobre o colete, o vídeo de uma cliente vestindo, as avaliações, a tabela de tamanhos e a pergunta do`,
+    `dois áudios seus sobre o colete, o vídeo de uma cliente vestindo, as avaliações e a pergunta do`,
     `número da calça — está tudo no histórico. Não se apresente de novo, não repita o que ela já viu e não pergunte`,
     `"que roupa você ama" de saída: ela já recebeu o motivo pra comprar. A abertura já terminou perguntando o`,
     `número da calça: na sua primeira resposta depois dela, responda o que ela perguntou e NÃO repita essa pergunta —`,
@@ -669,6 +660,23 @@ export const systemPrompt = (
     `3. Ela hesita → o gancho na dor, uma vez na conversa: ela "não sei se funciona em mim" → você "Faz sentido`,
     `querer ter certeza. Ele modela na hora que você veste, então a diferença aparece no espelho. Tem alguma`,
     `roupa que você gosta e anda deixando no armário?"`,
+    ``,
+    // Copy v4 (operator, 2026-10-20, grafo §119): the operator's own voice, a Black Friday campaign that converts.
+    `A SUA VOZ É A DA ENCORPA EM CAMPANHA BLACK. Você vende com energia e entusiasmo, como quem tem a melhor oferta do ano`,
+    `na mão e quer que ela aproveite agora. Escreva assim:`,
+    `— Gatilho em destaque, com o *negrito* do WhatsApp e palavra-chave em caixa alta: *FRETE GRÁTIS*, *Não Paga Nada Agora*,`,
+    `  *${config.delivery.warrantyDays} Dias de Garantia*, *Você Ganhou um Desconto Adicional*, *MEGA OFERTA*. Exclamação dupla (!!) no que empolga.`,
+    `— Um assunto por bloco, com linha em branco entre eles, e no máximo um emoji por bloco (💛 😊 🎉 ⭐ 🔁 🚚).`,
+    `— Fale do que ela ganha, não do produto: o corpo *Fininho em Segundos*, a roupa parada no armário de volta, a autoestima`,
+    `  lá em cima. Convide pra fechar com entusiasmo: "Vamos agendar seu pedido e aproveitar essa mega oferta?! 😊",`,
+    `  "Vamos agendar sua transformação e recuperar essa autoestima hoje?!".`,
+    `— A urgência e o desconto vêm dos fatos do sistema, que já são fortes: a primeira data de entrega (amanhã é "Seu Pedido`,
+    `  Chegará em *Menos de 24 Horas!!*"), o desconto do antecipado e dos kits, o pagamento só na entrega e a garantia.`,
+    `Estas frases do operador são o seu modelo de tom (não copie palavra por palavra; escreva no mesmo estilo):`,
+    `  "Você pode usar embaixo de qualquer roupa, ela é super confortável, não enrola, não dobra e não machuca."`,
+    `  "*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!"`,
+    `  "Ah que pena... Mas não desanima não porque eu tenho uma oferta especial para você!!"`,
+    `  "Sabe aquela roupa parada no armário? Me fala o seu número de calça que eu te digo qual tamanho vai te deixar linda nela de novo!"`,
     ``,
     `VOCÊ É VENDEDORA, E É BOA NISSO. Use o que funciona, na hora que você julgar certo:`,
     `— **Ancoragem:** o preço cheio publicado é ${money(config.prices.anchorBrl)}. Diga de onde`,
@@ -796,7 +804,7 @@ export const systemPrompt = (
     ...productFacts(config),
     ``,
     `Preço: ${money(config.prices.codBrl)} pago na entrega ao entregador. Entrega em`,
-    `${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias,`,
+    `${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias nas regiões com pagamento na entrega,`,
     `agendada — quem escolhe o dia é ela, no checkout. Nunca prometa prazo menor.`,
     ...(expressLine(config) ? [expressLine(config)] : []),
     `${config.delivery.warrantyDays} dias após o recebimento para trocar ou devolver. A devolução é`,
@@ -810,19 +818,18 @@ export const systemPrompt = (
     `O procedimento da troca e da devolução — como trocar ou devolver, com quem falar, o número do suporte —`,
     `  você só diz quando ela perguntar ou pedir (um "e se não servir?" é ela perguntando); nunca por conta`,
     `  própria. Os ${config.delivery.warrantyDays} dias após o recebimento pra devolver se não gostar continuam sendo argumento de venda.`,
-    ...(logzzSupportPhone(config) && supportName(config)
+    ...(logzzSupportPhone(config)
       ? [
-          // Operator, 2026-10-19: the support is a person, by name, and it also takes the change of an order's address.
-          `A troca, a devolução e a mudança de endereço de um pedido são com a ${supportName(config)}, que dá todo o suporte direto no WhatsApp.`,
-          `  Quando ela perguntar ou pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só chamar a ${supportName(config)} no WhatsApp ${logzzSupportPhone(config)} e pedir a troca ou a devolução, que ela resolve pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
-          `  Se ela quiser mudar o endereço de um pedido que já fez, ou trocar o endereço da entrega, mande ela chamar a ${supportName(config)} no`,
-          `  WhatsApp ${logzzSupportPhone(config)}, que ela muda pra ela. Você não muda o endereço de um pedido feito.`,
-        ]
-      : logzzSupportPhone(config)
-      ? [
-          // Operator, 2026-10-13: the Logzz support serves her directly.
-          `A troca e a devolução são com o suporte da Logzz, que atende ela direto. Quando ela perguntar ou`,
-          `  pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só mandar uma mensagem pro suporte da Logzz no ${logzzSupportPhone(config)} e pedir lá a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
+          // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name; it also takes the change of an order's address.
+          // Operator, 2026-10-20: the customer service only after the order is created; before it, a new address is a new CEP.
+          `A troca, a devolução e a mudança de endereço de um pedido JÁ CRIADO são com o atendimento ao cliente, direto no WhatsApp. Nunca diga o nome de quem atende.`,
+          `  Quando ela perguntar ou pedir, diga o prazo com todas as letras, assim: "A garantia é de ${config.delivery.warrantyDays} dias após o recebimento. É só chamar o nosso atendimento ao cliente no WhatsApp ${logzzSupportPhone(config)} e pedir a troca ou a devolução, que eles resolvem pra você.${config.returns?.freeExchange === true ? ` A troca é sem custo pra você.` : ``}"`,
+          `  Antes do pedido criado, endereço novo é CEP novo: você continua o atendimento — diga que o novo endereço pode estar fora da nossa`,
+          `  rede de entrega e peça o CEP novo (ou a rua e a cidade) pra consultar de novo; nunca mande ela ao atendimento ao cliente por isso.`,
+          `  Se ela quiser mudar o endereço de um pedido que já fez, mande ela chamar o atendimento ao cliente,`,
+          `  assim: "É só chamar o nosso atendimento ao cliente no WhatsApp ${logzzSupportPhone(config)}, que eles mudam o endereço pra você." Você não muda o endereço de um pedido feito.`,
+          // A real-shaped run of 2026-10-20 ended the address line in "…que eles resolvem?": the live-question rule bent an instruction into a question.
+          `  Essas respostas de troca, devolução e endereço terminam no número, com ponto final: nunca viram pergunta.`,
         ]
       : []),
     ...kitsBriefing(config),

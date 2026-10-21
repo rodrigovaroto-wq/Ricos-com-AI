@@ -294,7 +294,8 @@ describe("rodada 13 na Edge Function", () => {
     expect(source.slice(start, end)).toContain("...notification(lead, conversation)");
     for (const m of source.matchAll(/\b(HUMAN_HANDOFF_REPLY|ORDER_HANDOFF_REPLY)\b/g)) {
       const line = source.slice(source.lastIndexOf("\n", m.index) + 1, source.indexOf("\n", m.index));
-      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = \(handoffRead)/);
+      // Copy v4: the line is the model's example (`guide`), never a fixed send.
+      expect(line).toMatch(/^\s+(HUMAN_HANDOFF_REPLY,|ORDER_HANDOFF_REPLY,|return await handOff\(|handoffKind ===|if \(sentLast|const handoffKind = \(handoffRead|guide\()/);
     }
   });
 
@@ -347,7 +348,8 @@ describe("rodada 13 na Edge Function", () => {
   });
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
-    expect(source).toContain("orders?lead_id=eq.${lead.id}&select=id&limit=1");
+    expect(source).toContain("db(`orders?lead_id=in.(${ids.join(\",\")})&select=id&limit=1`).catch(() => null)");
+    expect(source).toContain("const orders = orderContext ? [] : await herOrderRows();");
     expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly)');
   });
 
@@ -406,7 +408,7 @@ describe("M-03 na Edge Function", () => {
     // Só o checkout deste caminho conta, e o pedido explícito do link passa (code review, 2026-09-24).
     expect(source).toContain('const pathBase = kitUrl ?? (linkPath === "cod" ? CONFIG.checkout?.codUrl : CONFIG.checkout?.prepayUrl);');
     // Grafo §65: the newest link anywhere in the conversation, not the last three messages.
-    expect(source).toContain('const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
+    expect(source).toContain('const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));');
     expect(source).toContain("const linkUnheld = !linkJustSent && linkReady && !withdrew;");
     expect(source).toContain("const linkNow = linkUnheld && !kitFirst;");
     expect(source).toContain("thinkLink = linkUnheld && !(linkInChat && closesConversation(spoken(inbound.body ?? \"\")))");

@@ -241,3 +241,18 @@ describe("\"sou a mãe dela\" não é nome", () => {
     expect(extractName("sou a Tia Nastácia")).toBeNull();
   });
 });
+
+describe("lead real de 2026-10-20 — o nome acaba onde a frase segue", () => {
+  it.each([
+    ["ok meu CEP 35430 535 quantos dias chega aqui me chamo Rosa moro em Ponte Nova MG como faço pra comprar no atacado", "Rosa"],
+    ["me chamo joana e quero o kit", "joana"],
+    ["sou a Carla, moro em BH", "Carla"],
+    ["meu nome é Rosa Maria tenho 50 anos", "Rosa Maria"],
+  ])("%s", (frase, nome) => expect(extractName(frase)).toBe(nome));
+  it.each([
+    ["meu nome é Maria da Silva", "Maria da Silva"],
+    ["me chamo Ana Paula de Souza", "Ana Paula de Souza"],
+    ["meu nome é Bom Jesus da Silva", "Bom Jesus da Silva"],
+    ["me chamo Vitória Régia", "Vitória Régia"],
+  ])("o nome inteiro, com as partículas: %s", (frase, nome) => expect(extractName(frase)).toBe(nome));
+});

@@ -68,8 +68,13 @@ código usa `**duplo**`. O conteúdo é o mesmo.
 **Corpo:**
 
 ```text
-Bom dia! 💛 Passando só pra dizer uma coisa que talvez tenha ficado na sua cabeça ontem: você não precisa decidir confiando na gente. O colete chega na sua casa, você vê e só paga ao entregador na hora — se não for o que você esperava, não fica com ele. E depois de receber, ainda tem {{1}} dias pra devolver, sem custo nenhum pra você. Se ainda fizer sentido pra você, é só me chamar.
+Bom dia! Passando pra lembrar que você não precisa confiar no escuro: o colete chega, você vê e só paga ao entregador na hora.
+
+E ainda tem {{1}} dias pra devolver, sem custo nenhum.
 ```
+
+> **Corpo trocado em 2026-10-20 (copy v4, 6.7, operador; grafo §119).** O texto anterior ("Bom dia! 💛 Passando só pra dizer…") é o
+> que a régua mandava até a v37. Nada foi submetido à Meta com nenhum dos dois; se um dia for, é este.
 
 | Placeholder | Variável do código | Exemplo para a submissão |
 |---|---|---|

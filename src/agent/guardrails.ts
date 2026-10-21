@@ -248,6 +248,8 @@ export interface GateContext {
   cepAsks?: number;
   /** She said she does not remember her CEP and has sent none since (R26.1): no CEP ask at all (`cep_insist`). */
   cepForgotten?: boolean;
+  /** She asked to change the address and has no order yet (`support_before_order`): a new CEP, never the customer service. */
+  addressBeforeOrder?: boolean;
   /** How many replies in a row asked her pants size, while none was read (`size_insist`). */
   sizeAsks?: number;
   /** A hook question already went out in this conversation (`hook_repeat`, decision 18). */
@@ -1071,7 +1073,8 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const kits = ctx.config.kits ?? [];
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
+      // The price of each piece in a kit is the link message's own (operator, 2026-10-21, grafo §121): said back, never vetoed.
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.flatMap((k) => [k.priceBrl, Math.round((k.priceBrl / k.units) * 100) / 100])]);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
@@ -2978,7 +2981,8 @@ const gates: readonly Gate[] = [
       for (const m of t.matchAll(
         new RegExp(
           [
-            String.raw`\b(?:retir\w*|busca\w*)\b[^.!?,;:]{0,24}\b${PLACE}\b`,
+            // "o buscador dos Correios, pelo endereço" is the CEP search the turn teaches, no pickup (replay of 2026-10-21).
+            String.raw`\b(?:retir\w*|busca(?!dor)\w*)\b[^.!?,;:]{0,24}\b${PLACE}\b`,
             String.raw`\bpega\w*\s+(?:aqui|la|com\s+a\s+gente|no\s+nosso|na\s+nossa)\b`,
             String.raw`\bretirad\w*\s+(?:em|no|na)\b`,
             String.raw`\b(?:pode|podem|da\s+pra)\s+(?:buscar|retirar)\b`,
@@ -3194,6 +3198,25 @@ const gates: readonly Gate[] = [
       : ctx.cepForgotten === true ? "asks the CEP she said she does not remember"
       : (ctx.cepAsks ?? 0) >= 1 ? "asks the CEP twice in a row"
       : null,
+  },
+  {
+    /**
+     * Replay of the operator's real test (2026-10-21, grafo §120): "quero trocar meu endereço", with the link sent and no order,
+     * got "É só chamar o nosso atendimento ao cliente…, que eles mudam o endereço" — the prompt's line for an order already
+     * created, copied under the turn's directive saying the opposite. Before the order the address is hers to change.
+     */
+    name: "support_before_order",
+    remedy: "rewrite",
+    briefing: () =>
+      `Se ela quer mudar o endereço e ainda não tem pedido, endereço novo é CEP novo: não mande ela ao atendimento ao cliente;` +
+      ` peça o CEP novo, ou a rua e a cidade, pra consultar a entrega de novo.`,
+    // A reply naming the address: the prompt's exchange line ("…e pedir a troca", a taught sentence) passes; the address sentence
+    // split at a period does not (code review of §121). No negation exemption: that was a reviewer's hypothetical (R21.6).
+    check: (text, ctx) =>
+      ctx.addressBeforeOrder === true && /\bendereco\b/.test(norm(text)) &&
+      /\b(?:atendimento\s+(?:ao|do|de)\s+cliente|suporte)\b/.test(norm(text))
+        ? "sends her to the customer service to change an address with no order yet"
+        : null,
   },
   {
     /**
@@ -3431,7 +3454,8 @@ const gates: readonly Gate[] = [
     remedy: "rewrite",
     briefing: () =>
       `Enquanto a região dela não foi consultada, nunca afirme que a entrega alcança a cidade ` +
-      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP.`,
+      `ou o CEP dela: diga que o checkout confirma isso quando ela digitar o CEP. O prazo da entrega, antes disso, vem ` +
+      `condicionado na mesma frase: "dependendo da sua região, na entrega chega em …".`,
     check: (text, ctx) => {
       if (ctx.regionKnown !== false) return null;
       const t = norm(text);
@@ -3509,6 +3533,17 @@ const gates: readonly Gate[] = [
         // NFC), so the index carries over — but read the phrase on the normalised prefix.
         const prefix = norm(text.slice(0, m.index));
         if (!exempt(prefix.length, norm(m[0]))) return "affirms delivery reaches her city before the region lookup answered";
+      }
+      // "Pagando na entrega chega em 1 a 3 dias" to a lead whose CEP was never read (real lead, 2026-10-20, Siqueira Campos/PR):
+      // the delivery's deadline said as hers. Before the lookup it carries its condition (operator, 2026-10-19: the delivery
+      // before the CEP is "sempre condicionado à região"), as `deadlineFallbackMessage` says it.
+      const { codDaysMin, codDaysMax } = ctx.config.delivery;
+      const RANGE = new RegExp(String.raw`\b${codDaysMin}\s+(?:a|ate)\s+${codDaysMax}\s+dias\b`);
+      // A "se" conditions it only with the place: "Se for pagar na entrega, …" and "Se tiver alguém em casa, …" condition nothing about her region (review).
+      const CONDITION =
+        /\b(?:dependendo|depende|maioria|onde\s+(?:tem|tiver|houver|chega)|nas\s+(?:regioes|cidades)|se\s+(?:(?:a|o|n[oa])\s+)?(?:sua\s+(?:regiao|cidade)|seu\s+cep)|nao\s+sei\s+se|consult\w*)\b/;
+      for (const s of t.split(/[.!?;\n]+/)) {
+        if (RANGE.test(s) && /\bentrega\b/.test(s) && !CONDITION.test(s)) return "says the delivery's deadline as hers before the region lookup answered";
       }
       return null;
     },

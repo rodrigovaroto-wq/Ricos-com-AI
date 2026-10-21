@@ -122,3 +122,42 @@ describe("coverage_claim: oração nova e afirmação com \"sim\"", () => {
     }
   });
 });
+
+/**
+ * Real lead, 2026-10-20 (CEP "84 940" never read, Siqueira Campos/PR): "Pagando na entrega chega em 1 a 3 dias, no
+ * antecipado varia por região". Before the lookup, the delivery's deadline carries the region's condition.
+ */
+describe("coverage_claim: prazo da entrega antes do CEP", () => {
+  const range = `${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias`;
+
+  it("veta o prazo da entrega dito como dela, sem região consultada", () => {
+    for (const texto of [
+      `Pagando na entrega chega em ${range}, no antecipado varia por região, em média 5 dias úteis`,
+      `Na entrega chega em ${range}, no dia que você escolhe.`,
+      `A entrega leva de ${range}.`,
+      // Review: a condition on the payment or on someone at home is none on her region.
+      `Se for pagar na entrega, chega em ${range}.`,
+      `Se tiver alguém em casa, a entrega chega em ${range}.`,
+    ]) {
+      expect(verdict(texto, false), texto).toBe("block");
+    }
+  });
+
+  it("deixa passar o prazo com a condição da região, e a resposta pronta do prazo", () => {
+    for (const texto of [
+      `Dependendo da sua região, na entrega chega em ${range}, no dia que você escolhe no checkout.`,
+      `Na maioria das regiões, pagando na entrega chega em ${range}.`,
+      `Se a sua região tiver pagamento na entrega, chega em ${range}.`,
+      `Se a sua cidade tiver pagamento na entrega, chega em ${range}.`,
+      `Não sei se chega aí, mas onde tem pagamento na entrega, chega em ${range}.`,
+    ]) {
+      expect(verdict(texto, false), texto).toBe("pass");
+    }
+  });
+
+  it("com a região consultada, ou sem falar da entrega, nada muda", () => {
+    expect(verdict(`Pagando na entrega chega em ${range}.`, true)).toBe("pass");
+    expect(verdict(`Pagando na entrega chega em ${range}.`, undefined)).toBe("pass");
+    expect(verdict(`Você tem 7 dias pra devolver, e o tamanho fica pronto em ${range}.`, false)).toBe("pass");
+  });
+});

@@ -171,13 +171,18 @@ export const kitLimitReply = (max: number): string =>
  * otherwise no word on its freight, neither free nor hers. The heart is not after the count:
  * `delivery_promise` reads anything left in the count's sentence as a deadline.
  */
-export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchange = false, name: string | null = null): string =>
-  (name
-    ? `Pra trocar, devolver ou mudar o endereço do pedido, é só chamar a ${name} no WhatsApp ${phone} 💛 ` +
-      `Ela dá todo o suporte pra você e resolve.${freeExchange ? ` A troca é sem custo pra você.` : ``} `
-    : `Pra trocar de tamanho ou devolver, é só mandar uma mensagem pro suporte da Logzz no ${phone} 💛 ` +
-      `Lá você pede a troca ou a devolução, e eles resolvem pra você.${freeExchange ? ` A troca é sem custo pra você.` : ``} `) +
+export const logzzReturnReply = (phone: string, warrantyDays: number, freeExchange = false): string =>
+  // Operator, 2026-10-20: the support is "o atendimento ao cliente", never a person's name. Copy v4, 5.3: the model's example.
+  `Pra trocar, devolver ou mudar o endereço do pedido, é só chamar o nosso atendimento ao cliente no WhatsApp ${phone} 💛\n\n` +
+  `Lá você pede o que precisa, e eles resolvem.${freeExchange ? ` A troca é sem custo pra você.` : ``} ` +
   `Você tem ${warrantyDays} dias pra trocar ou devolver depois que receber.`;
+
+/**
+ * Her order is not found by any path the system has (operator, 2026-10-20): the system's fault, said so, and the customer service's
+ * number right after.
+ */
+export const orderNotFoundReply = (phone: string): string =>
+  `Não estou conseguindo achar o seu pedido aqui, por um problema no sistema.\n\nManda uma mensagem pra nossa equipe de atendimento ao cliente, que eles conferem pra você: ${phone}`;
 
 /**
  * One order of hers, as the turn read it: the stage `stageForOrder` gives a status in the vocabulary
@@ -245,10 +250,10 @@ export const orderStatusReply = (orders: readonly OrderView[], now: Date): strin
 /**
  * Her newest order was delivered and she writes about it (operator, 2026-10-13, R21.1): "veio com defeito",
  * "não serviu", "o rastreio diz entregue mas não recebi". Each problem is different, so the model answers,
- * told the order's facts — and the gates still judge it. The Logzz number only for what the Logzz does: the
- * delivery it made. The exchange line goes only when she asks for it (the turn sends `logzzReturnReply`).
+ * told the order's facts — and the gates still judge it. The customer-service number for the exchange and the
+ * delivery that did not arrive. The exchange line goes only when she asks for it (the turn sends `logzzReturnReply`).
  */
-export const deliveredDirective = (orders: readonly OrderView[], now: Date, logzzPhone: string, name: string | null = null): string => {
+export const deliveredDirective = (orders: readonly OrderView[], now: Date, logzzPhone: string): string => {
   const facts = orders
     .slice(0, 3)
     .map((o, n) => {
@@ -261,8 +266,8 @@ export const deliveredDirective = (orders: readonly OrderView[], now: Date, logz
     `Ela escreve sobre um pedido que já consta como entregue. Fatos do sistema (não invente outros): ${facts}. ` +
     `Responda à dúvida dela com esses fatos, curto, com acolhimento, e resolva o que puder. Você não cancela, não troca, ` +
     `não estorna e não chama ninguém: não diga que alguém do time vai falar com ela. Troca ou devolução só se ela pedir, e aí ` +
-    `ela fala ${name ? `com a ${name} no WhatsApp ${logzzPhone}` : `com o suporte da Logzz no ${logzzPhone}`}; nunca ofereça por conta própria. Se ela disser que consta entregue mas não recebeu, peça para ela ` +
-    `conferir com vizinhos ou portaria e oriente a falar ${name ? `com a ${name}, que dá todo o suporte e consegue verificar, no WhatsApp ${logzzPhone}` : `com o suporte da Logzz, que é quem faz a entrega e consegue verificar, no ${logzzPhone}`}. Sem data nova e sem prazo.`
+    `ela fala com o atendimento ao cliente no WhatsApp ${logzzPhone}; nunca ofereça por conta própria. Se ela disser que consta entregue mas não recebeu, peça para ela ` +
+    `conferir com vizinhos ou portaria e oriente a falar com o atendimento ao cliente, que consegue verificar, no WhatsApp ${logzzPhone}. Sem data nova e sem prazo.`
   );
 };
 

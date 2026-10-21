@@ -96,7 +96,7 @@ describe("L2 — o lembrete do checkout ancora no link e só o pedido o tira", (
     expect(rulerFor(link, "link_sent", undefined, true)[0]).toEqual({ kind: "checkout_reminder", runAt: new Date(link.getTime() + 10 * 60_000) });
     for (const paymentPath of ["cod", "prepay"] as const) {
       expect(renderFollowup("checkout_reminder", { leadId: "x", config, paymentPath })).toBe(
-        "Vi que seu pedido ainda não foi finalizado, travou em alguma etapa?",
+        "Conseguiu finalizar? Se travou em alguma parte, me conta que eu te ajudo.",
       );
     }
   });
