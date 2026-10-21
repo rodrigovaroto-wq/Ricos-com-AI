@@ -3852,6 +3852,47 @@ teste unitário); a prova é a reencenação. Kit cujo preço não divide pelas 
 divide (teste em `tests/operator-test-2026-10-21.test.ts`).
 **Guarda:** `tests/operator-test-2026-10-21.test.ts`, `tests/funnel.test.ts` (texto exato do operador); mutações `G121-*`.
 
+## 122. Custos do projeto no Financeiro do portal; o imposto da Meta já está dentro do gasto (operador, 2026-10-20)
+
+**Sintoma:** o Financeiro do `encorpa-portal` somava 13,83% de imposto em cima do gasto da Meta (`profit` em `lib/build.mjs` e o
+`Result` de `Finance.jsx`), e o resultado não tinha custo fixo nenhum. **Causa:** a premissa de 09/10 ("o imposto deve aparecer", a
+conferir na 1ª fatura) virou multiplicador; a conferência veio em 20/10: a conta "Encorpa anuncios" mostra R$ 77,38 gastos, o mesmo
+número que a API de insights devolve ao portal, e o operador confirmou que o imposto é pago junto e está dentro desse valor.
+**Correção (portal):** anúncio entra pelo gasto da Meta, sem acréscimo; custos fixos da planilha `Gastos_Encorpa` (PikaPods R$ 55 a cada
+~80 dias, número R$ 35/mês) rateados por dia a partir do primeiro lead (`fixedCost`); IA do período = conversas + rodadas do Hermes;
+`net_profit`, `op_margin` e `roi` descontam anúncio, IA, WhatsApp e fixos (ROI ≥ 1 ⇔ lucro ≥ 0); nova métrica `fixed_cost`; quadro
+"Investido até agora" (`invested`): gastos pagos até 20/10 (R$ 231,38) mais o medido e o rateado depois, contra a margem dos pedidos.
+Premissas (`REF`) com equilíbrio recalculado (2,9% e 3,4%) e a tabela de custos. **Caminho descartado:** rateio dos fixos desde 01/01 nos
+períodos longos (cobraria meses sem operação; o pago antes do primeiro lead fica no "Investido até agora"). **Resíduo:** a fatura de IA
+(US$ 8) inclui personas e testes que o banco não grava — depois de 20/10 o portal só soma o custo gravado; atualizar `SPENT` a cada fatura.
+O câmbio do portal para o Hermes continua 5,40 (o do banco); a planilha usa 5,50. **Guarda:** a soma das linhas do demonstrativo fecha com
+`net_profit` (conferido com o fixture e os dados de exemplo).
+**Revisão do operador no mesmo dia (substitui parte do acima):** (1) IA = só as chamadas de modelo dos leads — soma de `llm_calls`
+(resposta, reescrita, interpretação, áudio e imagem); personas, testes e Hermes fora; o "por lead" passa a ser essa soma ÷ leads, porque
+áudio e imagem não têm `conversation_id` e ficavam fora de `eval_conversation_cost`. (2) PikaPods cobra por hora: US$ 3,73/mês; saldo
+US$ 9,46 em 20/10 e recarga automática de US$ 10 abaixo de US$ 1 (`pikapods` calcula as recargas pela data). (3) Dólar a R$ 5,40 em tudo.
+(4) ROI sem os fixos: margem dos pedidos ÷ (anúncio + IA + WhatsApp). (6) Número: R$ 55 no início e depois R$ 35 a cada dia 5 (`waNumber`).
+"Investido até agora" deixa de ter valor digitado (sai `SPENT`): Meta, `llm_calls` e pedidos ao vivo, fixos pelas regras de cobrança, a cada
+leitura do portal (cache de 5 min). **Resíduo:** o WhatsApp continua estimado em R$ 0,04 por pedido — o banco não grava qual mensagem saiu
+como template cobrado.
+**Encontro com o PR #1 do portal (stoic-faraday, 19/10):** ele levou a economia para `src/lib/economics.js` e criou o `cashPlan` (caixa pelo
+orçamento dos anúncios), que ainda somava 13,83% ao anúncio. Mesclado no PR #2: sem imposto por cima, com os fixos do período no caixa;
+`PIKAPODS`, `WA_NUMBER`, `pikapods` e `waNumber` foram para `economics.js`; o `dropSynthetic` do PR #1 passou a filtrar também `llm_calls`
+(a chamada da persona existe enquanto a rodada está no ar; a limpeza apaga em cascata). Teste do `cashPlan` corrigido e 6 testes novos de custo.
+**Segunda revisão do operador (20/10, depois do merge dos PRs #1 e #2 do portal; substitui o rateio acima):** (1) os fixos entram no resultado
+**só quando vencem e são pagos de novo** — cada recarga automática de US$ 10 da PikaPods (R$ 54) e cada mensalidade de R$ 35 do número no
+dia 5 (`fixedPayments`, `fixedDue`); nada de rateio por dia; o que já estava pago em 20/10 fica só no "Investido até agora". (2) A necessidade
+de caixa (`cashPlan`) é só para rodar a operação: **sem custos fixos** e **sem comparar com o caixa utilizável de R$ 1.075** (sai `CASH_LIMIT`;
+o critério de pausa "Caixa necessário" vira informativo). (3) CPL e conversão digitáveis em Financeiro › Caixa para simular (vazio = premissa
+ideal). (4) **IA por lead esperada: R$ 0,05** (era R$ 0,27) em toda premissa e simulação; o equilíbrio vira 2,5% (CPL R$ 1,25) e 3,0% (CPL R$ 1,50).
+**Auditoria das fórmulas do portal (20/10, depois do merge do PR #3 do portal):** uma conta independente (`encorpa-portal/tests/oracle.test.mjs`,
+fórmulas reescritas do zero) achou um defeito: "Pedidos", conversão, "Entregas ÷ pedidos", % antecipado, WhatsApp por pedido, estados e as roscas
+do Painel contavam só o pedido que hoje é venda; o recusado ou devolvido sumia depois (10 pedidos na entrega, 2 recusados e 8 entregues davam
+8/8 = 100% em vez de 80%, e a conversão caía para trás), enquanto a premissa de R$ 51,70 por pedido já desconta recusa e devolução e a atribuição
+por anúncio (`eval_attribution`) conta todo pedido. **Correção:** pedido = venda, recusa na porta ou devolução (`placed`); faturamento continua só
+das vendas. **Guarda:** o teste falha no código anterior e passa no novo. **Resíduos sem correção no portal:** por anúncio, o gasto é do período
+e os leads e pedidos são o total do anúncio (a view não tem data); o "tempo até entregar" usa a última atualização do pedido como data de entrega.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
