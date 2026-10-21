@@ -3851,6 +3851,10 @@ também com `streetAsked`; `herOrderRows` lê o pedido uma vez por turno (eram q
 teste unitário); a prova é a reencenação. Kit cujo preço não divide pelas peças daria 1 centavo de diferença — o config de produção
 divide (teste em `tests/operator-test-2026-10-21.test.ts`).
 **Guarda:** `tests/operator-test-2026-10-21.test.ts`, `tests/funnel.test.ts` (texto exato do operador); mutações `G121-*`.
+**CI do PR #76:** três mutações antigas escaparam porque a copy v4 tirou o texto que as guardava: `G66-lembrete-sem-tamanho` (o teste
+procurava "tamanho de calça"; a régua v4 diz "número de calça" — o teste lê qualquer "calça"), `um-dia-bom` (a frase saiu da régua; guarda
+agora inclui o corpus do antecipado, onde ela vive) e `TPL-segunda-variante` (aposentada: o `silence_2` tem uma variante só desde a v4, e
+a mutação virou equivalente).
 
 ## 122. Custos do projeto no Financeiro do portal; o imposto da Meta já está dentro do gasto (operador, 2026-10-20)
 

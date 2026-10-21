@@ -1441,14 +1441,6 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/whatsapp-templates.test.ts"],
   },
   {
-    id: "TPL-segunda-variante",
-    bug: "fora da janela o template mandava a 1ª variante do silence_2 e o gate lia a 2ª, a que metade dos leads nunca recebe",
-    files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
-    from: "    body: kind === \"silence_2\" ? SILENCE_2(ctx.config.delivery.warrantyDays)[0] : body,\n",
-    to: "    body,\n",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/whatsapp-templates.test.ts"],
-  },
-  {
     id: "OPTIN-marketing-sem-consentimento",
     bug: "silence_2/silence_3 saíam como template MARKETING fora da janela para quem nunca consentiu",
     files: ["src/agent/followups.ts", "supabase/functions/turn/followups.ts"],
