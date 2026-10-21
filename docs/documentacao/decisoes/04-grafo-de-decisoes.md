@@ -3897,6 +3897,80 @@ por anúncio (`eval_attribution`) conta todo pedido. **Correção:** pedido = ve
 das vendas. **Guarda:** o teste falha no código anterior e passa no novo. **Resíduos sem correção no portal:** por anúncio, o gasto é do período
 e os leads e pedidos são o total do anúncio (a view não tem data); o "tempo até entregar" usa a última atualização do pedido como data de entrega.
 
+## 123. Plano 16: perfil e score do lead, escassez de estoque real, frete do antecipado, objeção vaga e gatilho pessoal (operador, 2026-10-21)
+
+**Estado (verificado em 2026-10-21):** **implementado na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`), NÃO
+publicado.** No ar continua a v39 (segundo o HANDOFF de 21/10; a API de gerência não foi consultada nesta sessão, então a versão não foi
+reconferida). `pnpm test` rodado nesta sessão: 116 arquivos, 8732 testes, verdes. Decisões do operador: R29 em
+[`03-decisoes-tomadas.md`](03-decisoes-tomadas.md); especificação: [plano 16](../../agente-ia/05-plano/16-plano-execucao-pesquisas.md) §4.
+
+**Sintoma:** a Malu não guardava nada do que a cliente contava (ocasião, dor, objeção, sensibilidade a preço), não tinha medida de quão
+perto de comprar cada lead estava, dizia "o frete aparece no checkout" mesmo com o valor ao alcance, tratava "tá caro" e "vou ver" com
+argumento presumido, e não podia dizer que o tamanho estava acabando mesmo quando a Logzz devolvia a quantidade. **Causa:** nada gravava o
+perfil; o valor do frete e a quantidade por tamanho eram lidos e descartados; a escassez tinha saído do projeto (E1.4, R20.1) porque a
+antiga era inventada, e ninguém tinha separado a inventada da real.
+
+**Caminhos que falharam ou foram recusados:**
+- **Lead score e perfil inferido** já tinham sido recusados no plano 12 por não decidirem nada; voltaram porque agora decidem: a régua
+  (`rulerForBand`) e o assunto do e-mail ao operador.
+- **Estimar o frete por faixa ou média** — inventa número (memória *O frete do antecipado não existe*). Só vale o valor lido do checkout.
+- **Primeira versão do script de verificação do frete:** copiou o `regionFetcher` da `turn` sem levar o corpo do erro; o 400 da Logzz
+  ("sem entrega") virou "falha" e divergiu do checkout. Era erro do script, não do agente; corrigido e rodado de novo (README da pasta
+  abaixo).
+- **Frete do kit e frete grátis:** a revisão (Opus) achou a falha bloqueante — o valor lido era o de 1 peça e a frase o aplicaria ao kit;
+  e dizer valor com frete grátis contradiz o grátis. Ambos saíram: `prepayFreight` só vale para 1 peça, sem frete grátis.
+- **Âncora de R$ 216,50 na pergunta vaga** (plano 16 §4.5): removida do texto fixo; a conformidade não achou prova de que o preço foi
+  praticado (pergunta aberta abaixo).
+- **Escassez "por tempo limitado" / "esgota amanhã":** descartada pelo operador, a oferta não tem data de fim.
+
+**Correção (na branch):**
+- **Perfil e score** (`profile.ts`): o interpretador (`interpret.ts`, mesma chamada) devolve `occasion`, `pain`, `objections`,
+  `price_signal`, `buying_question` e `hook`; `mergeProfile` junta no `leads.profile` (mais recente para `occasion`/`pain`/`hook`, lista
+  sem repetição, nível mais alto de sensibilidade, `audio_count`); `scoreOf` soma a régua do plano §4.2; `bandOf` dá fria/morna/quente
+  (<30 / 30–59 / ≥60); `profileFold` aplica a junção também na retomada e na revisão do turno; `scoreTag` monta "🔥 QUENTE · 72" etc. A
+  migração `0029_lead_profile.sql` cria as colunas e a view `lead_profiles_v` (`security_invoker`), **sem telefone, sem nome e, depois da
+  revisão de conformidade, sem `pain` nem `hook`** (dado de saúde fica só em `leads.profile`).
+- **Escassez real** (`stockScarcityLine`): a linha só sai quando a consulta da Logzz desta conversa está fresca e legível e a quantidade do
+  tamanho dela é menor que `scarcity.lowStock`; diz "pra entrega na sua região" (o estoque é por praça, não nacional). O gate
+  `scarcity_claim` ganhou `stockLeft`: só passa a frase que bate com o número da consulta.
+- **Frete do antecipado:** `prepayFreight` lê o frete do CEP dela (sem dado pessoal, arredondando como a página: 19,345 → 19,35);
+  `regionTurnFacts` leva o valor ao turno; `prepayOfferText` põe o valor na oferta; falhou a leitura, a frase de hoje. **Provado contra o
+  checkout real da Coinzz: 87/87 iguais** ([`docs/operacao/playwright-frete-2026-10-21/README.md`](../../operacao/playwright-frete-2026-10-21/README.md)).
+  Não coberto: kits; vale para 21/10.
+- **Objeção vaga:** `vagueObjectionSituation` detecta "tá caro", "achei mais barato", "vou ver", "vou pensar"; a Malu faz a pergunta fixa
+  `VAGUE_OBJECTION_QUESTION` uma vez (`askedVagueQuestion` impede a segunda); **não** dispara quando o `price_signal` é `discount_ask`.
+- **Gatilho pessoal:** `personalTriggerDirective` manda usar a ocasião/dor na resposta seguinte e deixa a terceira a critério; `countTriggerUses`
+  conta no que a Malu **enviou**, `triggerUsesSoFar` lê o total da conversa inteira (teto 3); `withHook` põe o `hook` num balão antes da
+  oferta, pela cadeia de gates; `HOOK_PROMISE` descarta o `hook` que prometa recuperação ou redução.
+- **Régua por faixa:** `rulerForBand` — fria recebe só o 1º lembrete; morna e quente seguem os 3 toques. O e-mail ao operador leva
+  `scoreTag` no payload de `notification()`.
+- **Persona Gisele** (M12): pressão por autoridade e prova social contra a própria Malu.
+
+**Guarda:** `tests/profile.test.ts`, `interpret-profile`, `scarcity-real-stock`, `prepay-freight`, `prepay-freight-offer`,
+`stock-quantity`, `vague-objection`, `personal-trigger`, `plan16-wiring`; mutações em `src/dev/verify-guards.ts`. Duas revisões:
+Opus (1 bloqueante, o frete do kit, mais corrigíveis) e conformidade; achados corrigidos em `5f445f9`.
+
+**Resíduos deixados de propósito (R21.6, sem frase real):**
+- "O GG está acabando 😮" passa o `scarcity_claim` sem consulta de estoque na conversa;
+- "esgota amanhã" passa mesmo com estoque real;
+- os contadores do perfil podem contar em dobro no caso parcial de turno substituído (comentário `shortcut:` no código);
+- a varredura não repontua toque sem resposta (o −10 do plano não é aplicado);
+- o frete do kit não é lido.
+
+**Falta para entrar no ar (nada disso foi feito):** (1) aplicar `0029_lead_profile.sql`; (2) `pnpm deploy:turn`; (3) gravar
+`scarcity.lowStock: 20` no `BUSINESS_CONFIG` (ausente = sem escassez; JSON validado + hash + `job:"health"`); (4) trocar o assunto no
+n8n (`turno-da-agente.json`): hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`, deve virar
+`={{ $json.scoreTag ? $json.scoreTag + ' — ' : '' }}Aviso — …` (sem a troca, o `scoreTag` chega e não aparece); (5) mesclar a branch
+`claude/lead-score-profile` do `encorpa-portal` (`api/leads.js`, `src/pages/Leads.jsx`); (6) por último, personas (precisam do OK de
+custo, memória *Sem gasto de API sem pedido*).
+
+**Perguntas abertas ao operador (parecer de conformidade, 21/10):** a âncora de R$ 216,50 já foi praticada? o enquadramento ANVISA de
+"pós-parto" e "postura"; a Logzz desconta o desconto por quantidade de pedido pendente?; consentimento e aviso de privacidade (LGPD art.
+11, dado de saúde); tirar `allowUnverified` do segredo (`guardrails.ts`, `index.ts` ainda o leem).
+
+**Superação:** o plano [14](../../agente-ia/05-plano/14-experimentos-l3.md) (datas do L3, congelamento 23/10–09/11) está **superado**
+pela decisão "sem datas" de 21/10 (R29).
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

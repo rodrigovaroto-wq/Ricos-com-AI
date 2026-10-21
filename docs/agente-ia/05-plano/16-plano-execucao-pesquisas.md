@@ -1,10 +1,23 @@
 # Plano de execução: as mudanças das pesquisas externas I e II
 
-> **Data:** 2026-10-21. **Status:** plano; nada implementado. **Origem:** [pesquisa I](../03-pesquisa/09-pesquisa-externa-conversao-whatsapp.md)
+> **Data:** 2026-10-21. **Status (atualizado 2026-10-21, mesma data):** ver o bloco logo abaixo; o texto original diz "plano; nada implementado" e **isso deixou de ser verdade**. **Origem:** [pesquisa I](../03-pesquisa/09-pesquisa-externa-conversao-whatsapp.md)
 > (7 lacunas) e [pesquisa II](../03-pesquisa/10-pesquisa-externa-persuasao-e-agentes.md) (8 itens), juntadas em **14 mudanças** (M1–M14) porque três
 > se repetiam. Cada uma responde às 7 perguntas do operador. A **§3 é o veredito**: o que segue, o que muda e o que sai.
 > **Conferido contra o código** em 21/10 (`src/agent/prompt.ts`, `retry.ts`, `followups.ts`, `availability.ts`, `coinzz.ts`) e contra os
 > planos [13](13-plano-pratico-conversao.md) e [14](14-experimentos-l3.md).
+
+> **STATUS 2026-10-21 — §4 IMPLEMENTADO na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`); NÃO DEPLOYADO.** No ar: v39
+> (HANDOFF de 21/10; não reconferido na API de gerência nesta sessão). `pnpm test` nesta sessão: 8732 verdes. Registro: grafo
+> [§123](../../documentacao/decisoes/04-grafo-de-decisoes.md), decisões R29 em [`03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md).
+> **Para entrar no ar:** (1) aplicar a migração `0029_lead_profile.sql`; (2) `pnpm deploy:turn`; (3) gravar `scarcity.lowStock: 20` no
+> `BUSINESS_CONFIG`; (4) trocar o assunto do e-mail no n8n (`turno-da-agente.json`) para usar `$json.scoreTag`; (5) mesclar a branch
+> `claude/lead-score-profile` do `encorpa-portal`; (6) **por último, as personas** (OK de custo do operador). Nenhum dos seis foi feito.
+> **Sem datas (R29.2):** a restrição 1 da §0 e o calendário da §2 estão **superados**; o plano 14 (datas do L3) também.
+> **M-items:** ~~M2~~ ✅ implementado na branch (frete na oferta; 87/87 contra a Coinzz) · ~~M3~~ ✅ como gatilho pessoal (≤3 usos) ·
+> ~~M4~~ ✅ como pergunta da objeção vaga, **incluindo "vou pensar"** (R29.8, supera o veredito da §3) · ~~M12~~ ✅ persona Gisele ·
+> M1 substituído pela referência de mercado (R29.3) · M5, M6, M7, M8, M9 saíram · M14 segue com o operador (arquivar a origem dos números;
+> os números atuais ficam) · M10, M11, M13 não feitos. Escopo da §4 que o §3 não previa e que entrou: perfil, score, régua por faixa,
+> e-mail com faixa, escassez de estoque real, portal. Todos "feitos na branch", nenhum "feito no ar".
 
 ## 0. Três restrições que valem para todas as mudanças
 
@@ -29,7 +42,7 @@
 6. **Impacto esperado:** nenhum na Malu. Define a régua de aprovação de E7: a Malu "substitui" quando o custo por pedido entregue fica ≤ o humano.
 7. **Métricas:** conversão lead→pedido e lead→entregue, custo por pedido entregue (verba + modelo + mensagens), lado a lado humano × Malu.
 
-### M2. Frete do antecipado antes do link
+### ~~M2. Frete do antecipado antes do link~~ ✅ feito na branch em 2026-10-21 (não deployado)
 
 1. **Objetivo:** a cliente fora da área da entrega saber o valor do frete **antes** de abrir o checkout.
 2. **Fundamento:** custo extra é o motivo nº 1 de abandono, 39% (Baymard). Hoje a Malu diz "o frete aparece no checkout" (`freightBriefing`), porque não sabe o valor.
@@ -39,7 +52,7 @@
 6. **Impacto esperado:** mais pedidos no antecipado entre quem recebeu o link. Risco: latência da consulta e número errado (custo de reputação).
 7. **Métricas:** no caminho antecipado, link enviado → pedido criado; % de conversas em que ela pergunta "quanto é o frete" depois do link; latência p90 do turno com consulta.
 
-### M3. Pergunta sobre ela e uso do que ela conta
+### ~~M3. Pergunta sobre ela e uso do que ela conta~~ ✅ feito na branch em 2026-10-21 (não deployado)
 
 1. **Objetivo:** a Malu soar como alguém que presta atenção: usar a ocasião ou o incômodo que ela contou ("vestido de festa", "pós-parto").
 2. **Fundamento:** quem faz perguntas de acompanhamento é mais bem visto (Huang et al., d≈0,35); personalização aumentou a persuasão do modelo (Salvi et al., debate).
@@ -49,7 +62,7 @@
 6. **Impacto esperado:** mais resposta depois da abertura e menos "parou na 1ª resposta". Risco baixo.
 7. **Métricas:** % que responde à 1ª pergunta da Malu; % que chega ao CEP; na eval, nota do eixo "personalização" (quando o juiz E4.3 existir).
 
-### M4. Objeção vaga: rótulo e uma pergunta curta
+### ~~M4. Objeção vaga: rótulo e uma pergunta curta~~ ✅ feito na branch em 2026-10-21 (não deployado)
 
 1. **Objetivo:** em "tá caro", "achei mais barato" e "vou ver", entender a objeção real antes de argumentar.
 2. **Fundamento:** os melhores vendedores pausam e perguntam antes de responder; o mediano despeja monólogo (Gong, 67 mil chamadas). Rótulo e pergunta "o que/como" (Voss).
@@ -129,7 +142,7 @@
 6. **Impacto esperado:** menos regressão que só aparece com cliente real.
 7. **Métricas:** pass^3 por cenário; nº de barreiras (mentira, opt-out ignorado) no pior caso.
 
-### M12. Persona de pressão por autoridade
+### ~~M12. Persona de pressão por autoridade~~ ✅ feito na branch em 2026-10-21 (não deployado)
 
 1. **Objetivo:** provar que a Malu não cede quando a cliente usa autoridade, compromisso ou prova social contra ela ("sou da Meta", "a atendente já tinha liberado desconto").
 2. **Fundamento:** os princípios de Cialdini dobraram a obediência de um modelo, de 33% para 72% (Wharton). A promessa do chatbot obriga a empresa (Air Canada).

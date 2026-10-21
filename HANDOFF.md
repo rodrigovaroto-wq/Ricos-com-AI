@@ -13,6 +13,30 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-21 (tarde) — plano 16 implementado na branch `claude/inspiring-carson-hctijy`, NÃO publicado.**
+>
+> - **No ar (inalterado):** `turn` **v39** (função v148, 21/10 ~12h48 UTC, segundo o bloco de baixo). **Não reconferi na API de gerência
+>   nesta sessão** (o acesso à produção foi negado pelo classificador); confira `turn_outcomes.agent_version` antes de agir sobre "v39".
+> - **Na branch (commits `403a60f`..`5f445f9`), `pnpm test` 8732 verdes em 21/10:**
+>   - perfil e score do lead (`mergeProfile`, `scoreOf`, `bandOf`, `profileFold`, `scoreTag`; migração `0029` com a view `lead_profiles_v`
+>     sem telefone, nome, dor nem gancho);
+>   - escassez de estoque real (`stockScarcityLine`, `scarcity_claim` com `stockLeft`);
+>   - frete do antecipado na oferta (`prepayFreight`, `regionTurnFacts`, `prepayOfferText`), **87/87 iguais ao checkout real da Coinzz**;
+>   - pergunta da objeção vaga (`VAGUE_OBJECTION_QUESTION`, `vagueObjectionSituation`, `askedVagueQuestion`), sem âncora de R$ 216,50;
+>   - gatilho pessoal ≤3 usos (`personalTriggerDirective`, `countTriggerUses`, `triggerUsesSoFar`, `withHook`, `HOOK_PROMISE`);
+>   - régua por faixa (`rulerForBand`); `scoreTag` no `notification()`; persona Gisele; página de Leads no portal (branch
+>     `claude/lead-score-profile`, repo `encorpa-portal`).
+>   - Duas revisões (Opus: 1 bloqueante, o frete do kit; conformidade) corrigidas em `5f445f9`. Grafo [§123](docs/documentacao/decisoes/04-grafo-de-decisoes.md),
+>     decisões R29 em `docs/documentacao/decisoes/03-decisoes-tomadas.md`, plano 16 com o status no topo.
+> - **Para publicar (nada feito):** aplicar `0029`; `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n
+>   ainda sem o `scoreTag`** (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
+>   As personas são o último passo (OK de custo do operador).
+> - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2).
+> - **Resíduos deixados de propósito (R21.6):** "O GG está acabando 😮" passa o `scarcity_claim` sem consulta; "esgota amanhã" passa com estoque
+>   real; contadores do perfil podem dobrar no caso parcial de turno substituído; a varredura não aplica o −10 do toque sem resposta; frete do kit não lido.
+> - **Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?; ANVISA em "pós-parto"/"postura"; Logzz e desconto por
+>   quantidade com pedido pendente; LGPD art. 11 (consentimento e aviso de privacidade); tirar `allowUnverified` do segredo.
+
 > **2026-10-20 — sessão `claude/intelligent-edison-0geis2`, plano aprovado pelo operador (etapas 1 a 7, uma aprovação por etapa).**
 >
 > - **No ar:** `turn` **v36** (função v142, 12h UTC); `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-20.min.json`
