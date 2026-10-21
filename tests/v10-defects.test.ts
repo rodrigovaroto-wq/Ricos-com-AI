@@ -55,7 +55,7 @@ describe("1. o link não sai de novo depois de três perguntas (linkHeldBack)", 
   });
 
   it("fiação: a conversa inteira é lida pelo host do checkout, só quando a janela não tem link, e falha aberta", () => {
-    expect(source).toContain("const linkJustSent = linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
+    expect(source).toContain("const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? \"\"));");
     expect(source).toContain("linkReady && CHECKOUT_HOSTS.length > 0 && lastLinkBase(recentOutbound, CHECKOUT_BASES) === null");
     expect(source).toContain("&direction=eq.outbound&or=(${CHECKOUT_HOSTS.map((h) => `body.like.*${h}*`).join(\",\")})&select=body&order=created_at.desc&limit=1");
     expect(source).toContain(".catch(() => null))?.map((m: { body: string | null }) => m.body ?? \"\") ?? recentOutbound");
@@ -94,7 +94,7 @@ describe("2. 'sim' às duas opções sem escolher: confirma a entrega (agreesWit
     expect(agrees("sim, a com desconto", "Qual das duas fica melhor pra você?")).toBe(true);
     expect(source.indexOf("const choiceToStore = pathChoiceToStore(")).toBeLessThan(source.indexOf("const agreedOnly ="));
     // R28: the two options are no longer presented, so there is no "sim" to them to confirm; the prepaid choice still holds.
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     expect(source).toContain("mas ela escolheu o antecipado: siga no");
     expect(source).toContain("const paymentChoice = (agreedOnly ? null : interpretation.payment_choice) ?? choiceToStore ?? storedChoice;");
   });

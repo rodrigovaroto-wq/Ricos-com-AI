@@ -93,7 +93,7 @@ describe("o link no turno espera os dados (index.ts lido como fonte)", () => {
   });
 
   it("a diretiva da região sai sozinha, com ou sem tamanho, e nunca como 'saída boa'", () => {
-    expect(source).toContain("regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity(");
+    expect(source).toContain('regionDirectiveFor(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", ');
     expect(source).toContain("ali o colete vai pelos Correios, no pagamento antecipado");
     // R28: the offer is fixed; the model never presents two options.
     expect(source).toContain("Não apresente duas opções nem repita a oferta");
@@ -582,7 +582,7 @@ describe("recusa explícita dela conta, seja qual for a redação do pedido", ()
 describe("'vou pensar' não repete a frase fixa sem nada novo (Cleide, rodada final)", () => {
   it("sem link novo, a frase já dita não sai de novo e o modelo responde", () => {
     expect(source).toContain("const thinkRepeated = thinkLink === null && recentOutbound.some((m: string) => m.startsWith(think.slice(0, 60)));");
-    expect(source).toContain("const sent = thinkRepeated ? null : await sendFixed(");
+    expect(source).toContain("const sent = thinkRepeated || thinkLink === null || guides.length > 0 ? null : await sendFixed(");
   });
   it("com a frase retida, o modelo sabe que ela se despede: nada de pedir dado, oferta ou link (revisão de 5383dc5)", () => {
     expect(source).toContain("farewell = thinkRepeated;");

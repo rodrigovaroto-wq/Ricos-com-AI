@@ -114,9 +114,11 @@ export const malformedCep = (text: string, askedCep = false): string | null => {
   // Beside the word, not denied ("meu cep não é 004710090"); after the question, only as the whole
   // message — "moro no 1234567" or a phone in a sentence is no CEP (review of §66, B4).
   const m = /\bcep\b/i.test(digits)
-    ? digits.match(/\bcep\b(?![^\d]*\bn[aã]o\b)[^\d]{0,20}(?<!\d)(\d{7}|\d{9})(?!\d)/i)
+    ? digits.match(/\bcep\b(?![^\d]*\bn[aã]o\b)[^\d]{0,20}(?<!\d)(\d{5}|\d{7}|\d{9})(?!\d)/i)
     : askedCep
-      ? digits.match(/^\s*(\d{7}|\d{9})\s*[.!]*\s*$/)
+      // Five digits alone are the start of a CEP, never a whole one: "84 940" moved on to the size with no CEP read, and
+      // her delivery time was then said without her region (real lead, 2026-10-19/20).
+      ? digits.match(/^\s*(\d{5}|\d{7}|\d{9})\s*[.!]*\s*$/)
       : null;
   return m ? m[1]! : null;
 };
@@ -132,6 +134,9 @@ const FORGOT = String.raw`(?:(?:nao|n)\s+(?:me\s+)?(?:lembro|sei|recordo)|(?<!\b
 // Review of R26: a "mas / porque" between them is another clause — "não lembro o número mas o cep eu sei", "não sei pq vcs precisam do meu cep".
 const MID = String.raw`(?:(?!\b(?:mas|porem|pq|porque|por\s+que)\b)[^.!?,;\n]){0,25}`;
 const FORGOT_CEP = new RegExp(String.raw`\b${FORGOT}${MID}\bcep\b|\bcep\b${MID}\b${FORGOT}`);
+/** The agent asked her street and city for the CEP she does not know — asked once, never again in a row. */
+export const asksStreet = (text: string): boolean => /\brua\b/i.test(text) && /\bcidade\b/i.test(text) && text.includes("?");
+
 export const forgetsCep = (text: string): boolean =>
   FORGOT_CEP.test(text.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase());
 
@@ -373,6 +378,20 @@ const UF_BY_PREFIX: ReadonlyArray<readonly [number, number, State]> = [
   [699, 699, "AC"], [700, 727, "DF"], [728, 729, "GO"], [730, 736, "DF"], [737, 767, "GO"], [768, 769, "RO"],
   [770, 779, "TO"], [780, 788, "MT"], [790, 799, "MS"], [800, 879, "PR"], [880, 899, "SC"], [900, 999, "RS"],
 ];
+/** The state of her phone's DDD: where to search her street when she wrote neither the state nor a CEP (operator's test, 2026-10-21). */
+const UF_BY_DDD: Record<string, State> = Object.fromEntries(
+  ([
+    ["SP", "11 12 13 14 15 16 17 18 19"], ["RJ", "21 22 24"], ["ES", "27 28"], ["MG", "31 32 33 34 35 37 38"], ["PR", "41 42 43 44 45 46"],
+    ["SC", "47 48 49"], ["RS", "51 53 54 55"], ["DF", "61"], ["GO", "62 64"], ["TO", "63"], ["MT", "65 66"], ["MS", "67"], ["AC", "68"],
+    ["RO", "69"], ["BA", "71 73 74 75 77"], ["SE", "79"], ["PE", "81 87"], ["AL", "82"], ["PB", "83"], ["RN", "84"], ["CE", "85 88"],
+    ["PI", "86 89"], ["PA", "91 93 94"], ["AM", "92 97"], ["RR", "95"], ["AP", "96"], ["MA", "98 99"],
+  ] as const).flatMap(([uf, ddds]) => ddds.split(" ").map((d) => [d, uf])),
+);
+export const ufOfPhone = (phone: string): State | null => {
+  const digits = phone.replace(/\D/g, "");
+  // The WhatsApp number always carries the 55: anything else is no Brazilian phone.
+  return /^55\d{10,11}$/.test(digits) ? UF_BY_DDD[digits.slice(2, 4)] ?? null : null;
+};
 export const ufOfCep = (cep: string): State | null => {
   const digits = cep.replace(/\D/g, "");
   if (digits.length !== 8) return null;
@@ -384,6 +403,13 @@ export const ufOfCep = (cep: string): State | null => {
 export interface StreetQuery { street: string; city: string; number: string | null; state: State | null }
 
 const STREET_KIND: Record<string, string> = { r: "rua", av: "avenida", tv: "travessa", trav: "travessa", al: "alameda", est: "estrada", pca: "praça" };
+// The search matches whole words: "Rua Dr José Áureo Bustamante" finds nothing until "dr" is "doutor" (operator's test, 2026-10-21).
+const STREET_TITLE: Record<string, string> = {
+  dr: "doutor", dra: "doutora", prof: "professor", profa: "professora", pres: "presidente", gov: "governador", cel: "coronel",
+  gen: "general", mal: "marechal", sen: "senador", dep: "deputado", eng: "engenheiro", sto: "santo", sta: "santa", cap: "capitão",
+  ten: "tenente", maj: "major", pe: "padre",
+};
+const expandTitles = (s: string): string => s.replace(/(?<![\p{L}\d])([a-z]{2,4})\.?(?=\s|$)/giu, (w, t: string) => STREET_TITLE[t.toLowerCase()] ?? w);
 
 /**
  * Her street and city read for the Correios street search (operator, 2026-10-19: a CEP the lookup cannot find gets
@@ -418,12 +444,12 @@ export const streetQueries = (text: string): StreetQuery[] => {
   if (pieces.length === 0) return [];
   const words = (s: string) => s.split(/\s+/).filter(Boolean);
   if (pieces.length >= 2) {
-    return [{ street: `${kind} ${pieces[0]}`, city: pieces[pieces.length - 1]!, number, state }];
+    return [{ street: `${kind} ${expandTitles(pieces[0]!)}`, city: pieces[pieces.length - 1]!, number, state }];
   }
   const w = words(pieces[0]!);
   const out: StreetQuery[] = [];
   for (let k = 1; k <= 3 && k < w.length; k++) {
-    out.push({ street: `${kind} ${w.slice(0, w.length - k).join(" ")}`, city: w.slice(w.length - k).join(" "), number, state });
+    out.push({ street: `${kind} ${expandTitles(w.slice(0, w.length - k).join(" "))}`, city: w.slice(w.length - k).join(" "), number, state });
   }
   return out;
 };
@@ -455,7 +481,8 @@ export const pickStreetCep = (
     if (/lado\s+par\b/.test(t) && n % 2 !== 0) return false;
     if (/lado\s+[ií]mpar\b/.test(t) && n % 2 === 0) return false;
     const nums = [...t.matchAll(/\d+/g)].map((x) => Number(x[0]));
-    if (/^\s*at[eé]\s+\d/.test(t)) return n <= nums[0]!;
+    // "até 99/100": odd up to 99, even up to 100 (Rua Halfeld, Juiz de Fora, 2026-10-21: the 100 fitted nothing).
+    if (/^\s*at[eé]\s+\d/.test(t)) return n <= Math.max(...nums.slice(0, /^\s*at[eé]\s+\d+\s*\/\s*\d/.test(t) ? 2 : 1));
     if (/^\s*de\s+\d[^a]*\bao\s+fim\b/.test(t)) return n >= nums[0]!;
     if (/^\s*de\s+\d/.test(t) && nums.length >= 2) return n >= nums[0]! && n <= nums[nums.length - 1]!;
     return /^\s*\d+\s*$/.test(t) && Number(t) === n;

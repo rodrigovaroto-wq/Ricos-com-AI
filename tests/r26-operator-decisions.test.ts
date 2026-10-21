@@ -58,16 +58,16 @@ describe("R26.1 — CEP depois do 'não lembro' (persona Marcinha, 15/10)", () =
 
   it("o turno lê o 'não lembro' das mensagens dela, só enquanto nenhum CEP foi lido, e passa ao gate", () => {
     expect(turn).toContain("const cepForgotten = cepRefused || (!addressDraft.cep && !wrongCep && !cepNotFound && herRecent(recentRows ?? [], spoken).some(forgetsCep));");
-    expect(turn).toMatch(/cepForgotten,\n\s+hookSent: recentOutbound\.some\(isHook\)/);
+    expect(turn).toMatch(/cepForgotten,\n\s+addressBeforeOrder: newAddressBeforeOrder,\n\s+hookSent: recentOutbound\.some\(isHook\)/);
   });
 
   it("as diretivas não mandam pedir o CEP: a do tamanho, a do link e a do estado do CEP", () => {
     expect(turn).toContain("sizeDirectiveFor(stated, lead.size ?? null, knownRegion, checkoutUrl !== null, cepForgotten)");
     expect(turn).toContain("if (cepForgotten) return fitting;");
     expect(turn).toContain("missing === \"cep\" && cepDue && cepForgotten");
-    // A diretiva do link não convida "me manda" (que o cep_insist veta).
-    expect(turn).toContain("assim que ela tiver o CEP, o link sai — sem pedir que ela mande.");
-    expect(turn).toContain("Ela disse que não lembra o CEP: não peça o CEP de novo até ela mandar");
+    // A diretiva do link pede a rua sem a palavra CEP (que o cep_insist veta); teste real de 21/10 (grafo §120).
+    expect(turn).toContain("sem escrever a palavra CEP nessa pergunta. Não escreva link nenhum.");
+    expect(turn).toContain("Ela não sabe o CEP: não peça o CEP. Peça o nome da rua");
   });
 
   it("a falta do CEP esquecido só segura o link: a oferta do kit segue", () => {
@@ -134,7 +134,7 @@ describe("R26.3 — consulta de cobertura que falha (persona Jussara, 15/10)", (
   it("a correção sai só no turno em que a consulta descobre a falta de entrega (revisão Opus: o modelo pode dizer de outro jeito)", () => {
     // `storedAddress` é o lead do começo do turno: o turno seguinte já o lê com `codAvailable: false` e a diretiva não volta.
     expect(turn.indexOf("const storedAddress = (lead.address ?? {})")).toBeLessThan(turn.indexOf("const codLinkVoid ="));
-    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, region !== null && isLikelyCodCity\(region\.place, CONFIG\.cod\.likelyCities\), [^\n]*\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
+    expect(turn).toMatch(/regionDirectiveFor\(knownRegion, paymentChoice, agreedOnly, offerBefore === "both", [^\n]*\),\n[\s\S]{0,600}?\n\s+codLinkVoid/);
   });
 
   it("a frase que a diretiva ensina passa a cadeia de gates sem entrega na região, nos dois caminhos", () => {

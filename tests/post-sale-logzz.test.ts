@@ -82,7 +82,7 @@ describe("troca sem custo só com returns.freeExchange === true (operador, 2026-
 
 describe("o prompt ensina a Logzz só com o número no config", () => {
   const flat = (c: PromptConfig) => systemPrompt(c, gateBriefing(c), null).replace(/\s+/g, " ");
-  const EXEMPLAR = `É só mandar uma mensagem pro suporte da Logzz no ${PHONE} e pedir lá a troca ou a devolução, que eles resolvem pra você.`;
+  const EXEMPLAR = `É só chamar o nosso atendimento ao cliente no WhatsApp ${PHONE} e pedir a troca ou a devolução, que eles resolvem pra você.`;
 
   it("com o número: ensina a frase, que passa a cadeia, e não ensina que o envio da troca é dela", () => {
     const prompt = flat(withPhone);
@@ -95,7 +95,7 @@ describe("o prompt ensina a Logzz só com o número no config", () => {
   it("negação: ausente ou placeholder, o prompt não cita a Logzz como suporte nem o envio da troca", () => {
     for (const c of [base, { ...base, returns: { logzzSupportPhone: "{{LOGZZ_SUPPORT_PHONE}}" } }] as PromptConfig[]) {
       const prompt = flat(c);
-      expect(prompt).not.toContain("suporte da Logzz");
+      expect(prompt).not.toContain("atendimento ao cliente no WhatsApp");
       expect(prompt).toContain("Do envio da troca de tamanho não fale nada: nem valor, nem que é por conta dela, nem que é grátis.");
     }
   });
@@ -216,16 +216,17 @@ describe("o turno liga as duas decisões", () => {
   it("a troca com o número vai pelo sendFixed, só quando ela pede nas palavras dela", () => {
     expect(block).toContain("const asksPerson = interpretation.asks_human && namesAPerson(spoken(inbound.body ?? \"\"));");
     expect(block).toContain('const asksReturn = interpretation.wants_exchange && namesExchangeOrReturn(spoken(inbound.body ?? ""));');
-    expect(block).toContain('if (returnsLine !== null && returnsLine !== lastOutbound && !asksPerson && handoffKind === "post_sale" && asksReturn) {');
+    // Copy v4, 5.3: the model answers on `returnsLine` as its example.
+    expect(block).toContain('const returnsAsked = returnsLine !== null && !asksPerson && handoffKind === "post_sale" && asksReturn;');
     expect(block).toContain("CONFIG.returns?.freeExchange === true");
   });
 
   it("o pós-venda lê os pedidos, do mais novo ao mais velho, e responde pelo sendFixed, sem marcar handoff_at", () => {
-    expect(block).toContain("orders?lead_id=eq.${lead.id}&select=status,payment_method,scheduled_for&order=created_at.desc`");
+    expect(block).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`");
     expect(block).toContain('if ((handoffKind === "post_sale" && !asksReturn) || handoffKind === "cancel") {');
     expect(block).toContain("cancelling === null && returnsOnly(orders) ? returnsLine : null");
-    // The same fixed line twice is a loop: the second time, a person.
-    expect(block).toContain("reply === null || reply === lastOutbound ? null : await sendFixed(reply, ");
+    // Copy v4: the status is the model's answer, on the fixed line as its example.
+    expect(block).toContain("if (reply !== null) guide(");
     const postSale = block.slice(block.indexOf('if ((handoffKind === "post_sale" && !asksReturn)'), block.indexOf("let orderUnreadable = false;"));
     // The slice must exist: the v20 version sliced from an anchor that never matched and passed empty.
     expect(postSale.length).toBeGreaterThan(200);
@@ -238,7 +239,7 @@ describe("o turno liga as duas decisões", () => {
   it("entregue: o modelo responde com os fatos do pedido, pela cadeia, e fora de hora fica para a abertura", () => {
     const postSale = block.slice(block.indexOf('if ((handoffKind === "post_sale" && !asksReturn)'), block.indexOf("let orderUnreadable = false;"));
     expect(postSale).toContain('if (handoffKind === "post_sale" && orders[0]?.stage === "entregue_pago" && logzzPhone !== null) {');
-    expect(postSale).toContain("await draftWith(deliveredDirective(orders, new Date(), logzzPhone, supportName(CONFIG)), \"post_sale\", gate, replyDeadline);");
+    expect(postSale).toContain("await draftWith(deliveredDirective(orders, new Date(), logzzPhone), \"post_sale\", gate, replyDeadline);");
     expect(postSale).toContain("if (draft?.deferred) return await deferDraft(");
     expect(postSale).toContain("await sendFixed(draft.text, ");
   });

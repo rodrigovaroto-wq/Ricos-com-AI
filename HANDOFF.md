@@ -13,6 +13,56 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-20 — sessão `claude/intelligent-edison-0geis2`, plano aprovado pelo operador (etapas 1 a 7, uma aprovação por etapa).**
+>
+> - **No ar:** `turn` **v36** (função v142, 12h UTC); `BUSINESS_CONFIG` = `docs/operacao/business-config-2026-10-20.min.json`
+>   (sha256 `3749c32b…`); migração 0028 aplicada. `job:"health"` → `healthy`, com `lookups`.
+> - **Etapa 1:** três falhas das conversas reais corrigidas (grafo §114): o nome em `extractName`, o CEP de 5 números em `malformedCep` e
+>   o prazo da entrega sem região em `coverage_claim`. O nome da Rosa no lead real foi corrigido para "Rosa".
+> - **Revisão pedida pelo operador:** o briefing do `coverage_claim` passou a ensinar a condição do prazo (§115).
+> - **Suporte (§115):** "o atendimento ao cliente", +55 11 98819-4261, sem nome; `supportName` saiu do código.
+> - **Etapa 2:** 0028 + segredo novo + v36, sonda ok. A gravação em `coverage_lookups` foi provada com um lead sintético, apagado depois.
+> - **Validação:**
+>   - `pnpm test` 8467, `typecheck`, `lint`, `typecheck:function` e `dev:conversas` 1655/1655;
+>   - `dev:gates`: 0 afrouxamentos;
+>   - mutações `G114-*`, `AC-*` e `troca-gratis-sem-flag-turno` pegas;
+>   - reencenação na `turn` local, idêntica à v36 (R$ 0,18 no total).
+> - **Teste pela porta de produção:** não feito. A `turn` exige o selo `INBOUND_SIGNING_SECRET`, que não está no container.
+>   A primeira conversa real na v36 é a prova; confira `turn_outcomes.agent_version = 36`.
+> - **Revisão da etapa 2 (Opus):** aprovada. Linha de mudança de endereço passou a ser ensinada entre aspas e termina no número (`df9705e`, **não publicado**).
+> - **Etapa 3 (Playwright na Coinzz, grafo §116):** 56 checkouts antecipados. Link, frete e preços batem (1 centavo de arredondamento). **O tamanho M não se
+>   compra no antecipado em nenhum CEP**, e no pagamento na entrega só em BH: decisão do operador. 12x é com juros; o checkout pede e-mail e CPF antes do CEP.
+> - **v37 NO AR** (função v144, 18h52 UTC, `healthy`), grafo §117:
+>   - a entrega é consultada com o tamanho dela e com cada tamanho do kit; o "não" da Logzz leva ao antecipado e não aos dois links;
+>   - pedido não achado por nenhum caminho (`herLeadIds`): `orderNotFoundReply` com o número do atendimento ao cliente;
+>   - linha da mudança de endereço (§115).
+>   Validação: 8476 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G117-*` 6/6, simulação na `turn` local.
+> - **Fica com o operador:** o M no antecipado (Coinzz sem estoque em todo CEP, §116) — fora de BH a cliente M não compra.
+> - **Teste real do operador (20/10, noite, grafo §118):** corrigidos e testados, **não publicados**:
+>   - tabela de tamanhos só a pedido;
+>   - kits uma linha por opção, com o desconto;
+>   - endereço novo antes do pedido = CEP novo, e não o atendimento ao cliente.
+>   Reescrita das mensagens prontas proposta em `docs/agente-ia/06-script/08-copy-v4-proposta.md`, esperando a aprovação do operador.
+> - **v38 NO AR** (função v146, ~22h50 UTC, `healthy`, commit `9c890f7`), grafo §119: copy v4 aprovada pelo operador.
+>   Fixos só a abertura, as ofertas, os links e a régua; todo o resto o modelo responde com os textos do operador como modelo (`guide()`),
+>   na voz de campanha Black. Ficam fixos de propósito: as linhas de pagamento, a recepção da noite e as respostas seguras depois de 5 vetos.
+>   Revisão Opus: `notifyOnce`, o sim antes do antecipado, a régua parada na calça fora da tabela, `saysNoDeliveryDay`, `stripMediaLabels`.
+>   Validação: 8517 testes, conversas 1655/1655, gates sem afrouxamento, mutações `G119-*` 15/15, reencenação na `turn` local.
+> - **Teste real do operador na v38 (21/10, grafo §120):** a rua não achava o CEP (sem estado; "dr" ≠ "doutor"; CEP de empresa), o
+>   "não sei meu CEP" deixava a venda seguir sem região, e o CEP novo depois do link ouvia "usa lá no mesmo link".
+> - **v39 NO AR** (função v148, 21/10 ~12h48 UTC, `healthy`), grafos §120 e §121:
+>   - a rua acha o CEP: `ufOfPhone` (estado pelo DDD), `STREET_TITLE`, sem CEP de empresa, "até 99/100" cobre o 100, rua lida depois de outra pergunta;
+>   - "não sei o CEP" pede a rua, o número e a cidade uma vez; o CEP novo depois do link é consultado e o link volta com "Conferi o endereço novo";
+>   - gate `support_before_order`: sem pedido, endereço novo nunca vai ao atendimento ao cliente;
+>   - oferta e link no texto final do operador, nos dois caminhos ("Valores dos Kits", preço por peça).
+>   Validação: 8551 testes, conversas 1655/1655, gates com 2 afrouxamentos aceitos (o buscador dos Correios), mutações `G120-*`/`G121-*`,
+>   reencenação do roteiro do operador na `turn` local. Revisão Opus e `/code-review` com achados corrigidos.
+> - **Falta:** novo teste real do operador na v39 (conferir `turn_outcomes.agent_version = 39`); (f) quem responde; (e) parecer de conformidade.
+>   Os arquivos das conversas de 20/10 e 21/10 (`docs/agente-ia/10-auditoria/testes-reais/2026-10-2*-operador-*`) estão fora do commit: o
+>   classificador barrou o envio de conversa real; decisão do operador.
+>   (c) e (d) seguem bloqueados. `graphify` 0.9.92 instalado em `~/.graphify` (some com o container; o setup do ambiente o reinstala).
+> - **`turn` local de teste:** `/tmp/claude-0/local-turn.sh` (fora do repositório; o comando está no topo de `src/dev/persona-run.ts`).
+
 > **2026-10-19 (fim da noite) — pré-lançamento: 8 tópicos, só o tópico 2 (Playwright, parte Logzz) fechado; troca de sessão pedida pelo operador.**
 >
 > - **No ar:** `turn` v35 (secret = `business-config-2026-10-19b.min.json`). Nada foi publicado nesta etapa.

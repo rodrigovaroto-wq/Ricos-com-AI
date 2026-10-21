@@ -181,7 +181,8 @@ describe("index.ts — a recusa no turno e na régua", () => {
     const think = turn.indexOf("    interpretation.wants_to_think &&\n    interpretation.pending_answer");
     expect(decline).toBeGreaterThan(-1);
     expect(think).toBeGreaterThan(decline);
-    expect(turn.slice(decline, think)).toContain("sendFixed(opening(DECLINE_REPLY)");
+    // Copy v4 (operator, 2026-10-20): the goodbye is the model's, on DECLINE_REPLY as its example.
+    expect(turn.slice(decline, think)).toContain('guide("Ela recusou a compra. Despedida curta, sem argumento nem oferta.", DECLINE_REPLY,');
   });
 
   it("scheduleSilenceTouches não arma a régua depois da recusa: lê as mensagens dela e cancela tudo", () => {

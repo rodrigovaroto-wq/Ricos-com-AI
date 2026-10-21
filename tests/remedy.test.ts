@@ -14,7 +14,7 @@ const byClass = (remedy: Remedy) =>
 
 describe("classificação dos trinta gates", () => {
   it("todo gate tem uma classe, e só existem três", () => {
-    expect(Object.keys(gateRemedies)).toHaveLength(31);
+    expect(Object.keys(gateRemedies)).toHaveLength(32);
     expect(new Set(Object.values(gateRemedies))).toEqual(
       new Set<Remedy>(["rewrite", "defer", "stop"]),
     );
@@ -45,6 +45,7 @@ describe("classificação dos trinta gates", () => {
       "shipping_promise",
       "size_claim",
       "size_insist",
+      "support_before_order",
       "unattributed_window",
       "unavailable_offer",
       "unverified_size",

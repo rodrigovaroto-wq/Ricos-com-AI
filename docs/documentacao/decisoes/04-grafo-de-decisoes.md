@@ -3619,7 +3619,9 @@ lista a linha "conversas reais da última hora" (o fluxo n8n não muda). Falha a
 cliente com CEP que falha disparava o alarme (5 mensagens = 5 `failed`) — a tabela passou a ter **uma linha por conversa** (`conversation_id` chave primária, upsert
 `merge-duplicates`, vale a última resposta; só o id interno, nenhum CEP ou telefone); (2) nada apagava a tabela — `purge_expired()` (corpo da 0020 mais um passo) apaga com mais
 de 1 dia, e a conversa apagada leva a linha junto (`on delete cascade`). **Guarda:** `tests/coverage-lookups.test.ts` e as mutações `LK-*` (6, todas pegas).
-**Estado:** commitado; a migração 0028 **ainda não foi aplicada** em produção e a v36 **ainda não foi publicada**.
+**Estado:** a 0028 foi aplicada em 2026-10-20, 12h UTC (tabela e RLS pelo SQL do MCP; o `purge_expired()` pela API de gerência — o MCP trava
+numa consulta com `delete`, esperando confirmação), e a `turn` **v36** (função v142) publicada: `job:"health"` devolve `lookups`, e uma consulta
+real grava a linha (`outcome: "cod"`, conferido e apagado com o lead sintético).
 
 ## 112. A consulta da Malu contra o checkout real, via Playwright (pré-lançamento, tópico 2, 2026-10-19)
 
@@ -3649,7 +3651,212 @@ mexer em gate, estado ou handoff; função citada pelo nome exato em crase); uma
 `test-engineer`, `technical-writer` e `orchestrator`. O tutorial genérico
 `tools/07-graphify.md` ganhou um aviso para não ser seguido à risca aqui.
 
-## 114. Custos do projeto no Financeiro do portal; o imposto da Meta já está dentro do gasto (operador, 2026-10-20)
+## 114. Três falhas das conversas reais de 19 e 20/10 (pré-lançamento, etapa 1, 2026-10-20)
+
+**Sintomas (conversas reais, `turn` v35 e v27):** (1) "me chamo Rosa moro em Ponte Nova MG como faço pra comprar no atacado" virou o nome
+"Rosa moro em Ponte Nova" em `leads.identity` e foi no link da Coinzz como `name=Rosa+Moro+Em+Ponte+Nova`; (2) "84 940", mandado depois do
+"esse CEP não existe", passou sem ser lido (5 números, nem CEP nem CEP errado) e a conversa seguiu para o tamanho sem região; (3) no dia
+seguinte, "Quantos dias demora pra chegar" ouviu "Pagando na entrega chega em 1 a 3 dias", sem região consultada (o CEP geral 84940-000 é
+Siqueira Campos/PR), contra a decisão de 19/10 (a entrega antes do CEP é "sempre condicionada à região").
+**Causas:** (1) `extractName` corta o nome apresentado só na pontuação e no " e o/a/meu"; o resto da frase, até 5 palavras, entrava;
+(2) `malformedCep` só conhecia 7 e 9 dígitos, e a pergunta do CEP só contava com "cep" e "?" na mesma frase — o re-pedido do CEP não
+achado tem o "?" na frase seguinte; (3) o prompt já mandava condicionar, mas nenhum gate lia o prazo da entrega antes da consulta, e a linha
+de fatos do prompt ("Entrega em 1 a 3 dias, agendada") ensinava o prazo sem condição.
+**Caminhos descartados:** completar "84940" com "000" e consultar (o começo de um CEP de rua de capital viraria outra rua; pedir os 8 números
+custa uma mensagem e não erra); vetar qualquer "1 a 3 dias" antes do CEP (a resposta pronta do prazo, `deadlineFallbackMessage`, já diz
+"Dependendo da sua região" e tem de passar).
+**Correção:** (1) o nome apresentado acaba no primeiro verbo ou pergunta que segue ("moro", "sou", "quero", "como", "pra", "em"…), nunca
+nas partículas "de/da/do"; (2) 5 números sozinhos depois da pergunta do CEP (ou ao lado da palavra "cep") são CEP incompleto, o modelo é
+instruído a pedir os 8 números ou a rua e a cidade, e a pergunta do CEP conta com o "?" em qualquer frase depois de "cep"; (3)
+`coverage_claim`, com a região não consultada, veta a frase que tem o intervalo da entrega (`codDaysMin` a `codDaysMax` dias) sem
+condição ("dependendo", "na maioria", "se a sua região/cidade", "onde tem", "nas regiões", "não sei se", "consulto…"); a linha de fatos do
+prompt passou a dizer "nas regiões com pagamento na entrega".
+**Guarda:** `tests/identity.test.ts`, `tests/second-real-test.test.ts`, `tests/coverage-claim.test.ts` (com negação e a frase que não
+nega), `tests/prompt.test.ts`; mutações `G114-*` (3/3 pegas). `pnpm dev:gates`: 175 endurecimentos, todos `coverage_claim` sobre o
+intervalo da entrega sem região; nenhum afrouxamento.
+**Prova prática:** as duas conversas reais reencenadas, mensagem por mensagem, na `turn` local (do disco, com o `BUSINESS_CONFIG` 19b e o
+modelo da produção, R$ 0,08, leads sintéticos apagados): Rosa é chamada de "Rosa", e o atacado é respondido ("não temos atacado"); "84 940"
+ouve "faltam uns números"; o prazo sai "Depende da região, na entrega é de 1 a 3 dias".
+**Resíduo (R21.6, sem código):** "Quase lá, faltam uns números, e qual calça você veste?" junta o CEP incompleto e o tamanho numa mensagem;
+o nome errado da Rosa continua no lead real até ela mandar o nome de novo (o próximo link sairia errado).
+**Revisão Opus (aprovado com ressalva), mesmo dia:** (1) "se tiver/for/der…" sem lugar contava como condição — "Se for pagar na entrega, chega em
+1 a 3 dias" passava, e era a reescrita mais barata depois do veto: a condição agora exige o lugar ("se a sua região/cidade", "seu CEP"), com as
+duas frases como teste de negação. Ficam como resíduo (R21.6, hipotéticas): "Moro" como sobrenome ("Ana Moro" vira "Ana", corte e não troca); a
+condição na frase anterior ("Depende da sua região. Na entrega…") custa uma reescrita; o pedido de CEP lido até o "?" de qualquer frase seguinte.
+**Estado:** no ar na `turn` **v36** (2026-10-20, 12h UTC). O nome da Rosa no lead real foi corrigido para "Rosa" (pedido do operador).
+
+## 115. O suporte é "o atendimento ao cliente", +55 11 98819-4261, sem nome (operador, 2026-10-20)
+
+**Decisão do operador:** o número de troca, devolução e mudança de endereço é **+55 11 98819-4261** (o +55 11 97727-9391 do §109 foi engano) e a
+Malu nunca cita nome de quem atende: diz "o atendimento ao cliente". **Correção:** `supportName` saiu do código (prompt, `logzzReturnReply`,
+`deliveredDirective`, tipos do config); com o número no config, as três falas mandam ao "atendimento ao cliente no WhatsApp <número>", e o
+prompt diz "Nunca diga o nome de quem atende"; o ramo antigo "suporte da Logzz" saiu junto (a Logzz não é mais quem atende). Novo segredo:
+`docs/operacao/business-config-2026-10-20.min.json` (o 19b com `returns` = número novo e `freeExchange`, sem `supportName`). **Guarda:**
+`tests/support-atendimento.test.ts` (substitui `support-gizele`), mutações `AC-*`. **Revisão do §114 (pedida pelo operador antes dos leads
+reais):** o briefing do veto do `coverage_claim` não ensinava a condição do prazo — a reescrita ficava às cegas; passou a ensinar
+"dependendo da sua região, na entrega chega em …". Conferido que o veto novo não alcança a régua (`regionKnown` indefinido), a oferta da
+entrega (só com região) nem os dois links (sem o intervalo). **Prova prática:** `turn` local com o config novo — troca antes da compra
+responde com o número novo e sem nome; CEP de SP com o tamanho dá a oferta e "Chega em 1 a 3 dias"; "84 940" pede os 8 números e o prazo
+sai condicionado (R$ 0,05).
+**Estado:** segredo `BUSINESS_CONFIG` = arquivo 2026-10-20 (sha256 `3749c32b…`, conferido pela API) e `turn` **v36**, no ar em 2026-10-20, 12h UTC.
+
+## 116. A Malu contra o checkout real da Coinzz, via Playwright (pré-lançamento, etapa 3, 2026-10-20)
+
+**Pergunta:** o que a Malu diz no pagamento antecipado é o que o checkout da Coinzz mostra? **Método:** Playwright nos 3 checkouts antecipados, 8 CEPs,
+os 5 tamanhos na oferta de 1 peça e os kits sem o M; todo POST abortado, menos cinco leituras sem dado pessoal (CEP, opções de entrega,
+calculadoras do carrinho) — nenhum lead ou pedido criado ([`docs/operacao/playwright-coinzz-2026-10-20/`](../../operacao/playwright-coinzz-2026-10-20/README.md)).
+O pagamento na entrega usa só os 3 checkouts da Logzz (operador, 2026-10-20), já provados no §112.
+**Resultado:** o link de `buildPrefilledCheckoutLink` chega preenchido (nome e telefone com o nono dígito) em todos; o frete aparece por região; o
+"Pedido principal" fica 1 centavo abaixo do preço que a Malu diz (arredondamento da Coinzz); 12x existe, com juros (+32% em 12x).
+**Achado grave:** o tamanho **M não se compra no antecipado em nenhum CEP** — `stock-and-delivery-day` (venda antecipada) responde 404 e o checkout
+mostra "CEP não encontrado — informe outro destino". No pagamento na entrega, `lookupRegion` para o M só achou entrega em BH (SP, POA, Salvador,
+Manaus sem). Então a cliente M fora de BH recebe o link antecipado e não consegue pagar, com uma mensagem que culpa o CEP dela. A Malu não pergunta
+o estoque do antecipado por tamanho. **Decisão do operador**, antes de código: repor o M na Coinzz, ou a Malu passar a consultar o estoque
+antecipado do tamanho antes do link. **Outros achados para o operador:** "em até 12x" sem dizer dos juros; o checkout pede e-mail e CPF antes do
+CEP e a Malu não avisa; o checkout não mostra prazo (os "5 dias úteis" da Malu não se conferem ali).
+**Estado:** só teste; nenhum código mudou.
+
+## 117. A entrega pelo tamanho dela, e o pedido que o sistema não acha (operador, 2026-10-20, v37)
+
+**Sintomas (§116 e simulação na `turn` local):** em São Paulo o M não tem estoque na Logzz; a cliente M recebia os dois links com "a nossa
+consulta de CEP está instável", e nenhum dos dois vendia (Logzz sem M, Coinzz sem M no antecipado). O kit M+G+GG em SP recebia a oferta da
+entrega, porque só um tamanho era consultado. E o pedido sem registro ia ao modelo com o e-mail do suporte.
+**Causas:** `offerNow` mandava `"both"` também quando `lookupRegion` respondeu "não" numa cidade da lista (regra do R28, de quando a consulta era
+a da Coinzz e o "não" dela era errado em SP); desde o §108 o "não" vem da Logzz, igual ao checkout real em 175/175 (§112). O kit consultava
+só `regionSize`. O pós-venda lia pedidos só por `lead.id`.
+**Decisões do operador:** (1) consultar o pagamento na entrega junto do tamanho escolhido; no antecipado não é preciso; (2) "em até 12x",
+nunca juros (já era assim: o prompt e o `installment_promise` proíbem "sem juros" e falar de juros); (3) pedido não encontrado: procurar
+por todos os caminhos e, sem achar, dizer que é problema no sistema e mandar à equipe de atendimento ao cliente, com o número logo depois;
+(4) publicar a v37.
+**Correção:** `offerNow` = `"both"` só com a consulta falhada numa cidade da lista; o "não" leva ao antecipado. O kit pergunta cada outro
+tamanho (`lookupRegion` por tamanho); um sem entrega torna o kit antecipado, uma consulta falha torna desconhecido. Quando a oferta da
+entrega já foi antes do tamanho, sai "No M o pagamento na entrega não está disponível aí agora, então o seu vai pelo antecipado 💛" antes do
+quadro do antecipado. `regionDirectiveFor` fala dos dois links só se eles foram (`offerBefore === "both"`). O pós-venda, o cancelamento e o
+contexto de pedido leem pedidos por `herLeadIds` (o lead dela e o do mesmo número com ou sem o nono dígito, mesmo DDD e mesmos 8 dígitos);
+sem pedido legível, `orderNotFoundReply` pelo `handOff` (e-mail ao operador, conversa não calada); a segunda vez, o modelo responde.
+**Caminhos descartados:** consultar o estoque do antecipado (o operador disse que não é preciso — a cliente M fora de BH continua sem como
+comprar, ver §116); procurar pedido pelo sufixo do telefone sem o DDD (pedido de outra mulher lido para ela).
+**Guarda:** `tests/order-and-size-2026-10-20.test.ts`, `tests/funnel.test.ts`; mutações `G117-*` (4/4 pegas).
+**Prova prática:** `turn` local com o config no ar — M em SP antes e depois do CEP: antecipado (com a linha do tamanho quando a entrega já
+tinha sido oferecida); M em BH: entrega; kit M+G+GG em SP: antecipado; kit G+GG em SP: entrega; "comprei ontem e meu pedido não chegou":
+a linha fixa com o número.
+**Revisão Opus (NEEDS WORK) e correção, mesmo dia:** (1) um tamanho do kit sem resposta virava os dois links (link da entrega para um tamanho
+sem estoque, e ofertas trocando a cada turno): agora sem entrega **ou** sem resposta, o kit vai pelo antecipado; (2) as consultas dos outros
+tamanhos rodam em paralelo; (3) um pedido que existe com status que a Malu não lê (tentativa frustrada) era dito "não encontrado": agora a
+linha só sai sem nenhum pedido por nenhum caminho; (4) a linha e o e-mail repetiam a cada duas mensagens: agora uma vez por conversa
+(`ORDER_NOT_FOUND_REASON` em `turn_outcomes`), depois o modelo, que também manda ao atendimento ao cliente pelo número (e ao e-mail só sem ele);
+(5) o "paguei" também lê os pedidos por `herLeadIds`. Fica de fora: a régua pós-pedido (`order_*`) lê só o pedido do próprio lead. Mutações
+`G117-*` 6/6 pegas.
+**Estado:** no ar na `turn` **v37** (função v144), 2026-10-20, 18h52 UTC; `job:"health"` → `healthy`.
+
+## 118. O teste real do operador na v37 (2026-10-20, noite)
+
+**Sintomas (conversa real do operador, …5983, e reencenação na `turn` local):** (1) a tabela de tamanhos ia na abertura sem ela pedir;
+(2) mensagens prontas densas, com emoji e "gatilho de vendedor" (proposta de reescrita em
+[`06-script/08-copy-v4-proposta.md`](../../agente-ia/06-script/08-copy-v4-proposta.md), para aprovação); (3) as opções de 2 e 3 peças no
+link sem o desconto, numa linha só; (4) "Quero mudar meu endereço" (antes do pedido) recebeu o número do atendimento ao cliente, e depois
+"o checkout diz que não tem entrega pro meu endereço" também — a Malu deveria consultar o CEP novo.
+**Causas:** (1) `openingBubbles` mandava `FUNNEL_LABELS.sizes`; (3) `funnelLinkMessage` juntava os kits sem `discountPercent`; (4) a linha
+do prompt dizia "Se ela quiser mudar o endereço de um pedido que já fez, **ou trocar o endereço da entrega**, mande ela chamar o atendimento
+ao cliente" — o modelo copiou a frase entre aspas mesmo com a diretiva nova (reencenação).
+**Correção:** (1) a tabela sai só a pedido (`asksSizeTable` → `sizeTableBubbles`, depois o modelo responde); (3) uma linha por kit:
+"• 2 peças: R$ 233,82 (10% de desconto)"; (4) `changesAddress` + nenhum pedido por `herLeadIds` → `NEW_ADDRESS_ASK` fixo (o endereço novo
+pode estar fora da rede, CEP novo ou rua e cidade); o prompt manda ao atendimento ao cliente só com o pedido JÁ CRIADO; e quando um link
+da entrega já foi e o endereço novo não tem entrega, o link do antecipado vem com "Nesse endereço o pagamento na entrega não chega…".
+**Caminhos descartados:** só a diretiva ao modelo (ele seguiu a frase do prompt); mandar a tabela junto da resposta do modelo no mesmo turno
+(o envio fixo e o resume do n8n já fazem isso).
+**Outros achados das conversas de 20/10 (sem código, para a reescrita):** a saudação do dia seguinte e a resposta do modelo saem juntas (…9446:
+"Oii, tudo bem? Deseja continuar…" e "Bom dia! O que travou…"); a régua manda "Com o seu CEP eu te mostro…" a quem disse "eu não sei o cep"
+(…5787). **Guarda:** `tests/operator-test-2026-10-20.test.ts`; mutações `G118-*` (5/5 pegas). **Estado:** commitado, **não publicado**.
+
+## 119. Copy v4 e o agente adaptativo: só a abertura, as ofertas, os links e a régua são fixos (operador, 2026-10-20, noite)
+
+**Decisões do operador:** (1) os textos dele para a abertura, as ofertas, os links e a régua
+([`06-script/08-copy-v4-proposta.md`](../../agente-ia/06-script/08-copy-v4-proposta.md), com as respostas dele), com gatilho em caixa alta e
+*negrito*, no máximo um emoji por bloco; (2) "a Malu não usa nenhuma mensagem automática a não ser as de follow-up, as de oferta, as com o
+link de pagamento e a abertura" — todo o resto é do modelo, com os textos dele como modelo de tom; (3) o prompt na voz dele, de campanha
+Black, "no limite sem forçar a barra".
+**Correção:** `funnel.ts` (abertura, `codOfferText`, `prepayOfferText`, `NAME_ASK`, `funnelLinkMessage`, `bothLinksBubbles` +
+`bothPrepayBubbles`, `sizeNoCodAsk`, `ADDRESS_NO_COD_ASK`), `followups.ts` (6.1–6.8), `retry.ts` (`orderNotFoundReply`, `logzzReturnReply` como
+modelos). Na `turn`: `guide()` junta a situação e o modelo do operador numa diretiva, e um guia no turno cala o funil fixo para o modelo responder;
+viraram guia o pedido de pessoa, os três cancelamentos, o status do pedido, a devolução, o limite de peças, a calça fora da tabela, a recusa, o
+"vou pensar" sem link, o endereço novo, o pedido não encontrado, a troca e a volta do dia seguinte (`RETURN_GREETING` fixo saiu: a resposta
+do modelo cumprimenta uma vez só). O que dava `handOff` continua mandando o e-mail (`extraNotify`). Os dois links: primeiro só o da entrega;
+"não apareceu" (`saysNoDeliveryDay`) traz o do antecipado ("Ah que pena…"). O M sem entrega depois da oferta da entrega, e o endereço novo sem
+entrega depois do link, perguntam "posso te enviar via correios?" antes do antecipado. "Menos de 24 Horas" só quando a primeira data do
+checkout é amanhã; outra data vai como "Chegará já *<dia>*". Os textos antigos continuam reconhecidos (`LEGACY_*`): conversa aberta não recebe
+abertura nem oferta de novo.
+**Ficam fixos, de propósito:** as linhas de pagamento ("paguei", comprovante, confirmação: respondem a qualquer hora, com o agendamento do
+`payment_check`), a recepção da noite, e as respostas seguras depois de cinco vetos (R22.2).
+**Guarda:** `tests/funnel.test.ts`, `tests/followups.test.ts`, `tests/return-greeting.test.ts` e os testes de fonte de cada guia; mutações
+`G119-*` e as retomadas para o texto novo (15/15). `pnpm dev:gates`: nenhum afrouxamento.
+**Prova prática:** `turn` local com o config no ar — compra na entrega em SP até o link; M em SP com a pergunta dos Correios e o antecipado;
+pessoa, recusa, "vou pensar", 5 peças, calça 60, pedido sumido e troca respondidos pelo modelo no tom dos modelos (R$ 0,10).
+**Revisão Opus (antes de publicar):** o e-mail do operador se perdia nos retornos antecipados e saía repetido — `notifyOnce` manda uma vez
+por conversa em todo caminho (linha fixa, noite, rascunho, final); o antecipado depois da pergunta dos Correios só vai com o sim dela
+(`confirmsAddress` ou `wants_to_buy`); a calça fora da tabela para a régua mesmo quando o modelo responde (`sizeBeyondTable` no histórico dela);
+`saysNoDeliveryDay` não lê "nem abri"/"ainda vou abrir" e exige dia, data, entrega ou opção junto de "tem/tinha/deu".
+**Reencenação:** o modelo copiou o rótulo "[imagem da Malu: tabela…]" do histórico — `stripMediaLabels` limpa toda resposta na porta única
+(`callConversationModel`); o exemplo do pedido de pessoa era vetado pelo `humanity_claim` — virou `PERSON_ASK_EXAMPLE`, limpo nos gates.
+**Estado:** publicado em 20/10 (~22h50 UTC) na `turn` **v38** (`agent_versions` 38, função v146, commit `9c890f7`), `health` → `healthy`.
+
+## 120. O teste real do operador na v38 (2026-10-21): a rua, o "não sei o CEP" e o CEP novo depois do link
+
+**Sintomas** (conversa arquivada em `docs/agente-ia/10-auditoria/testes-reais/2026-10-21-operador-v38.md`):
+(1) "Mas não sei meu cep / So minha rua" recebeu o buscador dos Correios e "Você pensou em usar com qual peça?", e por três turnos a venda
+seguiu sem a região ("deixa isso de lado por agora", "Vamos seguir assim?", "assim que você tiver o CEP por perto");
+(2) "Me manda sua rua e a cidade que eu vejo pra você?" e, com a rua dada, "Pela rua sozinha não consigo ver";
+(3) o CEP novo depois do link recebeu "Usa o CEP lá no mesmo link", sem consulta da entrega no endereço novo.
+Na reencenação: (4) "quero trocar meu endereço", sem pedido, foi ao atendimento ao cliente (a linha do prompt para pedido criado, copiada
+contra a diretiva); (5) o `unavailable_offer` vetava "buscador dos Correios … aqui/endereço" como retirada na loja.
+**Causas:** (1) a diretiva do `cepForgotten` mandava "siga a conversa (tamanho, kit)"; (2) `streetQueries` sem estado e sem CEP anterior não
+dava estado a `cepsByStreet`, que não buscava; e "dr" não acha "Doutor" na busca dos Correios; e um CEP de empresa ("unidade") na mesma rua
+fazia `pickStreetCep` pedir o número da casa; (3) `linkHeldBack` segurava o mesmo link sem olhar o CEP; (4) só a diretiva, sem gate;
+(5) `busca\w*` casava "buscador".
+**Correção:** `ufOfPhone` (estado pelo DDD) como último recurso do estado da rua; `STREET_TITLE` em `streetQueries` (dr → doutor…);
+`cepsByStreet` tira o CEP de empresa; a diretiva do `cepForgotten` pede a rua, o número e a cidade uma vez (`asksStreet`), sem a palavra CEP
+(que o `cep_insist` veta), e o buscador só se ela não achar; `cepMoved` solta o link e manda antes `CEP_MOVED_COD` ("Conferi o endereço
+novo…"), e sem entrega no endereço novo segue a pergunta dos Correios de antes; gate `support_before_order` (rewrite) com
+`addressBeforeOrder`; `busca(?!dor)` no `unavailable_offer` (afrouxamento aceito em `tests/gate-loosen-accepted.txt`).
+**Guarda:** `tests/operator-test-2026-10-21.test.ts`; mutações `G120-*`; `pnpm dev:gates`: 2 afrouxamentos, ambos aceitos.
+**Prova prática:** reencenação na `turn` local com o roteiro dela (telefone de teste com DDD 11, apagado depois): a rua achou 04710-090
+e a oferta saiu; o CEP novo foi consultado e o link voltou com "Conferi o endereço novo"; o pedido de troca de endereço sem pedido pediu o
+CEP novo (o rascunho com o atendimento foi vetado e reescrito).
+**Fica com o operador:** o áudio 4 diz "Eu acabei de te enviar os tamanhos", e a tabela agora só vai a pedido.
+**Revisão Opus (reprovada, corrigida):** `cepMoved` mandaria o link de novo depois do pedido (segundo pedido) — agora só depois de um link,
+antes de `pedido_criado` e sem pedido em `herLeadIds`, falhando fechado; `CEP_MOVED_COD` sairia com a consulta falhada — só com
+`region.cod === true`; a diretiva do link com o CEP esquecido pedia a rua toda vez e lia a recusa como esquecimento — `asksStreet` e
+`cepRefused`; `support_before_order` vetava a linha da troca e "não precisa chamar o atendimento" — só a frase com endereço, sem negação, e
+`newAddressBeforeOrder` exige `handoffKind === null` (o pedido não achado manda ao atendimento de propósito); o estado do DDD é palpite:
+o CEP achado é dito com a UF, e a rua não achada pede "rua, cidade - UF" em vez de "confere". Mutações `G120-*` 9/9.
+
+## 121. A oferta e o link no texto do operador, a rua lida depois de outra pergunta (operador, 2026-10-21)
+
+**Decisão do operador:** a oferta da entrega e a mensagem do link no texto dele, adaptado ao antecipado: âncora `⭐*~R$ 216,50~ POR …*⭐`
+(sem "DE"), "🚚 *FRETE GRÁTIS*" numa linha e o dia na seguinte, "✅*Não Paga Nada Agora*"; no link, "Valores dos Kits" com o preço de
+cada peça ("2 peças saem por apenas *R$ 116,91* cada!"). No antecipado: a mesma âncora com o preço antecipado, ✅ antes do Pix/12x, e
+os kits por peça.
+**Correção:** `OFFER_HEADLINE`, `codOfferText`, `prepayOfferText`, `funnelLinkMessage`, `bothLinksBubbles`/`bothPrepayBubbles` (âncora);
+`V4_OFFER_HEADLINE` mantém reconhecida a oferta de 20/10 (`offerKindOf`), e a `turn` lê "⭐*~R$ " no histórico inteiro.
+**Reencenação (achados corrigidos):** (1) a rua mandada depois de uma pergunta de preço não era procurada — `streetAsked` (rua pedida
+nas três últimas respostas, depois do "não sei o CEP"); a primeira versão lia `recentRows` do fim, e ele vem do mais novo para o mais
+velho: `slice(0, 3)`; (2) "Rua Halfeld 100" não fechava: `pickStreetCep` lia "até 99/100" como até 99; (3) o modelo copiou "UF" do
+exemplo da diretiva da rua em outro estado — a diretiva pede "a sigla do estado".
+**/code-review (corrigidos):** o preço por peça era vetado pelo `price_promise` (o link diz o que o gate proibia) — entra em
+`allowedPrices`; `support_before_order` só na mesma frase deixava passar a frase quebrada no ponto, e a isenção de negação era hipótese
+de revisor (R21.6) — agora o texto inteiro com "endereço" e atendimento/suporte, sem isenção; `cepMoved` com a consulta falhada mandava
+o link da entrega de novo — exige `region !== null`; `newAddressBeforeOrder` só isenta `post_sale`; a diretiva de rua não achada vale
+também com `streetAsked`; `herOrderRows` lê o pedido uma vez por turno (eram quatro idas iguais ao banco).
+**Resíduos:** os testes de `streetAsked`, `cepMoved` e da ordem de `recentRows` são de fonte (o fechamento de `handleTurn` não roda em
+teste unitário); a prova é a reencenação. Kit cujo preço não divide pelas peças daria 1 centavo de diferença — o config de produção
+divide (teste em `tests/operator-test-2026-10-21.test.ts`).
+**Guarda:** `tests/operator-test-2026-10-21.test.ts`, `tests/funnel.test.ts` (texto exato do operador); mutações `G121-*`.
+**CI do PR #76:** três mutações antigas escaparam porque a copy v4 tirou o texto que as guardava: `G66-lembrete-sem-tamanho` (o teste
+procurava "tamanho de calça"; a régua v4 diz "número de calça" — o teste lê qualquer "calça"), `um-dia-bom` (a frase saiu da régua; guarda
+agora inclui o corpus do antecipado, onde ela vive) e `TPL-segunda-variante` (aposentada: o `silence_2` tem uma variante só desde a v4, e
+a mutação virou equivalente).
+
+## 122. Custos do projeto no Financeiro do portal; o imposto da Meta já está dentro do gasto (operador, 2026-10-20)
 
 **Sintoma:** o Financeiro do `encorpa-portal` somava 13,83% de imposto em cima do gasto da Meta (`profit` em `lib/build.mjs` e o
 `Result` de `Finance.jsx`), e o resultado não tinha custo fixo nenhum. **Causa:** a premissa de 09/10 ("o imposto deve aparecer", a

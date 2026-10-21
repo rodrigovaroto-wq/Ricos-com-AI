@@ -48,7 +48,7 @@ describe("1. calça acima da tabela (…1632: \"Tamanho 65\")", () => {
     expect(saidNoFit(noFitReply(65, TABLE_TOP_DRESS, TABLE_TOP_WAIST))).toBe(true);
     expect(saidNoFit(noFitReply(60, TABLE_TOP_DRESS, TABLE_TOP_WAIST, true))).toBe(true);
     expect(saidNoFit("Com 40 de calça o seu é o M")).toBe(false);
-    expect(turn).toContain("if (at && !at.leads?.size && (at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === \"outbound\" && saidNoFit(m.body ?? \"\"))) {");
+    expect(turn).toContain("if (at && !at.leads?.size && ((at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === \"outbound\" && saidNoFit(m.body ?? \"\")) ||");
     expect(turn).toContain("select=*,leads(size,orders(status))");
   });
   it("o turno manda a frase e cancela toda a régua", () => {
@@ -196,7 +196,7 @@ describe("personas Lu e Vera (14/10): pedido que o sistema não lê é respondid
     expect(turn).toContain("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
     expect(turn).toContain("depois responda o que mais ela");
     // Negação: o pedido de pessoa continua com a frase honesta.
-    expect(turn).toContain('return await handOff(HUMAN_HANDOFF_REPLY, "a cliente pediu para falar com uma pessoa");');
+    expect(turn).toContain('guide("Ela pediu pra falar com uma pessoa.", PERSON_ASK_EXAMPLE, "a cliente pediu para falar com uma pessoa", true);');
   });
 });
 
@@ -244,11 +244,11 @@ describe("revisão Opus do loop de personas (14/10)", () => {
   });
 
   it("pedido que o sistema não lê: o operador recebe o e-mail (status handoff com notify), uma vez por conversa", () => {
-    expect(turn).toContain("...(notifyOrder ? { reason: [ORDER_UNREADABLE_REASON, fallbackReason]");
+    expect(turn).toContain("...(notifyOrder || extraNotify ? { reason: [notifyOrder ? ORDER_UNREADABLE_REASON : null, extraNotify, fallbackReason]");
   });
   it("a diretiva do pedido ilegível não manda recusar na porta nem devolver", () => {
     const at = turn.indexOf("Ela fala de um pedido sobre o qual você não tem informação confiável aqui");
-    const directive = turn.slice(at, at + 900);
+    const directive = turn.slice(at, at + 1300);
     expect(directive).toContain("não oriente recusar na porta nem devolver por conta própria");
     expect(directive).not.toContain("é recusar na porta;");
   });
@@ -342,7 +342,7 @@ describe("segunda revisão Opus do loop de personas (14/10)", () => {
     expect(turn).toContain("orderUnreadable = true;");
     expect(turn).toContain("notifyOrder = (said?.length ?? 0) === 0;");
     expect(turn).toContain('reason=like.${encodeURIComponent(`${ORDER_UNREADABLE_REASON}*`)}');
-    expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
+    expect(turn).toContain('status: notifyOrder || extraNotify || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
     expect(turn).toContain(".filter((r): r is string => r !== null).join(\" | \") || null,");
   });
 });
@@ -369,8 +369,8 @@ describe("terceira revisão Opus (14/10)", () => {
     expect(choosesPath("quero na entrega. sera que compensa?")).toBe(false);
   });
   it("o turno de fallback continua gravado como fallback; o e-mail leva os dois motivos", () => {
-    expect(turn).toContain('fallbackReason !== null ? "fallback" : notifyOrder ? "handoff" : "send",');
-    expect(turn).toContain('reason: [ORDER_UNREADABLE_REASON, fallbackReason].filter(Boolean).join(" | ")');
+    expect(turn).toContain('fallbackReason !== null ? "fallback" : notifyOrder || extraNotify ? "handoff" : "send",');
+    expect(turn).toContain('reason: [notifyOrder ? ORDER_UNREADABLE_REASON : null, extraNotify, fallbackReason].filter(Boolean).join(" | ")');
   });
 });
 

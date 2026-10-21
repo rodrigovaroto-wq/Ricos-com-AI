@@ -91,7 +91,7 @@ describe("C3 — CEP com o número errado de dígitos", () => {
   });
 
   it("o turno diz ao modelo que o CEP não foi lido, e nunca 'recebi/anotei'", () => {
-    expect(turn).toContain("/\\bcep\\b[^.!?\\n]*\\?/i.test(lastOutbound) && !/\\b(?:cpf|nome)\\b[^.!?\\n]*\\?/i.test(lastOutbound)");
+    expect(turn).toContain("/\\bcep\\b[^?]*\\?/i.test(lastOutbound) && !/\\b(?:cpf|nome)\\b[^.!?\\n]*\\?/i.test(lastOutbound)");
     expect(turn).toContain("Nunca diga que recebeu ou anotou o CEP.");
     expect(turn).toContain("nunca diga que recebeu, anotou ou vai conferir o CEP.");
     expect(turn).toMatch(/coverageUnknown,\s+cepState,/);
@@ -264,7 +264,8 @@ describe("C10 — o lembrete não pede o tamanho a quem já deu", () => {
   it("com o tamanho conhecido, o lembrete não pergunta a calça", () => {
     for (const size of ["G", "M"]) {
       const text = renderFollowup("silence_1", { ...base, size }) ?? "";
-      expect(text).not.toMatch(/tamanho de cal[çc]a/i);
+      // Copy v4 asks "o seu número de calça": any pants question, not only the old wording (CI escape, 21/10).
+      expect(text).not.toMatch(/cal[çc]a/i);
       expect(text.length).toBeGreaterThan(20);
     }
   });
@@ -454,10 +455,10 @@ describe("T3 — o link sai do jeito do operador, sem pedir permissão", () => {
   });
   it("o turno manda a mensagem fixa quando o link sai e ela não perguntou outra coisa", () => {
     expect(turn).toContain("const askedBeside = clauses.some((q: string) => asksSomething(q) && !buyerAsk(q));");
-    expect(turn).toContain("if (checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
+    expect(turn).toContain("if (guides.length === 0 && checkoutUrl !== null && openNow && !farewell && !askedBeside) {");
     // R28: the script v3 link message (`funnelLinkMessage`), fixed.
     expect(turn).toContain("funnelLinkMessage(CONFIG, url, linkPath,");
-    expect(turn).toContain("sendFunnelTurn([{ text: opening(v3Link(checkoutUrl)) }]");
+    expect(turn).toContain("{ text: cepMoved && linkPath === \"cod\" && region?.cod === true ? v3Link(checkoutUrl) : opening(v3Link(checkoutUrl)) },");
   });
 });
 
@@ -650,8 +651,8 @@ describe("revisão do §66, B2 — a primeira resposta fixa também abre com a s
   it("o link fixo e o 'vou pensar' saem com a saudação quando são a primeira resposta", () => {
     expect(turn).toContain("const opening = (text: string): string => (greeting === null ? text : `${greeting}\\n\\n${text}`);");
     expect(turn).toContain("opening(v3Link(checkoutUrl))");
-    expect(turn).toContain("thinkRepeated ? null : await sendFixed(\n      opening(");
-    expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated ? null : await sendFixed("));
+    expect(turn).toContain("thinkRepeated || thinkLink === null || guides.length > 0 ? null : await sendFixed(\n      opening(");
+    expect(turn.indexOf("const opening =")).toBeLessThan(turn.indexOf("thinkRepeated || thinkLink === null || guides.length > 0 ? null : await sendFixed("));
   });
 });
 
@@ -667,4 +668,18 @@ describe("personas 2026-10-08 — o número da calça no máximo 2 vezes seguida
   it("o turno conta as perguntas seguidas e libera com tamanho ou decisão de compra", () => {
     expect(turn).toContain("stated?.size || lead.size || interpretation.wants_to_buy\n          ? 0\n          : recentOutbound.length - 1 - recentOutbound.findLastIndex((m: string) => !asksSize(m)),");
   });
+});
+
+describe("lead real de 2026-10-19 — CEP com 5 números", () => {
+  it.each([
+    ["só o começo, depois da pergunta", "84 940", true, "84940"],
+    ["com ponto, depois da pergunta", "84.940", true, "84940"],
+    ["ao lado da palavra", "meu cep é 84940", false, "84940"],
+  ])("lê como CEP errado: %s", (_, frase, asked, cep) => expect(malformedCep(frase, asked)).toBe(cep));
+  it.each([
+    ["sem a pergunta, solto", "84940", false],
+    ["número de casa depois da pergunta, numa frase", "moro no 84940", true],
+    ["CEP completo", "84940-000", true],
+    ["CEP negado", "meu cep não é 84940", false],
+  ])("não lê como CEP errado: %s", (_, frase, asked) => expect(malformedCep(frase, asked)).toBeNull());
 });

@@ -30,7 +30,7 @@ describe("R22.1 — o handoff não cala a Malu", () => {
 
   it("esgotar as tentativas não vira pessoa: resposta segura e e-mail de aviso", () => {
     expect(turn).not.toContain("nenhuma reescrita passou");
-    expect(turn).toContain('status: notifyOrder || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
+    expect(turn).toContain('status: notifyOrder || extraNotify || (fallbackReason !== null && fallbackIsGeneric) ? "handoff"');
   });
 
   it("nenhuma linha fixa promete retorno de pessoa", () => {
@@ -158,8 +158,8 @@ describe("revisão do R22 — laços, prazo e falsos positivos", () => {
   it("a mesma frase fixa não se repete: pedido, pessoa e limite de peças pulam a frase se ela foi a última", () => {
     expect(turn).toContain("lastOutbound === ORDER_HANDOFF_REPLY");
     expect(turn).toContain("lastOutbound === HUMAN_HANDOFF_REPLY");
-    expect(turn).toContain("const insisted = unitsAsked > maxUnits && lastOutbound === kitLimitReply(maxUnits);");
-    expect(turn).toContain("lastOutbound === kitLimitReply(pathMax) ? null");
+    // Copy v4: the limit is the model's answer; her insisting reads the previous turn's reason.
+    expect(turn).toContain('?.[0]?.reason ?? "").includes("mais que o maior kit");');
   });
 
   it("a resposta do status do pedido também sai para quem pediu uma pessoa", () => {

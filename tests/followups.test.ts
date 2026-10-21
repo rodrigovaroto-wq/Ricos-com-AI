@@ -65,9 +65,9 @@ describe("régua de silêncio", () => {
   });
 
   it("o primeiro toque retoma do ponto exato onde ela parou", () => {
-    expect(renderFollowup("silence_1", render({ stopPoint: "before_size" }))).toMatch(/tamanho de calça/i);
-    expect(renderFollowup("silence_1", render({ stopPoint: "after_price" }))).toMatch(/não paga nada agora|não sai nada do seu bolso/i);
-    expect(renderFollowup("silence_1", render({ stopPoint: "link_sent" }))).toMatch(/pedido/i);
+    expect(renderFollowup("silence_1", render({ stopPoint: "before_size" }))).toMatch(/número de calça/i);
+    expect(renderFollowup("silence_1", render({ stopPoint: "after_price" }))).toMatch(/não paga nada agora|não sai nada do seu bolso|paga ali mesmo/i);
+    expect(renderFollowup("silence_1", render({ stopPoint: "link_sent" }))).toMatch(/finalizar/i);
   });
 
   it("o segundo toque muda de ângulo — não repete a frase do primeiro", () => {
@@ -121,7 +121,7 @@ describe("régua de checkout não finalizado (§R10.4)", () => {
 
   it("o toque de 30 min (link_sent) pergunta se ela conseguiu finalizar", () => {
     const texto = renderFollowup("silence_1", render({ stopPoint: "link_sent" }))!;
-    expect(texto).toMatch(/conseguiu finalizar|deu certo de fechar/i);
+    expect(texto).toMatch(/conseguiu finalizar|deu certo de finalizar/i);
   });
 
   it("mesma cliente, mesma variante do toque de 15 min — sem chamar modelo", () => {
@@ -151,9 +151,10 @@ describe("variantes sem chamar modelo", () => {
   it("clientes diferentes não recebem todas a mesma frase literal", () => {
     const textos = new Set(
       ["a", "b", "c", "d", "e", "f", "g", "h"].map((id) =>
-        renderFollowup("silence_2", render({ leadId: id })),
+        renderFollowup("silence_1", render({ leadId: id, stopPoint: "after_price" })),
       ),
     );
+    // Copy v4 (operator, 2026-10-20): silence_2 is one text per path; the after-price touch keeps two.
     expect(textos.size).toBeGreaterThan(1);
   });
 
@@ -284,7 +285,7 @@ describe("régua de silêncio pelo caminho de pagamento", () => {
 
   it("antecipado, depois do preço: desconto com o preço e o prazo médio — nada de pagar na porta", () => {
     const textos = variantes("silence_1", { config: exemplo, stopPoint: "after_price", paymentPath: "prepay" });
-    expect(textos.size).toBe(2);
+    expect(textos.size).toBe(1); // copy v4: one text
     for (const t of textos) {
       expect(t).not.toMatch(PAGA_NA_PORTA);
       expect(t).toContain("10% de desconto: R$ 116,91");
@@ -312,7 +313,7 @@ describe("régua de silêncio pelo caminho de pagamento", () => {
 
   it("antecipado, toque 2: sem pagar na porta, com a devolução sem custo", () => {
     const textos = variantes("silence_2", { paymentPath: "prepay" });
-    expect(textos.size).toBe(2);
+    expect(textos.size).toBe(1); // copy v4: one text
     for (const t of textos) {
       expect(t).not.toMatch(PAGA_NA_PORTA);
       expect(t).toContain("7 dias pra devolver");
@@ -347,7 +348,7 @@ describe("régua de silêncio pelo caminho de pagamento", () => {
   it("o «a caminho» não diz que a transportadora agenda o dia (D2)", () => {
     const t = renderFollowup("order_shipped", render())!;
     expect(t).not.toMatch(/agendar|agenda o dia|véspera/i);
-    expect(t).toMatch(/a caminho/);
+    expect(t).toMatch(/saiu pra entrega/);
   });
 
   it("fora da janela, o toque 2 do antecipado não sai: o template é o texto da entrega", () => {
@@ -753,8 +754,8 @@ describe("entrega do toque — texto livre ou template aprovado", () => {
       dentroCorpos.add((deliveryFor("silence_2", c, dentro) as { body: string }).body);
     }
     expect([...corpos]).toHaveLength(1);
-    expect([...corpos][0]).toMatch(/^Bom dia! 💛 Passando só pra dizer/);
-    expect(dentroCorpos.size).toBe(2);
+    expect([...corpos][0]).toMatch(/^Bom dia! Passando pra lembrar/);
+    expect(dentroCorpos.size).toBe(1); // copy v4: one text
   });
 });
 
@@ -1132,8 +1133,9 @@ describe("todo toque da régua passa pelos gates, em toda variante", () => {
                 }
 
   it("cobre as duas variantes sorteadas de cada toque que sorteia", () => {
-    // silence_1: 2 por ponto de parada, mais 2 do antecipado depois do preço em cada config.
-    for (const [kind, n] of [["checkout_reminder", 1], ["silence_1", 10], ["silence_2", 4]] as const)
+    // Copy v4 (2026-10-20): silence_1 is 1 before the size, 2 after the price, 1 after the link, 1 prepaid and 2 without region
+    // (one asks the CEP, one the street after "não sei o cep"); silence_2 is one per path.
+    for (const [kind, n] of [["checkout_reminder", 1], ["silence_1", 6], ["silence_2", 2]] as const)
       expect(new Set(casos.filter((c) => c.rotulo.startsWith(kind + "/")).map((c) => c.texto)).size).toBe(n);
   });
 
@@ -1186,7 +1188,7 @@ describe("confirmação do antecipado com a previsão de entrega (Q5)", () => {
   it("na entrega, a confirmação não ganha previsão, nem com data", () => {
     const t = renderFollowup("order_confirmed", render({ config: exemplo, size: "G", scheduledFor: "2026-10-02" }))!;
     expect(t).not.toMatch(/prevista|prazo|dias úteis/);
-    expect(t).toContain("R$ 129,90 na entrega");
+    expect(t).toContain("R$ 129,90 pra pagar na entrega");
   });
 });
 
@@ -1221,11 +1223,12 @@ describe("a copy nova da régua passa a cadeia no caminho em que sai", () => {
   it("na entrega, o toque 1 que fala da porta diz a verdade inteira: vê, paga, não fica, devolve sem custo (Q3/Q4)", () => {
     const porta = ["a", "b", "c", "d", "lead-abc", "lead-1"]
       .map((leadId) => renderFollowup("silence_1", render({ leadId, stopPoint: "after_price", paymentPath: "cod" }))!)
-      .filter((t) => t.includes("entregador"));
+      .filter((t) => t.includes("na entrega"));
     expect(porta.length).toBeGreaterThan(0);
+    // Copy v4 (operator, 2026-10-20): she sees it, pays there, and still has the days to return it.
     for (const t of porta) {
-      expect(t).toContain("se não for o que você esperava, não fica com ele");
-      expect(t).toContain("depois de receber, ainda tem 7 dias pra devolver, sem custo nenhum pra você");
+      expect(t).toContain("Você vê o colete na entrega e paga ali mesmo");
+      expect(t).toContain("7 dias pra devolver");
     }
   });
 
