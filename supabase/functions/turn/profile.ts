@@ -155,3 +155,11 @@ export type ScoreBand = "quente" | "morna" | "fria";
 
 /** §4.2: ≥ 60 quente · 30–59 morna · < 30 fria. */
 export const bandOf = (score: number): ScoreBand => (score >= 60 ? "quente" : score >= 30 ? "morna" : "fria");
+
+/** The band in the operator's e-mail subject (§4.2): "🔥 QUENTE · 72", "MORNA · 45", "FRIA · 18"; no score, no tag. */
+export const scoreTag = (score: unknown): string | null => {
+  if (typeof score !== "number" || !Number.isFinite(score)) return null;
+  const s = Math.round(Math.min(Math.max(score, 0), 100));
+  const band = bandOf(s);
+  return `${band === "quente" ? "🔥 " : ""}${band.toUpperCase()} · ${s}`;
+};

@@ -176,8 +176,18 @@ export const INTERPRETER_SYSTEM = [
   '- "hook": SÓ quando "occasion" ou "pain" não é null, uma frase curta e calorosa (até 90 letras)',
   '  ligando o colete a isso, como a assistente diria ("Pro seu casamento ele vai deixar o vestido',
   '  assentadinho 😍"). NUNCA promessa de saúde, de emagrecer, de "reduzir medidas" ou de',
-  '  resultado. Sem ocasião e sem dor: null.',
+  '  resultado. Fale só do que o colete faz enquanto está vestido (modela, assenta, dá firmeza e',
+  '  apoio à postura). Nunca diga que ajuda, alivia ou trata a dor, nem fale de quilos, kg,',
+  '  medidas ou centímetros: "Ele vai ajudar na sua dor nas costas." e "Você vai perder 5 quilos."',
+  '  são proibidas. Sem ocasião e sem dor: null.',
 ].join("\n");
+
+/**
+ * The hook goes to her as a bubble of its own before the offer (plan 16 §4.4), and the wave-1 review found "Ele vai
+ * ajudar na sua dor nas costas." and "Você vai perder 5 quilos." passing every gate: relief, weight and measurement
+ * wording drops the hook here, whatever the model wrote. Dropping costs one bubble; a negated mention drops it too.
+ */
+const HOOK_PROMISE = /\b(?:dor|dores|alivi\w*|quilos?|kg|emagrec\w*|medidas?|cent[ií]metros?|perd\w*|sec[ao]|secar|trat\w*|cur[ao]|curar)\b|\d\s*(?:kg|cm)\b/i;
 
 /** The two messages the call sends. The customer's text is data, quoted, never an order. */
 export const interpretRequest = (
@@ -266,7 +276,7 @@ export const readInterpretation = (raw: string): { parsed: boolean; interpretati
       occasion,
       pain,
       // A hook without an occasion or a pain ties the colete to nothing she said.
-      hook: occasion !== null || pain !== null ? textUpTo(o.hook, 90) : null,
+      hook: occasion !== null || pain !== null ? ((h) => (h !== null && HOOK_PROMISE.test(h) ? null : h))(textUpTo(o.hook, 90)) : null,
       objections: [...new Set(Array.isArray(o.objections) ? o.objections : [])].filter((x): x is Objection =>
         (OBJECTIONS as readonly unknown[]).includes(x),
       ),

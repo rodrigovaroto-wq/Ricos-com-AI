@@ -187,7 +187,7 @@ describe("index.ts — a recusa no turno e na régua", () => {
 
   it("scheduleSilenceTouches não arma a régua depois da recusa: lê as mensagens dela e cancela tudo", () => {
     const fn = turn.slice(turn.indexOf("const scheduleSilenceTouches = async"), turn.indexOf('await db("followups?on_conflict=conversation_id,kind"'));
-    const read = fn.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20");
+    const read = fn.indexOf("conversations?id=eq.${conversationId}&select=*,leads(*,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20");
     const guard = fn.indexOf('if (at && declinesInBurst(herRecent(at.messages ?? [], spoken), [], (at.messages ?? []).some(');
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);

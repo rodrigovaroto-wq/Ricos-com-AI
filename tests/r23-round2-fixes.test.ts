@@ -49,7 +49,7 @@ describe("1. calça acima da tabela (…1632: \"Tamanho 65\")", () => {
     expect(saidNoFit(noFitReply(60, TABLE_TOP_DRESS, TABLE_TOP_WAIST, true))).toBe(true);
     expect(saidNoFit("Com 40 de calça o seu é o M")).toBe(false);
     expect(turn).toContain("if (at && !at.leads?.size && ((at.messages ?? []).some((m: { direction: string; body: string | null }) => m.direction === \"outbound\" && saidNoFit(m.body ?? \"\")) ||");
-    expect(turn).toContain("select=*,leads(size,orders(status))");
+    expect(turn).toContain("select=*,leads(*,orders(status))");
   });
   it("o turno manda a frase e cancela toda a régua", () => {
     const at = turn.indexOf("const beyond = ");

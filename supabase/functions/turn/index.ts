@@ -53,6 +53,7 @@ import {
   renderFollowup,
   oncePerDay,
   rulerFor,
+  rulerForBand,
   endsSilenceRuler,
   endsWithQuestion,
   ACK_HELP_MS,
@@ -76,7 +77,7 @@ import {
 import { asksForSize, type Size, SIZES, sizeBeyondTable, sizeFromDressSize, statedSizeOf, TABLE_TOP_DRESS, TABLE_TOP_WAIST } from "./sizing.ts";
 import { mayAskOptIn, optInAnswer, optInMessage, suspendsMarketingOptIn } from "./opt-in.ts";
 import { furthest, overwritableBy, reachedStage, type Stage } from "./state-machine.ts";
-import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, type Region, type RegionLookup } from "./availability.ts";
+import { cachedRegion, type CachedRegion, cepsByStreet, checkCoverage, type Fetcher, healthOf, logzzIdsOf, lookupRegion, lookupsDegraded, prepayFreight, type Region, type RegionLookup } from "./availability.ts";
 import {
   confirmsAddress,
   extractAddress,
@@ -160,6 +161,10 @@ import {
   draftMayGo,
   shippedCancelReply,
   thinkReply,
+  VAGUE_OBJECTION_QUESTION,
+  VAGUE_OBJECTION_REASON,
+  askedVagueQuestion,
+  vagueObjectionSituation,
   DECLINE_REPLY,
   OPT_IN_DECLINED_REPLY,
   kitOfferMessage,
@@ -246,7 +251,8 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, stockScarcityLine, countTriggerUses, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { isAudioBody, mergeProfile, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
 import { armOf, armOn } from "./experiments.ts";
@@ -837,8 +843,10 @@ const systemPrompt = (
   sizeDirective: string | null,
   identityDirective: string | null = null,
   checkoutDirective: string | null = null,
+  /** What this turn's lookups read (plan 16 §4.6–4.7): the same values as the gate context's `stockLeft` and `prepayFreightBrl`. */
+  turnFacts: { stockLine?: string | null; prepayFreightBrl?: number | null } = {},
 ): string =>
-  buildSystemPrompt(config, gateBriefing(config), sizeDirective, identityDirective, checkoutDirective);
+  buildSystemPrompt(config, gateBriefing(config), sizeDirective, identityDirective, checkoutDirective, turnFacts);
 
 /**
  * R8.4: the model must never convert a clothing size on its own — a real conversation
@@ -1049,13 +1057,15 @@ const CEP_MOVED_COD = "Conferi o endereço novo: aí também chega com pagamento
 const NEW_ADDRESS_ASK = "Claro! Só preciso consultar de novo, porque o endereço novo pode estar fora da nossa rede de entrega.\n\nMe passa o CEP novo ou a rua e a cidade?";
 
 const notification = (
-  lead: { id: string; phone: string },
+  lead: { id: string; phone: string; score?: unknown },
   conversation: { id: string },
 ) => ({
   notify: CONFIG.handoff?.email ?? null,
   leadId: lead.id,
   phone: lead.phone,
   conversationId: conversation.id,
+  // Plan 16 §4.2: "🔥 QUENTE · 72" for the e-mail subject, which n8n builds; null without a score (before 0029, an old lead).
+  scoreTag: scoreTag(lead.score),
 });
 
 /**
@@ -1267,7 +1277,8 @@ const scheduleSilenceTouches = async (
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022). Her recent
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  // The lead by `*` too (leads_pkey): `score_band` (0029) may not exist yet, and absent is today's ruler.
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(*,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
@@ -1309,7 +1320,8 @@ const scheduleSilenceTouches = async (
   await db("followups?on_conflict=conversation_id,kind", {
     method: "POST",
     headers: { Prefer: "resolution=merge-duplicates,return=representation" },
-    body: JSON.stringify(rows),
+    // Plan 16 §4.2: a cold lead's ruler stops after `silence_1` — the band her last turn stored (absent: today's ruler).
+    body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),
   }).catch(() => undefined);
   // The checkout touch never lands right on top of a reply: within 5 minutes of the agent speaking,
   // it moves to 5 minutes after (L2). Index: the unique (conversation_id, kind).
@@ -3503,6 +3515,8 @@ const handleTurn = async (
     ...(turnConfig.coupon.active ? [turnConfig.coupon.percent] : []),
   ];
   if (namesOwnPrice(spoken(inbound.body ?? ""), shopPrices, shopPercents)) interpretation = { ...interpretation, wants_to_buy: false };
+  // The interpreter's own "vou pensar", before a bare goodbye is parked as one: only that is a vague objection (plan 16 §4.5).
+  const putsOff = interpretation.wants_to_think;
   if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation)) interpretation = { ...interpretation, wants_to_think: true };
   // A bare "sim" beside a question holds the link (operator, 2026-10-06): she gets the answer, and
   // the link waits for a yes that is all she said — unless her own words decide or the question is
@@ -3821,7 +3835,8 @@ const handleTurn = async (
    * and the only thing it loses is permission to name a size — which is the correct
    * failure: silence about the size beats a size she cannot receive.
    */
-  let region: Region | null = null;
+  // `prepayFreightBrl` (plan 16 §4.7): the prepaid freight of her size at her CEP, read with the region and cached with it.
+  let region: (Region & { prepayFreightBrl?: number | null }) | null = null;
   // The city of a CEP whose lookup failed (ViaCEP answered, Coinzz did not): where the Logzz delivers, both checkouts.
   let failedPlace: { city: string; state: string } | null = null;
   // A CEP the Correios do not know (operator, 2026-10-09): she is told it was not found and asked to check it.
@@ -3848,6 +3863,11 @@ const handleTurn = async (
         // Not on the sweep's retry nor a revision (review of R26): their short budget is the model's.
         .then((first) => (first.kind === "failed" && !isRetry && !isRevise ? lookupRegion(regionFetcher(RETRY_REGION_TIMEOUT_MS), zip, regionSize, logzzIdsOf(CONFIG.checkout)).catch((): RegionLookup => first) : first));
       region = lookup.kind === "found" ? lookup.region : null;
+      // Plan 16 §4.7: where the delivery does not reach her, the prepaid box says the freight the checkout charges her size there —
+      // one piece only (a kit's freight is not this query's), the same fetcher and timeout, null on any failure ("aparece no checkout").
+      if (region && !region.cod && regionSize && units === 1) {
+        region = { ...region, prepayFreightBrl: await prepayFreight(regionFetcher(isRetry || isRevise ? RETRY_REGION_TIMEOUT_MS : REGION_TIMEOUT_MS), zip, region.place, regionSize) };
+      }
       failedPlace = lookup.kind === "failed" ? lookup.place ?? null : null;
       // What the real lookups answer, for the health job (grafo §111). Not the retry or the revision: the same CEP twice is one.
       if (!isRetry && !isRevise) {
@@ -4098,6 +4118,16 @@ const handleTurn = async (
     orderBuilt: false,
   });
   const linkPath = linkPathFor(paymentChoice, knownRegion);
+  // Plan 16 §4.6–4.7: what this turn's lookups read, taught in the prompt and let through by the gates with the same values. Only
+  // inside the send window: a reply held for the morning is gated again by the sweep, which has neither, and would be lost.
+  // The stock of her size on the delivery path, one piece, said once: any "restam só" already sent is the line said.
+  const stockLine = openNow && region?.cod && region.size && units === 1 && !recentOutbound.some((m: string) => /\brestam\s+s[oó]\b/i.test(m.replace(/[*_~]/g, "")))
+    ? stockScarcityLine(CONFIG, region.size, region.stockQty)
+    : null;
+  const stockLeft = stockLine !== null && region?.size && typeof region.stockQty === "number" ? { size: region.size, qty: region.stockQty } : null;
+  const prepayFreightBrl = openNow && linkPath === "prepay" && typeof region?.prepayFreightBrl === "number" ? region.prepayFreightBrl : null;
+  const turnFacts = { stockLine, prepayFreightBrl };
+  const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
   // What the link carries: the name title-cased for the checkout (code review,
   // 2026-09-24 — "maria jose ferreira", "MARIA DA SILVA"); the stored value is untouched.
   // Her e-mail, from the chat or the lead (stored again since 2026-10-09), carried in the prepaid link.
@@ -4276,13 +4306,74 @@ const handleTurn = async (
     await cancelScheduled(conversation.id, "all");
   }
   // She turns the sale down (grafo §69): a short goodbye, no stock line, no argument; the ruler stops in scheduleSilenceTouches.
+  let declined = false;
   if (declinesInBurst(parts, herRecent((recentRows ?? []).filter((m) => !unanswered.includes(m)), spoken), codUnavailable || recentOutbound.some(toldNoCod)) && !interpretation.wants_to_buy) {
     guide("Ela recusou a compra. Despedida curta, sem argumento nem oferta.", DECLINE_REPLY, "ela recusou: despedida, sem régua");
+    declined = true;
   }
+  // Plan 16 §4.5: her first vague objection ("tá caro", "achei mais barato", "vou ver", "vou pensar") gets the operator's one question,
+  // with one true reason to buy now; the fixed "vou pensar" below is skipped. Asked once per conversation — the question in what was
+  // sent, or its reason in `turn_outcomes` (turn_outcomes_conversation_idx, read only when everything else says ask): after it, her
+  // "vou pensar" again is today's reply. A refusal is never one, nor a datum refused, a question beside it or a decision.
+  const vagueObjection = !declined && !interpretation.wants_to_buy &&
+    (putsOff || interpretation.price_signal === "complaint" || interpretation.price_signal === "discount_ask") &&
+    interpretation.pending_answer !== "other_question" && !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
+    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && !askedVagueQuestion(recentOutbound) &&
+    ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) === 0;
+  if (vagueObjection) {
+    guide(
+      vagueObjectionSituation(CONFIG, {
+        codAvailable: knownRegion?.cod === true,
+        firstDateIsTomorrow: region?.cod === true && eveIsTomorrow(region.dates[0], new Date()),
+        scarcityLine: stockLine,
+      }),
+      VAGUE_OBJECTION_QUESTION,
+      VAGUE_OBJECTION_REASON,
+    );
+  }
+  // Plan 16 §4.1: her profile, the stored one with this burst's reading folded in — every audio part of the burst counted.
+  // A retry or a revision replays messages an earlier attempt already folded (its `score_at` is past the burst's start, the
+  // kit's `replayed` rule): read again, never added twice. Before 0029 `lead.profile` is absent and reads empty.
+  const audioParts = rawParts.filter(isAudioBody).length;
+  const scoredAt = typeof lead.score_at === "string" ? Date.parse(lead.score_at) : NaN;
+  const profileReplayed = batchFrom !== null && Number.isFinite(scoredAt) && scoredAt >= Date.parse(batchFrom);
+  const storedProfile = lead.profile !== null && typeof lead.profile === "object" && !Array.isArray(lead.profile) ? lead.profile : null;
+  const folded = mergeProfile(storedProfile, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });
+  const profile: LeadProfile = profileReplayed ? folded : { ...folded, audio_count: folded.audio_count + Math.max(audioParts - 1, 0) };
+  // Plan 16 §4.2: her readiness score from what this turn settled, with the profile, in one write of its own — before 0029 the
+  // columns do not exist, PostgREST refuses the PATCH with 400, and nothing else goes with it (the `entry_at` rule of 0022).
+  // Written before any reply, so the ruler armed at the end of the turn reads this band. Index: leads_pkey.
+  const score = scoreOf({
+    sizeKnown,
+    regionKnown: coverageKnown,
+    codAvailable: codAvailable === true,
+    pathChosen: choiceStored,
+    nameGiven: Boolean(identityDraft.name),
+    // The link going out, or gone, is her wanting it too: without it the score would drop the turn after "quero".
+    wantsToBuyOrAskedLink: linkDue || linkAlreadySent || ["link_enviado", "pedido_criado", "em_rota", "entregue_pago"].includes(storedStage),
+    buyingQuestions: profile.buying_questions,
+    occasionOrPainTold: profile.occasion_told,
+    thinkCount: profile.think_count,
+    // shortcut: a second discount ask counts as one after the agent's "no" (the shop has no discount to give), until a turn reads the no.
+    secondDiscountAfterNo: profile.discount_asks >= 2,
+    // She is answering now, so no touch is unanswered at this moment; the sweep does not rescore a touch that goes unanswered.
+    unansweredTouches: 0,
+    declinedOrOptOut: declined,
+    orderCreated: ["pedido_criado", "em_rota", "entregue_pago"].includes(storedStage),
+  });
+  const scoreBand = bandOf(score);
+  await db(`leads?id=eq.${lead.id}`, {
+    method: "PATCH",
+    body: JSON.stringify({ profile, score, score_band: scoreBand, score_at: new Date().toISOString() }),
+  }).then(() => Object.assign(lead, { score, score_band: scoreBand }), () => undefined);
+  // Plan 16 §4.4: what she told, up to three uses in what Malu sent — "use it now" in the reply right after she told it, then free.
+  const triggerUses = countTriggerUses(recentOutbound, profile);
+  const triggerDirective = declined ? null : personalTriggerDirective(profile, triggerUses, interpretation.occasion !== null || interpretation.pain !== null ? "next_reply" : "free");
   // A datum refused is not the purchase put off (second real test, grafo §66): the model answers.
   // A real question beside it is answered by the model, never swallowed by the fixed line (persona venda-sem-dinheiro,
   // 2026-10-14: "meu salário só cai dia 5, dá pra reservar e pagar depois?" got "Sem problemas, estou aqui…").
   if (
+    !vagueObjection &&
     interpretation.wants_to_think &&
     interpretation.pending_answer !== "other_question" &&
     !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
@@ -4378,6 +4469,35 @@ const handleTurn = async (
       if (sent) return sent;
     }
   }
+  // Plan 16 §4.4, her trigger's second use: the interpreter's hook in a bubble of its own right before the operator's offer text, only
+  // with uses left and only if the turn's gate chain passes it — the main loop's context, built here for this one text. Sent, it
+  // counts as a use by itself (`countTriggerUses` reads what was sent). Never after a link or an order: `pastLink` holds the branch.
+  const withHook = async (bubbles: FunnelBubble[]): Promise<FunnelBubble[]> => {
+    const hook = profile.hook;
+    const at = bubbles.findIndex((b) => !b.media);
+    if (!hook || triggerUses >= MAX_TRIGGER_USES || at === -1) return bubbles;
+    const gated = runGates(hook, {
+      config: turnConfig,
+      layer: "agent",
+      optedOut: false,
+      now: new Date(),
+      paymentPath: linkPath,
+      units,
+      codUnavailable,
+      recentOutbound,
+      knownTestimonials: CONFIG.testimonials,
+      linkInTurn: false,
+      ...(units > 1 ? {} : { knownSize: stated?.size ?? lead.size ?? null }),
+      hookSent: recentOutbound.some(isHook),
+      herWords: [...recent.filter((m: { direction: string }) => m.direction === "inbound").map((m: { body: string }) => spoken(m.body ?? "")), ...parts].join("\n"),
+      ...(region?.size ? { sizeChecked: region.size } : {}),
+      sameDayWindow: region?.sameDay ?? false,
+      regionKnown: region !== null,
+      ...factsGate,
+    });
+    await recordTraces(conversation.id, gated.traces, { draft: hook, names: nameWords });
+    return passed(gated) ? [...bubbles.slice(0, at), { text: hook }, ...bubbles.slice(at)] : bubbles;
+  };
   if (guides.length === 0 && offerNow !== null && offerNow !== offerBefore && !pastLink && openNow && !farewell && !withdrew && (offerNow !== "both" || sizeKnown)) {
     if (offerNow === "both") {
       const pieces = units > 1 ? units : 1;
@@ -4387,7 +4507,7 @@ const handleTurn = async (
         const cod = buildPrefilledCheckoutLink(linkCustomer, "cod", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
         const prepay = buildPrefilledCheckoutLink(linkCustomer, "prepay", { codUrl: urlOf("cod"), prepayUrl: urlOf("prepay") });
         const sent = await sendFunnelTurn(
-          bothLinksBubbles(CONFIG, likelyPlace!.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null, pieces),
+          await withHook(bothLinksBubbles(CONFIG, likelyPlace!.city, cod, prepay, pieces > 1 ? null : stated?.size ?? lead.size ?? null, pieces)),
           "roteiro v3: entrega não confirmada, dois links",
           { checkoutUrl: prepay, linkFact },
           answerAfterOffer,
@@ -4407,10 +4527,10 @@ const handleTurn = async (
     } else if (region !== null) {
       const cod = offerNow === "cod";
       const sent = await sendFunnelTurn(
-        [
-          ...offerBubbles(CONFIG, { cod, dates: region.dates }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
+        await withHook([
+          ...offerBubbles(CONFIG, { cod, dates: region.dates, prepayFreightBrl }, new Date(), checkoutUrl ? null : offerAsk(cod, sizeKnown)),
           ...(checkoutUrl ? [{ text: v3Link(checkoutUrl) }] : []),
-        ],
+        ]),
         checkoutUrl ? `roteiro v3: oferta e link — ${linkFact ?? ""}` : "roteiro v3: oferta",
         checkoutUrl ? { checkoutUrl, linkFact } : {},
         answerAfterOffer,
@@ -4553,6 +4673,7 @@ const handleTurn = async (
           ` (ele é só para pedido já criado) e não peça pra ela conferir o CEP no checkout.`
         : null,
       ...guides,
+      triggerDirective,
       cameBack
         ? `Ela voltou hoje, depois de um dia sem falar. Comece com uma saudação só, no seu jeito, com este modelo: "Oii, tudo bem` +
           `${identityDraft.name ? `, ${String(identityDraft.name).split(" ")[0]}` : ""}?" Se ela não trouxe pergunta nem problema, chame pra fechar com` +
@@ -4662,8 +4783,8 @@ const handleTurn = async (
       // A revision carries its own draft the same way (grafo §61).
       const revising = internal.revise ? ` ${reviseInstruction(internal.revise.draft)}` : "";
       const system = correction === null
-        ? `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising}`
-        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective)}${revising} ${correction}`;
+        ? `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective, turnFacts)}${revising}`
+        : `${systemPrompt(turnConfig, sizeDirective, identityDirective, checkoutDirective, turnFacts)}${revising} ${correction}`;
       attempt = await withNetworkRetry(
         (timeoutMs) => callConversationModel(system, turns, undefined, timeoutMs),
         replyDeadline,
@@ -4738,6 +4859,8 @@ const handleTurn = async (
       ...(region?.size ? { sizeChecked: region.size } : {}),
       sameDayWindow: region?.sameDay ?? false,
       regionKnown: region !== null,
+      // Plan 16 §4.6–4.7: the stock and the freight the prompt taught this turn, the same values (`turnFacts`).
+      ...factsGate,
     });
 
     // Every attempt is traced, not just the last: a gate that keeps firing across
@@ -4919,7 +5042,7 @@ const handleTurn = async (
   const other = otherQuestions.length === 0 || gateContext === null || replyDeadline - Date.now() < EXTRA_CALL_MIN_MS
     ? null
     : await draftWith(otherQuestionDirective(fixedOrDraft), "other_question", { ...gateContext, linkInTurn: false }, replyDeadline, 0, {
-      system: systemPrompt(turnConfig, sizeDirective, identityDirective, null),
+      system: systemPrompt(turnConfig, sizeDirective, identityDirective, null, turnFacts),
       tail: otherQuestionTail(otherQuestions),
     });
   const body = other === null || other.deferred ? fixedOrDraft : `${fixedOrDraft}\n\n${other.text}`;

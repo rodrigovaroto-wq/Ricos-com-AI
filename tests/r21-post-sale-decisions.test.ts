@@ -173,7 +173,7 @@ describe("6. prazo junto com outra pergunta: as duas respondidas", () => {
     expect(turn).toContain('clauses.filter((q: string) => asksSomething(q) && !leadsIn(q) && !asksDeadline(q))');
     expect(turn).toContain("gates = runGates(attempt.text, gateContext = {");
     expect(turn).toContain('"other_question", { ...gateContext, linkInTurn: false }, replyDeadline, 0, {');
-    expect(turn).toContain("system: systemPrompt(turnConfig, sizeDirective, identityDirective, null),");
+    expect(turn).toContain("system: systemPrompt(turnConfig, sizeDirective, identityDirective, null, turnFacts),");
     expect(turn).toContain("const body = other === null || other.deferred ? fixedOrDraft : `${fixedOrDraft}\\n\\n${other.text}`;");
     // The ceiling: every draftWith call checks it before paying.
     expect(turn).toContain("for (let rewrites = 0; rewrites <= maxRewrites && spent < ceilingBrl; rewrites += 1) {");
