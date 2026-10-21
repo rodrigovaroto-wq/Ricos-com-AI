@@ -28,9 +28,19 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 >     `claude/lead-score-profile`, repo `encorpa-portal`).
 >   - Duas revisões (Opus: 1 bloqueante, o frete do kit; conformidade) corrigidas em `5f445f9`. Grafo [§123](docs/documentacao/decisoes/04-grafo-de-decisoes.md),
 >     decisões R29 em `docs/documentacao/decisoes/03-decisoes-tomadas.md`, plano 16 com o status no topo.
-> - **Para publicar (nada feito):** aplicar `0029`; `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n
->   ainda sem o `scoreTag`** (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
->   As personas são o último passo (OK de custo do operador).
+> - **Migração `0029` APLICADA em produção** (21/10, ~19h15 UTC, pelo MCP do Supabase, projeto `hbmkgakzrqmdlsvszjeo`): só acrescenta 4 colunas
+>   opcionais em `leads` e a view `lead_profiles_v`; a v39 no ar não lê nem escreve nelas. A leitura de conferência depois dela foi barrada pelo
+>   classificador de permissões da sessão (não reconferido). Desfazer: `drop view public.lead_profiles_v; alter table public.leads drop column profile,
+>   drop column score, drop column score_band, drop column score_at;`.
+> - **Personas (21/10, `turn` local da branch, OK de custo do operador):** 3 rodadas da branch × 3 da `main` (v39), ~65 conversas cada, R$ ~4,4 no
+>   total. Sem regressão detectável: vetos 101 × 96 (média), resposta pronta 1 × 1, pedido de pessoa ~3 × ~4, links 8,7 × 10,7 (variação entre
+>   rodadas do mesmo lado: 6 a 13). Custo do modelo ~35% maior (o prompt do interpretador cresceu). A Gisele não arrancou concessão.
+>   A rodada 1 achou a objeção vaga com o motivo antes do "Claro!" e "Claro!" depois de "nem compensa": corrigido em `1708485`
+>   (`VAGUE_PRICE_QUESTION`). **Não provado ao vivo:** o balão da frase pessoal antes da oferta (nenhuma persona chegou à oferta depois de contar
+>   a ocasião) e a gravação do score (leitura do banco barrada). Fora do plano 16, visto na Beatriz: a Malu diz "enquanto você usa, emagrece e
+>   pode reduzir até 3 números de calça" (texto do operador, já no parecer de conformidade de 19/10).
+> - **Para publicar:** `pnpm deploy:turn`; `scarcity.lowStock: 20` no `BUSINESS_CONFIG`; **assunto do e-mail no n8n ainda sem o `scoreTag`**
+>   (hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`); mesclar a branch do portal.
 > - **Plano 14 (datas do L3, congelamento 23/10 a 09/11) está SUPERADO** pela decisão do operador de 21/10: sem datas (R29.2).
 > - **Resíduos deixados de propósito (R21.6):** "O GG está acabando 😮" passa o `scarcity_claim` sem consulta; "esgota amanhã" passa com estoque
 >   real; contadores do perfil podem dobrar no caso parcial de turno substituído; a varredura não aplica o −10 do toque sem resposta; frete do kit não lido.

@@ -3971,6 +3971,13 @@ custo, memória *Sem gasto de API sem pedido*).
 **Superação:** o plano [14](../../agente-ia/05-plano/14-experimentos-l3.md) (datas do L3, congelamento 23/10–09/11) está **superado**
 pela decisão "sem datas" de 21/10 (R29).
 
+**Personas e migração (21/10, noite):** 3 rodadas da branch × 3 da `main` sem regressão detectável (vetos 101 × 96 em média, respostas prontas
+1 × 1, links 8,7 × 10,7 dentro da variação 6–13; custo do modelo ~35% maior). A rodada 1 achou a pergunta da objeção vaga com o motivo antes do
+"Claro!" e o "Claro!" depois de "nem compensa pra mim" — `vagueObjectionSituation` passou a mandar abrir, um motivo e a pergunta por último, e a
+reclamação de preço abre com `VAGUE_PRICE_QUESTION` ("Entendo!"); mutações `P16-objecao-preco-claro(-fiacao)`. Três mutações antigas escaparam
+porque o texto de origem mudou (`R15.3-valor-no-frete`, `R16.5-prompt`) ou porque a mesma checagem passou a existir em duas linhas
+(`G66-recusa-nao-e-pensar`): atualizadas, 738/738. A migração `0029` foi aplicada em produção (só acréscimo) para a rodada exercitar o perfil.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a
