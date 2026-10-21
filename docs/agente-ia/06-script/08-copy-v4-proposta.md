@@ -4,6 +4,62 @@ Pedido do operador (teste real de 20/10): menos emoji, menos "gatilho de vendedo
 Cada item mostra **hoje** (o que sai no ar, v37) e a **proposta**. Nada aqui está no ar: o operador aprova, corrige ou recusa item a
 item, e só depois a mudança é implementada, testada e publicada.
 
+## No ar desde 2026-10-21 (v39): oferta e link no texto final do operador (grafo §121)
+
+Substituem as propostas 2.1, 2.3, 3.1 e 3.2 abaixo. Fonte: `codOfferText`, `prepayOfferText` e `funnelLinkMessage` em `src/agent/funnel.ts`.
+
+**Oferta, pagamento na entrega** (primeira data do checkout amanhã; outra data: "Seu Pedido Chegará já *quinta (23/10)!!*"; sem data:
+"Seu Pedido Chegará em *1 a 3 dias!!*" e "Você escolhe o dia lá no checkout."):
+```
+⭐*~R$ 216,50~ POR R$ 129,90*⭐
+
+🚚 *FRETE GRÁTIS*
+Seu Pedido Chegará em *Menos de 24 Horas!!*
+
+Ou se preferir outro dia, é só escolher lá no checkout.
+
+✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!
+
+🔁 *7 Dias de Garantia* pra trocar ou devolver se não gostar.
+```
+
+**Oferta, antecipado:**
+```
+Você Ganhou um Desconto Adicional de *10%!!!*
+
+⭐*~R$ 216,50~ POR R$ 116,91*⭐
+
+🚚 Seu colete vai pelos Correios, com código de rastreio.
+
+✅ Você pode pagar agora no Pix ou em até *12x no cartão!*
+
+🔁 *7 Dias de Garantia* pra trocar ou devolver se não gostar
+```
+
+**Link, pagamento na entrega:**
+```
+Pronto, Claudia! 🎉
+Seu Colete no G por R$ 129,90, com frete grátis, e você só paga quando receber!!
+
+É só abrir o link, completar o endereço e escolher o dia da entrega que preferir: https://entrega.logzz.com.br/...
+
+Valores dos Kits
+• 2 peças saem por apenas *R$ 116,91* cada!
+• 3 peças saem por apenas *R$ 103,92* cada!
+```
+
+**Link, antecipado:**
+```
+Pronto, Claudia! 🎉
+Seu Colete no G por R$ 116,91, no Pix ou em até 12x no cartão.
+
+No link você preenche seus dados e o endereço, aí é só ser feliz: https://app.coinzz.com.br/...
+
+Valores dos Kits
+• 2 peças saem por apenas *R$ 103,92* cada!
+• 3 peças saem por apenas *R$ 90,93* cada!
+```
+
 ## Princípios da reescrita
 
 1. **Um assunto por bloco**, com uma linha em branco entre eles. O WhatsApp é lido no celular, de relance.
