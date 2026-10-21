@@ -90,8 +90,11 @@ describe("a oferta depois do CEP", () => {
   it("na entrega: o preço do config, frete grátis, quem recebe e a data da consulta", () => {
     // Copy v4 (operator, 2026-10-20): "Menos de 24 Horas" only when the checkout's first day is tomorrow.
     const t = codOfferText(config, "2026-10-20", now);
-    expect(t).toContain("⭐*DE ~R$ 216,50~ POR R$ 129,90*⭐");
-    expect(t).toContain("*FRETE GRÁTIS*");
+    // The operator's exact text (2026-10-21, grafo §121).
+    expect(t).toBe(
+      "⭐*~R$ 216,50~ POR R$ 129,90*⭐\n\n🚚 *FRETE GRÁTIS*\nSeu Pedido Chegará em *Menos de 24 Horas!!*\n\nOu se preferir outro dia, é só escolher lá no checkout." +
+        "\n\n✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!\n\n🔁 *7 Dias de Garantia* pra trocar ou devolver se não gostar.",
+    );
     expect(t).toContain("Seu Pedido Chegará em *Menos de 24 Horas!!*");
     expect(t).toContain("no dinheiro, Pix ou cartão");
     expect(t).toContain("*7 Dias de Garantia* pra trocar ou devolver");
@@ -181,21 +184,25 @@ describe("a mensagem do link", () => {
     const t = funnelLinkMessage(config, "https://entrega/x", "cod", "Cláudia Ferreira Lima", "GG", 1);
     expect(t).toContain("Pronto, Cláudia! 🎉");
     expect(t).toContain("Seu Colete no GG por R$ 129,90");
-    expect(t).toContain("Se quiser levar mais de uma:\n• 2 peças saem por R$ 233,82");
-    expect(t).toContain("• 3 peças por R$ 311,76");
+    // The operator's exact text (2026-10-21, grafo §121): the price of each piece in the kit.
+    expect(t).toBe(
+      "Pronto, Cláudia! 🎉\nSeu Colete no GG por R$ 129,90, com frete grátis, e você só paga quando receber!!\n\n" +
+        "É só abrir o link, completar o endereço e escolher o dia da entrega que preferir: https://entrega/x\n\n" +
+        "Valores dos Kits\n• 2 peças saem por apenas *R$ 116,91* cada!\n• 3 peças saem por apenas *R$ 103,92* cada!",
+    );
     expect(t).not.toMatch(/cpf|e-?mail/i);
   });
   it("no antecipado: o preço do antecipado e os kits do antecipado, nunca os da entrega", () => {
     const t = funnelLinkMessage(config, "https://coinzz/y", "prepay", null, "M", 1);
     expect(t).toContain("R$ 116,91");
-    expect(t).toContain("R$ 207,84");
-    expect(t).not.toContain("R$ 233,82");
+    expect(t).toContain("• 2 peças saem por apenas *R$ 103,92* cada!");
+    expect(t).not.toContain("*R$ 116,91* cada");
     expect(t).not.toMatch(/gr[aá]tis/i);
   });
   it("no kit, o preço do kit e nenhuma oferta de kit de novo", () => {
     const t = funnelLinkMessage(config, "https://entrega/k", "cod", "Ana", null, 2);
     expect(t).toContain("Seu Kit com 2 peças por R$ 233,82");
-    expect(t).not.toContain("Se quiser levar mais");
+    expect(t).not.toContain("Valores dos Kits");
   });
 });
 

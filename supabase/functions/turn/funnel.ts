@@ -164,6 +164,9 @@ export const firstDayLine = (isoDate: string | undefined, now: Date): string | n
 
 /** The fixed offer's first line: also what `offerWasSent` reads back from the history. Copy v4 (operator, 2026-10-20, grafo §119). */
 export const OFFER_HEADLINE = (config: FunnelConfig): string =>
+  `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.codBrl)}*⭐`;
+/** The copy v4 headline (20/10 to 21/10): an offer it opened is never offered again. */
+export const V4_OFFER_HEADLINE = (config: FunnelConfig): string =>
   `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.codBrl)}*⭐`;
 export const PREPAY_HEADLINE = (config: FunnelConfig): string =>
   `Você Ganhou um Desconto Adicional de *${config.prices.prepayDiscountPercent}%!!!*`;
@@ -176,16 +179,17 @@ export const LEGACY_PREPAY_HEADLINE = "Pra sua cidade o colete vai pelos Correio
 export const codOfferText = (config: FunnelConfig, firstDate: string | undefined, now: Date): string => {
   const day = firstDayLine(firstDate, now);
   const free = config.delivery.freeShipping === true || config.delivery.codFreeShipping !== false;
-  const freeLead = free ? "*FRETE GRÁTIS* e " : "";
+  // Operator, 2026-10-21 (grafo §121): the truck on its own line, the day on the next, the check before "Não Paga Nada Agora".
+  const freeLead = free ? "🚚 *FRETE GRÁTIS*\n" : "🚚 ";
   const when = day?.startsWith("amanhã")
-    ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\nOu se preferir outro dia, é só escolher lá no checkout.`
+    ? `${freeLead}Seu Pedido Chegará em *Menos de 24 Horas!!*\n\nOu se preferir outro dia, é só escolher lá no checkout.`
     : day
-      ? `${freeLead}Seu Pedido Chegará já *${day}!!*\nOu se preferir outro dia, é só escolher lá no checkout.`
-      : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\nVocê escolhe o dia lá no checkout.`;
+      ? `${freeLead}Seu Pedido Chegará já *${day}!!*\n\nOu se preferir outro dia, é só escolher lá no checkout.`
+      : `${freeLead}Seu Pedido Chegará em *${config.delivery.codDaysMin} a ${config.delivery.codDaysMax} dias!!*\n\nVocê escolhe o dia lá no checkout.`;
   return [
     OFFER_HEADLINE(config),
     when,
-    `*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!`,
+    `✅*Não Paga Nada Agora*, só quando chegar aí, no dinheiro, Pix ou cartão!`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar.`,
   ].join("\n\n");
 };
@@ -195,9 +199,9 @@ export const prepayOfferText = (config: FunnelConfig): string => {
   const n = config.prices.prepayMaxInstallments;
   return [
     PREPAY_HEADLINE(config),
-    `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
+    `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(config.prices.prepayBrl)}*⭐`,
     `🚚 Seu colete vai pelos Correios, com código de rastreio.`,
-    `⭐ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
+    `✅ Você pode pagar agora no Pix${n && n > 1 ? ` ou em até *${n}x no cartão!*` : " ou no cartão!"}`,
     `🔁 *${config.delivery.warrantyDays} Dias de Garantia* pra trocar ou devolver se não gostar`,
   ].join("\n\n");
 };
@@ -230,7 +234,8 @@ export const BOTH_HEADLINE = "Infelizmente não consegui confirmar a entrega no 
 export const offerKindOf = (m: string, config: FunnelConfig): OfferKind | null =>
   m.startsWith(PREPAY_HEADLINE(config)) || m.startsWith(LEGACY_PREPAY_HEADLINE) ? "prepay"
   : m.startsWith(BOTH_HEADLINE) ? "both"
-  : m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(LEGACY_OFFER_HEADLINE(config)) ? (m.includes(BOTH_MARKER) ? "both" : "cod")
+  : m.startsWith(OFFER_HEADLINE(config)) || m.startsWith(V4_OFFER_HEADLINE(config)) || m.startsWith(LEGACY_OFFER_HEADLINE(config))
+  ? (m.includes(BOTH_MARKER) ? "both" : "cod")
   : null;
 
 /** The newest offer in the history (oldest first), or null. */
@@ -273,13 +278,10 @@ export const funnelLinkMessage = (
   const there = path === "cod"
     ? `É só abrir o link, completar o endereço e escolher o dia da entrega que preferir: ${url}`
     : `No link você preenche seus dados e o endereço, aí é só ser feliz: ${url}`;
-  // One line per kit, with its price and its discount (operator, 2026-10-20).
+  // One line per kit, the price of each piece in it (operator, 2026-10-21, grafo §121: "2 peças saem por apenas *R$ 116,91* cada!").
   const kits = pieces > 1 ? [] : (config.kits ?? []).filter((k) => k.path === path).sort((a, b) => a.units - b.units);
-  const off = (k: { discountPercent?: number }) => (k.discountPercent ? `*${k.discountPercent}% de desconto*` : "");
   const kitLines = kits.length
-    ? `\n\nSe quiser levar mais de uma:\n${kits.map((k, i) => path === "cod"
-      ? `• ${k.units} peças ${i === 0 ? "saem " : ""}por ${money(k.priceBrl)}${off(k) ? ` (${off(k)})` : ""}`
-      : `• ${k.units} peças${off(k) ? ` com ${off(k)}` : ""} por apenas ${money(k.priceBrl)}!`).join("\n")}`
+    ? `\n\nValores dos Kits\n${kits.map((k) => `• ${k.units} peças saem por apenas *${money(Math.round((k.priceBrl / k.units) * 100) / 100)}* cada!`).join("\n")}`
     : "";
   return `${head}\n\n${there}${kitLines}`;
 };

@@ -481,7 +481,8 @@ export const pickStreetCep = (
     if (/lado\s+par\b/.test(t) && n % 2 !== 0) return false;
     if (/lado\s+[ií]mpar\b/.test(t) && n % 2 === 0) return false;
     const nums = [...t.matchAll(/\d+/g)].map((x) => Number(x[0]));
-    if (/^\s*at[eé]\s+\d/.test(t)) return n <= nums[0]!;
+    // "até 99/100": odd up to 99, even up to 100 (Rua Halfeld, Juiz de Fora, 2026-10-21: the 100 fitted nothing).
+    if (/^\s*at[eé]\s+\d/.test(t)) return n <= Math.max(...nums.slice(0, /^\s*at[eé]\s+\d+\s*\/\s*\d/.test(t) ? 2 : 1));
     if (/^\s*de\s+\d[^a]*\bao\s+fim\b/.test(t)) return n >= nums[0]!;
     if (/^\s*de\s+\d/.test(t) && nums.length >= 2) return n >= nums[0]! && n <= nums[nums.length - 1]!;
     return /^\s*\d+\s*$/.test(t) && Number(t) === n;

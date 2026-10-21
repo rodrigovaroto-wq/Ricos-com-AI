@@ -3766,7 +3766,10 @@ const handleTurn = async (
   // Only answering the agent's own talk of a CEP or a street: "fui na rua comprar" is no address.
   // A bare number answers only "o número da sua casa", never the pants' number asked beside it (second review).
   const askedHouse = /\bn[uú]mero\s+da\s+(?:sua\s+)?casa\b/i.test(lastOutbound) && !/\b(?:cal[cç]a|tamanho)\b/i.test(lastOutbound);
-  const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse) || (bareNumber !== null && !askedHouse)
+  // Or the street asked for the CEP she does not know, a turn or two back (replay of 2026-10-21: her price question came between).
+  const streetAsked = herEarlier.some(forgetsCep) &&
+    (recentRows ?? []).filter((m: { direction: string }) => m.direction === "outbound").slice(-3).some((m: { body: string | null }) => asksStreet(m.body ?? ""));
+  const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse || streetAsked) || (bareNumber !== null && !askedHouse)
     ? []
     : bareNumber === null
     // Only the message with the street; a number alone beside it is her house only when the agent asked it ("rua…, cruz
@@ -4340,7 +4343,7 @@ const handleTurn = async (
     offerNow === null
       ? []
       : ((await db(
-          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
+          `messages?conversation_id=eq.${conversation.id}&direction=eq.outbound&or=(${["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE(CONFIG).slice(0, 30), LEGACY_PREPAY_HEADLINE.slice(0, 40), BOTH_HEADLINE].map((h) => `body.like.${encodeURIComponent(`${h}*`)}`).join(",")})&select=body&order=created_at.asc`,
         ).catch(() => null)) ?? []).map((m: { body: string | null }) => m.body ?? "");
   const offerBefore = lastOfferKind([...offerHistory, ...recentOutbound], CONFIG);
   // A link anywhere in the history ends the offers: past the window too (index: messages_conversation_idx).
@@ -4599,7 +4602,7 @@ const handleTurn = async (
         // Only when the agent asked her street: "moro na rua de baixo" after a CEP talk is no street to look for (review).
         : /\brua\b/i.test(lastOutbound) && typedState === null
         ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city} no estado do DDD dela (${streetState}): peça a rua, a` +
-          ` cidade e o estado juntos numa mensagem só (assim: "Rua tal, cidade - UF"), ou o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}.` +
+          ` cidade e a sigla do estado dela juntos numa mensagem só, ou o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}.` +
           ` Não diga que o endereço dela está errado e não invente CEP.`
         : /\brua\b/i.test(lastOutbound)
         ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +

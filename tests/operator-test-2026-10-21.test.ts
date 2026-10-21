@@ -123,3 +123,40 @@ describe("unavailable_offer: o buscador dos Correios não é retirada", async ()
   ])("passa: %s", (t) => expect(v(t)).toBe("pass"));
   it.each(["Pode buscar aqui na loja", "Você pode vir buscar aqui", "Dá pra buscar no nosso escritório", "Você busca aqui com a gente"])("negação — retirada continua vetada: %s", (t) => expect(v(t)).toBe("block"));
 });
+
+describe("copy de 21/10 (grafo §121)", async () => {
+  const { offerKindOf, V4_OFFER_HEADLINE, codOfferText, prepayOfferText } = await import("@/agent/funnel.js");
+  const { config } = await import("./fixtures.js");
+  it("a oferta mandada com a manchete da copy v4 continua reconhecida (conversa aberta não recebe oferta de novo)", () => {
+    expect(offerKindOf(`${V4_OFFER_HEADLINE(config)}\n\n*FRETE GRÁTIS* e Seu Pedido…`, config)).toBe("cod");
+    expect(offerKindOf(codOfferText(config, undefined, new Date()), config)).toBe("cod");
+    expect(offerKindOf(prepayOfferText(config), config)).toBe("prepay");
+    // Negation: a reply of the model that only quotes the price is no offer.
+    expect(offerKindOf("O colete sai de R$ 216,50 por R$ 129,90 pagando na entrega.", config)).toBe(null);
+  });
+  it("o antecipado no formato novo: âncora sem 'DE', Correios, Pix ou 12x", () => {
+    const prod = JSON.parse(readFileSync("docs/operacao/business-config-2026-10-20.min.json", "utf8"));
+    const t = prepayOfferText(prod);
+    expect(t).toContain("Você Ganhou um Desconto Adicional de *10%!!!*");
+    expect(t).toContain("⭐*~R$ 216,50~ POR R$ 116,91*⭐");
+    expect(t).toContain("ou em até *12x no cartão!*");
+    expect(t).toContain("✅ Você pode pagar agora no Pix");
+    expect(t).not.toMatch(/gr[aá]tis|juros/i);
+  });
+  it("a turn lê as três manchetes no histórico inteiro", () => {
+    expect(turn).toContain('["⭐ DE R$ ", "⭐*DE ", "⭐*~R$ ", PREPAY_HEADLINE');
+  });
+});
+
+describe("a rua que ela manda depois de outra pergunta, e o número no fim da faixa", () => {
+  it("'até 99/100' cobre o 100", () => {
+    expect(pickStreetCep([{ cep: "36070-010", complement: "até 99/100" }, { cep: "36010-000", complement: "de 101/102 a 449/450" }], "100")).toBe("36070-010");
+    // Negation: past the range it is the next one, and "até 228" alone still ends at 228.
+    expect(pickStreetCep([{ cep: "36070-010", complement: "até 99/100" }, { cep: "36010-000", complement: "de 101/102 a 449/450" }], "101")).toBe("36010-000");
+    expect(pickStreetCep([{ cep: "1", complement: "até 228" }, { cep: "2", complement: "de 229 ao fim" }], "229")).toBe("2");
+  });
+  it("a rua pedida dois turnos atrás ainda é lida", () => {
+    expect(turn).toContain("const streetAsked = herEarlier.some(forgetsCep) &&");
+    expect(turn).toContain("askedHouse || streetAsked)");
+  });
+});

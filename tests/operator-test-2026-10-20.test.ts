@@ -29,12 +29,12 @@ describe("kits: uma linha por opção, com preço e desconto", () => {
   it.each(["cod", "prepay"] as const)("no link do caminho %s", (path) => {
     const msg = funnelLinkMessage(prod as FunnelConfig, "https://x/y", path, "Ana", "G", 1);
     const kits = (prod.kits as Array<{ path: string; units: number; priceBrl: number; discountPercent: number }>).filter((k) => k.path === path);
-    // Copy v4 (operator, 2026-10-20): each path its own line shape, price and discount in both.
+    // Operator, 2026-10-21 (grafo §121): the same line on both paths, the price of each piece in the kit.
     for (const k of kits) {
-      const brl = `R$ ${k.priceBrl.toFixed(2).replace(".", ",")}`;
-      expect(msg).toContain(path === "cod" ? `${brl} (*${k.discountPercent}% de desconto*)` : `com *${k.discountPercent}% de desconto* por apenas ${brl}!`);
+      const each = `R$ ${(Math.round((k.priceBrl / k.units) * 100) / 100).toFixed(2).replace(".", ",")}`;
+      expect(msg).toContain(`• ${k.units} peças saem por apenas *${each}* cada!`);
     }
-    expect(msg).toContain("Se quiser levar mais de uma:\n");
+    expect(msg).toContain("Valores dos Kits\n");
   });
 });
 
