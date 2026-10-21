@@ -3768,7 +3768,8 @@ const handleTurn = async (
   const askedHouse = /\bn[uú]mero\s+da\s+(?:sua\s+)?casa\b/i.test(lastOutbound) && !/\b(?:cal[cç]a|tamanho)\b/i.test(lastOutbound);
   // Or the street asked for the CEP she does not know, a turn or two back (replay of 2026-10-21: her price question came between).
   const streetAsked = herEarlier.some(forgetsCep) &&
-    (recentRows ?? []).filter((m: { direction: string }) => m.direction === "outbound").slice(-3).some((m: { body: string | null }) => asksStreet(m.body ?? ""));
+    // `recentRows` is newest first: the last three replies are its first three outbound rows.
+    (recentRows ?? []).filter((m: { direction: string }) => m.direction === "outbound").slice(0, 3).some((m: { body: string | null }) => asksStreet(m.body ?? ""));
   const streetAsk = addressDraft.cep || !(/\b(?:cep|rua)\b/i.test(lastOutbound) || askedHouse || streetAsked) || (bareNumber !== null && !askedHouse)
     ? []
     : bareNumber === null
@@ -4619,7 +4620,8 @@ const handleTurn = async (
         // Operator's test, 2026-10-21: "não sei meu cep / só minha rua" got the Correios site and the sale went on without the
         // region three turns running. The turn finds the CEP from the street (`cepsByStreet`): the street is asked, once.
         ? recentOutbound.some(asksStreet)
-          ? `Ela não sabe o CEP e você já pediu a rua e a cidade: não peça de novo. Responda o que ela disse. Só se ela disser que não` +
+          ? `Ela não sabe o CEP e você já pediu a rua e a cidade: não peça de novo — se ela disse que tem só a rua, diga que pode mandar` +
+            ` a rua e a cidade que você encontra. Responda o que ela disse. Só se ela disser que não` +
             ` sabe a rua ou não achou, diga que ela acha o CEP pelo endereço no buscador dos Correios: ${CORREIOS_CEP_URL}`
           // Without the word CEP in the ask: `cep_insist` reads any "CEP" beside a question as the CEP asked again.
           : `Ela não sabe o CEP: não peça o CEP. Peça o nome da rua, o número da casa e a cidade dela, que você encontra pra ela` +

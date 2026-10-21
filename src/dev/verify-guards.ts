@@ -4470,6 +4470,14 @@ const MUTATIONS: Mutation[] = [
     guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-21.test.ts"],
   },
   {
+    id: "G121-rua-lida-das-respostas-antigas",
+    bug: "as três últimas respostas seriam lidas do fim da lista mais nova primeiro, e a rua pedida não seria procurada (reencenação de 21/10)",
+    files: ["supabase/functions/turn/index.ts"],
+    from: '.filter((m: { direction: string }) => m.direction === "outbound").slice(0, 3).some(',
+    to: '.filter((m: { direction: string }) => m.direction === "outbound").slice(-3).some(',
+    guard: ["pnpm", "-s", "vitest", "run", "tests/operator-test-2026-10-21.test.ts"],
+  },
+  {
     id: "G119-guia-sem-silenciar-o-funil",
     bug: "com uma resposta guiada no turno (pedido de pessoa, recusa), a oferta fixa sairia por cima e ela não teria resposta (copy v4, 20/10)",
     files: ["supabase/functions/turn/index.ts"],

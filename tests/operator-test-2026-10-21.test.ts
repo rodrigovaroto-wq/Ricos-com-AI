@@ -158,5 +158,7 @@ describe("a rua que ela manda depois de outra pergunta, e o número no fim da fa
   it("a rua pedida dois turnos atrás ainda é lida", () => {
     expect(turn).toContain("const streetAsked = herEarlier.some(forgetsCep) &&");
     expect(turn).toContain("askedHouse || streetAsked)");
+    // Newest first (replay of 21/10: slice(-3) read the oldest replies and the street was never looked up).
+    expect(turn).toContain('.filter((m: { direction: string }) => m.direction === "outbound").slice(0, 3).some(');
   });
 });
