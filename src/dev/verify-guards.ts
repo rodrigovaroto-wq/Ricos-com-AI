@@ -4345,8 +4345,8 @@ const MUTATIONS: Mutation[] = [
     id: "G119-oferta-antiga-esquecida",
     bug: "a oferta mandada antes da copy v4 deixaria de ser reconhecida, e a cliente em andamento receberia a oferta de novo (20/10)",
     files: ["src/agent/funnel.ts"],
-    from: " || m.startsWith(LEGACY_OFFER_HEADLINE(config)) ? (m.includes(BOTH_MARKER)",
-    to: " ? (m.includes(BOTH_MARKER)",
+    from: " || m.startsWith(LEGACY_OFFER_HEADLINE(config))\n",
+    to: "\n",
     guard: ["pnpm", "-s", "vitest", "run", "tests/funnel.test.ts"],
   },
   {
