@@ -27,7 +27,7 @@ describe("pedido não encontrado", () => {
     expect(turn).toContain("const orders: OrderView[] = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=status,payment_method,scheduled_for&order=created_at.desc`)");
   });
   it("só sem nenhum pedido por nenhum caminho (o pedido de status desconhecido existe), e uma vez por conversa", () => {
-    expect(turn).toContain("const found = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=id&limit=1`).catch(() => null)) ?? [null]).length > 0;");
+    expect(turn).toContain("const found = ((await herOrderRows()) ?? [null]).length > 0;");
     // Copy v4, 5.2: the model answers on the example; the operator's e-mail once (`notifyOrder`).
     expect(turn).toContain("orderMissing = !found;");
     expect(turn).toContain("Ela fala de um pedido que o sistema não encontrou por nenhum caminho. Responda no seu jeito, com este modelo: \"${orderNotFoundReply(logzzPhone)}\"");

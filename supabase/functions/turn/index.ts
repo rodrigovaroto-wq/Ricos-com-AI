@@ -3323,6 +3323,10 @@ const handleTurn = async (
     herIds = [...new Set([String(lead.id), ...twins.map((r: { id: string }) => String(r.id))])];
     return herIds;
   };
+  // Any order of hers, by every lead of her phone: read once per turn (code review of §121: four identical round-trips). Null = unread.
+  let herOrders: Promise<unknown[] | null> | undefined;
+  const herOrderRows = (): Promise<unknown[] | null> =>
+    (herOrders ??= herLeadIds().then((ids) => db(`orders?lead_id=in.(${ids.join(",")})&select=id&limit=1`).catch(() => null)));
   // 4a0. "Paguei" (operator, 2026-10-08, L2): the agent tells her the payment's status instead of
   // calling a person who may not come. Before the interpreter, so its post-sale handoff never fires
   // here. Only a receipt, after the check found nothing, goes to a person.
@@ -3539,7 +3543,7 @@ const handleTurn = async (
     orderContext =
       statesPastPurchase(spoken(inbound.body ?? "")) ||
       (mine ?? []).some((m: { body: string }) => statesPastPurchase(m.body ?? "", false));
-    const orders = orderContext ? [] : await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null);
+    const orders = orderContext ? [] : await herOrderRows();
     orderContext = orderContext || (orders?.length ?? 0) > 0;
     for (const base of CHECKOUT_BASES) {
       if (orderContext) continue;
@@ -3632,7 +3636,7 @@ const handleTurn = async (
   // Copy v4, 5.2: the model answers on this example (operator: the answers of the service follow the agent, not a fixed line).
   let orderMissing = false;
   if (handoffKind !== null && logzzPhone !== null && !asksReturn) {
-    const found = ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length > 0;
+    const found = ((await herOrderRows()) ?? [null]).length > 0;
     orderMissing = !found;
   }
   // The directive every time she asks about it; the operator's e-mail once per conversation (Opus review: one flag for both left
@@ -3646,8 +3650,9 @@ const handleTurn = async (
 
   // A new address before any order of hers (by every path): the agent looks the new CEP up, the customer service is for orders.
   // Not when she says she bought (review of §120): the order-not-found answer sends her to the customer service on purpose.
-  const newAddressBeforeOrder = handoffKind === null && !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
-    ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
+  // Only that kind: a person asked for or a cancel keeps the gate (code review of §121).
+  const newAddressBeforeOrder = handoffKind !== "post_sale" && !parts.some((p: string) => parseCep(p) !== null) && parts.some((p: string) => changesAddress(spoken(p))) &&
+    ((await herOrderRows()) ?? [null]).length === 0;
 
   // 5. (Until v32 a Gemini intent call ran here. Its answer decided nothing — it was
   // only echoed back as `intent`, which no n8n workflow reads — so it left the turn on
@@ -4182,9 +4187,10 @@ const handleTurn = async (
   // A new CEP after the link (operator's test, 2026-10-21: "usa o CEP novo lá no mesmo link"): the region was looked up again,
   // so the link goes again, filled with the new address — or, without delivery there, the Correios question (`codBefore`).
   // Only after a link went, before any order (review of §120: a new CEP after the order would bring a second order), and fail-closed.
-  const cepMoved = Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "") &&
+  // And only with the new CEP looked up (code review of §121: a failed lookup kept the stored "cod" path and re-sent its link).
+  const cepMoved = region !== null && Boolean(storedAddress.cep && addressDraft.cep) && storedAddress.cep!.replace(/\D/g, "") !== addressDraft.cep!.replace(/\D/g, "") &&
     !["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&
-    ((await db(`orders?lead_id=in.(${(await herLeadIds()).join(",")})&select=id&limit=1`).catch(() => null)) ?? [null]).length === 0;
+    ((await herOrderRows()) ?? [null]).length === 0;
   const linkJustSent = !cepMoved && linkHeldBack(linkHistory, CHECKOUT_BASES, pathBase, spoken(inbound.body ?? ""));
   // She takes it back in the turn the data close ("desisti", "não quero mais"): no link (grafo §65).
   const withdrew = withdrawsInBurst(parts);
@@ -4601,11 +4607,11 @@ const handleTurn = async (
         ? `A rua dela tem muitos CEPs e o número não fechou um só: diga que ela acha o dela pelo endereço no buscador dos Correios:` +
           ` ${CORREIOS_CEP_URL}. Não invente CEP.`
         // Only when the agent asked her street: "moro na rua de baixo" after a CEP talk is no street to look for (review).
-        : /\brua\b/i.test(lastOutbound) && typedState === null
+        : (/\brua\b/i.test(lastOutbound) || streetAsked) && typedState === null
         ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city} no estado do DDD dela (${streetState}): peça a rua, a` +
           ` cidade e a sigla do estado dela juntos numa mensagem só, ou o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}.` +
           ` Não diga que o endereço dela está errado e não invente CEP.`
-        : /\brua\b/i.test(lastOutbound)
+        : /\brua\b/i.test(lastOutbound) || streetAsked
         ? `A consulta não achou a rua "${streetAsk[0]!.street}" em ${streetAsk[0]!.city}: peça com gentileza pra ela conferir o nome da` +
           ` rua e da cidade, ou achar o CEP pelo buscador dos Correios: ${CORREIOS_CEP_URL}. Não invente CEP.`
         : null,

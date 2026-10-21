@@ -348,7 +348,8 @@ describe("rodada 13 na Edge Function", () => {
   });
 
   it("cancelar e pós-venda só vão para o humano com pedido ou link já enviado", () => {
-    expect(source).toContain("orders?lead_id=in.(${(await herLeadIds()).join(\",\")})&select=id&limit=1");
+    expect(source).toContain("db(`orders?lead_id=in.(${ids.join(\",\")})&select=id&limit=1`).catch(() => null)");
+    expect(source).toContain("const orders = orderContext ? [] : await herOrderRows();");
     expect(source).toContain('handoffFor(interpretation, spoken(inbound.body ?? ""), orderContext, linkOnly)');
   });
 

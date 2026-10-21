@@ -76,9 +76,12 @@ describe("support_before_order: sem pedido, endereço novo nunca vai ao atendime
     expect(v("É só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261, que eles mudam o endereço pra você.", true)).toBe("block");
     expect(v("Fala com o suporte que eles trocam o endereço.", true)).toBe("block");
   });
-  it("negação (revisão do §120): a troca de tamanho e o 'não precisa chamar o atendimento' passam", () => {
+  it("negação (revisão do §120): a linha da troca que o prompt ensina passa", () => {
     expect(v("Se não servir, é só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261 e pedir a troca.", true)).toBe("pass");
-    expect(v("Não precisa chamar o atendimento ao cliente, me passa o CEP novo do endereço?", true)).toBe("pass");
+  });
+  it("code review do §121: a frase do endereço quebrada no ponto continua vetada", () => {
+    expect(v("É só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261. Eles mudam o endereço pra você.", true)).toBe("block");
+    expect(v("Eu não consigo alterar, mas o suporte muda o endereço pra você.", true)).toBe("block");
   });
   it("negação: com pedido criado, ou pedindo o CEP novo, passa", () => {
     expect(v("É só chamar o nosso atendimento ao cliente no WhatsApp +55 11 98819-4261, que eles mudam o endereço pra você.", false)).toBe("pass");
@@ -91,7 +94,7 @@ describe("support_before_order: sem pedido, endereço novo nunca vai ao atendime
   });
   it("revisão do §120: o CEP novo só solta o link depois de um link, antes de qualquer pedido", () => {
     expect(turn).toContain('!["pedido_criado", "em_rota", "entregue_pago", "recusado"].includes(storedStage) && lastLinkBase(linkHistory, CHECKOUT_BASES) !== null &&');
-    expect(turn).toContain("const newAddressBeforeOrder = handoffKind === null && ");
+    expect(turn).toContain("const newAddressBeforeOrder = handoffKind !== \"post_sale\" && ");
   });
   it("revisão do §120: a rua pedida uma vez não é pedida de novo, e a recusa não vira 'não lembra'", () => {
     expect(turn).toContain("? cepRefused || recentOutbound.some(asksStreet)");
@@ -160,5 +163,28 @@ describe("a rua que ela manda depois de outra pergunta, e o número no fim da fa
     expect(turn).toContain("askedHouse || streetAsked)");
     // Newest first (replay of 21/10: slice(-3) read the oldest replies and the street was never looked up).
     expect(turn).toContain('.filter((m: { direction: string }) => m.direction === "outbound").slice(0, 3).some(');
+  });
+});
+
+describe("code review do §121", async () => {
+  const { runGates } = await import("@/agent/guardrails.js");
+  const { ctx } = await import("./fixtures.js");
+  const prod = JSON.parse(readFileSync("docs/operacao/business-config-2026-10-20.min.json", "utf8"));
+  it("o preço de cada peça do kit, que o link diz, passa o gate de preço", () => {
+    const price = (text: string) => runGates(text, ctx({ config: prod })).traces.find((t) => t.gate === "price_promise")?.verdict;
+    expect(price("Isso, 3 peças saem por R$ 103,92 cada.")).toBe("pass");
+    // Negation: a per-piece price nobody configured is still a promise.
+    expect(price("Isso, 3 peças saem por R$ 99,90 cada.")).toBe("block");
+  });
+  it("o preço de cada peça vezes as peças é o preço do kit no checkout (sem centavo de diferença)", () => {
+    for (const k of prod.kits as Array<{ units: number; priceBrl: number }>) {
+      expect(Math.round(Math.round((k.priceBrl / k.units) * 100) * k.units)).toBe(Math.round(k.priceBrl * 100));
+    }
+  });
+  it("o CEP novo só solta o link com a região consultada; o pedido de pessoa mantém o gate", () => {
+    expect(turn).toContain("const cepMoved = region !== null && Boolean(storedAddress.cep && addressDraft.cep)");
+    expect(turn).toContain('const newAddressBeforeOrder = handoffKind !== "post_sale" && ');
+    expect(turn).toContain("const herOrderRows = (): Promise<unknown[] | null> =>");
+    expect(turn).toContain(": (/\\brua\\b/i.test(lastOutbound) || streetAsked) && typedState === null");
   });
 });

@@ -328,7 +328,7 @@ export const bothLinksBubbles = (
     { text: `${BOTH_HEADLINE}, mas a sua cidade costuma ter disponibilidade sim. Vou te mandar as duas opções para escolher a sua preferida:` },
     {
       text: `🟢 *Pagar SÓ Quando Receber*\n\n` +
-        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(codPrice)}*⭐` : `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(codPrice)}*⭐`) +
+        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(codPrice)}*⭐` : `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(codPrice)}*⭐`) +
         `${free ? "\n\nE o Melhor, com *FRETE GRÁTIS!!*" : ""}\n\n${codUrl}`,
     },
     { text: "Abre esse primeiro. Se aparecer um dia de entrega pra escolher, é só finalizar e ser feliz!" },
@@ -346,7 +346,7 @@ export const bothPrepayBubbles = (config: FunnelConfig, name: string | null, pre
     { text: `${BOTH_PREPAY_HEADLINE}${first ? ` ${first}` : ""}...\nMas não desanima não porque eu tenho uma oferta especial para você!!` },
     {
       text: `🔵 Pagar Agora\n\n*Você Ganhou Mais ${config.prices.prepayDiscountPercent}% de Desconto!!*\n` +
-        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(price)}*⭐` : `⭐*DE ~${money(config.prices.anchorBrl)}~ POR ${money(price)}*⭐`) +
+        (pieces > 1 ? `⭐*${pieces} PEÇAS POR ${money(price)}*⭐` : `⭐*~${money(config.prices.anchorBrl)}~ POR ${money(price)}*⭐`) +
         `\n\nPode pagar no Pix${n && n > 1 ? ` ou em até ${n}x no cartão!!` : " ou no cartão!!"}\n\n${prepayUrl}`,
     },
   ];

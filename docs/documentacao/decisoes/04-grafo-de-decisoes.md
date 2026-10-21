@@ -3830,6 +3830,28 @@ antes de `pedido_criado` e sem pedido em `herLeadIds`, falhando fechado; `CEP_MO
 `newAddressBeforeOrder` exige `handoffKind === null` (o pedido não achado manda ao atendimento de propósito); o estado do DDD é palpite:
 o CEP achado é dito com a UF, e a rua não achada pede "rua, cidade - UF" em vez de "confere". Mutações `G120-*` 9/9.
 
+## 121. A oferta e o link no texto do operador, a rua lida depois de outra pergunta (operador, 2026-10-21)
+
+**Decisão do operador:** a oferta da entrega e a mensagem do link no texto dele, adaptado ao antecipado: âncora `⭐*~R$ 216,50~ POR …*⭐`
+(sem "DE"), "🚚 *FRETE GRÁTIS*" numa linha e o dia na seguinte, "✅*Não Paga Nada Agora*"; no link, "Valores dos Kits" com o preço de
+cada peça ("2 peças saem por apenas *R$ 116,91* cada!"). No antecipado: a mesma âncora com o preço antecipado, ✅ antes do Pix/12x, e
+os kits por peça.
+**Correção:** `OFFER_HEADLINE`, `codOfferText`, `prepayOfferText`, `funnelLinkMessage`, `bothLinksBubbles`/`bothPrepayBubbles` (âncora);
+`V4_OFFER_HEADLINE` mantém reconhecida a oferta de 20/10 (`offerKindOf`), e a `turn` lê "⭐*~R$ " no histórico inteiro.
+**Reencenação (achados corrigidos):** (1) a rua mandada depois de uma pergunta de preço não era procurada — `streetAsked` (rua pedida
+nas três últimas respostas, depois do "não sei o CEP"); a primeira versão lia `recentRows` do fim, e ele vem do mais novo para o mais
+velho: `slice(0, 3)`; (2) "Rua Halfeld 100" não fechava: `pickStreetCep` lia "até 99/100" como até 99; (3) o modelo copiou "UF" do
+exemplo da diretiva da rua em outro estado — a diretiva pede "a sigla do estado".
+**/code-review (corrigidos):** o preço por peça era vetado pelo `price_promise` (o link diz o que o gate proibia) — entra em
+`allowedPrices`; `support_before_order` só na mesma frase deixava passar a frase quebrada no ponto, e a isenção de negação era hipótese
+de revisor (R21.6) — agora o texto inteiro com "endereço" e atendimento/suporte, sem isenção; `cepMoved` com a consulta falhada mandava
+o link da entrega de novo — exige `region !== null`; `newAddressBeforeOrder` só isenta `post_sale`; a diretiva de rua não achada vale
+também com `streetAsked`; `herOrderRows` lê o pedido uma vez por turno (eram quatro idas iguais ao banco).
+**Resíduos:** os testes de `streetAsked`, `cepMoved` e da ordem de `recentRows` são de fonte (o fechamento de `handleTurn` não roda em
+teste unitário); a prova é a reencenação. Kit cujo preço não divide pelas peças daria 1 centavo de diferença — o config de produção
+divide (teste em `tests/operator-test-2026-10-21.test.ts`).
+**Guarda:** `tests/operator-test-2026-10-21.test.ts`, `tests/funnel.test.ts` (texto exato do operador); mutações `G121-*`.
+
 ## Lições (valem para qualquer correção futura)
 
 1. **Toda isenção num gate é um afrouxamento.** Antes de isentar, escreva a mentira que a

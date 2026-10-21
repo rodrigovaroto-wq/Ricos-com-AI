@@ -1073,7 +1073,8 @@ const gates: readonly Gate[] = [
     check: (text, ctx) => {
       const { codBrl, prepayBrl, anchorBrl, prepayDiscountPercent } = ctx.config.prices;
       const kits = ctx.config.kits ?? [];
-      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.map((k) => k.priceBrl)]);
+      // The price of each piece in a kit is the link message's own (operator, 2026-10-21, grafo §121): said back, never vetoed.
+      const allowedPrices = new Set([codBrl, prepayBrl, anchorBrl, ...kits.flatMap((k) => [k.priceBrl, Math.round((k.priceBrl / k.units) * 100) / 100])]);
       const orderAmount = ctx.stage === "logistics" ? ctx.orderAmountBrl : undefined;
       if (orderAmount !== undefined) allowedPrices.add(orderAmount);
       const t = norm(text);
@@ -3209,13 +3210,11 @@ const gates: readonly Gate[] = [
     briefing: () =>
       `Se ela quer mudar o endereço e ainda não tem pedido, endereço novo é CEP novo: não mande ela ao atendimento ao cliente;` +
       ` peça o CEP novo, ou a rua e a cidade, pra consultar a entrega de novo.`,
-    // The sentence that sends her there for the address: the exchange line ("…e pedir a troca") and "não precisa chamar o
-    // atendimento" pass (review of §120).
+    // A reply naming the address: the prompt's exchange line ("…e pedir a troca", a taught sentence) passes; the address sentence
+    // split at a period does not (code review of §121). No negation exemption: that was a reviewer's hypothetical (R21.6).
     check: (text, ctx) =>
-      ctx.addressBeforeOrder === true &&
-      norm(text).split(/(?<=[.!?])\s+|\n+/).some((t) =>
-        /\bendereco\b/.test(t) && /\b(?:atendimento\s+(?:ao|do|de)\s+cliente|suporte)\b/.test(t) &&
-        !/\b(?:nao|nem)\b[^.!?]{0,30}\b(?:atendimento|suporte)\b/.test(t))
+      ctx.addressBeforeOrder === true && /\bendereco\b/.test(norm(text)) &&
+      /\b(?:atendimento\s+(?:ao|do|de)\s+cliente|suporte)\b/.test(norm(text))
         ? "sends her to the customer service to change an address with no order yet"
         : null,
   },

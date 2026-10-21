@@ -165,7 +165,7 @@ describe("entrega não confirmada numa cidade da Logzz: os dois links (operador,
     const b = bothLinksBubbles(config, "Campinas", "https://entrega/x", "https://coinzz/y", "GG");
     const all = b.map((x) => x.text).join("\n");
     expect(all).toContain("🟢 *Pagar SÓ Quando Receber*");
-    expect(all).toContain("⭐*DE ~R$ 216,50~ POR R$ 129,90*⭐");
+    expect(all).toContain("⭐*~R$ 216,50~ POR R$ 129,90*⭐");
     expect(all).toContain("https://entrega/x");
     expect(all).not.toContain("https://coinzz/y");
     expect(all).toContain("Se não aparecer me fala aqui");
@@ -174,7 +174,7 @@ describe("entrega não confirmada numa cidade da Logzz: os dois links (operador,
     const second = bothPrepayBubbles(config, "Ana Lima", "https://coinzz/y").map((x) => x.text).join("\n");
     expect(second).toContain("Ah que pena Ana...");
     expect(second).toContain("*Você Ganhou Mais 10% de Desconto!!*");
-    expect(second).toContain("⭐*DE ~R$ 216,50~ POR R$ 116,91*⭐");
+    expect(second).toContain("⭐*~R$ 216,50~ POR R$ 116,91*⭐");
     expect(second).toContain("https://coinzz/y");
   });
 });
