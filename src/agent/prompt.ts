@@ -562,7 +562,6 @@ export const stockScarcityLine = (
   return `O *${size.trim().toUpperCase()}* está acabando pra entrega na sua região: restam só *${stockQty}* 😮`;
 };
 
-
 /**
  * Plan 16 §4.6–4.7: the stock line and the prepaid freight this turn may teach, the same values to the prompt and the gates.
  * Only inside the send window: a reply held for the morning is gated again by the sweep, which has neither. The stock only

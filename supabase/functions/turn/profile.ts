@@ -37,6 +37,12 @@ export interface LeadProfile {
   trigger_uses: number;
   /** The newest sent message `trigger_uses` counted: what comes after it is counted next. */
   trigger_counted_at: string | null;
+  /**
+   * The turn offered the real-stock line (§4.6) / gave the vague-objection question (§4.5): once per conversation, by what the
+   * turn decided, never by reading the text back (four /code-review rounds of PR 77: every text reader missed some wording).
+   */
+  stock_offered: boolean;
+  vague_asked: boolean;
 }
 
 export const EMPTY_PROFILE: LeadProfile = Object.freeze({
@@ -52,6 +58,8 @@ export const EMPTY_PROFILE: LeadProfile = Object.freeze({
   think_count: 0,
   trigger_uses: 0,
   trigger_counted_at: null,
+  stock_offered: false,
+  vague_asked: false,
 }) as LeadProfile;
 
 const LEVEL: Record<PriceSensitivity, number> = { baixa: 0, media: 1, alta: 2 };
@@ -88,6 +96,9 @@ export const mergeProfile = (
     // Counted by the turn on what was sent, not read from her message: carried as stored.
     trigger_uses: p.trigger_uses,
     trigger_counted_at: p.trigger_counted_at,
+    // Set by the turn, sticky: once true, true for the rest of the conversation.
+    stock_offered: p.stock_offered === true,
+    vague_asked: p.vague_asked === true,
   };
 };
 

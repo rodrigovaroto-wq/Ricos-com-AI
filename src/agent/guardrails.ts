@@ -1019,10 +1019,6 @@ const DENIED_AFTER =
 const COD_CONDITION =
   /\b(?:pagando|no\s+pagamento|com\s+(?:o\s+)?pagamento|se\s+(?:voce\s+|vc\s+)?(?:pagar|escolher\s+pagar|preferir\s+pagar|optar\s+por\s+pagar))\s+na\s+entrega\b/;
 
-/**
- * The stock claims of `scarcity_claim`, read on `norm`-ed text with the WhatsApp marks off. Exported (/code-review of PR 77):
- * the turn asks this same reader whether the stock line went out already, so a second copy cannot drift from the gate.
- */
 // A superset of the claims below (independent review, finding 11), plus the forms the review
 // passed on the production config (finding 12). A count only when it is of stock: "resta 1 dia
 // pra devolver" and "restam 2 tamanhos" are not (finding 17).
@@ -1042,6 +1038,10 @@ const stockIn = (t: string): boolean =>
   // The verb before the noun: "tá acabando o estoque" (finding 7).
   /\b(?:acaband\w*|esgotand\w*|no\s+fim)\s+(?:(?:o|a|os|as|nosso|nossa|do|da)\s+)?(?:estoque|lote|unidades|pecas|coletes)\b/.test(t) ||
   /\besgotad\w*\b/.test(t);
+/**
+ * The stock claims of `scarcity_claim`, read on `norm`-ed text with the WhatsApp marks off. Exported (/code-review of PR 77):
+ * the turn asks this same reader whether the stock line went out already, so a second copy cannot drift from the gate.
+ */
 export const claimsStock = (text: string): boolean => stockIn(norm(text).replace(/[*_~]/g, ""));
 
 const gates: readonly Gate[] = [

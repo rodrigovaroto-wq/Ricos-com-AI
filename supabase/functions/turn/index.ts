@@ -165,7 +165,6 @@ import {
   VAGUE_OBJECTION_QUESTION,
   VAGUE_PRICE_QUESTION,
   VAGUE_OBJECTION_REASON,
-  askedVagueQuestion,
   vagueObjectionSituation,
   DECLINE_REPLY,
   OPT_IN_DECLINED_REPLY,
@@ -4133,8 +4132,9 @@ const handleTurn = async (
     region,
     units,
     linkPath,
-    // The gate's own stock reader (`claimsStock`): the taught line or the model's words for it, the gate's exclusions included.
-    stockSaid: recentOutbound.some((m: string) => claimsStock(m)),
+    // Offered once per conversation (`profile.stock_offered`, set below when this turn offers it); the gate's own reader catches a
+    // stock line said before the flag existed.
+    stockSaid: storedProfileOf(lead)?.stock_offered === true || recentOutbound.some((m: string) => claimsStock(m)),
   });
   const turnFacts = { stockLine, prepayFreightBrl };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
@@ -4328,7 +4328,7 @@ const handleTurn = async (
   const vagueObjection = !declined && !interpretation.wants_to_buy &&
     (putsOff || interpretation.price_signal === "complaint") &&
     interpretation.pending_answer !== "other_question" && !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
-    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && !askedVagueQuestion(recentOutbound) &&
+    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true &&
     ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) === 0;
   if (vagueObjection) {
     guide(
@@ -4363,6 +4363,8 @@ const handleTurn = async (
     audio_count: folded.audio_count + (profileReplayed ? 0 : Math.max(audioParts - 1, 0)),
     trigger_uses: triggerUses,
     trigger_counted_at: triggerCount.countedAt,
+    stock_offered: folded.stock_offered || stockLine !== null,
+    vague_asked: folded.vague_asked || vagueObjection,
   };
   // Plan 16 §4.2: her readiness score from what this turn settled, with the profile, in one write of its own — before 0029 the
   // columns do not exist, PostgREST refuses the PATCH with 400, and nothing else goes with it (the `entry_at` rule of 0022).

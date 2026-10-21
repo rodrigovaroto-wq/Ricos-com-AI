@@ -3988,7 +3988,12 @@ para preço em notação exponencial. **Rodada 3:** ajustar o "já disse o estoq
 errava outras), então o leitor do gate `scarcity_claim` virou `claimsStock` (exportado de `guardrails.ts`) e o turno pergunta a ele: uma
 regra só, com as exclusões que o gate já tinha ("resta 1 dia pra devolver" não é estoque). `askedVagueQuestion` passou a exigir que a dúvida
 e os dois assuntos estejam na mesma frase que termina em "?" (o emoji fecha frase): "…me chama 💛 Quer que eu separe?" não é a pergunta.
-Mutações `P16-estoque-dito-pelo-gate`, `P16-perfil-despedida`, `P16-pergunta-vaga-ampla`, `P16-frete-nan`.
+**Rodada 4:** ainda assim, cada leitor de texto ("já disse o estoque?", "já fiz a pergunta?") errava alguma forma ("o seu GG está
+acabando por aqui", "Ficou com alguma dúvida… 🤔?", a pergunta quebrada em duas linhas). Caminho que funcionou: não ler o texto de volta.
+O perfil guarda `stock_offered` e `vague_asked`, marcados pelo que o turno DECIDIU (linha do estoque oferecida, pergunta dada) e nunca
+desmarcados; `askedVagueQuestion` saiu (código morto). O `claimsStock` fica só para a linha dita antes de existir a marca.
+Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-estoque-dito-pelo-gate`,
+`P16-perfil-despedida`, `P16-frete-nan`.
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
 no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
 cache (fica "aparece no checkout"); a linha do estoque lida há mais de 20 mensagens pode sair uma segunda vez.

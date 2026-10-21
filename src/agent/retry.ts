@@ -332,19 +332,6 @@ export const VAGUE_PRICE_QUESTION = "Entendo! Ficou alguma dúvida que eu possa 
 /** The guide's reason, as `turn_outcomes.reason` records it: what tells the turn the question was asked already. */
 export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 
-/** The question went out already, in the model's words (it answers "no seu jeito"): a doubt and two of its three subjects. */
-export const askedVagueQuestion = (outbound: readonly string[]): boolean =>
-  outbound.some((m) => {
-    const t = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    // The doubt asked as a question, the "?" closing that same sentence and two subjects in it: "Qualquer dúvida sobre o
-    // tamanho ou a entrega, me chama… Quer que eu separe?" is no question asked; "Ficou com algumas dúvidas sobre o tamanho ou a
-    // entrega?" is (three /code-review rounds of PR 77).
-    // An emoji ends a sentence on WhatsApp as a full stop does ("…me chama 💛 Quer que eu separe?").
-    return (t.match(/[^.!?\n\p{Extended_Pictographic}]*\?/gu) ?? []).some(
-      (q) => /\bduvidas?\b/.test(q) && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(q)).length >= 2,
-    );
-  });
-
 /** What the vague objection's reasons read: the prices and the warranty. */
 export interface VagueObjectionConfig {
   prices: { codBrl: number; prepayBrl: number; anchorBrl: number };

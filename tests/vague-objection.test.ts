@@ -4,7 +4,7 @@
  */
 import { describe, expect, it } from "vitest";
 import { runGates } from "@/agent/guardrails.js";
-import { askedVagueQuestion, THINK_REPLY, VAGUE_OBJECTION_QUESTION, VAGUE_PRICE_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
+import { VAGUE_OBJECTION_QUESTION, VAGUE_PRICE_QUESTION, vagueObjectionSituation } from "@/agent/retry.js";
 import { config as base, ctx } from "./fixtures.js";
 
 const config = { ...base, prices: { ...base.prices, prepayBrl: 116.91, prepayDiscountPercent: 10 }, scarcity: { lowStock: 20 } };
@@ -65,26 +65,12 @@ describe("vagueObjectionSituation: só os gatilhos verdadeiros", () => {
   });
 });
 
-describe("askedVagueQuestion: a pergunta já foi, nas palavras do modelo", () => {
-  it("feliz: a do operador e uma reescrita dela", () => {
-    expect(askedVagueQuestion([VAGUE_OBJECTION_QUESTION])).toBe(true);
-    expect(askedVagueQuestion(["Entendo! Ficou alguma dúvida sobre o tamanho ou o valor que eu possa resolver?"])).toBe(true);
-  });
-  it("falha: a resposta de hoje ao \"vou pensar\" e uma dúvida de um assunto só não são a pergunta", () => {
-    expect(askedVagueQuestion([`${THINK_REPLY} 💛`])).toBe(false);
-    expect(askedVagueQuestion(["Ficou alguma dúvida sobre o tamanho?"])).toBe(false);
-  });
-  it("negação: \"sem dúvida, o tamanho e a entrega estão certos\" não é a pergunta (desde o /code-review do PR 77; o turn_outcomes guarda a vez dela)", () => {
-    expect(askedVagueQuestion(["Sem dúvida, o tamanho e a entrega estão certos."])).toBe(false);
-  });
-});
 
 describe("a reclamação de preço não ouve \"Claro!\" (personas, 2026-10-21: \"nem compensa pra mim\" → \"Claro!\")", () => {
-  it("a pergunta de preço abre com Entendo!, passa a cadeia e conta como já feita", () => {
+  it("a pergunta de preço abre com Entendo! e passa a cadeia", () => {
     expect(VAGUE_PRICE_QUESTION.startsWith("Entendo!")).toBe(true);
     expect(VAGUE_PRICE_QUESTION.slice("Entendo!".length)).toBe(VAGUE_OBJECTION_QUESTION.slice("Claro!".length));
     for (const paymentPath of ["cod", "prepay"] as const) expect(runGates(VAGUE_PRICE_QUESTION, ctx({ config, paymentPath })).allowed).toBe(true);
-    expect(askedVagueQuestion([VAGUE_PRICE_QUESTION])).toBe(true);
   });
 
   it("preço: acolhe sem concordar; adiamento: Claro!; nos dois, o motivo antes e a pergunta por último", () => {
@@ -100,27 +86,5 @@ describe("a reclamação de preço não ouve \"Claro!\" (personas, 2026-10-21: \
   });
 });
 
-describe("askedVagueQuestion não confunde resposta comum com a pergunta (/code-review do PR 77)", () => {
-  it("'Qualquer dúvida sobre o tamanho ou a entrega, me chama' não é a pergunta", () => {
-    expect(askedVagueQuestion(["Qualquer dúvida sobre o tamanho ou a entrega, me chama 💛"])).toBe(false);
-    expect(askedVagueQuestion(["Se tiver dúvida do valor ou da entrega é só falar"])).toBe(false);
-    expect(askedVagueQuestion(["Ficou alguma dúvida sobre o tamanho ou a entrega?"])).toBe(true);
-    expect(askedVagueQuestion(["Tem alguma dúvida que eu possa resolver sobre o valor ou o tamanho?"])).toBe(true);
-  });
-});
 
-describe("askedVagueQuestion reconhece a pergunta nas palavras do modelo (/code-review, rodada 2)", () => {
-  it("formas da mesma pergunta contam; recado sem pergunta não", () => {
-    for (const q of ["Ficou com alguma dúvida sobre o tamanho ou a entrega?", "Tem mais alguma dúvida sobre o valor ou o tamanho?", "Alguma dúvida sobre o tamanho, a entrega ou o valor?"]) expect(askedVagueQuestion([q])).toBe(true);
-    expect(askedVagueQuestion(["Se ficar alguma dúvida sobre o tamanho ou a entrega, me chama 💛"])).toBe(false);
-  });
-});
 
-describe("askedVagueQuestion: a dúvida é a pergunta, na mesma frase (/code-review, rodada 3)", () => {
-  it("um recado com outra pergunta depois não conta; plural e 'com dúvida' contam", () => {
-    expect(askedVagueQuestion(["Se ficar alguma dúvida sobre o tamanho ou a entrega, me chama 💛 Quer que eu já separe o seu?"])).toBe(false);
-    expect(askedVagueQuestion(["O GG serve e a entrega é amanhã. Ficou alguma dúvida?"])).toBe(false);
-    expect(askedVagueQuestion(["Ficou com algumas dúvidas sobre o tamanho ou a entrega?"])).toBe(true);
-    expect(askedVagueQuestion(["Ficou com dúvida sobre o tamanho ou o valor?"])).toBe(true);
-  });
-});

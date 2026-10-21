@@ -150,7 +150,7 @@ describe("index.ts — a fiação do plano 16", () => {
     const decline = at("let declined = false;");
     const vague = at("const vagueObjection = !declined && !interpretation.wants_to_buy &&");
     expect(vague).toBeGreaterThan(decline);
-    expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && !askedVagueQuestion(recentOutbound) &&");
+    expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true &&");
     // The interpreter's own "vou pensar", read before a bare goodbye is parked as one: "obrigada, tchau" gets no question.
     // Not the discount ask (§4.5 lists only "tá caro", "achei mais barato", "vou ver", "vou pensar"): "Claro!" to it reads as a yes.
     expect(turn).toContain('(putsOff || interpretation.price_signal === "complaint") &&');
@@ -255,7 +255,7 @@ describe("/code-review do PR 77", () => {
     for (const said of [line, "restam so 3 no GG", "Só restam apenas 12 no GG", "restam somente doze unidades", "tá acabando o estoque do GG", "últimas 12 unidades"]) expect({ said, r: claimsStock(said) }).toEqual({ said, r: true });
     // …and what is not stock does not (the gate's exclusions, round 3).
     for (const not of ["O GG veste cintura de 84 a 92 cm", "restam sobretudo dúvidas", "resta 1 dia pra devolver", "restam 2 tamanhos", "Você tem 7 dias pra trocar"]) expect({ not, r: claimsStock(not) }).toEqual({ not, r: false });
-    expect(turn).toContain("stockSaid: recentOutbound.some((m: string) => claimsStock(m)),");
+    expect(turn).toContain("stockSaid: storedProfileOf(lead)?.stock_offered === true || recentOutbound.some((m: string) => claimsStock(m)),");
   });
 
   it("a despedida não vira 'vou pensar' no perfil: o perfil lê putsOff, não o goodbyeParks", () => {
@@ -265,5 +265,21 @@ describe("/code-review do PR 77", () => {
   it("a régua lê só o tamanho e a faixa do lead, nunca a linha inteira", () => {
     expect(turn).toContain("leads(size,score_band,orders(status))");
     expect(turn).not.toContain("leads(*,");
+  });
+});
+
+describe("uma vez por conversa, pelo que o turno decidiu (/code-review do PR 77, rodada 4)", () => {
+  it("a linha do estoque e a pergunta da dúvida ficam marcadas no perfil e nunca desmarcam", async () => {
+    const { mergeProfile, EMPTY_PROFILE } = await import("@/agent/profile.js");
+    const { NEUTRAL_INTERPRETATION } = await import("@/agent/interpret.js");
+    expect(EMPTY_PROFILE.stock_offered).toBe(false);
+    expect(EMPTY_PROFILE.vague_asked).toBe(false);
+    const after = mergeProfile({ ...EMPTY_PROFILE, stock_offered: true, vague_asked: true }, NEUTRAL_INTERPRETATION, { audio: false });
+    expect(after.stock_offered).toBe(true);
+    expect(after.vague_asked).toBe(true);
+    // A stored profile older than the flags reads them false.
+    expect(mergeProfile({ occasion: "casamento" }, NEUTRAL_INTERPRETATION, { audio: false }).stock_offered).toBe(false);
+    expect(turn).toContain("    stock_offered: folded.stock_offered || stockLine !== null,\n    vague_asked: folded.vague_asked || vagueObjection,");
+    expect(turn).not.toContain("askedVagueQuestion");
   });
 });
