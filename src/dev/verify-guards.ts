@@ -4667,7 +4667,7 @@ const MUTATIONS: Mutation[] = [
     files: ["src/agent/address.ts"],
     from: "return n <= Math.max(...nums.slice(0, /",
     to: "return n < Math.max(...nums.slice(0, /",
-    guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts"],
+    guard: ["pnpm", "-s", "vitest", "run", "tests/street-cep.test.ts", "tests/operator-test-2026-10-21.test.ts"],
   },
   {
     id: "R28-rua-de-prefixo",
