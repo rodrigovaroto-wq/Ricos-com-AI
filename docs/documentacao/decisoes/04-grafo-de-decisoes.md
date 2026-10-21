@@ -3899,9 +3899,9 @@ e os leads e pedidos são o total do anúncio (a view não tem data); o "tempo a
 
 ## 123. Plano 16: perfil e score do lead, escassez de estoque real, frete do antecipado, objeção vaga e gatilho pessoal (operador, 2026-10-21)
 
-**Estado (verificado em 2026-10-21):** **implementado na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`), NÃO
-publicado.** No ar continua a v39 (segundo o HANDOFF de 21/10; a API de gerência não foi consultada nesta sessão, então a versão não foi
-reconferida). `pnpm test` rodado nesta sessão: 116 arquivos, 8732 testes, verdes. Decisões do operador: R29 em
+**Estado (verificado em 2026-10-21):** ~~implementado na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`), NÃO
+publicado; no ar continua a v39~~ ✅ **superado na noite de 21/10: está no ar como `turn` v40 (ver a linha "Estado" no fim desta seção).**
+Esta linha dizia "NÃO publicado" e ficou falsa horas depois do deploy; o texto original, sobre o que foi implementado, vale. `pnpm test` rodado nesta sessão: 116 arquivos, 8732 testes, verdes. Decisões do operador: R29 em
 [`03-decisoes-tomadas.md`](03-decisoes-tomadas.md); especificação: [plano 16](../../agente-ia/05-plano/16-plano-execucao-pesquisas.md) §4.
 
 **Sintoma:** a Malu não guardava nada do que a cliente contava (ocasião, dor, objeção, sensibilidade a preço), não tinha medida de quão
@@ -3957,7 +3957,7 @@ Opus (1 bloqueante, o frete do kit, mais corrigíveis) e conformidade; achados c
 - a varredura não repontua toque sem resposta (o −10 do plano não é aplicado);
 - o frete do kit não é lido.
 
-**Falta para entrar no ar (nada disso foi feito):** (1) aplicar `0029_lead_profile.sql`; (2) `pnpm deploy:turn`; (3) gravar
+**Falta para entrar no ar (lista de 21/10 à tarde; itens 1 a 4 e 6 feitos à noite, ver "Estado" no fim; sobra o 5, o portal, e a escassez, que espera o segredo):** (1) aplicar `0029_lead_profile.sql`; (2) `pnpm deploy:turn`; (3) gravar
 `scarcity.lowStock: 20` no `BUSINESS_CONFIG` (ausente = sem escassez; JSON validado + hash + `job:"health"`); (4) trocar o assunto no
 n8n (`turno-da-agente.json`): hoje `Aviso — a Malu não conseguiu resolver sozinha a conversa de {{ $json.phone }}`, deve virar
 `={{ $json.scoreTag ? $json.scoreTag + ' — ' : '' }}Aviso — …` (sem a troca, o `scoreTag` chega e não aparece); (5) mesclar a branch
@@ -4012,6 +4012,21 @@ Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perf
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha
 no `silence_3` (a lead fria não vira `perdido` nesse caso raro); o frete não é relido quando ela volta de kit para 1 peça dentro da hora do
 cache (fica "aparece no checkout").
+
+**Estado (2026-10-21, noite, verificado pelo operador/sessão principal; não reconferido por esta escrita):** **NO AR.** `turn` v40 =
+`agent_versions` 40, função `turn` v150, commit `fbb6f19`, 21/10 ~21h11 UTC, via `pnpm deploy:turn`; a v39 no ar era o commit `3f04911`,
+sem diferença em `supabase/functions/turn` para `origin/main` (sem deriva). Sonda `job:"health"` → `healthy` (3 CEPs de SP, pagamento na
+entrega). Final do /code-review do PR #77: 7 rodadas (`55dc790`, `c95d20c`, `fd05031`, `97bca1d`, `32bc160`, `076ff0d`, `fbb6f19`); 8736
+testes, `dev:gates` 0 afrouxamentos, `dev:conversas` 1655/1655. **n8n:** workflow "Encorpa — Turno da agente" (`HnGrxquQLpfbXWLH`), nó
+"Avisa o operador": o assunto agora é `={{ $json.scoreTag ? $json.scoreTag + ' — ' : '' }}Aviso — a Malu não conseguiu resolver sozinha a
+conversa de {{ $json.phone }}`, publicado, versão ativa `dd79bfca-d337-4303-a19e-916e6c9e79f0`, `pnpm dev:n8n` ok nos 7 workflows,
+`n8n/workflows/turno-da-agente.json` atualizado (`66a29c5`). **`BUSINESS_CONFIG`:** o segredo vivo continua
+`docs/operacao/business-config-2026-10-20.min.json` (sha256 `3749c32b…`, lido pela API de segredos); o arquivo novo
+`docs/operacao/business-config-2026-10-21.min.json` (sha256 `ead94034cd63ac4907f5706d44c7e53e8a4604b0c1538e676fea13b5c3125020`, commit
+`9b52a7f`) é aquele mais `"scarcity":{"lowStock":20}` e nada mais; validado (prompt monta, `scarcity_claim` só passa a linha com a
+consulta, `turn` local sobe `healthy`). **O operador ainda não o colou no segredo: até lá não há escassez** (ausente = sem escassez).
+Migração `0029` aplicada em produção. **Não provado ao vivo:** o balão do gancho antes da oferta e a gravação do score; a primeira conversa
+real na v40 prova (`leads.score`, `turn_outcomes.agent_version = 40`). Decisões do operador na noite: R29.12–R29.14.
 
 ## Lições (valem para qualquer correção futura)
 

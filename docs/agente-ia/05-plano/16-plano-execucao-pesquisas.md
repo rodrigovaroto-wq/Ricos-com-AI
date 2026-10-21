@@ -6,7 +6,15 @@
 > **Conferido contra o código** em 21/10 (`src/agent/prompt.ts`, `retry.ts`, `followups.ts`, `availability.ts`, `coinzz.ts`) e contra os
 > planos [13](13-plano-pratico-conversao.md) e [14](14-experimentos-l3.md).
 
-> **STATUS 2026-10-21 — §4 IMPLEMENTADO na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`); NÃO DEPLOYADO.** No ar: v39
+> **STATUS 2026-10-21 (noite) — §4 NO AR como `turn` v40** (função v150, commit `fbb6f19`, ~21h11 UTC, `job:"health"` healthy), **exceto a
+> escassez, que espera o operador colar o `BUSINESS_CONFIG` de 21/10** (`docs/operacao/business-config-2026-10-21.min.json`, sha256
+> `ead94034…`; sem `scarcity.lowStock` não há escassez). Migração `0029` aplicada; assunto do e-mail no n8n com `$json.scoreTag` publicado
+> (versão ativa `dd79bfca`). **Falta:** mesclar o PR #77 e o PR #5 do `encorpa-portal`; provar ao vivo o balão do gancho e a gravação do
+> score na primeira conversa real. Registro: grafo [§123](../../documentacao/decisoes/04-grafo-de-decisoes.md) ("Estado"), decisões R29
+> em [`03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md). O bloco abaixo, de antes do deploy, fica como veio:
+> ~~STATUS: implementado na branch, NÃO DEPLOYADO; no ar a v39~~ ✅ falso desde 21/10 ~21h11 UTC.
+>
+> *(Bloco da tarde de 21/10, histórico)* **STATUS 2026-10-21 — §4 IMPLEMENTADO na branch `claude/inspiring-carson-hctijy` (commits `403a60f`..`5f445f9`); NÃO DEPLOYADO.** No ar: v39
 > (HANDOFF de 21/10; não reconferido na API de gerência nesta sessão). `pnpm test` nesta sessão: 8732 verdes. Registro: grafo
 > [§123](../../documentacao/decisoes/04-grafo-de-decisoes.md), decisões R29 em [`03-decisoes-tomadas.md`](../../documentacao/decisoes/03-decisoes-tomadas.md).
 > **Para entrar no ar:** (1) aplicar a migração `0029_lead_profile.sql`; (2) `pnpm deploy:turn`; (3) gravar `scarcity.lowStock: 20` no

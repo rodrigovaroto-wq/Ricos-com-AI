@@ -2249,7 +2249,7 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
 
 ## Rodada 29 — operador, 2026-10-21: perfil, score, escassez real e frete do antecipado (plano 16)
 
-> Implementado na branch `claude/inspiring-carson-hctijy`, **não publicado** (o ar continua na v39, HANDOFF de 21/10). Grafo
+> ~~Implementado na branch `claude/inspiring-carson-hctijy`, **não publicado** (o ar continua na v39, HANDOFF de 21/10).~~ ✅ **No ar como `turn` v40 desde 21/10 ~21h11 UTC** (escassez só quando o operador colar o `BUSINESS_CONFIG` de 21/10; ver grafo §123, "Estado"). Grafo
 > [§123](04-grafo-de-decisoes.md); especificação em [`16-plano-execucao-pesquisas.md`](../../agente-ia/05-plano/16-plano-execucao-pesquisas.md) §4.
 
 - **R29.1 — Caminho A:** três ondas numa branch, uma publicação, depois o segundo smoke test.
@@ -2268,5 +2268,12 @@ Os itens R20.1 a R20.9 seguem a numeração D1–D8 do plano, mais a regra de fi
   da região. **Sem alegação de tempo limitado**: a oferta não tem data de fim.
 - **R29.10 — Prova social:** os números atuais ficam (500 clientes, 124 avaliações). **Áudio:** conta-se só a quantidade, não o conteúdo.
 - **R29.11 — Frete do antecipado na oferta**, quando lido do checkout; falhou, a frase de hoje. Provado 87/87 contra a Coinzz (21/10).
-- **Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?; ANVISA em "pós-parto"/"postura"; Logzz e desconto por
-  quantidade com pedido pendente; LGPD art. 11 (consentimento e aviso de privacidade); retirar `allowUnverified` do segredo.
+- **R29.12 — Âncora de R$ 216,50 foi praticada de verdade** (operador, 21/10, noite): fecha a pergunta do CDC. A âncora segue fora do texto fixo
+  da objeção vaga (R29.8); reabrir é decisão futura, não pendência jurídica.
+- **R29.13 — A frase do áudio 1 fica:** "enquanto você usa, emagrece e reduz até 3 números" (decisão do operador; o parecer de conformidade de
+  19/10 já a registrava).
+- **R29.14 — Dado de saúde (dor) fica guardado no Supabase e usado como gatilho de conversão** (operador, 21/10, noite). O risco da LGPD art. 11
+  (dado sensível; consentimento e aviso de privacidade) foi apresentado e o operador decidiu manter. Continua valendo R29.6 (nunca vai a anúncio
+  da Meta nem à Conversions API) e a view `lead_profiles_v` sem `pain` nem `hook`.
+- ~~**Perguntas abertas ao operador (conformidade):** âncora de R$ 216,50 já praticada?~~ ✅ respondida em R29.12; ~~LGPD art. 11~~ ✅ decidida em
+  R29.14. **Ainda abertas:** ANVISA em "pós-parto"/"postura"; Logzz e desconto por quantidade com pedido pendente; retirar `allowUnverified` do segredo.
