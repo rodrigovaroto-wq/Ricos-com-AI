@@ -197,3 +197,98 @@ código já faz, uma estava em conflito com o funil validado, e as de prompt nã
 conforme os dados do L3 apontarem onde mais se perde.
 
 **Antes de executar:** cada item que entra vira entrada no grafo de decisões, e o quadro do `HANDOFF.md` ganha a linha "pesquisas I e II: M1/M12/M14".
+
+---
+
+## 4. Decisões do operador (21/10) e a especificação que vai ao código
+
+**Caminho A**: três ondas numa branch, uma publicação, depois o segundo smoke test. **Sem datas**: o L3, o congelamento e as
+datas do plano 14 deixam de valer; testa e congela quando estiver bom (operador, 21/10). Referência de mercado no lugar do
+humano (não existe histórico): conversa → pedido 5–15%; recusa na porta 20–30% sem confirmação, 10–15% com (números de
+fornecedor, só referência). Saem: M5 (a régua da copy v4 não tem pressão), M6, M7 (feito na v39, §121), M8, M9.
+
+### 4.1 Perfil (`leads.profile`, jsonb) — o que o interpretador lê e o código junta
+
+O interpretador (`interpret.ts`, a mesma chamada de hoje, sem chamada nova) devolve por mensagem:
+
+| Campo novo | Tipo | Regra |
+|---|---|---|
+| `occasion` | texto ≤ 40 ou null | pra que ela quer: "casamento", "pós-parto", "trabalho", "dia a dia" |
+| `pain` | texto ≤ 80 ou null | o que incomoda: "barriga marca no vestido", "dor nas costas" |
+| `objections` | lista de `preco` `confianca` `tamanho` `entrega` `pagamento` `conforto` `resultado` `outra` | só a objeção dita nesta mensagem |
+| `price_signal` | `complaint` `discount_ask` `installments` `discount_question` ou null | ver 4.3 |
+| `buying_question` | bool | pergunta de quem está comprando: preço, prazo, pagamento, kit, como compra |
+| `hook` | texto ≤ 90 ou null | só quando `occasion` ou `pain` veio: uma frase curta ligando o colete a isso, sem promessa de saúde ou de emagrecer |
+
+O código junta no `leads.profile`: `occasion`, `pain` e `hook` (o mais recente), `objections` (sem repetir), `price_sensitivity`
+(o nível mais alto visto), `audio_count` (mensagens dela com o marcador de áudio do canal). Tamanho, CEP, caminho e etapa
+continuam nas colunas de hoje. Fica só no Supabase, com os 90 dias de retenção do lead; nunca vai para a Conversions API
+nem para público de anúncio (dado de saúde incluído, decisão do operador).
+
+### 4.2 Score de prontidão (`leads.score` 0–100, `leads.score_band`)
+
+O interpretador lê os sinais; o código soma por esta régua (pesos são hipótese explícita até ~200 leads reais; depois,
+regressão logística de "pedido" sobre os sinais):
+
+| Sinal | Pontos | Fundamento |
+|---|---|---|
+| Começo (veio do anúncio e escreveu) | 10 | — |
+| Disse o tamanho ou a calça | +15 | avanço no funil reduz esforço restante (Fogg) |
+| Mandou o CEP e a região foi lida | +15 | idem |
+| Entrega na porta disponível no CEP | +5 | reversor de risco disponível (Baymard, confiança) |
+| Escolheu o caminho de pagamento | +10 | decisão parcial |
+| Mandou o nome | +10 | dado entregue para o link |
+| `wants_to_buy` ou pediu o link | +20 | intenção declarada |
+| `buying_question` | +5 cada, até +15 | pergunta de compra (Gong: sinal de compra) |
+| Contou ocasião ou dor | +5 (uma vez) | motivação declarada |
+| "Vou pensar" | −15 | adiamento |
+| Pediu desconto pela 2ª vez depois do "não" | −10 | negociação sem decisão |
+| Toque da régua sem resposta | −10 cada | silêncio |
+| Recusa ou opt-out | 0 e fim | — |
+| Pedido criado | 100 | — |
+
+Faixas: **≥ 60 quente · 30–59 morna · < 30 fria**. **O que decide:** fria recebe só o 1º lembrete de silêncio e a régua para;
+morna e quente seguem a régua de hoje (3 toques). O e-mail ao operador leva no assunto "🔥 QUENTE · 72", "MORNA · 45" ou
+"FRIA · 18". O portal mostra por lead (sem telefone) e o agregado.
+
+### 4.3 Sensibilidade a preço (`profile.price_sensitivity`)
+
+| Nível | Sinal (`price_signal`) | Exemplos que o interpretador aprende |
+|---|---|---|
+| alta | `complaint`, `discount_ask` | "tá caro", "achei mais barato", "faz por 100?", "não tenho esse dinheiro agora" |
+| média | `installments`, `discount_question` | "parcela?", "dá pra dividir?", "tem cupom?", "tem desconto no pix?" |
+| baixa | nenhum | — |
+
+Vale o nível mais alto da conversa. Cada nível tem teste com frase real e com negação ("não achei caro").
+
+### 4.4 Gatilho pessoal (até 3 usos por conversa)
+
+Contado no que a Malu **enviou** (resposta que cita a ocasião ou a dor), não no que foi pedido. (1) A resposta seguinte à
+mensagem em que ela contou: diretiva "use isso agora". (2) A oferta fixa: o `hook` vai num balão antes do texto do operador,
+pela cadeia de gates. (3) Livre: a diretiva "pode usar mais uma vez se encaixar, sem obrigação" até a terceira menção; depois,
+"não cite mais".
+
+### 4.5 Objeção vaga ("tá caro", "achei mais barato", "vou ver", "vou pensar")
+
+Uma pergunta só, no modelo aprovado: *"Claro! Ficou alguma dúvida que eu possa resolver, sobre o tamanho, a entrega ou o
+valor? 💛"*, com um gatilho verdadeiro para comprar agora, sem pressão: chega em menos de 24 h (só se a primeira data é
+amanhã), não paga nada agora (só na entrega), 7 dias pra trocar, a âncora de R$ 216,50, estoque baixo real (4.6). Se ela
+repetir que vai pensar, a resposta de hoje, sem segunda pergunta.
+
+### 4.6 Escassez real
+
+A consulta da Logzz já devolve a quantidade por tamanho (`stock_per_operations`). Abaixo de `scarcity.lowStock` (20, no
+`BUSINESS_CONFIG`; ausente = sem escassez, a verdade de hoje) no tamanho dela, a Malu pode dizer que o tamanho está acabando,
+com o número real. **Sem "oferta por tempo limitado"**: a oferta não tem data de fim (operador, 21/10). O `scarcity_claim`
+aceita só a frase que bate com a consulta desta conversa.
+
+### 4.7 Frete do antecipado
+
+A mesma leitura do Playwright (§116), sem dado pessoal: o valor do frete do CEP dela entra na oferta do antecipado. Falhou a
+leitura, a frase de hoje ("aparece no checkout").
+
+### 4.8 Portal (`encorpa-portal`)
+
+Uma view mascarada (`lead_profiles_v`: id do lead, criado em, etapa, score, faixa, perfil sem telefone e sem nome) e uma
+tela com: por lead, score, faixa, etapa, objeções, sensibilidade a preço, áudios, ocasião; agregado, faixas, objeções mais
+frequentes, sensibilidade a preço, onde a conversa para.
