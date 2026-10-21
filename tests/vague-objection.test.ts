@@ -74,8 +74,8 @@ describe("askedVagueQuestion: a pergunta já foi, nas palavras do modelo", () =>
     expect(askedVagueQuestion([`${THINK_REPLY} 💛`])).toBe(false);
     expect(askedVagueQuestion(["Ficou alguma dúvida sobre o tamanho?"])).toBe(false);
   });
-  it("negação: \"sem dúvida, o tamanho e a entrega estão certos\" conta (custo: a segunda pergunta não sai, o lado seguro)", () => {
-    expect(askedVagueQuestion(["Sem dúvida, o tamanho e a entrega estão certos."])).toBe(true);
+  it("negação: \"sem dúvida, o tamanho e a entrega estão certos\" não é a pergunta (desde o /code-review do PR 77; o turn_outcomes guarda a vez dela)", () => {
+    expect(askedVagueQuestion(["Sem dúvida, o tamanho e a entrega estão certos."])).toBe(false);
   });
 });
 
@@ -97,5 +97,14 @@ describe("a reclamação de preço não ouve \"Claro!\" (personas, 2026-10-21: \
     for (const s of [price, putoff]) expect(s.indexOf("motivos")).toBeLessThan(s.indexOf("por último a pergunta"));
     // The reasons are the same true ones either way.
     expect(quoted(price)).toEqual(quoted(putoff));
+  });
+});
+
+describe("askedVagueQuestion não confunde resposta comum com a pergunta (/code-review do PR 77)", () => {
+  it("'Qualquer dúvida sobre o tamanho ou a entrega, me chama' não é a pergunta", () => {
+    expect(askedVagueQuestion(["Qualquer dúvida sobre o tamanho ou a entrega, me chama 💛"])).toBe(false);
+    expect(askedVagueQuestion(["Se tiver dúvida do valor ou da entrega é só falar"])).toBe(false);
+    expect(askedVagueQuestion(["Ficou alguma dúvida sobre o tamanho ou a entrega?"])).toBe(true);
+    expect(askedVagueQuestion(["Tem alguma dúvida que eu possa resolver sobre o valor ou o tamanho?"])).toBe(true);
   });
 });

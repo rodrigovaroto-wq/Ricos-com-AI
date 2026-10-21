@@ -54,3 +54,12 @@ describe("prepayFreight: o frete do antecipado pelo CEP dela", () => {
     for (const f of cases) expect(await prepayFreight(f as never, "01310100", SP, "M")).toBeNull();
   });
 });
+
+describe("preço em notação exponencial (/code-review do PR 77)", () => {
+  it("5e-7 e 1e21 dão null, nunca NaN", async () => {
+    for (const price of [5e-7, 1e21]) {
+      const got = await prepayFreight(async () => answer(price), "01310100", { city: "São Paulo", state: "SP", district: "Bela Vista" }, "GG");
+      expect(got).toBeNull();
+    }
+  });
+});

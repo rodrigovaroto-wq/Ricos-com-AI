@@ -252,7 +252,7 @@ import {
   changesAddress,
   type Interpretation,
 } from "./interpret.ts";
-import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
+import { asksDeadline, asksPayment, deadlineFallbackMessage, DEFAULT_COD_CONFIRM, linkFactLine, logzzSupportPhone, noCodMessage, offerFallbackMessage, openingDirective, paidDeadlineLine, paymentFallbackMessage, priceBeforeCepMessage, registerDirective, regionTurnFacts, stockLineSaid, triggerUsesSoFar, personalTriggerDirective, MAX_TRIGGER_USES, systemPrompt as buildSystemPrompt } from "./prompt.ts";
 import { isAudioBody, mergeProfile, profileFold, storedProfileOf, scoreOf, bandOf, scoreTag, type LeadProfile } from "./profile.ts";
 import { sealIsValid } from "./inbound-signature.ts";
 import { agentVersionOf } from "./agent-version.ts";
@@ -1278,8 +1278,9 @@ const scheduleSilenceTouches = async (
   // Index: conversations_pkey; the embedded orders by orders_lead_idx (lead_id). `*` and not a
   // column list: it carries the ruler's anchors, and `entry_at` may not exist yet (0022). Her recent
   // messages ride in the same request, newest 20 by messages_conversation_idx (conversation_id, created_at).
-  // The lead by `*` too (leads_pkey): `score_band` (0029) may not exist yet, and absent is today's ruler.
-  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(*,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
+  // The lead's size and `score_band` only (leads_pkey; 0029 applied on 2026-10-21): never the whole row, which carries her
+  // address and the profile's free text (/code-review of plan 16).
+  const at = (await db(`conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status)),followups(kind,sent_at),messages(direction,body,created_at)&messages.order=created_at.desc&messages.limit=20`).catch(() => null))?.[0];
   const orderStatuses = (at?.leads?.orders ?? []).map((o: { status: string | null }) => o.status ?? "");
   // She said no and has not come back to the sale (grafo §69): nothing is chased, the checkout touch included.
   // R26.2: her "então deixa" refuses only where the region has no payment at the door — read from what Malu told her.
@@ -4131,7 +4132,7 @@ const handleTurn = async (
     region,
     units,
     linkPath,
-    stockSaid: recentOutbound.some((m: string) => /\brestam\s+s[oó]\b/i.test(m.replace(/[*_~]/g, ""))),
+    stockSaid: stockLineSaid(recentOutbound),
   });
   const turnFacts = { stockLine, prepayFreightBrl };
   const factsGate = { ...(stockLeft ? { stockLeft } : {}), ...(prepayFreightBrl !== null ? { prepayFreightBrl } : {}) };
@@ -4350,7 +4351,8 @@ const handleTurn = async (
     scoredAt: typeof lead.score_at === "string" ? Date.parse(lead.score_at) : NaN,
     batchTo: unanswered.at(-1)?.created_at ?? null,
   });
-  const folded = mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });
+  // Her own "vou pensar" (`putsOff`), not `goodbyeParks`'s rewrite: a bare goodbye is no deferral in the score (/code-review).
+  const folded = mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : { ...interpretation, wants_to_think: putsOff }, { audio: !profileReplayed && audioParts > 0 });
   // Plan 16 §4.4: what she told, up to three uses in what Malu sent over the whole conversation — stored, plus what was sent since.
   const triggerCount = triggerUsesSoFar((history ?? []).filter((m: { direction: string }) => m.direction === "outbound"), folded);
   const triggerUses = triggerCount.uses;

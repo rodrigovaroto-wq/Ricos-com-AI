@@ -42,7 +42,7 @@ describe("a régua pela faixa do score (§4.2)", () => {
   });
 
   it("o turno lê a faixa guardada ao armar a régua, por `*` (antes da 0029 a coluna não existe)", () => {
-    expect(turn).toContain("select=*,leads(*,orders(status)),followups(kind,sent_at)");
+    expect(turn).toContain("select=*,leads(size,score_band,orders(status)),followups(kind,sent_at)");
     expect(turn).toContain("body: JSON.stringify(rulerForBand(rows, at?.leads?.score_band)),");
   });
 });
@@ -169,7 +169,7 @@ describe("index.ts — a fiação do plano 16", () => {
     expect(turn).toContain("reviseBase: internal.revise?.profileBase,\n    isResume,\n");
     expect(turn).toContain("batchTo: unanswered.at(-1)?.created_at ?? null,");
     expect(turn).toContain("profileBase: isRevise ? internal.revise!.profileBase : storedProfileOf(lead) } },");
-    expect(turn).toContain("mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : interpretation, { audio: !profileReplayed && audioParts > 0 });");
+    expect(turn).toContain("mergeProfile(profileBase, profileReplayed ? NEUTRAL_INTERPRETATION : { ...interpretation, wants_to_think: putsOff }, { audio: !profileReplayed && audioParts > 0 });");
     // The trigger count over the whole conversation goes in the same write (`triggerUsesSoFar`).
     expect(turn).toContain("const triggerCount = triggerUsesSoFar((history ?? []).filter(");
     expect(turn).toContain("trigger_uses: triggerUses,\n    trigger_counted_at: triggerCount.countedAt,");
@@ -243,5 +243,26 @@ describe("regionTurnFacts", () => {
 
   it("sem região, nada", () => {
     expect(regionTurnFacts(config, { ...turn1, region: null, linkPath: "prepay" })).toEqual({ stockLine: null, stockLeft: null, prepayFreightBrl: null });
+  });
+});
+
+describe("/code-review do PR 77", () => {
+  it("a linha do estoque enviada é reconhecida (o \\b sem u não casava o \"só\")", async () => {
+    const { stockLineSaid, stockScarcityLine } = await import("@/agent/prompt.js");
+    const line = stockScarcityLine({ scarcity: { lowStock: 20 } }, "GG", 12)!;
+    expect(stockLineSaid([line])).toBe(true);
+    expect(stockLineSaid(["restam so 3 no GG"])).toBe(true);
+    expect(stockLineSaid(["O GG veste cintura de 84 a 92 cm"])).toBe(false);
+    expect(stockLineSaid(["restam sobretudo dúvidas"])).toBe(false);
+    expect(turn).toContain("stockSaid: stockLineSaid(recentOutbound),");
+  });
+
+  it("a despedida não vira 'vou pensar' no perfil: o perfil lê putsOff, não o goodbyeParks", () => {
+    expect(turn).toContain("{ ...interpretation, wants_to_think: putsOff }");
+  });
+
+  it("a régua lê só o tamanho e a faixa do lead, nunca a linha inteira", () => {
+    expect(turn).toContain("leads(size,score_band,orders(status))");
+    expect(turn).not.toContain("leads(*,");
   });
 });

@@ -336,7 +336,8 @@ export const VAGUE_OBJECTION_REASON = "objeção vaga: a pergunta da dúvida";
 export const askedVagueQuestion = (outbound: readonly string[]): boolean =>
   outbound.some((m) => {
     const t = m.normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-    return /\bduvida\b/.test(t) && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(t)).length >= 2;
+    // "Qualquer dúvida sobre o tamanho ou a entrega, me chama" is no question asked (/code-review of plan 16).
+    return /\b(?:ficou|tem|restou|sobrou)\s+alguma\s+duvida\b/.test(t) && [/\btamanho\b/, /\bentrega\b/, /\b(?:valor|preco)\b/].filter((r) => r.test(t)).length >= 2;
   });
 
 /** What the vague objection's reasons read: the prices and the warranty. */

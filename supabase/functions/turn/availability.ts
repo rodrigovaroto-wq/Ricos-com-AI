@@ -222,7 +222,9 @@ export const prepayFreight = (fetcher: Fetcher, zip: string, place: Place, size:
     .then((body) => {
       const p = readAvailability(size, body).labelBrl;
       // Decimal half-up, as the page shows it: 19.345 * 100 is 1934.4999… in binary.
-      return typeof p === "number" && Number.isFinite(p) && p > 0 ? Math.round(Number(`${p}e2`)) / 100 : null;
+      const cents = typeof p === "number" && Number.isFinite(p) && p > 0 ? Math.round(Number(`${p}e2`)) : NaN;
+      // `${p}e2` is NaN for a price JSON writes in exponent form (5e-7): null, never NaN (/code-review).
+      return Number.isFinite(cents) && cents > 0 ? cents / 100 : null;
     })
     .catch(() => null);
 

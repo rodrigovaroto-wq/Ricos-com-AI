@@ -478,7 +478,7 @@ describe("depois da compra, a régua de silêncio não volta", () => {
   const sweep = source.slice(source.indexOf("const runFollowupSweep"), source.indexOf('return { status: "swept"'));
 
   it("scheduleSilenceTouches lê estágio e pedidos do lead e, depois da compra, só cancela", () => {
-    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(*,orders(status))");
+    const read = schedule.indexOf("conversations?id=eq.${conversationId}&select=*,leads(size,score_band,orders(status))");
     const guard = schedule.indexOf("if (at && !chasesSilence(");
     expect(read).toBeGreaterThan(-1);
     expect(guard).toBeGreaterThan(read);
