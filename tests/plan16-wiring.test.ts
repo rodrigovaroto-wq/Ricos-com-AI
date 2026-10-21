@@ -150,13 +150,14 @@ describe("index.ts — a fiação do plano 16", () => {
     const decline = at("let declined = false;");
     const vague = at("const vagueObjection = !declined && !interpretation.wants_to_buy &&");
     expect(vague).toBeGreaterThan(decline);
-    expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true &&");
+    expect(turn).toContain("!clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true;");
     // The interpreter's own "vou pensar", read before a bare goodbye is parked as one: "obrigada, tchau" gets no question.
     // Not the discount ask (§4.5 lists only "tá caro", "achei mais barato", "vou ver", "vou pensar"): "Claro!" to it reads as a yes.
     expect(turn).toContain('(putsOff || interpretation.price_signal === "complaint") &&');
     expect(turn.slice(at("const vagueObjection = "), at("if (vagueObjection) {"))).not.toContain("discount_ask");
     expect(at("const putsOff = interpretation.wants_to_think;")).toBeLessThan(at('if (goodbyeParks(parts[parts.length - 1] ?? "", interpretation))'));
-    expect(turn).toContain("reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}");
+    // One source, the profile mark: the `turn_outcomes` reason also lands on a safe fixed reply (round 7).
+    expect(turn).not.toContain("reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}");
     expect(turn).toContain('      interpretation.price_signal === "complaint" ? VAGUE_PRICE_QUESTION : VAGUE_OBJECTION_QUESTION,\n      VAGUE_OBJECTION_REASON,\n    );');
     expect(turn).toContain('        price: interpretation.price_signal === "complaint",');
     expect(turn).toContain("firstDateIsTomorrow: region?.cod === true && eveIsTomorrow(region.dates[0], new Date()),");

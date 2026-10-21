@@ -4002,6 +4002,11 @@ depois de `lateGuard` e da linha de saída. **Resíduos atualizados:** se o mode
 vez); os caminhos que respondem e retornam antes (resposta fixa, recepção da noite, linha de pagamento) não marcam, e aí só o `claimsStock`
 da janela de 20 mensagens evita a repetição; a marca grava o perfil inteiro do turno (uma escrita concorrente no meio seria desfeita; o
 claim da conversa separa os turnos; `shortcut:` no código); se a escrita falhar, a linha ou a pergunta pode sair uma vez a mais.
+**Rodada 7:** a consulta de `turn_outcomes` pelo motivo da pergunta também contava a resposta pronta depois de cinco vetos (o motivo vai
+no registro mesmo assim) e calava a pergunta para sempre. Como o plano 16 nunca esteve no ar, nenhuma conversa tem esse registro: a marca
+`profile.vague_asked` virou a única fonte e a consulta saiu (um ida ao banco a menos). Os demais achados da rodada 7 já são resíduos
+aceitos acima (linha oferecida e não usada; texto do modelo na pergunta extra depois da resposta pronta). **O loop parou aqui:** a
+rodada 7 não trouxe defeito novo fora dos resíduos registrados.
 Mutações `P16-estoque-pelo-perfil`, `P16-pergunta-vaga-pelo-perfil`, `P16-perfil-marcas-perdidas`, `P16-perfil-marca-da-pergunta-perdida`, `P16-pergunta-marcada-na-resposta-pronta`, `P16-estoque-dito-pelo-gate`,
 `P16-perfil-despedida`, `P16-frete-nan`.
 **Resíduos:** a varredura não aplica o −10 do toque sem resposta (`unansweredTouches` = 0); `endsSilenceRuler` com a leitura falhada só fecha

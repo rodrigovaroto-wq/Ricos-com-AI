@@ -4322,14 +4322,14 @@ const handleTurn = async (
     declined = true;
   }
   // Plan 16 §4.5: her first vague objection ("tá caro", "achei mais barato", "vou ver", "vou pensar") gets the operator's one question,
-  // with one true reason to buy now; the fixed "vou pensar" below is skipped. Asked once per conversation — the question in what was
-  // sent, or its reason in `turn_outcomes` (turn_outcomes_conversation_idx, read only when everything else says ask): after it, her
-  // "vou pensar" again is today's reply. A refusal is never one, nor a datum refused, a question beside it or a decision.
+  // with one true reason to buy now; the fixed "vou pensar" below is skipped. Asked once per conversation — `profile.vague_asked`,
+  // marked only when the model's reply with it went out (the `turn_outcomes` reason also lands on a safe fixed reply: round 7 of the
+  // PR 77 review): after it, her "vou pensar" again is today's reply. A refusal is never one, nor a datum refused, a question beside
+  // it or a decision.
   const vagueObjection = !declined && !interpretation.wants_to_buy &&
     (putsOff || interpretation.price_signal === "complaint") &&
     interpretation.pending_answer !== "other_question" && !refusesAskedDatum(lastOutbound, spoken(inbound.body ?? "")) &&
-    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true &&
-    ((await db(`turn_outcomes?conversation_id=eq.${conversation.id}&reason=like.${encodeURIComponent(`*${VAGUE_OBJECTION_REASON}*`)}&select=id&limit=1`).catch(() => null))?.length ?? 0) === 0;
+    !clauses.some((q: string) => asksSomething(q) && !buyerAsk(q)) && storedProfileOf(lead)?.vague_asked !== true;
   if (vagueObjection) {
     guide(
       vagueObjectionSituation(CONFIG, {

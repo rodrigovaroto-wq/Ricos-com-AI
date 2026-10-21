@@ -5755,8 +5755,8 @@ const MUTATIONS: Mutation[] = [
     id: "P16-objecao-vaga-duas-vezes",
     bug: "a pergunta da objeção vaga sairia de novo depois de já feita (plano 16 §4.5)",
     files: ["supabase/functions/turn/index.ts"],
-    from: " && storedProfileOf(lead)?.vague_asked !== true &&",
-    to: " &&",
+    from: " && storedProfileOf(lead)?.vague_asked !== true;",
+    to: ";",
     guard: ["pnpm", "-s", "vitest", "run", "tests/plan16-wiring.test.ts"],
   },
   {
