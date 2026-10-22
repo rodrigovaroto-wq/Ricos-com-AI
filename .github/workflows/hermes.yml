@@ -23,6 +23,10 @@ on:
         description: "Rodar mesmo sem 50 leads novos"
         type: boolean
         default: false
+      jev_avaliar:
+        description: "Só medir o JEV no conjunto de ouro em português (P2.4) e commitar as perguntas aprovadas; o Hermes não roda"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -33,7 +37,37 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # P2.4 (operator, 2026-10-22): Jev on the synthetic Portuguese gold set (hermes/jev-ouro.json, no customer data); commits
+  # hermes/jev-aprovadas.json (the only questions a Hermes run asks) and hermes/jev-avaliacao.md to the branch it ran on.
+  # A few cents, capped at US$ 0.15 by the script.
+  jev_avaliar:
+    if: ${{ inputs.jev_avaliar }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 10
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+      - run: pnpm install --frozen-lockfile
+      - name: Measure Jev on the gold set
+        env:
+          TYPESAFE_API_KEY: ${{ secrets.TYPESAFE_API_KEY }}
+        run: pnpm jev:avaliar
+      - name: Commit the result
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add hermes/jev-aprovadas.json hermes/jev-avaliacao.md
+          git diff --cached --quiet || git commit -m "jev: avaliação no conjunto de ouro (P2.4)"
+          git push
+
   supervise:
+    if: ${{ !inputs.jev_avaliar }}
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
