@@ -13,6 +13,24 @@ Estado atual do projeto, para trocar de sessão sem perder o fio.
 
 ## ▶ COMECE AQUI — quadro de execução do pipeline 80/20 (atualizado 2026-10-11)
 
+> **2026-10-22 (noite) — `turn` v41 NO AR; migrações 0030, 0031 e 0032 aplicadas. Corrige o bloco logo abaixo ("nada publicado").**
+>
+> - **No ar:** `turn` **v41** = `agent_versions` 41, função `turn` v153, commit `e64bb7c`, ~20h26 UTC, `pnpm deploy:turn`. Sem deriva antes do
+>   deploy (a v40 era `fbb6f19`, igual à `main` em `supabase/functions/turn`). Prova: o "Alarme de cobertura" do n8n das 20h30 UTC devolveu
+>   `healthy` (3 CEPs de SP com pagamento na entrega) e a varredura da régua seguiu `success`. O `job:"health"` direto não roda do container
+>   (o proxy não monta o `Authorization` da função).
+> - **Migrações aplicadas e conferidas (API de gerência):** 0030 (`lead_profile_mark`, só a `service_role` executa), 0031 (`hermes_backlog`:
+>   42 leads, janela desde 17/10 — roda sozinho quando a janela fizer 10 dias), 0032 (`jev_judgments` e as views de tempo).
+> - **Primeiros números das views de tempo (dado real):** o 2º lembrete de silêncio teve **0 respostas em 40 envios**; o 1º, 16 de 42; o
+>   "Ainda está aí?", 14 de 31; o do checkout, 2 de 4. A Malu responde em ~20 s (mediana). 41 conversas sem pedido terminaram com a Malu
+>   falando por último, 39 delas num lembrete da régua.
+> - **Validação:** mutações 753/753; `pnpm test` 8797 verdes; `typecheck`, `lint`, `typecheck:function`.
+> - **Calibração do Hermes** (`-contributor`, sintético, 8 rodadas × 4 defeitos por classe): skill v2 (uma evidência por conversa, campos
+>   obrigatórios) → resposta pronta 32/32 (100%), link repetido 29/32 (91%), **mentira 5/32 (16%)**. A skill v3 com `promessas.md` (pré-triagem
+>   das frases de promessa) está sendo medida; o resultado entra aqui.
+> - **Cuidado no container:** o Hermes instalado guarda o Python dentro da PRIMEIRA pasta `HERMES_HOME` temporária que usou; apagar
+>   `/tmp/hermes-home-*` quebra o Hermes (aconteceu em 22/10; foi reinstalado). Cada rodada deixa ~2 GB em `/tmp`.
+
 > **2026-10-22 — sessão `claude/determined-brown-7x0gx6`: R30 (resíduos do plano 16, Hermes, JEV). PARADA A PEDIDO DO OPERADOR no meio da execução.**
 >
 > - **Conferido em produção (banco, 22/10):** `turn` v40 no ar (4 turnos com `agent_version = 40`); score gravando (`leads.score` 70, faixa
